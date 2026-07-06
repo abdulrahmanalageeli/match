@@ -2719,7 +2719,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               <AnimatePresence>
                 {showSessionTips && <SessionTips onClose={() => setShowSessionTips(false)} accent="pink" />}
               </AnimatePresence>
-              <QuestionSlideshow defaultSet="special" />
+              <QuestionSlideshow defaultSet="choice" />
               {/* PromptTopicsModal */}
               <button onClick={() => setShowPrompt(true)}
                 className="flex items-center justify-center gap-2 w-full py-2.5 rounded-full text-sm font-medium bg-gradient-to-r from-purple-600/60 to-pink-600/60 hover:from-purple-600 hover:to-pink-600 text-white transition-all border border-purple-700/30">

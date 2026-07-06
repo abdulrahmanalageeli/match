@@ -11,6 +11,30 @@ export interface QuestionItem {
   levelIcon: string
 }
 
+// ── Choice round (1-on-1 session — participant's choice) ──────────────────
+export const choiceQuestions: QuestionItem[] = [
+  // Level 1: The Spark 🔥
+  { title: "رأي غير شعبي", question: "وش فيه قناعة عندك… تحس لو قلتها عند أغلب الناس اللي تعرفهم، غالبًا بيعترضون عليها؟ وليه متمسك فيها؟", level: 1, levelTitle: "المستوى الأول — الشرارة 🔥", levelIcon: "Flame" },
+  { title: "حلم تغيّر", question: "فيه شي كنت تتمناه مرة زمان… واليوم ما عاد يهمك بنفس الطريقة؟ تحس هذا لأنك نضجت… ولا لأنك استسلمت؟", level: 1, levelTitle: "المستوى الأول — الشرارة 🔥", levelIcon: "Flame" },
+  { title: "العلاقة القريبة", question: "وش شكل العلاقة القريبة المثالية بالنسبة لك؟ مو لازم تكون علاقة عاطفية… وش اللي يخلي شخص تحس فعلًا إنه قريب منك؟", level: 1, levelTitle: "المستوى الأول — الشرارة 🔥", levelIcon: "Flame" },
+  { title: "موهبة ما تبين", question: "وش الشي اللي أنت شاطر فيه أكثر مما الناس تتوقع… بس غالبًا ما تتكلم عنه؟", level: 1, levelTitle: "المستوى الأول — الشرارة 🔥", levelIcon: "Flame" },
+  // Level 2: The Core 🧭
+  { title: "احتياج غير معلن", question: "وش الشي اللي تحتاجه من الأشخاص القريبين منك… لكن نادر تطلبه منهم بشكل مباشر؟ وليه؟", level: 2, levelTitle: "المستوى الثاني — الجوهر 🧭", levelIcon: "Compass" },
+  { title: "مين ترتاح له؟", question: "تميل أكثر للأشخاص اللي يهدّونك ويعطونك راحة… ولا اللي يشعلون حماسك ويدفعونك للأمام؟ وبرأيك أي النوعين فعلًا يناسبك أكثر؟", level: 2, levelTitle: "المستوى الثاني — الجوهر 🧭", levelIcon: "Compass" },
+  { title: "قيمة ما تتنازل عنها", question: "فيه قيمة عندك لو شخص قريب منك ما كان يؤمن فيها… تحس إنها بتضايقك مع الوقت حتى لو ما تكلمت؟ وش هي؟", level: 2, levelTitle: "المستوى الثاني — الجوهر 🧭", levelIcon: "Compass" },
+  { title: "لحظة الثقة", question: "متى تعرف إنك فعلًا وثقت بشخص؟ فيه موقف أو لحظة معيّنة تحس بعدها إن الثقة خلاص ثبتت؟", level: 2, levelTitle: "المستوى الثاني — الجوهر 🧭", levelIcon: "Compass" },
+  // Level 3: Sharing Experiences 💫
+  { title: "علاقة غيّرتك", question: "احكِ لنا عن علاقة بحياتك—أي نوع كانت—غيّرت طريقتك في التعامل مع الناس بعدين. وش اللي تغيّر فيك؟", level: 3, levelTitle: "المستوى الثالث — مشاركة التجارب 💫", levelIcon: "Sparkles" },
+  { title: "تعطي أكثر مما تاخذ", question: "وش الشي اللي دايم تعطيه في علاقاتك مع الناس… وتحس نادر يجيك بنفس القدر؟ وهل تصالحت مع هالشي؟", level: 3, levelTitle: "المستوى الثالث — مشاركة التجارب 💫", levelIcon: "Sparkles" },
+  { title: "فكرة احتجت تنساها", question: "وش أصعب فكرة أو عادة كان لازم تتخلّى عنها عشان تصير علاقاتك مع الناس أفضل؟", level: 3, levelTitle: "المستوى الثالث — مشاركة التجارب 💫", levelIcon: "Sparkles" },
+  { title: "فهم غير متوقع", question: "اذكر موقف فهمت فيه شخص بطريقة ما كنت تتوقعها أبد… وش اللي خلاك تغيّر نظرتك له؟", level: 3, levelTitle: "المستوى الثالث — مشاركة التجارب 💫", levelIcon: "Sparkles" },
+  // Level 4: Closing 🤝
+  { title: "ذكرى اللقاء", question: "بعد لقائنا اليوم… وش الشي اللي تتمنى الشخص اللي قدامك يتذكره عن هالحوار؟", level: 4, levelTitle: "المستوى الرابع — ختام اللقاء 🤝", levelIcon: "Handshake" },
+  { title: "شي فاجأك", question: "وش أكثر شي فاجأك في الشخص اللي قدامك اليوم؟", level: 4, levelTitle: "المستوى الرابع — ختام اللقاء 🤝", levelIcon: "Handshake" },
+  { title: "عنوان الحوار", question: "لو توصف هالحوار بكلمة وحدة فقط… وش بتكون؟ وليه اخترتها؟", level: 4, levelTitle: "المستوى الرابع — ختام اللقاء 🤝", levelIcon: "Handshake" },
+  { title: "شي نادر تقوله", question: "وش الشي اللي قلته اليوم… وعادة ما تقوله بسهولة للناس؟", level: 4, levelTitle: "المستوى الرابع — ختام اللقاء 🤝", levelIcon: "Handshake" },
+]
+
 // ── Same-gender default (Round 1) ──────────────────────────────────────────
 export const specialQuestions: QuestionItem[] = [
   // Level 0: Quick Connect ⚡

@@ -1277,7 +1277,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
                     <p className="text-gray-600 text-xs mb-3">رفاقك في الطاولة</p>
                     <div className="flex flex-wrap gap-2 justify-center">
                       {assignment.tablemates.map((m: any) => (
-                        <span key={m.number} className={`${RC.pill} border rounded-full px-3 py-1 text-sm font-medium`}>
+                        <span key={m.number} className={`${m.gender === 'female' ? 'bg-pink-900/40 text-pink-300 border-pink-800/50' : m.gender === 'male' ? 'bg-blue-900/40 text-blue-300 border-blue-800/50' : RC.pill + ' border-gray-700/50'} border rounded-full px-3 py-1 text-sm font-medium`}>
                           {m.first_name}
                         </span>
                       ))}
@@ -1391,9 +1391,9 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
 
   const people = [
     { name: "سارة", init: "س", color: "from-pink-500 to-rose-500", dim: "bg-pink-900/30 border-pink-800/40" },
-    { name: "فهد",  init: "ف", color: "from-blue-500 to-cyan-500",  dim: "bg-blue-900/30 border-blue-800/40"  },
+    { name: "لين",  init: "ل", color: "from-blue-500 to-cyan-500",  dim: "bg-blue-900/30 border-blue-800/40"  },
     { name: "نورة", init: "ن", color: "from-violet-500 to-purple-500", dim: "bg-violet-900/30 border-violet-800/40" },
-    { name: "خالد", init: "خ", color: "from-emerald-500 to-teal-500", dim: "bg-emerald-900/30 border-emerald-800/40" },
+    { name: "مي",   init: "م", color: "from-emerald-500 to-teal-500", dim: "bg-emerald-900/30 border-emerald-800/40" },
   ]
   const rankStyle = (i: number) =>
     i === 0 ? "bg-gradient-to-br from-amber-400 to-yellow-500 text-black shadow-lg shadow-amber-500/30" :
@@ -1485,7 +1485,7 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
                       <span className="text-emerald-400 text-[9px] font-bold">متبادل → جلسة!</span>
                     </div>
                     <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
-                      <div className="text-[10px] text-gray-400">هي رتّبتك</div>
+                      <div className="text-[10px] text-gray-400">الشخص الآخر رتّبك</div>
                       <div className="w-7 h-7 rounded-full bg-amber-400 text-black text-[10px] font-black flex items-center justify-center">#1</div>
                     </div>
                   </div>
@@ -1511,7 +1511,7 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
                       <span className="text-amber-700 text-[9px]">غير متكافئ</span>
                     </div>
                     <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
-                      <div className="text-[10px] text-gray-400">هي رتّبتك</div>
+                      <div className="text-[10px] text-gray-400">الشخص الآخر رتّبك</div>
                       <div className="w-7 h-7 rounded-full bg-amber-400 text-black text-[10px] font-black flex items-center justify-center">#1</div>
                     </div>
                   </div>
@@ -1537,7 +1537,7 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
                       <span className="text-red-800 text-[9px]">وضعك آخر الترتيب</span>
                     </div>
                     <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
-                      <div className="text-[10px] text-gray-400">هو رتّبك</div>
+                      <div className="text-[10px] text-gray-400">الشخص الآخر رتّبك</div>
                       <div className="w-7 h-7 rounded-full bg-amber-400 text-black text-[10px] font-black flex items-center justify-center">#1</div>
                     </div>
                   </div>
@@ -1580,7 +1580,7 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
                     <div className="flex flex-col items-center gap-1">
                       <div className="w-11 h-11 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-white font-black">س</div>
                       <span className="text-gray-400 text-[10px]">سارة</span>
-                      <span className="text-amber-400 text-[9px] font-bold">رتّبتك #1</span>
+                      <span className="text-amber-400 text-[9px] font-bold">رتّبتك #1 أيضاً</span>
                     </div>
                   </div>
                 </motion.div>
@@ -1588,16 +1588,16 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.38 }} transition={{ delay: 0.55 }}
                   className="bg-gray-900/50 border border-gray-800/50 rounded-2xl p-3.5 flex items-center justify-between">
                   <div className="flex flex-col items-center gap-0.5">
-                    <div className="w-9 h-9 rounded-full bg-gray-700 flex items-center justify-center text-gray-400 text-xs font-bold">ف</div>
-                    <span className="text-gray-600 text-[9px]">فهد رتّبك #1</span>
+                    <div className="w-9 h-9 rounded-full bg-gray-700 flex items-center justify-center text-gray-400 text-xs font-bold">ل</div>
+                    <span className="text-gray-600 text-[9px]">لين رتّبتك #1</span>
                   </div>
                   <div className="flex-1 text-center">
                     <span className="text-gray-700 text-lg font-black">✕</span>
-                    <p className="text-gray-700 text-[9px]">أنت رتّبته #3</p>
+                    <p className="text-gray-700 text-[9px]">أنت رتّبتها #3</p>
                   </div>
                   <div className="flex flex-col items-center gap-0.5">
                     <div className="w-9 h-9 rounded-full bg-gray-700 flex items-center justify-center text-gray-400 text-xs font-bold">أ</div>
-                    <span className="text-gray-600 text-[9px]">لا جلسة معه</span>
+                    <span className="text-gray-600 text-[9px]">لا جلسة</span>
                   </div>
                 </motion.div>
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
@@ -1633,9 +1633,10 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
                     <p className="text-purple-300 text-xs mt-0.5">النظام يختار أفضل توافق بناءً على بياناتكما معاً</p>
                   </div>
                 </motion.div>
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-                  className="bg-amber-900/15 border border-amber-800/30 rounded-2xl px-4 py-2.5 text-center">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
+                  className="bg-amber-900/15 border border-amber-800/30 rounded-2xl px-4 py-2.5 text-center space-y-1">
                   <p className="text-amber-300/80 text-xs">🔑 كلما كان ترتيبك متبادلاً — كانت جلستك أدق توافقاً</p>
+                  <p className="text-gray-600 text-[11px]">حتى لو لم تحصل على خيارك الأول، قد تحصل على جلسة مع خيارك الثاني أو الثالث</p>
                 </motion.div>
               </div>
             </>
@@ -1803,7 +1804,7 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
 
           {/* Round legend */}
           <div className="px-4 pb-2 flex gap-1.5 justify-center flex-wrap">
-            {[1, 2].map(r => (
+            {Array.from({ length: completedRounds }, (_, i) => i + 1).map(r => (
               <span key={r} className={`text-[10px] px-2.5 py-0.5 rounded-full border ${roundStyle(r)}`}>
                 {roundLabel(r)}
               </span>
@@ -1852,11 +1853,6 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-white text-sm leading-tight">{p.first_name}</span>
                         <span className="text-[10px] text-gray-600 font-mono">#{p.number}</span>
-                        {p.table_number && (
-                          <span className="text-[10px] bg-amber-900/40 text-amber-300 border border-amber-800/40 rounded-full px-1.5 py-0.5 font-medium">
-                            طاولة {p.table_number}
-                          </span>
-                        )}
                         {newNums.has(num) && (
                           <span className="text-[10px] bg-purple-900/60 text-purple-300 border border-purple-700/50 rounded-full px-1.5 py-0.5 font-semibold">جديد ✨</span>
                         )}
@@ -1923,18 +1919,34 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
       {/* Fixed submit bar */}
       <div className="fixed bottom-0 inset-x-0 p-5 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent pt-10">
         <div className="max-w-md mx-auto">
-          <motion.button
-            onClick={() => setShowConfirm(true)}
-            disabled={submitting}
-            whileTap={{ scale: 0.97 }}
-            className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-60 text-white rounded-2xl py-4 font-bold text-base shadow-2xl shadow-purple-600/30 transition-all"
-          >
-            {submitting ? <Spinner size={18} className="!text-white" /> : <Send size={18} />}
-            {submitted ? "تحديث التصنيف" : "إرسال التصنيف النهائي"}
-          </motion.button>
-          <p className="text-center text-gray-700 text-[11px] mt-2">
-            النظام سيختار توافقك الأمثل من تصنيفاتك
-          </p>
+          {submitted ? (
+            <div className="space-y-2 text-center">
+              <div className="flex items-center justify-center gap-2 bg-emerald-900/30 border border-emerald-700/40 rounded-2xl py-3.5 px-4">
+                <CheckCircle size={18} className="text-emerald-400" />
+                <span className="text-emerald-300 font-bold text-sm">تم إرسال تصنيفك</span>
+              </div>
+              <p className="text-gray-600 text-[11px]">انتظر المنظم للانتقال للمرحلة التالية</p>
+              <button onClick={() => setShowConfirm(true)} disabled={submitting}
+                className="text-gray-500 hover:text-gray-300 text-xs underline transition-colors">
+                تعديل التصنيف
+              </button>
+            </div>
+          ) : (
+            <>
+              <motion.button
+                onClick={() => setShowConfirm(true)}
+                disabled={submitting}
+                whileTap={{ scale: 0.97 }}
+                className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-60 text-white rounded-2xl py-4 font-bold text-base shadow-2xl shadow-purple-600/30 transition-all"
+              >
+                {submitting ? <Spinner size={18} className="!text-white" /> : <Send size={18} />}
+                إرسال التصنيف النهائي
+              </motion.button>
+              <p className="text-center text-gray-700 text-[11px] mt-2">
+                النظام سيختار توافقك الأمثل من تصنيفاتك
+              </p>
+            </>
+          )}
         </div>
       </div>
 
@@ -2447,6 +2459,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
 }) {
   const [data, setData] = useState<any>(null)
   const [revealed, setRevealed] = useState(false)
+  const [tableRevealed, setTableRevealed] = useState(false)
   const [timeLeft, setTimeLeft] = useState(0)
   const [word, setWord] = useState("")
   const [wordSubmitted, setWordSubmitted] = useState(false)
@@ -2481,8 +2494,8 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
     if (!data || !timerActive || !timerStart) return
     const elapsed = Math.floor((Date.now() - new Date(timerStart).getTime()) / 1000)
     const remaining = Math.max(0, timerDuration - elapsed)
-    if (elapsed > 60 && remaining > 0) { setRevealed(true); setView('session') }
-    else if (remaining <= 0) { setRevealed(true); setView('feedback') }
+    if (elapsed > 60 && remaining > 0) { setTableRevealed(true); setRevealed(true); setView('session') }
+    else if (remaining <= 0) { setTableRevealed(true); setRevealed(true); setView('feedback') }
   }, [data, timerActive, timerStart, timerDuration])
 
   // Transition to feedback when session time runs out
@@ -2525,12 +2538,41 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
         </motion.div>
 
         <AnimatePresence mode="wait">
-          {!revealed ? (
-            <motion.div key="pre" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="space-y-4">
-              <motion.button onClick={handleReveal} whileTap={{ scale: 0.97 }}
+          {!tableRevealed ? (
+            <motion.div key="pre-table" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="space-y-4">
+              <motion.button onClick={() => setTableRevealed(true)} whileTap={{ scale: 0.97 }}
                 className="w-full bg-gradient-to-br from-pink-600 via-rose-600 to-pink-700 text-white rounded-2xl py-6 font-bold text-lg shadow-2xl shadow-pink-600/40 border border-pink-500/30">
                 <motion.span animate={{ scale: [1, 1.06, 1] }} transition={{ duration: 1.8, repeat: Infinity }} className="flex items-center justify-center gap-3">
-                  <Users size={24} /> اكشف اسمه / اسمها
+                  <MapPin size={24} /> اعرف طاولتك
+                </motion.span>
+              </motion.button>
+              {timerActive && timeLeft > 0 && (
+                <div className="rounded-2xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
+                  <div className="px-5 pt-4 pb-3">
+                    <p className="text-gray-500 text-xs flex items-center justify-end gap-1.5 mb-1">الجلسة تبدأ خلال <Clock size={11} className="text-pink-400" /></p>
+                    <div className={`text-4xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
+                  </div>
+                  <div className="h-1 bg-gray-800/60">
+                    <motion.div className={`h-full ${timeLeft < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-pink-500 via-rose-400 to-pink-600"}`}
+                      style={{ boxShadow: timeLeft < 60 ? "0 0 8px rgba(239,68,68,0.7)" : "0 0 10px rgba(236,72,153,0.7)" }}
+                      animate={{ width: `${(timeLeft / timerDuration) * 100}%` }} transition={{ duration: 1 }} />
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          ) : !revealed ? (
+            <motion.div key="pre-name" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="space-y-4">
+              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 220 }}
+                className="rounded-3xl bg-pink-950/40 border border-pink-700/40 p-6 text-center space-y-2">
+                <MapPin size={18} className="text-pink-400 mx-auto" />
+                <p className="text-gray-500 text-xs">توجّه إلى الطاولة رقم</p>
+                <div className="text-6xl font-black text-pink-300">{data?.table_number ?? "—"}</div>
+                <p className="text-gray-600 text-xs">بعد الوصول، اكشف اسم شريكك</p>
+              </motion.div>
+              <motion.button onClick={handleReveal} whileTap={{ scale: 0.97 }}
+                className="w-full bg-gradient-to-br from-pink-600 via-rose-600 to-pink-700 text-white rounded-2xl py-5 font-bold text-lg shadow-2xl shadow-pink-600/40 border border-pink-500/30">
+                <motion.span animate={{ scale: [1, 1.06, 1] }} transition={{ duration: 1.8, repeat: Infinity }} className="flex items-center justify-center gap-3">
+                  <Users size={22} /> اكشف اسم شريكك
                 </motion.span>
               </motion.button>
               {timerActive && timeLeft > 0 && (
@@ -2715,6 +2757,7 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
 }) {
   const [data, setData] = useState<any>(null)
   const [revealed, setRevealed] = useState(false)
+  const [tableRevealed, setTableRevealed] = useState(false)
   const [timeLeft, setTimeLeft] = useState(0)
   const [word, setWord] = useState("")
   const [wordSubmitted, setWordSubmitted] = useState(false)
@@ -2748,8 +2791,8 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
     if (!data || !timerActive || !timerStart) return
     const elapsed = Math.floor((Date.now() - new Date(timerStart).getTime()) / 1000)
     const remaining = Math.max(0, timerDuration - elapsed)
-    if (elapsed > 60 && remaining > 0) { setRevealed(true); setView('session') }
-    else if (remaining <= 0) { setRevealed(true); setView('feedback') }
+    if (elapsed > 60 && remaining > 0) { setTableRevealed(true); setRevealed(true); setView('session') }
+    else if (remaining <= 0) { setTableRevealed(true); setRevealed(true); setView('feedback') }
   }, [data, timerActive, timerStart, timerDuration])
 
   // Transition to feedback when session time runs out
@@ -2792,12 +2835,42 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
         </motion.div>
 
         <AnimatePresence mode="wait">
-          {!revealed ? (
-            <motion.div key="pre" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="space-y-4">
-              <motion.button onClick={handleReveal} whileTap={{ scale: 0.97 }}
+          {!tableRevealed ? (
+            <motion.div key="pre-table" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="space-y-4">
+              <motion.button onClick={() => setTableRevealed(true)} whileTap={{ scale: 0.97 }}
                 className="w-full bg-gradient-to-br from-purple-600 via-violet-600 to-purple-700 text-white rounded-2xl py-6 font-bold text-lg shadow-2xl shadow-purple-600/40 border border-purple-500/30">
                 <motion.span animate={{ rotate: [0, -4, 4, 0] }} transition={{ duration: 3, repeat: Infinity }} className="flex items-center justify-center gap-3">
-                  <Brain size={24} /> اكشف اختيار الخوارزمية
+                  <MapPin size={24} /> اعرف طاولتك
+                </motion.span>
+              </motion.button>
+              {timerActive && timeLeft > 0 && (
+                <div className="rounded-2xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
+                  <div className="px-5 pt-4 pb-3">
+                    <p className="text-gray-500 text-xs flex items-center justify-end gap-1.5 mb-1">الجلسة تبدأ خلال <Clock size={11} className="text-purple-400" /></p>
+                    <div className={`text-4xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
+                  </div>
+                  <div className="h-1 bg-gray-800/60">
+                    <motion.div className={`h-full ${timeLeft < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-purple-500 via-violet-400 to-purple-600"}`}
+                      style={{ boxShadow: timeLeft < 60 ? "0 0 8px rgba(239,68,68,0.7)" : "0 0 10px rgba(139,92,246,0.7)" }}
+                      animate={{ width: `${(timeLeft / timerDuration) * 100}%` }} transition={{ duration: 1 }} />
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          ) : !revealed ? (
+            <motion.div key="pre-name" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="space-y-4">
+              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 220 }}
+                className="rounded-3xl bg-purple-950/40 border border-purple-700/40 p-6 text-center space-y-2">
+                <MapPin size={18} className="text-purple-400 mx-auto" />
+                <p className="text-gray-500 text-xs">توجّه إلى الطاولة رقم</p>
+                <div className="text-6xl font-black text-purple-300">{data?.table_number ?? "—"}</div>
+                <p className="text-gray-600 text-xs">بعد الوصول، اكشف اختيار الخوارزمية
+                </p>
+              </motion.div>
+              <motion.button onClick={handleReveal} whileTap={{ scale: 0.97 }}
+                className="w-full bg-gradient-to-br from-purple-600 via-violet-600 to-purple-700 text-white rounded-2xl py-5 font-bold text-lg shadow-2xl shadow-purple-600/40 border border-purple-500/30">
+                <motion.span animate={{ rotate: [0, -4, 4, 0] }} transition={{ duration: 3, repeat: Infinity }} className="flex items-center justify-center gap-3">
+                  <Brain size={22} /> اكشف اختيار الخوارزمية
                 </motion.span>
               </motion.button>
               {timerActive && timeLeft > 0 && (
@@ -3114,24 +3187,23 @@ function FinalRevealScreen({ token }: { token: string }) {
               className="bg-gray-900 border border-gray-700/60 rounded-3xl p-7 max-w-sm w-full text-center space-y-4 shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="text-4xl">🤝</div>
+              <div className="text-4xl">👋</div>
               <h2 className="text-xl font-black text-white">قبل أن تغادر</h2>
               <p className="text-gray-400 text-sm leading-relaxed">
-                انتهت الفعالية رسمياً. يمكنك العودة إلى شريكك الذي اخترته لمواصلة التعارف،
-                أو البقاء في هذه الشاشة ومراجعة نتائجك مع شريكك الحالي. الخيار لك.
+                انتهت الفعالية رسمياً. بإمكانك مراجعة النتائج هنا، أو العودة لمواصلة التعارف مع الشخص الآخر إذا كان لديك ما تقوله. الخيار لك.
               </p>
               <div className="flex flex-col gap-2.5 pt-1">
                 <button
                   onClick={() => setShowExitPopup(false)}
                   className="w-full py-3 rounded-2xl bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white text-sm font-bold transition-all"
                 >
-                  البقاء هنا ومراجعة النتائج
+                  مراجعة النتائج هنا
                 </button>
                 <a
                   href="/welcome"
                   className="w-full py-3 rounded-2xl bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-medium transition-all"
                 >
-                  العودة لشريكي ومواصلة الجلسة
+                  العودة لمواصلة التعارف
                 </a>
               </div>
               <button

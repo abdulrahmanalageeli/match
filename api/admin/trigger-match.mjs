@@ -3926,10 +3926,13 @@ if (action === "cache-status-by-gender") {
       const updatedParticipantNumbers = participantsNeedingCache.map(p => p.assigned_number)
       
       try {
+        // Only delete entries with old/missing model — preserve gpt-5.4-mini entries so they
+        // remain as cache hits in Step 6 (avoids unnecessary AI calls for unchanged survey content)
         const { data: deletedEntries, error: deleteError } = await supabase
           .from('compatibility_cache')
           .delete()
           .or(updatedParticipantNumbers.map(num => `participant_a_number.eq.${num},participant_b_number.eq.${num}`).join(','))
+          .or('model_used.is.null,model_used.neq.gpt-5.4-mini')
           .select()
         
         if (deleteError) {

@@ -1042,7 +1042,7 @@ export default function GroupsPage() {
   const SESSION_TOTAL_DURATION = 45 * 60; // 45 minutes in seconds
   const IMPOSTER_TUTORIAL_KEY = "imposter_tutorial_seen";
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
-  const [gameStarted, setGameStarted] = useState(false);
+  const [gameStarted, setGameStarted] = useState(true);
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const [gamePhase, setGamePhase] = useState<"intro" | "playing" | "completed">("intro");
@@ -3795,15 +3795,8 @@ export default function GroupsPage() {
                 <span className="w-9" />
               )}
 
-              {/* Center cluster: timer + current game badge */}
+              {/* Center cluster: current game badge */}
               <div className="flex items-center gap-2 flex-1 min-w-0 justify-center">
-                <div className={`inline-flex items-center rounded-full px-3.5 py-1 bg-white/5 backdrop-blur-sm shadow-sm ring-1 ring-white/5 transition-colors ${
-                  timeRemaining <= 300 ? 'text-red-100' :
-                  timeRemaining <= 600 ? 'text-amber-100' :
-                  'text-emerald-100'
-                }`}>
-                  <span className="text-sm font-semibold tabular-nums tracking-tight">{formatTime(timeRemaining)}</span>
-                </div>
 
                 {selectedGameId && (
                   <div className={`inline-flex items-center bg-white/5 backdrop-blur-sm rounded-full py-1 px-3 ring-1 ring-white/5 shadow-sm max-w-[55%] overflow-hidden`}>
@@ -3820,38 +3813,6 @@ export default function GroupsPage() {
           ) : (
             // Expanded stacked content
             <div className={`space-y-3 transition-all`}>
-              {/* Elegant Timer Display */}
-              <div className="relative">
-                <div className={`flex flex-col items-center justify-center gap-1 rounded-2xl py-4 px-6 transition-all duration-500 ${
-                  timeRemaining <= 300 ? 'bg-gradient-to-br from-red-500/10 via-red-500/5 to-transparent' : 
-                  timeRemaining <= 600 ? 'bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent' : 
-                  'bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent'
-                }`}>
-                  <div className="flex items-baseline gap-1">
-                    <span className={`text-4xl font-light tabular-nums tracking-tight ${
-                      timeRemaining <= 300 ? 'text-red-400' : 
-                      timeRemaining <= 600 ? 'text-amber-400' : 
-                      'text-emerald-400'
-                    }`}>
-                      {formatTime(timeRemaining)}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <Clock className={`w-3.5 h-3.5 ${
-                      timeRemaining <= 300 ? 'text-red-400/60' : 
-                      timeRemaining <= 600 ? 'text-amber-400/60' : 
-                      'text-emerald-400/60'
-                    }`} />
-                    <span className={`text-xs font-medium ${
-                      timeRemaining <= 300 ? 'text-red-400/80' : 
-                      timeRemaining <= 600 ? 'text-amber-400/80' : 
-                      'text-emerald-400/80'
-                    }`}>
-                      {timeRemaining <= 300 ? 'انتهى الوقت قريباً!' : timeRemaining <= 600 ? 'الوقت ينفد' : 'الوقت المتبقي'}
-                    </span>
-                  </div>
-                </div>
-              </div>
 
               {/* How-To button */}
               {/* Tutorial how-to button removed */}

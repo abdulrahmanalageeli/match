@@ -1483,6 +1483,34 @@ export default async function handler(req, res) {
         }
       }
 
+      if (action === "get-survey-history") {
+        const { participant_number } = req.body
+        const { data, error } = await supabase
+          .from("survey_change_history")
+          .select("id, changed_at, previous_answers, new_answers, changed_fields, change_percentage, suspicious_flags")
+          .eq("match_id", STATIC_MATCH_ID)
+          .eq("participant_number", participant_number)
+          .order("changed_at", { ascending: false })
+        if (error) return res.status(500).json({ error: error.message })
+        return res.status(200).json({ history: data || [] })
+      }
+
+      if (action === "get-survey-change-counts") {
+        const { data, error } = await supabase
+          .from("survey_change_history")
+          .select("participant_number, suspicious_flags")
+          .eq("match_id", STATIC_MATCH_ID)
+        if (error) return res.status(500).json({ error: error.message })
+        const counts = {}
+        for (const row of (data || [])) {
+          const n = row.participant_number
+          if (!counts[n]) counts[n] = { count: 0, hasSuspicious: false }
+          counts[n].count++
+          if (Array.isArray(row.suspicious_flags) && row.suspicious_flags.length > 0) counts[n].hasSuspicious = true
+        }
+        return res.status(200).json({ counts })
+      }
+
       if (action === "get-waiting-count") {
         // Get participants who have completed form but are waiting for matching
         const { data: formCompleted, error: formError } = await supabase

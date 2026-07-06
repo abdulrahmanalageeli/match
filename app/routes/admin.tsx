@@ -43,7 +43,8 @@ import {
   Zap,
   Calendar,
   CalendarCheck,
-  AlertTriangle
+  AlertTriangle,
+  History
 } from "lucide-react"
 import ParticipantResultsModal from "~/components/ParticipantResultsModal"
 import GroupAssignmentsModal from "~/components/GroupAssignmentsModal"
@@ -52,6 +53,83 @@ import BatchedCacheModal from "~/components/BatchedCacheModal"
 import WhatsappMessageModal from '~/components/WhatsappMessageModal';
 import ParticipantQRModal from "~/components/ParticipantQRModal"
 import ParticipantProfileModal from "~/components/ParticipantProfileModal"
+
+// ─── Survey History Modal ────────────────────────────────────────────────────
+function SurveyHistoryModal({ modal, onClose }: { modal: { participant: any; history: any[]; loading: boolean }; onClose: () => void }) {
+  const p = modal.participant
+  const history = modal.history
+  const formatDate = (s: string) => new Date(s).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Riyadh' })
+  const formatVal = (v: any) => v == null ? '—' : typeof v === 'boolean' ? (v ? 'Yes' : 'No') : String(v)
+  const levelColor = (l: string) => l === 'high' ? 'bg-red-500/20 border-red-400/50 text-red-300' : 'bg-amber-500/20 border-amber-400/50 text-amber-300'
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-gray-900 border border-white/15 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+          <div className="flex items-center gap-2.5">
+            <History className="w-5 h-5 text-amber-400" />
+            <div>
+              <p className="text-white font-bold text-sm">Survey Change History</p>
+              <p className="text-slate-400 text-xs">#{p.assigned_number} {p.name ? `— ${p.name}` : ''}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="overflow-y-auto flex-1 p-4 space-y-4">
+          {modal.loading ? (
+            <div className="flex items-center justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-slate-400" /></div>
+          ) : history.length === 0 ? (
+            <p className="text-center text-slate-500 py-10 text-sm">No survey changes recorded yet.</p>
+          ) : history.map((entry, idx) => {
+            const totalRenditions = history.length
+            const renditionNum = totalRenditions - idx
+            const allSuspicious: any[] = Array.isArray(entry.suspicious_flags) ? entry.suspicious_flags : []
+            return (
+              <div key={entry.id} className={`rounded-xl border p-4 ${ allSuspicious.length > 0 ? 'border-red-400/30 bg-red-500/5' : 'border-white/10 bg-white/3' }`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold bg-white/10 border border-white/20 text-slate-200 rounded-full px-2.5 py-0.5">v{renditionNum}</span>
+                    <span className="text-xs text-slate-400">{formatDate(entry.changed_at)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {allSuspicious.map((f: any, i: number) => (
+                      <span key={i} className={`flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border ${levelColor(f.level)}`}>
+                        <AlertTriangle className="w-2.5 h-2.5" />{f.message}
+                      </span>
+                    ))}
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-1.5 w-16 bg-white/10 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-400" style={{ width: `${entry.change_percentage}%` }} />
+                      </div>
+                      <span className="text-xs text-amber-300 font-medium">{entry.change_percentage}%</span>
+                    </div>
+                  </div>
+                </div>
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-slate-500 border-b border-white/5">
+                      <th className="text-left pb-1.5 font-medium w-1/3">Field</th>
+                      <th className="text-left pb-1.5 font-medium w-1/3 text-red-400/70">Before</th>
+                      <th className="text-left pb-1.5 font-medium w-1/3 text-green-400/70">After</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(entry.changed_fields || []).map((field: string) => (
+                      <tr key={field} className="border-b border-white/5 last:border-0">
+                        <td className="py-1.5 text-slate-400 font-mono">{field}</td>
+                        <td className="py-1.5 text-red-300 line-through opacity-70">{formatVal(entry.previous_answers?.[field])}</td>
+                        <td className="py-1.5 text-green-300">{formatVal(entry.new_answers?.[field])}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function AdminPage() {
   const location = useLocation()
@@ -71,7 +149,10 @@ export default function AdminPage() {
   const [genderFilter, setGenderFilter] = useState(() => isCohost ? "female" : "all") // "all", "male", "female"
   const [paymentFilter, setPaymentFilter] = useState("all") // "all", "paid", "unpaid", "done"
   const [whatsappFilter, setWhatsappFilter] = useState(() => isCohost ? "not_sent" : "all") // "all", "sent", "not_sent"
-  const [sortBy, setSortBy] = useState("number") // "number", "name", "updated", "survey_updated"
+  const [signupFilter, setSignupFilter] = useState("all") // "all", "manual", "auto"
+  const [surveyChangeCounts, setSurveyChangeCounts] = useState<Record<number, { count: number; hasSuspicious: boolean }>>({})
+  const [surveyHistoryModal, setSurveyHistoryModal] = useState<{ participant: any; history: any[]; loading: boolean } | null>(null)
+  const [sortBy, setSortBy] = useState("number") // "number", "name", "updated", "survey_updated", "signup_time"
   const [copied, setCopied] = useState(false)
   const [selectedParticipants, setSelectedParticipants] = useState<Set<number>>(new Set())
   const [announcement, setAnnouncement] = useState("")
@@ -1224,6 +1305,9 @@ const fetchParticipants = async () => {
     
     // STEP 6: Update React state
     setParticipants(fetchedParticipants)
+    // Fetch survey change counts in background (non-blocking)
+    fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "get-survey-change-counts" }) })
+      .then(r => r.json()).then(d => { if (d.counts) setSurveyChangeCounts(d.counts) }).catch(() => {})
       
       // Also fetch current event state
       const stateRes = await fetch("/api/admin", {
@@ -2514,7 +2598,15 @@ const fetchParticipants = async () => {
         }
       }
       
-      return matchesSearch && isEligible && matchesEligibleSub && matchesGender && matchesPayment && matchesWhatsapp
+      // Signup type filter
+      let matchesSignup = true
+      if (signupFilter === "manual") {
+        matchesSignup = p.signup_for_next_event === true && p.auto_signup_next_event !== true
+      } else if (signupFilter === "auto") {
+        matchesSignup = p.auto_signup_next_event === true
+      }
+      
+      return matchesSearch && isEligible && matchesEligibleSub && matchesGender && matchesPayment && matchesWhatsapp && matchesSignup
     })
 
     // Sort the filtered results
@@ -2535,10 +2627,15 @@ const fetchParticipants = async () => {
         const dateA = a.survey_data_updated_at ? new Date(a.survey_data_updated_at).getTime() : 0
         const dateB = b.survey_data_updated_at ? new Date(b.survey_data_updated_at).getTime() : 0
         return dateB - dateA // Descending order (newest first)
+      } else if (sortBy === "signup_time") {
+        // Sort by next_event_signup_timestamp (most recent first)
+        const dateA = a.next_event_signup_timestamp ? new Date(a.next_event_signup_timestamp).getTime() : 0
+        const dateB = b.next_event_signup_timestamp ? new Date(b.next_event_signup_timestamp).getTime() : 0
+        return dateB - dateA
       }
       return 0
     })
-  }, [participants, debouncedSearch, showEligibleOnly, eligibleSubFilter, genderFilter, paymentFilter, whatsappFilter, sortBy, currentEventId, excludedParticipants])
+  }, [participants, debouncedSearch, showEligibleOnly, eligibleSubFilter, genderFilter, paymentFilter, whatsappFilter, signupFilter, sortBy, currentEventId, excludedParticipants])
   
   // Virtualized participants - only show a subset for performance
   const visibleParticipants = useMemo(() => {
@@ -5575,6 +5672,27 @@ Proceed?`
               <ChevronRight className="absolute right-2 top-1/2 transform -translate-y-1/2 rotate-90 w-4 h-4 text-slate-400 pointer-events-none" />
             </div>
 
+            {/* Signup Type Filter */}
+            <div className="relative">
+              <select
+                value={signupFilter}
+                onChange={(e) => {
+                  setSignupFilter(e.target.value)
+                  if (e.target.value === "manual") setSortBy("signup_time")
+                }}
+                className={`appearance-none backdrop-blur-sm border rounded-xl px-4 py-2 pr-8 text-sm focus:outline-none focus:ring-2 transition-all duration-300 ${
+                  signupFilter !== "all"
+                    ? "bg-orange-500/20 border-orange-400/50 text-orange-300 focus:ring-orange-400/50"
+                    : "bg-white/10 border-white/20 text-slate-300 focus:ring-slate-400/50"
+                }`}
+              >
+                <option value="all" className="bg-slate-800 text-white">All Signups</option>
+                <option value="manual" className="bg-slate-800 text-white">Manual Signup Only</option>
+                <option value="auto" className="bg-slate-800 text-white">Auto Signup Only</option>
+              </select>
+              <ChevronRight className={`absolute right-2 top-1/2 transform -translate-y-1/2 rotate-90 w-4 h-4 pointer-events-none ${ signupFilter !== "all" ? "text-orange-400" : "text-slate-400" }`} />
+            </div>
+
             {/* Sort By Dropdown */}
             <div className="relative">
               <select
@@ -5586,12 +5704,13 @@ Proceed?`
                 <option value="name" className="bg-slate-800 text-white">Sort by Name</option>
                 <option value="updated" className="bg-slate-800 text-white">Sort by Last Update</option>
                 <option value="survey_updated" className="bg-slate-800 text-white">Sort by Survey Update</option>
+                <option value="signup_time" className="bg-slate-800 text-white">Sort by Signup Time</option>
               </select>
               <ChevronRight className="absolute right-2 top-1/2 transform -translate-y-1/2 rotate-90 w-4 h-4 text-blue-400 pointer-events-none" />
             </div>
 
             {/* Filter Results Count */}
-            {(showEligibleOnly || eligibleSubFilter !== "none" || genderFilter !== "all" || paymentFilter !== "all" || whatsappFilter !== "all") && (
+            {(showEligibleOnly || eligibleSubFilter !== "none" || genderFilter !== "all" || paymentFilter !== "all" || whatsappFilter !== "all" || signupFilter !== "all") && (
               <div className="bg-green-500/20 backdrop-blur-sm border border-green-400/30 rounded-xl px-3 py-2">
                 <span className="text-green-300 text-sm">Filtered: </span>
                 <span className="font-bold text-green-200">{filteredParticipants.length}</span>
@@ -5702,7 +5821,10 @@ Proceed?`
           </div>
         </div>
 
-        {/* Participants Grid */}
+        {/* Survey History Modal */}
+      {surveyHistoryModal && <SurveyHistoryModal modal={surveyHistoryModal} onClose={() => setSurveyHistoryModal(null)} />}
+
+      {/* Participants Grid */}
         {loading ? (
           <div className="flex justify-center items-center py-20">
             <div className="text-center space-y-4">
@@ -6056,6 +6178,30 @@ Proceed?`
                       );
                     })()}
                     
+                    {/* Survey Change History Badge */}
+                    {!isCohost && (surveyChangeCounts[p.assigned_number]?.count ?? 0) > 0 && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSurveyHistoryModal({ participant: p, history: [], loading: true })
+                          fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "get-survey-history", participant_number: p.assigned_number }) })
+                            .then(r => r.json())
+                            .then(d => setSurveyHistoryModal(prev => prev ? { ...prev, history: d.history || [], loading: false } : null))
+                            .catch(() => setSurveyHistoryModal(prev => prev ? { ...prev, loading: false } : null))
+                        }}
+                        className={`w-full flex items-center justify-center gap-1.5 text-xs px-2 py-1.5 rounded-lg border transition-all mb-2 ${
+                          surveyChangeCounts[p.assigned_number]?.hasSuspicious
+                            ? 'bg-red-500/15 border-red-400/40 text-red-300 hover:bg-red-500/25'
+                            : 'bg-amber-500/15 border-amber-400/40 text-amber-300 hover:bg-amber-500/25'
+                        }`}
+                        title="View survey change history"
+                      >
+                        {surveyChangeCounts[p.assigned_number]?.hasSuspicious && <AlertTriangle className="w-3 h-3" />}
+                        <History className="w-3 h-3" />
+                        <span>{surveyChangeCounts[p.assigned_number].count} edit{surveyChangeCounts[p.assigned_number].count > 1 ? 's' : ''}</span>
+                      </button>
+                    )}
+
                     {/* Last Update Time (Relative) */}
                     {!isCohost && p.updated_at && (() => {
                       const updatedAt = new Date(p.updated_at);

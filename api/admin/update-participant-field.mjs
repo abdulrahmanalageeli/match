@@ -144,6 +144,35 @@ export default async function handler(req, res) {
 
     console.log(`✅ Successfully updated field "${field}" for participant #${participantNumber}`)
 
+    // Log to survey_change_history if any answer actually changed
+    try {
+      const oldAnswers = currentData.survey_data?.answers || {}
+      const newAnswers = surveyData.answers || {}
+      const allKeys = new Set([...Object.keys(oldAnswers), ...Object.keys(newAnswers)])
+      const changedFields = [...allKeys].filter(k => JSON.stringify(oldAnswers[k]) !== JSON.stringify(newAnswers[k]))
+      if (changedFields.length > 0) {
+        const changePercentage = Math.round((changedFields.length / allKeys.size) * 100)
+        const suspiciousFlags = []
+        if (changedFields.includes('gender') && oldAnswers.gender && newAnswers.gender && oldAnswers.gender !== newAnswers.gender)
+          suspiciousFlags.push({ level: 'high', code: 'gender_change', message: `Gender changed: ${oldAnswers.gender} → ${newAnswers.gender}` })
+        const oldAge = oldAnswers.age ?? oldAnswers.ageGroup
+        const newAge = newAnswers.age ?? newAnswers.ageGroup
+        if (oldAge != null && newAge != null) {
+          const diff = Math.abs(parseInt(newAge) - parseInt(oldAge))
+          if (!isNaN(diff) && diff > 2) suspiciousFlags.push({ level: 'medium', code: 'age_change', message: `Age changed by ${diff}: ${oldAge} → ${newAge}` })
+        }
+        if (changedFields.includes('mbtiType') && oldAnswers.mbtiType && newAnswers.mbtiType)
+          suspiciousFlags.push({ level: 'medium', code: 'mbti_change', message: `MBTI changed: ${oldAnswers.mbtiType} → ${newAnswers.mbtiType}` })
+        const prevFiltered = {}, newFiltered = {}
+        changedFields.forEach(k => { prevFiltered[k] = oldAnswers[k]; newFiltered[k] = newAnswers[k] })
+        await supabase.from('survey_change_history').insert({
+          participant_number: participantNumber, match_id: STATIC_MATCH_ID,
+          previous_answers: prevFiltered, new_answers: newFiltered,
+          changed_fields: changedFields, change_percentage: changePercentage, suspicious_flags: suspiciousFlags
+        })
+      }
+    } catch (histErr) { console.error('Failed to log survey change history:', histErr) }
+
     return res.status(200).json({
       success: true,
       message: `Updated ${field} successfully`,

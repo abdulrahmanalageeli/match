@@ -648,7 +648,7 @@ function SetupScreen({ token, myInfo }: { token: string; myInfo: { number: numbe
       if (d && !d.error && d.participants_selected != null) setEnrolledCount(d.participants_selected)
     })
     fetchCount()
-    const iv = setInterval(fetchCount, 5000)
+    const iv = setInterval(fetchCount, 10000)
     return () => clearInterval(iv)
   }, [token])
 
@@ -1878,7 +1878,7 @@ function SOSButton({ token, position = 'top' }: { token: string; position?: 'top
       if (orgMsgs.length === 0 && userMsgs.length === 0) setHasUnread(false)
     }
     doFetch()
-    const iv = setInterval(doFetch, 5000)
+    const iv = setInterval(doFetch, 10000)
     return () => clearInterval(iv)
   }, [token])
 
@@ -2861,7 +2861,7 @@ export default function Event3Page() {
   useEffect(() => {
     if (!token) return
     fetchState()
-    const iv = setInterval(fetchState, 2000)
+    const iv = setInterval(fetchState, 5000)
     return () => clearInterval(iv)
   }, [token, fetchState])
 

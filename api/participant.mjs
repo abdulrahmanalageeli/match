@@ -1,6 +1,10 @@
 import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
 
+// In-memory cache for e3 token resolution (5 min TTL) to reduce Supabase API load
+const _e3TokenCache = new Map() // token -> { participant, expiresAt }
+const E3_TOKEN_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
+
 // Add better error logging
 const logError = (context, error) => {
   console.error(`❌ ${context}:`, {
@@ -2546,11 +2550,15 @@ Please respond in JSON format:
     const MAIN_MATCH = "00000000-0000-0000-0000-000000000000"
     const firstName = (n) => n ? n.trim().split(/\s+/)[0] : "—"
 
-    // Resolve token to participant
+    // Resolve token to participant (cached to reduce DB load on polling actions)
     const resolveE3Token = async (tok) => {
       if (!tok) return null
+      const cached = _e3TokenCache.get(tok)
+      if (cached && cached.expiresAt > Date.now()) return cached.participant
       const { data } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data").eq("secure_token", tok).eq("match_id", MAIN_MATCH).single()
-      return data || null
+      const participant = data || null
+      _e3TokenCache.set(tok, { participant, expiresAt: Date.now() + E3_TOKEN_CACHE_TTL_MS })
+      return participant
     }
 
     const token = req.body.token || null

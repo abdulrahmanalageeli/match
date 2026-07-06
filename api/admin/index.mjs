@@ -6641,6 +6641,35 @@ export default async function handler(req, res) {
           if (error) return res.status(500).json({ error: error.message })
           return res.status(200).json({ message: "تم حذف جميع الطلبات" })
         }
+        // e3-get-feedback — live feedback feed for admin spectator
+        if (action === "e3-get-feedback") {
+          const { data: matchRows } = await supabase
+            .from("event3_matches")
+            .select("participant_number, phase2_partner, phase3_partner, phase2_feedback, phase3_feedback")
+            .eq("match_id", EVENT3_MATCH_ID)
+          if (!matchRows || matchRows.length === 0)
+            return res.status(200).json({ phase2: [], phase3: [], phase2_submitted: 0, phase3_submitted: 0, total_participants: 0 })
+          const allNums = [...new Set(matchRows.flatMap(r => [r.participant_number, r.phase2_partner, r.phase3_partner].filter(Boolean)))]
+          const { data: pdata } = await supabase.from("participants").select("assigned_number, name, gender").eq("match_id", STATIC_MATCH_ID).in("assigned_number", allNums)
+          const nameMap = {}
+          for (const p of pdata || []) nameMap[p.assigned_number] = { name: p.name || `#${p.assigned_number}`, gender: p.gender }
+          const getName = (num) => nameMap[num]?.name || `#${num}`
+          const matchMap = {}
+          for (const row of matchRows) matchMap[row.participant_number] = row
+          const phase2 = [], phase3 = []
+          for (const row of matchRows) {
+            if (row.phase2_partner) {
+              const partnerRow = matchMap[row.phase2_partner]
+              phase2.push({ participant_number: row.participant_number, participant_name: getName(row.participant_number), partner_number: row.phase2_partner, partner_name: getName(row.phase2_partner), feedback: row.phase2_feedback || null, submitted: !!row.phase2_feedback, partner_submitted: !!(partnerRow?.phase2_feedback) })
+            }
+            if (row.phase3_partner) {
+              const partnerRow = matchMap[row.phase3_partner]
+              phase3.push({ participant_number: row.participant_number, participant_name: getName(row.participant_number), partner_number: row.phase3_partner, partner_name: getName(row.phase3_partner), feedback: row.phase3_feedback || null, submitted: !!row.phase3_feedback, partner_submitted: !!(partnerRow?.phase3_feedback) })
+            }
+          }
+          const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID)
+          return res.status(200).json({ phase2, phase3, phase2_submitted: phase2.filter(e => e.submitted).length, phase3_submitted: phase3.filter(e => e.submitted).length, total_participants: (ep || []).length })
+        }
         // e3-reset-event
         if (action === "e3-reset-event") {
           await Promise.all([

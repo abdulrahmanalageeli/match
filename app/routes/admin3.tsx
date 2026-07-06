@@ -67,7 +67,7 @@ export default function Admin3Page() {
   const [loading, setLoading] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [genderFilter, setGenderFilter] = useState("all")
-  const [activeTab, setActiveTab] = useState<"control" | "seating" | "ranking" | "participants" | "overview">("control")
+  const [activeTab, setActiveTab] = useState<"control" | "seating" | "ranking" | "participants" | "overview" | "feedback">("control")
   const [overviewData, setOverviewData] = useState<any>(null)
   const [overviewLoading, setOverviewLoading] = useState(false)
   const [timerRemaining, setTimerRemaining] = useState(0)
@@ -88,6 +88,11 @@ export default function Admin3Page() {
   const [overviewSearch, setOverviewSearch] = useState("")
   const [overviewFilter, setOverviewFilter] = useState("all")
   const [participantSort, setParticipantSort] = useState<"number" | "name" | "voted">("number")
+  const [feedbackData, setFeedbackData] = useState<any>(null)
+  const [feedbackLoading, setFeedbackLoading] = useState(false)
+  const [feedbackPolling, setFeedbackPolling] = useState(false)
+  const [feedbackPhase, setFeedbackPhase] = useState<"phase2" | "phase3">("phase2")
+  const feedbackIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const [sosRequests, setSosRequests] = useState<any[]>([])
   const [sosModalOpen, setSosModalOpen] = useState(false)
@@ -154,6 +159,13 @@ export default function Admin3Page() {
     const data = await api("e3-get-overview")
     setOverviewData(data)
     setOverviewLoading(false)
+  }, [])
+
+  const fetchFeedback = useCallback(async () => {
+    setFeedbackLoading(true)
+    const data = await api("e3-get-feedback")
+    setFeedbackData(data)
+    setFeedbackLoading(false)
   }, [])
 
   const mbtiGroupFn = (m: string) => {
@@ -256,7 +268,18 @@ export default function Admin3Page() {
     if (authenticated && activeTab === "ranking") fetchRankStatus()
     if (authenticated && activeTab === "participants") { fetchParticipants({ preserveSelection: true }); fetchSeating(); fetchRankStatus(); fetchMatches() }
     if (authenticated && activeTab === "overview") fetchOverview()
-  }, [activeTab, authenticated, fetchSeating, fetchRankStatus, fetchParticipants, fetchMatches, fetchOverview])
+    if (authenticated && activeTab === "feedback") fetchFeedback()
+  }, [activeTab, authenticated, fetchSeating, fetchRankStatus, fetchParticipants, fetchMatches, fetchOverview, fetchFeedback])
+
+  // Feedback polling
+  useEffect(() => {
+    if (!feedbackPolling || activeTab !== "feedback") {
+      if (feedbackIntervalRef.current) { clearInterval(feedbackIntervalRef.current); feedbackIntervalRef.current = null }
+      return
+    }
+    feedbackIntervalRef.current = setInterval(fetchFeedback, 5000)
+    return () => { if (feedbackIntervalRef.current) { clearInterval(feedbackIntervalRef.current); feedbackIntervalRef.current = null } }
+  }, [feedbackPolling, activeTab, fetchFeedback])
 
   // Timer countdown
   useEffect(() => {
@@ -565,10 +588,11 @@ export default function Admin3Page() {
             { id: "participants", label: "المشاركون",  icon: Users },
             { id: "ranking",      label: "التصنيفات",  icon: BarChart3 },
             { id: "overview",     label: "نظرة شاملة", icon: Layers },
+            { id: "feedback",     label: "التقييمات",   icon: Star },
           ].map(tab => (
             <button
               key={tab.id}
-              onClick={() => { setActiveTab(tab.id as any); if (tab.id === "ranking" || tab.id === "overview") fetchRankStatus() }}
+              onClick={() => { setActiveTab(tab.id as any); if (tab.id === "ranking" || tab.id === "overview") fetchRankStatus(); if (tab.id === "feedback") fetchFeedback() }}
               className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 border-b-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
                 activeTab === tab.id
                   ? "border-purple-500 text-purple-400"
@@ -2641,6 +2665,163 @@ export default function Admin3Page() {
           </div>
         )
       })()}
+
+      {/* TAB: FEEDBACK ──────────────────────────────────────────── */}
+      {activeTab === "feedback" && (
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold flex items-center gap-2 text-sm">
+                <Star size={16} className="text-yellow-400" /> تغذية التقييمات المباشرة
+              </h3>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setFeedbackPolling(p => !p)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                    feedbackPolling ? "bg-green-900/50 border-green-600 text-green-300" : "bg-gray-800 border-gray-700 text-gray-400 hover:text-gray-200"
+                  }`}>
+                  <div className={`w-1.5 h-1.5 rounded-full ${feedbackPolling ? "bg-green-400 animate-pulse" : "bg-gray-600"}`} />
+                  {feedbackPolling ? "مباشر · 5ث" : "مباشر: إيقاف"}
+                </button>
+                <button onClick={fetchFeedback} disabled={feedbackLoading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-gray-800 border border-gray-700 text-gray-400 hover:text-gray-200 disabled:opacity-50">
+                  <RefreshCw size={12} className={feedbackLoading ? "animate-spin" : ""} /> تحديث
+                </button>
+              </div>
+            </div>
+            {feedbackData && (
+              <div className="grid grid-cols-2 gap-3">
+                {([{id:"phase2",label:"💘 اختيارك",submitted:feedbackData.phase2_submitted,total:feedbackData.phase2?.length??0,color:"pink"},{id:"phase3",label:"🧠 الخوارزمية",submitted:feedbackData.phase3_submitted,total:feedbackData.phase3?.length??0,color:"purple"}] as any[]).map(ph => (
+                  <button key={ph.id} onClick={() => setFeedbackPhase(ph.id)}
+                    className={`rounded-xl p-3 text-center transition-all border ${
+                      feedbackPhase === ph.id
+                        ? ph.color === "pink" ? "bg-pink-900/30 border-pink-700/50" : "bg-purple-900/30 border-purple-700/50"
+                        : "bg-gray-800/50 border-gray-700/50 hover:border-gray-600"
+                    }`}>
+                    <div className={`text-xl font-bold ${ph.color === "pink" ? "text-pink-300" : "text-purple-300"}`}>
+                      {ph.submitted}<span className="text-gray-500 text-sm font-normal">/{ph.total}</span>
+                    </div>
+                    <div className="text-[10px] text-gray-400 mt-0.5">{ph.label}</div>
+                    <div className="h-1 bg-gray-700 rounded-full mt-2 overflow-hidden">
+                      <div className={`h-full ${ph.color === "pink" ? "bg-pink-500" : "bg-purple-500"} rounded-full transition-all duration-500`}
+                        style={{ width: `${ph.total > 0 ? (ph.submitted / ph.total) * 100 : 0}%` }} />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Entries */}
+          {!feedbackData ? (
+            <div className="text-center py-16">
+              {feedbackLoading
+                ? <Loader2 size={24} className="animate-spin mx-auto text-purple-400" />
+                : <p className="text-sm text-gray-500">اضغط تحديث لتحميل التقييمات</p>}
+            </div>
+          ) : (() => {
+            const entries: any[] = feedbackPhase === "phase2" ? (feedbackData.phase2 || []) : (feedbackData.phase3 || [])
+            const submitted = entries.filter((e: any) => e.submitted)
+            const missing = entries.filter((e: any) => !e.submitted)
+            const stars = (n: number) => Array.from({ length: 5 }, (_, i) => (
+              <span key={i} className={i < n ? "text-yellow-400" : "text-gray-700"}>★</span>
+            ))
+            return (
+              <div className="space-y-5">
+                {submitted.length > 0 && (
+                  <div>
+                    <p className="text-xs text-gray-400 font-medium mb-2 flex items-center gap-1.5">
+                      <CheckCircle size={11} className="text-green-400" /> أرسلوا التقييم ({submitted.length})
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {submitted.map((entry: any) => {
+                        const fb = entry.feedback || {}
+                        const mutualYes = fb.wantConnect === true && entry.partner_submitted
+                        return (
+                          <div key={entry.participant_number}
+                            className={`relative bg-gray-900 border rounded-xl p-4 overflow-hidden ${
+                              mutualYes ? "border-emerald-700/50 shadow-lg shadow-emerald-900/20" : "border-gray-700/60"
+                            }`}>
+                            <div className={`absolute top-0 right-0 w-1 h-full ${feedbackPhase === "phase2" ? "bg-pink-600" : "bg-purple-600"}`} />
+                            {mutualYes && (
+                              <div className="absolute top-2 left-2 text-[9px] bg-emerald-900/60 border border-emerald-600/50 text-emerald-300 px-1.5 py-0.5 rounded-full font-bold">❤️ توافق محتمل</div>
+                            )}
+                            <div className="flex items-start justify-between mb-3 pr-2">
+                              <div>
+                                <p className="font-bold text-white text-sm">{entry.participant_name}</p>
+                                <p className="text-[10px] text-gray-600">#{entry.participant_number}</p>
+                              </div>
+                              <div className="text-left space-y-1">
+                                <p className="text-[11px] text-gray-400">عن: <span className="text-gray-200">{entry.partner_name}</span></p>
+                                <span className={`text-[9px] px-1.5 py-0.5 rounded-full border block ${
+                                  entry.partner_submitted ? "bg-green-900/40 border-green-700/40 text-green-400" : "bg-gray-800 border-gray-700/50 text-gray-500"
+                                }`}>{entry.partner_submitted ? "الطرف الآخر أرسل ✓" : "الطرف الآخر لم يُرسل"}</span>
+                              </div>
+                            </div>
+                            <div className="space-y-1.5 text-xs pr-2">
+                              {fb.conversationQuality > 0 && (
+                                <div className="flex items-center justify-between">
+                                  <span className="text-gray-500">جودة المحادثة</span>
+                                  <span>{stars(fb.conversationQuality)}</span>
+                                </div>
+                              )}
+                              {fb.personalConnection > 0 && (
+                                <div className="flex items-center justify-between">
+                                  <span className="text-gray-500">التواصل الشخصي</span>
+                                  <span>{stars(fb.personalConnection)}</span>
+                                </div>
+                              )}
+                              {fb.overallExperience > 0 && (
+                                <div className="flex items-center justify-between">
+                                  <span className="text-gray-500">التجربة الكلية</span>
+                                  <span>{stars(fb.overallExperience)}</span>
+                                </div>
+                              )}
+                              {fb.wantConnect != null && (
+                                <div className="flex items-center justify-between">
+                                  <span className="text-gray-500">يريد التواصل</span>
+                                  <span className={`font-bold ${fb.wantConnect ? "text-emerald-400" : "text-red-400"}`}>{fb.wantConnect ? "✅ نعم" : "❌ لا"}</span>
+                                </div>
+                              )}
+                              {fb.compatibilityRate != null && fb.sliderMoved && (
+                                <div className="flex items-center justify-between">
+                                  <span className="text-gray-500">التوافق المُقدَّر</span>
+                                  <span className="text-amber-400 font-bold">{fb.compatibilityRate}%</span>
+                                </div>
+                              )}
+                              {fb.organizerImpression && (
+                                <div className="mt-2 bg-gray-800/70 rounded-lg p-2 text-gray-300 text-[10px] text-right leading-relaxed border border-gray-700/40">💬 {fb.organizerImpression}</div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+                {missing.length > 0 && (
+                  <div>
+                    <p className="text-xs text-gray-400 font-medium mb-2 flex items-center gap-1.5">
+                      <AlertCircle size={11} className="text-yellow-400" /> لم يُرسلوا بعد ({missing.length})
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {missing.map((entry: any) => (
+                        <div key={entry.participant_number} className="bg-gray-900/50 border border-gray-800 rounded-xl p-3 opacity-55">
+                          <p className="text-sm font-medium text-gray-400 truncate">{entry.participant_name}</p>
+                          <p className="text-[10px] text-gray-600 mt-0.5">مع {entry.partner_name}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {entries.length === 0 && (
+                  <div className="text-center py-10 text-gray-600 text-sm">لا توجد مطابقات في هذه المرحلة بعد</div>
+                )}
+              </div>
+            )
+          })()}
+        </div>
+      )}
 
       {/* ─── SOS Modal ──────────────────────────────────────────── */}
       {sosModalOpen && (() => {

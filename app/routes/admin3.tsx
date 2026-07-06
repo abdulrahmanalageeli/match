@@ -4,7 +4,7 @@ import {
   Users, Play, Square, ChevronRight, RotateCcw, CheckCircle,
   Circle, RefreshCw, Table2, Trophy, Clock, BarChart3, Shuffle,
   Eye, EyeOff, ArrowRight, Sparkles, Brain, Shield, LogOut,
-  Grid3x3, Star, Check, AlertCircle, Loader2, Copy, Heart, Layers, ChevronDown, X, MessageSquare, Send, Home, Trash2,
+  Grid3x3, Star, Check, AlertCircle, Loader2, Copy, Heart, Layers, ChevronDown, X, MessageSquare, Send, Home, Trash2, GripVertical, Search, Crown, Medal,
 } from "lucide-react"
 
 const ADMIN_PASSWORD = "soulmatch2026"
@@ -93,6 +93,10 @@ export default function Admin3Page() {
   const [feedbackPolling, setFeedbackPolling] = useState(false)
   const [feedbackPhase, setFeedbackPhase] = useState<"phase2" | "phase3">("phase2")
   const feedbackIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [rankSearch, setRankSearch] = useState("")
+  const [rankFilter, setRankFilter] = useState<"all" | "submitted" | "pending">("all")
+  const [dragIdx, setDragIdx] = useState<number | null>(null)
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
 
   const [sosRequests, setSosRequests] = useState<any[]>([])
   const [sosModalOpen, setSosModalOpen] = useState(false)
@@ -1215,7 +1219,38 @@ export default function Admin3Page() {
         })()}
 
         {/* TAB: RANKING ─────────────────────────────────────────────────────── */}
-        {activeTab === "ranking" && (
+        {activeTab === "ranking" && (() => {
+          const filteredRankings = allRankings.filter((r: any) => {
+            if (rankSearch) {
+              const q = rankSearch.toLowerCase()
+              if (!r.name?.toLowerCase().includes(q) && !String(r.number).includes(q)) return false
+            }
+            if (rankFilter === 'submitted' && !r.submitted) return false
+            if (rankFilter === 'pending' && r.submitted) return false
+            return true
+          })
+          const submittedCount = allRankings.filter((r: any) => r.submitted).length
+          const pendingCount = allRankings.length - submittedCount
+          let mutualCount = 0
+          const popularityMap: Record<number, number> = {}
+          for (const r of allRankings) {
+            if (r.ranked_list) {
+              for (const item of r.ranked_list) {
+                popularityMap[item.number] = (popularityMap[item.number] || 0) + 1
+                const theyRankedMe = allRankings.find((x: any) => x.number === item.number)?.ranked_list?.find((y: any) => y.number === r.number)
+                if (theyRankedMe && theyRankedMe.rank <= 3 && item.rank <= 3) mutualCount++
+              }
+            }
+          }
+          const topPopular = Object.entries(popularityMap).sort((a: any, b: any) => b[1] - a[1]).slice(0, 3)
+          const rankBadge = (idx: number) => {
+            if (idx === 0) return "bg-gradient-to-br from-yellow-500 to-amber-600 text-amber-950"
+            if (idx === 1) return "bg-gradient-to-br from-gray-300 to-gray-400 text-gray-800"
+            if (idx === 2) return "bg-gradient-to-br from-orange-600 to-amber-700 text-orange-100"
+            return "bg-gray-800 text-gray-500"
+          }
+          const moveItem = (arr: any[], from: number, to: number) => { const a = [...arr]; const [item] = a.splice(from, 1); a.splice(to, 0, item); return a }
+          return (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-gray-300">حالة التصنيفات</h3>
@@ -1251,60 +1286,126 @@ export default function Admin3Page() {
 
             {rankStatus && (
               <>
-                <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-gray-400 text-sm">التقدم — {rankStatus.submitted} من {rankStatus.total} صوّتوا</span>
+                {/* Progress + Stats Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
+                    <p className="text-[10px] text-gray-500 mb-1">التقدم</p>
+                    <p className="text-lg font-black text-white">{submittedCount}<span className="text-gray-600 text-sm font-normal">/{allRankings.length}</span></p>
+                    <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden mt-1.5">
+                      <div className="h-full bg-purple-600 transition-all duration-500" style={{ width: `${(submittedCount / (allRankings.length || 1)) * 100}%` }} />
+                    </div>
                   </div>
-                  <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-purple-600 transition-all duration-500"
-                      style={{ width: `${(rankStatus.submitted / (rankStatus.total || 1)) * 100}%` }}
-                    />
+                  <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
+                    <p className="text-[10px] text-gray-500 mb-1">لم يصوّت</p>
+                    <p className="text-lg font-black text-yellow-400">{pendingCount}</p>
+                    <p className="text-[9px] text-gray-600 mt-1">بانتظار التصنيف</p>
+                  </div>
+                  <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
+                    <p className="text-[10px] text-gray-500 mb-1">تبادل متبادل</p>
+                    <p className="text-lg font-black text-emerald-400">{mutualCount}</p>
+                    <p className="text-[9px] text-gray-600 mt-1">اختيارات متبادلة</p>
+                  </div>
+                  <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
+                    <p className="text-[10px] text-gray-500 mb-1">الأكثر اختياراً</p>
+                    {topPopular.length > 0 ? (
+                      <p className="text-sm font-bold text-pink-400 truncate">{allRankings.find((x: any) => x.number === Number(topPopular[0][0]))?.name || `#${topPopular[0][0]}`}</p>
+                    ) : <p className="text-sm text-gray-600">—</p>}
+                    <p className="text-[9px] text-gray-600 mt-1">{topPopular.length > 0 ? `${topPopular[0][1]} أصوات` : ''}</p>
                   </div>
                 </div>
 
+                {/* Search & Filter */}
+                <div className="flex gap-2 flex-wrap">
+                  <div className="relative flex-1 min-w-[140px]">
+                    <Search size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-600" />
+                    <input
+                      type="text"
+                      placeholder="ابحث بالاسم أو الرقم..."
+                      value={rankSearch}
+                      onChange={e => setRankSearch(e.target.value)}
+                      className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg pr-8 pl-3 py-1.5 text-xs text-right focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+                  <select
+                    value={rankFilter}
+                    onChange={e => setRankFilter(e.target.value as any)}
+                    className="bg-gray-800 border border-gray-700 text-white rounded-lg px-2 py-1.5 text-xs"
+                  >
+                    <option value="all">الجميع ({allRankings.length})</option>
+                    <option value="submitted">صوّت ({submittedCount})</option>
+                    <option value="pending">لم يصوّت ({pendingCount})</option>
+                  </select>
+                </div>
+
+                {/* Ranking Cards */}
                 <div className="space-y-2">
-                  {allRankings.map((r: any) => (
-                    <div key={r.number} className={`bg-gray-900 border rounded-xl overflow-hidden transition-colors ${
-                      r.submitted ? "border-green-800" : "border-gray-800"
-                    }`}>
+                  {filteredRankings.map((r: any) => (
+                    <div key={r.number} className={`bg-gray-900 border rounded-xl overflow-hidden transition-all ${
+                      r.submitted ? "border-green-800/50" : "border-gray-800"
+                    } ${expandedRanker === r.number ? "ring-1 ring-purple-500/30" : ""}`}>
                       <button
                         onClick={() => setExpandedRanker(expandedRanker === r.number ? null : r.number)}
                         className="w-full flex items-center gap-3 p-3 text-right hover:bg-gray-800/40 transition-colors"
                       >
                         {r.submitted
-                          ? <CheckCircle size={15} className="text-green-400 flex-shrink-0" />
-                          : <Circle size={15} className="text-gray-600 flex-shrink-0" />
+                          ? <CheckCircle size={16} className="text-green-400 flex-shrink-0" />
+                          : <Circle size={16} className="text-gray-600 flex-shrink-0" />
                         }
                         <div className="flex-1 min-w-0">
                           <span className="text-sm font-medium text-gray-200 truncate">{r.name}</span>
                           <span className="text-gray-600 text-xs mr-2">#{r.number}</span>
                         </div>
-                        <span className="text-gray-500 text-xs flex-shrink-0">{r.submitted ? `${r.count} مرتّبين` : "لم يصوّت"}</span>
-                        <ChevronRight size={13} className={`text-gray-600 transition-transform flex-shrink-0 ${expandedRanker === r.number ? "rotate-90" : ""}`} />
+                        {r.submitted ? (
+                          <span className="text-green-400/70 text-[10px] flex-shrink-0 bg-green-900/20 px-2 py-0.5 rounded-full">{r.count} مرتّبين</span>
+                        ) : (
+                          <span className="text-yellow-400/70 text-[10px] flex-shrink-0 bg-yellow-900/20 px-2 py-0.5 rounded-full">بانتظار</span>
+                        )}
+                        <ChevronRight size={14} className={`text-gray-600 transition-transform flex-shrink-0 ${expandedRanker === r.number ? "rotate-90" : ""}`} />
                       </button>
+
+                      {/* Submitted + Expanded */}
                       {expandedRanker === r.number && r.submitted && (
-                        <div className="px-4 pb-3 border-t border-gray-800/60 pt-2 space-y-2">
+                        <div className="px-3 pb-3 border-t border-gray-800/60 pt-3 space-y-1.5">
                           {editingRanker === r.number ? (
                             <>
-                              <p className="text-amber-400 text-xs mb-1">اسحب أو استخدم الأسهم لإعادة الترتيب</p>
+                              <div className="flex items-center gap-1.5 mb-2">
+                                <span className="text-amber-400 text-[11px] font-medium">اسحب لإعادة الترتيب</span>
+                                <span className="text-gray-600 text-[10px]">أو استخدم الأسهم</span>
+                              </div>
                               {editedOrder.map((item: any, idx: number) => {
                                 const theyRankedMe = allRankings.find((x: any) => x.number === item.number)?.ranked_list?.find((y: any) => y.number === r.number)
                                 return (
-                                  <div key={item.number} className="flex items-center gap-2 text-xs bg-gray-800/60 rounded-lg px-2 py-1.5">
-                                    <span className="w-5 h-5 rounded-md bg-amber-900/60 text-amber-300 flex items-center justify-center font-bold flex-shrink-0">{idx + 1}</span>
-                                    <span className="text-gray-200 flex-1">{item.name} <span className="text-gray-600">#{item.number}</span></span>
-                                    {theyRankedMe && <span className="text-purple-400 text-[10px]">رتّبك #{theyRankedMe.rank}</span>}
-                                    <div className="flex gap-1">
-                                      <button onClick={() => setEditedOrder(o => { const a=[...o]; if(idx>0){[a[idx-1],a[idx]]=[a[idx],a[idx-1]]}; return a })} disabled={idx===0} className="p-0.5 rounded hover:bg-gray-700 disabled:opacity-30">▲</button>
-                                      <button onClick={() => setEditedOrder(o => { const a=[...o]; if(idx<a.length-1){[a[idx],a[idx+1]]=[a[idx+1],a[idx]]}; return a })} disabled={idx===editedOrder.length-1} className="p-0.5 rounded hover:bg-gray-700 disabled:opacity-30">▼</button>
+                                  <div
+                                    key={item.number}
+                                    draggable
+                                    onDragStart={() => setDragIdx(idx)}
+                                    onDragOver={(e) => { e.preventDefault(); setDragOverIdx(idx) }}
+                                    onDragEnd={() => {
+                                      if (dragIdx !== null && dragOverIdx !== null && dragIdx !== dragOverIdx) {
+                                        setEditedOrder(o => moveItem(o, dragIdx, dragOverIdx))
+                                      }
+                                      setDragIdx(null); setDragOverIdx(null)
+                                    }}
+                                    className={`flex items-center gap-2 text-xs rounded-lg px-2 py-2 transition-all cursor-grab active:cursor-grabbing ${
+                                      dragOverIdx === idx ? "bg-purple-900/40 border border-purple-600/50" : "bg-gray-800/60 border border-transparent"
+                                    } ${dragIdx === idx ? "opacity-40" : ""}`}
+                                  >
+                                    <GripVertical size={12} className="text-gray-600 flex-shrink-0" />
+                                    <span className={`w-6 h-6 rounded-lg flex items-center justify-center font-bold flex-shrink-0 text-[11px] ${rankBadge(idx)}`}>{idx + 1}</span>
+                                    <span className="text-gray-200 flex-1 truncate">{item.name} <span className="text-gray-600">#{item.number}</span></span>
+                                    {theyRankedMe && <span className="text-purple-400 text-[9px] bg-purple-900/30 px-1.5 py-0.5 rounded-full">رتّبك #{theyRankedMe.rank}</span>}
+                                    <div className="flex gap-0.5">
+                                      <button onClick={() => setEditedOrder(o => moveItem(o, idx, idx - 1))} disabled={idx === 0} className="w-6 h-6 rounded-md bg-gray-700/60 hover:bg-gray-600 disabled:opacity-20 flex items-center justify-center text-gray-300 text-[10px]">▲</button>
+                                      <button onClick={() => setEditedOrder(o => moveItem(o, idx, idx + 1))} disabled={idx === editedOrder.length - 1} className="w-6 h-6 rounded-md bg-gray-700/60 hover:bg-gray-600 disabled:opacity-20 flex items-center justify-center text-gray-300 text-[10px]">▼</button>
                                     </div>
                                   </div>
                                 )
                               })}
-                              <div className="flex gap-2 pt-1">
-                                <button onClick={() => saveRanking(r.number)} disabled={!!loading} className="flex-1 py-1.5 rounded-lg bg-emerald-700/60 hover:bg-emerald-700 text-emerald-200 text-xs font-medium">{loading===`save-rank-${r.number}` ? '...' : 'حفظ التغييرات'}</button>
-                                <button onClick={() => setEditingRanker(null)} className="px-3 py-1.5 rounded-lg bg-gray-700 text-gray-400 text-xs">إلغاء</button>
+                              <div className="flex gap-2 pt-2">
+                                <button onClick={() => saveRanking(r.number)} disabled={!!loading} className="flex-1 py-2 rounded-lg bg-emerald-700/60 hover:bg-emerald-700 text-emerald-200 text-xs font-bold transition-colors">
+                                  {loading === `save-rank-${r.number}` ? <RefreshCw size={12} className="animate-spin mx-auto" /> : '✓ حفظ التغييرات'}
+                                </button>
+                                <button onClick={() => setEditingRanker(null)} className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-400 text-xs font-medium transition-colors">إلغاء</button>
                               </div>
                             </>
                           ) : (
@@ -1313,48 +1414,76 @@ export default function Admin3Page() {
                                 const theyRankedMe = allRankings.find((x: any) => x.number === item.number)?.ranked_list?.find((y: any) => y.number === r.number)
                                 const mutual = theyRankedMe && theyRankedMe.rank <= 3 && idx < 3
                                 return (
-                                  <div key={item.number} className={`flex items-center gap-2 text-xs rounded-lg px-2 py-1 ${mutual ? 'bg-emerald-900/25 border border-emerald-800/40' : ''}`}>
-                                    <span className="w-5 h-5 rounded-md bg-gray-800 text-gray-500 flex items-center justify-center font-bold flex-shrink-0">{idx + 1}</span>
-                                    <span className="text-gray-300 flex-1">{item.name} <span className="text-gray-600">#{item.number}</span></span>
+                                  <div key={item.number} className={`flex items-center gap-2 text-xs rounded-lg px-2 py-1.5 transition-colors ${
+                                    mutual ? 'bg-emerald-900/20 border border-emerald-700/30' : 'border border-transparent'
+                                  }`}>
+                                    <span className={`w-6 h-6 rounded-lg flex items-center justify-center font-bold flex-shrink-0 text-[11px] ${rankBadge(idx)}`}>
+                                      {idx === 0 ? <Crown size={11} /> : idx + 1}
+                                    </span>
+                                    <span className="text-gray-300 flex-1 truncate">{item.name} <span className="text-gray-600">#{item.number}</span></span>
                                     {theyRankedMe ? (
-                                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${mutual ? 'bg-emerald-800/50 text-emerald-300' : 'text-gray-500'}`}>
+                                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${mutual ? 'bg-emerald-800/50 text-emerald-300' : 'bg-gray-800 text-gray-500'}`}>
                                         {mutual ? '🔁 تبادل' : `رتّبك #${theyRankedMe.rank}`}
                                       </span>
-                                    ) : <span className="text-gray-700 text-[10px]">لم يرتّبك</span>}
+                                    ) : <span className="text-gray-700 text-[9px]">—</span>}
                                   </div>
                                 )
                               })}
-                              <button onClick={() => { setEditingRanker(r.number); setEditedOrder([...r.ranked_list]) }} className="mt-1 w-full py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 text-xs">✏️ تعديل الترتيب</button>
+                              <button onClick={() => { setEditingRanker(r.number); setEditedOrder([...r.ranked_list]) }} className="mt-2 w-full py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 text-xs font-medium transition-colors flex items-center justify-center gap-1.5">
+                                <span className="text-sm">✏️</span> تعديل الترتيب
+                              </button>
                             </>
                           )}
                         </div>
                       )}
+
+                      {/* Not Submitted + Expanded */}
                       {expandedRanker === r.number && !r.submitted && (
-                        <div className="px-4 pb-3 border-t border-gray-800/60 pt-2 space-y-2">
+                        <div className="px-3 pb-3 border-t border-gray-800/60 pt-3 space-y-1.5">
                           {simulatingRanker === r.number ? (
                             <>
-                              <p className="text-amber-400 text-xs mb-1">🛠️ تصنيف بالنيابة — رتّب الأشخاص الذين قابلهم</p>
+                              <div className="flex items-center gap-1.5 mb-2">
+                                <span className="text-amber-400 text-[11px] font-medium">🛠️ تصنيف بالنيابة</span>
+                                <span className="text-gray-600 text-[10px]">— اسحب للترتيب</span>
+                              </div>
                               {simOrder.map((item: any, idx: number) => (
-                                <div key={item.number} className="flex items-center gap-2 text-xs bg-gray-800/60 rounded-lg px-2 py-1.5">
-                                  <span className="w-5 h-5 rounded-md bg-amber-900/60 text-amber-300 flex items-center justify-center font-bold flex-shrink-0">{idx + 1}</span>
-                                  <span className="text-gray-200 flex-1">{item.name} <span className="text-gray-600">#{item.number}</span></span>
-                                  {item.round && <span className="text-gray-600 text-[10px]">ج{item.round}</span>}
-                                  <div className="flex gap-1">
-                                    <button onClick={() => setSimOrder(o => { const a=[...o]; if(idx>0){[a[idx-1],a[idx]]=[a[idx],a[idx-1]]}; return a })} disabled={idx===0} className="p-0.5 rounded hover:bg-gray-700 disabled:opacity-30">▲</button>
-                                    <button onClick={() => setSimOrder(o => { const a=[...o]; if(idx<a.length-1){[a[idx],a[idx+1]]=[a[idx+1],a[idx]]}; return a })} disabled={idx===simOrder.length-1} className="p-0.5 rounded hover:bg-gray-700 disabled:opacity-30">▼</button>
+                                <div
+                                  key={item.number}
+                                  draggable
+                                  onDragStart={() => setDragIdx(idx)}
+                                  onDragOver={(e) => { e.preventDefault(); setDragOverIdx(idx) }}
+                                  onDragEnd={() => {
+                                    if (dragIdx !== null && dragOverIdx !== null && dragIdx !== dragOverIdx) {
+                                      setSimOrder(o => moveItem(o, dragIdx, dragOverIdx))
+                                    }
+                                    setDragIdx(null); setDragOverIdx(null)
+                                  }}
+                                  className={`flex items-center gap-2 text-xs rounded-lg px-2 py-2 transition-all cursor-grab active:cursor-grabbing ${
+                                    dragOverIdx === idx ? "bg-amber-900/40 border border-amber-600/50" : "bg-gray-800/60 border border-transparent"
+                                  } ${dragIdx === idx ? "opacity-40" : ""}`}
+                                >
+                                  <GripVertical size={12} className="text-gray-600 flex-shrink-0" />
+                                  <span className={`w-6 h-6 rounded-lg flex items-center justify-center font-bold flex-shrink-0 text-[11px] ${rankBadge(idx)}`}>{idx + 1}</span>
+                                  <span className="text-gray-200 flex-1 truncate">{item.name} <span className="text-gray-600">#{item.number}</span></span>
+                                  {item.round && <span className="text-gray-600 text-[9px] bg-gray-800 px-1.5 py-0.5 rounded-full">ج{item.round}</span>}
+                                  <div className="flex gap-0.5">
+                                    <button onClick={() => setSimOrder(o => moveItem(o, idx, idx - 1))} disabled={idx === 0} className="w-6 h-6 rounded-md bg-gray-700/60 hover:bg-gray-600 disabled:opacity-20 flex items-center justify-center text-gray-300 text-[10px]">▲</button>
+                                    <button onClick={() => setSimOrder(o => moveItem(o, idx, idx + 1))} disabled={idx === simOrder.length - 1} className="w-6 h-6 rounded-md bg-gray-700/60 hover:bg-gray-600 disabled:opacity-20 flex items-center justify-center text-gray-300 text-[10px]">▼</button>
                                   </div>
                                 </div>
                               ))}
-                              <div className="flex gap-2 pt-1">
-                                <button onClick={() => saveSimulate(r.number)} disabled={!!loading} className="flex-1 py-1.5 rounded-lg bg-emerald-700/60 hover:bg-emerald-700 text-emerald-200 text-xs font-medium">{loading===`save-sim-${r.number}` ? '...' : 'حفظ التصنيف'}</button>
-                                <button onClick={() => setSimulatingRanker(null)} className="px-3 py-1.5 rounded-lg bg-gray-700 text-gray-400 text-xs">إلغاء</button>
+                              <div className="flex gap-2 pt-2">
+                                <button onClick={() => saveSimulate(r.number)} disabled={!!loading} className="flex-1 py-2 rounded-lg bg-emerald-700/60 hover:bg-emerald-700 text-emerald-200 text-xs font-bold transition-colors">
+                                  {loading === `save-sim-${r.number}` ? <RefreshCw size={12} className="animate-spin mx-auto" /> : '✓ حفظ التصنيف'}
+                                </button>
+                                <button onClick={() => setSimulatingRanker(null)} className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-400 text-xs font-medium transition-colors">إلغاء</button>
                               </div>
                             </>
                           ) : (
-                            <div className="text-center py-2">
+                            <div className="text-center py-3">
                               <p className="text-gray-500 text-xs mb-2">لم يقدّم تصنيفه بعد</p>
-                              <button onClick={() => startSimulate(r.number)} disabled={simLoading} className="px-4 py-1.5 rounded-lg bg-amber-900/40 border border-amber-700/30 hover:bg-amber-900/60 text-amber-300 text-xs font-medium transition-colors">
-                                {simLoading ? '...' : '🛠️ تصنيف بالنيابة'}
+                              <button onClick={() => startSimulate(r.number)} disabled={simLoading} className="px-5 py-2 rounded-lg bg-amber-900/40 border border-amber-700/30 hover:bg-amber-900/60 text-amber-300 text-xs font-bold transition-colors">
+                                {simLoading ? <RefreshCw size={12} className="animate-spin" /> : '🛠️ تصنيف بالنيابة'}
                               </button>
                             </div>
                           )}
@@ -1362,6 +1491,9 @@ export default function Admin3Page() {
                       )}
                     </div>
                   ))}
+                  {filteredRankings.length === 0 && (
+                    <div className="text-center py-8 text-gray-600 text-sm">لا توجد نتائج مطابقة</div>
+                  )}
                 </div>
               </>
             )}
@@ -1499,7 +1631,8 @@ export default function Admin3Page() {
               )}
             </div>
           </div>
-        )}
+        )
+      })()}
 
       </div>
 

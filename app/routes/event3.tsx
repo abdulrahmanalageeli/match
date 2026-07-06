@@ -65,7 +65,7 @@ function PageWrapper({ children, className = "" }: { children: React.ReactNode; 
         <div className="absolute -bottom-24 -left-16 w-[360px] h-[360px] bg-pink-600/15 rounded-full blur-[90px]" />
         <div className="absolute top-1/2 left-1/2 w-[280px] h-[280px] bg-violet-500/10 rounded-full blur-[80px] -translate-x-1/2 -translate-y-1/2" />
       </div>
-      <div className="relative z-10 h-full">{children}</div>
+      <div className={`relative z-10 h-full ${className.includes("flex") ? "flex items-center justify-center" : ""}`}>{children}</div>
     </div>
   )
 }
@@ -118,7 +118,6 @@ function PartnerInfoCard({ data, accent = "pink" }: { data: any; accent?: "pink"
 
   const traits = [
     data?.partner_mbti && { icon: "🧠", label: "الشخصية", value: data.partner_mbti },
-    data?.partner_age && { icon: "📅", label: "العمر", value: ageRange(data.partner_age) },
     data?.partner_communication && { icon: "💬", label: "التواصل", value: data.partner_communication },
     data?.partner_attachment && { icon: "🤝", label: "التعلق", value: data.partner_attachment },
   ].filter(Boolean)
@@ -181,7 +180,7 @@ function CompatibilityBreakdown({ breakdown, accent = "purple" }: { breakdown: a
         <h4 className={`text-base font-bold flex items-center gap-2 ${accentCl}`}>
           <BarChart3 size={16} /> تحليل التوافق
         </h4>
-        <p className="text-gray-500 text-xs mt-0.5">تفصيل دقيق لمستويات التوافق بينكما</p>
+        <p className="text-gray-500 text-xs mt-0.5">تفصيل دقيق لمستويات التوافق — هذا التحليل خاص بهذا الشخص فقط واختاره النظام بناءً على بياناتكما</p>
       </div>
 
       {/* Synergy Overview */}
@@ -1641,7 +1640,7 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
                   className="bg-amber-900/15 border border-amber-800/30 rounded-2xl px-4 py-2.5 text-center space-y-1">
                   <p className="text-amber-300/80 text-xs">🔑 كلما كان ترتيبك متبادلاً — كانت جلستك أدق توافقاً</p>
-                  <p className="text-gray-600 text-[11px]">حتى لو لم تحصل على خيارك الأول، قد تحصل على جلسة مع خيارك الثاني أو الثالث</p>
+                  <p className="text-gray-600 text-[11px]">قد تُطابق مع شخص رتّبته أخيراً إذا لم يخترك أي من أعلى خياراتك — النظام يبحث عن أفضل تطابق ممكن للجميع</p>
                 </motion.div>
               </div>
             </>
@@ -1867,10 +1866,9 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
                       </span>
                     </div>
 
-                    {/* Note toggle button */}
+                    {/* Note toggle button — single tap opens notes, hold to drag */}
                     <button
                       onClick={e => { e.stopPropagation(); setOpenNote(openNote === num ? null : num) }}
-                      onPointerDown={e => e.stopPropagation()}
                       className={`w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-lg transition-all ${
                         notes[num]
                           ? "bg-amber-500/15 border border-amber-600/30 text-amber-400"
@@ -1931,7 +1929,7 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
                 <span className="text-emerald-300 font-bold text-sm">تم إرسال تصنيفك</span>
               </div>
               <p className="text-gray-600 text-[11px]">انتظر المنظم للانتقال للمرحلة التالية</p>
-              <button onClick={() => setShowConfirm(true)} disabled={submitting}
+              <button onClick={() => setSubmitted(false)} disabled={submitting}
                 className="text-gray-500 hover:text-gray-300 text-xs underline transition-colors">
                 تعديل التصنيف
               </button>
@@ -1948,7 +1946,7 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
                 إرسال التصنيف النهائي
               </motion.button>
               <p className="text-center text-gray-700 text-[11px] mt-2">
-                النظام سيختار توافقك الأمثل من تصنيفاتك
+                النظام سيختار توافقك الأمثل من تصنيفاتك · قد تُطابق مع خيارك الأخير إذا لم يخترك أعلى خياراتك
               </p>
             </>
           )}
@@ -1980,7 +1978,7 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
               <h3 className="text-white font-bold text-lg">تأكيد التصنيف</h3>
               <p className="text-gray-400 text-sm leading-relaxed">
                 ستقوم بإرسال ترتيبك النهائي لـ <span className="text-white font-semibold">{order.length}</span> شخص.
-                {submitted ? " سيتم تحديث تصنيفك السابق." : " لا يمكن التراجع بعد الإرسال."}
+                {submitted ? " سيتم تحديث تصنيفك السابق." : " يمكنك تعديل تصنيفك لاحقاً بعد الإرسال."}
               </p>
               {/* Top 3 preview */}
               <div className="bg-gray-800/50 rounded-2xl p-3 space-y-1.5">
@@ -2538,7 +2536,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               <Users size={13} /> جلسة فردية 1:1 · اختيارك أنت
             </div>
             <p className="text-gray-600 text-xs">جلسة خاصة مع الشخص الذي اخترته من جولات التعارف</p>
-            <InfoHint text="اضغط للكشف عن اسم شريكك · لديك وقت محدد للمحادثة · يمكنك إرسال كلمة تصف تجربتك" delay={0.4} duration={5} />
+            <InfoHint text="اضغط لتأكيد وصولك للطاولة · لديك وقت محدد للمحادثة · يمكنك إرسال كلمة تصف تجربتك" delay={0.4} duration={5} />
           </div>
         </motion.div>
 
@@ -2572,12 +2570,12 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 <MapPin size={18} className="text-pink-400 mx-auto" />
                 <p className="text-gray-500 text-xs">توجّه إلى الطاولة رقم</p>
                 <div className="text-6xl font-black text-pink-300">{data?.table_number ?? "—"}</div>
-                <p className="text-gray-600 text-xs">بعد الوصول، اكشف اسم شريكك</p>
+                <p className="text-gray-600 text-xs">بعد الوصول، اضغط لتأكيد وصولك</p>
               </motion.div>
               <motion.button onClick={handleReveal} whileTap={{ scale: 0.97 }}
                 className="w-full bg-gradient-to-br from-pink-600 via-rose-600 to-pink-700 text-white rounded-2xl py-5 font-bold text-lg shadow-2xl shadow-pink-600/40 border border-pink-500/30">
                 <motion.span animate={{ scale: [1, 1.06, 1] }} transition={{ duration: 1.8, repeat: Infinity }} className="flex items-center justify-center gap-3">
-                  <Users size={22} /> اكشف اسم شريكك
+                  <MapPin size={22} /> وصلت إلى الطاولة
                 </motion.span>
               </motion.button>
               {timerActive && timeLeft > 0 && (
@@ -2835,7 +2833,7 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               <Brain size={13} /> جلسة فردية 1:1 · اختيارنا لك
             </div>
             <p className="text-gray-600 text-xs">جلسة خاصة مع من رشّحه النظام بناءً على توافقكما</p>
-            <InfoHint text="الخوارزمية اختارت هذا الشخص بناءً على بياناتك وبياناتهم · اضغط للكشف · ستحصل على أسئلة للنقاش" delay={0.4} duration={5} />
+            <InfoHint text="الخوارزمية اختارت هذا الشخص بناءً على بياناتك وبياناتهم · اضغط لتأكيد وصولك · ستحصل على أسئلة للنقاش" delay={0.4} duration={5} />
           </div>
         </motion.div>
 
@@ -2869,13 +2867,13 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 <MapPin size={18} className="text-purple-400 mx-auto" />
                 <p className="text-gray-500 text-xs">توجّه إلى الطاولة رقم</p>
                 <div className="text-6xl font-black text-purple-300">{data?.table_number ?? "—"}</div>
-                <p className="text-gray-600 text-xs">بعد الوصول، اكشف اختيار الخوارزمية
+                <p className="text-gray-600 text-xs">بعد الوصول، اضغط لتأكيد وصولك
                 </p>
               </motion.div>
               <motion.button onClick={handleReveal} whileTap={{ scale: 0.97 }}
                 className="w-full bg-gradient-to-br from-purple-600 via-violet-600 to-purple-700 text-white rounded-2xl py-5 font-bold text-lg shadow-2xl shadow-purple-600/40 border border-purple-500/30">
                 <motion.span animate={{ rotate: [0, -4, 4, 0] }} transition={{ duration: 3, repeat: Infinity }} className="flex items-center justify-center gap-3">
-                  <Brain size={22} /> اكشف اختيار الخوارزمية
+                  <MapPin size={22} /> وصلت إلى الطاولة
                 </motion.span>
               </motion.button>
               {timerActive && timeLeft > 0 && (
@@ -3136,36 +3134,46 @@ function FinalRevealScreen({ token }: { token: string }) {
 
         <div className="grid grid-cols-2 gap-3">
           <motion.div initial={{ opacity: 0, x: -15 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}>
-            <GlassCard className="p-5 space-y-2.5 border border-pink-800/40 shadow-xl shadow-pink-500/8 h-full flex flex-col items-center">
-              <div className="text-2xl">🌟</div>
-              <p className="text-gray-500 text-xs">اخترت</p>
+            <div className="relative overflow-hidden rounded-2xl border border-pink-800/40 shadow-xl shadow-pink-900/20 h-full flex flex-col items-center p-5 space-y-2.5 bg-gradient-to-br from-pink-950/40 to-rose-950/20">
+              <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-pink-400/50 to-transparent" />
+              <div className="w-10 h-10 rounded-xl bg-pink-900/50 border border-pink-700/40 flex items-center justify-center">
+                <Heart size={18} className="text-pink-400" />
+              </div>
+              <p className="text-pink-400/70 text-[10px] font-semibold tracking-wide uppercase">اختيارك الشخصي</p>
               <p className="text-xl font-black text-white leading-tight">{data.phase2?.partner_first_name}</p>
-              <div className="flex items-center gap-1">
-                <span className="text-pink-300 font-black text-sm">{data.phase2?.compatibility_score}%</span>
-                <span className="text-gray-600 text-xs">توافق</span>
+              <div className="w-full flex items-center justify-center gap-1.5 pt-1">
+                <div className="flex items-baseline gap-0.5">
+                  <span className="text-pink-300 font-black text-lg">{data.phase2?.compatibility_score}</span>
+                  <span className="text-pink-400/50 text-xs">%</span>
+                </div>
               </div>
               {data.phase2?.word && (
                 <span className="text-xs bg-pink-900/40 text-pink-300 border border-pink-800/40 rounded-full px-2.5 py-0.5">
                   "{data.phase2.word}"
                 </span>
               )}
-            </GlassCard>
+            </div>
           </motion.div>
           <motion.div initial={{ opacity: 0, x: 15 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}>
-            <GlassCard className="p-5 space-y-2.5 border border-purple-800/40 shadow-xl shadow-purple-500/8 h-full flex flex-col items-center">
-              <div className="text-2xl">🧠</div>
-              <p className="text-gray-500 text-xs">الخوارزمية</p>
+            <div className="relative overflow-hidden rounded-2xl border border-purple-800/40 shadow-xl shadow-purple-900/20 h-full flex flex-col items-center p-5 space-y-2.5 bg-gradient-to-br from-purple-950/40 to-violet-950/20">
+              <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-purple-400/50 to-transparent" />
+              <div className="w-10 h-10 rounded-xl bg-purple-900/50 border border-purple-700/40 flex items-center justify-center">
+                <Brain size={18} className="text-purple-400" />
+              </div>
+              <p className="text-purple-400/70 text-[10px] font-semibold tracking-wide uppercase">اختيار الخوارزمية</p>
               <p className="text-xl font-black text-white leading-tight">{data.phase3?.partner_first_name}</p>
-              <div className="flex items-center gap-1">
-                <span className="text-purple-300 font-black text-sm">{data.phase3?.compatibility_score}%</span>
-                <span className="text-gray-600 text-xs">توافق</span>
+              <div className="w-full flex items-center justify-center gap-1.5 pt-1">
+                <div className="flex items-baseline gap-0.5">
+                  <span className="text-purple-300 font-black text-lg">{data.phase3?.compatibility_score}</span>
+                  <span className="text-purple-400/50 text-xs">%</span>
+                </div>
               </div>
               {data.phase3?.word && (
                 <span className="text-xs bg-purple-900/40 text-purple-300 border border-purple-800/40 rounded-full px-2.5 py-0.5">
                   "{data.phase3.word}"
                 </span>
               )}
-            </GlassCard>
+            </div>
           </motion.div>
         </div>
 

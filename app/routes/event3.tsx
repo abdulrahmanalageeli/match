@@ -8,7 +8,7 @@ import {
   Clock, MapPin, Brain, ChevronDown, ExternalLink,
   CheckCircle, Send, RefreshCw, Sparkles, Home, Trophy, Lock, GripVertical,
   MessageSquare, ChevronRight, Users, PenLine, Shuffle, BarChart3, GitMerge, X, Heart,
-  Frown, Meh, Smile, Layers,
+  Frown, Meh, Smile, Layers, Zap,
 } from "lucide-react"
 
 import { QuestionSlideshow } from "~/components/QuestionSlideshow"
@@ -299,7 +299,7 @@ const FLOW_STEPS = [
 ]
 
 function WelcomeScreen({ onDone }: { onDone: () => void }) {
-  const [phase, setPhase] = useState<"splash" | "steps">("splash")
+  const [phase, setPhase] = useState<"splash" | "rules" | "steps">("splash")
   const [step, setStep] = useState(0)
   const [dir, setDir] = useState(1)
 
@@ -408,7 +408,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
             >
               <motion.button
                 whileTap={{ scale: 0.97 }}
-                onClick={() => setPhase("steps")}
+                onClick={() => setPhase("rules")}
                 className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-2xl py-3.5 font-black text-base shadow-2xl shadow-purple-600/30 transition-all"
               >
                 كيف تسير الفعالية؟ ←
@@ -420,6 +420,64 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
                 تخطّى — أدخل رمزك مباشرة
               </button>
             </motion.div>
+          </motion.div>
+        )}
+
+        {/* ── RULES PHASE ─────────────────────────────────────────────── */}
+        {phase === "rules" && (
+          <motion.div
+            key="rules"
+            initial={{ opacity: 0, x: 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -40 }}
+            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+            className="relative z-10 flex-1 flex flex-col overflow-hidden"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4">
+              <button onClick={() => setPhase("splash")} className="flex items-center gap-1 text-gray-500 text-sm hover:text-gray-400 transition-colors">
+                <ChevronRight size={15} className="rotate-180" /> رجوع
+              </button>
+              <span className="text-[11px] font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent tracking-wide">✨ قواعد الجلسة</span>
+            </div>
+
+            {/* Rules list */}
+            <div className="flex-1 overflow-y-auto px-5 pb-2 space-y-2.5">
+              {[
+                { icon: "🫱🏼‍🫲🏽", title: "الاحترام المتبادل", desc: "تعامل مع الجميع بالاحترام الذي تودّ أن تُعامَل به، بغض النظر عن الاختلاف" },
+                { icon: "👂", title: "الاستماع الفعّال", desc: "أعطِ من أمامك انتباهك الكامل — لا هاتف، لا تشتت" },
+                { icon: "🔒", title: "السرية التامة", desc: "ما يُشارَك في الجلسة يبقى بينكم — لا نشر ولا تسجيل" },
+                { icon: "🚫", title: "لا إحراج", desc: "امتنع عن الأسئلة المُحرجة أو التعليقات الجارحة أو أي شكل من الإزعاج" },
+                { icon: "💬", title: "الصدق اللطيف", desc: "كن صادقاً في تعبيرك مع الحفاظ على اللطف والإيجابية" },
+                { icon: "✊", title: "احترام الاختلاف", desc: "تباين الآراء والخلفيات ثروة — تقبّله بانفتاح وفضول" },
+              ].map((rule, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.07, duration: 0.3 }}
+                  className="flex items-start gap-3 bg-white/[0.04] border border-white/[0.07] rounded-2xl px-4 py-3.5"
+                >
+                  <span className="text-2xl flex-shrink-0 mt-0.5">{rule.icon}</span>
+                  <div className="text-right">
+                    <p className="text-white font-bold text-sm">{rule.title}</p>
+                    <p className="text-gray-500 text-xs mt-0.5 leading-relaxed">{rule.desc}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+
+            {/* CTA */}
+            <div className="px-5 pt-3 pb-5">
+              <motion.button
+                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => setPhase("steps")}
+                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-2xl py-3.5 font-black text-base shadow-2xl shadow-purple-600/30 transition-all"
+              >
+                فهمت — كيف تسير الفعالية؟ ←
+              </motion.button>
+            </div>
           </motion.div>
         )}
 
@@ -444,7 +502,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
             {/* Header nav */}
             <div className="flex items-center justify-between px-5 py-4">
               <button
-                onClick={() => step === 0 ? setPhase("splash") : goPrev()}
+                onClick={() => step === 0 ? setPhase("rules") : goPrev()}
                 className="flex items-center gap-1 text-gray-500 text-sm hover:text-gray-400 transition-colors"
               >
                 <ChevronRight size={15} className="rotate-180" />

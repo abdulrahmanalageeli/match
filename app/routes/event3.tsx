@@ -1374,13 +1374,24 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
 function RankingTutorial({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState(0)
   const [dir, setDir] = useState(1)
+  const [rankOrder, setRankOrder] = useState([1, 0, 3, 2])
   const TOTAL = 4
+
   const goNext = () => { if (step < TOTAL - 1) { setDir(1); setStep(s => s + 1) } else onClose() }
   const goPrev = () => { if (step > 0) { setDir(-1); setStep(s => s - 1) } }
 
+  // Auto-animate ranking order on step 0
+  useEffect(() => {
+    if (step !== 0) return
+    const orders = [[1,0,3,2], [0,2,1,3], [2,0,1,3], [0,1,2,3]]
+    let i = 0
+    const iv = setInterval(() => { i = (i + 1) % orders.length; setRankOrder(orders[i]) }, 1300)
+    return () => clearInterval(iv)
+  }, [step])
+
   const people = [
     { name: "سارة", init: "س", color: "from-pink-500 to-rose-500", dim: "bg-pink-900/30 border-pink-800/40" },
-    { name: "فهد", init: "ف", color: "from-blue-500 to-cyan-500", dim: "bg-blue-900/30 border-blue-800/40" },
+    { name: "فهد",  init: "ف", color: "from-blue-500 to-cyan-500",  dim: "bg-blue-900/30 border-blue-800/40"  },
     { name: "نورة", init: "ن", color: "from-violet-500 to-purple-500", dim: "bg-violet-900/30 border-violet-800/40" },
     { name: "خالد", init: "خ", color: "from-emerald-500 to-teal-500", dim: "bg-emerald-900/30 border-emerald-800/40" },
   ]
@@ -1410,88 +1421,142 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
         <motion.div key={step}
           initial={{ opacity: 0, x: dir * 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 50 }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          className="w-full max-w-sm flex flex-col items-center gap-5 flex-1 justify-center"
+          className="w-full max-w-sm flex flex-col items-center gap-4 flex-1 justify-center"
         >
-          {/* Step 1 – You rank */}
+
+          {/* ── Step 0: Animated drag-to-rank list ──────────────────────── */}
           {step === 0 && (
             <>
               <div className="text-center space-y-1">
                 <div className="text-4xl mb-2">🏆</div>
                 <h2 className="text-white font-black text-xl">رتّب من أعجبك</h2>
-                <p className="text-gray-400 text-sm leading-relaxed">بعد الجلسات الجماعية رتّب الجميع — الأول هو أولويتك القصوى</p>
+                <p className="text-gray-400 text-sm">من الأعلى اهتماماً للأقل — الأول هو أولويتك القصوى</p>
               </div>
               <div className="w-full space-y-2">
-                {[0, 2, 1, 3].map((pi, rank) => {
+                {rankOrder.map((pi, rank) => {
                   const p = people[pi]
                   return (
                     <motion.div key={pi} layout
-                      initial={{ opacity: 0, x: -15 }} animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: rank * 0.1, layout: { type: "spring", stiffness: 400, damping: 35 } }}
+                      transition={{ type: "spring", stiffness: 350, damping: 28 }}
                       className={`flex items-center gap-3 ${p.dim} border rounded-2xl px-4 py-3`}
                     >
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0 ${rankStyle(rank)}`}>{rank + 1}</div>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0 transition-all duration-300 ${rankStyle(rank)}`}>{rank + 1}</div>
                       <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${p.color} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>{p.init}</div>
                       <span className="text-white text-sm font-medium flex-1">{p.name}</span>
-                      {rank === 0 && <span className="text-amber-400 text-[10px] font-semibold">اختيارك الأول ⭐</span>}
+                      {rank === 0 && (
+                        <motion.span key="star" initial={{ scale: 0 }} animate={{ scale: 1 }}
+                          className="text-amber-400 text-[10px] font-semibold">⭐ أولوية</motion.span>
+                      )}
                     </motion.div>
                   )
                 })}
               </div>
-              <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-                className="text-gray-600 text-xs text-center">اسحب البطاقات لإعادة الترتيب</motion.p>
+              <p className="text-gray-600 text-xs text-center">↑↓ الترتيب يتغير بسحب البطاقات</p>
             </>
           )}
 
-          {/* Step 2 – Everyone ranks secretly */}
+          {/* ── Step 1: Scenarios – what each ranking leads to ─────────── */}
           {step === 1 && (
             <>
               <div className="text-center space-y-1">
-                <div className="text-4xl mb-2">🔒</div>
-                <h2 className="text-white font-black text-xl">الكل يرتّب بسرية</h2>
-                <p className="text-gray-400 text-sm leading-relaxed">كل مشارك يرتّب الآخرين — لا أحد يعرف ترتيب غيره حتى يُكشف</p>
+                <div className="text-4xl mb-2">🎭</div>
+                <h2 className="text-white font-black text-xl">ماذا يحدث لكل اختيار؟</h2>
+                <p className="text-gray-400 text-sm">النتيجة تعتمد على ترتيب الطرفين معاً</p>
               </div>
-              <div className="w-full grid grid-cols-2 gap-3">
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 space-y-2">
-                  <p className="text-white text-xs font-bold text-center flex items-center justify-center gap-1.5">
-                    <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white text-[9px] font-black">أ</div> أنت
-                  </p>
-                  {[{ n: "سارة", star: true }, { n: "فهد", star: false }, { n: "نورة", star: false }].map((x, i) => (
-                    <motion.div key={x.n} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.12 + 0.2 }}
-                      className="flex items-center gap-2">
-                      <span className={`w-4 h-4 rounded text-[9px] font-black flex items-center justify-center flex-shrink-0 ${i === 0 ? "bg-amber-400 text-black" : "bg-gray-700 text-gray-400"}`}>{i + 1}</span>
-                      <span className={`text-xs ${i === 0 ? "text-amber-300 font-semibold" : "text-gray-500"}`}>{x.n}{x.star ? " ⭐" : ""}</span>
-                    </motion.div>
-                  ))}
-                </div>
-                <div className="bg-pink-900/20 border border-pink-800/30 rounded-2xl p-3.5 space-y-2">
-                  <p className="text-pink-300 text-xs font-bold text-center flex items-center justify-center gap-1.5">
-                    <div className="w-5 h-5 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-white text-[9px] font-black">س</div> سارة
-                  </p>
-                  {[{ n: "أنت", star: true }, { n: "خالد", star: false }, { n: "نورة", star: false }].map((x, i) => (
-                    <motion.div key={x.n} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.12 + 0.4 }}
-                      className="flex items-center gap-2">
-                      <span className={`w-4 h-4 rounded text-[9px] font-black flex items-center justify-center flex-shrink-0 ${i === 0 ? "bg-amber-400 text-black" : "bg-gray-700 text-gray-400"}`}>{i + 1}</span>
-                      <span className={`text-xs ${i === 0 ? "text-amber-300 font-semibold" : "text-gray-500"}`}>{x.n}{x.star ? " ⭐" : ""}</span>
-                    </motion.div>
-                  ))}
-                </div>
+              <div className="w-full space-y-2.5">
+
+                {/* Scenario A: mutual #1/#1 → MATCH */}
+                <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 }}
+                  className="bg-emerald-900/25 border border-emerald-700/40 rounded-2xl px-3.5 py-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="bg-emerald-500 text-black text-[9px] font-black rounded-full px-2 py-0.5">✅ تطابق مثالي</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
+                      <div className="text-[10px] text-gray-400">رتّبتها</div>
+                      <div className="w-7 h-7 rounded-full bg-amber-400 text-black text-[10px] font-black flex items-center justify-center">#1</div>
+                    </div>
+                    <div className="flex-1 flex flex-col items-center gap-0.5">
+                      <div className="flex items-center w-full gap-1">
+                        <div className="flex-1 border-t border-dashed border-emerald-600/50"/>
+                        <motion.span animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 1.2, repeat: Infinity }} className="text-base">❤️</motion.span>
+                        <div className="flex-1 border-t border-dashed border-emerald-600/50"/>
+                      </div>
+                      <span className="text-emerald-400 text-[9px] font-bold">متبادل → جلسة!</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
+                      <div className="text-[10px] text-gray-400">هي رتّبتك</div>
+                      <div className="w-7 h-7 rounded-full bg-amber-400 text-black text-[10px] font-black flex items-center justify-center">#1</div>
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* Scenario B: you #3 / they #1 → weak match */}
+                <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}
+                  className="bg-amber-950/30 border border-amber-800/30 rounded-2xl px-3.5 py-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="bg-amber-900/50 text-amber-300 border border-amber-700/40 text-[9px] font-black rounded-full px-2 py-0.5">⚠️ تطابق ضعيف</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
+                      <div className="text-[10px] text-gray-400">رتّبتها</div>
+                      <div className="w-7 h-7 rounded-full bg-gray-700 text-gray-400 text-[10px] font-black flex items-center justify-center">#3</div>
+                    </div>
+                    <div className="flex-1 flex flex-col items-center gap-0.5">
+                      <div className="flex items-center w-full gap-1">
+                        <div className="flex-1 border-t border-dashed border-amber-800/40"/>
+                        <span className="text-amber-700 text-sm">↔</span>
+                        <div className="flex-1 border-t border-dashed border-amber-800/40"/>
+                      </div>
+                      <span className="text-amber-700 text-[9px]">غير متكافئ</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
+                      <div className="text-[10px] text-gray-400">هي رتّبتك</div>
+                      <div className="w-7 h-7 rounded-full bg-amber-400 text-black text-[10px] font-black flex items-center justify-center">#1</div>
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* Scenario C: you #4 / they #1 → rejected */}
+                <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.35 }}
+                  className="bg-red-950/20 border border-red-900/30 rounded-2xl px-3.5 py-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="bg-red-950/50 text-red-400 border border-red-900/40 text-[9px] font-black rounded-full px-2 py-0.5">❌ لا جلسة</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
+                      <div className="text-[10px] text-gray-400">رتّبته</div>
+                      <div className="w-7 h-7 rounded-full bg-gray-800 text-gray-600 text-[10px] font-black flex items-center justify-center">#4</div>
+                    </div>
+                    <div className="flex-1 flex flex-col items-center gap-0.5">
+                      <div className="flex items-center w-full gap-1">
+                        <div className="flex-1 border-t border-dashed border-red-900/30"/>
+                        <span className="text-red-800 text-sm font-black">✕</span>
+                        <div className="flex-1 border-t border-dashed border-red-900/30"/>
+                      </div>
+                      <span className="text-red-800 text-[9px]">وضعك آخر الترتيب</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
+                      <div className="text-[10px] text-gray-400">هو رتّبك</div>
+                      <div className="w-7 h-7 rounded-full bg-amber-400 text-black text-[10px] font-black flex items-center justify-center">#1</div>
+                    </div>
+                  </div>
+                </motion.div>
+
               </div>
-              <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.8 }}
-                className="bg-amber-900/20 border border-amber-700/30 rounded-2xl px-4 py-2.5 text-center">
-                <p className="text-amber-300 text-xs font-bold">💡 لا أحد يرى ترتيب غيره</p>
-              </motion.div>
             </>
           )}
 
-          {/* Step 3 – Algorithm finds mutual */}
+          {/* ── Step 2: The system finds the best mutual match ─────────── */}
           {step === 2 && (
             <>
               <div className="text-center space-y-1">
-                <div className="text-4xl mb-2">🤖</div>
-                <h2 className="text-white font-black text-xl">الخوارزمية تبحث</h2>
-                <p className="text-gray-400 text-sm leading-relaxed">تبحث عن أعلى تطابق متبادل — من وضعته أولاً ووضعك أولاً</p>
+                <div className="text-4xl mb-2">🔍</div>
+                <h2 className="text-white font-black text-xl">النظام يقارن الترتيبات</h2>
+                <p className="text-gray-400 text-sm">يبحث عن أعلى تطابق متبادل بين الجميع</p>
               </div>
               <div className="w-full space-y-3">
+                {/* Mutual – glowing */}
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
                   className="relative bg-emerald-900/25 border border-emerald-700/50 rounded-2xl p-4 overflow-hidden">
                   <motion.div className="absolute inset-0 bg-emerald-500/8 rounded-2xl"
@@ -1502,9 +1567,15 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
                       <span className="text-gray-400 text-[10px]">أنت</span>
                       <span className="text-amber-400 text-[9px] font-bold">رتّبها #1</span>
                     </div>
-                    <div className="flex flex-col items-center gap-1.5">
-                      <motion.div animate={{ scale: [1, 1.25, 1] }} transition={{ duration: 1, repeat: Infinity }} className="text-2xl">❤️</motion.div>
-                      <span className="text-emerald-300 text-[10px] font-bold bg-emerald-900/40 border border-emerald-700/40 px-2 py-0.5 rounded-full">تطابق!</span>
+                    <div className="flex-1 flex flex-col items-center gap-1 px-2">
+                      <div className="flex items-center w-full gap-1">
+                        <motion.div className="flex-1 h-px bg-emerald-500/60"
+                          animate={{ scaleX: [0.4, 1, 0.4] }} transition={{ duration: 1.5, repeat: Infinity }} />
+                        <motion.div animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 1, repeat: Infinity }} className="text-xl">❤️</motion.div>
+                        <motion.div className="flex-1 h-px bg-emerald-500/60"
+                          animate={{ scaleX: [0.4, 1, 0.4] }} transition={{ duration: 1.5, repeat: Infinity }} />
+                      </div>
+                      <span className="text-emerald-300 text-[10px] font-bold bg-emerald-900/50 border border-emerald-700/40 px-2 py-0.5 rounded-full">تطابق!</span>
                     </div>
                     <div className="flex flex-col items-center gap-1">
                       <div className="w-11 h-11 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-white font-black">س</div>
@@ -1513,48 +1584,53 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
                     </div>
                   </div>
                 </motion.div>
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.4 }} transition={{ delay: 0.5 }}
+                {/* Non-mutual – faded */}
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.38 }} transition={{ delay: 0.55 }}
                   className="bg-gray-900/50 border border-gray-800/50 rounded-2xl p-3.5 flex items-center justify-between">
                   <div className="flex flex-col items-center gap-0.5">
                     <div className="w-9 h-9 rounded-full bg-gray-700 flex items-center justify-center text-gray-400 text-xs font-bold">ف</div>
-                    <span className="text-gray-600 text-[9px]">فهد — رتّبك #1</span>
+                    <span className="text-gray-600 text-[9px]">فهد رتّبك #1</span>
                   </div>
-                  <div className="text-center">
-                    <span className="text-gray-700 text-sm">↔</span>
-                    <p className="text-gray-700 text-[9px]">لا تطابق كافٍ</p>
+                  <div className="flex-1 text-center">
+                    <span className="text-gray-700 text-lg font-black">✕</span>
+                    <p className="text-gray-700 text-[9px]">أنت رتّبته #3</p>
                   </div>
                   <div className="flex flex-col items-center gap-0.5">
                     <div className="w-9 h-9 rounded-full bg-gray-700 flex items-center justify-center text-gray-400 text-xs font-bold">أ</div>
-                    <span className="text-gray-600 text-[9px]">أنت — رتّبته #3</span>
+                    <span className="text-gray-600 text-[9px]">لا جلسة معه</span>
                   </div>
+                </motion.div>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
+                  className="bg-amber-900/15 border border-amber-800/30 rounded-2xl px-4 py-2.5 text-center">
+                  <p className="text-amber-400/70 text-xs">💡 كل شخص يحصل على أفضل تطابق متبادل ممكن</p>
                 </motion.div>
               </div>
             </>
           )}
 
-          {/* Step 4 – Result */}
+          {/* ── Step 3: Result ───────────────────────────────────────────── */}
           {step === 3 && (
             <>
               <div className="text-center space-y-1">
                 <div className="text-4xl mb-2">✨</div>
                 <h2 className="text-white font-black text-xl">نتيجتك: جلستان فرديتان</h2>
-                <p className="text-gray-400 text-sm leading-relaxed">ترتيبك الآن يحدد من ستجلس معه في جلستيك الفرديتين</p>
+                <p className="text-gray-400 text-sm">ترتيبك يحدد من ستجلس معه في الجلستين الفرديتين</p>
               </div>
               <div className="w-full space-y-3">
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
                   className="bg-pink-900/25 border border-pink-700/40 rounded-2xl p-4 flex items-center gap-3">
                   <div className="text-2xl flex-shrink-0">💘</div>
                   <div>
-                    <p className="text-white font-bold text-sm">جلسة اختيارك الشخصي</p>
-                    <p className="text-pink-300 text-xs mt-0.5">أعلى تطابق متبادل من ترتيبك ← تختار أنت</p>
+                    <p className="text-white font-bold text-sm">جلسة اختيارك</p>
+                    <p className="text-pink-300 text-xs mt-0.5">أعلى تطابق متبادل من ترتيبك — أنت من اختار</p>
                   </div>
                 </motion.div>
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
                   className="bg-purple-900/25 border border-purple-700/40 rounded-2xl p-4 flex items-center gap-3">
                   <div className="text-2xl flex-shrink-0">🧠</div>
                   <div>
-                    <p className="text-white font-bold text-sm">جلسة اختيار الخوارزمية</p>
-                    <p className="text-purple-300 text-xs mt-0.5">الخوارزمية تختار أفضل توافق بناءً على بياناتكما</p>
+                    <p className="text-white font-bold text-sm">جلسة التوافق الذكي</p>
+                    <p className="text-purple-300 text-xs mt-0.5">النظام يختار أفضل توافق بناءً على بياناتكما معاً</p>
                   </div>
                 </motion.div>
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
@@ -1564,6 +1640,7 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
               </div>
             </>
           )}
+
         </motion.div>
       </AnimatePresence>
 

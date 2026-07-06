@@ -3375,7 +3375,7 @@ function FinalRevealScreen({ token }: { token: string }) {
               <div className="text-4xl">🎉</div>
               <h2 className="text-xl font-black text-white">انتهت الفعالية!</h2>
               <p className="text-gray-400 text-sm leading-relaxed">
-                راجع نتائجك وتفاصيل التوافق هنا. يمكنك العودة لأعلى الصفحة لمواصلة أسئلة الجلسات الفردية إذا أردت.
+                راجع نتائجك وتفاصيل التوافق هنا أولاً. بعد ذلك، يمكنك اختيار من تريد مواصلة التحدث معه — سواء شريك اختيارك أو شريك الخوارزمية. يمكنك أيضاً مواصلة التحدث مع أي شخص بعد الفعالية إذا رغب الطرفان.
               </p>
               <div className="flex flex-col gap-2.5 pt-1">
                 <button

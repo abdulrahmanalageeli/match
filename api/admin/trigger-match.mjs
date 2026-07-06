@@ -4094,7 +4094,7 @@ if (action === "cache-status-by-gender") {
       .from("participants")
       .select("assigned_number,name,survey_data,mbti_personality_type,attachment_style,communication_style,gender,age,same_gender_preference,any_gender_preference,humor_banter_style,early_openness_comfort,nationality,prefer_same_nationality,preferred_age_min,preferred_age_max,open_age_preference")
       .eq("match_id", _match_id)
-      .eq("event_id", eventId)
+      .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
       .neq("assigned_number", 9999)
 
     const allEligible = (allRaw || []).filter(isParticipantComplete)

@@ -3653,7 +3653,7 @@ export default async function handler(req, res) {
           .from("participants")
           .select("assigned_number, name, survey_data, gender")
           .eq("match_id", STATIC_MATCH_ID)
-          .eq("event_id", event_id)
+          .or(`signup_for_next_event.eq.true,event_id.eq.${event_id},auto_signup_next_event.eq.true`)
           .neq("assigned_number", 9999)
 
         const eligible = (rawParticipants || []).filter(p =>

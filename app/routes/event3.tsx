@@ -2355,7 +2355,13 @@ function SOSButton({ token, position = 'top' }: { token: string; position?: 'top
             <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-2.5 min-h-[120px]">
               {messages.length === 0 && showOptions && (
                 <div className="space-y-2.5 py-2">
-                  <p className="text-center text-gray-600 text-xs mb-3">اختر نوع الطلب</p>
+                  <div className="bg-amber-950/30 border border-amber-800/30 rounded-xl p-3 text-[10px] leading-relaxed text-amber-200/80 space-y-1.5">
+                    <p className="font-bold text-amber-300 text-[11px]">قبل أن تطلب المساعدة:</p>
+                    <p>عدم الإعجاب بالشخص أو المجموعة ليس سبباً صحيحاً لطلب المساعدة — كل جولة تُحدّث وبناءً على تقييمك ستتحسن الخوارزمية.</p>
+                    <p>استخدم هذا الزر فقط إذا: خالف أحدهم القواعد، أو لديك طارئ، أو لديك استفسار عام.</p>
+                    <p className="text-amber-400/60">يمكنك استئناف المحادثات مع أي شخص بعد الفعالية إذا رغب الطرفان.</p>
+                  </div>
+                  <p className="text-center text-gray-600 text-xs mb-1">اختر نوع الطلب</p>
                   <button
                     onClick={() => { setShowOptions(false); setInput(''); send('طلب مساعدة عاجل - أحتاج المنظم إلى طاولتي') }}
                     className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-red-950/30 border border-red-800/40 hover:bg-red-950/50 transition-all text-right"
@@ -3359,31 +3365,34 @@ function FinalRevealScreen({ token }: { token: string }) {
               className="bg-gray-900 border border-gray-700/60 rounded-3xl p-7 max-w-sm w-full text-center space-y-4 shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="text-4xl">👋</div>
-              <h2 className="text-xl font-black text-white">قبل أن تغادر</h2>
+              <div className="text-4xl">🎉</div>
+              <h2 className="text-xl font-black text-white">انتهت الفعالية!</h2>
               <p className="text-gray-400 text-sm leading-relaxed">
-                انتهت الفعالية رسمياً. بإمكانك مراجعة النتائج هنا، أو العودة لمواصلة التعارف مع الشخص الآخر إذا كان لديك ما تقوله. الخيار لك.
+                راجع نتائجك وتفاصيل التوافق هنا أولاً. بعد ذلك، يمكنك اختيار من تريد مواصلة التحدث معه — سواء شريك اختيارك أو شريك الخوارزمية. يمكنك أيضاً مواصلة التحدث مع أي شخص بعد الفعالية إذا رغب الطرفان.
               </p>
               <div className="flex flex-col gap-2.5 pt-1">
                 <button
                   onClick={() => setShowExitPopup(false)}
-                  className="w-full py-3 rounded-2xl bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white text-sm font-bold transition-all"
+                  className="w-full py-3 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-sm font-bold transition-all"
                 >
                   مراجعة النتائج هنا
                 </button>
                 <a
                   href="/welcome"
-                  className="w-full py-3 rounded-2xl bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-medium transition-all"
+                  className="w-full py-3 rounded-2xl bg-pink-900/40 border border-pink-700/40 hover:bg-pink-900/60 text-pink-300 text-sm font-medium transition-all"
                 >
-                  العودة لمواصلة التعارف
+                  مواصلة التحدث مع شريك اختياري
+                </a>
+                <a
+                  href="/welcome"
+                  className="w-full py-3 rounded-2xl bg-purple-900/40 border border-purple-700/40 hover:bg-purple-900/60 text-purple-300 text-sm font-medium transition-all"
+                >
+                  مواصلة التحدث مع شريك الخوارزمية
                 </a>
               </div>
-              <button
-                onClick={() => setShowExitPopup(false)}
-                className="text-gray-600 text-xs hover:text-gray-500 transition-colors"
-              >
-                ربما لاحقاً
-              </button>
+              <p className="text-gray-600 text-[11px] leading-relaxed pt-1">
+                يمكنك استئناف المحادثات مع أي شخص بعد الفعالية إذا كان الطرفان مهتمين.
+              </p>
             </motion.div>
           </motion.div>
         )}
@@ -3515,8 +3524,8 @@ export default function Event3Page() {
         </AnimatePresence>
       </div>
 
-      {/* SOS button in normal flow at bottom on all screens (hidden on ranking pages) */}
-      {enrolled && !rankingMatch && <SOSButton token={token} position="bottom" />}
+      {/* SOS button — hidden on final reveal and ranking pages */}
+      {enrolled && !rankingMatch && phase !== "final_reveal" && <SOSButton token={token} position="bottom" />}
     </div>
   )
 }

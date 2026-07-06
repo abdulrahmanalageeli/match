@@ -4,7 +4,7 @@ import {
   Users, Play, Square, ChevronRight, RotateCcw, CheckCircle,
   Circle, RefreshCw, Table2, Trophy, Clock, BarChart3, Shuffle,
   Eye, EyeOff, ArrowRight, Sparkles, Brain, Shield, LogOut,
-  Grid3x3, Star, Check, AlertCircle, Loader2, Copy, Heart, Layers, ChevronDown, X, MessageSquare, Send, Home,
+  Grid3x3, Star, Check, AlertCircle, Loader2, Copy, Heart, Layers, ChevronDown, X, MessageSquare, Send, Home, Trash2,
 } from "lucide-react"
 
 const ADMIN_PASSWORD = "soulmatch2026"
@@ -2686,6 +2686,16 @@ export default function Admin3Page() {
                 <button onClick={fetchFeedback} disabled={feedbackLoading}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-gray-800 border border-gray-700 text-gray-400 hover:text-gray-200 disabled:opacity-50">
                   <RefreshCw size={12} className={feedbackLoading ? "animate-spin" : ""} /> تحديث
+                </button>
+                <button onClick={async () => {
+                  if (!confirm("حذف جميع التقييمات لهذه الفعالية؟ لا يمكن التراجع.")) return
+                  const d = await api("e3-delete-feedback")
+                  if (d.error) { toast.error(d.error); return }
+                  toast.success("تم حذف جميع التقييمات")
+                  fetchFeedback()
+                }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-red-900/40 border border-red-700/30 text-red-400 hover:bg-red-900/60 transition-colors">
+                  <Trash2 size={12} /> حذف الكل
                 </button>
               </div>
             </div>

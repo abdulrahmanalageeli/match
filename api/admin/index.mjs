@@ -6726,6 +6726,15 @@ export default async function handler(req, res) {
           const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID)
           return res.status(200).json({ phase2, phase3, phase2_submitted: phase2.filter(e => e.submitted).length, phase3_submitted: phase3.filter(e => e.submitted).length, total_participants: (ep || []).length })
         }
+        // e3-delete-feedback — clear all feedback for current event3
+        if (action === "e3-delete-feedback") {
+          const { error } = await supabase
+            .from("event3_matches")
+            .update({ phase2_feedback: null, phase3_feedback: null })
+            .eq("match_id", EVENT3_MATCH_ID)
+          if (error) return res.status(500).json({ error: error.message })
+          return res.status(200).json({ message: "All feedback deleted successfully" })
+        }
         // e3-reset-event
         if (action === "e3-reset-event") {
           await Promise.all([

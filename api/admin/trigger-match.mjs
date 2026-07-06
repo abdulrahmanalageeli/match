@@ -4109,6 +4109,11 @@ if (action === "cache-status-by-gender") {
     for (const target of targets) {
       for (const other of allEligible) {
         if (target.assigned_number === other.assigned_number) continue
+        // Only fix pairs that would actually be matched (same gates as batched/delta cache)
+        if (!checkGenderCompatibility(target, other)) continue
+        if (!checkNationalityHardGate(target, other)) continue
+        if (!checkAgeRangeHardGate(target, other)) continue
+        if (!checkAgeCompatibility(target, other)) continue
         const [a, b] = [target.assigned_number, other.assigned_number].sort((x, y) => x - y)
         const key = `${a}-${b}`
         if (!seenPairs.has(key)) {

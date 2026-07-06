@@ -2325,7 +2325,7 @@ export default async function handler(req, res) {
       const completion = await openai.chat.completions.create({
         model: "gpt-5.4-mini",
         messages: [{ role: "user", content: prompt }],
-        max_tokens: 500,
+        max_completion_tokens: 500,
         temperature: 0.82,     // High creativity but controlled
         presence_penalty: 0.8,  // Forces new vocabulary
         frequency_penalty: 0.3
@@ -2541,7 +2541,7 @@ Please respond in JSON format:
           }
         ],
         temperature: 0.7,
-        max_tokens: 1500
+        max_completion_tokens: 1500
       })
 
       const predictionText = completion.choices[0]?.message?.content

@@ -323,7 +323,7 @@ export default async function handler(req) {
           { role: "system", content: systemMessage },
           { role: "user", content: userMessage }
         ],
-        max_tokens: 1500,
+        max_completion_tokens: 1500,
         temperature: 0.7
       });
       

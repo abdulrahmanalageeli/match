@@ -55,7 +55,7 @@ export default function VibeFixModal({ isOpen, onClose, eventId }: VibeFixModalP
     }
   }, [isOpen, fetchStatus])
 
-  const runFix = async (participantNumbers?: number[]) => {
+  const runFix = async (participantNumbers?: number[], force = false) => {
     setRunning(true)
     setActiveTarget(participantNumbers ? participantNumbers : 'all')
     setProgress({ fixed: 0, skipped_good: 0, errors: 0, pairs_processed: 0, total_pairs: null })
@@ -74,6 +74,7 @@ export default function VibeFixModal({ isOpen, onClose, eventId }: VibeFixModalP
             eventId,
             participant_numbers: participantNumbers || null,
             cursor,
+            force,
           }),
         })
         const data = await res.json()
@@ -141,6 +142,14 @@ export default function VibeFixModal({ isOpen, onClose, eventId }: VibeFixModalP
               title="Refresh"
             >
               <RefreshCw className={`w-3.5 h-3.5 text-gray-400 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+            <button
+              onClick={() => runFix(undefined, true)}
+              disabled={running}
+              className="px-3 py-1.5 bg-gray-600 hover:bg-gray-500 disabled:opacity-40 text-white text-sm font-semibold rounded-lg transition"
+              title="Recalculate ALL pairs, even ones that already have a good vibe score"
+            >
+              {running && activeTarget === 'all' ? '…' : 'Force Recalc All'}
             </button>
             <button
               onClick={() => runFix()}
@@ -221,6 +230,14 @@ export default function VibeFixModal({ isOpen, onClose, eventId }: VibeFixModalP
                   <span className="text-gray-500 w-16 text-right">avg {p.avg_vibe}/25</span>
                 )}
               </div>
+              <button
+                onClick={() => runFix([p.number], true)}
+                disabled={running}
+                className="ml-1 px-2 py-1 bg-gray-600/70 hover:bg-gray-500 disabled:opacity-30 text-white text-xs font-medium rounded-lg transition flex-shrink-0"
+                title="Force recalculate all pairs for this participant"
+              >
+                {running && Array.isArray(activeTarget) && activeTarget[0] === p.number ? '…' : 'Force'}
+              </button>
               <button
                 onClick={() => runFix([p.number])}
                 disabled={running || p.bad_vibe_pairs === 0}

@@ -1715,7 +1715,7 @@ GUIDELINES
         { role: "system", content: systemMessage },
         { role: "user", content: userMessage }
       ],
-      max_tokens: 60,
+      max_completion_tokens: 60,
       temperature: 0
     }, {
       timeout: 6500
@@ -4084,7 +4084,7 @@ if (action === "cache-status-by-gender") {
   // ── recalc-vibe: Fix fallback (≈10) vibe scores for eligible participants ────
   if (action === "recalc-vibe") {
     const _match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
-    const { participant_numbers, cursor = 0 } = req.body || {}
+    const { participant_numbers, cursor = 0, force = false } = req.body || {}
     if (!eventId) return res.status(400).json({ error: "eventId is required" })
 
     const CONCURRENCY = 4  // parallel OpenAI calls per request
@@ -4143,7 +4143,7 @@ if (action === "cache-status-by-gender") {
         .maybeSingle()
 
       const vibeVal = existing ? parseFloat(existing.ai_vibe_score) : null
-      if (vibeVal !== null && Math.abs(vibeVal - 10) > 0.5) return 'skip'
+      if (!force && vibeVal !== null && Math.abs(vibeVal - 10) > 0.5) return 'skip'
 
       if (existing?.id) {
         await supabase.from("compatibility_cache").delete().eq("id", existing.id)

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react"
-import GroupsPage from "./groups"
+import { GroupsPage } from "./groups"
 import { useSearchParams } from "react-router"
 import toast, { Toaster } from "react-hot-toast"
 import { motion, AnimatePresence, Reorder } from "framer-motion"

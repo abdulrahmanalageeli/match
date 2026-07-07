@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { Navigate } from "react-router";
 import { 
   Clock, 
   Users, 
@@ -1038,7 +1039,7 @@ const fiveSecondRuleCategories = [
   "أشياء حمراء", "أشياء دائرية", "أشياء في الثلاجة", "أسماء بنات", "أسماء أولاد", "ألوان"
 ];
 
-export default function GroupsPage() {
+export function GroupsPage() {
   const SESSION_TOTAL_DURATION = 45 * 60; // 45 minutes in seconds
   const IMPOSTER_TUTORIAL_KEY = "imposter_tutorial_seen";
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
@@ -4039,4 +4040,8 @@ export default function GroupsPage() {
       </div>
     </>
   );
+}
+
+export default function GroupsRedirect() {
+  return <Navigate to="/event3" replace />;
 }

@@ -184,6 +184,7 @@ export default function AdminPage() {
   const [calculatedPairs, setCalculatedPairs] = useState<any[]>([])
   const [lastMatchParams, setLastMatchParams] = useState<{matchResults: any[], totalMatches: number, type: "ai" | "no-ai" | "group", calculatedPairs: any[]} | null>(null)
   const [isFromCache, setIsFromCache] = useState(false)
+  const [matchPairs, setMatchPairs] = useState<any[]>([])
   
   // Persistent Results State
   const [availableSessions, setAvailableSessions] = useState<any[]>([])
@@ -1366,6 +1367,19 @@ const fetchParticipants = async () => {
       const visibilityData = await visibilityRes.json()
       setResultsVisible(visibilityData.visible !== false) // Default to true if not set
       
+      // Fetch match pairs for paid pair stats
+      try {
+        const pairsRes = await fetch("/api/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "get-match-results-for-export", event_id: currentEventId }),
+        })
+        if (pairsRes.ok) {
+          const pairsData = await pairsRes.json()
+          setMatchPairs(pairsData.matches || [])
+        }
+      } catch {}
+      
       // Fetch groups lock state
       const groupsLockRes = await fetch("/api/admin", {
         method: "POST",
@@ -2524,6 +2538,21 @@ const fetchParticipants = async () => {
       toast.error("Failed to add manual match")
     }
   }
+
+  // Compute paid pair stats from match pairs and participant data
+  const paidPairStats = useMemo(() => {
+    const paidUsers = participants.filter(p => p.PAID_DONE === true).length
+    const paidSet = new Set(participants.filter(p => p.PAID_DONE === true).map(p => p.assigned_number))
+    let completedPairs = 0
+    let incompletePairs = 0
+    for (const m of matchPairs) {
+      const aPaid = paidSet.has(m.participant_a_number)
+      const bPaid = paidSet.has(m.participant_b_number)
+      if (aPaid && bPaid) completedPairs++
+      else if (aPaid || bPaid) incompletePairs++
+    }
+    return { paidUsers, completedPairs, incompletePairs }
+  }, [participants, matchPairs])
 
   // Performance: Use useMemo to cache filtered participants (only recalculate when dependencies change)
   const filteredParticipants = useMemo(() => {
@@ -5522,6 +5551,18 @@ Proceed?`
                   <div className="text-center">
                     <p className="text-2xl font-bold text-purple-400">{participantStats.current_round_participants}</p>
                     <p className="text-slate-400 text-sm">In Current Round</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-emerald-400">{paidPairStats.paidUsers}</p>
+                    <p className="text-slate-400 text-sm">Paid Users</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-teal-400">{paidPairStats.completedPairs}</p>
+                    <p className="text-slate-400 text-sm">Completed Pairs (Both Paid)</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-orange-400">{paidPairStats.incompletePairs}</p>
+                    <p className="text-slate-400 text-sm">Incomplete Pairs (One Paid)</p>
                   </div>
                 </div>
               </div>

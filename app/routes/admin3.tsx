@@ -67,6 +67,7 @@ export default function Admin3Page() {
   const [loading, setLoading] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [genderFilter, setGenderFilter] = useState("all")
+  const [paidFilter, setPaidFilter] = useState("all")
   const [activeTab, setActiveTab] = useState<"control" | "seating" | "ranking" | "participants" | "overview" | "feedback">("control")
   const [overviewData, setOverviewData] = useState<any>(null)
   const [overviewLoading, setOverviewLoading] = useState(false)
@@ -437,8 +438,14 @@ export default function Admin3Page() {
   const filteredParticipants = participants.filter(p => {
     const matchSearch = !searchTerm || p.name.includes(searchTerm) || String(p.number).includes(searchTerm)
     const matchGender = genderFilter === "all" || p.gender === genderFilter || p.gender?.toLowerCase() === genderFilter
-    return matchSearch && matchGender
+    const matchPaid = paidFilter === "all" || (paidFilter === "paid" && p.paid) || (paidFilter === "unpaid" && !p.paid)
+    return matchSearch && matchGender && matchPaid
   })
+
+  const selectAllPaid = () => {
+    const paidNums = participants.filter(p => p.paid).map(p => p.number)
+    setSelectedNumbers(new Set(paidNums))
+  }
 
   if (!authenticated) {
     return (
@@ -633,13 +640,13 @@ export default function Admin3Page() {
                 </div>
               </div>
 
-              <div className="flex gap-2 mb-3">
+              <div className="flex gap-2 mb-3 flex-wrap">
                 <input
                   type="text"
                   placeholder="ابحث بالاسم أو الرقم..."
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="flex-1 bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm text-right focus:outline-none focus:border-purple-500"
+                  className="flex-1 min-w-[120px] bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm text-right focus:outline-none focus:border-purple-500"
                 />
                 <select
                   value={genderFilter}
@@ -650,6 +657,22 @@ export default function Admin3Page() {
                   <option value="male">ذكر</option>
                   <option value="female">أنثى</option>
                 </select>
+                <select
+                  value={paidFilter}
+                  onChange={e => setPaidFilter(e.target.value)}
+                  className="bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm"
+                >
+                  <option value="all">الجميع</option>
+                  <option value="paid">مدفوع</option>
+                  <option value="unpaid">غير مدفوع</option>
+                </select>
+                <button
+                  onClick={selectAllPaid}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-3 py-2 text-sm flex items-center gap-1.5 whitespace-nowrap"
+                >
+                  <CheckCircle size={14} />
+                  اختيار كل المدفوعين
+                </button>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-60 sm:max-h-72 overflow-y-auto">
@@ -669,8 +692,11 @@ export default function Admin3Page() {
                       {selectedNumbers.has(p.number) && <Check size={10} />}
                     </div>
                     <div className="min-w-0">
-                      <div className="font-medium truncate">{p.name}</div>
-                      <div className="text-gray-500">#{p.number} · {p.age || "?"}</div>
+                      <div className="font-medium truncate flex items-center gap-1">
+                        {p.name}
+                        {p.paid && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" title="مدفوع" />}
+                      </div>
+                      <div className="text-gray-500">#{p.number} · {p.age || "?"}{p.paid ? " · مدفوع" : ""}</div>
                     </div>
                   </button>
                 ))}

@@ -6206,11 +6206,11 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         }
         // e3-get-participants
         if (action === "e3-get-participants") {
-          const { data, error } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type").eq("match_id", STATIC_MATCH_ID).neq("assigned_number", 9999).order("assigned_number", { ascending: true })
+          const { data, error } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,PAID_DONE").eq("match_id", STATIC_MATCH_ID).neq("assigned_number", 9999).order("assigned_number", { ascending: true })
           if (error) return res.status(500).json({ error: error.message })
           const { data: sel } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID)
           const selectedSet = new Set((sel || []).map(s => s.participant_number))
-          const participants = (data || []).map(p => { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); return { number: p.assigned_number, name: p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`, gender: p.gender || sd?.answers?.gender || sd?.gender || "?", age: p.age || sd?.answers?.age || sd?.age || "?", selected: selectedSet.has(p.assigned_number) } })
+          const participants = (data || []).map(p => { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); return { number: p.assigned_number, name: p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`, gender: p.gender || sd?.answers?.gender || sd?.gender || "?", age: p.age || sd?.answers?.age || sd?.age || "?", paid: !!p.PAID_DONE, selected: selectedSet.has(p.assigned_number) } })
           return res.status(200).json({ participants, selected_count: selectedSet.size })
         }
         // e3-set-participants

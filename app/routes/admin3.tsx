@@ -42,7 +42,11 @@ export default function Admin3Page() {
   const [expandedRanker, setExpandedRanker] = useState<number | null>(null)
   const [copied, setCopied] = useState(false)
   const [matchPairs, setMatchPairs] = useState<any[]>([])
+  const [phase3Pairs, setPhase3Pairs] = useState<any[]>([])
   const [expandedPair, setExpandedPair] = useState<number | null>(null)
+  const [expandedPhase3Pair, setExpandedPhase3Pair] = useState<number | null>(null)
+  const [swapMatch, setSwapMatch] = useState<{ phase: "phase2" | "phase3"; missingNum: number; missingName: string } | null>(null)
+  const [swapReplacement, setSwapReplacement] = useState<number | null>(null)
 
   const copyRankings = () => {
     if (!allRankings.length) return
@@ -157,6 +161,7 @@ export default function Admin3Page() {
   const fetchMatches = useCallback(async () => {
     const data = await api("e3-get-matches")
     setMatchPairs(data.pairs || [])
+    setPhase3Pairs(data.phase3Pairs || [])
   }, [])
 
   const fetchOverview = useCallback(async () => {
@@ -337,6 +342,25 @@ export default function Admin3Page() {
 
   const doSwap = (numB: number) =>
     run(`swap-${swapA}-${numB}`, () => api("e3-swap-seating", { num_a: swapA, num_b: numB }).then(d => { if (!d.error) { setSwapA(null); fetchSeating() } return d }))
+
+  const doSwapMatch = () => {
+    if (!swapMatch || !swapReplacement) return
+    run(`swap-match-${swapMatch.missingNum}-${swapReplacement}`, () =>
+      api("e3-swap-match-partner", {
+        phase: swapMatch.phase,
+        missing_participant: swapMatch.missingNum,
+        replacement_participant: swapReplacement,
+      }).then(d => {
+        if (!d.error) {
+          setSwapMatch(null)
+          setSwapReplacement(null)
+          fetchMatches()
+          fetchState()
+        }
+        return d
+      })
+    )
+  }
 
   const handleMemberClick = (m: any) => {
     if (swapA) {
@@ -1649,6 +1673,92 @@ export default function Admin3Page() {
                           {pair.matchType === 'fallback' && (pair.rankBInA != null || pair.rankAInB != null) && !pair.rankAInB && pair.rankBInA != null && (
                             <p className="text-amber-500/70 text-[10px] text-center py-1">⚡ {pair.bName} لم يُدرج {pair.aName} في قائمته — تعيين من جانب واحد</p>
                           )}
+
+                          {/* Swap buttons */}
+                          <div className="flex gap-2 pt-2 border-t border-gray-800/30">
+                            <button
+                              onClick={() => { setSwapMatch({ phase: "phase2", missingNum: pair.a, missingName: pair.aName }); setSwapReplacement(null) }}
+                              className="flex-1 py-1.5 rounded-lg bg-amber-900/30 hover:bg-amber-900/50 border border-amber-800/40 text-amber-300 text-[10px] font-bold transition-colors"
+                            >
+                              ⇄ استبدال {pair.aName}
+                            </button>
+                            <button
+                              onClick={() => { setSwapMatch({ phase: "phase2", missingNum: pair.b, missingName: pair.bName }); setSwapReplacement(null) }}
+                              className="flex-1 py-1.5 rounded-lg bg-amber-900/30 hover:bg-amber-900/50 border border-amber-800/40 text-amber-300 text-[10px] font-bold transition-colors"
+                            >
+                              ⇄ استبدال {pair.bName}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ── Phase 3 (Algorithm) Match Results ─────────────────────── */}
+            <div className="space-y-3 pt-2 border-t border-gray-800/60">
+              <div className="flex items-center justify-between">
+                <h4 className="font-semibold text-gray-300 text-sm">نتائج مطابقة الخوارزمية</h4>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => run("phase3", () => api("e3-trigger-phase3-matching").then(d => { fetchMatches(); fetchState(); return d }))}
+                    disabled={!!loading}
+                    className="flex items-center gap-1.5 bg-purple-900/40 hover:bg-purple-900/70 border border-purple-800/50 text-purple-300 rounded-lg px-3 py-1.5 text-xs disabled:opacity-40"
+                  >
+                    {loading === "phase3" ? <RefreshCw size={12} className="animate-spin" /> : <Brain size={12} />}
+                    تشغيل المطابقة
+                  </button>
+                  <button onClick={fetchMatches} className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-400">
+                    <RefreshCw size={14} />
+                  </button>
+                </div>
+              </div>
+
+              {phase3Pairs.length === 0 ? (
+                <p className="text-gray-600 text-xs text-center py-4">لا توجد نتائج بعد — اضغط "تشغيل المطابقة"</p>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <p className="text-gray-500 text-xs">{phase3Pairs.length} زوج</p>
+                  </div>
+                  {phase3Pairs.map((pair: any, idx: number) => (
+                    <div key={idx} className="border border-purple-800/40 bg-purple-950/10 rounded-xl overflow-hidden">
+                      <button
+                        onClick={() => setExpandedPhase3Pair(expandedPhase3Pair === idx ? null : idx)}
+                        className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-white/5 transition-colors text-right"
+                      >
+                        <span className="text-gray-600 text-[10px] font-mono w-4 flex-shrink-0">{idx + 1}</span>
+                        <div className="flex-1 flex items-center gap-1.5 min-w-0">
+                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${pair.aGender === 'female' ? 'bg-pink-400' : 'bg-blue-400'}`} />
+                          <span className="text-sm font-semibold text-white truncate">{pair.aName}</span>
+                        </div>
+                        {pair.storedScore != null && (
+                          <span className={`text-xs font-bold flex-shrink-0 ${pair.storedScore >= 80 ? 'text-emerald-400' : pair.storedScore >= 68 ? 'text-indigo-400' : 'text-yellow-400'}`}>{pair.storedScore}%</span>
+                        )}
+                        <div className="flex-1 flex items-center gap-1.5 min-w-0 justify-end">
+                          <span className="text-sm font-semibold text-white truncate">{pair.bName}</span>
+                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${pair.bGender === 'female' ? 'bg-pink-400' : 'bg-blue-400'}`} />
+                        </div>
+                        <ChevronRight size={12} className={`text-gray-600 flex-shrink-0 transition-transform ${expandedPhase3Pair === idx ? 'rotate-90' : ''}`} />
+                      </button>
+                      {expandedPhase3Pair === idx && (
+                        <div className="border-t border-gray-800/40 px-3 py-3 space-y-3 bg-gray-950/50">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => { setSwapMatch({ phase: "phase3", missingNum: pair.a, missingName: pair.aName }); setSwapReplacement(null) }}
+                              className="flex-1 py-1.5 rounded-lg bg-amber-900/30 hover:bg-amber-900/50 border border-amber-800/40 text-amber-300 text-[10px] font-bold transition-colors"
+                            >
+                              ⇄ استبدال {pair.aName}
+                            </button>
+                            <button
+                              onClick={() => { setSwapMatch({ phase: "phase3", missingNum: pair.b, missingName: pair.bName }); setSwapReplacement(null) }}
+                              className="flex-1 py-1.5 rounded-lg bg-amber-900/30 hover:bg-amber-900/50 border border-amber-800/40 text-amber-300 text-[10px] font-bold transition-colors"
+                            >
+                              ⇄ استبدال {pair.bName}
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -3241,6 +3351,68 @@ export default function Admin3Page() {
           </div>
         </div>
       )}
+
+      {/* ── Swap Match Modal ─────────────────────────────────────────── */}
+      {swapMatch && (() => {
+        const phaseLabel = swapMatch.phase === "phase2" ? "اختيارك" : "الخوارزمية"
+        const currentPairs = swapMatch.phase === "phase2" ? matchPairs : phase3Pairs
+        const availableParticipants = participants.filter(p =>
+          p.number !== swapMatch.missingNum &&
+          !currentPairs.some(mp => mp.a === p.number || mp.b === p.number)
+        )
+        return (
+          <>
+            <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={() => { setSwapMatch(null); setSwapReplacement(null) }} />
+            <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[90vw] max-w-md bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl overflow-hidden" dir="rtl">
+              <div className="flex items-center justify-between p-4 border-b border-gray-800">
+                <div>
+                  <h3 className="font-bold text-white text-sm">استبدال مشارك</h3>
+                  <p className="text-[11px] text-gray-500 mt-0.5">مطابقة {phaseLabel} · استبدال {swapMatch.missingName} (#{swapMatch.missingNum})</p>
+                </div>
+                <button onClick={() => { setSwapMatch(null); setSwapReplacement(null) }} className="p-2 rounded-xl hover:bg-gray-800 text-gray-500 hover:text-white transition-colors">✕</button>
+              </div>
+              <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
+                <p className="text-xs text-gray-400">اختر المشارك البديل:</p>
+                <div className="space-y-1.5">
+                  {availableParticipants.length === 0 ? (
+                    <p className="text-xs text-gray-600 text-center py-4">لا يوجد مشاركون متاحون للاستبدال</p>
+                  ) : availableParticipants.map(p => (
+                    <button
+                      key={p.number}
+                      onClick={() => setSwapReplacement(p.number)}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors text-right ${
+                        swapReplacement === p.number
+                          ? 'bg-amber-900/40 border border-amber-700/50'
+                          : 'bg-gray-800/50 border border-transparent hover:bg-gray-800'
+                      }`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${p.gender === 'female' ? 'bg-pink-400' : 'bg-blue-400'}`} />
+                      <span className="text-sm font-semibold text-white flex-1 truncate">{p.name}</span>
+                      <span className="text-[10px] text-gray-500">#{p.number}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="p-4 border-t border-gray-800 flex gap-2">
+                <button
+                  onClick={() => { setSwapMatch(null); setSwapReplacement(null) }}
+                  className="flex-1 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-bold transition-colors"
+                >
+                  إلغاء
+                </button>
+                <button
+                  onClick={doSwapMatch}
+                  disabled={!swapReplacement || !!loading}
+                  className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                >
+                  {loading?.startsWith("swap-match") ? <RefreshCw size={14} className="animate-spin" /> : <Shuffle size={14} />}
+                  تأكيد الاستبدال
+                </button>
+              </div>
+            </div>
+          </>
+        )
+      })()}
 
     </div>
   )

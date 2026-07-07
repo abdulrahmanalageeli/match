@@ -6625,9 +6625,9 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID)
           const selected = (ep || []).map(r => r.participant_number)
           if (selected.length === 0) return res.status(200).json({ pairs: [] })
-          const { data: matchRows } = await supabase.from("event3_matches").select("participant_number,phase2_partner").eq("match_id", EVENT3_MATCH_ID)
-          if (!matchRows || matchRows.length === 0) return res.status(200).json({ pairs: [] })
-          const nums = [...new Set([...matchRows.map(r => r.participant_number), ...matchRows.map(r => r.phase2_partner).filter(Boolean)])]
+          const { data: matchRows } = await supabase.from("event3_matches").select("participant_number,phase2_partner,phase2_score,phase3_partner,phase3_score").eq("match_id", EVENT3_MATCH_ID)
+          if (!matchRows || matchRows.length === 0) return res.status(200).json({ pairs: [], phase3Pairs: [] })
+          const nums = [...new Set([...matchRows.map(r => r.participant_number), ...matchRows.map(r => r.phase2_partner).filter(Boolean), ...matchRows.map(r => r.phase3_partner).filter(Boolean)])]
           const { data: pdata } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,attachment_style,communication_style,humor_banter_style,early_openness_comfort").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
           const infoMap = {}
           for (const p of pdata || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); infoMap[p.assigned_number] = { name: p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`, gender: p.gender || sd?.answers?.gender || sd?.gender || "?", ...p } }
@@ -6696,7 +6696,23 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             const pairTable = pairTableMap[a] || pairTableMap[b] || null
             pairs.push({ a, aName: ai.name || `#${a}`, aGender: ai.gender, aSurvey: ai.survey_data, b, bName: bi.name || `#${b}`, bGender: bi.gender, bSurvey: bi.survey_data, rankBInA, rankAInB, matchType, skippedByA, skippedByB, compatScore, compat, bothComplete, table: pairTable })
           }
-          return res.status(200).json({ pairs })
+          // Build phase3 pairs (algorithm matches — simpler, no ranking flow)
+          const phase3Seen = new Set()
+          const phase3Pairs = []
+          for (const row of matchRows) {
+            if (!row.phase3_partner) continue
+            const key = [row.participant_number, row.phase3_partner].sort((a,b)=>a-b).join("-")
+            if (phase3Seen.has(key)) continue
+            phase3Seen.add(key)
+            const a = row.participant_number, b = row.phase3_partner
+            const ai = infoMap[a] || {}, bi = infoMap[b] || {}
+            const bothComplete3 = !!(infoMap[a] && infoMap[b] && e3IsComplete(infoMap[a]) && e3IsComplete(infoMap[b]))
+            const compat3 = (infoMap[a] && infoMap[b]) ? await e3FullCalcCompat(infoMap[a], infoMap[b]) : null
+            const compatScore3 = compat3 ? compat3.totalScore : null
+            const storedScore3 = row.phase3_score || null
+            phase3Pairs.push({ a, aName: ai.name || `#${a}`, aGender: ai.gender, b, bName: bi.name || `#${b}`, bGender: bi.gender, compatScore: compatScore3, storedScore: storedScore3, compat: compat3, bothComplete: bothComplete3 })
+          }
+          return res.status(200).json({ pairs, phase3Pairs })
         }
         // e3-set-ranking (admin override for one participant's ranking list)
         if (action === "e3-set-ranking") {
@@ -6868,6 +6884,96 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             .eq("match_id", EVENT3_MATCH_ID)
           if (error) return res.status(500).json({ error: error.message })
           return res.status(200).json({ message: "All feedback deleted successfully" })
+        }
+        // e3-swap-match-partner — replace a missing participant with a replacement in phase2 or phase3 matches
+        if (action === "e3-swap-match-partner") {
+          const { phase, missing_participant, replacement_participant } = req.body
+          if (!phase || (phase !== "phase2" && phase !== "phase3")) return res.status(400).json({ error: "phase must be 'phase2' or 'phase3'" })
+          if (!missing_participant || !replacement_participant) return res.status(400).json({ error: "missing_participant and replacement_participant required" })
+          if (missing_participant === replacement_participant) return res.status(400).json({ error: "Cannot swap with the same participant" })
+
+          const partnerField = phase === "phase2" ? "phase2_partner" : "phase3_partner"
+          const scoreField = phase === "phase2" ? "phase2_score" : "phase3_score"
+
+          // Fetch all match rows
+          const { data: matchRows } = await supabase.from("event3_matches").select("*").eq("match_id", EVENT3_MATCH_ID)
+          if (!matchRows || matchRows.length === 0) return res.status(404).json({ error: "No matches found" })
+
+          const missingRow = matchRows.find(r => r.participant_number === missing_participant)
+          const replacementRow = matchRows.find(r => r.participant_number === replacement_participant)
+
+          if (!missingRow) return res.status(404).json({ error: `Participant #${missing_participant} not found in matches` })
+
+          const missingPartner = missingRow[partnerField]
+          if (!missingPartner) return res.status(400).json({ error: `Participant #${missing_participant} has no ${phase} match` })
+
+          const replacementPartner = replacementRow?.[partnerField] || null
+
+          // Fetch participant data for score recalculation
+          const allNums = [missing_participant, replacement_participant, missingPartner, replacementPartner].filter(Boolean)
+          const { data: swapPdata } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,attachment_style,communication_style,humor_banter_style,early_openness_comfort,same_gender_preference,any_gender_preference,nationality,prefer_same_nationality,preferred_age_min,preferred_age_max,open_age_preference").eq("match_id", STATIC_MATCH_ID).in("assigned_number", allNums)
+          const swapPMap = {}
+          for (const p of swapPdata || []) { swapPMap[p.assigned_number] = p }
+
+          // Calculate new scores
+          let newScore1 = 50 // replacement ↔ missingPartner
+          if (swapPMap[replacement_participant] && swapPMap[missingPartner]) {
+            try {
+              const compat = await e3FullCalcCompat(swapPMap[replacement_participant], swapPMap[missingPartner])
+              if (compat) newScore1 = compat.totalScore
+            } catch (e) { console.error(`Swap compat error for #${replacement_participant}×#${missingPartner}:`, e.message) }
+          }
+
+          let newScore2 = null // missing ↔ replacementPartner (if replacement was matched)
+          if (replacementPartner) {
+            newScore2 = 50
+            if (swapPMap[missing_participant] && swapPMap[replacementPartner]) {
+              try {
+                const compat = await e3FullCalcCompat(swapPMap[missing_participant], swapPMap[replacementPartner])
+                if (compat) newScore2 = compat.totalScore
+              } catch (e) { console.error(`Swap compat error for #${missing_participant}×#${replacementPartner}:`, e.message) }
+            }
+          }
+
+          // Update match rows
+          // 1. missing's row: partner = replacementPartner (or null if replacement was unmatched)
+          await supabase.from("event3_matches").update({ [partnerField]: replacementPartner, [scoreField]: newScore2 }).eq("match_id", EVENT3_MATCH_ID).eq("participant_number", missing_participant)
+          // 2. missingPartner's row: partner = replacement
+          await supabase.from("event3_matches").update({ [partnerField]: replacement_participant, [scoreField]: newScore1 }).eq("match_id", EVENT3_MATCH_ID).eq("participant_number", missingPartner)
+          // 3. replacement's row: partner = missingPartner
+          if (replacementRow) {
+            await supabase.from("event3_matches").update({ [partnerField]: missingPartner, [scoreField]: newScore1 }).eq("match_id", EVENT3_MATCH_ID).eq("participant_number", replacement_participant)
+          } else {
+            // Replacement doesn't have a row — create one
+            await supabase.from("event3_matches").insert({ match_id: EVENT3_MATCH_ID, participant_number: replacement_participant, [partnerField]: missingPartner, [scoreField]: newScore1 })
+          }
+          // 4. replacementPartner's row (if exists): partner = missing
+          if (replacementPartner) {
+            await supabase.from("event3_matches").update({ [partnerField]: missing_participant, [scoreField]: newScore2 }).eq("match_id", EVENT3_MATCH_ID).eq("participant_number", replacementPartner)
+          }
+
+          // If phase2, also swap table assignments in round=20
+          if (phase === "phase2") {
+            const { data: missingTable } = await supabase.from("session_assignments").select("id,table_number").eq("match_id", EVENT3_MATCH_ID).eq("round", 20).eq("participant_id", missing_participant).maybeSingle()
+            const { data: replacementTable } = await supabase.from("session_assignments").select("id,table_number").eq("match_id", EVENT3_MATCH_ID).eq("round", 20).eq("participant_id", replacement_participant).maybeSingle()
+
+            if (missingTable && replacementTable) {
+              await supabase.from("session_assignments").update({ table_number: replacementTable.table_number }).eq("id", missingTable.id)
+              await supabase.from("session_assignments").update({ table_number: missingTable.table_number }).eq("id", replacementTable.id)
+            } else if (missingTable && !replacementTable) {
+              await supabase.from("session_assignments").delete().eq("id", missingTable.id)
+              await supabase.from("session_assignments").insert({ match_id: EVENT3_MATCH_ID, event_id: 3, round: 20, table_number: missingTable.table_number, participant_id: replacement_participant })
+            } else if (!missingTable && replacementTable) {
+              await supabase.from("session_assignments").delete().eq("id", replacementTable.id)
+              await supabase.from("session_assignments").insert({ match_id: EVENT3_MATCH_ID, event_id: 3, round: 20, table_number: replacementTable.table_number, participant_id: missing_participant })
+            }
+          }
+
+          const msg = replacementPartner
+            ? `Swapped: #${replacement_participant} ↔ #${missingPartner} (score: ${newScore1}%), #${missing_participant} ↔ #${replacementPartner} (score: ${newScore2}%)`
+            : `Swapped: #${replacement_participant} replaced #${missing_participant} with #${missingPartner} (score: ${newScore1}%). #${missing_participant} is now unmatched.`
+
+          return res.status(200).json({ message: msg })
         }
         // e3-reset-event
         if (action === "e3-reset-event") {

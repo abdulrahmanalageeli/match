@@ -3705,17 +3705,17 @@ Proceed?`
                 </span>
               )}
             </div>
-            <div className="bg-emerald-500/20 backdrop-blur-sm border border-emerald-400/30 rounded-xl px-4 py-2">
-              <span className="text-emerald-300 text-sm">Paid Users: </span>
-              <span className="font-bold text-emerald-200">{paidPairStats.paidUsers}</span>
+            <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-400/20 rounded-lg px-2.5 py-1">
+              <span className="text-emerald-400/70 text-xs">Paid</span>
+              <span className="font-bold text-emerald-300 text-xs">{paidPairStats.paidUsers}</span>
             </div>
-            <div className="bg-teal-500/20 backdrop-blur-sm border border-teal-400/30 rounded-xl px-4 py-2">
-              <span className="text-teal-300 text-sm">Completed Pairs: </span>
-              <span className="font-bold text-teal-200">{paidPairStats.completedPairs}</span>
+            <div className="flex items-center gap-1.5 bg-teal-500/10 border border-teal-400/20 rounded-lg px-2.5 py-1">
+              <span className="text-teal-400/70 text-xs">Done</span>
+              <span className="font-bold text-teal-300 text-xs">{paidPairStats.completedPairs}</span>
             </div>
-            <div className="bg-orange-500/20 backdrop-blur-sm border border-orange-400/30 rounded-xl px-4 py-2">
-              <span className="text-orange-300 text-sm">Incomplete Pairs: </span>
-              <span className="font-bold text-orange-200">{paidPairStats.incompletePairs}</span>
+            <div className="flex items-center gap-1.5 bg-orange-500/10 border border-orange-400/20 rounded-lg px-2.5 py-1">
+              <span className="text-orange-400/70 text-xs">Partial</span>
+              <span className="font-bold text-orange-300 text-xs">{paidPairStats.incompletePairs}</span>
             </div>
             <div 
               className="bg-cyan-500/20 backdrop-blur-sm border border-cyan-400/30 rounded-xl px-4 py-2 relative cursor-pointer hover:bg-cyan-500/30 transition-colors z-[1000]" 

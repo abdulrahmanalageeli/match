@@ -6167,9 +6167,12 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         const rawAnalysis = completion.choices[0]?.message?.content?.trim()
         if (!rawAnalysis) throw new Error("AI generated empty analysis")
 
+        // Strip markdown code fences if present (```json ... ```)
+        const cleaned = rawAnalysis.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim()
+
         let parsed
         try {
-          parsed = JSON.parse(rawAnalysis)
+          parsed = JSON.parse(cleaned)
         } catch {
           parsed = { rawText: rawAnalysis }
         }

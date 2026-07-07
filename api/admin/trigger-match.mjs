@@ -1262,7 +1262,8 @@ async function getCachedCompatibility(participantA, participantB, options = {}) 
       const deadAirBoth = (a35 === 'C' && b35 === 'C' && a41 === 'B' && b41 === 'B')
 
       // Reconstruct pre-cap with new model: add Core Values scaled to 5 (no additive intent)
-      let preCap = synergyScore + vibeScore + lifestyleScore + humorOpenScore + communicationScore + Math.max(0, Math.min(5, (coreValuesScore / 20) * 5))
+      const coreValuesScaled5 = Math.max(0, Math.min(5, (coreValuesScore / 20) * 5))
+      let preCap = synergyScore + vibeScore + lifestyleScore + humorOpenScore + communicationScore + coreValuesScaled5
       if (attachmentPenaltyApplied) preCap -= 5
       const deadAirVetoApplied = deadAirBoth && preCap > 40
       const humorClashVetoApplied = !!vetoClash && preCap > 50
@@ -1270,12 +1271,22 @@ async function getCachedCompatibility(participantA, participantB, options = {}) 
       if (deadAirVetoApplied) capApplied = 40
       else if (humorClashVetoApplied) capApplied = 50
 
+      // Derive openness 0×0 penalty flag from participant data
+      const openAraw = (participantA.early_openness_comfort !== undefined && participantA.early_openness_comfort !== null)
+        ? participantA.early_openness_comfort
+        : participantA?.survey_data?.answers?.early_openness_comfort
+      const openBraw = (participantB.early_openness_comfort !== undefined && participantB.early_openness_comfort !== null)
+        ? participantB.early_openness_comfort
+        : participantB?.survey_data?.answers?.early_openness_comfort
+      const opennessZeroZeroPenaltyApplied = (parseInt(openAraw) === 0 && parseInt(openBraw) === 0)
+
       return {
         mbtiScore: parseFloat(data.mbti_score),
         attachmentScore: parseFloat(data.attachment_score),
         communicationScore,
         lifestyleScore,
         coreValuesScore,
+        coreValuesScaled5,
         synergyScore,
         humorOpenScore,
         intentScore,
@@ -1288,6 +1299,7 @@ async function getCachedCompatibility(participantA, participantB, options = {}) 
         deadAirVetoApplied,
         humorClashVetoApplied,
         capApplied,
+        opennessZeroZeroPenaltyApplied,
         cached: true
       }
     }
@@ -3134,7 +3146,7 @@ function getLockedMatch(participantA, participantB, lockedPairs) {
   )
 }
 
-export { calculateFullCompatibilityWithCache, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkInteractionStyleCompatibility }
+export { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkInteractionStyleCompatibility }
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {

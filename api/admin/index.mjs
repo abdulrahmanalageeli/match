@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
-import { calculateFullCompatibilityWithCache, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkInteractionStyleCompatibility } from "./trigger-match.mjs"
+import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkInteractionStyleCompatibility } from "./trigger-match.mjs"
 
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
@@ -76,7 +76,8 @@ function e3GreedyMutualMatching(rankings, participantMap = new Map()) {
 // e3IsComplete and e3FullCalcCompat are now the real functions imported from trigger-match.mjs
 const e3IsComplete = isParticipantComplete
 const e3FullCalcCompat = async (pA, pB) => {
-  const r = await calculateFullCompatibilityWithCache(pA, pB, false, false)
+  const r = await getCachedCompatibility(pA, pB)
+  if (!r) return null
   return {
     totalScore: Math.round(r.totalScore),
     synergyScore: r.synergyScore,
@@ -6228,13 +6229,14 @@ export default async function handler(req, res) {
           for (const [p, partner] of matches) {
             if (seen.has(p) || seen.has(partner)) continue
             seen.add(p); seen.add(partner)
-            // Calculate real compatibility score (same function as Generate Matches)
+            // Read compatibility score from cache (no recalculation)
             const pA = participantMap.get(p), pB = participantMap.get(partner)
             let score = 50
             if (pA && pB) {
               try {
                 const compat = await e3FullCalcCompat(pA, pB)
-                score = compat.totalScore
+                if (compat) score = compat.totalScore
+                else console.warn(`Phase 2: no cached compat for #${p}×#${partner}, using default 50`)
               } catch (e) { console.error(`Phase 2 compat error for #${p}×#${partner}:`, e.message) }
             }
             pairs.push({ a: p, b: partner, score })
@@ -6287,7 +6289,7 @@ export default async function handler(req, res) {
 
           // Same pipeline as trigger-match.mjs: filter pairs, calculate scores, greedy match
           const compatibilityScores = []
-          let skippedGender = 0, skippedNationality = 0, skippedAge = 0, skippedInteraction = 0, skippedPrevious = 0
+          let skippedGender = 0, skippedNationality = 0, skippedAge = 0, skippedInteraction = 0, skippedPrevious = 0, skippedNoCache = 0
 
           for (let i = 0; i < pdata.length; i++) {
             for (let j = i + 1; j < pdata.length; j++) {
@@ -6306,8 +6308,9 @@ export default async function handler(req, res) {
               // 4. Interaction style compatibility (humor/openness veto)
               if (!checkInteractionStyleCompatibility(a, b)) { skippedInteraction++; continue }
 
-              // 5. Calculate full compatibility (same function as Generate Matches)
+              // 5. Read compatibility from cache (no recalculation)
               const result = await e3FullCalcCompat(a, b)
+              if (!result) { skippedNoCache++; continue }
               const totalScore = result.totalScore
 
               // 6. Build reason string (same format as trigger-match.mjs)
@@ -6320,7 +6323,7 @@ export default async function handler(req, res) {
             }
           }
 
-          console.log(`Phase 3 matching: ${compatibilityScores.length} compatible pairs, skipped: ${skippedPrevious} previous, ${skippedGender} gender, ${skippedNationality} nationality, ${skippedAge} age, ${skippedInteraction} interaction style`)
+          console.log(`Phase 3 matching: ${compatibilityScores.length} compatible pairs, skipped: ${skippedPrevious} previous, ${skippedGender} gender, ${skippedNationality} nationality, ${skippedAge} age, ${skippedInteraction} interaction style, ${skippedNoCache} no cache`)
 
           // 7. Greedy matching: sort by score descending, assign best pairs first (same as trigger-match.mjs)
           compatibilityScores.sort((a, b) => b.score - a.score)
@@ -6356,7 +6359,7 @@ export default async function handler(req, res) {
             console.log(`Phase 3: 1 unmatched participant #${unmatched[0]} (odd count)`)
           }
 
-          return res.status(200).json({ message: `Phase 3 matching complete. Created ${matches.length} pairs. Skipped: ${skippedPrevious} previous, ${skippedGender} gender, ${skippedNationality} nationality, ${skippedAge} age, ${skippedInteraction} interaction style.` })
+          return res.status(200).json({ message: `Phase 3 matching complete. Created ${matches.length} pairs. Skipped: ${skippedPrevious} previous, ${skippedGender} gender, ${skippedNationality} nationality, ${skippedAge} age, ${skippedInteraction} interaction style, ${skippedNoCache} no cache.` })
         }
         // e3-get-all-rankings
         if (action === "e3-get-all-rankings") {

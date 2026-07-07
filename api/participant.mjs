@@ -1409,6 +1409,157 @@ export default async function handler(req, res) {
         }
       }));
 
+      // ── Fetch Event 3 (4.0) matches if the event is finished ──
+      try {
+        const E3_MATCH_ID = "00000000-0000-0000-0000-000000000003"
+        const MAIN_MATCH = "00000000-0000-0000-0000-000000000000"
+        const firstName = (n) => n ? n.trim().split(/\s+/)[0] : "—"
+
+        // Check if event3 phase is final_reveal (event finished)
+        const { data: e3State } = await supabase
+          .from("event_state")
+          .select("phase")
+          .eq("match_id", E3_MATCH_ID)
+          .single()
+
+        const e3Finished = e3State?.phase === "final_reveal"
+
+        if (e3Finished) {
+          // Fetch the participant's event3 matches
+          const { data: e3Match } = await supabase
+            .from("event3_matches")
+            .select("phase2_partner,phase2_score,phase2_word,phase3_partner,phase3_score,phase3_word,match_preference")
+            .eq("match_id", E3_MATCH_ID)
+            .eq("participant_number", participant.assigned_number)
+            .single()
+
+          if (e3Match) {
+            const partnerNums = [e3Match.phase2_partner, e3Match.phase3_partner].filter(Boolean)
+            if (partnerNums.length > 0) {
+              const { data: partners } = await supabase
+                .from("participants")
+                .select("assigned_number,name,age,phone_number,survey_data")
+                .eq("match_id", MAIN_MATCH)
+                .in("assigned_number", partnerNums)
+
+              const partnerMap = {}
+              for (const p of partners || []) {
+                const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {})
+                partnerMap[p.assigned_number] = {
+                  name: p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`,
+                  age: p.age || null,
+                  phone: p.phone_number || null,
+                }
+              }
+
+              // Helper to get compatibility breakdown from cache
+              const getBreakdown = async (partnerNum) => {
+                if (!partnerNum) return null
+                const [pa, pb] = [participant.assigned_number, partnerNum].sort((x, y) => x - y)
+                const { data: cacheRow } = await supabase
+                  .from("compatibility_cache")
+                  .select("*")
+                  .eq("participant_a_number", pa)
+                  .eq("participant_b_number", pb)
+                  .order("last_used", { ascending: false })
+                  .limit(1)
+                  .single()
+                if (!cacheRow) return null
+                return {
+                  synergy: Math.round(parseFloat(cacheRow.interaction_synergy_score)),
+                  vibe: Math.round(parseFloat(cacheRow.ai_vibe_score)),
+                  lifestyle: Math.round(parseFloat(cacheRow.lifestyle_score)),
+                  humorOpen: Math.max(0, Math.round(parseFloat(cacheRow.total_compatibility_score) - parseFloat(cacheRow.interaction_synergy_score) - parseFloat(cacheRow.ai_vibe_score) - parseFloat(cacheRow.lifestyle_score) - parseFloat(cacheRow.communication_score) - Math.round((parseFloat(cacheRow.core_values_score) / 20) * 5))),
+                  communication: Math.round(parseFloat(cacheRow.communication_score)),
+                  coreValues: Math.round((parseFloat(cacheRow.core_values_score) / 20) * 5),
+                  intent: Math.round(parseFloat(cacheRow.intent_goal_score) || 0),
+                  total: Math.round(parseFloat(cacheRow.total_compatibility_score)),
+                }
+              }
+
+              // Add Phase 2 (Choice) match
+              if (e3Match.phase2_partner) {
+                const p2Partner = partnerMap[e3Match.phase2_partner]
+                const p2Breakdown = await getBreakdown(e3Match.phase2_partner)
+                history.push({
+                  with: e3Match.phase2_partner,
+                  partner_name: p2Partner?.name || `لاعب رقم ${e3Match.phase2_partner}`,
+                  partner_age: p2Partner?.age || null,
+                  partner_phone: p2Partner?.phone || null,
+                  partner_event_id: 3,
+                  type: "choice",
+                  reason: p2Breakdown ? `Synergy: ${p2Breakdown.synergy}% + Vibe: ${p2Breakdown.vibe}% + Lifestyle: ${p2Breakdown.lifestyle}% + Humor/Openness: ${p2Breakdown.humorOpen}% + Communication: ${p2Breakdown.communication}% + Intent: ${p2Breakdown.intent}%` : "",
+                  round: 20,
+                  table_number: null,
+                  score: e3Match.phase2_score || 0,
+                  is_repeat_match: false,
+                  mutual_match: false,
+                  wants_match: null,
+                  partner_wants_match: null,
+                  created_at: null,
+                  ai_personality_analysis: null,
+                  event_id: 3,
+                  partner_message: null,
+                  match_type: "choice",
+                  match_label: "اختيارك الشخصي",
+                  match_word: e3Match.phase2_word || null,
+                  breakdown: p2Breakdown,
+                  my_feedback: null,
+                  humor_early_openness_bonus: "none",
+                  synergy_score: p2Breakdown?.synergy ?? null,
+                  humor_open_score: p2Breakdown?.humorOpen ?? null,
+                  intent_score: p2Breakdown?.intent ?? null,
+                  communication_compatibility_score: p2Breakdown?.communication ?? null,
+                  lifestyle_compatibility_score: p2Breakdown?.lifestyle ?? null,
+                  vibe_compatibility_score: p2Breakdown?.vibe ?? null,
+                })
+              }
+
+              // Add Phase 3 (Algorithm) match
+              if (e3Match.phase3_partner) {
+                const p3Partner = partnerMap[e3Match.phase3_partner]
+                const p3Breakdown = await getBreakdown(e3Match.phase3_partner)
+                history.push({
+                  with: e3Match.phase3_partner,
+                  partner_name: p3Partner?.name || `لاعب رقم ${e3Match.phase3_partner}`,
+                  partner_age: p3Partner?.age || null,
+                  partner_phone: p3Partner?.phone || null,
+                  partner_event_id: 3,
+                  type: "algorithm",
+                  reason: p3Breakdown ? `Synergy: ${p3Breakdown.synergy}% + Vibe: ${p3Breakdown.vibe}% + Lifestyle: ${p3Breakdown.lifestyle}% + Humor/Openness: ${p3Breakdown.humorOpen}% + Communication: ${p3Breakdown.communication}% + Intent: ${p3Breakdown.intent}%` : "",
+                  round: 21,
+                  table_number: null,
+                  score: e3Match.phase3_score || 0,
+                  is_repeat_match: false,
+                  mutual_match: false,
+                  wants_match: null,
+                  partner_wants_match: null,
+                  created_at: null,
+                  ai_personality_analysis: null,
+                  event_id: 3,
+                  partner_message: null,
+                  match_type: "algorithm",
+                  match_label: "اختيار الخوارزمية",
+                  match_word: e3Match.phase3_word || null,
+                  breakdown: p3Breakdown,
+                  match_preference: e3Match.match_preference || null,
+                  my_feedback: null,
+                  humor_early_openness_bonus: "none",
+                  synergy_score: p3Breakdown?.synergy ?? null,
+                  humor_open_score: p3Breakdown?.humorOpen ?? null,
+                  intent_score: p3Breakdown?.intent ?? null,
+                  communication_compatibility_score: p3Breakdown?.communication ?? null,
+                  lifestyle_compatibility_score: p3Breakdown?.lifestyle ?? null,
+                  vibe_compatibility_score: p3Breakdown?.vibe ?? null,
+                })
+              }
+            }
+          }
+        }
+      } catch (e3Err) {
+        console.log("[API] Event3 matches fetch skipped:", e3Err.message)
+      }
+
       console.log("[API] Successfully fetched match results. Sending response.");
       return res.status(200).json({
         success: true,

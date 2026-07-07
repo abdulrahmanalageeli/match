@@ -44,7 +44,7 @@ export function QuestionSlideshow({ defaultSet }: { defaultSet: QuestionSet }) {
     set2: eventQuestions,
   }
   const setLabel: Record<QuestionSet, string> = {
-    choice: 'new',
+    choice: 'الجديدة',
     special: 'المميزة',
     set1: 'المجموعة ١',
     set2: 'المجموعة ٢',

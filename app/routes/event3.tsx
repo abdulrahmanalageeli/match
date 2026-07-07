@@ -962,20 +962,20 @@ function OneToOneTutorial({ onClose }: { onClose: () => void }) {
       ring: "ring-pink-500/30",
     },
     {
-      icon: <Users size={28} className="text-rose-400" />,
-      title: "اكشف اسم شريكك",
-      desc: "اضغط على زر «اكشف اسمه / اسمها» لمعرفة الشخص الذي اخترته للجلسة الفردية",
-      accent: "from-rose-600/20 to-pink-600/10",
-      ring: "ring-rose-500/30",
-      hint: "الزر الكبير في المنتصف",
-    },
-    {
       icon: <MapPin size={28} className="text-amber-400" />,
       title: "رقم طاولتك",
-      desc: "بعد الكشف، سيظهر رقم الطاولة التي يجب أن تذهب إليها لمقابلة شريكك",
+      desc: "سيظهر لك رقم الطاولة التي يجب أن تذهب إليها لمقابلة شريكك",
       accent: "from-amber-600/20 to-orange-600/10",
       ring: "ring-amber-500/30",
       hint: "ابحث عن الرقم الكبير",
+    },
+    {
+      icon: <Users size={28} className="text-rose-400" />,
+      title: "اكشف اسم شريكك",
+      desc: "بعد الوصول إلى الطاولة، اضغط على زر «اكشف اسمه / اسمها» لمعرفة الشخص الذي اخترته",
+      accent: "from-rose-600/20 to-pink-600/10",
+      ring: "ring-rose-500/30",
+      hint: "الزر الكبير في المنتصف",
     },
     {
       icon: <MessageSquare size={28} className="text-purple-400" />,
@@ -1338,9 +1338,16 @@ function RockPaperScissors({ accent = "pink", autoDone = false }: { accent?: "pi
             <Trophy size={13} /> الفائز
           </p>
           <ul className="text-gray-300 text-xs leading-relaxed space-y-1.5 text-center">
-            <li>يختار مين يبدأ بالسؤال الأول</li>
-            <li>ويحصل على فرصة يسأل سؤال تعارف سريع من اختياره قبل ما تبدأ أسئلة الجولة</li>
+            <li>يبدأ بسؤال السؤال الأول من اختياره — والشخص الثاني يجيب</li>
+            <li>ثم الثاني يسأل سؤالًا بدوره، وهكذا بالتناوب ذهابًا وإيابًا</li>
+            <li>كلاكما يجب أن يجيب على كل سؤال يُطرح</li>
           </ul>
+        </div>
+
+        <div className="text-center">
+          <p className="text-gray-500 text-[11px] leading-relaxed">
+            أسئلة هذه الجولة معروضة بالأسفل — يمكنكم البدء بعد انتهاء تحدي كسر الجليد
+          </p>
         </div>
 
         <button
@@ -1607,7 +1614,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
             </div>
             {/* Groups content rendered inline */}
             <div className="flex-1 overflow-y-auto">
-              <GroupsPage />
+              <GroupsPage disableOnboarding />
             </div>
           </motion.div>
         )}

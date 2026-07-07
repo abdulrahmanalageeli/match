@@ -18,7 +18,9 @@ import {
   ChevronUp,
   MessageCircle,
   Award,
-  Users
+  Users,
+  Brain,
+  Trophy
 } from "lucide-react"
 import { Button } from "../../components/ui/button"
 
@@ -62,6 +64,21 @@ interface MatchResult {
   communication_compatibility_score?: number | null
   lifestyle_compatibility_score?: number | null
   vibe_compatibility_score?: number | null
+  // Event 3+ fields (choice vs algorithm)
+  match_type?: 'choice' | 'algorithm' | null
+  match_label?: string | null
+  match_word?: string | null
+  breakdown?: {
+    synergy: number
+    vibe: number
+    lifestyle: number
+    humorOpen: number
+    communication: number
+    coreValues: number
+    intent: number
+    total: number
+  } | null
+  match_preference?: string | null
 }
 
 interface ResultsData {
@@ -82,6 +99,15 @@ export default function ResultsPage() {
   const [showPartnerMessage, setShowPartnerMessage] = useState<{[key: number]: boolean}>({})
   const [expandedMatches, setExpandedMatches] = useState<{[key: number]: boolean}>({})
   const [expandedEvents, setExpandedEvents] = useState<{[key: number]: boolean}>({})
+
+  // Check if event3 choice and algorithm matched the same person
+  const e3SameMatch = (() => {
+    const e3Items = (resultsData?.history || []).filter(m => m.event_id === 3 && (m.match_type === 'choice' || m.match_type === 'algorithm'))
+    const choice = e3Items.find(m => m.match_type === 'choice')
+    const algorithm = e3Items.find(m => m.match_type === 'algorithm')
+    if (choice && algorithm && choice.with === algorithm.with) return true
+    return false
+  })()
 
   const formatSessionCount = (count: number) => {
     const n = Math.max(0, Math.floor(Number(count) || 0))
@@ -563,7 +589,7 @@ export default function ResultsPage() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className={`font-bold ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
-                              فعالية رقم {event_id}
+                              {event_id === 3 ? 'التوافق الأعمى 4.0' : `فعالية رقم ${event_id}`}
                             </div>
                             <div className={`text-xs ${dark ? 'text-slate-400' : 'text-gray-600'}`}>
                               {formatSessionCount(items.length)}
@@ -611,11 +637,24 @@ export default function ResultsPage() {
                                           <h3 className={`font-bold text-sm sm:text-base truncate ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
                                             {match.partner_name || 'شريك المحادثة'}
                                           </h3>
-                                          <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${
-                                            dark ? 'bg-slate-600/70 text-slate-200' : 'bg-gray-200/70 text-gray-700'
-                                          }`}>
-                                            {match.round === 2 ? 'الجولة الثانية' : 'الجولة الأولى'}
-                                          </span>
+                                          {/* Event 3+: show choice/algorithm badge instead of round */}
+                                          {match.match_type === 'choice' ? (
+                                            <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0 flex items-center gap-1 bg-pink-500/20 text-pink-300 border border-pink-500/30">
+                                              <Heart className="w-3 h-3" />
+                                              اختيارك الشخصي
+                                            </span>
+                                          ) : match.match_type === 'algorithm' ? (
+                                            <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0 flex items-center gap-1 bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                              <Brain className="w-3 h-3" />
+                                              اختيار الخوارزمية
+                                            </span>
+                                          ) : (
+                                            <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${
+                                              dark ? 'bg-slate-600/70 text-slate-200' : 'bg-gray-200/70 text-gray-700'
+                                            }`}>
+                                              {match.round === 2 ? 'الجولة الثانية' : 'الجولة الأولى'}
+                                            </span>
+                                          )}
                                           {match.is_repeat_match && (
                                             <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${
                                               dark ? 'bg-amber-600/70 text-amber-200' : 'bg-amber-200/70 text-amber-700'
@@ -626,6 +665,13 @@ export default function ResultsPage() {
                                         </div>
                                         
                                         <div className="flex items-center gap-2 flex-wrap">
+                                          {/* Same match badge for event3 */}
+                                          {e3SameMatch && match.match_type === 'choice' && (
+                                            <span className="text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-gradient-to-r from-amber-500 to-yellow-500 text-white font-bold">
+                                              <Trophy className="w-3.5 h-3.5" />
+                                              مطابقة مثالية!
+                                            </span>
+                                          )}
                                           {/* Status Badge - Enhanced for Mutual Match */}
                                           {match.mutual_match ? (
                                             <div className="relative">
@@ -684,6 +730,44 @@ export default function ResultsPage() {
                                 {isExpanded && (
                                   <div className={`px-4 pb-4 border-t ${dark ? 'border-slate-600/50' : 'border-gray-200'}`}>
                                     <div className="pt-4 space-y-4">
+                          {/* Event 3: Match word display */}
+                          {match.match_word && (
+                            <div className={`p-3 rounded-xl border text-center ${
+                              match.match_type === 'choice'
+                                ? 'bg-pink-500/10 border-pink-500/20'
+                                : 'bg-purple-500/10 border-purple-500/20'
+                            }`}>
+                              <p className={`text-xs mb-1 ${match.match_type === 'choice' ? 'text-pink-400' : 'text-purple-400'}`}>
+                                {match.match_type === 'choice' ? 'الكلمة التي اخترتها' : 'الكلمة التي اختارتها الخوارزمية'}
+                              </p>
+                              <p className={`text-lg font-bold ${dark ? 'text-white' : 'text-gray-800'}`}>
+                                "{match.match_word}"
+                              </p>
+                            </div>
+                          )}
+                          {/* Event 3: Match preference indicator */}
+                          {match.match_preference && match.match_type === 'algorithm' && (
+                            <div className={`p-3 rounded-xl border flex items-center gap-2 ${
+                              match.match_preference === 'choice' ? 'bg-pink-500/10 border-pink-500/20' :
+                              match.match_preference === 'algorithm' ? 'bg-purple-500/10 border-purple-500/20' :
+                              match.match_preference === 'both' ? 'bg-emerald-500/10 border-emerald-500/20' :
+                              'bg-gray-500/10 border-gray-500/20'
+                            }`}>
+                              <span className={`text-xs font-medium ${
+                                match.match_preference === 'choice' ? 'text-pink-300' :
+                                match.match_preference === 'algorithm' ? 'text-purple-300' :
+                                match.match_preference === 'both' ? 'text-emerald-300' :
+                                'text-gray-400'
+                              }`}>
+                                تفضيلك: {
+                                  match.match_preference === 'choice' ? 'اخترت اختيارك الشخصي' :
+                                  match.match_preference === 'algorithm' ? 'اخترت اختيار الخوارزمية' :
+                                  match.match_preference === 'both' ? 'كلاهما ممتاز' :
+                                  'لم تفضّل أيهما'
+                                }
+                              </span>
+                            </div>
+                          )}
                           {/* Compatibility Score */}
                           <div className={`p-4 rounded-xl border ${
                             getOriginalScore(match) >= 70 ? 'bg-green-500/5 border-green-500/20' :

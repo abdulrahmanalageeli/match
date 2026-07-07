@@ -1039,7 +1039,7 @@ const fiveSecondRuleCategories = [
   "أشياء حمراء", "أشياء دائرية", "أشياء في الثلاجة", "أسماء بنات", "أسماء أولاد", "ألوان"
 ];
 
-export function GroupsPage() {
+export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: boolean } = {}) {
   const SESSION_TOTAL_DURATION = 45 * 60; // 45 minutes in seconds
   const IMPOSTER_TUTORIAL_KEY = "imposter_tutorial_seen";
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
@@ -1360,6 +1360,11 @@ export function GroupsPage() {
   useEffect(() => {
     setShowGroupGuide(false);
   }, [isConfirmed, showOnboarding]);
+
+  // Disable onboarding modal when used inside event3
+  useEffect(() => {
+    if (disableOnboarding) setShowOnboarding(false);
+  }, [disableOnboarding]);
 
   // Load participant data and group assignment on component mount
   useEffect(() => {

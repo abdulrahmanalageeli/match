@@ -3705,6 +3705,18 @@ Proceed?`
                 </span>
               )}
             </div>
+            <div className="bg-emerald-500/20 backdrop-blur-sm border border-emerald-400/30 rounded-xl px-4 py-2">
+              <span className="text-emerald-300 text-sm">Paid Users: </span>
+              <span className="font-bold text-emerald-200">{paidPairStats.paidUsers}</span>
+            </div>
+            <div className="bg-teal-500/20 backdrop-blur-sm border border-teal-400/30 rounded-xl px-4 py-2">
+              <span className="text-teal-300 text-sm">Completed Pairs: </span>
+              <span className="font-bold text-teal-200">{paidPairStats.completedPairs}</span>
+            </div>
+            <div className="bg-orange-500/20 backdrop-blur-sm border border-orange-400/30 rounded-xl px-4 py-2">
+              <span className="text-orange-300 text-sm">Incomplete Pairs: </span>
+              <span className="font-bold text-orange-200">{paidPairStats.incompletePairs}</span>
+            </div>
             <div 
               className="bg-cyan-500/20 backdrop-blur-sm border border-cyan-400/30 rounded-xl px-4 py-2 relative cursor-pointer hover:bg-cyan-500/30 transition-colors z-[1000]" 
               onClick={() => {
@@ -5551,18 +5563,6 @@ Proceed?`
                   <div className="text-center">
                     <p className="text-2xl font-bold text-purple-400">{participantStats.current_round_participants}</p>
                     <p className="text-slate-400 text-sm">In Current Round</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-emerald-400">{paidPairStats.paidUsers}</p>
-                    <p className="text-slate-400 text-sm">Paid Users</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-teal-400">{paidPairStats.completedPairs}</p>
-                    <p className="text-slate-400 text-sm">Completed Pairs (Both Paid)</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-orange-400">{paidPairStats.incompletePairs}</p>
-                    <p className="text-slate-400 text-sm">Incomplete Pairs (One Paid)</p>
                   </div>
                 </div>
               </div>

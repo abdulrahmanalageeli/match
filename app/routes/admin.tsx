@@ -231,6 +231,12 @@ export default function AdminPage() {
   const [showAllMatches, setShowAllMatches] = useState(false)
   const [debugPair, setDebugPair] = useState(false)
   const [viewAllMatchesLoading, setViewAllMatchesLoading] = useState(false)
+
+  // Deep personality analysis
+  const [runPersonalityAnalysis, setRunPersonalityAnalysis] = useState(false)
+  const [personalityAnalysis, setPersonalityAnalysis] = useState<any>(null)
+  const [personalityAnalysisLoading, setPersonalityAnalysisLoading] = useState(false)
+  const [personalityAnalysisTarget, setPersonalityAnalysisTarget] = useState<number | null>(null)
   
   // Group assignments modal state
   const [showGroupAssignmentsModal, setShowGroupAssignmentsModal] = useState(false)
@@ -2291,6 +2297,16 @@ const fetchParticipants = async () => {
   const addManualMatch = async () => {
     const participant1 = parseInt(newManualMatch.participant1)
     
+    // Deep personality analysis mode
+    if (runPersonalityAnalysis) {
+      if (!participant1 || participant1 <= 0) {
+        toast.error("Please enter a valid participant number")
+        return
+      }
+      fetchPersonalityAnalysis(participant1)
+      return
+    }
+
     // Show All Matches Mode: View all possible matches for participant1
     if (showAllMatches) {
       if (!participant1 || participant1 <= 0) {
@@ -2536,6 +2552,31 @@ const fetchParticipants = async () => {
     } catch (error) {
       console.error("Error adding manual match:", error)
       toast.error("Failed to add manual match")
+    }
+  }
+
+  // Deep personality analysis via GPT
+  const fetchPersonalityAnalysis = async (participantNum: number) => {
+    setPersonalityAnalysisLoading(true)
+    setPersonalityAnalysisTarget(participantNum)
+    setPersonalityAnalysis(null)
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "deep-personality-analysis", participantNumber: participantNum }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setPersonalityAnalysis(data.analysis)
+      } else {
+        toast.error(data.error || "Failed to generate analysis")
+      }
+    } catch (error) {
+      console.error("Error fetching personality analysis:", error)
+      toast.error("Failed to generate analysis")
+    } finally {
+      setPersonalityAnalysisLoading(false)
     }
   }
 
@@ -4974,9 +5015,11 @@ Proceed?`
               />
               <button
                 onClick={addManualMatch}
-                disabled={!newManualMatch.participant1 || (!showAllMatches && !newManualMatch.participant2) || viewAllMatchesLoading}
+                disabled={!newManualMatch.participant1 || (!showAllMatches && !runPersonalityAnalysis && !newManualMatch.participant2) || viewAllMatchesLoading || personalityAnalysisLoading}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 ${
-                  showAllMatches
+                  runPersonalityAnalysis
+                    ? 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white'
+                    : showAllMatches
                     ? 'bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white'
                     : debugPair
                     ? 'bg-gradient-to-r from-yellow-600 to-yellow-700 hover:from-yellow-700 hover:to-yellow-800 text-white'
@@ -4985,7 +5028,17 @@ Proceed?`
                     : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white'
                 }`}
               >
-                {viewAllMatchesLoading ? (
+                {personalityAnalysisLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Analyzing...
+                  </>
+                ) : runPersonalityAnalysis ? (
+                  <>
+                    <Activity className="w-4 h-4" />
+                    Analyze Personality
+                  </>
+                ) : viewAllMatchesLoading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Loading...
@@ -5077,6 +5130,22 @@ Proceed?`
                   debugPair ? 'text-yellow-300' : 'text-slate-400'
                 }`}>
                   🕵️ Debug Pair (Explain why not matched)
+                </span>
+              </label>
+            </div>
+            {/* Deep Personality Analysis Checkbox */}
+            <div className="flex items-center gap-3 mt-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={runPersonalityAnalysis}
+                  onChange={(e) => setRunPersonalityAnalysis(e.target.checked)}
+                  className="w-4 h-4 text-indigo-500 bg-white/10 border-white/20 rounded focus:ring-indigo-400/50 focus:ring-2"
+                />
+                <span className={`text-sm font-medium transition-colors ${
+                  runPersonalityAnalysis ? 'text-indigo-300' : 'text-slate-400'
+                }`}>
+                  Deep Personality Analysis (Participant #1)
                 </span>
               </label>
             </div>
@@ -6047,6 +6116,20 @@ Proceed?`
                     {!isCohost && (
                       <button
                         onClick={(e) => {
+                          e.stopPropagation();
+                          fetchPersonalityAnalysis(p.assigned_number);
+                        }}
+                        disabled={personalityAnalysisLoading}
+                        className="p-3 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-400 hover:text-indigo-300 transition-all duration-200 active:scale-95 touch-manipulation disabled:opacity-30"
+                        aria-label="Deep personality analysis"
+                        title="Deep Personality Analysis (GPT)"
+                      >
+                        <Activity className="w-5 h-5" />
+                      </button>
+                    )}
+                    {!isCohost && (
+                      <button
+                        onClick={(e) => {
                           e.stopPropagation()
                           toggleParticipantSelection(p.assigned_number)
                         }}
@@ -6175,6 +6258,22 @@ Proceed?`
                             <span className="flex items-center gap-2 justify-center">
                               <MessageSquare className="w-5 h-5 md:w-4 md:h-4" />
                               <span>Send WhatsApp</span>
+                            </span>
+                          </button>
+
+                          {/* Deep Personality Analysis */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              fetchPersonalityAnalysis(p.assigned_number);
+                            }}
+                            disabled={personalityAnalysisLoading}
+                            className="w-full max-w-[280px] justify-center px-5 py-3 md:px-4 md:py-2 rounded-xl border text-base md:text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-95 bg-indigo-500/10 text-indigo-200 border-indigo-400/30 hover:bg-indigo-500/20 disabled:opacity-30"
+                            title="Deep Personality Analysis (GPT)"
+                          >
+                            <span className="flex items-center gap-2 justify-center">
+                              <Activity className="w-5 h-5 md:w-4 md:h-4" />
+                              <span>Personality Analysis</span>
                             </span>
                           </button>
                         </div>
@@ -6761,6 +6860,214 @@ Proceed?`
         onClose={() => setShowVibeFixModal(false)}
         eventId={currentEventId}
       />
+
+      {/* Deep Personality Analysis Modal */}
+      {(personalityAnalysis || personalityAnalysisLoading) && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => { if (!personalityAnalysisLoading) { setPersonalityAnalysis(null); setPersonalityAnalysisTarget(null) } }}>
+          <div className="bg-slate-900 rounded-2xl border border-indigo-500/30 max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl shadow-indigo-900/50" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-gradient-to-r from-indigo-900/40 to-violet-900/30">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-500/20 rounded-lg">
+                  <Activity className="w-5 h-5 text-indigo-400" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-indigo-300">Deep Personality Analysis</h3>
+                  <p className="text-slate-400 text-xs">Participant #{personalityAnalysisTarget}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setPersonalityAnalysis(null); setPersonalityAnalysisTarget(null) }}
+                disabled={personalityAnalysisLoading}
+                className="text-slate-400 hover:text-white disabled:opacity-30 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="overflow-y-auto px-6 py-5 space-y-4">
+              {personalityAnalysisLoading ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-3">
+                  <Loader2 className="w-8 h-8 animate-spin text-indigo-400" />
+                  <p className="text-slate-400 text-sm">Analyzing personality with GPT...</p>
+                  <p className="text-slate-600 text-xs">This may take 10-15 seconds</p>
+                </div>
+              ) : personalityAnalysis?.rawText ? (
+                <div className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{personalityAnalysis.rawText}</div>
+              ) : personalityAnalysis ? (
+                <>
+                  {/* Risk Level Badge */}
+                  {personalityAnalysis.riskLevel && (
+                    <div className="flex items-center gap-2 justify-center">
+                      <span className={`text-xs font-bold px-3 py-1 rounded-full ${
+                        personalityAnalysis.riskLevel === 'low' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                        personalityAnalysis.riskLevel === 'medium' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                        'bg-red-500/20 text-red-300 border border-red-500/30'
+                      }`}>
+                        Risk: {personalityAnalysis.riskLevel.toUpperCase()}
+                      </span>
+                      {personalityAnalysis.confidenceScore != null && (
+                        <span className="text-xs text-slate-400">Confidence: {personalityAnalysis.confidenceScore}%</span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Personality Overview */}
+                  {personalityAnalysis.personalityOverview && (
+                    <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-4">
+                      <p className="text-slate-200 text-sm leading-relaxed">{personalityAnalysis.personalityOverview}</p>
+                    </div>
+                  )}
+
+                  {/* Likelihood Assessments */}
+                  <div className="grid grid-cols-1 gap-3">
+                    {personalityAnalysis.goodPersonLikelihood && (
+                      <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Shield className="w-4 h-4 text-emerald-400" />
+                          <h4 className="text-emerald-300 text-sm font-semibold">Good Person Likelihood</h4>
+                        </div>
+                        <p className="text-slate-300 text-xs leading-relaxed">{personalityAnalysis.goodPersonLikelihood}</p>
+                      </div>
+                    )}
+                    {personalityAnalysis.goodParticipantLikelihood && (
+                      <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <CheckCircle className="w-4 h-4 text-blue-400" />
+                          <h4 className="text-blue-300 text-sm font-semibold">Good Participant Likelihood</h4>
+                        </div>
+                        <p className="text-slate-300 text-xs leading-relaxed">{personalityAnalysis.goodParticipantLikelihood}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* MBTI Analysis */}
+                  {personalityAnalysis.mbtiAnalysis && (
+                    <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Zap className="w-4 h-4 text-violet-400" />
+                        <h4 className="text-violet-300 text-sm font-semibold">MBTI Analysis</h4>
+                      </div>
+                      <p className="text-slate-300 text-xs leading-relaxed">{personalityAnalysis.mbtiAnalysis}</p>
+                    </div>
+                  )}
+
+                  {/* Attachment Analysis */}
+                  {personalityAnalysis.attachmentAnalysis && (
+                    <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Users className="w-4 h-4 text-pink-400" />
+                        <h4 className="text-pink-300 text-sm font-semibold">Attachment Style</h4>
+                      </div>
+                      <p className="text-slate-300 text-xs leading-relaxed">{personalityAnalysis.attachmentAnalysis}</p>
+                    </div>
+                  )}
+
+                  {/* Communication Style */}
+                  {personalityAnalysis.communicationStyle && (
+                    <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <MessageSquare className="w-4 h-4 text-cyan-400" />
+                        <h4 className="text-cyan-300 text-sm font-semibold">Communication Style</h4>
+                      </div>
+                      <p className="text-slate-300 text-xs leading-relaxed">{personalityAnalysis.communicationStyle}</p>
+                    </div>
+                  )}
+
+                  {/* Social Dynamics */}
+                  {personalityAnalysis.socialDynamics && (
+                    <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Activity className="w-4 h-4 text-orange-400" />
+                        <h4 className="text-orange-300 text-sm font-semibold">Social Dynamics</h4>
+                      </div>
+                      <p className="text-slate-300 text-xs leading-relaxed">{personalityAnalysis.socialDynamics}</p>
+                    </div>
+                  )}
+
+                  {/* Predicted Behavior */}
+                  {personalityAnalysis.predictedBehavior && (
+                    <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-400" />
+                        <h4 className="text-amber-300 text-sm font-semibold">Predicted Event Behavior</h4>
+                      </div>
+                      <p className="text-slate-300 text-xs leading-relaxed">{personalityAnalysis.predictedBehavior}</p>
+                    </div>
+                  )}
+
+                  {/* Potential Concerns */}
+                  {personalityAnalysis.potentialConcerns && (
+                    <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertCircle className="w-4 h-4 text-red-400" />
+                        <h4 className="text-red-300 text-sm font-semibold">Potential Concerns</h4>
+                      </div>
+                      <p className="text-slate-300 text-xs leading-relaxed">{personalityAnalysis.potentialConcerns}</p>
+                    </div>
+                  )}
+
+                  {/* Biases & Tendencies */}
+                  {personalityAnalysis.biasesAndTendencies && (
+                    <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <BarChart3 className="w-4 h-4 text-teal-400" />
+                        <h4 className="text-teal-300 text-sm font-semibold">Biases & Tendencies</h4>
+                      </div>
+                      <p className="text-slate-300 text-xs leading-relaxed">{personalityAnalysis.biasesAndTendencies}</p>
+                    </div>
+                  )}
+
+                  {/* Strengths & Growth Areas */}
+                  <div className="grid grid-cols-1 gap-3">
+                    {personalityAnalysis.strengths && (
+                      <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <CheckCircle className="w-4 h-4 text-emerald-400" />
+                          <h4 className="text-emerald-300 text-sm font-semibold">Strengths</h4>
+                        </div>
+                        <p className="text-slate-300 text-xs leading-relaxed">{personalityAnalysis.strengths}</p>
+                      </div>
+                    )}
+                    {personalityAnalysis.growthAreas && (
+                      <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <AlertCircle className="w-4 h-4 text-purple-400" />
+                          <h4 className="text-purple-300 text-sm font-semibold">Growth Areas</h4>
+                        </div>
+                        <p className="text-slate-300 text-xs leading-relaxed">{personalityAnalysis.growthAreas}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Matching Insights */}
+                  {personalityAnalysis.matchingInsights && (
+                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Users className="w-4 h-4 text-blue-400" />
+                        <h4 className="text-blue-300 text-sm font-semibold">Matching Insights</h4>
+                      </div>
+                      <p className="text-slate-300 text-xs leading-relaxed">{personalityAnalysis.matchingInsights}</p>
+                    </div>
+                  )}
+
+                  {/* Overall Recommendation */}
+                  {personalityAnalysis.overallRecommendation && (
+                    <div className="bg-gradient-to-r from-indigo-500/15 to-violet-500/15 border border-indigo-500/30 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <FileText className="w-4 h-4 text-indigo-400" />
+                        <h4 className="text-indigo-300 text-sm font-semibold">Overall Recommendation</h4>
+                      </div>
+                      <p className="text-slate-200 text-xs leading-relaxed">{personalityAnalysis.overallRecommendation}</p>
+                    </div>
+                  )}
+                </>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Dual Results Modal (R1 same-gender + R2 opposite-gender side-by-side) */}
       <ParticipantDualResultsModal

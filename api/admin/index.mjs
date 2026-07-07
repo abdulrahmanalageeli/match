@@ -6058,6 +6058,134 @@ export default async function handler(req, res) {
       }
     }
 
+    // ── Deep Personality Analysis (GPT-powered) ────────────────────────────────
+    if (action === "deep-personality-analysis") {
+      try {
+        const { participantNumber } = req.body
+        if (!participantNumber) return res.status(400).json({ error: "Missing participantNumber" })
+
+        const { data: participant, error: pErr } = await supabase
+          .from("participants")
+          .select("assigned_number, name, gender, age, nationality, mbti_personality_type, attachment_style, communication_style, same_gender_preference, any_gender_preference, preferred_age_min, preferred_age_max, open_age_preference, prefer_same_nationality, survey_data, PAID_DONE, event_id")
+          .eq("match_id", STATIC_MATCH_ID)
+          .eq("assigned_number", participantNumber)
+          .single()
+
+        if (pErr || !participant) return res.status(404).json({ error: "Participant not found" })
+
+        const sd = typeof participant.survey_data === "string" ? JSON.parse(participant.survey_data || "{}") : (participant.survey_data || {})
+        const answers = sd.answers || sd
+
+        // Build comprehensive profile for GPT
+        const profile = {
+          basic: {
+            number: participant.assigned_number,
+            name: participant.name || answers.name || "Unknown",
+            gender: participant.gender || answers.gender || "Unknown",
+            age: participant.age || answers.age || "Unknown",
+            nationality: participant.nationality || answers.nationality || "Unknown",
+          },
+          personality: {
+            mbti: participant.mbti_personality_type || answers.mbtiType || "Unknown",
+            attachment: participant.attachment_style || answers.attachmentStyle || "Unknown",
+            communication: participant.communication_style || answers.communicationStyle || "Unknown",
+          },
+          preferences: {
+            same_gender: participant.same_gender_preference,
+            any_gender: participant.any_gender_preference,
+            age_min: participant.preferred_age_min,
+            age_max: participant.preferred_age_max,
+            open_age: participant.open_age_preference,
+            prefer_same_nationality: participant.prefer_same_nationality,
+          },
+          vibe: {
+            weekend: answers.vibe_1 || "",
+            hobbies: answers.vibe_2 || "",
+            music: answers.vibe_3 || "",
+            deepTalk: answers.vibe_4 || "",
+            friendsDescribeMe: answers.vibe_5 || "",
+            iDescribeFriends: answers.vibe_6 || "",
+          },
+          surveyAnswers: Object.fromEntries(
+            Object.entries(answers).filter(([k]) => k.startsWith("q") || k.startsWith("vibe") || ["name","gender","age","nationality","redLines","relationshipGoals","dealBreakers"].includes(k))
+          ),
+          meta: {
+            paid: participant.PAID_DONE,
+            event_id: participant.event_id,
+          }
+        }
+
+        const systemMessage = `You are an expert psychologist and behavioral analyst specializing in personality assessment, social dynamics, and event participant evaluation. You have deep knowledge of MBTI, attachment theory, communication styles, and social psychology.
+
+You understand Saudi/Arabic cultural context deeply — including dating norms, social expectations in Riyadh, and cultural nuances in personality expression.
+
+Your analysis must be:
+1. Thorough and evidence-based (cite specific survey answers as evidence)
+2. Balanced — note both strengths and potential concerns
+3. Practical and actionable for event organizers
+4. Culturally sensitive but honest
+5. Structured with clear sections
+
+Format your response as a JSON object with these exact keys:
+{
+  "personalityOverview": "2-3 sentence summary of their personality",
+  "mbtiAnalysis": "Detailed MBTI analysis — what their type means in practice, cognitive functions, how it manifests socially",
+  "attachmentAnalysis": "Attachment style deep dive — how they form connections, relationship patterns, intimacy style",
+  "communicationStyle": "How they communicate — conflict style, expression, listening patterns",
+  "socialDynamics": "How they behave in social settings — group vs 1:1, energy, role they play",
+  "predictedBehavior": "Predicted behavior during the event — engagement level, likely actions, social patterns",
+  "goodPersonLikelihood": "Assessment of character — kindness, integrity, respect for others (High/Medium/Low + reasoning)",
+  "goodParticipantLikelihood": "Assessment as event participant — engagement, follow-through, positivity (High/Medium/Low + reasoning)",
+  "potentialConcerns": "Any red flags, biases, personality disorders indicators, or behavioral risks",
+  "biasesAndTendencies": "Cognitive biases, decision patterns, emotional tendencies",
+  "strengths": "Key positive traits and strengths they bring",
+  "growthAreas": "Areas for personal growth or development",
+  "matchingInsights": "What type of partner would complement them best and why",
+  "overallRecommendation": "Final recommendation for organizers — 2-3 sentences",
+  "riskLevel": "low/medium/high",
+  "confidenceScore": 0-100 (how confident you are in this analysis based on data completeness)
+}`
+
+        const userMessage = `Analyze this participant thoroughly based on their complete survey data:
+
+${JSON.stringify(profile, null, 2)}
+
+Provide a comprehensive, honest, and insightful analysis. Be direct about any concerns. Use specific evidence from their answers. Consider cultural context (Saudi/Riyadh).`
+
+        console.log(`🧠 Generating deep personality analysis for participant #${participantNumber}...`)
+
+        const completion = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: systemMessage },
+            { role: "user", content: userMessage }
+          ],
+          max_completion_tokens: 3000,
+          temperature: 0.7,
+        })
+
+        const rawAnalysis = completion.choices[0]?.message?.content?.trim()
+        if (!rawAnalysis) throw new Error("AI generated empty analysis")
+
+        let parsed
+        try {
+          parsed = JSON.parse(rawAnalysis)
+        } catch {
+          parsed = { rawText: rawAnalysis }
+        }
+
+        return res.status(200).json({
+          success: true,
+          analysis: parsed,
+          participantName: profile.basic.name,
+          participantNumber: participant.assigned_number,
+        })
+      } catch (error) {
+        console.error("Error in deep-personality-analysis:", error)
+        return res.status(500).json({ error: "Failed to generate analysis", details: error.message })
+      }
+    }
+
     // ── Event 4.0 admin actions (password required in body) ─────────────────────
     if (action && action.startsWith("e3-")) {
       if (req.body?.password !== EVENT3_PASSWORD) return res.status(403).json({ error: "Unauthorized" })

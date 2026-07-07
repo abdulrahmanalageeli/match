@@ -1310,6 +1310,75 @@ function IceBreaker({ round, myInfo, tablemates }: {
   )
 }
 
+// ─── Rock Paper Scissors Icebreaker (1:1 Rounds) ─────────────────────────────
+function RockPaperScissors({ accent = "pink", autoDone = false }: { accent?: "pink" | "purple"; autoDone?: boolean }) {
+  const [done, setDone] = useState(autoDone)
+  const [showExamples, setShowExamples] = useState(false)
+
+  if (done) return null
+
+  const ac = accent === "pink"
+    ? { border: "border-pink-800/40", bg: "from-pink-950/30 to-rose-950/20", text: "text-pink-300", btn: "from-pink-600 to-rose-600", glow: "shadow-pink-600/30" }
+    : { border: "border-purple-800/40", bg: "from-purple-950/30 to-violet-950/20", text: "text-purple-300", btn: "from-purple-600 to-violet-600", glow: "shadow-purple-600/30" }
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+      <GlassCard className={`p-5 space-y-4 border ${ac.border} shadow-lg ${ac.glow}/10`}>
+        <div className="flex items-center justify-center gap-2">
+          <Zap size={20} className={ac.text} />
+          <h4 className="text-white font-bold text-sm">تحدي حجر، ورقة، مقص</h4>
+        </div>
+
+        <p className="text-gray-400 text-xs text-center leading-relaxed">
+          قبل ما تبدأ الجولة، العبوا حجر، ورقة، مقص مرة وحدة.
+        </p>
+
+        <div className={`rounded-xl p-4 border ${ac.border} bg-gradient-to-br ${ac.bg} space-y-2`}>
+          <p className={`text-xs font-bold ${ac.text} flex items-center gap-1.5 justify-center`}>
+            <Trophy size={13} /> الفائز
+          </p>
+          <ul className="text-gray-300 text-xs leading-relaxed space-y-1.5 text-center">
+            <li>يختار مين يبدأ بالسؤال الأول</li>
+            <li>ويحصل على فرصة يسأل سؤال تعارف سريع من اختياره قبل ما تبدأ أسئلة الجولة</li>
+          </ul>
+        </div>
+
+        <button
+          onClick={() => setShowExamples(s => !s)}
+          className={`w-full flex items-center justify-center gap-1.5 text-xs font-medium ${ac.text} hover:opacity-80 transition-opacity py-1`}
+        >
+          <Lightbulb size={12} />
+          {showExamples ? "إخفاء الأمثلة" : "أمثلة على سؤال التعارف السريع"}
+          <ChevronDown size={12} className={`transition-transform ${showExamples ? "rotate-180" : ""}`} />
+        </button>
+
+        <AnimatePresence>
+          {showExamples && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="space-y-1.5 pt-1">
+                <p className="text-gray-500 text-[11px] text-center">“وش الشي اللي يحمّسك هالفترة؟”</p>
+                <p className="text-gray-500 text-[11px] text-center">“وش أكثر أكلة ما تمل منها؟”</p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <button
+          onClick={() => setDone(true)}
+          className={`w-full py-3 rounded-xl bg-gradient-to-r ${ac.btn} text-white font-bold text-sm shadow-lg ${ac.glow} hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2`}
+        >
+          <CheckCircle size={14} /> خلّصنا التحدي — ابدأوا الجلسة
+        </button>
+      </GlassCard>
+    </motion.div>
+  )
+}
+
 // ─── Round Screen ─────────────────────────────────────────────────────────────
 function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myInfo }: {
   token: string; phase: string; timerActive: boolean; timerStart: string | null; timerDuration: number; myInfo: { number: number; name: string; gender: string | null } | null
@@ -2650,6 +2719,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   const [feedbackDone, setFeedbackDone] = useState(false)
   const [showTutorial, setShowTutorial] = useState(true)
   const [showSessionTips, setShowSessionTips] = useState(false)
+  const [rejoined, setRejoined] = useState(false)
 
   useEffect(() => {
     call("e3-get-phase2-reveal", token).then(d => {
@@ -2676,7 +2746,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
     if (!data || !timerActive || !timerStart) return
     const elapsed = Math.floor((Date.now() - new Date(timerStart).getTime()) / 1000)
     const remaining = Math.max(0, timerDuration - elapsed)
-    if (elapsed > 60 && remaining > 0) { setTableRevealed(true); setRevealed(true); setView('session') }
+    if (elapsed > 60 && remaining > 0) { setTableRevealed(true); setRevealed(true); setView('session'); setRejoined(true) }
     else if (remaining <= 0) { setTableRevealed(true); setRevealed(true); setView('feedback') }
   }, [data, timerActive, timerStart, timerDuration])
 
@@ -2887,6 +2957,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 </div>
               )}
               {/* Questions */}
+              <RockPaperScissors accent="pink" autoDone={rejoined} />
               <AnimatePresence>
                 {showSessionTips && <SessionTips onClose={() => setShowSessionTips(false)} accent="pink" />}
               </AnimatePresence>
@@ -2947,6 +3018,7 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   const [showPrompt, setShowPrompt] = useState(false)
   const [feedbackDone, setFeedbackDone] = useState(false)
   const [showSessionTips, setShowSessionTips] = useState(false)
+  const [rejoined, setRejoined] = useState(false)
 
   useEffect(() => {
     call("e3-get-phase3-reveal", token).then(d => {
@@ -2973,7 +3045,7 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
     if (!data || !timerActive || !timerStart) return
     const elapsed = Math.floor((Date.now() - new Date(timerStart).getTime()) / 1000)
     const remaining = Math.max(0, timerDuration - elapsed)
-    if (elapsed > 60 && remaining > 0) { setTableRevealed(true); setRevealed(true); setView('session') }
+    if (elapsed > 60 && remaining > 0) { setTableRevealed(true); setRevealed(true); setView('session'); setRejoined(true) }
     else if (remaining <= 0) { setTableRevealed(true); setRevealed(true); setView('feedback') }
   }, [data, timerActive, timerStart, timerDuration])
 
@@ -3150,6 +3222,7 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                   </div>
                 </div>
               )}
+              <RockPaperScissors accent="purple" autoDone={rejoined} />
               <AnimatePresence>
                 {showSessionTips && <SessionTips onClose={() => setShowSessionTips(false)} accent="purple" />}
               </AnimatePresence>

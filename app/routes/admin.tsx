@@ -2538,9 +2538,10 @@ const fetchParticipants = async () => {
           matchesSearch = phone.includes(digits);
         } else {
           const phone = (p.phone_number || "").replace(/\D/g, "")
+          const pName = (p.name || p.survey_data?.name || p.survey_data?.answers?.name || "").toLowerCase()
           matchesSearch = (
             p.assigned_number.toString().includes(s) ||
-            (p.name?.toLowerCase().includes(s.toLowerCase())) ||
+            pName.includes(s.toLowerCase()) ||
             phone.includes(s.replace(/\D/g, "")) ||
             (p.survey_data?.answers?.gender?.toLowerCase().includes(s.toLowerCase())) ||
             (p.survey_data?.answers?.ageGroup?.toLowerCase().includes(s.toLowerCase()))

@@ -1255,7 +1255,10 @@ const fetchParticipants = async () => {
       body: JSON.stringify({ action: "participants" }),
     })
     const data = await res.json()
-    const fetchedParticipants = data.participants || []
+    const fetchedParticipants = (data.participants || []).map((p: any) => ({
+      ...p,
+      survey_data: typeof p.survey_data === "string" ? (() => { try { return JSON.parse(p.survey_data) } catch { return {} } })() : (p.survey_data || {})
+    }))
     
     // STEP 1: Read previous values from localStorage (before any updates)
     const previousTotal = parseInt(localStorage.getItem('admin_previous_total') || '0')

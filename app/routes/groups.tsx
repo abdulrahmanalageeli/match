@@ -3448,7 +3448,7 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
         onClose={() => setShowPromptTopicsModal(false)}
       />
       {/* Personalized onboarding after successful login */}
-      {showOnboarding && (
+      {showOnboarding && !disableOnboarding && (
         <OnboardingModal
           isOpen={showOnboarding}
           onClose={() => setShowOnboarding(false)}
@@ -3732,7 +3732,7 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
         open={showPromptTopicsModal}
         onClose={() => setShowPromptTopicsModal(false)}
       />
-      {showOnboarding && (groupParticipantNumbers.length > 0 || groupMembers.length > 0) && (
+      {showOnboarding && !disableOnboarding && (groupParticipantNumbers.length > 0 || groupMembers.length > 0) && (
         <OnboardingModal
           isOpen={showOnboarding}
           onClose={() => setShowOnboarding(false)}

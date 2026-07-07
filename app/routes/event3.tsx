@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react"
+﻿import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react"
 import { GroupsPage } from "./groups"
 import { useSearchParams } from "react-router"
 import toast, { Toaster } from "react-hot-toast"
@@ -970,9 +970,9 @@ function OneToOneTutorial({ onClose }: { onClose: () => void }) {
       hint: "ابحث عن الرقم الكبير",
     },
     {
-      icon: <Users size={28} className="text-rose-400" />,
-      title: "اكشف اسم شريكك",
-      desc: "بعد الوصول إلى الطاولة، اضغط على زر «اكشف اسمه / اسمها» لمعرفة الشخص الذي اخترته",
+      icon: <ChevronRight size={28} className="text-rose-400" />,
+      title: "التالي",
+      desc: "بعد الوصول إلى الطاولة، اضغط على الزر التالي للمتابعة",
       accent: "from-rose-600/20 to-pink-600/10",
       ring: "ring-rose-500/30",
       hint: "الزر الكبير في المنتصف",
@@ -980,7 +980,7 @@ function OneToOneTutorial({ onClose }: { onClose: () => void }) {
     {
       icon: <MessageSquare size={28} className="text-purple-400" />,
       title: "أسئلة الجلسة",
-      desc: "اضغط «انتقل إلى أسئلة الجلسة» للوصول إلى أسئلة نقاش تساعدك في المحادثة مع شريكك",
+      desc: "اضغط «انتقل إلى أسئلة الجلسة» للوصول إلى أسئلة نقاش تساعدك في المحادثة مع شريكك. تأخذان أدوارًا: واحد يسأل والثاني يجيب، ثم بالعكس ذهابًا وإيابًا. كلاكما يجب أن يجيب على كل سؤال يُطرح",
       accent: "from-purple-600/20 to-violet-600/10",
       ring: "ring-purple-500/30",
       hint: "الزر في أسفل البطاقة",
@@ -1151,6 +1151,11 @@ const ICE_BREAKERS: Record<number, { title: string; prompt: string; subPrompts?:
   1: {
     title: "كسر الجليد",
     prompt: "اسمك، ثم أعطنا 3 أشياء تساعدنا نتعرف عليك أكثر — ممنوع تقول عمرك أو وظيفتك.",
+    subPrompts: [
+      "مثال: هواية غريبة عندك، حقيقة ما أحد يعرفها عنك، أو شيء تحب تسويه بوقتك الحر.",
+      "مثال: موهبة مخفية، مكان تحب تزوره، أو أكلة ما تمل منها أبدًا.",
+      "مثال: شيء تخطط له، تجربة غيّرت نظرتك، أو شي تحماس له هالفترة.",
+    ],
   },
   2: {
     title: "كسر الجليد",
@@ -1313,7 +1318,6 @@ function IceBreaker({ round, myInfo, tablemates }: {
 // ─── Rock Paper Scissors Icebreaker (1:1 Rounds) ─────────────────────────────
 function RockPaperScissors({ accent = "pink", autoDone = false }: { accent?: "pink" | "purple"; autoDone?: boolean }) {
   const [done, setDone] = useState(autoDone)
-  const [showExamples, setShowExamples] = useState(false)
 
   if (done) return null
 
@@ -1330,7 +1334,7 @@ function RockPaperScissors({ accent = "pink", autoDone = false }: { accent?: "pi
         </div>
 
         <p className="text-gray-400 text-xs text-center leading-relaxed">
-          قبل ما تبدأ الجولة، العبوا حجر، ورقة، مقص مرة وحدة.
+          قبل ما تبدأ الجولة، العبوا حجر، ورقة، مقص — أفضل من ٣ جولات.
         </p>
 
         <div className={`rounded-xl p-4 border ${ac.border} bg-gradient-to-br ${ac.bg} space-y-2`}>
@@ -1338,8 +1342,8 @@ function RockPaperScissors({ accent = "pink", autoDone = false }: { accent?: "pi
             <Trophy size={13} /> الفائز
           </p>
           <ul className="text-gray-300 text-xs leading-relaxed space-y-1.5 text-center">
-            <li>يبدأ بسؤال السؤال الأول من اختياره — والشخص الثاني يجيب</li>
-            <li>ثم الثاني يسأل سؤالًا بدوره، وهكذا بالتناوب ذهابًا وإيابًا</li>
+            <li>يقود الجلسة ويبدأ بطرح أول سؤال من أسئلة الجولة بالأسفل</li>
+            <li>يملك تخطيًا واحدًا — يمكنه تخطي أي سؤال من الأسفل والانتقال لآخر</li>
             <li>كلاكما يجب أن يجيب على كل سؤال يُطرح</li>
           </ul>
         </div>
@@ -1349,31 +1353,6 @@ function RockPaperScissors({ accent = "pink", autoDone = false }: { accent?: "pi
             أسئلة هذه الجولة معروضة بالأسفل — يمكنكم البدء بعد انتهاء تحدي كسر الجليد
           </p>
         </div>
-
-        <button
-          onClick={() => setShowExamples(s => !s)}
-          className={`w-full flex items-center justify-center gap-1.5 text-xs font-medium ${ac.text} hover:opacity-80 transition-opacity py-1`}
-        >
-          <Lightbulb size={12} />
-          {showExamples ? "إخفاء الأمثلة" : "أمثلة على سؤال التعارف السريع"}
-          <ChevronDown size={12} className={`transition-transform ${showExamples ? "rotate-180" : ""}`} />
-        </button>
-
-        <AnimatePresence>
-          {showExamples && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden"
-            >
-              <div className="space-y-1.5 pt-1">
-                <p className="text-gray-500 text-[11px] text-center">“وش الشي اللي يحمّسك هالفترة؟”</p>
-                <p className="text-gray-500 text-[11px] text-center">“وش أكثر أكلة ما تمل منها؟”</p>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         <button
           onClick={() => setDone(true)}

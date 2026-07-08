@@ -145,6 +145,7 @@ export default function AdminPage() {
   const [currentPhase, setCurrentPhase] = useState("form")
   const [searchTerm, setSearchTerm] = useState("")
   const debouncedSearch = useDebounce(searchTerm, 300) // Performance: debounce search by 300ms
+  const [searchByPhone, setSearchByPhone] = useState(false)
   const [showEligibleOnly, setShowEligibleOnly] = useState(() => isCohost ? true : false)
   const [eligibleSubFilter, setEligibleSubFilter] = useState("none") // "none", "withNationality", "withoutNationality"
   const [genderFilter, setGenderFilter] = useState(() => isCohost ? "female" : "all") // "all", "male", "female"
@@ -2608,17 +2609,25 @@ const fetchParticipants = async () => {
       const s = (debouncedSearch || "").trim();
       let matchesSearch = true;
       if (s !== "") {
-        if (/^p\d+$/i.test(s)) {
+        if (searchByPhone && /^p\d+$/i.test(s)) {
           const digits = s.slice(1);
           const phone = (p.phone_number || "").replace(/\D/g, "");
           matchesSearch = phone.includes(digits);
-        } else {
+        } else if (searchByPhone) {
           const phone = (p.phone_number || "").replace(/\D/g, "")
           const pName = (p.name || p.survey_data?.name || p.survey_data?.answers?.name || "").toLowerCase()
           matchesSearch = (
             p.assigned_number.toString().includes(s) ||
             pName.includes(s.toLowerCase()) ||
             phone.includes(s.replace(/\D/g, "")) ||
+            (p.survey_data?.answers?.gender?.toLowerCase().includes(s.toLowerCase())) ||
+            (p.survey_data?.answers?.ageGroup?.toLowerCase().includes(s.toLowerCase()))
+          );
+        } else {
+          const pName = (p.name || p.survey_data?.name || p.survey_data?.answers?.name || "").toLowerCase()
+          matchesSearch = (
+            p.assigned_number.toString().includes(s) ||
+            pName.includes(s.toLowerCase()) ||
             (p.survey_data?.answers?.gender?.toLowerCase().includes(s.toLowerCase())) ||
             (p.survey_data?.answers?.ageGroup?.toLowerCase().includes(s.toLowerCase()))
           );
@@ -2718,7 +2727,7 @@ const fetchParticipants = async () => {
       }
       return 0
     })
-  }, [participants, debouncedSearch, showEligibleOnly, eligibleSubFilter, genderFilter, paymentFilter, whatsappFilter, signupFilter, sortBy, currentEventId, excludedParticipants])
+  }, [participants, debouncedSearch, searchByPhone, showEligibleOnly, eligibleSubFilter, genderFilter, paymentFilter, whatsappFilter, signupFilter, sortBy, currentEventId, excludedParticipants])
   
   // Virtualized participants - only show a subset for performance
   const visibleParticipants = useMemo(() => {
@@ -3859,11 +3868,20 @@ Proceed?`
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search by name, number, gender... (p1234 = phone last digits)"
+                  placeholder={searchByPhone ? "Search by name, number, phone... (p1234 = phone last digits)" : "Search by name, number, gender..."}
                   className="pl-10 pr-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/50 transition-all duration-300"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
+                <label className="inline-flex items-center gap-1.5 ml-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={searchByPhone}
+                    onChange={(e) => setSearchByPhone(e.target.checked)}
+                    className="accent-slate-400 w-3.5 h-3.5"
+                  />
+                  <span className="text-xs text-slate-400">Phone</span>
+                </label>
               </div>
               
               <div className="flex items-center gap-2" style={{ display: isCohost ? 'none' : undefined }}>

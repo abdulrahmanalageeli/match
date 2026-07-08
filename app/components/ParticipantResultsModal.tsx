@@ -100,6 +100,7 @@ export default function ParticipantResultsModal({
   const [hideMessaged, setHideMessaged] = useState(false)
   const [hidePaid, setHidePaid] = useState(false)
   const [showNewOnly, setShowNewOnly] = useState(false)
+  const [showPaidOnly, setShowPaidOnly] = useState(false)
 
   // Fetch match history for all participants in modal
   const fetchAllMatchHistoryForModal = async () => {
@@ -445,6 +446,11 @@ export default function ParticipantResultsModal({
       const partnerNew = hasPartner ? isNewUser(partner as number) : false
       if (!selfNew && !partnerNew) return false
     }
+    if (showPaidOnly) {
+      const selfPaid = !!r.paid_done
+      const partnerPaid = hasPartner ? !!r.partner_paid_done : false
+      if (!selfPaid && !partnerPaid) return false
+    }
     return true
   })
 
@@ -704,7 +710,21 @@ export default function ParticipantResultsModal({
               <Sparkles className="w-4 h-4" />
               <span>جديد فقط</span>
             </label>
-            {(hideMessaged || hidePaid || showNewOnly) && (
+            <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border cursor-pointer transition-all duration-200 text-sm ${
+              showPaidOnly
+                ? 'bg-amber-500/20 border-amber-400/40 text-amber-200'
+                : 'bg-white/5 border-white/15 text-slate-300 hover:bg-white/10'
+            }`}>
+              <input
+                type="checkbox"
+                checked={showPaidOnly}
+                onChange={(e) => setShowPaidOnly(e.target.checked)}
+                className="accent-amber-500 w-4 h-4"
+              />
+              <DollarSign className="w-4 h-4" />
+              <span>مدفوع فقط</span>
+            </label>
+            {(hideMessaged || hidePaid || showNewOnly || showPaidOnly) && (
               <span className="text-xs text-slate-400">
                 ({visibleResults.length} ظاهر من {sortedResults.length})
               </span>

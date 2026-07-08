@@ -4,7 +4,7 @@ import {
   Users, Play, Square, ChevronRight, RotateCcw, CheckCircle,
   Circle, RefreshCw, Table2, Trophy, Clock, BarChart3, Shuffle,
   Eye, EyeOff, ArrowRight, Sparkles, Brain, Shield, LogOut,
-  Grid3x3, Star, Check, AlertCircle, Loader2, Copy, Heart, Layers, ChevronDown, X, MessageSquare, Send, Home, Trash2, GripVertical, Search, Crown, Medal,
+  Grid3x3, Star, Check, AlertCircle, Loader2, Copy, Heart, Layers, ChevronDown, X, MessageSquare, Send, Home, Trash2, GripVertical, Search, Crown, Medal, Coffee,
 } from "lucide-react"
 
 const ADMIN_PASSWORD = "soulmatch2026"
@@ -16,6 +16,7 @@ const PHASES = [
   { id: "ranking1",       label: "التصنيف — جولة 1",    icon: "🏆", color: "yellow" },
   { id: "round2",         label: "الجولة الثانية",       icon: "2️⃣", color: "indigo" },
   { id: "ranking2",       label: "التصنيف النهائي",      icon: "🏆", color: "yellow" },
+  { id: "break",          label: "استراحة",              icon: "☕", color: "orange" },
   { id: "phase2_reveal",  label: "الكشف الأول",          icon: "💘", color: "pink" },
   { id: "phase3_reveal",  label: "الكشف الثاني",         icon: "🧠", color: "purple" },
   { id: "final_reveal",   label: "الكشف النهائي",        icon: "✨", color: "amber" },
@@ -405,14 +406,15 @@ export default function Admin3Page() {
     const hasMatches = state.phase2_matches_done
     const sel = state.participants_selected || 0
     if (ph === "setup" && !hasSeating) return { label: "توليد خطة الجلسات", action: generateSeating, ready: sel >= 6 }
-    if (ph === "setup" && hasSeating) return { label: "⬅ بدء الجولة الأولى (20 دقيقة)", action: () => { setPhase("round1"); startTimer(1, 1200) }, ready: true }
+    if (ph === "setup" && hasSeating) return { label: "⬅ بدء الجولة الأولى (30 دقيقة)", action: () => { setPhase("round1"); startTimer(1, 1800) }, ready: true }
     if (ph === "round1") return { label: "⬅ التصنيف بعد الجولة 1", action: () => setPhase("ranking1"), ready: true }
-    if (ph === "ranking1") return { label: "⬅ بدء الجولة الثانية (20 دقيقة)", action: () => { setPhase("round2"); startTimer(2, 1200) }, ready: true }
+    if (ph === "ranking1") return { label: "⬅ بدء الجولة الثانية (25 دقيقة)", action: () => { setPhase("round2"); startTimer(2, 1500) }, ready: true }
     if (ph === "round2") return { label: "⬅ التصنيف النهائي", action: () => setPhase("ranking2"), ready: true }
     if (ph === "ranking2" && !hasMatches) return { label: "⬅ تشغيل مطابقة اختيار المشاركين", action: () => run("phase2", () => api("e3-trigger-phase2-matching").then(d => { fetchMatches(); fetchState(); return d })), ready: ranked > 0 }
-    if (ph === "ranking2" && hasMatches) return { label: "⬅ بدء كشف المرحلة 2 (30 دقيقة)", action: () => { setPhase("phase2_reveal"); startTimer(4, 1800) }, ready: true }
+    if (ph === "ranking2" && hasMatches) return { label: "⬅ استراحة (10 دقائق)", action: () => { setPhase("break"); startTimer(3, 600) }, ready: true }
+    if (ph === "break") return { label: "⬅ بدء كشف المرحلة 2 (20 دقيقة)", action: () => { setPhase("phase2_reveal"); startTimer(4, 1200) }, ready: true }
     if (ph === "phase2_reveal" && !state.phase3_matches_done) return { label: "⬅ تشغيل مطابقة الخوارزمية", action: () => run("phase3", () => api("e3-trigger-phase3-matching").then(d => { fetchState(); return d })), ready: true }
-    if (ph === "phase2_reveal" && state.phase3_matches_done) return { label: "⬅ كشف المرحلة 3 (30 دقيقة)", action: () => { setPhase("phase3_reveal"); startTimer(5, 1800) }, ready: true }
+    if (ph === "phase2_reveal" && state.phase3_matches_done) return { label: "⬅ كشف المرحلة 3 (20 دقيقة)", action: () => { setPhase("phase3_reveal"); startTimer(5, 1200) }, ready: true }
     if (ph === "phase3_reveal") return { label: "⬅ الكشف النهائي ✨", action: () => setPhase("final_reveal"), ready: true }
     return null
   }
@@ -746,8 +748,8 @@ export default function Admin3Page() {
                   },
                   {
                     label: "بدء الجولة الأولى",
-                    desc: "20 دقيقة",
-                    action: () => { setPhase("round1"); startTimer(1, 1200) },
+                    desc: "30 دقيقة",
+                    action: () => { setPhase("round1"); startTimer(1, 1800) },
                     icon: Play,
                     color: "green",
                     enabled: state?.seating_generated,
@@ -764,8 +766,8 @@ export default function Admin3Page() {
                   },
                   {
                     label: "بدء الجولة الثانية",
-                    desc: "20 دقيقة",
-                    action: () => { setPhase("round2"); startTimer(2, 1200) },
+                    desc: "25 دقيقة",
+                    action: () => { setPhase("round2"); startTimer(2, 1500) },
                     icon: Play,
                     color: "green",
                     enabled: true,
@@ -790,9 +792,18 @@ export default function Admin3Page() {
                     loadKey: "phase2",
                   },
                   {
+                    label: "استراحة",
+                    desc: "10 دقائق",
+                    action: () => { setPhase("break"); startTimer(3, 600) },
+                    icon: Coffee,
+                    color: "orange",
+                    enabled: state?.phase2_matches_done,
+                    loadKey: "phase-break",
+                  },
+                  {
                     label: "كشف المرحلة 2",
-                    desc: "30 دقيقة",
-                    action: () => { setPhase("phase2_reveal"); startTimer(4, 1800) },
+                    desc: "20 دقيقة",
+                    action: () => { setPhase("phase2_reveal"); startTimer(4, 1200) },
                     icon: Eye,
                     color: "pink",
                     enabled: state?.phase2_matches_done,
@@ -809,8 +820,8 @@ export default function Admin3Page() {
                   },
                   {
                     label: "كشف المرحلة 3",
-                    desc: "30 دقيقة",
-                    action: () => { setPhase("phase3_reveal"); startTimer(5, 1800) },
+                    desc: "20 دقيقة",
+                    action: () => { setPhase("phase3_reveal"); startTimer(5, 1200) },
                     icon: Sparkles,
                     color: "purple",
                     enabled: true,

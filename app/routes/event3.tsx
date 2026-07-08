@@ -10,7 +10,7 @@ import {
   MessageSquare, ChevronRight, Users, PenLine, Shuffle, BarChart3, GitMerge, X, Heart,
   Frown, Meh, Smile, Layers, Zap,
   Snowflake, Target, Star, Drama, AlertTriangle, XCircle, Search, Lightbulb, Key, PartyPopper, LifeBuoy,
-  EyeOff, Smartphone, Handshake, Timer, Ban, ShieldCheck,
+  EyeOff, Smartphone, Handshake, Timer, Ban, ShieldCheck, Coffee,
 } from "lucide-react"
 
 import { QuestionSlideshow } from "~/components/QuestionSlideshow"
@@ -710,11 +710,12 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
 function SetupScreen({ token, myInfo, enrolledCount }: { token: string; myInfo: { number: number; name: string; gender: string | null } | null; enrolledCount: number | null }) {
 
   const timeline = [
-    { icon: <Users size={14} className="text-purple-400" />, label: "جلسة جماعية أولى", time: "20 دقيقة" },
-    { icon: <Shuffle size={14} className="text-purple-400" />, label: "جلسة جماعية ثانية", time: "20 دقيقة" },
+    { icon: <Users size={14} className="text-purple-400" />, label: "جلسة جماعية أولى", time: "30 دقيقة" },
+    { icon: <Shuffle size={14} className="text-purple-400" />, label: "جلسة جماعية ثانية", time: "25 دقيقة" },
     { icon: <Trophy size={14} className="text-purple-400" />, label: "ترتيب المشاركين", time: "5 دقائق" },
-    { icon: <Star size={14} className="text-purple-400" />, label: "جلسة فردية (اختيارك)", time: "15 دقيقة" },
-    { icon: <Brain size={14} className="text-purple-400" />, label: "جلسة فردية (اختيار النظام)", time: "15 دقيقة" },
+    { icon: <Coffee size={14} className="text-orange-400" />, label: "استراحة", time: "10 دقائق" },
+    { icon: <Star size={14} className="text-purple-400" />, label: "جلسة فردية (اختيارك)", time: "20 دقيقة" },
+    { icon: <Brain size={14} className="text-purple-400" />, label: "جلسة فردية (اختيار النظام)", time: "20 دقيقة" },
     { icon: <Sparkles size={14} className="text-purple-400" />, label: "الكشف النهائي", time: "النتيجة" },
   ]
 
@@ -3257,6 +3258,77 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   )
 }
 
+// ─── Break Screen ─────────────────────────────────────────────────────────────
+function BreakScreen({ timerActive, timerStart, timerDuration }: {
+  timerActive: boolean; timerStart: string | null; timerDuration: number
+}) {
+  const [timeLeft, setTimeLeft] = useState(0)
+
+  useEffect(() => {
+    if (!timerActive || !timerStart) { setTimeLeft(0); return }
+    const update = () => {
+      const elapsed = Math.floor((Date.now() - new Date(timerStart).getTime()) / 1000)
+      setTimeLeft(Math.max(0, timerDuration - elapsed))
+    }
+    update()
+    const iv = setInterval(update, 1000)
+    return () => clearInterval(iv)
+  }, [timerActive, timerStart, timerDuration])
+
+  const mins = Math.floor(timeLeft / 60)
+  const secs = timeLeft % 60
+  const pct = timerDuration > 0 ? (timeLeft / timerDuration) * 100 : 0
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[100dvh] px-6 py-10" dir="rtl">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5 }}
+        className="w-full max-w-md text-center"
+      >
+        <motion.div
+          initial={{ scale: 0, rotate: -180 }}
+          animate={{ scale: 1, rotate: 0 }}
+          transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+          className="w-24 h-24 mx-auto mb-6 rounded-full bg-orange-500/20 border-2 border-orange-400/40 flex items-center justify-center"
+        >
+          <Coffee className="w-12 h-12 text-orange-400" />
+        </motion.div>
+
+        <h1 className="text-3xl font-bold text-white mb-3">استراحة</h1>
+        <p className="text-gray-400 text-sm mb-8">
+          خذ استراحة قصيرة، تناول شيئًا، وارجع للكشف عن نتائجك
+        </p>
+
+        {timerActive && timeLeft > 0 ? (
+          <div className="mb-8">
+            <div className="text-5xl font-bold text-orange-400 font-mono mb-4">
+              {String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
+            </div>
+            <div className="h-2 bg-orange-950/60 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-orange-400 rounded-full transition-all duration-1000"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="mb-8 text-gray-500 text-sm">
+            انتظر بدء الكشف...
+          </div>
+        )}
+
+        <div className="bg-orange-950/20 border border-orange-800/30 rounded-2xl p-5">
+          <p className="text-orange-300/80 text-sm leading-relaxed">
+            🎉 النتائج قريبًا — استعد لكشف اختيارك وكشف الخوارزمية
+          </p>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
 // ─── Final Reveal Screen ──────────────────────────────────────────────────────
 function FinalRevealScreen({ token }: { token: string }) {
   const [data, setData] = useState<any>(null)
@@ -3746,12 +3818,13 @@ export default function Event3Page() {
           {completedRounds && <RankingScreen key={phase} token={token} completedRounds={completedRounds} currentPhase={phase} />}
           {phase === "phase2_reveal" && <Phase2RevealScreen key="p2r" token={token} {...timerProps} />}
           {phase === "phase3_reveal" && <Phase3RevealScreen key="p3r" token={token} {...timerProps} />}
+          {phase === "break" && <BreakScreen key="break" {...timerProps} />}
           {phase === "final_reveal" && <FinalRevealScreen key="final" token={token} />}
         </AnimatePresence>
       </div>
 
-      {/* SOS button — hidden on final reveal and ranking pages */}
-      {enrolled && !rankingMatch && phase !== "final_reveal" && <SOSButton token={token} position="bottom" />}
+      {/* SOS button — hidden on final reveal, break, and ranking pages */}
+      {enrolled && !rankingMatch && phase !== "final_reveal" && phase !== "break" && <SOSButton token={token} position="bottom" />}
     </div>
   )
 }

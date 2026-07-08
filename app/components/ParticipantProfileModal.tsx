@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Save, Edit2, User, Phone, Calendar, MapPin, Heart, MessageSquare, Brain, Users, Star, Coffee, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { X, Save, Edit2, User, Phone, Calendar, MapPin, Heart, MessageSquare, Brain, Users, Star, Coffee, CheckCircle2, XCircle, Loader2, SlidersHorizontal, ArrowLeftRight, Shuffle } from "lucide-react";
 import { toast } from "react-hot-toast";
 
 interface ParticipantProfileModalProps {
@@ -28,6 +28,20 @@ export default function ParticipantProfileModal({ participant, isOpen, onClose, 
         phone_number: participant.phone_number || '',
         age: participant.age || surveyAnswers.age || '',
         gender: participant.gender || surveyAnswers.gender || '',
+        preferred_age_min: participant.preferred_age_min ?? surveyAnswers.preferred_age_min ?? '',
+        preferred_age_max: participant.preferred_age_max ?? surveyAnswers.preferred_age_max ?? '',
+        open_age_preference: participant.open_age_preference ?? surveyAnswers.open_age_preference ?? false,
+        intent_goal: participant.intent_goal || surveyAnswers.intent_goal || '',
+        open_intent_goal_mismatch: participant.open_intent_goal_mismatch ?? surveyAnswers.open_intent_goal_mismatch ?? false,
+        humor_banter_style: participant.humor_banter_style || surveyAnswers.humor_banter_style || '',
+        early_openness_comfort: participant.early_openness_comfort ?? surveyAnswers.early_openness_comfort ?? '',
+        gender_preference: (() => {
+          const raw = surveyAnswers.gender_preference;
+          if (raw === 'opposite_gender' || raw === 'same_gender' || raw === 'any_gender') return raw;
+          if (participant.same_gender_preference) return 'same_gender';
+          if (participant.any_gender_preference) return 'any_gender';
+          return 'opposite_gender';
+        })(),
         ...surveyAnswers
       });
       setEditMode({});
@@ -79,6 +93,28 @@ export default function ParticipantProfileModal({ participant, isOpen, onClose, 
   const saveField = async (field: string) => {
     setSaving(true);
     try {
+      // Gender preference uses a separate API that also updates boolean columns
+      if (field === 'gender_preference') {
+        const response = await fetch("/api/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "update-gender-preference",
+            participantNumber: participant.assigned_number,
+            genderPreference: editedData[field]
+          })
+        });
+        const data = await response.json();
+        if (response.ok && data.success) {
+          toast.success(`Updated ${field}`);
+          toggleEdit(field);
+          onUpdate();
+        } else {
+          toast.error(data.error || "Failed to update");
+        }
+        return;
+      }
+
       const response = await fetch("/api/admin/update-participant-field", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -172,6 +208,72 @@ export default function ParticipantProfileModal({ participant, isOpen, onClose, 
           )
         ) : (
           <p className="text-white text-sm">{value || <span className="text-slate-500 italic">Not provided</span>}</p>
+        )}
+      </div>
+    );
+  };
+
+  const renderToggleField = (label: string, field: string, icon: any) => {
+    const Icon = icon;
+    const isEditing = editMode[field];
+    const value = editedData[field];
+    const isTrue = value === true || value === 'true' || value === 1 || value === '1';
+
+    return (
+      <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Icon className="w-4 h-4 text-slate-400" />
+            <label className="text-sm font-semibold text-slate-300">{label}</label>
+          </div>
+          {!isEditing ? (
+            <button
+              onClick={() => toggleEdit(field)}
+              className="p-1 hover:bg-white/10 rounded transition-colors"
+              title="Edit"
+            >
+              <Edit2 className="w-4 h-4 text-slate-400 hover:text-white" />
+            </button>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                onClick={() => saveField(field)}
+                disabled={saving}
+                className="p-1 hover:bg-green-500/20 rounded transition-colors disabled:opacity-50"
+                title="Save"
+              >
+                <Save className="w-4 h-4 text-green-400" />
+              </button>
+              <button
+                onClick={() => {
+                  setEditedData((prev: any) => ({ ...prev, [field]: participant[field] ?? false }));
+                  toggleEdit(field);
+                }}
+                className="p-1 hover:bg-red-500/20 rounded transition-colors"
+                title="Cancel"
+              >
+                <X className="w-4 h-4 text-red-400" />
+              </button>
+            </div>
+          )}
+        </div>
+        {isEditing ? (
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleFieldChange(field, true)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${isTrue ? 'bg-green-500/30 text-green-200 border border-green-400/50' : 'bg-white/10 text-slate-300 border border-white/20 hover:bg-white/15'}`}
+            >
+              نعم
+            </button>
+            <button
+              onClick={() => handleFieldChange(field, false)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${!isTrue ? 'bg-red-500/30 text-red-200 border border-red-400/50' : 'bg-white/10 text-slate-300 border border-white/20 hover:bg-white/15'}`}
+            >
+              لا
+            </button>
+          </div>
+        ) : (
+          <p className="text-white text-sm">{isTrue ? 'نعم' : 'لا'}</p>
         )}
       </div>
     );
@@ -401,6 +503,24 @@ export default function ParticipantProfileModal({ participant, isOpen, onClose, 
               {renderField('Lifestyle 3', 'lifestyle_3', Coffee, 'select', ['أ', 'ب', 'ج', 'د'])}
               {renderField('Lifestyle 4', 'lifestyle_4', Coffee, 'select', ['أ', 'ب', 'ج', 'د'])}
               {renderField('Lifestyle 5', 'lifestyle_5', Coffee, 'select', ['أ', 'ب', 'ج', 'د'])}
+            </div>
+          </div>
+
+          {/* Matching Preferences */}
+          <div>
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <SlidersHorizontal className="w-5 h-5 text-emerald-400" />
+              Matching Preferences
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {renderField('Gender Preference', 'gender_preference', ArrowLeftRight, 'select', ['opposite_gender', 'same_gender', 'any_gender'])}
+              {renderField('Intent Goal', 'intent_goal', Star, 'select', ['A', 'B', 'C'])}
+              {renderField('Preferred Age (Min)', 'preferred_age_min', Calendar, 'number')}
+              {renderField('Preferred Age (Max)', 'preferred_age_max', Calendar, 'number')}
+              {renderField('Humor/Banter Style', 'humor_banter_style', MessageSquare, 'select', ['A', 'B', 'C', 'D'])}
+              {renderField('Early Openness Comfort', 'early_openness_comfort', Heart, 'select', ['0', '1', '2', '3'])}
+              {renderToggleField('Open Age Preference', 'open_age_preference', Shuffle)}
+              {renderToggleField('Open to Intent Goal Mismatch', 'open_intent_goal_mismatch', Shuffle)}
             </div>
           </div>
         </div>

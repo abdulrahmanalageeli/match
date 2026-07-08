@@ -53,6 +53,25 @@ export default async function handler(req, res) {
       normalizedValue = truthy(value)
     }
 
+    // Humor/banter style normalization (A|B|C|D)
+    if (field === 'humor_banter_style') {
+      let s = ''
+      try { s = String(value ?? '').trim().toUpperCase() } catch (_) { s = '' }
+      if (s && !['A', 'B', 'C', 'D'].includes(s)) {
+        return res.status(400).json({ error: 'humor_banter_style must be one of A, B, C, or D' })
+      }
+      normalizedValue = s
+    }
+
+    // Early openness comfort normalization (0-3)
+    if (field === 'early_openness_comfort') {
+      const intVal = parseInt(value, 10)
+      if (!Number.isFinite(intVal) || intVal < 0 || intVal > 3) {
+        return res.status(400).json({ error: 'early_openness_comfort must be between 0 and 3' })
+      }
+      normalizedValue = intVal
+    }
+
     // Intent goal normalization + validation (A|B|C)
     if (field === 'intent_goal') {
       let s = ''
@@ -66,7 +85,7 @@ export default async function handler(req, res) {
     // Get current participant data
     const { data: currentData, error: fetchError } = await supabase
       .from("participants")
-      .select("survey_data, name, phone_number, age, gender, preferred_age_min, preferred_age_max, open_age_preference, open_intent_goal_mismatch, intent_goal")
+      .select("survey_data, name, phone_number, age, gender, preferred_age_min, preferred_age_max, open_age_preference, open_intent_goal_mismatch, intent_goal, humor_banter_style, early_openness_comfort")
       .eq("match_id", STATIC_MATCH_ID)
       .eq("assigned_number", participantNumber)
       .single()
@@ -100,7 +119,9 @@ export default async function handler(req, res) {
       'preferred_age_max',
       'open_age_preference',
       'open_intent_goal_mismatch',
-      'intent_goal'
+      'intent_goal',
+      'humor_banter_style',
+      'early_openness_comfort'
     ]
     
     if (directFields.includes(field)) {

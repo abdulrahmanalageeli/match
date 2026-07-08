@@ -3108,7 +3108,7 @@ export default async function handler(req, res) {
     // 🔹 ADD LOCKED MATCH
     if (action === "add-locked-match") {
       try {
-        const { participant1, participant2, compatibilityScore, round, reason } = req.body
+        const { participant1, participant2, compatibilityScore, round, reason, event_id } = req.body
 
         if (!participant1 || !participant2) {
           return res.status(400).json({ error: "Both participant numbers are required" })
@@ -3116,6 +3116,17 @@ export default async function handler(req, res) {
 
         if (participant1 === participant2) {
           return res.status(400).json({ error: "Cannot lock a participant with themselves" })
+        }
+
+        // Determine event_id: use provided value, or fetch current event_id from event_state
+        let lockedEventId = event_id
+        if (!lockedEventId) {
+          const { data: stateRow } = await supabase
+            .from("event_state")
+            .select("current_event_id")
+            .eq("match_id", STATIC_MATCH_ID)
+            .single()
+          lockedEventId = stateRow?.current_event_id || 1
         }
 
         const { data, error } = await supabase
@@ -3126,7 +3137,8 @@ export default async function handler(req, res) {
             participant2_number: participant2,
             original_compatibility_score: compatibilityScore,
             original_match_round: round,
-            reason: reason || 'Admin locked match'
+            reason: reason || 'Admin locked match',
+            event_id: lockedEventId
           }])
           .select()
           .single()
@@ -6210,7 +6222,11 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           if (error) return res.status(500).json({ error: error.message })
           const { data: sel } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID)
           const selectedSet = new Set((sel || []).map(s => s.participant_number))
-          const participants = (data || []).map(p => { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); return { number: p.assigned_number, name: p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`, gender: p.gender || sd?.answers?.gender || sd?.gender || "?", age: p.age || sd?.answers?.age || sd?.age || "?", paid: !!p.PAID_DONE, selected: selectedSet.has(p.assigned_number) } })
+          // Fetch phase2_excluded flags from event3_participants
+          const { data: e3p } = await supabase.from("event3_participants").select("participant_number,phase2_excluded").eq("match_id", EVENT3_MATCH_ID)
+          const phase2ExcludedMap = {}
+          for (const r of e3p || []) { phase2ExcludedMap[r.participant_number] = !!r.phase2_excluded }
+          const participants = (data || []).map(p => { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); return { number: p.assigned_number, name: p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`, gender: p.gender || sd?.answers?.gender || sd?.gender || "?", age: p.age || sd?.answers?.age || sd?.age || "?", paid: !!p.PAID_DONE, selected: selectedSet.has(p.assigned_number), phase2_excluded: !!phase2ExcludedMap[p.assigned_number] } })
           return res.status(200).json({ participants, selected_count: selectedSet.size })
         }
         // e3-set-participants
@@ -6336,12 +6352,30 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           for (const p of pdata || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); nameMap[p.assigned_number] = p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}` }
           return res.status(200).json({ total: selected.length, submitted: submitted.size, status: selected.map(n => ({ number: n, submitted: submitted.has(n), name: nameMap[n] || `#${n}` })) })
         }
+        // e3-toggle-phase2-exclusion
+        if (action === "e3-toggle-phase2-exclusion") {
+          const { participant_number } = req.body
+          if (!participant_number) return res.status(400).json({ error: "participant_number required" })
+          const { data: existing } = await supabase.from("event3_participants").select("phase2_excluded").eq("match_id", EVENT3_MATCH_ID).eq("participant_number", participant_number).single()
+          if (!existing) return res.status(404).json({ error: "Participant not found in event3" })
+          const newVal = !existing.phase2_excluded
+          const { error } = await supabase.from("event3_participants").update({ phase2_excluded: newVal }).eq("match_id", EVENT3_MATCH_ID).eq("participant_number", participant_number)
+          if (error) return res.status(500).json({ error: error.message })
+          return res.status(200).json({ success: true, phase2_excluded: newVal, message: `Participant #${participant_number} ${newVal ? 'excluded from' : 'included in'} phase2` })
+        }
         // e3-trigger-phase2-matching
         if (action === "e3-trigger-phase2-matching") {
           const { data: rankRows } = await supabase.from("participant_rankings").select("ranker_number,ranked_number,rank").eq("match_id", EVENT3_MATCH_ID).order("rank", { ascending: true })
           if (!rankRows || rankRows.length === 0) return res.status(400).json({ error: "No rankings submitted yet" })
+          // Fetch phase2_excluded participants
+          const { data: e3p } = await supabase.from("event3_participants").select("participant_number,phase2_excluded").eq("match_id", EVENT3_MATCH_ID)
+          const phase2ExcludedSet = new Set((e3p || []).filter(r => r.phase2_excluded).map(r => r.participant_number))
+          if (phase2ExcludedSet.size > 0) {
+            console.log(`Phase 2: excluding ${phase2ExcludedSet.size} participants from choice-based matching:`, Array.from(phase2ExcludedSet))
+          }
           const rankings = new Map()
           for (const row of rankRows) {
+            if (phase2ExcludedSet.has(row.ranker_number)) continue
             const sorted = rankRows.filter(r => r.ranker_number === row.ranker_number).sort((a, b) => a.rank - b.rank).map(r => r.ranked_number)
             rankings.set(row.ranker_number, sorted)
           }
@@ -6387,88 +6421,48 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           await supabase.from("session_assignments").insert(tableRows)
           return res.status(200).json({ message: `Phase 2 matching complete. Created ${pairs.length} pairs across ${pairs.length} tables.` })
         }
-        // e3-trigger-phase3-matching
+        // e3-trigger-phase3-matching (uses locked matches — no recalculation)
         if (action === "e3-trigger-phase3-matching") {
           const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID)
           if (!ep || ep.length < 4) return res.status(400).json({ error: "No participants selected" })
           const nums = ep.map(r => r.participant_number)
-          // Fetch ALL fields needed for the same filtering as trigger-match.mjs
-          const { data: pdata } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,attachment_style,communication_style,humor_banter_style,early_openness_comfort,same_gender_preference,any_gender_preference,nationality,prefer_same_nationality,preferred_age_min,preferred_age_max,open_age_preference").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
-          if (!pdata) return res.status(500).json({ error: "Failed to fetch participant data" })
-          // Parse survey_data
-          for (const p of pdata) {
-            try { p.survey_data = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}) } catch {}
-          }
-          // Build participant lookup
-          const pByNum = new Map(pdata.map(p => [p.assigned_number, p]))
+          const numSet = new Set(nums)
 
-          // Fetch previously matched pairs from PREVIOUS EVENTS (not Phase 2 within same event)
-          const previousMatchPairs = new Set()
-          const { data: prevEventMatches } = await supabase
-            .from("match_results")
-            .select("participant_a_number, participant_b_number")
+          // Get current event_id
+          const { data: stateRow } = await supabase.from("event_state").select("current_event_id").eq("match_id", STATIC_MATCH_ID).single()
+          const currentEventId = stateRow?.current_event_id || 1
+
+          // Fetch locked matches for this event
+          const { data: lockedMatches } = await supabase
+            .from("locked_matches")
+            .select("participant1_number,participant2_number,original_compatibility_score,event_id")
             .eq("match_id", STATIC_MATCH_ID)
-            .lt("event_id", 3) // previous events only (event 3 is current)
-            .in("participant_a_number", nums)
-          for (const r of prevEventMatches || []) {
-            if (r.participant_a_number && r.participant_b_number) {
-              const key = `${Math.min(r.participant_a_number, r.participant_b_number)}-${Math.max(r.participant_a_number, r.participant_b_number)}`
-              previousMatchPairs.add(key)
-            }
-          }
-          console.log(`Phase 3: ${previousMatchPairs.size} previously matched pairs (from previous events) will be skipped`)
+            .eq("event_id", currentEventId)
 
-          // Same pipeline as trigger-match.mjs: filter pairs, calculate scores, greedy match
-          const compatibilityScores = []
-          let skippedGender = 0, skippedNationality = 0, skippedAge = 0, skippedInteraction = 0, skippedPrevious = 0, skippedNoCache = 0
+          console.log(`Phase 3 (locked): Found ${lockedMatches?.length || 0} locked matches for event_id=${currentEventId}`)
 
-          for (let i = 0; i < pdata.length; i++) {
-            for (let j = i + 1; j < pdata.length; j++) {
-              const a = pdata[i], b = pdata[j]
+          // Filter to only pairs where BOTH participants are in event3
+          const lockedPairs = (lockedMatches || []).filter(l =>
+            numSet.has(l.participant1_number) && numSet.has(l.participant2_number)
+          )
+          console.log(`Phase 3 (locked): ${lockedPairs.length} pairs have both participants in event3`)
 
-              // 0. Skip previously matched pairs (from previous events)
-              const pairKey = `${Math.min(a.assigned_number, b.assigned_number)}-${Math.max(a.assigned_number, b.assigned_number)}`
-              if (previousMatchPairs.has(pairKey)) { skippedPrevious++; continue }
-
-              // 1. Gender compatibility (respects same_gender_preference, any_gender_preference, opposite_gender)
-              if (!checkGenderCompatibility(a, b)) { skippedGender++; continue }
-              // 2. Nationality hard gate
-              if (!checkNationalityHardGate(a, b)) { skippedNationality++; continue }
-              // 3. Age range hard gate
-              if (!checkAgeRangeHardGate(a, b)) { skippedAge++; continue }
-              // 4. Interaction style compatibility (humor/openness veto)
-              if (!checkInteractionStyleCompatibility(a, b)) { skippedInteraction++; continue }
-
-              // 5. Read compatibility from cache (no recalculation)
-              const result = await e3FullCalcCompat(a, b)
-              if (!result) { skippedNoCache++; continue }
-              const totalScore = result.totalScore
-
-              // 6. Build reason string (same format as trigger-match.mjs)
-              const reason = `Synergy: ${Math.round(result.synergyScore)}% + Vibe: ${Math.round(result.vibeScore)}% + Lifestyle: ${Math.round(result.lifestyleScore)}% + Humor/Openness: ${Math.round(result.humorOpenScore)}% + Communication: ${Math.round(result.communicationScore)}% + Core Values: ${Math.round(result.coreValuesScaled5 ?? 0)}%` +
-                (result.attachmentPenalty ? ` − Penalty(Anx×Avoid)` : '') +
-                (result.intentBoost ? ` × IntentBoost(1.05)` : '') +
-                (result.capApplied ? ` (capped @ ${result.capApplied}%)` : '')
-
-              compatibilityScores.push({ a: a.assigned_number, b: b.assigned_number, score: totalScore, reason })
-            }
-          }
-
-          console.log(`Phase 3 matching: ${compatibilityScores.length} compatible pairs, skipped: ${skippedPrevious} previous, ${skippedGender} gender, ${skippedNationality} nationality, ${skippedAge} age, ${skippedInteraction} interaction style, ${skippedNoCache} no cache`)
-
-          // 7. Greedy matching: sort by score descending, assign best pairs first (same as trigger-match.mjs)
-          compatibilityScores.sort((a, b) => b.score - a.score)
+          // Build phase3 matches from locked pairs — no recalculation
           const used = new Set()
           const matches = []
-          for (const pair of compatibilityScores) {
-            if (!used.has(pair.a) && !used.has(pair.b)) {
-              used.add(pair.a)
-              used.add(pair.b)
-              matches.push(pair)
-            }
+          for (const lock of lockedPairs) {
+            const a = lock.participant1_number
+            const b = lock.participant2_number
+            if (used.has(a) || used.has(b)) continue
+            used.add(a)
+            used.add(b)
+            const score = lock.original_compatibility_score || 0
+            matches.push({ a, b, score })
           }
 
-          // 8. Store results with score and reason
+          console.log(`Phase 3 (locked): Created ${matches.length} pairs from locked matches. ${nums.length - used.size} participants unmatched.`)
+
+          // Store results
           for (const pair of matches) {
             await supabase.from("event3_matches").upsert({
               match_id: EVENT3_MATCH_ID,
@@ -6484,13 +6478,13 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             }, { onConflict: "match_id,participant_number" })
           }
 
-          // Handle unmatched (odd count) — pair with highest remaining compatible or leave unmatched
+          // Handle unmatched (odd count)
           const unmatched = nums.filter(n => !used.has(n))
           if (unmatched.length === 1) {
-            console.log(`Phase 3: 1 unmatched participant #${unmatched[0]} (odd count)`)
+            console.log(`Phase 3 (locked): 1 unmatched participant #${unmatched[0]} (odd count)`)
           }
 
-          return res.status(200).json({ message: `Phase 3 matching complete. Created ${matches.length} pairs. Skipped: ${skippedPrevious} previous, ${skippedGender} gender, ${skippedNationality} nationality, ${skippedAge} age, ${skippedInteraction} interaction style, ${skippedNoCache} no cache.` })
+          return res.status(200).json({ message: `Phase 3 matching complete. Created ${matches.length} pairs from locked matches. ${unmatched.length} unmatched.` })
         }
         // e3-get-all-rankings
         if (action === "e3-get-all-rankings") {
@@ -6696,7 +6690,18 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             const pairTable = pairTableMap[a] || pairTableMap[b] || null
             pairs.push({ a, aName: ai.name || `#${a}`, aGender: ai.gender, aSurvey: ai.survey_data, b, bName: bi.name || `#${b}`, bGender: bi.gender, bSurvey: bi.survey_data, rankBInA, rankAInB, matchType, skippedByA, skippedByB, compatScore, compat, bothComplete, table: pairTable })
           }
-          // Build phase3 pairs (algorithm matches — simpler, no ranking flow)
+          // Build phase3 pairs (algorithm matches — from locked matches, no recalculation)
+          // Fetch locked matches for current event to flag pairs
+          const { data: stateRow2 } = await supabase.from("event_state").select("current_event_id").eq("match_id", STATIC_MATCH_ID).single()
+          const currentEventId2 = stateRow2?.current_event_id || 1
+          const { data: lockedForEvent } = await supabase
+            .from("locked_matches")
+            .select("participant1_number,participant2_number")
+            .eq("match_id", STATIC_MATCH_ID)
+            .eq("event_id", currentEventId2)
+          const lockedPairKeys = new Set((lockedForEvent || []).map(l =>
+            `${Math.min(l.participant1_number, l.participant2_number)}-${Math.max(l.participant1_number, l.participant2_number)}`
+          ))
           const phase3Seen = new Set()
           const phase3Pairs = []
           for (const row of matchRows) {
@@ -6710,7 +6715,8 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             const compat3 = (infoMap[a] && infoMap[b]) ? await e3FullCalcCompat(infoMap[a], infoMap[b]) : null
             const compatScore3 = compat3 ? compat3.totalScore : null
             const storedScore3 = row.phase3_score || null
-            phase3Pairs.push({ a, aName: ai.name || `#${a}`, aGender: ai.gender, b, bName: bi.name || `#${b}`, bGender: bi.gender, compatScore: compatScore3, storedScore: storedScore3, compat: compat3, bothComplete: bothComplete3 })
+            const lockedKey = `${Math.min(a, b)}-${Math.max(a, b)}`
+            phase3Pairs.push({ a, aName: ai.name || `#${a}`, aGender: ai.gender, b, bName: bi.name || `#${b}`, bGender: bi.gender, compatScore: compatScore3, storedScore: storedScore3, compat: compat3, bothComplete: bothComplete3, locked: lockedPairKeys.has(lockedKey) })
           }
           return res.status(200).json({ pairs, phase3Pairs })
         }

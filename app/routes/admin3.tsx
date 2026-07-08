@@ -4,7 +4,7 @@ import {
   Users, Play, Square, ChevronRight, RotateCcw, CheckCircle,
   Circle, RefreshCw, Table2, Trophy, Clock, BarChart3, Shuffle,
   Eye, EyeOff, ArrowRight, Sparkles, Brain, Shield, LogOut,
-  Grid3x3, Star, Check, AlertCircle, Loader2, Copy, Heart, Layers, ChevronDown, X, MessageSquare, Send, Home, Trash2, GripVertical, Search, Crown, Medal, Coffee,
+  Grid3x3, Star, Check, AlertCircle, Loader2, Copy, Heart, Layers, ChevronDown, X, MessageSquare, Send, Home, Trash2, GripVertical, Search, Crown, Medal, Coffee, Ban,
 } from "lucide-react"
 
 const ADMIN_PASSWORD = "soulmatch2026"
@@ -435,6 +435,9 @@ export default function Admin3Page() {
 
   const triggerPhase2 = () => run("phase2", () => api("e3-trigger-phase2-matching"))
   const triggerPhase3 = () => run("phase3", () => api("e3-trigger-phase3-matching"))
+
+  const togglePhase2Exclusion = (num: number) =>
+    run(`phase2-exclude-${num}`, () => api("e3-toggle-phase2-exclusion", { participant_number: num }).then(d => { if (!d.error) fetchParticipants(); return d }))
   const resetEvent = () => {
     if (!confirm("هل أنت متأكد من إعادة تعيين الفعالية؟ سيتم حذف جميع البيانات.")) return
     run("reset", async () => {
@@ -954,6 +957,41 @@ export default function Admin3Page() {
             ) : mapRound === 20 ? (
               /* ── 1:1 Pairs View ─────────────────── */
               <>
+                {/* Phase 2 Exclusion Controls */}
+                <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-3">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-semibold text-gray-300 text-sm flex items-center gap-2">
+                      <Shield size={14} className="text-amber-400" />
+                      استبعاد من جولة الاختيار
+                    </h4>
+                    <p className="text-[10px] text-gray-600">استبعد مشاركاً من المطابقة الاختيارية مع إبقائه في باقي الفعالية</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {participants.filter(p => p.selected).map((p: any) => (
+                      <button
+                        key={p.number}
+                        onClick={() => togglePhase2Exclusion(p.number)}
+                        disabled={!!loading && loading !== `phase2-exclude-${p.number}`}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all flex items-center gap-1.5 disabled:opacity-40 ${
+                          p.phase2_excluded
+                            ? 'bg-red-900/40 border-red-700/50 text-red-300'
+                            : 'bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700'
+                        }`}
+                      >
+                        {loading === `phase2-exclude-${p.number}` ? (
+                          <RefreshCw size={10} className="animate-spin" />
+                        ) : p.phase2_excluded ? (
+                          <Ban size={10} />
+                        ) : (
+                          <Check size={10} className="text-green-400" />
+                        )}
+                        <span>{p.name}</span>
+                        <span className="text-[9px] opacity-60">#{p.number}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {matchPairs.length === 0 ? (
                   <div className="text-center py-12 text-gray-600">
                     <Heart size={32} className="mx-auto mb-3 opacity-30" />
@@ -1726,6 +1764,12 @@ export default function Admin3Page() {
                   </button>
                 </div>
               </div>
+              <div className="bg-purple-950/20 border border-purple-800/30 rounded-lg px-3 py-2">
+                <p className="text-[10px] text-purple-300/70 flex items-center gap-1.5">
+                  <Shield size={10} className="flex-shrink-0" />
+                  المطابقة تستخدم الأزواج المثبتة (locked matches) من لوحة التحكم — لا يتم إعادة الحساب
+                </p>
+              </div>
 
               {phase3Pairs.length === 0 ? (
                 <p className="text-gray-600 text-xs text-center py-4">لا توجد نتائج بعد — اضغط "تشغيل المطابقة"</p>
@@ -1745,6 +1789,11 @@ export default function Admin3Page() {
                           <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${pair.aGender === 'female' ? 'bg-pink-400' : 'bg-blue-400'}`} />
                           <span className="text-sm font-semibold text-white truncate">{pair.aName}</span>
                         </div>
+                        {pair.locked && (
+                          <span className="text-[9px] text-amber-400 bg-amber-900/30 border border-amber-700/40 px-1.5 py-0.5 rounded-full flex-shrink-0 flex items-center gap-1">
+                            <Shield size={8} /> مثبت
+                          </span>
+                        )}
                         {pair.storedScore != null && (
                           <span className={`text-xs font-bold flex-shrink-0 ${pair.storedScore >= 80 ? 'text-emerald-400' : pair.storedScore >= 68 ? 'text-indigo-400' : 'text-yellow-400'}`}>{pair.storedScore}%</span>
                         )}

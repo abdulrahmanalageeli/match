@@ -6592,7 +6592,16 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           )
           console.log(`Phase 3 (locked): ${lockedPairs.length} pairs have both participants in event3`)
 
-          // Build phase3 matches from locked pairs — no recalculation
+          // Fetch participant data for compatibility calculation
+          const lockedNums = [...new Set(lockedPairs.flatMap(l => [l.participant1_number, l.participant2_number]))]
+          const { data: lockedPData } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,attachment_style,communication_style,humor_banter_style,early_openness_comfort").eq("match_id", STATIC_MATCH_ID).in("assigned_number", lockedNums)
+          const lockedPMap = new Map()
+          for (const p of lockedPData || []) {
+            try { p.survey_data = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}) } catch {}
+            lockedPMap.set(p.assigned_number, p)
+          }
+
+          // Build phase3 matches from locked pairs — compute score from cache for consistency
           const used = new Set()
           const matches = []
           for (const lock of lockedPairs) {
@@ -6601,7 +6610,15 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             if (used.has(a) || used.has(b)) continue
             used.add(a)
             used.add(b)
-            const score = lock.original_compatibility_score || 0
+            // Compute score from compatibility_cache (same as phase2) for consistent breakdown
+            let score = lock.original_compatibility_score || 0
+            const pA = lockedPMap.get(a), pB = lockedPMap.get(b)
+            if (pA && pB) {
+              try {
+                const compat = await e3FullCalcCompat(pA, pB)
+                if (compat) score = compat.totalScore
+              } catch (e) { console.error(`Phase 3 compat error for #${a}×#${b}:`, e.message) }
+            }
             matches.push({ a, b, score })
           }
 

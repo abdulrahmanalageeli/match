@@ -2843,7 +2843,7 @@ Please respond in JSON format:
         const { data: existingRankings } = await supabase.from("participant_rankings").select("ranked_number,rank").eq("match_id", E3_MATCH_ID).eq("ranker_number", myNumber)
         const rankingMap = {}
         for (const r of existingRankings || []) rankingMap[r.ranked_number] = r.rank
-        return res.status(200).json({ people: metNumbers.map(m => ({ number: m.number, first_name: firstName(nameMap[m.number]), round: m.round, table_number: tableMap[m.number] || null })), existing_rankings: rankingMap, already_submitted: (existingRankings || []).length > 0 })
+        return res.status(200).json({ people: metNumbers.map(m => ({ number: m.number, first_name: firstName(nameMap[m.number]), round: m.round, table_number: tableMap[m.number] || null })), existing_rankings: rankingMap, already_submitted: (existingRankings || []).length > 0 && (existingRankings || []).length >= metNumbers.length })
       }
 
       // e3-submit-ranking

@@ -6608,7 +6608,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
 
           console.log(`Phase 3 (locked): Created ${matches.length} pairs from locked matches. ${nums.length - used.size} participants unmatched.`)
 
-          // Store results
+          // Store results in event3_matches
           for (const pair of matches) {
             await supabase.from("event3_matches").upsert({
               match_id: EVENT3_MATCH_ID,
@@ -6624,13 +6624,43 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             }, { onConflict: "match_id,participant_number" })
           }
 
+          // Assign table numbers for round 20 (1:1 sessions) and insert into session_assignments
+          // Delete existing round 20 assignments for event3 participants
+          await supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID).eq("round", 20)
+
+          const assignments = []
+          for (let i = 0; i < matches.length; i++) {
+            const tableNumber = i + 1
+            assignments.push({
+              match_id: EVENT3_MATCH_ID,
+              event_id: 3,
+              round: 20,
+              table_number: tableNumber,
+              participant_id: matches[i].a
+            })
+            assignments.push({
+              match_id: EVENT3_MATCH_ID,
+              event_id: 3,
+              round: 20,
+              table_number: tableNumber,
+              participant_id: matches[i].b
+            })
+          }
+          if (assignments.length > 0) {
+            const { error: insertError } = await supabase.from("session_assignments").insert(assignments)
+            if (insertError) {
+              console.error(`Phase 3 (locked): Failed to insert session_assignments for round 20:`, insertError)
+              return res.status(500).json({ error: insertError.message })
+            }
+          }
+
           // Handle unmatched (odd count)
           const unmatched = nums.filter(n => !used.has(n))
           if (unmatched.length === 1) {
             console.log(`Phase 3 (locked): 1 unmatched participant #${unmatched[0]} (odd count)`)
           }
 
-          return res.status(200).json({ message: `Phase 3 matching complete. Created ${matches.length} pairs from locked matches. ${unmatched.length} unmatched.` })
+          return res.status(200).json({ message: `Phase 3 matching complete. Created ${matches.length} pairs from locked matches, assigned ${matches.length} tables for round 20. ${unmatched.length} unmatched.` })
         }
         // e3-get-all-rankings
         if (action === "e3-get-all-rankings") {

@@ -16,14 +16,18 @@ const EVENT3_MATCH_ID = "00000000-0000-0000-0000-000000000003"
 const EVENT3_PASSWORD = "soulmatch2026"
 const E3_LATIN_SQUARE = [[0,1,2,3,4,5],[2,3,4,5,0,1],[4,5,0,1,2,3],[1,0,3,2,5,4],[3,2,5,4,1,0],[5,4,1,0,3,2]]
 
+// In-memory cache for e3-get-overview compatibility matrix
+const E3_OVERVIEW_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+let e3OverviewCache = { matrix: null, participantKey: null, timestamp: 0 }
+
 function e3GenerateSeatingPlan(participantNumbers) {
   const N = participantNumbers.length
-  // Pick smallest valid group size from {4,5,6} that divides N evenly
-  const G = [4, 5, 6].find(g => N % g === 0)
+  // Pick largest valid group size from {6,5,4} that divides N evenly
+  const G = [6, 5, 4].find(g => N % g === 0)
   if (!G) {
     const suggestions = []
     for (let n = Math.max(4, N - 6); n <= N + 6; n++) {
-      if ([4, 5, 6].some(g => n % g === 0)) suggestions.push(n)
+      if ([6, 5, 4].some(g => n % g === 0)) suggestions.push(n)
     }
     return { error: `عدد المشاركين (${N}) لا ينقسم بالتساوي على أي من مجموعات 4 أو 5 أو 6. جرّب: ${[...new Set(suggestions)].sort((a,b)=>a-b).join("، ")}` }
   }
@@ -6593,18 +6597,29 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               },
             }
           }
-          // Build compatibility matrix (skipAI=true for speed)
-          const matrix = {}
-          const pdataList = pdata || []
-          for (let i = 0; i < pdataList.length; i++) {
-            for (let j = i + 1; j < pdataList.length; j++) {
-              const a = pdataList[i].assigned_number, b = pdataList[j].assigned_number
-              const key = a < b ? `${a}-${b}` : `${b}-${a}`
-              try {
-                const r = await calculateFullCompatibilityWithCache(pdataList[i], pdataList[j], true, false)
-                matrix[key] = { score: Math.round(r.totalScore), bothComplete: isParticipantComplete(pdataList[i]) && isParticipantComplete(pdataList[j]) }
-              } catch { matrix[key] = { score: null, bothComplete: false } }
+          // Build compatibility matrix (cached — skipAI=true for speed)
+          const participantKey = selected.slice().sort((a, b) => a - b).join(",")
+          const now = Date.now()
+          let matrix
+          if (e3OverviewCache.matrix && e3OverviewCache.participantKey === participantKey && (now - e3OverviewCache.timestamp) < E3_OVERVIEW_CACHE_TTL) {
+            console.log(`e3-get-overview: using cached matrix (${Object.keys(e3OverviewCache.matrix).length} pairs, age: ${Math.round((now - e3OverviewCache.timestamp) / 1000)}s)`)
+            matrix = e3OverviewCache.matrix
+          } else {
+            console.log(`e3-get-overview: computing fresh matrix for ${selected.length} participants`)
+            matrix = {}
+            const pdataList = pdata || []
+            for (let i = 0; i < pdataList.length; i++) {
+              for (let j = i + 1; j < pdataList.length; j++) {
+                const a = pdataList[i].assigned_number, b = pdataList[j].assigned_number
+                const key = a < b ? `${a}-${b}` : `${b}-${a}`
+                try {
+                  const r = await calculateFullCompatibilityWithCache(pdataList[i], pdataList[j], true, false)
+                  matrix[key] = { score: Math.round(r.totalScore), bothComplete: isParticipantComplete(pdataList[i]) && isParticipantComplete(pdataList[j]) }
+                } catch { matrix[key] = { score: null, bothComplete: false } }
+              }
             }
+            e3OverviewCache = { matrix, participantKey, timestamp: now }
+            console.log(`e3-get-overview: matrix cached with ${Object.keys(matrix).length} pairs`)
           }
           // Attach partner names and compat scores to participants
           const participants = Object.values(infoMap).map((p) => {

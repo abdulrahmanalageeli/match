@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
-import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkInteractionStyleCompatibility } from "./trigger-match.mjs"
+import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkInteractionStyleCompatibility, fetchAllCachedPairs } from "./trigger-match.mjs"
 
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
@@ -16,11 +16,7 @@ const EVENT3_MATCH_ID = "00000000-0000-0000-0000-000000000003"
 const EVENT3_PASSWORD = "soulmatch2026"
 const E3_LATIN_SQUARE = [[0,1,2,3,4,5],[2,3,4,5,0,1],[4,5,0,1,2,3],[1,0,3,2,5,4],[3,2,5,4,1,0],[5,4,1,0,3,2]]
 
-// In-memory cache for e3-get-overview compatibility matrix
-const E3_OVERVIEW_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
-let e3OverviewCache = { matrix: null, participantKey: null, timestamp: 0 }
-
-function e3GenerateSeatingPlan(participantNumbers) {
+function e3GenerateSeatingPlan(participantNumbers, genderMap = {}, lockedPairsSet = new Set()) {
   const N = participantNumbers.length
   // Pick largest valid group size from {6,5,4} that divides N evenly
   const G = [6, 5, 4].find(g => N % g === 0)
@@ -32,9 +28,29 @@ function e3GenerateSeatingPlan(participantNumbers) {
     return { error: `عدد المشاركين (${N}) لا ينقسم بالتساوي على أي من مجموعات 4 أو 5 أو 6. جرّب: ${[...new Set(suggestions)].sort((a,b)=>a-b).join("، ")}` }
   }
   const T = N / G  // number of groups
+
+  // ── Interleave by gender so each group gets balanced M/F ──────────────
+  // Sort into males and females, then alternate: M F M F M F ...
+  // This ensures that when we fill the grid sequentially, each group of G
+  // gets roughly G/2 males and G/2 females.
+  const males = participantNumbers.filter(n => (genderMap[n] || '').toLowerCase() !== 'female')
+  const females = participantNumbers.filter(n => (genderMap[n] || '').toLowerCase() === 'female')
+  const interleaved = []
+  let mi = 0, fi = 0
+  for (let i = 0; i < N; i++) {
+    // Alternate, but if one pool runs out, take from the other
+    if (i % 2 === 0) {
+      if (mi < males.length) interleaved.push(males[mi++])
+      else interleaved.push(females[fi++])
+    } else {
+      if (fi < females.length) interleaved.push(females[fi++])
+      else interleaved.push(males[mi++])
+    }
+  }
+
   // grid[t][g] = participant at group t, seat g  (sequential fill)
   const grid = Array.from({ length: T }, (_, t) =>
-    Array.from({ length: G }, (_, g) => participantNumbers[t * G + g])
+    Array.from({ length: G }, (_, g) => interleaved[t * G + g])
   )
   // Round 1: sequential groups
   const round1 = grid.map(row => [...row])
@@ -43,8 +59,65 @@ function e3GenerateSeatingPlan(participantNumbers) {
   const round2 = Array.from({ length: G }, (_, g) =>
     Array.from({ length: T }, (_, t) => grid[t][g])
   )
+
+  // ── Post-assignment fixes: separate locked pairs & balance gender ──────
+  // For each round, check if any group has a locked pair together, and swap
+  // with another group to separate them while maintaining gender balance.
+  const fixRound = (round) => {
+    for (let iter = 0; iter < 3; iter++) { // up to 3 passes
+      let fixed = 0
+      for (let g1 = 0; g1 < round.length; g1++) {
+        for (let i = 0; i < round[g1].length; i++) {
+          for (let j = i + 1; j < round[g1].length; j++) {
+            const a = round[g1][i], b = round[g1][j]
+            const pairKey = a < b ? `${a}-${b}` : `${b}-${a}`
+            if (!lockedPairsSet.has(pairKey)) continue
+            // Locked pair found in same group — try to swap one of them out
+            // Find a swap partner in another group with same gender
+            const aGender = (genderMap[a] || '').toLowerCase()
+            let swapped = false
+            for (let g2 = 0; g2 < round.length && !swapped; g2++) {
+              if (g2 === g1) continue
+              for (let k = 0; k < round[g2].length && !swapped; k++) {
+                const c = round[g2][k]
+                const cGender = (genderMap[c] || '').toLowerCase()
+                if (cGender !== aGender) continue // only swap same gender
+                // Check that swapping a↔c doesn't create a new locked pair in either group
+                const newGroup1 = round[g1].map((x, idx) => idx === i ? c : x)
+                const newGroup2 = round[g2].map((x, idx) => idx === k ? a : x)
+                let createsLock = false
+                for (let x = 0; x < newGroup1.length && !createsLock; x++) {
+                  for (let y = x + 1; y < newGroup1.length && !createsLock; y++) {
+                    const pk = newGroup1[x] < newGroup1[y] ? `${newGroup1[x]}-${newGroup1[y]}` : `${newGroup1[y]}-${newGroup1[x]}`
+                    if (lockedPairsSet.has(pk)) createsLock = true
+                  }
+                }
+                for (let x = 0; x < newGroup2.length && !createsLock; x++) {
+                  for (let y = x + 1; y < newGroup2.length && !createsLock; y++) {
+                    const pk = newGroup2[x] < newGroup2[y] ? `${newGroup2[x]}-${newGroup2[y]}` : `${newGroup2[y]}-${newGroup2[x]}`
+                    if (lockedPairsSet.has(pk)) createsLock = true
+                  }
+                }
+                if (!createsLock) {
+                  round[g1][i] = c
+                  round[g2][k] = a
+                  swapped = true
+                  fixed++
+                }
+              }
+            }
+          }
+        }
+      }
+      if (fixed === 0) break // no more fixes possible
+    }
+  }
+
+  fixRound(round1)
+  fixRound(round2)
+
   const positionMap = {}
-  for (let i = 0; i < N; i++) positionMap[participantNumbers[i]] = i
+  for (let i = 0; i < N; i++) positionMap[interleaved[i]] = i
   return { round1, round2, T, G, positionMap }
 }
 
@@ -6253,46 +6326,97 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           let orderedNumbers = participantNumbers
           let usedCompat = false
           try {
+            console.log(`e3-generate-seating: batch-fetching compat scores from DB for ${participantNumbers.length} participants`)
             const { data: pdata } = await supabase
               .from("participants").select("assigned_number,name,gender,age,mbti_personality_type,attachment_style,communication_style,humor_banter_style,early_openness_comfort,survey_data")
               .eq("match_id", STATIC_MATCH_ID).in("assigned_number", participantNumbers)
+
+            // Batch-fetch all cached compatibility scores in ONE query
+            const { data: allCached } = await fetchAllCachedPairs('compatibility_cache', participantNumbers)
+            const dbCacheMap = new Map()
+            for (const c of allCached || []) {
+              const key = `${c.participant_a_number}-${c.participant_b_number}`
+              dbCacheMap.set(key, c)
+            }
+            console.log(`e3-generate-seating: ${dbCacheMap.size} cached pairs found in DB`)
+
+            const compatMap = {}
+            let cacheHits = 0, cacheMisses = 0
             if (pdata && pdata.length > 1) {
-              const compatMap = {}
               for (let i = 0; i < pdata.length; i++) {
                 for (let j = i + 1; j < pdata.length; j++) {
                   const a = pdata[i], b = pdata[j]
                   if (!isParticipantComplete(a) || !isParticipantComplete(b)) continue
-                  const key = a.assigned_number < b.assigned_number ? `${a.assigned_number}-${b.assigned_number}` : `${b.assigned_number}-${a.assigned_number}`
-                  try {
-                    const r = await calculateFullCompatibilityWithCache(a, b, true, false)
-                    compatMap[key] = r.totalScore || 0
-                  } catch { compatMap[key] = 0 }
-                }
-              }
-              if (Object.keys(compatMap).length > 0) {
-                const numSet = new Set(participantNumbers)
-                const order = []
-                let current = participantNumbers[0]
-                numSet.delete(current); order.push(current)
-                while (numSet.size > 0) {
-                  let best = null, bestScore = -1
-                  for (const cand of numSet) {
-                    const key = current < cand ? `${current}-${cand}` : `${cand}-${current}`
-                    const score = compatMap[key] ?? 0
-                    if (score > bestScore) { bestScore = score; best = cand }
+                  const smaller = Math.min(a.assigned_number, b.assigned_number)
+                  const larger = Math.max(a.assigned_number, b.assigned_number)
+                  const key = `${smaller}-${larger}`
+                  // Try DB cache first
+                  const cached = dbCacheMap.get(key)
+                  if (cached && cached.total_compatibility_score != null) {
+                    compatMap[key] = Number(cached.total_compatibility_score) || 0
+                    cacheHits++
+                  } else {
+                    // Cache miss — compute and it will store to DB automatically
+                    try {
+                      const r = await calculateFullCompatibilityWithCache(a, b, true, false)
+                      compatMap[key] = r.totalScore || 0
+                      cacheMisses++
+                    } catch { compatMap[key] = 0 }
                   }
-                  order.push(best); numSet.delete(best); current = best
                 }
-                orderedNumbers = order
-                usedCompat = true
               }
+            }
+            console.log(`e3-generate-seating: ${cacheHits} cache hits, ${cacheMisses} cache misses (computed)`)
+            if (Object.keys(compatMap).length > 0) {
+              const numSet = new Set(participantNumbers)
+              const order = []
+              let current = participantNumbers[0]
+              numSet.delete(current); order.push(current)
+              while (numSet.size > 0) {
+                let best = null, bestScore = -1
+                for (const cand of numSet) {
+                  const key = current < cand ? `${current}-${cand}` : `${cand}-${current}`
+                  const score = compatMap[key] ?? 0
+                  if (score > bestScore) { bestScore = score; best = cand }
+                }
+                order.push(best); numSet.delete(best); current = best
+              }
+              orderedNumbers = order
+              usedCompat = true
             }
           } catch (e) {
             console.log("Compat ordering failed, falling back to sequential:", e.message)
           }
           // ─────────────────────────────────────────────────────────────────────────
 
-          const plan = e3GenerateSeatingPlan(orderedNumbers)
+          // Fetch gender info for all participants
+          const { data: genderRows } = await supabase
+            .from("participants").select("assigned_number,gender,survey_data")
+            .eq("match_id", STATIC_MATCH_ID).in("assigned_number", participantNumbers)
+          const genderMap = {}
+          for (const p of genderRows || []) {
+            const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {})
+            genderMap[p.assigned_number] = p.gender || sd?.answers?.gender || sd?.gender || "?"
+          }
+
+          // Fetch locked matches for current event to avoid seating pairs together
+          const { data: stateRow } = await supabase.from("event_state").select("current_event_id").eq("match_id", STATIC_MATCH_ID).single()
+          const currentEventId = stateRow?.current_event_id || 1
+          const { data: lockedForSeating } = await supabase
+            .from("locked_matches")
+            .select("participant1_number,participant2_number")
+            .eq("match_id", STATIC_MATCH_ID)
+            .eq("event_id", currentEventId)
+          const lockedPairsSet = new Set()
+          for (const l of lockedForSeating || []) {
+            const key = l.participant1_number < l.participant2_number
+              ? `${l.participant1_number}-${l.participant2_number}`
+              : `${l.participant2_number}-${l.participant1_number}`
+            lockedPairsSet.add(key)
+          }
+          console.log(`e3-generate-seating: ${lockedPairsSet.size} locked pairs to separate in groups`)
+
+          const plan = e3GenerateSeatingPlan(orderedNumbers, genderMap, lockedPairsSet)
           if (plan.error) return res.status(400).json({ error: plan.error })
           const { round1, round2, T, G, positionMap } = plan
           await supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID)
@@ -6303,7 +6427,14 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           for (let g = 0; g < G; g++) for (const p of round2[g]) assignments.push({ match_id: EVENT3_MATCH_ID, event_id: 3, round: 2, table_number: g + 1, participant_id: p })
           const { error } = await supabase.from("session_assignments").insert(assignments)
           if (error) return res.status(500).json({ error: error.message })
-          return res.status(200).json({ message: `تم توليد خطة الجلسات — ${T} مجموعات من ${G} أشخاص، جولتان${usedCompat ? ' (مُحسَّنة بالتوافق)' : ''}`, round1, round2, groups: T, groupSize: G })
+          // Report gender balance per group
+          const balanceInfo = []
+          for (let t = 0; t < round1.length; t++) {
+            const m = round1[t].filter(n => (genderMap[n] || '').toLowerCase() !== 'female').length
+            const f = round1[t].filter(n => (genderMap[n] || '').toLowerCase() === 'female').length
+            balanceInfo.push(`${m}♂${f}♀`)
+          }
+          return res.status(200).json({ message: `تم توليد خطة الجلسات — ${T} مجموعات من ${G} أشخاص، جولتان${usedCompat ? ' (مُحسَّنة بالتوافق)' : ''} | توازن: ${balanceInfo.join(' · ')}`, round1, round2, groups: T, groupSize: G })
         }
         // e3-get-seating
         if (action === "e3-get-seating") {
@@ -6597,30 +6728,39 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               },
             }
           }
-          // Build compatibility matrix (cached — skipAI=true for speed)
-          const participantKey = selected.slice().sort((a, b) => a - b).join(",")
-          const now = Date.now()
-          let matrix
-          if (e3OverviewCache.matrix && e3OverviewCache.participantKey === participantKey && (now - e3OverviewCache.timestamp) < E3_OVERVIEW_CACHE_TTL) {
-            console.log(`e3-get-overview: using cached matrix (${Object.keys(e3OverviewCache.matrix).length} pairs, age: ${Math.round((now - e3OverviewCache.timestamp) / 1000)}s)`)
-            matrix = e3OverviewCache.matrix
-          } else {
-            console.log(`e3-get-overview: computing fresh matrix for ${selected.length} participants`)
-            matrix = {}
-            const pdataList = pdata || []
-            for (let i = 0; i < pdataList.length; i++) {
-              for (let j = i + 1; j < pdataList.length; j++) {
-                const a = pdataList[i].assigned_number, b = pdataList[j].assigned_number
-                const key = a < b ? `${a}-${b}` : `${b}-${a}`
+          // Build compatibility matrix (batch-fetch from DB cache, compute misses)
+          console.log(`e3-get-overview: batch-fetching compat scores from DB for ${selected.length} participants`)
+          const { data: allCachedOverview } = await fetchAllCachedPairs('compatibility_cache', selected)
+          const dbCacheOverviewMap = new Map()
+          for (const c of allCachedOverview || []) {
+            const key = `${c.participant_a_number}-${c.participant_b_number}`
+            dbCacheOverviewMap.set(key, c)
+          }
+          console.log(`e3-get-overview: ${dbCacheOverviewMap.size} cached pairs found in DB`)
+          const matrix = {}
+          const pdataList = pdata || []
+          let ovHits = 0, ovMisses = 0
+          for (let i = 0; i < pdataList.length; i++) {
+            for (let j = i + 1; j < pdataList.length; j++) {
+              const a = pdataList[i], b = pdataList[j]
+              const smaller = Math.min(a.assigned_number, b.assigned_number)
+              const larger = Math.max(a.assigned_number, b.assigned_number)
+              const key = `${smaller}-${larger}`
+              const bothComplete = isParticipantComplete(a) && isParticipantComplete(b)
+              const cached = dbCacheOverviewMap.get(key)
+              if (cached && cached.total_compatibility_score != null) {
+                matrix[key] = { score: Math.round(Number(cached.total_compatibility_score)), bothComplete }
+                ovHits++
+              } else {
                 try {
-                  const r = await calculateFullCompatibilityWithCache(pdataList[i], pdataList[j], true, false)
-                  matrix[key] = { score: Math.round(r.totalScore), bothComplete: isParticipantComplete(pdataList[i]) && isParticipantComplete(pdataList[j]) }
+                  const r = await calculateFullCompatibilityWithCache(a, b, true, false)
+                  matrix[key] = { score: Math.round(r.totalScore), bothComplete }
+                  ovMisses++
                 } catch { matrix[key] = { score: null, bothComplete: false } }
               }
             }
-            e3OverviewCache = { matrix, participantKey, timestamp: now }
-            console.log(`e3-get-overview: matrix cached with ${Object.keys(matrix).length} pairs`)
           }
+          console.log(`e3-get-overview: ${ovHits} cache hits, ${ovMisses} cache misses (computed)`)
           // Attach partner names and compat scores to participants
           const participants = Object.values(infoMap).map((p) => {
             const partner = p.matchPartner ? infoMap[p.matchPartner] : null

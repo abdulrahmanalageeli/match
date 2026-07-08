@@ -6608,7 +6608,10 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
 
           console.log(`Phase 3 (locked): Created ${matches.length} pairs from locked matches. ${nums.length - used.size} participants unmatched.`)
 
-          // Store results in event3_matches
+          // Clear old phase3 data for all event3 participants
+          await supabase.from("event3_matches").update({ phase3_partner: null, phase3_score: null }).eq("match_id", EVENT3_MATCH_ID).in("participant_number", nums)
+
+          // Store results — upsert phase3 partner for each matched pair
           for (const pair of matches) {
             await supabase.from("event3_matches").upsert({
               match_id: EVENT3_MATCH_ID,
@@ -6624,43 +6627,26 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             }, { onConflict: "match_id,participant_number" })
           }
 
-          // Assign table numbers for round 20 (1:1 sessions) and insert into session_assignments
-          // Delete existing round 20 assignments for event3 participants
-          await supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID).eq("round", 20)
-
-          const assignments = []
-          for (let i = 0; i < matches.length; i++) {
-            const tableNumber = i + 1
-            assignments.push({
-              match_id: EVENT3_MATCH_ID,
-              event_id: 3,
-              round: 20,
-              table_number: tableNumber,
-              participant_id: matches[i].a
-            })
-            assignments.push({
-              match_id: EVENT3_MATCH_ID,
-              event_id: 3,
-              round: 20,
-              table_number: tableNumber,
-              participant_id: matches[i].b
-            })
-          }
-          if (assignments.length > 0) {
-            const { error: insertError } = await supabase.from("session_assignments").insert(assignments)
-            if (insertError) {
-              console.error(`Phase 3 (locked): Failed to insert session_assignments for round 20:`, insertError)
-              return res.status(500).json({ error: insertError.message })
-            }
-          }
-
           // Handle unmatched (odd count)
           const unmatched = nums.filter(n => !used.has(n))
           if (unmatched.length === 1) {
             console.log(`Phase 3 (locked): 1 unmatched participant #${unmatched[0]} (odd count)`)
           }
 
-          return res.status(200).json({ message: `Phase 3 matching complete. Created ${matches.length} pairs from locked matches, assigned ${matches.length} tables for round 20. ${unmatched.length} unmatched.` })
+          // Create round 20 session_assignments for phase3 pairs (1:1 tables)
+          await supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID).eq("round", 20)
+          const tableRows = []
+          matches.forEach(({ a, b }, idx) => {
+            const tbl = idx + 1
+            tableRows.push({ match_id: EVENT3_MATCH_ID, event_id: 3, round: 20, table_number: tbl, participant_id: a })
+            tableRows.push({ match_id: EVENT3_MATCH_ID, event_id: 3, round: 20, table_number: tbl, participant_id: b })
+          })
+          if (tableRows.length > 0) {
+            await supabase.from("session_assignments").insert(tableRows)
+            console.log(`Phase 3 (locked): Created ${matches.length} table assignments for round 20`)
+          }
+
+          return res.status(200).json({ message: `Phase 3 matching complete. Created ${matches.length} pairs from locked matches. ${unmatched.length} unmatched.` })
         }
         // e3-get-all-rankings
         if (action === "e3-get-all-rankings") {
@@ -6912,7 +6898,8 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             const compatScore3 = compat3 ? compat3.totalScore : null
             const storedScore3 = row.phase3_score || null
             const lockedKey = `${Math.min(a, b)}-${Math.max(a, b)}`
-            phase3Pairs.push({ a, aName: ai.name || `#${a}`, aGender: ai.gender, b, bName: bi.name || `#${b}`, bGender: bi.gender, compatScore: compatScore3, storedScore: storedScore3, compat: compat3, bothComplete: bothComplete3, locked: lockedPairKeys.has(lockedKey) })
+            const pairTable3 = pairTableMap[a] || pairTableMap[b] || null
+            phase3Pairs.push({ a, aName: ai.name || `#${a}`, aGender: ai.gender, b, bName: bi.name || `#${b}`, bGender: bi.gender, compatScore: compatScore3, storedScore: storedScore3, compat: compat3, bothComplete: bothComplete3, locked: lockedPairKeys.has(lockedKey), table: pairTable3 })
           }
           return res.status(200).json({ pairs, phase3Pairs })
         }

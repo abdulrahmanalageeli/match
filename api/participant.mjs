@@ -2942,7 +2942,9 @@ Please respond in JSON format:
             total: Math.round(matchRow.phase3_score || parseFloat(cacheRow.total_compatibility_score)),
           }
         }
-        return res.status(200).json({ partner_number: matchRow.phase3_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), compatibility_score: matchRow.phase3_score || 0, same_as_phase2: matchRow.phase2_partner === matchRow.phase3_partner, word_submitted: !!matchRow.phase3_word, partner_mbti: partnerMbti, partner_attachment: partnerAttachment, partner_communication: partnerCommunication, partner_age: partnerAge, breakdown })
+        // Fetch table number from round 30 session_assignments
+        const { data: tableRow } = await supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("round", 30).eq("participant_id", myNumber).single()
+        return res.status(200).json({ partner_number: matchRow.phase3_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), compatibility_score: matchRow.phase3_score || 0, same_as_phase2: matchRow.phase2_partner === matchRow.phase3_partner, word_submitted: !!matchRow.phase3_word, partner_mbti: partnerMbti, partner_attachment: partnerAttachment, partner_communication: partnerCommunication, partner_age: partnerAge, breakdown, table_number: tableRow?.table_number ?? null })
       }
 
       // e3-submit-phase3-word

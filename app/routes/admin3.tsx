@@ -662,10 +662,13 @@ export default function Admin3Page() {
                     const sel = participants.filter(p => selectedNumbers.has(p.number))
                     const males = sel.filter(p => (p.gender || '').toLowerCase() !== 'female').length
                     const females = sel.filter(p => (p.gender || '').toLowerCase() === 'female').length
+                    const ages = sel.map(p => p.age).filter(a => a && a !== "?").sort((a, b) => a - b)
+                    const ageRange = ages.length > 0 ? `${ages[0]}-${ages[ages.length - 1]}` : "?"
                     return (
                       <span className="text-xs px-2 py-0.5 rounded-full bg-gray-800 text-gray-300 flex items-center gap-1.5">
                         <span className="text-blue-400">{males}♂</span>
                         <span className="text-pink-400">{females}♀</span>
+                        <span className="text-amber-400">{ageRange}سنة</span>
                       </span>
                     )
                   })()}
@@ -1174,7 +1177,7 @@ export default function Admin3Page() {
                               >
                                 <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${m.gender === 'female' ? 'bg-pink-400' : 'bg-blue-400'}`} />
                                 <span className="flex-1 text-sm font-medium truncate text-right">{m.name}</span>
-                                <span className="text-[10px] text-gray-600 font-mono flex-shrink-0">#{m.number}</span>
+                                <span className="text-[10px] text-gray-600 font-mono flex-shrink-0">#{m.number}{m.age ? ` · ${m.age}` : ""}</span>
                                 <span className={`w-2 h-2 rounded-full flex-shrink-0 ${rankData?.submitted ? 'bg-green-500' : 'bg-gray-700'}`} title={rankData?.submitted ? 'صوّت' : 'لم يصوّت'} />
                               </button>
                             )

@@ -6441,9 +6441,9 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const { data: rows } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", EVENT3_MATCH_ID).in("round", [1, 2, 3]).order("round").order("table_number")
           if (!rows || rows.length === 0) return res.status(200).json({ seating: null })
           const nums = [...new Set(rows.map(r => r.participant_id))]
-          const { data: pdata } = await supabase.from("participants").select("assigned_number,name,gender,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
+          const { data: pdata } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
           const nameMap = {}
-          for (const p of pdata || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); nameMap[p.assigned_number] = { name: p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`, gender: p.gender || sd?.answers?.gender || sd?.gender || "?" } }
+          for (const p of pdata || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); nameMap[p.assigned_number] = { name: p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`, gender: p.gender || sd?.answers?.gender || sd?.gender || "?", age: p.age || sd?.answers?.age || sd?.age || null } }
           const seating = { 1: {}, 2: {}, 3: {} }
           for (const row of rows) { if (!seating[row.round][row.table_number]) seating[row.round][row.table_number] = []; seating[row.round][row.table_number].push({ number: row.participant_id, ...nameMap[row.participant_id] }) }
           return res.status(200).json({ seating })

@@ -414,6 +414,14 @@ export default function ParticipantResultsModal({
     processedResults = Array.from(participantMap.values())
   }
 
+  const isNewUser = (assignedNumber: number): boolean => {
+    const pData = participantData.get(assignedNumber)
+    if (!pData?.created_at) return false
+    const created = new Date(pData.created_at)
+    const now = new Date()
+    return created.toDateString() === now.toDateString()
+  }
+
   // Default order (compatibility desc)
   const sortedResults = [...processedResults].sort((a, b) => b.compatibility_score - a.compatibility_score)
 
@@ -509,14 +517,6 @@ export default function ParticipantResultsModal({
     if (score >= 60) return "text-yellow-400"
     if (score >= 40) return "text-orange-400"
     return "text-red-400"
-  }
-
-  const isNewUser = (assignedNumber: number): boolean => {
-    const pData = participantData.get(assignedNumber)
-    if (!pData?.created_at) return false
-    const created = new Date(pData.created_at)
-    const now = new Date()
-    return created.toDateString() === now.toDateString()
   }
 
   const getScoreBg = (score: number) => {

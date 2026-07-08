@@ -61,13 +61,13 @@ function InfoHint({ text, delay = 0.3, duration = 5 }: { text: string; delay?: n
 
 function PageWrapper({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`h-full bg-gray-950 relative overflow-hidden ${className}`} dir="rtl">
+    <div className={`min-h-screen h-full bg-gray-950 relative overflow-hidden ${className}`} dir="rtl">
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute -top-40 -right-20 w-[400px] h-[400px] bg-purple-600/20 rounded-full blur-[100px]" />
         <div className="absolute -bottom-24 -left-16 w-[360px] h-[360px] bg-pink-600/15 rounded-full blur-[90px]" />
         <div className="absolute top-1/2 left-1/2 w-[280px] h-[280px] bg-violet-500/10 rounded-full blur-[80px] -translate-x-1/2 -translate-y-1/2" />
       </div>
-      <div className={`relative z-10 h-full ${className.includes("flex") ? "flex items-center justify-center" : ""}`}>{children}</div>
+      <div className={`relative z-10 min-h-screen ${className.includes("flex") ? "flex items-center justify-center" : ""}`}>{children}</div>
     </div>
   )
 }

@@ -7185,6 +7185,17 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
 
           return res.status(200).json({ message: msg })
         }
+        // e3-clear-test-data — clear rankings, feedback, words, and notes (keep participants, seating, matches)
+        if (action === "e3-clear-test-data") {
+          await Promise.all([
+            supabase.from("participant_rankings").delete().eq("match_id", EVENT3_MATCH_ID),
+            supabase.from("event3_participant_notes").delete().eq("match_id", EVENT3_MATCH_ID),
+          ])
+          await supabase.from("event3_matches")
+            .update({ phase2_feedback: null, phase3_feedback: null, phase2_word: null, phase3_word: null, match_preference: null })
+            .eq("match_id", EVENT3_MATCH_ID)
+          return res.status(200).json({ message: "Test data cleared: rankings, feedback, words, and notes removed. Participants, seating, and matches preserved." })
+        }
         // e3-reset-event
         if (action === "e3-reset-event") {
           await Promise.all([

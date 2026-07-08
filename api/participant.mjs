@@ -2898,10 +2898,10 @@ Please respond in JSON format:
             communication: Math.round(parseFloat(cacheRow.communication_score)),
             coreValues: coreScaled5,
             intent: Math.round(parseFloat(cacheRow.intent_goal_score) || 0),
-            total: Math.round(phase2Score || parseFloat(cacheRow.total_compatibility_score)),
+            total: Math.round(parseFloat(cacheRow.total_compatibility_score)),
           }
         }
-        return res.status(200).json({ partner_number: matchRow.phase2_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), table_number: tableRow?.table_number ?? null, word_submitted: !!matchRow.phase2_word, my_word: matchRow.phase2_word || null, compatibility_score: phase2Score, partner_mbti: partnerMbti, partner_attachment: partnerAttachment, partner_communication: partnerCommunication, partner_age: partnerAge, breakdown })
+        return res.status(200).json({ partner_number: matchRow.phase2_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), table_number: tableRow?.table_number ?? null, word_submitted: !!matchRow.phase2_word, my_word: matchRow.phase2_word || null, compatibility_score: breakdown?.total ?? phase2Score, partner_mbti: partnerMbti, partner_attachment: partnerAttachment, partner_communication: partnerCommunication, partner_age: partnerAge, breakdown })
       }
 
       // e3-submit-phase2-word
@@ -2939,12 +2939,12 @@ Please respond in JSON format:
             communication: Math.round(parseFloat(cacheRow.communication_score)),
             coreValues: coreScaled5,
             intent: Math.round(parseFloat(cacheRow.intent_goal_score) || 0),
-            total: Math.round(matchRow.phase3_score || parseFloat(cacheRow.total_compatibility_score)),
+            total: Math.round(parseFloat(cacheRow.total_compatibility_score)),
           }
         }
         // Fetch table number from round 30 session_assignments
         const { data: tableRow } = await supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("round", 30).eq("participant_id", myNumber).single()
-        return res.status(200).json({ partner_number: matchRow.phase3_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), compatibility_score: matchRow.phase3_score || 0, same_as_phase2: matchRow.phase2_partner === matchRow.phase3_partner, word_submitted: !!matchRow.phase3_word, partner_mbti: partnerMbti, partner_attachment: partnerAttachment, partner_communication: partnerCommunication, partner_age: partnerAge, breakdown, table_number: tableRow?.table_number ?? null })
+        return res.status(200).json({ partner_number: matchRow.phase3_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), compatibility_score: breakdown?.total ?? matchRow.phase3_score ?? 0, same_as_phase2: matchRow.phase2_partner === matchRow.phase3_partner, word_submitted: !!matchRow.phase3_word, partner_mbti: partnerMbti, partner_attachment: partnerAttachment, partner_communication: partnerCommunication, partner_age: partnerAge, breakdown, table_number: tableRow?.table_number ?? null })
       }
 
       // e3-submit-phase3-word
@@ -2995,7 +2995,7 @@ Please respond in JSON format:
         const pMap = {}
         for (const p of partners || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); pMap[p.assigned_number] = firstName(p.name || sd?.answers?.name || sd?.name) }
         // Helper to fetch breakdown from cache for a pair
-        const getBreakdown = async (partnerNum, storedScore) => {
+        const getBreakdown = async (partnerNum) => {
           if (!partnerNum) return null
           const [pa, pb] = [myNumber, partnerNum].sort((x, y) => x - y)
           const { data: cacheRow } = await supabase.from("compatibility_cache").select("*").eq("participant_a_number", pa).eq("participant_b_number", pb).order("last_used", { ascending: false }).limit(1).single()
@@ -3010,18 +3010,18 @@ Please respond in JSON format:
             communication: Math.round(parseFloat(cacheRow.communication_score)),
             coreValues: coreScaled5,
             intent: Math.round(parseFloat(cacheRow.intent_goal_score) || 0),
-            total: Math.round(storedScore || parseFloat(cacheRow.total_compatibility_score)),
+            total: Math.round(parseFloat(cacheRow.total_compatibility_score)),
           }
         }
         // Fetch breakdowns and current_event_id in parallel
         const [phase2Breakdown, phase3Breakdown, eventStateRow] = await Promise.all([
-          getBreakdown(matchRow.phase2_partner, matchRow.phase2_score),
-          getBreakdown(matchRow.phase3_partner, matchRow.phase3_score),
+          getBreakdown(matchRow.phase2_partner),
+          getBreakdown(matchRow.phase3_partner),
           supabase.from("event_state").select("current_event_id").eq("match_id", MAIN_MATCH).single().then(r => r.data),
         ])
         return res.status(200).json({
-          phase2: { partner_number: matchRow.phase2_partner, partner_first_name: pMap[matchRow.phase2_partner] || "—", word: matchRow.phase2_word || null, compatibility_score: matchRow.phase2_score || 0, breakdown: phase2Breakdown },
-          phase3: { partner_number: matchRow.phase3_partner, partner_first_name: pMap[matchRow.phase3_partner] || "—", compatibility_score: matchRow.phase3_score || 0, word: matchRow.phase3_word || null, breakdown: phase3Breakdown },
+          phase2: { partner_number: matchRow.phase2_partner, partner_first_name: pMap[matchRow.phase2_partner] || "—", word: matchRow.phase2_word || null, compatibility_score: phase2Breakdown?.total ?? matchRow.phase2_score ?? 0, breakdown: phase2Breakdown },
+          phase3: { partner_number: matchRow.phase3_partner, partner_first_name: pMap[matchRow.phase3_partner] || "—", compatibility_score: phase3Breakdown?.total ?? matchRow.phase3_score ?? 0, word: matchRow.phase3_word || null, breakdown: phase3Breakdown },
           same_match: matchRow.phase2_partner && matchRow.phase2_partner === matchRow.phase3_partner,
           match_preference: matchRow.match_preference || null,
           current_event_id: eventStateRow?.current_event_id || 1

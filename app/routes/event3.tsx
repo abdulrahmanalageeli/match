@@ -1917,7 +1917,6 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
       if (d.error) { toast.error(d.error); return }
       const allPeople: any[] = d.people || []
       const existingRankings: Record<number, number> = d.existing_rankings || {}
-      if (d.already_submitted) setSubmitted(true)
       setPeople(allPeople)
 
       // People already ranked → keep their saved order
@@ -1961,7 +1960,7 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
     if (d.error) { toast.error(d.error); return }
     setSubmitted(true)
     setShowConfirm(false)
-    toast.success("تم حفظ تصنيفاتك!")
+    toast.success(completedRounds >= 2 ? "تم حفظ تصنيفك النهائي!" : "تم حفظ تصنيفك!")
   }
 
   const personMap = Object.fromEntries(people.map(p => [p.number, p]))
@@ -2027,6 +2026,11 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
               <span className="text-purple-300 text-[10px] bg-purple-900/30 border border-purple-800/40 rounded-full px-2.5 py-0.5 font-medium">
                 اسحب للترتيب · سري تماماً
               </span>
+              {people.length > 0 && order.length > 0 && people.every(p => order.includes(p.number)) && (
+                <span className="text-emerald-400 text-[10px] bg-emerald-900/20 rounded-full px-2 py-0.5 flex items-center gap-1">
+                  <CheckCircle size={9} className="inline" /> لديك تصنيف محفوظ
+                </span>
+              )}
               {newNums.size > 0 && (
                 <span className="text-purple-400 text-[10px] bg-purple-900/20 rounded-full px-2 py-0.5 flex items-center gap-1">
                   <Sparkles size={10} className="inline" /> {newNums.size} جديد
@@ -2172,7 +2176,7 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
                 className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-60 text-white rounded-2xl py-4 font-bold text-base shadow-2xl shadow-purple-600/30 transition-all"
               >
                 {submitting ? <Spinner size={18} className="!text-white" /> : <Send size={18} />}
-                إرسال التصنيف النهائي
+                {completedRounds >= 2 ? 'إرسال التصنيف النهائي' : 'حفظ التصنيف'}
               </motion.button>
               <p className="text-center text-gray-700 text-[11px] mt-2">
                 النظام سيختار توافقك الأمثل من تصنيفاتك · قد تُطابق مع خيارك الأخير إذا لم يخترك أعلى خياراتك
@@ -2206,8 +2210,8 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
               </div>
               <h3 className="text-white font-bold text-lg">تأكيد التصنيف</h3>
               <p className="text-gray-400 text-sm leading-relaxed">
-                ستقوم بإرسال ترتيبك النهائي لـ <span className="text-white font-semibold">{order.length}</span> شخص.
-                {submitted ? " سيتم تحديث تصنيفك السابق." : " يمكنك تعديل تصنيفك لاحقاً بعد الإرسال."}
+                ستقوم بحفظ ترتيبك لـ <span className="text-white font-semibold">{order.length}</span> شخص.
+                {completedRounds >= 2 ? " هذا تصنيفك النهائي — سيُستخدم للمطابقة." : " يمكنك تعديل تصنيفك في الجولة القادمة."}
               </p>
               {/* Top 3 preview */}
               <div className="bg-gray-800/50 rounded-2xl p-3 space-y-1.5">

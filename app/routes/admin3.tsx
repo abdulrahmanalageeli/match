@@ -462,6 +462,15 @@ export default function Admin3Page() {
     })
   }
 
+  const clearTestData = () => {
+    if (!confirm("حذف التصنيفات والكلمات والفيدبك فقط؟ سيتم الاحتفاظ بالمشاركين والجلسات والمطابقة.")) return
+    run("clear-test", async () => {
+      const d = await api("e3-clear-test-data")
+      if (!d.error) { fetchState(); fetchRankStatus(); fetchMatches() }
+      return d
+    })
+  }
+
   const toggleParticipant = (num: number) => {
     setSelectedNumbers(prev => {
       const next = new Set(prev)
@@ -919,13 +928,22 @@ export default function Admin3Page() {
               <h3 className="font-semibold text-red-400 flex items-center gap-2 mb-3">
                 <AlertCircle size={16} /> منطقة الخطر
               </h3>
-              <button
-                onClick={resetEvent}
-                disabled={!!loading}
-                className="bg-red-900/50 hover:bg-red-900 border border-red-700/50 text-red-300 rounded-lg px-4 py-2 text-sm flex items-center gap-2"
-              >
-                <RotateCcw size={14} /> إعادة تعيين الفعالية بالكامل
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={clearTestData}
+                  disabled={!!loading}
+                  className="bg-amber-900/50 hover:bg-amber-900 border border-amber-700/50 text-amber-300 rounded-lg px-4 py-2 text-sm flex items-center gap-2"
+                >
+                  <Trash2 size={14} /> مسح بيانات الاختبار (تصنيفات + فيدبك)
+                </button>
+                <button
+                  onClick={resetEvent}
+                  disabled={!!loading}
+                  className="bg-red-900/50 hover:bg-red-900 border border-red-700/50 text-red-300 rounded-lg px-4 py-2 text-sm flex items-center gap-2"
+                >
+                  <RotateCcw size={14} /> إعادة تعيين الفعالية بالكامل
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -1867,8 +1885,8 @@ export default function Admin3Page() {
                             <Shield size={8} /> مثبت
                           </span>
                         )}
-                        {pair.storedScore != null && (
-                          <span className={`text-xs font-bold flex-shrink-0 ${pair.storedScore >= 80 ? 'text-emerald-400' : pair.storedScore >= 68 ? 'text-indigo-400' : 'text-yellow-400'}`}>{pair.storedScore}%</span>
+                        {pair.compatScore != null && (
+                          <span className={`text-xs font-bold flex-shrink-0 ${pair.compatScore >= 80 ? 'text-emerald-400' : pair.compatScore >= 68 ? 'text-indigo-400' : 'text-yellow-400'}`}>{pair.compatScore}%</span>
                         )}
                         <div className="flex-1 flex items-center gap-1.5 min-w-0 justify-end">
                           <span className="text-sm font-semibold text-white truncate">{pair.bName}</span>

@@ -52,13 +52,22 @@ function e3GenerateSeatingPlan(participantNumbers, genderMap = {}, lockedPairsSe
   const grid = Array.from({ length: T }, (_, t) =>
     Array.from({ length: G }, (_, g) => interleaved[t * G + g])
   )
-  // Round 1: sequential groups
+  // Round 1: sequential groups (T groups of G people)
   const round1 = grid.map(row => [...row])
-  // Round 2: take position g from every Round 1 group → new group g
-  // round2[g] has one person from each Round 1 group → zero repeats guaranteed
-  const round2 = Array.from({ length: G }, (_, g) =>
-    Array.from({ length: T }, (_, t) => grid[t][g])
-  )
+  // Round 2: modular shift — person at (row t, col g) goes to group (t + g) mod T
+  // This keeps T groups of G people, maintains gender balance (each group gets
+  // a mix of columns → mix of genders), and guarantees zero repeat encounters
+  // because two people in the same Round 1 row can only meet if shifted to the
+  // same group, which requires (t + g1) mod T === (t + g2) mod T → g1 === g2.
+  const round2 = Array.from({ length: T }, () => Array(G).fill(null))
+  for (let t = 0; t < T; t++) {
+    for (let g = 0; g < G; g++) {
+      const newGroup = (t + g) % T
+      // Find next empty slot in newGroup
+      const slot = round2[newGroup].indexOf(null)
+      if (slot !== -1) round2[newGroup][slot] = grid[t][g]
+    }
+  }
 
   // ── Post-assignment fixes: separate locked pairs & balance gender ──────
   // For each round, check if any group has a locked pair together, and swap
@@ -6424,7 +6433,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           await supabase.from("event3_participants").insert(orderedNumbers.map(num => ({ match_id: EVENT3_MATCH_ID, participant_number: num, position: positionMap[num] })))
           const assignments = []
           for (let t = 0; t < T; t++) for (const p of round1[t]) assignments.push({ match_id: EVENT3_MATCH_ID, event_id: 3, round: 1, table_number: t + 1, participant_id: p })
-          for (let g = 0; g < G; g++) for (const p of round2[g]) assignments.push({ match_id: EVENT3_MATCH_ID, event_id: 3, round: 2, table_number: g + 1, participant_id: p })
+          for (let t = 0; t < T; t++) for (const p of round2[t]) assignments.push({ match_id: EVENT3_MATCH_ID, event_id: 3, round: 2, table_number: t + 1, participant_id: p })
           const { error } = await supabase.from("session_assignments").insert(assignments)
           if (error) return res.status(500).json({ error: error.message })
           // Report gender balance per group

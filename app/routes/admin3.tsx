@@ -658,6 +658,17 @@ export default function Admin3Page() {
                   <span className={`text-sm px-2 py-0.5 rounded-full ${selectedNumbers.size >= 6 ? "bg-green-900 text-green-300" : "bg-gray-800 text-gray-400"}`}>
                     {selectedNumbers.size} مختار
                   </span>
+                  {selectedNumbers.size > 0 && (() => {
+                    const sel = participants.filter(p => selectedNumbers.has(p.number))
+                    const males = sel.filter(p => (p.gender || '').toLowerCase() !== 'female').length
+                    const females = sel.filter(p => (p.gender || '').toLowerCase() === 'female').length
+                    return (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-gray-800 text-gray-300 flex items-center gap-1.5">
+                        <span className="text-blue-400">{males}♂</span>
+                        <span className="text-pink-400">{females}♀</span>
+                      </span>
+                    )
+                  })()}
                   <button
                     onClick={saveParticipants}
                     disabled={selectedNumbers.size < 6 || !!loading}

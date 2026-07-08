@@ -6449,13 +6449,13 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         }
         // e3-get-seating
         if (action === "e3-get-seating") {
-          const { data: rows } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", EVENT3_MATCH_ID).in("round", [1, 2, 3]).order("round").order("table_number")
+          const { data: rows } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", EVENT3_MATCH_ID).in("round", [1, 2, 3, 20, 30]).order("round").order("table_number")
           if (!rows || rows.length === 0) return res.status(200).json({ seating: null })
           const nums = [...new Set(rows.map(r => r.participant_id))]
           const { data: pdata } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
           const nameMap = {}
           for (const p of pdata || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); nameMap[p.assigned_number] = { name: p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`, gender: p.gender || sd?.answers?.gender || sd?.gender || "?", age: p.age || sd?.answers?.age || sd?.age || null } }
-          const seating = { 1: {}, 2: {}, 3: {} }
+          const seating = { 1: {}, 2: {}, 3: {}, 20: {}, 30: {} }
           for (const row of rows) { if (!seating[row.round][row.table_number]) seating[row.round][row.table_number] = []; seating[row.round][row.table_number].push({ number: row.participant_id, ...nameMap[row.participant_id] }) }
           return res.status(200).json({ seating })
         }
@@ -6578,14 +6578,13 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const { data: stateRow } = await supabase.from("event_state").select("current_event_id").eq("match_id", STATIC_MATCH_ID).single()
           const currentEventId = stateRow?.current_event_id || 1
 
-          // Fetch locked matches for this event
+          // Fetch ALL locked matches for this match_id (regardless of event_id)
           const { data: lockedMatches } = await supabase
             .from("locked_matches")
             .select("participant1_number,participant2_number,original_compatibility_score,event_id")
             .eq("match_id", STATIC_MATCH_ID)
-            .eq("event_id", currentEventId)
 
-          console.log(`Phase 3 (locked): Found ${lockedMatches?.length || 0} locked matches for event_id=${currentEventId}`)
+          console.log(`Phase 3 (locked): Found ${lockedMatches?.length || 0} total locked matches (all event_ids)`)
 
           // Filter to only pairs where BOTH participants are in event3
           const lockedPairs = (lockedMatches || []).filter(l =>
@@ -6633,17 +6632,17 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             console.log(`Phase 3 (locked): 1 unmatched participant #${unmatched[0]} (odd count)`)
           }
 
-          // Create round 20 session_assignments for phase3 pairs (1:1 tables)
-          await supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID).eq("round", 20)
+          // Create round 30 session_assignments for phase3 pairs (algorithm 1:1 tables)
+          await supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID).eq("round", 30)
           const tableRows = []
           matches.forEach(({ a, b }, idx) => {
             const tbl = idx + 1
-            tableRows.push({ match_id: EVENT3_MATCH_ID, event_id: 3, round: 20, table_number: tbl, participant_id: a })
-            tableRows.push({ match_id: EVENT3_MATCH_ID, event_id: 3, round: 20, table_number: tbl, participant_id: b })
+            tableRows.push({ match_id: EVENT3_MATCH_ID, event_id: 3, round: 30, table_number: tbl, participant_id: a })
+            tableRows.push({ match_id: EVENT3_MATCH_ID, event_id: 3, round: 30, table_number: tbl, participant_id: b })
           })
           if (tableRows.length > 0) {
             await supabase.from("session_assignments").insert(tableRows)
-            console.log(`Phase 3 (locked): Created ${matches.length} table assignments for round 20`)
+            console.log(`Phase 3 (locked): Created ${matches.length} table assignments for round 30`)
           }
 
           return res.status(200).json({ message: `Phase 3 matching complete. Created ${matches.length} pairs from locked matches. ${unmatched.length} unmatched.` })
@@ -6807,10 +6806,15 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const { data: pdata } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,attachment_style,communication_style,humor_banter_style,early_openness_comfort").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
           const infoMap = {}
           for (const p of pdata || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); infoMap[p.assigned_number] = { name: p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`, gender: p.gender || sd?.answers?.gender || sd?.gender || "?", ...p } }
-          // Fetch round=20 table assignments for each pair
-          const { data: pairTables } = await supabase.from("session_assignments").select("participant_id,table_number").eq("match_id", EVENT3_MATCH_ID).eq("round", 20)
+          // Fetch round=20 table assignments for phase2 pairs and round=30 for phase3 pairs
+          const [{ data: pairTables }, { data: phase3Tables }] = await Promise.all([
+            supabase.from("session_assignments").select("participant_id,table_number").eq("match_id", EVENT3_MATCH_ID).eq("round", 20),
+            supabase.from("session_assignments").select("participant_id,table_number").eq("match_id", EVENT3_MATCH_ID).eq("round", 30),
+          ])
           const pairTableMap = {}
           for (const pt of pairTables || []) pairTableMap[pt.participant_id] = pt.table_number
+          const phase3TableMap = {}
+          for (const pt of phase3Tables || []) phase3TableMap[pt.participant_id] = pt.table_number
           // Fetch rankings for match-flow explanation
           const { data: rankRows } = await supabase.from("participant_rankings").select("ranker_number,ranked_number,rank").eq("match_id", EVENT3_MATCH_ID).order("rank", { ascending: true })
           const rankMap = {}  // rankMap[a][b] = 1-based rank of b in a's list
@@ -6898,7 +6902,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             const compatScore3 = compat3 ? compat3.totalScore : null
             const storedScore3 = row.phase3_score || null
             const lockedKey = `${Math.min(a, b)}-${Math.max(a, b)}`
-            const pairTable3 = pairTableMap[a] || pairTableMap[b] || null
+            const pairTable3 = phase3TableMap[a] || phase3TableMap[b] || null
             phase3Pairs.push({ a, aName: ai.name || `#${a}`, aGender: ai.gender, b, bName: bi.name || `#${b}`, bGender: bi.gender, compatScore: compatScore3, storedScore: storedScore3, compat: compat3, bothComplete: bothComplete3, locked: lockedPairKeys.has(lockedKey), table: pairTable3 })
           }
           return res.status(200).json({ pairs, phase3Pairs })

@@ -84,7 +84,7 @@ export default function Admin3Page() {
   const [simLoading, setSimLoading] = useState(false)
   const [swapA, setSwapA] = useState<number | null>(null)
   const [moveA, setMoveA] = useState<number | null>(null)
-  const [mapRound, setMapRound] = useState<1 | 2 | 20>(1)
+  const [mapRound, setMapRound] = useState<1 | 2 | 20 | 30>(1)
   const [editingTable, setEditingTable] = useState<{ num: number; round: number; value: string } | null>(null)
   const [editingTableCard, setEditingTableCard] = useState<{ round: number; table: number; value: string } | null>(null)
   const [selectedParticipantNum, setSelectedParticipantNum] = useState<number | null>(null)
@@ -954,6 +954,13 @@ export default function Admin3Page() {
                         className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${mapRound === 20 ? 'bg-emerald-600 text-white shadow' : 'text-gray-400 hover:text-gray-200'}`}
                       >
                         1:1 جلسات
+                      </button>
+                    )}
+                    {phase3Pairs.length > 0 && (
+                      <button onClick={() => setMapRound(30)}
+                        className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${mapRound === 30 ? 'bg-purple-600 text-white shadow' : 'text-gray-400 hover:text-gray-200'}`}
+                      >
+                        الخوارزمية
                       </button>
                     )}
                   </div>

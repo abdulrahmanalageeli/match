@@ -4,7 +4,7 @@ import {
   Users, Play, Square, ChevronRight, RotateCcw, CheckCircle,
   Circle, RefreshCw, Table2, Trophy, Clock, BarChart3, Shuffle,
   Eye, EyeOff, ArrowRight, Sparkles, Brain, Shield, LogOut,
-  Grid3x3, Star, Check, AlertCircle, Loader2, Copy, Heart, Layers, ChevronDown, X, MessageSquare, Send, Home, Trash2, GripVertical, Search, Crown, Medal, Coffee, Ban,
+  Grid3x3, Star, Check, AlertCircle, Loader2, Copy, Heart, Layers, ChevronDown, X, MessageSquare, Send, Home, Trash2, GripVertical, Search, Crown, Medal, Coffee, Ban, ArrowLeft,
 } from "lucide-react"
 
 const ADMIN_PASSWORD = "soulmatch2026"
@@ -83,6 +83,7 @@ export default function Admin3Page() {
   const [simOrder, setSimOrder] = useState<any[]>([])
   const [simLoading, setSimLoading] = useState(false)
   const [swapA, setSwapA] = useState<number | null>(null)
+  const [moveA, setMoveA] = useState<number | null>(null)
   const [mapRound, setMapRound] = useState<1 | 2 | 20>(1)
   const [editingTable, setEditingTable] = useState<{ num: number; round: number; value: string } | null>(null)
   const [editingTableCard, setEditingTableCard] = useState<{ round: number; table: number; value: string } | null>(null)
@@ -344,6 +345,11 @@ export default function Admin3Page() {
   const doSwap = (numB: number) =>
     run(`swap-${swapA}-${numB}`, () => api("e3-swap-seating", { num_a: swapA, num_b: numB }).then(d => { if (!d.error) { setSwapA(null); fetchSeating() } return d }))
 
+  const doMove = (targetTable: number) => {
+    if (!moveA || !mapRound) return
+    run(`move-${moveA}-to-${targetTable}`, () => api("e3-move-table", { participant_number: moveA, round: mapRound, new_table: targetTable }).then(d => { if (!d.error) { setMoveA(null); fetchSeating() } return d }))
+  }
+
   const doSwapMatch = () => {
     if (!swapMatch || !swapReplacement) return
     run(`swap-match-${swapMatch.missingNum}-${swapReplacement}`, () =>
@@ -367,9 +373,18 @@ export default function Admin3Page() {
     if (swapA) {
       if (swapA === m.number) setSwapA(null)
       else doSwap(m.number)
+    } else if (moveA) {
+      if (moveA === m.number) setMoveA(null)
+      else { setMoveA(null); setSwapA(null); setSelectedParticipantNum(m.number); setParticipantPanelOpen(true) }
     } else {
       setSelectedParticipantNum(m.number)
       setParticipantPanelOpen(true)
+    }
+  }
+
+  const handleTableClick = (table: number) => {
+    if (moveA) {
+      doMove(table)
     }
   }
 
@@ -962,6 +977,22 @@ export default function Admin3Page() {
               </div>
             )}
 
+            {/* Move mode banner */}
+            {moveA !== null && (
+              <div className="bg-indigo-900/30 border border-indigo-700/50 rounded-xl px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse flex-shrink-0" />
+                  <span className="text-indigo-300 text-sm font-medium">
+                    نقل: <span className="text-white">{participants.find(p => p.number === moveA)?.name}</span>
+                    <span className="text-indigo-600 text-xs mr-2">← اضغط على أي طاولة لنقل الشخص إليها</span>
+                  </span>
+                </div>
+                <button onClick={() => setMoveA(null)} className="text-indigo-600 hover:text-indigo-300 text-xs px-2 py-1 rounded-lg hover:bg-indigo-900/30 transition-colors">
+                  إلغاء ✕
+                </button>
+              </div>
+            )}
+
             {!seating ? (
               <div className="text-center py-16 text-gray-500">
                 <Grid3x3 size={40} className="mx-auto mb-4 opacity-20" />
@@ -1107,10 +1138,15 @@ export default function Admin3Page() {
                     const females = members.filter(m => m.gender === 'female').length
                     const balanced = Math.abs(males - females) <= 1
                     const hasSwapMember = swapA !== null && members.some(m => m.number === swapA)
+                    const hasMoveMember = moveA !== null && members.some(m => m.number === moveA)
                     return (
-                      <div key={table} className={`bg-gray-900 rounded-2xl p-4 border transition-all duration-200 ${
+                      <div key={table}
+                        onClick={() => moveA && handleTableClick(table)}
+                        className={`bg-gray-900 rounded-2xl p-4 border transition-all duration-200 ${
                         hasSwapMember ? 'border-amber-600/70 shadow-lg shadow-amber-900/20' :
                         swapA !== null ? 'border-blue-800/50 hover:border-blue-600/60' :
+                        hasMoveMember ? 'border-indigo-600/70 shadow-lg shadow-indigo-900/20' :
+                        moveA !== null ? 'border-indigo-800/50 hover:border-indigo-600/60 cursor-pointer hover:bg-indigo-950/20' :
                         'border-gray-800 hover:border-gray-700'
                       }`}>
                         {/* Table header */}
@@ -1162,24 +1198,40 @@ export default function Admin3Page() {
                           {members.map((m: any) => {
                             const rankData = allRankings.find(r => r.number === m.number)
                             const isSwapSrc = swapA === m.number
+                            const isMoveSrc = moveA === m.number
                             const isViewing = selectedParticipantNum === m.number && participantPanelOpen
                             return (
-                              <button key={m.number} onClick={() => handleMemberClick(m)}
-                                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-right transition-all ${
-                                  isSwapSrc
-                                    ? 'bg-amber-900/40 border border-amber-600/50 text-amber-200 shadow-inner'
-                                    : isViewing
-                                    ? 'bg-purple-900/30 border border-purple-600/40 text-purple-100'
-                                    : swapA !== null
-                                    ? 'hover:bg-blue-900/20 border border-transparent hover:border-blue-700/40 text-gray-300 cursor-pointer'
-                                    : 'hover:bg-gray-800/70 border border-transparent hover:border-gray-700/50 text-gray-300 active:scale-[0.98]'
-                                }`}
-                              >
-                                <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${m.gender === 'female' ? 'bg-pink-400' : 'bg-blue-400'}`} />
-                                <span className="flex-1 text-sm font-medium truncate text-right">{m.name}</span>
-                                <span className="text-[10px] text-gray-600 font-mono flex-shrink-0">#{m.number}{m.age ? ` · ${m.age}` : ""}</span>
-                                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${rankData?.submitted ? 'bg-green-500' : 'bg-gray-700'}`} title={rankData?.submitted ? 'صوّت' : 'لم يصوّت'} />
-                              </button>
+                              <div key={m.number} className="flex items-center gap-1">
+                                <button onClick={() => handleMemberClick(m)}
+                                  className={`flex-1 flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-right transition-all ${
+                                    isSwapSrc
+                                      ? 'bg-amber-900/40 border border-amber-600/50 text-amber-200 shadow-inner'
+                                      : isMoveSrc
+                                      ? 'bg-indigo-900/40 border border-indigo-600/50 text-indigo-200 shadow-inner'
+                                      : isViewing
+                                      ? 'bg-purple-900/30 border border-purple-600/40 text-purple-100'
+                                      : swapA !== null
+                                      ? 'hover:bg-blue-900/20 border border-transparent hover:border-blue-700/40 text-gray-300 cursor-pointer'
+                                      : moveA !== null
+                                      ? 'hover:bg-indigo-900/20 border border-transparent hover:border-indigo-700/40 text-gray-300 cursor-pointer'
+                                      : 'hover:bg-gray-800/70 border border-transparent hover:border-gray-700/50 text-gray-300 active:scale-[0.98]'
+                                  }`}
+                                >
+                                  <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${m.gender === 'female' ? 'bg-pink-400' : 'bg-blue-400'}`} />
+                                  <span className="flex-1 text-sm font-medium truncate text-right">{m.name}</span>
+                                  <span className="text-[10px] text-gray-600 font-mono flex-shrink-0">#{m.number}{m.age ? ` · ${m.age}` : ""}</span>
+                                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${rankData?.submitted ? 'bg-green-500' : 'bg-gray-700'}`} title={rankData?.submitted ? 'صوّت' : 'لم يصوّت'} />
+                                </button>
+                                {!swapA && !moveA && (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setMoveA(m.number) }}
+                                    className="p-1.5 rounded-lg hover:bg-indigo-900/30 text-indigo-500 hover:text-indigo-300 transition-colors flex-shrink-0"
+                                    title="نقل إلى طاولة أخرى"
+                                  >
+                                    <ArrowLeft size={12} />
+                                  </button>
+                                )}
+                              </div>
                             )
                           })}
                         </div>
@@ -2056,6 +2108,12 @@ export default function Admin3Page() {
                     className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-900/30 hover:bg-amber-900/50 border border-amber-700/40 text-amber-300 text-sm font-medium transition-all active:scale-[0.98]"
                   >
                     <Shuffle size={14} /> تبديل مكانه في الطاولات
+                  </button>
+                  <button
+                    onClick={() => { setParticipantPanelOpen(false); setMoveA(p.number); setActiveTab("seating") }}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-indigo-900/30 hover:bg-indigo-900/50 border border-indigo-700/40 text-indigo-300 text-sm font-medium transition-all active:scale-[0.98]"
+                  >
+                    <ArrowLeft size={14} /> نقل إلى طاولة أخرى
                   </button>
                   <button
                     onClick={() => { setInitiateChatTarget({ number: p.number, name: p.name }); setInitiateChatOpen(true); setParticipantPanelOpen(false) }}

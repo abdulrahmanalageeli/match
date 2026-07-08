@@ -18,14 +18,14 @@ const E3_LATIN_SQUARE = [[0,1,2,3,4,5],[2,3,4,5,0,1],[4,5,0,1,2,3],[1,0,3,2,5,4]
 
 function e3GenerateSeatingPlan(participantNumbers, genderMap = {}, lockedPairsSet = new Set()) {
   const N = participantNumbers.length
-  // Pick largest valid group size from {6,5,4} that divides N evenly
-  const G = [6, 5, 4].find(g => N % g === 0)
+  // Pick largest valid group size from {8,6,5,4} that divides N evenly
+  const G = [8, 6, 5, 4].find(g => N % g === 0)
   if (!G) {
     const suggestions = []
-    for (let n = Math.max(4, N - 6); n <= N + 6; n++) {
-      if ([6, 5, 4].some(g => n % g === 0)) suggestions.push(n)
+    for (let n = Math.max(4, N - 8); n <= N + 8; n++) {
+      if ([8, 6, 5, 4].some(g => n % g === 0)) suggestions.push(n)
     }
-    return { error: `عدد المشاركين (${N}) لا ينقسم بالتساوي على أي من مجموعات 4 أو 5 أو 6. جرّب: ${[...new Set(suggestions)].sort((a,b)=>a-b).join("، ")}` }
+    return { error: `عدد المشاركين (${N}) لا ينقسم بالتساوي على أي من مجموعات 4 أو 5 أو 6 أو 8. جرّب: ${[...new Set(suggestions)].sort((a,b)=>a-b).join("، ")}` }
   }
   const T = N / G  // number of groups
 

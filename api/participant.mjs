@@ -3087,10 +3087,10 @@ Please respond in JSON format:
         return res.status(200).json({ group: { table_number: assignment.table_number, members } })
       }
 
-      // e3-sos — participant requests organizer to come to their table
+      // e3-sos — participant requests organizer to come to their table or sends a chat message
       if (action === "e3-sos") {
         if (!participant) return res.status(401).json({ error: "Invalid token" })
-        const { message } = req.body
+        const { message, request_type } = req.body
         const sd = typeof participant.survey_data === "string" ? JSON.parse(participant.survey_data || "{}") : (participant.survey_data || {})
         const fullName = participant.name || sd?.answers?.name || sd?.name || ""
         const pName = firstName(fullName)
@@ -3103,9 +3103,39 @@ Please respond in JSON format:
           if (sa) tableInfo = `الجولة ${roundMatch[1]} · طاولة ${sa.table_number}`
         } else if (phase === "phase2_reveal") { tableInfo = "كشف المرحلة 2" }
         else if (phase === "phase3_reveal") { tableInfo = "كشف المرحلة 3" }
+
+        const reqType = request_type || 'chat'
+        const now = new Date().toISOString()
+        const chatEntry = { from: 'user', text: message || '', timestamp: now }
+
+        // Check for existing active (non-resolved) request from this participant
+        const { data: existing } = await supabase.from("organizer_requests")
+          .select("id,chat_history")
+          .eq("participant_token", token)
+          .neq("status", "resolved")
+          .order("created_at", { ascending: false })
+          .limit(1)
+
+        if (existing && existing.length > 0) {
+          // Append to existing conversation
+          const existingChat = Array.isArray(existing[0].chat_history) ? existing[0].chat_history : []
+          const updatedChat = [...existingChat, chatEntry]
+          const { error: updErr } = await supabase.from("organizer_requests").update({
+            message: message || null,
+            status: "pending",
+            table_info: tableInfo,
+            chat_history: updatedChat,
+            updated_at: now
+          }).eq("id", existing[0].id)
+          if (updErr) return res.status(500).json({ error: updErr.message })
+          return res.status(200).json({ id: existing[0].id, status: "pending" })
+        }
+
+        // Create new request
         const { data: inserted, error: insErr } = await supabase.from("organizer_requests").insert({
           participant_token: token, participant_number: myNumber, participant_name: pName,
-          table_info: tableInfo, message: message || null, status: "pending"
+          table_info: tableInfo, message: message || null, status: "pending",
+          request_type: reqType, chat_history: [chatEntry]
         }).select("id").single()
         if (insErr) return res.status(500).json({ error: insErr.message })
         return res.status(200).json({ id: inserted.id, status: "pending" })
@@ -3114,7 +3144,7 @@ Please respond in JSON format:
       // e3-sos-check — poll all SOS requests for this user (chat history)
       if (action === "e3-sos-check") {
         if (!participant) return res.status(401).json({ error: "Invalid token" })
-        const { data: requests } = await supabase.from("organizer_requests").select("id,status,message,organizer_reply,created_at").eq("participant_token", token).order("created_at", { ascending: true })
+        const { data: requests } = await supabase.from("organizer_requests").select("id,status,message,organizer_reply,created_at,chat_history,request_type,table_info").eq("participant_token", token).order("created_at", { ascending: true })
         return res.status(200).json({ requests: requests || [] })
       }
 

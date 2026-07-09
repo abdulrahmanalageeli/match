@@ -116,3 +116,38 @@ CREATE TABLE IF NOT EXISTS public.event3_notifications (
 CREATE INDEX IF NOT EXISTS idx_event3_notifications_match ON public.event3_notifications(match_id);
 CREATE INDEX IF NOT EXISTS idx_event3_notifications_notif ON public.event3_notifications(notif_id);
 CREATE INDEX IF NOT EXISTS idx_event3_notifications_participant ON public.event3_notifications(participant_number);
+
+-- جدول طلبات المنظم (SOS / Chat)
+-- Stores organizer requests and chat conversations
+CREATE TABLE IF NOT EXISTS public.organizer_requests (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  participant_token text NOT NULL,
+  participant_number integer,
+  participant_name text,
+  table_info text,
+  message text,
+  organizer_reply text,
+  status text DEFAULT 'pending',
+  request_type text DEFAULT 'chat',
+  chat_history jsonb DEFAULT '[]'::jsonb,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+-- Add columns if table already exists (idempotent)
+DO $$ BEGIN
+  ALTER TABLE public.organizer_requests ADD COLUMN IF NOT EXISTS request_type text DEFAULT 'chat';
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE public.organizer_requests ADD COLUMN IF NOT EXISTS chat_history jsonb DEFAULT '[]'::jsonb;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE public.organizer_requests ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_organizer_requests_token ON public.organizer_requests(participant_token);
+CREATE INDEX IF NOT EXISTS idx_organizer_requests_status ON public.organizer_requests(status);
+CREATE INDEX IF NOT EXISTS idx_organizer_requests_type ON public.organizer_requests(request_type);

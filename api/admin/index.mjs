@@ -6691,6 +6691,55 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           }))
           return res.status(200).json({ rankings: result })
         }
+        // e3-force-auto-save-rankings — save last-known state for all unsubmitted participants
+        if (action === "e3-force-auto-save-rankings") {
+          const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID)
+          const selected = (ep || []).map(r => r.participant_number)
+          if (selected.length === 0) return res.status(400).json({ error: "No participants selected" })
+          const { data: existingRanks } = await supabase.from("participant_rankings").select("ranker_number,ranked_number,rank").eq("match_id", EVENT3_MATCH_ID).order("rank", { ascending: true })
+          const hasRanking = new Set((existingRanks || []).map(r => r.ranker_number))
+          const missing = selected.filter(n => !hasRanking.has(n))
+          if (missing.length === 0) return res.status(200).json({ message: "All participants already have rankings", saved: 0 })
+          const { data: allAssignments } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", EVENT3_MATCH_ID).in("participant_id", missing)
+          if (!allAssignments || allAssignments.length === 0) return res.status(400).json({ error: "No session assignments found for missing participants" })
+          const rows = []
+          for (const myNum of missing) {
+            const myRounds = allAssignments.filter(a => a.participant_id === myNum)
+            const seenMates = new Set()
+            const mates = []
+            for (const row of myRounds.sort((a, b) => a.round - b.round)) {
+              const tableMates = allAssignments.filter(a => a.round === row.round && a.table_number === row.table_number && a.participant_id !== myNum)
+              for (const m of tableMates) { if (!seenMates.has(m.participant_id)) { seenMates.add(m.participant_id); mates.push(m.participant_id) } }
+            }
+            if (mates.length === 0) continue
+            for (let i = 0; i < mates.length; i++) rows.push({ match_id: EVENT3_MATCH_ID, event_id: 3, ranker_number: myNum, ranked_number: mates[i], rank: i + 1, auto_saved: true })
+          }
+          if (rows.length > 0) { const { error } = await supabase.from("participant_rankings").insert(rows); if (error) return res.status(500).json({ error: error.message }) }
+          return res.status(200).json({ message: `Auto-saved rankings for ${missing.length} participants (${rows.length} entries)`, saved: missing.length })
+        }
+        // e3-randomize-ranking-single — randomize ranking for one participant
+        if (action === "e3-randomize-ranking-single") {
+          const { participant_number } = req.body
+          if (!participant_number) return res.status(400).json({ error: "participant_number required" })
+          const { data: allAssignments } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", EVENT3_MATCH_ID)
+          if (!allAssignments || allAssignments.length === 0) return res.status(400).json({ error: "No session assignments found" })
+          const myRounds = allAssignments.filter(a => a.participant_id === participant_number)
+          if (myRounds.length === 0) return res.status(400).json({ error: "Participant has no session assignments" })
+          const seenMates = new Set()
+          const mates = []
+          for (const row of myRounds.sort((a, b) => a.round - b.round)) {
+            const tableMates = allAssignments.filter(a => a.round === row.round && a.table_number === row.table_number && a.participant_id !== participant_number)
+            for (const m of tableMates) { if (!seenMates.has(m.participant_id)) { seenMates.add(m.participant_id); mates.push(m.participant_id) } }
+          }
+          if (mates.length === 0) return res.status(400).json({ error: "Participant has met nobody" })
+          const shuffle = arr => { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]] } return a }
+          const shuffled = shuffle(mates)
+          await supabase.from("participant_rankings").delete().eq("match_id", EVENT3_MATCH_ID).eq("ranker_number", participant_number)
+          const rows = shuffled.map((num, idx) => ({ match_id: EVENT3_MATCH_ID, event_id: 3, ranker_number: participant_number, ranked_number: num, rank: idx + 1 }))
+          const { error } = await supabase.from("participant_rankings").insert(rows)
+          if (error) return res.status(500).json({ error: error.message })
+          return res.status(200).json({ message: `Randomized ranking for #${participant_number} (${rows.length} entries)` })
+        }
         // e3-randomize-rankings
         if (action === "e3-randomize-rankings") {
           const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID)
@@ -7004,7 +7053,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         }
         // e3-get-sos — get all organizer requests
         if (action === "e3-get-sos") {
-          const { data, error } = await supabase.from("organizer_requests").select("*").order("created_at", { ascending: false })
+          const { data, error } = await supabase.from("organizer_requests").select("*").order("updated_at", { ascending: false })
           if (error) return res.status(500).json({ error: error.message })
           return res.status(200).json({ requests: data || [] })
         }
@@ -7016,20 +7065,29 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const { data: pRow } = await supabase.from("participants").select("secure_token,name").eq("match_id", STATIC_MATCH_ID).eq("assigned_number", participant_number).single()
           if (!pRow || !pRow.secure_token) return res.status(404).json({ error: "Participant not found or no token" })
           const pName = participant_name || pRow.name || `#${participant_number}`
-          // Check if there's already an existing request for this participant
-          const { data: existing } = await supabase.from("organizer_requests").select("id").eq("participant_token", pRow.secure_token).order("created_at", { ascending: false }).limit(1).single()
-          if (existing) {
-            // Update existing with organizer reply
+          const now = new Date().toISOString()
+          const chatEntry = { from: 'organizer', text: message, timestamp: now }
+          // Check if there's already an existing active request for this participant
+          const { data: existing } = await supabase.from("organizer_requests")
+            .select("id,chat_history")
+            .eq("participant_token", pRow.secure_token)
+            .neq("status", "resolved")
+            .order("created_at", { ascending: false })
+            .limit(1)
+          if (existing && existing.length > 0) {
+            const existingChat = Array.isArray(existing[0].chat_history) ? existing[0].chat_history : []
+            const updatedChat = [...existingChat, chatEntry]
             const { error } = await supabase.from("organizer_requests").update({
-              organizer_reply: message, status: "replied", updated_at: new Date().toISOString()
-            }).eq("id", existing.id)
+              organizer_reply: message, status: "replied", chat_history: updatedChat, updated_at: now
+            }).eq("id", existing[0].id)
             if (error) return res.status(500).json({ error: error.message })
-            return res.status(200).json({ message: "تم الإرسال", id: existing.id })
+            return res.status(200).json({ message: "تم الإرسال", id: existing[0].id })
           }
           // Create new organizer-initiated request
           const { data: inserted, error: insErr } = await supabase.from("organizer_requests").insert({
             participant_token: pRow.secure_token, participant_number, participant_name: pName,
-            table_info: "رسالة من المنظم", message: null, organizer_reply: message, status: "replied"
+            table_info: "رسالة من المنظم", message: null, organizer_reply: message, status: "replied",
+            request_type: "chat", chat_history: [chatEntry]
           }).select("id").single()
           if (insErr) return res.status(500).json({ error: insErr.message })
           return res.status(200).json({ message: "تم الإرسال", id: inserted.id })
@@ -7043,8 +7101,15 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             if (error) return res.status(500).json({ error: error.message })
             return res.status(200).json({ message: "تم الحذف" })
           }
-          const update = { status: newStatus || "replied", updated_at: new Date().toISOString() }
-          if (reply !== undefined) update.organizer_reply = reply || null
+          const now = new Date().toISOString()
+          const update = { status: newStatus || "replied", updated_at: now }
+          if (reply !== undefined && reply !== null && reply !== '') {
+            update.organizer_reply = reply
+            // Append to chat_history
+            const { data: req_row } = await supabase.from("organizer_requests").select("chat_history").eq("id", id).single()
+            const existingChat = Array.isArray(req_row?.chat_history) ? req_row.chat_history : []
+            update.chat_history = [...existingChat, { from: 'organizer', text: reply, timestamp: now }]
+          }
           const { error } = await supabase.from("organizer_requests").update(update).eq("id", id)
           if (error) return res.status(500).json({ error: error.message })
           return res.status(200).json({ message: "تم التحديث" })

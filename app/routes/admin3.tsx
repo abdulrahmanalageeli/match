@@ -277,11 +277,12 @@ export default function Admin3Page() {
 
   const handleSOSAction = async (id: string, reply: string | null, newStatus: string) => {
     await api("e3-sos-reply", { id, reply, status: newStatus })
-    if (newStatus !== 'seen') setReplyingId(null)
     if (newStatus === 'resolved') {
       knownSosIds.current.delete(id)
       setSosRequests(prev => prev.filter(r => r.id !== id))
+      setSelectedSosId(null)
     } else {
+      setReplyText("")
       fetchSOS()
     }
   }
@@ -1615,6 +1616,14 @@ export default function Admin3Page() {
                   عشوائي
                 </button>
                 <button
+                  onClick={() => { if (confirm("حفظ تصنيفات جميع المشاركين الذين لم يصوتوا تلقائياً؟\nسيتم حفظ ترتيب الأشخاص الذين قابلوهم بالترتيب الافتراضي.")) run("force-save", () => api("e3-force-auto-save-rankings").then(d => { if (!d.error) { toast.success(d.message || "تم الحفظ التلقائي"); fetchRankStatus() } return d })) }}
+                  disabled={!!loading || pendingCount === 0}
+                  className="flex items-center gap-1.5 bg-amber-900/50 hover:bg-amber-800 border border-amber-700/50 text-amber-300 rounded-lg px-3 py-1.5 text-xs disabled:opacity-40"
+                >
+                  {loading === "force-save" ? <RefreshCw size={12} className="animate-spin" /> : <Clock size={12} />}
+                  حفظ تلقائي للجميع
+                </button>
+                <button
                   onClick={() => { if (confirm("حذف جميع التصنيفات؟")) run("clear-rank", () => api("e3-clear-rankings").then(d => { fetchRankStatus(); return d })) }}
                   disabled={!!loading}
                   className="flex items-center gap-1.5 bg-red-900/40 hover:bg-red-900/70 border border-red-800/50 text-red-400 rounded-lg px-3 py-1.5 text-xs"
@@ -1787,6 +1796,14 @@ export default function Admin3Page() {
                               <button onClick={() => { setEditingRanker(r.number); setEditedOrder([...r.ranked_list]) }} className="mt-2 w-full py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 text-xs font-medium transition-colors flex items-center justify-center gap-1.5">
                                 <span className="text-sm">✏️</span> تعديل الترتيب
                               </button>
+                              <button
+                                onClick={() => run(`rand-${r.number}`, () => api("e3-randomize-ranking-single", { participant_number: r.number }).then(d => { if (!d.error) { toast.success(d.message); fetchRankStatus() } return d }))}
+                                disabled={!!loading}
+                                className="mt-1.5 w-full py-2 rounded-lg bg-violet-900/40 hover:bg-violet-800 border border-violet-700/30 text-violet-300 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+                              >
+                                {loading === `rand-${r.number}` ? <RefreshCw size={12} className="animate-spin" /> : <Shuffle size={12} />}
+                                عشوائي لهذا الشخص
+                              </button>
                             </>
                           )}
                         </div>
@@ -1837,9 +1854,19 @@ export default function Admin3Page() {
                           ) : (
                             <div className="text-center py-3">
                               <p className="text-gray-500 text-xs mb-2">لم يقدّم تصنيفه بعد</p>
-                              <button onClick={() => startSimulate(r.number)} disabled={simLoading} className="px-5 py-2 rounded-lg bg-amber-900/40 border border-amber-700/30 hover:bg-amber-900/60 text-amber-300 text-xs font-bold transition-colors">
-                                {simLoading ? <RefreshCw size={12} className="animate-spin" /> : '🛠️ تصنيف بالنيابة'}
-                              </button>
+                              <div className="flex gap-2 justify-center">
+                                <button onClick={() => startSimulate(r.number)} disabled={simLoading} className="px-4 py-2 rounded-lg bg-amber-900/40 border border-amber-700/30 hover:bg-amber-900/60 text-amber-300 text-xs font-bold transition-colors">
+                                  {simLoading ? <RefreshCw size={12} className="animate-spin" /> : '🛠️ تصنيف بالنيابة'}
+                                </button>
+                                <button
+                                  onClick={() => run(`rand-${r.number}`, () => api("e3-randomize-ranking-single", { participant_number: r.number }).then(d => { if (!d.error) { toast.success(d.message); fetchRankStatus() } return d }))}
+                                  disabled={!!loading}
+                                  className="px-4 py-2 rounded-lg bg-violet-900/40 border border-violet-700/30 hover:bg-violet-800 text-violet-300 text-xs font-bold transition-colors flex items-center gap-1.5"
+                                >
+                                  {loading === `rand-${r.number}` ? <RefreshCw size={12} className="animate-spin" /> : <Shuffle size={12} />}
+                                  عشوائي
+                                </button>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -3582,17 +3609,19 @@ export default function Admin3Page() {
         })
         const selected = sorted.find(r => r.id === selectedSosId) || sorted[0] || null
         const selId = selected?.id || null
+        const chatHistory: { from: string; text: string; timestamp: string }[] = Array.isArray(selected?.chat_history) ? selected.chat_history : []
+        const isOrganizerNeeded = selected?.request_type === 'organizer_needed'
         return (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4" dir="rtl">
-          <div className="bg-gray-900 border border-gray-800 rounded-3xl w-full max-w-2xl shadow-2xl flex flex-col overflow-hidden" style={{ maxHeight: '90vh', height: '90vh' }}>
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-0 sm:p-4" dir="rtl">
+          <div className="bg-gray-900 border border-gray-800 rounded-none sm:rounded-3xl w-full sm:max-w-2xl shadow-2xl flex flex-col overflow-hidden" style={{ maxHeight: '100vh', height: '100vh' }}>
 
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-gradient-to-l from-red-950/30 to-gray-900 flex-shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-red-600 to-orange-600 flex items-center justify-center text-white text-sm font-bold">ع</div>
                 <div>
-                  <h2 className="font-bold text-white text-sm leading-tight">عبدالرحمن — المنظم</h2>
-                  <p className="text-gray-500 text-[10px] leading-tight">طلبات المساعدة والرسائل</p>
+                  <h2 className="font-bold text-white text-sm leading-tight">طلبات المساعدة والرسائل</h2>
+                  <p className="text-gray-500 text-[10px] leading-tight">{sosRequests.filter(r => r.status !== 'resolved').length} نشط · {sosRequests.length} الإجمالي</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -3614,11 +3643,11 @@ export default function Admin3Page() {
               </div>
             </div>
 
-            {/* Two-panel body */}
-            <div className="flex flex-1 overflow-hidden flex-col sm:flex-row">
+            {/* Two-panel body — mobile: full-screen chat with back button, desktop: side-by-side */}
+            <div className="flex flex-1 overflow-hidden">
 
-              {/* Conversation list (right side in RTL on desktop, top bar on mobile) */}
-              <div className="sm:w-56 sm:border-l border-b sm:border-b-0 border-gray-800/60 flex flex-col flex-shrink-0 sm:max-w-none max-h-32 sm:max-h-none">
+              {/* Conversation list — hidden on mobile when a chat is selected */}
+              <div className={`${selected ? 'hidden sm:flex' : 'flex'} sm:w-60 sm:border-l border-gray-800/60 flex-col flex-shrink-0`}>
                 <div className="flex gap-1 px-2 py-2 border-b border-gray-800/40 bg-gray-900/30 flex-shrink-0">
                   {[
                     { id: 'all', label: 'الكل' },
@@ -3632,7 +3661,7 @@ export default function Admin3Page() {
                     </button>
                   ))}
                 </div>
-                <div className="flex-1 overflow-x-auto sm:overflow-y-auto sm:overflow-x-hidden flex sm:flex-col">
+                <div className="flex-1 overflow-y-auto">
                   {sorted.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-12 text-gray-600 gap-2">
                       <div className="w-10 h-10 rounded-full bg-gray-800/50 flex items-center justify-center">
@@ -3648,14 +3677,19 @@ export default function Admin3Page() {
                     const isFlashing = flashIds.has(req.id)
                     const tableMatch = req.table_info?.match(/طاولة\s*(\d+)/)
                     const tableNum = tableMatch ? tableMatch[1] : null
+                    const isOrgNeeded = req.request_type === 'organizer_needed'
+                    const lastMsg = Array.isArray(req.chat_history) && req.chat_history.length > 0
+                      ? req.chat_history[req.chat_history.length - 1]
+                      : null
                     return (
                       <button key={req.id} onClick={() => setSelectedSosId(req.id)}
-                        className={`flex items-center gap-2 px-3 py-2.5 sm:border-b border-gray-800/30 text-right transition-colors flex-shrink-0 sm:w-full ${
+                        className={`w-full flex items-center gap-2.5 px-3 py-3 border-b border-gray-800/30 text-right transition-colors ${
                           isSel ? 'bg-gray-800/80' : 'hover:bg-gray-800/40'
                         } ${isFlashing ? 'ring-1 ring-inset ring-red-500/40' : ''}`}>
                         <div className="relative flex-shrink-0">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                            req.status === 'pending' ? 'bg-red-600/30 text-red-400' :
+                          <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold ${
+                            isOrgNeeded ? 'bg-red-600/30 text-red-400' :
+                            req.status === 'pending' ? 'bg-orange-600/30 text-orange-400' :
                             req.status === 'replied' ? 'bg-emerald-600/20 text-emerald-400' :
                             req.status === 'seen' ? 'bg-blue-600/20 text-blue-400' :
                             'bg-gray-700 text-gray-500'
@@ -3669,110 +3703,113 @@ export default function Admin3Page() {
                             <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-gray-900 animate-pulse" />
                           )}
                         </div>
-                        <div className="flex-1 min-w-0 hidden sm:block">
+                        <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-1">
-                            <span className="text-white text-xs font-semibold truncate">{req.participant_name}</span>
-                            <span className="text-gray-600 text-[9px] flex-shrink-0">{new Date(req.created_at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}</span>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="text-white text-xs font-semibold truncate">{req.participant_name}</span>
+                              <span className="text-gray-600 text-[9px] font-mono flex-shrink-0">#{req.participant_number}</span>
+                            </div>
+                            <span className="text-gray-600 text-[9px] flex-shrink-0">{new Date(req.updated_at || req.created_at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}</span>
                           </div>
-                          <p className="text-gray-500 text-[10px] truncate mt-0.5">
-                            {req.message || req.organizer_reply || '—'}
-                          </p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            {isOrgNeeded && (
+                              <span className="text-[8px] bg-red-900/40 text-red-400 px-1.5 py-0.5 rounded-full flex-shrink-0 font-medium">🆘 منظم</span>
+                            )}
+                            <p className="text-gray-500 text-[10px] truncate">
+                              {lastMsg ? (lastMsg.from === 'organizer' ? 'أنت: ' : '') + lastMsg.text : (req.message || req.organizer_reply || '—')}
+                            </p>
+                          </div>
                         </div>
-                        <span className="text-white text-xs font-semibold sm:hidden">{req.participant_name}</span>
                       </button>
                     )
                   })}
                 </div>
               </div>
 
-              {/* Chat panel (left side in RTL) */}
-              <div className="flex-1 flex flex-col">
+              {/* Chat panel — full screen on mobile when selected */}
+              <div className={`${selected ? 'flex' : 'hidden sm:flex'} flex-1 flex-col`}>
                 {selected ? (
                   <>
-                    {/* Chat header */}
-                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-800/40 bg-gray-900/30 flex-shrink-0">
-                      <div className="flex items-center gap-2">
-                        <div className="relative flex-shrink-0">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                            selected.status === 'pending' ? 'bg-red-600/30 text-red-400' :
-                            selected.status === 'replied' ? 'bg-emerald-600/20 text-emerald-400' :
-                            selected.status === 'seen' ? 'bg-blue-600/20 text-blue-400' :
-                            'bg-gray-700 text-gray-500'
-                          }`}>{selected.participant_name?.charAt(0) || '؟'}</div>
+                    {/* Chat header with back button for mobile */}
+                    <div className="flex items-center gap-2 px-3 py-2.5 border-b border-gray-800/40 bg-gray-900/30 flex-shrink-0">
+                      <button onClick={() => setSelectedSosId(null)} className="sm:hidden w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
+                        <ChevronRight size={16} />
+                      </button>
+                      <div className="relative flex-shrink-0">
+                        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold ${
+                          isOrganizerNeeded ? 'bg-red-600/30 text-red-400' :
+                          selected.status === 'pending' ? 'bg-orange-600/30 text-orange-400' :
+                          selected.status === 'replied' ? 'bg-emerald-600/20 text-emerald-400' :
+                          selected.status === 'seen' ? 'bg-blue-600/20 text-blue-400' :
+                          'bg-gray-700 text-gray-500'
+                        }`}>{selected.participant_name?.charAt(0) || '؟'}</div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-white text-sm font-semibold truncate">{selected.participant_name}</span>
+                          <span className="text-gray-600 text-[10px] font-mono flex-shrink-0">#{selected.participant_number}</span>
                         </div>
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-white text-sm font-semibold">{selected.participant_name}</span>
-                            <span className="text-gray-600 text-[10px] font-mono">#{selected.participant_number}</span>
-                          </div>
-                          <p className="text-gray-500 text-[10px]">{selected.table_info}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-gray-500 text-[10px] truncate">{selected.table_info}</span>
+                          {isOrganizerNeeded && (
+                            <span className="text-[8px] bg-red-900/40 text-red-400 px-1.5 py-0.5 rounded-full font-medium flex items-center gap-0.5 flex-shrink-0">
+                              <AlertCircle size={8} /> يحتاج منظم
+                            </span>
+                          )}
                         </div>
                       </div>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full flex-shrink-0 font-medium ${
-                        selected.status === 'pending'  ? 'bg-orange-500/20 text-orange-400' :
-                        selected.status === 'seen'     ? 'bg-blue-500/20 text-blue-400' :
-                        selected.status === 'replied'  ? 'bg-emerald-500/20 text-emerald-400' :
-                        'bg-gray-700/60 text-gray-500'
-                      }`}>{selected.status === 'pending' ? '🟠 جديد' : selected.status === 'seen' ? '🔵 مُشاهَد' : selected.status === 'replied' ? '🟢 تم الرد' : '⚪ محلول'}</span>
+                      <button onClick={() => handleSOSAction(selId!, null, 'resolved')}
+                        className="w-8 h-8 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-emerald-400 transition-colors flex items-center justify-center flex-shrink-0"
+                        title="تم الحل">
+                        <CheckCircle size={15} />
+                      </button>
                     </div>
 
-                    {/* Messages */}
-                    <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5 bg-gray-950/30">
-                      {selected.message && (
-                        <div className="flex justify-start">
-                          <div className="max-w-[75%]">
-                            <div className="bg-gray-800 rounded-2xl rounded-bl-md px-3.5 py-2.5 text-sm text-gray-200 leading-relaxed">
-                              {selected.message}
+                    {/* Messages from chat_history */}
+                    <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 space-y-2.5 bg-gray-950/30">
+                      {chatHistory.length === 0 && (
+                        <div className="text-center py-8 text-gray-600 text-xs">لا توجد رسائل</div>
+                      )}
+                      {chatHistory.map((msg, i) => (
+                        <div key={i} className={`flex ${msg.from === 'user' ? 'justify-start' : 'justify-end'}`}>
+                          <div className="max-w-[80%]">
+                            <div className={`rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
+                              msg.from === 'user'
+                                ? 'bg-gray-800 text-gray-200 rounded-bl-md'
+                                : 'bg-emerald-900/30 border border-emerald-700/30 text-emerald-200 rounded-br-md'
+                            }`}>
+                              {msg.from === 'organizer' && <p className="text-emerald-400/80 text-[9px] font-bold mb-0.5">عبدالرحمن</p>}
+                              {msg.text}
                             </div>
-                            <p className="text-gray-700 text-[9px] mt-1 mr-1">{new Date(selected.created_at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}</p>
+                            <p className={`text-gray-700 text-[9px] mt-1 ${msg.from === 'user' ? 'mr-1' : 'ml-1 text-left'}`}>
+                              {new Date(msg.timestamp).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
+                            </p>
                           </div>
                         </div>
-                      )}
-                      {selected.organizer_reply && (
-                        <div className="flex justify-end">
-                          <div className="max-w-[75%]">
-                            <div className="bg-emerald-900/30 border border-emerald-700/30 rounded-2xl rounded-br-md px-3.5 py-2.5 text-sm text-emerald-200 leading-relaxed">
-                              {selected.organizer_reply}
-                            </div>
-                            <p className="text-gray-700 text-[9px] mt-1 ml-1 text-left">عبدالرحمن</p>
-                          </div>
-                        </div>
-                      )}
+                      ))}
                     </div>
 
-                    {/* Reply input — always visible at bottom */}
+                    {/* Inline reply input — always visible */}
                     {selected.status !== 'resolved' && (
-                      <div className="border-t border-gray-800/60 p-3 bg-gray-900/50 flex-shrink-0">
-                        {replyingId === selId ? (
-                          <div className="space-y-2">
-                            <textarea value={replyText} onChange={e => setReplyText(e.target.value)}
-                              placeholder="اكتب ردك هنا..." rows={2} autoFocus
-                              className="w-full bg-gray-800 border border-gray-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-600 resize-none placeholder-gray-600" />
-                            <div className="flex gap-2">
-                              <button onClick={() => handleSOSAction(selId!, replyText, 'replied')}
-                                className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl py-2 text-sm font-medium transition-colors flex items-center justify-center gap-1.5">
-                                <Send size={13} /> إرسال
-                              </button>
-                              <button onClick={() => setReplyingId(null)}
-                                className="px-4 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-xl text-sm transition-colors">إلغاء</button>
-                              <button onClick={() => handleSOSAction(selId!, null, 'resolved')}
-                                className="px-4 bg-gray-700/50 hover:bg-gray-700 text-gray-300 rounded-xl text-sm transition-colors flex items-center justify-center gap-1.5">
-                                <CheckCircle size={13} /> تم الحل
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex gap-2">
-                            <button onClick={() => { setReplyingId(selId!); setReplyText("") }}
-                              className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-xl py-2 text-sm font-medium transition-colors flex items-center justify-center gap-1.5">
-                              <MessageSquare size={13} /> رد
-                            </button>
-                            <button onClick={() => handleSOSAction(selId!, null, 'resolved')}
-                              className="px-4 bg-gray-700/50 hover:bg-gray-700 text-gray-300 rounded-xl py-2 text-sm transition-colors flex items-center justify-center gap-1.5">
-                              <CheckCircle size={13} /> تم الحل
-                            </button>
-                          </div>
-                        )}
+                      <div className="border-t border-gray-800/60 p-2.5 sm:p-3 bg-gray-900/50 flex-shrink-0">
+                        <div className="flex items-end gap-2">
+                          <textarea
+                            value={replyText}
+                            onChange={e => setReplyText(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (replyText.trim()) handleSOSAction(selId!, replyText, 'replied') } }}
+                            placeholder="اكتب ردك..."
+                            rows={1}
+                            className="flex-1 bg-gray-800 border border-gray-700 text-white rounded-2xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-emerald-600 resize-none placeholder-gray-600 max-h-24"
+                            style={{ minHeight: '40px' }}
+                          />
+                          <button
+                            onClick={() => { if (replyText.trim()) handleSOSAction(selId!, replyText, 'replied') }}
+                            disabled={!replyText.trim()}
+                            className="w-10 h-10 rounded-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 text-white flex items-center justify-center transition-colors flex-shrink-0"
+                          >
+                            <Send size={15} />
+                          </button>
+                        </div>
                       </div>
                     )}
                   </>

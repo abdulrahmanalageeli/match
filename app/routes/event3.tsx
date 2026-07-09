@@ -2539,26 +2539,29 @@ function SOSButton({ token, position = 'top' }: { token: string; position?: 'top
     const doFetch = async () => {
       const d = await call('e3-sos-check', token)
       if (d.error || !d.requests) return
-      const userMsgs: { id: string; text: string; from: 'user'; status: string }[] = []
-      const orgMsgs: { id: string; text: string; from: 'organizer'; status: string }[] = []
+      const allMsgs: { id: string; text: string; from: 'user' | 'organizer'; status: string }[] = []
+      let orgCount = 0
       for (const r of d.requests) {
-        if (r.message) userMsgs.push({ id: r.id, text: r.message, from: 'user', status: r.status })
-        if (r.organizer_reply) orgMsgs.push({ id: r.id + '-reply', text: r.organizer_reply, from: 'organizer', status: r.status })
+        const history = Array.isArray(r.chat_history) ? r.chat_history : []
+        for (const msg of history) {
+          allMsgs.push({ id: r.id + '-' + msg.timestamp, text: msg.text, from: msg.from === 'organizer' ? 'organizer' : 'user', status: r.status })
+          if (msg.from === 'organizer') orgCount++
+        }
       }
-      const all = [...userMsgs, ...orgMsgs].sort((a, b) => a.id.localeCompare(b.id))
-      setMessages(all)
+      allMsgs.sort((a, b) => a.id.localeCompare(b.id))
+      setMessages(allMsgs)
       const prevCount = lastReplyCountRef.current
-      if (orgMsgs.length > prevCount && prevCount >= 0) {
+      if (orgCount > prevCount && prevCount >= 0) {
         setHasUnread(true)
         if (!openRef.current) {
           toast('رسالة من المنظم!', { duration: 4000 })
         }
       }
-      lastReplyCountRef.current = orgMsgs.length
-      sessionStorage.setItem('sos_last_reply_count', String(orgMsgs.length))
-      if (userMsgs.length > 0 || orgMsgs.length > 0) setShowOptions(false)
+      lastReplyCountRef.current = orgCount
+      sessionStorage.setItem('sos_last_reply_count', String(orgCount))
+      if (allMsgs.length > 0) setShowOptions(false)
       else setShowOptions(true)
-      if (orgMsgs.length === 0 && userMsgs.length === 0) setHasUnread(false)
+      if (orgCount === 0 && allMsgs.length === 0) setHasUnread(false)
     }
     doFetch()
     const iv = setInterval(doFetch, 10000)
@@ -2569,11 +2572,11 @@ function SOSButton({ token, position = 'top' }: { token: string; position?: 'top
     if (open) { setHasUnread(false); scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) }
   }, [open, messages])
 
-  const send = async (text: string) => {
+  const send = async (text: string, requestType?: string) => {
     const trimmed = text.trim()
     if (!trimmed || sending) return
     setSending(true)
-    const d = await call('e3-sos', token, { message: trimmed })
+    const d = await call('e3-sos', token, { message: trimmed, request_type: requestType || 'chat' })
     setSending(false)
     if (!d.error) {
       setMessages(prev => [...prev, { id: d.id || String(Date.now()), text: trimmed, from: 'user', status: 'pending' }])
@@ -2687,7 +2690,7 @@ function SOSButton({ token, position = 'top' }: { token: string; position?: 'top
                   </div>
                   <p className="text-center text-gray-600 text-xs mb-1">اختر نوع الطلب</p>
                   <button
-                    onClick={() => { setShowOptions(false); setInput(''); send('طلب مساعدة - أحتاج المنظم إلى طاولتي') }}
+                    onClick={() => { setShowOptions(false); setInput(''); send('طلب مساعدة - أحتاج المنظم إلى طاولتي', 'organizer_needed') }}
                     className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-red-950/30 border border-red-800/40 hover:bg-red-950/50 transition-all text-right"
                   >
                     <LifeBuoy size={18} className="text-red-400" />

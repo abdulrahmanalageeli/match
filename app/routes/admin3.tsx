@@ -378,6 +378,7 @@ export default function Admin3Page() {
   const startTimer = (round: number, duration = 1200) =>
     run("timer", () => api("e3-start-timer", { round, duration }))
   const stopTimer = () => run("timer-stop", () => api("e3-stop-timer"))
+  const adjustTimer = (delta: number) => run(`timer-${delta}`, () => api("e3-adjust-timer", { delta_seconds: delta }).then(d => { if (!d.error) fetchState(); return d }))
   const saveRanking = (rankerNum: number) =>
     run(`save-rank-${rankerNum}`, () => api("e3-set-ranking", { ranker_number: rankerNum, ranked_list: editedOrder.map(i => i.number) }).then(d => { if (!d.error) { setEditingRanker(null); fetchRankStatus() } return d }))
 
@@ -682,6 +683,16 @@ export default function Admin3Page() {
               </div>
               <div className="flex items-center gap-2 sm:gap-3">
                 <div className={`text-2xl sm:text-3xl font-mono font-bold ${timerRemaining < 120 ? 'text-red-400' : 'text-blue-300'}`}>{formatTime(timerRemaining)}</div>
+                <div className="flex flex-col gap-1">
+                  <div className="flex gap-1">
+                    <button onClick={() => adjustTimer(60)} disabled={!!loading} className="bg-emerald-700/60 hover:bg-emerald-600 text-white rounded px-2 py-1 text-[10px] font-bold disabled:opacity-40 transition-colors">+1د</button>
+                    <button onClick={() => adjustTimer(30)} disabled={!!loading} className="bg-emerald-800/60 hover:bg-emerald-700 text-white rounded px-2 py-1 text-[10px] font-bold disabled:opacity-40 transition-colors">+30ث</button>
+                  </div>
+                  <div className="flex gap-1">
+                    <button onClick={() => adjustTimer(-60)} disabled={!!loading} className="bg-orange-800/60 hover:bg-orange-700 text-white rounded px-2 py-1 text-[10px] font-bold disabled:opacity-40 transition-colors">-1د</button>
+                    <button onClick={() => adjustTimer(-30)} disabled={!!loading} className="bg-orange-900/60 hover:bg-orange-800 text-white rounded px-2 py-1 text-[10px] font-bold disabled:opacity-40 transition-colors">-30ث</button>
+                  </div>
+                </div>
                 <button onClick={stopTimer} disabled={!!loading} className="bg-red-600/80 hover:bg-red-600 text-white rounded-lg px-4 py-2 text-sm flex items-center gap-2">
                   <Square size={14} /> إيقاف
                 </button>

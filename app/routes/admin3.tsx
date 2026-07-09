@@ -73,7 +73,7 @@ export default function Admin3Page() {
   const [searchTerm, setSearchTerm] = useState("")
   const [genderFilter, setGenderFilter] = useState("all")
   const [paidFilter, setPaidFilter] = useState("all")
-  const [activeTab, setActiveTab] = useState<"control" | "seating" | "ranking" | "participants" | "overview" | "feedback">("control")
+  const [activeTab, setActiveTab] = useState<"control" | "seating" | "ranking" | "participants" | "overview" | "feedback" | "attendance">("control")
   const [overviewData, setOverviewData] = useState<any>(null)
   const [overviewLoading, setOverviewLoading] = useState(false)
   const [timerRemaining, setTimerRemaining] = useState(0)
@@ -118,6 +118,10 @@ export default function Admin3Page() {
 
   const [sosRequests, setSosRequests] = useState<any[]>([])
   const [sosModalOpen, setSosModalOpen] = useState(false)
+  const [attendanceData, setAttendanceData] = useState<any[]>([])
+  const [attendanceLoading, setAttendanceLoading] = useState(false)
+  const [attendanceToggling, setAttendanceToggling] = useState<Record<number, boolean>>({})
+  const [attendanceSearch, setAttendanceSearch] = useState("")
   const [replyingId, setReplyingId] = useState<string | null>(null)
   const [replyText, setReplyText] = useState("")
   const [sosFilter, setSosFilter] = useState<'all' | 'active' | 'resolved'>('all')
@@ -213,6 +217,22 @@ export default function Admin3Page() {
     const data = await api("e3-get-notifications")
     setNotifData(data)
     setNotifLoading(false)
+  }, [])
+
+  const fetchAttendance = useCallback(async () => {
+    setAttendanceLoading(true)
+    const data = await api("e3-get-attendance")
+    if (data.participants) setAttendanceData(data.participants)
+    setAttendanceLoading(false)
+  }, [])
+
+  const toggleAttendance = useCallback(async (p: any) => {
+    setAttendanceToggling(prev => ({ ...prev, [p.number]: true }))
+    const data = await api("e3-set-attendance", { participant_number: p.number, attended: !p.attended })
+    if (data.success) {
+      setAttendanceData(prev => prev.map((x: any) => x.number === p.number ? { ...x, attended: data.attended } : x))
+    }
+    setAttendanceToggling(prev => { const c = { ...prev }; delete c[p.number]; return c })
   }, [])
 
   const sendNotification = useCallback(async () => {
@@ -333,7 +353,8 @@ export default function Admin3Page() {
     if (authenticated && activeTab === "participants") { fetchParticipants({ preserveSelection: true }); fetchSeating(); fetchRankStatus(); fetchMatches() }
     if (authenticated && activeTab === "overview") fetchOverview()
     if (authenticated && activeTab === "feedback") { fetchFeedback(); fetchMoodChecks(); fetchNotifications() }
-  }, [activeTab, authenticated, fetchSeating, fetchRankStatus, fetchParticipants, fetchMatches, fetchOverview, fetchFeedback, fetchMoodChecks, fetchNotifications])
+    if (authenticated && activeTab === "attendance") fetchAttendance()
+  }, [activeTab, authenticated, fetchSeating, fetchRankStatus, fetchParticipants, fetchMatches, fetchOverview, fetchFeedback, fetchMoodChecks, fetchNotifications, fetchAttendance])
 
   // Feedback polling
   useEffect(() => {
@@ -720,6 +741,7 @@ export default function Admin3Page() {
             { id: "ranking",      label: "التصنيفات",  icon: BarChart3 },
             { id: "overview",     label: "نظرة شاملة", icon: Layers },
             { id: "feedback",     label: "التقييمات",   icon: Star },
+            { id: "attendance",   label: "الحضور",      icon: CheckCircle },
           ].map(tab => (
             <button
               key={tab.id}
@@ -3935,6 +3957,132 @@ export default function Admin3Page() {
               </div>
             </div>
           </>
+        )
+      })()}
+
+      {/* TAB: ATTENDANCE ─────────────────────────────────────────────── */}
+      {activeTab === "attendance" && (() => {
+        const attended = attendanceData.filter((p: any) => p.attended).length
+        const filtered = attendanceData.filter((p: any) => {
+          if (!attendanceSearch.trim()) return true
+          const q = attendanceSearch.trim().toLowerCase()
+          return (p.name || "").toLowerCase().includes(q) || String(p.number).includes(q)
+        })
+        const getMatchName = (num: number) => attendanceData.find((p: any) => p.number === num)
+        return (
+          <div className="space-y-4">
+            {/* Header */}
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-2">
+                  <CheckCircle size={18} className="text-purple-400" />
+                  <h2 className="text-sm font-bold text-white">قائمة الحضور</h2>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <span className="text-lg font-bold tabular-nums">
+                      <span className="text-purple-400">{attended}</span>
+                      <span className="text-gray-600">/</span>
+                      <span className="text-gray-400">{attendanceData.length}</span>
+                    </span>
+                    <span className="text-[10px] text-gray-600 mr-2">حاضر</span>
+                  </div>
+                  <button
+                    onClick={fetchAttendance}
+                    disabled={attendanceLoading}
+                    className="w-9 h-9 rounded-xl bg-gray-800 border border-gray-700 hover:border-purple-600/30 flex items-center justify-center transition-colors"
+                  >
+                    {attendanceLoading ? <Loader2 size={15} className="animate-spin text-gray-500" /> : <RefreshCw size={15} className="text-gray-400" />}
+                  </button>
+                </div>
+              </div>
+              {/* Progress bar */}
+              <div className="mt-3 h-1 bg-gray-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-500"
+                  style={{ width: `${attendanceData.length > 0 ? (attended / attendanceData.length) * 100 : 0}%` }}
+                />
+              </div>
+              {/* Search */}
+              <div className="mt-3 relative">
+                <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600" />
+                <input
+                  type="text"
+                  value={attendanceSearch}
+                  onChange={e => setAttendanceSearch(e.target.value)}
+                  placeholder="بحث بالاسم أو الرقم..."
+                  className="w-full bg-gray-950/80 border border-gray-800 focus:border-purple-600/40 rounded-lg py-2 pr-9 pl-3 text-sm text-white placeholder-gray-600 outline-none transition-colors"
+                />
+              </div>
+            </div>
+
+            {/* List */}
+            {attendanceLoading && attendanceData.length === 0 ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 size={24} className="animate-spin text-gray-600" />
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="text-center py-16">
+                <p className="text-gray-600 text-sm">لا يوجد مشاركون</p>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {filtered.map((p: any) => {
+                  const match = p.matched_with ? getMatchName(p.matched_with) : null
+                  return (
+                    <button
+                      key={p.number}
+                      onClick={() => toggleAttendance(p)}
+                      disabled={attendanceToggling[p.number]}
+                      className={`w-full flex items-center gap-3 py-2.5 px-3 rounded-xl border transition-all text-right ${
+                        p.attended
+                          ? "bg-purple-900/20 border-purple-700/30 hover:bg-purple-900/30"
+                          : "bg-gray-900/60 border-gray-800/60 hover:bg-gray-900/80"
+                      }`}
+                    >
+                      <div className="flex-shrink-0">
+                        {attendanceToggling[p.number] ? (
+                          <Loader2 size={20} className="animate-spin text-gray-500" />
+                        ) : p.attended ? (
+                          <CheckCircle size={20} className="text-purple-400" />
+                        ) : (
+                          <Circle size={20} className="text-gray-700" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className={`font-semibold text-sm truncate ${p.attended ? "text-purple-200" : "text-white"}`}>{p.name}</span>
+                          <span className="text-[10px] text-gray-600 font-mono flex-shrink-0">#{p.number}</span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {p.gender && (
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${
+                              p.gender === "female" || p.gender === "أنثى" || p.gender === "أُنثَى"
+                                ? "bg-pink-900/40 text-pink-300"
+                                : "bg-blue-900/40 text-blue-300"
+                            }`}>
+                              {p.gender === "female" || p.gender === "أنثى" || p.gender === "أُنثَى" ? "♀" : "♂"}
+                            </span>
+                          )}
+                          {p.age && <span className="text-[10px] text-gray-600">{p.age}y</span>}
+                          {match && (
+                            <span className="text-[10px] text-gray-500 truncate">
+                              ↔ {match.name} #{match.number}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <span className={`text-[10px] font-semibold ${p.attended ? "text-purple-400" : "text-gray-600"}`}>
+                          {p.attended ? "حاضر" : "غائب"}
+                        </span>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         )
       })()}
 

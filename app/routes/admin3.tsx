@@ -100,6 +100,10 @@ export default function Admin3Page() {
   const [feedbackPolling, setFeedbackPolling] = useState(false)
   const [feedbackPhase, setFeedbackPhase] = useState<"phase2" | "phase3">("phase2")
   const feedbackIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [moodData, setMoodData] = useState<any>(null)
+  const [moodLoading, setMoodLoading] = useState(false)
+  const [moodTarget, setMoodTarget] = useState<string>("") // participant number or empty for all
+  const [moodSending, setMoodSending] = useState(false)
   const [rankSearch, setRankSearch] = useState("")
   const [rankFilter, setRankFilter] = useState<"all" | "submitted" | "pending">("all")
   const [dragIdx, setDragIdx] = useState<number | null>(null)
@@ -179,6 +183,23 @@ export default function Admin3Page() {
     setFeedbackData(data)
     setFeedbackLoading(false)
   }, [])
+
+  const fetchMoodChecks = useCallback(async () => {
+    setMoodLoading(true)
+    const data = await api("e3-get-mood-checks")
+    setMoodData(data)
+    setMoodLoading(false)
+  }, [])
+
+  const sendMoodCheck = useCallback(async () => {
+    setMoodSending(true)
+    const data = await api("e3-trigger-mood-check", moodTarget ? { target_number: moodTarget } : {})
+    setMoodSending(false)
+    if (data.error) { toast.error(data.error); return }
+    toast.success(`تم إرسال فحص المزاج إلى ${data.sent_to} شخص`)
+    setMoodTarget("")
+    setTimeout(() => fetchMoodChecks(), 1000)
+  }, [moodTarget, fetchMoodChecks])
 
   const mbtiGroupFn = (m: string) => {
     if (!m) return null
@@ -280,8 +301,8 @@ export default function Admin3Page() {
     if (authenticated && activeTab === "ranking") fetchRankStatus()
     if (authenticated && activeTab === "participants") { fetchParticipants({ preserveSelection: true }); fetchSeating(); fetchRankStatus(); fetchMatches() }
     if (authenticated && activeTab === "overview") fetchOverview()
-    if (authenticated && activeTab === "feedback") fetchFeedback()
-  }, [activeTab, authenticated, fetchSeating, fetchRankStatus, fetchParticipants, fetchMatches, fetchOverview, fetchFeedback])
+    if (authenticated && activeTab === "feedback") { fetchFeedback(); fetchMoodChecks() }
+  }, [activeTab, authenticated, fetchSeating, fetchRankStatus, fetchParticipants, fetchMatches, fetchOverview, fetchFeedback, fetchMoodChecks])
 
   // Feedback polling
   useEffect(() => {
@@ -922,6 +943,31 @@ export default function Admin3Page() {
                 {!ns.ready && <p className="text-emerald-600 text-xs mt-1.5 text-center">أكمل الخطوات السابقة أولاً</p>}
               </div>
             )})()}
+
+            {/* Mood Check Trigger */}
+            <div className="bg-gradient-to-r from-purple-900/30 to-pink-900/20 border border-purple-700/40 rounded-xl p-4">
+              <h3 className="font-semibold text-purple-300 flex items-center gap-2 mb-3 text-sm">
+                <Heart size={16} /> فحص المزاج اللحظي
+              </h3>
+              <p className="text-purple-400/60 text-xs mb-3">أرسل popup فوري للمشاركين لمعرفة شعورهم في اللحظة الحالية</p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={moodTarget}
+                  onChange={e => setMoodTarget(e.target.value)}
+                  placeholder="رقم مشارك (اتركه فارغ للجميع)"
+                  className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-purple-500 outline-none"
+                />
+                <button
+                  onClick={sendMoodCheck}
+                  disabled={moodSending}
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-lg px-4 py-2 text-sm font-medium flex items-center gap-2 disabled:opacity-50 transition-all active:scale-[0.98]"
+                >
+                  {moodSending ? <RefreshCw size={14} className="animate-spin" /> : <Send size={14} />}
+                  إرسال
+                </button>
+              </div>
+            </div>
 
             {/* Danger Zone */}
             <div className="bg-gray-900 border border-red-900/40 rounded-xl p-4">
@@ -3256,6 +3302,76 @@ export default function Admin3Page() {
               </div>
             )
           })()}
+
+          {/* Mood Check Results */}
+          <div className="bg-gray-900 border border-purple-800/30 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold flex items-center gap-2 text-sm">
+                <Heart size={16} className="text-purple-400" /> فحص المزاج
+              </h3>
+              <div className="flex items-center gap-2">
+                <button onClick={fetchMoodChecks} disabled={moodLoading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-gray-800 border border-gray-700 text-gray-400 hover:text-gray-200 disabled:opacity-50">
+                  <RefreshCw size={12} className={moodLoading ? "animate-spin" : ""} /> تحديث
+                </button>
+              </div>
+            </div>
+
+            {!moodData?.checks?.length ? (
+              <p className="text-center text-gray-600 text-sm py-6">لا توجد فحوصات مزاج بعد</p>
+            ) : (
+              <div className="space-y-3">
+                {moodData.checks.map((check: any) => {
+                  const entries: any[] = check.entries || []
+                  const answered = entries.filter(e => e.mood)
+                  const happy = answered.filter(e => e.mood === "happy").length
+                  const neutral = answered.filter(e => e.mood === "neutral").length
+                  const notGreat = answered.filter(e => e.mood === "not_great").length
+                  const pending = entries.filter(e => !e.mood).length
+                  const time = new Date(check.triggered_at).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })
+                  return (
+                    <div key={check.check_id} className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs text-gray-400 font-medium">{time}</span>
+                        <span className="text-[10px] text-gray-500">{answered.length}/{entries.length} ردّوا</span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-2 mb-2">
+                        <div className="text-center bg-green-900/20 rounded-lg py-2">
+                          <div className="text-lg">😄</div>
+                          <div className="text-green-400 text-sm font-bold">{happy}</div>
+                          <div className="text-[9px] text-gray-500">ممتاز</div>
+                        </div>
+                        <div className="text-center bg-yellow-900/20 rounded-lg py-2">
+                          <div className="text-lg">😐</div>
+                          <div className="text-yellow-400 text-sm font-bold">{neutral}</div>
+                          <div className="text-[9px] text-gray-500">لا بأس</div>
+                        </div>
+                        <div className="text-center bg-red-900/20 rounded-lg py-2">
+                          <div className="text-lg">😕</div>
+                          <div className="text-red-400 text-sm font-bold">{notGreat}</div>
+                          <div className="text-[9px] text-gray-500">مو حاسّ</div>
+                        </div>
+                        <div className="text-center bg-gray-700/20 rounded-lg py-2">
+                          <div className="text-lg">⏳</div>
+                          <div className="text-gray-400 text-sm font-bold">{pending}</div>
+                          <div className="text-[9px] text-gray-500">بانتظار</div>
+                        </div>
+                      </div>
+                      {pending > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {entries.filter(e => !e.mood).map(e => (
+                            <span key={e.participant_number} className="text-[10px] bg-gray-700/40 text-gray-400 rounded-full px-2 py-0.5">
+                              {e.participant_name} #{e.participant_number}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

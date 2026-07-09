@@ -7196,6 +7196,48 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             .eq("match_id", EVENT3_MATCH_ID)
           return res.status(200).json({ message: "Test data cleared: rankings, feedback, words, and notes removed. Participants, seating, and matches preserved." })
         }
+        // e3-trigger-mood-check
+        if (action === "e3-trigger-mood-check") {
+          const { target_number } = req.body // if provided, send to one person; otherwise all
+          const checkId = crypto.randomUUID()
+          if (target_number) {
+            // Single participant
+            const { error } = await supabase.from("event3_mood_checks").insert({
+              match_id: EVENT3_MATCH_ID, check_id: checkId, participant_number: parseInt(target_number)
+            })
+            if (error) return res.status(500).json({ error: error.message })
+            return res.status(200).json({ check_id: checkId, sent_to: 1 })
+          } else {
+            // All selected participants
+            const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID)
+            if (!ep || ep.length === 0) return res.status(400).json({ error: "No participants selected" })
+            const rows = ep.map(r => ({ match_id: EVENT3_MATCH_ID, check_id: checkId, participant_number: r.participant_number }))
+            const { error } = await supabase.from("event3_mood_checks").insert(rows)
+            if (error) return res.status(500).json({ error: error.message })
+            return res.status(200).json({ check_id: checkId, sent_to: ep.length })
+          }
+        }
+        // e3-get-mood-checks
+        if (action === "e3-get-mood-checks") {
+          const { check_id } = req.body
+          let query = supabase.from("event3_mood_checks").select("check_id,participant_number,mood,triggered_at,answered_at").eq("match_id", EVENT3_MATCH_ID).order("triggered_at", { ascending: false })
+          if (check_id) query = query.eq("check_id", check_id)
+          const { data, error } = await query.limit(200)
+          if (error) return res.status(500).json({ error: error.message })
+          // Fetch participant names
+          const nums = [...new Set((data || []).map(r => r.participant_number))]
+          const { data: pdata } = await supabase.from("participants").select("assigned_number,name").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
+          const nameMap = {}
+          for (const p of pdata || []) { nameMap[p.assigned_number] = (p.name || "").trim().split(/\s+/)[0] || `#${p.assigned_number}` }
+          // Group by check_id
+          const groups = {}
+          for (const r of data || []) {
+            if (!groups[r.check_id]) groups[r.check_id] = { check_id: r.check_id, triggered_at: r.triggered_at, entries: [] }
+            groups[r.check_id].entries.push({ participant_number: r.participant_number, participant_name: nameMap[r.participant_number] || `#${r.participant_number}`, mood: r.mood, answered_at: r.answered_at })
+          }
+          const result = Object.values(groups).sort((a, b) => new Date(b.triggered_at) - new Date(a.triggered_at))
+          return res.status(200).json({ checks: result })
+        }
         // e3-reset-event
         if (action === "e3-reset-event") {
           await Promise.all([
@@ -7203,6 +7245,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             supabase.from("event3_matches").delete().eq("match_id", EVENT3_MATCH_ID),
             supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID),
             supabase.from("participant_rankings").delete().eq("match_id", EVENT3_MATCH_ID),
+            supabase.from("event3_mood_checks").delete().eq("match_id", EVENT3_MATCH_ID),
             supabase.from("event_state").upsert({ match_id: EVENT3_MATCH_ID, phase: "setup", global_timer_active: false }, { onConflict: "match_id" }),
           ])
           return res.status(200).json({ message: "Event reset successfully" })

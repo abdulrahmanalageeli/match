@@ -73,3 +73,20 @@ CREATE TABLE IF NOT EXISTS public.participant_rankings (
   created_at timestamptz DEFAULT now(),
   CONSTRAINT participant_rankings_unique UNIQUE (match_id, ranker_number, ranked_number)
 );
+
+-- جدول فحص المزاج اللحظي
+-- Admin triggers a mood check; participants respond with happy/neutral/not_great
+CREATE TABLE IF NOT EXISTS public.event3_mood_checks (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  match_id uuid NOT NULL,
+  check_id text NOT NULL,          -- shared ID grouping one admin trigger (uuid string)
+  participant_number integer NOT NULL,
+  mood text,                        -- 'happy' | 'neutral' | 'not_great' (null until answered)
+  triggered_at timestamptz NOT NULL DEFAULT now(),
+  answered_at timestamptz,
+  CONSTRAINT event3_mood_checks_unique UNIQUE (match_id, check_id, participant_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_event3_mood_checks_match ON public.event3_mood_checks(match_id);
+CREATE INDEX IF NOT EXISTS idx_event3_mood_checks_check ON public.event3_mood_checks(check_id);
+CREATE INDEX IF NOT EXISTS idx_event3_mood_checks_participant ON public.event3_mood_checks(participant_number);

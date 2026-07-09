@@ -1154,7 +1154,7 @@ const depthColors = {
 const depthOrder: Array<keyof typeof depthLabels> = ["shallow", "medium", "deep"];
 
 export default function PromptTopicsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [viewMode, setViewMode] = useState<"topics" | "random">("random");
+  const [viewMode, setViewMode] = useState<"topics" | "random">("topics");
   const [selectedTopic, setSelectedTopic] = useState<null | typeof promptTopics[0]>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -1251,7 +1251,7 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
       setSearchQuery("");
       setSelectedDepth("all");
       setRandomQuestion(null);
-      setViewMode("random");
+      setViewMode("topics");
       setSelectedCategories([]);
       setRandomHistory([]);
       setRandomCurrentIndex(-1);

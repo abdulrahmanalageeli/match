@@ -3118,6 +3118,36 @@ Please respond in JSON format:
         return res.status(200).json({ requests: requests || [] })
       }
 
+      // e3-get-mood-check — poll for pending mood check
+      if (action === "e3-get-mood-check") {
+        if (!participant) return res.status(401).json({ error: "Invalid token" })
+        const { data: pending } = await supabase.from("event3_mood_checks")
+          .select("check_id,triggered_at")
+          .eq("match_id", E3_MATCH_ID)
+          .eq("participant_number", myNumber)
+          .is("mood", null)
+          .order("triggered_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (!pending) return res.status(200).json({ pending: false })
+        return res.status(200).json({ pending: true, check_id: pending.check_id, triggered_at: pending.triggered_at })
+      }
+
+      // e3-submit-mood-check
+      if (action === "e3-submit-mood-check") {
+        if (!participant) return res.status(401).json({ error: "Invalid token" })
+        const { check_id, mood } = req.body
+        if (!check_id) return res.status(400).json({ error: "check_id required" })
+        if (!["happy", "neutral", "not_great"].includes(mood)) return res.status(400).json({ error: "Invalid mood" })
+        const { error } = await supabase.from("event3_mood_checks")
+          .update({ mood, answered_at: new Date().toISOString() })
+          .eq("match_id", E3_MATCH_ID)
+          .eq("check_id", check_id)
+          .eq("participant_number", myNumber)
+        if (error) return res.status(500).json({ error: error.message })
+        return res.status(200).json({ message: "Mood submitted" })
+      }
+
       return res.status(400).json({ error: `Unknown e3 action: ${action}` })
     } catch (e3err) {
       console.error("e3 participant error:", e3err)

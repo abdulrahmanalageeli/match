@@ -1933,6 +1933,7 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
       const newRound = completedRounds > 1 ? completedRounds : -1
       setNewNums(new Set(allPeople.filter(p => p.round === newRound).map(p => p.number)))
       setOrder([...ranked.map(p => p.number), ...fresh.map(p => p.number)])
+      if (d.already_submitted) setSubmitted(true)
       setLoading(false)
 
       if (!nd.error && nd.notes) setNotes(nd.notes)
@@ -2026,7 +2027,7 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
               <span className="text-purple-300 text-[10px] bg-purple-900/30 border border-purple-800/40 rounded-full px-2.5 py-0.5 font-medium">
                 اسحب للترتيب · سري تماماً
               </span>
-              {people.length > 0 && order.length > 0 && people.every(p => order.includes(p.number)) && (
+              {submitted && (
                 <span className="text-emerald-400 text-[10px] bg-emerald-900/20 rounded-full px-2 py-0.5 flex items-center gap-1">
                   <CheckCircle size={9} className="inline" /> لديك تصنيف محفوظ
                 </span>
@@ -3723,6 +3724,93 @@ function NotEnrolledScreen() {
 }
 
 
+// ─── Mood Check Modal ─────────────────────────────────────────────────────────
+function MoodCheckModal({ token }: { token: string }) {
+  const [pendingCheck, setPendingCheck] = useState<{ check_id: string; triggered_at: string } | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    if (!token) return
+    let active = true
+    const poll = async () => {
+      const d = await call("e3-get-mood-check", token)
+      if (!active) return
+      if (d.pending && d.check_id && !dismissed.has(d.check_id)) {
+        setPendingCheck({ check_id: d.check_id, triggered_at: d.triggered_at })
+      } else {
+        setPendingCheck(null)
+      }
+    }
+    poll()
+    const iv = setInterval(poll, 5000)
+    return () => { active = false; clearInterval(iv) }
+  }, [token, dismissed])
+
+  const submit = async (mood: "happy" | "neutral" | "not_great") => {
+    if (!pendingCheck) return
+    setSubmitting(true)
+    const d = await call("e3-submit-mood-check", token, { check_id: pendingCheck.check_id, mood })
+    setSubmitting(false)
+    if (d.error) { toast.error(d.error); return }
+    setDismissed(prev => new Set(prev).add(pendingCheck.check_id))
+    setPendingCheck(null)
+    toast.success("شكراً لك! 🙏")
+  }
+
+  if (!pendingCheck) return null
+
+  const options = [
+    { mood: "happy" as const, emoji: "😄", label: "ممتاز", color: "from-green-500 to-emerald-600", ring: "ring-green-400" },
+    { mood: "neutral" as const, emoji: "😐", label: "لا بأس", color: "from-yellow-500 to-amber-600", ring: "ring-yellow-400" },
+    { mood: "not_great" as const, emoji: "😕", label: "مو حاسّ نفسي", color: "from-red-500 to-rose-600", ring: "ring-red-400" },
+  ]
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+      >
+        <motion.div
+          initial={{ scale: 0.9, y: 20 }}
+          animate={{ scale: 1, y: 0 }}
+          exit={{ scale: 0.9, y: 20 }}
+          className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-3xl p-8 max-w-sm w-full shadow-2xl border border-slate-700/50 text-center"
+          dir="rtl"
+        >
+          <div className="mb-6">
+            <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center mb-4 shadow-lg">
+              <Heart size={28} className="text-white" />
+            </div>
+            <h2 className="text-white text-xl font-bold mb-2">كيف تشعر الآن؟</h2>
+            <p className="text-gray-400 text-sm">المنظم يريد يعرف مزاجك اللحظي</p>
+          </div>
+
+          <div className="space-y-3">
+            {options.map(opt => (
+              <button
+                key={opt.mood}
+                disabled={submitting}
+                onClick={() => submit(opt.mood)}
+                className={`w-full flex items-center gap-4 p-4 rounded-2xl bg-gradient-to-r ${opt.color} text-white font-semibold text-lg shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 ring-2 ring-transparent hover:${opt.ring}`}
+              >
+                <span className="text-3xl">{opt.emoji}</span>
+                <span className="flex-1 text-right">{opt.label}</span>
+              </button>
+            ))}
+          </div>
+
+          <p className="text-gray-600 text-[10px] mt-5">سري تماماً · يراه المنظم فقط</p>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  )
+}
+
+
 // ─── Root Component ───────────────────────────────────────────────────────────
 export default function Event3Page() {
   const [searchParams] = useSearchParams()
@@ -3829,6 +3917,9 @@ export default function Event3Page() {
 
       {/* SOS button — hidden on final reveal, break, and ranking pages */}
       {enrolled && !rankingMatch && phase !== "final_reveal" && phase !== "break" && <SOSButton token={token} position="bottom" />}
+
+      {/* Mood check popup — polls for admin-triggered mood checks */}
+      {enrolled && token && <MoodCheckModal token={token} />}
     </div>
   )
 }

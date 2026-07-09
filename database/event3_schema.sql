@@ -70,9 +70,16 @@ CREATE TABLE IF NOT EXISTS public.participant_rankings (
   ranker_number integer NOT NULL,   -- who submitted the ranking
   ranked_number integer NOT NULL,   -- who is being ranked
   rank integer NOT NULL,            -- 1 = top choice, 15 = bottom
+  auto_saved boolean NOT NULL DEFAULT false,  -- true if saved by timer auto-save, not manually
   created_at timestamptz DEFAULT now(),
   CONSTRAINT participant_rankings_unique UNIQUE (match_id, ranker_number, ranked_number)
 );
+
+-- Add auto_saved column if table already exists (idempotent)
+DO $$ BEGIN
+  ALTER TABLE public.participant_rankings ADD COLUMN IF NOT EXISTS auto_saved boolean NOT NULL DEFAULT false;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
 -- جدول فحص المزاج اللحظي
 -- Admin triggers a mood check; participants respond with happy/neutral/not_great
@@ -90,3 +97,22 @@ CREATE TABLE IF NOT EXISTS public.event3_mood_checks (
 CREATE INDEX IF NOT EXISTS idx_event3_mood_checks_match ON public.event3_mood_checks(match_id);
 CREATE INDEX IF NOT EXISTS idx_event3_mood_checks_check ON public.event3_mood_checks(check_id);
 CREATE INDEX IF NOT EXISTS idx_event3_mood_checks_participant ON public.event3_mood_checks(participant_number);
+
+-- جدول الإشعارات
+-- Admin sends informational notifications to participants (no response needed)
+CREATE TABLE IF NOT EXISTS public.event3_notifications (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  match_id uuid NOT NULL,
+  notif_id text NOT NULL,            -- shared ID grouping one admin send (uuid string)
+  participant_number integer NOT NULL,
+  title text NOT NULL,               -- notification title
+  body text,                         -- notification body (optional)
+  icon text DEFAULT 'info',          -- icon hint: 'info' | 'heart' | 'clock' | 'star' | 'alert'
+  created_at timestamptz NOT NULL DEFAULT now(),
+  seen_at timestamptz,               -- when participant viewed it
+  CONSTRAINT event3_notifications_unique UNIQUE (match_id, notif_id, participant_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_event3_notifications_match ON public.event3_notifications(match_id);
+CREATE INDEX IF NOT EXISTS idx_event3_notifications_notif ON public.event3_notifications(notif_id);
+CREATE INDEX IF NOT EXISTS idx_event3_notifications_participant ON public.event3_notifications(participant_number);

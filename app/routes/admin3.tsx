@@ -4,7 +4,7 @@ import {
   Users, Play, Square, ChevronRight, RotateCcw, CheckCircle,
   Circle, RefreshCw, Table2, Trophy, Clock, BarChart3, Shuffle,
   Eye, EyeOff, ArrowRight, Sparkles, Brain, Shield, LogOut,
-  Grid3x3, Star, Check, AlertCircle, Loader2, Copy, Heart, Layers, ChevronDown, X, MessageSquare, Send, Home, Trash2, GripVertical, Search, Crown, Medal, Coffee, Ban, ArrowLeft,
+  Grid3x3, Star, Check, AlertCircle, Loader2, Copy, Heart, Layers, ChevronDown, X, MessageSquare, Send, Home, Trash2, GripVertical, Search, Crown, Medal, Coffee, Ban, ArrowLeft, Bell,
 } from "lucide-react"
 
 const ADMIN_PASSWORD = "soulmatch2026"
@@ -104,6 +104,13 @@ export default function Admin3Page() {
   const [moodLoading, setMoodLoading] = useState(false)
   const [moodTarget, setMoodTarget] = useState<string>("") // participant number or empty for all
   const [moodSending, setMoodSending] = useState(false)
+  const [notifData, setNotifData] = useState<any>(null)
+  const [notifLoading, setNotifLoading] = useState(false)
+  const [notifTarget, setNotifTarget] = useState<string>("")
+  const [notifSending, setNotifSending] = useState(false)
+  const [notifTitle, setNotifTitle] = useState<string>("")
+  const [notifBody, setNotifBody] = useState<string>("")
+  const [notifIcon, setNotifIcon] = useState<string>("info")
   const [rankSearch, setRankSearch] = useState("")
   const [rankFilter, setRankFilter] = useState<"all" | "submitted" | "pending">("all")
   const [dragIdx, setDragIdx] = useState<number | null>(null)
@@ -200,6 +207,29 @@ export default function Admin3Page() {
     setMoodTarget("")
     setTimeout(() => fetchMoodChecks(), 1000)
   }, [moodTarget, fetchMoodChecks])
+
+  const fetchNotifications = useCallback(async () => {
+    setNotifLoading(true)
+    const data = await api("e3-get-notifications")
+    setNotifData(data)
+    setNotifLoading(false)
+  }, [])
+
+  const sendNotification = useCallback(async () => {
+    if (!notifTitle.trim()) { toast.error("اكتب عنوان الإشعار"); return }
+    setNotifSending(true)
+    const data = await api("e3-send-notification", {
+      title: notifTitle.trim(),
+      body: notifBody.trim() || undefined,
+      icon: notifIcon,
+      ...(notifTarget ? { target_number: notifTarget } : {})
+    })
+    setNotifSending(false)
+    if (data.error) { toast.error(data.error); return }
+    toast.success(`تم إرسال الإشعار إلى ${data.sent_to} شخص`)
+    setNotifTitle(""); setNotifBody(""); setNotifTarget("")
+    setTimeout(() => fetchNotifications(), 1000)
+  }, [notifTitle, notifBody, notifIcon, notifTarget, fetchNotifications])
 
   const mbtiGroupFn = (m: string) => {
     if (!m) return null
@@ -301,8 +331,8 @@ export default function Admin3Page() {
     if (authenticated && activeTab === "ranking") fetchRankStatus()
     if (authenticated && activeTab === "participants") { fetchParticipants({ preserveSelection: true }); fetchSeating(); fetchRankStatus(); fetchMatches() }
     if (authenticated && activeTab === "overview") fetchOverview()
-    if (authenticated && activeTab === "feedback") { fetchFeedback(); fetchMoodChecks() }
-  }, [activeTab, authenticated, fetchSeating, fetchRankStatus, fetchParticipants, fetchMatches, fetchOverview, fetchFeedback, fetchMoodChecks])
+    if (authenticated && activeTab === "feedback") { fetchFeedback(); fetchMoodChecks(); fetchNotifications() }
+  }, [activeTab, authenticated, fetchSeating, fetchRankStatus, fetchParticipants, fetchMatches, fetchOverview, fetchFeedback, fetchMoodChecks, fetchNotifications])
 
   // Feedback polling
   useEffect(() => {
@@ -969,6 +999,58 @@ export default function Admin3Page() {
               </div>
             </div>
 
+            {/* Notification Trigger */}
+            <div className="bg-gradient-to-r from-blue-900/30 to-indigo-900/20 border border-blue-700/40 rounded-xl p-4">
+              <h3 className="font-semibold text-blue-300 flex items-center gap-2 mb-3 text-sm">
+                <Bell size={16} /> إرسال إشعار
+              </h3>
+              <p className="text-blue-400/60 text-xs mb-3">رسالة سريعة تظهر للمشاركين (بدون رد)</p>
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  value={notifTitle}
+                  onChange={e => setNotifTitle(e.target.value)}
+                  placeholder="العنوان"
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+                <input
+                  type="text"
+                  value={notifBody}
+                  onChange={e => setNotifBody(e.target.value)}
+                  placeholder="النص (اختياري)"
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+                <div className="flex items-center gap-2">
+                  <select
+                    value={notifIcon}
+                    onChange={e => setNotifIcon(e.target.value)}
+                    className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-2 text-sm text-gray-300 outline-none"
+                  >
+                    <option value="info">ℹ️ معلومة</option>
+                    <option value="heart">❤️ تنبيه</option>
+                    <option value="clock">⏰ وقت</option>
+                    <option value="star">⭐ مميز</option>
+                    <option value="alert">⚠️ هام</option>
+                  </select>
+                  <input
+                    type="text"
+                    value={notifTarget}
+                    onChange={e => setNotifTarget(e.target.value)}
+                    placeholder="رقم مشارك (فارغ = للجميع)"
+                    className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                  <button
+                    onClick={sendNotification}
+                    disabled={notifSending}
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-lg px-4 py-2 text-sm font-medium flex items-center gap-2 disabled:opacity-50 transition-all active:scale-[0.98] whitespace-nowrap"
+                  >
+                    {notifSending ? <RefreshCw size={14} className="animate-spin" /> : <Send size={14} />}
+                    إرسال
+                  </button>
+                </div>
+              </div>
+            </div>
+
             {/* Danger Zone */}
             <div className="bg-gray-900 border border-red-900/40 rounded-xl p-4">
               <h3 className="font-semibold text-red-400 flex items-center gap-2 mb-3">
@@ -993,6 +1075,18 @@ export default function Admin3Page() {
                   className="bg-purple-900/50 hover:bg-purple-900 border border-purple-700/50 text-purple-300 rounded-lg px-4 py-2 text-sm flex items-center gap-2"
                 >
                   <Trash2 size={14} /> مسح فحوصات المزاج
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!confirm("حذف جميع الإشعارات؟")) return
+                    const d = await api("e3-clear-notifications")
+                    if (d.error) { toast.error(d.error); return }
+                    toast.success("تم حذف الإشعارات")
+                    fetchNotifications()
+                  }}
+                  className="bg-blue-900/50 hover:bg-blue-900 border border-blue-700/50 text-blue-300 rounded-lg px-4 py-2 text-sm flex items-center gap-2"
+                >
+                  <Trash2 size={14} /> مسح الإشعارات
                 </button>
                 <button
                   onClick={resetEvent}
@@ -1479,6 +1573,7 @@ export default function Admin3Page() {
           })
           const submittedCount = allRankings.filter((r: any) => r.submitted).length
           const pendingCount = allRankings.length - submittedCount
+          const autoSavedCount = (rankStatus?.auto_saved_count as number) || 0
           let mutualCount = 0
           const popularityMap: Record<number, number> = {}
           for (const r of allRankings) {
@@ -1547,6 +1642,11 @@ export default function Admin3Page() {
                     <p className="text-[10px] text-gray-500 mb-1">لم يصوّت</p>
                     <p className="text-lg font-black text-yellow-400">{pendingCount}</p>
                     <p className="text-[9px] text-gray-600 mt-1">بانتظار التصنيف</p>
+                    {autoSavedCount > 0 && (
+                      <p className="text-[9px] text-amber-400 mt-1 flex items-center gap-1">
+                        <Clock size={9} className="inline" /> {autoSavedCount} حفظ تلقائي
+                      </p>
+                    )}
                   </div>
                   <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
                     <p className="text-[10px] text-gray-500 mb-1">تبادل متبادل</p>
@@ -1604,7 +1704,14 @@ export default function Admin3Page() {
                           <span className="text-gray-600 text-xs mr-2">#{r.number}</span>
                         </div>
                         {r.submitted ? (
-                          <span className="text-green-400/70 text-[10px] flex-shrink-0 bg-green-900/20 px-2 py-0.5 rounded-full">{r.count} مرتّبين</span>
+                          <>
+                            <span className="text-green-400/70 text-[10px] flex-shrink-0 bg-green-900/20 px-2 py-0.5 rounded-full">{r.count} مرتّبين</span>
+                            {r.auto_saved && (
+                              <span className="text-amber-400/80 text-[10px] flex-shrink-0 bg-amber-900/30 border border-amber-700/40 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                <Clock size={9} className="inline" /> حفظ تلقائي
+                              </span>
+                            )}
+                          </>
                         ) : (
                           <span className="text-yellow-400/70 text-[10px] flex-shrink-0 bg-yellow-900/20 px-2 py-0.5 rounded-full">بانتظار</span>
                         )}
@@ -3335,21 +3442,22 @@ export default function Admin3Page() {
               <div className="space-y-3">
                 {moodData.checks.map((check: any) => {
                   const entries: any[] = check.entries || []
-                  const answered = entries.filter(e => e.mood)
+                  const answered = entries.filter(e => e.mood && e.mood !== "expired")
                   const happy = answered.filter(e => e.mood === "happy")
                   const neutral = answered.filter(e => e.mood === "neutral")
                   const notGreat = answered.filter(e => e.mood === "not_great")
+                  const expired = entries.filter(e => e.mood === "expired")
                   const pending = entries.filter(e => !e.mood)
                   const time = new Date(check.triggered_at).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })
-                  const moodEmoji = (m: string) => m === "happy" ? "😊" : m === "neutral" ? "😐" : "😕"
-                  const moodColor = (m: string) => m === "happy" ? "text-emerald-400" : m === "neutral" ? "text-amber-400" : "text-red-400"
-                  const moodLabel = (m: string) => m === "happy" ? "ممتاز" : m === "neutral" ? "عادي" : "مو مره"
+                  const moodEmoji = (m: string) => m === "happy" ? "😊" : m === "neutral" ? "😐" : m === "not_great" ? "😕" : "⏰"
+                  const moodColor = (m: string) => m === "happy" ? "text-emerald-400" : m === "neutral" ? "text-amber-400" : m === "not_great" ? "text-red-400" : "text-gray-500"
+                  const moodLabel = (m: string) => m === "happy" ? "ممتاز" : m === "neutral" ? "عادي" : m === "not_great" ? "مو مره" : "انتهى"
                   const fmtTime = (t: string) => t ? new Date(t).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }) : ""
                   return (
                     <div key={check.check_id} className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs text-gray-400 font-medium">{time}</span>
-                        <span className="text-[10px] text-gray-500">{answered.length}/{entries.length} ردّوا</span>
+                        <span className="text-[10px] text-gray-500">{answered.length}/{entries.length} ردّوا{expired.length > 0 && ` · ${expired.length} انتهى`}</span>
                       </div>
                       {/* Summary counts */}
                       <div className="grid grid-cols-4 gap-2 mb-3">
@@ -3369,16 +3477,16 @@ export default function Admin3Page() {
                           <div className="text-[9px] text-gray-500">مو مره</div>
                         </div>
                         <div className="text-center bg-gray-700/20 rounded-lg py-2">
-                          <div className="text-lg">⏳</div>
-                          <div className="text-gray-400 text-sm font-bold">{pending.length}</div>
-                          <div className="text-[9px] text-gray-500">بانتظار</div>
+                          <div className="text-lg">{pending.length > 0 ? "⏳" : "⏰"}</div>
+                          <div className="text-gray-400 text-sm font-bold">{pending.length}{expired.length > 0 ? `+${expired.length}` : ""}</div>
+                          <div className="text-[9px] text-gray-500">{pending.length > 0 ? "بانتظار" : "انتهى"}</div>
                         </div>
                       </div>
                       {/* Detailed responses */}
-                      {answered.length > 0 && (
+                      {[...answered, ...expired].length > 0 && (
                         <div className="space-y-1 mb-2">
                           <p className="text-[10px] text-gray-500 font-medium mb-1">الردود:</p>
-                          {answered.sort((a, b) => new Date(b.answered_at).getTime() - new Date(a.answered_at).getTime()).map(e => (
+                          {[...answered, ...expired].sort((a, b) => new Date(b.answered_at).getTime() - new Date(a.answered_at).getTime()).map(e => (
                             <div key={e.participant_number} className="flex items-center justify-between bg-gray-800/60 rounded-lg px-2.5 py-1.5">
                               <div className="flex items-center gap-2">
                                 <span className="text-sm">{moodEmoji(e.mood)}</span>
@@ -3404,6 +3512,59 @@ export default function Admin3Page() {
                           ))}
                         </div>
                       )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Notification Results */}
+          <div className="bg-gray-900 border border-blue-800/30 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold flex items-center gap-2 text-sm">
+                <Bell size={16} className="text-blue-400" /> الإشعارات
+              </h3>
+              <div className="flex items-center gap-2">
+                <button onClick={fetchNotifications} disabled={notifLoading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-gray-800 border border-gray-700 text-gray-400 hover:text-gray-200 disabled:opacity-50">
+                  <RefreshCw size={12} className={notifLoading ? "animate-spin" : ""} /> تحديث
+                </button>
+              </div>
+            </div>
+
+            {!notifData?.notifications?.length ? (
+              <p className="text-center text-gray-600 text-sm py-6">لا توجد إشعارات بعد</p>
+            ) : (
+              <div className="space-y-3">
+                {notifData.notifications.map((n: any) => {
+                  const entries: any[] = n.entries || []
+                  const seen = entries.filter(e => e.seen_at)
+                  const unseen = entries.filter(e => !e.seen_at)
+                  const time = new Date(n.created_at).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })
+                  const iconEmoji: Record<string, string> = { info: "ℹ️", heart: "❤️", clock: "⏰", star: "⭐", alert: "⚠️" }
+                  return (
+                    <div key={n.notif_id} className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">{iconEmoji[n.icon] || "ℹ️"}</span>
+                          <span className="text-xs text-gray-300 font-bold">{n.title}</span>
+                        </div>
+                        <span className="text-[10px] text-gray-500">{time}</span>
+                      </div>
+                      {n.body && <p className="text-[11px] text-gray-500 mb-2">{n.body}</p>}
+                      <div className="flex items-center justify-between text-[10px] text-gray-500">
+                        <span>شاهد: {seen.length}/{entries.length}</span>
+                        {unseen.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {unseen.map(e => (
+                              <span key={e.participant_number} className="bg-gray-700/40 text-gray-400 rounded-full px-2 py-0.5">
+                                {e.participant_name} #{e.participant_number}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )
                 })}

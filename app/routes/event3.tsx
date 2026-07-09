@@ -10,7 +10,7 @@ import {
   MessageSquare, ChevronRight, Users, PenLine, Shuffle, BarChart3, GitMerge, X, Heart,
   Frown, Meh, Smile, Layers, Zap,
   Snowflake, Target, Star, Drama, AlertTriangle, XCircle, Search, Lightbulb, Key, PartyPopper, LifeBuoy,
-  EyeOff, Smartphone, Handshake, Timer, Ban, ShieldCheck, Coffee,
+  EyeOff, Smartphone, Handshake, Timer, Ban, ShieldCheck, Coffee, Bell, Info,
 } from "lucide-react"
 
 import { QuestionSlideshow } from "~/components/QuestionSlideshow"
@@ -1907,7 +1907,13 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
   const [showConfirm, setShowConfirm] = useState(false)
   const [showPhaseWarning, setShowPhaseWarning] = useState(false)
   const [showRankTutorial, setShowRankTutorial] = useState(true)
+  const [timeLeft, setTimeLeft] = useState(150) // 2:30 in seconds
+  const [showWarning, setShowWarning] = useState(false) // 30s warning
+  const [autoSaving, setAutoSaving] = useState(false)
   const initialPhaseRef = useRef(currentPhase)
+  const submittedRef = useRef(false)
+  const orderRef = useRef<number[]>([])
+  const autoSavedRef = useRef(false)
 
   useEffect(() => {
     Promise.all([
@@ -1939,6 +1945,45 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
       if (!nd.error && nd.notes) setNotes(nd.notes)
     })
   }, [token, completedRounds])
+
+  // Keep refs in sync
+  useEffect(() => { submittedRef.current = submitted }, [submitted])
+  useEffect(() => { orderRef.current = order }, [order])
+
+  // Countdown timer — 2:30, with 30s warning and auto-save on expiry
+  useEffect(() => {
+    if (submitted || loading) return
+    if (timeLeft <= 0) return
+    const iv = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(iv)
+          return 0
+        }
+        if (prev === 31) {
+          setShowWarning(true)
+          toast('باقي 30 ثانية — احفظ تصنيفك الآن!', { duration: 5000, icon: '⏰' })
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return () => clearInterval(iv)
+  }, [submitted, loading, timeLeft])
+
+  // Auto-save when timer hits 0 and not manually submitted
+  useEffect(() => {
+    if (timeLeft > 0 || submittedRef.current || autoSavedRef.current || loading) return
+    const doAutoSave = async () => {
+      setAutoSaving(true)
+      autoSavedRef.current = true
+      const d = await call('e3-submit-ranking', token, { ranked_list: orderRef.current, auto_saved: true })
+      setAutoSaving(false)
+      if (d.error) { toast.error(d.error); return }
+      setSubmitted(true)
+      toast('انتهى الوقت — تم حفظ تصنيفك تلقائياً', { duration: 5000, icon: '⏰' })
+    }
+    doAutoSave()
+  }, [timeLeft, token, loading])
 
   // Detect phase change while user is on ranking screen
   useEffect(() => {
@@ -2009,6 +2054,25 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
           )}
         </AnimatePresence>
 
+        {/* 30s warning banner */}
+        <AnimatePresence>
+          {showWarning && !submitted && timeLeft > 0 && timeLeft <= 30 && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+              className="bg-red-950/80 border border-red-700/40 rounded-xl mx-4 mt-2 px-4 py-2.5 flex items-center gap-2.5"
+            >
+              <Clock size={16} className="text-red-400 flex-shrink-0 animate-pulse" />
+              <div className="flex-1">
+                <p className="text-red-300 text-xs font-bold">باقي {timeLeft} ثانية فقط!</p>
+                <p className="text-red-400/60 text-[10px]">احفظ تصنيفك الآن — سيُحفظ تلقائياً عند انتهاء الوقت</p>
+              </div>
+              <button onClick={() => setShowWarning(false)} className="text-red-500/60 hover:text-red-400 flex-shrink-0">
+                <X size={14} />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Sticky header — compact */}
         <div className="sticky top-0 bg-gray-950/95 backdrop-blur-md z-10 border-b border-gray-800/50">
           <div className="px-4 pt-3 pb-2">
@@ -2020,6 +2084,25 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
                 <span className="flex items-center gap-1 bg-emerald-900/30 border border-emerald-800/40 rounded-full px-2 py-0.5">
                   <CheckCircle size={9} className="text-emerald-400" />
                   <span className="text-emerald-300 text-[10px] font-semibold">تم الإرسال</span>
+                </span>
+              )}
+              {/* Timer badge */}
+              {!submitted && !autoSaving && timeLeft > 0 && (
+                <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 font-mono font-bold text-[11px] tabular-nums transition-colors ${
+                  timeLeft <= 30
+                    ? 'bg-red-900/40 border border-red-700/50 text-red-300 animate-pulse'
+                    : timeLeft <= 60
+                    ? 'bg-amber-900/30 border border-amber-700/40 text-amber-300'
+                    : 'bg-gray-800/60 border border-gray-700/50 text-gray-300'
+                }`}>
+                  <Clock size={10} className={timeLeft <= 30 ? 'text-red-400' : 'text-gray-400'} />
+                  {formatTime(timeLeft)}
+                </span>
+              )}
+              {autoSaving && (
+                <span className="flex items-center gap-1 bg-amber-900/30 border border-amber-700/40 rounded-full px-2 py-0.5">
+                  <Spinner size={10} className="!text-amber-400" />
+                  <span className="text-amber-300 text-[10px] font-semibold">حفظ تلقائي...</span>
                 </span>
               )}
             </div>
@@ -2158,9 +2241,11 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
         <div className="max-w-md mx-auto">
           {submitted ? (
             <div className="space-y-2 text-center">
-              <div className="flex items-center justify-center gap-2 bg-emerald-900/30 border border-emerald-700/40 rounded-2xl py-3.5 px-4">
-                <CheckCircle size={18} className="text-emerald-400" />
-                <span className="text-emerald-300 font-bold text-sm">تم إرسال تصنيفك</span>
+              <div className={`flex items-center justify-center gap-2 rounded-2xl py-3.5 px-4 ${autoSavedRef.current ? 'bg-amber-900/30 border border-amber-700/40' : 'bg-emerald-900/30 border border-emerald-700/40'}`}>
+                {autoSavedRef.current ? <Clock size={18} className="text-amber-400" /> : <CheckCircle size={18} className="text-emerald-400" />}
+                <span className={`font-bold text-sm ${autoSavedRef.current ? 'text-amber-300' : 'text-emerald-300'}`}>
+                  {autoSavedRef.current ? 'تم حفظ تصنيفك تلقائياً' : 'تم إرسال تصنيفك'}
+                </span>
               </div>
               <p className="text-gray-600 text-[11px]">انتظر المنظم للانتقال للمرحلة التالية</p>
               <button onClick={() => setSubmitted(false)} disabled={submitting}
@@ -2182,6 +2267,11 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
               <p className="text-center text-gray-700 text-[11px] mt-2">
                 النظام سيختار توافقك الأمثل من تصنيفاتك · قد تُطابق مع خيارك الأخير إذا لم يخترك أعلى خياراتك
               </p>
+              {timeLeft > 0 && timeLeft <= 60 && !submitted && (
+                <p className="text-center text-amber-500/70 text-[10px] mt-1">
+                  ⏰ سيُحفظ تصنيفك تلقائياً عند انتهاء الوقت
+                </p>
+              )}
             </>
           )}
         </div>
@@ -3724,6 +3814,90 @@ function NotEnrolledScreen() {
 }
 
 
+// ─── Notification Modal ───────────────────────────────────────────────────────
+function NotificationModal({ token }: { token: string }) {
+  const [notif, setNotif] = useState<{ notif_id: string; title: string; body: string | null; icon: string; created_at: string } | null>(null)
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set())
+  const [closing, setClosing] = useState(false)
+
+  useEffect(() => {
+    if (!token) return
+    let active = true
+    const poll = async () => {
+      const d = await call("e3-get-notification", token)
+      if (!active) return
+      if (d.pending && d.notif_id && !dismissed.has(d.notif_id)) {
+        setNotif({ notif_id: d.notif_id, title: d.title, body: d.body, icon: d.icon, created_at: d.created_at })
+      } else {
+        setNotif(null)
+      }
+    }
+    poll()
+    const iv = setInterval(poll, 5000)
+    return () => { active = false; clearInterval(iv) }
+  }, [token, dismissed])
+
+  const dismiss = async () => {
+    if (!notif) return
+    setClosing(true)
+    await call("e3-dismiss-notification", token, { notif_id: notif.notif_id })
+    setTimeout(() => {
+      setDismissed(prev => new Set(prev).add(notif.notif_id))
+      setNotif(null)
+      setClosing(false)
+    }, 300)
+  }
+
+  if (!notif) return null
+
+  const iconMap: Record<string, { icon: typeof Info; gradient: string; ring: string }> = {
+    info: { icon: Info, gradient: "from-blue-500/80 to-indigo-600/80", ring: "ring-blue-400/60" },
+    heart: { icon: Heart, gradient: "from-pink-500/80 to-rose-600/80", ring: "ring-pink-400/60" },
+    clock: { icon: Clock, gradient: "from-amber-500/80 to-orange-600/80", ring: "ring-amber-400/60" },
+    star: { icon: Star, gradient: "from-yellow-500/80 to-amber-600/80", ring: "ring-yellow-400/60" },
+    alert: { icon: AlertTriangle, gradient: "from-red-500/80 to-rose-600/80", ring: "ring-red-400/60" },
+  }
+  const cfg = iconMap[notif.icon] || iconMap.info
+  const Icon = cfg.icon
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[280] bg-black/40 backdrop-blur-md flex items-center justify-center p-5"
+        onClick={dismiss}
+      >
+        <motion.div
+          initial={{ scale: 0.92, y: 16 }}
+          animate={{ scale: closing ? 0.95 : 1, y: closing ? 8 : 0, opacity: closing ? 0.5 : 1 }}
+          exit={{ scale: 0.92, y: 16 }}
+          transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+          onClick={e => e.stopPropagation()}
+          className="w-full max-w-sm rounded-3xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl p-7 text-center"
+          dir="rtl"
+        >
+          <div className={`w-14 h-14 mx-auto rounded-full bg-gradient-to-br ${cfg.gradient} flex items-center justify-center mb-4 shadow-lg`}>
+            <Icon size={24} className="text-white" />
+          </div>
+          <p className="text-xl font-black text-white mb-2">{notif.title}</p>
+          {notif.body && (
+            <p className="text-gray-400 text-sm leading-relaxed mb-5">{notif.body}</p>
+          )}
+          {!notif.body && <div className="mb-5" />}
+          <button
+            onClick={dismiss}
+            className="w-full py-3.5 rounded-2xl font-bold text-sm bg-white/[0.06] ring-1 ring-white/[0.08] text-gray-300 hover:bg-white/[0.1] hover:text-white transition-all active:scale-[0.98]"
+          >
+            تم
+          </button>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  )
+}
+
 // ─── Mood Check Modal ─────────────────────────────────────────────────────────
 function MoodCheckModal({ token, name }: { token: string; name?: string | null }) {
   const [pendingCheck, setPendingCheck] = useState<{ check_id: string; triggered_at: string } | null>(null)
@@ -3738,7 +3912,15 @@ function MoodCheckModal({ token, name }: { token: string; name?: string | null }
       const d = await call("e3-get-mood-check", token)
       if (!active) return
       if (d.pending && d.check_id && !dismissed.has(d.check_id)) {
-        setPendingCheck({ check_id: d.check_id, triggered_at: d.triggered_at })
+        // Auto-expire after 5 minutes
+        const ageMs = Date.now() - new Date(d.triggered_at).getTime()
+        if (ageMs > 5 * 60 * 1000) {
+          await call("e3-submit-mood-check", token, { check_id: d.check_id, mood: "expired" })
+          setDismissed(prev => new Set(prev).add(d.check_id))
+          setPendingCheck(null)
+        } else {
+          setPendingCheck({ check_id: d.check_id, triggered_at: d.triggered_at })
+        }
       } else {
         setPendingCheck(null)
       }
@@ -3935,6 +4117,8 @@ export default function Event3Page() {
 
       {/* Mood check popup — polls for admin-triggered mood checks */}
       {enrolled && token && <MoodCheckModal token={token} name={myInfo?.name} />}
+      {/* Notification popup — polls for admin-sent notifications */}
+      {enrolled && token && <NotificationModal token={token} />}
     </div>
   )
 }

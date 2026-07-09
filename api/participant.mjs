@@ -2848,10 +2848,10 @@ Please respond in JSON format:
 
       // e3-submit-ranking
       if (action === "e3-submit-ranking") {
-        const { ranked_list } = req.body
+        const { ranked_list, auto_saved } = req.body
         if (!Array.isArray(ranked_list) || ranked_list.length === 0) return res.status(400).json({ error: "Ranking list cannot be empty" })
         await supabase.from("participant_rankings").delete().eq("match_id", E3_MATCH_ID).eq("ranker_number", myNumber)
-        const { error } = await supabase.from("participant_rankings").insert(ranked_list.map((num, idx) => ({ match_id: E3_MATCH_ID, event_id: 3, ranker_number: myNumber, ranked_number: num, rank: idx + 1 })))
+        const { error } = await supabase.from("participant_rankings").insert(ranked_list.map((num, idx) => ({ match_id: E3_MATCH_ID, event_id: 3, ranker_number: myNumber, ranked_number: num, rank: idx + 1, auto_saved: !!auto_saved })))
         if (error) return res.status(500).json({ error: error.message })
         return res.status(200).json({ message: "Rankings submitted successfully" })
       }
@@ -3138,7 +3138,7 @@ Please respond in JSON format:
         if (!participant) return res.status(401).json({ error: "Invalid token" })
         const { check_id, mood } = req.body
         if (!check_id) return res.status(400).json({ error: "check_id required" })
-        if (!["happy", "neutral", "not_great"].includes(mood)) return res.status(400).json({ error: "Invalid mood" })
+        if (!["happy", "neutral", "not_great", "expired"].includes(mood)) return res.status(400).json({ error: "Invalid mood" })
         const { error } = await supabase.from("event3_mood_checks")
           .update({ mood, answered_at: new Date().toISOString() })
           .eq("match_id", E3_MATCH_ID)
@@ -3146,6 +3146,35 @@ Please respond in JSON format:
           .eq("participant_number", myNumber)
         if (error) return res.status(500).json({ error: error.message })
         return res.status(200).json({ message: "Mood submitted" })
+      }
+
+      // e3-get-notification — poll for unseen notification
+      if (action === "e3-get-notification") {
+        if (!participant) return res.status(401).json({ error: "Invalid token" })
+        const { data: pending } = await supabase.from("event3_notifications")
+          .select("notif_id,title,body,icon,created_at")
+          .eq("match_id", E3_MATCH_ID)
+          .eq("participant_number", myNumber)
+          .is("seen_at", null)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (!pending) return res.status(200).json({ pending: false })
+        return res.status(200).json({ pending: true, notif_id: pending.notif_id, title: pending.title, body: pending.body, icon: pending.icon, created_at: pending.created_at })
+      }
+
+      // e3-dismiss-notification — mark as seen
+      if (action === "e3-dismiss-notification") {
+        if (!participant) return res.status(401).json({ error: "Invalid token" })
+        const { notif_id } = req.body
+        if (!notif_id) return res.status(400).json({ error: "notif_id required" })
+        const { error } = await supabase.from("event3_notifications")
+          .update({ seen_at: new Date().toISOString() })
+          .eq("match_id", E3_MATCH_ID)
+          .eq("notif_id", notif_id)
+          .eq("participant_number", myNumber)
+        if (error) return res.status(500).json({ error: error.message })
+        return res.status(200).json({ message: "Notification seen" })
       }
 
       return res.status(400).json({ error: `Unknown e3 action: ${action}` })

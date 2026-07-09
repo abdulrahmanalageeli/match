@@ -6491,12 +6491,13 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         if (action === "e3-get-rankings-status") {
           const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID)
           const selected = (ep || []).map(r => r.participant_number)
-          const { data: rankRows } = await supabase.from("participant_rankings").select("ranker_number").eq("match_id", EVENT3_MATCH_ID)
-          const submitted = new Set((rankRows || []).map(r => r.ranker_number))
+          const { data: rankRows } = await supabase.from("participant_rankings").select("ranker_number,auto_saved").eq("match_id", EVENT3_MATCH_ID)
+          const submittedSet = new Set((rankRows || []).map(r => r.ranker_number))
+          const autoSavedSet = new Set((rankRows || []).filter(r => r.auto_saved).map(r => r.ranker_number))
           const { data: pdata } = await supabase.from("participants").select("assigned_number,name,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", selected)
           const nameMap = {}
           for (const p of pdata || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); nameMap[p.assigned_number] = p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}` }
-          return res.status(200).json({ total: selected.length, submitted: submitted.size, status: selected.map(n => ({ number: n, submitted: submitted.has(n), name: nameMap[n] || `#${n}` })) })
+          return res.status(200).json({ total: selected.length, submitted: submittedSet.size, auto_saved_count: autoSavedSet.size, status: selected.map(n => ({ number: n, submitted: submittedSet.has(n), auto_saved: autoSavedSet.has(n), name: nameMap[n] || `#${n}` })) })
         }
         // e3-toggle-phase2-exclusion
         if (action === "e3-toggle-phase2-exclusion") {
@@ -6672,16 +6673,19 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const { data: pdata } = await supabase.from("participants").select("assigned_number,name,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", selected)
           const nameMap = {}
           for (const p of pdata || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); nameMap[p.assigned_number] = p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}` }
-          const { data: allRanks } = await supabase.from("participant_rankings").select("ranker_number,ranked_number,rank").eq("match_id", EVENT3_MATCH_ID).order("rank", { ascending: true })
+          const { data: allRanks } = await supabase.from("participant_rankings").select("ranker_number,ranked_number,rank,auto_saved").eq("match_id", EVENT3_MATCH_ID).order("rank", { ascending: true })
           const byRanker = {}
+          const autoSavedByRanker = {}
           for (const r of allRanks || []) {
             if (!byRanker[r.ranker_number]) byRanker[r.ranker_number] = []
             byRanker[r.ranker_number].push({ number: r.ranked_number, rank: r.rank, name: nameMap[r.ranked_number] || `#${r.ranked_number}` })
+            if (r.auto_saved) autoSavedByRanker[r.ranker_number] = true
           }
           const result = selected.map(n => ({
             number: n,
             name: nameMap[n] || `#${n}`,
             submitted: !!byRanker[n],
+            auto_saved: !!autoSavedByRanker[n],
             count: (byRanker[n] || []).length,
             ranked_list: (byRanker[n] || []).sort((a, b) => a.rank - b.rank),
           }))
@@ -7191,6 +7195,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             supabase.from("participant_rankings").delete().eq("match_id", EVENT3_MATCH_ID),
             supabase.from("event3_participant_notes").delete().eq("match_id", EVENT3_MATCH_ID),
             supabase.from("event3_mood_checks").delete().eq("match_id", EVENT3_MATCH_ID),
+            supabase.from("event3_notifications").delete().eq("match_id", EVENT3_MATCH_ID),
           ])
           await supabase.from("event3_matches")
             .update({ phase2_feedback: null, phase3_feedback: null, phase2_word: null, phase3_word: null, match_preference: null })
@@ -7245,6 +7250,53 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const result = Object.values(groups).sort((a, b) => new Date(b.triggered_at) - new Date(a.triggered_at))
           return res.status(200).json({ checks: result })
         }
+        // e3-send-notification
+        if (action === "e3-send-notification") {
+          const { target_number, title, body, icon } = req.body
+          if (!title) return res.status(400).json({ error: "title required" })
+          const notifId = crypto.randomUUID()
+          const iconVal = icon || "info"
+          if (target_number) {
+            const { error } = await supabase.from("event3_notifications").insert({
+              match_id: EVENT3_MATCH_ID, notif_id: notifId, participant_number: parseInt(target_number), title, body: body || null, icon: iconVal
+            })
+            if (error) return res.status(500).json({ error: error.message })
+            return res.status(200).json({ notif_id: notifId, sent_to: 1 })
+          } else {
+            const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID)
+            if (!ep || ep.length === 0) return res.status(400).json({ error: "No participants selected" })
+            const rows = ep.map(r => ({ match_id: EVENT3_MATCH_ID, notif_id: notifId, participant_number: r.participant_number, title, body: body || null, icon: iconVal }))
+            const { error } = await supabase.from("event3_notifications").insert(rows)
+            if (error) return res.status(500).json({ error: error.message })
+            return res.status(200).json({ notif_id: notifId, sent_to: ep.length })
+          }
+        }
+        // e3-get-notifications
+        if (action === "e3-get-notifications") {
+          const { data, error } = await supabase.from("event3_notifications")
+            .select("notif_id,participant_number,title,body,icon,created_at,seen_at")
+            .eq("match_id", EVENT3_MATCH_ID)
+            .order("created_at", { ascending: false })
+            .limit(200)
+          if (error) return res.status(500).json({ error: error.message })
+          const nums = [...new Set((data || []).map(r => r.participant_number))]
+          const { data: pdata } = await supabase.from("participants").select("assigned_number,name").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
+          const nameMap = {}
+          for (const p of pdata || []) { nameMap[p.assigned_number] = (p.name || "").trim().split(/\s+/)[0] || `#${p.assigned_number}` }
+          const groups = {}
+          for (const r of data || []) {
+            if (!groups[r.notif_id]) groups[r.notif_id] = { notif_id: r.notif_id, title: r.title, body: r.body, icon: r.icon, created_at: r.created_at, entries: [] }
+            groups[r.notif_id].entries.push({ participant_number: r.participant_number, participant_name: nameMap[r.participant_number] || `#${r.participant_number}`, seen_at: r.seen_at })
+          }
+          const result = Object.values(groups).sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+          return res.status(200).json({ notifications: result })
+        }
+        // e3-clear-notifications
+        if (action === "e3-clear-notifications") {
+          const { error } = await supabase.from("event3_notifications").delete().eq("match_id", EVENT3_MATCH_ID)
+          if (error) return res.status(500).json({ error: error.message })
+          return res.status(200).json({ message: "Notifications cleared" })
+        }
         // e3-reset-event
         if (action === "e3-reset-event") {
           await Promise.all([
@@ -7253,6 +7305,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID),
             supabase.from("participant_rankings").delete().eq("match_id", EVENT3_MATCH_ID),
             supabase.from("event3_mood_checks").delete().eq("match_id", EVENT3_MATCH_ID),
+            supabase.from("event3_notifications").delete().eq("match_id", EVENT3_MATCH_ID),
             supabase.from("event_state").upsert({ match_id: EVENT3_MATCH_ID, phase: "setup", global_timer_active: false }, { onConflict: "match_id" }),
           ])
           return res.status(200).json({ message: "Event reset successfully" })

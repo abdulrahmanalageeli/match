@@ -1907,7 +1907,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   const [showConfirm, setShowConfirm] = useState(false)
   const [showPhaseWarning, setShowPhaseWarning] = useState(false)
   const [showRankTutorial, setShowRankTutorial] = useState(true)
-  const [timeLeft, setTimeLeft] = useState(150) // fallback, overwritten by server timer
+  const [timeLeft, setTimeLeft] = useState(300) // fallback, overwritten by server timer
   const [showWarning, setShowWarning] = useState(false) // 30s warning
   const [autoSaving, setAutoSaving] = useState(false)
   const initialPhaseRef = useRef(currentPhase)
@@ -1952,7 +1952,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
 
   // Server-side timer — calculate remaining time from server start + duration
   useEffect(() => {
-    if (!timerActive || !timerStart) { setTimeLeft(150); return }
+    if (!timerActive || !timerStart) { setTimeLeft(timerDuration || 300); return }
     const update = () => {
       const elapsed = Math.floor((Date.now() - new Date(timerStart).getTime()) / 1000)
       const remaining = Math.max(0, timerDuration - elapsed)

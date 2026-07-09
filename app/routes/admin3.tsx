@@ -375,6 +375,10 @@ export default function Admin3Page() {
   }
 
   const setPhase = (phase: string) => run(`phase-${phase}`, () => api("e3-set-phase", { phase }))
+  const setPhaseWithTimer = (phase: string, duration: number, round = 0) =>
+    run(`phase-${phase}`, () => api("e3-set-phase", { phase, start_timer: true, timer_duration: duration, timer_round: round }))
+  const setPhaseStopTimer = (phase: string) =>
+    run(`phase-${phase}`, () => api("e3-set-phase", { phase, start_timer: false }))
   const startTimer = (round: number, duration = 1200) =>
     run("timer", () => api("e3-start-timer", { round, duration }))
   const stopTimer = () => run("timer-stop", () => api("e3-stop-timer"))
@@ -474,15 +478,15 @@ export default function Admin3Page() {
     const hasMatches = state.phase2_matches_done
     const sel = state.participants_selected || 0
     if (ph === "setup" && !hasSeating) return { label: "توليد خطة الجلسات", action: generateSeating, ready: sel >= 6 }
-    if (ph === "setup" && hasSeating) return { label: "⬅ بدء الجولة الأولى (30 دقيقة)", action: () => { setPhase("round1"); startTimer(1, 1800) }, ready: true }
-    if (ph === "round1") return { label: "⬅ التصنيف بعد الجولة 1 (2:30 دقيقة)", action: () => { setPhase("ranking1"); startTimer(0, 150) }, ready: true }
-    if (ph === "ranking1") return { label: "⬅ بدء الجولة الثانية (25 دقيقة)", action: () => { setPhase("round2"); startTimer(2, 1500) }, ready: true }
-    if (ph === "round2") return { label: "⬅ التصنيف النهائي (2:30 دقيقة)", action: () => { setPhase("ranking2"); startTimer(0, 150) }, ready: true }
-    if (ph === "ranking2" && !hasMatches) return { label: "⬅ تشغيل مطابقة اختيار المشاركين", action: () => { stopTimer(); run("phase2", () => api("e3-trigger-phase2-matching").then(d => { fetchMatches(); fetchState(); return d })) }, ready: ranked > 0 }
-    if (ph === "ranking2" && hasMatches) return { label: "⬅ استراحة (10 دقائق)", action: () => { setPhase("break"); startTimer(3, 600) }, ready: true }
-    if (ph === "break") return { label: "⬅ بدء كشف المرحلة 2 (20 دقيقة)", action: () => { setPhase("phase2_reveal"); startTimer(4, 1200) }, ready: true }
+    if (ph === "setup" && hasSeating) return { label: "⬅ بدء الجولة الأولى (30 دقيقة)", action: () => setPhaseWithTimer("round1", 1800, 1), ready: true }
+    if (ph === "round1") return { label: "⬅ التصنيف بعد الجولة 1 (5 دقائق)", action: () => setPhaseWithTimer("ranking1", 300, 0), ready: true }
+    if (ph === "ranking1") return { label: "⬅ بدء الجولة الثانية (25 دقيقة)", action: () => setPhaseWithTimer("round2", 1500, 2), ready: true }
+    if (ph === "round2") return { label: "⬅ التصنيف النهائي (3 دقائق)", action: () => setPhaseWithTimer("ranking2", 180, 0), ready: true }
+    if (ph === "ranking2" && !hasMatches) return { label: "⬅ تشغيل مطابقة اختيار المشاركين", action: () => setPhaseStopTimer("phase2_processing").then(() => run("phase2", () => api("e3-trigger-phase2-matching").then(d => { fetchMatches(); fetchState(); return d }))), ready: ranked > 0 }
+    if (ph === "ranking2" && hasMatches) return { label: "⬅ استراحة (10 دقائق)", action: () => setPhaseWithTimer("break", 600, 3), ready: true }
+    if (ph === "break") return { label: "⬅ بدء كشف المرحلة 2 (20 دقيقة)", action: () => setPhaseWithTimer("phase2_reveal", 1200, 4), ready: true }
     if (ph === "phase2_reveal" && !state.phase3_matches_done) return { label: "⬅ تشغيل مطابقة الخوارزمية", action: () => run("phase3", () => api("e3-trigger-phase3-matching").then(d => { fetchState(); return d })), ready: true }
-    if (ph === "phase2_reveal" && state.phase3_matches_done) return { label: "⬅ كشف المرحلة 3 (20 دقيقة)", action: () => { setPhase("phase3_reveal"); startTimer(5, 1200) }, ready: true }
+    if (ph === "phase2_reveal" && state.phase3_matches_done) return { label: "⬅ كشف المرحلة 3 (20 دقيقة)", action: () => setPhaseWithTimer("phase3_reveal", 1200, 5), ready: true }
     if (ph === "phase3_reveal") return { label: "⬅ الكشف النهائي ✨", action: () => setPhase("final_reveal"), ready: true }
     return null
   }
@@ -501,7 +505,7 @@ export default function Admin3Page() {
     return data
   })
 
-  const triggerPhase2 = () => run("phase2", () => api("e3-trigger-phase2-matching"))
+  const triggerPhase2 = () => setPhaseStopTimer("phase2_processing").then(() => run("phase2", () => api("e3-trigger-phase2-matching").then(d => { fetchMatches(); fetchState(); return d })))
   const triggerPhase3 = () => run("phase3", () => api("e3-trigger-phase3-matching"))
 
   const togglePhase2Exclusion = (num: number) =>
@@ -853,7 +857,7 @@ export default function Admin3Page() {
                   {
                     label: "بدء الجولة الأولى",
                     desc: "30 دقيقة",
-                    action: () => { setPhase("round1"); startTimer(1, 1800) },
+                    action: () => setPhaseWithTimer("round1", 1800, 1),
                     icon: Play,
                     color: "green",
                     enabled: state?.seating_generated,
@@ -861,8 +865,8 @@ export default function Admin3Page() {
                   },
                   {
                     label: "التصنيف بعد الجولة 1",
-                    desc: `${state?.rankings_submitted || 0} صوّتوا حتى الآن`,
-                    action: () => setPhase("ranking1"),
+                    desc: "5 دقائق",
+                    action: () => setPhaseWithTimer("ranking1", 300, 0),
                     icon: BarChart3,
                     color: "yellow",
                     enabled: true,
@@ -871,7 +875,7 @@ export default function Admin3Page() {
                   {
                     label: "بدء الجولة الثانية",
                     desc: "25 دقيقة",
-                    action: () => { setPhase("round2"); startTimer(2, 1500) },
+                    action: () => setPhaseWithTimer("round2", 1500, 2),
                     icon: Play,
                     color: "green",
                     enabled: true,
@@ -879,8 +883,8 @@ export default function Admin3Page() {
                   },
                   {
                     label: "التصنيف بعد الجولة 2",
-                    desc: `${state?.rankings_submitted || 0} صوّتوا حتى الآن`,
-                    action: () => setPhase("ranking2"),
+                    desc: "3 دقائق",
+                    action: () => setPhaseWithTimer("ranking2", 180, 0),
                     icon: BarChart3,
                     color: "yellow",
                     enabled: true,
@@ -898,7 +902,7 @@ export default function Admin3Page() {
                   {
                     label: "استراحة",
                     desc: "10 دقائق",
-                    action: () => { setPhase("break"); startTimer(3, 600) },
+                    action: () => setPhaseWithTimer("break", 600, 3),
                     icon: Coffee,
                     color: "orange",
                     enabled: state?.phase2_matches_done,
@@ -907,7 +911,7 @@ export default function Admin3Page() {
                   {
                     label: "كشف المرحلة 2",
                     desc: "20 دقيقة",
-                    action: () => { setPhase("phase2_reveal"); startTimer(4, 1200) },
+                    action: () => setPhaseWithTimer("phase2_reveal", 1200, 4),
                     icon: Eye,
                     color: "pink",
                     enabled: state?.phase2_matches_done,
@@ -925,7 +929,7 @@ export default function Admin3Page() {
                   {
                     label: "كشف المرحلة 3",
                     desc: "20 دقيقة",
-                    action: () => { setPhase("phase3_reveal"); startTimer(5, 1200) },
+                    action: () => setPhaseWithTimer("phase3_reveal", 1200, 5),
                     icon: Sparkles,
                     color: "purple",
                     enabled: true,

@@ -6468,11 +6468,24 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           if (error) return res.status(500).json({ error: error.message })
           return res.status(200).json({ message: `${which} score ${value ? 'revealed' : 'hidden'}` })
         }
-        // e3-set-phase
+        // e3-set-phase (supports optional timer params in same upsert to avoid race conditions)
         if (action === "e3-set-phase") {
-          const { error } = await supabase.from("event_state").upsert({ match_id: EVENT3_MATCH_ID, phase: req.body.phase }, { onConflict: "match_id" })
+          const { phase, start_timer, timer_duration, timer_round } = req.body
+          const update = { match_id: EVENT3_MATCH_ID, phase }
+          if (start_timer) {
+            update.global_timer_active = true
+            update.global_timer_start_time = new Date().toISOString()
+            update.global_timer_duration = timer_duration || 1200
+            update.global_timer_round = timer_round ?? 0
+          } else if (start_timer === false) {
+            update.global_timer_active = false
+            update.global_timer_start_time = null
+            update.global_timer_duration = null
+            update.global_timer_round = null
+          }
+          const { error } = await supabase.from("event_state").upsert(update, { onConflict: "match_id" })
           if (error) return res.status(500).json({ error: error.message })
-          return res.status(200).json({ message: `Phase set to ${req.body.phase}` })
+          return res.status(200).json({ message: `Phase set to ${phase}` })
         }
         // e3-start-timer
         if (action === "e3-start-timer") {

@@ -771,7 +771,7 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
       const selectedData = participants.filter(p => selectedParticipants.has(p.assigned_number));
       
       // Build Excel HTML table content
-      const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')
       const rows = selectedData.map(participant => {
         const name = participant.name || participant.survey_data?.name || `المشارك #${participant.assigned_number}`;
         // Apply the same phone normalization used in SurveyComponent, but

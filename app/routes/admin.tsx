@@ -757,7 +757,7 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
 فريق التوافق الأعمى`;
   }
 
-  // Function to export selected participants to Excel/CSV
+  // Function to export selected participants to Excel
   const exportToExcel = async () => {
     if (selectedParticipants.size === 0) {
       toast.error('يرجى اختيار مشاركين أولاً');
@@ -770,50 +770,44 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
       // Get selected participants data
       const selectedData = participants.filter(p => selectedParticipants.has(p.assigned_number));
       
-      // Create CSV content
-      const headers = ['Contact number', 'Name', 'Message 1', 'Message 2'];
-      const csvContent = [
-        headers.join(','),
-        ...selectedData.map(participant => {
-          const name = participant.name || participant.survey_data?.name || `المشارك #${participant.assigned_number}`;
-          // Apply the same phone normalization used in SurveyComponent, but
-          // if the original input is already in international format with '+', keep it as-is.
-          const rawPhone = (participant.phone_number
-            || participant.survey_data?.answers?.phone_number
-            || participant.survey_data?.phone_number
-            || '') as string
-          const cleanedOriginal = convertArabicToEnglish(rawPhone).trim().replace(/[\s\-()]/g, '')
-          let phone = ''
-          if (/^\+\d{6,}$/.test(cleanedOriginal)) {
-            // Already valid international; keep it exactly as provided (after basic whitespace cleanup)
-            phone = cleanedOriginal
-          } else {
-            const fallbackCC = String(participant.survey_data?.answers?.phone_cc || '966')
-            const { cc, local } = normalizeAndSplitPhone(rawPhone, fallbackCC)
-            phone = local ? (cc ? `+${cc}${local}` : local) : ''
-          }
-          const message1 = generateWhatsAppMessage(participant, exportTemplateType).replace(/"/g, '""'); // Escape quotes for CSV
-          const message2 = ''; // Empty as requested
-          
-          return [
-            `"${phone}"`,
-            `"${name}"`,
-            `"${message1}"`,
-            `"${message2}"`
-          ].join(',');
-        })
-      ].join('\n');
+      // Build Excel HTML table content
+      const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      const rows = selectedData.map(participant => {
+        const name = participant.name || participant.survey_data?.name || `المشارك #${participant.assigned_number}`;
+        // Apply the same phone normalization used in SurveyComponent, but
+        // if the original input is already in international format with '+', keep it as-is.
+        const rawPhone = (participant.phone_number
+          || participant.survey_data?.answers?.phone_number
+          || participant.survey_data?.phone_number
+          || '') as string
+        const cleanedOriginal = convertArabicToEnglish(rawPhone).trim().replace(/[\s\-()]/g, '')
+        let phone = ''
+        if (/^\+\d{6,}$/.test(cleanedOriginal)) {
+          // Already valid international; keep it exactly as provided (after basic whitespace cleanup)
+          phone = cleanedOriginal
+        } else {
+          const fallbackCC = String(participant.survey_data?.answers?.phone_cc || '966')
+          const { cc, local } = normalizeAndSplitPhone(rawPhone, fallbackCC)
+          phone = local ? `+${cc}${local}` : ''
+        }
+        const message1 = generateWhatsAppMessage(participant, exportTemplateType);
+        const message2 = ''; // Empty as requested
+        
+        return `<tr><td>${escapeHtml(phone)}</td><td>${escapeHtml(name)}</td><td>${escapeHtml(message1)}</td><td>${escapeHtml(message2)}</td></tr>`;
+      }).join('');
+
+      const excelHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>WhatsApp</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body><table border="1"><tr><th>WhatsApp Number</th><th>Name</th><th>Message 1</th><th>Message 2</th></tr>${rows}</table></body></html>`;
 
       // Create and download file
       const templateName = exportTemplateType === 'payment-reminder' ? 'payment_reminder' : 
                            exportTemplateType === 'early-match' ? 'early_match_notification' : 
                            exportTemplateType === 'reminder' ? 'event_reminder' :
                            exportTemplateType === 'survey-completion' ? 'survey_completion' : 'match_notification';
-      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' }); // BOM for proper UTF-8
+      const blob = new Blob(['\uFEFF' + excelHtml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
-      link.setAttribute('download', `whatsapp_${templateName}_${new Date().toISOString().split('T')[0]}.csv`);
+      link.setAttribute('download', `whatsapp_${templateName}_${new Date().toISOString().split('T')[0]}.xls`);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();

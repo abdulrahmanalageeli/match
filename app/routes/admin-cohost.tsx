@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react"
-import { CheckCircle2, Circle, Search, Users, RefreshCw, Loader2, Heart, Lock } from "lucide-react"
+import { CheckCircle2, Circle, Search, Users, RefreshCw, Loader2, Heart, Lock, Bell } from "lucide-react"
 
 interface Participant {
   number: number
@@ -21,6 +21,8 @@ export default function AdminCohostPage() {
   const [search, setSearch] = useState("")
   const [toggling, setToggling] = useState<Record<number, boolean>>({})
   const [error, setError] = useState("")
+  const [sosRequests, setSosRequests] = useState<any[]>([])
+  const [sosResolving, setSosResolving] = useState<Record<string, boolean>>({})
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -44,9 +46,49 @@ export default function AdminCohostPage() {
     }
   }, [])
 
+  const fetchSOS = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "e3-get-sos", password: "soulmatch2026" }),
+      })
+      const data = await res.json()
+      if (res.ok && data.requests) {
+        setSosRequests(data.requests.filter((r: any) => r.status !== "resolved"))
+      }
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  const resolveSOS = async (id: string) => {
+    setSosResolving(prev => ({ ...prev, [id]: true }))
+    try {
+      await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "e3-sos-reply", password: "soulmatch2026", id, status: "resolved" }),
+      })
+      setSosRequests(prev => prev.filter(r => r.id !== id))
+    } catch {
+      // ignore
+    } finally {
+      setSosResolving(prev => { const c = { ...prev }; delete c[id]; return c })
+    }
+  }
+
   useEffect(() => {
     if (authenticated) fetchData()
   }, [authenticated, fetchData])
+
+  // Poll SOS every 5 seconds
+  useEffect(() => {
+    if (!authenticated) return
+    fetchSOS()
+    const iv = setInterval(fetchSOS, 5000)
+    return () => clearInterval(iv)
+  }, [authenticated, fetchSOS])
 
   const toggleAttendance = async (p: Participant) => {
     setToggling(prev => ({ ...prev, [p.number]: true }))
@@ -126,6 +168,46 @@ export default function AdminCohostPage() {
   // Main attendance page
   return (
     <div className="min-h-screen bg-gray-950 text-white" dir="rtl">
+      {/* SOS Notification Side Panel */}
+      {sosRequests.length > 0 && (
+        <div className="fixed left-0 top-1/2 -translate-y-1/2 z-50 w-72 max-w-[85vw]">
+          <div className="m-2 bg-red-950/80 backdrop-blur-xl border border-red-800/50 rounded-2xl shadow-2xl shadow-red-900/20 overflow-hidden">
+            <div className="flex items-center gap-2 px-3 py-2.5 bg-red-900/40 border-b border-red-800/40">
+              <Bell size={14} className="text-red-300 animate-pulse" />
+              <span className="text-xs font-bold text-red-200">Organizer Requests</span>
+              <span className="ml-auto text-[10px] bg-red-600 text-white rounded-full px-1.5 py-0.5 font-bold">{sosRequests.length}</span>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto p-2 space-y-2">
+              {sosRequests.map(r => (
+                <div key={r.id} className="bg-gray-900/80 border border-gray-800 rounded-xl p-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-bold text-white truncate">{r.participant_name || `#${r.participant_number}`}</span>
+                        <span className="text-[10px] text-gray-500 font-mono">#{r.participant_number}</span>
+                      </div>
+                      {r.table_info && (
+                        <p className="text-[10px] text-gray-400 mt-0.5">{r.table_info}</p>
+                      )}
+                      {r.message && (
+                        <p className="text-[11px] text-gray-300 mt-1.5 bg-gray-950/60 rounded-lg px-2 py-1.5 line-clamp-2">{r.message}</p>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => resolveSOS(r.id)}
+                    disabled={sosResolving[r.id]}
+                    className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-red-600/80 hover:bg-red-500 text-white text-[11px] font-semibold transition-colors disabled:opacity-50"
+                  >
+                    {sosResolving[r.id] ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                    Mark Solved
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="sticky top-0 z-10 bg-gray-950/90 backdrop-blur-xl border-b border-white/[0.06]">
         <div className="max-w-2xl mx-auto px-4 py-3">
@@ -140,6 +222,12 @@ export default function AdminCohostPage() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {sosRequests.length > 0 && (
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-red-900/40 border border-red-800/40">
+                  <Bell size={12} className="text-red-300 animate-pulse" />
+                  <span className="text-[11px] font-bold text-red-200">{sosRequests.length}</span>
+                </div>
+              )}
               <div className="text-right">
                 <div className="text-lg font-bold tabular-nums">
                   <span className="text-teal-400">{attendedCount}</span>

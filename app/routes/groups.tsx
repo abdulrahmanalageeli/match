@@ -30,7 +30,8 @@ import {
   Rocket,
   PartyPopper,
   Ghost,
-  Lock
+  Lock,
+  Mic
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
@@ -129,6 +130,18 @@ games.push({
   duration: 12,
   icon: <Ghost className="w-6 h-6" />,
   color: "from-fuchsia-600 to-purple-700"
+})
+
+// Append Hot Seat game as the 8th option
+games.push({
+  id: "hot-seat",
+  name: "Hot Seat",
+  nameAr: "الكرسي الساخن",
+  description: "Each person gets 2 minutes in the hot seat — anyone can ask anything",
+  descriptionAr: "كل شخص يجلس على الكرسي الساخن لمدة دقيقتين والجميع يسألونه أي سؤال",
+  duration: 12,
+  icon: <Mic className="w-6 h-6" />,
+  color: "from-amber-500 to-orange-600"
 })
 
 // Premium visual themes per game for selection cards + gameplay surfaces
@@ -233,6 +246,17 @@ const gameThemes: Record<string, {
     cta: "from-fuchsia-600 to-purple-700 hover:from-fuchsia-700 hover:to-purple-800",
     instruction: "bg-gradient-to-r from-fuchsia-700/30 to-purple-700/30 rounded-xl p-6 border border-fuchsia-600/40",
     promptCard: "bg-gradient-to-br from-fuchsia-500/15 to-purple-600/15 rounded-2xl p-6 text-center border border-fuchsia-500/30 shadow-xl",
+  },
+  'hot-seat': {
+    cardBorder: "border-amber-600/30",
+    cardBorderHover: "hover:border-amber-400/60",
+    cardOverlay: "from-amber-500/15 via-orange-500/10 to-transparent",
+    iconRing: "ring-2 ring-amber-400/40",
+    chip: "bg-amber-500/20 border border-amber-400/30 text-amber-100",
+    metaText: "text-amber-200",
+    cta: "from-amber-600 to-orange-700 hover:from-amber-700 hover:to-orange-800",
+    instruction: "bg-gradient-to-r from-amber-700/40 to-orange-700/40 rounded-xl p-6 border border-amber-600/50",
+    promptCard: "bg-gradient-to-br from-amber-500/15 to-orange-600/15 rounded-2xl p-6 text-center border border-amber-500/30 shadow-xl",
   },
 };
 
@@ -797,6 +821,35 @@ const whatWouldYouDoScenarios: string[] = [
   "ماذا تفعل لو تعارض أقرب أصدقائك مع قرار زواجك؟ كيف تتعامل؟"
 ];
 
+// الكرسي الساخن — suggested questions for the group to ask the person in the hot seat
+const hotSeatQuestions: string[] = [
+  "وش الشي اللي تحس إنه يعرّفك أكثر من أي شي ثاني؟",
+  "لو الناس يشوفونك من بره وش يشوفون؟ وش اللي يختلف عن اللي تشوفه بنفسك؟",
+  "وش أكبر خوف عندك وما تعترف فيه كثير؟",
+  "متى آخر مرة حسيت إنك فعلاً صادق مع نفسك؟ وش كان الموقف؟",
+  "وش الشي اللي تتمنى الناس يسألونك عنه وما يسألون؟",
+  "لو تقدر تغير شي واحد في شخصيتك الحين… وش بيكون؟",
+  "وش العلاقة اللي علمتك أكثر شي في حياتك؟",
+  "كيف تعبر عن الحب؟ وش طريقتك في إظهاره للناس اللي تهتم لهم؟",
+  "وش الشي اللي لو اختفى من حياتك تحس إنك ضعت؟",
+  "متى حسيت إنك أقوى شخص في الغرفة؟ وليه؟",
+  "وش الشي اللي ندمت عليه وما تقدر تصلحه؟",
+  "لو أحد سألك: وش تحتاج من الأشخاص القريبين منك؟ وش بتقول؟",
+  "وش الصفة اللي تتمنى تلقاها في شريكك وما تتنازل عنها؟",
+  "كيف تتعامل لما تختلف مع شخص تهتم له بشكل كبير؟",
+  "وش الشي اللي تعلمته متأخر في الحياة ووددت لو تعلمته أبكر؟",
+  "لو وصفت نفسك بكلمة وحدة… وش بتكون؟",
+  "وش الموقف اللي غيّر نظرتك لنفسك؟",
+  "مين الشخص اللي تأثرت فيه أكثر من غيره؟ وليه؟",
+  "وش الشي اللي تحس إنك تعطيه في علاقاتك ونادر تجيكه بنفس القدر؟",
+  "لو رجعت بالزمن… وش القرار اللي بتاخذه بشكل مختلف؟",
+  "وش اللي يخليك ترتاح لشخص جديد بسرعة؟",
+  "كيف تشوف النجاح الحين؟ هل تغير تعريفك له مع الوقت؟",
+  "وش الشي اللي تحس إنه ما ينقال عنك كثير بس هو جزء أساسي منك؟",
+  "لو فقدت كل شي بكره… وش اللي بتبحث عنه أولاً؟",
+  "وش السؤال اللي تخاف يجيك وما تبي أحد يسألك فيه؟",
+];
+
 // ولا كلمة topics - focused on 3 main categories with no duplicates
 const charadesTopics = {
   "أفلام ومسلسلات": [
@@ -1105,6 +1158,14 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
   const [isReadingPhase, setIsReadingPhase] = useState(false);
   const [readingTimer, setReadingTimer] = useState(3); // 3 seconds reading time
   
+  // Hot Seat game state
+  const [shuffledHotSeat, setShuffledHotSeat] = useState<string[]>([]);
+  const [hotSeatParticipants, setHotSeatParticipants] = useState<string[]>([]);
+  const [hotSeatIndex, setHotSeatIndex] = useState(0);
+  const [hotSeatTimer, setHotSeatTimer] = useState(120); // 2 minutes in seconds
+  const [hotSeatTimerActive, setHotSeatTimerActive] = useState(false);
+  const [hotSeatQuestionIndex, setHotSeatQuestionIndex] = useState(0);
+  
   // Participant data state
   const [participantName, setParticipantName] = useState<string>("");
   const [participantNumber, setParticipantNumber] = useState<number | null>(null);
@@ -1333,6 +1394,9 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
         setShowIndividualRoundsModal(false);
         setCharadesTimerActive(false);
         setCharadesTimer(90);
+        setHotSeatTimerActive(false);
+        setHotSeatTimer(120);
+        setHotSeatParticipants([]);
       } else {
         // If on main groups page, go to welcome page
         window.location.href = "/welcome";
@@ -2068,6 +2132,27 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
     };
   }, [fiveSecondTimerActive, fiveSecondTimer]);
 
+  // Hot Seat timer useEffect
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (hotSeatTimerActive && hotSeatTimer > 0) {
+      interval = setInterval(() => {
+        setHotSeatTimer(prev => {
+          if (prev <= 1) {
+            setHotSeatTimerActive(false);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [hotSeatTimerActive, hotSeatTimer]);
+
   // Entry animation for pre-game container (mirrors PhoneEntry feel)
   useEffect(() => {
     if (preGameRef.current) {
@@ -2182,6 +2267,17 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
         const seen = localStorage.getItem(IMPOSTER_TUTORIAL_KEY);
         if (!seen) setImposterShowTutorial(true);
       } catch {}
+    } else if (gameId === "hot-seat") {
+      setShuffledHotSeat(shuffleArray(hotSeatQuestions));
+      setHotSeatIndex(0);
+      setHotSeatTimer(120);
+      setHotSeatTimerActive(false);
+      setHotSeatQuestionIndex(0);
+      // Pre-fill participants from groupMembers if available
+      const names = (groupMembers && groupMembers.length > 0)
+        ? groupMembers
+        : [];
+      setHotSeatParticipants(names);
     }
   };
 
@@ -3233,6 +3329,207 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
           </Card>
         )}
 
+        {currentGame.id === "hot-seat" && (
+          <Card className="bg-slate-900/60 border-amber-600/30">
+            <CardContent className="p-6">
+              <div className="text-center mb-6">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/30 mb-3">
+                  <Mic className="w-4 h-4 text-amber-300" />
+                  <span className="text-amber-200 text-xs font-bold">كرسي ساخن</span>
+                </div>
+                <h3 className="text-3xl font-extrabold text-white mb-2">الكرسي الساخن</h3>
+                <p className="text-amber-100/90">كل شخص يجلس دقيقتين والجميع يسألونه أي سؤال</p>
+              </div>
+
+              {/* Game Instructions */}
+              <div className="bg-gradient-to-r from-amber-700/40 to-orange-700/40 rounded-xl p-6 mb-8 border border-amber-600/50">
+                <h4 className="text-white font-bold text-lg mb-4 flex items-center">
+                  <Lightbulb className="w-5 h-5 ml-3 text-amber-300" />
+                  كيفية اللعب:
+                </h4>
+                <ol className="text-amber-100/90 space-y-3 list-decimal list-inside">
+                  <li className="flex items-start">
+                    <span className="font-medium">اكتبوا أسماء المشاركين على الطاولة (أو استخدموا الأسماء الموجودة).</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="font-medium">اضغطوا "ابدأ" ليبدأ الشخص الأول جلسته على الكرسي الساخن (دقيقتان).</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="font-medium">الجميع يسألونه أي سؤال — استخدموا الأسئلة المقترحة أو اسألوا أي شي.</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="font-medium">عند انتهاء الوقت، انتقلوا للشخص التالي.</span>
+                  </li>
+                </ol>
+              </div>
+
+              {/* Participants setup */}
+              {hotSeatParticipants.length === 0 ? (
+                <div className="space-y-4 mb-6">
+                  <p className="text-slate-300 text-center text-sm">أدخل أسماء المشاركين على الطاولة:</p>
+                  <div className="space-y-2">
+                    {[0, 1, 2, 3, 4].map((i) => (
+                      <input
+                        key={i}
+                        type="text"
+                        placeholder={`المشارك ${i + 1}`}
+                        onChange={(e) => {
+                          setHotSeatParticipants(prev => {
+                            const next = [...prev];
+                            while (next.length <= i) next.push("");
+                            next[i] = e.target.value;
+                            return next;
+                          });
+                        }}
+                        className="w-full bg-slate-800/60 border border-amber-600/30 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:border-amber-400/60 focus:outline-none transition-colors"
+                      />
+                    ))}
+                  </div>
+                  <div className="text-center">
+                    <Button
+                      onClick={() => {
+                        const valid = hotSeatParticipants.filter(n => n.trim().length > 0);
+                        if (valid.length === 0) return;
+                        setHotSeatParticipants(valid);
+                        setHotSeatIndex(0);
+                      }}
+                      className="bg-gradient-to-r from-amber-600 to-orange-700 hover:from-amber-700 hover:to-orange-800 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                    >
+                      <Mic className="w-5 h-5 ml-2" />
+                      ابدأ الكرسي الساخن
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Current person in hot seat */}
+                  <div className="bg-gradient-to-br from-amber-500/15 to-orange-600/15 rounded-2xl p-8 text-center border border-amber-500/30 shadow-xl mb-6">
+                    <div className="text-amber-300 text-sm font-bold mb-2">على الكرسي الساخن الآن</div>
+                    <AnimatePresence mode="wait">
+                      <motion.div
+                        key={hotSeatIndex}
+                        initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.9, y: -10 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white shadow-lg mb-3">
+                          <Mic className="w-10 h-10" />
+                        </div>
+                        <h4 className="text-2xl font-bold text-white">{hotSeatParticipants[hotSeatIndex]}</h4>
+                        <div className="text-slate-400 text-sm mt-1">الشخص {hotSeatIndex + 1} من {hotSeatParticipants.length}</div>
+                      </motion.div>
+                    </AnimatePresence>
+
+                    {/* Timer */}
+                    <div className="mt-6">
+                      <div className={`text-5xl font-black ${hotSeatTimer <= 30 ? 'text-red-400' : 'text-amber-300'} mb-2`}>
+                        {Math.floor(hotSeatTimer / 60)}:{String(hotSeatTimer % 60).padStart(2, '0')}
+                      </div>
+                      <div className="w-full bg-slate-700/50 rounded-full h-2 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-1000 ${hotSeatTimer <= 30 ? 'bg-red-500' : 'bg-gradient-to-r from-amber-500 to-orange-500'}`}
+                          style={{ width: `${(hotSeatTimer / 120) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Timer controls */}
+                    <div className="flex justify-center gap-3 mt-6">
+                      {!hotSeatTimerActive && hotSeatTimer > 0 ? (
+                        <Button
+                          onClick={() => setHotSeatTimerActive(true)}
+                          className="bg-gradient-to-r from-amber-600 to-orange-700 hover:from-amber-700 hover:to-orange-800 text-white px-6 py-2 rounded-xl font-semibold shadow-lg transition-all hover:scale-105"
+                        >
+                          <Play className="w-4 h-4 ml-2" />
+                          ابدأ المؤقت
+                        </Button>
+                      ) : hotSeatTimerActive ? (
+                        <Button
+                          onClick={() => setHotSeatTimerActive(false)}
+                          className="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2 rounded-xl font-semibold shadow-lg transition-all"
+                        >
+                          <Pause className="w-4 h-4 ml-2" />
+                          إيقاف
+                        </Button>
+                      ) : null}
+                      <Button
+                        onClick={() => { setHotSeatTimer(120); setHotSeatTimerActive(false); }}
+                        className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-xl font-semibold shadow-lg transition-all"
+                      >
+                        <SkipForward className="w-4 h-4 ml-2" />
+                        إعادة
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Suggested questions */}
+                  <div className="bg-slate-700/30 rounded-xl p-6 border border-slate-600/50 mb-6">
+                    <h4 className="text-white font-semibold mb-4 flex items-center">
+                      <Lightbulb className="w-4 h-4 ml-2 text-amber-300" />
+                      أسئلة مقترحة للكرسي الساخن:
+                    </h4>
+                    <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border-2 border-amber-500/40 rounded-2xl p-6 text-center shadow-lg mb-4">
+                      <AnimatePresence mode="wait">
+                        <motion.p
+                          key={hotSeatQuestionIndex}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          transition={{ duration: 0.25 }}
+                          className="text-white text-lg font-semibold leading-relaxed"
+                        >
+                          {shuffledHotSeat.length > 0
+                            ? shuffledHotSeat[hotSeatQuestionIndex % shuffledHotSeat.length]
+                            : hotSeatQuestions[hotSeatQuestionIndex % hotSeatQuestions.length]}
+                        </motion.p>
+                      </AnimatePresence>
+                    </div>
+                    <div className="flex justify-center gap-3">
+                      <Button
+                        onClick={() => setHotSeatQuestionIndex(prev => prev + 1)}
+                        className="bg-gradient-to-r from-amber-600 to-orange-700 hover:from-amber-700 hover:to-orange-800 text-white px-5 py-2 rounded-xl font-semibold shadow-lg transition-all hover:scale-105"
+                      >
+                        <ChevronRight className="w-4 h-4 mr-2" />
+                        سؤال آخر
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Next person */}
+                  <div className="text-center">
+                    <Button
+                      onClick={() => {
+                        if (hotSeatIndex < hotSeatParticipants.length - 1) {
+                          setHotSeatIndex(prev => prev + 1);
+                          setHotSeatTimer(120);
+                          setHotSeatTimerActive(false);
+                          setHotSeatQuestionIndex(0);
+                        } else {
+                          setGamePhase("completed");
+                        }
+                      }}
+                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                    >
+                      {hotSeatIndex < hotSeatParticipants.length - 1 ? (
+                        <>
+                          <ChevronRight className="w-5 h-5 mr-2" />
+                          الشخص التالي
+                        </>
+                      ) : (
+                        <>
+                          <Trophy className="w-5 h-5 mr-2" />
+                          انتهت اللعبة
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {currentGame.id === "charades" && (
           <Card className="bg-slate-900/60 border-emerald-600/30">
             <CardContent className="p-6">
@@ -3548,7 +3845,7 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
             </p>
             <div className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-cyan-500/20 border border-cyan-500/30 animate-in zoom-in duration-500" style={{animationDelay: '500ms'}}>
               <Clock className="w-4 h-4 text-cyan-400" />
-              <span className="text-cyan-300 text-sm font-medium">جلسة واحدة • 7 ألعاب</span>
+              <span className="text-cyan-300 text-sm font-medium">جلسة واحدة • 8 ألعاب</span>
             </div>
           </div>
 

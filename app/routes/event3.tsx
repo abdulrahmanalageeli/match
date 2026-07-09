@@ -3725,7 +3725,7 @@ function NotEnrolledScreen() {
 
 
 // ─── Mood Check Modal ─────────────────────────────────────────────────────────
-function MoodCheckModal({ token }: { token: string }) {
+function MoodCheckModal({ token, name }: { token: string; name?: string | null }) {
   const [pendingCheck, setPendingCheck] = useState<{ check_id: string; triggered_at: string } | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
@@ -3790,8 +3790,8 @@ function MoodCheckModal({ token }: { token: string }) {
             <div className="w-12 h-12 mx-auto rounded-full bg-gradient-to-br from-purple-500/30 to-pink-500/20 border border-purple-400/20 flex items-center justify-center mb-1">
               <Heart size={20} className="text-purple-300" />
             </div>
-            <p className="text-2xl font-black text-white">شلونك الحين؟</p>
-            <p className="text-gray-500 text-sm">كيف حاسّك هذي اللحظة</p>
+            <p className="text-2xl font-black text-white">{name ? `هلا ${name}` : "شلونك الحين؟"}</p>
+            <p className="text-gray-500 text-sm">{name ? "شلونك الحين؟" : "كيف حاسّك هذي اللحظة"}</p>
           </div>
 
           {/* Options */}
@@ -3934,7 +3934,7 @@ export default function Event3Page() {
       {enrolled && !rankingMatch && phase !== "final_reveal" && phase !== "break" && <SOSButton token={token} position="bottom" />}
 
       {/* Mood check popup — polls for admin-triggered mood checks */}
-      {enrolled && token && <MoodCheckModal token={token} />}
+      {enrolled && token && <MoodCheckModal token={token} name={myInfo?.name} />}
     </div>
   )
 }

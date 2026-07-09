@@ -7190,11 +7190,18 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           await Promise.all([
             supabase.from("participant_rankings").delete().eq("match_id", EVENT3_MATCH_ID),
             supabase.from("event3_participant_notes").delete().eq("match_id", EVENT3_MATCH_ID),
+            supabase.from("event3_mood_checks").delete().eq("match_id", EVENT3_MATCH_ID),
           ])
           await supabase.from("event3_matches")
             .update({ phase2_feedback: null, phase3_feedback: null, phase2_word: null, phase3_word: null, match_preference: null })
             .eq("match_id", EVENT3_MATCH_ID)
           return res.status(200).json({ message: "Test data cleared: rankings, feedback, words, and notes removed. Participants, seating, and matches preserved." })
+        }
+        // e3-clear-mood-checks
+        if (action === "e3-clear-mood-checks") {
+          const { error } = await supabase.from("event3_mood_checks").delete().eq("match_id", EVENT3_MATCH_ID)
+          if (error) return res.status(500).json({ error: error.message })
+          return res.status(200).json({ message: "Mood checks cleared" })
         }
         // e3-trigger-mood-check
         if (action === "e3-trigger-mood-check") {

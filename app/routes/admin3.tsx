@@ -974,13 +974,25 @@ export default function Admin3Page() {
               <h3 className="font-semibold text-red-400 flex items-center gap-2 mb-3">
                 <AlertCircle size={16} /> منطقة الخطر
               </h3>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <button
                   onClick={clearTestData}
                   disabled={!!loading}
                   className="bg-amber-900/50 hover:bg-amber-900 border border-amber-700/50 text-amber-300 rounded-lg px-4 py-2 text-sm flex items-center gap-2"
                 >
                   <Trash2 size={14} /> مسح بيانات الاختبار (تصنيفات + فيدبك)
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!confirm("حذف جميع فحوصات المزاج؟")) return
+                    const d = await api("e3-clear-mood-checks")
+                    if (d.error) { toast.error(d.error); return }
+                    toast.success("تم حذف فحوصات المزاج")
+                    fetchMoodChecks()
+                  }}
+                  className="bg-purple-900/50 hover:bg-purple-900 border border-purple-700/50 text-purple-300 rounded-lg px-4 py-2 text-sm flex items-center gap-2"
+                >
+                  <Trash2 size={14} /> مسح فحوصات المزاج
                 </button>
                 <button
                   onClick={resetEvent}
@@ -3324,42 +3336,68 @@ export default function Admin3Page() {
                 {moodData.checks.map((check: any) => {
                   const entries: any[] = check.entries || []
                   const answered = entries.filter(e => e.mood)
-                  const happy = answered.filter(e => e.mood === "happy").length
-                  const neutral = answered.filter(e => e.mood === "neutral").length
-                  const notGreat = answered.filter(e => e.mood === "not_great").length
-                  const pending = entries.filter(e => !e.mood).length
+                  const happy = answered.filter(e => e.mood === "happy")
+                  const neutral = answered.filter(e => e.mood === "neutral")
+                  const notGreat = answered.filter(e => e.mood === "not_great")
+                  const pending = entries.filter(e => !e.mood)
                   const time = new Date(check.triggered_at).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })
+                  const moodEmoji = (m: string) => m === "happy" ? "😊" : m === "neutral" ? "😐" : "😕"
+                  const moodColor = (m: string) => m === "happy" ? "text-emerald-400" : m === "neutral" ? "text-amber-400" : "text-red-400"
+                  const moodLabel = (m: string) => m === "happy" ? "ممتاز" : m === "neutral" ? "عادي" : "مو مره"
+                  const fmtTime = (t: string) => t ? new Date(t).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }) : ""
                   return (
                     <div key={check.check_id} className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs text-gray-400 font-medium">{time}</span>
                         <span className="text-[10px] text-gray-500">{answered.length}/{entries.length} ردّوا</span>
                       </div>
-                      <div className="grid grid-cols-4 gap-2 mb-2">
+                      {/* Summary counts */}
+                      <div className="grid grid-cols-4 gap-2 mb-3">
                         <div className="text-center bg-green-900/20 rounded-lg py-2">
-                          <div className="text-lg">😄</div>
-                          <div className="text-green-400 text-sm font-bold">{happy}</div>
+                          <div className="text-lg">😊</div>
+                          <div className="text-green-400 text-sm font-bold">{happy.length}</div>
                           <div className="text-[9px] text-gray-500">ممتاز</div>
                         </div>
                         <div className="text-center bg-yellow-900/20 rounded-lg py-2">
                           <div className="text-lg">😐</div>
-                          <div className="text-yellow-400 text-sm font-bold">{neutral}</div>
-                          <div className="text-[9px] text-gray-500">لا بأس</div>
+                          <div className="text-yellow-400 text-sm font-bold">{neutral.length}</div>
+                          <div className="text-[9px] text-gray-500">عادي</div>
                         </div>
                         <div className="text-center bg-red-900/20 rounded-lg py-2">
                           <div className="text-lg">😕</div>
-                          <div className="text-red-400 text-sm font-bold">{notGreat}</div>
-                          <div className="text-[9px] text-gray-500">مو حاسّ</div>
+                          <div className="text-red-400 text-sm font-bold">{notGreat.length}</div>
+                          <div className="text-[9px] text-gray-500">مو مره</div>
                         </div>
                         <div className="text-center bg-gray-700/20 rounded-lg py-2">
                           <div className="text-lg">⏳</div>
-                          <div className="text-gray-400 text-sm font-bold">{pending}</div>
+                          <div className="text-gray-400 text-sm font-bold">{pending.length}</div>
                           <div className="text-[9px] text-gray-500">بانتظار</div>
                         </div>
                       </div>
-                      {pending > 0 && (
+                      {/* Detailed responses */}
+                      {answered.length > 0 && (
+                        <div className="space-y-1 mb-2">
+                          <p className="text-[10px] text-gray-500 font-medium mb-1">الردود:</p>
+                          {answered.sort((a, b) => new Date(b.answered_at).getTime() - new Date(a.answered_at).getTime()).map(e => (
+                            <div key={e.participant_number} className="flex items-center justify-between bg-gray-800/60 rounded-lg px-2.5 py-1.5">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm">{moodEmoji(e.mood)}</span>
+                                <span className="text-xs text-gray-300 font-medium">{e.participant_name}</span>
+                                <span className="text-[10px] text-gray-600">#{e.participant_number}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className={`text-[10px] font-medium ${moodColor(e.mood)}`}>{moodLabel(e.mood)}</span>
+                                <span className="text-[10px] text-gray-600">{fmtTime(e.answered_at)}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {/* Pending participants */}
+                      {pending.length > 0 && (
                         <div className="flex flex-wrap gap-1">
-                          {entries.filter(e => !e.mood).map(e => (
+                          <span className="text-[10px] text-gray-500">بانتظار:</span>
+                          {pending.map(e => (
                             <span key={e.participant_number} className="text-[10px] bg-gray-700/40 text-gray-400 rounded-full px-2 py-0.5">
                               {e.participant_name} #{e.participant_number}
                             </span>

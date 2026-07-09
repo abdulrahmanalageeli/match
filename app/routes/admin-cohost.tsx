@@ -12,7 +12,10 @@ interface Participant {
 
 export default function AdminCohostPage() {
   const [password, setPassword] = useState("")
-  const [authenticated, setAuthenticated] = useState(false)
+  const [authenticated, setAuthenticated] = useState(() => {
+    if (typeof window !== "undefined" && localStorage.getItem("cohost_auth") === "bayan2026") return true
+    return false
+  })
   const [participants, setParticipants] = useState<Participant[]>([])
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState("")
@@ -67,6 +70,7 @@ export default function AdminCohostPage() {
   const handleAuth = (e: React.FormEvent) => {
     e.preventDefault()
     if (password === "bayan2026") {
+      localStorage.setItem("cohost_auth", "bayan2026")
       setAuthenticated(true)
     } else {
       setError("Wrong password")

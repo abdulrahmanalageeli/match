@@ -2757,6 +2757,37 @@ Please respond in JSON format:
         const { data: stateRow } = await supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration,global_timer_round,phase2_score_revealed,phase3_score_revealed").eq("match_id", E3_MATCH_ID).single()
         const phase = stateRow?.phase || "setup"
         const { count: participantsSelected } = await supabase.from("event3_participants").select("id", { count: "exact", head: true }).eq("match_id", E3_MATCH_ID)
+
+        // Server-side auto-save: if ranking phase and timer expired, auto-save for this participant
+        if (participant && (phase === "ranking1" || phase === "ranking2") && stateRow?.global_timer_active && stateRow?.global_timer_start_time) {
+          const elapsed = Math.floor((Date.now() - new Date(stateRow.global_timer_start_time).getTime()) / 1000)
+          const remaining = Math.max(0, (stateRow.global_timer_duration || 150) - elapsed)
+          if (remaining === 0) {
+            // Check if participant already has rankings
+            const { data: existingRanks } = await supabase.from("participant_rankings").select("id").eq("match_id", E3_MATCH_ID).eq("ranker_number", myNumber).limit(1)
+            if (!existingRanks || existingRanks.length === 0) {
+              // Auto-save default rankings based on meeting order
+              const { data: allAssignments } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", E3_MATCH_ID)
+              if (allAssignments && allAssignments.length > 0) {
+                const myRounds = allAssignments.filter(a => a.participant_id === myNumber)
+                if (myRounds.length > 0) {
+                  const seenMates = new Set()
+                  const mates = []
+                  for (const row of myRounds.sort((a, b) => a.round - b.round)) {
+                    const tableMates = allAssignments.filter(a => a.round === row.round && a.table_number === row.table_number && a.participant_id !== myNumber)
+                    for (const m of tableMates) { if (!seenMates.has(m.participant_id)) { seenMates.add(m.participant_id); mates.push(m.participant_id) } }
+                  }
+                  if (mates.length > 0) {
+                    const rows = mates.map((num, idx) => ({ match_id: E3_MATCH_ID, event_id: 3, ranker_number: myNumber, ranked_number: num, rank: idx + 1, auto_saved: true }))
+                    await supabase.from("participant_rankings").insert(rows)
+                    console.log(`[auto-save] Server auto-saved rankings for #${myNumber} (${rows.length} entries) — ranking timer expired`)
+                  }
+                }
+              }
+            }
+          }
+        }
+
         let myAssignment = null
         if (participant) {
           const { data: ep } = await supabase.from("event3_participants").select("position").eq("match_id", E3_MATCH_ID).eq("participant_number", myNumber).single()

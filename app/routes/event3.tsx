@@ -1894,7 +1894,7 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
 }
 
 // ─── Ranking Screen ───────────────────────────────────────────────────────────
-function RankingScreen({ token, completedRounds, currentPhase }: { token: string, completedRounds: number, currentPhase: string }) {
+function RankingScreen({ token, completedRounds, currentPhase, timerActive, timerStart, timerDuration }: { token: string, completedRounds: number, currentPhase: string, timerActive: boolean, timerStart: string | null, timerDuration: number }) {
   const [people, setPeople] = useState<any[]>([])
   const [order, setOrder] = useState<number[]>([])
   const [newNums, setNewNums] = useState<Set<number>>(new Set())
@@ -1907,7 +1907,7 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
   const [showConfirm, setShowConfirm] = useState(false)
   const [showPhaseWarning, setShowPhaseWarning] = useState(false)
   const [showRankTutorial, setShowRankTutorial] = useState(true)
-  const [timeLeft, setTimeLeft] = useState(150) // 2:30 in seconds
+  const [timeLeft, setTimeLeft] = useState(150) // fallback, overwritten by server timer
   const [showWarning, setShowWarning] = useState(false) // 30s warning
   const [autoSaving, setAutoSaving] = useState(false)
   const initialPhaseRef = useRef(currentPhase)
@@ -1950,25 +1950,22 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
   useEffect(() => { submittedRef.current = submitted }, [submitted])
   useEffect(() => { orderRef.current = order }, [order])
 
-  // Countdown timer — 2:30, with 30s warning and auto-save on expiry
+  // Server-side timer — calculate remaining time from server start + duration
   useEffect(() => {
-    if (submitted || loading) return
-    if (timeLeft <= 0) return
-    const iv = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(iv)
-          return 0
-        }
-        if (prev === 31) {
-          setShowWarning(true)
-          toast('باقي 30 ثانية — احفظ تصنيفك الآن!', { duration: 5000, icon: '⏰' })
-        }
-        return prev - 1
-      })
-    }, 1000)
+    if (!timerActive || !timerStart) { setTimeLeft(150); return }
+    const update = () => {
+      const elapsed = Math.floor((Date.now() - new Date(timerStart).getTime()) / 1000)
+      const remaining = Math.max(0, timerDuration - elapsed)
+      setTimeLeft(remaining)
+      if (remaining === 31) {
+        setShowWarning(true)
+        toast('باقي 30 ثانية — احفظ تصنيفك الآن!', { duration: 5000, icon: '⏰' })
+      }
+    }
+    update()
+    const iv = setInterval(update, 1000)
     return () => clearInterval(iv)
-  }, [submitted, loading, timeLeft])
+  }, [timerActive, timerStart, timerDuration])
 
   // Auto-save when timer hits 0 and not manually submitted
   useEffect(() => {
@@ -4107,7 +4104,7 @@ export default function Event3Page() {
         <AnimatePresence>
           {phase === "setup" && <SetupScreen key="setup" token={token} myInfo={myInfo} enrolledCount={eventState?.participants_selected ?? null} />}
           {isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} myInfo={myInfo} />}
-          {completedRounds && <RankingScreen key={phase} token={token} completedRounds={completedRounds} currentPhase={phase} />}
+          {completedRounds && <RankingScreen key={phase} token={token} completedRounds={completedRounds} currentPhase={phase} {...timerProps} />}
           {phase === "phase2_reveal" && <Phase2RevealScreen key="p2r" token={token} {...timerProps} />}
           {phase === "phase3_reveal" && <Phase3RevealScreen key="p3r" token={token} {...timerProps} />}
           {phase === "break" && <BreakScreen key="break" {...timerProps} />}

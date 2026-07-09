@@ -474,10 +474,10 @@ export default function Admin3Page() {
     const sel = state.participants_selected || 0
     if (ph === "setup" && !hasSeating) return { label: "توليد خطة الجلسات", action: generateSeating, ready: sel >= 6 }
     if (ph === "setup" && hasSeating) return { label: "⬅ بدء الجولة الأولى (30 دقيقة)", action: () => { setPhase("round1"); startTimer(1, 1800) }, ready: true }
-    if (ph === "round1") return { label: "⬅ التصنيف بعد الجولة 1", action: () => setPhase("ranking1"), ready: true }
+    if (ph === "round1") return { label: "⬅ التصنيف بعد الجولة 1 (2:30 دقيقة)", action: () => { setPhase("ranking1"); startTimer(0, 150) }, ready: true }
     if (ph === "ranking1") return { label: "⬅ بدء الجولة الثانية (25 دقيقة)", action: () => { setPhase("round2"); startTimer(2, 1500) }, ready: true }
-    if (ph === "round2") return { label: "⬅ التصنيف النهائي", action: () => setPhase("ranking2"), ready: true }
-    if (ph === "ranking2" && !hasMatches) return { label: "⬅ تشغيل مطابقة اختيار المشاركين", action: () => run("phase2", () => api("e3-trigger-phase2-matching").then(d => { fetchMatches(); fetchState(); return d })), ready: ranked > 0 }
+    if (ph === "round2") return { label: "⬅ التصنيف النهائي (2:30 دقيقة)", action: () => { setPhase("ranking2"); startTimer(0, 150) }, ready: true }
+    if (ph === "ranking2" && !hasMatches) return { label: "⬅ تشغيل مطابقة اختيار المشاركين", action: () => { stopTimer(); run("phase2", () => api("e3-trigger-phase2-matching").then(d => { fetchMatches(); fetchState(); return d })) }, ready: ranked > 0 }
     if (ph === "ranking2" && hasMatches) return { label: "⬅ استراحة (10 دقائق)", action: () => { setPhase("break"); startTimer(3, 600) }, ready: true }
     if (ph === "break") return { label: "⬅ بدء كشف المرحلة 2 (20 دقيقة)", action: () => { setPhase("phase2_reveal"); startTimer(4, 1200) }, ready: true }
     if (ph === "phase2_reveal" && !state.phase3_matches_done) return { label: "⬅ تشغيل مطابقة الخوارزمية", action: () => run("phase3", () => api("e3-trigger-phase3-matching").then(d => { fetchState(); return d })), ready: true }

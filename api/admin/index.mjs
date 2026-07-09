@@ -6724,7 +6724,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const hasRanking = new Set((existingRanks || []).map(r => r.ranker_number))
           const missing = selected.filter(n => !hasRanking.has(n))
           if (missing.length === 0) return res.status(200).json({ message: "All participants already have rankings", saved: 0 })
-          const { data: allAssignments } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", EVENT3_MATCH_ID).in("participant_id", missing)
+          const { data: allAssignments } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", EVENT3_MATCH_ID).in("participant_id", missing).lte("round", 2)
           if (!allAssignments || allAssignments.length === 0) return res.status(400).json({ error: "No session assignments found for missing participants" })
           const rows = []
           for (const myNum of missing) {
@@ -6745,7 +6745,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         if (action === "e3-randomize-ranking-single") {
           const { participant_number } = req.body
           if (!participant_number) return res.status(400).json({ error: "participant_number required" })
-          const { data: allAssignments } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", EVENT3_MATCH_ID)
+          const { data: allAssignments } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", EVENT3_MATCH_ID).lte("round", 2)
           if (!allAssignments || allAssignments.length === 0) return res.status(400).json({ error: "No session assignments found" })
           const myRounds = allAssignments.filter(a => a.participant_id === participant_number)
           if (myRounds.length === 0) return res.status(400).json({ error: "Participant has no session assignments" })
@@ -6769,7 +6769,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID)
           const selected = (ep || []).map(r => r.participant_number)
           if (selected.length === 0) return res.status(400).json({ error: "No participants selected" })
-          const { data: allAssignments } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", EVENT3_MATCH_ID).in("participant_id", selected)
+          const { data: allAssignments } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", EVENT3_MATCH_ID).in("participant_id", selected).lte("round", 2)
           if (!allAssignments || allAssignments.length === 0) return res.status(400).json({ error: "No session assignments found" })
           const shuffle = arr => { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]] } return a }
           const rows = []

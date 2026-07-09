@@ -2766,8 +2766,10 @@ Please respond in JSON format:
             // Check if participant already has rankings
             const { data: existingRanks } = await supabase.from("participant_rankings").select("id").eq("match_id", E3_MATCH_ID).eq("ranker_number", myNumber).limit(1)
             if (!existingRanks || existingRanks.length === 0) {
-              // Auto-save default rankings based on meeting order
-              const { data: allAssignments } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", E3_MATCH_ID)
+              // Determine max round based on ranking phase (ranking1=round 1, ranking2=rounds 1-2)
+              const maxRound = phase === "ranking1" ? 1 : 2
+              // Auto-save default rankings based on meeting order (only rounds 1..maxRound)
+              const { data: allAssignments } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", E3_MATCH_ID).lte("round", maxRound)
               if (allAssignments && allAssignments.length > 0) {
                 const myRounds = allAssignments.filter(a => a.participant_id === myNumber)
                 if (myRounds.length > 0) {
@@ -2780,7 +2782,7 @@ Please respond in JSON format:
                   if (mates.length > 0) {
                     const rows = mates.map((num, idx) => ({ match_id: E3_MATCH_ID, event_id: 3, ranker_number: myNumber, ranked_number: num, rank: idx + 1, auto_saved: true }))
                     await supabase.from("participant_rankings").insert(rows)
-                    console.log(`[auto-save] Server auto-saved rankings for #${myNumber} (${rows.length} entries) — ranking timer expired`)
+                    console.log(`[auto-save] Server auto-saved rankings for #${myNumber} (${rows.length} entries, rounds 1-${maxRound}) — ranking timer expired`)
                   }
                 }
               }

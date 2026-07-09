@@ -2029,7 +2029,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
 
   return (
     <PageWrapper className="overflow-y-auto">
-      <div className="max-w-md mx-auto pb-6">
+      <div className="max-w-md mx-auto pb-32">
 
         {/* Phase change warning banner — non-blocking */}
         <AnimatePresence>
@@ -2072,11 +2072,11 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
 
         {/* Sticky header — compact */}
         <div className="sticky top-0 bg-gray-950/95 backdrop-blur-md z-10 border-b border-gray-800/50">
-          <div className="px-4 pt-3 pb-2">
+          <div className="px-4 pt-2 pb-1.5">
             <div className="flex items-center justify-center gap-2">
-              <Trophy size={15} className="text-amber-400" />
-              <h1 className="text-base font-bold text-white">رتّب أولوياتك</h1>
-              <span className="text-gray-500 text-[11px]">· {people.length} أشخاص</span>
+              <Trophy size={14} className="text-amber-400" />
+              <h1 className="text-sm font-bold text-white">رتّب أولوياتك</h1>
+              <span className="text-gray-500 text-[10px]">· {people.length} أشخاص</span>
               {submitted && (
                 <span className="flex items-center gap-1 bg-emerald-900/30 border border-emerald-800/40 rounded-full px-2 py-0.5">
                   <CheckCircle size={9} className="text-emerald-400" />
@@ -2103,8 +2103,8 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                 </span>
               )}
             </div>
-            <div className="flex items-center justify-center gap-2 mt-1.5">
-              <span className="text-purple-300 text-[10px] bg-purple-900/30 border border-purple-800/40 rounded-full px-2.5 py-0.5 font-medium">
+            <div className="flex items-center justify-center gap-1.5 mt-1">
+              <span className="text-purple-300 text-[9px] bg-purple-900/30 border border-purple-800/40 rounded-full px-2 py-0.5 font-medium">
                 اسحب للترتيب · سري تماماً
               </span>
               {submitted && (
@@ -2121,7 +2121,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
           </div>
 
           {/* Round legend */}
-          <div className="px-4 pb-2 flex gap-1.5 justify-center flex-wrap">
+          <div className="px-4 pb-1.5 flex gap-1.5 justify-center flex-wrap">
             {Array.from({ length: completedRounds }, (_, i) => i + 1).map(r => (
               <span key={r} className={`text-[10px] px-2.5 py-0.5 rounded-full border ${roundStyle(r)}`}>
                 {roundLabel(r)}
@@ -2132,13 +2132,13 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
         </div>
 
         {/* Scroll hint */}
-        <div className="text-center pt-2">
-          <InfoHint text="مرّر للأسفل لرؤية جميع الأشخاص · اسحب الأسماء لإعادة الترتيب" delay={0.5} duration={4} />
+        <div className="text-center pt-1 pb-1">
+          <InfoHint text="مرّر للأسفل لرؤية الجميع · اسحب من المقابض لإعادة الترتيب" delay={0.5} duration={3} />
         </div>
 
         {/* Drag-to-reorder list */}
-        <div className="p-4">
-          <Reorder.Group axis="y" values={order} onReorder={setOrder} className="space-y-2.5" as="div">
+        <div className="px-3">
+          <Reorder.Group axis="y" values={order} onReorder={setOrder} className="space-y-1.5" as="div">
             {order.map((num, idx) => {
               const p = personMap[num]
               if (!p) return null
@@ -2147,7 +2147,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                   key={num}
                   value={num}
                   as="div"
-                  className="p-3.5 rounded-2xl border border-gray-800/60 bg-gray-900/70 backdrop-blur-sm cursor-grab active:cursor-grabbing touch-none select-none"
+                  className="py-2 px-3 rounded-xl border border-gray-800/60 bg-gray-900/70 backdrop-blur-sm cursor-grab active:cursor-grabbing touch-none select-none"
                   whileDrag={{
                     scale: 1.04,
                     boxShadow: "0 12px 40px rgba(0,0,0,0.5)",
@@ -2159,42 +2159,40 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: idx * 0.02 }}
                 >
-                  {/* Top row */}
-                  <div className="flex items-center gap-3">
+                  {/* Single row — compact */}
+                  <div className="flex items-center gap-2.5">
                     {/* Rank badge */}
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0 ${rankStyle(idx)}`}>
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0 ${rankStyle(idx)}`}>
                       {idx + 1}
                     </div>
 
-                    {/* Name + number + round */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-white text-sm leading-tight">{p.first_name}</span>
-                        <span className="text-[10px] text-gray-600 font-mono">#{p.number}</span>
-                        {newNums.has(num) && (
-                          <span className="text-[10px] bg-purple-900/60 text-purple-300 border border-purple-700/50 rounded-full px-1.5 py-0.5 font-semibold flex items-center gap-1"><Sparkles size={8} className="inline" /> جديد</span>
-                        )}
-                      </div>
-                      <span className={`text-[11px] px-2 py-0.5 rounded-full border mt-1 inline-block ${roundStyle(p.round)}`}>
+                    {/* Name + number + round badge inline */}
+                    <div className="flex-1 min-w-0 flex items-center gap-2">
+                      <span className="font-semibold text-white text-sm leading-tight truncate">{p.first_name}</span>
+                      <span className="text-[10px] text-gray-600 font-mono flex-shrink-0">#{p.number}</span>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full border flex-shrink-0 ${roundStyle(p.round)}`}>
                         {roundLabel(p.round)}
                       </span>
+                      {newNums.has(num) && (
+                        <span className="text-[9px] bg-purple-900/60 text-purple-300 border border-purple-700/50 rounded-full px-1.5 py-0.5 font-semibold flex items-center gap-0.5 flex-shrink-0"><Sparkles size={7} className="inline" /> جديد</span>
+                      )}
                     </div>
 
-                    {/* Note toggle button — single tap opens notes, hold to drag */}
+                    {/* Note toggle button */}
                     <button
                       onClick={e => { e.stopPropagation(); setOpenNote(openNote === num ? null : num) }}
-                      className={`w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-lg transition-all ${
+                      className={`w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-lg transition-all ${
                         notes[num]
                           ? "bg-amber-500/15 border border-amber-600/30 text-amber-400"
                           : "text-gray-700 hover:text-gray-500"
                       }`}
                       title="ملاحظة خاصة"
                     >
-                      <PenLine size={13} />
+                      <PenLine size={12} />
                     </button>
 
                     {/* Drag handle */}
-                    <GripVertical size={17} className="text-gray-600 flex-shrink-0" />
+                    <GripVertical size={15} className="text-gray-600 flex-shrink-0" />
                   </div>
 
                   {/* Collapsible note area */}
@@ -2209,7 +2207,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                         className="overflow-hidden"
                         onPointerDown={e => e.stopPropagation()}
                       >
-                        <div className="pt-3 mt-3 border-t border-gray-800/50">
+                        <div className="pt-2 mt-2 border-t border-gray-800/50">
                           <textarea
                             value={notes[num] || ""}
                             onChange={e => setNotes(prev => ({ ...prev, [num]: e.target.value }))}
@@ -2217,9 +2215,9 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                             placeholder="ملاحظة خاصة — لن يراها أحد غيرك..."
                             rows={2}
                             dir="rtl"
-                            className="w-full bg-gray-800/60 border border-gray-700/50 focus:border-amber-600/50 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 resize-none outline-none transition-colors cursor-text"
+                            className="w-full bg-gray-800/60 border border-gray-700/50 focus:border-amber-600/50 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-600 resize-none outline-none transition-colors cursor-text"
                           />
-                          <p className="text-[10px] mt-1 text-right transition-colors" style={{ color: savingNote === num ? "#f59e0b" : "#374151" }}>
+                          <p className="text-[9px] mt-0.5 text-right transition-colors" style={{ color: savingNote === num ? "#f59e0b" : "#374151" }}>
                             {savingNote === num ? "جاري الحفظ..." : notes[num]?.trim() ? "✓ محفوظة" : "تُحفظ تلقائياً عند المغادرة"}
                           </p>
                         </div>
@@ -2234,19 +2232,19 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
       </div>
 
       {/* Fixed submit bar */}
-      <div className="fixed bottom-0 inset-x-0 p-5 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent pt-10">
+      <div className="fixed bottom-0 inset-x-0 p-3 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent pt-6">
         <div className="max-w-md mx-auto">
           {submitted ? (
-            <div className="space-y-2 text-center">
-              <div className={`flex items-center justify-center gap-2 rounded-2xl py-3.5 px-4 ${autoSavedRef.current ? 'bg-amber-900/30 border border-amber-700/40' : 'bg-emerald-900/30 border border-emerald-700/40'}`}>
-                {autoSavedRef.current ? <Clock size={18} className="text-amber-400" /> : <CheckCircle size={18} className="text-emerald-400" />}
-                <span className={`font-bold text-sm ${autoSavedRef.current ? 'text-amber-300' : 'text-emerald-300'}`}>
+            <div className="space-y-1.5 text-center">
+              <div className={`flex items-center justify-center gap-2 rounded-xl py-2.5 px-4 ${autoSavedRef.current ? 'bg-amber-900/30 border border-amber-700/40' : 'bg-emerald-900/30 border border-emerald-700/40'}`}>
+                {autoSavedRef.current ? <Clock size={16} className="text-amber-400" /> : <CheckCircle size={16} className="text-emerald-400" />}
+                <span className={`font-bold text-xs ${autoSavedRef.current ? 'text-amber-300' : 'text-emerald-300'}`}>
                   {autoSavedRef.current ? 'تم حفظ تصنيفك تلقائياً' : 'تم إرسال تصنيفك'}
                 </span>
               </div>
-              <p className="text-gray-600 text-[11px]">انتظر المنظم للانتقال للمرحلة التالية</p>
+              <p className="text-gray-600 text-[10px]">انتظر المنظم للانتقال للمرحلة التالية</p>
               <button onClick={() => setSubmitted(false)} disabled={submitting}
-                className="text-gray-500 hover:text-gray-300 text-xs underline transition-colors">
+                className="text-gray-500 hover:text-gray-300 text-[11px] underline transition-colors">
                 تعديل التصنيف
               </button>
             </div>
@@ -2256,9 +2254,9 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                 onClick={() => setShowConfirm(true)}
                 disabled={submitting}
                 whileTap={{ scale: 0.97 }}
-                className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-60 text-white rounded-2xl py-4 font-bold text-base shadow-2xl shadow-purple-600/30 transition-all"
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-60 text-white rounded-xl py-3 font-bold text-sm shadow-2xl shadow-purple-600/30 transition-all"
               >
-                {submitting ? <Spinner size={18} className="!text-white" /> : <Send size={18} />}
+                {submitting ? <Spinner size={16} className="!text-white" /> : <Send size={16} />}
                 {completedRounds >= 2 ? 'إرسال التصنيف النهائي' : 'حفظ التصنيف'}
               </motion.button>
               <p className="text-center text-gray-700 text-[11px] mt-2">

@@ -26,7 +26,7 @@ export default function AdminCohostPage() {
       const res = await fetch("/api/admin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "e3-get-attendance" }),
+        body: JSON.stringify({ action: "e3-get-attendance", password: "soulmatch2026" }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -51,7 +51,7 @@ export default function AdminCohostPage() {
       const res = await fetch("/api/admin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "e3-set-attendance", participant_number: p.number, attended: !p.attended }),
+        body: JSON.stringify({ action: "e3-set-attendance", password: "soulmatch2026", participant_number: p.number, attended: !p.attended }),
       })
       const data = await res.json()
       if (res.ok && data.success) {

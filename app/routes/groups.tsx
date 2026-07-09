@@ -59,6 +59,16 @@ interface Game {
 
 const games: Game[] = [
   {
+    id: "hot-seat",
+    name: "Hot Seat",
+    nameAr: "الكرسي الساخن",
+    description: "Each person gets 2 minutes in the hot seat — anyone can ask anything",
+    descriptionAr: "كل شخص يجلس على الكرسي الساخن لمدة دقيقتين والجميع يسألونه أي سؤال",
+    duration: 12,
+    icon: <Mic className="w-6 h-6" />,
+    color: "from-amber-500 to-orange-600"
+  },
+  {
     id: "discussion-questions",
     name: "Discussion Questions",
     nameAr: "أسئلة للنقاش",
@@ -130,18 +140,6 @@ games.push({
   duration: 12,
   icon: <Ghost className="w-6 h-6" />,
   color: "from-fuchsia-600 to-purple-700"
-})
-
-// Append Hot Seat game as the 8th option
-games.push({
-  id: "hot-seat",
-  name: "Hot Seat",
-  nameAr: "الكرسي الساخن",
-  description: "Each person gets 2 minutes in the hot seat — anyone can ask anything",
-  descriptionAr: "كل شخص يجلس على الكرسي الساخن لمدة دقيقتين والجميع يسألونه أي سؤال",
-  duration: 12,
-  icon: <Mic className="w-6 h-6" />,
-  color: "from-amber-500 to-orange-600"
 })
 
 // Premium visual themes per game for selection cards + gameplay surfaces
@@ -848,6 +846,30 @@ const hotSeatQuestions: string[] = [
   "وش الشي اللي تحس إنه ما ينقال عنك كثير بس هو جزء أساسي منك؟",
   "لو فقدت كل شي بكره… وش اللي بتبحث عنه أولاً؟",
   "وش السؤال اللي تخاف يجيك وما تبي أحد يسألك فيه؟",
+  "وش الشي اللي تحس إنك مغبون فيه من الناس؟",
+  "متى آخر مرة بكيت؟ وش كان السبب؟",
+  "وش الحلم اللي ترددت في طرده ولسه متمسك فيه؟",
+  "لو مات أحد غالي عليك بكره… وش الشي اللي بتندم إنك ما قلته له؟",
+  "وش النوع اللي تنجذب له وما تقدر تقاومه؟",
+  "كيف تتعامل مع الغيرة؟ هل تغار بسهولة ولا تستطيع تخفيها؟",
+  "وش الشي اللي تعتبره خيانة عاطفية ولو بدون أي علاقة؟",
+  "لو خيروك بين شخص يحبك أكثر أو شخص تحبه أكثر… بتختار وش؟",
+  "وش الشي اللي يخليك تقطع علاقة بشخص فجأة بدون تردد؟",
+  "متى حسيت إنك وحدك وسط ناس كثيرين؟",
+  "وش الشي اللي تخفيه عن المقربين منك وتحس إنهم لو عرفوه بيغيرون نظرتهم عنك؟",
+  "لو وصفت حياتك الحين كأنها فيلم… وش بيكون اسمه؟",
+  "وش الشي اللي تحس إنك تستاهله وما تحصله؟",
+  "مين الشخص اللي تتظاهر إنك ما تهتم له بس في الحقيقة تهتم له جداً؟",
+  "وش القرار اللي تعرف إنه صح بس ما تقدر تاخذه؟",
+  "كيف تحس إنك تتعامل مع الرفض؟",
+  "وش الشي اللي لو قاله لك أحد تحس إنه فعلاً يعرفك؟",
+  "لو في شي واحد تبي تقوله لنفسك من 5 سنين… وش بيكون؟",
+  "وش الشي اللي تحس إنه ما لك حق تطلبه من أحد بس تحتاجه؟",
+  "متى حسيت إنك كبرت فعلاً؟",
+  "وش الشي اللي تعتبره سلام داخلي وهل وصلته؟",
+  "لو تقدر تسأل الله سؤال واحد… وش بتسأله؟",
+  "وش الشي اللي تحس إنك تضحك عليه قدام الناس بس يوجعك بصدق؟",
+  "مين أنت الحين مقارنة بالشخص اللي كنت تتمنى تكونه؟",
 ];
 
 // ولا كلمة topics - focused on 3 main categories with no duplicates
@@ -2399,12 +2421,12 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
                   <div className="absolute -top-14 -right-14 w-40 h-40 bg-white/5 rounded-full blur-3xl"></div>
                   <div className="absolute -bottom-16 -left-16 w-44 h-44 bg-white/5 rounded-full blur-3xl"></div>
 
-                  {/* Recommended / New badges */}
-                  {index === 0 && (
+                  {/* Hot Seat v4.0 badge */}
+                  {game.id === 'hot-seat' && (
                     <div className="absolute top-2 left-2 z-10">
-                      <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg border border-white/20 animate-pulse flex items-center gap-1">
-                        <Star className="w-2.5 h-2.5 fill-current" />
-                        <span>موصى به</span>
+                      <div className="bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg border border-white/20 animate-pulse flex items-center gap-1">
+                        <Sparkles className="w-2.5 h-2.5 fill-current" />
+                        <span>v4.0</span>
                       </div>
                     </div>
                   )}
@@ -3349,9 +3371,6 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
                 </h4>
                 <ol className="text-amber-100/90 space-y-3 list-decimal list-inside">
                   <li className="flex items-start">
-                    <span className="font-medium">اكتبوا أسماء المشاركين على الطاولة (أو استخدموا الأسماء الموجودة).</span>
-                  </li>
-                  <li className="flex items-start">
                     <span className="font-medium">اضغطوا "ابدأ" ليبدأ الشخص الأول جلسته على الكرسي الساخن (دقيقتان).</span>
                   </li>
                   <li className="flex items-start">
@@ -3480,14 +3499,23 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
                           className="text-white text-lg font-semibold leading-relaxed"
                         >
                           {shuffledHotSeat.length > 0
-                            ? shuffledHotSeat[hotSeatQuestionIndex % shuffledHotSeat.length]
-                            : hotSeatQuestions[hotSeatQuestionIndex % hotSeatQuestions.length]}
+                            ? shuffledHotSeat[hotSeatQuestionIndex] ?? shuffledHotSeat[0]
+                            : hotSeatQuestions[hotSeatQuestionIndex] ?? hotSeatQuestions[0]}
                         </motion.p>
                       </AnimatePresence>
                     </div>
                     <div className="flex justify-center gap-3">
                       <Button
-                        onClick={() => setHotSeatQuestionIndex(prev => prev + 1)}
+                        onClick={() => {
+                          setHotSeatQuestionIndex(prev => {
+                            const len = shuffledHotSeat.length || hotSeatQuestions.length;
+                            if (prev + 1 >= len) {
+                              setShuffledHotSeat(shuffleArray(hotSeatQuestions));
+                              return 0;
+                            }
+                            return prev + 1;
+                          });
+                        }}
                         className="bg-gradient-to-r from-amber-600 to-orange-700 hover:from-amber-700 hover:to-orange-800 text-white px-5 py-2 rounded-xl font-semibold shadow-lg transition-all hover:scale-105"
                       >
                         <ChevronRight className="w-4 h-4 mr-2" />

@@ -2070,70 +2070,55 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
           )}
         </AnimatePresence>
 
-        {/* Sticky header — compact */}
-        <div className="sticky top-0 bg-gray-950/95 backdrop-blur-md z-10 border-b border-gray-800/50">
-          <div className="px-4 pt-2 pb-1.5">
-            <div className="flex items-center justify-center gap-2">
-              <Trophy size={14} className="text-amber-400" />
-              <h1 className="text-sm font-bold text-white">رتّب أولوياتك</h1>
-              <span className="text-gray-500 text-[10px]">· {people.length} أشخاص</span>
-              {submitted && (
-                <span className="flex items-center gap-1 bg-emerald-900/30 border border-emerald-800/40 rounded-full px-2 py-0.5">
-                  <CheckCircle size={9} className="text-emerald-400" />
-                  <span className="text-emerald-300 text-[10px] font-semibold">تم الإرسال</span>
-                </span>
-              )}
-              {/* Timer badge */}
-              {!submitted && !autoSaving && timeLeft > 0 && (
-                <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 font-mono font-bold text-[11px] tabular-nums transition-colors ${
-                  timeLeft <= 30
-                    ? 'bg-red-900/40 border border-red-700/50 text-red-300 animate-pulse'
-                    : timeLeft <= 60
-                    ? 'bg-amber-900/30 border border-amber-700/40 text-amber-300'
-                    : 'bg-gray-800/60 border border-gray-700/50 text-gray-300'
-                }`}>
-                  <Clock size={10} className={timeLeft <= 30 ? 'text-red-400' : 'text-gray-400'} />
-                  {formatTime(timeLeft)}
-                </span>
-              )}
-              {autoSaving && (
-                <span className="flex items-center gap-1 bg-amber-900/30 border border-amber-700/40 rounded-full px-2 py-0.5">
-                  <Spinner size={10} className="!text-amber-400" />
-                  <span className="text-amber-300 text-[10px] font-semibold">حفظ تلقائي...</span>
-                </span>
-              )}
+        {/* Sticky header — sleek */}
+        <div className="sticky top-0 z-10 bg-gray-950/90 backdrop-blur-xl">
+          <div className="px-4 pt-3 pb-2.5 border-b border-white/[0.06]">
+            {/* Title row */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-600/30 to-pink-600/20 border border-purple-500/20 flex items-center justify-center">
+                  <Trophy size={15} className="text-purple-300" />
+                </div>
+                <div>
+                  <h1 className="text-sm font-bold text-white leading-tight">رتّب أولوياتك</h1>
+                  <p className="text-gray-600 text-[10px] leading-tight">{people.length} أشخاص · اسحب للترتيب</p>
+                </div>
+              </div>
+
+              {/* Timer / status — right side */}
+              <div className="flex items-center gap-2">
+                {autoSaving ? (
+                  <span className="flex items-center gap-1.5 text-amber-300 text-[11px] font-semibold">
+                    <Spinner size={12} className="!text-amber-400" /> حفظ...
+                  </span>
+                ) : submitted ? (
+                  <span className="flex items-center gap-1.5 text-emerald-300 text-[11px] font-semibold">
+                    <CheckCircle size={13} className="text-emerald-400" /> تم الإرسال
+                  </span>
+                ) : timeLeft > 0 ? (
+                  <span className={`flex items-center gap-1.5 font-mono font-bold text-sm tabular-nums transition-colors ${
+                    timeLeft <= 30
+                      ? 'text-red-400'
+                      : timeLeft <= 60
+                      ? 'text-amber-400'
+                      : 'text-gray-300'
+                  }`}>
+                    <Clock size={13} className={timeLeft <= 30 ? 'text-red-400' : 'text-gray-500'} />
+                    {formatTime(timeLeft)}
+                  </span>
+                ) : null}
+              </div>
             </div>
-            <div className="flex items-center justify-center gap-1.5 mt-1">
-              <span className="text-purple-300 text-[9px] bg-purple-900/30 border border-purple-800/40 rounded-full px-2 py-0.5 font-medium">
-                اسحب للترتيب · سري تماماً
-              </span>
-              {submitted && (
-                <span className="text-emerald-400 text-[10px] bg-emerald-900/20 rounded-full px-2 py-0.5 flex items-center gap-1">
-                  <CheckCircle size={9} className="inline" /> لديك تصنيف محفوظ
+
+            {/* New badge — only when relevant */}
+            {newNums.size > 0 && !submitted && (
+              <div className="mt-2">
+                <span className="text-purple-400 text-[10px] bg-purple-900/20 border border-purple-800/30 rounded-full px-2.5 py-0.5 font-medium inline-flex items-center gap-1">
+                  <Sparkles size={10} className="inline" /> {newNums.size} أشخاص جدد من الجولة الثانية
                 </span>
-              )}
-              {newNums.size > 0 && (
-                <span className="text-purple-400 text-[10px] bg-purple-900/20 rounded-full px-2 py-0.5 flex items-center gap-1">
-                  <Sparkles size={10} className="inline" /> {newNums.size} جديد
-                </span>
-              )}
-            </div>
+              </div>
+            )}
           </div>
-
-          {/* Round legend */}
-          <div className="px-4 pb-1.5 flex gap-1.5 justify-center flex-wrap">
-            {Array.from({ length: completedRounds }, (_, i) => i + 1).map(r => (
-              <span key={r} className={`text-[10px] px-2.5 py-0.5 rounded-full border ${roundStyle(r)}`}>
-                {roundLabel(r)}
-              </span>
-            ))}
-          </div>
-
-        </div>
-
-        {/* Scroll hint */}
-        <div className="text-center pt-1 pb-1">
-          <InfoHint text="مرّر للأسفل لرؤية الجميع · اسحب من المقابض لإعادة الترتيب" delay={0.5} duration={3} />
         </div>
 
         {/* Drag-to-reorder list */}

@@ -91,8 +91,8 @@ export default function AdminCohostPage() {
             <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-teal-600/30 to-cyan-600/20 border border-teal-500/20 flex items-center justify-center mb-4">
               <Heart size={24} className="text-teal-300" />
             </div>
-            <h1 className="text-xl font-bold text-white">Co-Host Access</h1>
-            <p className="text-gray-500 text-sm mt-1">SoulMatch Event Attendance</p>
+            <h1 className="text-xl font-bold text-white">Bayan · Co-Host</h1>
+            <p className="text-gray-500 text-sm mt-1">Event Attendance</p>
           </div>
           <form onSubmit={handleAuth} className="space-y-3">
             <div className="relative">
@@ -132,7 +132,7 @@ export default function AdminCohostPage() {
               </div>
               <div>
                 <h1 className="text-sm font-bold leading-tight">Attendance</h1>
-                <p className="text-gray-600 text-[10px] leading-tight">SoulMatch · Co-Host</p>
+                <p className="text-gray-600 text-[10px] leading-tight">Bayan</p>
               </div>
             </div>
             <div className="flex items-center gap-3">

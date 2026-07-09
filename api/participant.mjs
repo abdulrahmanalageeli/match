@@ -2781,6 +2781,7 @@ Please respond in JSON format:
                   }
                   if (mates.length > 0) {
                     const rows = mates.map((num, idx) => ({ match_id: E3_MATCH_ID, event_id: 3, ranker_number: myNumber, ranked_number: num, rank: idx + 1, auto_saved: true }))
+                    await supabase.from("participant_rankings").delete().eq("match_id", E3_MATCH_ID).eq("ranker_number", myNumber)
                     await supabase.from("participant_rankings").insert(rows)
                     console.log(`[auto-save] Server auto-saved rankings for #${myNumber} (${rows.length} entries, rounds 1-${maxRound}) — ranking timer expired`)
                   }

@@ -7399,6 +7399,81 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           ])
           return res.status(200).json({ message: "Event reset successfully" })
         }
+
+        // e3-get-attendance — fetch event3 participants with attendance + match info
+        if (action === "e3-get-attendance") {
+          try {
+            const { data: ep } = await supabase.from("event3_participants").select("participant_number,position").eq("match_id", EVENT3_MATCH_ID).order("position", { ascending: true })
+            if (!ep || ep.length === 0) return res.status(200).json({ participants: [], attended: 0, total: 0 })
+
+            const numbers = ep.map(r => r.participant_number)
+
+            // Fetch participant details
+            const { data: pdata } = await supabase.from("participants").select("assigned_number,name,gender,age").eq("match_id", STATIC_MATCH_ID).in("assigned_number", numbers)
+            const infoMap = {}
+            for (const p of pdata || []) infoMap[p.assigned_number] = p
+
+            // Fetch phase2 matches
+            const { data: matchRows } = await supabase.from("event3_matches").select("participant_number,phase2_partner").eq("match_id", EVENT3_MATCH_ID)
+            const matchMap = {}
+            for (const m of matchRows || []) {
+              matchMap[m.participant_number] = m.phase2_partner
+              if (m.phase2_partner) matchMap[m.phase2_partner] = m.participant_number
+            }
+
+            // Fetch attendance (event_id=3 for event3)
+            const { data: attendanceRows } = await supabase.from("event_attendance").select("participant_number,attended").eq("match_id", STATIC_MATCH_ID).eq("event_id", 3).in("participant_number", numbers)
+            const attendanceMap = {}
+            for (const a of attendanceRows || []) attendanceMap[a.participant_number] = !!a.attended
+
+            const participants = numbers.map(num => ({
+              number: num,
+              name: infoMap[num]?.name || `#${num}`,
+              gender: infoMap[num]?.gender || null,
+              age: infoMap[num]?.age || null,
+              matched_with: matchMap[num] || null,
+              attended: attendanceMap[num] || false,
+            }))
+
+            const attended = participants.filter(p => p.attended).length
+            return res.status(200).json({ participants, attended, total: participants.length })
+          } catch (e) {
+            console.error("Error in e3-get-attendance:", e)
+            return res.status(500).json({ error: "Failed to fetch attendance" })
+          }
+        }
+
+        // e3-set-attendance — toggle attendance for an event3 participant
+        if (action === "e3-set-attendance") {
+          try {
+            const { participant_number, attended } = req.body
+            const pNum = Number(participant_number)
+            if (!Number.isFinite(pNum) || pNum <= 0 || pNum === 9999) {
+              return res.status(400).json({ error: "Invalid participant_number" })
+            }
+            const { data, error } = await supabase
+              .from("event_attendance")
+              .upsert({
+                match_id: STATIC_MATCH_ID,
+                event_id: 3,
+                participant_number: pNum,
+                attended: !!attended,
+                updated_at: new Date().toISOString(),
+                updated_by: "cohost"
+              }, { onConflict: "match_id, event_id, participant_number" })
+              .select("participant_number, attended")
+              .single()
+            if (error) {
+              console.error("e3-set-attendance error:", error)
+              return res.status(500).json({ error: error.message })
+            }
+            return res.status(200).json({ success: true, participant_number: data?.participant_number || pNum, attended: data?.attended ?? !!attended })
+          } catch (e) {
+            console.error("Error in e3-set-attendance:", e)
+            return res.status(500).json({ error: "Failed to set attendance" })
+          }
+        }
+
         return res.status(400).json({ error: `Unknown e3 action: ${action}` })
       } catch (e3err) {
         console.error("e3 admin error:", e3err)
@@ -7407,6 +7482,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
     }
 
     return res.status(405).json({ error: "Unsupported method or action" })
+
   } catch (error) {
     console.error("Error processing request:", error)
     return res.status(500).json({ error: "Failed to process the request" })

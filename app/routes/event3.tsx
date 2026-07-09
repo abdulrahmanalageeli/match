@@ -3729,6 +3729,7 @@ function MoodCheckModal({ token }: { token: string }) {
   const [pendingCheck, setPendingCheck] = useState<{ check_id: string; triggered_at: string } | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
+  const [selected, setSelected] = useState<string | null>(null)
 
   useEffect(() => {
     if (!token) return
@@ -3749,21 +3750,23 @@ function MoodCheckModal({ token }: { token: string }) {
 
   const submit = async (mood: "happy" | "neutral" | "not_great") => {
     if (!pendingCheck) return
+    setSelected(mood)
     setSubmitting(true)
     const d = await call("e3-submit-mood-check", token, { check_id: pendingCheck.check_id, mood })
     setSubmitting(false)
-    if (d.error) { toast.error(d.error); return }
+    if (d.error) { toast.error(d.error); setSelected(null); return }
     setDismissed(prev => new Set(prev).add(pendingCheck.check_id))
     setPendingCheck(null)
-    toast.success("شكراً لك! 🙏")
+    setSelected(null)
+    toast.success("شكراً لك")
   }
 
   if (!pendingCheck) return null
 
   const options = [
-    { mood: "happy" as const, emoji: "😄", label: "ممتاز", color: "from-green-500 to-emerald-600", ring: "ring-green-400" },
-    { mood: "neutral" as const, emoji: "😐", label: "لا بأس", color: "from-yellow-500 to-amber-600", ring: "ring-yellow-400" },
-    { mood: "not_great" as const, emoji: "😕", label: "مو حاسّ نفسي", color: "from-red-500 to-rose-600", ring: "ring-red-400" },
+    { mood: "happy" as const, icon: <Smile size={26} />, label: "ممتاز", gradient: "from-emerald-500/80 to-teal-600/80", ring: "ring-emerald-400/60", glow: "shadow-[0_0_30px_-4px_rgba(16,185,129,0.4)]", textCls: "text-emerald-300", bgCls: "bg-emerald-500/15" },
+    { mood: "neutral" as const, icon: <Meh size={26} />, label: "عادي", gradient: "from-amber-500/80 to-yellow-600/80", ring: "ring-amber-400/60", glow: "shadow-[0_0_30px_-4px_rgba(245,158,11,0.4)]", textCls: "text-amber-300", bgCls: "bg-amber-500/15" },
+    { mood: "not_great" as const, icon: <Frown size={26} />, label: "مو مره", gradient: "from-red-500/80 to-rose-600/80", ring: "ring-red-400/60", glow: "shadow-[0_0_30px_-4px_rgba(239,68,68,0.4)]", textCls: "text-red-300", bgCls: "bg-red-500/15" },
   ]
 
   return (
@@ -3772,38 +3775,50 @@ function MoodCheckModal({ token }: { token: string }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+        className="fixed inset-0 z-[300] bg-black/40 backdrop-blur-md flex items-center justify-center p-5"
       >
         <motion.div
-          initial={{ scale: 0.9, y: 20 }}
+          initial={{ scale: 0.92, y: 16 }}
           animate={{ scale: 1, y: 0 }}
-          exit={{ scale: 0.9, y: 20 }}
-          className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-3xl p-8 max-w-sm w-full shadow-2xl border border-slate-700/50 text-center"
+          exit={{ scale: 0.92, y: 16 }}
+          transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+          className="w-full max-w-sm rounded-3xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl p-7 text-center"
           dir="rtl"
         >
-          <div className="mb-6">
-            <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center mb-4 shadow-lg">
-              <Heart size={28} className="text-white" />
+          {/* Header */}
+          <div className="space-y-2 mb-7">
+            <div className="w-12 h-12 mx-auto rounded-full bg-gradient-to-br from-purple-500/30 to-pink-500/20 border border-purple-400/20 flex items-center justify-center mb-1">
+              <Heart size={20} className="text-purple-300" />
             </div>
-            <h2 className="text-white text-xl font-bold mb-2">كيف تشعر الآن؟</h2>
-            <p className="text-gray-400 text-sm">المنظم يريد يعرف مزاجك اللحظي</p>
+            <p className="text-2xl font-black text-white">شلونك الحين؟</p>
+            <p className="text-gray-500 text-sm">كيف حاسّك هذي اللحظة</p>
           </div>
 
+          {/* Options */}
           <div className="space-y-3">
-            {options.map(opt => (
-              <button
-                key={opt.mood}
-                disabled={submitting}
-                onClick={() => submit(opt.mood)}
-                className={`w-full flex items-center gap-4 p-4 rounded-2xl bg-gradient-to-r ${opt.color} text-white font-semibold text-lg shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 ring-2 ring-transparent hover:${opt.ring}`}
-              >
-                <span className="text-3xl">{opt.emoji}</span>
-                <span className="flex-1 text-right">{opt.label}</span>
-              </button>
-            ))}
+            {options.map(opt => {
+              const isSelected = selected === opt.mood
+              return (
+                <motion.button key={opt.mood} whileTap={{ scale: 0.97 }}
+                  disabled={submitting}
+                  onClick={() => submit(opt.mood)}
+                  className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all duration-200 ${
+                    isSelected
+                      ? `${opt.bgCls} ring-2 ${opt.ring} ${opt.glow}`
+                      : 'bg-white/[0.04] ring-1 ring-white/[0.06] hover:bg-white/[0.07]'
+                  }`}>
+                  <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${opt.gradient} flex items-center justify-center text-white shrink-0 transition-transform duration-200 ${isSelected ? 'scale-110' : 'scale-95 opacity-80'}`}>
+                    {opt.icon}
+                  </div>
+                  <div className="flex-1 text-right">
+                    <p className={`font-bold text-base transition-colors ${isSelected ? opt.textCls : 'text-white'}`}>{opt.label}</p>
+                  </div>
+                </motion.button>
+              )
+            })}
           </div>
 
-          <p className="text-gray-600 text-[10px] mt-5">سري تماماً · يراه المنظم فقط</p>
+          <p className="text-gray-700 text-[10px] mt-6">سري · ما يطلع عليه أحد</p>
         </motion.div>
       </motion.div>
     </AnimatePresence>

@@ -408,8 +408,11 @@ export default function ResultsPage() {
     if (!resultsData?.history?.length) return
     setExpandedEvents(prev => {
       if (prev && Object.keys(prev).length > 0) return prev
-      const firstEventId = resultsData.history.find(m => typeof m.event_id === 'number' && m.event_id > 0)?.event_id
-      const safeEventId = (typeof firstEventId === 'number' && firstEventId > 0) ? firstEventId : (resultsData.event_id || 1)
+      const maxEventId = resultsData.history.reduce((max, m) => {
+        const eid = typeof m.event_id === 'number' && m.event_id > 0 ? m.event_id : 0
+        return eid > max ? eid : max
+      }, 0)
+      const safeEventId = maxEventId > 0 ? maxEventId : (resultsData.event_id || 1)
       return { [safeEventId]: true }
     })
   }, [resultsData])

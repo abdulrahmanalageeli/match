@@ -7154,7 +7154,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         if (action === "e3-get-feedback") {
           const { data: matchRows } = await supabase
             .from("event3_matches")
-            .select("participant_number, phase2_partner, phase3_partner, phase2_feedback, phase3_feedback")
+            .select("participant_number, phase2_partner, phase3_partner, phase2_feedback, phase3_feedback, match_preference")
             .eq("match_id", EVENT3_MATCH_ID)
           if (!matchRows || matchRows.length === 0)
             return res.status(200).json({ phase2: [], phase3: [], phase2_submitted: 0, phase3_submitted: 0, total_participants: 0 })
@@ -7172,14 +7172,14 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               const partnerFb = partnerRow?.phase2_feedback || null
               const myFb = row.phase2_feedback || null
               const mutualYes = !!(myFb?.wantConnect === true && partnerFb?.wantConnect === true)
-              phase2.push({ participant_number: row.participant_number, participant_name: getName(row.participant_number), partner_number: row.phase2_partner, partner_name: getName(row.phase2_partner), feedback: myFb, submitted: !!row.phase2_feedback, partner_submitted: !!partnerFb, partner_feedback: partnerFb, mutual_yes: mutualYes })
+              phase2.push({ participant_number: row.participant_number, participant_name: getName(row.participant_number), partner_number: row.phase2_partner, partner_name: getName(row.phase2_partner), feedback: myFb, submitted: !!row.phase2_feedback, partner_submitted: !!partnerFb, partner_feedback: partnerFb, mutual_yes: mutualYes, match_preference: row.match_preference || null })
             }
             if (row.phase3_partner) {
               const partnerRow = matchMap[row.phase3_partner]
               const partnerFb = partnerRow?.phase3_feedback || null
               const myFb = row.phase3_feedback || null
               const mutualYes = !!(myFb?.wantConnect === true && partnerFb?.wantConnect === true)
-              phase3.push({ participant_number: row.participant_number, participant_name: getName(row.participant_number), partner_number: row.phase3_partner, partner_name: getName(row.phase3_partner), feedback: myFb, submitted: !!row.phase3_feedback, partner_submitted: !!partnerFb, partner_feedback: partnerFb, mutual_yes: mutualYes })
+              phase3.push({ participant_number: row.participant_number, participant_name: getName(row.participant_number), partner_number: row.phase3_partner, partner_name: getName(row.phase3_partner), feedback: myFb, submitted: !!row.phase3_feedback, partner_submitted: !!partnerFb, partner_feedback: partnerFb, mutual_yes: mutualYes, match_preference: row.match_preference || null })
             }
           }
           const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID)

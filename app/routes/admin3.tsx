@@ -3391,8 +3391,52 @@ export default function Admin3Page() {
             const stars = (n: number) => Array.from({ length: 5 }, (_, i) => (
               <span key={i} className={i < n ? "text-yellow-400" : "text-gray-700"}>★</span>
             ))
+            // Pair-level analysis: group by pair, count where both submitted
+            const pairMap: Record<string, { a?: any; b?: any }> = {}
+            for (const e of entries) {
+              const key = [e.participant_number, e.partner_number].sort((x, y) => x - y).join("-")
+              if (!pairMap[key]) pairMap[key] = {}
+              if (e.participant_number < e.partner_number) pairMap[key].a = e
+              else pairMap[key].b = e
+            }
+            const bothSubmittedPairs = Object.values(pairMap).filter(p => p.a?.submitted && p.b?.submitted)
+            const mutualPairs = bothSubmittedPairs.filter(p => {
+              const aFb = p.a?.feedback || {}
+              const bFb = p.b?.feedback || {}
+              return aFb.wantConnect === true && bFb.wantConnect === true
+            })
+            const notMutualPairs = bothSubmittedPairs.length - mutualPairs.length
             return (
               <div className="space-y-5">
+              {/* Analysis summary */}
+              {bothSubmittedPairs.length > 0 && (
+                <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs font-bold text-gray-300">تحليل المطابقة المتبادلة</span>
+                    <span className="text-[10px] text-gray-600">({feedbackPhase === "phase2" ? "اختيارك" : "الخوارزمية"})</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="bg-gray-950/60 rounded-lg p-2 text-center">
+                      <div className="text-lg font-bold text-white">{bothSubmittedPairs.length}</div>
+                      <div className="text-[9px] text-gray-500">كلاهما أرسل</div>
+                    </div>
+                    <div className="bg-emerald-950/40 border border-emerald-800/30 rounded-lg p-2 text-center">
+                      <div className="text-lg font-bold text-emerald-400">{mutualPairs.length}</div>
+                      <div className="text-[9px] text-emerald-500">ارادوا التواصل</div>
+                    </div>
+                    <div className="bg-gray-950/60 rounded-lg p-2 text-center">
+                      <div className="text-lg font-bold text-gray-400">{notMutualPairs}</div>
+                      <div className="text-[9px] text-gray-500">لم يرغبوا</div>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-center justify-center gap-1.5 text-[10px] text-gray-500">
+                    <span className="text-emerald-400 font-bold">{mutualPairs.length}</span>
+                    <span>/</span>
+                    <span className="text-white font-bold">{bothSubmittedPairs.length}</span>
+                    <span>مطابقة متبادلة</span>
+                  </div>
+                </div>
+              )}
                 {submitted.length > 0 && (
                   <div>
                     <p className="text-xs text-gray-400 font-medium mb-2 flex items-center gap-1.5">
@@ -3410,6 +3454,19 @@ export default function Admin3Page() {
                             <div className={`absolute top-0 right-0 w-1 h-full ${feedbackPhase === "phase2" ? "bg-pink-600" : "bg-purple-600"}`} />
                             {mutualYes && (
                               <div className="absolute top-2 left-2 text-[9px] bg-emerald-900/60 border border-emerald-600/50 text-emerald-300 px-1.5 py-0.5 rounded-full font-bold">❤️ توافق محتمل</div>
+                            )}
+                            {entry.match_preference && (
+                              <div className={`absolute top-2 ${mutualYes ? 'left-2 top-8' : 'left-2'} text-[9px] px-1.5 py-0.5 rounded-full border font-bold ${
+                                entry.match_preference === 'choice' ? 'bg-pink-900/60 border-pink-600/50 text-pink-300' :
+                                entry.match_preference === 'algorithm' ? 'bg-purple-900/60 border-purple-600/50 text-purple-300' :
+                                entry.match_preference === 'both' ? 'bg-emerald-900/60 border-emerald-600/50 text-emerald-300' :
+                                'bg-gray-800 border-gray-600/50 text-gray-400'
+                              }`}>
+                                {entry.match_preference === 'choice' ? '💕 اختيار' :
+                                 entry.match_preference === 'algorithm' ? '🧠 خوارزمية' :
+                                 entry.match_preference === 'both' ? '✨ كلاهما' :
+                                 '— لا أحد'}
+                              </div>
                             )}
                             <div className="flex items-start justify-between mb-3 pr-2">
                               <div>

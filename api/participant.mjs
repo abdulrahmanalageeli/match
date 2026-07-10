@@ -1425,13 +1425,24 @@ export default async function handler(req, res) {
         const e3Finished = e3State?.phase === "final_reveal"
 
         if (e3Finished) {
-          // Fetch the participant's event3 matches
+          // Fetch the participant's event3 matches (including feedback)
           const { data: e3Match } = await supabase
             .from("event3_matches")
-            .select("phase2_partner,phase2_score,phase2_word,phase3_partner,phase3_score,phase3_word,match_preference")
+            .select("phase2_partner,phase2_score,phase2_word,phase2_feedback,phase3_partner,phase3_score,phase3_word,phase3_feedback,match_preference")
             .eq("match_id", E3_MATCH_ID)
             .eq("participant_number", participant.assigned_number)
             .single()
+
+          // Fetch partner feedback for mutual match computation
+          let p2PartnerFb = null, p3PartnerFb = null
+          if (e3Match?.phase2_partner) {
+            const { data: p2Row } = await supabase.from("event3_matches").select("phase2_feedback").eq("match_id", E3_MATCH_ID).eq("participant_number", e3Match.phase2_partner).single()
+            p2PartnerFb = p2Row?.phase2_feedback || null
+          }
+          if (e3Match?.phase3_partner) {
+            const { data: p3Row } = await supabase.from("event3_matches").select("phase3_feedback").eq("match_id", E3_MATCH_ID).eq("participant_number", e3Match.phase3_partner).single()
+            p3PartnerFb = p3Row?.phase3_feedback || null
+          }
 
           if (e3Match) {
             const partnerNums = [e3Match.phase2_partner, e3Match.phase3_partner].filter(Boolean)
@@ -1481,6 +1492,11 @@ export default async function handler(req, res) {
               if (e3Match.phase2_partner) {
                 const p2Partner = partnerMap[e3Match.phase2_partner]
                 const p2Breakdown = await getBreakdown(e3Match.phase2_partner)
+                const myFb2 = e3Match.phase2_feedback || null
+                const partnerFb2 = p2PartnerFb
+                const myWant2 = myFb2?.wantConnect ?? null
+                const partnerWant2 = partnerFb2?.wantConnect ?? null
+                const mutual2 = myWant2 === true && partnerWant2 === true
                 history.push({
                   with: e3Match.phase2_partner,
                   partner_name: p2Partner?.name || `لاعب رقم ${e3Match.phase2_partner}`,
@@ -1493,18 +1509,30 @@ export default async function handler(req, res) {
                   table_number: null,
                   score: e3Match.phase2_score || 0,
                   is_repeat_match: false,
-                  mutual_match: false,
-                  wants_match: null,
-                  partner_wants_match: null,
+                  mutual_match: mutual2,
+                  wants_match: myWant2,
+                  partner_wants_match: partnerWant2,
                   created_at: null,
                   ai_personality_analysis: null,
                   event_id: 3,
-                  partner_message: null,
+                  partner_message: partnerFb2?.organizerImpression || null,
                   match_type: "choice",
                   match_label: "اختيارك الشخصي",
                   match_word: e3Match.phase2_word || null,
                   breakdown: p2Breakdown,
-                  my_feedback: null,
+                  my_feedback: myFb2 ? {
+                    compatibilityRate: myFb2.compatibilityRate ?? null,
+                    conversationQuality: myFb2.conversationQuality ?? null,
+                    personalConnection: myFb2.personalConnection ?? null,
+                    sharedInterests: myFb2.sharedInterests ?? null,
+                    comfortLevel: myFb2.comfortLevel ?? null,
+                    communicationStyle: myFb2.communicationStyle ?? null,
+                    wouldMeetAgain: myFb2.wouldMeetAgain ?? null,
+                    overallExperience: myFb2.overallExperience ?? null,
+                    recommendations: myFb2.recommendations ?? null,
+                    participantMessage: myFb2.organizerImpression ?? null,
+                    submittedAt: null,
+                  } : null,
                   humor_early_openness_bonus: "none",
                   synergy_score: p2Breakdown?.synergy ?? null,
                   humor_open_score: p2Breakdown?.humorOpen ?? null,
@@ -1519,6 +1547,11 @@ export default async function handler(req, res) {
               if (e3Match.phase3_partner) {
                 const p3Partner = partnerMap[e3Match.phase3_partner]
                 const p3Breakdown = await getBreakdown(e3Match.phase3_partner)
+                const myFb3 = e3Match.phase3_feedback || null
+                const partnerFb3 = p3PartnerFb
+                const myWant3 = myFb3?.wantConnect ?? null
+                const partnerWant3 = partnerFb3?.wantConnect ?? null
+                const mutual3 = myWant3 === true && partnerWant3 === true
                 history.push({
                   with: e3Match.phase3_partner,
                   partner_name: p3Partner?.name || `لاعب رقم ${e3Match.phase3_partner}`,
@@ -1531,19 +1564,31 @@ export default async function handler(req, res) {
                   table_number: null,
                   score: e3Match.phase3_score || 0,
                   is_repeat_match: false,
-                  mutual_match: false,
-                  wants_match: null,
-                  partner_wants_match: null,
+                  mutual_match: mutual3,
+                  wants_match: myWant3,
+                  partner_wants_match: partnerWant3,
                   created_at: null,
                   ai_personality_analysis: null,
                   event_id: 3,
-                  partner_message: null,
+                  partner_message: partnerFb3?.organizerImpression || null,
                   match_type: "algorithm",
                   match_label: "اختيار الخوارزمية",
                   match_word: e3Match.phase3_word || null,
                   breakdown: p3Breakdown,
                   match_preference: e3Match.match_preference || null,
-                  my_feedback: null,
+                  my_feedback: myFb3 ? {
+                    compatibilityRate: myFb3.compatibilityRate ?? null,
+                    conversationQuality: myFb3.conversationQuality ?? null,
+                    personalConnection: myFb3.personalConnection ?? null,
+                    sharedInterests: myFb3.sharedInterests ?? null,
+                    comfortLevel: myFb3.comfortLevel ?? null,
+                    communicationStyle: myFb3.communicationStyle ?? null,
+                    wouldMeetAgain: myFb3.wouldMeetAgain ?? null,
+                    overallExperience: myFb3.overallExperience ?? null,
+                    recommendations: myFb3.recommendations ?? null,
+                    participantMessage: myFb3.organizerImpression ?? null,
+                    submittedAt: null,
+                  } : null,
                   humor_early_openness_bonus: "none",
                   synergy_score: p3Breakdown?.synergy ?? null,
                   humor_open_score: p3Breakdown?.humorOpen ?? null,

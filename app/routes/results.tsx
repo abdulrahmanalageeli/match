@@ -429,16 +429,16 @@ export default function ResultsPage() {
   }, [resultsData])
 
   const getMatchStatusText = (match: MatchResult) => {
-    if (match.wants_match === null || match.partner_wants_match === null) {
-      return { text: "شريكك لم يقبل بعد", color: "text-yellow-500", bgColor: "bg-yellow-100", icon: Clock }
+    if (match.wants_match === null || match.wants_match === undefined) {
+      return { text: "لم تقيم بعد", color: "text-yellow-500", bgColor: "bg-yellow-100", icon: Clock }
     }
     if (match.mutual_match) {
       return { text: "مطابقة متبادلة!", color: "text-emerald-500", bgColor: "bg-emerald-100", icon: Heart }
     }
-    if (match.wants_match === false || match.partner_wants_match === false) {
+    if (match.wants_match === false) {
       return { text: "لا توجد مطابقة", color: "text-red-500", bgColor: "bg-red-100", icon: X }
     }
-    return { text: "شريكك لم يقبل بعد", color: "text-yellow-500", bgColor: "bg-yellow-100", icon: Clock }
+    return { text: "لم تتحقق مطابقة", color: "text-gray-500", bgColor: "bg-gray-100", icon: Clock }
   }
 
   const eventGroups = (() => {
@@ -1110,112 +1110,68 @@ export default function ResultsPage() {
                                 )}
                               </div>
 
-                              {/* Partner's feedback (if available) */}
-                              {pfb && (() => {
-                                return (
-                                  <div className="mt-3 pt-3 border-t border-gray-700/40">
-                                    <p className="text-[10px] text-gray-500 mb-1.5 font-medium">تقييم {match.partner_name}:</p>
-                                    <div className="space-y-1.5 text-xs">
-                                      {typeof pfb.conversationQuality === 'number' && pfb.conversationQuality > 0 && (
-                                        <div className="flex items-center justify-between">
-                                          <span className="text-gray-600">جودة المحادثة</span>
-                                          <span>{stars(pfb.conversationQuality)}</span>
-                                        </div>
-                                      )}
-                                      {typeof pfb.personalConnection === 'number' && pfb.personalConnection > 0 && (
-                                        <div className="flex items-center justify-between">
-                                          <span className="text-gray-600">التواصل الشخصي</span>
-                                          <span>{stars(pfb.personalConnection)}</span>
-                                        </div>
-                                      )}
-                                      {typeof pfb.overallExperience === 'number' && pfb.overallExperience > 0 && (
-                                        <div className="flex items-center justify-between">
-                                          <span className="text-gray-600">التجربة الكلية</span>
-                                          <span>{stars(pfb.overallExperience)}</span>
-                                        </div>
-                                      )}
-                                      {pfb.wantConnect != null && (
-                                        <div className="flex items-center justify-between">
-                                          <span className="text-gray-600">يريد التواصل</span>
-                                          <span className={`font-bold ${pfb.wantConnect ? "text-emerald-400" : "text-red-400"}`}>{pfb.wantConnect ? "✅ نعم" : "❌ لا"}</span>
-                                        </div>
-                                      )}
-                                      {typeof pfb.compatibilityRate === 'number' && pfb.compatibilityRate !== 50 && pfb.sliderMoved && (
-                                        <div className="flex items-center justify-between">
-                                          <span className="text-gray-600">التوافق المُقدَّر</span>
-                                          <span className="text-amber-400 font-bold">{pfb.compatibilityRate}%</span>
-                                        </div>
-                                      )}
-                                      {pfb.organizerImpression && (
-                                        <div className="mt-2 bg-gray-800/70 rounded-lg p-2 text-gray-300 text-[10px] text-right leading-relaxed border border-gray-700/40">💬 {pfb.organizerImpression}</div>
-                                      )}
-                                    </div>
-                                  </div>
-                                )
-                              })()}
-                            </div>
-                            )
-                          })()}
-
-                          {/* Partner Message (if exists) */}
-                          {match.partner_message && (
-                            <div className={`p-3 rounded-lg border ${
-                              dark ? 'bg-purple-500/10 border-purple-400/30' : 'bg-purple-50 border-purple-200'
-                            }`}>
-                              <div className="flex items-center gap-2 mb-2">
-                                <MessageCircle className={`w-4 h-4 ${dark ? 'text-purple-200' : 'text-purple-700'}`} />
-                                <h4 className={`font-bold text-sm ${dark ? 'text-purple-200' : 'text-purple-700'}`}>
-                                  رسالة من شريك المحادثة
-                                </h4>
-                              </div>
-                              
-                              {!showPartnerMessage[matchIndex] ? (
-                                <div className="text-center">
-                                  <p className={`text-xs mb-3 ${dark ? 'text-purple-300/80' : 'text-purple-600/80'}`}>
-                                    شريك المحادثة أرسل لك رسالة
-                                  </p>
-                                  <Button
-                                    onClick={() => setShowPartnerMessage(prev => ({ ...prev, [matchIndex]: true }))}
-                                    className="text-xs px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white"
-                                  >
-                                    اضغط لقراءة الرسالة
-                                  </Button>
-                                </div>
-                              ) : (
-                                <div className={`p-3 rounded-lg ${
-                                  dark ? 'bg-slate-800/50' : 'bg-white/50'
+                              {/* Partner Message (if exists) */}
+                              {match.partner_message && (
+                                <div className={`p-3 rounded-lg border ${
+                                  dark ? 'bg-purple-500/10 border-purple-400/30' : 'bg-purple-50 border-purple-200'
                                 }`}>
-                                  <p className={`text-sm leading-relaxed ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
-                                    "{match.partner_message}"
-                                  </p>
-                                  <Button
-                                    onClick={() => setShowPartnerMessage(prev => ({ ...prev, [matchIndex]: false }))}
-                                    className={`mt-2 text-xs px-2 py-1 ${
-                                      dark 
-                                        ? 'bg-slate-600 hover:bg-slate-700 text-slate-200' 
-                                        : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                                    }`}
-                                  >
-                                    إخفاء الرسالة
-                                  </Button>
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <MessageCircle className={`w-4 h-4 ${dark ? 'text-purple-200' : 'text-purple-700'}`} />
+                                    <h4 className={`font-bold text-sm ${dark ? 'text-purple-200' : 'text-purple-700'}`}>
+                                      رسالة من شريك المحادثة
+                                    </h4>
+                                  </div>
+                                  
+                                  {!showPartnerMessage[matchIndex] ? (
+                                    <div className="text-center">
+                                      <p className={`text-xs mb-3 ${dark ? 'text-purple-300/80' : 'text-purple-600/80'}`}>
+                                        شريك المحادثة أرسل لك رسالة
+                                      </p>
+                                      <Button
+                                        onClick={() => setShowPartnerMessage(prev => ({ ...prev, [matchIndex]: true }))}
+                                        className="text-xs px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white"
+                                      >
+                                        اضغط لقراءة الرسالة
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <div className={`p-3 rounded-lg ${
+                                      dark ? 'bg-slate-800/50' : 'bg-white/50'
+                                    }`}>
+                                      <p className={`text-sm leading-relaxed ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
+                                        "{match.partner_message}"
+                                      </p>
+                                      <Button
+                                        onClick={() => setShowPartnerMessage(prev => ({ ...prev, [matchIndex]: false }))}
+                                        className={`mt-2 text-xs px-2 py-1 ${
+                                          dark 
+                                            ? 'bg-slate-600 hover:bg-slate-700 text-slate-200' 
+                                            : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                                        }`}
+                                      >
+                                        إخفاء الرسالة
+                                      </Button>
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
-                          )}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )}
+                          )
+                        })()}
+                    </div>
                   </div>
-                )
-              })}
+                )}
+              </div>
+            )
+          })}
             </div>
+          </div>
           )}
+        </div>
+      )
+      })}
+    </div>
+  )}
         </div>
       </div>
     </div>

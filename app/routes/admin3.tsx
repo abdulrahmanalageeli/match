@@ -4,7 +4,7 @@ import {
   Users, Play, Square, ChevronRight, RotateCcw, CheckCircle,
   Circle, RefreshCw, Table2, Trophy, Clock, BarChart3, Shuffle,
   Eye, EyeOff, ArrowRight, Sparkles, Brain, Shield, LogOut,
-  Grid3x3, Star, Check, AlertCircle, AlertTriangle, Loader2, Copy, Heart, Layers, ChevronDown, X, XCircle, MessageSquare, Send, Home, Trash2, GripVertical, Search, Crown, Medal, Coffee, Ban, ArrowLeft, Bell, Calendar,
+  Grid3x3, Star, Check, AlertCircle, AlertTriangle, Loader2, Copy, Heart, Layers, ChevronDown, X, XCircle, MessageSquare, Send, Home, Trash2, GripVertical, Search, Crown, Medal, Coffee, Ban, ArrowLeft, Bell, Calendar, Download,
 } from "lucide-react"
 
 const ADMIN_PASSWORD = "soulmatch2026"
@@ -51,6 +51,10 @@ export default function Admin3Page() {
   const [diagnosticsLoading, setDiagnosticsLoading] = useState(false)
   const [report, setReport] = useState<any | null>(null)
   const [reportLoading, setReportLoading] = useState(false)
+  const [exclusions, setExclusions] = useState<any[]>([])
+  const [exclusionA, setExclusionA] = useState<number | "">("")
+  const [exclusionB, setExclusionB] = useState<number | "">("")
+  const [exclusionReason, setExclusionReason] = useState("")
   const [participants, setParticipants] = useState<any[]>([])
   const [selectedNumbers, setSelectedNumbers] = useState<Set<number>>(new Set())
   const [seating, setSeating] = useState<any>(null)
@@ -193,6 +197,25 @@ export default function Admin3Page() {
     setReport(data)
     setReportLoading(false)
   }, [])
+
+  const fetchExclusions = useCallback(async () => {
+    const data = await api("e3-get-exclusions")
+    setExclusions(data.exclusions || [])
+  }, [])
+
+  const addExclusion = useCallback(async () => {
+    if (!exclusionA || !exclusionB || exclusionA === exclusionB) return
+    await run("add-exclusion", () => api("e3-add-exclusion", { participant_a_number: exclusionA, participant_b_number: exclusionB, reason: exclusionReason }))
+    setExclusionA("")
+    setExclusionB("")
+    setExclusionReason("")
+    fetchExclusions()
+  }, [exclusionA, exclusionB, exclusionReason, fetchExclusions])
+
+  const removeExclusion = useCallback(async (id: number) => {
+    await run("remove-exclusion", () => api("e3-remove-exclusion", { id }))
+    fetchExclusions()
+  }, [fetchExclusions])
 
   const fetchState = useCallback(async () => {
     const data = await api("e3-get-state")
@@ -417,7 +440,8 @@ export default function Admin3Page() {
     if (authenticated && activeTab === "overview") fetchOverview()
     if (authenticated && activeTab === "feedback") { fetchFeedback(); fetchMoodChecks(); fetchNotifications() }
     if (authenticated && activeTab === "attendance") fetchAttendance()
-  }, [activeTab, authenticated, fetchSeating, fetchRankStatus, fetchParticipants, fetchMatches, fetchOverview, fetchFeedback, fetchMoodChecks, fetchNotifications, fetchAttendance])
+    if (authenticated && activeTab === "control") { fetchExclusions(); fetchSeating() }
+  }, [activeTab, authenticated, fetchSeating, fetchRankStatus, fetchParticipants, fetchMatches, fetchOverview, fetchFeedback, fetchMoodChecks, fetchNotifications, fetchAttendance, fetchExclusions])
 
   // Feedback polling
   useEffect(() => {
@@ -912,6 +936,23 @@ export default function Admin3Page() {
                 {reportLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
                 إنشاء التقرير
               </button>
+              {report && (
+                <button
+                  onClick={() => {
+                    const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement("a")
+                    a.href = url
+                    a.download = `event3-report-event-${report.event_id}.json`
+                    a.click()
+                    URL.revokeObjectURL(url)
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs font-medium transition-colors"
+                >
+                  <Download size={16} />
+                  JSON
+                </button>
+              )}
             </div>
             {report && (
               <div className="space-y-3">
@@ -966,6 +1007,61 @@ export default function Admin3Page() {
             )}
           </div>
         )}
+
+        {/* Conflict-of-interest exclusions */}
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 sm:p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Ban className="text-orange-400" size={18} />
+            <h2 className="text-sm font-medium text-gray-300">استثناءات تضارب المصالح</h2>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2 mb-3">
+            <select value={exclusionA} onChange={e => setExclusionA(e.target.value ? parseInt(e.target.value) : "")} className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500">
+              <option value="">اختر مشاركاً</option>
+              {participants.filter(p => p.selected).map(p => (
+                <option key={`a-${p.number}`} value={p.number}>{p.number} — {p.name}</option>
+              ))}
+            </select>
+            <select value={exclusionB} onChange={e => setExclusionB(e.target.value ? parseInt(e.target.value) : "")} className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500">
+              <option value="">اختر مشاركاً آخر</option>
+              {participants.filter(p => p.selected).map(p => (
+                <option key={`b-${p.number}`} value={p.number}>{p.number} — {p.name}</option>
+              ))}
+            </select>
+            <input
+              type="text"
+              value={exclusionReason}
+              onChange={e => setExclusionReason(e.target.value)}
+              placeholder="السبب (اختياري)"
+              className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+            />
+            <button
+              onClick={addExclusion}
+              disabled={!exclusionA || !exclusionB || exclusionA === exclusionB || loading === "add-exclusion"}
+              className="px-4 py-2 rounded-lg bg-orange-600/20 hover:bg-orange-600/30 text-orange-300 text-xs font-medium transition-colors disabled:opacity-50 whitespace-nowrap"
+            >
+              إضافة
+            </button>
+          </div>
+          {exclusions.length > 0 ? (
+            <div className="space-y-1">
+              {exclusions.map(ex => (
+                <div key={ex.id} className="flex items-center justify-between p-2 rounded-lg bg-gray-800/50 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-white">#{ex.participant_a_number}</span>
+                    <span className="text-gray-500">↔</span>
+                    <span className="text-white">#{ex.participant_b_number}</span>
+                    {ex.reason && <span className="text-gray-500">— {ex.reason}</span>}
+                  </div>
+                  <button onClick={() => removeExclusion(ex.id)} className="text-red-400 hover:text-red-300 transition-colors">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500 text-xs">لا توجد استثناءات محددة</p>
+          )}
+        </div>
 
         {/* Timer */}
         {state?.timer_active && (

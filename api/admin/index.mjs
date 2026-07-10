@@ -6455,18 +6455,15 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         if (action === "e3-generate-report") {
           const { data: ep } = await supabase.from("event3_participants").select("participant_number,position").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).order("position", { ascending: true })
           const selected = (ep || []).map(r => r.participant_number)
-          const selectedSet = new Set(selected)
 
           const { data: matches } = await supabase.from("event3_matches").select("participant_number,phase2_partner,phase2_score,phase3_partner,phase3_score,phase2_word,phase3_word,phase2_feedback,phase3_feedback,match_preference").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_number", selected)
           const matchMap = new Map((matches || []).map(m => [m.participant_number, m]))
 
-          const { data: pdata } = await supabase.from("participants").select("assigned_number,name,survey_data,gender").eq("match_id", STATIC_MATCH_ID).in("assigned_number", selected)
+          const { data: pdata } = await supabase.from("participants").select("assigned_number,name,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", selected)
           const nameMap = {}
-          const genderMap = {}
           for (const p of pdata || []) {
             const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {})
             nameMap[p.assigned_number] = p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`
-            genderMap[p.assigned_number] = p.gender || sd?.answers?.gender || sd?.gender || "?"
           }
 
           // Match summary
@@ -6859,9 +6856,6 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const nums = ep.map(r => r.participant_number)
           const numSet = new Set(nums)
 
-          // Get current event_id from STATIC_MATCH_ID for locked matches
-          const { data: stateRow } = await supabase.from("event_state").select("current_event_id").eq("match_id", STATIC_MATCH_ID).single()
-
           // Fetch conflict-of-interest exclusions
           const { data: exRows } = await supabase.from("event3_exclusions").select("participant_a_number,participant_b_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           const exclusions = new Set((exRows || []).map(e => { const [a, b] = [e.participant_a_number, e.participant_b_number].sort((x, y) => x - y); return `${a}-${b}` }))
@@ -6958,7 +6952,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               unmatchedPMap.set(p.assigned_number, p)
             }
             // Use greedy mutual matching for unmatched participants
-            const fallbackMatches = e3GreedyMutualMatching(unmatchedRankings, unmatchedPMap)
+            const fallbackMatches = e3GreedyMutualMatching(unmatchedRankings, unmatchedPMap, exclusions)
             for (const [p, partner] of fallbackMatches) {
               if (used.has(p) || used.has(partner)) continue
               used.add(p)

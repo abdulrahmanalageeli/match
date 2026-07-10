@@ -3,7 +3,13 @@ import { GroupsPage } from "./groups"
 import { useSearchParams } from "react-router"
 import toast, { Toaster } from "react-hot-toast"
 import { motion, AnimatePresence, Reorder } from "framer-motion"
-import confetti from "canvas-confetti"
+
+async function fireConfetti(opts: any) {
+  try {
+    const confetti = (await import("canvas-confetti")).default
+    confetti(opts)
+  } catch {}
+}
 import {
   Clock, MapPin, Brain, ChevronDown, ExternalLink,
   CheckCircle, Send, RefreshCw, Sparkles, Home, Trophy, Lock, GripVertical,
@@ -31,6 +37,87 @@ function formatTime(s: number) {
   const m = Math.floor(s / 60)
   const sec = s % 60
   return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`
+}
+
+// ─── Polling hook with error handling, retry, backoff, and visibility awareness ─
+function useApiPoll<T>(
+  fetcher: () => Promise<T>,
+  options: {
+    interval?: number
+    maxInterval?: number
+    stopWhen?: (data: T) => boolean
+    enabled?: boolean
+    onError?: (err: any) => void
+  } = {}
+) {
+  const { interval = 5000, maxInterval = 60000, stopWhen, enabled = true, onError } = options
+  const [data, setData] = useState<T | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
+  const currentInterval = useRef(interval)
+  const stopped = useRef(false)
+
+  const fetchOnce = useCallback(async (isRetry = false) => {
+    if (!enabled) return
+    if (isRetry) setLoading(true)
+    try {
+      const d = await fetcher()
+      setData(d)
+      setError(null)
+      currentInterval.current = interval
+      if (stopWhen && stopWhen(d)) stopped.current = true
+      setRetryCount(0)
+    } catch (err: any) {
+      const msg = err?.message || "فشل الاتصال"
+      setError(msg)
+      onError?.(err)
+      currentInterval.current = Math.min(currentInterval.current * 1.5, maxInterval)
+      setRetryCount(c => c + 1)
+    } finally {
+      setLoading(false)
+    }
+  }, [fetcher, enabled, interval, maxInterval, stopWhen, onError])
+
+  useEffect(() => {
+    if (!enabled) return
+    stopped.current = false
+    currentInterval.current = interval
+    let timeout: ReturnType<typeof setTimeout> | null = null
+    let active = true
+
+    const tick = async () => {
+      if (!active || document.hidden || stopped.current) return
+      await fetchOnce()
+      if (active && !stopped.current) timeout = setTimeout(tick, currentInterval.current)
+    }
+
+    fetchOnce()
+    timeout = setTimeout(tick, interval)
+
+    const onVisibility = () => {
+      if (!document.hidden && !stopped.current) {
+        if (timeout) clearTimeout(timeout)
+        tick()
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibility)
+
+    return () => {
+      active = false
+      if (timeout) clearTimeout(timeout)
+      document.removeEventListener("visibilitychange", onVisibility)
+    }
+  }, [fetcher, enabled, interval, fetchOnce])
+
+  const retry = useCallback(() => {
+    setRetryCount(0)
+    currentInterval.current = interval
+    stopped.current = false
+    fetchOnce(true)
+  }, [fetcher, interval, fetchOnce])
+
+  return { data, loading, error, retry, retryCount }
 }
 
 // ─── Shared Design Components ─────────────────────────────────────────────────
@@ -316,7 +403,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
       setDir(1); setStep(s => s + 1)
     } else {
       onDone()
-      try { confetti({ particleCount: 90, spread: 75, origin: { y: 0.5 }, colors: ["#a855f7","#ec4899","#f43f5e","#fbbf24"] }) } catch {}
+      fireConfetti({ particleCount: 90, spread: 75, origin: { y: 0.5 }, colors: ["#a855f7","#ec4899","#f43f5e","#fbbf24"] })
     }
   }
   const goPrev = () => { if (step > 0) { setDir(-1); setStep(s => s - 1) } }
@@ -2832,7 +2919,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
 
   const handleReveal = () => {
     setRevealed(true)
-    try { confetti({ particleCount: 55, spread: 65, origin: { y: 0.45 }, colors: ["#ec4899", "#f43f5e", "#fb7185", "#be185d"] }) } catch {}
+    fireConfetti({ particleCount: 55, spread: 65, origin: { y: 0.45 }, colors: ["#ec4899", "#f43f5e", "#fb7185", "#be185d"] })
   }
 
   const submitWord = async () => {
@@ -3073,7 +3160,6 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
 function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   token: string; timerActive: boolean; timerStart: string | null; timerDuration: number
 }) {
-  const [data, setData] = useState<any>(null)
   const [revealed, setRevealed] = useState(false)
   const [tableRevealed, setTableRevealed] = useState(false)
   const [timeLeft, setTimeLeft] = useState(0)
@@ -3085,14 +3171,20 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   const [showSessionTips, setShowSessionTips] = useState(false)
   const [rejoined, setRejoined] = useState(false)
 
-  useEffect(() => {
-    call("e3-get-phase3-reveal", token).then(d => {
-      if (!d.error) {
-        setData(d)
-        if (d.word_submitted) setWordSubmitted(true)
-      }
-    })
+  const fetchReveal = useCallback(async () => {
+    const d = await call("e3-get-phase3-reveal", token)
+    if (d.error) throw new Error(d.error)
+    return d
   }, [token])
+
+  const { data, loading, error, retry } = useApiPoll(fetchReveal, {
+    interval: 2000,
+    stopWhen: (d) => d.table_number != null
+  })
+
+  useEffect(() => {
+    if (data?.word_submitted) setWordSubmitted(true)
+  }, [data])
 
   useEffect(() => {
     if (!timerActive || !timerStart) { setTimeLeft(0); return }
@@ -3105,12 +3197,12 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
     return () => clearInterval(iv)
   }, [timerActive, timerStart, timerDuration])
 
-  // Auto-rejoin sync: if timer already running when component mounts, jump to correct view
+  // Auto-rejoin sync: show the table number before the session when returning
   useEffect(() => {
     if (!data || !timerActive || !timerStart) return
     const elapsed = Math.floor((Date.now() - new Date(timerStart).getTime()) / 1000)
     const remaining = Math.max(0, timerDuration - elapsed)
-    if (elapsed > 60 && remaining > 0) { setTableRevealed(true); setRevealed(true); setView('session'); setRejoined(true) }
+    if (elapsed > 60 && remaining > 0) { setTableRevealed(true); setRevealed(false); setView('partner'); setRejoined(true) }
     else if (remaining <= 0) { setTableRevealed(true); setRevealed(true); setView('feedback') }
   }, [data, timerActive, timerStart, timerDuration])
 
@@ -3131,7 +3223,7 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
 
   const handleReveal = () => {
     setRevealed(true)
-    try { confetti({ particleCount: 65, spread: 70, origin: { y: 0.4 }, colors: ["#7c3aed", "#8b5cf6", "#a78bfa", "#c4b5fd"] }) } catch {}
+    fireConfetti({ particleCount: 65, spread: 70, origin: { y: 0.4 }, colors: ["#7c3aed", "#8b5cf6", "#a78bfa", "#c4b5fd"] })
   }
 
   const submitWord = async () => {
@@ -3139,6 +3231,28 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
     const d = await call("e3-submit-phase3-word", token, { word: word.trim() })
     if (!d.error) { setWordSubmitted(true); toast.success("تم الحفظ!") }
   }
+
+  if (loading && !data && !error) return (
+    <PageWrapper className="flex items-center justify-center">
+      <Spinner size={28} />
+    </PageWrapper>
+  )
+
+  if (error && !data) return (
+    <PageWrapper className="flex flex-col items-center justify-center gap-4 p-6 text-center">
+      <div className="w-14 h-14 rounded-2xl bg-red-950/40 border border-red-800/40 flex items-center justify-center">
+        <AlertTriangle className="text-red-400" size={28} />
+      </div>
+      <div className="space-y-1">
+        <p className="text-white font-semibold">تعذّر تحميل بيانات الجلسة</p>
+        <p className="text-gray-500 text-sm">{error}</p>
+      </div>
+      <button onClick={retry} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium transition-colors">
+        <RefreshCw size={16} />
+        إعادة المحاولة
+      </button>
+    </PageWrapper>
+  )
 
   return (
     <PageWrapper className="overflow-y-auto">
@@ -3263,7 +3377,7 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               <div className="absolute -bottom-20 right-1/3 w-72 h-72 bg-indigo-500/15 rounded-full blur-[80px]" />
             </div>
             <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 border-b border-white/[0.06] bg-gray-950/80 backdrop-blur-xl">
-              <button onClick={() => setView('partner')} className="flex items-center gap-1.5 text-gray-400 hover:text-white text-sm font-medium transition-colors">
+              <button onClick={() => { setView('partner'); setRevealed(false); setTableRevealed(true) }} className="flex items-center gap-1.5 text-gray-400 hover:text-white text-sm font-medium transition-colors">
                 ← رجوع
               </button>
               <span className="text-white font-bold text-sm">أسئلة الجلسة الثانية</span>
@@ -3273,6 +3387,10 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-purple-900/20 border border-purple-800/30">
                 <span className="text-gray-500 text-xs">شريكك</span>
                 <span className="text-purple-300 font-bold">{data?.partner_first_name}</span>
+              </div>
+              <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-violet-950/40 border border-violet-700/40">
+                <span className="text-gray-500 text-xs flex items-center gap-1.5"><MapPin size={12} className="text-violet-400" /> طاولتك</span>
+                <span className="text-violet-300 text-xl font-black">{data?.table_number ?? "—"}</span>
               </div>
               {timerActive && timeLeft > 0 && (
                 <div className="rounded-xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
@@ -4000,38 +4118,35 @@ export default function Event3Page() {
   })
 
   const [showWelcome, setShowWelcome] = useState(true)
-  const [eventState, setEventState] = useState<any>(null)
   const [enrolled, setEnrolled] = useState<boolean | null>(null)
   const [myInfo, setMyInfo] = useState<{ number: number; name: string; gender: string | null } | null>(null)
   const [isOffline, setIsOffline] = useState(false)
   const [tokenError, setTokenError] = useState(false)
 
   const fetchState = useCallback(async () => {
-    if (!token) return
+    if (!token) throw new Error("No token")
     const d = await call("e3-get-state", token)
     if (d.error) {
-      if (d.error.includes("Invalid") || d.error.includes("token") || d.error.includes("expired")) {
+      if (d.error.includes("Invalid") || d.error.includes("token") || d.error.includes("expired") || d.error.includes("لم يتم العثور") || d.error.includes("غير مسجّل")) {
         setTokenError(true)
         localStorage.removeItem("blindmatch_result_token")
       }
-      return
+      throw new Error(d.error)
     }
-    setEventState(d)
     setEnrolled(prev => prev === null ? (d.enrolled !== false) : prev)
     setMyInfo(prev => prev ?? (d.my_info || null))
+    return d
   }, [token])
+
+  const { data: eventState, loading: stateLoading, error: stateError, retry: retryState } = useApiPoll(fetchState, {
+    interval: 5000,
+    enabled: !!token && !tokenError
+  })
 
   useEffect(() => {
     const p = searchParams.get("token") || searchParams.get("t")
     if (p) { setToken(p); localStorage.setItem("blindmatch_result_token", p) }
   }, [searchParams])
-
-  useEffect(() => {
-    if (!token) return
-    fetchState()
-    const iv = setInterval(fetchState, 5000)
-    return () => clearInterval(iv)
-  }, [token, fetchState])
 
   // Online/offline detection
   useEffect(() => {
@@ -4053,9 +4168,25 @@ export default function Event3Page() {
   if (showWelcome) return <WelcomeScreen onDone={handleWelcomeDone} />
   if (!token || tokenError) return <PhoneEntry onToken={t => { setToken(t); setTokenError(false) }} />
 
-  if (!eventState) return (
+  if (stateLoading && !eventState) return (
     <PageWrapper className="flex items-center justify-center">
       <Spinner size={28} />
+    </PageWrapper>
+  )
+
+  if (stateError && !eventState) return (
+    <PageWrapper className="flex flex-col items-center justify-center gap-4 p-6 text-center">
+      <div className="w-14 h-14 rounded-2xl bg-red-950/40 border border-red-800/40 flex items-center justify-center">
+        <AlertTriangle className="text-red-400" size={28} />
+      </div>
+      <div className="space-y-1">
+        <p className="text-white font-semibold">تعذّر تحميل بيانات الفعالية</p>
+        <p className="text-gray-500 text-sm">{stateError}</p>
+      </div>
+      <button onClick={retryState} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium transition-colors">
+        <RefreshCw size={16} />
+        إعادة المحاولة
+      </button>
     </PageWrapper>
   )
 

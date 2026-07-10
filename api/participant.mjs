@@ -2805,13 +2805,16 @@ Please respond in JSON format:
     const token = req.body.token || null
     const participant = token ? await resolveE3Token(token) : null
     const myNumber = participant?.assigned_number
+    const { data: e3EventState } = await supabase.from("event_state").select("current_event_id").eq("match_id", E3_MATCH_ID).maybeSingle()
+    const currentEventId = e3EventState?.current_event_id || 20
 
     try {
       // e3-get-state (no auth required)
       if (action === "e3-get-state") {
-        const { data: stateRow } = await supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration,global_timer_round,phase2_score_revealed,phase3_score_revealed").eq("match_id", E3_MATCH_ID).single()
+        const { data: stateRow } = await supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration,global_timer_round,phase2_score_revealed,phase3_score_revealed,current_event_id").eq("match_id", E3_MATCH_ID).single()
         const phase = stateRow?.phase || "setup"
-        const { count: participantsSelected } = await supabase.from("event3_participants").select("id", { count: "exact", head: true }).eq("match_id", E3_MATCH_ID)
+        const activeEventId = stateRow?.current_event_id || currentEventId
+        const { count: participantsSelected } = await supabase.from("event3_participants").select("id", { count: "exact", head: true }).eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId)
 
         // Server-side auto-save: if ranking phase and timer expired, auto-save for this participant
         if (participant && (phase === "ranking1" || phase === "ranking2") && stateRow?.global_timer_active && stateRow?.global_timer_start_time) {
@@ -2819,12 +2822,12 @@ Please respond in JSON format:
           const remaining = Math.max(0, (stateRow.global_timer_duration || 150) - elapsed)
           if (remaining === 0) {
             // Check if participant already has rankings
-            const { data: existingRanks } = await supabase.from("participant_rankings").select("id").eq("match_id", E3_MATCH_ID).eq("ranker_number", myNumber).limit(1)
+            const { data: existingRanks } = await supabase.from("participant_rankings").select("id").eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId).eq("ranker_number", myNumber).limit(1)
             if (!existingRanks || existingRanks.length === 0) {
               // Determine max round based on ranking phase (ranking1=round 1, ranking2=rounds 1-2)
               const maxRound = phase === "ranking1" ? 1 : 2
               // Auto-save default rankings based on meeting order (only rounds 1..maxRound)
-              const { data: allAssignments } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", E3_MATCH_ID).lte("round", maxRound)
+              const { data: allAssignments } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId).lte("round", maxRound)
               if (allAssignments && allAssignments.length > 0) {
                 const myRounds = allAssignments.filter(a => a.participant_id === myNumber)
                 if (myRounds.length > 0) {
@@ -2835,8 +2838,8 @@ Please respond in JSON format:
                     for (const m of tableMates) { if (!seenMates.has(m.participant_id)) { seenMates.add(m.participant_id); mates.push(m.participant_id) } }
                   }
                   if (mates.length > 0) {
-                    const rows = mates.map((num, idx) => ({ match_id: E3_MATCH_ID, event_id: 3, ranker_number: myNumber, ranked_number: num, rank: idx + 1, auto_saved: true }))
-                    await supabase.from("participant_rankings").delete().eq("match_id", E3_MATCH_ID).eq("ranker_number", myNumber)
+                    const rows = mates.map((num, idx) => ({ match_id: E3_MATCH_ID, event_id: activeEventId, ranker_number: myNumber, ranked_number: num, rank: idx + 1, auto_saved: true }))
+                    await supabase.from("participant_rankings").delete().eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId).eq("ranker_number", myNumber)
                     await supabase.from("participant_rankings").insert(rows)
                     console.log(`[auto-save] Server auto-saved rankings for #${myNumber} (${rows.length} entries, rounds 1-${maxRound}) — ranking timer expired`)
                   }
@@ -2848,11 +2851,11 @@ Please respond in JSON format:
 
         let myAssignment = null
         if (participant) {
-          const { data: ep } = await supabase.from("event3_participants").select("position").eq("match_id", E3_MATCH_ID).eq("participant_number", myNumber).maybeSingle()
+          const { data: ep } = await supabase.from("event3_participants").select("position").eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId).eq("participant_number", myNumber).maybeSingle()
           const roundMatch = phase.match(/^round(\d)$/)
           const currentRound = roundMatch ? parseInt(roundMatch[1]) : null
           if (ep && currentRound) {
-            const { data: sa } = await supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("round", currentRound).eq("participant_id", myNumber).maybeSingle()
+            const { data: sa } = await supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId).eq("round", currentRound).eq("participant_id", myNumber).maybeSingle()
             myAssignment = sa ? { round: currentRound, table: sa.table_number, enrolled: true } : { enrolled: true }
           } else {
             myAssignment = { enrolled: !!ep }
@@ -2885,6 +2888,7 @@ Please respond in JSON format:
         if (!match) return res.status(404).json({ error: "لم يتم العثور على رقمك في الفعالية. تأكد من الرقم أو تواصل مع المنظم." })
         const { data: ep } = await supabase.from("event3_participants")
           .select("participant_number").eq("match_id", E3_MATCH_ID)
+          .eq("event_id", currentEventId)
           .eq("participant_number", match.assigned_number).maybeSingle()
         if (!ep) return res.status(403).json({ error: "رقمك غير مسجّل في هذه الفعالية. تواصل مع المنظم." })
         const firstName = (match.name || '').trim().split(/\s+/)[0] || 'مشارك'
@@ -2896,9 +2900,9 @@ Please respond in JSON format:
       // e3-get-assignment
       if (action === "e3-get-assignment") {
         const { round } = req.body
-        const { data: sa } = await supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("round", round).eq("participant_id", myNumber).maybeSingle()
+        const { data: sa } = await supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("round", round).eq("participant_id", myNumber).maybeSingle()
         if (!sa) return res.status(404).json({ error: "No assignment found" })
-        const { data: mates } = await supabase.from("session_assignments").select("participant_id").eq("match_id", E3_MATCH_ID).eq("round", round).eq("table_number", sa.table_number).neq("participant_id", myNumber)
+        const { data: mates } = await supabase.from("session_assignments").select("participant_id").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("round", round).eq("table_number", sa.table_number).neq("participant_id", myNumber)
         const mateNums = (mates || []).map(t => t.participant_id)
         const { data: mateData } = await supabase.from("participants").select("assigned_number,name,survey_data,gender").eq("match_id", MAIN_MATCH).in("assigned_number", mateNums)
         const tablemates = (mateData || []).map(p => { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); return { number: p.assigned_number, first_name: firstName(p.name || sd?.answers?.name || sd?.name), gender: p.gender || sd?.answers?.gender || sd?.gender || null } })
@@ -2908,12 +2912,12 @@ Please respond in JSON format:
       // e3-get-participants-met
       if (action === "e3-get-participants-met") {
         const completedRounds = Math.min(parseInt(req.body.completed_rounds || "3") || 3, 3)
-        const { data: allRounds } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", E3_MATCH_ID).eq("participant_id", myNumber).lte("round", completedRounds)
+        const { data: allRounds } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_id", myNumber).lte("round", completedRounds)
         if (!allRounds || allRounds.length === 0) return res.status(404).json({ error: "No session assignments found" })
         const metNumbers = []
         const seenNums = new Set()
         for (const row of allRounds.sort((a, b) => a.round - b.round)) {
-          const { data: mates } = await supabase.from("session_assignments").select("participant_id").eq("match_id", E3_MATCH_ID).eq("round", row.round).eq("table_number", row.table_number).neq("participant_id", myNumber)
+          const { data: mates } = await supabase.from("session_assignments").select("participant_id").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("round", row.round).eq("table_number", row.table_number).neq("participant_id", myNumber)
           for (const m of mates || []) {
             if (m.participant_id !== myNumber && !seenNums.has(m.participant_id)) {
               seenNums.add(m.participant_id)
@@ -2928,8 +2932,8 @@ Please respond in JSON format:
         for (const p of pdata || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); nameMap[p.assigned_number] = p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}` }
         // Build table_number map from session_assignments
         const tableMap = {}
-        for (const row of allRounds) { const { data: mates } = await supabase.from("session_assignments").select("participant_id").eq("match_id", E3_MATCH_ID).eq("round", row.round).eq("table_number", row.table_number).neq("participant_id", myNumber); for (const m of mates || []) { if (!tableMap[m.participant_id]) tableMap[m.participant_id] = row.table_number } }
-        const { data: existingRankings } = await supabase.from("participant_rankings").select("ranked_number,rank").eq("match_id", E3_MATCH_ID).eq("ranker_number", myNumber)
+        for (const row of allRounds) { const { data: mates } = await supabase.from("session_assignments").select("participant_id").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("round", row.round).eq("table_number", row.table_number).neq("participant_id", myNumber); for (const m of mates || []) { if (!tableMap[m.participant_id]) tableMap[m.participant_id] = row.table_number } }
+        const { data: existingRankings } = await supabase.from("participant_rankings").select("ranked_number,rank").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("ranker_number", myNumber)
         const rankingMap = {}
         for (const r of existingRankings || []) rankingMap[r.ranked_number] = r.rank
         return res.status(200).json({ people: metNumbers.map(m => ({ number: m.number, first_name: firstName(nameMap[m.number]), round: m.round, table_number: tableMap[m.number] || null })), existing_rankings: rankingMap, already_submitted: (existingRankings || []).length > 0 && (existingRankings || []).length >= metNumbers.length })
@@ -2939,19 +2943,19 @@ Please respond in JSON format:
       if (action === "e3-submit-ranking") {
         const { ranked_list, auto_saved } = req.body
         if (!Array.isArray(ranked_list) || ranked_list.length === 0) return res.status(400).json({ error: "Ranking list cannot be empty" })
-        await supabase.from("participant_rankings").delete().eq("match_id", E3_MATCH_ID).eq("ranker_number", myNumber)
-        const { error } = await supabase.from("participant_rankings").insert(ranked_list.map((num, idx) => ({ match_id: E3_MATCH_ID, event_id: 3, ranker_number: myNumber, ranked_number: num, rank: idx + 1, auto_saved: !!auto_saved })))
+        await supabase.from("participant_rankings").delete().eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("ranker_number", myNumber)
+        const { error } = await supabase.from("participant_rankings").insert(ranked_list.map((num, idx) => ({ match_id: E3_MATCH_ID, event_id: currentEventId, ranker_number: myNumber, ranked_number: num, rank: idx + 1, auto_saved: !!auto_saved })))
         if (error) return res.status(500).json({ error: error.message })
         return res.status(200).json({ message: "Rankings submitted successfully" })
       }
 
       // e3-get-phase2-reveal
       if (action === "e3-get-phase2-reveal") {
-        const { data: matchRow } = await supabase.from("event3_matches").select("phase2_partner,phase2_word,phase2_score").eq("match_id", E3_MATCH_ID).eq("participant_number", myNumber).maybeSingle()
+        const { data: matchRow } = await supabase.from("event3_matches").select("phase2_partner,phase2_word,phase2_score").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber).maybeSingle()
         if (!matchRow || !matchRow.phase2_partner) return res.status(404).json({ error: "No Phase 2 match found yet" })
         const [{ data: partner }, { data: tableRow }] = await Promise.all([
           supabase.from("participants").select("assigned_number,name,survey_data,mbti_personality_type,age").eq("match_id", MAIN_MATCH).eq("assigned_number", matchRow.phase2_partner).single(),
-          supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("round", 20).eq("participant_id", myNumber).maybeSingle(),
+          supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("round", 20).eq("participant_id", myNumber).maybeSingle(),
         ])
         const sd = typeof partner?.survey_data === "string" ? JSON.parse(partner.survey_data || "{}") : (partner?.survey_data || {})
         const getF = (p, k) => { try { const s = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); return s?.answers?.[k] ?? s?.[k] ?? p?.[k] ?? "" } catch { return "" } }
@@ -2997,14 +3001,14 @@ Please respond in JSON format:
       if (action === "e3-submit-phase2-word") {
         const word = (req.body.word || "").trim().split(/\s+/)[0]
         if (!word) return res.status(400).json({ error: "Word is required" })
-        const { error } = await supabase.from("event3_matches").update({ phase2_word: word }).eq("match_id", E3_MATCH_ID).eq("participant_number", myNumber)
+        const { error } = await supabase.from("event3_matches").update({ phase2_word: word }).eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber)
         if (error) return res.status(500).json({ error: error.message })
         return res.status(200).json({ message: "Word saved" })
       }
 
       // e3-get-phase3-reveal
       if (action === "e3-get-phase3-reveal") {
-        const { data: matchRow } = await supabase.from("event3_matches").select("phase3_partner,phase3_score,phase3_word,phase2_partner").eq("match_id", E3_MATCH_ID).eq("participant_number", myNumber).maybeSingle()
+        const { data: matchRow } = await supabase.from("event3_matches").select("phase3_partner,phase3_score,phase3_word,phase2_partner").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber).maybeSingle()
         if (!matchRow || !matchRow.phase3_partner) return res.status(404).json({ error: "No Phase 3 match found yet" })
         const { data: partner } = await supabase.from("participants").select("assigned_number,name,survey_data,mbti_personality_type,age").eq("match_id", MAIN_MATCH).eq("assigned_number", matchRow.phase3_partner).single()
         const sd = typeof partner?.survey_data === "string" ? JSON.parse(partner.survey_data || "{}") : (partner?.survey_data || {})
@@ -3032,7 +3036,7 @@ Please respond in JSON format:
           }
         }
         // Fetch table number from round 30 session_assignments
-        const { data: tableRow } = await supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("round", 30).eq("participant_id", myNumber).maybeSingle()
+        const { data: tableRow } = await supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("round", 30).eq("participant_id", myNumber).maybeSingle()
         return res.status(200).json({ partner_number: matchRow.phase3_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), compatibility_score: breakdown?.total ?? matchRow.phase3_score ?? 0, same_as_phase2: matchRow.phase2_partner === matchRow.phase3_partner, word_submitted: !!matchRow.phase3_word, partner_mbti: partnerMbti, partner_attachment: partnerAttachment, partner_communication: partnerCommunication, partner_age: partnerAge, breakdown, table_number: tableRow?.table_number ?? null })
       }
 
@@ -3040,7 +3044,7 @@ Please respond in JSON format:
       if (action === "e3-submit-phase3-word") {
         const word = (req.body.word || "").trim().split(/\s+/)[0]
         if (!word) return res.status(400).json({ error: "Word is required" })
-        const { error } = await supabase.from("event3_matches").update({ phase3_word: word }).eq("match_id", E3_MATCH_ID).eq("participant_number", myNumber)
+        const { error } = await supabase.from("event3_matches").update({ phase3_word: word }).eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber)
         if (error) return res.status(500).json({ error: error.message })
         return res.status(200).json({ message: "Word saved" })
       }
@@ -3048,14 +3052,14 @@ Please respond in JSON format:
       // e3-submit-phase2-feedback
       if (action === "e3-submit-phase2-feedback") {
         const fb = req.body.feedback || {}
-        const { error } = await supabase.from("event3_matches").update({ phase2_feedback: fb }).eq("match_id", E3_MATCH_ID).eq("participant_number", myNumber)
+        const { error } = await supabase.from("event3_matches").update({ phase2_feedback: fb }).eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber)
         if (error) return res.status(500).json({ error: error.message })
         return res.status(200).json({ message: "Feedback saved" })
       }
       // e3-submit-phase3-feedback
       if (action === "e3-submit-phase3-feedback") {
         const fb = req.body.feedback || {}
-        const { error } = await supabase.from("event3_matches").update({ phase3_feedback: fb }).eq("match_id", E3_MATCH_ID).eq("participant_number", myNumber)
+        const { error } = await supabase.from("event3_matches").update({ phase3_feedback: fb }).eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber)
         if (error) return res.status(500).json({ error: error.message })
         return res.status(200).json({ message: "Feedback saved" })
       }
@@ -3066,10 +3070,10 @@ Please respond in JSON format:
         if (!preference || !["choice", "algorithm", "both", "neither"].includes(preference)) {
           return res.status(400).json({ error: "Invalid preference" })
         }
-        const { error } = await supabase.from("event3_matches").update({ match_preference: preference }).eq("match_id", E3_MATCH_ID).eq("participant_number", myNumber)
+        const { error } = await supabase.from("event3_matches").update({ match_preference: preference }).eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber)
         if (error) {
           // Column might not exist yet — try with metadata fallback
-          const { error: err2 } = await supabase.from("event3_matches").update({ phase3_feedback: { match_preference: preference } }).eq("match_id", E3_MATCH_ID).eq("participant_number", myNumber)
+          const { error: err2 } = await supabase.from("event3_matches").update({ phase3_feedback: { match_preference: preference } }).eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber)
           if (err2) return res.status(500).json({ error: err2.message })
         }
         return res.status(200).json({ message: "Preference saved", preference })
@@ -3077,7 +3081,7 @@ Please respond in JSON format:
 
       // e3-get-final-reveal
       if (action === "e3-get-final-reveal") {
-        const { data: matchRow } = await supabase.from("event3_matches").select("phase2_partner,phase3_partner,phase2_word,phase3_word,phase2_score,phase3_score,match_preference").eq("match_id", E3_MATCH_ID).eq("participant_number", myNumber).single()
+        const { data: matchRow } = await supabase.from("event3_matches").select("phase2_partner,phase3_partner,phase2_word,phase3_word,phase2_score,phase3_score,match_preference").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber).maybeSingle()
         if (!matchRow) return res.status(404).json({ error: "No match data found" })
         const partnerNums = [matchRow.phase2_partner, matchRow.phase3_partner].filter(Boolean)
         const { data: partners } = await supabase.from("participants").select("assigned_number,name,survey_data").eq("match_id", MAIN_MATCH).in("assigned_number", partnerNums)
@@ -3153,7 +3157,7 @@ Please respond in JSON format:
       if (action === "e3-get-my-group") {
         if (!participant) return res.status(401).json({ error: "Invalid token" })
         // Check enrolled in event3
-        const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", E3_MATCH_ID).eq("participant_number", myNumber).maybeSingle()
+        const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber).maybeSingle()
         if (!ep) return res.status(200).json({ group: null })
         // Determine current round from event phase
         const { data: stateRow } = await supabase.from("event_state").select("phase").eq("match_id", E3_MATCH_ID).maybeSingle()
@@ -3161,10 +3165,10 @@ Please respond in JSON format:
         const roundMatch = phase.match(/^round(\d)$/)
         const currentRound = roundMatch ? parseInt(roundMatch[1]) : 1
         // Get their table assignment for this round
-        const { data: assignment } = await supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("round", currentRound).eq("participant_id", myNumber).maybeSingle()
+        const { data: assignment } = await supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("round", currentRound).eq("participant_id", myNumber).maybeSingle()
         if (!assignment) return res.status(200).json({ group: null })
         // Get all tablemates
-        const { data: tablemates } = await supabase.from("session_assignments").select("participant_id").eq("match_id", E3_MATCH_ID).eq("round", currentRound).eq("table_number", assignment.table_number)
+        const { data: tablemates } = await supabase.from("session_assignments").select("participant_id").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("round", currentRound).eq("table_number", assignment.table_number)
         const nums = (tablemates || []).map(r => r.participant_id)
         const { data: pdata } = await supabase.from("participants").select("assigned_number,name,gender,survey_data").eq("match_id", MAIN_MATCH).in("assigned_number", nums)
         const nameMap = {}
@@ -3188,7 +3192,7 @@ Please respond in JSON format:
         let tableInfo = phase
         const roundMatch = phase.match(/^round(\d)$/)
         if (roundMatch) {
-          const { data: sa } = await supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("round", parseInt(roundMatch[1])).eq("participant_id", myNumber).maybeSingle()
+          const { data: sa } = await supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("round", parseInt(roundMatch[1])).eq("participant_id", myNumber).maybeSingle()
           if (sa) tableInfo = `الجولة ${roundMatch[1]} · طاولة ${sa.table_number}`
         } else if (phase === "phase2_reveal") { tableInfo = "كشف المرحلة 2" }
         else if (phase === "phase3_reveal") { tableInfo = "كشف المرحلة 3" }

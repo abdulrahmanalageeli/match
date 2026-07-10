@@ -132,10 +132,15 @@ function e3GenerateSeatingPlan(participantNumbers, genderMap = {}, lockedPairsSe
   return { round1, round2, T, G, positionMap }
 }
 
-function e3GreedyMutualMatching(rankings, participantMap = new Map()) {
+function e3GreedyMutualMatching(rankings, participantMap = new Map(), exclusions = new Set()) {
+  const isExcluded = (a, b) => {
+    const [x, y] = [a, b].sort((p, q) => p - q)
+    return exclusions.has(`${x}-${y}`)
+  }
   const unmatched = new Set(rankings.keys()), matches = new Map(), list = Array.from(rankings.keys()), pairs = []
   for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
     const pi = list[i], pj = list[j]
+    if (isExcluded(pi, pj)) continue
     const ri = (rankings.get(pi) || []).indexOf(pj), rj = (rankings.get(pj) || []).indexOf(pi)
     if (ri !== -1 && rj !== -1) {
       const pA = participantMap.get(pi), pB = participantMap.get(pj)
@@ -150,13 +155,20 @@ function e3GreedyMutualMatching(rankings, participantMap = new Map()) {
     if (unmatched.size === 0) break
   }
   const rest = Array.from(unmatched)
-  for (let i = 0; i + 1 < rest.length; i += 2) {
-    if (i + 2 === rest.length - 1) {
-      const [a, b, c] = rest.slice(i)
-      matches.set(a, b); matches.set(b, c); matches.set(c, a)
-      break
+  let i = 0
+  while (i < rest.length) {
+    const a = rest[i]
+    let paired = false
+    for (let j = i + 1; j < rest.length; j++) {
+      const b = rest[j]
+      if (!isExcluded(a, b)) {
+        matches.set(a, b); matches.set(b, a)
+        rest.splice(j, 1)
+        paired = true
+        break
+      }
     }
-    matches.set(rest[i], rest[i+1]); matches.set(rest[i+1], rest[i])
+    i++
   }
   return matches
 }
@@ -6340,6 +6352,196 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           return res.status(200).json({ events: sorted, current_event_id: realEventId, errors: { participants: epErr?.message || null, matches: matchErr?.message || null } })
         }
 
+        // e3-run-diagnostics — pre-event smoke test
+        if (action === "e3-run-diagnostics") {
+          const checks = []
+          let healthy = true
+
+          // 1. Participant selection
+          const { data: ep, error: epErr } = await supabase.from("event3_participants").select("participant_number,position").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).order("position", { ascending: true })
+          const selectedNumbers = (ep || []).map(r => r.participant_number)
+          if (epErr || selectedNumbers.length < 4) {
+            checks.push({ name: "participant_selection", status: "fail", message: epErr?.message || `Only ${selectedNumbers.length} participants selected (need at least 4)` })
+            healthy = false
+          } else {
+            checks.push({ name: "participant_selection", status: "ok", message: `${selectedNumbers.length} participants selected` })
+          }
+
+          // 2. Survey data completeness
+          const missingSurvey = []
+          if (selectedNumbers.length > 0) {
+            const { data: pdata } = await supabase.from("participants").select("assigned_number,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", selectedNumbers)
+            const pMap = new Map((pdata || []).map(p => [p.assigned_number, p]))
+            for (const num of selectedNumbers) {
+              const p = pMap.get(num)
+              const sd = typeof p?.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p?.survey_data || {})
+              if (!sd.answers || Object.keys(sd.answers).length === 0) missingSurvey.push(num)
+            }
+          }
+          if (missingSurvey.length > 0) {
+            checks.push({ name: "survey_data", status: "warn", message: `${missingSurvey.length} participants missing survey data: #${missingSurvey.join(", #")}` })
+          } else {
+            checks.push({ name: "survey_data", status: "ok", message: "All selected participants have survey data" })
+          }
+
+          // 3. Required columns in event3_matches
+          const requiredCols = ["participant_number", "phase2_partner", "phase2_score", "phase3_partner", "phase3_score", "phase2_word", "phase3_word", "phase2_feedback", "phase3_feedback", "match_preference"]
+          const { data: sampleMatch, error: sampleErr } = await supabase.from("event3_matches").select(requiredCols.join(",")).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).limit(1)
+          if (sampleErr) {
+            checks.push({ name: "event3_matches_schema", status: "fail", message: sampleErr.message })
+            healthy = false
+          } else {
+            checks.push({ name: "event3_matches_schema", status: "ok", message: `Required columns present in event3_matches` })
+          }
+
+          // 4. Seating coverage (rounds 1 and 2)
+          if (selectedNumbers.length > 0) {
+            const { data: saRows } = await supabase.from("session_assignments").select("round,participant_id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("round", [1, 2])
+            const roundAssigned = { 1: new Set(), 2: new Set() }
+            for (const r of (saRows || [])) { if (roundAssigned[r.round]) roundAssigned[r.round].add(r.participant_id) }
+            for (const round of [1, 2]) {
+              const missing = selectedNumbers.filter(n => !roundAssigned[round].has(n))
+              if (missing.length > 0) {
+                checks.push({ name: `seating_round_${round}`, status: "fail", message: `${missing.length} participants missing from round ${round} seating: #${missing.join(", #")}` })
+                healthy = false
+              } else {
+                checks.push({ name: `seating_round_${round}`, status: "ok", message: `Round ${round} seating covers all selected participants` })
+              }
+            }
+          }
+
+          // 5. Locked matches consistency
+          const { data: lockedMatches, error: lockedErr } = await supabase.from("locked_matches").select("participant1_number,participant2_number").eq("match_id", STATIC_MATCH_ID).eq("event_id", currentEventId)
+          if (lockedErr) {
+            checks.push({ name: "locked_matches", status: "warn", message: lockedErr.message })
+          } else {
+            const selectedSet = new Set(selectedNumbers)
+            const badLocked = (lockedMatches || []).filter(l => !selectedSet.has(l.participant1_number) || !selectedSet.has(l.participant2_number))
+            if (badLocked.length > 0) {
+              checks.push({ name: "locked_matches", status: "warn", message: `${badLocked.length} locked matches involve non-selected participants` })
+            } else {
+              checks.push({ name: "locked_matches", status: "ok", message: `${lockedMatches?.length || 0} locked matches are valid` })
+            }
+          }
+
+          return res.status(200).json({ healthy, checks })
+        }
+
+        // e3-get-exclusions
+        if (action === "e3-get-exclusions") {
+          const { data, error } = await supabase.from("event3_exclusions").select("id,participant_a_number,participant_b_number,reason,created_at").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).order("created_at", { ascending: false })
+          if (error) return res.status(500).json({ error: error.message })
+          return res.status(200).json({ exclusions: data || [] })
+        }
+        // e3-add-exclusion
+        if (action === "e3-add-exclusion") {
+          const { participant_a_number, participant_b_number, reason } = req.body
+          if (!participant_a_number || !participant_b_number || participant_a_number === participant_b_number) return res.status(400).json({ error: "Invalid participant pair" })
+          const [a, b] = [parseInt(participant_a_number), parseInt(participant_b_number)].sort((x, y) => x - y)
+          const { error } = await supabase.from("event3_exclusions").insert({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, participant_a_number: a, participant_b_number: b, reason: reason || "" })
+          if (error) return res.status(500).json({ error: error.message })
+          return res.status(200).json({ message: "Exclusion added" })
+        }
+        // e3-remove-exclusion
+        if (action === "e3-remove-exclusion") {
+          const { id } = req.body
+          if (!id) return res.status(400).json({ error: "id required" })
+          const { error } = await supabase.from("event3_exclusions").delete().eq("id", id).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          if (error) return res.status(500).json({ error: error.message })
+          return res.status(200).json({ message: "Exclusion removed" })
+        }
+
+        // e3-generate-report — post-event summary
+        if (action === "e3-generate-report") {
+          const { data: ep } = await supabase.from("event3_participants").select("participant_number,position").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).order("position", { ascending: true })
+          const selected = (ep || []).map(r => r.participant_number)
+          const selectedSet = new Set(selected)
+
+          const { data: matches } = await supabase.from("event3_matches").select("participant_number,phase2_partner,phase2_score,phase3_partner,phase3_score,phase2_word,phase3_word,phase2_feedback,phase3_feedback,match_preference").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_number", selected)
+          const matchMap = new Map((matches || []).map(m => [m.participant_number, m]))
+
+          const { data: pdata } = await supabase.from("participants").select("assigned_number,name,survey_data,gender").eq("match_id", STATIC_MATCH_ID).in("assigned_number", selected)
+          const nameMap = {}
+          const genderMap = {}
+          for (const p of pdata || []) {
+            const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {})
+            nameMap[p.assigned_number] = p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`
+            genderMap[p.assigned_number] = p.gender || sd?.answers?.gender || sd?.gender || "?"
+          }
+
+          // Match summary
+          const phase2Matches = new Map()
+          const phase3Matches = new Map()
+          const mutualChoicePairs = []
+          for (const m of (matches || [])) {
+            const num = m.participant_number
+            if (m.phase2_partner && !phase2Matches.has(num) && !phase2Matches.has(m.phase2_partner)) {
+              phase2Matches.set(num, m.phase2_partner)
+              phase2Matches.set(m.phase2_partner, num)
+            }
+            if (m.phase3_partner && !phase3Matches.has(num) && !phase3Matches.has(m.phase3_partner)) {
+              phase3Matches.set(num, m.phase3_partner)
+              phase3Matches.set(m.phase3_partner, num)
+            }
+          }
+          // Detect mutual choices (same partner in both phases)
+          for (const [num, p2] of phase2Matches) {
+            if (phase3Matches.get(num) === p2) {
+              const key = [num, p2].sort((a, b) => a - b).join("-")
+              if (!mutualChoicePairs.some(x => x.key === key)) {
+                const m = matchMap.get(num)
+                mutualChoicePairs.push({ key, a: num, b: p2, phase2_score: m?.phase2_score || 0, phase3_score: m?.phase3_score || 0 })
+              }
+            }
+          }
+          const phase2Scores = (matches || []).filter(m => m.phase2_score != null).map(m => m.phase2_score)
+          const phase3Scores = (matches || []).filter(m => m.phase3_score != null).map(m => m.phase3_score)
+          const avg = arr => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0
+
+          // Engagement metrics
+          const wordsSubmitted = (matches || []).filter(m => m.phase3_word || m.phase2_word).length
+          const feedbackSubmitted = (matches || []).filter(m => m.phase3_feedback || m.phase2_feedback).length
+          const matchPrefs = (matches || []).filter(m => m.match_preference).length
+
+          // Rankings analysis
+          const { data: rankRows } = await supabase.from("participant_rankings").select("ranker_number,ranked_number,rank").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("ranker_number", selected)
+          const receivedCounts = {}
+          for (const r of (rankRows || [])) { receivedCounts[r.ranked_number] = (receivedCounts[r.ranked_number] || 0) + 1 }
+          const rankedEntries = Object.entries(receivedCounts).map(([num, count]) => ({ number: parseInt(num), name: nameMap[num] || `#${num}`, count })).sort((a, b) => b.count - a.count)
+
+          // Mood checks
+          const { data: moodRows } = await supabase.from("event3_mood_checks").select("mood,participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          const moodCounts = { good: 0, neutral: 0, bad: 0, unanswered: 0 }
+          for (const m of (moodRows || [])) {
+            if (m.mood === "good" || m.mood === "happy") moodCounts.good++
+            else if (m.mood === "bad" || m.mood === "sad") moodCounts.bad++
+            else if (m.mood === "neutral") moodCounts.neutral++
+            else moodCounts.unanswered++
+          }
+
+          return res.status(200).json({
+            generated_at: new Date().toISOString(),
+            event_id: currentEventId,
+            total_selected: selected.length,
+            match_summary: {
+              phase2_pairs: phase2Matches.size / 2,
+              phase3_pairs: phase3Matches.size / 2,
+              mutual_choice_pairs: mutualChoicePairs.length,
+              avg_phase2_score: avg(phase2Scores),
+              avg_phase3_score: avg(phase3Scores),
+            },
+            engagement: {
+              words_submitted: wordsSubmitted,
+              feedback_submitted: feedbackSubmitted,
+              match_preferences_submitted: matchPrefs,
+            },
+            most_ranked: rankedEntries.slice(0, 5),
+            least_ranked: rankedEntries.slice(-5).reverse(),
+            mood_summary: moodCounts,
+            mutual_choice_details: mutualChoicePairs,
+          })
+        }
+
         // e3-get-state
         if (action === "e3-get-state") {
           const { data: stateRow } = await supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration,global_timer_round,phase2_score_revealed,phase3_score_revealed,current_event_id").eq("match_id", EVENT3_MATCH_ID).single()
@@ -6611,7 +6813,11 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             try { p.survey_data = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}) } catch {}
             participantMap.set(p.assigned_number, p)
           }
-          const matches = e3GreedyMutualMatching(rankings, participantMap)
+          // Fetch conflict-of-interest exclusions
+          const { data: exRows } = await supabase.from("event3_exclusions").select("participant_a_number,participant_b_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          const exclusions = new Set((exRows || []).map(e => { const [a, b] = [e.participant_a_number, e.participant_b_number].sort((x, y) => x - y); return `${a}-${b}` }))
+          if (exclusions.size > 0) console.log(`Phase 2: ${exclusions.size} conflict-of-interest exclusions loaded`)
+          const matches = e3GreedyMutualMatching(rankings, participantMap, exclusions)
           await supabase.from("event3_matches").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           const rows = []
           const seen = new Set()
@@ -6655,7 +6861,12 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
 
           // Get current event_id from STATIC_MATCH_ID for locked matches
           const { data: stateRow } = await supabase.from("event_state").select("current_event_id").eq("match_id", STATIC_MATCH_ID).single()
-          const lockedEventId = stateRow?.current_event_id || 1
+
+          // Fetch conflict-of-interest exclusions
+          const { data: exRows } = await supabase.from("event3_exclusions").select("participant_a_number,participant_b_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          const exclusions = new Set((exRows || []).map(e => { const [a, b] = [e.participant_a_number, e.participant_b_number].sort((x, y) => x - y); return `${a}-${b}` }))
+          const isExcluded = (a, b) => { const [x, y] = [a, b].sort((p, q) => p - q); return exclusions.has(`${x}-${y}`) }
+          if (exclusions.size > 0) console.log(`Phase 3: ${exclusions.size} conflict-of-interest exclusions loaded`)
 
           // Fetch ALL locked matches for this match_id (regardless of event_id)
           const { data: lockedMatches } = await supabase
@@ -6665,10 +6876,14 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
 
           console.log(`Phase 3 (locked): Found ${lockedMatches?.length || 0} total locked matches (all event_ids)`)
 
-          // Filter to only pairs where BOTH participants are in event3
+          // Filter to only pairs where BOTH participants are in event3 and NOT excluded
           const lockedPairs = (lockedMatches || []).filter(l =>
-            numSet.has(l.participant1_number) && numSet.has(l.participant2_number)
+            numSet.has(l.participant1_number) && numSet.has(l.participant2_number) && !isExcluded(l.participant1_number, l.participant2_number)
           )
+          const excludedLocked = (lockedMatches || []).filter(l =>
+            numSet.has(l.participant1_number) && numSet.has(l.participant2_number) && isExcluded(l.participant1_number, l.participant2_number)
+          )
+          if (excludedLocked.length > 0) console.log(`Phase 3 (locked): skipped ${excludedLocked.length} locked pairs due to conflict-of-interest exclusions`)
           console.log(`Phase 3 (locked): ${lockedPairs.length} pairs have both participants in event3`)
 
           // Fetch participant data for compatibility calculation

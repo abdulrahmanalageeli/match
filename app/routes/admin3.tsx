@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import toast, { Toaster } from "react-hot-toast"
 import {
   Users, Play, Square, ChevronRight, RotateCcw, CheckCircle,
   Circle, RefreshCw, Table2, Trophy, Clock, BarChart3, Shuffle,
   Eye, EyeOff, ArrowRight, Sparkles, Brain, Shield, LogOut,
-  Grid3x3, Star, Check, AlertCircle, AlertTriangle, Loader2, Copy, Heart, Layers, ChevronDown, X, MessageSquare, Send, Home, Trash2, GripVertical, Search, Crown, Medal, Coffee, Ban, ArrowLeft, Bell, Calendar,
+  Grid3x3, Star, Check, AlertCircle, AlertTriangle, Loader2, Copy, Heart, Layers, ChevronDown, X, XCircle, MessageSquare, Send, Home, Trash2, GripVertical, Search, Crown, Medal, Coffee, Ban, ArrowLeft, Bell, Calendar,
 } from "lucide-react"
 
 const ADMIN_PASSWORD = "soulmatch2026"
@@ -47,6 +47,10 @@ export default function Admin3Page() {
   const [eventList, setEventList] = useState<number[]>([])
   const [realCurrentEventId, setRealCurrentEventId] = useState<number>(20)
   const [migrationErrors, setMigrationErrors] = useState<string[] | null>(null)
+  const [diagnostics, setDiagnostics] = useState<{ healthy: boolean; checks: any[] } | null>(null)
+  const [diagnosticsLoading, setDiagnosticsLoading] = useState(false)
+  const [report, setReport] = useState<any | null>(null)
+  const [reportLoading, setReportLoading] = useState(false)
   const [participants, setParticipants] = useState<any[]>([])
   const [selectedNumbers, setSelectedNumbers] = useState<Set<number>>(new Set())
   const [seating, setSeating] = useState<any>(null)
@@ -89,6 +93,16 @@ export default function Admin3Page() {
   const [overviewData, setOverviewData] = useState<any>(null)
   const [overviewLoading, setOverviewLoading] = useState(false)
   const [timerRemaining, setTimerRemaining] = useState(0)
+
+  const phase3MissingCount = useMemo(() => {
+    if (!state?.phase3_matches_done || !seating || !participants.length) return 0
+    const assignedIds = new Set<number>()
+    for (const members of Object.values(seating[30] || {})) {
+      for (const m of (members as any[])) if (m?.number) assignedIds.add(m.number)
+    }
+    return participants.filter(p => p.selected && !assignedIds.has(p.number)).length
+  }, [state?.phase3_matches_done, seating, participants])
+
   const [editingRanker, setEditingRanker] = useState<number | null>(null)
   const [editedOrder, setEditedOrder] = useState<any[]>([])
   const [simulatingRanker, setSimulatingRanker] = useState<number | null>(null)
@@ -165,6 +179,20 @@ export default function Admin3Page() {
     setAuthenticated(false)
     setPassword("")
   }
+
+  const runDiagnostics = useCallback(async () => {
+    setDiagnosticsLoading(true)
+    const data = await api("e3-run-diagnostics")
+    setDiagnostics(data)
+    setDiagnosticsLoading(false)
+  }, [])
+
+  const generateReport = useCallback(async () => {
+    setReportLoading(true)
+    const data = await api("e3-generate-report")
+    setReport(data)
+    setReportLoading(false)
+  }, [])
 
   const fetchState = useCallback(async () => {
     const data = await api("e3-get-state")
@@ -820,6 +848,122 @@ export default function Admin3Page() {
                 <p className="text-[10px] sm:text-xs text-gray-500">{stat.label}</p>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Phase 3 assignment mismatch warning */}
+        {phase3MissingCount > 0 && (
+          <div className="bg-red-950/40 border border-red-800/50 rounded-xl p-3 sm:p-4 flex items-start gap-3">
+            <AlertTriangle className="text-red-400 flex-shrink-0 mt-0.5" size={18} />
+            <div className="flex-1">
+              <p className="text-red-300 font-semibold text-sm">{phase3MissingCount} مشارك مختار ليس له طاولة في المرحلة 3</p>
+              <p className="text-red-400/70 text-xs mt-0.5">المطابقات تم إنشاؤها لكن بعض المشاركين غير مسندين إلى طاولة. أعد تشغيل مطابقة المرحلة 3 أو راجع الأزواج المثبتة.</p>
+            </div>
+          </div>
+        )}
+
+        {/* Pre-event diagnostics */}
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 sm:p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Shield className="text-purple-400" size={18} />
+              <h2 className="text-sm font-medium text-gray-300">فحص ما قبل الفعالية</h2>
+            </div>
+            <button
+              onClick={runDiagnostics}
+              disabled={diagnosticsLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 text-xs font-medium transition-colors disabled:opacity-50"
+            >
+              {diagnosticsLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+              تشغيل الفحص
+            </button>
+          </div>
+          {diagnostics && (
+            <div className="space-y-2">
+              <div className={`flex items-center gap-2 text-sm font-semibold ${diagnostics.healthy ? "text-green-400" : "text-red-400"}`}>
+                {diagnostics.healthy ? <Check size={16} /> : <AlertTriangle size={16} />}
+                {diagnostics.healthy ? "جاهز للبدء" : "هناك مشاكل تحتاج المعالجة"}
+              </div>
+              <div className="space-y-1">
+                {diagnostics.checks.map((check, i) => (
+                  <div key={i} className={`flex items-start gap-2 text-xs p-2 rounded-lg ${check.status === "ok" ? "bg-green-950/30 text-green-300" : check.status === "warn" ? "bg-yellow-950/30 text-yellow-300" : "bg-red-950/30 text-red-300"}`}>
+                    {check.status === "ok" ? <Check size={14} className="mt-0.5" /> : check.status === "warn" ? <AlertTriangle size={14} className="mt-0.5" /> : <XCircle size={14} className="mt-0.5" />}
+                    <span>{check.message}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Post-event report */}
+        {state?.phase === "final_reveal" && (
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="text-amber-400" size={18} />
+                <h2 className="text-sm font-medium text-gray-300">تقرير ما بعد الفعالية</h2>
+              </div>
+              <button
+                onClick={generateReport}
+                disabled={reportLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 text-xs font-medium transition-colors disabled:opacity-50"
+              >
+                {reportLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                إنشاء التقرير
+              </button>
+            </div>
+            {report && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="bg-gray-800/50 rounded-lg p-2.5 text-center">
+                    <div className="text-lg font-bold text-white">{report.match_summary?.phase2_pairs ?? 0}</div>
+                    <div className="text-[10px] text-gray-500">أزواج المرحلة 2</div>
+                  </div>
+                  <div className="bg-gray-800/50 rounded-lg p-2.5 text-center">
+                    <div className="text-lg font-bold text-white">{report.match_summary?.phase3_pairs ?? 0}</div>
+                    <div className="text-[10px] text-gray-500">أزواج المرحلة 3</div>
+                  </div>
+                  <div className="bg-gray-800/50 rounded-lg p-2.5 text-center">
+                    <div className="text-lg font-bold text-green-400">{report.match_summary?.mutual_choice_pairs ?? 0}</div>
+                    <div className="text-[10px] text-gray-500">اختيار متبادل</div>
+                  </div>
+                  <div className="bg-gray-800/50 rounded-lg p-2.5 text-center">
+                    <div className="text-lg font-bold text-pink-400">{report.match_summary?.avg_phase3_score ?? 0}</div>
+                    <div className="text-[10px] text-gray-500">متوسط التوافق</div>
+                  </div>
+                </div>
+                {(report.most_ranked?.length > 0 || report.least_ranked?.length > 0) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="bg-green-950/20 border border-green-800/30 rounded-lg p-2.5">
+                      <p className="text-green-400 text-xs font-semibold mb-1">الأكثر تقييماً</p>
+                      <div className="space-y-0.5">
+                        {report.most_ranked.map((p: any) => (
+                          <div key={p.number} className="flex justify-between text-xs text-gray-300"><span>{p.name}</span><span>{p.count} تصنيف</span></div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="bg-red-950/20 border border-red-800/30 rounded-lg p-2.5">
+                      <p className="text-red-400 text-xs font-semibold mb-1">الأقل تقييماً</p>
+                      <div className="space-y-0.5">
+                        {report.least_ranked.map((p: any) => (
+                          <div key={p.number} className="flex justify-between text-xs text-gray-300"><span>{p.name}</span><span>{p.count} تصنيف</span></div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {report.mood_summary && (
+                  <div className="flex items-center gap-3 text-xs">
+                    <span className="text-gray-500">المزاج:</span>
+                    <span className="text-green-400">{report.mood_summary.good} جيد</span>
+                    <span className="text-yellow-400">{report.mood_summary.neutral} محايد</span>
+                    <span className="text-red-400">{report.mood_summary.bad} سيء</span>
+                    <span className="text-gray-500">{report.mood_summary.unanswered} بدون رد</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 

@@ -56,6 +56,7 @@ interface MatchResult {
     recommendations?: string | null
     participantMessage?: string | null
     submittedAt?: string | null
+    wantConnect?: boolean | null
   } | null
   // New model numeric fields (optional, returned by API if available)
   synergy_score?: number | null
@@ -1014,55 +1015,63 @@ export default function ResultsPage() {
                                 </h4>
                               </div>
                               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                                {typeof match.my_feedback.compatibilityRate === 'number' && (
+                                {typeof match.my_feedback.compatibilityRate === 'number' && match.my_feedback.compatibilityRate !== 50 && (
                                   <div className={`${dark ? 'bg-slate-900/40 text-slate-200' : 'bg-gray-50 text-gray-800'} rounded-md p-2`}>
                                     <div className="font-semibold">التوافق</div>
                                     <div className="font-bold">{match.my_feedback.compatibilityRate}</div>
                                   </div>
                                 )}
-                                {typeof match.my_feedback.conversationQuality === 'number' && (
+                                {typeof match.my_feedback.conversationQuality === 'number' && match.my_feedback.conversationQuality > 0 && (
                                   <div className={`${dark ? 'bg-slate-900/40 text-slate-200' : 'bg-gray-50 text-gray-800'} rounded-md p-2`}>
                                     <div className="font-semibold">جودة الحديث</div>
                                     <div className="font-bold">{match.my_feedback.conversationQuality}</div>
                                   </div>
                                 )}
-                                {typeof match.my_feedback.personalConnection === 'number' && (
+                                {typeof match.my_feedback.personalConnection === 'number' && match.my_feedback.personalConnection > 0 && (
                                   <div className={`${dark ? 'bg-slate-900/40 text-slate-200' : 'bg-gray-50 text-gray-800'} rounded-md p-2`}>
                                     <div className="font-semibold">ارتباط</div>
                                     <div className="font-bold">{match.my_feedback.personalConnection}</div>
                                   </div>
                                 )}
-                                {typeof match.my_feedback.sharedInterests === 'number' && (
+                                {typeof match.my_feedback.sharedInterests === 'number' && match.my_feedback.sharedInterests > 0 && (
                                   <div className={`${dark ? 'bg-slate-900/40 text-slate-200' : 'bg-gray-50 text-gray-800'} rounded-md p-2`}>
                                     <div className="font-semibold">اهتمامات</div>
                                     <div className="font-bold">{match.my_feedback.sharedInterests}</div>
                                   </div>
                                 )}
-                                {typeof match.my_feedback.comfortLevel === 'number' && (
+                                {typeof match.my_feedback.comfortLevel === 'number' && match.my_feedback.comfortLevel > 0 && (
                                   <div className={`${dark ? 'bg-slate-900/40 text-slate-200' : 'bg-gray-50 text-gray-800'} rounded-md p-2`}>
                                     <div className="font-semibold">راحة</div>
                                     <div className="font-bold">{match.my_feedback.comfortLevel}</div>
                                   </div>
                                 )}
-                                {typeof match.my_feedback.communicationStyle === 'number' && (
+                                {typeof match.my_feedback.communicationStyle === 'number' && match.my_feedback.communicationStyle > 0 && (
                                   <div className={`${dark ? 'bg-slate-900/40 text-slate-200' : 'bg-gray-50 text-gray-800'} rounded-md p-2`}>
                                     <div className="font-semibold">التواصل</div>
                                     <div className="font-bold">{match.my_feedback.communicationStyle}</div>
                                   </div>
                                 )}
-                                {typeof match.my_feedback.wouldMeetAgain === 'number' && (
+                                {typeof match.my_feedback.wouldMeetAgain === 'number' && match.my_feedback.wouldMeetAgain > 0 && (
                                   <div className={`${dark ? 'bg-slate-900/40 text-slate-200' : 'bg-gray-50 text-gray-800'} rounded-md p-2`}>
                                     <div className="font-semibold">مرة أخرى</div>
                                     <div className="font-bold">{match.my_feedback.wouldMeetAgain}</div>
                                   </div>
                                 )}
-                                {typeof match.my_feedback.overallExperience === 'number' && (
+                                {typeof match.my_feedback.overallExperience === 'number' && match.my_feedback.overallExperience > 0 && (
                                   <div className={`${dark ? 'bg-slate-900/40 text-slate-200' : 'bg-gray-50 text-gray-800'} rounded-md p-2`}>
                                     <div className="font-semibold">التجربة</div>
                                     <div className="font-bold">{match.my_feedback.overallExperience}</div>
                                   </div>
                                 )}
                               </div>
+                              {match.my_feedback.wantConnect != null && (
+                                <div className={`mt-2 flex items-center gap-2 text-xs ${dark ? 'text-slate-300' : 'text-gray-700'}`}>
+                                  <span className="font-semibold">رغبتك بالتواصل:</span>
+                                  <span className={`font-bold ${match.my_feedback.wantConnect ? 'text-emerald-400' : 'text-red-400'}`}>
+                                    {match.my_feedback.wantConnect ? '✅ نعم' : '❌ لا'}
+                                  </span>
+                                </div>
+                              )}
                               {(match.my_feedback.recommendations || match.my_feedback.participantMessage) && (
                                 <div className="mt-3 space-y-2 text-sm">
                                   {match.my_feedback.participantMessage && (

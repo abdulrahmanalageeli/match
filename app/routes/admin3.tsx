@@ -3401,7 +3401,7 @@ export default function Admin3Page() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {submitted.map((entry: any) => {
                         const fb = entry.feedback || {}
-                        const mutualYes = fb.wantConnect === true && entry.partner_submitted
+                        const mutualYes = entry.mutual_yes === true || (fb.wantConnect === true && entry.partner_feedback?.wantConnect === true)
                         return (
                           <div key={entry.participant_number}
                             className={`relative bg-gray-900 border rounded-xl p-4 overflow-hidden ${
@@ -3457,6 +3457,47 @@ export default function Admin3Page() {
                               {fb.organizerImpression && (
                                 <div className="mt-2 bg-gray-800/70 rounded-lg p-2 text-gray-300 text-[10px] text-right leading-relaxed border border-gray-700/40">💬 {fb.organizerImpression}</div>
                               )}
+                              {entry.partner_submitted && entry.partner_feedback && (() => {
+                                const pfb = entry.partner_feedback
+                                return (
+                                  <div className="mt-3 pt-3 border-t border-gray-700/40">
+                                    <p className="text-[10px] text-gray-500 mb-1.5 font-medium">تقييم {entry.partner_name}:</p>
+                                    {pfb.conversationQuality > 0 && (
+                                      <div className="flex items-center justify-between text-xs">
+                                        <span className="text-gray-600">جودة المحادثة</span>
+                                        <span>{stars(pfb.conversationQuality)}</span>
+                                      </div>
+                                    )}
+                                    {pfb.personalConnection > 0 && (
+                                      <div className="flex items-center justify-between text-xs mt-1">
+                                        <span className="text-gray-600">التواصل الشخصي</span>
+                                        <span>{stars(pfb.personalConnection)}</span>
+                                      </div>
+                                    )}
+                                    {pfb.overallExperience > 0 && (
+                                      <div className="flex items-center justify-between text-xs mt-1">
+                                        <span className="text-gray-600">التجربة الكلية</span>
+                                        <span>{stars(pfb.overallExperience)}</span>
+                                      </div>
+                                    )}
+                                    {pfb.wantConnect != null && (
+                                      <div className="flex items-center justify-between text-xs mt-1">
+                                        <span className="text-gray-600">يريد التواصل</span>
+                                        <span className={`font-bold ${pfb.wantConnect ? "text-emerald-400" : "text-red-400"}`}>{pfb.wantConnect ? "✅ نعم" : "❌ لا"}</span>
+                                      </div>
+                                    )}
+                                    {pfb.compatibilityRate != null && pfb.sliderMoved && (
+                                      <div className="flex items-center justify-between text-xs mt-1">
+                                        <span className="text-gray-600">التوافق المُقدَّر</span>
+                                        <span className="text-amber-400 font-bold">{pfb.compatibilityRate}%</span>
+                                      </div>
+                                    )}
+                                    {pfb.organizerImpression && (
+                                      <div className="mt-2 bg-gray-800/70 rounded-lg p-2 text-gray-300 text-[10px] text-right leading-relaxed border border-gray-700/40">💬 {pfb.organizerImpression}</div>
+                                    )}
+                                  </div>
+                                )
+                              })()}
                             </div>
                           </div>
                         )

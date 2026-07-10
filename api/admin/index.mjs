@@ -7169,11 +7169,17 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           for (const row of matchRows) {
             if (row.phase2_partner) {
               const partnerRow = matchMap[row.phase2_partner]
-              phase2.push({ participant_number: row.participant_number, participant_name: getName(row.participant_number), partner_number: row.phase2_partner, partner_name: getName(row.phase2_partner), feedback: row.phase2_feedback || null, submitted: !!row.phase2_feedback, partner_submitted: !!(partnerRow?.phase2_feedback) })
+              const partnerFb = partnerRow?.phase2_feedback || null
+              const myFb = row.phase2_feedback || null
+              const mutualYes = !!(myFb?.wantConnect === true && partnerFb?.wantConnect === true)
+              phase2.push({ participant_number: row.participant_number, participant_name: getName(row.participant_number), partner_number: row.phase2_partner, partner_name: getName(row.phase2_partner), feedback: myFb, submitted: !!row.phase2_feedback, partner_submitted: !!partnerFb, partner_feedback: partnerFb, mutual_yes: mutualYes })
             }
             if (row.phase3_partner) {
               const partnerRow = matchMap[row.phase3_partner]
-              phase3.push({ participant_number: row.participant_number, participant_name: getName(row.participant_number), partner_number: row.phase3_partner, partner_name: getName(row.phase3_partner), feedback: row.phase3_feedback || null, submitted: !!row.phase3_feedback, partner_submitted: !!(partnerRow?.phase3_feedback) })
+              const partnerFb = partnerRow?.phase3_feedback || null
+              const myFb = row.phase3_feedback || null
+              const mutualYes = !!(myFb?.wantConnect === true && partnerFb?.wantConnect === true)
+              phase3.push({ participant_number: row.participant_number, participant_name: getName(row.participant_number), partner_number: row.phase3_partner, partner_name: getName(row.phase3_partner), feedback: myFb, submitted: !!row.phase3_feedback, partner_submitted: !!partnerFb, partner_feedback: partnerFb, mutual_yes: mutualYes })
             }
           }
           const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID)

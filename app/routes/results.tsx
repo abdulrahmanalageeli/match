@@ -16,7 +16,6 @@ import {
   Sparkles,
   ChevronDown,
   ChevronUp,
-  MessageCircle,
   Award,
   Users,
   Brain,
@@ -107,7 +106,6 @@ export default function ResultsPage() {
   const [resultsData, setResultsData] = useState<ResultsData | null>(null)
   const [dark] = useState(true) // Match the welcome page theme
   const [showAiAnalysis, setShowAiAnalysis] = useState<{[key: number]: boolean}>({})
-  const [showPartnerMessage, setShowPartnerMessage] = useState<{[key: number]: boolean}>({})
   const [expandedMatches, setExpandedMatches] = useState<{[key: number]: boolean}>({})
   const [expandedEvents, setExpandedEvents] = useState<{[key: number]: boolean}>({})
 
@@ -776,7 +774,7 @@ export default function ResultsPage() {
                             </div>
                           )}
                           {/* Event 3: Match preference indicator */}
-                          {match.match_preference && match.match_type === 'algorithm' && (
+                          {match.match_preference && match.match_type === 'choice' && (
                             <div className={`p-3 rounded-xl border flex items-center gap-2 ${
                               match.match_preference === 'choice' ? 'bg-pink-500/10 border-pink-500/20' :
                               match.match_preference === 'algorithm' ? 'bg-purple-500/10 border-purple-500/20' :
@@ -1014,150 +1012,6 @@ export default function ResultsPage() {
                             </div>
                           )}
 
-                          {match.my_feedback && (() => {
-                            const fb = match.my_feedback
-                            const pfb = match.partner_feedback || null
-                            const isEvent3 = match.event_id === 20
-                            const stars = (n: number) => Array.from({ length: 5 }, (_, i) => (
-                              <span key={i} className={i < n ? "text-yellow-400" : "text-gray-700"}>★</span>
-                            ))
-                            const mutualYes = match.mutual_match === true || (fb.wantConnect === true && pfb?.wantConnect === true)
-                            return (
-                            <div className={`p-3 rounded-lg border ${
-                              mutualYes ? 'bg-emerald-500/5 border-emerald-600/30' : dark ? 'bg-slate-800/40 border-slate-600/50' : 'bg-white border-gray-200'
-                            }`}>
-                              <div className="flex items-center gap-2 mb-3">
-                                <User className={`w-4 h-4 ${dark ? 'text-slate-200' : 'text-gray-700'}`} />
-                                <h4 className={`font-bold text-sm ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
-                                  تقييمك لهذه الجلسة
-                                </h4>
-                                {mutualYes && (
-                                  <span className="text-[9px] bg-emerald-900/60 border border-emerald-600/50 text-emerald-300 px-1.5 py-0.5 rounded-full font-bold">❤️ توافق محتمل</span>
-                                )}
-                                {match.match_preference && isEvent3 && (
-                                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full border font-bold ${
-                                    match.match_preference === 'choice' ? 'bg-pink-900/60 border-pink-600/50 text-pink-300' :
-                                    match.match_preference === 'algorithm' ? 'bg-purple-900/60 border-purple-600/50 text-purple-300' :
-                                    match.match_preference === 'both' ? 'bg-emerald-900/60 border-emerald-600/50 text-emerald-300' :
-                                    'bg-gray-800 border-gray-600/50 text-gray-400'
-                                  }`}>
-                                    {match.match_preference === 'choice' ? '💕 اختيار' :
-                                     match.match_preference === 'algorithm' ? '🧠 خوارزمية' :
-                                     match.match_preference === 'both' ? '✨ كلاهما' :
-                                     '— لا أحد'}
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* My feedback with stars */}
-                              <div className="space-y-1.5 text-xs">
-                                {typeof fb.conversationQuality === 'number' && fb.conversationQuality > 0 && (
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-gray-500">جودة المحادثة</span>
-                                    <span>{stars(fb.conversationQuality)}</span>
-                                  </div>
-                                )}
-                                {typeof fb.personalConnection === 'number' && fb.personalConnection > 0 && (
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-gray-500">التواصل الشخصي</span>
-                                    <span>{stars(fb.personalConnection)}</span>
-                                  </div>
-                                )}
-                                {typeof fb.sharedInterests === 'number' && fb.sharedInterests > 0 && (
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-gray-500">الاهتمامات المشتركة</span>
-                                    <span>{stars(fb.sharedInterests)}</span>
-                                  </div>
-                                )}
-                                {typeof fb.comfortLevel === 'number' && fb.comfortLevel > 0 && (
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-gray-500">مستوى الراحة</span>
-                                    <span>{stars(fb.comfortLevel)}</span>
-                                  </div>
-                                )}
-                                {typeof fb.communicationStyle === 'number' && fb.communicationStyle > 0 && (
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-gray-500">أسلوب التواصل</span>
-                                    <span>{stars(fb.communicationStyle)}</span>
-                                  </div>
-                                )}
-                                {typeof fb.wouldMeetAgain === 'number' && fb.wouldMeetAgain > 0 && (
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-gray-500">أريد لقاءه مجدداً</span>
-                                    <span>{stars(fb.wouldMeetAgain)}</span>
-                                  </div>
-                                )}
-                                {typeof fb.overallExperience === 'number' && fb.overallExperience > 0 && (
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-gray-500">التجربة الكلية</span>
-                                    <span>{stars(fb.overallExperience)}</span>
-                                  </div>
-                                )}
-                                {fb.wantConnect != null && (
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-gray-500">يريد التواصل</span>
-                                    <span className={`font-bold ${fb.wantConnect ? "text-emerald-400" : "text-red-400"}`}>{fb.wantConnect ? "✅ نعم" : "❌ لا"}</span>
-                                  </div>
-                                )}
-                                {typeof fb.compatibilityRate === 'number' && fb.compatibilityRate !== 50 && fb.sliderMoved && (
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-gray-500">التوافق المُقدَّر</span>
-                                    <span className="text-amber-400 font-bold">{fb.compatibilityRate}%</span>
-                                  </div>
-                                )}
-                                {fb.participantMessage && (
-                                  <div className="mt-2 bg-gray-800/70 rounded-lg p-2 text-gray-300 text-[10px] text-right leading-relaxed border border-gray-700/40">💬 {fb.participantMessage}</div>
-                                )}
-                              </div>
-
-                              {/* Partner Message (if exists) */}
-                              {match.partner_message && (
-                                <div className={`p-3 rounded-lg border ${
-                                  dark ? 'bg-purple-500/10 border-purple-400/30' : 'bg-purple-50 border-purple-200'
-                                }`}>
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <MessageCircle className={`w-4 h-4 ${dark ? 'text-purple-200' : 'text-purple-700'}`} />
-                                    <h4 className={`font-bold text-sm ${dark ? 'text-purple-200' : 'text-purple-700'}`}>
-                                      رسالة من شريك المحادثة
-                                    </h4>
-                                  </div>
-                                  
-                                  {!showPartnerMessage[matchIndex] ? (
-                                    <div className="text-center">
-                                      <p className={`text-xs mb-3 ${dark ? 'text-purple-300/80' : 'text-purple-600/80'}`}>
-                                        شريك المحادثة أرسل لك رسالة
-                                      </p>
-                                      <Button
-                                        onClick={() => setShowPartnerMessage(prev => ({ ...prev, [matchIndex]: true }))}
-                                        className="text-xs px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white"
-                                      >
-                                        اضغط لقراءة الرسالة
-                                      </Button>
-                                    </div>
-                                  ) : (
-                                    <div className={`p-3 rounded-lg ${
-                                      dark ? 'bg-slate-800/50' : 'bg-white/50'
-                                    }`}>
-                                      <p className={`text-sm leading-relaxed ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
-                                        "{match.partner_message}"
-                                      </p>
-                                      <Button
-                                        onClick={() => setShowPartnerMessage(prev => ({ ...prev, [matchIndex]: false }))}
-                                        className={`mt-2 text-xs px-2 py-1 ${
-                                          dark 
-                                            ? 'bg-slate-600 hover:bg-slate-700 text-slate-200' 
-                                            : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                                        }`}
-                                      >
-                                        إخفاء الرسالة
-                                      </Button>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })()}
                     </div>
                   </div>
                 )}

@@ -1523,6 +1523,7 @@ export default async function handler(req, res) {
                   match_label: "اختيارك الشخصي",
                   match_word: e3Match.phase2_word || null,
                   breakdown: p2Breakdown,
+                  match_preference: e3Match.match_preference || null,
                   my_feedback: myFb2 ? {
                     compatibilityRate: myFb2.compatibilityRate ?? null,
                     conversationQuality: myFb2.conversationQuality ?? null,

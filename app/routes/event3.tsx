@@ -315,8 +315,8 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
     if (step < FLOW_STEPS.length - 1) {
       setDir(1); setStep(s => s + 1)
     } else {
+      onDone()
       try { confetti({ particleCount: 90, spread: 75, origin: { y: 0.5 }, colors: ["#a855f7","#ec4899","#f43f5e","#fbbf24"] }) } catch {}
-      setTimeout(onDone, 450)
     }
   }
   const goPrev = () => { if (step > 0) { setDir(-1); setStep(s => s - 1) } }
@@ -2153,9 +2153,9 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
 
                     {/* Name + number + round badge inline */}
                     <div className="flex-1 min-w-0 flex items-center gap-2">
-                      <span className="font-semibold text-white text-sm leading-tight truncate">{p.first_name}</span>
+                      <span className="font-semibold text-white text-sm leading-tight">{p.first_name}</span>
                       <span className="text-[10px] text-gray-600 font-mono flex-shrink-0">#{p.number}</span>
-                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full border flex-shrink-0 ${roundStyle(p.round)}`}>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full border flex-shrink-0 hidden xs:inline-block ${roundStyle(p.round)}`}>
                         {roundLabel(p.round)}
                       </span>
                       {newNums.has(num) && (

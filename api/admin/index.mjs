@@ -6724,9 +6724,59 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             }, { onConflict: "match_id,event_id,participant_number" })
           }
 
-          // Handle unmatched (odd count)
+          // Handle unmatched participants — fall back to ranking-based matching
           const unmatched = nums.filter(n => !used.has(n))
-          if (unmatched.length === 1) {
+          if (unmatched.length >= 2) {
+            console.log(`Phase 3 (locked): ${unmatched.length} participants without locked matches — using ranking-based fallback`)
+            // Fetch rankings for unmatched participants
+            const { data: unmatchedRankRows } = await supabase.from("participant_rankings").select("ranker_number,ranked_number,rank").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("ranker_number", unmatched).order("rank", { ascending: true })
+            const unmatchedRankings = new Map()
+            for (const row of (unmatchedRankRows || [])) {
+              const sorted = (unmatchedRankRows || []).filter(r => r.ranker_number === row.ranker_number).sort((a, b) => a.rank - b.rank).map(r => r.ranked_number)
+              unmatchedRankings.set(row.ranker_number, sorted)
+            }
+            // Fetch participant data for gender compatibility
+            const { data: unmatchedPData } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,attachment_style,communication_style,humor_banter_style,early_openness_comfort,same_gender_preference,any_gender_preference,nationality,prefer_same_nationality,preferred_age_min,preferred_age_max,open_age_preference").eq("match_id", STATIC_MATCH_ID).in("assigned_number", unmatched)
+            const unmatchedPMap = new Map()
+            for (const p of (unmatchedPData || [])) {
+              try { p.survey_data = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}) } catch {}
+              unmatchedPMap.set(p.assigned_number, p)
+            }
+            // Use greedy mutual matching for unmatched participants
+            const fallbackMatches = e3GreedyMutualMatching(unmatchedRankings, unmatchedPMap)
+            for (const [p, partner] of fallbackMatches) {
+              if (used.has(p) || used.has(partner)) continue
+              used.add(p)
+              used.add(partner)
+              const pA = unmatchedPMap.get(p), pB = unmatchedPMap.get(partner)
+              let score = 50
+              if (pA && pB) {
+                try {
+                  const compat = await e3FullCalcCompat(pA, pB)
+                  if (compat) score = compat.totalScore
+                } catch (e) { console.error(`Phase 3 fallback compat error for #${p}×#${partner}:`, e.message) }
+              }
+              matches.push({ a: p, b: partner, score })
+              await supabase.from("event3_matches").upsert({
+                match_id: EVENT3_MATCH_ID,
+                event_id: currentEventId,
+                participant_number: p,
+                phase3_partner: partner,
+                phase3_score: score,
+              }, { onConflict: "match_id,event_id,participant_number" })
+              await supabase.from("event3_matches").upsert({
+                match_id: EVENT3_MATCH_ID,
+                event_id: currentEventId,
+                participant_number: partner,
+                phase3_partner: p,
+                phase3_score: score,
+              }, { onConflict: "match_id,event_id,participant_number" })
+            }
+            const stillUnmatched = nums.filter(n => !used.has(n))
+            if (stillUnmatched.length === 1) {
+              console.log(`Phase 3: 1 participant still unmatched #${stillUnmatched[0]} (odd count)`)
+            }
+          } else if (unmatched.length === 1) {
             console.log(`Phase 3 (locked): 1 unmatched participant #${unmatched[0]} (odd count)`)
           }
 
@@ -6743,7 +6793,8 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             console.log(`Phase 3 (locked): Created ${matches.length} table assignments for round 30`)
           }
 
-          return res.status(200).json({ message: `Phase 3 matching complete. Created ${matches.length} pairs from locked matches. ${unmatched.length} unmatched.` })
+          const stillUnmatchedCount = nums.filter(n => !used.has(n)).length
+          return res.status(200).json({ message: `Phase 3 matching complete. Created ${matches.length} pairs. ${stillUnmatchedCount} unmatched.` })
         }
         // e3-get-all-rankings
         if (action === "e3-get-all-rankings") {

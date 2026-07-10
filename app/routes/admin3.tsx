@@ -4,7 +4,7 @@ import {
   Users, Play, Square, ChevronRight, RotateCcw, CheckCircle,
   Circle, RefreshCw, Table2, Trophy, Clock, BarChart3, Shuffle,
   Eye, EyeOff, ArrowRight, Sparkles, Brain, Shield, LogOut,
-  Grid3x3, Star, Check, AlertCircle, Loader2, Copy, Heart, Layers, ChevronDown, X, MessageSquare, Send, Home, Trash2, GripVertical, Search, Crown, Medal, Coffee, Ban, ArrowLeft, Bell, Calendar,
+  Grid3x3, Star, Check, AlertCircle, AlertTriangle, Loader2, Copy, Heart, Layers, ChevronDown, X, MessageSquare, Send, Home, Trash2, GripVertical, Search, Crown, Medal, Coffee, Ban, ArrowLeft, Bell, Calendar,
 } from "lucide-react"
 
 const ADMIN_PASSWORD = "soulmatch2026"
@@ -46,6 +46,7 @@ export default function Admin3Page() {
   const [previewEventId, setPreviewEventIdState] = useState<number | null>(null)
   const [eventList, setEventList] = useState<number[]>([])
   const [realCurrentEventId, setRealCurrentEventId] = useState<number>(20)
+  const [migrationErrors, setMigrationErrors] = useState<string[] | null>(null)
   const [participants, setParticipants] = useState<any[]>([])
   const [selectedNumbers, setSelectedNumbers] = useState<Set<number>>(new Set())
   const [seating, setSeating] = useState<any>(null)
@@ -167,6 +168,11 @@ export default function Admin3Page() {
 
   const fetchState = useCallback(async () => {
     const data = await api("e3-get-state")
+    if (data._debug) {
+      console.log("[admin3] e3-get-state debug:", data._debug)
+      const errs = Object.values(data._debug.errors || {}).filter(Boolean) as string[]
+      if (errs.length > 0) setMigrationErrors(prev => prev ?? errs)
+    }
     setState(data)
   }, [])
 
@@ -349,6 +355,14 @@ export default function Admin3Page() {
 
   const fetchEventList = useCallback(async () => {
     const data = await api("e3-get-event-list")
+    console.log("[admin3] e3-get-event-list response:", data)
+    if (data.errors) {
+      const errs = Object.values(data.errors).filter(Boolean) as string[]
+      if (errs.length > 0) {
+        console.error("[admin3] event list errors:", data.errors)
+        setMigrationErrors(errs)
+      }
+    }
     if (data.events) setEventList(data.events)
     if (data.current_event_id) setRealCurrentEventId(data.current_event_id)
   }, [])
@@ -690,6 +704,21 @@ export default function Admin3Page() {
       </header>
 
       <div className="max-w-6xl mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
+
+        {/* Migration Warning */}
+        {migrationErrors && migrationErrors.length > 0 && (
+          <div className="bg-red-900/30 border border-red-700/50 rounded-xl p-4 space-y-2">
+            <div className="flex items-center gap-2 text-red-300 font-semibold text-sm">
+              <AlertTriangle size={16} /> تنبيه: لم يتم تشغيل SQL Migration
+            </div>
+            <div className="text-xs text-red-400/80">
+              يجب تشغيل ملف <code className="bg-red-950/50 px-1.5 py-0.5 rounded">database/event3_add_event_id.sql</code> في Supabase SQL Editor لإضافة عمود <code className="bg-red-950/50 px-1.5 py-0.5 rounded">event_id</code> للجداول.
+            </div>
+            <div className="text-xs text-red-400/60">
+              الأخطاء: {migrationErrors.join(" | ")}
+            </div>
+          </div>
+        )}
 
         {/* Event Selector */}
         <div className="flex items-center gap-3 flex-wrap">

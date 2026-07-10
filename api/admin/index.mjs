@@ -6328,35 +6328,44 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
 
         // e3-get-event-list — list all event_ids that have data
         if (action === "e3-get-event-list") {
-          const { data: epEvents } = await supabase.from("event3_participants").select("event_id").eq("match_id", EVENT3_MATCH_ID)
-          const { data: matchEvents } = await supabase.from("event3_matches").select("event_id").eq("match_id", EVENT3_MATCH_ID)
+          const { data: epEvents, error: epErr } = await supabase.from("event3_participants").select("event_id").eq("match_id", EVENT3_MATCH_ID)
+          const { data: matchEvents, error: matchErr } = await supabase.from("event3_matches").select("event_id").eq("match_id", EVENT3_MATCH_ID)
+          if (epErr) console.error("[e3-get-event-list] event3_participants error:", epErr.message)
+          if (matchErr) console.error("[e3-get-event-list] event3_matches error:", matchErr.message)
           const eventIds = new Set()
           for (const r of epEvents || []) if (r.event_id) eventIds.add(r.event_id)
           for (const r of matchEvents || []) if (r.event_id) eventIds.add(r.event_id)
           eventIds.add(realEventId) // always include current
           const sorted = Array.from(eventIds).sort((a, b) => b - a)
-          return res.status(200).json({ events: sorted, current_event_id: realEventId })
+          return res.status(200).json({ events: sorted, current_event_id: realEventId, errors: { participants: epErr?.message || null, matches: matchErr?.message || null } })
         }
 
         // e3-get-state
         if (action === "e3-get-state") {
           const { data: stateRow } = await supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration,global_timer_round,phase2_score_revealed,phase3_score_revealed,current_event_id").eq("match_id", EVENT3_MATCH_ID).single()
-          const { count: pc } = await supabase.from("event3_participants").select("id", { count: "exact", head: true }).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
-          const { count: sc } = await supabase.from("session_assignments").select("id", { count: "exact", head: true }).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
-          const { count: mc } = await supabase.from("event3_matches").select("id", { count: "exact", head: true }).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).not("phase2_partner", "is", null)
-          const { count: mc3 } = await supabase.from("event3_matches").select("id", { count: "exact", head: true }).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).not("phase3_partner", "is", null)
-          const { data: rankRows } = await supabase.from("participant_rankings").select("ranker_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          const { count: pc, error: pcErr } = await supabase.from("event3_participants").select("id", { count: "exact", head: true }).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          if (pcErr) console.error("[e3-get-state] participants count error:", pcErr.message)
+          const { count: sc, error: scErr } = await supabase.from("session_assignments").select("id", { count: "exact", head: true }).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          if (scErr) console.error("[e3-get-state] seating count error:", scErr.message)
+          const { count: mc, error: mcErr } = await supabase.from("event3_matches").select("id", { count: "exact", head: true }).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).not("phase2_partner", "is", null)
+          if (mcErr) console.error("[e3-get-state] matches count error:", mcErr.message)
+          const { count: mc3, error: mc3Err } = await supabase.from("event3_matches").select("id", { count: "exact", head: true }).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).not("phase3_partner", "is", null)
+          if (mc3Err) console.error("[e3-get-state] phase3 matches count error:", mc3Err.message)
+          const { data: rankRows, error: rankErr } = await supabase.from("participant_rankings").select("ranker_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          if (rankErr) console.error("[e3-get-state] rankings error:", rankErr.message)
           const uniqueRankers = new Set((rankRows || []).map(r => r.ranker_number)).size
-          return res.status(200).json({ phase: stateRow?.phase || "setup", timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration || 1200, timer_round: stateRow?.global_timer_round || null, participants_selected: pc || 0, seating_generated: (sc || 0) > 0, rankings_submitted: uniqueRankers, phase2_matches_done: (mc || 0) > 0, phase3_matches_done: (mc3 || 0) > 0, phase2_score_revealed: stateRow?.phase2_score_revealed || false, phase3_score_revealed: stateRow?.phase3_score_revealed || false, current_event_id: stateRow?.current_event_id || currentEventId })
+          return res.status(200).json({ phase: stateRow?.phase || "setup", timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration || 1200, timer_round: stateRow?.global_timer_round || null, participants_selected: pc || 0, seating_generated: (sc || 0) > 0, rankings_submitted: uniqueRankers, phase2_matches_done: (mc || 0) > 0, phase3_matches_done: (mc3 || 0) > 0, phase2_score_revealed: stateRow?.phase2_score_revealed || false, phase3_score_revealed: stateRow?.phase3_score_revealed || false, current_event_id: stateRow?.current_event_id || currentEventId, _debug: { realEventId, currentEventId, errors: { participants: pcErr?.message || null, seating: scErr?.message || null, matches: mcErr?.message || null, phase3: mc3Err?.message || null, rankings: rankErr?.message || null } } })
         }
         // e3-get-participants
         if (action === "e3-get-participants") {
           const { data, error } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,PAID_DONE").eq("match_id", STATIC_MATCH_ID).neq("assigned_number", 9999).order("assigned_number", { ascending: true })
           if (error) return res.status(500).json({ error: error.message })
-          const { data: sel } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          const { data: sel, error: selErr } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          if (selErr) console.error("[e3-get-participants] selected error:", selErr.message)
           const selectedSet = new Set((sel || []).map(s => s.participant_number))
           // Fetch phase2_excluded flags from event3_participants
-          const { data: e3p } = await supabase.from("event3_participants").select("participant_number,phase2_excluded").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          const { data: e3p, error: e3pErr } = await supabase.from("event3_participants").select("participant_number,phase2_excluded").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          if (e3pErr) console.error("[e3-get-participants] phase2_excluded error:", e3pErr.message)
           const phase2ExcludedMap = {}
           for (const r of e3p || []) { phase2ExcludedMap[r.participant_number] = !!r.phase2_excluded }
           const participants = (data || []).map(p => { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); return { number: p.assigned_number, name: p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`, gender: p.gender || sd?.answers?.gender || sd?.gender || "?", age: p.age || sd?.answers?.age || sd?.age || "?", paid: !!p.PAID_DONE, selected: selectedSet.has(p.assigned_number), phase2_excluded: !!phase2ExcludedMap[p.assigned_number] } })

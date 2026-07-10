@@ -57,6 +57,16 @@ interface MatchResult {
     participantMessage?: string | null
     submittedAt?: string | null
     wantConnect?: boolean | null
+    sliderMoved?: boolean | null
+  } | null
+  partner_feedback?: {
+    conversationQuality?: number | null
+    personalConnection?: number | null
+    overallExperience?: number | null
+    wantConnect?: boolean | null
+    compatibilityRate?: number | null
+    sliderMoved?: boolean | null
+    organizerImpression?: string | null
   } | null
   // New model numeric fields (optional, returned by API if available)
   synergy_score?: number | null
@@ -1004,92 +1014,148 @@ export default function ResultsPage() {
                             </div>
                           )}
 
-                          {match.my_feedback && (
+                          {match.my_feedback && (() => {
+                            const fb = match.my_feedback
+                            const pfb = match.partner_feedback || null
+                            const isEvent3 = match.event_id === 20
+                            const stars = (n: number) => Array.from({ length: 5 }, (_, i) => (
+                              <span key={i} className={i < n ? "text-yellow-400" : "text-gray-700"}>★</span>
+                            ))
+                            const mutualYes = match.mutual_match === true || (fb.wantConnect === true && pfb?.wantConnect === true)
+                            return (
                             <div className={`p-3 rounded-lg border ${
-                              dark ? 'bg-slate-800/40 border-slate-600/50' : 'bg-white border-gray-200'
+                              mutualYes ? 'bg-emerald-500/5 border-emerald-600/30' : dark ? 'bg-slate-800/40 border-slate-600/50' : 'bg-white border-gray-200'
                             }`}>
-                              <div className="flex items-center gap-2 mb-2">
+                              <div className="flex items-center gap-2 mb-3">
                                 <User className={`w-4 h-4 ${dark ? 'text-slate-200' : 'text-gray-700'}`} />
                                 <h4 className={`font-bold text-sm ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
                                   تقييمك لهذه الجلسة
                                 </h4>
-                              </div>
-                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                                {typeof match.my_feedback.compatibilityRate === 'number' && match.my_feedback.compatibilityRate !== 50 && (
-                                  <div className={`${dark ? 'bg-slate-900/40 text-slate-200' : 'bg-gray-50 text-gray-800'} rounded-md p-2`}>
-                                    <div className="font-semibold">التوافق</div>
-                                    <div className="font-bold">{match.my_feedback.compatibilityRate}</div>
-                                  </div>
+                                {mutualYes && (
+                                  <span className="text-[9px] bg-emerald-900/60 border border-emerald-600/50 text-emerald-300 px-1.5 py-0.5 rounded-full font-bold">❤️ توافق محتمل</span>
                                 )}
-                                {typeof match.my_feedback.conversationQuality === 'number' && match.my_feedback.conversationQuality > 0 && (
-                                  <div className={`${dark ? 'bg-slate-900/40 text-slate-200' : 'bg-gray-50 text-gray-800'} rounded-md p-2`}>
-                                    <div className="font-semibold">جودة الحديث</div>
-                                    <div className="font-bold">{match.my_feedback.conversationQuality}</div>
-                                  </div>
-                                )}
-                                {typeof match.my_feedback.personalConnection === 'number' && match.my_feedback.personalConnection > 0 && (
-                                  <div className={`${dark ? 'bg-slate-900/40 text-slate-200' : 'bg-gray-50 text-gray-800'} rounded-md p-2`}>
-                                    <div className="font-semibold">ارتباط</div>
-                                    <div className="font-bold">{match.my_feedback.personalConnection}</div>
-                                  </div>
-                                )}
-                                {typeof match.my_feedback.sharedInterests === 'number' && match.my_feedback.sharedInterests > 0 && (
-                                  <div className={`${dark ? 'bg-slate-900/40 text-slate-200' : 'bg-gray-50 text-gray-800'} rounded-md p-2`}>
-                                    <div className="font-semibold">اهتمامات</div>
-                                    <div className="font-bold">{match.my_feedback.sharedInterests}</div>
-                                  </div>
-                                )}
-                                {typeof match.my_feedback.comfortLevel === 'number' && match.my_feedback.comfortLevel > 0 && (
-                                  <div className={`${dark ? 'bg-slate-900/40 text-slate-200' : 'bg-gray-50 text-gray-800'} rounded-md p-2`}>
-                                    <div className="font-semibold">راحة</div>
-                                    <div className="font-bold">{match.my_feedback.comfortLevel}</div>
-                                  </div>
-                                )}
-                                {typeof match.my_feedback.communicationStyle === 'number' && match.my_feedback.communicationStyle > 0 && (
-                                  <div className={`${dark ? 'bg-slate-900/40 text-slate-200' : 'bg-gray-50 text-gray-800'} rounded-md p-2`}>
-                                    <div className="font-semibold">التواصل</div>
-                                    <div className="font-bold">{match.my_feedback.communicationStyle}</div>
-                                  </div>
-                                )}
-                                {typeof match.my_feedback.wouldMeetAgain === 'number' && match.my_feedback.wouldMeetAgain > 0 && (
-                                  <div className={`${dark ? 'bg-slate-900/40 text-slate-200' : 'bg-gray-50 text-gray-800'} rounded-md p-2`}>
-                                    <div className="font-semibold">مرة أخرى</div>
-                                    <div className="font-bold">{match.my_feedback.wouldMeetAgain}</div>
-                                  </div>
-                                )}
-                                {typeof match.my_feedback.overallExperience === 'number' && match.my_feedback.overallExperience > 0 && (
-                                  <div className={`${dark ? 'bg-slate-900/40 text-slate-200' : 'bg-gray-50 text-gray-800'} rounded-md p-2`}>
-                                    <div className="font-semibold">التجربة</div>
-                                    <div className="font-bold">{match.my_feedback.overallExperience}</div>
-                                  </div>
-                                )}
-                              </div>
-                              {match.my_feedback.wantConnect != null && (
-                                <div className={`mt-2 flex items-center gap-2 text-xs ${dark ? 'text-slate-300' : 'text-gray-700'}`}>
-                                  <span className="font-semibold">رغبتك بالتواصل:</span>
-                                  <span className={`font-bold ${match.my_feedback.wantConnect ? 'text-emerald-400' : 'text-red-400'}`}>
-                                    {match.my_feedback.wantConnect ? '✅ نعم' : '❌ لا'}
+                                {match.match_preference && isEvent3 && (
+                                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full border font-bold ${
+                                    match.match_preference === 'choice' ? 'bg-pink-900/60 border-pink-600/50 text-pink-300' :
+                                    match.match_preference === 'algorithm' ? 'bg-purple-900/60 border-purple-600/50 text-purple-300' :
+                                    match.match_preference === 'both' ? 'bg-emerald-900/60 border-emerald-600/50 text-emerald-300' :
+                                    'bg-gray-800 border-gray-600/50 text-gray-400'
+                                  }`}>
+                                    {match.match_preference === 'choice' ? '💕 اختيار' :
+                                     match.match_preference === 'algorithm' ? '🧠 خوارزمية' :
+                                     match.match_preference === 'both' ? '✨ كلاهما' :
+                                     '— لا أحد'}
                                   </span>
-                                </div>
-                              )}
-                              {(match.my_feedback.recommendations || match.my_feedback.participantMessage) && (
-                                <div className="mt-3 space-y-2 text-sm">
-                                  {match.my_feedback.participantMessage && (
-                                    <div className={`${dark ? 'text-slate-200' : 'text-gray-800'}`}>
-                                      <div className={`text-xs font-semibold ${dark ? 'text-slate-400' : 'text-gray-500'}`}>رسالتك</div>
-                                      <div className="whitespace-pre-line">{match.my_feedback.participantMessage}</div>
+                                )}
+                              </div>
+
+                              {/* My feedback with stars */}
+                              <div className="space-y-1.5 text-xs">
+                                {typeof fb.conversationQuality === 'number' && fb.conversationQuality > 0 && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-gray-500">جودة المحادثة</span>
+                                    <span>{stars(fb.conversationQuality)}</span>
+                                  </div>
+                                )}
+                                {typeof fb.personalConnection === 'number' && fb.personalConnection > 0 && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-gray-500">التواصل الشخصي</span>
+                                    <span>{stars(fb.personalConnection)}</span>
+                                  </div>
+                                )}
+                                {typeof fb.sharedInterests === 'number' && fb.sharedInterests > 0 && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-gray-500">الاهتمامات المشتركة</span>
+                                    <span>{stars(fb.sharedInterests)}</span>
+                                  </div>
+                                )}
+                                {typeof fb.comfortLevel === 'number' && fb.comfortLevel > 0 && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-gray-500">مستوى الراحة</span>
+                                    <span>{stars(fb.comfortLevel)}</span>
+                                  </div>
+                                )}
+                                {typeof fb.communicationStyle === 'number' && fb.communicationStyle > 0 && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-gray-500">أسلوب التواصل</span>
+                                    <span>{stars(fb.communicationStyle)}</span>
+                                  </div>
+                                )}
+                                {typeof fb.wouldMeetAgain === 'number' && fb.wouldMeetAgain > 0 && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-gray-500">أريد لقاءه مجدداً</span>
+                                    <span>{stars(fb.wouldMeetAgain)}</span>
+                                  </div>
+                                )}
+                                {typeof fb.overallExperience === 'number' && fb.overallExperience > 0 && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-gray-500">التجربة الكلية</span>
+                                    <span>{stars(fb.overallExperience)}</span>
+                                  </div>
+                                )}
+                                {fb.wantConnect != null && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-gray-500">يريد التواصل</span>
+                                    <span className={`font-bold ${fb.wantConnect ? "text-emerald-400" : "text-red-400"}`}>{fb.wantConnect ? "✅ نعم" : "❌ لا"}</span>
+                                  </div>
+                                )}
+                                {typeof fb.compatibilityRate === 'number' && fb.compatibilityRate !== 50 && fb.sliderMoved && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-gray-500">التوافق المُقدَّر</span>
+                                    <span className="text-amber-400 font-bold">{fb.compatibilityRate}%</span>
+                                  </div>
+                                )}
+                                {fb.participantMessage && (
+                                  <div className="mt-2 bg-gray-800/70 rounded-lg p-2 text-gray-300 text-[10px] text-right leading-relaxed border border-gray-700/40">💬 {fb.participantMessage}</div>
+                                )}
+                              </div>
+
+                              {/* Partner's feedback (if available) */}
+                              {pfb && (() => {
+                                return (
+                                  <div className="mt-3 pt-3 border-t border-gray-700/40">
+                                    <p className="text-[10px] text-gray-500 mb-1.5 font-medium">تقييم {match.partner_name}:</p>
+                                    <div className="space-y-1.5 text-xs">
+                                      {typeof pfb.conversationQuality === 'number' && pfb.conversationQuality > 0 && (
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-gray-600">جودة المحادثة</span>
+                                          <span>{stars(pfb.conversationQuality)}</span>
+                                        </div>
+                                      )}
+                                      {typeof pfb.personalConnection === 'number' && pfb.personalConnection > 0 && (
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-gray-600">التواصل الشخصي</span>
+                                          <span>{stars(pfb.personalConnection)}</span>
+                                        </div>
+                                      )}
+                                      {typeof pfb.overallExperience === 'number' && pfb.overallExperience > 0 && (
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-gray-600">التجربة الكلية</span>
+                                          <span>{stars(pfb.overallExperience)}</span>
+                                        </div>
+                                      )}
+                                      {pfb.wantConnect != null && (
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-gray-600">يريد التواصل</span>
+                                          <span className={`font-bold ${pfb.wantConnect ? "text-emerald-400" : "text-red-400"}`}>{pfb.wantConnect ? "✅ نعم" : "❌ لا"}</span>
+                                        </div>
+                                      )}
+                                      {typeof pfb.compatibilityRate === 'number' && pfb.compatibilityRate !== 50 && pfb.sliderMoved && (
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-gray-600">التوافق المُقدَّر</span>
+                                          <span className="text-amber-400 font-bold">{pfb.compatibilityRate}%</span>
+                                        </div>
+                                      )}
+                                      {pfb.organizerImpression && (
+                                        <div className="mt-2 bg-gray-800/70 rounded-lg p-2 text-gray-300 text-[10px] text-right leading-relaxed border border-gray-700/40">💬 {pfb.organizerImpression}</div>
+                                      )}
                                     </div>
-                                  )}
-                                  {match.my_feedback.recommendations && (
-                                    <div className={`${dark ? 'text-slate-200' : 'text-gray-800'}`}>
-                                      <div className={`text-xs font-semibold ${dark ? 'text-slate-400' : 'text-gray-500'}`}>ملاحظاتك</div>
-                                      <div className="whitespace-pre-line">{match.my_feedback.recommendations}</div>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
+                                  </div>
+                                )
+                              })()}
                             </div>
-                          )}
+                            )
+                          })()}
 
                           {/* Partner Message (if exists) */}
                           {match.partner_message && (

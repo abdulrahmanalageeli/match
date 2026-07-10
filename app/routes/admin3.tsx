@@ -4,7 +4,7 @@ import {
   Users, Play, Square, ChevronRight, RotateCcw, CheckCircle,
   Circle, RefreshCw, Table2, Trophy, Clock, BarChart3, Shuffle,
   Eye, EyeOff, ArrowRight, Sparkles, Brain, Shield, LogOut,
-  Grid3x3, Star, Check, AlertCircle, Loader2, Copy, Heart, Layers, ChevronDown, X, MessageSquare, Send, Home, Trash2, GripVertical, Search, Crown, Medal, Coffee, Ban, ArrowLeft, Bell,
+  Grid3x3, Star, Check, AlertCircle, Loader2, Copy, Heart, Layers, ChevronDown, X, MessageSquare, Send, Home, Trash2, GripVertical, Search, Crown, Medal, Coffee, Ban, ArrowLeft, Bell, Calendar,
 } from "lucide-react"
 
 const ADMIN_PASSWORD = "soulmatch2026"
@@ -23,18 +23,29 @@ const PHASES = [
 ]
 
 function api(action: string, extra: Record<string, any> = {}) {
+  const body: Record<string, any> = { action, password: ADMIN_PASSWORD, ...extra }
+  if (_previewEventId != null && !('preview_event_id' in body) && action.startsWith('e3-') && action !== 'e3-set-current-event' && action !== 'e3-get-current-event' && action !== 'e3-get-event-list') {
+    body.preview_event_id = _previewEventId
+  }
   return fetch(API, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action, password: ADMIN_PASSWORD, ...extra }),
+    body: JSON.stringify(body),
   }).then(r => r.json())
 }
+
+let _previewEventId: number | null = null
+function setPreviewEventId(id: number | null) { _previewEventId = id }
+function getPreviewEventId() { return _previewEventId }
 
 export default function Admin3Page() {
   const [authenticated, setAuthenticated] = useState(false)
   const [password, setPassword] = useState("")
 
   const [state, setState] = useState<any>(null)
+  const [previewEventId, setPreviewEventIdState] = useState<number | null>(null)
+  const [eventList, setEventList] = useState<number[]>([])
+  const [realCurrentEventId, setRealCurrentEventId] = useState<number>(20)
   const [participants, setParticipants] = useState<any[]>([])
   const [selectedNumbers, setSelectedNumbers] = useState<Set<number>>(new Set())
   const [seating, setSeating] = useState<any>(null)
@@ -203,6 +214,7 @@ export default function Admin3Page() {
   }, [])
 
   const sendMoodCheck = useCallback(async () => {
+    if (previewEventId != null) { toast.error("لا يمكن إرسال فحص المزاج في وضع المعاينة"); return }
     setMoodSending(true)
     const data = await api("e3-trigger-mood-check", moodTarget ? { target_number: moodTarget } : {})
     setMoodSending(false)
@@ -227,6 +239,7 @@ export default function Admin3Page() {
   }, [])
 
   const toggleAttendance = useCallback(async (p: any) => {
+    if (previewEventId != null) { toast.error("لا يمكن تعديل الحضور في وضع المعاينة"); return }
     setAttendanceToggling(prev => ({ ...prev, [p.number]: true }))
     const data = await api("e3-set-attendance", { participant_number: p.number, attended: !p.attended })
     if (data.success) {
@@ -236,6 +249,7 @@ export default function Admin3Page() {
   }, [])
 
   const sendNotification = useCallback(async () => {
+    if (previewEventId != null) { toast.error("لا يمكن إرسال الإشعارات في وضع المعاينة"); return }
     if (!notifTitle.trim()) { toast.error("اكتب عنوان الإشعار"); return }
     setNotifSending(true)
     const data = await api("e3-send-notification", {
@@ -333,19 +347,26 @@ export default function Admin3Page() {
     await fetchMatches()
   }, [fetchMatches])
 
+  const fetchEventList = useCallback(async () => {
+    const data = await api("e3-get-event-list")
+    if (data.events) setEventList(data.events)
+    if (data.current_event_id) setRealCurrentEventId(data.current_event_id)
+  }, [])
+
   useEffect(() => {
     if (!authenticated) return
     fetchState()
     fetchParticipants()
     fetchSeating()
     fetchSOS()
+    fetchEventList()
     const stateIv = setInterval(fetchState, 3000)
     const sosIv = setInterval(fetchSOS, 5000)
     return () => {
       clearInterval(stateIv)
       clearInterval(sosIv)
     }
-  }, [authenticated, fetchState, fetchParticipants, fetchSeating, fetchSOS])
+  }, [authenticated, fetchState, fetchParticipants, fetchSeating, fetchSOS, fetchEventList])
 
   useEffect(() => {
     if (authenticated && activeTab === "seating") { fetchSeating(); fetchRankStatus() }
@@ -395,17 +416,25 @@ export default function Admin3Page() {
     }
   }
 
-  const setPhase = (phase: string) => run(`phase-${phase}`, () => api("e3-set-phase", { phase }))
-  const setPhaseWithTimer = (phase: string, duration: number, round = 0) =>
+  const setPhase = (phase: string) => { if (previewEventId != null) { toast.error("لا يمكن تغيير المرحلة في وضع المعاينة"); return } run(`phase-${phase}`, () => api("e3-set-phase", { phase })) }
+  const setPhaseWithTimer = (phase: string, duration: number, round = 0) => {
+    if (previewEventId != null) { toast.error("لا يمكن تغيير المرحلة في وضع المعاينة"); return }
     run(`phase-${phase}`, () => api("e3-set-phase", { phase, start_timer: true, timer_duration: duration, timer_round: round }))
-  const setPhaseStopTimer = (phase: string) =>
-    run(`phase-${phase}`, () => api("e3-set-phase", { phase, start_timer: false }))
-  const startTimer = (round: number, duration = 1200) =>
+  }
+  const setPhaseStopTimer = (phase: string) => {
+    if (previewEventId != null) { toast.error("لا يمكن تغيير المرحلة في وضع المعاينة"); return Promise.resolve() }
+    return run(`phase-${phase}`, () => api("e3-set-phase", { phase, start_timer: false }))
+  }
+  const startTimer = (round: number, duration = 1200) => {
+    if (previewEventId != null) { toast.error("لا يمكن تشغيل المؤقت في وضع المعاينة"); return }
     run("timer", () => api("e3-start-timer", { round, duration }))
-  const stopTimer = () => run("timer-stop", () => api("e3-stop-timer"))
-  const adjustTimer = (delta: number) => run(`timer-${delta}`, () => api("e3-adjust-timer", { delta_seconds: delta }).then(d => { if (!d.error) fetchState(); return d }))
-  const saveRanking = (rankerNum: number) =>
+  }
+  const stopTimer = () => { if (previewEventId != null) { toast.error("لا يمكن إيقاف المؤقت في وضع المعاينة"); return } run("timer-stop", () => api("e3-stop-timer")) }
+  const adjustTimer = (delta: number) => { if (previewEventId != null) { toast.error("لا يمكن تعديل المؤقت في وضع المعاينة"); return } run(`timer-${delta}`, () => api("e3-adjust-timer", { delta_seconds: delta }).then(d => { if (!d.error) fetchState(); return d })) }
+  const saveRanking = (rankerNum: number) => {
+    if (previewEventId != null) { toast.error("لا يمكن تعديل التصنيفات في وضع المعاينة"); return }
     run(`save-rank-${rankerNum}`, () => api("e3-set-ranking", { ranker_number: rankerNum, ranked_list: editedOrder.map(i => i.number) }).then(d => { if (!d.error) { setEditingRanker(null); fetchRankStatus() } return d }))
+  }
 
   const startSimulate = async (rankerNum: number) => {
     setSimLoading(true)
@@ -417,19 +446,25 @@ export default function Admin3Page() {
     setSimulatingRanker(rankerNum)
   }
 
-  const saveSimulate = (rankerNum: number) =>
+  const saveSimulate = (rankerNum: number) => {
+    if (previewEventId != null) { toast.error("لا يمكن تعديل التصنيفات في وضع المعاينة"); return }
     run(`save-sim-${rankerNum}`, () => api("e3-set-ranking", { ranker_number: rankerNum, ranked_list: simOrder.map(i => i.number) }).then(d => { if (!d.error) { setSimulatingRanker(null); fetchRankStatus(); toast.success("تم حفظ التصنيف بالنيابة") } return d }))
+  }
 
-  const doSwap = (numB: number) =>
+  const doSwap = (numB: number) => {
+    if (previewEventId != null) { toast.error("لا يمكن تعديل الجلسات في وضع المعاينة"); return }
     run(`swap-${swapA}-${numB}`, () => api("e3-swap-seating", { num_a: swapA, num_b: numB }).then(d => { if (!d.error) { setSwapA(null); fetchSeating() } return d }))
+  }
 
   const doMove = (targetTable: number) => {
     if (!moveA || !mapRound) return
+    if (previewEventId != null) { toast.error("لا يمكن تعديل الجلسات في وضع المعاينة"); return }
     run(`move-${moveA}-to-${targetTable}`, () => api("e3-move-table", { participant_number: moveA, round: mapRound, new_table: targetTable }).then(d => { if (!d.error) { setMoveA(null); fetchSeating() } return d }))
   }
 
   const doSwapMatch = () => {
     if (!swapMatch || !swapReplacement) return
+    if (previewEventId != null) { toast.error("لا يمكن تعديل المطابقات في وضع المعاينة"); return }
     run(`swap-match-${swapMatch.missingNum}-${swapReplacement}`, () =>
       api("e3-swap-match-partner", {
         phase: swapMatch.phase,
@@ -506,32 +541,35 @@ export default function Admin3Page() {
     if (ph === "ranking2" && !hasMatches) return { label: "⬅ تشغيل مطابقة اختيار المشاركين", action: () => setPhaseStopTimer("phase2_processing").then(() => run("phase2", () => api("e3-trigger-phase2-matching").then(d => { fetchMatches(); fetchState(); return d }))), ready: ranked > 0 }
     if (ph === "ranking2" && hasMatches) return { label: "⬅ استراحة (10 دقائق)", action: () => setPhaseWithTimer("break", 600, 3), ready: true }
     if (ph === "break") return { label: "⬅ بدء كشف المرحلة 2 (20 دقيقة)", action: () => setPhaseWithTimer("phase2_reveal", 1200, 4), ready: true }
-    if (ph === "phase2_reveal" && !state.phase3_matches_done) return { label: "⬅ تشغيل مطابقة الخوارزمية", action: () => run("phase3", () => api("e3-trigger-phase3-matching").then(d => { fetchState(); return d })), ready: true }
+    if (ph === "phase2_reveal" && !state.phase3_matches_done) return { label: "⬅ تشغيل مطابقة الخوارزمية", action: () => { if (previewEventId != null) { toast.error("لا يمكن تشغيل المطابقة في وضع المعاينة"); return } run("phase3", () => api("e3-trigger-phase3-matching").then(d => { fetchState(); return d })) }, ready: ranked > 0 }
     if (ph === "phase2_reveal" && state.phase3_matches_done) return { label: "⬅ كشف المرحلة 3 (20 دقيقة)", action: () => setPhaseWithTimer("phase3_reveal", 1200, 5), ready: true }
     if (ph === "phase3_reveal") return { label: "⬅ الكشف النهائي ✨", action: () => setPhase("final_reveal"), ready: true }
     return null
   }
 
-  const generateSeating = () => run("seating", async () => {
+  const generateSeating = () => { if (previewEventId != null) { toast.error("لا يمكن توليد الجلسات في وضع المعاينة"); return } run("seating", async () => {
     const data = await api("e3-generate-seating")
     if (!data.error) { fetchSeating(); fetchParticipants() }
     return data
-  })
+  }) }
 
-  const saveParticipants = () => run("save-participants", async () => {
+  const saveParticipants = () => { if (previewEventId != null) { toast.error("لا يمكن تعديل المشاركين في وضع المعاينة"); return } run("save-participants", async () => {
     if (selectedNumbers.size < 4)
       return { error: `يجب اختيار 4 مشاركين على الأقل (تم اختيار ${selectedNumbers.size})` }
     const data = await api("e3-set-participants", { participant_numbers: Array.from(selectedNumbers) })
     if (!data.error) fetchParticipants()
     return data
-  })
+  }) }
 
-  const triggerPhase2 = () => setPhaseStopTimer("phase2_processing").then(() => run("phase2", () => api("e3-trigger-phase2-matching").then(d => { fetchMatches(); fetchState(); return d })))
-  const triggerPhase3 = () => run("phase3", () => api("e3-trigger-phase3-matching"))
+  const triggerPhase2 = () => { if (previewEventId != null) { toast.error("لا يمكن تشغيل المطابقة في وضع المعاينة"); return } setPhaseStopTimer("phase2_processing").then(() => run("phase2", () => api("e3-trigger-phase2-matching").then(d => { fetchMatches(); fetchState(); return d }))) }
+  const triggerPhase3 = () => { if (previewEventId != null) { toast.error("لا يمكن تشغيل المطابقة في وضع المعاينة"); return } run("phase3", () => api("e3-trigger-phase3-matching")) }
 
-  const togglePhase2Exclusion = (num: number) =>
+  const togglePhase2Exclusion = (num: number) => {
+    if (previewEventId != null) { toast.error("لا يمكن تعديل الاستبعادات في وضع المعاينة"); return }
     run(`phase2-exclude-${num}`, () => api("e3-toggle-phase2-exclusion", { participant_number: num }).then(d => { if (!d.error) fetchParticipants(); return d }))
+  }
   const resetEvent = () => {
+    if (previewEventId != null) { toast.error("لا يمكن إعادة التعيين في وضع المعاينة"); return }
     if (!confirm("هل أنت متأكد من إعادة تعيين الفعالية؟ سيتم حذف جميع البيانات.")) return
     run("reset", async () => {
       const d = await api("e3-reset-event")
@@ -541,6 +579,7 @@ export default function Admin3Page() {
   }
 
   const clearTestData = () => {
+    if (previewEventId != null) { toast.error("لا يمكن حذف البيانات في وضع المعاينة"); return }
     if (!confirm("حذف التصنيفات والكلمات والفيدبك فقط؟ سيتم الاحتفاظ بالمشاركين والجلسات والمطابقة.")) return
     run("clear-test", async () => {
       const d = await api("e3-clear-test-data")
@@ -652,6 +691,66 @@ export default function Admin3Page() {
 
       <div className="max-w-6xl mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
 
+        {/* Event Selector */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2 bg-gray-900 border border-gray-800 rounded-xl px-3 py-2">
+            <Calendar size={16} className="text-purple-400" />
+            <span className="text-xs text-gray-400">الفعالية:</span>
+            <select
+              value={previewEventId ?? realCurrentEventId}
+              onChange={async (e) => {
+                const val = Number(e.target.value)
+                if (val === realCurrentEventId) {
+                  setPreviewEventId(null)
+                  setPreviewEventIdState(null)
+                } else {
+                  setPreviewEventId(val)
+                  setPreviewEventIdState(val)
+                }
+                // Refetch all data for the selected event
+                fetchState()
+                fetchParticipants()
+                fetchSeating()
+                fetchRankStatus()
+                if (activeTab === "overview") fetchOverview()
+                if (activeTab === "feedback") { fetchFeedback(); fetchMoodChecks(); fetchNotifications() }
+                if (activeTab === "attendance") fetchAttendance()
+              }}
+              className="bg-gray-800 text-white text-sm rounded-lg px-3 py-1.5 border border-gray-700 focus:border-purple-500 focus:outline-none cursor-pointer"
+            >
+              {eventList.length === 0 && <option value={realCurrentEventId}>الفعالية {realCurrentEventId}</option>}
+              {eventList.map(eid => (
+                <option key={eid} value={eid}>
+                  فعالية {eid}{eid === realCurrentEventId ? " (نشطة)" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+          {previewEventId != null && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs bg-amber-900/40 border border-amber-700/40 text-amber-300 px-2.5 py-1 rounded-full font-medium">
+                👁️ معاينة فعالية {previewEventId}
+              </span>
+              <button
+                onClick={() => {
+                  setPreviewEventId(null)
+                  setPreviewEventIdState(null)
+                  fetchState()
+                  fetchParticipants()
+                  fetchSeating()
+                  fetchRankStatus()
+                  if (activeTab === "overview") fetchOverview()
+                  if (activeTab === "feedback") { fetchFeedback(); fetchMoodChecks(); fetchNotifications() }
+                  if (activeTab === "attendance") fetchAttendance()
+                }}
+                className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white px-2.5 py-1 rounded-full border border-gray-700 transition-colors"
+              >
+                عودة للفعالية النشطة
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* Phase Progress */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 sm:p-4">
           <h2 className="text-xs sm:text-sm font-medium text-gray-400 mb-2 sm:mb-3">مراحل الفعالية</h2>
@@ -760,6 +859,14 @@ export default function Admin3Page() {
         {/* TAB: CONTROL ─────────────────────────────────────────────────────── */}
         {activeTab === "control" && (
           <div className="space-y-4">
+
+            {/* Preview Mode Banner */}
+            {previewEventId != null && (
+              <div className="bg-amber-900/30 border border-amber-700/50 rounded-xl p-3 flex items-center gap-2">
+                <Eye size={16} className="text-amber-400" />
+                <span className="text-sm text-amber-300 font-medium">أنت في وضع المعاينة للفعالية {previewEventId} — جميع إجراءات التحكم معطّلة</span>
+              </div>
+            )}
 
             {/* Participant Selection */}
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 sm:p-5">
@@ -3343,6 +3450,7 @@ export default function Admin3Page() {
                   <RefreshCw size={12} className={feedbackLoading ? "animate-spin" : ""} /> تحديث
                 </button>
                 <button onClick={async () => {
+                  if (previewEventId != null) { toast.error("لا يمكن حذف التقييمات في وضع المعاينة"); return }
                   if (!confirm("حذف جميع التقييمات لهذه الفعالية؟ لا يمكن التراجع.")) return
                   const d = await api("e3-delete-feedback")
                   if (d.error) { toast.error(d.error); return }

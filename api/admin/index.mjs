@@ -6298,7 +6298,8 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const { data: sr } = await supabase.from("event_state").select("current_event_id").eq("match_id", EVENT3_MATCH_ID).single()
           return sr?.current_event_id || 20
         }
-        const currentEventId = await getE3CurrentEventId()
+        const realEventId = await getE3CurrentEventId()
+        const currentEventId = (req.body.preview_event_id && typeof req.body.preview_event_id === "number") ? req.body.preview_event_id : realEventId
 
         // e3-set-current-event — switch to a different event (e.g. 20 → 21)
         if (action === "e3-set-current-event") {
@@ -6322,7 +6323,19 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
 
         // e3-get-current-event — get the current event_id
         if (action === "e3-get-current-event") {
-          return res.status(200).json({ current_event_id: currentEventId })
+          return res.status(200).json({ current_event_id: realEventId })
+        }
+
+        // e3-get-event-list — list all event_ids that have data
+        if (action === "e3-get-event-list") {
+          const { data: epEvents } = await supabase.from("event3_participants").select("event_id").eq("match_id", EVENT3_MATCH_ID)
+          const { data: matchEvents } = await supabase.from("event3_matches").select("event_id").eq("match_id", EVENT3_MATCH_ID)
+          const eventIds = new Set()
+          for (const r of epEvents || []) if (r.event_id) eventIds.add(r.event_id)
+          for (const r of matchEvents || []) if (r.event_id) eventIds.add(r.event_id)
+          eventIds.add(realEventId) // always include current
+          const sorted = Array.from(eventIds).sort((a, b) => b - a)
+          return res.status(200).json({ events: sorted, current_event_id: realEventId })
         }
 
         // e3-get-state

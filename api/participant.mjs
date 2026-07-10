@@ -1240,8 +1240,11 @@ export default async function handler(req, res) {
         });
       }
 
+      // Filter out old match_results entries with event_id >= 20 — those are now handled by Event 3 code path
+      const filteredMatches = (matches || []).filter(m => !(m.event_id && m.event_id >= 20));
+
       // Format the match results and fetch partner information
-      const history = await Promise.all((matches || []).map(async (match) => {
+      const history = await Promise.all(filteredMatches.map(async (match) => {
         // Determine which participant is the partner
         const isParticipantA = match.participant_a_number === participant.assigned_number
         const partnerNumber = isParticipantA ? match.participant_b_number : match.participant_a_number

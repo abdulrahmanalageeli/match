@@ -6664,12 +6664,12 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
 
           // Fetch locked matches for current event to avoid seating pairs together
           const { data: stateRow } = await supabase.from("event_state").select("current_event_id").eq("match_id", STATIC_MATCH_ID).single()
-          const currentEventId = stateRow?.current_event_id || 1
+          const lockedEventId = stateRow?.current_event_id || 1
           const { data: lockedForSeating } = await supabase
             .from("locked_matches")
             .select("participant1_number,participant2_number")
             .eq("match_id", STATIC_MATCH_ID)
-            .eq("event_id", currentEventId)
+            .eq("event_id", lockedEventId)
           const lockedPairsSet = new Set()
           for (const l of lockedForSeating || []) {
             const key = l.participant1_number < l.participant2_number

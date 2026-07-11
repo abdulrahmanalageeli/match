@@ -6318,8 +6318,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const { event_id } = req.body
           if (!event_id || typeof event_id !== "number") return res.status(400).json({ error: "event_id (number) required" })
           // Save current event_id and reset phase/timer for the new event
-          const { error } = await supabase.from("event_state").upsert({
-            match_id: EVENT3_MATCH_ID,
+          const { error } = await supabase.from("event_state").update({
             current_event_id: event_id,
             phase: "setup",
             global_timer_active: false,
@@ -6328,7 +6327,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             global_timer_round: null,
             phase2_score_revealed: false,
             phase3_score_revealed: false,
-          }, { onConflict: "match_id" })
+          }).eq("match_id", EVENT3_MATCH_ID)
           if (error) return res.status(500).json({ error: error.message })
           return res.status(200).json({ message: `Switched to event ${event_id}`, current_event_id: event_id })
         }
@@ -6717,14 +6716,14 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const { which, value } = req.body
           if (which !== "phase2" && which !== "phase3") return res.status(400).json({ error: "which must be 'phase2' or 'phase3'" })
           const field = which === "phase2" ? "phase2_score_revealed" : "phase3_score_revealed"
-          const { error } = await supabase.from("event_state").upsert({ match_id: EVENT3_MATCH_ID, [field]: !!value }, { onConflict: "match_id" })
+          const { error } = await supabase.from("event_state").update({ [field]: !!value }).eq("match_id", EVENT3_MATCH_ID)
           if (error) return res.status(500).json({ error: error.message })
           return res.status(200).json({ message: `${which} score ${value ? 'revealed' : 'hidden'}` })
         }
         // e3-set-phase (supports optional timer params in same upsert to avoid race conditions)
         if (action === "e3-set-phase") {
           const { phase, start_timer, timer_duration, timer_round } = req.body
-          const update = { match_id: EVENT3_MATCH_ID, phase }
+          const update = { phase }
           if (start_timer) {
             update.global_timer_active = true
             update.global_timer_start_time = new Date().toISOString()
@@ -6736,14 +6735,14 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             update.global_timer_duration = null
             update.global_timer_round = null
           }
-          const { error } = await supabase.from("event_state").upsert(update, { onConflict: "match_id" })
+          const { error } = await supabase.from("event_state").update(update).eq("match_id", EVENT3_MATCH_ID)
           if (error) return res.status(500).json({ error: error.message })
           return res.status(200).json({ message: `Phase set to ${phase}` })
         }
         // e3-start-timer
         if (action === "e3-start-timer") {
           const { round, duration = 1200 } = req.body
-          const { error } = await supabase.from("event_state").upsert({ match_id: EVENT3_MATCH_ID, global_timer_active: true, global_timer_start_time: new Date().toISOString(), global_timer_duration: duration, global_timer_round: round }, { onConflict: "match_id" })
+          const { error } = await supabase.from("event_state").update({ global_timer_active: true, global_timer_start_time: new Date().toISOString(), global_timer_duration: duration, global_timer_round: round }).eq("match_id", EVENT3_MATCH_ID)
           if (error) return res.status(500).json({ error: error.message })
           return res.status(200).json({ message: "Timer started" })
         }
@@ -7724,7 +7723,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             supabase.from("event3_notifications").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
           ])
           // Reset phase/timer for EVENT3 but preserve current_event_id
-          await supabase.from("event_state").upsert({ match_id: EVENT3_MATCH_ID, phase: "setup", global_timer_active: false, global_timer_start_time: null, global_timer_duration: null, global_timer_round: null, phase2_score_revealed: false, phase3_score_revealed: false }, { onConflict: "match_id" })
+          await supabase.from("event_state").update({ phase: "setup", global_timer_active: false, global_timer_start_time: null, global_timer_duration: null, global_timer_round: null, phase2_score_revealed: false, phase3_score_revealed: false }).eq("match_id", EVENT3_MATCH_ID)
           return res.status(200).json({ message: `Event ${currentEventId} reset successfully (other events preserved)` })
         }
 
@@ -7848,24 +7847,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             }
           }
 
-          // 5. Save current event state for restoration
-          const { data: currentState } = await supabase.from("event_state").select("*").eq("match_id", EVENT3_MATCH_ID).single()
-          const { data: currentParticipants } = await supabase.from("event3_participants").select("*").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
-          const { data: currentSeating } = await supabase.from("session_assignments").select("*").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
-          const { data: currentMatches } = await supabase.from("event3_matches").select("*").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
-          const { data: currentRankings } = await supabase.from("participant_rankings").select("*").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
-
-          // Store snapshot for restoration (in a temp table or in-memory)
-          const testSnapshot = {
-            event_state: currentState,
-            participants: currentParticipants || [],
-            seating: currentSeating || [],
-            matches: currentMatches || [],
-            rankings: currentRankings || [],
-            started_at: new Date().toISOString(),
-          }
-
-          // 6. Clear current event data
+          // 5. Clear current event data (no snapshot — test data will be deleted on exit)
           await Promise.all([
             supabase.from("event3_participants").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
             supabase.from("event3_matches").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
@@ -7876,13 +7858,12 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             supabase.from("event3_exclusions").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
           ])
 
-          // 7. Insert selected participants
+          // 6. Insert selected participants
           const participantRows = selectedNums.map((num, idx) => ({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, participant_number: num, position: idx }))
           await supabase.from("event3_participants").insert(participantRows)
 
-          // 8. Reset event state to setup
-          await supabase.from("event_state").upsert({
-            match_id: EVENT3_MATCH_ID,
+          // 7. Reset event state to setup and mark test mode active (update only — preserves current_event_id and other columns)
+          await supabase.from("event_state").update({
             phase: "setup",
             global_timer_active: false,
             global_timer_start_time: null,
@@ -7890,12 +7871,8 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             global_timer_round: null,
             phase2_score_revealed: false,
             phase3_score_revealed: false,
-          }, { onConflict: "match_id" })
-
-          // 9. Store snapshot in event_state metadata
-          await supabase.from("event_state").update({
             test_mode_active: true,
-            test_mode_snapshot: testSnapshot,
+            test_mode_snapshot: { started_at: new Date().toISOString() },
           }).eq("match_id", EVENT3_MATCH_ID)
 
           // 10. Build test users list with phone numbers and tokens
@@ -7951,21 +7928,15 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           })
         }
 
-        // e3-end-test-mode — restore original event data and exit test mode
+        // e3-end-test-mode — delete all test data and exit test mode
         if (action === "e3-end-test-mode") {
-          // Fetch snapshot from event_state
-          const { data: stateRow } = await supabase.from("event_state").select("test_mode_snapshot,test_mode_active").eq("match_id", EVENT3_MATCH_ID).single()
+          const { data: stateRow } = await supabase.from("event_state").select("test_mode_active").eq("match_id", EVENT3_MATCH_ID).single()
 
           if (!stateRow?.test_mode_active) {
             return res.status(400).json({ error: "Test mode is not active" })
           }
 
-          const snapshot = stateRow.test_mode_snapshot
-          if (!snapshot) {
-            return res.status(400).json({ error: "No test mode snapshot found" })
-          }
-
-          // Clear all test data
+          // Delete all test data for this event
           await Promise.all([
             supabase.from("event3_participants").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
             supabase.from("event3_matches").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
@@ -7976,51 +7947,54 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             supabase.from("event3_exclusions").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
           ])
 
-          // Restore original data
-          if (snapshot.participants?.length > 0) {
-            await supabase.from("event3_participants").insert(snapshot.participants)
-          }
-          if (snapshot.seating?.length > 0) {
-            await supabase.from("session_assignments").insert(snapshot.seating)
-          }
-          if (snapshot.matches?.length > 0) {
-            await supabase.from("event3_matches").insert(snapshot.matches)
-          }
-          if (snapshot.rankings?.length > 0) {
-            await supabase.from("participant_rankings").insert(snapshot.rankings)
-          }
-
-          // Restore event state
-          if (snapshot.event_state) {
-            await supabase.from("event_state").upsert({
-              ...snapshot.event_state,
-              test_mode_active: false,
-              test_mode_snapshot: null,
-            }, { onConflict: "match_id" })
-          } else {
-            await supabase.from("event_state").update({
-              test_mode_active: false,
-              test_mode_snapshot: null,
-            }).eq("match_id", EVENT3_MATCH_ID)
-          }
+          // Reset event state to setup and clear test mode
+          await supabase.from("event_state").update({
+            phase: "setup",
+            global_timer_active: false,
+            global_timer_start_time: null,
+            global_timer_duration: null,
+            global_timer_round: null,
+            phase2_score_revealed: false,
+            phase3_score_revealed: false,
+            test_mode_active: false,
+            test_mode_snapshot: null,
+          }).eq("match_id", EVENT3_MATCH_ID)
 
           return res.status(200).json({
-            message: "Test mode ended. All data restored to pre-test state.",
-            restored: {
-              participants: snapshot.participants?.length || 0,
-              seating: snapshot.seating?.length || 0,
-              matches: snapshot.matches?.length || 0,
-              rankings: snapshot.rankings?.length || 0,
-            }
+            message: "Test mode ended. All test data deleted.",
           })
         }
 
         // e3-get-test-mode — check if test mode is active
         if (action === "e3-get-test-mode") {
-          const { data: stateRow } = await supabase.from("event_state").select("test_mode_active,test_mode_snapshot").eq("match_id", EVENT3_MATCH_ID).single()
+          const { data: stateRow } = await supabase.from("event_state").select("test_mode_active,test_mode_snapshot,current_event_id").eq("match_id", EVENT3_MATCH_ID).single()
+          if (!stateRow?.test_mode_active) {
+            return res.status(200).json({ test_mode: false })
+          }
+
+          // Return test users from current event3_participants so panel survives refresh
+          const eventId = stateRow?.current_event_id || currentEventId
+          const { data: ep } = await supabase.from("event3_participants")
+            .select("participant_number,position")
+            .eq("match_id", EVENT3_MATCH_ID).eq("event_id", eventId)
+            .order("position", { ascending: true })
+
+          const nums = (ep || []).map(e => e.participant_number)
+          let testUsers = []
+          if (nums.length > 0) {
+            const { data: pInfos } = await supabase.from("participants")
+              .select("assigned_number,name,gender,age,phone_number,secure_token")
+              .eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
+            testUsers = nums.map(num => {
+              const p = (pInfos || []).find(x => x.assigned_number === num)
+              return { number: num, name: p?.name || `#${num}`, gender: p?.gender || "?", age: p?.age || "?", phone: p?.phone_number || null, token: p?.secure_token }
+            })
+          }
+
           return res.status(200).json({
-            test_mode: !!stateRow?.test_mode_active,
+            test_mode: true,
             started_at: stateRow?.test_mode_snapshot?.started_at || null,
+            test_users: testUsers,
           })
         }
 

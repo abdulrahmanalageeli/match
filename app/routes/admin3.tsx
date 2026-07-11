@@ -982,7 +982,7 @@ export default function Admin3Page() {
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-300 text-xs font-medium transition-colors disabled:opacity-50"
                 >
                   {testModeLoading ? <Loader2 size={14} className="animate-spin" /> : <Square size={14} />}
-                  إنهاء واستعادة
+                  إنهاء وحذف
                 </button>
               )}
             </div>
@@ -992,7 +992,7 @@ export default function Admin3Page() {
             <div className="space-y-3">
               {/* Test mode info banner */}
               <div className="bg-amber-950/40 border border-amber-800/40 rounded-lg p-2.5 text-xs text-amber-300/80">
-                <p>⚠️ أنت في وضع الاختبار. جميع التغييرات مؤقتة وسيتم استعادة البيانات الأصلية عند الإنهاء.</p>
+                <p>⚠️ أنت في وضع الاختبار. جميع البيانات مؤقتة وسيتم حذفها عند الإنهاء.</p>
               </div>
 
               {/* Cache coverage */}
@@ -1069,7 +1069,7 @@ export default function Admin3Page() {
 
           {!testMode && (
             <p className="text-xs text-gray-500">
-              يختار 20 ذكر و 20 أنثى عشوائياً من المشاركين الذين أكملوا الاستبيان. يحفظ البيانات الحالية ويستعدها عند الإنهاء.
+              يختار 20 ذكر و 20 أنثى عشوائياً من المشاركين الذين أكملوا الاستبيان. يحذف جميع بيانات الاختبار عند الإنهاء.
             </p>
           )}
         </div>

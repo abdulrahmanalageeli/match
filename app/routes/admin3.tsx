@@ -1556,6 +1556,68 @@ export default function Admin3Page() {
               </div>
             </div>
 
+            {/* Quick Phase Advance (test mode only) */}
+            {testMode && (
+              <div className="bg-amber-950/30 border border-amber-700/40 rounded-xl p-3">
+                <p className="text-amber-400/70 text-xs mb-2 font-medium flex items-center gap-1.5"><FlaskConical size={12} /> انتقال سريع للمراحل (وضع الاختبار)</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {PHASES.map((phase, idx) => {
+                    const isCurrent = (state?.phase || "setup") === phase.id
+                    const isPast = idx < currentPhaseIdx
+                    return (
+                      <button
+                        key={phase.id}
+                        onClick={() => {
+                          if (phase.id === "phase2_processing" || phase.id === "phase3_processing") return
+                          if (phase.id === "setup") setPhase("setup")
+                          else if (phase.id === "final_reveal") setPhase("final_reveal")
+                          else if (phase.id === "break") setPhaseWithTimer("break", 600, 3)
+                          else if (phase.id === "round1") setPhaseWithTimer("round1", 1800, 1)
+                          else if (phase.id === "ranking1") setPhaseWithTimer("ranking1", 300, 0)
+                          else if (phase.id === "round2") setPhaseWithTimer("round2", 1500, 2)
+                          else if (phase.id === "ranking2") setPhaseWithTimer("ranking2", 180, 0)
+                          else if (phase.id === "phase2_reveal") setPhaseWithTimer("phase2_reveal", 1200, 4)
+                          else if (phase.id === "phase3_reveal") setPhaseWithTimer("phase3_reveal", 1200, 5)
+                          else setPhase(phase.id)
+                        }}
+                        disabled={!!loading || isCurrent}
+                        className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all disabled:opacity-30 ${
+                          isCurrent ? "bg-amber-600 text-white" :
+                          isPast ? "bg-gray-700 text-green-400 hover:bg-gray-600" :
+                          "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                        }`}
+                      >
+                        <span className="ml-1">{phase.icon}</span>{phase.label}
+                      </button>
+                    )
+                  })}
+                </div>
+                <div className="flex gap-1.5 mt-2">
+                  <button
+                    onClick={() => run("phase2", () => api("e3-trigger-phase2-matching").then(d => { fetchMatches(); fetchState(); return d }))}
+                    disabled={!!loading}
+                    className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-purple-900/50 hover:bg-purple-900/70 text-purple-300 transition-all disabled:opacity-40"
+                  >
+                    ⚡ مطابقة المرحلة 2
+                  </button>
+                  <button
+                    onClick={() => run("phase3", () => api("e3-trigger-phase3-matching").then(d => { fetchState(); return d }))}
+                    disabled={!!loading}
+                    className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-purple-900/50 hover:bg-purple-900/70 text-purple-300 transition-all disabled:opacity-40"
+                  >
+                    ⚡ مطابقة الخوارزمية
+                  </button>
+                  <button
+                    onClick={() => { if (previewEventId != null) { toast.error("لا يمكن إيقاف المؤقت في وضع المعاينة"); return } run("timer-stop", () => api("e3-stop-timer")) }}
+                    disabled={!!loading}
+                    className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-red-900/40 hover:bg-red-900/60 text-red-300 transition-all disabled:opacity-40"
+                  >
+                    ⏹ إيقاف المؤقت
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Next Step */}
             {getNextStep() && (() => { const ns = getNextStep()!; return (
               <div className="bg-gradient-to-r from-emerald-900/40 to-teal-900/30 border border-emerald-700/50 rounded-xl p-4">
@@ -1592,6 +1654,21 @@ export default function Admin3Page() {
                   إرسال
                 </button>
               </div>
+              {/* Mood check preview */}
+              {moodTarget && (
+                <div className="mt-2 bg-gray-800/50 border border-purple-800/30 rounded-lg p-2.5">
+                  <p className="text-[10px] text-gray-500 mb-1.5">معاينة:</p>
+                  <div className="bg-purple-950/40 border border-purple-700/40 rounded-lg p-3 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-purple-600/30 flex items-center justify-center flex-shrink-0">
+                      <Heart size={18} className="text-purple-300" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-purple-200 text-sm font-semibold">فحص المزاج</p>
+                      <p className="text-purple-400/60 text-xs">سيتم الإرسال إلى: <span className="text-amber-400 font-semibold">المشارك #{moodTarget}</span></p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Notification Trigger */}
@@ -1643,6 +1720,26 @@ export default function Admin3Page() {
                     إرسال
                   </button>
                 </div>
+                {/* Notification preview */}
+                {notifTitle.trim() && (
+                  <div className="bg-gray-800/50 border border-blue-800/30 rounded-lg p-2.5">
+                    <p className="text-[10px] text-gray-500 mb-1.5">معاينة الإشعار:</p>
+                    <div className="bg-blue-950/40 border border-blue-700/40 rounded-lg p-3 flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-full bg-blue-600/30 flex items-center justify-center flex-shrink-0">
+                        {notifIcon === "heart" ? <Heart size={16} className="text-blue-300" /> :
+                         notifIcon === "clock" ? <Clock size={16} className="text-blue-300" /> :
+                         notifIcon === "star" ? <Star size={16} className="text-blue-300" /> :
+                         notifIcon === "alert" ? <AlertTriangle size={16} className="text-blue-300" /> :
+                         <Bell size={16} className="text-blue-300" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-blue-200 text-sm font-semibold truncate">{notifTitle.trim()}</p>
+                        {notifBody.trim() && <p className="text-blue-400/70 text-xs mt-0.5 line-clamp-2">{notifBody.trim()}</p>}
+                        <p className="text-blue-500/50 text-[10px] mt-1">إلى: <span className="text-amber-400 font-semibold">{notifTarget ? `المشارك #${notifTarget}` : "جميع المشاركين"}</span></p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

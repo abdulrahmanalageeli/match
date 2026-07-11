@@ -2852,6 +2852,21 @@ Please respond in JSON format:
         let myAssignment = null
         if (participant) {
           const { data: ep } = await supabase.from("event3_participants").select("position").eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId).eq("participant_number", myNumber).maybeSingle()
+          // Auto-mark attendance when enrolled participant polls state
+          if (ep) {
+            try {
+              await supabase.from("event_attendance").upsert({
+                match_id: MAIN_MATCH,
+                event_id: activeEventId,
+                participant_number: myNumber,
+                attended: true,
+                updated_by: "auto-join",
+                updated_at: new Date().toISOString(),
+              }, { onConflict: "match_id, event_id, participant_number" })
+            } catch (attErr) {
+              console.error("[auto-attendance] Failed on state poll:", attErr.message)
+            }
+          }
           const roundMatch = phase.match(/^round(\d)$/)
           const currentRound = roundMatch ? parseInt(roundMatch[1]) : null
           if (ep && currentRound) {
@@ -2891,6 +2906,20 @@ Please respond in JSON format:
           .eq("event_id", currentEventId)
           .eq("participant_number", match.assigned_number).maybeSingle()
         if (!ep) return res.status(403).json({ error: "رقمك غير مسجّل في هذه الفعالية. تواصل مع المنظم." })
+        // Auto-mark attendance when participant joins the event
+        try {
+          await supabase.from("event_attendance").upsert({
+            match_id: MAIN_MATCH,
+            event_id: currentEventId,
+            participant_number: match.assigned_number,
+            attended: true,
+            updated_by: "auto-join",
+            updated_at: new Date().toISOString(),
+          }, { onConflict: "match_id, event_id, participant_number" })
+          console.log(`[auto-attendance] Marked #${match.assigned_number} as attended (phone login)`)
+        } catch (attErr) {
+          console.error("[auto-attendance] Failed to mark attendance on login:", attErr.message)
+        }
         const firstName = (match.name || '').trim().split(/\s+/)[0] || 'مشارك'
         return res.status(200).json({ token: match.secure_token, name: firstName })
       }

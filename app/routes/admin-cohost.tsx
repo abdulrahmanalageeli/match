@@ -82,6 +82,13 @@ export default function AdminCohostPage() {
     if (authenticated) fetchData()
   }, [authenticated, fetchData])
 
+  // Poll attendance every 10 seconds (auto-reflect participants joining)
+  useEffect(() => {
+    if (!authenticated) return
+    const iv = setInterval(fetchData, 10000)
+    return () => clearInterval(iv)
+  }, [authenticated, fetchData])
+
   // Poll SOS every 5 seconds
   useEffect(() => {
     if (!authenticated) return

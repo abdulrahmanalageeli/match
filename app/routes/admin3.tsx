@@ -475,6 +475,13 @@ export default function Admin3Page() {
     return () => { if (feedbackIntervalRef.current) { clearInterval(feedbackIntervalRef.current); feedbackIntervalRef.current = null } }
   }, [feedbackPolling, activeTab, fetchFeedback])
 
+  // Attendance polling (auto-refresh when participants join)
+  useEffect(() => {
+    if (activeTab !== "attendance") return
+    const iv = setInterval(fetchAttendance, 10000)
+    return () => clearInterval(iv)
+  }, [activeTab, fetchAttendance])
+
   // Timer countdown
   useEffect(() => {
     if (!state?.timer_active || !state?.timer_start) {

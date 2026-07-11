@@ -4,7 +4,7 @@ import {
   Users, Play, Square, ChevronRight, RotateCcw, CheckCircle,
   Circle, RefreshCw, Table2, Trophy, Clock, BarChart3, Shuffle,
   Eye, EyeOff, ArrowRight, Sparkles, Brain, Shield, LogOut,
-  Grid3x3, Star, Check, AlertCircle, AlertTriangle, Loader2, Copy, Heart, Layers, ChevronDown, X, XCircle, MessageSquare, Send, Home, Trash2, GripVertical, Search, Crown, Medal, Coffee, Ban, ArrowLeft, Bell, Calendar, Download,
+  Grid3x3, Star, Check, AlertCircle, AlertTriangle, Loader2, Copy, Heart, Layers, ChevronDown, X, XCircle, MessageSquare, Send, Home, Trash2, GripVertical, Search, Crown, Medal, Coffee, Ban, ArrowLeft, Bell, Calendar, Download, FlaskConical, Phone,
 } from "lucide-react"
 
 const ADMIN_PASSWORD = "soulmatch2026"
@@ -152,6 +152,11 @@ export default function Admin3Page() {
   const [attendanceLoading, setAttendanceLoading] = useState(false)
   const [attendanceToggling, setAttendanceToggling] = useState<Record<number, boolean>>({})
   const [attendanceSearch, setAttendanceSearch] = useState("")
+  const [testMode, setTestMode] = useState(false)
+  const [testModeLoading, setTestModeLoading] = useState(false)
+  const [testModeData, setTestModeData] = useState<any>(null)
+  const [testUsersFilter, setTestUsersFilter] = useState("")
+  const [confirmModal, setConfirmModal] = useState<{ type: "mood" | "notif"; target: string; onConfirm: () => void } | null>(null)
   const [replyingId, setReplyingId] = useState<string | null>(null)
   const [replyText, setReplyText] = useState("")
   const [sosFilter, setSosFilter] = useState<'all' | 'active' | 'resolved'>('all')
@@ -272,13 +277,16 @@ export default function Admin3Page() {
 
   const sendMoodCheck = useCallback(async () => {
     if (previewEventId != null) { toast.error("لا يمكن إرسال فحص المزاج في وضع المعاينة"); return }
-    setMoodSending(true)
-    const data = await api("e3-trigger-mood-check", moodTarget ? { target_number: moodTarget } : {})
-    setMoodSending(false)
-    if (data.error) { toast.error(data.error); return }
-    toast.success(`تم إرسال فحص المزاج إلى ${data.sent_to} شخص`)
-    setMoodTarget("")
-    setTimeout(() => fetchMoodChecks(), 1000)
+    const targetLabel = moodTarget ? `المشارك #${moodTarget}` : "جميع المشاركين"
+    setConfirmModal({ type: "mood", target: targetLabel, onConfirm: async () => {
+      setMoodSending(true)
+      const data = await api("e3-trigger-mood-check", moodTarget ? { target_number: moodTarget } : {})
+      setMoodSending(false)
+      if (data.error) { toast.error(data.error); return }
+      toast.success(`تم إرسال فحص المزاج إلى ${data.sent_to} شخص`)
+      setMoodTarget("")
+      setTimeout(() => fetchMoodChecks(), 1000)
+    }})
   }, [moodTarget, fetchMoodChecks])
 
   const fetchNotifications = useCallback(async () => {
@@ -308,18 +316,21 @@ export default function Admin3Page() {
   const sendNotification = useCallback(async () => {
     if (previewEventId != null) { toast.error("لا يمكن إرسال الإشعارات في وضع المعاينة"); return }
     if (!notifTitle.trim()) { toast.error("اكتب عنوان الإشعار"); return }
-    setNotifSending(true)
-    const data = await api("e3-send-notification", {
-      title: notifTitle.trim(),
-      body: notifBody.trim() || undefined,
-      icon: notifIcon,
-      ...(notifTarget ? { target_number: notifTarget } : {})
-    })
-    setNotifSending(false)
-    if (data.error) { toast.error(data.error); return }
-    toast.success(`تم إرسال الإشعار إلى ${data.sent_to} شخص`)
-    setNotifTitle(""); setNotifBody(""); setNotifTarget("")
-    setTimeout(() => fetchNotifications(), 1000)
+    const targetLabel = notifTarget ? `المشارك #${notifTarget}` : "جميع المشاركين"
+    setConfirmModal({ type: "notif", target: targetLabel, onConfirm: async () => {
+      setNotifSending(true)
+      const data = await api("e3-send-notification", {
+        title: notifTitle.trim(),
+        body: notifBody.trim() || undefined,
+        icon: notifIcon,
+        ...(notifTarget ? { target_number: notifTarget } : {})
+      })
+      setNotifSending(false)
+      if (data.error) { toast.error(data.error); return }
+      toast.success(`تم إرسال الإشعار إلى ${data.sent_to} شخص`)
+      setNotifTitle(""); setNotifBody(""); setNotifTarget("")
+      setTimeout(() => fetchNotifications(), 1000)
+    }})
   }, [notifTitle, notifBody, notifIcon, notifTarget, fetchNotifications])
 
   const mbtiGroupFn = (m: string) => {
@@ -418,6 +429,16 @@ export default function Admin3Page() {
     if (data.current_event_id) setRealCurrentEventId(data.current_event_id)
   }, [])
 
+  const checkTestMode = useCallback(async () => {
+    const data = await api("e3-get-test-mode")
+    if (data.test_mode) {
+      setTestMode(true)
+      if (!testModeData) setTestModeData(data)
+    } else {
+      setTestMode(false)
+    }
+  }, [testModeData])
+
   useEffect(() => {
     if (!authenticated) return
     fetchState()
@@ -425,13 +446,14 @@ export default function Admin3Page() {
     fetchSeating()
     fetchSOS()
     fetchEventList()
+    checkTestMode()
     const stateIv = setInterval(fetchState, 3000)
     const sosIv = setInterval(fetchSOS, 5000)
     return () => {
       clearInterval(stateIv)
       clearInterval(sosIv)
     }
-  }, [authenticated, fetchState, fetchParticipants, fetchSeating, fetchSOS, fetchEventList])
+  }, [authenticated, fetchState, fetchParticipants, fetchSeating, fetchSOS, fetchEventList, checkTestMode])
 
   useEffect(() => {
     if (authenticated && activeTab === "seating") { fetchSeating(); fetchRankStatus() }
@@ -654,6 +676,41 @@ export default function Admin3Page() {
     })
   }
 
+  const startTestMode = async () => {
+    if (previewEventId != null) { toast.error("لا يمكن بدء وضع الاختبار في وضع المعاينة"); return }
+    if (!confirm("بدء وضع الاختبار؟ سيتم حفظ البيانات الحالية واستبدالها بـ 40 مشارك اختبار. يمكنك الاستعادة عند الانتهاء.")) return
+    setTestModeLoading(true)
+    try {
+      const data = await api("e3-start-test-mode")
+      if (data.error) { toast.error(data.error); return }
+      setTestMode(true)
+      setTestModeData(data)
+      toast.success(data.message || "وضع الاختبار بدأ")
+      fetchState(); fetchParticipants()
+    } catch (e: any) {
+      toast.error(e.message || "خطأ")
+    } finally {
+      setTestModeLoading(false)
+    }
+  }
+
+  const endTestMode = async () => {
+    if (!confirm("إنهاء وضع الاختبار؟ سيتم استعادة جميع البيانات الأصلية وحذف أي تغييرات في وضع الاختبار.")) return
+    setTestModeLoading(true)
+    try {
+      const data = await api("e3-end-test-mode")
+      if (data.error) { toast.error(data.error); return }
+      setTestMode(false)
+      setTestModeData(null)
+      toast.success(data.message || "تم إنهاء وضع الاختبار")
+      fetchState(); fetchParticipants(); setSeating(null); setRankStatus(null)
+    } catch (e: any) {
+      toast.error(e.message || "خطأ")
+    } finally {
+      setTestModeLoading(false)
+    }
+  }
+
   const toggleParticipant = (num: number) => {
     setSelectedNumbers(prev => {
       const next = new Set(prev)
@@ -807,6 +864,11 @@ export default function Admin3Page() {
               ))}
             </select>
           </div>
+          {testMode && (
+            <span className="text-xs bg-amber-500/20 border border-amber-600/40 text-amber-300 px-2.5 py-1 rounded-full font-medium flex items-center gap-1">
+              <FlaskConical size={12} /> وضع الاختبار
+            </span>
+          )}
           {previewEventId != null && (
             <div className="flex items-center gap-2">
               <span className="text-xs bg-amber-900/40 border border-amber-700/40 text-amber-300 px-2.5 py-1 rounded-full font-medium">
@@ -885,6 +947,125 @@ export default function Admin3Page() {
             </div>
           </div>
         )}
+
+        {/* Test Mode Panel */}
+        <div className={`border rounded-xl p-3 sm:p-4 ${testMode ? "bg-amber-950/30 border-amber-700/50" : "bg-gray-900 border-gray-800"}`}>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <FlaskConical className={testMode ? "text-amber-400" : "text-gray-400"} size={18} />
+              <h2 className="text-sm font-medium text-gray-300">وضع الاختبار</h2>
+              {testMode && (
+                <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-600/40">نشط</span>
+              )}
+            </div>
+            <div className="flex gap-2">
+              {!testMode ? (
+                <button
+                  onClick={startTestMode}
+                  disabled={testModeLoading || !!loading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 text-xs font-medium transition-colors disabled:opacity-50"
+                >
+                  {testModeLoading ? <Loader2 size={14} className="animate-spin" /> : <FlaskConical size={14} />}
+                  بدء وضع الاختبار
+                </button>
+              ) : (
+                <button
+                  onClick={endTestMode}
+                  disabled={testModeLoading || !!loading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-300 text-xs font-medium transition-colors disabled:opacity-50"
+                >
+                  {testModeLoading ? <Loader2 size={14} className="animate-spin" /> : <Square size={14} />}
+                  إنهاء واستعادة
+                </button>
+              )}
+            </div>
+          </div>
+
+          {testMode && testModeData && (
+            <div className="space-y-3">
+              {/* Test mode info banner */}
+              <div className="bg-amber-950/40 border border-amber-800/40 rounded-lg p-2.5 text-xs text-amber-300/80">
+                <p>⚠️ أنت في وضع الاختبار. جميع التغييرات مؤقتة وسيتم استعادة البيانات الأصلية عند الإنهاء.</p>
+              </div>
+
+              {/* Cache coverage */}
+              {testModeData.cache_coverage && (
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-gray-400">تغطية الكاش:</span>
+                  <span className={testModeData.cache_coverage.percent >= 50 ? "text-green-400" : "text-yellow-400"}>
+                    {testModeData.cache_coverage.hits}/{testModeData.cache_coverage.total} ({testModeData.cache_coverage.percent}%)
+                  </span>
+                </div>
+              )}
+
+              {/* Diagnostics checks */}
+              {testModeData.checks && (
+                <div className="space-y-1">
+                  {testModeData.checks.map((check: any, i: number) => (
+                    <div key={i} className={`flex items-start gap-2 text-xs p-2 rounded-lg ${check.status === "ok" ? "bg-green-950/30 text-green-300" : check.status === "warn" ? "bg-yellow-950/30 text-yellow-300" : "bg-red-950/30 text-red-300"}`}>
+                      {check.status === "ok" ? <Check size={12} className="mt-0.5" /> : <AlertTriangle size={12} className="mt-0.5" />}
+                      <span>{check.message}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Test users with phone numbers */}
+              {testModeData.test_users && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-semibold text-gray-400">مستخدمون للاختبار — سجل دخول برقم الجوال:</h3>
+                    <input
+                      type="text"
+                      value={testUsersFilter}
+                      onChange={e => setTestUsersFilter(e.target.value)}
+                      placeholder="بحث..."
+                      className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-white placeholder-gray-500 focus:ring-1 focus:ring-amber-500 outline-none w-24"
+                    />
+                  </div>
+                  <div className="max-h-64 overflow-y-auto space-y-1 scrollbar-thin">
+                    {testModeData.test_users
+                      .filter((u: any) => !testUsersFilter || String(u.name).includes(testUsersFilter) || String(u.number).includes(testUsersFilter) || String(u.phone || "").includes(testUsersFilter))
+                      .map((u: any) => (
+                      <div key={u.number} className="flex items-center justify-between bg-gray-800/60 border border-gray-700/50 rounded-lg px-3 py-2 text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${u.gender?.toLowerCase().startsWith("m") ? "bg-blue-900/60 text-blue-300" : "bg-pink-900/60 text-pink-300"}`}>
+                            {u.gender?.toLowerCase().startsWith("m") ? "♂" : "♀"}
+                          </span>
+                          <span className="text-gray-300 font-medium">#{u.number} {u.name}</span>
+                          <span className="text-gray-500">({u.age})</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {u.phone ? (
+                            <span className="flex items-center gap-1 text-gray-400 font-mono" dir="ltr">
+                              <Phone size={11} />
+                              {u.phone}
+                            </span>
+                          ) : (
+                            <span className="text-red-400/60 text-[10px]">لا يوجد رقم</span>
+                          )}
+                          <button
+                            onClick={() => { if (u.phone) { navigator.clipboard.writeText(u.phone); toast.success("تم نسخ الرقم") } }}
+                            className="text-gray-500 hover:text-amber-400 transition-colors"
+                            title="نسخ الرقم"
+                          >
+                            <Copy size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {!testMode && (
+            <p className="text-xs text-gray-500">
+              يختار 20 ذكر و 20 أنثى عشوائياً من المشاركين الذين أكملوا الاستبيان. يحفظ البيانات الحالية ويستعدها عند الإنهاء.
+            </p>
+          )}
+        </div>
 
         {/* Pre-event diagnostics */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 sm:p-4">
@@ -4560,6 +4741,47 @@ export default function Admin3Page() {
           </div>
         )
       })()}
+
+      {/* Confirmation Modal for mood check / notification sending */}
+      {confirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setConfirmModal(null)}>
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-5 max-w-sm w-full mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${confirmModal.type === "mood" ? "bg-purple-600/20" : "bg-blue-600/20"}`}>
+                {confirmModal.type === "mood" ? <Heart size={20} className="text-purple-400" /> : <Bell size={20} className="text-blue-400" />}
+              </div>
+              <div>
+                <h3 className="font-bold text-white text-sm">
+                  {confirmModal.type === "mood" ? "تأكيد إرسال فحص المزاج" : "تأكيد إرسال الإشعار"}
+                </h3>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  سيتم الإرسال إلى: <span className="text-amber-400 font-semibold">{confirmModal.target}</span>
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 mb-4">
+              {confirmModal.type === "mood"
+                ? "هل أنت متأكد من إرسال فحص المزاج؟ لا يمكن التراجع عن هذا الإجراء."
+                : "هل أنت متأكد من إرسال هذا الإشعار؟ لا يمكن التراجع عن هذا الإجراء."}
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setConfirmModal(null)}
+                className="flex-1 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-bold transition-colors"
+              >
+                إلغاء
+              </button>
+              <button
+                onClick={async () => { const fn = confirmModal.onConfirm; setConfirmModal(null); await fn() }}
+                className={`flex-1 py-2.5 rounded-xl text-white text-sm font-bold transition-colors flex items-center justify-center gap-1.5 ${confirmModal.type === "mood" ? "bg-purple-600 hover:bg-purple-500" : "bg-blue-600 hover:bg-blue-500"}`}
+              >
+                <Send size={14} />
+                تأكيد الإرسال
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )

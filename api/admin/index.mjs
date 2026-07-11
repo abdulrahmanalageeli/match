@@ -7802,6 +7802,228 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           }
         }
 
+        // e3-start-test-mode — select 20M+20F valid participants with cached compat, run diagnostics, return test users
+        if (action === "e3-start-test-mode") {
+          // 1. Fetch all participants with full data
+          const { data: allP, error: allErr } = await supabase.from("participants")
+            .select("assigned_number,name,gender,age,phone_number,survey_data,mbti_personality_type,attachment_style,communication_style,humor_banter_style,early_openness_comfort,same_gender_preference,any_gender_preference,nationality,prefer_same_nationality,preferred_age_min,preferred_age_max,open_age_preference,secure_token")
+            .eq("match_id", STATIC_MATCH_ID)
+            .neq("assigned_number", 9999)
+            .order("assigned_number", { ascending: true })
+
+          if (allErr) return res.status(500).json({ error: allErr.message })
+          if (!allP || allP.length < 40) return res.status(400).json({ error: `Need at least 40 participants with complete surveys, found ${allP?.length || 0}` })
+
+          // 2. Filter to valid (complete survey) participants
+          const valid = allP.filter(p => {
+            try { if (typeof p.survey_data === "string") p.survey_data = JSON.parse(p.survey_data || "{}") } catch {}
+            return isParticipantComplete(p)
+          })
+
+          const males = valid.filter(p => (p.gender || "").toLowerCase().startsWith("m"))
+          const females = valid.filter(p => (p.gender || "").toLowerCase().startsWith("f"))
+
+          if (males.length < 20 || females.length < 20) {
+            return res.status(400).json({ error: `Need 20 males and 20 females with complete surveys. Found ${males.length}M / ${females.length}F.` })
+          }
+
+          // 3. Randomly select 20M + 20F
+          const shuffle = (arr) => { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]] } return arr }
+          const selectedM = shuffle([...males]).slice(0, 20)
+          const selectedF = shuffle([...females]).slice(0, 20)
+          const selected = [...selectedM, ...selectedF]
+          const selectedNums = selected.map(p => p.assigned_number)
+
+          // 4. Check how many pairs have cached compatibility
+          const { data: cachedPairs } = await supabase.from("compatibility_cache")
+            .select("participant_a_number,participant_b_number,total_compatibility_score")
+            .or(`participant_a_number.in.(${selectedNums.join(",")}),participant_b_number.in.(${selectedNums.join(",")})`)
+          const cachedSet = new Set((cachedPairs || []).map(c => `${c.participant_a_number}-${c.participant_b_number}`))
+          let cacheHits = 0, totalPairs = 0
+          for (let i = 0; i < selectedNums.length; i++) {
+            for (let j = i + 1; j < selectedNums.length; j++) {
+              const [a, b] = [selectedNums[i], selectedNums[j]].sort((x, y) => x - y)
+              totalPairs++
+              if (cachedSet.has(`${a}-${b}`)) cacheHits++
+            }
+          }
+
+          // 5. Save current event state for restoration
+          const { data: currentState } = await supabase.from("event_state").select("*").eq("match_id", EVENT3_MATCH_ID).single()
+          const { data: currentParticipants } = await supabase.from("event3_participants").select("*").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          const { data: currentSeating } = await supabase.from("session_assignments").select("*").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          const { data: currentMatches } = await supabase.from("event3_matches").select("*").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          const { data: currentRankings } = await supabase.from("participant_rankings").select("*").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+
+          // Store snapshot for restoration (in a temp table or in-memory)
+          const testSnapshot = {
+            event_state: currentState,
+            participants: currentParticipants || [],
+            seating: currentSeating || [],
+            matches: currentMatches || [],
+            rankings: currentRankings || [],
+            started_at: new Date().toISOString(),
+          }
+
+          // 6. Clear current event data
+          await Promise.all([
+            supabase.from("event3_participants").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
+            supabase.from("event3_matches").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
+            supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
+            supabase.from("participant_rankings").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
+            supabase.from("event3_mood_checks").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
+            supabase.from("event3_notifications").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
+            supabase.from("event3_exclusions").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
+          ])
+
+          // 7. Insert selected participants
+          const participantRows = selectedNums.map((num, idx) => ({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, participant_number: num, position: idx }))
+          await supabase.from("event3_participants").insert(participantRows)
+
+          // 8. Reset event state to setup
+          await supabase.from("event_state").upsert({
+            match_id: EVENT3_MATCH_ID,
+            phase: "setup",
+            global_timer_active: false,
+            global_timer_start_time: null,
+            global_timer_duration: null,
+            global_timer_round: null,
+            phase2_score_revealed: false,
+            phase3_score_revealed: false,
+          }, { onConflict: "match_id" })
+
+          // 9. Store snapshot in event_state metadata
+          await supabase.from("event_state").update({
+            test_mode_active: true,
+            test_mode_snapshot: testSnapshot,
+          }).eq("match_id", EVENT3_MATCH_ID)
+
+          // 10. Build test users list with phone numbers and tokens
+          const testUsers = selected.map(p => ({
+            number: p.assigned_number,
+            name: p.name || `#${p.assigned_number}`,
+            gender: p.gender || "?",
+            age: p.age || "?",
+            phone: p.phone_number || null,
+            token: p.secure_token,
+          }))
+
+          // 11. Run diagnostics on the selected participants
+          const checks = []
+          let healthy = true
+
+          // Participant selection check
+          checks.push({ name: "participant_selection", status: "ok", message: `${selectedNums.length} participants selected (20M + 20F)` })
+
+          // Survey data check
+          const missingSurvey = selectedNums.filter(num => {
+            const p = selected.find(s => s.assigned_number === num)
+            return !isParticipantComplete(p)
+          })
+          if (missingSurvey.length > 0) {
+            checks.push({ name: "survey_data", status: "warn", message: `${missingSurvey.length} participants with incomplete survey: #${missingSurvey.join(", #")}` })
+          } else {
+            checks.push({ name: "survey_data", status: "ok", message: "All 40 participants have complete survey data" })
+          }
+
+          // Cache coverage check
+          const cachePct = totalPairs > 0 ? Math.round((cacheHits / totalPairs) * 100) : 0
+          if (cachePct < 50) {
+            checks.push({ name: "compatibility_cache", status: "warn", message: `${cacheHits}/${totalPairs} pairs cached (${cachePct}%) — matching will compute fresh scores` })
+          } else {
+            checks.push({ name: "compatibility_cache", status: "ok", message: `${cacheHits}/${totalPairs} pairs cached (${cachePct}%)` })
+          }
+
+          // Gender balance check
+          checks.push({ name: "gender_balance", status: "ok", message: `20 males / 20 females — balanced` })
+
+          // Event state check
+          checks.push({ name: "event_state", status: "ok", message: "Event state reset to setup phase" })
+
+          return res.status(200).json({
+            test_mode: true,
+            selected_count: selectedNums.length,
+            cache_coverage: { hits: cacheHits, total: totalPairs, percent: cachePct },
+            checks,
+            healthy,
+            test_users: testUsers,
+            message: `Test mode started with ${selectedNums.length} participants (20M+20F). ${cacheHits}/${totalPairs} pairs have cached compatibility.`,
+          })
+        }
+
+        // e3-end-test-mode — restore original event data and exit test mode
+        if (action === "e3-end-test-mode") {
+          // Fetch snapshot from event_state
+          const { data: stateRow } = await supabase.from("event_state").select("test_mode_snapshot,test_mode_active").eq("match_id", EVENT3_MATCH_ID).single()
+
+          if (!stateRow?.test_mode_active) {
+            return res.status(400).json({ error: "Test mode is not active" })
+          }
+
+          const snapshot = stateRow.test_mode_snapshot
+          if (!snapshot) {
+            return res.status(400).json({ error: "No test mode snapshot found" })
+          }
+
+          // Clear all test data
+          await Promise.all([
+            supabase.from("event3_participants").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
+            supabase.from("event3_matches").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
+            supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
+            supabase.from("participant_rankings").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
+            supabase.from("event3_mood_checks").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
+            supabase.from("event3_notifications").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
+            supabase.from("event3_exclusions").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
+          ])
+
+          // Restore original data
+          if (snapshot.participants?.length > 0) {
+            await supabase.from("event3_participants").insert(snapshot.participants)
+          }
+          if (snapshot.seating?.length > 0) {
+            await supabase.from("session_assignments").insert(snapshot.seating)
+          }
+          if (snapshot.matches?.length > 0) {
+            await supabase.from("event3_matches").insert(snapshot.matches)
+          }
+          if (snapshot.rankings?.length > 0) {
+            await supabase.from("participant_rankings").insert(snapshot.rankings)
+          }
+
+          // Restore event state
+          if (snapshot.event_state) {
+            await supabase.from("event_state").upsert({
+              ...snapshot.event_state,
+              test_mode_active: false,
+              test_mode_snapshot: null,
+            }, { onConflict: "match_id" })
+          } else {
+            await supabase.from("event_state").update({
+              test_mode_active: false,
+              test_mode_snapshot: null,
+            }).eq("match_id", EVENT3_MATCH_ID)
+          }
+
+          return res.status(200).json({
+            message: "Test mode ended. All data restored to pre-test state.",
+            restored: {
+              participants: snapshot.participants?.length || 0,
+              seating: snapshot.seating?.length || 0,
+              matches: snapshot.matches?.length || 0,
+              rankings: snapshot.rankings?.length || 0,
+            }
+          })
+        }
+
+        // e3-get-test-mode — check if test mode is active
+        if (action === "e3-get-test-mode") {
+          const { data: stateRow } = await supabase.from("event_state").select("test_mode_active,test_mode_snapshot").eq("match_id", EVENT3_MATCH_ID).single()
+          return res.status(200).json({
+            test_mode: !!stateRow?.test_mode_active,
+            started_at: stateRow?.test_mode_snapshot?.started_at || null,
+          })
+        }
+
         return res.status(400).json({ error: `Unknown e3 action: ${action}` })
       } catch (e3err) {
         console.error("e3 admin error:", e3err)

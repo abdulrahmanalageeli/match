@@ -7482,6 +7482,17 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const getName = (num) => nameMap[num]?.name || `#${num}`
           const matchMap = {}
           for (const row of matchRows) matchMap[row.participant_number] = row
+          // Batch-fetch algorithmic compatibility scores for every pair involved, so we can
+          // show the criteria-based score alongside real feedback in the admin feed.
+          const { data: cachedPairsFb } = await fetchAllCachedPairs("compatibility_cache", allNums)
+          const compatMap = {}
+          for (const c of cachedPairsFb || []) {
+            compatMap[`${c.participant_a_number}-${c.participant_b_number}`] = Math.round(parseFloat(c.total_compatibility_score))
+          }
+          const getCompatScore = (numA, numB) => {
+            const [x, y] = [numA, numB].sort((p, q) => p - q)
+            return compatMap[`${x}-${y}`] ?? null
+          }
           const phase2 = [], phase3 = []
           for (const row of matchRows) {
             if (row.phase2_partner) {
@@ -7489,18 +7500,89 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               const partnerFb = partnerRow?.phase2_feedback || null
               const myFb = row.phase2_feedback || null
               const mutualYes = !!(myFb?.wantConnect === true && partnerFb?.wantConnect === true)
-              phase2.push({ participant_number: row.participant_number, participant_name: getName(row.participant_number), partner_number: row.phase2_partner, partner_name: getName(row.phase2_partner), feedback: myFb, submitted: !!row.phase2_feedback, partner_submitted: !!partnerFb, partner_feedback: partnerFb, mutual_yes: mutualYes, match_preference: row.match_preference || null })
+              phase2.push({ participant_number: row.participant_number, participant_name: getName(row.participant_number), partner_number: row.phase2_partner, partner_name: getName(row.phase2_partner), feedback: myFb, submitted: !!row.phase2_feedback, partner_submitted: !!partnerFb, partner_feedback: partnerFb, mutual_yes: mutualYes, match_preference: row.match_preference || null, compat_score: getCompatScore(row.participant_number, row.phase2_partner) })
             }
             if (row.phase3_partner) {
               const partnerRow = matchMap[row.phase3_partner]
               const partnerFb = partnerRow?.phase3_feedback || null
               const myFb = row.phase3_feedback || null
               const mutualYes = !!(myFb?.wantConnect === true && partnerFb?.wantConnect === true)
-              phase3.push({ participant_number: row.participant_number, participant_name: getName(row.participant_number), partner_number: row.phase3_partner, partner_name: getName(row.phase3_partner), feedback: myFb, submitted: !!row.phase3_feedback, partner_submitted: !!partnerFb, partner_feedback: partnerFb, mutual_yes: mutualYes, match_preference: row.match_preference || null })
+              phase3.push({ participant_number: row.participant_number, participant_name: getName(row.participant_number), partner_number: row.phase3_partner, partner_name: getName(row.phase3_partner), feedback: myFb, submitted: !!row.phase3_feedback, partner_submitted: !!partnerFb, partner_feedback: partnerFb, mutual_yes: mutualYes, match_preference: row.match_preference || null, compat_score: getCompatScore(row.participant_number, row.phase3_partner) })
             }
           }
           const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           return res.status(200).json({ phase2, phase3, phase2_submitted: phase2.filter(e => e.submitted).length, phase3_submitted: phase3.filter(e => e.submitted).length, total_participants: (ep || []).length })
+        }
+        // e3-analyze-pair — AI analysis of why a pair's real feedback matched/mismatched their algorithmic score
+        if (action === "e3-analyze-pair") {
+          const { participant_number, partner_number, phase } = req.body
+          if (!participant_number || !partner_number || !["phase2", "phase3"].includes(phase))
+            return res.status(400).json({ error: "participant_number, partner_number, phase required" })
+
+          const feedbackCol = phase === "phase2" ? "phase2_feedback" : "phase3_feedback"
+          const [{ data: rowA }, { data: rowB }] = await Promise.all([
+            supabase.from("event3_matches").select(`${feedbackCol}`).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", participant_number).maybeSingle(),
+            supabase.from("event3_matches").select(`${feedbackCol}`).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", partner_number).maybeSingle(),
+          ])
+          const fbA = rowA?.[feedbackCol] || null
+          const fbB = rowB?.[feedbackCol] || null
+
+          const [{ data: pA }, { data: pB }] = await Promise.all([
+            supabase.from("participants").select("assigned_number, name, age, gender, survey_data, mbti_personality_type, attachment_style, communication_style, nationality").eq("match_id", STATIC_MATCH_ID).eq("assigned_number", participant_number).maybeSingle(),
+            supabase.from("participants").select("assigned_number, name, age, gender, survey_data, mbti_personality_type, attachment_style, communication_style, nationality").eq("match_id", STATIC_MATCH_ID).eq("assigned_number", partner_number).maybeSingle(),
+          ])
+          if (!pA || !pB) return res.status(404).json({ error: "Participant data not found" })
+
+          const [numX, numY] = [participant_number, partner_number].sort((p, q) => p - q)
+          const { data: cacheRow } = await supabase.from("compatibility_cache").select("*")
+            .eq("participant_a_number", numX).eq("participant_b_number", numY)
+            .order("last_used", { ascending: false }).limit(1).maybeSingle()
+
+          const parseSurvey = (p) => { try { return typeof p?.survey_data === "string" ? JSON.parse(p.survey_data) : (p?.survey_data || {}) } catch { return {} } }
+          const ansA = parseSurvey(pA)?.answers || {}
+          const ansB = parseSurvey(pB)?.answers || {}
+
+          const breakdown = cacheRow ? {
+            total: Math.round(parseFloat(cacheRow.total_compatibility_score)),
+            synergy: Math.round(parseFloat(cacheRow.interaction_synergy_score)),
+            vibe: Math.round(parseFloat(cacheRow.ai_vibe_score)),
+            lifestyle: Math.round(parseFloat(cacheRow.lifestyle_score)),
+            communication: Math.round(parseFloat(cacheRow.communication_score)),
+            coreValues: Math.round((parseFloat(cacheRow.core_values_score) / 20) * 5),
+            intent: Math.round(parseFloat(cacheRow.intent_goal_score) || 0),
+          } : null
+
+          const summarize = (p, ans) => ({
+            name: p.name, age: p.age, gender: p.gender, nationality: p.nationality,
+            mbti: p.mbti_personality_type, attachment: p.attachment_style, communication: p.communication_style,
+            conversational_role: ans.conversational_role, humor_banter_style: ans.humor_banter_style,
+            early_openness_comfort: ans.early_openness_comfort, intent_goal: ans.intent_goal,
+            silence_comfort: ans.silence_comfort, social_battery: ans.social_battery,
+          })
+
+          const systemMessage = `أنت محلل نفسي واجتماعي متخصص في تقييم جودة المطابقة بين المشاركين في فعاليات التعارف. لديك درجة توافق حسابية (مبنية على استبيان وخوارزمية) ونتائج تقييم فعلي كتبها المشاركان بعد لقائهما الحقيقي. مهمتك تحليل التناقض أو التوافق بين الدرجة الحسابية والتجربة الفعلية، وتفسير السبب المحتمل بإيجاز ودقة، بالعربية، بأسلوب مباشر ومفيد للمنظم. لا تتجاوز 5-6 جمل.`
+
+          const userMessage = `درجة التوافق الحسابية (من الاستبيان والخوارزمية): ${breakdown ? JSON.stringify(breakdown) : "غير متوفرة"}
+
+بيانات المشارك الأول: ${JSON.stringify(summarize(pA, ansA))}
+بيانات المشارك الثاني: ${JSON.stringify(summarize(pB, ansB))}
+
+تقييم المشارك الأول الفعلي بعد اللقاء: ${JSON.stringify(fbA)}
+تقييم المشارك الثاني الفعلي بعد اللقاء: ${JSON.stringify(fbB)}
+
+حلل: هل تطابقت التجربة الفعلية مع ما توقعته الخوارزمية؟ إذا كان هناك تناقض (مثلاً درجة عالية لكن لم يريدا التواصل، أو درجة منخفضة لكنهما أرادا التواصل)، فسّر السبب المحتمل بالاستناد لبيانات الاستبيان. إذا تطابقت النتيجة، وضّح أي معيار كان الأكثر تأثيراً في نجاح المطابقة.`
+
+          const completion = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: systemMessage },
+              { role: "user", content: userMessage },
+            ],
+            max_completion_tokens: 500,
+            temperature: 0.6,
+          })
+          const analysis = completion.choices[0]?.message?.content?.trim() || "تعذّر توليد التحليل."
+          return res.status(200).json({ analysis, breakdown })
         }
         // e3-delete-feedback — clear all feedback for current event3
         if (action === "e3-delete-feedback") {

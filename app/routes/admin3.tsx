@@ -244,6 +244,9 @@ export default function Admin3Page() {
   const [feedbackPhase, setFeedbackPhase] = useState<"phase2" | "phase3">("phase2")
   const feedbackIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [editingFeedback, setEditingFeedback] = useState<any>(null)
+  const [analyzingPair, setAnalyzingPair] = useState<{ entry: any; phase: string } | null>(null)
+  const [pairAnalysisResult, setPairAnalysisResult] = useState<{ analysis: string; breakdown: any } | null>(null)
+  const [pairAnalysisLoading, setPairAnalysisLoading] = useState(false)
   const [feedbackSearch, setFeedbackSearch] = useState("")
   const [feedbackFilter, setFeedbackFilter] = useState<"all" | "submitted" | "missing" | "mutual">("all")
   const [moodData, setMoodData] = useState<any>(null)
@@ -394,6 +397,16 @@ export default function Admin3Page() {
 
   const handleEditFeedbackRef = useRef(handleEditFeedback)
   handleEditFeedbackRef.current = handleEditFeedback
+
+  const openPairAnalysis = useCallback(async (entry: any, phase: string) => {
+    setAnalyzingPair({ entry, phase })
+    setPairAnalysisResult(null)
+    setPairAnalysisLoading(true)
+    const d = await api("e3-analyze-pair", { participant_number: entry.participant_number, partner_number: entry.partner_number, phase })
+    setPairAnalysisLoading(false)
+    if (d.error) { toast.error(d.error); setAnalyzingPair(null); return }
+    setPairAnalysisResult({ analysis: d.analysis, breakdown: d.breakdown })
+  }, [])
 
   const fetchMoodChecks = useCallback(async () => {
     setMoodLoading(true)
@@ -4301,12 +4314,27 @@ export default function Admin3Page() {
                                 <span className="text-gray-300 text-sm truncate">{entry.partner_name}</span>
                                 <span className="text-gray-600 text-[10px] flex-shrink-0">#{entry.partner_number}</span>
                               </div>
-                              <button
-                                onClick={() => setEditingFeedback({ entry, phase: feedbackPhase })}
-                                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-gray-500 hover:text-purple-300 hover:bg-gray-800 transition-colors flex-shrink-0"
-                              >
-                                <Pencil size={10} /> تعديل
-                              </button>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                {entry.compat_score != null && (
+                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                                    entry.compat_score >= 75 ? "bg-emerald-950/50 text-emerald-400" :
+                                    entry.compat_score >= 55 ? "bg-blue-950/50 text-blue-400" :
+                                    "bg-gray-800 text-gray-400"
+                                  }`}>توافق: {entry.compat_score}%</span>
+                                )}
+                                <button
+                                  onClick={() => openPairAnalysis(entry, feedbackPhase)}
+                                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-gray-500 hover:text-amber-300 hover:bg-gray-800 transition-colors"
+                                >
+                                  <Sparkles size={10} /> تحليل
+                                </button>
+                                <button
+                                  onClick={() => setEditingFeedback({ entry, phase: feedbackPhase })}
+                                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-gray-500 hover:text-purple-300 hover:bg-gray-800 transition-colors"
+                                >
+                                  <Pencil size={10} /> تعديل
+                                </button>
+                              </div>
                             </div>
 
                             {/* Want-connect: both sides shown side by side */}
@@ -4424,6 +4452,62 @@ export default function Admin3Page() {
                 if (ok) setEditingFeedback(null)
               }}
             />
+          )}
+
+          {/* Pair Analysis Modal */}
+          {analyzingPair && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setAnalyzingPair(null)}>
+              <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-bold text-white text-sm flex items-center gap-2">
+                      <Sparkles size={14} className="text-amber-400" /> تحليل الذكاء الاصطناعي
+                    </h3>
+                    <p className="text-[11px] text-gray-500 mt-0.5">
+                      {analyzingPair.entry.participant_name} #{analyzingPair.entry.participant_number}
+                      <span className="text-gray-600"> × </span>
+                      {analyzingPair.entry.partner_name} #{analyzingPair.entry.partner_number}
+                    </p>
+                  </div>
+                  <button onClick={() => setAnalyzingPair(null)} className="text-gray-500 hover:text-white"><X size={18} /></button>
+                </div>
+
+                {pairAnalysisLoading ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <Loader2 size={24} className="animate-spin text-amber-400" />
+                    <p className="text-xs text-gray-500">جاري تحليل المطابقة...</p>
+                  </div>
+                ) : pairAnalysisResult ? (
+                  <div className="space-y-4">
+                    {pairAnalysisResult.breakdown && (
+                      <div className="bg-gray-800/50 rounded-xl p-3 grid grid-cols-4 gap-2 text-center">
+                        <div>
+                          <div className="text-lg font-black text-white">{pairAnalysisResult.breakdown.total}%</div>
+                          <div className="text-[9px] text-gray-500">الإجمالي</div>
+                        </div>
+                        <div>
+                          <div className="text-sm font-bold text-purple-300">{pairAnalysisResult.breakdown.synergy}</div>
+                          <div className="text-[9px] text-gray-500">تناغم</div>
+                        </div>
+                        <div>
+                          <div className="text-sm font-bold text-teal-300">{pairAnalysisResult.breakdown.lifestyle}</div>
+                          <div className="text-[9px] text-gray-500">حياة</div>
+                        </div>
+                        <div>
+                          <div className="text-sm font-bold text-blue-300">{pairAnalysisResult.breakdown.communication}</div>
+                          <div className="text-[9px] text-gray-500">تواصل</div>
+                        </div>
+                      </div>
+                    )}
+                    <div className="bg-gray-800/60 rounded-xl p-4 text-gray-200 text-[13px] leading-relaxed text-right whitespace-pre-line">
+                      {pairAnalysisResult.analysis}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-center text-gray-500 text-sm py-8">تعذّر تحميل التحليل</p>
+                )}
+              </div>
+            </div>
           )}
 
           {/* Mood Check Results */}

@@ -245,7 +245,18 @@ export default function Admin3Page() {
   const feedbackIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [editingFeedback, setEditingFeedback] = useState<any>(null)
   const [analyzingPair, setAnalyzingPair] = useState<{ entry: any; phase: string } | null>(null)
-  const [pairAnalysisResult, setPairAnalysisResult] = useState<{ analysis: string; breakdown: any; alternativeA?: any; alternativeB?: any } | null>(null)
+  const [pairAnalysisResult, setPairAnalysisResult] = useState<{
+    analysis: string
+    subject?: { number: number; name: string }
+    partner?: { number: number; name: string }
+    alternative?: { number: number; name: string; breakdown: any } | null
+    actualBreakdown?: any
+    alternativeBreakdown?: any
+    diff?: Record<string, number>
+    largestGapKey?: string | null
+    feedback?: any
+    feedbackSignal?: any
+  } | null>(null)
   const [pairAnalysisLoading, setPairAnalysisLoading] = useState(false)
   const [feedbackSearch, setFeedbackSearch] = useState("")
   const [feedbackFilter, setFeedbackFilter] = useState<"all" | "submitted" | "missing" | "mutual">("all")
@@ -405,7 +416,18 @@ export default function Admin3Page() {
     const d = await api("e3-analyze-pair", { participant_number: entry.participant_number, partner_number: entry.partner_number, phase })
     setPairAnalysisLoading(false)
     if (d.error) { toast.error(d.error); setAnalyzingPair(null); return }
-    setPairAnalysisResult({ analysis: d.analysis, breakdown: d.breakdown })
+    setPairAnalysisResult({
+      analysis: d.analysis,
+      subject: d.subject,
+      partner: d.partner,
+      alternative: d.alternative,
+      actualBreakdown: d.actualBreakdown,
+      alternativeBreakdown: d.alternativeBreakdown,
+      diff: d.diff,
+      largestGapKey: d.largestGapKey,
+      feedback: d.feedback,
+      feedbackSignal: d.feedbackSignal,
+    })
   }, [])
 
   const fetchMoodChecks = useCallback(async () => {
@@ -4461,12 +4483,13 @@ export default function Admin3Page() {
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h3 className="font-bold text-white text-sm flex items-center gap-2">
-                      <Sparkles size={14} className="text-amber-400" /> تحليل الذكاء الاصطناعي
+                      <Sparkles size={14} className="text-amber-400" /> تحليل من منظور {analyzingPair.entry.participant_name}
                     </h3>
                     <p className="text-[11px] text-gray-500 mt-0.5">
-                      {analyzingPair.entry.participant_name} #{analyzingPair.entry.participant_number}
-                      <span className="text-gray-600"> × </span>
-                      {analyzingPair.entry.partner_name} #{analyzingPair.entry.partner_number}
+                      مقارنة مع {analyzingPair.entry.partner_name} #{analyzingPair.entry.partner_number}
+                      {pairAnalysisResult?.alternative && (
+                        <span> مقابل البديل {pairAnalysisResult.alternative.name} #{pairAnalysisResult.alternative.number}</span>
+                      )}
                     </p>
                   </div>
                   <button onClick={() => setAnalyzingPair(null)} className="text-gray-500 hover:text-white"><X size={18} /></button>
@@ -4479,66 +4502,92 @@ export default function Admin3Page() {
                   </div>
                 ) : pairAnalysisResult ? (
                   <div className="space-y-4">
-                    {/* Actual match breakdown */}
-                    {pairAnalysisResult.breakdown && (
-                      <div>
-                        <p className="text-[10px] text-gray-500 mb-1.5">درجات المطابقة الفعلية</p>
-                        <div className="bg-gray-800/50 rounded-xl p-3 grid grid-cols-4 gap-2 text-center">
-                          <div>
-                            <div className="text-lg font-black text-white">{pairAnalysisResult.breakdown.total}%</div>
-                            <div className="text-[9px] text-gray-500">الإجمالي</div>
-                          </div>
-                          <div>
-                            <div className="text-sm font-bold text-purple-300">{pairAnalysisResult.breakdown.synergy}</div>
-                            <div className="text-[9px] text-gray-500">تناغم</div>
-                          </div>
-                          <div>
-                            <div className="text-sm font-bold text-teal-300">{pairAnalysisResult.breakdown.lifestyle}</div>
-                            <div className="text-[9px] text-gray-500">حياة</div>
-                          </div>
-                          <div>
-                            <div className="text-sm font-bold text-blue-300">{pairAnalysisResult.breakdown.communication}</div>
-                            <div className="text-[9px] text-gray-500">تواصل</div>
-                          </div>
+                    {/* Perspective header */}
+                    <div className="bg-gray-800/40 border border-gray-700/50 rounded-xl p-3">
+                      <p className="text-[10px] text-gray-500 mb-2">منظور المشارك</p>
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="font-bold text-white">{pairAnalysisResult.subject?.name || analyzingPair?.entry.participant_name}</span>
+                        <span className="text-gray-600">#{pairAnalysisResult.subject?.number || analyzingPair?.entry.participant_number}</span>
+                        <ArrowLeft size={14} className="text-gray-600" />
+                        <span className="font-semibold text-gray-300">{pairAnalysisResult.partner?.name || analyzingPair?.entry.partner_name}</span>
+                        <span className="text-gray-600">#{pairAnalysisResult.partner?.number || analyzingPair?.entry.partner_number}</span>
+                      </div>
+                      {pairAnalysisResult.alternative && (
+                        <div className="mt-2 text-[11px] text-gray-400">
+                          مقارنةً بأفضل بديل خوارزمي: <span className="text-amber-300 font-semibold">{pairAnalysisResult.alternative.name} #{pairAnalysisResult.alternative.number}</span>
                         </div>
+                      )}
+                    </div>
+
+                    {/* Algorithmic comparison table */}
+                    {(pairAnalysisResult.actualBreakdown || pairAnalysisResult.alternativeBreakdown) && (
+                      <div>
+                        <p className="text-[10px] text-gray-500 mb-1.5">المقارنة الخوارزمية (الفعلي × البديل)</p>
+                        <div className="bg-gray-800/50 rounded-xl overflow-hidden text-[11px]">
+                          <div className="grid grid-cols-4 gap-2 p-2 border-b border-gray-700/50 text-gray-500 text-[10px]">
+                            <span>المعيار</span>
+                            <span className="text-center">الشريك الفعلي</span>
+                            <span className="text-center">البديل الخوارزمي</span>
+                            <span className="text-center">الفارق</span>
+                          </div>
+                          {[
+                            { key: "total", label: "الإجمالي" },
+                            { key: "synergy", label: "التناغم" },
+                            { key: "vibe", label: "الجاذبية" },
+                            { key: "lifestyle", label: "نمط الحياة" },
+                            { key: "communication", label: "التواصل" },
+                            { key: "coreValues", label: "القيم" },
+                            { key: "intent", label: "الهدف" },
+                          ].map(({ key, label }) => {
+                            const actual = pairAnalysisResult.actualBreakdown?.[key] ?? "—"
+                            const alt = pairAnalysisResult.alternativeBreakdown?.[key] ?? "—"
+                            const gap = pairAnalysisResult.diff?.[key]
+                            const isLargest = pairAnalysisResult.largestGapKey === key
+                            const gapNum = typeof gap === "number" ? gap : null
+                            return (
+                              <div key={key} className={`grid grid-cols-4 gap-2 p-2 border-b border-gray-700/30 ${isLargest ? "bg-amber-950/20" : ""}`}>
+                                <span className="text-gray-400">{label}</span>
+                                <span className="text-center text-white font-semibold">{actual}</span>
+                                <span className="text-center text-gray-300">{alt}</span>
+                                <span className={`text-center font-bold ${gapNum === null ? "text-gray-500" : gapNum > 0 ? "text-amber-300" : "text-emerald-300"}`}>
+                                  {gapNum !== null ? `${gapNum > 0 ? "+" : ""}${gapNum}` : "—"}
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        <p className="text-[9px] text-gray-600 mt-1.5">
+                          الفارق = البديل - الفعلي. القيمة الموجبة تعني أن الخوارزمية كانت تفضل البديل في هذا المعيار.
+                        </p>
                       </div>
                     )}
 
-                    {/* Alternative candidates comparison */}
-                    {(pairAnalysisResult.alternativeA || pairAnalysisResult.alternativeB) && (
+                    {/* Feedback used */}
+                    {pairAnalysisResult.feedback && (
                       <div>
-                        <p className="text-[10px] text-gray-500 mb-1.5">أفضل مرشح خوارزمي بديل (لم يُقابله فعلياً)</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          {pairAnalysisResult.alternativeA && (
-                            <div className="bg-gray-800/40 border border-gray-700/50 rounded-lg p-2.5">
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-[10px] text-gray-400 truncate">{pairAnalysisResult.alternativeA.name}</span>
-                                <span className="text-[9px] text-gray-600">#{pairAnalysisResult.alternativeA.number}</span>
-                              </div>
-                              {pairAnalysisResult.alternativeA.breakdown && (
-                                <div className="flex items-center gap-2 text-[9px]">
-                                  <span className="font-bold text-amber-300">{pairAnalysisResult.alternativeA.breakdown.total}%</span>
-                                  <span className="text-gray-500">تناغم: {pairAnalysisResult.alternativeA.breakdown.synergy}</span>
-                                  <span className="text-gray-500">تواصل: {pairAnalysisResult.alternativeA.breakdown.communication}</span>
-                                </div>
-                              )}
-                              <p className="text-[9px] text-gray-600 mt-1">مرشح {analyzingPair?.entry.participant_name}</p>
-                            </div>
-                          )}
-                          {pairAnalysisResult.alternativeB && (
-                            <div className="bg-gray-800/40 border border-gray-700/50 rounded-lg p-2.5">
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-[10px] text-gray-400 truncate">{pairAnalysisResult.alternativeB.name}</span>
-                                <span className="text-[9px] text-gray-600">#{pairAnalysisResult.alternativeB.number}</span>
-                              </div>
-                              {pairAnalysisResult.alternativeB.breakdown && (
-                                <div className="flex items-center gap-2 text-[9px]">
-                                  <span className="font-bold text-amber-300">{pairAnalysisResult.alternativeB.breakdown.total}%</span>
-                                  <span className="text-gray-500">تناغم: {pairAnalysisResult.alternativeB.breakdown.synergy}</span>
-                                  <span className="text-gray-500">تواصل: {pairAnalysisResult.alternativeB.breakdown.communication}</span>
-                                </div>
-                              )}
-                              <p className="text-[9px] text-gray-600 mt-1">مرشح {analyzingPair?.entry.partner_name}</p>
+                        <p className="text-[10px] text-gray-500 mb-1.5">تقييم المشارك الفعلي المُستخدم في التحليل</p>
+                        <div className="bg-gray-800/40 border border-gray-700/50 rounded-xl p-3 grid grid-cols-2 gap-2 text-[11px]">
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-500">أراد التواصل</span>
+                            <span className={`font-bold ${pairAnalysisResult.feedback.wantConnect === true ? "text-emerald-400" : pairAnalysisResult.feedback.wantConnect === false ? "text-gray-500" : "text-gray-600"}`}>
+                              {pairAnalysisResult.feedback.wantConnect === true ? "نعم" : pairAnalysisResult.feedback.wantConnect === false ? "لا" : "—"}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-500">جودة المحادثة</span>
+                            <span className="text-white font-semibold">{pairAnalysisResult.feedback.conversationQuality || "—"}/5</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-500">التواصل الشخصي</span>
+                            <span className="text-white font-semibold">{pairAnalysisResult.feedback.personalConnection || "—"}/5</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-500">درجة التوافق</span>
+                            <span className="text-white font-semibold">{pairAnalysisResult.feedback.compatibilityRate || "—"}</span>
+                          </div>
+                          {pairAnalysisResult.feedback.organizerImpression && (
+                            <div className="col-span-2 mt-1 bg-gray-800/60 rounded-lg p-2.5 text-gray-300 text-[11px] leading-relaxed text-right">
+                              💬 {pairAnalysisResult.feedback.organizerImpression}
                             </div>
                           )}
                         </div>
@@ -4547,7 +4596,7 @@ export default function Admin3Page() {
 
                     {/* AI analysis */}
                     <div>
-                      <p className="text-[10px] text-gray-500 mb-1.5">تحليل الذكاء الاصطناعي</p>
+                      <p className="text-[10px] text-gray-500 mb-1.5">تحليل المعايرة</p>
                       <div className="bg-gray-800/60 rounded-xl p-4 text-gray-200 text-[13px] leading-relaxed text-right whitespace-pre-line">
                         {pairAnalysisResult.analysis}
                       </div>

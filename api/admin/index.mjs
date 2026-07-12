@@ -7513,34 +7513,32 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           return res.status(200).json({ phase2, phase3, phase2_submitted: phase2.filter(e => e.submitted).length, phase3_submitted: phase3.filter(e => e.submitted).length, total_participants: (ep || []).length })
         }
-        // e3-analyze-pair — AI analysis of why a pair's real feedback matched/mismatched their algorithmic score
+        // e3-analyze-pair — algorithmic comparison + AI interpretation from ONE participant's perspective.
+        // The clicked card's participant is the "subject"; we compare their actual event3 partner with
+        // their highest-scoring algorithmic alternative (same event only), then surface a deterministic
+        // criteria diff and let AI summarize the calibration insight.
         if (action === "e3-analyze-pair") {
-          const { participant_number, partner_number, phase } = req.body
-          if (!participant_number || !partner_number || !["phase2", "phase3"].includes(phase))
+          const { participant_number: subjectNumber, partner_number: partnerNumber, phase } = req.body
+          if (!subjectNumber || !partnerNumber || !["phase2", "phase3"].includes(phase))
             return res.status(400).json({ error: "participant_number, partner_number, phase required" })
 
           const feedbackCol = phase === "phase2" ? "phase2_feedback" : "phase3_feedback"
-          const [{ data: rowA }, { data: rowB }] = await Promise.all([
-            supabase.from("event3_matches").select(`${feedbackCol}`).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", participant_number).maybeSingle(),
-            supabase.from("event3_matches").select(`${feedbackCol}`).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", partner_number).maybeSingle(),
+          const [{ data: subjectMatchRow }, { data: partnerMatchRow }] = await Promise.all([
+            supabase.from("event3_matches").select(`${feedbackCol}`).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", subjectNumber).maybeSingle(),
+            supabase.from("event3_matches").select(`${feedbackCol}`).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", partnerNumber).maybeSingle(),
           ])
-          const fbA = rowA?.[feedbackCol] || null
-          const fbB = rowB?.[feedbackCol] || null
+          const subjectFeedback = subjectMatchRow?.[feedbackCol] || null
+          const partnerFeedback = partnerMatchRow?.[feedbackCol] || null
 
-          const [{ data: pA }, { data: pB }] = await Promise.all([
-            supabase.from("participants").select("assigned_number, name, age, gender, survey_data, mbti_personality_type, attachment_style, communication_style, nationality").eq("match_id", STATIC_MATCH_ID).eq("assigned_number", participant_number).maybeSingle(),
-            supabase.from("participants").select("assigned_number, name, age, gender, survey_data, mbti_personality_type, attachment_style, communication_style, nationality").eq("match_id", STATIC_MATCH_ID).eq("assigned_number", partner_number).maybeSingle(),
+          const [{ data: subject }, { data: partner }] = await Promise.all([
+            supabase.from("participants").select("assigned_number, name, age, gender, survey_data, mbti_personality_type, attachment_style, communication_style, nationality").eq("match_id", STATIC_MATCH_ID).eq("assigned_number", subjectNumber).maybeSingle(),
+            supabase.from("participants").select("assigned_number, name, age, gender, survey_data, mbti_personality_type, attachment_style, communication_style, nationality").eq("match_id", STATIC_MATCH_ID).eq("assigned_number", partnerNumber).maybeSingle(),
           ])
-          if (!pA || !pB) return res.status(404).json({ error: "Participant data not found" })
-
-          const [numX, numY] = [participant_number, partner_number].sort((p, q) => p - q)
-          const { data: cacheRow } = await supabase.from("compatibility_cache").select("*")
-            .eq("participant_a_number", numX).eq("participant_b_number", numY)
-            .order("last_used", { ascending: false }).limit(1).maybeSingle()
+          if (!subject || !partner) return res.status(404).json({ error: "Participant data not found" })
 
           const parseSurvey = (p) => { try { return typeof p?.survey_data === "string" ? JSON.parse(p.survey_data) : (p?.survey_data || {}) } catch { return {} } }
-          const ansA = parseSurvey(pA)?.answers || {}
-          const ansB = parseSurvey(pB)?.answers || {}
+          const subjectAnswers = parseSurvey(subject)?.answers || {}
+          const partnerAnswers = parseSurvey(partner)?.answers || {}
 
           const extractBreakdown = (row) => row ? {
             total: Math.round(parseFloat(row.total_compatibility_score)),
@@ -7552,17 +7550,17 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             intent: Math.round(parseFloat(row.intent_goal_score) || 0),
           } : null
 
-          const breakdown = extractBreakdown(cacheRow)
+          const [sortedA, sortedB] = [subjectNumber, partnerNumber].sort((p, q) => p - q)
+          const { data: cacheRow } = await supabase.from("compatibility_cache").select("*")
+            .eq("participant_a_number", sortedA).eq("participant_b_number", sortedB)
+            .order("last_used", { ascending: false }).limit(1).maybeSingle()
+          const actualBreakdown = extractBreakdown(cacheRow)
 
-          // Get all event3 participant numbers so we can filter cache results to same-event only.
+          // Same-event filter: only consider alternatives who were also participants in this event3.
           const { data: e3Rows } = await supabase.from("event3_matches").select("participant_number")
             .eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           const e3ParticipantSet = new Set((e3Rows || []).map(r => r.participant_number))
 
-          // Find each participant's algorithmic "ideal" candidate (highest-scoring pair excluding
-          // their actual event3 partner), so we can compare real feedback against what the
-          // algorithm would have recommended instead — useful for recalibrating criteria weights.
-          // Only consider candidates who were also in the same event3.
           const findTopAlternative = async (forNumber, excludeNumber) => {
             const { data: rows } = await supabase.from("compatibility_cache").select("*")
               .or(`participant_a_number.eq.${forNumber},participant_b_number.eq.${forNumber}`)
@@ -7574,19 +7572,61 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             return candidate || null
           }
 
-          const [altA, altB] = await Promise.all([
-            findTopAlternative(participant_number, partner_number),
-            findTopAlternative(partner_number, participant_number),
-          ])
+          const alternative = await findTopAlternative(subjectNumber, partnerNumber)
+          const { data: alternativeProfile } = alternative
+            ? await supabase.from("participants").select("assigned_number, name, age, gender, survey_data, mbti_personality_type, attachment_style, communication_style, nationality").eq("match_id", STATIC_MATCH_ID).eq("assigned_number", alternative.other).maybeSingle()
+            : { data: null }
+          const alternativeBreakdown = extractBreakdown(alternative?.row)
+          const alternativeAnswers = alternativeProfile ? (parseSurvey(alternativeProfile)?.answers || {}) : {}
 
-          const fetchProfile = async (num) => {
-            const { data } = await supabase.from("participants").select("assigned_number, name, age, gender, survey_data, mbti_personality_type, attachment_style, communication_style, nationality").eq("match_id", STATIC_MATCH_ID).eq("assigned_number", num).maybeSingle()
-            return data
+          // ── Deterministic algorithmic diff ───────────────────────────────────────
+          const criteria = [
+            { key: "total", label: "الإجمالي" },
+            { key: "synergy", label: "التناغم" },
+            { key: "vibe", label: "الجاذبية" },
+            { key: "lifestyle", label: "نمط الحياة" },
+            { key: "communication", label: "التواصل" },
+            { key: "coreValues", label: "القيم الأساسية" },
+            { key: "intent", label: "الهدف" },
+          ]
+          const diff = {}
+          let largestGapKey = null
+          let largestGapValue = -Infinity
+          for (const { key } of criteria) {
+            const a = actualBreakdown?.[key] ?? 0
+            const b = alternativeBreakdown?.[key] ?? 0
+            const gap = b - a
+            diff[key] = gap
+            if (Math.abs(gap) > Math.abs(largestGapValue)) {
+              largestGapValue = gap
+              largestGapKey = key
+            }
           }
-          const [pAltA, pAltB] = await Promise.all([
-            altA ? fetchProfile(altA.other) : null,
-            altB ? fetchProfile(altB.other) : null,
-          ])
+
+          // ── Feedback-driven signal ───────────────────────────────────────────────
+          const wantConnect = subjectFeedback?.wantConnect
+          const conversationQuality = Number(subjectFeedback?.conversationQuality) || 0
+          const personalConnection = Number(subjectFeedback?.personalConnection) || 0
+          const compatibilityRate = Number(subjectFeedback?.compatibilityRate) || 0
+          const algorithmHigh = (actualBreakdown?.total || 0) >= 70
+          const algorithmLow = (actualBreakdown?.total || 0) <= 50
+          const ratingsLow = conversationQuality > 0 && personalConnection > 0 && (conversationQuality + personalConnection) <= 5
+          const ratingsHigh = conversationQuality > 0 && personalConnection > 0 && (conversationQuality + personalConnection) >= 9
+          const mismatchReasons = []
+          if (algorithmHigh && wantConnect === false) mismatchReasons.push("algorithm_overrated")
+          if (algorithmHigh && ratingsLow) mismatchReasons.push("high_score_low_ratings")
+          if (algorithmLow && wantConnect === true) mismatchReasons.push("algorithm_underrated")
+          if (algorithmLow && ratingsHigh) mismatchReasons.push("low_score_high_ratings")
+          if (wantConnect === true && ratingsLow) mismatchReasons.push("wants_connect_but_low_ratings")
+          const feedbackSignal = {
+            wantConnect,
+            conversationQuality: conversationQuality || null,
+            personalConnection: personalConnection || null,
+            compatibilityRate: compatibilityRate || null,
+            mismatchReasons,
+            algorithmHigh,
+            algorithmLow,
+          }
 
           const summarize = (p, ans) => ({
             name: p.name, age: p.age, gender: p.gender, nationality: p.nationality,
@@ -7596,32 +7636,29 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             silence_comfort: ans.silence_comfort, social_battery: ans.social_battery,
           })
 
-          const altABreakdown = extractBreakdown(altA?.row)
-          const altBBreakdown = extractBreakdown(altB?.row)
-          const altAAns = pAltA ? (parseSurvey(pAltA)?.answers || {}) : {}
-          const altBAns = pAltB ? (parseSurvey(pAltB)?.answers || {}) : {}
+          const systemMessage = `أنت مساعد معايرة خوارزميات توافق فعاليات التعارف. مهمتك تقرير موجز وواضح بالعربية (4-6 جمل كحد أقصى) يفسر لماذا المشارك قيّم شريكه الحقيقي بطريقة معينة مقارنةً بأفضل مرشح كانت الخوارزمية ستقترحه. انطلق من الفروقات المحسوبة بين الدرجات ومن تقييم المشارك الفعلي. لا تخمن، ولا تستخدم معلومات خارج البيانات المعطاة. ركّز على:
+1. هل تقييم المشارك يؤيد توقع الخوارزمية أم يناقضه؟
+2. أي معيار (إجمالي، تناغم، جاذبية، نمط حياة، تواصل، قيم، هدف) يبدو الأكثر خطأً في التنبؤ؟
+3. اقتراح عملي واحد لتحسين وزن معيار أو صياغة سؤال استبيان.`
 
-          const systemMessage = `أنت محلل بيانات متخصص في معايرة خوارزميات التوافق لفعاليات التعارف. مهمتك مقارنة "المطابقة الفعلية" (التي حضرها المشاركان وقيّماها فعلياً) بـ "أفضل مرشح كانت الخوارزمية ستقترحه" لكل منهما (بناءً على أعلى درجة توافق محسوبة من الاستبيان)، مع نتائج التقييم الفعلي.
+          const userMessage = `تحليل من منظور المشارك: ${subject.name} (#${subject.assigned_number})
+الشريك الفعلي: ${partner.name} (#${partner.assigned_number})
+أفضل مرشح خوارزمي بديل (لم يُقابله): ${alternativeProfile ? `${alternativeProfile.name} (#${alternativeProfile.assigned_number})` : "غير متوفر"}
 
-هدفك مساعدة المنظم على تحسين معايير الخوارزمية وأوزانها (Synergy, Vibe, Lifestyle, Communication, Core Values, Intent) وتحديد أي أسئلة الاستبيان ضعيفة التنبؤ بالتوافق الحقيقي. كن تحليلياً ومحدداً وبالعربية، ولا تتجاوز 8-9 جمل. ركّز على:
-1. هل كانت المطابقة الفعلية أفضل أو أسوأ من المرشح الأفضل خوارزمياً؟
-2. أي معيار (Synergy/Vibe/Lifestyle/Communication/Core Values/Intent) بدا مضلِّلاً أو غير دقيق في التنبؤ بناءً على هذه الحالة؟
-3. اقتراح ملموس لتعديل وزن معيار معيّن أو صياغة سؤال في الاستبيان.`
+درجة التوافق مع الشريك الفعلي: ${actualBreakdown ? JSON.stringify(actualBreakdown) : "غير متوفرة"}
+درجة التوافق مع المرشح البديل: ${alternativeBreakdown ? JSON.stringify(alternativeBreakdown) : "غير متوفرة"}
 
-          const userMessage = `── المطابقة الفعلية (حضرا وقيّما التجربة) ──
-درجة التوافق الحسابية: ${breakdown ? JSON.stringify(breakdown) : "غير متوفرة"}
-بيانات المشارك الأول: ${JSON.stringify(summarize(pA, ansA))}
-بيانات المشارك الثاني: ${JSON.stringify(summarize(pB, ansB))}
-تقييم المشارك الأول الفعلي: ${JSON.stringify(fbA)}
-تقييم المشارك الثاني الفعلي: ${JSON.stringify(fbB)}
+الفروقات (البديل - الفعلي، قيمة موجبة تعني أن الخوارزمية كانت تفضل البديل): ${JSON.stringify(diff)}
+أكبر فارق في معيار: ${largestGapKey || "غير محدد"}
 
-── أفضل مرشح كانت الخوارزمية تقترحه للمشارك الأول (لم يُقابله فعلياً) ──
-${pAltA ? `درجة التوافق: ${JSON.stringify(altABreakdown)}\nبيانات المرشح: ${JSON.stringify(summarize(pAltA, altAAns))}` : "غير متوفر"}
+تقييم المشارك الفعلي: ${JSON.stringify(feedbackSignal)}
+انطباع المشارك عن المنظم (نص حر): ${subjectFeedback?.organizerImpression || "لا يوجد"}
 
-── أفضل مرشح كانت الخوارزمية تقترحه للمشارك الثاني (لم يُقابله فعلياً) ──
-${pAltB ? `درجة التوافق: ${JSON.stringify(altBBreakdown)}\nبيانات المرشح: ${JSON.stringify(summarize(pAltB, altBAns))}` : "غير متوفر"}
+بيانات استبيان المشارك: ${JSON.stringify(summarize(subject, subjectAnswers))}
+بيانات استبيان الشريك الفعلي: ${JSON.stringify(summarize(partner, partnerAnswers))}
+${alternativeProfile ? `بيانات استبيان المرشح البديل: ${JSON.stringify(summarize(alternativeProfile, alternativeAnswers))}` : ""}
 
-حلل الفرق بين المطابقة الفعلية والمرشح الأفضل خوارزمياً لكل منهما، واستنتج: ما الذي جعل هذه المطابقة الفعلية تنجح/تفشل بينما كان هناك (أو لم يكن) مرشح بدرجة أعلى؟ ما المعيار الذي يجب إعادة معايرة وزنه، وما السؤال الاستبياني الذي يحتاج تحسيناً؟`
+اكتب تحليلاً موجزاً بالعربية.`
 
           const completion = await openai.chat.completions.create({
             model: "gpt-4o-mini",
@@ -7629,15 +7666,29 @@ ${pAltB ? `درجة التوافق: ${JSON.stringify(altBBreakdown)}\nبيانا
               { role: "system", content: systemMessage },
               { role: "user", content: userMessage },
             ],
-            max_completion_tokens: 700,
-            temperature: 0.6,
+            max_completion_tokens: 500,
+            temperature: 0.4,
           })
           const analysis = completion.choices[0]?.message?.content?.trim() || "تعذّر توليد التحليل."
           return res.status(200).json({
             analysis,
-            breakdown,
-            alternativeA: pAltA ? { number: pAltA.assigned_number, name: pAltA.name, breakdown: altABreakdown } : null,
-            alternativeB: pAltB ? { number: pAltB.assigned_number, name: pAltB.name, breakdown: altBBreakdown } : null,
+            subject: { number: subject.assigned_number, name: subject.name },
+            partner: { number: partner.assigned_number, name: partner.name },
+            alternative: alternativeProfile
+              ? { number: alternativeProfile.assigned_number, name: alternativeProfile.name, breakdown: alternativeBreakdown }
+              : null,
+            actualBreakdown,
+            alternativeBreakdown,
+            diff,
+            largestGapKey,
+            feedback: {
+              wantConnect: subjectFeedback?.wantConnect ?? null,
+              conversationQuality: subjectFeedback?.conversationQuality ?? null,
+              personalConnection: subjectFeedback?.personalConnection ?? null,
+              compatibilityRate: subjectFeedback?.compatibilityRate ?? null,
+              organizerImpression: subjectFeedback?.organizerImpression || null,
+            },
+            feedbackSignal,
           })
         }
         // e3-delete-feedback — clear all feedback for current event3

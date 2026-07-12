@@ -7500,14 +7500,20 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               const partnerFb = partnerRow?.phase2_feedback || null
               const myFb = row.phase2_feedback || null
               const mutualYes = !!(myFb?.wantConnect === true && partnerFb?.wantConnect === true)
-              phase2.push({ participant_number: row.participant_number, participant_name: getName(row.participant_number), partner_number: row.phase2_partner, partner_name: getName(row.phase2_partner), feedback: myFb, submitted: !!row.phase2_feedback, partner_submitted: !!partnerFb, partner_feedback: partnerFb, mutual_yes: mutualYes, match_preference: row.match_preference || null, compat_score: getCompatScore(row.participant_number, row.phase2_partner) })
+              const partnerOtherNum = partnerRow?.phase3_partner || null
+              const partnerOtherCompat = partnerOtherNum ? getCompatScore(row.phase2_partner, partnerOtherNum) : null
+              const currentCompat = getCompatScore(row.participant_number, row.phase2_partner)
+              phase2.push({ participant_number: row.participant_number, participant_name: getName(row.participant_number), partner_number: row.phase2_partner, partner_name: getName(row.phase2_partner), feedback: myFb, submitted: !!row.phase2_feedback, partner_submitted: !!partnerFb, partner_feedback: partnerFb, mutual_yes: mutualYes, match_preference: row.match_preference || null, compat_score: currentCompat, partner_other_phase: "phase3", partner_other_partner_number: partnerOtherNum, partner_other_partner_name: partnerOtherNum ? getName(partnerOtherNum) : null, partner_other_compat_score: partnerOtherCompat, compat_diff: (currentCompat != null && partnerOtherCompat != null) ? currentCompat - partnerOtherCompat : null })
             }
             if (row.phase3_partner) {
               const partnerRow = matchMap[row.phase3_partner]
               const partnerFb = partnerRow?.phase3_feedback || null
               const myFb = row.phase3_feedback || null
               const mutualYes = !!(myFb?.wantConnect === true && partnerFb?.wantConnect === true)
-              phase3.push({ participant_number: row.participant_number, participant_name: getName(row.participant_number), partner_number: row.phase3_partner, partner_name: getName(row.phase3_partner), feedback: myFb, submitted: !!row.phase3_feedback, partner_submitted: !!partnerFb, partner_feedback: partnerFb, mutual_yes: mutualYes, match_preference: row.match_preference || null, compat_score: getCompatScore(row.participant_number, row.phase3_partner) })
+              const partnerOtherNum3 = partnerRow?.phase2_partner || null
+              const partnerOtherCompat3 = partnerOtherNum3 ? getCompatScore(row.phase3_partner, partnerOtherNum3) : null
+              const currentCompat3 = getCompatScore(row.participant_number, row.phase3_partner)
+              phase3.push({ participant_number: row.participant_number, participant_name: getName(row.participant_number), partner_number: row.phase3_partner, partner_name: getName(row.phase3_partner), feedback: myFb, submitted: !!row.phase3_feedback, partner_submitted: !!partnerFb, partner_feedback: partnerFb, mutual_yes: mutualYes, match_preference: row.match_preference || null, compat_score: currentCompat3, partner_other_phase: "phase2", partner_other_partner_number: partnerOtherNum3, partner_other_partner_name: partnerOtherNum3 ? getName(partnerOtherNum3) : null, partner_other_compat_score: partnerOtherCompat3, compat_diff: (currentCompat3 != null && partnerOtherCompat3 != null) ? currentCompat3 - partnerOtherCompat3 : null })
             }
           }
           const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)

@@ -4411,7 +4411,29 @@ export default function Admin3Page() {
                                 const pfb = entry.partner_feedback
                                 return (
                                   <div className="mt-3 pt-3 border-t border-gray-800 space-y-1.5">
-                                    <p className="text-[10px] text-gray-500 font-medium">تقييم {entry.partner_name}</p>
+                                    <div className="flex items-center justify-between">
+                                      <p className="text-[10px] text-gray-500 font-medium">تقييم {entry.partner_name}</p>
+                                      <div className="flex items-center gap-1.5">
+                                        {entry.partner_other_compat_score != null && (
+                                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${
+                                            entry.partner_other_compat_score >= 75 ? "bg-emerald-950/50 text-emerald-400" :
+                                            entry.partner_other_compat_score >= 55 ? "bg-blue-950/50 text-blue-400" :
+                                            "bg-gray-800 text-gray-400"
+                                          }`}>
+                                            مع {entry.partner_other_partner_name}: {entry.partner_other_compat_score}%
+                                          </span>
+                                        )}
+                                        {entry.compat_diff != null && (
+                                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${
+                                            entry.compat_diff > 0 ? "bg-emerald-950/40 text-emerald-300" :
+                                            entry.compat_diff < 0 ? "bg-amber-950/40 text-amber-300" :
+                                            "bg-gray-800 text-gray-400"
+                                          }`}>
+                                            الفارق: {entry.compat_diff > 0 ? "+" : ""}{entry.compat_diff}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
                                     {pfb.conversationQuality > 0 && (
                                       <div className="flex items-center justify-between text-xs">
                                         <span className="text-gray-600">جودة المحادثة</span>

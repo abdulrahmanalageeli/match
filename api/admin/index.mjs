@@ -7554,17 +7554,23 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
 
           const breakdown = extractBreakdown(cacheRow)
 
+          // Get all event3 participant numbers so we can filter cache results to same-event only.
+          const { data: e3Rows } = await supabase.from("event3_matches").select("participant_number")
+            .eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          const e3ParticipantSet = new Set((e3Rows || []).map(r => r.participant_number))
+
           // Find each participant's algorithmic "ideal" candidate (highest-scoring pair excluding
           // their actual event3 partner), so we can compare real feedback against what the
           // algorithm would have recommended instead — useful for recalibrating criteria weights.
+          // Only consider candidates who were also in the same event3.
           const findTopAlternative = async (forNumber, excludeNumber) => {
             const { data: rows } = await supabase.from("compatibility_cache").select("*")
               .or(`participant_a_number.eq.${forNumber},participant_b_number.eq.${forNumber}`)
               .order("total_compatibility_score", { ascending: false })
-              .limit(30)
+              .limit(50)
             const candidate = (rows || [])
               .map(r => ({ row: r, other: r.participant_a_number === forNumber ? r.participant_b_number : r.participant_a_number }))
-              .find(c => c.other !== excludeNumber)
+              .find(c => c.other !== excludeNumber && e3ParticipantSet.has(c.other))
             return candidate || null
           }
 

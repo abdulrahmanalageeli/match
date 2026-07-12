@@ -7512,6 +7512,23 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           if (error) return res.status(500).json({ error: error.message })
           return res.status(200).json({ message: "All feedback deleted successfully" })
         }
+        // e3-edit-feedback — admin modifies a specific participant's feedback
+        if (action === "e3-edit-feedback") {
+          const { participant_number, phase, feedback } = req.body
+          if (!participant_number) return res.status(400).json({ error: "participant_number required" })
+          if (phase !== "phase2" && phase !== "phase3") return res.status(400).json({ error: "phase must be 'phase2' or 'phase3'" })
+          if (!feedback || typeof feedback !== "object") return res.status(400).json({ error: "feedback object required" })
+
+          const fbField = phase === "phase2" ? "phase2_feedback" : "phase3_feedback"
+          const { error } = await supabase
+            .from("event3_matches")
+            .update({ [fbField]: feedback })
+            .eq("match_id", EVENT3_MATCH_ID)
+            .eq("event_id", currentEventId)
+            .eq("participant_number", participant_number)
+          if (error) return res.status(500).json({ error: error.message })
+          return res.status(200).json({ message: "Feedback updated successfully" })
+        }
         // e3-swap-match-partner — replace a missing participant with a replacement in phase2 or phase3 matches
         if (action === "e3-swap-match-partner") {
           const { phase, missing_participant, replacement_participant } = req.body

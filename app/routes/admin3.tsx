@@ -4,7 +4,7 @@ import {
   Users, Play, Square, ChevronRight, RotateCcw, CheckCircle,
   Circle, RefreshCw, Table2, Trophy, Clock, BarChart3, Shuffle,
   Eye, EyeOff, ArrowRight, Sparkles, Brain, Shield, LogOut,
-  Grid3x3, Star, Check, AlertCircle, AlertTriangle, Loader2, Copy, Heart, Layers, ChevronDown, X, XCircle, MessageSquare, Send, Home, Trash2, GripVertical, Search, Crown, Medal, Coffee, Ban, ArrowLeft, Bell, Calendar, Download, FlaskConical, Phone,
+  Grid3x3, Star, Check, AlertCircle, AlertTriangle, Loader2, Copy, Heart, Layers, ChevronDown, X, XCircle, MessageSquare, Send, Home, Trash2, GripVertical, Search, Crown, Medal, Coffee, Ban, ArrowLeft, Bell, Calendar, Download, FlaskConical, Phone, Pencil, Save,
 } from "lucide-react"
 
 const ADMIN_PASSWORD = "soulmatch2026"
@@ -37,6 +37,152 @@ function api(action: string, extra: Record<string, any> = {}) {
 let _previewEventId: number | null = null
 function setPreviewEventId(id: number | null) { _previewEventId = id }
 function getPreviewEventId() { return _previewEventId }
+
+function FeedbackEditModal({ entry, phase, onClose, onSave }: {
+  entry: any; phase: string; onClose: () => void; onSave: (fb: any) => Promise<void>
+}) {
+  const existing = entry.feedback || {}
+  const [fb, setFb] = useState({
+    conversationQuality: existing.conversationQuality || 0,
+    personalConnection: existing.personalConnection || 0,
+    sharedInterests: existing.sharedInterests || 3,
+    comfortLevel: existing.comfortLevel || 3,
+    communicationStyle: existing.communicationStyle || 3,
+    wouldMeetAgain: existing.wouldMeetAgain || 3,
+    overallExperience: existing.overallExperience || 0,
+    wantConnect: existing.wantConnect ?? null,
+    compatibilityRate: existing.compatibilityRate ?? 50,
+    sliderMoved: existing.sliderMoved ?? false,
+    organizerImpression: existing.organizerImpression || "",
+    recommendations: existing.recommendations || "",
+    participantMessage: existing.participantMessage || "",
+    word: existing.word || "",
+  })
+  const [saving, setSaving] = useState(false)
+
+  const ratingLabels5 = ["سيء جداً", "سيء", "عادي", "جيد", "ممتاز"]
+
+  const RatingSelector = ({ label, field, max, labels }: { label: string; field: string; max: number; labels: string[] }) => (
+    <div>
+      <label className="text-xs text-gray-400 mb-1.5 block">{label}</label>
+      <div className="flex gap-1.5">
+        {Array.from({ length: max }, (_, i) => (
+          <button key={i} type="button"
+            onClick={() => setFb((p: any) => ({ ...p, [field]: i + 1 }))}
+            className={`flex-1 py-2 rounded-lg text-[10px] font-medium transition-all ${
+              (fb as any)[field] === i + 1
+                ? "bg-purple-600 text-white shadow-lg shadow-purple-900/40"
+                : "bg-gray-800 text-gray-500 hover:bg-gray-700"
+            }`}>{labels[i]}</button>
+        ))}
+      </div>
+    </div>
+  )
+
+  const handleSubmit = async () => {
+    setSaving(true)
+    await onSave({ ...fb })
+    setSaving(false)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="font-bold text-white text-sm flex items-center gap-2">
+              <Pencil size={14} className="text-purple-400" /> تعديل التقييم
+            </h3>
+            <p className="text-[11px] text-gray-500 mt-0.5">
+              {entry.participant_name} #{entry.participant_number} → {entry.partner_name} #{entry.partner_number}
+              <span className="text-gray-600 mr-1.5">({phase === "phase2" ? "اختيارك" : "الخوارزمية"})</span>
+            </p>
+          </div>
+          <button onClick={onClose} className="text-gray-500 hover:text-white"><X size={18} /></button>
+        </div>
+
+        <div className="space-y-4">
+          <RatingSelector label="جودة المحادثة" field="conversationQuality" max={5} labels={ratingLabels5} />
+          <RatingSelector label="التواصل الشخصي" field="personalConnection" max={5} labels={ratingLabels5} />
+          <RatingSelector label="التجربة الكلية" field="overallExperience" max={5} labels={ratingLabels5} />
+          <RatingSelector label="الاهتمامات المشتركة" field="sharedInterests" max={5} labels={ratingLabels5} />
+          <RatingSelector label="مستوى الراحة" field="comfortLevel" max={5} labels={ratingLabels5} />
+          <RatingSelector label="أسلوب التواصل" field="communicationStyle" max={5} labels={ratingLabels5} />
+          <RatingSelector label="هل تريد لقاءه مرة أخرى" field="wouldMeetAgain" max={5} labels={ratingLabels5} />
+
+          {/* Want Connect */}
+          <div>
+            <label className="text-xs text-gray-400 mb-1.5 block">يريد التواصل؟</label>
+            <div className="flex gap-2">
+              <button type="button"
+                onClick={() => setFb(p => ({ ...p, wantConnect: true }))}
+                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+                  fb.wantConnect === true ? "bg-emerald-600 text-white" : "bg-gray-800 text-gray-500 hover:bg-gray-700"
+                }`}>✅ نعم</button>
+              <button type="button"
+                onClick={() => setFb(p => ({ ...p, wantConnect: false }))}
+                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+                  fb.wantConnect === false ? "bg-red-600 text-white" : "bg-gray-800 text-gray-500 hover:bg-gray-700"
+                }`}>❌ لا</button>
+            </div>
+          </div>
+
+          {/* Compatibility Rate Slider */}
+          <div>
+            <label className="text-xs text-gray-400 mb-1.5 block">
+              التوافق المُقدَّر: <span className="text-amber-400 font-bold">{fb.compatibilityRate}%</span>
+            </label>
+            <input type="range" min={0} max={100} value={fb.compatibilityRate}
+              onChange={e => setFb(p => ({ ...p, compatibilityRate: Number(e.target.value), sliderMoved: true }))}
+              className="w-full accent-purple-500" />
+          </div>
+
+          {/* Text Fields */}
+          <div>
+            <label className="text-xs text-gray-400 mb-1.5 block">انطباع المنظم</label>
+            <textarea value={fb.organizerImpression}
+              onChange={e => setFb(p => ({ ...p, organizerImpression: e.target.value }))}
+              rows={2} placeholder="انطباع المشارك عن المنظم..."
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-xs text-white placeholder:text-gray-600 focus:border-purple-500 focus:outline-none resize-none" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-400 mb-1.5 block">توصيات</label>
+            <textarea value={fb.recommendations}
+              onChange={e => setFb(p => ({ ...p, recommendations: e.target.value }))}
+              rows={2} placeholder="توصيات..."
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-xs text-white placeholder:text-gray-600 focus:border-purple-500 focus:outline-none resize-none" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-400 mb-1.5 block">رسالة للمشارك</label>
+            <textarea value={fb.participantMessage}
+              onChange={e => setFb(p => ({ ...p, participantMessage: e.target.value }))}
+              rows={2} placeholder="رسالة..."
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-xs text-white placeholder:text-gray-600 focus:border-purple-500 focus:outline-none resize-none" />
+          </div>
+          <div>
+            <label className="text-xs text-gray-400 mb-1.5 block">كلمة الجلسة</label>
+            <input value={fb.word}
+              onChange={e => setFb(p => ({ ...p, word: e.target.value }))}
+              placeholder="كلمة..."
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-xs text-white placeholder:text-gray-600 focus:border-purple-500 focus:outline-none" />
+          </div>
+        </div>
+
+        <div className="flex gap-2 mt-5">
+          <button onClick={onClose}
+            className="flex-1 py-2.5 rounded-lg text-xs font-medium bg-gray-800 border border-gray-700 text-gray-400 hover:text-white transition-colors">
+            إلغاء
+          </button>
+          <button onClick={handleSubmit} disabled={saving}
+            className="flex-1 py-2.5 rounded-lg text-xs font-bold bg-purple-600 text-white hover:bg-purple-500 disabled:opacity-50 flex items-center justify-center gap-1.5">
+            {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+            حفظ التغييرات
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function Admin3Page() {
   const [authenticated, setAuthenticated] = useState(false)
@@ -130,6 +276,9 @@ export default function Admin3Page() {
   const [feedbackPolling, setFeedbackPolling] = useState(false)
   const [feedbackPhase, setFeedbackPhase] = useState<"phase2" | "phase3">("phase2")
   const feedbackIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [editingFeedback, setEditingFeedback] = useState<any>(null)
+  const [feedbackSearch, setFeedbackSearch] = useState("")
+  const [feedbackFilter, setFeedbackFilter] = useState<"all" | "submitted" | "missing" | "mutual">("all")
   const [moodData, setMoodData] = useState<any>(null)
   const [moodLoading, setMoodLoading] = useState(false)
   const [moodTarget, setMoodTarget] = useState<string>("") // participant number or empty for all
@@ -267,6 +416,17 @@ export default function Admin3Page() {
     setFeedbackData(data)
     setFeedbackLoading(false)
   }, [])
+
+  const handleEditFeedback = useCallback(async (participantNumber: number, phase: string, newFb: any) => {
+    const d = await api("e3-edit-feedback", { participant_number: participantNumber, phase, feedback: newFb })
+    if (d.error) { toast.error(d.error); return false }
+    toast.success("تم تعديل التقييم")
+    fetchFeedback()
+    return true
+  }, [fetchFeedback])
+
+  const handleEditFeedbackRef = useRef(handleEditFeedback)
+  handleEditFeedbackRef.current = handleEditFeedback
 
   const fetchMoodChecks = useCallback(async () => {
     setMoodLoading(true)
@@ -4039,6 +4199,29 @@ export default function Admin3Page() {
             )}
           </div>
 
+          {/* Search & Filter Bar */}
+          {feedbackData && (
+            <div className="flex flex-wrap items-center gap-2 bg-gray-900 border border-gray-800 rounded-xl p-3">
+              <div className="relative flex-1 min-w-[180px]">
+                <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600" />
+                <input
+                  value={feedbackSearch}
+                  onChange={(e) => setFeedbackSearch(e.target.value)}
+                  placeholder="بحث بالاسم أو الرقم..."
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg pr-9 pl-3 py-1.5 text-xs text-white placeholder:text-gray-600 focus:border-purple-500 focus:outline-none"
+                />
+              </div>
+              <div className="flex items-center gap-1">
+                {([["all","الكل"],["submitted","أُرسل"],["missing","لم يُرسل"],["mutual","توافق"]] as any[]).map(([id,label]) => (
+                  <button key={id} onClick={() => setFeedbackFilter(id)}
+                    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                      feedbackFilter === id ? "bg-purple-900/40 border border-purple-600/50 text-purple-300" : "bg-gray-800 border border-gray-700/50 text-gray-500 hover:text-gray-300"
+                    }`}>{label}</button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Entries */}
           {!feedbackData ? (
             <div className="text-center py-16">
@@ -4047,12 +4230,28 @@ export default function Admin3Page() {
                 : <p className="text-sm text-gray-500">اضغط تحديث لتحميل التقييمات</p>}
             </div>
           ) : (() => {
-            const entries: any[] = feedbackPhase === "phase2" ? (feedbackData.phase2 || []) : (feedbackData.phase3 || [])
-            const submitted = entries.filter((e: any) => e.submitted)
-            const missing = entries.filter((e: any) => !e.submitted)
+            const allEntries: any[] = feedbackPhase === "phase2" ? (feedbackData.phase2 || []) : (feedbackData.phase3 || [])
             const stars = (n: number) => Array.from({ length: 5 }, (_, i) => (
               <span key={i} className={i < n ? "text-yellow-400" : "text-gray-700"}>★</span>
             ))
+            // Apply search
+            const searchNum = feedbackSearch.replace(/[^0-9]/g, "")
+            const searchLower = feedbackSearch.toLowerCase().trim()
+            let entries = allEntries
+            if (searchLower || searchNum) {
+              entries = allEntries.filter((e: any) =>
+                e.participant_name?.toLowerCase().includes(searchLower) ||
+                e.partner_name?.toLowerCase().includes(searchLower) ||
+                String(e.participant_number) === searchNum ||
+                String(e.partner_number) === searchNum
+              )
+            }
+            // Apply filter
+            if (feedbackFilter === "submitted") entries = entries.filter((e: any) => e.submitted)
+            else if (feedbackFilter === "missing") entries = entries.filter((e: any) => !e.submitted)
+            else if (feedbackFilter === "mutual") entries = entries.filter((e: any) => e.mutual_yes)
+            const submitted = entries.filter((e: any) => e.submitted)
+            const missing = entries.filter((e: any) => !e.submitted)
             // Pair-level analysis: group by pair, count where both submitted
             const pairMap: Record<string, { a?: any; b?: any }> = {}
             for (const e of entries) {
@@ -4218,6 +4417,13 @@ export default function Admin3Page() {
                                 )
                               })()}
                             </div>
+                            {/* Edit button */}
+                            <button
+                              onClick={() => setEditingFeedback({ entry, phase: feedbackPhase })}
+                              className="absolute bottom-2 left-2 flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] bg-gray-800/80 border border-gray-700/50 text-gray-400 hover:text-purple-300 hover:border-purple-600/50 transition-colors"
+                            >
+                              <Pencil size={10} /> تعديل
+                            </button>
                           </div>
                         )
                       })}
@@ -4231,20 +4437,39 @@ export default function Admin3Page() {
                     </p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {missing.map((entry: any) => (
-                        <div key={entry.participant_number} className="bg-gray-900/50 border border-gray-800 rounded-xl p-3 opacity-55">
+                        <div key={entry.participant_number} className="bg-gray-900/50 border border-gray-800 rounded-xl p-3 opacity-55 relative group">
                           <p className="text-sm font-medium text-gray-400 truncate">{entry.participant_name}</p>
                           <p className="text-[10px] text-gray-600 mt-0.5">مع {entry.partner_name}</p>
+                          <button
+                            onClick={() => setEditingFeedback({ entry, phase: feedbackPhase })}
+                            className="absolute bottom-1.5 left-1.5 opacity-0 group-hover:opacity-100 flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-[10px] bg-gray-800/80 border border-gray-700/50 text-gray-400 hover:text-purple-300 transition-all"
+                          >
+                            <Pencil size={9} /> تعديل
+                          </button>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
                 {entries.length === 0 && (
-                  <div className="text-center py-10 text-gray-600 text-sm">لا توجد مطابقات في هذه المرحلة بعد</div>
+                  <div className="text-center py-10 text-gray-600 text-sm">لا توجد نتائج مطابقة للبحث</div>
                 )}
               </div>
             )
           })()}
+
+          {/* Feedback Edit Modal */}
+          {editingFeedback && (
+            <FeedbackEditModal
+              entry={editingFeedback.entry}
+              phase={editingFeedback.phase}
+              onClose={() => setEditingFeedback(null)}
+              onSave={async (newFb) => {
+                const ok = await handleEditFeedbackRef.current(editingFeedback.entry.participant_number, editingFeedback.phase, newFb)
+                if (ok) setEditingFeedback(null)
+              }}
+            />
+          )}
 
           {/* Mood Check Results */}
           <div className="bg-gray-900 border border-purple-800/30 rounded-xl p-4">

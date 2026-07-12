@@ -7542,15 +7542,45 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const ansA = parseSurvey(pA)?.answers || {}
           const ansB = parseSurvey(pB)?.answers || {}
 
-          const breakdown = cacheRow ? {
-            total: Math.round(parseFloat(cacheRow.total_compatibility_score)),
-            synergy: Math.round(parseFloat(cacheRow.interaction_synergy_score)),
-            vibe: Math.round(parseFloat(cacheRow.ai_vibe_score)),
-            lifestyle: Math.round(parseFloat(cacheRow.lifestyle_score)),
-            communication: Math.round(parseFloat(cacheRow.communication_score)),
-            coreValues: Math.round((parseFloat(cacheRow.core_values_score) / 20) * 5),
-            intent: Math.round(parseFloat(cacheRow.intent_goal_score) || 0),
+          const extractBreakdown = (row) => row ? {
+            total: Math.round(parseFloat(row.total_compatibility_score)),
+            synergy: Math.round(parseFloat(row.interaction_synergy_score)),
+            vibe: Math.round(parseFloat(row.ai_vibe_score)),
+            lifestyle: Math.round(parseFloat(row.lifestyle_score)),
+            communication: Math.round(parseFloat(row.communication_score)),
+            coreValues: Math.round((parseFloat(row.core_values_score) / 20) * 5),
+            intent: Math.round(parseFloat(row.intent_goal_score) || 0),
           } : null
+
+          const breakdown = extractBreakdown(cacheRow)
+
+          // Find each participant's algorithmic "ideal" candidate (highest-scoring pair excluding
+          // their actual event3 partner), so we can compare real feedback against what the
+          // algorithm would have recommended instead — useful for recalibrating criteria weights.
+          const findTopAlternative = async (forNumber, excludeNumber) => {
+            const { data: rows } = await supabase.from("compatibility_cache").select("*")
+              .or(`participant_a_number.eq.${forNumber},participant_b_number.eq.${forNumber}`)
+              .order("total_compatibility_score", { ascending: false })
+              .limit(30)
+            const candidate = (rows || [])
+              .map(r => ({ row: r, other: r.participant_a_number === forNumber ? r.participant_b_number : r.participant_a_number }))
+              .find(c => c.other !== excludeNumber)
+            return candidate || null
+          }
+
+          const [altA, altB] = await Promise.all([
+            findTopAlternative(participant_number, partner_number),
+            findTopAlternative(partner_number, participant_number),
+          ])
+
+          const fetchProfile = async (num) => {
+            const { data } = await supabase.from("participants").select("assigned_number, name, age, gender, survey_data, mbti_personality_type, attachment_style, communication_style, nationality").eq("match_id", STATIC_MATCH_ID).eq("assigned_number", num).maybeSingle()
+            return data
+          }
+          const [pAltA, pAltB] = await Promise.all([
+            altA ? fetchProfile(altA.other) : null,
+            altB ? fetchProfile(altB.other) : null,
+          ])
 
           const summarize = (p, ans) => ({
             name: p.name, age: p.age, gender: p.gender, nationality: p.nationality,
@@ -7560,17 +7590,32 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             silence_comfort: ans.silence_comfort, social_battery: ans.social_battery,
           })
 
-          const systemMessage = `أنت محلل نفسي واجتماعي متخصص في تقييم جودة المطابقة بين المشاركين في فعاليات التعارف. لديك درجة توافق حسابية (مبنية على استبيان وخوارزمية) ونتائج تقييم فعلي كتبها المشاركان بعد لقائهما الحقيقي. مهمتك تحليل التناقض أو التوافق بين الدرجة الحسابية والتجربة الفعلية، وتفسير السبب المحتمل بإيجاز ودقة، بالعربية، بأسلوب مباشر ومفيد للمنظم. لا تتجاوز 5-6 جمل.`
+          const altABreakdown = extractBreakdown(altA?.row)
+          const altBBreakdown = extractBreakdown(altB?.row)
+          const altAAns = pAltA ? (parseSurvey(pAltA)?.answers || {}) : {}
+          const altBAns = pAltB ? (parseSurvey(pAltB)?.answers || {}) : {}
 
-          const userMessage = `درجة التوافق الحسابية (من الاستبيان والخوارزمية): ${breakdown ? JSON.stringify(breakdown) : "غير متوفرة"}
+          const systemMessage = `أنت محلل بيانات متخصص في معايرة خوارزميات التوافق لفعاليات التعارف. مهمتك مقارنة "المطابقة الفعلية" (التي حضرها المشاركان وقيّماها فعلياً) بـ "أفضل مرشح كانت الخوارزمية ستقترحه" لكل منهما (بناءً على أعلى درجة توافق محسوبة من الاستبيان)، مع نتائج التقييم الفعلي.
 
+هدفك مساعدة المنظم على تحسين معايير الخوارزمية وأوزانها (Synergy, Vibe, Lifestyle, Communication, Core Values, Intent) وتحديد أي أسئلة الاستبيان ضعيفة التنبؤ بالتوافق الحقيقي. كن تحليلياً ومحدداً وبالعربية، ولا تتجاوز 8-9 جمل. ركّز على:
+1. هل كانت المطابقة الفعلية أفضل أو أسوأ من المرشح الأفضل خوارزمياً؟
+2. أي معيار (Synergy/Vibe/Lifestyle/Communication/Core Values/Intent) بدا مضلِّلاً أو غير دقيق في التنبؤ بناءً على هذه الحالة؟
+3. اقتراح ملموس لتعديل وزن معيار معيّن أو صياغة سؤال في الاستبيان.`
+
+          const userMessage = `── المطابقة الفعلية (حضرا وقيّما التجربة) ──
+درجة التوافق الحسابية: ${breakdown ? JSON.stringify(breakdown) : "غير متوفرة"}
 بيانات المشارك الأول: ${JSON.stringify(summarize(pA, ansA))}
 بيانات المشارك الثاني: ${JSON.stringify(summarize(pB, ansB))}
+تقييم المشارك الأول الفعلي: ${JSON.stringify(fbA)}
+تقييم المشارك الثاني الفعلي: ${JSON.stringify(fbB)}
 
-تقييم المشارك الأول الفعلي بعد اللقاء: ${JSON.stringify(fbA)}
-تقييم المشارك الثاني الفعلي بعد اللقاء: ${JSON.stringify(fbB)}
+── أفضل مرشح كانت الخوارزمية تقترحه للمشارك الأول (لم يُقابله فعلياً) ──
+${pAltA ? `درجة التوافق: ${JSON.stringify(altABreakdown)}\nبيانات المرشح: ${JSON.stringify(summarize(pAltA, altAAns))}` : "غير متوفر"}
 
-حلل: هل تطابقت التجربة الفعلية مع ما توقعته الخوارزمية؟ إذا كان هناك تناقض (مثلاً درجة عالية لكن لم يريدا التواصل، أو درجة منخفضة لكنهما أرادا التواصل)، فسّر السبب المحتمل بالاستناد لبيانات الاستبيان. إذا تطابقت النتيجة، وضّح أي معيار كان الأكثر تأثيراً في نجاح المطابقة.`
+── أفضل مرشح كانت الخوارزمية تقترحه للمشارك الثاني (لم يُقابله فعلياً) ──
+${pAltB ? `درجة التوافق: ${JSON.stringify(altBBreakdown)}\nبيانات المرشح: ${JSON.stringify(summarize(pAltB, altBAns))}` : "غير متوفر"}
+
+حلل الفرق بين المطابقة الفعلية والمرشح الأفضل خوارزمياً لكل منهما، واستنتج: ما الذي جعل هذه المطابقة الفعلية تنجح/تفشل بينما كان هناك (أو لم يكن) مرشح بدرجة أعلى؟ ما المعيار الذي يجب إعادة معايرة وزنه، وما السؤال الاستبياني الذي يحتاج تحسيناً؟`
 
           const completion = await openai.chat.completions.create({
             model: "gpt-4o-mini",
@@ -7578,11 +7623,16 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               { role: "system", content: systemMessage },
               { role: "user", content: userMessage },
             ],
-            max_completion_tokens: 500,
+            max_completion_tokens: 700,
             temperature: 0.6,
           })
           const analysis = completion.choices[0]?.message?.content?.trim() || "تعذّر توليد التحليل."
-          return res.status(200).json({ analysis, breakdown })
+          return res.status(200).json({
+            analysis,
+            breakdown,
+            alternativeA: pAltA ? { number: pAltA.assigned_number, name: pAltA.name, breakdown: altABreakdown } : null,
+            alternativeB: pAltB ? { number: pAltB.assigned_number, name: pAltB.name, breakdown: altBBreakdown } : null,
+          })
         }
         // e3-delete-feedback — clear all feedback for current event3
         if (action === "e3-delete-feedback") {

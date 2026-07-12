@@ -245,7 +245,7 @@ export default function Admin3Page() {
   const feedbackIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [editingFeedback, setEditingFeedback] = useState<any>(null)
   const [analyzingPair, setAnalyzingPair] = useState<{ entry: any; phase: string } | null>(null)
-  const [pairAnalysisResult, setPairAnalysisResult] = useState<{ analysis: string; breakdown: any } | null>(null)
+  const [pairAnalysisResult, setPairAnalysisResult] = useState<{ analysis: string; breakdown: any; alternativeA?: any; alternativeB?: any } | null>(null)
   const [pairAnalysisLoading, setPairAnalysisLoading] = useState(false)
   const [feedbackSearch, setFeedbackSearch] = useState("")
   const [feedbackFilter, setFeedbackFilter] = useState<"all" | "submitted" | "missing" | "mutual">("all")
@@ -4479,28 +4479,78 @@ export default function Admin3Page() {
                   </div>
                 ) : pairAnalysisResult ? (
                   <div className="space-y-4">
+                    {/* Actual match breakdown */}
                     {pairAnalysisResult.breakdown && (
-                      <div className="bg-gray-800/50 rounded-xl p-3 grid grid-cols-4 gap-2 text-center">
-                        <div>
-                          <div className="text-lg font-black text-white">{pairAnalysisResult.breakdown.total}%</div>
-                          <div className="text-[9px] text-gray-500">الإجمالي</div>
-                        </div>
-                        <div>
-                          <div className="text-sm font-bold text-purple-300">{pairAnalysisResult.breakdown.synergy}</div>
-                          <div className="text-[9px] text-gray-500">تناغم</div>
-                        </div>
-                        <div>
-                          <div className="text-sm font-bold text-teal-300">{pairAnalysisResult.breakdown.lifestyle}</div>
-                          <div className="text-[9px] text-gray-500">حياة</div>
-                        </div>
-                        <div>
-                          <div className="text-sm font-bold text-blue-300">{pairAnalysisResult.breakdown.communication}</div>
-                          <div className="text-[9px] text-gray-500">تواصل</div>
+                      <div>
+                        <p className="text-[10px] text-gray-500 mb-1.5">درجات المطابقة الفعلية</p>
+                        <div className="bg-gray-800/50 rounded-xl p-3 grid grid-cols-4 gap-2 text-center">
+                          <div>
+                            <div className="text-lg font-black text-white">{pairAnalysisResult.breakdown.total}%</div>
+                            <div className="text-[9px] text-gray-500">الإجمالي</div>
+                          </div>
+                          <div>
+                            <div className="text-sm font-bold text-purple-300">{pairAnalysisResult.breakdown.synergy}</div>
+                            <div className="text-[9px] text-gray-500">تناغم</div>
+                          </div>
+                          <div>
+                            <div className="text-sm font-bold text-teal-300">{pairAnalysisResult.breakdown.lifestyle}</div>
+                            <div className="text-[9px] text-gray-500">حياة</div>
+                          </div>
+                          <div>
+                            <div className="text-sm font-bold text-blue-300">{pairAnalysisResult.breakdown.communication}</div>
+                            <div className="text-[9px] text-gray-500">تواصل</div>
+                          </div>
                         </div>
                       </div>
                     )}
-                    <div className="bg-gray-800/60 rounded-xl p-4 text-gray-200 text-[13px] leading-relaxed text-right whitespace-pre-line">
-                      {pairAnalysisResult.analysis}
+
+                    {/* Alternative candidates comparison */}
+                    {(pairAnalysisResult.alternativeA || pairAnalysisResult.alternativeB) && (
+                      <div>
+                        <p className="text-[10px] text-gray-500 mb-1.5">أفضل مرشح خوارزمي بديل (لم يُقابله فعلياً)</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {pairAnalysisResult.alternativeA && (
+                            <div className="bg-gray-800/40 border border-gray-700/50 rounded-lg p-2.5">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-[10px] text-gray-400 truncate">{pairAnalysisResult.alternativeA.name}</span>
+                                <span className="text-[9px] text-gray-600">#{pairAnalysisResult.alternativeA.number}</span>
+                              </div>
+                              {pairAnalysisResult.alternativeA.breakdown && (
+                                <div className="flex items-center gap-2 text-[9px]">
+                                  <span className="font-bold text-amber-300">{pairAnalysisResult.alternativeA.breakdown.total}%</span>
+                                  <span className="text-gray-500">تناغم: {pairAnalysisResult.alternativeA.breakdown.synergy}</span>
+                                  <span className="text-gray-500">تواصل: {pairAnalysisResult.alternativeA.breakdown.communication}</span>
+                                </div>
+                              )}
+                              <p className="text-[9px] text-gray-600 mt-1">مرشح {analyzingPair?.entry.participant_name}</p>
+                            </div>
+                          )}
+                          {pairAnalysisResult.alternativeB && (
+                            <div className="bg-gray-800/40 border border-gray-700/50 rounded-lg p-2.5">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-[10px] text-gray-400 truncate">{pairAnalysisResult.alternativeB.name}</span>
+                                <span className="text-[9px] text-gray-600">#{pairAnalysisResult.alternativeB.number}</span>
+                              </div>
+                              {pairAnalysisResult.alternativeB.breakdown && (
+                                <div className="flex items-center gap-2 text-[9px]">
+                                  <span className="font-bold text-amber-300">{pairAnalysisResult.alternativeB.breakdown.total}%</span>
+                                  <span className="text-gray-500">تناغم: {pairAnalysisResult.alternativeB.breakdown.synergy}</span>
+                                  <span className="text-gray-500">تواصل: {pairAnalysisResult.alternativeB.breakdown.communication}</span>
+                                </div>
+                              )}
+                              <p className="text-[9px] text-gray-600 mt-1">مرشح {analyzingPair?.entry.partner_name}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* AI analysis */}
+                    <div>
+                      <p className="text-[10px] text-gray-500 mb-1.5">تحليل الذكاء الاصطناعي</p>
+                      <div className="bg-gray-800/60 rounded-xl p-4 text-gray-200 text-[13px] leading-relaxed text-right whitespace-pre-line">
+                        {pairAnalysisResult.analysis}
+                      </div>
                     </div>
                   </div>
                 ) : (

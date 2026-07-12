@@ -386,6 +386,7 @@ export default function WelcomePage() {
   const searchParams = useSearchParams()[0]
   const token = searchParams.get("token")
   const forceRound = searchParams.get("force_round")
+  const isImpersonating = searchParams.get("impersonate") === "1"
   const [typewriterText, setTypewriterText] = useState("")
   const [isTyping, setIsTyping] = useState(false)
   const [typewriterCompleted, setTypewriterCompleted] = useState(false)
@@ -4133,6 +4134,11 @@ export default function WelcomePage() {
   useEffect(() => {
     // Load saved tokens from localStorage on component mount
     // Since both fields use the same token, use whichever is available
+    // In impersonation mode, skip localStorage entirely — URL token is the sole source
+    if (isImpersonating) {
+      setTokenValidationCompleted(true);
+      return;
+    }
     const savedResultToken = localStorage.getItem('blindmatch_result_token');
     const savedReturningToken = localStorage.getItem('blindmatch_returning_token');
     
@@ -4192,6 +4198,8 @@ export default function WelcomePage() {
 
   // Load saved participant data on page load
   useEffect(() => {
+    // In impersonation mode, skip localStorage — URL token handles everything
+    if (isImpersonating) return;
     const savedName = localStorage.getItem('blindmatch_participant_name');
     const savedNumber = localStorage.getItem('blindmatch_participant_number');
     const savedToken = localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token');
@@ -4266,6 +4274,11 @@ export default function WelcomePage() {
   // Save token when user successfully completes survey or joins
   const saveUserToken = (token: string, name?: string, number?: number) => {
     if (token && token.trim()) {
+      if (isImpersonating) {
+        // Impersonation mode: no storage writes — URL token is the sole source of truth
+        console.log('🎭 Impersonation mode: skipping storage save for token:', token);
+        return;
+      }
       localStorage.setItem('blindmatch_result_token', token);
       localStorage.setItem('blindmatch_returning_token', token);
       if (name) {
@@ -4282,6 +4295,16 @@ export default function WelcomePage() {
 
   // Clear saved tokens
   const clearSavedTokens = () => {
+    if (isImpersonating) {
+      // In impersonation mode, only clear in-memory state — don't touch localStorage
+      setResultToken('');
+      setReturningPlayerToken('');
+      setParticipantName(null);
+      setAssignedNumber(null);
+      setSecureToken(null);
+      console.log('🎭 Impersonation mode: cleared in-memory state only');
+      return;
+    }
     localStorage.removeItem('blindmatch_result_token');
     localStorage.removeItem('blindmatch_returning_token');
     localStorage.removeItem('blindmatch_participant_name');
@@ -7888,6 +7911,14 @@ export default function WelcomePage() {
 }
   
   return (<>
+      {/* Impersonation Banner */}
+      {isImpersonating && (
+        <div className="fixed top-0 left-0 right-0 z-[200] bg-amber-900/90 border-b border-amber-600/50 px-4 py-1.5 text-center" dir="rtl">
+          <span className="text-amber-200 text-xs font-medium">
+            🎭 وضع تسجيل دخول مؤقت — أنت تتصرف كمشارك #{assignedNumber} ({participantName})
+          </span>
+        </div>
+      )}
       {/* Unified Navigation Bar - Hide in step 4 (round mode) as it's included in page content */}
       {step !== 4 && <NavigationBar />}
       {/* Clickable Logo Header - Hide in step 4 (round mode) as it's included in page content */}

@@ -1208,10 +1208,17 @@ export default function Admin3Page() {
                         </div>
                         <div className="flex items-center gap-2">
                           {u.phone ? (
-                            <span className="flex items-center gap-1 text-gray-400 font-mono" dir="ltr">
+                            <a
+                              href={`/welcome?token=${encodeURIComponent(u.token)}&impersonate=1`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-gray-400 font-mono hover:text-amber-400 transition-colors cursor-pointer"
+                              dir="ltr"
+                              title="تسجيل دخول ك هذا المشارك"
+                            >
                               <Phone size={11} />
                               {u.phone}
-                            </span>
+                            </a>
                           ) : (
                             <span className="text-red-400/60 text-[10px]">لا يوجد رقم</span>
                           )}

@@ -8066,18 +8066,39 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             return res.status(400).json({ error: `Need 20 males and 20 females with complete surveys. Found ${males.length}M / ${females.length}F.` })
           }
 
-          // 3. Randomly select 20M + 20F
+          // 3. Cache-aware selection: fetch all cached pairs for valid participants,
+          //    score each participant by how many cached pairs they have, and prefer
+          //    those with the highest coverage to avoid recalculating from scratch.
+          const validNums = valid.map(p => p.assigned_number)
+          const { data: allCachedPairs } = await supabase.from("compatibility_cache")
+            .select("participant_a_number,participant_b_number")
+            .or(`participant_a_number.in.(${validNums.join(",")}),participant_b_number.in.(${validNums.join(",")})`)
+          const validSet = new Set(validNums)
+          const cacheCountMap = {} // participant_number -> count of cached pairs with other valid participants
+          for (const c of allCachedPairs || []) {
+            const a = c.participant_a_number, b = c.participant_b_number
+            if (validSet.has(a) && validSet.has(b)) {
+              cacheCountMap[a] = (cacheCountMap[a] || 0) + 1
+              cacheCountMap[b] = (cacheCountMap[b] || 0) + 1
+            }
+          }
+          // Sort by cache count descending; tie-break randomly to keep variety between runs
           const shuffle = (arr) => { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]] } return arr }
-          const selectedM = shuffle([...males]).slice(0, 20)
-          const selectedF = shuffle([...females]).slice(0, 20)
+          const rankedM = shuffle([...males]).sort((a, b) => (cacheCountMap[b.assigned_number] || 0) - (cacheCountMap[a.assigned_number] || 0))
+          const rankedF = shuffle([...females]).sort((a, b) => (cacheCountMap[b.assigned_number] || 0) - (cacheCountMap[a.assigned_number] || 0))
+          const selectedM = rankedM.slice(0, 20)
+          const selectedF = rankedF.slice(0, 20)
           const selected = [...selectedM, ...selectedF]
           const selectedNums = selected.map(p => p.assigned_number)
 
-          // 4. Check how many pairs have cached compatibility
-          const { data: cachedPairs } = await supabase.from("compatibility_cache")
-            .select("participant_a_number,participant_b_number,total_compatibility_score")
-            .or(`participant_a_number.in.(${selectedNums.join(",")}),participant_b_number.in.(${selectedNums.join(",")})`)
-          const cachedSet = new Set((cachedPairs || []).map(c => `${c.participant_a_number}-${c.participant_b_number}`))
+          // 4. Count how many pairs have cached compatibility among selected
+          const cachedSet = new Set()
+          for (const c of allCachedPairs || []) {
+            if (validSet.has(c.participant_a_number) && validSet.has(c.participant_b_number)) {
+              const [a, b] = [c.participant_a_number, c.participant_b_number].sort((x, y) => x - y)
+              cachedSet.add(`${a}-${b}`)
+            }
+          }
           let cacheHits = 0, totalPairs = 0
           for (let i = 0; i < selectedNums.length; i++) {
             for (let j = i + 1; j < selectedNums.length; j++) {

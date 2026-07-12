@@ -53,7 +53,7 @@ interface MatchResult {
     wouldMeetAgain?: number | null
     overallExperience?: number | null
     recommendations?: string | null
-    participantMessage?: string | null
+    organizerImpression?: string | null
     submittedAt?: string | null
     wantConnect?: boolean | null
     sliderMoved?: boolean | null

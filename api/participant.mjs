@@ -1534,7 +1534,7 @@ export default async function handler(req, res) {
                     wouldMeetAgain: myFb2.wouldMeetAgain ?? null,
                     overallExperience: myFb2.overallExperience ?? null,
                     recommendations: myFb2.recommendations ?? null,
-                    participantMessage: myFb2.organizerImpression ?? null,
+                    organizerImpression: myFb2.organizerImpression ?? null,
                     submittedAt: null,
                     wantConnect: myFb2.wantConnect ?? null,
                     sliderMoved: myFb2.sliderMoved ?? false,
@@ -1593,7 +1593,7 @@ export default async function handler(req, res) {
                     wouldMeetAgain: myFb3.wouldMeetAgain ?? null,
                     overallExperience: myFb3.overallExperience ?? null,
                     recommendations: myFb3.recommendations ?? null,
-                    participantMessage: myFb3.organizerImpression ?? null,
+                    organizerImpression: myFb3.organizerImpression ?? null,
                     submittedAt: null,
                     wantConnect: myFb3.wantConnect ?? null,
                     sliderMoved: myFb3.sliderMoved ?? false,
@@ -3088,7 +3088,12 @@ Please respond in JSON format:
       // e3-submit-phase3-feedback
       if (action === "e3-submit-phase3-feedback") {
         const fb = req.body.feedback || {}
-        const { error } = await supabase.from("event3_matches").update({ phase3_feedback: fb }).eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber)
+        // Preserve any match_preference previously nested here by the e3-submit-match-preference
+        // fallback (used when the dedicated column is unavailable), so it isn't lost.
+        const { data: existingRow } = await supabase.from("event3_matches").select("phase3_feedback").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber).maybeSingle()
+        const existingPref = existingRow?.phase3_feedback?.match_preference
+        const mergedFb = existingPref && fb.match_preference === undefined ? { ...fb, match_preference: existingPref } : fb
+        const { error } = await supabase.from("event3_matches").update({ phase3_feedback: mergedFb }).eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber)
         if (error) return res.status(500).json({ error: error.message })
         return res.status(200).json({ message: "Feedback saved" })
       }
@@ -3101,8 +3106,12 @@ Please respond in JSON format:
         }
         const { error } = await supabase.from("event3_matches").update({ match_preference: preference }).eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber)
         if (error) {
-          // Column might not exist yet — try with metadata fallback
-          const { error: err2 } = await supabase.from("event3_matches").update({ phase3_feedback: { match_preference: preference } }).eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber)
+          // Column might not exist yet — fall back to storing inside phase3_feedback,
+          // but MERGE with existing feedback instead of overwriting it, so we never
+          // destroy already-submitted wantConnect/conversationQuality/etc.
+          const { data: rowData } = await supabase.from("event3_matches").select("phase3_feedback").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber).maybeSingle()
+          const mergedFeedback = { ...(rowData?.phase3_feedback || {}), match_preference: preference }
+          const { error: err2 } = await supabase.from("event3_matches").update({ phase3_feedback: mergedFeedback }).eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber)
           if (err2) return res.status(500).json({ error: err2.message })
         }
         return res.status(200).json({ message: "Preference saved", preference })

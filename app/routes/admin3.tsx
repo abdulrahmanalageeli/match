@@ -38,133 +38,100 @@ let _previewEventId: number | null = null
 function setPreviewEventId(id: number | null) { _previewEventId = id }
 function getPreviewEventId() { return _previewEventId }
 
+// These are the ONLY fields participants actually fill out in FeedbackFlow (event3.tsx).
+// The edit modal must mirror this exactly — no invented fields.
 function FeedbackEditModal({ entry, phase, onClose, onSave }: {
   entry: any; phase: string; onClose: () => void; onSave: (fb: any) => Promise<void>
 }) {
-  const existing = entry.feedback || {}
-  const [fb, setFb] = useState({
-    conversationQuality: existing.conversationQuality || 0,
-    personalConnection: existing.personalConnection || 0,
-    sharedInterests: existing.sharedInterests || 3,
-    comfortLevel: existing.comfortLevel || 3,
-    communicationStyle: existing.communicationStyle || 3,
-    wouldMeetAgain: existing.wouldMeetAgain || 3,
-    overallExperience: existing.overallExperience || 0,
-    wantConnect: existing.wantConnect ?? null,
-    compatibilityRate: existing.compatibilityRate ?? 50,
-    sliderMoved: existing.sliderMoved ?? false,
-    organizerImpression: existing.organizerImpression || "",
-    recommendations: existing.recommendations || "",
-    participantMessage: existing.participantMessage || "",
-    word: existing.word || "",
-  })
+  // Same default shape as FeedbackFlow's initial state in event3.tsx, so admin edits
+  // produce an object identical in structure to what participants actually submit.
+  const defaultFb = {
+    conversationQuality: 0, personalConnection: 0,
+    wantConnect: null as boolean | null, organizerImpression: "",
+    compatibilityRate: 50, sliderMoved: false, sharedInterests: 3, comfortLevel: 3,
+    communicationStyle: 3, wouldMeetAgain: 3, overallExperience: 3, recommendations: "", participantMessage: "",
+  }
+  const existing = { ...defaultFb, ...(entry.feedback || {}) }
+  const [conversationQuality, setConversationQuality] = useState<number>(existing.conversationQuality || 0)
+  const [personalConnection, setPersonalConnection] = useState<number>(existing.personalConnection || 0)
+  const [wantConnect, setWantConnect] = useState<boolean | null>(existing.wantConnect ?? null)
+  const [organizerImpression, setOrganizerImpression] = useState<string>(existing.organizerImpression || "")
   const [saving, setSaving] = useState(false)
 
-  const ratingLabels5 = ["سيء جداً", "سيء", "عادي", "جيد", "ممتاز"]
+  const convoLabels = ["سيئة", "ضعيفة", "مقبولة", "جيدة", "ممتازة"]
+  const connectionLabels = ["لا شيء", "ضعيف", "مقبول", "جيد", "رائع"]
 
-  const RatingSelector = ({ label, field, max, labels }: { label: string; field: string; max: number; labels: string[] }) => (
-    <div>
-      <label className="text-xs text-gray-400 mb-1.5 block">{label}</label>
-      <div className="flex gap-1.5">
-        {Array.from({ length: max }, (_, i) => (
-          <button key={i} type="button"
-            onClick={() => setFb((p: any) => ({ ...p, [field]: i + 1 }))}
-            className={`flex-1 py-2 rounded-lg text-[10px] font-medium transition-all ${
-              (fb as any)[field] === i + 1
-                ? "bg-purple-600 text-white shadow-lg shadow-purple-900/40"
-                : "bg-gray-800 text-gray-500 hover:bg-gray-700"
-            }`}>{labels[i]}</button>
-        ))}
-      </div>
+  const RatingSelector = ({ value, onChange, labels }: { value: number; onChange: (n: number) => void; labels: string[] }) => (
+    <div className="flex gap-1.5">
+      {labels.map((label, i) => (
+        <button key={i} type="button"
+          onClick={() => onChange(i + 1)}
+          className={`flex-1 py-2 rounded-lg text-[10px] font-medium transition-all ${
+            value === i + 1
+              ? "bg-purple-600 text-white shadow-lg shadow-purple-900/40"
+              : "bg-gray-800 text-gray-500 hover:bg-gray-700"
+          }`}>{label}</button>
+      ))}
     </div>
   )
 
   const handleSubmit = async () => {
     setSaving(true)
-    await onSave({ ...fb })
+    // Preserve all other stored keys (word, defaults, etc.) — only override the real fields.
+    await onSave({ ...existing, conversationQuality, personalConnection, wantConnect, organizerImpression })
     setSaving(false)
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
+      <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md max-h-[85vh] overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="font-bold text-white text-sm flex items-center gap-2">
               <Pencil size={14} className="text-purple-400" /> تعديل التقييم
             </h3>
             <p className="text-[11px] text-gray-500 mt-0.5">
-              {entry.participant_name} #{entry.participant_number} → {entry.partner_name} #{entry.partner_number}
-              <span className="text-gray-600 mr-1.5">({phase === "phase2" ? "اختيارك" : "الخوارزمية"})</span>
+              {entry.participant_name} #{entry.participant_number}
+              <span className="text-gray-600"> عن </span>
+              {entry.partner_name} #{entry.partner_number}
+              <span className="text-gray-600"> · {phase === "phase2" ? "اختيارك" : "الخوارزمية"}</span>
             </p>
           </div>
           <button onClick={onClose} className="text-gray-500 hover:text-white"><X size={18} /></button>
         </div>
 
         <div className="space-y-4">
-          <RatingSelector label="جودة المحادثة" field="conversationQuality" max={5} labels={ratingLabels5} />
-          <RatingSelector label="التواصل الشخصي" field="personalConnection" max={5} labels={ratingLabels5} />
-          <RatingSelector label="التجربة الكلية" field="overallExperience" max={5} labels={ratingLabels5} />
-          <RatingSelector label="الاهتمامات المشتركة" field="sharedInterests" max={5} labels={ratingLabels5} />
-          <RatingSelector label="مستوى الراحة" field="comfortLevel" max={5} labels={ratingLabels5} />
-          <RatingSelector label="أسلوب التواصل" field="communicationStyle" max={5} labels={ratingLabels5} />
-          <RatingSelector label="هل تريد لقاءه مرة أخرى" field="wouldMeetAgain" max={5} labels={ratingLabels5} />
-
-          {/* Want Connect */}
           <div>
-            <label className="text-xs text-gray-400 mb-1.5 block">يريد التواصل؟</label>
+            <label className="text-xs text-gray-400 mb-1.5 block">كيف كانت المحادثة؟</label>
+            <RatingSelector value={conversationQuality} onChange={setConversationQuality} labels={convoLabels} />
+          </div>
+          <div>
+            <label className="text-xs text-gray-400 mb-1.5 block">التواصل الشخصي</label>
+            <RatingSelector value={personalConnection} onChange={setPersonalConnection} labels={connectionLabels} />
+          </div>
+
+          <div>
+            <label className="text-xs text-gray-400 mb-1.5 block">هل يريد التواصل لاحقاً؟</label>
             <div className="flex gap-2">
               <button type="button"
-                onClick={() => setFb(p => ({ ...p, wantConnect: true }))}
+                onClick={() => setWantConnect(true)}
                 className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
-                  fb.wantConnect === true ? "bg-emerald-600 text-white" : "bg-gray-800 text-gray-500 hover:bg-gray-700"
-                }`}>✅ نعم</button>
+                  wantConnect === true ? "bg-emerald-600 text-white" : "bg-gray-800 text-gray-500 hover:bg-gray-700"
+                }`}>نعم</button>
               <button type="button"
-                onClick={() => setFb(p => ({ ...p, wantConnect: false }))}
+                onClick={() => setWantConnect(false)}
                 className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
-                  fb.wantConnect === false ? "bg-red-600 text-white" : "bg-gray-800 text-gray-500 hover:bg-gray-700"
-                }`}>❌ لا</button>
+                  wantConnect === false ? "bg-red-600 text-white" : "bg-gray-800 text-gray-500 hover:bg-gray-700"
+                }`}>لا</button>
             </div>
           </div>
 
-          {/* Compatibility Rate Slider */}
           <div>
-            <label className="text-xs text-gray-400 mb-1.5 block">
-              التوافق المُقدَّر: <span className="text-amber-400 font-bold">{fb.compatibilityRate}%</span>
-            </label>
-            <input type="range" min={0} max={100} value={fb.compatibilityRate}
-              onChange={e => setFb(p => ({ ...p, compatibilityRate: Number(e.target.value), sliderMoved: true }))}
-              className="w-full accent-purple-500" />
-          </div>
-
-          {/* Text Fields */}
-          <div>
-            <label className="text-xs text-gray-400 mb-1.5 block">انطباع المنظم</label>
-            <textarea value={fb.organizerImpression}
-              onChange={e => setFb(p => ({ ...p, organizerImpression: e.target.value }))}
-              rows={2} placeholder="انطباع المشارك عن المنظم..."
+            <label className="text-xs text-gray-400 mb-1.5 block">ملاحظة للمنظم (سرّية)</label>
+            <textarea value={organizerImpression}
+              onChange={e => e.target.value.length <= 300 && setOrganizerImpression(e.target.value)}
+              rows={3} placeholder="شعرت بالراحة... / الوقت كان قصيراً..."
               className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-xs text-white placeholder:text-gray-600 focus:border-purple-500 focus:outline-none resize-none" />
-          </div>
-          <div>
-            <label className="text-xs text-gray-400 mb-1.5 block">توصيات</label>
-            <textarea value={fb.recommendations}
-              onChange={e => setFb(p => ({ ...p, recommendations: e.target.value }))}
-              rows={2} placeholder="توصيات..."
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-xs text-white placeholder:text-gray-600 focus:border-purple-500 focus:outline-none resize-none" />
-          </div>
-          <div>
-            <label className="text-xs text-gray-400 mb-1.5 block">رسالة للمشارك</label>
-            <textarea value={fb.participantMessage}
-              onChange={e => setFb(p => ({ ...p, participantMessage: e.target.value }))}
-              rows={2} placeholder="رسالة..."
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-xs text-white placeholder:text-gray-600 focus:border-purple-500 focus:outline-none resize-none" />
-          </div>
-          <div>
-            <label className="text-xs text-gray-400 mb-1.5 block">كلمة الجلسة</label>
-            <input value={fb.word}
-              onChange={e => setFb(p => ({ ...p, word: e.target.value }))}
-              placeholder="كلمة..."
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-xs text-white placeholder:text-gray-600 focus:border-purple-500 focus:outline-none" />
           </div>
         </div>
 
@@ -173,7 +140,7 @@ function FeedbackEditModal({ entry, phase, onClose, onSave }: {
             className="flex-1 py-2.5 rounded-lg text-xs font-medium bg-gray-800 border border-gray-700 text-gray-400 hover:text-white transition-colors">
             إلغاء
           </button>
-          <button onClick={handleSubmit} disabled={saving}
+          <button onClick={handleSubmit} disabled={saving || wantConnect === null}
             className="flex-1 py-2.5 rounded-lg text-xs font-bold bg-purple-600 text-white hover:bg-purple-500 disabled:opacity-50 flex items-center justify-center gap-1.5">
             {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
             حفظ التغييرات
@@ -4303,83 +4270,76 @@ export default function Admin3Page() {
                     <p className="text-xs text-gray-400 font-medium mb-2 flex items-center gap-1.5">
                       <CheckCircle size={11} className="text-green-400" /> أرسلوا التقييم ({submitted.length})
                     </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-2.5">
                       {submitted.map((entry: any) => {
                         const fb = entry.feedback || {}
                         const mutualYes = entry.mutual_yes === true || (fb.wantConnect === true && entry.partner_feedback?.wantConnect === true)
+                        const prefLabel = entry.match_preference === 'choice' ? 'اختيار شخصي'
+                          : entry.match_preference === 'algorithm' ? 'الخوارزمية'
+                          : entry.match_preference === 'both' ? 'كلاهما' : null
                         return (
                           <div key={entry.participant_number}
-                            className={`relative bg-gray-900 border rounded-xl p-4 overflow-hidden ${
-                              mutualYes ? "border-emerald-700/50 shadow-lg shadow-emerald-900/20" : "border-gray-700/60"
+                            className={`bg-gray-900 border rounded-xl overflow-hidden ${
+                              mutualYes ? "border-emerald-700/40" : "border-gray-800"
                             }`}>
-                            <div className={`absolute top-0 right-0 w-1 h-full ${feedbackPhase === "phase2" ? "bg-pink-600" : "bg-purple-600"}`} />
-                            {mutualYes && (
-                              <div className="absolute top-2 left-2 text-[9px] bg-emerald-900/60 border border-emerald-600/50 text-emerald-300 px-1.5 py-0.5 rounded-full font-bold">❤️ توافق محتمل</div>
-                            )}
-                            {entry.match_preference && (
-                              <div className={`absolute top-2 ${mutualYes ? 'left-2 top-8' : 'left-2'} text-[9px] px-1.5 py-0.5 rounded-full border font-bold ${
-                                entry.match_preference === 'choice' ? 'bg-pink-900/60 border-pink-600/50 text-pink-300' :
-                                entry.match_preference === 'algorithm' ? 'bg-purple-900/60 border-purple-600/50 text-purple-300' :
-                                entry.match_preference === 'both' ? 'bg-emerald-900/60 border-emerald-600/50 text-emerald-300' :
-                                'bg-gray-800 border-gray-600/50 text-gray-400'
-                              }`}>
-                                {entry.match_preference === 'choice' ? '💕 اختيار' :
-                                 entry.match_preference === 'algorithm' ? '🧠 خوارزمية' :
-                                 entry.match_preference === 'both' ? '✨ كلاهما' :
-                                 '— لا أحد'}
+                            {/* Header row */}
+                            <div className="flex items-center justify-between px-4 py-2.5 bg-gray-800/40 border-b border-gray-800">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${feedbackPhase === "phase2" ? "bg-pink-500" : "bg-purple-500"}`} />
+                                <span className="font-semibold text-white text-sm truncate">{entry.participant_name}</span>
+                                <span className="text-gray-600 text-[10px] flex-shrink-0">#{entry.participant_number}</span>
+                                <ArrowLeft size={11} className="text-gray-600 flex-shrink-0" />
+                                <span className="text-gray-300 text-sm truncate">{entry.partner_name}</span>
+                                <span className="text-gray-600 text-[10px] flex-shrink-0">#{entry.partner_number}</span>
                               </div>
-                            )}
-                            <div className="flex items-start justify-between mb-3 pr-2">
-                              <div>
-                                <p className="font-bold text-white text-sm">{entry.participant_name}</p>
-                                <p className="text-[10px] text-gray-600">#{entry.participant_number}</p>
-                              </div>
-                              <div className="text-left space-y-1">
-                                <p className="text-[11px] text-gray-400">عن: <span className="text-gray-200">{entry.partner_name}</span></p>
-                                <span className={`text-[9px] px-1.5 py-0.5 rounded-full border block ${
-                                  entry.partner_submitted ? "bg-green-900/40 border-green-700/40 text-green-400" : "bg-gray-800 border-gray-700/50 text-gray-500"
-                                }`}>{entry.partner_submitted ? "الطرف الآخر أرسل ✓" : "الطرف الآخر لم يُرسل"}</span>
-                              </div>
+                              <button
+                                onClick={() => setEditingFeedback({ entry, phase: feedbackPhase })}
+                                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-gray-500 hover:text-purple-300 hover:bg-gray-800 transition-colors flex-shrink-0"
+                              >
+                                <Pencil size={10} /> تعديل
+                              </button>
                             </div>
-                            <div className="space-y-1.5 text-xs pr-2">
+
+                            {/* Status tags row */}
+                            <div className="flex items-center gap-1.5 px-4 pt-2.5 flex-wrap">
+                              {mutualYes && (
+                                <span className="text-[10px] bg-emerald-950/50 text-emerald-400 px-2 py-0.5 rounded-md">❤️ توافق متبادل</span>
+                              )}
+                              {fb.wantConnect != null && (
+                                <span className={`text-[10px] px-2 py-0.5 rounded-md ${fb.wantConnect ? "bg-emerald-950/40 text-emerald-400" : "bg-gray-800 text-gray-500"}`}>
+                                  {fb.wantConnect ? "يريد التواصل" : "لا يريد التواصل"}
+                                </span>
+                              )}
+                              {prefLabel && (
+                                <span className="text-[10px] bg-gray-800 text-gray-400 px-2 py-0.5 rounded-md">تفضيله: {prefLabel}</span>
+                              )}
+                              <span className={`text-[10px] px-2 py-0.5 rounded-md mr-auto ${
+                                entry.partner_submitted ? "bg-gray-800 text-gray-400" : "bg-gray-800/50 text-gray-600"
+                              }`}>{entry.partner_submitted ? "الطرف الآخر أرسل" : "الطرف الآخر لم يُرسل بعد"}</span>
+                            </div>
+
+                            {/* Ratings */}
+                            <div className="px-4 py-3 space-y-1.5">
                               {fb.conversationQuality > 0 && (
-                                <div className="flex items-center justify-between">
+                                <div className="flex items-center justify-between text-xs">
                                   <span className="text-gray-500">جودة المحادثة</span>
                                   <span>{stars(fb.conversationQuality)}</span>
                                 </div>
                               )}
                               {fb.personalConnection > 0 && (
-                                <div className="flex items-center justify-between">
+                                <div className="flex items-center justify-between text-xs">
                                   <span className="text-gray-500">التواصل الشخصي</span>
                                   <span>{stars(fb.personalConnection)}</span>
                                 </div>
                               )}
-                              {fb.overallExperience > 0 && (
-                                <div className="flex items-center justify-between">
-                                  <span className="text-gray-500">التجربة الكلية</span>
-                                  <span>{stars(fb.overallExperience)}</span>
-                                </div>
-                              )}
-                              {fb.wantConnect != null && (
-                                <div className="flex items-center justify-between">
-                                  <span className="text-gray-500">يريد التواصل</span>
-                                  <span className={`font-bold ${fb.wantConnect ? "text-emerald-400" : "text-red-400"}`}>{fb.wantConnect ? "✅ نعم" : "❌ لا"}</span>
-                                </div>
-                              )}
-                              {fb.compatibilityRate != null && fb.sliderMoved && (
-                                <div className="flex items-center justify-between">
-                                  <span className="text-gray-500">التوافق المُقدَّر</span>
-                                  <span className="text-amber-400 font-bold">{fb.compatibilityRate}%</span>
-                                </div>
-                              )}
                               {fb.organizerImpression && (
-                                <div className="mt-2 bg-gray-800/70 rounded-lg p-2 text-gray-300 text-[10px] text-right leading-relaxed border border-gray-700/40">💬 {fb.organizerImpression}</div>
+                                <div className="mt-2 bg-gray-800/60 rounded-lg p-2.5 text-gray-300 text-[11px] text-right leading-relaxed">💬 {fb.organizerImpression}</div>
                               )}
                               {entry.partner_submitted && entry.partner_feedback && (() => {
                                 const pfb = entry.partner_feedback
                                 return (
-                                  <div className="mt-3 pt-3 border-t border-gray-700/40">
-                                    <p className="text-[10px] text-gray-500 mb-1.5 font-medium">تقييم {entry.partner_name}:</p>
+                                  <div className="mt-3 pt-3 border-t border-gray-800 space-y-1.5">
+                                    <p className="text-[10px] text-gray-500 font-medium">تقييم {entry.partner_name}</p>
                                     {pfb.conversationQuality > 0 && (
                                       <div className="flex items-center justify-between text-xs">
                                         <span className="text-gray-600">جودة المحادثة</span>
@@ -4387,43 +4347,24 @@ export default function Admin3Page() {
                                       </div>
                                     )}
                                     {pfb.personalConnection > 0 && (
-                                      <div className="flex items-center justify-between text-xs mt-1">
+                                      <div className="flex items-center justify-between text-xs">
                                         <span className="text-gray-600">التواصل الشخصي</span>
                                         <span>{stars(pfb.personalConnection)}</span>
                                       </div>
                                     )}
-                                    {pfb.overallExperience > 0 && (
-                                      <div className="flex items-center justify-between text-xs mt-1">
-                                        <span className="text-gray-600">التجربة الكلية</span>
-                                        <span>{stars(pfb.overallExperience)}</span>
-                                      </div>
-                                    )}
                                     {pfb.wantConnect != null && (
-                                      <div className="flex items-center justify-between text-xs mt-1">
+                                      <div className="flex items-center justify-between text-xs">
                                         <span className="text-gray-600">يريد التواصل</span>
-                                        <span className={`font-bold ${pfb.wantConnect ? "text-emerald-400" : "text-red-400"}`}>{pfb.wantConnect ? "✅ نعم" : "❌ لا"}</span>
-                                      </div>
-                                    )}
-                                    {pfb.compatibilityRate != null && pfb.sliderMoved && (
-                                      <div className="flex items-center justify-between text-xs mt-1">
-                                        <span className="text-gray-600">التوافق المُقدَّر</span>
-                                        <span className="text-amber-400 font-bold">{pfb.compatibilityRate}%</span>
+                                        <span className={pfb.wantConnect ? "text-emerald-400" : "text-gray-500"}>{pfb.wantConnect ? "نعم" : "لا"}</span>
                                       </div>
                                     )}
                                     {pfb.organizerImpression && (
-                                      <div className="mt-2 bg-gray-800/70 rounded-lg p-2 text-gray-300 text-[10px] text-right leading-relaxed border border-gray-700/40">💬 {pfb.organizerImpression}</div>
+                                      <div className="mt-1.5 bg-gray-800/60 rounded-lg p-2.5 text-gray-300 text-[11px] text-right leading-relaxed">💬 {pfb.organizerImpression}</div>
                                     )}
                                   </div>
                                 )
                               })()}
                             </div>
-                            {/* Edit button */}
-                            <button
-                              onClick={() => setEditingFeedback({ entry, phase: feedbackPhase })}
-                              className="absolute bottom-2 left-2 flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] bg-gray-800/80 border border-gray-700/50 text-gray-400 hover:text-purple-300 hover:border-purple-600/50 transition-colors"
-                            >
-                              <Pencil size={10} /> تعديل
-                            </button>
                           </div>
                         )
                       })}

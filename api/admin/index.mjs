@@ -7519,20 +7519,38 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         // criteria diff and let AI summarize the calibration insight.
         if (action === "e3-analyze-pair") {
           const { participant_number: subjectNumber, partner_number: partnerNumber, phase } = req.body
-          if (!subjectNumber || !partnerNumber || !["phase2", "phase3"].includes(phase))
-            return res.status(400).json({ error: "participant_number, partner_number, phase required" })
+          if (!subjectNumber || !["phase2", "phase3"].includes(phase))
+            return res.status(400).json({ error: "participant_number and phase required" })
 
+          const partnerCol = phase === "phase2" ? "phase2_partner" : "phase3_partner"
           const feedbackCol = phase === "phase2" ? "phase2_feedback" : "phase3_feedback"
-          const [{ data: subjectMatchRow }, { data: partnerMatchRow }] = await Promise.all([
+
+          // Authoritative partner: read the actual partner stored in event3_matches for this event/phase.
+          const { data: subjectMatchRow } = await supabase
+            .from("event3_matches")
+            .select(`${partnerCol}, ${feedbackCol}`)
+            .eq("match_id", EVENT3_MATCH_ID)
+            .eq("event_id", currentEventId)
+            .eq("participant_number", subjectNumber)
+            .maybeSingle()
+          const actualPartnerNumber = subjectMatchRow?.[partnerCol]
+          if (!actualPartnerNumber)
+            return res.status(404).json({ error: `No ${phase} partner found for participant #${subjectNumber} in event ${currentEventId}` })
+          if (partnerNumber && Number(partnerNumber) !== Number(actualPartnerNumber)) {
+            console.warn(`[e3-analyze-pair] Frontend sent partner #${partnerNumber} for subject #${subjectNumber} in event ${currentEventId}, but DB has #${actualPartnerNumber}. Using DB value.`)
+          }
+          const resolvedPartnerNumber = Number(actualPartnerNumber)
+
+          const [{ data: subjectFeedbackRow }, { data: partnerFeedbackRow }] = await Promise.all([
             supabase.from("event3_matches").select(`${feedbackCol}`).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", subjectNumber).maybeSingle(),
-            supabase.from("event3_matches").select(`${feedbackCol}`).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", partnerNumber).maybeSingle(),
+            supabase.from("event3_matches").select(`${feedbackCol}`).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", resolvedPartnerNumber).maybeSingle(),
           ])
-          const subjectFeedback = subjectMatchRow?.[feedbackCol] || null
-          const partnerFeedback = partnerMatchRow?.[feedbackCol] || null
+          const subjectFeedback = subjectFeedbackRow?.[feedbackCol] || null
+          const partnerFeedback = partnerFeedbackRow?.[feedbackCol] || null
 
           const [{ data: subject }, { data: partner }] = await Promise.all([
             supabase.from("participants").select("assigned_number, name, age, gender, survey_data, mbti_personality_type, attachment_style, communication_style, nationality").eq("match_id", STATIC_MATCH_ID).eq("assigned_number", subjectNumber).maybeSingle(),
-            supabase.from("participants").select("assigned_number, name, age, gender, survey_data, mbti_personality_type, attachment_style, communication_style, nationality").eq("match_id", STATIC_MATCH_ID).eq("assigned_number", partnerNumber).maybeSingle(),
+            supabase.from("participants").select("assigned_number, name, age, gender, survey_data, mbti_personality_type, attachment_style, communication_style, nationality").eq("match_id", STATIC_MATCH_ID).eq("assigned_number", resolvedPartnerNumber).maybeSingle(),
           ])
           if (!subject || !partner) return res.status(404).json({ error: "Participant data not found" })
 
@@ -7572,7 +7590,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             return candidate || null
           }
 
-          const alternative = await findTopAlternative(subjectNumber, partnerNumber)
+          const alternative = await findTopAlternative(subjectNumber, resolvedPartnerNumber)
           const { data: alternativeProfile } = alternative
             ? await supabase.from("participants").select("assigned_number, name, age, gender, survey_data, mbti_personality_type, attachment_style, communication_style, nationality").eq("match_id", STATIC_MATCH_ID).eq("assigned_number", alternative.other).maybeSingle()
             : { data: null }
@@ -7672,6 +7690,7 @@ ${alternativeProfile ? `بيانات استبيان المرشح البديل: $
           const analysis = completion.choices[0]?.message?.content?.trim() || "تعذّر توليد التحليل."
           return res.status(200).json({
             analysis,
+            event_id: currentEventId,
             subject: { number: subject.assigned_number, name: subject.name },
             partner: { number: partner.assigned_number, name: partner.name },
             alternative: alternativeProfile

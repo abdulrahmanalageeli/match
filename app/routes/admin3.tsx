@@ -247,6 +247,7 @@ export default function Admin3Page() {
   const [analyzingPair, setAnalyzingPair] = useState<{ entry: any; phase: string } | null>(null)
   const [pairAnalysisResult, setPairAnalysisResult] = useState<{
     analysis: string
+    event_id?: number
     subject?: { number: number; name: string }
     partner?: { number: number; name: string }
     alternative?: { number: number; name: string; breakdown: any } | null
@@ -418,6 +419,7 @@ export default function Admin3Page() {
     if (d.error) { toast.error(d.error); setAnalyzingPair(null); return }
     setPairAnalysisResult({
       analysis: d.analysis,
+      event_id: d.event_id,
       subject: d.subject,
       partner: d.partner,
       alternative: d.alternative,
@@ -4484,9 +4486,12 @@ export default function Admin3Page() {
                   <div>
                     <h3 className="font-bold text-white text-sm flex items-center gap-2">
                       <Sparkles size={14} className="text-amber-400" /> تحليل من منظور {analyzingPair.entry.participant_name}
+                      {pairAnalysisResult?.event_id != null && (
+                        <span className="text-[9px] font-normal px-1.5 py-0.5 rounded-full bg-gray-800 text-gray-400 border border-gray-700">فعالية {pairAnalysisResult.event_id}</span>
+                      )}
                     </h3>
                     <p className="text-[11px] text-gray-500 mt-0.5">
-                      مقارنة مع {analyzingPair.entry.partner_name} #{analyzingPair.entry.partner_number}
+                      مقارنة مع {pairAnalysisResult?.partner?.name || analyzingPair.entry.partner_name} #{pairAnalysisResult?.partner?.number || analyzingPair.entry.partner_number}
                       {pairAnalysisResult?.alternative && (
                         <span> مقابل البديل {pairAnalysisResult.alternative.name} #{pairAnalysisResult.alternative.number}</span>
                       )}

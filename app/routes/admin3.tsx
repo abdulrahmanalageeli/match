@@ -4218,6 +4218,7 @@ export default function Admin3Page() {
             else if (feedbackFilter === "missing") entries = entries.filter((e: any) => !e.submitted)
             else if (feedbackFilter === "mutual") entries = entries.filter((e: any) => e.mutual_yes)
             const submitted = entries.filter((e: any) => e.submitted)
+              .sort((a: any, b: any) => (b.mutual_yes === true ? 1 : 0) - (a.mutual_yes === true ? 1 : 0))
             const missing = entries.filter((e: any) => !e.submitted)
             // Pair-level analysis: group by pair, count where both submitted
             const pairMap: Record<string, { a?: any; b?: any }> = {}
@@ -4277,11 +4278,19 @@ export default function Admin3Page() {
                         const prefLabel = entry.match_preference === 'choice' ? 'اختيار شخصي'
                           : entry.match_preference === 'algorithm' ? 'الخوارزمية'
                           : entry.match_preference === 'both' ? 'كلاهما' : null
+                        const pfbTop = entry.partner_feedback || {}
                         return (
                           <div key={entry.participant_number}
                             className={`bg-gray-900 border rounded-xl overflow-hidden ${
-                              mutualYes ? "border-emerald-700/40" : "border-gray-800"
+                              mutualYes ? "border-emerald-500/60 shadow-[0_0_0_1px_rgba(16,185,129,0.15)]" : "border-gray-800"
                             }`}>
+                            {/* Mutual banner */}
+                            {mutualYes && (
+                              <div className="flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-l from-emerald-900/50 to-emerald-950/30 border-b border-emerald-800/40">
+                                <Heart size={12} className="text-emerald-400 fill-emerald-400" />
+                                <span className="text-emerald-300 text-[11px] font-bold">توافق متبادل — كلاهما أراد التواصل</span>
+                              </div>
+                            )}
                             {/* Header row */}
                             <div className="flex items-center justify-between px-4 py-2.5 bg-gray-800/40 border-b border-gray-800">
                               <div className="flex items-center gap-2 min-w-0">
@@ -4300,23 +4309,34 @@ export default function Admin3Page() {
                               </button>
                             </div>
 
-                            {/* Status tags row */}
-                            <div className="flex items-center gap-1.5 px-4 pt-2.5 flex-wrap">
-                              {mutualYes && (
-                                <span className="text-[10px] bg-emerald-950/50 text-emerald-400 px-2 py-0.5 rounded-md">❤️ توافق متبادل</span>
-                              )}
-                              {fb.wantConnect != null && (
-                                <span className={`text-[10px] px-2 py-0.5 rounded-md ${fb.wantConnect ? "bg-emerald-950/40 text-emerald-400" : "bg-gray-800 text-gray-500"}`}>
-                                  {fb.wantConnect ? "يريد التواصل" : "لا يريد التواصل"}
+                            {/* Want-connect: both sides shown side by side */}
+                            <div className="grid grid-cols-2 gap-2 px-4 pt-2.5">
+                              <div className={`flex items-center justify-between rounded-lg px-2.5 py-1.5 ${
+                                fb.wantConnect === true ? "bg-emerald-950/40" : fb.wantConnect === false ? "bg-gray-800/60" : "bg-gray-800/30"
+                              }`}>
+                                <span className="text-[10px] text-gray-400 truncate">{entry.participant_name}</span>
+                                <span className={`text-[10px] font-bold ${fb.wantConnect === true ? "text-emerald-400" : fb.wantConnect === false ? "text-gray-500" : "text-gray-600"}`}>
+                                  {fb.wantConnect === true ? "نعم" : fb.wantConnect === false ? "لا" : "—"}
                                 </span>
-                              )}
-                              {prefLabel && (
-                                <span className="text-[10px] bg-gray-800 text-gray-400 px-2 py-0.5 rounded-md">تفضيله: {prefLabel}</span>
-                              )}
-                              <span className={`text-[10px] px-2 py-0.5 rounded-md mr-auto ${
-                                entry.partner_submitted ? "bg-gray-800 text-gray-400" : "bg-gray-800/50 text-gray-600"
-                              }`}>{entry.partner_submitted ? "الطرف الآخر أرسل" : "الطرف الآخر لم يُرسل بعد"}</span>
+                              </div>
+                              <div className={`flex items-center justify-between rounded-lg px-2.5 py-1.5 ${
+                                pfbTop.wantConnect === true ? "bg-emerald-950/40" : entry.partner_submitted ? "bg-gray-800/60" : "bg-gray-800/20"
+                              }`}>
+                                <span className="text-[10px] text-gray-400 truncate">{entry.partner_name}</span>
+                                <span className={`text-[10px] font-bold ${
+                                  pfbTop.wantConnect === true ? "text-emerald-400" : entry.partner_submitted ? "text-gray-500" : "text-gray-600"
+                                }`}>
+                                  {!entry.partner_submitted ? "لم يُرسل" : pfbTop.wantConnect === true ? "نعم" : pfbTop.wantConnect === false ? "لا" : "—"}
+                                </span>
+                              </div>
                             </div>
+
+                            {/* Secondary tags */}
+                            {prefLabel && (
+                              <div className="px-4 pt-1.5">
+                                <span className="text-[10px] bg-gray-800 text-gray-400 px-2 py-0.5 rounded-md">تفضيله: {prefLabel}</span>
+                              </div>
+                            )}
 
                             {/* Ratings */}
                             <div className="px-4 py-3 space-y-1.5">
@@ -4350,12 +4370,6 @@ export default function Admin3Page() {
                                       <div className="flex items-center justify-between text-xs">
                                         <span className="text-gray-600">التواصل الشخصي</span>
                                         <span>{stars(pfb.personalConnection)}</span>
-                                      </div>
-                                    )}
-                                    {pfb.wantConnect != null && (
-                                      <div className="flex items-center justify-between text-xs">
-                                        <span className="text-gray-600">يريد التواصل</span>
-                                        <span className={pfb.wantConnect ? "text-emerald-400" : "text-gray-500"}>{pfb.wantConnect ? "نعم" : "لا"}</span>
                                       </div>
                                     )}
                                     {pfb.organizerImpression && (

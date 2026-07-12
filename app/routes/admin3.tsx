@@ -250,7 +250,7 @@ export default function Admin3Page() {
     event_id?: number
     subject?: { number: number; name: string }
     partner?: { number: number; name: string }
-    alternative?: { number: number; name: string; breakdown: any } | null
+    alternative?: { number: number; name: string; breakdown: any; phase?: string } | null
     actualBreakdown?: any
     alternativeBreakdown?: any
     diff?: Record<string, number>
@@ -4493,7 +4493,7 @@ export default function Admin3Page() {
                     <p className="text-[11px] text-gray-500 mt-0.5">
                       مقارنة مع {pairAnalysisResult?.partner?.name || analyzingPair.entry.partner_name} #{pairAnalysisResult?.partner?.number || analyzingPair.entry.partner_number}
                       {pairAnalysisResult?.alternative && (
-                        <span> مقابل البديل {pairAnalysisResult.alternative.name} #{pairAnalysisResult.alternative.number}</span>
+                        <span> مقابل شريك {pairAnalysisResult.alternative.phase === "phase3" ? "الخوارزمية" : "اختيار المشاركين"}: {pairAnalysisResult.alternative.name} #{pairAnalysisResult.alternative.number}</span>
                       )}
                     </p>
                   </div>
@@ -4519,7 +4519,7 @@ export default function Admin3Page() {
                       </div>
                       {pairAnalysisResult.alternative && (
                         <div className="mt-2 text-[11px] text-gray-400">
-                          مقارنةً بأفضل بديل خوارزمي: <span className="text-amber-300 font-semibold">{pairAnalysisResult.alternative.name} #{pairAnalysisResult.alternative.number}</span>
+                          مقارنةً بشريك {pairAnalysisResult.alternative.phase === "phase3" ? "الخوارزمية" : "اختيار المشاركين"}: <span className="text-amber-300 font-semibold">{pairAnalysisResult.alternative.name} #{pairAnalysisResult.alternative.number}</span>
                         </div>
                       )}
                     </div>
@@ -4527,12 +4527,12 @@ export default function Admin3Page() {
                     {/* Algorithmic comparison table */}
                     {(pairAnalysisResult.actualBreakdown || pairAnalysisResult.alternativeBreakdown) && (
                       <div>
-                        <p className="text-[10px] text-gray-500 mb-1.5">المقارنة الخوارزمية (الفعلي × البديل)</p>
+                        <p className="text-[10px] text-gray-500 mb-1.5">مقارنة درجات التوافق (الجولة الحالية × الجولة الأخرى)</p>
                         <div className="bg-gray-800/50 rounded-xl overflow-hidden text-[11px]">
                           <div className="grid grid-cols-4 gap-2 p-2 border-b border-gray-700/50 text-gray-500 text-[10px]">
                             <span>المعيار</span>
-                            <span className="text-center">الشريك الفعلي</span>
-                            <span className="text-center">البديل الخوارزمي</span>
+                            <span className="text-center">الجولة الحالية</span>
+                            <span className="text-center">الجولة الأخرى</span>
                             <span className="text-center">الفارق</span>
                           </div>
                           {[
@@ -4562,7 +4562,7 @@ export default function Admin3Page() {
                           })}
                         </div>
                         <p className="text-[9px] text-gray-600 mt-1.5">
-                          الفارق = البديل - الفعلي. القيمة الموجبة تعني أن الخوارزمية كانت تفضل البديل في هذا المعيار.
+                          الفارق = شريك الجولة الأخرى - شريك الجولة الحالية. القيمة الموجبة تعني أن الدرجة كانت أعلى مع شريك الجولة الأخرى.
                         </p>
                       </div>
                     )}

@@ -7568,33 +7568,41 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             intent: Math.round(parseFloat(row.intent_goal_score) || 0),
           } : null
 
-          const [sortedA, sortedB] = [subjectNumber, partnerNumber].sort((p, q) => p - q)
+          const [sortedA, sortedB] = [subjectNumber, resolvedPartnerNumber].sort((p, q) => p - q)
           const { data: cacheRow } = await supabase.from("compatibility_cache").select("*")
             .eq("participant_a_number", sortedA).eq("participant_b_number", sortedB)
             .order("last_used", { ascending: false }).limit(1).maybeSingle()
           const actualBreakdown = extractBreakdown(cacheRow)
 
-          // Same-event filter: only consider alternatives who were also participants in this event3.
-          const { data: e3Rows } = await supabase.from("event3_matches").select("participant_number")
-            .eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
-          const e3ParticipantSet = new Set((e3Rows || []).map(r => r.participant_number))
+          // The comparison partner is the participant's actual assigned partner in the OTHER phase
+          // of the same event day (phase2 vs phase3), not the best global algorithmic candidate.
+          const otherPhaseCol = phase === "phase2" ? "phase3_partner" : "phase2_partner"
+          const otherFeedbackCol = phase === "phase2" ? "phase3_feedback" : "phase2_feedback"
+          const { data: otherMatchRow } = await supabase
+            .from("event3_matches")
+            .select(`${otherPhaseCol}, ${otherFeedbackCol}`)
+            .eq("match_id", EVENT3_MATCH_ID)
+            .eq("event_id", currentEventId)
+            .eq("participant_number", subjectNumber)
+            .maybeSingle()
+          const alternativeNumber = otherMatchRow?.[otherPhaseCol] || null
+          const alternativeFeedback = otherMatchRow?.[otherFeedbackCol] || null
 
-          const findTopAlternative = async (forNumber, excludeNumber) => {
-            const { data: rows } = await supabase.from("compatibility_cache").select("*")
-              .or(`participant_a_number.eq.${forNumber},participant_b_number.eq.${forNumber}`)
-              .order("total_compatibility_score", { ascending: false })
-              .limit(50)
-            const candidate = (rows || [])
-              .map(r => ({ row: r, other: r.participant_a_number === forNumber ? r.participant_b_number : r.participant_a_number }))
-              .find(c => c.other !== excludeNumber && e3ParticipantSet.has(c.other))
-            return candidate || null
-          }
-
-          const alternative = await findTopAlternative(subjectNumber, resolvedPartnerNumber)
-          const { data: alternativeProfile } = alternative
-            ? await supabase.from("participants").select("assigned_number, name, age, gender, survey_data, mbti_personality_type, attachment_style, communication_style, nationality").eq("match_id", STATIC_MATCH_ID).eq("assigned_number", alternative.other).maybeSingle()
+          const { data: alternativeProfile } = alternativeNumber
+            ? await supabase.from("participants").select("assigned_number, name, age, gender, survey_data, mbti_personality_type, attachment_style, communication_style, nationality").eq("match_id", STATIC_MATCH_ID).eq("assigned_number", alternativeNumber).maybeSingle()
             : { data: null }
-          const alternativeBreakdown = extractBreakdown(alternative?.row)
+
+          // Fetch compatibility breakdown between subject and the other-phase partner.
+          const [sortedSubject, sortedOther] = [subjectNumber, alternativeNumber || 0].sort((p, q) => p - q)
+          const { data: otherCacheRow } = alternativeNumber
+            ? await supabase.from("compatibility_cache").select("*")
+                .eq("participant_a_number", sortedSubject)
+                .eq("participant_b_number", sortedOther)
+                .order("last_used", { ascending: false })
+                .limit(1)
+                .maybeSingle()
+            : { data: null }
+          const alternativeBreakdown = extractBreakdown(otherCacheRow)
           const alternativeAnswers = alternativeProfile ? (parseSurvey(alternativeProfile)?.answers || {}) : {}
 
           // ── Deterministic algorithmic diff ───────────────────────────────────────
@@ -7654,27 +7662,28 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             silence_comfort: ans.silence_comfort, social_battery: ans.social_battery,
           })
 
-          const systemMessage = `أنت مساعد معايرة خوارزميات توافق فعاليات التعارف. مهمتك تقرير موجز وواضح بالعربية (4-6 جمل كحد أقصى) يفسر لماذا المشارك قيّم شريكه الحقيقي بطريقة معينة مقارنةً بأفضل مرشح كانت الخوارزمية ستقترحه. انطلق من الفروقات المحسوبة بين الدرجات ومن تقييم المشارك الفعلي. لا تخمن، ولا تستخدم معلومات خارج البيانات المعطاة. ركّز على:
-1. هل تقييم المشارك يؤيد توقع الخوارزمية أم يناقضه؟
-2. أي معيار (إجمالي، تناغم، جاذبية، نمط حياة، تواصل، قيم، هدف) يبدو الأكثر خطأً في التنبؤ؟
+          const systemMessage = `أنت مساعد معايرة خوارزميات توافق فعاليات التعارف. مهمتك تقرير موجز وواضح بالعربية (4-6 جمل كحد أقصى) يقارن بين شريك المشارك في الجولة الحالية وشريكه في الجولة الأخرى من نفس يوم الفعالية. انطلق من الفروقات المحسوبة بين درجات التوافق وتقييم المشارك الفعلي. لا تخمن، ولا تستخدم معلومات خارج البيانات المعطاة. ركّز على:
+1. هل تقييم المشارك يؤيد الفرق في الدرجات بين الجولتين أم يناقضه؟
+2. أي معيار (إجمالي، تناغم، جاذبية، نمط حياة، تواصل، قيم، هدف) يظهر أكبر اختلاف بين الشريكين؟
 3. اقتراح عملي واحد لتحسين وزن معيار أو صياغة سؤال استبيان.`
 
           const userMessage = `تحليل من منظور المشارك: ${subject.name} (#${subject.assigned_number})
-الشريك الفعلي: ${partner.name} (#${partner.assigned_number})
-أفضل مرشح خوارزمي بديل (لم يُقابله): ${alternativeProfile ? `${alternativeProfile.name} (#${alternativeProfile.assigned_number})` : "غير متوفر"}
+الشريك الفعلي في ${phase === "phase2" ? "اختيار المشاركين" : "الخوارزمية"}: ${partner.name} (#${partner.assigned_number})
+الشريك في الجولة الأخرى (${phase === "phase2" ? "الخوارزمية" : "اختيار المشاركين"}): ${alternativeProfile ? `${alternativeProfile.name} (#${alternativeProfile.assigned_number})` : "غير متوفر"}
 
 درجة التوافق مع الشريك الفعلي: ${actualBreakdown ? JSON.stringify(actualBreakdown) : "غير متوفرة"}
-درجة التوافق مع المرشح البديل: ${alternativeBreakdown ? JSON.stringify(alternativeBreakdown) : "غير متوفرة"}
+درجة التوافق مع شريك الجولة الأخرى: ${alternativeBreakdown ? JSON.stringify(alternativeBreakdown) : "غير متوفرة"}
 
-الفروقات (البديل - الفعلي، قيمة موجبة تعني أن الخوارزمية كانت تفضل البديل): ${JSON.stringify(diff)}
+الفروقات (الجولة الأخرى - الجولة الحالية): ${JSON.stringify(diff)}
 أكبر فارق في معيار: ${largestGapKey || "غير محدد"}
 
-تقييم المشارك الفعلي: ${JSON.stringify(feedbackSignal)}
+تقييم المشارك في الجولة الحالية: ${JSON.stringify(feedbackSignal)}
 انطباع المشارك عن المنظم (نص حر): ${subjectFeedback?.organizerImpression || "لا يوجد"}
+${alternativeFeedback ? `تقييم المشارك في الجولة الأخرى: ${JSON.stringify(alternativeFeedback)}` : ""}
 
 بيانات استبيان المشارك: ${JSON.stringify(summarize(subject, subjectAnswers))}
 بيانات استبيان الشريك الفعلي: ${JSON.stringify(summarize(partner, partnerAnswers))}
-${alternativeProfile ? `بيانات استبيان المرشح البديل: ${JSON.stringify(summarize(alternativeProfile, alternativeAnswers))}` : ""}
+${alternativeProfile ? `بيانات استبيان شريك الجولة الأخرى: ${JSON.stringify(summarize(alternativeProfile, alternativeAnswers))}` : ""}
 
 اكتب تحليلاً موجزاً بالعربية.`
 
@@ -7694,7 +7703,7 @@ ${alternativeProfile ? `بيانات استبيان المرشح البديل: $
             subject: { number: subject.assigned_number, name: subject.name },
             partner: { number: partner.assigned_number, name: partner.name },
             alternative: alternativeProfile
-              ? { number: alternativeProfile.assigned_number, name: alternativeProfile.name, breakdown: alternativeBreakdown }
+              ? { number: alternativeProfile.assigned_number, name: alternativeProfile.name, breakdown: alternativeBreakdown, phase: phase === "phase2" ? "phase3" : "phase2" }
               : null,
             actualBreakdown,
             alternativeBreakdown,

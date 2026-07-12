@@ -4112,9 +4112,12 @@ function MoodCheckModal({ token, name }: { token: string; name?: string | null }
 // ─── Root Component ───────────────────────────────────────────────────────────
 export default function Event3Page() {
   const [searchParams] = useSearchParams()
+  const isImpersonating = searchParams.get("impersonate") === "1"
   const [token, setToken] = useState<string | null>(() => {
     const p = searchParams.get("token") || searchParams.get("t")
-    return p || (typeof window !== "undefined" ? localStorage.getItem("blindmatch_result_token") : null) || null
+    if (p) return p
+    if (isImpersonating) return null
+    return (typeof window !== "undefined" ? localStorage.getItem("blindmatch_result_token") : null) || null
   })
 
   const [showWelcome, setShowWelcome] = useState(true)
@@ -4129,7 +4132,7 @@ export default function Event3Page() {
     if (d.error) {
       if (d.error.includes("Invalid") || d.error.includes("token") || d.error.includes("expired") || d.error.includes("لم يتم العثور") || d.error.includes("غير مسجّل")) {
         setTokenError(true)
-        localStorage.removeItem("blindmatch_result_token")
+        if (!isImpersonating) localStorage.removeItem("blindmatch_result_token")
       }
       throw new Error(d.error)
     }
@@ -4145,7 +4148,7 @@ export default function Event3Page() {
 
   useEffect(() => {
     const p = searchParams.get("token") || searchParams.get("t")
-    if (p) { setToken(p); localStorage.setItem("blindmatch_result_token", p) }
+    if (p) { setToken(p); if (!isImpersonating) localStorage.setItem("blindmatch_result_token", p) }
   }, [searchParams])
 
   // Online/offline detection
@@ -4202,6 +4205,15 @@ export default function Event3Page() {
   return (
     <div className="h-[100dvh] flex flex-col bg-gray-950 overflow-hidden" dir="rtl">
       <Toaster position="top-center" toastOptions={{ style: { background: "#1f2937", color: "#f9fafb", border: "1px solid #374151", borderRadius: "12px" } }} />
+
+      {/* Impersonation banner */}
+      {isImpersonating && (
+        <div className="fixed top-0 left-0 right-0 z-[300] bg-amber-900/90 border-b border-amber-600/50 px-4 py-1.5 text-center">
+          <span className="text-amber-200 text-xs font-medium">
+            🎭 وضع تسجيل دخول مؤقت — أنت تتصرف كمشارك #{myInfo?.number ?? "?"} ({myInfo?.name ?? "..."})
+          </span>
+        </div>
+      )}
 
       {/* Offline indicator */}
       {isOffline && (

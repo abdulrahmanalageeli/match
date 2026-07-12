@@ -1209,7 +1209,7 @@ export default function Admin3Page() {
                         <div className="flex items-center gap-2">
                           {u.phone ? (
                             <a
-                              href={`/welcome?token=${encodeURIComponent(u.token)}&impersonate=1`}
+                              href={`/event3?token=${encodeURIComponent(u.token)}&impersonate=1`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="flex items-center gap-1 text-gray-400 font-mono hover:text-amber-400 transition-colors cursor-pointer"

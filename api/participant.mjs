@@ -1421,11 +1421,12 @@ export default async function handler(req, res) {
         // Check if event3 phase is final_reveal (event finished)
         const { data: e3State } = await supabase
           .from("event_state")
-          .select("phase")
+          .select("phase,current_event_id")
           .eq("match_id", E3_MATCH_ID)
           .single()
 
         const e3Finished = e3State?.phase === "final_reveal"
+        const e3EventId = e3State?.current_event_id || 20
 
         if (e3Finished) {
           // Fetch the participant's event3 matches (including feedback)
@@ -1433,17 +1434,18 @@ export default async function handler(req, res) {
             .from("event3_matches")
             .select("phase2_partner,phase2_score,phase2_word,phase2_feedback,phase3_partner,phase3_score,phase3_word,phase3_feedback,match_preference")
             .eq("match_id", E3_MATCH_ID)
+            .eq("event_id", e3EventId)
             .eq("participant_number", participant.assigned_number)
-            .single()
+            .maybeSingle()
 
           // Fetch partner feedback for mutual match computation
           let p2PartnerFb = null, p3PartnerFb = null
           if (e3Match?.phase2_partner) {
-            const { data: p2Row } = await supabase.from("event3_matches").select("phase2_feedback").eq("match_id", E3_MATCH_ID).eq("participant_number", e3Match.phase2_partner).single()
+            const { data: p2Row } = await supabase.from("event3_matches").select("phase2_feedback").eq("match_id", E3_MATCH_ID).eq("event_id", e3EventId).eq("participant_number", e3Match.phase2_partner).maybeSingle()
             p2PartnerFb = p2Row?.phase2_feedback || null
           }
           if (e3Match?.phase3_partner) {
-            const { data: p3Row } = await supabase.from("event3_matches").select("phase3_feedback").eq("match_id", E3_MATCH_ID).eq("participant_number", e3Match.phase3_partner).single()
+            const { data: p3Row } = await supabase.from("event3_matches").select("phase3_feedback").eq("match_id", E3_MATCH_ID).eq("event_id", e3EventId).eq("participant_number", e3Match.phase3_partner).maybeSingle()
             p3PartnerFb = p3Row?.phase3_feedback || null
           }
 
@@ -1514,7 +1516,7 @@ export default async function handler(req, res) {
                   is_repeat_match: false,
                   mutual_match: mutual2,
                   wants_match: myWant2,
-                  partner_wants_match: null,
+                  partner_wants_match: partnerWant2 ?? null,
                   created_at: null,
                   ai_personality_analysis: null,
                   event_id: 20,
@@ -1539,7 +1541,15 @@ export default async function handler(req, res) {
                     wantConnect: myFb2.wantConnect ?? null,
                     sliderMoved: myFb2.sliderMoved ?? false,
                   } : null,
-                  partner_feedback: null,
+                  partner_feedback: partnerFb2 ? {
+                    conversationQuality: partnerFb2.conversationQuality ?? null,
+                    personalConnection: partnerFb2.personalConnection ?? null,
+                    overallExperience: partnerFb2.overallExperience ?? null,
+                    wantConnect: partnerFb2.wantConnect ?? null,
+                    compatibilityRate: partnerFb2.compatibilityRate ?? null,
+                    sliderMoved: partnerFb2.sliderMoved ?? null,
+                    organizerImpression: partnerFb2.organizerImpression ?? null,
+                  } : null,
                   humor_early_openness_bonus: "none",
                   synergy_score: p2Breakdown?.synergy ?? null,
                   humor_open_score: p2Breakdown?.humorOpen ?? null,
@@ -1573,7 +1583,7 @@ export default async function handler(req, res) {
                   is_repeat_match: false,
                   mutual_match: mutual3,
                   wants_match: myWant3,
-                  partner_wants_match: null,
+                  partner_wants_match: partnerWant3 ?? null,
                   created_at: null,
                   ai_personality_analysis: null,
                   event_id: 20,
@@ -1598,7 +1608,15 @@ export default async function handler(req, res) {
                     wantConnect: myFb3.wantConnect ?? null,
                     sliderMoved: myFb3.sliderMoved ?? false,
                   } : null,
-                  partner_feedback: null,
+                  partner_feedback: partnerFb3 ? {
+                    conversationQuality: partnerFb3.conversationQuality ?? null,
+                    personalConnection: partnerFb3.personalConnection ?? null,
+                    overallExperience: partnerFb3.overallExperience ?? null,
+                    wantConnect: partnerFb3.wantConnect ?? null,
+                    compatibilityRate: partnerFb3.compatibilityRate ?? null,
+                    sliderMoved: partnerFb3.sliderMoved ?? null,
+                    organizerImpression: partnerFb3.organizerImpression ?? null,
+                  } : null,
                   humor_early_openness_bonus: "none",
                   synergy_score: p3Breakdown?.synergy ?? null,
                   humor_open_score: p3Breakdown?.humorOpen ?? null,

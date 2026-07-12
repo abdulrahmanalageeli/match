@@ -1792,27 +1792,27 @@ export default async function handler(req, res) {
 
     if (action === "get-results-visibility") {
       try {
-        console.log(`Getting results visibility for match_id: ${STATIC_MATCH_ID}`)
-        const { data, error } = await supabase
-          .from("event_state")
-          .select("results_visible")
-          .eq("match_id", STATIC_MATCH_ID)
-          .single()
+        console.log(`Getting results visibility for match_id: ${STATIC_MATCH_ID} and event3: ${EVENT3_MATCH_ID}`)
+        // Results should be visible for the main event OR for any event3 (BlindMatch 4.0)
+        // event whose phase is final_reveal or whose results_visible is explicitly true.
+        const [{ data: mainState, error: mainErr }, { data: e3State, error: e3Err }] = await Promise.all([
+          supabase.from("event_state").select("results_visible").eq("match_id", STATIC_MATCH_ID).maybeSingle(),
+          supabase.from("event_state").select("results_visible,phase").eq("match_id", EVENT3_MATCH_ID).maybeSingle()
+        ])
 
-        if (error) {
-          console.error("Error getting results visibility:", error)
-          if (error.code === 'PGRST116') {
-            // No record exists, default to visible
-            return res.status(200).json({ visible: true })
-          }
-          return res.status(500).json({ error: error.message })
-        }
+        if (mainErr) console.error("Error getting main results visibility:", mainErr)
+        if (e3Err) console.error("Error getting event3 results visibility:", e3Err)
 
-        const visible = data?.results_visible !== false
+        const mainVisible = mainState?.results_visible !== false
+        const e3Visible = e3State?.phase === "final_reveal" || e3State?.results_visible === true
+
+        // If no event3 state exists yet, default to main visibility.
+        const visible = e3State ? (mainVisible || e3Visible) : mainVisible
+
         return res.status(200).json({ visible })
       } catch (err) {
         console.error("Error getting results visibility:", err)
-        return res.status(500).json({ error: "Failed to get results visibility" })
+        return res.status(200).json({ visible: true })
       }
     }
 
@@ -6585,6 +6585,13 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           if (!ep || ep.length < 4) return res.status(400).json({ error: "Select at least 4 participants first" })
           const participantNumbers = ep.map(r => r.participant_number)
 
+          // In test mode, skip fresh AI compatibility computation for uncached pairs — this is
+          // the main cause of slow seating generation. Test participants are already selected
+          // for high mutual-cache coverage, so any residual misses just fall back to a neutral
+          // score for ordering purposes (real matching still computes accurately later).
+          const { data: tmState } = await supabase.from("event_state").select("test_mode_active").eq("match_id", EVENT3_MATCH_ID).maybeSingle()
+          const skipFreshCompute = !!tmState?.test_mode_active
+
           // ── Compatibility-based ordering (greedy nearest-neighbor) ──────────────
           let orderedNumbers = participantNumbers
           let usedCompat = false
@@ -6618,6 +6625,10 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
                   if (cached && cached.total_compatibility_score != null) {
                     compatMap[key] = Number(cached.total_compatibility_score) || 0
                     cacheHits++
+                  } else if (skipFreshCompute) {
+                    // Test mode: don't trigger slow AI computation — use neutral score for ordering.
+                    compatMap[key] = 0
+                    cacheMisses++
                   } else {
                     // Cache miss — compute and it will store to DB automatically
                     try {
@@ -8066,30 +8077,88 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             return res.status(400).json({ error: `Need 20 males and 20 females with complete surveys. Found ${males.length}M / ${females.length}F.` })
           }
 
-          // 3. Cache-aware selection: fetch all cached pairs for valid participants,
-          //    score each participant by how many cached pairs they have, and prefer
-          //    those with the highest coverage to avoid recalculating from scratch.
+          // 3. Cache-aware GREEDY CLUSTER selection: pick a group of 20M+20F whose pairs
+          //    are ALREADY cached WITH EACH OTHER, so seating generation (which computes
+          //    fresh compatibility for every uncached pair via AI) stays fast. Ranking by
+          //    each participant's global cache count is not enough — a participant may have
+          //    many cached pairs with people who won't be selected. Instead we grow a cluster
+          //    that maximizes intra-group cache coverage.
           const validNums = valid.map(p => p.assigned_number)
           const { data: allCachedPairs } = await supabase.from("compatibility_cache")
             .select("participant_a_number,participant_b_number")
             .or(`participant_a_number.in.(${validNums.join(",")}),participant_b_number.in.(${validNums.join(",")})`)
           const validSet = new Set(validNums)
-          const cacheCountMap = {} // participant_number -> count of cached pairs with other valid participants
+
+          // Build adjacency of cached pairs among valid participants only.
+          const adj = new Map() // num -> Set(cached neighbor nums)
+          for (const num of validNums) adj.set(num, new Set())
           for (const c of allCachedPairs || []) {
             const a = c.participant_a_number, b = c.participant_b_number
-            if (validSet.has(a) && validSet.has(b)) {
-              cacheCountMap[a] = (cacheCountMap[a] || 0) + 1
-              cacheCountMap[b] = (cacheCountMap[b] || 0) + 1
+            if (validSet.has(a) && validSet.has(b) && a !== b) {
+              adj.get(a).add(b)
+              adj.get(b).add(a)
             }
           }
-          // Sort by cache count descending; tie-break randomly to keep variety between runs
+
           const shuffle = (arr) => { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]] } return arr }
-          const rankedM = shuffle([...males]).sort((a, b) => (cacheCountMap[b.assigned_number] || 0) - (cacheCountMap[a.assigned_number] || 0))
-          const rankedF = shuffle([...females]).sort((a, b) => (cacheCountMap[b.assigned_number] || 0) - (cacheCountMap[a.assigned_number] || 0))
-          const selectedM = rankedM.slice(0, 20)
-          const selectedF = rankedF.slice(0, 20)
-          const selected = [...selectedM, ...selectedF]
-          const selectedNums = selected.map(p => p.assigned_number)
+          const degree = (num) => adj.get(num)?.size || 0
+
+          // Greedily grow a gender-balanced cluster (20M + 20F) that maximizes the number of
+          // cached pairs to the already-selected set. Seed with the highest-degree participant.
+          const needM = 20, needF = 20
+          const maleSet = new Set(males.map(p => p.assigned_number))
+          const femaleSet = new Set(females.map(p => p.assigned_number))
+          const selectedSet = new Set()
+          let countM = 0, countF = 0
+
+          // Candidate pool shuffled for run-to-run variety on ties.
+          const pool = shuffle([...validNums]).filter(n => maleSet.has(n) || femaleSet.has(n))
+
+          // Seed: highest-degree participant overall (respecting we still need both genders).
+          const seed = [...pool].sort((a, b) => degree(b) - degree(a))[0]
+          if (seed != null) {
+            selectedSet.add(seed)
+            if (maleSet.has(seed)) countM++; else countF++
+          }
+
+          const connectionsToSelected = (num) => {
+            let cnt = 0
+            const nbrs = adj.get(num)
+            if (!nbrs) return 0
+            for (const s of selectedSet) if (nbrs.has(s)) cnt++
+            return cnt
+          }
+
+          while (countM < needM || countF < needF) {
+            let best = null, bestConn = -1, bestDeg = -1
+            for (const num of pool) {
+              if (selectedSet.has(num)) continue
+              const isMale = maleSet.has(num)
+              // Respect remaining gender quota
+              if (isMale && countM >= needM) continue
+              if (!isMale && countF >= needF) continue
+              const conn = connectionsToSelected(num)
+              const deg = degree(num)
+              if (conn > bestConn || (conn === bestConn && deg > bestDeg)) {
+                bestConn = conn; bestDeg = deg; best = num
+              }
+            }
+            if (best == null) break // no more candidates for the needed gender
+            selectedSet.add(best)
+            if (maleSet.has(best)) countM++; else countF++
+          }
+
+          // Safety: if for any reason we couldn't fill quotas via the cluster (sparse cache),
+          // top up with remaining participants of the needed gender.
+          if (countM < needM) {
+            for (const p of shuffle([...males])) { if (countM >= needM) break; if (!selectedSet.has(p.assigned_number)) { selectedSet.add(p.assigned_number); countM++ } }
+          }
+          if (countF < needF) {
+            for (const p of shuffle([...females])) { if (countF >= needF) break; if (!selectedSet.has(p.assigned_number)) { selectedSet.add(p.assigned_number); countF++ } }
+          }
+
+          const selectedNums = [...selectedSet]
+          const selected = selectedNums.map(num => valid.find(p => p.assigned_number === num)).filter(Boolean)
 
           // 4. Count how many pairs have cached compatibility among selected
           const cachedSet = new Set()

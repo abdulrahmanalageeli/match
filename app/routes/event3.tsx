@@ -692,7 +692,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
                   />
                 ))}
               </div>
-              {/* Next button */}
+              {/* Next + skip buttons */}
               <motion.button
                 whileTap={{ scale: 0.97 }}
                 onClick={goNext}
@@ -700,6 +700,15 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
               >
                 {step === FLOW_STEPS.length - 1 ? <span className="flex items-center justify-center gap-2">أبدأ رحلتي <Sparkles size={16} /></span> : "التالي ←"}
               </motion.button>
+              {step < FLOW_STEPS.length - 1 && (
+                <button
+                  onClick={onDone}
+                  className="w-full flex items-center justify-center gap-1.5 text-gray-500 hover:text-gray-300 text-xs font-medium transition-colors py-1"
+                >
+                  <X size={12} />
+                  تخطّي الشرح وابدأ
+                </button>
+              )}
             </div>
           </motion.div>
         )}
@@ -891,6 +900,34 @@ function SetupScreen({ token, myInfo, enrolledCount }: { token: string; myInfo: 
   )
 }
 
+// ─── Shared tutorial chrome ───────────────────────────────────────────────────
+// A prominent header banner so participants immediately understand they are looking
+// at a short walkthrough (and not the live event screen), plus a clear skip control.
+function TutorialHeader({ label, total, current, accent = "text-purple-200", border = "border-purple-500/50", bg = "bg-purple-600/25" }: { label: string; total: number; current: number; accent?: string; border?: string; bg?: string }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}
+      className={`absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 ${bg} border ${border} rounded-full px-4 py-1.5 shadow-xl backdrop-blur-sm whitespace-nowrap`}
+    >
+      <Lightbulb size={14} className={accent} />
+      <span className={`${accent} text-[11px] font-black tracking-wide`}>{label}</span>
+      <span className="text-gray-300/70 text-[10px] font-mono tabular-nums">{current}/{total}</span>
+    </motion.div>
+  )
+}
+
+function TutorialSkip({ onClose, label = "تخطّي الشرح" }: { onClose: () => void; label?: string }) {
+  return (
+    <button
+      onClick={onClose}
+      className="w-full flex items-center justify-center gap-1.5 text-gray-500 hover:text-gray-300 text-xs font-medium transition-colors py-1"
+    >
+      <X size={12} />
+      {label}
+    </button>
+  )
+}
+
 // ─── Round Tutorial Overlay ───────────────────────────────────────────────────
 function RoundTutorial({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState(0)
@@ -898,16 +935,23 @@ function RoundTutorial({ onClose }: { onClose: () => void }) {
 
   const steps = [
     {
+      icon: <Lightbulb size={28} className="text-purple-400" />,
+      title: "شرح سريع قبل أن نبدأ",
+      desc: "هذه جولة تعريفية قصيرة تشرح لك شاشة الجولة الجماعية خطوة بخطوة. اضغط «التالي» للتنقل، أو «تخطّي الشرح» في أي وقت للبدء مباشرة.",
+      accent: "from-purple-600/20 to-fuchsia-600/10",
+      ring: "ring-purple-500/30",
+    },
+    {
       icon: <Users size={28} className="text-blue-400" />,
       title: "الجولة الجماعية الأولى",
-      desc: "ستلتقي بمجموعة من المشاركين على طاولتك للتعارف والمحادثة",
+      desc: "ستجلس مع ٤ إلى ٦ مشاركين على طاولة واحدة للتعارف والمحادثة. الهدف أن تتعرف على الجميع بطريقة مريحة ومنظّمة.",
       accent: "from-blue-600/20 to-cyan-600/10",
       ring: "ring-blue-500/30",
     },
     {
       icon: <MapPin size={28} className="text-purple-400" />,
       title: "رقم طاولتك",
-      desc: "هذا هو رقم الطاولة التي يجب أن تذهب إليها — ابحث عنها في المكان",
+      desc: "سيظهر لك رقم الطاولة التي يجب أن تذهب إليها — ابحث عن هذا الرقم في القاعة واجلس هناك.",
       accent: "from-purple-600/20 to-pink-600/10",
       ring: "ring-purple-500/30",
       hint: "ابحث عن الرقم الكبير في المنتصف",
@@ -951,16 +995,11 @@ function RoundTutorial({ onClose }: { onClose: () => void }) {
       className="fixed inset-0 z-[500] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6"
       dir="rtl"
     >
-      {/* Skip button */}
-      <button
-        onClick={onClose}
-        className="absolute top-5 left-5 text-gray-500 hover:text-gray-300 text-xs font-medium transition-colors z-10"
-      >
-        تخطّي
-      </button>
+      {/* Tutorial header banner — makes it obvious this is a walkthrough */}
+      <TutorialHeader label="شرح تعريفي · الجولة الجماعية" total={steps.length} current={step + 1} />
 
       {/* Step indicator dots */}
-      <div className="absolute top-5 right-5 flex items-center gap-1.5 z-10">
+      <div className="absolute top-16 right-5 flex items-center gap-1.5 z-10">
         {steps.map((_, i) => (
           <motion.span
             key={i}
@@ -1030,6 +1069,8 @@ function RoundTutorial({ onClose }: { onClose: () => void }) {
               {step < steps.length - 1 ? 'التالي' : 'ابدأ الجولة'}
             </motion.button>
           </div>
+          {/* Skip link next to the navigation */}
+          {step < steps.length - 1 && <TutorialSkip onClose={onClose} />}
         </div>
       </motion.div>
     </motion.div>
@@ -1042,6 +1083,13 @@ function OneToOneTutorial({ onClose }: { onClose: () => void }) {
   const [dir, setDir] = useState(1)
 
   const steps = [
+    {
+      icon: <Lightbulb size={28} className="text-pink-400" />,
+      title: "شرح سريع قبل أن نبدأ",
+      desc: "هذه جولة تعريفية قصيرة تشرح شاشة الجلسة الفردية (1:1). اضغط «التالي» للتنقل، أو «تخطّي الشرح» للبدء مباشرة.",
+      accent: "from-pink-600/20 to-fuchsia-600/10",
+      ring: "ring-pink-500/30",
+    },
     {
       icon: <Users size={28} className="text-pink-400" />,
       title: "جلستك الفردية الأولى",
@@ -1103,14 +1151,9 @@ function OneToOneTutorial({ onClose }: { onClose: () => void }) {
       className="fixed inset-0 z-[500] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6"
       dir="rtl"
     >
-      <button
-        onClick={onClose}
-        className="absolute top-5 left-5 text-gray-500 hover:text-gray-300 text-xs font-medium transition-colors z-10"
-      >
-        تخطّي
-      </button>
+      <TutorialHeader label="شرح تعريفي · الجلسة الفردية" total={steps.length} current={step + 1} accent="text-pink-200" border="border-pink-500/50" bg="bg-pink-600/25" />
 
-      <div className="absolute top-5 right-5 flex items-center gap-1.5 z-10">
+      <div className="absolute top-16 right-5 flex items-center gap-1.5 z-10">
         {steps.map((_, i) => (
           <motion.span
             key={i}
@@ -1175,6 +1218,7 @@ function OneToOneTutorial({ onClose }: { onClose: () => void }) {
               {step < steps.length - 1 ? 'التالي' : 'ابدأ الجلسة'}
             </motion.button>
           </div>
+          {step < steps.length - 1 && <TutorialSkip onClose={onClose} />}
         </div>
       </motion.div>
     </motion.div>
@@ -1727,8 +1771,8 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
       className="fixed inset-0 z-[500] bg-black/90 backdrop-blur-sm flex flex-col items-center justify-between px-6 pt-14 pb-6"
       dir="rtl"
     >
-      <button onClick={onClose} className="absolute top-5 left-5 text-gray-500 hover:text-gray-300 text-xs font-medium z-10">تخطّي</button>
-      <div className="absolute top-5 right-5 flex items-center gap-1.5 z-10">
+      <TutorialHeader label="شرح تعريفي · الترتيب" total={TOTAL} current={step + 1} accent="text-amber-200" border="border-amber-500/50" bg="bg-amber-600/25" />
+      <div className="absolute top-16 right-5 flex items-center gap-1.5 z-10">
         {Array.from({ length: TOTAL }).map((_, i) => (
           <motion.span key={i}
             animate={{ scale: i === step ? 1.3 : 1, opacity: i === step ? 1 : i < step ? 0.6 : 0.3 }}
@@ -1965,16 +2009,19 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
         </motion.div>
       </AnimatePresence>
 
-      <div className="w-full max-w-sm flex items-center gap-3 mt-4">
-        {step > 0 && (
-          <button onClick={goPrev} className="flex items-center gap-1 text-gray-500 hover:text-gray-300 text-sm px-3 py-3.5 transition-colors">
-            <ChevronRight size={15} /> السابق
-          </button>
-        )}
-        <motion.button whileTap={{ scale: 0.97 }} onClick={goNext}
-          className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 text-black font-black rounded-2xl py-3.5 text-base shadow-2xl shadow-amber-500/30">
-          {step < TOTAL - 1 ? "التالي ←" : "فهمت — ابدأ الترتيب!"}
-        </motion.button>
+      <div className="w-full max-w-sm mt-4 space-y-2">
+        <div className="flex items-center gap-3">
+          {step > 0 && (
+            <button onClick={goPrev} className="flex items-center gap-1 text-gray-500 hover:text-gray-300 text-sm px-3 py-3.5 transition-colors">
+              <ChevronRight size={15} /> السابق
+            </button>
+          )}
+          <motion.button whileTap={{ scale: 0.97 }} onClick={goNext}
+            className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 text-black font-black rounded-2xl py-3.5 text-base shadow-2xl shadow-amber-500/30">
+            {step < TOTAL - 1 ? "التالي ←" : "فهمت — ابدأ الترتيب!"}
+          </motion.button>
+        </div>
+        {step < TOTAL - 1 && <TutorialSkip onClose={onClose} />}
       </div>
     </motion.div>
   )

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import toast, { Toaster } from "react-hot-toast"
+import { useVisibilityPoll } from "~/hooks/useVisibilityPoll"
 import {
   Users, Play, Square, ChevronRight, RotateCcw, CheckCircle,
   Circle, RefreshCw, Table2, Trophy, Clock, BarChart3, Shuffle,
@@ -243,7 +244,6 @@ export default function Admin3Page() {
   const [feedbackLoading, setFeedbackLoading] = useState(false)
   const [feedbackPolling, setFeedbackPolling] = useState(false)
   const [feedbackPhase, setFeedbackPhase] = useState<"phase2" | "phase3">("phase2")
-  const feedbackIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [editingFeedback, setEditingFeedback] = useState<any>(null)
   const [analyzingPair, setAnalyzingPair] = useState<{ entry: any; phase: string } | null>(null)
   const [pairAnalysisResult, setPairAnalysisResult] = useState<{
@@ -621,6 +621,7 @@ export default function Admin3Page() {
     }
   }, [testModeData])
 
+  // Initial load on auth
   useEffect(() => {
     if (!authenticated) return
     fetchState()
@@ -629,13 +630,11 @@ export default function Admin3Page() {
     fetchSOS()
     fetchEventList()
     checkTestMode()
-    const stateIv = setInterval(fetchState, 3000)
-    const sosIv = setInterval(fetchSOS, 5000)
-    return () => {
-      clearInterval(stateIv)
-      clearInterval(sosIv)
-    }
   }, [authenticated, fetchState, fetchParticipants, fetchSeating, fetchSOS, fetchEventList, checkTestMode])
+
+  // Visibility-aware polling for state (3s) and SOS (5s)
+  useVisibilityPoll(fetchState, 3000, authenticated)
+  useVisibilityPoll(fetchSOS, 5000, authenticated)
 
   useEffect(() => {
     if (authenticated && activeTab === "seating") { fetchSeating(); fetchRankStatus() }
@@ -647,22 +646,11 @@ export default function Admin3Page() {
     if (authenticated && activeTab === "control") { fetchExclusions(); fetchSeating() }
   }, [activeTab, authenticated, fetchSeating, fetchRankStatus, fetchParticipants, fetchMatches, fetchOverview, fetchFeedback, fetchMoodChecks, fetchNotifications, fetchAttendance, fetchExclusions])
 
-  // Feedback polling
-  useEffect(() => {
-    if (!feedbackPolling || activeTab !== "feedback") {
-      if (feedbackIntervalRef.current) { clearInterval(feedbackIntervalRef.current); feedbackIntervalRef.current = null }
-      return
-    }
-    feedbackIntervalRef.current = setInterval(fetchFeedback, 5000)
-    return () => { if (feedbackIntervalRef.current) { clearInterval(feedbackIntervalRef.current); feedbackIntervalRef.current = null } }
-  }, [feedbackPolling, activeTab, fetchFeedback])
+  // Feedback polling (visibility-aware)
+  useVisibilityPoll(fetchFeedback, 5000, feedbackPolling && activeTab === "feedback")
 
-  // Attendance polling (auto-refresh when participants join)
-  useEffect(() => {
-    if (activeTab !== "attendance") return
-    const iv = setInterval(fetchAttendance, 10000)
-    return () => clearInterval(iv)
-  }, [activeTab, fetchAttendance])
+  // Attendance polling (visibility-aware)
+  useVisibilityPoll(fetchAttendance, 10000, activeTab === "attendance" && authenticated)
 
   // Timer countdown
   useEffect(() => {

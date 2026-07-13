@@ -3030,10 +3030,16 @@ Please respond in JSON format:
       if (action === "e3-get-phase2-reveal") {
         const { data: matchRow } = await supabase.from("event3_matches").select("phase2_partner,phase2_word,phase2_score").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber).maybeSingle()
         if (!matchRow || !matchRow.phase2_partner) return res.status(404).json({ error: "No Phase 2 match found yet" })
-        const [{ data: partner }, { data: tableRow }] = await Promise.all([
+        const [{ data: partner }, { data: tableRow }, { data: myRankings }, { data: partnerRankedMe }] = await Promise.all([
           supabase.from("participants").select("assigned_number,name,survey_data,mbti_personality_type,age").eq("match_id", MAIN_MATCH).eq("assigned_number", matchRow.phase2_partner).single(),
           supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("round", 20).eq("participant_id", myNumber).maybeSingle(),
+          supabase.from("participant_rankings").select("ranked_number").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("ranker_number", myNumber),
+          supabase.from("participant_rankings").select("ranker_number").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("ranker_number", matchRow.phase2_partner).eq("ranked_number", myNumber).maybeSingle(),
         ])
+        const myRankedNumbers = new Set((myRankings || []).map(r => r.ranked_number))
+        const iRankedPartner = myRankedNumbers.has(matchRow.phase2_partner)
+        const partnerRankedMeBack = !!partnerRankedMe
+        const isBackup = !iRankedPartner && !partnerRankedMeBack
         const sd = typeof partner?.survey_data === "string" ? JSON.parse(partner.survey_data || "{}") : (partner?.survey_data || {})
         const getF = (p, k) => { try { const s = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); return s?.answers?.[k] ?? s?.[k] ?? p?.[k] ?? "" } catch { return "" } }
         const partnerMbti = (getF(partner, "mbti_type") || partner?.mbti_personality_type || "").toUpperCase()
@@ -3071,7 +3077,7 @@ Please respond in JSON format:
             total: Math.round(parseFloat(cacheRow.total_compatibility_score)),
           }
         }
-        return res.status(200).json({ partner_number: matchRow.phase2_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), table_number: tableRow?.table_number ?? null, word_submitted: !!matchRow.phase2_word, my_word: matchRow.phase2_word || null, compatibility_score: breakdown?.total ?? phase2Score, partner_mbti: partnerMbti, partner_attachment: partnerAttachment, partner_communication: partnerCommunication, partner_age: partnerAge, breakdown })
+        return res.status(200).json({ partner_number: matchRow.phase2_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), table_number: tableRow?.table_number ?? null, word_submitted: !!matchRow.phase2_word, my_word: matchRow.phase2_word || null, compatibility_score: breakdown?.total ?? phase2Score, partner_mbti: partnerMbti, partner_attachment: partnerAttachment, partner_communication: partnerCommunication, partner_age: partnerAge, breakdown, is_backup: isBackup, mutual_choice: iRankedPartner && partnerRankedMeBack })
       }
 
       // e3-submit-phase2-word

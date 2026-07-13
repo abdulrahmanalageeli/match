@@ -3050,13 +3050,32 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                   <div className="relative z-10 px-6 pt-5 pb-6 text-center">
                     <div className="inline-flex items-center gap-1.5 bg-pink-900/50 border border-pink-700/40 rounded-full px-3 py-1 mb-4">
                       <Users size={10} className="text-pink-400" />
-                      <span className="text-pink-300 text-[11px] font-semibold tracking-wide">جلسة فردية · اختيارك الشخصي</span>
+                      <span className="text-pink-300 text-[11px] font-semibold tracking-wide">{data?.is_backup ? "جلسة احتياطي · إقتراح المنظم" : "جلسة فردية · اختيارك الشخصي"}</span>
                     </div>
                     <p className="text-5xl font-black text-white mb-2 tracking-tight" style={{ textShadow: '0 2px 20px rgba(236,72,153,0.3)' }}>{data?.partner_first_name || "..."}</p>
-                    <p className="text-pink-400/50 text-xs mt-1">شريكك في جلسة الاختيار الشخصي</p>
+                    <p className="text-pink-400/50 text-xs mt-1">{data?.is_backup ? "شريكك في جلسة احتياطية" : "شريكك في جلسة الاختيار الشخصي"}</p>
                   </div>
                 </div>
               </motion.div>
+
+              {/* Backup pairing explanation banner */}
+              {data?.is_backup && (
+                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+                  className="relative overflow-hidden rounded-2xl border border-amber-600/40 bg-gradient-to-br from-amber-950/50 via-orange-950/30 to-amber-950/40 p-4 shadow-lg shadow-amber-900/20">
+                  <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
+                  <div className="flex items-start gap-3">
+                    <div className="shrink-0 w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center">
+                      <Info size={16} className="text-amber-400" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <p className="text-amber-300 text-sm font-bold">جلسة احتياطية</p>
+                      <p className="text-amber-100/70 text-xs leading-relaxed">
+                        لم تختار هذا الشخص ولم يختارك في التصنيف — قد لا تكون قد جلست معه في جولات التعارف. هذا الاقتران جاء كحل احتياطي لضمان حصول الجميع على جلسة. استغل هذه الفرصة للتعرف على شخص جديد!
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
 
               {/* Partner info card */}
               {data && <PartnerInfoCard data={data} accent="pink" />}
@@ -3139,7 +3158,10 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-pink-900/20 border border-pink-800/30">
                 <span className="text-gray-500 text-xs">شريكك</span>
                 <span className="text-pink-300 font-bold">{data?.partner_first_name}</span>
-                {data?.table_number && <span className="text-amber-400 text-xs font-medium">طاولة {data.table_number}</span>}
+                <div className="flex items-center gap-2">
+                  {data?.is_backup && <span className="text-amber-400 text-[10px] font-medium bg-amber-500/10 border border-amber-600/30 rounded-full px-2 py-0.5">احتياطي</span>}
+                  {data?.table_number && <span className="text-amber-400 text-xs font-medium">طاولة {data.table_number}</span>}
+                </div>
               </div>
               {/* Live timer strip */}
               {timerActive && timeLeft > 0 && (

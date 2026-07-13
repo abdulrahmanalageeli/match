@@ -13,7 +13,7 @@ const STATIC_MATCH_ID = "00000000-0000-0000-0000-000000000000"
 
 // ── Event 4.0 constants & helpers ─────────────────────────────────────────────
 const EVENT3_MATCH_ID = "00000000-0000-0000-0000-000000000003"
-const EVENT3_PASSWORD = "soulmatch2026"
+const EVENT3_PASSWORD = process.env.EVENT3_PASSWORD || "soulmatch2026"
 const E3_LATIN_SQUARE = [[0,1,2,3,4,5],[2,3,4,5,0,1],[4,5,0,1,2,3],[1,0,3,2,5,4],[3,2,5,4,1,0],[5,4,1,0,3,2]]
 
 function e3GenerateSeatingPlan(participantNumbers, genderMap = {}, lockedPairsSet = new Set()) {

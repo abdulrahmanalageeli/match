@@ -6303,6 +6303,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
 
     // ── Event 4.0 admin actions (password required in body) ─────────────────────
     if (action && action.startsWith("e3-")) {
+      console.log(`[E3 AUTH] action=${action}, body.password=${req.body?.password ? `[${req.body.password.length} chars]` : 'MISSING'}, env.EVENT3_PASSWORD=${EVENT3_PASSWORD ? `[${EVENT3_PASSWORD.length} chars]` : 'UNDEFINED'}, match=${req.body?.password === EVENT3_PASSWORD}`)
       if (req.body?.password !== EVENT3_PASSWORD) return res.status(403).json({ error: "Unauthorized" })
       try {
         // Helper: fetch current event_id from event_state for EVENT3_MATCH_ID

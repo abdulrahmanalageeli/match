@@ -3268,13 +3268,14 @@ Proceed?`
     }
   }
   
-  // Delta Pre-Cache Function - Smart incremental caching (only updated participants)
+  // Delta Pre-Cache Function - Smart incremental caching (only updated participants) - BATCHED
   const deltaCacheMatches = async () => {
     const confirmMessage = `🔄 Smart Delta Pre-Cache for Event ${currentEventId}?
 
 This will:
 • Detect participants who updated surveys since last cache
 • Only cache pairs involving updated participants
+• Process in batches to avoid timeouts
 • Reuse existing cache for unchanged participants
 • Save time and API costs!
 
@@ -3284,55 +3285,88 @@ Proceed?`
     
     setDeltaCaching(true)
     try {
-      const res = await fetch("/api/admin/trigger-match", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          action: "delta-pre-cache",
-          eventId: currentEventId,
-          skipAI: false
-        }),
-      })
-      
-      const data = await res.json()
-      
-      if (res.ok && data.success) {
-        let successMessage = `✅ Delta Cache Complete!`
-        
-        if (data.participants_needing_cache === 0) {
-          successMessage = `✅ Cache is FRESH!\n\nNo participants have updated their surveys since last cache.\n\n📊 Stats:\n• Total eligible: ${data.total_eligible}\n• Last cache: ${new Date(data.last_cache_timestamp).toLocaleString()}`
-        } else {
-          successMessage += `\n\n📊 Smart Caching Results:`
-          successMessage += `\n• Updated participants: ${data.participants_needing_cache}`
-          successMessage += `\n• New pairs cached: ${data.cached_count}`
-          
-          if (data.already_cached > 0) {
-            successMessage += `\n• Reused cached: ${data.already_cached}`
+      let resumeCursor: { i: number; j: number } | null = null
+      let totalNewlyCached = 0
+      let totalAlreadyCached = 0
+      let totalSkipped = 0
+      let totalErrors = 0
+      let totalPairsProcessed = 0
+      let totalAiCalls = 0
+      let participantsNeedingCache = 0
+      let totalEligible = 0
+      let lastCacheTimestamp: string | null = null
+      let isFresh = false
+      let batchNum = 0
+
+      while (true) {
+        batchNum++
+        const res: Response = await fetch("/api/admin/trigger-match", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "delta-pre-cache-batched",
+            eventId: currentEventId,
+            skipAI: false,
+            resumeCursor,
+            maxDurationMs: 8000,
+            maxNewCachesPerRequest: 2,
+            maxPairsPerRequest: 250,
+          }),
+        })
+
+        const data: any = await res.json()
+
+        if (!res.ok || !data.success) {
+          if (data.error && data.error.includes('No cache metadata')) {
+            toast.error(`❌ Delta Cache Not Available\n\n${data.message || data.error}\n\n💡 Tip: Use the Pre-Cache button first to establish a baseline cache.`, { duration: 8000 })
+          } else {
+            toast.error(`Failed to delta cache: ${data.error || 'Unknown error'}`)
           }
-          
-          if (data.skipped > 0) {
-            successMessage += `\n• Skipped (incompatible): ${data.skipped}`
-          }
-          
-          successMessage += `\n• Pairs checked: ${data.pairs_checked}`
-          successMessage += `\n• AI calls made: ${data.ai_calls_made}`
-          successMessage += `\n\n⏱️ Time: ${data.duration_seconds}s`
-          
-          const efficiency = data.pairs_checked > 0 ? ((1 - (data.pairs_checked / (data.total_eligible * (data.total_eligible - 1) / 2))) * 100).toFixed(0) : 0
-          successMessage += `\n💰 Efficiency: ${efficiency}% reduction vs full cache`
+          return
         }
-        
-        toast.success(successMessage, { duration: 8000 })
-        // Refresh delta cache count
-        fetchParticipants()
-      } else {
-        // Check if error is about missing cache metadata
-        if (data.error && data.error.includes('No cache metadata')) {
-          toast.error(`❌ Delta Cache Not Available\n\n${data.message || data.error}\n\n💡 Tip: Use the Pre-Cache button first to establish a baseline cache.`, { duration: 8000 })
-        } else {
-          toast.error(`Failed to delta cache: ${data.error || 'Unknown error'}`)
+
+        totalNewlyCached += data.cached_count || 0
+        totalAlreadyCached += data.already_cached || 0
+        totalSkipped += data.skipped || 0
+        totalErrors += data.errors || 0
+        totalPairsProcessed += data.pairs_processed || 0
+        totalAiCalls += data.ai_calls_made || 0
+        participantsNeedingCache = data.participants_needing_cache || 0
+        totalEligible = data.total_eligible || 0
+        lastCacheTimestamp = data.last_cache_timestamp || null
+
+        if (participantsNeedingCache === 0) {
+          isFresh = true
+          break
         }
+
+        if (!data.progress?.has_more) break
+
+        resumeCursor = data.progress.resume_cursor
+        if (!resumeCursor) break
+
+        await new Promise(r => setTimeout(r, 100))
       }
+
+      if (isFresh) {
+        toast.success(`✅ Cache is FRESH!\n\nNo participants have updated their surveys since last cache.\n\n📊 Stats:\n• Total eligible: ${totalEligible}\n• Last cache: ${lastCacheTimestamp ? new Date(lastCacheTimestamp).toLocaleString() : 'N/A'}`, { duration: 8000 })
+      } else {
+        let successMessage = `✅ Delta Cache Complete!`
+        successMessage += `\n\n📊 Smart Caching Results:`
+        successMessage += `\n• Updated participants: ${participantsNeedingCache}`
+        successMessage += `\n• New pairs cached: ${totalNewlyCached}`
+        if (totalAlreadyCached > 0) successMessage += `\n• Reused cached: ${totalAlreadyCached}`
+        if (totalSkipped > 0) successMessage += `\n• Skipped (incompatible): ${totalSkipped}`
+        if (totalErrors > 0) successMessage += `\n• Errors: ${totalErrors}`
+        successMessage += `\n• Pairs checked: ${totalPairsProcessed}`
+        successMessage += `\n• AI calls made: ${totalAiCalls}`
+        successMessage += `\n• Batches: ${batchNum}`
+        const efficiency = totalPairsProcessed > 0 ? ((1 - (totalPairsProcessed / (totalEligible * (totalEligible - 1) / 2))) * 100).toFixed(0) : 0
+        successMessage += `\n💰 Efficiency: ${efficiency}% reduction vs full cache`
+        toast.success(successMessage, { duration: 8000 })
+      }
+
+      fetchParticipants()
     } catch (error) {
       console.error("Error delta caching:", error)
       toast.error("Error running delta pre-cache")

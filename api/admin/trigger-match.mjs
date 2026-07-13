@@ -4098,6 +4098,254 @@ if (action === "cache-status-by-gender") {
     }
   }
 
+  // -------------------------------------------------------------------------
+  // BATCHED DELTA PRE-CACHE
+  // -------------------------------------------------------------------------
+  // Same logic as delta-pre-cache (only pairs involving updated participants)
+  // but processed in batches with resumeCursor to avoid Vercel timeouts.
+  // Frontend drives sequential calls until has_more=false.
+  // -------------------------------------------------------------------------
+  if (action === "delta-pre-cache-batched") {
+    if (!eventId) {
+      return res.status(400).json({ error: "eventId is required" })
+    }
+
+    const {
+      batchSize = 5,
+      resumeCursor = null,
+      maxPairsPerRequest = null,
+      maxNewCachesPerRequest = null,
+      maxDurationMs = null,
+      finalizeDeltaCacheMetadata = true,
+    } = req.body || {}
+
+    const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
+    const startTime = Date.now()
+
+    try {
+      // Step 1: Get last cache timestamp
+      const { data: lastTimestamp, error: timestampError } = await supabase
+        .rpc('get_last_precache_timestamp', { p_event_id: eventId })
+
+      if (timestampError) {
+        console.error("Error getting last cache timestamp:", timestampError)
+      }
+
+      const lastCacheTimestamp = lastTimestamp || '1970-01-01T00:00:00Z'
+      const noCacheMetadata = !lastTimestamp || lastCacheTimestamp === '1970-01-01T00:00:00Z'
+
+      if (noCacheMetadata) {
+        return res.status(400).json({
+          error: 'No cache metadata found. Please run Pre-Cache first before using Delta Cache.',
+          message: 'Delta cache requires a baseline cache. Use Pre-Cache for first-time caching.',
+          lastCacheTimestamp: null,
+          hint: 'Click the Pre-Cache button to cache all eligible pairs first'
+        })
+      }
+
+      // Step 2: Fetch all eligible participants
+      const { data: allParticipants, error } = await supabase
+        .from("participants")
+        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event, survey_data_updated_at, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
+        .eq("match_id", match_id)
+        .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
+        .neq("assigned_number", 9999)
+
+      if (error) throw error
+
+      const allEligibleParticipants = (allParticipants || [])
+        .filter(p => isParticipantComplete(p))
+        .sort((a, b) => a.assigned_number - b.assigned_number)
+
+      const totalParticipants = allEligibleParticipants.length
+
+      if (totalParticipants < 2) {
+        return res.status(400).json({ error: `Need at least 2 participants. Found ${totalParticipants}` })
+      }
+
+      // Step 3: Identify participants who need recaching
+      const updatedNumbers = new Set()
+      const participantsNeedingCache = allEligibleParticipants.filter(p => {
+        if (!p.survey_data_updated_at) return false
+        const needsUpdate = new Date(p.survey_data_updated_at) > new Date(lastCacheTimestamp)
+        if (needsUpdate) updatedNumbers.add(p.assigned_number)
+        return needsUpdate
+      })
+
+      if (participantsNeedingCache.length === 0) {
+        return res.status(200).json({
+          success: true,
+          cached_count: 0,
+          already_cached: 0,
+          skipped: 0,
+          participants_needing_cache: 0,
+          total_eligible: totalParticipants,
+          last_cache_timestamp: lastCacheTimestamp,
+          message: 'Cache is fresh - no participants updated their surveys.',
+          progress: { has_more: false, participants_total: totalParticipants },
+        })
+      }
+
+      // Step 4: On first call (no resumeCursor), delete old cache entries for updated participants
+      const isValidCursor = (c) => c && Number.isInteger(c.i) && Number.isInteger(c.j)
+      const isFirstCall = !isValidCursor(resumeCursor)
+
+      if (isFirstCall) {
+        const updatedParticipantNumbers = participantsNeedingCache.map(p => p.assigned_number)
+        try {
+          const { data: deletedEntries } = await supabase
+            .from('compatibility_cache')
+            .delete()
+            .or(updatedParticipantNumbers.map(num => `participant_a_number.eq.${num},participant_b_number.eq.${num}`).join(','))
+            .or('model_used.is.null,model_used.neq.gpt-5.4-mini')
+            .select()
+
+          console.log(`🗑️ Delta batched: Deleted ${deletedEntries?.length || 0} old cache entries for updated participants`)
+        } catch (deleteErr) {
+          console.error('⚠️ Error deleting old cache entries:', deleteErr)
+        }
+      }
+
+      // Step 5: Batch processing with resumeCursor
+      const safeSize = Math.max(1, Math.min(parseInt(batchSize) || 5, 50))
+      const effectiveMaxDurationMs = Math.max(1000, Math.min(parseInt(maxDurationMs) || 8000, 9000))
+      const effectiveMaxNewCaches = Math.max(1, Math.min(parseInt(maxNewCachesPerRequest) || (skipAI ? 25 : 2), skipAI ? 500 : 25))
+      const effectiveMaxPairs = Math.max(25, Math.min(parseInt(maxPairsPerRequest) || (skipAI ? 1500 : 250), 20000))
+
+      let newlyCached = 0
+      let alreadyCached = 0
+      let skipped = 0
+      let errors = 0
+      let pairsProcessed = 0
+      let aiCallsMade = 0
+
+      let cursorI = isValidCursor(resumeCursor) ? resumeCursor.i : 0
+      let cursorJ = isValidCursor(resumeCursor) ? resumeCursor.j : (cursorI + 1)
+
+      if (cursorI < 0) cursorI = 0
+      if (cursorI > totalParticipants) cursorI = totalParticipants
+
+      let nextResumeCursor = null
+
+      const makeNextCursor = (i, j) => {
+        const nextJ = j + 1
+        if (nextJ < totalParticipants) return { i, j: nextJ }
+        const nextI = i + 1
+        return { i: nextI, j: nextI + 1 }
+      }
+
+      outerLoop:
+      for (let i = cursorI; i < totalParticipants; i++) {
+        const jStart = (i === cursorI) ? Math.max(cursorJ, i + 1) : (i + 1)
+        for (let j = jStart; j < totalParticipants; j++) {
+          const p1 = allEligibleParticipants[i]
+          const p2 = allEligibleParticipants[j]
+
+          // Delta filter: only process pairs where at least one participant was updated
+          if (!updatedNumbers.has(p1.assigned_number) && !updatedNumbers.has(p2.assigned_number)) {
+            continue
+          }
+
+          pairsProcessed++
+
+          if (pairsProcessed >= effectiveMaxPairs || (Date.now() - startTime) >= effectiveMaxDurationMs) {
+            nextResumeCursor = { i, j }
+            break outerLoop
+          }
+
+          // Gender check
+          if (!checkGenderCompatibility(p1, p2)) { skipped++; continue }
+          // Other hard gates
+          if (!checkNationalityHardGate(p1, p2)) { skipped++; continue }
+          if (!checkAgeRangeHardGate(p1, p2)) { skipped++; continue }
+          if (!checkAgeCompatibility(p1, p2)) { skipped++; continue }
+
+          try {
+            const cached = await getCachedCompatibility(p1, p2)
+            if (cached) {
+              alreadyCached++
+              continue
+            }
+
+            await calculateFullCompatibilityWithCache(p1, p2, !!skipAI, false)
+            newlyCached++
+            if (!skipAI) aiCallsMade++
+
+            // Update the cache entry with participant timestamps
+            const [smaller, larger] = [p1.assigned_number, p2.assigned_number].sort((a, b) => a - b)
+            const cacheKey = generateCacheKey(p1, p2)
+            await supabase
+              .from('compatibility_cache')
+              .update({
+                participant_a_cached_at: p1.survey_data_updated_at || new Date().toISOString(),
+                participant_b_cached_at: p2.survey_data_updated_at || new Date().toISOString()
+              })
+              .eq('participant_a_number', smaller)
+              .eq('participant_b_number', larger)
+              .eq('combined_content_hash', cacheKey.combinedHash)
+
+            if (newlyCached >= effectiveMaxNewCaches || (Date.now() - startTime) >= effectiveMaxDurationMs) {
+              nextResumeCursor = makeNextCursor(i, j)
+              break outerLoop
+            }
+          } catch (err) {
+            console.error(`   ❌ Delta batched cache error #${p1.assigned_number}×#${p2.assigned_number}:`, err?.message)
+            errors++
+            if ((Date.now() - startTime) >= effectiveMaxDurationMs) {
+              nextResumeCursor = makeNextCursor(i, j)
+              break outerLoop
+            }
+          }
+        }
+      }
+
+      const hasMore = !!nextResumeCursor
+      const durationMs = Date.now() - startTime
+
+      console.log(`💾 DELTA BATCH CACHE: processed=${pairsProcessed}, newly=${newlyCached}, already=${alreadyCached}, skipped=${skipped}, errors=${errors}, hasMore=${hasMore}`)
+
+      // Only update cache_metadata when the entire delta run is complete
+      if (!hasMore && finalizeDeltaCacheMetadata) {
+        try {
+          await supabase.rpc('record_cache_session', {
+            p_event_id: eventId,
+            p_participants_cached: participantsNeedingCache.length,
+            p_pairs_cached: newlyCached,
+            p_duration_ms: durationMs,
+            p_ai_calls: aiCallsMade,
+            p_cache_hit_rate: pairsProcessed > 0 ? parseFloat(((alreadyCached / pairsProcessed) * 100).toFixed(2)) : 0,
+            p_notes: `Delta batched cache: ${participantsNeedingCache.length} participants updated since ${lastCacheTimestamp}`
+          })
+          console.log(`✅ Delta batched cache completed: cache_metadata updated`)
+        } catch (metaError) {
+          console.error('⚠️ Failed to update cache_metadata for delta batched cache (non-fatal):', metaError)
+        }
+      }
+
+      return res.status(200).json({
+        success: true,
+        cached_count: newlyCached,
+        already_cached: alreadyCached,
+        skipped,
+        errors,
+        participants_needing_cache: participantsNeedingCache.length,
+        total_eligible: totalParticipants,
+        pairs_processed: pairsProcessed,
+        ai_calls_made: aiCallsMade,
+        last_cache_timestamp: lastCacheTimestamp,
+        duration_ms: durationMs,
+        progress: {
+          has_more: hasMore,
+          resume_cursor: nextResumeCursor,
+          participants_total: totalParticipants,
+        },
+      })
+    } catch (err) {
+      console.error("❌ Delta pre-cache batched error:", err)
+      return res.status(500).json({ error: err.message || String(err) })
+    }
+  }
+
   // ── recalc-vibe: Fix fallback (≈10) vibe scores for eligible participants ────
   if (action === "recalc-vibe") {
     const _match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"

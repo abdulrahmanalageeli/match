@@ -3247,7 +3247,7 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   }, [token])
 
   const { data, loading, error, retry } = useApiPoll(fetchReveal, {
-    interval: 2000,
+    interval: 5000,
     stopWhen: (d) => d.table_number != null
   })
 

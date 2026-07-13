@@ -7,7 +7,8 @@ import {
   Grid3x3, Star, Check, AlertCircle, AlertTriangle, Loader2, Copy, Heart, Layers, ChevronDown, X, XCircle, MessageSquare, Send, Home, Trash2, GripVertical, Search, Crown, Medal, Coffee, Ban, ArrowLeft, Bell, Calendar, Download, FlaskConical, Phone, Pencil, Save,
 } from "lucide-react"
 
-const ADMIN_PASSWORD = "soulmatch2026"
+let _adminPassword = ""
+function setAdminPassword(p: string) { _adminPassword = p }
 const API = "/api/admin"
 
 const PHASES = [
@@ -23,7 +24,7 @@ const PHASES = [
 ]
 
 function api(action: string, extra: Record<string, any> = {}) {
-  const body: Record<string, any> = { action, password: ADMIN_PASSWORD, ...extra }
+  const body: Record<string, any> = { action, password: _adminPassword, ...extra }
   if (_previewEventId != null && !('preview_event_id' in body) && action.startsWith('e3-') && action !== 'e3-set-current-event' && action !== 'e3-get-current-event' && action !== 'e3-get-event-list') {
     body.preview_event_id = _previewEventId
   }
@@ -300,21 +301,38 @@ export default function Admin3Page() {
   const [initiateSending, setInitiateSending] = useState(false)
 
   useEffect(() => {
-    if (localStorage.getItem("admin3") === "authenticated") {
-      setAuthenticated(true)
+    const stored = sessionStorage.getItem("admin3_pw")
+    if (stored) {
+      setAdminPassword(stored)
+      if (localStorage.getItem("admin3") === "authenticated") {
+        setAuthenticated(true)
+      }
     }
   }, [])
 
-  const login = () => {
-    if (password === ADMIN_PASSWORD) {
-      localStorage.setItem("admin3", "authenticated")
-      setAuthenticated(true)
-    } else {
-      toast.error("كلمة المرور غير صحيحة")
+  const login = async () => {
+    try {
+      const r = await fetch(API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "e3-get-current-event", password }),
+      }).then(r => r.json())
+      if (r.error) {
+        toast.error("كلمة المرور غير صحيحة")
+      } else {
+        setAdminPassword(password)
+        sessionStorage.setItem("admin3_pw", password)
+        localStorage.setItem("admin3", "authenticated")
+        setAuthenticated(true)
+      }
+    } catch {
+      toast.error("تعذر الاتصال بالخادم")
     }
   }
 
   const logout = () => {
+    setAdminPassword("")
+    sessionStorage.removeItem("admin3_pw")
     localStorage.removeItem("admin3")
     setAuthenticated(false)
     setPassword("")
@@ -798,6 +816,8 @@ export default function Admin3Page() {
     if (ph === "ranking1") return { label: "⬅ بدء الجولة الثانية (25 دقيقة)", action: () => setPhaseWithTimer("round2", 1500, 2), ready: true }
     if (ph === "round2") return { label: "⬅ التصنيف النهائي (3 دقائق)", action: () => setPhaseWithTimer("ranking2", 180, 0), ready: true }
     if (ph === "ranking2" && !hasMatches) return { label: "⬅ تشغيل مطابقة اختيار المشاركين", action: () => setPhaseStopTimer("phase2_processing").then(() => run("phase2", () => api("e3-trigger-phase2-matching").then(d => { fetchMatches(); fetchState(); return d }))), ready: ranked > 0 }
+    if (ph === "phase2_processing" && hasMatches) return { label: "⬅ استراحة (10 دقائق)", action: () => setPhaseWithTimer("break", 600, 3), ready: true }
+    if (ph === "phase2_processing") return { label: "⏳ جاري المطابقة...", action: () => {}, ready: false }
     if (ph === "ranking2" && hasMatches) return { label: "⬅ استراحة (10 دقائق)", action: () => setPhaseWithTimer("break", 600, 3), ready: true }
     if (ph === "break") return { label: "⬅ بدء كشف المرحلة 2 (20 دقيقة)", action: () => setPhaseWithTimer("phase2_reveal", 1200, 4), ready: true }
     if (ph === "phase2_reveal" && !state.phase3_matches_done) return { label: "⬅ تشغيل مطابقة الخوارزمية", action: () => { if (previewEventId != null) { toast.error("لا يمكن تشغيل المطابقة في وضع المعاينة"); return } run("phase3", () => api("e3-trigger-phase3-matching").then(d => { fetchState(); return d })) }, ready: ranked > 0 }
@@ -821,7 +841,7 @@ export default function Admin3Page() {
   }) }
 
   const triggerPhase2 = () => { if (previewEventId != null) { toast.error("لا يمكن تشغيل المطابقة في وضع المعاينة"); return } setPhaseStopTimer("phase2_processing").then(() => run("phase2", () => api("e3-trigger-phase2-matching").then(d => { fetchMatches(); fetchState(); return d }))) }
-  const triggerPhase3 = () => { if (previewEventId != null) { toast.error("لا يمكن تشغيل المطابقة في وضع المعاينة"); return } run("phase3", () => api("e3-trigger-phase3-matching")) }
+  const triggerPhase3 = () => { if (previewEventId != null) { toast.error("لا يمكن تشغيل المطابقة في وضع المعاينة"); return } const tid = toast.loading("جاري حساب توافق المشاركين..."); run("phase3", async () => { const d = await api("e3-trigger-phase3-matching"); toast.dismiss(tid); return d }) }
 
   const togglePhase2Exclusion = (num: number) => {
     if (previewEventId != null) { toast.error("لا يمكن تعديل الاستبعادات في وضع المعاينة"); return }

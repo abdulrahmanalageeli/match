@@ -6825,6 +6825,9 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const exclusions = new Set((exRows || []).map(e => { const [a, b] = [e.participant_a_number, e.participant_b_number].sort((x, y) => x - y); return `${a}-${b}` }))
           if (exclusions.size > 0) console.log(`Phase 2: ${exclusions.size} conflict-of-interest exclusions loaded`)
           const matches = e3GreedyMutualMatching(rankings, participantMap, exclusions)
+          // Fetch existing phase3 data before deleting to preserve it
+          const { data: existingRows } = await supabase.from("event3_matches").select("participant_number,phase3_partner,phase3_score,phase3_word,phase2_word,phase2_feedback,phase3_feedback,match_preference").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          const existingMap = new Map((existingRows || []).map(r => [r.participant_number, r]))
           await supabase.from("event3_matches").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           const rows = []
           const seen = new Set()
@@ -6843,8 +6846,10 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               } catch (e) { console.error(`Phase 2 compat error for #${p}×#${partner}:`, e.message) }
             }
             pairs.push({ a: p, b: partner, score })
-            rows.push({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, participant_number: p, phase2_partner: partner, phase2_score: score })
-            rows.push({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, participant_number: partner, phase2_partner: p, phase2_score: score })
+            const exP = existingMap.get(p) || {}
+            const exPartner = existingMap.get(partner) || {}
+            rows.push({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, participant_number: p, phase2_partner: partner, phase2_score: score, phase3_partner: exP.phase3_partner || null, phase3_score: exP.phase3_score || null, phase3_word: exP.phase3_word || null, phase2_word: exP.phase2_word || null, phase2_feedback: exP.phase2_feedback || null, phase3_feedback: exP.phase3_feedback || null, match_preference: exP.match_preference || null })
+            rows.push({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, participant_number: partner, phase2_partner: p, phase2_score: score, phase3_partner: exPartner.phase3_partner || null, phase3_score: exPartner.phase3_score || null, phase3_word: exPartner.phase3_word || null, phase2_word: exPartner.phase2_word || null, phase2_feedback: exPartner.phase2_feedback || null, phase3_feedback: exPartner.phase3_feedback || null, match_preference: exPartner.match_preference || null })
           }
           const { error } = await supabase.from("event3_matches").insert(rows)
           if (error) return res.status(500).json({ error: error.message })

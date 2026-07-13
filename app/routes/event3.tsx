@@ -3501,6 +3501,41 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   )
 }
 
+// ─── Processing Screen (phase2_processing / phase3_processing) ────────────────
+function ProcessingScreen({ phase }: { phase: string }) {
+  const isPhase2 = phase === "phase2_processing"
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[100dvh] px-6 py-10" dir="rtl">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5 }}
+        className="w-full max-w-md text-center"
+      >
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+          className="w-20 h-20 mx-auto mb-6 rounded-full border-4 border-purple-500/20 border-t-purple-400"
+        />
+        <h1 className="text-2xl font-bold text-white mb-3">
+          {isPhase2 ? "جاري حساب نتائج اختيارك" : "جاري حساب نتائج الخوارزمية"}
+        </h1>
+        <p className="text-gray-400 text-sm mb-8 leading-relaxed">
+          {isPhase2
+            ? "نقوم بمطابقة اختيارات المشاركين وحساب التوافق. قد تستغرق هذه العملية لحظات..."
+            : "نقوم بتشغيل خوارزمية التوافق وحساب أفضل المطابقات. قد تستغرق هذه العملية لحظات..."}
+        </p>
+        <div className="bg-purple-950/20 border border-purple-800/30 rounded-2xl p-5">
+          <p className="text-purple-300/80 text-sm leading-relaxed flex items-center justify-center gap-2">
+            <Sparkles className="w-4 h-4" />
+            الرجاء الانتظار — ستظهر النتائج قريبًا
+          </p>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
 // ─── Break Screen ─────────────────────────────────────────────────────────────
 function BreakScreen({ timerActive, timerStart, timerDuration }: {
   timerActive: boolean; timerStart: string | null; timerDuration: number
@@ -4280,6 +4315,7 @@ export default function Event3Page() {
           {completedRounds && <RankingScreen key={phase} token={token} completedRounds={completedRounds} currentPhase={phase} {...timerProps} />}
           {phase === "phase2_reveal" && <Phase2RevealScreen key="p2r" token={token} {...timerProps} />}
           {phase === "phase3_reveal" && <Phase3RevealScreen key="p3r" token={token} {...timerProps} />}
+          {(phase === "phase2_processing" || phase === "phase3_processing") && <ProcessingScreen key="processing" phase={phase} />}
           {phase === "break" && <BreakScreen key="break" {...timerProps} />}
           {phase === "final_reveal" && <FinalRevealScreen key="final" token={token} />}
         </AnimatePresence>

@@ -132,6 +132,8 @@ function SurveyHistoryModal({ modal, onClose }: { modal: { participant: any; his
   )
 }
 
+let _adminPassword = ""
+
 export default function AdminPage() {
   const location = useLocation()
   const isCohost = location.pathname.includes('cohost') || new URLSearchParams(location.search).get('cohost') === '1'
@@ -450,9 +452,6 @@ export default function AdminPage() {
   // WhatsApp config for exports (loaded from event_state.whatsapp_config)
   const [whatsappConfig, setWhatsappConfig] = useState<any | null>(null);
   const [loadingWhatsappConfig, setLoadingWhatsappConfig] = useState(false);
-
-  const STATIC_PASSWORD = "soulmatch2026"
-  const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "soulmatch2026"
 
   // Load WhatsApp config once on mount
   useEffect(() => {
@@ -1900,44 +1899,43 @@ const fetchParticipants = async () => {
       return;
     }
 
-    if (password === STATIC_PASSWORD) {
-      // Successful login - reset attempts
-      localStorage.setItem("admin", "authenticated")
-      setAuthenticated(true)
-      setLoginAttempts(0)
-      setLockoutUntil(null)
-      setLastAttemptTime(null)
-      fetchParticipants()
-    } else {
-      // Failed login - increment attempts
-      const newAttempts = loginAttempts + 1;
-      setLoginAttempts(newAttempts);
-      setLastAttemptTime(Date.now());
-      
-      // Progressive lockout durations
-      const lockoutDurations = [
-        0,      // 1st attempt: no lockout
-        0,      // 2nd attempt: no lockout
-        30,     // 3rd attempt: 30 seconds
-        120,    // 4th attempt: 2 minutes
-        300,    // 5th attempt: 5 minutes
-        900,    // 6th attempt: 15 minutes
-        1800,   // 7th attempt: 30 minutes
-        3600    // 8th+ attempts: 1 hour
-      ];
-      
-      const lockoutSeconds = lockoutDurations[Math.min(newAttempts, lockoutDurations.length - 1)];
-      
-      if (lockoutSeconds > 0) {
-        setLockoutUntil(Date.now() + lockoutSeconds * 1000);
-        toast.error(`كلمة مرور خاطئة. محظور لمدة ${lockoutSeconds} ثانية`);
+    // Verify password against server
+    fetch("/api/admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "e3-get-current-event", password }),
+    }).then(r => r.json()).then(r => {
+      if (r.error) {
+        // Failed login - increment attempts
+        const newAttempts = loginAttempts + 1;
+        setLoginAttempts(newAttempts);
+        setLastAttemptTime(Date.now());
+        const lockoutDurations = [0, 0, 30, 120, 300, 900, 1800, 3600];
+        const lockoutSeconds = lockoutDurations[Math.min(newAttempts, lockoutDurations.length - 1)];
+        if (lockoutSeconds > 0) {
+          setLockoutUntil(Date.now() + lockoutSeconds * 1000);
+          toast.error(`كلمة مرور خاطئة. محظور لمدة ${lockoutSeconds} ثانية`);
+        } else {
+          toast.error(`كلمة مرور خاطئة. ${3 - newAttempts} محاولات متبقية`);
+        }
       } else {
-        toast.error(`كلمة مرور خاطئة. ${3 - newAttempts} محاولات متبقية`);
+        _adminPassword = password
+        sessionStorage.setItem("admin_pw", password)
+        localStorage.setItem("admin", "authenticated")
+        setAuthenticated(true)
+        setLoginAttempts(0)
+        setLockoutUntil(null)
+        setLastAttemptTime(null)
+        fetchParticipants()
       }
-    }
+    }).catch(() => {
+      toast.error("تعذر الاتصال بالخادم")
+    })
   }
 
   const logout = () => {
+    _adminPassword = ""
+    sessionStorage.removeItem("admin_pw")
     localStorage.removeItem("admin")
     setAuthenticated(false)
     setPassword("")
@@ -1948,6 +1946,10 @@ const fetchParticipants = async () => {
     localStorage.removeItem('admin_previous_total')
     localStorage.removeItem('admin_previous_eligible')
     
+    const storedPw = sessionStorage.getItem("admin_pw")
+    if (storedPw) {
+      _adminPassword = storedPw
+    }
     if (localStorage.getItem("admin") === "authenticated") {
       setAuthenticated(true)
       fetchParticipants()

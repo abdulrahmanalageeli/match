@@ -33,6 +33,28 @@ function call(action: string, token: string | null, extra: Record<string, any> =
   }).then(r => r.json())
 }
 
+// ─── "Arrived at table" tracking (sessionStorage, event-specific) ────────────
+// Prevents auto-rejoin from skipping the "وصلت إلى الطاولة" step on page refresh.
+// Keys are scoped per event_id so a new event never inherits a previous event's flags.
+function arrivedKey(eventId: number | string | undefined, phase: string) {
+  return `e3_arrived_${eventId ?? "unknown"}_${phase}`
+}
+function hasArrived(eventId: number | string | undefined, phase: string): boolean {
+  if (typeof window === "undefined") return false
+  return sessionStorage.getItem(arrivedKey(eventId, phase)) === "1"
+}
+function setArrived(eventId: number | string | undefined, phase: string) {
+  if (typeof window === "undefined") return
+  sessionStorage.setItem(arrivedKey(eventId, phase), "1")
+}
+function clearAllArrived() {
+  if (typeof window === "undefined") return
+  for (let i = sessionStorage.length - 1; i >= 0; i--) {
+    const k = sessionStorage.key(i)
+    if (k && k.startsWith("e3_arrived_")) sessionStorage.removeItem(k)
+  }
+}
+
 function formatTime(s: number) {
   const m = Math.floor(s / 60)
   const sec = s % 60
@@ -2723,8 +2745,8 @@ function SOSButton({ token, position = 'top' }: { token: string; position?: 'top
 }
 
 // ─── Phase 2 Reveal Screen ────────────────────────────────────────────────────
-function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
-  token: string; timerActive: boolean; timerStart: string | null; timerDuration: number
+function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDuration }: {
+  token: string; eventId?: number | string; timerActive: boolean; timerStart: string | null; timerDuration: number
 }) {
   const [data, setData] = useState<any>(null)
   const [revealed, setRevealed] = useState(false)
@@ -2760,13 +2782,16 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   }, [timerActive, timerStart, timerDuration])
 
   // Auto-rejoin sync: if timer already running when component mounts, jump to correct view
+  // Only auto-rejoin if the participant had already clicked "وصلت إلى الطاولة" before refresh
   useEffect(() => {
     if (!data || !timerActive || !timerStart) return
     const elapsed = Math.floor((Date.now() - new Date(timerStart).getTime()) / 1000)
     const remaining = Math.max(0, timerDuration - elapsed)
-    if (elapsed > 60 && remaining > 0) { setTableRevealed(true); setRevealed(true); setView('session'); setRejoined(true) }
-    else if (remaining <= 0) { setTableRevealed(true); setRevealed(true); setView('feedback') }
-  }, [data, timerActive, timerStart, timerDuration])
+    const arrived = hasArrived(eventId, "phase2")
+    if (arrived && elapsed > 60 && remaining > 0) { setTableRevealed(true); setRevealed(true); setView('session'); setRejoined(true) }
+    else if (arrived && remaining <= 0) { setTableRevealed(true); setRevealed(true); setView('feedback') }
+    else if (!arrived && remaining <= 0) { setTableRevealed(true); setRevealed(true); setView('feedback') }
+  }, [data, timerActive, timerStart, timerDuration, eventId])
 
   // Transition to feedback when session time runs out
   useEffect(() => {
@@ -2799,7 +2824,12 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
     }
   }, [view])
 
+  const canArrive = !timerActive || !timerStart || timeLeft <= timerDuration - 60
+  const waitSeconds = Math.max(0, timeLeft - (timerDuration - 60))
+
   const handleReveal = () => {
+    if (!canArrive) return
+    setArrived(eventId, "phase2")
     setRevealed(true)
     fireConfetti({ particleCount: 55, spread: 65, origin: { y: 0.45 }, colors: ["#ec4899", "#f43f5e", "#fb7185", "#be185d"] })
   }
@@ -2855,11 +2885,22 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 <div className="text-6xl font-black text-pink-300">{data?.table_number ?? "—"}</div>
                 <p className="text-gray-600 text-xs">بعد الوصول، اضغط لتأكيد وصولك</p>
               </motion.div>
-              <motion.button onClick={handleReveal} whileTap={{ scale: 0.97 }}
-                className="w-full bg-gradient-to-br from-pink-600 via-rose-600 to-pink-700 text-white rounded-2xl py-5 font-bold text-lg shadow-2xl shadow-pink-600/40 border border-pink-500/30">
-                <motion.span animate={{ scale: [1, 1.06, 1] }} transition={{ duration: 1.8, repeat: Infinity }} className="flex items-center justify-center gap-3">
-                  <MapPin size={22} /> وصلت إلى الطاولة
-                </motion.span>
+              <motion.button onClick={handleReveal} whileTap={{ scale: canArrive ? 0.97 : 1 }} disabled={!canArrive}
+                className={`w-full rounded-2xl py-5 font-bold text-lg border transition-all ${canArrive
+                  ? "bg-gradient-to-br from-pink-600 via-rose-600 to-pink-700 text-white shadow-2xl shadow-pink-600/40 border-pink-500/30"
+                  : "bg-gray-800 text-gray-500 border-gray-700/50 cursor-not-allowed"}`}>
+                {canArrive ? (
+                  <motion.span animate={{ scale: [1, 1.06, 1] }} transition={{ duration: 1.8, repeat: Infinity }} className="flex items-center justify-center gap-3">
+                    <MapPin size={22} /> وصلت إلى الطاولة
+                  </motion.span>
+                ) : (
+                  <span className="flex flex-col items-center gap-1">
+                    <span className="flex items-center justify-center gap-2">
+                      <Clock size={20} /> سيكون الزر متاحاً خلال ({Math.ceil(waitSeconds)}ث)
+                    </span>
+                    <span className="text-[10px] font-normal text-gray-600">انتظر دقيقة من بدء المؤقت قبل تأكيد وصولك</span>
+                  </span>
+                )}
               </motion.button>
               {timerActive && timeLeft > 0 && (
                 <div className="rounded-2xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
@@ -3069,8 +3110,8 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
 }
 
 // ─── Phase 3 Reveal Screen ────────────────────────────────────────────────────
-function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
-  token: string; timerActive: boolean; timerStart: string | null; timerDuration: number
+function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDuration }: {
+  token: string; eventId?: number | string; timerActive: boolean; timerStart: string | null; timerDuration: number
 }) {
   const [revealed, setRevealed] = useState(false)
   const [tableRevealed, setTableRevealed] = useState(false)
@@ -3110,13 +3151,16 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   }, [timerActive, timerStart, timerDuration])
 
   // Auto-rejoin sync: show the table number before the session when returning
+  // Only auto-rejoin if the participant had already clicked "وصلت إلى الطاولة" before refresh
   useEffect(() => {
     if (!data || !timerActive || !timerStart) return
     const elapsed = Math.floor((Date.now() - new Date(timerStart).getTime()) / 1000)
     const remaining = Math.max(0, timerDuration - elapsed)
-    if (elapsed > 60 && remaining > 0) { setTableRevealed(true); setRevealed(false); setView('partner'); setRejoined(true) }
-    else if (remaining <= 0) { setTableRevealed(true); setRevealed(true); setView('feedback') }
-  }, [data, timerActive, timerStart, timerDuration])
+    const arrived = hasArrived(eventId, "phase3")
+    if (arrived && elapsed > 60 && remaining > 0) { setTableRevealed(true); setRevealed(false); setView('partner'); setRejoined(true) }
+    else if (arrived && remaining <= 0) { setTableRevealed(true); setRevealed(true); setView('feedback') }
+    else if (!arrived && remaining <= 0) { setTableRevealed(true); setRevealed(true); setView('feedback') }
+  }, [data, timerActive, timerStart, timerDuration, eventId])
 
   // Transition to feedback when session time runs out
   useEffect(() => {
@@ -3149,7 +3193,12 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
     }
   }, [view])
 
+  const canArrive = !timerActive || !timerStart || timeLeft <= timerDuration - 60
+  const waitSeconds = Math.max(0, timeLeft - (timerDuration - 60))
+
   const handleReveal = () => {
+    if (!canArrive) return
+    setArrived(eventId, "phase3")
     setRevealed(true)
     fireConfetti({ particleCount: 65, spread: 70, origin: { y: 0.4 }, colors: ["#7c3aed", "#8b5cf6", "#a78bfa", "#c4b5fd"] })
   }
@@ -3228,11 +3277,22 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 <p className="text-gray-600 text-xs">بعد الوصول، اضغط لتأكيد وصولك
                 </p>
               </motion.div>
-              <motion.button onClick={handleReveal} whileTap={{ scale: 0.97 }}
-                className="w-full bg-gradient-to-br from-purple-600 via-violet-600 to-purple-700 text-white rounded-2xl py-5 font-bold text-lg shadow-2xl shadow-purple-600/40 border border-purple-500/30">
-                <motion.span animate={{ rotate: [0, -4, 4, 0] }} transition={{ duration: 3, repeat: Infinity }} className="flex items-center justify-center gap-3">
-                  <MapPin size={22} /> وصلت إلى الطاولة
-                </motion.span>
+              <motion.button onClick={handleReveal} whileTap={{ scale: canArrive ? 0.97 : 1 }} disabled={!canArrive}
+                className={`w-full rounded-2xl py-5 font-bold text-lg border transition-all ${canArrive
+                  ? "bg-gradient-to-br from-purple-600 via-violet-600 to-purple-700 text-white shadow-2xl shadow-purple-600/40 border-purple-500/30"
+                  : "bg-gray-800 text-gray-500 border-gray-700/50 cursor-not-allowed"}`}>
+                {canArrive ? (
+                  <motion.span animate={{ rotate: [0, -4, 4, 0] }} transition={{ duration: 3, repeat: Infinity }} className="flex items-center justify-center gap-3">
+                    <MapPin size={22} /> وصلت إلى الطاولة
+                  </motion.span>
+                ) : (
+                  <span className="flex flex-col items-center gap-1">
+                    <span className="flex items-center justify-center gap-2">
+                      <Clock size={20} /> سيكون الزر متاحاً خلال ({Math.ceil(waitSeconds)}ث)
+                    </span>
+                    <span className="text-[10px] font-normal text-gray-600">انتظر دقيقة من بدء المؤقت قبل تأكيد وصولك</span>
+                  </span>
+                )}
               </motion.button>
               {timerActive && timeLeft > 0 && (
                 <div className="rounded-2xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
@@ -4128,6 +4188,10 @@ export default function Event3Page() {
       playEventStartSound()
       vibrate([200, 100, 200, 100, 400])
     }
+    // Clear arrived flags when returning to setup (e.g. test mode reset)
+    if (cur === "setup") {
+      clearAllArrived()
+    }
     prevPhaseRef.current = cur
   }, [eventState?.phase])
 
@@ -4216,8 +4280,8 @@ export default function Event3Page() {
           {phase === "setup" && <SetupScreen key="setup" token={token} myInfo={myInfo} enrolledCount={eventState?.participants_selected ?? null} />}
           {isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} myInfo={myInfo} />}
           {completedRounds && <RankingScreen key={phase} token={token} completedRounds={completedRounds} currentPhase={phase} {...timerProps} />}
-          {phase === "phase2_reveal" && <Phase2RevealScreen key="p2r" token={token} {...timerProps} />}
-          {phase === "phase3_reveal" && <Phase3RevealScreen key="p3r" token={token} {...timerProps} />}
+          {phase === "phase2_reveal" && <Phase2RevealScreen key="p2r" token={token} eventId={eventState?.event_id} {...timerProps} />}
+          {phase === "phase3_reveal" && <Phase3RevealScreen key="p3r" token={token} eventId={eventState?.event_id} {...timerProps} />}
           {(phase === "phase2_processing" || phase === "phase3_processing") && <ProcessingScreen key="processing" phase={phase} />}
           {phase === "break" && <BreakScreen key="break" {...timerProps} />}
           {phase === "final_reveal" && <FinalRevealScreen key="final" token={token} />}

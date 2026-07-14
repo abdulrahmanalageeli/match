@@ -11,11 +11,11 @@ async function fireConfetti(opts: any) {
   } catch {}
 }
 import {
-  Clock, MapPin, Brain, ChevronDown, ExternalLink,
+  Clock, MapPin, Brain, ExternalLink,
   CheckCircle, Send, RefreshCw, Sparkles, Home, Trophy, Lock, GripVertical,
   MessageSquare, ChevronRight, Users, PenLine, Shuffle, BarChart3, GitMerge, X, Heart,
   Frown, Meh, Smile, Layers, Zap,
-  Snowflake, Target, Star, Drama, AlertTriangle, XCircle, Search, Lightbulb, Key, PartyPopper, LifeBuoy,
+  Snowflake, Target, Star, Drama, AlertTriangle, Lightbulb, PartyPopper, LifeBuoy,
   EyeOff, Smartphone, Handshake, Timer, Ban, ShieldCheck, Coffee, Bell, Info,
 } from "lucide-react"
 
@@ -393,62 +393,267 @@ function CompatibilityBreakdown({ breakdown, accent = "purple", partnerName }: {
 }
 
 // ─── Welcome & Event Flow Onboarding ─────────────────────────────────────────
-const FLOW_STEPS = [
-  {
-    Icon: Users,
-    gradient: "from-blue-600 via-blue-700 to-blue-900",
-    glowClass: "shadow-blue-600/40",
-    badge: "الخطوة ١",
-    phase: "الجلسة الأولى",
-    title: "تعرّف على مجموعتك",
-    desc: "تجلس مع ٤ إلى ٦ أشخاص في جلسة تفاعلية منظّمة — فرصة حقيقية للتعارف في بيئة محايدة.",
-  },
-  {
-    Icon: Shuffle,
-    gradient: "from-teal-600 via-teal-700 to-cyan-900",
-    glowClass: "shadow-teal-500/40",
-    badge: "الخطوة ٢",
-    phase: "الجلسة الثانية",
-    title: "مجموعة مختلفة كلياً",
-    desc: "الخوارزمية تضمن ألّا يتكرر أحد — ستنضم لمجموعة جديدة لم تلتقِ بأحد أفرادها من قبل.",
-  },
-  {
-    Icon: BarChart3,
-    gradient: "from-indigo-600 via-indigo-700 to-violet-900",
-    glowClass: "shadow-indigo-600/40",
-    badge: "الخطوة ٣",
-    phase: "التصنيف",
-    title: "رتّب اختياراتك",
-    desc: "بعد الجلستين، رتّب الأشخاص الذين قابلتهم بحسب مستوى التوافق الذي شعرت به — ترتيبك يصنع نتيجتك.",
-  },
-  {
-    Icon: GitMerge,
-    gradient: "from-slate-600 via-slate-700 to-blue-900",
-    glowClass: "shadow-slate-500/30",
-    badge: "الخطوة ٤",
-    phase: "الكشف الأول",
-    title: "التوافق المتبادل",
-    desc: "يُكشف الأزواج الذين اختار كل منهم الآخر — جلسة ثنائية لاستكشاف أوجه التشابه والاختلاف.",
-  },
-  {
-    Icon: Brain,
-    gradient: "from-violet-600 via-purple-700 to-indigo-900",
-    glowClass: "shadow-violet-600/40",
-    badge: "الخطوة ٥",
-    phase: "تحليل الخوارزمية",
-    title: "ما يقوله العلم",
-    desc: "خوارزمية متخصصة تحلّل بياناتك وبيانات جميع المشاركين لتحديد التوافق الأمثل بشكل موضوعي.",
-  },
-  {
-    Icon: Trophy,
-    gradient: "from-amber-500 via-orange-600 to-amber-700",
-    glowClass: "shadow-amber-500/40",
-    badge: "الخطوة ٦",
-    phase: "النتيجة النهائية",
-    title: "مقارنة النتيجتين",
-    desc: "هل تطابق اختيارك الشخصي مع اختيار الخوارزمية؟ اكتشف مدى انسجام حدسك مع التحليل العلمي.",
-  },
+// Comprehensive first-time walkthrough. This is the SINGLE place that fully
+// explains the whole event, so per-phase tutorials are reduced to one-popup
+// reminders. Designed to be quick to read, animated, attractive, and skippable.
+const WALK_SLIDES: { key: string; accent: keyof typeof WALK_ACCENTS; label: string }[] = [
+  { key: "overview", accent: "purple",  label: "الفكرة باختصار" },
+  { key: "groups",   accent: "blue",    label: "الجولات الجماعية" },
+  { key: "ranking",  accent: "amber",   label: "الترتيب" },
+  { key: "sessions", accent: "pink",    label: "الجلسات الفردية" },
+  { key: "feedback", accent: "emerald", label: "التقييم والتواصل" },
+  { key: "reveal",   accent: "violet",  label: "الكشف والتنويه" },
 ]
+
+const WALK_ACCENTS = {
+  purple:  { grad: "from-purple-600 via-violet-700 to-indigo-900", glow: "shadow-purple-600/40", text: "text-purple-300", chip: "bg-purple-500/15 border-purple-500/30 text-purple-300", dot: "bg-purple-400" },
+  blue:    { grad: "from-blue-600 via-blue-700 to-cyan-900",       glow: "shadow-blue-600/40",   text: "text-blue-300",   chip: "bg-blue-500/15 border-blue-500/30 text-blue-300",     dot: "bg-blue-400" },
+  amber:   { grad: "from-amber-500 via-orange-600 to-amber-800",   glow: "shadow-amber-500/40",  text: "text-amber-300",  chip: "bg-amber-500/15 border-amber-500/30 text-amber-300",   dot: "bg-amber-400" },
+  pink:    { grad: "from-pink-600 via-rose-600 to-pink-900",       glow: "shadow-pink-600/40",   text: "text-pink-300",   chip: "bg-pink-500/15 border-pink-500/30 text-pink-300",     dot: "bg-pink-400" },
+  emerald: { grad: "from-emerald-600 via-teal-700 to-emerald-900", glow: "shadow-emerald-600/40",text: "text-emerald-300",chip: "bg-emerald-500/15 border-emerald-500/30 text-emerald-300", dot: "bg-emerald-400" },
+  violet:  { grad: "from-violet-600 via-purple-700 to-indigo-900", glow: "shadow-violet-600/40", text: "text-violet-300", chip: "bg-violet-500/15 border-violet-500/30 text-violet-300", dot: "bg-violet-400" },
+} as const
+
+// A small pretend button used inside the walkthrough to show what a real control
+// looks like — purely illustrative (not clickable to anything meaningful).
+function DemoButton({ children, className = "", pulse = false }: { children: React.ReactNode; className?: string; pulse?: boolean }) {
+  return (
+    <motion.div
+      animate={pulse ? { scale: [1, 1.04, 1] } : {}}
+      transition={{ duration: 1.8, repeat: Infinity }}
+      className={`relative pointer-events-none select-none rounded-2xl px-4 py-3 font-bold text-sm flex items-center justify-center gap-2 ${className}`}
+    >
+      {children}
+      <span className="absolute -top-2 -left-2 bg-white text-black text-[8px] font-black px-1.5 py-0.5 rounded-full shadow">مثال</span>
+    </motion.div>
+  )
+}
+
+// The animated per-stage content shown inside the "steps" phase of WelcomeScreen.
+function WalkSlide({ step }: { step: number }) {
+  const slide = WALK_SLIDES[step]
+  const ac = WALK_ACCENTS[slide.accent]
+
+  // Ranking demo — cycle the order so people SEE the drag-to-rank behaviour.
+  const [rankOrder, setRankOrder] = useState([0, 1, 2, 3])
+  useEffect(() => {
+    if (slide.key !== "ranking") return
+    const orders = [[0,1,2,3],[1,0,2,3],[1,2,0,3],[2,1,0,3]]
+    let i = 0
+    const iv = setInterval(() => { i = (i + 1) % orders.length; setRankOrder(orders[i]) }, 1200)
+    return () => clearInterval(iv)
+  }, [slide.key])
+
+  const demoPeople = [
+    { init: "س", color: "from-pink-500 to-rose-500" },
+    { init: "ل", color: "from-blue-500 to-cyan-500" },
+    { init: "ن", color: "from-violet-500 to-purple-500" },
+    { init: "م", color: "from-emerald-500 to-teal-500" },
+  ]
+  const rankBadge = (i: number) =>
+    i === 0 ? "bg-gradient-to-br from-amber-400 to-yellow-500 text-black" :
+    i === 1 ? "bg-gradient-to-br from-gray-300 to-gray-400 text-black" :
+    i === 2 ? "bg-gradient-to-br from-amber-700 to-amber-800 text-white" :
+    "bg-gray-800 text-gray-500"
+
+  return (
+    <div className={`rounded-3xl overflow-hidden shadow-2xl ${ac.glow}`}>
+      {/* Gradient header */}
+      <div className={`bg-gradient-to-br ${ac.grad} px-6 pt-5 pb-4 text-center relative overflow-hidden`}>
+        <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)", backgroundSize: "26px 26px" }} />
+        <div className="relative z-10 space-y-2">
+          <span className="inline-block bg-white/25 backdrop-blur-sm text-white text-[10px] font-black px-3 py-1 rounded-full tracking-widest">
+            {step + 1} / {WALK_SLIDES.length} · {slide.label}
+          </span>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="bg-gray-900/95 backdrop-blur-sm px-5 py-5 min-h-[300px]">
+        {/* ── OVERVIEW ── */}
+        {slide.key === "overview" && (
+          <div className="space-y-4">
+            <div className="text-center space-y-1">
+              <h2 className="text-white font-black text-xl">كيف تسير الفعالية؟</h2>
+              <p className="text-gray-400 text-xs leading-relaxed">اقرأ هذا الشرح مرة واحدة — سيغطّي كل شيء حتى لا تحتاج شرحاً لاحقاً</p>
+            </div>
+            <div className="space-y-2">
+              {[
+                { Icon: Users, c: "text-blue-400 bg-blue-500/15 border-blue-500/25", t: "جولتان جماعيتان", d: "تجلس مع مجموعات صغيرة وتتعرّف على الجميع" },
+                { Icon: BarChart3, c: "text-amber-400 bg-amber-500/15 border-amber-500/25", t: "ترتيب من قابلت", d: "ترتّب من تفضّل جلسة فردية معه" },
+                { Icon: Heart, c: "text-pink-400 bg-pink-500/15 border-pink-500/25", t: "جلسة اختيارك", d: "جلسة فردية مع أفضل تطابق متبادل من ترتيبك" },
+                { Icon: Brain, c: "text-purple-400 bg-purple-500/15 border-purple-500/25", t: "جلسة التوافق الذكي", d: "جلسة فردية مع من يرشّحه النظام لك" },
+                { Icon: Trophy, c: "text-violet-400 bg-violet-500/15 border-violet-500/25", t: "الكشف النهائي", d: "تكتشف نتائجك ومن تريد التواصل معه" },
+              ].map((r, i) => (
+                <motion.div key={i} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.09 }}
+                  className="flex items-center gap-3 bg-white/[0.03] border border-white/[0.06] rounded-2xl px-3 py-2.5">
+                  <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${r.c}`}><r.Icon size={17} /></div>
+                  <div className="flex-1 text-right">
+                    <p className="text-white font-bold text-[13px]">{r.t}</p>
+                    <p className="text-gray-500 text-[11px] leading-snug">{r.d}</p>
+                  </div>
+                  <span className="text-gray-700 text-[10px] font-mono">{i + 1}</span>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── GROUP ROUNDS ── */}
+        {slide.key === "groups" && (
+          <div className="space-y-4">
+            <div className="text-center space-y-1">
+              <Users size={34} className="text-blue-400 mx-auto" />
+              <h2 className="text-white font-black text-xl">الجولات الجماعية</h2>
+              <p className="text-gray-400 text-xs leading-relaxed">جولتان تجلس فيهما مع ٤–٦ أشخاص على طاولة للتعارف</p>
+            </div>
+            {/* Demo table card */}
+            <div className="rounded-2xl border border-blue-800/40 bg-blue-950/30 p-4 text-center space-y-2">
+              <p className="text-gray-500 text-[10px] flex items-center justify-center gap-1"><MapPin size={11} /> رقم طاولتك يظهر هكذا</p>
+              <div className="text-5xl font-black text-blue-300 leading-none">٧</div>
+              <div className="flex flex-wrap gap-1.5 justify-center pt-1">
+                {["سارة","خالد","نورة","ريان"].map((n, i) => (
+                  <motion.span key={n} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 + i * 0.1 }}
+                    className="bg-blue-900/40 text-blue-200 border border-blue-800/50 rounded-full px-2.5 py-0.5 text-[11px]">{n}</motion.span>
+                ))}
+              </div>
+            </div>
+            <DemoButton pulse className="w-full text-blue-200 bg-blue-900/40 border border-blue-700/40">
+              <Target size={15} /> نشاطات المجموعة <ExternalLink size={13} />
+            </DemoButton>
+            <div className="flex items-start gap-2 bg-white/[0.03] border border-white/[0.06] rounded-xl px-3 py-2.5">
+              <Shuffle size={15} className="text-cyan-400 shrink-0 mt-0.5" />
+              <p className="text-gray-400 text-[11px] leading-relaxed">في الجولة الثانية ستكون المجموعة <span className="text-cyan-300 font-bold">مختلفة كلياً</span> — لن يتكرّر أحد قابلته سابقاً.</p>
+            </div>
+          </div>
+        )}
+
+        {/* ── RANKING (the important one) ── */}
+        {slide.key === "ranking" && (
+          <div className="space-y-3.5">
+            <div className="text-center space-y-1">
+              <BarChart3 size={32} className="text-amber-400 mx-auto" />
+              <h2 className="text-white font-black text-xl">رتّب من قابلت</h2>
+              <p className="text-gray-400 text-xs leading-relaxed">اسحب الأسماء لترتيبهم — الأعلى = أكثر من تريد جلسة معه</p>
+            </div>
+            {/* Animated reorder demo */}
+            <div className="space-y-1.5">
+              {rankOrder.map((pi, rank) => {
+                const p = demoPeople[pi]
+                return (
+                  <motion.div key={pi} layout transition={{ type: "spring", stiffness: 350, damping: 28 }}
+                    className="flex items-center gap-2.5 bg-white/[0.04] border border-white/[0.07] rounded-xl px-3 py-2">
+                    <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-black shrink-0 ${rankBadge(rank)}`}>{rank + 1}</div>
+                    <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${p.color} flex items-center justify-center text-white text-[10px] font-bold shrink-0`}>{p.init}</div>
+                    <span className="text-gray-300 text-xs flex-1">شخص قابلته</span>
+                    <GripVertical size={13} className="text-gray-600" />
+                  </motion.div>
+                )
+              })}
+            </div>
+            {/* The crucial caveat */}
+            <div className="rounded-xl border border-amber-700/40 bg-amber-950/30 px-3 py-2.5 space-y-1.5">
+              <p className="text-amber-300 text-[11px] font-black flex items-center gap-1.5"><AlertTriangle size={12} /> مهم جداً — كيف تُحسم الجلسة</p>
+              <p className="text-amber-100/70 text-[11px] leading-relaxed">
+                الجلسة تحدث فقط عند <span className="text-amber-300 font-bold">التطابق المتبادل</span>. إذا رتّبت شخصاً أولاً لكنه لم يرتّبك عالياً، قد لا تجلس معه.
+              </p>
+              <p className="text-gray-400 text-[11px] leading-relaxed">
+                لا نضمن أن تجلس مع خياراتك الأولى — إذا لم يخترك أحد من أعلى قائمتك، سيمنحك النظام أفضل تطابق متبادل متاح لك.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* ── 1:1 SESSIONS ── */}
+        {slide.key === "sessions" && (
+          <div className="space-y-3.5">
+            <div className="text-center space-y-1">
+              <Users size={32} className="text-pink-400 mx-auto" />
+              <h2 className="text-white font-black text-xl">جلستان فرديتان</h2>
+              <p className="text-gray-400 text-xs leading-relaxed">جلستان خاصتان 1:1 — واحدة باختيارك وواحدة باختيار النظام</p>
+            </div>
+            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 }}
+              className="rounded-2xl border border-pink-700/40 bg-pink-950/30 p-3.5 flex items-center gap-3">
+              <Heart size={22} className="text-pink-400 shrink-0" />
+              <div><p className="text-white font-bold text-[13px]">جلسة اختيارك</p><p className="text-pink-300/80 text-[11px]">أفضل تطابق متبادل من ترتيبك</p></div>
+            </motion.div>
+            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.18 }}
+              className="rounded-2xl border border-purple-700/40 bg-purple-950/30 p-3.5 flex items-center gap-3">
+              <Brain size={22} className="text-purple-400 shrink-0" />
+              <div><p className="text-white font-bold text-[13px]">جلسة التوافق الذكي</p><p className="text-purple-300/80 text-[11px]">النظام يرشّح لك بناءً على بياناتكما</p></div>
+            </motion.div>
+            {/* Demo: how you see the table + partner */}
+            <div className="rounded-2xl border border-amber-700/40 bg-amber-950/25 p-3 text-center space-y-1">
+              <p className="text-amber-400/70 text-[10px]">في كل جلسة سيظهر اسم شريكك ورقم طاولتك</p>
+              <p className="text-white font-black text-lg leading-tight">سارة</p>
+              <p className="text-amber-300 text-xs">طاولة رقم <span className="font-black">٣</span></p>
+            </div>
+          </div>
+        )}
+
+        {/* ── FEEDBACK & CONTACT ── */}
+        {slide.key === "feedback" && (
+          <div className="space-y-3.5">
+            <div className="text-center space-y-1">
+              <PenLine size={32} className="text-emerald-400 mx-auto" />
+              <h2 className="text-white font-black text-xl">التقييم والتواصل</h2>
+              <p className="text-gray-400 text-xs leading-relaxed">بعد كل جلسة تقيّم تجربتك — إجاباتك سرّية تماماً</p>
+            </div>
+            {/* Demo rating */}
+            <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3.5 text-center space-y-2">
+              <p className="text-gray-400 text-[11px]">مثال: كيف كانت المحادثة؟</p>
+              <div className="flex items-center justify-center gap-1.5">
+                {[0,1,2,3,4].map(i => (
+                  <motion.span key={i} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.1 + i * 0.08 }}>
+                    <Star size={22} className={i < 4 ? "text-amber-400 fill-amber-400" : "text-gray-700"} />
+                  </motion.span>
+                ))}
+              </div>
+            </div>
+            {/* Demo yes/no */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <DemoButton className="text-emerald-300 bg-emerald-500/15 border border-emerald-500/40"><CheckCircle size={16} /> نعم</DemoButton>
+              <DemoButton className="text-red-300 bg-red-500/10 border border-red-500/30"><X size={16} /> لا</DemoButton>
+            </div>
+            <div className="flex items-start gap-2 rounded-xl border border-emerald-700/40 bg-emerald-950/30 px-3 py-2.5">
+              <Heart size={15} className="text-emerald-400 shrink-0 mt-0.5" />
+              <p className="text-emerald-100/80 text-[11px] leading-relaxed">إذا قال كلاكما <span className="text-emerald-300 font-bold">«نعم»</span> — تتبادلان معلومات التواصل في صفحة النتائج. لا أحد يعرف اختيارك إلا إذا وافق الطرف الآخر.</p>
+            </div>
+          </div>
+        )}
+
+        {/* ── FINAL REVEAL + DISCLAIMER ── */}
+        {slide.key === "reveal" && (
+          <div className="space-y-3.5">
+            <div className="text-center space-y-1">
+              <Trophy size={32} className="text-violet-400 mx-auto" />
+              <h2 className="text-white font-black text-xl">الكشف النهائي</h2>
+              <p className="text-gray-400 text-xs leading-relaxed">في النهاية تكتشف نتائجك: اختيارك مقابل اختيار النظام والتوافق الكامل</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="rounded-2xl border border-pink-700/40 bg-pink-950/30 p-3 text-center space-y-1">
+                <Heart size={18} className="text-pink-400 mx-auto" /><p className="text-white font-bold text-[12px]">اختيارك</p>
+              </div>
+              <div className="rounded-2xl border border-purple-700/40 bg-purple-950/30 p-3 text-center space-y-1">
+                <Brain size={18} className="text-purple-400 mx-auto" /><p className="text-white font-bold text-[12px]">اختيار النظام</p>
+              </div>
+            </div>
+            {/* The compatibility disclaimer */}
+            <div className="rounded-2xl border border-amber-700/40 bg-gradient-to-br from-amber-950/40 to-orange-950/20 px-3.5 py-3 space-y-1.5">
+              <p className="text-amber-300 text-[11px] font-black flex items-center gap-1.5"><Info size={12} /> تنويه مهم عن التوافق</p>
+              <p className="text-amber-100/80 text-[11px] leading-relaxed">
+                الكيمياء بين شخصين جزء كبير لا يمكن قياسه بالكامل. نحن <span className="text-amber-300 font-bold">لا نضمن التوافق</span> — لكننا نقلّل احتمال عدم التوافق بشكل كبير عبر التحليل.
+              </p>
+              <p className="text-gray-400 text-[11px] leading-relaxed">
+                حتى لو لم تكن النتيجة مثالية، تبقى قد عشت تجربة اختيارك بنفسك — استمتع باللقاء والتجربة أكثر من الرقم.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 function WelcomeScreen({ onDone }: { onDone: () => void }) {
   const [phase, setPhase] = useState<"splash" | "rules" | "steps">("splash")
@@ -456,7 +661,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
   const [dir, setDir] = useState(1)
 
   const goNext = () => {
-    if (step < FLOW_STEPS.length - 1) {
+    if (step < WALK_SLIDES.length - 1) {
       setDir(1); setStep(s => s + 1)
     } else {
       onDone()
@@ -464,8 +669,6 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
     }
   }
   const goPrev = () => { if (step > 0) { setDir(-1); setStep(s => s - 1) } }
-
-  const s = FLOW_STEPS[step]
 
   return (
     <div className="h-[100dvh] bg-gray-950 relative overflow-hidden flex flex-col" dir="rtl">
@@ -647,7 +850,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
             <div className="w-full h-1 bg-gray-800/50">
               <motion.div
                 className="h-full bg-gradient-to-r from-purple-500 to-pink-500"
-                animate={{ width: `${((step + 1) / FLOW_STEPS.length) * 100}%` }}
+                animate={{ width: `${((step + 1) / WALK_SLIDES.length) * 100}%` }}
                 transition={{ duration: 0.45, ease: "easeInOut" }}
               />
             </div>
@@ -661,11 +864,11 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
                 <ChevronRight size={15} className="rotate-180" />
                 {step === 0 ? "الشاشة الرئيسية" : "السابق"}
               </button>
-              <span className="text-gray-600 text-xs font-mono tabular-nums">{step + 1} / {FLOW_STEPS.length}</span>
+              <span className="text-gray-600 text-xs font-mono tabular-nums">{step + 1} / {WALK_SLIDES.length}</span>
             </div>
 
             {/* Step card */}
-            <div className="flex-1 flex flex-col items-center justify-center px-5 py-2">
+            <div className="flex-1 flex flex-col items-center justify-start overflow-y-auto px-5 py-2">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={step}
@@ -678,59 +881,9 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
                   animate="center"
                   exit="exit"
                   transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
-                  className="w-full max-w-sm"
+                  className="w-full max-w-sm my-auto"
                 >
-                  <div className={`rounded-3xl overflow-hidden shadow-2xl ${s.glowClass}`}>
-                    {/* Gradient header */}
-                    <div className={`bg-gradient-to-br ${s.gradient} px-6 pt-5 pb-4 text-center relative overflow-hidden`}>
-                      {/* Subtle dot pattern */}
-                      <div
-                        className="absolute inset-0 opacity-[0.07]"
-                        style={{
-                          backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)",
-                          backgroundSize: "28px 28px",
-                        }}
-                      />
-                      <div className="relative z-10 space-y-3">
-                        {/* Badges */}
-                        <div className="flex items-center justify-center gap-2">
-                          <span className="bg-white/25 backdrop-blur-sm text-white text-[10px] font-black px-3 py-1 rounded-full tracking-widest">
-                            {s.badge}
-                          </span>
-                          <span className="bg-black/20 text-white/70 text-[10px] px-2.5 py-1 rounded-full">
-                            {s.phase}
-                          </span>
-                        </div>
-                        {/* Step icon */}
-                        <motion.div
-                          initial={{ scale: 0.2, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          transition={{ type: "spring", stiffness: 260, damping: 18, delay: 0.08 }}
-                          className="py-4 flex items-center justify-center"
-                        >
-                          <s.Icon size={56} className="text-white/90" strokeWidth={1.25} />
-                        </motion.div>
-                        {/* Title */}
-                        <motion.h2
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.12 }}
-                          className="text-2xl font-black text-white leading-tight"
-                        >
-                          {s.title}
-                        </motion.h2>
-                      </div>
-                    </div>
-                    {/* Description panel */}
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.18 }}
-                      className="bg-gray-900/95 backdrop-blur-sm px-5 py-4"
-                    >
-                      <p className="text-gray-300 text-sm leading-relaxed text-center">{s.desc}</p>
-                    </motion.div>
-                  </div>
+                  <WalkSlide step={step} />
                 </motion.div>
               </AnimatePresence>
             </div>
@@ -739,7 +892,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
             <div className="px-5 pb-4 pt-2 space-y-3">
               {/* Dot indicators */}
               <div className="flex items-center justify-center gap-1.5">
-                {FLOW_STEPS.map((_, i) => (
+                {WALK_SLIDES.map((_, i) => (
                   <button
                     key={i}
                     onClick={() => { setDir(i > step ? 1 : -1); setStep(i) }}
@@ -755,9 +908,9 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
                 onClick={goNext}
                 className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-2xl py-3.5 font-black text-base shadow-xl shadow-purple-600/25 transition-all"
               >
-                {step === FLOW_STEPS.length - 1 ? <span className="flex items-center justify-center gap-2">أبدأ رحلتي <Sparkles size={16} /></span> : "التالي ←"}
+                {step === WALK_SLIDES.length - 1 ? <span className="flex items-center justify-center gap-2">أبدأ رحلتي <Sparkles size={16} /></span> : "التالي ←"}
               </motion.button>
-              {step < FLOW_STEPS.length - 1 && (
+              {step < WALK_SLIDES.length - 1 && (
                 <button
                   onClick={onDone}
                   className="w-full flex items-center justify-center gap-1.5 text-gray-500 hover:text-gray-300 text-xs font-medium transition-colors py-1"
@@ -957,328 +1110,111 @@ function SetupScreen({ token, myInfo, enrolledCount }: { token: string; myInfo: 
   )
 }
 
-// ─── Shared tutorial chrome ───────────────────────────────────────────────────
-// A prominent header banner so participants immediately understand they are looking
-// at a short walkthrough (and not the live event screen), plus a clear skip control.
-function TutorialHeader({ label, total, current, accent = "text-purple-200", border = "border-purple-500/50", bg = "bg-purple-600/25" }: { label: string; total: number; current: number; accent?: string; border?: string; bg?: string }) {
+// ─── One-popup reminder ───────────────────────────────────────────────────────
+// The full event was already explained in the WelcomeScreen walkthrough, so each
+// phase only needs a single lightweight reminder card (not a full multi-step tour).
+function OnePopup({ onClose, accent, icon, label, title, points, cta = "فهمت — ابدأ" }: {
+  onClose: () => void
+  accent: "purple" | "pink" | "amber"
+  icon: React.ReactNode
+  label: string
+  title: string
+  points: { icon: React.ReactNode; text: React.ReactNode }[]
+  cta?: string
+}) {
+  const grad = accent === "pink" ? "from-pink-600 to-rose-600" : accent === "amber" ? "from-amber-500 to-orange-500" : "from-purple-600 to-pink-600"
+  const ring = accent === "pink" ? "ring-pink-500/30" : accent === "amber" ? "ring-amber-500/30" : "ring-purple-500/30"
+  const chipBg = accent === "pink" ? "bg-pink-600/25 border-pink-500/50 text-pink-200" : accent === "amber" ? "bg-amber-600/25 border-amber-500/50 text-amber-200" : "bg-purple-600/25 border-purple-500/50 text-purple-200"
+  const ctaText = accent === "amber" ? "text-black" : "text-white"
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}
-      className={`absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 ${bg} border ${border} rounded-full px-4 py-1.5 shadow-xl backdrop-blur-sm whitespace-nowrap`}
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[500] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6"
+      dir="rtl"
     >
-      <Lightbulb size={14} className={accent} />
-      <span className={`${accent} text-[11px] font-black tracking-wide`}>{label}</span>
-      <span className="text-gray-300/70 text-[10px] font-mono tabular-nums">{current}/{total}</span>
+      <motion.div
+        initial={{ opacity: 0, y: 24, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ type: "spring", stiffness: 300, damping: 26 }}
+        className={`relative bg-gray-900/95 border border-gray-700/50 rounded-3xl p-6 max-w-xs w-full text-center overflow-hidden ring-1 ${ring}`}
+      >
+        {/* Close */}
+        <button onClick={onClose} className="absolute top-3 left-3 w-7 h-7 rounded-full bg-gray-800/80 flex items-center justify-center text-gray-500 hover:text-white transition-colors">
+          <X size={13} />
+        </button>
+
+        {/* Label chip */}
+        <span className={`inline-flex items-center gap-1.5 ${chipBg} border rounded-full px-3 py-1 text-[10px] font-black tracking-wide mb-3`}>
+          <Lightbulb size={11} /> {label}
+        </span>
+
+        {/* Icon */}
+        <div className="relative mx-auto w-fit mb-3">
+          <motion.div className="absolute inset-0 rounded-2xl border-2 border-current opacity-20"
+            animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0, 0.3] }} transition={{ duration: 2.5, repeat: Infinity }} style={{ color: "currentColor" }} />
+          <div className="w-14 h-14 rounded-2xl bg-gray-800/80 border border-gray-700/50 flex items-center justify-center">{icon}</div>
+        </div>
+
+        <h2 className="text-white font-black text-lg mb-3">{title}</h2>
+
+        {/* Points */}
+        <div className="space-y-2 text-right mb-5">
+          {points.map((p, i) => (
+            <motion.div key={i} initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 + i * 0.08 }}
+              className="flex items-start gap-2.5 bg-white/[0.03] border border-white/[0.06] rounded-xl px-3 py-2">
+              <span className="shrink-0 mt-0.5">{p.icon}</span>
+              <p className="text-gray-300 text-[12px] leading-relaxed flex-1">{p.text}</p>
+            </motion.div>
+          ))}
+        </div>
+
+        <motion.button whileTap={{ scale: 0.96 }} onClick={onClose}
+          className={`w-full bg-gradient-to-r ${grad} ${ctaText} rounded-xl py-3 font-black text-sm shadow-lg shadow-black/30`}>
+          {cta}
+        </motion.button>
+        <p className="text-gray-600 text-[10px] mt-2">شاهدت الشرح الكامل في البداية — هذا تذكير سريع فقط</p>
+      </motion.div>
     </motion.div>
   )
 }
 
-function TutorialSkip({ onClose, label = "تخطّي الشرح" }: { onClose: () => void; label?: string }) {
-  return (
-    <button
-      onClick={onClose}
-      className="w-full flex items-center justify-center gap-1.5 text-gray-500 hover:text-gray-300 text-xs font-medium transition-colors py-1"
-    >
-      <X size={12} />
-      {label}
-    </button>
-  )
-}
-
-// ─── Round Tutorial Overlay ───────────────────────────────────────────────────
+// ─── Round Tutorial Overlay (single reminder) ────────────────────────────────
 function RoundTutorial({ onClose }: { onClose: () => void }) {
-  const [step, setStep] = useState(0)
-  const [dir, setDir] = useState(1)
-
-  const steps = [
-    {
-      icon: <Lightbulb size={28} className="text-purple-400" />,
-      title: "شرح سريع قبل أن نبدأ",
-      desc: "هذه جولة تعريفية قصيرة تشرح لك شاشة الجولة الجماعية خطوة بخطوة. اضغط «التالي» للتنقل، أو «تخطّي الشرح» في أي وقت للبدء مباشرة.",
-      accent: "from-purple-600/20 to-fuchsia-600/10",
-      ring: "ring-purple-500/30",
-    },
-    {
-      icon: <Users size={28} className="text-blue-400" />,
-      title: "الجولة الجماعية الأولى",
-      desc: "ستجلس مع ٤ إلى ٦ مشاركين على طاولة واحدة للتعارف والمحادثة. الهدف أن تتعرف على الجميع بطريقة مريحة ومنظّمة.",
-      accent: "from-blue-600/20 to-cyan-600/10",
-      ring: "ring-blue-500/30",
-    },
-    {
-      icon: <MapPin size={28} className="text-purple-400" />,
-      title: "رقم طاولتك",
-      desc: "سيظهر لك رقم الطاولة التي يجب أن تذهب إليها — ابحث عن هذا الرقم في القاعة واجلس هناك.",
-      accent: "from-purple-600/20 to-pink-600/10",
-      ring: "ring-purple-500/30",
-      hint: "ابحث عن الرقم الكبير في المنتصف",
-    },
-    {
-      icon: <ExternalLink size={28} className="text-indigo-400" />,
-      title: "نشاطات المجموعة",
-      desc: "اضغط على هذا الزر لعرض نشاطات وأسئلة المجموعة لمساعدتكم في التعارف",
-      accent: "from-indigo-600/20 to-purple-600/10",
-      ring: "ring-indigo-500/30",
-      hint: "الزر الكبير في الأسفل",
-    },
-    {
-      icon: <MessageSquare size={28} className="text-emerald-400" />,
-      title: "زر المنظم للطوارئ",
-      desc: "إذا احتجت مساعدة أو كان لديك سؤال عاجل، اضغط على زر «المنظم» في أسفل الشاشة للتواصل مع المنظم مباشرة",
-      accent: "from-emerald-600/20 to-teal-600/10",
-      ring: "ring-emerald-500/30",
-      hint: "في أسفل الشاشة",
-    },
-    {
-      icon: <Clock size={28} className="text-amber-400" />,
-      title: "المؤقت في الأعلى",
-      desc: "يظهر المؤقت في أعلى الشاشة عند بدء الجولة — ينبهك عند اقتراب انتهاء الوقت",
-      accent: "from-amber-600/20 to-orange-600/10",
-      ring: "ring-amber-500/30",
-    },
-  ]
-
-  const goNext = () => {
-    if (step < steps.length - 1) { setDir(1); setStep(s => s + 1) }
-    else onClose()
-  }
-  const goBack = () => { if (step > 0) { setDir(-1); setStep(s => s - 1) } }
-
-  const s = steps[step]
-
   return (
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[500] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6"
-      dir="rtl"
-    >
-      {/* Tutorial header banner — makes it obvious this is a walkthrough */}
-      <TutorialHeader label="شرح تعريفي · الجولة الجماعية" total={steps.length} current={step + 1} />
-
-      {/* Step indicator dots */}
-      <div className="absolute top-16 right-5 flex items-center gap-1.5 z-10">
-        {steps.map((_, i) => (
-          <motion.span
-            key={i}
-            animate={{ scale: i === step ? 1.2 : 1, opacity: i === step ? 1 : 0.4 }}
-            className={`w-1.5 h-1.5 rounded-full ${i === step ? 'bg-purple-400' : 'bg-gray-600'}`}
-          />
-        ))}
-      </div>
-
-      {/* Card */}
-      <motion.div
-        key={step}
-        initial={{ opacity: 0, x: dir * 40, scale: 0.95 }}
-        animate={{ opacity: 1, x: 0, scale: 1 }}
-        transition={{ type: "spring", stiffness: 300, damping: 28 }}
-        className={`relative bg-gray-900/95 border border-gray-700/50 rounded-3xl p-8 max-w-xs w-full text-center overflow-hidden ring-1 ${s.ring}`}
-      >
-        {/* Gradient backdrop */}
-        <div className={`absolute inset-0 bg-gradient-to-br ${s.accent} pointer-events-none`} />
-
-        {/* Content */}
-        <div className="relative z-10 space-y-4">
-          {/* Icon with pulse ring */}
-          <div className="relative mx-auto w-fit">
-            <motion.div
-              className="absolute inset-0 rounded-2xl border-2 border-current opacity-20"
-              animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0, 0.3] }}
-              transition={{ duration: 2.5, repeat: Infinity }}
-              style={{ color: 'currentColor' }}
-            />
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-gray-800/80 border border-gray-700/50 flex items-center justify-center">
-              {s.icon}
-            </div>
-          </div>
-
-          <h2 className="text-white font-bold text-lg">{s.title}</h2>
-          <p className="text-gray-400 text-sm leading-relaxed">{s.desc}</p>
-
-          {s.hint && (
-            <motion.div
-              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-              className="inline-flex items-center gap-1.5 bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5"
-            >
-              <motion.div animate={{ y: [0, -3, 0] }} transition={{ duration: 1.5, repeat: Infinity }}>
-                <ChevronDown size={12} className="text-gray-500 rotate-180" />
-              </motion.div>
-              <span className="text-gray-500 text-[11px]">{s.hint}</span>
-            </motion.div>
-          )}
-
-          {/* Navigation */}
-          <div className="flex items-center gap-3 pt-2">
-            {step > 0 && (
-              <button
-                onClick={goBack}
-                className="flex items-center gap-1 text-gray-500 hover:text-gray-300 text-xs font-medium transition-colors px-3 py-2"
-              >
-                <ChevronRight size={14} />
-                السابق
-              </button>
-            )}
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={goNext}
-              className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl py-3 font-bold text-sm transition-all shadow-lg shadow-purple-900/30"
-            >
-              {step < steps.length - 1 ? 'التالي' : 'ابدأ الجولة'}
-            </motion.button>
-          </div>
-          {/* Skip link next to the navigation */}
-          {step < steps.length - 1 && <TutorialSkip onClose={onClose} />}
-        </div>
-      </motion.div>
-    </motion.div>
+    <OnePopup
+      onClose={onClose}
+      accent="purple"
+      label="الجولة الجماعية"
+      icon={<Users size={26} className="text-blue-400" />}
+      title="جولة جماعية"
+      cta="فهمت — ابدأ الجولة"
+      points={[
+        { icon: <MapPin size={15} className="text-purple-400" />, text: <>اذهب إلى <span className="text-white font-bold">رقم طاولتك</span> الظاهر في المنتصف واجلس مع مجموعتك</> },
+        { icon: <Target size={15} className="text-indigo-400" />, text: <>اضغط <span className="text-white font-bold">«نشاطات المجموعة»</span> لأسئلة تساعدكم في التعارف</> },
+        { icon: <MessageSquare size={15} className="text-emerald-400" />, text: <>زر <span className="text-white font-bold">«المنظم»</span> في الأسفل لأي مساعدة أو طارئ</> },
+        { icon: <Clock size={15} className="text-amber-400" />, text: <>المؤقت في الأعلى ينبّهك عند اقتراب انتهاء الوقت</> },
+      ]}
+    />
   )
 }
 
-// ─── One-to-One Tutorial Overlay ─────────────────────────────────────────────
+// ─── One-to-One Tutorial Overlay (single reminder) ───────────────────────────
 function OneToOneTutorial({ onClose }: { onClose: () => void }) {
-  const [step, setStep] = useState(0)
-  const [dir, setDir] = useState(1)
-
-  const steps = [
-    {
-      icon: <Lightbulb size={28} className="text-pink-400" />,
-      title: "شرح سريع قبل أن نبدأ",
-      desc: "هذه جولة تعريفية قصيرة تشرح شاشة الجلسة الفردية (1:1). اضغط «التالي» للتنقل، أو «تخطّي الشرح» للبدء مباشرة.",
-      accent: "from-pink-600/20 to-fuchsia-600/10",
-      ring: "ring-pink-500/30",
-    },
-    {
-      icon: <Users size={28} className="text-pink-400" />,
-      title: "جلستك الفردية الأولى",
-      desc: "اخترت هذا الشخص من جولات التعارف الجماعية — الآن لديك جلسة خاصة 1:1 معه",
-      accent: "from-pink-600/20 to-rose-600/10",
-      ring: "ring-pink-500/30",
-    },
-    {
-      icon: <MapPin size={28} className="text-amber-400" />,
-      title: "رقم طاولتك",
-      desc: "سيظهر لك رقم الطاولة التي يجب أن تذهب إليها لمقابلة شريكك",
-      accent: "from-amber-600/20 to-orange-600/10",
-      ring: "ring-amber-500/30",
-      hint: "ابحث عن الرقم الكبير",
-    },
-    {
-      icon: <ChevronRight size={28} className="text-rose-400" />,
-      title: "التالي",
-      desc: "بعد الوصول إلى الطاولة، اضغط على الزر التالي للمتابعة",
-      accent: "from-rose-600/20 to-pink-600/10",
-      ring: "ring-rose-500/30",
-      hint: "الزر الكبير في المنتصف",
-    },
-    {
-      icon: <MessageSquare size={28} className="text-purple-400" />,
-      title: "أسئلة الجلسة",
-      desc: "اضغط «انتقل إلى أسئلة الجلسة» للوصول إلى أسئلة نقاش تساعدك في المحادثة مع شريكك. تأخذان أدوارًا: واحد يسأل والثاني يجيب، ثم بالعكس ذهابًا وإيابًا. كلاكما يجب أن يجيب على كل سؤال يُطرح",
-      accent: "from-purple-600/20 to-violet-600/10",
-      ring: "ring-purple-500/30",
-      hint: "الزر في أسفل البطاقة",
-    },
-    {
-      icon: <Clock size={28} className="text-amber-400" />,
-      title: "المؤقت",
-      desc: "يظهر المؤقت عند بدء الجلسة — ينبهك عند اقتراب انتهاء الوقت، انتقل للتقييم عند انتهائه",
-      accent: "from-amber-600/20 to-orange-600/10",
-      ring: "ring-amber-500/30",
-    },
-    {
-      icon: <Heart size={28} className="text-emerald-400" />,
-      title: "التقييم بعد الجلسة",
-      desc: "عند انتهاء الجلسة، ستقيم تجربتك — إجاباتك سرية وتساعدنا في تحسين التجربة",
-      accent: "from-emerald-600/20 to-teal-600/10",
-      ring: "ring-emerald-500/30",
-    },
-  ]
-
-  const goNext = () => {
-    if (step < steps.length - 1) { setDir(1); setStep(s => s + 1) }
-    else onClose()
-  }
-  const goBack = () => { if (step > 0) { setDir(-1); setStep(s => s - 1) } }
-
-  const s = steps[step]
-
   return (
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[500] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6"
-      dir="rtl"
-    >
-      <TutorialHeader label="شرح تعريفي · الجلسة الفردية" total={steps.length} current={step + 1} accent="text-pink-200" border="border-pink-500/50" bg="bg-pink-600/25" />
-
-      <div className="absolute top-16 right-5 flex items-center gap-1.5 z-10">
-        {steps.map((_, i) => (
-          <motion.span
-            key={i}
-            animate={{ scale: i === step ? 1.2 : 1, opacity: i === step ? 1 : 0.4 }}
-            className={`w-1.5 h-1.5 rounded-full ${i === step ? 'bg-pink-400' : 'bg-gray-600'}`}
-          />
-        ))}
-      </div>
-
-      <motion.div
-        key={step}
-        initial={{ opacity: 0, x: dir * 40, scale: 0.95 }}
-        animate={{ opacity: 1, x: 0, scale: 1 }}
-        transition={{ type: "spring", stiffness: 300, damping: 28 }}
-        className={`relative bg-gray-900/95 border border-gray-700/50 rounded-3xl p-8 max-w-xs w-full text-center overflow-hidden ring-1 ${s.ring}`}
-      >
-        <div className={`absolute inset-0 bg-gradient-to-br ${s.accent} pointer-events-none`} />
-
-        <div className="relative z-10 space-y-4">
-          <div className="relative mx-auto w-fit">
-            <motion.div
-              className="absolute inset-0 rounded-2xl border-2 border-current opacity-20"
-              animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0, 0.3] }}
-              transition={{ duration: 2.5, repeat: Infinity }}
-              style={{ color: 'currentColor' }}
-            />
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-gray-800/80 border border-gray-700/50 flex items-center justify-center">
-              {s.icon}
-            </div>
-          </div>
-
-          <h2 className="text-white font-bold text-lg">{s.title}</h2>
-          <p className="text-gray-400 text-sm leading-relaxed">{s.desc}</p>
-
-          {s.hint && (
-            <motion.div
-              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-              className="inline-flex items-center gap-1.5 bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5"
-            >
-              <motion.div animate={{ y: [0, -3, 0] }} transition={{ duration: 1.5, repeat: Infinity }}>
-                <ChevronDown size={12} className="text-gray-500 rotate-180" />
-              </motion.div>
-              <span className="text-gray-500 text-[11px]">{s.hint}</span>
-            </motion.div>
-          )}
-
-          <div className="flex items-center gap-3 pt-2">
-            {step > 0 && (
-              <button
-                onClick={goBack}
-                className="flex items-center gap-1 text-gray-500 hover:text-gray-300 text-xs font-medium transition-colors px-3 py-2"
-              >
-                <ChevronRight size={14} />
-                السابق
-              </button>
-            )}
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={goNext}
-              className="flex-1 bg-gradient-to-r from-pink-600 to-rose-600 text-white rounded-xl py-3 font-bold text-sm transition-all shadow-lg shadow-pink-900/30"
-            >
-              {step < steps.length - 1 ? 'التالي' : 'ابدأ الجلسة'}
-            </motion.button>
-          </div>
-          {step < steps.length - 1 && <TutorialSkip onClose={onClose} />}
-        </div>
-      </motion.div>
-    </motion.div>
+    <OnePopup
+      onClose={onClose}
+      accent="pink"
+      label="الجلسة الفردية 1:1"
+      icon={<Heart size={26} className="text-pink-400" />}
+      title="جلستك الفردية"
+      cta="فهمت — ابدأ الجلسة"
+      points={[
+        { icon: <MapPin size={15} className="text-amber-400" />, text: <>اذهب إلى <span className="text-white font-bold">رقم طاولتك</span> الظاهر في المنتصف لمقابلة شريكك</> },
+        { icon: <MessageSquare size={15} className="text-purple-400" />, text: <>اضغط <span className="text-white font-bold">«أسئلة الجلسة»</span> لأسئلة نقاش — تأخذان أدوارًا: واحد يسأل والآخر يجيب</> },
+        { icon: <Clock size={15} className="text-amber-400" />, text: <>المؤقت ينبهك عند اقتراب انتهاء الوقت</> },
+        { icon: <Heart size={15} className="text-emerald-400" />, text: <>بعد الجلسة: قيّم تجربتك — إجاباتك سرية وتساعد في التحسين</> },
+      ]}
+    />
   )
 }
 
@@ -1794,296 +1730,23 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
   )
 }
 
-// ─── Ranking Tutorial Overlay ─────────────────────────────────────────────────
+// ─── Ranking Tutorial Overlay (single reminder) ──────────────────────────────
 function RankingTutorial({ onClose }: { onClose: () => void }) {
-  const [step, setStep] = useState(0)
-  const [dir, setDir] = useState(1)
-  const [rankOrder, setRankOrder] = useState([1, 0, 3, 2])
-  const TOTAL = 4
-
-  const goNext = () => { if (step < TOTAL - 1) { setDir(1); setStep(s => s + 1) } else onClose() }
-  const goPrev = () => { if (step > 0) { setDir(-1); setStep(s => s - 1) } }
-
-  // Auto-animate ranking order on step 0
-  useEffect(() => {
-    if (step !== 0) return
-    const orders = [[1,0,3,2], [0,2,1,3], [2,0,1,3], [0,1,2,3]]
-    let i = 0
-    const iv = setInterval(() => { i = (i + 1) % orders.length; setRankOrder(orders[i]) }, 1300)
-    return () => clearInterval(iv)
-  }, [step])
-
-  const people = [
-    { name: "سارة", init: "س", color: "from-pink-500 to-rose-500", dim: "bg-pink-900/30 border-pink-800/40" },
-    { name: "لين",  init: "ل", color: "from-blue-500 to-cyan-500",  dim: "bg-blue-900/30 border-blue-800/40"  },
-    { name: "نورة", init: "ن", color: "from-violet-500 to-purple-500", dim: "bg-violet-900/30 border-violet-800/40" },
-    { name: "مي",   init: "م", color: "from-emerald-500 to-teal-500", dim: "bg-emerald-900/30 border-emerald-800/40" },
-  ]
-  const rankStyle = (i: number) =>
-    i === 0 ? "bg-gradient-to-br from-amber-400 to-yellow-500 text-black shadow-lg shadow-amber-500/30" :
-    i === 1 ? "bg-gradient-to-br from-gray-300 to-gray-400 text-black" :
-    i === 2 ? "bg-gradient-to-br from-amber-700 to-amber-800 text-white" :
-    "bg-gray-800 text-gray-500"
-
   return (
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[500] bg-black/90 backdrop-blur-sm flex flex-col items-center justify-between px-6 pt-14 pb-6"
-      dir="rtl"
-    >
-      <TutorialHeader label="شرح تعريفي · الترتيب" total={TOTAL} current={step + 1} accent="text-amber-200" border="border-amber-500/50" bg="bg-amber-600/25" />
-      <div className="absolute top-16 right-5 flex items-center gap-1.5 z-10">
-        {Array.from({ length: TOTAL }).map((_, i) => (
-          <motion.span key={i}
-            animate={{ scale: i === step ? 1.3 : 1, opacity: i === step ? 1 : i < step ? 0.6 : 0.3 }}
-            className={`w-1.5 h-1.5 rounded-full ${i === step ? "bg-amber-400" : i < step ? "bg-amber-600" : "bg-gray-600"}`}
-          />
-        ))}
-      </div>
-
-      <AnimatePresence mode="wait" custom={dir}>
-        <motion.div key={step}
-          initial={{ opacity: 0, x: dir * 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 50 }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          className="w-full max-w-sm flex flex-col items-center gap-4 flex-1 justify-center"
-        >
-
-          {/* ── Step 0: Animated drag-to-rank list ──────────────────────── */}
-          {step === 0 && (
-            <>
-              <div className="text-center space-y-1">
-                <Trophy size={36} className="text-amber-400 mb-2 mx-auto" />
-                <h2 className="text-white font-black text-xl">رتّب من أعجبك</h2>
-                <p className="text-gray-400 text-sm">من الأعلى اهتماماً للأقل — الأول هو أولويتك القصوى</p>
-              </div>
-              <div className="w-full space-y-2">
-                {rankOrder.map((pi, rank) => {
-                  const p = people[pi]
-                  return (
-                    <motion.div key={pi} layout
-                      transition={{ type: "spring", stiffness: 350, damping: 28 }}
-                      className={`flex items-center gap-3 ${p.dim} border rounded-2xl px-4 py-3`}
-                    >
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0 transition-all duration-300 ${rankStyle(rank)}`}>{rank + 1}</div>
-                      <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${p.color} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>{p.init}</div>
-                      <span className="text-white text-sm font-medium flex-1">{p.name}</span>
-                      {rank === 0 && (
-                        <motion.span key="star" initial={{ scale: 0 }} animate={{ scale: 1 }}
-                          className="text-amber-400 text-[10px] font-semibold flex items-center gap-1"><Star size={10} className="inline" /> أولوية</motion.span>
-                      )}
-                    </motion.div>
-                  )
-                })}
-              </div>
-              <p className="text-gray-600 text-xs text-center">↑↓ الترتيب يتغير بسحب البطاقات</p>
-            </>
-          )}
-
-          {/* ── Step 1: Scenarios – what each ranking leads to ─────────── */}
-          {step === 1 && (
-            <>
-              <div className="text-center space-y-1">
-                <Drama size={36} className="text-purple-400 mb-2 mx-auto" />
-                <h2 className="text-white font-black text-xl">ماذا يحدث لكل اختيار؟</h2>
-                <p className="text-gray-400 text-sm">النتيجة تعتمد على ترتيب الطرفين معاً</p>
-              </div>
-              <div className="w-full space-y-2.5">
-
-                {/* Scenario A: mutual #1/#1 → MATCH */}
-                <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 }}
-                  className="bg-emerald-900/25 border border-emerald-700/40 rounded-2xl px-3.5 py-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="bg-emerald-500 text-black text-[9px] font-black rounded-full px-2 py-0.5 flex items-center gap-1"><CheckCircle size={9} className="inline" /> تطابق مثالي</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
-                      <div className="text-[10px] text-gray-400">رتّبتها</div>
-                      <div className="w-7 h-7 rounded-full bg-amber-400 text-black text-[10px] font-black flex items-center justify-center">#1</div>
-                    </div>
-                    <div className="flex-1 flex flex-col items-center gap-0.5">
-                      <div className="flex items-center w-full gap-1">
-                        <div className="flex-1 border-t border-dashed border-emerald-600/50"/>
-                        <motion.span animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 1.2, repeat: Infinity }}><Heart size={16} className="text-emerald-400" /></motion.span>
-                        <div className="flex-1 border-t border-dashed border-emerald-600/50"/>
-                      </div>
-                      <span className="text-emerald-400 text-[9px] font-bold">متبادل → جلسة!</span>
-                    </div>
-                    <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
-                      <div className="text-[10px] text-gray-400">الشخص الآخر رتّبك</div>
-                      <div className="w-7 h-7 rounded-full bg-amber-400 text-black text-[10px] font-black flex items-center justify-center">#1</div>
-                    </div>
-                  </div>
-                </motion.div>
-
-                {/* Scenario B: you #3 / they #1 → weak match */}
-                <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}
-                  className="bg-amber-950/30 border border-amber-800/30 rounded-2xl px-3.5 py-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="bg-amber-900/50 text-amber-300 border border-amber-700/40 text-[9px] font-black rounded-full px-2 py-0.5 flex items-center gap-1"><AlertTriangle size={9} className="inline" /> تطابق ضعيف</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
-                      <div className="text-[10px] text-gray-400">رتّبتها</div>
-                      <div className="w-7 h-7 rounded-full bg-gray-700 text-gray-400 text-[10px] font-black flex items-center justify-center">#3</div>
-                    </div>
-                    <div className="flex-1 flex flex-col items-center gap-0.5">
-                      <div className="flex items-center w-full gap-1">
-                        <div className="flex-1 border-t border-dashed border-amber-800/40"/>
-                        <span className="text-amber-700 text-sm">↔</span>
-                        <div className="flex-1 border-t border-dashed border-amber-800/40"/>
-                      </div>
-                      <span className="text-amber-700 text-[9px]">غير متكافئ</span>
-                    </div>
-                    <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
-                      <div className="text-[10px] text-gray-400">الشخص الآخر رتّبك</div>
-                      <div className="w-7 h-7 rounded-full bg-amber-400 text-black text-[10px] font-black flex items-center justify-center">#1</div>
-                    </div>
-                  </div>
-                </motion.div>
-
-                {/* Scenario C: you #4 / they #1 → rejected */}
-                <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.35 }}
-                  className="bg-red-950/20 border border-red-900/30 rounded-2xl px-3.5 py-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="bg-red-950/50 text-red-400 border border-red-900/40 text-[9px] font-black rounded-full px-2 py-0.5 flex items-center gap-1"><XCircle size={9} className="inline" /> لا جلسة</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
-                      <div className="text-[10px] text-gray-400">رتّبته</div>
-                      <div className="w-7 h-7 rounded-full bg-gray-800 text-gray-600 text-[10px] font-black flex items-center justify-center">#4</div>
-                    </div>
-                    <div className="flex-1 flex flex-col items-center gap-0.5">
-                      <div className="flex items-center w-full gap-1">
-                        <div className="flex-1 border-t border-dashed border-red-900/30"/>
-                        <span className="text-red-800 text-sm font-black">✕</span>
-                        <div className="flex-1 border-t border-dashed border-red-900/30"/>
-                      </div>
-                      <span className="text-red-800 text-[9px]">وضعك آخر الترتيب</span>
-                    </div>
-                    <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
-                      <div className="text-[10px] text-gray-400">الشخص الآخر رتّبك</div>
-                      <div className="w-7 h-7 rounded-full bg-amber-400 text-black text-[10px] font-black flex items-center justify-center">#1</div>
-                    </div>
-                  </div>
-                </motion.div>
-
-              </div>
-            </>
-          )}
-
-          {/* ── Step 2: The system finds the best mutual match ─────────── */}
-          {step === 2 && (
-            <>
-              <div className="text-center space-y-1">
-                <Search size={36} className="text-cyan-400 mb-2 mx-auto" />
-                <h2 className="text-white font-black text-xl">النظام يقارن الترتيبات</h2>
-                <p className="text-gray-400 text-sm">يبحث عن أعلى تطابق متبادل بين الجميع</p>
-              </div>
-              <div className="w-full space-y-3">
-                {/* Mutual – glowing */}
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-                  className="relative bg-emerald-900/25 border border-emerald-700/50 rounded-2xl p-4 overflow-hidden">
-                  <motion.div className="absolute inset-0 bg-emerald-500/8 rounded-2xl"
-                    animate={{ opacity: [0, 1, 0] }} transition={{ duration: 1.8, repeat: Infinity }} />
-                  <div className="relative flex items-center justify-between">
-                    <div className="flex flex-col items-center gap-1">
-                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-black">أ</div>
-                      <span className="text-gray-400 text-[10px]">أنت</span>
-                      <span className="text-amber-400 text-[9px] font-bold">رتّبها #1</span>
-                    </div>
-                    <div className="flex-1 flex flex-col items-center gap-1 px-2">
-                      <div className="flex items-center w-full gap-1">
-                        <motion.div className="flex-1 h-px bg-emerald-500/60"
-                          animate={{ scaleX: [0.4, 1, 0.4] }} transition={{ duration: 1.5, repeat: Infinity }} />
-                        <motion.div animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 1, repeat: Infinity }}><Heart size={20} className="text-emerald-400" /></motion.div>
-                        <motion.div className="flex-1 h-px bg-emerald-500/60"
-                          animate={{ scaleX: [0.4, 1, 0.4] }} transition={{ duration: 1.5, repeat: Infinity }} />
-                      </div>
-                      <span className="text-emerald-300 text-[10px] font-bold bg-emerald-900/50 border border-emerald-700/40 px-2 py-0.5 rounded-full">تطابق!</span>
-                    </div>
-                    <div className="flex flex-col items-center gap-1">
-                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-white font-black">س</div>
-                      <span className="text-gray-400 text-[10px]">سارة</span>
-                      <span className="text-amber-400 text-[9px] font-bold">رتّبتك #1 أيضاً</span>
-                    </div>
-                  </div>
-                </motion.div>
-                {/* Non-mutual – faded */}
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.38 }} transition={{ delay: 0.55 }}
-                  className="bg-gray-900/50 border border-gray-800/50 rounded-2xl p-3.5 flex items-center justify-between">
-                  <div className="flex flex-col items-center gap-0.5">
-                    <div className="w-9 h-9 rounded-full bg-gray-700 flex items-center justify-center text-gray-400 text-xs font-bold">ل</div>
-                    <span className="text-gray-600 text-[9px]">لين رتّبتك #1</span>
-                  </div>
-                  <div className="flex-1 text-center">
-                    <span className="text-gray-700 text-lg font-black">✕</span>
-                    <p className="text-gray-700 text-[9px]">أنت رتّبتها #3</p>
-                  </div>
-                  <div className="flex flex-col items-center gap-0.5">
-                    <div className="w-9 h-9 rounded-full bg-gray-700 flex items-center justify-center text-gray-400 text-xs font-bold">أ</div>
-                    <span className="text-gray-600 text-[9px]">لا جلسة</span>
-                  </div>
-                </motion.div>
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
-                  className="bg-amber-900/15 border border-amber-800/30 rounded-2xl px-4 py-2.5 text-center">
-                  <p className="text-amber-400/70 text-xs flex items-center justify-center gap-1.5"><Lightbulb size={12} className="inline" /> كل شخص يحصل على أفضل تطابق متبادل ممكن</p>
-                </motion.div>
-              </div>
-            </>
-          )}
-
-          {/* ── Step 3: Result ───────────────────────────────────────────── */}
-          {step === 3 && (
-            <>
-              <div className="text-center space-y-1">
-                <Sparkles size={36} className="text-pink-400 mb-2 mx-auto" />
-                <h2 className="text-white font-black text-xl">نتيجتك: جلستان فرديتان</h2>
-                <p className="text-gray-400 text-sm">ترتيبك يحدد من ستجلس معه في الجلستين الفرديتين</p>
-              </div>
-              <div className="w-full space-y-3">
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-                  className="bg-pink-900/25 border border-pink-700/40 rounded-2xl p-4 flex items-center gap-3">
-                  <Heart size={24} className="text-pink-400 flex-shrink-0" />
-                  <div>
-                    <p className="text-white font-bold text-sm">جلسة اختيارك</p>
-                    <p className="text-pink-300 text-xs mt-0.5">أعلى تطابق متبادل من ترتيبك — أنت من اختار</p>
-                  </div>
-                </motion.div>
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
-                  className="bg-purple-900/25 border border-purple-700/40 rounded-2xl p-4 flex items-center gap-3">
-                  <Brain size={24} className="text-purple-400 flex-shrink-0" />
-                  <div>
-                    <p className="text-white font-bold text-sm">جلسة التوافق الذكي</p>
-                    <p className="text-purple-300 text-xs mt-0.5">النظام يختار أفضل توافق بناءً على بياناتكما معاً</p>
-                  </div>
-                </motion.div>
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
-                  className="bg-amber-900/15 border border-amber-800/30 rounded-2xl px-4 py-2.5 text-center space-y-1">
-                  <p className="text-amber-300/80 text-xs flex items-center justify-center gap-1.5"><Key size={12} className="inline" /> كلما كان ترتيبك متبادلاً — كانت جلستك أدق توافقاً</p>
-                  <p className="text-gray-600 text-[11px]">قد تُطابق مع شخص رتّبته أخيراً إذا لم يخترك أي من أعلى خياراتك — النظام يبحث عن أفضل تطابق ممكن للجميع</p>
-                </motion.div>
-              </div>
-            </>
-          )}
-
-        </motion.div>
-      </AnimatePresence>
-
-      <div className="w-full max-w-sm mt-4 space-y-2">
-        <div className="flex items-center gap-3">
-          {step > 0 && (
-            <button onClick={goPrev} className="flex items-center gap-1 text-gray-500 hover:text-gray-300 text-sm px-3 py-3.5 transition-colors">
-              <ChevronRight size={15} /> السابق
-            </button>
-          )}
-          <motion.button whileTap={{ scale: 0.97 }} onClick={goNext}
-            className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 text-black font-black rounded-2xl py-3.5 text-base shadow-2xl shadow-amber-500/30">
-            {step < TOTAL - 1 ? "التالي ←" : "فهمت — ابدأ الترتيب!"}
-          </motion.button>
-        </div>
-        {step < TOTAL - 1 && <TutorialSkip onClose={onClose} />}
-      </div>
-    </motion.div>
+    <OnePopup
+      onClose={onClose}
+      accent="amber"
+      label="التقييم والترتيب"
+      icon={<Trophy size={26} className="text-amber-400" />}
+      title="رتّب من أعجبك"
+      cta="فهمت — ابدأ الترتيب"
+      points={[
+        { icon: <Trophy size={15} className="text-amber-400" />, text: <>اسحب البطاقات لترتيب من <span className="text-white font-bold">الأعلى اهتماماً</span> للأقل — الأول هو أولويتك القصوى</> },
+        { icon: <Heart size={15} className="text-emerald-400" />, text: <>إذا رتّبت شخصًا <span className="text-white font-bold">#1</span> ورتّبك هو أيضًا <span className="text-white font-bold">#1</span> ← تطابق مثالي وجلسة فردية!</> },
+        { icon: <AlertTriangle size={15} className="text-amber-400" />, text: <>التطابق يجب أن يكون <span className="text-white font-bold">متبادلاً</span> — ترتيبك وحده لا يكفي، الطرفان يجب أن يتقاربا</> },
+        { icon: <Sparkles size={15} className="text-pink-400" />, text: <>نتيجتك: جلستان فرديتان — واحدة من اختيارك وواحدة يختارها النظام بناءً على التوافق</> },
+      ]}
+    />
   )
 }
 

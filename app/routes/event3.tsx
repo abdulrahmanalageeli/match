@@ -3552,15 +3552,15 @@ function BreakScreen({ timerActive, timerStart, timerDuration }: {
           <div className="space-y-3 text-gray-300 text-sm leading-relaxed">
             <div className="flex items-start gap-2">
               <span className="text-teal-400 mt-0.5 shrink-0">١.</span>
-              <span>ستعرف طاولتك وتتوجه إليها، ثم ستجلس <b className="text-teal-200">لقاء واحد لواحد مع اختيارك</b> لمدة 20 دقيقة. بعدها ستشاركنا انطباعك عن اللقاء.</span>
+              <span>ستعرف طاولتك وتتوجه إليها، ثم ستجلس <b className="text-pink-300">لقاء واحد لواحد مع اختيارك</b> لمدة 20 دقيقة. بعدها ستشاركنا انطباعك عن اللقاء.</span>
             </div>
             <div className="flex items-start gap-2">
               <span className="text-teal-400 mt-0.5 shrink-0">٢.</span>
-              <span>ثم ستنتقل إلى طاولة جديدة وستجلس <b className="text-teal-200">لقاء واحد لواحد مع اختيارنا</b> لمدة 20 دقيقة. بعدها ستشاركنا انطباعك عن هذا اللقاء أيضًا.</span>
+              <span>ثم ستنتقل إلى طاولة جديدة وستجلس <b className="text-purple-300">لقاء واحد لواحد مع اختيارنا</b> لمدة 20 دقيقة. بعدها ستشاركنا انطباعك عن هذا اللقاء أيضًا.</span>
             </div>
             <div className="flex items-start gap-2">
               <span className="text-teal-400 mt-0.5 shrink-0">٣.</span>
-              <span>أخيرًا، ستشاهد نتائجك النهائية وتعرف مطابقتك المثالية بناءً على تقييماتك وتقييمات الآخرين. ✨</span>
+              <span>أخيرًا، ستشاهد نتيجتك النهائية وتحليل التوافق لكلا اللقاءين. ✨</span>
             </div>
           </div>
         </div>

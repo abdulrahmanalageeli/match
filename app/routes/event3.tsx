@@ -1277,8 +1277,8 @@ function OneToOneTutorial({ onClose }: { onClose: () => void }) {
 function SessionTips({ onClose, accent = "pink" }: { onClose: () => void; accent?: "pink" | "purple" }) {
   const [tip, setTip] = useState(0)
   const ac = accent === "pink"
-    ? { text: "text-pink-300", bg: "bg-pink-500/15", border: "border-pink-500/30", dot: "bg-pink-400" }
-    : { text: "text-purple-300", bg: "bg-purple-500/15", border: "border-purple-500/30", dot: "bg-purple-400" }
+    ? { text: "text-pink-300", bg: "bg-pink-500/15", border: "border-pink-500/30", dot: "bg-pink-400", grad: "from-pink-600/20 to-rose-600/10" }
+    : { text: "text-purple-300", bg: "bg-purple-500/15", border: "border-purple-500/30", dot: "bg-purple-400", grad: "from-purple-600/20 to-violet-600/10" }
 
   const tips = [
     { icon: <Layers size={14} />, title: "مجموعات الأسئلة", desc: "بدّل بين المجموعات للوصول إلى أسئلة متنوعة تناسب نقاشكما" },
@@ -1291,17 +1291,22 @@ function SessionTips({ onClose, accent = "pink" }: { onClose: () => void; accent
   const t = tips[tip]
 
   return (
-    <AnimatePresence>
+    <AnimatePresence mode="wait">
       <motion.div
-        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
-        transition={{ type: "spring", stiffness: 300, damping: 25 }}
-        className={`relative ${ac.bg} ${ac.border} border rounded-2xl px-4 py-3 space-y-2.5`}
+        key={tip}
+        initial={{ opacity: 0, y: 20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.95 }}
+        transition={{ type: "spring", stiffness: 350, damping: 28 }}
+        className={`relative overflow-hidden bg-gradient-to-br ${ac.grad} ${ac.border} border rounded-2xl px-4 py-3.5 space-y-3`}
         dir="rtl"
       >
+        {/* Animated shimmer line */}
+        <motion.div className={`absolute top-0 left-0 right-0 h-px ${ac.bg}`}
+          animate={{ opacity: [0, 1, 0] }} transition={{ duration: 2, repeat: Infinity }} />
         <div className="flex items-start gap-2.5">
-          <div className={`w-7 h-7 rounded-lg ${ac.bg} ${ac.border} border flex items-center justify-center shrink-0 ${ac.text}`}>
+          <motion.div className={`w-8 h-8 rounded-xl ${ac.bg} ${ac.border} border flex items-center justify-center shrink-0 ${ac.text}`}
+            animate={{ rotate: [0, -5, 5, 0] }} transition={{ duration: 2, repeat: Infinity, delay: 0.3 }}>
             {t.icon}
-          </div>
+          </motion.div>
           <div className="flex-1 space-y-0.5">
             <p className={`text-xs font-bold ${ac.text}`}>{t.title}</p>
             <p className="text-gray-400 text-[11px] leading-relaxed">{t.desc}</p>
@@ -1310,16 +1315,17 @@ function SessionTips({ onClose, accent = "pink" }: { onClose: () => void; accent
             <X size={14} />
           </button>
         </div>
-        {/* Footer: dots + next */}
+        {/* Footer: animated dots + next */}
         <div className="flex items-center justify-between pt-0.5">
           <div className="flex items-center gap-1">
             {tips.map((_, i) => (
-              <span key={i} className={`w-1 h-1 rounded-full transition-all ${i === tip ? `${ac.dot} w-3` : 'bg-gray-700'}`} />
+              <motion.span key={i} className={`h-1 rounded-full transition-all ${i === tip ? `${ac.dot} w-4` : 'bg-gray-700 w-1'}`}
+                animate={i === tip ? { opacity: [1, 0.6, 1] } : {}} transition={{ duration: 1.5, repeat: Infinity }} />
             ))}
           </div>
-          <button onClick={goNext} className={`text-[11px] font-medium ${ac.text} hover:opacity-80 transition-opacity`}>
+          <motion.button onClick={goNext} whileTap={{ scale: 0.95 }} className={`text-[11px] font-medium ${ac.text} hover:opacity-80 transition-opacity`}>
             {tip < tips.length - 1 ? "التالي ←" : "تم"}
-          </button>
+          </motion.button>
         </div>
       </motion.div>
     </AnimatePresence>
@@ -1496,8 +1502,12 @@ function IceBreaker({ round, myInfo, tablemates }: {
 }
 
 // ─── Rock Paper Scissors Icebreaker (1:1 Rounds) ─────────────────────────────
-function RockPaperScissors({ accent = "pink", autoDone = false }: { accent?: "pink" | "purple"; autoDone?: boolean }) {
+function RockPaperScissors({ accent = "pink", autoDone = false, onDone }: { accent?: "pink" | "purple"; autoDone?: boolean; onDone?: () => void }) {
   const [done, setDone] = useState(autoDone)
+
+  useEffect(() => {
+    if (done && onDone) onDone()
+  }, [done, onDone])
 
   if (done) return null
 
@@ -1506,40 +1516,61 @@ function RockPaperScissors({ accent = "pink", autoDone = false }: { accent?: "pi
     : { border: "border-purple-800/40", bg: "from-purple-950/30 to-violet-950/20", text: "text-purple-300", btn: "from-purple-600 to-violet-600", glow: "shadow-purple-600/30" }
 
   return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-      <GlassCard className={`p-5 space-y-4 border ${ac.border} shadow-lg ${ac.glow}/10`}>
-        <div className="flex items-center justify-center gap-2">
-          <Zap size={20} className={ac.text} />
-          <h4 className="text-white font-bold text-sm">تحدي حجر، ورقة، مقص</h4>
-        </div>
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, type: "spring", stiffness: 260, damping: 24 }}>
+      <GlassCard className={`relative overflow-hidden p-6 space-y-5 border ${ac.border} shadow-xl ${ac.glow}/20`}>
+        {/* Animated top shimmer */}
+        <motion.div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent ${accent === "pink" ? "via-pink-400/60" : "via-purple-400/60"} to-transparent`}
+          animate={{ opacity: [0.2, 1, 0.2] }} transition={{ duration: 2.5, repeat: Infinity }} />
 
-        <p className="text-gray-400 text-xs text-center leading-relaxed">
+        {/* Title with animated icon */}
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
+          className="flex flex-col items-center gap-2">
+          <motion.div className={`w-12 h-12 rounded-2xl ${accent === "pink" ? "bg-pink-500/20 border-pink-500/30" : "bg-purple-500/20 border-purple-500/30"} border flex items-center justify-center`}
+            animate={{ rotate: [0, -8, 8, 0], scale: [1, 1.08, 1] }} transition={{ duration: 2, repeat: Infinity }}>
+            <Zap size={22} className={ac.text} />
+          </motion.div>
+          <h4 className="text-white font-bold text-base">تحدي حجر، ورقة، مقص</h4>
+        </motion.div>
+
+        {/* Description */}
+        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.45 }}
+          className="text-gray-400 text-xs text-center leading-relaxed">
           قبل ما تبدأ الجولة، العبوا حجر، ورقة، مقص — أفضل من ٣ جولات.
-        </p>
+        </motion.p>
 
-        <div className={`rounded-xl p-4 border ${ac.border} bg-gradient-to-br ${ac.bg} space-y-2`}>
+        {/* Winner rules card */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 }}
+          className={`relative overflow-hidden rounded-xl p-4 border ${ac.border} bg-gradient-to-br ${ac.bg} space-y-2.5`}>
+          <motion.div className={`absolute top-0 left-0 right-0 h-px ${accent === "pink" ? "bg-pink-400/30" : "bg-purple-400/30"}`}
+            animate={{ opacity: [0, 1, 0] }} transition={{ duration: 2, repeat: Infinity }} />
           <p className={`text-xs font-bold ${ac.text} flex items-center gap-1.5 justify-center`}>
-            <Trophy size={13} /> الفائز
+            <motion.span animate={{ y: [0, -3, 0] }} transition={{ duration: 1.5, repeat: Infinity }}>
+              <Trophy size={13} />
+            </motion.span>
+            الفائز
           </p>
           <ul className="text-gray-300 text-xs leading-relaxed space-y-1.5 text-center">
             <li>يقود الجلسة ويبدأ بطرح أول سؤال من أسئلة الجولة بالأسفل</li>
             <li>يملك تخطيًا واحدًا — يمكنه تخطي أي سؤال من الأسفل والانتقال لآخر</li>
             <li>كلاكما يجب أن يجيب على كل سؤال يُطرح</li>
           </ul>
-        </div>
+        </motion.div>
 
-        <div className="text-center">
-          <p className="text-gray-500 text-[11px] leading-relaxed">
-            أسئلة هذه الجولة معروضة بالأسفل — يمكنكم البدء بعد انتهاء تحدي كسر الجليد
-          </p>
-        </div>
+        {/* Hint */}
+        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.65 }}
+          className="text-gray-500 text-[11px] leading-relaxed text-center">
+          أسئلة هذه الجولة معروضة بالأسفل — يمكنكم البدء بعد انتهاء تحدي كسر الجليد
+        </motion.p>
 
-        <button
+        {/* Done button */}
+        <motion.button
           onClick={() => setDone(true)}
-          className={`w-full py-3 rounded-xl bg-gradient-to-r ${ac.btn} text-white font-bold text-sm shadow-lg ${ac.glow} hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2`}
+          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.75 }}
+          whileTap={{ scale: 0.97 }}
+          className={`w-full py-3.5 rounded-xl bg-gradient-to-r ${ac.btn} text-white font-bold text-sm shadow-lg ${ac.glow} hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2`}
         >
-          <CheckCircle size={14} /> خلّصنا التحدي — ابدأوا الجلسة
-        </button>
+          <CheckCircle size={16} /> خلّصنا التحدي — ابدأوا الجلسة
+        </motion.button>
       </GlassCard>
     </motion.div>
   )
@@ -2760,6 +2791,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   const [showTutorial, setShowTutorial] = useState(true)
   const [showSessionTips, setShowSessionTips] = useState(false)
   const [rejoined, setRejoined] = useState(false)
+  const [icebreakerDone, setIcebreakerDone] = useState(false)
 
   useEffect(() => {
     call("e3-get-phase2-reveal", token).then(d => {
@@ -2958,9 +2990,8 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                   </div>
                 </motion.div>
               ) : (
-                <div className="text-center space-y-1">
+                <div className="text-center">
                   <p className="text-gray-600 text-xs">انتظر دقيقة من بدء المؤقت</p>
-                  <div className="text-2xl font-mono font-black text-pink-300">{Math.ceil(waitSeconds)}ث</div>
                 </div>
               )}
 
@@ -3116,71 +3147,104 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
               <span className="text-white font-bold text-sm">أسئلة الجلسة الأولى</span>
               <span className={`font-mono text-sm font-black tabular-nums ${timeLeft < 300 ? 'text-red-400' : 'text-pink-300'}`}>{formatTime(timeLeft)}</span>
             </div>
-            <div className="flex-1 max-w-sm mx-auto w-full p-5 space-y-5">
-              {/* Compact partner reminder */}
-              <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-pink-900/20 border border-pink-800/30">
-                <span className="text-gray-500 text-xs">شريكك</span>
-                <span className="text-pink-300 font-bold">{data?.partner_first_name}</span>
-                <div className="flex items-center gap-2">
-                  {data?.is_backup && <span className="text-amber-400 text-[10px] font-medium bg-amber-500/10 border border-amber-600/30 rounded-full px-2 py-0.5">احتياطي</span>}
-                  {data?.table_number && <span className="text-amber-400 text-xs font-medium">طاولة {data.table_number}</span>}
-                </div>
-              </div>
-              {/* Live timer strip */}
-              {timerActive && timeLeft > 0 && (
-                <div className="rounded-xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
-                  <div className="flex items-center justify-between px-4 py-3">
-                    <span className="text-gray-500 text-xs flex items-center gap-1.5"><Clock size={10} className="text-pink-400" /> الوقت المتبقي</span>
-                    <span className={`font-mono font-black text-lg tabular-nums ${timeLeft < 60 ? 'text-red-400' : 'text-white'}`}>{formatTime(timeLeft)}</span>
-                  </div>
-                  <div className="h-[2px] bg-gray-800/60">
-                    <motion.div className={`h-full ${timeLeft < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-pink-500 to-rose-400"}`}
-                      style={{ boxShadow: timeLeft < 60 ? "0 0 6px rgba(239,68,68,0.6)" : "0 0 6px rgba(236,72,153,0.6)" }}
-                      animate={{ width: `${(timeLeft / timerDuration) * 100}%` }} transition={{ duration: 1 }} />
-                  </div>
-                </div>
+
+            {/* Ice breaker phase — full screen centered */}
+            <AnimatePresence mode="wait">
+              {!icebreakerDone ? (
+                <motion.div key="icebreaker" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="flex-1 flex flex-col items-center justify-center max-w-sm mx-auto w-full p-5">
+                  <RockPaperScissors accent="pink" autoDone={rejoined} onDone={() => setIcebreakerDone(true)} />
+                </motion.div>
+              ) : (
+                <motion.div key="session-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 max-w-sm mx-auto w-full p-5 space-y-5">
+                  {/* Redesigned partner reminder bar */}
+                  <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                    className="relative overflow-hidden rounded-2xl border border-pink-700/30 bg-gradient-to-r from-pink-950/40 via-rose-950/30 to-pink-950/20 px-4 py-3">
+                    <motion.div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-pink-400/50 to-transparent"
+                      animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 3, repeat: Infinity }} />
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <motion.div className="w-9 h-9 rounded-xl bg-pink-500/20 border border-pink-500/30 flex items-center justify-center"
+                          animate={{ scale: [1, 1.05, 1] }} transition={{ duration: 2, repeat: Infinity }}>
+                          <Users size={15} className="text-pink-400" />
+                        </motion.div>
+                        <div>
+                          <p className="text-gray-500 text-[10px] leading-none mb-0.5">شريكك</p>
+                          <p className="text-pink-300 font-bold text-sm leading-none">{data?.partner_first_name}</p>
+                        </div>
+                      </div>
+                      {data?.table_number && (
+                        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.2 }}
+                          className="flex items-center gap-2">
+                          {data?.is_backup && <span className="text-amber-400 text-[10px] font-medium bg-amber-500/10 border border-amber-600/30 rounded-full px-2 py-0.5">احتياطي</span>}
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-600/30">
+                            <MapPin size={12} className="text-amber-400" />
+                            <span className="text-amber-300 text-xs font-bold">طاولة {data.table_number}</span>
+                          </div>
+                        </motion.div>
+                      )}
+                    </div>
+                  </motion.div>
+
+                  {/* Live timer strip */}
+                  {timerActive && timeLeft > 0 && (
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+                      className="rounded-xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-3">
+                        <span className="text-gray-500 text-xs flex items-center gap-1.5"><Clock size={10} className="text-pink-400" /> الوقت المتبقي</span>
+                        <span className={`font-mono font-black text-lg tabular-nums ${timeLeft < 60 ? 'text-red-400' : 'text-white'}`}>{formatTime(timeLeft)}</span>
+                      </div>
+                      <div className="h-[2px] bg-gray-800/60">
+                        <motion.div className={`h-full ${timeLeft < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-pink-500 to-rose-400"}`}
+                          style={{ boxShadow: timeLeft < 60 ? "0 0 6px rgba(239,68,68,0.6)" : "0 0 6px rgba(236,72,153,0.6)" }}
+                          animate={{ width: `${(timeLeft / timerDuration) * 100}%` }} transition={{ duration: 1 }} />
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Tips + Questions */}
+                  <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+                    <AnimatePresence>
+                      {showSessionTips && <SessionTips onClose={() => setShowSessionTips(false)} accent="pink" />}
+                    </AnimatePresence>
+                  </motion.div>
+                  <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+                    <QuestionSlideshow defaultSet="choice" />
+                  </motion.div>
+
+                  {/* PromptTopicsModal */}
+                  <motion.button onClick={() => setShowPrompt(true)} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+                    className="flex items-center justify-center gap-2 w-full py-2.5 rounded-full text-sm font-medium bg-gradient-to-r from-purple-600/60 to-pink-600/60 hover:from-purple-600 hover:to-pink-600 text-white transition-all border border-purple-700/30">
+                    <MessageSquare size={14} /> أسئلة للنقاش
+                  </motion.button>
+
+                  {/* Jump to feedback manually */}
+                  <motion.button
+                    onClick={() => setView('feedback')}
+                    whileTap={{ scale: 0.97 }}
+                    initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
+                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gradient-to-r from-pink-700/80 to-rose-700/80 hover:from-pink-600 hover:to-rose-600 text-white text-sm font-bold transition-all shadow-lg shadow-pink-900/30 border border-pink-600/30"
+                  >
+                    <CheckCircle size={16} />
+                    انتهيت من الجلسة — انتقل للتقييم
+                  </motion.button>
+
+                  {/* Replay tutorial + tips buttons */}
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="flex items-center justify-center gap-4">
+                    <button onClick={() => setShowTutorial(true)}
+                      className="text-gray-600 hover:text-gray-400 text-[11px] font-medium transition-colors flex items-center gap-1.5">
+                      <RefreshCw size={11} />
+                      إعادة الشرح
+                    </button>
+                    <button onClick={() => setShowSessionTips(true)}
+                      className="text-gray-600 hover:text-gray-400 text-[11px] font-medium transition-colors flex items-center gap-1.5">
+                      <Sparkles size={11} />
+                      نصائح سريعة
+                    </button>
+                  </motion.div>
+                </motion.div>
               )}
-              {/* Questions */}
-              <RockPaperScissors accent="pink" autoDone={rejoined} />
-              <AnimatePresence>
-                {showSessionTips && <SessionTips onClose={() => setShowSessionTips(false)} accent="pink" />}
-              </AnimatePresence>
-              <QuestionSlideshow defaultSet="choice" />
-              {/* PromptTopicsModal */}
-              <button onClick={() => setShowPrompt(true)}
-                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-full text-sm font-medium bg-gradient-to-r from-purple-600/60 to-pink-600/60 hover:from-purple-600 hover:to-pink-600 text-white transition-all border border-purple-700/30">
-                <MessageSquare size={14} /> أسئلة للنقاش
-              </button>
-              {/* Jump to feedback manually */}
-              <motion.button
-                onClick={() => setView('feedback')}
-                whileTap={{ scale: 0.97 }}
-                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
-                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gradient-to-r from-pink-700/80 to-rose-700/80 hover:from-pink-600 hover:to-rose-600 text-white text-sm font-bold transition-all shadow-lg shadow-pink-900/30 border border-pink-600/30"
-              >
-                <CheckCircle size={16} />
-                انتهيت من الجلسة — انتقل للتقييم
-              </motion.button>
-              {/* Replay tutorial + tips buttons */}
-              <div className="flex items-center justify-center gap-4">
-                <motion.button
-                  onClick={() => setShowTutorial(true)}
-                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-                  className="text-gray-600 hover:text-gray-400 text-[11px] font-medium transition-colors flex items-center gap-1.5"
-                >
-                  <RefreshCw size={11} />
-                  إعادة الشرح
-                </motion.button>
-                <motion.button
-                  onClick={() => setShowSessionTips(true)}
-                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-                  className="text-gray-600 hover:text-gray-400 text-[11px] font-medium transition-colors flex items-center gap-1.5"
-                >
-                  <Sparkles size={11} />
-                  نصائح سريعة
-                </motion.button>
-              </div>
-            </div>
+            </AnimatePresence>
+
             <Suspense fallback={null}>
               {showPrompt && <PromptTopicsModal open={showPrompt} onClose={() => setShowPrompt(false)} />}
             </Suspense>
@@ -3210,6 +3274,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   const [feedbackDone, setFeedbackDone] = useState(false)
   const [showSessionTips, setShowSessionTips] = useState(false)
   const [rejoined, setRejoined] = useState(false)
+  const [icebreakerDone, setIcebreakerDone] = useState(false)
 
   const fetchReveal = useCallback(async () => {
     const d = await call("e3-get-phase3-reveal", token)
@@ -3436,9 +3501,8 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                   </div>
                 </motion.div>
               ) : (
-                <div className="text-center space-y-1">
+                <div className="text-center">
                   <p className="text-gray-600 text-xs">انتظر دقيقة من بدء المؤقت</p>
-                  <div className="text-2xl font-mono font-black text-purple-300">{Math.ceil(waitSeconds)}ث</div>
                 </div>
               )}
 
@@ -3544,57 +3608,100 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
               <span className="text-white font-bold text-sm">أسئلة الجلسة الثانية</span>
               <span className={`font-mono text-sm font-black tabular-nums ${timeLeft < 300 ? 'text-red-400' : 'text-purple-300'}`}>{formatTime(timeLeft)}</span>
             </div>
-            <div className="flex-1 max-w-sm mx-auto w-full p-5 space-y-5">
-              <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-purple-900/20 border border-purple-800/30">
-                <span className="text-gray-500 text-xs">شريكك</span>
-                <span className="text-purple-300 font-bold">{data?.partner_first_name}</span>
-              </div>
-              <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-violet-950/40 border border-violet-700/40">
-                <span className="text-gray-500 text-xs flex items-center gap-1.5"><MapPin size={12} className="text-violet-400" /> طاولتك</span>
-                <span className="text-violet-300 text-xl font-black">{data?.table_number ?? "—"}</span>
-              </div>
-              {timerActive && timeLeft > 0 && (
-                <div className="rounded-xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
-                  <div className="flex items-center justify-between px-4 py-3">
-                    <span className="text-gray-500 text-xs flex items-center gap-1.5"><Clock size={10} className="text-purple-400" /> الوقت المتبقي</span>
-                    <span className={`font-mono font-black text-lg tabular-nums ${timeLeft < 60 ? 'text-red-400' : 'text-white'}`}>{formatTime(timeLeft)}</span>
-                  </div>
-                  <div className="h-[2px] bg-gray-800/60">
-                    <motion.div className={`h-full ${timeLeft < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-purple-500 to-violet-400"}`}
-                      style={{ boxShadow: timeLeft < 60 ? "0 0 6px rgba(239,68,68,0.6)" : "0 0 6px rgba(139,92,246,0.6)" }}
-                      animate={{ width: `${(timeLeft / timerDuration) * 100}%` }} transition={{ duration: 1 }} />
-                  </div>
-                </div>
+
+            {/* Ice breaker phase — full screen centered */}
+            <AnimatePresence mode="wait">
+              {!icebreakerDone ? (
+                <motion.div key="icebreaker" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="flex-1 flex flex-col items-center justify-center max-w-sm mx-auto w-full p-5">
+                  <RockPaperScissors accent="purple" autoDone={rejoined} onDone={() => setIcebreakerDone(true)} />
+                </motion.div>
+              ) : (
+                <motion.div key="session-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 max-w-sm mx-auto w-full p-5 space-y-5">
+                  {/* Redesigned partner reminder bar */}
+                  <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                    className="relative overflow-hidden rounded-2xl border border-purple-700/30 bg-gradient-to-r from-purple-950/40 via-violet-950/30 to-purple-950/20 px-4 py-3">
+                    <motion.div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-400/50 to-transparent"
+                      animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 3, repeat: Infinity }} />
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <motion.div className="w-9 h-9 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center"
+                          animate={{ scale: [1, 1.05, 1] }} transition={{ duration: 2, repeat: Infinity }}>
+                          <Brain size={15} className="text-purple-400" />
+                        </motion.div>
+                        <div>
+                          <p className="text-gray-500 text-[10px] leading-none mb-0.5">شريكك</p>
+                          <p className="text-purple-300 font-bold text-sm leading-none">{data?.partner_first_name}</p>
+                        </div>
+                      </div>
+                      {data?.table_number && (
+                        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.2 }}
+                          className="flex items-center gap-2">
+                          {data?.same_as_phase2 && <span className="text-amber-400 text-[10px] font-medium bg-amber-500/10 border border-amber-600/30 rounded-full px-2 py-0.5">مطابقة</span>}
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-600/30">
+                            <MapPin size={12} className="text-amber-400" />
+                            <span className="text-amber-300 text-xs font-bold">طاولة {data.table_number}</span>
+                          </div>
+                        </motion.div>
+                      )}
+                    </div>
+                  </motion.div>
+
+                  {/* Live timer strip */}
+                  {timerActive && timeLeft > 0 && (
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+                      className="rounded-xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-3">
+                        <span className="text-gray-500 text-xs flex items-center gap-1.5"><Clock size={10} className="text-purple-400" /> الوقت المتبقي</span>
+                        <span className={`font-mono font-black text-lg tabular-nums ${timeLeft < 60 ? 'text-red-400' : 'text-white'}`}>{formatTime(timeLeft)}</span>
+                      </div>
+                      <div className="h-[2px] bg-gray-800/60">
+                        <motion.div className={`h-full ${timeLeft < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-purple-500 to-violet-400"}`}
+                          style={{ boxShadow: timeLeft < 60 ? "0 0 6px rgba(239,68,68,0.6)" : "0 0 6px rgba(139,92,246,0.6)" }}
+                          animate={{ width: `${(timeLeft / timerDuration) * 100}%` }} transition={{ duration: 1 }} />
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Tips + Questions */}
+                  <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+                    <AnimatePresence>
+                      {showSessionTips && <SessionTips onClose={() => setShowSessionTips(false)} accent="purple" />}
+                    </AnimatePresence>
+                  </motion.div>
+                  <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+                    <QuestionSlideshow defaultSet="set1" />
+                  </motion.div>
+
+                  {/* PromptTopicsModal */}
+                  <motion.button onClick={() => setShowPrompt(true)} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+                    className="flex items-center justify-center gap-2 w-full py-2.5 rounded-full text-sm font-medium bg-gradient-to-r from-purple-600/60 to-pink-600/60 hover:from-purple-600 hover:to-pink-600 text-white transition-all border border-purple-700/30">
+                    <MessageSquare size={14} /> أسئلة للنقاش
+                  </motion.button>
+
+                  {/* Jump to feedback */}
+                  <motion.button
+                    onClick={() => setView('feedback')}
+                    whileTap={{ scale: 0.97 }}
+                    initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
+                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gradient-to-r from-purple-700/80 to-violet-700/80 hover:from-purple-600 hover:to-violet-600 text-white text-sm font-bold transition-all shadow-lg shadow-purple-900/30 border border-purple-600/30"
+                  >
+                    <CheckCircle size={16} />
+                    انتهيت من الجلسة — انتقل للتقييم
+                  </motion.button>
+
+                  {/* Quick tips button */}
+                  <motion.button
+                    onClick={() => setShowSessionTips(true)}
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
+                    className="text-gray-600 hover:text-gray-400 text-[11px] font-medium transition-colors flex items-center gap-1.5 mx-auto"
+                  >
+                    <Sparkles size={11} />
+                    نصائح سريعة
+                  </motion.button>
+                </motion.div>
               )}
-              <RockPaperScissors accent="purple" autoDone={rejoined} />
-              <AnimatePresence>
-                {showSessionTips && <SessionTips onClose={() => setShowSessionTips(false)} accent="purple" />}
-              </AnimatePresence>
-              <QuestionSlideshow defaultSet="set1" />
-              <button onClick={() => setShowPrompt(true)}
-                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-full text-sm font-medium bg-gradient-to-r from-purple-600/60 to-pink-600/60 hover:from-purple-600 hover:to-pink-600 text-white transition-all border border-purple-700/30">
-                <MessageSquare size={14} /> أسئلة للنقاش
-              </button>
-              {/* Jump to feedback */}
-              <motion.button
-                onClick={() => setView('feedback')}
-                whileTap={{ scale: 0.97 }}
-                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
-                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gradient-to-r from-purple-700/80 to-violet-700/80 hover:from-purple-600 hover:to-violet-600 text-white text-sm font-bold transition-all shadow-lg shadow-purple-900/30 border border-purple-600/30"
-              >
-                <CheckCircle size={16} />
-                انتهيت من الجلسة — انتقل للتقييم
-              </motion.button>
-              {/* Quick tips button */}
-              <motion.button
-                onClick={() => setShowSessionTips(true)}
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-                className="text-gray-600 hover:text-gray-400 text-[11px] font-medium transition-colors flex items-center gap-1.5 mx-auto"
-              >
-                <Sparkles size={11} />
-                نصائح سريعة
-              </motion.button>
-            </div>
+            </AnimatePresence>
+
             <Suspense fallback={null}>
               {showPrompt && <PromptTopicsModal open={showPrompt} onClose={() => setShowPrompt(false)} />}
             </Suspense>

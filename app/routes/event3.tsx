@@ -436,6 +436,7 @@ function WalkSlide({ step }: { step: number }) {
 
   // Ranking demo — cycle the order so people SEE the drag-to-rank behaviour.
   const [rankOrder, setRankOrder] = useState([0, 1, 2, 3])
+  const [faqOpen, setFaqOpen] = useState<number | null>(null)
   useEffect(() => {
     if (slide.key !== "ranking") return
     const orders = [[0,1,2,3],[1,0,2,3],[1,2,0,3],[2,1,0,3]]
@@ -523,7 +524,7 @@ function WalkSlide({ step }: { step: number }) {
             </DemoButton>
             <div className="flex items-start gap-2 bg-white/[0.03] border border-white/[0.06] rounded-xl px-3 py-2.5">
               <Shuffle size={15} className="text-cyan-400 shrink-0 mt-0.5" />
-              <p className="text-gray-400 text-[11px] leading-relaxed">في الجولة الثانية ستكون المجموعة <span className="text-cyan-300 font-bold">مختلفة كلياً</span> — لن يتكرّر أحد قابلته سابقاً.</p>
+              <p className="text-gray-400 text-[11px] leading-relaxed">في الجولة الثانية ستكون المجموعة <span className="text-cyan-300 font-bold">مختلفة كلياً</span> — لن يتكرّر أحد قابلته سابقاً <span className="text-gray-500">(إلا في حالات نادرة)</span>.</p>
             </div>
           </div>
         )}
@@ -647,6 +648,38 @@ function WalkSlide({ step }: { step: number }) {
               <p className="text-gray-400 text-[11px] leading-relaxed">
                 حتى لو لم تكن النتيجة مثالية، تبقى قد عشت تجربة اختيارك بنفسك — استمتع باللقاء والتجربة أكثر من الرقم.
               </p>
+            </div>
+
+            {/* FAQ */}
+            <div className="space-y-2">
+              <p className="text-violet-300 text-[11px] font-black flex items-center gap-1.5"><Lightbulb size={12} /> أسئلة شائعة</p>
+              {[
+                { q: "ماذا لو لم يعجبني أحد؟", a: "رتّب الجميع بأي ترتيب تريده — حتى لو لم يعجبك أحد، الترتيب إلزامي لإكمال المرحلة. النظام سيمنحك أفضل تطابق متاح." },
+                { q: "هل ترتيبي ظاهر للآخرين؟", a: "لا أبداً — ترتيبك وتقييماتك سرّية تماماً. لا أحد يرى اختياراتك إلا إذا حدث تطابق متبادل بـ«نعم» للتواصل." },
+                { q: "هل يمكنني تعديل ترتيبي بعد الإرسال؟", a: "لا، بمجرد الإرسال يُقفل الترتيب. خذ وقتك في التقييم قبل التأكيد." },
+                { q: "ماذا لو لم يخترني أحد من أعلى قائمتي؟", a: "النظام يبحث عن أفضل تطابق متبادل متاح للجميع. قد تُطابق مع شخص رتّبته في مرتبة أدنى — هذا أفضل متاح لك." },
+                { q: "كم مدة كل جلسة فردية؟", a: "كل جلسة فردية مدتها ٢٠ دقيقة تقريباً. المؤقت ينبهك قبل انتهاء الوقت." },
+                { q: "ماذا لو احتجت مساعدة خلال الجلسة؟", a: "زر «المنظم» في أسفل الشاشة متاح دائماً — اضغطه لأي مساعدة أو طارئ." },
+                { q: "هل يمكنني التواصل مع شخص لم أجلس معه؟", a: "لا — معلومات التواصل تُتبادل فقط عند تطابق متبادل بـ«نعم» بعد جلسة فردية معاً." },
+                { q: "ماذا لو قلت «لا» وندمت؟", a: "للأسف لا يمكن تغيير الإجابة بعد الإرسال. فكّر جيداً قبل الاختيار." },
+              ].map((item, i) => (
+                <div key={i} className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
+                  <button onClick={() => setFaqOpen(faqOpen === i ? null : i)}
+                    className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-right">
+                    <span className="text-gray-300 text-[11px] font-semibold flex-1">{item.q}</span>
+                    <motion.span animate={{ rotate: faqOpen === i ? 180 : 0 }} transition={{ duration: 0.2 }}
+                      className="text-gray-500 shrink-0"><ChevronRight size={14} className="rotate-90" /></motion.span>
+                  </button>
+                  <AnimatePresence>
+                    {faqOpen === i && (
+                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }} className="overflow-hidden">
+                        <p className="text-gray-400 text-[11px] leading-relaxed px-3 pb-2.5">{item.a}</p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              ))}
             </div>
           </div>
         )}

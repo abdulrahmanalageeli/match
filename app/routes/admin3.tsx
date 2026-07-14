@@ -660,7 +660,7 @@ export default function Admin3Page() {
     }
     const update = () => {
       const elapsed = Math.floor((Date.now() - new Date(state.timer_start).getTime()) / 1000)
-      setTimerRemaining(Math.max(0, (state.timer_duration || 1200) - elapsed))
+      setTimerRemaining(Math.max(0, (state.timer_duration || 1260) - elapsed))
     }
     update()
     const iv = setInterval(update, 1000)
@@ -690,7 +690,7 @@ export default function Admin3Page() {
     if (previewEventId != null) { toast.error("لا يمكن تغيير المرحلة في وضع المعاينة"); return Promise.resolve() }
     return run(`phase-${phase}`, () => api("e3-set-phase", { phase, start_timer: false }))
   }
-  const startTimer = (round: number, duration = 1200) => {
+  const startTimer = (round: number, duration = 1260) => {
     if (previewEventId != null) { toast.error("لا يمكن تشغيل المؤقت في وضع المعاينة"); return }
     run("timer", () => api("e3-start-timer", { round, duration }))
   }
@@ -807,9 +807,9 @@ export default function Admin3Page() {
     if (ph === "phase2_processing" && hasMatches) return { label: "⬅ استراحة (10 دقائق)", action: () => setPhaseWithTimer("break", 600, 3), ready: true }
     if (ph === "phase2_processing") return { label: "⏳ جاري المطابقة...", action: () => {}, ready: false }
     if (ph === "ranking2" && hasMatches) return { label: "⬅ استراحة (10 دقائق)", action: () => setPhaseWithTimer("break", 600, 3), ready: true }
-    if (ph === "break") return { label: "⬅ بدء كشف المرحلة 2 (20 دقيقة)", action: () => setPhaseWithTimer("phase2_reveal", 1200, 4), ready: true }
+    if (ph === "break") return { label: "⬅ بدء كشف المرحلة 2 (21 دقيقة)", action: () => setPhaseWithTimer("phase2_reveal", 1260, 4), ready: true }
     if (ph === "phase2_reveal" && !state.phase3_matches_done) return { label: "⬅ تشغيل مطابقة الخوارزمية", action: () => { if (previewEventId != null) { toast.error("لا يمكن تشغيل المطابقة في وضع المعاينة"); return } run("phase3", () => api("e3-trigger-phase3-matching").then(d => { fetchState(); return d })) }, ready: ranked > 0 }
-    if (ph === "phase2_reveal" && state.phase3_matches_done) return { label: "⬅ كشف المرحلة 3 (20 دقيقة)", action: () => setPhaseWithTimer("phase3_reveal", 1200, 5), ready: true }
+    if (ph === "phase2_reveal" && state.phase3_matches_done) return { label: "⬅ كشف المرحلة 3 (21 دقيقة)", action: () => setPhaseWithTimer("phase3_reveal", 1260, 5), ready: true }
     if (ph === "phase3_reveal") return { label: "⬅ الكشف النهائي ✨", action: () => setPhase("final_reveal"), ready: true }
     return null
   }
@@ -1461,7 +1461,7 @@ export default function Admin3Page() {
             <div className="h-1.5 bg-blue-950/60">
               <div
                 className={`h-full transition-all duration-1000 ${timerRemaining < 120 ? 'bg-red-500' : 'bg-blue-400'}`}
-                style={{ width: `${Math.min(100, (timerRemaining / (state.timer_duration || 1200)) * 100)}%` }}
+                style={{ width: `${Math.min(100, (timerRemaining / (state.timer_duration || 1260)) * 100)}%` }}
               />
             </div>
           </div>
@@ -1675,8 +1675,8 @@ export default function Admin3Page() {
                   },
                   {
                     label: "كشف المرحلة 2",
-                    desc: "20 دقيقة",
-                    action: () => setPhaseWithTimer("phase2_reveal", 1200, 4),
+                    desc: "21 دقيقة",
+                    action: () => setPhaseWithTimer("phase2_reveal", 1260, 4),
                     icon: Eye,
                     color: "pink",
                     enabled: state?.phase2_matches_done,
@@ -1693,8 +1693,8 @@ export default function Admin3Page() {
                   },
                   {
                     label: "كشف المرحلة 3",
-                    desc: "20 دقيقة",
-                    action: () => setPhaseWithTimer("phase3_reveal", 1200, 5),
+                    desc: "21 دقيقة",
+                    action: () => setPhaseWithTimer("phase3_reveal", 1260, 5),
                     icon: Sparkles,
                     color: "purple",
                     enabled: true,
@@ -1762,8 +1762,8 @@ export default function Admin3Page() {
                           else if (phase.id === "ranking1") setPhaseWithTimer("ranking1", 300, 0)
                           else if (phase.id === "round2") setPhaseWithTimer("round2", 1500, 2)
                           else if (phase.id === "ranking2") setPhaseWithTimer("ranking2", 180, 0)
-                          else if (phase.id === "phase2_reveal") setPhaseWithTimer("phase2_reveal", 1200, 4)
-                          else if (phase.id === "phase3_reveal") setPhaseWithTimer("phase3_reveal", 1200, 5)
+                          else if (phase.id === "phase2_reveal") setPhaseWithTimer("phase2_reveal", 1260, 4)
+                          else if (phase.id === "phase3_reveal") setPhaseWithTimer("phase3_reveal", 1260, 5)
                           else setPhase(phase.id)
                         }}
                         disabled={!!loading || isCurrent}

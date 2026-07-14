@@ -2931,7 +2931,7 @@ Please respond in JSON format:
           const firstName = fullName.split(" ")[0] || fullName
           myInfo = { number: myNumber, name: firstName, gender: participant.gender || sd?.answers?.gender || sd?.gender || null }
         }
-        return res.status(200).json({ phase, event_id: activeEventId, timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration || 1200, timer_round: stateRow?.global_timer_round || null, my_assignment: myAssignment, enrolled: myAssignment?.enrolled || false, my_info: myInfo, participants_selected: participantsSelected || 0, phase2_score_revealed: stateRow?.phase2_score_revealed || false, phase3_score_revealed: stateRow?.phase3_score_revealed || false })
+        return res.status(200).json({ phase, event_id: activeEventId, timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration || 1260, timer_round: stateRow?.global_timer_round || null, my_assignment: myAssignment, enrolled: myAssignment?.enrolled || false, my_info: myInfo, participants_selected: participantsSelected || 0, phase2_score_revealed: stateRow?.phase2_score_revealed || false, phase3_score_revealed: stateRow?.phase3_score_revealed || false })
       }
 
       // e3-login-by-phone (no token required)

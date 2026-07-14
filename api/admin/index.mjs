@@ -6739,7 +6739,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           if (start_timer) {
             update.global_timer_active = true
             update.global_timer_start_time = new Date().toISOString()
-            update.global_timer_duration = timer_duration || 1200
+            update.global_timer_duration = timer_duration || 1260
             update.global_timer_round = timer_round ?? 0
           } else if (start_timer === false) {
             update.global_timer_active = false
@@ -6753,7 +6753,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         }
         // e3-start-timer
         if (action === "e3-start-timer") {
-          const { round, duration = 1200 } = req.body
+          const { round, duration = 1260 } = req.body
           const { error } = await supabase.from("event_state").update({ global_timer_active: true, global_timer_start_time: new Date().toISOString(), global_timer_duration: duration, global_timer_round: round }).eq("match_id", EVENT3_MATCH_ID)
           if (error) return res.status(500).json({ error: error.message })
           return res.status(200).json({ message: "Timer started" })
@@ -6770,7 +6770,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           if (typeof delta_seconds !== "number" || delta_seconds === 0) return res.status(400).json({ error: "delta_seconds (non-zero number) required" })
           const { data: stateRow } = await supabase.from("event_state").select("global_timer_active,global_timer_start_time,global_timer_duration").eq("match_id", EVENT3_MATCH_ID).single()
           if (!stateRow?.global_timer_active || !stateRow?.global_timer_start_time) return res.status(400).json({ error: "Timer is not active" })
-          const newDuration = Math.max(0, (stateRow.global_timer_duration || 1200) + delta_seconds)
+          const newDuration = Math.max(0, (stateRow.global_timer_duration || 1260) + delta_seconds)
           const { error } = await supabase.from("event_state").update({ global_timer_duration: newDuration }).eq("match_id", EVENT3_MATCH_ID)
           if (error) return res.status(500).json({ error: error.message })
           return res.status(200).json({ message: `Timer adjusted by ${delta_seconds > 0 ? "+" : ""}${delta_seconds}s`, new_duration: newDuration })

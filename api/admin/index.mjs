@@ -1449,6 +1449,7 @@ export default async function handler(req, res) {
             .select("assigned_number")
             .eq("match_id", STATIC_MATCH_ID)
             .neq("assigned_number", 9999)  // Exclude organizer participant
+            .limit(10000)
 
           if (totalError) {
             console.error("Total participants error:", totalError);
@@ -1464,6 +1465,7 @@ export default async function handler(req, res) {
             .eq("match_id", STATIC_MATCH_ID)
             .neq("assigned_number", 9999)  // Exclude organizer participant
             .not("survey_data", "is", null)
+            .limit(10000)
 
           if (formError) {
             console.error("Form completed error:", formError);

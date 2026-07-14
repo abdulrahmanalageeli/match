@@ -3552,15 +3552,15 @@ function BreakScreen({ timerActive, timerStart, timerDuration }: {
           <div className="space-y-2.5 text-orange-300/80 text-sm leading-relaxed">
             <div className="flex items-start gap-2">
               <span className="text-orange-500 mt-0.5">١.</span>
-              <span><b className="text-orange-200">كشف المرحلة 2</b> — ستظهر لك الطاولة التي يجب التوجه إليها، ثم تضغط "وصلت إلى الطاولة" بعد دقيقة من بدء المؤقت. بعدها تلتقي بالشخص الذي اخترته وتجلسان معًا لمدة 20 دقيقة.</span>
+              <span>ستعرف طاولتك وتتوجه إليها، ثم تلتقي بالشخص الذي اخترته أنت وتجلسان معًا لمدة 20 دقيقة. بعدها ستقيم الجلسة وتشاركنا انطباعك عن اللقاء.</span>
             </div>
             <div className="flex items-start gap-2">
               <span className="text-orange-500 mt-0.5">٢.</span>
-              <span><b className="text-orange-200">كشف المرحلة 3</b> — ستظهر لك طاولة جديدة، وتتلقى الشخص الذي اختارته الخوارزمية لك. تجلسان معًا لمدة 20 دقيقة أيضًا.</span>
+              <span>ثم ستنتقل إلى طاولة جديدة وتلتقي بالشخص الذي اختارته لك الخوارزمية، وتجلسان معًا لمدة 20 دقيقة. بعدها ستقيم هذه الجلسة أيضًا.</span>
             </div>
             <div className="flex items-start gap-2">
               <span className="text-orange-500 mt-0.5">٣.</span>
-              <span><b className="text-orange-200">الكشف النهائي</b> — بعد انتهاء الجلستين، ستشاهد نتائجك النهائية ومطابقتك المثالية. ✨</span>
+              <span>أخيرًا، ستشاهد نتائجك النهائية وتعرف مطابقتك المثالية بناءً على تقييماتك وتقييمات الآخرين. ✨</span>
             </div>
           </div>
         </div>

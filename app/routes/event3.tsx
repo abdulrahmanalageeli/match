@@ -3519,9 +3519,9 @@ function BreakScreen({ timerActive, timerStart, timerDuration }: {
           initial={{ scale: 0, rotate: -180 }}
           animate={{ scale: 1, rotate: 0 }}
           transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-          className="w-24 h-24 mx-auto mb-6 rounded-full bg-orange-500/20 border-2 border-orange-400/40 flex items-center justify-center"
+          className="w-24 h-24 mx-auto mb-6 rounded-full bg-teal-500/20 border-2 border-teal-400/40 flex items-center justify-center"
         >
-          <Coffee className="w-12 h-12 text-orange-400" />
+          <Coffee className="w-12 h-12 text-teal-400" />
         </motion.div>
 
         <h1 className="text-3xl font-bold text-white mb-3">استراحة</h1>
@@ -3531,12 +3531,12 @@ function BreakScreen({ timerActive, timerStart, timerDuration }: {
 
         {timerActive && timeLeft > 0 ? (
           <div className="mb-8">
-            <div className="text-5xl font-bold text-orange-400 font-mono mb-4">
+            <div className="text-5xl font-bold text-teal-400 font-mono mb-4">
               {String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
             </div>
-            <div className="h-2 bg-orange-950/60 rounded-full overflow-hidden">
+            <div className="h-2 bg-teal-950/60 rounded-full overflow-hidden">
               <div
-                className="h-full bg-orange-400 rounded-full transition-all duration-1000"
+                className="h-full bg-gradient-to-r from-teal-400 to-cyan-400 rounded-full transition-all duration-1000"
                 style={{ width: `${pct}%` }}
               />
             </div>
@@ -3547,19 +3547,19 @@ function BreakScreen({ timerActive, timerStart, timerDuration }: {
           </div>
         )}
 
-        <div className="bg-orange-950/20 border border-orange-800/30 rounded-2xl p-5 space-y-3">
-          <p className="text-orange-300 font-bold text-sm">ماذا سيحدث بعد الاستراحة؟</p>
-          <div className="space-y-2.5 text-orange-300/80 text-sm leading-relaxed">
+        <div className="bg-gradient-to-br from-slate-900/80 to-teal-950/40 border border-teal-800/30 rounded-2xl p-5 space-y-3 text-right">
+          <p className="text-teal-300 font-bold text-sm text-center">ماذا سيحدث بعد الاستراحة؟</p>
+          <div className="space-y-3 text-gray-300 text-sm leading-relaxed">
             <div className="flex items-start gap-2">
-              <span className="text-orange-500 mt-0.5">١.</span>
-              <span>ستعرف طاولتك وتتوجه إليها، ثم تلتقي بالشخص الذي اخترته أنت وتجلسان معًا لمدة 20 دقيقة. بعدها ستقيم الجلسة وتشاركنا انطباعك عن اللقاء.</span>
+              <span className="text-teal-400 mt-0.5 shrink-0">١.</span>
+              <span>ستعرف طاولتك وتتوجه إليها، ثم ستجلس <b className="text-teal-200">لقاء واحد لواحد مع اختيارك</b> لمدة 20 دقيقة. بعدها ستشاركنا انطباعك عن اللقاء.</span>
             </div>
             <div className="flex items-start gap-2">
-              <span className="text-orange-500 mt-0.5">٢.</span>
-              <span>ثم ستنتقل إلى طاولة جديدة وتلتقي بالشخص الذي اختارته لك الخوارزمية، وتجلسان معًا لمدة 20 دقيقة. بعدها ستقيم هذه الجلسة أيضًا.</span>
+              <span className="text-teal-400 mt-0.5 shrink-0">٢.</span>
+              <span>ثم ستنتقل إلى طاولة جديدة وستجلس <b className="text-teal-200">لقاء واحد لواحد مع اختيارنا</b> لمدة 20 دقيقة. بعدها ستشاركنا انطباعك عن هذا اللقاء أيضًا.</span>
             </div>
             <div className="flex items-start gap-2">
-              <span className="text-orange-500 mt-0.5">٣.</span>
+              <span className="text-teal-400 mt-0.5 shrink-0">٣.</span>
               <span>أخيرًا، ستشاهد نتائجك النهائية وتعرف مطابقتك المثالية بناءً على تقييماتك وتقييمات الآخرين. ✨</span>
             </div>
           </div>

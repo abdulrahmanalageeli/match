@@ -1661,7 +1661,7 @@ export default function Admin3Page() {
                     action: triggerPhase2,
                     icon: Shuffle,
                     color: "pink",
-                    enabled: (state?.rankings_submitted || 0) > 0,
+                    enabled: testMode || (state?.rankings_submitted || 0) > 0,
                     loadKey: "phase2",
                   },
                   {

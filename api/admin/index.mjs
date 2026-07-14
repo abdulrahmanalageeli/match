@@ -175,6 +175,51 @@ function e3GreedyMutualMatching(rankings, participantMap = new Map(), exclusions
 
 // e3IsComplete and e3FullCalcCompat are now the real functions imported from trigger-match.mjs
 const e3IsComplete = isParticipantComplete
+
+// ── Random pairing for test mode ──────────────────────────────────────────
+// Pairs participants randomly (M-F), optionally avoiding pairs from a previous phase.
+// Returns a Map<number, number> (same shape as e3GreedyMutualMatching output).
+function e3RandomPairMatching(participantNumbers, genderMap = {}, avoidPairs = new Set()) {
+  const shuffle = (arr) => { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]] } return arr }
+  const males = shuffle(participantNumbers.filter(n => (genderMap[n] || '').toLowerCase().startsWith('m')))
+  const females = shuffle(participantNumbers.filter(n => (genderMap[n] || '').toLowerCase().startsWith('f')))
+  const matches = new Map()
+  const used = new Set()
+  const pairs = []
+
+  // Greedily pair M-F avoiding previous pairs
+  for (const m of males) {
+    if (used.has(m)) continue
+    let bestF = null
+    for (const f of females) {
+      if (used.has(f)) continue
+      const key = m < f ? `${m}-${f}` : `${f}-${m}`
+      if (avoidPairs.has(key)) continue // skip previous-phase pair
+      bestF = f
+      break
+    }
+    if (bestF == null) {
+      // No non-avoided F available — take any remaining F
+      bestF = females.find(f => !used.has(f)) || null
+    }
+    if (bestF != null) {
+      matches.set(m, bestF); matches.set(bestF, m)
+      used.add(m); used.add(bestF)
+      pairs.push({ a: m, b: bestF })
+    }
+  }
+
+  // Handle leftover participants (same-gender or odd count)
+  const leftover = participantNumbers.filter(n => !used.has(n))
+  shuffle(leftover)
+  for (let i = 0; i + 1 < leftover.length; i += 2) {
+    matches.set(leftover[i], leftover[i + 1]); matches.set(leftover[i + 1], leftover[i])
+    used.add(leftover[i]); used.add(leftover[i + 1])
+    pairs.push({ a: leftover[i], b: leftover[i + 1] })
+  }
+
+  return { matches, pairs, used }
+}
 const e3FullCalcCompat = async (pA, pB) => {
   const r = await getCachedCompatibility(pA, pB)
   if (!r) return null
@@ -6594,11 +6639,17 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           // for high mutual-cache coverage, so any residual misses just fall back to a neutral
           // score for ordering purposes (real matching still computes accurately later).
           const { data: tmState } = await supabase.from("event_state").select("test_mode_active").eq("match_id", EVENT3_MATCH_ID).maybeSingle()
-          const skipFreshCompute = !!tmState?.test_mode_active
+          const isTestMode = !!tmState?.test_mode_active
+          const skipFreshCompute = isTestMode
 
-          // ── Compatibility-based ordering (greedy nearest-neighbor) ──────────────
+          // ── Test mode: random shuffle (no compatibility computation) ──────────
           let orderedNumbers = participantNumbers
           let usedCompat = false
+          if (isTestMode) {
+            console.log(`e3-generate-seating: TEST MODE — skipping compatibility, using random shuffle`)
+            const shuffle = (arr) => { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]] } return arr }
+            orderedNumbers = shuffle([...participantNumbers])
+          } else
           try {
             console.log(`e3-generate-seating: batch-fetching compat scores from DB for ${participantNumbers.length} participants`)
             const { data: pdata } = await supabase
@@ -6803,32 +6854,52 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         }
         // e3-trigger-phase2-matching
         if (action === "e3-trigger-phase2-matching") {
-          const { data: rankRows } = await supabase.from("participant_rankings").select("ranker_number,ranked_number,rank").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).order("rank", { ascending: true })
-          if (!rankRows || rankRows.length === 0) return res.status(400).json({ error: "No rankings submitted yet" })
+          // Check test mode
+          const { data: tmState2 } = await supabase.from("event_state").select("test_mode_active").eq("match_id", EVENT3_MATCH_ID).maybeSingle()
+          const isTestMode2 = !!tmState2?.test_mode_active
+
           // Fetch phase2_excluded participants
           const { data: e3p } = await supabase.from("event3_participants").select("participant_number,phase2_excluded").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           const phase2ExcludedSet = new Set((e3p || []).filter(r => r.phase2_excluded).map(r => r.participant_number))
           if (phase2ExcludedSet.size > 0) {
             console.log(`Phase 2: excluding ${phase2ExcludedSet.size} participants from choice-based matching:`, Array.from(phase2ExcludedSet))
           }
-          const rankings = new Map()
-          for (const row of rankRows) {
-            if (phase2ExcludedSet.has(row.ranker_number)) continue
-            const sorted = rankRows.filter(r => r.ranker_number === row.ranker_number).sort((a, b) => a.rank - b.rank).map(r => r.ranked_number)
-            rankings.set(row.ranker_number, sorted)
+
+          let matches, participantMap
+
+          if (isTestMode2) {
+            // ── Test mode: random pairing (no rankings needed) ─────────────────
+            console.log(`Phase 2: TEST MODE — skipping rankings, using random pairing`)
+            const eligibleNums = (e3p || []).filter(r => !r.phase2_excluded).map(r => r.participant_number)
+            const { data: pRows } = await supabase.from("participants").select("assigned_number,gender").eq("match_id", STATIC_MATCH_ID).in("assigned_number", eligibleNums)
+            const genderMap = {}
+            for (const p of pRows || []) genderMap[p.assigned_number] = p.gender || ''
+            const result = e3RandomPairMatching(eligibleNums, genderMap)
+            matches = result.matches
+            participantMap = new Map()
+          } else {
+            // ── Normal mode: ranking-based mutual matching ──────────────────────
+            const { data: rankRows } = await supabase.from("participant_rankings").select("ranker_number,ranked_number,rank").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).order("rank", { ascending: true })
+            if (!rankRows || rankRows.length === 0) return res.status(400).json({ error: "No rankings submitted yet" })
+            const rankings = new Map()
+            for (const row of rankRows) {
+              if (phase2ExcludedSet.has(row.ranker_number)) continue
+              const sorted = rankRows.filter(r => r.ranker_number === row.ranker_number).sort((a, b) => a.rank - b.rank).map(r => r.ranked_number)
+              rankings.set(row.ranker_number, sorted)
+            }
+            const rankerNums = Array.from(rankings.keys())
+            const { data: genderRows } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,attachment_style,communication_style,humor_banter_style,early_openness_comfort,same_gender_preference,any_gender_preference,nationality,prefer_same_nationality,preferred_age_min,preferred_age_max,open_age_preference").eq("match_id", STATIC_MATCH_ID).in("assigned_number", rankerNums)
+            participantMap = new Map()
+            for (const p of genderRows || []) {
+              try { p.survey_data = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}) } catch {}
+              participantMap.set(p.assigned_number, p)
+            }
+            // Fetch conflict-of-interest exclusions
+            const { data: exRows } = await supabase.from("event3_exclusions").select("participant_a_number,participant_b_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+            const exclusions = new Set((exRows || []).map(e => { const [a, b] = [e.participant_a_number, e.participant_b_number].sort((x, y) => x - y); return `${a}-${b}` }))
+            if (exclusions.size > 0) console.log(`Phase 2: ${exclusions.size} conflict-of-interest exclusions loaded`)
+            matches = e3GreedyMutualMatching(rankings, participantMap, exclusions)
           }
-          const rankerNums = Array.from(rankings.keys())
-          const { data: genderRows } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,attachment_style,communication_style,humor_banter_style,early_openness_comfort,same_gender_preference,any_gender_preference,nationality,prefer_same_nationality,preferred_age_min,preferred_age_max,open_age_preference").eq("match_id", STATIC_MATCH_ID).in("assigned_number", rankerNums)
-          const participantMap = new Map()
-          for (const p of genderRows || []) {
-            try { p.survey_data = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}) } catch {}
-            participantMap.set(p.assigned_number, p)
-          }
-          // Fetch conflict-of-interest exclusions
-          const { data: exRows } = await supabase.from("event3_exclusions").select("participant_a_number,participant_b_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
-          const exclusions = new Set((exRows || []).map(e => { const [a, b] = [e.participant_a_number, e.participant_b_number].sort((x, y) => x - y); return `${a}-${b}` }))
-          if (exclusions.size > 0) console.log(`Phase 2: ${exclusions.size} conflict-of-interest exclusions loaded`)
-          const matches = e3GreedyMutualMatching(rankings, participantMap, exclusions)
           // Fetch existing phase3 data before deleting to preserve it
           const { data: existingRows } = await supabase.from("event3_matches").select("participant_number,phase3_partner,phase3_score,phase3_word,phase2_word,phase2_feedback,phase3_feedback,match_preference").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           const existingMap = new Map((existingRows || []).map(r => [r.participant_number, r]))
@@ -6875,11 +6946,49 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const nums = ep.map(r => r.participant_number)
           const numSet = new Set(nums)
 
+          // Check test mode
+          const { data: tmState3 } = await supabase.from("event_state").select("test_mode_active").eq("match_id", EVENT3_MATCH_ID).maybeSingle()
+          const isTestMode3 = !!tmState3?.test_mode_active
+
           // Fetch conflict-of-interest exclusions
           const { data: exRows } = await supabase.from("event3_exclusions").select("participant_a_number,participant_b_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           const exclusions = new Set((exRows || []).map(e => { const [a, b] = [e.participant_a_number, e.participant_b_number].sort((x, y) => x - y); return `${a}-${b}` }))
           const isExcluded = (a, b) => { const [x, y] = [a, b].sort((p, q) => p - q); return exclusions.has(`${x}-${y}`) }
           if (exclusions.size > 0) console.log(`Phase 3: ${exclusions.size} conflict-of-interest exclusions loaded`)
+
+          const used = new Set()
+          const matches = []
+
+          if (isTestMode3) {
+            // ── Test mode: random pairing avoiding phase 2 pairs ───────────────
+            console.log(`Phase 3: TEST MODE — skipping locked matches, using random pairing (avoiding phase 2 pairs)`)
+
+            // Build set of phase 2 pairs to avoid
+            const avoidPairs = new Set()
+            const { data: phase2Rows } = await supabase.from("event3_matches").select("participant_number,phase2_partner").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).not("phase2_partner", "is", null)
+            for (const r of phase2Rows || []) {
+              if (r.phase2_partner) {
+                const [a, b] = [r.participant_number, r.phase2_partner].sort((x, y) => x - y)
+                avoidPairs.add(`${a}-${b}`)
+              }
+            }
+            console.log(`Phase 3 (test): avoiding ${avoidPairs.size / 2} phase 2 pairs`)
+
+            // Fetch gender info
+            const { data: pRows3 } = await supabase.from("participants").select("assigned_number,gender").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
+            const genderMap3 = {}
+            for (const p of pRows3 || []) genderMap3[p.assigned_number] = p.gender || ''
+
+            // Also add exclusions to avoidPairs
+            for (const ex of exclusions) avoidPairs.add(ex)
+
+            const result = e3RandomPairMatching(nums, genderMap3, avoidPairs)
+            for (const { a, b } of result.pairs) {
+              used.add(a); used.add(b)
+              matches.push({ a, b, score: 50 })
+            }
+          } else {
+            // ── Normal mode: locked matches ─────────────────────────────────────
 
           // Fetch ALL locked matches for this match_id (regardless of event_id)
           const { data: lockedMatches } = await supabase
@@ -6909,8 +7018,6 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           }
 
           // Build phase3 matches from locked pairs — compute score from cache for consistency
-          const used = new Set()
-          const matches = []
           for (const lock of lockedPairs) {
             const a = lock.participant1_number
             const b = lock.participant2_number
@@ -6930,27 +7037,6 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           }
 
           console.log(`Phase 3 (locked): Created ${matches.length} pairs from locked matches. ${nums.length - used.size} participants unmatched.`)
-
-          // Clear old phase3 data for all event3 participants
-          await supabase.from("event3_matches").update({ phase3_partner: null, phase3_score: null }).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_number", nums)
-
-          // Store results — upsert phase3 partner for each matched pair
-          for (const pair of matches) {
-            await supabase.from("event3_matches").upsert({
-              match_id: EVENT3_MATCH_ID,
-              event_id: currentEventId,
-              participant_number: pair.a,
-              phase3_partner: pair.b,
-              phase3_score: pair.score,
-            }, { onConflict: "match_id,event_id,participant_number" })
-            await supabase.from("event3_matches").upsert({
-              match_id: EVENT3_MATCH_ID,
-              event_id: currentEventId,
-              participant_number: pair.b,
-              phase3_partner: pair.a,
-              phase3_score: pair.score,
-            }, { onConflict: "match_id,event_id,participant_number" })
-          }
 
           // Handle unmatched participants — fall back to ranking-based matching
           const unmatched = nums.filter(n => !used.has(n))
@@ -6985,20 +7071,6 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
                 } catch (e) { console.error(`Phase 3 fallback compat error for #${p}×#${partner}:`, e.message) }
               }
               matches.push({ a: p, b: partner, score })
-              await supabase.from("event3_matches").upsert({
-                match_id: EVENT3_MATCH_ID,
-                event_id: currentEventId,
-                participant_number: p,
-                phase3_partner: partner,
-                phase3_score: score,
-              }, { onConflict: "match_id,event_id,participant_number" })
-              await supabase.from("event3_matches").upsert({
-                match_id: EVENT3_MATCH_ID,
-                event_id: currentEventId,
-                participant_number: partner,
-                phase3_partner: p,
-                phase3_score: score,
-              }, { onConflict: "match_id,event_id,participant_number" })
             }
             const stillUnmatched = nums.filter(n => !used.has(n))
             if (stillUnmatched.length === 1) {
@@ -7006,6 +7078,28 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             }
           } else if (unmatched.length === 1) {
             console.log(`Phase 3 (locked): 1 unmatched participant #${unmatched[0]} (odd count)`)
+          }
+          } // end normal mode
+
+          // Clear old phase3 data for all event3 participants
+          await supabase.from("event3_matches").update({ phase3_partner: null, phase3_score: null }).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_number", nums)
+
+          // Store results — upsert phase3 partner for each matched pair
+          for (const pair of matches) {
+            await supabase.from("event3_matches").upsert({
+              match_id: EVENT3_MATCH_ID,
+              event_id: currentEventId,
+              participant_number: pair.a,
+              phase3_partner: pair.b,
+              phase3_score: pair.score,
+            }, { onConflict: "match_id,event_id,participant_number" })
+            await supabase.from("event3_matches").upsert({
+              match_id: EVENT3_MATCH_ID,
+              event_id: currentEventId,
+              participant_number: pair.b,
+              phase3_partner: pair.a,
+              phase3_score: pair.score,
+            }, { onConflict: "match_id,event_id,participant_number" })
           }
 
           // Create round 30 session_assignments for phase3 pairs (algorithm 1:1 tables)

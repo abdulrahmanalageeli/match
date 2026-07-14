@@ -4262,12 +4262,13 @@ function NotificationModal({ token }: { token: string }) {
     return () => { active = false; clearInterval(iv) }
   }, [token, dismissed])
 
-  const dismiss = async () => {
+  const dismiss = () => {
     if (!notif) return
+    const nid = notif.notif_id
     setClosing(true)
-    await call("e3-dismiss-notification", token, { notif_id: notif.notif_id })
+    call("e3-dismiss-notification", token, { notif_id: nid })
     setTimeout(() => {
-      setDismissed(prev => new Set(prev).add(notif.notif_id))
+      setDismissed(prev => new Set(prev).add(nid))
       setNotif(null)
       setClosing(false)
     }, 300)

@@ -39,6 +39,63 @@ function formatTime(s: number) {
   return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`
 }
 
+// ─── Sound & Vibration helpers (no external files needed) ─────────────────────
+let _audioCtx: AudioContext | null = null
+function getAudioCtx() {
+  if (typeof window === "undefined") return null
+  if (!_audioCtx) {
+    try { _audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)() } catch { return null }
+  }
+  return _audioCtx
+}
+
+function playBeep(frequency: number, duration: number, volume = 0.15) {
+  const ctx = getAudioCtx()
+  if (!ctx) return
+  try {
+    if (ctx.state === "suspended") ctx.resume()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.frequency.value = frequency
+    osc.type = "sine"
+    gain.gain.setValueAtTime(0, ctx.currentTime)
+    gain.gain.linearRampToValueAtTime(volume, ctx.currentTime + 0.01)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + duration)
+  } catch {}
+}
+
+function playEventStartSound() {
+  playBeep(523.25, 0.15, 0.2)   // C5
+  setTimeout(() => playBeep(659.25, 0.15, 0.2), 160) // E5
+  setTimeout(() => playBeep(783.99, 0.25, 0.2), 320) // G5
+}
+
+function playTimerWarningSound() {
+  playBeep(880, 0.12, 0.15)     // A5
+  setTimeout(() => playBeep(880, 0.12, 0.15), 200)
+}
+
+function playTimerUrgentSound() {
+  playBeep(1000, 0.1, 0.18)
+  setTimeout(() => playBeep(1000, 0.1, 0.18), 150)
+  setTimeout(() => playBeep(1000, 0.1, 0.18), 300)
+}
+
+function playSOSMessageSound() {
+  playBeep(698.46, 0.1, 0.15)   // F5
+  setTimeout(() => playBeep(880, 0.15, 0.15), 120) // A5
+}
+
+function vibrate(pattern: number | number[]) {
+  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+    try { navigator.vibrate(pattern) } catch {}
+  }
+}
+
 // ─── Polling hook with error handling, retry, backoff, and visibility awareness ─
 function useApiPoll<T>(
   fetcher: () => Promise<T>,
@@ -1541,9 +1598,12 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
   // Vibrate when timer starts or when 10 seconds remain
   useEffect(() => {
     if (!timerActive) return
+    const totalMin = Math.floor(timerDuration / 60)
+    if (timeLeft === 300 && totalMin > 5) { vibrate(150); playTimerWarningSound() }
+    if (timeLeft === 60) { vibrate([100, 50, 100]); playTimerWarningSound() }
     if (timeLeft === 10 && "vibrate" in navigator) { try { navigator.vibrate(200) } catch {} }
     if (timeLeft === 0 && "vibrate" in navigator) { try { navigator.vibrate([300, 100, 300]) } catch {} }
-  }, [timeLeft, timerActive])
+  }, [timeLeft, timerActive, timerDuration])
 
   const roundAr = ["الأولى", "الثانية"][round - 1] || round
   const RC = [
@@ -2044,10 +2104,18 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   const [timeLeft, setTimeLeft] = useState(300) // fallback, overwritten by server timer
   const [showWarning, setShowWarning] = useState(false) // 30s warning
   const [autoSaving, setAutoSaving] = useState(false)
+  const [showAutoSaveInfo, setShowAutoSaveInfo] = useState(true) // auto-save info banner
   const initialPhaseRef = useRef(currentPhase)
   const submittedRef = useRef(false)
   const orderRef = useRef<number[]>([])
   const autoSavedRef = useRef(false)
+
+  // Auto-hide the info banner after 10s
+  useEffect(() => {
+    if (!showAutoSaveInfo) return
+    const t = setTimeout(() => setShowAutoSaveInfo(false), 10000)
+    return () => clearTimeout(t)
+  }, [showAutoSaveInfo])
 
   useEffect(() => {
     Promise.all([
@@ -2185,6 +2253,29 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
           )}
         </AnimatePresence>
 
+        {/* Auto-save info banner — shown once on load */}
+        <AnimatePresence>
+          {showAutoSaveInfo && !submitted && (
+            <motion.div
+              initial={{ opacity: 0, y: -10, height: 0 }} animate={{ opacity: 1, y: 0, height: 'auto' }}
+              exit={{ opacity: 0, y: -10, height: 0 }}
+              className="bg-blue-950/60 border border-blue-800/40 rounded-xl mx-4 mt-2 px-4 py-3 flex items-start gap-2.5"
+            >
+              <Info size={16} className="text-blue-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-blue-300 text-xs font-bold">معلومة مهمة عن التصنيف</p>
+                <p className="text-blue-200/60 text-[10px] leading-relaxed mt-0.5">
+                  إذا انتهى الوقت قبل أن ترسل تصنيفك، سيُحفظ ترتيبك الحالي تلقائياً ويُستخدم للمطابقة.
+                  احرص على ترتيب الأشخاص أولاً ثم اضغط إرسال للتأكيد.
+                </p>
+              </div>
+              <button onClick={() => setShowAutoSaveInfo(false)} className="text-blue-500/60 hover:text-blue-400 flex-shrink-0">
+                <X size={14} />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* 30s warning banner */}
         <AnimatePresence>
           {showWarning && !submitted && timeLeft > 0 && timeLeft <= 30 && (
@@ -2266,8 +2357,8 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                   key={num}
                   value={num}
                   as="div"
-                  className="py-2 px-3 rounded-xl border border-gray-800/60 bg-gray-900/70 backdrop-blur-sm cursor-grab active:cursor-grabbing touch-none select-none"
-                  whileDrag={{
+                  className={`py-2 px-3 rounded-xl border border-gray-800/60 bg-gray-900/70 backdrop-blur-sm ${submitted ? 'cursor-not-allowed opacity-50' : 'cursor-grab active:cursor-grabbing touch-none select-none'}`}
+                  whileDrag={submitted ? undefined : {
                     scale: 1.04,
                     boxShadow: "0 12px 40px rgba(0,0,0,0.5)",
                     borderColor: "rgba(139,92,246,0.5)",
@@ -2275,8 +2366,9 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                     zIndex: 50,
                   }}
                   initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
+                  animate={{ opacity: submitted ? 0.5 : 1, x: 0 }}
                   transition={{ delay: idx * 0.02 }}
+                  drag={submitted ? false : true}
                 >
                   {/* Single row — compact */}
                   <div className="flex items-center gap-2.5">
@@ -2354,16 +2446,21 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
       <div className="fixed bottom-0 inset-x-0 p-3 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent pt-6">
         <div className="max-w-md mx-auto">
           {submitted ? (
-            <div className="space-y-1.5 text-center">
-              <div className={`flex items-center justify-center gap-2 rounded-xl py-2.5 px-4 ${autoSavedRef.current ? 'bg-amber-900/30 border border-amber-700/40' : 'bg-emerald-900/30 border border-emerald-700/40'}`}>
-                {autoSavedRef.current ? <Clock size={16} className="text-amber-400" /> : <CheckCircle size={16} className="text-emerald-400" />}
+            <div className="space-y-2 text-center">
+              <div className={`flex items-center justify-center gap-2 rounded-xl py-3 px-4 ${autoSavedRef.current ? 'bg-amber-900/30 border border-amber-700/40' : 'bg-emerald-900/30 border border-emerald-700/40'}`}>
+                {autoSavedRef.current ? <Lock size={16} className="text-amber-400" /> : <CheckCircle size={16} className="text-emerald-400" />}
                 <span className={`font-bold text-xs ${autoSavedRef.current ? 'text-amber-300' : 'text-emerald-300'}`}>
-                  {autoSavedRef.current ? 'تم حفظ تصنيفك تلقائياً' : 'تم إرسال تصنيفك'}
+                  {autoSavedRef.current ? 'تم حفظ تصنيفك تلقائياً — لا يمكن التعديل' : 'تم إرسال تصنيفك'}
                 </span>
               </div>
+              {autoSavedRef.current && (
+                <p className="text-gray-600 text-[10px] leading-relaxed">
+                  انتهى الوقت وتم حفظ ترتيبك الحالي تلقائياً
+                </p>
+              )}
               <p className="text-gray-600 text-[10px]">انتظر المنظم للانتقال للمرحلة التالية</p>
               <button onClick={() => setSubmitted(false)} disabled={submitting}
-                className="text-gray-500 hover:text-gray-300 text-[11px] underline transition-colors">
+                className="text-gray-600 hover:text-gray-400 text-[10px] underline transition-colors">
                 تعديل التصنيف
               </button>
             </div>
@@ -2454,9 +2551,10 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
 
 
 // ─── Shared Feedback Flow ─────────────────────────────────────────────────────
-function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit }: {
+function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLastSession }: {
   partnerName: string | null; word: string; done: boolean
   onDone: () => void; onBack: () => void; onSubmit: (fb: Record<string, any>) => Promise<boolean>
+  isLastSession?: boolean
 }) {
   const [step, setStep] = useState(0)
   const [submitting, setSubmitting] = useState(false)
@@ -2516,6 +2614,21 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit }: {
         <p className="text-white font-black text-2xl">شكراً!</p>
         <p className="text-gray-400 text-sm">تم حفظ تقييمك — انتظر المرحلة التالية</p>
       </div>
+      {isLastSession && (
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+          className="max-w-sm rounded-2xl border border-purple-700/30 bg-gradient-to-br from-purple-950/40 to-violet-950/20 p-5 text-center space-y-2"
+        >
+          <div className="flex items-center justify-center gap-2 text-purple-300">
+            <Sparkles size={18} />
+            <p className="font-bold text-sm">الكشف النهائي قادم</p>
+          </div>
+          <p className="text-gray-400 text-xs leading-relaxed">
+            بعد أن يكمل جميع المشاركين تقييمهم، ستظهر لك صفحة النتائج النهائية مع تفاصيل التوافق الكاملة،
+            مقارنة بين اختيارك واختيار الخوارزمية، وتحليل ذكي للكيمياء بينك وبين شريكك.
+            ابقَ معنا — لا تغادر!
+          </p>
+        </motion.div>
+      )}
     </motion.div>
   )
   return (
@@ -2572,23 +2685,26 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit }: {
           )}
           {step === 2 && (
             <motion.div key="s2" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
-              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="space-y-8">
+              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="space-y-6">
               <div className="text-center space-y-2">
                 <p className="text-3xl font-black text-white">هل تريد التواصل لاحقاً؟</p>
               </div>
-              {/* Highlighted info card */}
+              {/* Prominent info card — mutual match = contact exchange */}
               <motion.div
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-                className="relative overflow-hidden rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-950/40 via-teal-950/30 to-emerald-950/20 px-4 py-3.5"
+                className="relative overflow-hidden rounded-2xl border-2 border-emerald-500/40 bg-gradient-to-br from-emerald-950/50 via-teal-950/40 to-emerald-950/30 px-5 py-4 shadow-lg shadow-emerald-900/20"
               >
-                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent" />
-                <div className="flex items-start gap-2.5">
-                  <div className="mt-0.5 w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0">
-                    <Sparkles size={14} className="text-emerald-400" />
+                <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-400/70 to-transparent" />
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 w-9 h-9 rounded-xl bg-emerald-500/25 border border-emerald-500/40 flex items-center justify-center shrink-0">
+                    <Heart size={18} className="text-emerald-400" />
                   </div>
-                  <div className="space-y-0.5">
-                    <p className="text-emerald-300 text-[11px] font-bold">معلومة مهمة</p>
-                    <p className="text-gray-300 text-[11px] leading-relaxed">إجابتك سرية — إذا أجاب كلاكما بـ«نعم» ستحصلان على رقم تواصل ومعلومات بعضكم في صفحة النتائج بعد الفعالية</p>
+                  <div className="space-y-1">
+                    <p className="text-emerald-300 text-sm font-black">معلومة مهمة جداً</p>
+                    <p className="text-gray-200 text-xs leading-relaxed">
+                      إجابتك سرية تماماً. إذا أجاب كلاكما بـ«نعم» — ستحصلان على رقم تواصل ومعلومات بعضكم في صفحة النتائج النهائية بعد الفعالية.
+                    </p>
+                    <p className="text-emerald-400/70 text-[10px] mt-1">لا أحد سيعرف باختيارك إلا إذا وافق الطرف الآخر أيضاً</p>
                   </div>
                 </div>
               </motion.div>
@@ -2638,7 +2754,7 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit }: {
 // ─── SOS / Organizer Chat Box ───────────────────────────────────────────────
 function SOSButton({ token, position = 'top' }: { token: string; position?: 'top' | 'bottom' }) {
   const [open, setOpen] = useState(false)
-  const [messages, setMessages] = useState<{ id: string; text: string; from: 'user' | 'organizer'; status: string }[]>([])
+  const [messages, setMessages] = useState<{ id: string; text: string; from: 'user' | 'organizer'; status: string; timestamp?: string }[]>([])
   const [input, setInput] = useState("")
   const [sending, setSending] = useState(false)
   const [showOptions, setShowOptions] = useState(true)
@@ -2653,12 +2769,12 @@ function SOSButton({ token, position = 'top' }: { token: string; position?: 'top
     const doFetch = async () => {
       const d = await call('e3-sos-check', token)
       if (d.error || !d.requests) return
-      const allMsgs: { id: string; text: string; from: 'user' | 'organizer'; status: string }[] = []
+      const allMsgs: { id: string; text: string; from: 'user' | 'organizer'; status: string; timestamp?: string }[] = []
       let orgCount = 0
       for (const r of d.requests) {
         const history = Array.isArray(r.chat_history) ? r.chat_history : []
         for (const msg of history) {
-          allMsgs.push({ id: r.id + '-' + msg.timestamp, text: msg.text, from: msg.from === 'organizer' ? 'organizer' : 'user', status: r.status })
+          allMsgs.push({ id: r.id + '-' + msg.timestamp, text: msg.text, from: msg.from === 'organizer' ? 'organizer' : 'user', status: r.status, timestamp: msg.timestamp })
           if (msg.from === 'organizer') orgCount++
         }
       }
@@ -2667,6 +2783,8 @@ function SOSButton({ token, position = 'top' }: { token: string; position?: 'top
       const prevCount = lastReplyCountRef.current
       if (orgCount > prevCount && prevCount >= 0) {
         setHasUnread(true)
+        playSOSMessageSound()
+        vibrate([100, 50, 100])
         if (!openRef.current) {
           toast('رسالة من المنظم!', { duration: 4000 })
         }
@@ -2837,6 +2955,11 @@ function SOSButton({ token, position = 'top' }: { token: string; position?: 'top
                       <p className="text-emerald-400/80 text-[9px] font-bold mb-0.5">عبدالرحمن</p>
                     )}
                     {msg.text}
+                    {msg.timestamp && (
+                      <p className={`text-[8px] mt-1 ${msg.from === 'user' ? 'text-white/40' : 'text-gray-500'}`}>
+                        {new Date(msg.timestamp).toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    )}
                     {msg.from === 'user' && msg.status === 'pending' && (
                       <p className="text-white/50 text-[9px] mt-1 flex items-center gap-1">
                         <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
@@ -2961,6 +3084,22 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
       tipsShownRef.current = true
       const t = setTimeout(() => setShowSessionTips(true), 600)
       return () => clearTimeout(t)
+    }
+  }, [view])
+
+  // Wake lock: prevent screen sleep during 1:1 session
+  const p2WakeLockRef = useRef<any>(null)
+  useEffect(() => {
+    const requestWakeLock = async () => {
+      try {
+        if ("wakeLock" in navigator) {
+          p2WakeLockRef.current = await (navigator as any).wakeLock.request("screen")
+        }
+      } catch {}
+    }
+    if (view === 'session') requestWakeLock()
+    return () => {
+      if (p2WakeLockRef.current) { try { p2WakeLockRef.current.release() } catch {} p2WakeLockRef.current = null }
     }
   }, [view])
 
@@ -3189,7 +3328,15 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 <MessageSquare size={14} /> أسئلة للنقاش
               </button>
               {/* Jump to feedback manually */}
-              <button onClick={() => setView('feedback')} className="w-full py-2.5 rounded-xl text-xs text-gray-600 hover:text-gray-400 transition-colors">الانتهاء والتقييم →</button>
+              <motion.button
+                onClick={() => setView('feedback')}
+                whileTap={{ scale: 0.97 }}
+                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gradient-to-r from-pink-700/80 to-rose-700/80 hover:from-pink-600 hover:to-rose-600 text-white text-sm font-bold transition-all shadow-lg shadow-pink-900/30 border border-pink-600/30"
+              >
+                <CheckCircle size={16} />
+                انتهيت من الجلسة — انتقل للتقييم
+              </motion.button>
               {/* Replay tutorial + tips buttons */}
               <div className="flex items-center justify-center gap-4">
                 <motion.button
@@ -3287,6 +3434,22 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
       tipsShownRef.current = true
       const t = setTimeout(() => setShowSessionTips(true), 600)
       return () => clearTimeout(t)
+    }
+  }, [view])
+
+  // Wake lock: prevent screen sleep during 1:1 session
+  const p3WakeLockRef = useRef<any>(null)
+  useEffect(() => {
+    const requestWakeLock = async () => {
+      try {
+        if ("wakeLock" in navigator) {
+          p3WakeLockRef.current = await (navigator as any).wakeLock.request("screen")
+        }
+      } catch {}
+    }
+    if (view === 'session') requestWakeLock()
+    return () => {
+      if (p3WakeLockRef.current) { try { p3WakeLockRef.current.release() } catch {} p3WakeLockRef.current = null }
     }
   }, [view])
 
@@ -3484,7 +3647,15 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 <MessageSquare size={14} /> أسئلة للنقاش
               </button>
               {/* Jump to feedback */}
-              <button onClick={() => setView('feedback')} className="w-full py-2.5 rounded-xl text-xs text-gray-600 hover:text-gray-400 transition-colors">الانتهاء والتقييم →</button>
+              <motion.button
+                onClick={() => setView('feedback')}
+                whileTap={{ scale: 0.97 }}
+                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gradient-to-r from-purple-700/80 to-violet-700/80 hover:from-purple-600 hover:to-violet-600 text-white text-sm font-bold transition-all shadow-lg shadow-purple-900/30 border border-purple-600/30"
+              >
+                <CheckCircle size={16} />
+                انتهيت من الجلسة — انتقل للتقييم
+              </motion.button>
               {/* Quick tips button */}
               <motion.button
                 onClick={() => setShowSessionTips(true)}
@@ -3511,6 +3682,7 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
             done={feedbackDone}
             onDone={() => setFeedbackDone(true)}
             onBack={() => setView('session')}
+            isLastSession
             onSubmit={async (fbData) => {
               const d = await call('e3-submit-phase3-feedback', token, { feedback: fbData })
               if (!d.error) { toast.success('تم الحفظ'); return true }
@@ -4249,6 +4421,19 @@ export default function Event3Page() {
     interval: 5000,
     enabled: !!token && !tokenError
   })
+
+  // Phase change detection — play sound + vibrate when event starts (setup → round1)
+  const prevPhaseRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!eventState) return
+    const cur = eventState.phase
+    const prev = prevPhaseRef.current
+    if (prev === "setup" && cur === "round1") {
+      playEventStartSound()
+      vibrate([200, 100, 200, 100, 400])
+    }
+    prevPhaseRef.current = cur
+  }, [eventState?.phase])
 
   useEffect(() => {
     const p = searchParams.get("token") || searchParams.get("t")

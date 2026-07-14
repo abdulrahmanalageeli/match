@@ -3547,10 +3547,22 @@ function BreakScreen({ timerActive, timerStart, timerDuration }: {
           </div>
         )}
 
-        <div className="bg-orange-950/20 border border-orange-800/30 rounded-2xl p-5">
-          <p className="text-orange-300/80 text-sm leading-relaxed">
-            🎉 النتائج قريبًا — استعد لكشف اختيارك وكشف الخوارزمية
-          </p>
+        <div className="bg-orange-950/20 border border-orange-800/30 rounded-2xl p-5 space-y-3">
+          <p className="text-orange-300 font-bold text-sm">ماذا سيحدث بعد الاستراحة؟</p>
+          <div className="space-y-2.5 text-orange-300/80 text-sm leading-relaxed">
+            <div className="flex items-start gap-2">
+              <span className="text-orange-500 mt-0.5">١.</span>
+              <span><b className="text-orange-200">كشف المرحلة 2</b> — ستظهر لك الطاولة التي يجب التوجه إليها، ثم تضغط "وصلت إلى الطاولة" بعد دقيقة من بدء المؤقت. بعدها تلتقي بالشخص الذي اخترته وتجلسان معًا لمدة 20 دقيقة.</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-orange-500 mt-0.5">٢.</span>
+              <span><b className="text-orange-200">كشف المرحلة 3</b> — ستظهر لك طاولة جديدة، وتتلقى الشخص الذي اختارته الخوارزمية لك. تجلسان معًا لمدة 20 دقيقة أيضًا.</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-orange-500 mt-0.5">٣.</span>
+              <span><b className="text-orange-200">الكشف النهائي</b> — بعد انتهاء الجلستين، ستشاهد نتائجك النهائية ومطابقتك المثالية. ✨</span>
+            </div>
+          </div>
         </div>
       </motion.div>
     </div>

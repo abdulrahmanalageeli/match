@@ -8058,7 +8058,8 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           }
         }
 
-        // e3-start-test-mode — select 18M+18F valid participants with 100% cached compat, run diagnostics, return test users
+        // e3-start-test-mode — select 18M+18F valid participants, maximize cached pairs,
+        // auto-pre-compute missing pairs to achieve 100% cache coverage
         if (action === "e3-start-test-mode") {
           // 1. Fetch all participants with full data
           const { data: allP, error: allErr } = await supabase.from("participants")
@@ -8083,9 +8084,11 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             return res.status(400).json({ error: `Need 18 males and 18 females with complete surveys. Found ${males.length}M / ${females.length}F.` })
           }
 
-          // 3. 100% CACHED CLIQUE selection: pick 18M+18F where EVERY pair among selected
-          //    participants is already in the compatibility_cache. This ensures seating
-          //    generation and matching never need to compute fresh AI scores.
+          // 3. Greedy cluster selection: pick 18M+18F maximizing intra-group cached pairs.
+          //    The compatibility_cache is global (no match_id) and only stores pairs that
+          //    were actually computed during previous events (seating table groups + 1:1
+          //    matching). Not all 630 pairs among 36 people will be cached — we maximize
+          //    cache hits, then pre-compute the rest in step 4.
           const validNums = valid.map(p => p.assigned_number)
           const { data: allCachedPairs } = await supabase.from("compatibility_cache")
             .select("participant_a_number,participant_b_number")
@@ -8106,55 +8109,61 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           const shuffle = (arr) => { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]] } return arr }
           const degree = (num) => adj.get(num)?.size || 0
 
-          // Strict clique growth: each new participant must be cached with ALL already-selected.
           const needM = 18, needF = 18
           const maleSet = new Set(males.map(p => p.assigned_number))
           const femaleSet = new Set(females.map(p => p.assigned_number))
           const selectedSet = new Set()
           let countM = 0, countF = 0
 
-          // Candidate pool shuffled for run-to-run variety on ties.
           const pool = shuffle([...validNums]).filter(n => maleSet.has(n) || femaleSet.has(n))
 
-          // Seed: highest-degree participant overall.
+          // Seed: highest-degree participant overall
           const seed = [...pool].sort((a, b) => degree(b) - degree(a))[0]
           if (seed != null) {
             selectedSet.add(seed)
             if (maleSet.has(seed)) countM++; else countF++
           }
 
-          const isFullyConnected = (num) => {
+          const connectionsToSelected = (num) => {
+            let cnt = 0
             const nbrs = adj.get(num)
-            if (!nbrs) return false
-            for (const s of selectedSet) if (!nbrs.has(s)) return false
-            return true
+            if (!nbrs) return 0
+            for (const s of selectedSet) if (nbrs.has(s)) cnt++
+            return cnt
           }
 
+          // Greedily add participants that maximize cached connections to already-selected
           while (countM < needM || countF < needF) {
-            let best = null, bestDeg = -1
+            let best = null, bestConn = -1, bestDeg = -1
             for (const num of pool) {
               if (selectedSet.has(num)) continue
               const isMale = maleSet.has(num)
               if (isMale && countM >= needM) continue
               if (!isMale && countF >= needF) continue
-              // STRICT: must be cached with ALL already-selected participants
-              if (!isFullyConnected(num)) continue
+              const conn = connectionsToSelected(num)
               const deg = degree(num)
-              if (deg > bestDeg) { bestDeg = deg; best = num }
+              if (conn > bestConn || (conn === bestConn && deg > bestDeg)) {
+                bestConn = conn; bestDeg = deg; best = num
+              }
             }
-            if (best == null) break // no more fully-connected candidates
+            if (best == null) break
             selectedSet.add(best)
             if (maleSet.has(best)) countM++; else countF++
           }
 
-          if (countM < needM || countF < needF) {
-            return res.status(400).json({ error: `Cannot find 18M+18F with 100% cached pairs. Only found ${countM}M + ${countF}F fully connected. Run compatibility pre-computation for more pairs.` })
+          // Top up if needed (sparse cache)
+          if (countM < needM) {
+            for (const p of shuffle([...males])) { if (countM >= needM) break; if (!selectedSet.has(p.assigned_number)) { selectedSet.add(p.assigned_number); countM++ } }
+          }
+          if (countF < needF) {
+            for (const p of shuffle([...females])) { if (countF >= needF) break; if (!selectedSet.has(p.assigned_number)) { selectedSet.add(p.assigned_number); countF++ } }
           }
 
           const selectedNums = [...selectedSet]
           const selected = selectedNums.map(num => valid.find(p => p.assigned_number === num)).filter(Boolean)
+          const selectedMap = new Map(selected.map(p => [p.assigned_number, p]))
 
-          // 4. Count how many pairs have cached compatibility among selected
+          // 4. Identify missing pairs and pre-compute them to achieve 100% cache coverage
           const cachedSet = new Set()
           for (const c of allCachedPairs || []) {
             if (validSet.has(c.participant_a_number) && validSet.has(c.participant_b_number)) {
@@ -8162,16 +8171,46 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
               cachedSet.add(`${a}-${b}`)
             }
           }
+
+          const missingPairs = []
           let cacheHits = 0, totalPairs = 0
           for (let i = 0; i < selectedNums.length; i++) {
             for (let j = i + 1; j < selectedNums.length; j++) {
               const [a, b] = [selectedNums[i], selectedNums[j]].sort((x, y) => x - y)
               totalPairs++
-              if (cachedSet.has(`${a}-${b}`)) cacheHits++
+              if (cachedSet.has(`${a}-${b}`)) {
+                cacheHits++
+              } else {
+                missingPairs.push([a, b])
+              }
             }
           }
 
-          // 5. Clear current event data (no snapshot — test data will be deleted on exit)
+          // Pre-compute missing pairs (skipAI=false to get full scores including AI vibe)
+          let preComputed = 0, preComputeErrors = 0
+          if (missingPairs.length > 0) {
+            console.log(`🔧 Test mode: pre-computing ${missingPairs.length} missing compatibility pairs...`)
+            // Process sequentially to avoid rate limits
+            for (const [aNum, bNum] of missingPairs) {
+              const pA = selectedMap.get(aNum)
+              const pB = selectedMap.get(bNum)
+              if (!pA || !pB) { preComputeErrors++; continue }
+              try {
+                await calculateFullCompatibilityWithCache(pA, pB, false, false)
+                preComputed++
+              } catch (e) {
+                console.error(`Pre-compute error for #${aNum}-#${bNum}:`, e.message)
+                preComputeErrors++
+              }
+            }
+            console.log(`✅ Pre-computed ${preComputed}/${missingPairs.length} missing pairs (${preComputeErrors} errors)`)
+          }
+
+          // Recount cache hits after pre-computation
+          cacheHits = totalPairs - preComputeErrors
+          const cachePct = totalPairs > 0 ? Math.round((cacheHits / totalPairs) * 100) : 0
+
+          // 5. Clear current event data
           await Promise.all([
             supabase.from("event3_participants").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
             supabase.from("event3_matches").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
@@ -8186,7 +8225,7 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           const participantRows = selectedNums.map((num, idx) => ({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, participant_number: num, position: idx }))
           await supabase.from("event3_participants").insert(participantRows)
 
-          // 7. Reset event state to setup and mark test mode active (update only — preserves current_event_id and other columns)
+          // 7. Reset event state to setup and mark test mode active
           await supabase.from("event_state").update({
             phase: "setup",
             global_timer_active: false,
@@ -8199,7 +8238,7 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             test_mode_snapshot: { started_at: new Date().toISOString() },
           }).eq("match_id", EVENT3_MATCH_ID)
 
-          // 10. Build test users list with phone numbers and tokens
+          // 8. Build test users list
           const testUsers = selected.map(p => ({
             number: p.assigned_number,
             name: p.name || `#${p.assigned_number}`,
@@ -8209,14 +8248,12 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             token: p.secure_token,
           }))
 
-          // 11. Run diagnostics on the selected participants
+          // 9. Diagnostics
           const checks = []
-          let healthy = true
+          const healthy = true
 
-          // Participant selection check
           checks.push({ name: "participant_selection", status: "ok", message: `${selectedNums.length} participants selected (18M + 18F)` })
 
-          // Survey data check
           const missingSurvey = selectedNums.filter(num => {
             const p = selected.find(s => s.assigned_number === num)
             return !isParticipantComplete(p)
@@ -8227,28 +8264,27 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             checks.push({ name: "survey_data", status: "ok", message: "All 36 participants have complete survey data" })
           }
 
-          // Cache coverage check — should always be 100% with clique selection
-          const cachePct = totalPairs > 0 ? Math.round((cacheHits / totalPairs) * 100) : 0
           if (cachePct < 100) {
-            checks.push({ name: "compatibility_cache", status: "warn", message: `${cacheHits}/${totalPairs} pairs cached (${cachePct}%) — some pairs missing cache` })
+            checks.push({ name: "compatibility_cache", status: "warn", message: `${cacheHits}/${totalPairs} pairs cached (${cachePct}%) — ${preComputeErrors} pre-compute errors` })
           } else {
-            checks.push({ name: "compatibility_cache", status: "ok", message: `${cacheHits}/${totalPairs} pairs cached (100%) — all pairs cached` })
+            checks.push({ name: "compatibility_cache", status: "ok", message: `${cacheHits}/${totalPairs} pairs cached (100%) — ${preComputed} pre-computed` })
           }
 
-          // Gender balance check
           checks.push({ name: "gender_balance", status: "ok", message: `18 males / 18 females — balanced` })
-
-          // Event state check
           checks.push({ name: "event_state", status: "ok", message: "Event state reset to setup phase" })
+
+          if (preComputed > 0) {
+            checks.push({ name: "pre_computation", status: "ok", message: `${preComputed} missing pairs computed and cached (${preComputeErrors} errors)` })
+          }
 
           return res.status(200).json({
             test_mode: true,
             selected_count: selectedNums.length,
-            cache_coverage: { hits: cacheHits, total: totalPairs, percent: cachePct },
+            cache_coverage: { hits: cacheHits, total: totalPairs, percent: cachePct, pre_computed: preComputed, pre_compute_errors: preComputeErrors },
             checks,
             healthy,
             test_users: testUsers,
-            message: `Test mode started with ${selectedNums.length} participants (18M+18F). ${cacheHits}/${totalPairs} pairs have cached compatibility (100%).`,
+            message: `Test mode started with ${selectedNums.length} participants (18M+18F). ${cacheHits}/${totalPairs} pairs cached (${cachePct}%).${preComputed > 0 ? ` ${preComputed} pairs pre-computed.` : ''}`,
           })
         }
 

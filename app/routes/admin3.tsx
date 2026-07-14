@@ -857,7 +857,7 @@ export default function Admin3Page() {
 
   const startTestMode = async () => {
     if (previewEventId != null) { toast.error("لا يمكن بدء وضع الاختبار في وضع المعاينة"); return }
-    if (!confirm("بدء وضع الاختبار؟ سيتم اختيار 36 مشارك (18 ذكر + 18 أنثى) مع 100% أزواج مخزنة مسبقاً. يمكنك الاستعادة عند الانتهاء.")) return
+    if (!confirm("بدء وضع الاختبار؟ سيتم اختيار 36 مشارك (18 ذكر + 18 أنثى) وتحقيق 100% تغطية كاش — قد يستغرق حساب الأزواج الناقصة بعض الوقت. يمكنك الاستعادة عند الانتهاء.")) return
     setTestModeLoading(true)
     try {
       const data = await api("e3-start-test-mode")

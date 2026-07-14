@@ -2865,13 +2865,13 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
               {timerActive && timeLeft > 0 && (
                 <div className="rounded-2xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
                   <div className="px-5 pt-4 pb-3">
-                    <p className="text-gray-500 text-xs flex items-center justify-end gap-1.5 mb-1">الجلسة تبدأ خلال <Clock size={11} className="text-pink-400" /></p>
-                    <div className={`text-4xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
+                    <p className="text-gray-500 text-xs flex items-center justify-end gap-1.5 mb-1">{canArrive ? <>الوقت المتبقي للجلسة</> : <>الجلسة تبدأ خلال</>} <Clock size={11} className="text-pink-400" /></p>
+                    <div className={`text-4xl font-mono font-black tabular-nums ${(canArrive ? timeLeft : waitSeconds) < 60 ? "text-red-400" : "text-white"}`}>{formatTime(canArrive ? timeLeft : Math.ceil(waitSeconds))}</div>
                   </div>
                   <div className="h-1 bg-gray-800/60">
-                    <motion.div className={`h-full ${timeLeft < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-pink-500 via-rose-400 to-pink-600"}`}
-                      style={{ boxShadow: timeLeft < 60 ? "0 0 8px rgba(239,68,68,0.7)" : "0 0 10px rgba(236,72,153,0.7)" }}
-                      animate={{ width: `${(timeLeft / timerDuration) * 100}%` }} transition={{ duration: 1 }} />
+                    <motion.div className={`h-full ${(canArrive ? timeLeft : waitSeconds) < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-pink-500 via-rose-400 to-pink-600"}`}
+                      style={{ boxShadow: (canArrive ? timeLeft : waitSeconds) < 60 ? "0 0 8px rgba(239,68,68,0.7)" : "0 0 10px rgba(236,72,153,0.7)" }}
+                      animate={{ width: `${canArrive ? (timeLeft / timerDuration) * 100 : (waitSeconds / 60) * 100}%` }} transition={{ duration: 1 }} />
                   </div>
                 </div>
               )}
@@ -2905,13 +2905,13 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
               {timerActive && timeLeft > 0 && (
                 <div className="rounded-2xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
                   <div className="px-5 pt-4 pb-3">
-                    <p className="text-gray-500 text-xs flex items-center justify-end gap-1.5 mb-1">الجلسة تبدأ خلال <Clock size={11} className="text-pink-400" /></p>
-                    <div className={`text-4xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
+                    <p className="text-gray-500 text-xs flex items-center justify-end gap-1.5 mb-1">{canArrive ? <>الوقت المتبقي للجلسة</> : <>الجلسة تبدأ خلال</>} <Clock size={11} className="text-pink-400" /></p>
+                    <div className={`text-4xl font-mono font-black tabular-nums ${(canArrive ? timeLeft : waitSeconds) < 60 ? "text-red-400" : "text-white"}`}>{formatTime(canArrive ? timeLeft : Math.ceil(waitSeconds))}</div>
                   </div>
                   <div className="h-1 bg-gray-800/60">
-                    <motion.div className={`h-full ${timeLeft < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-pink-500 via-rose-400 to-pink-600"}`}
-                      style={{ boxShadow: timeLeft < 60 ? "0 0 8px rgba(239,68,68,0.7)" : "0 0 10px rgba(236,72,153,0.7)" }}
-                      animate={{ width: `${(timeLeft / timerDuration) * 100}%` }} transition={{ duration: 1 }} />
+                    <motion.div className={`h-full ${(canArrive ? timeLeft : waitSeconds) < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-pink-500 via-rose-400 to-pink-600"}`}
+                      style={{ boxShadow: (canArrive ? timeLeft : waitSeconds) < 60 ? "0 0 8px rgba(239,68,68,0.7)" : "0 0 10px rgba(236,72,153,0.7)" }}
+                      animate={{ width: `${canArrive ? (timeLeft / timerDuration) * 100 : (waitSeconds / 60) * 100}%` }} transition={{ duration: 1 }} />
                   </div>
                 </div>
               )}
@@ -3256,13 +3256,13 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
               {timerActive && timeLeft > 0 && (
                 <div className="rounded-2xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
                   <div className="px-5 pt-4 pb-3">
-                    <p className="text-gray-500 text-xs flex items-center justify-end gap-1.5 mb-1">الجلسة تبدأ خلال <Clock size={11} className="text-purple-400" /></p>
-                    <div className={`text-4xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
+                    <p className="text-gray-500 text-xs flex items-center justify-end gap-1.5 mb-1">{canArrive ? <>الوقت المتبقي للجلسة</> : <>الجلسة تبدأ خلال</>} <Clock size={11} className="text-purple-400" /></p>
+                    <div className={`text-4xl font-mono font-black tabular-nums ${(canArrive ? timeLeft : waitSeconds) < 60 ? "text-red-400" : "text-white"}`}>{formatTime(canArrive ? timeLeft : Math.ceil(waitSeconds))}</div>
                   </div>
                   <div className="h-1 bg-gray-800/60">
-                    <motion.div className={`h-full ${timeLeft < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-purple-500 via-violet-400 to-purple-600"}`}
-                      style={{ boxShadow: timeLeft < 60 ? "0 0 8px rgba(239,68,68,0.7)" : "0 0 10px rgba(139,92,246,0.7)" }}
-                      animate={{ width: `${(timeLeft / timerDuration) * 100}%` }} transition={{ duration: 1 }} />
+                    <motion.div className={`h-full ${(canArrive ? timeLeft : waitSeconds) < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-purple-500 via-violet-400 to-purple-600"}`}
+                      style={{ boxShadow: (canArrive ? timeLeft : waitSeconds) < 60 ? "0 0 8px rgba(239,68,68,0.7)" : "0 0 10px rgba(139,92,246,0.7)" }}
+                      animate={{ width: `${canArrive ? (timeLeft / timerDuration) * 100 : (waitSeconds / 60) * 100}%` }} transition={{ duration: 1 }} />
                   </div>
                 </div>
               )}
@@ -3297,13 +3297,13 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
               {timerActive && timeLeft > 0 && (
                 <div className="rounded-2xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
                   <div className="px-5 pt-4 pb-3">
-                    <p className="text-gray-500 text-xs flex items-center justify-end gap-1.5 mb-1">الجلسة تبدأ خلال <Clock size={11} className="text-purple-400" /></p>
-                    <div className={`text-4xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
+                    <p className="text-gray-500 text-xs flex items-center justify-end gap-1.5 mb-1">{canArrive ? <>الوقت المتبقي للجلسة</> : <>الجلسة تبدأ خلال</>} <Clock size={11} className="text-purple-400" /></p>
+                    <div className={`text-4xl font-mono font-black tabular-nums ${(canArrive ? timeLeft : waitSeconds) < 60 ? "text-red-400" : "text-white"}`}>{formatTime(canArrive ? timeLeft : Math.ceil(waitSeconds))}</div>
                   </div>
                   <div className="h-1 bg-gray-800/60">
-                    <motion.div className={`h-full ${timeLeft < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-purple-500 via-violet-400 to-purple-600"}`}
-                      style={{ boxShadow: timeLeft < 60 ? "0 0 8px rgba(239,68,68,0.7)" : "0 0 10px rgba(139,92,246,0.7)" }}
-                      animate={{ width: `${(timeLeft / timerDuration) * 100}%` }} transition={{ duration: 1 }} />
+                    <motion.div className={`h-full ${(canArrive ? timeLeft : waitSeconds) < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-purple-500 via-violet-400 to-purple-600"}`}
+                      style={{ boxShadow: (canArrive ? timeLeft : waitSeconds) < 60 ? "0 0 8px rgba(239,68,68,0.7)" : "0 0 10px rgba(139,92,246,0.7)" }}
+                      animate={{ width: `${canArrive ? (timeLeft / timerDuration) * 100 : (waitSeconds / 60) * 100}%` }} transition={{ duration: 1 }} />
                   </div>
                 </div>
               )}

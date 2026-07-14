@@ -3526,7 +3526,7 @@ function BreakScreen({ timerActive, timerStart, timerDuration }: {
 
         <h1 className="text-3xl font-bold text-white mb-3">استراحة</h1>
         <p className="text-gray-400 text-sm mb-8">
-          خذ استراحة قصيرة، تناول شيئًا، وارجع للكشف عن نتائجك
+          خذ استراحة قصيرة، تناول شيئًا، واستعد للمرحلة التالية
         </p>
 
         {timerActive && timeLeft > 0 ? (

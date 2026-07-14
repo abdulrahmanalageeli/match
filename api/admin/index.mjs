@@ -832,6 +832,7 @@ export default async function handler(req, res) {
           .eq("match_id", STATIC_MATCH_ID)
           .neq("assigned_number", 9999)  // Exclude organizer participant
           .order("assigned_number", { ascending: true })
+          .limit(10000)
         
         // Add event_id filter if provided
         if (event_id) {

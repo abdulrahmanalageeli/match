@@ -3050,18 +3050,78 @@ async function ensureOrganizerParticipant(match_id) {
 }
 
 // Function to check if two participants have been matched before in previous events
+// Also checks alias accounts (same phone number, different assigned_number)
 async function havePreviousMatch(participantA, participantB, currentEventId) {
   try {
+    // Fetch phone numbers for both participants
+    const { data: phoneRows } = await supabase
+      .from("participants")
+      .select("assigned_number, phone_number")
+      .eq("match_id", STATIC_MATCH_ID)
+      .in("assigned_number", [participantA, participantB])
+
+    // Build A's alias group and B's alias group (accounts sharing same phone, last 7 digits)
+    const aPhones = new Set()
+    const bPhones = new Set()
+    for (const row of (phoneRows || [])) {
+      const phone = (row.phone_number || "").replace(/\D/g, "")
+      if (phone.length < 7) continue
+      const last7 = phone.slice(-7)
+      if (row.assigned_number === participantA) aPhones.add(last7)
+      if (row.assigned_number === participantB) bPhones.add(last7)
+    }
+
+    const aGroup = new Set([participantA])
+    const bGroup = new Set([participantB])
+
+    // Find all alias accounts for A and B
+    const allPhones = [...aPhones, ...bPhones]
+    if (allPhones.length > 0) {
+      const { data: allP } = await supabase
+        .from("participants")
+        .select("assigned_number, phone_number")
+        .eq("match_id", STATIC_MATCH_ID)
+        .neq("assigned_number", 9999)
+        .not("phone_number", "is", null)
+      for (const row of (allP || [])) {
+        const rp = (row.phone_number || "").replace(/\D/g, "")
+        if (rp.length < 7) continue
+        const last7 = rp.slice(-7)
+        if (aPhones.has(last7) && row.assigned_number !== participantA && row.assigned_number !== participantB) {
+          aGroup.add(row.assigned_number)
+        }
+        if (bPhones.has(last7) && row.assigned_number !== participantA && row.assigned_number !== participantB) {
+          bGroup.add(row.assigned_number)
+        }
+      }
+    }
+
+    // Check if any A-group member was matched with any B-group member in previous events
+    const aNums = Array.from(aGroup)
+    const bNums = Array.from(bGroup)
+
+    // Query match_results where (a ∈ A-group AND b ∈ B-group) OR (a ∈ B-group AND b ∈ A-group)
+    const orConditions = []
+    for (const a of aNums) {
+      for (const b of bNums) {
+        orConditions.push(`and(participant_a_number.eq.${a},participant_b_number.eq.${b})`)
+        orConditions.push(`and(participant_a_number.eq.${b},participant_b_number.eq.${a})`)
+      }
+    }
+
+    if (orConditions.length === 0) return false
+
+    // Supabase .or() can handle long strings, but chunk if needed
     const { data, error } = await supabase
       .from("match_results")
       .select("event_id")
-      .lt("event_id", currentEventId) // Only check previous events
-      .or(`and(participant_a_number.eq.${participantA},participant_b_number.eq.${participantB}),and(participant_a_number.eq.${participantB},participant_b_number.eq.${participantA})`)
+      .lt("event_id", currentEventId)
+      .or(orConditions.join(','))
       .limit(1)
 
     if (error) {
-      console.error("Error checking previous matches:", error)
-      return false // If error, assume no previous match
+      console.error("Error checking previous matches (with aliases):", error)
+      return false
     }
 
     return data && data.length > 0
@@ -3072,25 +3132,56 @@ async function havePreviousMatch(participantA, participantB, currentEventId) {
 }
 
 // Function to get all previous matches for a participant across all events
+// Also includes matches from alias accounts (same phone number, different assigned_number)
 async function getPreviousMatches(participantNumber, currentEventId) {
   try {
+    // Find all alias numbers (same phone number)
+    const allNumbers = new Set([participantNumber])
+    const { data: myRow } = await supabase
+      .from("participants")
+      .select("phone_number")
+      .eq("match_id", STATIC_MATCH_ID)
+      .eq("assigned_number", participantNumber)
+      .maybeSingle()
+
+    const myPhone = (myRow?.phone_number || "").replace(/\D/g, "")
+    const myLast7 = myPhone.length >= 7 ? myPhone.slice(-7) : ""
+    if (myLast7) {
+      const { data: allP } = await supabase
+        .from("participants")
+        .select("assigned_number, phone_number")
+        .eq("match_id", STATIC_MATCH_ID)
+        .neq("assigned_number", 9999)
+        .not("phone_number", "is", null)
+      for (const row of (allP || [])) {
+        const rp = (row.phone_number || "").replace(/\D/g, "")
+        if (rp.length >= 7 && rp.slice(-7) === myLast7) allNumbers.add(row.assigned_number)
+      }
+    }
+
+    const nums = Array.from(allNumbers)
+    const orConditions = nums.map(n => `participant_a_number.eq.${n},participant_b_number.eq.${n}`).join(',')
+
     const { data, error } = await supabase
       .from("match_results")
       .select("participant_a_number, participant_b_number, event_id")
-      .lt("event_id", currentEventId) // Only check previous events
-      .or(`participant_a_number.eq.${participantNumber},participant_b_number.eq.${participantNumber}`)
+      .lt("event_id", currentEventId)
+      .or(orConditions)
 
     if (error) {
       console.error("Error getting previous matches:", error)
       return []
     }
 
-    // Extract the other participant numbers
-    const previousPartners = data.map(match => 
-      match.participant_a_number === participantNumber 
-        ? match.participant_b_number 
-        : match.participant_a_number
-    )
+    // Extract the other participant numbers (exclude self and aliases)
+    const numSet = allNumbers
+    const previousPartners = data
+      .filter(match => !(numSet.has(match.participant_a_number) && numSet.has(match.participant_b_number)))
+      .map(match =>
+        numSet.has(match.participant_a_number)
+          ? match.participant_b_number
+          : match.participant_a_number
+      )
 
     return [...new Set(previousPartners)] // Remove duplicates
   } catch (err) {
@@ -4528,7 +4619,7 @@ if (action === "cache-status-by-gender") {
     
     const { data: allParticipants, error } = await supabase
       .from("participants")
-      .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
+      .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, phone_number")
       .eq("match_id", match_id)
       .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)  // Participants who signed up for next event OR have current event_id OR have auto_signup enabled
       .neq("assigned_number", 9999)  // Exclude organizer participant from matching
@@ -5859,12 +5950,44 @@ if (action === "cache-status-by-gender") {
     console.log(`🔍 Bulk fetching previous matches for ${eligibleParticipants.length} participants from previous events...`)
     const previousMatchesStartTime = Date.now()
     
+    // Build phone-to-assigned-numbers map to detect duplicate accounts (same phone, last 7 digits)
+    const phoneToNumbers = new Map()
+    for (const p of eligibleParticipants) {
+      const phone = (p.phone_number || "").replace(/\D/g, "")
+      if (phone.length >= 7) {
+        const last7 = phone.slice(-7)
+        if (!phoneToNumbers.has(last7)) phoneToNumbers.set(last7, [])
+        phoneToNumbers.get(last7).push(p.assigned_number)
+      }
+    }
+    // For each participant, find all their "alias" assigned numbers (same phone last 7, different number)
+    const aliasMap = new Map() // assigned_number -> Set of all assigned_numbers sharing the same phone
+    for (const p of eligibleParticipants) {
+      const phone = (p.phone_number || "").replace(/\D/g, "")
+      if (phone.length >= 7) {
+        const last7 = phone.slice(-7)
+        if (phoneToNumbers.get(last7).length > 1) {
+          aliasMap.set(p.assigned_number, new Set(phoneToNumbers.get(last7)))
+        }
+      }
+    }
+    if (aliasMap.size > 0) {
+      console.log(`📱 Detected ${aliasMap.size} participants with duplicate phone numbers (alias accounts)`)
+    }
+    
+    // Collect ALL assigned numbers to query: current participants + their aliases
+    const allNumbersToQuery = new Set(numbers)
+    for (const aliases of aliasMap.values()) {
+      for (const num of aliases) allNumbersToQuery.add(num)
+    }
+    const allQueryNumbers = Array.from(allNumbersToQuery)
+    
     const { data: allPreviousMatches, error: previousMatchError } = await supabase
       .from("match_results")
       .select("participant_a_number, participant_b_number, event_id")
       .lt("event_id", eventId) // Only previous events
-      .in("participant_a_number", numbers)
-      .in("participant_b_number", numbers)
+      .in("participant_a_number", allQueryNumbers)
+      .in("participant_b_number", allQueryNumbers)
     
     if (previousMatchError) {
       console.error("⚠️ Error fetching previous matches:", previousMatchError)
@@ -5972,8 +6095,42 @@ if (action === "cache-status-by-gender") {
         }
         
         // Check if this pair has been matched in previous events (O(1) Set lookup)
+        // Also check alias accounts (same phone number, different assigned_number)
         const pairKey = [a.assigned_number, b.assigned_number].sort().join('-')
         if (previousMatchPairs.has(pairKey)) {
+          skippedPrevious++
+          continue
+        }
+        // Check aliases: if A or B has duplicate phone accounts, check those pair combinations too
+        const aAliases = aliasMap.get(a.assigned_number)
+        const bAliases = aliasMap.get(b.assigned_number)
+        let hasPrevious = false
+        if (aAliases) {
+          for (const aAlias of aAliases) {
+            if (aAlias === a.assigned_number) continue
+            const aliasKey = [aAlias, b.assigned_number].sort().join('-')
+            if (previousMatchPairs.has(aliasKey)) { hasPrevious = true; break }
+          }
+        }
+        if (!hasPrevious && bAliases) {
+          for (const bAlias of bAliases) {
+            if (bAlias === b.assigned_number) continue
+            const aliasKey = [a.assigned_number, bAlias].sort().join('-')
+            if (previousMatchPairs.has(aliasKey)) { hasPrevious = true; break }
+          }
+        }
+        if (!hasPrevious && aAliases && bAliases) {
+          for (const aAlias of aAliases) {
+            if (aAlias === a.assigned_number) continue
+            for (const bAlias of bAliases) {
+              if (bAlias === b.assigned_number) continue
+              const aliasKey = [aAlias, bAlias].sort().join('-')
+              if (previousMatchPairs.has(aliasKey)) { hasPrevious = true; break }
+            }
+            if (hasPrevious) break
+          }
+        }
+        if (hasPrevious) {
           skippedPrevious++
           continue
         }

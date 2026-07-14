@@ -16,7 +16,7 @@ import {
   MessageSquare, ChevronRight, Users, PenLine, Shuffle, BarChart3, GitMerge, X, Heart,
   Frown, Meh, Smile, Layers, Zap,
   Snowflake, Target, Star, Drama, AlertTriangle, Lightbulb, PartyPopper, LifeBuoy,
-  EyeOff, Smartphone, Handshake, Timer, Ban, ShieldCheck, Coffee, Bell, Info,
+  EyeOff, Smartphone, Handshake, Timer, Ban, ShieldCheck, Coffee, Bell, Info, Loader2,
 } from "lucide-react"
 
 import { QuestionSlideshow } from "~/components/QuestionSlideshow"
@@ -2834,6 +2834,26 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
     fireConfetti({ particleCount: 55, spread: 65, origin: { y: 0.45 }, colors: ["#ec4899", "#f43f5e", "#fb7185", "#be185d"] })
   }
 
+  // Auto-advance: table animation → partner reveal (skip "I arrived" button)
+  useEffect(() => {
+    if (!tableRevealed || revealed) return
+    if (!canArrive) return
+    if (rejoined) return
+    const timer = setTimeout(() => {
+      setArrived(eventId, "phase2")
+      setRevealed(true)
+      fireConfetti({ particleCount: 55, spread: 65, origin: { y: 0.45 }, colors: ["#ec4899", "#f43f5e", "#fb7185", "#be185d"] })
+    }, 2800)
+    return () => clearTimeout(timer)
+  }, [tableRevealed, revealed, canArrive, eventId, rejoined])
+
+  // Auto-advance: partner reveal → session questions
+  useEffect(() => {
+    if (!revealed || view !== 'partner' || rejoined) return
+    const timer = setTimeout(() => setView('session'), 4500)
+    return () => clearTimeout(timer)
+  }, [revealed, view, rejoined])
+
   const submitWord = async () => {
     if (!word.trim()) return
     const d = await call("e3-submit-phase2-word", token, { word: word.trim() })
@@ -2877,31 +2897,74 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
               )}
             </motion.div>
           ) : !revealed ? (
-            <motion.div key="pre-name" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="space-y-4">
-              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 220 }}
-                className="rounded-3xl bg-pink-950/40 border border-pink-700/40 p-6 text-center space-y-2">
-                <MapPin size={18} className="text-pink-400 mx-auto" />
-                <p className="text-gray-500 text-xs">توجّه إلى الطاولة رقم</p>
-                <div className="text-6xl font-black text-pink-300">{data?.table_number ?? "—"}</div>
-                <p className="text-gray-600 text-xs">بعد الوصول، اضغط لتأكيد وصولك</p>
-              </motion.div>
-              <motion.button onClick={handleReveal} whileTap={{ scale: canArrive ? 0.97 : 1 }} disabled={!canArrive}
-                className={`w-full rounded-2xl py-5 font-bold text-lg border transition-all ${canArrive
-                  ? "bg-gradient-to-br from-pink-600 via-rose-600 to-pink-700 text-white shadow-2xl shadow-pink-600/40 border-pink-500/30"
-                  : "bg-gray-800 text-gray-500 border-gray-700/50 cursor-not-allowed"}`}>
-                {canArrive ? (
-                  <motion.span animate={{ scale: [1, 1.06, 1] }} transition={{ duration: 1.8, repeat: Infinity }} className="flex items-center justify-center gap-3">
-                    <MapPin size={22} /> وصلت إلى الطاولة
-                  </motion.span>
-                ) : (
-                  <span className="flex flex-col items-center gap-1">
-                    <span className="flex items-center justify-center gap-2">
-                      <Clock size={20} /> سيكون الزر متاحاً خلال ({Math.ceil(waitSeconds)}ث)
-                    </span>
-                    <span className="text-[10px] font-normal text-gray-600">انتظر دقيقة من بدء المؤقت قبل تأكيد وصولك</span>
+            <motion.div key="table-anim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="space-y-4">
+              {/* Gorgeous table number animation */}
+              <div className="relative flex flex-col items-center justify-center py-10">
+                {/* Animated glow rings */}
+                <motion.div className="absolute w-52 h-52 rounded-full border-2 border-pink-500/20"
+                  animate={{ scale: [1, 1.35, 1], opacity: [0.5, 0, 0.5] }} transition={{ duration: 2, repeat: Infinity }} />
+                <motion.div className="absolute w-52 h-52 rounded-full border-2 border-pink-500/10"
+                  animate={{ scale: [1, 1.55, 1], opacity: [0.3, 0, 0.3] }} transition={{ duration: 2.5, repeat: Infinity, delay: 0.3 }} />
+                {/* Floating particles */}
+                <motion.div className="absolute w-3 h-3 rounded-full bg-pink-400/40"
+                  animate={{ y: [0, -20, 0], x: [0, 10, 0], opacity: [0, 1, 0] }} transition={{ duration: 3, repeat: Infinity, delay: 0.2 }} style={{ top: '20%', left: '30%' }} />
+                <motion.div className="absolute w-2 h-2 rounded-full bg-rose-400/40"
+                  animate={{ y: [0, 15, 0], x: [0, -12, 0], opacity: [0, 1, 0] }} transition={{ duration: 2.5, repeat: Infinity, delay: 0.8 }} style={{ top: '30%', right: '25%' }} />
+                <motion.div className="absolute w-2.5 h-2.5 rounded-full bg-fuchsia-400/30"
+                  animate={{ y: [0, -15, 0], x: [0, 8, 0], opacity: [0, 1, 0] }} transition={{ duration: 3.5, repeat: Infinity, delay: 1.2 }} style={{ bottom: '25%', left: '35%' }} />
+
+                {/* Table number */}
+                <motion.div
+                  initial={{ scale: 0.3, opacity: 0, filter: "blur(20px)" }}
+                  animate={{ scale: 1, opacity: 1, filter: "blur(0px)" }}
+                  transition={{ type: "spring", stiffness: 200, damping: 18 }}
+                  className="relative z-10 text-center"
+                >
+                  <motion.div animate={{ y: [0, -3, 0] }} transition={{ duration: 2, repeat: Infinity }}>
+                    <MapPin size={28} className="text-pink-400 mx-auto mb-2" />
+                  </motion.div>
+                  <p className="text-gray-500 text-sm mb-1">توجّه إلى الطاولة رقم</p>
+                  <motion.div
+                    className="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-br from-pink-300 via-rose-400 to-pink-500"
+                    animate={{ scale: [1, 1.04, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    style={{ filter: "drop-shadow(0 0 20px rgba(236,72,153,0.3))" }}
+                  >
+                    {data?.table_number ?? "—"}
+                  </motion.div>
+                </motion.div>
+              </div>
+
+              {/* Auto-advance indicator, manual button for rejoined, or wait timer */}
+              {canArrive && rejoined ? (
+                <motion.button onClick={handleReveal} whileTap={{ scale: 0.97 }}
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
+                  className="w-full bg-gradient-to-br from-pink-600 via-rose-600 to-pink-700 text-white rounded-2xl py-5 font-bold text-lg shadow-2xl shadow-pink-600/40 border border-pink-500/30">
+                  <span className="flex items-center justify-center gap-3">
+                    <MapPin size={22} /> اكشف شريكك
                   </span>
-                )}
-              </motion.button>
+                </motion.button>
+              ) : canArrive ? (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }} className="text-center space-y-2">
+                  <motion.div className="flex items-center justify-center gap-2 text-pink-400 text-sm font-medium"
+                    animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.5, repeat: Infinity }}>
+                    <Loader2 size={14} className="animate-spin" />
+                    <span>جاري الكشف عن شريكك...</span>
+                  </motion.div>
+                  {/* Progress bar */}
+                  <div className="h-0.5 bg-gray-800/60 rounded-full overflow-hidden max-w-[180px] mx-auto">
+                    <motion.div className="h-full bg-gradient-to-r from-pink-500 to-rose-400"
+                      initial={{ width: "0%" }} animate={{ width: "100%" }} transition={{ duration: 2.8, ease: "linear" }} />
+                  </div>
+                </motion.div>
+              ) : (
+                <div className="text-center space-y-1">
+                  <p className="text-gray-600 text-xs">انتظر دقيقة من بدء المؤقت</p>
+                  <div className="text-2xl font-mono font-black text-pink-300">{Math.ceil(waitSeconds)}ث</div>
+                </div>
+              )}
+
+              {/* Timer */}
               {timerActive && timeLeft > 0 && (
                 <div className="rounded-2xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
                   <div className="px-5 pt-4 pb-3">
@@ -2923,13 +2986,19 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                   <div className="absolute inset-0 bg-gradient-to-br from-pink-950 via-rose-950/80 to-pink-900/60" />
                   <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-pink-400/60 to-transparent" />
                   <div className="absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-black/30 to-transparent" />
-                  <div className="relative z-10 px-6 pt-5 pb-6 text-center">
+                  {/* Floating glow orbs */}
+                  <motion.div className="absolute w-32 h-32 rounded-full bg-pink-500/10 blur-3xl"
+                    animate={{ x: [0, 20, 0], y: [0, -15, 0] }} transition={{ duration: 4, repeat: Infinity }} style={{ top: '10%', left: '5%' }} />
+                  <motion.div className="absolute w-24 h-24 rounded-full bg-rose-500/10 blur-3xl"
+                    animate={{ x: [0, -15, 0], y: [0, 10, 0] }} transition={{ duration: 3.5, repeat: Infinity, delay: 0.5 }} style={{ bottom: '10%', right: '5%' }} />
+                  <div className="relative z-10 px-6 pt-6 pb-7 text-center">
                     <div className="inline-flex items-center gap-1.5 bg-pink-900/50 border border-pink-700/40 rounded-full px-3 py-1 mb-4">
                       <Users size={10} className="text-pink-400" />
                       <span className="text-pink-300 text-[11px] font-semibold tracking-wide">{data?.is_backup ? "جلسة احتياطي · إقتراح المنظم" : "جلسة فردية · اختيارك الشخصي"}</span>
                     </div>
-                    <p className="text-5xl font-black text-white mb-2 tracking-tight" style={{ textShadow: '0 2px 20px rgba(236,72,153,0.3)' }}>{data?.partner_first_name || "..."}</p>
-                    <p className="text-pink-400/50 text-xs mt-1">{data?.is_backup ? "شريكك في جلسة احتياطية" : "شريكك في جلسة الاختيار الشخصي"}</p>
+                    <motion.p className="text-5xl font-black text-white mb-2 tracking-tight" style={{ textShadow: '0 2px 20px rgba(236,72,153,0.3)' }}
+                      initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.15 }}>{data?.partner_first_name || "..."}</motion.p>
+                    <motion.p className="text-pink-400/50 text-xs mt-1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>{data?.is_backup ? "شريكك في جلسة احتياطية" : "شريكك في جلسة الاختيار الشخصي"}</motion.p>
                   </div>
                 </div>
               </motion.div>
@@ -2977,14 +3046,32 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                 </motion.div>
               )}
 
-              <motion.button
-                onClick={() => setView('session')}
-                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
-                className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl border font-bold text-base transition-all bg-pink-900/30 border-pink-700/40 text-pink-300 hover:brightness-125 active:scale-95"
-              >
-                انتقل إلى أسئلة الجلسة
-                <ChevronRight size={16} />
-              </motion.button>
+              {/* Auto-advance to session indicator */}
+              {!rejoined && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="text-center space-y-2">
+                  <motion.div className="flex items-center justify-center gap-2 text-pink-400/80 text-sm font-medium"
+                    animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.5, repeat: Infinity }}>
+                    <Loader2 size={14} className="animate-spin" />
+                    <span>جاري التحضير للجلسة...</span>
+                  </motion.div>
+                  <div className="h-0.5 bg-gray-800/60 rounded-full overflow-hidden max-w-[200px] mx-auto">
+                    <motion.div className="h-full bg-gradient-to-r from-pink-500 to-rose-400"
+                      initial={{ width: "0%" }} animate={{ width: "100%" }} transition={{ duration: 4.5, ease: "linear" }} />
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Manual skip for rejoined users */}
+              {rejoined && (
+                <motion.button
+                  onClick={() => setView('session')}
+                  initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
+                  className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl border font-bold text-base transition-all bg-pink-900/30 border-pink-700/40 text-pink-300 hover:brightness-125 active:scale-95"
+                >
+                  انتقل إلى أسئلة الجلسة
+                  <ChevronRight size={16} />
+                </motion.button>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -3203,6 +3290,26 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
     fireConfetti({ particleCount: 65, spread: 70, origin: { y: 0.4 }, colors: ["#7c3aed", "#8b5cf6", "#a78bfa", "#c4b5fd"] })
   }
 
+  // Auto-advance: table animation → partner reveal (skip "I arrived" button)
+  useEffect(() => {
+    if (!tableRevealed || revealed) return
+    if (!canArrive) return
+    if (rejoined) return
+    const timer = setTimeout(() => {
+      setArrived(eventId, "phase3")
+      setRevealed(true)
+      fireConfetti({ particleCount: 65, spread: 70, origin: { y: 0.4 }, colors: ["#7c3aed", "#8b5cf6", "#a78bfa", "#c4b5fd"] })
+    }, 2800)
+    return () => clearTimeout(timer)
+  }, [tableRevealed, revealed, canArrive, eventId, rejoined])
+
+  // Auto-advance: partner reveal → session questions
+  useEffect(() => {
+    if (!revealed || view !== 'partner' || rejoined) return
+    const timer = setTimeout(() => setView('session'), 4500)
+    return () => clearTimeout(timer)
+  }, [revealed, view, rejoined])
+
   const submitWord = async () => {
     if (!word.trim()) return
     const d = await call("e3-submit-phase3-word", token, { word: word.trim() })
@@ -3268,32 +3375,74 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
               )}
             </motion.div>
           ) : !revealed ? (
-            <motion.div key="pre-name" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="space-y-4">
-              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 220 }}
-                className="rounded-3xl bg-purple-950/40 border border-purple-700/40 p-6 text-center space-y-2">
-                <MapPin size={18} className="text-purple-400 mx-auto" />
-                <p className="text-gray-500 text-xs">توجّه إلى الطاولة رقم</p>
-                <div className="text-6xl font-black text-purple-300">{data?.table_number ?? "—"}</div>
-                <p className="text-gray-600 text-xs">بعد الوصول، اضغط لتأكيد وصولك
-                </p>
-              </motion.div>
-              <motion.button onClick={handleReveal} whileTap={{ scale: canArrive ? 0.97 : 1 }} disabled={!canArrive}
-                className={`w-full rounded-2xl py-5 font-bold text-lg border transition-all ${canArrive
-                  ? "bg-gradient-to-br from-purple-600 via-violet-600 to-purple-700 text-white shadow-2xl shadow-purple-600/40 border-purple-500/30"
-                  : "bg-gray-800 text-gray-500 border-gray-700/50 cursor-not-allowed"}`}>
-                {canArrive ? (
-                  <motion.span animate={{ rotate: [0, -4, 4, 0] }} transition={{ duration: 3, repeat: Infinity }} className="flex items-center justify-center gap-3">
-                    <MapPin size={22} /> وصلت إلى الطاولة
-                  </motion.span>
-                ) : (
-                  <span className="flex flex-col items-center gap-1">
-                    <span className="flex items-center justify-center gap-2">
-                      <Clock size={20} /> سيكون الزر متاحاً خلال ({Math.ceil(waitSeconds)}ث)
-                    </span>
-                    <span className="text-[10px] font-normal text-gray-600">انتظر دقيقة من بدء المؤقت قبل تأكيد وصولك</span>
+            <motion.div key="table-anim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="space-y-4">
+              {/* Gorgeous table number animation */}
+              <div className="relative flex flex-col items-center justify-center py-10">
+                {/* Animated glow rings */}
+                <motion.div className="absolute w-52 h-52 rounded-full border-2 border-purple-500/20"
+                  animate={{ scale: [1, 1.35, 1], opacity: [0.5, 0, 0.5] }} transition={{ duration: 2, repeat: Infinity }} />
+                <motion.div className="absolute w-52 h-52 rounded-full border-2 border-purple-500/10"
+                  animate={{ scale: [1, 1.55, 1], opacity: [0.3, 0, 0.3] }} transition={{ duration: 2.5, repeat: Infinity, delay: 0.3 }} />
+                {/* Floating particles */}
+                <motion.div className="absolute w-3 h-3 rounded-full bg-purple-400/40"
+                  animate={{ y: [0, -20, 0], x: [0, 10, 0], opacity: [0, 1, 0] }} transition={{ duration: 3, repeat: Infinity, delay: 0.2 }} style={{ top: '20%', left: '30%' }} />
+                <motion.div className="absolute w-2 h-2 rounded-full bg-violet-400/40"
+                  animate={{ y: [0, 15, 0], x: [0, -12, 0], opacity: [0, 1, 0] }} transition={{ duration: 2.5, repeat: Infinity, delay: 0.8 }} style={{ top: '30%', right: '25%' }} />
+                <motion.div className="absolute w-2.5 h-2.5 rounded-full bg-indigo-400/30"
+                  animate={{ y: [0, -15, 0], x: [0, 8, 0], opacity: [0, 1, 0] }} transition={{ duration: 3.5, repeat: Infinity, delay: 1.2 }} style={{ bottom: '25%', left: '35%' }} />
+
+                {/* Table number */}
+                <motion.div
+                  initial={{ scale: 0.3, opacity: 0, filter: "blur(20px)" }}
+                  animate={{ scale: 1, opacity: 1, filter: "blur(0px)" }}
+                  transition={{ type: "spring", stiffness: 200, damping: 18 }}
+                  className="relative z-10 text-center"
+                >
+                  <motion.div animate={{ y: [0, -3, 0] }} transition={{ duration: 2, repeat: Infinity }}>
+                    <MapPin size={28} className="text-purple-400 mx-auto mb-2" />
+                  </motion.div>
+                  <p className="text-gray-500 text-sm mb-1">توجّه إلى الطاولة رقم</p>
+                  <motion.div
+                    className="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-br from-purple-300 via-violet-400 to-purple-500"
+                    animate={{ scale: [1, 1.04, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    style={{ filter: "drop-shadow(0 0 20px rgba(139,92,246,0.3))" }}
+                  >
+                    {data?.table_number ?? "—"}
+                  </motion.div>
+                </motion.div>
+              </div>
+
+              {/* Auto-advance indicator, manual button for rejoined, or wait timer */}
+              {canArrive && rejoined ? (
+                <motion.button onClick={handleReveal} whileTap={{ scale: 0.97 }}
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
+                  className="w-full bg-gradient-to-br from-purple-600 via-violet-600 to-purple-700 text-white rounded-2xl py-5 font-bold text-lg shadow-2xl shadow-purple-600/40 border border-purple-500/30">
+                  <span className="flex items-center justify-center gap-3">
+                    <MapPin size={22} /> اكشف شريكك
                   </span>
-                )}
-              </motion.button>
+                </motion.button>
+              ) : canArrive ? (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }} className="text-center space-y-2">
+                  <motion.div className="flex items-center justify-center gap-2 text-purple-400 text-sm font-medium"
+                    animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.5, repeat: Infinity }}>
+                    <Loader2 size={14} className="animate-spin" />
+                    <span>جاري الكشف عن شريكك...</span>
+                  </motion.div>
+                  {/* Progress bar */}
+                  <div className="h-0.5 bg-gray-800/60 rounded-full overflow-hidden max-w-[180px] mx-auto">
+                    <motion.div className="h-full bg-gradient-to-r from-purple-500 to-violet-400"
+                      initial={{ width: "0%" }} animate={{ width: "100%" }} transition={{ duration: 2.8, ease: "linear" }} />
+                  </div>
+                </motion.div>
+              ) : (
+                <div className="text-center space-y-1">
+                  <p className="text-gray-600 text-xs">انتظر دقيقة من بدء المؤقت</p>
+                  <div className="text-2xl font-mono font-black text-purple-300">{Math.ceil(waitSeconds)}ث</div>
+                </div>
+              )}
+
+              {/* Timer */}
               {timerActive && timeLeft > 0 && (
                 <div className="rounded-2xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
                   <div className="px-5 pt-4 pb-3">
@@ -3324,13 +3473,19 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                   <div className="absolute inset-0 bg-gradient-to-br from-purple-950 via-violet-950/80 to-purple-900/60" />
                   <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-purple-400/60 to-transparent" />
                   <div className="absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-black/30 to-transparent" />
-                  <div className="relative z-10 px-6 pt-5 pb-6 text-center">
+                  {/* Floating glow orbs */}
+                  <motion.div className="absolute w-32 h-32 rounded-full bg-purple-500/10 blur-3xl"
+                    animate={{ x: [0, 20, 0], y: [0, -15, 0] }} transition={{ duration: 4, repeat: Infinity }} style={{ top: '10%', left: '5%' }} />
+                  <motion.div className="absolute w-24 h-24 rounded-full bg-violet-500/10 blur-3xl"
+                    animate={{ x: [0, -15, 0], y: [0, 10, 0] }} transition={{ duration: 3.5, repeat: Infinity, delay: 0.5 }} style={{ bottom: '10%', right: '5%' }} />
+                  <div className="relative z-10 px-6 pt-6 pb-7 text-center">
                     <div className="inline-flex items-center gap-1.5 bg-purple-900/50 border border-purple-700/40 rounded-full px-3 py-1 mb-4">
                       <Brain size={10} className="text-purple-400" />
                       <span className="text-purple-300 text-[11px] font-semibold tracking-wide">جلسة فردية · اختيار النظام</span>
                     </div>
-                    <p className="text-5xl font-black text-white mb-2 tracking-tight" style={{ textShadow: '0 2px 20px rgba(139,92,246,0.3)' }}>{data?.partner_first_name || "..."}</p>
-                    <p className="text-purple-400/50 text-xs mt-1">شريكك في جلسة اختيار النظام</p>
+                    <motion.p className="text-5xl font-black text-white mb-2 tracking-tight" style={{ textShadow: '0 2px 20px rgba(139,92,246,0.3)' }}
+                      initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.15 }}>{data?.partner_first_name || "..."}</motion.p>
+                    <motion.p className="text-purple-400/50 text-xs mt-1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>شريكك في جلسة اختيار النظام</motion.p>
                   </div>
                 </div>
               </motion.div>
@@ -3338,14 +3493,32 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
               {/* Partner info card */}
               {data && <PartnerInfoCard data={data} accent="purple" />}
 
-              <motion.button
-                onClick={() => setView('session')}
-                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
-                className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl border font-bold text-base transition-all bg-purple-900/30 border-purple-700/40 text-purple-300 hover:brightness-125 active:scale-95"
-              >
-                انتقل إلى أسئلة الجلسة
-                <ChevronRight size={16} />
-              </motion.button>
+              {/* Auto-advance to session indicator */}
+              {!rejoined && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="text-center space-y-2">
+                  <motion.div className="flex items-center justify-center gap-2 text-purple-400/80 text-sm font-medium"
+                    animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.5, repeat: Infinity }}>
+                    <Loader2 size={14} className="animate-spin" />
+                    <span>جاري التحضير للجلسة...</span>
+                  </motion.div>
+                  <div className="h-0.5 bg-gray-800/60 rounded-full overflow-hidden max-w-[200px] mx-auto">
+                    <motion.div className="h-full bg-gradient-to-r from-purple-500 to-violet-400"
+                      initial={{ width: "0%" }} animate={{ width: "100%" }} transition={{ duration: 4.5, ease: "linear" }} />
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Manual skip for rejoined users */}
+              {rejoined && (
+                <motion.button
+                  onClick={() => setView('session')}
+                  initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
+                  className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl border font-bold text-base transition-all bg-purple-900/30 border-purple-700/40 text-purple-300 hover:brightness-125 active:scale-95"
+                >
+                  انتقل إلى أسئلة الجلسة
+                  <ChevronRight size={16} />
+                </motion.button>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

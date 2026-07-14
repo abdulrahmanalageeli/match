@@ -8058,7 +8058,7 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           }
         }
 
-        // e3-start-test-mode — select 20M+20F valid participants with cached compat, run diagnostics, return test users
+        // e3-start-test-mode — select 18M+18F valid participants with 100% cached compat, run diagnostics, return test users
         if (action === "e3-start-test-mode") {
           // 1. Fetch all participants with full data
           const { data: allP, error: allErr } = await supabase.from("participants")
@@ -8068,7 +8068,7 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             .order("assigned_number", { ascending: true })
 
           if (allErr) return res.status(500).json({ error: allErr.message })
-          if (!allP || allP.length < 40) return res.status(400).json({ error: `Need at least 40 participants with complete surveys, found ${allP?.length || 0}` })
+          if (!allP || allP.length < 36) return res.status(400).json({ error: `Need at least 36 participants with complete surveys, found ${allP?.length || 0}` })
 
           // 2. Filter to valid (complete survey) participants
           const valid = allP.filter(p => {
@@ -8079,16 +8079,13 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           const males = valid.filter(p => (p.gender || "").toLowerCase().startsWith("m"))
           const females = valid.filter(p => (p.gender || "").toLowerCase().startsWith("f"))
 
-          if (males.length < 20 || females.length < 20) {
-            return res.status(400).json({ error: `Need 20 males and 20 females with complete surveys. Found ${males.length}M / ${females.length}F.` })
+          if (males.length < 18 || females.length < 18) {
+            return res.status(400).json({ error: `Need 18 males and 18 females with complete surveys. Found ${males.length}M / ${females.length}F.` })
           }
 
-          // 3. Cache-aware GREEDY CLUSTER selection: pick a group of 20M+20F whose pairs
-          //    are ALREADY cached WITH EACH OTHER, so seating generation (which computes
-          //    fresh compatibility for every uncached pair via AI) stays fast. Ranking by
-          //    each participant's global cache count is not enough — a participant may have
-          //    many cached pairs with people who won't be selected. Instead we grow a cluster
-          //    that maximizes intra-group cache coverage.
+          // 3. 100% CACHED CLIQUE selection: pick 18M+18F where EVERY pair among selected
+          //    participants is already in the compatibility_cache. This ensures seating
+          //    generation and matching never need to compute fresh AI scores.
           const validNums = valid.map(p => p.assigned_number)
           const { data: allCachedPairs } = await supabase.from("compatibility_cache")
             .select("participant_a_number,participant_b_number")
@@ -8109,9 +8106,8 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           const shuffle = (arr) => { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]] } return arr }
           const degree = (num) => adj.get(num)?.size || 0
 
-          // Greedily grow a gender-balanced cluster (20M + 20F) that maximizes the number of
-          // cached pairs to the already-selected set. Seed with the highest-degree participant.
-          const needM = 20, needF = 20
+          // Strict clique growth: each new participant must be cached with ALL already-selected.
+          const needM = 18, needF = 18
           const maleSet = new Set(males.map(p => p.assigned_number))
           const femaleSet = new Set(females.map(p => p.assigned_number))
           const selectedSet = new Set()
@@ -8120,47 +8116,39 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           // Candidate pool shuffled for run-to-run variety on ties.
           const pool = shuffle([...validNums]).filter(n => maleSet.has(n) || femaleSet.has(n))
 
-          // Seed: highest-degree participant overall (respecting we still need both genders).
+          // Seed: highest-degree participant overall.
           const seed = [...pool].sort((a, b) => degree(b) - degree(a))[0]
           if (seed != null) {
             selectedSet.add(seed)
             if (maleSet.has(seed)) countM++; else countF++
           }
 
-          const connectionsToSelected = (num) => {
-            let cnt = 0
+          const isFullyConnected = (num) => {
             const nbrs = adj.get(num)
-            if (!nbrs) return 0
-            for (const s of selectedSet) if (nbrs.has(s)) cnt++
-            return cnt
+            if (!nbrs) return false
+            for (const s of selectedSet) if (!nbrs.has(s)) return false
+            return true
           }
 
           while (countM < needM || countF < needF) {
-            let best = null, bestConn = -1, bestDeg = -1
+            let best = null, bestDeg = -1
             for (const num of pool) {
               if (selectedSet.has(num)) continue
               const isMale = maleSet.has(num)
-              // Respect remaining gender quota
               if (isMale && countM >= needM) continue
               if (!isMale && countF >= needF) continue
-              const conn = connectionsToSelected(num)
+              // STRICT: must be cached with ALL already-selected participants
+              if (!isFullyConnected(num)) continue
               const deg = degree(num)
-              if (conn > bestConn || (conn === bestConn && deg > bestDeg)) {
-                bestConn = conn; bestDeg = deg; best = num
-              }
+              if (deg > bestDeg) { bestDeg = deg; best = num }
             }
-            if (best == null) break // no more candidates for the needed gender
+            if (best == null) break // no more fully-connected candidates
             selectedSet.add(best)
             if (maleSet.has(best)) countM++; else countF++
           }
 
-          // Safety: if for any reason we couldn't fill quotas via the cluster (sparse cache),
-          // top up with remaining participants of the needed gender.
-          if (countM < needM) {
-            for (const p of shuffle([...males])) { if (countM >= needM) break; if (!selectedSet.has(p.assigned_number)) { selectedSet.add(p.assigned_number); countM++ } }
-          }
-          if (countF < needF) {
-            for (const p of shuffle([...females])) { if (countF >= needF) break; if (!selectedSet.has(p.assigned_number)) { selectedSet.add(p.assigned_number); countF++ } }
+          if (countM < needM || countF < needF) {
+            return res.status(400).json({ error: `Cannot find 18M+18F with 100% cached pairs. Only found ${countM}M + ${countF}F fully connected. Run compatibility pre-computation for more pairs.` })
           }
 
           const selectedNums = [...selectedSet]
@@ -8226,7 +8214,7 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           let healthy = true
 
           // Participant selection check
-          checks.push({ name: "participant_selection", status: "ok", message: `${selectedNums.length} participants selected (20M + 20F)` })
+          checks.push({ name: "participant_selection", status: "ok", message: `${selectedNums.length} participants selected (18M + 18F)` })
 
           // Survey data check
           const missingSurvey = selectedNums.filter(num => {
@@ -8236,19 +8224,19 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           if (missingSurvey.length > 0) {
             checks.push({ name: "survey_data", status: "warn", message: `${missingSurvey.length} participants with incomplete survey: #${missingSurvey.join(", #")}` })
           } else {
-            checks.push({ name: "survey_data", status: "ok", message: "All 40 participants have complete survey data" })
+            checks.push({ name: "survey_data", status: "ok", message: "All 36 participants have complete survey data" })
           }
 
-          // Cache coverage check
+          // Cache coverage check — should always be 100% with clique selection
           const cachePct = totalPairs > 0 ? Math.round((cacheHits / totalPairs) * 100) : 0
-          if (cachePct < 50) {
-            checks.push({ name: "compatibility_cache", status: "warn", message: `${cacheHits}/${totalPairs} pairs cached (${cachePct}%) — matching will compute fresh scores` })
+          if (cachePct < 100) {
+            checks.push({ name: "compatibility_cache", status: "warn", message: `${cacheHits}/${totalPairs} pairs cached (${cachePct}%) — some pairs missing cache` })
           } else {
-            checks.push({ name: "compatibility_cache", status: "ok", message: `${cacheHits}/${totalPairs} pairs cached (${cachePct}%)` })
+            checks.push({ name: "compatibility_cache", status: "ok", message: `${cacheHits}/${totalPairs} pairs cached (100%) — all pairs cached` })
           }
 
           // Gender balance check
-          checks.push({ name: "gender_balance", status: "ok", message: `20 males / 20 females — balanced` })
+          checks.push({ name: "gender_balance", status: "ok", message: `18 males / 18 females — balanced` })
 
           // Event state check
           checks.push({ name: "event_state", status: "ok", message: "Event state reset to setup phase" })
@@ -8260,7 +8248,7 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             checks,
             healthy,
             test_users: testUsers,
-            message: `Test mode started with ${selectedNums.length} participants (20M+20F). ${cacheHits}/${totalPairs} pairs have cached compatibility.`,
+            message: `Test mode started with ${selectedNums.length} participants (18M+18F). ${cacheHits}/${totalPairs} pairs have cached compatibility (100%).`,
           })
         }
 

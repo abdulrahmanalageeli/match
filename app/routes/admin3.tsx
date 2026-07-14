@@ -857,7 +857,7 @@ export default function Admin3Page() {
 
   const startTestMode = async () => {
     if (previewEventId != null) { toast.error("لا يمكن بدء وضع الاختبار في وضع المعاينة"); return }
-    if (!confirm("بدء وضع الاختبار؟ سيتم حفظ البيانات الحالية واستبدالها بـ 40 مشارك اختبار. يمكنك الاستعادة عند الانتهاء.")) return
+    if (!confirm("بدء وضع الاختبار؟ سيتم اختيار 36 مشارك (18 ذكر + 18 أنثى) مع 100% أزواج مخزنة مسبقاً. يمكنك الاستعادة عند الانتهاء.")) return
     setTestModeLoading(true)
     try {
       const data = await api("e3-start-test-mode")
@@ -1171,7 +1171,7 @@ export default function Admin3Page() {
               {testModeData.cache_coverage && (
                 <div className="flex items-center gap-2 text-xs">
                   <span className="text-gray-400">تغطية الكاش:</span>
-                  <span className={testModeData.cache_coverage.percent >= 50 ? "text-green-400" : "text-yellow-400"}>
+                  <span className={testModeData.cache_coverage.percent >= 100 ? "text-green-400" : "text-yellow-400"}>
                     {testModeData.cache_coverage.hits}/{testModeData.cache_coverage.total} ({testModeData.cache_coverage.percent}%)
                   </span>
                 </div>

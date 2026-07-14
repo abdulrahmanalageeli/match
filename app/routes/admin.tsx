@@ -154,6 +154,7 @@ export default function AdminPage() {
   const [paymentFilter, setPaymentFilter] = useState("all") // "all", "paid", "unpaid", "done"
   const [whatsappFilter, setWhatsappFilter] = useState(() => isCohost ? "not_sent" : "all") // "all", "sent", "not_sent"
   const [signupFilter, setSignupFilter] = useState("all") // "all", "manual", "auto"
+  const [showDuplicatePhones, setShowDuplicatePhones] = useState(false)
   const [surveyChangeCounts, setSurveyChangeCounts] = useState<Record<number, { count: number; hasSuspicious: boolean }>>({})
   const [surveyHistoryModal, setSurveyHistoryModal] = useState<{ participant: any; history: any[]; loading: boolean } | null>(null)
   const [sortBy, setSortBy] = useState("number") // "number", "name", "updated", "survey_updated", "signup_time"
@@ -2590,6 +2591,20 @@ const fetchParticipants = async () => {
     return { paidUsers, completedPairs, incompletePairs }
   }, [participants, matchPairs])
 
+  // Compute set of phone numbers that appear more than once across participants
+  const duplicatePhoneNumbers = useMemo(() => {
+    const phoneMap = new Map<string, number>()
+    for (const p of participants) {
+      const phone = (p.phone_number || "").replace(/\D/g, "")
+      if (phone) phoneMap.set(phone, (phoneMap.get(phone) || 0) + 1)
+    }
+    const dupes = new Set<string>()
+    for (const [phone, count] of phoneMap) {
+      if (count > 1) dupes.add(phone)
+    }
+    return dupes
+  }, [participants])
+
   // Performance: Use useMemo to cache filtered participants (only recalculate when dependencies change)
   const filteredParticipants = useMemo(() => {
     // Reset visible count when filters change to show first batch
@@ -2689,7 +2704,10 @@ const fetchParticipants = async () => {
         matchesSignup = p.auto_signup_next_event === true
       }
       
-      return matchesSearch && isEligible && matchesEligibleSub && matchesGender && matchesPayment && matchesWhatsapp && matchesSignup
+      // Duplicate phone filter
+      const matchesDuplicatePhone = !showDuplicatePhones || duplicatePhoneNumbers.has((p.phone_number || "").replace(/\D/g, ""))
+      
+      return matchesSearch && isEligible && matchesEligibleSub && matchesGender && matchesPayment && matchesWhatsapp && matchesSignup && matchesDuplicatePhone
     })
 
     // Sort the filtered results
@@ -2718,7 +2736,7 @@ const fetchParticipants = async () => {
       }
       return 0
     })
-  }, [participants, debouncedSearch, searchByPhone, showEligibleOnly, eligibleSubFilter, genderFilter, paymentFilter, whatsappFilter, signupFilter, sortBy, currentEventId, excludedParticipants])
+  }, [participants, debouncedSearch, searchByPhone, showEligibleOnly, eligibleSubFilter, genderFilter, paymentFilter, whatsappFilter, signupFilter, sortBy, currentEventId, excludedParticipants, showDuplicatePhones, duplicatePhoneNumbers])
   
   // Virtualized participants - only show a subset for performance
   const visibleParticipants = useMemo(() => {
@@ -5886,8 +5904,24 @@ Proceed?`
               <ChevronRight className="absolute right-2 top-1/2 transform -translate-y-1/2 rotate-90 w-4 h-4 text-blue-400 pointer-events-none" />
             </div>
 
+            {/* Duplicate Phones Filter */}
+            <button
+              onClick={() => setShowDuplicatePhones(!showDuplicatePhones)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all duration-300 ${
+                showDuplicatePhones
+                  ? 'bg-red-500/20 border-red-400/50 text-red-300'
+                  : 'bg-white/10 border-white/20 text-slate-300 hover:bg-white/20'
+              }`}
+              title="Show only participants whose phone number appears on multiple entries"
+            >
+              <Copy className="w-4 h-4" />
+              <span className="text-sm font-medium">
+                {showDuplicatePhones ? `Dup Phones (${duplicatePhoneNumbers.size})` : 'Dup Phones'}
+              </span>
+            </button>
+
             {/* Filter Results Count */}
-            {(showEligibleOnly || eligibleSubFilter !== "none" || genderFilter !== "all" || paymentFilter !== "all" || whatsappFilter !== "all" || signupFilter !== "all") && (
+            {(showEligibleOnly || eligibleSubFilter !== "none" || genderFilter !== "all" || paymentFilter !== "all" || whatsappFilter !== "all" || signupFilter !== "all" || showDuplicatePhones) && (
               <div className="bg-green-500/20 backdrop-blur-sm border border-green-400/30 rounded-xl px-3 py-2">
                 <span className="text-green-300 text-sm">Filtered: </span>
                 <span className="font-bold text-green-200">{filteredParticipants.length}</span>

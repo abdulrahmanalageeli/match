@@ -2610,57 +2610,133 @@ export default async function handler(req, res) {
       }
     }
 
-    if (action === "get-full-export-data") {
+    if (action === "e3-export-full-analysis") {
       try {
         const { event_id } = req.body
-        const targetEventId = event_id || 3
-        console.log(`Fetching full export data for event_id: ${targetEventId}`)
+        const targetEventId = event_id || 20
+        console.log(`[e3-export-full-analysis] Fetching for event_id: ${targetEventId}`)
 
-        const { data: matches, error: matchError } = await supabase
-          .from("match_results")
-          .select("*")
-          .eq("match_id", STATIC_MATCH_ID)
+        // 1. Fetch event3_participants (selected participants for this event)
+        const { data: ep, error: epError } = await supabase
+          .from("event3_participants")
+          .select("participant_number, position")
+          .eq("match_id", EVENT3_MATCH_ID)
           .eq("event_id", targetEventId)
-          .not("round", "is", null)
-          .gt("round", 0)
-          .order("round", { ascending: true })
-          .order("table_number", { ascending: true })
+          .order("position", { ascending: true })
+
+        if (epError) {
+          console.error("[e3-export-full-analysis] Error fetching event3_participants:", epError)
+          return res.status(500).json({ error: epError.message })
+        }
+
+        const selectedNumbers = (ep || []).map(r => r.participant_number)
+        if (selectedNumbers.length === 0) {
+          return res.status(200).json({ matches: [], participants: [], cacheScores: {}, pairs: [] })
+        }
+
+        // 2. Fetch event3_matches (phase2/phase3 partners, feedback, scores, match_preference)
+        const { data: matchRows, error: matchError } = await supabase
+          .from("event3_matches")
+          .select("participant_number, phase2_partner, phase2_score, phase3_partner, phase3_score, phase2_word, phase3_word, phase2_feedback, phase3_feedback, match_preference")
+          .eq("match_id", EVENT3_MATCH_ID)
+          .eq("event_id", targetEventId)
+          .in("participant_number", selectedNumbers)
 
         if (matchError) {
-          console.error("Error fetching match results:", matchError)
+          console.error("[e3-export-full-analysis] Error fetching event3_matches:", matchError)
           return res.status(500).json({ error: matchError.message })
         }
 
+        // 3. Fetch full participant data (survey_data, personality fields, etc.)
         const { data: participants, error: participantError } = await supabase
           .from("participants")
           .select("*")
           .eq("match_id", STATIC_MATCH_ID)
-          .neq("assigned_number", 9999)
-          .eq("event_id", targetEventId)
-          .order("assigned_number", { ascending: true })
+          .in("assigned_number", selectedNumbers)
 
         if (participantError) {
-          console.error("Error fetching participants:", participantError)
+          console.error("[e3-export-full-analysis] Error fetching participants:", participantError)
           return res.status(500).json({ error: participantError.message })
         }
 
-        const { data: feedback, error: feedbackError } = await supabase
-          .from("match_feedback")
-          .select("*")
-          .eq("event_id", targetEventId)
-          .order("participant_number", { ascending: true })
-          .order("round", { ascending: true })
-
-        if (feedbackError) {
-          console.error("Error fetching feedback:", feedbackError)
-          return res.status(500).json({ error: feedbackError.message })
+        // 4. Batch-fetch compatibility_cache scores for all pairs
+        const { data: cachedPairs } = await fetchAllCachedPairs("compatibility_cache", selectedNumbers)
+        const cacheScores = {}
+        for (const c of cachedPairs || []) {
+          const key = `${c.participant_a_number}-${c.participant_b_number}`
+          cacheScores[key] = {
+            total: parseFloat(c.total_compatibility_score),
+            mbti: parseFloat(c.mbti_score),
+            attachment: parseFloat(c.attachment_score),
+            communication: parseFloat(c.communication_score),
+            lifestyle: parseFloat(c.lifestyle_score),
+            coreValues: parseFloat(c.core_values_score),
+            vibe: parseFloat(c.ai_vibe_score),
+            synergy: parseFloat(c.interaction_synergy_score),
+            intent: parseFloat(c.intent_goal_score),
+            humorMultiplier: parseFloat(c.humor_multiplier || 1.0),
+            humorBonus: c.humor_early_openness_bonus || 'none',
+          }
         }
 
-        console.log(`✅ Full export: ${matches.length} matches, ${participants.length} participants, ${feedback.length} feedback entries`)
-        return res.status(200).json({ matches, participants, feedback })
+        // 5. Build unique established pairs (only pairs that actually met)
+        const pairSet = new Set()
+        const pairs = []
+        const matchMap = new Map((matchRows || []).map(m => [m.participant_number, m]))
+
+        for (const row of matchRows || []) {
+          // Phase 2 pair
+          if (row.phase2_partner) {
+            const [a, b] = [row.participant_number, row.phase2_partner].sort((x, y) => x - y)
+            const key = `${a}-${b}`
+            if (!pairSet.has(key)) {
+              pairSet.add(key)
+              const partnerRow = matchMap.get(row.phase2_partner)
+              // Assign feedback/word/preference to correct person after sort
+              const rowIsA = row.participant_number === a
+              pairs.push({
+                a_number: a,
+                b_number: b,
+                phase: 'phase2',
+                phase2_score: row.phase2_score,
+                a_feedback: rowIsA ? row.phase2_feedback : (partnerRow?.phase2_feedback || null),
+                b_feedback: rowIsA ? (partnerRow?.phase2_feedback || null) : row.phase2_feedback,
+                a_word: rowIsA ? row.phase2_word : (partnerRow?.phase2_word || null),
+                b_word: rowIsA ? (partnerRow?.phase2_word || null) : row.phase2_word,
+                a_match_preference: rowIsA ? (row.match_preference || null) : (partnerRow?.match_preference || null),
+                b_match_preference: rowIsA ? (partnerRow?.match_preference || null) : (row.match_preference || null),
+              })
+            }
+          }
+          // Phase 3 pair
+          if (row.phase3_partner) {
+            const [a, b] = [row.participant_number, row.phase3_partner].sort((x, y) => x - y)
+            const key = `${a}-${b}-p3`
+            if (!pairSet.has(key)) {
+              pairSet.add(key)
+              const partnerRow = matchMap.get(row.phase3_partner)
+              const rowIsA = row.participant_number === a
+              pairs.push({
+                a_number: a,
+                b_number: b,
+                phase: 'phase3',
+                phase3_score: row.phase3_score,
+                a_feedback: rowIsA ? row.phase3_feedback : (partnerRow?.phase3_feedback || null),
+                b_feedback: rowIsA ? (partnerRow?.phase3_feedback || null) : row.phase3_feedback,
+                a_word: rowIsA ? row.phase3_word : (partnerRow?.phase3_word || null),
+                b_word: rowIsA ? (partnerRow?.phase3_word || null) : row.phase3_word,
+                a_match_preference: rowIsA ? (row.match_preference || null) : (partnerRow?.match_preference || null),
+                b_match_preference: rowIsA ? (partnerRow?.match_preference || null) : (row.match_preference || null),
+              })
+            }
+          }
+        }
+
+        console.log(`[e3-export-full-analysis] ✅ ${pairs.length} established pairs, ${participants.length} participants, ${Object.keys(cacheScores).length} cached scores`)
+        return res.status(200).json({ pairs, participants, cacheScores, matchRows: matchRows || [] })
       } catch (err) {
-        console.error("Error getting full export data:", err)
-        return res.status(500).json({ error: "Failed to get full export data" })
+        console.error("[e3-export-full-analysis] Error:", err)
+        return res.status(500).json({ error: "Failed to get export data" })
       }
     }
 

@@ -1848,7 +1848,7 @@ const fetchParticipants = async () => {
     }
   }
 
-  // Export Full Analysis CSV for AI Analysis
+  // Export Full Analysis CSV for AI Analysis — Event 3 (event 20+)
   const exportFullAnalysisCSV = async () => {
     try {
       setLoading(true)
@@ -1857,8 +1857,8 @@ const fetchParticipants = async () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "get-full-export-data",
-          event_id: currentEventId
+          action: "e3-export-full-analysis",
+          event_id: 20
         }),
       })
 
@@ -1868,12 +1868,12 @@ const fetchParticipants = async () => {
       }
 
       const data = await res.json()
-      const matches = data.matches || []
+      const pairs = data.pairs || []
       const participants = data.participants || []
-      const feedback = data.feedback || []
+      const cacheScores = data.cacheScores || {}
 
-      if (matches.length === 0) {
-        toast.error("No matches found for current event")
+      if (pairs.length === 0) {
+        toast.error("No established pairs found for event 20")
         return
       }
 
@@ -1881,12 +1881,6 @@ const fetchParticipants = async () => {
       const participantMap = new Map<number, any>()
       participants.forEach((p: any) => {
         participantMap.set(p.assigned_number, p)
-      })
-
-      // Build feedback lookup map: key = `${participantNumber}_${round}`
-      const feedbackMap = new Map<string, any>()
-      feedback.forEach((f: any) => {
-        feedbackMap.set(`${f.participant_number}_${f.round}`, f)
       })
 
       // Helper to escape CSV values
@@ -1897,84 +1891,71 @@ const fetchParticipants = async () => {
         return s
       }
 
-      // Helper to get survey answer
+      // Helper to get survey answer (handles string or object survey_data)
       const getAnswer = (p: any, questionId: string): string => {
         if (!p) return ''
-        const answers = p.survey_data?.answers || {}
+        const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {})
+        const answers = sd.answers || {}
         return esc(answers[questionId] ?? '')
       }
 
-      // Helper to get feedback value
+      // Helper to get feedback field (event3 feedback structure)
       const getFb = (fb: any, field: string): string => {
-        if (!fb) return ''
+        if (!fb) return 'N/A'
         return esc(fb[field] ?? '')
       }
 
-      // Survey question IDs in order
-      const questionIds = [
-        'name', 'age', 'gender', 'nationality', 'nationality_preference', 'phone_number',
-        'gender_preference', 'preferred_age_range',
-        'humor_banter_style', 'early_openness_comfort',
-        'mbti_1', 'mbti_2', 'mbti_3', 'mbti_4',
-        'attachment_1', 'attachment_2', 'attachment_3', 'attachment_4', 'attachment_5',
-        'lifestyle_1', 'lifestyle_2', 'lifestyle_3', 'lifestyle_4', 'lifestyle_5',
-        'core_values_1', 'core_values_2', 'core_values_3', 'core_values_4', 'core_values_5',
-        'communication_1', 'communication_2', 'communication_3', 'communication_4', 'communication_5',
-        'vibe_1', 'vibe_2', 'vibe_3', 'vibe_4', 'vibe_5', 'vibe_6',
-        'conversational_role', 'conversation_depth_pref', 'social_battery', 'humor_subtype', 'curiosity_style',
-        'intent_goal', 'silence_comfort'
+      // All survey questions with full Arabic text and answer options
+      const surveyQuestions = [
+        { id: 'name', qNum: 'Q1', cat: 'personal_info', text: 'ما اسمك؟', type: 'text', options: '' },
+        { id: 'age', qNum: 'Q2', cat: 'personal_info', text: 'ما عمرك؟', type: 'number', options: '' },
+        { id: 'preferred_age_range', qNum: 'Q2.25', cat: 'personal_info', text: 'وش المدى العمري اللي يناسبك في الطرف الآخر؟', type: 'age_range', options: '' },
+        { id: 'gender', qNum: 'Q3', cat: 'personal_info', text: 'ما جنسك؟', type: 'radio', options: 'male=ذكر | female=أنثى' },
+        { id: 'nationality', qNum: 'Q3.5', cat: 'personal_info', text: 'جنسيتك؟', type: 'select', options: 'السعودية | الإمارات | الكويت | قطر | البحرين | عمان | الأردن | لبنان | سوريا | فلسطين | العراق | اليمن | مصر | السودان | ليبيا | تونس | الجزائر | المغرب | موريتانيا | الصومال | جيبوتي | جزر القمر | أخرى' },
+        { id: 'nationality_preference', qNum: 'Q3.75', cat: 'personal_info', text: 'هل يهمك يكون الطرف الآخر من نفس جنسيتك؟', type: 'radio', options: 'same=نعم أفضل نفس الجنسية | any=ما يفرق الأهم التوافق الشخصي' },
+        { id: 'phone_number', qNum: 'Q4', cat: 'personal_info', text: 'ما رقم هاتفك؟ (لتواصلنا معك)', type: 'text', options: '' },
+        { id: 'gender_preference', qNum: 'Q4.5', cat: 'personal_info', text: 'تبي تتعرف على:', type: 'radio', options: 'male=ذكر | female=أنثى | any=مايفرق (ذكر أو أنثى عادي)' },
+        { id: 'humor_banter_style', qNum: 'Q4.25', cat: 'interaction_style', text: 'في أول 10 دقائق، ما هو الأسلوب الذي يبدو طبيعياً لك؟', type: 'radio', options: 'A=خفة دم وضحك | B=كلام لطيف ومجاملة | C=هدوء وصدق | D=المباشرة والجدية' },
+        { id: 'early_openness_comfort', qNum: 'Q4.75', cat: 'interaction_style', text: 'عندما تقابل شخصاً جديداً، ما الذي يبدو مناسباً لك؟', type: 'radio', options: '0=أحتفظ بالأمور الشخصية حتى أتعرف عليهم جيداً | 1=أفضل الحديث السطحي في البداية | 2=أحب المشاركة المتوازنة - مزيج من الخفيف والحقيقي | 3=أنفتح بسرعة وأشارك القصص الشخصية' },
+        { id: 'mbti_1', qNum: 'Q5', cat: 'mbti', text: 'عندما تتم دعوتك إلى مناسبة اجتماعية كبيرة، هل:', type: 'radio', options: 'أ=تشعر بالحماس لحضورها والتعرّف على أشخاص جدد (E) | ب=تشعر بأنك أخذت كفايتك بعد فترة وتفكر في المغادرة باكرًا (I)' },
+        { id: 'mbti_2', qNum: 'Q6', cat: 'mbti', text: 'عندما تواجه مشكلة جديدة أو تحديًا غير مألوف، كيف تتعامل معه غالبًا؟', type: 'radio', options: 'أ=تبحث عن حلول مجرّبة ومستندة إلى خبرات سابقة (S) | ب=تفكر بأسلوب ابتكاري وتتبع حدسك (N)' },
+        { id: 'mbti_3', qNum: 'Q7', cat: 'mbti', text: 'عند اتخاذ قرار مصيري يؤثّر على الآخرين، هل تميل إلى:', type: 'radio', options: 'أ=إعطاء الأولوية للمنطق والحقائق الموضوعية (T) | ب=مراعاة مشاعر الأطراف المعنيّة (F)' },
+        { id: 'mbti_4', qNum: 'Q8', cat: 'mbti', text: 'إذا وضعت خطة مسبقًا ثم تغيّرت الظروف بشكل مفاجئ، فكيف يكون شعورك؟', type: 'radio', options: 'أ=تشعر بالتوتر وتفضل الالتزام بالخطة الأصلية (J) | ب=تتأقلم بسهولة وترى في التغيير فرصة (P)' },
+        { id: 'attachment_1', qNum: 'Q9', cat: 'attachment', text: 'كيف تشعر إذا لم يتواصل معك صديقك المقرّب لعدة أيام؟', type: 'radio', options: 'أ=أتفهم أنه مشغول ولا أشعر بقلق (Secure) | ب=أبدأ بالتفكير أنني فعلت شيئًا خاطئًا (Anxious) | ج=لا أحب الاعتماد على أحد كثيرًا (Avoidant) | د=أشعر بالتوتر الشديد وأتردد بين الاقتراب والانسحاب (Fearful)' },
+        { id: 'attachment_2', qNum: 'Q10', cat: 'attachment', text: 'كيف تتصرف عندما يحدث خلاف بينك وبين شخص قريب منك؟', type: 'radio', options: 'أ=أواجهه بهدوء وأحاول التفاهم (Secure) | ب=أقلق من مواجهته وأفضل أن أبقى منزعجًا بصمت (Anxious) | ج=أنسحب وأحاول تجاهل الموقف (Avoidant) | د=أقترب جدًا ثم أبتعد فجأة (Fearful)' },
+        { id: 'attachment_3', qNum: 'Q11', cat: 'attachment', text: 'ما شعورك تجاه القرب العاطفي من الآخرين؟', type: 'radio', options: 'أ=أشعر بالراحة وأعرف كيف أُعبّر عن نفسي (Secure) | ب=أحتاج دائمًا إلى طمأنة الطرف الآخر (Anxious) | ج=لا أرتاح كثيرًا في العلاقات القريبة (Avoidant) | د=أحب القرب لكن أخاف أن أُرفض (Fearful)' },
+        { id: 'attachment_4', qNum: 'Q12', cat: 'attachment', text: 'عندما تمرّ بوقت صعب، كيف تتعامل مع الأصدقاء؟', type: 'radio', options: 'أ=أشاركهم مشاعري وأثق بدعمهم (Secure) | ب=أحتاجهم بشدة وأتضايق إن لم يستجيبوا فورًا (Anxious) | ج=أفضّل حل مشاكلي لوحدي (Avoidant) | د=أحيانًا أطلب الدعم ثم أندم وأغلق (Fearful)' },
+        { id: 'attachment_5', qNum: 'Q13', cat: 'attachment', text: 'ما رأيك في العلاقات المقربة طويلة المدى؟', type: 'radio', options: 'أ=أراها صحّية وأحب وجودها (Secure) | ب=أراها مهمّة لكنني أخاف فقدانها (Anxious) | ج=أفضل العلاقات الخفيفة والمرنة (Avoidant) | د=أريدها ولكن أرتبك وأتجنّبها (Fearful)' },
+        { id: 'lifestyle_1', qNum: 'Q14', cat: 'lifestyle', text: 'في أي وقت من اليوم تكون عادة في أفضل حالاتك؟', type: 'radio', options: 'أ=في الصباح – نشيط ومنتج | ب=بعد الظهر أو المغرب – أرتاح وأتفاعل | ج=في الليل – أفضّل السهر' },
+        { id: 'lifestyle_2', qNum: 'Q15', cat: 'lifestyle', text: 'كم تفضل أن تتواصل مع صديقك المقرّب؟', type: 'radio', options: 'أ=يومي أو شبه يومي | ب=كل يومين أو ثلاثة | ج=متباعد بدون ضغط' },
+        { id: 'lifestyle_3', qNum: 'Q16', cat: 'lifestyle', text: 'كم تهمك المساحة الشخصية في علاقات الصداقة؟', type: 'radio', options: 'أ=أحتاج وقتًا لنفسي كل يوم | ب=أحب قضاء وقت طويل لكن أقدّر المساحة أحيانًا | ج=أرتاح أكثر إذا كنا دائمًا متواصلين' },
+        { id: 'lifestyle_4', qNum: 'Q17', cat: 'lifestyle', text: 'كيف تفضل أن تدير وقتك عادة؟', type: 'radio', options: 'أ=أحب التنظيم والتخطيط المسبق | ب=فكرة عامة مع عفوية | ج=لا أحب التخطيط أترك الأمور تمشي' },
+        { id: 'lifestyle_5', qNum: 'Q18', cat: 'lifestyle', text: 'كيف تحب تقضي نهاية الأسبوع غالبًا؟', type: 'radio', options: 'أ=أخرج كثيرًا أحب النشاطات الاجتماعية | ب=جلسات هادئة مع شخص أو اثنين | ج=البقاء وحدي أو تقليل التواصل' },
+        { id: 'core_values_1', qNum: 'Q19', cat: 'core_values', text: 'الصدق أم الحفاظ على العلاقة؟ صديقك ارتكب خطأ بسيط في العمل ومديرك يسألك هل كنت تعرف؟', type: 'radio', options: 'أ=أخبره بالحقيقة حتى لو أحرجت صديقي | ب=أُغيّر الموضوع دون أن أكذب | ج=أُغطي على صديقي الولاء أهم' },
+        { id: 'core_values_2', qNum: 'Q20', cat: 'core_values', text: 'الطموح أم الاستقرار؟ صديقك قرر يترك وظيفة مستقرة ويبدأ مشروعًا من الصفر.', type: 'radio', options: 'أ=أشجعه تمامًا المخاطرة ضرورية للنمو | ب=أتفهم لكن أنصحه بالتريّث | ج=ترك الاستقرار مغامرة غير محسوبة' },
+        { id: 'core_values_3', qNum: 'Q21', cat: 'core_values', text: 'التقبل أم التشابه؟ بدأت تقترب من شخص تختلف معه في الدين أو القيم الثقافية لكنه محترم.', type: 'radio', options: 'أ=نعم الاختلاف لا يهم طالما فيه احترام | ب=ربما تنجح لكن الاختلافات قد تُرهق | ج=لا أُفضل أشخاصًا يشبهونني' },
+        { id: 'core_values_4', qNum: 'Q22', cat: 'core_values', text: 'الاعتماد أم الاستقلال؟ تمر بمرحلة صعبة وصديقك لم يتواصل كثيرًا قال إنه يعرف إنك تفضل الخصوصية.', type: 'radio', options: 'أ=أتفهمه فعلاً أرتاح لما أحد يتركني لحالي | ب=أُقدّر المساحة لكن كنت أتمنى تواصلًا أكثر | ج=شعرت بالإهمال الصديق الحقيقي يبقى موجود' },
+        { id: 'core_values_5', qNum: 'Q23', cat: 'core_values', text: 'الواجب الشخصي أم الحرية الفردية؟ صديقك قطع علاقته بشخص ويطلب منك أن تفعل الشيء نفسه.', type: 'radio', options: 'أ=لا أُقاطع أحدًا لمجرد أن صديقي طلب كل شخص له حكمه | ب=أتفهّم مشاعره وقد أُقلل تواصلي احترامًا | ج=أقف معه وأقطع العلاقة لأن الولاء أهم' },
+        { id: 'communication_1', qNum: 'Q24', cat: 'communication', text: 'إذا شعرت أن صديقك تخطى حدودك بطريقة أزعجتك، كيف تتصرف؟', type: 'radio', options: 'أ=أواجهه بلطف وأوضح له (Assertive) | ب=لا أقول شيئًا وأحتفظ بالمشاعر (Passive) | ج=أهاجمه أو أُظهر انزعاجي بشكل مباشر (Aggressive) | د=أُظهر انزعاجي بتلميحات غير مباشرة (Passive-Aggressive)' },
+        { id: 'communication_2', qNum: 'Q25', cat: 'communication', text: 'عندما تحتاج إلى شيء من شخص مقرّب، كيف تطلبه عادة؟', type: 'radio', options: 'أ=أطلبه بوضوح وبأسلوب محترم (Assertive) | ب=أُفضّل ألا أطلب وأتمنى أن يلاحظ (Passive) | ج=أطلقه بإلحاح أو بأسلوب فيه ضغط (Aggressive) | د=أقول مو مشكلة لكن أتضايق لو ما ساعدني (Passive-Aggressive)' },
+        { id: 'communication_3', qNum: 'Q26', cat: 'communication', text: 'إذا لم يعجبك رأي في نقاش جماعي، كيف تتصرف؟', type: 'radio', options: 'أ=أعبّر عن اختلافي بهدوء (Assertive) | ب=أوافق ظاهريًا حتى لو غير مقتنع (Passive) | ج=أُهاجم الرأي وأقلّل من المتحدث (Aggressive) | د=أظل صامتًا لكن أتكلم عن الشخص لاحقًا (Passive-Aggressive)' },
+        { id: 'communication_4', qNum: 'Q27', cat: 'communication', text: 'عندما تشعر بالتوتر أو الغضب، كيف تُعبّر عنه؟', type: 'radio', options: 'أ=أُشارك ما أشعر به بشكل صريح دون إيذاء (Assertive) | ب=أحتفظ بالمشاعر وأتجنب المواجهة (Passive) | ج=أرفع صوتي أو أنفجر (Aggressive) | د=أُظهر أن كل شيء بخير لكن أُعاقب بالصمت (Passive-Aggressive)' },
+        { id: 'communication_5', qNum: 'Q28', cat: 'communication', text: 'كيف تُعبّر عن رأيك عندما لا توافق أحدًا مقرّبًا منك؟', type: 'radio', options: 'أ=أشرح موقفي بصدق مع احترام الطرف الآخر (Assertive) | ب=أُفضل ألا أقول شيئًا حتى لا أزعله (Passive) | ج=أصرّ على رأيي وأُقلل من رأيه (Aggressive) | د=أُعبّر بسخرية أو تلميحات (Passive-Aggressive)' },
+        { id: 'vibe_1', qNum: 'Q29', cat: 'vibe', text: 'كيف توصف الويكند المثالي بالنسبه لك؟', type: 'text', options: '' },
+        { id: 'vibe_2', qNum: 'Q30', cat: 'vibe', text: 'عدد خمس هوايات تستمتع فيها؟', type: 'text', options: '' },
+        { id: 'vibe_3', qNum: 'Q31', cat: 'vibe', text: 'لو بتروح حفل موسيقي، مين الفنان اللي تختار؟', type: 'text', options: '' },
+        { id: 'vibe_4', qNum: 'Q32', cat: 'vibe', text: 'هل تحب السوالف العميقه والفلسفية؟', type: 'radio', options: 'نعم=أحب النقاشات العميقة | لا=أفضل الحديث الخفيف والبسيط | أحياناً=حسب المزاج والموقف' },
+        { id: 'vibe_5', qNum: 'Q33', cat: 'vibe', text: 'كيف يوصفونك اصدقائك بالعادة؟', type: 'text', options: '' },
+        { id: 'vibe_6', qNum: 'Q34', cat: 'vibe', text: 'كيف تصف اصدقائك؟', type: 'text', options: '' },
+        { id: 'conversational_role', qNum: 'Q35', cat: 'interaction_synergy', text: 'في أي جلسة أو جمعة، وش يكون دورك العفوي؟', type: 'radio', options: 'A=المبادر: أنا اللي أفتح المواضيع | B=المتفاعل: أشارك بحماس وأرد | C=المستمع: أحب أسمع أكثر' },
+        { id: 'conversation_depth_pref', qNum: 'Q36', cat: 'interaction_synergy', text: 'وش نوع السوالف اللي تشدك وتخليك تسترسل؟', type: 'radio', options: 'A=العميقة: أحب نحلل ليه وكيف ونغوص في الفلسفة | B=الواقعية: أحب نتكلم عن وش صار وأخبار اليوم' },
+        { id: 'social_battery', qNum: 'Q37', cat: 'interaction_synergy', text: 'بعد ساعة من السوالف مع ناس جدد، كيف تحس طاقتك؟', type: 'radio', options: 'A=تزيد: أحس إني نشطت وأبي أكمل | B=تقل: استمتعت بس أحس بطاريتي بدت تخلص' },
+        { id: 'humor_subtype', qNum: 'Q38', cat: 'interaction_synergy', text: 'وش أكثر شيء يضحكك من قلب؟', type: 'radio', options: 'A=الذبّات والسرعة: الذكاء في الرد والسخرية الخفيفة | B=المواقف العفوية: الأشياء اللي تصير فجأة | C=القصص والسرد: طريقة حكي السالفة' },
+        { id: 'curiosity_style', qNum: 'Q39', cat: 'interaction_synergy', text: 'وش اللي يمتعك أكثر وأنت تتعرف على شخص جديد؟', type: 'radio', options: 'A=إنه يسألني أسئلة عميقة عن نفسي | B=إني أنا اللي أسأله وأكتشف تفاصيل حياته | C=الأخذ والعطاء السريع والمزح بدون رسميات' },
+        { id: 'intent_goal', qNum: 'Q40', cat: 'intent_goal', text: 'وش هدفك الأساسي من حضورك معنا اليوم؟', type: 'radio', options: 'A=ودي أوسع دائرة معارفي وأكون صداقات جديدة | B=أبحث عن شيء أعمق: شخص يفهمني فكرياً | C=جاي أجرب تجربة اجتماعية جديدة وأغير جو' },
+        { id: 'silence_comfort', qNum: 'Q41', cat: 'interaction_synergy', text: 'لو صار فيه هدوء مفاجئ في الجلسة، وش يكون شعورك؟', type: 'radio', options: 'A=قلق: أحس لازم أقول أي شيء عشان أكسر الصمت | B=راحة: عادي عندي الهدوء جزء من السالفة' },
       ]
-
-      // Survey questions reference data
-      const questionRefs: Record<string, { qNum: string; desc: string; category: string }> = {
-        'name': { qNum: 'Q1', desc: 'Name', category: 'personal_info' },
-        'age': { qNum: 'Q2', desc: 'Age', category: 'personal_info' },
-        'gender': { qNum: 'Q3', desc: 'Gender (male/female)', category: 'personal_info' },
-        'nationality': { qNum: 'Q3.5', desc: 'Nationality', category: 'personal_info' },
-        'nationality_preference': { qNum: 'Q3.75', desc: 'Prefer same nationality? (same/any)', category: 'personal_info' },
-        'phone_number': { qNum: 'Q4', desc: 'Phone number', category: 'personal_info' },
-        'gender_preference': { qNum: 'Q4.5', desc: 'Gender preference for matching (male/female/any)', category: 'personal_info' },
-        'preferred_age_range': { qNum: 'Q2.25', desc: 'Preferred age range for partner', category: 'personal_info' },
-        'humor_banter_style': { qNum: 'Q4.25', desc: 'First 10min style (A=jokes/humor, B=compliments, C=quiet/honest, D=direct/serious)', category: 'interaction_style' },
-        'early_openness_comfort': { qNum: 'Q4.75', desc: 'Openness comfort (0=reserved, 1=surface, 2=balanced, 3=quick to open)', category: 'interaction_style' },
-        'mbti_1': { qNum: 'Q5', desc: 'MBTI I/E: Social event reaction (A=E extrovert, B=I introvert)', category: 'mbti' },
-        'mbti_2': { qNum: 'Q6', desc: 'MBTI N/S: Problem solving (A=S sensing, B=N intuition)', category: 'mbti' },
-        'mbti_3': { qNum: 'Q7', desc: 'MBTI T/F: Decision making (A=T thinking, B=F feeling)', category: 'mbti' },
-        'mbti_4': { qNum: 'Q8', desc: 'MBTI J/P: Plan changes (A=J judging, B=P perceiving)', category: 'mbti' },
-        'attachment_1': { qNum: 'Q9', desc: 'Friend no contact days (A=Secure, B=Anxious, C=Avoidant, D=Fearful)', category: 'attachment' },
-        'attachment_2': { qNum: 'Q10', desc: 'Conflict handling (A=Secure, B=Anxious, C=Avoidant, D=Fearful)', category: 'attachment' },
-        'attachment_3': { qNum: 'Q11', desc: 'Emotional closeness comfort (A=Secure, B=Anxious, C=Avoidant, D=Fearful)', category: 'attachment' },
-        'attachment_4': { qNum: 'Q12', desc: 'Hard times with friends (A=Secure, B=Anxious, C=Avoidant, D=Fearful)', category: 'attachment' },
-        'attachment_5': { qNum: 'Q13', desc: 'Long-term relationships view (A=Secure, B=Anxious, C=Avoidant, D=Fearful)', category: 'attachment' },
-        'lifestyle_1': { qNum: 'Q14', desc: 'Best time of day (A=morning, B=afternoon, C=night)', category: 'lifestyle' },
-        'lifestyle_2': { qNum: 'Q15', desc: 'Contact frequency pref (A=daily, B=every 2-3 days, C=infrequent)', category: 'lifestyle' },
-        'lifestyle_3': { qNum: 'Q16', desc: 'Personal space need (A=need space daily, B=some space, C=closeness)', category: 'lifestyle' },
-        'lifestyle_4': { qNum: 'Q17', desc: 'Planning style (A=organized, B=semi-organized, C=spontaneous)', category: 'lifestyle' },
-        'lifestyle_5': { qNum: 'Q18', desc: 'Weekend preference (A=social outings, B=quiet with few, C=homebody)', category: 'lifestyle' },
-        'core_values_1': { qNum: 'Q19', desc: 'Honesty vs loyalty (A=honesty first, B=middle, C=loyalty first)', category: 'core_values' },
-        'core_values_2': { qNum: 'Q20', desc: 'Ambition vs stability (A=ambition/risk, B=middle, C=stability)', category: 'core_values' },
-        'core_values_3': { qNum: 'Q21', desc: 'Acceptance vs similarity (A=acceptance, B=middle, C=similarity)', category: 'core_values' },
-        'core_values_4': { qNum: 'Q22', desc: 'Independence vs dependence (A=independent, B=middle, C=needs presence)', category: 'core_values' },
-        'core_values_5': { qNum: 'Q23', desc: 'Personal judgment vs loyalty (A=independent judgment, B=middle, C=loyalty)', category: 'core_values' },
-        'communication_1': { qNum: 'Q24', desc: 'Boundary crossing response (A=Assertive, B=Passive, C=Aggressive, D=Passive-Aggressive)', category: 'communication' },
-        'communication_2': { qNum: 'Q25', desc: 'Asking for things (A=Assertive, B=Passive, C=Aggressive, D=Passive-Aggressive)', category: 'communication' },
-        'communication_3': { qNum: 'Q26', desc: 'Disagreeing in group (A=Assertive, B=Passive, C=Aggressive, D=Passive-Aggressive)', category: 'communication' },
-        'communication_4': { qNum: 'Q27', desc: 'Expressing anger (A=Assertive, B=Passive, C=Aggressive, D=Passive-Aggressive)', category: 'communication' },
-        'communication_5': { qNum: 'Q28', desc: 'Expressing disagreement (A=Assertive, B=Passive, C=Aggressive, D=Passive-Aggressive)', category: 'communication' },
-        'vibe_1': { qNum: 'Q29', desc: 'Ideal weekend description (text)', category: 'vibe' },
-        'vibe_2': { qNum: 'Q30', desc: 'Five hobbies (text)', category: 'vibe' },
-        'vibe_3': { qNum: 'Q31', desc: 'Music artist preference (text)', category: 'vibe' },
-        'vibe_4': { qNum: 'Q32', desc: 'Deep/philosophical conversations? (Yes/No/Sometimes)', category: 'vibe' },
-        'vibe_5': { qNum: 'Q33', desc: 'How friends describe you (text)', category: 'vibe' },
-        'vibe_6': { qNum: 'Q34', desc: 'How you describe friends (text)', category: 'vibe' },
-        'conversational_role': { qNum: 'Q35', desc: 'Conversational role (A=initiator, B=reactor, C=listener)', category: 'interaction_synergy' },
-        'conversation_depth_pref': { qNum: 'Q36', desc: 'Conversation depth (A=deep/philosophical, B=practical)', category: 'interaction_synergy' },
-        'social_battery': { qNum: 'Q37', desc: 'Social battery after 1hr with new people (A=increases, B=decreases)', category: 'interaction_synergy' },
-        'humor_subtype': { qNum: 'Q38', desc: 'What makes you laugh (A=witty comebacks, B=situational, C=storytelling)', category: 'interaction_synergy' },
-        'curiosity_style': { qNum: 'Q39', desc: 'Meeting new people (A=they ask me deep Qs, B=I ask them, C=quick banter)', category: 'interaction_synergy' },
-        'intent_goal': { qNum: 'Q40', desc: 'Event goal (A=make friends, B=deep connection, C=new experience)', category: 'intent_goal' },
-        'silence_comfort': { qNum: 'Q41', desc: 'Sudden silence comfort (A=anxious must fill, B=comfortable)', category: 'interaction_synergy' },
-      }
+      const questionIds = surveyQuestions.map(q => q.id)
 
       // Scoring criteria reference
       const scoringCriteria = [
@@ -2008,178 +1989,189 @@ const fetchParticipants = async () => {
       })
       csvContent += '\n'
 
-      // === SECTION 2: Survey Questions Reference ===
-      csvContent += "=== SURVEY QUESTIONS REFERENCE ===\n"
-      csvContent += "Question ID,Question Number,Description,Category\n"
-      questionIds.forEach(qId => {
-        const ref = questionRefs[qId]
-        if (ref) {
-          csvContent += `${qId},${ref.qNum},${esc(ref.desc)},${ref.category}\n`
-        }
+      // === SECTION 2: Survey Questions Reference (Full Text + Options) ===
+      csvContent += "=== SURVEY QUESTIONS REFERENCE (FULL TEXT & ANSWER OPTIONS) ===\n"
+      csvContent += "Question ID,Question Number,Category,Type,Full Question Text (Arabic),Answer Options\n"
+      surveyQuestions.forEach(q => {
+        csvContent += `${q.id},${q.qNum},${q.cat},${q.type},${esc(q.text)},${esc(q.options)}\n`
       })
       csvContent += '\n'
 
-      // === SECTION 3: Match Data ===
-      csvContent += "=== MATCH DATA WITH SURVEY ANSWERS, SCORES, AND FEEDBACK ===\n"
+      // === SECTION 3: Established Pair Data (Event 20) ===
+      csvContent += "=== ESTABLISHED PAIR DATA (EVENT 20) — SURVEY ANSWERS, SCORES & FEEDBACK ===\n"
 
       // Build header row
       const headers: string[] = [
-        'Round', 'Table Number', 'Match Type', 'Match Reason',
+        'Phase', 'Phase_Score',
         // Person A profile
         'A_Number', 'A_Name', 'A_Gender', 'A_Age', 'A_Nationality', 'A_MBTI_Type', 'A_Attachment_Style', 'A_Communication_Style',
         'A_Humor_Banter_Style', 'A_Early_Openness', 'A_Conversational_Role', 'A_Silence_Comfort', 'A_Intent_Goal',
         // Person B profile
         'B_Number', 'B_Name', 'B_Gender', 'B_Age', 'B_Nationality', 'B_MBTI_Type', 'B_Attachment_Style', 'B_Communication_Style',
         'B_Humor_Banter_Style', 'B_Early_Openness', 'B_Conversational_Role', 'B_Silence_Comfort', 'B_Intent_Goal',
-        // System scores
-        'Total_Compatibility_Score', 'Synergy_Score', 'Vibe_Score', 'Lifestyle_Score', 'Humor_Open_Score',
-        'Communication_Score', 'Core_Values_Score_Raw', 'Intent_Score', 'MBTI_Score', 'Attachment_Score',
-        'Humor_Multiplier',
-        // Flags
-        'Attachment_Penalty_Applied', 'Intent_Boost_Applied', 'Dead_Air_Veto_Applied', 'Humor_Clash_Veto_Applied', 'Cap_Applied',
+        // Cached compatibility scores
+        'Cached_Total_Score', 'Cached_Synergy_Score', 'Cached_Vibe_Score', 'Cached_Lifestyle_Score',
+        'Cached_Communication_Score', 'Cached_Core_Values_Score', 'Cached_Intent_Score',
+        'Cached_MBTI_Score', 'Cached_Attachment_Score', 'Cached_Humor_Multiplier', 'Cached_Humor_Bonus',
+        // AI personality analysis
+        'A_AI_Personality_Analysis', 'B_AI_Personality_Analysis',
+        // Words
+        'A_Word', 'B_Word',
+        // Match preferences
+        'A_Match_Preference', 'B_Match_Preference',
       ]
 
-      // Person A survey answers
+      // Person A survey answers (all 41 questions)
       questionIds.forEach(qId => {
         headers.push(`A_${qId}`)
       })
 
-      // Person B survey answers
+      // Person B survey answers (all 41 questions)
       questionIds.forEach(qId => {
         headers.push(`B_${qId}`)
       })
 
-      // Person A feedback
+      // Person A feedback (event3 structure: wantConnect, conversationQuality, personalConnection, organizerImpression, compatibilityRate, sharedInterests, comfortLevel, communicationStyle, wouldMeetAgain, overallExperience, recommendations, participantMessage)
       headers.push(
-        'A_Gave_Feedback', 'A_FB_Compatibility_Rate', 'A_FB_Conversation_Quality', 'A_FB_Personal_Connection',
-        'A_FB_Shared_Interests', 'A_FB_Comfort_Level', 'A_FB_Communication_Style', 'A_FB_Would_Meet_Again',
-        'A_FB_Overall_Experience', 'A_FB_Recommendations', 'A_FB_Organizer_Impression', 'A_FB_Participant_Message',
-        'A_FB_Submitted_At'
+        'A_Gave_Feedback', 'A_FB_WantConnect', 'A_FB_ConversationQuality', 'A_FB_PersonalConnection',
+        'A_FB_CompatibilityRate', 'A_FB_SharedInterests', 'A_FB_ComfortLevel', 'A_FB_CommunicationStyle',
+        'A_FB_WouldMeetAgain', 'A_FB_OverallExperience', 'A_FB_Recommendations', 'A_FB_ParticipantMessage',
+        'A_FB_OrganizerImpression', 'A_FB_SliderMoved'
       )
 
       // Person B feedback
       headers.push(
-        'B_Gave_Feedback', 'B_FB_Compatibility_Rate', 'B_FB_Conversation_Quality', 'B_FB_Personal_Connection',
-        'B_FB_Shared_Interests', 'B_FB_Comfort_Level', 'B_FB_Communication_Style', 'B_FB_Would_Meet_Again',
-        'B_FB_Overall_Experience', 'B_FB_Recommendations', 'B_FB_Organizer_Impression', 'B_FB_Participant_Message',
-        'B_FB_Submitted_At'
+        'B_Gave_Feedback', 'B_FB_WantConnect', 'B_FB_ConversationQuality', 'B_FB_PersonalConnection',
+        'B_FB_CompatibilityRate', 'B_FB_SharedInterests', 'B_FB_ComfortLevel', 'B_FB_CommunicationStyle',
+        'B_FB_WouldMeetAgain', 'B_FB_OverallExperience', 'B_FB_Recommendations', 'B_FB_ParticipantMessage',
+        'B_FB_OrganizerImpression', 'B_FB_SliderMoved'
       )
 
       csvContent += headers.join(',') + '\n'
 
-      // Data rows
-      matches.forEach((match: any) => {
-        const pA = participantMap.get(match.participant_a_number)
-        const pB = participantMap.get(match.participant_b_number)
-        const round = match.round || ''
-        const fbA = feedbackMap.get(`${match.participant_a_number}_${round}`)
-        const fbB = feedbackMap.get(`${match.participant_b_number}_${round}`)
+      // Helper to get participant field from survey_data or direct columns
+      const getField = (p: any, field: string): string => {
+        if (!p) return ''
+        const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {})
+        const answers = sd.answers || {}
+        return esc(p[field] ?? sd[field] ?? answers[field] ?? '')
+      }
+
+      // Data rows — one per established pair
+      pairs.forEach((pair: any) => {
+        const pA = participantMap.get(pair.a_number)
+        const pB = participantMap.get(pair.b_number)
+        const cacheKey = `${Math.min(pair.a_number, pair.b_number)}-${Math.max(pair.a_number, pair.b_number)}`
+        const cached = cacheScores[cacheKey] || {}
 
         const row: string[] = []
 
-        // Match info
-        row.push(esc(round), esc(match.table_number), esc(match.match_type), esc(match.reason))
+        // Pair info
+        row.push(esc(pair.phase), esc(pair.phase2_score ?? pair.phase3_score ?? ''))
 
-        // Person A profile
+        // Person A profile (from direct columns + survey_data)
         row.push(
-          esc(match.participant_a_number),
-          esc(pA?.name || pA?.survey_data?.answers?.name || ''),
-          esc(pA?.gender || pA?.survey_data?.answers?.gender || ''),
-          esc(pA?.age || pA?.survey_data?.answers?.age || ''),
-          esc(pA?.nationality || pA?.survey_data?.answers?.nationality || ''),
-          esc(pA?.mbti_personality_type || pA?.survey_data?.mbtiType || ''),
-          esc(pA?.attachment_style || pA?.survey_data?.attachmentStyle || ''),
-          esc(pA?.communication_style || pA?.survey_data?.communicationStyle || ''),
-          esc(pA?.humor_banter_style || pA?.survey_data?.answers?.humor_banter_style || ''),
-          esc(pA?.early_openness_comfort ?? pA?.survey_data?.answers?.early_openness_comfort ?? ''),
-          esc(pA?.conversational_role || pA?.survey_data?.answers?.conversational_role || ''),
-          esc(pA?.silence_comfort || pA?.survey_data?.answers?.silence_comfort || ''),
-          esc(pA?.intent_goal || pA?.survey_data?.answers?.intent_goal || ''),
+          esc(pair.a_number),
+          getField(pA, 'name'),
+          getField(pA, 'gender'),
+          getField(pA, 'age'),
+          getField(pA, 'nationality'),
+          getField(pA, 'mbti_personality_type'),
+          getField(pA, 'attachment_style'),
+          getField(pA, 'communication_style'),
+          getField(pA, 'humor_banter_style'),
+          getField(pA, 'early_openness_comfort'),
+          getField(pA, 'conversational_role'),
+          getField(pA, 'silence_comfort'),
+          getField(pA, 'intent_goal'),
         )
 
         // Person B profile
         row.push(
-          esc(match.participant_b_number),
-          esc(pB?.name || pB?.survey_data?.answers?.name || ''),
-          esc(pB?.gender || pB?.survey_data?.answers?.gender || ''),
-          esc(pB?.age || pB?.survey_data?.answers?.age || ''),
-          esc(pB?.nationality || pB?.survey_data?.answers?.nationality || ''),
-          esc(pB?.mbti_personality_type || pB?.survey_data?.mbtiType || ''),
-          esc(pB?.attachment_style || pB?.survey_data?.attachmentStyle || ''),
-          esc(pB?.communication_style || pB?.survey_data?.communicationStyle || ''),
-          esc(pB?.humor_banter_style || pB?.survey_data?.answers?.humor_banter_style || ''),
-          esc(pB?.early_openness_comfort ?? pB?.survey_data?.answers?.early_openness_comfort ?? ''),
-          esc(pB?.conversational_role || pB?.survey_data?.answers?.conversational_role || ''),
-          esc(pB?.silence_comfort || pB?.survey_data?.answers?.silence_comfort || ''),
-          esc(pB?.intent_goal || pB?.survey_data?.answers?.intent_goal || ''),
+          esc(pair.b_number),
+          getField(pB, 'name'),
+          getField(pB, 'gender'),
+          getField(pB, 'age'),
+          getField(pB, 'nationality'),
+          getField(pB, 'mbti_personality_type'),
+          getField(pB, 'attachment_style'),
+          getField(pB, 'communication_style'),
+          getField(pB, 'humor_banter_style'),
+          getField(pB, 'early_openness_comfort'),
+          getField(pB, 'conversational_role'),
+          getField(pB, 'silence_comfort'),
+          getField(pB, 'intent_goal'),
         )
 
-        // System scores
+        // Cached compatibility scores
         row.push(
-          esc(match.compatibility_score ?? ''),
-          esc(match.synergy_score ?? ''),
-          esc(match.vibe_compatibility_score ?? ''),
-          esc(match.lifestyle_compatibility_score ?? ''),
-          esc(match.humor_open_score ?? ''),
-          esc(match.communication_compatibility_score ?? ''),
-          esc(match.core_values_compatibility_score ?? ''),
-          esc(match.intent_score ?? ''),
-          esc(match.mbti_compatibility_score ?? ''),
-          esc(match.attachment_compatibility_score ?? ''),
-          esc(match.humor_multiplier ?? ''),
+          esc(cached.total ?? ''),
+          esc(cached.synergy ?? ''),
+          esc(cached.vibe ?? ''),
+          esc(cached.lifestyle ?? ''),
+          esc(cached.communication ?? ''),
+          esc(cached.coreValues ?? ''),
+          esc(cached.intent ?? ''),
+          esc(cached.mbti ?? ''),
+          esc(cached.attachment ?? ''),
+          esc(cached.humorMultiplier ?? ''),
+          esc(cached.humorBonus ?? ''),
         )
 
-        // Flags
+        // AI personality analysis + Words and preferences
         row.push(
-          esc(match.attachment_penalty_applied ? 'YES' : 'NO'),
-          esc(match.intent_boost_applied ? 'YES' : 'NO'),
-          esc(match.dead_air_veto_applied ? 'YES' : 'NO'),
-          esc(match.humor_clash_veto_applied ? 'YES' : 'NO'),
-          esc(match.cap_applied ?? ''),
+          esc(pA?.ai_personality_analysis ?? ''),
+          esc(pB?.ai_personality_analysis ?? ''),
+          esc(pair.a_word ?? ''),
+          esc(pair.b_word ?? ''),
+          esc(pair.a_match_preference ?? ''),
+          esc(pair.b_match_preference ?? ''),
         )
 
-        // Person A survey answers
+        // Person A survey answers (all 41 questions)
         questionIds.forEach(qId => {
           row.push(getAnswer(pA, qId))
         })
 
-        // Person B survey answers
+        // Person B survey answers (all 41 questions)
         questionIds.forEach(qId => {
           row.push(getAnswer(pB, qId))
         })
 
-        // Person A feedback
+        // Person A feedback (event3 structure)
         row.push(
-          fbA ? 'YES' : 'NO',
-          getFb(fbA, 'compatibility_rate'),
-          getFb(fbA, 'conversation_quality'),
-          getFb(fbA, 'personal_connection'),
-          getFb(fbA, 'shared_interests'),
-          getFb(fbA, 'comfort_level'),
-          getFb(fbA, 'communication_style'),
-          getFb(fbA, 'would_meet_again'),
-          getFb(fbA, 'overall_experience'),
-          getFb(fbA, 'recommendations'),
-          getFb(fbA, 'organizer_impression'),
-          getFb(fbA, 'participant_message'),
-          getFb(fbA, 'submitted_at'),
+          pair.a_feedback ? 'YES' : 'NO',
+          getFb(pair.a_feedback, 'wantConnect'),
+          getFb(pair.a_feedback, 'conversationQuality'),
+          getFb(pair.a_feedback, 'personalConnection'),
+          getFb(pair.a_feedback, 'compatibilityRate'),
+          getFb(pair.a_feedback, 'sharedInterests'),
+          getFb(pair.a_feedback, 'comfortLevel'),
+          getFb(pair.a_feedback, 'communicationStyle'),
+          getFb(pair.a_feedback, 'wouldMeetAgain'),
+          getFb(pair.a_feedback, 'overallExperience'),
+          getFb(pair.a_feedback, 'recommendations'),
+          getFb(pair.a_feedback, 'participantMessage'),
+          getFb(pair.a_feedback, 'organizerImpression'),
+          getFb(pair.a_feedback, 'sliderMoved'),
         )
 
-        // Person B feedback
+        // Person B feedback (event3 structure)
         row.push(
-          fbB ? 'YES' : 'NO',
-          getFb(fbB, 'compatibility_rate'),
-          getFb(fbB, 'conversation_quality'),
-          getFb(fbB, 'personal_connection'),
-          getFb(fbB, 'shared_interests'),
-          getFb(fbB, 'comfort_level'),
-          getFb(fbB, 'communication_style'),
-          getFb(fbB, 'would_meet_again'),
-          getFb(fbB, 'overall_experience'),
-          getFb(fbB, 'recommendations'),
-          getFb(fbB, 'organizer_impression'),
-          getFb(fbB, 'participant_message'),
-          getFb(fbB, 'submitted_at'),
+          pair.b_feedback ? 'YES' : 'NO',
+          getFb(pair.b_feedback, 'wantConnect'),
+          getFb(pair.b_feedback, 'conversationQuality'),
+          getFb(pair.b_feedback, 'personalConnection'),
+          getFb(pair.b_feedback, 'compatibilityRate'),
+          getFb(pair.b_feedback, 'sharedInterests'),
+          getFb(pair.b_feedback, 'comfortLevel'),
+          getFb(pair.b_feedback, 'communicationStyle'),
+          getFb(pair.b_feedback, 'wouldMeetAgain'),
+          getFb(pair.b_feedback, 'overallExperience'),
+          getFb(pair.b_feedback, 'recommendations'),
+          getFb(pair.b_feedback, 'participantMessage'),
+          getFb(pair.b_feedback, 'organizerImpression'),
+          getFb(pair.b_feedback, 'sliderMoved'),
         )
 
         csvContent += row.join(',') + '\n'
@@ -2190,13 +2182,13 @@ const fetchParticipants = async () => {
       const link = document.createElement('a')
       const url = URL.createObjectURL(blob)
       link.setAttribute('href', url)
-      link.setAttribute('download', `full_analysis_event${currentEventId}_${new Date().toISOString().split('T')[0]}.csv`)
+      link.setAttribute('download', `full_analysis_event20_${new Date().toISOString().split('T')[0]}.csv`)
       link.style.visibility = 'hidden'
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
 
-      toast.success(`Exported ${matches.length} matches with full analysis data`)
+      toast.success(`Exported ${pairs.length} established pairs with full analysis data`)
     } catch (error) {
       console.error("Error exporting full analysis:", error)
       toast.error("Failed to export full analysis")
@@ -5951,7 +5943,7 @@ Proceed?`
                   ) : (
                     <Download className="w-4 h-4" />
                   )}
-                  Export AI Analysis CSV
+                  Export Event 20 Analysis CSV
                 </button>
               </div>
             </div>

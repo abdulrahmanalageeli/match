@@ -259,6 +259,10 @@ export default function AdminPage() {
   // Vibe fix modal state
   const [showVibeFixModal, setShowVibeFixModal] = useState(false)
 
+  // Export label map popup state
+  const [showLabelMapModal, setShowLabelMapModal] = useState(false)
+  const [labelMapEntries, setLabelMapEntries] = useState<{ label: string; name: string; number: number }[]>([])
+
   // WhatsApp message modal state
   const [whatsappParticipant, setWhatsappParticipant] = useState<any | null>(null);
   const [showWhatsappModal, setShowWhatsappModal] = useState(false);
@@ -1911,7 +1915,7 @@ const fetchParticipants = async () => {
         { id: 'age', qNum: 'Q2', cat: 'personal_info', text: 'ما عمرك؟', type: 'number', options: '' },
         { id: 'preferred_age_range', qNum: 'Q2.25', cat: 'personal_info', text: 'وش المدى العمري اللي يناسبك في الطرف الآخر؟', type: 'age_range', options: '' },
         { id: 'gender', qNum: 'Q3', cat: 'personal_info', text: 'ما جنسك؟', type: 'radio', options: 'male=ذكر | female=أنثى' },
-        { id: 'nationality', qNum: 'Q3.5', cat: 'personal_info', text: 'جنسيتك؟', type: 'select', options: 'السعودية | الإمارات | الكويت | قطر | البحرين | عمان | الأردن | لبنان | سوريا | فلسطين | العراق | اليمن | مصر | السودان | ليبيا | تونس | الجزائر | المغرب | موريتانيا | الصومال | جيبوتي | جزر القمر | أخرى' },
+        { id: 'nationality', qNum: 'Q3.5', cat: 'personal_info', text: '[REMOVED — PII]', type: 'select', options: '' },
         { id: 'nationality_preference', qNum: 'Q3.75', cat: 'personal_info', text: 'هل يهمك يكون الطرف الآخر من نفس جنسيتك؟', type: 'radio', options: 'same=نعم أفضل نفس الجنسية | any=ما يفرق الأهم التوافق الشخصي' },
         { id: 'phone_number', qNum: 'Q4', cat: 'personal_info', text: '[REMOVED — PII]', type: 'text', options: '' },
         { id: 'gender_preference', qNum: 'Q4.5', cat: 'personal_info', text: 'تبي تتعرف على:', type: 'radio', options: 'male=ذكر | female=أنثى | any=مايفرق (ذكر أو أنثى عادي)' },
@@ -2004,11 +2008,11 @@ const fetchParticipants = async () => {
       const headers: string[] = [
         'Phase', 'Phase_Label', 'Phase_Score', 'Mutual_Yes', 'Same_Partner_Both_Phases',
         // Person A profile
-        'A_Number', 'A_Name', 'A_Gender', 'A_Age', 'A_Nationality', 'A_MBTI_Type', 'A_Attachment_Style', 'A_Communication_Style',
+        'A_Number', 'A_Label', 'A_Gender', 'A_Age', 'A_MBTI_Type', 'A_Attachment_Style', 'A_Communication_Style',
         'A_Humor_Banter_Style', 'A_Early_Openness', 'A_Conversational_Role', 'A_Silence_Comfort', 'A_Intent_Goal',
         'A_Preferred_Age_Min', 'A_Preferred_Age_Max',
         // Person B profile
-        'B_Number', 'B_Name', 'B_Gender', 'B_Age', 'B_Nationality', 'B_MBTI_Type', 'B_Attachment_Style', 'B_Communication_Style',
+        'B_Number', 'B_Label', 'B_Gender', 'B_Age', 'B_MBTI_Type', 'B_Attachment_Style', 'B_Communication_Style',
         'B_Humor_Banter_Style', 'B_Early_Openness', 'B_Conversational_Role', 'B_Silence_Comfort', 'B_Intent_Goal',
         'B_Preferred_Age_Min', 'B_Preferred_Age_Max',
         // Cached compatibility scores
@@ -2023,13 +2027,13 @@ const fetchParticipants = async () => {
         'A_Match_Preference', 'B_Match_Preference',
       ]
 
-      // Person A survey answers (all questions except phone_number which is PII)
-      questionIds.filter(qId => qId !== 'phone_number').forEach(qId => {
+      // Person A survey answers (exclude phone_number and nationality — PII)
+      questionIds.filter(qId => qId !== 'phone_number' && qId !== 'nationality').forEach(qId => {
         headers.push(`A_${qId}`)
       })
 
-      // Person B survey answers (all questions except phone_number)
-      questionIds.filter(qId => qId !== 'phone_number').forEach(qId => {
+      // Person B survey answers (exclude phone_number and nationality)
+      questionIds.filter(qId => qId !== 'phone_number' && qId !== 'nationality').forEach(qId => {
         headers.push(`B_${qId}`)
       })
 
@@ -2061,6 +2065,10 @@ const fetchParticipants = async () => {
         matchRowMap.set(mr.participant_number, mr)
       })
 
+      // Collect label -> name/number mapping for organizer reference
+      const labelMap: { label: string; name: string; number: number }[] = []
+      const labelSeen = new Set<string>()
+
       // Data rows — one per established pair
       pairs.forEach((pair: any) => {
         const pA = participantMap.get(pair.a_number)
@@ -2091,13 +2099,15 @@ const fetchParticipants = async () => {
           esc(sameBothPhases ? 'YES' : 'NO'),
         )
 
-        // Person A profile (from direct columns + survey_data)
+        // Person A profile (label = first letter of name + number, e.g. "A12" for Ahmed #12)
+        const aName = getField(pA, 'name')
+        const aLabel = aName ? `${String(aName).charAt(0).toUpperCase()}${pair.a_number}` : `P${pair.a_number}`
+        if (!labelSeen.has(aLabel)) { labelSeen.add(aLabel); labelMap.push({ label: aLabel, name: aName || `#${pair.a_number}`, number: pair.a_number }) }
         row.push(
           esc(pair.a_number),
-          getField(pA, 'name'),
+          esc(aLabel),
           getField(pA, 'gender'),
           getField(pA, 'age'),
-          getField(pA, 'nationality'),
           getField(pA, 'mbti_personality_type'),
           getField(pA, 'attachment_style'),
           getField(pA, 'communication_style'),
@@ -2111,12 +2121,14 @@ const fetchParticipants = async () => {
         )
 
         // Person B profile
+        const bName = getField(pB, 'name')
+        const bLabel = bName ? `${String(bName).charAt(0).toUpperCase()}${pair.b_number}` : `P${pair.b_number}`
+        if (!labelSeen.has(bLabel)) { labelSeen.add(bLabel); labelMap.push({ label: bLabel, name: bName || `#${pair.b_number}`, number: pair.b_number }) }
         row.push(
           esc(pair.b_number),
-          getField(pB, 'name'),
+          esc(bLabel),
           getField(pB, 'gender'),
           getField(pB, 'age'),
-          getField(pB, 'nationality'),
           getField(pB, 'mbti_personality_type'),
           getField(pB, 'attachment_style'),
           getField(pB, 'communication_style'),
@@ -2154,13 +2166,13 @@ const fetchParticipants = async () => {
           esc(pair.b_match_preference ?? ''),
         )
 
-        // Person A survey answers (exclude phone_number — PII)
-        questionIds.filter(qId => qId !== 'phone_number').forEach(qId => {
+        // Person A survey answers (exclude phone_number and nationality — PII)
+        questionIds.filter(qId => qId !== 'phone_number' && qId !== 'nationality').forEach(qId => {
           row.push(getAnswer(pA, qId))
         })
 
-        // Person B survey answers (exclude phone_number — PII)
-        questionIds.filter(qId => qId !== 'phone_number').forEach(qId => {
+        // Person B survey answers (exclude phone_number and nationality — PII)
+        questionIds.filter(qId => qId !== 'phone_number' && qId !== 'nationality').forEach(qId => {
           row.push(getAnswer(pB, qId))
         })
 
@@ -2197,6 +2209,11 @@ const fetchParticipants = async () => {
       document.body.removeChild(link)
 
       toast.success(`Exported ${pairs.length} established pairs with full analysis data`)
+
+      // Show label map popup for organizer reference
+      labelMap.sort((a, b) => a.number - b.number)
+      setLabelMapEntries(labelMap)
+      setShowLabelMapModal(true)
     } catch (error) {
       console.error("Error exporting full analysis:", error)
       toast.error("Failed to export full analysis")
@@ -7310,6 +7327,38 @@ Proceed?`
         onClose={() => setShowVibeFixModal(false)}
         eventId={currentEventId}
       />
+
+      {/* Export Label Map Modal — shows label -> actual name/number mapping */}
+      {showLabelMapModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowLabelMapModal(false)}>
+          <div className="bg-slate-900 rounded-2xl border border-amber-500/30 max-w-md w-full max-h-[80vh] overflow-hidden flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 bg-gradient-to-r from-amber-900/30 to-orange-900/20">
+              <h3 className="font-bold text-white text-sm">Participant Label Map</h3>
+              <button onClick={() => setShowLabelMapModal(false)} className="text-gray-400 hover:text-white text-xl">✕</button>
+            </div>
+            <div className="overflow-y-auto p-4">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-gray-400 text-xs border-b border-white/10">
+                    <th className="pb-2 pr-3">Label</th>
+                    <th className="pb-2 pr-3">Name</th>
+                    <th className="pb-2">#</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {labelMapEntries.map((entry, i) => (
+                    <tr key={i} className="border-b border-white/5 hover:bg-white/5">
+                      <td className="py-2 pr-3 font-mono font-bold text-amber-400">{entry.label}</td>
+                      <td className="py-2 pr-3 text-white">{entry.name}</td>
+                      <td className="py-2 text-gray-400">{entry.number}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Deep Personality Analysis Modal */}
       {(personalityAnalysis || personalityAnalysisLoading) && (

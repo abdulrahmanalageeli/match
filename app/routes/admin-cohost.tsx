@@ -11,6 +11,7 @@ interface Participant {
 }
 
 export default function AdminCohostPage() {
+  const TEMPORARILY_LOCKED = true
   const [password, setPassword] = useState("")
   const [authenticated, setAuthenticated] = useState(() => {
     if (typeof window !== "undefined" && localStorage.getItem("cohost_auth") === "bayan2026") return true
@@ -136,6 +137,25 @@ export default function AdminCohostPage() {
   const matchedParticipant = (num: number | null) => participants.find(p => p.number === num)
 
   // Login screen
+  if (TEMPORARILY_LOCKED) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center p-6" dir="rtl">
+        <div className="w-full max-w-sm text-center">
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/50 flex items-center justify-center mb-6">
+            <Lock size={28} className="text-slate-500" />
+          </div>
+          <h1 className="text-xl font-bold text-white mb-2">المعذرة</h1>
+          <p className="text-gray-500 text-sm leading-relaxed">
+            هذه الصفحة معطّلة مؤقتاً للصيانة.
+          </p>
+          <p className="text-gray-600 text-xs mt-3">
+            عودي قريباً ✨
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   if (!authenticated) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center p-6" dir="rtl">

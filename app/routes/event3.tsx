@@ -2066,9 +2066,15 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                     <Spinner size={12} className="!text-amber-400" /> حفظ...
                   </span>
                 ) : submitted ? (
-                  <span className="flex items-center gap-1.5 text-emerald-300 text-[11px] font-semibold">
-                    <CheckCircle size={13} className="text-emerald-400" /> تم الإرسال
-                  </span>
+                  autoSavedRef.current ? (
+                    <span className="flex items-center gap-1.5 text-amber-300 text-[11px] font-semibold">
+                      <Lock size={13} className="text-amber-400" /> مقفل بانتهاء الوقت
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1.5 text-emerald-300 text-[11px] font-semibold">
+                      <CheckCircle size={13} className="text-emerald-400" /> تم الإرسال
+                    </span>
+                  )
                 ) : timeLeft > 0 ? (
                   <span className={`flex items-center gap-1.5 font-mono font-bold text-sm tabular-nums transition-colors ${
                     timeLeft <= 30
@@ -2199,19 +2205,21 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
               <div className={`flex items-center justify-center gap-2 rounded-xl py-3 px-4 ${autoSavedRef.current ? 'bg-amber-900/30 border border-amber-700/40' : 'bg-emerald-900/30 border border-emerald-700/40'}`}>
                 {autoSavedRef.current ? <Lock size={16} className="text-amber-400" /> : <CheckCircle size={16} className="text-emerald-400" />}
                 <span className={`font-bold text-xs ${autoSavedRef.current ? 'text-amber-300' : 'text-emerald-300'}`}>
-                  {autoSavedRef.current ? 'تم حفظ تصنيفك تلقائياً — لا يمكن التعديل' : 'تم إرسال تصنيفك'}
+                  {autoSavedRef.current ? 'تم قفل التصنيف بانتهاء الوقت' : 'تم إرسال تصنيفك'}
                 </span>
               </div>
               {autoSavedRef.current && (
-                <p className="text-gray-600 text-[10px] leading-relaxed">
-                  انتهى الوقت وتم حفظ ترتيبك الحالي تلقائياً
+                <p className="text-amber-500/60 text-[10px] leading-relaxed">
+                  ⏰ انتهى الوقت وتم حفظ ترتيبك الحالي تلقائياً — لا يمكن التعديل
                 </p>
               )}
               <p className="text-gray-600 text-[10px]">انتظر المنظم للانتقال للمرحلة التالية</p>
-              <button onClick={() => setSubmitted(false)} disabled={submitting}
-                className="text-gray-600 hover:text-gray-400 text-[10px] underline transition-colors">
-                تعديل التصنيف
-              </button>
+              {!autoSavedRef.current && (
+                <button onClick={() => setSubmitted(false)} disabled={submitting}
+                  className="text-gray-600 hover:text-gray-400 text-[10px] underline transition-colors">
+                  تعديل التصنيف
+                </button>
+              )}
             </div>
           ) : (
             <>
@@ -4623,7 +4631,7 @@ export default function Event3Page() {
 
   const handleWelcomeDone = useCallback(() => {
     setShowWelcome(false)
-    // setShowAiWelcome(true) // temporarily disabled
+    setShowAiWelcome(true)
   }, [])
 
   if (showWelcome) return <WelcomeScreen onDone={handleWelcomeDone} />

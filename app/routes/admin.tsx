@@ -126,16 +126,24 @@ function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
     // Add intent after multiplier
     total += scale(rawIntent, 'intent')
 
-    // Veto caps
+    // Veto caps — scale proportionally to new max total
+    const newMaxTotal = Object.values(weights).reduce((a, b) => a + b, 0)
+    const vetoScale = newMaxTotal / 100
     const getAns = (p: any, k: string) => (p?.survey_data?.answers?.[k] ?? p?.[k] ?? '').toString().toUpperCase()
     const a35 = getAns(pA, 'conversational_role')
     const b35 = getAns(pB, 'conversational_role')
     const a41 = getAns(pA, 'silence_comfort')
     const b41 = getAns(pB, 'silence_comfort')
-    if (a35 === 'C' && b35 === 'C' && a41 === 'B' && b41 === 'B' && total > 40) total = 40
+    if (a35 === 'C' && b35 === 'C' && a41 === 'B' && b41 === 'B' && total > 40 * vetoScale) total = 40 * vetoScale
+
+    // Humor clash veto: A↔D humor styles → cap at 50
+    const aHumor = String(getAns(pA, 'humor_banter_style')).toUpperCase()
+    const bHumor = String(getAns(pB, 'humor_banter_style')).toUpperCase()
+    if ((aHumor === 'A' && bHumor === 'D') || (aHumor === 'D' && bHumor === 'A')) {
+      if (total > 50 * vetoScale) total = 50 * vetoScale
+    }
 
     // Cap at new max total
-    const newMaxTotal = Object.values(weights).reduce((a, b) => a + b, 0)
     if (total > newMaxTotal) total = newMaxTotal
 
     // Normalize to 100 for comparison
@@ -241,8 +249,6 @@ function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
                   const pB = participantMap.get(pair.b_number)
                   const aName = pA?.name || `#${pair.a_number}`
                   const bName = pB?.name || `#${pair.b_number}`
-                  const aLabel = `${String(aName).charAt(0).toUpperCase()}${pair.a_number}`
-                  const bLabel = `${String(bName).charAt(0).toUpperCase()}${pair.b_number}`
                   const aWant = pair.a_feedback?.wantConnect === true
                   const bWant = pair.b_feedback?.wantConnect === true
                   const mutual = aWant && bWant
@@ -255,7 +261,7 @@ function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
 
                   return (
                     <tr key={i} className={`border-b border-white/5 hover:bg-white/5 ${sameBoth ? 'bg-emerald-950/20' : ''}`}>
-                      <td className="py-2 pr-2 font-mono text-white whitespace-nowrap">{aLabel} × {bLabel}</td>
+                      <td className="py-2 pr-2 text-white whitespace-nowrap">{aName} <span className="text-gray-500">#{pair.a_number}</span> × {bName} <span className="text-gray-500">#{pair.b_number}</span></td>
                       <td className="py-2 pr-2">
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${pair.phase === 'phase2' ? 'bg-cyan-500/20 text-cyan-300' : 'bg-violet-500/20 text-violet-300'}`}>
                           {pair.phase === 'phase2' ? 'Choice' : 'Algorithm'}

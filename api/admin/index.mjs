@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
-import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkInteractionStyleCompatibility, fetchAllCachedPairs } from "./trigger-match.mjs"
+import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkInteractionStyleCompatibility, fetchAllCachedPairs, calculateHumorOpennessScore } from "./trigger-match.mjs"
 
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
@@ -2661,9 +2661,17 @@ export default async function handler(req, res) {
 
         // 4. Batch-fetch compatibility_cache scores for all pairs
         const { data: cachedPairs } = await fetchAllCachedPairs("compatibility_cache", selectedNumbers)
+        // Build participant lookup for humor/openness computation
+        const _participantMap = new Map((participants || []).map(p => [p.assigned_number, p]))
         const cacheScores = {}
         for (const c of cachedPairs || []) {
           const key = `${c.participant_a_number}-${c.participant_b_number}`
+          const pA = _participantMap.get(c.participant_a_number)
+          const pB = _participantMap.get(c.participant_b_number)
+          let humorOpen = 0
+          if (pA && pB) {
+            try { const { score } = calculateHumorOpennessScore(pA, pB); humorOpen = score } catch (_) {}
+          }
           cacheScores[key] = {
             total: parseFloat(c.total_compatibility_score),
             mbti: parseFloat(c.mbti_score),
@@ -2674,6 +2682,7 @@ export default async function handler(req, res) {
             vibe: parseFloat(c.ai_vibe_score),
             synergy: parseFloat(c.interaction_synergy_score),
             intent: parseFloat(c.intent_goal_score),
+            humorOpen,
             humorMultiplier: parseFloat(c.humor_multiplier || 1.0),
             humorBonus: c.humor_early_openness_bonus || 'none',
           }

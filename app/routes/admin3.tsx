@@ -208,7 +208,7 @@ export default function Admin3Page() {
   const [searchTerm, setSearchTerm] = useState("")
   const [genderFilter, setGenderFilter] = useState("all")
   const [paidFilter, setPaidFilter] = useState("all")
-  const [activeTab, setActiveTab] = useState<"control" | "seating" | "ranking" | "participants" | "overview" | "feedback" | "attendance">("control")
+  const [activeTab, setActiveTab] = useState<"control" | "seating" | "ranking" | "participants" | "overview" | "feedback" | "attendance" | "aiwelcome">("control")
   const [overviewData, setOverviewData] = useState<any>(null)
   const [overviewLoading, setOverviewLoading] = useState(false)
   const [timerRemaining, setTimerRemaining] = useState(0)
@@ -299,6 +299,16 @@ export default function Admin3Page() {
   const [initiateChatTarget, setInitiateChatTarget] = useState<any>(null)
   const [initiateChatText, setInitiateChatText] = useState("")
   const [initiateSending, setInitiateSending] = useState(false)
+
+  // AI Welcome tab state
+  const [aiWelcomeData, setAiWelcomeData] = useState<any[]>([])
+  const [aiWelcomeLoading, setAiWelcomeLoading] = useState(false)
+  const [aiWelcomeSearch, setAiWelcomeSearch] = useState("")
+  const [aiWelcomeFilter, setAiWelcomeFilter] = useState<"all" | "generated" | "missing">("all")
+  const [aiWelcomeSelected, setAiWelcomeSelected] = useState<Set<number>>(new Set())
+  const [aiWelcomeGenerating, setAiWelcomeGenerating] = useState(false)
+  const [aiWelcomeProgress, setAiWelcomeProgress] = useState<{ done: number; total: number } | null>(null)
+  const [aiWelcomePreview, setAiWelcomePreview] = useState<any | null>(null)
 
   useEffect(() => {
     const stored = sessionStorage.getItem("admin3_pw")
@@ -485,6 +495,13 @@ export default function Admin3Page() {
     setAttendanceLoading(false)
   }, [])
 
+  const fetchAiWelcome = useCallback(async () => {
+    setAiWelcomeLoading(true)
+    const data = await api("e3-ai-welcome-list")
+    if (data.participants) setAiWelcomeData(data.participants)
+    setAiWelcomeLoading(false)
+  }, [])
+
   const toggleAttendance = useCallback(async (p: any) => {
     if (previewEventId != null) { toast.error("لا يمكن تعديل الحضور في وضع المعاينة"); return }
     setAttendanceToggling(prev => ({ ...prev, [p.number]: true }))
@@ -643,8 +660,9 @@ export default function Admin3Page() {
     if (authenticated && activeTab === "overview") fetchOverview()
     if (authenticated && activeTab === "feedback") { fetchFeedback(); fetchMoodChecks(); fetchNotifications() }
     if (authenticated && activeTab === "attendance") fetchAttendance()
+    if (authenticated && activeTab === "aiwelcome") fetchAiWelcome()
     if (authenticated && activeTab === "control") { fetchExclusions(); fetchSeating() }
-  }, [activeTab, authenticated, fetchSeating, fetchRankStatus, fetchParticipants, fetchMatches, fetchOverview, fetchFeedback, fetchMoodChecks, fetchNotifications, fetchAttendance, fetchExclusions])
+  }, [activeTab, authenticated, fetchSeating, fetchRankStatus, fetchParticipants, fetchMatches, fetchOverview, fetchFeedback, fetchMoodChecks, fetchNotifications, fetchAttendance, fetchAiWelcome, fetchExclusions])
 
   // Feedback polling (visibility-aware)
   useVisibilityPoll(fetchFeedback, 5000, feedbackPolling && activeTab === "feedback")
@@ -1032,6 +1050,7 @@ export default function Admin3Page() {
                 if (activeTab === "overview") fetchOverview()
                 if (activeTab === "feedback") { fetchFeedback(); fetchMoodChecks(); fetchNotifications() }
                 if (activeTab === "attendance") fetchAttendance()
+                if (activeTab === "aiwelcome") fetchAiWelcome()
               }}
               className="bg-gray-800 text-white text-sm rounded-lg px-3 py-1.5 border border-gray-700 focus:border-purple-500 focus:outline-none cursor-pointer"
             >
@@ -1064,6 +1083,7 @@ export default function Admin3Page() {
                   if (activeTab === "overview") fetchOverview()
                   if (activeTab === "feedback") { fetchFeedback(); fetchMoodChecks(); fetchNotifications() }
                   if (activeTab === "attendance") fetchAttendance()
+                  if (activeTab === "aiwelcome") fetchAiWelcome()
                 }}
                 className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white px-2.5 py-1 rounded-full border border-gray-700 transition-colors"
               >
@@ -1477,6 +1497,7 @@ export default function Admin3Page() {
             { id: "overview",     label: "نظرة شاملة", icon: Layers },
             { id: "feedback",     label: "التقييمات",   icon: Star },
             { id: "attendance",   label: "الحضور",      icon: CheckCircle },
+            { id: "aiwelcome",    label: "ترحيب AI",     icon: Sparkles },
           ].map(tab => (
             <button
               key={tab.id}
@@ -5250,6 +5271,391 @@ export default function Admin3Page() {
           </div>
         )
       })()}
+
+      {/* TAB: AI WELCOME ─────────────────────────────────────────────── */}
+      {activeTab === "aiwelcome" && (() => {
+        const generated = aiWelcomeData.filter((p: any) => p.has_welcome).length
+        const missing = aiWelcomeData.length - generated
+        const filtered = aiWelcomeData.filter((p: any) => {
+          if (aiWelcomeFilter === "generated" && !p.has_welcome) return false
+          if (aiWelcomeFilter === "missing" && p.has_welcome) return false
+          if (aiWelcomeSearch.trim()) {
+            const q = aiWelcomeSearch.trim().toLowerCase()
+            return p.name.toLowerCase().includes(q) || String(p.number).includes(q)
+          }
+          return true
+        })
+
+        const toggleSelect = (num: number) => {
+          setAiWelcomeSelected(prev => {
+            const next = new Set(prev)
+            if (next.has(num)) next.delete(num)
+            else next.add(num)
+            return next
+          })
+        }
+
+        const generateBatch = async (regenerate: boolean = false) => {
+          const nums = regenerate
+            ? Array.from(aiWelcomeSelected)
+            : Array.from(aiWelcomeSelected).filter(n => !aiWelcomeData.find(p => p.number === n)?.has_welcome)
+          if (nums.length === 0) {
+            toast.error(regenerate ? "اختر مشاركين لإعادة التوليد" : "لا يوجد مشاركين جدد — استخدم إعادة التوليد")
+            return
+          }
+          setAiWelcomeGenerating(true)
+          setAiWelcomeProgress({ done: 0, total: nums.length })
+          // Process in chunks of 3 to avoid timeouts
+          const chunkSize = 3
+          for (let i = 0; i < nums.length; i += chunkSize) {
+            const chunk = nums.slice(i, i + chunkSize)
+            try {
+              const data = await api("e3-ai-welcome-generate", { participant_numbers: chunk, regenerate })
+              if (data.results) {
+                for (const r of data.results) {
+                  if (r.status === "generated" || r.status === "cached") {
+                    setAiWelcomeData(prev => prev.map(p => p.number === r.number ? { ...p, has_welcome: true, welcome: r.welcome } : p))
+                  }
+                }
+              }
+            } catch (e) {
+              console.error("Batch generate error:", e)
+            }
+            setAiWelcomeProgress({ done: Math.min(i + chunkSize, nums.length), total: nums.length })
+          }
+          setAiWelcomeGenerating(false)
+          setAiWelcomeProgress(null)
+          setAiWelcomeSelected(new Set())
+          toast.success(`تم توليد ${nums.length} رسالة ترحيب`)
+        }
+
+        const generateAll = async (regenerate: boolean = false) => {
+          const nums = regenerate
+            ? aiWelcomeData.map(p => p.number)
+            : aiWelcomeData.filter(p => !p.has_welcome).map(p => p.number)
+          if (nums.length === 0) {
+            toast.error(regenerate ? "لا يوجد مشاركين" : "جميع المشاركين لديهم رسائل بالفعل")
+            return
+          }
+          setAiWelcomeGenerating(true)
+          setAiWelcomeProgress({ done: 0, total: nums.length })
+          const chunkSize = 3
+          for (let i = 0; i < nums.length; i += chunkSize) {
+            const chunk = nums.slice(i, i + chunkSize)
+            try {
+              const data = await api("e3-ai-welcome-generate", { participant_numbers: chunk, regenerate })
+              if (data.results) {
+                for (const r of data.results) {
+                  if (r.status === "generated" || r.status === "cached") {
+                    setAiWelcomeData(prev => prev.map(p => p.number === r.number ? { ...p, has_welcome: true, welcome: r.welcome } : p))
+                  }
+                }
+              }
+            } catch (e) {
+              console.error("Batch generate error:", e)
+            }
+            setAiWelcomeProgress({ done: Math.min(i + chunkSize, nums.length), total: nums.length })
+          }
+          setAiWelcomeGenerating(false)
+          setAiWelcomeProgress(null)
+          toast.success(`تم توليد ${nums.length} رسالة ترحيب`)
+        }
+
+        const deleteWelcome = async (num: number) => {
+          const data = await api("e3-ai-welcome-delete", { participant_number: num })
+          if (data.success) {
+            setAiWelcomeData(prev => prev.map(p => p.number === num ? { ...p, has_welcome: false, welcome: null } : p))
+            toast.success("تم حذف الرسالة")
+          }
+        }
+
+        return (
+          <div className="space-y-4">
+            {/* Stats bar */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 text-center">
+                <p className="text-2xl font-bold text-white">{aiWelcomeData.length}</p>
+                <p className="text-xs text-gray-500 mt-0.5">إجمالي المشاركين</p>
+              </div>
+              <div className="bg-green-900/20 border border-green-800/40 rounded-xl p-3 text-center">
+                <p className="text-2xl font-bold text-green-400">{generated}</p>
+                <p className="text-xs text-green-500/70 mt-0.5">رسائل مولّدة</p>
+              </div>
+              <div className="bg-orange-900/20 border border-orange-800/40 rounded-xl p-3 text-center">
+                <p className="text-2xl font-bold text-orange-400">{missing}</p>
+                <p className="text-xs text-orange-500/70 mt-0.5">بانتظار التوليد</p>
+              </div>
+            </div>
+
+            {/* Action bar */}
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => generateAll(false)}
+                  disabled={aiWelcomeGenerating || missing === 0}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold disabled:opacity-40 transition-colors"
+                >
+                  <Sparkles size={16} />
+                  توليد للجميع ({missing})
+                </button>
+                <button
+                  onClick={() => generateAll(true)}
+                  disabled={aiWelcomeGenerating || aiWelcomeData.length === 0}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-600/80 hover:bg-amber-500 text-white text-sm font-bold disabled:opacity-40 transition-colors"
+                >
+                  <RefreshCw size={16} />
+                  إعادة توليد الكل
+                </button>
+                {aiWelcomeSelected.size > 0 && (
+                  <>
+                    <button
+                      onClick={() => generateBatch(false)}
+                      disabled={aiWelcomeGenerating}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold disabled:opacity-40 transition-colors"
+                    >
+                      <Sparkles size={16} />
+                      توليد للمختارين ({aiWelcomeSelected.size})
+                    </button>
+                    <button
+                      onClick={() => generateBatch(true)}
+                      disabled={aiWelcomeGenerating}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-600/80 hover:bg-amber-500 text-white text-sm font-bold disabled:opacity-40 transition-colors"
+                    >
+                      <RefreshCw size={16} />
+                      إعادة توليد للمختارين
+                    </button>
+                    <button
+                      onClick={() => setAiWelcomeSelected(new Set())}
+                      className="px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 text-sm transition-colors"
+                    >
+                      إلغاء التحديد
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={fetchAiWelcome}
+                  disabled={aiWelcomeLoading}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 text-sm transition-colors ml-auto"
+                >
+                  <RefreshCw size={14} className={aiWelcomeLoading ? "animate-spin" : ""} />
+                  تحديث
+                </button>
+              </div>
+
+              {/* Progress bar */}
+              {aiWelcomeGenerating && aiWelcomeProgress && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-purple-400 font-medium">جاري التوليد...</span>
+                    <span className="text-gray-500">{aiWelcomeProgress.done} / {aiWelcomeProgress.total}</span>
+                  </div>
+                  <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-purple-600 to-pink-600 transition-all duration-300"
+                      style={{ width: `${(aiWelcomeProgress.done / aiWelcomeProgress.total) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Search & filter */}
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                  <input
+                    type="text"
+                    value={aiWelcomeSearch}
+                    onChange={e => setAiWelcomeSearch(e.target.value)}
+                    placeholder="بحث بالاسم أو الرقم..."
+                    className="w-full bg-gray-800 text-white text-sm rounded-lg pr-9 pl-3 py-2 border border-gray-700 focus:border-purple-500 focus:outline-none"
+                  />
+                </div>
+                <div className="flex gap-1">
+                  {[
+                    { id: "all", label: "الكل" },
+                    { id: "generated", label: "مولّدة" },
+                    { id: "missing", label: "غير مولّدة" },
+                  ].map(f => (
+                    <button
+                      key={f.id}
+                      onClick={() => setAiWelcomeFilter(f.id as any)}
+                      className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                        aiWelcomeFilter === f.id
+                          ? "bg-purple-600 text-white"
+                          : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Participants list */}
+            {aiWelcomeLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 size={24} className="animate-spin text-purple-400" />
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="text-center py-12 text-gray-500 text-sm">
+                {aiWelcomeData.length === 0 ? "لا يوجد مشاركين في هذه الفعالية" : "لا نتائج مطابقة"}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {filtered.map((p: any) => (
+                  <div
+                    key={p.number}
+                    className={`bg-gray-900 border rounded-xl p-3 flex items-center gap-3 transition-colors ${
+                      aiWelcomeSelected.has(p.number) ? "border-purple-600/50 bg-purple-950/20" : "border-gray-800"
+                    }`}
+                  >
+                    {/* Checkbox */}
+                    <button
+                      onClick={() => toggleSelect(p.number)}
+                      className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-colors ${
+                        aiWelcomeSelected.has(p.number)
+                          ? "bg-purple-600 border-purple-500"
+                          : "bg-gray-800 border-gray-600 hover:border-gray-500"
+                      }`}
+                    >
+                      {aiWelcomeSelected.has(p.number) && <Check size={12} className="text-white" />}
+                    </button>
+
+                    {/* Participant info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono text-gray-500">#{p.number}</span>
+                        <span className="text-sm text-white font-medium truncate">{p.name}</span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${p.gender === "female" ? "bg-pink-500/20 text-pink-400" : "bg-blue-500/20 text-blue-400"}`}>
+                          {p.gender === "female" ? "♀" : "♂"}
+                        </span>
+                      </div>
+                      {p.has_welcome ? (
+                        <p className="text-xs text-gray-400 mt-1 line-clamp-2 leading-relaxed" dir="rtl">{p.welcome}</p>
+                      ) : (
+                        <p className="text-xs text-gray-600 mt-1 italic">لا توجد رسالة بعد</p>
+                      )}
+                    </div>
+
+                    {/* Status badge */}
+                    <div className="shrink-0">
+                      {p.has_welcome ? (
+                        <span className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-full bg-green-500/15 text-green-400 border border-green-600/30">
+                          <CheckCircle size={10} /> جاهزة
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-full bg-orange-500/15 text-orange-400 border border-orange-600/30">
+                          <AlertCircle size={10} /> بانتظار
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      {p.has_welcome && (
+                        <button
+                          onClick={() => setAiWelcomePreview(p)}
+                          className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-purple-400 transition-colors"
+                          title="عرض الرسالة"
+                        >
+                          <Eye size={14} />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => generateBatch(false)}
+                        disabled={aiWelcomeGenerating || (p.has_welcome && !aiWelcomeSelected.has(p.number))}
+                        className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-purple-400 transition-colors disabled:opacity-30"
+                        title="توليد"
+                        onClickCapture={() => { if (!aiWelcomeSelected.has(p.number)) toggleSelect(p.number) }}
+                      >
+                        <Sparkles size={14} />
+                      </button>
+                      {p.has_welcome && (
+                        <button
+                          onClick={() => deleteWelcome(p.number)}
+                          className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-red-400 transition-colors"
+                          title="حذف"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
+      {/* AI Welcome Preview Modal */}
+      {aiWelcomePreview && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setAiWelcomePreview(null)}>
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col shadow-2xl" onClick={e => e.stopPropagation()} dir="rtl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center">
+                  <Sparkles size={18} className="text-white" />
+                </div>
+                <div>
+                  <p className="text-white font-bold text-sm">رسالة ترحيب — #{aiWelcomePreview.number}</p>
+                  <p className="text-gray-400 text-xs">{aiWelcomePreview.name}</p>
+                </div>
+              </div>
+              <button onClick={() => setAiWelcomePreview(null)} className="p-2 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 p-5">
+              <div className="bg-gradient-to-b from-gray-800/50 to-gray-900 border border-gray-800 rounded-xl p-4">
+                <p className="text-gray-100 text-sm leading-[2.2] text-center whitespace-pre-wrap font-medium">{aiWelcomePreview.welcome}</p>
+              </div>
+            </div>
+            <div className="px-5 py-3 border-t border-gray-800 flex gap-2">
+              <button
+                onClick={() => { navigator.clipboard.writeText(aiWelcomePreview.welcome); toast.success("تم نسخ الرسالة") }}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-medium transition-colors"
+              >
+                <Copy size={14} /> نسخ
+              </button>
+              <button
+                onClick={async () => {
+                  setAiWelcomePreview(null)
+                  setAiWelcomeSelected(new Set([aiWelcomePreview.number]))
+                  // Trigger regenerate for this single participant
+                  setAiWelcomeGenerating(true)
+                  setAiWelcomeProgress({ done: 0, total: 1 })
+                  try {
+                    const data = await api("e3-ai-welcome-generate", { participant_numbers: [aiWelcomePreview.number], regenerate: true })
+                    if (data.results) {
+                      for (const r of data.results) {
+                        if (r.status === "generated") {
+                          setAiWelcomeData(prev => prev.map(p => p.number === r.number ? { ...p, has_welcome: true, welcome: r.welcome } : p))
+                        }
+                      }
+                    }
+                    toast.success("تم إعادة التوليد")
+                  } catch { toast.error("فشل إعادة التوليد") }
+                  setAiWelcomeGenerating(false)
+                  setAiWelcomeProgress(null)
+                  setAiWelcomeSelected(new Set())
+                }}
+                disabled={aiWelcomeGenerating}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-600/80 hover:bg-amber-500 text-white text-sm font-bold transition-colors disabled:opacity-40"
+              >
+                <RefreshCw size={14} /> إعادة توليد
+              </button>
+              <button
+                onClick={() => setAiWelcomePreview(null)}
+                className="flex-1 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-medium transition-colors"
+              >
+                إغلاق
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Confirmation Modal for mood check / notification sending */}
       {confirmModal && (

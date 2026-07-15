@@ -8455,6 +8455,136 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           })
         }
 
+        // e3-ai-welcome-list — list all participants with their AI welcome status
+        if (action === "e3-ai-welcome-list") {
+          const { data: eps, error: epErr } = await supabase.from("event3_participants").select("participant_number,position").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).order("position", { ascending: true })
+          if (epErr) return res.status(500).json({ error: epErr.message })
+          const numbers = (eps || []).map(r => r.participant_number)
+          if (numbers.length === 0) return res.status(200).json({ participants: [] })
+
+          const { data: pInfos, error: pErr } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,secure_token").eq("match_id", STATIC_MATCH_ID).in("assigned_number", numbers)
+          if (pErr) return res.status(500).json({ error: pErr.message })
+
+          const result = numbers.map(num => {
+            const p = (pInfos || []).find(x => x.assigned_number === num)
+            const sd = typeof p?.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p?.survey_data || {})
+            const hasWelcome = !!(sd?._ai_welcome)
+            return {
+              number: num,
+              name: p?.name || `#${num}`,
+              gender: p?.gender || "?",
+              age: p?.age || "?",
+              has_welcome: hasWelcome,
+              welcome: hasWelcome ? sd._ai_welcome : null,
+              has_survey: !!(sd && Object.keys(sd).length > 0),
+            }
+          })
+          return res.status(200).json({ participants: result })
+        }
+
+        // e3-ai-welcome-generate — generate for specific participants (batch)
+        if (action === "e3-ai-welcome-generate") {
+          const { participant_numbers, regenerate = false } = req.body
+          const nums = Array.isArray(participant_numbers) ? participant_numbers : [participant_numbers]
+          if (nums.length === 0) return res.status(400).json({ error: "No participants specified" })
+
+          const { data: pInfos, error: pErr } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,secure_token").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
+          if (pErr) return res.status(500).json({ error: pErr.message })
+
+          const results = []
+          for (const num of nums) {
+            const p = (pInfos || []).find(x => x.assigned_number === num)
+            if (!p) { results.push({ number: num, status: "error", error: "Not found" }); continue }
+
+            const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {})
+            if (sd?._ai_welcome && !regenerate) {
+              results.push({ number: num, name: p.name, status: "cached", welcome: sd._ai_welcome })
+              continue
+            }
+
+            try {
+              const getAns = (key) => sd?.answers?.[key] || sd?.[key] || ""
+              const firstName = (p.name || sd?.answers?.name || sd?.name || "").trim().split(/\s+/)[0] || "صديقنا"
+              const gender = p.gender || sd?.answers?.gender || sd?.gender || ""
+              const age = p.age || sd?.answers?.age || sd?.age || ""
+              const hobbies = getAns("vibe_2") || ""
+              const weekend = getAns("vibe_1") || ""
+              const music = getAns("vibe_3") || ""
+              const personality = getAns("vibe_5") || ""
+
+              const prompt = `أنت شخصية ذكية وناضجة نفسياً، تعرف الثقافة السعودية تماماً، خاصة لهجة الرياض وأجواءها.
+
+مهمتك: اكتب رسالة قصيرة (60-100 كلمة) لشخص اسمه "${firstName}" انضم لتوّه لفعالية "التوافق الأعمى" — فعالية تعارف اجتماعي ذكي.
+
+هذه معلومات عن ${firstName} — لا تذكرها صراحة، بل وظّفها بحيث يحس أنها مكتوبة خصيصاً له:
+- الجنس: ${gender === "male" ? "ذكر" : gender === "female" ? "أنثى" : "غير محدد"}
+- العمر: ${age || "غير محدد"}
+- الهوايات: ${hobbies || "غير محدد"}
+- كيف يقضي Weekend: ${weekend || "غير محدد"}
+- ذوقه الموسيقي: ${music || "غير محدد"}
+- كيف يصفه أصدقاؤه: ${personality || "غير محدد"}
+
+قبل أن تكتب، فكّر بصمت: ما هو الشيء الذي ${firstName} يحتاج أن يسمعه الآن في هذه اللحظة بالذات؟ ما الكلمة التي لو سمعها ستشعره بالراحة والثقة أو الحماس؟ ثم اكتب الرسالة بحيث:
+
+قواعد الرسالة:
+1. ابدأ باسمه "${firstName}" بطريقة طبيعية وذكية
+2. قل له الشيء الذي يحتاج سماعه الآن — الكلمة التي تلمس وتراً في داخله، تمنحه الثقة أو الطمأنينة أو الحماس الذي يحتاجه في هذه اللحظة
+3. جهّزه للفعالية — تحدث عن الفعالية بأنها تجربة تعارف ذكية، ناس جدد، نقاشات ممتعة، واكتشافات غير متوقعة. اجعله متحمساً ومستعداً
+4. اختم بسؤال أو جملة تشوّقه، مثل: "هل أنت جاهز لرحلة اليوم؟"
+5. الرسالة يجب أن تكون مبهرة — يقرأها ${firstName} ويقول "واو، كأنه يعرف بالضبط وش أحتاج أسمعه الحين!"
+
+🚫 ممنوعات:
+- ممنوع سرد المعلومات بشكل مباشر (مثل: "أنت تحب..." أو "هواياتك هي...")
+- ممنوع كلام عن الحب، العاطفة، الزواج، أو أي إيحاء رومانسي
+- ممنوع كلام محرج أو غير لائق
+- ممنوع عبارات مستهلكة مثل "أهلاً وسهلاً"، "نتمنى لك وقتاً ممتعاً"، "أنت مميز"
+- ممنوع ذكر أنك AI أو ذكاء اصطناعي
+- ممنوع ذكر تفاصيل تقنية عن آلية المطابقة أو الخوارزميات أو كيف يعمل النظام
+- ممنوع المواعظ أو النصائح المباشرة — الرسالة تشعر، لا تعظ
+
+الهدف: رسالة تبهر ${firstName}، تلمس وتراً في داخله يحس معه "هذا بالضبط وش أحتاج أسمعه الحين"، وتجهّزه نفسياً لفعالية يستحقها.`
+
+              const completion = await openai.chat.completions.create({
+                model: "gpt-5.4-mini",
+                messages: [{ role: "user", content: prompt }],
+                max_completion_tokens: 400,
+                temperature: 0.95,
+                presence_penalty: 0.8,
+                frequency_penalty: 0.5,
+              })
+
+              const message = completion.choices[0]?.message?.content?.trim()
+              if (!message) throw new Error("Empty response")
+
+              const updatedSd = { ...sd, _ai_welcome: message }
+              await supabase.from("participants").update({ survey_data: updatedSd }).eq("assigned_number", num).eq("match_id", STATIC_MATCH_ID)
+
+              results.push({ number: num, name: p.name, status: "generated", welcome: message })
+              console.log(`[ai-welcome-batch] Generated for #${num} (${firstName})`)
+            } catch (genErr) {
+              console.error(`[ai-welcome-batch] Error for #${num}:`, genErr.message)
+              results.push({ number: num, name: p.name, status: "error", error: genErr.message })
+            }
+          }
+
+          return res.status(200).json({ results })
+        }
+
+        // e3-ai-welcome-delete — delete a welcome message for a participant
+        if (action === "e3-ai-welcome-delete") {
+          const { participant_number } = req.body
+          if (!participant_number) return res.status(400).json({ error: "Missing participant_number" })
+
+          const { data: p, error: pErr } = await supabase.from("participants").select("survey_data").eq("match_id", STATIC_MATCH_ID).eq("assigned_number", participant_number).single()
+          if (pErr) return res.status(500).json({ error: pErr.message })
+
+          const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {})
+          delete sd._ai_welcome
+          await supabase.from("participants").update({ survey_data: sd }).eq("assigned_number", participant_number).eq("match_id", STATIC_MATCH_ID)
+
+          return res.status(200).json({ success: true })
+        }
+
         return res.status(400).json({ error: `Unknown e3 action: ${action}` })
       } catch (e3err) {
         console.error("e3 admin error:", e3err)

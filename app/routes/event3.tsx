@@ -3850,84 +3850,124 @@ function BreakScreen({ timerActive, timerStart, timerDuration }: {
 }
 
 // ─── Final Reveal Screen ──────────────────────────────────────────────────────
+function RevealCard({ icon, label, name, score, word, revealed, accent }: {
+  icon: "heart" | "brain"; label: string; name: string; score: number; word: string | null; revealed: boolean; accent: "pink" | "purple"
+}) {
+  const Icon = icon === "heart" ? Heart : Brain
+  const isPink = accent === "pink"
+  return (
+    <div className="relative" style={{ perspective: "1000px" }}>
+      <motion.div
+        animate={{ rotateY: revealed ? 0 : 180 }}
+        transition={{ duration: 0.7, type: "spring", stiffness: 120, damping: 18 }}
+        style={{ transformStyle: "preserve-3d" }}
+        className="relative w-full min-h-[180px]"
+      >
+        {/* Front — revealed content */}
+        <div
+          className={`relative overflow-hidden rounded-2xl border shadow-xl h-full flex flex-col items-center justify-center p-5 space-y-2.5 ${isPink ? "border-pink-800/40 shadow-pink-900/20 bg-gradient-to-br from-pink-950/40 to-rose-950/20" : "border-purple-800/40 shadow-purple-900/20 bg-gradient-to-br from-purple-950/40 to-violet-950/20"}`}
+          style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
+        >
+          <div className={`absolute top-0 inset-x-0 h-px ${isPink ? "bg-gradient-to-r from-transparent via-pink-400/50 to-transparent" : "bg-gradient-to-r from-transparent via-purple-400/50 to-transparent"}`} />
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isPink ? "bg-pink-900/50 border border-pink-700/40" : "bg-purple-900/50 border border-purple-700/40"}`}>
+            <Icon size={18} className={isPink ? "text-pink-400" : "text-purple-400"} />
+          </div>
+          <p className={`text-[10px] font-semibold tracking-wide uppercase ${isPink ? "text-pink-400/70" : "text-purple-400/70"}`}>{label}</p>
+          <motion.p className="text-xl font-black text-white leading-tight" initial={{ scale: 0.5 }} animate={{ scale: revealed ? 1 : 0.5 }} transition={{ delay: 0.4, type: "spring", stiffness: 300 }}>{name}</motion.p>
+          <div className="flex items-baseline gap-0.5">
+            <span className={`font-black text-lg ${isPink ? "text-pink-300" : "text-purple-300"}`}>{score}</span>
+            <span className={isPink ? "text-pink-400/50 text-xs" : "text-purple-400/50 text-xs"}>%</span>
+          </div>
+          {word && (
+            <span className={`text-xs rounded-full px-2.5 py-0.5 ${isPink ? "bg-pink-900/40 text-pink-300 border border-pink-800/40" : "bg-purple-900/40 text-purple-300 border border-purple-800/40"}`}>"{word}"</span>
+          )}
+        </div>
+        {/* Back — hidden */}
+        <div
+          className="absolute inset-0 rounded-2xl border border-gray-800 bg-gradient-to-br from-gray-900 to-gray-950 flex flex-col items-center justify-center p-5"
+          style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
+        >
+          <motion.div animate={{ scale: [1, 1.1, 1] }} transition={{ duration: 1.5, repeat: Infinity }} className="w-10 h-10 rounded-xl bg-gray-800 flex items-center justify-center">
+            <Sparkles size={18} className="text-gray-600" />
+          </motion.div>
+          <p className="text-gray-700 text-xs mt-2 font-bold">؟</p>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
+function AiAnalysisCompact({ partnerNum, token, currentEventId, accent, title }: {
+  partnerNum: number; token: string; currentEventId: number; accent: "pink" | "purple"; title: string
+}) {
+  const [analysis, setAnalysis] = useState<string | null>(null)
+  const [generating, setGenerating] = useState(false)
+  const [shown, setShown] = useState(false)
+  const isPink = accent === "pink"
+
+  const generate = async () => {
+    if (analysis) { setShown(true); return }
+    setGenerating(true)
+    try {
+      const res = await fetch("/api/participant", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "generate-vibe-analysis", secure_token: token, partner_number: partnerNum, event_id: currentEventId })
+      })
+      const d = await res.json()
+      if (d.success) { setAnalysis(d.analysis); setShown(true) }
+      else toast.error("حدث خطأ أثناء التحليل")
+    } catch { toast.error("تعذّر الاتصال بالخادم") }
+    finally { setGenerating(false) }
+  }
+
+  if (shown && analysis) {
+    return (
+      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+        className={`rounded-2xl overflow-hidden border ${isPink ? "border-pink-800/30" : "border-purple-800/30"} bg-gradient-to-br from-gray-900/80 to-gray-950/80`}>
+        <div className={`px-4 py-3 border-b flex items-center justify-between ${isPink ? "border-pink-800/30" : "border-purple-800/30"}`}>
+          <div className="flex items-center gap-2">
+            <Sparkles size={14} className={isPink ? "text-pink-400" : "text-purple-400"} />
+            <span className={`font-bold text-xs ${isPink ? "text-pink-300" : "text-purple-300"}`}>التحليل الذكي</span>
+          </div>
+          <button onClick={() => setShown(false)} className="text-gray-600 hover:text-gray-400 transition-colors"><X size={14} /></button>
+        </div>
+        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
+          className="text-gray-300 text-xs leading-relaxed whitespace-pre-wrap text-right p-4">{analysis}</motion.p>
+      </motion.div>
+    )
+  }
+
+  return (
+    <motion.button onClick={generate} disabled={generating} whileTap={{ scale: 0.97 }}
+      className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-60 ${isPink ? "bg-pink-950/30 border border-pink-800/40 text-pink-300 hover:bg-pink-950/50" : "bg-purple-950/30 border border-purple-800/40 text-purple-300 hover:bg-purple-950/50"}`}>
+      {generating ? (
+        <><span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> جاري التحليل…</>
+      ) : (
+        <><Sparkles size={13} /> {title}</>
+      )}
+    </motion.button>
+  )
+}
+
 function FinalRevealScreen({ token }: { token: string }) {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [showExitPopup, setShowExitPopup] = useState(false)
+  const [revealed, setRevealed] = useState(false)
   const [matchPref, setMatchPref] = useState<string | null>(null)
   const [prefSubmitting, setPrefSubmitting] = useState(false)
   const [currentEventId, setCurrentEventId] = useState<number>(1)
-
-  // AI analysis state — one per phase
-  const [ai2, setAi2] = useState<string | null>(null)
-  const [ai3, setAi3] = useState<string | null>(null)
-  const [generating2, setGenerating2] = useState(false)
-  const [generating3, setGenerating3] = useState(false)
-  const [shown2, setShown2] = useState(false)
-  const [shown3, setShown3] = useState(false)
-  const [typed2, setTyped2] = useState("")
-  const [typed3, setTyped3] = useState("")
-  const [typing2, setTyping2] = useState(false)
-  const [typing3, setTyping3] = useState(false)
+  const [activeTab, setActiveTab] = useState<"choice" | "algorithm">("choice")
 
   useEffect(() => {
     call("e3-get-final-reveal", token).then(d => {
       if (!d.error) { setData(d); setMatchPref(d.match_preference || null); setCurrentEventId(d.current_event_id || 1) }
       setLoading(false)
+      setTimeout(() => {
+        setRevealed(true)
+        fireConfetti({ particleCount: 60, spread: 65, origin: { y: 0.35 }, colors: ["#a855f7", "#ec4899", "#f43f5e", "#fbbf24"] })
+      }, 500)
     })
   }, [token])
-
-  useEffect(() => {
-    if (!data) return
-    const t = setTimeout(() => setShowExitPopup(true), 2500)
-    return () => clearTimeout(t)
-  }, [data])
-
-  // Typewriter effect for phase 2
-  useEffect(() => {
-    if (!ai2 || !shown2) return
-    setTyped2("")
-    setTyping2(true)
-    let i = 0
-    const iv = setInterval(() => {
-      i++
-      setTyped2(ai2.slice(0, i))
-      if (i >= ai2.length) { clearInterval(iv); setTyping2(false) }
-    }, 18)
-    return () => clearInterval(iv)
-  }, [ai2, shown2])
-
-  // Typewriter effect for phase 3
-  useEffect(() => {
-    if (!ai3 || !shown3) return
-    setTyped3("")
-    setTyping3(true)
-    let i = 0
-    const iv = setInterval(() => {
-      i++
-      setTyped3(ai3.slice(0, i))
-      if (i >= ai3.length) { clearInterval(iv); setTyping3(false) }
-    }, 18)
-    return () => clearInterval(iv)
-  }, [ai3, shown3])
-
-  const generateAnalysis = async (partnerNum: number, phase: 2 | 3) => {
-    const setGenerating = phase === 2 ? setGenerating2 : setGenerating3
-    const setAi = phase === 2 ? setAi2 : setAi3
-    const setShown = phase === 2 ? setShown2 : setShown3
-    setGenerating(true)
-    try {
-      const res = await fetch("/api/participant", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "generate-vibe-analysis", secure_token: token, partner_number: partnerNum, event_id: currentEventId })
-      })
-      const d = await res.json()
-      if (d.success) { setAi(d.analysis); setShown(true) }
-      else toast.error("حدث خطأ أثناء التحليل")
-    } catch { toast.error("تعذّر الاتصال بالخادم") }
-    finally { setGenerating(false) }
-  }
 
   const submitPref = async (pref: string) => {
     setPrefSubmitting(true)
@@ -3937,284 +3977,117 @@ function FinalRevealScreen({ token }: { token: string }) {
     else toast.error("حدث خطأ")
   }
 
-  if (loading) return (
-    <PageWrapper className="flex items-center justify-center"><Spinner size={28} /></PageWrapper>
-  )
+  if (loading) return <PageWrapper className="flex items-center justify-center"><Spinner size={28} /></PageWrapper>
+  if (!data) return <PageWrapper className="flex items-center justify-center text-gray-500 text-sm">لا توجد نتائج بعد</PageWrapper>
 
-  if (!data) return (
-    <PageWrapper className="flex items-center justify-center text-gray-500 text-sm">لا توجد نتائج بعد</PageWrapper>
-  )
+  const p2 = data.phase2, p3 = data.phase3
 
   return (
     <PageWrapper className="overflow-y-auto">
-      <div className="max-w-sm mx-auto p-4 pb-6 space-y-4 text-center">
-        <Brand />
-        <h1 className="text-2xl font-black text-white pt-2">الكشف النهائي</h1>
-        <div className="flex gap-2">
-          <a href="/welcome" className="flex-1 py-2.5 rounded-xl bg-gray-800/60 border border-gray-700/50 hover:bg-gray-800 text-gray-300 text-xs font-medium transition-all flex items-center justify-center gap-1.5">
-            <ChevronRight size={14} /> العودة للجلسات الفردية
-          </a>
-        </div>
-        <InfoHint text="قارنّا بين اختيارك الشخصي واختيار الخوارزمية · راجع تفاصيل التوافق لكل طرف · وأخبرنا بمن تفضّل" delay={0.3} duration={6} />
+      <div className="max-w-sm mx-auto p-4 pb-8 space-y-4 text-center" dir="rtl">
+        {/* Animated title */}
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ type: "spring", stiffness: 200, damping: 20 }} className="pt-4">
+          <motion.div initial={{ scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }} transition={{ delay: 0.15, type: "spring", stiffness: 300 }}
+            className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center shadow-2xl shadow-purple-600/30 mb-3">
+            <Trophy size={28} className="text-white" />
+          </motion.div>
+          <h1 className="text-2xl font-black text-white">الكشف النهائي</h1>
+        </motion.div>
 
+        {/* Same match banner */}
         {data.same_match && (
-          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }}
-            className="bg-gradient-to-r from-amber-900/40 via-yellow-900/30 to-amber-900/40 border border-amber-600/50 rounded-2xl p-5 shadow-2xl shadow-amber-500/20">
-            <div className="flex items-center justify-center mb-2"><Trophy size={28} className="text-amber-400" /></div>
-            <p className="text-amber-300 font-black text-lg">مطابقة مثالية!</p>
-            <p className="text-amber-400/70 text-sm mt-1">
-              اخترت <strong className="text-amber-300">{data.phase2?.partner_first_name}</strong> والخوارزمية اختارت نفس الشخص
-            </p>
+          <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.4, type: "spring" }}
+            className="bg-gradient-to-r from-amber-900/40 via-yellow-900/30 to-amber-900/40 border border-amber-600/50 rounded-2xl p-4">
+            <Trophy size={24} className="text-amber-400 mx-auto mb-1" />
+            <p className="text-amber-300 font-black text-base">مطابقة مثالية!</p>
+            <p className="text-amber-400/70 text-xs mt-0.5">اخترت والخوارزمية نفس الشخص</p>
           </motion.div>
         )}
 
+        {/* Reveal cards with flip animation */}
         <div className="grid grid-cols-2 gap-3">
-          <motion.div initial={{ opacity: 0, x: -15 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}>
-            <div className="relative overflow-hidden rounded-2xl border border-pink-800/40 shadow-xl shadow-pink-900/20 h-full flex flex-col items-center p-5 space-y-2.5 bg-gradient-to-br from-pink-950/40 to-rose-950/20">
-              <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-pink-400/50 to-transparent" />
-              <div className="w-10 h-10 rounded-xl bg-pink-900/50 border border-pink-700/40 flex items-center justify-center">
-                <Heart size={18} className="text-pink-400" />
-              </div>
-              <p className="text-pink-400/70 text-[10px] font-semibold tracking-wide uppercase">اختيارك الشخصي</p>
-              <p className="text-xl font-black text-white leading-tight">{data.phase2?.partner_first_name}</p>
-              <div className="w-full flex items-center justify-center gap-1.5 pt-1">
-                <div className="flex items-baseline gap-0.5">
-                  <span className="text-pink-300 font-black text-lg">{data.phase2?.compatibility_score}</span>
-                  <span className="text-pink-400/50 text-xs">%</span>
-                </div>
-              </div>
-              {data.phase2?.word && (
-                <span className="text-xs bg-pink-900/40 text-pink-300 border border-pink-800/40 rounded-full px-2.5 py-0.5">
-                  "{data.phase2.word}"
-                </span>
-              )}
-            </div>
+          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 }}>
+            <RevealCard icon="heart" label="اختيارك" name={p2?.partner_first_name} score={p2?.compatibility_score} word={p2?.word} revealed={revealed} accent="pink" />
           </motion.div>
-          <motion.div initial={{ opacity: 0, x: 15 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}>
-            <div className="relative overflow-hidden rounded-2xl border border-purple-800/40 shadow-xl shadow-purple-900/20 h-full flex flex-col items-center p-5 space-y-2.5 bg-gradient-to-br from-purple-950/40 to-violet-950/20">
-              <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-purple-400/50 to-transparent" />
-              <div className="w-10 h-10 rounded-xl bg-purple-900/50 border border-purple-700/40 flex items-center justify-center">
-                <Brain size={18} className="text-purple-400" />
-              </div>
-              <p className="text-purple-400/70 text-[10px] font-semibold tracking-wide uppercase">اختيار الخوارزمية</p>
-              <p className="text-xl font-black text-white leading-tight">{data.phase3?.partner_first_name}</p>
-              <div className="w-full flex items-center justify-center gap-1.5 pt-1">
-                <div className="flex items-baseline gap-0.5">
-                  <span className="text-purple-300 font-black text-lg">{data.phase3?.compatibility_score}</span>
-                  <span className="text-purple-400/50 text-xs">%</span>
-                </div>
-              </div>
-              {data.phase3?.word && (
-                <span className="text-xs bg-purple-900/40 text-purple-300 border border-purple-800/40 rounded-full px-2.5 py-0.5">
-                  "{data.phase3.word}"
-                </span>
-              )}
-            </div>
+          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.35 }}>
+            <RevealCard icon="brain" label="اختيار النظام" name={p3?.partner_first_name} score={p3?.compatibility_score} word={p3?.word} revealed={revealed} accent="purple" />
           </motion.div>
         </div>
 
-        <p className="text-gray-500 text-xs leading-relaxed">
-          {data.same_match
-            ? "غريزتك والخوارزمية متوافقتان — هذا نادر الحدوث!"
-            : "رأيت بعينيك، ورأت الخوارزمية بالبيانات — أيهما أصح؟"}
-        </p>
+        {/* Comparison text */}
+        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="text-gray-500 text-xs leading-relaxed">
+          {data.same_match ? "غريزتك والخوارزمية متوافقتان — نادر الحدوث!" : "رأيت بعينيك، ورأت الخوارزمية بالبيانات — أيهما أصح؟"}
+        </motion.p>
 
-        {/* Compatibility breakdown for user's choice */}
-        {data.phase2?.breakdown && (
-          <div className="space-y-2">
-            <p className="text-pink-400/70 text-xs font-semibold text-center">تفاصيل التوافق — اختيارك</p>
-            <CompatibilityBreakdown breakdown={data.phase2.breakdown} accent="pink" partnerName={data.phase2?.partner_first_name} />
-          </div>
-        )}
-
-        {/* AI analysis — phase 2 */}
-        {data.phase2?.partner_number && (
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
-            className="rounded-2xl overflow-hidden border border-pink-800/30 bg-gradient-to-br from-gray-900/80 to-gray-950/80 shadow-lg">
-            {!shown2 ? (
-              <div className="p-6 text-center space-y-3">
-                <div className="w-10 h-10 rounded-2xl bg-pink-900/40 flex items-center justify-center mx-auto">
-                  <Sparkles size={20} className="text-pink-400" />
-                </div>
-                <p className="text-white font-bold text-sm">لماذا توافقتما؟</p>
-                <p className="text-gray-500 text-xs">تحليل ذكي للكيمياء بينك وبين اختيارك</p>
-                <motion.button
-                  onClick={() => generateAnalysis(data.phase2.partner_number, 2)}
-                  disabled={generating2}
-                  whileTap={{ scale: 0.97 }}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-pink-700 to-rose-700 text-white text-sm font-bold disabled:opacity-60">
-                  {generating2 ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      جاري التحليل…
-                    </span>
-                  ) : (
-                    <span className="flex items-center justify-center gap-2">
-                      <Sparkles size={14} /> اعرض التحليل الذكي
-                    </span>
-                  )}
-                </motion.button>
-              </div>
-            ) : (
-              <div>
-                <div className="px-5 py-3.5 border-b border-pink-800/30 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Sparkles size={15} className="text-pink-400" />
-                    <span className="text-pink-300 font-bold text-sm">التحليل الذكي</span>
-                  </div>
-                  <button onClick={() => setShown2(false)} className="text-gray-600 hover:text-gray-400 transition-colors">
-                    <X size={15} />
-                  </button>
-                </div>
-                <div className="p-5">
-                  <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap text-right">
-                    {typed2}
-                    {typing2 && <span className="inline-block w-0.5 h-4 bg-pink-400 mr-0.5 animate-pulse align-middle" />}
-                  </p>
-                </div>
-              </div>
-            )}
+        {/* Tabbed compatibility breakdown */}
+        {!data.same_match && (p2?.breakdown || p3?.breakdown) && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}>
+            <div className="flex gap-1.5 mb-3">
+              <button onClick={() => setActiveTab('choice')} className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all border ${activeTab === 'choice' ? 'bg-pink-950/50 border-pink-700/40 text-pink-300' : 'bg-gray-900/40 border-gray-800/40 text-gray-500'}`}>
+                <Heart size={12} className="inline ml-1" /> اختيارك
+              </button>
+              <button onClick={() => setActiveTab('algorithm')} className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all border ${activeTab === 'algorithm' ? 'bg-purple-950/50 border-purple-700/40 text-purple-300' : 'bg-gray-900/40 border-gray-800/40 text-gray-500'}`}>
+                <Brain size={12} className="inline ml-1" /> اختيار النظام
+              </button>
+            </div>
+            <AnimatePresence mode="wait">
+              {activeTab === 'choice' && p2?.breakdown && (
+                <motion.div key="choice" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }}>
+                  <CompatibilityBreakdown breakdown={p2.breakdown} accent="pink" partnerName={p2?.partner_first_name} />
+                </motion.div>
+              )}
+              {activeTab === 'algorithm' && p3?.breakdown && (
+                <motion.div key="algorithm" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2 }}>
+                  <CompatibilityBreakdown breakdown={p3.breakdown} accent="purple" partnerName={p3?.partner_first_name} />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         )}
 
-        {/* Compatibility breakdown for algorithm choice */}
-        {data.phase3?.breakdown && (
-          <div className="space-y-2">
-            <p className="text-purple-400/70 text-xs font-semibold text-center">تفاصيل التوافق — اختيار الخوارزمية</p>
-            <CompatibilityBreakdown breakdown={data.phase3.breakdown} accent="purple" partnerName={data.phase3?.partner_first_name} />
-          </div>
-        )}
-
-        {/* AI analysis — phase 3 */}
-        {data.phase3?.partner_number && !data.same_match && (
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
-            className="rounded-2xl overflow-hidden border border-purple-800/30 bg-gradient-to-br from-gray-900/80 to-gray-950/80 shadow-lg">
-            {!shown3 ? (
-              <div className="p-6 text-center space-y-3">
-                <div className="w-10 h-10 rounded-2xl bg-purple-900/40 flex items-center justify-center mx-auto">
-                  <Sparkles size={20} className="text-purple-400" />
-                </div>
-                <p className="text-white font-bold text-sm">لماذا اختارتك الخوارزمية؟</p>
-                <p className="text-gray-500 text-xs">تحليل ذكي للكيمياء بينك وبين اختيار الخوارزمية</p>
-                <motion.button
-                  onClick={() => generateAnalysis(data.phase3.partner_number, 3)}
-                  disabled={generating3}
-                  whileTap={{ scale: 0.97 }}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-700 to-violet-700 text-white text-sm font-bold disabled:opacity-60">
-                  {generating3 ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      جاري التحليل…
-                    </span>
-                  ) : (
-                    <span className="flex items-center justify-center gap-2">
-                      <Sparkles size={14} /> اعرض التحليل الذكي
-                    </span>
-                  )}
-                </motion.button>
-              </div>
-            ) : (
-              <div>
-                <div className="px-5 py-3.5 border-b border-purple-800/30 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Sparkles size={15} className="text-purple-400" />
-                    <span className="text-purple-300 font-bold text-sm">التحليل الذكي</span>
-                  </div>
-                  <button onClick={() => setShown3(false)} className="text-gray-600 hover:text-gray-400 transition-colors">
-                    <X size={15} />
-                  </button>
-                </div>
-                <div className="p-5">
-                  <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap text-right">
-                    {typed3}
-                    {typing3 && <span className="inline-block w-0.5 h-4 bg-purple-400 mr-0.5 animate-pulse align-middle" />}
-                  </p>
-                </div>
-              </div>
-            )}
+        {/* If same match, just show one breakdown */}
+        {data.same_match && p2?.breakdown && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}>
+            <CompatibilityBreakdown breakdown={p2.breakdown} accent="pink" partnerName={p2?.partner_first_name} />
           </motion.div>
         )}
 
-        {/* Match preference buttons */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
-          className="rounded-2xl border border-gray-800/60 bg-gray-900/50 p-5 space-y-3">
+        {/* AI Analysis — compact */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }} className="space-y-2">
+          {p2?.partner_number && (
+            <AiAnalysisCompact partnerNum={p2.partner_number} token={token} currentEventId={currentEventId} accent="pink" title="لماذا توافقتما؟" />
+          )}
+          {p3?.partner_number && !data.same_match && (
+            <AiAnalysisCompact partnerNum={p3.partner_number} token={token} currentEventId={currentEventId} accent="purple" title="لماذا اختارتك الخوارزمية؟" />
+          )}
+        </motion.div>
+
+        {/* Match preference — simplified */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.9 }}
+          className="rounded-2xl border border-gray-800/60 bg-gray-900/50 p-4 space-y-3">
           <p className="text-gray-300 font-bold text-sm">من تفضّل؟</p>
-          <p className="text-gray-500 text-xs leading-relaxed">رأيك يصل للمنظم لمساعدتنا في تحسين التجربة. اختر من تحب مواصلته:</p>
-          <div className="grid grid-cols-2 gap-2.5">
-            <button
-              onClick={() => submitPref("choice")}
-              disabled={prefSubmitting || matchPref === "choice"}
-              className={`py-3 rounded-xl text-sm font-bold transition-all border ${matchPref === "choice" ? "bg-pink-600/30 border-pink-500/50 text-pink-300" : "bg-pink-950/30 border-pink-800/40 text-pink-300 hover:bg-pink-950/50"}`}
-            >
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={() => submitPref("choice")} disabled={prefSubmitting || matchPref === "choice"}
+              className={`py-2.5 rounded-xl text-xs font-bold transition-all border ${matchPref === "choice" ? "bg-pink-600/30 border-pink-500/50 text-pink-300" : "bg-pink-950/30 border-pink-800/40 text-pink-300 hover:bg-pink-950/50"}`}>
               {matchPref === "choice" ? "✓ " : ""}أفضّل اختياري
             </button>
-            <button
-              onClick={() => submitPref("algorithm")}
-              disabled={prefSubmitting || matchPref === "algorithm"}
-              className={`py-3 rounded-xl text-sm font-bold transition-all border ${matchPref === "algorithm" ? "bg-purple-600/30 border-purple-500/50 text-purple-300" : "bg-purple-950/30 border-purple-800/40 text-purple-300 hover:bg-purple-950/50"}`}
-            >
+            <button onClick={() => submitPref("algorithm")} disabled={prefSubmitting || matchPref === "algorithm"}
+              className={`py-2.5 rounded-xl text-xs font-bold transition-all border ${matchPref === "algorithm" ? "bg-purple-600/30 border-purple-500/50 text-purple-300" : "bg-purple-950/30 border-purple-800/40 text-purple-300 hover:bg-purple-950/50"}`}>
               {matchPref === "algorithm" ? "✓ " : ""}أفضّل الخوارزمية
             </button>
-            <button
-              onClick={() => submitPref("both")}
-              disabled={prefSubmitting || matchPref === "both"}
-              className={`py-3 rounded-xl text-sm font-bold transition-all border col-span-2 ${matchPref === "both" ? "bg-emerald-600/30 border-emerald-500/50 text-emerald-300" : "bg-gray-800/40 border-gray-700/40 text-gray-300 hover:bg-gray-800/60"}`}
-            >
+            <button onClick={() => submitPref("both")} disabled={prefSubmitting || matchPref === "both"}
+              className={`py-2.5 rounded-xl text-xs font-bold transition-all border col-span-2 ${matchPref === "both" ? "bg-emerald-600/30 border-emerald-500/50 text-emerald-300" : "bg-gray-800/40 border-gray-700/40 text-gray-300 hover:bg-gray-800/60"}`}>
               {matchPref === "both" ? "✓ " : ""}كلاهما ممتاز
             </button>
           </div>
         </motion.div>
 
-        {/* What's next CTA */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
-          className="rounded-2xl border border-purple-800/30 bg-gradient-to-br from-purple-950/30 to-violet-950/20 p-5 space-y-3 text-center">
-          <p className="text-purple-300 font-bold text-sm flex items-center justify-center gap-1.5">
-            <Home size={14} /> ماذا بعد؟
-          </p>
-          <p className="text-gray-400 text-xs leading-relaxed">
-            ستظهر نتائجك الكاملة مع تفاصيل التوافق في صفحتك الرئيسية قريباً.
-            تواصل مع المنظم لمزيد من المعلومات.
-          </p>
-          <a href="/welcome" className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-xl px-5 py-2.5 text-sm font-bold transition-all">
-            <Home size={14} /> صفحتي الرئيسية
-          </a>
-        </motion.div>
+        {/* Simple home link */}
+        <motion.a href="/welcome" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }}
+          className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-300 text-xs transition-colors">
+          <Home size={14} /> العودة للصفحة الرئيسية
+        </motion.a>
       </div>
-
-      {/* Exit popup */}
-      <AnimatePresence>
-        {showExitPopup && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[300] bg-black/70 backdrop-blur-sm flex items-center justify-center p-6"
-            onClick={() => setShowExitPopup(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
-              transition={{ type: "spring", stiffness: 300, damping: 25 }}
-              className="bg-gray-900 border border-gray-700/60 rounded-3xl p-7 max-w-sm w-full text-center space-y-4 shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-center mb-1"><PartyPopper size={32} className="text-purple-400" /></div>
-              <h2 className="text-xl font-black text-white">انتهت الفعالية!</h2>
-              <p className="text-gray-400 text-sm leading-relaxed">
-                راجع نتائجك وتفاصيل التوافق هنا أولاً. بعد ذلك، يمكنك اختيار من تريد مواصلة التحدث معه — سواء شريك اختيارك أو شريك الخوارزمية. يمكنك أيضاً مواصلة التحدث مع أي شخص بعد الفعالية إذا رغب الطرفان.
-              </p>
-              <div className="flex flex-col gap-2.5 pt-1">
-                <button
-                  onClick={() => setShowExitPopup(false)}
-                  className="w-full py-3 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-sm font-bold transition-all"
-                >
-                  مراجعة النتائج هنا
-                </button>
-              </div>
-              <p className="text-gray-600 text-[11px] leading-relaxed pt-1">
-                يمكنك استئناف المحادثات مع أي شخص بعد الفعالية إذا كان الطرفان مهتمين.
-              </p>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </PageWrapper>
   )
 }

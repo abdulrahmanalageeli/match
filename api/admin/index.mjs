@@ -8413,8 +8413,8 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             const { data: testPInfos } = await supabase.from("participants").select("assigned_number,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", testNums)
             for (const p of (testPInfos || [])) {
               const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {})
-              if (sd?._ai_welcome_event3) {
-                delete sd._ai_welcome_event3
+              if (sd?._ai_welcome) {
+                delete sd._ai_welcome
                 await supabase.from("participants").update({ survey_data: sd }).eq("assigned_number", p.assigned_number).eq("match_id", STATIC_MATCH_ID)
               }
             }
@@ -8484,14 +8484,14 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           const result = numbers.map(num => {
             const p = (pInfos || []).find(x => x.assigned_number === num)
             const sd = typeof p?.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p?.survey_data || {})
-            const hasWelcome = !!(sd?._ai_welcome_event3)
+            const hasWelcome = !!(sd?._ai_welcome)
             return {
               number: num,
               name: p?.name || `#${num}`,
               gender: p?.gender || "?",
               age: p?.age || "?",
               has_welcome: hasWelcome,
-              welcome: hasWelcome ? sd._ai_welcome_event3 : null,
+              welcome: hasWelcome ? sd._ai_welcome : null,
               has_survey: !!(sd && Object.keys(sd).length > 0),
             }
           })
@@ -8513,8 +8513,8 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             if (!p) { results.push({ number: num, status: "error", error: "Not found" }); continue }
 
             const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {})
-            if (sd?._ai_welcome_event3 && !regenerate) {
-              results.push({ number: num, name: p.name, status: "cached", welcome: sd._ai_welcome_event3 })
+            if (sd?._ai_welcome && !regenerate) {
+              results.push({ number: num, name: p.name, status: "cached", welcome: sd._ai_welcome })
               continue
             }
 
@@ -8572,7 +8572,7 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
               const message = completion.choices[0]?.message?.content?.trim()
               if (!message) throw new Error("Empty response")
 
-              const updatedSd = { ...sd, _ai_welcome_event3: message }
+              const updatedSd = { ...sd, _ai_welcome: message }
               await supabase.from("participants").update({ survey_data: updatedSd }).eq("assigned_number", num).eq("match_id", STATIC_MATCH_ID)
 
               results.push({ number: num, name: p.name, status: "generated", welcome: message })
@@ -8595,7 +8595,7 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           if (pErr) return res.status(500).json({ error: pErr.message })
 
           const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {})
-          delete sd._ai_welcome_event3
+          delete sd._ai_welcome
           await supabase.from("participants").update({ survey_data: sd }).eq("assigned_number", participant_number).eq("match_id", STATIC_MATCH_ID)
 
           return res.status(200).json({ success: true })

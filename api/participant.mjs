@@ -3411,15 +3411,15 @@ Please respond in JSON format:
         const { data: tmState } = await supabase.from("event_state").select("test_mode_active").eq("match_id", MAIN_MATCH).maybeSingle()
         if (tmState?.test_mode_active) {
           // Clean up any cached welcome in test mode
-          if (sd?._ai_welcome_event3) {
+          if (sd?._ai_welcome) {
             const cleanSd = { ...sd }
-            delete cleanSd._ai_welcome_event3
+            delete cleanSd._ai_welcome
             await supabase.from("participants").update({ survey_data: cleanSd }).eq("secure_token", token).eq("match_id", MAIN_MATCH)
           }
           return res.status(200).json({ success: false, message: null })
         }
 
-        const cachedWelcome = sd?._ai_welcome_event3
+        const cachedWelcome = sd?._ai_welcome
         if (cachedWelcome) {
           return res.status(200).json({ success: true, message: cachedWelcome, cached: true })
         }
@@ -3480,7 +3480,7 @@ Please respond in JSON format:
           if (!message) throw new Error("AI generated empty welcome")
 
           // Cache in survey_data
-          const updatedSd = { ...sd, _ai_welcome_event3: message }
+          const updatedSd = { ...sd, _ai_welcome: message }
           await supabase.from("participants").update({ survey_data: updatedSd }).eq("secure_token", token).eq("match_id", MAIN_MATCH)
 
           return res.status(200).json({ success: true, message, cached: false })

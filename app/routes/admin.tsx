@@ -1913,7 +1913,7 @@ const fetchParticipants = async () => {
         { id: 'gender', qNum: 'Q3', cat: 'personal_info', text: 'ما جنسك؟', type: 'radio', options: 'male=ذكر | female=أنثى' },
         { id: 'nationality', qNum: 'Q3.5', cat: 'personal_info', text: 'جنسيتك؟', type: 'select', options: 'السعودية | الإمارات | الكويت | قطر | البحرين | عمان | الأردن | لبنان | سوريا | فلسطين | العراق | اليمن | مصر | السودان | ليبيا | تونس | الجزائر | المغرب | موريتانيا | الصومال | جيبوتي | جزر القمر | أخرى' },
         { id: 'nationality_preference', qNum: 'Q3.75', cat: 'personal_info', text: 'هل يهمك يكون الطرف الآخر من نفس جنسيتك؟', type: 'radio', options: 'same=نعم أفضل نفس الجنسية | any=ما يفرق الأهم التوافق الشخصي' },
-        { id: 'phone_number', qNum: 'Q4', cat: 'personal_info', text: 'ما رقم هاتفك؟ (لتواصلنا معك)', type: 'text', options: '' },
+        { id: 'phone_number', qNum: 'Q4', cat: 'personal_info', text: '[REMOVED — PII]', type: 'text', options: '' },
         { id: 'gender_preference', qNum: 'Q4.5', cat: 'personal_info', text: 'تبي تتعرف على:', type: 'radio', options: 'male=ذكر | female=أنثى | any=مايفرق (ذكر أو أنثى عادي)' },
         { id: 'humor_banter_style', qNum: 'Q4.25', cat: 'interaction_style', text: 'في أول 10 دقائق، ما هو الأسلوب الذي يبدو طبيعياً لك؟', type: 'radio', options: 'A=خفة دم وضحك | B=كلام لطيف ومجاملة | C=هدوء وصدق | D=المباشرة والجدية' },
         { id: 'early_openness_comfort', qNum: 'Q4.75', cat: 'interaction_style', text: 'عندما تقابل شخصاً جديداً، ما الذي يبدو مناسباً لك؟', type: 'radio', options: '0=أحتفظ بالأمور الشخصية حتى أتعرف عليهم جيداً | 1=أفضل الحديث السطحي في البداية | 2=أحب المشاركة المتوازنة - مزيج من الخفيف والحقيقي | 3=أنفتح بسرعة وأشارك القصص الشخصية' },
@@ -2002,13 +2002,15 @@ const fetchParticipants = async () => {
 
       // Build header row
       const headers: string[] = [
-        'Phase', 'Phase_Score',
+        'Phase', 'Phase_Label', 'Phase_Score', 'Mutual_Yes', 'Same_Partner_Both_Phases',
         // Person A profile
         'A_Number', 'A_Name', 'A_Gender', 'A_Age', 'A_Nationality', 'A_MBTI_Type', 'A_Attachment_Style', 'A_Communication_Style',
         'A_Humor_Banter_Style', 'A_Early_Openness', 'A_Conversational_Role', 'A_Silence_Comfort', 'A_Intent_Goal',
+        'A_Preferred_Age_Min', 'A_Preferred_Age_Max',
         // Person B profile
         'B_Number', 'B_Name', 'B_Gender', 'B_Age', 'B_Nationality', 'B_MBTI_Type', 'B_Attachment_Style', 'B_Communication_Style',
         'B_Humor_Banter_Style', 'B_Early_Openness', 'B_Conversational_Role', 'B_Silence_Comfort', 'B_Intent_Goal',
+        'B_Preferred_Age_Min', 'B_Preferred_Age_Max',
         // Cached compatibility scores
         'Cached_Total_Score', 'Cached_Synergy_Score', 'Cached_Vibe_Score', 'Cached_Lifestyle_Score',
         'Cached_Communication_Score', 'Cached_Core_Values_Score', 'Cached_Intent_Score',
@@ -2021,30 +2023,26 @@ const fetchParticipants = async () => {
         'A_Match_Preference', 'B_Match_Preference',
       ]
 
-      // Person A survey answers (all 41 questions)
-      questionIds.forEach(qId => {
+      // Person A survey answers (all questions except phone_number which is PII)
+      questionIds.filter(qId => qId !== 'phone_number').forEach(qId => {
         headers.push(`A_${qId}`)
       })
 
-      // Person B survey answers (all 41 questions)
-      questionIds.forEach(qId => {
+      // Person B survey answers (all questions except phone_number)
+      questionIds.filter(qId => qId !== 'phone_number').forEach(qId => {
         headers.push(`B_${qId}`)
       })
 
-      // Person A feedback (event3 structure: wantConnect, conversationQuality, personalConnection, organizerImpression, compatibilityRate, sharedInterests, comfortLevel, communicationStyle, wouldMeetAgain, overallExperience, recommendations, participantMessage)
+      // Person A feedback (event3 — only 3 questions shown to user + organizer note)
       headers.push(
-        'A_Gave_Feedback', 'A_FB_WantConnect', 'A_FB_ConversationQuality', 'A_FB_PersonalConnection',
-        'A_FB_CompatibilityRate', 'A_FB_SharedInterests', 'A_FB_ComfortLevel', 'A_FB_CommunicationStyle',
-        'A_FB_WouldMeetAgain', 'A_FB_OverallExperience', 'A_FB_Recommendations', 'A_FB_ParticipantMessage',
-        'A_FB_OrganizerImpression', 'A_FB_SliderMoved'
+        'A_Gave_Feedback', 'A_FB_ConversationQuality', 'A_FB_PersonalConnection',
+        'A_FB_WantConnect', 'A_FB_OrganizerImpression'
       )
 
       // Person B feedback
       headers.push(
-        'B_Gave_Feedback', 'B_FB_WantConnect', 'B_FB_ConversationQuality', 'B_FB_PersonalConnection',
-        'B_FB_CompatibilityRate', 'B_FB_SharedInterests', 'B_FB_ComfortLevel', 'B_FB_CommunicationStyle',
-        'B_FB_WouldMeetAgain', 'B_FB_OverallExperience', 'B_FB_Recommendations', 'B_FB_ParticipantMessage',
-        'B_FB_OrganizerImpression', 'B_FB_SliderMoved'
+        'B_Gave_Feedback', 'B_FB_ConversationQuality', 'B_FB_PersonalConnection',
+        'B_FB_WantConnect', 'B_FB_OrganizerImpression'
       )
 
       csvContent += headers.join(',') + '\n'
@@ -2057,6 +2055,12 @@ const fetchParticipants = async () => {
         return esc(p[field] ?? sd[field] ?? answers[field] ?? '')
       }
 
+      // Build matchRows lookup for same-partner-both-phases check
+      const matchRowMap = new Map<number, any>()
+      ;(data.matchRows || []).forEach((mr: any) => {
+        matchRowMap.set(mr.participant_number, mr)
+      })
+
       // Data rows — one per established pair
       pairs.forEach((pair: any) => {
         const pA = participantMap.get(pair.a_number)
@@ -2064,10 +2068,28 @@ const fetchParticipants = async () => {
         const cacheKey = `${Math.min(pair.a_number, pair.b_number)}-${Math.max(pair.a_number, pair.b_number)}`
         const cached = cacheScores[cacheKey] || {}
 
+        // Compute mutual yes (both said wantConnect = true)
+        const aWant = pair.a_feedback?.wantConnect === true
+        const bWant = pair.b_feedback?.wantConnect === true
+        const mutualYes = aWant && bWant
+
+        // Compute same partner both phases (check either participant's row)
+        const aMatchRow = matchRowMap.get(pair.a_number)
+        const bMatchRow = matchRowMap.get(pair.b_number)
+        const aSame = aMatchRow && aMatchRow.phase2_partner && aMatchRow.phase3_partner && aMatchRow.phase2_partner === aMatchRow.phase3_partner
+        const bSame = bMatchRow && bMatchRow.phase2_partner && bMatchRow.phase3_partner && bMatchRow.phase2_partner === bMatchRow.phase3_partner
+        const sameBothPhases = !!(aSame || bSame)
+
         const row: string[] = []
 
         // Pair info
-        row.push(esc(pair.phase), esc(pair.phase2_score ?? pair.phase3_score ?? ''))
+        row.push(
+          esc(pair.phase),
+          esc(pair.phase === 'phase2' ? 'Choice' : 'Algorithm'),
+          esc(pair.phase2_score ?? pair.phase3_score ?? ''),
+          esc(mutualYes ? 'YES' : 'NO'),
+          esc(sameBothPhases ? 'YES' : 'NO'),
+        )
 
         // Person A profile (from direct columns + survey_data)
         row.push(
@@ -2084,6 +2106,8 @@ const fetchParticipants = async () => {
           getField(pA, 'conversational_role'),
           getField(pA, 'silence_comfort'),
           getField(pA, 'intent_goal'),
+          getField(pA, 'preferred_age_min'),
+          getField(pA, 'preferred_age_max'),
         )
 
         // Person B profile
@@ -2101,6 +2125,8 @@ const fetchParticipants = async () => {
           getField(pB, 'conversational_role'),
           getField(pB, 'silence_comfort'),
           getField(pB, 'intent_goal'),
+          getField(pB, 'preferred_age_min'),
+          getField(pB, 'preferred_age_max'),
         )
 
         // Cached compatibility scores
@@ -2128,50 +2154,32 @@ const fetchParticipants = async () => {
           esc(pair.b_match_preference ?? ''),
         )
 
-        // Person A survey answers (all 41 questions)
-        questionIds.forEach(qId => {
+        // Person A survey answers (exclude phone_number — PII)
+        questionIds.filter(qId => qId !== 'phone_number').forEach(qId => {
           row.push(getAnswer(pA, qId))
         })
 
-        // Person B survey answers (all 41 questions)
-        questionIds.forEach(qId => {
+        // Person B survey answers (exclude phone_number — PII)
+        questionIds.filter(qId => qId !== 'phone_number').forEach(qId => {
           row.push(getAnswer(pB, qId))
         })
 
-        // Person A feedback (event3 structure)
+        // Person A feedback (event3 — only 3 real questions + organizer note)
         row.push(
           pair.a_feedback ? 'YES' : 'NO',
-          getFb(pair.a_feedback, 'wantConnect'),
           getFb(pair.a_feedback, 'conversationQuality'),
           getFb(pair.a_feedback, 'personalConnection'),
-          getFb(pair.a_feedback, 'compatibilityRate'),
-          getFb(pair.a_feedback, 'sharedInterests'),
-          getFb(pair.a_feedback, 'comfortLevel'),
-          getFb(pair.a_feedback, 'communicationStyle'),
-          getFb(pair.a_feedback, 'wouldMeetAgain'),
-          getFb(pair.a_feedback, 'overallExperience'),
-          getFb(pair.a_feedback, 'recommendations'),
-          getFb(pair.a_feedback, 'participantMessage'),
+          getFb(pair.a_feedback, 'wantConnect'),
           getFb(pair.a_feedback, 'organizerImpression'),
-          getFb(pair.a_feedback, 'sliderMoved'),
         )
 
-        // Person B feedback (event3 structure)
+        // Person B feedback (event3 — only 3 real questions + organizer note)
         row.push(
           pair.b_feedback ? 'YES' : 'NO',
-          getFb(pair.b_feedback, 'wantConnect'),
           getFb(pair.b_feedback, 'conversationQuality'),
           getFb(pair.b_feedback, 'personalConnection'),
-          getFb(pair.b_feedback, 'compatibilityRate'),
-          getFb(pair.b_feedback, 'sharedInterests'),
-          getFb(pair.b_feedback, 'comfortLevel'),
-          getFb(pair.b_feedback, 'communicationStyle'),
-          getFb(pair.b_feedback, 'wouldMeetAgain'),
-          getFb(pair.b_feedback, 'overallExperience'),
-          getFb(pair.b_feedback, 'recommendations'),
-          getFb(pair.b_feedback, 'participantMessage'),
+          getFb(pair.b_feedback, 'wantConnect'),
           getFb(pair.b_feedback, 'organizerImpression'),
-          getFb(pair.b_feedback, 'sliderMoved'),
         )
 
         csvContent += row.join(',') + '\n'

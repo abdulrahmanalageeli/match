@@ -4623,7 +4623,7 @@ export default function Event3Page() {
 
   const handleWelcomeDone = useCallback(() => {
     setShowWelcome(false)
-    setShowAiWelcome(true)
+    // setShowAiWelcome(true) // temporarily disabled
   }, [])
 
   if (showWelcome) return <WelcomeScreen onDone={handleWelcomeDone} />

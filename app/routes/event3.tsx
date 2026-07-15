@@ -137,26 +137,35 @@ function useApiPoll<T>(
   const currentInterval = useRef(interval)
   const stopped = useRef(false)
 
+  // Use refs for callback/option values that may change identity every render
+  // (e.g. inline arrow functions) to avoid restarting the polling effect.
+  const stopWhenRef = useRef(stopWhen)
+  const enabledRef = useRef(enabled)
+  const onErrorRef = useRef(onError)
+  stopWhenRef.current = stopWhen
+  enabledRef.current = enabled
+  onErrorRef.current = onError
+
   const fetchOnce = useCallback(async (isRetry = false) => {
-    if (!enabled) return
+    if (!enabledRef.current) return
     if (isRetry) setLoading(true)
     try {
       const d = await fetcher()
       setData(d)
       setError(null)
       currentInterval.current = interval
-      if (stopWhen && stopWhen(d)) stopped.current = true
+      if (stopWhenRef.current && stopWhenRef.current(d)) stopped.current = true
       setRetryCount(0)
     } catch (err: any) {
       const msg = err?.message || "فشل الاتصال"
       setError(msg)
-      onError?.(err)
+      onErrorRef.current?.(err)
       currentInterval.current = Math.min(currentInterval.current * 1.5, maxInterval)
       setRetryCount(c => c + 1)
     } finally {
       setLoading(false)
     }
-  }, [fetcher, enabled, interval, maxInterval, stopWhen, onError])
+  }, [fetcher, interval, maxInterval])
 
   useEffect(() => {
     if (!enabled) return

@@ -77,8 +77,10 @@ function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
   // Original max weights for scaling
   const originalMax: Record<string, number> = { synergy: 35, vibe: 20, lifestyle: 15, humorOpen: 15, communication: 10, coreValues: 5, intent: 5 }
 
-  // Compute recalculated score for a pair given current weights
-  const recalcScore = (pair: any) => {
+  const defaultWeights = { synergy: 35, vibe: 20, lifestyle: 15, humorOpen: 15, communication: 10, coreValues: 5, intent: 5 }
+
+  // Compute recalculated score for a pair given specific weights
+  const recalcScore = (pair: any, w: typeof weights) => {
     const cacheKey = `${Math.min(pair.a_number, pair.b_number)}-${Math.max(pair.a_number, pair.b_number)}`
     const cached = cacheScores[cacheKey] || {}
     const rawSynergy = cached.synergy ?? 0
@@ -93,7 +95,7 @@ function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
     // Scale each component from its original max to the new max
     const scale = (raw: number, key: string) => {
       const origMax = originalMax[key]
-      const newMax = weights[key as keyof typeof weights]
+      const newMax = w[key as keyof typeof w]
       if (origMax === 0 || newMax === 0) return 0
       return (raw / origMax) * newMax
     }
@@ -127,7 +129,7 @@ function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
     total += scale(rawIntent, 'intent')
 
     // Veto caps — scale proportionally to new max total
-    const newMaxTotal = Object.values(weights).reduce((a, b) => a + b, 0)
+    const newMaxTotal = Object.values(w).reduce((a, b) => a + b, 0)
     const vetoScale = newMaxTotal / 100
     const getAns = (p: any, k: string) => (p?.survey_data?.answers?.[k] ?? p?.[k] ?? '').toString().toUpperCase()
     const a35 = getAns(pA, 'conversational_role')
@@ -223,8 +225,9 @@ function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
                 <tr className="text-left text-gray-400 border-b border-white/10">
                   <th className="py-2 pr-2">Pair</th>
                   <th className="py-2 pr-2">Phase</th>
-                  <th className="py-2 pr-2 text-right">Orig Score</th>
-                  <th className="py-2 pr-2 text-right">New Score</th>
+                  <th className="py-2 pr-2 text-right">Cached</th>
+                  <th className="py-2 pr-2 text-right">Base</th>
+                  <th className="py-2 pr-2 text-right">New</th>
                   <th className="py-2 pr-2 text-right">Δ</th>
                   <th className="py-2 pr-2">Synergy</th>
                   <th className="py-2 pr-2">Vibe</th>
@@ -242,8 +245,9 @@ function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
                 {sortedPairs.map((pair: any, i: number) => {
                   const cacheKey = `${Math.min(pair.a_number, pair.b_number)}-${Math.max(pair.a_number, pair.b_number)}`
                   const cached = cacheScores[cacheKey] || {}
-                  const origScore = Math.round(cached.total ?? 0)
-                  const newScore = recalcScore(pair)
+                  const cachedScore = Math.round(cached.total ?? 0)
+                  const origScore = recalcScore(pair, defaultWeights)
+                  const newScore = recalcScore(pair, weights)
                   const delta = newScore - origScore
                   const pA = participantMap.get(pair.a_number)
                   const pB = participantMap.get(pair.b_number)
@@ -268,6 +272,7 @@ function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
                         </span>
                         {sameBoth && <span className="ml-1 px-1 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 font-bold">Same</span>}
                       </td>
+                      <td className="py-2 pr-2 text-right text-gray-500 text-[10px]">{cachedScore}</td>
                       <td className="py-2 pr-2 text-right font-bold text-gray-300">{origScore}</td>
                       <td className="py-2 pr-2 text-right font-bold text-indigo-300">{newScore}</td>
                       <td className={`py-2 pr-2 text-right font-bold ${delta > 0 ? 'text-green-400' : delta < 0 ? 'text-red-400' : 'text-gray-500'}`}>
@@ -309,8 +314,8 @@ function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
                 sortedPairs.forEach((pair: any) => {
                   const cacheKey = `${Math.min(pair.a_number, pair.b_number)}-${Math.max(pair.a_number, pair.b_number)}`
                   const cached = cacheScores[cacheKey] || {}
-                  const orig = Math.round(cached.total ?? 0)
-                  const nw = recalcScore(pair)
+                  const orig = recalcScore(pair, defaultWeights)
+                  const nw = recalcScore(pair, weights)
                   totalOrig += orig
                   totalNew += nw
                   if (nw > orig) improved++

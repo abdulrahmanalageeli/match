@@ -2800,6 +2800,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   const [showSessionTips, setShowSessionTips] = useState(false)
   const [rejoined, setRejoined] = useState(false)
   const [icebreakerDone, setIcebreakerDone] = useState(false)
+  const [showTimeWarning, setShowTimeWarning] = useState(false)
 
   useEffect(() => {
     call("e3-get-phase2-reveal", token).then(d => {
@@ -2820,6 +2821,16 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
     const iv = setInterval(update, 1000)
     return () => clearInterval(iv)
   }, [timerActive, timerStart, timerDuration])
+
+  // Timer warnings: sound + vibration at key intervals
+  useEffect(() => {
+    if (!timerActive || view !== 'session') return
+    const totalMin = Math.floor(timerDuration / 60)
+    if (timeLeft === 300 && totalMin > 5) { vibrate(150); playTimerWarningSound() }
+    if (timeLeft === 60) { vibrate([100, 50, 100]); playTimerWarningSound(); setShowTimeWarning(true) }
+    if (timeLeft === 10) { vibrate(200) }
+    if (timeLeft === 0) { vibrate([300, 100, 300]); playTimerUrgentSound() }
+  }, [timeLeft, timerActive, timerDuration, view])
 
   // Auto-rejoin sync: if timer already running when component mounts, jump to correct view
   // Only auto-rejoin if the participant had already clicked "وصلت إلى الطاولة" before refresh
@@ -3209,6 +3220,38 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                     </motion.div>
                   )}
 
+                  {/* Time warning banner */}
+                  <AnimatePresence>
+                    {showTimeWarning && view === 'session' && timeLeft > 0 && timeLeft <= 60 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10, height: 0, scale: 0.95 }} animate={{ opacity: 1, y: 0, height: 'auto', scale: 1 }} exit={{ opacity: 0, y: -10, height: 0, scale: 0.95 }}
+                        transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                        className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-red-950/90 via-rose-950/80 to-red-950/70 border border-red-500/30 backdrop-blur-md px-4 py-3 flex items-center gap-3"
+                        style={{ boxShadow: "0 0 20px rgba(239,68,68,0.15), inset 0 1px 0 rgba(255,255,255,0.05)" }}
+                      >
+                        <motion.div animate={{ scale: [1, 1.2, 1], rotate: [0, -5, 5, 0] }} transition={{ duration: 1.5, repeat: Infinity }}
+                          className="w-9 h-9 rounded-xl bg-gradient-to-br from-red-500/30 to-rose-600/20 border border-red-400/30 flex items-center justify-center shrink-0"
+                          style={{ boxShadow: "0 0 12px rgba(239,68,68,0.3)" }}>
+                          <Timer size={16} className="text-red-300" />
+                        </motion.div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-red-200 text-xs font-bold tracking-wide">باقي {timeLeft} ثانية — استعد لإنهاء الجلسة</p>
+                          <p className="text-red-400/50 text-[10px] mt-0.5">سيتم نقلك للتقييم تلقائياً عند انتهاء الوقت</p>
+                        </div>
+                        <button onClick={() => setShowTimeWarning(false)} className="text-red-500/40 hover:text-red-300 transition-colors flex-shrink-0 p-1">
+                          <X size={14} />
+                        </button>
+                        {/* Countdown progress bar */}
+                        <motion.div
+                          className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-red-500 via-rose-500 to-red-400"
+                          style={{ boxShadow: "0 0 6px rgba(239,68,68,0.6)" }}
+                          animate={{ width: `${(timeLeft / 60) * 100}%` }}
+                          transition={{ duration: 1, ease: "linear" }}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
                   {/* Tips + Questions */}
                   <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
                     <AnimatePresence>
@@ -3283,6 +3326,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   const [showSessionTips, setShowSessionTips] = useState(false)
   const [rejoined, setRejoined] = useState(false)
   const [icebreakerDone, setIcebreakerDone] = useState(false)
+  const [showTimeWarning, setShowTimeWarning] = useState(false)
 
   const fetchReveal = useCallback(async () => {
     const d = await call("e3-get-phase3-reveal", token)
@@ -3309,6 +3353,16 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
     const iv = setInterval(update, 1000)
     return () => clearInterval(iv)
   }, [timerActive, timerStart, timerDuration])
+
+  // Timer warnings: sound + vibration at key intervals
+  useEffect(() => {
+    if (!timerActive || view !== 'session') return
+    const totalMin = Math.floor(timerDuration / 60)
+    if (timeLeft === 300 && totalMin > 5) { vibrate(150); playTimerWarningSound() }
+    if (timeLeft === 60) { vibrate([100, 50, 100]); playTimerWarningSound(); setShowTimeWarning(true) }
+    if (timeLeft === 10) { vibrate(200) }
+    if (timeLeft === 0) { vibrate([300, 100, 300]); playTimerUrgentSound() }
+  }, [timeLeft, timerActive, timerDuration, view])
 
   // Auto-rejoin sync: show the table number before the session when returning
   // Only auto-rejoin if the participant had already clicked "وصلت إلى الطاولة" before refresh
@@ -3670,6 +3724,38 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                     </motion.div>
                   )}
 
+                  {/* Time warning banner */}
+                  <AnimatePresence>
+                    {showTimeWarning && view === 'session' && timeLeft > 0 && timeLeft <= 60 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10, height: 0, scale: 0.95 }} animate={{ opacity: 1, y: 0, height: 'auto', scale: 1 }} exit={{ opacity: 0, y: -10, height: 0, scale: 0.95 }}
+                        transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                        className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-red-950/90 via-rose-950/80 to-red-950/70 border border-red-500/30 backdrop-blur-md px-4 py-3 flex items-center gap-3"
+                        style={{ boxShadow: "0 0 20px rgba(239,68,68,0.15), inset 0 1px 0 rgba(255,255,255,0.05)" }}
+                      >
+                        <motion.div animate={{ scale: [1, 1.2, 1], rotate: [0, -5, 5, 0] }} transition={{ duration: 1.5, repeat: Infinity }}
+                          className="w-9 h-9 rounded-xl bg-gradient-to-br from-red-500/30 to-rose-600/20 border border-red-400/30 flex items-center justify-center shrink-0"
+                          style={{ boxShadow: "0 0 12px rgba(239,68,68,0.3)" }}>
+                          <Timer size={16} className="text-red-300" />
+                        </motion.div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-red-200 text-xs font-bold tracking-wide">باقي {timeLeft} ثانية — استعد لإنهاء الجلسة</p>
+                          <p className="text-red-400/50 text-[10px] mt-0.5">سيتم نقلك للتقييم تلقائياً عند انتهاء الوقت</p>
+                        </div>
+                        <button onClick={() => setShowTimeWarning(false)} className="text-red-500/40 hover:text-red-300 transition-colors flex-shrink-0 p-1">
+                          <X size={14} />
+                        </button>
+                        {/* Countdown progress bar */}
+                        <motion.div
+                          className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-red-500 via-rose-500 to-red-400"
+                          style={{ boxShadow: "0 0 6px rgba(239,68,68,0.6)" }}
+                          animate={{ width: `${(timeLeft / 60) * 100}%` }}
+                          transition={{ duration: 1, ease: "linear" }}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
                   {/* Tips + Questions */}
                   <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
                     <AnimatePresence>
@@ -3779,6 +3865,7 @@ function BreakScreen({ timerActive, timerStart, timerDuration }: {
   timerActive: boolean; timerStart: string | null; timerDuration: number
 }) {
   const [timeLeft, setTimeLeft] = useState(0)
+  const [showBreakWarning, setShowBreakWarning] = useState(false)
 
   useEffect(() => {
     if (!timerActive || !timerStart) { setTimeLeft(0); return }
@@ -3790,6 +3877,16 @@ function BreakScreen({ timerActive, timerStart, timerDuration }: {
     const iv = setInterval(update, 1000)
     return () => clearInterval(iv)
   }, [timerActive, timerStart, timerDuration])
+
+  // Timer warnings: sound + vibration at key intervals
+  useEffect(() => {
+    if (!timerActive) return
+    const totalMin = Math.floor(timerDuration / 60)
+    if (timeLeft === 300 && totalMin > 5) { vibrate(150); playTimerWarningSound() }
+    if (timeLeft === 60) { vibrate([100, 50, 100]); playTimerWarningSound(); setShowBreakWarning(true) }
+    if (timeLeft === 10) { vibrate(200) }
+    if (timeLeft === 0) { vibrate([300, 100, 300]); playTimerUrgentSound() }
+  }, [timeLeft, timerActive, timerDuration])
 
   const mins = Math.floor(timeLeft / 60)
   const secs = timeLeft % 60
@@ -3819,15 +3916,50 @@ function BreakScreen({ timerActive, timerStart, timerDuration }: {
 
         {timerActive && timeLeft > 0 ? (
           <div className="mb-8">
-            <div className="text-5xl font-bold text-teal-400 font-mono mb-4">
+            <motion.div
+              animate={timeLeft <= 60 ? { scale: [1, 1.03, 1] } : {}}
+              transition={timeLeft <= 60 ? { duration: 1, repeat: Infinity } : {}}
+              className={`text-5xl font-bold font-mono mb-4 ${timeLeft <= 60 ? 'text-amber-400' : 'text-teal-400'}`}
+              style={timeLeft <= 60 ? { textShadow: "0 0 20px rgba(251,191,36,0.3)" } : {}}
+            >
               {String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
-            </div>
+            </motion.div>
             <div className="h-2 bg-teal-950/60 rounded-full overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-teal-400 to-cyan-400 rounded-full transition-all duration-1000"
+                className={`h-full rounded-full transition-all duration-1000 ${timeLeft <= 60 ? 'bg-gradient-to-r from-amber-400 to-orange-400' : 'bg-gradient-to-r from-teal-400 to-cyan-400'}`}
                 style={{ width: `${pct}%` }}
               />
             </div>
+            <AnimatePresence>
+              {showBreakWarning && timeLeft > 0 && timeLeft <= 60 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10, height: 0, scale: 0.95 }} animate={{ opacity: 1, y: 0, height: 'auto', scale: 1 }} exit={{ opacity: 0, y: -10, height: 0, scale: 0.95 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                  className="relative overflow-hidden mt-4 rounded-2xl bg-gradient-to-br from-amber-950/90 via-orange-950/80 to-amber-950/70 border border-amber-500/30 backdrop-blur-md px-4 py-3 flex items-center gap-3"
+                  style={{ boxShadow: "0 0 20px rgba(251,191,36,0.15), inset 0 1px 0 rgba(255,255,255,0.05)" }}
+                >
+                  <motion.div animate={{ scale: [1, 1.2, 1], rotate: [0, -5, 5, 0] }} transition={{ duration: 1.5, repeat: Infinity }}
+                    className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500/30 to-orange-600/20 border border-amber-400/30 flex items-center justify-center shrink-0"
+                    style={{ boxShadow: "0 0 12px rgba(251,191,36,0.3)" }}>
+                    <Timer size={16} className="text-amber-300" />
+                  </motion.div>
+                  <div className="flex-1 text-right min-w-0">
+                    <p className="text-amber-200 text-xs font-bold tracking-wide">باقي {timeLeft} ثانية — استعد للعودة</p>
+                    <p className="text-amber-400/50 text-[10px] mt-0.5">المرحلة التالية ستبدأ قريباً</p>
+                  </div>
+                  <button onClick={() => setShowBreakWarning(false)} className="text-amber-500/40 hover:text-amber-300 transition-colors flex-shrink-0 p-1">
+                    <X size={14} />
+                  </button>
+                  {/* Countdown progress bar */}
+                  <motion.div
+                    className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-amber-500 via-orange-500 to-amber-400"
+                    style={{ boxShadow: "0 0 6px rgba(251,191,36,0.6)" }}
+                    animate={{ width: `${(timeLeft / 60) * 100}%` }}
+                    transition={{ duration: 1, ease: "linear" }}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         ) : (
           <div className="mb-8 text-gray-500 text-sm">

@@ -312,6 +312,11 @@
   }
   .animate-heartbeat { animation: heartbeat 2.6s ease-in-out infinite; }
 
+  @keyframes timerPopupBar {
+    0%   { width: 100%; }
+    100% { width: 0%; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .animate-bg-pan, .animate-pulse-slow, .animate-float-particle, .animate-float-particle-reverse {
       animation: none !important;

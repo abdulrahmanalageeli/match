@@ -8394,6 +8394,10 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           }
 
           // Delete all test data for this event
+          // First fetch test participant numbers so we can clean their survey_data
+          const { data: testEps } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          const testNums = (testEps || []).map(r => r.participant_number)
+
           await Promise.all([
             supabase.from("event3_participants").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
             supabase.from("event3_matches").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
@@ -8403,6 +8407,18 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             supabase.from("event3_notifications").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
             supabase.from("event3_exclusions").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
           ])
+
+          // Clean up AI welcome messages from test participants' survey_data
+          if (testNums.length > 0) {
+            const { data: testPInfos } = await supabase.from("participants").select("assigned_number,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", testNums)
+            for (const p of (testPInfos || [])) {
+              const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {})
+              if (sd?._ai_welcome_event3) {
+                delete sd._ai_welcome_event3
+                await supabase.from("participants").update({ survey_data: sd }).eq("assigned_number", p.assigned_number).eq("match_id", STATIC_MATCH_ID)
+              }
+            }
+          }
 
           // Reset event state to setup and clear test mode
           await supabase.from("event_state").update({
@@ -8468,14 +8484,14 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           const result = numbers.map(num => {
             const p = (pInfos || []).find(x => x.assigned_number === num)
             const sd = typeof p?.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p?.survey_data || {})
-            const hasWelcome = !!(sd?._ai_welcome)
+            const hasWelcome = !!(sd?._ai_welcome_event3)
             return {
               number: num,
               name: p?.name || `#${num}`,
               gender: p?.gender || "?",
               age: p?.age || "?",
               has_welcome: hasWelcome,
-              welcome: hasWelcome ? sd._ai_welcome : null,
+              welcome: hasWelcome ? sd._ai_welcome_event3 : null,
               has_survey: !!(sd && Object.keys(sd).length > 0),
             }
           })
@@ -8497,8 +8513,8 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             if (!p) { results.push({ number: num, status: "error", error: "Not found" }); continue }
 
             const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {})
-            if (sd?._ai_welcome && !regenerate) {
-              results.push({ number: num, name: p.name, status: "cached", welcome: sd._ai_welcome })
+            if (sd?._ai_welcome_event3 && !regenerate) {
+              results.push({ number: num, name: p.name, status: "cached", welcome: sd._ai_welcome_event3 })
               continue
             }
 
@@ -8556,7 +8572,7 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
               const message = completion.choices[0]?.message?.content?.trim()
               if (!message) throw new Error("Empty response")
 
-              const updatedSd = { ...sd, _ai_welcome: message }
+              const updatedSd = { ...sd, _ai_welcome_event3: message }
               await supabase.from("participants").update({ survey_data: updatedSd }).eq("assigned_number", num).eq("match_id", STATIC_MATCH_ID)
 
               results.push({ number: num, name: p.name, status: "generated", welcome: message })
@@ -8579,7 +8595,7 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           if (pErr) return res.status(500).json({ error: pErr.message })
 
           const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {})
-          delete sd._ai_welcome
+          delete sd._ai_welcome_event3
           await supabase.from("participants").update({ survey_data: sd }).eq("assigned_number", participant_number).eq("match_id", STATIC_MATCH_ID)
 
           return res.status(200).json({ success: true })

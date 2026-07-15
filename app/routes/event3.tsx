@@ -256,18 +256,15 @@ function TimerWarningPopup({ seconds, label, sublabel, theme = "red", onDone }: 
     teal:   { bg: "from-teal-950/95 via-cyan-950/90 to-teal-950/80", border: "border-teal-500/30", glow: "rgba(20,184,166,0.2)", iconBg: "from-teal-500/30 to-cyan-600/20", iconBorder: "border-teal-400/30", iconColor: "text-teal-300", iconGlow: "rgba(20,184,166,0.4)", text: "text-teal-200", sub: "text-teal-400/50", bar: "from-teal-500 via-cyan-500 to-teal-400", barGlow: "rgba(20,184,166,0.6)" },
   }
   const t = themes[theme]
-  const [progress, setProgress] = useState(100)
+  const onDoneRef = useRef(onDone)
+  onDoneRef.current = onDone
 
   useEffect(() => {
-    const start = Date.now()
-    const duration = 3000
-    const iv = setInterval(() => {
-      const elapsed = Date.now() - start
-      setProgress(Math.max(0, 100 - (elapsed / duration) * 100))
-      if (elapsed >= duration) { clearInterval(iv); onDone?.() }
-    }, 16)
-    return () => clearInterval(iv)
-  }, [onDone])
+    const timer = setTimeout(() => onDoneRef.current?.(), 3000)
+    return () => clearTimeout(timer)
+  }, [])
+
+  const dismiss = () => onDoneRef.current?.()
 
   return (
     <motion.div
@@ -275,6 +272,7 @@ function TimerWarningPopup({ seconds, label, sublabel, theme = "red", onDone }: 
       transition={{ duration: 0.2 }}
       className="fixed inset-0 z-[200] flex items-center justify-center px-6"
       style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+      onClick={dismiss}
     >
       <motion.div
         initial={{ scale: 0.7, y: 30, opacity: 0 }}
@@ -283,6 +281,7 @@ function TimerWarningPopup({ seconds, label, sublabel, theme = "red", onDone }: 
         transition={{ type: "spring", stiffness: 350, damping: 22 }}
         className={`relative overflow-hidden w-full max-w-xs rounded-3xl bg-gradient-to-br ${t.bg} border ${t.border} backdrop-blur-xl px-6 py-8 flex flex-col items-center text-center`}
         style={{ boxShadow: `0 0 40px ${t.glow}, inset 0 1px 0 rgba(255,255,255,0.06)` }}
+        onClick={e => e.stopPropagation()}
       >
         {/* Animated rings behind icon */}
         <motion.div
@@ -337,13 +336,14 @@ function TimerWarningPopup({ seconds, label, sublabel, theme = "red", onDone }: 
           </motion.p>
         )}
 
-        {/* Auto-dismiss progress bar */}
+        {/* Auto-dismiss progress bar — single CSS animation, no state updates */}
         <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/20">
-          <motion.div
+          <div
             className={`h-full bg-gradient-to-r ${t.bar}`}
-            style={{ boxShadow: `0 0 8px ${t.barGlow}` }}
-            animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.016, ease: "linear" }}
+            style={{
+              boxShadow: `0 0 8px ${t.barGlow}`,
+              animation: "timerPopupBar 3s linear forwards",
+            }}
           />
         </div>
       </motion.div>
@@ -4853,6 +4853,7 @@ export default function Event3Page() {
   const [myInfo, setMyInfo] = useState<{ number: number; name: string; gender: string | null } | null>(null)
   const [isOffline, setIsOffline] = useState(false)
   const [tokenError, setTokenError] = useState(false)
+  const aiWelcomeSeenKey = token ? `e3_ai_welcome_seen_${token}` : null
 
   const fetchState = useCallback(async () => {
     if (!token) throw new Error("No token")
@@ -4911,8 +4912,10 @@ export default function Event3Page() {
 
   const handleWelcomeDone = useCallback(() => {
     setShowWelcome(false)
+    // Only show AI welcome if not already seen for this token
+    if (aiWelcomeSeenKey && localStorage.getItem(aiWelcomeSeenKey) === "1") return
     setShowAiWelcome(true)
-  }, [])
+  }, [aiWelcomeSeenKey])
 
   if (showWelcome) return <WelcomeScreen onDone={handleWelcomeDone} />
   if (!token || tokenError) return <PhoneEntry onToken={t => { setToken(t); setTokenError(false) }} />
@@ -4994,7 +4997,10 @@ export default function Event3Page() {
       {enrolled && token && <NotificationModal token={token} />}
 
       {/* AI Welcome popup — shows once after welcome screen */}
-      {showAiWelcome && token && <AiWelcomePopup token={token} onDone={() => setShowAiWelcome(false)} />}
+      {showAiWelcome && token && <AiWelcomePopup token={token} onDone={() => {
+        if (aiWelcomeSeenKey) localStorage.setItem(aiWelcomeSeenKey, "1")
+        setShowAiWelcome(false)
+      }} />}
     </div>
   )
 }

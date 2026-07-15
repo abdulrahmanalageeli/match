@@ -4092,6 +4092,150 @@ function FinalRevealScreen({ token }: { token: string }) {
   )
 }
 
+// ─── AI Welcome Popup ─────────────────────────────────────────────────────────
+function AiWelcomePopup({ token, onDone }: { token: string; onDone: () => void }) {
+  const [message, setMessage] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [typed, setTyped] = useState("")
+  const [typing, setTyping] = useState(false)
+  const [done, setDone] = useState(false)
+  const [closing, setClosing] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    call("e3-ai-welcome", token).then(d => {
+      if (!active) return
+      if (d.success && d.message) {
+        setMessage(d.message)
+        setLoading(false)
+      } else {
+        // If AI fails, just skip the popup
+        onDone()
+      }
+    }).catch(() => { if (active) onDone() })
+    return () => { active = false }
+  }, [token])
+
+  // Typewriter effect
+  useEffect(() => {
+    if (!message) return
+    setTyped("")
+    setTyping(true)
+    let i = 0
+    const speed = 28
+    const iv = setInterval(() => {
+      i++
+      setTyped(message.slice(0, i))
+      if (i >= message.length) {
+        clearInterval(iv)
+        setTyping(false)
+        setDone(true)
+      }
+    }, speed)
+    return () => clearInterval(iv)
+  }, [message])
+
+  const dismiss = () => {
+    setClosing(true)
+    setTimeout(() => onDone(), 300)
+  }
+
+  if (loading || !message) return null
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: closing ? 0 : 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[290] bg-black/60 backdrop-blur-md flex items-center justify-center p-5"
+        onClick={done ? dismiss : undefined}
+      >
+        <motion.div
+          initial={{ scale: 0.85, y: 30, opacity: 0 }}
+          animate={{ scale: closing ? 0.9 : 1, y: closing ? 15 : 0, opacity: closing ? 0.5 : 1 }}
+          transition={{ type: "spring", stiffness: 280, damping: 24 }}
+          onClick={e => e.stopPropagation()}
+          className="w-full max-w-sm rounded-3xl overflow-hidden border border-white/[0.08] bg-gradient-to-br from-gray-900 via-purple-950/40 to-gray-950 shadow-2xl shadow-purple-900/30"
+          dir="rtl"
+        >
+          {/* Animated gradient header */}
+          <div className="relative px-6 pt-6 pb-4 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-600/20 via-pink-600/15 to-transparent" />
+            <motion.div
+              className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-purple-500/20 blur-2xl"
+              animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <div className="relative flex items-center gap-3">
+              <motion.div
+                initial={{ scale: 0, rotate: -20 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ delay: 0.1, type: "spring", stiffness: 300, damping: 15 }}
+                className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center shadow-lg shadow-purple-600/30 shrink-0"
+              >
+                <Sparkles size={22} className="text-white" />
+              </motion.div>
+              <div>
+                <motion.p
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="text-white font-black text-base"
+                >
+                  ذكاء
+                </motion.p>
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.3 }}
+                  className="text-purple-300/70 text-[11px]"
+                >
+                  مساعدك الذكي في الفعالية
+                </motion.p>
+              </div>
+            </div>
+          </div>
+
+          {/* Message body with typewriter */}
+          <div className="px-6 pb-5 min-h-[100px] flex items-center">
+            <p className="text-gray-200 text-sm leading-relaxed text-right whitespace-pre-wrap">
+              {typed}
+              {typing && (
+                <motion.span
+                  animate={{ opacity: [1, 0, 1] }}
+                  transition={{ duration: 0.6, repeat: Infinity }}
+                  className="inline-block w-0.5 h-4 bg-purple-400 mr-0.5 align-middle rounded-full"
+                />
+              )}
+            </p>
+          </div>
+
+          {/* Dismiss button — appears after typing completes */}
+          <AnimatePresence>
+            {done && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="px-6 pb-6"
+              >
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={dismiss}
+                  className="w-full py-3.5 rounded-2xl font-bold text-sm bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white transition-all shadow-lg shadow-purple-600/20"
+                >
+                  يلا نبدأ ←
+                </motion.button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  )
+}
+
 // ─── Not Enrolled Screen ──────────────────────────────────────────────────────
 function NotEnrolledScreen() {
   return (
@@ -4319,6 +4463,7 @@ export default function Event3Page() {
   })
 
   const [showWelcome, setShowWelcome] = useState(true)
+  const [showAiWelcome, setShowAiWelcome] = useState(false)
   const [enrolled, setEnrolled] = useState<boolean | null>(null)
   const [myInfo, setMyInfo] = useState<{ number: number; name: string; gender: string | null } | null>(null)
   const [isOffline, setIsOffline] = useState(false)
@@ -4381,6 +4526,7 @@ export default function Event3Page() {
 
   const handleWelcomeDone = useCallback(() => {
     setShowWelcome(false)
+    setShowAiWelcome(true)
   }, [])
 
   if (showWelcome) return <WelcomeScreen onDone={handleWelcomeDone} />
@@ -4461,6 +4607,9 @@ export default function Event3Page() {
       {enrolled && token && <MoodCheckModal token={token} name={myInfo?.name} />}
       {/* Notification popup — polls for admin-sent notifications */}
       {enrolled && token && <NotificationModal token={token} />}
+
+      {/* AI Welcome popup — shows once after welcome screen */}
+      {showAiWelcome && token && <AiWelcomePopup token={token} onDone={() => setShowAiWelcome(false)} />}
     </div>
   )
 }

@@ -3392,6 +3392,80 @@ Please respond in JSON format:
         return res.status(200).json({ message: "Notification seen" })
       }
 
+      // e3-ai-welcome — generate personalized fun welcome message
+      if (action === "e3-ai-welcome") {
+        if (!participant) return res.status(401).json({ error: "Invalid token" })
+
+        // Check sessionStorage-like cache: store in event3_notifications as a special type
+        // Actually, use a simple Supabase check on participant's survey_data for cached welcome
+        const sd = typeof participant.survey_data === "string" ? JSON.parse(participant.survey_data || "{}") : (participant.survey_data || {})
+        const cachedWelcome = sd?._ai_welcome
+        if (cachedWelcome) {
+          return res.status(200).json({ success: true, message: cachedWelcome, cached: true })
+        }
+
+        const getAns = (p, key) => p.survey_data?.answers?.[key] || p.survey_data?.[key] || ""
+        const fullName = participant.name || sd?.answers?.name || sd?.name || ""
+        const firstName = fullName.trim().split(/\s+/)[0] || "صديقنا"
+        const gender = participant.gender || sd?.answers?.gender || sd?.gender || ""
+        const age = participant.age || sd?.answers?.age || sd?.age || ""
+        const hobbies = getAns({ survey_data: sd }, "vibe_2") || ""
+        const weekend = getAns({ survey_data: sd }, "vibe_1") || ""
+        const music = getAns({ survey_data: sd }, "vibe_3") || ""
+        const personality = getAns({ survey_data: sd }, "vibe_5") || ""
+
+        const prompt = `أنت "ذكاء" — مساعد ذكي وممتع يعرف الثقافة السعودية تماماً، خاصة لهجة الرياض وأجواءها.
+
+مهمتك: تكتب رسالة ترحيب قصيرة وممتعة لشخص اسمه "${firstName}" انضم لتوّه لفعالية "التوافق الأعمى".
+
+معلومات عن ${firstName}:
+- الجنس: ${gender === "male" ? "ذكر" : gender === "female" ? "أنثى" : "غير محدد"}
+- العمر: ${age || "غير محدد"}
+- الهوايات: ${hobbies || "غير محدد"}
+- كيف يقضي Weekend: ${weekend || "غير محدد"}
+- ذوقه الموسيقي: ${music || "غير محدد"}
+- كيف يصفه أصدقاؤه: ${personality || "غير محدد"}
+
+اكتب رسالة ترحيب (60-90 كلمة) بلهجة سعودية بيضاء رايقة وممتعة. شروط الرسالة:
+
+1. ناده باسمه "${firstName}" في البداية بطريقة ممتعة
+2. اذكر شيئاً من هواياته أو شخصيته بشكل ذكي (لا تسرد، وظّفها بأسلوب مضحك خفيف)
+3. رحّب به في الفعالية بطريقة تشوّقه (بدون كشف تفاصيل الفعالية)
+4. اختم بجملة قصيرة تحفّزه
+
+🚫 ممنوعات صارمة:
+- ممنوع كلام عن الحب، العاطفة، الزواج، أو أي إيحاء رومانسي
+- ممنوع كلام محرج أو غير لائق
+- ممنوع عبارات مستهلكة مثل "أهلاً وسهلاً"، "نتمنى لك وقتاً ممتعاً"
+- ممنوع الإطالة — كن موجزاً وذاكياً
+- ممنوع ذكر أنك AI أو ذكاء اصطناعي — أنت "ذكاء" فقط
+
+الهدف: يقرأها ${firstName} ويضحك ويقول "حلو! هذا الشي ممتاز"`
+
+        try {
+          const completion = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: prompt }],
+            max_completion_tokens: 250,
+            temperature: 0.9,
+            presence_penalty: 0.7,
+            frequency_penalty: 0.4,
+          })
+
+          const message = completion.choices[0]?.message?.content?.trim()
+          if (!message) throw new Error("AI generated empty welcome")
+
+          // Cache in survey_data
+          const updatedSd = { ...sd, _ai_welcome: message }
+          await supabase.from("participants").update({ survey_data: updatedSd }).eq("secure_token", token).eq("match_id", MAIN_MATCH)
+
+          return res.status(200).json({ success: true, message, cached: false })
+        } catch (aiErr) {
+          console.error("e3-ai-welcome AI error:", aiErr)
+          return res.status(200).json({ success: false, message: null })
+        }
+      }
+
       return res.status(400).json({ error: `Unknown e3 action: ${action}` })
     } catch (e3err) {
       console.error("e3 participant error:", e3err)

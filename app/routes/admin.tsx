@@ -44,7 +44,8 @@ import {
   Calendar,
   CalendarCheck,
   AlertTriangle,
-  History
+  History,
+  SlidersHorizontal
 } from "lucide-react"
 import ParticipantResultsModal from "~/components/ParticipantResultsModal"
 import GroupAssignmentsModal from "~/components/GroupAssignmentsModal"
@@ -54,6 +55,298 @@ import VibeFixModal from "~/components/VibeFixModal"
 import WhatsappMessageModal from '~/components/WhatsappMessageModal';
 import ParticipantQRModal from "~/components/ParticipantQRModal"
 import ParticipantProfileModal from "~/components/ParticipantProfileModal"
+
+// ─── Match Analyzer Modal ───────────────────────────────────────────────────
+function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
+  data: any
+  weights: { synergy: number; vibe: number; lifestyle: number; humorOpen: number; communication: number; coreValues: number; intent: number }
+  setWeights: (w: any) => void
+  onClose: () => void
+}) {
+  const pairs = data.pairs || []
+  const participants = data.participants || []
+  const cacheScores = data.cacheScores || {}
+  const matchRows = data.matchRows || []
+
+  const participantMap = new Map<number, any>()
+  participants.forEach((p: any) => participantMap.set(p.assigned_number, p))
+
+  const matchRowMap = new Map<number, any>()
+  matchRows.forEach((mr: any) => matchRowMap.set(mr.participant_number, mr))
+
+  // Original max weights for scaling
+  const originalMax: Record<string, number> = { synergy: 35, vibe: 20, lifestyle: 15, humorOpen: 15, communication: 10, coreValues: 5, intent: 5 }
+
+  // Compute recalculated score for a pair given current weights
+  const recalcScore = (pair: any) => {
+    const cacheKey = `${Math.min(pair.a_number, pair.b_number)}-${Math.max(pair.a_number, pair.b_number)}`
+    const cached = cacheScores[cacheKey] || {}
+    const rawSynergy = cached.synergy ?? 0
+    const rawVibe = cached.vibe ?? 0
+    const rawLifestyle = cached.lifestyle ?? 0
+    const rawHumorOpen = cached.humorOpen ?? 0
+    const rawComm = cached.communication ?? 0
+    const rawCoreValues = cached.coreValues ?? 0 // raw 0-20
+    const rawIntent = cached.intent ?? 0
+    const humorMult = cached.humorMultiplier ?? 1.0
+
+    // Scale each component from its original max to the new max
+    const scale = (raw: number, key: string) => {
+      const origMax = originalMax[key]
+      const newMax = weights[key as keyof typeof weights]
+      if (origMax === 0 || newMax === 0) return 0
+      return (raw / origMax) * newMax
+    }
+
+    // Core values: raw is 0-20, original scaled to 0-5
+    const coreScaled = scale(Math.min(5, (rawCoreValues / 20) * 5), 'coreValues')
+
+    let total = scale(rawSynergy, 'synergy') + scale(rawVibe, 'vibe') + scale(rawLifestyle, 'lifestyle') +
+      scale(rawHumorOpen, 'humorOpen') + scale(rawComm, 'communication') + coreScaled
+
+    // Apply penalties (same as original formula)
+    const pA = participantMap.get(pair.a_number)
+    const pB = participantMap.get(pair.b_number)
+    const aAttach = pA?.attachment_style || pA?.survey_data?.attachmentStyle
+    const bAttach = pB?.attachment_style || pB?.survey_data?.attachmentStyle
+    if ((aAttach === 'Anxious' && bAttach === 'Avoidant') || (aAttach === 'Avoidant' && bAttach === 'Anxious')) {
+      total -= 5
+    }
+
+    const openA = parseInt(pA?.early_openness_comfort ?? pA?.survey_data?.answers?.early_openness_comfort ?? '')
+    const openB = parseInt(pB?.early_openness_comfort ?? pB?.survey_data?.answers?.early_openness_comfort ?? '')
+    if (openA === 0 && openB === 0) total -= 5
+    else if ((openA === 0 && openB >= 2) || (openA >= 2 && openB === 0)) total -= 4
+
+    if (total < 0) total = 0
+
+    // Apply humor multiplier
+    total = total * humorMult
+
+    // Add intent after multiplier
+    total += scale(rawIntent, 'intent')
+
+    // Veto caps
+    const getAns = (p: any, k: string) => (p?.survey_data?.answers?.[k] ?? p?.[k] ?? '').toString().toUpperCase()
+    const a35 = getAns(pA, 'conversational_role')
+    const b35 = getAns(pB, 'conversational_role')
+    const a41 = getAns(pA, 'silence_comfort')
+    const b41 = getAns(pB, 'silence_comfort')
+    if (a35 === 'C' && b35 === 'C' && a41 === 'B' && b41 === 'B' && total > 40) total = 40
+
+    // Cap at new max total
+    const newMaxTotal = Object.values(weights).reduce((a, b) => a + b, 0)
+    if (total > newMaxTotal) total = newMaxTotal
+
+    // Normalize to 100 for comparison
+    return Math.round((total / newMaxTotal) * 100)
+  }
+
+  const newMaxTotal = Object.values(weights).reduce((a, b) => a + b, 0)
+
+  const weightLabels: { key: string; label: string; color: string }[] = [
+    { key: 'synergy', label: 'Synergy', color: 'text-cyan-400' },
+    { key: 'vibe', label: 'Vibe', color: 'text-pink-400' },
+    { key: 'lifestyle', label: 'Lifestyle', color: 'text-green-400' },
+    { key: 'humorOpen', label: 'Humor/Openness', color: 'text-yellow-400' },
+    { key: 'communication', label: 'Communication', color: 'text-blue-400' },
+    { key: 'coreValues', label: 'Core Values', color: 'text-purple-400' },
+    { key: 'intent', label: 'Intent/Goal', color: 'text-orange-400' },
+  ]
+
+  const resetWeights = () => setWeights({ synergy: 35, vibe: 20, lifestyle: 15, humorOpen: 15, communication: 10, coreValues: 5, intent: 5 })
+
+  // Sort pairs by original score descending
+  const sortedPairs = [...pairs].sort((a, b) => {
+    const aCache = cacheScores[`${Math.min(a.a_number, a.b_number)}-${Math.max(a.a_number, a.b_number)}`]
+    const bCache = cacheScores[`${Math.min(b.a_number, b.b_number)}-${Math.max(b.a_number, b.b_number)}`]
+    return (bCache?.total ?? 0) - (aCache?.total ?? 0)
+  })
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-slate-900 rounded-2xl border border-indigo-500/30 max-w-7xl w-full max-h-[92vh] overflow-hidden flex flex-col shadow-2xl shadow-indigo-900/50" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-gradient-to-r from-indigo-900/40 to-violet-900/30">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-500/20 rounded-lg">
+              <SlidersHorizontal className="w-5 h-5 text-indigo-400" />
+            </div>
+            <div>
+              <h2 className="font-bold text-white">Event 20 Match Analyzer</h2>
+              <p className="text-xs text-gray-400">{pairs.length} established pairs — adjust weights to test scoring scenarios</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white text-xl">✕</button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          {/* Weight Controls */}
+          <div className="px-6 py-4 border-b border-white/10 bg-slate-800/30">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-white">Scoring Weights (max points per component)</h3>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-gray-400">Total: <span className="font-bold text-indigo-300">{newMaxTotal}</span> → normalized to 100</span>
+                <button onClick={resetWeights} className="px-2 py-1 text-xs bg-white/5 hover:bg-white/10 text-gray-300 rounded-lg transition-colors">Reset</button>
+              </div>
+            </div>
+            <div className="grid grid-cols-7 gap-3">
+              {weightLabels.map(({ key, label, color }) => (
+                <div key={key} className="bg-white/[0.03] rounded-lg p-3 border border-white/5">
+                  <div className={`text-xs font-bold ${color} mb-1`}>{label}</div>
+                  <div className="text-[10px] text-gray-500 mb-2">Orig: {originalMax[key]}</div>
+                  <input
+                    type="number"
+                    min={0}
+                    max={50}
+                    value={weights[key as keyof typeof weights]}
+                    onChange={e => setWeights({ ...weights, [key]: Math.max(0, parseInt(e.target.value) || 0) })}
+                    className="w-full bg-slate-900 border border-white/10 rounded px-2 py-1 text-sm text-white text-center focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Pairs Table */}
+          <div className="px-6 py-4">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-slate-900 z-10">
+                <tr className="text-left text-gray-400 border-b border-white/10">
+                  <th className="py-2 pr-2">Pair</th>
+                  <th className="py-2 pr-2">Phase</th>
+                  <th className="py-2 pr-2 text-right">Orig Score</th>
+                  <th className="py-2 pr-2 text-right">New Score</th>
+                  <th className="py-2 pr-2 text-right">Δ</th>
+                  <th className="py-2 pr-2">Synergy</th>
+                  <th className="py-2 pr-2">Vibe</th>
+                  <th className="py-2 pr-2">Lifestyle</th>
+                  <th className="py-2 pr-2">Humor</th>
+                  <th className="py-2 pr-2">Comm</th>
+                  <th className="py-2 pr-2">Values</th>
+                  <th className="py-2 pr-2">Intent</th>
+                  <th className="py-2 pr-2">Mutual?</th>
+                  <th className="py-2 pr-2">A→B Feedback</th>
+                  <th className="py-2 pr-2">B→A Feedback</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedPairs.map((pair: any, i: number) => {
+                  const cacheKey = `${Math.min(pair.a_number, pair.b_number)}-${Math.max(pair.a_number, pair.b_number)}`
+                  const cached = cacheScores[cacheKey] || {}
+                  const origScore = Math.round(cached.total ?? 0)
+                  const newScore = recalcScore(pair)
+                  const delta = newScore - origScore
+                  const pA = participantMap.get(pair.a_number)
+                  const pB = participantMap.get(pair.b_number)
+                  const aName = pA?.name || `#${pair.a_number}`
+                  const bName = pB?.name || `#${pair.b_number}`
+                  const aLabel = `${String(aName).charAt(0).toUpperCase()}${pair.a_number}`
+                  const bLabel = `${String(bName).charAt(0).toUpperCase()}${pair.b_number}`
+                  const aWant = pair.a_feedback?.wantConnect === true
+                  const bWant = pair.b_feedback?.wantConnect === true
+                  const mutual = aWant && bWant
+
+                  const aMr = matchRowMap.get(pair.a_number)
+                  const bMr = matchRowMap.get(pair.b_number)
+                  const aSame = aMr?.phase2_partner && aMr?.phase3_partner && aMr.phase2_partner === aMr.phase3_partner
+                  const bSame = bMr?.phase2_partner && bMr?.phase3_partner && bMr.phase2_partner === bMr.phase3_partner
+                  const sameBoth = !!(aSame || bSame)
+
+                  return (
+                    <tr key={i} className={`border-b border-white/5 hover:bg-white/5 ${sameBoth ? 'bg-emerald-950/20' : ''}`}>
+                      <td className="py-2 pr-2 font-mono text-white whitespace-nowrap">{aLabel} × {bLabel}</td>
+                      <td className="py-2 pr-2">
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${pair.phase === 'phase2' ? 'bg-cyan-500/20 text-cyan-300' : 'bg-violet-500/20 text-violet-300'}`}>
+                          {pair.phase === 'phase2' ? 'Choice' : 'Algorithm'}
+                        </span>
+                        {sameBoth && <span className="ml-1 px-1 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 font-bold">Same</span>}
+                      </td>
+                      <td className="py-2 pr-2 text-right font-bold text-gray-300">{origScore}</td>
+                      <td className="py-2 pr-2 text-right font-bold text-indigo-300">{newScore}</td>
+                      <td className={`py-2 pr-2 text-right font-bold ${delta > 0 ? 'text-green-400' : delta < 0 ? 'text-red-400' : 'text-gray-500'}`}>
+                        {delta > 0 ? '+' : ''}{delta}
+                      </td>
+                      <td className="py-2 pr-2 text-right text-cyan-400/70">{cached.synergy ?? '-'}</td>
+                      <td className="py-2 pr-2 text-right text-pink-400/70">{cached.vibe ?? '-'}</td>
+                      <td className="py-2 pr-2 text-right text-green-400/70">{cached.lifestyle ?? '-'}</td>
+                      <td className="py-2 pr-2 text-right text-yellow-400/70">{cached.humorOpen ?? '-'}</td>
+                      <td className="py-2 pr-2 text-right text-blue-400/70">{cached.communication ?? '-'}</td>
+                      <td className="py-2 pr-2 text-right text-purple-400/70">{cached.coreValues ?? '-'}</td>
+                      <td className="py-2 pr-2 text-right text-orange-400/70">{cached.intent ?? '-'}</td>
+                      <td className="py-2 pr-2">
+                        {pair.a_feedback || pair.b_feedback ? (
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${mutual ? 'bg-emerald-500/20 text-emerald-300' : 'bg-gray-500/20 text-gray-400'}`}>
+                            {mutual ? 'YES' : 'No'}
+                          </span>
+                        ) : <span className="text-gray-600 text-[10px]">N/A</span>}
+                      </td>
+                      <td className="py-2 pr-2 text-gray-400 text-[10px] max-w-[120px] truncate">
+                        {pair.a_feedback ? `Q:${pair.a_feedback.conversationQuality ?? '-'}/5 P:${pair.a_feedback.personalConnection ?? '-'}/5 W:${pair.a_feedback.wantConnect === true ? 'Y' : pair.a_feedback.wantConnect === false ? 'N' : '-'}` : 'N/A'}
+                      </td>
+                      <td className="py-2 pr-2 text-gray-400 text-[10px] max-w-[120px] truncate">
+                        {pair.b_feedback ? `Q:${pair.b_feedback.conversationQuality ?? '-'}/5 P:${pair.b_feedback.personalConnection ?? '-'}/5 W:${pair.b_feedback.wantConnect === true ? 'Y' : pair.b_feedback.wantConnect === false ? 'N' : '-'}` : 'N/A'}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Summary Stats */}
+          <div className="px-6 py-4 border-t border-white/10 bg-slate-800/30">
+            <div className="grid grid-cols-4 gap-4">
+              {(() => {
+                let totalOrig = 0, totalNew = 0, improved = 0, declined = 0, sameCount = 0
+                let mutualCount = 0, mutualImproved = 0
+                sortedPairs.forEach((pair: any) => {
+                  const cacheKey = `${Math.min(pair.a_number, pair.b_number)}-${Math.max(pair.a_number, pair.b_number)}`
+                  const cached = cacheScores[cacheKey] || {}
+                  const orig = Math.round(cached.total ?? 0)
+                  const nw = recalcScore(pair)
+                  totalOrig += orig
+                  totalNew += nw
+                  if (nw > orig) improved++
+                  else if (nw < orig) declined++
+                  else sameCount++
+                  const aWant = pair.a_feedback?.wantConnect === true
+                  const bWant = pair.b_feedback?.wantConnect === true
+                  if (aWant && bWant) {
+                    mutualCount++
+                    if (nw > orig) mutualImproved++
+                  }
+                })
+                const avgOrig = sortedPairs.length ? Math.round(totalOrig / sortedPairs.length) : 0
+                const avgNew = sortedPairs.length ? Math.round(totalNew / sortedPairs.length) : 0
+                return (
+                  <>
+                    <div className="bg-white/[0.03] rounded-lg p-3 border border-white/5">
+                      <div className="text-xs text-gray-400">Avg Score Change</div>
+                      <div className="text-lg font-bold text-white">{avgOrig} → <span className="text-indigo-300">{avgNew}</span></div>
+                    </div>
+                    <div className="bg-white/[0.03] rounded-lg p-3 border border-white/5">
+                      <div className="text-xs text-gray-400">Improved / Declined</div>
+                      <div className="text-lg font-bold"><span className="text-green-400">{improved}</span> / <span className="text-red-400">{declined}</span></div>
+                    </div>
+                    <div className="bg-white/[0.03] rounded-lg p-3 border border-white/5">
+                      <div className="text-xs text-gray-400">Unchanged</div>
+                      <div className="text-lg font-bold text-gray-300">{sameCount}</div>
+                    </div>
+                    <div className="bg-white/[0.03] rounded-lg p-3 border border-white/5">
+                      <div className="text-xs text-gray-400">Mutual Yes pairs improved</div>
+                      <div className="text-lg font-bold text-emerald-300">{mutualImproved}/{mutualCount}</div>
+                    </div>
+                  </>
+                )
+              })()}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // ─── Survey History Modal ────────────────────────────────────────────────────
 function SurveyHistoryModal({ modal, onClose }: { modal: { participant: any; history: any[]; loading: boolean }; onClose: () => void }) {
@@ -262,6 +555,20 @@ export default function AdminPage() {
   // Export label map popup state
   const [showLabelMapModal, setShowLabelMapModal] = useState(false)
   const [labelMapEntries, setLabelMapEntries] = useState<{ label: string; name: string; number: number }[]>([])
+
+  // Match Analyzer modal state
+  const [showMatchAnalyzer, setShowMatchAnalyzer] = useState(false)
+  const [analyzerData, setAnalyzerData] = useState<any>(null)
+  const [analyzerLoading, setAnalyzerLoading] = useState(false)
+  const [scoreWeights, setScoreWeights] = useState({
+    synergy: 35,
+    vibe: 20,
+    lifestyle: 15,
+    humorOpen: 15,
+    communication: 10,
+    coreValues: 5,
+    intent: 5,
+  })
 
   // WhatsApp message modal state
   const [whatsappParticipant, setWhatsappParticipant] = useState<any | null>(null);
@@ -1849,6 +2156,27 @@ const fetchParticipants = async () => {
       toast.error("Failed to export groups")
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Match Analyzer — fetch event 20 data and open modal
+  const openMatchAnalyzer = async () => {
+    try {
+      setAnalyzerLoading(true)
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "e3-export-full-analysis", event_id: 20 }),
+      })
+      if (!res.ok) { toast.error("Failed to fetch analyzer data"); return }
+      const data = await res.json()
+      setAnalyzerData(data)
+      setShowMatchAnalyzer(true)
+    } catch (err) {
+      console.error("Analyzer fetch error:", err)
+      toast.error("Failed to load analyzer data")
+    } finally {
+      setAnalyzerLoading(false)
     }
   }
 
@@ -5970,6 +6298,19 @@ Proceed?`
                   )}
                   Export Event 20 Analysis CSV
                 </button>
+
+                <button
+                  onClick={openMatchAnalyzer}
+                  disabled={analyzerLoading}
+                  className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-indigo-600 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white rounded-lg transition-all duration-300 text-sm disabled:opacity-50"
+                >
+                  {analyzerLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <SlidersHorizontal className="w-4 h-4" />
+                  )}
+                  Event 20 Match Analyzer
+                </button>
               </div>
             </div>
           </div>
@@ -7358,6 +7699,16 @@ Proceed?`
             </div>
           </div>
         </div>
+      )}
+
+      {/* Match Analyzer Modal — Event 20 with adjustable scoring weights */}
+      {showMatchAnalyzer && analyzerData && (
+        <MatchAnalyzerModal
+          data={analyzerData}
+          weights={scoreWeights}
+          setWeights={setScoreWeights}
+          onClose={() => { setShowMatchAnalyzer(false); setAnalyzerData(null) }}
+        />
       )}
 
       {/* Deep Personality Analysis Modal */}

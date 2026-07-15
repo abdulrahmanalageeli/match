@@ -2610,6 +2610,60 @@ export default async function handler(req, res) {
       }
     }
 
+    if (action === "get-full-export-data") {
+      try {
+        const { event_id } = req.body
+        const targetEventId = event_id || 3
+        console.log(`Fetching full export data for event_id: ${targetEventId}`)
+
+        const { data: matches, error: matchError } = await supabase
+          .from("match_results")
+          .select("*")
+          .eq("match_id", STATIC_MATCH_ID)
+          .eq("event_id", targetEventId)
+          .not("round", "is", null)
+          .gt("round", 0)
+          .order("round", { ascending: true })
+          .order("table_number", { ascending: true })
+
+        if (matchError) {
+          console.error("Error fetching match results:", matchError)
+          return res.status(500).json({ error: matchError.message })
+        }
+
+        const { data: participants, error: participantError } = await supabase
+          .from("participants")
+          .select("*")
+          .eq("match_id", STATIC_MATCH_ID)
+          .neq("assigned_number", 9999)
+          .eq("event_id", targetEventId)
+          .order("assigned_number", { ascending: true })
+
+        if (participantError) {
+          console.error("Error fetching participants:", participantError)
+          return res.status(500).json({ error: participantError.message })
+        }
+
+        const { data: feedback, error: feedbackError } = await supabase
+          .from("match_feedback")
+          .select("*")
+          .eq("event_id", targetEventId)
+          .order("participant_number", { ascending: true })
+          .order("round", { ascending: true })
+
+        if (feedbackError) {
+          console.error("Error fetching feedback:", feedbackError)
+          return res.status(500).json({ error: feedbackError.message })
+        }
+
+        console.log(`✅ Full export: ${matches.length} matches, ${participants.length} participants, ${feedback.length} feedback entries`)
+        return res.status(200).json({ matches, participants, feedback })
+      } catch (err) {
+        console.error("Error getting full export data:", err)
+        return res.status(500).json({ error: "Failed to get full export data" })
+      }
+    }
+
     if (action === "set-registration-enabled") {
       try {
         const { enabled } = req.body

@@ -1848,6 +1848,363 @@ const fetchParticipants = async () => {
     }
   }
 
+  // Export Full Analysis CSV for AI Analysis
+  const exportFullAnalysisCSV = async () => {
+    try {
+      setLoading(true)
+
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "get-full-export-data",
+          event_id: currentEventId
+        }),
+      })
+
+      if (!res.ok) {
+        toast.error("Failed to fetch export data")
+        return
+      }
+
+      const data = await res.json()
+      const matches = data.matches || []
+      const participants = data.participants || []
+      const feedback = data.feedback || []
+
+      if (matches.length === 0) {
+        toast.error("No matches found for current event")
+        return
+      }
+
+      // Build participant lookup map
+      const participantMap = new Map<number, any>()
+      participants.forEach((p: any) => {
+        participantMap.set(p.assigned_number, p)
+      })
+
+      // Build feedback lookup map: key = `${participantNumber}_${round}`
+      const feedbackMap = new Map<string, any>()
+      feedback.forEach((f: any) => {
+        feedbackMap.set(`${f.participant_number}_${f.round}`, f)
+      })
+
+      // Helper to escape CSV values
+      const esc = (val: any): string => {
+        if (val === null || val === undefined) return ''
+        const s = String(val).replace(/"/g, '""')
+        if (s.includes(',') || s.includes('\n') || s.includes('"')) return `"${s}"`
+        return s
+      }
+
+      // Helper to get survey answer
+      const getAnswer = (p: any, questionId: string): string => {
+        if (!p) return ''
+        const answers = p.survey_data?.answers || {}
+        return esc(answers[questionId] ?? '')
+      }
+
+      // Helper to get feedback value
+      const getFb = (fb: any, field: string): string => {
+        if (!fb) return ''
+        return esc(fb[field] ?? '')
+      }
+
+      // Survey question IDs in order
+      const questionIds = [
+        'name', 'age', 'gender', 'nationality', 'nationality_preference', 'phone_number',
+        'gender_preference', 'preferred_age_range',
+        'humor_banter_style', 'early_openness_comfort',
+        'mbti_1', 'mbti_2', 'mbti_3', 'mbti_4',
+        'attachment_1', 'attachment_2', 'attachment_3', 'attachment_4', 'attachment_5',
+        'lifestyle_1', 'lifestyle_2', 'lifestyle_3', 'lifestyle_4', 'lifestyle_5',
+        'core_values_1', 'core_values_2', 'core_values_3', 'core_values_4', 'core_values_5',
+        'communication_1', 'communication_2', 'communication_3', 'communication_4', 'communication_5',
+        'vibe_1', 'vibe_2', 'vibe_3', 'vibe_4', 'vibe_5', 'vibe_6',
+        'conversational_role', 'conversation_depth_pref', 'social_battery', 'humor_subtype', 'curiosity_style',
+        'intent_goal', 'silence_comfort'
+      ]
+
+      // Survey questions reference data
+      const questionRefs: Record<string, { qNum: string; desc: string; category: string }> = {
+        'name': { qNum: 'Q1', desc: 'Name', category: 'personal_info' },
+        'age': { qNum: 'Q2', desc: 'Age', category: 'personal_info' },
+        'gender': { qNum: 'Q3', desc: 'Gender (male/female)', category: 'personal_info' },
+        'nationality': { qNum: 'Q3.5', desc: 'Nationality', category: 'personal_info' },
+        'nationality_preference': { qNum: 'Q3.75', desc: 'Prefer same nationality? (same/any)', category: 'personal_info' },
+        'phone_number': { qNum: 'Q4', desc: 'Phone number', category: 'personal_info' },
+        'gender_preference': { qNum: 'Q4.5', desc: 'Gender preference for matching (male/female/any)', category: 'personal_info' },
+        'preferred_age_range': { qNum: 'Q2.25', desc: 'Preferred age range for partner', category: 'personal_info' },
+        'humor_banter_style': { qNum: 'Q4.25', desc: 'First 10min style (A=jokes/humor, B=compliments, C=quiet/honest, D=direct/serious)', category: 'interaction_style' },
+        'early_openness_comfort': { qNum: 'Q4.75', desc: 'Openness comfort (0=reserved, 1=surface, 2=balanced, 3=quick to open)', category: 'interaction_style' },
+        'mbti_1': { qNum: 'Q5', desc: 'MBTI I/E: Social event reaction (A=E extrovert, B=I introvert)', category: 'mbti' },
+        'mbti_2': { qNum: 'Q6', desc: 'MBTI N/S: Problem solving (A=S sensing, B=N intuition)', category: 'mbti' },
+        'mbti_3': { qNum: 'Q7', desc: 'MBTI T/F: Decision making (A=T thinking, B=F feeling)', category: 'mbti' },
+        'mbti_4': { qNum: 'Q8', desc: 'MBTI J/P: Plan changes (A=J judging, B=P perceiving)', category: 'mbti' },
+        'attachment_1': { qNum: 'Q9', desc: 'Friend no contact days (A=Secure, B=Anxious, C=Avoidant, D=Fearful)', category: 'attachment' },
+        'attachment_2': { qNum: 'Q10', desc: 'Conflict handling (A=Secure, B=Anxious, C=Avoidant, D=Fearful)', category: 'attachment' },
+        'attachment_3': { qNum: 'Q11', desc: 'Emotional closeness comfort (A=Secure, B=Anxious, C=Avoidant, D=Fearful)', category: 'attachment' },
+        'attachment_4': { qNum: 'Q12', desc: 'Hard times with friends (A=Secure, B=Anxious, C=Avoidant, D=Fearful)', category: 'attachment' },
+        'attachment_5': { qNum: 'Q13', desc: 'Long-term relationships view (A=Secure, B=Anxious, C=Avoidant, D=Fearful)', category: 'attachment' },
+        'lifestyle_1': { qNum: 'Q14', desc: 'Best time of day (A=morning, B=afternoon, C=night)', category: 'lifestyle' },
+        'lifestyle_2': { qNum: 'Q15', desc: 'Contact frequency pref (A=daily, B=every 2-3 days, C=infrequent)', category: 'lifestyle' },
+        'lifestyle_3': { qNum: 'Q16', desc: 'Personal space need (A=need space daily, B=some space, C=closeness)', category: 'lifestyle' },
+        'lifestyle_4': { qNum: 'Q17', desc: 'Planning style (A=organized, B=semi-organized, C=spontaneous)', category: 'lifestyle' },
+        'lifestyle_5': { qNum: 'Q18', desc: 'Weekend preference (A=social outings, B=quiet with few, C=homebody)', category: 'lifestyle' },
+        'core_values_1': { qNum: 'Q19', desc: 'Honesty vs loyalty (A=honesty first, B=middle, C=loyalty first)', category: 'core_values' },
+        'core_values_2': { qNum: 'Q20', desc: 'Ambition vs stability (A=ambition/risk, B=middle, C=stability)', category: 'core_values' },
+        'core_values_3': { qNum: 'Q21', desc: 'Acceptance vs similarity (A=acceptance, B=middle, C=similarity)', category: 'core_values' },
+        'core_values_4': { qNum: 'Q22', desc: 'Independence vs dependence (A=independent, B=middle, C=needs presence)', category: 'core_values' },
+        'core_values_5': { qNum: 'Q23', desc: 'Personal judgment vs loyalty (A=independent judgment, B=middle, C=loyalty)', category: 'core_values' },
+        'communication_1': { qNum: 'Q24', desc: 'Boundary crossing response (A=Assertive, B=Passive, C=Aggressive, D=Passive-Aggressive)', category: 'communication' },
+        'communication_2': { qNum: 'Q25', desc: 'Asking for things (A=Assertive, B=Passive, C=Aggressive, D=Passive-Aggressive)', category: 'communication' },
+        'communication_3': { qNum: 'Q26', desc: 'Disagreeing in group (A=Assertive, B=Passive, C=Aggressive, D=Passive-Aggressive)', category: 'communication' },
+        'communication_4': { qNum: 'Q27', desc: 'Expressing anger (A=Assertive, B=Passive, C=Aggressive, D=Passive-Aggressive)', category: 'communication' },
+        'communication_5': { qNum: 'Q28', desc: 'Expressing disagreement (A=Assertive, B=Passive, C=Aggressive, D=Passive-Aggressive)', category: 'communication' },
+        'vibe_1': { qNum: 'Q29', desc: 'Ideal weekend description (text)', category: 'vibe' },
+        'vibe_2': { qNum: 'Q30', desc: 'Five hobbies (text)', category: 'vibe' },
+        'vibe_3': { qNum: 'Q31', desc: 'Music artist preference (text)', category: 'vibe' },
+        'vibe_4': { qNum: 'Q32', desc: 'Deep/philosophical conversations? (Yes/No/Sometimes)', category: 'vibe' },
+        'vibe_5': { qNum: 'Q33', desc: 'How friends describe you (text)', category: 'vibe' },
+        'vibe_6': { qNum: 'Q34', desc: 'How you describe friends (text)', category: 'vibe' },
+        'conversational_role': { qNum: 'Q35', desc: 'Conversational role (A=initiator, B=reactor, C=listener)', category: 'interaction_synergy' },
+        'conversation_depth_pref': { qNum: 'Q36', desc: 'Conversation depth (A=deep/philosophical, B=practical)', category: 'interaction_synergy' },
+        'social_battery': { qNum: 'Q37', desc: 'Social battery after 1hr with new people (A=increases, B=decreases)', category: 'interaction_synergy' },
+        'humor_subtype': { qNum: 'Q38', desc: 'What makes you laugh (A=witty comebacks, B=situational, C=storytelling)', category: 'interaction_synergy' },
+        'curiosity_style': { qNum: 'Q39', desc: 'Meeting new people (A=they ask me deep Qs, B=I ask them, C=quick banter)', category: 'interaction_synergy' },
+        'intent_goal': { qNum: 'Q40', desc: 'Event goal (A=make friends, B=deep connection, C=new experience)', category: 'intent_goal' },
+        'silence_comfort': { qNum: 'Q41', desc: 'Sudden silence comfort (A=anxious must fill, B=comfortable)', category: 'interaction_synergy' },
+      }
+
+      // Scoring criteria reference
+      const scoringCriteria = [
+        ['Category', 'Max Score', 'Weight in Total', 'Scoring Logic'],
+        ['Synergy (Interaction)', '35', 'Major component', 'Based on Q35-Q41: conversational role, depth pref, social battery, humor subtype, curiosity style alignment'],
+        ['Vibe Compatibility', '20', 'Major component', 'AI-analyzed (GPT-4o-mini) shared interests from Q29-Q34: weekend, hobbies, music, conversation depth, friend descriptions'],
+        ['Lifestyle', '15 (capped at 10)', 'Moderate', 'Based on Q14-Q18: activity time, contact frequency, personal space, planning style, weekend pref. Proximity-based scoring'],
+        ['Humor/Openness', '15', 'Moderate', 'Based on Q4.25 (humor banter style) + Q4.75 (early openness comfort) alignment'],
+        ['Communication', '10', 'Moderate', 'Based on Q24-Q28: Assertive/Passive/Aggressive/Passive-Aggressive compatibility matrix'],
+        ['Core Values', '20 raw (scaled to 5)', 'Minor in total', 'Based on Q19-Q23: 5 value questions. Identical=4pts, adjacent=2pts, opposite=0pts. Raw 0-20 scaled to 0-5'],
+        ['Intent/Goal', '5', 'Minor', 'Based on Q40: same intent=5, compatible=3-4, mismatch=2'],
+        ['MBTI', '5', 'NOT in new total', 'Based on Q5-Q8: I/E complement + N/S,T/F,J/P matching. Historical only'],
+        ['Attachment', '5', 'NOT in new total', 'Based on Q9-Q13: Secure=full score. Historical only. Anxious+Avoidant=-5 penalty'],
+        ['Total Formula', '100', 'Final score', 'synergy + vibe + lifestyle + humorOpen + communication + coreValuesScaled5 + intent (with penalties, multipliers, caps)'],
+        ['Penalty: Anxious x Avoidant', '-5', 'Applied before caps', 'When one is Anxious and other is Avoidant'],
+        ['Penalty: Openness 0x0', '-5', 'Applied before multipliers', 'Both participants have early_openness_comfort=0'],
+        ['Penalty: Asymmetric Openness', '-4', 'Applied before multipliers', 'One has openness=0, other has openness>=2'],
+        ['Veto: Dead-Air', 'Cap at 40', 'After multipliers', 'Both Q35=C (listener) AND Q41=B (comfortable with silence)'],
+        ['Veto: Humor Clash', 'Cap at 50', 'After multipliers', 'When humor clash detected between participants'],
+        ['Humor Multiplier', '1.0-1.15', 'Applied to total', 'Full humor match=1.15x, Partial=1.05x, No match=1.0x'],
+        ['Max Cap', '100', 'Final cap', 'Total cannot exceed 100'],
+      ]
+
+      // Build CSV content
+      let csvContent = "\uFEFF" // UTF-8 BOM
+
+      // === SECTION 1: Scoring Criteria ===
+      csvContent += "=== SCORING CRITERIA ===\n"
+      scoringCriteria.forEach(row => {
+        csvContent += row.map(c => esc(c)).join(',') + '\n'
+      })
+      csvContent += '\n'
+
+      // === SECTION 2: Survey Questions Reference ===
+      csvContent += "=== SURVEY QUESTIONS REFERENCE ===\n"
+      csvContent += "Question ID,Question Number,Description,Category\n"
+      questionIds.forEach(qId => {
+        const ref = questionRefs[qId]
+        if (ref) {
+          csvContent += `${qId},${ref.qNum},${esc(ref.desc)},${ref.category}\n`
+        }
+      })
+      csvContent += '\n'
+
+      // === SECTION 3: Match Data ===
+      csvContent += "=== MATCH DATA WITH SURVEY ANSWERS, SCORES, AND FEEDBACK ===\n"
+
+      // Build header row
+      const headers: string[] = [
+        'Round', 'Table Number', 'Match Type', 'Match Reason',
+        // Person A profile
+        'A_Number', 'A_Name', 'A_Gender', 'A_Age', 'A_Nationality', 'A_MBTI_Type', 'A_Attachment_Style', 'A_Communication_Style',
+        'A_Humor_Banter_Style', 'A_Early_Openness', 'A_Conversational_Role', 'A_Silence_Comfort', 'A_Intent_Goal',
+        // Person B profile
+        'B_Number', 'B_Name', 'B_Gender', 'B_Age', 'B_Nationality', 'B_MBTI_Type', 'B_Attachment_Style', 'B_Communication_Style',
+        'B_Humor_Banter_Style', 'B_Early_Openness', 'B_Conversational_Role', 'B_Silence_Comfort', 'B_Intent_Goal',
+        // System scores
+        'Total_Compatibility_Score', 'Synergy_Score', 'Vibe_Score', 'Lifestyle_Score', 'Humor_Open_Score',
+        'Communication_Score', 'Core_Values_Score_Raw', 'Intent_Score', 'MBTI_Score', 'Attachment_Score',
+        'Humor_Multiplier',
+        // Flags
+        'Attachment_Penalty_Applied', 'Intent_Boost_Applied', 'Dead_Air_Veto_Applied', 'Humor_Clash_Veto_Applied', 'Cap_Applied',
+      ]
+
+      // Person A survey answers
+      questionIds.forEach(qId => {
+        headers.push(`A_${qId}`)
+      })
+
+      // Person B survey answers
+      questionIds.forEach(qId => {
+        headers.push(`B_${qId}`)
+      })
+
+      // Person A feedback
+      headers.push(
+        'A_Gave_Feedback', 'A_FB_Compatibility_Rate', 'A_FB_Conversation_Quality', 'A_FB_Personal_Connection',
+        'A_FB_Shared_Interests', 'A_FB_Comfort_Level', 'A_FB_Communication_Style', 'A_FB_Would_Meet_Again',
+        'A_FB_Overall_Experience', 'A_FB_Recommendations', 'A_FB_Organizer_Impression', 'A_FB_Participant_Message',
+        'A_FB_Submitted_At'
+      )
+
+      // Person B feedback
+      headers.push(
+        'B_Gave_Feedback', 'B_FB_Compatibility_Rate', 'B_FB_Conversation_Quality', 'B_FB_Personal_Connection',
+        'B_FB_Shared_Interests', 'B_FB_Comfort_Level', 'B_FB_Communication_Style', 'B_FB_Would_Meet_Again',
+        'B_FB_Overall_Experience', 'B_FB_Recommendations', 'B_FB_Organizer_Impression', 'B_FB_Participant_Message',
+        'B_FB_Submitted_At'
+      )
+
+      csvContent += headers.join(',') + '\n'
+
+      // Data rows
+      matches.forEach((match: any) => {
+        const pA = participantMap.get(match.participant_a_number)
+        const pB = participantMap.get(match.participant_b_number)
+        const round = match.round || ''
+        const fbA = feedbackMap.get(`${match.participant_a_number}_${round}`)
+        const fbB = feedbackMap.get(`${match.participant_b_number}_${round}`)
+
+        const row: string[] = []
+
+        // Match info
+        row.push(esc(round), esc(match.table_number), esc(match.match_type), esc(match.reason))
+
+        // Person A profile
+        row.push(
+          esc(match.participant_a_number),
+          esc(pA?.name || pA?.survey_data?.answers?.name || ''),
+          esc(pA?.gender || pA?.survey_data?.answers?.gender || ''),
+          esc(pA?.age || pA?.survey_data?.answers?.age || ''),
+          esc(pA?.nationality || pA?.survey_data?.answers?.nationality || ''),
+          esc(pA?.mbti_personality_type || pA?.survey_data?.mbtiType || ''),
+          esc(pA?.attachment_style || pA?.survey_data?.attachmentStyle || ''),
+          esc(pA?.communication_style || pA?.survey_data?.communicationStyle || ''),
+          esc(pA?.humor_banter_style || pA?.survey_data?.answers?.humor_banter_style || ''),
+          esc(pA?.early_openness_comfort ?? pA?.survey_data?.answers?.early_openness_comfort ?? ''),
+          esc(pA?.conversational_role || pA?.survey_data?.answers?.conversational_role || ''),
+          esc(pA?.silence_comfort || pA?.survey_data?.answers?.silence_comfort || ''),
+          esc(pA?.intent_goal || pA?.survey_data?.answers?.intent_goal || ''),
+        )
+
+        // Person B profile
+        row.push(
+          esc(match.participant_b_number),
+          esc(pB?.name || pB?.survey_data?.answers?.name || ''),
+          esc(pB?.gender || pB?.survey_data?.answers?.gender || ''),
+          esc(pB?.age || pB?.survey_data?.answers?.age || ''),
+          esc(pB?.nationality || pB?.survey_data?.answers?.nationality || ''),
+          esc(pB?.mbti_personality_type || pB?.survey_data?.mbtiType || ''),
+          esc(pB?.attachment_style || pB?.survey_data?.attachmentStyle || ''),
+          esc(pB?.communication_style || pB?.survey_data?.communicationStyle || ''),
+          esc(pB?.humor_banter_style || pB?.survey_data?.answers?.humor_banter_style || ''),
+          esc(pB?.early_openness_comfort ?? pB?.survey_data?.answers?.early_openness_comfort ?? ''),
+          esc(pB?.conversational_role || pB?.survey_data?.answers?.conversational_role || ''),
+          esc(pB?.silence_comfort || pB?.survey_data?.answers?.silence_comfort || ''),
+          esc(pB?.intent_goal || pB?.survey_data?.answers?.intent_goal || ''),
+        )
+
+        // System scores
+        row.push(
+          esc(match.compatibility_score ?? ''),
+          esc(match.synergy_score ?? ''),
+          esc(match.vibe_compatibility_score ?? ''),
+          esc(match.lifestyle_compatibility_score ?? ''),
+          esc(match.humor_open_score ?? ''),
+          esc(match.communication_compatibility_score ?? ''),
+          esc(match.core_values_compatibility_score ?? ''),
+          esc(match.intent_score ?? ''),
+          esc(match.mbti_compatibility_score ?? ''),
+          esc(match.attachment_compatibility_score ?? ''),
+          esc(match.humor_multiplier ?? ''),
+        )
+
+        // Flags
+        row.push(
+          esc(match.attachment_penalty_applied ? 'YES' : 'NO'),
+          esc(match.intent_boost_applied ? 'YES' : 'NO'),
+          esc(match.dead_air_veto_applied ? 'YES' : 'NO'),
+          esc(match.humor_clash_veto_applied ? 'YES' : 'NO'),
+          esc(match.cap_applied ?? ''),
+        )
+
+        // Person A survey answers
+        questionIds.forEach(qId => {
+          row.push(getAnswer(pA, qId))
+        })
+
+        // Person B survey answers
+        questionIds.forEach(qId => {
+          row.push(getAnswer(pB, qId))
+        })
+
+        // Person A feedback
+        row.push(
+          fbA ? 'YES' : 'NO',
+          getFb(fbA, 'compatibility_rate'),
+          getFb(fbA, 'conversation_quality'),
+          getFb(fbA, 'personal_connection'),
+          getFb(fbA, 'shared_interests'),
+          getFb(fbA, 'comfort_level'),
+          getFb(fbA, 'communication_style'),
+          getFb(fbA, 'would_meet_again'),
+          getFb(fbA, 'overall_experience'),
+          getFb(fbA, 'recommendations'),
+          getFb(fbA, 'organizer_impression'),
+          getFb(fbA, 'participant_message'),
+          getFb(fbA, 'submitted_at'),
+        )
+
+        // Person B feedback
+        row.push(
+          fbB ? 'YES' : 'NO',
+          getFb(fbB, 'compatibility_rate'),
+          getFb(fbB, 'conversation_quality'),
+          getFb(fbB, 'personal_connection'),
+          getFb(fbB, 'shared_interests'),
+          getFb(fbB, 'comfort_level'),
+          getFb(fbB, 'communication_style'),
+          getFb(fbB, 'would_meet_again'),
+          getFb(fbB, 'overall_experience'),
+          getFb(fbB, 'recommendations'),
+          getFb(fbB, 'organizer_impression'),
+          getFb(fbB, 'participant_message'),
+          getFb(fbB, 'submitted_at'),
+        )
+
+        csvContent += row.join(',') + '\n'
+      })
+
+      // Create and download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', `full_analysis_event${currentEventId}_${new Date().toISOString().split('T')[0]}.csv`)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      toast.success(`Exported ${matches.length} matches with full analysis data`)
+    } catch (error) {
+      console.error("Error exporting full analysis:", error)
+      toast.error("Failed to export full analysis")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // Check if admin login is locked out
   const checkLoginLockout = () => {
     if (!lockoutUntil) return { locked: false, remaining: 0 };
@@ -5582,6 +5939,19 @@ Proceed?`
                     <Download className="w-4 h-4" />
                   )}
                   Export Groups CSV
+                </button>
+
+                <button
+                  onClick={exportFullAnalysisCSV}
+                  disabled={loading}
+                  className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-amber-600 to-orange-700 hover:from-amber-700 hover:to-orange-800 text-white rounded-lg transition-all duration-300 text-sm disabled:opacity-50"
+                >
+                  {loading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                  Export AI Analysis CSV
                 </button>
               </div>
             </div>

@@ -3392,33 +3392,40 @@ Please respond in JSON format:
         return res.status(200).json({ message: "Notification seen" })
       }
 
-      // e3-ai-welcome — generate personalized fun welcome message
+      // e3-ai-welcome — generate personalized poem welcome message
       if (action === "e3-ai-welcome") {
-        if (!participant) return res.status(401).json({ error: "Invalid token" })
+        if (!token) return res.status(401).json({ error: "Invalid token" })
 
-        // Check sessionStorage-like cache: store in event3_notifications as a special type
-        // Actually, use a simple Supabase check on participant's survey_data for cached welcome
-        const sd = typeof participant.survey_data === "string" ? JSON.parse(participant.survey_data || "{}") : (participant.survey_data || {})
+        // Fetch fresh participant data (bypass cache so DB changes reflect immediately)
+        const { data: freshParticipant, error: freshErr } = await supabase
+          .from("participants")
+          .select("assigned_number,name,gender,age,survey_data")
+          .eq("secure_token", token)
+          .eq("match_id", MAIN_MATCH)
+          .single()
+        if (freshErr || !freshParticipant) return res.status(401).json({ error: "Invalid token" })
+
+        const sd = typeof freshParticipant.survey_data === "string" ? JSON.parse(freshParticipant.survey_data || "{}") : (freshParticipant.survey_data || {})
         const cachedWelcome = sd?._ai_welcome
         if (cachedWelcome) {
           return res.status(200).json({ success: true, message: cachedWelcome, cached: true })
         }
 
         const getAns = (p, key) => p.survey_data?.answers?.[key] || p.survey_data?.[key] || ""
-        const fullName = participant.name || sd?.answers?.name || sd?.name || ""
+        const fullName = freshParticipant.name || sd?.answers?.name || sd?.name || ""
         const firstName = fullName.trim().split(/\s+/)[0] || "صديقنا"
-        const gender = participant.gender || sd?.answers?.gender || sd?.gender || ""
-        const age = participant.age || sd?.answers?.age || sd?.age || ""
+        const gender = freshParticipant.gender || sd?.answers?.gender || sd?.gender || ""
+        const age = freshParticipant.age || sd?.answers?.age || sd?.age || ""
         const hobbies = getAns({ survey_data: sd }, "vibe_2") || ""
         const weekend = getAns({ survey_data: sd }, "vibe_1") || ""
         const music = getAns({ survey_data: sd }, "vibe_3") || ""
         const personality = getAns({ survey_data: sd }, "vibe_5") || ""
 
-        const prompt = `أنت "ذكاء" — صوت غامض وذكي يعرف الثقافة السعودية، خاصة لهجة الرياض.
+        const prompt = `أنت شاعر سعودي ملهم، تكتب بقافية وإيقاع رايق يشبه الشعر الشعبي السعودي الحديث (نظم حر، ليس عمودي صارم).
 
-مهمتك: تكتب رسالة ترحيب قصيرة وغامضة لشخص اسمه "${firstName}" انضم لتوّه لفعالية "التوافق الأعمى".
+مهمتك: اكتب قصيدة قصيرة (4-6 أبيات) لشخص اسمه "${firstName}" انضم لفعالية "التوافق الأعمى".
 
-هذه معلومات عن ${firstName} — لا تذكرها صراحة، بل وظّفها بحيث يحس أنها مكتوبة خصيصاً له وكأنك تعرفه:
+هذه معلومات عن ${firstName} — لا تذكرها صراحة أبداً، بل ادمجها في القصيدة بحيث يحس أنها تصف روحه وشخصيته من الداخل:
 - الجنس: ${gender === "male" ? "ذكر" : gender === "female" ? "أنثى" : "غير محدد"}
 - العمر: ${age || "غير محدد"}
 - الهوايات: ${hobbies || "غير محدد"}
@@ -3426,32 +3433,31 @@ Please respond in JSON format:
 - ذوقه الموسيقي: ${music || "غير محدد"}
 - كيف يصفه أصدقاؤه: ${personality || "غير محدد"}
 
-اكتب رسالة (60-90 كلمة) بلهجة سعودية بيضاء، بأسلوب غامض وسينمائي. قواعد صارمة:
-
-1. ابدأ باسمه "${firstName}" بطريقة هادئة وغامضة
-2. لا تسرد معلوماته أبداً — بل ادمجها بطريقة يحس منها "هذا الكلام موجه لي أنا تحديداً"، كأنك تعرف شخصيته من الداخل
-3. لمّح بأن الفعالية تخفي شيئاً غير متوقع (بدون كشف أي تفاصيل)
-4. اختم بسؤال أو جملة تشوّقه
+قواعد القصيدة:
+1. اكتب 4-6 أبيات بقافية موحدة وإيقاع موسيقي رايق (ليس شعراً عمودياً صارماً، بل نظم حر سعودي حديث)
+2. كل بيت يجسد جانباً من شخصيته أو ما يحب — لكن بشكل شاعري غير مباشر (لا تقول "أنت تحب كذا"، بل صوره بالاستعارة)
+3. البيت الأخير يختم بسؤال يشوّقه للفعالية، مثل: "هل أنت جاهز لرحلة اليوم؟" أو "جهّزت روحك للي راح يصير؟"
+4. القصيدة يجب أن تكون مبهرة ومؤثرة — يقرأها ${firstName} ويقول "واو، هذا الكلام يصفني فعلاً!"
 
 🚫 ممنوعات:
 - ممنوع سرد المعلومات بشكل مباشر (مثل: "أنت تحب..." أو "هواياتك هي...")
 - ممنوع كلام عن الحب، العاطفة، الزواج، أو أي إيحاء رومانسي
 - ممنوع كلام محرج أو غير لائق
 - ممنوع عبارات مستهلكة مثل "أهلاً وسهلاً"، "نتمنى لك وقتاً ممتعاً"
-- ممنوع الإطالة — كن موجزاً ومحكماً
-- ممنوع ذكر أنك AI أو ذكاء اصطناعي — أنت "ذكاء" فقط
+- ممنوع ذكر أنك AI أو ذكاء اصطناعي
 - ممنوع كشف أي تفاصيل عن الفعالية أو آلية عملها
+- ممنوع القافية المبتذلة أو المتكلفة — اجعلها طبيعية وسلسة
 
-الهدف: يقرأها ${firstName} ويحس أن الكلام موجه له شخصياً ويقول "وش القصة؟ حبيت أعرف!"`
+الهدف: قصيدة تبهر ${firstName} وتخليه يحس أن أحداً فهمه فعلاً، وتشوّقه للفعالية.`
 
         try {
           const completion = await openai.chat.completions.create({
             model: "gpt-5.4-mini",
             messages: [{ role: "user", content: prompt }],
-            max_completion_tokens: 250,
-            temperature: 0.9,
-            presence_penalty: 0.7,
-            frequency_penalty: 0.4,
+            max_completion_tokens: 400,
+            temperature: 0.95,
+            presence_penalty: 0.8,
+            frequency_penalty: 0.5,
           })
 
           const message = completion.choices[0]?.message?.content?.trim()

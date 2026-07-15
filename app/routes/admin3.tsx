@@ -1465,12 +1465,18 @@ export default function Admin3Page() {
                 <div className={`text-2xl sm:text-3xl font-mono font-bold ${timerRemaining < 120 ? 'text-red-400' : 'text-blue-300'}`}>{formatTime(timerRemaining)}</div>
                 <div className="flex flex-col gap-1">
                   <div className="flex gap-1">
-                    <button onClick={() => adjustTimer(60)} disabled={!!loading} className="bg-emerald-700/60 hover:bg-emerald-600 text-white rounded px-2 py-1 text-[10px] font-bold disabled:opacity-40 transition-colors">+1د</button>
-                    <button onClick={() => adjustTimer(30)} disabled={!!loading} className="bg-emerald-800/60 hover:bg-emerald-700 text-white rounded px-2 py-1 text-[10px] font-bold disabled:opacity-40 transition-colors">+30ث</button>
+                    <button onClick={() => adjustTimer(300)} disabled={!!loading} className="bg-emerald-600/60 hover:bg-emerald-500 text-white rounded px-2 py-1 text-[10px] font-bold disabled:opacity-40 transition-colors">+5د</button>
+                    <button onClick={() => adjustTimer(120)} disabled={!!loading} className="bg-emerald-700/60 hover:bg-emerald-600 text-white rounded px-2 py-1 text-[10px] font-bold disabled:opacity-40 transition-colors">+2د</button>
+                    <button onClick={() => adjustTimer(60)} disabled={!!loading} className="bg-emerald-800/60 hover:bg-emerald-700 text-white rounded px-2 py-1 text-[10px] font-bold disabled:opacity-40 transition-colors">+1د</button>
+                    <button onClick={() => adjustTimer(30)} disabled={!!loading} className="bg-emerald-900/60 hover:bg-emerald-800 text-white rounded px-2 py-1 text-[10px] font-bold disabled:opacity-40 transition-colors">+30ث</button>
+                    <button onClick={() => adjustTimer(10)} disabled={!!loading} className="bg-emerald-950/60 hover:bg-emerald-900 text-white rounded px-2 py-1 text-[10px] font-bold disabled:opacity-40 transition-colors">+10ث</button>
                   </div>
                   <div className="flex gap-1">
+                    <button onClick={() => adjustTimer(-300)} disabled={!!loading} className="bg-orange-600/60 hover:bg-orange-500 text-white rounded px-2 py-1 text-[10px] font-bold disabled:opacity-40 transition-colors">-5د</button>
+                    <button onClick={() => adjustTimer(-120)} disabled={!!loading} className="bg-orange-700/60 hover:bg-orange-600 text-white rounded px-2 py-1 text-[10px] font-bold disabled:opacity-40 transition-colors">-2د</button>
                     <button onClick={() => adjustTimer(-60)} disabled={!!loading} className="bg-orange-800/60 hover:bg-orange-700 text-white rounded px-2 py-1 text-[10px] font-bold disabled:opacity-40 transition-colors">-1د</button>
                     <button onClick={() => adjustTimer(-30)} disabled={!!loading} className="bg-orange-900/60 hover:bg-orange-800 text-white rounded px-2 py-1 text-[10px] font-bold disabled:opacity-40 transition-colors">-30ث</button>
+                    <button onClick={() => adjustTimer(-10)} disabled={!!loading} className="bg-orange-950/60 hover:bg-orange-900 text-white rounded px-2 py-1 text-[10px] font-bold disabled:opacity-40 transition-colors">-10ث</button>
                   </div>
                 </div>
                 <button onClick={stopTimer} disabled={!!loading} className="bg-red-600/80 hover:bg-red-600 text-white rounded-lg px-4 py-2 text-sm flex items-center gap-2">

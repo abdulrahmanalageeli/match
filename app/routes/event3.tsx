@@ -246,6 +246,149 @@ function GlassCard({ children, className = "", glow = "" }: { children: React.Re
   )
 }
 
+// ─── Timer Warning Popup ─────────────────────────────────────────────────────
+function TimerWarningPopup({ seconds, label, sublabel, theme = "red", onDone }: {
+  seconds: number; label: string; sublabel?: string; theme?: "red" | "amber" | "teal"; onDone?: () => void
+}) {
+  const themes = {
+    red:    { bg: "from-red-950/95 via-rose-950/90 to-red-950/80", border: "border-red-500/30", glow: "rgba(239,68,68,0.2)", iconBg: "from-red-500/30 to-rose-600/20", iconBorder: "border-red-400/30", iconColor: "text-red-300", iconGlow: "rgba(239,68,68,0.4)", text: "text-red-200", sub: "text-red-400/50", bar: "from-red-500 via-rose-500 to-red-400", barGlow: "rgba(239,68,68,0.6)" },
+    amber:  { bg: "from-amber-950/95 via-orange-950/90 to-amber-950/80", border: "border-amber-500/30", glow: "rgba(251,191,36,0.2)", iconBg: "from-amber-500/30 to-orange-600/20", iconBorder: "border-amber-400/30", iconColor: "text-amber-300", iconGlow: "rgba(251,191,36,0.4)", text: "text-amber-200", sub: "text-amber-400/50", bar: "from-amber-500 via-orange-500 to-amber-400", barGlow: "rgba(251,191,36,0.6)" },
+    teal:   { bg: "from-teal-950/95 via-cyan-950/90 to-teal-950/80", border: "border-teal-500/30", glow: "rgba(20,184,166,0.2)", iconBg: "from-teal-500/30 to-cyan-600/20", iconBorder: "border-teal-400/30", iconColor: "text-teal-300", iconGlow: "rgba(20,184,166,0.4)", text: "text-teal-200", sub: "text-teal-400/50", bar: "from-teal-500 via-cyan-500 to-teal-400", barGlow: "rgba(20,184,166,0.6)" },
+  }
+  const t = themes[theme]
+  const [progress, setProgress] = useState(100)
+
+  useEffect(() => {
+    const start = Date.now()
+    const duration = 3000
+    const iv = setInterval(() => {
+      const elapsed = Date.now() - start
+      setProgress(Math.max(0, 100 - (elapsed / duration) * 100))
+      if (elapsed >= duration) { clearInterval(iv); onDone?.() }
+    }, 16)
+    return () => clearInterval(iv)
+  }, [onDone])
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="fixed inset-0 z-[200] flex items-center justify-center px-6"
+      style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+    >
+      <motion.div
+        initial={{ scale: 0.7, y: 30, opacity: 0 }}
+        animate={{ scale: 1, y: 0, opacity: 1 }}
+        exit={{ scale: 0.8, y: 20, opacity: 0 }}
+        transition={{ type: "spring", stiffness: 350, damping: 22 }}
+        className={`relative overflow-hidden w-full max-w-xs rounded-3xl bg-gradient-to-br ${t.bg} border ${t.border} backdrop-blur-xl px-6 py-8 flex flex-col items-center text-center`}
+        style={{ boxShadow: `0 0 40px ${t.glow}, inset 0 1px 0 rgba(255,255,255,0.06)` }}
+      >
+        {/* Animated rings behind icon */}
+        <motion.div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 rounded-full border-2"
+          style={{ borderColor: t.iconGlow.replace("0.4", "0.15") }}
+          animate={{ scale: [1, 1.4, 1], opacity: [0.5, 0, 0.5] }}
+          transition={{ duration: 2, repeat: Infinity }}
+        />
+        <motion.div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full border-2"
+          style={{ borderColor: t.iconGlow.replace("0.4", "0.2") }}
+          animate={{ scale: [1, 1.3, 1], opacity: [0.6, 0, 0.6] }}
+          transition={{ duration: 2, repeat: Infinity, delay: 0.3 }}
+        />
+
+        {/* Icon */}
+        <motion.div
+          animate={{ scale: [1, 1.15, 1], rotate: [0, -8, 8, 0] }}
+          transition={{ duration: 1.5, repeat: Infinity }}
+          className={`relative w-16 h-16 rounded-2xl bg-gradient-to-br ${t.iconBg} border ${t.iconBorder} flex items-center justify-center mb-4`}
+          style={{ boxShadow: `0 0 24px ${t.iconGlow}` }}
+        >
+          <Timer size={28} className={t.iconColor} />
+        </motion.div>
+
+        {/* Big countdown number */}
+        <motion.div
+          initial={{ scale: 1.3, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.1, type: "spring", stiffness: 400, damping: 15 }}
+          className={`text-5xl font-black font-mono tabular-nums ${t.text} mb-2`}
+          style={{ textShadow: `0 0 30px ${t.glow}` }}
+        >
+          {seconds > 60 ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}` : seconds}
+        </motion.div>
+
+        {/* Label */}
+        <motion.p
+          initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.15 }}
+          className={`text-sm font-bold ${t.text} tracking-wide`}
+        >
+          {label}
+        </motion.p>
+        {sublabel && (
+          <motion.p
+            initial={{ y: 8, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.25 }}
+            className={`text-[11px] mt-1.5 leading-relaxed ${t.sub}`}
+          >
+            {sublabel}
+          </motion.p>
+        )}
+
+        {/* Auto-dismiss progress bar */}
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/20">
+          <motion.div
+            className={`h-full bg-gradient-to-r ${t.bar}`}
+            style={{ boxShadow: `0 0 8px ${t.barGlow}` }}
+            animate={{ width: `${progress}%` }}
+            transition={{ duration: 0.016, ease: "linear" }}
+          />
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// Hook: manages timer warning popup state
+function useTimerWarnings(timerActive: boolean, timeLeft: number, timerDuration: number, enabled = true) {
+  const [popup, setPopup] = useState<{ seconds: number; label: string; sublabel: string; theme: "red" | "amber" | "teal" } | null>(null)
+  const firedRef = useRef<Set<number>>(new Set())
+
+  useEffect(() => {
+    if (!timerActive || !enabled) return
+    const totalMin = Math.floor(timerDuration / 60)
+
+    if (timeLeft === 300 && totalMin > 5 && !firedRef.current.has(300)) {
+      firedRef.current.add(300)
+      vibrate(150); playTimerWarningSound()
+      setPopup({ seconds: 300, label: "5 دقائق متبقية", sublabel: "استمتع بالجلسة — الوقت يمر بسرعة", theme: "teal" })
+    }
+    if (timeLeft === 60 && !firedRef.current.has(60)) {
+      firedRef.current.add(60)
+      vibrate([100, 50, 100]); playTimerWarningSound()
+      setPopup({ seconds: 60, label: "دقيقة واحدة متبقية", sublabel: "ابدأ بتلخيص حديثك واستعد للنهاية", theme: "amber" })
+    }
+    if (timeLeft === 10 && !firedRef.current.has(10)) {
+      firedRef.current.add(10)
+      vibrate(200)
+      setPopup({ seconds: 10, label: "10 ثوانٍ فقط!", sublabel: "الوقت ينتهي الآن", theme: "red" })
+    }
+    if (timeLeft === 0 && !firedRef.current.has(0)) {
+      firedRef.current.add(0)
+      vibrate([300, 100, 300]); playTimerUrgentSound()
+    }
+  }, [timeLeft, timerActive, timerDuration, enabled])
+
+  // Reset fired set when timer resets
+  useEffect(() => {
+    if (!timerActive) firedRef.current.clear()
+  }, [timerActive])
+
+  return { popup, clearPopup: () => setPopup(null) }
+}
+
 function Brand() {
   return (
     <div className="text-center">
@@ -1586,6 +1729,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
   const [showGroups, setShowGroups] = useState(false)
   const [showTutorial, setShowTutorial] = useState(round === 1)
   const wakeLockRef = useRef<any>(null)
+  const { popup, clearPopup } = useTimerWarnings(timerActive, timeLeft, timerDuration)
 
   useEffect(() => {
     call("e3-get-assignment", token, { round }).then(d => { if (!d.error) setAssignment(d) })
@@ -1618,14 +1762,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
   }, [timerActive, timeLeft])
 
   // Vibrate when timer starts or when 10 seconds remain
-  useEffect(() => {
-    if (!timerActive) return
-    const totalMin = Math.floor(timerDuration / 60)
-    if (timeLeft === 300 && totalMin > 5) { vibrate(150); playTimerWarningSound() }
-    if (timeLeft === 60) { vibrate([100, 50, 100]); playTimerWarningSound() }
-    if (timeLeft === 10 && "vibrate" in navigator) { try { navigator.vibrate(200) } catch {} }
-    if (timeLeft === 0 && "vibrate" in navigator) { try { navigator.vibrate([300, 100, 300]) } catch {} }
-  }, [timeLeft, timerActive, timerDuration])
+  // (sound/vibration handled by useTimerWarnings hook above)
 
   const roundAr = ["الأولى", "الثانية"][round - 1] || round
   const RC = [
@@ -1811,6 +1948,11 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
             </div>
           </motion.div>
         )}
+      </AnimatePresence>
+
+      {/* ── Timer Warning Popup ─────────────────────────────────────── */}
+      <AnimatePresence>
+        {popup && <TimerWarningPopup {...popup} onDone={clearPopup} />}
       </AnimatePresence>
     </div>
   )
@@ -2801,6 +2943,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   const [rejoined, setRejoined] = useState(false)
   const [icebreakerDone, setIcebreakerDone] = useState(false)
   const [showTimeWarning, setShowTimeWarning] = useState(false)
+  const { popup, clearPopup } = useTimerWarnings(timerActive, timeLeft, timerDuration, view === 'session')
 
   useEffect(() => {
     call("e3-get-phase2-reveal", token).then(d => {
@@ -2822,15 +2965,11 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
     return () => clearInterval(iv)
   }, [timerActive, timerStart, timerDuration])
 
-  // Timer warnings: sound + vibration at key intervals
+  // Timer warnings handled by useTimerWarnings hook (sound + vibration + popup)
+  // 60s banner still shown separately for persistent visual
   useEffect(() => {
-    if (!timerActive || view !== 'session') return
-    const totalMin = Math.floor(timerDuration / 60)
-    if (timeLeft === 300 && totalMin > 5) { vibrate(150); playTimerWarningSound() }
-    if (timeLeft === 60) { vibrate([100, 50, 100]); playTimerWarningSound(); setShowTimeWarning(true) }
-    if (timeLeft === 10) { vibrate(200) }
-    if (timeLeft === 0) { vibrate([300, 100, 300]); playTimerUrgentSound() }
-  }, [timeLeft, timerActive, timerDuration, view])
+    if (timerActive && view === 'session' && timeLeft === 60) setShowTimeWarning(true)
+  }, [timeLeft, timerActive, view])
 
   // Auto-rejoin sync: if timer already running when component mounts, jump to correct view
   // Only auto-rejoin if the participant had already clicked "وصلت إلى الطاولة" before refresh
@@ -3307,6 +3446,11 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
       <AnimatePresence>
         {showTutorial && <OneToOneTutorial onClose={() => setShowTutorial(false)} />}
       </AnimatePresence>
+
+      {/* ── Timer Warning Popup ─────────────────────────────────────── */}
+      <AnimatePresence>
+        {popup && <TimerWarningPopup {...popup} onDone={clearPopup} />}
+      </AnimatePresence>
     </PageWrapper>
   )
 }
@@ -3327,6 +3471,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   const [rejoined, setRejoined] = useState(false)
   const [icebreakerDone, setIcebreakerDone] = useState(false)
   const [showTimeWarning, setShowTimeWarning] = useState(false)
+  const { popup, clearPopup } = useTimerWarnings(timerActive, timeLeft, timerDuration, view === 'session')
 
   const fetchReveal = useCallback(async () => {
     const d = await call("e3-get-phase3-reveal", token)
@@ -3354,15 +3499,11 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
     return () => clearInterval(iv)
   }, [timerActive, timerStart, timerDuration])
 
-  // Timer warnings: sound + vibration at key intervals
+  // Timer warnings handled by useTimerWarnings hook (sound + vibration + popup)
+  // 60s banner still shown separately for persistent visual
   useEffect(() => {
-    if (!timerActive || view !== 'session') return
-    const totalMin = Math.floor(timerDuration / 60)
-    if (timeLeft === 300 && totalMin > 5) { vibrate(150); playTimerWarningSound() }
-    if (timeLeft === 60) { vibrate([100, 50, 100]); playTimerWarningSound(); setShowTimeWarning(true) }
-    if (timeLeft === 10) { vibrate(200) }
-    if (timeLeft === 0) { vibrate([300, 100, 300]); playTimerUrgentSound() }
-  }, [timeLeft, timerActive, timerDuration, view])
+    if (timerActive && view === 'session' && timeLeft === 60) setShowTimeWarning(true)
+  }, [timeLeft, timerActive, view])
 
   // Auto-rejoin sync: show the table number before the session when returning
   // Only auto-rejoin if the participant had already clicked "وصلت إلى الطاولة" before refresh
@@ -3821,6 +3962,11 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
           />
         )}
       </AnimatePresence>
+
+      {/* ── Timer Warning Popup ─────────────────────────────────────── */}
+      <AnimatePresence>
+        {popup && <TimerWarningPopup {...popup} onDone={clearPopup} />}
+      </AnimatePresence>
     </PageWrapper>
   )
 }
@@ -3866,6 +4012,7 @@ function BreakScreen({ timerActive, timerStart, timerDuration }: {
 }) {
   const [timeLeft, setTimeLeft] = useState(0)
   const [showBreakWarning, setShowBreakWarning] = useState(false)
+  const { popup, clearPopup } = useTimerWarnings(timerActive, timeLeft, timerDuration)
 
   useEffect(() => {
     if (!timerActive || !timerStart) { setTimeLeft(0); return }
@@ -3878,15 +4025,11 @@ function BreakScreen({ timerActive, timerStart, timerDuration }: {
     return () => clearInterval(iv)
   }, [timerActive, timerStart, timerDuration])
 
-  // Timer warnings: sound + vibration at key intervals
+  // Timer warnings handled by useTimerWarnings hook (sound + vibration + popup)
+  // 60s banner still shown separately for persistent visual
   useEffect(() => {
-    if (!timerActive) return
-    const totalMin = Math.floor(timerDuration / 60)
-    if (timeLeft === 300 && totalMin > 5) { vibrate(150); playTimerWarningSound() }
-    if (timeLeft === 60) { vibrate([100, 50, 100]); playTimerWarningSound(); setShowBreakWarning(true) }
-    if (timeLeft === 10) { vibrate(200) }
-    if (timeLeft === 0) { vibrate([300, 100, 300]); playTimerUrgentSound() }
-  }, [timeLeft, timerActive, timerDuration])
+    if (timerActive && timeLeft === 60) setShowBreakWarning(true)
+  }, [timeLeft, timerActive])
 
   const mins = Math.floor(timeLeft / 60)
   const secs = timeLeft % 60
@@ -3985,6 +4128,11 @@ function BreakScreen({ timerActive, timerStart, timerDuration }: {
           </div>
         </div>
       </motion.div>
+
+      {/* ── Timer Warning Popup ─────────────────────────────────────── */}
+      <AnimatePresence>
+        {popup && <TimerWarningPopup {...popup} onDone={clearPopup} />}
+      </AnimatePresence>
     </div>
   )
 }

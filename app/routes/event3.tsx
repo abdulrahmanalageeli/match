@@ -2155,7 +2155,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
 
   return (
     <PageWrapper className="overflow-y-auto">
-      <div className="max-w-sm mx-auto pb-32">
+      <div className="max-w-sm mx-auto pb-24">
 
         {/* Phase change warning banner — non-blocking */}
         <AnimatePresence>
@@ -2221,7 +2221,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
 
         {/* Sticky header — sleek */}
         <div className="sticky top-0 z-10 bg-gray-950/90 backdrop-blur-xl">
-          <div className="px-4 pt-3 pb-2.5 border-b border-white/[0.06]">
+          <div className="px-4 pt-2 pb-1.5 border-b border-white/[0.06]">
             {/* Title row */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -2278,15 +2278,15 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
 
         {/* Randomize button */}
         {!submitted && order.length >= 2 && (
-          <div className="px-4 pt-2.5 pb-1">
+          <div className="px-4 pt-1.5 pb-0.5">
             <motion.button
               onClick={handleRandomize}
               disabled={isShuffling}
               whileTap={{ scale: 0.96 }}
-              className={`w-full flex items-center justify-center gap-2 rounded-xl py-2.5 px-4 text-xs font-bold transition-all border ${
+              className={`w-full flex items-center justify-center gap-2 rounded-xl py-1.5 px-4 text-xs font-bold transition-all border ${
                 isShuffling
                   ? 'bg-cyan-900/30 border-cyan-700/40 text-cyan-300 cursor-wait'
-                  : 'bg-gray-900/60 border-gray-800/60 text-gray-400 hover:text-cyan-300 hover:border-cyan-700/40 hover:bg-cyan-950/30'
+                  : 'bg-gradient-to-r from-cyan-950/50 via-purple-950/40 to-cyan-950/50 border-cyan-700/40 text-cyan-300 hover:from-cyan-900/40 hover:via-purple-900/30 hover:to-cyan-900/40 hover:border-cyan-600/50 shadow-lg shadow-cyan-900/20'
               }`}
             >
               <motion.span
@@ -2302,7 +2302,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
 
         {/* Drag-to-reorder list */}
         <div className="px-3">
-          <Reorder.Group axis="y" values={order} onReorder={setOrder} className="space-y-1.5" as="div">
+          <Reorder.Group axis="y" values={order} onReorder={setOrder} className="space-y-0.5" as="div">
             {order.map((num, idx) => {
               const p = personMap[num]
               if (!p) return null
@@ -2311,7 +2311,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                   key={num}
                   value={num}
                   as="div"
-                  className={`py-2 px-3 rounded-xl border border-gray-800/60 bg-gray-900/70 backdrop-blur-sm ${
+                  className={`py-1 px-3 rounded-xl border border-gray-800/60 bg-gray-900/70 backdrop-blur-sm ${
                     submitted ? 'cursor-not-allowed opacity-50' :
                     isShuffling ? 'cursor-default pointer-events-none' :
                     'cursor-grab active:cursor-grabbing touch-none select-none'
@@ -2329,14 +2329,14 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                   drag={submitted || isShuffling ? false : true}
                 >
                   {/* Single row — compact */}
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-2">
                     {/* Rank badge */}
-                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0 ${rankStyle(idx)}`}>
+                    <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-black flex-shrink-0 ${rankStyle(idx)}`}>
                       {idx + 1}
                     </div>
 
                     {/* Name + number + round badge inline */}
-                    <div className="flex-1 min-w-0 flex items-center gap-2">
+                    <div className="flex-1 min-w-0 flex items-center gap-1.5">
                       <span className="font-semibold text-white text-sm leading-tight truncate">{p.first_name}</span>
                       <span className="text-[10px] text-gray-600 font-mono flex-shrink-0">#{p.number}</span>
                       <span className={`text-[9px] px-1.5 py-0.5 rounded-full border flex-shrink-0 hidden sm:inline-block ${roundStyle(p.round)}`}>
@@ -2350,7 +2350,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                     {/* Note toggle button */}
                     <button
                       onClick={e => { e.stopPropagation(); setOpenNote(openNote === num ? null : num) }}
-                      className={`w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-lg transition-all ${
+                      className={`w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-lg transition-all ${
                         notes[num]
                           ? "bg-amber-500/15 border border-amber-600/30 text-amber-400"
                           : "text-gray-700 hover:text-gray-500"
@@ -2361,7 +2361,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                     </button>
 
                     {/* Drag handle */}
-                    <GripVertical size={15} className="text-gray-600 flex-shrink-0" />
+                    <GripVertical size={13} className="text-gray-600 flex-shrink-0" />
                   </div>
 
                   {/* Collapsible note area */}
@@ -2401,7 +2401,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
       </div>
 
       {/* Fixed submit bar */}
-      <div className="fixed bottom-0 inset-x-0 p-3 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent pt-6">
+      <div className="fixed bottom-0 inset-x-0 p-2.5 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent pt-4">
         <div className="max-w-sm mx-auto">
           {submitted ? (
             <div className="space-y-2 text-center">

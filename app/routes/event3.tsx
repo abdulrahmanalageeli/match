@@ -2141,10 +2141,10 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   ][r - 1] || "bg-gray-800/50 text-gray-400 border-gray-700/50"
 
   const rankStyle = (idx: number) => {
-    if (idx === 0) return "bg-gradient-to-br from-amber-400 to-yellow-500 text-black shadow-lg shadow-amber-500/30"
-    if (idx === 1) return "bg-gradient-to-br from-gray-300 to-gray-400 text-black"
-    if (idx === 2) return "bg-gradient-to-br from-amber-700 to-amber-800 text-white"
-    return "bg-gray-800/80 text-gray-500"
+    if (idx === 0) return "bg-gradient-to-br from-amber-400 to-yellow-500 text-black shadow-md shadow-amber-500/25"
+    if (idx === 1) return "bg-gradient-to-br from-slate-300 to-slate-400 text-black shadow-md shadow-slate-500/20"
+    if (idx === 2) return "bg-gradient-to-br from-amber-600 to-orange-700 text-white shadow-md shadow-orange-600/25"
+    return "bg-white/[0.04] text-gray-500 border border-white/[0.06]"
   }
 
   if (loading) return (
@@ -2154,43 +2154,42 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   )
 
   return (
-    <PageWrapper className="overflow-y-auto">
-      {/* Sticky header — full width, content constrained to max-w-sm */}
-      <div className="sticky top-0 z-10 bg-gray-950/90 backdrop-blur-xl">
-        <div className="max-w-sm mx-auto px-4 pt-2 pb-1.5 border-b border-white/[0.06]">
-          {/* Title row */}
+    <PageWrapper className="overflow-y-auto bg-gray-950">
+      {/* ── Sticky header ── */}
+      <div className="sticky top-0 z-20 bg-gray-950/95 backdrop-blur-xl border-b border-white/[0.04]">
+        <div className="max-w-sm mx-auto px-4 pt-3 pb-2.5">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-600/30 to-pink-600/20 border border-purple-500/20 flex items-center justify-center">
-                <Trophy size={15} className="text-purple-300" />
+            {/* Left: title */}
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-600/25 to-pink-600/15 border border-purple-500/15 flex items-center justify-center">
+                <Trophy size={16} className="text-purple-300" />
               </div>
               <div>
-                <h1 className="text-sm font-bold text-white leading-tight">رتّب أولوياتك</h1>
-                <p className="text-gray-600 text-[10px] leading-tight">{people.length} أشخاص · اسحب للترتيب</p>
+                <h1 className="text-[15px] font-bold text-white leading-tight">رتّب أولوياتك</h1>
+                <p className="text-gray-500 text-[10px] leading-tight mt-0.5">{people.length} أشخاص · اسحب للترتيب</p>
               </div>
             </div>
 
-            {/* Timer / status + randomize — right side */}
+            {/* Right: timer + randomize */}
             <div className="flex items-center gap-2">
-              {/* Randomize icon button */}
               {!submitted && order.length >= 2 && (
                 <motion.button
                   onClick={handleRandomize}
                   disabled={isShuffling}
-                  whileTap={{ scale: 0.88 }}
-                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.85 }}
+                  whileHover={{ scale: 1.08 }}
                   title="خلط عشوائي"
-                  className={`w-8 h-8 flex items-center justify-center rounded-xl border transition-all ${
+                  className={`w-9 h-9 flex items-center justify-center rounded-xl border transition-all ${
                     isShuffling
                       ? 'bg-cyan-900/30 border-cyan-700/40 text-cyan-300 cursor-wait'
-                      : 'bg-gradient-to-br from-cyan-950/60 to-purple-950/40 border-cyan-700/40 text-cyan-300 hover:border-cyan-600/50 shadow-md shadow-cyan-900/20'
+                      : 'bg-gradient-to-br from-cyan-950/50 to-purple-950/30 border-cyan-800/40 text-cyan-400 hover:border-cyan-600/50 hover:text-cyan-300'
                   }`}
                 >
                   <motion.span
                     animate={isShuffling ? { rotate: 360 } : { rotate: 0 }}
                     transition={isShuffling ? { duration: 0.5, repeat: Infinity, ease: 'linear' } : { duration: 0.2 }}
                   >
-                    <Shuffle size={14} />
+                    <Shuffle size={15} />
                   </motion.span>
                 </motion.button>
               )}
@@ -2201,32 +2200,32 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
               ) : submitted ? (
                 autoSavedRef.current ? (
                   <span className="flex items-center gap-1.5 text-amber-300 text-[11px] font-semibold">
-                    <Lock size={13} className="text-amber-400" /> مقفل بانتهاء الوقت
+                    <Lock size={13} className="text-amber-400" /> مقفل
                   </span>
                 ) : (
                   <span className="flex items-center gap-1.5 text-emerald-300 text-[11px] font-semibold">
-                    <CheckCircle size={13} className="text-emerald-400" /> تم الإرسال
+                    <CheckCircle size={13} className="text-emerald-400" /> تم
                   </span>
                 )
               ) : timeLeft > 0 ? (
-                <span className={`flex items-center gap-1.5 font-mono font-bold text-sm tabular-nums transition-colors ${
+                <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg font-mono font-bold text-sm tabular-nums transition-colors ${
                   timeLeft <= 30
-                    ? 'text-red-400'
+                    ? 'bg-red-950/40 text-red-400'
                     : timeLeft <= 60
-                    ? 'text-amber-400'
-                    : 'text-gray-300'
+                    ? 'bg-amber-950/40 text-amber-400'
+                    : 'bg-white/[0.04] text-gray-300'
                 }`}>
-                  <Clock size={13} className={timeLeft <= 30 ? 'text-red-400' : 'text-gray-500'} />
+                  <Clock size={13} />
                   {formatTime(timeLeft)}
-                </span>
+                </div>
               ) : null}
             </div>
           </div>
 
-          {/* New badge — only when relevant */}
+          {/* New badge */}
           {newNums.size > 0 && !submitted && (
             <div className="mt-2">
-              <span className="text-purple-400 text-[10px] bg-purple-900/20 border border-purple-800/30 rounded-full px-2.5 py-0.5 font-medium inline-flex items-center gap-1">
+              <span className="text-purple-300 text-[10px] bg-purple-900/20 border border-purple-800/25 rounded-full px-2.5 py-0.5 font-medium inline-flex items-center gap-1">
                 <Sparkles size={10} className="inline" /> {newNums.size} أشخاص جدد من الجولة الثانية
               </span>
             </div>
@@ -2234,75 +2233,70 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
         </div>
       </div>
 
-      <div className="max-w-sm mx-auto pb-24">
-
-        {/* Phase change warning banner — non-blocking */}
+      {/* ── Content ── */}
+      <div className="max-w-sm mx-auto pb-28">
+        {/* Warning banners */}
         <AnimatePresence>
           {showPhaseWarning && !submitted && (
             <motion.div
-              initial={{ opacity: 0, y: -20, height: 0 }} animate={{ opacity: 1, y: 0, height: 'auto' }}
-              exit={{ opacity: 0, y: -20, height: 0 }}
-              className="bg-amber-950/80 border border-amber-700/40 rounded-xl mx-4 mt-2 px-4 py-2.5 flex items-center gap-2.5"
+              initial={{ opacity: 0, y: -12, height: 0 }} animate={{ opacity: 1, y: 0, height: 'auto' }}
+              exit={{ opacity: 0, y: -12, height: 0 }}
+              className="bg-amber-950/60 border border-amber-800/30 rounded-xl mx-4 mt-3 px-3.5 py-2.5 flex items-center gap-2.5"
             >
-              <Clock size={16} className="text-amber-400 flex-shrink-0" />
+              <Clock size={15} className="text-amber-400 flex-shrink-0" />
               <div className="flex-1">
                 <p className="text-amber-300 text-xs font-bold">المنظم انتقل للمرحلة التالية</p>
-                <p className="text-amber-400/60 text-[10px]">ارتب اختياراتك وأرسلها بسرعة للمتابعة</p>
+                <p className="text-amber-400/50 text-[10px] mt-0.5">ارتب اختياراتك وأرسلها بسرعة</p>
               </div>
-              <button onClick={() => setShowPhaseWarning(false)} className="text-amber-500/60 hover:text-amber-400 flex-shrink-0">
+              <button onClick={() => setShowPhaseWarning(false)} className="text-amber-500/50 hover:text-amber-400 flex-shrink-0">
                 <X size={14} />
               </button>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Auto-save info banner — shown once on load */}
         <AnimatePresence>
           {showAutoSaveInfo && !submitted && (
             <motion.div
               initial={{ opacity: 0, y: -10, height: 0 }} animate={{ opacity: 1, y: 0, height: 'auto' }}
               exit={{ opacity: 0, y: -10, height: 0 }}
-              className="bg-blue-950/60 border border-blue-800/40 rounded-xl mx-4 mt-2 px-4 py-3 flex items-start gap-2.5"
+              className="bg-blue-950/40 border border-blue-900/30 rounded-xl mx-4 mt-3 px-3.5 py-3 flex items-start gap-2.5"
             >
-              <Info size={16} className="text-blue-400 flex-shrink-0 mt-0.5" />
+              <Info size={15} className="text-blue-400 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
                 <p className="text-blue-300 text-xs font-bold">معلومة مهمة عن التصنيف</p>
-                <p className="text-blue-200/60 text-[10px] leading-relaxed mt-0.5">
+                <p className="text-blue-200/50 text-[10px] leading-relaxed mt-0.5">
                   إذا انتهى الوقت قبل أن ترسل تصنيفك، سيُحفظ ترتيبك الحالي تلقائياً ويُستخدم للمطابقة.
-                  احرص على ترتيب الأشخاص أولاً ثم اضغط إرسال للتأكيد.
                 </p>
               </div>
-              <button onClick={() => setShowAutoSaveInfo(false)} className="text-blue-500/60 hover:text-blue-400 flex-shrink-0">
+              <button onClick={() => setShowAutoSaveInfo(false)} className="text-blue-500/50 hover:text-blue-400 flex-shrink-0">
                 <X size={14} />
               </button>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* 30s warning banner */}
         <AnimatePresence>
           {showWarning && !submitted && timeLeft > 0 && timeLeft <= 30 && (
             <motion.div
               initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-              className="bg-red-950/80 border border-red-700/40 rounded-xl mx-4 mt-2 px-4 py-2.5 flex items-center gap-2.5"
+              className="bg-red-950/60 border border-red-800/30 rounded-xl mx-4 mt-3 px-3.5 py-2.5 flex items-center gap-2.5"
             >
-              <Clock size={16} className="text-red-400 flex-shrink-0 animate-pulse" />
+              <Clock size={15} className="text-red-400 flex-shrink-0 animate-pulse" />
               <div className="flex-1">
                 <p className="text-red-300 text-xs font-bold">باقي {timeLeft} ثانية فقط!</p>
-                <p className="text-red-400/60 text-[10px]">احفظ تصنيفك الآن — سيُحفظ تلقائياً عند انتهاء الوقت</p>
+                <p className="text-red-400/50 text-[10px] mt-0.5">احفظ تصنيفك الآن</p>
               </div>
-              <button onClick={() => setShowWarning(false)} className="text-red-500/60 hover:text-red-400 flex-shrink-0">
+              <button onClick={() => setShowWarning(false)} className="text-red-500/50 hover:text-red-400 flex-shrink-0">
                 <X size={14} />
               </button>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Randomize button — moved to top bar */}
-
-        {/* Drag-to-reorder list */}
-        <div className="px-5">
-          <Reorder.Group axis="y" values={order} onReorder={setOrder} className="space-y-1.5" as="div">
+        {/* ── Ranking list ── */}
+        <div className="px-4 pt-3">
+          <Reorder.Group axis="y" values={order} onReorder={setOrder} className="space-y-2" as="div">
             {order.map((num, idx) => {
               const p = personMap[num]
               if (!p) return null
@@ -2311,83 +2305,86 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                   key={num}
                   value={num}
                   as="div"
-                  className={`py-2.5 sm:py-3 px-3.5 rounded-2xl border border-white/[0.06] bg-gradient-to-r from-gray-900/80 to-gray-900/60 backdrop-blur-sm hover:border-white/[0.12] transition-colors ${
-                    submitted ? 'cursor-not-allowed opacity-50' :
-                    isShuffling ? 'cursor-default pointer-events-none' :
-                    'cursor-grab active:cursor-grabbing touch-none select-none'
-                  } ${isShuffling ? 'border-cyan-800/40' : ''}`}
+                  className={`px-3.5 py-2.5 rounded-2xl border transition-all ${
+                    submitted
+                      ? 'border-white/[0.03] bg-white/[0.02] opacity-50 cursor-not-allowed'
+                      : isShuffling
+                      ? 'border-cyan-800/30 bg-cyan-950/10 cursor-default pointer-events-none'
+                      : 'border-white/[0.05] bg-white/[0.03] hover:bg-white/[0.05] hover:border-white/[0.08] cursor-grab active:cursor-grabbing touch-none select-none'
+                  }`}
                   whileDrag={submitted ? undefined : {
-                    scale: 1.04,
-                    boxShadow: "0 12px 40px rgba(0,0,0,0.5)",
-                    borderColor: "rgba(139,92,246,0.5)",
-                    backgroundColor: "rgba(88,28,135,0.2)",
+                    scale: 1.03,
+                    boxShadow: '0 8px 30px rgba(0,0,0,0.4)',
+                    borderColor: 'rgba(139,92,246,0.4)',
+                    backgroundColor: 'rgba(88,28,135,0.15)',
                     zIndex: 50,
                   }}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: submitted ? 0.5 : 1, x: 0 }}
-                  transition={{ delay: idx * 0.02 }}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: submitted ? 0.5 : 1, y: 0 }}
+                  transition={{ delay: idx * 0.03 }}
                   drag={submitted || isShuffling ? false : true}
                 >
-                  {/* Single row — compact */}
-                  <div className="flex items-center gap-2.5 sm:gap-3">
+                  <div className="flex items-center gap-3">
                     {/* Rank badge */}
                     <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0 ${rankStyle(idx)}`}>
                       {idx + 1}
                     </div>
 
-                    {/* Name + number + round badge inline */}
+                    {/* Name + meta */}
                     <div className="flex-1 min-w-0 flex items-center gap-2">
                       <span className="font-semibold text-white text-sm leading-tight truncate">{p.first_name}</span>
                       <span className="text-[10px] text-gray-600 font-mono flex-shrink-0">#{p.number}</span>
+                      {newNums.has(num) && (
+                        <span className="text-[9px] bg-purple-900/50 text-purple-300 border border-purple-800/40 rounded-full px-1.5 py-0.5 font-semibold flex items-center gap-0.5 flex-shrink-0">
+                          <Sparkles size={7} className="inline" /> جديد
+                        </span>
+                      )}
                       <span className={`text-[9px] px-1.5 py-0.5 rounded-full border flex-shrink-0 hidden sm:inline-block ${roundStyle(p.round)}`}>
                         {roundLabel(p.round)}
                       </span>
-                      {newNums.has(num) && (
-                        <span className="text-[9px] bg-purple-900/60 text-purple-300 border border-purple-700/50 rounded-full px-1.5 py-0.5 font-semibold flex items-center gap-0.5 flex-shrink-0"><Sparkles size={7} className="inline" /> جديد</span>
-                      )}
                     </div>
 
-                    {/* Note toggle button */}
+                    {/* Note button */}
                     <button
                       onClick={e => { e.stopPropagation(); setOpenNote(openNote === num ? null : num) }}
-                      className={`w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-xl transition-all ${
+                      className={`w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-lg transition-all ${
                         notes[num]
-                          ? "bg-amber-500/15 border border-amber-600/30 text-amber-400"
-                          : "text-gray-700 hover:text-gray-500"
+                          ? 'bg-amber-500/10 border border-amber-700/30 text-amber-400'
+                          : 'text-gray-600 hover:text-gray-400 hover:bg-white/[0.04]'
                       }`}
                       title="ملاحظة خاصة"
                     >
-                      <PenLine size={12} />
+                      <PenLine size={13} />
                     </button>
 
                     {/* Drag handle */}
-                    <GripVertical size={16} className="text-gray-600 flex-shrink-0" />
+                    <GripVertical size={16} className="text-gray-700 flex-shrink-0" />
                   </div>
 
-                  {/* Collapsible note area */}
+                  {/* Collapsible note */}
                   <AnimatePresence>
                     {openNote === num && (
                       <motion.div
                         key="note"
                         initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
+                        animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
                         transition={{ duration: 0.2 }}
                         className="overflow-hidden"
                         onPointerDown={e => e.stopPropagation()}
                       >
-                        <div className="pt-2 mt-2 border-t border-gray-800/50">
+                        <div className="pt-2.5 mt-2.5 border-t border-white/[0.05]">
                           <textarea
-                            value={notes[num] || ""}
+                            value={notes[num] || ''}
                             onChange={e => setNotes(prev => ({ ...prev, [num]: e.target.value }))}
-                            onBlur={() => saveNote(num, notes[num] || "")}
+                            onBlur={() => saveNote(num, notes[num] || '')}
                             placeholder="ملاحظة خاصة — لن يراها أحد غيرك..."
                             rows={2}
                             dir="rtl"
-                            className="w-full bg-gray-800/60 border border-gray-700/50 focus:border-amber-600/50 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-600 resize-none outline-none transition-colors cursor-text"
+                            className="w-full bg-white/[0.03] border border-white/[0.06] focus:border-amber-600/40 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 resize-none outline-none transition-colors cursor-text"
                           />
-                          <p className="text-[9px] mt-0.5 text-right transition-colors" style={{ color: savingNote === num ? "#f59e0b" : "#374151" }}>
-                            {savingNote === num ? "جاري الحفظ..." : notes[num]?.trim() ? "✓ محفوظة" : "تُحفظ تلقائياً عند المغادرة"}
+                          <p className="text-[9px] mt-1 text-right transition-colors" style={{ color: savingNote === num ? '#f59e0b' : '#374151' }}>
+                            {savingNote === num ? 'جاري الحفظ...' : notes[num]?.trim() ? '✓ محفوظة' : 'تُحفظ تلقائياً عند المغادرة'}
                           </p>
                         </div>
                       </motion.div>
@@ -2400,19 +2397,19 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
         </div>
       </div>
 
-      {/* Fixed submit bar */}
-      <div className="fixed bottom-0 inset-x-0 p-2.5 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent pt-4">
+      {/* ── Fixed submit bar ── */}
+      <div className="fixed bottom-0 inset-x-0 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent pt-5 pb-3 px-4">
         <div className="max-w-sm mx-auto">
           {submitted ? (
             <div className="space-y-2 text-center">
-              <div className={`flex items-center justify-center gap-2 rounded-xl py-3 px-4 ${autoSavedRef.current ? 'bg-amber-900/30 border border-amber-700/40' : 'bg-emerald-900/30 border border-emerald-700/40'}`}>
+              <div className={`flex items-center justify-center gap-2 rounded-2xl py-3 px-4 ${autoSavedRef.current ? 'bg-amber-900/20 border border-amber-800/30' : 'bg-emerald-900/20 border border-emerald-800/30'}`}>
                 {autoSavedRef.current ? <Lock size={16} className="text-amber-400" /> : <CheckCircle size={16} className="text-emerald-400" />}
                 <span className={`font-bold text-xs ${autoSavedRef.current ? 'text-amber-300' : 'text-emerald-300'}`}>
                   {autoSavedRef.current ? 'تم قفل التصنيف بانتهاء الوقت' : 'تم إرسال تصنيفك'}
                 </span>
               </div>
               {autoSavedRef.current && (
-                <p className="text-amber-500/60 text-[10px] leading-relaxed">
+                <p className="text-amber-500/50 text-[10px] leading-relaxed">
                   ⏰ انتهى الوقت وتم حفظ ترتيبك الحالي تلقائياً — لا يمكن التعديل
                 </p>
               )}
@@ -2430,16 +2427,16 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                 onClick={() => setShowConfirm(true)}
                 disabled={submitting}
                 whileTap={{ scale: 0.97 }}
-                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-60 text-white rounded-xl py-3 font-bold text-sm shadow-2xl shadow-purple-600/30 transition-all"
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-50 text-white rounded-2xl py-3.5 font-bold text-sm shadow-lg shadow-purple-600/25 transition-all"
               >
                 {submitting ? <Spinner size={16} className="!text-white" /> : <Send size={16} />}
                 {completedRounds >= 2 ? 'إرسال التصنيف النهائي' : 'حفظ التصنيف'}
               </motion.button>
-              <p className="text-center text-gray-700 text-[11px] mt-2">
-                النظام سيختار توافقك الأمثل من تصنيفاتك · قد تُطابق مع خيارك الأخير إذا لم يخترك أعلى خياراتك
+              <p className="text-center text-gray-600 text-[10px] mt-2 leading-relaxed">
+                النظام سيختار توافقك الأمثل من تصنيفاتك
               </p>
               {timeLeft > 0 && timeLeft <= 60 && !submitted && (
-                <p className="text-center text-amber-500/70 text-[10px] mt-1">
+                <p className="text-center text-amber-500/60 text-[10px] mt-1">
                   ⏰ سيُحفظ تصنيفك تلقائياً عند انتهاء الوقت
                 </p>
               )}
@@ -2464,10 +2461,10 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
             <motion.div
               initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="bg-gray-900 border border-gray-800 rounded-3xl p-6 max-w-sm w-full space-y-4 text-center"
+              className="bg-gray-900/90 border border-white/[0.08] rounded-3xl p-6 max-w-sm w-full space-y-4 text-center"
               onClick={e => e.stopPropagation()}
             >
-              <div className="w-14 h-14 mx-auto rounded-2xl bg-purple-900/40 border border-purple-700/40 flex items-center justify-center">
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-purple-900/30 border border-purple-700/30 flex items-center justify-center">
                 <Send size={24} className="text-purple-400" />
               </div>
               <h3 className="text-white font-bold text-lg">تأكيد التصنيف</h3>
@@ -2476,7 +2473,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                 {completedRounds >= 2 ? " هذا تصنيفك النهائي — سيُستخدم للمطابقة." : " يمكنك تعديل تصنيفك في الجولة القادمة."}
               </p>
               {/* Top 3 preview */}
-              <div className="bg-gray-800/50 rounded-2xl p-3 space-y-1.5">
+              <div className="bg-white/[0.03] border border-white/[0.04] rounded-2xl p-3 space-y-1.5">
                 {order.slice(0, 3).map((num, i) => {
                   const p = personMap[num]
                   if (!p) return null
@@ -2492,7 +2489,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
               </div>
               <div className="flex gap-3 pt-1">
                 <button onClick={() => setShowConfirm(false)}
-                  className="flex-1 py-3 rounded-2xl bg-gray-800 text-gray-400 font-bold text-sm hover:bg-gray-700 transition-colors">
+                  className="flex-1 py-3 rounded-2xl bg-white/[0.04] border border-white/[0.06] text-gray-400 font-bold text-sm hover:bg-white/[0.06] transition-colors">
                   إلغاء
                 </button>
                 <button onClick={submit} disabled={submitting}

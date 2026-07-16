@@ -1967,24 +1967,51 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
   )
 }
 
-// ─── Ranking Tutorial Overlay (single reminder) ──────────────────────────────
+// ─── Ranking Tutorial Overlay (sleek single-card) ────────────────────────────
 function RankingTutorial({ onClose }: { onClose: () => void }) {
   return (
-    <OnePopup
-      onClose={onClose}
-      accent="amber"
-      label="التقييم والترتيب"
-      icon={<Trophy size={26} className="text-amber-400" />}
-      title="رتّب من أعجبك"
-      cta="فهمت — ابدأ الترتيب"
-      points={[
-        { icon: <Trophy size={15} className="text-amber-400" />, text: <>اسحب البطاقات لترتيب من <span className="text-white font-bold">الأعلى اهتماماً</span> للأقل — الأول هو أولويتك القصوى</> },
-        { icon: <Heart size={15} className="text-emerald-400" />, text: <>إذا رتّبت شخصًا <span className="text-white font-bold">#1</span> ورتّبك هو أيضًا <span className="text-white font-bold">#1</span> ← تطابق مثالي وجلسة فردية!</> },
-        { icon: <Sparkles size={15} className="text-cyan-400" />, text: <>الترتيب مو لازم يكون متبادل عشان تتطابقون. مثلاً، تقدر تحط شخص في المركز الأول عندك، وهو يحطك في المركز الثالث عنده؛ وبرضو تتطابقون! كيف؟ لأن اللي كان مرتبته الأول والثاني عنده ما قدروا يتطابقون (يمكن حطوا أشخاص ثانين فوقه في ترتيبهم)، فالنظام يرجع لأعلى خيار متاح له، وهنا يوصل لك.</> },
-        { icon: <AlertTriangle size={15} className="text-amber-400" />, text: <>التطابق يجب أن يكون <span className="text-white font-bold">متبادلاً</span> — ترتيبك وحده لا يكفي، الطرفان يجب أن يتقاربا</> },
-        { icon: <Sparkles size={15} className="text-pink-400" />, text: <>نتيجتك: جلستان فرديتان — واحدة من اختيارك وواحدة يختارها النظام بناءً على التوافق</> },
-      ]}
-    />
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[500] bg-black/80 backdrop-blur-md flex items-center justify-center p-6"
+      dir="rtl"
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 20, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 20, scale: 0.96 }}
+        transition={{ type: "spring", stiffness: 320, damping: 26 }}
+        className="relative bg-gradient-to-br from-gray-900/95 to-gray-950/95 border border-amber-500/20 rounded-3xl p-5 max-w-xs w-full overflow-hidden ring-1 ring-amber-500/10"
+      >
+        <div className="absolute -top-16 -right-10 w-40 h-40 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+        <button onClick={onClose} className="absolute top-3 left-3 w-7 h-7 rounded-full bg-white/[0.06] flex items-center justify-center text-gray-500 hover:text-white transition-colors">
+          <X size={13} />
+        </button>
+        <div className="relative flex flex-col items-center text-center">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-600/10 border border-amber-500/20 flex items-center justify-center mb-3">
+            <Trophy size={22} className="text-amber-400" />
+          </div>
+          <h2 className="text-white font-black text-lg mb-1">رتّب من أعجبك</h2>
+          <p className="text-gray-500 text-[11px] mb-4">اسحب لترتيب — الأعلى = أولويتك</p>
+          <div className="w-full space-y-2 text-right mb-4">
+            {[
+              { icon: <Trophy size={14} className="text-amber-400" />, text: <>اسحب البطاقات — <span className="text-white font-bold">#1</span> هو أعلى أولوية</> },
+              { icon: <Heart size={14} className="text-emerald-400" />, text: <>تطابق <span className="text-white font-bold">متبادل</span> = جلسة فردية معاً</> },
+              { icon: <Sparkles size={14} className="text-cyan-400" />, text: <>نتيجتك: <span className="text-white font-bold">جلستان</span> — واحدة من اختيارك وواحدة ذكية</> },
+            ].map((p, i) => (
+              <motion.div key={i} initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.08 + i * 0.07 }}
+                className="flex items-start gap-2.5 bg-white/[0.03] border border-white/[0.05] rounded-xl px-3 py-2">
+                <span className="shrink-0 mt-0.5">{p.icon}</span>
+                <p className="text-gray-300 text-[11px] leading-relaxed flex-1">{p.text}</p>
+              </motion.div>
+            ))}
+          </div>
+          <motion.button whileTap={{ scale: 0.96 }} onClick={onClose}
+            className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-black rounded-xl py-3 font-black text-sm shadow-lg shadow-amber-500/20">
+            فهمت — ابدأ الترتيب
+          </motion.button>
+        </div>
+      </motion.div>
+    </motion.div>
   )
 }
 
@@ -2003,21 +2030,12 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   const [showPhaseWarning, setShowPhaseWarning] = useState(false)
   const [showRankTutorial, setShowRankTutorial] = useState(true)
   const [timeLeft, setTimeLeft] = useState(300) // fallback, overwritten by server timer
-  const [showWarning, setShowWarning] = useState(false) // 30s warning
   const [autoSaving, setAutoSaving] = useState(false)
-  const [showAutoSaveInfo, setShowAutoSaveInfo] = useState(true) // auto-save info banner
   const [isShuffling, setIsShuffling] = useState(false)
   const initialPhaseRef = useRef(currentPhase)
   const submittedRef = useRef(false)
   const orderRef = useRef<number[]>([])
   const autoSavedRef = useRef(false)
-
-  // Auto-hide the info banner after 10s
-  useEffect(() => {
-    if (!showAutoSaveInfo) return
-    const t = setTimeout(() => setShowAutoSaveInfo(false), 10000)
-    return () => clearTimeout(t)
-  }, [showAutoSaveInfo])
 
   useEffect(() => {
     Promise.all([
@@ -2062,7 +2080,6 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
       const remaining = Math.max(0, timerDuration - elapsed)
       setTimeLeft(remaining)
       if (remaining === 31) {
-        setShowWarning(true)
         toast('باقي 30 ثانية — احفظ تصنيفك الآن!', { duration: 5000, icon: '⏰' })
       }
     }
@@ -2134,43 +2151,67 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
 
   const personMap = Object.fromEntries(people.map(p => [p.number, p]))
 
-  const roundLabel = (r: number) => ["الجولة الجماعية الأولى", "الجولة الجماعية الثانية"][r - 1] || `الجولة ${r}`
-  const roundStyle = (r: number) => [
-    "bg-blue-900/50 text-blue-300 border-blue-700/50",
-    "bg-indigo-900/50 text-indigo-300 border-indigo-700/50",
-  ][r - 1] || "bg-gray-800/50 text-gray-400 border-gray-700/50"
+  const avatarColors = [
+    "from-amber-500 to-orange-600",
+    "from-slate-400 to-slate-500",
+    "from-amber-700 to-orange-800",
+    "from-purple-500 to-indigo-600",
+    "from-cyan-500 to-blue-600",
+    "from-pink-500 to-rose-600",
+    "from-emerald-500 to-teal-600",
+    "from-violet-500 to-purple-600",
+  ]
 
-  const rankStyle = (idx: number) => {
-    if (idx === 0) return "bg-gradient-to-br from-amber-400 to-yellow-500 text-black shadow-md shadow-amber-500/25"
-    if (idx === 1) return "bg-gradient-to-br from-slate-300 to-slate-400 text-black shadow-md shadow-slate-500/20"
-    if (idx === 2) return "bg-gradient-to-br from-amber-600 to-orange-700 text-white shadow-md shadow-orange-600/25"
-    return "bg-white/[0.04] text-gray-500 border border-white/[0.06]"
+  const getInitials = (name: string) => {
+    if (!name) return "?"
+    const parts = name.trim().split(/\s+/)
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
+    return name.slice(0, 2).toUpperCase()
+  }
+
+  const rankBadge = (idx: number) => {
+    if (idx === 0) return { bg: "from-amber-400 to-yellow-500", text: "text-black", ring: "ring-amber-400/30", glow: "shadow-amber-500/20" }
+    if (idx === 1) return { bg: "from-slate-300 to-slate-400", text: "text-black", ring: "ring-slate-300/20", glow: "shadow-slate-400/15" }
+    if (idx === 2) return { bg: "from-amber-600 to-orange-700", text: "text-white", ring: "ring-amber-600/25", glow: "shadow-orange-600/20" }
+    return { bg: "from-white/[0.06] to-white/[0.03]", text: "text-gray-400", ring: "ring-white/[0.04]", glow: "" }
+  }
+
+  const cardAccent = (idx: number) => {
+    if (idx === 0) return "border-amber-500/20 bg-gradient-to-r from-amber-950/20 to-transparent"
+    if (idx === 1) return "border-slate-400/15 bg-gradient-to-r from-slate-800/15 to-transparent"
+    if (idx === 2) return "border-orange-700/15 bg-gradient-to-r from-orange-950/15 to-transparent"
+    return "border-white/[0.05] bg-white/[0.02]"
   }
 
   if (loading) return (
     <PageWrapper className="flex items-center justify-center">
-      <Spinner size={28} />
+      <div className="flex flex-col items-center gap-3">
+        <Spinner size={28} />
+        <p className="text-gray-500 text-xs">جاري تحميل الأشخاص...</p>
+      </div>
     </PageWrapper>
   )
 
+  const timerPct = timerDuration > 0 ? Math.min(100, (timeLeft / timerDuration) * 100) : 0
+  const timerColor = timeLeft <= 30 ? "bg-red-500" : timeLeft <= 60 ? "bg-amber-500" : "bg-emerald-500"
+  const timerText = timeLeft <= 30 ? "text-red-400" : timeLeft <= 60 ? "text-amber-400" : "text-gray-300"
+
   return (
     <PageWrapper className="overflow-y-auto bg-gray-950">
-      {/* ── Sticky header ── */}
+      {/* ── Sticky header with integrated timer ── */}
       <div className="sticky top-0 z-20 bg-gray-950/95 backdrop-blur-xl border-b border-white/[0.04]">
-        <div className="max-w-sm mx-auto px-4 pt-3 pb-2.5">
-          <div className="flex items-center justify-between">
-            {/* Left: title */}
+        <div className="max-w-sm mx-auto px-4 pt-3.5 pb-3">
+          <div className="flex items-center justify-between mb-2.5">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-600/25 to-pink-600/15 border border-purple-500/15 flex items-center justify-center">
-                <Trophy size={16} className="text-purple-300" />
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-600/10 border border-amber-500/20 flex items-center justify-center">
+                <Trophy size={17} className="text-amber-400" />
               </div>
               <div>
-                <h1 className="text-[15px] font-bold text-white leading-tight">رتّب أولوياتك</h1>
+                <h1 className="text-base font-black text-white leading-tight">رتّب أولوياتك</h1>
                 <p className="text-gray-500 text-[10px] leading-tight mt-0.5">{people.length} أشخاص · اسحب للترتيب</p>
               </div>
             </div>
 
-            {/* Right: timer + randomize */}
             <div className="flex items-center gap-2">
               {!submitted && order.length >= 2 && (
                 <motion.button
@@ -2182,7 +2223,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                   className={`w-9 h-9 flex items-center justify-center rounded-xl border transition-all ${
                     isShuffling
                       ? 'bg-cyan-900/30 border-cyan-700/40 text-cyan-300 cursor-wait'
-                      : 'bg-gradient-to-br from-cyan-950/50 to-purple-950/30 border-cyan-800/40 text-cyan-400 hover:border-cyan-600/50 hover:text-cyan-300'
+                      : 'bg-white/[0.03] border-white/[0.06] text-gray-500 hover:border-cyan-600/40 hover:text-cyan-400'
                   }`}
                 >
                   <motion.span
@@ -2208,12 +2249,8 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                   </span>
                 )
               ) : timeLeft > 0 ? (
-                <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg font-mono font-bold text-sm tabular-nums transition-colors ${
-                  timeLeft <= 30
-                    ? 'bg-red-950/40 text-red-400'
-                    : timeLeft <= 60
-                    ? 'bg-amber-950/40 text-amber-400'
-                    : 'bg-white/[0.04] text-gray-300'
+                <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl font-mono font-bold text-sm tabular-nums transition-colors ${timerText} ${
+                  timeLeft <= 30 ? 'bg-red-950/30' : timeLeft <= 60 ? 'bg-amber-950/30' : 'bg-white/[0.04]'
                 }`}>
                   <Clock size={13} />
                   {formatTime(timeLeft)}
@@ -2222,158 +2259,134 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
             </div>
           </div>
 
-          {/* New badge */}
-          {newNums.size > 0 && !submitted && (
-            <div className="mt-2">
-              <span className="text-purple-300 text-[10px] bg-purple-900/20 border border-purple-800/25 rounded-full px-2.5 py-0.5 font-medium inline-flex items-center gap-1">
-                <Sparkles size={10} className="inline" /> {newNums.size} أشخاص جدد من الجولة الثانية
-              </span>
+          {/* Timer progress bar */}
+          {!submitted && timeLeft > 0 && (
+            <div className="h-[3px] rounded-full bg-white/[0.04] overflow-hidden">
+              <motion.div
+                className={`h-full rounded-full ${timerColor}`}
+                animate={{ width: `${timerPct}%` }}
+                transition={{ duration: 0.5, ease: "linear" }}
+              />
+            </div>
+          )}
+
+          {/* Compact status row — replaces 3 separate banners */}
+          {!submitted && (
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              {newNums.size > 0 && (
+                <span className="text-purple-300 text-[10px] bg-purple-900/20 border border-purple-800/25 rounded-full px-2.5 py-0.5 font-medium inline-flex items-center gap-1">
+                  <Sparkles size={10} /> {newNums.size} جدد
+                </span>
+              )}
+              {showPhaseWarning && (
+                <motion.span
+                  initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                  className="text-amber-300 text-[10px] bg-amber-900/30 border border-amber-700/30 rounded-full px-2.5 py-0.5 font-medium inline-flex items-center gap-1 cursor-pointer"
+                  onClick={() => setShowPhaseWarning(false)}
+                >
+                  <Clock size={10} /> عجّل — المنظم انتقل
+                </motion.span>
+              )}
+              {timeLeft <= 30 && timeLeft > 0 && (
+                <motion.span
+                  initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                  className="text-red-300 text-[10px] bg-red-900/30 border border-red-700/30 rounded-full px-2.5 py-0.5 font-bold inline-flex items-center gap-1"
+                >
+                  <Clock size={10} className="animate-pulse" /> باقي {timeLeft}ث
+                </motion.span>
+              )}
             </div>
           )}
         </div>
       </div>
 
-      {/* ── Content ── */}
-      <div className="max-w-sm mx-auto pb-28">
-        {/* Warning banners */}
-        <AnimatePresence>
-          {showPhaseWarning && !submitted && (
-            <motion.div
-              initial={{ opacity: 0, y: -12, height: 0 }} animate={{ opacity: 1, y: 0, height: 'auto' }}
-              exit={{ opacity: 0, y: -12, height: 0 }}
-              className="bg-amber-950/60 border border-amber-800/30 rounded-xl mx-4 mt-3 px-3.5 py-2.5 flex items-center gap-2.5"
-            >
-              <Clock size={15} className="text-amber-400 flex-shrink-0" />
-              <div className="flex-1">
-                <p className="text-amber-300 text-xs font-bold">المنظم انتقل للمرحلة التالية</p>
-                <p className="text-amber-400/50 text-[10px] mt-0.5">ارتب اختياراتك وأرسلها بسرعة</p>
-              </div>
-              <button onClick={() => setShowPhaseWarning(false)} className="text-amber-500/50 hover:text-amber-400 flex-shrink-0">
-                <X size={14} />
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {showAutoSaveInfo && !submitted && (
-            <motion.div
-              initial={{ opacity: 0, y: -10, height: 0 }} animate={{ opacity: 1, y: 0, height: 'auto' }}
-              exit={{ opacity: 0, y: -10, height: 0 }}
-              className="bg-blue-950/40 border border-blue-900/30 rounded-xl mx-4 mt-3 px-3.5 py-3 flex items-start gap-2.5"
-            >
-              <Info size={15} className="text-blue-400 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-blue-300 text-xs font-bold">معلومة مهمة عن التصنيف</p>
-                <p className="text-blue-200/50 text-[10px] leading-relaxed mt-0.5">
-                  إذا انتهى الوقت قبل أن ترسل تصنيفك، سيُحفظ ترتيبك الحالي تلقائياً ويُستخدم للمطابقة.
-                </p>
-              </div>
-              <button onClick={() => setShowAutoSaveInfo(false)} className="text-blue-500/50 hover:text-blue-400 flex-shrink-0">
-                <X size={14} />
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {showWarning && !submitted && timeLeft > 0 && timeLeft <= 30 && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-              className="bg-red-950/60 border border-red-800/30 rounded-xl mx-4 mt-3 px-3.5 py-2.5 flex items-center gap-2.5"
-            >
-              <Clock size={15} className="text-red-400 flex-shrink-0 animate-pulse" />
-              <div className="flex-1">
-                <p className="text-red-300 text-xs font-bold">باقي {timeLeft} ثانية فقط!</p>
-                <p className="text-red-400/50 text-[10px] mt-0.5">احفظ تصنيفك الآن</p>
-              </div>
-              <button onClick={() => setShowWarning(false)} className="text-red-500/50 hover:text-red-400 flex-shrink-0">
-                <X size={14} />
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* ── Ranking list ── */}
-        <div className="px-4 pt-3">
-          <Reorder.Group axis="y" values={order} onReorder={setOrder} className="space-y-2" as="div">
-            {order.map((num, idx) => {
-              const p = personMap[num]
-              if (!p) return null
-              return (
-                <Reorder.Item
-                  key={num}
-                  value={num}
-                  as="div"
-                  className={`px-3.5 py-2.5 rounded-2xl border transition-all ${
-                    submitted
-                      ? 'border-white/[0.03] bg-white/[0.02] opacity-50 cursor-not-allowed'
-                      : isShuffling
-                      ? 'border-cyan-800/30 bg-cyan-950/10 cursor-default pointer-events-none'
-                      : 'border-white/[0.05] bg-white/[0.03] hover:bg-white/[0.05] hover:border-white/[0.08] cursor-grab active:cursor-grabbing touch-none select-none'
-                  }`}
-                  whileDrag={submitted ? undefined : {
-                    scale: 1.03,
-                    boxShadow: '0 8px 30px rgba(0,0,0,0.4)',
-                    borderColor: 'rgba(139,92,246,0.4)',
-                    backgroundColor: 'rgba(88,28,135,0.15)',
-                    zIndex: 50,
-                  }}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: submitted ? 0.5 : 1, y: 0 }}
-                  transition={{ delay: idx * 0.03 }}
-                  drag={submitted || isShuffling ? false : true}
-                >
-                  <div className="flex items-center gap-3">
-                    {/* Rank badge */}
-                    <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0 ${rankStyle(idx)}`}>
-                      {idx + 1}
-                    </div>
-
-                    {/* Name + meta */}
-                    <div className="flex-1 min-w-0 flex items-center gap-2">
-                      <span className="font-semibold text-white text-sm leading-tight truncate">{p.first_name}</span>
-                      <span className="text-[10px] text-gray-600 font-mono flex-shrink-0">#{p.number}</span>
-                      {newNums.has(num) && (
-                        <span className="text-[9px] bg-purple-900/50 text-purple-300 border border-purple-800/40 rounded-full px-1.5 py-0.5 font-semibold flex items-center gap-0.5 flex-shrink-0">
-                          <Sparkles size={7} className="inline" /> جديد
-                        </span>
-                      )}
-                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full border flex-shrink-0 hidden sm:inline-block ${roundStyle(p.round)}`}>
-                        {roundLabel(p.round)}
-                      </span>
-                    </div>
-
-                    {/* Note button */}
-                    <button
-                      onClick={e => { e.stopPropagation(); setOpenNote(openNote === num ? null : num) }}
-                      className={`w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-lg transition-all ${
-                        notes[num]
-                          ? 'bg-amber-500/10 border border-amber-700/30 text-amber-400'
-                          : 'text-gray-600 hover:text-gray-400 hover:bg-white/[0.04]'
-                      }`}
-                      title="ملاحظة خاصة"
-                    >
-                      <PenLine size={13} />
-                    </button>
-
-                    {/* Drag handle */}
-                    <GripVertical size={16} className="text-gray-700 flex-shrink-0" />
+      {/* ── Ranking list ── */}
+      <div className="max-w-sm mx-auto pb-28 px-4 pt-4">
+        <Reorder.Group axis="y" values={order} onReorder={setOrder} className="space-y-2.5" as="div">
+          {order.map((num, idx) => {
+            const p = personMap[num]
+            if (!p) return null
+            const rb = rankBadge(idx)
+            const accent = cardAccent(idx)
+            return (
+              <Reorder.Item
+                key={num}
+                value={num}
+                as="div"
+                className={`rounded-2xl border transition-all ${accent} ${
+                  submitted
+                    ? 'opacity-40 cursor-not-allowed'
+                    : isShuffling
+                    ? 'border-cyan-800/20 cursor-default pointer-events-none'
+                    : 'hover:border-white/[0.1] cursor-grab active:cursor-grabbing touch-none select-none'
+                }`}
+                whileDrag={submitted ? undefined : {
+                  scale: 1.04,
+                  boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+                  borderColor: 'rgba(251,191,36,0.3)',
+                  backgroundColor: 'rgba(120,53,15,0.12)',
+                  zIndex: 50,
+                }}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: submitted ? 0.4 : 1, y: 0 }}
+                transition={{ delay: idx * 0.04 }}
+                drag={submitted || isShuffling ? false : true}
+              >
+                <div className="flex items-center gap-3 px-3.5 py-3">
+                  {/* Rank badge */}
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0 bg-gradient-to-br ${rb.bg} ${rb.text} shadow-md ${rb.glow} ring-1 ${rb.ring}`}>
+                    {idx + 1}
                   </div>
 
-                  {/* Collapsible note */}
-                  <AnimatePresence>
-                    {openNote === num && (
-                      <motion.div
-                        key="note"
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="overflow-hidden"
-                        onPointerDown={e => e.stopPropagation()}
-                      >
-                        <div className="pt-2.5 mt-2.5 border-t border-white/[0.05]">
+                  {/* Avatar */}
+                  <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${avatarColors[num % avatarColors.length]} flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0 shadow-sm`}>
+                    {getInitials(p.first_name)}
+                  </div>
+
+                  {/* Name + meta */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-white text-sm leading-tight truncate">{p.first_name}</span>
+                      {newNums.has(num) && (
+                        <span className="text-[8px] bg-purple-900/50 text-purple-300 border border-purple-800/40 rounded-full px-1.5 py-0.5 font-semibold flex items-center gap-0.5 flex-shrink-0">
+                          <Sparkles size={6} /> جديد
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-gray-600 text-[10px] font-mono mt-0.5">#{p.number}</p>
+                  </div>
+
+                  {/* Note button */}
+                  <button
+                    onClick={e => { e.stopPropagation(); setOpenNote(openNote === num ? null : num) }}
+                    className={`w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-lg transition-all ${
+                      notes[num]
+                        ? 'bg-amber-500/10 border border-amber-700/30 text-amber-400'
+                        : 'text-gray-600 hover:text-gray-400 hover:bg-white/[0.04]'
+                    }`}
+                    title="ملاحظة خاصة"
+                  >
+                    <PenLine size={13} />
+                  </button>
+
+                  {/* Drag handle */}
+                  <GripVertical size={16} className="text-gray-700 flex-shrink-0" />
+                </div>
+
+                {/* Collapsible note */}
+                <AnimatePresence>
+                  {openNote === num && (
+                    <motion.div
+                      key="note"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                      onPointerDown={e => e.stopPropagation()}
+                    >
+                      <div className="px-3.5 pb-3">
+                        <div className="pt-2.5 border-t border-white/[0.05]">
                           <textarea
                             value={notes[num] || ''}
                             onChange={e => setNotes(prev => ({ ...prev, [num]: e.target.value }))}
@@ -2387,59 +2400,69 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                             {savingNote === num ? 'جاري الحفظ...' : notes[num]?.trim() ? '✓ محفوظة' : 'تُحفظ تلقائياً عند المغادرة'}
                           </p>
                         </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </Reorder.Item>
-              )
-            })}
-          </Reorder.Group>
-        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </Reorder.Item>
+            )
+          })}
+        </Reorder.Group>
       </div>
 
       {/* ── Fixed submit bar ── */}
-      <div className="fixed bottom-0 inset-x-0 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent pt-5 pb-3 px-4">
+      <div className="fixed bottom-0 inset-x-0 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent pt-6 pb-4 px-4">
         <div className="max-w-sm mx-auto">
           {submitted ? (
-            <div className="space-y-2 text-center">
-              <div className={`flex items-center justify-center gap-2 rounded-2xl py-3 px-4 ${autoSavedRef.current ? 'bg-amber-900/20 border border-amber-800/30' : 'bg-emerald-900/20 border border-emerald-800/30'}`}>
-                {autoSavedRef.current ? <Lock size={16} className="text-amber-400" /> : <CheckCircle size={16} className="text-emerald-400" />}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+              className="space-y-2.5 text-center"
+            >
+              <div className={`flex flex-col items-center gap-2 rounded-2xl py-4 px-4 ${autoSavedRef.current ? 'bg-amber-900/15 border border-amber-800/25' : 'bg-emerald-900/15 border border-emerald-800/25'}`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${autoSavedRef.current ? 'bg-amber-500/15' : 'bg-emerald-500/15'}`}>
+                  {autoSavedRef.current ? <Lock size={18} className="text-amber-400" /> : <CheckCircle size={18} className="text-emerald-400" />}
+                </div>
                 <span className={`font-bold text-xs ${autoSavedRef.current ? 'text-amber-300' : 'text-emerald-300'}`}>
-                  {autoSavedRef.current ? 'تم قفل التصنيف بانتهاء الوقت' : 'تم إرسال تصنيفك'}
+                  {autoSavedRef.current ? 'تم قفل التصنيف بانتهاء الوقت' : 'تم إرسال تصنيفك بنجاح'}
                 </span>
+                {autoSavedRef.current && (
+                  <p className="text-amber-500/40 text-[10px] leading-relaxed">
+                    تم حفظ ترتيبك الحالي تلقائياً — لا يمكن التعديل
+                  </p>
+                )}
               </div>
-              {autoSavedRef.current && (
-                <p className="text-amber-500/50 text-[10px] leading-relaxed">
-                  ⏰ انتهى الوقت وتم حفظ ترتيبك الحالي تلقائياً — لا يمكن التعديل
-                </p>
-              )}
               <p className="text-gray-600 text-[10px]">انتظر المنظم للانتقال للمرحلة التالية</p>
               {!autoSavedRef.current && (
                 <button onClick={() => setSubmitted(false)} disabled={submitting}
-                  className="text-gray-600 hover:text-gray-400 text-[10px] underline transition-colors">
+                  className="text-gray-500 hover:text-gray-300 text-[10px] underline transition-colors">
                   تعديل التصنيف
                 </button>
               )}
-            </div>
+            </motion.div>
           ) : (
             <>
               <motion.button
                 onClick={() => setShowConfirm(true)}
                 disabled={submitting}
                 whileTap={{ scale: 0.97 }}
-                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-50 text-white rounded-2xl py-3.5 font-bold text-sm shadow-lg shadow-purple-600/25 transition-all"
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:opacity-50 text-black rounded-2xl py-4 font-black text-sm shadow-lg shadow-amber-500/20 transition-all"
               >
-                {submitting ? <Spinner size={16} className="!text-white" /> : <Send size={16} />}
+                {submitting ? <Spinner size={16} className="!text-black" /> : <Send size={16} />}
                 {completedRounds >= 2 ? 'إرسال التصنيف النهائي' : 'حفظ التصنيف'}
               </motion.button>
-              <p className="text-center text-gray-600 text-[10px] mt-2 leading-relaxed">
-                النظام سيختار توافقك الأمثل من تصنيفاتك
-              </p>
-              {timeLeft > 0 && timeLeft <= 60 && !submitted && (
-                <p className="text-center text-amber-500/60 text-[10px] mt-1">
-                  ⏰ سيُحفظ تصنيفك تلقائياً عند انتهاء الوقت
+              <div className="flex items-center justify-center gap-1.5 mt-2">
+                <p className="text-gray-600 text-[10px]">
+                  النظام سيختار توافقك الأمثل من تصنيفاتك
                 </p>
-              )}
+                {timeLeft > 0 && timeLeft <= 60 && (
+                  <>
+                    <span className="text-gray-700 text-[10px]">·</span>
+                    <p className="text-amber-500/60 text-[10px]">
+                      يُحفظ تلقائياً عند انتهاء الوقت
+                    </p>
+                  </>
+                )}
+              </div>
             </>
           )}
         </div>
@@ -2455,37 +2478,41 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
         {showConfirm && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[500] bg-black/70 backdrop-blur-sm flex items-center justify-center p-6"
+            className="fixed inset-0 z-[500] bg-black/80 backdrop-blur-md flex items-center justify-center p-6"
             onClick={() => setShowConfirm(false)}
           >
             <motion.div
-              initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="bg-gray-900/90 border border-white/[0.08] rounded-3xl p-6 max-w-sm w-full space-y-4 text-center"
+              initial={{ scale: 0.92, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.92, y: 20 }}
+              transition={{ type: "spring", stiffness: 320, damping: 28 }}
+              className="bg-gradient-to-br from-gray-900/95 to-gray-950/95 border border-amber-500/15 rounded-3xl p-6 max-w-xs w-full space-y-4 text-center ring-1 ring-amber-500/10"
               onClick={e => e.stopPropagation()}
             >
-              <div className="w-14 h-14 mx-auto rounded-2xl bg-purple-900/30 border border-purple-700/30 flex items-center justify-center">
-                <Send size={24} className="text-purple-400" />
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-600/10 border border-amber-500/20 flex items-center justify-center">
+                <Send size={22} className="text-amber-400" />
               </div>
-              <h3 className="text-white font-bold text-lg">تأكيد التصنيف</h3>
+              <h3 className="text-white font-black text-lg">تأكيد التصنيف</h3>
               <p className="text-gray-400 text-sm leading-relaxed">
-                ستقوم بحفظ ترتيبك لـ <span className="text-white font-semibold">{order.length}</span> شخص.
-                {completedRounds >= 2 ? " هذا تصنيفك النهائي — سيُستخدم للمطابقة." : " يمكنك تعديل تصنيفك في الجولة القادمة."}
+                حفظ ترتيبك لـ <span className="text-white font-bold">{order.length}</span> شخص.
+                {completedRounds >= 2 ? " تصنيفك النهائي — سيُستخدم للمطابقة." : " يمكنك التعديل في الجولة القادمة."}
               </p>
-              {/* Top 3 preview */}
-              <div className="bg-white/[0.03] border border-white/[0.04] rounded-2xl p-3 space-y-1.5">
+              {/* Top 3 podium preview */}
+              <div className="bg-white/[0.03] border border-white/[0.05] rounded-2xl p-3.5 space-y-2">
                 {order.slice(0, 3).map((num, i) => {
                   const p = personMap[num]
                   if (!p) return null
+                  const rb = rankBadge(i)
                   return (
-                    <div key={num} className="flex items-center gap-2 text-sm">
-                      <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black ${rankStyle(i)}`}>{i + 1}</span>
-                      <span className="text-gray-300 font-medium">{p.first_name}</span>
+                    <div key={num} className="flex items-center gap-2.5">
+                      <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black bg-gradient-to-br ${rb.bg} ${rb.text}`}>{i + 1}</span>
+                      <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${avatarColors[num % avatarColors.length]} flex items-center justify-center text-white text-[9px] font-bold`}>
+                        {getInitials(p.first_name)}
+                      </div>
+                      <span className="text-gray-200 font-semibold text-sm flex-1 text-right">{p.first_name}</span>
                       <span className="text-gray-600 text-[10px] font-mono">#{p.number}</span>
                     </div>
                   )
                 })}
-                {order.length > 3 && <p className="text-gray-600 text-[11px] pt-1">+ {order.length - 3} أخرون</p>}
+                {order.length > 3 && <p className="text-gray-600 text-[11px] pt-1 text-center">+ {order.length - 3} آخرون</p>}
               </div>
               <div className="flex gap-3 pt-1">
                 <button onClick={() => setShowConfirm(false)}
@@ -2493,8 +2520,8 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                   إلغاء
                 </button>
                 <button onClick={submit} disabled={submitting}
-                  className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-sm hover:from-purple-500 hover:to-pink-500 disabled:opacity-50 transition-all flex items-center justify-center gap-2">
-                  {submitting ? <Spinner size={16} className="!text-white" /> : <CheckCircle size={16} />}
+                  className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-black font-black text-sm hover:from-amber-400 hover:to-orange-400 disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20">
+                  {submitting ? <Spinner size={16} className="!text-black" /> : <CheckCircle size={16} />}
                   تأكيد
                 </button>
               </div>

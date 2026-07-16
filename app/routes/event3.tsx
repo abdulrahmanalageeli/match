@@ -2170,8 +2170,30 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
               </div>
             </div>
 
-            {/* Timer / status — right side */}
+            {/* Timer / status + randomize — right side */}
             <div className="flex items-center gap-2">
+              {/* Randomize icon button */}
+              {!submitted && order.length >= 2 && (
+                <motion.button
+                  onClick={handleRandomize}
+                  disabled={isShuffling}
+                  whileTap={{ scale: 0.88 }}
+                  whileHover={{ scale: 1.05 }}
+                  title="خلط عشوائي"
+                  className={`w-8 h-8 flex items-center justify-center rounded-xl border transition-all ${
+                    isShuffling
+                      ? 'bg-cyan-900/30 border-cyan-700/40 text-cyan-300 cursor-wait'
+                      : 'bg-gradient-to-br from-cyan-950/60 to-purple-950/40 border-cyan-700/40 text-cyan-300 hover:border-cyan-600/50 shadow-md shadow-cyan-900/20'
+                  }`}
+                >
+                  <motion.span
+                    animate={isShuffling ? { rotate: 360 } : { rotate: 0 }}
+                    transition={isShuffling ? { duration: 0.5, repeat: Infinity, ease: 'linear' } : { duration: 0.2 }}
+                  >
+                    <Shuffle size={14} />
+                  </motion.span>
+                </motion.button>
+              )}
               {autoSaving ? (
                 <span className="flex items-center gap-1.5 text-amber-300 text-[11px] font-semibold">
                   <Spinner size={12} className="!text-amber-400" /> حفظ...
@@ -2276,32 +2298,10 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
           )}
         </AnimatePresence>
 
-        {/* Randomize button */}
-        {!submitted && order.length >= 2 && (
-          <div className="px-4 pt-2 pb-2">
-            <motion.button
-              onClick={handleRandomize}
-              disabled={isShuffling}
-              whileTap={{ scale: 0.96 }}
-              className={`w-full flex items-center justify-center gap-2 rounded-xl py-1.5 px-4 text-xs font-bold transition-all border ${
-                isShuffling
-                  ? 'bg-cyan-900/30 border-cyan-700/40 text-cyan-300 cursor-wait'
-                  : 'bg-gradient-to-r from-cyan-950/50 via-purple-950/40 to-cyan-950/50 border-cyan-700/40 text-cyan-300 hover:from-cyan-900/40 hover:via-purple-900/30 hover:to-cyan-900/40 hover:border-cyan-600/50 shadow-lg shadow-cyan-900/20'
-              }`}
-            >
-              <motion.span
-                animate={isShuffling ? { rotate: 360 } : { rotate: 0 }}
-                transition={isShuffling ? { duration: 0.5, repeat: Infinity, ease: 'linear' } : { duration: 0.2 }}
-              >
-                <Shuffle size={14} />
-              </motion.span>
-              {isShuffling ? 'جاري الخلط العشوائي...' : 'خلط عشوائي — لست متأكد؟ دع الحظ يقرر'}
-            </motion.button>
-          </div>
-        )}
+        {/* Randomize button — moved to top bar */}
 
         {/* Drag-to-reorder list */}
-        <div className="px-3">
+        <div className="px-5">
           <Reorder.Group axis="y" values={order} onReorder={setOrder} className="space-y-1.5" as="div">
             {order.map((num, idx) => {
               const p = personMap[num]

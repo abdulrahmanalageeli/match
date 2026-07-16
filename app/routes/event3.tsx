@@ -2207,11 +2207,11 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
     <PageWrapper className="overflow-y-auto bg-gray-950">
       {/* ── Sticky header with integrated timer ── */}
       <div className="sticky top-0 z-20 bg-gray-950/95 backdrop-blur-xl border-b border-white/[0.04]">
-        <div className="w-full max-w-md mx-auto px-3 sm:px-4 pt-3.5 pb-3">
-          <div className="flex items-center justify-between mb-2.5">
-            <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-600/10 border border-amber-500/20 flex items-center justify-center">
-                <Trophy size={17} className="text-amber-400" />
+        <div className="w-full max-w-md mx-auto px-3 sm:px-4 pt-2.5 pb-2">
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-600/10 border border-amber-500/20 flex items-center justify-center">
+                <Trophy size={15} className="text-amber-400" />
               </div>
               <div>
                 <h1 className="text-base font-black text-white leading-tight">رتّب أولوياتك</h1>
@@ -2308,8 +2308,8 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
       </div>
 
       {/* ── Ranking list ── */}
-      <div className="w-full max-w-md mx-auto pb-28 px-3 sm:px-4 pt-4">
-        <Reorder.Group axis="y" values={order} onReorder={setOrder} className="space-y-2" as="div">
+      <div className="w-full max-w-md mx-auto pb-20 px-3 sm:px-4 pt-2">
+        <Reorder.Group axis="y" values={order} onReorder={setOrder} className="space-y-1.5" as="div">
           {order.map((num, idx) => {
             const p = personMap[num]
             if (!p) return null
@@ -2320,7 +2320,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                 key={num}
                 value={num}
                 as="div"
-                className={`rounded-2xl border transition-colors ${accent} ${
+                className={`rounded-xl border transition-colors ${accent} ${
                   submitted
                     ? 'opacity-40 cursor-not-allowed'
                     : isShuffling
@@ -2335,50 +2335,48 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                 }}
                 drag={submitted || isShuffling ? false : true}
               >
-                <div className="flex items-center justify-center gap-2 sm:gap-2.5 px-3 py-2.5">
+                <div className="flex items-center justify-center gap-2 px-3 py-1.5">
                   {/* Rank badge with icon for top 3 */}
-                  <div className={`flex items-center justify-center flex-shrink-0 bg-gradient-to-br ${rb.bg} ${rb.text} shadow-md ${rb.glow} ring-1 ${rb.ring} ${
-                    idx < 3 ? 'w-9 h-9 rounded-xl gap-0.5' : 'w-8 h-8 rounded-lg'
+                  <div className={`flex items-center justify-center flex-shrink-0 bg-gradient-to-br ${rb.bg} ${rb.text} shadow-sm ${rb.glow} ring-1 ${rb.ring} ${
+                    idx < 3 ? 'w-7 h-7 rounded-lg gap-0.5' : 'w-6 h-6 rounded-md'
                   }`}>
                     {idx === 0 ? (
-                      <><Crown size={13} /><span className="text-xs font-black">{idx + 1}</span></>
+                      <><Crown size={10} /><span className="text-[10px] font-black">{idx + 1}</span></>
                     ) : idx === 1 ? (
-                      <><Medal size={13} /><span className="text-xs font-black">{idx + 1}</span></>
+                      <><Medal size={10} /><span className="text-[10px] font-black">{idx + 1}</span></>
                     ) : idx === 2 ? (
-                      <><Award size={13} /><span className="text-xs font-black">{idx + 1}</span></>
+                      <><Award size={10} /><span className="text-[10px] font-black">{idx + 1}</span></>
                     ) : (
-                      <span className="text-xs font-black">{idx + 1}</span>
+                      <span className="text-[10px] font-black">{idx + 1}</span>
                     )}
                   </div>
 
-                  {/* Name + meta */}
-                  <div className="flex-1 min-w-0 text-center">
-                    <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                      <span className="font-bold text-white text-sm leading-tight">{p.first_name}</span>
-                      {newNums.has(num) && (
-                        <span className="text-[8px] bg-purple-900/50 text-purple-300 border border-purple-800/40 rounded-full px-1.5 py-0.5 font-semibold flex items-center gap-0.5 flex-shrink-0">
-                          <Sparkles size={6} /> جديد
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-gray-600 text-[10px] font-mono mt-0.5">#{p.number}</p>
+                  {/* Name + number inline */}
+                  <div className="flex-1 min-w-0 text-center flex items-center justify-center gap-1.5 flex-wrap">
+                    <span className="font-bold text-white text-xs sm:text-sm leading-tight">{p.first_name}</span>
+                    <span className="text-gray-600 text-[10px] font-mono">#{p.number}</span>
+                    {newNums.has(num) && (
+                      <span className="text-[8px] bg-purple-900/50 text-purple-300 border border-purple-800/40 rounded-full px-1.5 py-0.5 font-semibold flex items-center gap-0.5 flex-shrink-0">
+                        <Sparkles size={6} /> جديد
+                      </span>
+                    )}
                   </div>
 
                   {/* Note button */}
                   <button
                     onClick={e => { e.stopPropagation(); setOpenNote(openNote === num ? null : num) }}
-                    className={`w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-lg transition-all ${
+                    className={`w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-md transition-all ${
                       notes[num]
                         ? 'bg-amber-500/10 border border-amber-700/30 text-amber-400'
                         : 'text-gray-600 hover:text-gray-400 hover:bg-white/[0.04]'
                     }`}
                     title="ملاحظة خاصة"
                   >
-                    <PenLine size={12} />
+                    <PenLine size={11} />
                   </button>
 
                   {/* Drag handle */}
-                  <GripVertical size={14} className="text-gray-700 flex-shrink-0" />
+                  <GripVertical size={12} className="text-gray-700 flex-shrink-0" />
                 </div>
 
                 {/* Collapsible note */}
@@ -2419,7 +2417,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
       </div>
 
       {/* ── Fixed submit bar ── */}
-      <div className="fixed bottom-0 inset-x-0 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent pt-6 pb-4 px-3 sm:px-4">
+      <div className="fixed bottom-0 inset-x-0 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent pt-4 pb-3 px-3 sm:px-4">
         <div className="w-full max-w-md mx-auto">
           {submitted ? (
             <motion.div
@@ -2453,7 +2451,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                 onClick={() => setShowConfirm(true)}
                 disabled={submitting}
                 whileTap={{ scale: 0.97 }}
-                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:opacity-50 text-black rounded-2xl py-4 font-black text-sm shadow-lg shadow-amber-500/20 transition-all"
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:opacity-50 text-black rounded-xl py-3 font-black text-sm shadow-lg shadow-amber-500/20 transition-all"
               >
                 {submitting ? <Spinner size={16} className="!text-black" /> : <Send size={16} />}
                 {completedRounds >= 2 ? 'إرسال التصنيف النهائي' : 'حفظ التصنيف'}

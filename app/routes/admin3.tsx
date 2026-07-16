@@ -820,7 +820,7 @@ export default function Admin3Page() {
     if (ph === "setup" && hasSeating) return { label: "⬅ بدء الجولة الأولى (30 دقيقة)", action: () => setPhaseWithTimer("round1", 1800, 1), ready: true }
     if (ph === "round1") return { label: "⬅ التصنيف بعد الجولة 1 (5 دقائق)", action: () => setPhaseWithTimer("ranking1", 300, 0), ready: true }
     if (ph === "ranking1") return { label: "⬅ بدء الجولة الثانية (25 دقيقة)", action: () => setPhaseWithTimer("round2", 1500, 2), ready: true }
-    if (ph === "round2") return { label: "⬅ التصنيف النهائي (3 دقائق)", action: () => setPhaseWithTimer("ranking2", 180, 0), ready: true }
+    if (ph === "round2") return { label: "⬅ التصنيف النهائي (5 دقائق)", action: () => setPhaseWithTimer("ranking2", 300, 0), ready: true }
     if (ph === "ranking2" && !hasMatches) return { label: "⬅ تشغيل مطابقة اختيار المشاركين", action: () => setPhaseStopTimer("phase2_processing").then(() => run("phase2", () => api("e3-trigger-phase2-matching").then(d => { fetchMatches(); fetchState(); return d }))), ready: ranked > 0 }
     if (ph === "phase2_processing" && hasMatches) return { label: "⬅ استراحة (10 دقائق)", action: () => setPhaseWithTimer("break", 600, 3), ready: true }
     if (ph === "phase2_processing") return { label: "⏳ جاري المطابقة...", action: () => {}, ready: false }
@@ -1675,8 +1675,8 @@ export default function Admin3Page() {
                   },
                   {
                     label: "التصنيف بعد الجولة 2",
-                    desc: "3 دقائق",
-                    action: () => setPhaseWithTimer("ranking2", 180, 0),
+                    desc: "5 دقائق",
+                    action: () => setPhaseWithTimer("ranking2", 300, 0),
                     icon: BarChart3,
                     color: "yellow",
                     enabled: true,
@@ -1788,7 +1788,7 @@ export default function Admin3Page() {
                           else if (phase.id === "round1") setPhaseWithTimer("round1", 1800, 1)
                           else if (phase.id === "ranking1") setPhaseWithTimer("ranking1", 300, 0)
                           else if (phase.id === "round2") setPhaseWithTimer("round2", 1500, 2)
-                          else if (phase.id === "ranking2") setPhaseWithTimer("ranking2", 180, 0)
+                          else if (phase.id === "ranking2") setPhaseWithTimer("ranking2", 300, 0)
                           else if (phase.id === "phase2_reveal") setPhaseWithTimer("phase2_reveal", 1260, 4)
                           else if (phase.id === "phase3_reveal") setPhaseWithTimer("phase3_reveal", 1260, 5)
                           else setPhase(phase.id)

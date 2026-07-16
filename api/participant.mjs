@@ -2867,7 +2867,7 @@ Please respond in JSON format:
         // Server-side auto-save: if ranking phase and timer expired, auto-save for this participant
         if (participant && (phase === "ranking1" || phase === "ranking2") && stateRow?.global_timer_active && stateRow?.global_timer_start_time) {
           const elapsed = Math.floor((Date.now() - new Date(stateRow.global_timer_start_time).getTime()) / 1000)
-          const remaining = Math.max(0, (stateRow.global_timer_duration || 150) - elapsed)
+          const remaining = Math.max(0, (stateRow.global_timer_duration || 300) - elapsed)
           if (remaining === 0) {
             // Check if participant already has rankings
             const { data: existingRanks } = await supabase.from("participant_rankings").select("id").eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId).eq("ranker_number", myNumber).limit(1)

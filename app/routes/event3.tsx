@@ -2302,7 +2302,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
 
         {/* Drag-to-reorder list */}
         <div className="px-3">
-          <Reorder.Group axis="y" values={order} onReorder={setOrder} className="space-y-0.5" as="div">
+          <Reorder.Group axis="y" values={order} onReorder={setOrder} className="space-y-1.5" as="div">
             {order.map((num, idx) => {
               const p = personMap[num]
               if (!p) return null
@@ -2311,7 +2311,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                   key={num}
                   value={num}
                   as="div"
-                  className={`py-1.5 sm:py-2 px-3 rounded-xl border border-gray-800/60 bg-gray-900/70 backdrop-blur-sm ${
+                  className={`py-2.5 sm:py-3 px-3.5 rounded-2xl border border-white/[0.06] bg-gradient-to-r from-gray-900/80 to-gray-900/60 backdrop-blur-sm hover:border-white/[0.12] transition-colors ${
                     submitted ? 'cursor-not-allowed opacity-50' :
                     isShuffling ? 'cursor-default pointer-events-none' :
                     'cursor-grab active:cursor-grabbing touch-none select-none'
@@ -2329,14 +2329,14 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                   drag={submitted || isShuffling ? false : true}
                 >
                   {/* Single row — compact */}
-                  <div className="flex items-center gap-2 sm:gap-2.5">
+                  <div className="flex items-center gap-2.5 sm:gap-3">
                     {/* Rank badge */}
-                    <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center text-[11px] sm:text-xs font-black flex-shrink-0 ${rankStyle(idx)}`}>
+                    <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0 ${rankStyle(idx)}`}>
                       {idx + 1}
                     </div>
 
                     {/* Name + number + round badge inline */}
-                    <div className="flex-1 min-w-0 flex items-center gap-1.5 sm:gap-2">
+                    <div className="flex-1 min-w-0 flex items-center gap-2">
                       <span className="font-semibold text-white text-sm leading-tight truncate">{p.first_name}</span>
                       <span className="text-[10px] text-gray-600 font-mono flex-shrink-0">#{p.number}</span>
                       <span className={`text-[9px] px-1.5 py-0.5 rounded-full border flex-shrink-0 hidden sm:inline-block ${roundStyle(p.round)}`}>
@@ -2350,7 +2350,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                     {/* Note toggle button */}
                     <button
                       onClick={e => { e.stopPropagation(); setOpenNote(openNote === num ? null : num) }}
-                      className={`w-6 h-6 sm:w-7 sm:h-7 flex-shrink-0 flex items-center justify-center rounded-lg transition-all ${
+                      className={`w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-xl transition-all ${
                         notes[num]
                           ? "bg-amber-500/15 border border-amber-600/30 text-amber-400"
                           : "text-gray-700 hover:text-gray-500"
@@ -2361,7 +2361,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                     </button>
 
                     {/* Drag handle */}
-                    <GripVertical size={14} className="text-gray-600 flex-shrink-0" />
+                    <GripVertical size={16} className="text-gray-600 flex-shrink-0" />
                   </div>
 
                   {/* Collapsible note area */}

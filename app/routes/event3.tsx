@@ -1799,17 +1799,17 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
             className="fixed top-0 inset-x-0 z-50 bg-gray-950/90 backdrop-blur-xl overflow-hidden"
           >
             <div className="flex items-center justify-between px-5 h-14 max-w-sm mx-auto relative">
-              <div className="flex items-center gap-2">
-                <Clock size={13} className="text-purple-400" />
-                <span className="text-gray-500 text-xs">الوقت المتبقي</span>
+              <div className="flex items-center gap-2 min-w-0">
+                <Clock size={13} className="text-purple-400 flex-shrink-0" />
+                <span className="text-gray-500 text-xs hidden sm:inline">الوقت المتبقي</span>
               </div>
               {myInfo && (
-                <div className="absolute left-1/2 -translate-x-1/2 flex items-baseline gap-1">
-                  <span className="text-gray-400/70 text-[12px] font-medium leading-none">{myInfo.name}</span>
-                  <span className={`text-[12px] font-mono font-bold leading-none ${myInfo.gender === "female" ? "text-pink-400/60" : myInfo.gender === "male" ? "text-blue-400/60" : "text-purple-400/60"}`}>#{myInfo.number}</span>
+                <div className="absolute left-1/2 -translate-x-1/2 flex items-baseline gap-1 max-w-[120px] overflow-hidden">
+                  <span className="text-gray-400/70 text-[12px] font-medium leading-none truncate">{myInfo.name}</span>
+                  <span className={`text-[12px] font-mono font-bold leading-none flex-shrink-0 ${myInfo.gender === "female" ? "text-pink-400/60" : myInfo.gender === "male" ? "text-blue-400/60" : "text-purple-400/60"}`}>#{myInfo.number}</span>
                 </div>
               )}
-              <div className={`text-2xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>
+              <div className={`text-xl sm:text-2xl font-mono font-black tabular-nums flex-shrink-0 ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>
                 {formatTime(timeLeft)}
               </div>
             </div>
@@ -1980,6 +1980,7 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
       points={[
         { icon: <Trophy size={15} className="text-amber-400" />, text: <>اسحب البطاقات لترتيب من <span className="text-white font-bold">الأعلى اهتماماً</span> للأقل — الأول هو أولويتك القصوى</> },
         { icon: <Heart size={15} className="text-emerald-400" />, text: <>إذا رتّبت شخصًا <span className="text-white font-bold">#1</span> ورتّبك هو أيضًا <span className="text-white font-bold">#1</span> ← تطابق مثالي وجلسة فردية!</> },
+        { icon: <Sparkles size={15} className="text-cyan-400" />, text: <>الترتيب مو لازم يكون متبادل عشان تتطابقون. مثلاً، تقدر تحط شخص في المركز الأول عندك، وهو يحطك في المركز الثالث عنده؛ وبرضو تتطابقون! كيف؟ لأن اللي كان مرتبته الأول والثاني عنده ما قدروا يتطابقون (يمكن حطوا أشخاص ثانين فوقه في ترتيبهم)، فالنظام يرجع لأعلى خيار متاح له، وهنا يوصل لك.</> },
         { icon: <AlertTriangle size={15} className="text-amber-400" />, text: <>التطابق يجب أن يكون <span className="text-white font-bold">متبادلاً</span> — ترتيبك وحده لا يكفي، الطرفان يجب أن يتقاربا</> },
         { icon: <Sparkles size={15} className="text-pink-400" />, text: <>نتيجتك: جلستان فرديتان — واحدة من اختيارك وواحدة يختارها النظام بناءً على التوافق</> },
       ]}
@@ -2005,6 +2006,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   const [showWarning, setShowWarning] = useState(false) // 30s warning
   const [autoSaving, setAutoSaving] = useState(false)
   const [showAutoSaveInfo, setShowAutoSaveInfo] = useState(true) // auto-save info banner
+  const [isShuffling, setIsShuffling] = useState(false)
   const initialPhaseRef = useRef(currentPhase)
   const submittedRef = useRef(false)
   const orderRef = useRef<number[]>([])
@@ -2108,6 +2110,28 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
     toast.success(completedRounds >= 2 ? "تم حفظ تصنيفك النهائي!" : "تم حفظ تصنيفك!")
   }
 
+  const handleRandomize = () => {
+    if (submitted || isShuffling || order.length < 2) return
+    setIsShuffling(true)
+    let count = 0
+    const max = 9
+    const iv = setInterval(() => {
+      setOrder(prev => {
+        const shuffled = [...prev]
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1))
+          ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+        }
+        return shuffled
+      })
+      count++
+      if (count >= max) {
+        clearInterval(iv)
+        setIsShuffling(false)
+      }
+    }, 130)
+  }
+
   const personMap = Object.fromEntries(people.map(p => [p.number, p]))
 
   const roundLabel = (r: number) => ["الجولة الجماعية الأولى", "الجولة الجماعية الثانية"][r - 1] || `الجولة ${r}`
@@ -2131,7 +2155,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
 
   return (
     <PageWrapper className="overflow-y-auto">
-      <div className="max-w-md mx-auto pb-32">
+      <div className="max-w-sm mx-auto pb-32">
 
         {/* Phase change warning banner — non-blocking */}
         <AnimatePresence>
@@ -2252,6 +2276,30 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
           </div>
         </div>
 
+        {/* Randomize button */}
+        {!submitted && order.length >= 2 && (
+          <div className="px-4 pt-2.5 pb-1">
+            <motion.button
+              onClick={handleRandomize}
+              disabled={isShuffling}
+              whileTap={{ scale: 0.96 }}
+              className={`w-full flex items-center justify-center gap-2 rounded-xl py-2.5 px-4 text-xs font-bold transition-all border ${
+                isShuffling
+                  ? 'bg-cyan-900/30 border-cyan-700/40 text-cyan-300 cursor-wait'
+                  : 'bg-gray-900/60 border-gray-800/60 text-gray-400 hover:text-cyan-300 hover:border-cyan-700/40 hover:bg-cyan-950/30'
+              }`}
+            >
+              <motion.span
+                animate={isShuffling ? { rotate: 360 } : { rotate: 0 }}
+                transition={isShuffling ? { duration: 0.5, repeat: Infinity, ease: 'linear' } : { duration: 0.2 }}
+              >
+                <Shuffle size={14} />
+              </motion.span>
+              {isShuffling ? 'جاري الخلط العشوائي...' : 'خلط عشوائي — لست متأكد؟ دع الحظ يقرر'}
+            </motion.button>
+          </div>
+        )}
+
         {/* Drag-to-reorder list */}
         <div className="px-3">
           <Reorder.Group axis="y" values={order} onReorder={setOrder} className="space-y-1.5" as="div">
@@ -2263,7 +2311,11 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                   key={num}
                   value={num}
                   as="div"
-                  className={`py-2 px-3 rounded-xl border border-gray-800/60 bg-gray-900/70 backdrop-blur-sm ${submitted ? 'cursor-not-allowed opacity-50' : 'cursor-grab active:cursor-grabbing touch-none select-none'}`}
+                  className={`py-2 px-3 rounded-xl border border-gray-800/60 bg-gray-900/70 backdrop-blur-sm ${
+                    submitted ? 'cursor-not-allowed opacity-50' :
+                    isShuffling ? 'cursor-default pointer-events-none' :
+                    'cursor-grab active:cursor-grabbing touch-none select-none'
+                  } ${isShuffling ? 'border-cyan-800/40' : ''}`}
                   whileDrag={submitted ? undefined : {
                     scale: 1.04,
                     boxShadow: "0 12px 40px rgba(0,0,0,0.5)",
@@ -2274,7 +2326,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: submitted ? 0.5 : 1, x: 0 }}
                   transition={{ delay: idx * 0.02 }}
-                  drag={submitted ? false : true}
+                  drag={submitted || isShuffling ? false : true}
                 >
                   {/* Single row — compact */}
                   <div className="flex items-center gap-2.5">
@@ -2285,9 +2337,9 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
 
                     {/* Name + number + round badge inline */}
                     <div className="flex-1 min-w-0 flex items-center gap-2">
-                      <span className="font-semibold text-white text-sm leading-tight">{p.first_name}</span>
+                      <span className="font-semibold text-white text-sm leading-tight truncate">{p.first_name}</span>
                       <span className="text-[10px] text-gray-600 font-mono flex-shrink-0">#{p.number}</span>
-                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full border flex-shrink-0 hidden xs:inline-block ${roundStyle(p.round)}`}>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full border flex-shrink-0 hidden sm:inline-block ${roundStyle(p.round)}`}>
                         {roundLabel(p.round)}
                       </span>
                       {newNums.has(num) && (
@@ -2350,7 +2402,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
 
       {/* Fixed submit bar */}
       <div className="fixed bottom-0 inset-x-0 p-3 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent pt-6">
-        <div className="max-w-md mx-auto">
+        <div className="max-w-sm mx-auto">
           {submitted ? (
             <div className="space-y-2 text-center">
               <div className={`flex items-center justify-center gap-2 rounded-xl py-3 px-4 ${autoSavedRef.current ? 'bg-amber-900/30 border border-amber-700/40' : 'bg-emerald-900/30 border border-emerald-700/40'}`}>
@@ -2473,14 +2525,15 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
     compatibilityRate: 50, sliderMoved: false, sharedInterests: 3, comfortLevel: 3,
     communicationStyle: 3, wouldMeetAgain: 3, overallExperience: 3, recommendations: '', participantMessage: ''
   })
-  const STEPS = 4
+  const STEPS = 5
   const goNext = (patch?: Partial<typeof fb>) => {
     if (patch) setFb(p => ({ ...p, ...patch }))
     setDir(1); setTimeout(() => setStep(s => Math.min(s + 1, STEPS - 1)), 150)
   }
   const goBack = () => { setDir(-1); setStep(s => Math.max(s - 1, 0)) }
   const handleSubmit = async () => {
-    if (fb.wantConnect === null) { toast.error('الرجوع للخطوة 3 واختر رد'); return }
+    if (!fb.sliderMoved || fb.compatibilityRate === 50) { toast.error('رجاءً خمّن درجة التوافق في الخطوة 3'); return }
+    if (fb.wantConnect === null) { toast.error('رجوع للخطوة 4 واختر رد'); return }
     setSubmitting(true)
     const ok = await onSubmit({ ...fb, word })
     setSubmitting(false)
@@ -2494,18 +2547,18 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
     { icon: <Sparkles size={18} />, gradient: 'from-emerald-500/80 to-teal-600/80', ring: 'ring-emerald-400/60', glow: 'shadow-[0_0_20px_-4px_rgba(16,185,129,0.5)]' },
   ]
   const RatingRow = ({ labels, field, val }: { labels: string[]; field: string; val: number }) => (
-    <div className="flex gap-2">
+    <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
       {labels.map((label, i) => {
         const cfg = ratingConfigs[i]
         const selected = val === i + 1
         return (
           <motion.button key={i} whileTap={{ scale: 0.88 }}
             onClick={() => { setFb(p => ({ ...p, [field]: i + 1 })); setTimeout(() => goNext({ [field]: i + 1 }), 320) }}
-            className={`flex-1 flex flex-col items-center gap-2 py-4 rounded-2xl transition-all duration-200 ${selected ? 'bg-white/[0.06] ring-2 scale-105 ' + cfg.ring + ' ' + cfg.glow : 'bg-white/[0.03] ring-1 ring-white/[0.05] active:bg-white/8'}`}>
-            <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${cfg.gradient} flex items-center justify-center text-white transition-transform duration-200 ${selected ? 'scale-110' : 'scale-95 opacity-70'}`}>
+            className={`flex flex-col items-center gap-1.5 py-3 sm:py-4 rounded-2xl transition-all duration-200 ${selected ? 'bg-white/[0.06] ring-2 scale-105 ' + cfg.ring + ' ' + cfg.glow : 'bg-white/[0.03] ring-1 ring-white/[0.05] active:bg-white/8'}`}>
+            <div className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-gradient-to-br ${cfg.gradient} flex items-center justify-center text-white transition-transform duration-200 ${selected ? 'scale-110' : 'scale-95 opacity-70'}`}>
               {cfg.icon}
             </div>
-            <span className={`text-[10px] leading-tight text-center transition-colors duration-200 ${selected ? 'text-white font-semibold' : 'text-gray-600'}`}>{label}</span>
+            <span className={`text-[9px] sm:text-[10px] leading-tight text-center transition-colors duration-200 ${selected ? 'text-white font-semibold' : 'text-gray-600'}`}>{label}</span>
           </motion.button>
         )
       })}
@@ -2569,13 +2622,32 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
           </div>
         </div>
       )}
+      {/* Disclaimer banner — intellectual compatibility, not looks */}
+      <div className="relative z-10 mx-5 mb-2">
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+          className="relative overflow-hidden rounded-2xl border border-amber-700/40 bg-gradient-to-br from-amber-950/50 via-orange-950/30 to-amber-950/20 px-4 py-3">
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-400/40 to-transparent" />
+          <div className="flex items-start gap-2.5">
+            <motion.div animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2, repeat: Infinity }}
+              className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-600/30 flex items-center justify-center shrink-0 mt-0.5">
+              <AlertTriangle size={15} className="text-amber-400" />
+            </motion.div>
+            <div className="space-y-1">
+              <p className="text-amber-300 text-xs font-black">التوافق الفكري وليس الشكلي</p>
+              <p className="text-amber-200/60 text-[10px] leading-relaxed">
+                خمّن درجة التوافق بناءً على <span className="font-bold text-amber-300">الشخصية والتفكير</span>، وليس المظهر. التركيز على الشكل فقط قد يضر بمطابقاتك المستقبلية لأن النظام يعتمد على التوافق الفكري في الاختيار.
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      </div>
       <div className="relative z-10 flex-1 flex flex-col justify-center px-5 pb-10">
         <AnimatePresence mode="wait" custom={dir}>
           {step === 0 && (
             <motion.div key="s0" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
               transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="space-y-8">
               <div className="text-center space-y-2">
-                <p className="text-3xl font-black text-white">كيف كانت المحادثة؟</p>
+                <p className="text-2xl sm:text-3xl font-black text-white">كيف كانت المحادثة؟</p>
                 <p className="text-gray-500 text-sm">اختر ما يناسب شعورك</p>
               </div>
               <RatingRow labels={["سيئة","ضعيفة","مقبولة","جيدة","ممتازة"]} field="conversationQuality" val={fb.conversationQuality} />
@@ -2585,7 +2657,7 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
             <motion.div key="s1" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
               transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="space-y-8">
               <div className="text-center space-y-2">
-                <p className="text-3xl font-black text-white">التواصل الشخصي؟</p>
+                <p className="text-2xl sm:text-3xl font-black text-white">التواصل الشخصي؟</p>
                 <p className="text-gray-500 text-sm">مستوى الراحة والتفاهم</p>
               </div>
               <RatingRow labels={["لا شيء","ضعيف","مقبول","جيد","رائع"]} field="personalConnection" val={fb.personalConnection} />
@@ -2595,7 +2667,103 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
             <motion.div key="s2" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
               transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="space-y-6">
               <div className="text-center space-y-2">
-                <p className="text-3xl font-black text-white">هل تريد التواصل لاحقاً؟</p>
+                <div className="inline-flex items-center gap-1.5 bg-purple-900/30 border border-purple-700/40 rounded-full px-3 py-1 mb-1">
+                  <Brain size={11} className="text-purple-400" />
+                  <span className="text-purple-300 text-[10px] font-semibold">توافق فكري</span>
+                </div>
+                <p className="text-2xl sm:text-3xl font-black text-white">خمّن درجة التوافق الفكري</p>
+                <p className="text-gray-500 text-sm">لو كنت تخمّن نسبة التوافق الفكري بينكم — كم تعطي؟</p>
+              </div>
+              {/* Beautiful slider card */}
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+                className="relative overflow-hidden rounded-3xl border border-purple-700/30 bg-gradient-to-br from-purple-950/40 via-violet-950/30 to-purple-950/20 p-6 space-y-5 shadow-xl shadow-purple-900/20">
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-400/40 to-transparent" />
+                {/* Floating glow orbs */}
+                <motion.div className="absolute w-24 h-24 rounded-full bg-purple-500/10 blur-2xl"
+                  animate={{ x: [0, 15, 0], y: [0, -10, 0] }} transition={{ duration: 4, repeat: Infinity }} style={{ top: '5%', left: '5%' }} />
+                {/* Big percentage display */}
+                <div className="relative z-10 text-center">
+                  <motion.div
+                    key={fb.compatibilityRate}
+                    initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                    className={`text-6xl font-black font-mono tabular-nums ${
+                      fb.compatibilityRate >= 80 ? 'text-emerald-400' :
+                      fb.compatibilityRate >= 60 ? 'text-amber-400' :
+                      fb.compatibilityRate >= 40 ? 'text-orange-400' : 'text-red-400'
+                    }`}
+                    style={{ textShadow: fb.compatibilityRate >= 80 ? '0 0 30px rgba(16,185,129,0.3)' : fb.compatibilityRate >= 60 ? '0 0 30px rgba(245,158,11,0.3)' : '0 0 30px rgba(239,68,68,0.2)' }}
+                  >
+                    {fb.compatibilityRate}%
+                  </motion.div>
+                  <p className="text-gray-500 text-[10px] mt-1">{fb.compatibilityRate >= 80 ? 'توافق عالي جداً!' : fb.compatibilityRate >= 60 ? 'توافق جيد' : fb.compatibilityRate >= 40 ? 'توافق متوسط' : 'توافق منخفض'}</p>
+                </div>
+                {/* Slider */}
+                <div className="relative z-10">
+                  <div className="relative">
+                    <input
+                      type="range" min="0" max="100" step="5"
+                      value={fb.compatibilityRate}
+                      onChange={e => setFb(p => ({ ...p, compatibilityRate: parseInt(e.target.value), sliderMoved: true }))}
+                      aria-label="درجة التوافق الفكري"
+                      className="w-full h-3 rounded-full appearance-none cursor-pointer focus:outline-none transition-all
+                        [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-7 [&::-webkit-slider-thumb]:h-7
+                        [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white
+                        [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:border-2
+                        [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:transition-all
+                        [&::-webkit-slider-thumb]:duration-200 hover:[&::-webkit-slider-thumb]:scale-110
+                        [&::-moz-range-thumb]:w-7 [&::-moz-range-thumb]:h-7 [&::-moz-range-thumb]:rounded-full
+                        [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:cursor-pointer"
+                      style={{
+                        background: `linear-gradient(to right,
+                          ${fb.compatibilityRate >= 80 ? '#059669' : fb.compatibilityRate >= 60 ? '#d97706' : fb.compatibilityRate >= 40 ? '#ea580c' : '#dc2626'} 0%,
+                          ${fb.compatibilityRate >= 80 ? '#10b981' : fb.compatibilityRate >= 60 ? '#f59e0b' : fb.compatibilityRate >= 40 ? '#f97316' : '#ef4444'} ${Math.max(fb.compatibilityRate - 2, 0)}%,
+                          ${fb.compatibilityRate >= 80 ? '#34d399' : fb.compatibilityRate >= 60 ? '#fbbf24' : fb.compatibilityRate >= 40 ? '#fb923c' : '#f87171'} ${fb.compatibilityRate}%,
+                          #334155 ${Math.min(fb.compatibilityRate + 2, 100)}%, #1e293b 100%)`,
+                      }}
+                    />
+                    <style>{`
+                      input[type="range"]::-webkit-slider-thumb {
+                        border-color: ${fb.compatibilityRate >= 80 ? '#10b981' : fb.compatibilityRate >= 60 ? '#f59e0b' : fb.compatibilityRate >= 40 ? '#f97316' : '#ef4444'} !important;
+                      }
+                      input[type="range"]::-moz-range-thumb {
+                        border-color: ${fb.compatibilityRate >= 80 ? '#10b981' : fb.compatibilityRate >= 60 ? '#f59e0b' : fb.compatibilityRate >= 40 ? '#f97316' : '#ef4444'} !important;
+                      }
+                    `}</style>
+                  </div>
+                  <div className="flex justify-between text-[10px] mt-2 text-gray-600">
+                    <span>0%</span>
+                    <span>50%</span>
+                    <span>100%</span>
+                  </div>
+                </div>
+                {/* Hint */}
+                {!fb.sliderMoved && (
+                  <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
+                    className="relative z-10 text-center text-purple-300/60 text-[10px] flex items-center justify-center gap-1.5">
+                    <motion.span animate={{ x: [0, 4, 0] }} transition={{ duration: 1.5, repeat: Infinity }}>👈</motion.span>
+                    حرّك المؤشر لتخمين الدرجة
+                  </motion.p>
+                )}
+              </motion.div>
+              {/* Next button */}
+              <motion.button
+                onClick={() => { if (!fb.sliderMoved || fb.compatibilityRate === 50) { toast.error('حرّك المؤشر أولاً'); return } goNext() }}
+                whileTap={{ scale: 0.97 }}
+                disabled={!fb.sliderMoved || fb.compatibilityRate === 50}
+                className="w-full py-4 rounded-2xl font-bold text-sm bg-gradient-to-r from-purple-600 to-violet-600 text-white shadow-lg shadow-purple-600/20 disabled:opacity-30 disabled:shadow-none transition-all flex items-center justify-center gap-2">
+                متابعة <ChevronRight size={16} />
+              </motion.button>
+              {fb.sliderMoved && fb.compatibilityRate === 50 && (
+                <p className="text-center text-amber-500/70 text-[10px]">لا يمكن أن تكون 50% بالضبط — اختر قيمة أعلى أو أدنى</p>
+              )}
+            </motion.div>
+          )}
+          {step === 3 && (
+            <motion.div key="s3" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
+              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="space-y-6">
+              <div className="text-center space-y-2">
+                <p className="text-2xl sm:text-3xl font-black text-white">هل تريد التواصل لاحقاً؟</p>
               </div>
               {/* Prominent info card — mutual match = contact exchange */}
               <motion.div
@@ -2632,8 +2800,8 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
               </div>
             </motion.div>
           )}
-          {step === 3 && (
-            <motion.div key="s3" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
+          {step === 4 && (
+            <motion.div key="s4" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
               transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="space-y-6">
               <div className="text-center space-y-2">
                 <p className="text-2xl font-black text-white">ملاحظة للمنظم</p>
@@ -2650,7 +2818,8 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
                   ? <><motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }} className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />جاري الإرسال...</>
                   : <><Send size={18} /> إرسال التقييم</>}
               </motion.button>
-              {fb.wantConnect === null && <p className="text-center text-amber-500/70 text-xs">ارجع للخطوة 3 وأجب على سؤال التواصل</p>}
+              {fb.wantConnect === null && <p className="text-center text-amber-500/70 text-xs">ارجع للخطوة 4 وأجب على سؤال التواصل</p>}
+              {(!fb.sliderMoved || fb.compatibilityRate === 50) && <p className="text-center text-amber-500/70 text-xs">ارجع للخطوة 3 وحرّك مؤشر التوافق</p>}
             </motion.div>
           )}
         </AnimatePresence>
@@ -4170,7 +4339,7 @@ function RevealCard({ icon, label, name, score, word, revealed, accent }: {
             <Icon size={18} className={isPink ? "text-pink-400" : "text-purple-400"} />
           </div>
           <p className={`text-[10px] font-semibold tracking-wide uppercase ${isPink ? "text-pink-400/70" : "text-purple-400/70"}`}>{label}</p>
-          <motion.p className="text-xl font-black text-white leading-tight" initial={{ scale: 0.5 }} animate={{ scale: revealed ? 1 : 0.5 }} transition={{ delay: 0.4, type: "spring", stiffness: 300 }}>{name}</motion.p>
+          <motion.p className="text-lg sm:text-xl font-black text-white leading-tight truncate w-full text-center" initial={{ scale: 0.5 }} animate={{ scale: revealed ? 1 : 0.5 }} transition={{ delay: 0.4, type: "spring", stiffness: 300 }}>{name}</motion.p>
           <div className="flex items-baseline gap-0.5">
             <span className={`font-black text-lg ${isPink ? "text-pink-300" : "text-purple-300"}`}>{score}</span>
             <span className={isPink ? "text-pink-400/50 text-xs" : "text-purple-400/50 text-xs"}>%</span>
@@ -4302,7 +4471,7 @@ function FinalRevealScreen({ token }: { token: string }) {
         )}
 
         {/* Reveal cards with flip animation */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 }}>
             <RevealCard icon="heart" label="اختيارك" name={p2?.partner_first_name} score={p2?.compatibility_score} word={p2?.word} revealed={revealed} accent="pink" />
           </motion.div>

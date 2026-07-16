@@ -17,6 +17,7 @@ import {
   Frown, Meh, Smile, Layers, Zap,
   Snowflake, Target, Star, Drama, AlertTriangle, Lightbulb, PartyPopper, LifeBuoy,
   EyeOff, Smartphone, Handshake, Timer, Ban, ShieldCheck, Coffee, Bell, Info, Loader2,
+  Crown, Medal, Award,
 } from "lucide-react"
 
 import { QuestionSlideshow } from "~/components/QuestionSlideshow"
@@ -2032,6 +2033,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   const [timeLeft, setTimeLeft] = useState(300) // fallback, overwritten by server timer
   const [autoSaving, setAutoSaving] = useState(false)
   const [isShuffling, setIsShuffling] = useState(false)
+  const [showTimeWarning, setShowTimeWarning] = useState(false)
   const initialPhaseRef = useRef(currentPhase)
   const submittedRef = useRef(false)
   const orderRef = useRef<number[]>([])
@@ -2079,6 +2081,11 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
       const elapsed = Math.floor((Date.now() - new Date(timerStart).getTime()) / 1000)
       const remaining = Math.max(0, timerDuration - elapsed)
       setTimeLeft(remaining)
+      if (remaining === 90 && !submittedRef.current) {
+        vibrate([100, 50, 100])
+        playTimerWarningSound()
+        setShowTimeWarning(true)
+      }
       if (remaining === 31) {
         toast('باقي 30 ثانية — احفظ تصنيفك الآن!', { duration: 5000, icon: '⏰' })
       }
@@ -2200,7 +2207,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
     <PageWrapper className="overflow-y-auto bg-gray-950">
       {/* ── Sticky header with integrated timer ── */}
       <div className="sticky top-0 z-20 bg-gray-950/95 backdrop-blur-xl border-b border-white/[0.04]">
-        <div className="max-w-sm mx-auto px-4 pt-3.5 pb-3">
+        <div className="w-full max-w-md mx-auto px-3 sm:px-4 pt-3.5 pb-3">
           <div className="flex items-center justify-between mb-2.5">
             <div className="flex items-center gap-2.5">
               <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-600/10 border border-amber-500/20 flex items-center justify-center">
@@ -2301,8 +2308,8 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
       </div>
 
       {/* ── Ranking list ── */}
-      <div className="max-w-sm mx-auto pb-28 px-4 pt-4">
-        <Reorder.Group axis="y" values={order} onReorder={setOrder} className="space-y-2.5" as="div">
+      <div className="w-full max-w-md mx-auto pb-28 px-3 sm:px-4 pt-4">
+        <Reorder.Group axis="y" values={order} onReorder={setOrder} className="space-y-2" as="div">
           {order.map((num, idx) => {
             const p = personMap[num]
             if (!p) return null
@@ -2313,7 +2320,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                 key={num}
                 value={num}
                 as="div"
-                className={`rounded-2xl border transition-all ${accent} ${
+                className={`rounded-2xl border transition-colors ${accent} ${
                   submitted
                     ? 'opacity-40 cursor-not-allowed'
                     : isShuffling
@@ -2321,32 +2328,33 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                     : 'hover:border-white/[0.1] cursor-grab active:cursor-grabbing touch-none select-none'
                 }`}
                 whileDrag={submitted ? undefined : {
-                  scale: 1.04,
-                  boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+                  scale: 1.03,
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.45)',
                   borderColor: 'rgba(251,191,36,0.3)',
-                  backgroundColor: 'rgba(120,53,15,0.12)',
                   zIndex: 50,
                 }}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: submitted ? 0.4 : 1, y: 0 }}
-                transition={{ delay: idx * 0.04 }}
                 drag={submitted || isShuffling ? false : true}
               >
-                <div className="flex items-center gap-3 px-3.5 py-3">
-                  {/* Rank badge */}
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0 bg-gradient-to-br ${rb.bg} ${rb.text} shadow-md ${rb.glow} ring-1 ${rb.ring}`}>
-                    {idx + 1}
-                  </div>
-
-                  {/* Avatar */}
-                  <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${avatarColors[num % avatarColors.length]} flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0 shadow-sm`}>
-                    {getInitials(p.first_name)}
+                <div className="flex items-center justify-center gap-2 sm:gap-2.5 px-3 py-2.5">
+                  {/* Rank badge with icon for top 3 */}
+                  <div className={`flex items-center justify-center flex-shrink-0 bg-gradient-to-br ${rb.bg} ${rb.text} shadow-md ${rb.glow} ring-1 ${rb.ring} ${
+                    idx < 3 ? 'w-9 h-9 rounded-xl gap-0.5' : 'w-8 h-8 rounded-lg'
+                  }`}>
+                    {idx === 0 ? (
+                      <><Crown size={13} /><span className="text-xs font-black">{idx + 1}</span></>
+                    ) : idx === 1 ? (
+                      <><Medal size={13} /><span className="text-xs font-black">{idx + 1}</span></>
+                    ) : idx === 2 ? (
+                      <><Award size={13} /><span className="text-xs font-black">{idx + 1}</span></>
+                    ) : (
+                      <span className="text-xs font-black">{idx + 1}</span>
+                    )}
                   </div>
 
                   {/* Name + meta */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-bold text-white text-sm leading-tight truncate">{p.first_name}</span>
+                  <div className="flex-1 min-w-0 text-center">
+                    <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                      <span className="font-bold text-white text-sm leading-tight">{p.first_name}</span>
                       {newNums.has(num) && (
                         <span className="text-[8px] bg-purple-900/50 text-purple-300 border border-purple-800/40 rounded-full px-1.5 py-0.5 font-semibold flex items-center gap-0.5 flex-shrink-0">
                           <Sparkles size={6} /> جديد
@@ -2359,18 +2367,18 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                   {/* Note button */}
                   <button
                     onClick={e => { e.stopPropagation(); setOpenNote(openNote === num ? null : num) }}
-                    className={`w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-lg transition-all ${
+                    className={`w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-lg transition-all ${
                       notes[num]
                         ? 'bg-amber-500/10 border border-amber-700/30 text-amber-400'
                         : 'text-gray-600 hover:text-gray-400 hover:bg-white/[0.04]'
                     }`}
                     title="ملاحظة خاصة"
                   >
-                    <PenLine size={13} />
+                    <PenLine size={12} />
                   </button>
 
                   {/* Drag handle */}
-                  <GripVertical size={16} className="text-gray-700 flex-shrink-0" />
+                  <GripVertical size={14} className="text-gray-700 flex-shrink-0" />
                 </div>
 
                 {/* Collapsible note */}
@@ -2411,8 +2419,8 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
       </div>
 
       {/* ── Fixed submit bar ── */}
-      <div className="fixed bottom-0 inset-x-0 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent pt-6 pb-4 px-4">
-        <div className="max-w-sm mx-auto">
+      <div className="fixed bottom-0 inset-x-0 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent pt-6 pb-4 px-3 sm:px-4">
+        <div className="w-full max-w-md mx-auto">
           {submitted ? (
             <motion.div
               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
@@ -2473,6 +2481,19 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
         {showRankTutorial && <RankingTutorial onClose={() => setShowRankTutorial(false)} />}
       </AnimatePresence>
 
+      {/* 90-second auto-lock warning popup */}
+      <AnimatePresence>
+        {showTimeWarning && !submitted && (
+          <TimerWarningPopup
+            seconds={90}
+            label="دقيقة ونصف متبقية"
+            sublabel="إذا لم ترسل تصنيفك سيُحفظ تلقائياً ويُقفل"
+            theme="amber"
+            onDone={() => setShowTimeWarning(false)}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Confirmation modal */}
       <AnimatePresence>
         {showConfirm && (
@@ -2504,9 +2525,6 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                   return (
                     <div key={num} className="flex items-center gap-2.5">
                       <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black bg-gradient-to-br ${rb.bg} ${rb.text}`}>{i + 1}</span>
-                      <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${avatarColors[num % avatarColors.length]} flex items-center justify-center text-white text-[9px] font-bold`}>
-                        {getInitials(p.first_name)}
-                      </div>
                       <span className="text-gray-200 font-semibold text-sm flex-1 text-right">{p.first_name}</span>
                       <span className="text-gray-600 text-[10px] font-mono">#{p.number}</span>
                     </div>

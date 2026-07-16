@@ -2155,6 +2155,63 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
 
   return (
     <PageWrapper className="overflow-y-auto">
+      {/* Sticky header — full width, content constrained to max-w-sm */}
+      <div className="sticky top-0 z-10 bg-gray-950/90 backdrop-blur-xl">
+        <div className="max-w-sm mx-auto px-4 pt-2 pb-1.5 border-b border-white/[0.06]">
+          {/* Title row */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-600/30 to-pink-600/20 border border-purple-500/20 flex items-center justify-center">
+                <Trophy size={15} className="text-purple-300" />
+              </div>
+              <div>
+                <h1 className="text-sm font-bold text-white leading-tight">رتّب أولوياتك</h1>
+                <p className="text-gray-600 text-[10px] leading-tight">{people.length} أشخاص · اسحب للترتيب</p>
+              </div>
+            </div>
+
+            {/* Timer / status — right side */}
+            <div className="flex items-center gap-2">
+              {autoSaving ? (
+                <span className="flex items-center gap-1.5 text-amber-300 text-[11px] font-semibold">
+                  <Spinner size={12} className="!text-amber-400" /> حفظ...
+                </span>
+              ) : submitted ? (
+                autoSavedRef.current ? (
+                  <span className="flex items-center gap-1.5 text-amber-300 text-[11px] font-semibold">
+                    <Lock size={13} className="text-amber-400" /> مقفل بانتهاء الوقت
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 text-emerald-300 text-[11px] font-semibold">
+                    <CheckCircle size={13} className="text-emerald-400" /> تم الإرسال
+                  </span>
+                )
+              ) : timeLeft > 0 ? (
+                <span className={`flex items-center gap-1.5 font-mono font-bold text-sm tabular-nums transition-colors ${
+                  timeLeft <= 30
+                    ? 'text-red-400'
+                    : timeLeft <= 60
+                    ? 'text-amber-400'
+                    : 'text-gray-300'
+                }`}>
+                  <Clock size={13} className={timeLeft <= 30 ? 'text-red-400' : 'text-gray-500'} />
+                  {formatTime(timeLeft)}
+                </span>
+              ) : null}
+            </div>
+          </div>
+
+          {/* New badge — only when relevant */}
+          {newNums.size > 0 && !submitted && (
+            <div className="mt-2">
+              <span className="text-purple-400 text-[10px] bg-purple-900/20 border border-purple-800/30 rounded-full px-2.5 py-0.5 font-medium inline-flex items-center gap-1">
+                <Sparkles size={10} className="inline" /> {newNums.size} أشخاص جدد من الجولة الثانية
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="max-w-sm mx-auto pb-24">
 
         {/* Phase change warning banner — non-blocking */}
@@ -2218,63 +2275,6 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* Sticky header — sleek */}
-        <div className="sticky top-0 z-10 bg-gray-950/90 backdrop-blur-xl">
-          <div className="px-4 pt-2 pb-1.5 border-b border-white/[0.06]">
-            {/* Title row */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-600/30 to-pink-600/20 border border-purple-500/20 flex items-center justify-center">
-                  <Trophy size={15} className="text-purple-300" />
-                </div>
-                <div>
-                  <h1 className="text-sm font-bold text-white leading-tight">رتّب أولوياتك</h1>
-                  <p className="text-gray-600 text-[10px] leading-tight">{people.length} أشخاص · اسحب للترتيب</p>
-                </div>
-              </div>
-
-              {/* Timer / status — right side */}
-              <div className="flex items-center gap-2">
-                {autoSaving ? (
-                  <span className="flex items-center gap-1.5 text-amber-300 text-[11px] font-semibold">
-                    <Spinner size={12} className="!text-amber-400" /> حفظ...
-                  </span>
-                ) : submitted ? (
-                  autoSavedRef.current ? (
-                    <span className="flex items-center gap-1.5 text-amber-300 text-[11px] font-semibold">
-                      <Lock size={13} className="text-amber-400" /> مقفل بانتهاء الوقت
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1.5 text-emerald-300 text-[11px] font-semibold">
-                      <CheckCircle size={13} className="text-emerald-400" /> تم الإرسال
-                    </span>
-                  )
-                ) : timeLeft > 0 ? (
-                  <span className={`flex items-center gap-1.5 font-mono font-bold text-sm tabular-nums transition-colors ${
-                    timeLeft <= 30
-                      ? 'text-red-400'
-                      : timeLeft <= 60
-                      ? 'text-amber-400'
-                      : 'text-gray-300'
-                  }`}>
-                    <Clock size={13} className={timeLeft <= 30 ? 'text-red-400' : 'text-gray-500'} />
-                    {formatTime(timeLeft)}
-                  </span>
-                ) : null}
-              </div>
-            </div>
-
-            {/* New badge — only when relevant */}
-            {newNums.size > 0 && !submitted && (
-              <div className="mt-2">
-                <span className="text-purple-400 text-[10px] bg-purple-900/20 border border-purple-800/30 rounded-full px-2.5 py-0.5 font-medium inline-flex items-center gap-1">
-                  <Sparkles size={10} className="inline" /> {newNums.size} أشخاص جدد من الجولة الثانية
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
 
         {/* Randomize button */}
         {!submitted && order.length >= 2 && (

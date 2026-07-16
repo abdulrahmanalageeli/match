@@ -2308,26 +2308,26 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                 }}
                 drag={submitted || isShuffling ? false : true}
               >
-                <div className="flex items-center justify-center gap-2 px-3 py-1.5">
+                <div className="flex items-center justify-center gap-2 px-3 py-2">
                   {/* Rank badge with icon for top 3 */}
                   <div className={`flex items-center justify-center flex-shrink-0 bg-gradient-to-br ${rb.bg} ${rb.text} shadow-sm ${rb.glow} ring-1 ${rb.ring} ${
-                    idx < 3 ? 'w-7 h-7 rounded-lg gap-0.5' : 'w-6 h-6 rounded-md'
+                    idx < 3 ? 'w-8 h-8 rounded-lg gap-0.5' : 'w-7 h-7 rounded-md'
                   }`}>
                     {idx === 0 ? (
-                      <><Crown size={10} /><span className="text-[10px] font-black">{idx + 1}</span></>
+                      <><Crown size={11} /><span className="text-[11px] font-black">{idx + 1}</span></>
                     ) : idx === 1 ? (
-                      <><Medal size={10} /><span className="text-[10px] font-black">{idx + 1}</span></>
+                      <><Medal size={11} /><span className="text-[11px] font-black">{idx + 1}</span></>
                     ) : idx === 2 ? (
-                      <><Award size={10} /><span className="text-[10px] font-black">{idx + 1}</span></>
+                      <><Award size={11} /><span className="text-[11px] font-black">{idx + 1}</span></>
                     ) : (
-                      <span className="text-[10px] font-black">{idx + 1}</span>
+                      <span className="text-[11px] font-black">{idx + 1}</span>
                     )}
                   </div>
 
                   {/* Name + number inline */}
                   <div className="flex-1 min-w-0 text-center flex items-center justify-center gap-1.5 flex-wrap">
                     <span className="font-bold text-white text-xs sm:text-sm leading-tight">{p.first_name}</span>
-                    <span className="text-gray-600 text-[10px] font-mono">#{p.number}</span>
+                    <span className="text-gray-700 text-[9px] font-mono">#{p.number}</span>
                     {newNums.has(num) && (
                       <span className="text-[8px] bg-purple-900/50 text-purple-300 border border-purple-800/40 rounded-full px-1.5 py-0.5 font-semibold flex items-center gap-0.5 flex-shrink-0">
                         <Sparkles size={6} /> جديد

@@ -1968,51 +1968,24 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
   )
 }
 
-// ─── Ranking Tutorial Overlay (sleek single-card) ────────────────────────────
+// ─── Ranking Tutorial Overlay ────────────────────────────────────────────────
 function RankingTutorial({ onClose }: { onClose: () => void }) {
   return (
-    <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[500] bg-black/80 backdrop-blur-md flex items-center justify-center p-6"
-      dir="rtl"
-    >
-      <motion.div
-        initial={{ opacity: 0, y: 20, scale: 0.96 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 20, scale: 0.96 }}
-        transition={{ type: "spring", stiffness: 320, damping: 26 }}
-        className="relative bg-gradient-to-br from-gray-900/95 to-gray-950/95 border border-amber-500/20 rounded-3xl p-5 max-w-xs w-full overflow-hidden ring-1 ring-amber-500/10"
-      >
-        <div className="absolute -top-16 -right-10 w-40 h-40 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-        <button onClick={onClose} className="absolute top-3 left-3 w-7 h-7 rounded-full bg-white/[0.06] flex items-center justify-center text-gray-500 hover:text-white transition-colors">
-          <X size={13} />
-        </button>
-        <div className="relative flex flex-col items-center text-center">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-600/10 border border-amber-500/20 flex items-center justify-center mb-3">
-            <Trophy size={22} className="text-amber-400" />
-          </div>
-          <h2 className="text-white font-black text-lg mb-1">رتّب من أعجبك</h2>
-          <p className="text-gray-500 text-[11px] mb-4">اسحب لترتيب — الأعلى = أولويتك</p>
-          <div className="w-full space-y-2 text-right mb-4">
-            {[
-              { icon: <Trophy size={14} className="text-amber-400" />, text: <>اسحب البطاقات — <span className="text-white font-bold">#1</span> هو أعلى أولوية</> },
-              { icon: <Heart size={14} className="text-emerald-400" />, text: <>تطابق <span className="text-white font-bold">متبادل</span> = جلسة فردية معاً</> },
-              { icon: <Sparkles size={14} className="text-cyan-400" />, text: <>نتيجتك: <span className="text-white font-bold">جلستان</span> — واحدة من اختيارك وواحدة ذكية</> },
-            ].map((p, i) => (
-              <motion.div key={i} initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.08 + i * 0.07 }}
-                className="flex items-start gap-2.5 bg-white/[0.03] border border-white/[0.05] rounded-xl px-3 py-2">
-                <span className="shrink-0 mt-0.5">{p.icon}</span>
-                <p className="text-gray-300 text-[11px] leading-relaxed flex-1">{p.text}</p>
-              </motion.div>
-            ))}
-          </div>
-          <motion.button whileTap={{ scale: 0.96 }} onClick={onClose}
-            className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-black rounded-xl py-3 font-black text-sm shadow-lg shadow-amber-500/20">
-            فهمت — ابدأ الترتيب
-          </motion.button>
-        </div>
-      </motion.div>
-    </motion.div>
+    <OnePopup
+      onClose={onClose}
+      accent="amber"
+      label="التقييم والترتيب"
+      icon={<Trophy size={26} className="text-amber-400" />}
+      title="رتّب من أعجبك"
+      cta="فهمت — ابدأ الترتيب"
+      points={[
+        { icon: <Trophy size={14} className="text-amber-400" />, text: <>اسحب البطاقات لترتيب من <span className="text-white font-bold">الأعلى اهتماماً</span> للأقل — الأول هو أولويتك القصوى</> },
+        { icon: <Heart size={14} className="text-emerald-400" />, text: <>إذا رتّبت شخصًا <span className="text-white font-bold">#1</span> ورتّبك هو أيضًا <span className="text-white font-bold">#1</span> ← تطابق مثالي وجلسة فردية!</> },
+        { icon: <Sparkles size={14} className="text-cyan-400" />, text: <>الترتيب مو لازم يكون متبادل عشان تتطابقون. مثلاً، تقدر تحط شخص في المركز الأول عندك، وهو يحطك في المركز الثالث عنده؛ وبرضو تتطابقون! كيف؟ لأن اللي كان مرتبته الأول والثاني عنده ما قدروا يتطابقون (يمكن حطوا أشخاص ثانين فوقه في ترتيبهم)، فالنظام يرجع لأعلى خيار متاح له، وهنا يوصل لك.</> },
+        { icon: <Handshake size={14} className="text-purple-400" />, text: <>التطابق يجب أن يكون <span className="text-white font-bold">متبادلاً</span> — ترتيبك وحده لا يكفي، الطرفان يجب أن يتقاربا</> },
+        { icon: <Users size={14} className="text-pink-400" />, text: <>نتيجتك: <span className="text-white font-bold">جلستان فرديتان</span> — واحدة من اختيارك وواحدة يختارها النظام بناءً على التوافق</> },
+      ]}
+    />
   )
 }
 

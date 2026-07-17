@@ -1730,13 +1730,14 @@ function RockPaperScissors({ accent = "pink", autoDone = false, onDone }: { acce
 }
 
 // ─── Round Screen ─────────────────────────────────────────────────────────────
-function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myInfo }: {
-  token: string; phase: string; timerActive: boolean; timerStart: string | null; timerDuration: number; myInfo: { number: number; name: string; gender: string | null } | null
+function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myInfo, onGroupsOpenChange }: {
+  token: string; phase: string; timerActive: boolean; timerStart: string | null; timerDuration: number; myInfo: { number: number; name: string; gender: string | null } | null; onGroupsOpenChange?: (open: boolean) => void
 }) {
   const round = parseInt(phase.replace("round", "")) || 1
   const [assignment, setAssignment] = useState<any>(null)
   const [timeLeft, setTimeLeft] = useState(0)
   const [showGroups, setShowGroups] = useState(false)
+  useEffect(() => { onGroupsOpenChange?.(showGroups) }, [showGroups, onGroupsOpenChange])
   const [showTutorial, setShowTutorial] = useState(round === 1)
   const wakeLockRef = useRef<any>(null)
   const { popup, clearPopup } = useTimerWarnings(timerActive, timeLeft, timerDuration)
@@ -1969,24 +1970,9 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
             className="fixed inset-x-0 bottom-0 z-40 bg-gray-950 flex flex-col"
             style={{ top: timerActive && timeLeft > 0 ? "58px" : "0px" }}
           >
-            {/* Subtle background orbs — inspired by phase 2 */}
-            <div className="pointer-events-none absolute inset-0 overflow-hidden">
-              <div className="absolute -top-20 -right-12 w-72 h-72 bg-purple-600/10 rounded-full blur-[80px]" />
-              <div className="absolute top-1/3 -left-16 w-64 h-64 bg-pink-600/8 rounded-full blur-[70px]" />
-            </div>
-
-            {/* Close button — minimal, floats over content */}
-            <div className="absolute top-3 left-4 z-20">
-              <button
-                onClick={() => setShowGroups(false)}
-                className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors text-sm font-medium"
-              >
-                رجوع ←
-              </button>
-            </div>
             {/* Groups content rendered inline */}
             <div className="flex-1 overflow-y-auto relative z-10">
-              <GroupsPage disableOnboarding />
+              <GroupsPage disableOnboarding onClose={() => setShowGroups(false)} />
             </div>
           </motion.div>
         )}
@@ -5076,6 +5062,7 @@ export default function Event3Page() {
   const [myInfo, setMyInfo] = useState<{ number: number; name: string; gender: string | null } | null>(null)
   const [isOffline, setIsOffline] = useState(false)
   const [tokenError, setTokenError] = useState(false)
+  const [groupsOpen, setGroupsOpen] = useState(false)
   const aiWelcomeSeenKey = token ? `e3_ai_welcome_seen_${token}` : null
 
   const fetchState = useCallback(async () => {
@@ -5201,7 +5188,7 @@ export default function Event3Page() {
       <div className="flex-1 overflow-y-auto relative z-10">
         <AnimatePresence>
           {phase === "setup" && <SetupScreen key="setup" token={token} myInfo={myInfo} enrolledCount={eventState?.participants_selected ?? null} />}
-          {isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} myInfo={myInfo} />}
+          {isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} myInfo={myInfo} onGroupsOpenChange={setGroupsOpen} />}
           {completedRounds && <RankingScreen key={phase} token={token} completedRounds={completedRounds} currentPhase={phase} {...timerProps} />}
           {phase === "phase2_reveal" && <Phase2RevealScreen key="p2r" token={token} eventId={eventState?.event_id} {...timerProps} />}
           {phase === "phase3_reveal" && <Phase3RevealScreen key="p3r" token={token} eventId={eventState?.event_id} {...timerProps} />}
@@ -5211,8 +5198,8 @@ export default function Event3Page() {
         </AnimatePresence>
       </div>
 
-      {/* SOS button — hidden on final reveal, break, and ranking pages */}
-      {enrolled && !rankingMatch && phase !== "final_reveal" && phase !== "break" && <SOSButton token={token} position="bottom" />}
+      {/* SOS button — hidden on final reveal, break, ranking pages, and when groups overlay is open */}
+      {enrolled && !rankingMatch && phase !== "final_reveal" && phase !== "break" && !groupsOpen && <SOSButton token={token} position="bottom" />}
 
       {/* Mood check popup — polls for admin-triggered mood checks */}
       {enrolled && token && <MoodCheckModal token={token} name={myInfo?.name} />}

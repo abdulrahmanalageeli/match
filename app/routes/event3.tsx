@@ -2545,7 +2545,7 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
   }
   const goBack = () => { setDir(-1); setStep(s => Math.max(s - 1, 0)) }
   const handleSubmit = async () => {
-    if (!fb.sliderMoved || fb.compatibilityRate === 50) { toast.error('رجاءً خمّن درجة التوافق في الخطوة 3'); return }
+    if (!fb.sliderMoved || fb.compatibilityRate === 50) { toast.error('رجاءً خمّن درجة التوافق في الخطوة 1'); return }
     if (fb.wantConnect === null) { toast.error('رجوع للخطوة 4 واختر رد'); return }
     setSubmitting(true)
     const ok = await onSubmit({ ...fb, word })
@@ -2635,50 +2635,30 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
           </div>
         </div>
       )}
-      {/* Disclaimer banner — intellectual compatibility, not looks */}
-      <div className="relative z-10 mx-5 mb-2">
-        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-          className="relative overflow-hidden rounded-2xl border border-amber-700/40 bg-gradient-to-br from-amber-950/50 via-orange-950/30 to-amber-950/20 px-4 py-3">
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-400/40 to-transparent" />
-          <div className="flex items-start gap-2.5">
-            <motion.div animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2, repeat: Infinity }}
-              className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-600/30 flex items-center justify-center shrink-0 mt-0.5">
-              <AlertTriangle size={15} className="text-amber-400" />
-            </motion.div>
-            <div className="space-y-1">
-              <p className="text-amber-300 text-xs font-black">التوافق الفكري وليس الشكلي</p>
-              <p className="text-amber-200/60 text-[10px] leading-relaxed">
-                خمّن درجة التوافق بناءً على <span className="font-bold text-amber-300">الشخصية والتفكير</span>، وليس المظهر. التركيز على الشكل فقط قد يضر بمطابقاتك المستقبلية لأن النظام يعتمد على التوافق الفكري في الاختيار.
-              </p>
-            </div>
-          </div>
-        </motion.div>
-      </div>
       <div className="relative z-10 flex-1 flex flex-col justify-center px-5 pb-10">
         <AnimatePresence mode="wait" custom={dir}>
           {step === 0 && (
             <motion.div key="s0" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
-              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="space-y-8">
-              <div className="text-center space-y-2">
-                <p className="text-2xl sm:text-3xl font-black text-white">كيف كانت المحادثة؟</p>
-                <p className="text-gray-500 text-sm">اختر ما يناسب شعورك</p>
-              </div>
-              <RatingRow labels={["سيئة","ضعيفة","مقبولة","جيدة","ممتازة"]} field="conversationQuality" val={fb.conversationQuality} />
-            </motion.div>
-          )}
-          {step === 1 && (
-            <motion.div key="s1" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
-              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="space-y-8">
-              <div className="text-center space-y-2">
-                <p className="text-2xl sm:text-3xl font-black text-white">التواصل الشخصي؟</p>
-                <p className="text-gray-500 text-sm">مستوى الراحة والتفاهم</p>
-              </div>
-              <RatingRow labels={["لا شيء","ضعيف","مقبول","جيد","رائع"]} field="personalConnection" val={fb.personalConnection} />
-            </motion.div>
-          )}
-          {step === 2 && (
-            <motion.div key="s2" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
               transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="space-y-6">
+              {/* Disclaimer banner — intellectual compatibility, not looks (only on this step) */}
+              <div className="relative z-10">
+                <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                  className="relative overflow-hidden rounded-2xl border border-amber-700/40 bg-gradient-to-br from-amber-950/50 via-orange-950/30 to-amber-950/20 px-4 py-3">
+                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-400/40 to-transparent" />
+                  <div className="flex items-start gap-2.5">
+                    <motion.div animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2, repeat: Infinity }}
+                      className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-600/30 flex items-center justify-center shrink-0 mt-0.5">
+                      <AlertTriangle size={15} className="text-amber-400" />
+                    </motion.div>
+                    <div className="space-y-1">
+                      <p className="text-amber-300 text-xs font-black">التوافق الفكري وليس الشكلي</p>
+                      <p className="text-amber-200/60 text-[10px] leading-relaxed">
+                        خمّن درجة التوافق بناءً على <span className="font-bold text-amber-300">الشخصية والتفكير</span>، وليس المظهر. التركيز على الشكل فقط قد يضر بمطابقاتك المستقبلية لأن النظام يعتمد على التوافق الفكري في الاختيار.
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
               <div className="text-center space-y-2">
                 <div className="inline-flex items-center gap-1.5 bg-purple-900/30 border border-purple-700/40 rounded-full px-3 py-1 mb-1">
                   <Brain size={11} className="text-purple-400" />
@@ -2713,7 +2693,7 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
                 </div>
                 {/* Slider */}
                 <div className="relative z-10">
-                  <div className="relative">
+                  <div className="relative" style={{ direction: 'ltr' }}>
                     <input
                       type="range" min="0" max="100" step="5"
                       value={fb.compatibilityRate}
@@ -2770,6 +2750,26 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
               {fb.sliderMoved && fb.compatibilityRate === 50 && (
                 <p className="text-center text-amber-500/70 text-[10px]">لا يمكن أن تكون 50% بالضبط — اختر قيمة أعلى أو أدنى</p>
               )}
+            </motion.div>
+          )}
+          {step === 1 && (
+            <motion.div key="s1" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
+              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="space-y-8">
+              <div className="text-center space-y-2">
+                <p className="text-2xl sm:text-3xl font-black text-white">كيف كانت المحادثة؟</p>
+                <p className="text-gray-500 text-sm">اختر ما يناسب شعورك</p>
+              </div>
+              <RatingRow labels={["سيئة","ضعيفة","مقبولة","جيدة","ممتازة"]} field="conversationQuality" val={fb.conversationQuality} />
+            </motion.div>
+          )}
+          {step === 2 && (
+            <motion.div key="s2" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
+              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="space-y-8">
+              <div className="text-center space-y-2">
+                <p className="text-2xl sm:text-3xl font-black text-white">التواصل الشخصي؟</p>
+                <p className="text-gray-500 text-sm">مستوى الراحة والتفاهم</p>
+              </div>
+              <RatingRow labels={["لا شيء","ضعيف","مقبول","جيد","رائع"]} field="personalConnection" val={fb.personalConnection} />
             </motion.div>
           )}
           {step === 3 && (
@@ -2832,7 +2832,7 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
                   : <><Send size={18} /> إرسال التقييم</>}
               </motion.button>
               {fb.wantConnect === null && <p className="text-center text-amber-500/70 text-xs">ارجع للخطوة 4 وأجب على سؤال التواصل</p>}
-              {(!fb.sliderMoved || fb.compatibilityRate === 50) && <p className="text-center text-amber-500/70 text-xs">ارجع للخطوة 3 وحرّك مؤشر التوافق</p>}
+              {(!fb.sliderMoved || fb.compatibilityRate === 50) && <p className="text-center text-amber-500/70 text-xs">ارجع للخطوة 1 وحرّك مؤشر التوافق</p>}
             </motion.div>
           )}
         </AnimatePresence>

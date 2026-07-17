@@ -10429,20 +10429,6 @@ onClick={() => {
                           <span className="text-red-500">*</span>
                         </div>
                       </label>
-                      {/* Disclaimer — intellectual compatibility, not looks */}
-                      <div className={`mb-3 p-3 rounded-lg border ${dark ? 'border-amber-700/40 bg-gradient-to-br from-amber-950/50 via-orange-950/30 to-amber-950/20' : 'border-amber-300/60 bg-gradient-to-br from-amber-50 via-orange-50 to-amber-50'}`}>
-                        <div className="flex items-start gap-2.5">
-                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${dark ? 'bg-amber-500/20 border border-amber-600/30' : 'bg-amber-100 border border-amber-200'}`}>
-                            <AlertTriangle size={14} className="text-amber-500" />
-                          </div>
-                          <div className="space-y-0.5">
-                            <p className={`text-xs font-black ${dark ? 'text-amber-300' : 'text-amber-800'}`}>التوافق الفكري وليس الشكلي</p>
-                            <p className={`text-[10px] leading-relaxed ${dark ? 'text-amber-200/60' : 'text-amber-700/70'}`}>
-                              خمّن درجة التوافق بناءً على <span className="font-bold">الشخصية والتفكير</span>، وليس المظهر. التركيز على الشكل فقط قد يضر بمطابقاتك المستقبلية لأن النظام يعتمد على التوافق الفكري في الاختيار.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
                       <p className={`text-sm font-medium mb-4 ${dark ? "text-slate-300" : "text-gray-600"}`}>
                         <span className="flex items-center gap-2">
                           <span className="animate-pulse">👉</span>
@@ -10456,9 +10442,8 @@ onClick={() => {
                             min="0"
                             max="100"
                             step="5"
-                            dir="ltr"
-                            value={feedbackAnswers.compatibilityRate}
-                            onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, compatibilityRate: parseInt(e.target.value), sliderMoved: true }))}
+                            value={100 - feedbackAnswers.compatibilityRate}
+                            onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, compatibilityRate: 100 - parseInt(e.target.value), sliderMoved: true }))}
                             aria-label="درجة التوافق"
                             className="w-full h-2 rounded-full appearance-none cursor-pointer focus:outline-none transition-all duration-300 
                               [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 

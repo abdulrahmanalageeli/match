@@ -58,6 +58,7 @@ function FeedbackEditModal({ entry, phase, onClose, onSave }: {
   const [personalConnection, setPersonalConnection] = useState<number>(existing.personalConnection || 0)
   const [wantConnect, setWantConnect] = useState<boolean | null>(existing.wantConnect ?? null)
   const [organizerImpression, setOrganizerImpression] = useState<string>(existing.organizerImpression || "")
+  const [compatibilityRate, setCompatibilityRate] = useState<number>(existing.compatibilityRate ?? 50)
   const [saving, setSaving] = useState(false)
 
   const convoLabels = ["سيئة", "ضعيفة", "مقبولة", "جيدة", "ممتازة"]
@@ -80,7 +81,7 @@ function FeedbackEditModal({ entry, phase, onClose, onSave }: {
   const handleSubmit = async () => {
     setSaving(true)
     // Preserve all other stored keys (word, defaults, etc.) — only override the real fields.
-    await onSave({ ...existing, conversationQuality, personalConnection, wantConnect, organizerImpression })
+    await onSave({ ...existing, conversationQuality, personalConnection, wantConnect, organizerImpression, compatibilityRate, sliderMoved: true })
     setSaving(false)
   }
 
@@ -126,6 +127,18 @@ function FeedbackEditModal({ entry, phase, onClose, onSave }: {
                   wantConnect === false ? "bg-red-600 text-white" : "bg-gray-800 text-gray-500 hover:bg-gray-700"
                 }`}>لا</button>
             </div>
+          </div>
+
+          <div>
+            <label className="text-xs text-gray-400 mb-1.5 block">تخمين درجة التوافق: <span className={`font-bold ${
+              compatibilityRate >= 80 ? 'text-emerald-400' :
+              compatibilityRate >= 60 ? 'text-amber-400' :
+              compatibilityRate >= 40 ? 'text-orange-400' : 'text-red-400'
+            }`}>{compatibilityRate}%</span></label>
+            <input type="range" min="0" max="100" step="5" value={compatibilityRate}
+              onChange={e => setCompatibilityRate(parseInt(e.target.value))}
+              className="w-full h-2 rounded-full appearance-none cursor-pointer bg-gray-700 focus:outline-none"
+              style={{ direction: 'ltr' }} />
           </div>
 
           <div>
@@ -4446,6 +4459,20 @@ export default function Admin3Page() {
                                   <span>{stars(fb.personalConnection)}</span>
                                 </div>
                               )}
+                              {fb.sliderMoved && fb.compatibilityRate != null && (
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-gray-500">تخمين درجة التوافق</span>
+                                  <span className={`font-bold ${
+                                    fb.compatibilityRate >= 80 ? 'text-emerald-400' :
+                                    fb.compatibilityRate >= 60 ? 'text-amber-400' :
+                                    fb.compatibilityRate >= 40 ? 'text-orange-400' : 'text-red-400'
+                                  }`}>{fb.compatibilityRate}%
+                                    {entry.compat_score != null && (
+                                      <span className="text-gray-600 font-normal text-[10px] mr-1">(الفعلي: {entry.compat_score}%)</span>
+                                    )}
+                                  </span>
+                                </div>
+                              )}
                               {fb.organizerImpression && (
                                 <div className="mt-2 bg-gray-800/60 rounded-lg p-2.5 text-gray-300 text-[11px] text-right leading-relaxed">💬 {fb.organizerImpression}</div>
                               )}
@@ -4486,6 +4513,20 @@ export default function Admin3Page() {
                                       <div className="flex items-center justify-between text-xs">
                                         <span className="text-gray-600">التواصل الشخصي</span>
                                         <span>{stars(pfb.personalConnection)}</span>
+                                      </div>
+                                    )}
+                                    {pfb.sliderMoved && pfb.compatibilityRate != null && (
+                                      <div className="flex items-center justify-between text-xs">
+                                        <span className="text-gray-600">تخمين درجة التوافق</span>
+                                        <span className={`font-bold ${
+                                          pfb.compatibilityRate >= 80 ? 'text-emerald-400' :
+                                          pfb.compatibilityRate >= 60 ? 'text-amber-400' :
+                                          pfb.compatibilityRate >= 40 ? 'text-orange-400' : 'text-red-400'
+                                        }`}>{pfb.compatibilityRate}%
+                                          {entry.compat_score != null && (
+                                            <span className="text-gray-600 font-normal text-[10px] mr-1">(الفعلي: {entry.compat_score}%)</span>
+                                          )}
+                                        </span>
                                       </div>
                                     )}
                                     {pfb.organizerImpression && (

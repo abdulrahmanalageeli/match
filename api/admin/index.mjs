@@ -8547,18 +8547,6 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             supabase.from("event3_exclusions").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
           ])
 
-          // Clean up AI welcome messages from test participants' survey_data
-          if (testNums.length > 0) {
-            const { data: testPInfos } = await supabase.from("participants").select("assigned_number,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", testNums)
-            for (const p of (testPInfos || [])) {
-              const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {})
-              if (sd?._ai_welcome) {
-                delete sd._ai_welcome
-                await supabase.from("participants").update({ survey_data: sd }).eq("assigned_number", p.assigned_number).eq("match_id", STATIC_MATCH_ID)
-              }
-            }
-          }
-
           // Reset event state to setup and clear test mode
           await supabase.from("event_state").update({
             phase: "setup",

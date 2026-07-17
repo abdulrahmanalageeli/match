@@ -101,6 +101,7 @@ export default function ParticipantResultsModal({
   const [hidePaid, setHidePaid] = useState(false)
   const [showNewOnly, setShowNewOnly] = useState(false)
   const [showPaidOnly, setShowPaidOnly] = useState(false)
+  const [bulkExcludingUnpaidGirls, setBulkExcludingUnpaidGirls] = useState(false)
 
   // Fetch match history for all participants in modal
   const fetchAllMatchHistoryForModal = async () => {
@@ -423,6 +424,81 @@ export default function ParticipantResultsModal({
     return created.toDateString() === now.toDateString()
   }
 
+  const isFemaleParticipant = (assignedNumber: number): boolean => {
+    const pData = participantData.get(assignedNumber)
+    const sd = pData?.survey_data || {}
+    const ans = sd?.answers || {}
+    const raw = pData?.gender ?? ans?.gender ?? sd?.gender
+    const g = String(raw || '').toLowerCase()
+    return g === 'female' || g === 'f' || g === 'أنثى' || g === 'أُنثَى' || g === 'انثى'
+  }
+
+  const bulkExcludeUnpaidGirls = async () => {
+    if (matchType === "group") return
+    if (bulkExcludingUnpaidGirls) return
+
+    const targets: Array<{ number: number; name: string }> = []
+    for (const r of sortedResults) {
+      const num = r.assigned_number
+      if (!isFemaleParticipant(num)) continue
+      const wasContacted = isMessageSent(num)
+      if (!wasContacted) continue
+      const selfPaid = r.paid_done === true || participantData.get(num)?.PAID_DONE === true
+      if (selfPaid) continue
+
+      const partner = r.partner_assigned_number
+      const hasRealPartner = !!partner && partner !== 9999
+      const partnerPaid = hasRealPartner
+        ? (r.partner_paid_done === true || participantData.get(partner as number)?.PAID_DONE === true)
+        : false
+
+      if (partnerPaid) continue
+      targets.push({ number: num, name: r.name || `#${num}` })
+    }
+
+    if (targets.length === 0) {
+      toast.success("لا توجد بنات غير مدفوعات للاستبعاد")
+      return
+    }
+
+    if (!confirm(`استبعاد مؤقت (-1) للبنات غير المدفوعات؟\n\nسيتم استبعاد: ${targets.length}\n\nملاحظة: لن يتم استبعاد البنات اللاتي لديهن شريك مدفوع.`)) {
+      return
+    }
+
+    setBulkExcludingUnpaidGirls(true)
+    let ok = 0
+    let skipped = 0
+    let failed = 0
+    try {
+      for (const t of targets) {
+        try {
+          const res = await fetch("/api/admin", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "add-excluded-participant",
+              participantNumber: t.number,
+              banPermanently: false,
+              groupOnly: false,
+              reason: "TEMP - unpaid girl auto-exclude",
+            }),
+          })
+          const data = await res.json().catch(() => ({}))
+          if (res.ok) ok++
+          else if (String(data?.error || '').toLowerCase().includes('already')) skipped++
+          else failed++
+        } catch {
+          failed++
+        }
+      }
+
+      toast.success(`تم الاستبعاد: ${ok}${skipped ? ` | موجود مسبقاً: ${skipped}` : ''}${failed ? ` | فشل: ${failed}` : ''}`, { duration: 5000 })
+      if (onRefresh) await onRefresh()
+    } finally {
+      setBulkExcludingUnpaidGirls(false)
+    }
+  }
+
   // Default order (compatibility desc)
   const sortedResults = [...processedResults].sort((a, b) => b.compatibility_score - a.compatibility_score)
 
@@ -724,6 +800,19 @@ export default function ParticipantResultsModal({
               <DollarSign className="w-4 h-4" />
               <span>مدفوع فقط</span>
             </label>
+            <button
+              onClick={bulkExcludeUnpaidGirls}
+              disabled={bulkExcludingUnpaidGirls}
+              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all duration-200 text-sm ${
+                bulkExcludingUnpaidGirls
+                  ? 'bg-orange-500/15 border-orange-400/30 text-orange-200 opacity-70'
+                  : 'bg-orange-500/10 border-orange-400/25 text-orange-200 hover:bg-orange-500/15'
+              }`}
+              title="استبعاد مؤقت (-1) للبنات غير المدفوعات (إلا إذا كانت مع شريك مدفوع)"
+            >
+              <UserX className={"w-4 h-4" + (bulkExcludingUnpaidGirls ? " animate-pulse" : "")} />
+              <span>استبعاد غير المدفوعات (بنات)</span>
+            </button>
             {(hideMessaged || hidePaid || showNewOnly || showPaidOnly) && (
               <span className="text-xs text-slate-400">
                 ({visibleResults.length} ظاهر من {sortedResults.length})

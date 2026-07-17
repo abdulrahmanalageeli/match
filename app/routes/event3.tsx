@@ -1845,27 +1845,54 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
 
           {assignment ? (
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-              <GlassCard className={`p-5 space-y-3 border ${RC.card} shadow-xl shadow-black/20`}>
-                <p className="text-gray-500 text-xs flex items-center justify-center gap-1.5">
-                  <MapPin size={12} /> مكانك هذه الجولة
-                </p>
-                <div className={`text-7xl font-black leading-none ${RC.num}`}>{assignment.table}</div>
-                <p className="text-gray-500 text-sm font-medium">طاولة رقم</p>
+              <GlassCard className={`p-0 overflow-hidden border ${RC.card} shadow-2xl shadow-black/30`}>
+                <div className="relative px-5 pt-5 pb-4 text-center">
+                  <div className="absolute inset-0 bg-gradient-to-br from-gray-900/60 via-gray-950/60 to-black/40" />
+                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
+                  <div className="absolute -top-20 -right-16 w-48 h-48 rounded-full bg-purple-600/15 blur-3xl pointer-events-none" />
+                  <div className="absolute -bottom-24 -left-16 w-44 h-44 rounded-full bg-pink-600/10 blur-3xl pointer-events-none" />
+                  <div className="relative z-10 space-y-2.5">
+                    <div className={`inline-flex items-center justify-center gap-2 ${RC.badge} border rounded-full px-4 py-1.5 text-[11px] font-bold`}>
+                      <MapPin size={12} /> مكانك هذه الجولة
+                    </div>
+                    <div className={`text-7xl font-black leading-none text-transparent bg-clip-text bg-gradient-to-br ${RC.bar}`}
+                      style={{ textShadow: "0 0 28px rgba(255,255,255,0.10)" }}>
+                      {assignment.table}
+                    </div>
+                    <p className="text-gray-500 text-sm font-medium">طاولة رقم</p>
 
-                {/* Tablemate count */}
-                {assignment.tablemates?.length > 0 && (
-                  <div className="flex items-center justify-center gap-1.5 text-gray-500 text-xs">
-                    <Users size={11} />
-                    <span>{assignment.tablemates.length} أشخاص معك في الطاولة</span>
+                    {/* Tablemate count */}
+                    {assignment.tablemates?.length > 0 && (
+                      <div className="inline-flex items-center justify-center gap-2 bg-white/[0.04] border border-white/[0.06] rounded-full px-3 py-1.5 text-gray-400 text-xs">
+                        <Users size={11} />
+                        <span>{assignment.tablemates.length} أشخاص معك في الطاولة</span>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
 
                 {assignment.tablemates?.length > 0 && (
-                  <div className="pt-4 border-t border-gray-800/60">
-                    <p className="text-gray-600 text-xs mb-3">رفاقك في الطاولة</p>
+                  <div className="px-5 pb-5 pt-4 border-t border-white/[0.06] bg-black/10">
+                    <p className="text-gray-500 text-xs mb-3">رفاقك في الطاولة</p>
                     <div className="flex flex-wrap gap-2 justify-center">
                       {assignment.tablemates.map((m: any) => (
-                        <span key={m.number} className={`${m.gender === 'female' ? 'bg-pink-900/40 text-pink-300 border-pink-800/50' : m.gender === 'male' ? 'bg-blue-900/40 text-blue-300 border-blue-800/50' : RC.pill + ' border-gray-700/50'} border rounded-full px-3 py-1 text-sm font-medium`}>
+                        <span
+                          key={m.number}
+                          className={`inline-flex items-center gap-2 border rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
+                            m.gender === 'female'
+                              ? 'bg-pink-950/30 text-pink-200 border-pink-500/25'
+                              : m.gender === 'male'
+                                ? 'bg-blue-950/30 text-blue-200 border-blue-500/25'
+                                : 'bg-white/[0.03] text-gray-200 border-white/[0.08]'
+                          }`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            m.gender === 'female'
+                              ? 'bg-pink-400'
+                              : m.gender === 'male'
+                                ? 'bg-blue-400'
+                                : 'bg-purple-400/70'
+                          }`} />
                           {m.first_name}
                         </span>
                       ))}
@@ -1877,7 +1904,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
               {timerActive && timeLeft === 0 && (
                 <motion.div
                   initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                  className="mt-4 pt-4 border-t border-gray-800/60 text-center space-y-1"
+                  className="px-5 pb-5 pt-4 border-t border-white/[0.06] text-center space-y-1"
                 >
                   <Clock size={24} className="text-amber-400 mx-auto" />
                   <p className="text-white font-semibold text-sm">انتهت الجلسة</p>
@@ -1902,7 +1929,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
           <motion.button
             onClick={() => setShowGroups(true)}
             initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
-            className={`flex items-center justify-center gap-3 w-full py-4 rounded-2xl border font-bold text-base transition-all ${RC.badge} hover:brightness-125 active:scale-95`}
+            className={`flex items-center justify-center gap-3 w-full py-4 rounded-2xl font-bold text-base transition-all text-white bg-gradient-to-r ${RC.bar} shadow-lg shadow-black/25 border border-white/[0.08] hover:brightness-110 active:scale-95`}
           >
             <Target size={16} className="inline" /> نشاطات المجموعة
             <ExternalLink size={15} />

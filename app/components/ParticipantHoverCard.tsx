@@ -45,6 +45,22 @@ export default function ParticipantHoverCardContent({
     }
   })()
 
+  const lastSignupAt = (() => {
+    if (!pData?.next_event_signup_timestamp) return null
+    try {
+      const utcDate = new Date(pData.next_event_signup_timestamp)
+      const gmt3Date = new Date(utcDate.getTime() + 3 * 60 * 60 * 1000)
+      return gmt3Date.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    } catch {
+      return null
+    }
+  })()
+
   const genderPrefLabel = (() => {
     const raw = answers.actual_gender_preference || answers.gender_preference
     if (raw === "any_gender" || pData?.any_gender_preference) return "أي جنس"
@@ -96,6 +112,9 @@ export default function ParticipantHoverCardContent({
           </div>
           {relativeUpdatedAt && (
             <span className="text-xs text-slate-500">🕐 {relativeUpdatedAt}</span>
+          )}
+          {lastSignupAt && (
+            <span className="text-xs text-slate-500">📝 {lastSignupAt}</span>
           )}
         </div>
         <div className="flex flex-wrap gap-3 text-xs">

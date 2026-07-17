@@ -57,17 +57,8 @@ interface Game {
   color: string;
 }
 
+// Conversational activities first, then game/party activities
 const games: Game[] = [
-  {
-    id: "hot-seat",
-    name: "Hot Seat",
-    nameAr: "الكرسي الساخن",
-    description: "Each person gets 2 minutes in the hot seat — anyone can ask anything",
-    descriptionAr: "كل شخص يجلس على الكرسي الساخن لمدة دقيقتين والجميع يسألونه أي سؤال",
-    duration: 12,
-    icon: <Mic className="w-6 h-6" />,
-    color: "from-amber-500 to-orange-600"
-  },
   {
     id: "discussion-questions",
     name: "Discussion Questions",
@@ -79,6 +70,16 @@ const games: Game[] = [
     color: "from-purple-500 to-pink-500"
   },
   {
+    id: "hot-seat",
+    name: "Hot Seat",
+    nameAr: "الكرسي الساخن",
+    description: "Each person gets 2 minutes in the hot seat — anyone can ask anything",
+    descriptionAr: "كل شخص يجلس على الكرسي الساخن لمدة دقيقتين والجميع يسألونه أي سؤال",
+    duration: 12,
+    icon: <Mic className="w-6 h-6" />,
+    color: "from-amber-500 to-orange-600"
+  },
+  {
     id: "what-would-you-do",
     name: "What Would You Do",
     nameAr: "ماذا تفعل لو",
@@ -87,26 +88,6 @@ const games: Game[] = [
     duration: 10,
     icon: <MessageSquare className="w-6 h-6" />,
     color: "from-indigo-500 to-blue-600"
-  },
-  {
-    id: "5-second-rule",
-    name: "5-Second Rule",
-    nameAr: "قاعدة الخمس ثواني",
-    description: "Name 3 things in 5 seconds",
-    descriptionAr: "سمّ 3 أشياء في 5 ثواني",
-    duration: 10,
-    icon: <Timer className="w-6 h-6" />,
-    color: "from-orange-500 to-red-500"
-  },
-  {
-    id: "charades",
-    name: "Wala Kelma",
-    nameAr: "ولا كلمة",
-    description: "Act out fun pop culture topics without speaking",
-    descriptionAr: "مثلوا مواضيع ممتعة ومشهورة بدون كلام",
-    duration: 10,
-    icon: <ThumbsUp className="w-6 h-6" />,
-    color: "from-green-500 to-teal-500"
   },
   {
     id: "never-have-i-ever",
@@ -127,6 +108,26 @@ const games: Game[] = [
     duration: 10,
     icon: <Heart className="w-6 h-6" />,
     color: "from-red-500 to-orange-500"
+  },
+  {
+    id: "5-second-rule",
+    name: "5-Second Rule",
+    nameAr: "قاعدة الخمس ثواني",
+    description: "Name 3 things in 5 seconds",
+    descriptionAr: "سمّ 3 أشياء في 5 ثواني",
+    duration: 10,
+    icon: <Timer className="w-6 h-6" />,
+    color: "from-orange-500 to-red-500"
+  },
+  {
+    id: "charades",
+    name: "Wala Kelma",
+    nameAr: "ولا كلمة",
+    description: "Act out fun pop culture topics without speaking",
+    descriptionAr: "مثلوا مواضيع ممتعة ومشهورة بدون كلام",
+    duration: 10,
+    icon: <ThumbsUp className="w-6 h-6" />,
+    color: "from-green-500 to-teal-500"
   }
 ];
 
@@ -2271,6 +2272,7 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
     setSelectedGameId(gameId);
     setGamePhase("playing");
     setCurrentPromptIndex(0);
+    setShowInstructions(false);
 
     // Auto-populate hot seat participants from group members
     if (gameId === "hot-seat" && groupMembers.length > 0) {
@@ -2336,6 +2338,9 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
     setHeaderCollapsed(!!selectedGameId);
   }, [selectedGameId]);
 
+  // Collapsible instructions for embedded compact mode
+  const [showInstructions, setShowInstructions] = useState(false);
+
   // Charades helper functions
   const getRandomCharadesWord = () => {
     const randomWord = allCharadesWords[Math.floor(Math.random() * allCharadesWords.length)];
@@ -2398,6 +2403,46 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
   };
 
   const renderGameSelection = () => {
+    if (disableOnboarding) {
+      // Compact layout for embedded mode — fits on screen
+      return (
+        <div className="space-y-3 animate-in fade-in duration-300">
+          <div className="grid grid-cols-2 gap-2.5">
+            {games.map((game, index) => {
+              const theme = gameThemes[game.id] || gameThemes.default;
+              return (
+                <motion.div
+                  key={game.id}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2, delay: index * 0.04 }}
+                >
+                  <div
+                    className={`group relative bg-slate-900/80 rounded-xl p-3 border ${theme.cardBorder} ${theme.cardBorderHover} transition-all duration-200 cursor-pointer hover:scale-[1.02] active:scale-[0.98] overflow-hidden`}
+                    onClick={() => startGame(game.id)}
+                  >
+                    <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`} />
+                    <div className="relative z-10 flex flex-col items-center text-center gap-2">
+                      <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${game.color} flex items-center justify-center text-white shadow-md transition-transform duration-200 group-hover:scale-110 ${theme.iconRing}`}>
+                        {game.icon}
+                      </div>
+                      <h3 className="text-sm font-bold text-white leading-tight">
+                        {game.nameAr}
+                      </h3>
+                      <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${theme.chip}`}>
+                        <Clock className="w-3 h-3" />
+                        <span className="text-[10px] font-medium">{game.duration} د</span>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-6 animate-in fade-in duration-500">
         {/* Hero section with professional polish */}
@@ -2555,7 +2600,18 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
 
     // Playing phase
     return (
-      <div className="space-y-6">
+      <div className={disableOnboarding ? `space-y-3 ${showInstructions ? "" : "[&_.instructions-block]:hidden"} [&_h3]:text-xl [&_.mb-6]:mb-3 [&_.mb-8]:mb-3` : "space-y-6"}>
+        {disableOnboarding && (
+          <div className="flex justify-center">
+            <button
+              onClick={() => setShowInstructions(prev => !prev)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/60 border border-slate-700/50 text-slate-400 hover:text-white text-xs font-medium transition-all"
+            >
+              <Lightbulb className="w-3.5 h-3.5" />
+              {showInstructions ? "إخفاء التعليمات" : "كيفية اللعب؟"}
+            </button>
+          </div>
+        )}
         <div className="text-center">
           <div className="flex items-center justify-center space-x-4 mb-4">
           </div>
@@ -2574,7 +2630,7 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
               </div>
               
               {/* Game Instructions */}
-              <div className="bg-slate-700/30 rounded-lg p-4 mb-6">
+              <div className="instructions-block bg-slate-700/30 rounded-lg p-4 mb-6">
                 <h4 className="text-white font-semibold mb-3 flex items-center">
                   <Lightbulb className="w-4 h-4 ml-2" />
                   كيفية اللعب:
@@ -2614,7 +2670,7 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
               </div>
 
               {/* Enhanced Game Instructions */}
-              <div className="bg-gradient-to-r from-violet-700/30 to-fuchsia-700/30 rounded-xl p-6 mb-8 border border-violet-600/50">
+              <div className="instructions-block bg-gradient-to-r from-violet-700/30 to-fuchsia-700/30 rounded-xl p-6 mb-8 border border-violet-600/50">
                 <h4 className="text-white font-bold text-lg mb-4 flex items-center">
                   <Lightbulb className="w-5 h-5 ml-3 text-violet-300" />
                   كيفية اللعب:
@@ -2684,7 +2740,7 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
               </div>
 
               {/* Game Instructions */}
-              <div className="bg-gradient-to-r from-indigo-700/40 to-blue-700/40 rounded-xl p-6 mb-8 border border-indigo-600/50">
+              <div className="instructions-block bg-gradient-to-r from-indigo-700/40 to-blue-700/40 rounded-xl p-6 mb-8 border border-indigo-600/50">
                 <h4 className="text-white font-bold text-lg mb-4 flex items-center">
                   <Lightbulb className="w-5 h-5 ml-3 text-indigo-300" />
                   كيفية اللعب:
@@ -2767,7 +2823,7 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
               </div>
 
               {/* Game Instructions */}
-              <div className="bg-gradient-to-r from-orange-700/40 to-red-700/40 rounded-xl p-6 mb-8 border border-orange-600/50">
+              <div className="instructions-block bg-gradient-to-r from-orange-700/40 to-red-700/40 rounded-xl p-6 mb-8 border border-orange-600/50">
                 <h4 className="text-white font-bold text-lg mb-4 flex items-center">
                   <Lightbulb className="w-5 h-5 ml-3 text-orange-400" />
                   كيفية اللعب:
@@ -3300,7 +3356,7 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
               </div>
 
               {/* Game Instructions */}
-              <div className="bg-slate-700/30 rounded-xl p-6 mb-6 border border-slate-600/50">
+              <div className="instructions-block bg-slate-700/30 rounded-xl p-6 mb-6 border border-slate-600/50">
                 <h4 className="text-white font-semibold mb-3 flex items-center">
                   <Lightbulb className="w-4 h-4 ml-2" />
                   كيفية اللعب:
@@ -3381,7 +3437,7 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
               </div>
 
               {/* Game Instructions */}
-              <div className="bg-gradient-to-r from-amber-700/40 to-orange-700/40 rounded-xl p-6 mb-8 border border-amber-600/50">
+              <div className="instructions-block bg-gradient-to-r from-amber-700/40 to-orange-700/40 rounded-xl p-6 mb-8 border border-amber-600/50">
                 <h4 className="text-white font-bold text-lg mb-4 flex items-center">
                   <Lightbulb className="w-5 h-5 ml-3 text-amber-300" />
                   كيفية اللعب:
@@ -3619,7 +3675,7 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
               </div>
 
               {/* Game Instructions */}
-              <div className="bg-gradient-to-r from-slate-700/40 to-slate-600/40 rounded-xl p-6 mb-8 border border-slate-600/50">
+              <div className="instructions-block bg-gradient-to-r from-slate-700/40 to-slate-600/40 rounded-xl p-6 mb-8 border border-slate-600/50">
                 <h4 className="text-white font-bold text-lg mb-4 flex items-center">
                   <Lightbulb className="w-5 h-5 ml-3 text-emerald-300" />
                   كيفية اللعب:
@@ -4220,6 +4276,24 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
 
         {/* Mobile Game Content */}
         <div className={`backdrop-blur-sm border border-slate-600/50 rounded-2xl shadow-xl overflow-hidden ${disableOnboarding ? 'bg-transparent border-transparent shadow-none p-0' : 'bg-slate-800/40 p-4'}`}>
+          {/* Embedded back button — only when inside event3 and a game is selected */}
+          {disableOnboarding && selectedGameId && (
+            <div className="sticky top-0 z-20 flex items-center justify-between px-3 py-2 bg-slate-900/80 backdrop-blur-md border-b border-slate-700/50">
+              <button
+                onClick={() => { setSelectedGameId(null); setGamePhase('intro'); }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:border-cyan-400/50 hover:bg-cyan-400/10 text-slate-300 hover:text-cyan-300 text-sm font-medium transition-all"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span>عودة للقائمة</span>
+              </button>
+              {(() => {
+                const g = games.find(gm => gm.id === selectedGameId);
+                return g ? (
+                  <span className="text-sm font-semibold text-white/80 truncate">{g.nameAr}</span>
+                ) : null;
+              })()}
+            </div>
+          )}
           <AnimatePresence mode="wait">
             <motion.div
               key={selectedGameId ?? 'selection'}

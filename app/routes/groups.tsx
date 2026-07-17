@@ -2271,7 +2271,24 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
     setSelectedGameId(gameId);
     setGamePhase("playing");
     setCurrentPromptIndex(0);
-    
+
+    // Auto-populate hot seat participants from group members
+    if (gameId === "hot-seat" && groupMembers.length > 0) {
+      const names = groupMembers
+        .map(gm => {
+          if (typeof gm === 'string') {
+            // Strip "#123" prefix and "(age)" suffix for cleaner display
+            return gm.replace(/^#\d+\s*/, '').replace(/\s*\(\d+\)\s*$/, '').trim();
+          }
+          return String(gm);
+        })
+        .filter(n => n.length > 0);
+      if (names.length > 0) {
+        setHotSeatParticipants(names);
+        setHotSeatIndex(0);
+      }
+    }
+
     // Shuffle questions when starting the game
     if (gameId === "never-have-i-ever") {
       setShuffledNeverHaveIEver(shuffleArray(neverHaveIEverQuestions));
@@ -3385,39 +3402,71 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
               {/* Participants setup */}
               {hotSeatParticipants.length === 0 ? (
                 <div className="space-y-4 mb-6">
-                  <p className="text-slate-300 text-center text-sm">أدخل أسماء المشاركين على الطاولة:</p>
-                  <div className="space-y-2">
-                    {[0, 1, 2, 3, 4].map((i) => (
-                      <input
-                        key={i}
-                        type="text"
-                        placeholder={`المشارك ${i + 1}`}
-                        onChange={(e) => {
-                          setHotSeatParticipants(prev => {
-                            const next = [...prev];
-                            while (next.length <= i) next.push("");
-                            next[i] = e.target.value;
-                            return next;
-                          });
-                        }}
-                        className="w-full bg-slate-800/60 border border-amber-600/30 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:border-amber-400/60 focus:outline-none transition-colors"
-                      />
-                    ))}
-                  </div>
-                  <div className="text-center">
-                    <Button
-                      onClick={() => {
-                        const valid = hotSeatParticipants.filter(n => n.trim().length > 0);
-                        if (valid.length === 0) return;
-                        setHotSeatParticipants(valid);
-                        setHotSeatIndex(0);
-                      }}
-                      className="bg-gradient-to-r from-amber-600 to-orange-700 hover:from-amber-700 hover:to-orange-800 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-                    >
-                      <Mic className="w-5 h-5 ml-2" />
-                      ابدأ الكرسي الساخن
-                    </Button>
-                  </div>
+                  {groupMembers.length > 0 ? (
+                    <>
+                      <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 text-center">
+                        <p className="text-amber-200 text-sm font-medium mb-2">تم التعرف على أفراد طاولتك تلقائياً:</p>
+                        <div className="flex flex-wrap gap-2 justify-center">
+                          {groupMembers.map((gm, i) => (
+                            <span key={i} className="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/30 text-amber-100 text-xs font-medium">
+                              {typeof gm === 'string' ? gm.replace(/^#\d+\s*/, '').replace(/\s*\(\d+\)\s*$/, '').trim() : String(gm)}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <Button
+                          onClick={() => {
+                            const names = groupMembers
+                              .map(gm => typeof gm === 'string' ? gm.replace(/^#\d+\s*/, '').replace(/\s*\(\d+\)\s*$/, '').trim() : String(gm))
+                              .filter(n => n.length > 0);
+                            setHotSeatParticipants(names);
+                            setHotSeatIndex(0);
+                          }}
+                          className="bg-gradient-to-r from-amber-600 to-orange-700 hover:from-amber-700 hover:to-orange-800 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                        >
+                          <Mic className="w-5 h-5 ml-2" />
+                          ابدأ الكرسي الساخن
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-slate-300 text-center text-sm">أدخل أسماء المشاركين على الطاولة:</p>
+                      <div className="space-y-2">
+                        {[0, 1, 2, 3, 4].map((i) => (
+                          <input
+                            key={i}
+                            type="text"
+                            placeholder={`المشارك ${i + 1}`}
+                            onChange={(e) => {
+                              setHotSeatParticipants(prev => {
+                                const next = [...prev];
+                                while (next.length <= i) next.push("");
+                                next[i] = e.target.value;
+                                return next;
+                              });
+                            }}
+                            className="w-full bg-slate-800/60 border border-amber-600/30 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:border-amber-400/60 focus:outline-none transition-colors"
+                          />
+                        ))}
+                      </div>
+                      <div className="text-center">
+                        <Button
+                          onClick={() => {
+                            const valid = hotSeatParticipants.filter(n => n.trim().length > 0);
+                            if (valid.length === 0) return;
+                            setHotSeatParticipants(valid);
+                            setHotSeatIndex(0);
+                          }}
+                          className="bg-gradient-to-r from-amber-600 to-orange-700 hover:from-amber-700 hover:to-orange-800 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                        >
+                          <Mic className="w-5 h-5 ml-2" />
+                          ابدأ الكرسي الساخن
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </div>
               ) : (
                 <>
@@ -4069,16 +4118,21 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
         />
       )}
 
-      <div className="relative min-h-screen overflow-hidden" dir="rtl">
-      {/* Animated gradient + orbs background (match PhoneEntry) */}
+      <div className={`relative ${disableOnboarding ? 'min-h-0' : 'min-h-screen'} overflow-hidden`} dir="rtl">
+      {/* Animated gradient + orbs background — only when standalone (not embedded in event3) */}
+      {!disableOnboarding && (
+      <>
       <div className="absolute inset-0 z-0 bg-gradient-to-br from-slate-950 via-indigo-950 to-violet-950 animate-bg-pan" />
       <div className="pointer-events-none absolute inset-0 z-0">
         <div className="absolute -top-28 -left-28 w-[560px] h-[560px] rounded-full bg-gradient-to-br from-orange-400 via-pink-500 to-pink-600 blur-3xl opacity-60 animate-orb mix-blend-screen" />
         <div className="absolute -bottom-32 -right-24 w-[620px] h-[620px] rounded-full bg-gradient-to-br from-blue-600 via-indigo-700 to-indigo-900 blur-3xl opacity-60 animate-orb-alt mix-blend-screen" />
         <div className="absolute inset-0 grain-overlay opacity-[0.05]" />
       </div>
+      </>
+      )}
       <div className="relative z-10 max-w-md mx-auto px-4 py-4">
-        {/* Professional Sticky Header with Glassmorphism (collapsible) */}
+        {/* Professional Sticky Header with Glassmorphism (collapsible) — hidden when embedded in event3 */}
+        {!disableOnboarding && (
         <motion.div layout transition={{ duration: 0.25 }} className={`sticky top-0 z-40 ${headerCollapsed ? 'bg-transparent border-transparent backdrop-blur-0 shadow-none mb-2 p-1.5' : 'bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-700/50 shadow-2xl mb-4 p-4'} rounded-3xl animate-in slide-in-from-top duration-300 transition-all`}>
           {!headerCollapsed && (
           <div className={"relative flex items-center justify-center mb-4"}>
@@ -4162,9 +4216,10 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
             </div>
           )}
         </motion.div>
+        )}
 
         {/* Mobile Game Content */}
-        <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-600/50 rounded-2xl p-4 shadow-xl overflow-hidden">
+        <div className={`backdrop-blur-sm border border-slate-600/50 rounded-2xl shadow-xl overflow-hidden ${disableOnboarding ? 'bg-transparent border-transparent shadow-none p-0' : 'bg-slate-800/40 p-4'}`}>
           <AnimatePresence mode="wait">
             <motion.div
               key={selectedGameId ?? 'selection'}

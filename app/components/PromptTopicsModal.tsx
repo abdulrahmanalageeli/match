@@ -1167,12 +1167,16 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
   const [selectedCategories, setSelectedCategories] = useState<typeof promptTopics>([]);
   const [randomHistory, setRandomHistory] = useState<string[]>([]);
   const [randomCurrentIndex, setRandomCurrentIndex] = useState(-1);
+  const [visibleCount, setVisibleCount] = useState(10);
 
   // Filter questions based on search and depth
   const filteredQuestions = selectedTopic ? 
     selectedTopic.questions.filter(q => 
       q.toLowerCase().includes(searchQuery.toLowerCase())
     ) : [];
+
+  // Paginated questions for performance
+  const visibleQuestions = filteredQuestions.slice(0, visibleCount);
 
   // Get random question from current topic
   const getRandomQuestion = () => {
@@ -1283,8 +1287,14 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
       if (contentArea) {
         contentArea.scrollTop = 0;
       }
+      setVisibleCount(10);
     }
   }, [selectedTopic]);
+
+  // Reset visible count when search changes
+  useEffect(() => {
+    setVisibleCount(10);
+  }, [searchQuery]);
 
   // Auto-show guide when user switches to Random mode for the first time (fallback)
   useEffect(() => {
@@ -1301,7 +1311,7 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
 
   return (
     <div 
-      className="fixed inset-0 z-[9999] bg-black/30 backdrop-blur-md flex items-center justify-center p-4"
+      className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-md flex items-center justify-center p-0 sm:p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose();
@@ -1309,16 +1319,11 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
       }}
     >
       <div
-        className="w-[95vw] max-w-4xl h-[90vh] max-h-[800px] rounded-2xl p-0 overflow-hidden border-0 shadow-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white relative flex flex-col"
+        className="w-full h-full sm:w-[95vw] sm:max-w-4xl sm:h-[90vh] sm:max-h-[800px] sm:rounded-2xl p-0 overflow-hidden border-0 shadow-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white relative flex flex-col"
         dir="rtl"
         aria-label="أسئلة للنقاش"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Animated Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 via-purple-500/20 to-pink-500/20 animate-pulse"></div>
-          <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,rgba(120,119,198,0.1),transparent_50%)]"></div>
-        </div>
 
         {/* Modern Header - Mobile Optimized */}
         <div className="relative z-10 px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 bg-gradient-to-r from-slate-800/80 to-slate-700/80 backdrop-blur-xl border-b border-slate-600/30 flex-shrink-0">
@@ -1853,7 +1858,7 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
                   </div>
                 )}
 
-                {/* Questions Grid - Mobile Optimized */}
+                {/* Questions Grid - Mobile Optimized with Pagination */}
                 <div className="space-y-2 sm:space-y-3">
                   {filteredQuestions.length === 0 ? (
                     <div className="text-center py-8 sm:py-12">
@@ -1865,15 +1870,16 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
                       </p>
                     </div>
                   ) : (
-                    filteredQuestions.map((q, i) => (
+                    <>
+                    {visibleQuestions.map((q, i) => (
                       <div
                         key={i}
-                        className={`group relative p-3 sm:p-4 rounded-lg sm:rounded-xl border transition-all duration-300 hover:scale-[1.01] sm:hover:scale-[1.02] hover:shadow-lg ${
+                        className={`group relative p-3 sm:p-4 rounded-lg sm:rounded-xl border transition-colors duration-200 ${
                           selectedTopic.depth === "shallow"
-                            ? "bg-slate-800/50 border-slate-700/50 hover:border-cyan-400/50 hover:bg-slate-800/70"
+                            ? "bg-slate-800/50 border-slate-700/50 hover:border-cyan-400/50"
                             : selectedTopic.depth === "medium"
-                            ? "bg-slate-800/50 border-slate-700/50 hover:border-green-400/50 hover:bg-slate-800/70"
-                            : "bg-slate-800/50 border-slate-700/50 hover:border-purple-400/50 hover:bg-slate-800/70"
+                            ? "bg-slate-800/50 border-slate-700/50 hover:border-green-400/50"
+                            : "bg-slate-800/50 border-slate-700/50 hover:border-purple-400/50"
                         }`}
                       >
                         {/* Question Number Badge - Mobile Optimized */}
@@ -1916,7 +1922,19 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
                           </Button>
                         </div>
                       </div>
-                    ))
+                    ))}
+                    {visibleCount < filteredQuestions.length && (
+                      <div className="text-center pt-4">
+                        <Button
+                          variant="ghost"
+                          onClick={() => setVisibleCount(prev => prev + 10)}
+                          className="text-sm text-slate-300 hover:text-white hover:bg-slate-700/50 rounded-xl px-6 py-2.5 transition-all"
+                        >
+                          عرض المزيد ({filteredQuestions.length - visibleCount} متبقي)
+                        </Button>
+                      </div>
+                    )}
+                    </>
                   )}
                 </div>
               </>

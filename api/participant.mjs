@@ -2900,17 +2900,21 @@ Please respond in JSON format:
         let myAssignment = null
         if (participant) {
           const { data: ep } = await supabase.from("event3_participants").select("position").eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId).eq("participant_number", myNumber).maybeSingle()
-          // Auto-mark attendance when enrolled participant polls state
+          // Auto-mark attendance when enrolled participant first polls state (only once)
           if (ep) {
             try {
-              await supabase.from("event_attendance").upsert({
-                match_id: MAIN_MATCH,
-                event_id: activeEventId,
-                participant_number: myNumber,
-                attended: true,
-                updated_by: "auto-join",
-                updated_at: new Date().toISOString(),
-              }, { onConflict: "match_id, event_id, participant_number" })
+              const { count: attCount } = await supabase.from("event_attendance").select("id", { count: "exact", head: true }).eq("match_id", MAIN_MATCH).eq("event_id", activeEventId).eq("participant_number", myNumber)
+              if (!attCount) {
+                await supabase.from("event_attendance").insert({
+                  match_id: MAIN_MATCH,
+                  event_id: activeEventId,
+                  participant_number: myNumber,
+                  attended: true,
+                  updated_by: "auto-join",
+                  updated_at: new Date().toISOString(),
+                })
+                console.log(`[auto-attendance] Marked #${myNumber} as attended (first state poll)`)
+              }
             } catch (attErr) {
               console.error("[auto-attendance] Failed on state poll:", attErr.message)
             }
@@ -3219,6 +3223,7 @@ Please respond in JSON format:
           .from("event3_participant_notes")
           .select("about_number,note")
           .eq("match_id", E3_MATCH_ID)
+          .eq("event_id", currentEventId)
           .eq("participant_number", myNumber)
           .is("phase", null)
         const noteMap = {}
@@ -3234,12 +3239,13 @@ Please respond in JSON format:
         await supabase.from("event3_participant_notes")
           .delete()
           .eq("match_id", E3_MATCH_ID)
+          .eq("event_id", currentEventId)
           .eq("participant_number", myNumber)
           .eq("about_number", about_number)
           .is("phase", null)
         if (trimmed) {
           const { error } = await supabase.from("event3_participant_notes")
-            .insert({ match_id: E3_MATCH_ID, participant_number: myNumber, about_number, note: trimmed })
+            .insert({ match_id: E3_MATCH_ID, event_id: currentEventId, participant_number: myNumber, about_number, note: trimmed })
           if (error) return res.status(500).json({ error: error.message })
         }
         return res.status(200).json({ ok: true })

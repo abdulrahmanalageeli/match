@@ -2404,34 +2404,63 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
 
   const renderGameSelection = () => {
     if (disableOnboarding) {
-      // Compact layout for embedded mode — fits on screen
+      // Beautiful compact layout for embedded mode — inspired by phase 2 design
       return (
-        <div className="space-y-3 animate-in fade-in duration-300">
-          <div className="grid grid-cols-2 gap-2.5">
+        <div className="max-w-sm mx-auto px-4 py-5 space-y-4">
+          {/* Header */}
+          <motion.div
+            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="text-center space-y-1.5"
+          >
+            <div className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-900/40 to-pink-900/40 border border-purple-700/30 rounded-full px-3.5 py-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-purple-300" />
+              <span className="text-purple-200 text-xs font-bold">نشاطات المجموعة</span>
+            </div>
+            <h2 className="text-xl font-black text-white">اختر نشاطاً</h2>
+            <p className="text-gray-500 text-xs">أنشطة لتعميق التعارف داخل مجموعتك</p>
+          </motion.div>
+
+          {/* Activity cards — single column, full width, beautiful */}
+          <div className="space-y-2.5">
             {games.map((game, index) => {
               const theme = gameThemes[game.id] || gameThemes.default;
               return (
                 <motion.div
                   key={game.id}
-                  initial={{ opacity: 0, y: 6 }}
+                  initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.2, delay: index * 0.04 }}
+                  transition={{ duration: 0.25, delay: index * 0.05 }}
+                  whileTap={{ scale: 0.98 }}
                 >
                   <div
-                    className={`group relative bg-slate-900/80 rounded-xl p-3 border ${theme.cardBorder} ${theme.cardBorderHover} transition-all duration-200 cursor-pointer hover:scale-[1.02] active:scale-[0.98] overflow-hidden`}
+                    className={`group relative overflow-hidden rounded-2xl border ${theme.cardBorder} ${theme.cardBorderHover} bg-gray-900/60 backdrop-blur-sm cursor-pointer transition-all duration-200 hover:brightness-110`}
                     onClick={() => startGame(game.id)}
                   >
-                    <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`} />
-                    <div className="relative z-10 flex flex-col items-center text-center gap-2">
-                      <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${game.color} flex items-center justify-center text-white shadow-md transition-transform duration-200 group-hover:scale-110 ${theme.iconRing}`}>
+                    {/* Subtle gradient wash on hover */}
+                    <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-[0.04] group-hover:opacity-[0.12] transition-opacity duration-300`} />
+                    {/* Top accent line */}
+                    <div className={`absolute top-0 inset-x-0 h-px bg-gradient-to-r ${game.color} opacity-30`} />
+
+                    <div className="relative z-10 flex items-center gap-3 p-3.5">
+                      {/* Icon */}
+                      <div className={`w-12 h-12 flex-shrink-0 rounded-xl bg-gradient-to-br ${game.color} flex items-center justify-center text-white shadow-lg`}>
                         {game.icon}
                       </div>
-                      <h3 className="text-sm font-bold text-white leading-tight">
-                        {game.nameAr}
-                      </h3>
-                      <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${theme.chip}`}>
-                        <Clock className="w-3 h-3" />
-                        <span className="text-[10px] font-medium">{game.duration} د</span>
+
+                      {/* Text content */}
+                      <div className="flex-1 min-w-0 text-right">
+                        <h3 className="text-sm font-bold text-white leading-tight mb-0.5">
+                          {game.nameAr}
+                        </h3>
+                        <p className="text-gray-400 text-[11px] leading-snug line-clamp-2">
+                          {game.descriptionAr}
+                        </p>
+                      </div>
+
+                      {/* Arrow */}
+                      <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-white/10 transition-colors">
+                        <ChevronLeft className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" />
                       </div>
                     </div>
                   </div>
@@ -2518,10 +2547,6 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
 
                       {/* Meta chips */}
                       <div className="flex items-center gap-2 mb-3">
-                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full ${theme.chip}`}>
-                          <Clock className="w-3.5 h-3.5" />
-                          <span className="text-xs font-medium">{game.duration} دقائق</span>
-                        </div>
                         <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full ${theme.chip}`}>
                           <Users className="w-3.5 h-3.5" />
                           <span className="text-xs font-medium">3-6 أشخاص</span>
@@ -3876,6 +3901,7 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
       <PromptTopicsModal
         open={showPromptTopicsModal}
         onClose={() => setShowPromptTopicsModal(false)}
+        embedded={disableOnboarding}
       />
       {/* Personalized onboarding after successful login */}
       {showOnboarding && !disableOnboarding && (
@@ -4161,6 +4187,7 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
       <PromptTopicsModal
         open={showPromptTopicsModal}
         onClose={() => setShowPromptTopicsModal(false)}
+        embedded={disableOnboarding}
       />
       {showOnboarding && !disableOnboarding && (groupParticipantNumbers.length > 0 || groupMembers.length > 0) && (
         <OnboardingModal
@@ -4186,7 +4213,7 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
       </div>
       </>
       )}
-      <div className="relative z-10 max-w-md mx-auto px-4 py-4">
+      <div className={`relative z-10 max-w-md mx-auto px-4 ${disableOnboarding ? 'py-0' : 'py-4'}`}>
         {/* Professional Sticky Header with Glassmorphism (collapsible) — hidden when embedded in event3 */}
         {!disableOnboarding && (
         <motion.div layout transition={{ duration: 0.25 }} className={`sticky top-0 z-40 ${headerCollapsed ? 'bg-transparent border-transparent backdrop-blur-0 shadow-none mb-2 p-1.5' : 'bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-700/50 shadow-2xl mb-4 p-4'} rounded-3xl animate-in slide-in-from-top duration-300 transition-all`}>
@@ -4278,20 +4305,19 @@ export function GroupsPage({ disableOnboarding = false }: { disableOnboarding?: 
         <div className={`backdrop-blur-sm border border-slate-600/50 rounded-2xl shadow-xl overflow-hidden ${disableOnboarding ? 'bg-transparent border-transparent shadow-none p-0' : 'bg-slate-800/40 p-4'}`}>
           {/* Embedded back button — only when inside event3 and a game is selected */}
           {disableOnboarding && selectedGameId && (
-            <div className="sticky top-0 z-20 flex items-center justify-between px-3 py-2 bg-slate-900/80 backdrop-blur-md border-b border-slate-700/50">
+            <div className="sticky top-0 z-20 flex items-center justify-between px-4 py-2.5 bg-gray-950/80 backdrop-blur-xl border-b border-white/[0.06]">
               <button
                 onClick={() => { setSelectedGameId(null); setGamePhase('intro'); }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:border-cyan-400/50 hover:bg-cyan-400/10 text-slate-300 hover:text-cyan-300 text-sm font-medium transition-all"
+                className="flex items-center gap-1.5 text-gray-400 hover:text-white text-sm font-medium transition-colors"
               >
-                <ChevronLeft className="w-4 h-4" />
-                <span>عودة للقائمة</span>
+                ← رجوع
               </button>
-              {(() => {
-                const g = games.find(gm => gm.id === selectedGameId);
-                return g ? (
-                  <span className="text-sm font-semibold text-white/80 truncate">{g.nameAr}</span>
-                ) : null;
-              })()}
+              <span className="text-white font-bold text-sm truncate">
+                {(() => {
+                  const g = games.find(gm => gm.id === selectedGameId);
+                  return g ? g.nameAr : "";
+                })()}
+              </span>
             </div>
           )}
           <AnimatePresence mode="wait">

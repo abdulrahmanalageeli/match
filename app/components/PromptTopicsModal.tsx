@@ -1153,7 +1153,7 @@ const depthColors = {
 
 const depthOrder: Array<keyof typeof depthLabels> = ["shallow", "medium", "deep"];
 
-export default function PromptTopicsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export default function PromptTopicsModal({ open, onClose, embedded = false }: { open: boolean; onClose: () => void; embedded?: boolean }) {
   const [viewMode, setViewMode] = useState<"topics" | "random">("topics");
   const [selectedTopic, setSelectedTopic] = useState<null | typeof promptTopics[0]>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
@@ -1311,7 +1311,8 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
 
   return (
     <div 
-      className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-md flex items-center justify-center p-0 sm:p-4"
+      className={`fixed inset-0 z-[9999] bg-black/50 backdrop-blur-md flex items-center justify-center ${embedded ? "p-0" : "p-0 sm:p-4"}`}
+      style={embedded ? { top: "58px" } : undefined}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose();
@@ -1319,7 +1320,7 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
       }}
     >
       <div
-        className="w-full h-full sm:w-[95vw] sm:max-w-4xl sm:h-[90vh] sm:max-h-[800px] sm:rounded-2xl p-0 overflow-hidden border-0 shadow-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white relative flex flex-col"
+        className={`w-full h-full overflow-hidden border-0 shadow-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white relative flex flex-col ${embedded ? "" : "sm:w-[95vw] sm:max-w-4xl sm:h-[90vh] sm:max-h-[800px] sm:rounded-2xl"}`}
         dir="rtl"
         aria-label="أسئلة للنقاش"
         onClick={(e) => e.stopPropagation()}
@@ -1342,7 +1343,7 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
             
             <Button 
               variant="ghost" 
-              size="icon" 
+              size="icon"
               onClick={onClose} 
               className="rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110 w-8 h-8 sm:w-10 sm:h-10" 
               aria-label="إغلاق الأسئلة"
@@ -1350,6 +1351,17 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
               <X className="w-4 h-4 sm:w-5 sm:h-5 text-slate-300 hover:text-white" />
             </Button>
           </div>
+
+          {/* Embedded back button — more visible when inside event3 */}
+          {embedded && (
+            <button
+              onClick={onClose}
+              className="flex items-center gap-1.5 text-slate-400 hover:text-white text-sm font-medium transition-colors mb-2"
+            >
+              <ChevronRight className="w-4 h-4" />
+              <span>رجوع للنشاط</span>
+            </button>
+          )}
 
           {/* View Mode Toggle */}
           <div className="flex items-center gap-2 bg-slate-700/50 rounded-xl p-1">

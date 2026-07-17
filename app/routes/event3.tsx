@@ -1967,20 +1967,25 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
             initial={{ opacity: 0, y: "100%" }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: "100%" }}
             transition={{ type: "spring", stiffness: 280, damping: 32 }}
             className="fixed inset-x-0 bottom-0 z-40 bg-gray-950 flex flex-col"
-            style={{ top: timerActive && timeLeft > 0 ? "64px" : "0px" }}
+            style={{ top: timerActive && timeLeft > 0 ? "58px" : "0px" }}
           >
-            {/* Modal header */}
-            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800/60 bg-gray-900/80 backdrop-blur-md flex-shrink-0">
-              <span className="font-bold text-white flex items-center gap-2"><Target size={16} /> نشاطات المجموعة</span>
+            {/* Subtle background orbs — inspired by phase 2 */}
+            <div className="pointer-events-none absolute inset-0 overflow-hidden">
+              <div className="absolute -top-20 -right-12 w-72 h-72 bg-purple-600/10 rounded-full blur-[80px]" />
+              <div className="absolute top-1/3 -left-16 w-64 h-64 bg-pink-600/8 rounded-full blur-[70px]" />
+            </div>
+
+            {/* Close button — minimal, floats over content */}
+            <div className="absolute top-3 left-4 z-20">
               <button
                 onClick={() => setShowGroups(false)}
                 className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors text-sm font-medium"
               >
-                رجوع ← 
+                رجوع ←
               </button>
             </div>
             {/* Groups content rendered inline */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto relative z-10">
               <GroupsPage disableOnboarding />
             </div>
           </motion.div>

@@ -2458,18 +2458,18 @@ export function GroupsPage({ disableOnboarding = false, onClose }: { disableOnbo
 
             {/* Main carousel card — swipeable */}
             <div className="relative w-full max-w-[300px]">
-              {/* Navigation arrows */}
+              {/* Navigation arrows — RTL: left arrow=prev on right, right arrow=next on left */}
               <button
                 onClick={prevActivity}
                 className="absolute -right-4 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-all active:scale-90"
               >
-                <ChevronRight className="w-5 h-5" />
+                <ChevronLeft className="w-5 h-5" />
               </button>
               <button
                 onClick={nextActivity}
                 className="absolute -left-4 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-all active:scale-90"
               >
-                <ChevronLeft className="w-5 h-5" />
+                <ChevronRight className="w-5 h-5" />
               </button>
 
               {/* Swipeable card container */}
@@ -2700,22 +2700,29 @@ export function GroupsPage({ disableOnboarding = false, onClose }: { disableOnbo
 
     if (gamePhase === "completed") {
       return (
-        <div className="text-center space-y-6">
-          <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center text-white">
+        <div className="text-center space-y-6 py-8">
+          <motion.div
+            initial={{ scale: 0, rotate: -20 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: "spring", stiffness: 260, damping: 18 }}
+            className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white shadow-xl"
+          >
             <Trophy className="w-10 h-10" />
-          </div>
+          </motion.div>
           <div>
-            <h2 className="text-3xl font-bold text-white mb-2">انتهت اللعبة!</h2>
-            <p className="text-slate-300 text-lg">أحسنتم! وقت للعبة التالية</p>
+            <h2 className="text-2xl font-black text-white mb-2">انتهت اللعبة!</h2>
+            <p className="text-gray-400 text-base">أحسنتم! وقت للعبة التالية</p>
           </div>
           {currentGameIndex < games.length - 1 ? (
-            <Button 
-              onClick={nextGame}
-              className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-8 py-3 text-lg"
-            >
-              <ChevronRight className="w-5 h-5 mr-2" />
-              اللعبة التالية
-            </Button>
+            <motion.div whileTap={{ scale: 0.95 }}>
+              <Button 
+                onClick={nextGame}
+                className="bg-white/95 hover:bg-white text-gray-900 px-8 py-3.5 text-lg font-bold rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2"
+              >
+                <Play className="w-4 h-4 fill-current" />
+                اللعبة التالية
+              </Button>
+            </motion.div>
           ) : (
             <div className="space-y-4">
               <div className="flex items-center justify-center gap-3 mb-4">
@@ -2734,23 +2741,19 @@ export function GroupsPage({ disableOnboarding = false, onClose }: { disableOnbo
     return (
       <div className={disableOnboarding ? `space-y-3 ${showInstructions ? "" : "[&_.instructions-block]:hidden"} [&_h3]:text-xl [&_.mb-6]:mb-3 [&_.mb-8]:mb-3` : "space-y-6"}>
         {disableOnboarding && (
-          <div className="flex justify-center">
+          <div className="flex justify-center mb-2">
             <button
               onClick={() => setShowInstructions(prev => !prev)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/60 border border-slate-700/50 text-slate-400 hover:text-white text-xs font-medium transition-all"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-gray-400 hover:text-white text-xs font-medium transition-all"
             >
               <Lightbulb className="w-3.5 h-3.5" />
               {showInstructions ? "إخفاء التعليمات" : "كيفية اللعب؟"}
             </button>
           </div>
         )}
-        <div className="text-center">
-          <div className="flex items-center justify-center space-x-4 mb-4">
-          </div>
-        </div>
 
         {currentGame.id === "discussion-questions" && (
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className={disableOnboarding ? "bg-gray-900/60 backdrop-blur-sm border-white/10 rounded-3xl shadow-2xl" : "bg-slate-800/50 border-slate-700"}>
             <CardContent className="p-6">
               <div className="text-center mb-6">
                 <h3 className="text-2xl font-bold text-white mb-4">
@@ -2762,7 +2765,7 @@ export function GroupsPage({ disableOnboarding = false, onClose }: { disableOnbo
               </div>
               
               {/* Game Instructions */}
-              <div className="instructions-block bg-slate-700/30 rounded-lg p-4 mb-6">
+              <div className="instructions-block bg-white/[0.03] rounded-xl p-4 mb-6 border border-white/[0.06]">
                 <h4 className="text-white font-semibold mb-3 flex items-center">
                   <Lightbulb className="w-4 h-4 ml-2" />
                   كيفية اللعب:
@@ -2779,7 +2782,7 @@ export function GroupsPage({ disableOnboarding = false, onClose }: { disableOnbo
               <div className="text-center">
                 <Button 
                   onClick={() => setShowPromptTopicsModal(true)}
-                  className="bg-gradient-to-r from-cyan-700 to-blue-700 hover:from-cyan-800 hover:to-blue-800 text-white px-6 py-3 rounded-2xl shadow-lg font-bold text-lg transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 border-2 border-cyan-400/30"
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-3 rounded-2xl shadow-lg font-bold text-lg transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 border-2 border-white/10"
                 >
                   <Sparkles className="w-5 h-5 mr-2" />
                   اختر أسئلة للنقاش
@@ -2790,7 +2793,7 @@ export function GroupsPage({ disableOnboarding = false, onClose }: { disableOnbo
         )}
 
         {currentGame.id === "never-have-i-ever" && (
-          <Card className="bg-slate-900/60 border-violet-600/30">
+          <Card className={disableOnboarding ? "bg-gray-900/60 backdrop-blur-sm border-white/10 rounded-3xl shadow-2xl" : "bg-slate-900/60 border-violet-600/30"}>
             <CardContent className="p-6">
               <div className="text-center mb-6">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/20 border border-violet-400/30 mb-3">
@@ -2860,7 +2863,7 @@ export function GroupsPage({ disableOnboarding = false, onClose }: { disableOnbo
         )}
 
         {currentGame.id === "what-would-you-do" && (
-          <Card className="bg-slate-900/60 border-indigo-600/30">
+          <Card className={disableOnboarding ? "bg-gray-900/60 backdrop-blur-sm border-white/10 rounded-3xl shadow-2xl" : "bg-slate-900/60 border-indigo-600/30"}>
             <CardContent className="p-6">
               <div className="text-center mb-6">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 mb-3">
@@ -2927,7 +2930,7 @@ export function GroupsPage({ disableOnboarding = false, onClose }: { disableOnbo
         )}
 
         {currentGame.id === "two-truths-lie" && (
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className={disableOnboarding ? "bg-gray-900/60 backdrop-blur-sm border-white/10 rounded-3xl shadow-2xl" : "bg-slate-800/50 border-slate-700"}>
             <CardContent className="p-6 text-center">
               <div className="space-y-4 text-slate-300">
                 <p>قل ثلاث عبارات عن نفسك:</p>
@@ -2943,7 +2946,7 @@ export function GroupsPage({ disableOnboarding = false, onClose }: { disableOnbo
         )}
 
         {currentGame.id === "5-second-rule" && (
-          <Card className="bg-slate-900/60 border-orange-600/30">
+          <Card className={disableOnboarding ? "bg-gray-900/60 backdrop-blur-sm border-white/10 rounded-3xl shadow-2xl" : "bg-slate-900/60 border-orange-600/30"}>
             <CardContent className="p-6">
               <div className="text-center mb-6">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/20 border border-orange-400/30 mb-3">
@@ -3102,7 +3105,7 @@ export function GroupsPage({ disableOnboarding = false, onClose }: { disableOnbo
         )}
 
         {currentGame.id === "imposter" && (
-          <Card className="bg-slate-900/60 border-fuchsia-600/30">
+          <Card className={disableOnboarding ? "bg-gray-900/60 backdrop-blur-sm border-white/10 rounded-3xl shadow-2xl" : "bg-slate-900/60 border-fuchsia-600/30"}>
             <CardContent className="p-6">
               {/* Phase indicator + actions */}
               {(() => {
@@ -3477,7 +3480,7 @@ export function GroupsPage({ disableOnboarding = false, onClose }: { disableOnbo
         )}
 
         {currentGame.id === "would-you-rather" && (
-          <Card className="bg-slate-900/60 border-rose-600/30">
+          <Card className={disableOnboarding ? "bg-gray-900/60 backdrop-blur-sm border-white/10 rounded-3xl shadow-2xl" : "bg-slate-900/60 border-rose-600/30"}>
             <CardContent className="p-6">
               <div className="text-center mb-6">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-400/30 mb-3">
@@ -3488,7 +3491,7 @@ export function GroupsPage({ disableOnboarding = false, onClose }: { disableOnbo
               </div>
 
               {/* Game Instructions */}
-              <div className="instructions-block bg-slate-700/30 rounded-xl p-6 mb-6 border border-slate-600/50">
+              <div className={`instructions-block rounded-xl p-6 mb-6 border ${disableOnboarding ? 'bg-white/[0.03] border-white/[0.06]' : 'bg-slate-700/30 border-slate-600/50'}`}>
                 <h4 className="text-white font-semibold mb-3 flex items-center">
                   <Lightbulb className="w-4 h-4 ml-2" />
                   كيفية اللعب:
@@ -3557,7 +3560,7 @@ export function GroupsPage({ disableOnboarding = false, onClose }: { disableOnbo
         )}
 
         {currentGame.id === "hot-seat" && (
-          <Card className="bg-slate-900/60 border-amber-600/30">
+          <Card className={disableOnboarding ? "bg-gray-900/60 backdrop-blur-sm border-white/10 rounded-3xl shadow-2xl" : "bg-slate-900/60 border-amber-600/30"}>
             <CardContent className="p-6">
               <div className="text-center mb-6">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/30 mb-3">
@@ -3796,7 +3799,7 @@ export function GroupsPage({ disableOnboarding = false, onClose }: { disableOnbo
         )}
 
         {currentGame.id === "charades" && (
-          <Card className="bg-slate-900/60 border-emerald-600/30">
+          <Card className={disableOnboarding ? "bg-gray-900/60 backdrop-blur-sm border-white/10 rounded-3xl shadow-2xl" : "bg-slate-900/60 border-emerald-600/30"}>
             <CardContent className="p-6">
               <div className="text-center mb-6">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 mb-3">
@@ -4409,7 +4412,19 @@ export function GroupsPage({ disableOnboarding = false, onClose }: { disableOnbo
         )}
 
         {/* Mobile Game Content */}
-        <div className={`backdrop-blur-sm border border-slate-600/50 rounded-2xl shadow-xl overflow-hidden ${disableOnboarding ? 'bg-transparent border-transparent shadow-none p-0' : 'bg-slate-800/40 p-4'}`}>
+        <div className={`relative ${disableOnboarding ? 'bg-transparent border-transparent shadow-none p-0' : 'backdrop-blur-sm border border-slate-600/50 rounded-2xl shadow-xl overflow-hidden bg-slate-800/40 p-4'}`}>
+          {/* Dynamic gradient background for embedded mode — matches carousel */}
+          {disableOnboarding && selectedGameId && (() => {
+            const g = games.find(gm => gm.id === selectedGameId);
+            if (!g) return null;
+            return (
+              <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                <div className={`absolute inset-0 bg-gradient-to-br ${g.color} opacity-[0.06]`} />
+                <div className={`absolute -top-20 -right-16 w-72 h-72 bg-gradient-to-br ${g.color} opacity-[0.12] rounded-full blur-[80px]`} />
+                <div className={`absolute bottom-0 -left-16 w-64 h-64 bg-gradient-to-br ${g.color} opacity-[0.08] rounded-full blur-[70px]`} />
+              </div>
+            );
+          })()}
           {/* Embedded back button — only when inside event3 and a game is selected */}
           {disableOnboarding && selectedGameId && (
             <div className="sticky top-0 z-20 flex items-center justify-between px-4 py-2.5 bg-gray-950/80 backdrop-blur-xl border-b border-white/[0.06]">
@@ -4439,6 +4454,7 @@ export function GroupsPage({ disableOnboarding = false, onClose }: { disableOnbo
               </div>
             </div>
           )}
+          <div className="relative z-10">
           <AnimatePresence mode="wait">
             <motion.div
               key={selectedGameId ?? 'selection'}
@@ -4450,6 +4466,7 @@ export function GroupsPage({ disableOnboarding = false, onClose }: { disableOnbo
               {renderGameContent()}
             </motion.div>
           </AnimatePresence>
+          </div>
         </div>
 
       </div>

@@ -75,10 +75,28 @@ function e3GenerateSeatingPlan(participantNumbers, genderMap = {}, lockedPairsSe
       if (slot !== -1) round2[newGroup][slot] = grid[t][g]
     }
   }
-  // Place extras in round 2 — rotated to opposite side, guaranteed ≠ round 1 group
+  // Place extras in round 2 — choose groups that avoid repeat encounters with round 1 groupmates.
+  // For extra i (was in round 1 group i), round 2 groups (i+g)%T for g=0..G-1 contain grid[i][g].
+  // Those are "forbidden" (would cause a repeat). Pick from the remaining T-G groups.
+  // When G === T, every group is forbidden (1 repeat unavoidable) — just spread extras apart.
+  const placedExtras = new Set()
   for (let i = 0; i < R; i++) {
-    const targetGroup = (i + Math.floor(T / 2)) % T
-    round2[targetGroup].push(extras[i])
+    const forbidden = new Set()
+    for (let g = 0; g < G; g++) forbidden.add((i + g) % T)
+    // Find a group that is not forbidden and doesn't already have an extra
+    let bestGroup = -1
+    for (let t = 0; t < T; t++) {
+      if (!forbidden.has(t) && !placedExtras.has(t)) { bestGroup = t; break }
+    }
+    // Fallback when G === T (all groups forbidden): pick any group without another extra
+    if (bestGroup === -1) {
+      for (let t = 0; t < T; t++) {
+        if (t !== i && !placedExtras.has(t)) { bestGroup = t; break }
+      }
+    }
+    if (bestGroup === -1) bestGroup = i // last resort
+    placedExtras.add(bestGroup)
+    round2[bestGroup].push(extras[i])
   }
 
   // ── Post-assignment fixes: separate locked pairs & balance gender ──────

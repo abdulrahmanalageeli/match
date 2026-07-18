@@ -362,7 +362,7 @@ function TimerWarningPopup({ seconds, label, sublabel, theme = "red", onDone }: 
 }
 
 // Hook: manages timer warning popup state
-function useTimerWarnings(timerActive: boolean, timeLeft: number, timerDuration: number, enabled = true) {
+function useTimerWarnings(timerActive: boolean, timeLeft: number, timerDuration: number, enabled = true, context?: { oneMinSublabel?: string }) {
   const [popup, setPopup] = useState<{ seconds: number; label: string; sublabel: string; theme: "red" | "amber" | "teal" } | null>(null)
   const firedRef = useRef<Set<number>>(new Set())
 
@@ -378,7 +378,7 @@ function useTimerWarnings(timerActive: boolean, timeLeft: number, timerDuration:
     if (timeLeft === 60 && !firedRef.current.has(60)) {
       firedRef.current.add(60)
       vibrate([100, 50, 100]); playTimerWarningSound()
-      setPopup({ seconds: 60, label: "دقيقة واحدة متبقية", sublabel: "ابدأ بتلخيص حديثك واستعد للنهاية", theme: "amber" })
+      setPopup({ seconds: 60, label: "دقيقة واحدة متبقية", sublabel: context?.oneMinSublabel ?? "ابدأ بتلخيص حديثك واستعد للنهاية", theme: "amber" })
     }
     if (timeLeft === 10 && !firedRef.current.has(10)) {
       firedRef.current.add(10)
@@ -1740,7 +1740,9 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
   useEffect(() => { onGroupsOpenChange?.(showGroups) }, [showGroups, onGroupsOpenChange])
   const [showTutorial, setShowTutorial] = useState(round === 1)
   const wakeLockRef = useRef<any>(null)
-  const { popup, clearPopup } = useTimerWarnings(timerActive, timeLeft, timerDuration)
+  const { popup, clearPopup } = useTimerWarnings(timerActive, timeLeft, timerDuration, true, {
+    oneMinSublabel: "خلصوا النشاط وتأكدوا من أسماء الجميع — الترتيب يبدأ بعد دقيقة ومحدد بوقت"
+  })
 
   useEffect(() => {
     call("e3-get-assignment", token, { round }).then(d => { if (!d.error) setAssignment(d) })

@@ -1014,6 +1014,10 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
 
 ⚠️ *إن تعذّر حضورك، أبلغنا فوراً لنمنح الفرصة لشخص آخر.*
 
+📚 *مهم قبل الفعالية:*
+يرجى قراءة الشرح الكامل للفعالية من هذا الرابط لفهم كل التفاصيل قبل الحضور:
+https://match-omega.vercel.app/event3
+
 📱 *معلوماتك:*
 رقم المشارك: *${assignedNumber}*
 الرمز الخاص: *${secureToken}*

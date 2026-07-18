@@ -2458,18 +2458,18 @@ export function GroupsPage({ disableOnboarding = false, onClose }: { disableOnbo
 
             {/* Main carousel card — swipeable */}
             <div className="relative w-full max-w-[300px]">
-              {/* Navigation arrows — RTL: left arrow=prev on right, right arrow=next on left */}
+              {/* Navigation arrows */}
               <button
                 onClick={prevActivity}
                 className="absolute -right-4 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-all active:scale-90"
               >
-                <ChevronLeft className="w-5 h-5" />
+                <ChevronRight className="w-5 h-5" />
               </button>
               <button
                 onClick={nextActivity}
                 className="absolute -left-4 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-all active:scale-90"
               >
-                <ChevronRight className="w-5 h-5" />
+                <ChevronLeft className="w-5 h-5" />
               </button>
 
               {/* Swipeable card container */}
@@ -2483,8 +2483,8 @@ export function GroupsPage({ disableOnboarding = false, onClose }: { disableOnbo
                 dragConstraints={{ left: 0, right: 0 }}
                 dragElastic={0.6}
                 onDragEnd={(_, info) => {
-                  if (info.offset.x < -60) nextActivity();
-                  else if (info.offset.x > 60) prevActivity();
+                  if (info.offset.x > 60) nextActivity();
+                  else if (info.offset.x < -60) prevActivity();
                 }}
                 className="cursor-grab active:cursor-grabbing"
               >
@@ -4427,8 +4427,8 @@ export function GroupsPage({ disableOnboarding = false, onClose }: { disableOnbo
           })()}
           {/* Embedded back button — only when inside event3 and a game is selected */}
           {disableOnboarding && selectedGameId && (
-            <div className="sticky top-0 z-20 flex items-center justify-between px-4 py-2.5 bg-gray-950/80 backdrop-blur-xl border-b border-white/[0.06]">
-              <div className="flex items-center gap-3">
+            <div className="sticky top-0 z-20 grid grid-cols-[1fr_auto_1fr] items-center px-4 py-2.5 bg-gray-950/80 backdrop-blur-xl border-b border-white/[0.06]">
+              <div className="flex items-center">
                 <button
                   onClick={() => { setSelectedGameId(null); setGamePhase('intro'); }}
                   className="flex items-center gap-1.5 text-gray-400 hover:text-white text-sm font-medium transition-colors"
@@ -4436,13 +4436,13 @@ export function GroupsPage({ disableOnboarding = false, onClose }: { disableOnbo
                   ← رجوع
                 </button>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-white font-bold text-sm truncate">
-                  {(() => {
-                    const g = games.find(gm => gm.id === selectedGameId);
-                    return g ? g.nameAr : "";
-                  })()}
-                </span>
+              <span className="text-white font-bold text-sm truncate text-center px-2">
+                {(() => {
+                  const g = games.find(gm => gm.id === selectedGameId);
+                  return g ? g.nameAr : "";
+                })()}
+              </span>
+              <div className="flex items-center justify-end">
                 {onClose && (
                   <button
                     onClick={onClose}

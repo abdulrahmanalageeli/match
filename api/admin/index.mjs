@@ -6806,6 +6806,13 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
                 }
               }
             }
+            // Build age map for age-aware ordering
+            const ageMap = {}
+            for (const p of pdata || []) {
+              const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {})
+              ageMap[p.assigned_number] = p.age || sd?.answers?.age || sd?.age || null
+            }
+
             console.log(`e3-generate-seating: ${cacheHits} cache hits, ${cacheMisses} cache misses (computed)`)
             if (Object.keys(compatMap).length > 0) {
               const numSet = new Set(participantNumbers)
@@ -6813,10 +6820,18 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               let current = participantNumbers[0]
               numSet.delete(current); order.push(current)
               while (numSet.size > 0) {
-                let best = null, bestScore = -1
+                let best = null, bestScore = -Infinity
                 for (const cand of numSet) {
                   const key = current < cand ? `${current}-${cand}` : `${cand}-${current}`
-                  const score = compatMap[key] ?? 0
+                  const compatScore = compatMap[key] ?? 0
+                  // Age penalty: larger age gap → lower score. Max penalty ~15 points.
+                  const ageA = ageMap[current], ageB = ageMap[cand]
+                  let agePenalty = 0
+                  if (ageA && ageB) {
+                    const gap = Math.abs(ageA - ageB)
+                    agePenalty = Math.min(gap * 1.5, 15) // 1 year = 1.5 pts, capped at 15
+                  }
+                  const score = compatScore - agePenalty
                   if (score > bestScore) { bestScore = score; best = cand }
                 }
                 order.push(best); numSet.delete(best); current = best

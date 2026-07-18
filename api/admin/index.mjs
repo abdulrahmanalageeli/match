@@ -99,11 +99,11 @@ function e3GenerateSeatingPlan(participantNumbers, genderMap = {}, lockedPairsSe
     round2[bestGroup].push(extras[i])
   }
 
-  // ── Post-assignment fixes: separate locked pairs & balance gender ──────
-  // For each round, check if any group has a locked pair together, and swap
-  // with another group to separate them while maintaining gender balance.
+  // ── Post-assignment fixes: prefer separating locked pairs (best-effort, not forced) ──
+  // Try to move locked pairs to different groups, but allow them to stay together
+  // if no clean swap is available. Only swaps same-gender participants to preserve balance.
   const fixRound = (round) => {
-    for (let iter = 0; iter < 3; iter++) { // up to 3 passes
+    for (let iter = 0; iter < 3; iter++) {
       let fixed = 0
       for (let g1 = 0; g1 < round.length; g1++) {
         for (let i = 0; i < round[g1].length; i++) {
@@ -111,8 +111,7 @@ function e3GenerateSeatingPlan(participantNumbers, genderMap = {}, lockedPairsSe
             const a = round[g1][i], b = round[g1][j]
             const pairKey = a < b ? `${a}-${b}` : `${b}-${a}`
             if (!lockedPairsSet.has(pairKey)) continue
-            // Locked pair found in same group — try to swap one of them out
-            // Find a swap partner in another group with same gender
+            // Locked pair found in same group — try to swap one out (best-effort)
             const aGender = (genderMap[a] || '').toLowerCase()
             let swapped = false
             for (let g2 = 0; g2 < round.length && !swapped; g2++) {
@@ -120,8 +119,8 @@ function e3GenerateSeatingPlan(participantNumbers, genderMap = {}, lockedPairsSe
               for (let k = 0; k < round[g2].length && !swapped; k++) {
                 const c = round[g2][k]
                 const cGender = (genderMap[c] || '').toLowerCase()
-                if (cGender !== aGender) continue // only swap same gender
-                // Check that swapping a↔c doesn't create a new locked pair in either group
+                if (cGender !== aGender) continue
+                // Only swap if it doesn't create a new locked pair in either group
                 const newGroup1 = round[g1].map((x, idx) => idx === i ? c : x)
                 const newGroup2 = round[g2].map((x, idx) => idx === k ? a : x)
                 let createsLock = false
@@ -145,10 +144,11 @@ function e3GenerateSeatingPlan(participantNumbers, genderMap = {}, lockedPairsSe
                 }
               }
             }
+            // If no clean swap found, leave the pair together — that's OK
           }
         }
       }
-      if (fixed === 0) break // no more fixes possible
+      if (fixed === 0) break
     }
   }
 

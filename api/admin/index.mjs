@@ -18,29 +18,33 @@ const E3_LATIN_SQUARE = [[0,1,2,3,4,5],[2,3,4,5,0,1],[4,5,0,1,2,3],[1,0,3,2,5,4]
 
 function e3GenerateSeatingPlan(participantNumbers, genderMap = {}, lockedPairsSet = new Set()) {
   const N = participantNumbers.length
-  // Pick largest valid group size that divides N evenly AND has G ≤ T
-  // (G ≤ T is required for the modular shift to guarantee zero repeat encounters).
-  // Priority: 6 > 5 > 4 > 8. 8 is last because it often violates G ≤ T.
-  const G = [6, 5, 4, 8].find(g => N % g === 0 && g <= N / g)
+  // Pick target group size G and number of groups T.
+  // Priority: 6 > 5 > 4 > 8.
+  // Allow uneven groups (some with G+1) when N is not perfectly divisible by G.
+  // Constraint: G ≤ T (for modular shift to guarantee zero repeat encounters).
+  let G = null, T = null
+  for (const g of [6, 5, 4, 8]) {
+    const t = Math.floor(N / g)
+    if (t >= g) { G = g; T = t; break }
+  }
   if (!G) {
     const suggestions = []
     for (let n = Math.max(4, N - 8); n <= N + 8; n++) {
-      if ([6, 5, 4, 8].some(g => n % g === 0 && g <= n / g)) suggestions.push(n)
+      for (const g of [6, 5, 4, 8]) {
+        const t = Math.floor(n / g)
+        if (t >= g) suggestions.push(n)
+      }
     }
-    return { error: `عدد المشاركين (${N}) لا ينقسم بالتساوي على أي من مجموعات 4 أو 5 أو 6 أو 8. جرّب: ${[...new Set(suggestions)].sort((a,b)=>a-b).join("، ")}` }
+    return { error: `عدد المشاركين (${N}) لا يمكن تقسيمه على مجموعات (حد أدنى 4). جرّب: ${[...new Set(suggestions)].sort((a,b)=>a-b).join("، ")}` }
   }
-  const T = N / G  // number of groups
+  const R = N - T * G // remainder: R groups will have G+1 people
 
   // ── Interleave by gender so each group gets balanced M/F ──────────────
-  // Sort into males and females, then alternate: M F M F M F ...
-  // This ensures that when we fill the grid sequentially, each group of G
-  // gets roughly G/2 males and G/2 females.
   const males = participantNumbers.filter(n => (genderMap[n] || '').toLowerCase() !== 'female')
   const females = participantNumbers.filter(n => (genderMap[n] || '').toLowerCase() === 'female')
   const interleaved = []
   let mi = 0, fi = 0
   for (let i = 0; i < N; i++) {
-    // Alternate, but if one pool runs out, take from the other
     if (i % 2 === 0) {
       if (mi < males.length) interleaved.push(males[mi++])
       else interleaved.push(females[fi++])
@@ -50,25 +54,31 @@ function e3GenerateSeatingPlan(participantNumbers, genderMap = {}, lockedPairsSe
     }
   }
 
-  // grid[t][g] = participant at group t, seat g  (sequential fill)
+  // ── Build T×G grid from first T*G people; remaining R are "extras" ────
   const grid = Array.from({ length: T }, (_, t) =>
     Array.from({ length: G }, (_, g) => interleaved[t * G + g])
   )
-  // Round 1: sequential groups (T groups of G people)
+  const extras = interleaved.slice(T * G)
+
+  // Round 1: grid rows + extras assigned to first R groups
   const round1 = grid.map(row => [...row])
-  // Round 2: modular shift — person at (row t, col g) goes to group (t + g) mod T
-  // This keeps T groups of G people, maintains gender balance (each group gets
-  // a mix of columns → mix of genders), and guarantees zero repeat encounters
-  // because two people in the same Round 1 row can only meet if shifted to the
-  // same group, which requires (t + g1) mod T === (t + g2) mod T → g1 === g2.
+  for (let i = 0; i < R; i++) round1[i].push(extras[i])
+
+  // Round 2: modular shift on grid part (guarantees zero repeat encounters
+  // for grid members since G ≤ T). Extras are placed in different groups
+  // from their round 1 assignment, spread to opposite side for mixing.
   const round2 = Array.from({ length: T }, () => Array(G).fill(null))
   for (let t = 0; t < T; t++) {
     for (let g = 0; g < G; g++) {
       const newGroup = (t + g) % T
-      // Find next empty slot in newGroup
       const slot = round2[newGroup].indexOf(null)
       if (slot !== -1) round2[newGroup][slot] = grid[t][g]
     }
+  }
+  // Place extras in round 2 — rotated to opposite side, guaranteed ≠ round 1 group
+  for (let i = 0; i < R; i++) {
+    const targetGroup = (i + Math.floor(T / 2)) % T
+    round2[targetGroup].push(extras[i])
   }
 
   // ── Post-assignment fixes: separate locked pairs & balance gender ──────
@@ -6902,7 +6912,8 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             const f = round1[t].filter(n => (genderMap[n] || '').toLowerCase() === 'female').length
             balanceInfo.push(`${m}♂${f}♀`)
           }
-          return res.status(200).json({ message: `تم توليد خطة الجلسات — ${T} مجموعات من ${G} أشخاص، جولتان${usedCompat ? ' (مُحسَّنة بالتوافق)' : ''} | توازن: ${balanceInfo.join(' · ')}`, round1, round2, groups: T, groupSize: G })
+          const groupSizes = R > 0 ? `${T - R}×${G} + ${R}×${G + 1}` : `${T}×${G}`
+          return res.status(200).json({ message: `تم توليد خطة الجلسات — ${T} مجموعات (${groupSizes})، جولتان${usedCompat ? ' (مُحسَّنة بالتوافق)' : ''} | توازن: ${balanceInfo.join(' · ')}`, round1, round2, groups: T, groupSize: G })
         }
         // e3-get-seating
         if (action === "e3-get-seating") {
@@ -8094,6 +8105,173 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             : `Swapped: #${replacement_participant} replaced #${missing_participant} with #${missingPartner} (score: ${newScore1}%). #${missing_participant} is now unmatched.`
 
           return res.status(200).json({ message: msg })
+        }
+        // e3-replace-participant — full ID swap across ALL event3 tables (last-minute replacement)
+        if (action === "e3-replace-participant") {
+          const { old_participant, new_participant } = req.body
+          if (!old_participant || !new_participant) return res.status(400).json({ error: "old_participant and new_participant required" })
+          if (old_participant === new_participant) return res.status(400).json({ error: "Cannot replace with the same participant" })
+
+          const oldNum = old_participant
+          const newNum = new_participant
+          const updates = []
+
+          // 1. event3_participants — swap participant_number
+          {
+            const { data: oldRow } = await supabase.from("event3_participants").select("id,position").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", oldNum).maybeSingle()
+            const { data: newRow } = await supabase.from("event3_participants").select("id,position").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", newNum).maybeSingle()
+            if (oldRow) {
+              if (newRow) {
+                // Both exist — swap their numbers via temp
+                await supabase.from("event3_participants").update({ participant_number: -1 }).eq("id", oldRow.id)
+                await supabase.from("event3_participants").update({ participant_number: oldNum }).eq("id", newRow.id)
+                await supabase.from("event3_participants").update({ participant_number: newNum }).eq("id", oldRow.id)
+              } else {
+                // New not enrolled — just update old's number to new
+                await supabase.from("event3_participants").update({ participant_number: newNum }).eq("id", oldRow.id)
+              }
+            }
+            updates.push("event3_participants")
+          }
+
+          // 2. session_assignments — swap participant_id across all rounds
+          {
+            const { data: oldAssignments } = await supabase.from("session_assignments").select("id,round,table_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_id", oldNum)
+            const { data: newAssignments } = await supabase.from("session_assignments").select("id,round,table_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_id", newNum)
+
+            // Build round→assignment maps
+            const oldByRound = new Map((oldAssignments || []).map(a => [a.round, a]))
+            const newByRound = new Map((newAssignments || []).map(a => [a.round, a]))
+            const allRounds = new Set([...oldByRound.keys(), ...newByRound.keys()])
+
+            for (const round of allRounds) {
+              const oldA = oldByRound.get(round)
+              const newA = newByRound.get(round)
+              if (oldA && newA) {
+                // Both have assignments in this round — swap via temp
+                await supabase.from("session_assignments").update({ participant_id: -1 }).eq("id", oldA.id)
+                await supabase.from("session_assignments").update({ participant_id: oldNum }).eq("id", newA.id)
+                await supabase.from("session_assignments").update({ participant_id: newNum }).eq("id", oldA.id)
+              } else if (oldA && !newA) {
+                // Only old has assignment — reassign to new
+                await supabase.from("session_assignments").update({ participant_id: newNum }).eq("id", oldA.id)
+              } else if (!oldA && newA) {
+                // Only new has assignment — reassign to old
+                await supabase.from("session_assignments").update({ participant_id: oldNum }).eq("id", newA.id)
+              }
+            }
+            updates.push("session_assignments")
+          }
+
+          // 3. event3_matches — swap participant_number and partner references
+          {
+            const { data: matchRows } = await supabase.from("event3_matches").select("*").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+            const oldMatch = (matchRows || []).find(r => r.participant_number === oldNum)
+            const newMatch = (matchRows || []).find(r => r.participant_number === newNum)
+
+            // Swap participant_number on own rows
+            if (oldMatch && newMatch) {
+              await supabase.from("event3_matches").update({ participant_number: -1 }).eq("id", oldMatch.id)
+              await supabase.from("event3_matches").update({ participant_number: oldNum }).eq("id", newMatch.id)
+              await supabase.from("event3_matches").update({ participant_number: newNum }).eq("id", oldMatch.id)
+            } else if (oldMatch && !newMatch) {
+              await supabase.from("event3_matches").update({ participant_number: newNum }).eq("id", oldMatch.id)
+            } else if (!oldMatch && newMatch) {
+              await supabase.from("event3_matches").update({ participant_number: oldNum }).eq("id", newMatch.id)
+            }
+
+            // Update partner references: anyone whose phase2_partner or phase3_partner points to oldNum → newNum, and vice versa
+            // First set old→temp for phase2_partner
+            const { data: p2OldRefs } = await supabase.from("event3_matches").select("id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("phase2_partner", oldNum)
+            for (const r of p2OldRefs || []) await supabase.from("event3_matches").update({ phase2_partner: -1 }).eq("id", r.id)
+            const { data: p2NewRefs } = await supabase.from("event3_matches").select("id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("phase2_partner", newNum)
+            for (const r of p2NewRefs || []) await supabase.from("event3_matches").update({ phase2_partner: oldNum }).eq("id", r.id)
+            for (const r of p2OldRefs || []) await supabase.from("event3_matches").update({ phase2_partner: newNum }).eq("id", r.id)
+
+            // phase3_partner
+            const { data: p3OldRefs } = await supabase.from("event3_matches").select("id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("phase3_partner", oldNum)
+            for (const r of p3OldRefs || []) await supabase.from("event3_matches").update({ phase3_partner: -1 }).eq("id", r.id)
+            const { data: p3NewRefs } = await supabase.from("event3_matches").select("id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("phase3_partner", newNum)
+            for (const r of p3NewRefs || []) await supabase.from("event3_matches").update({ phase3_partner: oldNum }).eq("id", r.id)
+            for (const r of p3OldRefs || []) await supabase.from("event3_matches").update({ phase3_partner: newNum }).eq("id", r.id)
+
+            // Recalculate phase3 score for the new participant's pair only
+            const refreshedOld = oldMatch ? { ...oldMatch, participant_number: newNum } : null
+            const refreshedNew = newMatch ? { ...newMatch, participant_number: oldNum } : null
+            // After swap, the "new" person (now holding oldNum's slot) has phase3_partner
+            const newPersonMatch = refreshedOld || (matchRows || []).find(r => r.participant_number === newNum)
+            if (newPersonMatch?.phase3_partner) {
+              const partnerNum = newPersonMatch.phase3_partner
+              const { data: partnerPdata } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,attachment_style,communication_style,humor_banter_style,early_openness_comfort,same_gender_preference,any_gender_preference,nationality,prefer_same_nationality,preferred_age_min,preferred_age_max,open_age_preference").eq("match_id", STATIC_MATCH_ID).in("assigned_number", [newNum, partnerNum])
+              const pMap = {}
+              for (const p of partnerPdata || []) pMap[p.assigned_number] = p
+              if (pMap[newNum] && pMap[partnerNum]) {
+                try {
+                  const compat = await e3FullCalcCompat(pMap[newNum], pMap[partnerNum])
+                  if (compat) {
+                    await supabase.from("event3_matches").update({ phase3_score: compat.totalScore }).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", newNum)
+                    await supabase.from("event3_matches").update({ phase3_score: compat.totalScore }).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", partnerNum)
+                  }
+                } catch (e) { console.error(`Replace phase3 score recalc error for #${newNum}×#${partnerNum}:`, e.message) }
+              }
+            }
+
+            updates.push("event3_matches")
+          }
+
+          // 4. participant_rankings — swap ranker_number and ranked_number
+          {
+            // Swap ranker_number
+            const { data: oldRankers } = await supabase.from("participant_rankings").select("id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("ranker_number", oldNum)
+            const { data: newRankers } = await supabase.from("participant_rankings").select("id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("ranker_number", newNum)
+            for (const r of oldRankers || []) await supabase.from("participant_rankings").update({ ranker_number: -1 }).eq("id", r.id)
+            for (const r of newRankers || []) await supabase.from("participant_rankings").update({ ranker_number: oldNum }).eq("id", r.id)
+            for (const r of oldRankers || []) await supabase.from("participant_rankings").update({ ranker_number: newNum }).eq("id", r.id)
+
+            // Swap ranked_number
+            const { data: oldRanked } = await supabase.from("participant_rankings").select("id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("ranked_number", oldNum)
+            const { data: newRanked } = await supabase.from("participant_rankings").select("id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("ranked_number", newNum)
+            for (const r of oldRanked || []) await supabase.from("participant_rankings").update({ ranked_number: -1 }).eq("id", r.id)
+            for (const r of newRanked || []) await supabase.from("participant_rankings").update({ ranked_number: oldNum }).eq("id", r.id)
+            for (const r of oldRanked || []) await supabase.from("participant_rankings").update({ ranked_number: newNum }).eq("id", r.id)
+
+            updates.push("participant_rankings")
+          }
+
+          // 5. event3_participant_notes — swap participant_number
+          {
+            const { data: oldNotes } = await supabase.from("event3_participant_notes").select("id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", oldNum)
+            const { data: newNotes } = await supabase.from("event3_participant_notes").select("id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", newNum)
+            for (const r of oldNotes || []) await supabase.from("event3_participant_notes").update({ participant_number: -1 }).eq("id", r.id)
+            for (const r of newNotes || []) await supabase.from("event3_participant_notes").update({ participant_number: oldNum }).eq("id", r.id)
+            for (const r of oldNotes || []) await supabase.from("event3_participant_notes").update({ participant_number: newNum }).eq("id", r.id)
+            updates.push("event3_participant_notes")
+          }
+
+          // 6. event3_mood_checks — swap participant_number
+          {
+            const { data: oldMoods } = await supabase.from("event3_mood_checks").select("id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", oldNum)
+            const { data: newMoods } = await supabase.from("event3_mood_checks").select("id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", newNum)
+            for (const r of oldMoods || []) await supabase.from("event3_mood_checks").update({ participant_number: -1 }).eq("id", r.id)
+            for (const r of newMoods || []) await supabase.from("event3_mood_checks").update({ participant_number: oldNum }).eq("id", r.id)
+            for (const r of oldMoods || []) await supabase.from("event3_mood_checks").update({ participant_number: newNum }).eq("id", r.id)
+            updates.push("event3_mood_checks")
+          }
+
+          // 7. event3_notifications — swap participant_number
+          {
+            const { data: oldNotifs } = await supabase.from("event3_notifications").select("id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", oldNum)
+            const { data: newNotifs } = await supabase.from("event3_notifications").select("id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", newNum)
+            for (const r of oldNotifs || []) await supabase.from("event3_notifications").update({ participant_number: -1 }).eq("id", r.id)
+            for (const r of newNotifs || []) await supabase.from("event3_notifications").update({ participant_number: oldNum }).eq("id", r.id)
+            for (const r of oldNotifs || []) await supabase.from("event3_notifications").update({ participant_number: newNum }).eq("id", r.id)
+            updates.push("event3_notifications")
+          }
+
+          return res.status(200).json({
+            message: `تم استبدال #${oldNum} بـ #${newNum} في جميع الجداول: ${updates.join("، ")}`,
+            updated_tables: updates
+          })
         }
         // e3-clear-test-data — clear rankings, feedback, words, and notes (keep participants, seating, matches)
         if (action === "e3-clear-test-data") {

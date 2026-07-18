@@ -196,6 +196,8 @@ export default function Admin3Page() {
   const [expandedPhase3Pair, setExpandedPhase3Pair] = useState<number | null>(null)
   const [swapMatch, setSwapMatch] = useState<{ phase: "phase2" | "phase3"; missingNum: number; missingName: string } | null>(null)
   const [swapReplacement, setSwapReplacement] = useState<number | null>(null)
+  const [replaceParticipant, setReplaceParticipant] = useState<{ oldNum: number; oldName: string } | null>(null)
+  const [replaceWith, setReplaceWith] = useState<number | null>(null)
 
   const copyRankings = () => {
     if (!allRankings.length) return
@@ -772,6 +774,30 @@ export default function Admin3Page() {
           setSwapReplacement(null)
           fetchMatches()
           fetchState()
+        }
+        return d
+      })
+    )
+  }
+
+  const doReplaceParticipant = () => {
+    if (!replaceParticipant || !replaceWith) return
+    if (previewEventId != null) { toast.error("لا يمكن تعديل في وضع المعاينة"); return }
+    run(`replace-${replaceParticipant.oldNum}-${replaceWith}`, () =>
+      api("e3-replace-participant", {
+        old_participant: replaceParticipant.oldNum,
+        new_participant: replaceWith,
+      }).then(d => {
+        if (!d.error) {
+          setReplaceParticipant(null)
+          setReplaceWith(null)
+          setParticipantPanelOpen(false)
+          fetchParticipants()
+          fetchSeating()
+          fetchMatches()
+          fetchState()
+          fetchRankStatus()
+          toast.success(d.message)
         }
         return d
       })
@@ -3255,6 +3281,12 @@ export default function Admin3Page() {
                   >
                     <MessageSquare size={14} /> مراسلة المشارك
                   </button>
+                  <button
+                    onClick={() => { setReplaceParticipant({ oldNum: p.number, oldName: p.name }); setReplaceWith(null) }}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-900/30 hover:bg-red-900/50 border border-red-700/40 text-red-300 text-sm font-medium transition-all active:scale-[0.98]"
+                  >
+                    <Shuffle size={14} /> استبدال المشارك بالكامل
+                  </button>
                 </div>
               </div>
             </div>
@@ -5186,6 +5218,70 @@ export default function Admin3Page() {
                 >
                   {loading?.startsWith("swap-match") ? <RefreshCw size={14} className="animate-spin" /> : <Shuffle size={14} />}
                   تأكيد الاستبدال
+                </button>
+              </div>
+            </div>
+          </>
+        )
+      })()}
+
+      {/* ── Replace Participant Modal ─────────────────────────────────── */}
+      {replaceParticipant && (() => {
+        const allPeople = participants
+        return (
+          <>
+            <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={() => { setReplaceParticipant(null); setReplaceWith(null) }} />
+            <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[90vw] max-w-md bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl overflow-hidden" dir="rtl">
+              <div className="flex items-center justify-between p-4 border-b border-gray-800">
+                <div>
+                  <h3 className="font-bold text-white text-sm">استبدال مشارك بالكامل</h3>
+                  <p className="text-[11px] text-gray-500 mt-0.5">استبدال {replaceParticipant.oldName} (#{replaceParticipant.oldNum}) في جميع الجداول</p>
+                </div>
+                <button onClick={() => { setReplaceParticipant(null); setReplaceWith(null) }} className="p-2 rounded-xl hover:bg-gray-800 text-gray-500 hover:text-white transition-colors">✕</button>
+              </div>
+              <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
+                <div className="bg-red-900/20 border border-red-800/30 rounded-lg px-3 py-2.5">
+                  <p className="text-[11px] text-red-300 leading-relaxed">
+                    ⚠️ سيتم استبدال المشارك في كل شيء: الطاولات، المطابقات، التصنيفات، الملاحظات، والإشعارات. لن يتم إعادة حساب أي شيء إلا نقطة التوافق للمطابقة الثانية (phase3) للزوج الجديد فقط.
+                  </p>
+                </div>
+                <p className="text-xs text-gray-400">اختر المشارك البديل (يمكن أن يكون أي شخص):</p>
+                <div className="space-y-1.5">
+                  {allPeople.length === 0 ? (
+                    <p className="text-xs text-gray-600 text-center py-4">لا يوجد مشاركون</p>
+                  ) : allPeople
+                    .filter(p => p.number !== replaceParticipant.oldNum)
+                    .map(p => (
+                    <button
+                      key={p.number}
+                      onClick={() => setReplaceWith(p.number)}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors text-right ${
+                        replaceWith === p.number
+                          ? 'bg-red-900/40 border border-red-700/50'
+                          : 'bg-gray-800/50 border border-transparent hover:bg-gray-800'
+                      }`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${p.gender === 'female' ? 'bg-pink-400' : 'bg-blue-400'}`} />
+                      <span className="text-sm font-semibold text-white flex-1 truncate">{p.name}</span>
+                      <span className="text-[10px] text-gray-500">#{p.number}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="p-4 border-t border-gray-800 flex gap-2">
+                <button
+                  onClick={() => { setReplaceParticipant(null); setReplaceWith(null) }}
+                  className="flex-1 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-bold transition-colors"
+                >
+                  إلغاء
+                </button>
+                <button
+                  onClick={doReplaceParticipant}
+                  disabled={!replaceWith || !!loading}
+                  className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                >
+                  {loading?.startsWith("replace") ? <RefreshCw size={14} className="animate-spin" /> : <Shuffle size={14} />}
+                  تأكيد الاستبدال الكامل
                 </button>
               </div>
             </div>

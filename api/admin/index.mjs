@@ -99,6 +99,58 @@ function e3GenerateSeatingPlan(participantNumbers, genderMap = {}, lockedPairsSe
     round2[bestGroup].push(extras[i])
   }
 
+  // Best-effort separation of locked/exclusion pairs — swaps same-gender participants
+  // to avoid pairs being in the same group. If no clean swap exists, pair stays together.
+  const fixRound = (round) => {
+    for (let iter = 0; iter < 3; iter++) {
+      let fixed = 0
+      for (let g1 = 0; g1 < round.length; g1++) {
+        for (let i = 0; i < round[g1].length; i++) {
+          for (let j = i + 1; j < round[g1].length; j++) {
+            const a = round[g1][i], b = round[g1][j]
+            const pairKey = a < b ? `${a}-${b}` : `${b}-${a}`
+            if (!lockedPairsSet.has(pairKey)) continue
+            const aGender = (genderMap[a] || '').toLowerCase()
+            let swapped = false
+            for (let g2 = 0; g2 < round.length && !swapped; g2++) {
+              if (g2 === g1) continue
+              for (let k = 0; k < round[g2].length && !swapped; k++) {
+                const c = round[g2][k]
+                const cGender = (genderMap[c] || '').toLowerCase()
+                if (cGender !== aGender) continue
+                const newGroup1 = round[g1].map((x, idx) => idx === i ? c : x)
+                const newGroup2 = round[g2].map((x, idx) => idx === k ? a : x)
+                let createsLock = false
+                for (let x = 0; x < newGroup1.length && !createsLock; x++) {
+                  for (let y = x + 1; y < newGroup1.length && !createsLock; y++) {
+                    const pk = newGroup1[x] < newGroup1[y] ? `${newGroup1[x]}-${newGroup1[y]}` : `${newGroup1[y]}-${newGroup1[x]}`
+                    if (lockedPairsSet.has(pk)) createsLock = true
+                  }
+                }
+                for (let x = 0; x < newGroup2.length && !createsLock; x++) {
+                  for (let y = x + 1; y < newGroup2.length && !createsLock; y++) {
+                    const pk = newGroup2[x] < newGroup2[y] ? `${newGroup2[x]}-${newGroup2[y]}` : `${newGroup2[y]}-${newGroup2[x]}`
+                    if (lockedPairsSet.has(pk)) createsLock = true
+                  }
+                }
+                if (!createsLock) {
+                  round[g1][i] = c
+                  round[g2][k] = a
+                  swapped = true
+                  fixed++
+                }
+              }
+            }
+          }
+        }
+      }
+      if (fixed === 0) break
+    }
+  }
+
+  fixRound(round1)
+  fixRound(round2)
+
   const positionMap = {}
   for (let i = 0; i < N; i++) positionMap[interleaved[i]] = i
   return { round1, round2, T, G, R, positionMap }

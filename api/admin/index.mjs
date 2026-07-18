@@ -139,7 +139,7 @@ function e3GenerateSeatingPlan(participantNumbers, genderMap = {}, lockedPairsSe
 
   const positionMap = {}
   for (let i = 0; i < N; i++) positionMap[interleaved[i]] = i
-  return { round1, round2, T, G, positionMap }
+  return { round1, round2, T, G, R, positionMap }
 }
 
 function e3GreedyMutualMatching(rankings, participantMap = new Map(), exclusions = new Set()) {
@@ -6896,7 +6896,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
 
           const plan = e3GenerateSeatingPlan(orderedNumbers, genderMap, lockedPairsSet)
           if (plan.error) return res.status(400).json({ error: plan.error })
-          const { round1, round2, T, G, positionMap } = plan
+          const { round1, round2, T, G, R, positionMap } = plan
           await supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           await supabase.from("event3_participants").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           await supabase.from("event3_participants").insert(orderedNumbers.map(num => ({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, participant_number: num, position: positionMap[num] })))

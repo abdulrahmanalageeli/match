@@ -2260,6 +2260,30 @@ export default function Admin3Page() {
                     const balanced = Math.abs(males - females) <= 1
                     const hasSwapMember = swapA !== null && members.some(m => m.number === swapA)
                     const hasMoveMember = moveA !== null && members.some(m => m.number === moveA)
+
+                    // Compute repeat encounters across rounds 1 and 2 for this table's members
+                    const round1Seating = seating?.[1] || {}
+                    const round2Seating = seating?.[2] || {}
+                    const getMates = (roundSeating: any, pNum: number) => {
+                      const result: number[] = []
+                      for (const t of Object.keys(roundSeating).map(Number)) {
+                        const tbl = roundSeating[t] || []
+                        if (tbl.some((m: any) => m.number === pNum)) {
+                          for (const m of tbl) { if (m.number !== pNum) result.push(m.number) }
+                        }
+                      }
+                      return result
+                    }
+                    const repeatMap: Record<number, number[]> = {}
+                    if (mapRound === 1 || mapRound === 2) {
+                      for (const m of members) {
+                        const r1Mates = new Set(getMates(round1Seating, m.number))
+                        const r2Mates = new Set(getMates(round2Seating, m.number))
+                        const repeats = [...r2Mates].filter(n => r1Mates.has(n))
+                        if (repeats.length > 0) repeatMap[m.number] = repeats
+                      }
+                    }
+
                     return (
                       <div key={table}
                         onClick={() => moveA && handleTableClick(table)}
@@ -2322,7 +2346,8 @@ export default function Admin3Page() {
                             const isMoveSrc = moveA === m.number
                             const isViewing = selectedParticipantNum === m.number && participantPanelOpen
                             return (
-                              <div key={m.number} className="flex items-center gap-1">
+                              <div key={m.number}>
+                                <div className="flex items-center gap-1">
                                 <button onClick={() => handleMemberClick(m)}
                                   className={`flex-1 flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-right transition-all ${
                                     isSwapSrc
@@ -2352,6 +2377,15 @@ export default function Admin3Page() {
                                     <ArrowLeft size={12} />
                                   </button>
                                 )}
+                                </div>
+                              {repeatMap[m.number] && !swapA && !moveA && (
+                                <div className="mr-9 mb-1.5 px-2 py-1 rounded-lg bg-orange-900/20 border border-orange-800/30 text-[10px] text-orange-300 leading-relaxed">
+                                  ⚠ يلتقي بـ {repeatMap[m.number].length} {repeatMap[m.number].length === 1 ? 'شخص' : 'أشخاص'} من الجولة الأولى: {repeatMap[m.number].map(n => {
+                                    const name = members.find((mm: any) => mm.number === n)?.name || `#${n}`
+                                    return name
+                                  }).join('، ')}
+                                </div>
+                              )}
                               </div>
                             )
                           })}

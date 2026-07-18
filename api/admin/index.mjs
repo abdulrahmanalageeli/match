@@ -6871,6 +6871,20 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           }
           console.log(`e3-generate-seating: ${lockedPairsSet.size} locked pairs to separate in groups`)
 
+          // Fetch event3 conflict-of-interest exclusions and add to separation set
+          const { data: e3ExclRows } = await supabase
+            .from("event3_exclusions")
+            .select("participant_a_number,participant_b_number")
+            .eq("match_id", EVENT3_MATCH_ID)
+            .eq("event_id", currentEventId)
+          for (const ex of e3ExclRows || []) {
+            const key = ex.participant_a_number < ex.participant_b_number
+              ? `${ex.participant_a_number}-${ex.participant_b_number}`
+              : `${ex.participant_b_number}-${ex.participant_a_number}`
+            lockedPairsSet.add(key)
+          }
+          console.log(`e3-generate-seating: ${lockedPairsSet.size} total pairs to separate (${e3ExclRows?.length || 0} exclusions added)`)
+
           const plan = e3GenerateSeatingPlan(orderedNumbers, genderMap, lockedPairsSet)
           if (plan.error) return res.status(400).json({ error: plan.error })
           const { round1, round2, T, G, R, positionMap } = plan

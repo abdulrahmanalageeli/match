@@ -4766,7 +4766,7 @@ function AiWelcomePopup({ token, onDone }: { token: string; onDone: () => void }
                       transition={{ delay: 0.2 }}
                       className="text-white font-black text-[15px] leading-tight"
                     >
-                      هذا ما فكّر فيه الذكاء الاصطناعي عنك
+                      شيء خاص لك
                     </motion.p>
                     <motion.p
                       initial={{ opacity: 0 }}
@@ -4774,7 +4774,7 @@ function AiWelcomePopup({ token, onDone }: { token: string; onDone: () => void }
                       transition={{ delay: 0.35 }}
                       className="text-purple-300/60 text-[11px] mt-0.5"
                     >
-                      تحليل شخصي مبني على إجاباتك
+                      كتبناه لك بناءً على إجاباتك
                     </motion.p>
                   </div>
                 </div>

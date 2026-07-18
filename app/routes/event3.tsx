@@ -4630,6 +4630,7 @@ function AiWelcomePopup({ token, onDone }: { token: string; onDone: () => void }
         clearInterval(iv)
         setTyping(false)
         setDone(true)
+        fireConfetti({ particleCount: 80, spread: 70, origin: { y: 0.6 }, colors: ["#a855f7", "#ec4899", "#f0abfc", "#c084fc"] })
       }
     }, speed)
     return () => clearInterval(iv)
@@ -4637,7 +4638,7 @@ function AiWelcomePopup({ token, onDone }: { token: string; onDone: () => void }
 
   const dismiss = () => {
     setClosing(true)
-    setTimeout(() => onDone(), 350)
+    setTimeout(() => onDone(), 400)
   }
 
   return (
@@ -4646,187 +4647,285 @@ function AiWelcomePopup({ token, onDone }: { token: string; onDone: () => void }
         initial={{ opacity: 0 }}
         animate={{ opacity: closing ? 0 : 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.3 }}
-        className="fixed inset-0 z-[290] bg-black/70 backdrop-blur-lg flex items-center justify-center p-5"
-        onClick={done ? dismiss : undefined}
+        transition={{ duration: 0.4 }}
+        className="fixed inset-0 z-[290] flex items-center justify-center p-4 overflow-hidden"
+        dir="rtl"
       >
+        {/* ─── Full-screen animated background ─── */}
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0a0414] via-[#15082a] to-[#0a0414]" />
+        <div className="absolute inset-0 bg-gradient-to-t from-purple-950/30 via-transparent to-pink-950/20" />
+
+        {/* Animated mesh orbs */}
         <motion.div
-          initial={{ scale: 0.8, y: 40, opacity: 0 }}
-          animate={{ scale: closing ? 0.88 : 1, y: closing ? 20 : 0, opacity: closing ? 0.4 : 1 }}
-          transition={{ type: "spring", stiffness: 260, damping: 22 }}
+          className="absolute top-[10%] right-[5%] w-72 h-72 rounded-full bg-purple-600/20 blur-[100px] pointer-events-none"
+          animate={{ scale: [1, 1.4, 1], opacity: [0.3, 0.5, 0.3], x: [0, -30, 0], y: [0, 20, 0] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div
+          className="absolute bottom-[10%] left-[5%] w-64 h-64 rounded-full bg-pink-600/15 blur-[90px] pointer-events-none"
+          animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.4, 0.2], x: [0, 30, 0], y: [0, -20, 0] }}
+          transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+        />
+        <motion.div
+          className="absolute top-[50%] left-[40%] w-56 h-56 rounded-full bg-fuchsia-600/10 blur-[80px] pointer-events-none"
+          animate={{ scale: [1, 1.5, 1], opacity: [0.15, 0.3, 0.15], x: [0, 20, 0] }}
+          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+        />
+
+        {/* Floating sparkles */}
+        {[...Array(12)].map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute pointer-events-none"
+            style={{ top: `${15 + (i * 7) % 70}%`, left: `${10 + (i * 13) % 80}%` }}
+            animate={{
+              y: [0, -15, 0],
+              opacity: [0, 0.8, 0],
+              scale: [0.5, 1, 0.5],
+            }}
+            transition={{
+              duration: 3 + (i % 3),
+              repeat: Infinity,
+              delay: i * 0.4,
+              ease: "easeInOut",
+            }}
+          >
+            <Sparkles size={8 + (i % 3) * 4} className="text-purple-300/40" />
+          </motion.div>
+        ))}
+
+        {/* ─── Main card ─── */}
+        <motion.div
+          initial={{ scale: 0.85, y: 50, opacity: 0 }}
+          animate={{ scale: closing ? 0.9 : 1, y: closing ? 30 : 0, opacity: closing ? 0 : 1 }}
+          transition={{ type: "spring", stiffness: 240, damping: 24 }}
           onClick={e => e.stopPropagation()}
-          className="w-full max-w-md rounded-[28px] overflow-hidden border border-white/[0.06] bg-gradient-to-b from-gray-900 via-[#1a1030] to-gray-950 shadow-2xl shadow-purple-900/40 relative"
-          dir="rtl"
+          className="relative w-full max-w-md rounded-[32px] overflow-hidden border border-white/[0.08] shadow-2xl shadow-purple-900/50 z-10"
         >
-          {/* Animated background orbs */}
+          {/* Animated gradient border glow */}
           <motion.div
-            className="absolute -top-20 -right-16 w-48 h-48 rounded-full bg-purple-600/15 blur-3xl pointer-events-none"
-            animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.4, 0.2], x: [0, -10, 0] }}
-            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-          />
-          <motion.div
-            className="absolute -bottom-16 -left-12 w-40 h-40 rounded-full bg-pink-600/10 blur-3xl pointer-events-none"
-            animate={{ scale: [1, 1.2, 1], opacity: [0.15, 0.3, 0.15], x: [0, 10, 0] }}
-            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+            className="absolute inset-0 rounded-[32px] pointer-events-none"
+            style={{
+              background: "linear-gradient(135deg, rgba(168,85,247,0.15), rgba(236,72,153,0.1), rgba(168,85,247,0.15))",
+            }}
+            animate={{ opacity: [0.5, 0.8, 0.5] }}
+            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
           />
 
-          {/* ─── Loading State ─── */}
-          {loading && (
-            <div className="relative px-8 py-12 flex flex-col items-center gap-5 min-h-[280px] justify-center">
+          {/* Inner background */}
+          <div className="relative bg-gradient-to-b from-gray-900/95 via-[#140a26]/95 to-gray-950/95 backdrop-blur-2xl">
+
+            {/* ─── Brand Header — "التوافق الأعمى يرحب بك" ─── */}
+            <div className="relative px-6 pt-8 pb-5 text-center overflow-hidden">
+              {/* Shimmer sweep */}
+              <motion.div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background: "linear-gradient(110deg, transparent 30%, rgba(168,85,247,0.08) 50%, transparent 70%)",
+                }}
+                animate={{ x: ["-100%", "200%"] }}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", repeatDelay: 2 }}
+              />
+
+              {/* Logo mark */}
               <motion.div
                 initial={{ scale: 0, rotate: -30 }}
                 animate={{ scale: 1, rotate: 0 }}
-                transition={{ type: "spring", stiffness: 300, damping: 18 }}
-                className="w-16 h-16 rounded-3xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center shadow-xl shadow-purple-600/40"
+                transition={{ delay: 0.15, type: "spring", stiffness: 280, damping: 14 }}
+                className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-600 to-pink-600 shadow-xl shadow-purple-600/40 mb-3"
               >
                 <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                  animate={{ rotate: [0, 10, -10, 0] }}
+                  transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
                 >
-                  <Sparkles size={28} className="text-white" />
+                  <Sparkles size={26} className="text-white" />
                 </motion.div>
               </motion.div>
+
+              {/* Brand name */}
               <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
-                className="text-center space-y-2"
               >
-                <p className="text-white font-bold text-sm">يحلّل شخصيتك...</p>
-                <div className="flex items-center justify-center gap-1.5">
-                  {[0, 1, 2].map(i => (
+                <h1 className="text-xl font-black bg-gradient-to-r from-purple-300 via-pink-200 to-purple-300 bg-clip-text text-transparent tracking-tight">
+                  التوافق الأعمى
+                </h1>
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.5 }}
+                  className="text-purple-300/50 text-[11px] mt-1 font-medium tracking-widest"
+                >
+                  يرحّب بك
+                </motion.p>
+              </motion.div>
+
+              {/* Decorative line */}
+              <motion.div
+                initial={{ scaleX: 0 }}
+                animate={{ scaleX: 1 }}
+                transition={{ delay: 0.6, duration: 0.6 }}
+                className="mx-auto mt-4 h-px w-32 bg-gradient-to-r from-transparent via-purple-500/40 to-transparent origin-center"
+              />
+            </div>
+
+            {/* ─── Loading State ─── */}
+            {loading && (
+              <div className="relative px-8 py-10 flex flex-col items-center gap-5 min-h-[240px] justify-center">
+                <motion.div
+                  className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-600/30 to-pink-600/30 border border-purple-500/20 flex items-center justify-center"
+                  animate={{ scale: [1, 1.05, 1] }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                >
+                  <motion.div animate={{ rotate: 360 }} transition={{ duration: 3, repeat: Infinity, ease: "linear" }}>
+                    <Sparkles size={22} className="text-purple-300" />
+                  </motion.div>
+                </motion.div>
+                <div className="text-center space-y-2">
+                  <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className="text-white font-bold text-sm"
+                  >
+                    نكتب لك شيئاً خاصاً...
+                  </motion.p>
+                  <div className="flex items-center justify-center gap-1.5">
+                    {[0, 1, 2].map(i => (
+                      <motion.div
+                        key={i}
+                        className="w-1.5 h-1.5 rounded-full bg-purple-400"
+                        animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.2, 0.8] }}
+                        transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }}
+                      />
+                    ))}
+                  </div>
+                </div>
+                {/* Shimmer lines */}
+                <div className="w-full space-y-2.5 mt-2">
+                  {[0.9, 0.7, 0.5].map((w, i) => (
                     <motion.div
                       key={i}
-                      className="w-1.5 h-1.5 rounded-full bg-purple-400"
-                      animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.2, 0.8] }}
-                      transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }}
+                      className="h-2.5 rounded-full bg-gradient-to-r from-transparent via-purple-500/15 to-transparent"
+                      style={{ width: `${w * 100}%` }}
+                      animate={{ opacity: [0.3, 0.6, 0.3] }}
+                      transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.3 }}
                     />
                   ))}
                 </div>
-              </motion.div>
-              {/* Shimmer lines */}
-              <div className="w-full space-y-2.5 mt-2">
-                {[0.9, 0.7, 0.5].map((w, i) => (
-                  <motion.div
-                    key={i}
-                    className="h-2.5 rounded-full bg-gradient-to-r from-transparent via-purple-500/15 to-transparent"
-                    style={{ width: `${w * 100}%` }}
-                    animate={{ opacity: [0.3, 0.6, 0.3] }}
-                    transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.3 }}
-                  />
-                ))}
               </div>
-            </div>
-          )}
+            )}
 
-          {/* ─── Failed / Fallback State ─── */}
-          {!loading && failed && (
-            <div className="relative px-8 py-10 flex flex-col items-center gap-4 min-h-[240px] justify-center">
-              <motion.div
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: "spring", stiffness: 280, damping: 20 }}
-                className="w-14 h-14 rounded-2xl bg-gray-800/80 border border-gray-700/50 flex items-center justify-center"
-              >
-                <Sparkles size={24} className="text-gray-500" />
-              </motion.div>
-              <p className="text-gray-400 text-sm text-center">تعذّر توليد التحليل، لا بأس — نكمل بدونها!</p>
-              <motion.button
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                whileTap={{ scale: 0.97 }}
-                onClick={dismiss}
-                className="mt-2 px-8 py-3 rounded-2xl font-bold text-sm bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-600/20"
-              >
-                يلا نبدأ ←
-              </motion.button>
-            </div>
-          )}
-
-          {/* ─── Poem Display ─── */}
-          {!loading && !failed && message && (
-            <>
-              {/* Header */}
-              <div className="relative px-7 pt-7 pb-3 overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-600/15 via-pink-600/8 to-transparent" />
-                <div className="relative flex items-center gap-3">
-                  <motion.div
-                    initial={{ scale: 0, rotate: -20 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    transition={{ delay: 0.1, type: "spring", stiffness: 300, damping: 15 }}
-                    className="w-11 h-11 rounded-2xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center shadow-lg shadow-purple-600/30 shrink-0"
-                  >
-                    <Sparkles size={20} className="text-white" />
-                  </motion.div>
-                  <div>
-                    <motion.p
-                      initial={{ opacity: 0, x: 10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.2 }}
-                      className="text-white font-black text-[15px] leading-tight"
-                    >
-                      شيء خاص لك
-                    </motion.p>
-                    <motion.p
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.35 }}
-                      className="text-purple-300/60 text-[11px] mt-0.5"
-                    >
-                      كتبناه لك بناءً على إجاباتك
-                    </motion.p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Divider */}
-              <div className="px-7">
+            {/* ─── Failed / Fallback State ─── */}
+            {!loading && failed && (
+              <div className="relative px-8 py-10 flex flex-col items-center gap-4 min-h-[240px] justify-center">
                 <motion.div
-                  initial={{ scaleX: 0 }}
-                  animate={{ scaleX: 1 }}
-                  transition={{ delay: 0.4, duration: 0.5 }}
-                  className="h-px bg-gradient-to-r from-transparent via-purple-500/30 to-transparent origin-right"
-                />
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: "spring", stiffness: 280, damping: 20 }}
+                  className="w-14 h-14 rounded-2xl bg-gray-800/80 border border-gray-700/50 flex items-center justify-center"
+                >
+                  <Sparkles size={24} className="text-gray-500" />
+                </motion.div>
+                <p className="text-gray-400 text-sm text-center">تعذّر توليد الرسالة، لا بأس — نكمل بدونها!</p>
+                <motion.button
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={dismiss}
+                  className="mt-2 px-8 py-3 rounded-2xl font-bold text-sm bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-600/20"
+                >
+                  يلا نبدأ ←
+                </motion.button>
               </div>
+            )}
 
-              {/* Poem body with typewriter */}
-              <div className="relative px-7 py-6 min-h-[140px] flex items-center">
-                <p className="text-gray-100 text-[15px] leading-[2.2] text-center whitespace-pre-wrap font-medium tracking-wide">
-                  {typed}
-                  {typing && (
-                    <motion.span
-                      animate={{ opacity: [1, 0, 1] }}
-                      transition={{ duration: 0.6, repeat: Infinity }}
-                      className="inline-block w-0.5 h-4 bg-purple-400 mr-0.5 align-middle rounded-full"
-                    />
-                  )}
-                </p>
-              </div>
-
-              {/* Dismiss button — appears after typing completes */}
-              <AnimatePresence>
-                {done && (
+            {/* ─── Message Display ─── */}
+            {!loading && !failed && message && (
+              <>
+                {/* Message card */}
+                <div className="relative px-6 pb-5">
                   <motion.div
-                    initial={{ opacity: 0, y: 12 }}
+                    initial={{ opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.4 }}
-                    className="relative px-7 pb-7"
+                    transition={{ delay: 0.1, duration: 0.5 }}
+                    className="relative rounded-2xl bg-white/[0.03] border border-white/[0.06] p-5 overflow-hidden"
                   >
-                    <motion.button
-                      whileTap={{ scale: 0.97 }}
-                      onClick={dismiss}
-                      className="w-full py-3.5 rounded-2xl font-bold text-sm bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white transition-all shadow-lg shadow-purple-600/25"
+                    {/* Corner glow */}
+                    <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-purple-600/10 blur-2xl pointer-events-none" />
+
+                    {/* Message label */}
+                    <div className="relative flex items-center gap-2 mb-3">
+                      <div className="w-1 h-4 rounded-full bg-gradient-to-b from-purple-400 to-pink-400" />
+                      <span className="text-purple-300/70 text-[11px] font-bold tracking-wide">شيء خاص لك</span>
+                    </div>
+
+                    {/* Message body with typewriter */}
+                    <div className="relative min-h-[120px] flex items-center justify-center">
+                      <p className="text-gray-100 text-[15px] leading-[2.2] text-center whitespace-pre-wrap font-medium tracking-wide">
+                        {typed}
+                        {typing && (
+                          <motion.span
+                            animate={{ opacity: [1, 0, 1] }}
+                            transition={{ duration: 0.6, repeat: Infinity }}
+                            className="inline-block w-0.5 h-4 bg-purple-400 mr-0.5 align-middle rounded-full"
+                          />
+                        )}
+                      </p>
+                    </div>
+
+                    {/* Subtle footer label */}
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: done ? 1 : 0 }}
+                      transition={{ duration: 0.5 }}
+                      className="relative flex items-center justify-center gap-1.5 mt-4 pt-3 border-t border-white/[0.04]"
                     >
-                      يلا نبدأ الرحلة ←
-                    </motion.button>
+                      <Sparkles size={10} className="text-purple-400/50" />
+                      <span className="text-purple-300/40 text-[10px] font-medium tracking-wider">كُتب خصيصاً لك بناءً على إجاباتك</span>
+                      <Sparkles size={10} className="text-pink-400/50" />
+                    </motion.div>
                   </motion.div>
-                )}
-              </AnimatePresence>
-            </>
-          )}
+                </div>
+
+                {/* Dismiss button — appears after typing completes */}
+                <AnimatePresence>
+                  {done && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.4 }}
+                      className="relative px-6 pb-7"
+                    >
+                      <motion.button
+                        whileTap={{ scale: 0.97 }}
+                        onClick={dismiss}
+                        className="w-full py-3.5 rounded-2xl font-bold text-sm bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white transition-all shadow-lg shadow-purple-600/25"
+                      >
+                        يلا نبدأ الرحلة ←
+                      </motion.button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </>
+            )}
+          </div>
         </motion.div>
+
+        {/* Tap to dismiss hint */}
+        {done && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.4 }}
+            transition={{ delay: 1 }}
+            className="absolute bottom-6 left-1/2 -translate-x-1/2 text-gray-500 text-[11px] z-20"
+          >
+            اضغط في أي مكان للمتابعة
+          </motion.p>
+        )}
       </motion.div>
     </AnimatePresence>
   )

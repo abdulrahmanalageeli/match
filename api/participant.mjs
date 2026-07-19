@@ -1429,6 +1429,7 @@ export default async function handler(req, res) {
           .maybeSingle()
 
         const e3Finished = e3State?.phase === "final_reveal" || e3State?.results_visible === true
+        console.log(`[resolve-token] Event3 state for #${participant.assigned_number}:`, { phase: e3State?.phase, results_visible: e3State?.results_visible, e3Finished })
 
         if (e3Finished) {
           // Fetch ALL of this participant's event3 matches (one row per event_id).
@@ -1447,6 +1448,7 @@ export default async function handler(req, res) {
           } catch (err) {
             e3MatchErr = err
           }
+          console.log(`[resolve-token] Event3 matches for #${participant.assigned_number}:`, { count: e3Matches?.length || 0, rows: e3Matches, error: e3MatchErr?.message })
           if (e3MatchErr) {
             console.error("[API] Event3 matches query (with match_preference) error:", e3MatchErr.message)
             const { data: fbData, error: fbErr } = await supabase
@@ -1663,7 +1665,7 @@ export default async function handler(req, res) {
         console.log("[API] Event3 matches fetch skipped:", e3Err.message)
       }
 
-      console.log("[API] Successfully fetched match results. Sending response.");
+      console.log(`[API] Successfully fetched match results for #${participant.assigned_number}. History count: ${history.length}`);
       return res.status(200).json({
         success: true,
         assigned_number: participant.assigned_number,
@@ -3574,12 +3576,22 @@ Please respond in JSON format:
         if (!event_id || !phase || !feedback) return res.status(400).json({ error: "event_id, phase, and feedback required" })
         if (phase !== "phase2" && phase !== "phase3") return res.status(400).json({ error: "phase must be 'phase2' or 'phase3'" })
         const col = phase === "phase2" ? "phase2_feedback" : "phase3_feedback"
-        const { error } = await supabase.from("event3_matches")
+        console.log(`[submit-feedback-remote] Updating #${myNumber} event ${event_id} ${phase}`)
+        const { data: updatedRows, error } = await supabase.from("event3_matches")
           .update({ [col]: feedback })
           .eq("match_id", E3_MATCH_ID)
           .eq("event_id", event_id)
           .eq("participant_number", myNumber)
-        if (error) return res.status(500).json({ error: error.message })
+          .select("id")
+        if (error) {
+          console.error(`[submit-feedback-remote] DB error:`, error.message)
+          return res.status(500).json({ error: error.message })
+        }
+        if (!updatedRows || updatedRows.length === 0) {
+          console.error(`[submit-feedback-remote] No matching row found for #${myNumber} event ${event_id} ${phase}`)
+          return res.status(404).json({ error: "لم يتم العثور على بيانات المطابقة. تأكد من أنك مشارك في هذه الفعالية." })
+        }
+        console.log(`[submit-feedback-remote] Success: ${updatedRows.length} row(s) updated for #${myNumber}`)
         return res.status(200).json({ message: "Feedback saved" })
       }
 

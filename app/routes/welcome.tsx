@@ -12170,8 +12170,21 @@ transition={{ type: "spring", stiffness: 500, damping: 30 }}
               const next = remoteFeedbackIndex + 1
               if (next >= pendingFeedbacks.length) {
                 setShowRemoteFeedback(false)
-                setPendingFeedbacks([])
                 toast.success('تم إكمال جميع التقييمات!')
+                // Re-fetch to verify all were actually saved
+                const t = resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')
+                if (t) {
+                  fetch("/api/participant", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "e3-get-pending-feedbacks", token: t }),
+                  })
+                    .then(r => r.json())
+                    .then(d => { setPendingFeedbacks(d.pending || []) })
+                    .catch(() => {})
+                } else {
+                  setPendingFeedbacks([])
+                }
               } else {
                 setRemoteFeedbackIndex(next)
               }
@@ -12245,6 +12258,7 @@ function RemoteFeedbackModal({ pending, index, token, onClose, onSubmitted }: {
     if (fb.wantConnect === null) { toast.error('ارجع للخطوة 4 واختر رد'); return }
     setSubmitting(true)
     try {
+      console.log('[remote-feedback] Submitting:', { event_id: current.event_id, phase: current.phase, token: token?.slice(0, 8) + '...' })
       const res = await fetch("/api/participant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -12257,12 +12271,14 @@ function RemoteFeedbackModal({ pending, index, token, onClose, onSubmitted }: {
         }),
       })
       const data = await res.json()
+      console.log('[remote-feedback] API response:', data)
       setSubmitting(false)
       if (data.error) { toast.error(data.error); return }
       setDone(true)
       setTimeout(() => { onSubmitted(); setDone(false); setStep(0); setFb({ conversationQuality: 0, personalConnection: 0, wantConnect: null, organizerImpression: '', compatibilityRate: 50, sliderMoved: false }) }, 1800)
     } catch (e: any) {
       setSubmitting(false)
+      console.error('[remote-feedback] Fetch error:', e)
       toast.error("فشل الإرسال: " + e.message)
     }
   }

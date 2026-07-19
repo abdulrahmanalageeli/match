@@ -116,7 +116,6 @@ function e3GreedyMutualMatching(rankings, participantMap = new Map(), exclusions
     const ri = (rankings.get(pi) || []).indexOf(pj), rj = (rankings.get(pj) || []).indexOf(pi)
     if (ri !== -1 && rj !== -1) {
       const pA = participantMap.get(pi), pB = participantMap.get(pj)
-      if (pA && pB && !checkGenderCompatibility(pA, pB)) continue
       const oppGender = pA && pB && pA.gender && pB.gender && pA.gender !== pB.gender ? 1 : 0
       pairs.push({ a: pi, b: pj, score: ri + rj, oppGender })
     }

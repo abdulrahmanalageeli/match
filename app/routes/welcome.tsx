@@ -461,6 +461,9 @@ export default function WelcomePage() {
   const [showPartnerStartedNotification, setShowPartnerStartedNotification] = useState(false);
   const [showPromptTopicsModal, setShowPromptTopicsModal] = useState(false);
   const [showHistoryBox, setShowHistoryBox] = useState(false);
+  const [pendingFeedbacks, setPendingFeedbacks] = useState<any[]>([])
+  const [showRemoteFeedback, setShowRemoteFeedback] = useState(false)
+  const [remoteFeedbackIndex, setRemoteFeedbackIndex] = useState(0)
   const [historyBoxPosition, setHistoryBoxPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -4245,6 +4248,25 @@ export default function WelcomePage() {
     }
   }, [returningPlayerToken]);
 
+  // Fetch pending event3 feedbacks (event_id >= 21) when user has a token
+  useEffect(() => {
+    const t = resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')
+    if (!t) return
+    fetch("/api/participant", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "e3-get-pending-feedbacks", token: t }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.pending && d.pending.length > 0) {
+          setPendingFeedbacks(d.pending)
+          console.log(`Found ${d.pending.length} pending event3 feedbacks`)
+        }
+      })
+      .catch(e => console.error("Failed to fetch pending feedbacks:", e))
+  }, [resultToken, returningPlayerToken])
+
   // Save token whenever user has a secure token available (any step/round)
   useEffect(() => {
     if (secureToken && secureToken.trim()) {
@@ -7358,6 +7380,75 @@ export default function WelcomePage() {
                   </div>
                 )}
 
+                {/* Pending Event3 Feedback Notification */}
+                {pendingFeedbacks.length > 0 && !showRemoteFeedback && (
+                  <div className="max-w-4xl mx-auto px-4 mt-1 animate-in slide-in-from-bottom-4 duration-1000 delay-900">
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="relative overflow-hidden rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-950/50 via-orange-950/30 to-amber-950/20 p-4 sm:p-5 shadow-lg shadow-amber-900/20"
+                    >
+                      <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-amber-400/70 to-transparent" />
+                      {/* Pulsing glow */}
+                      <motion.div
+                        className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-amber-500/20 blur-3xl"
+                        animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
+                        transition={{ duration: 3, repeat: Infinity }}
+                      />
+                      <div className="relative z-10 flex items-start gap-3">
+                        <motion.div
+                          animate={{ scale: [1, 1.08, 1] }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                          className="w-10 h-10 rounded-xl bg-amber-500/25 border border-amber-500/40 flex items-center justify-center shrink-0 mt-0.5"
+                        >
+                          <Bell className="w-5 h-5 text-amber-400" />
+                        </motion.div>
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-amber-300 text-sm font-black">لديك تقييمات غير مكتملة</h4>
+                            <span className="bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[10px] font-bold rounded-full px-2 py-0.5">
+                              {pendingFeedbacks.length}
+                            </span>
+                          </div>
+                          <p className="text-gray-300 text-xs leading-relaxed">
+                            لديك {pendingFeedbacks.length} تقييم غير مكتمل من فعاليات سابقة. أكملها الآن لتحسين مطابقاتك المستقبلية.
+                          </p>
+                          {/* List of pending feedbacks */}
+                          <div className="space-y-1.5 mt-2">
+                            {pendingFeedbacks.slice(0, 3).map((pf, i) => (
+                              <div key={`${pf.event_id}-${pf.phase}`} className="flex items-center justify-between bg-white/[0.04] rounded-lg px-3 py-2 border border-white/[0.06]">
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-[10px] font-bold rounded-full px-2 py-0.5 ${
+                                    pf.phase === "phase2"
+                                      ? "bg-pink-500/15 text-pink-300 border border-pink-500/20"
+                                      : "bg-purple-500/15 text-purple-300 border border-purple-500/20"
+                                  }`}>
+                                    {pf.phase === "phase2" ? "اختيارك" : "اختيارنا"}
+                                  </span>
+                                  <span className="text-gray-400 text-xs">فعالية #{pf.event_id}</span>
+                                  <span className="text-gray-500 text-xs">·</span>
+                                  <span className="text-white/80 text-xs font-medium">{pf.partner_name}</span>
+                                </div>
+                              </div>
+                            ))}
+                            {pendingFeedbacks.length > 3 && (
+                              <p className="text-gray-500 text-[10px] text-center">+ {pendingFeedbacks.length - 3} أخرى</p>
+                            )}
+                          </div>
+                          <motion.button
+                            whileTap={{ scale: 0.97 }}
+                            onClick={() => { setRemoteFeedbackIndex(0); setShowRemoteFeedback(true) }}
+                            className="w-full mt-2 py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-amber-500 to-orange-500 text-black shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2"
+                          >
+                            <Send className="w-4 h-4" />
+                            أكمل التقييمات الآن
+                          </motion.button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  </div>
+                )}
+
                 {/* Navbar for Saved Data Users */}
                 {(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
                   <div className="max-w-4xl mx-auto px-4 mt-1 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
@@ -7495,9 +7586,9 @@ export default function WelcomePage() {
                         >
                           
                           <RotateCcw className="w-6 h-6 text-white mx-auto mb-2" />
-                          <h4 className="text-base font-bold text-white mb-2">مشترك عائد</h4>
+                          <h4 className="text-base font-bold text-white mb-2">تعديل الاستبيان</h4>
                           <p className="text-slate-300 text-xs mb-2">
-                            العودة إلى رحلتك او تعديل بياناتك
+                            عدّل بياناتك واستبيانك
                           </p>
                         </button>
 
@@ -7527,18 +7618,21 @@ export default function WelcomePage() {
 
                         {/* Groups Button - Full Width Row 3 */}
                         <button
-                          onClick={() => window.location.href = '/groups'}
+                          onClick={() => {
+                            const t = resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token');
+                            if (t) window.location.href = `/event3?token=${t}`;
+                          }}
                           className="col-span-2 group ai-card ai-animated-border ai-card--accent rounded-2xl p-2 sm:p-3 !min-h-0 !h-auto text-center hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px]"
                           style={{
-                            ['--ab-c1' as any]: '#38bdf8',
-                            ['--ab-c2' as any]: '#6366f1',
-                            ['--ab-c3' as any]: '#3b82f6',
-                            ['--cp' as any]: 'rgba(99,102,241,0.16)'
+                            ['--ab-c1' as any]: '#ec4899',
+                            ['--ab-c2' as any]: '#a855f7',
+                            ['--ab-c3' as any]: '#8b5cf6',
+                            ['--cp' as any]: 'rgba(168,85,247,0.16)'
                           }}
                         >
                           
                           <Users className="w-6 h-6 text-white mx-auto mb-2" />
-                          <h4 className="text-base font-bold text-white mb-2">جولة القروبات</h4>
+                          <h4 className="text-base font-bold text-white mb-2">اختيارك واختيارنا</h4>
                         </button>
                       </div>
                       
@@ -12063,6 +12157,29 @@ transition={{ type: "spring", stiffness: 500, damping: 30 }}
 
       </div>
 
+      {/* Remote Event3 Feedback Modal */}
+      <AnimatePresence>
+        {showRemoteFeedback && pendingFeedbacks.length > 0 && (
+          <RemoteFeedbackModal
+            key="remote-fb"
+            pending={pendingFeedbacks}
+            index={remoteFeedbackIndex}
+            token={resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token') || ''}
+            onClose={() => { setShowRemoteFeedback(false); setPendingFeedbacks([]) }}
+            onSubmitted={() => {
+              const next = remoteFeedbackIndex + 1
+              if (next >= pendingFeedbacks.length) {
+                setShowRemoteFeedback(false)
+                setPendingFeedbacks([])
+                toast.success('تم إكمال جميع التقييمات!')
+              } else {
+                setRemoteFeedbackIndex(next)
+              }
+            }}
+          />
+        )}
+      </AnimatePresence>
+
       {/* React Hot Toast Container */}
       <Toaster
         position="top-center"
@@ -12098,3 +12215,328 @@ transition={{ type: "spring", stiffness: 500, damping: 30 }}
   )
 }
 
+// ─── Remote Event3 Feedback Modal ─────────────────────────────────────────────
+// Duplicates event3's FeedbackFlow design for submitting missing feedbacks from welcome page
+function RemoteFeedbackModal({ pending, index, token, onClose, onSubmitted }: {
+  pending: any[]; index: number; token: string; onClose: () => void; onSubmitted: () => void
+}) {
+  const [step, setStep] = useState(0)
+  const [submitting, setSubmitting] = useState(false)
+  const [dir, setDir] = useState(1)
+  const [done, setDone] = useState(false)
+  const [fb, setFb] = useState({
+    conversationQuality: 0, personalConnection: 0,
+    wantConnect: null as boolean | null, organizerImpression: '',
+    compatibilityRate: 50, sliderMoved: false,
+  })
+  const STEPS = 5
+  const current = pending[index]
+  const isPhase2 = current?.phase === "phase2"
+  const partnerName = current?.partner_name || "—"
+
+  const goNext = (patch?: Partial<typeof fb>) => {
+    if (patch) setFb(p => ({ ...p, ...patch }))
+    setDir(1); setTimeout(() => setStep(s => Math.min(s + 1, STEPS - 1)), 150)
+  }
+  const goBack = () => { setDir(-1); setStep(s => Math.max(s - 1, 0)) }
+
+  const handleSubmit = async () => {
+    if (!fb.sliderMoved || fb.compatibilityRate === 50) { toast.error('رجاءً خمّن درجة التوافق في الخطوة 1'); return }
+    if (fb.wantConnect === null) { toast.error('ارجع للخطوة 4 واختر رد'); return }
+    setSubmitting(true)
+    try {
+      const res = await fetch("/api/participant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "e3-submit-feedback-remote",
+          token,
+          event_id: current.event_id,
+          phase: current.phase,
+          feedback: { ...fb },
+        }),
+      })
+      const data = await res.json()
+      setSubmitting(false)
+      if (data.error) { toast.error(data.error); return }
+      setDone(true)
+      setTimeout(() => { onSubmitted(); setDone(false); setStep(0); setFb({ conversationQuality: 0, personalConnection: 0, wantConnect: null, organizerImpression: '', compatibilityRate: 50, sliderMoved: false }) }, 1800)
+    } catch (e: any) {
+      setSubmitting(false)
+      toast.error("فشل الإرسال: " + e.message)
+    }
+  }
+
+  const ratingConfigs = [
+    { icon: <Frown size={18} />, gradient: 'from-red-500/80 to-rose-600/80', ring: 'ring-red-400/60', glow: 'shadow-[0_0_20px_-4px_rgba(239,68,68,0.5)]' },
+    { icon: <Frown size={18} className="[&>path]:stroke-[1.5]" />, gradient: 'from-orange-500/80 to-amber-600/80', ring: 'ring-orange-400/60', glow: 'shadow-[0_0_20px_-4px_rgba(249,115,22,0.5)]' },
+    { icon: <Meh size={18} />, gradient: 'from-amber-500/80 to-yellow-600/80', ring: 'ring-amber-400/60', glow: 'shadow-[0_0_20px_-4px_rgba(245,158,11,0.5)]' },
+    { icon: <Smile size={18} />, gradient: 'from-lime-500/80 to-green-600/80', ring: 'ring-lime-400/60', glow: 'shadow-[0_0_20px_-4px_rgba(132,204,22,0.5)]' },
+    { icon: <Sparkles size={18} />, gradient: 'from-emerald-500/80 to-teal-600/80', ring: 'ring-emerald-400/60', glow: 'shadow-[0_0_20px_-4px_rgba(16,185,129,0.5)]' },
+  ]
+
+  const RatingRow = ({ labels, field, val }: { labels: string[]; field: string; val: number }) => (
+    <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+      {labels.map((label, i) => {
+        const cfg = ratingConfigs[i]
+        const selected = val === i + 1
+        return (
+          <motion.button key={i} whileTap={{ scale: 0.88 }}
+            onClick={() => { setFb((p: any) => ({ ...p, [field]: i + 1 })); setTimeout(() => goNext({ [field]: i + 1 }), 320) }}
+            className={`flex flex-col items-center gap-1.5 py-3 sm:py-4 rounded-2xl transition-all duration-200 ${selected ? 'bg-white/[0.06] ring-2 scale-105 ' + cfg.ring + ' ' + cfg.glow : 'bg-white/[0.03] ring-1 ring-white/[0.05] active:bg-white/8'}`}>
+            <div className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-gradient-to-br ${cfg.gradient} flex items-center justify-center text-white transition-transform duration-200 ${selected ? 'scale-110' : 'scale-95 opacity-70'}`}>
+              {cfg.icon}
+            </div>
+            <span className={`text-[9px] sm:text-[10px] leading-tight text-center transition-colors duration-200 ${selected ? 'text-white font-semibold' : 'text-gray-600'}`}>{label}</span>
+          </motion.button>
+        )
+      })}
+    </div>
+  )
+
+  if (done) return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[200] bg-gray-950 flex flex-col items-center justify-center gap-6 p-8">
+      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200, delay: 0.1 }}
+        className="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-500/25 to-teal-500/15 border border-emerald-500/30 flex items-center justify-center shadow-[0_0_60px_-8px_rgba(16,185,129,0.5)]">
+        <CheckCircle size={40} className="text-emerald-400" />
+      </motion.div>
+      <div className="text-center space-y-2">
+        <p className="text-white font-black text-2xl">شكراً!</p>
+        <p className="text-gray-400 text-sm">تم حفظ تقييمك</p>
+        {index + 1 < pending.length && <p className="text-gray-500 text-xs mt-2">التقييم التالي قريباً...</p>}
+      </div>
+    </motion.div>
+  )
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[200] bg-gray-950 flex flex-col" dir="rtl">
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className={`absolute -top-32 -left-32 w-80 h-80 ${isPhase2 ? 'bg-pink-600/20' : 'bg-purple-600/20'} rounded-full blur-[100px]`} />
+        <div className={`absolute -bottom-20 right-1/4 w-72 h-72 ${isPhase2 ? 'bg-rose-600/15' : 'bg-violet-600/15'} rounded-full blur-[90px]`} />
+      </div>
+
+      {/* Header */}
+      <div className="relative z-10 px-5 pt-5 pb-3 flex items-center gap-3">
+        <button onClick={step === 0 ? onClose : goBack}
+          className="w-9 h-9 rounded-full bg-white/[0.06] flex items-center justify-center text-gray-400 hover:text-white active:scale-90 transition-all">
+          <ChevronRight size={18} />
+        </button>
+        <div className="flex gap-1.5 flex-1 justify-center">
+          {Array.from({ length: STEPS }).map((_, i) => (
+            <motion.div key={i} className="rounded-full h-2"
+              animate={{ width: i === step ? 24 : 8, backgroundColor: i < step ? (isPhase2 ? 'rgba(236,72,153,0.85)' : 'rgba(139,92,246,0.85)') : i === step ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.12)' }}
+              transition={{ duration: 0.3 }} />
+          ))}
+        </div>
+        <span className="text-gray-600 text-xs font-mono w-9 text-left">{step + 1}/{STEPS}</span>
+      </div>
+
+      {/* Phase badge + partner name + progress */}
+      <div className="relative z-10 mx-5 mb-1 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className={`text-[10px] font-bold rounded-full px-2.5 py-1 ${
+            isPhase2 ? "bg-pink-500/15 text-pink-300 border border-pink-500/20" : "bg-purple-500/15 text-purple-300 border border-purple-500/20"
+          }`}>
+            {isPhase2 ? "اختيارك" : "اختيارنا"}
+          </span>
+          <span className="text-gray-500 text-xs">فعالية #{current?.event_id}</span>
+        </div>
+        <span className="text-gray-500 text-xs">{index + 1} من {pending.length}</span>
+      </div>
+      {partnerName && partnerName !== "—" && (
+        <div className="relative z-10 mx-5 mb-1">
+          <div className={`inline-flex items-center gap-2 ${isPhase2 ? 'bg-pink-950/40 border-pink-900/30' : 'bg-purple-950/40 border-purple-900/30'} border rounded-full px-3 py-1.5`}>
+            <Users size={10} className={isPhase2 ? 'text-pink-400' : 'text-purple-400'} />
+            <span className={`${isPhase2 ? 'text-pink-300/80' : 'text-purple-300/80'} text-xs font-medium`}>{partnerName}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Steps */}
+      <div className="relative z-10 flex-1 flex flex-col justify-center px-5 pb-10">
+        <AnimatePresence mode="wait" custom={dir}>
+          {step === 0 && (
+            <motion.div key="s0" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
+              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="space-y-6">
+              <div className="relative z-10">
+                <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                  className="relative overflow-hidden rounded-2xl border border-amber-700/40 bg-gradient-to-br from-amber-950/50 via-orange-950/30 to-amber-950/20 px-4 py-3">
+                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-400/40 to-transparent" />
+                  <div className="flex items-start gap-2.5">
+                    <motion.div animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2, repeat: Infinity }}
+                      className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-600/30 flex items-center justify-center shrink-0 mt-0.5">
+                      <AlertTriangle size={15} className="text-amber-400" />
+                    </motion.div>
+                    <div className="space-y-1">
+                      <p className="text-amber-300 text-xs font-black">التوافق الفكري وليس الشكلي</p>
+                      <p className="text-amber-200/60 text-[10px] leading-relaxed">
+                        خمّن درجة التوافق بناءً على <span className="font-bold text-amber-300">الشخصية والتفكير</span>، وليس المظهر.
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+              <div className="text-center space-y-2">
+                <div className={`inline-flex items-center gap-1.5 ${isPhase2 ? 'bg-pink-900/30 border-pink-700/40' : 'bg-purple-900/30 border-purple-700/40'} border rounded-full px-3 py-1 mb-1`}>
+                  <Brain size={11} className={isPhase2 ? 'text-pink-400' : 'text-purple-400'} />
+                  <span className={`text-[10px] font-semibold ${isPhase2 ? 'text-pink-300' : 'text-purple-300'}`}>توافق فكري</span>
+                </div>
+                <p className="text-2xl sm:text-3xl font-black text-white">خمّن درجة التوافق الفكري</p>
+                <p className="text-gray-500 text-sm">لو كنت تخمّن نسبة التوافق الفكري بينكم — كم تعطي؟</p>
+              </div>
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+                className={`relative overflow-hidden rounded-3xl border ${isPhase2 ? 'border-pink-700/30 from-pink-950/40 via-rose-950/30 to-pink-950/20' : 'border-purple-700/30 from-purple-950/40 via-violet-950/30 to-purple-950/20'} bg-gradient-to-br p-6 space-y-5 shadow-xl`}>
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-400/40 to-transparent" />
+                <motion.div className={`absolute w-24 h-24 rounded-full ${isPhase2 ? 'bg-pink-500/10' : 'bg-purple-500/10'} blur-2xl`}
+                  animate={{ x: [0, 15, 0], y: [0, -10, 0] }} transition={{ duration: 4, repeat: Infinity }} style={{ top: '5%', left: '5%' }} />
+                <div className="relative z-10 text-center">
+                  <motion.div
+                    key={fb.compatibilityRate}
+                    initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                    className={`text-6xl font-black font-mono tabular-nums ${
+                      fb.compatibilityRate >= 80 ? 'text-emerald-400' :
+                      fb.compatibilityRate >= 60 ? 'text-amber-400' :
+                      fb.compatibilityRate >= 40 ? 'text-orange-400' : 'text-red-400'
+                    }`}
+                  >
+                    {fb.compatibilityRate}%
+                  </motion.div>
+                  <p className="text-gray-500 text-[10px] mt-1">{fb.compatibilityRate >= 80 ? 'توافق عالي جداً!' : fb.compatibilityRate >= 60 ? 'توافق جيد' : fb.compatibilityRate >= 40 ? 'توافق متوسط' : 'توافق منخفض'}</p>
+                </div>
+                <div className="relative z-10">
+                  <div className="relative" style={{ direction: 'ltr' }}>
+                    <input
+                      type="range" min="0" max="100" step="5"
+                      value={fb.compatibilityRate}
+                      onChange={e => setFb(p => ({ ...p, compatibilityRate: parseInt(e.target.value), sliderMoved: true }))}
+                      aria-label="درجة التوافق الفكري"
+                      className="w-full h-3 rounded-full appearance-none cursor-pointer focus:outline-none transition-all
+                        [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-7 [&::-webkit-slider-thumb]:h-7
+                        [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white
+                        [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:border-2
+                        [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:transition-all
+                        [&::-webkit-slider-thumb]:duration-200 hover:[&::-webkit-slider-thumb]:scale-110
+                        [&::-moz-range-thumb]:w-7 [&::-moz-range-thumb]:h-7 [&::-moz-range-thumb]:rounded-full
+                        [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:cursor-pointer"
+                      style={{
+                        background: `linear-gradient(to right,
+                          ${fb.compatibilityRate >= 80 ? '#059669' : fb.compatibilityRate >= 60 ? '#d97706' : fb.compatibilityRate >= 40 ? '#ea580c' : '#dc2626'} 0%,
+                          ${fb.compatibilityRate >= 80 ? '#10b981' : fb.compatibilityRate >= 60 ? '#f59e0b' : fb.compatibilityRate >= 40 ? '#f97316' : '#ef4444'} ${Math.max(fb.compatibilityRate - 2, 0)}%,
+                          ${fb.compatibilityRate >= 80 ? '#34d399' : fb.compatibilityRate >= 60 ? '#fbbf24' : fb.compatibilityRate >= 40 ? '#fb923c' : '#f87171'} ${fb.compatibilityRate}%,
+                          #334155 ${Math.min(fb.compatibilityRate + 2, 100)}%, #1e293b 100%)`,
+                      }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[10px] mt-2 text-gray-600">
+                    <span>0%</span><span>50%</span><span>100%</span>
+                  </div>
+                </div>
+                {!fb.sliderMoved && (
+                  <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
+                    className="relative z-10 text-center text-purple-300/60 text-[10px] flex items-center justify-center gap-1.5">
+                    <motion.span animate={{ x: [0, 4, 0] }} transition={{ duration: 1.5, repeat: Infinity }}>👈</motion.span>
+                    حرّك المؤشر لتخمين الدرجة
+                  </motion.p>
+                )}
+              </motion.div>
+              <motion.button
+                onClick={() => { if (!fb.sliderMoved || fb.compatibilityRate === 50) { toast.error('حرّك المؤشر أولاً'); return } goNext() }}
+                whileTap={{ scale: 0.97 }}
+                disabled={!fb.sliderMoved || fb.compatibilityRate === 50}
+                className={`w-full py-4 rounded-2xl font-bold text-sm bg-gradient-to-r ${isPhase2 ? 'from-pink-600 to-rose-600 shadow-pink-600/20' : 'from-purple-600 to-violet-600 shadow-purple-600/20'} text-white shadow-lg disabled:opacity-30 disabled:shadow-none transition-all flex items-center justify-center gap-2`}>
+                متابعة <ChevronRight size={16} />
+              </motion.button>
+              {fb.sliderMoved && fb.compatibilityRate === 50 && (
+                <p className="text-center text-amber-500/70 text-[10px]">لا يمكن أن تكون 50% بالضبط — اختر قيمة أعلى أو أدنى</p>
+              )}
+            </motion.div>
+          )}
+          {step === 1 && (
+            <motion.div key="s1" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
+              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="space-y-8">
+              <div className="text-center space-y-2">
+                <p className="text-2xl sm:text-3xl font-black text-white">كيف كانت المحادثة؟</p>
+                <p className="text-gray-500 text-sm">اختر ما يناسب شعورك</p>
+              </div>
+              <RatingRow labels={["سيئة","ضعيفة","مقبولة","جيدة","ممتازة"]} field="conversationQuality" val={fb.conversationQuality} />
+            </motion.div>
+          )}
+          {step === 2 && (
+            <motion.div key="s2" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
+              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="space-y-8">
+              <div className="text-center space-y-2">
+                <p className="text-2xl sm:text-3xl font-black text-white">التواصل الشخصي؟</p>
+                <p className="text-gray-500 text-sm">مستوى الراحة والتفاهم</p>
+              </div>
+              <RatingRow labels={["لا شيء","ضعيف","مقبول","جيد","رائع"]} field="personalConnection" val={fb.personalConnection} />
+            </motion.div>
+          )}
+          {step === 3 && (
+            <motion.div key="s3" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
+              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="space-y-6">
+              <div className="text-center space-y-2">
+                <p className="text-2xl sm:text-3xl font-black text-white">هل تريد التواصل لاحقاً؟</p>
+              </div>
+              <motion.div
+                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+                className="relative overflow-hidden rounded-2xl border-2 border-emerald-500/40 bg-gradient-to-br from-emerald-950/50 via-teal-950/40 to-emerald-950/30 px-5 py-4 shadow-lg shadow-emerald-900/20"
+              >
+                <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-400/70 to-transparent" />
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 w-9 h-9 rounded-xl bg-emerald-500/25 border border-emerald-500/40 flex items-center justify-center shrink-0">
+                    <Heart size={18} className="text-emerald-400" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-emerald-300 text-sm font-black">معلومة مهمة جداً</p>
+                    <p className="text-gray-200 text-xs leading-relaxed">
+                      إجابتك سرية تماماً. إذا أجاب كلاكما بـ«نعم» — ستحصلان على رقم تواصل ومعلومات بعضكم.
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+              <div className="grid grid-cols-2 gap-4">
+                {[{ val: true, icon: <CheckCircle size={26} />, label: "نعم", cls: fb.wantConnect === true ? 'bg-emerald-500/15 ring-2 ring-emerald-500/50 shadow-[0_0_30px_-4px_rgba(16,185,129,0.4)]' : 'bg-white/[0.04] ring-1 ring-white/[0.06]', iconCls: fb.wantConnect === true ? 'from-emerald-500/80 to-teal-600/80 text-white' : 'from-gray-600/40 to-gray-700/40 text-gray-500', textCls: fb.wantConnect === true ? 'text-emerald-300' : 'text-gray-500' },
+                   { val: false, icon: <X size={26} />, label: "لا", cls: fb.wantConnect === false ? 'bg-red-500/15 ring-2 ring-red-500/50 shadow-[0_0_30px_-4px_rgba(239,68,68,0.4)]' : 'bg-white/[0.04] ring-1 ring-white/[0.06]', iconCls: fb.wantConnect === false ? 'from-red-500/80 to-rose-600/80 text-white' : 'from-gray-600/40 to-gray-700/40 text-gray-500', textCls: fb.wantConnect === false ? 'text-red-300' : 'text-gray-500' }
+                ].map(opt => (
+                  <motion.button key={String(opt.val)} whileTap={{ scale: 0.93 }}
+                    onClick={() => { setFb(p => ({ ...p, wantConnect: opt.val })); setTimeout(() => goNext({ wantConnect: opt.val }), 350) }}
+                    className={`min-h-[120px] rounded-3xl flex flex-col items-center justify-center gap-3 font-black transition-all duration-200 ${opt.cls}`}>
+                    <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${opt.iconCls} flex items-center justify-center transition-transform duration-200 ${fb.wantConnect === opt.val ? 'scale-110' : 'scale-95'}`}>
+                      {opt.icon}
+                    </div>
+                    <span className={`text-lg ${opt.textCls}`}>{opt.label}</span>
+                  </motion.button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+          {step === 4 && (
+            <motion.div key="s4" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
+              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="space-y-6">
+              <div className="text-center space-y-2">
+                <p className="text-2xl font-black text-white">ملاحظة للمنظم</p>
+                <p className="text-gray-500 text-sm">اختياري — لن يراها الطرف الآخر</p>
+              </div>
+              <textarea value={fb.organizerImpression}
+                onChange={e => e.target.value.length <= 300 && setFb(p => ({ ...p, organizerImpression: e.target.value }))}
+                placeholder="شعرت بالراحة... / الوقت كان قصيراً..."
+                rows={4}
+                className="w-full bg-white/[0.04] border border-white/[0.08] text-white/90 rounded-2xl px-4 py-4 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500/40 resize-none placeholder:text-gray-700 transition-all" />
+              <motion.button onClick={handleSubmit} disabled={submitting || fb.wantConnect === null} whileTap={{ scale: 0.97 }}
+                className={`w-full py-5 rounded-3xl font-black text-lg bg-gradient-to-r ${isPhase2 ? 'from-pink-500 via-rose-500 to-pink-600' : 'from-purple-500 via-violet-500 to-purple-600'} text-white shadow-[0_8px_30px_-4px_rgba(139,92,246,0.6)] disabled:opacity-30 disabled:shadow-none transition-all flex items-center justify-center gap-2`}>
+                {submitting
+                  ? <><motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }} className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />جاري الإرسال...</>
+                  : <><Send size={18} /> إرسال التقييم</>}
+              </motion.button>
+              {fb.wantConnect === null && <p className="text-center text-amber-500/70 text-xs">ارجع للخطوة 4 وأجب على سؤال التواصل</p>}
+              {(!fb.sliderMoved || fb.compatibilityRate === 50) && <p className="text-center text-amber-500/70 text-xs">ارجع للخطوة 1 وحرّك مؤشر التوافق</p>}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </motion.div>
+  )
+}

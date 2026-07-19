@@ -3514,6 +3514,60 @@ Please respond in JSON format:
         }
       }
 
+      // e3-get-pending-feedbacks — check for unsubmitted phase2/phase3 feedbacks (event_id >= 21)
+      if (action === "e3-get-pending-feedbacks") {
+        if (!participant) return res.status(401).json({ error: "Invalid token" })
+        const { data: allMatches } = await supabase.from("event3_matches")
+          .select("event_id,phase2_partner,phase3_partner,phase2_feedback,phase3_feedback")
+          .eq("match_id", E3_MATCH_ID)
+          .eq("participant_number", myNumber)
+          .gte("event_id", 21)
+        const pending = []
+        for (const m of allMatches || []) {
+          if (m.phase2_partner && !m.phase2_feedback) {
+            pending.push({ event_id: m.event_id, phase: "phase2", partner_number: m.phase2_partner })
+          }
+          if (m.phase3_partner && !m.phase3_feedback) {
+            pending.push({ event_id: m.event_id, phase: "phase3", partner_number: m.phase3_partner })
+          }
+        }
+        if (pending.length === 0) return res.status(200).json({ pending: [] })
+        // Fetch partner names
+        const partnerNums = [...new Set(pending.map(p => p.partner_number))]
+        const { data: pRows } = await supabase.from("participants")
+          .select("assigned_number,name,survey_data")
+          .eq("match_id", MAIN_MATCH)
+          .in("assigned_number", partnerNums)
+        const nameMap = {}
+        for (const p of pRows || []) {
+          const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {})
+          nameMap[p.assigned_number] = p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`
+        }
+        const result = pending.map(p => ({
+          event_id: p.event_id,
+          phase: p.phase,
+          partner_number: p.partner_number,
+          partner_name: firstName(nameMap[p.partner_number] || `#${p.partner_number}`),
+        }))
+        return res.status(200).json({ pending: result })
+      }
+
+      // e3-submit-feedback-remote — submit missing feedback from welcome page
+      if (action === "e3-submit-feedback-remote") {
+        if (!participant) return res.status(401).json({ error: "Invalid token" })
+        const { event_id, phase, feedback } = req.body
+        if (!event_id || !phase || !feedback) return res.status(400).json({ error: "event_id, phase, and feedback required" })
+        if (phase !== "phase2" && phase !== "phase3") return res.status(400).json({ error: "phase must be 'phase2' or 'phase3'" })
+        const col = phase === "phase2" ? "phase2_feedback" : "phase3_feedback"
+        const { error } = await supabase.from("event3_matches")
+          .update({ [col]: feedback })
+          .eq("match_id", E3_MATCH_ID)
+          .eq("event_id", event_id)
+          .eq("participant_number", myNumber)
+        if (error) return res.status(500).json({ error: error.message })
+        return res.status(200).json({ message: "Feedback saved" })
+      }
+
       return res.status(400).json({ error: `Unknown e3 action: ${action}` })
     } catch (e3err) {
       console.error("e3 participant error:", e3err)

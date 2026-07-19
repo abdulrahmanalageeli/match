@@ -110,13 +110,16 @@ export default function ResultsPage() {
   const [expandedEvents, setExpandedEvents] = useState<{[key: number]: boolean}>({})
 
   // Any event with id >= 20 is a BlindMatch 4.0 (event3) event
+  // Also check match_type since event3 events can have any event_id
   const isEvent3 = (eventId: number) => eventId >= 20
+  const isEvent3Match = (m: MatchResult) => (m.event_id ?? 0) >= 20 || m.match_type === 'choice' || m.match_type === 'algorithm'
+  const groupIsEvent3 = (items: Array<{ match: MatchResult; matchIndex: number }>) => items.some(i => isEvent3Match(i.match))
 
   // Check if event3 choice and algorithm matched the same person — computed per event
   const e3SameMatchByEvent = (() => {
     const map: { [eventId: number]: boolean } = {}
     const history = resultsData?.history || []
-    const eventIds = [...new Set(history.filter(m => isEvent3(m.event_id ?? 0)).map(m => m.event_id as number))]
+    const eventIds = [...new Set(history.filter(m => isEvent3Match(m)).map(m => m.event_id as number))]
     for (const eid of eventIds) {
       const items = history.filter(m => m.event_id === eid && (m.match_type === 'choice' || m.match_type === 'algorithm'))
       const choice = items.find(m => m.match_type === 'choice')
@@ -592,7 +595,7 @@ export default function ResultsPage() {
                 
                 return (
                   <div key={event_id} className={`rounded-xl border transition-all duration-200 ${
-                    isEvent3(event_id)
+                    groupIsEvent3(items)
                       ? (dark ? 'bg-gradient-to-br from-amber-900/20 to-pink-900/10 border-amber-600/40' : 'bg-gradient-to-br from-amber-50 to-pink-50 border-amber-300')
                       : (dark ? 'bg-slate-700/30 border-slate-600/50' : 'bg-gray-50 border-gray-200')
                   }`}>
@@ -603,12 +606,12 @@ export default function ResultsPage() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
                           <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                            isEvent3(event_id)
+                            groupIsEvent3(items)
                               ? (dark ? 'bg-amber-600/20 border-amber-400' : 'bg-amber-100 border-amber-300')
                               : (dark ? 'bg-indigo-600/20 border-indigo-400' : 'bg-indigo-100 border-indigo-300')
                           }`}>
                             <span className={`font-bold text-sm ${
-                              isEvent3(event_id)
+                              groupIsEvent3(items)
                                 ? (dark ? 'text-amber-200' : 'text-amber-700')
                                 : (dark ? 'text-indigo-200' : 'text-indigo-700')
                             }`}>
@@ -617,18 +620,18 @@ export default function ResultsPage() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className={`font-bold ${
-                              isEvent3(event_id)
+                              groupIsEvent3(items)
                                 ? (dark ? 'text-amber-200' : 'text-amber-800')
                                 : (dark ? 'text-slate-200' : 'text-gray-800')
                             }`}>
-                              {isEvent3(event_id) ? 'التوافق الأعمى 4.0' : `فعالية رقم ${event_id}`}
+                              {groupIsEvent3(items) ? 'التوافق الأعمى 4.0' : `فعالية رقم ${event_id}`}
                             </div>
                             <div className={`text-xs ${
-                              isEvent3(event_id)
+                              groupIsEvent3(items)
                                 ? (dark ? 'text-amber-400/70' : 'text-amber-600')
                                 : (dark ? 'text-slate-400' : 'text-gray-600')
                             }`}>
-                              {isEvent3(event_id) ? '✨ الجولة النهائية — اختيارك والخوارزمية' : formatSessionCount(items.length)}
+                              {groupIsEvent3(items) ? '✨ الجولة النهائية — اختيارك والخوارزمية' : formatSessionCount(items.length)}
                             </div>
                           </div>
                         </div>

@@ -587,7 +587,6 @@ export default function AdminPage() {
   
   // Excel export state
   const [isExporting, setIsExporting] = useState(false);
-  const [isExportingEvents, setIsExportingEvents] = useState(false);
   const [exportTemplateType, setExportTemplateType] = useState<'match' | 'early-match' | 'payment-reminder' | 'reminder' | 'survey-completion'>('match');
   
   // Bulk payment update state
@@ -1152,74 +1151,6 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
       toast.error('حدث خطأ أثناء التصدير');
     } finally {
       setIsExporting(false);
-    }
-  }
-
-  // Function to export participants from specific events (20 & 21) with event_id column
-  const exportEventsToExcel = async () => {
-    setIsExportingEvents(true);
-    try {
-      const eventIds = [20, 21];
-      // Filter participants belonging to those events
-      const eventParticipants = participants.filter(p => eventIds.includes(p.event_id));
-      
-      if (eventParticipants.length === 0) {
-        toast.error('لا يوجد مشاركون في الفعاليات 20 و 21');
-        setIsExportingEvents(false);
-        return;
-      }
-
-      const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')
-      // Sort by event_id then assigned_number
-      const sorted = [...eventParticipants].sort((a, b) => {
-        if (a.event_id !== b.event_id) return a.event_id - b.event_id;
-        return a.assigned_number - b.assigned_number;
-      });
-      const rows = sorted.map(participant => {
-        const name = participant.name || participant.survey_data?.name || `المشارك #${participant.assigned_number}`;
-        const rawPhone = (participant.phone_number
-          || participant.survey_data?.answers?.phone_number
-          || participant.survey_data?.phone_number
-          || '') as string
-        const cleanedOriginal = convertArabicToEnglish(rawPhone).trim().replace(/[\s\-()]/g, '')
-        let phone = ''
-        if (/^\+\d{6,}$/.test(cleanedOriginal)) {
-          phone = cleanedOriginal
-        } else {
-          const fallbackCC = String(participant.survey_data?.answers?.phone_cc || '966')
-          const { cc, local } = normalizeAndSplitPhone(rawPhone, fallbackCC)
-          phone = local ? `+${cc}${local}` : ''
-        }
-        const message1 = generateWhatsAppMessage(participant, exportTemplateType);
-        const message2 = '';
-        const eventId = participant.event_id || '—';
-        return `<tr><td>${escapeHtml(String(eventId))}</td><td>${escapeHtml(phone)}</td><td>${escapeHtml(name)}</td><td>${escapeHtml(message1)}</td><td>${escapeHtml(message2)}</td></tr>`;
-      }).join('');
-
-      const excelHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Events Export</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body><table border="1"><tr><th>Event ID</th><th>WhatsApp Number</th><th>Name</th><th>Message 1</th><th>Message 2</th></tr>${rows}</table></body></html>`;
-
-      const templateName = exportTemplateType === 'payment-reminder' ? 'payment_reminder' : 
-                           exportTemplateType === 'early-match' ? 'early_match_notification' : 
-                           exportTemplateType === 'reminder' ? 'event_reminder' :
-                           exportTemplateType === 'survey-completion' ? 'survey_completion' : 'match_notification';
-      const blob = new Blob(['\uFEFF' + excelHtml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', `events_20_21_${templateName}_${new Date().toISOString().split('T')[0]}.xls`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      const event20Count = sorted.filter(p => p.event_id === 20).length;
-      const event21Count = sorted.filter(p => p.event_id === 21).length;
-      toast.success(`تم تصدير ${sorted.length} مشارك (فعالية 20: ${event20Count}، فعالية 21: ${event21Count})`);
-    } catch (error) {
-      console.error('Events export error:', error);
-      toast.error('حدث خطأ أثناء تصدير الفعاليات');
-    } finally {
-      setIsExportingEvents(false);
     }
   }
 
@@ -2269,27 +2200,41 @@ const fetchParticipants = async () => {
     try {
       setLoading(true)
 
-      const res = await fetch("/api/admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "e3-export-full-analysis",
-          event_id: 20
-        }),
-      })
+      // Fetch both event 20 and event 21 in parallel
+      const eventIds = [20, 21]
+      const responses = await Promise.all(eventIds.map(eid =>
+        fetch("/api/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "e3-export-full-analysis", event_id: eid }),
+        }).then(r => r.ok ? r.json() : null)
+      ))
 
-      if (!res.ok) {
-        toast.error("Failed to fetch export data")
-        return
+      // Merge data from all events, tagging each pair with its event_id
+      const allPairs: any[] = []
+      const allParticipants: any[] = []
+      const allCacheScores: Record<string, any> = {}
+      const allMatchRows: any[] = []
+      const participantSeen = new Set<number>()
+
+      for (let i = 0; i < eventIds.length; i++) {
+        const data = responses[i]
+        if (!data) continue
+        const eid = eventIds[i]
+        ;(data.pairs || []).forEach((p: any) => allPairs.push({ ...p, event_id: eid }))
+        ;(data.participants || []).forEach((p: any) => {
+          if (!participantSeen.has(p.assigned_number)) { participantSeen.add(p.assigned_number); allParticipants.push(p) }
+        })
+        Object.assign(allCacheScores, data.cacheScores || {})
+        ;(data.matchRows || []).forEach((mr: any) => allMatchRows.push({ ...mr, event_id: eid }))
       }
 
-      const data = await res.json()
-      const pairs = data.pairs || []
-      const participants = data.participants || []
-      const cacheScores = data.cacheScores || {}
+      const pairs = allPairs
+      const participants = allParticipants
+      const cacheScores = allCacheScores
 
       if (pairs.length === 0) {
-        toast.error("No established pairs found for event 20")
+        toast.error("No established pairs found for events 20-21")
         return
       }
 
@@ -2413,11 +2358,12 @@ const fetchParticipants = async () => {
       })
       csvContent += '\n'
 
-      // === SECTION 3: Established Pair Data (Event 20) ===
-      csvContent += "=== ESTABLISHED PAIR DATA (EVENT 20) — SURVEY ANSWERS, SCORES & FEEDBACK ===\n"
+      // === SECTION 3: Established Pair Data (Events 20-21) ===
+      csvContent += "=== ESTABLISHED PAIR DATA (EVENTS 20-21) — SURVEY ANSWERS, SCORES & FEEDBACK ===\n"
 
       // Build header row
       const headers: string[] = [
+        'Event_ID',
         'Phase', 'Phase_Label', 'Phase_Score', 'Mutual_Yes', 'Same_Partner_Both_Phases',
         // Person A profile
         'A_Number', 'A_Label', 'A_Gender', 'A_Age', 'A_MBTI_Type', 'A_Attachment_Style', 'A_Communication_Style',
@@ -2473,7 +2419,7 @@ const fetchParticipants = async () => {
 
       // Build matchRows lookup for same-partner-both-phases check
       const matchRowMap = new Map<number, any>()
-      ;(data.matchRows || []).forEach((mr: any) => {
+      allMatchRows.forEach((mr: any) => {
         matchRowMap.set(mr.participant_number, mr)
       })
 
@@ -2502,8 +2448,9 @@ const fetchParticipants = async () => {
 
         const row: string[] = []
 
-        // Pair info
+        // Event ID + pair info
         row.push(
+          esc(pair.event_id ?? ''),
           esc(pair.phase),
           esc(pair.phase === 'phase2' ? 'Choice' : 'Algorithm'),
           esc(pair.phase2_score ?? pair.phase3_score ?? ''),
@@ -2614,13 +2561,14 @@ const fetchParticipants = async () => {
       const link = document.createElement('a')
       const url = URL.createObjectURL(blob)
       link.setAttribute('href', url)
-      link.setAttribute('download', `full_analysis_event20_${new Date().toISOString().split('T')[0]}.csv`)
+      link.setAttribute('download', `full_analysis_events20-21_${new Date().toISOString().split('T')[0]}.csv`)
       link.style.visibility = 'hidden'
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
 
-      toast.success(`Exported ${pairs.length} established pairs with full analysis data`)
+      const eventCounts = eventIds.map(eid => ({ eid, count: allPairs.filter(p => p.event_id === eid).length }))
+      toast.success(`Exported ${pairs.length} pairs (${eventCounts.map(e => `E${e.eid}: ${e.count}`).join(', ')})`)
 
       // Show label map popup for organizer reference
       labelMap.sort((a, b) => a.number - b.number)
@@ -6380,7 +6328,7 @@ Proceed?`
                   ) : (
                     <Download className="w-4 h-4" />
                   )}
-                  Export Event 20 Analysis CSV
+                  Export Events 20-21 Analysis CSV
                 </button>
 
                 <button
@@ -6838,20 +6786,6 @@ Proceed?`
                     <FileText className="w-4 h-4" />
                   )}
                   Export ({selectedParticipants.size}) to Excel
-                </button>
-
-                {/* Export Events 20 & 21 Button */}
-                <button
-                  onClick={exportEventsToExcel}
-                  disabled={isExportingEvents}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-xl transition-all duration-300 text-sm disabled:opacity-50"
-                >
-                  {isExportingEvents ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Download className="w-4 h-4" />
-                  )}
-                  Export Events 20 & 21
                 </button>
               </>
             )}

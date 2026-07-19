@@ -276,7 +276,7 @@ export default function Admin3Page() {
   } | null>(null)
   const [pairAnalysisLoading, setPairAnalysisLoading] = useState(false)
   const [feedbackSearch, setFeedbackSearch] = useState("")
-  const [feedbackFilter, setFeedbackFilter] = useState<"all" | "submitted" | "missing" | "mutual">("all")
+  const [feedbackFilter, setFeedbackFilter] = useState<"all" | "submitted" | "missing" | "mutual" | "incomplete">("all")
   const [moodData, setMoodData] = useState<any>(null)
   const [moodLoading, setMoodLoading] = useState(false)
   const [moodTarget, setMoodTarget] = useState<string>("") // participant number or empty for all
@@ -4337,7 +4337,7 @@ export default function Admin3Page() {
                 />
               </div>
               <div className="flex items-center gap-1">
-                {([["all","الكل"],["submitted","أُرسل"],["missing","لم يُرسل"],["mutual","توافق"]] as any[]).map(([id,label]) => (
+                {([["all","الكل"],["submitted","أُرسل"],["missing","لم يُرسل"],["incomplete","ناقص"],["mutual","توافق"]] as any[]).map(([id,label]) => (
                   <button key={id} onClick={() => setFeedbackFilter(id)}
                     className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
                       feedbackFilter === id ? "bg-purple-900/40 border border-purple-600/50 text-purple-300" : "bg-gray-800 border border-gray-700/50 text-gray-500 hover:text-gray-300"
@@ -4374,6 +4374,7 @@ export default function Admin3Page() {
             // Apply filter
             if (feedbackFilter === "submitted") entries = entries.filter((e: any) => e.submitted)
             else if (feedbackFilter === "missing") entries = entries.filter((e: any) => !e.submitted)
+            else if (feedbackFilter === "incomplete") entries = entries.filter((e: any) => e.submitted && !e.partner_submitted)
             else if (feedbackFilter === "mutual") entries = entries.filter((e: any) => e.mutual_yes)
             const submitted = entries.filter((e: any) => e.submitted)
               .sort((a: any, b: any) => (b.mutual_yes === true ? 1 : 0) - (a.mutual_yes === true ? 1 : 0))
@@ -4424,7 +4425,101 @@ export default function Admin3Page() {
                   </div>
                 </div>
               )}
-                {submitted.length > 0 && (
+                {/* Incomplete pairs — one submitted, partner hasn't */}
+                {feedbackFilter === "incomplete" && entries.length > 0 && (
+                  <div>
+                    <p className="text-xs text-gray-400 font-medium mb-2 flex items-center gap-1.5">
+                      <AlertCircle size={11} className="text-amber-400" /> تقييمات ناقصة — شريك واحد أرسل ({entries.length})
+                    </p>
+                    <div className="space-y-2.5">
+                      {entries.map((entry: any) => {
+                        const fb = entry.feedback || {}
+                        const partnerEntry = allEntries.find((e: any) => e.participant_number === entry.partner_number && e.partner_number === entry.participant_number) || {
+                          participant_number: entry.partner_number,
+                          participant_name: entry.partner_name,
+                          partner_number: entry.participant_number,
+                          partner_name: entry.participant_name,
+                          feedback: entry.partner_feedback,
+                          submitted: false,
+                        }
+                        return (
+                          <div key={entry.participant_number} className="bg-gray-900 border border-amber-700/40 rounded-xl overflow-hidden">
+                            {/* Header */}
+                            <div className="flex items-center justify-between px-4 py-2.5 bg-amber-900/20 border-b border-amber-800/30">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+                                <span className="font-semibold text-white text-sm truncate">{entry.participant_name}</span>
+                                <span className="text-gray-600 text-[10px] flex-shrink-0">#{entry.participant_number}</span>
+                                <ArrowLeft size={11} className="text-gray-600 flex-shrink-0" />
+                                <span className="text-gray-300 text-sm truncate">{entry.partner_name}</span>
+                                <span className="text-gray-600 text-[10px] flex-shrink-0">#{entry.partner_number}</span>
+                              </div>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                {entry.compat_score != null && (
+                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                                    entry.compat_score >= 75 ? "bg-emerald-950/50 text-emerald-400" :
+                                    entry.compat_score >= 55 ? "bg-blue-950/50 text-blue-400" :
+                                    "bg-gray-800 text-gray-400"
+                                  }`}>توافق: {entry.compat_score}%</span>
+                                )}
+                              </div>
+                            </div>
+                            {/* Submitted person's feedback */}
+                            <div className="px-4 py-3 space-y-1.5">
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <CheckCircle size={10} className="text-green-400" />
+                                <span className="text-[10px] text-gray-400">{entry.participant_name} أرسل تقييمه</span>
+                              </div>
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-gray-500">أراد التواصل</span>
+                                <span className={`font-bold ${fb.wantConnect === true ? "text-emerald-400" : fb.wantConnect === false ? "text-gray-500" : "text-gray-600"}`}>
+                                  {fb.wantConnect === true ? "نعم" : fb.wantConnect === false ? "لا" : "—"}
+                                </span>
+                              </div>
+                              {fb.conversationQuality > 0 && (
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-gray-500">جودة المحادثة</span>
+                                  <span>{stars(fb.conversationQuality)}</span>
+                                </div>
+                              )}
+                              {fb.personalConnection > 0 && (
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-gray-500">التواصل الشخصي</span>
+                                  <span>{stars(fb.personalConnection)}</span>
+                                </div>
+                              )}
+                              {fb.sliderMoved && fb.compatibilityRate != null && (
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-gray-500">تخمين التوافق</span>
+                                  <span className="font-bold text-white">{fb.compatibilityRate}%</span>
+                                </div>
+                              )}
+                              {fb.organizerImpression && (
+                                <div className="mt-1.5 bg-gray-800/60 rounded-lg p-2.5 text-gray-300 text-[11px] text-right leading-relaxed">💬 {fb.organizerImpression}</div>
+                              )}
+                            </div>
+                            {/* Partner not submitted — complete button */}
+                            <div className="px-4 py-3 bg-amber-950/20 border-t border-amber-800/30">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5">
+                                  <AlertCircle size={11} className="text-amber-400" />
+                                  <span className="text-[11px] text-amber-300">{entry.partner_name} لم يُرسل تقييمه بعد</span>
+                                </div>
+                                <button
+                                  onClick={() => setEditingFeedback({ entry: partnerEntry, phase: feedbackPhase })}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white transition-colors"
+                                >
+                                  <Pencil size={11} /> إكمال تقييم {entry.partner_name}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+                {submitted.length > 0 && feedbackFilter !== "incomplete" && (
                   <div>
                     <p className="text-xs text-gray-400 font-medium mb-2 flex items-center gap-1.5">
                       <CheckCircle size={11} className="text-green-400" /> أرسلوا التقييم ({submitted.length})

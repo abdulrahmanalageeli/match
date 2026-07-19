@@ -6464,8 +6464,11 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
       console.log(`[E3 AUTH] action=${action}, body.password=${req.body?.password ? `[${req.body.password.length} chars]` : 'MISSING'}, env.EVENT3_PASSWORD=${EVENT3_PASSWORD ? `[${EVENT3_PASSWORD.length} chars]` : 'UNDEFINED'}, match=${req.body?.password === EVENT3_PASSWORD}`)
       if (req.body?.password !== EVENT3_PASSWORD) return res.status(403).json({ error: "Unauthorized" })
       try {
-        // Helper: fetch current event_id from event_state for EVENT3_MATCH_ID
+        // Helper: fetch current event_id from event_state — prefer STATIC_MATCH_ID (main admin)
+        // so event3 stays in sync with the main event system, fall back to EVENT3_MATCH_ID
         const getE3CurrentEventId = async () => {
+          const { data: mainSr } = await supabase.from("event_state").select("current_event_id").eq("match_id", STATIC_MATCH_ID).single()
+          if (mainSr?.current_event_id) return mainSr.current_event_id
           const { data: sr } = await supabase.from("event_state").select("current_event_id").eq("match_id", EVENT3_MATCH_ID).single()
           return sr?.current_event_id || 20
         }
@@ -6488,6 +6491,8 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             phase3_score_revealed: false,
           }).eq("match_id", EVENT3_MATCH_ID)
           if (error) return res.status(500).json({ error: error.message })
+          // Also sync STATIC_MATCH_ID so main admin and event3 share the same current event
+          await supabase.from("event_state").update({ current_event_id: event_id }).eq("match_id", STATIC_MATCH_ID)
           return res.status(200).json({ message: `Switched to event ${event_id}`, current_event_id: event_id })
         }
 
@@ -6711,7 +6716,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const { data: rankRows, error: rankErr } = await supabase.from("participant_rankings").select("ranker_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           if (rankErr) console.error("[e3-get-state] rankings error:", rankErr.message)
           const uniqueRankers = new Set((rankRows || []).map(r => r.ranker_number)).size
-          return res.status(200).json({ phase: stateRow?.phase || "setup", timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration || 1200, timer_round: stateRow?.global_timer_round || null, participants_selected: pc || 0, seating_generated: (sc || 0) > 0, rankings_submitted: uniqueRankers, phase2_matches_done: (mc || 0) > 0, phase3_matches_done: (mc3 || 0) > 0, phase2_score_revealed: stateRow?.phase2_score_revealed || false, phase3_score_revealed: stateRow?.phase3_score_revealed || false, current_event_id: stateRow?.current_event_id || currentEventId, _debug: { realEventId, currentEventId, errors: { participants: pcErr?.message || null, seating: scErr?.message || null, matches: mcErr?.message || null, phase3: mc3Err?.message || null, rankings: rankErr?.message || null } } })
+          return res.status(200).json({ phase: stateRow?.phase || "setup", timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration || 1200, timer_round: stateRow?.global_timer_round || null, participants_selected: pc || 0, seating_generated: (sc || 0) > 0, rankings_submitted: uniqueRankers, phase2_matches_done: (mc || 0) > 0, phase3_matches_done: (mc3 || 0) > 0, phase2_score_revealed: stateRow?.phase2_score_revealed || false, phase3_score_revealed: stateRow?.phase3_score_revealed || false, current_event_id: currentEventId, _debug: { realEventId, currentEventId, errors: { participants: pcErr?.message || null, seating: scErr?.message || null, matches: mcErr?.message || null, phase3: mc3Err?.message || null, rankings: rankErr?.message || null } } })
         }
         // e3-get-participants
         if (action === "e3-get-participants") {

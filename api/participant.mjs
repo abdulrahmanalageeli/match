@@ -561,7 +561,215 @@ export default async function handler(req, res) {
       }
     }
 
-    console.log("[API] Successfully resolved token. Sending response.");
+    // ── Fetch Event 3 (4.0) matches ──
+    // Same logic as get-match-results: only include if results_visible or phase is final_reveal
+    try {
+      const E3_MATCH_ID = "00000000-0000-0000-0000-000000000003"
+      const MAIN_MATCH = "00000000-0000-0000-0000-000000000000"
+      const { data: e3State } = await supabase
+        .from("event_state")
+        .select("phase,current_event_id,results_visible")
+        .eq("match_id", E3_MATCH_ID)
+        .maybeSingle()
+      const e3Finished = e3State?.phase === "final_reveal" || e3State?.results_visible === true
+      console.log(`[resolve-token] Event3 state for #${data.assigned_number}:`, { phase: e3State?.phase, results_visible: e3State?.results_visible, e3Finished })
+
+      if (e3Finished) {
+        let e3Matches = null
+        let e3MatchErr = null
+        try {
+          const { data: e3data, error: e3error } = await supabase
+            .from("event3_matches")
+            .select("event_id,phase2_partner,phase2_score,phase2_word,phase2_feedback,phase3_partner,phase3_score,phase3_word,phase3_feedback,match_preference")
+            .eq("match_id", E3_MATCH_ID)
+            .eq("participant_number", data.assigned_number)
+          e3Matches = e3data
+          e3MatchErr = e3error
+        } catch (err) {
+          e3MatchErr = err
+        }
+        console.log(`[resolve-token] Event3 matches for #${data.assigned_number}:`, { count: e3Matches?.length || 0, error: e3MatchErr?.message })
+
+        if (e3MatchErr) {
+          console.error("[resolve-token] Event3 matches query error:", e3MatchErr.message)
+          const { data: fbData } = await supabase
+            .from("event3_matches")
+            .select("event_id,phase2_partner,phase2_score,phase2_word,phase2_feedback,phase3_partner,phase3_score,phase3_word,phase3_feedback")
+            .eq("match_id", E3_MATCH_ID)
+            .eq("participant_number", data.assigned_number)
+          e3Matches = fbData
+        }
+
+        if (e3Matches && e3Matches.length > 0) {
+          const allPartnerNums = [...new Set(
+            e3Matches.flatMap(m => [m.phase2_partner, m.phase3_partner]).filter(Boolean)
+          )]
+          const partnerMap = {}
+          if (allPartnerNums.length > 0) {
+            const { data: partners } = await supabase
+              .from("participants")
+              .select("assigned_number,name,age,phone_number,survey_data")
+              .eq("match_id", MAIN_MATCH)
+              .in("assigned_number", allPartnerNums)
+            for (const p of partners || []) {
+              const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {})
+              partnerMap[p.assigned_number] = {
+                name: p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`,
+                age: p.age || null,
+                phone: p.phone_number || null,
+              }
+            }
+          }
+
+          const getBreakdown = async (partnerNum) => {
+            if (!partnerNum) return null
+            const [pa, pb] = [data.assigned_number, partnerNum].sort((x, y) => x - y)
+            const { data: cacheRows } = await supabase
+              .from("compatibility_cache")
+              .select("*")
+              .eq("participant_a_number", pa)
+              .eq("participant_b_number", pb)
+              .order("last_used", { ascending: false })
+              .limit(1)
+            const cacheRow = Array.isArray(cacheRows) ? cacheRows[0] : null
+            if (!cacheRow) return null
+            return {
+              synergy: Math.round(parseFloat(cacheRow.interaction_synergy_score)),
+              vibe: Math.round(parseFloat(cacheRow.ai_vibe_score)),
+              lifestyle: Math.round(parseFloat(cacheRow.lifestyle_score)),
+              humorOpen: Math.max(0, Math.round(parseFloat(cacheRow.total_compatibility_score) - parseFloat(cacheRow.interaction_synergy_score) - parseFloat(cacheRow.ai_vibe_score) - parseFloat(cacheRow.lifestyle_score) - parseFloat(cacheRow.communication_score) - Math.round((parseFloat(cacheRow.core_values_score) / 20) * 5))),
+              communication: Math.round(parseFloat(cacheRow.communication_score)),
+              coreValues: Math.round((parseFloat(cacheRow.core_values_score) / 20) * 5),
+              intent: Math.round(parseFloat(cacheRow.intent_goal_score) || 0),
+              total: Math.round(parseFloat(cacheRow.total_compatibility_score)),
+            }
+          }
+
+          for (const e3Match of e3Matches) {
+            const evId = e3Match.event_id || 20
+            let p2PartnerFb = null, p3PartnerFb = null
+            if (e3Match.phase2_partner) {
+              const { data: p2Row } = await supabase.from("event3_matches").select("phase2_feedback").eq("match_id", E3_MATCH_ID).eq("event_id", evId).eq("participant_number", e3Match.phase2_partner).maybeSingle()
+              p2PartnerFb = p2Row?.phase2_feedback || null
+            }
+            if (e3Match.phase3_partner) {
+              const { data: p3Row } = await supabase.from("event3_matches").select("phase3_feedback").eq("match_id", E3_MATCH_ID).eq("event_id", evId).eq("participant_number", e3Match.phase3_partner).maybeSingle()
+              p3PartnerFb = p3Row?.phase3_feedback || null
+            }
+
+            if (e3Match.phase2_partner) {
+              const p2Partner = partnerMap[e3Match.phase2_partner]
+              const p2Breakdown = await getBreakdown(e3Match.phase2_partner)
+              const myFb2 = e3Match.phase2_feedback || null
+              const myWant2 = myFb2?.wantConnect ?? null
+              const partnerWant2 = p2PartnerFb?.wantConnect ?? null
+              const mutual2 = myWant2 === true && partnerWant2 === true
+              history.push({
+                with: e3Match.phase2_partner,
+                partner_name: p2Partner?.name || `لاعب رقم ${e3Match.phase2_partner}`,
+                partner_age: p2Partner?.age || null,
+                partner_phone: p2Partner?.phone || null,
+                partner_event_id: evId,
+                type: "choice",
+                reason: p2Breakdown ? `Synergy: ${p2Breakdown.synergy}% + Vibe: ${p2Breakdown.vibe}% + Lifestyle: ${p2Breakdown.lifestyle}% + Humor/Openness: ${p2Breakdown.humorOpen}% + Communication: ${p2Breakdown.communication}% + Intent: ${p2Breakdown.intent}%` : "",
+                round: 20,
+                table_number: null,
+                score: e3Match.phase2_score || 0,
+                is_repeat_match: false,
+                mutual_match: mutual2,
+                wants_match: myWant2,
+                partner_wants_match: partnerWant2 ?? null,
+                created_at: null,
+                ai_personality_analysis: null,
+                event_id: evId,
+                partner_message: null,
+                match_type: "choice",
+                match_label: "اختيارك الشخصي",
+                match_word: e3Match.phase2_word || null,
+                breakdown: p2Breakdown,
+                match_preference: e3Match.match_preference || null,
+                my_feedback: myFb2 ? {
+                  compatibilityRate: myFb2.compatibilityRate ?? null,
+                  conversationQuality: myFb2.conversationQuality ?? null,
+                  personalConnection: myFb2.personalConnection ?? null,
+                  wantConnect: myFb2.wantConnect ?? null,
+                  sliderMoved: myFb2.sliderMoved ?? false,
+                  organizerImpression: myFb2.organizerImpression ?? null,
+                } : null,
+                partner_feedback: p2PartnerFb ? {
+                  wantConnect: p2PartnerFb.wantConnect ?? null,
+                  compatibilityRate: p2PartnerFb.compatibilityRate ?? null,
+                } : null,
+                humor_early_openness_bonus: "none",
+                synergy_score: p2Breakdown?.synergy ?? null,
+                humor_open_score: p2Breakdown?.humorOpen ?? null,
+                intent_score: p2Breakdown?.intent ?? null,
+                communication_compatibility_score: p2Breakdown?.communication ?? null,
+                lifestyle_compatibility_score: p2Breakdown?.lifestyle ?? null,
+                vibe_compatibility_score: p2Breakdown?.vibe ?? null,
+              })
+            }
+
+            if (e3Match.phase3_partner) {
+              const p3Partner = partnerMap[e3Match.phase3_partner]
+              const p3Breakdown = await getBreakdown(e3Match.phase3_partner)
+              const myFb3 = e3Match.phase3_feedback || null
+              const myWant3 = myFb3?.wantConnect ?? null
+              const partnerWant3 = p3PartnerFb?.wantConnect ?? null
+              const mutual3 = myWant3 === true && partnerWant3 === true
+              history.push({
+                with: e3Match.phase3_partner,
+                partner_name: p3Partner?.name || `لاعب رقم ${e3Match.phase3_partner}`,
+                partner_age: p3Partner?.age || null,
+                partner_phone: p3Partner?.phone || null,
+                partner_event_id: evId,
+                type: "algorithm",
+                reason: p3Breakdown ? `Synergy: ${p3Breakdown.synergy}% + Vibe: ${p3Breakdown.vibe}% + Lifestyle: ${p3Breakdown.lifestyle}% + Humor/Openness: ${p3Breakdown.humorOpen}% + Communication: ${p3Breakdown.communication}% + Intent: ${p3Breakdown.intent}%` : "",
+                round: 21,
+                table_number: null,
+                score: e3Match.phase3_score || 0,
+                is_repeat_match: false,
+                mutual_match: mutual3,
+                wants_match: myWant3,
+                partner_wants_match: partnerWant3 ?? null,
+                created_at: null,
+                ai_personality_analysis: null,
+                event_id: evId,
+                partner_message: null,
+                match_type: "algorithm",
+                match_label: "اختيار الخوارزمية",
+                match_word: e3Match.phase3_word || null,
+                breakdown: p3Breakdown,
+                match_preference: e3Match.match_preference || null,
+                my_feedback: myFb3 ? {
+                  compatibilityRate: myFb3.compatibilityRate ?? null,
+                  conversationQuality: myFb3.conversationQuality ?? null,
+                  personalConnection: myFb3.personalConnection ?? null,
+                  wantConnect: myFb3.wantConnect ?? null,
+                  sliderMoved: myFb3.sliderMoved ?? false,
+                  organizerImpression: myFb3.organizerImpression ?? null,
+                } : null,
+                partner_feedback: p3PartnerFb ? {
+                  wantConnect: p3PartnerFb.wantConnect ?? null,
+                  compatibilityRate: p3PartnerFb.compatibilityRate ?? null,
+                } : null,
+                humor_early_openness_bonus: "none",
+                synergy_score: p3Breakdown?.synergy ?? null,
+                humor_open_score: p3Breakdown?.humorOpen ?? null,
+                intent_score: p3Breakdown?.intent ?? null,
+                communication_compatibility_score: p3Breakdown?.communication ?? null,
+                lifestyle_compatibility_score: p3Breakdown?.lifestyle ?? null,
+                vibe_compatibility_score: p3Breakdown?.vibe ?? null,
+              })
+            }
+          }
+        }
+      }
+    } catch (e3Err) {
+      console.log("[resolve-token] Event3 matches fetch skipped:", e3Err.message)
+    }
+
+    console.log(`[resolve-token] Successfully resolved token for #${data.assigned_number}. History count: ${history.length}`);
     return res.status(200).json({
       success: true,
       assigned_number: data.assigned_number,

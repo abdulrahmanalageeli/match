@@ -4248,7 +4248,7 @@ export default function WelcomePage() {
     }
   }, [returningPlayerToken]);
 
-  // Fetch pending event3 feedbacks (event_id >= 21) when user has a token
+  // Fetch pending event3 feedbacks when user has a token
   useEffect(() => {
     const t = resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')
     if (!t) return
@@ -4259,12 +4259,12 @@ export default function WelcomePage() {
     })
       .then(r => r.json())
       .then(d => {
+        console.log('[pending-feedbacks] API response:', d)
         if (d.pending && d.pending.length > 0) {
           setPendingFeedbacks(d.pending)
-          console.log(`Found ${d.pending.length} pending event3 feedbacks`)
         }
       })
-      .catch(e => console.error("Failed to fetch pending feedbacks:", e))
+      .catch(e => console.error("[pending-feedbacks] Fetch error:", e))
   }, [resultToken, returningPlayerToken])
 
   // Save token whenever user has a secure token available (any step/round)

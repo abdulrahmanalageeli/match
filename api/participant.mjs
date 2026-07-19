@@ -3514,14 +3514,28 @@ Please respond in JSON format:
         }
       }
 
-      // e3-get-pending-feedbacks — check for unsubmitted phase2/phase3 feedbacks (event_id >= 21)
+      // e3-get-pending-feedbacks — check for unsubmitted phase2/phase3 feedbacks
+      // Uses event3_participants to find which events the user attended, then checks event3_matches
       if (action === "e3-get-pending-feedbacks") {
         if (!participant) return res.status(401).json({ error: "Invalid token" })
-        const { data: allMatches } = await supabase.from("event3_matches")
+        console.log(`[pending-feedbacks] Checking for participant #${myNumber}`)
+        // 1. Find all events this user participated in from event3_participants
+        const { data: epRows, error: epErr } = await supabase.from("event3_participants")
+          .select("event_id")
+          .eq("match_id", E3_MATCH_ID)
+          .eq("participant_number", myNumber)
+        if (epErr) console.error("[pending-feedbacks] event3_participants error:", epErr.message)
+        const eventIds = (epRows || []).map(r => r.event_id)
+        console.log(`[pending-feedbacks] Participant #${myNumber} attended events:`, eventIds)
+        if (eventIds.length === 0) return res.status(200).json({ pending: [] })
+        // 2. Query event3_matches for all those events
+        const { data: allMatches, error: mErr } = await supabase.from("event3_matches")
           .select("event_id,phase2_partner,phase3_partner,phase2_feedback,phase3_feedback")
           .eq("match_id", E3_MATCH_ID)
           .eq("participant_number", myNumber)
-          .gte("event_id", 21)
+          .in("event_id", eventIds)
+        if (mErr) console.error("[pending-feedbacks] event3_matches error:", mErr.message)
+        console.log(`[pending-feedbacks] Found ${allMatches?.length || 0} match rows for participant #${myNumber}`)
         const pending = []
         for (const m of allMatches || []) {
           if (m.phase2_partner && !m.phase2_feedback) {
@@ -3531,8 +3545,9 @@ Please respond in JSON format:
             pending.push({ event_id: m.event_id, phase: "phase3", partner_number: m.phase3_partner })
           }
         }
+        console.log(`[pending-feedbacks] Found ${pending.length} pending feedbacks for participant #${myNumber}`)
         if (pending.length === 0) return res.status(200).json({ pending: [] })
-        // Fetch partner names
+        // 3. Fetch partner names
         const partnerNums = [...new Set(pending.map(p => p.partner_number))]
         const { data: pRows } = await supabase.from("participants")
           .select("assigned_number,name,survey_data")

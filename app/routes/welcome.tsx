@@ -7437,7 +7437,7 @@ export default function WelcomePage() {
                           </div>
                           <motion.button
                             whileTap={{ scale: 0.97 }}
-                            onClick={() => { setRemoteFeedbackIndex(0); setShowRemoteFeedback(true) }}
+                            onClick={() => { console.log('[pending-feedbacks] Opening remote feedback modal, pending:', pendingFeedbacks); setRemoteFeedbackIndex(0); setShowRemoteFeedback(true) }}
                             className="w-full mt-2 py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-amber-500 to-orange-500 text-black shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2"
                           >
                             <Send className="w-4 h-4" />
@@ -12541,7 +12541,7 @@ function RemoteFeedbackModal({ pending, index, token, onClose, onSubmitted }: {
                 placeholder="شعرت بالراحة... / الوقت كان قصيراً..."
                 rows={4}
                 className="w-full bg-white/[0.04] border border-white/[0.08] text-white/90 rounded-2xl px-4 py-4 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500/40 resize-none placeholder:text-gray-700 transition-all" />
-              <motion.button onClick={handleSubmit} disabled={submitting || fb.wantConnect === null} whileTap={{ scale: 0.97 }}
+              <motion.button onClick={handleSubmit} disabled={submitting} whileTap={{ scale: 0.97 }}
                 className={`w-full py-5 rounded-3xl font-black text-lg bg-gradient-to-r ${isPhase2 ? 'from-pink-500 via-rose-500 to-pink-600' : 'from-purple-500 via-violet-500 to-purple-600'} text-white shadow-[0_8px_30px_-4px_rgba(139,92,246,0.6)] disabled:opacity-30 disabled:shadow-none transition-all flex items-center justify-center gap-2`}>
                 {submitting
                   ? <><motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }} className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />جاري الإرسال...</>

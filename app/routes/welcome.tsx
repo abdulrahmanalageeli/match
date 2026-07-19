@@ -7802,6 +7802,42 @@ export default function WelcomePage() {
           }}
         />
       </div>
+
+      {/* Remote Event3 Feedback Modal — duplicated here for !token early return */}
+      <AnimatePresence>
+        {showRemoteFeedback && pendingFeedbacks.length > 0 && (
+          <RemoteFeedbackModal
+            key="remote-fb-notoken"
+            pending={pendingFeedbacks}
+            index={remoteFeedbackIndex}
+            token={resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token') || ''}
+            onClose={() => { setShowRemoteFeedback(false); setPendingFeedbacks([]) }}
+            onSubmitted={() => {
+              const next = remoteFeedbackIndex + 1
+              if (next >= pendingFeedbacks.length) {
+                setShowRemoteFeedback(false)
+                toast.success('تم إكمال جميع التقييمات!')
+                const t = resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')
+                if (t) {
+                  fetch("/api/participant", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "e3-get-pending-feedbacks", token: t }),
+                  })
+                    .then(r => r.json())
+                    .then(d => { setPendingFeedbacks(d.pending || []) })
+                    .catch(() => {})
+                } else {
+                  setPendingFeedbacks([])
+                }
+              } else {
+                setRemoteFeedbackIndex(next)
+              }
+            }}
+          />
+        )}
+      </AnimatePresence>
+
       </>
     );
   }

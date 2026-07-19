@@ -477,7 +477,13 @@ export default function ResultsPage() {
             return tb - ta
           })
       }))
-      .sort((a, b) => b.event_id - a.event_id)
+      .filter(group => group.event_id >= 20 || group.items.some(i => i.match.match_type === 'choice' || i.match.match_type === 'algorithm'))
+      .sort((a, b) => {
+        const aE3 = a.event_id >= 20 || a.items.some(i => i.match.match_type === 'choice' || i.match.match_type === 'algorithm')
+        const bE3 = b.event_id >= 20 || b.items.some(i => i.match.match_type === 'choice' || i.match.match_type === 'algorithm')
+        if (aE3 !== bE3) return aE3 ? -1 : 1
+        return b.event_id - a.event_id
+      })
   })()
 
   if (loading) {

@@ -2174,14 +2174,14 @@ const fetchParticipants = async () => {
     }
   }
 
-  // Match Analyzer — fetch event 20 data and open modal
+  // Match Analyzer — fetch all events data and open modal
   const openMatchAnalyzer = async () => {
     try {
       setAnalyzerLoading(true)
       const res = await fetch("/api/admin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "e3-export-full-analysis", event_id: 20 }),
+        body: JSON.stringify({ action: "e3-export-full-analysis" }),
       })
       if (!res.ok) { toast.error("Failed to fetch analyzer data"); return }
       const data = await res.json()
@@ -2195,46 +2195,32 @@ const fetchParticipants = async () => {
     }
   }
 
-  // Export Full Analysis CSV for AI Analysis — Event 3 (event 20+)
+  // Export Full Analysis CSV for AI Analysis — Event 3 (all events)
   const exportFullAnalysisCSV = async () => {
     try {
       setLoading(true)
 
-      // Fetch both event 20 and event 21 in parallel
-      const eventIds = [20, 21]
-      const responses = await Promise.all(eventIds.map(eid =>
-        fetch("/api/admin", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "e3-export-full-analysis", event_id: eid }),
-        }).then(r => r.ok ? r.json() : null)
-      ))
+      // Fetch ALL events in a single call (backend discovers all event_ids automatically)
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "e3-export-full-analysis" }),
+      })
 
-      // Merge data from all events, tagging each pair with its event_id
-      const allPairs: any[] = []
-      const allParticipants: any[] = []
-      const allCacheScores: Record<string, any> = {}
-      const allMatchRows: any[] = []
-      const participantSeen = new Set<number>()
-
-      for (let i = 0; i < eventIds.length; i++) {
-        const data = responses[i]
-        if (!data) continue
-        const eid = eventIds[i]
-        ;(data.pairs || []).forEach((p: any) => allPairs.push({ ...p, event_id: eid }))
-        ;(data.participants || []).forEach((p: any) => {
-          if (!participantSeen.has(p.assigned_number)) { participantSeen.add(p.assigned_number); allParticipants.push(p) }
-        })
-        Object.assign(allCacheScores, data.cacheScores || {})
-        ;(data.matchRows || []).forEach((mr: any) => allMatchRows.push({ ...mr, event_id: eid }))
+      if (!res.ok) {
+        toast.error("Failed to fetch export data")
+        return
       }
 
-      const pairs = allPairs
-      const participants = allParticipants
-      const cacheScores = allCacheScores
+      const data = await res.json()
+      const pairs = data.pairs || []
+      const participants = data.participants || []
+      const cacheScores = data.cacheScores || {}
+      const allMatchRows = data.matchRows || []
+      const eventIds = data.event_ids || []
 
       if (pairs.length === 0) {
-        toast.error("No established pairs found for events 20-21")
+        toast.error("No established pairs found in any event")
         return
       }
 
@@ -2358,8 +2344,8 @@ const fetchParticipants = async () => {
       })
       csvContent += '\n'
 
-      // === SECTION 3: Established Pair Data (Events 20-21) ===
-      csvContent += "=== ESTABLISHED PAIR DATA (EVENTS 20-21) — SURVEY ANSWERS, SCORES & FEEDBACK ===\n"
+      // === SECTION 3: Established Pair Data (All Events) ===
+      csvContent += `=== ESTABLISHED PAIR DATA (EVENTS ${eventIds.join(", ")}) — SURVEY ANSWERS, SCORES & FEEDBACK ===\n`
 
       // Build header row
       const headers: string[] = [
@@ -2561,13 +2547,13 @@ const fetchParticipants = async () => {
       const link = document.createElement('a')
       const url = URL.createObjectURL(blob)
       link.setAttribute('href', url)
-      link.setAttribute('download', `full_analysis_events20-21_${new Date().toISOString().split('T')[0]}.csv`)
+      link.setAttribute('download', `full_analysis_events${eventIds.join("-")}_${new Date().toISOString().split('T')[0]}.csv`)
       link.style.visibility = 'hidden'
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
 
-      const eventCounts = eventIds.map(eid => ({ eid, count: allPairs.filter(p => p.event_id === eid).length }))
+      const eventCounts = eventIds.map(eid => ({ eid, count: pairs.filter((p: any) => p.event_id === eid).length }))
       toast.success(`Exported ${pairs.length} pairs (${eventCounts.map(e => `E${e.eid}: ${e.count}`).join(', ')})`)
 
       // Show label map popup for organizer reference
@@ -6328,7 +6314,7 @@ Proceed?`
                   ) : (
                     <Download className="w-4 h-4" />
                   )}
-                  Export Events 20-21 Analysis CSV
+                  Export All Events Analysis CSV
                 </button>
 
                 <button

@@ -8286,6 +8286,16 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             updates.push("event3_notifications")
           }
 
+          // 8. event3_ai_welcome_messages — swap participant_number
+          {
+            const { data: oldWelcomes } = await supabase.from("event3_ai_welcome_messages").select("id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", oldNum)
+            const { data: newWelcomes } = await supabase.from("event3_ai_welcome_messages").select("id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", newNum)
+            for (const r of oldWelcomes || []) await supabase.from("event3_ai_welcome_messages").update({ participant_number: -1 }).eq("id", r.id)
+            for (const r of newWelcomes || []) await supabase.from("event3_ai_welcome_messages").update({ participant_number: oldNum }).eq("id", r.id)
+            for (const r of oldWelcomes || []) await supabase.from("event3_ai_welcome_messages").update({ participant_number: newNum }).eq("id", r.id)
+            updates.push("event3_ai_welcome_messages")
+          }
+
           return res.status(200).json({
             message: `تم استبدال #${oldNum} بـ #${newNum} في جميع الجداول: ${updates.join("، ")}`,
             updated_tables: updates
@@ -8298,6 +8308,7 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             supabase.from("event3_participant_notes").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
             supabase.from("event3_mood_checks").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
             supabase.from("event3_notifications").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
+            supabase.from("event3_ai_welcome_messages").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
           ])
           await supabase.from("event3_matches")
             .update({ phase2_feedback: null, phase3_feedback: null, phase2_word: null, phase3_word: null, match_preference: null })
@@ -8410,6 +8421,7 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             supabase.from("participant_rankings").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
             supabase.from("event3_mood_checks").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
             supabase.from("event3_notifications").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
+            supabase.from("event3_ai_welcome_messages").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
           ])
           // Reset phase/timer for EVENT3 but preserve current_event_id
           await supabase.from("event_state").update({ phase: "setup", global_timer_active: false, global_timer_start_time: null, global_timer_duration: null, global_timer_round: null, phase2_score_revealed: false, phase3_score_revealed: false }).eq("match_id", EVENT3_MATCH_ID)
@@ -8801,20 +8813,26 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           const numbers = (eps || []).map(r => r.participant_number)
           if (numbers.length === 0) return res.status(200).json({ participants: [] })
 
-          const { data: pInfos, error: pErr } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,secure_token").eq("match_id", STATIC_MATCH_ID).in("assigned_number", numbers)
-          if (pErr) return res.status(500).json({ error: pErr.message })
+          const [pInfosRes, welcomesRes] = await Promise.all([
+            supabase.from("participants").select("assigned_number,name,gender,age,survey_data,secure_token").eq("match_id", STATIC_MATCH_ID).in("assigned_number", numbers),
+            supabase.from("event3_ai_welcome_messages").select("participant_number,welcome_message").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_number", numbers),
+          ])
+          if (pInfosRes.error) return res.status(500).json({ error: pInfosRes.error.message })
+
+          const welcomeMap = {}
+          for (const w of (welcomesRes.data || [])) welcomeMap[w.participant_number] = w.welcome_message
 
           const result = numbers.map(num => {
-            const p = (pInfos || []).find(x => x.assigned_number === num)
+            const p = (pInfosRes.data || []).find(x => x.assigned_number === num)
             const sd = typeof p?.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p?.survey_data || {})
-            const hasWelcome = !!(sd?._ai_welcome)
+            const welcome = welcomeMap[num] || null
             return {
               number: num,
               name: p?.name || `#${num}`,
               gender: p?.gender || "?",
               age: p?.age || "?",
-              has_welcome: hasWelcome,
-              welcome: hasWelcome ? sd._ai_welcome : null,
+              has_welcome: !!welcome,
+              welcome,
               has_survey: !!(sd && Object.keys(sd).length > 0),
             }
           })
@@ -8836,8 +8854,16 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             if (!p) { results.push({ number: num, status: "error", error: "Not found" }); continue }
 
             const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {})
-            if (sd?._ai_welcome && !regenerate) {
-              results.push({ number: num, name: p.name, status: "cached", welcome: sd._ai_welcome })
+
+            // Check for cached welcome in dedicated table
+            const { data: cachedWelcome } = await supabase.from("event3_ai_welcome_messages")
+              .select("welcome_message")
+              .eq("match_id", EVENT3_MATCH_ID)
+              .eq("event_id", currentEventId)
+              .eq("participant_number", num)
+              .maybeSingle()
+            if (cachedWelcome?.welcome_message && !regenerate) {
+              results.push({ number: num, name: p.name, status: "cached", welcome: cachedWelcome.welcome_message })
               continue
             }
 
@@ -8913,8 +8939,15 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
               const message = completion.choices[0]?.message?.content?.trim()
               if (!message) throw new Error("Empty response")
 
-              const updatedSd = { ...sd, _ai_welcome: message }
-              await supabase.from("participants").update({ survey_data: updatedSd }).eq("assigned_number", num).eq("match_id", STATIC_MATCH_ID)
+              // Cache in dedicated table
+              await supabase.from("event3_ai_welcome_messages")
+                .upsert({
+                  match_id: EVENT3_MATCH_ID,
+                  event_id: currentEventId,
+                  participant_number: num,
+                  welcome_message: message,
+                  generated_by: 'admin',
+                }, { onConflict: 'match_id, event_id, participant_number' })
 
               results.push({ number: num, name: p.name, status: "generated", welcome: message })
               console.log(`[ai-welcome-batch] Generated for #${num} (${firstName})`)
@@ -8932,12 +8965,12 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           const { participant_number } = req.body
           if (!participant_number) return res.status(400).json({ error: "Missing participant_number" })
 
-          const { data: p, error: pErr } = await supabase.from("participants").select("survey_data").eq("match_id", STATIC_MATCH_ID).eq("assigned_number", participant_number).single()
-          if (pErr) return res.status(500).json({ error: pErr.message })
-
-          const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {})
-          delete sd._ai_welcome
-          await supabase.from("participants").update({ survey_data: sd }).eq("assigned_number", participant_number).eq("match_id", STATIC_MATCH_ID)
+          const { error } = await supabase.from("event3_ai_welcome_messages")
+            .delete()
+            .eq("match_id", EVENT3_MATCH_ID)
+            .eq("event_id", currentEventId)
+            .eq("participant_number", participant_number)
+          if (error) return res.status(500).json({ error: error.message })
 
           return res.status(200).json({ success: true })
         }

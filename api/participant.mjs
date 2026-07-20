@@ -3627,17 +3627,23 @@ Please respond in JSON format:
         const { data: tmState } = await supabase.from("event_state").select("test_mode_active").eq("match_id", MAIN_MATCH).maybeSingle()
         if (tmState?.test_mode_active) {
           // Clean up any cached welcome in test mode
-          if (sd?._ai_welcome) {
-            const cleanSd = { ...sd }
-            delete cleanSd._ai_welcome
-            await supabase.from("participants").update({ survey_data: cleanSd }).eq("secure_token", token).eq("match_id", MAIN_MATCH)
-          }
+          await supabase.from("event3_ai_welcome_messages")
+            .delete()
+            .eq("match_id", E3_MATCH_ID)
+            .eq("event_id", currentEventId)
+            .eq("participant_number", myNumber)
           return res.status(200).json({ success: false, message: null })
         }
 
-        const cachedWelcome = sd?._ai_welcome
-        if (cachedWelcome) {
-          return res.status(200).json({ success: true, message: cachedWelcome, cached: true })
+        // Check for cached welcome in dedicated table
+        const { data: cachedRow } = await supabase.from("event3_ai_welcome_messages")
+          .select("welcome_message")
+          .eq("match_id", E3_MATCH_ID)
+          .eq("event_id", currentEventId)
+          .eq("participant_number", myNumber)
+          .maybeSingle()
+        if (cachedRow?.welcome_message) {
+          return res.status(200).json({ success: true, message: cachedRow.welcome_message, cached: true })
         }
 
         const getAns = (p, key) => p.survey_data?.answers?.[key] || p.survey_data?.[key] || ""
@@ -3713,9 +3719,15 @@ Please respond in JSON format:
           const message = completion.choices[0]?.message?.content?.trim()
           if (!message) throw new Error("AI generated empty welcome")
 
-          // Cache in survey_data
-          const updatedSd = { ...sd, _ai_welcome: message }
-          await supabase.from("participants").update({ survey_data: updatedSd }).eq("secure_token", token).eq("match_id", MAIN_MATCH)
+          // Cache in dedicated table
+          await supabase.from("event3_ai_welcome_messages")
+            .upsert({
+              match_id: E3_MATCH_ID,
+              event_id: currentEventId,
+              participant_number: myNumber,
+              welcome_message: message,
+              generated_by: 'system',
+            }, { onConflict: 'match_id, event_id, participant_number' })
 
           return res.status(200).json({ success: true, message, cached: false })
         } catch (aiErr) {

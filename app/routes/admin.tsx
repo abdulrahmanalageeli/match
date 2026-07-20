@@ -1041,7 +1041,7 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
 إذا لم تتمكنوا من الحضور، يرجى إبلاغنا فوراً حتى نعطي الفرصة لمشارك آخر.
 
 📋 *تفاصيل الفعالية كاملة:*
-https://meetu.ps/e/Q8Qpd/Lh7Kd/i
+https://meetu.ps/e/Q9zQM/Lh7Kd/i
 
 📍 *تفاصيل الفعالية:*
 المكان: ${d.locationName}

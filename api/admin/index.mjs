@@ -2543,7 +2543,6 @@ export default async function handler(req, res) {
             match_type,
             event_id,
             created_at,
-            -- New-model fields
             mbti_compatibility_score,
             attachment_compatibility_score,
             communication_compatibility_score,
@@ -3139,7 +3138,6 @@ export default async function handler(req, res) {
             lifestyle_compatibility_score,
             core_values_compatibility_score,
             vibe_compatibility_score,
-            -- New-model fields
             synergy_score,
             humor_open_score,
             intent_score,

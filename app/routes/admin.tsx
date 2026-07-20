@@ -1243,6 +1243,38 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
     }
   }
 
+  // Bulk unsign selected participants from next event
+  const bulkUnsignFromEvent = async (alsoUnsignAuto: boolean) => {
+    const list = Array.from(selectedParticipants);
+    if (list.length === 0) {
+      toast.error('اختر مشاركين أولاً');
+      return;
+    }
+    const label = alsoUnsignAuto ? 'إلغاء التسجيل + إيقاف التسجيل التلقائي' : 'إلغاء التسجيل من الفعالية الحالية';
+    if (!confirm(`${label} لعدد ${list.length} مشارك/ة؟`)) return;
+
+    setBulkPayLoading(true);
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'unsign-participants-next-event', participantNumbers: list, alsoUnsignAuto })
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        toast.error(data?.error || 'فشل إلغاء التسجيل');
+        return;
+      }
+      toast.success(`تم إلغاء التسجيل لـ ${list.length} مشارك/ة`);
+      fetchParticipants();
+    } catch (e: any) {
+      console.error('Bulk unsign error:', e);
+      toast.error(e?.message || 'Network error');
+    } finally {
+      setBulkPayLoading(false);
+    }
+  }
+
   // Function to toggle payment status
   const togglePaymentStatus = async (participantNumber: number, currentStatus: boolean) => {
     setUpdatingStatus({participantNumber, type: 'payment'});
@@ -6745,6 +6777,34 @@ Proceed?`
                     <CreditCard className="w-4 h-4" />
                   )}
                   Mark Not Paid ({selectedParticipants.size})
+                </button>
+
+                {/* Bulk Unsign from Current Event */}
+                <button
+                  onClick={() => bulkUnsignFromEvent(false)}
+                  disabled={bulkPayLoading}
+                  className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl transition-all duration-300 text-sm disabled:opacity-50"
+                >
+                  {bulkPayLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Ban className="w-4 h-4" />
+                  )}
+                  Unsign ({selectedParticipants.size})
+                </button>
+
+                {/* Bulk Unsign + Disable Auto Signup */}
+                <button
+                  onClick={() => bulkUnsignFromEvent(true)}
+                  disabled={bulkPayLoading}
+                  className="flex items-center gap-2 px-4 py-2 bg-orange-700 hover:bg-orange-800 text-white rounded-xl transition-all duration-300 text-sm disabled:opacity-50"
+                >
+                  {bulkPayLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Ban className="w-4 h-4" />
+                  )}
+                  Unsign + Stop Auto ({selectedParticipants.size})
                 </button>
 
                 {/* Export Template Selection */}

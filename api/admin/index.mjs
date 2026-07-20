@@ -812,6 +812,38 @@ export default async function handler(req, res) {
         }
       }
 
+      // 🔹 BULK UNSIGN PARTICIPANTS FROM NEXT EVENT (set signup_for_next_event=false, optionally auto_signup_next_event=false)
+      if (action === "unsign-participants-next-event") {
+        try {
+          const { participantNumbers, alsoUnsignAuto } = req.body
+          const list = Array.isArray(participantNumbers) ? participantNumbers.filter(n => typeof n === 'number') : []
+          if (list.length === 0) {
+            return res.status(400).json({ error: "participantNumbers must be a non-empty array of numbers" })
+          }
+
+          const updateFields = { signup_for_next_event: false, next_event_signup_timestamp: null, signup_event_id: null }
+          if (alsoUnsignAuto === true) {
+            updateFields.auto_signup_next_event = false
+          }
+
+          const { error } = await supabase
+            .from("participants")
+            .update(updateFields)
+            .eq("match_id", STATIC_MATCH_ID)
+            .in("assigned_number", list)
+
+          if (error) {
+            console.error("Error unsigning participants from next event:", error)
+            return res.status(500).json({ error: error.message })
+          }
+
+          return res.status(200).json({ success: true, updated: list.length })
+        } catch (error) {
+          console.error("Error in unsign-participants-next-event:", error)
+          return res.status(500).json({ error: "Failed to unsign participants from next event" })
+        }
+      }
+
       // 🔹 BULK SIGNUP: ALL WITH NATIONALITY FILLED → NEXT EVENT
       if (action === "signup-nationality-next-event") {
         try {

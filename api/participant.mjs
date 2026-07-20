@@ -2172,7 +2172,7 @@ export default async function handler(req, res) {
       const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
       const { data: matchingParticipants, error: searchError } = await supabase
         .from("participants")
-        .select("id, assigned_number, name, phone_number, survey_data, signup_for_next_event, match_id, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
+        .select("id, assigned_number, name, phone_number, survey_data, signup_for_next_event, match_id, event_id, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
         .eq("match_id", match_id)
         .not("phone_number", "is", null)
         .ilike("phone_number", `%${lastSevenDigits}`)
@@ -2211,7 +2211,8 @@ export default async function handler(req, res) {
       const updateData = {
         signup_for_next_event: true,
         next_event_signup_timestamp: new Date().toISOString(),
-        auto_signup_next_event: auto_signup_next_event === true ? true : false
+        auto_signup_next_event: auto_signup_next_event === true ? true : false,
+        signup_event_id: participant.event_id || null
       }
 
       console.log(`✨ Auto signup for all future events: ${auto_signup_next_event === true ? 'YES' : 'NO'}`)
@@ -2349,7 +2350,7 @@ export default async function handler(req, res) {
       // Get participant data by token (include survey_data for safe merge)
       const { data: participant, error: participantError } = await supabase
         .from("participants")
-        .select("id, assigned_number, name, phone_number, signup_for_next_event, survey_data")
+        .select("id, assigned_number, name, phone_number, signup_for_next_event, survey_data, event_id")
         .eq("secure_token", secure_token)
         .single()
 
@@ -2361,7 +2362,8 @@ export default async function handler(req, res) {
       // Prepare update data
       const updateData = {
         signup_for_next_event: true,
-        auto_signup_next_event: auto_signup_next_event === true ? true : false
+        auto_signup_next_event: auto_signup_next_event === true ? true : false,
+        signup_event_id: participant.event_id || null
       }
 
       // Only update timestamp if not already signed up

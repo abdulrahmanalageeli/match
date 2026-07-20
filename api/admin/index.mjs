@@ -796,7 +796,7 @@ export default async function handler(req, res) {
           const now = new Date().toISOString()
           const { error } = await supabase
             .from("participants")
-            .update({ signup_for_next_event: true, next_event_signup_timestamp: now })
+            .update({ signup_for_next_event: true, next_event_signup_timestamp: now, signup_event_id: req.body.event_id || null })
             .eq("match_id", STATIC_MATCH_ID)
             .in("assigned_number", list)
 
@@ -844,7 +844,7 @@ export default async function handler(req, res) {
         const { event_id } = req.body
         let query = supabase
           .from("participants")
-          .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, phone_number, event_id, name, signup_for_next_event, auto_signup_next_event, updated_at, same_gender_preference, any_gender_preference, survey_data_updated_at, created_at, next_event_signup_timestamp, nationality, open_intent_goal_mismatch")
+          .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, phone_number, event_id, name, signup_for_next_event, auto_signup_next_event, updated_at, same_gender_preference, any_gender_preference, survey_data_updated_at, created_at, next_event_signup_timestamp, nationality, open_intent_goal_mismatch, signup_event_id")
           .eq("match_id", STATIC_MATCH_ID)
           .neq("assigned_number", 9999)  // Exclude organizer participant
           .order("assigned_number", { ascending: true })

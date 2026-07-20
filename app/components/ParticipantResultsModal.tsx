@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { X, Users, Heart, Trophy, Star, Eye, ArrowUpDown, CheckCircle, XCircle, AlertTriangle, Zap, Brain, MessageCircle, Home, DollarSign, Info, Lock, Unlock, MessageSquare, Ban, UserX, Sparkles, Flame } from "lucide-react"
+import { X, Users, Heart, Trophy, Star, Eye, ArrowUpDown, CheckCircle, XCircle, AlertTriangle, Zap, Brain, MessageCircle, Home, DollarSign, Info, Lock, Unlock, MessageSquare, Ban, UserX, Sparkles, Flame, Square, CheckSquare } from "lucide-react"
 import { toast } from "react-hot-toast"
 import ParticipantDetailModal from "./ParticipantDetailModal"
 import WhatsappMessageModal from "./WhatsappMessageModal"
@@ -60,6 +60,8 @@ interface ParticipantResultsModalProps {
   isFreshData?: boolean // NEW: Indicates if this is fresh database data (post-swap)
   matchHistory?: Record<number, any[]>
   cohostTheme?: boolean
+  selectedParticipants?: Set<number>
+  toggleParticipantSelection?: (assignedNumber: number) => void
 }
 
 export default function ParticipantResultsModal({ 
@@ -76,7 +78,9 @@ export default function ParticipantResultsModal({
   currentEventId = 1,
   isFreshData = false,
   matchHistory = {},
-  cohostTheme = false
+  cohostTheme = false,
+  selectedParticipants,
+  toggleParticipantSelection
 }: ParticipantResultsModalProps) {
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [selectedParticipant, setSelectedParticipant] = useState<{assigned_number: number, name: string} | null>(null)
@@ -832,41 +836,26 @@ export default function ParticipantResultsModal({
           ) : (
             <div className="space-y-4">
               {/* Summary Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Users className="w-4 h-4 text-blue-400" />
-                    <span className="text-sm text-slate-300">إجمالي المشاركين</span>
-                  </div>
-                  <div className="text-2xl font-bold text-white">{sortedResults.length}</div>
+              <div className="flex flex-wrap gap-2 mb-4 text-sm">
+                <div className="bg-white/5 border border-white/20 rounded-lg px-3 py-2 flex items-center gap-2">
+                  <Users className="w-4 h-4 text-blue-400" />
+                  <span className="text-slate-300">المشاركين:</span>
+                  <span className="font-bold text-white">{sortedResults.length}</span>
                 </div>
-                
-                <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Heart className="w-4 h-4 text-pink-400" />
-                    <span className="text-sm text-slate-300">متوسط التوافق</span>
-                  </div>
-                  <div className="text-2xl font-bold text-white">
-                    {sortedResults.length > 0 ? Math.round(sortedResults.reduce((sum, r) => sum + r.compatibility_score, 0) / sortedResults.length) : 0}%
-                  </div>
+                <div className="bg-white/5 border border-white/20 rounded-lg px-3 py-2 flex items-center gap-2">
+                  <Heart className="w-4 h-4 text-pink-400" />
+                  <span className="text-slate-300">متوسط:</span>
+                  <span className="font-bold text-white">{sortedResults.length > 0 ? Math.round(sortedResults.reduce((sum, r) => sum + r.compatibility_score, 0) / sortedResults.length) : 0}%</span>
                 </div>
-
-                <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Star className="w-4 h-4 text-yellow-400" />
-                    <span className="text-sm text-slate-300">أعلى توافق</span>
-                  </div>
-                  <div className="text-2xl font-bold text-white">
-                    {sortedResults.length > 0 ? Math.max(...sortedResults.map(r => r.compatibility_score)) : 0}%
-                  </div>
+                <div className="bg-white/5 border border-white/20 rounded-lg px-3 py-2 flex items-center gap-2">
+                  <Star className="w-4 h-4 text-yellow-400" />
+                  <span className="text-slate-300">أعلى:</span>
+                  <span className="font-bold text-white">{sortedResults.length > 0 ? Math.max(...sortedResults.map(r => r.compatibility_score)) : 0}%</span>
                 </div>
-
-                <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Zap className="w-4 h-4 text-green-400" />
-                    <span className="text-sm text-slate-300">إجمالي المطابقات</span>
-                  </div>
-                  <div className="text-2xl font-bold text-white">{totalMatches}</div>
+                <div className="bg-white/5 border border-white/20 rounded-lg px-3 py-2 flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-green-400" />
+                  <span className="text-slate-300">المطابقات:</span>
+                  <span className="font-bold text-white">{totalMatches}</span>
                 </div>
               </div>
 
@@ -876,62 +865,62 @@ export default function ParticipantResultsModal({
                   <table className="w-full">
                     <thead className="bg-white/10">
                       <tr>
-                        <th className="text-right p-4 text-sm font-semibold text-slate-300">رقم المشارك</th>
-                        <th className="text-right p-4 text-sm font-semibold text-slate-300">الاسم</th>
-                        <th className="text-right p-4 text-sm font-semibold text-slate-300">الشريك</th>
-                        <th className="text-center p-4 text-sm font-semibold text-slate-300">التوافق الإجمالي</th>
+                        <th className="text-right p-2 text-sm font-semibold text-slate-300">رقم المشارك</th>
+                        <th className="text-right p-2 text-sm font-semibold text-slate-300">الاسم</th>
+                        <th className="text-right p-2 text-sm font-semibold text-slate-300">الشريك</th>
+                        <th className="text-center p-2 text-sm font-semibold text-slate-300">التوافق الإجمالي</th>
                         {matchType !== "group" && (
-                          <th className="text-center p-4 text-sm font-semibold text-slate-300">استبعاد</th>
+                          <th className="text-center p-2 text-sm font-semibold text-slate-300">استبعاد</th>
                         )}
                         {matchType !== "group" && (
-                          <th className="text-center p-4 text-sm font-semibold text-slate-300">تثبيت التوافق</th>
+                          <th className="text-center p-2 text-sm font-semibold text-slate-300">تثبيت التوافق</th>
                         )}
                         {matchType !== "group" && (
-                          <th className="text-center p-4 text-sm font-semibold text-slate-300">عرض التفاصيل</th>
+                          <th className="text-center p-2 text-sm font-semibold text-slate-300">عرض التفاصيل</th>
                         )}
                         {matchType !== "group" && (
-                          <th className="text-center p-4 text-sm font-semibold text-slate-300">تحليل</th>
+                          <th className="text-center p-2 text-sm font-semibold text-slate-300">تحليل</th>
                         )}
                         {matchType !== "group" && (
-                          <th className="text-center p-4 text-sm font-semibold text-slate-300">واتساب</th>
+                          <th className="text-center p-2 text-sm font-semibold text-slate-300">واتساب</th>
                         )}
                         {matchType !== "group" && (
-                          <th className="text-center p-4 text-sm font-semibold text-slate-300">القيود/المكافآت</th>
+                          <th className="text-center p-2 text-sm font-semibold text-slate-300">القيود/المكافآت</th>
                         )}
                         {matchType !== "group" && (
                           <>
-                            <th className="text-center p-4 text-sm font-semibold text-slate-300">
+                            <th className="text-center p-2 text-sm font-semibold text-slate-300">
                               <div className="flex items-center justify-center gap-1">
                                 <Users className="w-3 h-3" />
                                 <span className="text-xs">التفاعل</span>
                               </div>
                             </th>
-                            <th className="text-center p-4 text-sm font-semibold text-slate-300">
+                            <th className="text-center p-2 text-sm font-semibold text-slate-300">
                               <div className="flex items-center justify-center gap-1">
                                 <Home className="w-3 h-3" />
                                 <span className="text-xs">نمط الحياة</span>
                               </div>
                             </th>
-                            <th className="text-center p-4 text-sm font-semibold text-slate-300">
+                            <th className="text-center p-2 text-sm font-semibold text-slate-300">
                               <div className="flex items-center justify-center gap-1">
                                 <Sparkles className="w-3 h-3" />
                                 <span className="text-xs">الدعابة/الانفتاح</span>
                               </div>
                             </th>
-                            <th className="text-center p-4 text-sm font-semibold text-slate-300">
+                            <th className="text-center p-2 text-sm font-semibold text-slate-300">
                               <div className="flex items-center justify-center gap-1">
                                 <MessageCircle className="w-3 h-3" />
                                 <span className="text-xs">التواصل</span>
                               </div>
                             </th>
-                            <th className="text-center p-4 text-sm font-semibold text-slate-300">
+                            <th className="text-center p-2 text-sm font-semibold text-slate-300">
                               <div className="flex items-center justify-center gap-1">
                                 <Star className="w-3 h-3" />
                                 <span className="text-xs">الأهداف/القيم</span>
                               </div>
                             </th>
                             {matchType === "ai" && (
-                              <th className="text-center p-4 text-sm font-semibold text-slate-300">
+                              <th className="text-center p-2 text-sm font-semibold text-slate-300">
                                 <div className="flex items-center justify-center gap-1">
                                   <Zap className="w-3 h-3" />
                                   <span className="text-xs">الطاقة</span>
@@ -978,7 +967,7 @@ export default function ParticipantResultsModal({
                             return ''
                           })()}`}
                         >
-                          <td className="p-4">
+                          <td className="p-2">
                             <div className="flex items-center gap-2">
                               {index < 3 && !participant.is_organizer_match && (
                                 <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
@@ -997,10 +986,37 @@ export default function ParticipantResultsModal({
                               <span className="font-mono text-white font-semibold">
                                 #{participant.assigned_number}
                               </span>
+                              {(() => {
+                                const pData = participantData.get(participant.assigned_number)
+                                const signupEventId = pData?.signup_event_id
+                                const isSignedUp = pData?.signup_for_next_event === true || pData?.auto_signup_next_event === true
+                                if (!isSignedUp || !signupEventId) return null
+                                return (
+                                  <span className="px-1.5 py-0.5 text-[10px] bg-cyan-500/20 text-cyan-300 rounded-full border border-cyan-400/30" title={`سجل من فعالية #${signupEventId}`}>
+                                    E{signupEventId}
+                                  </span>
+                                )
+                              })()}
                             </div>
                           </td>
-                          <td className="p-4">
+                          <td className="p-2">
                             <div className="flex items-center gap-2">
+                              {toggleParticipantSelection && selectedParticipants && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    toggleParticipantSelection(participant.assigned_number)
+                                  }}
+                                  className="flex-shrink-0 transition-colors"
+                                  title={selectedParticipants.has(participant.assigned_number) ? "إلغاء التحديد" : "تحديد للتصدير"}
+                                >
+                                  {selectedParticipants.has(participant.assigned_number) ? (
+                                    <CheckSquare className="w-4 h-4 text-cyan-400" />
+                                  ) : (
+                                    <Square className="w-4 h-4 text-slate-500 hover:text-slate-300" />
+                                  )}
+                                </button>
+                              )}
                               <Popover.Root>
                                 <Tooltip.Provider delayDuration={300}>
                                   <Tooltip.Root>
@@ -1142,7 +1158,7 @@ export default function ParticipantResultsModal({
                               )}
                             </div>
                           </td>
-                          <td className="p-4">
+                          <td className="p-2">
                             {participant.partner_assigned_number ? (
                               <div className="text-slate-300">
                                 {participant.partner_assigned_number === 9999 ? (
@@ -1252,7 +1268,7 @@ export default function ParticipantResultsModal({
                               <span className="text-slate-500 text-sm">لا يوجد شريك</span>
                             )}
                           </td>
-                          <td className="p-4 text-center">
+                          <td className="p-2 text-center">
                             <div className="flex items-center justify-center gap-2">
                               {/* Compatibility Score with Tooltip */}
                               {participant.humor_early_openness_bonus && participant.humor_early_openness_bonus !== 'none' ? (
@@ -1340,7 +1356,7 @@ export default function ParticipantResultsModal({
                             </div>
                           </td>
                           {matchType !== "group" && (
-                            <td className="p-4 text-center">
+                            <td className="p-2 text-center">
                               {participant.partner_assigned_number && participant.partner_assigned_number !== 9999 ? (
                                 <button
                                   onClick={() => handleExcludePair(participant.assigned_number, participant.partner_assigned_number!)}
@@ -1356,7 +1372,7 @@ export default function ParticipantResultsModal({
                             </td>
                           )}
                           {matchType !== "group" && (
-                            <td className="p-4 text-center">
+                            <td className="p-2 text-center">
                               {participant.partner_assigned_number && participant.partner_assigned_number !== 9999 ? (
                                 isMatchLocked(participant.assigned_number, participant.partner_assigned_number) ? (
                                   <button
@@ -1385,7 +1401,7 @@ export default function ParticipantResultsModal({
                             </td>
                           )}
                           {matchType !== "group" && (
-                            <td className="p-4 text-center">
+                            <td className="p-2 text-center">
                               <button
                                 onClick={() => fetchParticipantDetails(participant.assigned_number, participant.name)}
                                 disabled={loadingDetails}
@@ -1397,7 +1413,7 @@ export default function ParticipantResultsModal({
                             </td>
                           )}
                           {matchType !== "group" && (
-                            <td className="p-4 text-center">
+                            <td className="p-2 text-center">
                               <button
                                 onClick={() => openPairAnalysis(participant)}
                                 className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-300 hover:bg-purple-500/30 transition-all duration-300"
@@ -1408,7 +1424,7 @@ export default function ParticipantResultsModal({
                             </td>
                           )}
                           {matchType !== "group" && (
-                            <td className="p-4 text-center">
+                            <td className="p-2 text-center">
                               <button
                                 onClick={() => {
                                   const fullParticipantData = participantData.get(participant.assigned_number)
@@ -1444,7 +1460,7 @@ export default function ParticipantResultsModal({
                             const hasAny = pair && (pair.intent_boost_applied || pair.attachment_penalty_applied || pair.dead_air_veto_applied || pair.humor_clash_veto_applied || pair.cap_applied != null || (pair.humor_early_openness_bonus && pair.humor_early_openness_bonus !== 'none'))
                             const tolerated = !!(pair && typeof pair.reason === 'string' && pair.reason.includes('±1y'))
                             return (
-                              <td className="p-4 text-center">
+                              <td className="p-2 text-center">
                                 {(hasAny || tolerated) ? (
                                   <div className="inline-flex items-center gap-2 justify-center">
                                     {hasAny && (
@@ -1602,13 +1618,13 @@ export default function ParticipantResultsModal({
                             const vibe = pair?.vibe_compatibility_score ?? 0
                             return (
                               <>
-                                <td className="p-4 text-center"><span className="text-slate-300 text-sm">{Number(synergy).toFixed(1)}%</span></td>
-                                <td className="p-4 text-center"><span className="text-slate-300 text-sm">{Number(life).toFixed(1)}%</span></td>
-                                <td className="p-4 text-center"><span className="text-slate-300 text-sm">{Number(humorOpen).toFixed(1)}%</span></td>
-                                <td className="p-4 text-center"><span className="text-slate-300 text-sm">{Number(comm).toFixed(1)}%</span></td>
-                                <td className="p-4 text-center"><span className="text-slate-300 text-sm">{Number(intent).toFixed(1)}%</span></td>
+                                <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(synergy).toFixed(1)}%</span></td>
+                                <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(life).toFixed(1)}%</span></td>
+                                <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(humorOpen).toFixed(1)}%</span></td>
+                                <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(comm).toFixed(1)}%</span></td>
+                                <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(intent).toFixed(1)}%</span></td>
                                 {matchType === "ai" && (
-                                  <td className="p-4 text-center"><span className="text-slate-300 text-sm">{Number(vibe).toFixed(1)}%</span></td>
+                                  <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(vibe).toFixed(1)}%</span></td>
                                 )}
                               </>
                             )

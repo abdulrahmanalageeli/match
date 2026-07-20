@@ -42,6 +42,7 @@ create table public.participants (
   preferred_age_max integer null,
   open_age_preference boolean null,
   open_intent_goal_mismatch boolean not null default false,
+  signup_event_id integer null,
   constraint participants_pkey primary key (id),
   constraint participants_assigned_number_key unique (assigned_number),
   constraint unique_participant_number_per_match unique (assigned_number, match_id),

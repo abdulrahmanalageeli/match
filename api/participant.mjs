@@ -3112,8 +3112,9 @@ Please respond in JSON format:
         let myAssignment = null
         if (participant) {
           const { data: ep } = await supabase.from("event3_participants").select("position").eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId).eq("participant_number", myNumber).maybeSingle()
-          // Auto-mark attendance when enrolled participant first polls state (only once)
-          if (ep) {
+          // Auto-mark attendance when enrolled participant polls state during a live event (not setup).
+          // This prevents marking attendance for people viewing the tutorial at home before the event.
+          if (ep && phase !== "setup") {
             try {
               const { count: attCount } = await supabase.from("event_attendance").select("id", { count: "exact", head: true }).eq("match_id", MAIN_MATCH).eq("event_id", activeEventId).eq("participant_number", myNumber)
               if (!attCount) {
@@ -3125,7 +3126,7 @@ Please respond in JSON format:
                   updated_by: "auto-join",
                   updated_at: new Date().toISOString(),
                 })
-                console.log(`[auto-attendance] Marked #${myNumber} as attended (first state poll)`)
+                console.log(`[auto-attendance] Marked #${myNumber} as attended (phase: ${phase})`)
               }
             } catch (attErr) {
               console.error("[auto-attendance] Failed on state poll:", attErr.message)

@@ -2558,6 +2558,88 @@ export default async function handler(req, res) {
       }
     }
 
+    // 🔹 GET IMPRESSIONS — fetch organizer impressions written ABOUT a specific person across all event3 events
+    if (action === "get-impressions") {
+      try {
+        const { participant_number } = req.body
+        const targetNum = Number(participant_number)
+        if (!Number.isFinite(targetNum) || targetNum <= 0 || targetNum === 9999) {
+          return res.status(400).json({ error: "Invalid participant_number" })
+        }
+
+        // Fetch all event3_matches rows where this person is a phase2 or phase3 partner
+        const { data: phase2Rows, error: p2Err } = await supabase
+          .from("event3_matches")
+          .select("participant_number, event_id, phase2_feedback")
+          .eq("match_id", EVENT3_MATCH_ID)
+          .eq("phase2_partner", targetNum)
+
+        const { data: phase3Rows, error: p3Err } = await supabase
+          .from("event3_matches")
+          .select("participant_number, event_id, phase3_feedback")
+          .eq("match_id", EVENT3_MATCH_ID)
+          .eq("phase3_partner", targetNum)
+
+        if (p2Err) console.error("[get-impressions] phase2 query error:", p2Err.message)
+        if (p3Err) console.error("[get-impressions] phase3 query error:", p3Err.message)
+
+        // Collect unique commenter numbers for name lookup
+        const commenterNumbers = new Set()
+        for (const r of [...(phase2Rows || []), ...(phase3Rows || [])]) {
+          if (r.participant_number && r.participant_number !== 9999) commenterNumbers.add(r.participant_number)
+        }
+
+        // Fetch commenter names
+        let nameMap = {}
+        if (commenterNumbers.size > 0) {
+          const { data: commenters } = await supabase
+            .from("participants")
+            .select("assigned_number, name, survey_data")
+            .eq("match_id", STATIC_MATCH_ID)
+            .in("assigned_number", Array.from(commenterNumbers))
+          for (const c of commenters || []) {
+            nameMap[c.assigned_number] = c.name || c.survey_data?.name || `#${c.assigned_number}`
+          }
+        }
+
+        const impressions = []
+        const seen = new Set()
+
+        for (const r of (phase2Rows || [])) {
+          const fb = r.phase2_feedback
+          if (!fb || typeof fb !== 'object') continue
+          const text = fb.organizerImpression
+          if (!text || String(text).trim() === '') continue
+          const fromNum = Number(r.participant_number)
+          if (fromNum === 9999) continue
+          const key = `${r.event_id}-phase2-${fromNum}-${String(text).trim()}`
+          if (seen.has(key)) continue
+          seen.add(key)
+          impressions.push({ from_number: fromNum, from_name: nameMap[fromNum] || `#${fromNum}`, text: String(text), event_id: r.event_id, phase: 'phase2' })
+        }
+
+        for (const r of (phase3Rows || [])) {
+          const fb = r.phase3_feedback
+          if (!fb || typeof fb !== 'object') continue
+          const text = fb.organizerImpression
+          if (!text || String(text).trim() === '') continue
+          const fromNum = Number(r.participant_number)
+          if (fromNum === 9999) continue
+          const key = `${r.event_id}-phase3-${fromNum}-${String(text).trim()}`
+          if (seen.has(key)) continue
+          seen.add(key)
+          impressions.push({ from_number: fromNum, from_name: nameMap[fromNum] || `#${fromNum}`, text: String(text), event_id: r.event_id, phase: 'phase3' })
+        }
+
+        impressions.sort((a, b) => (b.event_id || 0) - (a.event_id || 0))
+
+        return res.status(200).json({ success: true, impressions, target: targetNum })
+      } catch (err) {
+        console.error("Error in get-impressions:", err)
+        return res.status(500).json({ error: "Failed to get impressions" })
+      }
+    }
+
     if (action === "get-match-results-for-export") {
       try {
         const { event_id } = req.body

@@ -29,7 +29,7 @@ interface SurveyData {
   phoneNumber?: string
 }
 
-const surveyQuestions = [
+export const surveyQuestions = [
   // Personal Information Questions
   {
     id: "name",

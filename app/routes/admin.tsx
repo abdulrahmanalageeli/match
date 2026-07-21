@@ -55,6 +55,7 @@ import VibeFixModal from "~/components/VibeFixModal"
 import WhatsappMessageModal from '~/components/WhatsappMessageModal';
 import ParticipantQRModal from "~/components/ParticipantQRModal"
 import ParticipantProfileModal from "~/components/ParticipantProfileModal"
+import { surveyQuestions } from "~/components/SurveyComponent"
 
 // ─── Match Analyzer Modal ───────────────────────────────────────────────────
 function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
@@ -360,11 +361,60 @@ function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
 }
 
 // ─── Survey History Modal ────────────────────────────────────────────────────
+
+// Build lookup maps from surveyQuestions for field → question description and value → label
+const surveyFieldMap = new Map<string, { description: string; options?: Array<{ value: string; label: string }> }>()
+for (const q of surveyQuestions) {
+  surveyFieldMap.set(q.id, { description: q.description, options: q.options })
+}
+
+// Also map top-level survey_data fields (not inside answers) that may appear in change history
+const extraFieldLabels: Record<string, string> = {
+  mbti_personality_type: "نوع شخصية MBTI",
+  attachment_style: "نمط التعلق",
+  communication_style: "أسلوب التواصل",
+  humor_banter_style: "أسلوب الدعابة",
+  early_openness_comfort: "الانفتاح المبكر",
+  conversational_role: "الدور في المحادثة",
+  silence_comfort: "الراحة مع الصمت",
+  intent_goal: "الهدف من الحضور",
+  preferred_age_min: "أقل عمر مفضل",
+  preferred_age_max: "أكبر عمر مفضل",
+  preferred_age_range: "المدى العمري المفضل",
+  open_age_preference: "تقبل الفارق العمري",
+  same_gender_preference: "تفضيل نفس الجنس",
+  any_gender_preference: "تقبل أي جنس",
+  open_intent_goal_mismatch: "تقبل اختلاف الهدف",
+  nationality_preference: "تفضيل الجنسية",
+  prefer_same_nationality: "تفضيل نفس الجنسية",
+  actual_gender_preference: "تفضيل الجنس الفعلي",
+  gender_preference: "تفضيل الجنس",
+}
+
+function formatFieldLabel(fieldId: string): string {
+  const q = surveyFieldMap.get(fieldId)
+  if (q) return q.description
+  return extraFieldLabels[fieldId] || fieldId
+}
+
+function formatAnswerValue(fieldId: string, rawValue: any): string {
+  if (rawValue == null) return '—'
+  if (typeof rawValue === 'boolean') return rawValue ? 'Yes' : 'No'
+  const q = surveyFieldMap.get(fieldId)
+  if (q?.options) {
+    const opt = q.options.find(o => o.value === String(rawValue))
+    if (opt) {
+      // Strip the leading "أ. " / "ب. " prefix from labels for cleaner display
+      return opt.label.replace(/^[أ-د]\.\s*/, '')
+    }
+  }
+  return String(rawValue)
+}
+
 function SurveyHistoryModal({ modal, onClose }: { modal: { participant: any; history: any[]; loading: boolean }; onClose: () => void }) {
   const p = modal.participant
   const history = modal.history
   const formatDate = (s: string) => new Date(s).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Riyadh' })
-  const formatVal = (v: any) => v == null ? '—' : typeof v === 'boolean' ? (v ? 'Yes' : 'No') : String(v)
   const levelColor = (l: string) => l === 'high' ? 'bg-red-500/20 border-red-400/50 text-red-300' : 'bg-amber-500/20 border-amber-400/50 text-amber-300'
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
@@ -412,17 +462,20 @@ function SurveyHistoryModal({ modal, onClose }: { modal: { participant: any; his
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="text-slate-500 border-b border-white/5">
-                      <th className="text-left pb-1.5 font-medium w-1/3">Field</th>
-                      <th className="text-left pb-1.5 font-medium w-1/3 text-red-400/70">Before</th>
+                      <th className="text-left pb-1.5 font-medium w-2/5">Question</th>
+                      <th className="text-left pb-1.5 font-medium w-1/4 text-red-400/70">Before</th>
                       <th className="text-left pb-1.5 font-medium w-1/3 text-green-400/70">After</th>
                     </tr>
                   </thead>
                   <tbody>
                     {(entry.changed_fields || []).map((field: string) => (
                       <tr key={field} className="border-b border-white/5 last:border-0">
-                        <td className="py-1.5 text-slate-400 font-mono">{field}</td>
-                        <td className="py-1.5 text-red-300 line-through opacity-70">{formatVal(entry.previous_answers?.[field])}</td>
-                        <td className="py-1.5 text-green-300">{formatVal(entry.new_answers?.[field])}</td>
+                        <td className="py-2 text-slate-300">
+                          <div className="font-medium leading-snug">{formatFieldLabel(field)}</div>
+                          <div className="text-slate-600 text-[10px] font-mono mt-0.5">{field}</div>
+                        </td>
+                        <td className="py-2 text-red-300 line-through opacity-70 align-top">{formatAnswerValue(field, entry.previous_answers?.[field])}</td>
+                        <td className="py-2 text-green-300 align-top">{formatAnswerValue(field, entry.new_answers?.[field])}</td>
                       </tr>
                     ))}
                   </tbody>

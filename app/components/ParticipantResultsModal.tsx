@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { X, Users, Heart, Trophy, Star, Eye, ArrowUpDown, CheckCircle, XCircle, AlertTriangle, Zap, Brain, MessageCircle, Home, DollarSign, Info, Lock, Unlock, MessageSquare, Ban, UserX, Sparkles, Flame, Square, CheckSquare } from "lucide-react"
 import { toast } from "react-hot-toast"
 import ParticipantDetailModal from "./ParticipantDetailModal"
@@ -106,6 +106,9 @@ export default function ParticipantResultsModal({
   const [showNewOnly, setShowNewOnly] = useState(false)
   const [showPaidOnly, setShowPaidOnly] = useState(false)
   const [bulkExcludingUnpaidGirls, setBulkExcludingUnpaidGirls] = useState(false)
+  // Impressions: map of participant_number -> Impression[]
+  const [impressionsMap, setImpressionsMap] = useState<Record<number, any[]>>({})
+  const [impressionsLoaded, setImpressionsLoaded] = useState(false)
 
   // Fetch match history for all participants in modal
   const fetchAllMatchHistoryForModal = async () => {
@@ -151,12 +154,12 @@ export default function ParticipantResultsModal({
   // Fetch locked matches and participant data when modal opens
   useEffect(() => {
     if (isOpen) {
-      // Fetch match history for tooltips
       fetchAllMatchHistoryForModal()
       fetchLockedMatches()
       fetchParticipantData()
+      fetchAllImpressions()
     }
-  }, [isOpen, results])
+  }, [isOpen])
 
   const fetchLockedMatches = async () => {
     try {
@@ -206,6 +209,40 @@ export default function ParticipantResultsModal({
       console.error("Error fetching participant data:", error)
     }
   }
+
+  const fetchAllImpressions = useCallback(async () => {
+    if (impressionsLoaded) return
+    const nums = new Set<number>()
+    results.forEach(r => {
+      nums.add(r.assigned_number)
+      if (r.partner_assigned_number && r.partner_assigned_number !== 9999) nums.add(r.partner_assigned_number)
+    })
+    if (nums.size === 0) return
+
+    const BATCH = 8
+    const arr = Array.from(nums)
+    const newMap: Record<number, any[]> = {}
+
+    for (let i = 0; i < arr.length; i += BATCH) {
+      const batch = arr.slice(i, i + BATCH)
+      await Promise.all(batch.map(async (num) => {
+        try {
+          const res = await fetch("/api/admin", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "get-impressions", participant_number: num }),
+          })
+          const data = await res.json()
+          if (data.success && data.impressions && data.impressions.length > 0) {
+            newMap[num] = data.impressions
+          }
+        } catch { /* skip */ }
+      }))
+    }
+
+    setImpressionsMap(newMap)
+    setImpressionsLoaded(true)
+  }, [results, impressionsLoaded])
 
   const isMessageSent = (assignedNumber: number): boolean => {
     return messageSentSet.has(assignedNumber) || !!participantData.get(assignedNumber)?.PAID
@@ -1037,7 +1074,7 @@ export default function ParticipantResultsModal({
                                     </Tooltip.Trigger>
                                     <Tooltip.Portal>
                                       <Tooltip.Content
-                                        className="z-[100] max-w-4xl p-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
+                                        className="z-[100] p-3 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
                                         sideOffset={5}
                                       >
                                         <ParticipantHoverCardContent
@@ -1046,6 +1083,7 @@ export default function ParticipantResultsModal({
                                           pData={participantData.get(participant.assigned_number)}
                                           history={localMatchHistory[participant.assigned_number] || []}
                                           currentEventId={currentEventId}
+                                          impressions={impressionsMap[participant.assigned_number] || []}
                                         />
                                         <Tooltip.Arrow className="fill-cyan-400/30" />
                                       </Tooltip.Content>
@@ -1054,7 +1092,7 @@ export default function ParticipantResultsModal({
                                 </Tooltip.Provider>
                                 <Popover.Portal>
                                   <Popover.Content
-                                    className="z-[110] max-w-4xl p-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
+                                    className="z-[110] p-3 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
                                     sideOffset={6}
                                     align="center"
                                   >
@@ -1071,6 +1109,7 @@ export default function ParticipantResultsModal({
                                         pData={participantData.get(participant.assigned_number)}
                                         history={localMatchHistory[participant.assigned_number] || []}
                                         currentEventId={currentEventId}
+                                        impressions={impressionsMap[participant.assigned_number] || []}
                                       />
                                     </div>
                                   </Popover.Content>
@@ -1184,7 +1223,7 @@ export default function ParticipantResultsModal({
                                               </Tooltip.Trigger>
                                               <Tooltip.Portal>
                                                 <Tooltip.Content
-                                                  className="z-[100] max-w-4xl p-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
+                                                  className="z-[100] p-3 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
                                                   sideOffset={5}
                                                 >
                                                   <ParticipantHoverCardContent
@@ -1193,6 +1232,7 @@ export default function ParticipantResultsModal({
                                                     pData={participantData.get(participant.partner_assigned_number!)}
                                                     history={localMatchHistory[participant.partner_assigned_number || 0] || []}
                                                     currentEventId={currentEventId}
+                                                    impressions={impressionsMap[participant.partner_assigned_number || 0] || []}
                                                   />
                                                   <Tooltip.Arrow className="fill-cyan-400/30" />
                                                 </Tooltip.Content>
@@ -1201,7 +1241,7 @@ export default function ParticipantResultsModal({
                                           </Tooltip.Provider>
                                           <Popover.Portal>
                                             <Popover.Content
-                                              className="z-[110] max-w-4xl p-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
+                                              className="z-[110] p-3 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
                                               sideOffset={6}
                                               align="center"
                                             >
@@ -1218,6 +1258,7 @@ export default function ParticipantResultsModal({
                                                   pData={participantData.get(participant.partner_assigned_number!)}
                                                   history={localMatchHistory[participant.partner_assigned_number || 0] || []}
                                                   currentEventId={currentEventId}
+                                                  impressions={impressionsMap[participant.partner_assigned_number || 0] || []}
                                                 />
                                               </div>
                                             </Popover.Content>

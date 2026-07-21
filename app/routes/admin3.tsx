@@ -1,12 +1,80 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import toast, { Toaster } from "react-hot-toast"
 import { useVisibilityPoll } from "~/hooks/useVisibilityPoll"
+import { surveyQuestions } from "~/components/SurveyComponent"
 import {
   Users, Play, Square, ChevronRight, RotateCcw, CheckCircle,
   Circle, RefreshCw, Table2, Trophy, Clock, BarChart3, Shuffle,
   Eye, EyeOff, ArrowRight, Sparkles, Brain, Shield, LogOut,
   Grid3x3, Star, Check, AlertCircle, AlertTriangle, Loader2, Copy, Heart, Layers, ChevronDown, X, XCircle, MessageSquare, Send, Home, Trash2, GripVertical, Search, Crown, Medal, Coffee, Ban, ArrowLeft, Bell, Calendar, Download, FlaskConical, Phone, Pencil, Save,
 } from "lucide-react"
+
+// ─── Enum → Arabic label lookup maps (shared with admin.tsx approach) ────────────
+const surveyOptionMap3 = new Map<string, Map<string, string>>()
+for (const q of surveyQuestions) {
+  if (q.options) {
+    const m = new Map<string, string>()
+    for (const opt of q.options) {
+      m.set(opt.value, opt.label.replace(/^[\u0623-\u062F]\.[\s\u00A0]*/, ""))
+    }
+    surveyOptionMap3.set(q.id, m)
+  }
+}
+
+// Map event3 survey field keys to surveyQuestions IDs for label lookup
+const fieldToQuestionId: Record<string, string> = {
+  conversational_role: "interaction_synergy_1",
+  conversation_depth_pref: "interaction_synergy_2",
+  social_battery: "interaction_style_1",
+  humor_subtype: "interaction_style_3",
+  curiosity_style: "interaction_style_4",
+  intent_goal: "intent_goal_1",
+  silence_comfort: "interaction_synergy_3",
+  humor_banter_style: "interaction_style_2",
+  early_openness_comfort: "interaction_style_5",
+}
+
+// Arabic labels for attachment_style and communication_style (not in surveyQuestions)
+const attachmentLabels: Record<string, string> = {
+  Secure: "آمن",
+  Anxious: "قلق",
+  Avoidant: "تجنّبي",
+  Fearful: "خائف",
+  SECURE: "آمن",
+  ANXIOUS: "قلق",
+  AVOIDANT: "تجنّبي",
+  FEARFUL: "خائف",
+}
+
+const communicationLabels: Record<string, string> = {
+  Assertive: "حازم",
+  Passive: "سلبي",
+  "Passive-Aggressive": "سلبي-عدواني",
+  Aggressive: "عدواني",
+  ASSERTIVE: "حازم",
+  PASSIVE: "سلبي",
+  "PASSIVE-AGGRESSIVE": "سلبي-عدواني",
+  AGGRESSIVE: "عدواني",
+}
+
+function mapEnumLabel3(fieldKey: string, rawValue: any): string {
+  if (rawValue == null || rawValue === "") return "—"
+  const qId = fieldToQuestionId[fieldKey]
+  if (qId) {
+    const m = surveyOptionMap3.get(qId)
+    if (m) {
+      const label = m.get(String(rawValue).toUpperCase())
+      if (label) return label
+    }
+  }
+  if (fieldKey === "attachment_style" || fieldKey === "attachment") {
+    return attachmentLabels[String(rawValue)] || String(rawValue)
+  }
+  if (fieldKey === "communication_style" || fieldKey === "communication") {
+    return communicationLabels[String(rawValue)] || String(rawValue)
+  }
+  return String(rawValue)
+}
 
 let _adminPassword = ""
 function setAdminPassword(p: string) { _adminPassword = p }
@@ -2489,8 +2557,8 @@ export default function Admin3Page() {
                             {p.mbti_personality_type && <span className="text-[10px] text-purple-400">{p.mbti_personality_type}</span>}
                             {p.attachment_style && (
                               <span className="flex items-center gap-1 text-[10px] text-teal-400">
-                                <span className={`w-1.5 h-1.5 rounded-full ${p.attachment_style === 'Secure' ? 'bg-emerald-400' : p.attachment_style === 'Anxious' ? 'bg-yellow-400' : p.attachment_style === 'Avoidant' ? 'bg-red-400' : 'bg-gray-600'}`} />
-                                {p.attachment_style === 'Secure' ? 'آمن' : p.attachment_style === 'Anxious' ? 'قلق' : p.attachment_style === 'Avoidant' ? 'تجنّبي' : p.attachment_style}
+                                <span className={`w-1.5 h-1.5 rounded-full ${p.attachment_style === 'Secure' || p.attachment_style === 'SECURE' ? 'bg-emerald-400' : p.attachment_style === 'Anxious' || p.attachment_style === 'ANXIOUS' ? 'bg-yellow-400' : p.attachment_style === 'Avoidant' || p.attachment_style === 'AVOIDANT' ? 'bg-red-400' : p.attachment_style === 'Fearful' || p.attachment_style === 'FEARFUL' ? 'bg-orange-400' : 'bg-gray-600'}`} />
+                                {attachmentLabels[p.attachment_style] || p.attachment_style}
                               </span>
                             )}
                             {popularity > 0 && <span className="text-[10px] text-pink-400">♥ {popularity}</span>}
@@ -3138,10 +3206,10 @@ export default function Admin3Page() {
                       <span className="bg-purple-900/40 border border-purple-700/40 text-purple-300 text-xs px-2.5 py-1 rounded-lg font-medium">{p.mbti_personality_type}</span>
                     )}
                     {p.communication_style && (
-                      <span className="bg-blue-900/40 border border-blue-700/40 text-blue-300 text-xs px-2.5 py-1 rounded-lg">{p.communication_style}</span>
+                      <span className="bg-blue-900/40 border border-blue-700/40 text-blue-300 text-xs px-2.5 py-1 rounded-lg">{communicationLabels[p.communication_style] || p.communication_style}</span>
                     )}
                     {p.attachment_style && (
-                      <span className="bg-teal-900/40 border border-teal-700/40 text-teal-300 text-xs px-2.5 py-1 rounded-lg">{p.attachment_style}</span>
+                      <span className="bg-teal-900/40 border border-teal-700/40 text-teal-300 text-xs px-2.5 py-1 rounded-lg">{attachmentLabels[p.attachment_style] || p.attachment_style}</span>
                     )}
                   </div>
                 )}
@@ -3394,9 +3462,10 @@ export default function Admin3Page() {
         const mbtiGroup = mbtiGroupFn
 
         const attachDot = (a: string) => {
-          if (a === 'Secure') return 'bg-emerald-400'
-          if (a === 'Anxious') return 'bg-yellow-400'
-          if (a === 'Avoidant') return 'bg-red-400'
+          if (a === 'Secure' || a === 'SECURE') return 'bg-emerald-400'
+          if (a === 'Anxious' || a === 'ANXIOUS') return 'bg-yellow-400'
+          if (a === 'Avoidant' || a === 'AVOIDANT') return 'bg-red-400'
+          if (a === 'Fearful' || a === 'FEARFUL') return 'bg-orange-400'
           return 'bg-gray-600'
         }
 
@@ -3578,7 +3647,7 @@ export default function Admin3Page() {
                               {p.attachment
                                 ? <span className="flex items-center justify-center gap-1">
                                     <span className={`w-1.5 h-1.5 rounded-full ${attachDot(p.attachment)}`} />
-                                    <span className="text-gray-400 text-[9px]">{p.attachment === 'Secure' ? 'آمن' : p.attachment === 'Anxious' ? 'قلق' : p.attachment === 'Avoidant' ? 'تجنّبي' : p.attachment}</span>
+                                    <span className="text-gray-400 text-[9px]">{attachmentLabels[p.attachment] || p.attachment}</span>
                                   </span>
                                 : <span className="text-gray-700">—</span>}
                             </td>
@@ -3660,7 +3729,7 @@ export default function Admin3Page() {
                         {p.attachment && (
                           <span className="flex items-center gap-1">
                             <span className={`w-1.5 h-1.5 rounded-full ${attachDot(p.attachment)}`} />
-                            <span className="text-gray-400">{p.attachment === 'Secure' ? 'آمن' : p.attachment === 'Anxious' ? 'قلق' : 'تجنّبي'}</span>
+                            <span className="text-gray-400">{attachmentLabels[p.attachment] || p.attachment}</span>
                           </span>
                         )}
                         {p.r1Table != null && <span className="text-indigo-300">ج١: {p.r1Table}</span>}
@@ -4114,18 +4183,18 @@ export default function Admin3Page() {
         const ansA = sdA.answers || {}
         const ansB = sdB.answers || {}
         const qRows = [
-          { label: 'Q35 الدور في الحديث', a: (ansA.conversational_role||'—').toUpperCase(), b: (ansB.conversational_role||'—').toUpperCase(), tip: 'A=مبادر B=مستجيب C=مستمع' },
-          { label: 'Q36 عمق المحادثة', a: (ansA.conversation_depth_pref||'—').toUpperCase(), b: (ansB.conversation_depth_pref||'—').toUpperCase(), tip: 'A=عميق B=سطحي' },
-          { label: 'Q37 الطاقة الاجتماعية', a: (ansA.social_battery||'—').toUpperCase(), b: (ansB.social_battery||'—').toUpperCase(), tip: 'A=اجتماعي B=هادئ' },
-          { label: 'Q38 أسلوب الفكاهة', a: (ansA.humor_subtype||'—').toUpperCase(), b: (ansB.humor_subtype||'—').toUpperCase(), tip: 'A=سخرية B=دفء C=قصص D=هادئ' },
-          { label: 'Q39 أسلوب الفضول', a: (ansA.curiosity_style||'—').toUpperCase(), b: (ansB.curiosity_style||'—').toUpperCase(), tip: 'A=متسائل B=مجيب C=متوازن' },
-          { label: 'Q40 الهدف من اللقاء', a: (ansA.intent_goal||'—').toUpperCase(), b: (ansB.intent_goal||'—').toUpperCase(), tip: 'A=توسيع دائرة B=تواصل فكري C=اكتشاف' },
-          { label: 'Q41 الراحة مع الصمت', a: (ansA.silence_comfort||'—').toUpperCase(), b: (ansB.silence_comfort||'—').toUpperCase(), tip: 'A=مريح B=غير مريح' },
-          { label: 'أسلوب الفكاهة (humor_banter)', a: (pd.compat?.mbtiA ? (ansA.humor_banter_style||'—') : (ansA.humor_banter_style||'—')).toUpperCase(), b: (ansB.humor_banter_style||'—').toUpperCase(), tip: 'A=مرح B=دافئ C=هادئ D=جدي' },
+          { label: 'Q35 الدور في الحديث', a: mapEnumLabel3('conversational_role', ansA.conversational_role), b: mapEnumLabel3('conversational_role', ansB.conversational_role), tip: 'A=مبادر B=مستجيب C=مستمع' },
+          { label: 'Q36 عمق المحادثة', a: mapEnumLabel3('conversation_depth_pref', ansA.conversation_depth_pref), b: mapEnumLabel3('conversation_depth_pref', ansB.conversation_depth_pref), tip: 'A=عميق B=سطحي' },
+          { label: 'Q37 الطاقة الاجتماعية', a: mapEnumLabel3('social_battery', ansA.social_battery), b: mapEnumLabel3('social_battery', ansB.social_battery), tip: 'A=اجتماعي B=هادئ' },
+          { label: 'Q38 أسلوب الفكاهة', a: mapEnumLabel3('humor_subtype', ansA.humor_subtype), b: mapEnumLabel3('humor_subtype', ansB.humor_subtype), tip: 'A=سخرية B=دفء C=قصص D=هادئ' },
+          { label: 'Q39 أسلوب الفضول', a: mapEnumLabel3('curiosity_style', ansA.curiosity_style), b: mapEnumLabel3('curiosity_style', ansB.curiosity_style), tip: 'A=متسائل B=مجيب C=متوازن' },
+          { label: 'Q40 الهدف من اللقاء', a: mapEnumLabel3('intent_goal', ansA.intent_goal), b: mapEnumLabel3('intent_goal', ansB.intent_goal), tip: 'A=توسيع دائرة B=تواصل فكري C=اكتشاف' },
+          { label: 'Q41 الراحة مع الصمت', a: mapEnumLabel3('silence_comfort', ansA.silence_comfort), b: mapEnumLabel3('silence_comfort', ansB.silence_comfort), tip: 'A=مريح B=غير مريح' },
+          { label: 'أسلوب الفكاهة (humor_banter)', a: mapEnumLabel3('humor_banter_style', ansA.humor_banter_style), b: mapEnumLabel3('humor_banter_style', ansB.humor_banter_style), tip: 'A=مرح B=دافئ C=هادئ D=جدي' },
           { label: 'الانفتاح المبكر (0-3)', a: String(ansA.early_openness_comfort ?? '—'), b: String(ansB.early_openness_comfort ?? '—'), tip: '0=مغلق 3=منفتح جداً' },
           { label: 'MBTI', a: c.mbtiA || sdA.mbtiType || ansA.mbti || '—', b: c.mbtiB || sdB.mbtiType || ansB.mbti || '—', tip: '' },
-          { label: 'أسلوب التعلق', a: sdA.attachmentStyle || ansA.attachment_style || '—', b: sdB.attachmentStyle || ansB.attachment_style || '—', tip: '' },
-          { label: 'أسلوب التواصل', a: sdA.communicationStyle || ansA.communication_style || '—', b: sdB.communicationStyle || ansB.communication_style || '—', tip: '' },
+          { label: 'أسلوب التعلق', a: mapEnumLabel3('attachment_style', sdA.attachmentStyle || ansA.attachment_style), b: mapEnumLabel3('attachment_style', sdB.attachmentStyle || ansB.attachment_style), tip: '' },
+          { label: 'أسلوب التواصل', a: mapEnumLabel3('communication_style', sdA.communicationStyle || ansA.communication_style), b: mapEnumLabel3('communication_style', sdB.communicationStyle || ansB.communication_style), tip: '' },
         ]
         const ScoreBar = ({ label, score, max, color = 'indigo' }: { label: string; score: number; max: number; color?: string }) => (
           <div className="space-y-1">

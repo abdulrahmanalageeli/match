@@ -174,16 +174,17 @@ export default async function handler(req, res) {
       if (changedFields.length > 0) {
         const changePercentage = Math.round((changedFields.length / allKeys.size) * 100)
         const suspiciousFlags = []
+        const genderLabels = { male: 'ذكر', female: 'أنثى' }
         if (changedFields.includes('gender') && oldAnswers.gender && newAnswers.gender && oldAnswers.gender !== newAnswers.gender)
-          suspiciousFlags.push({ level: 'high', code: 'gender_change', message: `Gender changed: ${oldAnswers.gender} → ${newAnswers.gender}` })
+          suspiciousFlags.push({ level: 'high', code: 'gender_change', message: `تغيير الجنس: ${genderLabels[oldAnswers.gender] || oldAnswers.gender} ← ${genderLabels[newAnswers.gender] || newAnswers.gender}` })
         const oldAge = oldAnswers.age ?? oldAnswers.ageGroup
         const newAge = newAnswers.age ?? newAnswers.ageGroup
         if (oldAge != null && newAge != null) {
           const diff = Math.abs(parseInt(newAge) - parseInt(oldAge))
-          if (!isNaN(diff) && diff > 2) suspiciousFlags.push({ level: 'medium', code: 'age_change', message: `Age changed by ${diff}: ${oldAge} → ${newAge}` })
+          if (!isNaN(diff) && diff > 2) suspiciousFlags.push({ level: 'medium', code: 'age_change', message: `تغيير العمر بمقدار ${diff}: ${oldAge} ← ${newAge}` })
         }
         if (changedFields.includes('mbtiType') && oldAnswers.mbtiType && newAnswers.mbtiType)
-          suspiciousFlags.push({ level: 'medium', code: 'mbti_change', message: `MBTI changed: ${oldAnswers.mbtiType} → ${newAnswers.mbtiType}` })
+          suspiciousFlags.push({ level: 'medium', code: 'mbti_change', message: `تغيير نوع MBTI: ${oldAnswers.mbtiType} ← ${newAnswers.mbtiType}` })
         const prevFiltered = {}, newFiltered = {}
         changedFields.forEach(k => { prevFiltered[k] = oldAnswers[k]; newFiltered[k] = newAnswers[k] })
         await supabase.from('survey_change_history').insert({

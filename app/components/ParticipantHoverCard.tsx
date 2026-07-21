@@ -1,5 +1,28 @@
 import React, { useMemo } from "react"
-import { MessageSquare, Users, Clock, Sparkles, ChevronLeft } from "lucide-react"
+import { MessageSquare, Users, Clock, Sparkles, ChevronLeft, CalendarCheck } from "lucide-react"
+import { surveyQuestions } from "~/components/SurveyComponent"
+
+// Build lookup map for enum value → Arabic label
+const surveyOptionMap = new Map<string, Map<string, string>>()
+for (const q of surveyQuestions) {
+  if (q.options) {
+    const m = new Map<string, string>()
+    for (const opt of q.options) {
+      m.set(opt.value, opt.label.replace(/^[\u0623-\u062F]\.[\s\u00A0]*/, ""))
+    }
+    surveyOptionMap.set(q.id, m)
+  }
+}
+
+function mapEnumLabel(fieldId: string, rawValue: any): string {
+  if (rawValue == null) return "غير محدد"
+  const m = surveyOptionMap.get(fieldId)
+  if (m) {
+    const label = m.get(String(rawValue))
+    if (label) return label
+  }
+  return String(rawValue)
+}
 
 interface HistoryItem {
   partner_number: number
@@ -105,7 +128,8 @@ export default function ParticipantHoverCardContent({
       return "غير محدد"
     })()
 
-    const intentGoal = answers.intent_goal || pData?.intent_goal || "غير محدد"
+    const intentGoalRaw = answers.intent_goal || pData?.intent_goal
+    const intentGoal = intentGoalRaw ? mapEnumLabel("intent_goal", intentGoalRaw) : "غير محدد"
     const openIntentMismatch = answers.open_intent_goal_mismatch === true || answers.open_intent_goal_mismatch === "true" || pData?.open_intent_goal_mismatch === true
 
     const vibes = [
@@ -124,6 +148,13 @@ export default function ParticipantHoverCardContent({
 
   const visibleHistory = useMemo(() => history.slice(0, 5), [history])
   const visibleImpressions = useMemo(() => impressions.slice(0, 6), [impressions])
+  const eventCount = useMemo(() => {
+    const ids = new Set<number>()
+    for (const h of history) {
+      if (h.event_id) ids.add(h.event_id)
+    }
+    return ids.size
+  }, [history])
 
   return (
     <div className="w-[340px] space-y-3" dir="rtl">
@@ -134,6 +165,9 @@ export default function ParticipantHoverCardContent({
           <span className="text-slate-500 text-xs font-mono">#{participantNumber}</span>
         </div>
         <div className="flex items-center gap-2 text-[10px] text-slate-500">
+          {eventCount > 0 && (
+            <span className="flex items-center gap-0.5 text-cyan-400/70"><CalendarCheck size={9} />{eventCount} فعالية</span>
+          )}
           {computed.updatedAgo && (
             <span className="flex items-center gap-0.5"><Clock size={9} />{computed.updatedAgo}</span>
           )}

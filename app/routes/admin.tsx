@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, Fragment } from "react"
 import { useLocation } from "react-router"
 import toast, { Toaster } from 'react-hot-toast'
 import { useDebounce } from "~/hooks/useDebounce"
@@ -364,8 +364,49 @@ function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
 
 // Build lookup maps from surveyQuestions for field → question description and value → label
 const surveyFieldMap = new Map<string, { description: string; options?: Array<{ value: string; label: string }> }>()
+const surveyCategoryMap = new Map<string, string>()
 for (const q of surveyQuestions) {
   surveyFieldMap.set(q.id, { description: q.description, options: q.options })
+  if (q.category) surveyCategoryMap.set(q.id, q.category)
+}
+
+const categoryLabels: Record<string, string> = {
+  personal_info: "المعلومات الشخصية",
+  interaction_style: "أسلوب التفاعل",
+  mbti: "نوع الشخصية (MBTI)",
+  attachment: "نمط التعلق",
+  lifestyle: "نمط الحياة",
+  core_values: "القيم الأساسية",
+  communication: "أسلوب التواصل",
+  vibe: "الطاقة والشخصية",
+  interaction_synergy: "التناغم الاجتماعي",
+  intent_goal: "الهدف من الحضور",
+}
+
+const extraFieldCategory: Record<string, string> = {
+  mbti_personality_type: "mbti",
+  attachment_style: "attachment",
+  communication_style: "communication",
+  humor_banter_style: "interaction_style",
+  early_openness_comfort: "interaction_style",
+  conversational_role: "interaction_synergy",
+  silence_comfort: "interaction_synergy",
+  intent_goal: "intent_goal",
+  preferred_age_min: "personal_info",
+  preferred_age_max: "personal_info",
+  preferred_age_range: "personal_info",
+  open_age_preference: "personal_info",
+  same_gender_preference: "personal_info",
+  any_gender_preference: "personal_info",
+  open_intent_goal_mismatch: "intent_goal",
+  nationality_preference: "personal_info",
+  prefer_same_nationality: "personal_info",
+  actual_gender_preference: "personal_info",
+  gender_preference: "personal_info",
+}
+
+function getFieldCategory(fieldId: string): string {
+  return surveyCategoryMap.get(fieldId) || extraFieldCategory[fieldId] || "other"
 }
 
 // Also map top-level survey_data fields (not inside answers) that may appear in change history
@@ -468,16 +509,37 @@ function SurveyHistoryModal({ modal, onClose }: { modal: { participant: any; his
                     </tr>
                   </thead>
                   <tbody>
-                    {(entry.changed_fields || []).map((field: string) => (
-                      <tr key={field} className="border-b border-white/5 last:border-0">
-                        <td className="py-2 text-slate-300">
-                          <div className="font-medium leading-snug">{formatFieldLabel(field)}</div>
-                          <div className="text-slate-600 text-[10px] font-mono mt-0.5">{field}</div>
-                        </td>
-                        <td className="py-2 text-red-300 line-through opacity-70 align-top">{formatAnswerValue(field, entry.previous_answers?.[field])}</td>
-                        <td className="py-2 text-green-300 align-top">{formatAnswerValue(field, entry.new_answers?.[field])}</td>
-                      </tr>
-                    ))}
+                    {(() => {
+                      const fields = entry.changed_fields || []
+                      const groups: Record<string, string[]> = {}
+                      const groupOrder: string[] = []
+                      for (const f of fields) {
+                        const cat = getFieldCategory(f)
+                        if (!groups[cat]) { groups[cat] = []; groupOrder.push(cat) }
+                        groups[cat].push(f)
+                      }
+                      return groupOrder.map((cat, gi) => (
+                        <Fragment key={cat + gi}>
+                          {groupOrder.length > 1 && (
+                            <tr key={`cat-${cat}-${gi}`}>
+                              <td colSpan={3} className="pt-3 pb-1">
+                                <span className="text-[10px] font-semibold uppercase tracking-wide text-cyan-400/60 bg-cyan-500/5 rounded px-1.5 py-0.5">{categoryLabels[cat] || cat}</span>
+                              </td>
+                            </tr>
+                          )}
+                          {groups[cat].map((field: string) => (
+                            <tr key={field} className="border-b border-white/5 last:border-0">
+                              <td className="py-2 text-slate-300">
+                                <div className="font-medium leading-snug">{formatFieldLabel(field)}</div>
+                                <div className="text-slate-600 text-[10px] font-mono mt-0.5">{field}</div>
+                              </td>
+                              <td className="py-2 text-red-300 line-through opacity-70 align-top">{formatAnswerValue(field, entry.previous_answers?.[field])}</td>
+                              <td className="py-2 text-green-300 align-top">{formatAnswerValue(field, entry.new_answers?.[field])}</td>
+                            </tr>
+                          ))}
+                        </Fragment>
+                      ))
+                    })()}
                   </tbody>
                 </table>
               </div>

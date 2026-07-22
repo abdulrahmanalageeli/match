@@ -1047,7 +1047,7 @@ ${d.mapUrl}
 الرمز الخاص: *${secureToken}*
 
 🔗 رابط الدخول المباشر:
-https://match-omega.vercel.app/welcome?token=${secureToken}
+https://blindmatch.app/welcome?token=${secureToken}
 
 نتطلع لحضوركم وتمنى لكم تجربة ممتعة.
 
@@ -1106,7 +1106,7 @@ ${d.mapUrl}
 الرمز الخاص: *${secureToken}*
 
 رابط حسابك:
-https://match-omega.vercel.app/welcome?token=${secureToken}
+https://blindmatch.app/welcome?token=${secureToken}
 
 ⚡ *يرجى التحويل وإرسال الإيصال في أقرب وقت!*
 
@@ -1114,7 +1114,7 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
 
 فريق التوافق الأعمى`;
     } else if (templateType === 'survey-completion') {
-      return `*${bold('إكمال الاستبيان للفعالية القادمة')}* 📝\n\nالسلام عليكم *${name}*،\n\nℹ️ لاحظنا أن لديك *بعض الأسئلة غير المكتملة* في الاستبيان. لإتمام تسجيلك والانضمام للفعالية القادمة، يرجى تعبئة ما تبقى الآن.\n\n🔗 *رابط الدخول المباشر إلى الاستبيان:*\nhttps://match-omega.vercel.app/welcome?token=${secureToken}&redo=1\n\n🛑 *إيقاف التسجيل التلقائي:*\nhttps://match-omega.vercel.app/welcome?token=${secureToken}&disableauto=1\n\n📱 *معلوماتك:*\nرقم المشارك: *${assignedNumber}*\nالرمز الخاص: *${secureToken}*\n\n⏰ يفضل الإكمال اليوم لضمان إدراجك في الفعالية القادمة. إذا واجهت أي مشكلة، رد على هذه الرسالة وسنساعدك فوراً.\n\nفريق التوافق الأعمى`;
+      return `*${bold('إكمال الاستبيان للفعالية القادمة')}* 📝\n\nالسلام عليكم *${name}*،\n\nℹ️ لاحظنا أن لديك *بعض الأسئلة غير المكتملة* في الاستبيان. لإتمام تسجيلك والانضمام للفعالية القادمة، يرجى تعبئة ما تبقى الآن.\n\n🔗 *رابط الدخول المباشر إلى الاستبيان:*\nhttps://blindmatch.app/welcome?token=${secureToken}&redo=1\n\n🛑 *إيقاف التسجيل التلقائي:*\nhttps://blindmatch.app/welcome?token=${secureToken}&disableauto=1\n\n📱 *معلوماتك:*\nرقم المشارك: *${assignedNumber}*\nالرمز الخاص: *${secureToken}*\n\n⏰ يفضل الإكمال اليوم لضمان إدراجك في الفعالية القادمة. إذا واجهت أي مشكلة، رد على هذه الرسالة وسنساعدك فوراً.\n\nفريق التوافق الأعمى`;
     } else if (templateType === 'reminder') {
       return `*التوافق الأعمى* 🔔
 
@@ -1135,7 +1135,7 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
 
 📚 *مهم قبل الفعالية:*
 يرجى قراءة الشرح الكامل للفعالية من هذا الرابط لفهم كل التفاصيل قبل الحضور:
-https://match-omega.vercel.app/event3
+https://blindmatch.app/event3
 
 📱 *معلوماتك:*
 رقم المشارك: *${assignedNumber}*
@@ -1144,7 +1144,7 @@ https://match-omega.vercel.app/event3
 🗺️ *الموقع:* ${d.mapUrl}
 
 🔗 *رابط حسابك:*
-https://match-omega.vercel.app/welcome?token=${secureToken}
+https://blindmatch.app/welcome?token=${secureToken}
 
 فريق التوافق الأعمى`;
     }
@@ -1189,7 +1189,7 @@ ${d.mapUrl}
 رقم المشارك: *${assignedNumber}*
 الرمز: *${secureToken}*
 الرابط:
-https://match-omega.vercel.app/welcome?token=${secureToken}
+https://blindmatch.app/welcome?token=${secureToken}
 
 نتطلع لحضوركم!
 

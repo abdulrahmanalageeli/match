@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Button } from '../../components/ui/button';
 import { Textarea } from '../../components/ui/textarea';
 import { Checkbox } from '../../components/ui/checkbox';
-import { Check, Copy, MessageSquare, X, Clock, Info, HelpCircle, Settings, FileText } from 'lucide-react';
+import { Check, Copy, MessageSquare, X, Clock, Info, HelpCircle, Settings, FileText, Send } from 'lucide-react';
 
 interface WhatsappMessageModalProps {
   participant: any;
@@ -14,6 +14,8 @@ interface WhatsappMessageModalProps {
 export default function WhatsappMessageModal({ participant, isOpen, onClose, cohostTheme = false }: WhatsappMessageModalProps) {
   const [copied, setCopied] = useState(false);
   const [phoneCopied, setPhoneCopied] = useState(false);
+  const [twilioSending, setTwilioSending] = useState(false);
+  const [twilioResult, setTwilioResult] = useState<{ success: boolean; msg: string } | null>(null);
   const [urgencyLevel, setUrgencyLevel] = useState<'normal' | 'semi-urgent' | 'urgent'>('normal');
   const [templateType, setTemplateType] = useState<'match' | 'early-match' | 'early-reminder' | 'event-info' | 'faq-payment' | 'faq-location' | 'faq-timing' | 'reminder' | 'payment-reminder' | 'partner-info' | 'gender-confirmation' | 'survey-completion' | 'time-change'>('match');
   const [showCustomize, setShowCustomize] = useState(false);
@@ -300,6 +302,36 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
     
     const whatsappUrl = `https://wa.me/${participant.phone_number}`;
     window.open(whatsappUrl, '_blank');
+  };
+
+  const handleSendTwilio = async () => {
+    if (!participant?.phone_number) {
+      setTwilioResult({ success: false, msg: 'لا يوجد رقم هاتف لهذا المشارك' });
+      return;
+    }
+    setTwilioSending(true);
+    setTwilioResult(null);
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'send-twilio-whatsapp',
+          to: participant.phone_number,
+          message: exportMode ? exportMessage : message,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setTwilioResult({ success: true, msg: `تم الإرسال! SID: ${data.message_sid}` });
+      } else {
+        setTwilioResult({ success: false, msg: data.error || 'فشل الإرسال' });
+      }
+    } catch (e: any) {
+      setTwilioResult({ success: false, msg: e?.message || 'خطأ في الاتصال' });
+    } finally {
+      setTwilioSending(false);
+    }
   };
 
   if (!isOpen || !participant) return null;
@@ -736,6 +768,13 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
           )}
         </div>
 
+        {/* Twilio result feedback */}
+        {twilioResult && (
+          <div className={`mx-5 mb-3 p-3 rounded-lg text-sm ${twilioResult.success ? 'bg-green-900/40 text-green-300 border border-green-700' : 'bg-red-900/40 text-red-300 border border-red-700'}`}>
+            {twilioResult.success ? '✅ ' : '❌ '}{twilioResult.msg}
+          </div>
+        )}
+
         {/* Footer */}
         <div className="flex flex-col sm:flex-row gap-3 p-5 border-t border-slate-700">
           <Button onClick={() => {
@@ -748,6 +787,10 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
           <Button onClick={openWhatsApp} className="w-full bg-green-600 hover:bg-green-700 text-white">
             <MessageSquare className="w-4 h-4 mr-2" />
             فتح في واتساب
+          </Button>
+          <Button onClick={handleSendTwilio} disabled={twilioSending || !participant?.phone_number} className="w-full bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50">
+            {twilioSending ? <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+            {twilioSending ? 'جارٍ الإرسال...' : 'إرسال عبر Twilio'}
           </Button>
         </div>
       </div>

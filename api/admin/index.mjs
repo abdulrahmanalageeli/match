@@ -1437,6 +1437,61 @@ export default async function handler(req, res) {
         }
       }
 
+      // Send WhatsApp message via Twilio API
+      if (action === "send-twilio-whatsapp") {
+        try {
+          const { to, message } = req.body
+          if (!to || !message) {
+            return res.status(400).json({ error: "Missing 'to' or 'message'" })
+          }
+
+          const accountSid = process.env.TWILIO_ACCOUNT_SID
+          const authToken = process.env.TWILIO_AUTH_TOKEN
+          const sender = process.env.TWILIO_WHATSAPP_SENDER || "whatsapp:+13527387477"
+
+          if (!accountSid || !authToken) {
+            return res.status(500).json({ error: "Twilio credentials not configured" })
+          }
+
+          // Normalize recipient to whatsapp:+E.164 format
+          let normalizedTo = String(to).replace(/\s/g, "")
+          if (!normalizedTo.startsWith("whatsapp:")) {
+            normalizedTo = "whatsapp:" + normalizedTo
+          }
+
+          const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
+          const body = new URLSearchParams()
+          body.append("From", sender)
+          body.append("To", normalizedTo)
+          body.append("Body", message)
+
+          const twilioRes = await fetch(twilioUrl, {
+            method: "POST",
+            headers: {
+              "Authorization": "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64"),
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: body.toString(),
+          })
+
+          const twilioData = await twilioRes.json()
+
+          if (!twilioRes.ok) {
+            console.error("Twilio API error:", twilioData)
+            return res.status(twilioRes.status).json({ error: twilioData.message || "Twilio API error" })
+          }
+
+          return res.status(200).json({
+            success: true,
+            message_sid: twilioData.sid,
+            status: twilioData.status,
+          })
+        } catch (err) {
+          console.error("send-twilio-whatsapp exception:", err)
+          return res.status(500).json({ error: "Failed to send WhatsApp message" })
+        }
+      }
+
       if (action === "get-event-state") {
         console.log("Fetching event state for match_id:", STATIC_MATCH_ID);
         const { data, error } = await supabase

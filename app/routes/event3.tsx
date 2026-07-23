@@ -1507,8 +1507,19 @@ const ICE_BREAKERS: Record<number, { title: string; prompt: string; subPrompts?:
   },
 }
 
-function IceBreaker({ round, myInfo, tablemates }: {
-  round: number; myInfo: { number: number; name: string; gender: string | null } | null; tablemates: { number: number; first_name: string; gender: string | null }[]
+function seededShuffle<T>(arr: T[], seed: number): T[] {
+  const s = [...arr]
+  let state = seed
+  const rand = () => { state = (state * 1664525 + 1013904223) >>> 0; return state / 4294967296 }
+  for (let i = s.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1))
+    ;[s[i], s[j]] = [s[j], s[i]]
+  }
+  return s
+}
+
+function IceBreaker({ round, tableNumber = 0, myInfo, tablemates }: {
+  round: number; tableNumber?: number; myInfo: { number: number; name: string; gender: string | null } | null; tablemates: { number: number; first_name: string; gender: string | null }[]
 }) {
   const ib = ICE_BREAKERS[round]
   const [started, setStarted] = useState(false)
@@ -1521,13 +1532,9 @@ function IceBreaker({ round, myInfo, tablemates }: {
       ...(myInfo ? [{ name: myInfo.name, number: myInfo.number, isMe: true }] : []),
       ...tablemates.map(m => ({ name: m.first_name, number: m.number, isMe: false })),
     ]
-    // Shuffle and pick random start
-    const shuffled = [...all]
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1))
-      ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-    }
-    setOrder(shuffled)
+    // Deterministic seed from table number + round — same order on every device at the table
+    const seed = (tableNumber * 1000 + round) >>> 0
+    setOrder(seededShuffle(all, seed))
     setCurrentIdx(0)
     setStarted(true)
   }
@@ -1730,15 +1737,15 @@ function RockPaperScissors({ accent = "pink", autoDone = false, onDone }: { acce
 }
 
 // ─── Round Screen ─────────────────────────────────────────────────────────────
-function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myInfo, onGroupsOpenChange }: {
-  token: string; phase: string; timerActive: boolean; timerStart: string | null; timerDuration: number; myInfo: { number: number; name: string; gender: string | null } | null; onGroupsOpenChange?: (open: boolean) => void
+function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, correctedNow, myInfo, onGroupsOpenChange }: {
+  token: string; phase: string; timerActive: boolean; timerStart: string | null; timerDuration: number; correctedNow?: () => number; myInfo: { number: number; name: string; gender: string | null } | null; onGroupsOpenChange?: (open: boolean) => void
 }) {
   const round = parseInt(phase.replace("round", "")) || 1
   const [assignment, setAssignment] = useState<any>(null)
   const [timeLeft, setTimeLeft] = useState(0)
   const [showGroups, setShowGroups] = useState(false)
   useEffect(() => { onGroupsOpenChange?.(showGroups) }, [showGroups, onGroupsOpenChange])
-  const [showTutorial, setShowTutorial] = useState(round === 1)
+  const [showTutorial, setShowTutorial] = useState(round === 1 && (typeof window === "undefined" || sessionStorage.getItem(`e3_tut_round_${round}`) !== "1"))
   const wakeLockRef = useRef<any>(null)
   const { popup, clearPopup } = useTimerWarnings(timerActive, timeLeft, timerDuration, true, {
     oneMinSublabel: "خلصوا النشاط وتأكدوا من أسماء الجميع — الترتيب يبدأ بعد دقيقة ومحدد بوقت"
@@ -1751,15 +1758,17 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
   useEffect(() => {
     if (!timerActive || !timerStart) { setTimeLeft(0); return }
     const update = () => {
-      const elapsed = Math.floor((Date.now() - new Date(timerStart).getTime()) / 1000)
+      const now = correctedNow ? correctedNow() : Date.now()
+      const elapsed = Math.floor((now - new Date(timerStart).getTime()) / 1000)
       setTimeLeft(Math.max(0, timerDuration - elapsed))
     }
     update()
     const iv = setInterval(update, 1000)
     return () => clearInterval(iv)
-  }, [timerActive, timerStart, timerDuration])
+  }, [timerActive, timerStart, timerDuration, correctedNow])
 
   // Wake lock: prevent screen sleep during active round
+  const wakeLockActive = timerActive && timeLeft > 0
   useEffect(() => {
     const requestWakeLock = async () => {
       try {
@@ -1768,11 +1777,11 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
         }
       } catch {}
     }
-    if (timerActive && timeLeft > 0) requestWakeLock()
+    if (wakeLockActive) requestWakeLock()
     return () => {
       if (wakeLockRef.current) { try { wakeLockRef.current.release() } catch {} wakeLockRef.current = null }
     }
-  }, [timerActive, timeLeft])
+  }, [wakeLockActive])
 
   // Vibrate when timer starts or when 10 seconds remain
   // (sound/vibration handled by useTimerWarnings hook above)
@@ -1925,7 +1934,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
 
           {/* Ice Breaker — appears before group activities */}
           {assignment?.tablemates && (
-            <IceBreaker round={round} myInfo={myInfo} tablemates={assignment.tablemates} />
+            <IceBreaker round={round} tableNumber={assignment.table} myInfo={myInfo} tablemates={assignment.tablemates} />
           )}
 
           {/* Groups button */}
@@ -1960,7 +1969,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
 
       {/* ── Tutorial Overlay ─────────────────────────────────────────── */}
       <AnimatePresence>
-        {showTutorial && <RoundTutorial onClose={() => setShowTutorial(false)} />}
+        {showTutorial && <RoundTutorial onClose={() => { setShowTutorial(false); try { sessionStorage.setItem(`e3_tut_round_${round}`, "1") } catch {} }} />}
       </AnimatePresence>
 
       {/* ── Groups Overlay Modal ────────────────────────────────────── */}
@@ -2010,7 +2019,7 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
 }
 
 // ─── Ranking Screen ───────────────────────────────────────────────────────────
-function RankingScreen({ token, completedRounds, currentPhase, timerActive, timerStart, timerDuration }: { token: string, completedRounds: number, currentPhase: string, timerActive: boolean, timerStart: string | null, timerDuration: number }) {
+function RankingScreen({ token, completedRounds, currentPhase, timerActive, timerStart, timerDuration, correctedNow }: { token: string, completedRounds: number, currentPhase: string, timerActive: boolean, timerStart: string | null, timerDuration: number, correctedNow?: () => number }) {
   const [people, setPeople] = useState<any[]>([])
   const [order, setOrder] = useState<number[]>([])
   const [newNums, setNewNums] = useState<Set<number>>(new Set())
@@ -2022,7 +2031,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   const [savingNote, setSavingNote] = useState<number | null>(null)
   const [showConfirm, setShowConfirm] = useState(false)
   const [showPhaseWarning, setShowPhaseWarning] = useState(false)
-  const [showRankTutorial, setShowRankTutorial] = useState(true)
+  const [showRankTutorial, setShowRankTutorial] = useState(typeof window === "undefined" || sessionStorage.getItem('e3_tut_ranking') !== "1")
   const [timeLeft, setTimeLeft] = useState(300) // fallback, overwritten by server timer
   const [autoSaving, setAutoSaving] = useState(false)
   const [isShuffling, setIsShuffling] = useState(false)
@@ -2071,7 +2080,8 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   useEffect(() => {
     if (!timerActive || !timerStart) { setTimeLeft(timerDuration || 300); return }
     const update = () => {
-      const elapsed = Math.floor((Date.now() - new Date(timerStart).getTime()) / 1000)
+      const now = correctedNow ? correctedNow() : Date.now()
+      const elapsed = Math.floor((now - new Date(timerStart).getTime()) / 1000)
       const remaining = Math.max(0, timerDuration - elapsed)
       setTimeLeft(remaining)
       if (remaining === 90 && !submittedRef.current) {
@@ -2086,7 +2096,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
     update()
     const iv = setInterval(update, 1000)
     return () => clearInterval(iv)
-  }, [timerActive, timerStart, timerDuration])
+  }, [timerActive, timerStart, timerDuration, correctedNow])
 
   // Auto-save when timer hits 0 and not manually submitted
   useEffect(() => {
@@ -2469,7 +2479,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
 
       {/* Ranking Tutorial Overlay */}
       <AnimatePresence>
-        {showRankTutorial && <RankingTutorial onClose={() => setShowRankTutorial(false)} />}
+        {showRankTutorial && <RankingTutorial onClose={() => { setShowRankTutorial(false); try { sessionStorage.setItem('e3_tut_ranking', "1") } catch {} }} />}
       </AnimatePresence>
 
       {/* 90-second auto-lock warning popup */}
@@ -2862,7 +2872,7 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
 }
 
 // ─── SOS / Organizer Chat Box ───────────────────────────────────────────────
-function SOSButton({ token, position = 'top' }: { token: string; position?: 'top' | 'bottom' }) {
+function SOSButton({ token, position = 'top', sosRequests }: { token: string; position?: 'top' | 'bottom'; sosRequests?: any[] }) {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<{ id: string; text: string; from: 'user' | 'organizer'; status: string; timestamp?: string }[]>([])
   const [input, setInput] = useState("")
@@ -2876,12 +2886,10 @@ function SOSButton({ token, position = 'top' }: { token: string; position?: 'top
   useEffect(() => { openRef.current = open }, [open])
 
   useEffect(() => {
-    const doFetch = async () => {
-      const d = await call('e3-sos-check', token)
-      if (d.error || !d.requests) return
+    if (!sosRequests) return
       const allMsgs: { id: string; text: string; from: 'user' | 'organizer'; status: string; timestamp?: string }[] = []
       let orgCount = 0
-      for (const r of d.requests) {
+      for (const r of sosRequests) {
         const history = Array.isArray(r.chat_history) ? r.chat_history : []
         for (const msg of history) {
           allMsgs.push({ id: r.id + '-' + msg.timestamp, text: msg.text, from: msg.from === 'organizer' ? 'organizer' : 'user', status: r.status, timestamp: msg.timestamp })
@@ -2904,11 +2912,7 @@ function SOSButton({ token, position = 'top' }: { token: string; position?: 'top
       if (allMsgs.length > 0) setShowOptions(false)
       else setShowOptions(true)
       if (orgCount === 0 && allMsgs.length === 0) setHasUnread(false)
-    }
-    doFetch()
-    const iv = setInterval(doFetch, 10000)
-    return () => clearInterval(iv)
-  }, [token])
+  }, [sosRequests])
 
   useEffect(() => {
     if (open) { setHasUnread(false); scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) }
@@ -3137,8 +3141,8 @@ function SOSButton({ token, position = 'top' }: { token: string; position?: 'top
 }
 
 // ─── Phase 2 Reveal Screen ────────────────────────────────────────────────────
-function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDuration }: {
-  token: string; eventId?: number | string; timerActive: boolean; timerStart: string | null; timerDuration: number
+function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDuration, correctedNow }: {
+  token: string; eventId?: number | string; timerActive: boolean; timerStart: string | null; timerDuration: number; correctedNow?: () => number
 }) {
   const [data, setData] = useState<any>(null)
   const [revealed, setRevealed] = useState(false)
@@ -3149,7 +3153,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   const [view, setView] = useState<'partner' | 'session' | 'feedback'>('partner')
   const [showPrompt, setShowPrompt] = useState(false)
   const [feedbackDone, setFeedbackDone] = useState(false)
-  const [showTutorial, setShowTutorial] = useState(true)
+  const [showTutorial, setShowTutorial] = useState(typeof window === "undefined" || sessionStorage.getItem('e3_tut_phase2') !== "1")
   const [showSessionTips, setShowSessionTips] = useState(false)
   const [rejoined, setRejoined] = useState(false)
   const [icebreakerDone, setIcebreakerDone] = useState(false)
@@ -3161,6 +3165,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
       if (!d.error) {
         setData(d)
         if (d.my_word) { setWord(d.my_word); setWordSubmitted(true) }
+        if (d.feedback_submitted) setFeedbackDone(true)
       }
     })
   }, [token])
@@ -3168,13 +3173,14 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   useEffect(() => {
     if (!timerActive || !timerStart) { setTimeLeft(0); return }
     const update = () => {
-      const elapsed = Math.floor((Date.now() - new Date(timerStart).getTime()) / 1000)
+      const now = correctedNow ? correctedNow() : Date.now()
+      const elapsed = Math.floor((now - new Date(timerStart).getTime()) / 1000)
       setTimeLeft(Math.max(0, timerDuration - elapsed))
     }
     update()
     const iv = setInterval(update, 1000)
     return () => clearInterval(iv)
-  }, [timerActive, timerStart, timerDuration])
+  }, [timerActive, timerStart, timerDuration, correctedNow])
 
   // Timer warnings handled by useTimerWarnings hook (sound + vibration + popup)
   // 60s banner still shown separately for persistent visual
@@ -3186,13 +3192,14 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   // Only auto-rejoin if the participant had already clicked "وصلت إلى الطاولة" before refresh
   useEffect(() => {
     if (!data || !timerActive || !timerStart) return
-    const elapsed = Math.floor((Date.now() - new Date(timerStart).getTime()) / 1000)
+    const now = correctedNow ? correctedNow() : Date.now()
+    const elapsed = Math.floor((now - new Date(timerStart).getTime()) / 1000)
     const remaining = Math.max(0, timerDuration - elapsed)
     const arrived = hasArrived(eventId, "phase2")
     if (arrived && elapsed > 60 && remaining > 0) { setTableRevealed(true); setRevealed(true); setView('session'); setRejoined(true) }
     else if (arrived && remaining <= 0) { setTableRevealed(true); setRevealed(true); setView('feedback') }
     else if (!arrived && remaining <= 0) { setTableRevealed(true); setRevealed(true); setView('feedback') }
-  }, [data, timerActive, timerStart, timerDuration, eventId])
+  }, [data, timerActive, timerStart, timerDuration, eventId, correctedNow])
 
   // Transition to feedback when session time runs out
   useEffect(() => {
@@ -3655,7 +3662,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
 
       {/* ── Tutorial Overlay ─────────────────────────────────────────── */}
       <AnimatePresence>
-        {showTutorial && <OneToOneTutorial onClose={() => setShowTutorial(false)} />}
+        {showTutorial && <OneToOneTutorial onClose={() => { setShowTutorial(false); try { sessionStorage.setItem('e3_tut_phase2', "1") } catch {} }} />}
       </AnimatePresence>
 
       {/* ── Timer Warning Popup ─────────────────────────────────────── */}
@@ -3667,8 +3674,8 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
 }
 
 // ─── Phase 3 Reveal Screen ────────────────────────────────────────────────────
-function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDuration }: {
-  token: string; eventId?: number | string; timerActive: boolean; timerStart: string | null; timerDuration: number
+function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDuration, correctedNow }: {
+  token: string; eventId?: number | string; timerActive: boolean; timerStart: string | null; timerDuration: number; correctedNow?: () => number
 }) {
   const [revealed, setRevealed] = useState(false)
   const [tableRevealed, setTableRevealed] = useState(false)
@@ -3697,18 +3704,20 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
 
   useEffect(() => {
     if (data?.word_submitted) setWordSubmitted(true)
+    if (data?.feedback_submitted) setFeedbackDone(true)
   }, [data])
 
   useEffect(() => {
     if (!timerActive || !timerStart) { setTimeLeft(0); return }
     const update = () => {
-      const elapsed = Math.floor((Date.now() - new Date(timerStart).getTime()) / 1000)
+      const now = correctedNow ? correctedNow() : Date.now()
+      const elapsed = Math.floor((now - new Date(timerStart).getTime()) / 1000)
       setTimeLeft(Math.max(0, timerDuration - elapsed))
     }
     update()
     const iv = setInterval(update, 1000)
     return () => clearInterval(iv)
-  }, [timerActive, timerStart, timerDuration])
+  }, [timerActive, timerStart, timerDuration, correctedNow])
 
   // Timer warnings handled by useTimerWarnings hook (sound + vibration + popup)
   // 60s banner still shown separately for persistent visual
@@ -3720,13 +3729,14 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   // Only auto-rejoin if the participant had already clicked "وصلت إلى الطاولة" before refresh
   useEffect(() => {
     if (!data || !timerActive || !timerStart) return
-    const elapsed = Math.floor((Date.now() - new Date(timerStart).getTime()) / 1000)
+    const now = correctedNow ? correctedNow() : Date.now()
+    const elapsed = Math.floor((now - new Date(timerStart).getTime()) / 1000)
     const remaining = Math.max(0, timerDuration - elapsed)
     const arrived = hasArrived(eventId, "phase3")
     if (arrived && elapsed > 60 && remaining > 0) { setTableRevealed(true); setRevealed(false); setView('partner'); setRejoined(true) }
     else if (arrived && remaining <= 0) { setTableRevealed(true); setRevealed(true); setView('feedback') }
     else if (!arrived && remaining <= 0) { setTableRevealed(true); setRevealed(true); setView('feedback') }
-  }, [data, timerActive, timerStart, timerDuration, eventId])
+  }, [data, timerActive, timerStart, timerDuration, eventId, correctedNow])
 
   // Transition to feedback when session time runs out
   useEffect(() => {
@@ -4218,8 +4228,8 @@ function ProcessingScreen({ phase }: { phase: string }) {
 }
 
 // ─── Break Screen ─────────────────────────────────────────────────────────────
-function BreakScreen({ timerActive, timerStart, timerDuration }: {
-  timerActive: boolean; timerStart: string | null; timerDuration: number
+function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow }: {
+  timerActive: boolean; timerStart: string | null; timerDuration: number; correctedNow?: () => number
 }) {
   const [timeLeft, setTimeLeft] = useState(0)
   const [showBreakWarning, setShowBreakWarning] = useState(false)
@@ -4228,13 +4238,14 @@ function BreakScreen({ timerActive, timerStart, timerDuration }: {
   useEffect(() => {
     if (!timerActive || !timerStart) { setTimeLeft(0); return }
     const update = () => {
-      const elapsed = Math.floor((Date.now() - new Date(timerStart).getTime()) / 1000)
+      const now = correctedNow ? correctedNow() : Date.now()
+      const elapsed = Math.floor((now - new Date(timerStart).getTime()) / 1000)
       setTimeLeft(Math.max(0, timerDuration - elapsed))
     }
     update()
     const iv = setInterval(update, 1000)
     return () => clearInterval(iv)
-  }, [timerActive, timerStart, timerDuration])
+  }, [timerActive, timerStart, timerDuration, correctedNow])
 
   // Timer warnings handled by useTimerWarnings hook (sound + vibration + popup)
   // 60s banner still shown separately for persistent visual
@@ -4952,27 +4963,18 @@ function NotEnrolledScreen() {
 
 
 // ─── Notification Modal ───────────────────────────────────────────────────────
-function NotificationModal({ token }: { token: string }) {
+function NotificationModal({ token, notification }: { token: string; notification?: { pending: boolean; notif_id?: string; title?: string; body?: string | null; icon?: string; created_at?: string } }) {
   const [notif, setNotif] = useState<{ notif_id: string; title: string; body: string | null; icon: string; created_at: string } | null>(null)
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
   const [closing, setClosing] = useState(false)
 
   useEffect(() => {
-    if (!token) return
-    let active = true
-    const poll = async () => {
-      const d = await call("e3-get-notification", token)
-      if (!active) return
-      if (d.pending && d.notif_id && !dismissed.has(d.notif_id)) {
-        setNotif({ notif_id: d.notif_id, title: d.title, body: d.body, icon: d.icon, created_at: d.created_at })
-      } else {
-        setNotif(null)
-      }
+    if (notification?.pending && notification.notif_id && !dismissed.has(notification.notif_id)) {
+      setNotif({ notif_id: notification.notif_id, title: notification.title!, body: notification.body ?? null, icon: notification.icon || 'info', created_at: notification.created_at! })
+    } else {
+      setNotif(null)
     }
-    poll()
-    const iv = setInterval(poll, 5000)
-    return () => { active = false; clearInterval(iv) }
-  }, [token, dismissed])
+  }, [notification, dismissed])
 
   const dismiss = () => {
     if (!notif) return
@@ -5037,36 +5039,28 @@ function NotificationModal({ token }: { token: string }) {
 }
 
 // ─── Mood Check Modal ─────────────────────────────────────────────────────────
-function MoodCheckModal({ token, name }: { token: string; name?: string | null }) {
+function MoodCheckModal({ token, name, moodCheck }: { token: string; name?: string | null; moodCheck?: { pending: boolean; check_id?: string; triggered_at?: string } }) {
   const [pendingCheck, setPendingCheck] = useState<{ check_id: string; triggered_at: string } | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
   const [selected, setSelected] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!token) return
-    let active = true
-    const poll = async () => {
-      const d = await call("e3-get-mood-check", token)
-      if (!active) return
-      if (d.pending && d.check_id && !dismissed.has(d.check_id)) {
-        // Auto-expire after 5 minutes
-        const ageMs = Date.now() - new Date(d.triggered_at).getTime()
-        if (ageMs > 5 * 60 * 1000) {
-          await call("e3-submit-mood-check", token, { check_id: d.check_id, mood: "expired" })
-          setDismissed(prev => new Set(prev).add(d.check_id))
-          setPendingCheck(null)
-        } else {
-          setPendingCheck({ check_id: d.check_id, triggered_at: d.triggered_at })
-        }
-      } else {
+    if (!moodCheck) return
+    if (moodCheck.pending && moodCheck.check_id && !dismissed.has(moodCheck.check_id)) {
+      // Auto-expire after 5 minutes
+      const ageMs = Date.now() - new Date(moodCheck.triggered_at!).getTime()
+      if (ageMs > 5 * 60 * 1000) {
+        call("e3-submit-mood-check", token, { check_id: moodCheck.check_id, mood: "expired" })
+        setDismissed(prev => new Set(prev).add(moodCheck.check_id))
         setPendingCheck(null)
+      } else {
+        setPendingCheck({ check_id: moodCheck.check_id, triggered_at: moodCheck.triggered_at! })
       }
+    } else {
+      setPendingCheck(null)
     }
-    poll()
-    const iv = setInterval(poll, 5000)
-    return () => { active = false; clearInterval(iv) }
-  }, [token, dismissed])
+  }, [moodCheck, dismissed, token])
 
   const submit = async (mood: "happy" | "neutral" | "not_great") => {
     if (!pendingCheck) return
@@ -5168,7 +5162,7 @@ export default function Event3Page() {
 
   const fetchState = useCallback(async () => {
     if (!token) throw new Error("No token")
-    const d = await call("e3-get-state", token)
+    const d = await call("e3-heartbeat", token)
     if (d.error) {
       if (d.error.includes("Invalid") || d.error.includes("token") || d.error.includes("expired") || d.error.includes("لم يتم العثور") || d.error.includes("غير مسجّل")) {
         setTokenError(true)
@@ -5185,6 +5179,17 @@ export default function Event3Page() {
     interval: 5000,
     enabled: !!token && !tokenError
   })
+
+  // Clock skew correction: offset between server time and local Date.now()
+  const clockOffsetRef = useRef(0)
+  useEffect(() => {
+    if (eventState?.server_time) {
+      const serverMs = new Date(eventState.server_time).getTime()
+      const localMs = Date.now()
+      clockOffsetRef.current = serverMs - localMs
+    }
+  }, [eventState?.server_time])
+  const correctedNow = useCallback(() => Date.now() + clockOffsetRef.current, [])
 
   // Phase change detection — play sound + vibrate when event starts (setup → round1)
   const prevPhaseRef = useRef<string | null>(null)
@@ -5254,7 +5259,7 @@ export default function Event3Page() {
   )
 
   const { phase, timer_active, timer_start, timer_duration } = eventState
-  const timerProps = { timerActive: timer_active, timerStart: timer_start, timerDuration: timer_duration }
+  const timerProps = { timerActive: timer_active, timerStart: timer_start, timerDuration: timer_duration, correctedNow }
 
   if (enrolled === false) return <NotEnrolledScreen />
 
@@ -5300,12 +5305,12 @@ export default function Event3Page() {
       </div>
 
       {/* SOS button — hidden on final reveal, break, ranking pages, and when groups overlay is open */}
-      {enrolled && !rankingMatch && phase !== "final_reveal" && phase !== "break" && !groupsOpen && <SOSButton token={token} position="bottom" />}
+      {enrolled && !rankingMatch && phase !== "final_reveal" && phase !== "break" && !groupsOpen && <SOSButton token={token} position="bottom" sosRequests={eventState?.sos_requests} />}
 
-      {/* Mood check popup — polls for admin-triggered mood checks */}
-      {enrolled && token && <MoodCheckModal token={token} name={myInfo?.name} />}
-      {/* Notification popup — polls for admin-sent notifications */}
-      {enrolled && token && <NotificationModal token={token} />}
+      {/* Mood check popup — receives mood check data from heartbeat */}
+      {enrolled && token && <MoodCheckModal token={token} name={myInfo?.name} moodCheck={eventState?.mood_check} />}
+      {/* Notification popup — receives notification data from heartbeat */}
+      {enrolled && token && <NotificationModal token={token} notification={eventState?.notification} />}
 
       {/* AI Welcome popup — shows once after welcome screen */}
       {showAiWelcome && token && <AiWelcomePopup token={token} onDone={() => {

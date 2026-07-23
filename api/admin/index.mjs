@@ -117,7 +117,8 @@ function e3GreedyMutualMatching(rankings, participantMap = new Map(), exclusions
     if (ri !== -1 && rj !== -1) {
       const pA = participantMap.get(pi), pB = participantMap.get(pj)
       const oppGender = pA && pB && pA.gender && pB.gender && pA.gender !== pB.gender ? 1 : 0
-      pairs.push({ a: pi, b: pj, score: ri + rj, oppGender })
+      const lambda = 0.5
+      pairs.push({ a: pi, b: pj, score: ri + rj + lambda * Math.abs(ri - rj), oppGender })
     }
   }
   pairs.sort((a, b) => a.score - b.score || b.oppGender - a.oppGender)
@@ -7180,10 +7181,9 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             if (exclusions.size > 0) console.log(`Phase 2: ${exclusions.size} conflict-of-interest exclusions loaded`)
             matches = e3GreedyMutualMatching(rankings, participantMap, exclusions)
           }
-          // Fetch existing phase3 data before deleting to preserve it
+          // Fetch existing data to preserve phase3/words/feedback on re-run
           const { data: existingRows } = await supabase.from("event3_matches").select("participant_number,phase3_partner,phase3_score,phase3_word,phase2_word,phase2_feedback,phase3_feedback,match_preference").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           const existingMap = new Map((existingRows || []).map(r => [r.participant_number, r]))
-          await supabase.from("event3_matches").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           const rows = []
           const seen = new Set()
           const pairs = []
@@ -7206,8 +7206,14 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             rows.push({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, participant_number: p, phase2_partner: partner, phase2_score: score, phase3_partner: exP.phase3_partner || null, phase3_score: exP.phase3_score || null, phase3_word: exP.phase3_word || null, phase2_word: exP.phase2_word || null, phase2_feedback: exP.phase2_feedback || null, phase3_feedback: exP.phase3_feedback || null, match_preference: exP.match_preference || null })
             rows.push({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, participant_number: partner, phase2_partner: p, phase2_score: score, phase3_partner: exPartner.phase3_partner || null, phase3_score: exPartner.phase3_score || null, phase3_word: exPartner.phase3_word || null, phase2_word: exPartner.phase2_word || null, phase2_feedback: exPartner.phase2_feedback || null, phase3_feedback: exPartner.phase3_feedback || null, match_preference: exPartner.match_preference || null })
           }
-          const { error } = await supabase.from("event3_matches").insert(rows)
+          const { error } = await supabase.from("event3_matches").upsert(rows, { onConflict: "match_id,event_id,participant_number" })
           if (error) return res.status(500).json({ error: error.message })
+          // Null out phase2_partner/phase2_score for participants not in the new pairing
+          const allNums = (e3p || []).map(r => r.participant_number)
+          const unmatchedNums = allNums.filter(n => !seen.has(n))
+          if (unmatchedNums.length > 0) {
+            await supabase.from("event3_matches").update({ phase2_partner: null, phase2_score: null }).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_number", unmatchedNums)
+          }
           // Assign each pair a table (pair index + 1) stored as round=20
           await supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("round", 20)
           const tableRows = []

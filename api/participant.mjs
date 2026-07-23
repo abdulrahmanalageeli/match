@@ -3069,8 +3069,8 @@ Please respond in JSON format:
     const currentEventId = e3EventState?.current_event_id || 20
 
     try {
-      // e3-get-state (no auth required)
-      if (action === "e3-get-state") {
+      // e3-get-state (no auth required) / e3-heartbeat (combines state + sos + mood + notification)
+      if (action === "e3-get-state" || action === "e3-heartbeat") {
         const { data: stateRow } = await supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration,global_timer_round,phase2_score_revealed,phase3_score_revealed,current_event_id").eq("match_id", E3_MATCH_ID).single()
         const phase = stateRow?.phase || "setup"
         const activeEventId = stateRow?.current_event_id || currentEventId
@@ -3148,7 +3148,21 @@ Please respond in JSON format:
           const firstName = fullName.split(" ")[0] || fullName
           myInfo = { number: myNumber, name: firstName, gender: participant.gender || sd?.answers?.gender || sd?.gender || null }
         }
-        return res.status(200).json({ phase, event_id: activeEventId, timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration || 1260, timer_round: stateRow?.global_timer_round || null, my_assignment: myAssignment, enrolled: myAssignment?.enrolled || false, my_info: myInfo, participants_selected: participantsSelected || 0, phase2_score_revealed: stateRow?.phase2_score_revealed || false, phase3_score_revealed: stateRow?.phase3_score_revealed || false })
+        const baseResponse = { phase, event_id: activeEventId, timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration || 1260, timer_round: stateRow?.global_timer_round || null, my_assignment: myAssignment, enrolled: myAssignment?.enrolled || false, my_info: myInfo, participants_selected: participantsSelected || 0, phase2_score_revealed: stateRow?.phase2_score_revealed || false, phase3_score_revealed: stateRow?.phase3_score_revealed || false, server_time: new Date().toISOString() }
+
+        // Heartbeat: also fetch SOS, mood check, and notification data in one round-trip
+        if (action === "e3-heartbeat" && participant) {
+          const [sosRes, moodRes, notifRes] = await Promise.all([
+            supabase.from("organizer_requests").select("id,status,message,organizer_reply,created_at,chat_history,request_type,table_info").eq("participant_token", token).order("created_at", { ascending: true }),
+            supabase.from("event3_mood_checks").select("check_id,triggered_at").eq("match_id", E3_MATCH_ID).eq("participant_number", myNumber).is("mood", null).order("triggered_at", { ascending: false }).limit(1).maybeSingle(),
+            supabase.from("event3_notifications").select("notif_id,title,body,icon,created_at").eq("match_id", E3_MATCH_ID).eq("participant_number", myNumber).is("seen_at", null).order("created_at", { ascending: false }).limit(1).maybeSingle()
+          ])
+          baseResponse.sos_requests = sosRes.data || []
+          baseResponse.mood_check = moodRes.data ? { pending: true, check_id: moodRes.data.check_id, triggered_at: moodRes.data.triggered_at } : { pending: false }
+          baseResponse.notification = notifRes.data ? { pending: true, notif_id: notifRes.data.notif_id, title: notifRes.data.title, body: notifRes.data.body, icon: notifRes.data.icon, created_at: notifRes.data.created_at } : { pending: false }
+        }
+
+        return res.status(200).json(baseResponse)
       }
 
       // e3-login-by-phone (no token required)
@@ -3245,7 +3259,7 @@ Please respond in JSON format:
 
       // e3-get-phase2-reveal
       if (action === "e3-get-phase2-reveal") {
-        const { data: matchRow } = await supabase.from("event3_matches").select("phase2_partner,phase2_word,phase2_score").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber).maybeSingle()
+        const { data: matchRow } = await supabase.from("event3_matches").select("phase2_partner,phase2_word,phase2_score,phase2_feedback").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber).maybeSingle()
         if (!matchRow || !matchRow.phase2_partner) return res.status(404).json({ error: "No Phase 2 match found yet" })
         const [{ data: partner }, { data: tableRow }, { data: myRankings }, { data: partnerRankedMe }] = await Promise.all([
           supabase.from("participants").select("assigned_number,name,survey_data,mbti_personality_type,age").eq("match_id", MAIN_MATCH).eq("assigned_number", matchRow.phase2_partner).single(),
@@ -3294,7 +3308,7 @@ Please respond in JSON format:
             total: Math.round(parseFloat(cacheRow.total_compatibility_score)),
           }
         }
-        return res.status(200).json({ partner_number: matchRow.phase2_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), table_number: tableRow?.table_number ?? null, word_submitted: !!matchRow.phase2_word, my_word: matchRow.phase2_word || null, compatibility_score: breakdown?.total ?? phase2Score, partner_mbti: partnerMbti, partner_attachment: partnerAttachment, partner_communication: partnerCommunication, partner_age: partnerAge, breakdown, is_backup: isBackup, mutual_choice: iRankedPartner && partnerRankedMeBack })
+        return res.status(200).json({ partner_number: matchRow.phase2_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), table_number: tableRow?.table_number ?? null, word_submitted: !!matchRow.phase2_word, my_word: matchRow.phase2_word || null, feedback_submitted: !!matchRow.phase2_feedback, compatibility_score: breakdown?.total ?? phase2Score, partner_mbti: partnerMbti, partner_attachment: partnerAttachment, partner_communication: partnerCommunication, partner_age: partnerAge, breakdown, is_backup: isBackup, mutual_choice: iRankedPartner && partnerRankedMeBack })
       }
 
       // e3-submit-phase2-word
@@ -3308,7 +3322,7 @@ Please respond in JSON format:
 
       // e3-get-phase3-reveal
       if (action === "e3-get-phase3-reveal") {
-        const { data: matchRow } = await supabase.from("event3_matches").select("phase3_partner,phase3_score,phase3_word,phase2_partner").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber).maybeSingle()
+        const { data: matchRow } = await supabase.from("event3_matches").select("phase3_partner,phase3_score,phase3_word,phase2_partner,phase3_feedback").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber).maybeSingle()
         if (!matchRow || !matchRow.phase3_partner) return res.status(404).json({ error: "No Phase 3 match found yet" })
         const { data: partner } = await supabase.from("participants").select("assigned_number,name,survey_data,mbti_personality_type,age").eq("match_id", MAIN_MATCH).eq("assigned_number", matchRow.phase3_partner).single()
         const sd = typeof partner?.survey_data === "string" ? JSON.parse(partner.survey_data || "{}") : (partner?.survey_data || {})
@@ -3337,7 +3351,7 @@ Please respond in JSON format:
         }
         // Fetch table number from round 30 session_assignments
         const { data: tableRow } = await supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("round", 30).eq("participant_id", myNumber).maybeSingle()
-        return res.status(200).json({ partner_number: matchRow.phase3_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), compatibility_score: breakdown?.total ?? matchRow.phase3_score ?? 0, same_as_phase2: matchRow.phase2_partner === matchRow.phase3_partner, word_submitted: !!matchRow.phase3_word, partner_mbti: partnerMbti, partner_attachment: partnerAttachment, partner_communication: partnerCommunication, partner_age: partnerAge, breakdown, table_number: tableRow?.table_number ?? null })
+        return res.status(200).json({ partner_number: matchRow.phase3_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), compatibility_score: breakdown?.total ?? matchRow.phase3_score ?? 0, same_as_phase2: matchRow.phase2_partner === matchRow.phase3_partner, word_submitted: !!matchRow.phase3_word, feedback_submitted: !!matchRow.phase3_feedback, partner_mbti: partnerMbti, partner_attachment: partnerAttachment, partner_communication: partnerCommunication, partner_age: partnerAge, breakdown, table_number: tableRow?.table_number ?? null })
       }
 
       // e3-submit-phase3-word
@@ -3349,19 +3363,20 @@ Please respond in JSON format:
         return res.status(200).json({ message: "Word saved" })
       }
 
-      // e3-submit-phase2-feedback
+      // e3-submit-phase2-feedback (first-write-wins)
       if (action === "e3-submit-phase2-feedback") {
         const fb = req.body.feedback || {}
+        const { data: existing } = await supabase.from("event3_matches").select("phase2_feedback").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber).maybeSingle()
+        if (existing?.phase2_feedback) return res.status(200).json({ message: "Feedback already submitted" })
         const { error } = await supabase.from("event3_matches").update({ phase2_feedback: fb }).eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber)
         if (error) return res.status(500).json({ error: error.message })
         return res.status(200).json({ message: "Feedback saved" })
       }
-      // e3-submit-phase3-feedback
+      // e3-submit-phase3-feedback (first-write-wins)
       if (action === "e3-submit-phase3-feedback") {
         const fb = req.body.feedback || {}
-        // Preserve any match_preference previously nested here by the e3-submit-match-preference
-        // fallback (used when the dedicated column is unavailable), so it isn't lost.
         const { data: existingRow } = await supabase.from("event3_matches").select("phase3_feedback").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber).maybeSingle()
+        if (existingRow?.phase3_feedback) return res.status(200).json({ message: "Feedback already submitted" })
         const existingPref = existingRow?.phase3_feedback?.match_preference
         const mergedFb = existingPref && fb.match_preference === undefined ? { ...fb, match_preference: existingPref } : fb
         const { error } = await supabase.from("event3_matches").update({ phase3_feedback: mergedFb }).eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber)

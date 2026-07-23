@@ -2703,8 +2703,8 @@ const fetchParticipants = async () => {
       link.click()
       document.body.removeChild(link)
 
-      const eventCounts = eventIds.map(eid => ({ eid, count: pairs.filter((p: any) => p.event_id === eid).length }))
-      toast.success(`Exported ${pairs.length} pairs (${eventCounts.map(e => `E${e.eid}: ${e.count}`).join(', ')})`)
+      const eventCounts = eventIds.map((eid: number) => ({ eid, count: pairs.filter((p: any) => p.event_id === eid).length }))
+      toast.success(`Exported ${pairs.length} pairs (${eventCounts.map((e: { eid: number; count: number }) => `E${e.eid}: ${e.count}`).join(', ')})`)
 
       // Show label map popup for organizer reference
       labelMap.sort((a, b) => a.number - b.number)

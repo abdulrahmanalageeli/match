@@ -5052,7 +5052,7 @@ function MoodCheckModal({ token, name, moodCheck }: { token: string; name?: stri
       const ageMs = Date.now() - new Date(moodCheck.triggered_at!).getTime()
       if (ageMs > 5 * 60 * 1000) {
         call("e3-submit-mood-check", token, { check_id: moodCheck.check_id, mood: "expired" })
-        setDismissed(prev => new Set(prev).add(moodCheck.check_id))
+        setDismissed(prev => new Set(prev).add(moodCheck.check_id!))
         setPendingCheck(null)
       } else {
         setPendingCheck({ check_id: moodCheck.check_id, triggered_at: moodCheck.triggered_at! })

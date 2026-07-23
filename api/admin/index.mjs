@@ -1437,12 +1437,15 @@ export default async function handler(req, res) {
         }
       }
 
-      // Send WhatsApp message via Twilio API
+      // Send WhatsApp message via Twilio API (free-form text or template)
       if (action === "send-twilio-whatsapp") {
         try {
-          const { to, message } = req.body
-          if (!to || !message) {
-            return res.status(400).json({ error: "Missing 'to' or 'message'" })
+          const { to, message, templateSid, variables } = req.body
+          if (!to) {
+            return res.status(400).json({ error: "Missing 'to'" })
+          }
+          if (!message && !templateSid) {
+            return res.status(400).json({ error: "Missing 'message' or 'templateSid'" })
           }
 
           const accountSid = process.env.TWILIO_ACCOUNT_SID
@@ -1463,7 +1466,17 @@ export default async function handler(req, res) {
           const body = new URLSearchParams()
           body.append("From", sender)
           body.append("To", normalizedTo)
-          body.append("Body", message)
+
+          if (templateSid) {
+            // Template-based send with ContentSid + ContentVariables
+            body.append("ContentSid", templateSid)
+            if (variables && typeof variables === "object") {
+              body.append("ContentVariables", JSON.stringify(variables))
+            }
+          } else {
+            // Free-form text send
+            body.append("Body", message)
+          }
 
           const twilioRes = await fetch(twilioUrl, {
             method: "POST",

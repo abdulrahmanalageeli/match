@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Button } from '../../components/ui/button';
 import { Textarea } from '../../components/ui/textarea';
 import { Checkbox } from '../../components/ui/checkbox';
-import { Check, Copy, MessageSquare, X, Clock, Info, HelpCircle, Settings, FileText, Send } from 'lucide-react';
+import { Check, Copy, MessageSquare, X, Clock, Info, HelpCircle, Settings, FileText, Send, Zap } from 'lucide-react';
 
 interface WhatsappMessageModalProps {
   participant: any;
@@ -16,6 +16,8 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose, coh
   const [phoneCopied, setPhoneCopied] = useState(false);
   const [twilioSending, setTwilioSending] = useState(false);
   const [twilioResult, setTwilioResult] = useState<{ success: boolean; msg: string } | null>(null);
+  const [templateMode, setTemplateMode] = useState(false);
+  const [templateSid, setTemplateSid] = useState('');
   const [urgencyLevel, setUrgencyLevel] = useState<'normal' | 'semi-urgent' | 'urgent'>('normal');
   const [templateType, setTemplateType] = useState<'match' | 'early-match' | 'early-reminder' | 'event-info' | 'faq-payment' | 'faq-location' | 'faq-timing' | 'reminder' | 'payment-reminder' | 'partner-info' | 'gender-confirmation' | 'survey-completion' | 'time-change'>('match');
   const [showCustomize, setShowCustomize] = useState(false);
@@ -304,6 +306,29 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
     window.open(whatsappUrl, '_blank');
   };
 
+  const buildTemplateVariables = () => {
+    const name = participant.name || participant.survey_data?.name || `المشارك #${participant.assigned_number}`;
+    const autoStatus = participant.signup_for_next_event ? 'مفعّل ✅' : 'متوقف ❌';
+    return {
+      1: name,
+      2: String(config.earlyPrice),
+      3: config.latePriceSwitchLabel,
+      4: String(config.latePrice),
+      5: config.stcPay,
+      6: config.bankName,
+      7: config.iban,
+      8: config.locationName,
+      9: config.eventDateText,
+      10: config.eventTimeText,
+      11: config.arrivalTimeText,
+      12: config.mapUrl,
+      13: String(participant.assigned_number),
+      14: String(participant.secure_token || ''),
+      15: 'https://meetu.ps/e/Q9zQM/Lh7Kd/i',
+      16: autoStatus,
+    };
+  };
+
   const handleSendTwilio = async () => {
     if (!participant?.phone_number) {
       setTwilioResult({ success: false, msg: 'لا يوجد رقم هاتف لهذا المشارك' });
@@ -312,14 +337,20 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
     setTwilioSending(true);
     setTwilioResult(null);
     try {
+      const payload: any = {
+        action: 'send-twilio-whatsapp',
+        to: participant.phone_number,
+      };
+      if (templateMode && templateSid) {
+        payload.templateSid = templateSid;
+        payload.variables = buildTemplateVariables();
+      } else {
+        payload.message = exportMode ? exportMessage : message;
+      }
       const res = await fetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'send-twilio-whatsapp',
-          to: participant.phone_number,
-          message: exportMode ? exportMessage : message,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (res.ok && data.success) {
@@ -765,6 +796,24 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
                 dir="rtl"
               />
             </div>
+          )}
+        </div>
+
+        {/* Twilio template mode toggle */}
+        <div className="mx-5 mb-3 flex items-center gap-3">
+          <label className="inline-flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+            <Checkbox checked={templateMode} onCheckedChange={(v:any) => setTemplateMode(!!v)} />
+            <Zap className="w-4 h-4 text-purple-400" />
+            وضع القالب (Template)
+          </label>
+          {templateMode && (
+            <input
+              type="text"
+              placeholder="Template SID (e.g. HXxxxxxxxx...)"
+              value={templateSid}
+              onChange={e => setTemplateSid(e.target.value)}
+              className="flex-1 bg-slate-800 border border-slate-600 text-white text-sm rounded px-3 py-2"
+            />
           )}
         </div>
 

@@ -317,10 +317,10 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
     if (templateTypeTwilio === 'reminder') {
       return {
         1: name,
-        2: config.eventDateText,
-        3: config.eventTimeText,
-        4: config.locationName,
-        5: config.mapUrl,
+        2: config.eventDateText || 'TBD',
+        3: config.eventTimeText || 'TBD',
+        4: config.locationName || 'TBD',
+        5: config.mapUrl || 'https://maps.google.com',
       };
     }
 
@@ -328,31 +328,31 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
       const savings = Math.max(Number(config.latePrice) - Number(config.earlyPrice), 0);
       return {
         1: name,
-        2: String(config.earlyPrice),
-        3: config.latePriceSwitchLabel,
-        4: String(config.latePrice),
-        5: String(savings),
-        6: config.stcPay,
-        7: config.bankName,
-        8: config.iban,
+        2: String(config.earlyPrice || '0'),
+        3: config.latePriceSwitchLabel || 'TBD',
+        4: String(config.latePrice || '0'),
+        5: String(savings || '0'),
+        6: config.stcPay || 'TBD',
+        7: config.bankName || 'TBD',
+        8: config.iban || 'TBD',
       };
     }
 
     return {
       1: name,
-      2: String(config.earlyPrice),
-      3: config.latePriceSwitchLabel,
-      4: String(config.latePrice),
-      5: config.stcPay,
-      6: config.bankName,
-      7: config.iban,
-      8: config.locationName,
-      9: config.eventDateText,
-      10: config.eventTimeText,
-      11: config.arrivalTimeText,
-      12: config.mapUrl,
-      13: String(p.assigned_number),
-      14: String(p.secure_token || ''),
+      2: String(config.earlyPrice || '0'),
+      3: config.latePriceSwitchLabel || 'TBD',
+      4: String(config.latePrice || '0'),
+      5: config.stcPay || 'TBD',
+      6: config.bankName || 'TBD',
+      7: config.iban || 'TBD',
+      8: config.locationName || 'TBD',
+      9: config.eventDateText || 'TBD',
+      10: config.eventTimeText || 'TBD',
+      11: config.arrivalTimeText || 'TBD',
+      12: config.mapUrl || 'https://maps.google.com',
+      13: String(p.assigned_number || '0'),
+      14: String(p.secure_token || 'N/A'),
       15: 'https://meetu.ps/e/Q9zQM/Lh7Kd/i',
       16: autoStatus,
     };

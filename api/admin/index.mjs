@@ -1473,6 +1473,12 @@ export default async function handler(req, res) {
             if (variables && typeof variables === "object") {
               body.append("ContentVariables", JSON.stringify(variables))
             }
+            console.log("Twilio template send:", {
+              templateSid,
+              to: normalizedTo,
+              from: sender,
+              variables: JSON.stringify(variables),
+            })
           } else {
             // Free-form text send
             body.append("Body", message)

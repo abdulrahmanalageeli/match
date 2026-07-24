@@ -7595,7 +7595,97 @@ Proceed?`
                     </div>
                     )}
 
-                    {/* Gender Preference Selector (hide on co-host mobile) */}
+                    {/* Twilio Webhook Status Badges */}
+                    {!isCohost && (p.attendance_confirmed !== null && p.attendance_confirmed !== undefined) && (
+                    <div className="flex flex-wrap items-center justify-center gap-1 mb-2">
+                      {p.attendance_confirmed === true && (
+                        <span className="px-2 py-1 text-xs rounded-full border bg-emerald-500/20 text-emerald-300 border-emerald-400/30">
+                          ✅ حضر
+                        </span>
+                      )}
+                      {p.attendance_confirmed === false && (
+                        <span className="px-2 py-1 text-xs rounded-full border bg-red-500/20 text-red-300 border-red-400/30">
+                          ❌ اعتذر
+                        </span>
+                      )}
+                      {p.receipt_url && (
+                        <>
+                          <a
+                            href={p.receipt_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2 py-1 text-xs rounded-full border bg-cyan-500/20 text-cyan-300 border-cyan-400/30 hover:bg-cyan-500/30 transition-all"
+                            title="View receipt"
+                          >
+                            📸 إيصال
+                          </a>
+                          {p.receipt_approved ? (
+                            <span className="px-2 py-1 text-xs rounded-full border bg-green-600/20 text-green-300 border-green-500/30">
+                              ✓ مقبول
+                            </span>
+                          ) : p.receipt_rejected ? (
+                            <span className="px-2 py-1 text-xs rounded-full border bg-orange-500/20 text-orange-300 border-orange-400/30">
+                              ✗ مرفوض
+                            </span>
+                          ) : (
+                            <div className="flex gap-1">
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    const res = await fetch('/api/admin', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ action: 'approve-receipt', assigned_number: p.assigned_number })
+                                    });
+                                    const data = await res.json();
+                                    if (data.success) {
+                                      toast.success('Receipt approved & participant notified');
+                                      fetchParticipants();
+                                    } else {
+                                      toast.error(data.error || 'Failed to approve');
+                                    }
+                                  } catch (err) {
+                                    toast.error('Failed to approve receipt');
+                                  }
+                                }}
+                                className="px-2 py-1 text-xs rounded-full border bg-green-600/20 text-green-300 border-green-500/30 hover:bg-green-600/40 transition-all"
+                                title="Approve receipt"
+                              >
+                                ✓ قبول
+                              </button>
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  const reason = prompt('Reason for rejection? (optional)');
+                                  try {
+                                    const res = await fetch('/api/admin', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ action: 'reject-receipt', assigned_number: p.assigned_number, reason: reason || '' })
+                                    });
+                                    const data = await res.json();
+                                    if (data.success) {
+                                      toast.success('Receipt rejected & participant notified');
+                                      fetchParticipants();
+                                    } else {
+                                      toast.error(data.error || 'Failed to reject');
+                                    }
+                                  } catch (err) {
+                                    toast.error('Failed to reject receipt');
+                                  }
+                                }}
+                                className="px-2 py-1 text-xs rounded-full border bg-orange-500/20 text-orange-300 border-orange-400/30 hover:bg-orange-500/40 transition-all"
+                                title="Reject receipt"
+                              >
+                                ✗ رفض
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                    )}
                     <div className={`mt-3 pt-3 border-t border-white/10 ${isCohost ? 'hidden md:block' : ''}`}>
                       {(() => {
                         // Compute current preference for quick visibility (normalized)
@@ -7821,6 +7911,7 @@ Proceed?`
           setWhatsappParticipant(null);
         }}
         cohostTheme={isCohost}
+        allParticipants={isCohost ? [] : participants}
       />
 
       {/* Participant Results Modal */}

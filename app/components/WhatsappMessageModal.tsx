@@ -2,22 +2,26 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Button } from '../../components/ui/button';
 import { Textarea } from '../../components/ui/textarea';
 import { Checkbox } from '../../components/ui/checkbox';
-import { Check, Copy, MessageSquare, X, Clock, Info, HelpCircle, Settings, FileText, Send, Zap } from 'lucide-react';
+import { Check, Copy, MessageSquare, X, Clock, Info, HelpCircle, Settings, FileText, Send, Zap, Users } from 'lucide-react';
 
 interface WhatsappMessageModalProps {
   participant: any;
   isOpen: boolean;
   onClose: () => void;
   cohostTheme?: boolean;
+  allParticipants?: any[];
 }
 
-export default function WhatsappMessageModal({ participant, isOpen, onClose, cohostTheme = false }: WhatsappMessageModalProps) {
+export default function WhatsappMessageModal({ participant, isOpen, onClose, cohostTheme = false, allParticipants = [] }: WhatsappMessageModalProps) {
   const [copied, setCopied] = useState(false);
   const [phoneCopied, setPhoneCopied] = useState(false);
   const [twilioSending, setTwilioSending] = useState(false);
   const [twilioResult, setTwilioResult] = useState<{ success: boolean; msg: string } | null>(null);
   const [templateMode, setTemplateMode] = useState(false);
   const [templateSid, setTemplateSid] = useState('');
+  const [templateTypeTwilio, setTemplateTypeTwilio] = useState<'match' | 'reminder' | 'payment'>('match');
+  const [bulkSending, setBulkSending] = useState(false);
+  const [bulkResult, setBulkResult] = useState<{ successCount: number; failCount: number; results: any[] } | null>(null);
   const [urgencyLevel, setUrgencyLevel] = useState<'normal' | 'semi-urgent' | 'urgent'>('normal');
   const [templateType, setTemplateType] = useState<'match' | 'early-match' | 'early-reminder' | 'event-info' | 'faq-payment' | 'faq-location' | 'faq-timing' | 'reminder' | 'payment-reminder' | 'partner-info' | 'gender-confirmation' | 'survey-completion' | 'time-change'>('match');
   const [showCustomize, setShowCustomize] = useState(false);
@@ -306,9 +310,34 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
     window.open(whatsappUrl, '_blank');
   };
 
-  const buildTemplateVariables = () => {
-    const name = participant.name || participant.survey_data?.name || `المشارك #${participant.assigned_number}`;
-    const autoStatus = participant.signup_for_next_event ? 'مفعّل ✅' : 'متوقف ❌';
+  const buildVariablesForParticipant = (p: any) => {
+    const name = p.name || p.survey_data?.name || `المشارك #${p.assigned_number}`;
+    const autoStatus = p.signup_for_next_event ? 'مفعّل ✅' : 'متوقف ❌';
+
+    if (templateTypeTwilio === 'reminder') {
+      return {
+        1: name,
+        2: config.eventDateText,
+        3: config.eventTimeText,
+        4: config.locationName,
+        5: config.mapUrl,
+      };
+    }
+
+    if (templateTypeTwilio === 'payment') {
+      const savings = Math.max(Number(config.latePrice) - Number(config.earlyPrice), 0);
+      return {
+        1: name,
+        2: String(config.earlyPrice),
+        3: config.latePriceSwitchLabel,
+        4: String(config.latePrice),
+        5: String(savings),
+        6: config.stcPay,
+        7: config.bankName,
+        8: config.iban,
+      };
+    }
+
     return {
       1: name,
       2: String(config.earlyPrice),
@@ -322,11 +351,57 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
       10: config.eventTimeText,
       11: config.arrivalTimeText,
       12: config.mapUrl,
-      13: String(participant.assigned_number),
-      14: String(participant.secure_token || ''),
+      13: String(p.assigned_number),
+      14: String(p.secure_token || ''),
       15: 'https://meetu.ps/e/Q9zQM/Lh7Kd/i',
       16: autoStatus,
     };
+  };
+
+  const handleBulkSendTwilio = async () => {
+    if (!templateSid) {
+      setBulkResult({ successCount: 0, failCount: 0, results: [] });
+      setTwilioResult({ success: false, msg: 'أدخل Template SID أولاً' });
+      return;
+    }
+    const eligible = allParticipants.filter(p => p.phone_number);
+    if (eligible.length === 0) {
+      setTwilioResult({ success: false, msg: 'لا يوجد مشاركون بأرقام هاتف' });
+      return;
+    }
+    if (!confirm(`إرسال القالب إلى ${eligible.length} مشارك؟`)) return;
+
+    setBulkSending(true);
+    setBulkResult(null);
+    setTwilioResult(null);
+    try {
+      const variablesMap: Record<string, any> = {};
+      for (const p of eligible) {
+        variablesMap[String(p.assigned_number)] = buildVariablesForParticipant(p);
+      }
+
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'bulk-twilio-whatsapp',
+          templateSid,
+          participantNumbers: eligible.map(p => p.assigned_number),
+          variablesMap,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setBulkResult({ successCount: data.successCount, failCount: data.failCount, results: data.results });
+        setTwilioResult({ success: true, msg: `تم إرسال ${data.successCount}/${data.total} بنجاح${data.failCount > 0 ? `، فشل ${data.failCount}` : ''}` });
+      } else {
+        setTwilioResult({ success: false, msg: data.error || 'فشل الإرسال الجماعي' });
+      }
+    } catch (e: any) {
+      setTwilioResult({ success: false, msg: e?.message || 'خطأ في الاتصال' });
+    } finally {
+      setBulkSending(false);
+    }
   };
 
   const handleSendTwilio = async () => {
@@ -343,7 +418,7 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
       };
       if (templateMode && templateSid) {
         payload.templateSid = templateSid;
-        payload.variables = buildTemplateVariables();
+        payload.variables = buildVariablesForParticipant(participant);
       } else {
         payload.message = exportMode ? exportMessage : message;
       }
@@ -800,20 +875,63 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
         </div>
 
         {/* Twilio template mode toggle */}
-        <div className="mx-5 mb-3 flex items-center gap-3">
+        <div className="mx-5 mb-3 flex flex-col gap-3">
           <label className="inline-flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
             <Checkbox checked={templateMode} onCheckedChange={(v:any) => setTemplateMode(!!v)} />
             <Zap className="w-4 h-4 text-purple-400" />
             وضع القالب (Template)
           </label>
           {templateMode && (
-            <input
-              type="text"
-              placeholder="Template SID (e.g. HXxxxxxxxx...)"
-              value={templateSid}
-              onChange={e => setTemplateSid(e.target.value)}
-              className="flex-1 bg-slate-800 border border-slate-600 text-white text-sm rounded px-3 py-2"
-            />
+            <div className="flex flex-col gap-2">
+              <select
+                value={templateTypeTwilio}
+                onChange={e => {
+                  const val = e.target.value as 'match' | 'reminder' | 'payment';
+                  setTemplateTypeTwilio(val);
+                  if (val === 'match') setTemplateSid('');
+                  if (val === 'reminder') setTemplateSid('');
+                  if (val === 'payment') setTemplateSid('');
+                }}
+                className="bg-slate-800 border border-slate-600 text-white text-sm rounded px-3 py-2"
+              >
+                <option value="match">match_notification (إشعار التوافق)</option>
+                <option value="reminder">event_reminder (تذكير الفعالية)</option>
+                <option value="payment">payment_reminder (تذكير الدفع)</option>
+              </select>
+              <input
+                type="text"
+                placeholder="Template SID (e.g. HXxxxxxxxx...)"
+                value={templateSid}
+                onChange={e => setTemplateSid(e.target.value)}
+                className="bg-slate-800 border border-slate-600 text-white text-sm rounded px-3 py-2"
+              />
+              <p className="text-xs text-slate-500">
+                {templateTypeTwilio === 'match' && '16 متغير — تأكيد/اعتذار/تبديل تلقائي'}
+                {templateTypeTwilio === 'reminder' && '5 متغيرات — تأكيد/اعتذار'}
+                {templateTypeTwilio === 'payment' && '8 متغيرات — تأكيد/اعتذار'}
+              </p>
+            </div>
+          )}
+          {templateMode && allParticipants.length > 0 && (
+            <div className="flex items-center gap-2 mt-2">
+              <Button
+                onClick={handleBulkSendTwilio}
+                disabled={bulkSending || !templateSid}
+                className="bg-orange-600 hover:bg-orange-700 text-white text-sm disabled:opacity-50"
+              >
+                {bulkSending ? <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2" /> : <Users className="w-4 h-4 mr-2" />}
+                {bulkSending ? 'جارٍ الإرسال الجماعي...' : `إرسال جماعي (${allParticipants.filter(p => p.phone_number).length})`}
+              </Button>
+            </div>
+          )}
+          {bulkResult && (
+            <div className="mt-2 max-h-40 overflow-y-auto text-xs text-slate-400 bg-slate-800/50 rounded p-2">
+              {bulkResult.results.map((r: any, i: number) => (
+                <div key={i} className={r.success ? 'text-green-400' : 'text-red-400'}>
+                  #{r.number} {r.name}: {r.success ? '✅' : `❌ ${r.error}`}
+                </div>
+              ))}
+            </div>
           )}
         </div>
 

@@ -236,7 +236,7 @@ export default async function handler(req, res) {
     if (method === "GET") {
       const { data, error } = await supabase
         .from("participants")
-        .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, phone_number, event_id, name, signup_for_next_event, auto_signup_next_event, updated_at, same_gender_preference, any_gender_preference, survey_data_updated_at, created_at, next_event_signup_timestamp, nationality")
+        .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, phone_number, event_id, name, signup_for_next_event, auto_signup_next_event, updated_at, same_gender_preference, any_gender_preference, survey_data_updated_at, created_at, next_event_signup_timestamp, nationality, attendance_confirmed, attendance_confirmed_at, attendance_denied_at, receipt_url, receipt_received_at, receipt_approved, receipt_approved_at, receipt_rejected, receipt_rejected_at")
         .eq("match_id", STATIC_MATCH_ID)
         .neq("assigned_number", 9999)  // Exclude organizer participant
         .order("assigned_number", { ascending: true })
@@ -1502,6 +1502,246 @@ export default async function handler(req, res) {
         } catch (err) {
           console.error("send-twilio-whatsapp exception:", err)
           return res.status(500).json({ error: "Failed to send WhatsApp message" })
+        }
+      }
+
+      // Bulk send WhatsApp template to all matched participants
+      if (action === "bulk-twilio-whatsapp") {
+        try {
+          const { templateSid, participantNumbers, variablesMap } = req.body
+          if (!templateSid || !participantNumbers || !Array.isArray(participantNumbers)) {
+            return res.status(400).json({ error: "Missing 'templateSid' or 'participantNumbers'" })
+          }
+
+          const accountSid = process.env.TWILIO_ACCOUNT_SID
+          const authToken = process.env.TWILIO_AUTH_TOKEN
+          const sender = process.env.TWILIO_WHATSAPP_SENDER || "whatsapp:+13527387477"
+
+          if (!accountSid || !authToken) {
+            return res.status(500).json({ error: "Twilio credentials not configured" })
+          }
+
+          // Fetch participant data for the given numbers
+          const { data: participants } = await supabase
+            .from("participants")
+            .select("assigned_number, name, phone_number, secure_token, signup_for_next_event, survey_data")
+            .eq("match_id", STATIC_MATCH_ID)
+            .in("assigned_number", participantNumbers)
+            .not("phone_number", "is", null)
+
+          if (!participants || participants.length === 0) {
+            return res.status(400).json({ error: "No participants with phone numbers found" })
+          }
+
+          const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
+          const authHeader = "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64")
+
+          const results = []
+          let successCount = 0
+          let failCount = 0
+
+          for (const p of participants) {
+            try {
+              let normalizedTo = String(p.phone_number).replace(/\s/g, "")
+              if (!normalizedTo.startsWith("whatsapp:")) {
+                normalizedTo = "whatsapp:" + normalizedTo
+              }
+
+              // Build variables for this participant
+              let vars = {}
+              if (typeof variablesMap === "function") {
+                // Can't send functions — this won't happen, but keep for safety
+              } else if (variablesMap && typeof variablesMap === "object") {
+                // If variablesMap is a map of assigned_number -> variables object
+                vars = variablesMap[p.assigned_number] || variablesMap[String(p.assigned_number)] || {}
+              }
+
+              const body = new URLSearchParams()
+              body.append("From", sender)
+              body.append("To", normalizedTo)
+              body.append("ContentSid", templateSid)
+              if (Object.keys(vars).length > 0) {
+                body.append("ContentVariables", JSON.stringify(vars))
+              }
+
+              const twilioRes = await fetch(twilioUrl, {
+                method: "POST",
+                headers: {
+                  "Authorization": authHeader,
+                  "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body: body.toString(),
+              })
+
+              const twilioData = await twilioRes.json()
+
+              if (twilioRes.ok) {
+                results.push({ number: p.assigned_number, name: p.name, success: true, sid: twilioData.sid })
+                successCount++
+              } else {
+                results.push({ number: p.assigned_number, name: p.name, success: false, error: twilioData.message || "Twilio error" })
+                failCount++
+              }
+            } catch (err) {
+              results.push({ number: p.assigned_number, name: p.name, success: false, error: err.message })
+              failCount++
+            }
+          }
+
+          return res.status(200).json({
+            success: true,
+            total: participants.length,
+            successCount,
+            failCount,
+            results,
+          })
+        } catch (err) {
+          console.error("bulk-twilio-whatsapp exception:", err)
+          return res.status(500).json({ error: "Failed to bulk send WhatsApp messages" })
+        }
+      }
+
+      // Approve receipt — update DB and notify participant via WhatsApp
+      if (action === "approve-receipt") {
+        try {
+          const { assigned_number } = req.body
+          if (!assigned_number) {
+            return res.status(400).json({ error: "Missing 'assigned_number'" })
+          }
+
+          const { data: participant, error: fetchError } = await supabase
+            .from("participants")
+            .select("id, phone_number, receipt_url, name")
+            .eq("match_id", STATIC_MATCH_ID)
+            .eq("assigned_number", assigned_number)
+            .single()
+
+          if (fetchError || !participant) {
+            return res.status(404).json({ error: "Participant not found" })
+          }
+
+          const { error: updateError } = await supabase
+            .from("participants")
+            .update({
+              receipt_approved: true,
+              receipt_approved_at: new Date().toISOString(),
+              receipt_rejected: false,
+              receipt_rejected_at: null,
+              PAID_DONE: true,
+            })
+            .eq("id", participant.id)
+
+          if (updateError) {
+            return res.status(500).json({ error: updateError.message })
+          }
+
+          // Send WhatsApp confirmation to participant
+          if (participant.phone_number) {
+            const accountSid = process.env.TWILIO_ACCOUNT_SID
+            const authToken = process.env.TWILIO_AUTH_TOKEN
+            const sender = process.env.TWILIO_WHATSAPP_SENDER || "whatsapp:+13527387477"
+            if (accountSid && authToken) {
+              let normalizedTo = String(participant.phone_number).replace(/\s/g, "")
+              if (!normalizedTo.startsWith("whatsapp:")) {
+                normalizedTo = "whatsapp:" + normalizedTo
+              }
+              const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
+              const body = new URLSearchParams()
+              body.append("From", sender)
+              body.append("To", normalizedTo)
+              body.append("Body", "✅ تم تأكيد استلام الإيصال والموافقة عليه! حجزكم مؤكد للفعالية. نراك هناك! 🎉")
+              try {
+                await fetch(twilioUrl, {
+                  method: "POST",
+                  headers: {
+                    "Authorization": "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64"),
+                    "Content-Type": "application/x-www-form-urlencoded",
+                  },
+                  body: body.toString(),
+                })
+              } catch (e) {
+                console.error("Failed to send WhatsApp approval notification:", e)
+              }
+            }
+          }
+
+          return res.status(200).json({ success: true, message: "Receipt approved and participant notified" })
+        } catch (err) {
+          console.error("approve-receipt exception:", err)
+          return res.status(500).json({ error: "Failed to approve receipt" })
+        }
+      }
+
+      // Reject receipt — update DB and notify participant via WhatsApp
+      if (action === "reject-receipt") {
+        try {
+          const { assigned_number, reason } = req.body
+          if (!assigned_number) {
+            return res.status(400).json({ error: "Missing 'assigned_number'" })
+          }
+
+          const { data: participant, error: fetchError } = await supabase
+            .from("participants")
+            .select("id, phone_number, receipt_url, name")
+            .eq("match_id", STATIC_MATCH_ID)
+            .eq("assigned_number", assigned_number)
+            .single()
+
+          if (fetchError || !participant) {
+            return res.status(404).json({ error: "Participant not found" })
+          }
+
+          const { error: updateError } = await supabase
+            .from("participants")
+            .update({
+              receipt_rejected: true,
+              receipt_rejected_at: new Date().toISOString(),
+              receipt_approved: false,
+              receipt_approved_at: null,
+            })
+            .eq("id", participant.id)
+
+          if (updateError) {
+            return res.status(500).json({ error: updateError.message })
+          }
+
+          // Send WhatsApp rejection to participant
+          if (participant.phone_number) {
+            const accountSid = process.env.TWILIO_ACCOUNT_SID
+            const authToken = process.env.TWILIO_AUTH_TOKEN
+            const sender = process.env.TWILIO_WHATSAPP_SENDER || "whatsapp:+13527387477"
+            if (accountSid && authToken) {
+              let normalizedTo = String(participant.phone_number).replace(/\s/g, "")
+              if (!normalizedTo.startsWith("whatsapp:")) {
+                normalizedTo = "whatsapp:" + normalizedTo
+              }
+              const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
+              const body = new URLSearchParams()
+              body.append("From", sender)
+              body.append("To", normalizedTo)
+              const rejectMsg = reason
+                ? `⚠️ تعذّر قبول الإيصال. السبب: ${reason}. يرجى إرسال إيصال صحيح.`
+                : "⚠️ تعذّر قبول الإيصال. يرجى التأكد من وضوح الإيصال وإعادة إرساله."
+              body.append("Body", rejectMsg)
+              try {
+                await fetch(twilioUrl, {
+                  method: "POST",
+                  headers: {
+                    "Authorization": "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64"),
+                    "Content-Type": "application/x-www-form-urlencoded",
+                  },
+                  body: body.toString(),
+                })
+              } catch (e) {
+                console.error("Failed to send WhatsApp rejection notification:", e)
+              }
+            }
+          }
+
+          return res.status(200).json({ success: true, message: "Receipt rejected and participant notified" })
+        } catch (err) {
+          console.error("reject-receipt exception:", err)
+          return res.status(500).json({ error: "Failed to reject receipt" })
         }
       }
 

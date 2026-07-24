@@ -576,6 +576,14 @@ export default function WelcomePage() {
   const [showNewUserTypePopup, setShowNewUserTypePopup] = useState(false)
   const [newUserTokenInput, setNewUserTokenInput] = useState("")
   const [newUserTokenLoading, setNewUserTokenLoading] = useState(false)
+
+  // Forgot token OTP recovery state
+  const [showForgotTokenModal, setShowForgotTokenModal] = useState(false)
+  const [forgotPhone, setForgotPhone] = useState("")
+  const [forgotOtp, setForgotOtp] = useState("")
+  const [forgotStep, setForgotStep] = useState<'phone' | 'otp'>('phone')
+  const [forgotLoading, setForgotLoading] = useState(false)
+  const [forgotError, setForgotError] = useState<string | null>(null)
   const [showFAQPopup, setShowFAQPopup] = useState(false)
   
   // Contact Form states
@@ -3979,6 +3987,82 @@ export default function WelcomePage() {
     }
   };
 
+  // Handle forgot token OTP via Twilio WhatsApp
+  const handleRequestOtp = async () => {
+    if (!forgotPhone.trim().replace(/\D/g, "")) {
+      setForgotError("يرجى إدخال رقم الجوال")
+      return
+    }
+    setForgotLoading(true)
+    setForgotError(null)
+    try {
+      const res = await fetch("/api/participant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "request-otp",
+          phone_number: forgotPhone.trim(),
+        }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast.success("تم إرسال رمز التحقق إلى واتسابك")
+        setForgotStep('otp')
+      } else {
+        setForgotError(data.error || "فشل في إرسال الرمز")
+      }
+    } catch (err) {
+      setForgotError("حدث خطأ في الاتصال")
+    } finally {
+      setForgotLoading(false)
+    }
+  }
+
+  const handleVerifyOtp = async () => {
+    if (!forgotOtp.trim()) {
+      setForgotError("يرجى إدخال رمز التحقق")
+      return
+    }
+    setForgotLoading(true)
+    setForgotError(null)
+    try {
+      const res = await fetch("/api/participant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "verify-otp",
+          phone_number: forgotPhone.trim(),
+          otp: forgotOtp.trim(),
+        }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        const token = data.secure_token
+        if (token) {
+          localStorage.setItem('blindmatch_result_token', token)
+          localStorage.setItem('blindmatch_returning_token', token)
+          if (data.name) localStorage.setItem('blindmatch_participant_name', data.name)
+          if (data.assigned_number) localStorage.setItem('blindmatch_participant_number', String(data.assigned_number))
+        }
+        toast.success(`مرحباً ${data.name || ''}! تم استعادة بياناتك`)
+        setShowForgotTokenModal(false)
+        setForgotPhone("")
+        setForgotOtp("")
+        setForgotStep('phone')
+        // Reload with token in URL
+        if (token) {
+          window.location.href = `/welcome?token=${token}`
+        }
+      } else {
+        setForgotError(data.error || "رمز التحقق غير صحيح")
+      }
+    } catch (err) {
+      setForgotError("حدث خطأ في الاتصال")
+    } finally {
+      setForgotLoading(false)
+    }
+  }
+
   // Handle new user selection
   const handleNewUser = () => {
     setShowNewUserTypePopup(false);
@@ -6003,6 +6087,14 @@ export default function WelcomePage() {
                       className="w-full px-4 py-3 text-sm rounded-lg border bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-500/20"
                       dir="ltr"
                     />
+                    <div className="text-center">
+                      <button
+                        onClick={() => { setShowForgotTokenModal(true); setForgotStep('phone'); setForgotError(null); setShowNewUserTypePopup(false); }}
+                        className="text-xs text-cyan-300 hover:text-cyan-200 underline"
+                      >
+                        نسيت الرمز؟ استرجع عبر الواتساب
+                      </button>
+                    </div>
                     <button
                       onClick={handleReturningUserToken}
                       disabled={newUserTokenLoading || !newUserTokenInput.trim()}
@@ -6040,6 +6132,109 @@ export default function WelcomePage() {
                   </div>
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Forgot Token OTP Modal */}
+        {showForgotTokenModal && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+            <div className="max-w-md w-full bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-600/50 rounded-2xl shadow-2xl p-6 relative" dir="rtl">
+              <button
+                onClick={() => { setShowForgotTokenModal(false); setForgotPhone(""); setForgotOtp(""); setForgotStep('phone'); setForgotError(null); }}
+                className="absolute top-4 right-4 text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <div className="text-center mb-6">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center mx-auto mb-4 shadow-lg">
+                  <MessageSquare className="w-8 h-8 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">استرجاع الرمز المميز</h3>
+                <p className="text-slate-300 text-sm">سنرسل رمز تحقق إلى رقم جوالك على الواتساب</p>
+              </div>
+
+              {forgotStep === 'phone' ? (
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-slate-300 text-sm block mb-2">رقم الجوال</label>
+                    <input
+                      type="tel"
+                      value={forgotPhone}
+                      onChange={(e) => setForgotPhone(e.target.value)}
+                      placeholder="مثال: 0501234567"
+                      className="w-full px-4 py-3 text-sm rounded-lg border bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+                      dir="ltr"
+                    />
+                  </div>
+                  {forgotError && (
+                    <div className="text-red-300 text-sm bg-red-900/20 border border-red-500/30 rounded-lg p-3">
+                      {forgotError}
+                    </div>
+                  )}
+                  <button
+                    onClick={handleRequestOtp}
+                    disabled={forgotLoading}
+                    className="w-full px-4 py-3 bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium"
+                  >
+                    {forgotLoading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        <span>جاري الإرسال...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        <span>إرسال رمز التحقق</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-slate-300 text-sm block mb-2">رمز التحقق</label>
+                    <input
+                      type="text"
+                      value={forgotOtp}
+                      onChange={(e) => setForgotOtp(e.target.value)}
+                      placeholder="أدخل الرقم المكون من 6 أرقام"
+                      className="w-full px-4 py-3 text-sm rounded-lg border bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 text-center tracking-widest text-lg"
+                      dir="ltr"
+                      maxLength={6}
+                    />
+                  </div>
+                  {forgotError && (
+                    <div className="text-red-300 text-sm bg-red-900/20 border border-red-500/30 rounded-lg p-3">
+                      {forgotError}
+                    </div>
+                  )}
+                  <button
+                    onClick={handleVerifyOtp}
+                    disabled={forgotLoading}
+                    className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium"
+                  >
+                    {forgotLoading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        <span>جاري التحقق...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4" />
+                        <span>تحقق واستعادة</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => { setForgotStep('phone'); setForgotError(null); }}
+                    disabled={forgotLoading}
+                    className="w-full px-4 py-2 text-slate-400 hover:text-slate-300 text-sm transition-colors"
+                  >
+                    إعادة إرسال الرمز
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -312,7 +312,6 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
 
   const buildVariablesForParticipant = (p: any) => {
     const name = p.name || p.survey_data?.name || `المشارك #${p.assigned_number}`;
-    const autoStatus = p.signup_for_next_event ? 'مفعّل ✅' : 'متوقف ❌';
 
     if (templateTypeTwilio === 'reminder') {
       return {
@@ -354,7 +353,6 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
       13: String(p.assigned_number || '0'),
       14: String(p.secure_token || 'N/A'),
       15: 'https://meetu.ps/e/Q9zQM/Lh7Kd/i',
-      16: autoStatus,
     };
   };
 

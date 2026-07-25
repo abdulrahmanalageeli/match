@@ -168,6 +168,17 @@ export default async function handler(req, res) {
           return res.status(200).json({ status: "toggled", new_value: newValue })
         }
 
+        case "event3_information": {
+          const infoMessage = "📋 *معلومات حول الفعالية*\n\n" +
+            "✦ الفعالية: التوافق الأعمى 4.0\n" +
+            "✦ نظام توافق شخصي متقدم\n" +
+            "✦ مطابقة ذكية بناءً على شخصيتك واهتماماتك\n\n" +
+            "للاستفسار أكثر، تواصل مع المنظم عبر الواتساب.\n\n" +
+            "فريق التوافق الأعمى"
+          await sendTwilioReply(from, infoMessage)
+          return res.status(200).json({ status: "info_sent" })
+        }
+
         default:
           console.log("Unknown button payload:", buttonPayload)
           return res.status(200).json({ status: "unknown_button" })

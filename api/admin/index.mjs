@@ -1953,15 +1953,14 @@ export default async function handler(req, res) {
         }
       }
 
-      // Get inbox — latest inbound messages across all participants
+      // Get inbox — all messages (inbound + outbound) across all participants
       if (action === "get-whatsapp-inbox") {
         try {
           const { data: messages, error } = await supabase
             .from("whatsapp_messages")
-            .select("id, assigned_number, phone_number, direction, message_body, button_payload, button_text, media_url, media_content_type, is_auto_reply, created_at")
-            .eq("direction", "inbound")
+            .select("id, assigned_number, phone_number, direction, message_body, button_payload, button_text, media_url, media_content_type, is_auto_reply, twilio_message_sid, status, created_at")
             .order("created_at", { ascending: false })
-            .limit(50)
+            .limit(200)
 
           if (error) {
             console.error("get-whatsapp-inbox error:", error)

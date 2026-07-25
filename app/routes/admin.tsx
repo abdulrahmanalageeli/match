@@ -717,6 +717,13 @@ export default function AdminPage() {
   const [waUnreadCount, setWaUnreadCount] = useState(0);
   const waInboxPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const waChatPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Attendance requests state
+  const [attendanceRequests, setAttendanceRequests] = useState<any[]>([]);
+  const [attendanceReqLoading, setAttendanceReqLoading] = useState(false);
+  const [showAttendanceReqModal, setShowAttendanceReqModal] = useState(false);
+  const [attendanceReqProcessing, setAttendanceReqProcessing] = useState<string | null>(null);
+  const attendanceReqPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   // Excel export state
   const [isExporting, setIsExporting] = useState(false);
@@ -2874,7 +2881,26 @@ const fetchParticipants = async () => {
       }
       pollWaInbox()
       const waInterval = setInterval(pollWaInbox, 15000)
-      return () => clearInterval(waInterval)
+
+      // Poll attendance requests
+      const pollAttendanceReqs = async () => {
+        try {
+          const res = await fetch('/api/admin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'get-attendance-requests' }),
+          })
+          const data = await res.json()
+          if (data?.success) {
+            setAttendanceRequests(data.requests || [])
+          }
+        } catch (e) {
+          // silent fail
+        }
+      }
+      pollAttendanceReqs()
+      const attInterval = setInterval(pollAttendanceReqs, 15000)
+      return () => { clearInterval(waInterval); clearInterval(attInterval) }
     }
   }, [])
 
@@ -4588,6 +4614,87 @@ Proceed?`
     }
   }, [showWaInboxModal, waSelectedNumber])
 
+  // ── Attendance Requests helpers ──────────────────────────────────
+  const fetchAttendanceRequests = async (showAll = false) => {
+    setAttendanceReqLoading(true)
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get-attendance-requests', show_all: showAll }),
+      })
+      const data = await res.json()
+      if (data?.success) {
+        setAttendanceRequests(data.requests || [])
+      }
+    } catch (e) {
+      console.error('Failed to fetch attendance requests', e)
+    } finally {
+      setAttendanceReqLoading(false)
+    }
+  }
+
+  const approveAttendanceRequest = async (requestId: string) => {
+    setAttendanceReqProcessing(requestId)
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'approve-attendance-request', request_id: requestId }),
+      })
+      const data = await res.json()
+      if (data?.success) {
+        toast.success('تم اعتماد الطلب')
+        setAttendanceRequests(prev => prev.filter(r => r.id !== requestId))
+        fetchParticipants()
+      } else {
+        toast.error(data?.error || 'Failed to approve')
+      }
+    } catch (e) {
+      toast.error('Network error')
+    } finally {
+      setAttendanceReqProcessing(null)
+    }
+  }
+
+  const rejectAttendanceRequest = async (requestId: string) => {
+    setAttendanceReqProcessing(requestId)
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reject-attendance-request', request_id: requestId }),
+      })
+      const data = await res.json()
+      if (data?.success) {
+        toast.success('تم رفض الطلب')
+        setAttendanceRequests(prev => prev.filter(r => r.id !== requestId))
+      } else {
+        toast.error(data?.error || 'Failed to reject')
+      }
+    } catch (e) {
+      toast.error('Network error')
+    } finally {
+      setAttendanceReqProcessing(null)
+    }
+  }
+
+  const openAttendanceReqModal = () => {
+    setShowAttendanceReqModal(true)
+    fetchAttendanceRequests()
+  }
+
+  // Poll attendance requests while modal open
+  useEffect(() => {
+    if (showAttendanceReqModal) {
+      if (attendanceReqPollRef.current) clearInterval(attendanceReqPollRef.current)
+      attendanceReqPollRef.current = setInterval(() => fetchAttendanceRequests(), 10000)
+      return () => {
+        if (attendanceReqPollRef.current) { clearInterval(attendanceReqPollRef.current); attendanceReqPollRef.current = null }
+      }
+    }
+  }, [showAttendanceReqModal])
+
   if (!authenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
@@ -4707,6 +4814,28 @@ Proceed?`
               {waUnreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center animate-pulse">
                   {waUnreadCount > 9 ? '9+' : waUnreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* Attendance Requests Button */}
+            <button
+              onClick={openAttendanceReqModal}
+              className={`relative flex items-center gap-2 px-4 py-2 backdrop-blur-sm border rounded-xl transition-all duration-300 ${
+                attendanceRequests.length > 0
+                  ? 'bg-amber-500/20 border-amber-400/40 text-amber-300 hover:bg-amber-500/30'
+                  : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/15'
+              }`}
+            >
+              <CalendarCheck className="w-4 h-4" />
+              <div className="text-right">
+                <div className="text-sm font-semibold">
+                  {attendanceRequests.length > 0 ? `${attendanceRequests.length} Pending` : 'Attendance'}
+                </div>
+              </div>
+              {attendanceRequests.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center animate-pulse">
+                  {attendanceRequests.length > 9 ? '9+' : attendanceRequests.length}
                 </span>
               )}
             </button>
@@ -8395,6 +8524,97 @@ Proceed?`
           </div>
         )
       })()}
+
+      {/* Attendance Requests Modal */}
+      {showAttendanceReqModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-0 sm:p-4" dir="rtl">
+          <div className="bg-slate-900 border border-slate-700/60 rounded-none sm:rounded-2xl w-full sm:max-w-lg shadow-2xl flex flex-col overflow-hidden" style={{ maxHeight: '100vh', height: '100vh' }}>
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-gradient-to-l from-amber-950/30 to-slate-900 flex-shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white">
+                  <CalendarCheck size={16} />
+                </div>
+                <div>
+                  <h2 className="font-bold text-white text-sm leading-tight">طلبات الحضور والاعتذار</h2>
+                  <p className="text-slate-500 text-[10px] leading-tight">{attendanceRequests.length} طلبات معلّقة</p>
+                </div>
+              </div>
+              <button onClick={() => setShowAttendanceReqModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* List */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              {attendanceReqLoading && attendanceRequests.length === 0 && (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-5 h-5 text-slate-600 animate-spin" />
+                </div>
+              )}
+              {!attendanceReqLoading && attendanceRequests.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-600 gap-2">
+                  <div className="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center">
+                    <CalendarCheck size={18} className="text-slate-700" />
+                  </div>
+                  <p className="text-xs">لا توجد طلبات معلّقة</p>
+                </div>
+              )}
+              {attendanceRequests.map(req => (
+                <div key={req.id} className="bg-slate-800/50 border border-white/10 rounded-xl p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold ${
+                        req.request_type === 'confirm' ? 'bg-green-600/30 text-green-400' : 'bg-red-600/30 text-red-400'
+                      }`}>
+                        {req.participant_name?.charAt(0) || '؟'}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-white text-sm font-semibold">{req.participant_name || 'غير معروف'}</span>
+                          <span className="text-slate-600 text-[10px] font-mono">#{req.assigned_number}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                            req.request_type === 'confirm'
+                              ? 'bg-green-900/40 text-green-400'
+                              : 'bg-red-900/40 text-red-400'
+                          }`}>
+                            {req.request_type === 'confirm' ? '✅ تأكيد حضور' : '❌ اعتذار'}
+                          </span>
+                          <span className="text-slate-600 text-[9px]">
+                            {new Date(req.created_at).toLocaleString('ar-SA', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      onClick={() => approveAttendanceRequest(req.id)}
+                      disabled={attendanceReqProcessing === req.id}
+                      className="flex-1 px-3 py-1.5 rounded-lg bg-green-600/20 border border-green-500/30 text-green-400 hover:bg-green-600/30 text-xs font-medium transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    >
+                      {attendanceReqProcessing === req.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}
+                      اعتماد
+                    </button>
+                    <button
+                      onClick={() => rejectAttendanceRequest(req.id)}
+                      disabled={attendanceReqProcessing === req.id}
+                      className="flex-1 px-3 py-1.5 rounded-lg bg-red-600/20 border border-red-500/30 text-red-400 hover:bg-red-600/30 text-xs font-medium transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    >
+                      {attendanceReqProcessing === req.id ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
+                      رفض
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bulk WhatsApp Send Modal */}
       <BulkWhatsAppModal

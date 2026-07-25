@@ -1990,6 +1990,177 @@ export default async function handler(req, res) {
         }
       }
 
+      // ── Attendance Requests (confirm/deny approval workflow) ───────────────
+
+      // Get attendance requests (pending by default, or all)
+      if (action === "get-attendance-requests") {
+        try {
+          const showAll = req.body.show_all === true
+          let query = supabase
+            .from("attendance_requests")
+            .select("*")
+            .order("created_at", { ascending: false })
+            .limit(showAll ? 100 : 50)
+          if (!showAll) {
+            query = query.eq("status", "pending")
+          }
+          const { data: requests, error } = await query
+          if (error) {
+            console.error("get-attendance-requests error:", error)
+            return res.status(500).json({ error: error.message })
+          }
+
+          // Enrich with participant names
+          const numbers = [...new Set(requests?.map(r => r.assigned_number).filter(Boolean))]
+          let participantMap = {}
+          if (numbers.length > 0) {
+            const { data: participants } = await supabase
+              .from("participants")
+              .select("assigned_number, name, phone_number")
+              .in("assigned_number", numbers)
+            participants?.forEach(p => { participantMap[p.assigned_number] = p })
+          }
+
+          const enriched = (requests || []).map(r => ({
+            ...r,
+            participant_name: r.assigned_number ? participantMap[r.assigned_number]?.name || null : null,
+            participant_phone: r.assigned_number ? participantMap[r.assigned_number]?.phone_number || null : null,
+          }))
+
+          return res.status(200).json({ success: true, requests: enriched })
+        } catch (err) {
+          console.error("get-attendance-requests exception:", err)
+          return res.status(500).json({ error: "Failed to fetch attendance requests" })
+        }
+      }
+
+      // Approve an attendance request
+      if (action === "approve-attendance-request") {
+        try {
+          const { request_id } = req.body
+          if (!request_id) return res.status(400).json({ error: "Missing 'request_id'" })
+
+          // Fetch the request
+          const { data: req_row, error: fetchErr } = await supabase
+            .from("attendance_requests")
+            .select("*")
+            .eq("id", request_id)
+            .single()
+          if (fetchErr || !req_row) return res.status(404).json({ error: "Request not found" })
+          if (req_row.status !== "pending") return res.status(400).json({ error: "Request already processed" })
+
+          // Apply the attendance change
+          if (req_row.request_type === "confirm") {
+            await supabase
+              .from("participants")
+              .update({ attendance_confirmed: true, attendance_confirmed_at: new Date().toISOString(), attendance_denied_at: null })
+              .eq("id", req_row.participant_id)
+
+            // Send WhatsApp confirmation to participant
+            if (req_row.phone_number) {
+              const to = req_row.phone_number.startsWith("whatsapp:") ? req_row.phone_number : `whatsapp:${req_row.phone_number.replace(/\s/g, "")}`
+              const accountSid = process.env.TWILIO_ACCOUNT_SID
+              const authToken = process.env.TWILIO_AUTH_TOKEN
+              const fromWa = process.env.TWILIO_WHATSAPP_FROM || "whatsapp:+1234"
+              if (accountSid && authToken) {
+                const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
+                const body = new URLSearchParams()
+                body.append("To", to)
+                body.append("From", fromWa)
+                body.append("Body", "تم تأكيد حضورك! ✅ يرجى إرسال صورة الإيصال (صورة أو PDF) لتأكيد الحجز نهائياً.")
+                const twilioRes = await fetch(twilioUrl, {
+                  method: "POST",
+                  headers: { "Authorization": "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64"), "Content-Type": "application/x-www-form-urlencoded" },
+                  body: body.toString(),
+                })
+                const twilioData = await twilioRes.json()
+                // Log outbound message
+                await supabase.from("whatsapp_messages").insert({
+                  participant_id: req_row.participant_id,
+                  assigned_number: req_row.assigned_number,
+                  phone_number: to,
+                  direction: "outbound",
+                  message_body: "تم تأكيد حضورك! ✅ يرجى إرسال صورة الإيصال (صورة أو PDF) لتأكيد الحجز نهائياً.",
+                  twilio_message_sid: twilioData?.sid || null,
+                  status: twilioData?.status || "sent",
+                  is_auto_reply: false,
+                })
+              }
+            }
+          } else if (req_row.request_type === "deny") {
+            await supabase
+              .from("participants")
+              .update({ attendance_confirmed: false, attendance_denied_at: new Date().toISOString(), attendance_confirmed_at: null })
+              .eq("id", req_row.participant_id)
+
+            // Send WhatsApp denial confirmation to participant
+            if (req_row.phone_number) {
+              const to = req_row.phone_number.startsWith("whatsapp:") ? req_row.phone_number : `whatsapp:${req_row.phone_number.replace(/\s/g, "")}`
+              const accountSid = process.env.TWILIO_ACCOUNT_SID
+              const authToken = process.env.TWILIO_AUTH_TOKEN
+              const fromWa = process.env.TWILIO_WHATSAPP_FROM || "whatsapp:+1234"
+              if (accountSid && authToken) {
+                const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
+                const body = new URLSearchParams()
+                body.append("To", to)
+                body.append("From", fromWa)
+                body.append("Body", "تم تسجيل اعتذاركم. 🙏 شكراً لكم، ونرحب بكم في فعاليات قادمة!")
+                const twilioRes = await fetch(twilioUrl, {
+                  method: "POST",
+                  headers: { "Authorization": "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64"), "Content-Type": "application/x-www-form-urlencoded" },
+                  body: body.toString(),
+                })
+                const twilioData = await twilioRes.json()
+                await supabase.from("whatsapp_messages").insert({
+                  participant_id: req_row.participant_id,
+                  assigned_number: req_row.assigned_number,
+                  phone_number: to,
+                  direction: "outbound",
+                  message_body: "تم تسجيل اعتذاركم. 🙏 شكراً لكم، ونرحب بكم في فعاليات قادمة!",
+                  twilio_message_sid: twilioData?.sid || null,
+                  status: twilioData?.status || "sent",
+                  is_auto_reply: false,
+                })
+              }
+            }
+          }
+
+          // Mark request as approved
+          await supabase
+            .from("attendance_requests")
+            .update({ status: "approved", updated_at: new Date().toISOString() })
+            .eq("id", request_id)
+
+          return res.status(200).json({ success: true, message: "Request approved" })
+        } catch (err) {
+          console.error("approve-attendance-request exception:", err)
+          return res.status(500).json({ error: "Failed to approve request" })
+        }
+      }
+
+      // Reject an attendance request (admin disagrees — don't apply the change)
+      if (action === "reject-attendance-request") {
+        try {
+          const { request_id, note } = req.body
+          if (!request_id) return res.status(400).json({ error: "Missing 'request_id'" })
+
+          const { error } = await supabase
+            .from("attendance_requests")
+            .update({ status: "rejected", admin_note: note || null, updated_at: new Date().toISOString() })
+            .eq("id", request_id)
+
+          if (error) {
+            console.error("reject-attendance-request error:", error)
+            return res.status(500).json({ error: error.message })
+          }
+
+          return res.status(200).json({ success: true, message: "Request rejected" })
+        } catch (err) {
+          console.error("reject-attendance-request exception:", err)
+          return res.status(500).json({ error: "Failed to reject request" })
+        }
+      }
+
       if (action === "get-event-state") {
         console.log("Fetching event state for match_id:", STATIC_MATCH_ID);
         const { data, error } = await supabase

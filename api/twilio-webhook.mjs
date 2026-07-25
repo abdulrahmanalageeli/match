@@ -280,23 +280,31 @@ export default async function handler(req, res) {
       await logIncomingMessage(participant, { from, messageBody })
 
       if (text === "تأكيد" || text === "confirm" || text === "نعم") {
-        await supabase
-          .from("participants")
-          .update({ attendance_confirmed: true, attendance_confirmed_at: new Date().toISOString() })
-          .eq("id", participant.id)
+        // Log as pending request for admin approval
+        await supabase.from("attendance_requests").insert({
+          participant_id: participant.id,
+          assigned_number: participant.assigned_number,
+          phone_number: from,
+          request_type: "confirm",
+          status: "pending",
+        })
 
-        await sendTwilioReply(from, "شكراً للتأكيد! ✅ يرجى إرسال صورة الإيصال (صورة أو PDF) لتأكيد الحجز نهائياً.", participant)
-        return res.status(200).json({ status: "confirmed" })
+        await sendTwilioReply(from, "تم استلام طلب تأكيد الحضور ✅ سيتم مراجعته وتأكيده قريباً.", participant)
+        return res.status(200).json({ status: "confirm_pending" })
       }
 
       if (text === "اعتذار" || text === "deny" || text === "لا") {
-        await supabase
-          .from("participants")
-          .update({ attendance_confirmed: false, attendance_denied_at: new Date().toISOString() })
-          .eq("id", participant.id)
+        // Log as pending request for admin approval
+        await supabase.from("attendance_requests").insert({
+          participant_id: participant.id,
+          assigned_number: participant.assigned_number,
+          phone_number: from,
+          request_type: "deny",
+          status: "pending",
+        })
 
-        await sendTwilioReply(from, "تم تسجيل اعتذاركم. 🙏 شكراً لكم، ونرحب بكم في فعاليات قادمة!", participant)
-        return res.status(200).json({ status: "denied" })
+        await sendTwilioReply(from, "تم استلام طلب الاعتذار 🙏 سيتم مراجعته قريباً.", participant)
+        return res.status(200).json({ status: "deny_pending" })
       }
 
       if (text === "إيقاف" || text === "toggle" || text === "تبديل") {

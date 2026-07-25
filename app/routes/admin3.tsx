@@ -753,6 +753,10 @@ export default function Admin3Page() {
   // Attendance polling (visibility-aware)
   useVisibilityPoll(fetchAttendance, 10000, activeTab === "attendance" && authenticated)
 
+  // Rank status polling during ranking phases (5s, any tab)
+  const isRankingPhase = state?.phase === "ranking1" || state?.phase === "ranking2"
+  useVisibilityPoll(fetchRankStatus, 5000, authenticated && isRankingPhase)
+
   // Timer countdown
   useEffect(() => {
     if (!state?.timer_active || !state?.timer_start) {
@@ -1875,6 +1879,105 @@ export default function Admin3Page() {
                 ))}
               </div>
             </div>
+
+            {/* Ranking Status Panel — shows during ranking phases */}
+            {isRankingPhase && rankStatus && (() => {
+              const pending = (rankStatus.status || []).filter((s: any) => !s.submitted)
+              const submittedCount = (rankStatus.status || []).length - pending.length
+              const totalCount = (rankStatus.status || []).length
+              const autoSavedCount = (rankStatus.auto_saved_count as number) || 0
+              const timerEnded = timerRemaining === 0
+              return (
+                <div className={`rounded-xl p-4 border ${
+                  pending.length > 0
+                    ? timerEnded
+                      ? 'bg-red-950/40 border-red-800/50'
+                      : 'bg-amber-950/30 border-amber-800/50'
+                    : 'bg-emerald-950/30 border-emerald-800/50'
+                }`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      {pending.length === 0
+                        ? <CheckCircle size={18} className="text-emerald-400" />
+                        : timerEnded
+                        ? <AlertCircle size={18} className="text-red-400 animate-pulse" />
+                        : <Clock size={18} className="text-amber-400" />
+                      }
+                      <h3 className={`font-bold text-sm ${
+                        pending.length === 0 ? 'text-emerald-300' : timerEnded ? 'text-red-300' : 'text-amber-300'
+                      }`}>
+                        {pending.length === 0
+                          ? 'الجميع صوّت ✓'
+                          : timerEnded
+                          ? `انتهى الوقت — ${pending.length} لم يصوّت!`
+                          : `بانتظار تصنيف ${pending.length} من ${totalCount}`
+                        }
+                      </h3>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-xs text-gray-400">
+                        <span className="text-emerald-400 font-bold">{submittedCount}</span>
+                        <span className="text-gray-600">/{totalCount}</span> صوّت
+                        {autoSavedCount > 0 && (
+                          <span className="text-amber-400 mr-1.5">· {autoSavedCount} تلقائي</span>
+                        )}
+                      </div>
+                      <button onClick={fetchRankStatus} className="p-1 rounded-lg hover:bg-gray-800 text-gray-400">
+                        <RefreshCw size={12} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="h-2 bg-gray-800 rounded-full overflow-hidden mb-3">
+                    <div
+                      className={`h-full transition-all duration-500 ${pending.length === 0 ? 'bg-emerald-500' : timerEnded ? 'bg-red-500' : 'bg-amber-500'}`}
+                      style={{ width: `${(submittedCount / (totalCount || 1)) * 100}%` }}
+                    />
+                  </div>
+
+                  {/* Pending participants list */}
+                  {pending.length > 0 && (
+                    <>
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {pending.map((p: any) => (
+                          <span key={p.number} className={`text-xs px-2.5 py-1 rounded-lg border flex items-center gap-1 ${
+                            timerEnded ? 'bg-red-900/40 border-red-800/40 text-red-300' : 'bg-amber-900/30 border-amber-800/40 text-amber-300'
+                          }`}>
+                            <span className="font-mono text-[10px] opacity-60">#{p.number}</span>
+                            {p.name}
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Quick actions */}
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => run("nudge-ranking", () => api("e3-send-notification", {
+                            title: "⏰ تذكير: صوّت الآن!",
+                            body: "الوقت ينفد — يرجى تقديم تصنيفك فوراً",
+                            icon: "clock",
+                          }).then(d => { if (!d.error) toast.success("تم إرسال التذكير ✅"); return d }))}
+                          disabled={!!loading}
+                          className="flex items-center gap-1.5 bg-blue-900/50 hover:bg-blue-800 border border-blue-800/50 text-blue-300 rounded-lg px-3 py-1.5 text-xs disabled:opacity-40"
+                        >
+                          {loading === "nudge-ranking" ? <RefreshCw size={12} className="animate-spin" /> : <Bell size={12} />}
+                          إرسال تذكير للجميع
+                        </button>
+                        <button
+                          onClick={() => { if (confirm("حفظ تصنيفات جميع المشاركين الذين لم يصوتوا تلقائياً؟")) run("force-save", () => api("e3-force-auto-save-rankings").then(d => { if (!d.error) { toast.success(d.message || "تم الحفظ التلقائي"); fetchRankStatus() } return d })) }}
+                          disabled={!!loading || pending.length === 0}
+                          className="flex items-center gap-1.5 bg-amber-900/50 hover:bg-amber-800 border border-amber-700/50 text-amber-300 rounded-lg px-3 py-1.5 text-xs disabled:opacity-40"
+                        >
+                          {loading === "force-save" ? <RefreshCw size={12} className="animate-spin" /> : <Clock size={12} />}
+                          حفظ تلقائي للجميع
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )
+            })()}
 
             {/* Quick Phase Advance (test mode only) */}
             {testMode && (

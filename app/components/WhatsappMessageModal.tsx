@@ -20,6 +20,7 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose, coh
   const [templateMode, setTemplateMode] = useState(false);
   const [templateSid, setTemplateSid] = useState('');
   const [templateTypeTwilio, setTemplateTypeTwilio] = useState<'match' | 'reminder' | 'payment'>('match');
+  const [envTemplateSids, setEnvTemplateSids] = useState<{ match: string | null; reminder: string | null; payment: string | null }>({ match: null, reminder: null, payment: null });
   const [bulkSending, setBulkSending] = useState(false);
   const [bulkResult, setBulkResult] = useState<{ successCount: number; failCount: number; results: any[] } | null>(null);
   const [urgencyLevel, setUrgencyLevel] = useState<'normal' | 'semi-urgent' | 'urgent'>('normal');
@@ -59,13 +60,14 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose, coh
     includeBold: true,
   });
 
-  // Load WhatsApp config on open
+  // Load WhatsApp config and template SIDs on open
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
     const load = async () => {
       setLoadingConfig(true);
       try {
+        // Load config
         const res = await fetch('/api/admin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -79,6 +81,19 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose, coh
         } else if (!cancelled) {
           setLastUpdatedAt(null);
           setLastUpdatedBy(null);
+        }
+        // Load template SIDs from env
+        const sidRes = await fetch('/api/admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'get-twilio-template-sids' }),
+        });
+        const sidData = await sidRes.json();
+        if (!cancelled && sidRes.ok && sidData?.success && sidData?.templateSids) {
+          setEnvTemplateSids(sidData.templateSids);
+          // Auto-set the SID for the default type
+          const defaultSid = sidData.templateSids.match;
+          if (defaultSid) setTemplateSid(defaultSid);
         }
       } catch (e) {
         console.error('Failed to load WhatsApp config', e);
@@ -886,9 +901,8 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
                 onChange={e => {
                   const val = e.target.value as 'match' | 'reminder' | 'payment';
                   setTemplateTypeTwilio(val);
-                  if (val === 'match') setTemplateSid('');
-                  if (val === 'reminder') setTemplateSid('');
-                  if (val === 'payment') setTemplateSid('');
+                  const sid = envTemplateSids[val];
+                  setTemplateSid(sid || '');
                 }}
                 className="bg-slate-800 border border-slate-600 text-white text-sm rounded px-3 py-2"
               >
@@ -896,15 +910,18 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
                 <option value="reminder">event_reminder (تذكير الفعالية)</option>
                 <option value="payment">payment_reminder (تذكير الدفع)</option>
               </select>
-              <input
-                type="text"
-                placeholder="Template SID (e.g. HXxxxxxxxx...)"
-                value={templateSid}
-                onChange={e => setTemplateSid(e.target.value)}
-                className="bg-slate-800 border border-slate-600 text-white text-sm rounded px-3 py-2"
-              />
+              {templateSid ? (
+                <div className="flex items-center gap-2 bg-slate-800/50 border border-slate-600/50 rounded px-3 py-2">
+                  <span className="text-xs text-slate-400">SID:</span>
+                  <code className="text-xs text-green-400 font-mono">{templateSid}</code>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 bg-amber-900/20 border border-amber-600/30 rounded px-3 py-2">
+                  <span className="text-xs text-amber-400">⚠️ No SID configured in env for this template type. Set TWILIO_{templateTypeTwilio.toUpperCase()}_TEMPLATE_SID in Vercel.</span>
+                </div>
+              )}
               <p className="text-xs text-slate-500">
-                {templateTypeTwilio === 'match' && '16 متغير — تأكيد/اعتذار/تبديل تلقائي'}
+                {templateTypeTwilio === 'match' && '15 متغير — تأكيد/اعتذار/تبديل تلقائي'}
                 {templateTypeTwilio === 'reminder' && '5 متغيرات — تأكيد/اعتذار'}
                 {templateTypeTwilio === 'payment' && '8 متغيرات — تأكيد/اعتذار'}
               </p>

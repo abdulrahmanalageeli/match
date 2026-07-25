@@ -12,7 +12,7 @@ const accountSid = process.env.TWILIO_ACCOUNT_SID
 const authToken = process.env.TWILIO_AUTH_TOKEN
 const sender = process.env.TWILIO_WHATSAPP_SENDER || "whatsapp:+13527387477"
 
-async function sendTwilioReply(to, message) {
+async function sendTwilioReply(to, message, participant = null) {
   if (!accountSid || !authToken) {
     console.error("Twilio credentials not configured for webhook reply")
     return
@@ -23,7 +23,7 @@ async function sendTwilioReply(to, message) {
   body.append("To", to)
   body.append("Body", message)
 
-  await fetch(twilioUrl, {
+  const twilioRes = await fetch(twilioUrl, {
     method: "POST",
     headers: {
       "Authorization": "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64"),
@@ -31,6 +31,45 @@ async function sendTwilioReply(to, message) {
     },
     body: body.toString(),
   })
+
+  const twilioData = await twilioRes.json()
+
+  // Log auto-reply to whatsapp_messages
+  if (participant) {
+    try {
+      await supabase.from("whatsapp_messages").insert({
+        participant_id: participant.id,
+        assigned_number: participant.assigned_number,
+        phone_number: to,
+        direction: "outbound",
+        message_body: message,
+        twilio_message_sid: twilioData?.sid || null,
+        status: twilioData?.status || "sent",
+        is_auto_reply: true,
+      })
+    } catch (e) {
+      console.error("Failed to log auto-reply:", e)
+    }
+  }
+}
+
+async function logIncomingMessage(participant, data) {
+  try {
+    await supabase.from("whatsapp_messages").insert({
+      participant_id: participant?.id || null,
+      assigned_number: participant?.assigned_number || null,
+      phone_number: data.from,
+      direction: "inbound",
+      message_body: data.messageBody || null,
+      button_payload: data.buttonPayload || null,
+      button_text: data.buttonText || null,
+      media_url: data.mediaUrl0 || null,
+      media_content_type: data.mediaContentType0 || null,
+      status: "received",
+    })
+  } catch (e) {
+    console.error("Failed to log incoming message:", e)
+  }
 }
 
 async function findParticipantByPhone(phone) {
@@ -77,6 +116,9 @@ export default async function handler(req, res) {
         return res.status(200).json({ status: "ignored" })
       }
 
+      // Log incoming media message
+      await logIncomingMessage(participant, { from, messageBody, mediaUrl0, mediaContentType0 })
+
       // Download and store the receipt
       const isImage = mediaContentType0 && mediaContentType0.startsWith("image/")
       const isPdf = mediaContentType0 && mediaContentType0 === "application/pdf"
@@ -113,11 +155,11 @@ export default async function handler(req, res) {
           })
           .eq("id", participant.id)
 
-        await sendTwilioReply(from, "✅ تم استلام الإيصال! سنقوم بتأكيد حجزكم قريباً. شكراً لكم.")
+        await sendTwilioReply(from, "✅ تم استلام الإيصال! سنقوم بتأكيد حجزكم قريباً. شكراً لكم.", participant)
         return res.status(200).json({ status: "receipt_received" })
       } catch (e) {
         console.error("Media download/store error:", e)
-        await sendTwilioReply(from, "⚠️ حدث خطأ أثناء معالجة الإيصال. يرجى إعادة إرساله.")
+        await sendTwilioReply(from, "⚠️ حدث خطأ أثناء معالجة الإيصال. يرجى إعادة إرساله.", participant)
         return res.status(200).json({ status: "error" })
       }
     }
@@ -130,6 +172,9 @@ export default async function handler(req, res) {
         return res.status(200).json({ status: "ignored" })
       }
 
+      // Log incoming button press
+      await logIncomingMessage(participant, { from, buttonPayload, buttonText, messageBody })
+
       switch (buttonPayload) {
         case "confirm_attendance": {
           await supabase
@@ -137,7 +182,7 @@ export default async function handler(req, res) {
             .update({ attendance_confirmed: true, attendance_confirmed_at: new Date().toISOString() })
             .eq("id", participant.id)
 
-          await sendTwilioReply(from, "شكراً للتأكيد! ✅ يرجى إرسال صورة الإيصال (صورة أو PDF) لتأكيد الحجز نهائياً.")
+          await sendTwilioReply(from, "شكراً للتأكيد! ✅ يرجى إرسال صورة الإيصال (صورة أو PDF) لتأكيد الحجز نهائياً.", participant)
           return res.status(200).json({ status: "confirmed" })
         }
 
@@ -147,7 +192,7 @@ export default async function handler(req, res) {
             .update({ attendance_confirmed: false, attendance_denied_at: new Date().toISOString() })
             .eq("id", participant.id)
 
-          await sendTwilioReply(from, "تم تسجيل اعتذاركم. 🙏 شكراً لكم، ونرحب بكم في فعاليات قادمة!")
+          await sendTwilioReply(from, "تم تسجيل اعتذاركم. 🙏 شكراً لكم، ونرحب بكم في فعاليات قادمة!", participant)
           return res.status(200).json({ status: "denied" })
         }
 
@@ -164,7 +209,7 @@ export default async function handler(req, res) {
             ? "✅ تم تفعيل التسجيل التلقائي. سيتم تسجيلكم تلقائياً في الفعاليات القادمة."
             : "🛑 تم إيقاف التسجيل التلقائي. لن يتم تسجيلكم تلقائياً في الفعاليات القادمة."
 
-          await sendTwilioReply(from, replyText)
+          await sendTwilioReply(from, replyText, participant)
           return res.status(200).json({ status: "toggled", new_value: newValue })
         }
 
@@ -175,7 +220,7 @@ export default async function handler(req, res) {
             "✦ مطابقة ذكية بناءً على شخصيتك واهتماماتك\n\n" +
             "للاستفسار أكثر، تواصل مع المنظم عبر الواتساب.\n\n" +
             "فريق التوافق الأعمى"
-          await sendTwilioReply(from, infoMessage)
+          await sendTwilioReply(from, infoMessage, participant)
           return res.status(200).json({ status: "info_sent" })
         }
 
@@ -191,8 +236,13 @@ export default async function handler(req, res) {
       const participant = await findParticipantByPhone(from)
 
       if (!participant) {
+        // Still log unknown incoming messages
+        await logIncomingMessage(null, { from, messageBody })
         return res.status(200).json({ status: "ignored" })
       }
+
+      // Log incoming free-text message
+      await logIncomingMessage(participant, { from, messageBody })
 
       if (text === "تأكيد" || text === "confirm" || text === "نعم") {
         await supabase
@@ -200,7 +250,7 @@ export default async function handler(req, res) {
           .update({ attendance_confirmed: true, attendance_confirmed_at: new Date().toISOString() })
           .eq("id", participant.id)
 
-        await sendTwilioReply(from, "شكراً للتأكيد! ✅ يرجى إرسال صورة الإيصال (صورة أو PDF) لتأكيد الحجز نهائياً.")
+        await sendTwilioReply(from, "شكراً للتأكيد! ✅ يرجى إرسال صورة الإيصال (صورة أو PDF) لتأكيد الحجز نهائياً.", participant)
         return res.status(200).json({ status: "confirmed" })
       }
 
@@ -210,7 +260,7 @@ export default async function handler(req, res) {
           .update({ attendance_confirmed: false, attendance_denied_at: new Date().toISOString() })
           .eq("id", participant.id)
 
-        await sendTwilioReply(from, "تم تسجيل اعتذاركم. 🙏 شكراً لكم، ونرحب بكم في فعاليات قادمة!")
+        await sendTwilioReply(from, "تم تسجيل اعتذاركم. 🙏 شكراً لكم، ونرحب بكم في فعاليات قادمة!", participant)
         return res.status(200).json({ status: "denied" })
       }
 
@@ -227,12 +277,12 @@ export default async function handler(req, res) {
           ? "✅ تم تفعيل التسجيل التلقائي. سيتم تسجيلكم تلقائياً في الفعاليات القادمة."
           : "🛑 تم إيقاف التسجيل التلقائي. لن يتم تسجيلكم تلقائياً في الفعاليات القادمة."
 
-        await sendTwilioReply(from, replyText)
+        await sendTwilioReply(from, replyText, participant)
         return res.status(200).json({ status: "toggled", new_value: newValue })
       }
 
       // Unrecognized text — send help
-      await sendTwilioReply(from, "مرحباً! 👋 أرسل 'تأكيد' لتأكيد المشاركة، 'اعتذار' للاعتذار، أو 'تبديل' لتغيير التسجيل التلقائي. يمكنك أيضاً إرسال صورة الإيصال مباشرة.")
+      await sendTwilioReply(from, "مرحباً! 👋 أرسل 'تأكيد' لتأكيد المشاركة، 'اعتذار' للاعتذار، أو 'تبديل' لتغيير التسجيل التلقائي. يمكنك أيضاً إرسال صورة الإيصال مباشرة.", participant)
       return res.status(200).json({ status: "help_sent" })
     }
 

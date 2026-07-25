@@ -1437,6 +1437,18 @@ export default async function handler(req, res) {
         }
       }
 
+      // Get Twilio template SIDs from environment variables
+      if (action === "get-twilio-template-sids") {
+        return res.status(200).json({
+          success: true,
+          templateSids: {
+            match: process.env.TWILIO_MATCH_TEMPLATE_SID || null,
+            reminder: process.env.TWILIO_REMINDER_TEMPLATE_SID || null,
+            payment: process.env.TWILIO_PAYMENT_TEMPLATE_SID || null,
+          },
+        })
+      }
+
       // Send WhatsApp message via Twilio API (free-form text or template)
       if (action === "send-twilio-whatsapp") {
         try {
@@ -1500,6 +1512,33 @@ export default async function handler(req, res) {
             return res.status(twilioRes.status).json({ error: twilioData.message || "Twilio API error" })
           }
 
+          // Log outgoing message to whatsapp_messages
+          try {
+            const cleanPhone = normalizedTo.replace("whatsapp:", "")
+            const last7 = cleanPhone.replace(/\D/g, "").slice(-7)
+            const { data: pMatch } = await supabase
+              .from("participants")
+              .select("id, assigned_number")
+              .not("phone_number", "is", null)
+              .limit(200)
+            const participant = pMatch?.find(p => String(p.phone_number || "").replace(/\D/g, "").endsWith(last7))
+
+            await supabase.from("whatsapp_messages").insert({
+              participant_id: participant?.id || null,
+              assigned_number: participant?.assigned_number || null,
+              phone_number: normalizedTo,
+              direction: "outbound",
+              message_body: message || null,
+              template_sid: templateSid || null,
+              template_variables: variables || null,
+              twilio_message_sid: twilioData.sid,
+              status: twilioData.status,
+              is_auto_reply: false,
+            })
+          } catch (e) {
+            console.error("Failed to log outgoing message:", e)
+          }
+
           return res.status(200).json({
             success: true,
             message_sid: twilioData.sid,
@@ -1530,7 +1569,7 @@ export default async function handler(req, res) {
           // Fetch participant data for the given numbers
           const { data: participants } = await supabase
             .from("participants")
-            .select("assigned_number, name, phone_number, secure_token, signup_for_next_event, survey_data")
+            .select("id, assigned_number, name, phone_number, secure_token, signup_for_next_event, survey_data")
             .eq("match_id", STATIC_MATCH_ID)
             .in("assigned_number", participantNumbers)
             .not("phone_number", "is", null)
@@ -1584,6 +1623,22 @@ export default async function handler(req, res) {
               if (twilioRes.ok) {
                 results.push({ number: p.assigned_number, name: p.name, success: true, sid: twilioData.sid })
                 successCount++
+                // Log bulk outgoing message
+                try {
+                  await supabase.from("whatsapp_messages").insert({
+                    participant_id: p.id || null,
+                    assigned_number: p.assigned_number,
+                    phone_number: normalizedTo,
+                    direction: "outbound",
+                    template_sid: templateSid,
+                    template_variables: vars || null,
+                    twilio_message_sid: twilioData.sid,
+                    status: twilioData.status,
+                    is_auto_reply: false,
+                  })
+                } catch (e) {
+                  console.error("Failed to log bulk message:", e)
+                }
               } else {
                 results.push({ number: p.assigned_number, name: p.name, success: false, error: twilioData.message || "Twilio error" })
                 failCount++
@@ -1657,7 +1712,7 @@ export default async function handler(req, res) {
               body.append("To", normalizedTo)
               body.append("Body", "✅ تم تأكيد استلام الإيصال والموافقة عليه! حجزكم مؤكد للفعالية. نراك هناك! 🎉")
               try {
-                await fetch(twilioUrl, {
+                const approvalRes = await fetch(twilioUrl, {
                   method: "POST",
                   headers: {
                     "Authorization": "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64"),
@@ -1665,6 +1720,22 @@ export default async function handler(req, res) {
                   },
                   body: body.toString(),
                 })
+                const approvalData = await approvalRes.json()
+                // Log the approval message
+                try {
+                  await supabase.from("whatsapp_messages").insert({
+                    participant_id: participant.id,
+                    assigned_number: assigned_number,
+                    phone_number: normalizedTo,
+                    direction: "outbound",
+                    message_body: "✅ تم تأكيد استلام الإيصال والموافقة عليه! حجزكم مؤكد للفعالية. نراك هناك! 🎉",
+                    twilio_message_sid: approvalData?.sid || null,
+                    status: approvalData?.status || "sent",
+                    is_auto_reply: false,
+                  })
+                } catch (e) {
+                  console.error("Failed to log approval message:", e)
+                }
               } catch (e) {
                 console.error("Failed to send WhatsApp approval notification:", e)
               }
@@ -1730,7 +1801,7 @@ export default async function handler(req, res) {
                 : "⚠️ تعذّر قبول الإيصال. يرجى التأكد من وضوح الإيصال وإعادة إرساله."
               body.append("Body", rejectMsg)
               try {
-                await fetch(twilioUrl, {
+                const rejectRes = await fetch(twilioUrl, {
                   method: "POST",
                   headers: {
                     "Authorization": "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64"),
@@ -1738,6 +1809,22 @@ export default async function handler(req, res) {
                   },
                   body: body.toString(),
                 })
+                const rejectData = await rejectRes.json()
+                // Log the rejection message
+                try {
+                  await supabase.from("whatsapp_messages").insert({
+                    participant_id: participant.id,
+                    assigned_number: assigned_number,
+                    phone_number: normalizedTo,
+                    direction: "outbound",
+                    message_body: rejectMsg,
+                    twilio_message_sid: rejectData?.sid || null,
+                    status: rejectData?.status || "sent",
+                    is_auto_reply: false,
+                  })
+                } catch (e) {
+                  console.error("Failed to log rejection message:", e)
+                }
               } catch (e) {
                 console.error("Failed to send WhatsApp rejection notification:", e)
               }
@@ -1748,6 +1835,159 @@ export default async function handler(req, res) {
         } catch (err) {
           console.error("reject-receipt exception:", err)
           return res.status(500).json({ error: "Failed to reject receipt" })
+        }
+      }
+
+      // ── WhatsApp Chat Platform actions ──────────────────────────────────
+
+      // Get conversation history for a participant
+      if (action === "get-whatsapp-conversation") {
+        try {
+          const { assigned_number } = req.body
+          if (!assigned_number) {
+            return res.status(400).json({ error: "Missing 'assigned_number'" })
+          }
+
+          const { data: messages, error } = await supabase
+            .from("whatsapp_messages")
+            .select("*")
+            .eq("assigned_number", assigned_number)
+            .order("created_at", { ascending: true })
+            .limit(200)
+
+          if (error) {
+            console.error("get-whatsapp-conversation error:", error)
+            return res.status(500).json({ error: error.message })
+          }
+
+          return res.status(200).json({ success: true, messages: messages || [] })
+        } catch (err) {
+          console.error("get-whatsapp-conversation exception:", err)
+          return res.status(500).json({ error: "Failed to fetch conversation" })
+        }
+      }
+
+      // Send a free-text reply from admin chat UI
+      if (action === "send-whatsapp-reply") {
+        try {
+          const { assigned_number, message } = req.body
+          if (!assigned_number || !message) {
+            return res.status(400).json({ error: "Missing 'assigned_number' or 'message'" })
+          }
+
+          // Fetch participant
+          const { data: participant, error: pErr } = await supabase
+            .from("participants")
+            .select("id, assigned_number, phone_number, name")
+            .eq("match_id", STATIC_MATCH_ID)
+            .eq("assigned_number", assigned_number)
+            .single()
+
+          if (pErr || !participant) {
+            return res.status(404).json({ error: "Participant not found" })
+          }
+
+          if (!participant.phone_number) {
+            return res.status(400).json({ error: "Participant has no phone number" })
+          }
+
+          const accountSid = process.env.TWILIO_ACCOUNT_SID
+          const authToken = process.env.TWILIO_AUTH_TOKEN
+          const sender = process.env.TWILIO_WHATSAPP_SENDER || "whatsapp:+13527387477"
+
+          if (!accountSid || !authToken) {
+            return res.status(500).json({ error: "Twilio credentials not configured" })
+          }
+
+          let normalizedTo = String(participant.phone_number).replace(/\s/g, "")
+          if (!normalizedTo.startsWith("whatsapp:")) {
+            normalizedTo = "whatsapp:" + normalizedTo
+          }
+
+          const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
+          const body = new URLSearchParams()
+          body.append("From", sender)
+          body.append("To", normalizedTo)
+          body.append("Body", message)
+
+          const twilioRes = await fetch(twilioUrl, {
+            method: "POST",
+            headers: {
+              "Authorization": "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64"),
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: body.toString(),
+          })
+
+          const twilioData = await twilioRes.json()
+
+          if (!twilioRes.ok) {
+            console.error("Twilio API error (reply):", twilioData)
+            return res.status(twilioRes.status).json({ error: twilioData.message || "Twilio API error" })
+          }
+
+          // Log the reply
+          try {
+            await supabase.from("whatsapp_messages").insert({
+              participant_id: participant.id,
+              assigned_number: participant.assigned_number,
+              phone_number: normalizedTo,
+              direction: "outbound",
+              message_body: message,
+              twilio_message_sid: twilioData.sid,
+              status: twilioData.status,
+              is_auto_reply: false,
+            })
+          } catch (e) {
+            console.error("Failed to log reply:", e)
+          }
+
+          return res.status(200).json({
+            success: true,
+            message_sid: twilioData.sid,
+            status: twilioData.status,
+          })
+        } catch (err) {
+          console.error("send-whatsapp-reply exception:", err)
+          return res.status(500).json({ error: "Failed to send reply" })
+        }
+      }
+
+      // Get inbox — latest inbound messages across all participants
+      if (action === "get-whatsapp-inbox") {
+        try {
+          const { data: messages, error } = await supabase
+            .from("whatsapp_messages")
+            .select("id, assigned_number, phone_number, direction, message_body, button_payload, button_text, media_url, media_content_type, is_auto_reply, created_at")
+            .eq("direction", "inbound")
+            .order("created_at", { ascending: false })
+            .limit(50)
+
+          if (error) {
+            console.error("get-whatsapp-inbox error:", error)
+            return res.status(500).json({ error: error.message })
+          }
+
+          // Enrich with participant names
+          const numbers = [...new Set(messages?.map(m => m.assigned_number).filter(Boolean))]
+          let participantMap = {}
+          if (numbers.length > 0) {
+            const { data: participants } = await supabase
+              .from("participants")
+              .select("assigned_number, name")
+              .in("assigned_number", numbers)
+            participants?.forEach(p => { participantMap[p.assigned_number] = p.name })
+          }
+
+          const enriched = (messages || []).map(m => ({
+            ...m,
+            participant_name: m.assigned_number ? participantMap[m.assigned_number] || null : null,
+          }))
+
+          return res.status(200).json({ success: true, messages: enriched })
+        } catch (err) {
+          console.error("get-whatsapp-inbox exception:", err)
+          return res.status(500).json({ error: "Failed to fetch inbox" })
         }
       }
 

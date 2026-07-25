@@ -31,6 +31,7 @@ import {
   Square,
   X,
   MessageSquare,
+  MessagesSquare,
   Phone,
   CreditCard,
   ArrowLeftRight,
@@ -45,7 +46,8 @@ import {
   CalendarCheck,
   AlertTriangle,
   History,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Send
 } from "lucide-react"
 import ParticipantResultsModal from "~/components/ParticipantResultsModal"
 import GroupAssignmentsModal from "~/components/GroupAssignmentsModal"
@@ -53,6 +55,8 @@ import ParticipantDualResultsModal from "~/components/ParticipantDualResultsModa
 import BatchedCacheModal from "~/components/BatchedCacheModal"
 import VibeFixModal from "~/components/VibeFixModal"
 import WhatsappMessageModal from '~/components/WhatsappMessageModal';
+import WhatsAppChatModal from '~/components/WhatsAppChatModal';
+import BulkWhatsAppModal from '~/components/BulkWhatsAppModal';
 import ParticipantQRModal from "~/components/ParticipantQRModal"
 import ParticipantProfileModal from "~/components/ParticipantProfileModal"
 import { surveyQuestions } from "~/components/SurveyComponent"
@@ -699,6 +703,9 @@ export default function AdminPage() {
   // WhatsApp message modal state
   const [whatsappParticipant, setWhatsappParticipant] = useState<any | null>(null);
   const [showWhatsappModal, setShowWhatsappModal] = useState(false);
+  const [chatParticipant, setChatParticipant] = useState<any | null>(null);
+  const [showChatModal, setShowChatModal] = useState(false);
+  const [showBulkWhatsAppModal, setShowBulkWhatsAppModal] = useState(false);
   
   // Excel export state
   const [isExporting, setIsExporting] = useState(false);
@@ -6951,6 +6958,15 @@ Proceed?`
                   )}
                   Export ({selectedParticipants.size}) to Excel
                 </button>
+
+                {/* Bulk WhatsApp Send Button */}
+                <button
+                  onClick={() => setShowBulkWhatsAppModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white rounded-xl transition-all duration-300 text-sm"
+                >
+                  <Send className="w-4 h-4" />
+                  WhatsApp Bulk ({selectedParticipants.size})
+                </button>
               </>
             )}
           </div>
@@ -7121,6 +7137,20 @@ Proceed?`
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
+                          setChatParticipant(p);
+                          setShowChatModal(true);
+                        }}
+                        className="p-3 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 hover:text-blue-300 transition-all duration-200 active:scale-95 touch-manipulation"
+                        aria-label="WhatsApp chat history"
+                        title="WhatsApp chat history"
+                      >
+                        <MessagesSquare className="w-5 h-5" />
+                      </button>
+                    )}
+                    {!isCohost && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
                           fetchPersonalityAnalysis(p.assigned_number);
                         }}
                         disabled={personalityAnalysisLoading}
@@ -7262,6 +7292,22 @@ Proceed?`
                             <span className="flex items-center gap-2 justify-center">
                               <MessageSquare className="w-5 h-5 md:w-4 md:h-4" />
                               <span>Send WhatsApp</span>
+                            </span>
+                          </button>
+
+                          {/* WhatsApp Chat History */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setChatParticipant(p);
+                              setShowChatModal(true);
+                            }}
+                            className="w-full max-w-[280px] justify-center px-5 py-3 md:px-4 md:py-2 rounded-xl border text-base md:text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-95 bg-blue-500/10 text-blue-200 border-blue-400/30 hover:bg-blue-500/20"
+                            title="WhatsApp chat history"
+                          >
+                            <span className="flex items-center gap-2 justify-center">
+                              <MessagesSquare className="w-5 h-5 md:w-4 md:h-4" />
+                              <span>Chat History</span>
                             </span>
                           </button>
 
@@ -7912,6 +7958,29 @@ Proceed?`
         }}
         cohostTheme={isCohost}
         allParticipants={isCohost ? [] : participants}
+      />
+
+      {/* WhatsApp Chat Modal */}
+      <WhatsAppChatModal
+        participant={chatParticipant}
+        isOpen={showChatModal}
+        onClose={() => {
+          setShowChatModal(false);
+          setChatParticipant(null);
+        }}
+        cohostTheme={isCohost}
+        onSelectParticipant={(num) => {
+          const p = participants.find((pp: any) => pp.assigned_number === num);
+          if (p) setChatParticipant(p);
+        }}
+      />
+
+      {/* Bulk WhatsApp Send Modal */}
+      <BulkWhatsAppModal
+        isOpen={showBulkWhatsAppModal}
+        onClose={() => setShowBulkWhatsAppModal(false)}
+        selectedParticipants={selectedParticipants}
+        participants={participants}
       />
 
       {/* Participant Results Modal */}

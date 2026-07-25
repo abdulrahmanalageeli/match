@@ -706,10 +706,17 @@ export default function AdminPage() {
   const [chatParticipant, setChatParticipant] = useState<any | null>(null);
   const [showChatModal, setShowChatModal] = useState(false);
   const [showBulkWhatsAppModal, setShowBulkWhatsAppModal] = useState(false);
+  const [showWaInboxModal, setShowWaInboxModal] = useState(false);
+  const [waInboxMessages, setWaInboxMessages] = useState<any[]>([]);
+  const [waInboxLoading, setWaInboxLoading] = useState(false);
+  const [waSelectedNumber, setWaSelectedNumber] = useState<number | null>(null);
+  const [waChatMessages, setWaChatMessages] = useState<any[]>([]);
+  const [waChatLoading, setWaChatLoading] = useState(false);
+  const [waReplyText, setWaReplyText] = useState('');
+  const [waSending, setWaSending] = useState(false);
   const [waUnreadCount, setWaUnreadCount] = useState(0);
-  const [waNeedsOrganizer, setWaNeedsOrganizer] = useState(0);
-  const [waUnreadMessages, setWaUnreadMessages] = useState<any[]>([]);
-  const [showWaInboxDropdown, setShowWaInboxDropdown] = useState(false);
+  const waInboxPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const waChatPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   // Excel export state
   const [isExporting, setIsExporting] = useState(false);
@@ -2839,26 +2846,28 @@ const fetchParticipants = async () => {
       fetchExcludedParticipants()
       fetchGroupExcludedParticipants()
 
-      // Poll for unread WhatsApp messages every 30 seconds
-      const pollWaUnread = async () => {
+      // Poll WhatsApp inbox for unread count using localStorage timestamp
+      const pollWaInbox = async () => {
         try {
           const res = await fetch('/api/admin', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'get-whatsapp-unread' }),
+            body: JSON.stringify({ action: 'get-whatsapp-inbox' }),
           })
           const data = await res.json()
-          if (data?.success) {
-            setWaUnreadCount(data.count || 0)
-            setWaNeedsOrganizer(data.needs_organizer || 0)
-            setWaUnreadMessages(data.messages || [])
+          if (data?.success && data.messages) {
+            setWaInboxMessages(data.messages)
+            const lastSeen = localStorage.getItem('wa_inbox_last_seen')
+            const lastSeenTime = lastSeen ? new Date(lastSeen).getTime() : 0
+            const unread = data.messages.filter((m: any) => new Date(m.created_at).getTime() > lastSeenTime).length
+            setWaUnreadCount(unread)
           }
         } catch (e) {
           // silent fail
         }
       }
-      pollWaUnread()
-      const waInterval = setInterval(pollWaUnread, 30000)
+      pollWaInbox()
+      const waInterval = setInterval(pollWaInbox, 15000)
       return () => clearInterval(waInterval)
     }
   }, [])
@@ -4444,6 +4453,119 @@ Proceed?`
     }
   }
 
+  // ── WhatsApp Inbox Modal helpers ──────────────────────────────────
+  const fetchWaConversation = async (num: number) => {
+    setWaChatLoading(true)
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get-whatsapp-conversation', assigned_number: num }),
+      })
+      const data = await res.json()
+      if (data?.success) {
+        setWaChatMessages(data.messages || [])
+      }
+    } catch (e) {
+      console.error('Failed to fetch WA conversation', e)
+    } finally {
+      setWaChatLoading(false)
+    }
+  }
+
+  const sendWaReply = async () => {
+    if (!waReplyText.trim() || !waSelectedNumber) return
+    setWaSending(true)
+    try {
+      const participant = participants.find((p: any) => p.assigned_number === waSelectedNumber)
+      const to = participant?.phone_number ? `whatsapp:${String(participant.phone_number).replace(/\s/g, '').replace(/^\+/, '+')}` : null
+      if (!to) {
+        toast.error('No phone number for this participant')
+        return
+      }
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'send-twilio-whatsapp',
+          to,
+          message: waReplyText.trim(),
+        }),
+      })
+      const data = await res.json()
+      if (data?.success) {
+        toast.success('Message sent')
+        setWaReplyText('')
+        fetchWaConversation(waSelectedNumber)
+      } else {
+        toast.error(data?.error || 'Failed to send')
+      }
+    } catch (e) {
+      toast.error('Network error')
+    } finally {
+      setWaSending(false)
+    }
+  }
+
+  const openWaInbox = () => {
+    setShowWaInboxModal(true)
+    setWaSelectedNumber(null)
+    setWaChatMessages([])
+    // Mark all as seen
+    localStorage.setItem('wa_inbox_last_seen', new Date().toISOString())
+    setWaUnreadCount(0)
+    // Fetch fresh inbox
+    setWaInboxLoading(true)
+    fetch('/api/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'get-whatsapp-inbox' }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data?.success) setWaInboxMessages(data.messages || [])
+      })
+      .catch(() => {})
+      .finally(() => setWaInboxLoading(false))
+  }
+
+  const selectWaParticipant = (num: number) => {
+    setWaSelectedNumber(num)
+    fetchWaConversation(num)
+  }
+
+  // Poll conversation while modal open and a participant is selected
+  useEffect(() => {
+    if (showWaInboxModal && waSelectedNumber) {
+      if (waChatPollRef.current) clearInterval(waChatPollRef.current)
+      waChatPollRef.current = setInterval(() => fetchWaConversation(waSelectedNumber), 5000)
+      return () => {
+        if (waChatPollRef.current) { clearInterval(waChatPollRef.current); waChatPollRef.current = null }
+      }
+    }
+  }, [showWaInboxModal, waSelectedNumber])
+
+  // Poll inbox list while modal open (no participant selected)
+  useEffect(() => {
+    if (showWaInboxModal && !waSelectedNumber) {
+      if (waInboxPollRef.current) clearInterval(waInboxPollRef.current)
+      const poll = () => {
+        fetch('/api/admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'get-whatsapp-inbox' }),
+        })
+          .then(r => r.json())
+          .then(data => { if (data?.success) setWaInboxMessages(data.messages || []) })
+          .catch(() => {})
+      }
+      waInboxPollRef.current = setInterval(poll, 10000)
+      return () => {
+        if (waInboxPollRef.current) { clearInterval(waInboxPollRef.current); waInboxPollRef.current = null }
+      }
+    }
+  }, [showWaInboxModal, waSelectedNumber])
+
   if (!authenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
@@ -4545,99 +4667,27 @@ Proceed?`
           </div>
 
           <div className="flex items-center gap-4">
-            {/* WhatsApp Notifications */}
-            <div className="relative">
-              <button
-                onClick={() => setShowWaInboxDropdown(!showWaInboxDropdown)}
-                className={`relative flex items-center gap-2 px-4 py-2 backdrop-blur-sm border rounded-xl transition-all duration-300 ${
-                  waUnreadCount > 0
-                    ? waNeedsOrganizer > 0
-                      ? 'bg-red-500/20 border-red-400/40 text-red-300 hover:bg-red-500/30'
-                      : 'bg-blue-500/20 border-blue-400/30 text-blue-300 hover:bg-blue-500/30'
-                    : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/15'
-                }`}
-              >
-                <MessagesSquare className="w-4 h-4" />
-                <div className="text-right">
-                  <div className="text-sm font-semibold">
-                    {waUnreadCount > 0 ? `${waUnreadCount} New` : 'Inbox'}
-                  </div>
-                  {waNeedsOrganizer > 0 && (
-                    <div className="text-xs text-red-400 font-medium">
-                      {waNeedsOrganizer} need attention
-                    </div>
-                  )}
+            {/* WhatsApp Inbox Button */}
+            <button
+              onClick={openWaInbox}
+              className={`relative flex items-center gap-2 px-4 py-2 backdrop-blur-sm border rounded-xl transition-all duration-300 ${
+                waUnreadCount > 0
+                  ? 'bg-red-500/20 border-red-400/40 text-red-300 hover:bg-red-500/30'
+                  : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/15'
+              }`}
+            >
+              <MessagesSquare className="w-4 h-4" />
+              <div className="text-right">
+                <div className="text-sm font-semibold">
+                  {waUnreadCount > 0 ? `${waUnreadCount} New` : 'Inbox'}
                 </div>
-                {waUnreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center animate-pulse">
-                    {waUnreadCount > 9 ? '9+' : waUnreadCount}
-                  </span>
-                )}
-              </button>
-
-              {/* Dropdown */}
-              {showWaInboxDropdown && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowWaInboxDropdown(false)} />
-                  <div className="absolute right-0 top-full mt-2 w-80 max-h-96 overflow-y-auto bg-slate-900 border border-white/20 rounded-xl shadow-2xl z-50">
-                    <div className="flex items-center justify-between p-3 border-b border-white/10">
-                      <span className="text-sm font-semibold text-white">WhatsApp Inbox</span>
-                      {waUnreadCount > 0 && (
-                        <button
-                          onClick={async () => {
-                            await fetch('/api/admin', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ action: 'mark-whatsapp-seen' }),
-                            })
-                            setWaUnreadCount(0)
-                            setWaNeedsOrganizer(0)
-                            setWaUnreadMessages([])
-                          }}
-                          className="text-xs text-cyan-400 hover:text-cyan-300"
-                        >
-                          Mark all read
-                        </button>
-                      )}
-                    </div>
-                    {waUnreadMessages.length === 0 ? (
-                      <div className="p-4 text-center text-sm text-white/40">No new messages</div>
-                    ) : (
-                      <div className="divide-y divide-white/5">
-                        {waUnreadMessages.map((m: any) => (
-                          <button
-                            key={m.id}
-                            onClick={() => {
-                              setShowWaInboxDropdown(false)
-                              if (m.assigned_number) {
-                                const p = participants.find((pp: any) => pp.assigned_number === m.assigned_number)
-                                if (p) {
-                                  setChatParticipant(p)
-                                  setShowChatModal(true)
-                                }
-                              }
-                            }}
-                            className="w-full text-left p-3 hover:bg-white/5 transition-colors"
-                          >
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-sm font-medium text-white">
-                                {m.participant_name || `#${m.assigned_number || '?'}`}
-                              </span>
-                              <span className="text-xs text-white/40">
-                                {new Date(m.created_at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                            </div>
-                            <p className="text-xs text-white/60 truncate">
-                              {m.button_text || m.message_body || '(media)'}
-                            </p>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </>
+              </div>
+              {waUnreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center animate-pulse">
+                  {waUnreadCount > 9 ? '9+' : waUnreadCount}
+                </span>
               )}
-            </div>
+            </button>
 
             {/* Results Visibility Status */}
             <div className={`flex items-center gap-2 px-4 py-2 backdrop-blur-sm border rounded-xl ${
@@ -8094,6 +8144,188 @@ Proceed?`
           if (p) setChatParticipant(p);
         }}
       />
+
+      {/* WhatsApp Inbox Modal — two-panel like admin3 SOS */}
+      {showWaInboxModal && (() => {
+        // Group inbox messages by participant
+        const grouped: Record<number, { name: string; messages: any[]; latest: any }> = {}
+        for (const m of waInboxMessages) {
+          const num = m.assigned_number || 0
+          if (!grouped[num]) grouped[num] = { name: m.participant_name || `#${num}`, messages: [], latest: m }
+          grouped[num].messages.push(m)
+          if (new Date(m.created_at) > new Date(grouped[num].latest.created_at)) grouped[num].latest = m
+        }
+        const sortedGroups = Object.entries(grouped)
+          .map(([num, g]) => ({ num: parseInt(num), ...g }))
+          .sort((a, b) => new Date(b.latest.created_at).getTime() - new Date(a.latest.created_at).getTime())
+
+        const selectedParticipant = waSelectedNumber ? participants.find((p: any) => p.assigned_number === waSelectedNumber) : null
+        const selectedName = selectedParticipant?.name || grouped[waSelectedNumber || 0]?.name || `#${waSelectedNumber}`
+
+        return (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-0 sm:p-4" dir="rtl">
+            <div className="bg-slate-900 border border-slate-700/60 rounded-none sm:rounded-2xl w-full sm:max-w-3xl shadow-2xl flex flex-col overflow-hidden" style={{ maxHeight: '100vh', height: '100vh' }}>
+
+              {/* Header */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-gradient-to-l from-cyan-950/30 to-slate-900 flex-shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-600 to-blue-600 flex items-center justify-center text-white">
+                    <MessagesSquare size={16} />
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-white text-sm leading-tight">WhatsApp Inbox</h2>
+                    <p className="text-slate-500 text-[10px] leading-tight">{sortedGroups.length} محادثات · {waInboxMessages.length} رسائل</p>
+                  </div>
+                </div>
+                <button onClick={() => { setShowWaInboxModal(false); setWaSelectedNumber(null); setWaReplyText('') }}
+                  className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Two-panel body */}
+              <div className="flex flex-1 overflow-hidden">
+
+                {/* Conversation list */}
+                <div className={`${waSelectedNumber ? 'hidden sm:flex' : 'flex'} sm:w-64 sm:border-l border-white/10 flex-col flex-shrink-0`}>
+                  <div className="flex-1 overflow-y-auto">
+                    {waInboxLoading && sortedGroups.length === 0 && (
+                      <div className="flex items-center justify-center py-12">
+                        <Loader2 className="w-5 h-5 text-slate-600 animate-spin" />
+                      </div>
+                    )}
+                    {!waInboxLoading && sortedGroups.length === 0 && (
+                      <div className="flex flex-col items-center justify-center py-12 text-slate-600 gap-2">
+                        <div className="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center">
+                          <MessageSquare size={18} className="text-slate-700" />
+                        </div>
+                        <p className="text-xs">لا توجد رسائل</p>
+                      </div>
+                    )}
+                    {sortedGroups.map(g => {
+                      const isSel = g.num === waSelectedNumber
+                      const lastMsg = g.latest
+                      const isUnrecognized = lastMsg.message_body && !lastMsg.button_payload &&
+                        !["تأكيد", "confirm", "نعم", "اعتذار", "deny", "لا", "إيقاف", "toggle", "تبديل"].includes((lastMsg.message_body || '').trim().toLowerCase())
+                      return (
+                        <button key={g.num} onClick={() => selectWaParticipant(g.num)}
+                          className={`w-full flex items-center gap-2.5 px-3 py-3 border-b border-white/5 text-right transition-colors ${
+                            isSel ? 'bg-slate-800/80' : 'hover:bg-slate-800/40'
+                          }`}>
+                          <div className="relative flex-shrink-0">
+                            <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold ${
+                              isUnrecognized ? 'bg-red-600/30 text-red-400' : 'bg-cyan-600/20 text-cyan-400'
+                            }`}>{g.name?.charAt(0) || '؟'}</div>
+                            {isUnrecognized && (
+                              <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-slate-900 animate-pulse" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-white text-xs font-semibold truncate">{g.name}</span>
+                              <span className="text-slate-600 text-[9px] flex-shrink-0">
+                                {new Date(lastMsg.created_at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                            <p className="text-slate-500 text-[10px] truncate mt-0.5">
+                              {lastMsg.button_text || lastMsg.message_body || '(media)'}
+                            </p>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Chat panel */}
+                <div className={`${waSelectedNumber ? 'flex' : 'hidden sm:flex'} flex-1 flex-col`}>
+                  {waSelectedNumber ? (
+                    <>
+                      {/* Chat header */}
+                      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-white/10 bg-slate-900/30 flex-shrink-0">
+                        <button onClick={() => setWaSelectedNumber(null)}
+                          className="sm:hidden w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors flex-shrink-0">
+                          <ChevronRight size={16} />
+                        </button>
+                        <div className="w-9 h-9 rounded-full bg-cyan-600/20 text-cyan-400 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                          {selectedName?.charAt(0) || '؟'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-white text-sm font-semibold">{selectedName}</span>
+                          <span className="text-slate-600 text-[10px] font-mono mr-2">#{waSelectedNumber}</span>
+                        </div>
+                      </div>
+
+                      {/* Messages */}
+                      <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 space-y-2.5 bg-slate-950/30">
+                        {waChatLoading && waChatMessages.length === 0 && (
+                          <div className="flex items-center justify-center py-8">
+                            <Loader2 className="w-5 h-5 text-slate-600 animate-spin" />
+                          </div>
+                        )}
+                        {!waChatLoading && waChatMessages.length === 0 && (
+                          <div className="text-center py-8 text-slate-600 text-xs">لا توجد رسائل</div>
+                        )}
+                        {waChatMessages.map((msg: any, i: number) => (
+                          <div key={msg.id || i} className={`flex ${msg.direction === 'inbound' ? 'justify-start' : 'justify-end'}`}>
+                            <div className="max-w-[80%]">
+                              <div className={`rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
+                                msg.direction === 'inbound'
+                                  ? 'bg-slate-800 text-slate-200 rounded-bl-md'
+                                  : 'bg-cyan-900/30 border border-cyan-700/30 text-cyan-200 rounded-br-md'
+                              }`}>
+                                {msg.direction === 'outbound' && msg.is_auto_reply && (
+                                  <p className="text-cyan-400/60 text-[9px] font-bold mb-0.5">تلقائي</p>
+                                )}
+                                {msg.direction === 'outbound' && !msg.is_auto_reply && (
+                                  <p className="text-cyan-400/80 text-[9px] font-bold mb-0.5">عبدالرحمن</p>
+                                )}
+                                {msg.message_body || msg.button_text || (msg.media_url ? '📎 media' : '(empty)')}
+                              </div>
+                              <p className={`text-slate-700 text-[9px] mt-1 ${msg.direction === 'inbound' ? 'mr-1' : 'ml-1 text-left'}`}>
+                                {new Date(msg.created_at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Reply input */}
+                      <div className="border-t border-white/10 p-2.5 sm:p-3 bg-slate-900/50 flex-shrink-0">
+                        <div className="flex items-end gap-2">
+                          <textarea
+                            value={waReplyText}
+                            onChange={e => setWaReplyText(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (waReplyText.trim()) sendWaReply() } }}
+                            placeholder="اكتب ردك..."
+                            rows={1}
+                            className="flex-1 bg-slate-800 border border-slate-700 text-white rounded-2xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-cyan-600 resize-none placeholder-slate-600 max-h-24"
+                            style={{ minHeight: '40px' }}
+                          />
+                          <button
+                            onClick={sendWaReply}
+                            disabled={!waReplyText.trim() || waSending}
+                            className="w-10 h-10 rounded-full bg-cyan-600 hover:bg-cyan-500 disabled:opacity-30 text-white flex items-center justify-center transition-colors flex-shrink-0"
+                          >
+                            {waSending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center text-slate-600 gap-3">
+                      <div className="w-14 h-14 rounded-full bg-slate-800/50 flex items-center justify-center">
+                        <MessageSquare size={24} className="text-slate-700" />
+                      </div>
+                      <p className="text-sm">اختر محادثة من القائمة</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Bulk WhatsApp Send Modal */}
       <BulkWhatsAppModal

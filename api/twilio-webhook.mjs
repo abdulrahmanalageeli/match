@@ -82,7 +82,7 @@ async function sendTwilioReply(to, message, participant = null) {
   }
 }
 
-async function logIncomingMessage(participant, data, needsOrganizer = false) {
+async function logIncomingMessage(participant, data) {
   try {
     await supabase.from("whatsapp_messages").insert({
       participant_id: participant?.id || null,
@@ -95,7 +95,6 @@ async function logIncomingMessage(participant, data, needsOrganizer = false) {
       media_url: data.mediaUrl0 || null,
       media_content_type: data.mediaContentType0 || null,
       status: "received",
-      needs_organizer: needsOrganizer,
     })
   } catch (e) {
     console.error("Failed to log incoming message:", e)
@@ -277,10 +276,8 @@ export default async function handler(req, res) {
         return res.status(200).json({ status: "ignored" })
       }
 
-      // Log incoming free-text message (flag as needs_organizer if unrecognized)
-      const knownCommands = ["تأكيد", "confirm", "نعم", "اعتذار", "deny", "لا", "إيقاف", "toggle", "تبديل"]
-      const isKnownCommand = knownCommands.includes(text)
-      await logIncomingMessage(participant, { from, messageBody }, !isKnownCommand)
+      // Log incoming free-text message
+      await logIncomingMessage(participant, { from, messageBody })
 
       if (text === "تأكيد" || text === "confirm" || text === "نعم") {
         await supabase

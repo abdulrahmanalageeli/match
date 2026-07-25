@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
+import crypto from "crypto"
 
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
@@ -11,6 +12,34 @@ const STATIC_MATCH_ID = "00000000-0000-0000-0000-000000000000"
 const accountSid = process.env.TWILIO_ACCOUNT_SID
 const authToken = process.env.TWILIO_AUTH_TOKEN
 const sender = process.env.TWILIO_WHATSAPP_SENDER || "whatsapp:+13527387477"
+
+function validateTwilioSignature(req) {
+  if (!authToken) return false
+  const signature = req.headers["x-twilio-signature"] || ""
+  if (!signature) return false
+
+  // Build the full URL Twilio would have called
+  const protocol = req.headers["x-forwarded-proto"] || "https"
+  const host = req.headers["host"] || req.headers["x-forwarded-host"] || ""
+  const url = `${protocol}://${host}${req.url || ""}`
+
+  // Sort POST params alphabetically by key, concatenate key+value
+  const params = req.body || {}
+  const data = Object.keys(params)
+    .sort()
+    .map(key => key + (params[key] || ""))
+    .join("")
+
+  const hmac = crypto.createHmac("sha1", authToken)
+  hmac.update(url + data)
+  const expected = hmac.digest("base64")
+
+  const sigBuf = Buffer.from(signature)
+  const expBuf = Buffer.from(expected)
+  if (sigBuf.length !== expBuf.length) return false
+
+  return crypto.timingSafeEqual(sigBuf, expBuf)
+}
 
 async function sendTwilioReply(to, message, participant = null) {
   if (!accountSid || !authToken) {
@@ -96,6 +125,12 @@ async function findParticipantByPhone(phone) {
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" })
+  }
+
+  // Validate Twilio signature
+  if (!validateTwilioSignature(req)) {
+    console.error("Invalid Twilio signature")
+    return res.status(403).json({ error: "Invalid signature" })
   }
 
   try {

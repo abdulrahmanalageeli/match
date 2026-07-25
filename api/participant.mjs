@@ -3884,7 +3884,7 @@ Please respond in JSON format:
       const verifyUrl = `https://verify.twilio.com/v2/Services/${verifyServiceSid}/Verifications`
       const body = new URLSearchParams()
       body.append("To", to)
-      body.append("Channel", "whatsapp")
+      body.append("Channel", "sms")
 
       const verifyRes = await fetch(verifyUrl, {
         method: "POST",

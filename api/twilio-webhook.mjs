@@ -197,12 +197,12 @@ export default async function handler(req, res) {
         }
 
         case "toggle_auto_signup": {
-          const currentValue = participant.signup_for_next_event
+          const currentValue = participant.auto_signup_next_event
           const newValue = !currentValue
 
           await supabase
             .from("participants")
-            .update({ signup_for_next_event: newValue })
+            .update({ auto_signup_next_event: newValue })
             .eq("id", participant.id)
 
           const replyText = newValue
@@ -265,12 +265,12 @@ export default async function handler(req, res) {
       }
 
       if (text === "إيقاف" || text === "toggle" || text === "تبديل") {
-        const currentValue = participant.signup_for_next_event
+        const currentValue = participant.auto_signup_next_event
         const newValue = !currentValue
 
         await supabase
           .from("participants")
-          .update({ signup_for_next_event: newValue })
+          .update({ auto_signup_next_event: newValue })
           .eq("id", participant.id)
 
         const replyText = newValue

@@ -54,6 +54,7 @@ import {
   Bell,
   Info,
   Home,
+  Copy,
 } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Avatar, AvatarFallback } from "../../components/ui/avatar"
@@ -581,9 +582,13 @@ export default function WelcomePage() {
   const [showForgotTokenModal, setShowForgotTokenModal] = useState(false)
   const [forgotPhone, setForgotPhone] = useState("")
   const [forgotOtp, setForgotOtp] = useState("")
-  const [forgotStep, setForgotStep] = useState<'phone' | 'otp'>('phone')
+  const [forgotStep, setForgotStep] = useState<'phone' | 'otp' | 'success'>('phone')
   const [forgotLoading, setForgotLoading] = useState(false)
   const [forgotError, setForgotError] = useState<string | null>(null)
+  const [recoveredToken, setRecoveredToken] = useState('')
+  const [recoveredName, setRecoveredName] = useState('')
+  const [recoveredNumber, setRecoveredNumber] = useState<number | null>(null)
+  const [tokenCopied, setTokenCopied] = useState(false)
   const [showFAQPopup, setShowFAQPopup] = useState(false)
   
   // Contact Form states
@@ -4006,7 +4011,7 @@ export default function WelcomePage() {
       })
       const data = await res.json()
       if (res.ok && data.success) {
-        toast.success("تم إرسال رمز التحقق إلى واتسابك")
+        toast.success("تم إرسال رمز التحقق إلى رقم جوالك")
         setForgotStep('otp')
       } else {
         setForgotError(data.error || "فشل في إرسال الرمز")
@@ -4045,14 +4050,10 @@ export default function WelcomePage() {
           if (data.assigned_number) localStorage.setItem('blindmatch_participant_number', String(data.assigned_number))
         }
         toast.success(`مرحباً ${data.name || ''}! تم استعادة بياناتك`)
-        setShowForgotTokenModal(false)
-        setForgotPhone("")
-        setForgotOtp("")
-        setForgotStep('phone')
-        // Reload with token in URL
-        if (token) {
-          window.location.href = `/welcome?token=${token}`
-        }
+        setRecoveredToken(token || '')
+        setRecoveredName(data.name || '')
+        setRecoveredNumber(data.assigned_number || null)
+        setForgotStep('success')
       } else {
         setForgotError(data.error || "رمز التحقق غير صحيح")
       }
@@ -6092,7 +6093,7 @@ export default function WelcomePage() {
                         onClick={() => { setShowForgotTokenModal(true); setForgotStep('phone'); setForgotError(null); setShowNewUserTypePopup(false); }}
                         className="text-xs text-cyan-300 hover:text-cyan-200 underline"
                       >
-                        نسيت الرمز؟ استرجع عبر الواتساب
+                        نسيت الرمز؟ استرجع عبر الرسائل القصيرة
                       </button>
                     </div>
                     <button
@@ -6151,10 +6152,62 @@ export default function WelcomePage() {
                   <MessageSquare className="w-8 h-8 text-white" />
                 </div>
                 <h3 className="text-xl font-bold text-white mb-2">استرجاع الرمز المميز</h3>
-                <p className="text-slate-300 text-sm">سنرسل رمز تحقق إلى رقم جوالك على الواتساب</p>
+                <p className="text-slate-300 text-sm">سنرسل رمز تحقق إلى رقم جوالك عبر الرسائل القصيرة</p>
               </div>
 
-              {forgotStep === 'phone' ? (
+              {forgotStep === 'success' ? (
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center mx-auto mb-3 shadow-lg">
+                      <CheckCircle className="w-8 h-8 text-white" />
+                    </div>
+                    <h4 className="text-lg font-bold text-white mb-1">تم استعادة بياناتك!</h4>
+                    {recoveredName && <p className="text-slate-300 text-sm mb-1">{recoveredName}</p>}
+                    {recoveredNumber && <p className="text-slate-400 text-xs mb-4">رقم المشارك: #{recoveredNumber}</p>}
+                  </div>
+                  <div>
+                    <label className="text-slate-300 text-sm block mb-2">الرمز المميز الخاص بك</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        readOnly
+                        value={recoveredToken}
+                        className="w-full px-4 py-3 text-sm rounded-lg border bg-slate-700/50 border-slate-600 text-white font-mono text-center tracking-wider focus:outline-none"
+                        dir="ltr"
+                      />
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(recoveredToken)
+                          setTokenCopied(true)
+                          setTimeout(() => setTokenCopied(false), 2000)
+                        }}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-lg bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 transition-colors"
+                        title="نسخ"
+                      >
+                        {tokenCopied ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <p className="text-amber-300/70 text-xs mt-2 text-center">احفظ هذا الرمز في مكان آمن — ستحتاجه للدخول</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowForgotTokenModal(false)
+                      setForgotPhone("")
+                      setForgotOtp("")
+                      setForgotStep('phone')
+                      setRecoveredToken('')
+                      setTokenCopied(false)
+                      if (recoveredToken) {
+                        window.location.href = `/welcome?token=${recoveredToken}`
+                      }
+                    }}
+                    className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white rounded-lg transition-all duration-300 flex items-center justify-center gap-2 font-medium"
+                  >
+                    <span>المتابعة</span>
+                    <ChevronLeft className="w-4 h-4 transform rotate-180" />
+                  </button>
+                </div>
+              ) : forgotStep === 'phone' ? (
                 <div className="space-y-4">
                   <div>
                     <label className="text-slate-300 text-sm block mb-2">رقم الجوال</label>

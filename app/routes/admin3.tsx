@@ -392,6 +392,9 @@ export default function Admin3Page() {
   const [aiWelcomeGenerating, setAiWelcomeGenerating] = useState(false)
   const [aiWelcomeProgress, setAiWelcomeProgress] = useState<{ done: number; total: number } | null>(null)
   const [aiWelcomePreview, setAiWelcomePreview] = useState<any | null>(null)
+  const [aiWelcomeEditing, setAiWelcomeEditing] = useState(false)
+  const [aiWelcomeEditText, setAiWelcomeEditText] = useState("")
+  const [aiWelcomeEditSaving, setAiWelcomeEditSaving] = useState(false)
 
   useEffect(() => {
     const stored = sessionStorage.getItem("admin3_pw")
@@ -6120,50 +6123,100 @@ export default function Admin3Page() {
               </button>
             </div>
             <div className="overflow-y-auto flex-1 p-5">
-              <div className="bg-gradient-to-b from-gray-800/50 to-gray-900 border border-gray-800 rounded-xl p-4">
-                <p className="text-gray-100 text-sm leading-[2.2] text-center whitespace-pre-wrap font-medium">{aiWelcomePreview.welcome}</p>
-              </div>
+              {aiWelcomeEditing ? (
+                <textarea
+                  value={aiWelcomeEditText}
+                  onChange={e => setAiWelcomeEditText(e.target.value)}
+                  dir="rtl"
+                  rows={10}
+                  className="w-full bg-gray-800 text-gray-100 text-sm leading-[2.2] text-center whitespace-pre-wrap font-medium rounded-xl p-4 border border-gray-700 focus:border-purple-500 focus:outline-none resize-none"
+                />
+              ) : (
+                <div className="bg-gradient-to-b from-gray-800/50 to-gray-900 border border-gray-800 rounded-xl p-4">
+                  <p className="text-gray-100 text-sm leading-[2.2] text-center whitespace-pre-wrap font-medium">{aiWelcomePreview.welcome}</p>
+                </div>
+              )}
             </div>
             <div className="px-5 py-3 border-t border-gray-800 flex gap-2">
-              <button
-                onClick={() => { navigator.clipboard.writeText(aiWelcomePreview.welcome); toast.success("تم نسخ الرسالة") }}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-medium transition-colors"
-              >
-                <Copy size={14} /> نسخ
-              </button>
-              <button
-                onClick={async () => {
-                  setAiWelcomePreview(null)
-                  setAiWelcomeSelected(new Set([aiWelcomePreview.number]))
-                  // Trigger regenerate for this single participant
-                  setAiWelcomeGenerating(true)
-                  setAiWelcomeProgress({ done: 0, total: 1 })
-                  try {
-                    const data = await api("e3-ai-welcome-generate", { participant_numbers: [aiWelcomePreview.number], regenerate: true })
-                    if (data.results) {
-                      for (const r of data.results) {
-                        if (r.status === "generated") {
-                          setAiWelcomeData(prev => prev.map(p => p.number === r.number ? { ...p, has_welcome: true, welcome: r.welcome } : p))
+              {aiWelcomeEditing ? (
+                <>
+                  <button
+                    onClick={async () => {
+                      setAiWelcomeEditSaving(true)
+                      try {
+                        const data = await api("e3-ai-welcome-edit", { participant_number: aiWelcomePreview.number, welcome_message: aiWelcomeEditText })
+                        if (data.success) {
+                          setAiWelcomeData(prev => prev.map(p => p.number === aiWelcomePreview.number ? { ...p, has_welcome: true, welcome: data.welcome } : p))
+                          setAiWelcomePreview(prev => ({ ...prev, welcome: data.welcome }))
+                          setAiWelcomeEditing(false)
+                          toast.success("تم حفظ التعديل")
+                        } else {
+                          toast.error(data.error || "فشل الحفظ")
                         }
-                      }
-                    }
-                    toast.success("تم إعادة التوليد")
-                  } catch { toast.error("فشل إعادة التوليد") }
-                  setAiWelcomeGenerating(false)
-                  setAiWelcomeProgress(null)
-                  setAiWelcomeSelected(new Set())
-                }}
-                disabled={aiWelcomeGenerating}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-600/80 hover:bg-amber-500 text-white text-sm font-bold transition-colors disabled:opacity-40"
-              >
-                <RefreshCw size={14} /> إعادة توليد
-              </button>
-              <button
-                onClick={() => setAiWelcomePreview(null)}
-                className="flex-1 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-medium transition-colors"
-              >
-                إغلاق
-              </button>
+                      } catch { toast.error("فشل الحفظ") }
+                      setAiWelcomeEditSaving(false)
+                    }}
+                    disabled={aiWelcomeEditSaving || !aiWelcomeEditText.trim()}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white text-sm font-bold transition-colors disabled:opacity-40"
+                  >
+                    {aiWelcomeEditSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} حفظ
+                  </button>
+                  <button
+                    onClick={() => { setAiWelcomeEditing(false); setAiWelcomeEditText("") }}
+                    className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-medium transition-colors"
+                  >
+                    إلغاء
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(aiWelcomePreview.welcome); toast.success("تم نسخ الرسالة") }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-medium transition-colors"
+                  >
+                    <Copy size={14} /> نسخ
+                  </button>
+                  <button
+                    onClick={() => { setAiWelcomeEditing(true); setAiWelcomeEditText(aiWelcomePreview.welcome) }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold transition-colors"
+                  >
+                    <Pencil size={14} /> تعديل
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setAiWelcomePreview(null)
+                      setAiWelcomeSelected(new Set([aiWelcomePreview.number]))
+                      // Trigger regenerate for this single participant
+                      setAiWelcomeGenerating(true)
+                      setAiWelcomeProgress({ done: 0, total: 1 })
+                      try {
+                        const data = await api("e3-ai-welcome-generate", { participant_numbers: [aiWelcomePreview.number], regenerate: true })
+                        if (data.results) {
+                          for (const r of data.results) {
+                            if (r.status === "generated") {
+                              setAiWelcomeData(prev => prev.map(p => p.number === r.number ? { ...p, has_welcome: true, welcome: r.welcome } : p))
+                            }
+                          }
+                        }
+                        toast.success("تم إعادة التوليد")
+                      } catch { toast.error("فشل إعادة التوليد") }
+                      setAiWelcomeGenerating(false)
+                      setAiWelcomeProgress(null)
+                      setAiWelcomeSelected(new Set())
+                    }}
+                    disabled={aiWelcomeGenerating}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-600/80 hover:bg-amber-500 text-white text-sm font-bold transition-colors disabled:opacity-40"
+                  >
+                    <RefreshCw size={14} /> إعادة توليد
+                  </button>
+                  <button
+                    onClick={() => setAiWelcomePreview(null)}
+                    className="flex-1 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-medium transition-colors"
+                  >
+                    إغلاق
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

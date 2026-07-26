@@ -9813,6 +9813,25 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           return res.status(200).json({ success: true })
         }
 
+        // e3-ai-welcome-edit — manually edit a welcome message for a participant
+        if (action === "e3-ai-welcome-edit") {
+          const { participant_number, welcome_message } = req.body
+          if (!participant_number) return res.status(400).json({ error: "Missing participant_number" })
+          if (!welcome_message || !welcome_message.trim()) return res.status(400).json({ error: "Missing welcome_message" })
+
+          const { error: upErr } = await supabase.from("event3_ai_welcome_messages")
+            .upsert({
+              match_id: EVENT3_MATCH_ID,
+              event_id: currentEventId,
+              participant_number: Number(participant_number),
+              welcome_message: welcome_message.trim(),
+              generated_by: 'admin',
+            }, { onConflict: 'match_id, event_id, participant_number' })
+          if (upErr) return res.status(500).json({ error: upErr.message })
+
+          return res.status(200).json({ success: true, participant_number: Number(participant_number), welcome: welcome_message.trim() })
+        }
+
         return res.status(400).json({ error: `Unknown e3 action: ${action}` })
       } catch (e3err) {
         console.error("e3 admin error:", e3err)

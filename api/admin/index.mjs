@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
 import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkInteractionStyleCompatibility, fetchAllCachedPairs, calculateHumorOpennessScore } from "./trigger-match.mjs"
+import { buildWelcomePrompt } from "./ai-welcome-prompt.mjs"
 
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
@@ -9739,64 +9740,29 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             }
 
             try {
-              const getAns = (key) => sd?.answers?.[key] || sd?.[key] || ""
               const firstName = (p.name || sd?.answers?.name || sd?.name || "").trim().split(/\s+/)[0] || "صديقنا"
               const gender = p.gender || sd?.answers?.gender || sd?.gender || ""
               const age = p.age || sd?.answers?.age || sd?.age || ""
-              const hobbies = getAns("vibe_2") || ""
-              const weekend = getAns("vibe_1") || ""
-              const music = getAns("vibe_3") || ""
-              const personality = getAns("vibe_5") || ""
 
-              const prompt = `أنت صديق مضيف ودود، تكتب بلهجة رياضية طبيعية. مو شاعر، بس شخص حقيقي يرحب بصديق.
+              // Returning participant detection: fetch prior welcome messages from other events
+              const { data: priorWelcomes } = await supabase.from("event3_ai_welcome_messages")
+                .select("welcome_message,anchor_used,event_id")
+                .eq("match_id", EVENT3_MATCH_ID)
+                .eq("participant_number", num)
+                .neq("event_id", currentEventId)
+              const priorMessages = (priorWelcomes || []).map(w => w.welcome_message).filter(Boolean)
+              const priorAnchors = [...new Set((priorWelcomes || []).flatMap(w => (w.anchor_used || "").split(",").filter(Boolean)))]
 
-المهمة: رسالة ترحيب قصيرة (60-100 كلمة) لشخص اسمه "${firstName}" انضم لفعالية "التوافق الأعمى" — فعالية تعارف اجتماعي.
-
-الهدف بالترتيب:
-1. تحس إنها مكتوبة له شخصياً
-2. تحمّسه للفعالية
-3. لو أمكن، نصيحة صغيرة وحقيقية تفيده بالجلسة
-
-بيانات ${firstName} (لا تذكرها صراحة — استخدمها بشكل غير مباشر):
-- الجنس: ${gender === "male" ? "ذكر" : gender === "female" ? "أنثى" : "غير محدد"}
-- العمر: ${age || "غير محدد"}
-- الهوايات: ${hobbies || "غير محدد"}
-- Weekend: ${weekend || "غير محدد"}
-- الموسيقى: ${music || "غير محدد"}
-- وصف الأصدقاء له: ${personality || "غير محدد"}
-
-القواعد:
-
-1. الاسم: لو مكتوب بحروف إنجليزية، عرّبه (bayan ← بيان، Thamer ← ثامر).
-
-2. الجنس: كل فعل وضمير يطابق ${gender === "male" ? "ذكر" : gender === "female" ? "أنثى" : "الجنس"} بدون استثناء.
-
-3. البساطة: اكتب كأنك ترسل واتساب لصديق. جمل قصيرة وعادية. بدون استعارات أدبية، بدون حوار مفتعل ("اللي يخلونك تقول..."). لو جملة تبان متكلفة، احذفها أو بسّطها.
-
-4. التركيز: استخدم عنصر أو اثنين بس من البيانات — الأوضح والأكثر واقعية. تجاهل الباقي.
-
-5. ممنوع نهائياً:
-   - تورية على اسم الفعالية أو كلمة "أعمى"
-   - كلام عن الحب/العاطفة/الزواج
-   - عبارات مستهلكة ("أهلاً وسهلاً")
-   - ذكر أنك AI أو شرح آلية المطابقة
-   - مواعظ عامة ما لها علاقة ببياناته الفعلية
-   - تجاوز 100 كلمة
-   - أي مقدمة أو علامات اقتباس حول الرسالة — أخرج النص فقط
-
-6. النصيحة (اختياري): لو تقدر تربط شخصيته بنصيحة عملية صغيرة تفيده الليلة، أضفها. لازم تكون محددة له، مو نصيحة عامة تصلح لأي شخص.
-
-7. الخاتمة: ترحيب دافئ وقصير. بدون سؤال فلسفي أو جملة "إصابة" مصطنعة — بس كلام طبيعي يخليه متحمس.
-
-أمثلة:
-
-سيئ (شاعري): "فيك عين تقرأ التفاصيل مثل صفحة ما تنمسك إلا للي يدقق."
-
-سيئ (عام): "أهلاً بيان! نتمنى لك تجربة ممتعة، استعدي للتعرف على ناس جدد."
-
-جيد: "بيان، سمعنا إنك من النوع اللي يلاحظ كل شي حواليه — هذي بالضبط الميزة اللي بتخليك تسبقين الكل بالنقاش الليلة. ما تحتاجين تحضّرين أسئلة، بس افتحي أول ملاحظة توك بتلاحظينها وخليها بداية الحديث. جلسة الليلة فيها ناس بيقدّرون هالنوع من الانتباه. يلا نشوفك هناك!"
-
-جيد: "فهد، بين شغفك بالشطرنج وحبك تصلح الأشياء بيدك، توقعنا إنك بتحلل كل طاولة قبل لا تقرر تجلس عندها — خذ وقتك، ما فيه استعجال. وإذا حسيت إنك ما تعرف حد بالبداية، طبيعي جداً، الكل بنفس الموقف. الليلة فيها نقاشات تستاهل."`
+              // Build prompt using shared builder
+              const { prompt, anchorsUsed } = buildWelcomePrompt({
+                participantNum: num,
+                firstName,
+                gender,
+                age,
+                surveyData: sd,
+                priorAnchors,
+                priorMessages,
+              })
 
               const completion = await openai.chat.completions.create({
                 model: "gpt-5.4-mini",
@@ -9810,7 +9776,7 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
               const message = completion.choices[0]?.message?.content?.trim()
               if (!message) throw new Error("Empty response")
 
-              // Cache in dedicated table
+              // Cache in dedicated table with anchor_used
               await supabase.from("event3_ai_welcome_messages")
                 .upsert({
                   match_id: EVENT3_MATCH_ID,
@@ -9818,10 +9784,11 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
                   participant_number: num,
                   welcome_message: message,
                   generated_by: 'admin',
+                  anchor_used: anchorsUsed.join(","),
                 }, { onConflict: 'match_id, event_id, participant_number' })
 
               results.push({ number: num, name: p.name, status: "generated", welcome: message })
-              console.log(`[ai-welcome-batch] Generated for #${num} (${firstName})`)
+              console.log(`[ai-welcome-batch] Generated for #${num} (${firstName}) — anchors: ${anchorsUsed.join(",")}`)
             } catch (genErr) {
               console.error(`[ai-welcome-batch] Error for #${num}:`, genErr.message)
               results.push({ number: num, name: p.name, status: "error", error: genErr.message })

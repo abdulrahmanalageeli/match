@@ -2819,6 +2819,51 @@ export default function Admin3Page() {
                   </div>
                 </div>
 
+                {/* Who hasn't submitted — prominent panel */}
+                {pendingCount > 0 && (() => {
+                  const pendingList = allRankings.filter((r: any) => !r.submitted)
+                  return (
+                    <div className="rounded-xl p-3 border bg-amber-950/30 border-amber-800/50">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle size={14} className="text-amber-400" />
+                          <h4 className="text-amber-300 text-xs font-bold">لم يصنّف بعد ({pendingCount})</h4>
+                        </div>
+                        <div className="flex gap-1.5">
+                          <button
+                            onClick={() => run("nudge-ranking", () => api("e3-send-notification", { title: "⏰ تذكير: صوّت الآن!", body: "الوقت ينفد — يرجى تقديم تصنيفك فوراً", icon: "clock" }).then(d => { if (!d.error) toast.success("تم إرسال التذكير ✅"); return d }))}
+                            disabled={!!loading}
+                            className="flex items-center gap-1 bg-blue-900/50 hover:bg-blue-800 border border-blue-800/50 text-blue-300 rounded-lg px-2 py-1 text-[10px] disabled:opacity-40"
+                          >
+                            {loading === "nudge-ranking" ? <RefreshCw size={10} className="animate-spin" /> : <Bell size={10} />}
+                            تذكير
+                          </button>
+                          <button
+                            onClick={() => { if (confirm("حفظ تصنيفات جميع المشاركين الذين لم يصوتوا تلقائياً؟")) run("force-save", () => api("e3-force-auto-save-rankings").then(d => { if (!d.error) { toast.success(d.message || "تم الحفظ التلقائي"); fetchRankStatus() } return d })) }}
+                            disabled={!!loading}
+                            className="flex items-center gap-1 bg-amber-900/50 hover:bg-amber-800 border border-amber-700/50 text-amber-300 rounded-lg px-2 py-1 text-[10px] disabled:opacity-40"
+                          >
+                            {loading === "force-save" ? <RefreshCw size={10} className="animate-spin" /> : <Clock size={10} />}
+                            حفظ تلقائي
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {pendingList.map((p: any) => (
+                          <button
+                            key={p.number}
+                            onClick={() => setExpandedRanker(p.number)}
+                            className="text-xs px-2.5 py-1 rounded-lg border bg-amber-900/30 border-amber-800/40 text-amber-300 hover:bg-amber-800/40 transition-colors flex items-center gap-1"
+                          >
+                            <span className="font-mono text-[10px] opacity-60">#{p.number}</span>
+                            {p.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()}
+
                 {/* Search & Filter */}
                 <div className="flex gap-2 flex-wrap">
                   <div className="relative flex-1 min-w-[140px]">

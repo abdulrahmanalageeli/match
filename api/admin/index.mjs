@@ -7873,15 +7873,36 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           let matches, participantMap
 
           if (isTestMode2) {
-            // ── Test mode: random pairing (no rankings needed) ─────────────────
-            console.log(`Phase 2: TEST MODE — skipping rankings, using random pairing`)
-            const eligibleNums = (e3p || []).filter(r => !r.phase2_excluded).map(r => r.participant_number)
-            const { data: pRows } = await supabase.from("participants").select("assigned_number,gender").eq("match_id", STATIC_MATCH_ID).in("assigned_number", eligibleNums)
-            const genderMap = {}
-            for (const p of pRows || []) genderMap[p.assigned_number] = p.gender || ''
-            const result = e3RandomPairMatching(eligibleNums, genderMap)
-            matches = result.matches
-            participantMap = new Map()
+            // ── Test mode: use rankings if available, otherwise random pairing ──
+            const { data: testRankRows } = await supabase.from("participant_rankings").select("ranker_number,ranked_number,rank").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).order("rank", { ascending: true })
+            if (testRankRows && testRankRows.length > 0) {
+              console.log(`Phase 2: TEST MODE — using submitted rankings (${testRankRows.length} rows)`)
+              const rankings = new Map()
+              for (const row of testRankRows) {
+                if (phase2ExcludedSet.has(row.ranker_number)) continue
+                const sorted = testRankRows.filter(r => r.ranker_number === row.ranker_number).sort((a, b) => a.rank - b.rank).map(r => r.ranked_number)
+                rankings.set(row.ranker_number, sorted)
+              }
+              const rankerNums = Array.from(rankings.keys())
+              const { data: genderRows } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,attachment_style,communication_style,humor_banter_style,early_openness_comfort,same_gender_preference,any_gender_preference,nationality,prefer_same_nationality,preferred_age_min,preferred_age_max,open_age_preference").eq("match_id", STATIC_MATCH_ID).in("assigned_number", rankerNums)
+              participantMap = new Map()
+              for (const p of genderRows || []) {
+                try { p.survey_data = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}) } catch {}
+                participantMap.set(p.assigned_number, p)
+              }
+              const { data: exRows } = await supabase.from("event3_exclusions").select("participant_a_number,participant_b_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+              const exclusions = new Set((exRows || []).map(e => { const [a, b] = [e.participant_a_number, e.participant_b_number].sort((x, y) => x - y); return `${a}-${b}` }))
+              matches = e3GreedyMutualMatching(rankings, participantMap, exclusions)
+            } else {
+              console.log(`Phase 2: TEST MODE — no rankings found, using random pairing`)
+              const eligibleNums = (e3p || []).filter(r => !r.phase2_excluded).map(r => r.participant_number)
+              const { data: pRows } = await supabase.from("participants").select("assigned_number,gender").eq("match_id", STATIC_MATCH_ID).in("assigned_number", eligibleNums)
+              const genderMap = {}
+              for (const p of pRows || []) genderMap[p.assigned_number] = p.gender || ''
+              const result = e3RandomPairMatching(eligibleNums, genderMap)
+              matches = result.matches
+              participantMap = new Map()
+            }
           } else {
             // ── Normal mode: ranking-based mutual matching ──────────────────────
             const { data: rankRows } = await supabase.from("participant_rankings").select("ranker_number,ranked_number,rank").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).order("rank", { ascending: true })

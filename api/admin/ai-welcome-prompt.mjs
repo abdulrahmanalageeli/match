@@ -204,4 +204,4 @@ ${returningSection}
   return { prompt, anchorsUsed: anchorKeys }
 }
 
-module.exports = { buildWelcomePrompt, pickAnchors, pickOpeningMove, ANCHOR_FIELDS }
+export { buildWelcomePrompt, pickAnchors, pickOpeningMove, ANCHOR_FIELDS }

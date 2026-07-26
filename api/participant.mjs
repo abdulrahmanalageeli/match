@@ -3188,20 +3188,6 @@ Please respond in JSON format:
           .eq("event_id", currentEventId)
           .eq("participant_number", match.assigned_number).maybeSingle()
         if (!ep) return res.status(403).json({ error: "رقمك غير مسجّل في هذه الفعالية. تواصل مع المنظم." })
-        // Auto-mark attendance when participant joins the event
-        try {
-          await supabase.from("event_attendance").upsert({
-            match_id: MAIN_MATCH,
-            event_id: currentEventId,
-            participant_number: match.assigned_number,
-            attended: true,
-            updated_by: "auto-join",
-            updated_at: new Date().toISOString(),
-          }, { onConflict: "match_id, event_id, participant_number" })
-          console.log(`[auto-attendance] Marked #${match.assigned_number} as attended (phone login)`)
-        } catch (attErr) {
-          console.error("[auto-attendance] Failed to mark attendance on login:", attErr.message)
-        }
         const firstName = (match.name || '').trim().split(/\s+/)[0] || 'مشارك'
         return res.status(200).json({ token: match.secure_token, name: firstName })
       }

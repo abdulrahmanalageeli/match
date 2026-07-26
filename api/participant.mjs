@@ -3065,15 +3065,16 @@ Please respond in JSON format:
     const token = req.body.token || null
     const participant = token ? await resolveE3Token(token) : null
     const myNumber = participant?.assigned_number
+    const { data: mainEventState } = await supabase.from("event_state").select("current_event_id").eq("match_id", MAIN_MATCH).maybeSingle()
     const { data: e3EventState } = await supabase.from("event_state").select("current_event_id").eq("match_id", E3_MATCH_ID).maybeSingle()
-    const currentEventId = e3EventState?.current_event_id || 20
+    const currentEventId = mainEventState?.current_event_id || e3EventState?.current_event_id || 20
 
     try {
       // e3-get-state (no auth required) / e3-heartbeat (combines state + sos + mood + notification)
       if (action === "e3-get-state" || action === "e3-heartbeat") {
         const { data: stateRow } = await supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration,global_timer_round,phase2_score_revealed,phase3_score_revealed,current_event_id").eq("match_id", E3_MATCH_ID).single()
         const phase = stateRow?.phase || "setup"
-        const activeEventId = stateRow?.current_event_id || currentEventId
+        const activeEventId = currentEventId || stateRow?.current_event_id || 20
         const { count: participantsSelected } = await supabase.from("event3_participants").select("id", { count: "exact", head: true }).eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId)
 
         // Server-side auto-save: if ranking phase and timer expired, auto-save for this participant
@@ -3175,6 +3176,7 @@ Please respond in JSON format:
         const { data: candidates } = await supabase
           .from("participants").select("assigned_number,secure_token,name,phone_number")
           .eq("match_id", MAIN_MATCH).not("phone_number", "is", null)
+          .ilike("phone_number", `%${last7}`)
         const match = (candidates || []).find(c => {
           const cp = String(c.phone_number || '').replace(/\D/g, '')
           return cp.length >= 7 && cp.slice(-7) === last7
@@ -3851,12 +3853,13 @@ Please respond in JSON format:
       if (raw.length < 7) return res.status(400).json({ error: "رقم الجوال غير صحيح" })
       const last7 = raw.slice(-7)
 
-      // Find participant by last 7 digits of phone
+      // Find participant by last 7 digits of phone (ilike to avoid 1000-row limit)
       const { data: candidates } = await supabase
         .from("participants")
         .select("id, assigned_number, name, phone_number, secure_token")
         .eq("match_id", match_id)
         .not("phone_number", "is", null)
+        .ilike("phone_number", `%${last7}`)
 
       const participant = candidates?.find(p => {
         const cp = String(p.phone_number || "").replace(/\D/g, "")
@@ -3922,6 +3925,7 @@ Please respond in JSON format:
         .select("id, phone_number, secure_token, assigned_number, name")
         .eq("match_id", process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000")
         .not("phone_number", "is", null)
+        .ilike("phone_number", `%${last7}`)
 
       const participant = candidates?.find(p => {
         const cp = String(p.phone_number || "").replace(/\D/g, "")

@@ -61,16 +61,6 @@ interface Game {
 // Conversational activities first, then game/party activities
 const games: Game[] = [
   {
-    id: "discussion-questions",
-    name: "Discussion Questions",
-    nameAr: "أسئلة للنقاش",
-    description: "Deep conversation starters",
-    descriptionAr: "أسئلة عميقة لبدء المحادثات",
-    duration: 10,
-    icon: <Sparkles className="w-6 h-6" />,
-    color: "from-purple-500 to-pink-500"
-  },
-  {
     id: "hot-seat",
     name: "Hot Seat",
     nameAr: "الكرسي الساخن",
@@ -79,6 +69,16 @@ const games: Game[] = [
     duration: 12,
     icon: <Mic className="w-6 h-6" />,
     color: "from-amber-500 to-orange-600"
+  },
+  {
+    id: "discussion-questions",
+    name: "Discussion Questions",
+    nameAr: "أسئلة للنقاش",
+    description: "Deep conversation starters",
+    descriptionAr: "أسئلة عميقة لبدء المحادثات",
+    duration: 10,
+    icon: <Sparkles className="w-6 h-6" />,
+    color: "from-purple-500 to-pink-500"
   },
   {
     id: "what-would-you-do",

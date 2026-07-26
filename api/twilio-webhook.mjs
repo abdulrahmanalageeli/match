@@ -212,7 +212,13 @@ export default async function handler(req, res) {
 
       switch (buttonPayload) {
         case "confirm_attendance": {
-          // Insert pending attendance_request so admin sees it in the modal
+          // Directly update participant attendance
+          await supabase
+            .from("participants")
+            .update({ attendance_confirmed: true, attendance_confirmed_at: new Date().toISOString(), attendance_denied_at: null })
+            .eq("id", participant.id)
+
+          // Also insert attendance_request so admin sees it in the modal
           await supabase.from("attendance_requests").insert({
             participant_id: participant.id,
             assigned_number: participant.assigned_number,
@@ -221,12 +227,18 @@ export default async function handler(req, res) {
             status: "pending",
           })
 
-          await sendTwilioReply(from, "تم استلام طلب تأكيد الحضور ✅ سيتم مراجعته وتأكيده قريباً. للاستفسار: 0560899666", participant)
-          return res.status(200).json({ status: "confirm_pending" })
+          await sendTwilioReply(from, "شكراً للتأكيد! ✅ يرجى إرسال صورة الإيصال (صورة أو PDF) لتأكيد الحجز نهائياً. للاستفسار: 0560899666", participant)
+          return res.status(200).json({ status: "confirmed" })
         }
 
         case "deny_attendance": {
-          // Insert pending attendance_request so admin sees it in the modal
+          // Directly update participant attendance
+          await supabase
+            .from("participants")
+            .update({ attendance_confirmed: false, attendance_denied_at: new Date().toISOString(), attendance_confirmed_at: null })
+            .eq("id", participant.id)
+
+          // Also insert attendance_request so admin sees it in the modal
           await supabase.from("attendance_requests").insert({
             participant_id: participant.id,
             assigned_number: participant.assigned_number,
@@ -235,8 +247,8 @@ export default async function handler(req, res) {
             status: "pending",
           })
 
-          await sendTwilioReply(from, "تم استلام طلب الاعتذار 🙏 سيتم مراجعته قريباً. للاستفسار: 0560899666", participant)
-          return res.status(200).json({ status: "deny_pending" })
+          await sendTwilioReply(from, "تم تسجيل اعتذاركم. 🙏 شكراً لكم، ونرحب بكم في فعاليات قادمة! للاستفسار: 0560899666", participant)
+          return res.status(200).json({ status: "denied" })
         }
 
         case "toggle_auto_signup": {

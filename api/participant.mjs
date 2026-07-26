@@ -3118,8 +3118,8 @@ Please respond in JSON format:
           // This prevents marking attendance for people viewing the tutorial at home before the event.
           if (ep && phase !== "setup") {
             try {
-              const { count: attCount } = await supabase.from("event_attendance").select("id", { count: "exact", head: true }).eq("match_id", MAIN_MATCH).eq("event_id", activeEventId).eq("participant_number", myNumber)
-              if (!attCount) {
+              const { data: attRow } = await supabase.from("event_attendance").select("attended").eq("match_id", MAIN_MATCH).eq("event_id", activeEventId).eq("participant_number", myNumber).maybeSingle()
+              if (!attRow) {
                 await supabase.from("event_attendance").insert({
                   match_id: MAIN_MATCH,
                   event_id: activeEventId,
@@ -3129,6 +3129,13 @@ Please respond in JSON format:
                   updated_at: new Date().toISOString(),
                 })
                 console.log(`[auto-attendance] Marked #${myNumber} as attended (phase: ${phase})`)
+              } else if (attRow.attended === false) {
+                await supabase.from("event_attendance").update({
+                  attended: true,
+                  updated_by: "auto-join",
+                  updated_at: new Date().toISOString(),
+                }).eq("match_id", MAIN_MATCH).eq("event_id", activeEventId).eq("participant_number", myNumber)
+                console.log(`[auto-attendance] Re-marked #${myNumber} as attended (phase: ${phase})`)
               }
             } catch (attErr) {
               console.error("[auto-attendance] Failed on state poll:", attErr.message)

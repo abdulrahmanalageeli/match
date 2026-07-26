@@ -901,9 +901,14 @@ export default function Admin3Page() {
   const renameTable = (round: number, oldTable: number, newTable: number) => {
     const members: any[] = seating?.[round]?.[oldTable] || []
     if (!members.length || newTable === oldTable) { setEditingTableCard(null); return }
+    const otherRound = round === 1 ? 2 : 1
+    const otherMembers: any[] = seating?.[otherRound]?.[oldTable] || []
     run(`rename-table-${round}-${oldTable}`, () =>
-      Promise.all(members.map(m => api("e3-move-table", { participant_number: m.number, round, new_table: newTable })))
-        .then(() => { setEditingTableCard(null); fetchSeating(); return { message: `Table renamed` } })
+      Promise.all([
+        ...members.map(m => api("e3-move-table", { participant_number: m.number, round, new_table: newTable })),
+        ...otherMembers.map(m => api("e3-move-table", { participant_number: m.number, round: otherRound, new_table: newTable })),
+      ])
+        .then(() => { setEditingTableCard(null); fetchSeating(); return { message: `Table ${oldTable} → ${newTable} in rounds ${round} & ${otherRound}` } })
     )
   }
 

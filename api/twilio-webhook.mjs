@@ -190,11 +190,11 @@ export default async function handler(req, res) {
           })
           .eq("id", participant.id)
 
-        await sendTwilioReply(from, "✅ تم استلام الإيصال! سنقوم بتأكيد حجزكم قريباً. شكراً لكم.", participant)
+        await sendTwilioReply(from, "✅ تم استلام الإيصال! سنقوم بتأكيد حجزكم قريباً. شكراً لكم. للاستفسار: 0560899666", participant)
         return res.status(200).json({ status: "receipt_received" })
       } catch (e) {
         console.error("Media download/store error:", e)
-        await sendTwilioReply(from, "⚠️ حدث خطأ أثناء معالجة الإيصال. يرجى إعادة إرساله.", participant)
+        await sendTwilioReply(from, "⚠️ حدث خطأ أثناء معالجة الإيصال. يرجى إعادة إرساله. للاستفسار: 0560899666", participant)
         return res.status(200).json({ status: "error" })
       }
     }
@@ -212,23 +212,31 @@ export default async function handler(req, res) {
 
       switch (buttonPayload) {
         case "confirm_attendance": {
-          await supabase
-            .from("participants")
-            .update({ attendance_confirmed: true, attendance_confirmed_at: new Date().toISOString() })
-            .eq("id", participant.id)
+          // Insert pending attendance_request so admin sees it in the modal
+          await supabase.from("attendance_requests").insert({
+            participant_id: participant.id,
+            assigned_number: participant.assigned_number,
+            phone_number: from,
+            request_type: "confirm",
+            status: "pending",
+          })
 
-          await sendTwilioReply(from, "شكراً للتأكيد! ✅ يرجى إرسال صورة الإيصال (صورة أو PDF) لتأكيد الحجز نهائياً.", participant)
-          return res.status(200).json({ status: "confirmed" })
+          await sendTwilioReply(from, "تم استلام طلب تأكيد الحضور ✅ سيتم مراجعته وتأكيده قريباً. للاستفسار: 0560899666", participant)
+          return res.status(200).json({ status: "confirm_pending" })
         }
 
         case "deny_attendance": {
-          await supabase
-            .from("participants")
-            .update({ attendance_confirmed: false, attendance_denied_at: new Date().toISOString() })
-            .eq("id", participant.id)
+          // Insert pending attendance_request so admin sees it in the modal
+          await supabase.from("attendance_requests").insert({
+            participant_id: participant.id,
+            assigned_number: participant.assigned_number,
+            phone_number: from,
+            request_type: "deny",
+            status: "pending",
+          })
 
-          await sendTwilioReply(from, "تم تسجيل اعتذاركم. 🙏 شكراً لكم، ونرحب بكم في فعاليات قادمة!", participant)
-          return res.status(200).json({ status: "denied" })
+          await sendTwilioReply(from, "تم استلام طلب الاعتذار 🙏 سيتم مراجعته قريباً. للاستفسار: 0560899666", participant)
+          return res.status(200).json({ status: "deny_pending" })
         }
 
         case "toggle_auto_signup": {
@@ -241,8 +249,8 @@ export default async function handler(req, res) {
             .eq("id", participant.id)
 
           const replyText = newValue
-            ? "✅ تم تفعيل التسجيل التلقائي. سيتم تسجيلكم تلقائياً في الفعاليات القادمة."
-            : "🛑 تم إيقاف التسجيل التلقائي. لن يتم تسجيلكم تلقائياً في الفعاليات القادمة."
+            ? "✅ تم تفعيل التسجيل التلقائي. سيتم تسجيلكم تلقائياً في الفعاليات القادمة. للاستفسار: 0560899666"
+            : "🛑 تم إيقاف التسجيل التلقائي. لن يتم تسجيلكم تلقائياً في الفعاليات القادمة. للاستفسار: 0560899666"
 
           await sendTwilioReply(from, replyText, participant)
           return res.status(200).json({ status: "toggled", new_value: newValue })
@@ -253,7 +261,7 @@ export default async function handler(req, res) {
             "✦ الفعالية: التوافق الأعمى 4.0\n" +
             "✦ نظام توافق شخصي متقدم\n" +
             "✦ مطابقة ذكية بناءً على شخصيتك واهتماماتك\n\n" +
-            "للاستفسار أكثر، تواصل مع المنظم عبر الواتساب.\n\n" +
+            "للاستفسار أكثر، تواصل مع المنظم عبر الواتساب: 0560899666\n\n" +
             "فريق التوافق الأعمى"
           await sendTwilioReply(from, infoMessage, participant)
           return res.status(200).json({ status: "info_sent" })
@@ -289,7 +297,7 @@ export default async function handler(req, res) {
           status: "pending",
         })
 
-        await sendTwilioReply(from, "تم استلام طلب تأكيد الحضور ✅ سيتم مراجعته وتأكيده قريباً.", participant)
+        await sendTwilioReply(from, "تم استلام طلب تأكيد الحضور ✅ سيتم مراجعته وتأكيده قريباً. للاستفسار: 0560899666", participant)
         return res.status(200).json({ status: "confirm_pending" })
       }
 
@@ -303,7 +311,7 @@ export default async function handler(req, res) {
           status: "pending",
         })
 
-        await sendTwilioReply(from, "تم استلام طلب الاعتذار 🙏 سيتم مراجعته قريباً.", participant)
+        await sendTwilioReply(from, "تم استلام طلب الاعتذار 🙏 سيتم مراجعته قريباً. للاستفسار: 0560899666", participant)
         return res.status(200).json({ status: "deny_pending" })
       }
 
@@ -317,15 +325,15 @@ export default async function handler(req, res) {
           .eq("id", participant.id)
 
         const replyText = newValue
-          ? "✅ تم تفعيل التسجيل التلقائي. سيتم تسجيلكم تلقائياً في الفعاليات القادمة."
-          : "🛑 تم إيقاف التسجيل التلقائي. لن يتم تسجيلكم تلقائياً في الفعاليات القادمة."
+          ? "✅ تم تفعيل التسجيل التلقائي. سيتم تسجيلكم تلقائياً في الفعاليات القادمة. للاستفسار: 0560899666"
+          : "🛑 تم إيقاف التسجيل التلقائي. لن يتم تسجيلكم تلقائياً في الفعاليات القادمة. للاستفسار: 0560899666"
 
         await sendTwilioReply(from, replyText, participant)
         return res.status(200).json({ status: "toggled", new_value: newValue })
       }
 
       // Unrecognized text — send help
-      await sendTwilioReply(from, "مرحباً! 👋 أرسل 'تأكيد' لتأكيد المشاركة، 'اعتذار' للاعتذار، أو 'تبديل' لتغيير التسجيل التلقائي. يمكنك أيضاً إرسال صورة الإيصال مباشرة.", participant)
+      await sendTwilioReply(from, "مرحباً! 👋 أرسل 'تأكيد' لتأكيد المشاركة، 'اعتذار' للاعتذار، أو 'تبديل' لتغيير التسجيل التلقائي. يمكنك أيضاً إرسال صورة الإيصال مباشرة. للاستفسار: 0560899666", participant)
       return res.status(200).json({ status: "help_sent" })
     }
 

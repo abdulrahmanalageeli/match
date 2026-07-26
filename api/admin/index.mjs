@@ -2068,7 +2068,7 @@ export default async function handler(req, res) {
                 const body = new URLSearchParams()
                 body.append("To", to)
                 body.append("From", fromWa)
-                body.append("Body", "تم تأكيد حضورك! ✅ يرجى إرسال صورة الإيصال (صورة أو PDF) لتأكيد الحجز نهائياً.")
+                body.append("Body", "تم تأكيد حضورك! ✅ يرجى إرسال صورة الإيصال (صورة أو PDF) لتأكيد الحجز نهائياً. للاستفسار: 0560899666")
                 const twilioRes = await fetch(twilioUrl, {
                   method: "POST",
                   headers: { "Authorization": "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64"), "Content-Type": "application/x-www-form-urlencoded" },
@@ -2081,7 +2081,7 @@ export default async function handler(req, res) {
                   assigned_number: req_row.assigned_number,
                   phone_number: to,
                   direction: "outbound",
-                  message_body: "تم تأكيد حضورك! ✅ يرجى إرسال صورة الإيصال (صورة أو PDF) لتأكيد الحجز نهائياً.",
+                  message_body: "تم تأكيد حضورك! ✅ يرجى إرسال صورة الإيصال (صورة أو PDF) لتأكيد الحجز نهائياً. للاستفسار: 0560899666",
                   twilio_message_sid: twilioData?.sid || null,
                   status: twilioData?.status || "sent",
                   is_auto_reply: false,
@@ -2105,7 +2105,7 @@ export default async function handler(req, res) {
                 const body = new URLSearchParams()
                 body.append("To", to)
                 body.append("From", fromWa)
-                body.append("Body", "تم تسجيل اعتذاركم. 🙏 شكراً لكم، ونرحب بكم في فعاليات قادمة!")
+                body.append("Body", "تم تسجيل اعتذاركم. 🙏 شكراً لكم، ونرحب بكم في فعاليات قادمة! للاستفسار: 0560899666")
                 const twilioRes = await fetch(twilioUrl, {
                   method: "POST",
                   headers: { "Authorization": "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64"), "Content-Type": "application/x-www-form-urlencoded" },
@@ -2117,7 +2117,7 @@ export default async function handler(req, res) {
                   assigned_number: req_row.assigned_number,
                   phone_number: to,
                   direction: "outbound",
-                  message_body: "تم تسجيل اعتذاركم. 🙏 شكراً لكم، ونرحب بكم في فعاليات قادمة!",
+                  message_body: "تم تسجيل اعتذاركم. 🙏 شكراً لكم، ونرحب بكم في فعاليات قادمة! للاستفسار: 0560899666",
                   twilio_message_sid: twilioData?.sid || null,
                   status: twilioData?.status || "sent",
                   is_auto_reply: false,

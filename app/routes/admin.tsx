@@ -1076,6 +1076,8 @@ https://blindmatch.app/welcome?token=${secureToken}
 
 نتطلع لحضوركم وتمنى لكم تجربة ممتعة.
 
+📞 *للاستفسار: 0560899666*
+
 فريق التوافق الأعمى`;
     } else if (templateType === 'payment-reminder') {
       return `*التوافق الأعمى* 💳
@@ -1137,9 +1139,11 @@ https://blindmatch.app/welcome?token=${secureToken}
 
 🔥 لا تفوت هذه الفرصة!
 
+📞 *للاستفسار: 0560899666*
+
 فريق التوافق الأعمى`;
     } else if (templateType === 'survey-completion') {
-      return `*${bold('إكمال الاستبيان للفعالية القادمة')}* 📝\n\nالسلام عليكم *${name}*،\n\nℹ️ لاحظنا أن لديك *بعض الأسئلة غير المكتملة* في الاستبيان. لإتمام تسجيلك والانضمام للفعالية القادمة، يرجى تعبئة ما تبقى الآن.\n\n🔗 *رابط الدخول المباشر إلى الاستبيان:*\nhttps://blindmatch.app/welcome?token=${secureToken}&redo=1\n\n🛑 *إيقاف التسجيل التلقائي:*\nhttps://blindmatch.app/welcome?token=${secureToken}&disableauto=1\n\n📱 *معلوماتك:*\nرقم المشارك: *${assignedNumber}*\nالرمز الخاص: *${secureToken}*\n\n⏰ يفضل الإكمال اليوم لضمان إدراجك في الفعالية القادمة. إذا واجهت أي مشكلة، رد على هذه الرسالة وسنساعدك فوراً.\n\nفريق التوافق الأعمى`;
+      return `*${bold('إكمال الاستبيان للفعالية القادمة')}* 📝\n\nالسلام عليكم *${name}*،\n\nℹ️ لاحظنا أن لديك *بعض الأسئلة غير المكتملة* في الاستبيان. لإتمام تسجيلك والانضمام للفعالية القادمة، يرجى تعبئة ما تبقى الآن.\n\n🔗 *رابط الدخول المباشر إلى الاستبيان:*\nhttps://blindmatch.app/welcome?token=${secureToken}&redo=1\n\n🛑 *إيقاف التسجيل التلقائي:*\nhttps://blindmatch.app/welcome?token=${secureToken}&disableauto=1\n\n📱 *معلوماتك:*\nرقم المشارك: *${assignedNumber}*\nالرمز الخاص: *${secureToken}*\n\n⏰ يفضل الإكمال اليوم لضمان إدراجك في الفعالية القادمة. إذا واجهت أي مشكلة، رد على هذه الرسالة وسنساعدك فوراً.\n\n📞 *للاستفسار: 0560899666*\n\nفريق التوافق الأعمى`;
     } else if (templateType === 'reminder') {
       return `*التوافق الأعمى* 🔔
 
@@ -1170,6 +1174,8 @@ https://blindmatch.app/event3
 
 🔗 *رابط حسابك:*
 https://blindmatch.app/welcome?token=${secureToken}
+
+📞 *للاستفسار: 0560899666*
 
 فريق التوافق الأعمى`;
     }
@@ -1217,6 +1223,8 @@ ${d.mapUrl}
 https://blindmatch.app/welcome?token=${secureToken}
 
 نتطلع لحضوركم!
+
+📞 *للاستفسار: 0560899666*
 
 فريق التوافق الأعمى`;
   }

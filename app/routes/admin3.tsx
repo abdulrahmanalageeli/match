@@ -2952,6 +2952,14 @@ export default function Admin3Page() {
                                 {loading === `rand-${r.number}` ? <RefreshCw size={12} className="animate-spin" /> : <Shuffle size={12} />}
                                 عشوائي لهذا الشخص
                               </button>
+                              <button
+                                onClick={() => { if (confirm(`حذف تصنيف ${r.name} (#${r.number})؟ سيصبح كأنه لم يصنّف.`)) run(`reset-${r.number}`, () => api("e3-reset-ranking", { participant_number: r.number }).then(d => { if (!d.error) { toast.success(d.message); fetchRankStatus() } return d })) }}
+                                disabled={!!loading}
+                                className="mt-1.5 w-full py-2 rounded-lg bg-red-900/30 hover:bg-red-900/50 border border-red-800/30 text-red-400 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+                              >
+                                {loading === `reset-${r.number}` ? <RefreshCw size={12} className="animate-spin" /> : <RotateCcw size={12} />}
+                                إعادة تعيين التصنيف
+                              </button>
                             </>
                           )}
                         </div>
@@ -3015,6 +3023,16 @@ export default function Admin3Page() {
                                   عشوائي
                                 </button>
                               </div>
+                              {r.ranked_list && r.ranked_list.length > 0 && (
+                                <button
+                                  onClick={() => { if (confirm(`حذف تصنيف ${r.name} (#${r.number})؟ سيصبح كأنه لم يصنّف.`)) run(`reset-${r.number}`, () => api("e3-reset-ranking", { participant_number: r.number }).then(d => { if (!d.error) { toast.success(d.message); fetchRankStatus() } return d })) }}
+                                  disabled={!!loading}
+                                  className="mt-2 w-full py-2 rounded-lg bg-red-900/30 hover:bg-red-900/50 border border-red-800/30 text-red-400 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+                                >
+                                  {loading === `reset-${r.number}` ? <RefreshCw size={12} className="animate-spin" /> : <RotateCcw size={12} />}
+                                  إعادة تعيين التصنيف
+                                </button>
+                              )}
                             </div>
                           )}
                         </div>

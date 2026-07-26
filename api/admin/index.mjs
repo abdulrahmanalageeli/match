@@ -8180,6 +8180,14 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           if (rows.length > 0) { const { error } = await supabase.from("participant_rankings").insert(rows); if (error) return res.status(500).json({ error: error.message }) }
           return res.status(200).json({ message: `Auto-saved rankings for ${missing.length} participants (${rows.length} entries)`, saved: missing.length })
         }
+        // e3-reset-ranking — delete all rankings for one participant (reset to unranked)
+        if (action === "e3-reset-ranking") {
+          const { participant_number } = req.body
+          if (!participant_number) return res.status(400).json({ error: "participant_number required" })
+          const { error } = await supabase.from("participant_rankings").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("ranker_number", participant_number)
+          if (error) return res.status(500).json({ error: error.message })
+          return res.status(200).json({ message: `Reset ranking for #${participant_number}` })
+        }
         // e3-randomize-ranking-single — randomize ranking for one participant
         if (action === "e3-randomize-ranking-single") {
           const { participant_number } = req.body

@@ -977,6 +977,12 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
                 كيف تسير الفعالية؟ ←
               </motion.button>
               <button
+                onClick={onDone}
+                className="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-2xl py-3.5 font-bold text-base shadow-lg transition-all border border-gray-700"
+              >
+                تخطّى — أدخل رمزك مباشرة
+              </button>
+              <button
                 onClick={() => {
                   const storedToken = localStorage.getItem("blindmatch_result_token")
                   if (storedToken) {
@@ -985,15 +991,9 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
                     window.location.href = "/results"
                   }
                 }}
-                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-2xl py-3.5 font-black text-base shadow-2xl shadow-emerald-600/30 transition-all"
+                className="w-full text-gray-500 text-xs py-2 hover:text-emerald-400 transition-colors"
               >
-                صفحة النتائج ←
-              </button>
-              <button
-                onClick={onDone}
-                className="w-full text-gray-600 text-sm py-2 hover:text-gray-500 transition-colors"
-              >
-                تخطّى — أدخل رمزك مباشرة
+                صفحة النتائج
               </button>
             </motion.div>
           </motion.div>

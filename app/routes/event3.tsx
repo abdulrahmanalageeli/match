@@ -988,8 +988,8 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
                       <KeyRound size={17} strokeWidth={2.25} />
                     </span>
                     <span className="flex flex-col gap-0.5">
-                      <span className="text-sm font-bold">لدي رمز دخول</span>
-                      <span className="text-[11px] text-gray-500 group-hover:text-violet-200/70">تخطَّ المقدمة وابدأ مباشرة</span>
+                      <span className="text-sm font-bold">جاهز؟ ادخل الفعالية</span>
+                      <span className="text-[11px] text-gray-500 group-hover:text-violet-200/70">قرأت الشرح؟ تقدر تبدأ الآن</span>
                     </span>
                   </span>
                   <ArrowLeft size={18} className="text-gray-500 transition-all group-hover:-translate-x-0.5 group-hover:text-violet-300" />

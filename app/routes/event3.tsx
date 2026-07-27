@@ -977,6 +977,19 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
                 كيف تسير الفعالية؟ ←
               </motion.button>
               <button
+                onClick={() => {
+                  const storedToken = localStorage.getItem("blindmatch_result_token")
+                  if (storedToken) {
+                    window.location.href = `/results?token=${storedToken}`
+                  } else {
+                    window.location.href = "/results"
+                  }
+                }}
+                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-2xl py-3.5 font-black text-base shadow-2xl shadow-emerald-600/30 transition-all"
+              >
+                صفحة النتائج ←
+              </button>
+              <button
                 onClick={onDone}
                 className="w-full text-gray-600 text-sm py-2 hover:text-gray-500 transition-colors"
               >

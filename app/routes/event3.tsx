@@ -11,7 +11,7 @@ async function fireConfetti(opts: any) {
   } catch {}
 }
 import {
-  Clock, MapPin, Brain, ExternalLink,
+  Clock, MapPin, Brain, ExternalLink, ArrowLeft, KeyRound,
   CheckCircle, Send, RefreshCw, Sparkles, Home, Trophy, Lock, GripVertical,
   MessageSquare, ChevronRight, Users, PenLine, Shuffle, BarChart3, GitMerge, X, Heart,
   Frown, Meh, Smile, Layers, Zap,
@@ -976,13 +976,28 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
               >
                 كيف تسير الفعالية؟ ←
               </motion.button>
-              <button
+              <motion.button
+                whileHover={{ y: -1 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={onDone}
-                className="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-2xl py-3.5 font-bold text-base shadow-lg transition-all border border-gray-700"
+                className="group w-full rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-3.5 text-right text-gray-200 shadow-lg shadow-black/10 backdrop-blur-sm transition-all duration-200 hover:border-violet-400/40 hover:bg-violet-500/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
               >
-                تخطّى — أدخل رمزك مباشرة
-              </button>
-              <button
+                <span className="flex items-center justify-between gap-3" dir="rtl">
+                  <span className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-violet-400/20 bg-violet-500/15 text-violet-300 transition-colors group-hover:bg-violet-500/25 group-hover:text-violet-200">
+                      <KeyRound size={17} strokeWidth={2.25} />
+                    </span>
+                    <span className="flex flex-col gap-0.5">
+                      <span className="text-sm font-bold">لدي رمز دخول</span>
+                      <span className="text-[11px] text-gray-500 group-hover:text-violet-200/70">تخطَّ المقدمة وابدأ مباشرة</span>
+                    </span>
+                  </span>
+                  <ArrowLeft size={18} className="text-gray-500 transition-all group-hover:-translate-x-0.5 group-hover:text-violet-300" />
+                </span>
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => {
                   const storedToken = localStorage.getItem("blindmatch_result_token")
                   if (storedToken) {
@@ -991,10 +1006,12 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
                     window.location.href = "/results"
                   }
                 }}
-                className="w-full text-gray-500 text-xs py-2 hover:text-emerald-400 transition-colors"
+                className="group mx-auto flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold text-gray-500 transition-all hover:bg-emerald-400/[0.08] hover:text-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70"
               >
-                صفحة النتائج
-              </button>
+                <Trophy size={14} className="text-emerald-500/70 transition-colors group-hover:text-emerald-300" />
+                <span>عرض صفحة النتائج</span>
+                <ArrowLeft size={13} className="opacity-0 transition-all group-hover:-translate-x-0.5 group-hover:opacity-100" />
+              </motion.button>
             </motion.div>
           </motion.div>
         )}

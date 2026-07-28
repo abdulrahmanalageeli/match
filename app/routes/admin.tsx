@@ -47,7 +47,8 @@ import {
   AlertTriangle,
   History,
   SlidersHorizontal,
-  Send
+  Send,
+  Receipt
 } from "lucide-react"
 import ParticipantResultsModal from "~/components/ParticipantResultsModal"
 import GroupAssignmentsModal from "~/components/GroupAssignmentsModal"
@@ -575,6 +576,7 @@ export default function AdminPage() {
   const [eligibleSubFilter, setEligibleSubFilter] = useState("none") // "none", "withNationality", "withoutNationality"
   const [genderFilter, setGenderFilter] = useState(() => isCohost ? "female" : "all") // "all", "male", "female"
   const [paymentFilter, setPaymentFilter] = useState("all") // "all", "paid", "unpaid", "done"
+  const [confirmationFilter, setConfirmationFilter] = useState("all") // "all", "confirmed", "awaiting_receipt", "declined"
   const [whatsappFilter, setWhatsappFilter] = useState(() => isCohost ? "not_sent" : "all") // "all", "sent", "not_sent"
   const [signupFilter, setSignupFilter] = useState("all") // "all", "manual", "auto"
   const [showDuplicatePhones, setShowDuplicatePhones] = useState(false)
@@ -723,6 +725,11 @@ export default function AdminPage() {
   const [attendanceReqLoading, setAttendanceReqLoading] = useState(false);
   const [showAttendanceReqModal, setShowAttendanceReqModal] = useState(false);
   const [attendanceReqProcessing, setAttendanceReqProcessing] = useState<string | null>(null);
+  const [showReceiptReviewModal, setShowReceiptReviewModal] = useState(false);
+  const [receiptReviewProcessing, setReceiptReviewProcessing] = useState<number | null>(null);
+  const [receiptReviewQueue, setReceiptReviewQueue] = useState<any[]>([]);
+  const receiptSeenIdsRef = useRef<Set<string>>(new Set());
+  const receiptQueueInitializedRef = useRef(false);
   const attendanceReqPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   // Excel export state
@@ -2908,7 +2915,9 @@ const fetchParticipants = async () => {
       }
       pollAttendanceReqs()
       const attInterval = setInterval(pollAttendanceReqs, 15000)
-      return () => { clearInterval(waInterval); clearInterval(attInterval) }
+      fetchReceiptReviewQueue()
+      const receiptInterval = setInterval(fetchReceiptReviewQueue, 15000)
+      return () => { clearInterval(waInterval); clearInterval(attInterval); clearInterval(receiptInterval) }
     }
   }, [])
 
@@ -3638,6 +3647,16 @@ const fetchParticipants = async () => {
         }
       }
       
+      // A final confirmation means both attendance approval and approved payment.
+      let matchesConfirmation = true
+      if (confirmationFilter === "confirmed") {
+        matchesConfirmation = p.attendance_confirmed === true && (p.receipt_approved === true || p.PAID_DONE === true)
+      } else if (confirmationFilter === "awaiting_receipt") {
+        matchesConfirmation = p.attendance_confirmed === true && p.receipt_approved !== true && p.PAID_DONE !== true
+      } else if (confirmationFilter === "declined") {
+        matchesConfirmation = p.attendance_confirmed === false && !!p.attendance_denied_at
+      }
+
       // WhatsApp filter - using PAID as WhatsApp sent indicator
       let matchesWhatsapp = true
       if (whatsappFilter !== "all") {
@@ -3659,7 +3678,7 @@ const fetchParticipants = async () => {
       // Duplicate phone filter
       const matchesDuplicatePhone = !showDuplicatePhones || duplicatePhoneNumbers.has((p.phone_number || "").replace(/\D/g, ""))
       
-      return matchesSearch && isEligible && matchesEligibleSub && matchesGender && matchesPayment && matchesWhatsapp && matchesSignup && matchesDuplicatePhone
+      return matchesSearch && isEligible && matchesEligibleSub && matchesGender && matchesPayment && matchesConfirmation && matchesWhatsapp && matchesSignup && matchesDuplicatePhone
     })
 
     // Sort the filtered results
@@ -3688,7 +3707,7 @@ const fetchParticipants = async () => {
       }
       return 0
     })
-  }, [participants, debouncedSearch, searchByPhone, showEligibleOnly, eligibleSubFilter, genderFilter, paymentFilter, whatsappFilter, signupFilter, sortBy, currentEventId, excludedParticipants, showDuplicatePhones, duplicatePhoneNumbers])
+  }, [participants, debouncedSearch, searchByPhone, showEligibleOnly, eligibleSubFilter, genderFilter, paymentFilter, confirmationFilter, whatsappFilter, signupFilter, sortBy, currentEventId, excludedParticipants, showDuplicatePhones, duplicatePhoneNumbers])
   
   // Virtualized participants - only show a subset for performance
   const visibleParticipants = useMemo(() => {
@@ -4590,6 +4609,31 @@ Proceed?`
     markConversationRead(num)
   }
 
+  const fetchReceiptReviewQueue = async () => {
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get-receipt-review-queue' }),
+      })
+      const data = await res.json()
+      if (!data?.success) return
+      const receipts = data.receipts || []
+      const nextIds = new Set<string>(receipts.map((p: any) => String(p.id || p.assigned_number)))
+      if (receiptQueueInitializedRef.current) {
+        const newReceipts = receipts.filter((p: any) => !receiptSeenIdsRef.current.has(String(p.id || p.assigned_number)))
+        if (newReceipts.length > 0) {
+          toast.success(`🔔 وصل ${newReceipts.length === 1 ? 'إيصال جديد' : `${newReceipts.length} إيصالات جديدة`} للمراجعة`, { duration: 6500 })
+        }
+      }
+      receiptSeenIdsRef.current = nextIds
+      receiptQueueInitializedRef.current = true
+      setReceiptReviewQueue(receipts)
+    } catch (error) {
+      console.error('Failed to fetch receipt review queue', error)
+    }
+  }
+
   // Poll conversation while modal open and a participant is selected
   useEffect(() => {
     if (showWaInboxModal && waSelectedNumber) {
@@ -4703,6 +4747,35 @@ Proceed?`
     }
   }, [showAttendanceReqModal])
 
+  const pendingReceiptReviews = receiptReviewQueue
+
+  const reviewReceipt = async (participant: any, decision: 'approve' | 'reject') => {
+    setReceiptReviewProcessing(participant.assigned_number)
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: decision === 'approve' ? 'approve-receipt' : 'reject-receipt',
+          assigned_number: participant.assigned_number,
+          reason: decision === 'reject' ? 'يرجى إعادة إرسال إيصال واضح' : undefined,
+        }),
+      })
+      const data = await res.json()
+      if (!data?.success) throw new Error(data?.error || 'Receipt review failed')
+      if (decision === 'approve' && data.notification_sent === false) {
+        toast.error(`تم اعتماد الإيصال، لكن رسالة التأكيد لم تصل: ${data.notification_error || 'خطأ من Twilio'}`, { duration: 7000 })
+      } else {
+        toast.success(decision === 'approve' ? 'تم اعتماد الإيصال وإبلاغ المشارك' : 'تم رفض الإيصال وطلب إعادة إرساله')
+      }
+      await Promise.all([fetchParticipants(), fetchReceiptReviewQueue()])
+    } catch (error: any) {
+      toast.error(error?.message || 'تعذر تحديث الإيصال')
+    } finally {
+      setReceiptReviewProcessing(null)
+    }
+  }
+
   if (!authenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
@@ -4783,14 +4856,14 @@ Proceed?`
 
       {/* Header */}
       <div className="relative z-10 bg-white/5 backdrop-blur-xl border-b border-white/10">
-        <div className="flex items-center justify-between p-6">
+        <div className="flex flex-col gap-4 p-4 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3">
             <div className="bg-gradient-to-r from-slate-600 to-slate-700 p-2 rounded-xl">
               <LayoutDashboard className="w-6 h-6 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-3">
-                <h1 className="text-xl font-bold bg-gradient-to-r from-slate-200 to-slate-400 bg-clip-text text-transparent">
+                <h1 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-slate-200 to-slate-400 bg-clip-text text-transparent">
                   Admin Dashboard
                 </h1>
                 {isCohost && (
@@ -4799,15 +4872,15 @@ Proceed?`
                   </span>
                 )}
               </div>
-              <p className="text-slate-400/70 text-sm">Participant Management System</p>
+              <p className="text-slate-400/70 text-xs sm:text-sm">إدارة المشاركين والتواصل</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:items-center sm:gap-3">
             {/* WhatsApp Inbox Button */}
             <button
               onClick={openWaInbox}
-              className={`relative flex items-center gap-2 px-4 py-2 backdrop-blur-sm border rounded-xl transition-all duration-300 ${
+              className={`relative min-h-14 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 backdrop-blur-sm border rounded-xl transition-colors ${
                 waUnreadCount > 0
                   ? 'bg-red-500/20 border-red-400/40 text-red-300 hover:bg-red-500/30'
                   : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/15'
@@ -4816,7 +4889,7 @@ Proceed?`
               <MessagesSquare className="w-4 h-4" />
               <div className="text-right">
                 <div className="text-sm font-semibold">
-                  {waUnreadCount > 0 ? `${waUnreadCount} New` : 'Inbox'}
+                  {waUnreadCount > 0 ? `${waUnreadCount} جديدة` : 'الرسائل'}
                 </div>
               </div>
               {waUnreadCount > 0 && (
@@ -4829,7 +4902,7 @@ Proceed?`
             {/* Attendance Requests Button */}
             <button
               onClick={openAttendanceReqModal}
-              className={`relative flex items-center gap-2 px-4 py-2 backdrop-blur-sm border rounded-xl transition-all duration-300 ${
+              className={`relative min-h-14 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 backdrop-blur-sm border rounded-xl transition-colors ${
                 attendanceRequests.length > 0
                   ? 'bg-amber-500/20 border-amber-400/40 text-amber-300 hover:bg-amber-500/30'
                   : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/15'
@@ -4838,7 +4911,7 @@ Proceed?`
               <CalendarCheck className="w-4 h-4" />
               <div className="text-right">
                 <div className="text-sm font-semibold">
-                  {attendanceRequests.length > 0 ? `${attendanceRequests.length} Pending` : 'Attendance'}
+                  {attendanceRequests.length > 0 ? `${attendanceRequests.length} معلّقة` : 'الحضور'}
                 </div>
               </div>
               {attendanceRequests.length > 0 && (
@@ -4848,8 +4921,26 @@ Proceed?`
               )}
             </button>
 
+            {/* Receipt review queue */}
+            <button
+              onClick={() => setShowReceiptReviewModal(true)}
+              className={`relative min-h-14 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 backdrop-blur-sm border rounded-xl transition-colors ${
+                pendingReceiptReviews.length > 0
+                  ? 'bg-cyan-500/20 border-cyan-400/40 text-cyan-200 hover:bg-cyan-500/30'
+                  : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/15'
+              }`}
+            >
+              <Receipt className="w-4 h-4" />
+              <span className="text-sm font-semibold">{pendingReceiptReviews.length > 0 ? `${pendingReceiptReviews.length} إيصال` : 'الإيصالات'}</span>
+              {pendingReceiptReviews.length > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-cyan-500 text-slate-950 text-xs font-black flex items-center justify-center">
+                  {pendingReceiptReviews.length > 9 ? '9+' : pendingReceiptReviews.length}
+                </span>
+              )}
+            </button>
+
             {/* Results Visibility Status */}
-            <div className={`flex items-center gap-2 px-4 py-2 backdrop-blur-sm border rounded-xl ${
+            <div className={`hidden xl:flex items-center gap-2 px-4 py-2 backdrop-blur-sm border rounded-xl ${
               resultsVisible 
                 ? 'bg-green-500/20 border-green-400/30 text-green-300' 
                 : 'bg-red-500/20 border-red-400/30 text-red-300'
@@ -4866,7 +4957,7 @@ Proceed?`
             </div>
 
             {/* Current Time Display */}
-            <div className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl">
+            <div className="hidden 2xl:flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl">
               <Clock className="w-4 h-4 text-blue-400" />
               <div className="text-right">
                 <div className="text-white font-mono text-sm">
@@ -4887,7 +4978,7 @@ Proceed?`
               </div>
             </div>
           
-            <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-3">
               <button
                 onClick={logout}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/20 border border-red-500/30 text-red-300 hover:bg-red-500/30 transition-all duration-300"
@@ -7088,6 +7179,23 @@ Proceed?`
             {/* WhatsApp Status Filter */}
             <div className="relative">
               <select
+                value={confirmationFilter}
+                onChange={(e) => setConfirmationFilter(e.target.value)}
+                className={`appearance-none rounded-xl border px-4 py-2 pr-8 text-sm text-white focus:outline-none focus:ring-2 transition-colors ${
+                  confirmationFilter !== 'all' ? 'border-emerald-400/50 bg-emerald-500/20 focus:ring-emerald-400/40' : 'border-white/20 bg-white/10 focus:ring-slate-400/50'
+                }`}
+              >
+                <option value="all" className="bg-slate-800 text-white">كل حالات التأكيد</option>
+                <option value="confirmed" className="bg-slate-800 text-white">✅ مقعد مؤكد</option>
+                <option value="awaiting_receipt" className="bg-slate-800 text-white">⏳ بانتظار الدفع</option>
+                <option value="declined" className="bg-slate-800 text-white">❌ معتذر</option>
+              </select>
+              <ChevronRight className="absolute right-2 top-1/2 -translate-y-1/2 rotate-90 w-4 h-4 text-slate-400 pointer-events-none" />
+            </div>
+
+            {/* WhatsApp Status Filter */}
+            <div className="relative">
+              <select
                 value={whatsappFilter}
                 onChange={(e) => setWhatsappFilter(e.target.value)}
                 className="appearance-none bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2 pr-8 text-white text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/50 transition-all duration-300"
@@ -7154,15 +7262,16 @@ Proceed?`
 
             {/* Filter Results Count */}
             {participants.some(p => p.receipt_url && !p.receipt_approved && !p.receipt_rejected) && (
-              <div className="flex items-center gap-2 rounded-xl border border-amber-400/50 bg-amber-500/15 px-3 py-2 shadow-[0_0_18px_rgba(251,191,36,0.12)]">
+              <button onClick={() => setShowReceiptReviewModal(true)} className="flex min-h-11 items-center gap-2 rounded-xl border border-amber-400/50 bg-amber-500/15 px-3 py-2 text-right shadow-[0_0_18px_rgba(251,191,36,0.12)] transition-colors hover:bg-amber-500/25">
                 <span className="animate-pulse">🔔</span>
                 <span className="text-sm font-bold text-amber-200">
                   إيصالات تنتظر المراجعة: {participants.filter(p => p.receipt_url && !p.receipt_approved && !p.receipt_rejected).length}
                 </span>
-              </div>
+                <ChevronRight className="h-4 w-4 text-amber-300" />
+              </button>
             )}
 
-            {(showEligibleOnly || eligibleSubFilter !== "none" || genderFilter !== "all" || paymentFilter !== "all" || whatsappFilter !== "all" || signupFilter !== "all" || showDuplicatePhones) && (
+            {(showEligibleOnly || eligibleSubFilter !== "none" || genderFilter !== "all" || paymentFilter !== "all" || confirmationFilter !== "all" || whatsappFilter !== "all" || signupFilter !== "all" || showDuplicatePhones) && (
               <div className="bg-green-500/20 backdrop-blur-sm border border-green-400/30 rounded-xl px-3 py-2">
                 <span className="text-green-300 text-sm">Filtered: </span>
                 <span className="font-bold text-green-200">{filteredParticipants.length}</span>
@@ -7980,14 +8089,19 @@ Proceed?`
                     )}
 
                     {/* Twilio Webhook Status Badges */}
-                    {!isCohost && ((p.attendance_confirmed !== null && p.attendance_confirmed !== undefined) || !!p.receipt_url) && (
+                    {!isCohost && (p.attendance_confirmed === true || !!p.attendance_denied_at || !!p.receipt_url) && (
                     <div className="flex flex-wrap items-center justify-center gap-1 mb-2">
-                      {p.attendance_confirmed === true && (
-                        <span className="px-2 py-1 text-xs rounded-full border bg-emerald-500/20 text-emerald-300 border-emerald-400/30">
-                          ✅ حضر
+                      {p.attendance_confirmed === true && (p.receipt_approved === true || p.PAID_DONE === true) && (
+                        <span className="px-2 py-1 text-xs font-bold rounded-full border bg-emerald-500/20 text-emerald-300 border-emerald-400/40">
+                          ✅ مقعد مؤكد
                         </span>
                       )}
-                      {p.attendance_confirmed === false && (
+                      {p.attendance_confirmed === true && p.receipt_approved !== true && p.PAID_DONE !== true && (
+                        <span className="px-2 py-1 text-xs font-bold rounded-full border bg-amber-500/20 text-amber-300 border-amber-400/40">
+                          ⏳ حضور معتمد · بانتظار الدفع
+                        </span>
+                      )}
+                      {p.attendance_confirmed === false && !!p.attendance_denied_at && (
                         <span className="px-2 py-1 text-xs rounded-full border bg-red-500/20 text-red-300 border-red-400/30">
                           ❌ اعتذر
                         </span>
@@ -8354,7 +8468,7 @@ Proceed?`
 
         return (
           <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-0 sm:p-4" dir="rtl">
-            <div className="bg-slate-900 border border-slate-700/60 rounded-none sm:rounded-2xl w-full sm:max-w-3xl shadow-2xl flex flex-col overflow-hidden" style={{ maxHeight: '100vh', height: '100vh' }}>
+            <div className="bg-slate-900 border border-slate-700/60 rounded-none sm:rounded-2xl w-full sm:max-w-3xl shadow-2xl flex flex-col overflow-hidden h-[100dvh] sm:h-[min(88vh,760px)]">
 
               {/* Header */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-gradient-to-l from-cyan-950/30 to-slate-900 flex-shrink-0">
@@ -8404,7 +8518,7 @@ Proceed?`
                       const isSel = g.num === waSelectedNumber
                       const lastMsg = g.latest
                       const isUnrecognized = lastMsg.direction === 'inbound' && lastMsg.message_body && !lastMsg.button_payload &&
-                        !["تأكيد", "confirm", "نعم", "اعتذار", "deny", "لا", "إيقاف", "toggle", "تبديل"].includes((lastMsg.message_body || '').trim().toLowerCase())
+                        !["تأكيد", "تاكيد", "confirm", "نعم", "اعتذار", "deny", "لا", "إيقاف", "ايقاف", "stop"].includes((lastMsg.message_body || '').trim().toLowerCase())
                       return (
                         <button key={g.num} onClick={() => selectWaParticipant(g.num)}
                           className={`w-full flex items-center gap-2.5 px-3 py-3 border-b border-white/5 text-right transition-colors ${
@@ -8509,7 +8623,7 @@ Proceed?`
                       </div>
 
                       {/* Reply input */}
-                      <div className="border-t border-white/10 p-2.5 sm:p-3 bg-slate-900/50 flex-shrink-0">
+                      <div className="border-t border-white/10 p-2.5 pb-[max(.75rem,env(safe-area-inset-bottom))] sm:p-3 bg-slate-900/50 flex-shrink-0">
                         <div className="flex items-end gap-2">
                           <textarea
                             value={waReplyText}
@@ -8545,10 +8659,81 @@ Proceed?`
         )
       })()}
 
+      {/* Mobile-first receipt review queue */}
+      {showReceiptReviewModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center sm:p-4" dir="rtl">
+          <div className="flex h-[100dvh] w-full flex-col overflow-hidden border-slate-700/60 bg-slate-950 shadow-2xl sm:h-[min(88vh,760px)] sm:max-w-xl sm:rounded-2xl sm:border">
+            <div className="flex flex-shrink-0 items-center justify-between border-b border-white/10 bg-gradient-to-l from-cyan-950/50 to-slate-950 px-4 py-3 pt-[max(.75rem,env(safe-area-inset-top))]">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-cyan-400/30 bg-cyan-500/20 text-cyan-300">
+                  <Receipt size={19} />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="truncate text-sm font-black text-white">مراجعة إيصالات Twilio</h2>
+                  <p className="text-[11px] text-slate-400">{pendingReceiptReviews.length} بانتظار قرارك</p>
+                </div>
+              </div>
+              <button onClick={() => setShowReceiptReviewModal(false)} aria-label="إغلاق مراجعة الإيصالات"
+                className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-800 text-slate-300 transition-colors hover:bg-slate-700 hover:text-white">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="border-b border-white/5 bg-slate-900/60 px-4 py-2.5 text-[11px] leading-5 text-slate-400">
+              افتح الإيصال أولاً، ثم اعتمده لتأكيد الدفع أو ارفضه ليُطلب من المشارك إعادة الإرسال.
+            </div>
+
+            <div className="flex-1 space-y-3 overflow-y-auto p-3 sm:p-4">
+              {pendingReceiptReviews.length === 0 ? (
+                <div className="flex h-full min-h-64 flex-col items-center justify-center gap-3 text-center">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400"><CheckCircle size={26} /></div>
+                  <div>
+                    <p className="font-bold text-slate-200">تمت مراجعة جميع الإيصالات</p>
+                    <p className="mt-1 text-xs text-slate-500">ستظهر الإيصالات الجديدة هنا تلقائياً</p>
+                  </div>
+                </div>
+              ) : pendingReceiptReviews.map((participant: any) => {
+                const busy = receiptReviewProcessing === participant.assigned_number
+                return (
+                  <article key={participant.assigned_number} className="overflow-hidden rounded-2xl border border-white/10 bg-slate-900/80 shadow-lg shadow-black/10">
+                    <div className="flex items-center gap-3 p-3.5">
+                      <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-cyan-500/15 text-sm font-black text-cyan-300">
+                        #{participant.assigned_number}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-bold text-white">{participant.name || 'مشارك بدون اسم'}</p>
+                        <p className="mt-0.5 text-[10px] text-slate-500">
+                          استُلم {participant.receipt_received_at ? new Date(participant.receipt_received_at).toLocaleString('ar-SA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'الآن'}
+                        </p>
+                      </div>
+                      <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-1 text-[10px] font-bold text-amber-300">بانتظار المراجعة</span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 border-t border-white/5 p-3 sm:grid-cols-3">
+                      <a href={participant.receipt_url} target="_blank" rel="noopener noreferrer"
+                        className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 text-sm font-bold text-cyan-300 transition-colors hover:bg-cyan-500/20">
+                        <Eye size={16} /> فتح الإيصال
+                      </a>
+                      <button onClick={() => reviewReceipt(participant, 'approve')} disabled={busy}
+                        className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 text-sm font-bold text-white transition-colors hover:bg-emerald-500 disabled:opacity-50">
+                        {busy ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />} اعتماد
+                      </button>
+                      <button onClick={() => reviewReceipt(participant, 'reject')} disabled={busy}
+                        className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 text-sm font-bold text-red-300 transition-colors hover:bg-red-500/20 disabled:opacity-50">
+                        {busy ? <Loader2 size={16} className="animate-spin" /> : <X size={16} />} رفض
+                      </button>
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Attendance Requests Modal */}
       {showAttendanceReqModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-0 sm:p-4" dir="rtl">
-          <div className="bg-slate-900 border border-slate-700/60 rounded-none sm:rounded-2xl w-full sm:max-w-lg shadow-2xl flex flex-col overflow-hidden" style={{ maxHeight: '100vh', height: '100vh' }}>
+          <div className="bg-slate-900 border border-slate-700/60 rounded-none sm:rounded-2xl w-full sm:max-w-lg shadow-2xl flex flex-col overflow-hidden h-[100dvh] sm:h-[min(88vh,720px)]">
 
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-gradient-to-l from-amber-950/30 to-slate-900 flex-shrink-0">
@@ -8583,7 +8768,7 @@ Proceed?`
                 </div>
               )}
               {attendanceRequests.map(req => (
-                <div key={req.id} className="bg-slate-800/50 border border-white/10 rounded-xl p-3 space-y-2">
+                <div key={req.id} className="bg-slate-800/50 border border-white/10 rounded-2xl p-3.5 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold ${
@@ -8615,18 +8800,18 @@ Proceed?`
                     <button
                       onClick={() => approveAttendanceRequest(req.id)}
                       disabled={attendanceReqProcessing === req.id}
-                      className="flex-1 px-3 py-1.5 rounded-lg bg-green-600/20 border border-green-500/30 text-green-400 hover:bg-green-600/30 text-xs font-medium transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                      className="flex-1 min-h-12 px-3 py-2 rounded-xl bg-green-600 text-white hover:bg-green-500 text-sm font-bold transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
                     >
                       {attendanceReqProcessing === req.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}
-                      اعتماد
+                      {req.request_type === 'confirm' ? 'اعتماد الحضور' : 'تسجيل الاعتذار'}
                     </button>
                     <button
                       onClick={() => rejectAttendanceRequest(req.id)}
                       disabled={attendanceReqProcessing === req.id}
-                      className="flex-1 px-3 py-1.5 rounded-lg bg-red-600/20 border border-red-500/30 text-red-400 hover:bg-red-600/30 text-xs font-medium transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                      className="flex-1 min-h-12 px-3 py-2 rounded-xl bg-red-600/15 border border-red-500/30 text-red-300 hover:bg-red-600/25 text-sm font-bold transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
                     >
                       {attendanceReqProcessing === req.id ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
-                      رفض
+                      تجاهل الطلب
                     </button>
                   </div>
                 </div>

@@ -125,6 +125,18 @@ async function findParticipantByPhone(phone) {
   return match || null
 }
 
+function normalizeArabicCommand(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\u064B-\u065F\u0670\u0640]/g, "")
+    .replace(/[أإآٱ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ؤ/g, "و")
+    .replace(/ئ/g, "ي")
+    .replace(/\s+/g, " ")
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" })
@@ -234,13 +246,7 @@ export default async function handler(req, res) {
 
       switch (buttonPayload) {
         case "confirm_attendance": {
-          // Directly update participant attendance
-          await supabase
-            .from("participants")
-            .update({ attendance_confirmed: true, attendance_confirmed_at: new Date().toISOString(), attendance_denied_at: null })
-            .eq("id", participant.id)
-
-          // Also insert attendance_request so admin sees it in the modal
+          // Record intent for admin review; confirmation is applied only when admin approves.
           await supabase.from("attendance_requests").insert({
             participant_id: participant.id,
             assigned_number: participant.assigned_number,
@@ -250,20 +256,14 @@ export default async function handler(req, res) {
           })
 
           const confirmationReply = participant.PAID_DONE
-            ? "✅ تم تسجيل حضورك، ومقعدك مؤكد لأن دفعتك معتمدة. نراك في الفعالية!"
-            : `✅ سجلنا رغبتك بالحضور للمشارك رقم ${participant.assigned_number}.\n\nالخطوة المتبقية: أرسل صورة الإيصال أو ملف PDF هنا. المقعد يصبح مؤكداً بعد مراجعة الإيصال، وستصلك رسالة اعتماد منفصلة.`
+            ? "✅ وصل تأكيد حضورك، ومقعدك مؤكد لأن دفعتك معتمدة. نراك في الفعالية!"
+            : `✅ وصلت رغبتك بالحضور للمشارك رقم ${participant.assigned_number} وهي بانتظار اعتماد المنظم.\n\nبعد اعتمادها سنطلب منك الإيصال، ويصبح المقعد مؤكداً نهائياً بعد اعتماد الدفع.`
           await sendTwilioReply(from, confirmationReply, participant)
           return res.status(200).json({ status: "confirmed" })
         }
 
         case "deny_attendance": {
-          // Directly update participant attendance
-          await supabase
-            .from("participants")
-            .update({ attendance_confirmed: false, attendance_denied_at: new Date().toISOString(), attendance_confirmed_at: null })
-            .eq("id", participant.id)
-
-          // Also insert attendance_request so admin sees it in the modal
+          // Record the denial request for admin review.
           await supabase.from("attendance_requests").insert({
             participant_id: participant.id,
             assigned_number: participant.assigned_number,
@@ -272,8 +272,8 @@ export default async function handler(req, res) {
             status: "pending",
           })
 
-          await sendTwilioReply(from, "تم تسجيل اعتذاركم. 🙏 شكراً لكم، ونرحب بكم في فعاليات قادمة! للاستفسار: 0560899666", participant)
-          return res.status(200).json({ status: "denied" })
+          await sendTwilioReply(from, "وصلنا طلب اعتذاركم 🙏 سيظهر للمنظم للمراجعة، وسنؤكد لكم تسجيل الاعتذار بعد اعتماده.", participant)
+          return res.status(200).json({ status: "deny_pending" })
         }
 
         case "toggle_auto_signup": {
@@ -314,7 +314,7 @@ export default async function handler(req, res) {
 
     // ── Handle free-text keywords (fallback for testing without buttons) ──
     if (messageBody) {
-      const text = messageBody.trim().toLowerCase()
+      const text = normalizeArabicCommand(messageBody)
       const participant = await findParticipantByPhone(from)
 
       if (!participant) {
@@ -326,12 +326,7 @@ export default async function handler(req, res) {
       // Log incoming free-text message
       await logIncomingMessage(participant, { from, messageBody })
 
-      if (text === "تأكيد" || text === "confirm" || text === "نعم") {
-        await supabase
-          .from("participants")
-          .update({ attendance_confirmed: true, attendance_confirmed_at: new Date().toISOString(), attendance_denied_at: null })
-          .eq("id", participant.id)
-
+      if (text === "تاكيد" || text === "confirm" || text === "نعم") {
         await supabase.from("attendance_requests").insert({
           participant_id: participant.id,
           assigned_number: participant.assigned_number,
@@ -341,18 +336,13 @@ export default async function handler(req, res) {
         })
 
         const confirmationReply = participant.PAID_DONE
-          ? "✅ تم تسجيل حضورك ومقعدك مؤكد. نراك في الفعالية!"
-          : `✅ سجلنا رغبتك بالحضور للمشارك رقم ${participant.assigned_number}. أرسل الإيصال هنا كصورة أو PDF، وسنرسل لك رسالة أخرى بعد اعتماده وتأكيد المقعد.`
+          ? "✅ وصل تأكيد حضورك ومقعدك مؤكد. نراك في الفعالية!"
+          : `✅ وصلت رغبتك بالحضور للمشارك رقم ${participant.assigned_number} وهي بانتظار اعتماد المنظم. ستصلك الخطوة التالية برسالة منفصلة.`
         await sendTwilioReply(from, confirmationReply, participant)
-        return res.status(200).json({ status: "confirmed" })
+        return res.status(200).json({ status: "confirm_pending" })
       }
 
       if (text === "اعتذار" || text === "deny" || text === "لا") {
-        await supabase
-          .from("participants")
-          .update({ attendance_confirmed: false, attendance_denied_at: new Date().toISOString(), attendance_confirmed_at: null })
-          .eq("id", participant.id)
-
         await supabase.from("attendance_requests").insert({
           participant_id: participant.id,
           assigned_number: participant.assigned_number,
@@ -361,11 +351,11 @@ export default async function handler(req, res) {
           status: "pending",
         })
 
-        await sendTwilioReply(from, "تم تسجيل اعتذارك عن الحضور 🙏 شكرًا لإبلاغنا مبكرًا، ونأمل أن نراك في فعالية قادمة.", participant)
-        return res.status(200).json({ status: "denied" })
+        await sendTwilioReply(from, "وصلنا طلب اعتذارك 🙏 سيظهر للمنظم للمراجعة، وسنؤكد تسجيله بعد الاعتماد.", participant)
+        return res.status(200).json({ status: "deny_pending" })
       }
 
-      if (text === "إيقاف" || text === "stop") {
+      if (text === "ايقاف" || text === "stop") {
         const currentValue = participant.auto_signup_next_event
         const newValue = false
 

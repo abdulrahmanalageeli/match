@@ -1664,9 +1664,30 @@ export default async function handler(req, res) {
         }
       }
 
+      // Receipt review queue for the admin notification workspace
+      if (action === "get-receipt-review-queue") {
+        try {
+          const { data, error } = await supabase
+            .from("participants")
+            .select("id,assigned_number,name,phone_number,receipt_url,receipt_received_at,receipt_approved,receipt_rejected,attendance_confirmed,attendance_confirmed_at,PAID_DONE")
+            .eq("match_id", STATIC_MATCH_ID)
+            .not("receipt_url", "is", null)
+            .eq("receipt_approved", false)
+            .eq("receipt_rejected", false)
+            .order("receipt_received_at", { ascending: false })
+          if (error) return res.status(500).json({ error: error.message })
+          return res.status(200).json({ success: true, receipts: data || [] })
+        } catch (err) {
+          console.error("get-receipt-review-queue exception:", err)
+          return res.status(500).json({ error: "Failed to fetch receipt review queue" })
+        }
+      }
+
       // Approve receipt — update DB and notify participant via WhatsApp
       if (action === "approve-receipt") {
         try {
+          let notificationSent = false
+          let notificationError = null
           const { assigned_number } = req.body
           if (!assigned_number) {
             return res.status(400).json({ error: "Missing 'assigned_number'" })
@@ -1691,12 +1712,24 @@ export default async function handler(req, res) {
               receipt_rejected: false,
               receipt_rejected_at: null,
               PAID_DONE: true,
+              attendance_confirmed: true,
+              attendance_confirmed_at: new Date().toISOString(),
+              attendance_denied_at: null,
             })
             .eq("id", participant.id)
 
           if (updateError) {
             return res.status(500).json({ error: updateError.message })
           }
+
+          // Payment approval is the final confirmation. Close any older pending
+          // attendance-intent request so the admin is not prompted to approve it again.
+          const { error: attendanceCloseError } = await supabase
+            .from("attendance_requests")
+            .update({ status: "approved", admin_note: "Auto-approved with receipt", updated_at: new Date().toISOString() })
+            .eq("participant_id", participant.id)
+            .eq("status", "pending")
+          if (attendanceCloseError) console.error("Failed to close attendance requests after receipt approval:", attendanceCloseError)
 
           // Send WhatsApp confirmation to participant
           if (participant.phone_number) {
@@ -1723,6 +1756,12 @@ export default async function handler(req, res) {
                   body: body.toString(),
                 })
                 const approvalData = await approvalRes.json()
+                if (!approvalRes.ok) {
+                  notificationError = approvalData?.message || `Twilio returned ${approvalRes.status}`
+                  console.error("Receipt approval WhatsApp failed:", approvalData)
+                } else {
+                  notificationSent = true
+                }
                 // Log the approval message
                 try {
                   await supabase.from("whatsapp_messages").insert({
@@ -1740,11 +1779,17 @@ export default async function handler(req, res) {
                 }
               } catch (e) {
                 console.error("Failed to send WhatsApp approval notification:", e)
+                notificationError = e?.message || "WhatsApp request failed"
               }
             }
           }
 
-          return res.status(200).json({ success: true, message: "Receipt approved and participant notified" })
+          return res.status(200).json({
+            success: true,
+            notification_sent: notificationSent,
+            notification_error: notificationError,
+            message: notificationSent ? "Receipt approved and participant notified" : "Receipt approved; notification was not delivered",
+          })
         } catch (err) {
           console.error("approve-receipt exception:", err)
           return res.status(500).json({ error: "Failed to approve receipt" })
@@ -2063,7 +2108,7 @@ export default async function handler(req, res) {
               const to = req_row.phone_number.startsWith("whatsapp:") ? req_row.phone_number : `whatsapp:${req_row.phone_number.replace(/\s/g, "")}`
               const accountSid = process.env.TWILIO_ACCOUNT_SID
               const authToken = process.env.TWILIO_AUTH_TOKEN
-              const fromWa = process.env.TWILIO_WHATSAPP_FROM || "whatsapp:+1234"
+              const fromWa = process.env.TWILIO_WHATSAPP_SENDER || process.env.TWILIO_WHATSAPP_FROM || "whatsapp:+13527387477"
               if (accountSid && authToken) {
                 const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
                 const body = new URLSearchParams()
@@ -2100,7 +2145,7 @@ export default async function handler(req, res) {
               const to = req_row.phone_number.startsWith("whatsapp:") ? req_row.phone_number : `whatsapp:${req_row.phone_number.replace(/\s/g, "")}`
               const accountSid = process.env.TWILIO_ACCOUNT_SID
               const authToken = process.env.TWILIO_AUTH_TOKEN
-              const fromWa = process.env.TWILIO_WHATSAPP_FROM || "whatsapp:+1234"
+              const fromWa = process.env.TWILIO_WHATSAPP_SENDER || process.env.TWILIO_WHATSAPP_FROM || "whatsapp:+13527387477"
               if (accountSid && authToken) {
                 const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
                 const body = new URLSearchParams()

@@ -7153,6 +7153,15 @@ Proceed?`
             </button>
 
             {/* Filter Results Count */}
+            {participants.some(p => p.receipt_url && !p.receipt_approved && !p.receipt_rejected) && (
+              <div className="flex items-center gap-2 rounded-xl border border-amber-400/50 bg-amber-500/15 px-3 py-2 shadow-[0_0_18px_rgba(251,191,36,0.12)]">
+                <span className="animate-pulse">🔔</span>
+                <span className="text-sm font-bold text-amber-200">
+                  إيصالات تنتظر المراجعة: {participants.filter(p => p.receipt_url && !p.receipt_approved && !p.receipt_rejected).length}
+                </span>
+              </div>
+            )}
+
             {(showEligibleOnly || eligibleSubFilter !== "none" || genderFilter !== "all" || paymentFilter !== "all" || whatsappFilter !== "all" || signupFilter !== "all" || showDuplicatePhones) && (
               <div className="bg-green-500/20 backdrop-blur-sm border border-green-400/30 rounded-xl px-3 py-2">
                 <span className="text-green-300 text-sm">Filtered: </span>
@@ -7971,7 +7980,7 @@ Proceed?`
                     )}
 
                     {/* Twilio Webhook Status Badges */}
-                    {!isCohost && (p.attendance_confirmed !== null && p.attendance_confirmed !== undefined) && (
+                    {!isCohost && ((p.attendance_confirmed !== null && p.attendance_confirmed !== undefined) || !!p.receipt_url) && (
                     <div className="flex flex-wrap items-center justify-center gap-1 mb-2">
                       {p.attendance_confirmed === true && (
                         <span className="px-2 py-1 text-xs rounded-full border bg-emerald-500/20 text-emerald-300 border-emerald-400/30">
@@ -8003,7 +8012,10 @@ Proceed?`
                               ✗ مرفوض
                             </span>
                           ) : (
-                            <div className="flex gap-1">
+                            <div className="flex flex-wrap items-center justify-center gap-1 rounded-lg border border-amber-400/40 bg-amber-500/10 p-1.5">
+                              <span className="px-1 text-[11px] font-bold text-amber-200" title={p.receipt_received_at ? new Date(p.receipt_received_at).toLocaleString('ar-SA') : undefined}>
+                                🔔 إيصال جديد • بانتظار المراجعة
+                              </span>
                               <button
                                 onClick={async (e) => {
                                   e.stopPropagation();

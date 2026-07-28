@@ -1162,7 +1162,46 @@ type TableModeState = {
   index: number;
 };
 
-const TABLE_MODE_STORAGE_KEY = "discussion_table_mode_v1";
+const TABLE_MODE_STORAGE_KEY = "discussion_table_mode_v2";
+
+// Curated specifically for a live group: inclusive, answerable by everyone,
+// likely to create follow-up conversation, and ordered from safe to revealing.
+const priorityGroupQuestionsByDepth: Record<DiscussionDepth, string[]> = {
+  shallow: [
+    "ما هو الشيء البسيط الذي حسّن أسبوعك؟",
+    "لو كان لديكم ساعة فراغ الآن، ما هو النشاط الذي ستقترحه؟",
+    "ما هي المهارة البسيطة التي يمكنك تعليمها للآخرين في خمس دقائق؟",
+    "ما هو المكان الذي تنصح الجميع بزيارته في مدينتك؟ ولماذا؟",
+    "ما هي العادة اليومية التي تتمنى لو بدأت بها في وقت أبكر؟",
+    "ما هو الشيء الذي لم تكن تحبه ثم تغير رأيك عنه؟",
+    "ما هي أفضل توصية حصلت عليها مؤخراً؟",
+    "لو كان مزاجك اليوم أغنية أو طقساً، ماذا سيكون؟",
+  ],
+  medium: [
+    "ما هي الصفة التي تجعلك ترتاح لشخص جديد بسرعة؟",
+    "أيهما أهم في الصداقة: التشابه أم الاختلاف؟ ولماذا؟",
+    "ما هو القرار البسيط الذي ترك أثراً أكبر مما توقعت؟",
+    "متى تفضّل النصيحة الصريحة، ومتى تفضّل أن يستمع لك الشخص فقط؟",
+    "ما هو الشيء الذي يجعلك تشعر بأنك جزء من المجموعة؟",
+    "ما هي القيمة التي يصعب عليك التنازل عنها؟",
+    "ما هو الفرق بين الشخص اللطيف والشخص الذي يمكن الاعتماد عليه؟",
+    "هل تفضّل التخطيط أم ترك مساحة للمفاجآت؟",
+    "ما هو الاعتذار الذي تعتبره صادقاً فعلاً؟",
+    "ما هو التصرف البسيط الذي يجعلك تشعر باهتمام الطرف الآخر بحديثك؟",
+  ],
+  deep: [
+    "ما هي الفكرة التي كنت مقتنعاً بها ثم غيرتها مع الوقت؟",
+    "ما هي المرحلة السابقة من حياتك التي تشعر بالامتنان لها اليوم؟",
+    "كيف تعرّف النجاح الآن؟ وهل تغير تعريفك له مع الوقت؟",
+    "ما هو الشيء الذي تتمنى أن يفهمه الناس عنك دون أن تشرحه؟",
+    "متى يكون التمسك بالمبدأ شجاعة، ومتى يكون عناداً؟",
+    "هل تقاس جودة العلاقة بالراحة أم بالنمو؟ ولماذا؟",
+    "ما هي التجربة التي جعلتك أكثر تفهماً لمن يختلف عنك؟",
+    "ما هو الأثر الذي تتمنى أن تتركه في حياة المقربين منك؟",
+    "متى تكون حماية راحتك ضرورية، ومتى تتحول إلى هروب؟",
+    "لو استطعت تقديم نصيحة لنفسك قبل خمس سنوات، ماذا ستقول؟",
+  ],
+};
 
 const tableQuestionsByDepth: Record<DiscussionDepth, string[]> = {
   shallow: promptTopics.filter(topic => topic.depth === "shallow").flatMap(topic => topic.questions),
@@ -1193,6 +1232,12 @@ function readTableModeState(): TableModeState {
 function getUnseenQuestion(depth: DiscussionDepth, history: string[]) {
   const pool = tableQuestionsByDepth[depth];
   if (!pool.length) return "اختاروا موضوعاً يهم الجميع، وليشارك كل شخص رأيه باختصار.";
+  const unseenPriority = priorityGroupQuestionsByDepth[depth].filter(question => !history.includes(question));
+  if (unseenPriority.length) {
+    // Vary tables slightly while keeping the strongest remaining prompts first.
+    const priorityWindow = unseenPriority.slice(0, 3);
+    return priorityWindow[Math.floor(Math.random() * priorityWindow.length)];
+  }
   const unseen = pool.filter(question => !history.includes(question));
   const source = unseen.length ? unseen : pool;
   return source[Math.floor(Math.random() * source.length)];

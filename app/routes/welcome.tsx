@@ -1457,6 +1457,64 @@ export default function WelcomePage() {
     }
   ];
 
+  // Set 4: Builds from everyday rhythm into emotional compatibility.
+  const rhythmQuestions = [
+    { title: "تفصيلة تحسّن يومك", question: "وش تفصيلة بسيطة إذا صارت في يومك تحس إن يومك صار أحسن؟", level: 0, levelTitle: "اتصال سريع", levelIcon: "Zap" },
+    { title: "خطة تغيّرت", question: "إذا تغيّرت الخطة في آخر لحظة… تتحمس للبديل ولا تحتاج وقت عشان تتأقلم؟", level: 0, levelTitle: "اتصال سريع", levelIcon: "Zap" },
+    { title: "مزاجك اليوم", question: "لو مزاجك اليوم كان أغنية أو لون… وش بيكون؟", level: 0, levelTitle: "اتصال سريع", levelIcon: "Zap" },
+    { title: "طلعة على ذوقك", question: "لو عندك ساعتين فاضية الحين… وين تروح ووش تسوي؟", level: 0, levelTitle: "اتصال سريع", levelIcon: "Zap" },
+    { title: "شي دايم معك", question: "وش شي غالبًا يكون معك وين ما رحت، غير الجوال؟ وليه؟", level: 0, levelTitle: "اتصال سريع", levelIcon: "Zap" },
+    { title: "وقت تستعيد فيه طاقتك", question: "بعد أسبوع متعب… وش الشي اللي يرجّع لك طاقتك فعلًا؟", level: 1, levelTitle: "المستوى الأول: الشرارة - لكسر الحاجز", levelIcon: "Flame" },
+    { title: "اهتمام يفرق معك", question: "وش نوع الاهتمام البسيط اللي يفرق معك أكثر مما يتوقعه الناس؟", level: 1, levelTitle: "المستوى الأول: الشرارة - لكسر الحاجز", levelIcon: "Flame" },
+    { title: "حديث ما تمله", question: "وش موضوع ممكن تسولف عنه طويلًا إذا حسّيت الطرف الثاني مهتم؟", level: 1, levelTitle: "المستوى الأول: الشرارة - لكسر الحاجز", levelIcon: "Flame" },
+    { title: "دعوة تفرحك", question: "وش نوع الدعوات اللي غالبًا تقول لها نعم بدون تفكير طويل؟", level: 1, levelTitle: "المستوى الأول: الشرارة - لكسر الحاجز", levelIcon: "Flame" },
+    { title: "راحة الصمت", question: "هل ترتاح للصمت مع شخص قريب، ولا تحب يكون فيه حديث دائم؟", level: 1, levelTitle: "المستوى الأول: الشرارة - لكسر الحاجز", levelIcon: "Flame" },
+    { title: "مساحة وقرب", question: "متى تحتاج أحد يقرب منك، ومتى تفضّل يعطيك مساحة؟ وكيف يعرف الفرق؟", level: 2, levelTitle: "المستوى الثاني: الجوهر - فهم القيم", levelIcon: "Compass" },
+    { title: "وعد مهم", question: "وش نوع الوعد اللي تشوف إن كسره يغيّر العلاقة حتى لو كان بسيط؟", level: 2, levelTitle: "المستوى الثاني: الجوهر - فهم القيم", levelIcon: "Compass" },
+    { title: "الوقت والاهتمام", question: "وش يعني لك إن شخص يعطيك من وقته؟ وهل تشوفه أهم من الكلام والهدايا؟", level: 2, levelTitle: "المستوى الثاني: الجوهر - فهم القيم", levelIcon: "Compass" },
+    { title: "الاستقلال", question: "كيف توازن بين قربك من الشخص والمحافظة على مساحتك واستقلالك؟", level: 2, levelTitle: "المستوى الثاني: الجوهر - فهم القيم", levelIcon: "Compass" },
+    { title: "احترام الاختلاف", question: "متى يكون الاختلاف صحيًا، ومتى تحس إنه صار فجوة صعب تجاوزها؟", level: 2, levelTitle: "المستوى الثاني: الجوهر - فهم القيم", levelIcon: "Compass" },
+    { title: "موقف حسّسك بالأمان", question: "اذكر موقف خلاك تحس بالأمان والراحة مع شخص… وش اللي سواه؟", level: 3, levelTitle: "المستوى الثالث: مشاركة التجارب", levelIcon: "Sparkles" },
+    { title: "احتياج تعلّمت تقوله", question: "وش احتياج كان صعب عليك تعبّر عنه، وتعلّمت مع الوقت تقوله بوضوح؟", level: 3, levelTitle: "المستوى الثالث: مشاركة التجارب", levelIcon: "Sparkles" },
+    { title: "موقف غيّر أسلوبك", question: "وش موقف خلاك تغيّر طريقة تعاملك مع الناس للأفضل؟", level: 3, levelTitle: "المستوى الثالث: مشاركة التجارب", levelIcon: "Sparkles" },
+    { title: "دعم ما نسيته", question: "متى وقف معك شخص بطريقة ما نسيتها إلى اليوم؟", level: 3, levelTitle: "المستوى الثالث: مشاركة التجارب", levelIcon: "Sparkles" },
+    { title: "حدود تعلّمتها", question: "وش حد شخصي ما عرفت أهميته إلا بعد تجربة؟", level: 3, levelTitle: "المستوى الثالث: مشاركة التجارب", levelIcon: "Sparkles" },
+    { title: "يوم سيئ", question: "لو كان يومك سيئ… تفضّل شخص يسألك ويتكلم معك، ولا يخفف عنك بدون أسئلة كثيرة؟", level: 4, levelTitle: "المستوى الرابع: ماذا لو؟ - استكشاف السيناريوهات", levelIcon: "Handshake" },
+    { title: "اختلاف الإيقاع", question: "لو شخص قريب منك يحب التخطيط وأنت تحب العفوية، كيف ممكن تخلّون الاختلاف مريح للطرفين؟", level: 4, levelTitle: "المستوى الرابع: ماذا لو؟ - استكشاف السيناريوهات", levelIcon: "Handshake" },
+    { title: "خلاف أمام الناس", question: "لو اختلفتم وأنتم مع ناس… تناقشون وقتها ولا تنتظرون لين تكونون لحالكم؟", level: 4, levelTitle: "المستوى الرابع: ماذا لو؟ - استكشاف السيناريوهات", levelIcon: "Handshake" },
+    { title: "ضغط الحياة", question: "لو مرّ أحد الطرفين بفترة ضغط طويلة، وش الدعم الواقعي اللي تتوقعه من الثاني؟", level: 4, levelTitle: "المستوى الرابع: ماذا لو؟ - استكشاف السيناريوهات", levelIcon: "Handshake" },
+    { title: "تغيير الخطة الكبيرة", question: "لو تغيّرت خطة مستقبلية مهمة لأحد الطرفين… كيف تتخذون القرار بدون ما يضيع احتياج أحد؟", level: 4, levelTitle: "المستوى الرابع: ماذا لو؟ - استكشاف السيناريوهات", levelIcon: "Handshake" }
+  ];
+
+  // Set 5: Builds from personality signals into relationship readiness.
+  const partnershipQuestions = [
+    { title: "صفة تظهر بسرعة", question: "وش صفة فيك يلاحظها الناس بسرعة، ووش صفة ما يعرفونها إلا بعد وقت؟", level: 0, levelTitle: "اتصال سريع", levelIcon: "Zap" },
+    { title: "قرار يومي", question: "في يوم عادي… وش قرار صغير يكشف شخصيتك أكثر مما تتوقع؟", level: 0, levelTitle: "اتصال سريع", levelIcon: "Zap" },
+    { title: "أول ساعة", question: "كيف تحب تبدأ أول ساعة من يومك إذا كان اليوم على مزاجك؟", level: 0, levelTitle: "اتصال سريع", levelIcon: "Zap" },
+    { title: "اختيار سريع", question: "تفضّل تجربة مكان جديد ولا ترجع لمكان تعرف إنك ترتاح فيه؟", level: 0, levelTitle: "اتصال سريع", levelIcon: "Zap" },
+    { title: "ضحكة قريبة", question: "وش نوع المواقف اللي تضحكك عادة حتى لو حاولت تمسك نفسك؟", level: 0, levelTitle: "اتصال سريع", levelIcon: "Zap" },
+    { title: "شي يحمّسك للمشاركة", question: "وش نشاط تستمتع فيه أكثر إذا شاركك فيه شخص قريب؟", level: 1, levelTitle: "المستوى الأول: الشرارة - لكسر الحاجز", levelIcon: "Flame" },
+    { title: "سؤال يفتحك", question: "وش نوع الأسئلة اللي يخليك ترتاح وتتكلم بطبيعتك مع شخص جديد؟", level: 1, levelTitle: "المستوى الأول: الشرارة - لكسر الحاجز", levelIcon: "Flame" },
+    { title: "طريقة التعبير", question: "إذا أعجبك شخص أو ارتحت له… يبان عليك بسرعة ولا تأخذ وقت؟", level: 1, levelTitle: "المستوى الأول: الشرارة - لكسر الحاجز", levelIcon: "Flame" },
+    { title: "مبادرة لطيفة", question: "وش مبادرة بسيطة من شخص جديد تخليك تقول: هذا الشخص مهتم فعلًا؟", level: 1, levelTitle: "المستوى الأول: الشرارة - لكسر الحاجز", levelIcon: "Flame" },
+    { title: "التعارف الطبيعي", question: "متى تحس إن التعارف صار طبيعي وما عاد فيه تكلّف؟", level: 1, levelTitle: "المستوى الأول: الشرارة - لكسر الحاجز", levelIcon: "Flame" },
+    { title: "معنى الالتزام", question: "وش يعني لك الالتزام في العلاقة بعيدًا عن مجرد الاستمرار؟", level: 2, levelTitle: "المستوى الثاني: الجوهر - فهم القيم", levelIcon: "Compass" },
+    { title: "شراكة ناجحة", question: "برأيك، وش الشي اللي لازم يكون مشترك بين شخصين، ووش الشي اللي عادي يختلفون فيه؟", level: 2, levelTitle: "المستوى الثاني: الجوهر - فهم القيم", levelIcon: "Compass" },
+    { title: "الثقة", question: "وش التصرفات الصغيرة اللي تبني الثقة عندك مع الوقت؟", level: 2, levelTitle: "المستوى الثاني: الجوهر - فهم القيم", levelIcon: "Compass" },
+    { title: "طموح الطرفين", question: "كيف تتخيل شخصين يدعمون طموح بعض بدون ما تتحول العلاقة إلى منافسة؟", level: 2, levelTitle: "المستوى الثاني: الجوهر - فهم القيم", levelIcon: "Compass" },
+    { title: "دور العائلة", question: "وش الدور الصحي للعائلة والأصدقاء في قرارات العلاقة من وجهة نظرك؟", level: 2, levelTitle: "المستوى الثاني: الجوهر - فهم القيم", levelIcon: "Compass" },
+    { title: "اعتذار أصلح موقف", question: "اذكر اعتذارًا حسّيت إنه صادق وأصلح الموقف… وش اللي خلاه مختلف؟", level: 3, levelTitle: "المستوى الثالث: مشاركة التجارب", levelIcon: "Sparkles" },
+    { title: "درس من علاقة", question: "وش درس تعلّمته من صداقة أو علاقة وغيّر طريقة تعاملك مع الناس؟", level: 3, levelTitle: "المستوى الثالث: مشاركة التجارب", levelIcon: "Sparkles" },
+    { title: "مرة فهموك صح", question: "اذكر موقف حسّيت فيه إن شخص فهمك فعلًا بدون ما تشرح كثير.", level: 3, levelTitle: "المستوى الثالث: مشاركة التجارب", levelIcon: "Sparkles" },
+    { title: "نقاش قرّبكم", question: "هل مرّ عليك خلاف انتهى بأنه قرّبك من الشخص بدل ما يبعدكم؟ وش الفرق؟", level: 3, levelTitle: "المستوى الثالث: مشاركة التجارب", levelIcon: "Sparkles" },
+    { title: "شي تعلّمته عن نفسك", question: "وش شيء ما عرفته عن نفسك إلا من خلال علاقتك بالآخرين؟", level: 3, levelTitle: "المستوى الثالث: مشاركة التجارب", levelIcon: "Sparkles" },
+    { title: "قرار مشترك", question: "لو اختلفتم على قرار مهم… وش الطريقة العادلة للوصول لقرار يرضي الطرفين؟", level: 4, levelTitle: "المستوى الرابع: ماذا لو؟ - استكشاف السيناريوهات", levelIcon: "Handshake" },
+    { title: "بداية التوافق", question: "بعد هذا الحوار… وش علامة واحدة تقول لك إن بين شخصين قابلية حقيقية للتوافق؟", level: 4, levelTitle: "المستوى الرابع: ماذا لو؟ - استكشاف السيناريوهات", levelIcon: "Handshake" },
+    { title: "قلة التواصل", question: "لو قلّ تواصل الطرف الآخر فجأة بسبب انشغاله… كيف تتصرف قبل ما تفترض الأسوأ؟", level: 4, levelTitle: "المستوى الرابع: ماذا لو؟ - استكشاف السيناريوهات", levelIcon: "Handshake" },
+    { title: "قرار مالي", question: "لو اختلف شخصان في أسلوب الصرف والادخار… وش الاتفاق اللي ممكن يحمي علاقتهم؟", level: 4, levelTitle: "المستوى الرابع: ماذا لو؟ - استكشاف السيناريوهات", levelIcon: "Handshake" },
+    { title: "بعد الحماس الأول", question: "وش الشي اللي يحافظ على العلاقة بعد ما يخف حماس البدايات؟", level: 4, levelTitle: "المستوى الرابع: ماذا لو؟ - استكشاف السيناريوهات", levelIcon: "Handshake" }
+  ];
+
   // Special Set - Same-gender rounds (default). Levels 0–4.
   const specialQuestions = [
 
@@ -1648,7 +1706,8 @@ export default function WelcomePage() {
 
   // Set selection state
   const [promptIndex, setPromptIndex] = useState(0);
-  const [activeQuestionSet, setActiveQuestionSet] = useState<'round1' | 'event' | 'set3' | 'special'>(currentRound === 1 ? 'special' : 'round1');
+  type QuestionSetId = 'round1' | 'event' | 'set3' | 'rhythm' | 'partnership' | 'special';
+  const [activeQuestionSet, setActiveQuestionSet] = useState<QuestionSetId>(currentRound === 1 ? 'special' : 'round1');
   
   // Select the active question set based on state
   const currentQuestions =
@@ -1656,6 +1715,10 @@ export default function WelcomePage() {
       ? eventQuestions
       : activeQuestionSet === 'set3'
         ? round3Questions
+        : activeQuestionSet === 'rhythm'
+          ? rhythmQuestions
+          : activeQuestionSet === 'partnership'
+            ? partnershipQuestions
         : activeQuestionSet === 'special'
           ? (currentRound === 1 ? specialQuestions : round1Questions)
           : round1Questions;
@@ -1669,12 +1732,21 @@ export default function WelcomePage() {
 
   // Track whether the user manually picked a question set (so we don't override their choice)
   const hasUserChosenSetRef = useRef(false)
-  const chooseQuestionSet = useCallback((set: 'round1' | 'event' | 'set3' | 'special') => {
+  const chooseQuestionSet = useCallback((set: QuestionSetId) => {
     if (set === 'special' && currentRound !== 1) return
     hasUserChosenSetRef.current = true
     setActiveQuestionSet(set)
     setCurrentQuestionIndex(0)
   }, [currentRound])
+
+  const questionSetOptions: Array<{ id: QuestionSetId; label: string; hint: string }> = [
+    ...(currentRound === 1 ? [{ id: 'special' as QuestionSetId, label: 'المميزة', hint: 'مناسبة للجولة الحالية' }] : []),
+    { id: 'round1', label: 'تعارف', hint: 'خفيف ثم أعمق' },
+    { id: 'event', label: 'تجارب', hint: 'قصص ووجهات نظر' },
+    { id: 'set3', label: 'شخصية', hint: 'اكتشاف بطريقة ممتعة' },
+    { id: 'rhythm', label: 'الانسجام', hint: 'احتياجات وإيقاع الحياة' },
+    { id: 'partnership', label: 'الشراكة', hint: 'قيم واستعداد للعلاقة' },
+  ]
 
   // Default question set per round: same-gender (round 1) → special set, opposite (round 2) → set 1.
   // Resetting the manual-choice flag first ensures each new round applies its default.
@@ -9289,7 +9361,7 @@ export default function WelcomePage() {
                   
                   {/* Questions Slideshow - Always show for Round 1 */}
                   {(currentRound === 1 || currentRound === 2) ? (
-                    <div ref={qCardRef} className={`relative z-10 mb-6 p-6 rounded-2xl border transition-all duration-500 ${
+                    <div ref={qCardRef} className={`relative z-10 mb-6 rounded-2xl border p-4 sm:p-6 transition-colors duration-200 ${
                       activeQuestionSet === 'special'
                         ? dark
                           ? (isSameGenderGirlsTheme
@@ -9318,84 +9390,40 @@ export default function WelcomePage() {
                                 ? "bg-gradient-to-br from-green-500/20 to-teal-600/10 border-green-400/50 ring-1 ring-teal-400/30 shadow-[0_0_24px_rgba(20,184,166,0.25)]"
                                 : "bg-gradient-to-br from-green-50 to-teal-50 border-green-300 ring-1 ring-green-300/40"
                     }`}>
-                      <div dir="rtl" className="flex flex-col items-center gap-1 mb-5">
-                        <div
-                          className={`inline-flex items-center p-1 rounded-full border ${
-                            dark
-                              ? 'bg-slate-900/50 border-slate-700'
-                              : 'bg-white/80 border-gray-200'
-                          } shadow-sm`}
-                        >
-                          {currentRound === 1 && (
-                            <button
-                              onClick={() => chooseQuestionSet('special')}
-                              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                                activeQuestionSet === 'special'
-                                  ? (dark
-                                      ? (isSameGenderGirlsTheme ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-md' : 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md')
-                                      : (isSameGenderGirlsTheme ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow' : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow'))
-                                  : (dark
-                                      ? 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-                                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
-                              }`}
-                            >
-                              المميزة
-                            </button>
-                          )}
-                          <button
-                            onClick={() => chooseQuestionSet('round1')}
-                            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                              activeQuestionSet === 'round1'
-                                ? (dark
-                                    ? (isSameGenderGirlsTheme ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-md' : 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md')
-                                    : (isSameGenderGirlsTheme ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow' : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow'))
-                                : (dark
-                                    ? 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
-                            }`}
-                          >
-                            المجموعة ١
-                          </button>
-                          <button
-                            onClick={() => chooseQuestionSet('event')}
-                            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                              activeQuestionSet === 'event'
-                                ? (dark
-                                    ? (isSameGenderGirlsTheme ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-md' : 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md')
-                                    : (isSameGenderGirlsTheme ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow' : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow'))
-                                : (dark
-                                    ? 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
-                            }`}
-                          >
-                            المجموعة ٢
-                          </button>
-                          <button
-                            onClick={() => chooseQuestionSet('set3')}
-                            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                              activeQuestionSet === 'set3'
-                                ? (dark
-                                    ? (isSameGenderGirlsTheme ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-md' : 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md')
-                                    : (isSameGenderGirlsTheme ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow' : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow'))
-                                : (dark
-                                    ? 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
-                            }`}
-                          >
-                            المجموعة ٣
-                          </button>
+                      <div dir="rtl" className="mb-5">
+                        <div className="mb-2 flex items-end justify-between gap-3 px-1">
+                          <div>
+                            <p className={`text-sm font-bold ${dark ? 'text-white' : 'text-slate-900'}`}>اختر مسار الحوار</p>
+                            <p className={`text-[11px] ${dark ? 'text-slate-400' : 'text-slate-500'}`}>يمكنكم تغييره في أي وقت</p>
+                          </div>
+                          <span className={`shrink-0 text-[11px] font-medium ${dark ? 'text-cyan-300' : 'text-cyan-700'}`}>{currentQuestions.length} سؤال</span>
                         </div>
-                        <motion.div
-                          initial={{ opacity: 0, y: -4 }}
-                          animate={{ opacity: 1, y: [0, -2, 0] }}
-                          transition={{ y: { repeat: Infinity, duration: 2, ease: 'easeInOut' }, opacity: { duration: 0.4 } }}
-                          className={`mt-1 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
-                            dark ? 'bg-slate-800/70 text-slate-300 border border-slate-700' : 'bg-white/80 text-gray-600 border border-gray-200'
-                          } shadow-sm`}
-                        >
-                          <Sparkles className={`w-3.5 h-3.5 ${dark ? 'text-amber-300' : 'text-amber-500'} animate-pulse`} />
-                          <span>ما عجبتك الأسئلة؟ جرّب مجموعة ثانية</span>
-                        </motion.div>
+                        <div className="-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                          {questionSetOptions.map((option) => {
+                            const selected = activeQuestionSet === option.id
+                            return (
+                              <button
+                                key={option.id}
+                                type="button"
+                                onClick={() => chooseQuestionSet(option.id)}
+                                aria-pressed={selected}
+                                className={`min-w-[132px] snap-start rounded-xl border px-3 py-2.5 text-right transition-colors duration-150 ${
+                                  selected
+                                    ? 'border-cyan-400 bg-cyan-500 text-white shadow-sm'
+                                    : dark
+                                      ? 'border-slate-700 bg-slate-900/55 text-slate-200 hover:border-slate-500 hover:bg-slate-800'
+                                      : 'border-slate-200 bg-white/80 text-slate-700 hover:border-slate-300 hover:bg-white'
+                                }`}
+                              >
+                                <span className="flex items-center justify-between gap-2 text-sm font-bold">
+                                  {option.label}
+                                  {selected && <CheckCircle className="h-4 w-4" aria-hidden="true" />}
+                                </span>
+                                <span className={`mt-0.5 block text-[10px] leading-4 ${selected ? 'text-cyan-50' : dark ? 'text-slate-400' : 'text-slate-500'}`}>{option.hint}</span>
+                              </button>
+                            )
+                          })}
+                        </div>
                       </div>
                       <div className="text-center mb-6">
                         <div className="flex items-center justify-center gap-2 mb-3">
@@ -9842,7 +9870,7 @@ onClick={() => {
 
                   {/* Round 1 Questions Slideshow - Always show for Round 1 */}
                   {(currentRound === 1 || currentRound === 2) && (
-                    <div ref={qCardRef} className={`relative z-10 mb-6 p-6 rounded-2xl border transition-all duration-500 ${
+                    <div ref={qCardRef} className={`relative z-10 mb-6 rounded-2xl border p-4 sm:p-6 transition-colors duration-200 ${
                       activeQuestionSet === 'special'
                         ? dark
                           ? (isSameGenderGirlsTheme
@@ -9871,9 +9899,9 @@ onClick={() => {
                                 ? "bg-gradient-to-br from-green-500/20 to-teal-600/10 border-green-400/50 ring-1 ring-teal-400/30 shadow-[0_0_24px_rgba(20,184,166,0.25)]"
                                 : "bg-gradient-to-br from-green-50 to-teal-50 border-green-300 ring-1 ring-green-300/40"
                     }`}> 
-                      <div dir="rtl" className="flex flex-col items-center gap-1 mb-5">
+                      <div dir="rtl" className="mb-5 w-full min-w-0">
                         <div
-                          className={`inline-flex items-center p-1 rounded-full border ${
+                          className={`flex max-w-full items-center gap-1 overflow-x-auto rounded-xl border p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
                             dark
                               ? 'bg-slate-900/50 border-slate-700'
                               : 'bg-white/80 border-gray-200'
@@ -9882,7 +9910,7 @@ onClick={() => {
                           {currentRound === 1 && (
                             <button
                               onClick={() => chooseQuestionSet('special')}
-                              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                              className={`shrink-0 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors duration-150 ${
                                 activeQuestionSet === 'special'
                                   ? (dark
                                       ? (isSameGenderGirlsTheme ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-md' : 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md')
@@ -9897,7 +9925,7 @@ onClick={() => {
                           )}
                           <button
                             onClick={() => chooseQuestionSet('round1')}
-                            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                            className={`shrink-0 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors duration-150 ${
                               activeQuestionSet === 'round1'
                                 ? (dark
                                     ? (isSameGenderGirlsTheme ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-md' : 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md')
@@ -9907,11 +9935,11 @@ onClick={() => {
                                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
                             }`}
                           >
-                            المجموعة ١
+                            تعارف
                           </button>
                           <button
                             onClick={() => chooseQuestionSet('event')}
-                            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                            className={`shrink-0 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors duration-150 ${
                               activeQuestionSet === 'event'
                                 ? (dark
                                     ? (isSameGenderGirlsTheme ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-md' : 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md')
@@ -9921,11 +9949,11 @@ onClick={() => {
                                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
                             }`}
                           >
-                            المجموعة ٢
+                            تجارب
                           </button>
                           <button
                             onClick={() => chooseQuestionSet('set3')}
-                            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                            className={`shrink-0 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors duration-150 ${
                               activeQuestionSet === 'set3'
                                 ? (dark
                                     ? (isSameGenderGirlsTheme ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-md' : 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md')
@@ -9935,20 +9963,29 @@ onClick={() => {
                                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
                             }`}
                           >
-                            المجموعة ٣
+                            شخصية
+                          </button>
+                          <button
+                            onClick={() => chooseQuestionSet('rhythm')}
+                            className={`shrink-0 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors duration-150 ${activeQuestionSet === 'rhythm' ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow' : (dark ? 'text-slate-300 hover:text-white hover:bg-slate-800/60' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')}`}
+                          >
+                            الانسجام
+                          </button>
+                          <button
+                            onClick={() => chooseQuestionSet('partnership')}
+                            className={`shrink-0 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors duration-150 ${activeQuestionSet === 'partnership' ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow' : (dark ? 'text-slate-300 hover:text-white hover:bg-slate-800/60' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')}`}
+                          >
+                            الشراكة
                           </button>
                         </div>
-                        <motion.div
-                          initial={{ opacity: 0, y: -4 }}
-                          animate={{ opacity: 1, y: [0, -2, 0] }}
-                          transition={{ y: { repeat: Infinity, duration: 2, ease: 'easeInOut' }, opacity: { duration: 0.4 } }}
+                        <div
                           className={`mt-1 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
                             dark ? 'bg-slate-800/70 text-slate-300 border border-slate-700' : 'bg-white/80 text-gray-600 border border-gray-200'
                           } shadow-sm`}
                         >
-                          <Sparkles className={`w-3.5 h-3.5 ${dark ? 'text-amber-300' : 'text-amber-500'} animate-pulse`} />
-                          <span>ما عجبتك الأسئلة؟ جرّب مجموعة ثانية</span>
-                        </motion.div>
+                          <Sparkles className={`w-3.5 h-3.5 ${dark ? 'text-amber-300' : 'text-amber-500'}`} />
+                          <span>اسحب لاختيار مسار حوار مختلف</span>
+                        </div>
                       </div>
                       <div className="text-center mb-6">
                         <div className="flex items-center justify-center gap-2 mb-3">

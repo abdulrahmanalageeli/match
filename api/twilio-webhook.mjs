@@ -148,7 +148,8 @@ export default async function handler(req, res) {
       const participant = await findParticipantByPhone(from)
       if (!participant) {
         console.log("No participant found for phone:", from)
-        return res.status(200).json({ status: "ignored" })
+        await sendTwilioReply(from, "لم نتمكن من ربط هذا الرقم بتسجيل مشارك. يرجى إرسال الإيصال من الرقم المسجل أو التواصل معنا على 0560899666.")
+        return res.status(200).json({ status: "participant_not_found" })
       }
 
       // Log incoming media message
@@ -157,12 +158,23 @@ export default async function handler(req, res) {
       // Download and store the receipt
       const isImage = mediaContentType0 && mediaContentType0.startsWith("image/")
       const isPdf = mediaContentType0 && mediaContentType0 === "application/pdf"
-      const fileExt = isImage ? "jpg" : isPdf ? "pdf" : "bin"
+      if (!isImage && !isPdf) {
+        await sendTwilioReply(from, "تعذر قراءة المرفق كإيصال. أرسله من فضلك كصورة واضحة أو ملف PDF.", participant)
+        return res.status(200).json({ status: "unsupported_receipt_type" })
+      }
+      const fileExt = isPdf ? "pdf" : mediaContentType0 === "image/png" ? "png" : mediaContentType0 === "image/webp" ? "webp" : "jpg"
       const fileName = `receipts/${participant.assigned_number}_${Date.now()}.${fileExt}`
 
       try {
-        const mediaRes = await fetch(mediaUrl0)
+        if (!accountSid || !authToken) throw new Error("Twilio credentials are unavailable for media download")
+        const mediaRes = await fetch(mediaUrl0, {
+          headers: { "Authorization": "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64") },
+        })
+        if (!mediaRes.ok) throw new Error(`Twilio media download failed (${mediaRes.status})`)
         const arrayBuffer = await mediaRes.arrayBuffer()
+        if (!arrayBuffer.byteLength || arrayBuffer.byteLength > 12 * 1024 * 1024) {
+          throw new Error(`Receipt file size is invalid (${arrayBuffer.byteLength} bytes)`)
+        }
         const buffer = Buffer.from(arrayBuffer)
 
         const { error: uploadError } = await supabase.storage
@@ -173,8 +185,7 @@ export default async function handler(req, res) {
           })
 
         if (uploadError) {
-          console.error("Receipt upload error:", uploadError)
-          // Still mark as received even if storage fails
+          throw new Error(`Receipt upload failed: ${uploadError.message}`)
         }
 
         // Store receipt URL in participant record
@@ -182,19 +193,24 @@ export default async function handler(req, res) {
           .from("receipts")
           .getPublicUrl(fileName)
 
-        await supabase
+        const { error: participantUpdateError } = await supabase
           .from("participants")
           .update({
-            receipt_url: publicUrlData?.publicUrl || mediaUrl0,
+            receipt_url: publicUrlData?.publicUrl,
             receipt_received_at: new Date().toISOString(),
+            receipt_approved: false,
+            receipt_approved_at: null,
+            receipt_rejected: false,
+            receipt_rejected_at: null,
           })
           .eq("id", participant.id)
+        if (participantUpdateError) throw new Error(`Participant receipt update failed: ${participantUpdateError.message}`)
 
-        await sendTwilioReply(from, "✅ تم استلام الإيصال! سنقوم بتأكيد حجزكم قريباً. شكراً لكم. للاستفسار: 0560899666", participant)
+        await sendTwilioReply(from, `✅ استلمنا إيصال المشارك رقم ${participant.assigned_number} بنجاح.\n\nحالته الآن: بانتظار المراجعة. سنرسل لك رسالة أخرى فور اعتماده وتأكيد المقعد.`, participant)
         return res.status(200).json({ status: "receipt_received" })
       } catch (e) {
         console.error("Media download/store error:", e)
-        await sendTwilioReply(from, "⚠️ حدث خطأ أثناء معالجة الإيصال. يرجى إعادة إرساله. للاستفسار: 0560899666", participant)
+        await sendTwilioReply(from, "⚠️ لم نتمكن من حفظ الإيصال، لذلك لم يُسجّل بعد. يرجى إرساله مرة أخرى كصورة واضحة أو PDF. إذا تكرر الخطأ تواصل معنا على 0560899666.", participant)
         return res.status(200).json({ status: "error" })
       }
     }
@@ -227,7 +243,10 @@ export default async function handler(req, res) {
             status: "pending",
           })
 
-          await sendTwilioReply(from, "شكراً للتأكيد! ✅ يرجى إرسال صورة الإيصال (صورة أو PDF) لتأكيد الحجز نهائياً. للاستفسار: 0560899666", participant)
+          const confirmationReply = participant.PAID_DONE
+            ? "✅ تم تسجيل حضورك، ومقعدك مؤكد لأن دفعتك معتمدة. نراك في الفعالية!"
+            : `✅ سجلنا رغبتك بالحضور للمشارك رقم ${participant.assigned_number}.\n\nالخطوة المتبقية: أرسل صورة الإيصال أو ملف PDF هنا. المقعد يصبح مؤكداً بعد مراجعة الإيصال، وستصلك رسالة اعتماد منفصلة.`
+          await sendTwilioReply(from, confirmationReply, participant)
           return res.status(200).json({ status: "confirmed" })
         }
 
@@ -253,16 +272,18 @@ export default async function handler(req, res) {
 
         case "toggle_auto_signup": {
           const currentValue = participant.auto_signup_next_event
-          const newValue = !currentValue
+          const newValue = true
 
-          await supabase
-            .from("participants")
-            .update({ auto_signup_next_event: newValue })
-            .eq("id", participant.id)
+          if (!currentValue) {
+            await supabase
+              .from("participants")
+              .update({ auto_signup_next_event: true })
+              .eq("id", participant.id)
+          }
 
-          const replyText = newValue
-            ? "✅ تم تفعيل التسجيل التلقائي. سيتم تسجيلكم تلقائياً في الفعاليات القادمة. للاستفسار: 0560899666"
-            : "🛑 تم إيقاف التسجيل التلقائي. لن يتم تسجيلكم تلقائياً في الفعاليات القادمة. للاستفسار: 0560899666"
+          const replyText = currentValue
+            ? "✅ الاشتراك التلقائي مفعّل لديك بالفعل. لن نغيّر حالته. لإيقافه أرسل كلمة: إيقاف"
+            : "✅ تم تفعيل الاشتراك التلقائي للفعاليات القادمة. سنراسلك عند توفر فعالية مناسبة، ولن يتم الخصم أو تأكيد الحضور دون موافقتك. لإيقافه أرسل كلمة: إيقاف"
 
           await sendTwilioReply(from, replyText, participant)
           return res.status(200).json({ status: "toggled", new_value: newValue })
@@ -300,7 +321,11 @@ export default async function handler(req, res) {
       await logIncomingMessage(participant, { from, messageBody })
 
       if (text === "تأكيد" || text === "confirm" || text === "نعم") {
-        // Log as pending request for admin approval
+        await supabase
+          .from("participants")
+          .update({ attendance_confirmed: true, attendance_confirmed_at: new Date().toISOString(), attendance_denied_at: null })
+          .eq("id", participant.id)
+
         await supabase.from("attendance_requests").insert({
           participant_id: participant.id,
           assigned_number: participant.assigned_number,
@@ -309,12 +334,19 @@ export default async function handler(req, res) {
           status: "pending",
         })
 
-        await sendTwilioReply(from, "تم استلام طلب تأكيد الحضور ✅ سيتم مراجعته وتأكيده قريباً. للاستفسار: 0560899666", participant)
-        return res.status(200).json({ status: "confirm_pending" })
+        const confirmationReply = participant.PAID_DONE
+          ? "✅ تم تسجيل حضورك ومقعدك مؤكد. نراك في الفعالية!"
+          : `✅ سجلنا رغبتك بالحضور للمشارك رقم ${participant.assigned_number}. أرسل الإيصال هنا كصورة أو PDF، وسنرسل لك رسالة أخرى بعد اعتماده وتأكيد المقعد.`
+        await sendTwilioReply(from, confirmationReply, participant)
+        return res.status(200).json({ status: "confirmed" })
       }
 
       if (text === "اعتذار" || text === "deny" || text === "لا") {
-        // Log as pending request for admin approval
+        await supabase
+          .from("participants")
+          .update({ attendance_confirmed: false, attendance_denied_at: new Date().toISOString(), attendance_confirmed_at: null })
+          .eq("id", participant.id)
+
         await supabase.from("attendance_requests").insert({
           participant_id: participant.id,
           assigned_number: participant.assigned_number,
@@ -323,29 +355,29 @@ export default async function handler(req, res) {
           status: "pending",
         })
 
-        await sendTwilioReply(from, "تم استلام طلب الاعتذار 🙏 سيتم مراجعته قريباً. للاستفسار: 0560899666", participant)
-        return res.status(200).json({ status: "deny_pending" })
+        await sendTwilioReply(from, "تم تسجيل اعتذارك عن الحضور 🙏 شكرًا لإبلاغنا مبكرًا، ونأمل أن نراك في فعالية قادمة.", participant)
+        return res.status(200).json({ status: "denied" })
       }
 
-      if (text === "إيقاف" || text === "toggle" || text === "تبديل") {
+      if (text === "إيقاف" || text === "stop") {
         const currentValue = participant.auto_signup_next_event
-        const newValue = !currentValue
+        const newValue = false
 
         await supabase
           .from("participants")
           .update({ auto_signup_next_event: newValue })
           .eq("id", participant.id)
 
-        const replyText = newValue
-          ? "✅ تم تفعيل التسجيل التلقائي. سيتم تسجيلكم تلقائياً في الفعاليات القادمة. للاستفسار: 0560899666"
-          : "🛑 تم إيقاف التسجيل التلقائي. لن يتم تسجيلكم تلقائياً في الفعاليات القادمة. للاستفسار: 0560899666"
+        const replyText = currentValue
+          ? "🛑 تم إيقاف الاشتراك التلقائي. لن نضيفك تلقائياً إلى الفعاليات القادمة."
+          : "الاشتراك التلقائي متوقف لديك بالفعل، ولم نغيّر أي شيء."
 
         await sendTwilioReply(from, replyText, participant)
         return res.status(200).json({ status: "toggled", new_value: newValue })
       }
 
       // Unrecognized text — send help
-      await sendTwilioReply(from, "مرحباً! 👋 أرسل 'تأكيد' لتأكيد المشاركة، 'اعتذار' للاعتذار، أو 'تبديل' لتغيير التسجيل التلقائي. يمكنك أيضاً إرسال صورة الإيصال مباشرة. للاستفسار: 0560899666", participant)
+      await sendTwilioReply(from, "مرحباً 👋\n\n• أرسل «تأكيد» لتسجيل رغبتك بالحضور\n• أرسل «اعتذار» إذا لن تتمكن من الحضور\n• أرسل الإيصال كصورة أو PDF ليُراجع ويُعتمد\n• أرسل «إيقاف» لإلغاء الاشتراك التلقائي\n\nتأكيد المقعد النهائي يصلك برسالة منفصلة بعد اعتماد الإيصال.", participant)
       return res.status(200).json({ status: "help_sent" })
     }
 

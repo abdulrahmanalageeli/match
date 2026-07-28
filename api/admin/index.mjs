@@ -68,7 +68,7 @@ function e3GenerateSeatingPlan(participantNumbers, genderMap = {}, lockedPairsSe
 
   // Round 2: modular shift on grid part (guarantees zero repeat encounters
   // for grid members since G ≤ T). Extras are placed in different groups
-  // from their round 1 assignment, spread to opposite side for mixing.
+  // within the same set of larger tables so the chair layout remains unchanged.
   const round2 = Array.from({ length: T }, () => Array(G).fill(null))
   for (let t = 0; t < T; t++) {
     for (let g = 0; g < G; g++) {
@@ -77,26 +77,26 @@ function e3GenerateSeatingPlan(participantNumbers, genderMap = {}, lockedPairsSe
       if (slot !== -1) round2[newGroup][slot] = grid[t][g]
     }
   }
-  // Place extras in round 2 — choose groups that avoid repeat encounters with round 1 groupmates.
+  // Place extras in round 2 while preserving the same physical table capacities.
+  // Round 1 tables 0..R-1 have G+1 chairs, so those exact tables must also
+  // receive one extra in Round 2. Within that fixed capacity set, choose the
+  // placement that minimizes repeat encounters.
   // For extra i (was in round 1 group i), round 2 groups (i+g)%T for g=0..G-1 contain grid[i][g].
-  // Those are "forbidden" (would cause a repeat). Pick from the remaining T-G groups.
+  // Those are "forbidden" (would cause a repeat). Prefer an allowed destination
+  // among tables 0..R-1; otherwise preserve capacity and accept the lowest repeat cost.
   // When G === T, every group is forbidden (1 repeat unavoidable) — just spread extras apart.
   const placedExtras = new Set()
   for (let i = 0; i < R; i++) {
     const forbidden = new Set()
     for (let g = 0; g < G; g++) forbidden.add((i + g) % T)
-    // Find a group that is not forbidden and doesn't already have an extra
-    let bestGroup = -1
-    for (let t = 0; t < T; t++) {
-      if (!forbidden.has(t) && !placedExtras.has(t)) { bestGroup = t; break }
-    }
-    // Fallback when G === T (all groups forbidden): pick any group without another extra
-    if (bestGroup === -1) {
-      for (let t = 0; t < T; t++) {
-        if (t !== i && !placedExtras.has(t)) { bestGroup = t; break }
-      }
-    }
-    if (bestGroup === -1) bestGroup = i // last resort
+    const availableCapacityTables = Array.from({ length: R }, (_, table) => table)
+      .filter(table => !placedExtras.has(table))
+    availableCapacityTables.sort((a, b) => {
+      const scoreA = (forbidden.has(a) ? 10 : 0) + (a === i ? 2 : 0)
+      const scoreB = (forbidden.has(b) ? 10 : 0) + (b === i ? 2 : 0)
+      return scoreA - scoreB || a - b
+    })
+    const bestGroup = availableCapacityTables[0] ?? i
     placedExtras.add(bestGroup)
     round2[bestGroup].push(extras[i])
   }

@@ -51,6 +51,7 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose, coh
     arrivalTimeText: '8:05 مساءً',
     locationName: 'كوفي بلانيت - الدور الثاني',
     mapUrl: 'https://maps.app.goo.gl/CYsyK9M5mxXMNo9YA',
+    matchExperienceText: 'تجربة اجتماعية تفاعلية تجمع بين اختيارك الشخصي وترشيحنا المبني على التوافق، لتتعرف على شريكين محتملين في لقاءات منظمة.',
     // Payment
     stcPay: '0560899666',
     bankName: 'مصرف الراجحي: عبدالرحمن عبدالملك',
@@ -367,7 +368,7 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
       12: config.mapUrl || 'https://maps.google.com',
       13: String(p.assigned_number || '0'),
       14: String(p.secure_token || 'N/A'),
-      15: 'https://meetu.ps/e/Q9zQM/Lh7Kd/i',
+      15: config.matchExperienceText || 'تجربة اجتماعية تفاعلية تجمع بين اختيارك الشخصي وترشيحنا المبني على التوافق.',
     };
   };
 
@@ -558,6 +559,11 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
                   <input type="text" className="w-full mt-1 bg-slate-700 text-white rounded px-2 py-2" value={config.mapUrl}
                     onChange={e=>setConfig({...config, mapUrl: e.target.value})}/>
                 </div>
+                <div className="md:col-span-2">
+                  <label className="text-xs text-slate-400">عن تجربة اختيارك واختيارنا (متغير 15)</label>
+                  <textarea className="w-full mt-1 bg-slate-700 text-white rounded px-2 py-2 min-h-20 resize-y" value={config.matchExperienceText}
+                    onChange={e=>setConfig({...config, matchExperienceText: e.target.value})}/>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -600,6 +606,7 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
                     arrivalTimeText: '8:05 مساءً',
                     locationName: 'كوفي بلانيت - الدور الثاني',
                     mapUrl: 'https://maps.app.goo.gl/CYsyK9M5mxXMNo9YA',
+                    matchExperienceText: 'تجربة اجتماعية تفاعلية تجمع بين اختيارك الشخصي وترشيحنا المبني على التوافق، لتتعرف على شريكين محتملين في لقاءات منظمة.',
                     stcPay: '0560899666',
                     bankName: 'مصرف الراجحي: عبدالرحمن عبدالملك',
                     iban: 'SA2480000588608016007502',
@@ -906,7 +913,7 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
                 }}
                 className="bg-slate-800 border border-slate-600 text-white text-sm rounded px-3 py-2"
               >
-                <option value="match">match_notification (إشعار التوافق)</option>
+                <option value="match">copy_of_match_notification_v2 (إشعار التوافق 4.0)</option>
                 <option value="reminder">event_reminder (تذكير الفعالية)</option>
                 <option value="payment">payment_reminder (تذكير الدفع)</option>
               </select>
@@ -921,7 +928,7 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
                 </div>
               )}
               <p className="text-xs text-slate-500">
-                {templateTypeTwilio === 'match' && '15 متغير — تأكيد/اعتذار/تبديل تلقائي'}
+                {templateTypeTwilio === 'match' && '15 متغيراً — تأكيد/اعتذار/اشتراك تلقائي/معلومات الفعالية'}
                 {templateTypeTwilio === 'reminder' && '5 متغيرات — تأكيد/اعتذار'}
                 {templateTypeTwilio === 'payment' && '8 متغيرات — تأكيد/اعتذار'}
               </p>

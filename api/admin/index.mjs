@@ -11,6 +11,7 @@ const supabase = createClient(
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 const STATIC_MATCH_ID = "00000000-0000-0000-0000-000000000000"
+const TWILIO_MATCH_NOTIFICATION_V2_SID = "HX6d318d6310d7cce0c37b1ef5e0b7a17e"
 
 // ── Event 4.0 constants & helpers ─────────────────────────────────────────────
 const EVENT3_MATCH_ID = "00000000-0000-0000-0000-000000000003"
@@ -1443,7 +1444,7 @@ export default async function handler(req, res) {
         return res.status(200).json({
           success: true,
           templateSids: {
-            match: process.env.TWILIO_MATCH_TEMPLATE_SID || null,
+            match: TWILIO_MATCH_NOTIFICATION_V2_SID,
             reminder: process.env.TWILIO_REMINDER_TEMPLATE_SID || null,
             payment: process.env.TWILIO_PAYMENT_TEMPLATE_SID || null,
           },

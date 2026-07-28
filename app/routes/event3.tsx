@@ -5171,6 +5171,58 @@ function MoodCheckModal({ token, name, moodCheck }: { token: string; name?: stri
 
 
 // ─── Root Component ───────────────────────────────────────────────────────────
+function EventStatusHeader({ eventState, isOffline, correctedNow, impersonating }: {
+  eventState: any; isOffline: boolean; correctedNow: () => number; impersonating?: boolean
+}) {
+  const [now, setNow] = useState(() => correctedNow())
+  useEffect(() => {
+    const update = () => setNow(correctedNow())
+    update()
+    const timer = setInterval(update, 1000)
+    return () => clearInterval(timer)
+  }, [correctedNow])
+
+  const phase = eventState?.phase || "setup"
+  const labels: Record<string, string> = {
+    setup: "الاستعداد", round1: "الجولة الأولى", ranking1: "ترتيب الجولة الأولى",
+    round2: "الجولة الثانية", ranking2: "الترتيب النهائي", break: "استراحة",
+    phase2_processing: "تجهيز اختيارك", phase2_reveal: "جلسة اختيارك",
+    phase3_processing: "تجهيز اختيارنا", phase3_reveal: "جلسة اختيارنا",
+    final_reveal: "النتيجة النهائية",
+  }
+  const progress: Record<string, string> = {
+    round1: "1 من 4", ranking1: "1 من 4", round2: "2 من 4", ranking2: "2 من 4",
+    phase2_processing: "3 من 4", phase2_reveal: "3 من 4",
+    phase3_processing: "4 من 4", phase3_reveal: "4 من 4",
+  }
+  let remaining: number | null = null
+  if (eventState?.timer_active && eventState?.timer_start) {
+    const elapsed = Math.floor((now - new Date(eventState.timer_start).getTime()) / 1000)
+    remaining = Math.max(0, Number(eventState.timer_duration || 0) - elapsed)
+  }
+  const table = eventState?.my_assignment?.table
+  const topClass = impersonating ? "top-7" : "top-0"
+
+  return (
+    <div className={`sticky ${topClass} z-[90] border-b border-white/[0.07] bg-gray-950/90 backdrop-blur-xl px-4 py-2.5`} dir="rtl">
+      <div className="max-w-md mx-auto flex items-center gap-3">
+        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${isOffline ? "bg-orange-400 animate-pulse" : "bg-emerald-400"}`} title={isOffline ? "غير متصل" : "متصل"} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-white text-xs font-bold truncate">{labels[phase] || phase}</span>
+            {progress[phase] && <span className="text-[10px] text-purple-300 bg-purple-900/30 border border-purple-800/40 rounded-full px-2 py-0.5 whitespace-nowrap">{progress[phase]}</span>}
+          </div>
+          <p className="text-[10px] text-gray-500 mt-0.5">{isOffline ? "غير متصل — نعرض آخر معلومات محفوظة" : "متصل بالفعالية"}</p>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {table != null && <span className="text-xs font-black text-amber-200 bg-amber-900/25 border border-amber-800/40 rounded-lg px-2.5 py-1.5">طاولة {table}</span>}
+          {remaining != null && <span className={`font-mono text-sm font-black tabular-nums ${remaining <= 60 ? "text-red-400" : "text-cyan-300"}`}>{formatTime(remaining)}</span>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Event3Page() {
   const [searchParams] = useSearchParams()
   const isImpersonating = searchParams.get("impersonate") === "1"
@@ -5310,15 +5362,7 @@ export default function Event3Page() {
         </div>
       )}
 
-      {/* Offline indicator */}
-      {isOffline && (
-        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[250] bg-orange-950/90 backdrop-blur-md border border-orange-800/50 rounded-full px-4 py-1.5 shadow-lg">
-          <span className="text-orange-300 text-xs font-medium flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
-            لا يوجد اتصال — بعض الميزات قد لا تعمل
-          </span>
-        </div>
-      )}
+      <EventStatusHeader eventState={eventState} isOffline={isOffline} correctedNow={correctedNow} impersonating={isImpersonating} />
 
       {/* Screen content fills available space */}
       <div className="flex-1 overflow-y-auto relative z-10">

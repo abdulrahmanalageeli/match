@@ -740,7 +740,7 @@ export default function Admin3Page() {
   useVisibilityPoll(fetchSOS, 5000, authenticated)
 
   useEffect(() => {
-    if (authenticated && activeTab === "seating") { fetchSeating(); fetchRankStatus() }
+    if (authenticated && activeTab === "seating") { fetchSeating(); fetchRankStatus(); fetchAttendance() }
     if (authenticated && activeTab === "ranking") fetchRankStatus()
     if (authenticated && activeTab === "participants") { fetchParticipants({ preserveSelection: true }); fetchSeating(); fetchRankStatus(); fetchMatches() }
     if (authenticated && activeTab === "overview") fetchOverview()
@@ -754,7 +754,7 @@ export default function Admin3Page() {
   useVisibilityPoll(fetchFeedback, 5000, feedbackPolling && activeTab === "feedback")
 
   // Attendance polling (visibility-aware)
-  useVisibilityPoll(fetchAttendance, 10000, activeTab === "attendance" && authenticated)
+  useVisibilityPoll(fetchAttendance, 10000, (activeTab === "attendance" || activeTab === "seating") && authenticated)
 
   // Rank status polling during ranking phases (5s, any tab)
   const isRankingPhase = state?.phase === "ranking1" || state?.phase === "ranking2"
@@ -833,6 +833,19 @@ export default function Admin3Page() {
     if (!moveA || !mapRound) return
     if (previewEventId != null) { toast.error("لا يمكن تعديل الجلسات في وضع المعاينة"); return }
     run(`move-${moveA}-to-${targetTable}`, () => api("e3-move-table", { participant_number: moveA, round: mapRound, new_table: targetTable }).then(d => { if (!d.error) { setMoveA(null); fetchSeating() } return d }))
+  }
+
+  const messageTable = async (table: number, members: any[]) => {
+    if (previewEventId != null) { toast.error("لا يمكن إرسال رسائل في وضع المعاينة"); return }
+    const message = window.prompt(`رسالة إلى طاولة ${table} (${members.length} مشاركين):`)
+    if (!message?.trim()) return
+    const title = `رسالة من المنظم · طاولة ${table}`
+    const results = await Promise.all(members.map(member => api("e3-send-notification", {
+      target_number: String(member.number), title, body: message.trim(), icon: "info",
+    })))
+    const failed = results.filter(result => result?.error).length
+    if (failed) toast.error(`تم الإرسال مع فشل ${failed} رسائل`)
+    else toast.success(`تم إرسال الرسالة إلى طاولة ${table}`)
   }
 
   const doSwapMatch = () => {
@@ -2439,6 +2452,14 @@ export default function Admin3Page() {
                     const balanced = Math.abs(males - females) <= 1
                     const hasSwapMember = swapA !== null && members.some(m => m.number === swapA)
                     const hasMoveMember = moveA !== null && members.some(m => m.number === moveA)
+                    const attendanceByNumber = new Map(attendanceData.map((person: any) => [person.number, !!person.attended]))
+                    const arrivedMembers = members.filter(member => attendanceByNumber.get(member.number))
+                    const missingMembers = members.filter(member => !attendanceByNumber.get(member.number))
+                    const tableSos = sosRequests.filter((request: any) => {
+                      if (request.status === "resolved") return false
+                      const match = String(request.table_info || "").match(/طاولة\s*(\d+)/)
+                      return match && Number(match[1]) === table
+                    })
 
                     // Compute repeat encounters across rounds 1 and 2 for this table's members
                     const round1Seating = seating?.[1] || {}
@@ -2471,6 +2492,8 @@ export default function Admin3Page() {
                         swapA !== null ? 'border-blue-800/50 hover:border-blue-600/60' :
                         hasMoveMember ? 'border-indigo-600/70 shadow-lg shadow-indigo-900/20' :
                         moveA !== null ? 'border-indigo-800/50 hover:border-indigo-600/60 cursor-pointer hover:bg-indigo-950/20' :
+                        tableSos.length ? 'border-red-700/60 shadow-lg shadow-red-950/20' :
+                        missingMembers.length ? 'border-amber-800/50 hover:border-amber-700/60' :
                         'border-gray-800 hover:border-gray-700'
                       }`}>
                         {/* Table header */}
@@ -2509,14 +2532,43 @@ export default function Admin3Page() {
                               <p className="text-[10px] text-gray-600">{members.length} مشارك</p>
                             </div>
                           </div>
-                          <span className={`flex items-center gap-1.5 text-[10px] font-medium px-2 py-1 rounded-lg border ${
-                            balanced ? 'bg-green-900/20 border-green-800/30 text-green-400' : 'bg-red-900/20 border-red-800/30 text-red-400'
-                          }`}>
-                            <span className="text-blue-400">{males}♂</span>
-                            <span className="text-gray-600">·</span>
-                            <span className="text-pink-400">{females}♀</span>
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {tableSos.length > 0 && (
+                              <button onClick={(event) => { event.stopPropagation(); setSelectedSosId(tableSos[0].id); setSosModalOpen(true) }}
+                                className="flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg bg-red-900/30 border border-red-700/50 text-red-300 animate-pulse">
+                                <AlertTriangle size={10} /> SOS {tableSos.length}
+                              </button>
+                            )}
+                            <span className={`flex items-center gap-1.5 text-[10px] font-medium px-2 py-1 rounded-lg border ${
+                              balanced ? 'bg-green-900/20 border-green-800/30 text-green-400' : 'bg-red-900/20 border-red-800/30 text-red-400'
+                            }`}>
+                              <span className="text-blue-400">{males}♂</span><span className="text-gray-600">·</span><span className="text-pink-400">{females}♀</span>
+                            </span>
+                          </div>
                         </div>
+
+                        {/* Live operational status */}
+                        <div className="grid grid-cols-3 gap-2 mb-3">
+                          <div className="rounded-xl bg-emerald-950/25 border border-emerald-900/40 px-2 py-2 text-center">
+                            <p className="text-sm font-black text-emerald-300">{arrivedMembers.length}/{members.length}</p>
+                            <p className="text-[9px] text-emerald-600">حاضر</p>
+                          </div>
+                          <div className={`rounded-xl border px-2 py-2 text-center ${missingMembers.length ? 'bg-amber-950/25 border-amber-900/40' : 'bg-gray-800/30 border-gray-800'}`}>
+                            <p className={`text-sm font-black ${missingMembers.length ? 'text-amber-300' : 'text-gray-500'}`}>{missingMembers.length}</p>
+                            <p className="text-[9px] text-gray-600">مفقود</p>
+                          </div>
+                          <button onClick={(event) => { event.stopPropagation(); messageTable(table, members) }}
+                            className="rounded-xl bg-blue-950/25 border border-blue-900/50 hover:bg-blue-900/30 px-2 py-2 text-center transition-colors">
+                            <MessageSquare size={14} className="mx-auto text-blue-300 mb-0.5" />
+                            <p className="text-[9px] text-blue-500">رسالة للطاولة</p>
+                          </button>
+                        </div>
+
+                        {missingMembers.length > 0 && (
+                          <div className="mb-3 px-3 py-2 rounded-xl bg-amber-950/20 border border-amber-900/30 text-[10px] text-amber-300">
+                            لم يصل: {missingMembers.map(member => `${member.name} #${member.number}`).join('، ')}
+                          </div>
+                        )}
                         {/* Members */}
                         <div className="space-y-1.5">
                           {members.map((m: any) => {
@@ -2542,7 +2594,7 @@ export default function Admin3Page() {
                                       : 'hover:bg-gray-800/70 border border-transparent hover:border-gray-700/50 text-gray-300 active:scale-[0.98]'
                                   }`}
                                 >
-                                  <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${m.gender === 'female' ? 'bg-pink-400' : 'bg-blue-400'}`} />
+                                  <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${attendanceByNumber.get(m.number) ? 'bg-emerald-400 ring-2 ring-emerald-400/20' : 'bg-gray-700'}`} title={attendanceByNumber.get(m.number) ? 'حاضر' : 'لم يصل'} />
                                   <span className="flex-1 text-sm font-medium truncate text-right">{m.name}</span>
                                   <span className="text-[10px] text-gray-600 font-mono flex-shrink-0">#{m.number}{m.age ? ` · ${m.age}` : ""}</span>
                                   <span className={`w-2 h-2 rounded-full flex-shrink-0 ${rankData?.submitted ? 'bg-green-500' : 'bg-gray-700'}`} title={rankData?.submitted ? 'صوّت' : 'لم يصوّت'} />

@@ -3142,7 +3142,11 @@ Please respond in JSON format:
             }
           }
           const roundMatch = phase.match(/^round(\d)$/)
-          const currentRound = roundMatch ? parseInt(roundMatch[1]) : null
+          const currentRound = roundMatch
+            ? parseInt(roundMatch[1])
+            : phase === "phase2_reveal" ? 20
+            : phase === "phase3_reveal" ? 30
+            : null
           if (ep && currentRound) {
             const { data: sa } = await supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId).eq("round", currentRound).eq("participant_id", myNumber).maybeSingle()
             myAssignment = sa ? { round: currentRound, table: sa.table_number, enrolled: true } : { enrolled: true }

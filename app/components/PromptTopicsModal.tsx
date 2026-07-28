@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { X, ChevronRight, ChevronLeft, Sparkles, MessageSquare, ArrowLeftCircle, CheckCircle, Star, Flame, HelpCircle, Heart, Gem, Users, Rocket, Brain, Copy, Shuffle, Filter, Search, BookOpen } from "lucide-react";
 // Removed Dialog imports - using custom modal implementation
 import { Button } from "../../components/ui/button";
@@ -1153,7 +1154,180 @@ const depthColors = {
 
 const depthOrder: Array<keyof typeof depthLabels> = ["shallow", "medium", "deep"];
 
+type DiscussionDepth = keyof typeof depthLabels;
+
+type TableModeState = {
+  depth: DiscussionDepth;
+  history: string[];
+  index: number;
+};
+
+const TABLE_MODE_STORAGE_KEY = "discussion_table_mode_v1";
+
+const tableQuestionsByDepth: Record<DiscussionDepth, string[]> = {
+  shallow: promptTopics.filter(topic => topic.depth === "shallow").flatMap(topic => topic.questions),
+  medium: promptTopics.filter(topic => topic.depth === "medium").flatMap(topic => topic.questions),
+  deep: promptTopics.filter(topic => topic.depth === "deep").flatMap(topic => topic.questions),
+};
+
+function readTableModeState(): TableModeState {
+  if (typeof window === "undefined") return { depth: "shallow", history: [], index: -1 };
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(TABLE_MODE_STORAGE_KEY) || "null");
+    if (
+      saved &&
+      depthOrder.includes(saved.depth) &&
+      Array.isArray(saved.history) &&
+      Number.isInteger(saved.index)
+    ) {
+      return {
+        depth: saved.depth,
+        history: saved.history.filter((question: unknown) => typeof question === "string"),
+        index: Math.min(saved.index, saved.history.length - 1),
+      };
+    }
+  } catch {}
+  return { depth: "shallow", history: [], index: -1 };
+}
+
+function getUnseenQuestion(depth: DiscussionDepth, history: string[]) {
+  const pool = tableQuestionsByDepth[depth];
+  if (!pool.length) return "اختاروا موضوعاً يهم الجميع، وليشارك كل شخص رأيه باختصار.";
+  const unseen = pool.filter(question => !history.includes(question));
+  const source = unseen.length ? unseen : pool;
+  return source[Math.floor(Math.random() * source.length)];
+}
+
+/**
+ * Focused live-table experience. The previous searchable question library is
+ * deliberately retained below as LegacyPromptTopicsModal so it can later be
+ * exposed from a separate "Browse all" tab without rebuilding it.
+ */
 export default function PromptTopicsModal({ open, onClose, embedded = false }: { open: boolean; onClose: () => void; embedded?: boolean }) {
+  const [tableState, setTableState] = useState<TableModeState>(readTableModeState);
+
+  const { depth, history, index } = tableState;
+  const currentQuestion = history[index] || "";
+  const depthIndex = depthOrder.indexOf(depth);
+  const depthLabel = depth === "shallow" ? "خفيف" : depth === "medium" ? "متوسط" : "عميق";
+
+  useEffect(() => {
+    if (!open || currentQuestion) return;
+    setTableState(prev => {
+      const question = getUnseenQuestion(prev.depth, prev.history);
+      return { ...prev, history: [...prev.history, question], index: prev.history.length };
+    });
+  }, [open, currentQuestion]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try { sessionStorage.setItem(TABLE_MODE_STORAGE_KEY, JSON.stringify(tableState)); } catch {}
+  }, [tableState]);
+
+  const showNextQuestion = (requestedDepth = depth) => {
+    setTableState(prev => {
+      if (requestedDepth === prev.depth && prev.index < prev.history.length - 1) {
+        return { ...prev, index: prev.index + 1 };
+      }
+      const question = getUnseenQuestion(requestedDepth, prev.history);
+      return {
+        depth: requestedDepth,
+        history: [...prev.history.slice(0, prev.index + 1), question],
+        index: prev.index + 1,
+      };
+    });
+  };
+
+  const changeDepth = (direction: -1 | 1) => {
+    const nextDepth = depthOrder[Math.max(0, Math.min(depthOrder.length - 1, depthIndex + direction))];
+    if (nextDepth !== depth) showNextQuestion(nextDepth);
+  };
+
+  if (!open) return null;
+
+  return (
+    <div
+      className={`fixed inset-0 z-[9999] bg-black/70 backdrop-blur-md flex items-center justify-center ${embedded ? "p-0" : "p-0 sm:p-4"}`}
+      style={embedded ? { top: "58px" } : undefined}
+      onClick={event => { if (event.target === event.currentTarget) onClose(); }}
+    >
+      <div
+        dir="rtl"
+        role="dialog"
+        aria-modal="true"
+        aria-label="أسئلة المجموعة"
+        className={`relative w-full h-full overflow-hidden bg-gradient-to-b from-gray-950 via-slate-950 to-gray-950 text-white flex flex-col ${embedded ? "" : "sm:max-w-lg sm:h-[760px] sm:max-h-[92vh] sm:rounded-3xl sm:border sm:border-white/10 sm:shadow-2xl"}`}
+      >
+        <header className="flex items-center justify-between gap-3 px-5 py-4 border-b border-white/[0.07] bg-gray-950/85 backdrop-blur-xl">
+          <div>
+            <p className="font-black text-base">أسئلة المجموعة</p>
+            <p className="text-[11px] text-gray-500 mt-0.5">ضعوا الهاتف في منتصف الطاولة</p>
+          </div>
+          <button onClick={onClose} className="w-10 h-10 rounded-full bg-white/5 border border-white/10 text-gray-400 hover:text-white flex items-center justify-center" aria-label="إغلاق">
+            <X className="w-5 h-5" />
+          </button>
+        </header>
+
+        <main className="flex-1 min-h-0 overflow-y-auto px-5 py-6 flex flex-col">
+          <div className="flex items-center justify-center gap-2 mb-5">
+            {depthOrder.map(item => (
+              <span key={item} className={`h-1.5 rounded-full transition-all ${item === depth ? `w-10 bg-gradient-to-r ${depthColors[item]}` : "w-5 bg-gray-800"}`} />
+            ))}
+          </div>
+
+          <div className="flex-1 flex flex-col justify-center max-w-md mx-auto w-full">
+            <AnimatePresence mode="wait">
+              <motion.section
+                key={`${index}-${currentQuestion}`}
+                initial={{ opacity: 0, y: 18, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -12, scale: 0.98 }}
+                transition={{ duration: 0.24 }}
+                className="relative rounded-[2rem] border border-white/10 bg-white/[0.045] p-6 sm:p-8 text-center shadow-2xl shadow-black/30"
+              >
+                <div className="flex items-center justify-center gap-2 mb-6">
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r ${depthColors[depth]} text-gray-950`}>{depthLabel}</span>
+                  <span className="text-xs text-gray-500">السؤال {index + 1}</span>
+                </div>
+
+                <MessageSquare className="w-8 h-8 text-purple-300 mx-auto mb-5" />
+                <p className="text-2xl sm:text-3xl font-black leading-[1.65] text-white">{currentQuestion}</p>
+
+                <div className="mt-7 pt-5 border-t border-white/[0.07] space-y-2">
+                  <p className="text-sm font-bold text-purple-200 flex items-center justify-center gap-2"><Users className="w-4 h-4" /> كل شخص يجيب باختصار</p>
+                  <p className="text-xs text-gray-500">ابدؤوا بصاحب الرقم الأقل، ثم أكملوا بالدور</p>
+                </div>
+              </motion.section>
+            </AnimatePresence>
+
+            <p className="text-center text-xs text-gray-600 mt-4">المشاركة اختيارية — يمكن لأي شخص تخطي السؤال</p>
+          </div>
+        </main>
+
+        <footer className="px-5 pt-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] border-t border-white/[0.07] bg-gray-950/90 backdrop-blur-xl space-y-3">
+          <button onClick={() => showNextQuestion()} className="w-full min-h-14 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 hover:brightness-110 active:scale-[0.98] transition-all text-white font-black text-base flex items-center justify-center gap-2 shadow-lg shadow-purple-950/40">
+            <CheckCircle className="w-5 h-5" /> أجبنا جميعاً — سؤال آخر
+          </button>
+
+          <div className="grid grid-cols-3 gap-2">
+            <button onClick={() => setTableState(prev => ({ ...prev, index: Math.max(0, prev.index - 1) }))} disabled={index <= 0} className="min-h-11 rounded-xl bg-white/5 border border-white/10 text-gray-300 text-sm disabled:opacity-30 flex items-center justify-center gap-1">
+              <ChevronRight className="w-4 h-4" /> السابق
+            </button>
+            <button onClick={() => showNextQuestion()} className="min-h-11 rounded-xl bg-white/5 border border-white/10 text-gray-300 text-sm flex items-center justify-center gap-1">
+              <Shuffle className="w-4 h-4" /> تخطي
+            </button>
+            <button onClick={() => changeDepth(depth === "deep" ? -1 : 1)} className="min-h-11 rounded-xl bg-white/5 border border-white/10 text-gray-300 text-sm flex items-center justify-center gap-1">
+              <Sparkles className="w-4 h-4" /> {depth === "deep" ? "أخف" : "أعمق"}
+            </button>
+          </div>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+// Kept for a future "Browse all questions" tab. It is intentionally not rendered today.
+function LegacyPromptTopicsModal({ open, onClose, embedded = false }: { open: boolean; onClose: () => void; embedded?: boolean }) {
   const [viewMode, setViewMode] = useState<"topics" | "random">("topics");
   const [selectedTopic, setSelectedTopic] = useState<null | typeof promptTopics[0]>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
@@ -1956,4 +2130,4 @@ export default function PromptTopicsModal({ open, onClose, embedded = false }: {
       </div>
     </div>
   );
-} 
+}

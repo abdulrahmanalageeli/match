@@ -17,6 +17,7 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState<{ successCount: number; failCount: number; results: any[] } | null>(null)
   const [error, setError] = useState("")
+  const [reviewing, setReviewing] = useState(false)
 
   const currentSid = envSids[templateType]
   const selectedList = participants.filter(p => selectedParticipants.has(p.assigned_number))
@@ -56,6 +57,7 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
     if (isOpen) {
       setResult(null)
       setError("")
+      setReviewing(false)
       loadData()
     }
   }, [isOpen, loadData])
@@ -104,7 +106,7 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
       12: cfg.mapUrl || 'https://maps.google.com',
       13: String(p.assigned_number || '0'),
       14: String(p.secure_token || 'N/A'),
-      15: 'https://meetu.ps/e/Q9zQM/Lh7Kd/i',
+      15: cfg.matchExperienceText || 'تجربة اجتماعية تفاعلية تجمع بين اختيارك الشخصي وترشيحنا المبني على التوافق.',
     }
   }
 
@@ -117,8 +119,6 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
       setError("No eligible participants with phone numbers in selection.")
       return
     }
-    if (!confirm(`Send ${templateType} template to ${eligibleList.length} participants?`)) return
-
     setSending(true)
     setResult(null)
     setError("")
@@ -141,6 +141,7 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
       const data = await res.json()
       if (res.ok && data.success) {
         setResult({ successCount: data.successCount, failCount: data.failCount, results: data.results })
+        setReviewing(false)
       } else {
         setError(data.error || "Bulk send failed")
       }
@@ -153,9 +154,20 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
 
   if (!isOpen) return null
 
+  const templateName = templateType === 'match'
+    ? 'copy_of_match_notification_v2'
+    : templateType === 'reminder' ? 'event_reminder' : 'payment_reminder'
+  const requiredVariableCount = templateType === 'match' ? 15 : templateType === 'reminder' ? 5 : 8
+  const previewParticipant = eligibleList[0] || null
+  const previewVariables: Record<string, any> = previewParticipant ? buildVariables(previewParticipant) : {}
+  const missingVariables = Array.from({ length: requiredVariableCount }, (_, index) => String(index + 1)).filter(key => {
+    const value = previewVariables[key]
+    return value == null || String(value).trim() === '' || value === 'TBD' || value === 'N/A'
+  })
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-2 md:p-4">
-      <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl">
+      <div className="relative bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
           <div className="flex items-center gap-3">
@@ -171,6 +183,64 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {reviewing && (
+          <div className="absolute inset-0 z-20 bg-slate-950 flex flex-col">
+            <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
+              <div>
+                <h3 className="text-white font-bold text-lg">Review bulk send</h3>
+                <p className="text-xs text-white/45">Nothing is sent until you confirm</p>
+              </div>
+              <button onClick={() => setReviewing(false)} className="p-2 rounded-lg hover:bg-white/10 text-white/60"><X className="w-5 h-5" /></button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-xl bg-green-500/10 border border-green-500/25 p-3 text-center"><p className="text-xl font-black text-green-400">{eligibleList.length}</p><p className="text-[10px] text-green-300/60">Will receive</p></div>
+                <div className="rounded-xl bg-amber-500/10 border border-amber-500/25 p-3 text-center"><p className="text-xl font-black text-amber-400">{withoutPhone.length}</p><p className="text-[10px] text-amber-300/60">Skipped</p></div>
+                <div className={`rounded-xl border p-3 text-center ${missingVariables.length ? 'bg-red-500/10 border-red-500/25' : 'bg-blue-500/10 border-blue-500/25'}`}><p className={`text-xl font-black ${missingVariables.length ? 'text-red-400' : 'text-blue-400'}`}>{missingVariables.length}</p><p className="text-[10px] text-white/45">Invalid fields</p></div>
+              </div>
+
+              <div className="rounded-xl bg-white/5 border border-white/10 p-4 space-y-2">
+                <div className="flex justify-between gap-3 text-sm"><span className="text-white/45">Template</span><span className="text-white font-medium text-right">{templateName}</span></div>
+                <div className="flex justify-between gap-3 text-sm"><span className="text-white/45">SID</span><code className="text-green-400 text-[11px] break-all text-right">{currentSid}</code></div>
+                <div className="flex justify-between gap-3 text-sm"><span className="text-white/45">Variables</span><span className={missingVariables.length ? 'text-red-400' : 'text-green-400'}>{requiredVariableCount - missingVariables.length}/{requiredVariableCount} valid</span></div>
+              </div>
+
+              {missingVariables.length > 0 && (
+                <div className="rounded-xl bg-red-500/10 border border-red-500/30 p-3 text-sm text-red-300">
+                  Missing or invalid template variables: {missingVariables.map(key => `{{${key}}}`).join(', ')}
+                </div>
+              )}
+
+              <div>
+                <p className="text-xs font-semibold text-white/60 mb-2">Recipients</p>
+                <div className="max-h-32 overflow-y-auto rounded-xl border border-white/10 divide-y divide-white/5">
+                  {eligibleList.map(person => <div key={person.assigned_number} className="px-3 py-2 flex justify-between text-xs"><span className="text-white">{person.name || `#${person.assigned_number}`}</span><span className="text-white/40">#{person.assigned_number} · {person.phone_number}</span></div>)}
+                  {withoutPhone.map(person => <div key={person.assigned_number} className="px-3 py-2 flex justify-between text-xs bg-amber-500/5"><span className="text-amber-300">{person.name || `#${person.assigned_number}`}</span><span className="text-amber-500">Skipped · no phone</span></div>)}
+                </div>
+              </div>
+
+              {previewParticipant && (
+                <div>
+                  <p className="text-xs font-semibold text-white/60 mb-2">Personalized preview · {previewParticipant.name || `#${previewParticipant.assigned_number}`}</p>
+                  <div className="rounded-xl bg-black/25 border border-white/10 p-3 grid grid-cols-1 gap-1.5">
+                    {Object.entries(previewVariables).map(([key, value]) => <div key={key} className="flex gap-2 text-xs"><code className="text-purple-400 w-10">{`{{${key}}}`}</code><span className="text-white/70 break-words min-w-0">{String(value)}</span></div>)}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="px-5 py-4 border-t border-white/10 flex gap-3">
+              <button onClick={() => setReviewing(false)} className="flex-1 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white/70">Back</button>
+              <button onClick={handleSend} disabled={sending || missingVariables.length > 0 || !currentSid || eligibleList.length === 0}
+                className="flex-[2] px-4 py-2.5 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold disabled:opacity-30 flex items-center justify-center gap-2">
+                {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                {sending ? 'Sending…' : `Confirm send to ${eligibleList.length}`}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
@@ -198,7 +268,7 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
 
           {/* SID display */}
           <div>
-            <label className="text-sm text-white/70 mb-2 block">Template SID (from env)</label>
+            <label className="text-sm text-white/70 mb-2 block">Configured Template SID</label>
             {currentSid ? (
               <div className="flex items-center gap-2 bg-green-900/20 border border-green-600/30 rounded-xl px-3 py-2.5">
                 <Zap className="w-4 h-4 text-green-400 flex-shrink-0" />
@@ -279,12 +349,12 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
             Close
           </button>
           <button
-            onClick={handleSend}
+            onClick={() => setReviewing(true)}
             disabled={sending || !currentSid || eligibleList.length === 0}
             className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 text-white text-sm font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:scale-105 active:scale-95 transition-transform"
           >
             {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            {sending ? "Sending..." : `Send to ${eligibleList.length} participants`}
+            Review {eligibleList.length} recipients
           </button>
         </div>
       </div>

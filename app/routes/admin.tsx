@@ -740,7 +740,7 @@ export default function AdminPage() {
   const [bulkPayLoading, setBulkPayLoading] = useState(false);
   
   // Status update state
-  const [updatingStatus, setUpdatingStatus] = useState<{participantNumber: number, type: 'message' | 'payment'} | null>(null);
+  const [updatingStatus, setUpdatingStatus] = useState<{participantNumber: number, type: 'message' | 'payment' | 'waiver'} | null>(null);
   
   // Gender preference update state
   const [updatingGenderPref, setUpdatingGenderPref] = useState<number | null>(null);
@@ -1016,8 +1016,8 @@ export default function AdminPage() {
       normalDeadlineMin: whatsappConfig?.normalDeadlineMin ?? 24 * 60,
       semiUrgentDeadlineMin: whatsappConfig?.semiUrgentDeadlineMin ?? 120,
       urgentDeadlineMin: whatsappConfig?.urgentDeadlineMin ?? 60,
-      earlyPrice: whatsappConfig?.earlyPrice ?? 45,
-      latePrice: whatsappConfig?.latePrice ?? 65,
+      earlyPrice: whatsappConfig?.earlyPrice ?? 60,
+      latePrice: whatsappConfig?.latePrice ?? 75,
       latePriceSwitchLabel: whatsappConfig?.latePriceSwitchLabel ?? 'Friday 28 Nov 3:00pm (Riyadh time)',
       eventDateText: whatsappConfig?.eventDateText ?? 'الأحد 16 نوفمبر 2025',
       eventTimeText: whatsappConfig?.eventTimeText ?? '8:15 مساءً',
@@ -3647,12 +3647,12 @@ const fetchParticipants = async () => {
         }
       }
       
-      // A final confirmation means both attendance approval and approved payment.
+      // A final confirmation can come from payment approval or an organizer waiver.
       let matchesConfirmation = true
       if (confirmationFilter === "confirmed") {
-        matchesConfirmation = p.attendance_confirmed === true && (p.receipt_approved === true || p.PAID_DONE === true)
+        matchesConfirmation = p.attendance_confirmed === true && (p.receipt_approved === true || p.PAID_DONE === true || p.payment_waived === true)
       } else if (confirmationFilter === "awaiting_receipt") {
-        matchesConfirmation = p.attendance_confirmed === true && p.receipt_approved !== true && p.PAID_DONE !== true
+        matchesConfirmation = p.attendance_confirmed === true && p.receipt_approved !== true && p.PAID_DONE !== true && p.payment_waived !== true
       } else if (confirmationFilter === "declined") {
         matchesConfirmation = p.attendance_confirmed === false && !!p.attendance_denied_at
       }
@@ -4609,6 +4609,30 @@ Proceed?`
     markConversationRead(num)
   }
 
+  const confirmWithoutPayment = async (participantNumber: number) => {
+    if (!confirm(`تأكيد مقعد المشارك #${participantNumber} بدون دفع؟ سيصله رابط الشرح والموقع والموعد مباشرة.`)) return
+    setUpdatingStatus({ participantNumber, type: 'waiver' })
+    try {
+      const response = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'confirm-without-payment', assigned_number: participantNumber }),
+      })
+      const data = await response.json()
+      if (!response.ok || !data?.success) throw new Error(data?.error || 'تعذر تأكيد المقعد')
+      if (data.notification_sent === false) {
+        toast.error(`تم تأكيد المقعد، لكن رسالة واتساب لم تصل: ${data.notification_error || 'خطأ غير معروف'}`, { duration: 7000 })
+      } else {
+        toast.success('تم تأكيد المقعد بدون دفع وإرسال تفاصيل الفعالية')
+      }
+      fetchParticipants()
+    } catch (error: any) {
+      toast.error(error?.message || 'تعذر تأكيد المقعد')
+    } finally {
+      setUpdatingStatus(null)
+    }
+  }
+
   const fetchReceiptReviewQueue = async () => {
     try {
       const res = await fetch('/api/admin', {
@@ -4696,7 +4720,7 @@ Proceed?`
       })
       const data = await res.json()
       if (data?.success) {
-        toast.success('تم اعتماد الطلب')
+        toast.success('تمت أرشفة الإشعار')
         setAttendanceRequests(prev => prev.filter(r => r.id !== requestId))
         fetchParticipants()
       } else {
@@ -8091,14 +8115,14 @@ Proceed?`
                     {/* Twilio Webhook Status Badges */}
                     {!isCohost && (p.attendance_confirmed === true || !!p.attendance_denied_at || !!p.receipt_url) && (
                     <div className="flex flex-wrap items-center justify-center gap-1 mb-2">
-                      {p.attendance_confirmed === true && (p.receipt_approved === true || p.PAID_DONE === true) && (
+                      {p.attendance_confirmed === true && (p.receipt_approved === true || p.PAID_DONE === true || p.payment_waived === true) && (
                         <span className="px-2 py-1 text-xs font-bold rounded-full border bg-emerald-500/20 text-emerald-300 border-emerald-400/40">
-                          ✅ مقعد مؤكد
+                          {p.payment_waived ? '✅ مقعد مؤكد · إعفاء من الدفع' : '✅ مقعد مؤكد'}
                         </span>
                       )}
-                      {p.attendance_confirmed === true && p.receipt_approved !== true && p.PAID_DONE !== true && (
+                      {p.attendance_confirmed === true && p.receipt_approved !== true && p.PAID_DONE !== true && p.payment_waived !== true && (
                         <span className="px-2 py-1 text-xs font-bold rounded-full border bg-amber-500/20 text-amber-300 border-amber-400/40">
-                          ⏳ حضور معتمد · بانتظار الدفع
+                          ⏳ أكد الحضور · بانتظار الإيصال
                         </span>
                       )}
                       {p.attendance_confirmed === false && !!p.attendance_denied_at && (
@@ -8186,6 +8210,15 @@ Proceed?`
                         </>
                       )}
                     </div>
+                    )}
+                    {!isCohost && !p.PAID_DONE && !p.receipt_approved && !p.payment_waived && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); confirmWithoutPayment(p.assigned_number) }}
+                        disabled={updatingStatus?.participantNumber === p.assigned_number && updatingStatus?.type === 'waiver'}
+                        className="mb-2 w-full min-h-10 rounded-xl border border-violet-400/30 bg-violet-500/10 px-3 py-2 text-xs font-bold text-violet-200 hover:bg-violet-500/20 disabled:opacity-50"
+                      >
+                        {updatingStatus?.participantNumber === p.assigned_number && updatingStatus?.type === 'waiver' ? 'جارٍ التأكيد...' : 'تأكيد المقعد بدون دفع'}
+                      </button>
                     )}
                     <div className={`mt-3 pt-3 border-t border-white/10 ${isCohost ? 'hidden md:block' : ''}`}>
                       {(() => {
@@ -8742,8 +8775,8 @@ Proceed?`
                   <CalendarCheck size={16} />
                 </div>
                 <div>
-                  <h2 className="font-bold text-white text-sm leading-tight">طلبات الحضور والاعتذار</h2>
-                  <p className="text-slate-500 text-[10px] leading-tight">{attendanceRequests.length} طلبات معلّقة</p>
+                  <h2 className="font-bold text-white text-sm leading-tight">إشعارات الحضور والاعتذار</h2>
+                  <p className="text-slate-500 text-[10px] leading-tight">{attendanceRequests.length} إشعارات غير مقروءة · تم تطبيق الرد تلقائياً</p>
                 </div>
               </div>
               <button onClick={() => setShowAttendanceReqModal(false)}
@@ -8764,7 +8797,7 @@ Proceed?`
                   <div className="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center">
                     <CalendarCheck size={18} className="text-slate-700" />
                   </div>
-                  <p className="text-xs">لا توجد طلبات معلّقة</p>
+                  <p className="text-xs">لا توجد إشعارات جديدة</p>
                 </div>
               )}
               {attendanceRequests.map(req => (
@@ -8796,22 +8829,14 @@ Proceed?`
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 pt-1">
+                  <div className="pt-1">
                     <button
                       onClick={() => approveAttendanceRequest(req.id)}
                       disabled={attendanceReqProcessing === req.id}
-                      className="flex-1 min-h-12 px-3 py-2 rounded-xl bg-green-600 text-white hover:bg-green-500 text-sm font-bold transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                      className="w-full min-h-12 px-3 py-2 rounded-xl bg-sky-600 text-white hover:bg-sky-500 text-sm font-bold transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
                     >
                       {attendanceReqProcessing === req.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}
-                      {req.request_type === 'confirm' ? 'اعتماد الحضور' : 'تسجيل الاعتذار'}
-                    </button>
-                    <button
-                      onClick={() => rejectAttendanceRequest(req.id)}
-                      disabled={attendanceReqProcessing === req.id}
-                      className="flex-1 min-h-12 px-3 py-2 rounded-xl bg-red-600/15 border border-red-500/30 text-red-300 hover:bg-red-600/25 text-sm font-bold transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
-                    >
-                      {attendanceReqProcessing === req.id ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
-                      تجاهل الطلب
+                      تم الاطلاع
                     </button>
                   </div>
                 </div>

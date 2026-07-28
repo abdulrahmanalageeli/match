@@ -24,7 +24,7 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose, coh
   const [bulkSending, setBulkSending] = useState(false);
   const [bulkResult, setBulkResult] = useState<{ successCount: number; failCount: number; results: any[] } | null>(null);
   const [urgencyLevel, setUrgencyLevel] = useState<'normal' | 'semi-urgent' | 'urgent'>('normal');
-  const [templateType, setTemplateType] = useState<'match' | 'early-match' | 'early-reminder' | 'event-info' | 'faq-payment' | 'faq-location' | 'faq-timing' | 'reminder' | 'payment-reminder' | 'partner-info' | 'gender-confirmation' | 'survey-completion' | 'time-change'>('match');
+  const [templateType, setTemplateType] = useState<'match' | 'early-match' | 'early-reminder' | 'event-info' | 'faq-payment' | 'faq-location' | 'faq-timing' | 'reminder' | 'payment-reminder' | 'partner-info' | 'gender-confirmation' | 'preference-flexibility' | 'discount-offer' | 'survey-completion' | 'time-change'>('match');
   const [showCustomize, setShowCustomize] = useState(false);
   const [exportMode, setExportMode] = useState(false);
 
@@ -42,8 +42,9 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose, coh
     semiUrgentDeadlineMin: 120,
     urgentDeadlineMin: 60,
     // Prices
-    earlyPrice: 45,
-    latePrice: 65,
+    earlyPrice: 60,
+    latePrice: 75,
+    paymentCutoffLocal: '',
     latePriceSwitchLabel: 'الجمعة 3:00 مساءً',
     // Event details
     eventDateText: 'الأحد 16 نوفمبر 2025',
@@ -51,7 +52,13 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose, coh
     arrivalTimeText: '8:05 مساءً',
     locationName: 'كوفي بلانيت - الدور الثاني',
     mapUrl: 'https://maps.app.goo.gl/CYsyK9M5mxXMNo9YA',
+    tutorialUrl: 'https://blindmatch.app/event3',
     matchExperienceText: 'تجربة اجتماعية تفاعلية تجمع بين اختيارك الشخصي وترشيحنا المبني على التوافق، لتتعرف على شريكين محتملين في لقاءات منظمة.',
+    discountTemplate: 'السلام عليكم *{name}* 👋\n\nلدينا عرض خاص لك بقيمة *{discountPrice} ريال* للمشاركة في الفعالية القادمة.\n\nإذا كنت مهتماً، رد بكلمة: *مهتم*\nوإذا لم يناسبك العرض، رد بكلمة: *غير مهتم*\n\nالعرض متاح حتى: {discountDeadline}',
+    preferenceFlexTemplate: 'السلام عليكم *{name}* 👋\n\nوجدنا خيارات توافق جيدة لك، لكن قد نحتاج مرونة بسيطة في تفضيل جنس الشريك. هل يناسبك توسيع الاختيار إلى أي جنس لهذه الفعالية؟\n\nللموافقة رد: *مرن*\nللإبقاء على اختيارك الحالي رد: *إبقاء التفضيل*\n\nلن نغيّر تفضيلك إلا بعد ردك الصريح.',
+    genderPreferenceTemplate: 'السلام عليكم *{name}* 👋\n\nنرغب في تأكيد تفضيلك لجنس الشريك قبل المطابقة.\n\nرد بإحدى العبارات التالية فقط:\n• *أي جنس*\n• *نفس الجنس*\n• *جنس مختلف*\n\nسنحدّث اختيارك مباشرة ونرسل لك تأكيداً.',
+    discountPrice: 50,
+    discountDeadline: 'نهاية اليوم',
     // Payment
     stcPay: '0560899666',
     bankName: 'مصرف الراجحي: عبدالرحمن عبدالملك',
@@ -76,7 +83,7 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose, coh
         });
         const data = await res.json();
         if (!cancelled && res.ok && data?.success && data?.whatsapp_config) {
-          setConfig((prev) => ({ ...prev, ...data.whatsapp_config }));
+          setConfig((prev) => ({ ...prev, ...data.whatsapp_config, earlyPrice: 60, latePrice: 75 }));
           setLastUpdatedAt(data.whatsapp_config_updated_at || null);
           setLastUpdatedBy(data.whatsapp_config_updated_by || null);
         } else if (!cancelled) {
@@ -134,6 +141,10 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose, coh
   };
 
   const handleSaveConfig = async () => {
+    if (!config.paymentCutoffLocal) {
+      alert('حدد تاريخ ووقت انتهاء السعر المبكر بتوقيت الرياض أولاً');
+      return;
+    }
     setSaving(true);
     setSaveSuccess(false);
     try {
@@ -168,6 +179,15 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose, coh
     const d = config;
     const bold = (s: string) => (d.includeBold ? `*${s}*` : s);
     const e = (s: string) => (d.includeEmojis ? s : '');
+    const renderCustom = (value: string) => String(value || '')
+      .replaceAll('{name}', name)
+      .replaceAll('{assignedNumber}', String(assignedNumber))
+      .replaceAll('{discountPrice}', String(d.discountPrice))
+      .replaceAll('{discountDeadline}', d.discountDeadline)
+      .replaceAll('{eventDate}', d.eventDateText)
+      .replaceAll('{eventTime}', d.eventTimeText)
+      .replaceAll('{location}', d.locationName)
+      .replaceAll('{mapUrl}', d.mapUrl);
 
     // Generate message based on template type via a builder function
     const build = () => {
@@ -268,7 +288,13 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
         return `*التوافق الأعمى* 🔒\n\nالسلام عليكم *${name}*،\n\n*سياسة الخصوصية ومعلومات الشريك*\n\n*هل يمكنكم مشاركة معلومات عن شريكي؟*\n\nنعتذر، لا يمكننا مشاركة أي معلومات شخصية عن شريكك قبل اللقاء. هذا جزء أساسي من تجربة "التوافق الأعمى" التي تهدف إلى بناء علاقات فكرية وثقافية هادفة قائمة على التوافق الحقيقي.\n\n*طبيعة الفعالية:*\n\nهذه الفعالية مصممة لربط الأشخاص ذوي التفكير المتشابه والاهتمامات المتوافقة في بيئة احترافية آمنة. نحن نركز على التبادل الفكري والثقافي، وليس على المواعدة التقليدية. الهدف هو التعرف على أشخاص متوافقين معكم فكرياً وشخصياً لبناء علاقات ذات معنى.\n\n*فلسفة التوافق:*\n\nنظامنا يعتمد على التوافق الشخصي والفكري بغض النظر عن الهوية الشخصية، الجنسية، المظهر الخارجي، أو الخلفية الاجتماعية. نحن نؤمن بأن التوافق الحقيقي يتجاوز هذه العوامل السطحية.\n\n*منهجية المطابقة:*\n\nخوارزميتنا تبحث عن التوازن المثالي بين التشابه والتكامل. نحن لا نبحث عن التطابق الكامل (100% تشابه) ولا عن الاختلاف الكامل (100% تكامل)، بل عن المزيج الصحيح الذي يخلق علاقة متوازنة ومستدامة.\n\nالتشابه في القيم الأساسية والأهداف الحياتية يخلق أرضية مشتركة، بينما التكامل في الشخصيات وأساليب التفكير يضيف الثراء والنمو المتبادل.\n\n*ما نضمنه لكم:*\n\n• شريكك من نفس الفئة العمرية (الفارق لا يتجاوز 5 سنوات أعلى أو أقل)\n• توافق شخصي عالي بناءً على نوع الشخصية (MBTI)، أسلوب التواصل، القيم والاهتمامات، الأهداف الحياتية، والتوافق الفكري\n• احترام تفضيلاتك الشخصية (نفس الجنس أو جنس مختلف)\n• بيئة آمنة ومحترمة للجميع\n\n*لماذا نحافظ على السرية؟*\n\nالسرية تضمن تجربة حقيقية خالية من الأحكام المسبقة، وتتيح لكم التركيز على الجوهر والشخصية الحقيقية. كما تمنح الجميع فرصة عادلة متساوية وتحترم خصوصية جميع المشاركين.\n\nالدراسات تثبت أن اللقاءات "العمياء" تؤدي إلى تواصل أعمق وأكثر صدقاً، وتقييم أفضل للتوافق الحقيقي، مما ينتج عنه علاقات أقوى وأطول أمداً.\n\n*أسئلة شائعة:*\n\n**س: هل سأعرف اسم شريكي؟**\nج: نعم، خلال اللقاء ستتعرفون على بعضكم بشكل طبيعي وتتبادلون المعلومات كما تشاؤون.\n\n**س: هل يمكنني معرفة جنسية الشريك مسبقاً؟**\nج: نركز على التوافق الشخصي والفكري بغض النظر عن الجنسية أو الأصل.\n\n**س: ماذا لو لم أشعر بالتوافق مع الشريك؟**\nج: لا يوجد أي التزام بعد اللقاء. التجربة مصممة للتعارف واستكشاف التوافق فقط.\n\n**س: كيف تم اختيار شريكي؟**\nج: خوارزميتنا حللت إجاباتكم بعمق واختارت شريكاً متوافقاً معكم بنسبة عالية بناءً على معايير علمية مدروسة.\n\n*ثقوا بالعملية:*\n\nنحن نستخدم منهجية علمية متطورة لضمان أفضل مطابقة ممكنة. امنحوا التجربة فرصة حقيقية، وكونوا منفتحين على التعرف على شخص قد يكون متوافقاً معكم بطرق لم تتوقعوها.\n\n📍 *تفاصيل الفعالية:*\nالمكان: كوفي بلانيت - الدور الثاني\nالعنوان: https://maps.app.goo.gl/CYsyK9M5mxXMNo9YA\nالتاريخ: السبت 1 نوفمبر 2024\nالوقت: 8:15 مساءً\n\nرقم المشارك: *${assignedNumber}*\nرابط حسابك: https://blindmatch.app/welcome?token=${secureToken}\n\nلأي استفسارات إضافية، نحن هنا للمساعدة.\n\nفريق التوافق الأعمى`;
 
       case 'gender-confirmation':
-        return `السلام عليكم *${name}* 👋\n\nلاحظنا إنك اخترت "*أي جنس*" في تفضيلات المطابقة.\n\nبس حبينا نتأكد إن هذا اختيارك الصحيح؟ 🤔\n\nلو تبي تأكد أو تغير:\n• "نعم" - أوكي مع أي جنس\n• "ذكر" - ذكور فقط\n• "أنثى" - إناث فقط\n\nشكراً! 🙏`;
+        return renderCustom(d.genderPreferenceTemplate);
+
+      case 'preference-flexibility':
+        return renderCustom(d.preferenceFlexTemplate);
+
+      case 'discount-offer':
+        return renderCustom(d.discountTemplate);
 
       case 'early-reminder':
         return `${bold('تذكير مبكر')} ${e('🔔')}\n\nالسلام عليكم ${bold(name)}،\n\n${bold('تذكير ودي:')} الأسعار المخفضة (${config.earlyPrice} ريال) سارية حتى ${config.latePriceSwitchLabel}.\nبعدها تصبح ${config.latePrice} ريال.\n\n${bold('للتأكيد الآن:')}\n• STC Pay: ${config.stcPay}\n• ${config.bankName}\n• IBAN: ${config.iban}\n\n${bold('تفاصيل الفعالية:')} ${config.eventDateText} - ${config.eventTimeText}\nالمكان: ${config.locationName}\nالعنوان: ${config.mapUrl}`;
@@ -494,7 +520,7 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
                   آخر تحديث: {lastUpdatedAt ? new Date(lastUpdatedAt).toLocaleString() : '-'} {lastUpdatedBy ? `بواسطة ${lastUpdatedBy}` : ''}
                 </div>
               )}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-slate-400">مهلة عادية (دقيقة)</label>
                   <input type="number" className="w-full mt-1 bg-slate-700 text-white rounded px-2 py-2"
@@ -518,18 +544,25 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
                   <label className="text-xs text-slate-400">سعر مبكر (ريال)</label>
-                  <input type="number" className="w-full mt-1 bg-slate-700 text-white rounded px-2 py-2" value={config.earlyPrice}
-                    onChange={e=>setConfig({...config, earlyPrice: Number(e.target.value||0)})}/>
+                  <input type="number" disabled className="w-full mt-1 bg-slate-700/60 text-slate-300 rounded px-2 py-2 cursor-not-allowed" value={config.earlyPrice}/>
                 </div>
                 <div>
                   <label className="text-xs text-slate-400">سعر متأخر (ريال)</label>
-                  <input type="number" className="w-full mt-1 bg-slate-700 text-white rounded px-2 py-2" value={config.latePrice}
-                    onChange={e=>setConfig({...config, latePrice: Number(e.target.value||0)})}/>
+                  <input type="number" disabled className="w-full mt-1 bg-slate-700/60 text-slate-300 rounded px-2 py-2 cursor-not-allowed" value={config.latePrice}/>
                 </div>
-                <div>
-                  <label className="text-xs text-slate-400">موعد التحول للسعر المتأخر</label>
-                  <input type="text" className="w-full mt-1 bg-slate-700 text-white rounded px-2 py-2" value={config.latePriceSwitchLabel}
-                    onChange={e=>setConfig({...config, latePriceSwitchLabel: e.target.value})}/>
+                <div className="md:col-span-2 rounded-xl border border-amber-400/20 bg-amber-500/5 p-3">
+                  <label className="text-xs font-semibold text-amber-200">موعد انتهاء السعر المبكر (توقيت الرياض)</label>
+                  <input type="datetime-local" dir="ltr" className="w-full mt-1 bg-slate-700 text-white rounded px-2 py-2 [color-scheme:dark]" value={config.paymentCutoffLocal}
+                    onChange={e=>setConfig({
+                      ...config,
+                      paymentCutoffLocal: e.target.value,
+                      latePriceSwitchLabel: e.target.value ? `${e.target.value.replace('T', ' ')} (توقيت الرياض)` : '',
+                    })}/>
+                  <p className="mt-1.5 text-[11px] text-slate-400">يُحسب السعر من وقت تسجيل المشارك: قبل هذا الموعد {config.earlyPrice} ريال، وبعده {config.latePrice} ريال. الوقت محفوظ كتوقيت الرياض المحلي.</p>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="text-xs text-slate-400">وصف الموعد الظاهر في الرسائل</label>
+                  <input type="text" readOnly className="w-full mt-1 bg-slate-700/60 text-slate-300 rounded px-2 py-2 cursor-not-allowed" value={config.latePriceSwitchLabel}/>
                 </div>
               </div>
 
@@ -560,10 +593,35 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
                     onChange={e=>setConfig({...config, mapUrl: e.target.value})}/>
                 </div>
                 <div className="md:col-span-2">
+                  <label className="text-xs text-slate-400">رابط شرح الفعالية قبل الحضور</label>
+                  <input type="url" dir="ltr" className="w-full mt-1 bg-slate-700 text-white rounded px-2 py-2" value={config.tutorialUrl}
+                    onChange={e=>setConfig({...config, tutorialUrl: e.target.value})}/>
+                </div>
+                <div className="md:col-span-2">
                   <label className="text-xs text-slate-400">عن تجربة اختيارك واختيارنا (متغير 15)</label>
                   <textarea className="w-full mt-1 bg-slate-700 text-white rounded px-2 py-2 min-h-20 resize-y" value={config.matchExperienceText}
                     onChange={e=>setConfig({...config, matchExperienceText: e.target.value})}/>
                 </div>
+              </div>
+
+              <div className="rounded-xl border border-violet-400/20 bg-violet-500/5 p-3 space-y-3">
+                <div>
+                  <p className="text-sm font-bold text-violet-200">قوالب المحادثة السريعة</p>
+                  <p className="text-[11px] text-slate-400">يمكن استخدام: {'{name}'}، {'{assignedNumber}'}، {'{eventDate}'}، {'{eventTime}'}، {'{location}'}، {'{mapUrl}'}.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs text-slate-400">سعر العرض</label>
+                    <input type="number" className="w-full mt-1 bg-slate-700 text-white rounded px-2 py-2" value={config.discountPrice} onChange={e=>setConfig({...config, discountPrice: Number(e.target.value || 0)})}/>
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-400">انتهاء العرض</label>
+                    <input type="text" className="w-full mt-1 bg-slate-700 text-white rounded px-2 py-2" value={config.discountDeadline} onChange={e=>setConfig({...config, discountDeadline: e.target.value})}/>
+                  </div>
+                </div>
+                <label className="block text-xs text-slate-400">قالب العرض/الخصم<textarea className="w-full mt-1 min-h-32 bg-slate-700 text-white rounded px-2 py-2" value={config.discountTemplate} onChange={e=>setConfig({...config, discountTemplate: e.target.value})}/></label>
+                <label className="block text-xs text-slate-400">قالب مرونة التفضيل<textarea className="w-full mt-1 min-h-36 bg-slate-700 text-white rounded px-2 py-2" value={config.preferenceFlexTemplate} onChange={e=>setConfig({...config, preferenceFlexTemplate: e.target.value})}/></label>
+                <label className="block text-xs text-slate-400">قالب تأكيد تفضيل الجنس<textarea className="w-full mt-1 min-h-36 bg-slate-700 text-white rounded px-2 py-2" value={config.genderPreferenceTemplate} onChange={e=>setConfig({...config, genderPreferenceTemplate: e.target.value})}/></label>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -598,15 +656,22 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
                     normalDeadlineMin: 24 * 60,
                     semiUrgentDeadlineMin: 120,
                     urgentDeadlineMin: 60,
-                    earlyPrice: 45,
-                    latePrice: 65,
+                    earlyPrice: 60,
+                    latePrice: 75,
+                    paymentCutoffLocal: '',
                     latePriceSwitchLabel: 'الجمعة 3:00 مساءً',
                     eventDateText: 'الأحد 16 نوفمبر 2025',
                     eventTimeText: '8:15 مساءً',
                     arrivalTimeText: '8:05 مساءً',
                     locationName: 'كوفي بلانيت - الدور الثاني',
                     mapUrl: 'https://maps.app.goo.gl/CYsyK9M5mxXMNo9YA',
+                    tutorialUrl: 'https://blindmatch.app/event3',
                     matchExperienceText: 'تجربة اجتماعية تفاعلية تجمع بين اختيارك الشخصي وترشيحنا المبني على التوافق، لتتعرف على شريكين محتملين في لقاءات منظمة.',
+                    discountTemplate: 'السلام عليكم *{name}* 👋\n\nلدينا عرض خاص لك بقيمة *{discountPrice} ريال* للمشاركة في الفعالية القادمة.\n\nإذا كنت مهتماً، رد بكلمة: *مهتم*\nوإذا لم يناسبك العرض، رد بكلمة: *غير مهتم*\n\nالعرض متاح حتى: {discountDeadline}',
+                    preferenceFlexTemplate: 'السلام عليكم *{name}* 👋\n\nوجدنا خيارات توافق جيدة لك، لكن قد نحتاج مرونة بسيطة في تفضيل جنس الشريك. هل يناسبك توسيع الاختيار إلى أي جنس لهذه الفعالية؟\n\nللموافقة رد: *مرن*\nللإبقاء على اختيارك الحالي رد: *إبقاء التفضيل*\n\nلن نغيّر تفضيلك إلا بعد ردك الصريح.',
+                    genderPreferenceTemplate: 'السلام عليكم *{name}* 👋\n\nنرغب في تأكيد تفضيلك لجنس الشريك قبل المطابقة.\n\nرد بإحدى العبارات التالية فقط:\n• *أي جنس*\n• *نفس الجنس*\n• *جنس مختلف*\n\nسنحدّث اختيارك مباشرة ونرسل لك تأكيداً.',
+                    discountPrice: 50,
+                    discountDeadline: 'نهاية اليوم',
                     stcPay: '0560899666',
                     bankName: 'مصرف الراجحي: عبدالرحمن عبدالملك',
                     iban: 'SA2480000588608016007502',
@@ -769,6 +834,28 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
               >
                 <HelpCircle className="w-4 h-4 mx-auto mb-1" />
                 تأكيد الجنس
+              </button>
+              <button
+                onClick={() => setTemplateType('preference-flexibility')}
+                className={`p-3 rounded-lg text-sm font-medium transition-colors ${
+                  templateType === 'preference-flexibility'
+                    ? 'bg-violet-600 text-white'
+                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                }`}
+              >
+                <HelpCircle className="w-4 h-4 mx-auto mb-1" />
+                مرونة التفضيل
+              </button>
+              <button
+                onClick={() => setTemplateType('discount-offer')}
+                className={`p-3 rounded-lg text-sm font-medium transition-colors ${
+                  templateType === 'discount-offer'
+                    ? 'bg-fuchsia-600 text-white'
+                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                }`}
+              >
+                <MessageSquare className="w-4 h-4 mx-auto mb-1" />
+                عرض أو خصم
               </button>
               <button
                 onClick={() => setTemplateType('survey-completion')}

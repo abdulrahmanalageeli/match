@@ -112,7 +112,7 @@ async function findParticipantByPhone(phone) {
 
   const { data: candidates } = await supabase
     .from("participants")
-    .select("id, assigned_number, name, phone_number, secure_token, signup_for_next_event, auto_signup_next_event, PAID_DONE, event_id, match_id")
+    .select("id, assigned_number, name, phone_number, secure_token, signup_for_next_event, auto_signup_next_event, PAID_DONE, payment_waived, event_id, match_id, created_at, next_event_signup_timestamp")
     .not("phone_number", "is", null)
 
   if (!candidates) return null
@@ -123,6 +123,109 @@ async function findParticipantByPhone(phone) {
   })
 
   return match || null
+}
+
+async function getWhatsappConfig() {
+  const { data, error } = await supabase
+    .from("event_state")
+    .select("whatsapp_config")
+    .eq("match_id", STATIC_MATCH_ID)
+    .maybeSingle()
+
+  if (error) console.error("Failed to load WhatsApp config:", error)
+  const savedConfig = data?.whatsapp_config || {}
+  return {
+    earlyPrice: 60,
+    latePrice: 75,
+    paymentCutoffLocal: "",
+    stcPay: "0560899666",
+    bankName: "مصرف الراجحي: عبدالرحمن عبدالملك",
+    iban: "SA2480000588608016007502",
+    eventDateText: "",
+    eventTimeText: "",
+    arrivalTimeText: "",
+    locationName: "",
+    mapUrl: "",
+    tutorialUrl: "https://blindmatch.app/event3",
+    ...savedConfig,
+    earlyPrice: 60,
+    latePrice: 75,
+  }
+}
+
+function riyadhLocalToTimestamp(value) {
+  const local = String(value || "").trim()
+  if (!local) return null
+  const includesZone = /(?:Z|[+-]\d{2}:\d{2})$/i.test(local)
+  const withSeconds = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(local) ? `${local}:00` : local
+  const timestamp = Date.parse(includesZone ? local : `${withSeconds}+03:00`)
+  return Number.isFinite(timestamp) ? timestamp : null
+}
+
+function paymentDetailsFor(participant, config) {
+  const cutoff = riyadhLocalToTimestamp(config.paymentCutoffLocal)
+  const signupAt = Date.parse(participant.next_event_signup_timestamp || participant.created_at || "")
+  // Until an organizer saves a cutoff, preserve the early price instead of
+  // unexpectedly charging existing participants the late price.
+  const isEarly = cutoff === null || (Number.isFinite(signupAt) && signupAt <= cutoff)
+  return { price: Number(isEarly ? config.earlyPrice : config.latePrice) || (isEarly ? 60 : 75), isEarly }
+}
+
+function finalConfirmationMessage(participant, config, intro) {
+  const tutorialBase = String(config.tutorialUrl || "https://blindmatch.app/event3").trim()
+  const tutorialUrl = `${tutorialBase}${tutorialBase.includes("?") ? "&" : "?"}token=${encodeURIComponent(participant.secure_token || "")}`
+  return `${intro}\n\n📘 *شرح الفعالية قبل الحضور:*\n${tutorialUrl}\n\n📍 *المكان:* ${config.locationName || "سيتم إرساله قريباً"}\n🗺️ ${config.mapUrl || ""}\n📅 *التاريخ:* ${config.eventDateText || "سيتم إرساله قريباً"}\n🕰️ *الوقت:* ${config.eventTimeText || "سيتم إرساله قريباً"}${config.arrivalTimeText ? ` (الحضور ${config.arrivalTimeText})` : ""}\n\nيرجى قراءة الشرح قبل الوصول. نراك هناك! 🤍`
+}
+
+async function recordAttendanceNotification(participant, from, requestType) {
+  await supabase
+    .from("attendance_requests")
+    .update({ status: "approved", admin_note: "Superseded by a newer participant response", updated_at: new Date().toISOString() })
+    .eq("participant_id", participant.id)
+    .eq("status", "pending")
+
+  const { error } = await supabase.from("attendance_requests").insert({
+    participant_id: participant.id,
+    assigned_number: participant.assigned_number,
+    phone_number: from,
+    request_type: requestType,
+    status: "pending",
+  })
+  if (error) console.error("Failed to record attendance notification:", error)
+}
+
+async function confirmAttendance(participant, from) {
+  const now = new Date().toISOString()
+  const { error } = await supabase
+    .from("participants")
+    .update({ attendance_confirmed: true, attendance_confirmed_at: now, attendance_denied_at: null })
+    .eq("id", participant.id)
+  if (error) throw new Error(`Failed to confirm attendance: ${error.message}`)
+
+  await recordAttendanceNotification(participant, from, "confirm")
+  if (participant.PAID_DONE || participant.payment_waived) {
+    const config = await getWhatsappConfig()
+    const intro = participant.payment_waived
+      ? "✅ تم تسجيل حضورك، ومقعدك مؤكد بإعفاء من الدفع من المنظم."
+      : "✅ تم تسجيل حضورك، ومقعدك مؤكد لأن دفعتك معتمدة."
+    await sendTwilioReply(from, finalConfirmationMessage(participant, config, intro), participant)
+    return
+  }
+
+  const config = await getWhatsappConfig()
+  const { price, isEarly } = paymentDetailsFor(participant, config)
+  const reply = `✅ تم تسجيل حضورك للمشارك رقم ${participant.assigned_number}، ولا يحتاج إلى اعتماد إضافي من المنظم.\n\n💳 الرسوم المطلوبة: *${price} ريال* (${isEarly ? "سعر التسجيل المبكر" : "سعر التسجيل بعد الموعد"})\n\n🏦 طرق الدفع:\n• STC Pay: ${config.stcPay}\n• ${config.bankName}\n• IBAN: ${config.iban}\n\n📸 بعد التحويل، أرسل صورة الإيصال أو ملف PDF هنا مباشرة. يصبح المقعد مؤكداً نهائياً بعد مراجعة الإيصال.`
+  await sendTwilioReply(from, reply, participant)
+}
+
+async function denyAttendance(participant, from) {
+  const { error } = await supabase
+    .from("participants")
+    .update({ attendance_confirmed: false, attendance_denied_at: new Date().toISOString(), attendance_confirmed_at: null })
+    .eq("id", participant.id)
+  if (error) throw new Error(`Failed to record attendance denial: ${error.message}`)
+  await recordAttendanceNotification(participant, from, "deny")
+  await sendTwilioReply(from, "تم تسجيل اعتذاركم مباشرة 🙏 شكراً لكم، ونرحب بكم في فعاليات قادمة!", participant)
 }
 
 function normalizeArabicCommand(value) {
@@ -246,34 +349,13 @@ export default async function handler(req, res) {
 
       switch (buttonPayload) {
         case "confirm_attendance": {
-          // Record intent for admin review; confirmation is applied only when admin approves.
-          await supabase.from("attendance_requests").insert({
-            participant_id: participant.id,
-            assigned_number: participant.assigned_number,
-            phone_number: from,
-            request_type: "confirm",
-            status: "pending",
-          })
-
-          const confirmationReply = participant.PAID_DONE
-            ? "✅ وصل تأكيد حضورك، ومقعدك مؤكد لأن دفعتك معتمدة. نراك في الفعالية!"
-            : `✅ وصلت رغبتك بالحضور للمشارك رقم ${participant.assigned_number} وهي بانتظار اعتماد المنظم.\n\nبعد اعتمادها سنطلب منك الإيصال، ويصبح المقعد مؤكداً نهائياً بعد اعتماد الدفع.`
-          await sendTwilioReply(from, confirmationReply, participant)
+          await confirmAttendance(participant, from)
           return res.status(200).json({ status: "confirmed" })
         }
 
         case "deny_attendance": {
-          // Record the denial request for admin review.
-          await supabase.from("attendance_requests").insert({
-            participant_id: participant.id,
-            assigned_number: participant.assigned_number,
-            phone_number: from,
-            request_type: "deny",
-            status: "pending",
-          })
-
-          await sendTwilioReply(from, "وصلنا طلب اعتذاركم 🙏 سيظهر للمنظم للمراجعة، وسنؤكد لكم تسجيل الاعتذار بعد اعتماده.", participant)
-          return res.status(200).json({ status: "deny_pending" })
+          await denyAttendance(participant, from)
+          return res.status(200).json({ status: "denied" })
         }
 
         case "toggle_auto_signup": {
@@ -326,33 +408,41 @@ export default async function handler(req, res) {
       // Log incoming free-text message
       await logIncomingMessage(participant, { from, messageBody })
 
-      if (text === "تاكيد" || text === "confirm" || text === "نعم") {
-        await supabase.from("attendance_requests").insert({
-          participant_id: participant.id,
-          assigned_number: participant.assigned_number,
-          phone_number: from,
-          request_type: "confirm",
-          status: "pending",
-        })
+      const genderPreferenceCommands = {
+        "اي جنس": { same_gender_preference: false, any_gender_preference: true, label: "أي جنس" },
+        "نفس الجنس": { same_gender_preference: true, any_gender_preference: false, label: "نفس الجنس" },
+        "جنس مختلف": { same_gender_preference: false, any_gender_preference: false, label: "جنس مختلف" },
+        "مرن": { same_gender_preference: false, any_gender_preference: true, label: "أي جنس" },
+      }
+      if (genderPreferenceCommands[text]) {
+        const selected = genderPreferenceCommands[text]
+        const { error } = await supabase.from("participants").update({
+          same_gender_preference: selected.same_gender_preference,
+          any_gender_preference: selected.any_gender_preference,
+        }).eq("id", participant.id)
+        if (error) throw new Error(`Failed to update gender preference: ${error.message}`)
+        await sendTwilioReply(from, `✅ تم تحديث تفضيلك إلى: *${selected.label}*. سنعتمد هذا الاختيار في المطابقة القادمة.`, participant)
+        return res.status(200).json({ status: "gender_preference_updated" })
+      }
 
-        const confirmationReply = participant.PAID_DONE
-          ? "✅ وصل تأكيد حضورك ومقعدك مؤكد. نراك في الفعالية!"
-          : `✅ وصلت رغبتك بالحضور للمشارك رقم ${participant.assigned_number} وهي بانتظار اعتماد المنظم. ستصلك الخطوة التالية برسالة منفصلة.`
-        await sendTwilioReply(from, confirmationReply, participant)
-        return res.status(200).json({ status: "confirm_pending" })
+      if (text === "ابقاء التفضيل") {
+        await sendTwilioReply(from, "✅ تم الإبقاء على تفضيلك الحالي بدون أي تغيير.", participant)
+        return res.status(200).json({ status: "preference_kept" })
+      }
+
+      if (text === "مهتم" || text === "غير مهتم") {
+        await sendTwilioReply(from, text === "مهتم" ? "✅ سجلنا اهتمامك بالعرض، وسيتابع معك المنظم قريباً." : "تم تسجيل ردك، ولن نعتمد العرض لك. شكراً لإبلاغنا 🙏", participant)
+        return res.status(200).json({ status: text === "مهتم" ? "offer_interested" : "offer_declined" })
+      }
+
+      if (text === "تاكيد" || text === "confirm" || text === "نعم") {
+        await confirmAttendance(participant, from)
+        return res.status(200).json({ status: "confirmed" })
       }
 
       if (text === "اعتذار" || text === "deny" || text === "لا") {
-        await supabase.from("attendance_requests").insert({
-          participant_id: participant.id,
-          assigned_number: participant.assigned_number,
-          phone_number: from,
-          request_type: "deny",
-          status: "pending",
-        })
-
-        await sendTwilioReply(from, "وصلنا طلب اعتذارك 🙏 سيظهر للمنظم للمراجعة، وسنؤكد تسجيله بعد الاعتماد.", participant)
-        return res.status(200).json({ status: "deny_pending" })
+        await denyAttendance(participant, from)
+        return res.status(200).json({ status: "denied" })
       }
 
       if (text === "ايقاف" || text === "stop") {

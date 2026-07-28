@@ -13,6 +13,56 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 const STATIC_MATCH_ID = "00000000-0000-0000-0000-000000000000"
 const TWILIO_MATCH_NOTIFICATION_V2_SID = "HX6d318d6310d7cce0c37b1ef5e0b7a17e"
 
+async function getAdminWhatsappConfig() {
+  const { data } = await supabase.from("event_state").select("whatsapp_config").eq("match_id", STATIC_MATCH_ID).maybeSingle()
+  return {
+    eventDateText: "",
+    eventTimeText: "",
+    arrivalTimeText: "",
+    locationName: "",
+    mapUrl: "",
+    tutorialUrl: "https://blindmatch.app/event3",
+    ...(data?.whatsapp_config || {}),
+  }
+}
+
+function buildFinalConfirmationMessage(participant, config, paymentWaived = false) {
+  const base = String(config.tutorialUrl || "https://blindmatch.app/event3").trim()
+  const tutorialUrl = `${base}${base.includes("?") ? "&" : "?"}token=${encodeURIComponent(participant.secure_token || "")}`
+  const intro = paymentWaived
+    ? "✅ تم تأكيد مقعدك من المنظم بدون الحاجة إلى دفع."
+    : "✅ تم تأكيد استلام الإيصال والموافقة عليه! حجزك مؤكد للفعالية."
+  return `${intro}\n\n📘 *شرح الفعالية قبل الحضور:*\n${tutorialUrl}\n\n📍 *المكان:* ${config.locationName || "سيتم إرساله قريباً"}\n🗺️ ${config.mapUrl || ""}\n📅 *التاريخ:* ${config.eventDateText || "سيتم إرساله قريباً"}\n🕰️ *الوقت:* ${config.eventTimeText || "سيتم إرساله قريباً"}${config.arrivalTimeText ? ` (الحضور ${config.arrivalTimeText})` : ""}\n\nيرجى قراءة الشرح قبل الوصول. نراك هناك! 🤍`
+}
+
+async function sendFinalConfirmation(participant, paymentWaived = false) {
+  if (!participant.phone_number) return { sent: false, error: "Participant has no phone number" }
+  const accountSid = process.env.TWILIO_ACCOUNT_SID
+  const authToken = process.env.TWILIO_AUTH_TOKEN
+  if (!accountSid || !authToken) return { sent: false, error: "Twilio credentials are not configured" }
+  const sender = process.env.TWILIO_WHATSAPP_SENDER || "whatsapp:+13527387477"
+  const to = String(participant.phone_number).replace(/\s/g, "").replace(/^(?!whatsapp:)/, "whatsapp:")
+  const message = buildFinalConfirmationMessage(participant, await getAdminWhatsappConfig(), paymentWaived)
+  const body = new URLSearchParams({ From: sender, To: to, Body: message })
+  const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
+    method: "POST",
+    headers: { "Authorization": "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64"), "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  })
+  const result = await response.json()
+  await supabase.from("whatsapp_messages").insert({
+    participant_id: participant.id,
+    assigned_number: participant.assigned_number,
+    phone_number: to,
+    direction: "outbound",
+    message_body: message,
+    twilio_message_sid: result?.sid || null,
+    status: result?.status || (response.ok ? "sent" : "failed"),
+    is_auto_reply: false,
+  })
+  return response.ok ? { sent: true, error: null } : { sent: false, error: result?.message || `Twilio returned ${response.status}` }
+}
+
 // ── Event 4.0 constants & helpers ─────────────────────────────────────────────
 const EVENT3_MATCH_ID = "00000000-0000-0000-0000-000000000003"
 const EVENT3_PASSWORD = process.env.EVENT3_PASSWORD || "soulmatch2026"
@@ -238,7 +288,7 @@ export default async function handler(req, res) {
     if (method === "GET") {
       const { data, error } = await supabase
         .from("participants")
-        .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, phone_number, event_id, name, signup_for_next_event, auto_signup_next_event, updated_at, same_gender_preference, any_gender_preference, survey_data_updated_at, created_at, next_event_signup_timestamp, nationality, attendance_confirmed, attendance_confirmed_at, attendance_denied_at, receipt_url, receipt_received_at, receipt_approved, receipt_approved_at, receipt_rejected, receipt_rejected_at")
+        .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, payment_waived, phone_number, event_id, name, signup_for_next_event, auto_signup_next_event, updated_at, same_gender_preference, any_gender_preference, survey_data_updated_at, created_at, next_event_signup_timestamp, nationality, attendance_confirmed, attendance_confirmed_at, attendance_denied_at, receipt_url, receipt_received_at, receipt_approved, receipt_approved_at, receipt_rejected, receipt_rejected_at")
         .eq("match_id", STATIC_MATCH_ID)
         .neq("assigned_number", 9999)  // Exclude organizer participant
         .order("assigned_number", { ascending: true })
@@ -879,7 +929,7 @@ export default async function handler(req, res) {
         const { event_id } = req.body
         let query = supabase
           .from("participants")
-          .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, phone_number, event_id, name, signup_for_next_event, auto_signup_next_event, updated_at, same_gender_preference, any_gender_preference, survey_data_updated_at, created_at, next_event_signup_timestamp, nationality, open_intent_goal_mismatch, signup_event_id")
+          .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, payment_waived, phone_number, event_id, name, signup_for_next_event, auto_signup_next_event, updated_at, same_gender_preference, any_gender_preference, survey_data_updated_at, created_at, next_event_signup_timestamp, nationality, open_intent_goal_mismatch, signup_event_id, attendance_confirmed, attendance_confirmed_at, attendance_denied_at, receipt_url, receipt_received_at, receipt_approved, receipt_approved_at, receipt_rejected, receipt_rejected_at")
           .eq("match_id", STATIC_MATCH_ID)
           .neq("assigned_number", 9999)  // Exclude organizer participant
           .order("assigned_number", { ascending: true })
@@ -1378,6 +1428,18 @@ export default async function handler(req, res) {
           if (!config || typeof config !== 'object') {
             return res.status(400).json({ error: "Invalid config payload" })
           }
+          if (!config.paymentCutoffLocal || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(String(config.paymentCutoffLocal))) {
+            return res.status(400).json({ error: "A valid Riyadh-local payment cutoff date and time is required" })
+          }
+
+          const cutoffLabel = `${String(config.paymentCutoffLocal).replace("T", " ")} (توقيت الرياض)`
+          const normalizedConfig = {
+            ...config,
+            earlyPrice: 60,
+            latePrice: 75,
+            latePriceSwitchLabel: cutoffLabel,
+            paymentTimezone: "Asia/Riyadh",
+          }
 
           const now = new Date().toISOString()
 
@@ -1385,7 +1447,7 @@ export default async function handler(req, res) {
             .from("event_state")
             .upsert({
               match_id: STATIC_MATCH_ID,
-              whatsapp_config: config,
+              whatsapp_config: normalizedConfig,
               whatsapp_config_updated_at: now,
               whatsapp_config_updated_by: updated_by || 'admin'
             }, { onConflict: "match_id" })
@@ -1399,7 +1461,7 @@ export default async function handler(req, res) {
 
           return res.status(200).json({
             success: true,
-            whatsapp_config: data?.whatsapp_config || config,
+            whatsapp_config: data?.whatsapp_config || normalizedConfig,
             whatsapp_config_updated_at: data?.whatsapp_config_updated_at || now,
             whatsapp_config_updated_by: data?.whatsapp_config_updated_by || (updated_by || 'admin')
           })
@@ -1695,7 +1757,7 @@ export default async function handler(req, res) {
 
           const { data: participant, error: fetchError } = await supabase
             .from("participants")
-            .select("id, phone_number, receipt_url, name")
+            .select("id, assigned_number, phone_number, receipt_url, name, secure_token")
             .eq("match_id", STATIC_MATCH_ID)
             .eq("assigned_number", assigned_number)
             .single()
@@ -1712,6 +1774,7 @@ export default async function handler(req, res) {
               receipt_rejected: false,
               receipt_rejected_at: null,
               PAID_DONE: true,
+              payment_waived: false,
               attendance_confirmed: true,
               attendance_confirmed_at: new Date().toISOString(),
               attendance_denied_at: null,
@@ -1731,57 +1794,13 @@ export default async function handler(req, res) {
             .eq("status", "pending")
           if (attendanceCloseError) console.error("Failed to close attendance requests after receipt approval:", attendanceCloseError)
 
-          // Send WhatsApp confirmation to participant
-          if (participant.phone_number) {
-            const accountSid = process.env.TWILIO_ACCOUNT_SID
-            const authToken = process.env.TWILIO_AUTH_TOKEN
-            const sender = process.env.TWILIO_WHATSAPP_SENDER || "whatsapp:+13527387477"
-            if (accountSid && authToken) {
-              let normalizedTo = String(participant.phone_number).replace(/\s/g, "")
-              if (!normalizedTo.startsWith("whatsapp:")) {
-                normalizedTo = "whatsapp:" + normalizedTo
-              }
-              const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
-              const body = new URLSearchParams()
-              body.append("From", sender)
-              body.append("To", normalizedTo)
-              body.append("Body", "✅ تم تأكيد استلام الإيصال والموافقة عليه! حجزكم مؤكد للفعالية. نراك هناك! 🎉")
-              try {
-                const approvalRes = await fetch(twilioUrl, {
-                  method: "POST",
-                  headers: {
-                    "Authorization": "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64"),
-                    "Content-Type": "application/x-www-form-urlencoded",
-                  },
-                  body: body.toString(),
-                })
-                const approvalData = await approvalRes.json()
-                if (!approvalRes.ok) {
-                  notificationError = approvalData?.message || `Twilio returned ${approvalRes.status}`
-                  console.error("Receipt approval WhatsApp failed:", approvalData)
-                } else {
-                  notificationSent = true
-                }
-                // Log the approval message
-                try {
-                  await supabase.from("whatsapp_messages").insert({
-                    participant_id: participant.id,
-                    assigned_number: assigned_number,
-                    phone_number: normalizedTo,
-                    direction: "outbound",
-                    message_body: "✅ تم تأكيد استلام الإيصال والموافقة عليه! حجزكم مؤكد للفعالية. نراك هناك! 🎉",
-                    twilio_message_sid: approvalData?.sid || null,
-                    status: approvalData?.status || "sent",
-                    is_auto_reply: false,
-                  })
-                } catch (e) {
-                  console.error("Failed to log approval message:", e)
-                }
-              } catch (e) {
-                console.error("Failed to send WhatsApp approval notification:", e)
-                notificationError = e?.message || "WhatsApp request failed"
-              }
-            }
+          try {
+            const confirmation = await sendFinalConfirmation(participant, false)
+            notificationSent = confirmation.sent
+            notificationError = confirmation.error
+          } catch (e) {
+            notificationError = e?.message || "WhatsApp request failed"
+            console.error("Receipt approval WhatsApp failed:", e)
           }
 
           return res.status(200).json({
@@ -1793,6 +1812,45 @@ export default async function handler(req, res) {
         } catch (err) {
           console.error("approve-receipt exception:", err)
           return res.status(500).json({ error: "Failed to approve receipt" })
+        }
+      }
+
+      // Organizer override: confirm a seat without recording a payment.
+      if (action === "confirm-without-payment") {
+        try {
+          const { assigned_number } = req.body
+          if (!assigned_number) return res.status(400).json({ error: "Missing 'assigned_number'" })
+          const { data: participant, error: fetchError } = await supabase
+            .from("participants")
+            .select("id, assigned_number, name, phone_number, secure_token")
+            .eq("match_id", STATIC_MATCH_ID)
+            .eq("assigned_number", assigned_number)
+            .single()
+          if (fetchError || !participant) return res.status(404).json({ error: "Participant not found" })
+
+          const { error: updateError } = await supabase.from("participants").update({
+            attendance_confirmed: true,
+            attendance_confirmed_at: new Date().toISOString(),
+            attendance_denied_at: null,
+            payment_waived: true,
+            PAID_DONE: false,
+          }).eq("id", participant.id)
+          if (updateError) return res.status(500).json({ error: updateError.message })
+
+          await supabase.from("attendance_requests")
+            .update({ status: "approved", admin_note: "Confirmed without payment by organizer", updated_at: new Date().toISOString() })
+            .eq("participant_id", participant.id)
+            .eq("status", "pending")
+
+          const notification = await sendFinalConfirmation(participant, true)
+          return res.status(200).json({
+            success: true,
+            notification_sent: notification.sent,
+            notification_error: notification.error,
+          })
+        } catch (err) {
+          console.error("confirm-without-payment exception:", err)
+          return res.status(500).json({ error: "Failed to confirm participant without payment" })
         }
       }
 
@@ -2081,7 +2139,7 @@ export default async function handler(req, res) {
         }
       }
 
-      // Approve an attendance request
+      // Attendance is already applied by the webhook; this only acknowledges the notification.
       if (action === "approve-attendance-request") {
         try {
           const { request_id } = req.body
@@ -2096,89 +2154,13 @@ export default async function handler(req, res) {
           if (fetchErr || !req_row) return res.status(404).json({ error: "Request not found" })
           if (req_row.status !== "pending") return res.status(400).json({ error: "Request already processed" })
 
-          // Apply the attendance change
-          if (req_row.request_type === "confirm") {
-            await supabase
-              .from("participants")
-              .update({ attendance_confirmed: true, attendance_confirmed_at: new Date().toISOString(), attendance_denied_at: null })
-              .eq("id", req_row.participant_id)
-
-            // Send WhatsApp confirmation to participant
-            if (req_row.phone_number) {
-              const to = req_row.phone_number.startsWith("whatsapp:") ? req_row.phone_number : `whatsapp:${req_row.phone_number.replace(/\s/g, "")}`
-              const accountSid = process.env.TWILIO_ACCOUNT_SID
-              const authToken = process.env.TWILIO_AUTH_TOKEN
-              const fromWa = process.env.TWILIO_WHATSAPP_SENDER || process.env.TWILIO_WHATSAPP_FROM || "whatsapp:+13527387477"
-              if (accountSid && authToken) {
-                const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
-                const body = new URLSearchParams()
-                body.append("To", to)
-                body.append("From", fromWa)
-                body.append("Body", "تم تأكيد حضورك! ✅ يرجى إرسال صورة الإيصال (صورة أو PDF) لتأكيد الحجز نهائياً. للاستفسار: 0560899666")
-                const twilioRes = await fetch(twilioUrl, {
-                  method: "POST",
-                  headers: { "Authorization": "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64"), "Content-Type": "application/x-www-form-urlencoded" },
-                  body: body.toString(),
-                })
-                const twilioData = await twilioRes.json()
-                // Log outbound message
-                await supabase.from("whatsapp_messages").insert({
-                  participant_id: req_row.participant_id,
-                  assigned_number: req_row.assigned_number,
-                  phone_number: to,
-                  direction: "outbound",
-                  message_body: "تم تأكيد حضورك! ✅ يرجى إرسال صورة الإيصال (صورة أو PDF) لتأكيد الحجز نهائياً. للاستفسار: 0560899666",
-                  twilio_message_sid: twilioData?.sid || null,
-                  status: twilioData?.status || "sent",
-                  is_auto_reply: false,
-                })
-              }
-            }
-          } else if (req_row.request_type === "deny") {
-            await supabase
-              .from("participants")
-              .update({ attendance_confirmed: false, attendance_denied_at: new Date().toISOString(), attendance_confirmed_at: null })
-              .eq("id", req_row.participant_id)
-
-            // Send WhatsApp denial confirmation to participant
-            if (req_row.phone_number) {
-              const to = req_row.phone_number.startsWith("whatsapp:") ? req_row.phone_number : `whatsapp:${req_row.phone_number.replace(/\s/g, "")}`
-              const accountSid = process.env.TWILIO_ACCOUNT_SID
-              const authToken = process.env.TWILIO_AUTH_TOKEN
-              const fromWa = process.env.TWILIO_WHATSAPP_SENDER || process.env.TWILIO_WHATSAPP_FROM || "whatsapp:+13527387477"
-              if (accountSid && authToken) {
-                const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
-                const body = new URLSearchParams()
-                body.append("To", to)
-                body.append("From", fromWa)
-                body.append("Body", "تم تسجيل اعتذاركم. 🙏 شكراً لكم، ونرحب بكم في فعاليات قادمة! للاستفسار: 0560899666")
-                const twilioRes = await fetch(twilioUrl, {
-                  method: "POST",
-                  headers: { "Authorization": "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64"), "Content-Type": "application/x-www-form-urlencoded" },
-                  body: body.toString(),
-                })
-                const twilioData = await twilioRes.json()
-                await supabase.from("whatsapp_messages").insert({
-                  participant_id: req_row.participant_id,
-                  assigned_number: req_row.assigned_number,
-                  phone_number: to,
-                  direction: "outbound",
-                  message_body: "تم تسجيل اعتذاركم. 🙏 شكراً لكم، ونرحب بكم في فعاليات قادمة! للاستفسار: 0560899666",
-                  twilio_message_sid: twilioData?.sid || null,
-                  status: twilioData?.status || "sent",
-                  is_auto_reply: false,
-                })
-              }
-            }
-          }
-
-          // Mark request as approved
-          await supabase
+          const { error: updateError } = await supabase
             .from("attendance_requests")
-            .update({ status: "approved", updated_at: new Date().toISOString() })
+            .update({ status: "approved", admin_note: "Acknowledged by organizer", updated_at: new Date().toISOString() })
             .eq("id", request_id)
+          if (updateError) return res.status(500).json({ error: updateError.message })
 
-          return res.status(200).json({ success: true, message: "Request approved" })
+          return res.status(200).json({ success: true, message: "Notification acknowledged" })
         } catch (err) {
           console.error("approve-attendance-request exception:", err)
           return res.status(500).json({ error: "Failed to approve request" })
@@ -5843,7 +5825,8 @@ export default async function handler(req, res) {
           .update({
             signup_for_next_event: false,
             PAID: false,
-            PAID_DONE: false
+            PAID_DONE: false,
+            payment_waived: false
           })
           .eq("match_id", STATIC_MATCH_ID)
           .select("id, assigned_number")
@@ -6698,7 +6681,7 @@ export default async function handler(req, res) {
         // Update PAID_DONE column for the specific participant
         const { data, error } = await supabase
           .from("participants")
-          .update({ PAID_DONE: newStatus })
+          .update({ PAID_DONE: newStatus, ...(newStatus ? { payment_waived: false } : {}) })
           .eq("match_id", STATIC_MATCH_ID)
           .eq("assigned_number", participantNumber)
         
@@ -6743,7 +6726,7 @@ export default async function handler(req, res) {
 
         const { data, error } = await supabase
           .from("participants")
-          .update({ PAID_DONE: paid })
+          .update({ PAID_DONE: paid, ...(paid ? { payment_waived: false } : {}) })
           .eq("match_id", STATIC_MATCH_ID)
           .in("assigned_number", list)
           .select("assigned_number")

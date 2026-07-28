@@ -1,10 +1,13 @@
 import { createClient } from "@supabase/supabase-js"
 import crypto from "crypto"
 
-const supabase = createClient(
-  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
-)
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+const supabaseFallbackKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
+
+// This webhook is server-only. Receipt uploads require the service-role key so
+// Storage RLS can remain closed to public/anonymous uploads.
+const supabase = createClient(supabaseUrl, supabaseServiceRoleKey || supabaseFallbackKey)
 
 const STATIC_MATCH_ID = "00000000-0000-0000-0000-000000000000"
 
@@ -166,6 +169,9 @@ export default async function handler(req, res) {
       const fileName = `receipts/${participant.assigned_number}_${Date.now()}.${fileExt}`
 
       try {
+        if (!supabaseServiceRoleKey) {
+          throw new Error("SUPABASE_SERVICE_ROLE_KEY is not configured; receipt storage is blocked by RLS")
+        }
         if (!accountSid || !authToken) throw new Error("Twilio credentials are unavailable for media download")
         const mediaRes = await fetch(mediaUrl0, {
           headers: { "Authorization": "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64") },

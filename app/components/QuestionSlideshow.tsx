@@ -2,6 +2,7 @@ import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Zap, Flame, Compass, Sparkles, Handshake, ChevronLeft, ChevronRight } from "lucide-react"
 import { choiceQuestions, specialQuestions, round1Questions, eventQuestions, type QuestionItem } from "~/lib/e3questions"
+import { rhythmQuestions, partnershipQuestions } from "~/lib/e3extraquestions"
 
 // ─── Level styling helpers ─────────────────────────────────────────────────────
 export const levelColor = (lv: number) => [
@@ -30,7 +31,7 @@ export function LevelIcon({ icon, className = "w-4 h-4 text-white" }: { icon: st
 }
 
 // ─── Shared Question Slideshow Component ──────────────────────────────────────
-type QuestionSet = 'choice' | 'special' | 'set1' | 'set2'
+type QuestionSet = 'choice' | 'special' | 'set1' | 'set2' | 'rhythm' | 'partnership'
 
 export function QuestionSlideshow({ defaultSet }: { defaultSet: QuestionSet }) {
   const [qIdx, setQIdx] = useState(0)
@@ -42,12 +43,16 @@ export function QuestionSlideshow({ defaultSet }: { defaultSet: QuestionSet }) {
     special: specialQuestions,
     set1: round1Questions,
     set2: eventQuestions,
+    rhythm: rhythmQuestions,
+    partnership: partnershipQuestions,
   }
   const setLabel: Record<QuestionSet, string> = {
     choice: 'الجديدة',
     special: 'المميزة',
-    set1: 'المجموعة ١',
-    set2: 'المجموعة ٢',
+    set1: 'تعارف',
+    set2: 'تجارب',
+    rhythm: 'الانسجام',
+    partnership: 'الشراكة',
   }
 
   const currentQs = setMap[activeSet]
@@ -59,19 +64,19 @@ export function QuestionSlideshow({ defaultSet }: { defaultSet: QuestionSet }) {
   const goNext = () => { if (qIdx >= currentQs.length - 1) return; setQTrans('next'); setQIdx(i => i + 1); setTimeout(() => setQTrans('none'), 300) }
 
   const availableSets: QuestionSet[] = defaultSet === 'choice'
-    ? ['choice', 'set1', 'set2']
+    ? ['choice', 'set1', 'set2', 'rhythm', 'partnership']
     : defaultSet === 'special'
-      ? ['special', 'set1', 'set2']
-      : ['set1', 'set2']
+      ? ['special', 'set1', 'set2', 'rhythm', 'partnership']
+      : ['set1', 'set2', 'rhythm', 'partnership']
 
   return (
     <div className={`rounded-3xl border bg-gradient-to-br ${lc.bg} ${lc.border} p-5 space-y-4 shadow-xl shadow-black/20`}>
       {/* Tabs */}
-      <div className="flex justify-center">
-        <div className="inline-flex items-center gap-0.5 bg-gray-900/70 border border-gray-700/50 rounded-full p-1 shadow-inner">
+      <div className="-mx-1 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex w-max min-w-full items-center justify-center gap-1 rounded-xl border border-gray-700/50 bg-gray-900/70 p-1 shadow-inner">
           {availableSets.map(s => (
             <button key={s} onClick={() => pick(s)}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+              className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors duration-150 ${
                 activeSet === s ? 'bg-purple-600 text-white shadow-md' : 'text-gray-400 hover:text-white'
               }`}>
               {setLabel[s]}

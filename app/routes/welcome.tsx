@@ -1706,7 +1706,7 @@ export default function WelcomePage() {
 
   // Set selection state
   const [promptIndex, setPromptIndex] = useState(0);
-  type QuestionSetId = 'round1' | 'event' | 'set3' | 'rhythm' | 'partnership' | 'special';
+  type QuestionSetId = 'round1' | 'event' | 'set3' | 'special';
   const [activeQuestionSet, setActiveQuestionSet] = useState<QuestionSetId>(currentRound === 1 ? 'special' : 'round1');
   
   // Select the active question set based on state
@@ -1715,10 +1715,6 @@ export default function WelcomePage() {
       ? eventQuestions
       : activeQuestionSet === 'set3'
         ? round3Questions
-        : activeQuestionSet === 'rhythm'
-          ? rhythmQuestions
-          : activeQuestionSet === 'partnership'
-            ? partnershipQuestions
         : activeQuestionSet === 'special'
           ? (currentRound === 1 ? specialQuestions : round1Questions)
           : round1Questions;
@@ -1744,8 +1740,6 @@ export default function WelcomePage() {
     { id: 'round1', label: 'تعارف', hint: 'خفيف ثم أعمق' },
     { id: 'event', label: 'تجارب', hint: 'قصص ووجهات نظر' },
     { id: 'set3', label: 'شخصية', hint: 'اكتشاف بطريقة ممتعة' },
-    { id: 'rhythm', label: 'الانسجام', hint: 'احتياجات وإيقاع الحياة' },
-    { id: 'partnership', label: 'الشراكة', hint: 'قيم واستعداد للعلاقة' },
   ]
 
   // Default question set per round: same-gender (round 1) → special set, opposite (round 2) → set 1.
@@ -9964,18 +9958,6 @@ onClick={() => {
                             }`}
                           >
                             شخصية
-                          </button>
-                          <button
-                            onClick={() => chooseQuestionSet('rhythm')}
-                            className={`shrink-0 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors duration-150 ${activeQuestionSet === 'rhythm' ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow' : (dark ? 'text-slate-300 hover:text-white hover:bg-slate-800/60' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')}`}
-                          >
-                            الانسجام
-                          </button>
-                          <button
-                            onClick={() => chooseQuestionSet('partnership')}
-                            className={`shrink-0 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors duration-150 ${activeQuestionSet === 'partnership' ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow' : (dark ? 'text-slate-300 hover:text-white hover:bg-slate-800/60' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')}`}
-                          >
-                            الشراكة
                           </button>
                         </div>
                         <div

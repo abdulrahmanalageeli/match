@@ -5,13 +5,20 @@ import { buildWelcomePrompt } from "./ai-welcome-prompt.mjs"
 
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
 )
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 const STATIC_MATCH_ID = "00000000-0000-0000-0000-000000000000"
 const TWILIO_MATCH_NOTIFICATION_V2_SID = "HX6d318d6310d7cce0c37b1ef5e0b7a17e"
+const TWILIO_STATUS_CALLBACK_URL = process.env.TWILIO_STATUS_CALLBACK_URL || "https://blindmatch.app/api/twilio-status"
+
+async function editableTwilioResponse(actionKey, fallback, variables = {}) {
+  const { data } = await supabase.from("twilio_response_rules").select("response_text,enabled").eq("action_key", actionKey).maybeSingle()
+  if (data?.enabled === false) return ""
+  return Object.entries(variables).reduce((text, [key, value]) => text.replaceAll(`{${key}}`, String(value ?? "")), data?.response_text || fallback)
+}
 
 async function getAdminWhatsappConfig() {
   const { data } = await supabase.from("event_state").select("whatsapp_config").eq("match_id", STATIC_MATCH_ID).maybeSingle()
@@ -26,13 +33,21 @@ async function getAdminWhatsappConfig() {
   }
 }
 
-function buildFinalConfirmationMessage(participant, config, paymentWaived = false) {
+async function buildFinalConfirmationMessage(participant, config, paymentWaived = false) {
   const base = String(config.tutorialUrl || "https://blindmatch.app/event3").trim()
   const tutorialUrl = `${base}${base.includes("?") ? "&" : "?"}token=${encodeURIComponent(participant.secure_token || "")}`
   const intro = paymentWaived
-    ? "✅ تم تأكيد مقعدك من المنظم بدون الحاجة إلى دفع."
-    : "✅ تم تأكيد استلام الإيصال والموافقة عليه! حجزك مؤكد للفعالية."
-  return `${intro}\n\n📘 *شرح الفعالية قبل الحضور:*\n${tutorialUrl}\n\n📍 *المكان:* ${config.locationName || "سيتم إرساله قريباً"}\n🗺️ ${config.mapUrl || ""}\n📅 *التاريخ:* ${config.eventDateText || "سيتم إرساله قريباً"}\n🕰️ *الوقت:* ${config.eventTimeText || "سيتم إرساله قريباً"}${config.arrivalTimeText ? ` (الحضور ${config.arrivalTimeText})` : ""}\n\nيرجى قراءة الشرح قبل الوصول. نراك هناك! 🤍`
+    ? await editableTwilioResponse("seat_waived_admin", "✅ تم تأكيد مقعدك من المنظم بدون الحاجة إلى دفع.")
+    : await editableTwilioResponse("receipt_approved", "✅ تم تأكيد استلام الإيصال والموافقة عليه! حجزك مؤكد للفعالية.")
+  const details = await editableTwilioResponse("final_event_details", "📘 *شرح الفعالية قبل الحضور:*\n{tutorial_url}\n\n📍 *المكان:* {location}\n🗺️ {map_url}\n📅 *التاريخ:* {event_date}\n🕰️ *الوقت:* {event_time}{arrival_suffix}\n\nيرجى قراءة الشرح قبل الوصول. نراك هناك! 🤍", {
+    tutorial_url: tutorialUrl,
+    location: config.locationName || "سيتم إرساله قريباً",
+    map_url: config.mapUrl || "",
+    event_date: config.eventDateText || "سيتم إرساله قريباً",
+    event_time: config.eventTimeText || "سيتم إرساله قريباً",
+    arrival_suffix: config.arrivalTimeText ? ` (الحضور ${config.arrivalTimeText})` : "",
+  })
+  return `${intro}\n\n${details}`
 }
 
 async function sendFinalConfirmation(participant, paymentWaived = false) {
@@ -42,8 +57,10 @@ async function sendFinalConfirmation(participant, paymentWaived = false) {
   if (!accountSid || !authToken) return { sent: false, error: "Twilio credentials are not configured" }
   const sender = process.env.TWILIO_WHATSAPP_SENDER || "whatsapp:+13527387477"
   const to = String(participant.phone_number).replace(/\s/g, "").replace(/^(?!whatsapp:)/, "whatsapp:")
-  const message = buildFinalConfirmationMessage(participant, await getAdminWhatsappConfig(), paymentWaived)
+  const message = await buildFinalConfirmationMessage(participant, await getAdminWhatsappConfig(), paymentWaived)
+  if (!String(message || "").trim()) return { sent: false, error: "The configured confirmation response is disabled" }
   const body = new URLSearchParams({ From: sender, To: to, Body: message })
+  body.append("StatusCallback", TWILIO_STATUS_CALLBACK_URL)
   const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
     method: "POST",
     headers: { "Authorization": "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64"), "Content-Type": "application/x-www-form-urlencoded" },
@@ -58,6 +75,10 @@ async function sendFinalConfirmation(participant, paymentWaived = false) {
     message_body: message,
     twilio_message_sid: result?.sid || null,
     status: result?.status || (response.ok ? "sent" : "failed"),
+    status_updated_at: new Date().toISOString(),
+    error_code: result?.code ? String(result.code) : null,
+    error_message: response.ok ? null : (result?.message || `Twilio returned ${response.status}`),
+    twilio_payload: result || {},
     is_auto_reply: false,
   })
   return response.ok ? { sent: true, error: null } : { sent: false, error: result?.message || `Twilio returned ${response.status}` }
@@ -288,7 +309,7 @@ export default async function handler(req, res) {
     if (method === "GET") {
       const { data, error } = await supabase
         .from("participants")
-        .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, payment_waived, phone_number, event_id, name, signup_for_next_event, auto_signup_next_event, updated_at, same_gender_preference, any_gender_preference, survey_data_updated_at, created_at, next_event_signup_timestamp, nationality, attendance_confirmed, attendance_confirmed_at, attendance_denied_at, receipt_url, receipt_received_at, receipt_approved, receipt_approved_at, receipt_rejected, receipt_rejected_at")
+        .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, payment_waived, phone_number, event_id, name, signup_for_next_event, auto_signup_next_event, updated_at, same_gender_preference, any_gender_preference, survey_data_updated_at, created_at, next_event_signup_timestamp, nationality, attendance_confirmed, attendance_confirmed_at, attendance_denied_at, receipt_url, receipt_received_at, receipt_approved, receipt_approved_at, receipt_rejected, receipt_rejected_at, age_flex_years, age_flex_event_id, arrival_status, arrival_status_at, discount_interest, last_twilio_action, last_twilio_action_at")
         .eq("match_id", STATIC_MATCH_ID)
         .neq("assigned_number", 9999)  // Exclude organizer participant
         .order("assigned_number", { ascending: true })
@@ -929,7 +950,7 @@ export default async function handler(req, res) {
         const { event_id } = req.body
         let query = supabase
           .from("participants")
-          .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, payment_waived, phone_number, event_id, name, signup_for_next_event, auto_signup_next_event, updated_at, same_gender_preference, any_gender_preference, survey_data_updated_at, created_at, next_event_signup_timestamp, nationality, open_intent_goal_mismatch, signup_event_id, attendance_confirmed, attendance_confirmed_at, attendance_denied_at, receipt_url, receipt_received_at, receipt_approved, receipt_approved_at, receipt_rejected, receipt_rejected_at")
+          .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, payment_waived, phone_number, event_id, name, signup_for_next_event, auto_signup_next_event, updated_at, same_gender_preference, any_gender_preference, survey_data_updated_at, created_at, next_event_signup_timestamp, nationality, open_intent_goal_mismatch, signup_event_id, attendance_confirmed, attendance_confirmed_at, attendance_denied_at, receipt_url, receipt_received_at, receipt_approved, receipt_approved_at, receipt_rejected, receipt_rejected_at, age_flex_years, age_flex_event_id, arrival_status, arrival_status_at, discount_interest, last_twilio_action, last_twilio_action_at")
           .eq("match_id", STATIC_MATCH_ID)
           .neq("assigned_number", 9999)  // Exclude organizer participant
           .order("assigned_number", { ascending: true })
@@ -1503,13 +1524,19 @@ export default async function handler(req, res) {
 
       // Get Twilio template SIDs from environment variables
       if (action === "get-twilio-template-sids") {
+        const { data: configuredTemplates } = await supabase
+          .from("twilio_templates")
+          .select("template_key,content_sid,approval_status,enabled")
+          .in("template_key", ["match", "reminder", "payment"])
+        const configured = Object.fromEntries((configuredTemplates || []).map(t => [t.template_key, t]))
         return res.status(200).json({
           success: true,
           templateSids: {
-            match: TWILIO_MATCH_NOTIFICATION_V2_SID,
-            reminder: process.env.TWILIO_REMINDER_TEMPLATE_SID || null,
-            payment: process.env.TWILIO_PAYMENT_TEMPLATE_SID || null,
+            match: configured.match?.content_sid || process.env.TWILIO_MATCH_TEMPLATE_SID || TWILIO_MATCH_NOTIFICATION_V2_SID,
+            reminder: configured.reminder?.content_sid || process.env.TWILIO_REMINDER_TEMPLATE_SID || null,
+            payment: configured.payment?.content_sid || process.env.TWILIO_PAYMENT_TEMPLATE_SID || null,
           },
+          templateMeta: configured,
         })
       }
 
@@ -1559,6 +1586,7 @@ export default async function handler(req, res) {
             // Free-form text send
             body.append("Body", message)
           }
+          body.append("StatusCallback", TWILIO_STATUS_CALLBACK_URL)
 
           const twilioRes = await fetch(twilioUrl, {
             method: "POST",
@@ -1597,6 +1625,10 @@ export default async function handler(req, res) {
               template_variables: variables || null,
               twilio_message_sid: twilioData.sid,
               status: twilioData.status,
+              status_updated_at: new Date().toISOString(),
+              error_code: twilioData?.code ? String(twilioData.code) : null,
+              error_message: null,
+              twilio_payload: twilioData || {},
               is_auto_reply: false,
             })
           } catch (e) {
@@ -1672,6 +1704,7 @@ export default async function handler(req, res) {
               if (Object.keys(vars).length > 0) {
                 body.append("ContentVariables", JSON.stringify(vars))
               }
+              body.append("StatusCallback", TWILIO_STATUS_CALLBACK_URL)
 
               const twilioRes = await fetch(twilioUrl, {
                 method: "POST",
@@ -1698,6 +1731,8 @@ export default async function handler(req, res) {
                     template_variables: vars || null,
                     twilio_message_sid: twilioData.sid,
                     status: twilioData.status,
+                    status_updated_at: new Date().toISOString(),
+                    twilio_payload: twilioData || {},
                     is_auto_reply: false,
                   })
                 } catch (e) {
@@ -1902,9 +1937,11 @@ export default async function handler(req, res) {
               body.append("From", sender)
               body.append("To", normalizedTo)
               const rejectMsg = reason
-                ? `⚠️ تعذّر قبول الإيصال. السبب: ${reason}. يرجى إرسال إيصال صحيح.`
-                : "⚠️ تعذّر قبول الإيصال. يرجى التأكد من وضوح الإيصال وإعادة إرساله."
+                ? await editableTwilioResponse("receipt_rejected_reason", "⚠️ تعذّر قبول الإيصال. السبب: {reason}. يرجى إرسال إيصال صحيح.", { reason })
+                : await editableTwilioResponse("receipt_rejected_generic", "⚠️ تعذّر قبول الإيصال. يرجى التأكد من وضوح الإيصال وإعادة إرساله.")
+              if (!rejectMsg.trim()) return res.status(200).json({ success: true, notification_sent: false, notification_error: "Receipt rejection response is disabled" })
               body.append("Body", rejectMsg)
+              body.append("StatusCallback", TWILIO_STATUS_CALLBACK_URL)
               try {
                 const rejectRes = await fetch(twilioUrl, {
                   method: "POST",
@@ -2014,6 +2051,7 @@ export default async function handler(req, res) {
           body.append("From", sender)
           body.append("To", normalizedTo)
           body.append("Body", message)
+          body.append("StatusCallback", TWILIO_STATUS_CALLBACK_URL)
 
           const twilioRes = await fetch(twilioUrl, {
             method: "POST",

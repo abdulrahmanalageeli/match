@@ -60,6 +60,7 @@ import WhatsAppChatModal from '~/components/WhatsAppChatModal';
 import BulkWhatsAppModal from '~/components/BulkWhatsAppModal';
 import ParticipantQRModal from "~/components/ParticipantQRModal"
 import ParticipantProfileModal from "~/components/ParticipantProfileModal"
+import TwilioAdminPanel from "~/components/TwilioAdminPanel"
 import { surveyQuestions } from "~/components/SurveyComponent"
 
 // ─── Match Analyzer Modal ───────────────────────────────────────────────────
@@ -563,6 +564,7 @@ export default function AdminPage() {
   const isCohost = location.pathname.includes('cohost') || new URLSearchParams(location.search).get('cohost') === '1'
   const [password, setPassword] = useState("")
   const [authenticated, setAuthenticated] = useState(false)
+  const [adminWorkspace, setAdminWorkspace] = useState<'dashboard' | 'twilio'>('dashboard')
   const [participants, setParticipants] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [qrParticipant, setQrParticipant] = useState<any | null>(null)
@@ -4900,7 +4902,18 @@ Proceed?`
             </div>
           </div>
 
-          <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:items-center sm:gap-3">
+          <div className="grid w-full grid-cols-4 gap-2 sm:flex sm:w-auto sm:items-center sm:gap-3">
+            <button
+              onClick={() => setAdminWorkspace(current => current === 'twilio' ? 'dashboard' : 'twilio')}
+              className={`relative min-h-14 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 backdrop-blur-sm border rounded-xl transition-colors ${
+                adminWorkspace === 'twilio'
+                  ? 'bg-cyan-400 text-slate-950 border-cyan-300 shadow-lg shadow-cyan-500/20'
+                  : 'bg-cyan-500/10 border-cyan-400/30 text-cyan-200 hover:bg-cyan-500/20'
+              }`}
+            >
+              <Phone className="w-4 h-4" />
+              <span className="text-sm font-semibold">Twilio</span>
+            </button>
             {/* WhatsApp Inbox Button */}
             <button
               onClick={openWaInbox}
@@ -5014,6 +5027,14 @@ Proceed?`
           </div>
         </div>
       </div>
+
+      {adminWorkspace === 'twilio' && (
+        <main className="relative z-10 mx-auto w-full max-w-[1500px] p-3 sm:p-5 lg:p-6">
+          <TwilioAdminPanel adminPassword={_adminPassword || (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('admin_pw') : '') || ''} onParticipantChanged={fetchParticipants} />
+        </main>
+      )}
+
+      <div className={adminWorkspace === 'twilio' ? 'hidden' : ''}>
 
       {isCohost && (
         <div className="relative z-10 bg-white/5 backdrop-blur-xl border-b border-white/10 p-4">
@@ -7666,6 +7687,20 @@ Proceed?`
                       </div>
                     )}
 
+                    {/* Event-day Twilio status — deliberately compact on cards; full controls live in the Twilio tab. */}
+                    {(p.attendance_confirmed || p.attendance_denied_at || p.arrival_status || p.age_flex_years > 0 || p.discount_interest) && (
+                      <div className="mb-3 flex flex-wrap items-center justify-center gap-1.5">
+                        {p.attendance_confirmed && <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2 py-1 text-[10px] font-bold text-emerald-300">✓ حضور مؤكد</span>}
+                        {!p.attendance_confirmed && p.attendance_denied_at && <span className="rounded-full border border-red-400/25 bg-red-500/10 px-2 py-1 text-[10px] font-bold text-red-300">اعتذر</span>}
+                        {p.arrival_status === 'on_way' && <span className="rounded-full border border-blue-400/25 bg-blue-500/10 px-2 py-1 text-[10px] font-bold text-blue-300">في الطريق</span>}
+                        {p.arrival_status === 'late' && <span className="rounded-full border border-orange-400/25 bg-orange-500/10 px-2 py-1 text-[10px] font-bold text-orange-300">سيتأخر</span>}
+                        {p.arrival_status === 'arrived' && <span className="rounded-full border border-cyan-400/25 bg-cyan-500/10 px-2 py-1 text-[10px] font-bold text-cyan-300">وصل</span>}
+                        {p.arrival_status === 'cancelled' && <span className="rounded-full border border-red-400/25 bg-red-500/10 px-2 py-1 text-[10px] font-bold text-red-300">لن يحضر</span>}
+                        {p.age_flex_years > 0 && <span className="rounded-full border border-violet-400/25 bg-violet-500/10 px-2 py-1 text-[10px] font-bold text-violet-300">مرونة عمر ±{p.age_flex_years}</span>}
+                        {p.discount_interest === 'interested' && <span className="rounded-full border border-fuchsia-400/25 bg-fuchsia-500/10 px-2 py-1 text-[10px] font-bold text-fuchsia-300">مهتم بالعرض</span>}
+                      </div>
+                    )}
+
                     {/* Co-host Mobile: status pill under name */}
                     {isCohost && (
                       <div className="md:hidden mt-1">
@@ -9373,6 +9408,8 @@ Proceed?`
           </div>
         </div>
       )}
+
+      </div>
 
       {/* React Hot Toast Container */}
       <Toaster

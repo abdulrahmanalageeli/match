@@ -946,10 +946,17 @@ function checkAgeRangeHardGate(participantA, participantB) {
   const withinAStrict = hasRangeA ? (ageB >= aMin && ageB <= aMax) : true
   const withinBStrict = hasRangeB ? (ageA >= bMin && ageA <= bMax) : true
 
-  // Age tolerance: ±1 year normally, but ±3 years for same-gender (R1) for extra freedom
-  const ageTolerance = (CURRENT_MATCH_MODE === 'same_gender') ? 3 : 1
-  const withinATol = hasRangeA ? (ageB >= (aMin - ageTolerance) && ageB <= (aMax + ageTolerance)) : true
-  const withinBTol = hasRangeB ? (ageA >= (bMin - ageTolerance) && ageA <= (bMax + ageTolerance)) : true
+  // Base tolerance is ±1 year (±3 in same-gender R1). A participant can
+  // explicitly add event-only flexibility through the Twilio age prompt.
+  const baseTolerance = (CURRENT_MATCH_MODE === 'same_gender') ? 3 : 1
+  const eventForA = Number(participantA.signup_event_id || participantA.event_id || 0)
+  const eventForB = Number(participantB.signup_event_id || participantB.event_id || 0)
+  const flexA = !participantA.age_flex_event_id || Number(participantA.age_flex_event_id) === eventForA ? Number(participantA.age_flex_years || 0) : 0
+  const flexB = !participantB.age_flex_event_id || Number(participantB.age_flex_event_id) === eventForB ? Number(participantB.age_flex_years || 0) : 0
+  const toleranceA = Math.max(baseTolerance, flexA)
+  const toleranceB = Math.max(baseTolerance, flexB)
+  const withinATol = hasRangeA ? (ageB >= (aMin - toleranceA) && ageB <= (aMax + toleranceA)) : true
+  const withinBTol = hasRangeB ? (ageA >= (bMin - toleranceB) && ageA <= (bMax + toleranceB)) : true
 
   const ok = withinATol && withinBTol
 
@@ -3287,7 +3294,7 @@ export default async function handler(req, res) {
       // Fetch eligible participants
       const { data: allParticipants, error } = await supabase
         .from("participants")
-        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
+        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
         .eq("match_id", match_id)
         .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
         .neq("assigned_number", 9999)
@@ -3468,7 +3475,7 @@ export default async function handler(req, res) {
       // Fetch eligible participants (same filter as pre-cache)
       const { data: allParticipants, error } = await supabase
         .from("participants")
-        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
+        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
         .eq("match_id", match_id)
         .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
         .neq("assigned_number", 9999)
@@ -3677,7 +3684,7 @@ if (action === "cache-status-by-gender") {
   try {
     const { data: allParticipants, error } = await supabase
       .from("participants")
-      .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
+      .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
       .eq("match_id", match_id)
       .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
       .neq("assigned_number", 9999)
@@ -3765,7 +3772,7 @@ if (action === "cache-status-by-gender") {
     try {
       const { data: allParticipants, error } = await supabase
         .from("participants")
-        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
+        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
         .eq("match_id", match_id)
         .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
         .neq("assigned_number", 9999)
@@ -3918,7 +3925,7 @@ if (action === "cache-status-by-gender") {
       // Step 2: Fetch all eligible participants
       const { data: allParticipants, error } = await supabase
         .from("participants")
-        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event, survey_data_updated_at, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
+        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event, survey_data_updated_at, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
         .eq("match_id", match_id)
         .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
         .neq("assigned_number", 9999)
@@ -4237,7 +4244,7 @@ if (action === "cache-status-by-gender") {
       // Step 2: Fetch all eligible participants
       const { data: allParticipants, error } = await supabase
         .from("participants")
-        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event, survey_data_updated_at, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
+        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event, survey_data_updated_at, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
         .eq("match_id", match_id)
         .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
         .neq("assigned_number", 9999)
@@ -4448,7 +4455,7 @@ if (action === "cache-status-by-gender") {
 
     const { data: allRaw } = await supabase
       .from("participants")
-      .select("assigned_number,name,survey_data,mbti_personality_type,attachment_style,communication_style,gender,age,same_gender_preference,any_gender_preference,humor_banter_style,early_openness_comfort,nationality,prefer_same_nationality,preferred_age_min,preferred_age_max,open_age_preference,PAID_DONE")
+      .select("assigned_number,name,survey_data,mbti_personality_type,attachment_style,communication_style,gender,age,same_gender_preference,any_gender_preference,humor_banter_style,early_openness_comfort,nationality,prefer_same_nationality,preferred_age_min,preferred_age_max,open_age_preference,age_flex_years,age_flex_event_id,event_id,signup_event_id,PAID_DONE")
       .eq("match_id", _match_id)
       .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
       .neq("assigned_number", 9999)
@@ -4619,7 +4626,7 @@ if (action === "cache-status-by-gender") {
     
     const { data: allParticipants, error } = await supabase
       .from("participants")
-      .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, phone_number")
+      .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id, phone_number")
       .eq("match_id", match_id)
       .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)  // Participants who signed up for next event OR have current event_id OR have auto_signup enabled
       .neq("assigned_number", 9999)  // Exclude organizer participant from matching
@@ -4740,7 +4747,7 @@ if (action === "cache-status-by-gender") {
         // Fetch ALL participants from database
         const { data: allDatabaseParticipants, error: bypassError } = await supabase
           .from("participants")
-          .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
+          .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
           .eq("match_id", match_id)
           .neq("assigned_number", 9999)  // Only exclude organizer
         
@@ -4757,7 +4764,7 @@ if (action === "cache-status-by-gender") {
         // STANDARD (no bypass): include ALL eligible users for this match_id (ignore event signup)
         const { data: allEligiblePool, error: allPoolErr } = await supabase
           .from("participants")
-          .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
+          .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
           .eq("match_id", match_id)
           .neq("assigned_number", 9999)
         if (allPoolErr) {
@@ -5062,7 +5069,7 @@ if (action === "cache-status-by-gender") {
         // Fetch ALL participants from database without any filtering for true bypass
         const { data: allDatabaseParticipants, error: bypassError } = await supabase
           .from("participants")
-          .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
+          .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
           .eq("match_id", match_id)
           .neq("assigned_number", 9999)  // Only exclude organizer
         

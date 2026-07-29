@@ -15,6 +15,64 @@ const STATIC_MATCH_ID = "00000000-0000-0000-0000-000000000000"
 const accountSid = process.env.TWILIO_ACCOUNT_SID
 const authToken = process.env.TWILIO_AUTH_TOKEN
 const sender = process.env.TWILIO_WHATSAPP_SENDER || "whatsapp:+13527387477"
+const statusCallbackUrl = process.env.TWILIO_STATUS_CALLBACK_URL || "https://blindmatch.app/api/twilio-status"
+
+const DEFAULT_RESPONSES = {
+  attendance_payment_pending: "✅ تم تسجيل رغبتك بالحضور للمشارك رقم {participant_number}.\n\nلإكمال تأكيد المقعد، يرجى تحويل الرسوم المطلوبة وقدرها *{price} ريال* ({price_label}) ثم إرسال صورة الإيصال أو ملف PDF هنا.\n\n🏦 طرق الدفع:\n• STC Pay: {stc_pay}\n• {bank_name}\n• IBAN: {iban}\n\nيصبح المقعد مؤكداً نهائياً بعد مراجعة الإيصال.",
+  attendance_paid: "✅ تم تسجيل حضورك، ومقعدك مؤكد لأن دفعتك معتمدة.",
+  attendance_waived: "✅ تم تسجيل حضورك، ومقعدك مؤكد بإعفاء من الدفع من المنظم.",
+  attendance_denied: "تم تسجيل اعتذاركم مباشرة 🙏 شكراً لكم، ونرحب بكم في فعاليات قادمة!",
+  gender_any: "✅ تم تحديث تفضيلك إلى: *أي جنس*. سنعتمد هذا الاختيار في المطابقة القادمة.",
+  gender_same: "✅ تم تحديث تفضيلك إلى: *نفس الجنس*. سنعتمد هذا الاختيار في المطابقة القادمة.",
+  gender_different: "✅ تم تحديث تفضيلك إلى: *جنس مختلف*. سنعتمد هذا الاختيار في المطابقة القادمة.",
+  age_expand_2: "✅ تم توسيع نطاق العمر بمقدار سنتين لهذه الفعالية فقط. لم نغيّر تفضيلك الأساسي.",
+  age_expand_5: "✅ تم توسيع نطاق العمر بمقدار 5 سنوات لهذه الفعالية فقط. لم نغيّر تفضيلك الأساسي.",
+  age_keep_current: "✅ تم الإبقاء على نطاق العمر الحالي بدون أي تغيير.",
+  discount_interested: "✅ سجلنا اهتمامك بالعرض، وسيتابع معك المنظم قريباً.",
+  discount_declined: "تم تسجيل ردك، ولن نعتمد العرض لك. شكراً لإبلاغنا 🙏",
+  arrival_on_way: "✅ تم تسجيل أنك في الطريق. سنحافظ على مقعدك، وننتظرك قريباً.",
+  arrival_late: "✅ تم تسجيل أنك ستتأخر. إذا أمكن، أرسل وقت وصولك المتوقع برسالة.",
+  arrival_cancel: "تم تسجيل أنك لن تتمكن من الحضور. شكراً لإبلاغنا حتى نتمكن من تنظيم المقاعد 🙏",
+  auto_signup_enabled: "✅ تم تفعيل الاشتراك التلقائي للفعاليات القادمة. سنراسلك عند توفر فعالية مناسبة، ولن يتم الخصم أو تأكيد الحضور دون موافقتك. لإيقافه أرسل كلمة: إيقاف",
+  auto_signup_already: "✅ الاشتراك التلقائي مفعّل لديك بالفعل. لن نغيّر حالته. لإيقافه أرسل كلمة: إيقاف",
+  auto_signup_stopped: "🛑 تم إيقاف الاشتراك التلقائي. لن نضيفك تلقائياً إلى الفعاليات القادمة.",
+  preference_kept: "✅ تم الإبقاء على تفضيلك الحالي بدون أي تغيير.",
+  receipt_received: "✅ استلمنا إيصال المشارك رقم {participant_number} بنجاح.\n\nحالته الآن: بانتظار المراجعة. سنرسل لك رسالة أخرى فور اعتماده وتأكيد المقعد.",
+  receipt_unsupported: "تعذر قراءة المرفق كإيصال. أرسله من فضلك كصورة واضحة أو ملف PDF.",
+  receipt_store_failed: "⚠️ لم نتمكن من حفظ الإيصال، لذلك لم يُسجّل بعد. يرجى إرساله مرة أخرى كصورة واضحة أو PDF. إذا تكرر الخطأ تواصل معنا على 0560899666.",
+  unknown_message: "مرحباً 👋\n\n• أرسل «تأكيد» لتسجيل رغبتك بالحضور\n• أرسل «اعتذار» إذا لن تتمكن من الحضور\n• أرسل الإيصال كصورة أو PDF ليُراجع ويُعتمد\n• أرسل «إيقاف» لإلغاء الاشتراك التلقائي\n\nتأكيد المقعد النهائي يصلك برسالة منفصلة بعد اعتماد الإيصال.",
+  event_information: "📋 *معلومات حول الفعالية*\n\n✦ الفعالية: التوافق الأعمى 4.0\n✦ نظام توافق شخصي متقدم\n✦ مطابقة ذكية بناءً على شخصيتك واهتماماتك\n\nللاستفسار أكثر، تواصل مع المنظم عبر الواتساب: 0560899666\n\nفريق التوافق الأعمى",
+  receipt_unknown_phone: "لم نتمكن من ربط هذا الرقم بتسجيل مشارك. يرجى إرسال الإيصال من الرقم المسجل أو التواصل معنا على 0560899666.",
+  auto_signup_already_stopped: "الاشتراك التلقائي متوقف لديك بالفعل، ولم نغيّر أي شيء.",
+  final_event_details: "📘 *شرح الفعالية قبل الحضور:*\n{tutorial_url}\n\n📍 *المكان:* {location}\n🗺️ {map_url}\n📅 *التاريخ:* {event_date}\n🕰️ *الوقت:* {event_time}{arrival_suffix}\n\nيرجى قراءة الشرح قبل الوصول. نراك هناك! 🤍",
+}
+
+function renderResponse(value, variables = {}) {
+  return Object.entries(variables).reduce((text, [key, replacement]) => text.replaceAll(`{${key}}`, String(replacement ?? "")), String(value || ""))
+}
+
+async function responseText(actionKey, variables = {}) {
+  const { data } = await supabase.from("twilio_response_rules").select("response_text,enabled").eq("action_key", actionKey).maybeSingle()
+  if (data?.enabled === false) return ""
+  const selected = data?.response_text || DEFAULT_RESPONSES[actionKey]
+  return renderResponse(selected || "", variables)
+}
+
+async function recordParticipantAction(participant, actionKey, value, source = "participant", note = null) {
+  const now = new Date().toISOString()
+  const eventId = Number(participant.signup_event_id || participant.event_id || 1)
+  await supabase.from("participant_twilio_actions").upsert({
+    participant_id: participant.id,
+    assigned_number: participant.assigned_number,
+    event_id: eventId,
+    action_key: actionKey,
+    action_value: { value },
+    source,
+    note,
+    updated_at: now,
+  }, { onConflict: "participant_id,event_id,action_key" })
+  await supabase.from("participants").update({ last_twilio_action: actionKey, last_twilio_action_at: now }).eq("id", participant.id)
+}
 
 function validateTwilioSignature(req) {
   if (!authToken) return false
@@ -45,6 +103,7 @@ function validateTwilioSignature(req) {
 }
 
 async function sendTwilioReply(to, message, participant = null) {
+  if (!String(message || "").trim()) return
   if (!accountSid || !authToken) {
     console.error("Twilio credentials not configured for webhook reply")
     return
@@ -54,6 +113,7 @@ async function sendTwilioReply(to, message, participant = null) {
   body.append("From", sender)
   body.append("To", to)
   body.append("Body", message)
+  body.append("StatusCallback", statusCallbackUrl)
 
   const twilioRes = await fetch(twilioUrl, {
     method: "POST",
@@ -76,7 +136,11 @@ async function sendTwilioReply(to, message, participant = null) {
         direction: "outbound",
         message_body: message,
         twilio_message_sid: twilioData?.sid || null,
-        status: twilioData?.status || "sent",
+        status: twilioData?.status || "queued",
+        status_updated_at: new Date().toISOString(),
+        error_code: twilioData?.code ? String(twilioData.code) : null,
+        error_message: twilioRes.ok ? null : (twilioData?.message || `Twilio ${twilioRes.status}`),
+        twilio_payload: twilioData || {},
         is_auto_reply: true,
       })
     } catch (e) {
@@ -112,7 +176,7 @@ async function findParticipantByPhone(phone) {
 
   const { data: candidates } = await supabase
     .from("participants")
-    .select("id, assigned_number, name, phone_number, secure_token, signup_for_next_event, auto_signup_next_event, PAID_DONE, payment_waived, event_id, match_id, created_at, next_event_signup_timestamp")
+    .select("id, assigned_number, name, phone_number, secure_token, signup_for_next_event, auto_signup_next_event, PAID_DONE, payment_waived, event_id, signup_event_id, match_id, created_at, next_event_signup_timestamp, same_gender_preference, any_gender_preference, age_flex_years, age_flex_event_id, arrival_status, discount_interest")
     .not("phone_number", "is", null)
 
   if (!candidates) return null
@@ -171,10 +235,18 @@ function paymentDetailsFor(participant, config) {
   return { price: Number(isEarly ? config.earlyPrice : config.latePrice) || (isEarly ? 60 : 75), isEarly }
 }
 
-function finalConfirmationMessage(participant, config, intro) {
+async function finalConfirmationMessage(participant, config, intro) {
   const tutorialBase = String(config.tutorialUrl || "https://blindmatch.app/event3").trim()
   const tutorialUrl = `${tutorialBase}${tutorialBase.includes("?") ? "&" : "?"}token=${encodeURIComponent(participant.secure_token || "")}`
-  return `${intro}\n\n📘 *شرح الفعالية قبل الحضور:*\n${tutorialUrl}\n\n📍 *المكان:* ${config.locationName || "سيتم إرساله قريباً"}\n🗺️ ${config.mapUrl || ""}\n📅 *التاريخ:* ${config.eventDateText || "سيتم إرساله قريباً"}\n🕰️ *الوقت:* ${config.eventTimeText || "سيتم إرساله قريباً"}${config.arrivalTimeText ? ` (الحضور ${config.arrivalTimeText})` : ""}\n\nيرجى قراءة الشرح قبل الوصول. نراك هناك! 🤍`
+  const details = await responseText("final_event_details", {
+    tutorial_url: tutorialUrl,
+    location: config.locationName || "سيتم إرساله قريباً",
+    map_url: config.mapUrl || "",
+    event_date: config.eventDateText || "سيتم إرساله قريباً",
+    event_time: config.eventTimeText || "سيتم إرساله قريباً",
+    arrival_suffix: config.arrivalTimeText ? ` (الحضور ${config.arrivalTimeText})` : "",
+  })
+  return `${intro}\n\n${details}`
 }
 
 async function recordAttendanceNotification(participant, from, requestType) {
@@ -203,18 +275,26 @@ async function confirmAttendance(participant, from) {
   if (error) throw new Error(`Failed to confirm attendance: ${error.message}`)
 
   await recordAttendanceNotification(participant, from, "confirm")
+  await recordParticipantAction(participant, "attendance", "confirmed")
   if (participant.PAID_DONE || participant.payment_waived) {
     const config = await getWhatsappConfig()
     const intro = participant.payment_waived
-      ? "✅ تم تسجيل حضورك، ومقعدك مؤكد بإعفاء من الدفع من المنظم."
-      : "✅ تم تسجيل حضورك، ومقعدك مؤكد لأن دفعتك معتمدة."
-    await sendTwilioReply(from, finalConfirmationMessage(participant, config, intro), participant)
+      ? await responseText("attendance_waived")
+      : await responseText("attendance_paid")
+    await sendTwilioReply(from, await finalConfirmationMessage(participant, config, intro), participant)
     return
   }
 
   const config = await getWhatsappConfig()
   const { price, isEarly } = paymentDetailsFor(participant, config)
-  const reply = `✅ تم تسجيل حضورك للمشارك رقم ${participant.assigned_number}، ولا يحتاج إلى اعتماد إضافي من المنظم.\n\n💳 الرسوم المطلوبة: *${price} ريال* (${isEarly ? "سعر التسجيل المبكر" : "سعر التسجيل بعد الموعد"})\n\n🏦 طرق الدفع:\n• STC Pay: ${config.stcPay}\n• ${config.bankName}\n• IBAN: ${config.iban}\n\n📸 بعد التحويل، أرسل صورة الإيصال أو ملف PDF هنا مباشرة. يصبح المقعد مؤكداً نهائياً بعد مراجعة الإيصال.`
+  const reply = await responseText("attendance_payment_pending", {
+    participant_number: participant.assigned_number,
+    price,
+    price_label: isEarly ? "سعر التسجيل المبكر" : "سعر التسجيل بعد الموعد",
+    stc_pay: config.stcPay,
+    bank_name: config.bankName,
+    iban: config.iban,
+  })
   await sendTwilioReply(from, reply, participant)
 }
 
@@ -225,7 +305,8 @@ async function denyAttendance(participant, from) {
     .eq("id", participant.id)
   if (error) throw new Error(`Failed to record attendance denial: ${error.message}`)
   await recordAttendanceNotification(participant, from, "deny")
-  await sendTwilioReply(from, "تم تسجيل اعتذاركم مباشرة 🙏 شكراً لكم، ونرحب بكم في فعاليات قادمة!", participant)
+  await recordParticipantAction(participant, "attendance", "declined")
+  await sendTwilioReply(from, await responseText("attendance_denied"), participant)
 }
 
 function normalizeArabicCommand(value) {
@@ -266,7 +347,7 @@ export default async function handler(req, res) {
       const participant = await findParticipantByPhone(from)
       if (!participant) {
         console.log("No participant found for phone:", from)
-        await sendTwilioReply(from, "لم نتمكن من ربط هذا الرقم بتسجيل مشارك. يرجى إرسال الإيصال من الرقم المسجل أو التواصل معنا على 0560899666.")
+        await sendTwilioReply(from, await responseText("receipt_unknown_phone"))
         return res.status(200).json({ status: "participant_not_found" })
       }
 
@@ -277,7 +358,7 @@ export default async function handler(req, res) {
       const isImage = mediaContentType0 && mediaContentType0.startsWith("image/")
       const isPdf = mediaContentType0 && mediaContentType0 === "application/pdf"
       if (!isImage && !isPdf) {
-        await sendTwilioReply(from, "تعذر قراءة المرفق كإيصال. أرسله من فضلك كصورة واضحة أو ملف PDF.", participant)
+        await sendTwilioReply(from, await responseText("receipt_unsupported"), participant)
         return res.status(200).json({ status: "unsupported_receipt_type" })
       }
       const fileExt = isPdf ? "pdf" : mediaContentType0 === "image/png" ? "png" : mediaContentType0 === "image/webp" ? "webp" : "jpg"
@@ -327,11 +408,12 @@ export default async function handler(req, res) {
           .eq("id", participant.id)
         if (participantUpdateError) throw new Error(`Participant receipt update failed: ${participantUpdateError.message}`)
 
-        await sendTwilioReply(from, `✅ استلمنا إيصال المشارك رقم ${participant.assigned_number} بنجاح.\n\nحالته الآن: بانتظار المراجعة. سنرسل لك رسالة أخرى فور اعتماده وتأكيد المقعد.`, participant)
+        await recordParticipantAction(participant, "receipt", "pending_review")
+        await sendTwilioReply(from, await responseText("receipt_received", { participant_number: participant.assigned_number }), participant)
         return res.status(200).json({ status: "receipt_received" })
       } catch (e) {
         console.error("Media download/store error:", e)
-        await sendTwilioReply(from, "⚠️ لم نتمكن من حفظ الإيصال، لذلك لم يُسجّل بعد. يرجى إرساله مرة أخرى كصورة واضحة أو PDF. إذا تكرر الخطأ تواصل معنا على 0560899666.", participant)
+        await sendTwilioReply(from, await responseText("receipt_store_failed"), participant)
         return res.status(200).json({ status: "error" })
       }
     }
@@ -369,23 +451,72 @@ export default async function handler(req, res) {
               .eq("id", participant.id)
           }
 
-          const replyText = currentValue
-            ? "✅ الاشتراك التلقائي مفعّل لديك بالفعل. لن نغيّر حالته. لإيقافه أرسل كلمة: إيقاف"
-            : "✅ تم تفعيل الاشتراك التلقائي للفعاليات القادمة. سنراسلك عند توفر فعالية مناسبة، ولن يتم الخصم أو تأكيد الحضور دون موافقتك. لإيقافه أرسل كلمة: إيقاف"
+          await recordParticipantAction(participant, "auto_signup", "enabled")
+          const replyText = await responseText(currentValue ? "auto_signup_already" : "auto_signup_enabled")
 
           await sendTwilioReply(from, replyText, participant)
           return res.status(200).json({ status: "toggled", new_value: newValue })
         }
 
         case "event3_information": {
-          const infoMessage = "📋 *معلومات حول الفعالية*\n\n" +
-            "✦ الفعالية: التوافق الأعمى 4.0\n" +
-            "✦ نظام توافق شخصي متقدم\n" +
-            "✦ مطابقة ذكية بناءً على شخصيتك واهتماماتك\n\n" +
-            "للاستفسار أكثر، تواصل مع المنظم عبر الواتساب: 0560899666\n\n" +
-            "فريق التوافق الأعمى"
+          const infoMessage = await responseText("event_information")
           await sendTwilioReply(from, infoMessage, participant)
           return res.status(200).json({ status: "info_sent" })
+        }
+
+        case "gender_any":
+        case "gender_same":
+        case "gender_different": {
+          const preference = buttonPayload.replace("gender_", "")
+          const update = preference === "any"
+            ? { same_gender_preference: false, any_gender_preference: true }
+            : preference === "same"
+              ? { same_gender_preference: true, any_gender_preference: false }
+              : { same_gender_preference: false, any_gender_preference: false }
+          const { error } = await supabase.from("participants").update(update).eq("id", participant.id)
+          if (error) throw error
+          await recordParticipantAction(participant, "gender_preference", preference)
+          await sendTwilioReply(from, await responseText(buttonPayload), participant)
+          return res.status(200).json({ status: "gender_preference_updated", value: preference })
+        }
+
+        case "age_expand_2":
+        case "age_expand_5":
+        case "age_keep_current": {
+          const years = buttonPayload === "age_expand_2" ? 2 : buttonPayload === "age_expand_5" ? 5 : 0
+          const eventId = Number(participant.signup_event_id || participant.event_id || 1)
+          const { error } = await supabase.from("participants").update({
+            age_flex_years: years,
+            age_flex_event_id: years ? eventId : null,
+          }).eq("id", participant.id)
+          if (error) throw error
+          await recordParticipantAction(participant, "age_flexibility", years)
+          await sendTwilioReply(from, await responseText(buttonPayload), participant)
+          return res.status(200).json({ status: "age_flexibility_updated", years })
+        }
+
+        case "discount_interested":
+        case "discount_declined": {
+          const value = buttonPayload === "discount_interested" ? "interested" : "declined"
+          const { error } = await supabase.from("participants").update({ discount_interest: value }).eq("id", participant.id)
+          if (error) throw error
+          await recordParticipantAction(participant, "discount", value)
+          await sendTwilioReply(from, await responseText(buttonPayload), participant)
+          return res.status(200).json({ status: `offer_${value}` })
+        }
+
+        case "arrival_on_way":
+        case "arrival_late":
+        case "arrival_cancel": {
+          const value = buttonPayload === "arrival_on_way" ? "on_way" : buttonPayload === "arrival_late" ? "late" : "cancelled"
+          const now = new Date().toISOString()
+          const update = { arrival_status: value, arrival_status_at: now }
+          if (value === "cancelled") Object.assign(update, { attendance_confirmed: false, attendance_confirmed_at: null, attendance_denied_at: now })
+          const { error } = await supabase.from("participants").update(update).eq("id", participant.id)
+          if (error) throw error
+          await recordParticipantAction(participant, "arrival", value)
+          await sendTwilioReply(from, await responseText(buttonPayload), participant)
+          return res.status(200).json({ status: `arrival_${value}` })
         }
 
         default:
@@ -412,7 +543,6 @@ export default async function handler(req, res) {
         "اي جنس": { same_gender_preference: false, any_gender_preference: true, label: "أي جنس" },
         "نفس الجنس": { same_gender_preference: true, any_gender_preference: false, label: "نفس الجنس" },
         "جنس مختلف": { same_gender_preference: false, any_gender_preference: false, label: "جنس مختلف" },
-        "مرن": { same_gender_preference: false, any_gender_preference: true, label: "أي جنس" },
       }
       if (genderPreferenceCommands[text]) {
         const selected = genderPreferenceCommands[text]
@@ -421,17 +551,34 @@ export default async function handler(req, res) {
           any_gender_preference: selected.any_gender_preference,
         }).eq("id", participant.id)
         if (error) throw new Error(`Failed to update gender preference: ${error.message}`)
-        await sendTwilioReply(from, `✅ تم تحديث تفضيلك إلى: *${selected.label}*. سنعتمد هذا الاختيار في المطابقة القادمة.`, participant)
+        const actionKey = selected.any_gender_preference ? "gender_any" : selected.same_gender_preference ? "gender_same" : "gender_different"
+        await recordParticipantAction(participant, "gender_preference", actionKey.replace("gender_", ""))
+        await sendTwilioReply(from, await responseText(actionKey), participant)
         return res.status(200).json({ status: "gender_preference_updated" })
       }
 
       if (text === "ابقاء التفضيل") {
-        await sendTwilioReply(from, "✅ تم الإبقاء على تفضيلك الحالي بدون أي تغيير.", participant)
+        await sendTwilioReply(from, await responseText("preference_kept"), participant)
         return res.status(200).json({ status: "preference_kept" })
       }
 
+      const ageFlexTextCommands = { "توسيع سنتين": 2, "توسيع 5 سنوات": 5, "ابقاء النطاق": 0 }
+      if (Object.prototype.hasOwnProperty.call(ageFlexTextCommands, text)) {
+        const years = ageFlexTextCommands[text]
+        const eventId = Number(participant.signup_event_id || participant.event_id || 1)
+        const { error } = await supabase.from("participants").update({ age_flex_years: years, age_flex_event_id: years ? eventId : null }).eq("id", participant.id)
+        if (error) throw error
+        await recordParticipantAction(participant, "age_flexibility", years)
+        const key = years === 2 ? "age_expand_2" : years === 5 ? "age_expand_5" : "age_keep_current"
+        await sendTwilioReply(from, await responseText(key), participant)
+        return res.status(200).json({ status: "age_flexibility_updated", years })
+      }
+
       if (text === "مهتم" || text === "غير مهتم") {
-        await sendTwilioReply(from, text === "مهتم" ? "✅ سجلنا اهتمامك بالعرض، وسيتابع معك المنظم قريباً." : "تم تسجيل ردك، ولن نعتمد العرض لك. شكراً لإبلاغنا 🙏", participant)
+        const value = text === "مهتم" ? "interested" : "declined"
+        await supabase.from("participants").update({ discount_interest: value }).eq("id", participant.id)
+        await recordParticipantAction(participant, "discount", value)
+        await sendTwilioReply(from, await responseText(text === "مهتم" ? "discount_interested" : "discount_declined"), participant)
         return res.status(200).json({ status: text === "مهتم" ? "offer_interested" : "offer_declined" })
       }
 
@@ -454,16 +601,17 @@ export default async function handler(req, res) {
           .update({ auto_signup_next_event: newValue })
           .eq("id", participant.id)
 
+        if (currentValue) await recordParticipantAction(participant, "auto_signup", "disabled")
         const replyText = currentValue
-          ? "🛑 تم إيقاف الاشتراك التلقائي. لن نضيفك تلقائياً إلى الفعاليات القادمة."
-          : "الاشتراك التلقائي متوقف لديك بالفعل، ولم نغيّر أي شيء."
+          ? await responseText("auto_signup_stopped")
+          : await responseText("auto_signup_already_stopped")
 
         await sendTwilioReply(from, replyText, participant)
         return res.status(200).json({ status: "toggled", new_value: newValue })
       }
 
       // Unrecognized text — send help
-      await sendTwilioReply(from, "مرحباً 👋\n\n• أرسل «تأكيد» لتسجيل رغبتك بالحضور\n• أرسل «اعتذار» إذا لن تتمكن من الحضور\n• أرسل الإيصال كصورة أو PDF ليُراجع ويُعتمد\n• أرسل «إيقاف» لإلغاء الاشتراك التلقائي\n\nتأكيد المقعد النهائي يصلك برسالة منفصلة بعد اعتماد الإيصال.", participant)
+      await sendTwilioReply(from, await responseText("unknown_message"), participant)
       return res.status(200).json({ status: "help_sent" })
     }
 

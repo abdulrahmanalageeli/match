@@ -22,6 +22,8 @@ const DEFAULT_RESPONSES = {
   attendance_paid: "✅ تم تسجيل حضورك، ومقعدك مؤكد لأن دفعتك معتمدة.",
   attendance_waived: "✅ تم تسجيل حضورك، ومقعدك مؤكد بإعفاء من الدفع من المنظم.",
   attendance_denied: "تم تسجيل اعتذاركم مباشرة 🙏 شكراً لكم، ونرحب بكم في فعاليات قادمة!",
+  attendance_confirmation_pending: "✅ استلمنا طلب تأكيد حضورك. الطلب الآن بانتظار اعتماد المنظم، ولن تتغير حالة حضورك حتى تتم مراجعته.",
+  attendance_denial_pending: "🙏 استلمنا اعتذارك عن الحضور. الطلب الآن بانتظار اعتماد المنظم، ولن تتغير حالة حضورك حتى تتم مراجعته.",
   gender_any: "✅ تم تحديث تفضيلك إلى: *أي جنس*. سنعتمد هذا الاختيار في المطابقة القادمة.",
   gender_same: "✅ تم تحديث تفضيلك إلى: *نفس الجنس*. سنعتمد هذا الاختيار في المطابقة القادمة.",
   gender_different: "✅ تم تحديث تفضيلك إلى: *جنس مختلف*. سنعتمد هذا الاختيار في المطابقة القادمة.",
@@ -262,7 +264,7 @@ async function finalConfirmationMessage(participant, config, intro) {
 async function recordAttendanceNotification(participant, from, requestType) {
   await supabase
     .from("attendance_requests")
-    .update({ status: "approved", admin_note: "Superseded by a newer participant response", updated_at: new Date().toISOString() })
+    .update({ status: "superseded", admin_note: "Superseded by a newer participant response before organizer approval", updated_at: new Date().toISOString() })
     .eq("participant_id", participant.id)
     .eq("status", "pending")
 
@@ -277,46 +279,15 @@ async function recordAttendanceNotification(participant, from, requestType) {
 }
 
 async function confirmAttendance(participant, from) {
-  const now = new Date().toISOString()
-  const { error } = await supabase
-    .from("participants")
-    .update({ attendance_confirmed: true, attendance_confirmed_at: now, attendance_denied_at: null })
-    .eq("id", participant.id)
-  if (error) throw new Error(`Failed to confirm attendance: ${error.message}`)
-
   await recordAttendanceNotification(participant, from, "confirm")
-  await recordParticipantAction(participant, "attendance", "confirmed")
-  if (participant.PAID_DONE || participant.payment_waived) {
-    const config = await getWhatsappConfig()
-    const intro = participant.payment_waived
-      ? await responseText("attendance_waived")
-      : await responseText("attendance_paid")
-    await sendTwilioReply(from, await finalConfirmationMessage(participant, config, intro), participant)
-    return
-  }
-
-  const config = await getWhatsappConfig()
-  const { price, isEarly } = paymentDetailsFor(participant, config)
-  const reply = await responseText("attendance_payment_pending", {
-    participant_number: participant.assigned_number,
-    price,
-    price_label: isEarly ? "سعر التسجيل المبكر" : "سعر التسجيل بعد الموعد",
-    stc_pay: config.stcPay,
-    bank_name: config.bankName,
-    iban: config.iban,
-  })
-  await sendTwilioReply(from, reply, participant)
+  await recordParticipantAction(participant, "attendance_request", "confirm_pending")
+  await sendTwilioReply(from, await responseText("attendance_confirmation_pending"), participant)
 }
 
 async function denyAttendance(participant, from) {
-  const { error } = await supabase
-    .from("participants")
-    .update({ attendance_confirmed: false, attendance_denied_at: new Date().toISOString(), attendance_confirmed_at: null })
-    .eq("id", participant.id)
-  if (error) throw new Error(`Failed to record attendance denial: ${error.message}`)
   await recordAttendanceNotification(participant, from, "deny")
-  await recordParticipantAction(participant, "attendance", "declined")
-  await sendTwilioReply(from, await responseText("attendance_denied"), participant)
+  await recordParticipantAction(participant, "attendance_request", "deny_pending")
+  await sendTwilioReply(from, await responseText("attendance_denial_pending"), participant)
 }
 
 function normalizeArabicCommand(value) {
@@ -547,13 +518,15 @@ export default async function handler(req, res) {
           return res.status(200).json({ status: `offer_${value}` })
         }
 
-        case "arrival_on_way":
-        case "arrival_late":
         case "arrival_cancel": {
-          const value = buttonPayload === "arrival_on_way" ? "on_way" : buttonPayload === "arrival_late" ? "late" : "cancelled"
+          await denyAttendance(participant, from)
+          return res.status(200).json({ status: "cancellation_pending_approval" })
+        }
+        case "arrival_on_way":
+        case "arrival_late": {
+          const value = buttonPayload === "arrival_on_way" ? "on_way" : "late"
           const now = new Date().toISOString()
           const update = { arrival_status: value, arrival_status_at: now }
-          if (value === "cancelled") Object.assign(update, { attendance_confirmed: false, attendance_confirmed_at: null, attendance_denied_at: now })
           const { error } = await supabase.from("participants").update(update).eq("id", participant.id)
           if (error) throw error
           await recordParticipantAction(participant, "arrival", value)

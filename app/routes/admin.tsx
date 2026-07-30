@@ -5037,7 +5037,14 @@ Proceed?`
 
       {adminWorkspace === 'twilio' && (
         <main className="relative z-10 mx-auto w-full max-w-[1500px] p-3 sm:p-5 lg:p-6">
-          <TwilioAdminPanel adminPassword={adminCredential} onParticipantChanged={fetchParticipants} onUnauthorized={logout} />
+          <TwilioAdminPanel
+            adminPassword={adminCredential}
+            onParticipantChanged={() => {
+              fetchParticipants()
+              fetchExcludedParticipants()
+            }}
+            onUnauthorized={logout}
+          />
         </main>
       )}
 
@@ -7487,7 +7494,8 @@ Proceed?`
           <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 ${isCohost ? 'gap-6 md:gap-4' : 'gap-4'}`}>
             {visibleParticipants.map((p) => {
               // Determine color-coded border based on status - PRIORITY SYSTEM
-              const isExcluded = excludedParticipants.some(ep => ep.participant_number === p.assigned_number);
+              const exclusionEntry = excludedParticipants.find(ep => ep.participant_number === p.assigned_number);
+              const isExcluded = Boolean(exclusionEntry);
               const isPaid = p.attendance_confirmed === true && p.PAID_DONE === true;
               const isUnpaid = p.attendance_confirmed === true && p.PAID === true && !isPaid;
               const isCurrentEvent = p.event_id === currentEventId;
@@ -7547,6 +7555,11 @@ Proceed?`
                     setShowProfileModal(true);
                   }}
                 >
+                {!isCohost && exclusionEntry && (
+                  <div className="mb-3 rounded-xl border border-red-400/30 bg-red-500/15 px-3 py-2 text-center text-xs font-bold text-red-200" title={exclusionEntry.reason || 'Temporary exclusion'}>
+                    ⛔ {exclusionEntry.is_banned ? 'محظور دائماً (-10)' : 'مستبعد مؤقتاً (-1)'} · {exclusionEntry.reason || 'لم يتم تحديد السبب'}
+                  </div>
+                )}
                 {/* Cohost hanging LATE tag overlay — visible within card bounds (no negative offset) */}
                 {isCohost && p.next_event_signup_timestamp && (() => {
                   const cutoffDate = new Date('2026-01-17T15:00:00+03:00')

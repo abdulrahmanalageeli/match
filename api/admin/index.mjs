@@ -2290,10 +2290,10 @@ export default async function handler(req, res) {
         }
       }
 
-      // Attendance is already applied by the webhook; this only acknowledges the notification.
+      // Apply the latest participant request only after explicit organizer approval.
       if (action === "approve-attendance-request") {
         try {
-          const { request_id } = req.body
+          const request_id = req.body.request_id || req.body.id
           if (!request_id) return res.status(400).json({ error: "Missing 'request_id'" })
 
           // Fetch the request
@@ -2305,13 +2305,57 @@ export default async function handler(req, res) {
           if (fetchErr || !req_row) return res.status(404).json({ error: "Request not found" })
           if (req_row.status !== "pending") return res.status(400).json({ error: "Request already processed" })
 
+          const now = new Date().toISOString()
+          const { data: participant, error: participantError } = await supabase
+            .from("participants")
+            .select("id,assigned_number")
+            .eq("id", req_row.participant_id)
+            .single()
+          if (participantError || !participant) return res.status(404).json({ error: "Participant not found" })
+
+          if (req_row.request_type === "deny") {
+            const { error: stateError } = await supabase.from("participants").update({
+              attendance_confirmed: false,
+              attendance_confirmed_at: null,
+              attendance_denied_at: now,
+            }).eq("id", participant.id)
+            if (stateError) return res.status(500).json({ error: stateError.message })
+
+            const { data: existing } = await supabase.from("excluded_pairs").select("id,reason").eq("match_id", STATIC_MATCH_ID).eq("participant1_number", participant.assigned_number).eq("participant2_number", -1).maybeSingle()
+            if (!existing) {
+              const { error: exclusionError } = await supabase.from("excluded_pairs").insert({
+                match_id: STATIC_MATCH_ID,
+                participant1_number: participant.assigned_number,
+                participant2_number: -1,
+                reason: "اعتذر عن الحضور عبر واتساب — معتمد من المنظم",
+              })
+              if (exclusionError) return res.status(500).json({ error: exclusionError.message })
+            }
+          } else if (req_row.request_type === "confirm") {
+            const { error: stateError } = await supabase.from("participants").update({
+              attendance_confirmed: true,
+              attendance_confirmed_at: now,
+              attendance_denied_at: null,
+            }).eq("id", participant.id)
+            if (stateError) return res.status(500).json({ error: stateError.message })
+
+            const { error: exclusionError } = await supabase.from("excluded_pairs").delete()
+              .eq("match_id", STATIC_MATCH_ID)
+              .eq("participant1_number", participant.assigned_number)
+              .eq("participant2_number", -1)
+              .ilike("reason", "اعتذر عن الحضور عبر واتساب%")
+            if (exclusionError) return res.status(500).json({ error: exclusionError.message })
+          } else {
+            return res.status(400).json({ error: "Unsupported attendance request type" })
+          }
+
           const { error: updateError } = await supabase
             .from("attendance_requests")
-            .update({ status: "approved", admin_note: "Acknowledged by organizer", updated_at: new Date().toISOString() })
+            .update({ status: "approved", admin_note: "Applied by organizer", updated_at: now })
             .eq("id", request_id)
           if (updateError) return res.status(500).json({ error: updateError.message })
 
-          return res.status(200).json({ success: true, message: "Notification acknowledged" })
+          return res.status(200).json({ success: true, message: req_row.request_type === "deny" ? "Cancellation approved and temporary exclusion added" : "Attendance confirmed and cancellation exclusion removed" })
         } catch (err) {
           console.error("approve-attendance-request exception:", err)
           return res.status(500).json({ error: "Failed to approve request" })
@@ -2321,7 +2365,8 @@ export default async function handler(req, res) {
       // Reject an attendance request (admin disagrees — don't apply the change)
       if (action === "reject-attendance-request") {
         try {
-          const { request_id, note } = req.body
+          const request_id = req.body.request_id || req.body.id
+          const { note } = req.body
           if (!request_id) return res.status(400).json({ error: "Missing 'request_id'" })
 
           const { error } = await supabase

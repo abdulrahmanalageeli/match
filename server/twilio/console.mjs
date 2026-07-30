@@ -40,6 +40,37 @@ async function currentEventId() {
   return Number(data?.current_event_id || 1)
 }
 
+async function attachEventReceipts(participants, eventId) {
+  const { data: receipts, error } = await supabase
+    .from("participant_receipts")
+    .select("id,participant_id,event_id,receipt_url,status,received_at,reviewed_at,rejection_reason")
+    .eq("event_id", eventId)
+    .order("received_at", { ascending: false })
+    .limit(10000)
+  if (error) throw error
+
+  const latestByParticipant = new Map()
+  for (const receipt of receipts || []) {
+    if (!latestByParticipant.has(receipt.participant_id)) latestByParticipant.set(receipt.participant_id, receipt)
+  }
+
+  return participants.map(participant => {
+    const receipt = latestByParticipant.get(participant.id)
+    return {
+      ...participant,
+      receipt_id: receipt?.id || null,
+      receipt_event_id: receipt?.event_id || null,
+      receipt_url: receipt?.receipt_url || null,
+      receipt_received_at: receipt?.received_at || null,
+      receipt_approved: receipt?.status === "approved",
+      receipt_approved_at: receipt?.status === "approved" ? receipt.reviewed_at : null,
+      receipt_rejected: receipt?.status === "rejected",
+      receipt_rejected_at: receipt?.status === "rejected" ? receipt.reviewed_at : null,
+      receipt_rejection_reason: receipt?.rejection_reason || null,
+    }
+  })
+}
+
 async function whatsappConfig() {
   const { data } = await supabase.from("event_state").select("whatsapp_config").eq("match_id", STATIC_MATCH_ID).maybeSingle()
   return {
@@ -166,9 +197,20 @@ async function updateParticipantAction(participant, actionKey, value, eventId) {
   const now = new Date().toISOString()
   let update = {}
   if (actionKey === "attendance") {
-    if (value === "confirmed") update = { attendance_confirmed: true, attendance_confirmed_at: now, attendance_denied_at: null }
-    if (value === "declined") update = { attendance_confirmed: false, attendance_confirmed_at: null, attendance_denied_at: now }
-    if (value === "pending") update = { attendance_confirmed: false, attendance_confirmed_at: null, attendance_denied_at: null }
+    if (value === "confirmed") {
+      update = { attendance_confirmed: true, attendance_confirmed_at: now, attendance_denied_at: null }
+      const { data: approvedReceipt } = await supabase
+        .from("participant_receipts")
+        .select("id")
+        .eq("participant_id", participant.id)
+        .eq("event_id", eventId)
+        .eq("status", "approved")
+        .limit(1)
+        .maybeSingle()
+      if (approvedReceipt) Object.assign(update, { PAID_DONE: true, payment_waived: false })
+    }
+    if (value === "declined") update = { attendance_confirmed: false, attendance_confirmed_at: null, attendance_denied_at: now, PAID_DONE: false, payment_waived: false }
+    if (value === "pending") update = { attendance_confirmed: false, attendance_confirmed_at: null, attendance_denied_at: null, PAID_DONE: false, payment_waived: false }
   } else if (actionKey === "payment") {
     if (value === "paid") update = { PAID: true, PAID_DONE: true, payment_waived: false, receipt_approved: true, receipt_approved_at: now, receipt_rejected: false, receipt_rejected_at: null }
     if (value === "unpaid") update = { PAID: false, PAID_DONE: false, payment_waived: false, receipt_approved: false, receipt_approved_at: null }
@@ -213,7 +255,7 @@ async function dashboard() {
     acc[status] = messages.filter(m => m.direction === "outbound" && m.status === status).length
     return acc
   }, {})
-  const participants = participantsResult.data || []
+  const participants = await attachEventReceipts(participantsResult.data || [], eventId)
   return {
     success: true,
     eventId,
@@ -228,7 +270,7 @@ async function dashboard() {
       participants: participants.length,
       confirmed: participants.filter(p => p.attendance_confirmed).length,
       declined: participants.filter(p => p.attendance_denied_at).length,
-      paid: participants.filter(p => p.PAID_DONE || p.payment_waived).length,
+      paid: participants.filter(p => p.attendance_confirmed && (p.PAID_DONE || p.payment_waived)).length,
       awaitingReceipt: participants.filter(p => p.attendance_confirmed && !p.PAID_DONE && !p.payment_waived).length,
       receiptsPending: participants.filter(p => p.receipt_url && !p.receipt_approved && !p.receipt_rejected).length,
       onWay: participants.filter(p => p.arrival_status === "on_way").length,

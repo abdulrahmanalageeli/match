@@ -217,6 +217,16 @@ async function getWhatsappConfig() {
   }
 }
 
+async function getCurrentEventId() {
+  const { data, error } = await supabase
+    .from("event_state")
+    .select("current_event_id")
+    .eq("match_id", STATIC_MATCH_ID)
+    .maybeSingle()
+  if (error) throw new Error("Failed to load current event: " + error.message)
+  return Number(data?.current_event_id || 1)
+}
+
 function riyadhLocalToTimestamp(value) {
   const local = String(value || "").trim()
   if (!local) return null
@@ -339,6 +349,7 @@ export default async function handler(req, res) {
     const messageBody = req.body.Body || ""
     const mediaUrl0 = req.body.MediaUrl0 || ""
     const mediaContentType0 = req.body.MediaContentType0 || ""
+    const messageSid = req.body.MessageSid || ""
 
     console.log("Twilio webhook:", { from, buttonPayload, buttonText, messageBody, hasMedia: !!mediaUrl0 })
 
@@ -361,8 +372,9 @@ export default async function handler(req, res) {
         await sendTwilioReply(from, await responseText("receipt_unsupported"), participant)
         return res.status(200).json({ status: "unsupported_receipt_type" })
       }
+      const eventId = await getCurrentEventId()
       const fileExt = isPdf ? "pdf" : mediaContentType0 === "image/png" ? "png" : mediaContentType0 === "image/webp" ? "webp" : "jpg"
-      const fileName = `receipts/${participant.assigned_number}_${Date.now()}.${fileExt}`
+      const fileName = "event-" + eventId + "/" + participant.assigned_number + "_" + Date.now() + "." + fileExt
 
       try {
         if (!supabaseServiceRoleKey) {
@@ -395,11 +407,41 @@ export default async function handler(req, res) {
           .from("receipts")
           .getPublicUrl(fileName)
 
+        const receiptUrl = publicUrlData?.publicUrl
+        if (!receiptUrl) throw new Error("Receipt public URL could not be generated")
+
+        const now = new Date().toISOString()
+        const { data: receipt, error: receiptInsertError } = await supabase
+          .from("participant_receipts")
+          .insert({
+            participant_id: participant.id,
+            assigned_number: participant.assigned_number,
+            event_id: eventId,
+            storage_path: fileName,
+            receipt_url: receiptUrl,
+            status: "pending",
+            received_at: now,
+            source_message_sid: messageSid || null,
+            updated_at: now,
+          })
+          .select("id")
+          .single()
+        if (receiptInsertError) throw new Error("Receipt record failed: " + receiptInsertError.message)
+
+        const { error: supersedeError } = await supabase
+          .from("participant_receipts")
+          .update({ status: "superseded", updated_at: now })
+          .eq("participant_id", participant.id)
+          .eq("event_id", eventId)
+          .eq("status", "pending")
+          .neq("id", receipt.id)
+        if (supersedeError) throw new Error("Previous receipt update failed: " + supersedeError.message)
+
         const { error: participantUpdateError } = await supabase
           .from("participants")
           .update({
-            receipt_url: publicUrlData?.publicUrl,
-            receipt_received_at: new Date().toISOString(),
+            receipt_url: receiptUrl,
+            receipt_received_at: now,
             receipt_approved: false,
             receipt_approved_at: null,
             receipt_rejected: false,

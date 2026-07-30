@@ -14,6 +14,61 @@ const STATIC_MATCH_ID = "00000000-0000-0000-0000-000000000000"
 const TWILIO_MATCH_NOTIFICATION_V2_SID = "HX6d318d6310d7cce0c37b1ef5e0b7a17e"
 const TWILIO_STATUS_CALLBACK_URL = process.env.TWILIO_STATUS_CALLBACK_URL || "https://blindmatch.app/api/twilio-status"
 
+async function getCurrentAdminEventId() {
+  const { data, error } = await supabase
+    .from("event_state")
+    .select("current_event_id")
+    .eq("match_id", STATIC_MATCH_ID)
+    .maybeSingle()
+  if (error) throw error
+  return Number(data?.current_event_id || 1)
+}
+
+async function attachEventReceipts(participants, eventId) {
+  const { data: receipts, error } = await supabase
+    .from("participant_receipts")
+    .select("id,participant_id,event_id,receipt_url,status,received_at,reviewed_at,rejection_reason")
+    .eq("event_id", eventId)
+    .order("received_at", { ascending: false })
+    .limit(10000)
+  if (error) throw error
+
+  const latestByParticipant = new Map()
+  for (const receipt of receipts || []) {
+    if (!latestByParticipant.has(receipt.participant_id)) latestByParticipant.set(receipt.participant_id, receipt)
+  }
+
+  return participants.map(participant => {
+    const receipt = latestByParticipant.get(participant.id)
+    return {
+      ...participant,
+      receipt_id: receipt?.id || null,
+      receipt_event_id: receipt?.event_id || null,
+      receipt_url: receipt?.receipt_url || null,
+      receipt_received_at: receipt?.received_at || null,
+      receipt_approved: receipt?.status === "approved",
+      receipt_approved_at: receipt?.status === "approved" ? receipt.reviewed_at : null,
+      receipt_rejected: receipt?.status === "rejected",
+      receipt_rejected_at: receipt?.status === "rejected" ? receipt.reviewed_at : null,
+      receipt_rejection_reason: receipt?.rejection_reason || null,
+    }
+  })
+}
+
+async function findEventReceipt(participantId, { receiptId, eventId } = {}) {
+  let query = supabase
+    .from("participant_receipts")
+    .select("*")
+    .eq("participant_id", participantId)
+
+  if (receiptId) query = query.eq("id", receiptId)
+  else query = query.eq("event_id", Number(eventId || await getCurrentAdminEventId()))
+
+  const { data, error } = await query.order("received_at", { ascending: false }).limit(1).maybeSingle()
+  if (error) throw error
+  return data
+}
+
 async function editableTwilioResponse(actionKey, fallback, variables = {}) {
   const { data } = await supabase.from("twilio_response_rules").select("response_text,enabled").eq("action_key", actionKey).maybeSingle()
   if (data?.enabled === false) return ""
@@ -368,7 +423,8 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: "Failed to fetch group-excluded participants" })
       }
     }
-      return res.status(200).json({ participants: data })
+      const receiptEventId = Number(req.query.event_id || await getCurrentAdminEventId())
+      return res.status(200).json({ participants: await attachEventReceipts(data || [], receiptEventId), event_id: receiptEventId })
     }
 
     // 🔹 POST actions
@@ -968,7 +1024,8 @@ export default async function handler(req, res) {
           console.error("Database error:", error);
           return res.status(500).json({ error: error.message })
         }
-        return res.status(200).json({ participants: data })
+        const receiptEventId = Number(event_id || await getCurrentAdminEventId())
+        return res.status(200).json({ participants: await attachEventReceipts(data || [], receiptEventId), event_id: receiptEventId })
       }
 
       if (action === "delete") {
@@ -1764,16 +1821,34 @@ export default async function handler(req, res) {
       // Receipt review queue for the admin notification workspace
       if (action === "get-receipt-review-queue") {
         try {
-          const { data, error } = await supabase
+          const eventId = Number(req.body.event_id || await getCurrentAdminEventId())
+          const { data: receiptRows, error: receiptError } = await supabase
+            .from("participant_receipts")
+            .select("id,participant_id,assigned_number,event_id,receipt_url,received_at")
+            .eq("event_id", eventId)
+            .eq("status", "pending")
+            .order("received_at", { ascending: false })
+          if (receiptError) return res.status(500).json({ error: receiptError.message })
+          if (!receiptRows?.length) return res.status(200).json({ success: true, receipts: [], event_id: eventId })
+
+          const { data: participantRows, error: participantError } = await supabase
             .from("participants")
-            .select("id,assigned_number,name,phone_number,receipt_url,receipt_received_at,receipt_approved,receipt_rejected,attendance_confirmed,attendance_confirmed_at,PAID_DONE")
-            .eq("match_id", STATIC_MATCH_ID)
-            .not("receipt_url", "is", null)
-            .eq("receipt_approved", false)
-            .eq("receipt_rejected", false)
-            .order("receipt_received_at", { ascending: false })
-          if (error) return res.status(500).json({ error: error.message })
-          return res.status(200).json({ success: true, receipts: data || [] })
+            .select("id,assigned_number,name,phone_number,attendance_confirmed,attendance_confirmed_at,PAID_DONE")
+            .in("id", receiptRows.map(receipt => receipt.participant_id))
+          if (participantError) return res.status(500).json({ error: participantError.message })
+
+          const participantsById = new Map((participantRows || []).map(participant => [participant.id, participant]))
+          const receipts = receiptRows.map(receipt => ({
+            ...(participantsById.get(receipt.participant_id) || {}),
+            receipt_id: receipt.id,
+            receipt_event_id: receipt.event_id,
+            assigned_number: receipt.assigned_number,
+            receipt_url: receipt.receipt_url,
+            receipt_received_at: receipt.received_at,
+            receipt_approved: false,
+            receipt_rejected: false,
+          }))
+          return res.status(200).json({ success: true, receipts, event_id: eventId })
         } catch (err) {
           console.error("get-receipt-review-queue exception:", err)
           return res.status(500).json({ error: "Failed to fetch receipt review queue" })
@@ -1785,7 +1860,7 @@ export default async function handler(req, res) {
         try {
           let notificationSent = false
           let notificationError = null
-          const { assigned_number } = req.body
+          const { assigned_number, receipt_id, event_id } = req.body
           if (!assigned_number) {
             return res.status(400).json({ error: "Missing 'assigned_number'" })
           }
@@ -1801,11 +1876,30 @@ export default async function handler(req, res) {
             return res.status(404).json({ error: "Participant not found" })
           }
 
+          const receipt = await findEventReceipt(participant.id, { receiptId: receipt_id, eventId: event_id })
+          if (!receipt) return res.status(404).json({ error: "No receipt found for this participant and event" })
+
+          const reviewedAt = new Date().toISOString()
+          const { error: previousApprovalError } = await supabase
+            .from("participant_receipts")
+            .update({ status: "superseded", updated_at: reviewedAt })
+            .eq("participant_id", participant.id)
+            .eq("event_id", receipt.event_id)
+            .eq("status", "approved")
+            .neq("id", receipt.id)
+          if (previousApprovalError) return res.status(500).json({ error: previousApprovalError.message })
+
+          const { error: receiptUpdateError } = await supabase
+            .from("participant_receipts")
+            .update({ status: "approved", reviewed_at: reviewedAt, rejection_reason: null, updated_at: reviewedAt })
+            .eq("id", receipt.id)
+          if (receiptUpdateError) return res.status(500).json({ error: receiptUpdateError.message })
+
           const { error: updateError } = await supabase
             .from("participants")
             .update({
               receipt_approved: true,
-              receipt_approved_at: new Date().toISOString(),
+              receipt_approved_at: reviewedAt,
               receipt_rejected: false,
               receipt_rejected_at: null,
               PAID_DONE: true,
@@ -1840,6 +1934,8 @@ export default async function handler(req, res) {
 
           return res.status(200).json({
             success: true,
+            receipt_id: receipt.id,
+            event_id: receipt.event_id,
             notification_sent: notificationSent,
             notification_error: notificationError,
             message: notificationSent ? "Receipt approved and participant notified" : "Receipt approved; notification was not delivered",
@@ -1892,7 +1988,7 @@ export default async function handler(req, res) {
       // Reject receipt — update DB and notify participant via WhatsApp
       if (action === "reject-receipt") {
         try {
-          const { assigned_number, reason } = req.body
+          const { assigned_number, reason, receipt_id, event_id } = req.body
           if (!assigned_number) {
             return res.status(400).json({ error: "Missing 'assigned_number'" })
           }
@@ -1908,13 +2004,25 @@ export default async function handler(req, res) {
             return res.status(404).json({ error: "Participant not found" })
           }
 
+          const receipt = await findEventReceipt(participant.id, { receiptId: receipt_id, eventId: event_id })
+          if (!receipt) return res.status(404).json({ error: "No receipt found for this participant and event" })
+
+          const reviewedAt = new Date().toISOString()
+          const { error: receiptUpdateError } = await supabase
+            .from("participant_receipts")
+            .update({ status: "rejected", reviewed_at: reviewedAt, rejection_reason: reason || null, updated_at: reviewedAt })
+            .eq("id", receipt.id)
+          if (receiptUpdateError) return res.status(500).json({ error: receiptUpdateError.message })
+
           const { error: updateError } = await supabase
             .from("participants")
             .update({
               receipt_rejected: true,
-              receipt_rejected_at: new Date().toISOString(),
+              receipt_rejected_at: reviewedAt,
               receipt_approved: false,
               receipt_approved_at: null,
+              PAID_DONE: false,
+              payment_waived: false,
             })
             .eq("id", participant.id)
 
@@ -1973,7 +2081,12 @@ export default async function handler(req, res) {
             }
           }
 
-          return res.status(200).json({ success: true, message: "Receipt rejected and participant notified" })
+          return res.status(200).json({
+            success: true,
+            receipt_id: receipt.id,
+            event_id: receipt.event_id,
+            message: "Receipt rejected and participant notified",
+          })
         } catch (err) {
           console.error("reject-receipt exception:", err)
           return res.status(500).json({ error: "Failed to reject receipt" })

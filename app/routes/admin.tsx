@@ -4789,6 +4789,8 @@ Proceed?`
         body: JSON.stringify({
           action: decision === 'approve' ? 'approve-receipt' : 'reject-receipt',
           assigned_number: participant.assigned_number,
+          receipt_id: participant.receipt_id,
+          event_id: participant.receipt_event_id || currentEventId,
           reason: decision === 'reject' ? 'يرجى إعادة إرسال إيصال واضح' : undefined,
         }),
       })
@@ -7486,8 +7488,8 @@ Proceed?`
             {visibleParticipants.map((p) => {
               // Determine color-coded border based on status - PRIORITY SYSTEM
               const isExcluded = excludedParticipants.some(ep => ep.participant_number === p.assigned_number);
-              const isPaid = p.PAID_DONE === true;
-              const isUnpaid = p.PAID === true && !isPaid;
+              const isPaid = p.attendance_confirmed === true && p.PAID_DONE === true;
+              const isUnpaid = p.attendance_confirmed === true && p.PAID === true && !isPaid;
               const isCurrentEvent = p.event_id === currentEventId;
               const isNextEvent = p.signup_for_next_event === true || p.auto_signup_next_event === true;
               
@@ -8153,7 +8155,7 @@ Proceed?`
                     )}
 
                     {/* Twilio Webhook Status Badges */}
-                    {!isCohost && (p.attendance_confirmed === true || !!p.attendance_denied_at || !!p.receipt_url) && (
+                    {!isCohost && (p.attendance_confirmed === true || !!p.attendance_denied_at) && (
                     <div className="flex flex-wrap items-center justify-center gap-1 mb-2">
                       {p.attendance_confirmed === true && (p.receipt_approved === true || p.PAID_DONE === true || p.payment_waived === true) && (
                         <span className="px-2 py-1 text-xs font-bold rounded-full border bg-emerald-500/20 text-emerald-300 border-emerald-400/40">
@@ -8170,7 +8172,7 @@ Proceed?`
                           ❌ اعتذر
                         </span>
                       )}
-                      {p.receipt_url && (
+                      {p.receipt_url && p.attendance_confirmed === true && (
                         <>
                           <a
                             href={p.receipt_url}
@@ -8179,7 +8181,7 @@ Proceed?`
                             className="px-2 py-1 text-xs rounded-full border bg-cyan-500/20 text-cyan-300 border-cyan-400/30 hover:bg-cyan-500/30 transition-all"
                             title="View receipt"
                           >
-                            📸 إيصال
+                            📸 إيصال · فعالية {p.receipt_event_id || currentEventId}
                           </a>
                           {p.receipt_approved ? (
                             <span className="px-2 py-1 text-xs rounded-full border bg-green-600/20 text-green-300 border-green-500/30">
@@ -8201,7 +8203,7 @@ Proceed?`
                                     const res = await fetch('/api/admin', {
                                       method: 'POST',
                                       headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({ action: 'approve-receipt', assigned_number: p.assigned_number })
+                                      body: JSON.stringify({ action: 'approve-receipt', assigned_number: p.assigned_number, receipt_id: p.receipt_id, event_id: p.receipt_event_id || currentEventId })
                                     });
                                     const data = await res.json();
                                     if (data.success) {
@@ -8227,7 +8229,7 @@ Proceed?`
                                     const res = await fetch('/api/admin', {
                                       method: 'POST',
                                       headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({ action: 'reject-receipt', assigned_number: p.assigned_number, reason: reason || '' })
+                                      body: JSON.stringify({ action: 'reject-receipt', assigned_number: p.assigned_number, receipt_id: p.receipt_id, event_id: p.receipt_event_id || currentEventId, reason: reason || '' })
                                     });
                                     const data = await res.json();
                                     if (data.success) {

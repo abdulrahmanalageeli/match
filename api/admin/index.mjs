@@ -97,28 +97,6 @@ async function getAdminWhatsappConfig() {
   }
 }
 
-function adminPaymentDetails(participant, config) {
-  const cutoff = String(config.paymentCutoffLocal || "").trim()
-  const cutoffAt = cutoff ? Date.parse(`${cutoff}:00+03:00`) : Number.NaN
-  const signupAt = Date.parse(participant.next_event_signup_timestamp || participant.created_at || "")
-  const isEarly = !Number.isFinite(cutoffAt) || (Number.isFinite(signupAt) && signupAt <= cutoffAt)
-  return { price: Number(isEarly ? config.earlyPrice : config.latePrice) || (isEarly ? 60 : 75), isEarly }
-}
-
-async function buildPaymentRequestMessage(participant, config) {
-  const { price, isEarly } = adminPaymentDetails(participant, config)
-  return editableTwilioResponse("attendance_payment_pending", "", {
-    participant_number: participant.assigned_number,
-    price,
-    price_label: isEarly ? "السعر المبكر" : "السعر المتأخر",
-    early_price: Number(config.earlyPrice) || 60,
-    late_price: Number(config.latePrice) || 75,
-    stc_pay: config.stcPay,
-    bank_name: config.bankName,
-    iban: config.iban,
-  })
-}
-
 async function buildFinalConfirmationMessage(participant, config, paymentWaived = false) {
   const base = String(config.tutorialUrl || "https://blindmatch.app/event3").trim()
   const tutorialUrl = `${base}${base.includes("?") ? "&" : "?"}token=${encodeURIComponent(participant.secure_token || "")}`
@@ -2327,13 +2305,12 @@ export default async function handler(req, res) {
         }
       }
 
-      // Apply the latest participant request only after explicit organizer approval.
+      // Participant attendance changes are already applied by the webhook.
+      // This action only marks the organizer notification as reviewed.
       if (action === "approve-attendance-request") {
         try {
           const request_id = req.body.request_id || req.body.id
           if (!request_id) return res.status(400).json({ error: "Missing 'request_id'" })
-
-          // Fetch the request
           const { data: req_row, error: fetchErr } = await supabase
             .from("attendance_requests")
             .select("*")
@@ -2341,89 +2318,19 @@ export default async function handler(req, res) {
             .single()
           if (fetchErr || !req_row) return res.status(404).json({ error: "Request not found" })
           if (req_row.status !== "pending") return res.status(400).json({ error: "Request already processed" })
-
-          const now = new Date().toISOString()
-          const { data: participant, error: participantError } = await supabase
-            .from("participants")
-            .select("id,assigned_number,phone_number,secure_token,PAID_DONE,payment_waived,auto_signup_next_event,next_event_signup_timestamp,created_at")
-            .eq("id", req_row.participant_id)
-            .single()
-          if (participantError || !participant) return res.status(404).json({ error: "Participant not found" })
-
-          if (req_row.request_type === "deny") {
-            const { error: stateError } = await supabase.from("participants").update({
-              attendance_confirmed: false,
-              attendance_confirmed_at: null,
-              attendance_denied_at: now,
-            }).eq("id", participant.id)
-            if (stateError) return res.status(500).json({ error: stateError.message })
-
-            const { data: existing } = await supabase.from("excluded_pairs").select("id,reason").eq("match_id", STATIC_MATCH_ID).eq("participant1_number", participant.assigned_number).eq("participant2_number", -1).maybeSingle()
-            if (!existing) {
-              const { error: exclusionError } = await supabase.from("excluded_pairs").insert({
-                match_id: STATIC_MATCH_ID,
-                participant1_number: participant.assigned_number,
-                participant2_number: -1,
-                reason: "اعتذر عن الحضور عبر واتساب — معتمد من المنظم",
-              })
-              if (exclusionError) return res.status(500).json({ error: exclusionError.message })
-            }
-          } else if (req_row.request_type === "confirm") {
-            const { error: stateError } = await supabase.from("participants").update({
-              attendance_confirmed: true,
-              attendance_confirmed_at: now,
-              attendance_denied_at: null,
-            }).eq("id", participant.id)
-            if (stateError) return res.status(500).json({ error: stateError.message })
-
-            const { error: exclusionError } = await supabase.from("excluded_pairs").delete()
-              .eq("match_id", STATIC_MATCH_ID)
-              .eq("participant1_number", participant.assigned_number)
-              .eq("participant2_number", -1)
-              .ilike("reason", "اعتذر عن الحضور عبر واتساب%")
-            if (exclusionError) return res.status(500).json({ error: exclusionError.message })
-          } else {
-            return res.status(400).json({ error: "Unsupported attendance request type" })
-          }
-
           const { error: updateError } = await supabase
             .from("attendance_requests")
-            .update({ status: "approved", admin_note: "Applied by organizer", updated_at: now })
+            .update({ status: "approved", admin_note: "Reviewed by organizer; participant action was already applied", updated_at: new Date().toISOString() })
             .eq("id", request_id)
           if (updateError) return res.status(500).json({ error: updateError.message })
-
-          let notification = { sent: false, error: null }
-          if (req_row.request_type === "confirm") {
-            if (participant.PAID_DONE || participant.payment_waived) {
-              notification = await sendFinalConfirmation(participant, participant.payment_waived === true)
-            } else {
-              notification = await sendAdminWhatsappMessage(participant, await buildPaymentRequestMessage(participant, await getAdminWhatsappConfig()))
-            }
-          } else {
-            const { data: latestPreference, error: latestPreferenceError } = await supabase
-              .from("participants")
-              .select("auto_signup_next_event")
-              .eq("id", participant.id)
-              .single()
-            if (latestPreferenceError) return res.status(500).json({ error: latestPreferenceError.message })
-            const autoSignupEnabled = latestPreference.auto_signup_next_event === true
-            const reply = await editableTwilioResponse("attendance_denied", "", {
-              auto_signup_status: autoSignupEnabled ? "مفعّل" : "متوقف",
-              auto_signup_action: autoSignupEnabled
-                ? "إذا رغبت بإيقاف التسجيل التلقائي للفعاليات القادمة، أرسل: *إيقاف*"
-                : "إذا رغبت بالتسجيل التلقائي في أي فعالية قادمة، أرسل: *تفعيل*",
-            })
-            notification = await sendAdminWhatsappMessage(participant, reply)
-          }
-
-          return res.status(200).json({ success: true, notification_sent: notification.sent, notification_error: notification.error, message: req_row.request_type === "deny" ? "Cancellation approved and temporary exclusion added" : "Attendance confirmed and cancellation exclusion removed" })
+          return res.status(200).json({ success: true, message: "Notification marked as reviewed" })
         } catch (err) {
           console.error("approve-attendance-request exception:", err)
           return res.status(500).json({ error: "Failed to approve request" })
         }
       }
 
-      // Reject an attendance request (admin disagrees — don't apply the change)
+      // Dismiss an organizer notification. The participant's decision is already applied.
       if (action === "reject-attendance-request") {
         try {
           const request_id = req.body.request_id || req.body.id
@@ -2440,10 +2347,10 @@ export default async function handler(req, res) {
             return res.status(500).json({ error: error.message })
           }
 
-          return res.status(200).json({ success: true, message: "Request rejected" })
+          return res.status(200).json({ success: true, message: "Notification dismissed" })
         } catch (err) {
           console.error("reject-attendance-request exception:", err)
-          return res.status(500).json({ error: "Failed to reject request" })
+          return res.status(500).json({ error: "Failed to dismiss notification" })
         }
       }
 

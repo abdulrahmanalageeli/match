@@ -269,7 +269,7 @@ async function finalConfirmationMessage(participant, config, intro) {
 async function recordAttendanceNotification(participant, from, requestType) {
   await supabase
     .from("attendance_requests")
-    .update({ status: "superseded", admin_note: "Superseded by a newer participant response before organizer approval", updated_at: new Date().toISOString() })
+    .update({ status: "superseded", admin_note: "Superseded by a newer participant response", updated_at: new Date().toISOString() })
     .eq("participant_id", participant.id)
     .eq("status", "pending")
 
@@ -284,9 +284,30 @@ async function recordAttendanceNotification(participant, from, requestType) {
 }
 
 async function confirmAttendance(participant, from) {
+  const now = new Date().toISOString()
+  const { error: participantError } = await supabase.from("participants").update({
+    attendance_confirmed: true,
+    attendance_confirmed_at: now,
+    attendance_denied_at: null,
+  }).eq("id", participant.id)
+  if (participantError) throw participantError
+
+  const { error: exclusionError } = await supabase.from("excluded_pairs").delete()
+    .eq("match_id", STATIC_MATCH_ID)
+    .eq("participant1_number", participant.assigned_number)
+    .eq("participant2_number", -1)
+    .ilike("reason", "اعتذر عن الحضور عبر واتساب%")
+  if (exclusionError) throw exclusionError
+
   await recordAttendanceNotification(participant, from, "confirm")
-  await recordParticipantAction(participant, "attendance_request", "confirm_pending")
-  await sendTwilioReply(from, await responseText("attendance_confirmation_pending"), participant)
+  await recordParticipantAction(participant, "attendance", "confirmed")
+  if (participant.PAID_DONE || participant.payment_waived) {
+    const config = await getWhatsappConfig()
+    const intro = await responseText(participant.payment_waived ? "attendance_waived" : "attendance_paid")
+    await sendTwilioReply(from, await finalConfirmationMessage(participant, config, intro), participant)
+  } else {
+    await sendTwilioReply(from, await paymentReply(participant), participant)
+  }
 }
 
 async function paymentReply(participant) {
@@ -305,9 +326,39 @@ async function paymentReply(participant) {
 }
 
 async function denyAttendance(participant, from) {
+  const now = new Date().toISOString()
+  const { error: participantError } = await supabase.from("participants").update({
+    attendance_confirmed: false,
+    attendance_confirmed_at: null,
+    attendance_denied_at: now,
+  }).eq("id", participant.id)
+  if (participantError) throw participantError
+
+  const { data: existing, error: existingError } = await supabase.from("excluded_pairs").select("id")
+    .eq("match_id", STATIC_MATCH_ID).eq("participant1_number", participant.assigned_number).eq("participant2_number", -1).maybeSingle()
+  if (existingError) throw existingError
+  if (!existing) {
+    const { error: exclusionError } = await supabase.from("excluded_pairs").insert({
+      match_id: STATIC_MATCH_ID,
+      participant1_number: participant.assigned_number,
+      participant2_number: -1,
+      reason: "اعتذر عن الحضور عبر واتساب — تلقائي",
+    })
+    if (exclusionError) throw exclusionError
+  }
+
   await recordAttendanceNotification(participant, from, "deny")
-  await recordParticipantAction(participant, "attendance_request", "deny_pending")
-  await sendTwilioReply(from, await responseText("attendance_denial_pending"), participant)
+  await recordParticipantAction(participant, "attendance", "declined")
+  const { data: latestPreference, error: preferenceError } = await supabase.from("participants")
+    .select("auto_signup_next_event").eq("id", participant.id).single()
+  if (preferenceError) throw preferenceError
+  const autoSignupEnabled = latestPreference.auto_signup_next_event === true
+  await sendTwilioReply(from, await responseText("attendance_denied", {
+    auto_signup_status: autoSignupEnabled ? "مفعّل" : "متوقف",
+    auto_signup_action: autoSignupEnabled
+      ? "إذا رغبت بإيقاف التسجيل التلقائي للفعاليات القادمة، أرسل: *إيقاف*"
+      : "إذا رغبت بالتسجيل التلقائي في أي فعالية قادمة، أرسل: *تفعيل*",
+  }), participant)
 }
 
 function normalizeArabicCommand(value) {

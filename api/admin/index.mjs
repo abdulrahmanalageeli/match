@@ -94,6 +94,7 @@ async function getAdminWhatsappConfig() {
     mapUrl: "",
     tutorialUrl: "https://blindmatch.app/event3",
     ...(data?.whatsapp_config || {}),
+    latePriceSwitchLabel: "الثلاثاء الساعة 1 ظهرًا",
   }
 }
 
@@ -1525,7 +1526,7 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: "A valid Riyadh-local payment cutoff date and time is required" })
           }
 
-          const cutoffLabel = `${String(config.paymentCutoffLocal).replace("T", " ")} (توقيت الرياض)`
+          const cutoffLabel = "الثلاثاء الساعة 1 ظهرًا"
           const normalizedConfig = {
             ...config,
             earlyPrice: 60,

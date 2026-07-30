@@ -220,6 +220,7 @@ async function getWhatsappConfig() {
     ...savedConfig,
     earlyPrice: 60,
     latePrice: 75,
+    latePriceSwitchLabel: "الثلاثاء الساعة 1 ظهرًا",
   }
 }
 
@@ -320,6 +321,8 @@ async function paymentReply(participant) {
     price_label: isEarly ? "السعر المبكر" : "السعر المتأخر",
     early_price: Number(config.earlyPrice) || 60,
     late_price: Number(config.latePrice) || 75,
+    early_time: "حتى الثلاثاء الساعة 1 ظهرًا",
+    late_time: "ابتداءً من الثلاثاء الساعة 1 ظهرًا",
     stc_pay: config.stcPay,
     bank_name: config.bankName,
     iban: config.iban,

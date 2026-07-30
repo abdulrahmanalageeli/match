@@ -122,6 +122,7 @@ async function whatsappConfig() {
     discountDeadline: "نهاية اليوم",
     eventName: "التوافق الأعمى 4.0",
     ...(data?.whatsapp_config || {}),
+    latePriceSwitchLabel: "الثلاثاء الساعة 1 ظهرًا",
   }
 }
 

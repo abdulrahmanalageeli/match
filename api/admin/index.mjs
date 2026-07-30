@@ -72,7 +72,10 @@ async function findEventReceipt(participantId, { receiptId, eventId } = {}) {
 async function editableTwilioResponse(actionKey, fallback, variables = {}) {
   const { data } = await supabase.from("twilio_response_rules").select("response_text,enabled").eq("action_key", actionKey).maybeSingle()
   if (data?.enabled === false) return ""
-  return Object.entries(variables).reduce((text, [key, value]) => text.replaceAll(`{${key}}`, String(value ?? "")), data?.response_text || fallback)
+  const rendered = Object.entries(variables).reduce((text, [key, value]) => text.replaceAll(`{${key}}`, String(value ?? "")), String(data?.response_text || fallback || "")).trim()
+  if (!rendered) return ""
+  const signature = "— *فريق التوافق الأعمى* 🤍"
+  return rendered.includes("*فريق التوافق الأعمى*") ? rendered : `${rendered}\n\n${signature}`
 }
 
 async function getAdminWhatsappConfig() {

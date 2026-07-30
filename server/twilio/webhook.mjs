@@ -43,7 +43,7 @@ const DEFAULT_RESPONSES = {
   receipt_unsupported: "تعذر قراءة المرفق كإيصال. أرسله من فضلك كصورة واضحة أو ملف PDF.",
   receipt_store_failed: "⚠️ لم نتمكن من حفظ الإيصال، لذلك لم يُسجّل بعد. يرجى إرساله مرة أخرى كصورة واضحة أو PDF. إذا تكرر الخطأ تواصل معنا على 0560899666.",
   unknown_message: "مرحباً 👋\n\n• أرسل «تأكيد» لتسجيل رغبتك بالحضور\n• أرسل «اعتذار» إذا لن تتمكن من الحضور\n• أرسل الإيصال كصورة أو PDF ليُراجع ويُعتمد\n• أرسل «إيقاف» لإلغاء الاشتراك التلقائي\n\nتأكيد المقعد النهائي يصلك برسالة منفصلة بعد اعتماد الإيصال.",
-  event_information: "📋 *معلومات حول الفعالية*\n\n✦ الفعالية: التوافق الأعمى 4.0\n✦ نظام توافق شخصي متقدم\n✦ مطابقة ذكية بناءً على شخصيتك واهتماماتك\n\nللاستفسار أكثر، تواصل مع المنظم عبر الواتساب: 0560899666\n\nفريق التوافق الأعمى",
+  event_information: "✨ *وش فكرة التوافق الأعمى؟*\n\nتجربة اجتماعية منظّمة تمر فيها بجولات تعارف قصيرة، ثم تسجّل انطباعك بسرية لنساعدك في اكتشاف أفضل توافق.\n\n📘 *شرح التجربة وخطوات يوم الفعالية:*\n{tutorial_url}\n\nخذ دقيقتين لقراءة الشرح قبل وصولك، وبتكون الصورة كاملة وواضحة 🤍",
   receipt_unknown_phone: "لم نتمكن من ربط هذا الرقم بتسجيل مشارك. يرجى إرسال الإيصال من الرقم المسجل أو التواصل معنا على 0560899666.",
   auto_signup_already_stopped: "الاشتراك التلقائي متوقف لديك بالفعل، ولم نغيّر أي شيء.",
   final_event_details: "📘 *شرح الفعالية قبل الحضور:*\n{tutorial_url}\n\n📍 *المكان:* {location}\n🗺️ {map_url}\n📅 *التاريخ:* {event_date}\n🕰️ *الوقت:* {event_time}{arrival_suffix}\n\nيرجى قراءة الشرح قبل الوصول. نراك هناك! 🤍",
@@ -57,7 +57,10 @@ async function responseText(actionKey, variables = {}) {
   const { data } = await supabase.from("twilio_response_rules").select("response_text,enabled").eq("action_key", actionKey).maybeSingle()
   if (data?.enabled === false) return ""
   const selected = data?.response_text || DEFAULT_RESPONSES[actionKey]
-  return renderResponse(selected || "", variables)
+  const rendered = renderResponse(selected || "", variables).trim()
+  if (!rendered) return ""
+  const signature = "— *فريق التوافق الأعمى* 🤍"
+  return rendered.includes("*فريق التوافق الأعمى*") ? rendered : `${rendered}\n\n${signature}`
 }
 
 async function recordParticipantAction(participant, actionKey, value, source = "participant", note = null) {
@@ -472,7 +475,10 @@ export default async function handler(req, res) {
         }
 
         case "event3_information": {
-          const infoMessage = await responseText("event_information")
+          const config = await getWhatsappConfig()
+          const tutorialBase = String(config.tutorialUrl || "https://blindmatch.app/event3").trim()
+          const tutorialUrl = `${tutorialBase}${tutorialBase.includes("?") ? "&" : "?"}token=${encodeURIComponent(participant.secure_token || "")}`
+          const infoMessage = await responseText("event_information", { tutorial_url: tutorialUrl })
           await sendTwilioReply(from, infoMessage, participant)
           return res.status(200).json({ status: "info_sent" })
         }

@@ -41,10 +41,12 @@ async function currentEventId() {
 }
 
 async function attachEventReceipts(participants, eventId) {
+  if (!participants.length) return participants
   const { data: receipts, error } = await supabase
     .from("participant_receipts")
     .select("id,participant_id,event_id,receipt_url,status,received_at,reviewed_at,rejection_reason")
     .eq("event_id", eventId)
+    .in("participant_id", participants.map(participant => participant.id))
     .order("received_at", { ascending: false })
     .limit(10000)
   if (error) throw error
@@ -69,6 +71,36 @@ async function attachEventReceipts(participants, eventId) {
       receipt_rejection_reason: receipt?.rejection_reason || null,
     }
   })
+}
+
+const PARTICIPANT_SELECT = "id,assigned_number,name,phone_number,secure_token,event_id,survey_data,preferred_age_min,preferred_age_max,attendance_confirmed,attendance_confirmed_at,attendance_denied_at,PAID,PAID_DONE,payment_waived,receipt_url,receipt_received_at,receipt_approved,receipt_rejected,same_gender_preference,any_gender_preference,age_flex_years,age_flex_event_id,arrival_status,arrival_status_at,discount_interest,auto_signup_next_event,last_twilio_action,last_twilio_action_at"
+
+async function participantPage({ eventId, cursor = 0, search = "", filter = "all", limit = 40 } = {}) {
+  const pageSize = Math.min(Math.max(Number(limit) || 40, 10), 50)
+  let query = supabase.from("participants").select(PARTICIPANT_SELECT)
+    .eq("match_id", STATIC_MATCH_ID).neq("assigned_number", 9999)
+    .gt("assigned_number", Math.max(Number(cursor) || 0, 0))
+
+  if (filter === "confirmed") query = query.eq("attendance_confirmed", true)
+  if (filter === "awaiting_payment") query = query.eq("attendance_confirmed", true).eq("PAID_DONE", false).eq("payment_waived", false)
+  if (filter === "declined") query = query.not("attendance_denied_at", "is", null)
+  if (["on_way", "late", "arrived"].includes(filter)) query = query.eq("arrival_status", filter)
+
+  const term = String(search || "").trim().replace(/[,%()]/g, " ").slice(0, 80)
+  if (term) {
+    const number = /^\d+$/.test(term) ? Number(term) : null
+    const clauses = [`name.ilike.%${term}%`, `phone_number.ilike.%${term}%`]
+    if (number !== null) clauses.push(`assigned_number.eq.${number}`)
+    query = query.or(clauses.join(","))
+  }
+
+  const { data, error } = await query.order("assigned_number").limit(pageSize + 1)
+  if (error) throw error
+  const rows = data || []
+  const hasMore = rows.length > pageSize
+  const visible = rows.slice(0, pageSize)
+  const participants = await attachEventReceipts(visible, eventId)
+  return { participants, hasMore, nextCursor: hasMore ? visible.at(-1)?.assigned_number || null : null, pageSize }
 }
 
 async function whatsappConfig() {
@@ -238,24 +270,54 @@ async function updateParticipantAction(participant, actionKey, value, eventId) {
 
 async function dashboard() {
   const eventId = await currentEventId()
-  const [templatesResult, responsesResult, messagesResult, participantsResult, actionsResult, attendanceResult] = await Promise.all([
+  const [templatesResult, responsesResult, messagesResult, actionsResult, attendanceResult, page, totalResult, confirmedResult, declinedResult, paidResult, awaitingResult, receiptsResult, onWayResult, lateResult, arrivedResult] = await Promise.all([
     supabase.from("twilio_templates").select("*").order("sort_order"),
     supabase.from("twilio_response_rules").select("*").order("sort_order"),
-    supabase.from("whatsapp_messages").select("*").order("created_at", { ascending: false }).limit(300),
-    supabase.from("participants").select("id,assigned_number,name,phone_number,secure_token,event_id,survey_data,preferred_age_min,preferred_age_max,attendance_confirmed,attendance_confirmed_at,attendance_denied_at,PAID,PAID_DONE,payment_waived,receipt_url,receipt_received_at,receipt_approved,receipt_rejected,same_gender_preference,any_gender_preference,age_flex_years,age_flex_event_id,arrival_status,arrival_status_at,discount_interest,auto_signup_next_event,last_twilio_action,last_twilio_action_at").eq("match_id", STATIC_MATCH_ID).neq("assigned_number", 9999).order("assigned_number").limit(10000),
-    supabase.from("participant_twilio_actions").select("*").eq("event_id", eventId).order("updated_at", { ascending: false }).limit(1000),
+    supabase.from("whatsapp_messages").select("id,assigned_number,phone_number,direction,message_body,template_sid,button_text,twilio_message_sid,status,status_updated_at,error_code,error_message,created_at").order("created_at", { ascending: false }).limit(100),
+    supabase.from("participant_twilio_actions").select("id,assigned_number,action_key,action_value,source,updated_at").eq("event_id", eventId).order("updated_at", { ascending: false }).limit(200),
     supabase.from("attendance_requests").select("*").eq("status", "pending").order("created_at", { ascending: false }),
+    participantPage({ eventId }),
+    supabase.from("participants").select("id", { count: "exact", head: true }).eq("match_id", STATIC_MATCH_ID).neq("assigned_number", 9999),
+    supabase.from("participants").select("id", { count: "exact", head: true }).eq("match_id", STATIC_MATCH_ID).eq("attendance_confirmed", true).neq("assigned_number", 9999),
+    supabase.from("participants").select("id", { count: "exact", head: true }).eq("match_id", STATIC_MATCH_ID).not("attendance_denied_at", "is", null).neq("assigned_number", 9999),
+    supabase.from("participants").select("id", { count: "exact", head: true }).eq("match_id", STATIC_MATCH_ID).eq("attendance_confirmed", true).or("PAID_DONE.eq.true,payment_waived.eq.true").neq("assigned_number", 9999),
+    supabase.from("participants").select("id", { count: "exact", head: true }).eq("match_id", STATIC_MATCH_ID).eq("attendance_confirmed", true).eq("PAID_DONE", false).eq("payment_waived", false).neq("assigned_number", 9999),
+    supabase.from("participant_receipts").select("id", { count: "exact", head: true }).eq("event_id", eventId).eq("status", "pending"),
+    supabase.from("participants").select("id", { count: "exact", head: true }).eq("match_id", STATIC_MATCH_ID).eq("arrival_status", "on_way").neq("assigned_number", 9999),
+    supabase.from("participants").select("id", { count: "exact", head: true }).eq("match_id", STATIC_MATCH_ID).eq("arrival_status", "late").neq("assigned_number", 9999),
+    supabase.from("participants").select("id", { count: "exact", head: true }).eq("match_id", STATIC_MATCH_ID).eq("arrival_status", "arrived").neq("assigned_number", 9999),
   ])
-  for (const result of [templatesResult, responsesResult, messagesResult, participantsResult, actionsResult, attendanceResult]) {
+  for (const result of [templatesResult, responsesResult, messagesResult, actionsResult, attendanceResult, totalResult, confirmedResult, declinedResult, paidResult, awaitingResult, receiptsResult, onWayResult, lateResult, arrivedResult]) {
     if (result.error) throw result.error
   }
   const templates = (templatesResult.data || []).map(t => ({ ...t, content_sid: t.content_sid || templateEnvSid(t.template_key) }))
   const messages = messagesResult.data || []
+  const { data: pendingReceiptRows, error: pendingReceiptError } = await supabase
+    .from("participant_receipts")
+    .select("id,participant_id,assigned_number,event_id,receipt_url,received_at")
+    .eq("event_id", eventId).eq("status", "pending")
+    .order("received_at", { ascending: false }).limit(100)
+  if (pendingReceiptError) throw pendingReceiptError
+  let receiptApprovals = []
+  if (pendingReceiptRows?.length) {
+    const { data: receiptParticipants, error: receiptParticipantsError } = await supabase
+      .from("participants").select("id,name,phone_number,survey_data")
+      .in("id", pendingReceiptRows.map(row => row.participant_id))
+    if (receiptParticipantsError) throw receiptParticipantsError
+    const participantById = new Map((receiptParticipants || []).map(participant => [participant.id, participant]))
+    receiptApprovals = pendingReceiptRows.map(row => ({
+      ...(participantById.get(row.participant_id) || {}),
+      receipt_id: row.id,
+      receipt_event_id: row.event_id,
+      assigned_number: row.assigned_number,
+      receipt_url: row.receipt_url,
+      receipt_received_at: row.received_at,
+    }))
+  }
   const delivery = ["queued", "sent", "delivered", "read", "failed", "undelivered"].reduce((acc, status) => {
     acc[status] = messages.filter(m => m.direction === "outbound" && m.status === status).length
     return acc
   }, {})
-  const participants = await attachEventReceipts(participantsResult.data || [], eventId)
   return {
     success: true,
     eventId,
@@ -263,19 +325,21 @@ async function dashboard() {
     responses: responsesResult.data || [],
     messages,
     actions: actionsResult.data || [],
-    participants,
+    participants: page.participants,
+    participantPage: { hasMore: page.hasMore, nextCursor: page.nextCursor, pageSize: page.pageSize },
     attendanceRequests: attendanceResult.data || [],
+    receiptApprovals,
     delivery,
     stats: {
-      participants: participants.length,
-      confirmed: participants.filter(p => p.attendance_confirmed).length,
-      declined: participants.filter(p => p.attendance_denied_at).length,
-      paid: participants.filter(p => p.attendance_confirmed && (p.PAID_DONE || p.payment_waived)).length,
-      awaitingReceipt: participants.filter(p => p.attendance_confirmed && !p.PAID_DONE && !p.payment_waived).length,
-      receiptsPending: participants.filter(p => p.receipt_url && !p.receipt_approved && !p.receipt_rejected).length,
-      onWay: participants.filter(p => p.arrival_status === "on_way").length,
-      late: participants.filter(p => p.arrival_status === "late").length,
-      arrived: participants.filter(p => p.arrival_status === "arrived").length,
+      participants: totalResult.count || 0,
+      confirmed: confirmedResult.count || 0,
+      declined: declinedResult.count || 0,
+      paid: paidResult.count || 0,
+      awaitingReceipt: awaitingResult.count || 0,
+      receiptsPending: receiptsResult.count || 0,
+      onWay: onWayResult.count || 0,
+      late: lateResult.count || 0,
+      arrived: arrivedResult.count || 0,
     },
   }
 }
@@ -286,6 +350,10 @@ export default async function handler(req, res) {
   const { action } = req.body || {}
   try {
     if (action === "dashboard") return res.status(200).json(await dashboard())
+    if (action === "participant-page") {
+      const eventId = Number(req.body.event_id || await currentEventId())
+      return res.status(200).json({ success: true, ...(await participantPage({ eventId, cursor: req.body.cursor, search: req.body.search, filter: req.body.filter, limit: req.body.limit })) })
+    }
 
     if (action === "update-template") {
       const { id, patch } = req.body

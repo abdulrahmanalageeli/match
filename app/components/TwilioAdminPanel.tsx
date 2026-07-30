@@ -64,6 +64,7 @@ export default function TwilioAdminPanel({ adminPassword, onParticipantChanged, 
   const [selectedTemplate, setSelectedTemplate] = useState<Record<number, string>>({})
   const [selectedNumbers, setSelectedNumbers] = useState<Set<number>>(new Set())
   const [bulkTemplate, setBulkTemplate] = useState("")
+  const [participantLoading, setParticipantLoading] = useState(false)
 
   const call = useCallback(async (action: string, body: Record<string, any> = {}) => {
     if (!adminPassword) {
@@ -96,7 +97,38 @@ export default function TwilioAdminPanel({ adminPassword, onParticipantChanged, 
     }
   }, [call])
 
+  const loadParticipantPage = useCallback(async (append = false, cursor: number | null = null) => {
+    if (!data?.eventId) return
+    setParticipantLoading(true)
+    try {
+      const result = await call("participant-page", {
+        event_id: data.eventId,
+        cursor: append ? cursor : 0,
+        search: search.trim(),
+        filter: participantFilter,
+        limit: 40,
+      })
+      setData((current: any) => ({
+        ...current,
+        participants: append ? [...(current.participants || []), ...(result.participants || [])] : (result.participants || []),
+        participantPage: { hasMore: result.hasMore, nextCursor: result.nextCursor, pageSize: result.pageSize },
+      }))
+    } catch (error: any) {
+      toast.error(error.message || "تعذر تحميل المشاركين")
+    } finally {
+      setParticipantLoading(false)
+    }
+  }, [call, data?.eventId, participantFilter, search])
+
   useEffect(() => { load() }, [load])
+  useEffect(() => {
+    if (tab !== "participants" || !data?.eventId) return
+    const timer = window.setTimeout(() => {
+      setSelectedNumbers(new Set())
+      loadParticipantPage(false)
+    }, 300)
+    return () => window.clearTimeout(timer)
+  }, [tab, search, participantFilter, data?.eventId, loadParticipantPage])
   useEffect(() => {
     if (tab !== "overview" && tab !== "messages" && tab !== "approvals") return
     const timer = window.setInterval(() => load(true), 15000)
@@ -147,7 +179,7 @@ export default function TwilioAdminPanel({ adminPassword, onParticipantChanged, 
     try {
       await call("set-participant-action", { assigned_number: participant.assigned_number, action_key: actionKey, value, event_id: data.eventId })
       toast.success(`تم تحديث ${participantName(participant)}`)
-      await load(true)
+      await loadParticipantPage(false)
       onParticipantChanged?.()
     } catch (error: any) { toast.error(error.message) }
     finally { setSaving(null) }
@@ -180,20 +212,7 @@ export default function TwilioAdminPanel({ adminPassword, onParticipantChanged, 
   }
 
   const approvedTemplates = useMemo(() => (data?.templates || []).filter((t: any) => t.enabled && t.approval_status === "approved" && t.content_sid), [data])
-  const participants = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    return (data?.participants || []).filter((p: any) => {
-      const matchesSearch = !q || `${participantName(p)} ${p.assigned_number} ${p.phone_number || ""}`.toLowerCase().includes(q)
-      const matchesFilter = participantFilter === "all"
-        || (participantFilter === "confirmed" && p.attendance_confirmed)
-        || (participantFilter === "awaiting_payment" && p.attendance_confirmed && !p.PAID_DONE && !p.payment_waived)
-        || (participantFilter === "declined" && p.attendance_denied_at)
-        || (participantFilter === "late" && p.arrival_status === "late")
-        || (participantFilter === "on_way" && p.arrival_status === "on_way")
-        || (participantFilter === "arrived" && p.arrival_status === "arrived")
-      return matchesSearch && matchesFilter
-    })
-  }, [data, search, participantFilter])
+  const participants = useMemo(() => data?.participants || [], [data?.participants])
   const messages = useMemo(() => {
     const q = search.trim().toLowerCase()
     return (data?.messages || []).filter((m: any) => {
@@ -248,7 +267,7 @@ export default function TwilioAdminPanel({ adminPassword, onParticipantChanged, 
       </div>
       <div className="grid gap-4 xl:grid-cols-[1.2fr_.8fr]">
         <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5">
-          <div className="mb-4 flex items-center justify-between"><div><h3 className="font-black">حالة التسليم</h3><p className="text-xs text-slate-500">آخر 300 رسالة مسجلة</p></div><button onClick={() => setTab("messages")} className="text-xs font-bold text-cyan-300">عرض الكل</button></div>
+          <div className="mb-4 flex items-center justify-between"><div><h3 className="font-black">حالة التسليم</h3><p className="text-xs text-slate-500">آخر 100 رسالة مسجلة</p></div><button onClick={() => setTab("messages")} className="text-xs font-bold text-cyan-300">عرض الكل</button></div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {["queued", "sent", "delivered", "read", "failed", "undelivered"].map(status => <button key={status} onClick={() => { setMessageStatus(status); setTab("messages") }} className={`rounded-xl border p-3 text-right ${STATUS_STYLE[status]}`}><p className="text-xl font-black">{data.delivery[status] || 0}</p><p className="mt-1 text-[10px] font-bold uppercase">{STATUS_LABEL[status]}</p></button>)}
           </div>
@@ -296,7 +315,7 @@ export default function TwilioAdminPanel({ adminPassword, onParticipantChanged, 
         <select value={bulkTemplate} onChange={e => setBulkTemplate(e.target.value)} className={`${fieldClass} sm:flex-1`}><option value="">قالب الإرسال الجماعي</option>{approvedTemplates.map((t: any) => <option key={t.template_key} value={t.template_key}>{t.friendly_name}</option>)}</select>
         <button onClick={bulkSend} disabled={!bulkTemplate || selectedNumbers.size === 0 || saving === "bulk-send"} className={`${buttonClass} border-cyan-300/30 bg-cyan-400 text-slate-950 hover:bg-cyan-300`}><Send className="h-4 w-4" />إرسال إلى {selectedNumbers.size}</button>
       </div>
-      <p className="px-1 text-xs text-slate-500">{participants.length} مشارك — كل تعديل يدوي محفوظ كمصدر Admin في سجل الإجراءات.</p>
+      <p className="px-1 text-xs text-slate-500">يعرض {participants.length} من أصل {data.stats.participants} مشارك — البحث والتصفية يعملان من الخادم.</p>
       <div className="grid gap-3 xl:grid-cols-2">{participants.map((p: any) => <details key={p.id} className="group rounded-2xl border border-white/10 bg-white/[0.04] open:border-cyan-400/20 open:bg-cyan-400/[0.035]">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4"><div className="flex min-w-0 items-start gap-3"><input type="checkbox" checked={selectedNumbers.has(p.assigned_number)} onClick={e => e.stopPropagation()} onChange={e => setSelectedNumbers(current => { const next = new Set(current); e.target.checked ? next.add(p.assigned_number) : next.delete(p.assigned_number); return next })} className="mt-1 h-4 w-4 shrink-0 accent-cyan-400" /><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="rounded-lg bg-white/10 px-2 py-1 text-xs font-black">#{p.assigned_number}</span><h4 className="truncate font-black">{participantName(p)}</h4>{p.attendance_confirmed ? <span className="text-[10px] font-bold text-emerald-300">مؤكد</span> : p.attendance_denied_at ? <span className="text-[10px] font-bold text-red-300">معتذر</span> : <span className="text-[10px] font-bold text-slate-500">لم يرد</span>}</div><div className="mt-2 flex flex-wrap gap-1.5"><span className={`rounded-full px-2 py-0.5 text-[10px] ${p.PAID_DONE || p.payment_waived ? "bg-emerald-500/15 text-emerald-300" : "bg-amber-500/15 text-amber-300"}`}>{p.payment_waived ? "معفى" : p.PAID_DONE ? "مدفوع" : "غير مدفوع"}</span>{p.arrival_status && <span className="rounded-full bg-orange-500/15 px-2 py-0.5 text-[10px] text-orange-300">{p.arrival_status}</span>}{p.age_flex_years > 0 && <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-[10px] text-violet-300">مرونة عمر ±{p.age_flex_years}</span>}</div></div></div><ChevronDown className="h-5 w-5 shrink-0 text-slate-500 transition group-open:rotate-180" /></summary>
         <div className="space-y-4 border-t border-white/10 p-4">
@@ -313,6 +332,8 @@ export default function TwilioAdminPanel({ adminPassword, onParticipantChanged, 
           <div className="flex flex-wrap justify-between gap-2 text-[10px] text-slate-500"><span>{p.phone_number || "بدون هاتف"}</span><span>آخر إجراء: {p.last_twilio_action || "—"} · {fmtDate(p.last_twilio_action_at)}</span></div>
         </div>
       </details>)}</div>
+      {participantLoading && <div className="flex justify-center py-5"><Loader2 className="h-6 w-6 animate-spin text-cyan-300" /></div>}
+      {!participantLoading && data.participantPage?.hasMore && <button onClick={() => loadParticipantPage(true, data.participantPage.nextCursor)} className={`${buttonClass} w-full border-cyan-400/20 bg-cyan-400/10 text-cyan-200 hover:bg-cyan-400/20`}>تحميل 40 مشاركاً إضافياً</button>}
     </div>}
 
     {tab === "messages" && <div className="space-y-3">
@@ -330,7 +351,7 @@ function ActionSelect({ label, value, options, onChange, disabled }: { label: st
 
 function ApprovalsPanel({ data, adminPassword, onRefresh }: { data: any; adminPassword: string; onRefresh: () => void }) {
   const [working, setWorking] = useState<string | null>(null)
-  const receipts = (data.participants || []).filter((p: any) => p.receipt_url && !p.receipt_approved && !p.receipt_rejected)
+  const receipts = data.receiptApprovals || []
   const adminCall = async (action: string, body: any) => {
     setWorking(`${action}-${body.assigned_number || body.id}`)
     try {

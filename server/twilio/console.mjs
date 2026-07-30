@@ -414,6 +414,58 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, results })
     }
 
+    if (action === "sync-delivery-statuses") {
+      const accountSid = process.env.TWILIO_ACCOUNT_SID
+      const authToken = process.env.TWILIO_AUTH_TOKEN
+      if (!accountSid || !authToken) return res.status(500).json({ error: "Twilio credentials not configured" })
+      const { data: messages, error } = await supabase
+        .from("whatsapp_messages")
+        .select("id,twilio_message_sid,status")
+        .eq("direction", "outbound")
+        .in("status", ["queued", "sent"])
+        .not("twilio_message_sid", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(100)
+      if (error) throw error
+
+      const results = []
+      for (let index = 0; index < (messages || []).length; index += 5) {
+        const batch = await Promise.all(messages.slice(index, index + 5).map(async message => {
+          const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages/${message.twilio_message_sid}.json`, {
+            headers: { Authorization: "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64") },
+          })
+          const twilio = await response.json()
+          if (!response.ok) return { id: message.id, success: false, error: twilio.message || `Twilio ${response.status}` }
+          const status = String(twilio.status || message.status).toLowerCase()
+          const now = new Date().toISOString()
+          const patch = {
+            status,
+            status_updated_at: now,
+            error_code: twilio.error_code ? String(twilio.error_code) : null,
+            error_message: twilio.error_message || null,
+            twilio_payload: twilio,
+          }
+          if (status === "delivered") patch.delivered_at = twilio.date_updated || now
+          if (status === "read") {
+            patch.read_at = twilio.date_updated || now
+            patch.delivered_at = twilio.date_updated || now
+          }
+          if (status === "failed" || status === "undelivered") patch.failed_at = twilio.date_updated || now
+          const { error: updateError } = await supabase.from("whatsapp_messages").update(patch).eq("id", message.id)
+          return updateError
+            ? { id: message.id, success: false, error: updateError.message }
+            : { id: message.id, success: true, status }
+        }))
+        results.push(...batch)
+      }
+      return res.status(200).json({
+        success: true,
+        checked: results.length,
+        updated: results.filter(result => result.success).length,
+        failed: results.filter(result => !result.success).length,
+      })
+    }
+
     if (action === "set-participant-action") {
       const { assigned_number, action_key, value } = req.body
       const eventId = Number(req.body.event_id || await currentEventId())

@@ -11,15 +11,22 @@ function validateTwilioSignature(req) {
   if (!authToken) return false
   const signature = req.headers["x-twilio-signature"] || ""
   if (!signature) return false
-  const protocol = req.headers["x-forwarded-proto"] || "https"
-  const host = req.headers["x-forwarded-host"] || req.headers.host || ""
-  const url = `${protocol}://${host}${req.url || ""}`
   const params = req.body || {}
   const data = Object.keys(params).sort().map(key => key + (params[key] || "")).join("")
-  const expected = crypto.createHmac("sha1", authToken).update(url + data).digest("base64")
   const actualBuffer = Buffer.from(signature)
-  const expectedBuffer = Buffer.from(expected)
-  return actualBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(actualBuffer, expectedBuffer)
+  const forwardedProtocol = String(req.headers["x-forwarded-proto"] || "https").split(",")[0].trim()
+  const forwardedHost = String(req.headers["x-forwarded-host"] || req.headers.host || "").split(",")[0].trim()
+  const requestUrl = `${forwardedProtocol}://${forwardedHost}${req.url || ""}`
+  const configuredUrl = process.env.TWILIO_STATUS_CALLBACK_URL || "https://blindmatch.app/api/twilio-status"
+
+  // Twilio signs the public URL it called. On Vercel, req.url can contain an
+  // internal dynamic-route representation, so validate the configured public
+  // callback first and retain the reconstructed URL for local/custom domains.
+  return [...new Set([configuredUrl, requestUrl])].some(url => {
+    const expected = crypto.createHmac("sha1", authToken).update(url + data).digest("base64")
+    const expectedBuffer = Buffer.from(expected)
+    return actualBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(actualBuffer, expectedBuffer)
+  })
 }
 
 const TRACKED_STATUSES = new Set(["queued", "sent", "delivered", "read", "failed", "undelivered"])

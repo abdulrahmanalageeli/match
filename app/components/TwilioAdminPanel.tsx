@@ -174,6 +174,18 @@ export default function TwilioAdminPanel({ adminPassword, onParticipantChanged, 
     finally { setSaving(null) }
   }
 
+  const syncDeliveryStatuses = async () => {
+    setSaving("delivery-sync")
+    try {
+      const result = await call("sync-delivery-statuses")
+      result.failed
+        ? toast.error(`تم فحص ${result.checked} رسالة مع ${result.failed} أخطاء`)
+        : toast.success(`تم تحديث حالة ${result.updated} رسالة من Twilio`)
+      await load(true)
+    } catch (error: any) { toast.error(error.message) }
+    finally { setSaving(null) }
+  }
+
   const setParticipantAction = async (participant: any, actionKey: string, value: string | number) => {
     setSaving(`participant-${participant.assigned_number}-${actionKey}`)
     try {
@@ -337,7 +349,7 @@ export default function TwilioAdminPanel({ adminPassword, onParticipantChanged, 
     </div>}
 
     {tab === "messages" && <div className="space-y-3">
-      <div className="grid gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-3 sm:grid-cols-[1fr_200px]"><div className="relative"><Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث في الرسائل" className={`${fieldClass} pr-9`} /></div><select value={messageStatus} onChange={e => setMessageStatus(e.target.value)} className={fieldClass}><option value="all">كل الحالات</option>{["queued","sent","delivered","read","failed","undelivered","received"].map(s => <option key={s}>{s}</option>)}</select></div>
+      <div className="grid gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-3 sm:grid-cols-[1fr_180px_auto]"><div className="relative"><Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="بحث في الرسائل" className={`${fieldClass} pr-9`} /></div><select value={messageStatus} onChange={e => setMessageStatus(e.target.value)} className={fieldClass}><option value="all">كل الحالات</option>{["queued","sent","delivered","read","failed","undelivered","received"].map(s => <option key={s}>{s}</option>)}</select><button onClick={syncDeliveryStatuses} disabled={Boolean(saving)} className={`${buttonClass} border-cyan-400/20 bg-cyan-400/10 text-cyan-200`}><RefreshCw className={`h-4 w-4 ${saving === "delivery-sync" ? "animate-spin" : ""}`} />تحديث من Twilio</button></div>
       <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.035]"><div className="hidden grid-cols-[110px_130px_1fr_140px] gap-3 border-b border-white/10 bg-white/[0.035] px-4 py-3 text-[10px] font-bold uppercase text-slate-500 md:grid"><span>Participant</span><span>Status</span><span>Message</span><span>Time</span></div>{messages.map((m: any) => <div key={m.id} className="grid gap-2 border-b border-white/5 p-4 last:border-0 md:grid-cols-[110px_130px_1fr_140px] md:items-start md:gap-3"><div><p className="text-xs font-black">{m.assigned_number ? `#${m.assigned_number}` : "Unknown"}</p><p className="mt-1 truncate text-[10px] text-slate-600">{m.direction}</p></div><StatusBadge status={m.status} /><div className="min-w-0"><p className="line-clamp-3 whitespace-pre-wrap text-xs leading-5 text-slate-300">{m.message_body || (m.template_sid ? `Template ${m.template_sid}` : m.button_text || "—")}</p>{(m.error_code || m.error_message) && <p className="mt-2 rounded-lg bg-red-500/10 p-2 text-[10px] text-red-300">{m.error_code ? `${m.error_code}: ` : ""}{m.error_message}</p>}<p className="mt-1 truncate font-mono text-[9px] text-slate-600">{m.twilio_message_sid}</p></div><span className="text-[10px] text-slate-500">{fmtDate(m.status_updated_at || m.created_at)}</span></div>)}{messages.length === 0 && <div className="p-10 text-center text-sm text-slate-500">لا توجد رسائل مطابقة.</div>}</div>
     </div>}
 

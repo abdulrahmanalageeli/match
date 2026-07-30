@@ -206,6 +206,11 @@ async function sendApprovedTemplate(template, participant, overrides = {}) {
     twilio_payload: twilio,
   })
   if (!response.ok) throw new Error(twilio.message || "Twilio send failed")
+  const { error: sentFlagError } = await supabase
+    .from("participants")
+    .update({ PAID: true })
+    .eq("id", participant.id)
+  if (sentFlagError) console.error("Failed to mark participant as WhatsApp sent:", sentFlagError)
   return { success: true, sid: twilio.sid, status: twilio.status || "queued", variables: contentVariables }
 }
 

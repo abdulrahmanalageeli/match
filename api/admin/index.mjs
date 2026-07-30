@@ -1682,9 +1682,9 @@ export default async function handler(req, res) {
             const last7 = cleanPhone.replace(/\D/g, "").slice(-7)
             const { data: pMatch } = await supabase
               .from("participants")
-              .select("id, assigned_number")
+              .select("id, assigned_number, phone_number")
+              .eq("match_id", STATIC_MATCH_ID)
               .not("phone_number", "is", null)
-              .limit(200)
             const participant = pMatch?.find(p => String(p.phone_number || "").replace(/\D/g, "").endsWith(last7))
 
             await supabase.from("whatsapp_messages").insert({
@@ -1703,6 +1703,13 @@ export default async function handler(req, res) {
               twilio_payload: twilioData || {},
               is_auto_reply: false,
             })
+            if (participant?.id) {
+              const { error: sentFlagError } = await supabase
+                .from("participants")
+                .update({ PAID: true })
+                .eq("id", participant.id)
+              if (sentFlagError) console.error("Failed to mark participant as WhatsApp sent:", sentFlagError)
+            }
           } catch (e) {
             console.error("Failed to log outgoing message:", e)
           }
@@ -1807,6 +1814,11 @@ export default async function handler(req, res) {
                     twilio_payload: twilioData || {},
                     is_auto_reply: false,
                   })
+                  const { error: sentFlagError } = await supabase
+                    .from("participants")
+                    .update({ PAID: true })
+                    .eq("id", p.id)
+                  if (sentFlagError) console.error("Failed to mark bulk participant as WhatsApp sent:", sentFlagError)
                 } catch (e) {
                   console.error("Failed to log bulk message:", e)
                 }

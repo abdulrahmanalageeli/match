@@ -81,6 +81,12 @@ async function editableTwilioResponse(actionKey, fallback, variables = {}) {
 async function getAdminWhatsappConfig() {
   const { data } = await supabase.from("event_state").select("whatsapp_config").eq("match_id", STATIC_MATCH_ID).maybeSingle()
   return {
+    earlyPrice: 60,
+    latePrice: 75,
+    paymentCutoffLocal: "",
+    stcPay: "0560899666",
+    bankName: "مصرف الراجحي: عبدالرحمن عبدالملك",
+    iban: "SA2480000588608016007502",
     eventDateText: "",
     eventTimeText: "",
     arrivalTimeText: "",
@@ -89,6 +95,28 @@ async function getAdminWhatsappConfig() {
     tutorialUrl: "https://blindmatch.app/event3",
     ...(data?.whatsapp_config || {}),
   }
+}
+
+function adminPaymentDetails(participant, config) {
+  const cutoff = String(config.paymentCutoffLocal || "").trim()
+  const cutoffAt = cutoff ? Date.parse(`${cutoff}:00+03:00`) : Number.NaN
+  const signupAt = Date.parse(participant.next_event_signup_timestamp || participant.created_at || "")
+  const isEarly = !Number.isFinite(cutoffAt) || (Number.isFinite(signupAt) && signupAt <= cutoffAt)
+  return { price: Number(isEarly ? config.earlyPrice : config.latePrice) || (isEarly ? 60 : 75), isEarly }
+}
+
+async function buildPaymentRequestMessage(participant, config) {
+  const { price, isEarly } = adminPaymentDetails(participant, config)
+  return editableTwilioResponse("attendance_payment_pending", "", {
+    participant_number: participant.assigned_number,
+    price,
+    price_label: isEarly ? "السعر المبكر" : "السعر المتأخر",
+    early_price: Number(config.earlyPrice) || 60,
+    late_price: Number(config.latePrice) || 75,
+    stc_pay: config.stcPay,
+    bank_name: config.bankName,
+    iban: config.iban,
+  })
 }
 
 async function buildFinalConfirmationMessage(participant, config, paymentWaived = false) {
@@ -105,17 +133,18 @@ async function buildFinalConfirmationMessage(participant, config, paymentWaived 
     event_time: config.eventTimeText || "سيتم إرساله قريباً",
     arrival_suffix: config.arrivalTimeText ? ` (الحضور ${config.arrivalTimeText})` : "",
   })
-  return `${intro}\n\n${details}`
+  const signature = "— *فريق التوافق الأعمى* 🤍"
+  const withoutSignature = value => String(value || "").replace(/\n\n— \*فريق التوافق الأعمى\* 🤍\s*$/u, "").trim()
+  return `${withoutSignature(intro)}\n\n${withoutSignature(details)}\n\n${signature}`
 }
 
-async function sendFinalConfirmation(participant, paymentWaived = false) {
+async function sendAdminWhatsappMessage(participant, message) {
   if (!participant.phone_number) return { sent: false, error: "Participant has no phone number" }
   const accountSid = process.env.TWILIO_ACCOUNT_SID
   const authToken = process.env.TWILIO_AUTH_TOKEN
   if (!accountSid || !authToken) return { sent: false, error: "Twilio credentials are not configured" }
   const sender = process.env.TWILIO_WHATSAPP_SENDER || "whatsapp:+13527387477"
   const to = String(participant.phone_number).replace(/\s/g, "").replace(/^(?!whatsapp:)/, "whatsapp:")
-  const message = await buildFinalConfirmationMessage(participant, await getAdminWhatsappConfig(), paymentWaived)
   if (!String(message || "").trim()) return { sent: false, error: "The configured confirmation response is disabled" }
   const body = new URLSearchParams({ From: sender, To: to, Body: message })
   body.append("StatusCallback", TWILIO_STATUS_CALLBACK_URL)
@@ -140,6 +169,11 @@ async function sendFinalConfirmation(participant, paymentWaived = false) {
     is_auto_reply: false,
   })
   return response.ok ? { sent: true, error: null } : { sent: false, error: result?.message || `Twilio returned ${response.status}` }
+}
+
+async function sendFinalConfirmation(participant, paymentWaived = false) {
+  const message = await buildFinalConfirmationMessage(participant, await getAdminWhatsappConfig(), paymentWaived)
+  return sendAdminWhatsappMessage(participant, message)
 }
 
 // ── Event 4.0 constants & helpers ─────────────────────────────────────────────
@@ -2311,7 +2345,7 @@ export default async function handler(req, res) {
           const now = new Date().toISOString()
           const { data: participant, error: participantError } = await supabase
             .from("participants")
-            .select("id,assigned_number")
+            .select("id,assigned_number,phone_number,secure_token,PAID_DONE,payment_waived,auto_signup_next_event,next_event_signup_timestamp,created_at")
             .eq("id", req_row.participant_id)
             .single()
           if (participantError || !participant) return res.status(404).json({ error: "Participant not found" })
@@ -2358,7 +2392,25 @@ export default async function handler(req, res) {
             .eq("id", request_id)
           if (updateError) return res.status(500).json({ error: updateError.message })
 
-          return res.status(200).json({ success: true, message: req_row.request_type === "deny" ? "Cancellation approved and temporary exclusion added" : "Attendance confirmed and cancellation exclusion removed" })
+          let notification = { sent: false, error: null }
+          if (req_row.request_type === "confirm") {
+            if (participant.PAID_DONE || participant.payment_waived) {
+              notification = await sendFinalConfirmation(participant, participant.payment_waived === true)
+            } else {
+              notification = await sendAdminWhatsappMessage(participant, await buildPaymentRequestMessage(participant, await getAdminWhatsappConfig()))
+            }
+          } else {
+            const autoSignupEnabled = participant.auto_signup_next_event === true
+            const reply = await editableTwilioResponse("attendance_denied", "", {
+              auto_signup_status: autoSignupEnabled ? "مفعّل" : "متوقف",
+              auto_signup_action: autoSignupEnabled
+                ? "إذا رغبت بإيقاف التسجيل التلقائي للفعاليات القادمة، أرسل: *إيقاف*"
+                : "إذا رغبت بالتسجيل التلقائي في أي فعالية قادمة، أرسل: *تفعيل*",
+            })
+            notification = await sendAdminWhatsappMessage(participant, reply)
+          }
+
+          return res.status(200).json({ success: true, notification_sent: notification.sent, notification_error: notification.error, message: req_row.request_type === "deny" ? "Cancellation approved and temporary exclusion added" : "Attendance confirmed and cancellation exclusion removed" })
         } catch (err) {
           console.error("approve-attendance-request exception:", err)
           return res.status(500).json({ error: "Failed to approve request" })

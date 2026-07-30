@@ -261,7 +261,9 @@ async function finalConfirmationMessage(participant, config, intro) {
     event_time: config.eventTimeText || "سيتم إرساله قريباً",
     arrival_suffix: config.arrivalTimeText ? ` (الحضور ${config.arrivalTimeText})` : "",
   })
-  return `${intro}\n\n${details}`
+  const signature = "— *فريق التوافق الأعمى* 🤍"
+  const withoutSignature = value => String(value || "").replace(/\n\n— \*فريق التوافق الأعمى\* 🤍\s*$/u, "").trim()
+  return `${withoutSignature(intro)}\n\n${withoutSignature(details)}\n\n${signature}`
 }
 
 async function recordAttendanceNotification(participant, from, requestType) {
@@ -285,6 +287,21 @@ async function confirmAttendance(participant, from) {
   await recordAttendanceNotification(participant, from, "confirm")
   await recordParticipantAction(participant, "attendance_request", "confirm_pending")
   await sendTwilioReply(from, await responseText("attendance_confirmation_pending"), participant)
+}
+
+async function paymentReply(participant) {
+  const config = await getWhatsappConfig()
+  const { price, isEarly } = paymentDetailsFor(participant, config)
+  return responseText("attendance_payment_pending", {
+    participant_number: participant.assigned_number,
+    price,
+    price_label: isEarly ? "السعر المبكر" : "السعر المتأخر",
+    early_price: Number(config.earlyPrice) || 60,
+    late_price: Number(config.latePrice) || 75,
+    stc_pay: config.stcPay,
+    bank_name: config.bankName,
+    iban: config.iban,
+  })
 }
 
 async function denyAttendance(participant, from) {
@@ -495,7 +512,7 @@ export default async function handler(req, res) {
           const { error } = await supabase.from("participants").update(update).eq("id", participant.id)
           if (error) throw error
           await recordParticipantAction(participant, "gender_preference", preference)
-          await sendTwilioReply(from, await responseText(buttonPayload), participant)
+          await sendTwilioReply(from, value === "interested" ? await paymentReply(participant) : await responseText(buttonPayload), participant)
           return res.status(200).json({ status: "gender_preference_updated", value: preference })
         }
 
@@ -599,7 +616,7 @@ export default async function handler(req, res) {
         const value = text === "مهتم" ? "interested" : "declined"
         await supabase.from("participants").update({ discount_interest: value }).eq("id", participant.id)
         await recordParticipantAction(participant, "discount", value)
-        await sendTwilioReply(from, await responseText(text === "مهتم" ? "discount_interested" : "discount_declined"), participant)
+        await sendTwilioReply(from, value === "interested" ? await paymentReply(participant) : await responseText("discount_declined"), participant)
         return res.status(200).json({ status: text === "مهتم" ? "offer_interested" : "offer_declined" })
       }
 
@@ -629,6 +646,16 @@ export default async function handler(req, res) {
 
         await sendTwilioReply(from, replyText, participant)
         return res.status(200).json({ status: "toggled", new_value: newValue })
+      }
+
+      if (text === "تفعيل" || text === "activate") {
+        const currentValue = participant.auto_signup_next_event === true
+        if (!currentValue) {
+          await supabase.from("participants").update({ auto_signup_next_event: true }).eq("id", participant.id)
+          await recordParticipantAction(participant, "auto_signup", "enabled")
+        }
+        await sendTwilioReply(from, await responseText(currentValue ? "auto_signup_already" : "auto_signup_enabled"), participant)
+        return res.status(200).json({ status: "toggled", new_value: true })
       }
 
       // Unrecognized text — send help

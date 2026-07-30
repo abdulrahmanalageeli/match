@@ -438,14 +438,25 @@ export default async function handler(req, res) {
       const { participant_numbers, template_key } = req.body
       if (!Array.isArray(participant_numbers) || participant_numbers.length < 1) return res.status(400).json({ error: "Select at least one participant" })
       if (participant_numbers.length > 500) return res.status(400).json({ error: "A bulk send is limited to 500 participants" })
+      const uniqueParticipantNumbers = [...new Set(participant_numbers)]
       const [{ data: template, error: templateError }, { data: participants, error: participantsError }] = await Promise.all([
         supabase.from("twilio_templates").select("*").eq("template_key", template_key).single(),
-        supabase.from("participants").select("*").eq("match_id", STATIC_MATCH_ID).in("assigned_number", participant_numbers),
+        supabase.from("participants").select("*").eq("match_id", STATIC_MATCH_ID).in("assigned_number", uniqueParticipantNumbers),
       ])
       if (templateError || !template) return res.status(404).json({ error: "Template not found" })
       if (participantsError) throw participantsError
-      const results = []
-      const participantBatches = participants || []
+      const foundNumbers = new Set((participants || []).map(participant => participant.assigned_number))
+      const results = uniqueParticipantNumbers
+        .filter(number => !foundNumbers.has(number))
+        .map(number => ({ assigned_number: number, success: false, error: "Participant not found" }))
+      const alreadySent = (participants || []).filter(participant => participant.PAID === true)
+      results.push(...alreadySent.map(participant => ({
+        assigned_number: participant.assigned_number,
+        success: true,
+        skipped: true,
+        reason: "Already marked WhatsApp sent",
+      })))
+      const participantBatches = (participants || []).filter(participant => participant.PAID !== true)
       // Small concurrent batches keep event-day sends responsive without flooding
       // Twilio or exhausting the serverless function's connection pool.
       for (let index = 0; index < participantBatches.length; index += 5) {

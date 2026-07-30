@@ -1732,6 +1732,13 @@ export default async function handler(req, res) {
           if (!templateSid || !participantNumbers || !Array.isArray(participantNumbers)) {
             return res.status(400).json({ error: "Missing 'templateSid' or 'participantNumbers'" })
           }
+          if (participantNumbers.length < 1) {
+            return res.status(400).json({ error: "Select at least one participant" })
+          }
+          if (participantNumbers.length > 500) {
+            return res.status(400).json({ error: "A bulk send is limited to 500 participants" })
+          }
+          const uniqueParticipantNumbers = [...new Set(participantNumbers)]
 
           const accountSid = process.env.TWILIO_ACCOUNT_SID
           const authToken = process.env.TWILIO_AUTH_TOKEN
@@ -1744,9 +1751,9 @@ export default async function handler(req, res) {
           // Fetch participant data for the given numbers
           const { data: participants } = await supabase
             .from("participants")
-            .select("id, assigned_number, name, phone_number, secure_token, signup_for_next_event, survey_data")
+            .select("id, assigned_number, name, phone_number, secure_token, signup_for_next_event, survey_data, PAID")
             .eq("match_id", STATIC_MATCH_ID)
-            .in("assigned_number", participantNumbers)
+            .in("assigned_number", uniqueParticipantNumbers)
             .not("phone_number", "is", null)
 
           if (!participants || participants.length === 0) {
@@ -1759,8 +1766,22 @@ export default async function handler(req, res) {
           const results = []
           let successCount = 0
           let failCount = 0
+          let skippedCount = 0
+
+          const foundNumbers = new Set(participants.map(participant => participant.assigned_number))
+          for (const number of uniqueParticipantNumbers) {
+            if (!foundNumbers.has(number)) {
+              results.push({ number, success: false, error: "Participant not found or has no phone number" })
+              failCount++
+            }
+          }
 
           for (const p of participants) {
+            if (p.PAID === true) {
+              results.push({ number: p.assigned_number, name: p.name, success: true, skipped: true, reason: "Already marked WhatsApp sent" })
+              skippedCount++
+              continue
+            }
             try {
               let normalizedTo = String(p.phone_number).replace(/\s/g, "")
               if (!normalizedTo.startsWith("whatsapp:")) {
@@ -1834,9 +1855,10 @@ export default async function handler(req, res) {
 
           return res.status(200).json({
             success: true,
-            total: participants.length,
+            total: uniqueParticipantNumbers.length,
             successCount,
             failCount,
+            skippedCount,
             results,
           })
         } catch (err) {

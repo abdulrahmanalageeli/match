@@ -15,7 +15,7 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
   const [envSids, setEnvSids] = useState<{ match: string | null; reminder: string | null; payment: string | null }>({ match: null, reminder: null, payment: null })
   const [config, setConfig] = useState<any>(null)
   const [sending, setSending] = useState(false)
-  const [result, setResult] = useState<{ successCount: number; failCount: number; results: any[] } | null>(null)
+  const [result, setResult] = useState<{ successCount: number; failCount: number; skippedCount: number; results: any[] } | null>(null)
   const [error, setError] = useState("")
   const [reviewing, setReviewing] = useState(false)
 
@@ -140,7 +140,7 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
       })
       const data = await res.json()
       if (res.ok && data.success) {
-        setResult({ successCount: data.successCount, failCount: data.failCount, results: data.results })
+        setResult({ successCount: data.successCount, failCount: data.failCount, skippedCount: data.skippedCount || 0, results: data.results })
         setReviewing(false)
       } else {
         setError(data.error || "Bulk send failed")
@@ -313,7 +313,7 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
           {/* Results */}
           {result && (
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div className="bg-green-900/20 border border-green-600/30 rounded-xl p-3 text-center">
                   <CheckCircle2 className="w-6 h-6 text-green-400 mx-auto mb-1" />
                   <div className="text-2xl font-bold text-green-400">{result.successCount}</div>
@@ -324,14 +324,18 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
                   <div className="text-2xl font-bold text-red-400">{result.failCount}</div>
                   <div className="text-xs text-red-300/70">Failed</div>
                 </div>
+                <div className="bg-amber-900/20 border border-amber-600/30 rounded-xl p-3 text-center">
+                  <div className="text-2xl font-bold text-amber-400">{result.skippedCount}</div>
+                  <div className="text-xs text-amber-300/70">Already sent</div>
+                </div>
               </div>
               {result.results.length > 0 && (
                 <div className="max-h-40 overflow-y-auto bg-slate-950/50 rounded-xl p-3 space-y-1">
                   {result.results.map((r: any, i: number) => (
-                    <div key={i} className={`text-xs flex items-center gap-2 ${r.success ? 'text-green-400' : 'text-red-400'}`}>
+                    <div key={i} className={`text-xs flex items-center gap-2 ${r.skipped ? 'text-amber-400' : r.success ? 'text-green-400' : 'text-red-400'}`}>
                       <span>#{r.number}</span>
                       <span className="text-white/50">{r.name}</span>
-                      <span>{r.success ? '✅' : `❌ ${r.error}`}</span>
+                      <span>{r.skipped ? `Skipped: ${r.reason}` : r.success ? '✅' : `❌ ${r.error}`}</span>
                     </div>
                   ))}
                 </div>

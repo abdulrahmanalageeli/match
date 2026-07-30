@@ -557,13 +557,12 @@ function SurveyHistoryModal({ modal, onClose }: { modal: { participant: any; his
   )
 }
 
-let _adminPassword = ""
-
 export default function AdminPage() {
   const location = useLocation()
   const isCohost = location.pathname.includes('cohost') || new URLSearchParams(location.search).get('cohost') === '1'
   const [password, setPassword] = useState("")
   const [authenticated, setAuthenticated] = useState(false)
+  const [adminCredential, setAdminCredential] = useState("")
   const [adminWorkspace, setAdminWorkspace] = useState<'dashboard' | 'twilio'>('dashboard')
   const [participants, setParticipants] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -2832,7 +2831,7 @@ const fetchParticipants = async () => {
           toast.error(`كلمة مرور خاطئة. ${3 - newAttempts} محاولات متبقية`);
         }
       } else {
-        _adminPassword = password
+        setAdminCredential(password)
         sessionStorage.setItem("admin_pw", password)
         localStorage.setItem("admin", "authenticated")
         setAuthenticated(true)
@@ -2846,13 +2845,13 @@ const fetchParticipants = async () => {
     })
   }
 
-  const logout = () => {
-    _adminPassword = ""
+  const logout = useCallback(() => {
+    setAdminCredential("")
     sessionStorage.removeItem("admin_pw")
     localStorage.removeItem("admin")
     setAuthenticated(false)
     setPassword("")
-  }
+  }, [])
 
   useEffect(() => {
     // Clear tracking values on page refresh to start fresh
@@ -2860,10 +2859,9 @@ const fetchParticipants = async () => {
     localStorage.removeItem('admin_previous_eligible')
     
     const storedPw = sessionStorage.getItem("admin_pw")
-    if (storedPw) {
-      _adminPassword = storedPw
-    }
-    if (localStorage.getItem("admin") === "authenticated") {
+    const hasRememberedLogin = localStorage.getItem("admin") === "authenticated"
+    if (storedPw && hasRememberedLogin) {
+      setAdminCredential(storedPw)
       setAuthenticated(true)
       fetchParticipants()
       fetchExcludedPairs()
@@ -2920,6 +2918,13 @@ const fetchParticipants = async () => {
       fetchReceiptReviewQueue()
       const receiptInterval = setInterval(fetchReceiptReviewQueue, 15000)
       return () => { clearInterval(waInterval); clearInterval(attInterval); clearInterval(receiptInterval) }
+    } else if (hasRememberedLogin) {
+      // The browser session ended, so the password is no longer available.
+      // Do not leave the UI in a misleading authenticated state.
+      localStorage.removeItem("admin")
+      sessionStorage.removeItem("admin_pw")
+      setAdminCredential("")
+      setAuthenticated(false)
     }
   }, [])
 
@@ -5030,7 +5035,7 @@ Proceed?`
 
       {adminWorkspace === 'twilio' && (
         <main className="relative z-10 mx-auto w-full max-w-[1500px] p-3 sm:p-5 lg:p-6">
-          <TwilioAdminPanel adminPassword={_adminPassword || (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('admin_pw') : '') || ''} onParticipantChanged={fetchParticipants} />
+          <TwilioAdminPanel adminPassword={adminCredential} onParticipantChanged={fetchParticipants} onUnauthorized={logout} />
         </main>
       )}
 

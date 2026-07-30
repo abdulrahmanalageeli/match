@@ -52,7 +52,7 @@ function participantName(p: any) {
 const fieldClass = "w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/10"
 const buttonClass = "inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40"
 
-export default function TwilioAdminPanel({ adminPassword, onParticipantChanged }: { adminPassword: string; onParticipantChanged?: () => void }) {
+export default function TwilioAdminPanel({ adminPassword, onParticipantChanged, onUnauthorized }: { adminPassword: string; onParticipantChanged?: () => void; onUnauthorized?: () => void }) {
   const [tab, setTab] = useState<ConsoleTab>("overview")
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -66,15 +66,23 @@ export default function TwilioAdminPanel({ adminPassword, onParticipantChanged }
   const [bulkTemplate, setBulkTemplate] = useState("")
 
   const call = useCallback(async (action: string, body: Record<string, any> = {}) => {
+    if (!adminPassword) {
+      onUnauthorized?.()
+      throw new Error("انتهت جلسة الإدارة. سجّل الدخول مجدداً.")
+    }
     const response = await fetch("/api/twilio-console", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Admin-Password": adminPassword },
-      body: JSON.stringify({ action, ...body }),
+      body: JSON.stringify({ action, password: adminPassword, ...body }),
     })
     const result = await response.json()
+    if (response.status === 401 || response.status === 403) {
+      onUnauthorized?.()
+      throw new Error("انتهت جلسة الإدارة. سجّل الدخول مجدداً.")
+    }
     if (!response.ok) throw new Error(result.error || `Request failed (${response.status})`)
     return result
-  }, [adminPassword])
+  }, [adminPassword, onUnauthorized])
 
   const load = useCallback(async (quiet = false) => {
     quiet ? setRefreshing(true) : setLoading(true)

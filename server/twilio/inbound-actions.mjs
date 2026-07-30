@@ -7,7 +7,9 @@ export function normalizeInboundAction(value) {
     .replace(/ى/g, "ي")
     .replace(/ؤ/g, "و")
     .replace(/ئ/g, "ي")
+    .replace(/[^\p{L}\p{N}_]+/gu, " ")
     .replace(/\s+/g, " ")
+    .trim()
 }
 
 const ACTION_ALIASES = {

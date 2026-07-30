@@ -17,6 +17,7 @@ const accountSid = process.env.TWILIO_ACCOUNT_SID
 const authToken = process.env.TWILIO_AUTH_TOKEN
 const sender = process.env.TWILIO_WHATSAPP_SENDER || "whatsapp:+13527387477"
 const statusCallbackUrl = process.env.TWILIO_STATUS_CALLBACK_URL || "https://blindmatch.app/api/twilio-status"
+const inboundWebhookUrl = process.env.TWILIO_WEBHOOK_URL || "https://blindmatch.app/api/twilio-webhook"
 
 const DEFAULT_RESPONSES = {
   attendance_payment_pending: "✅ تم تسجيل رغبتك بالحضور للمشارك رقم {participant_number}.\n\nلإكمال تأكيد المقعد، يرجى تحويل الرسوم المطلوبة وقدرها *{price} ريال* ({price_label}) ثم إرسال صورة الإيصال أو ملف PDF هنا.\n\n🏦 طرق الدفع:\n• STC Pay: {stc_pay}\n• {bank_name}\n• IBAN: {iban}\n\nيصبح المقعد مؤكداً نهائياً بعد مراجعة الإيصال.",
@@ -85,11 +86,6 @@ function validateTwilioSignature(req) {
   const signature = req.headers["x-twilio-signature"] || ""
   if (!signature) return false
 
-  // Build the full URL Twilio would have called
-  const protocol = req.headers["x-forwarded-proto"] || "https"
-  const host = req.headers["host"] || req.headers["x-forwarded-host"] || ""
-  const url = `${protocol}://${host}${req.url || ""}`
-
   // Sort POST params alphabetically by key, concatenate key+value
   const params = req.body || {}
   const data = Object.keys(params)
@@ -97,15 +93,19 @@ function validateTwilioSignature(req) {
     .map(key => key + (params[key] || ""))
     .join("")
 
-  const hmac = crypto.createHmac("sha1", authToken)
-  hmac.update(url + data)
-  const expected = hmac.digest("base64")
-
   const sigBuf = Buffer.from(signature)
-  const expBuf = Buffer.from(expected)
-  if (sigBuf.length !== expBuf.length) return false
+  const forwardedProtocol = String(req.headers["x-forwarded-proto"] || "https").split(",")[0].trim()
+  const forwardedHost = String(req.headers["x-forwarded-host"] || "").split(",")[0].trim()
+  const requestHost = forwardedHost || req.headers["host"] || ""
+  const requestUrl = `${forwardedProtocol}://${requestHost}${req.url || ""}`
+  const candidateUrls = [...new Set([inboundWebhookUrl, requestUrl].filter(Boolean))]
 
-  return crypto.timingSafeEqual(sigBuf, expBuf)
+  return candidateUrls.some(url => {
+    const hmac = crypto.createHmac("sha1", authToken)
+    hmac.update(url + data)
+    const expected = Buffer.from(hmac.digest("base64"))
+    return sigBuf.length === expected.length && crypto.timingSafeEqual(sigBuf, expected)
+  })
 }
 
 async function sendTwilioReply(to, message, participant = null) {

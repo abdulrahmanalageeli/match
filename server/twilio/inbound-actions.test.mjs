@@ -5,6 +5,7 @@ import { resolveInboundAction } from "./inbound-actions.mjs"
 test("resolves attendance payloads and visible Arabic labels", () => {
   assert.equal(resolveInboundAction("confirm_attendance"), "confirm_attendance")
   assert.equal(resolveInboundAction("", "", "نعم سأحضر"), "confirm_attendance")
+  assert.equal(resolveInboundAction("", "", "نعم، سأحضر"), "confirm_attendance")
   assert.equal(resolveInboundAction("", "اعتذار عن المشاركة"), "deny_attendance")
 })
 

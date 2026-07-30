@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import crypto from "crypto"
+import { normalizeInboundAction, resolveInboundAction } from "./inbound-actions.mjs"
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -361,18 +362,6 @@ async function denyAttendance(participant, from) {
   }), participant)
 }
 
-function normalizeArabicCommand(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[\u064B-\u065F\u0670\u0640]/g, "")
-    .replace(/[أإآٱ]/g, "ا")
-    .replace(/ى/g, "ي")
-    .replace(/ؤ/g, "و")
-    .replace(/ئ/g, "ي")
-    .replace(/\s+/g, " ")
-}
-
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" })
@@ -389,6 +378,7 @@ export default async function handler(req, res) {
     const buttonPayload = req.body.ButtonPayload || ""
     const buttonText = req.body.ButtonText || ""
     const messageBody = req.body.Body || ""
+    const buttonAction = resolveInboundAction(buttonPayload, buttonText, messageBody)
     const mediaUrl0 = req.body.MediaUrl0 || ""
     const mediaContentType0 = req.body.MediaContentType0 || ""
     const messageSid = req.body.MessageSid || ""
@@ -503,7 +493,7 @@ export default async function handler(req, res) {
     }
 
     // ── Handle quick reply button presses ──────────────────────────────
-    if (buttonPayload) {
+    if (buttonAction) {
       const participant = await findParticipantByPhone(from)
       if (!participant) {
         console.log("No participant found for phone:", from)
@@ -513,7 +503,7 @@ export default async function handler(req, res) {
       // Log incoming button press
       await logIncomingMessage(participant, { from, buttonPayload, buttonText, messageBody })
 
-      switch (buttonPayload) {
+      switch (buttonAction) {
         case "confirm_attendance": {
           await confirmAttendance(participant, from)
           return res.status(200).json({ status: "confirmed" })
@@ -554,7 +544,7 @@ export default async function handler(req, res) {
         case "gender_any":
         case "gender_same":
         case "gender_different": {
-          const preference = buttonPayload.replace("gender_", "")
+          const preference = buttonAction.replace("gender_", "")
           const update = preference === "any"
             ? { same_gender_preference: false, any_gender_preference: true }
             : preference === "same"
@@ -563,14 +553,14 @@ export default async function handler(req, res) {
           const { error } = await supabase.from("participants").update(update).eq("id", participant.id)
           if (error) throw error
           await recordParticipantAction(participant, "gender_preference", preference)
-          await sendTwilioReply(from, value === "interested" ? await paymentReply(participant) : await responseText(buttonPayload), participant)
+          await sendTwilioReply(from, await responseText(buttonAction), participant)
           return res.status(200).json({ status: "gender_preference_updated", value: preference })
         }
 
         case "age_expand_2":
         case "age_expand_5":
         case "age_keep_current": {
-          const years = buttonPayload === "age_expand_2" ? 2 : buttonPayload === "age_expand_5" ? 5 : 0
+          const years = buttonAction === "age_expand_2" ? 2 : buttonAction === "age_expand_5" ? 5 : 0
           const eventId = Number(participant.signup_event_id || participant.event_id || 1)
           const { error } = await supabase.from("participants").update({
             age_flex_years: years,
@@ -578,17 +568,17 @@ export default async function handler(req, res) {
           }).eq("id", participant.id)
           if (error) throw error
           await recordParticipantAction(participant, "age_flexibility", years)
-          await sendTwilioReply(from, await responseText(buttonPayload), participant)
+          await sendTwilioReply(from, await responseText(buttonAction), participant)
           return res.status(200).json({ status: "age_flexibility_updated", years })
         }
 
         case "discount_interested":
         case "discount_declined": {
-          const value = buttonPayload === "discount_interested" ? "interested" : "declined"
+          const value = buttonAction === "discount_interested" ? "interested" : "declined"
           const { error } = await supabase.from("participants").update({ discount_interest: value }).eq("id", participant.id)
           if (error) throw error
           await recordParticipantAction(participant, "discount", value)
-          await sendTwilioReply(from, await responseText(buttonPayload), participant)
+          await sendTwilioReply(from, await responseText(buttonAction), participant)
           return res.status(200).json({ status: `offer_${value}` })
         }
 
@@ -598,25 +588,25 @@ export default async function handler(req, res) {
         }
         case "arrival_on_way":
         case "arrival_late": {
-          const value = buttonPayload === "arrival_on_way" ? "on_way" : "late"
+          const value = buttonAction === "arrival_on_way" ? "on_way" : "late"
           const now = new Date().toISOString()
           const update = { arrival_status: value, arrival_status_at: now }
           const { error } = await supabase.from("participants").update(update).eq("id", participant.id)
           if (error) throw error
           await recordParticipantAction(participant, "arrival", value)
-          await sendTwilioReply(from, await responseText(buttonPayload), participant)
+          await sendTwilioReply(from, await responseText(buttonAction), participant)
           return res.status(200).json({ status: `arrival_${value}` })
         }
 
         default:
-          console.log("Unknown button payload:", buttonPayload)
+          console.log("Unknown button action:", { buttonPayload, buttonText, messageBody })
           return res.status(200).json({ status: "unknown_button" })
       }
     }
 
     // ── Handle free-text keywords (fallback for testing without buttons) ──
     if (messageBody) {
-      const text = normalizeArabicCommand(messageBody)
+      const text = normalizeInboundAction(messageBody)
       const participant = await findParticipantByPhone(from)
 
       if (!participant) {

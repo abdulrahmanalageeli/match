@@ -2380,10 +2380,9 @@ const SurveyComponent = memo(function SurveyComponent({
           open={showHobbiesModal}
           onOpenChange={setShowHobbiesModal}
           initialSelected={getHobbiesArray(String(surveyData.answers['vibe_2'] || ''))}
+          maxLength={surveyQuestions.find(question => question.id === 'vibe_2')?.maxLength}
           onApply={(selected) => {
-            const current = getHobbiesArray(String(surveyData.answers['vibe_2'] || ''))
-            const merged = Array.from(new Set([...current, ...selected]))
-            handleInputChange('vibe_2', merged.join(', '))
+            handleInputChange('vibe_2', selected.join(', '))
             setShowHobbiesModal(false)
           }}
         />
@@ -2432,4 +2431,4 @@ const SurveyComponent = memo(function SurveyComponent({
   )
 })
 
-export default SurveyComponent 
+export default SurveyComponent

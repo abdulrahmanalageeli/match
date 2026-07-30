@@ -9,6 +9,7 @@ interface HobbiesPickerModalProps {
   onOpenChange: (open: boolean) => void
   initialSelected?: string[]
   onApply: (selected: string[]) => void
+  maxLength?: number
 }
 
 const HOBBY_CATEGORIES: { key: string; title: string; items: string[] }[] = [
@@ -88,7 +89,7 @@ function normalize(text: string) {
   return text.trim()
 }
 
-export default function HobbiesPickerModal({ open, onOpenChange, initialSelected = [], onApply }: HobbiesPickerModalProps) {
+export default function HobbiesPickerModal({ open, onOpenChange, initialSelected = [], onApply, maxLength }: HobbiesPickerModalProps) {
   const [query, setQuery] = useState("")
   const [custom, setCustom] = useState("")
   const [selected, setSelected] = useState<string[]>([])
@@ -117,16 +118,27 @@ export default function HobbiesPickerModal({ open, onOpenChange, initialSelected
     )
   }, [flatList, query])
 
+  const fitsLimit = (items: string[]) => !maxLength || items.join(', ').length <= maxLength
+
   const toggle = (item: string) => {
     const val = normalize(item)
-    setSelected(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val])
+    setSelected(prev => {
+      if (prev.includes(val)) return prev.filter(v => v !== val)
+      const next = [...prev, val]
+      return fitsLimit(next) ? next : prev
+    })
   }
 
   const addCustom = () => {
     const val = normalize(custom)
     if (!val) return
-    setSelected(prev => prev.includes(val) ? prev : [...prev, val])
-    setCustom("")
+    setSelected(prev => {
+      if (prev.includes(val)) return prev
+      const next = [...prev, val]
+      if (!fitsLimit(next)) return prev
+      setCustom("")
+      return next
+    })
   }
 
   return (

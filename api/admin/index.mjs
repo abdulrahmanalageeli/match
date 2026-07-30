@@ -2400,7 +2400,13 @@ export default async function handler(req, res) {
               notification = await sendAdminWhatsappMessage(participant, await buildPaymentRequestMessage(participant, await getAdminWhatsappConfig()))
             }
           } else {
-            const autoSignupEnabled = participant.auto_signup_next_event === true
+            const { data: latestPreference, error: latestPreferenceError } = await supabase
+              .from("participants")
+              .select("auto_signup_next_event")
+              .eq("id", participant.id)
+              .single()
+            if (latestPreferenceError) return res.status(500).json({ error: latestPreferenceError.message })
+            const autoSignupEnabled = latestPreference.auto_signup_next_event === true
             const reply = await editableTwilioResponse("attendance_denied", "", {
               auto_signup_status: autoSignupEnabled ? "مفعّل" : "متوقف",
               auto_signup_action: autoSignupEnabled

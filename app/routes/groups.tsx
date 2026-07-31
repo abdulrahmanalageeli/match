@@ -2279,6 +2279,10 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
     // directly from the activity picker instead of showing an intermediate
     // card with a second "choose discussion questions" button.
     if (gameId === "discussion-questions") {
+      setSelectedGameId(gameId);
+      setGamePhase("playing");
+      setCurrentPromptIndex(0);
+      setShowInstructions(false);
       setShowPromptTopicsModal(true);
       return;
     }
@@ -4065,7 +4069,13 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
         {/* Prompt Topics Modal */}
       <PromptTopicsModal
         open={showPromptTopicsModal}
-        onClose={() => setShowPromptTopicsModal(false)}
+        onClose={() => {
+          setShowPromptTopicsModal(false);
+          if (selectedGameId === "discussion-questions") {
+            setSelectedGameId(null);
+            setGamePhase("intro");
+          }
+        }}
         embedded={disableOnboarding}
         round={round}
         tableNumber={activityTableNumber ?? tableNumber ?? 1}
@@ -4353,7 +4363,13 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
       {/* Prompt Topics Modal - Available in both pre-game and during-game */}
       <PromptTopicsModal
         open={showPromptTopicsModal}
-        onClose={() => setShowPromptTopicsModal(false)}
+        onClose={() => {
+          setShowPromptTopicsModal(false);
+          if (selectedGameId === "discussion-questions") {
+            setSelectedGameId(null);
+            setGamePhase("intro");
+          }
+        }}
         embedded={disableOnboarding}
         round={round}
         tableNumber={activityTableNumber ?? tableNumber ?? 1}

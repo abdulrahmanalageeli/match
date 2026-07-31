@@ -34,14 +34,21 @@ export function LevelIcon({ icon, className = "w-4 h-4 text-white" }: { icon: st
 type QuestionSet = 'choice' | 'special' | 'set1' | 'set2' | 'rhythm' | 'partnership'
 
 function availableQuestionSets(defaultSet: QuestionSet): QuestionSet[] {
-  // The two newest sets lead the experience. Older phase-specific sets remain
-  // available after them, preserving all existing questions.
-  if (defaultSet === 'choice') return ['rhythm', 'partnership', 'choice', 'set1', 'set2']
-  if (defaultSet === 'special') return ['rhythm', 'partnership', 'special', 'set1', 'set2']
-  return ['rhythm', 'partnership', 'set1', 'set2']
+  // Each new set belongs to one 1:1 phase: set 1 leads Phase 2 and set 2 leads
+  // Phase 3. Older phase-specific sets remain available after the default.
+  if (defaultSet === 'choice') return ['rhythm', 'choice', 'set1', 'set2']
+  if (defaultSet === 'special') return ['rhythm', 'special', 'set1', 'set2']
+  return ['partnership', 'set1', 'set2']
 }
 
-const arabicSetNumber = (value: number) => String(value).replace(/\d/g, digit => '٠١٢٣٤٥٦٧٨٩'[Number(digit)])
+const setLabel: Record<QuestionSet, string> = {
+  rhythm: 'المجموعة ١',
+  partnership: 'المجموعة ٢',
+  choice: 'المجموعة ٣',
+  special: 'المجموعة ٣',
+  set1: 'المجموعة ٤',
+  set2: 'المجموعة ٥',
+}
 
 export function QuestionSlideshow({ defaultSet }: { defaultSet: QuestionSet }) {
   const availableSets = availableQuestionSets(defaultSet)
@@ -70,12 +77,12 @@ export function QuestionSlideshow({ defaultSet }: { defaultSet: QuestionSet }) {
       {/* Tabs */}
       <div className="-mx-1 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="flex w-max min-w-full items-center justify-center gap-1 rounded-xl border border-gray-700/50 bg-gray-900/70 p-1 shadow-inner">
-          {availableSets.map((s, index) => (
+          {availableSets.map(s => (
             <button key={s} onClick={() => pick(s)}
               className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors duration-150 ${
                 activeSet === s ? 'bg-purple-600 text-white shadow-md' : 'text-gray-400 hover:text-white'
               }`}>
-              المجموعة {arabicSetNumber(index + 1)}
+              {setLabel[s]}
             </button>
           ))}
         </div>

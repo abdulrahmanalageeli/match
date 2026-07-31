@@ -2446,106 +2446,87 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
             <div className={`absolute bottom-0 -left-16 w-64 h-64 bg-gradient-to-br ${currentGame.color} opacity-15 rounded-full blur-[70px]`} />
           </motion.div>
 
-          {/* Top bar — close button */}
-          <div className="relative z-20 flex items-center justify-between px-4 pt-4 pb-2">
+          {/* Compact picker header */}
+          <div className="relative z-20 flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
             <button
               onClick={onClose}
-              className="flex items-center gap-1.5 text-gray-400 hover:text-white text-sm font-medium transition-colors"
+              className="flex h-10 items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-bold text-gray-300 transition-colors hover:bg-white/10 hover:text-white"
             >
               <X className="w-4 h-4" />
               <span>إغلاق</span>
             </button>
-            <span className="text-gray-500 text-xs">{carouselIndex + 1} / {games.length}</span>
+            <div className="text-left">
+              <p className="text-sm font-black text-white">اختر نشاطكم</p>
+              <p className="mt-0.5 text-[10px] text-gray-500">اسحب البطاقة أو استخدم الأسهم</p>
+            </div>
           </div>
 
           {/* Carousel area */}
-          <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 pb-8">
-            {/* Activity counter badge */}
-            <motion.div
-              key={`badge-${carouselIndex}`}
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-              className="mb-6"
-            >
-              <div className={`inline-flex items-center gap-2 bg-gradient-to-r ${currentGame.color} bg-clip-text text-transparent text-sm font-bold`}>
-                <span className={`w-1.5 h-1.5 rounded-full bg-gradient-to-r ${currentGame.color}`} />
-                نشاط {carouselIndex + 1} من {games.length}
-              </div>
-            </motion.div>
-
+          <div className="relative z-10 flex flex-1 flex-col items-center px-5 pb-6 pt-5">
             {/* Main carousel card — swipeable */}
-            <div className="relative w-full max-w-[300px]">
-              {/* Navigation arrows */}
-              <button
-                onClick={prevActivity}
-                className="absolute -right-4 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-all active:scale-90"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-              <button
-                onClick={nextActivity}
-                className="absolute -left-4 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-all active:scale-90"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-
+            <div className="relative w-full max-w-sm">
               {/* Swipeable card container */}
               <motion.div
                 key={`card-${carouselIndex}`}
-                initial={{ opacity: 0, scale: 0.92, y: 10 }}
+                initial={{ opacity: 0, scale: 0.97, x: 12 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.92, y: -10 }}
-                transition={{ type: "spring", stiffness: 300, damping: 28 }}
+                transition={{ type: "spring", stiffness: 280, damping: 26 }}
                 drag="x"
                 dragConstraints={{ left: 0, right: 0 }}
-                dragElastic={0.6}
+                dragElastic={0.35}
                 onDragEnd={(_, info) => {
                   if (info.offset.x > 60) nextActivity();
                   else if (info.offset.x < -60) prevActivity();
                 }}
                 className="cursor-grab active:cursor-grabbing"
               >
-                <div className="relative overflow-hidden rounded-3xl border border-white/10 shadow-2xl">
-                  {/* Gradient background */}
-                  <div className={`absolute inset-0 bg-gradient-to-br ${currentGame.color} opacity-90`} />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+                <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-gray-900/85 shadow-[0_28px_90px_-35px_rgba(0,0,0,0.95)] ring-1 ring-white/[0.04]">
+                  <div className={`absolute inset-0 bg-gradient-to-br ${currentGame.color} opacity-[0.14]`} />
+                  <div className="absolute inset-0 bg-gradient-to-b from-white/[0.05] via-transparent to-black/30" />
 
                   {/* Decorative glow */}
                   <motion.div
-                    className={`absolute -top-12 -right-12 w-40 h-40 rounded-full bg-white/10 blur-2xl`}
-                    animate={{ scale: [1, 1.15, 1], opacity: [0.3, 0.5, 0.3] }}
-                    transition={{ duration: 3, repeat: Infinity }}
+                    className={`absolute -right-16 -top-20 h-56 w-56 rounded-full bg-gradient-to-br ${currentGame.color} opacity-25 blur-3xl`}
+                    animate={{ scale: [1, 1.12, 1], x: [0, -8, 0], y: [0, 6, 0] }}
+                    transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
                   />
 
                   {/* Card content */}
-                  <div className="relative z-10 p-7 flex flex-col items-center text-center min-h-[340px] justify-between">
+                  <div className="relative z-10 flex min-h-[310px] flex-col p-6 text-right">
+                    <div className="flex items-center justify-between">
+                      <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[10px] font-bold text-white/65">
+                        {carouselIndex + 1} من {games.length}
+                      </span>
+                      <div className="flex items-center gap-2 text-[10px] font-bold text-white/60">
+                        <span>{currentGame.duration} دقائق</span>
+                        <span className="h-1 w-1 rounded-full bg-white/30" />
+                        <span>3–6 أشخاص</span>
+                      </div>
+                    </div>
+
                     {/* Icon */}
                     <motion.div
-                      initial={{ scale: 0, rotate: -20 }}
+                      initial={{ scale: 0.8, rotate: -8 }}
                       animate={{ scale: 1, rotate: 0 }}
-                      transition={{ type: "spring", stiffness: 260, damping: 18, delay: 0.1 }}
-                      className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-white shadow-xl"
+                      transition={{ type: "spring", stiffness: 260, damping: 18 }}
+                      className={`mt-7 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br ${currentGame.color} text-white shadow-xl ring-1 ring-white/30`}
                     >
                       {currentGame.icon}
                     </motion.div>
 
                     {/* Text */}
-                    <div className="space-y-2 py-4">
+                    <div className="flex-1 py-5">
                       <motion.h2
-                        initial={{ opacity: 0, y: 8 }}
+                        initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.15 }}
-                        className="text-2xl font-black text-white tracking-tight"
-                        style={{ textShadow: "0 2px 12px rgba(0,0,0,0.3)" }}
+                        className="text-2xl font-black tracking-tight text-white"
                       >
                         {currentGame.nameAr}
                       </motion.h2>
                       <motion.p
-                        initial={{ opacity: 0, y: 6 }}
+                        initial={{ opacity: 0, y: 4 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.22 }}
-                        className="text-white/80 text-sm leading-relaxed px-2"
+                        className="mt-2 max-w-[28rem] text-sm leading-7 text-white/65"
                       >
                         {currentGame.descriptionAr}
                       </motion.p>
@@ -2558,7 +2539,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                       transition={{ delay: 0.3 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => startGame(currentGame.id)}
-                      className="w-full bg-white/95 hover:bg-white text-gray-900 font-bold text-base py-3.5 rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2"
+                      className={`flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r ${currentGame.color} text-base font-black text-white shadow-lg transition-all hover:brightness-110`}
                     >
                       <Play className="w-4 h-4 fill-current" />
                       <span>ابدأ النشاط</span>
@@ -2567,30 +2548,20 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 </div>
               </motion.div>
 
-              {/* Swipe hint */}
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 0.4 }}
-                transition={{ delay: 1 }}
-                className="text-center text-gray-500 text-[11px] mt-4"
-              >
-                اسحب يمين/يسار للتنقل
-              </motion.p>
-            </div>
-
-            {/* Dots indicator */}
-            <div className="flex items-center gap-1.5 mt-6">
-              {games.map((g, i) => (
-                <button
-                  key={g.id}
-                  onClick={() => setCarouselIndex(i)}
-                  className={`transition-all duration-300 rounded-full ${
-                    i === carouselIndex
-                      ? `w-6 h-2 bg-gradient-to-r ${currentGame.color}`
-                      : "w-2 h-2 bg-white/20 hover:bg-white/30"
-                  }`}
-                />
-              ))}
+              {/* Stable navigation controls, kept outside the card edges */}
+              <div className="mt-4 grid grid-cols-[44px_1fr_44px] items-center gap-3">
+                <button onClick={nextActivity} aria-label="النشاط التالي" className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-gray-300 transition-all hover:bg-white/10 hover:text-white active:scale-90">
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+                <div className="flex items-center justify-center gap-1.5">
+                  {games.map((g, i) => (
+                    <button key={g.id} onClick={() => setCarouselIndex(i)} aria-label={`النشاط ${i + 1}`} className={`h-1.5 rounded-full transition-all duration-300 ${i === carouselIndex ? `w-7 bg-gradient-to-r ${currentGame.color}` : "w-1.5 bg-white/20 hover:bg-white/40"}`} />
+                  ))}
+                </div>
+                <button onClick={prevActivity} aria-label="النشاط السابق" className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-gray-300 transition-all hover:bg-white/10 hover:text-white active:scale-90">
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+              </div>
             </div>
           </div>
         </div>

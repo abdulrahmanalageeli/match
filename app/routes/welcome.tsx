@@ -55,6 +55,11 @@ import {
   Info,
   Home,
   Copy,
+  Shuffle,
+  GripVertical,
+  Coffee,
+  Trophy,
+  EyeOff,
 } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Avatar, AvatarFallback } from "../../components/ui/avatar"
@@ -7444,220 +7449,112 @@ export default function WelcomePage() {
                     </div>
                   </div>
                   <details className="group">
-                      <summary className="mx-4 flex cursor-pointer list-none items-center justify-between rounded-2xl border border-white/[0.08] bg-white/[0.045] px-4 py-3.5 text-white transition-colors hover:bg-white/[0.07] sm:mx-6">
-                        <span className="flex items-center gap-3">
-                          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-400/10 text-violet-200 ring-1 ring-violet-300/15">
-                            <HelpCircle className="h-4 w-4" />
-                          </span>
-                          <span className="text-right">
-                            <h2 className="text-sm font-bold sm:text-base">كيف تعمل التجربة؟</h2>
-                            <span className="mt-0.5 block text-[11px] font-medium text-slate-500 sm:text-xs">المراحل، التوافق وخصوصية معلوماتك</span>
-                          </span>
+                    <summary className="mx-4 flex cursor-pointer list-none items-center justify-between rounded-2xl border border-white/[0.08] bg-white/[0.045] px-4 py-3.5 text-white transition-colors hover:bg-white/[0.07] sm:mx-6">
+                      <span className="flex items-center gap-3">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-400/10 text-violet-200 ring-1 ring-violet-300/15">
+                          <Layers className="h-4 w-4" />
                         </span>
-                        <ChevronLeft className="h-4 w-4 text-slate-400 transition-transform duration-300 group-open:rotate-[-90deg]" />
-                      </summary>
-                      
-                      <div className="overflow-hidden transition-all duration-500 ease-in-out max-h-0 group-open:max-h-[1200px]">
-                        <div className="px-4 pb-4 pt-5 sm:px-6 sm:pb-6">
-                          {/* Features Grid - AI styled */}
-                          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                            <div
-                              className="ai-card ai-cut p-3 text-center"
-                              style={{
-                                ['--ai-b1' as any]: 'rgba(56,189,248,.55)',   // cyan-400
-                                ['--ai-b2' as any]: 'rgba(99,102,241,.55)',   // indigo-500
-                                ['--ai-b3' as any]: 'rgba(59,130,246,.55)',   // blue-500
-                                background: 'linear-gradient(135deg, rgba(29,78,216,0.18), rgba(14,165,233,0.14))'
-                              }}
-                            >
-                              <motion.div className="ai-ink">
-                                <motion.span
-                                  className="ai-ink__blob ai-ink__blob--1"
-                                  initial={{ x: -30, y: -20 }}
-                                  animate={{ x: [-30, 10, -15], y: [-20, 5, -20] }}
-                                  transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
-                                  style={{ width: 120, height: 120, top: '10%', left: '8%' }}
-                                />
-                                <motion.span
-                                  className="ai-ink__blob ai-ink__blob--2"
-                                  initial={{ x: 20, y: 10 }}
-                                  animate={{ x: [20, -5, 25], y: [10, -15, 10] }}
-                                  transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut', delay: 0.4 }}
-                                  style={{ width: 100, height: 100, bottom: '12%', right: '10%' }}
-                                />
-                              </motion.div>
-                              <div className="ai-icon ai-icon--ghost mx-auto mb-2">
-                                <Users className="w-4 h-4 text-white" />
-                              </div>
-                              <h4 className="text-xs font-bold text-white mb-1">لقاءات ذكية</h4>
-                              <p className="text-cyan-200 text-[11px]">تبدأ بنشاط جماعي حسب جدول الفعالية، ثم تنتقل إلى لقاءات فردية</p>
-                            </div>
-                            
-                            <div
-                              className="ai-card ai-cut p-3 text-center"
-                              style={{
-                                ['--ai-b1' as any]: 'rgba(168,85,247,.55)',  // purple-500
-                                ['--ai-b2' as any]: 'rgba(236,72,153,.55)',  // pink-500
-                                ['--ai-b3' as any]: 'rgba(147,51,234,.55)',  // violet-600
-                                background: 'linear-gradient(135deg, rgba(109,40,217,0.18), rgba(236,72,153,0.14))'
-                              }}
-                            >
-                              <motion.div className="ai-ink">
-                                <motion.span
-                                  className="ai-ink__blob ai-ink__blob--2"
-                                  initial={{ x: -20, y: -10 }}
-                                  animate={{ x: [-20, 15, -10], y: [-10, 8, -10] }}
-                                  transition={{ duration: 11, repeat: Infinity, ease: 'easeInOut' }}
-                                  style={{ width: 110, height: 110, top: '12%', left: '12%' }}
-                                />
-                                <motion.span
-                                  className="ai-ink__blob ai-ink__blob--3"
-                                  initial={{ x: 15, y: 20 }}
-                                  animate={{ x: [15, -10, 20], y: [20, -6, 20] }}
-                                  transition={{ duration: 13, repeat: Infinity, ease: 'easeInOut', delay: 0.2 }}
-                                  style={{ width: 90, height: 90, bottom: '10%', right: '12%' }}
-                                />
-                              </motion.div>
-                              <div className="ai-icon ai-icon--ghost mx-auto mb-2">
-                                <Brain className="w-4 h-4 text-white" />
-                              </div>
-                              <h4 className="text-xs font-bold text-white mb-1">تحليل متقدم</h4>
-                              <p className="text-cyan-200 text-[11px]">ذكاء اصطناعي يحلل شخصيتك ويجد أفضل التوافقات</p>
-                            </div>
-                            
-                            <div
-                              className="ai-card ai-cut p-3 text-center"
-                              style={{
-                                ['--ai-b1' as any]: 'rgba(251,146,60,.55)',  // orange-400
-                                ['--ai-b2' as any]: 'rgba(244,63,94,.55)',   // rose-500 accent
-                                ['--ai-b3' as any]: 'rgba(234,88,12,.55)',   // orange-600
-                                background: 'linear-gradient(135deg, rgba(234,88,12,0.18), rgba(251,191,36,0.14))'
-                              }}
-                            >
-                              <motion.div className="ai-ink">
-                                <motion.span
-                                  className="ai-ink__blob ai-ink__blob--1"
-                                  initial={{ x: -18, y: -18 }}
-                                  animate={{ x: [-18, 8, -12], y: [-18, 6, -18] }}
-                                  transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
-                                  style={{ width: 100, height: 100, top: '10%', left: '10%' }}
-                                />
-                                <motion.span
-                                  className="ai-ink__blob ai-ink__blob--3"
-                                  initial={{ x: 22, y: 22 }}
-                                  animate={{ x: [22, -12, 22], y: [22, -10, 22] }}
-                                  transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut', delay: 0.3 }}
-                                  style={{ width: 95, height: 95, bottom: '12%', right: '12%' }}
-                                />
-                              </motion.div>
-                              <div className="ai-icon ai-icon--ghost mx-auto mb-2">
-                                <Target className="w-4 h-4 text-white" />
-                              </div>
-                              <h4 className="text-xs font-bold text-white mb-1">مؤشرات توافق تقديرية</h4>
-                              <p className="text-cyan-200 text-[11px]">تعرّف على مؤشرات احتمالية تساعدك على فهم جوانب التوافق مع كل شخص</p>
-                            </div>
-                          </div>
-                          
-                          <div className="text-center mb-4">
-                            <p className="text-cyan-200 text-xs max-w-2xl mx-auto">
-                              تجمع التجربة بين أنشطة جماعية ولقاءات فردية، مع حماية بيانات التواصل وعدم مشاركتها إلا وفق قواعد الفعالية والتوافق المتبادل
-                            </p>
-                          </div>
-                          
-                          <div className="space-y-6 sm:space-y-8">
-                          {/* Step 1 */}
-                          <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
-                            <div className="flex-shrink-0">
-                              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-full flex items-center justify-center">
-                                <span className="text-white font-bold text-lg sm:text-xl">1</span>
-                              </div>
-                            </div>
-                            <div className="flex-1">
-                              <h3 className="text-lg sm:text-xl font-bold text-white mb-2">املأ استبيان التوافق</h3>
-                              <p className="text-cyan-200 text-sm sm:text-base mb-3">
-                                أجب على أسئلة شخصية مدروسة لتحليل شخصيتك وتفضيلاتك بدقة
-                              </p>
-                            </div>
-                            <div className="hidden sm:block flex-shrink-0">
-                              <ChevronLeft className="w-6 h-6 text-cyan-400 transform rotate-180" />
-                            </div>
-                          </div>
+                        <span className="text-right">
+                          <span className="mb-1 flex items-center gap-2">
+                            <h2 className="text-sm font-black sm:text-base">كيف تعمل تجربة Event 3؟</h2>
+                            <span className="rounded-full bg-cyan-300/10 px-2 py-0.5 text-[9px] font-black tracking-wider text-cyan-200 ring-1 ring-cyan-300/20">الرحلة كاملة</span>
+                          </span>
+                          <span className="block text-[11px] font-medium text-slate-500 sm:text-xs">مجموعتان، ترتيب سري، جلستان فرديتان وكشف نهائي</span>
+                        </span>
+                      </span>
+                      <ChevronLeft className="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-300 group-open:rotate-[-90deg]" />
+                    </summary>
 
-                          {/* Step 2 */}
-                          <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
-                            <div className="flex-shrink-0">
-                              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center">
-                                <span className="text-white font-bold text-lg sm:text-xl">2</span>
-                              </div>
-                            </div>
-                            <div className="flex-1">
-                              <h3 className="text-lg sm:text-xl font-bold text-white mb-2">تحليل ذكي للتوافق</h3>
-                              <p className="text-cyan-200 text-sm sm:text-base mb-3">
-                                الذكاء الاصطناعي يحلل جميع المشاركين ويجد أكثر الأشخاص توافقاً معك
-                              </p>
-                            </div>
-                            <div className="hidden sm:block flex-shrink-0">
-                              <ChevronLeft className="w-6 h-6 text-cyan-400 transform rotate-180" />
-                            </div>
+                    <div className="max-h-0 overflow-hidden transition-all duration-700 ease-in-out group-open:max-h-[3200px]">
+                      <div className="px-4 pb-5 pt-5 sm:px-6 sm:pb-7">
+                        <div className="relative overflow-hidden rounded-[1.5rem] border border-white/[0.08] bg-gradient-to-br from-violet-500/[0.09] via-transparent to-cyan-400/[0.08] p-5 sm:p-6">
+                          <div className="pointer-events-none absolute -left-12 -top-16 h-40 w-40 rounded-full bg-violet-400/10 blur-3xl" />
+                          <div className="relative text-right">
+                            <span className="text-[10px] font-black tracking-[0.22em] text-violet-300">EVENT 3 JOURNEY</span>
+                            <h3 className="mt-2 text-xl font-black text-white sm:text-2xl">تتعرّف، تختار، ثم تقارن اختيارك باختيار النظام</h3>
+                            <p className="mt-2 max-w-3xl text-xs leading-6 text-slate-400 sm:text-sm">التجربة لا تبدأ بمطابقة مباشرة. أولاً تقابل أشخاصاً حقيقيين داخل مجموعتين، ثم ترتّب تجربتك بنفسك، وبعدها تعيش جلستين فرديتين مختلفتين قبل الكشف النهائي.</p>
                           </div>
+                          <div className="relative mt-5 grid grid-cols-3 gap-2">
+                            {[
+                              { value: "2", label: "جولات جماعية", color: "text-blue-200" },
+                              { value: "2", label: "جلسات 1:1", color: "text-pink-200" },
+                              { value: "1", label: "كشف نهائي", color: "text-violet-200" },
+                            ].map((stat) => (
+                              <div key={stat.label} className="rounded-2xl border border-white/[0.07] bg-black/15 px-2 py-3 text-center">
+                                <div className={`text-xl font-black sm:text-2xl ${stat.color}`}>{stat.value}</div>
+                                <div className="mt-0.5 text-[9px] font-bold text-slate-500 sm:text-[11px]">{stat.label}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
 
-                          {/* Step 3 */}
-                          <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
-                            <div className="flex-shrink-0">
-                              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center">
-                                <span className="text-white font-bold text-lg sm:text-xl">3</span>
+                        <div className="relative mt-6 space-y-3 before:absolute before:bottom-7 before:right-[19px] before:top-7 before:w-px before:bg-gradient-to-b before:from-blue-400/40 before:via-pink-400/30 before:to-violet-400/40">
+                          {[
+                            {
+                              number: "01", Icon: Users, tone: "text-blue-200 bg-blue-400/10 ring-blue-300/20", title: "جولتان جماعيتان — مجموعتان مختلفتان", meta: "30 دقيقة · ثم 25 دقيقة", body: "تذهب إلى رقم طاولتك، تتعرّف على 4–6 مشاركين وتختارون معاً نشاطاً أو أسئلة للنقاش. في الجولة الثانية تنتقل غالباً إلى مجموعة جديدة؛ وقد يتكرر شخص فقط عند الحاجة لتوازن التقسيم.",
+                            },
+                            {
+                              number: "02", Icon: GripVertical, tone: "text-amber-200 bg-amber-400/10 ring-amber-300/20", title: "ترتيب سري بعد كل جولة", meta: "ترتيب أولي · ثم ترتيب نهائي", body: "ترتّب من قابلتهم بحسب رغبتك في جلسة فردية معهم. تستطيع تعديل ترتيب الجولة الأولى لاحقاً، لكن إرسال الترتيب النهائي يقفله. لا يرى أي مشارك ترتيبك.",
+                            },
+                            {
+                              number: "03", Icon: Coffee, tone: "text-orange-200 bg-orange-400/10 ring-orange-300/20", title: "استراحة وحساب أفضل اختيار متبادل", meta: "10 دقائق", body: "أثناء الاستراحة يحسب النظام أفضل تطابق متبادل متاح من ترتيبك وترتيب الآخرين. اختيارك الأول ليس مضموناً إذا لم يكن الاختيار متبادلاً.",
+                            },
+                            {
+                              number: "04", Icon: Heart, tone: "text-pink-200 bg-pink-400/10 ring-pink-300/20", title: "الجلسة الفردية الأولى — اختيارك", meta: "20 دقيقة · مجموعة الأسئلة 1", body: "يظهر اسم شريكك ورقم الطاولة. هذه الجلسة ناتجة عن أفضل اختيار متبادل متاح من الترتيب، ثم تسجّل انطباعك وتقرر سراً إن كنت ترغب بالتواصل.",
+                            },
+                            {
+                              number: "05", Icon: Brain, tone: "text-purple-200 bg-purple-400/10 ring-purple-300/20", title: "الجلسة الفردية الثانية — اختيارنا لك", meta: "20 دقيقة · مجموعة الأسئلة 2", body: "ينقلك النظام إلى شريك يرشّحه اعتماداً على بيانات التوافق. قد يكون الشخص نفسه إذا اتفق اختيارك مع اختيار النظام، ثم تقيّم الجلسة بالطريقة نفسها.",
+                            },
+                            {
+                              number: "06", Icon: Trophy, tone: "text-violet-200 bg-violet-400/10 ring-violet-300/20", title: "الكشف النهائي", meta: "اختيارك × اختيار النظام", body: "تكتشف نتيجة الجلستين، مؤشرات التوافق، والكلمة التي وصف بها كل طرف الآخر. معلومات التواصل تظهر فقط عندما يختار الطرفان «نعم» للتواصل.",
+                            },
+                          ].map(({ number, Icon, tone, title, meta, body }) => (
+                            <div key={number} className="relative pr-12 text-right">
+                              <div className={`absolute right-0 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-2xl ring-1 backdrop-blur-sm ${tone}`}>
+                                <Icon className="h-4 w-4" />
+                              </div>
+                              <div className="rounded-2xl border border-white/[0.075] bg-white/[0.028] p-4 transition-colors hover:bg-white/[0.045] sm:p-5">
+                                <div className="flex flex-wrap items-start justify-between gap-2">
+                                  <div>
+                                    <span className="text-[9px] font-black tracking-[0.18em] text-slate-600">STEP {number}</span>
+                                    <h4 className="mt-1 text-sm font-black text-white sm:text-base">{title}</h4>
+                                  </div>
+                                  <span className="rounded-full bg-white/[0.045] px-2.5 py-1 text-[10px] font-bold text-slate-400 ring-1 ring-white/[0.07]">{meta}</span>
+                                </div>
+                                <p className="mt-2 text-xs leading-6 text-slate-400 sm:text-[13px]">{body}</p>
                               </div>
                             </div>
-                            <div className="flex-1">
-                              <h3 className="text-lg sm:text-xl font-bold text-white mb-2">تواصل عبر واتساب</h3>
-                              <p className="text-cyan-200 text-sm sm:text-base mb-3">
-                                سيتم التواصل معك عبر واتساب للدفع وتأكيد حضورك للفعالية
-                              </p>
-                            </div>
-                            <div className="hidden sm:block flex-shrink-0">
-                              <ChevronLeft className="w-6 h-6 text-cyan-400 transform rotate-180" />
-                            </div>
-                          </div>
+                          ))}
+                        </div>
 
-                          {/* Step 4 */}
-                          <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
-                            <div className="flex-shrink-0">
-                              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-orange-500 to-red-600 rounded-full flex items-center justify-center">
-                                <span className="text-white font-bold text-lg sm:text-xl">4</span>
-                              </div>
+                        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                          <div className="rounded-[1.35rem] border border-pink-400/15 bg-pink-400/[0.045] p-4 text-right">
+                            <div className="flex items-center gap-2 text-pink-200">
+                              <Heart className="h-4 w-4" />
+                              <h4 className="text-sm font-black">ما الذي يصنع «اختيارك»؟</h4>
                             </div>
-                            <div className="flex-1">
-                              <h3 className="text-lg sm:text-xl font-bold text-white mb-2">لقاء وقرار التطابق</h3>
-                              <p className="text-cyan-200 text-sm sm:text-base mb-3">
-                                تلتقي بالشخص وتقرر إذا كنت تريد التطابق ومشاركة معلوماتك الشخصية أم لا - كل شيء يحدث بسلاسة على الموقع
-                              </p>
-                            </div>
+                            <p className="mt-2 text-xs leading-6 text-slate-400">ترتيبك الشخصي + ترتيب الطرف الآخر. النتيجة أفضل تطابق متبادل متاح، وليست وعداً بالشخص الموجود أول قائمتك.</p>
                           </div>
-                          
-                          {/* Privacy Notice - AI styled */}
-                          <div className="mt-4 p-3 ai-card ai-cut">
-                            <motion.div className="ai-ink">
-                              <motion.span
-                                className="ai-ink__blob ai-ink__blob--2"
-                                initial={{ x: -20, y: -10 }}
-                                animate={{ x: [-20, 10, -12], y: [-10, 6, -10] }}
-                                transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
-                                style={{ width: 120, height: 120, top: '10%', left: '10%' }}
-                              />
-                            </motion.div>
-                            <div className="flex items-start gap-3">
-                              <Shield className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
-                              <div>
-                                <h4 className="text-white font-semibold mb-1 text-sm">حماية الخصوصية</h4>
-                                <p className="text-cyan-200 text-xs">
-                                  معلوماتك الشخصية محمية تماماً ولن تُشارك إلا في حالة التطابق المتبادل بين الطرفين
-                                </p>
-                              </div>
+                          <div className="rounded-[1.35rem] border border-purple-400/15 bg-purple-400/[0.045] p-4 text-right">
+                            <div className="flex items-center gap-2 text-purple-200">
+                              <Brain className="h-4 w-4" />
+                              <h4 className="text-sm font-black">ما الذي يصنع «اختيارنا»؟</h4>
                             </div>
+                            <p className="mt-2 text-xs leading-6 text-slate-400">بيانات الاستبيان ومؤشرات التوافق بينكما. النتيجة ترشيح تقديري للمقارنة مع اختيارك الواقعي، وليست ضماناً للكيمياء.</p>
                           </div>
+                        </div>
+
+                        <div className="mt-3 flex items-start gap-3 rounded-[1.35rem] border border-emerald-400/15 bg-emerald-400/[0.045] p-4 text-right">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-400/10 text-emerald-200 ring-1 ring-emerald-300/20">
+                            <EyeOff className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-black text-emerald-100">اختياراتك وتقييماتك سرّية</h4>
+                            <p className="mt-1 text-xs leading-6 text-emerald-100/60">لا يظهر ترتيبك أو قرار التواصل للطرف الآخر. مشاركة بيانات التواصل لا تتم إلا عند موافقة الطرفين بعد الجلسة.</p>
                           </div>
                         </div>
                       </div>
+                    </div>
                   </details>
                   </div>
                 

@@ -3200,61 +3200,43 @@ export default function WelcomePage() {
     // Use relative positioning when accessing via token URL AND in round phase, fixed otherwise
     const isTokenAndRoundPhase = token && phase === "round_1";
     const positionClass = isTokenAndRoundPhase 
-      ? "relative top-0 left-1/2 transform -translate-x-1/2 z-[100]" 
-      : "fixed top-4 left-1/2 transform -translate-x-1/2 z-[100]";
+      ? "relative top-0 left-1/2 z-[100] -translate-x-1/2"
+      : "fixed top-3 left-1/2 z-[100] -translate-x-1/2";
     
     // Check if user is signed up for next event but hasn't enabled auto-signup
     const showAutoSignupOffer = showNextEventSignup && !autoSignupEnabled;
     
-    // Debug: Log the button visibility logic
-    if (assignedNumber || resultToken || returningPlayerToken || hasStoredResultToken || hasStoredReturningToken) {
-      console.log('🔍 NavigationBar Auto-Signup Button Check:', {
-        showNextEventSignup,
-        autoSignupEnabled,
-        showAutoSignupOffer,
-        isTokenAndRoundPhase,
-        willShowButton: showAutoSignupOffer && !isTokenAndRoundPhase
-      });
-    }
-    
     return (
-      <div className={positionClass}>
-        <div className="flex flex-col items-center gap-2">
-          <div className="bg-gradient-to-r from-slate-800/40 to-slate-700/40 rounded-full px-3 py-1 border border-slate-600/50 shadow-md backdrop-blur-sm">
-            <div className="flex items-center gap-3">
-            {/* Logo - Center */}
+      <div className={`${positionClass} w-[calc(100vw-1.5rem)] max-w-xl`}>
+        <div className="flex flex-col items-center gap-1.5">
+          <nav aria-label="التنقل الرئيسي" className="w-full rounded-2xl border border-white/[0.09] bg-slate-950/75 p-1.5 shadow-[0_14px_38px_-24px_rgba(15,23,42,0.95)] backdrop-blur-xl">
+            <div className="flex min-w-0 items-center justify-between gap-1.5">
+            {/* Brand / Home */}
             <button
               type="button"
               aria-label="العودة إلى الصفحة الرئيسية"
               onClick={handleLogoClick}
-              className="cursor-pointer transition-all duration-200 hover:opacity-80"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.045] transition-colors hover:bg-white/[0.075] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
             >
-              <div className="w-[28px] h-[28px] min-w-[28px] min-h-[28px] rounded-lg bg-gradient-to-br from-purple-500 to-cyan-500 p-[5px] shadow-lg ring-1 ring-white/10">
-                <Home className="w-full h-full text-white" strokeWidth={2.5} />
-              </div>
+              <img src="/blindmatch-imprint.png" alt="" className="h-7 w-7 object-contain opacity-80" />
             </button>
 
-            {/* Participant Infoo */}
+            {/* Participant info */}
             {assignedNumber && (
-              <>
-                <div className="w-px h-4 bg-slate-600"></div>
-                <div className="flex items-center gap-1.5">
-                  <div className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent font-bold text-sm">
+                <div className="flex min-w-0 items-center gap-1.5 px-1.5">
+                  <div className="shrink-0 text-sm font-black text-cyan-300">
                     #{assignedNumber}
                   </div>
                   {participantName && (
-                    <span className="text-white/90 text-sm font-medium whitespace-nowrap">
+                    <span className="max-w-20 truncate whitespace-nowrap text-sm font-medium text-white/85 sm:max-w-32">
                       {participantName}
                     </span>
                   )}
                 </div>
-              </>
             )}
 
             {/* Auto-Signup Offer Button - Show for users signed up for next event but auto-signup disabled */}
             {showAutoSignupOffer && !isTokenAndRoundPhase && (
-              <>
-                <div className="w-px h-4 bg-slate-600"></div>
                 <button
                   onClick={async () => {
                     const token = resultToken || returningPlayerToken || hasStoredResultToken || hasStoredReturningToken;
@@ -3278,21 +3260,17 @@ export default function WelcomePage() {
                       console.error("Error enabling auto-signup:", err);
                     }
                   }}
-                  className="bg-gradient-to-r from-emerald-500/30 to-green-500/30 border-2 border-emerald-400/50 rounded-full px-3 py-1.5 text-[10px] font-bold text-emerald-200 hover:from-emerald-500/40 hover:to-green-500/40 hover:border-emerald-300/70 hover:scale-105 transition-all duration-300 flex items-center gap-1.5 group shadow-lg shadow-emerald-500/20"
+                  className="flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-emerald-400/25 bg-emerald-400/10 px-2.5 text-[11px] font-bold text-emerald-200 transition-colors hover:bg-emerald-400/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/70 sm:px-3"
                   title="فعّل التسجيل التلقائي لجميع الأحداث القادمة"
                 >
-                  <Sparkles className="w-3.5 h-3.5 group-hover:animate-pulse text-emerald-300" />
-                  <span className="hidden md:inline">تسجيل تلقائي للفعاليات القادمة</span>
-                  <span className="md:hidden">تسجيل تلقائي</span>
+                  <Sparkles className="h-3.5 w-3.5 text-emerald-300" />
+                  <span>تسجيل تلقائي</span>
                 </button>
-              </>
             )}
 
             {/* Global Timer - Show only when accessing via token URL AND in round phase */}
             {isTokenAndRoundPhase && (
-              <>
-                <div className="w-px h-4 bg-slate-600"></div>
-                <div className="bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-400/30 rounded-full px-3 py-1.5 text-xs font-medium text-blue-300 flex items-center gap-1.5">
+                <div className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-blue-400/20 bg-blue-400/10 px-3 text-xs font-medium text-blue-200">
                   <Clock className="w-3 h-3" />
                   <span className="font-mono">
                     {!conversationStarted 
@@ -3303,33 +3281,29 @@ export default function WelcomePage() {
                     }
                   </span>
                 </div>
-              </>
             )}
 
             {/* Contact Button - Hide when accessing via token URL AND in round phase */}
             {!isTokenAndRoundPhase && (
-              <>
-                <div className="w-px h-4 bg-slate-600"></div>
                 <button
                   onClick={() => setShowContactForm(true)}
-                  className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30 rounded-full px-3 py-1.5 text-xs font-medium text-cyan-300 hover:from-cyan-500/30 hover:to-blue-500/30 transition-all duration-300 flex items-center gap-1"
+                  className="flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-cyan-400/20 bg-cyan-400/[0.07] px-2.5 text-xs font-medium text-cyan-200 transition-colors hover:bg-cyan-400/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 sm:px-3"
                 >
-                  <MessageCircle className="w-3 h-3" />
+                  <MessageCircle className="h-3.5 w-3.5" />
                   <span>تواصل</span>
                 </button>
-              </>
             )}
             </div>
-          </div>
+          </nav>
           {showRegistrationContent && secureToken && (
             <button
               onClick={() => {
                 window.location.href = `/welcome?token=${secureToken}&flow=returning`
               }}
-              className="inline-flex items-center gap-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer border border-gray-200 dark:border-slate-700 group"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-slate-950/70 px-3 py-1.5 shadow-sm backdrop-blur-xl transition-colors hover:bg-slate-900/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/60"
             >
-              <span className={`text-[10px] font-medium ${dark ? 'text-slate-300' : 'text-gray-700'}`}>التفضيل الحالي:</span>
-              <span className={`text-[10px] font-bold ${dark ? 'text-blue-400' : 'text-blue-600'}`}>
+              <span className="text-[10px] font-medium text-slate-500">التفضيل</span>
+              <span className="text-[10px] font-bold text-blue-300">
                 {returningGenderPreference === 'same_gender'
                   ? 'نفس الجنس'
                   : returningGenderPreference === 'any_gender'
@@ -3338,7 +3312,7 @@ export default function WelcomePage() {
                       ? 'الجنس الآخر'
                       : '...'}
               </span>
-              <span className="text-[10px] text-gray-400 dark:text-gray-500 group-hover:text-blue-500 transition-colors duration-300">(تغيير)</span>
+              <span className="text-[10px] text-slate-600">· تغيير</span>
             </button>
           )}
         </div>
@@ -7429,9 +7403,6 @@ export default function WelcomePage() {
                 {/* Process guide */}
                 <div className="welcome-process-panel relative mx-3 mb-4 mt-3 max-w-5xl overflow-hidden rounded-3xl border border-white/[0.09] bg-slate-950/55 shadow-[0_22px_70px_-42px_rgba(34,211,238,0.42)] backdrop-blur-xl sm:mx-auto sm:mt-0">
                   <div className="pointer-events-none absolute -right-28 -top-32 h-72 w-72 rounded-full bg-cyan-400/[0.07] blur-3xl" aria-hidden="true" />
-                  <div className="welcome-brand-imprint" aria-hidden="true">
-                    <img className="welcome-brand-imprint__mark" src="/blindmatch-imprint.png" alt="" />
-                  </div>
                   <div className="relative z-[1] py-3 text-center sm:py-4">
                   <div className="mx-auto mb-1 max-w-3xl px-3 sm:px-5">
                     <div className="flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.03] px-3 py-2.5 text-right text-slate-200 sm:px-4">

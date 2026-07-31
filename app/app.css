@@ -890,41 +890,6 @@ html:not(.dark) .ai-ink {
   backdrop-filter: none;
 }
 
-/* BlindMatch signature: a restrained glass-etched stamp in the panel corner. */
-.welcome-brand-imprint {
-  position: absolute;
-  z-index: 2;
-  top: 0.7rem;
-  left: 0.8rem;
-  width: 5.5rem;
-  aspect-ratio: 3 / 2;
-  pointer-events: none;
-}
-
-.welcome-brand-imprint__mark {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  opacity: 0.08;
-  filter:
-    drop-shadow(0 1px 0 rgba(255, 255, 255, 0.16))
-    drop-shadow(0 -1px 0 rgba(2, 6, 23, 0.72));
-}
-
-@media (max-width: 640px) {
-  .welcome-brand-imprint {
-    top: 0.6rem;
-    left: 0.45rem;
-    width: 4.25rem;
-  }
-
-  .welcome-brand-imprint__mark {
-    opacity: 0.07;
-  }
-}
-
 .welcome-actions-panel {
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(2, 6, 23, 0.48);

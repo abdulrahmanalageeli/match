@@ -893,9 +893,10 @@ html:not(.dark) .ai-ink {
 /* BlindMatch signature: a quiet luminous imprint embedded into the process panel. */
 .welcome-brand-imprint {
   position: absolute;
-  top: -2.25rem;
-  left: -2.5rem;
-  width: 15rem;
+  z-index: 2;
+  top: 0.65rem;
+  left: 0.75rem;
+  width: 12rem;
   aspect-ratio: 3 / 2;
   pointer-events: none;
   transform-origin: 40% 45%;
@@ -912,7 +913,7 @@ html:not(.dark) .ai-ink {
 }
 
 .welcome-brand-imprint__mark {
-  opacity: 0.085;
+  opacity: 0.11;
   filter:
     drop-shadow(0 0 7px rgba(103, 232, 249, 0.7))
     drop-shadow(0 0 18px rgba(167, 139, 250, 0.5));
@@ -937,13 +938,13 @@ html:not(.dark) .ai-ink {
 
 @media (max-width: 640px) {
   .welcome-brand-imprint {
-    top: -1.5rem;
-    left: -2.75rem;
-    width: 11rem;
+    top: 0.3rem;
+    left: -0.35rem;
+    width: 8.5rem;
   }
 
   .welcome-brand-imprint__mark {
-    opacity: 0.065;
+    opacity: 0.09;
   }
 }
 

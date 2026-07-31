@@ -1774,7 +1774,30 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   const [assignment, setAssignment] = useState<any>(null)
   const [timeLeft, setTimeLeft] = useState(0)
   const [showGroups, setShowGroups] = useState(false)
+  const [groupsHaveOpened, setGroupsHaveOpened] = useState(false)
   useEffect(() => { onGroupsOpenChange?.(showGroups) }, [showGroups, onGroupsOpenChange])
+  const openGroups = useCallback(() => {
+    setGroupsHaveOpened(true)
+    setShowGroups(true)
+  }, [])
+  const closeGroups = useCallback(() => setShowGroups(false), [])
+
+  // Treat the activities panel like a native sheet: Escape closes it and the
+  // page behind it does not continue scrolling. Keeping it mounted after the
+  // first open also preserves the selected activity and its progress.
+  useEffect(() => {
+    if (!showGroups) return
+    const previousOverflow = document.body.style.overflow
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeGroups()
+    }
+    document.body.style.overflow = "hidden"
+    window.addEventListener("keydown", onKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener("keydown", onKeyDown)
+    }
+  }, [showGroups, closeGroups])
   const [showTutorial, setShowTutorial] = useState(round === 1 && (typeof window === "undefined" || sessionStorage.getItem(`e3_tut_round_${round}`) !== "1"))
   const wakeLockRef = useRef<any>(null)
   const { popup, clearPopup } = useTimerWarnings(timerActive, timeLeft, timerDuration, true, {
@@ -1969,12 +1992,18 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
 
           {/* Groups button */}
           <motion.button
-            onClick={() => setShowGroups(true)}
+            onClick={openGroups}
             initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
-            className={`flex items-center justify-center gap-3 w-full py-4 rounded-2xl font-bold text-base transition-all text-white bg-gradient-to-r ${RC.bar} shadow-lg shadow-black/25 border border-white/[0.08] hover:brightness-110 active:scale-95`}
+            className={`group flex items-center gap-3 w-full p-4 rounded-2xl text-right transition-all text-white bg-gradient-to-r ${RC.bar} shadow-lg shadow-black/25 border border-white/[0.08] hover:brightness-110 active:scale-[0.98]`}
           >
-            <Target size={16} className="inline" /> نشاطات المجموعة
-            <ExternalLink size={15} />
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15 ring-1 ring-white/20">
+              <Target size={19} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-base font-black">{groupsHaveOpened ? "العودة إلى النشاط" : "اختيار نشاط للمجموعة"}</span>
+              <span className="mt-0.5 block text-[11px] font-medium text-white/70">ألعاب وأسئلة قصيرة يشارك فيها كل من على الطاولة</span>
+            </span>
+            <ArrowLeft size={18} className="shrink-0 text-white/70 transition-transform group-hover:-translate-x-0.5" />
           </motion.button>
 
           <p className="text-gray-600 text-xs">
@@ -2004,16 +2033,18 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
 
       {/* ── Groups Overlay Modal ────────────────────────────────────── */}
       <AnimatePresence>
-        {showGroups && (
+        {groupsHaveOpened && (
           <motion.div
-            initial={{ opacity: 0, y: "100%" }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: "100%" }}
+            initial={{ opacity: 0, y: "100%" }}
+            animate={{ opacity: showGroups ? 1 : 0, y: showGroups ? 0 : "100%" }}
             transition={{ type: "spring", stiffness: 280, damping: 32 }}
-            className="fixed inset-x-0 bottom-0 z-40 bg-gray-950 flex flex-col"
+            aria-hidden={!showGroups}
+            className={`fixed inset-x-0 bottom-0 z-40 bg-gray-950 flex flex-col ${showGroups ? "pointer-events-auto" : "pointer-events-none"}`}
             style={{ top: timerActive && timeLeft > 0 ? "58px" : "0px" }}
           >
             {/* Groups content rendered inline */}
-            <div className="flex-1 overflow-y-auto relative z-10">
-              <GroupsPage disableOnboarding onClose={() => setShowGroups(false)} />
+            <div className="flex-1 overflow-y-auto overscroll-contain relative z-10" tabIndex={-1}>
+              <GroupsPage disableOnboarding onClose={closeGroups} round={round} tableNumber={assignment?.table} />
             </div>
           </motion.div>
         )}

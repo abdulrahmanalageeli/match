@@ -1116,7 +1116,12 @@ const fiveSecondRuleCategories = [
   "أشياء حمراء", "أشياء دائرية", "أشياء في الثلاجة", "أسماء بنات", "أسماء أولاد", "ألوان"
 ];
 
-export function GroupsPage({ disableOnboarding = false, onClose }: { disableOnboarding?: boolean; onClose?: () => void } = {}) {
+export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tableNumber: activityTableNumber }: {
+  disableOnboarding?: boolean;
+  onClose?: () => void;
+  round?: number;
+  tableNumber?: number;
+} = {}) {
   const SESSION_TOTAL_DURATION = 45 * 60; // 45 minutes in seconds
   const IMPOSTER_TUTORIAL_KEY = "imposter_tutorial_seen";
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
@@ -4012,6 +4017,8 @@ export function GroupsPage({ disableOnboarding = false, onClose }: { disableOnbo
         open={showPromptTopicsModal}
         onClose={() => setShowPromptTopicsModal(false)}
         embedded={disableOnboarding}
+        round={round}
+        tableNumber={activityTableNumber ?? tableNumber ?? 1}
       />
       {/* Personalized onboarding after successful login */}
       {showOnboarding && !disableOnboarding && (
@@ -4298,6 +4305,8 @@ export function GroupsPage({ disableOnboarding = false, onClose }: { disableOnbo
         open={showPromptTopicsModal}
         onClose={() => setShowPromptTopicsModal(false)}
         embedded={disableOnboarding}
+        round={round}
+        tableNumber={activityTableNumber ?? tableNumber ?? 1}
       />
       {showOnboarding && !disableOnboarding && (groupParticipantNumbers.length > 0 || groupMembers.length > 0) && (
         <OnboardingModal

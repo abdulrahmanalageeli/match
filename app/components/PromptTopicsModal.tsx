@@ -1160,9 +1160,11 @@ type TableModeState = {
   depth: DiscussionDepth;
   history: string[];
   index: number;
+  contextKey?: string;
 };
 
-const TABLE_MODE_STORAGE_KEY = "discussion_table_mode_v2";
+// v3 resets histories created by the previous per-device random selector.
+const TABLE_MODE_STORAGE_KEY = "discussion_table_mode_v3";
 
 // Curated specifically for a live group: inclusive, answerable by everyone,
 // likely to create follow-up conversation, and ordered from safe to revealing.
@@ -1223,24 +1225,56 @@ function readTableModeState(): TableModeState {
         depth: saved.depth,
         history: saved.history.filter((question: unknown) => typeof question === "string"),
         index: Math.min(saved.index, saved.history.length - 1),
+        contextKey: typeof saved.contextKey === "string" ? saved.contextKey : undefined,
       };
     }
   } catch {}
   return { depth: "shallow", history: [], index: -1 };
 }
 
-function getUnseenQuestion(depth: DiscussionDepth, history: string[]) {
+function discussionSeed(tableNumber: number, depth: DiscussionDepth) {
+  const depthSalt = depth === "shallow" ? 101 : depth === "medium" ? 211 : 307;
+  return ((tableNumber || 1) * 1009 + depthSalt) >>> 0;
+}
+
+function seededQuestionOrder<T>(items: T[], seed: number): T[] {
+  const result = [...items];
+  let state = seed;
+  const random = () => {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+  for (let index = result.length - 1; index > 0; index--) {
+    const swapWith = Math.floor(random() * (index + 1));
+    [result[index], result[swapWith]] = [result[swapWith], result[index]];
+  }
+  return result;
+}
+
+function getUnseenQuestion(
+  depth: DiscussionDepth,
+  history: string[],
+  tableNumber = 1,
+  round = 1,
+) {
   const pool = tableQuestionsByDepth[depth];
   if (!pool.length) return "اختاروا موضوعاً يهم الجميع، وليشارك كل شخص رأيه باختصار.";
-  const unseenPriority = priorityGroupQuestionsByDepth[depth].filter(question => !history.includes(question));
-  if (unseenPriority.length) {
-    // Vary tables slightly while keeping the strongest remaining prompts first.
-    const priorityWindow = unseenPriority.slice(0, 3);
-    return priorityWindow[Math.floor(Math.random() * priorityWindow.length)];
-  }
-  const unseen = pool.filter(question => !history.includes(question));
-  const source = unseen.length ? unseen : pool;
-  return source[Math.floor(Math.random() * source.length)];
+
+  // Put the curated live-table prompts first, remove duplicates, then create a
+  // stable order shared by every phone at the same table.
+  const combined = [...new Set([...priorityGroupQuestionsByDepth[depth], ...pool])];
+  const ordered = seededQuestionOrder(combined, discussionSeed(tableNumber, depth));
+
+  // Round one and round two receive opposite halves of the same permutation.
+  // This guarantees that a participant never sees the same opening sequence in
+  // both rounds, while phones at one table remain synchronized.
+  const midpoint = Math.ceil(ordered.length / 2);
+  const roundPool = round === 2 ? ordered.slice(midpoint) : ordered.slice(0, midpoint);
+  const unseenInRound = roundPool.filter(question => !history.includes(question));
+  if (unseenInRound.length) return unseenInRound[0];
+
+  const unseenAnywhere = ordered.filter(question => !history.includes(question));
+  return (unseenAnywhere.length ? unseenAnywhere : roundPool)[0];
 }
 
 /**
@@ -1248,21 +1282,28 @@ function getUnseenQuestion(depth: DiscussionDepth, history: string[]) {
  * deliberately retained below as LegacyPromptTopicsModal so it can later be
  * exposed from a separate "Browse all" tab without rebuilding it.
  */
-export default function PromptTopicsModal({ open, onClose, embedded = false }: { open: boolean; onClose: () => void; embedded?: boolean }) {
+export default function PromptTopicsModal({ open, onClose, embedded = false, round = 1, tableNumber = 1 }: {
+  open: boolean;
+  onClose: () => void;
+  embedded?: boolean;
+  round?: number;
+  tableNumber?: number;
+}) {
   const [tableState, setTableState] = useState<TableModeState>(readTableModeState);
 
   const { depth, history, index } = tableState;
   const currentQuestion = history[index] || "";
+  const contextKey = `${round}:${tableNumber}`;
   const depthIndex = depthOrder.indexOf(depth);
   const depthLabel = depth === "shallow" ? "خفيف" : depth === "medium" ? "متوسط" : "عميق";
 
   useEffect(() => {
-    if (!open || currentQuestion) return;
+    if (!open || (currentQuestion && tableState.contextKey === contextKey)) return;
     setTableState(prev => {
-      const question = getUnseenQuestion(prev.depth, prev.history);
-      return { ...prev, history: [...prev.history, question], index: prev.history.length };
+      const question = getUnseenQuestion(prev.depth, prev.history, tableNumber, round);
+      return { ...prev, contextKey, history: [...prev.history, question], index: prev.history.length };
     });
-  }, [open, currentQuestion]);
+  }, [open, currentQuestion, tableNumber, round, contextKey, tableState.contextKey]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1274,7 +1315,7 @@ export default function PromptTopicsModal({ open, onClose, embedded = false }: {
       if (requestedDepth === prev.depth && prev.index < prev.history.length - 1) {
         return { ...prev, index: prev.index + 1 };
       }
-      const question = getUnseenQuestion(requestedDepth, prev.history);
+      const question = getUnseenQuestion(requestedDepth, prev.history, tableNumber, round);
       return {
         depth: requestedDepth,
         history: [...prev.history.slice(0, prev.index + 1), question],

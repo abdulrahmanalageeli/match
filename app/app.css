@@ -861,6 +861,35 @@ html:not(.dark) .ai-ink {
   z-index: 0;                   /* below content */
 }
 
+/* Welcome process panel: restrained event-grade surface rather than the legacy tech-card treatment. */
+.welcome-process-panel .ai-card.ai-cut {
+  clip-path: none;
+  -webkit-clip-path: none;
+  border-radius: 1.25rem;
+  border-color: rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.035) !important;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.welcome-process-panel .ai-card.ai-cut:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+.welcome-process-panel .ai-ink {
+  display: none;
+}
+
+.welcome-process-panel .ai-icon.ai-icon--ghost {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.875rem;
+  clip-path: none;
+  background: rgba(34, 211, 238, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(103, 232, 249, 0.14);
+  backdrop-filter: none;
+}
+
 /* === BG pattern masked inside any container (used on round wrapper) === */
 .round-bg-pattern {
   position: relative;

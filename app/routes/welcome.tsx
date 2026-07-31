@@ -6180,110 +6180,108 @@ export default function WelcomePage() {
       <>
         {/* New User Type Popup */}
         {showNewUserTypePopup && (
-          <div data-welcome-dialog role="dialog" aria-modal="true" aria-label="اختيار نوع المشاركة" tabIndex={-1} className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="max-w-md w-full bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-600/50 rounded-2xl shadow-2xl p-6 relative" dir="rtl">
-              {/* Top Left Help Button */}
-              <button
-                onClick={() => setShowInfoPopup(true)}
-                className="absolute top-4 left-4 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30 rounded-xl px-3 py-2 flex items-center gap-2 hover:from-cyan-500/30 hover:to-blue-500/30 transition-all duration-300"
-                title="اضغط لمعرفة المزيد عن الفعالية"
-              >
-                <HelpCircle className="w-4 h-4 text-cyan-300" />
-                <span className="text-cyan-300 text-xs font-medium">شرح الفعالية</span>
-                {/* Pulsing indicator */}
-                <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-cyan-400/60 animate-ping"></div>
-              </button>
+          <div data-welcome-dialog role="dialog" aria-modal="true" aria-label="اختيار نوع المشاركة" tabIndex={-1} className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/75 p-4 backdrop-blur-md sm:p-6">
+            <div className="relative w-full max-w-lg overflow-hidden rounded-[2rem] border border-white/[0.12] bg-slate-950/90 p-5 shadow-[0_30px_100px_-28px_rgba(34,211,238,0.45)] ring-1 ring-white/[0.04] sm:p-7" dir="rtl">
+              <div className="pointer-events-none absolute -right-24 -top-24 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
+              <div className="pointer-events-none absolute -bottom-24 -left-20 h-52 w-52 rounded-full bg-violet-500/10 blur-3xl" />
 
-              {/* Top Right FAQ Button */}
-              <button
-                onClick={() => setShowFAQPopup(true)}
-                className="absolute top-4 right-4 bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-400/30 rounded-xl px-3 py-2 flex items-center gap-2 hover:from-orange-500/30 hover:to-red-500/30 transition-all duration-300"
-                title="الأسئلة الشائعة"
-              >
-                <HelpCircle className="w-4 h-4 text-orange-300" />
-                <span className="text-orange-300 text-xs font-medium">أسئلة شائعة</span>
-                {/* Pulsing indicator */}
-                <div className="absolute -top-1 -left-1 w-2 h-2 rounded-full bg-orange-400/60 animate-ping"></div>
-              </button>
-              
-              {/* Header with centered logo */}
-              <div className="text-center mb-6">
-                <div className="flex items-center justify-center mb-4">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
-                    <UserPlus className="w-8 h-8 text-white" />
-                  </div>
+              <div className="relative">
+                <div className="mb-7 flex items-center justify-between gap-3 border-b border-white/[0.08] pb-4">
+                  <button
+                    onClick={() => setShowFAQPopup(true)}
+                    className="inline-flex min-h-10 items-center gap-2 rounded-full px-3 text-xs font-medium text-slate-300 transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+                    title="الأسئلة الشائعة"
+                  >
+                    <HelpCircle className="h-4 w-4" />
+                    <span>أسئلة شائعة</span>
+                  </button>
+                  <button
+                    onClick={() => setShowInfoPopup(true)}
+                    className="inline-flex min-h-10 items-center gap-2 rounded-full px-3 text-xs font-medium text-slate-300 transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+                    title="اضغط لمعرفة المزيد عن الفعالية"
+                  >
+                    <Info className="h-4 w-4 text-cyan-300" />
+                    <span>شرح الفعالية</span>
+                  </button>
                 </div>
-                <div className="flex items-center justify-center mb-4">
-                  <h3 className="text-xl font-bold text-white">مرحباً بك!</h3>
-                </div>
-                <p className="text-slate-300 text-sm">هل سبق لك التسجيل في فعالياتنا من قبل؟</p>
-              </div>
-              
-              <div className="space-y-4">
-                {/* Returning User Option */}
-                <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-400/30 rounded-xl p-5 hover:from-green-500/20 hover:to-emerald-500/20 transition-all duration-300">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
-                      <RotateCcw className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <h4 className="text-base font-bold text-white">نعم، لدي رمز مميز</h4>
-                      <p className="text-green-200 text-xs">تواصل مع المنظم في حال نسيانك للرمز</p>
-                    </div>
+
+                <div className="mb-7 text-center">
+                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-300/[0.08] shadow-[0_12px_35px_-14px_rgba(34,211,238,0.9)]">
+                    <UserPlus className="h-6 w-6 text-cyan-200" />
                   </div>
-                  <div className="space-y-3">
-                    <input
-                      type="text"
-                      value={newUserTokenInput}
-                      onChange={(e) => setNewUserTokenInput(e.target.value)}
-                      placeholder="أدخل الرمز المميز"
-                      className="w-full px-4 py-3 text-sm rounded-lg border bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-500/20"
-                      dir="ltr"
-                    />
-                    <div className="text-center">
+                  <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">أهلاً بك في بلاند ماتش</h2>
+                  <p className="mt-2 text-sm leading-6 text-slate-400">اختر الطريقة المناسبة للدخول إلى تجربتك</p>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="rounded-2xl border border-white/[0.09] bg-white/[0.035] p-4 sm:p-5">
+                    <div className="mb-4 flex items-center gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-400/10 text-emerald-300 ring-1 ring-emerald-300/20">
+                        <RotateCcw className="h-5 w-5" />
+                      </div>
+                      <div className="text-right">
+                        <h3 className="text-base font-bold text-white">لدي رمز دخول</h3>
+                        <p className="mt-0.5 text-xs text-slate-400">استعد بياناتك وواصل من حيث توقفت</p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <input
+                        type="text"
+                        value={newUserTokenInput}
+                        onChange={(e) => setNewUserTokenInput(e.target.value)}
+                        placeholder="أدخل الرمز المميز"
+                        aria-label="رمز الدخول المميز"
+                        className="min-h-12 min-w-0 flex-1 rounded-xl border border-white/10 bg-black/20 px-4 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-300/50 focus:ring-4 focus:ring-cyan-400/10"
+                        dir="ltr"
+                      />
                       <button
-                        onClick={() => { setShowForgotTokenModal(true); setForgotStep('phone'); setForgotError(null); setShowNewUserTypePopup(false); }}
-                        className="text-xs text-cyan-300 hover:text-cyan-200 underline"
+                        onClick={handleReturningUserToken}
+                        disabled={newUserTokenLoading || !newUserTokenInput.trim()}
+                        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-bold text-slate-950 transition-colors hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-35 sm:w-auto"
                       >
-                        نسيت الرمز؟ استرجع عبر الرسائل القصيرة
+                        {newUserTokenLoading ? (
+                          <>
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-400 border-t-slate-900" />
+                            <span>جاري التحقق...</span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="h-4 w-4" />
+                            <span>دخول</span>
+                          </>
+                        )}
                       </button>
                     </div>
+
                     <button
-                      onClick={handleReturningUserToken}
-                      disabled={newUserTokenLoading || !newUserTokenInput.trim()}
-                      className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium"
+                      onClick={() => { setShowForgotTokenModal(true); setForgotStep('phone'); setForgotError(null); setShowNewUserTypePopup(false); }}
+                      className="mt-3 text-xs font-medium text-cyan-300 transition-colors hover:text-cyan-200 hover:underline"
                     >
-                      {newUserTokenLoading ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                          <span>جاري التحقق...</span>
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle className="w-4 h-4" />
-                          <span>استعادة البيانات</span>
-                        </>
-                      )}
+                      نسيت الرمز؟ استرجعه عبر الرسائل القصيرة
                     </button>
                   </div>
-                </div>
 
-                {/* New User Option */}
-                <button
-                  onClick={handleNewUserDirect}
-                  className="w-full bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-400/30 rounded-xl p-5 hover:from-cyan-500/20 hover:to-blue-500/20 transition-all duration-300 transform hover:scale-[1.02]"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center">
-                      <Sparkles className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="text-right">
-                      <h4 className="text-base font-bold text-white mb-1">لا، أنا مشارك جديد</h4>
-                      <p className="text-cyan-200 text-xs">لا يسمح بإنشاء أكثر من حساب</p>
-                    </div>
-                    <ChevronLeft className="w-5 h-5 text-cyan-300 transform rotate-180 ml-auto" />
+                  <div className="flex items-center gap-3 px-1" aria-hidden="true">
+                    <div className="h-px flex-1 bg-white/[0.08]" />
+                    <span className="text-[11px] font-medium text-slate-600">أو</span>
+                    <div className="h-px flex-1 bg-white/[0.08]" />
                   </div>
-                </button>
+
+                  <button
+                    onClick={handleNewUserDirect}
+                    className="group flex min-h-16 w-full items-center gap-3 rounded-2xl bg-gradient-to-l from-cyan-300 to-blue-400 px-4 text-right text-slate-950 shadow-[0_18px_45px_-20px_rgba(34,211,238,0.85)] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-950/10">
+                      <Sparkles className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-base font-black">أنا مشارك جديد</h3>
+                      <p className="mt-0.5 text-xs font-medium text-slate-800/70">ابدأ التسجيل وأنشئ رمز دخول واحداً</p>
+                    </div>
+                    <ChevronLeft className="h-5 w-5 transition-transform group-hover:-translate-x-1" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -7420,47 +7418,49 @@ export default function WelcomePage() {
             {showRegistrationContent && (
               <>
                 <h1 className="sr-only">بلاند ماتش — منصة التوافق والفعاليات التفاعلية</h1>
-                {/* Gender preference pill moved into NavigationBar to avoid collision */}
-                {/* Header Section */}
-                <div className="text-center mb-4 sm:mb-5 pt-24 sm:pt-28 animate-in slide-in-from-bottom-4 duration-1000">
-                  <div className="relative inline-block mb-6 sm:mb-8">
-                      <div className="flex items-center justify-center mb-4 sm:mb-6">
+                {/* Reserved breathing room below the fixed navigation; the visual hero remains intentionally omitted. */}
+                <div className="h-20 sm:h-24" aria-hidden="true" />
+
+                {/* Process guide */}
+                <div className="welcome-process-panel relative mx-3 mb-6 max-w-5xl overflow-hidden rounded-[1.75rem] border border-white/[0.1] bg-slate-950/65 shadow-[0_28px_90px_-40px_rgba(34,211,238,0.5)] ring-1 ring-white/[0.035] backdrop-blur-2xl sm:mx-auto">
+                  <div className="pointer-events-none absolute -right-28 -top-32 h-72 w-72 rounded-full bg-cyan-400/[0.07] blur-3xl" aria-hidden="true" />
+                  <div className="relative py-4 text-center sm:py-5">
+                  <div className="mx-auto mb-2 max-w-3xl px-4 sm:px-6">
+                    <div className="flex items-start gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.035] px-4 py-3 text-right text-slate-200">
+                      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-cyan-300/10 text-cyan-200 ring-1 ring-cyan-300/15">
+                        <Sparkles className="h-4 w-4" />
                       </div>
-
-                      {/* Main hero title/subtitle removed per design request */}
-                      {/* Tagline moved into Process Guide card */}
-                    </div>
-                  </div>
-
-                {/* Process Guide - Ultra Compact */}
-                <div className={`max-w-4xl mx-auto -mt-10 mb-2 rounded-2xl circuit-card border overflow-hidden ${dark ? "bg-slate-900/80 border-slate-700/50 shadow-lg shadow-black/30" : "bg-gray-900/80 border-gray-700/50 shadow-lg"}`}>
-                  <div className="pt-3 pb-3 animate-in slide-in-from-bottom-4 duration-1000 delay-700 text-center">
-                  <div className="max-w-xl mx-auto mb-3">
-                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${dark ? "bg-slate-900/80 border-slate-700/50 text-slate-200 shadow-lg shadow-black/30" : "bg-gray-900/80 border-gray-700/50 text-gray-200 shadow-lg"}`}>
-                      <span className="text-xs sm:text-sm font-medium leading-relaxed">
+                      <span className="text-xs font-medium leading-6 sm:text-sm">
                         هذا حدث فكري لتحدي وجهات النظر • هدفه اختبار التوافق الفكري والثقافي من خلال نقاشات جماعية ومحادثات فردية
                       </span>
                     </div>
                   </div>
-                  <div className="max-w-xl mx-auto mb-3">
-                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${dark ? "bg-slate-900/80 border-slate-700/50 text-slate-200 shadow-lg shadow-black/30" : "bg-gray-900/80 border-gray-700/50 text-gray-200 shadow-lg"}`}>
-                      <AlertTriangle className="w-3 h-3" />
-                      <span className="text-xs sm:text-sm font-medium leading-relaxed">
+                  <div className="mx-auto mb-4 max-w-3xl px-4 sm:px-6">
+                    <div className="flex items-start gap-3 rounded-2xl px-4 py-2.5 text-right text-amber-100/80">
+                      <AlertTriangle className="mt-1 h-4 w-4 shrink-0 text-amber-300/80" />
+                      <span className="text-xs font-medium leading-5 sm:text-[13px]">
                         تنبيه: النتائج تقديرية مبنية على احتمالات وليست ضماناً، وقد تتأثر بدقة الإجابات والسياق.
                       </span>
                     </div>
                   </div>
                   <details className="group">
-                      <summary className="flex w-full items-center justify-center gap-1.5 text-[13px] font-medium text-white cursor-pointer list-none hover:text-cyan-300 transition-colors px-4 py-2 rounded-none bg-gradient-to-r from-cyan-400/10 to-blue-500/10 border-y border-white/10">
-                        <HelpCircle className="w-3.5 h-3.5 ml-1 text-cyan-300" />
-                        <h2 className="inline">كيف يعمل النظام؟</h2>
-                        <ChevronLeft className="w-3.5 h-3.5 mr-1 transition-transform duration-300 group-open:rotate-[-90deg] text-cyan-300" />
+                      <summary className="mx-4 flex cursor-pointer list-none items-center justify-between rounded-2xl border border-white/[0.08] bg-white/[0.045] px-4 py-3.5 text-white transition-colors hover:bg-white/[0.07] sm:mx-6">
+                        <span className="flex items-center gap-3">
+                          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-400/10 text-violet-200 ring-1 ring-violet-300/15">
+                            <HelpCircle className="h-4 w-4" />
+                          </span>
+                          <span className="text-right">
+                            <h2 className="text-sm font-bold sm:text-base">كيف تعمل التجربة؟</h2>
+                            <span className="mt-0.5 block text-[11px] font-medium text-slate-500 sm:text-xs">المراحل، التوافق وخصوصية معلوماتك</span>
+                          </span>
+                        </span>
+                        <ChevronLeft className="h-4 w-4 text-slate-400 transition-transform duration-300 group-open:rotate-[-90deg]" />
                       </summary>
                       
                       <div className="overflow-hidden transition-all duration-500 ease-in-out max-h-0 group-open:max-h-[1200px]">
-                        <div>
+                        <div className="px-4 pb-4 pt-5 sm:px-6 sm:pb-6">
                           {/* Features Grid - AI styled */}
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-1 -mt-3">
+                          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
                             <div
                               className="ai-card ai-cut p-3 text-center"
                               style={{

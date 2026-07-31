@@ -18,12 +18,139 @@ import {
   Frown, Meh, Smile, Layers, Zap,
   Snowflake, Target, Star, Drama, AlertTriangle, Lightbulb, PartyPopper, LifeBuoy,
   EyeOff, Smartphone, Handshake, Timer, Ban, ShieldCheck, Coffee, Bell, Info, Loader2,
-  Crown, Medal, Award,
+  Crown, Medal, Award, Download,
 } from "lucide-react"
 
 import { QuestionSlideshow } from "~/components/QuestionSlideshow"
 
 const PromptTopicsModal = lazy(() => import("~/components/PromptTopicsModal"))
+
+// Create a shareable portrait card without relying on DOM screenshot libraries.
+// Drawing it directly keeps Arabic text sharp and makes saving reliable on mobile.
+async function createAiWelcomeImage(message: string): Promise<Blob> {
+  await document.fonts?.ready
+  const canvas = document.createElement("canvas")
+  canvas.width = 1080
+  canvas.height = 1350
+  const ctx = canvas.getContext("2d")
+  if (!ctx) throw new Error("Canvas is unavailable")
+
+  const roundedRect = (x: number, y: number, width: number, height: number, radius: number) => {
+    const r = Math.min(radius, width / 2, height / 2)
+    ctx.beginPath()
+    ctx.moveTo(x + r, y)
+    ctx.lineTo(x + width - r, y)
+    ctx.quadraticCurveTo(x + width, y, x + width, y + r)
+    ctx.lineTo(x + width, y + height - r)
+    ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height)
+    ctx.lineTo(x + r, y + height)
+    ctx.quadraticCurveTo(x, y + height, x, y + height - r)
+    ctx.lineTo(x, y + r)
+    ctx.quadraticCurveTo(x, y, x + r, y)
+    ctx.closePath()
+  }
+
+  const background = ctx.createLinearGradient(0, 0, 1080, 1350)
+  background.addColorStop(0, "#090312")
+  background.addColorStop(0.52, "#17082e")
+  background.addColorStop(1, "#07030f")
+  ctx.fillStyle = background
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+  const drawGlow = (x: number, y: number, radius: number, color: string) => {
+    const glow = ctx.createRadialGradient(x, y, 0, x, y, radius)
+    glow.addColorStop(0, color)
+    glow.addColorStop(1, "rgba(0,0,0,0)")
+    ctx.fillStyle = glow
+    ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2)
+  }
+  drawGlow(930, 130, 430, "rgba(147,51,234,0.32)")
+  drawGlow(120, 1180, 390, "rgba(236,72,153,0.22)")
+  drawGlow(560, 660, 520, "rgba(99,102,241,0.10)")
+
+  const mark = ctx.createLinearGradient(438, 90, 642, 294)
+  mark.addColorStop(0, "#9333ea")
+  mark.addColorStop(1, "#db2777")
+  roundedRect(438, 86, 204, 204, 50)
+  ctx.fillStyle = mark
+  ctx.shadowColor = "rgba(168,85,247,0.45)"
+  ctx.shadowBlur = 55
+  ctx.fill()
+  ctx.shadowBlur = 0
+  ctx.fillStyle = "#ffffff"
+  ctx.font = "700 84px Tajawal, Arial, sans-serif"
+  ctx.textAlign = "center"
+  ctx.textBaseline = "middle"
+  ctx.fillText("✦", 540, 190)
+
+  ctx.direction = "rtl"
+  ctx.textBaseline = "alphabetic"
+  ctx.fillStyle = "#f5e9ff"
+  ctx.font = "700 58px Tajawal, Arial, sans-serif"
+  ctx.fillText("التوافق الأعمى", 540, 370)
+  ctx.fillStyle = "rgba(216,180,254,0.72)"
+  ctx.font = "700 28px Tajawal, Arial, sans-serif"
+  ctx.fillText("يرحّب بك", 540, 420)
+
+  roundedRect(92, 480, 896, 680, 46)
+  ctx.fillStyle = "rgba(255,255,255,0.055)"
+  ctx.fill()
+  ctx.strokeStyle = "rgba(255,255,255,0.12)"
+  ctx.lineWidth = 2
+  ctx.stroke()
+
+  ctx.fillStyle = "#d8b4fe"
+  ctx.font = "700 27px Tajawal, Arial, sans-serif"
+  ctx.fillText("رسالة خاصة لك", 540, 555)
+
+  const maxTextWidth = 760
+  const wrap = (fontSize: number) => {
+    ctx.font = `500 ${fontSize}px Tajawal, Arial, sans-serif`
+    const lines: string[] = []
+    for (const paragraph of message.trim().split(/\n+/)) {
+      let line = ""
+      for (const word of paragraph.trim().split(/\s+/)) {
+        const candidate = line ? `${line} ${word}` : word
+        if (ctx.measureText(candidate).width <= maxTextWidth || !line) line = candidate
+        else { lines.push(line); line = word }
+      }
+      if (line) lines.push(line)
+    }
+    return lines
+  }
+
+  let fontSize = 43
+  let lines = wrap(fontSize)
+  let lineHeight = Math.round(fontSize * 1.72)
+  while (lines.length * lineHeight > 460 && fontSize > 23) {
+    fontSize -= 2
+    lines = wrap(fontSize)
+    lineHeight = Math.round(fontSize * 1.72)
+  }
+  const textBlockHeight = lines.length * lineHeight
+  let textY = 625 + Math.max(0, (460 - textBlockHeight) / 2)
+  ctx.fillStyle = "#f3f4f6"
+  ctx.font = `500 ${fontSize}px Tajawal, Arial, sans-serif`
+  for (const line of lines) {
+    ctx.fillText(line, 540, textY)
+    textY += lineHeight
+  }
+
+  const footerGradient = ctx.createLinearGradient(300, 0, 780, 0)
+  footerGradient.addColorStop(0, "rgba(236,72,153,0.75)")
+  footerGradient.addColorStop(0.5, "rgba(192,132,252,0.9)")
+  footerGradient.addColorStop(1, "rgba(99,102,241,0.75)")
+  ctx.fillStyle = footerGradient
+  roundedRect(390, 1220, 300, 4, 2)
+  ctx.fill()
+  ctx.fillStyle = "rgba(216,180,254,0.55)"
+  ctx.font = "500 23px Tajawal, Arial, sans-serif"
+  ctx.fillText("كُتبت خصيصاً لك بناءً على إجاباتك", 540, 1285)
+
+  return await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("Image export failed")), "image/png", 1)
+  })
+}
 
 const API = "/api/participant"
 
@@ -4703,6 +4830,7 @@ function AiWelcomePopup({ token, onDone }: { token: string; onDone: () => void }
   const [done, setDone] = useState(false)
   const [closing, setClosing] = useState(false)
   const [failed, setFailed] = useState(false)
+  const [savingImage, setSavingImage] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -4742,6 +4870,37 @@ function AiWelcomePopup({ token, onDone }: { token: string; onDone: () => void }
   const dismiss = () => {
     setClosing(true)
     setTimeout(() => onDone(), 400)
+  }
+
+  const saveImage = async () => {
+    if (!message || savingImage) return
+    setSavingImage(true)
+    try {
+      const blob = await createAiWelcomeImage(message)
+      const file = new File([blob], "blindmatch-welcome.png", { type: "image/png" })
+      const canShareFile = typeof navigator.share === "function"
+        && typeof navigator.canShare === "function"
+        && navigator.canShare({ files: [file] })
+        && navigator.maxTouchPoints > 0
+
+      if (canShareFile) {
+        await navigator.share({ files: [file], title: "رسالتي من التوافق الأعمى" })
+      } else {
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement("a")
+        link.href = url
+        link.download = file.name
+        document.body.appendChild(link)
+        link.click()
+        link.remove()
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+      }
+      toast.success("تم تجهيز الصورة")
+    } catch (error: any) {
+      if (error?.name !== "AbortError") toast.error("تعذّر حفظ الصورة — حاول مرة أخرى")
+    } finally {
+      setSavingImage(false)
+    }
   }
 
   return (
@@ -5003,13 +5162,25 @@ function AiWelcomePopup({ token, onDone }: { token: string; onDone: () => void }
                       transition={{ duration: 0.4 }}
                       className="relative px-6 pb-7"
                     >
-                      <motion.button
-                        whileTap={{ scale: 0.97 }}
-                        onClick={dismiss}
-                        className="w-full py-3.5 rounded-2xl font-bold text-sm bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white transition-all shadow-lg shadow-purple-600/25"
-                      >
-                        يلا نبدأ الرحلة ←
-                      </motion.button>
+                      <div className="grid grid-cols-[0.9fr_1.1fr] gap-2.5">
+                        <motion.button
+                          whileTap={{ scale: 0.97 }}
+                          onClick={saveImage}
+                          disabled={savingImage}
+                          className="flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-sm bg-white/[0.055] border border-white/[0.1] text-purple-200 hover:bg-purple-500/10 hover:border-purple-400/30 disabled:opacity-50 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
+                        >
+                          {savingImage
+                            ? <><span className="w-4 h-4 border-2 border-purple-200/30 border-t-purple-200 rounded-full animate-spin" /> جاري الحفظ</>
+                            : <><Download size={16} /> حفظ الصورة</>}
+                        </motion.button>
+                        <motion.button
+                          whileTap={{ scale: 0.97 }}
+                          onClick={dismiss}
+                          className="py-3.5 rounded-2xl font-bold text-sm bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white transition-all shadow-lg shadow-purple-600/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
+                        >
+                          يلا نبدأ ←
+                        </motion.button>
+                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>

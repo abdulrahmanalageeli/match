@@ -9,6 +9,7 @@ import {
   ChevronRight,
   ChevronLeft,
   ChevronDown,
+  Shuffle,
   HelpCircle,
   Trophy,
   Star,

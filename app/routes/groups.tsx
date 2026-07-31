@@ -2475,8 +2475,8 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 dragConstraints={{ left: 0, right: 0 }}
                 dragElastic={0.35}
                 onDragEnd={(_, info) => {
-                  if (info.offset.x > 60) nextActivity();
-                  else if (info.offset.x < -60) prevActivity();
+                  if (info.offset.x < -60) nextActivity();
+                  else if (info.offset.x > 60) prevActivity();
                 }}
                 className="cursor-grab active:cursor-grabbing"
               >
@@ -2550,7 +2550,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 
               {/* Stable navigation controls, kept outside the card edges */}
               <div className="mt-4 grid grid-cols-[44px_1fr_44px] items-center gap-3">
-                <button onClick={nextActivity} aria-label="النشاط التالي" className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-gray-300 transition-all hover:bg-white/10 hover:text-white active:scale-90">
+                <button onClick={prevActivity} aria-label="النشاط السابق" className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-gray-300 transition-all hover:bg-white/10 hover:text-white active:scale-90">
                   <ChevronRight className="h-5 w-5" />
                 </button>
                 <div className="flex items-center justify-center gap-1.5">
@@ -2558,7 +2558,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                     <button key={g.id} onClick={() => setCarouselIndex(i)} aria-label={`النشاط ${i + 1}`} className={`h-1.5 rounded-full transition-all duration-300 ${i === carouselIndex ? `w-7 bg-gradient-to-r ${currentGame.color}` : "w-1.5 bg-white/20 hover:bg-white/40"}`} />
                   ))}
                 </div>
-                <button onClick={prevActivity} aria-label="النشاط السابق" className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-gray-300 transition-all hover:bg-white/10 hover:text-white active:scale-90">
+                <button onClick={nextActivity} aria-label="النشاط التالي" className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-gray-300 transition-all hover:bg-white/10 hover:text-white active:scale-90">
                   <ChevronLeft className="h-5 w-5" />
                 </button>
               </div>

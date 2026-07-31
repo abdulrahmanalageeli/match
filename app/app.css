@@ -890,61 +890,38 @@ html:not(.dark) .ai-ink {
   backdrop-filter: none;
 }
 
-/* BlindMatch signature: a quiet luminous imprint embedded into the process panel. */
+/* BlindMatch signature: a restrained glass-etched stamp in the panel corner. */
 .welcome-brand-imprint {
   position: absolute;
   z-index: 2;
-  top: 0.65rem;
-  left: 0.75rem;
-  width: 12rem;
+  top: 0.85rem;
+  left: 1rem;
+  width: 10.5rem;
   aspect-ratio: 3 / 2;
   pointer-events: none;
-  transform-origin: 40% 45%;
-  animation: welcome-imprint-drift 9s ease-in-out infinite;
 }
 
-.welcome-brand-imprint__mark,
-.welcome-brand-imprint__glow {
+.welcome-brand-imprint__mark {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: contain;
-}
-
-.welcome-brand-imprint__mark {
-  opacity: 0.11;
+  opacity: 0.075;
   filter:
-    drop-shadow(0 0 7px rgba(103, 232, 249, 0.7))
-    drop-shadow(0 0 18px rgba(167, 139, 250, 0.5));
-}
-
-.welcome-brand-imprint__glow {
-  opacity: 0.13;
-  filter: blur(14px) saturate(1.3);
-  transform: scale(0.94);
-  animation: welcome-imprint-glow 4.5s ease-in-out infinite;
-}
-
-@keyframes welcome-imprint-drift {
-  0%, 100% { transform: translate3d(0, 0, 0) rotate(-1.5deg); }
-  50% { transform: translate3d(0.4rem, 0.3rem, 0) rotate(1deg); }
-}
-
-@keyframes welcome-imprint-glow {
-  0%, 100% { opacity: 0.09; transform: scale(0.92); }
-  50% { opacity: 0.19; transform: scale(1.01); }
+    drop-shadow(0 1px 0 rgba(255, 255, 255, 0.16))
+    drop-shadow(0 -1px 0 rgba(2, 6, 23, 0.72));
 }
 
 @media (max-width: 640px) {
   .welcome-brand-imprint {
-    top: 0.3rem;
-    left: -0.35rem;
-    width: 8.5rem;
+    top: 0.65rem;
+    left: 0.35rem;
+    width: 7.25rem;
   }
 
   .welcome-brand-imprint__mark {
-    opacity: 0.09;
+    opacity: 0.06;
   }
 }
 

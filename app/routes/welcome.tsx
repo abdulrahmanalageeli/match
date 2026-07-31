@@ -6458,7 +6458,7 @@ export default function WelcomePage() {
                   <HelpCircle className="w-6 h-6 text-white" />
                 </div>
                 <h3 className="text-lg sm:text-xl font-bold text-white mb-2">كيف يعمل النظام؟</h3>
-                <p className="text-cyan-200 text-xs sm:text-sm">تجمع التجربة بين أنشطة جماعية ولقاءات فردية، مع حماية بيانات التواصل وعدم مشاركتها إلا وفق قواعد الفعالية والتوافق المتبادل</p>
+                <p className="text-cyan-200 text-xs sm:text-sm">تجمع التجربة بين أنشطة جماعية ولقاءات فردية، مع الحفاظ على خصوصية المشاركين وعدم كشف الاختيارات أو التقييمات.</p>
               </div>
               
               {/* Features Grid */}
@@ -7449,46 +7449,46 @@ export default function WelcomePage() {
                     </div>
                   </div>
                   <details className="group">
-                    <summary className="mx-4 flex cursor-pointer list-none items-center justify-between rounded-2xl border border-white/[0.08] bg-white/[0.045] px-4 py-3.5 text-white transition-colors hover:bg-white/[0.07] sm:mx-6">
-                      <span className="flex items-center gap-3">
-                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-400/10 text-violet-200 ring-1 ring-violet-300/15">
+                    <summary className="mx-3 flex cursor-pointer list-none items-start justify-between gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.045] px-3 py-3.5 text-white transition-colors hover:bg-white/[0.07] sm:mx-6 sm:items-center sm:px-4">
+                      <span className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-400/10 text-violet-200 ring-1 ring-violet-300/15">
                           <Layers className="h-4 w-4" />
                         </span>
-                        <span className="text-right">
-                          <span className="mb-1 flex items-center gap-2">
-                            <h2 className="text-sm font-black sm:text-base">كيف تعمل تجربة Event 3؟</h2>
-                            <span className="rounded-full bg-cyan-300/10 px-2 py-0.5 text-[9px] font-black tracking-wider text-cyan-200 ring-1 ring-cyan-300/20">الرحلة كاملة</span>
+                        <span className="min-w-0 text-right">
+                          <span className="mb-1 flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2">
+                            <h2 className="text-[13px] font-black leading-5 sm:text-base">كيف تعمل «التوافق الأعمى: اختيارك واختيارنا»؟</h2>
+                            <span className="shrink-0 rounded-full bg-cyan-300/10 px-2 py-0.5 text-[9px] font-black tracking-wider text-cyan-200 ring-1 ring-cyan-300/20">الرحلة كاملة</span>
                           </span>
-                          <span className="block text-[11px] font-medium text-slate-500 sm:text-xs">مجموعتان، ترتيب سري، جلستان فرديتان وكشف نهائي</span>
+                          <span className="block text-[11px] font-medium leading-5 text-slate-500 sm:text-xs">مجموعتان، ترتيب سري، جلستان فرديتان وكشف نهائي</span>
                         </span>
                       </span>
-                      <ChevronLeft className="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-300 group-open:rotate-[-90deg]" />
+                      <ChevronLeft className="mt-2 h-4 w-4 shrink-0 text-slate-400 transition-transform duration-300 group-open:rotate-[-90deg] sm:mt-0" />
                     </summary>
 
-                    <div className="max-h-0 overflow-hidden transition-all duration-700 ease-in-out group-open:max-h-[3200px]">
-                      <div className="px-4 pb-5 pt-5 sm:px-6 sm:pb-7">
-                        <div className="relative overflow-hidden rounded-[1.5rem] border border-white/[0.08] bg-gradient-to-br from-violet-500/[0.09] via-transparent to-cyan-400/[0.08] p-5 sm:p-6">
+                    <div className="max-h-0 overflow-hidden transition-all duration-700 ease-in-out group-open:max-h-[4200px]">
+                      <div className="px-3 pb-5 pt-5 sm:px-6 sm:pb-7">
+                        <div className="relative overflow-hidden rounded-[1.5rem] border border-white/[0.08] bg-gradient-to-br from-violet-500/[0.09] via-transparent to-cyan-400/[0.08] p-4 sm:p-6">
                           <div className="pointer-events-none absolute -left-12 -top-16 h-40 w-40 rounded-full bg-violet-400/10 blur-3xl" />
                           <div className="relative text-right">
-                            <span className="text-[10px] font-black tracking-[0.22em] text-violet-300">EVENT 3 JOURNEY</span>
-                            <h3 className="mt-2 text-xl font-black text-white sm:text-2xl">تتعرّف، تختار، ثم تقارن اختيارك باختيار النظام</h3>
+                            <span className="text-[10px] font-black tracking-[0.12em] text-violet-300">التوافق الأعمى</span>
+                            <h3 className="mt-2 text-lg font-black leading-7 text-white sm:text-2xl">تتعرّف، تختار، ثم تقارن اختيارك باختيارنا</h3>
                             <p className="mt-2 max-w-3xl text-xs leading-6 text-slate-400 sm:text-sm">التجربة لا تبدأ بمطابقة مباشرة. أولاً تقابل أشخاصاً حقيقيين داخل مجموعتين، ثم ترتّب تجربتك بنفسك، وبعدها تعيش جلستين فرديتين مختلفتين قبل الكشف النهائي.</p>
                           </div>
-                          <div className="relative mt-5 grid grid-cols-3 gap-2">
+                          <div className="relative mt-5 grid grid-cols-3 gap-1.5 sm:gap-2">
                             {[
                               { value: "2", label: "جولات جماعية", color: "text-blue-200" },
                               { value: "2", label: "جلسات 1:1", color: "text-pink-200" },
                               { value: "1", label: "كشف نهائي", color: "text-violet-200" },
                             ].map((stat) => (
-                              <div key={stat.label} className="rounded-2xl border border-white/[0.07] bg-black/15 px-2 py-3 text-center">
+                              <div key={stat.label} className="rounded-2xl border border-white/[0.07] bg-black/15 px-1 py-3 text-center sm:px-2">
                                 <div className={`text-xl font-black sm:text-2xl ${stat.color}`}>{stat.value}</div>
-                                <div className="mt-0.5 text-[9px] font-bold text-slate-500 sm:text-[11px]">{stat.label}</div>
+                                <div className="mt-0.5 text-[9px] font-bold leading-4 text-slate-500 sm:text-[11px]">{stat.label}</div>
                               </div>
                             ))}
                           </div>
                         </div>
 
-                        <div className="relative mt-6 space-y-3 before:absolute before:bottom-7 before:right-[19px] before:top-7 before:w-px before:bg-gradient-to-b before:from-blue-400/40 before:via-pink-400/30 before:to-violet-400/40">
+                        <div className="relative mt-6 space-y-3 before:absolute before:bottom-7 before:right-[15px] before:top-7 before:w-px before:bg-gradient-to-b before:from-blue-400/40 before:via-pink-400/30 before:to-violet-400/40 sm:before:right-[19px]">
                           {[
                             {
                               number: "01", Icon: Users, tone: "text-blue-200 bg-blue-400/10 ring-blue-300/20", title: "جولتان جماعيتان — مجموعتان مختلفتان", meta: "30 دقيقة · ثم 25 دقيقة", body: "تذهب إلى رقم طاولتك، تتعرّف على 4–6 مشاركين وتختارون معاً نشاطاً أو أسئلة للنقاش. في الجولة الثانية تنتقل غالباً إلى مجموعة جديدة؛ وقد يتكرر شخص فقط عند الحاجة لتوازن التقسيم.",
@@ -7506,36 +7506,36 @@ export default function WelcomePage() {
                               number: "05", Icon: Brain, tone: "text-purple-200 bg-purple-400/10 ring-purple-300/20", title: "الجلسة الفردية الثانية — اختيارنا لك", meta: "20 دقيقة · مجموعة الأسئلة 2", body: "ينقلك النظام إلى شريك يرشّحه اعتماداً على بيانات التوافق. قد يكون الشخص نفسه إذا اتفق اختيارك مع اختيار النظام، ثم تقيّم الجلسة بالطريقة نفسها.",
                             },
                             {
-                              number: "06", Icon: Trophy, tone: "text-violet-200 bg-violet-400/10 ring-violet-300/20", title: "الكشف النهائي", meta: "اختيارك × اختيار النظام", body: "تكتشف نتيجة الجلستين، مؤشرات التوافق، والكلمة التي وصف بها كل طرف الآخر. معلومات التواصل تظهر فقط عندما يختار الطرفان «نعم» للتواصل.",
+                              number: "06", Icon: Trophy, tone: "text-violet-200 bg-violet-400/10 ring-violet-300/20", title: "الكشف النهائي", meta: "اختيارك × اختيارنا", body: "تكتشف نتيجة الجلستين، مؤشرات التوافق، والكلمة التي وصف بها كل طرف الآخر، وتعرف إن كان قرار التواصل متبادلاً من دون كشف أي اختيار أحادي.",
                             },
                           ].map(({ number, Icon, tone, title, meta, body }) => (
-                            <div key={number} className="relative pr-12 text-right">
-                              <div className={`absolute right-0 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-2xl ring-1 backdrop-blur-sm ${tone}`}>
+                            <div key={number} className="relative pr-10 text-right sm:pr-12">
+                              <div className={`absolute right-0 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-xl ring-1 backdrop-blur-sm sm:h-10 sm:w-10 sm:rounded-2xl ${tone}`}>
                                 <Icon className="h-4 w-4" />
                               </div>
-                              <div className="rounded-2xl border border-white/[0.075] bg-white/[0.028] p-4 transition-colors hover:bg-white/[0.045] sm:p-5">
-                                <div className="flex flex-wrap items-start justify-between gap-2">
+                              <div className="rounded-2xl border border-white/[0.075] bg-white/[0.028] p-3 transition-colors hover:bg-white/[0.045] sm:p-5">
+                                <div className="flex flex-col items-start gap-2 sm:flex-row sm:justify-between">
                                   <div>
                                     <span className="text-[9px] font-black tracking-[0.18em] text-slate-600">STEP {number}</span>
                                     <h4 className="mt-1 text-sm font-black text-white sm:text-base">{title}</h4>
                                   </div>
                                   <span className="rounded-full bg-white/[0.045] px-2.5 py-1 text-[10px] font-bold text-slate-400 ring-1 ring-white/[0.07]">{meta}</span>
                                 </div>
-                                <p className="mt-2 text-xs leading-6 text-slate-400 sm:text-[13px]">{body}</p>
+                                <p className="mt-2 text-xs leading-5 text-slate-400 sm:text-[13px] sm:leading-6">{body}</p>
                               </div>
                             </div>
                           ))}
                         </div>
 
                         <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                          <div className="rounded-[1.35rem] border border-pink-400/15 bg-pink-400/[0.045] p-4 text-right">
+                          <div className="rounded-[1.35rem] border border-pink-400/15 bg-pink-400/[0.045] p-3 text-right sm:p-4">
                             <div className="flex items-center gap-2 text-pink-200">
                               <Heart className="h-4 w-4" />
                               <h4 className="text-sm font-black">ما الذي يصنع «اختيارك»؟</h4>
                             </div>
                             <p className="mt-2 text-xs leading-6 text-slate-400">ترتيبك الشخصي + ترتيب الطرف الآخر. النتيجة أفضل تطابق متبادل متاح، وليست وعداً بالشخص الموجود أول قائمتك.</p>
                           </div>
-                          <div className="rounded-[1.35rem] border border-purple-400/15 bg-purple-400/[0.045] p-4 text-right">
+                          <div className="rounded-[1.35rem] border border-purple-400/15 bg-purple-400/[0.045] p-3 text-right sm:p-4">
                             <div className="flex items-center gap-2 text-purple-200">
                               <Brain className="h-4 w-4" />
                               <h4 className="text-sm font-black">ما الذي يصنع «اختيارنا»؟</h4>
@@ -7544,13 +7544,13 @@ export default function WelcomePage() {
                           </div>
                         </div>
 
-                        <div className="mt-3 flex items-start gap-3 rounded-[1.35rem] border border-emerald-400/15 bg-emerald-400/[0.045] p-4 text-right">
+                        <div className="mt-3 flex items-start gap-3 rounded-[1.35rem] border border-emerald-400/15 bg-emerald-400/[0.045] p-3 text-right sm:p-4">
                           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-400/10 text-emerald-200 ring-1 ring-emerald-300/20">
                             <EyeOff className="h-4 w-4" />
                           </div>
                           <div>
                             <h4 className="text-sm font-black text-emerald-100">اختياراتك وتقييماتك سرّية</h4>
-                            <p className="mt-1 text-xs leading-6 text-emerald-100/60">لا يظهر ترتيبك أو قرار التواصل للطرف الآخر. مشاركة بيانات التواصل لا تتم إلا عند موافقة الطرفين بعد الجلسة.</p>
+                            <p className="mt-1 text-xs leading-5 text-emerald-100/60 sm:leading-6">لا يظهر ترتيبك أو تقييمك أو قرارك للطرف الآخر. لا يُكشف قرار التواصل إلا عندما يوافق الطرفان بعد الجلسة.</p>
                           </div>
                         </div>
                       </div>

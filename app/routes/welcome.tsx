@@ -7424,45 +7424,42 @@ export default function WelcomePage() {
               <>
                 <h1 className="sr-only">بلاند ماتش — منصة التوافق والفعاليات التفاعلية</h1>
                 {/* Reserved breathing room below the fixed navigation; the visual hero remains intentionally omitted. */}
-                <div className="h-20 sm:h-24" aria-hidden="true" />
+                <div className="h-24 sm:h-24" aria-hidden="true" />
 
                 {/* Process guide */}
-                <div className="welcome-process-panel relative mx-3 mb-6 max-w-5xl overflow-hidden rounded-[1.75rem] border border-white/[0.1] bg-slate-950/65 shadow-[0_28px_90px_-40px_rgba(34,211,238,0.5)] ring-1 ring-white/[0.035] backdrop-blur-2xl sm:mx-auto">
+                <div className="welcome-process-panel relative mx-3 mb-4 mt-3 max-w-5xl overflow-hidden rounded-3xl border border-white/[0.09] bg-slate-950/55 shadow-[0_22px_70px_-42px_rgba(34,211,238,0.42)] backdrop-blur-xl sm:mx-auto sm:mt-0">
                   <div className="pointer-events-none absolute -right-28 -top-32 h-72 w-72 rounded-full bg-cyan-400/[0.07] blur-3xl" aria-hidden="true" />
                   <div className="welcome-brand-imprint" aria-hidden="true">
                     <img className="welcome-brand-imprint__mark" src="/blindmatch-imprint.png" alt="" />
                   </div>
-                  <div className="relative z-[1] py-4 text-center sm:py-5">
-                  <div className="mx-auto mb-2 max-w-3xl px-4 sm:px-6">
-                    <div className="flex items-start gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.035] px-4 py-3 text-right text-slate-200">
-                      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-cyan-300/10 text-cyan-200 ring-1 ring-cyan-300/15">
+                  <div className="relative z-[1] py-3 text-center sm:py-4">
+                  <div className="mx-auto mb-1 max-w-3xl px-3 sm:px-5">
+                    <div className="flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.03] px-3 py-2.5 text-right text-slate-200 sm:px-4">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-cyan-300/10 text-cyan-200 ring-1 ring-cyan-300/15">
                         <Sparkles className="h-4 w-4" />
                       </div>
-                      <span className="text-xs font-medium leading-6 sm:text-sm">
-                        هذا حدث فكري لتحدي وجهات النظر • هدفه اختبار التوافق الفكري والثقافي من خلال نقاشات جماعية ومحادثات فردية
+                      <span className="text-xs font-medium leading-5 sm:text-sm">
+                        نقاشات جماعية ولقاءات فردية تقارن اختيارك بترشيحنا للتوافق.
                       </span>
                     </div>
                   </div>
-                  <div className="mx-auto mb-4 max-w-3xl px-4 sm:px-6">
-                    <div className="flex items-start gap-3 rounded-2xl px-4 py-2.5 text-right text-amber-100/80">
-                      <AlertTriangle className="mt-1 h-4 w-4 shrink-0 text-amber-300/80" />
-                      <span className="text-xs font-medium leading-5 sm:text-[13px]">
-                        تنبيه: النتائج تقديرية مبنية على احتمالات وليست ضماناً، وقد تتأثر بدقة الإجابات والسياق.
+                  <div className="mx-auto mb-2 max-w-3xl px-3 sm:px-5">
+                    <div className="flex items-center gap-2 px-3 py-2 text-right text-amber-100/70">
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-300/75" />
+                      <span className="text-[11px] font-medium leading-5 sm:text-xs">
+                        النتائج مؤشرات تقديرية وليست ضماناً.
                       </span>
                     </div>
                   </div>
                   <details className="group">
-                    <summary className="mx-3 flex cursor-pointer list-none items-start justify-between gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.045] px-3 py-3.5 text-white transition-colors hover:bg-white/[0.07] sm:mx-6 sm:items-center sm:px-4">
+                    <summary className="mx-3 flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.04] px-3 py-3 text-white transition-colors hover:bg-white/[0.065] sm:mx-5 sm:px-4">
                       <span className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
                         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-400/10 text-violet-200 ring-1 ring-violet-300/15">
                           <Layers className="h-4 w-4" />
                         </span>
                         <span className="min-w-0 text-right">
-                          <span className="mb-1 flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2">
-                            <h2 className="text-[13px] font-black leading-5 sm:text-base">كيف تعمل «التوافق الأعمى: اختيارك واختيارنا»؟</h2>
-                            <span className="shrink-0 rounded-full bg-cyan-300/10 px-2 py-0.5 text-[9px] font-black tracking-wider text-cyan-200 ring-1 ring-cyan-300/20">الرحلة كاملة</span>
-                          </span>
-                          <span className="block text-[11px] font-medium leading-5 text-slate-500 sm:text-xs">مجموعتان، ترتيب سري، جلستان فرديتان وكشف نهائي</span>
+                          <h2 className="text-[13px] font-black leading-5 sm:text-base">كيف تعمل «التوافق الأعمى»؟</h2>
+                          <span className="block text-[10px] font-medium leading-4 text-slate-500 sm:text-xs">التفاصيل الكاملة للتجربة</span>
                         </span>
                       </span>
                       <ChevronLeft className="mt-2 h-4 w-4 shrink-0 text-slate-400 transition-transform duration-300 group-open:rotate-[-90deg] sm:mt-0" />
@@ -7560,6 +7557,7 @@ export default function WelcomePage() {
                     </div>
                   </details>
                   </div>
+                </div>
                 
 
                 {/* Registration Options - Hidden for new users, only show for users who dismiss popup */}
@@ -7758,22 +7756,16 @@ export default function WelcomePage() {
 
                 {/* Navbar for Saved Data Users */}
                 {(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
-                  <div className="max-w-4xl mx-auto px-4 mt-1 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
-                    <div className="p-3 sm:p-4 circuit-card rounded-2xl">
+                  <div className="mx-auto mt-0 max-w-5xl px-3 animate-in slide-in-from-bottom-4 duration-1000 delay-1000 sm:px-0">
+                    <div className="welcome-actions-panel rounded-3xl p-2.5 sm:p-3">
                       
-                      <div className="grid grid-cols-1 sm:grid-cols-2 auto-rows-auto items-start gap-3 sm:gap-4">
+                      <div className="grid grid-cols-2 gap-2 sm:gap-3">
                         {/* Next Event Signup Card - Full Width Row 1 */}
-                        <div className={`relative col-span-2 ai-card ai-animated-border rounded-2xl ${showNextEventSignup ? "ai-card--success" : "ai-card--danger"} p-3 sm:p-5 text-center group ${
+                        <div className={`welcome-next-event-card relative col-span-2 rounded-2xl p-3 text-right group ${
                           showNextEventSignup 
-                            ? "opacity-90" 
-                            : "hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px]"
+                            ? "welcome-next-event-card--registered"
+                            : "welcome-next-event-card--available"
                         }`}
-                        style={{
-                          ['--ab-c1' as any]: showNextEventSignup ? '#34d399' : '#f87171',
-                          ['--ab-c2' as any]: showNextEventSignup ? '#10b981' : '#fb923c',
-                          ['--ab-c3' as any]: showNextEventSignup ? '#059669' : '#ef4444',
-                          ['--cp' as any]: showNextEventSignup ? 'rgba(16,185,129,0.16)' : 'rgba(239,68,68,0.16)'
-                        }}
                         >
                           {!showNextEventSignup && (
                             <button
@@ -7783,21 +7775,21 @@ export default function WelcomePage() {
                               onClick={handleAutoSignupNextEvent}
                             />
                           )}
-                          <UserCheck className={`w-6 h-6 text-white mx-auto mb-2 ${showNextEventSignup ? "opacity-60" : ""}`} />
-                          <h4 className="text-base font-bold text-white mb-2">
+                          <UserCheck className={`h-5 w-5 text-emerald-200 ${showNextEventSignup ? "opacity-70" : ""}`} />
+                          <h4 className="text-sm font-bold text-white sm:text-base">
                             {showNextEventSignup ? "مسجل للفعالية القادمة ✓" : "سجل للفعالية القادمة"}
                           </h4>
-                          <p className="text-slate-300 text-xs mb-2">
+                          <p className="text-[11px] text-slate-400 sm:text-xs">
                             {showNextEventSignup ? "أنت مسجل بالفعل في الفعالية القادمة" : "سجل باستخدام حسابك الحالي"}
                           </p>
                           
                           {!showNextEventSignup ? (
-                            <div className="flex items-center justify-center gap-2 text-emerald-300">
+                            <div className="flex items-center gap-1 text-emerald-300">
                               <span className="text-xs font-medium">انقر للتسجيل</span>
-                              <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
+                              <ChevronLeft className="h-3.5 w-3.5 rotate-180" />
                             </div>
                           ) : (
-                            <div className="flex flex-col gap-2 mt-3">
+                            <div className="mt-2 flex flex-wrap gap-2">
                               {/* Unregister from Next Event Button */}
                               <button
                                 onClick={async (e) => {
@@ -7832,7 +7824,7 @@ export default function WelcomePage() {
                                   setNextEventSignupLoading(false);
                                 }}
                                 disabled={nextEventSignupLoading}
-                                className="px-4 py-2 bg-orange-500/20 hover:bg-orange-500/30 border border-orange-400/30 text-orange-300 rounded-lg text-xs font-medium transition-all duration-300 hover:scale-105"
+                                className="rounded-lg border border-orange-400/20 bg-orange-400/10 px-3 py-1.5 text-[11px] font-medium text-orange-200 transition-colors hover:bg-orange-400/15"
                               >
                                 {nextEventSignupLoading ? "جاري الإلغاء..." : "إلغاء التسجيل"}
                               </button>
@@ -7872,7 +7864,7 @@ export default function WelcomePage() {
                                     setNextEventSignupLoading(false);
                                   }}
                                   disabled={nextEventSignupLoading}
-                                  className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 text-red-300 rounded-lg text-xs font-medium transition-all duration-300 hover:scale-105"
+                                  className="rounded-lg border border-red-400/20 bg-red-400/10 px-3 py-1.5 text-[11px] font-medium text-red-200 transition-colors hover:bg-red-400/15"
                                 >
                                   إيقاف التسجيل التلقائي
                                 </button>
@@ -7889,20 +7881,14 @@ export default function WelcomePage() {
                               handleTokenNavigation(token);
                             }
                           }}
-                          className="block w-full h-full group ai-card ai-animated-border ai-card--accent rounded-2xl p-3 sm:p-5 text-center hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px]"
-                          style={{
-                            ['--ab-c1' as any]: '#a855f7',
-                            ['--ab-c2' as any]: '#ec4899',
-                            ['--ab-c3' as any]: '#9333ea',
-                            ['--cp' as any]: 'rgba(168,85,247,0.16)'
-                          }}
+                          className="welcome-action-card w-full rounded-2xl p-3"
                           id="returning-player"
                         >
                           
-                          <RotateCcw className="w-6 h-6 text-white mx-auto mb-2" />
-                          <h4 className="text-base font-bold text-white mb-2">تعديل الاستبيان</h4>
-                          <p className="text-slate-300 text-xs mb-2">
-                            عدّل بياناتك واستبيانك
+                          <RotateCcw className="h-5 w-5 text-violet-200" />
+                          <h4 className="text-sm font-bold text-white sm:text-base">تعديل الاستبيان</h4>
+                          <p className="text-[10px] text-slate-500 sm:text-xs">
+                            عدّل بياناتك
                           </p>
                         </button>
 
@@ -7914,19 +7900,13 @@ export default function WelcomePage() {
                               window.location.href = `/results?token=${token}`;
                             }
                           }}
-                          className="block w-full h-full group ai-card ai-animated-border ai-card--accent rounded-2xl p-3 sm:p-5 text-center hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px]"
-                          style={{
-                            ['--ab-c1' as any]: '#fb923c',
-                            ['--ab-c2' as any]: '#f43f5e',
-                            ['--ab-c3' as any]: '#ea580c',
-                            ['--cp' as any]: 'rgba(251,146,60,0.16)'
-                          }}
+                          className="welcome-action-card w-full rounded-2xl p-3"
                         >
                           
-                          <Search className="w-6 h-6 text-white mx-auto mb-2" />
-                          <h4 className="text-base font-bold text-white mb-2">عرض نتائج التوافق</h4>
-                          <p className="text-slate-300 text-xs mb-2">
-                            اعرض جميع نتائج التوافق الخاصة بك
+                          <Search className="h-5 w-5 text-cyan-200" />
+                          <h4 className="text-sm font-bold text-white sm:text-base">نتائج التوافق</h4>
+                          <p className="text-[10px] text-slate-500 sm:text-xs">
+                            شاهد نتائجك
                           </p>
                         </button>
 
@@ -7936,17 +7916,12 @@ export default function WelcomePage() {
                             const t = resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token');
                             if (t) window.location.href = `/event3?token=${t}`;
                           }}
-                          className="col-span-2 group ai-card ai-animated-border ai-card--accent rounded-2xl p-2 sm:p-3 !min-h-0 !h-auto text-center hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px]"
-                          style={{
-                            ['--ab-c1' as any]: '#ec4899',
-                            ['--ab-c2' as any]: '#a855f7',
-                            ['--ab-c3' as any]: '#8b5cf6',
-                            ['--cp' as any]: 'rgba(168,85,247,0.16)'
-                          }}
+                          className="welcome-action-card welcome-action-card--primary col-span-2 rounded-2xl p-3"
                         >
                           
-                          <Users className="w-6 h-6 text-white mx-auto mb-2" />
-                          <h4 className="text-base font-bold text-white mb-2">اختيارك واختيارنا</h4>
+                          <Users className="h-5 w-5 text-pink-200" />
+                          <h4 className="text-sm font-bold text-white sm:text-base">اختيارك واختيارنا</h4>
+                          <p className="text-[10px] text-slate-500 sm:text-xs">افتح تجربة التوافق الأعمى</p>
                         </button>
                       </div>
                       
@@ -7954,8 +7929,6 @@ export default function WelcomePage() {
                     </div>
                   </div>
                 )}
-
-                </div>
 
                 {/* Token Input Sections for Non-Saved Users */}
                 {!(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (

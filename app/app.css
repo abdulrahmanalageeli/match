@@ -971,3 +971,14 @@ html:not(.dark) .round-bg-pattern::before {
   cursor: grab;
 }
 
+/* Respect the participant's operating-system motion preference across welcome and event flows. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

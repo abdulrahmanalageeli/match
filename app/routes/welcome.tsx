@@ -80,6 +80,88 @@ import { motion, AnimatePresence } from "framer-motion"
 import confetti from "canvas-confetti"
 // Use layout effect only on client to avoid SSR warnings
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
+
+// Applies consistent keyboard and focus behavior to the route's legacy custom overlays.
+// Radix dialogs already provide this behavior and are intentionally excluded.
+function useAccessibleWelcomeDialogs() {
+  useEffect(() => {
+    let activeDialog: HTMLElement | null = null
+    let previouslyFocused: HTMLElement | null = null
+
+    const getFocusable = (dialog: HTMLElement) => Array.from(
+      dialog.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), a[href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+    ).filter((element) => !element.hasAttribute('hidden') && element.getAttribute('aria-hidden') !== 'true')
+
+    const activateTopDialog = () => {
+      const dialogs = Array.from(document.querySelectorAll<HTMLElement>('[data-welcome-dialog]'))
+      const nextDialog = dialogs.at(-1) ?? null
+      if (nextDialog === activeDialog) return
+
+      if (!nextDialog) {
+        activeDialog = null
+        previouslyFocused?.focus()
+        previouslyFocused = null
+        return
+      }
+
+      if (!activeDialog) {
+        previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null
+      }
+      activeDialog = nextDialog
+      requestAnimationFrame(() => {
+        const focusable = getFocusable(nextDialog)
+        ;(focusable[0] ?? nextDialog).focus()
+      })
+    }
+
+    const observer = new MutationObserver(activateTopDialog)
+    observer.observe(document.body, { childList: true, subtree: true })
+    activateTopDialog()
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!activeDialog || !document.body.contains(activeDialog)) {
+        activeDialog = null
+        activateTopDialog()
+      }
+      if (!activeDialog) return
+
+      if (event.key === 'Escape') {
+        const dismissButton = activeDialog.querySelector<HTMLElement>('[data-dialog-close]')
+        if (dismissButton) {
+          event.preventDefault()
+          dismissButton.click()
+        }
+        return
+      }
+
+      if (event.key !== 'Tab') return
+      const focusable = getFocusable(activeDialog)
+      if (focusable.length === 0) {
+        event.preventDefault()
+        activeDialog.focus()
+        return
+      }
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      observer.disconnect()
+      document.removeEventListener('keydown', handleKeyDown)
+      previouslyFocused?.focus()
+    }
+  }, [])
+}
 // Performance: Lazy load heavy components to improve initial page load
 const AIQuestionsGenerator = lazy(() => import("../components/AIQuestionsGenerator"))
 const SurveyComponent = lazy(() => import("../components/SurveyComponent"))
@@ -174,6 +256,7 @@ const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 
 
 export default function WelcomePage() {
+  useAccessibleWelcomeDialogs()
   const [step, setStep] = useState<number>(0)
   const [dark, setDark] = useState(true) // Default to dark mode
   const [assignedNumber, setAssignedNumber] = useState<number | null>(null)
@@ -1764,7 +1847,7 @@ export default function WelcomePage() {
   // Add these refs near the top of your component
   const lastRoundRef = useRef<number | null>(null);
   const lastPhaseRef = useRef<string | null>(null);
-  const historyIconRef = useRef<HTMLDivElement | null>(null);
+  const historyIconRef = useRef<HTMLButtonElement | null>(null);
 
   // Helper function to handle logo clicks with confirmation for rounds
   const handleLogoClick = () => {
@@ -1909,7 +1992,7 @@ export default function WelcomePage() {
       return
     }
 
-    const fullText = `مرحباً بك لاعب رقم ${assignedNumber} في نظام الصداقة الذكي! \n\nستبدأ بجلوس مع مجموعة لمدة 20-30 دقيقة، ثم تنتقل إلى لقاءات فردية مع أشخاص متوافقين لتبادل وجهات النظر المختلفة.`
+    const fullText = `مرحباً بك لاعب رقم ${assignedNumber} في نظام الصداقة الذكي! \n\nستبدأ بنشاط جماعي وفق جدول الفعالية، ثم تنتقل إلى لقاءات فردية لتبادل وجهات النظر المختلفة.`
     
     setWelcomeTyping(true)
     setWelcomeText("")
@@ -3135,14 +3218,16 @@ export default function WelcomePage() {
           <div className="bg-gradient-to-r from-slate-800/40 to-slate-700/40 rounded-full px-3 py-1 border border-slate-600/50 shadow-md backdrop-blur-sm">
             <div className="flex items-center gap-3">
             {/* Logo - Center */}
-            <div 
+            <button
+              type="button"
+              aria-label="العودة إلى الصفحة الرئيسية"
               onClick={handleLogoClick}
               className="cursor-pointer transition-all duration-200 hover:opacity-80"
             >
               <div className="w-[28px] h-[28px] min-w-[28px] min-h-[28px] rounded-lg bg-gradient-to-br from-purple-500 to-cyan-500 p-[5px] shadow-lg ring-1 ring-white/10">
                 <Home className="w-full h-full text-white" strokeWidth={2.5} />
               </div>
-            </div>
+            </button>
 
             {/* Participant Infoo */}
             {assignedNumber && (
@@ -3282,7 +3367,9 @@ export default function WelcomePage() {
     <div className={positionClass}>
       <div className="flex flex-col items-end gap-2">
         {/* Logo */}
-        <div 
+        <button
+          type="button"
+          aria-label="العودة إلى الصفحة الرئيسية"
           onClick={handleLogoClick}
           className="group cursor-pointer transition-all duration-700 ease-out hover:scale-105"
         >
@@ -3300,7 +3387,7 @@ export default function WelcomePage() {
             {/* Subtle animated border */}
             <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-purple-500/30 via-blue-500/30 to-cyan-500/30 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 ease-in-out"></div>
           </div>
-        </div>
+        </button>
 
       </div>
     </div>
@@ -4449,7 +4536,6 @@ export default function WelcomePage() {
       }
       setResultToken(token);
       setReturningPlayerToken(token);
-      console.log('💾 Token saved to localStorage:', token, name ? `(${name})` : '', number ? `#${number}` : '');
     }
   };
 
@@ -5691,7 +5777,7 @@ export default function WelcomePage() {
           ))}
         </div>
 
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div data-welcome-dialog role="dialog" aria-modal="true" aria-label="إكمال الأسئلة المطلوبة" tabIndex={-1} className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className={`max-w-2xl w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/95 border-slate-600" : "bg-white/95 border-gray-200"} flex flex-col`} dir="rtl">
             <div className="p-6 overflow-y-auto">
               <div className="space-y-4">
@@ -5812,7 +5898,7 @@ export default function WelcomePage() {
   // Survey Recovery Popup (technical issue) - Top Level (highest priority)
   if (showSurveyRecoveryPopup && surveyRecoveryInfo) {
     return (
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div data-welcome-dialog role="dialog" aria-modal="true" aria-label="استعادة بيانات الاستبيان" tabIndex={-1} className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
         <div className={`max-w-md w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/90 border-slate-600" : "bg-white/90 border-gray-200"} flex flex-col`} dir="rtl">
           <div className="p-6 overflow-y-auto">
             <h2 className={`text-xl font-bold mb-2 ${dark ? 'text-slate-100' : 'text-gray-800'}`}>
@@ -5820,7 +5906,7 @@ export default function WelcomePage() {
             </h2>
             <p className={`${dark ? 'text-slate-300' : 'text-gray-700'} leading-relaxed`}>
               نعتذر عن الإزعاج. لاحظنا أن بعض معلوماتك مثل الاسم أو إجابات الاستبيان غير محفوظة، بينما تم حفظ تفضيلات التفاعل.
-              لضمان أفضل تجربة ومطابقة دقيقة، يُرجى إعادة تعبئة الاستبيان.
+              لضمان أفضل تجربة ومؤشرات توافق أوضح، يُرجى إعادة تعبئة الاستبيان.
             </p>
 
             <div className={`mt-4 p-3 rounded-lg ${dark ? 'bg-yellow-500/10 text-yellow-300 border border-yellow-500/30' : 'bg-yellow-50 text-yellow-700 border border-yellow-200'}`}>
@@ -5897,7 +5983,7 @@ export default function WelcomePage() {
           ))}
         </div>
 
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div data-welcome-dialog role="dialog" aria-modal="true" aria-label="حالة الاستبيان" tabIndex={-1} className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className={`max-w-md w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/95 border-slate-600" : "bg-white/95 border-gray-200"} flex flex-col`}>
             <div className="p-6 overflow-y-auto">
               <div className="text-center space-y-4">
@@ -6094,7 +6180,7 @@ export default function WelcomePage() {
       <>
         {/* New User Type Popup */}
         {showNewUserTypePopup && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div data-welcome-dialog role="dialog" aria-modal="true" aria-label="اختيار نوع المشاركة" tabIndex={-1} className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="max-w-md w-full bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-600/50 rounded-2xl shadow-2xl p-6 relative" dir="rtl">
               {/* Top Left Help Button */}
               <button
@@ -6205,9 +6291,11 @@ export default function WelcomePage() {
 
         {/* Forgot Token OTP Modal */}
         {showForgotTokenModal && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+          <div data-welcome-dialog role="dialog" aria-modal="true" aria-label="استعادة رمز الدخول" tabIndex={-1} className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
             <div className="max-w-md w-full bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-600/50 rounded-2xl shadow-2xl p-6 relative" dir="rtl">
               <button
+                data-dialog-close
+                aria-label="إغلاق نافذة استعادة الرمز"
                 onClick={() => { setShowForgotTokenModal(false); setForgotPhone(""); setForgotOtp(""); setForgotStep('phone'); setForgotError(null); }}
                 className="absolute top-4 right-4 text-slate-400 hover:text-white"
               >
@@ -6360,14 +6448,14 @@ export default function WelcomePage() {
 
         {/* Info Popup */}
         {showInfoPopup && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div data-welcome-dialog role="dialog" aria-modal="true" aria-label="شرح الفعالية" tabIndex={-1} className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="max-w-2xl w-full max-h-[90vh] p-4 sm:p-6 overflow-y-auto" dir="rtl">
               <div className="text-center mb-6">
                 <div className="w-12 h-12 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center mx-auto mb-3">
                   <HelpCircle className="w-6 h-6 text-white" />
                 </div>
                 <h3 className="text-lg sm:text-xl font-bold text-white mb-2">كيف يعمل النظام؟</h3>
-                <p className="text-cyan-200 text-xs sm:text-sm">نظام توافق شخصي متقدم حيث لا يُسمح للمشاركين بالكشف عن أسمائهم وأعمارهم إلا في حالة التطابق المتبادل في النهاية</p>
+                <p className="text-cyan-200 text-xs sm:text-sm">تجمع التجربة بين أنشطة جماعية ولقاءات فردية، مع حماية بيانات التواصل وعدم مشاركتها إلا وفق قواعد الفعالية والتوافق المتبادل</p>
               </div>
               
               {/* Features Grid */}
@@ -6377,7 +6465,7 @@ export default function WelcomePage() {
                     <Users className="w-4 h-4 text-white" />
                   </div>
                   <h4 className="text-sm font-bold text-white mb-1">لقاءات ذكية</h4>
-                  <p className="text-cyan-200 text-xs">تبدأ بجلوس مع مجموعة لمدة 20-30 دقيقة ثم لقاءات فردية</p>
+                  <p className="text-cyan-200 text-xs">تبدأ بنشاط جماعي وفق جدول الفعالية، ثم تنتقل إلى لقاءات فردية</p>
                 </div>
                 
                 <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-3 text-center shadow-lg">
@@ -6392,8 +6480,8 @@ export default function WelcomePage() {
                   <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center mx-auto mb-2">
                     <Target className="w-4 h-4 text-white" />
                   </div>
-                  <h4 className="text-sm font-bold text-white mb-1">نتائج دقيقة</h4>
-                  <p className="text-cyan-200 text-xs">احصل على تقييم دقيق لدرجة التوافق مع كل شخص</p>
+                  <h4 className="text-sm font-bold text-white mb-1">مؤشرات توافق تقديرية</h4>
+                  <p className="text-cyan-200 text-xs">اطّلع على مؤشرات تقديرية لجوانب التوافق مع كل شخص</p>
                 </div>
               </div>
               
@@ -6485,6 +6573,7 @@ export default function WelcomePage() {
                   <span className="text-sm font-medium">تواصل معنا</span>
                 </button>
                 <button
+                  data-dialog-close
                   onClick={() => setShowInfoPopup(false)}
                   className="flex-1 px-4 py-3 bg-white/10 border border-white/20 text-white rounded-lg hover:bg-white/20 transition-all duration-300"
                 >
@@ -6497,7 +6586,7 @@ export default function WelcomePage() {
 
         {/* FAQ Popup */}
         {showFAQPopup && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div data-welcome-dialog role="dialog" aria-modal="true" aria-label="الأسئلة الشائعة" tabIndex={-1} className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="max-w-4xl w-full max-h-[90vh] p-4 sm:p-6 overflow-y-auto" dir="rtl">
               <div className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-600/50 rounded-2xl shadow-2xl p-6">
                 {/* Header */}
@@ -6566,8 +6655,8 @@ export default function WelcomePage() {
                       كم تستغرق الجلسات؟
                     </h4>
                     <p className="text-slate-300 text-sm leading-relaxed">
-                      <strong className="text-orange-200">الجلسات الجماعية:</strong> 30 دقيقة مع مجموعة من 4-6 أشخاص<br/>
-                      <strong className="text-orange-200">الجلسات الفردية:</strong> 30 دقيقة كحد أدنى، لكن يمكنكما الاستمرار كما تشاءان<br/>
+                      <strong className="text-orange-200">الجلسات الجماعية:</strong> أنشطة متنوعة مع مجموعة، حسب الوقت الذي يحدده المنظم<br/>
+                      <strong className="text-orange-200">الجلسات الفردية:</strong> تُحدد مدتها وفق جدول الفعالية وتعليمات المنظم<br/>
                       هذا التوقيت مصمم لإتاحة فرصة كافية للتعارف دون إرهاق أو ملل.
                     </p>
                   </div>
@@ -6613,6 +6702,7 @@ export default function WelcomePage() {
                 {/* Close Button */}
                 <div className="flex justify-center">
                   <button
+                    data-dialog-close
                     onClick={() => setShowFAQPopup(false)}
                     className="px-6 py-3 bg-gradient-to-r from-orange-600 to-red-700 hover:from-orange-700 hover:to-red-800 text-white rounded-xl transition-all duration-300 flex items-center gap-2 font-medium"
                   >
@@ -6627,7 +6717,7 @@ export default function WelcomePage() {
 
         {/* Contact Form Popup */}
         {showContactForm && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div data-welcome-dialog role="dialog" aria-modal="true" aria-label="تواصل معنا" tabIndex={-1} className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className={`max-w-md w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"} flex flex-col`} dir="rtl">
               <div className="p-4 overflow-y-auto">
                 {/* Header */}
@@ -6748,6 +6838,7 @@ export default function WelcomePage() {
                   {/* Action Buttons */}
                   <div className="flex gap-2 pt-1">
                     <button
+                      data-dialog-close
                       type="button"
                       onClick={() => {
                         setShowContactForm(false);
@@ -6787,7 +6878,7 @@ export default function WelcomePage() {
 
         {/* Next Event Signup Popup - Moved to top level */}
         {showNextEventPopup && participantInfo && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div data-welcome-dialog role="dialog" aria-modal="true" aria-label="التسجيل في الفعالية القادمة" tabIndex={-1} className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className={`max-w-md w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/90 border-slate-600" : "bg-white/90 border-gray-200"} flex flex-col`} dir="rtl">
               <div className="p-6 overflow-y-auto">
                 <div className="text-center space-y-4">
@@ -6962,6 +7053,7 @@ export default function WelcomePage() {
                 {/* Buttons */}
                 <div className="flex gap-3 pt-4">
                   <button
+                    data-dialog-close
                     onClick={() => {
                       setShowNextEventPopup(false)
                       setReturningHumorStyle("") // Reset humor style
@@ -7004,7 +7096,7 @@ export default function WelcomePage() {
 
         {/* Returning Participant Signup Popup */}
         {showReturningSignupPopup && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div data-welcome-dialog role="dialog" aria-modal="true" aria-label="تم التسجيل في الفعالية" tabIndex={-1} className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className={`max-w-md w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/90 border-slate-600" : "bg-white/90 border-gray-200"} flex flex-col`} dir="rtl">
               <div className="p-6 overflow-y-auto">
                 <div className="text-center space-y-4">
@@ -7327,6 +7419,7 @@ export default function WelcomePage() {
             {/* Final Registration Content */}
             {showRegistrationContent && (
               <>
+                <h1 className="sr-only">بلاند ماتش — منصة التوافق والفعاليات التفاعلية</h1>
                 {/* Gender preference pill moved into NavigationBar to avoid collision */}
                 {/* Header Section */}
                 <div className="text-center mb-4 sm:mb-5 pt-24 sm:pt-28 animate-in slide-in-from-bottom-4 duration-1000">
@@ -7344,7 +7437,7 @@ export default function WelcomePage() {
                   <div className="pt-3 pb-3 animate-in slide-in-from-bottom-4 duration-1000 delay-700 text-center">
                   <div className="max-w-xl mx-auto mb-3">
                     <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${dark ? "bg-slate-900/80 border-slate-700/50 text-slate-200 shadow-lg shadow-black/30" : "bg-gray-900/80 border-gray-700/50 text-gray-200 shadow-lg"}`}>
-                      <span className="text-[7px] font-medium">
+                      <span className="text-xs sm:text-sm font-medium leading-relaxed">
                         هذا حدث فكري لتحدي وجهات النظر • هدفه اختبار التوافق الفكري والثقافي من خلال نقاشات جماعية ومحادثات فردية
                       </span>
                     </div>
@@ -7352,7 +7445,7 @@ export default function WelcomePage() {
                   <div className="max-w-xl mx-auto mb-3">
                     <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${dark ? "bg-slate-900/80 border-slate-700/50 text-slate-200 shadow-lg shadow-black/30" : "bg-gray-900/80 border-gray-700/50 text-gray-200 shadow-lg"}`}>
                       <AlertTriangle className="w-3 h-3" />
-                      <span className="text-[7px] font-medium">
+                      <span className="text-xs sm:text-sm font-medium leading-relaxed">
                         تنبيه: النتائج تقديرية مبنية على احتمالات وليست ضماناً، وقد تتأثر بدقة الإجابات والسياق.
                       </span>
                     </div>
@@ -7397,7 +7490,7 @@ export default function WelcomePage() {
                                 <Users className="w-4 h-4 text-white" />
                               </div>
                               <h4 className="text-xs font-bold text-white mb-1">لقاءات ذكية</h4>
-                              <p className="text-cyan-200 text-[11px]">تبدأ بجلوس مع مجموعة لمدة 20-30 دقيقة ثم لقاءات فردية</p>
+                              <p className="text-cyan-200 text-[11px]">تبدأ بنشاط جماعي حسب جدول الفعالية، ثم تنتقل إلى لقاءات فردية</p>
                             </div>
                             
                             <div
@@ -7460,14 +7553,14 @@ export default function WelcomePage() {
                               <div className="ai-icon ai-icon--ghost mx-auto mb-2">
                                 <Target className="w-4 h-4 text-white" />
                               </div>
-                              <h4 className="text-xs font-bold text-white mb-1">نتائج دقيقة</h4>
-                              <p className="text-cyan-200 text-[11px]">احصل على تقييم دقيق لدرجة التوافق مع كل شخص</p>
+                              <h4 className="text-xs font-bold text-white mb-1">مؤشرات توافق تقديرية</h4>
+                              <p className="text-cyan-200 text-[11px]">تعرّف على مؤشرات احتمالية تساعدك على فهم جوانب التوافق مع كل شخص</p>
                             </div>
                           </div>
                           
                           <div className="text-center mb-4">
                             <p className="text-cyan-200 text-xs max-w-2xl mx-auto">
-                              نظام توافق شخصي متقدم حيث لا يُسمح للمشاركين بالكشف عن أسمائهم وأعمارهم إلا في حالة التطابق المتبادل في النهاية
+                              تجمع التجربة بين أنشطة جماعية ولقاءات فردية، مع حماية بيانات التواصل وعدم مشاركتها إلا وفق قواعد الفعالية والتوافق المتبادل
                             </p>
                           </div>
                           
@@ -7770,10 +7863,10 @@ export default function WelcomePage() {
                       
                       <div className="grid grid-cols-1 sm:grid-cols-2 auto-rows-auto items-start gap-3 sm:gap-4">
                         {/* Next Event Signup Card - Full Width Row 1 */}
-                        <div className={`col-span-2 ai-card ai-animated-border rounded-2xl ${showNextEventSignup ? "ai-card--success" : "ai-card--danger"} p-3 sm:p-5 text-center group ${
+                        <div className={`relative col-span-2 ai-card ai-animated-border rounded-2xl ${showNextEventSignup ? "ai-card--success" : "ai-card--danger"} p-3 sm:p-5 text-center group ${
                           showNextEventSignup 
                             ? "opacity-90" 
-                            : "hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px] cursor-pointer"
+                            : "hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px]"
                         }`}
                         style={{
                           ['--ab-c1' as any]: showNextEventSignup ? '#34d399' : '#f87171',
@@ -7781,8 +7874,15 @@ export default function WelcomePage() {
                           ['--ab-c3' as any]: showNextEventSignup ? '#059669' : '#ef4444',
                           ['--cp' as any]: showNextEventSignup ? 'rgba(16,185,129,0.16)' : 'rgba(239,68,68,0.16)'
                         }}
-                        onClick={!showNextEventSignup ? handleAutoSignupNextEvent : undefined}
                         >
+                          {!showNextEventSignup && (
+                            <button
+                              type="button"
+                              aria-label="التسجيل في الفعالية القادمة"
+                              className="absolute inset-0 z-10 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+                              onClick={handleAutoSignupNextEvent}
+                            />
+                          )}
                           <UserCheck className={`w-6 h-6 text-white mx-auto mb-2 ${showNextEventSignup ? "opacity-60" : ""}`} />
                           <h4 className="text-base font-bold text-white mb-2">
                             {showNextEventSignup ? "مسجل للفعالية القادمة ✓" : "سجل للفعالية القادمة"}
@@ -8066,23 +8166,13 @@ export default function WelcomePage() {
                           
                           <h3 className="text-lg sm:text-xl font-bold text-white mb-2">ألعاب جماعية</h3>
                           <p className="text-cyan-200 text-xs sm:text-sm mb-4">
-                            30 دقيقة من الألعاب التفاعلية الممتعة للمجموعات
+                            أنشطة تفاعلية متنوعة تُستخدم حسب مرحلة الفعالية والوقت الذي يحدده المنظم
                           </p>
                           
                           <div className="space-y-3 sm:space-y-4">
-                            <div className="grid grid-cols-3 gap-2 text-xs text-cyan-200">
-                              <div className="flex items-center justify-center gap-1">
-                                <Sparkles className="w-3 h-3" />
-                                <span>أسئلة للنقاش</span>
-                              </div>
-                              <div className="flex items-center justify-center gap-1">
-                                <Target className="w-3 h-3" />
-                                <span>لم أفعل من قبل</span>
-                              </div>
-                              <div className="flex items-center justify-center gap-1">
-                                <Handshake className="w-3 h-3" />
-                                <span>ماذا تفضل</span>
-                              </div>
+                            <div className="flex items-center justify-center gap-2 text-xs sm:text-sm text-cyan-200">
+                              <Sparkles className="w-4 h-4 shrink-0" />
+                              <span>ثمانية أنشطة تشمل النقاش، كسر الجليد، التحديات، الاختيارات والتعاون الجماعي</span>
                             </div>
                             <Button
                               onClick={() => window.location.href = '/groups'}
@@ -8166,11 +8256,11 @@ export default function WelcomePage() {
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Token Modal */}
       {showTokenModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div data-welcome-dialog role="dialog" aria-modal="true" aria-label="تم إنشاء الحساب" tabIndex={-1} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className={`w-full max-w-md mx-4 rounded-2xl border p-5 shadow-2xl ${dark ? "bg-slate-800/95 border-slate-700" : "bg-white/95 border-gray-200"}`} dir="rtl">
             <div className="flex items-center justify-between mb-3">
               <h3 className={`text-lg font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>تم إنشاء حسابك بنجاح</h3>
-              <button onClick={() => setShowTokenModal(false)} className={`rounded-full p-1 ${dark ? "hover:bg-slate-700" : "hover:bg-gray-100"}`}>✕</button>
+              <button data-dialog-close aria-label="إغلاق" onClick={() => setShowTokenModal(false)} className={`rounded-full p-1 ${dark ? "hover:bg-slate-700" : "hover:bg-gray-100"}`}>✕</button>
             </div>
             <p className={`text-sm mb-3 ${dark ? "text-slate-300" : "text-gray-600"}`}>هذا رمز الوصول الخاص بك. احتفظ به أو انسخه للعودة لاحقاً إلى تاريخك.</p>
             <div className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2 mb-3 ${dark ? "border-slate-600 bg-slate-900/40" : "border-gray-300 bg-gray-50"}`}>
@@ -8205,6 +8295,11 @@ export default function WelcomePage() {
       <AnimatePresence>
         {showSurveySuccessModal && (
           <motion.div
+            data-welcome-dialog
+            role="dialog"
+            aria-modal="true"
+            aria-label="تم إرسال الاستبيان"
+            tabIndex={-1}
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -8227,7 +8322,7 @@ export default function WelcomePage() {
                     تم إرسال الاستبيان بنجاح
                   </h3>
                 </div>
-                <button onClick={() => setShowSurveySuccessModal(false)} className={`${dark ? "hover:bg-slate-700" : "hover:bg-gray-100"} rounded-full p-1`} aria-label="إغلاق">✕</button>
+                <button data-dialog-close onClick={() => setShowSurveySuccessModal(false)} className={`${dark ? "hover:bg-slate-700" : "hover:bg-gray-100"} rounded-full p-1`} aria-label="إغلاق">✕</button>
               </div>
               <div className={`${dark ? "bg-emerald-500/10 border border-emerald-400/20" : "bg-green-50 border border-green-200"} rounded-xl p-3 mb-3`}> 
                 <p className={`${dark ? "text-emerald-200" : "text-green-700"} text-sm`}>شكراً لمشاركتك! تم حفظ إجاباتك بنجاح 🎉</p>
@@ -8342,11 +8437,11 @@ export default function WelcomePage() {
       {step !== 4 && <ParticipantIcon />}
       
       {showTokenModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div data-welcome-dialog role="dialog" aria-modal="true" aria-label="تم إنشاء الحساب" tabIndex={-1} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className={`${dark ? "bg-slate-800/95 border-slate-700" : "bg-white/95 border-gray-200"} w-full max-w-md mx-4 rounded-2xl border p-5 shadow-2xl`} dir="rtl">
             <div className="flex items-center justify-between mb-3">
               <h3 className={`${dark ? "text-slate-100" : "text-gray-800"} text-lg font-bold`}>تم إنشاء حسابك بنجاح</h3>
-              <button onClick={() => setShowTokenModal(false)} className={`${dark ? "hover:bg-slate-700" : "hover:bg-gray-100"} rounded-full p-1`}>✕</button>
+              <button data-dialog-close aria-label="إغلاق" onClick={() => setShowTokenModal(false)} className={`${dark ? "hover:bg-slate-700" : "hover:bg-gray-100"} rounded-full p-1`}>✕</button>
             </div>
             <p className={`${dark ? "text-slate-300" : "text-gray-600"} text-sm mb-3`}>هذا رمز الوصول الخاص بك. احتفظ به أو انسخه للعودة لاحقاً إلى تاريخك.</p>
             <div className={`${dark ? "border-slate-600 bg-slate-900/40" : "border-gray-300 bg-gray-50"} flex items-center justify-between gap-2 rounded-xl border px-3 py-2 mb-3`}>
@@ -8366,6 +8461,11 @@ export default function WelcomePage() {
       <AnimatePresence>
         {showSurveySuccessModal && (
           <motion.div
+            data-welcome-dialog
+            role="dialog"
+            aria-modal="true"
+            aria-label="تم إرسال الاستبيان"
+            tabIndex={-1}
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -8388,7 +8488,7 @@ export default function WelcomePage() {
                     تم إرسال الاستبيان بنجاح
                   </h3>
                 </div>
-                <button onClick={() => setShowSurveySuccessModal(false)} className={`${dark ? "hover:bg-slate-700" : "hover:bg-gray-100"} rounded-full p-1`} aria-label="إغلاق">✕</button>
+                <button data-dialog-close onClick={() => setShowSurveySuccessModal(false)} className={`${dark ? "hover:bg-slate-700" : "hover:bg-gray-100"} rounded-full p-1`} aria-label="إغلاق">✕</button>
               </div>
               <div className={`${dark ? "bg-emerald-500/10 border border-emerald-400/20" : "bg-green-50 border border-green-200"} rounded-xl p-3 mb-3`}> 
                 <p className={`${dark ? "text-emerald-200" : "text-green-700"} text-sm`}>شكراً لمشاركتك! تم حفظ إجاباتك بنجاح 🎉</p>
@@ -8650,7 +8750,7 @@ export default function WelcomePage() {
                 <p className={`text-sm sm:text-base leading-relaxed ${
                   dark ? "text-slate-300" : "text-gray-600"
                 }`}>
-                  ستبدأ بجلوس مع مجموعة لمدة 20-30 دقيقة، ثم تنتقل إلى لقاءات فردية مع أشخاص متوافقين. 
+                  ستبدأ بنشاط جماعي وفق جدول الفعالية، ثم تنتقل إلى لقاءات فردية.
                   بعد كل حوار، قرر إذا كان
                   <span className={`font-semibold ${
                     dark ? "text-slate-200" : "text-gray-800"
@@ -8890,7 +8990,9 @@ export default function WelcomePage() {
             }`}>
               {/* History Icon - Left corner - TEMPORARILY COMMENTED OUT */}
               {false && historyMatches.length > 0 && (
-                <div 
+                <button
+                  type="button"
+                  aria-label="عرض سجل اللقاءات"
                   ref={historyIconRef}
                   className={`absolute -top-3 -left-3 z-10 w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
                     showHistoryBox 
@@ -8917,7 +9019,7 @@ export default function WelcomePage() {
                   <div className={`absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white ${
                     showHistoryBox ? "animate-none" : "animate-pulse"
                   }`}></div>
-                </div>
+                </button>
               )}
 
               
@@ -9161,7 +9263,9 @@ export default function WelcomePage() {
               <div className="relative z-10">
               {/* History Icon - Left corner - TEMPORARILY COMMENTED OUT */}
               {false && historyMatches.length > 0 && (
-                <div 
+                <button
+                  type="button"
+                  aria-label="عرض سجل اللقاءات"
                   className={`absolute -top-3 -left-3 z-10 w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
                     showHistoryBox 
                       ? dark 
@@ -9187,7 +9291,7 @@ export default function WelcomePage() {
                   <div className={`absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white ${
                     showHistoryBox ? "animate-none" : "animate-pulse"
                   }`}></div>
-                </div>
+                </button>
               )}
 
               {/* Player Avatar - Right corner (original position) */}
@@ -10301,7 +10405,9 @@ onClick={() => {
             }`}>
               {/* History Icon - Left corner - TEMPORARILY COMMENTED OUT */}
               {false && historyMatches.length > 0 && (
-                <div 
+                <button
+                  type="button"
+                  aria-label="عرض سجل اللقاءات"
                   className={`absolute -top-3 -left-3 z-10 w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
                     showHistoryBox 
                       ? dark 
@@ -10327,7 +10433,7 @@ onClick={() => {
                   <div className={`absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white ${
                     showHistoryBox ? "animate-none" : "animate-pulse"
                   }`}></div>
-                </div>
+                </button>
               )}
 
               {/* Player Avatar - Right corner (original position) */}
@@ -10454,7 +10560,9 @@ onClick={() => {
             }`}>
               {/* History Icon - Left corner - TEMPORARILY COMMENTED OUT */}
               {false && historyMatches.length > 0 && (
-                <div 
+                <button
+                  type="button"
+                  aria-label="عرض سجل اللقاءات"
                   className={`absolute -top-3 -left-3 z-10 w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
                     showHistoryBox 
                       ? dark 
@@ -10480,7 +10588,7 @@ onClick={() => {
                   <div className={`absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white ${
                     showHistoryBox ? "animate-none" : "animate-pulse"
                   }`}></div>
-                </div>
+                </button>
               )}
 
               {/* Player Avatar - Right corner (original position) */}
@@ -11772,7 +11880,7 @@ transition={{ type: "spring", stiffness: 500, damping: 30 }}
 
       {/* Form filled prompt modal */}
       {showFormFilledPrompt && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+        <div data-welcome-dialog role="dialog" aria-modal="true" aria-label="اختيار مسار الاستبيان" tabIndex={-1} className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className={`w-full max-w-md rounded-2xl p-8 shadow-2xl border-2 ${dark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"}`} dir="rtl">
             <h3 className={`text-xl font-bold text-center mb-4 ${dark ? "text-slate-100" : "text-gray-800"}`}>لقد قمت بتعبئة النموذج مسبقاً</h3>
             <p className={`text-center mb-6 ${dark ? "text-slate-300" : "text-gray-600"}`}>هل ترغب في إعادة تعبئة النموذج أم الانتقال مباشرةً إلى الإنتظار؟</p>
@@ -11853,20 +11961,21 @@ transition={{ type: "spring", stiffness: 500, damping: 30 }}
         </div>
       )}
       {showHistory && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+        <div data-welcome-dialog role="dialog" aria-modal="true" aria-label="سجل اللقاءات السابقة" tabIndex={-1} className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className={`max-w-lg w-auto mx-4 rounded-2xl p-8 shadow-2xl border-2 ${dark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"}`} dir="rtl">
             <div className="flex justify-between items-center mb-4">
               <h3 className={`text-xl font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>سجل اللقاءات السابقة</h3>
-              <Button variant="ghost" onClick={() => setShowHistory(false)}><X /></Button>
+              <Button data-dialog-close aria-label="إغلاق سجل اللقاءات" variant="ghost" onClick={() => setShowHistory(false)}><X /></Button>
             </div>
             <div className="divide-y divide-gray-300/30 max-h-96 overflow-y-auto custom-scrollbar">
               {historyMatches.length === 0 ? (
                 <p className={`text-center ${dark ? "text-slate-300" : "text-gray-600"}`}>لا يوجد سجل بعد.</p>
               ) : (
                 historyMatches.map((m, i) => (
-                  <div 
+                  <button
+                    type="button"
                     key={i} 
-                    className="py-4 flex flex-col gap-1 cursor-pointer hover:bg-white/5 rounded-lg px-2 transition-all duration-200"
+                    className="w-full py-4 flex flex-col gap-1 text-right hover:bg-white/5 rounded-lg px-2 transition-all duration-200"
                     onClick={() => {
                       try {
                         setSelectedHistoryItem(m)
@@ -11898,7 +12007,7 @@ transition={{ type: "spring", stiffness: 500, damping: 30 }}
                       </span>
                     </div>
                     <div className={`text-sm italic ${dark ? "text-slate-300" : "text-gray-600"}`}>{m.reason || "لا يوجد سبب محدد"}</div>
-                  </div>
+                  </button>
                 ))
               )}
             </div>
@@ -11950,9 +12059,10 @@ transition={{ type: "spring", stiffness: 500, damping: 30 }}
               <div className="px-4 pb-4">
                 <div className="space-y-2">
                   {historyMatches.map((m: MatchResultEntry, i: number) => (
-                    <div 
+                    <button
+                      type="button"
                       key={i} 
-                      className={`flex items-center justify-between text-sm rounded-lg px-3 py-2 cursor-pointer transition-all duration-200 hover:scale-105 ${
+                      className={`w-full flex items-center justify-between text-sm rounded-lg px-3 py-2 transition-all duration-200 hover:scale-105 ${
                         dark 
                           ? "bg-slate-700/50 text-slate-100 hover:bg-slate-700/70 border border-slate-600/30" 
                           : "bg-gray-100/70 text-gray-800 hover:bg-gray-100 border border-gray-200/50"
@@ -12008,7 +12118,7 @@ transition={{ type: "spring", stiffness: 500, damping: 30 }}
                           {m.with && typeof m.with === 'string' && m.with.includes("،") ? `${Math.round((m.score || 0) * 10)}%` : `${m.score || 0}%`}
                         </span>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -12018,11 +12128,11 @@ transition={{ type: "spring", stiffness: 500, damping: 30 }}
 
         {/* History Detail Modal */}
         {showHistoryDetail && selectedHistoryItem && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+        <div data-welcome-dialog role="dialog" aria-modal="true" aria-label="تفاصيل اللقاء" tabIndex={-1} className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className={`max-w-md w-full sm:max-w-lg mx-2 sm:mx-4 rounded-2xl p-4 sm:p-8 shadow-2xl border-2 ${dark ? "bg-slate-800/80 border-slate-600" : "bg-white/80 border-gray-200"} max-h-[90vh] overflow-y-auto custom-scrollbar`} dir="rtl">
             <div className="flex justify-between items-center mb-6">
               <h3 className={`text-xl font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>تفاصيل اللقاء</h3>
-              <Button variant="ghost" onClick={() => {
+              <Button data-dialog-close aria-label="إغلاق تفاصيل اللقاء" variant="ghost" onClick={() => {
                 setShowHistoryDetail(false)
                 setSelectedHistoryItem(null)
               }}><X /></Button>

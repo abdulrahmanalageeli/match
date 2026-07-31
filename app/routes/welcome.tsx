@@ -7429,7 +7429,11 @@ export default function WelcomePage() {
                 {/* Process guide */}
                 <div className="welcome-process-panel relative mx-3 mb-6 max-w-5xl overflow-hidden rounded-[1.75rem] border border-white/[0.1] bg-slate-950/65 shadow-[0_28px_90px_-40px_rgba(34,211,238,0.5)] ring-1 ring-white/[0.035] backdrop-blur-2xl sm:mx-auto">
                   <div className="pointer-events-none absolute -right-28 -top-32 h-72 w-72 rounded-full bg-cyan-400/[0.07] blur-3xl" aria-hidden="true" />
-                  <div className="relative py-4 text-center sm:py-5">
+                  <div className="welcome-brand-imprint" aria-hidden="true">
+                    <img className="welcome-brand-imprint__glow" src="/blindmatch-imprint.png" alt="" />
+                    <img className="welcome-brand-imprint__mark" src="/blindmatch-imprint.png" alt="" />
+                  </div>
+                  <div className="relative z-[1] py-4 text-center sm:py-5">
                   <div className="mx-auto mb-2 max-w-3xl px-4 sm:px-6">
                     <div className="flex items-start gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.035] px-4 py-3 text-right text-slate-200">
                       <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-cyan-300/10 text-cyan-200 ring-1 ring-cyan-300/15">

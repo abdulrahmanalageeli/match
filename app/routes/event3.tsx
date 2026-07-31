@@ -1,8 +1,9 @@
 ﻿import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react"
+import { useId } from "react"
 import { GroupsPage } from "./groups"
 import { useSearchParams } from "react-router"
 import toast, { Toaster } from "react-hot-toast"
-import { motion, AnimatePresence, Reorder } from "framer-motion"
+import { motion, AnimatePresence, Reorder, MotionConfig, useReducedMotion } from "framer-motion"
 
 async function fireConfetti(opts: any) {
   try {
@@ -592,9 +593,10 @@ const WALK_ACCENTS = {
 // A small pretend button used inside the walkthrough to show what a real control
 // looks like — purely illustrative (not clickable to anything meaningful).
 function DemoButton({ children, className = "", pulse = false }: { children: React.ReactNode; className?: string; pulse?: boolean }) {
+  const reduceMotion = useReducedMotion()
   return (
     <motion.div
-      animate={pulse ? { scale: [1, 1.04, 1] } : {}}
+      animate={pulse && !reduceMotion ? { scale: [1, 1.04, 1] } : {}}
       transition={{ duration: 1.8, repeat: Infinity }}
       className={`relative pointer-events-none select-none rounded-2xl px-4 py-3 font-bold text-sm flex items-center justify-center gap-2 ${className}`}
     >
@@ -608,17 +610,18 @@ function DemoButton({ children, className = "", pulse = false }: { children: Rea
 function WalkSlide({ step }: { step: number }) {
   const slide = WALK_SLIDES[step]
   const ac = WALK_ACCENTS[slide.accent]
+  const reduceMotion = useReducedMotion()
 
   // Ranking demo — cycle the order so people SEE the drag-to-rank behaviour.
   const [rankOrder, setRankOrder] = useState([0, 1, 2, 3])
   const [faqOpen, setFaqOpen] = useState<number | null>(null)
   useEffect(() => {
-    if (slide.key !== "ranking") return
+    if (slide.key !== "ranking" || reduceMotion) return
     const orders = [[0,1,2,3],[1,0,2,3],[1,2,0,3],[2,1,0,3]]
     let i = 0
     const iv = setInterval(() => { i = (i + 1) % orders.length; setRankOrder(orders[i]) }, 1200)
     return () => clearInterval(iv)
-  }, [slide.key])
+  }, [slide.key, reduceMotion])
 
   const demoPeople = [
     { init: "س", color: "from-pink-500 to-rose-500" },
@@ -638,7 +641,7 @@ function WalkSlide({ step }: { step: number }) {
       <div className={`bg-gradient-to-br ${ac.grad} px-6 pt-5 pb-4 text-center relative overflow-hidden`}>
         <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)", backgroundSize: "26px 26px" }} />
         <div className="relative z-10 space-y-2">
-          <span className="inline-block bg-white/25 backdrop-blur-sm text-white text-[10px] font-black px-3 py-1 rounded-full tracking-widest">
+          <span className="inline-block bg-white/25 backdrop-blur-sm text-white text-xs font-black px-3 py-1 rounded-full tracking-widest">
             {step + 1} / {WALK_SLIDES.length} · {slide.label}
           </span>
         </div>
@@ -666,9 +669,9 @@ function WalkSlide({ step }: { step: number }) {
                   <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${r.c}`}><r.Icon size={17} /></div>
                   <div className="flex-1 text-right">
                     <p className="text-white font-bold text-[13px]">{r.t}</p>
-                    <p className="text-gray-500 text-[11px] leading-snug">{r.d}</p>
+                    <p className="text-gray-400 text-xs leading-snug">{r.d}</p>
                   </div>
-                  <span className="text-gray-700 text-[10px] font-mono">{i + 1}</span>
+                  <span className="text-gray-600 text-xs font-mono" aria-hidden="true">{i + 1}</span>
                 </motion.div>
               ))}
             </div>
@@ -685,21 +688,21 @@ function WalkSlide({ step }: { step: number }) {
             </div>
             {/* Demo table card */}
             <div className="rounded-2xl border border-blue-800/40 bg-blue-950/30 p-4 text-center space-y-2">
-              <p className="text-gray-500 text-[10px] flex items-center justify-center gap-1"><MapPin size={11} /> رقم طاولتك يظهر هكذا</p>
+              <p className="text-gray-400 text-xs flex items-center justify-center gap-1"><MapPin size={12} /> رقم طاولتك يظهر هكذا</p>
               <div className="text-5xl font-black text-blue-300 leading-none">٧</div>
               <div className="flex flex-wrap gap-1.5 justify-center pt-1">
                 {["سارة","خالد","نورة","ريان"].map((n, i) => (
                   <motion.span key={n} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 + i * 0.1 }}
-                    className="bg-blue-900/40 text-blue-200 border border-blue-800/50 rounded-full px-2.5 py-0.5 text-[11px]">{n}</motion.span>
+                    className="bg-blue-900/40 text-blue-200 border border-blue-800/50 rounded-full px-2.5 py-0.5 text-xs">{n}</motion.span>
                 ))}
               </div>
             </div>
             <DemoButton pulse className="w-full text-blue-200 bg-blue-900/40 border border-blue-700/40">
-              <Target size={15} /> نشاطات المجموعة <ExternalLink size={13} />
+              <Target size={15} /> اختيار نشاط للمجموعة <ExternalLink size={13} />
             </DemoButton>
             <div className="flex items-start gap-2 bg-white/[0.03] border border-white/[0.06] rounded-xl px-3 py-2.5">
               <Shuffle size={15} className="text-cyan-400 shrink-0 mt-0.5" />
-              <p className="text-gray-400 text-[11px] leading-relaxed">في الجولة الثانية ستكون المجموعة <span className="text-cyan-300 font-bold">مختلفة كلياً</span> — لن يتكرّر أحد قابلته سابقاً <span className="text-gray-500">(إلا في حالات نادرة)</span>.</p>
+              <p className="text-gray-300 text-xs leading-relaxed">اختاروا معاً لعبة أو أسئلة نقاش تناسب المجموعة. وفي الجولة الثانية ستنتقل غالباً إلى <span className="text-cyan-300 font-bold">مجموعة جديدة</span>، وقد يتكرر شخص فقط عند الحاجة لتوازن التقسيم.</p>
             </div>
           </div>
         )}
@@ -719,8 +722,8 @@ function WalkSlide({ step }: { step: number }) {
                 return (
                   <motion.div key={pi} layout transition={{ type: "spring", stiffness: 350, damping: 28 }}
                     className="flex items-center gap-2.5 bg-white/[0.04] border border-white/[0.07] rounded-xl px-3 py-2">
-                    <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-black shrink-0 ${rankBadge(rank)}`}>{rank + 1}</div>
-                    <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${p.color} flex items-center justify-center text-white text-[10px] font-bold shrink-0`}>{p.init}</div>
+                    <div className={`w-7 h-7 rounded-md flex items-center justify-center text-xs font-black shrink-0 ${rankBadge(rank)}`}>{rank + 1}</div>
+                    <div className={`w-7 h-7 rounded-full bg-gradient-to-br ${p.color} flex items-center justify-center text-white text-xs font-bold shrink-0`}>{p.init}</div>
                     <span className="text-gray-300 text-xs flex-1">شخص قابلته</span>
                     <GripVertical size={13} className="text-gray-600" />
                   </motion.div>
@@ -729,11 +732,11 @@ function WalkSlide({ step }: { step: number }) {
             </div>
             {/* The crucial caveat */}
             <div className="rounded-xl border border-amber-700/40 bg-amber-950/30 px-3 py-2.5 space-y-1.5">
-              <p className="text-amber-300 text-[11px] font-black flex items-center gap-1.5"><AlertTriangle size={12} /> مهم جداً — كيف تُحسم الجلسة</p>
-              <p className="text-amber-100/70 text-[11px] leading-relaxed">
+              <p className="text-amber-300 text-xs font-black flex items-center gap-1.5"><AlertTriangle size={13} /> مهم جداً — كيف تُحسم الجلسة</p>
+              <p className="text-amber-100/80 text-xs leading-relaxed">
                 الجلسة تحدث فقط عند <span className="text-amber-300 font-bold">التطابق المتبادل</span>. إذا رتّبت شخصاً أولاً لكنه لم يرتّبك عالياً، قد لا تجلس معه.
               </p>
-              <p className="text-gray-400 text-[11px] leading-relaxed">
+              <p className="text-gray-300 text-xs leading-relaxed">
                 لا نضمن أن تجلس مع خياراتك الأولى — إذا لم يخترك أحد من أعلى قائمتك، سيمنحك النظام أفضل تطابق متبادل متاح لك.
               </p>
             </div>
@@ -751,16 +754,16 @@ function WalkSlide({ step }: { step: number }) {
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 }}
               className="rounded-2xl border border-pink-700/40 bg-pink-950/30 p-3.5 flex items-center gap-3">
               <Heart size={22} className="text-pink-400 shrink-0" />
-              <div><p className="text-white font-bold text-[13px]">جلسة اختيارك</p><p className="text-pink-300/80 text-[11px]">أفضل تطابق متبادل من ترتيبك</p></div>
+              <div><p className="text-white font-bold text-sm">جلسة اختيارك</p><p className="text-pink-200/80 text-xs">أفضل تطابق متبادل من ترتيبك</p></div>
             </motion.div>
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.18 }}
               className="rounded-2xl border border-purple-700/40 bg-purple-950/30 p-3.5 flex items-center gap-3">
               <Brain size={22} className="text-purple-400 shrink-0" />
-              <div><p className="text-white font-bold text-[13px]">جلسة التوافق الذكي</p><p className="text-purple-300/80 text-[11px]">النظام يرشّح لك بناءً على بياناتكما</p></div>
+              <div><p className="text-white font-bold text-sm">جلسة التوافق الذكي</p><p className="text-purple-200/80 text-xs">النظام يرشّح لك بناءً على بياناتكما</p></div>
             </motion.div>
             {/* Demo: how you see the table + partner */}
             <div className="rounded-2xl border border-amber-700/40 bg-amber-950/25 p-3 text-center space-y-1">
-              <p className="text-amber-400/70 text-[10px]">في كل جلسة سيظهر اسم شريكك ورقم طاولتك</p>
+              <p className="text-amber-300/80 text-xs">في كل جلسة سيظهر اسم شريكك ورقم طاولتك</p>
               <p className="text-white font-black text-lg leading-tight">سارة</p>
               <p className="text-amber-300 text-xs">طاولة رقم <span className="font-black">٣</span></p>
             </div>
@@ -777,7 +780,7 @@ function WalkSlide({ step }: { step: number }) {
             </div>
             {/* Demo rating */}
             <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3.5 text-center space-y-2">
-              <p className="text-gray-400 text-[11px]">مثال: كيف كانت المحادثة؟</p>
+              <p className="text-gray-300 text-xs">مثال: كيف كانت المحادثة؟</p>
               <div className="flex items-center justify-center gap-1.5">
                 {[0,1,2,3,4].map(i => (
                   <motion.span key={i} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.1 + i * 0.08 }}>
@@ -793,7 +796,7 @@ function WalkSlide({ step }: { step: number }) {
             </div>
             <div className="flex items-start gap-2 rounded-xl border border-emerald-700/40 bg-emerald-950/30 px-3 py-2.5">
               <Heart size={15} className="text-emerald-400 shrink-0 mt-0.5" />
-              <p className="text-emerald-100/80 text-[11px] leading-relaxed">إذا قال كلاكما <span className="text-emerald-300 font-bold">«نعم»</span> — تتبادلان معلومات التواصل في صفحة النتائج. لا أحد يعرف اختيارك إلا إذا وافق الطرف الآخر.</p>
+              <p className="text-emerald-100/80 text-xs leading-relaxed">إذا قال كلاكما <span className="text-emerald-300 font-bold">«نعم»</span> — تتبادلان معلومات التواصل في صفحة النتائج. لا أحد يعرف اختيارك إلا إذا وافق الطرف الآخر.</p>
             </div>
           </div>
         )}
@@ -816,40 +819,36 @@ function WalkSlide({ step }: { step: number }) {
             </div>
             {/* The compatibility disclaimer */}
             <div className="rounded-2xl border border-amber-700/40 bg-gradient-to-br from-amber-950/40 to-orange-950/20 px-3.5 py-3 space-y-1.5">
-              <p className="text-amber-300 text-[11px] font-black flex items-center gap-1.5"><Info size={12} /> تنويه مهم عن التوافق</p>
-              <p className="text-amber-100/80 text-[11px] leading-relaxed">
+              <p className="text-amber-300 text-xs font-black flex items-center gap-1.5"><Info size={13} /> تنويه مهم عن التوافق</p>
+              <p className="text-amber-100/80 text-xs leading-relaxed">
                 الكيمياء بين شخصين جزء كبير لا يمكن قياسه بالكامل. نحن <span className="text-amber-300 font-bold">لا نضمن التوافق</span> — لكننا نقلّل احتمال عدم التوافق بشكل كبير عبر التحليل.
               </p>
-              <p className="text-gray-400 text-[11px] leading-relaxed">
+              <p className="text-gray-300 text-xs leading-relaxed">
                 حتى لو لم تكن النتيجة مثالية، تبقى قد عشت تجربة اختيارك بنفسك — استمتع باللقاء والتجربة أكثر من الرقم.
               </p>
             </div>
 
             {/* FAQ */}
             <div className="space-y-2">
-              <p className="text-violet-300 text-[11px] font-black flex items-center gap-1.5"><Lightbulb size={12} /> أسئلة شائعة</p>
+              <p className="text-violet-300 text-xs font-black flex items-center gap-1.5"><Lightbulb size={13} /> أهم الأسئلة</p>
               {[
                 { q: "ماذا لو لم يعجبني أحد؟", a: "رتّب الجميع بأي ترتيب تريده — حتى لو لم يعجبك أحد، الترتيب إلزامي لإكمال المرحلة. النظام سيمنحك أفضل تطابق متاح." },
                 { q: "هل ترتيبي ظاهر للآخرين؟", a: "لا أبداً — ترتيبك وتقييماتك سرّية تماماً. لا أحد يرى اختياراتك إلا إذا حدث تطابق متبادل بـ«نعم» للتواصل." },
                 { q: "هل يمكنني تعديل ترتيبي بعد الإرسال؟", a: "لا، بمجرد الإرسال يُقفل الترتيب. خذ وقتك في التقييم قبل التأكيد." },
-                { q: "ماذا لو لم يخترني أحد من أعلى قائمتي؟", a: "النظام يبحث عن أفضل تطابق متبادل متاح للجميع. قد تُطابق مع شخص رتّبته في مرتبة أدنى — هذا أفضل متاح لك." },
-                { q: "كم مدة كل جلسة فردية؟", a: "كل جلسة فردية مدتها ٢٠ دقيقة تقريباً. المؤقت ينبهك قبل انتهاء الوقت." },
                 { q: "ماذا لو احتجت مساعدة خلال الجلسة؟", a: "زر «المنظم» في أسفل الشاشة متاح دائماً — اضغطه لأي مساعدة أو طارئ." },
-                { q: "هل يمكنني التواصل مع شخص لم أجلس معه؟", a: "لا — معلومات التواصل تُتبادل فقط عند تطابق متبادل بـ«نعم» بعد جلسة فردية معاً." },
-                { q: "ماذا لو قلت «لا» وندمت؟", a: "للأسف لا يمكن تغيير الإجابة بعد الإرسال. فكّر جيداً قبل الاختيار." },
               ].map((item, i) => (
                 <div key={i} className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
-                  <button onClick={() => setFaqOpen(faqOpen === i ? null : i)}
-                    className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-right">
-                    <span className="text-gray-300 text-[11px] font-semibold flex-1">{item.q}</span>
+                  <button onClick={() => setFaqOpen(faqOpen === i ? null : i)} aria-expanded={faqOpen === i} aria-controls={`tutorial-faq-${i}`}
+                    className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-right focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-400">
+                    <span className="text-gray-200 text-xs font-semibold flex-1">{item.q}</span>
                     <motion.span animate={{ rotate: faqOpen === i ? 180 : 0 }} transition={{ duration: 0.2 }}
                       className="text-gray-500 shrink-0"><ChevronRight size={14} className="rotate-90" /></motion.span>
                   </button>
                   <AnimatePresence>
                     {faqOpen === i && (
-                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                      <motion.div id={`tutorial-faq-${i}`} initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
                         transition={{ duration: 0.2 }} className="overflow-hidden">
-                        <p className="text-gray-400 text-[11px] leading-relaxed px-3 pb-2.5">{item.a}</p>
+                        <p className="text-gray-300 text-xs leading-relaxed px-3 pb-2.5">{item.a}</p>
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -867,18 +866,20 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
   const [phase, setPhase] = useState<"splash" | "rules" | "steps">("splash")
   const [step, setStep] = useState(0)
   const [dir, setDir] = useState(1)
+  const reduceMotion = useReducedMotion()
 
   const goNext = () => {
     if (step < WALK_SLIDES.length - 1) {
       setDir(1); setStep(s => s + 1)
     } else {
       onDone()
-      fireConfetti({ particleCount: 90, spread: 75, origin: { y: 0.5 }, colors: ["#a855f7","#ec4899","#f43f5e","#fbbf24"] })
+      if (!reduceMotion) fireConfetti({ particleCount: 90, spread: 75, origin: { y: 0.5 }, colors: ["#a855f7","#ec4899","#f43f5e","#fbbf24"] })
     }
   }
   const goPrev = () => { if (step > 0) { setDir(-1); setStep(s => s - 1) } }
 
   return (
+    <MotionConfig reducedMotion="user">
     <div className="h-[100dvh] bg-gray-950 relative overflow-hidden flex flex-col" dir="rtl">
       {/* Ambient background */}
       <div className="absolute inset-0 pointer-events-none">
@@ -886,7 +887,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
         <div className="absolute -bottom-32 -left-20 w-[500px] h-[500px] bg-pink-600/15 rounded-full blur-[100px]" />
         <motion.div
           className="absolute top-1/3 left-1/2 w-[420px] h-[420px] rounded-full blur-[110px] -translate-x-1/2 -translate-y-1/2"
-          animate={{ backgroundColor: ["rgba(139,92,246,0.07)","rgba(236,72,153,0.07)","rgba(59,130,246,0.05)","rgba(139,92,246,0.07)"] }}
+          animate={reduceMotion ? undefined : { backgroundColor: ["rgba(139,92,246,0.07)","rgba(236,72,153,0.07)","rgba(59,130,246,0.05)","rgba(139,92,246,0.07)"] }}
           transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
         />
       </div>
@@ -910,7 +911,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
                   key={i}
                   className="absolute rounded-full border border-purple-400/25"
                   style={{ width: `${110 + i * 38}px`, height: `${110 + i * 38}px` }}
-                  animate={{ scale: [1, 1.18], opacity: [0.5, 0] }}
+                  animate={reduceMotion ? { opacity: 0.2 } : { scale: [1, 1.18], opacity: [0.5, 0] }}
                   transition={{ duration: 2, delay: i * 0.55, repeat: Infinity, ease: "easeOut" }}
                 />
               ))}
@@ -937,7 +938,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
                 className="flex items-center justify-center gap-2"
               >
                 <Sparkles size={12} className="text-purple-400" />
-                <span className="text-[11px] font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent tracking-[0.18em] uppercase">
+                <span className="text-xs font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent tracking-[0.14em] uppercase">
                   التوافق الأعمى — الجيل الرابع
                 </span>
                 <Sparkles size={12} className="text-pink-400" />
@@ -972,7 +973,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
               <motion.button
                 whileTap={{ scale: 0.97 }}
                 onClick={() => setPhase("rules")}
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-2xl py-3.5 font-black text-base shadow-2xl shadow-purple-600/30 transition-all"
+                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-2xl py-3.5 font-black text-base shadow-2xl shadow-purple-600/30 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
               >
                 كيف تسير الفعالية؟ ←
               </motion.button>
@@ -989,7 +990,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
                     </span>
                     <span className="flex flex-col gap-0.5">
                       <span className="text-sm font-bold">جاهز؟ ادخل الفعالية</span>
-                      <span className="text-[11px] text-gray-500 group-hover:text-violet-200/70">قرأت الشرح؟ تقدر تبدأ الآن</span>
+                      <span className="text-xs text-gray-400 group-hover:text-violet-200/70">قرأت الشرح؟ تقدر تبدأ الآن</span>
                     </span>
                   </span>
                   <ArrowLeft size={18} className="text-gray-500 transition-all group-hover:-translate-x-0.5 group-hover:text-violet-300" />
@@ -1028,22 +1029,20 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
           >
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4">
-              <button onClick={() => setPhase("splash")} className="flex items-center gap-1 text-gray-500 text-sm hover:text-gray-400 transition-colors">
+              <button onClick={() => setPhase("splash")} aria-label="الرجوع إلى شاشة الترحيب" className="flex items-center gap-1 text-gray-400 text-sm hover:text-white transition-colors rounded-lg px-2 py-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
                 <ChevronRight size={15} className="rotate-180" /> رجوع
               </button>
-              <span className="text-[11px] font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent tracking-wide flex items-center gap-1"><Sparkles size={11} /> قواعد الجلسة</span>
+              <span className="text-xs font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent tracking-wide flex items-center gap-1"><Sparkles size={12} /> قواعد الجلسة</span>
             </div>
 
             {/* Rules list */}
             <div className="flex-1 overflow-y-auto px-5 pb-2 space-y-2.5">
               {[
-                { icon: <EyeOff size={20} className="text-purple-400" />, title: "ابقَ أعمى", desc: "لا تكشف لأحد ترتيبك أو تقييماتك — سرية الخيارات هي جوهر الفعالية" },
+                { icon: <EyeOff size={20} className="text-purple-400" />, title: "حافظ على السرية", desc: "لا تكشف ترتيبك أو تقييماتك أو اختيارك — النتيجة تُكشف للجميع في النهاية" },
                 { icon: <Drama size={20} className="text-purple-400" />, title: "كن نفسك", desc: "الخوارزمية تعمل بناءً على شخصيتك الحقيقية — التمثيل يضر نتيجتك" },
                 { icon: <Smartphone size={20} className="text-purple-400" />, title: "التطبيق أداتك", desc: "استخدم التطبيق للتقييم والترتيب، لكن لا تُظهِر شاشتك للآخرين" },
-                { icon: <Handshake size={20} className="text-purple-400" />, title: "احترم الجلسة", desc: "الجميع هنا بنفس الهدف — تعامل بلطف واحترام مع كل من تجلس معه" },
+                { icon: <Handshake size={20} className="text-purple-400" />, title: "احترم الجلسة", desc: "تعامل بلطف، وتجنب الأسئلة الشخصية المحرجة أو أي تعليق يسبب إحراجاً" },
                 { icon: <Timer size={20} className="text-purple-400" />, title: "احترم الوقت", desc: "كل جلسة لها مؤقت — أنهِ المحادثة باحترام حين ينتهي الوقت" },
-                { icon: <Ban size={20} className="text-purple-400" />, title: "لا إحراج", desc: "امتنع عن الأسئلة الشخصية المُحرجة أو أي تعليق يخلق إحراجاً" },
-                { icon: <Lock size={20} className="text-purple-400" />, title: "النتيجة سرية حتى النهاية", desc: "لا تشارك أحداً من اخترت — الكشف يحدث في النهاية للجميع معاً" },
               ].map((rule, i) => (
                 <motion.div
                   key={i}
@@ -1055,7 +1054,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
                   <span className="flex-shrink-0 mt-0.5 flex items-center justify-center w-7">{rule.icon}</span>
                   <div className="text-right">
                     <p className="text-white font-bold text-sm">{rule.title}</p>
-                    <p className="text-gray-500 text-xs mt-0.5 leading-relaxed">{rule.desc}</p>
+                    <p className="text-gray-400 text-xs mt-0.5 leading-relaxed">{rule.desc}</p>
                   </div>
                 </motion.div>
               ))}
@@ -1067,7 +1066,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={() => setPhase("steps")}
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-2xl py-3.5 font-black text-base shadow-2xl shadow-purple-600/30 transition-all"
+                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-2xl py-3.5 font-black text-base shadow-2xl shadow-purple-600/30 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
               >
                 فهمت — كيف تسير الفعالية؟ ←
               </motion.button>
@@ -1085,7 +1084,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
             className="relative z-10 flex-1 flex flex-col overflow-hidden"
           >
             {/* Top progress bar */}
-            <div className="w-full h-1 bg-gray-800/50">
+            <div className="w-full h-1 bg-gray-800/50" role="progressbar" aria-label="تقدم شرح الفعالية" aria-valuemin={1} aria-valuemax={WALK_SLIDES.length} aria-valuenow={step + 1}>
               <motion.div
                 className="h-full bg-gradient-to-r from-purple-500 to-pink-500"
                 animate={{ width: `${((step + 1) / WALK_SLIDES.length) * 100}%` }}
@@ -1097,10 +1096,11 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
             <div className="flex items-center justify-between px-5 py-4">
               <button
                 onClick={() => step === 0 ? setPhase("rules") : goPrev()}
-                className="flex items-center gap-1 text-gray-500 text-sm hover:text-gray-400 transition-colors"
+                aria-label={step === 0 ? "الرجوع إلى قواعد الجلسة" : `الرجوع إلى الخطوة ${step}`}
+                className="flex items-center gap-1 text-gray-400 text-sm hover:text-white transition-colors rounded-lg px-2 py-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
               >
                 <ChevronRight size={15} className="rotate-180" />
-                {step === 0 ? "الشاشة الرئيسية" : "السابق"}
+                {step === 0 ? "القواعد" : "السابق"}
               </button>
               <span className="text-gray-600 text-xs font-mono tabular-nums">{step + 1} / {WALK_SLIDES.length}</span>
             </div>
@@ -1134,24 +1134,28 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
                   <button
                     key={i}
                     onClick={() => { setDir(i > step ? 1 : -1); setStep(i) }}
-                    className={`rounded-full transition-all duration-300 ${
+                    aria-label={`الانتقال إلى خطوة ${i + 1}: ${WALK_SLIDES[i].label}`}
+                    aria-current={i === step ? "step" : undefined}
+                    className="w-8 h-8 -mx-1 flex items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+                  >
+                    <span aria-hidden="true" className={`block rounded-full transition-all duration-300 ${
                       i === step ? "w-6 h-2 bg-white" : "w-2 h-2 bg-gray-700 hover:bg-gray-500"
-                    }`}
-                  />
+                    }`} />
+                  </button>
                 ))}
               </div>
               {/* Next + skip buttons */}
               <motion.button
                 whileTap={{ scale: 0.97 }}
                 onClick={goNext}
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-2xl py-3.5 font-black text-base shadow-xl shadow-purple-600/25 transition-all"
+                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-2xl py-3.5 font-black text-base shadow-xl shadow-purple-600/25 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
               >
                 {step === WALK_SLIDES.length - 1 ? <span className="flex items-center justify-center gap-2">أبدأ رحلتي <Sparkles size={16} /></span> : "التالي ←"}
               </motion.button>
               {step < WALK_SLIDES.length - 1 && (
                 <button
                   onClick={onDone}
-                  className="w-full flex items-center justify-center gap-1.5 text-gray-500 hover:text-gray-300 text-xs font-medium transition-colors py-1"
+                  className="w-full flex items-center justify-center gap-1.5 text-gray-400 hover:text-white text-xs font-medium transition-colors py-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
                 >
                   <X size={12} />
                   تخطّي الشرح وابدأ
@@ -1162,6 +1166,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
         )}
       </AnimatePresence>
     </div>
+    </MotionConfig>
   )
 }
 
@@ -1360,10 +1365,32 @@ function OnePopup({ onClose, accent, icon, label, title, points, cta = "فهمت
   points: { icon: React.ReactNode; text: React.ReactNode }[]
   cta?: string
 }) {
+  const reduceMotion = useReducedMotion()
+  const panelRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
   const grad = accent === "pink" ? "from-pink-600 to-rose-600" : accent === "amber" ? "from-amber-500 to-orange-500" : "from-purple-600 to-pink-600"
   const ring = accent === "pink" ? "ring-pink-500/30" : accent === "amber" ? "ring-amber-500/30" : "ring-purple-500/30"
   const chipBg = accent === "pink" ? "bg-pink-600/25 border-pink-500/50 text-pink-200" : accent === "amber" ? "bg-amber-600/25 border-amber-500/50 text-amber-200" : "bg-purple-600/25 border-purple-500/50 text-purple-200"
   const ctaText = accent === "amber" ? "text-black" : "text-white"
+
+  useEffect(() => {
+    const panel = panelRef.current
+    if (!panel) return
+    const focusable = () => Array.from(panel.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+    focusable()[0]?.focus()
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { onClose(); return }
+      if (event.key !== "Tab") return
+      const items = focusable()
+      if (!items.length) return
+      const first = items[0]
+      const last = items[items.length - 1]
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
+    }
+    document.addEventListener("keydown", handleKeyDown)
+    return () => document.removeEventListener("keydown", handleKeyDown)
+  }, [onClose])
 
   return (
     <motion.div
@@ -1372,28 +1399,32 @@ function OnePopup({ onClose, accent, icon, label, title, points, cta = "فهمت
       dir="rtl"
     >
       <motion.div
-        initial={{ opacity: 0, y: 24, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 24, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ type: "spring", stiffness: 300, damping: 26 }}
         className={`relative bg-gray-900/95 border border-gray-700/50 rounded-3xl p-6 max-w-xs w-full text-center overflow-hidden ring-1 ${ring}`}
       >
         {/* Close */}
-        <button onClick={onClose} className="absolute top-3 left-3 w-7 h-7 rounded-full bg-gray-800/80 flex items-center justify-center text-gray-500 hover:text-white transition-colors">
+        <button onClick={onClose} aria-label="إغلاق التذكير" className="absolute top-3 left-3 w-9 h-9 rounded-full bg-gray-800/80 flex items-center justify-center text-gray-400 hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
           <X size={13} />
         </button>
 
         {/* Label chip */}
-        <span className={`inline-flex items-center gap-1.5 ${chipBg} border rounded-full px-3 py-1 text-[10px] font-black tracking-wide mb-3`}>
-          <Lightbulb size={11} /> {label}
+        <span className={`inline-flex items-center gap-1.5 ${chipBg} border rounded-full px-3 py-1 text-xs font-black tracking-wide mb-3`}>
+          <Lightbulb size={12} /> {label}
         </span>
 
         {/* Icon */}
         <div className="relative mx-auto w-fit mb-3">
           <motion.div className="absolute inset-0 rounded-2xl border-2 border-current opacity-20"
-            animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0, 0.3] }} transition={{ duration: 2.5, repeat: Infinity }} style={{ color: "currentColor" }} />
+            animate={reduceMotion ? { opacity: 0.2 } : { scale: [1, 1.3, 1], opacity: [0.3, 0, 0.3] }} transition={{ duration: 2.5, repeat: Infinity }} style={{ color: "currentColor" }} />
           <div className="w-14 h-14 rounded-2xl bg-gray-800/80 border border-gray-700/50 flex items-center justify-center">{icon}</div>
         </div>
 
-        <h2 className="text-white font-black text-lg mb-3">{title}</h2>
+        <h2 id={titleId} className="text-white font-black text-lg mb-3">{title}</h2>
 
         {/* Points */}
         <div className="space-y-2 text-right mb-5">
@@ -1407,10 +1438,10 @@ function OnePopup({ onClose, accent, icon, label, title, points, cta = "فهمت
         </div>
 
         <motion.button whileTap={{ scale: 0.96 }} onClick={onClose}
-          className={`w-full bg-gradient-to-r ${grad} ${ctaText} rounded-xl py-3 font-black text-sm shadow-lg shadow-black/30`}>
+          className={`w-full bg-gradient-to-r ${grad} ${ctaText} rounded-xl py-3 font-black text-sm shadow-lg shadow-black/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300`}>
           {cta}
         </motion.button>
-        <p className="text-gray-600 text-[10px] mt-2">شاهدت الشرح الكامل في البداية — هذا تذكير سريع فقط</p>
+        <p className="text-gray-500 text-xs mt-2">شاهدت الشرح الكامل في البداية — هذا تذكير سريع فقط</p>
       </motion.div>
     </motion.div>
   )
@@ -1428,7 +1459,7 @@ function RoundTutorial({ onClose }: { onClose: () => void }) {
       cta="فهمت — ابدأ الجولة"
       points={[
         { icon: <MapPin size={15} className="text-purple-400" />, text: <>اذهب إلى <span className="text-white font-bold">رقم طاولتك</span> الظاهر في المنتصف واجلس مع مجموعتك</> },
-        { icon: <Target size={15} className="text-indigo-400" />, text: <>اضغط <span className="text-white font-bold">«نشاطات المجموعة»</span> لأسئلة تساعدكم في التعارف</> },
+        { icon: <Target size={15} className="text-indigo-400" />, text: <>اضغط <span className="text-white font-bold">«اختيار نشاط للمجموعة»</span> واختاروا لعبة أو أسئلة نقاش تناسبكم</> },
         { icon: <MessageSquare size={15} className="text-emerald-400" />, text: <>زر <span className="text-white font-bold">«المنظم»</span> في الأسفل لأي مساعدة أو طارئ</> },
         { icon: <Clock size={15} className="text-amber-400" />, text: <>المؤقت في الأعلى ينبّهك عند اقتراب انتهاء الوقت</> },
       ]}

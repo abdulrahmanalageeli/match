@@ -6056,7 +6056,7 @@ export default function WelcomePage() {
         </div>
 
         {/* Main Content */}
-        <div className="relative z-10 min-h-screen flex items-center justify-center px-4">
+        <div className="relative z-10 flex min-h-screen items-start justify-center px-4">
           <div className="max-w-md w-full">
             <div className="bg-white/15 backdrop-blur-2xl border border-cyan-400/40 rounded-2xl p-8 shadow-2xl ring-1 ring-white/10">
               <div className="text-center">

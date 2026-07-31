@@ -2275,6 +2275,14 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 
 
   const startGame = (gameId: string) => {
+    // Discussion already has its own complete full-screen experience. Open it
+    // directly from the activity picker instead of showing an intermediate
+    // card with a second "choose discussion questions" button.
+    if (gameId === "discussion-questions") {
+      setShowPromptTopicsModal(true);
+      return;
+    }
+
     setSelectedGameId(gameId);
     setGamePhase("playing");
     setCurrentPromptIndex(0);
@@ -2702,6 +2710,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 
     const currentGame = games.find(g => g.id === selectedGameId);
     if (!currentGame) return null;
+    const activityCardClass = "modern-activity-card relative overflow-hidden bg-white/[0.045] backdrop-blur-xl border-white/10 rounded-[2rem] shadow-[0_24px_80px_-32px_rgba(0,0,0,0.9)] ring-1 ring-white/[0.04]";
 
     if (gamePhase === "completed") {
       return (
@@ -2744,21 +2753,62 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 
     // Playing phase
     return (
-      <div className={disableOnboarding ? `space-y-3 ${showInstructions ? "" : "[&_.instructions-block]:hidden"} [&_h3]:text-xl [&_.mb-6]:mb-3 [&_.mb-8]:mb-3` : "space-y-6"}>
+      <div className={disableOnboarding ? `relative min-h-full space-y-4 pb-8 ${showInstructions ? "" : "[&_.instructions-block]:hidden"} [&_h3]:text-xl [&_.mb-6]:mb-3 [&_.mb-8]:mb-3 [&_.modern-activity-card_button]:min-h-11 [&_.modern-activity-card_button]:rounded-2xl` : "space-y-6"}>
         {disableOnboarding && (
-          <div className="flex justify-center mb-2">
-            <button
-              onClick={() => setShowInstructions(prev => !prev)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-gray-400 hover:text-white text-xs font-medium transition-all"
-            >
-              <Lightbulb className="w-3.5 h-3.5" />
-              {showInstructions ? "إخفاء التعليمات" : "كيفية اللعب؟"}
-            </button>
-          </div>
+          <motion.section
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 260, damping: 24 }}
+            className="relative isolate overflow-hidden rounded-[2rem] border border-white/10 bg-gray-900/75 px-5 py-5 shadow-2xl shadow-black/30"
+          >
+            <div className={`absolute inset-0 bg-gradient-to-br ${currentGame.color} opacity-[0.14]`} />
+            <motion.div
+              aria-hidden="true"
+              className={`absolute -top-20 -left-16 h-48 w-48 rounded-full bg-gradient-to-br ${currentGame.color} opacity-25 blur-3xl`}
+              animate={{ scale: [1, 1.18, 1], x: [0, 12, 0], y: [0, 8, 0] }}
+              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <div className="relative z-10 flex items-start gap-4 text-right">
+              <motion.div
+                animate={{ y: [0, -4, 0], rotate: [0, 2, 0, -2, 0] }}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${currentGame.color} text-white shadow-xl ring-1 ring-white/30`}
+              >
+                {currentGame.icon}
+              </motion.div>
+              <div className="min-w-0 flex-1">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[10px] font-bold text-white/75">
+                    {currentGame.duration} دقائق
+                  </span>
+                  <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[10px] font-bold text-white/75">3–6 أشخاص</span>
+                </div>
+                <h2 className="text-xl font-black tracking-tight text-white">{currentGame.nameAr}</h2>
+                <p className="mt-1 text-xs leading-relaxed text-white/60">{currentGame.descriptionAr}</p>
+              </div>
+            </div>
+            <div className="relative z-10 mt-4 flex items-center gap-2">
+              <button
+                onClick={() => setShowInstructions(prev => !prev)}
+                aria-expanded={showInstructions}
+                className={`flex min-h-11 flex-1 items-center justify-center gap-2 rounded-2xl border px-4 text-xs font-bold transition-all active:scale-[0.98] ${showInstructions ? "border-white/20 bg-white/15 text-white" : "border-white/10 bg-black/20 text-white/70 hover:bg-white/10 hover:text-white"}`}
+              >
+                <Lightbulb className="h-4 w-4" />
+                {showInstructions ? "إخفاء طريقة اللعب" : "طريقة اللعب"}
+                <ChevronDown className={`h-4 w-4 transition-transform ${showInstructions ? "rotate-180" : ""}`} />
+              </button>
+              <button
+                onClick={() => { setSelectedGameId(null); setGamePhase("intro"); }}
+                className="flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-black/20 px-4 text-xs font-bold text-white/70 transition-all hover:bg-white/10 hover:text-white active:scale-[0.98]"
+              >
+                <Shuffle className="h-4 w-4" /> نشاط آخر
+              </button>
+            </div>
+          </motion.section>
         )}
 
         {currentGame.id === "discussion-questions" && (
-          <Card className={disableOnboarding ? "bg-gray-900/60 backdrop-blur-sm border-white/10 rounded-3xl shadow-2xl" : "bg-slate-800/50 border-slate-700"}>
+          <Card className={disableOnboarding ? activityCardClass : "bg-slate-800/50 border-slate-700"}>
             <CardContent className="p-6">
               <div className="text-center mb-6">
                 <h3 className="text-2xl font-bold text-white mb-4">
@@ -2798,7 +2848,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
         )}
 
         {currentGame.id === "never-have-i-ever" && (
-          <Card className={disableOnboarding ? "bg-gray-900/60 backdrop-blur-sm border-white/10 rounded-3xl shadow-2xl" : "bg-slate-900/60 border-violet-600/30"}>
+          <Card className={disableOnboarding ? activityCardClass : "bg-slate-900/60 border-violet-600/30"}>
             <CardContent className="p-6">
               <div className="text-center mb-6">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/20 border border-violet-400/30 mb-3">
@@ -2868,7 +2918,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
         )}
 
         {currentGame.id === "what-would-you-do" && (
-          <Card className={disableOnboarding ? "bg-gray-900/60 backdrop-blur-sm border-white/10 rounded-3xl shadow-2xl" : "bg-slate-900/60 border-indigo-600/30"}>
+          <Card className={disableOnboarding ? activityCardClass : "bg-slate-900/60 border-indigo-600/30"}>
             <CardContent className="p-6">
               <div className="text-center mb-6">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 mb-3">
@@ -2935,7 +2985,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
         )}
 
         {currentGame.id === "two-truths-lie" && (
-          <Card className={disableOnboarding ? "bg-gray-900/60 backdrop-blur-sm border-white/10 rounded-3xl shadow-2xl" : "bg-slate-800/50 border-slate-700"}>
+          <Card className={disableOnboarding ? activityCardClass : "bg-slate-800/50 border-slate-700"}>
             <CardContent className="p-6 text-center">
               <div className="space-y-4 text-slate-300">
                 <p>قل ثلاث عبارات عن نفسك:</p>
@@ -2951,7 +3001,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
         )}
 
         {currentGame.id === "5-second-rule" && (
-          <Card className={disableOnboarding ? "bg-gray-900/60 backdrop-blur-sm border-white/10 rounded-3xl shadow-2xl" : "bg-slate-900/60 border-orange-600/30"}>
+          <Card className={disableOnboarding ? activityCardClass : "bg-slate-900/60 border-orange-600/30"}>
             <CardContent className="p-6">
               <div className="text-center mb-6">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/20 border border-orange-400/30 mb-3">
@@ -3110,7 +3160,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
         )}
 
         {currentGame.id === "imposter" && (
-          <Card className={disableOnboarding ? "bg-gray-900/60 backdrop-blur-sm border-white/10 rounded-3xl shadow-2xl" : "bg-slate-900/60 border-fuchsia-600/30"}>
+          <Card className={disableOnboarding ? activityCardClass : "bg-slate-900/60 border-fuchsia-600/30"}>
             <CardContent className="p-6">
               {/* Phase indicator + actions */}
               {(() => {
@@ -3485,7 +3535,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
         )}
 
         {currentGame.id === "would-you-rather" && (
-          <Card className={disableOnboarding ? "bg-gray-900/60 backdrop-blur-sm border-white/10 rounded-3xl shadow-2xl" : "bg-slate-900/60 border-rose-600/30"}>
+          <Card className={disableOnboarding ? activityCardClass : "bg-slate-900/60 border-rose-600/30"}>
             <CardContent className="p-6">
               <div className="text-center mb-6">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-400/30 mb-3">
@@ -3565,7 +3615,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
         )}
 
         {currentGame.id === "hot-seat" && (
-          <Card className={disableOnboarding ? "bg-gray-900/60 backdrop-blur-sm border-white/10 rounded-3xl shadow-2xl" : "bg-slate-900/60 border-amber-600/30"}>
+          <Card className={disableOnboarding ? activityCardClass : "bg-slate-900/60 border-amber-600/30"}>
             <CardContent className="p-6">
               <div className="text-center mb-6">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/30 mb-3">
@@ -3804,7 +3854,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
         )}
 
         {currentGame.id === "charades" && (
-          <Card className={disableOnboarding ? "bg-gray-900/60 backdrop-blur-sm border-white/10 rounded-3xl shadow-2xl" : "bg-slate-900/60 border-emerald-600/30"}>
+          <Card className={disableOnboarding ? activityCardClass : "bg-slate-900/60 border-emerald-600/30"}>
             <CardContent className="p-6">
               <div className="text-center mb-6">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 mb-3">

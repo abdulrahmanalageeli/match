@@ -33,9 +33,20 @@ export function LevelIcon({ icon, className = "w-4 h-4 text-white" }: { icon: st
 // ─── Shared Question Slideshow Component ──────────────────────────────────────
 type QuestionSet = 'choice' | 'special' | 'set1' | 'set2' | 'rhythm' | 'partnership'
 
+function availableQuestionSets(defaultSet: QuestionSet): QuestionSet[] {
+  // The two newest sets lead the experience. Older phase-specific sets remain
+  // available after them, preserving all existing questions.
+  if (defaultSet === 'choice') return ['rhythm', 'partnership', 'choice', 'set1', 'set2']
+  if (defaultSet === 'special') return ['rhythm', 'partnership', 'special', 'set1', 'set2']
+  return ['rhythm', 'partnership', 'set1', 'set2']
+}
+
+const arabicSetNumber = (value: number) => String(value).replace(/\d/g, digit => '٠١٢٣٤٥٦٧٨٩'[Number(digit)])
+
 export function QuestionSlideshow({ defaultSet }: { defaultSet: QuestionSet }) {
+  const availableSets = availableQuestionSets(defaultSet)
   const [qIdx, setQIdx] = useState(0)
-  const [activeSet, setActiveSet] = useState<QuestionSet>(defaultSet)
+  const [activeSet, setActiveSet] = useState<QuestionSet>(() => availableSets[0])
   const [qTrans, setQTrans] = useState<'none' | 'next' | 'prev'>('none')
 
   const setMap: Record<QuestionSet, QuestionItem[]> = {
@@ -46,15 +57,6 @@ export function QuestionSlideshow({ defaultSet }: { defaultSet: QuestionSet }) {
     rhythm: rhythmQuestions,
     partnership: partnershipQuestions,
   }
-  const setLabel: Record<QuestionSet, string> = {
-    choice: 'الجديدة',
-    special: 'المميزة',
-    set1: 'تعارف',
-    set2: 'تجارب',
-    rhythm: 'الانسجام',
-    partnership: 'الشراكة',
-  }
-
   const currentQs = setMap[activeSet]
   const q = currentQs[Math.min(qIdx, currentQs.length - 1)]
   const lc = levelColor(q.level)
@@ -63,23 +65,17 @@ export function QuestionSlideshow({ defaultSet }: { defaultSet: QuestionSet }) {
   const goPrev = () => { if (qIdx <= 0) return; setQTrans('prev'); setQIdx(i => i - 1); setTimeout(() => setQTrans('none'), 300) }
   const goNext = () => { if (qIdx >= currentQs.length - 1) return; setQTrans('next'); setQIdx(i => i + 1); setTimeout(() => setQTrans('none'), 300) }
 
-  const availableSets: QuestionSet[] = defaultSet === 'choice'
-    ? ['choice', 'set1', 'set2', 'rhythm', 'partnership']
-    : defaultSet === 'special'
-      ? ['special', 'set1', 'set2', 'rhythm', 'partnership']
-      : ['set1', 'set2', 'rhythm', 'partnership']
-
   return (
     <div className={`rounded-3xl border bg-gradient-to-br ${lc.bg} ${lc.border} p-5 space-y-4 shadow-xl shadow-black/20`}>
       {/* Tabs */}
       <div className="-mx-1 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="flex w-max min-w-full items-center justify-center gap-1 rounded-xl border border-gray-700/50 bg-gray-900/70 p-1 shadow-inner">
-          {availableSets.map(s => (
+          {availableSets.map((s, index) => (
             <button key={s} onClick={() => pick(s)}
               className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors duration-150 ${
                 activeSet === s ? 'bg-purple-600 text-white shadow-md' : 'text-gray-400 hover:text-white'
               }`}>
-              {setLabel[s]}
+              المجموعة {arabicSetNumber(index + 1)}
             </button>
           ))}
         </div>

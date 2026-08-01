@@ -3,6 +3,7 @@ import { Button } from '../../components/ui/button';
 import { Textarea } from '../../components/ui/textarea';
 import { Checkbox } from '../../components/ui/checkbox';
 import { Check, Copy, MessageSquare, X, Clock, Info, HelpCircle, Settings, FileText, Send, Zap, Users } from 'lucide-react';
+import { buildMatchTemplateVariables } from '~/utils/twilioTemplateVariables';
 
 interface WhatsappMessageModalProps {
   participant: any;
@@ -379,23 +380,7 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
       };
     }
 
-    return {
-      1: name,
-      2: String(config.earlyPrice || '0'),
-      3: config.latePriceSwitchLabel || 'TBD',
-      4: String(config.latePrice || '0'),
-      5: config.stcPay || 'TBD',
-      6: config.bankName || 'TBD',
-      7: config.iban || 'TBD',
-      8: config.locationName || 'TBD',
-      9: config.eventDateText || 'TBD',
-      10: config.eventTimeText || 'TBD',
-      11: config.arrivalTimeText || 'TBD',
-      12: config.mapUrl || 'https://maps.google.com',
-      13: String(p.assigned_number || '0'),
-      14: String(p.secure_token || 'N/A'),
-      15: config.matchExperienceText || 'تجربة اجتماعية تفاعلية تجمع بين اختيارك الشخصي وترشيحنا المبني على التوافق.',
-    };
+    return buildMatchTemplateVariables(p, config);
   };
 
   const handleBulkSendTwilio = async () => {

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react"
 import { X, Send, Loader2, Users, AlertCircle, CheckCircle2, XCircle, Zap } from "lucide-react"
+import { buildMatchTemplateVariables } from "~/utils/twilioTemplateVariables"
 
 interface BulkWhatsAppModalProps {
   isOpen: boolean
@@ -90,24 +91,7 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
       }
     }
 
-    // match
-    return {
-      1: name,
-      2: String(cfg.earlyPrice || '0'),
-      3: cfg.latePriceSwitchLabel || 'TBD',
-      4: String(cfg.latePrice || '0'),
-      5: cfg.stcPay || 'TBD',
-      6: cfg.bankName || 'TBD',
-      7: cfg.iban || 'TBD',
-      8: cfg.locationName || 'TBD',
-      9: cfg.eventDateText || 'TBD',
-      10: cfg.eventTimeText || 'TBD',
-      11: cfg.arrivalTimeText || 'TBD',
-      12: cfg.mapUrl || 'https://maps.google.com',
-      13: String(p.assigned_number || '0'),
-      14: String(p.secure_token || 'N/A'),
-      15: cfg.matchExperienceText || 'تجربة اجتماعية تفاعلية تجمع بين اختيارك الشخصي وترشيحنا المبني على التوافق.',
-    }
+    return buildMatchTemplateVariables(p, cfg)
   }
 
   const handleSend = async () => {
@@ -155,9 +139,9 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
   if (!isOpen) return null
 
   const templateName = templateType === 'match'
-    ? 'copy_of_match_notification_v2'
+    ? 'match_notification_v4'
     : templateType === 'reminder' ? 'event_reminder' : 'payment_reminder'
-  const requiredVariableCount = templateType === 'match' ? 15 : templateType === 'reminder' ? 5 : 8
+  const requiredVariableCount = templateType === 'match' ? 7 : templateType === 'reminder' ? 5 : 8
   const previewParticipant = eligibleList[0] || null
   const previewVariables: Record<string, any> = previewParticipant ? buildVariables(previewParticipant) : {}
   const missingVariables = Array.from({ length: requiredVariableCount }, (_, index) => String(index + 1)).filter(key => {

@@ -1,25 +1,30 @@
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Zap, Flame, Compass, Sparkles, Handshake, ChevronLeft, ChevronRight } from "lucide-react"
+import {
+  Zap, Flame, Compass, Sparkles, Handshake, ChevronLeft, ChevronRight,
+  List, X, Check, Layers3,
+} from "lucide-react"
 import { choiceQuestions, specialQuestions, round1Questions, eventQuestions, type QuestionItem } from "~/lib/e3questions"
 import { rhythmQuestions, partnershipQuestions } from "~/lib/e3extraquestions"
 
 // ─── Level styling helpers ─────────────────────────────────────────────────────
 export const levelColor = (lv: number) => [
-  { bg: "from-emerald-500/20 to-green-500/10",  border: "border-emerald-700/40", text: "text-emerald-300", bar: "from-emerald-500 to-green-500",  icon: "bg-gradient-to-r from-emerald-500 to-green-500"  },
-  { bg: "from-cyan-500/20 to-blue-600/10",      border: "border-cyan-700/40",    text: "text-cyan-300",    bar: "from-cyan-500 to-blue-500",    icon: "bg-gradient-to-r from-cyan-500 to-blue-600"     },
-  { bg: "from-amber-500/20 to-orange-600/10",   border: "border-amber-700/40",  text: "text-amber-300",  bar: "from-amber-500 to-orange-500",  icon: "bg-gradient-to-r from-amber-500 to-orange-600"  },
-  { bg: "from-purple-500/20 to-pink-600/10",    border: "border-purple-700/40", text: "text-purple-300", bar: "from-purple-500 to-pink-500",    icon: "bg-gradient-to-r from-purple-500 to-pink-600"  },
-  { bg: "from-teal-500/20 to-green-600/10",     border: "border-teal-700/40",   text: "text-teal-300",   bar: "from-teal-500 to-green-500",    icon: "bg-gradient-to-r from-teal-500 to-green-600"   },
-][lv] ?? { bg: "from-gray-500/20 to-gray-600/10", border: "border-gray-700/40", text: "text-gray-300", bar: "from-gray-500 to-gray-400", icon: "bg-gray-600" }
+  { bg: "from-emerald-500/20 to-green-500/10",  border: "border-emerald-600/40", text: "text-emerald-200", bar: "from-emerald-400 to-green-500",  icon: "bg-gradient-to-r from-emerald-500 to-green-500"  },
+  { bg: "from-cyan-500/20 to-blue-600/10",      border: "border-cyan-600/40",    text: "text-cyan-200",    bar: "from-cyan-400 to-blue-500",    icon: "bg-gradient-to-r from-cyan-500 to-blue-600"     },
+  { bg: "from-amber-500/20 to-orange-600/10",   border: "border-amber-600/40",  text: "text-amber-200",  bar: "from-amber-400 to-orange-500",  icon: "bg-gradient-to-r from-amber-500 to-orange-600"  },
+  { bg: "from-purple-500/20 to-pink-600/10",    border: "border-purple-600/40", text: "text-purple-200", bar: "from-purple-400 to-pink-500",    icon: "bg-gradient-to-r from-purple-500 to-pink-600"  },
+  { bg: "from-teal-500/20 to-green-600/10",     border: "border-teal-600/40",   text: "text-teal-200",   bar: "from-teal-400 to-green-500",    icon: "bg-gradient-to-r from-teal-500 to-green-600"   },
+][lv] ?? { bg: "from-gray-500/20 to-gray-600/10", border: "border-gray-600/40", text: "text-gray-200", bar: "from-gray-400 to-gray-500", icon: "bg-gray-600" }
 
 export const levelDesc = (lv: number) => [
-  "يركز على إيجاد نقاط التواصل السريع والاهتمامات المشتركة",
-  "يركز على الشغف، الشخصية، ووجهات النظر بطريقة خفيفة",
-  "يركز على القيم الأساسية والمبادئ الشخصية العميقة",
-  "يركز على مشاركة التجارب الشخصية والذكريات المؤثرة",
-  "يركز على استكشاف السيناريوهات والتوافق في المواقف المختلفة",
+  "بداية خفيفة وسريعة",
+  "الشغف والشخصية",
+  "القيم وما يهمك",
+  "تجارب صنعتك",
+  "مواقف تكشف التوافق",
 ][lv] ?? ""
+
+const levelShortLabel = ["بداية", "شرارة", "جوهر", "تجارب", "توافق"]
 
 export function LevelIcon({ icon, className = "w-4 h-4 text-white" }: { icon: string; className?: string }) {
   if (icon === "Zap") return <Zap className={className} />
@@ -34,107 +39,246 @@ export function LevelIcon({ icon, className = "w-4 h-4 text-white" }: { icon: st
 type QuestionSet = 'choice' | 'special' | 'set1' | 'set2' | 'rhythm' | 'partnership'
 
 function availableQuestionSets(defaultSet: QuestionSet): QuestionSet[] {
-  // Each new set belongs to one 1:1 phase: set 1 leads Phase 2 and set 2 leads
-  // Phase 3. Older phase-specific sets remain available after the default.
+  // Phase 2 opens with everyday rhythm; Phase 3 opens with partnership.
+  // The other tracks remain available when a pair wants a different direction.
   if (defaultSet === 'choice') return ['rhythm', 'choice', 'set1', 'set2']
   if (defaultSet === 'special') return ['rhythm', 'special', 'set1', 'set2']
   return ['partnership', 'set1', 'set2']
 }
 
-const setLabel: Record<QuestionSet, string> = {
-  rhythm: 'المجموعة ١',
-  partnership: 'المجموعة ٢',
-  choice: 'المجموعة ٣',
-  special: 'المجموعة ٣',
-  set1: 'المجموعة ٤',
-  set2: 'المجموعة ٥',
+const setMeta: Record<QuestionSet, { label: string; description: string }> = {
+  rhythm: { label: 'المجموعة ١', description: 'العادات، القرب، وكيف تعيش يومك' },
+  partnership: { label: 'المجموعة ٢', description: 'الثقة، الالتزام، وبناء علاقة متوازنة' },
+  choice: { label: 'المجموعة ٣', description: 'ما تحتاجه وتقدّره في العلاقات القريبة' },
+  special: { label: 'المجموعة ٣', description: 'الشخصية والتجارب من زوايا غير متوقعة' },
+  set1: { label: 'المجموعة ٤', description: 'ما يشكّلك وما لا تتنازل عنه' },
+  set2: { label: 'المجموعة ٥', description: 'قصص وقرارات تكشف طريقة تفكيرك' },
+}
+
+const setMap: Record<QuestionSet, QuestionItem[]> = {
+  choice: choiceQuestions,
+  special: specialQuestions,
+  set1: round1Questions,
+  set2: eventQuestions,
+  rhythm: rhythmQuestions,
+  partnership: partnershipQuestions,
 }
 
 export function QuestionSlideshow({ defaultSet }: { defaultSet: QuestionSet }) {
   const availableSets = availableQuestionSets(defaultSet)
-  const [qIdx, setQIdx] = useState(0)
   const [activeSet, setActiveSet] = useState<QuestionSet>(() => availableSets[0])
-  const [qTrans, setQTrans] = useState<'none' | 'next' | 'prev'>('none')
+  const [positions, setPositions] = useState<Partial<Record<QuestionSet, number>>>({})
+  const [direction, setDirection] = useState(0)
+  const [showQuestionList, setShowQuestionList] = useState(false)
 
-  const setMap: Record<QuestionSet, QuestionItem[]> = {
-    choice: choiceQuestions,
-    special: specialQuestions,
-    set1: round1Questions,
-    set2: eventQuestions,
-    rhythm: rhythmQuestions,
-    partnership: partnershipQuestions,
-  }
   const currentQs = setMap[activeSet]
-  const q = currentQs[Math.min(qIdx, currentQs.length - 1)]
+  const qIdx = Math.min(positions[activeSet] ?? 0, currentQs.length - 1)
+  const q = currentQs[qIdx]
   const lc = levelColor(q.level)
+  const availableLevels = [...new Set(currentQs.map(item => item.level))].sort((a, b) => a - b)
 
-  const pick = (s: QuestionSet) => { setActiveSet(s); setQIdx(0) }
-  const goPrev = () => { if (qIdx <= 0) return; setQTrans('prev'); setQIdx(i => i - 1); setTimeout(() => setQTrans('none'), 300) }
-  const goNext = () => { if (qIdx >= currentQs.length - 1) return; setQTrans('next'); setQIdx(i => i + 1); setTimeout(() => setQTrans('none'), 300) }
+  const moveTo = (index: number) => {
+    const safeIndex = Math.max(0, Math.min(index, currentQs.length - 1))
+    setDirection(safeIndex === qIdx ? 0 : safeIndex > qIdx ? 1 : -1)
+    setPositions(previous => ({ ...previous, [activeSet]: safeIndex }))
+  }
+  const pick = (set: QuestionSet) => {
+    setDirection(0)
+    setActiveSet(set)
+  }
+  const goPrev = () => moveTo(qIdx - 1)
+  const goNext = () => moveTo(qIdx + 1)
+  const jumpToLevel = (level: number) => {
+    const firstQuestion = currentQs.findIndex(item => item.level === level)
+    if (firstQuestion >= 0) moveTo(firstQuestion)
+  }
 
   return (
-    <div className={`rounded-3xl border bg-gradient-to-br ${lc.bg} ${lc.border} p-5 space-y-4 shadow-xl shadow-black/20`}>
-      {/* Tabs */}
-      <div className="-mx-1 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="flex w-max min-w-full items-center justify-center gap-1 rounded-xl border border-gray-700/50 bg-gray-900/70 p-1 shadow-inner">
-          {availableSets.map(s => (
-            <button key={s} onClick={() => pick(s)}
-              className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors duration-150 ${
-                activeSet === s ? 'bg-purple-600 text-white shadow-md' : 'text-gray-400 hover:text-white'
-              }`}>
-              {setLabel[s]}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Level badge */}
-      <div className="flex items-center justify-center gap-2.5">
-        <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${lc.icon} shadow-lg`}>
-          <LevelIcon icon={q.levelIcon} />
-        </div>
-        <div className="text-center">
-          <p className={`text-xs font-bold ${lc.text}`}>{q.levelTitle}</p>
-          <p className="text-gray-600 text-[10px] mt-0.5">{levelDesc(q.level)}</p>
-        </div>
-      </div>
-
-      {/* Question card */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={`${activeSet}-${qIdx}`}
-          initial={{ opacity: 0, x: qTrans === 'next' ? 24 : qTrans === 'prev' ? -24 : 0, scale: 0.96 }}
-          animate={{ opacity: 1, x: 0, scale: 1 }}
-          exit={{ opacity: 0, x: qTrans === 'next' ? -24 : 24, scale: 0.96 }}
-          transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-          className="bg-gray-900/70 backdrop-blur-sm rounded-2xl p-5 space-y-3 border border-white/[0.04]"
-        >
-          <div className="flex items-center gap-2.5">
-            <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0 ${lc.icon} text-white shadow-md`}>
-              {qIdx + 1}
-            </span>
-            <h5 className="text-white text-sm font-bold leading-snug">{q.title}</h5>
+    <section
+      dir="rtl"
+      aria-label="أسئلة الحوار"
+      className={`relative overflow-hidden rounded-[1.75rem] border bg-gradient-to-br ${lc.bg} ${lc.border} p-3.5 sm:p-5 shadow-xl shadow-black/20`}
+    >
+      {/* Track header: meaningful name and one clear way to browse everything. */}
+      <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-white/[0.07] bg-gray-950/55 p-3">
+        <div className="min-w-0">
+          <div className="mb-0.5 flex items-center gap-1.5 text-[10px] font-bold text-gray-500">
+            <Layers3 className="h-3.5 w-3.5" /> مسار الحوار
           </div>
-          <p className="text-gray-300 text-sm leading-relaxed pr-9">{q.question}</p>
-        </motion.div>
+          <p className="truncate text-sm font-black text-white">{setMeta[activeSet].label}</p>
+          <p className="mt-0.5 line-clamp-1 text-[11px] text-gray-400">{setMeta[activeSet].description}</p>
+        </div>
+        <button
+          onClick={() => setShowQuestionList(true)}
+          className="flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-3 text-xs font-bold text-gray-200 active:scale-95"
+          aria-label="عرض مسارات وقائمة الأسئلة"
+        >
+          <List className="h-4 w-4" /> القائمة
+        </button>
+      </div>
+
+      {/* Depth navigator: makes the progression visible and lets a pair choose comfort level. */}
+      <div className="mb-3 grid grid-cols-5 gap-1" aria-label="مستويات الحوار">
+        {availableLevels.map(level => {
+          const colors = levelColor(level)
+          const active = q.level === level
+          return (
+            <button
+              key={level}
+              onClick={() => jumpToLevel(level)}
+              aria-current={active ? 'step' : undefined}
+              className={`min-h-11 rounded-xl border px-1 py-1.5 text-[10px] font-bold transition-all ${
+                active ? `${colors.border} bg-white/10 ${colors.text}` : 'border-white/[0.05] bg-black/15 text-gray-500'
+              }`}
+            >
+              <span className={`mx-auto mb-1 block h-1.5 w-5 rounded-full ${active ? `bg-gradient-to-r ${colors.bar}` : 'bg-gray-700'}`} />
+              {levelShortLabel[level] ?? `مستوى ${level + 1}`}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* The question is the visual focus. Larger type and a stable height improve mobile use. */}
+      <AnimatePresence mode="wait" custom={direction} initial={false}>
+        <motion.article
+          key={`${activeSet}-${qIdx}`}
+          custom={direction}
+          initial={{ opacity: 0, x: direction > 0 ? 28 : direction < 0 ? -28 : 0, scale: 0.98 }}
+          animate={{ opacity: 1, x: 0, scale: 1 }}
+          exit={{ opacity: 0, x: direction > 0 ? -28 : 28, scale: 0.98 }}
+          transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+          drag="x"
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0.12}
+          onDragEnd={(_, info) => {
+            if (info.offset.x < -60 && qIdx < currentQs.length - 1) goNext()
+            if (info.offset.x > 60 && qIdx > 0) goPrev()
+          }}
+          className="flex min-h-[280px] flex-col rounded-3xl border border-white/[0.07] bg-gray-950/75 p-5 text-center shadow-inner sm:min-h-[300px] sm:p-7"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <span className={`inline-flex items-center gap-2 text-xs font-bold ${lc.text}`}>
+              <span className={`flex h-8 w-8 items-center justify-center rounded-xl ${lc.icon} shadow-lg`}>
+                <LevelIcon icon={q.levelIcon} />
+              </span>
+              {levelDesc(q.level)}
+            </span>
+            <span dir="ltr" className="shrink-0 rounded-full bg-white/[0.06] px-2.5 py-1 text-[11px] font-mono text-gray-400">{qIdx + 1} / {currentQs.length}</span>
+          </div>
+
+          <div className="flex flex-1 flex-col items-center justify-center py-6">
+            <p className={`mb-3 text-sm font-black ${lc.text}`}>{q.title}</p>
+            <h3 className="text-balance text-[1.35rem] font-black leading-[1.75] text-white sm:text-2xl">{q.question}</h3>
+          </div>
+
+          <p className="border-t border-white/[0.07] pt-3 text-xs font-medium leading-5 text-gray-400">خذوا وقتكم — يجاوب كل شخص، وبعدها ناقشوا الاختلاف والتشابه</p>
+        </motion.article>
       </AnimatePresence>
 
-      {/* Navigation */}
-      <div className="flex items-center justify-between gap-3">
-        <button onClick={goPrev} disabled={qIdx === 0}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium bg-gray-800/60 text-gray-400 hover:text-white hover:bg-gray-700/60 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
-          <ChevronRight size={14} /> السابق
-        </button>
-        <div className="flex-1 h-1.5 bg-gray-800/80 rounded-full overflow-hidden">
-          <motion.div className={`h-full rounded-full bg-gradient-to-r ${lc.bar}`}
-            animate={{ width: `${((qIdx + 1) / currentQs.length) * 100}%` }} transition={{ duration: 0.4 }} />
+      {/* Progress has its own row, leaving the navigation buttons easy to tap. */}
+      <div className="mt-4 flex items-center gap-3 px-1">
+        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-800">
+          <motion.div
+            className={`h-full rounded-full bg-gradient-to-r ${lc.bar}`}
+            animate={{ width: `${((qIdx + 1) / currentQs.length) * 100}%` }}
+            transition={{ duration: 0.3 }}
+          />
         </div>
-        <span className="text-gray-600 text-[10px] font-mono whitespace-nowrap">{qIdx + 1}/{currentQs.length}</span>
-        <button onClick={goNext} disabled={qIdx === currentQs.length - 1}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium bg-gray-800/60 text-gray-400 hover:text-white hover:bg-gray-700/60 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
-          التالي <ChevronLeft size={14} />
+        <span className="text-[10px] font-bold text-gray-500">{Math.round(((qIdx + 1) / currentQs.length) * 100)}٪</span>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2.5">
+        <button
+          onClick={goPrev}
+          disabled={qIdx === 0}
+          className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-white/[0.07] bg-gray-900/70 text-sm font-bold text-gray-300 transition-all active:scale-[0.98] disabled:opacity-30"
+        >
+          <ChevronRight className="h-5 w-5" /> السابق
+        </button>
+        <button
+          onClick={goNext}
+          disabled={qIdx === currentQs.length - 1}
+          className={`flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r ${lc.bar} text-sm font-black text-gray-950 shadow-lg transition-all active:scale-[0.98] disabled:opacity-30`}
+        >
+          التالي <ChevronLeft className="h-5 w-5" />
         </button>
       </div>
-    </div>
+
+      {/* Mobile-first browser: switch tracks, scan titles, or jump directly. */}
+      <AnimatePresence>
+        {showQuestionList && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-end bg-black/70 backdrop-blur-sm sm:items-center sm:justify-center sm:p-5"
+            onClick={event => { if (event.target === event.currentTarget) setShowQuestionList(false) }}
+          >
+            <motion.div
+              initial={{ y: 36 }} animate={{ y: 0 }} exit={{ y: 36 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 32 }}
+              className="flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-[2rem] border border-white/10 bg-gray-950 text-white shadow-2xl sm:max-w-lg sm:rounded-[2rem]"
+              role="dialog" aria-modal="true" aria-label="قائمة أسئلة الحوار"
+            >
+              <header className="flex items-center justify-between border-b border-white/[0.07] px-5 py-4">
+                <div>
+                  <h2 className="font-black">اختاروا اتجاه الحوار</h2>
+                  <p className="mt-0.5 text-xs text-gray-500">غيّروا المسار أو انتقلوا لأي سؤال</p>
+                </div>
+                <button onClick={() => setShowQuestionList(false)} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.06] text-gray-300" aria-label="إغلاق">
+                  <X className="h-5 w-5" />
+                </button>
+              </header>
+
+              <div className="border-b border-white/[0.07] p-4">
+                <div className="grid grid-cols-2 gap-2">
+                  {availableSets.map(set => (
+                    <button
+                      key={set}
+                      onClick={() => pick(set)}
+                      className={`rounded-2xl border p-3 text-right transition-all ${activeSet === set ? 'border-purple-400/50 bg-purple-500/15' : 'border-white/[0.06] bg-white/[0.03]'}`}
+                    >
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-black text-white">{setMeta[set].label}</span>
+                        {activeSet === set && <Check className="h-4 w-4 text-purple-300" />}
+                      </span>
+                      <span className="mt-1 block text-[10px] leading-4 text-gray-500">{setMeta[set].description}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3">
+                {availableLevels.map(level => {
+                  const colors = levelColor(level)
+                  const items = currentQs.map((item, index) => ({ item, index })).filter(entry => entry.item.level === level)
+                  return (
+                    <section key={level} className="mb-5">
+                      <div className={`sticky top-0 z-10 mb-2 flex items-center gap-2 bg-gray-950/95 py-2 text-xs font-black backdrop-blur ${colors.text}`}>
+                        <span className={`h-2 w-2 rounded-full bg-gradient-to-r ${colors.bar}`} />
+                        {levelShortLabel[level]} <span className="font-normal text-gray-600">· {items.length} أسئلة</span>
+                      </div>
+                      <div className="space-y-1.5">
+                        {items.map(({ item, index }) => (
+                          <button
+                            key={`${activeSet}-${index}`}
+                            onClick={() => { moveTo(index); setShowQuestionList(false) }}
+                            className={`flex min-h-12 w-full items-center gap-3 rounded-xl border px-3 py-2 text-right ${index === qIdx ? `${colors.border} bg-white/[0.07]` : 'border-white/[0.04] bg-white/[0.025]'}`}
+                          >
+                            <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[10px] font-black ${index === qIdx ? `${colors.icon} text-white` : 'bg-gray-900 text-gray-500'}`}>{index + 1}</span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-sm font-bold text-gray-200">{item.title}</span>
+                              <span className="mt-0.5 block truncate text-[11px] text-gray-600">{item.question}</span>
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+                  )
+                })}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </section>
   )
 }

@@ -5586,6 +5586,32 @@ export default function Event3Page() {
     setShowAiWelcome(true)
   }, [aiWelcomeSeenKey])
 
+  // Lightweight, token-free visual QA for the two mobile question experiences.
+  // This is intentionally read-only and does not touch event or participant data.
+  const questionPreview = searchParams.get("questionPreview")
+  if (questionPreview === "phase1" || questionPreview === "phase2") {
+    const isPhaseOne = questionPreview === "phase1"
+    return (
+      <main className="min-h-[100dvh] bg-gray-950 px-3 py-5 text-white" dir="rtl">
+        <div className="mx-auto max-w-md">
+          <div className="mb-4 flex items-end justify-between gap-3 px-1">
+            <div>
+              <p className="text-xs font-bold text-purple-300">معاينة الجوال</p>
+              <h1 className="mt-1 text-xl font-black">أسئلة المرحلة {isPhaseOne ? "الأولى" : "الثانية"}</h1>
+            </div>
+            <a
+              href={`/event3?questionPreview=${isPhaseOne ? "phase2" : "phase1"}`}
+              className="rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-xs font-bold text-gray-300"
+            >
+              عرض المرحلة {isPhaseOne ? "الثانية" : "الأولى"}
+            </a>
+          </div>
+          <QuestionSlideshow defaultSet={isPhaseOne ? "choice" : "set1"} />
+        </div>
+      </main>
+    )
+  }
+
   if (showWelcome) return <WelcomeScreen onDone={handleWelcomeDone} />
   if (!token || tokenError) return <PhoneEntry onToken={t => { setToken(t); setTokenError(false) }} />
 

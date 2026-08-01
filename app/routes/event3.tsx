@@ -1933,6 +1933,8 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   const [timeLeft, setTimeLeft] = useState(0)
   const [showGroups, setShowGroups] = useState(false)
   const [groupsHaveOpened, setGroupsHaveOpened] = useState(false)
+  const [showGroupParticipationNudge, setShowGroupParticipationNudge] = useState(false)
+  const participationNudgeTimerRef = useRef<string | null>(null)
   useEffect(() => { onGroupsOpenChange?.(showGroups) }, [showGroups, onGroupsOpenChange])
   const openGroups = useCallback(() => {
     setGroupsHaveOpened(true)
@@ -1977,6 +1979,23 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
     const iv = setInterval(update, 1000)
     return () => clearInterval(iv)
   }, [timerActive, timerStart, timerDuration, correctedNow])
+
+  // This is intentionally tied to the round timer, not an individual activity:
+  // every table gets one gentle inclusion reminder after ten minutes together.
+  useEffect(() => {
+    if (!timerActive || !timerStart) {
+      participationNudgeTimerRef.current = null
+      setShowGroupParticipationNudge(false)
+      return
+    }
+    const timerKey = `${round}:${timerStart}`
+    const now = correctedNow ? correctedNow() : Date.now()
+    const elapsed = Math.floor((now - new Date(timerStart).getTime()) / 1000)
+    if (elapsed >= 10 * 60 && participationNudgeTimerRef.current !== timerKey) {
+      participationNudgeTimerRef.current = timerKey
+      setShowGroupParticipationNudge(true)
+    }
+  }, [timerActive, timerStart, timeLeft, round, correctedNow])
 
   // Wake lock: prevent screen sleep during active round
   const wakeLockActive = timerActive && timeLeft > 0
@@ -2169,6 +2188,12 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
             {round === 2 && "آخر جولة جماعية — بعدها ستُرتّب الأولويات لتحديد جلستك الفردية"}
           </p>
 
+          {typeof window !== "undefined" && new URLSearchParams(window.location.search).has("discussionPreview") && (
+            <button onClick={() => setShowGroupParticipationNudge(true)} className="text-amber-300/80 hover:text-amber-200 text-[11px] font-medium transition-colors mx-auto">
+              اختبار تنبيه المشاركة (10 دقائق)
+            </button>
+          )}
+
           {/* Replay tutorial button */}
           {round === 1 && (
             <motion.button
@@ -2204,6 +2229,19 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
             <div className="flex-1 overflow-y-auto overscroll-contain relative z-10" tabIndex={-1}>
               <GroupsPage disableOnboarding onClose={closeGroups} round={round} tableNumber={assignment?.table} />
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showGroupParticipationNudge && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end bg-black/55 p-5 sm:items-center sm:justify-center" role="dialog" aria-modal="true">
+            <motion.div initial={{ y: 20, scale: 0.98 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, scale: 0.98 }} className="w-full max-w-md rounded-3xl border border-amber-400/25 bg-gray-900 p-6 text-center shadow-2xl" dir="rtl">
+              <Users className="mx-auto mb-3 h-8 w-8 text-amber-300" />
+              <h2 className="text-lg font-black text-white">خلّوا الجميع يأخذ فرصته</h2>
+              <p className="mt-2 text-sm leading-7 text-gray-300">إذا فيه شخص ما أخذ فرصته بالكلام، نحب نسمع منه — والمشاركة دائمًا اختيارية.</p>
+              <button onClick={() => setShowGroupParticipationNudge(false)} className="mt-5 min-h-12 w-full rounded-2xl bg-amber-500 font-bold text-gray-950">نكمل</button>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

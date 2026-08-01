@@ -1291,10 +1291,8 @@ export default function PromptTopicsModal({ open, onClose, embedded = false, rou
 }) {
   const [tableState, setTableState] = useState<TableModeState>(readTableModeState);
   const [showPacingCheckIn, setShowPacingCheckIn] = useState(false);
-  const [showParticipationNudge, setShowParticipationNudge] = useState(false);
   const [questionsInRound, setQuestionsInRound] = useState(1);
   const [pacingShown, setPacingShown] = useState(false);
-  const [nudgeShown, setNudgeShown] = useState(false);
 
   const { depth, history, index } = tableState;
   const currentQuestion = history[index] || "";
@@ -1313,7 +1311,6 @@ export default function PromptTopicsModal({ open, onClose, embedded = false, rou
   useEffect(() => {
     setQuestionsInRound(1);
     setPacingShown(false);
-    setNudgeShown(false);
   }, [contextKey]);
 
   useEffect(() => {
@@ -1344,7 +1341,6 @@ export default function PromptTopicsModal({ open, onClose, embedded = false, rou
   // let the table deliberately choose its next conversational pace.
   const continueDiscussion = (requestedDepth = depth) => {
     setShowPacingCheckIn(false);
-    setShowParticipationNudge(false);
     setQuestionsInRound(count => count + 1);
     showNextQuestion(requestedDepth);
   };
@@ -1353,9 +1349,6 @@ export default function PromptTopicsModal({ open, onClose, embedded = false, rou
     if (questionsInRound >= 3 && !pacingShown) {
       setPacingShown(true);
       setShowPacingCheckIn(true);
-    } else if (questionsInRound >= 5 && !nudgeShown) {
-      setNudgeShown(true);
-      setShowParticipationNudge(true);
     } else {
       continueDiscussion();
     }
@@ -1442,24 +1435,11 @@ export default function PromptTopicsModal({ open, onClose, embedded = false, rou
           </div>
 
           {isPreviewMode && (
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              <button onClick={() => setShowParticipationNudge(true)} className="min-h-9 rounded-lg border border-amber-400/30 bg-amber-500/10 text-amber-200 text-xs">اختبار تذكير المشاركة</button>
-              <button onClick={() => setShowPacingCheckIn(true)} className="min-h-9 rounded-lg border border-cyan-400/30 bg-cyan-500/10 text-cyan-200 text-xs">اختبار وتيرة النقاش</button>
-            </div>
+            <button onClick={() => setShowPacingCheckIn(true)} className="min-h-9 w-full rounded-lg border border-cyan-400/30 bg-cyan-500/10 text-cyan-200 text-xs">اختبار وتيرة النقاش</button>
           )}
         </footer>
 
         <AnimatePresence>
-          {showParticipationNudge && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-10 flex items-end bg-black/55 p-5 sm:items-center sm:justify-center" role="dialog" aria-modal="true">
-              <motion.div initial={{ y: 20, scale: 0.98 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, scale: 0.98 }} className="w-full max-w-md rounded-3xl border border-amber-400/25 bg-gray-900 p-6 text-center shadow-2xl">
-                <Users className="mx-auto mb-3 h-8 w-8 text-amber-300" />
-                <h2 className="text-lg font-black text-white">خلّوا الجميع يأخذ فرصته</h2>
-                <p className="mt-2 text-sm leading-7 text-gray-300">إذا فيه شخص ما أخذ فرصته بالكلام، نحب نسمع منه — والمشاركة دائمًا اختيارية.</p>
-                <button onClick={() => continueDiscussion()} className="mt-5 min-h-12 w-full rounded-2xl bg-amber-500 font-bold text-gray-950">نكمل</button>
-              </motion.div>
-            </motion.div>
-          )}
           {showPacingCheckIn && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-10 flex items-end bg-black/55 p-5 sm:items-center sm:justify-center" role="dialog" aria-modal="true">
               <motion.div initial={{ y: 20, scale: 0.98 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, scale: 0.98 }} className="w-full max-w-md rounded-3xl border border-cyan-400/25 bg-gray-900 p-6 text-center shadow-2xl">

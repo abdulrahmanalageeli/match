@@ -2000,6 +2000,7 @@ export default function WelcomePage() {
             }
             if (data.auto_signup_next_event) {
               setAutoSignupEnabled(true)
+              setShowAutoSignupPrompt(false)
               console.log('✅ Feedback: Auto-signup is enabled, hiding checkbox')
             } else {
               setAutoSignupEnabled(false)
@@ -3951,6 +3952,7 @@ export default function WelcomePage() {
           // Check if auto-signup is enabled
           if (participant.auto_signup_next_event) {
             setAutoSignupEnabled(true)
+            setShowAutoSignupPrompt(false)
             console.log('✨ Auto-signup for all future events is enabled')
           } else {
             setAutoSignupEnabled(false)

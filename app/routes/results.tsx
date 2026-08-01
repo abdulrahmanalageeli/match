@@ -537,7 +537,9 @@ export default function ResultsPage() {
           </div>
           
           <Link to="/" className="flex h-10 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.045] px-3 text-sm font-bold text-slate-200 transition hover:bg-white/[0.08] sm:px-4">
-              <img src="/blindmatch-imprint.png" alt="" className="h-8 w-8 object-contain opacity-90" />
+              <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg">
+                <img src="/blindmatch-imprint.png" alt="" className="h-8 w-8 scale-[1.55] object-contain opacity-100" />
+              </span>
               <span className="hidden sm:inline">الصفحة الرئيسية</span>
           </Link>
         </div>

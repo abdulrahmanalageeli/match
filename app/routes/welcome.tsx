@@ -3216,9 +3216,9 @@ export default function WelcomePage() {
               type="button"
               aria-label="العودة إلى الصفحة الرئيسية"
               onClick={handleLogoClick}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.045] transition-colors hover:bg-white/[0.075] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
+              className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.045] transition-colors hover:bg-white/[0.075] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
             >
-              <img src="/blindmatch-imprint.png" alt="" className="h-9 w-9 object-contain opacity-90" />
+              <img src="/blindmatch-imprint.png" alt="" className="h-10 w-10 scale-[1.55] object-contain opacity-100" />
             </button>
 
             {/* Participant info */}

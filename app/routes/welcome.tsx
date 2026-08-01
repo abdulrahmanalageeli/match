@@ -693,6 +693,7 @@ export default function WelcomePage() {
   
   // Next Event Signup Popup states
   const [showNextEventPopup, setShowNextEventPopup] = useState(false)
+  const [showAutoSignupPrompt, setShowAutoSignupPrompt] = useState(false)
   const [nextEventSignupLoading, setNextEventSignupLoading] = useState(false)
   const [showNextEventSignup, setShowNextEventSignup] = useState(false)
   const [participantInfo, setParticipantInfo] = useState<{name: string, assigned_number: number} | null>(null)
@@ -790,6 +791,34 @@ export default function WelcomePage() {
   const [isCheckingMatch, setIsCheckingMatch] = useState(false);
   const hasCheckedMatchRef = useRef(false);
   const hasForcedRound1Ref = useRef(false);
+
+  const enableAutoSignup = async () => {
+    const savedResultToken = typeof window !== 'undefined' ? localStorage.getItem('blindmatch_result_token') : null
+    const savedReturningToken = typeof window !== 'undefined' ? localStorage.getItem('blindmatch_returning_token') : null
+    const tokenToUse = secureToken || resultToken || returningPlayerToken || savedResultToken || savedReturningToken
+    if (!tokenToUse) {
+      toast.error('لا يمكن تفعيل التسجيل التلقائي بدون رمز صحيح')
+      return
+    }
+
+    setNextEventSignupLoading(true)
+    try {
+      const res = await fetch('/api/participant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'enable-auto-signup', secure_token: tokenToUse }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'فشل تفعيل التسجيل التلقائي')
+      setAutoSignupEnabled(true)
+      setShowAutoSignupPrompt(false)
+      toast.success('تم تفعيل التسجيل التلقائي لجميع الفعاليات القادمة!')
+    } catch (error: any) {
+      toast.error(error?.message || 'حدث خطأ أثناء تفعيل التسجيل التلقائي')
+    } finally {
+      setNextEventSignupLoading(false)
+    }
+  }
 
   // Call API to verify participant actually has a real match (not 9999) for the given round.
   // Defaults to round 1 for backwards compatibility.
@@ -3238,28 +3267,7 @@ export default function WelcomePage() {
             {/* Auto-Signup Offer Button - Show for users signed up for next event but auto-signup disabled */}
             {showAutoSignupOffer && !isTokenAndRoundPhase && (
                 <button
-                  onClick={async () => {
-                    const token = resultToken || returningPlayerToken || hasStoredResultToken || hasStoredReturningToken;
-                    if (!token) return;
-                    
-                    try {
-                      const res = await fetch("/api/participant", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ 
-                          action: "enable-auto-signup",
-                          secure_token: token
-                        }),
-                      });
-                      
-                      if (res.ok) {
-                        setAutoSignupEnabled(true);
-                        toast.success("تم تفعيل التسجيل التلقائي لجميع الأحداث القادمة!");
-                      }
-                    } catch (err) {
-                      console.error("Error enabling auto-signup:", err);
-                    }
-                  }}
+                  onClick={enableAutoSignup}
                   className="flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-emerald-400/25 bg-emerald-400/10 px-2.5 text-[11px] font-bold text-emerald-200 transition-colors hover:bg-emerald-400/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/70 sm:px-3"
                   title="فعّل التسجيل التلقائي لجميع الأحداث القادمة"
                 >
@@ -3947,6 +3955,11 @@ export default function WelcomePage() {
           } else {
             setAutoSignupEnabled(false)
             console.log('💡 Auto-signup available - show offer in navbar')
+            const promptKey = `auto-signup-prompt-shown:${participant.assigned_number}`
+            if (typeof window !== 'undefined' && sessionStorage.getItem(promptKey) !== '1') {
+              sessionStorage.setItem(promptKey, '1')
+              setShowAutoSignupPrompt(true)
+            }
           }
         }
       }
@@ -7725,6 +7738,28 @@ export default function WelcomePage() {
                   </div>
                 )}
 
+                {showAutoSignupPrompt && showNextEventSignup && !autoSignupEnabled && (
+                  <div data-welcome-dialog role="dialog" aria-modal="true" aria-label="تفعيل التسجيل التلقائي" className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-md">
+                    <div className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-emerald-300/20 bg-slate-900/95 p-6 text-center shadow-[0_30px_90px_-35px_rgba(52,211,153,.7)]" dir="rtl">
+                      <div className="pointer-events-none absolute -right-16 -top-20 h-44 w-44 rounded-full bg-emerald-400/15 blur-3xl" />
+                      <button type="button" onClick={() => setShowAutoSignupPrompt(false)} aria-label="إغلاق" className="absolute left-4 top-4 rounded-lg p-1.5 text-slate-400 transition hover:bg-white/5 hover:text-white">
+                        <X className="h-4 w-4" />
+                      </button>
+                      <div className="relative mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-300/25 bg-emerald-400/10">
+                        <Sparkles className="h-7 w-7 text-emerald-300" />
+                      </div>
+                      <h3 className="relative text-xl font-black text-white">هل نُسجّلك تلقائياً؟</h3>
+                      <p className="relative mt-2 text-sm leading-6 text-slate-300">فعّل التسجيل التلقائي للفعاليات القادمة، ولن تحتاج إلى التسجيل يدوياً في كل مرة.</p>
+                      <div className="relative mt-5 grid grid-cols-2 gap-2">
+                        <button type="button" onClick={() => setShowAutoSignupPrompt(false)} className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-slate-300 transition hover:bg-white/10">لاحقاً</button>
+                        <button type="button" onClick={enableAutoSignup} disabled={nextEventSignupLoading} className="rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-3 text-sm font-black text-white shadow-lg shadow-emerald-950/30 transition hover:brightness-110 disabled:opacity-50">
+                          {nextEventSignupLoading ? 'جاري التفعيل...' : 'نعم، فعّله'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Navbar for Saved Data Users */}
                 {(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
                   <div className="mx-auto mt-0 max-w-5xl px-3 animate-in slide-in-from-bottom-4 duration-1000 delay-1000 sm:px-0">
@@ -7801,7 +7836,7 @@ export default function WelcomePage() {
                               </button>
                               
                               {/* Disable Auto-Signup Button (if enabled) */}
-                              {autoSignupEnabled && (
+                              {autoSignupEnabled ? (
                                 <button
                                   onClick={async (e) => {
                                     e.stopPropagation();
@@ -7838,6 +7873,18 @@ export default function WelcomePage() {
                                   className="rounded-lg border border-red-400/20 bg-red-400/10 px-3 py-1.5 text-[11px] font-medium text-red-200 transition-colors hover:bg-red-400/15"
                                 >
                                   إيقاف التسجيل التلقائي
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setShowAutoSignupPrompt(true)
+                                  }}
+                                  disabled={nextEventSignupLoading}
+                                  className="rounded-lg border border-emerald-300/25 bg-emerald-400/10 px-3 py-1.5 text-[11px] font-bold text-emerald-200 transition-colors hover:bg-emerald-400/20 disabled:opacity-50"
+                                >
+                                  ✨ تفعيل التسجيل التلقائي
                                 </button>
                               )}
                             </div>

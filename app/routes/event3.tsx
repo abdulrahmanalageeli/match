@@ -4716,7 +4716,7 @@ function AiAnalysisCompact({ partnerNum, token, currentEventId, accent, title }:
   )
 }
 
-function FinalRevealScreen({ token }: { token: string }) {
+function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; onQuestionViewerChange?: (open: boolean) => void }) {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [revealed, setRevealed] = useState(false)
@@ -4724,6 +4724,14 @@ function FinalRevealScreen({ token }: { token: string }) {
   const [prefSubmitting, setPrefSubmitting] = useState(false)
   const [currentEventId, setCurrentEventId] = useState<number>(1)
   const [activeTab, setActiveTab] = useState<"choice" | "algorithm">("choice")
+  const [screenMode, setScreenMode] = useState<"reveal" | "questions">("reveal")
+  const [questionPhase, setQuestionPhase] = useState<"phase1" | "phase2">("phase2")
+
+  useEffect(() => {
+    onQuestionViewerChange?.(screenMode === "questions")
+  }, [screenMode, onQuestionViewerChange])
+
+  useEffect(() => () => onQuestionViewerChange?.(false), [onQuestionViewerChange])
 
   useEffect(() => {
     call("e3-get-final-reveal", token).then(d => {
@@ -4748,6 +4756,50 @@ function FinalRevealScreen({ token }: { token: string }) {
   if (!data) return <PageWrapper className="flex items-center justify-center text-gray-500 text-sm">لا توجد نتائج بعد</PageWrapper>
 
   const p2 = data.phase2, p3 = data.phase3
+
+  if (screenMode === "questions") {
+    return (
+      <PageWrapper className="overflow-y-auto">
+        <div className="mx-auto max-w-md px-3 pb-8 pt-4" dir="rtl">
+          <div className="mb-4 rounded-2xl border border-white/[0.07] bg-gray-900/60 p-3">
+            <div className="mb-3 text-center">
+              <p className="text-xs font-bold text-purple-300">متابعة الحوار</p>
+              <h1 className="mt-1 text-xl font-black text-white">أسئلة الجلسات</h1>
+              <p className="mt-1 text-xs text-gray-500">للعرض والنقاش فقط — لن يتم حفظ أي إجابات</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setQuestionPhase("phase1")}
+                className={`min-h-11 rounded-xl border text-sm font-bold transition-all ${questionPhase === "phase1" ? "border-pink-500/50 bg-pink-500/15 text-pink-200" : "border-white/[0.07] bg-white/[0.03] text-gray-500"}`}
+              >
+                أسئلة المرحلة الأولى
+              </button>
+              <button
+                onClick={() => setQuestionPhase("phase2")}
+                className={`min-h-11 rounded-xl border text-sm font-bold transition-all ${questionPhase === "phase2" ? "border-purple-500/50 bg-purple-500/15 text-purple-200" : "border-white/[0.07] bg-white/[0.03] text-gray-500"}`}
+              >
+                أسئلة المرحلة الثانية
+              </button>
+            </div>
+          </div>
+
+          <QuestionSlideshow key={`final-${questionPhase}`} defaultSet={questionPhase === "phase1" ? "choice" : "set1"} />
+
+          <nav className="sticky bottom-3 z-20 mt-4 grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-gray-950/90 p-2 shadow-2xl backdrop-blur-xl" aria-label="التنقل بعد الكشف النهائي">
+            <a href="/welcome" className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl bg-white/[0.05] text-[11px] font-bold text-gray-300">
+              <Home size={17} /> الرئيسية
+            </a>
+            <a href={`/results?token=${encodeURIComponent(token)}`} className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl bg-white/[0.05] text-[11px] font-bold text-amber-200">
+              <Trophy size={17} /> النتائج
+            </a>
+            <button onClick={() => setScreenMode("reveal")} className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-[11px] font-black text-white">
+              <ChevronRight size={17} /> الكشف النهائي
+            </button>
+          </nav>
+        </div>
+      </PageWrapper>
+    )
+  }
 
   return (
     <PageWrapper className="overflow-y-auto">
@@ -4848,6 +4900,14 @@ function FinalRevealScreen({ token }: { token: string }) {
             </button>
           </div>
         </motion.div>
+
+        <motion.button
+          onClick={() => setScreenMode("questions")}
+          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.95 }}
+          className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-purple-700/40 bg-purple-950/30 text-sm font-bold text-purple-200 transition-all hover:bg-purple-950/50 active:scale-[0.98]"
+        >
+          <MessageSquare size={17} /> العودة ومتابعة أسئلة الجلسات
+        </motion.button>
 
         {/* Simple home link */}
         <motion.a href="/welcome" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }}
@@ -5511,6 +5571,7 @@ export default function Event3Page() {
   const [isOffline, setIsOffline] = useState(false)
   const [tokenError, setTokenError] = useState(false)
   const [groupsOpen, setGroupsOpen] = useState(false)
+  const [finalQuestionsOpen, setFinalQuestionsOpen] = useState(false)
   const aiWelcomeSeenKey = token ? `e3_ai_welcome_seen_${token}` : null
 
   const fetchState = useCallback(async () => {
@@ -5659,7 +5720,7 @@ export default function Event3Page() {
         </div>
       )}
 
-      <EventStatusHeader eventState={eventState} isOffline={isOffline} correctedNow={correctedNow} impersonating={isImpersonating} />
+      {!finalQuestionsOpen && <EventStatusHeader eventState={eventState} isOffline={isOffline} correctedNow={correctedNow} impersonating={isImpersonating} />}
 
       {/* Screen content fills available space */}
       <div className="flex-1 overflow-y-auto relative z-10">
@@ -5671,7 +5732,7 @@ export default function Event3Page() {
           {phase === "phase3_reveal" && <Phase3RevealScreen key="p3r" token={token} eventId={eventState?.event_id} {...timerProps} />}
           {(phase === "phase2_processing" || phase === "phase3_processing") && <ProcessingScreen key="processing" phase={phase} />}
           {phase === "break" && <BreakScreen key="break" {...timerProps} />}
-          {phase === "final_reveal" && <FinalRevealScreen key="final" token={token} />}
+          {phase === "final_reveal" && <FinalRevealScreen key="final" token={token} onQuestionViewerChange={setFinalQuestionsOpen} />}
         </AnimatePresence>
       </div>
 
@@ -5679,12 +5740,12 @@ export default function Event3Page() {
       {enrolled && !rankingMatch && phase !== "final_reveal" && phase !== "break" && !groupsOpen && <SOSButton token={token} position="bottom" sosRequests={eventState?.sos_requests} />}
 
       {/* Mood check popup — receives mood check data from heartbeat */}
-      {enrolled && token && <MoodCheckModal token={token} name={myInfo?.name} moodCheck={eventState?.mood_check} />}
+      {enrolled && token && !finalQuestionsOpen && <MoodCheckModal token={token} name={myInfo?.name} moodCheck={eventState?.mood_check} />}
       {/* Notification popup — receives notification data from heartbeat */}
-      {enrolled && token && <NotificationModal token={token} notification={eventState?.notification} />}
+      {enrolled && token && !finalQuestionsOpen && <NotificationModal token={token} notification={eventState?.notification} />}
 
       {/* AI Welcome popup — shows once after welcome screen */}
-      {showAiWelcome && token && <AiWelcomePopup token={token} onDone={() => {
+      {showAiWelcome && token && !finalQuestionsOpen && <AiWelcomePopup token={token} onDone={() => {
         if (aiWelcomeSeenKey) localStorage.setItem(aiWelcomeSeenKey, "1")
         setShowAiWelcome(false)
       }} />}

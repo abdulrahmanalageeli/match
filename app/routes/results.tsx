@@ -500,51 +500,50 @@ export default function ResultsPage() {
   }
 
   return (
-    <div className={`min-h-screen ${dark ? 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900' : 'bg-gradient-to-br from-blue-50 to-indigo-100'}`} dir="rtl">
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="relative min-h-screen overflow-hidden bg-[#07111f] text-white" dir="rtl">
+      <div className="pointer-events-none fixed inset-0">
+        <div className="absolute -right-40 -top-48 h-[34rem] w-[34rem] rounded-full bg-cyan-500/[0.10] blur-[120px]" />
+        <div className="absolute -bottom-64 -left-48 h-[38rem] w-[38rem] rounded-full bg-purple-600/[0.12] blur-[140px]" />
+        <div className="absolute inset-0 opacity-[0.055]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.12) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.12) 1px, transparent 1px)', backgroundSize: '48px 48px' }} />
+      </div>
+      <div className="relative z-10 mx-auto w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-7">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="mb-5 flex items-center justify-between rounded-2xl border border-white/[0.09] bg-slate-950/65 p-2 shadow-[0_18px_55px_-35px_rgba(34,211,238,.35)] backdrop-blur-xl sm:mb-8 sm:p-3">
           <div className="flex items-center gap-4">
             <Link 
               to="/" 
-              className={`p-2 rounded-lg transition-colors ${
-                dark ? 'hover:bg-slate-700 text-slate-400 hover:text-slate-200' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-700'
-              }`}
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.045] text-slate-400 transition-colors hover:bg-white/[0.08] hover:text-white"
             >
               <ArrowLeft className="w-6 h-6" />
             </Link>
             
             {resultsData && (
               <div className={`flex items-center gap-3`}>
-                <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center ${
-                  dark ? 'bg-blue-600/20 border-blue-400' : 'bg-blue-100 border-blue-300'
-                }`}>
-                  <span className={`text-lg font-bold ${dark ? 'text-blue-200' : 'text-blue-700'}`}>
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-cyan-300/30 bg-gradient-to-br from-cyan-400/15 to-blue-500/10 shadow-inner shadow-cyan-300/10 sm:h-12 sm:w-12">
+                  <span className="text-sm font-black text-cyan-200 sm:text-base">
                     #{resultsData.assigned_number}
                   </span>
                 </div>
                 <div>
-                  <h1 className={`text-2xl font-bold ${dark ? 'text-slate-100' : 'text-gray-800'}`}>
+                  <h1 className="text-lg font-black tracking-tight text-white sm:text-2xl">
                     نتائج التوافق
                   </h1>
-                  <p className={`text-sm ${dark ? 'text-slate-400' : 'text-gray-600'}`}>
-                    جميع جلسات التوافق ونتائج التوافق
+                  <p className="hidden text-xs text-slate-400 sm:block sm:text-sm">
+                    رحلتك، اختياراتك، ونتائج التوافق
                   </p>
                 </div>
               </div>
             )}
           </div>
           
-          <Link to="/">
-            <Button className={`${dark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-200 hover:bg-gray-300'}`}>
-              <Home className="w-4 h-4 mr-2" />
-              الصفحة الرئيسية
-            </Button>
+          <Link to="/" className="flex h-10 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.045] px-3 text-sm font-bold text-slate-200 transition hover:bg-white/[0.08] sm:px-4">
+              <img src="/blindmatch-imprint.png" alt="" className="h-8 w-8 object-contain opacity-90" />
+              <span className="hidden sm:inline">الصفحة الرئيسية</span>
           </Link>
         </div>
 
         {/* Content */}
-        <div className={`rounded-2xl shadow-xl ${dark ? 'bg-slate-800/95 backdrop-blur-sm' : 'bg-white'} p-3 sm:p-6`}>
+        <div className="rounded-[1.75rem] border border-white/[0.075] bg-slate-950/35 p-2.5 shadow-[0_28px_90px_-55px_rgba(56,189,248,.45)] backdrop-blur-xl sm:p-5">
           {error === "waiting" ? (
             <div className={`text-center py-12 ${dark ? 'text-slate-300' : 'text-gray-600'}`}>
               <div className="w-16 h-16 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-6"></div>
@@ -600,9 +599,9 @@ export default function ResultsPage() {
                 const isEventExpanded = expandedEvents[event_id]
                 
                 return (
-                  <div key={event_id} className={`rounded-xl border transition-all duration-200 ${
+                  <div key={event_id} className={`overflow-hidden rounded-2xl border transition-all duration-300 ${
                     groupIsEvent3(items)
-                      ? (dark ? 'bg-gradient-to-br from-amber-900/20 to-pink-900/10 border-amber-600/40' : 'bg-gradient-to-br from-amber-50 to-pink-50 border-amber-300')
+                      ? 'border-cyan-300/20 bg-gradient-to-br from-cyan-400/[0.075] via-blue-500/[0.045] to-purple-500/[0.075] shadow-[inset_0_1px_0_rgba(255,255,255,.04)]'
                       : (dark ? 'bg-slate-700/30 border-slate-600/50' : 'bg-gray-50 border-gray-200')
                   }`}>
                     <div
@@ -611,14 +610,14 @@ export default function ResultsPage() {
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                          <div className={`w-11 h-11 rounded-xl border flex items-center justify-center flex-shrink-0 ${
                             groupIsEvent3(items)
-                              ? (dark ? 'bg-amber-600/20 border-amber-400' : 'bg-amber-100 border-amber-300')
+                              ? 'bg-gradient-to-br from-cyan-400/15 to-purple-500/15 border-cyan-300/30'
                               : (dark ? 'bg-indigo-600/20 border-indigo-400' : 'bg-indigo-100 border-indigo-300')
                           }`}>
                             <span className={`font-bold text-sm ${
                               groupIsEvent3(items)
-                                ? (dark ? 'text-amber-200' : 'text-amber-700')
+                                ? 'text-cyan-200'
                                 : (dark ? 'text-indigo-200' : 'text-indigo-700')
                             }`}>
                               {event_id}
@@ -627,14 +626,14 @@ export default function ResultsPage() {
                           <div className="flex-1 min-w-0">
                             <div className={`font-bold ${
                               groupIsEvent3(items)
-                                ? (dark ? 'text-amber-200' : 'text-amber-800')
+                                ? 'text-white'
                                 : (dark ? 'text-slate-200' : 'text-gray-800')
                             }`}>
-                              {groupIsEvent3(items) ? 'التوافق الأعمى 4.0' : `فعالية رقم ${event_id}`}
+                              {groupIsEvent3(items) ? 'التوافق الأعمى 4.0 — اختيارك واختيارنا' : `فعالية رقم ${event_id}`}
                             </div>
                             <div className={`text-xs ${
                               groupIsEvent3(items)
-                                ? (dark ? 'text-amber-400/70' : 'text-amber-600')
+                                ? 'text-cyan-200/60'
                                 : (dark ? 'text-slate-400' : 'text-gray-600')
                             }`}>
                               {groupIsEvent3(items) ? '✨ الجولة النهائية — اختيارك والخوارزمية' : formatSessionCount(items.length)}
@@ -651,7 +650,7 @@ export default function ResultsPage() {
                     </div>
 
                     {isEventExpanded && (
-                      <div className={`px-4 pb-4 border-t ${dark ? 'border-slate-600/50' : 'border-gray-200'}`}>
+                      <div className="border-t border-white/[0.07] px-3 pb-3 sm:px-4 sm:pb-4">
                         <div className="pt-4 space-y-3">
                           {items.map(({ match, matchIndex }) => {
                             const status = getMatchStatusText(match)
@@ -659,19 +658,15 @@ export default function ResultsPage() {
                             const isExpanded = expandedMatches[matchIndex]
                             
                             return (
-                              <div key={matchIndex} className={`rounded-xl border transition-all duration-200 ${
-                                dark ? 'bg-slate-700/40 border-slate-600/50 hover:bg-slate-700/60' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-                              }`}>
+                              <div key={matchIndex} className="overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.035] shadow-[inset_0_1px_0_rgba(255,255,255,.025)] transition duration-200 hover:border-cyan-300/15 hover:bg-white/[0.05]">
                                 {/* Collapsible Header */}
                                 <div 
-                                  className="p-4 cursor-pointer"
+                                  className="cursor-pointer p-3 sm:p-4"
                                   onClick={() => setExpandedMatches(prev => ({ ...prev, [matchIndex]: !prev[matchIndex] }))}
                                 >
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3 flex-1 min-w-0">
-                                      <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                                        dark ? 'bg-cyan-600/20 border-cyan-400' : 'bg-cyan-100 border-cyan-300'
-                                      }`}>
+                                      <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border border-cyan-300/30 bg-cyan-400/10 shadow-[0_0_24px_-12px_rgba(34,211,238,.9)] sm:h-12 sm:w-12">
                                         <span className={`font-bold text-sm ${dark ? 'text-cyan-200' : 'text-cyan-700'}`}>
                                           #{match.with}
                                         </span>
@@ -721,7 +716,7 @@ export default function ResultsPage() {
                                           {match.mutual_match ? (
                                             <div className="relative">
                                               <span className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full opacity-50 blur-sm animate-pulse"></span>
-                                              <span className="relative flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold text-sm shadow-lg">
+                                              <span className="relative flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 px-3 py-1.5 text-xs font-black text-white shadow-lg sm:px-4 sm:py-2 sm:text-sm">
                                                 <Handshake className="w-4 h-4 animate-pulse" />
                                                 مطابقة متبادلة!
                                               </span>
@@ -773,7 +768,7 @@ export default function ResultsPage() {
 
                                 {/* Expanded Content */}
                                 {isExpanded && (
-                                  <div className={`px-4 pb-4 border-t ${dark ? 'border-slate-600/50' : 'border-gray-200'}`}>
+                                  <div className="border-t border-white/[0.07] px-3 pb-3 sm:px-4 sm:pb-4">
                                     <div className="pt-4 space-y-4">
                           {/* Event 3: Match word display */}
                           {match.match_word && (
@@ -814,11 +809,7 @@ export default function ResultsPage() {
                             </div>
                           )}
                           {/* Compatibility Score */}
-                          <div className={`p-4 rounded-xl border ${
-                            getOriginalScore(match) >= 70 ? 'bg-green-500/5 border-green-500/20' :
-                            getOriginalScore(match) >= 50 ? 'bg-yellow-500/5 border-yellow-500/20' :
-                            'bg-red-500/5 border-red-500/20'
-                          }`}>
+                          <div className="rounded-2xl border border-white/[0.08] bg-slate-950/35 p-4 sm:p-5">
                             <div className="flex justify-between items-center mb-3">
                               <div className="flex items-center gap-2">
                                 <Award className={`w-5 h-5 ${
@@ -853,7 +844,7 @@ export default function ResultsPage() {
                           </div>
 
                           {/* Match Analysis */}
-                          <div className={`p-3 rounded-lg ${dark ? 'bg-slate-600/30' : 'bg-white'}`}>
+                          <div className="rounded-2xl border border-white/[0.07] bg-slate-950/25 p-3 sm:p-4">
                             {(() => {
                               const formattedReason = formatCompatibilityReason(match.reason || '')
                               if (formattedReason.components.length === 0) {
@@ -891,7 +882,7 @@ export default function ResultsPage() {
                                     )
                                     if (!(m?.newModel || hasNumeric)) return null
                                     return (
-                                    <div className={`rounded-lg p-3 ${dark ? 'bg-slate-800/50 border border-slate-700/40' : 'bg-gray-50 border border-gray-200'}`}>
+                                    <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
                                       {/* Matrix-like detailed criteria with value/max and % */}
                                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                         {(() => {
@@ -917,7 +908,7 @@ export default function ResultsPage() {
                                             const pct = Math.max(0, Math.min(100, Math.round((score / safeMax) * 100)))
                                             const pctColor = pct >= 80 ? 'text-emerald-400' : pct >= 70 ? 'text-green-400' : pct >= 60 ? 'text-yellow-400' : pct >= 40 ? 'text-orange-400' : 'text-red-400'
                                             return (
-                                              <div key={i} className={`rounded-md p-2 ${dark ? 'bg-slate-900/40 border border-slate-700/40' : 'bg-white border border-gray-200'}`}>
+                                              <div key={i} className="rounded-lg border border-white/[0.055] bg-slate-950/35 p-2.5">
                                                 <div className="flex items-center justify-between mb-1">
                                                   <span className={`text-[11px] font-semibold ${dark ? 'text-slate-200' : 'text-gray-800'}`}>{label}</span>
                                                   <div className="flex items-center gap-2">
@@ -938,9 +929,9 @@ export default function ResultsPage() {
                                   <h4 className={`font-semibold text-sm ${dark ? 'text-slate-200' : 'text-gray-800'}`}>تحليل التوافق</h4>
                                   <div className="grid grid-cols-1 gap-2">
                                     {formattedReason.components.map((component: { name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }, compIndex: number) => (
-                                      <div 
+                                      <div
                                         key={compIndex}
-                                        className={`p-2 rounded-lg border ${component.bgColor} ${component.borderColor} backdrop-blur-sm`}
+                                        className="rounded-xl border border-white/[0.07] bg-white/[0.03] p-3 backdrop-blur-sm"
                                       >
                                         <div className="flex items-center justify-between mb-1">
                                           <span className={`text-xs font-semibold ${dark ? "text-slate-200" : "text-gray-800"}`}>
@@ -994,32 +985,31 @@ export default function ResultsPage() {
 
                           {/* Partner Contact Info (if mutual match) */}
                           {match.mutual_match && (match.partner_name || match.partner_phone) && (
-                            <div className={`p-3 rounded-lg border ${
-                              dark ? 'bg-emerald-500/10 border-emerald-400/30' : 'bg-emerald-50 border-emerald-200'
-                            }`}>
-                              <div className="flex items-center gap-2 mb-2">
+                            <div className="relative overflow-hidden rounded-2xl border border-emerald-300/25 bg-gradient-to-br from-emerald-400/[0.15] via-cyan-400/[0.08] to-transparent p-4 shadow-[0_20px_50px_-30px_rgba(52,211,153,.8)] sm:p-5">
+                              <div className="pointer-events-none absolute -left-8 -top-10 h-28 w-28 rounded-full bg-emerald-300/15 blur-3xl" />
+                              <div className="relative mb-3 flex items-center gap-2">
                                 <Handshake className={`w-4 h-4 ${dark ? 'text-emerald-200' : 'text-emerald-700'}`} />
                                 <h4 className={`font-bold text-sm ${dark ? 'text-emerald-200' : 'text-emerald-700'}`}>
                                   معلومات التواصل - مطابقة متبادلة!
                                 </h4>
                               </div>
-                              <div className="space-y-1 text-sm">
+                              <div className="relative grid gap-2 text-sm sm:grid-cols-3">
                                 {match.partner_name && (
-                                  <div className={`flex items-center gap-2 ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
+                                  <div className="flex items-center gap-2 rounded-xl border border-white/[0.07] bg-slate-950/25 px-3 py-2.5 text-slate-100">
                                     <User className="w-3 h-3" />
                                     <span>الاسم: </span>
                                     <span className="font-bold">{match.partner_name}</span>
                                   </div>
                                 )}
                                 {match.partner_age && (
-                                  <div className={`flex items-center gap-2 ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
+                                  <div className="flex items-center gap-2 rounded-xl border border-white/[0.07] bg-slate-950/25 px-3 py-2.5 text-slate-100">
                                     <Users className="w-3 h-3" />
                                     <span>العمر: </span>
                                     <span className="font-bold">{match.partner_age}</span>
                                   </div>
                                 )}
                                 {match.partner_phone && (
-                                  <div className={`flex items-center gap-2 ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
+                                  <div className="flex items-center gap-2 rounded-xl border border-white/[0.07] bg-slate-950/25 px-3 py-2.5 text-slate-100" dir="ltr">
                                     <Phone className="w-3 h-3" />
                                     <span>الهاتف: </span>
                                     <span className="font-bold">{match.partner_phone}</span>

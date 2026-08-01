@@ -46,14 +46,16 @@ function availableQuestionSets(defaultSet: QuestionSet): QuestionSet[] {
   return ['partnership', 'set1', 'set2']
 }
 
-const setMeta: Record<QuestionSet, { label: string; description: string }> = {
-  rhythm: { label: 'المجموعة ١', description: 'العادات، القرب، وكيف تعيش يومك' },
-  partnership: { label: 'المجموعة ٢', description: 'الثقة، الالتزام، وبناء علاقة متوازنة' },
-  choice: { label: 'المجموعة ٣', description: 'ما تحتاجه وتقدّره في العلاقات القريبة' },
-  special: { label: 'المجموعة ٣', description: 'الشخصية والتجارب من زوايا غير متوقعة' },
-  set1: { label: 'المجموعة ٤', description: 'ما يشكّلك وما لا تتنازل عنه' },
-  set2: { label: 'المجموعة ٥', description: 'قصص وقرارات تكشف طريقة تفكيرك' },
+const setDescription: Record<QuestionSet, string> = {
+  rhythm: 'العادات، القرب، وكيف تعيش يومك',
+  partnership: 'الثقة، الالتزام، وبناء علاقة متوازنة',
+  choice: 'ما تحتاجه وتقدّره في العلاقات القريبة',
+  special: 'الشخصية والتجارب من زوايا غير متوقعة',
+  set1: 'ما يشكّلك وما لا تتنازل عنه',
+  set2: 'قصص وقرارات تكشف طريقة تفكيرك',
 }
+
+const arabicSetNumber = ['١', '٢', '٣', '٤', '٥']
 
 const setMap: Record<QuestionSet, QuestionItem[]> = {
   choice: choiceQuestions,
@@ -76,6 +78,7 @@ export function QuestionSlideshow({ defaultSet }: { defaultSet: QuestionSet }) {
   const q = currentQs[qIdx]
   const lc = levelColor(q.level)
   const availableLevels = [...new Set(currentQs.map(item => item.level))].sort((a, b) => a - b)
+  const phaseSetLabel = (set: QuestionSet) => `المجموعة ${arabicSetNumber[availableSets.indexOf(set)] ?? availableSets.indexOf(set) + 1}`
 
   const moveTo = (index: number) => {
     const safeIndex = Math.max(0, Math.min(index, currentQs.length - 1))
@@ -105,8 +108,8 @@ export function QuestionSlideshow({ defaultSet }: { defaultSet: QuestionSet }) {
           <div className="mb-0.5 flex items-center gap-1.5 text-[10px] font-bold text-gray-500">
             <Layers3 className="h-3.5 w-3.5" /> مسار الحوار
           </div>
-          <p className="truncate text-sm font-black text-white">{setMeta[activeSet].label}</p>
-          <p className="mt-0.5 line-clamp-1 text-[11px] text-gray-400">{setMeta[activeSet].description}</p>
+          <p className="truncate text-sm font-black text-white">{phaseSetLabel(activeSet)}</p>
+          <p className="mt-0.5 line-clamp-1 text-[11px] text-gray-400">{setDescription[activeSet]}</p>
         </div>
         <button
           onClick={() => setShowQuestionList(true)}
@@ -237,10 +240,10 @@ export function QuestionSlideshow({ defaultSet }: { defaultSet: QuestionSet }) {
                       className={`rounded-2xl border p-3 text-right transition-all ${activeSet === set ? 'border-purple-400/50 bg-purple-500/15' : 'border-white/[0.06] bg-white/[0.03]'}`}
                     >
                       <span className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-black text-white">{setMeta[set].label}</span>
+                        <span className="text-sm font-black text-white">{phaseSetLabel(set)}</span>
                         {activeSet === set && <Check className="h-4 w-4 text-purple-300" />}
                       </span>
-                      <span className="mt-1 block text-[10px] leading-4 text-gray-500">{setMeta[set].description}</span>
+                      <span className="mt-1 block text-[10px] leading-4 text-gray-500">{setDescription[set]}</span>
                     </button>
                   ))}
                 </div>

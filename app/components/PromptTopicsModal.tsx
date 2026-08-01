@@ -1290,6 +1290,11 @@ export default function PromptTopicsModal({ open, onClose, embedded = false, rou
   tableNumber?: number;
 }) {
   const [tableState, setTableState] = useState<TableModeState>(readTableModeState);
+  const [showPacingCheckIn, setShowPacingCheckIn] = useState(false);
+  const [showParticipationNudge, setShowParticipationNudge] = useState(false);
+  const [questionsInRound, setQuestionsInRound] = useState(1);
+  const [pacingShown, setPacingShown] = useState(false);
+  const [nudgeShown, setNudgeShown] = useState(false);
 
   const { depth, history, index } = tableState;
   const currentQuestion = history[index] || "";
@@ -1304,6 +1309,12 @@ export default function PromptTopicsModal({ open, onClose, embedded = false, rou
       return { ...prev, contextKey, history: [...prev.history, question], index: prev.history.length };
     });
   }, [open, currentQuestion, tableNumber, round, contextKey, tableState.contextKey]);
+
+  useEffect(() => {
+    setQuestionsInRound(1);
+    setPacingShown(false);
+    setNudgeShown(false);
+  }, [contextKey]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1328,6 +1339,29 @@ export default function PromptTopicsModal({ open, onClose, embedded = false, rou
     const nextDepth = depthOrder[Math.max(0, Math.min(depthOrder.length - 1, depthIndex + direction))];
     if (nextDepth !== depth) showNextQuestion(nextDepth);
   };
+
+  // A completed prompt is a natural moment to either include quieter people or
+  // let the table deliberately choose its next conversational pace.
+  const continueDiscussion = (requestedDepth = depth) => {
+    setShowPacingCheckIn(false);
+    setShowParticipationNudge(false);
+    setQuestionsInRound(count => count + 1);
+    showNextQuestion(requestedDepth);
+  };
+
+  const finishCurrentQuestion = () => {
+    if (questionsInRound >= 3 && !pacingShown) {
+      setPacingShown(true);
+      setShowPacingCheckIn(true);
+    } else if (questionsInRound >= 5 && !nudgeShown) {
+      setNudgeShown(true);
+      setShowParticipationNudge(true);
+    } else {
+      continueDiscussion();
+    }
+  };
+
+  const isPreviewMode = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("discussionPreview");
 
   if (!open) return null;
 
@@ -1391,7 +1425,7 @@ export default function PromptTopicsModal({ open, onClose, embedded = false, rou
         </main>
 
         <footer className="px-5 pt-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] border-t border-white/[0.07] bg-gray-950/90 backdrop-blur-xl space-y-3">
-          <button onClick={() => showNextQuestion()} className="w-full min-h-14 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 hover:brightness-110 active:scale-[0.98] transition-all text-white font-black text-base flex items-center justify-center gap-2 shadow-lg shadow-purple-950/40">
+          <button onClick={finishCurrentQuestion} className="w-full min-h-14 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 hover:brightness-110 active:scale-[0.98] transition-all text-white font-black text-base flex items-center justify-center gap-2 shadow-lg shadow-purple-950/40">
             <CheckCircle className="w-5 h-5" /> أجبنا جميعاً — سؤال آخر
           </button>
 
@@ -1406,7 +1440,41 @@ export default function PromptTopicsModal({ open, onClose, embedded = false, rou
               <Sparkles className="w-4 h-4" /> {depth === "deep" ? "أخف" : "أعمق"}
             </button>
           </div>
+
+          {isPreviewMode && (
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button onClick={() => setShowParticipationNudge(true)} className="min-h-9 rounded-lg border border-amber-400/30 bg-amber-500/10 text-amber-200 text-xs">اختبار تذكير المشاركة</button>
+              <button onClick={() => setShowPacingCheckIn(true)} className="min-h-9 rounded-lg border border-cyan-400/30 bg-cyan-500/10 text-cyan-200 text-xs">اختبار وتيرة النقاش</button>
+            </div>
+          )}
         </footer>
+
+        <AnimatePresence>
+          {showParticipationNudge && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-10 flex items-end bg-black/55 p-5 sm:items-center sm:justify-center" role="dialog" aria-modal="true">
+              <motion.div initial={{ y: 20, scale: 0.98 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, scale: 0.98 }} className="w-full max-w-md rounded-3xl border border-amber-400/25 bg-gray-900 p-6 text-center shadow-2xl">
+                <Users className="mx-auto mb-3 h-8 w-8 text-amber-300" />
+                <h2 className="text-lg font-black text-white">خلّوا الجميع يأخذ فرصته</h2>
+                <p className="mt-2 text-sm leading-7 text-gray-300">إذا فيه شخص ما أخذ فرصته بالكلام، نحب نسمع منه — والمشاركة دائمًا اختيارية.</p>
+                <button onClick={() => continueDiscussion()} className="mt-5 min-h-12 w-full rounded-2xl bg-amber-500 font-bold text-gray-950">نكمل</button>
+              </motion.div>
+            </motion.div>
+          )}
+          {showPacingCheckIn && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-10 flex items-end bg-black/55 p-5 sm:items-center sm:justify-center" role="dialog" aria-modal="true">
+              <motion.div initial={{ y: 20, scale: 0.98 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, scale: 0.98 }} className="w-full max-w-md rounded-3xl border border-cyan-400/25 bg-gray-900 p-6 text-center shadow-2xl">
+                <MessageSquare className="mx-auto mb-3 h-8 w-8 text-cyan-300" />
+                <h2 className="text-lg font-black text-white">كيف تبغون تكملون؟</h2>
+                <p className="mt-2 text-sm leading-7 text-gray-300">بعد كم سؤال، اختاروا معًا وتيرة النقاش المناسبة لكم.</p>
+                <div className="mt-5 grid gap-2">
+                  <button onClick={() => continueDiscussion("shallow")} className="min-h-12 rounded-2xl border border-white/10 bg-white/5 font-bold text-white">نخليها خفيفة</button>
+                  <button onClick={() => continueDiscussion(depth === "deep" ? "deep" : (depthOrder[depthIndex + 1] || "deep"))} className="min-h-12 rounded-2xl bg-gradient-to-r from-cyan-400 to-purple-400 font-bold text-gray-950">{depth === "deep" ? "نكمل بنفس العمق" : "نروح أعمق"}</button>
+                  <button onClick={onClose} className="min-h-11 rounded-2xl text-sm font-medium text-gray-400">نغيّر النشاط</button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

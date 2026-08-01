@@ -985,7 +985,7 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
                 }}
                 className="bg-slate-800 border border-slate-600 text-white text-sm rounded px-3 py-2"
               >
-                <option value="match">copy_of_match_notification_v2 (إشعار التوافق 4.0)</option>
+                <option value="match">match_notification_v4 (إشعار التوافق 4.0)</option>
                 <option value="reminder">event_reminder (تذكير الفعالية)</option>
                 <option value="payment">payment_reminder (تذكير الدفع)</option>
               </select>

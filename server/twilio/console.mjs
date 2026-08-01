@@ -144,11 +144,14 @@ async function buildVariables(templateKey, participant, overrides = {}) {
   const maxAge = participant.preferred_age_max ?? participant.survey_data?.answers?.preferred_age_max ?? "غير محدد"
   let values = {}
   if (templateKey === "match") values = {
-    1: name, 2: config.earlyPrice, 3: config.latePriceSwitchLabel, 4: config.latePrice,
-    5: config.stcPay, 6: config.bankName, 7: config.iban, 8: config.locationName,
-    9: config.eventDateText, 10: config.eventTimeText, 11: config.arrivalTimeText,
-    12: config.mapUrl, 13: participant.assigned_number, 14: participant.secure_token,
-    15: config.matchExperienceText,
+    // {{1}} and {{2}} are used by the template's actions; the message body begins at {{3}}.
+    1: participant.assigned_number,
+    2: participant.secure_token,
+    3: config.eventDateText || "TBD",
+    4: config.eventTimeText || "TBD",
+    5: config.arrivalTimeText || "TBD",
+    6: config.locationName || "TBD",
+    7: config.mapUrl || "https://maps.google.com",
   }
   if (templateKey === "reminder") values = { 1: name, 2: config.eventDateText, 3: config.eventTimeText, 4: config.locationName, 5: config.mapUrl }
   if (templateKey === "payment") values = {

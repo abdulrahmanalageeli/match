@@ -1023,7 +1023,7 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
                 </div>
               )}
               <p className="text-xs text-slate-500">
-                {templateTypeTwilio === 'match' && '15 متغيراً — تأكيد/اعتذار/اشتراك تلقائي/معلومات الفعالية'}
+                {templateTypeTwilio === 'match' && '7 متغيرات — تأكيد/اعتذار/اشتراك تلقائي/معلومات الفعالية'}
                 {templateTypeTwilio === 'reminder' && '5 متغيرات — تأكيد/اعتذار'}
                 {templateTypeTwilio === 'payment' && '7 متغيرات — تأكيد/اعتذار'}
               </p>

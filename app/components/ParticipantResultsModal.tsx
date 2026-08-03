@@ -694,7 +694,7 @@ export default function ParticipantResultsModal({
 
   return (
     <div className={`fixed inset-0 ${cohostTheme ? 'bg-rose-900/40' : 'bg-black/50'} backdrop-blur-sm z-50 flex items-center justify-center p-4`}>
-      <div className={`${cohostTheme ? 'bg-gradient-to-br from-rose-950 via-slate-900 to-rose-950 border-4 border-rose-400/30 rounded-3xl' : 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-white/20 rounded-2xl'} shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden`}>
+      <div className={`${cohostTheme ? 'bg-gradient-to-br from-rose-950 via-slate-900 to-rose-950 border-4 border-rose-400/30 rounded-3xl' : 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-white/20 rounded-2xl'} shadow-2xl w-full max-w-6xl max-h-[90dvh] overflow-hidden flex flex-col`}>
         {/* Header */}
         <div className={`flex items-center justify-between p-6 border-b ${cohostTheme ? 'border-rose-400/20' : 'border-white/20'}`}>
           <div className="flex items-center gap-3">
@@ -863,7 +863,7 @@ export default function ParticipantResultsModal({
         )}
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6">
           {results.length === 0 ? (
             <div className="text-center py-12">
               <Users className="w-16 h-16 text-slate-400 mx-auto mb-4" />
@@ -1681,7 +1681,7 @@ export default function ParticipantResultsModal({
         </div>
 
         {/* Footer */}
-        <div className={`border-t p-4 ${cohostTheme ? 'border-rose-400/20 bg-rose-500/10' : 'border-white/20 bg-white/5'}`}>
+        <div className={`shrink-0 border-t p-4 ${cohostTheme ? 'border-rose-400/20 bg-rose-500/10' : 'border-white/20 bg-white/5'}`}>
           <div className="flex items-center justify-between">
             <div className="text-sm text-slate-400">
               تم إنشاء {totalMatches} مطابقة بنجاح

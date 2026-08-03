@@ -117,6 +117,7 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "bulk-twilio-whatsapp",
+          templateKey: templateType,
           templateSid: currentSid,
           participantNumbers: eligibleList.map(p => p.assigned_number),
           variablesMap,

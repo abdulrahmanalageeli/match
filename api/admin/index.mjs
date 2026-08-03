@@ -1616,7 +1616,21 @@ export default async function handler(req, res) {
       // Send WhatsApp message via Twilio API (free-form text or template)
       if (action === "send-twilio-whatsapp") {
         try {
-          const { to, message, templateSid, variables } = req.body
+          const { to, message, templateSid: requestedTemplateSid, templateKey, variables } = req.body
+          let templateSid = requestedTemplateSid
+          let resolvedTemplateKey = templateKey || null
+          if (templateKey) {
+            const { data: configuredTemplate, error: templateError } = await supabase
+              .from("twilio_templates")
+              .select("template_key,content_sid,enabled,approval_status")
+              .eq("template_key", templateKey)
+              .single()
+            if (templateError || !configuredTemplate) return res.status(404).json({ error: "Template not found in Twilio tab" })
+            if (!configuredTemplate.enabled) return res.status(400).json({ error: "Template is disabled in Twilio tab" })
+            if (!configuredTemplate.content_sid) return res.status(400).json({ error: "Template SID is missing in Twilio tab" })
+            templateSid = configuredTemplate.content_sid
+            resolvedTemplateKey = configuredTemplate.template_key
+          }
           if (!to) {
             return res.status(400).json({ error: "Missing 'to'" })
           }
@@ -1636,6 +1650,18 @@ export default async function handler(req, res) {
           let normalizedTo = String(to).replace(/\s/g, "")
           if (!normalizedTo.startsWith("whatsapp:")) {
             normalizedTo = "whatsapp:" + normalizedTo
+          }
+
+          const cleanPhone = normalizedTo.replace("whatsapp:", "")
+          const last7 = cleanPhone.replace(/\D/g, "").slice(-7)
+          const { data: participantMatches } = await supabase
+            .from("participants")
+            .select("id, assigned_number, phone_number, payment_reminder_sent")
+            .eq("match_id", STATIC_MATCH_ID)
+            .not("phone_number", "is", null)
+          const participant = participantMatches?.find(p => String(p.phone_number || "").replace(/\D/g, "").endsWith(last7))
+          if (resolvedTemplateKey === "payment" && participant?.payment_reminder_sent === true) {
+            return res.status(200).json({ success: true, skipped: true, reason: "Payment reminder already sent" })
           }
 
           const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
@@ -1679,15 +1705,6 @@ export default async function handler(req, res) {
 
           // Log outgoing message to whatsapp_messages
           try {
-            const cleanPhone = normalizedTo.replace("whatsapp:", "")
-            const last7 = cleanPhone.replace(/\D/g, "").slice(-7)
-            const { data: pMatch } = await supabase
-              .from("participants")
-              .select("id, assigned_number, phone_number")
-              .eq("match_id", STATIC_MATCH_ID)
-              .not("phone_number", "is", null)
-            const participant = pMatch?.find(p => String(p.phone_number || "").replace(/\D/g, "").endsWith(last7))
-
             await supabase.from("whatsapp_messages").insert({
               participant_id: participant?.id || null,
               assigned_number: participant?.assigned_number || null,
@@ -1707,7 +1724,7 @@ export default async function handler(req, res) {
             if (participant?.id) {
               const { error: sentFlagError } = await supabase
                 .from("participants")
-                .update({ PAID: true })
+                .update(resolvedTemplateKey === "payment" ? { payment_reminder_sent: true } : { PAID: true })
                 .eq("id", participant.id)
               if (sentFlagError) console.error("Failed to mark participant as WhatsApp sent:", sentFlagError)
             }
@@ -1729,7 +1746,21 @@ export default async function handler(req, res) {
       // Bulk send WhatsApp template to all matched participants
       if (action === "bulk-twilio-whatsapp") {
         try {
-          const { templateSid, participantNumbers, variablesMap } = req.body
+          const { templateSid: requestedTemplateSid, templateKey, participantNumbers, variablesMap } = req.body
+          let templateSid = requestedTemplateSid
+          let resolvedTemplateKey = templateKey || null
+          if (templateKey) {
+            const { data: configuredTemplate, error: templateError } = await supabase
+              .from("twilio_templates")
+              .select("template_key,content_sid,enabled,approval_status")
+              .eq("template_key", templateKey)
+              .single()
+            if (templateError || !configuredTemplate) return res.status(404).json({ error: "Template not found in Twilio tab" })
+            if (!configuredTemplate.enabled) return res.status(400).json({ error: "Template is disabled in Twilio tab" })
+            if (!configuredTemplate.content_sid) return res.status(400).json({ error: "Template SID is missing in Twilio tab" })
+            templateSid = configuredTemplate.content_sid
+            resolvedTemplateKey = configuredTemplate.template_key
+          }
           if (!templateSid || !participantNumbers || !Array.isArray(participantNumbers)) {
             return res.status(400).json({ error: "Missing 'templateSid' or 'participantNumbers'" })
           }
@@ -1752,7 +1783,7 @@ export default async function handler(req, res) {
           // Fetch participant data for the given numbers
           const { data: participants } = await supabase
             .from("participants")
-            .select("id, assigned_number, name, phone_number, secure_token, signup_for_next_event, survey_data, PAID")
+            .select("id, assigned_number, name, phone_number, secure_token, signup_for_next_event, survey_data, PAID, payment_reminder_sent")
             .eq("match_id", STATIC_MATCH_ID)
             .in("assigned_number", uniqueParticipantNumbers)
             .not("phone_number", "is", null)
@@ -1778,8 +1809,9 @@ export default async function handler(req, res) {
           }
 
           for (const p of participants) {
-            if (p.PAID === true) {
-              results.push({ number: p.assigned_number, name: p.name, success: true, skipped: true, reason: "Already marked WhatsApp sent" })
+            const alreadySent = resolvedTemplateKey === "payment" ? p.payment_reminder_sent === true : p.PAID === true
+            if (alreadySent) {
+              results.push({ number: p.assigned_number, name: p.name, success: true, skipped: true, reason: resolvedTemplateKey === "payment" ? "Payment reminder already sent" : "Already marked WhatsApp sent" })
               skippedCount++
               continue
             }
@@ -1838,7 +1870,7 @@ export default async function handler(req, res) {
                   })
                   const { error: sentFlagError } = await supabase
                     .from("participants")
-                    .update({ PAID: true })
+                    .update(resolvedTemplateKey === "payment" ? { payment_reminder_sent: true } : { PAID: true })
                     .eq("id", p.id)
                   if (sentFlagError) console.error("Failed to mark bulk participant as WhatsApp sent:", sentFlagError)
                 } catch (e) {

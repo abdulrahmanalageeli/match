@@ -36,6 +36,23 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose, coh
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const [lastUpdatedBy, setLastUpdatedBy] = useState<string | null>(null);
 
+  // Keep the Twilio template aligned with the corresponding message preset.
+  // These SIDs come from the same twilio_templates records edited in the
+  // Twilio admin tab (via get-twilio-template-sids).
+  useEffect(() => {
+    const linkedTwilioType = templateType === 'payment-reminder'
+      ? 'payment'
+      : templateType === 'reminder'
+        ? 'reminder'
+        : templateType === 'match'
+          ? 'match'
+          : null;
+
+    if (!linkedTwilioType) return;
+    setTemplateTypeTwilio(linkedTwilioType);
+    setTemplateSid(envTemplateSids[linkedTwilioType] || '');
+  }, [templateType, envTemplateSids]);
+
   // Customizable settings with sensible defaults
   const [config, setConfig] = useState({
     // Deadlines (minutes)
@@ -410,6 +427,7 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'bulk-twilio-whatsapp',
+          templateKey: templateTypeTwilio,
           templateSid,
           participantNumbers: eligible.map(p => p.assigned_number),
           variablesMap,
@@ -442,6 +460,7 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
         to: participant.phone_number,
       };
       if (templateMode && templateSid) {
+        payload.templateKey = templateTypeTwilio;
         payload.templateSid = templateSid;
         payload.variables = buildVariablesForParticipant(participant);
       } else {
@@ -454,7 +473,12 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setTwilioResult({ success: true, msg: `تم الإرسال! SID: ${data.message_sid}` });
+        setTwilioResult({
+          success: true,
+          msg: data.skipped
+            ? (data.reason || 'Payment reminder already sent')
+            : `تم الإرسال! SID: ${data.message_sid}`,
+        });
       } else {
         setTwilioResult({ success: false, msg: data.error || 'فشل الإرسال' });
       }

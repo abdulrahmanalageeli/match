@@ -384,16 +384,14 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
     }
 
     if (templateTypeTwilio === 'payment') {
-      const savings = Math.max(Number(config.latePrice) - Number(config.earlyPrice), 0);
       return {
         1: name,
         2: String(config.earlyPrice || '0'),
         3: config.latePriceSwitchLabel || 'TBD',
         4: String(config.latePrice || '0'),
-        5: String(savings || '0'),
-        6: config.stcPay || 'TBD',
-        7: config.bankName || 'TBD',
-        8: config.iban || 'TBD',
+        5: config.stcPay || 'TBD',
+        6: config.bankName || 'TBD',
+        7: config.iban || 'TBD',
       };
     }
 
@@ -1026,7 +1024,7 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
               <p className="text-xs text-slate-500">
                 {templateTypeTwilio === 'match' && '15 متغيراً — تأكيد/اعتذار/اشتراك تلقائي/معلومات الفعالية'}
                 {templateTypeTwilio === 'reminder' && '5 متغيرات — تأكيد/اعتذار'}
-                {templateTypeTwilio === 'payment' && '8 متغيرات — تأكيد/اعتذار'}
+                {templateTypeTwilio === 'payment' && '7 متغيرات — تأكيد/اعتذار'}
               </p>
             </div>
           )}

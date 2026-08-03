@@ -14,6 +14,25 @@ const STATIC_MATCH_ID = "00000000-0000-0000-0000-000000000000"
 const TWILIO_MATCH_NOTIFICATION_V2_SID = "HX6d318d6310d7cce0c37b1ef5e0b7a17e"
 const TWILIO_STATUS_CALLBACK_URL = process.env.TWILIO_STATUS_CALLBACK_URL || "https://blindmatch.app/api/twilio-status"
 
+function normalizeTwilioTemplateVariables(templateKey, variables) {
+  if (!variables || typeof variables !== "object") return variables
+  // Legacy payment-reminder clients included a non-template "savings" value
+  // at {{5}}, shifting all payment details. Normalize those payloads at the
+  // server boundary so cached admin tabs cannot send the incorrect mapping.
+  if (templateKey === "payment" && variables[8] !== undefined) {
+    return {
+      1: variables[1],
+      2: variables[2],
+      3: variables[3],
+      4: variables[4],
+      5: variables[6],
+      6: variables[7],
+      7: variables[8],
+    }
+  }
+  return variables
+}
+
 async function getCurrentAdminEventId() {
   const { data, error } = await supabase
     .from("event_state")
@@ -1682,17 +1701,18 @@ export default async function handler(req, res) {
           body.append("From", sender)
           body.append("To", normalizedTo)
 
+          const effectiveVariables = normalizeTwilioTemplateVariables(resolvedTemplateKey, variables)
           if (templateSid) {
             // Template-based send with ContentSid + ContentVariables
             body.append("ContentSid", templateSid)
-            if (variables && typeof variables === "object") {
-              body.append("ContentVariables", JSON.stringify(variables))
+            if (effectiveVariables && typeof effectiveVariables === "object") {
+              body.append("ContentVariables", JSON.stringify(effectiveVariables))
             }
             console.log("Twilio template send:", {
               templateSid,
               to: normalizedTo,
               from: sender,
-              variables: JSON.stringify(variables),
+              variables: JSON.stringify(effectiveVariables),
             })
           } else {
             // Free-form text send
@@ -1725,7 +1745,7 @@ export default async function handler(req, res) {
               direction: "outbound",
               message_body: message || null,
               template_sid: templateSid || null,
-              template_variables: variables || null,
+              template_variables: effectiveVariables || null,
               twilio_message_sid: twilioData.sid,
               status: twilioData.status,
               status_updated_at: new Date().toISOString(),
@@ -1854,6 +1874,7 @@ export default async function handler(req, res) {
                 // If variablesMap is a map of assigned_number -> variables object
                 vars = variablesMap[p.assigned_number] || variablesMap[String(p.assigned_number)] || {}
               }
+              vars = normalizeTwilioTemplateVariables(resolvedTemplateKey, vars)
 
               const body = new URLSearchParams()
               body.append("From", sender)

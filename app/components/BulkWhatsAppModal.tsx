@@ -78,16 +78,14 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
     }
 
     if (templateType === 'payment') {
-      const savings = Math.max(Number(cfg.latePrice) - Number(cfg.earlyPrice), 0)
       return {
         1: name,
         2: String(cfg.earlyPrice || '0'),
         3: cfg.latePriceSwitchLabel || 'TBD',
         4: String(cfg.latePrice || '0'),
-        5: String(savings || '0'),
-        6: cfg.stcPay || 'TBD',
-        7: cfg.bankName || 'TBD',
-        8: cfg.iban || 'TBD',
+        5: cfg.stcPay || 'TBD',
+        6: cfg.bankName || 'TBD',
+        7: cfg.iban || 'TBD',
       }
     }
 
@@ -142,7 +140,7 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
   const templateName = templateType === 'match'
     ? 'match_notification_v4'
     : templateType === 'reminder' ? 'event_reminder' : 'payment_reminder'
-  const requiredVariableCount = templateType === 'match' ? 7 : templateType === 'reminder' ? 5 : 8
+  const requiredVariableCount = templateType === 'match' ? 7 : templateType === 'reminder' ? 5 : 7
   const previewParticipant = eligibleList[0] || null
   const previewVariables: Record<string, any> = previewParticipant ? buildVariables(previewParticipant) : {}
   const missingVariables = Array.from({ length: requiredVariableCount }, (_, index) => String(index + 1)).filter(key => {

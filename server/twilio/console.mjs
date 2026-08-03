@@ -156,7 +156,7 @@ async function buildVariables(templateKey, participant, overrides = {}) {
   if (templateKey === "reminder") values = { 1: name, 2: config.eventDateText, 3: config.eventTimeText, 4: config.locationName, 5: config.mapUrl }
   if (templateKey === "payment") values = {
     1: name, 2: config.earlyPrice, 3: config.latePriceSwitchLabel, 4: config.latePrice,
-    5: Math.max(0, Number(config.latePrice) - Number(config.earlyPrice)), 6: config.stcPay, 7: config.bankName, 8: config.iban,
+    5: config.stcPay, 6: config.bankName, 7: config.iban,
   }
   if (templateKey === "gender_preference") values = { 1: name }
   if (templateKey === "age_flexibility") values = { 1: name, 2: minAge, 3: maxAge }

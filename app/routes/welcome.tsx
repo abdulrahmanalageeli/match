@@ -697,6 +697,7 @@ export default function WelcomePage() {
   const [nextEventSignupLoading, setNextEventSignupLoading] = useState(false)
   const [showNextEventSignup, setShowNextEventSignup] = useState(false)
   const [participantInfo, setParticipantInfo] = useState<{name: string, assigned_number: number} | null>(null)
+  const [isHowItWorksOpen, setIsHowItWorksOpen] = useState(false)
   
   // Survey Completion Popup states
   const [showSurveyCompletionPopup, setShowSurveyCompletionPopup] = useState(false)
@@ -7437,10 +7438,16 @@ export default function WelcomePage() {
                       </span>
                     </div>
                   </div>
-                  <details className="group">
-                    <summary className="mx-3 flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.04] px-3 py-3 text-white transition-colors hover:bg-white/[0.065] sm:mx-5 sm:px-4">
+                  <div className={`blindmatch-explainer ${isHowItWorksOpen ? "is-open" : ""}`}>
+                    <button
+                      type="button"
+                      aria-expanded={isHowItWorksOpen}
+                      aria-controls="blindmatch-how-it-works"
+                      onClick={() => setIsHowItWorksOpen((open) => !open)}
+                      className="blindmatch-explainer-trigger mx-3 flex w-[calc(100%-1.5rem)] cursor-pointer items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.04] px-3 py-3 text-white hover:bg-white/[0.065] sm:mx-5 sm:w-[calc(100%-2.5rem)] sm:px-4"
+                    >
                       <span className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-400/10 text-violet-200 ring-1 ring-violet-300/15">
+                        <span className="blindmatch-explainer-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-400/10 text-violet-200 ring-1 ring-violet-300/15">
                           <Layers className="h-4 w-4" />
                         </span>
                         <span className="min-w-0 text-right">
@@ -7448,12 +7455,13 @@ export default function WelcomePage() {
                           <span className="block text-[10px] font-medium leading-4 text-slate-500 sm:text-xs">التفاصيل الكاملة للتجربة</span>
                         </span>
                       </span>
-                      <ChevronLeft className="mt-2 h-4 w-4 shrink-0 text-slate-400 transition-transform duration-300 group-open:rotate-[-90deg] sm:mt-0" />
-                    </summary>
+                      <ChevronLeft className="blindmatch-explainer-chevron mt-2 h-4 w-4 shrink-0 text-slate-400 sm:mt-0" />
+                    </button>
 
-                    <div className="max-h-0 overflow-hidden transition-all duration-700 ease-in-out group-open:max-h-[4200px]">
+                    <div id="blindmatch-how-it-works" aria-hidden={!isHowItWorksOpen} className="blindmatch-explainer-content">
+                      <div className="blindmatch-explainer-content-inner">
                       <div className="px-3 pb-5 pt-5 sm:px-6 sm:pb-7">
-                        <div className="relative overflow-hidden rounded-[1.5rem] border border-white/[0.08] bg-gradient-to-br from-violet-500/[0.09] via-transparent to-cyan-400/[0.08] p-4 sm:p-6">
+                        <div className="blindmatch-explainer-hero relative overflow-hidden rounded-[1.5rem] border border-white/[0.08] bg-gradient-to-br from-violet-500/[0.09] via-transparent to-cyan-400/[0.08] p-4 sm:p-6">
                           <div className="pointer-events-none absolute -left-12 -top-16 h-40 w-40 rounded-full bg-violet-400/10 blur-3xl" />
                           <div className="relative text-right">
                             <span className="text-[10px] font-black tracking-[0.12em] text-violet-300">التوافق الأعمى</span>
@@ -7474,7 +7482,7 @@ export default function WelcomePage() {
                           </div>
                         </div>
 
-                        <div className="relative mt-6 space-y-3 before:absolute before:bottom-7 before:right-[15px] before:top-7 before:w-px before:bg-gradient-to-b before:from-blue-400/40 before:via-pink-400/30 before:to-violet-400/40 sm:before:right-[19px]">
+                        <div className="blindmatch-explainer-timeline relative mt-6 space-y-3 before:absolute before:bottom-7 before:right-[15px] before:top-7 before:w-px before:bg-gradient-to-b before:from-blue-400/40 before:via-pink-400/30 before:to-violet-400/40 sm:before:right-[19px]">
                           {[
                             {
                               number: "01", Icon: Users, tone: "text-blue-200 bg-blue-400/10 ring-blue-300/20", title: "جولتان جماعيتان — مجموعتان مختلفتان", meta: "30 دقيقة · ثم 25 دقيقة", body: "تذهب إلى رقم طاولتك، تتعرّف على 4–6 مشاركين وتختارون معاً نشاطاً أو أسئلة للنقاش. في الجولة الثانية تنتقل غالباً إلى مجموعة جديدة؛ وقد يتكرر شخص فقط عند الحاجة لتوازن التقسيم.",
@@ -7495,7 +7503,7 @@ export default function WelcomePage() {
                               number: "06", Icon: Trophy, tone: "text-violet-200 bg-violet-400/10 ring-violet-300/20", title: "الكشف النهائي", meta: "اختيارك × اختيارنا", body: "تكتشف نتيجة الجلستين، مؤشرات التوافق، والكلمة التي وصف بها كل طرف الآخر، وتعرف إن كان قرار التواصل متبادلاً من دون كشف أي اختيار أحادي.",
                             },
                           ].map(({ number, Icon, tone, title, meta, body }) => (
-                            <div key={number} className="relative pr-10 text-right sm:pr-12">
+                            <div key={number} className="blindmatch-explainer-step relative pr-10 text-right sm:pr-12">
                               <div className={`absolute right-0 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-xl ring-1 backdrop-blur-sm sm:h-10 sm:w-10 sm:rounded-2xl ${tone}`}>
                                 <Icon className="h-4 w-4" />
                               </div>
@@ -7541,7 +7549,8 @@ export default function WelcomePage() {
                         </div>
                       </div>
                     </div>
-                  </details>
+                    </div>
+                  </div>
                   </div>
                 </div>
                 

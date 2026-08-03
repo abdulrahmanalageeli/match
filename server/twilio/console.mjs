@@ -174,6 +174,7 @@ async function buildVariables(templateKey, participant, overrides = {}) {
   if (templateKey === "age_flexibility") values = { 1: name, 2: minAge, 3: maxAge }
   if (templateKey === "discount") values = { 1: name, 2: config.discountPrice, 3: config.discountDeadline }
   if (templateKey === "late_check") values = { 1: name }
+  if (templateKey === "match_cancellation") values = { 1: name }
   if (templateKey === "feedback_remaining") values = {
     1: name, 2: await feedbackRemaining(participant.assigned_number), 3: config.eventName, 4: participant.secure_token,
   }

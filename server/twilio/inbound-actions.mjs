@@ -28,6 +28,8 @@ const ACTION_ALIASES = {
   arrival_on_way: ["arrival_on_way", "في الطريق", "أنا في الطريق", "انا في الطريق"],
   arrival_late: ["arrival_late", "سأتأخر", "ساتاخر", "سوف أتأخر", "سوف اتاخر"],
   arrival_cancel: ["arrival_cancel", "لن أحضر", "لن احضر"],
+  cancellation_refund: ["cancellation_refund", "طلب استرداد", "استرداد", "استرداد المبلغ"],
+  cancellation_next_event: ["cancellation_next_event", "للفعالية القادمة", "رصيد للفعالية القادمة", "استخدام للفعالية القادمة"],
 }
 
 const ALIAS_TO_ACTION = new Map()

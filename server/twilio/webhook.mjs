@@ -44,6 +44,8 @@ const DEFAULT_RESPONSES = {
   age_expand_2: "✅ تم توسيع نطاق العمر بمقدار سنتين لهذه الفعالية فقط. لم نغيّر تفضيلك الأساسي.",
   age_expand_5: "✅ تم توسيع نطاق العمر بمقدار 5 سنوات لهذه الفعالية فقط. لم نغيّر تفضيلك الأساسي.",
   age_keep_current: "✅ تم الإبقاء على نطاق العمر الحالي بدون أي تغيير.",
+  cancellation_refund: "✅ تم تسجيل طلب استرداد المبلغ. سيتواصل معك المنظم لإكمال إجراءات الاسترداد.",
+  cancellation_next_event: "✅ تم حفظ مبلغك كرصيد للفعالية القادمة، وسنتواصل معك عند فتح التسجيل.",
   discount_interested: "✅ سجلنا اهتمامك بالعرض، وسيتابع معك المنظم قريباً.",
   discount_declined: "تم تسجيل ردك، ولن نعتمد العرض لك. شكراً لإبلاغنا 🙏",
   arrival_on_way: "✅ تم تسجيل أنك في الطريق. سنحافظ على مقعدك، وننتظرك قريباً.",
@@ -595,6 +597,36 @@ export default async function handler(req, res) {
           await recordParticipantAction(participant, "discount", value)
           await sendTwilioReply(from, await responseText(buttonAction), participant)
           return res.status(200).json({ status: `offer_${value}` })
+        }
+
+        case "cancellation_refund": {
+          await recordParticipantAction(
+            participant,
+            "match_cancellation_resolution",
+            "refund_requested",
+            "participant",
+            "Match cancelled; participant requested a refund",
+          )
+          await sendTwilioReply(from, await responseText("cancellation_refund"), participant)
+          return res.status(200).json({ status: "refund_requested" })
+        }
+
+        case "cancellation_next_event": {
+          const now = new Date().toISOString()
+          const { error } = await supabase.from("participants").update({
+            signup_for_next_event: true,
+            next_event_signup_timestamp: now,
+          }).eq("id", participant.id)
+          if (error) throw error
+          await recordParticipantAction(
+            participant,
+            "match_cancellation_resolution",
+            "next_event_credit",
+            "participant",
+            "Match cancelled; participant kept the payment as next-event credit",
+          )
+          await sendTwilioReply(from, await responseText("cancellation_next_event"), participant)
+          return res.status(200).json({ status: "next_event_credit_saved" })
         }
 
         case "arrival_cancel": {

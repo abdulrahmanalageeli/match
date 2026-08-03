@@ -24,6 +24,8 @@ test("resolves visible labels for every interactive template", () => {
     ["في الطريق", "arrival_on_way"],
     ["سأتأخر", "arrival_late"],
     ["لن أحضر", "arrival_cancel"],
+    ["طلب استرداد", "cancellation_refund"],
+    ["للفعالية القادمة", "cancellation_next_event"],
   ]
 
   for (const [label, action] of cases) assert.equal(resolveInboundAction("", label), action)
@@ -31,4 +33,9 @@ test("resolves visible labels for every interactive template", () => {
 
 test("prefers a canonical payload over an ambiguous visible label", () => {
   assert.equal(resolveInboundAction("arrival_cancel", "لن أحضر"), "arrival_cancel")
+})
+
+test("resolves match cancellation choices from canonical payloads", () => {
+  assert.equal(resolveInboundAction("cancellation_refund"), "cancellation_refund")
+  assert.equal(resolveInboundAction("cancellation_next_event"), "cancellation_next_event")
 })

@@ -14,6 +14,18 @@ const STATIC_MATCH_ID = "00000000-0000-0000-0000-000000000000"
 const TWILIO_MATCH_NOTIFICATION_V2_SID = "HX6d318d6310d7cce0c37b1ef5e0b7a17e"
 const TWILIO_STATUS_CALLBACK_URL = process.env.TWILIO_STATUS_CALLBACK_URL || "https://blindmatch.app/api/twilio-status"
 
+const ARABIC_WEEKDAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"]
+const ARABIC_MONTHS = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
+
+function formatRiyadhCutoffLabel(value) {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/)
+  if (!match) return ""
+  const [, yearText, monthText, dayText, hourText, minute] = match
+  const year = Number(yearText), month = Number(monthText), day = Number(dayText), hour = Number(hourText)
+  const weekday = ARABIC_WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()]
+  return `${weekday} ${day} ${ARABIC_MONTHS[month - 1]} ${year} الساعة ${hour % 12 || 12}:${minute} ${hour < 12 ? "صباحًا" : "مساءً"}`
+}
+
 function normalizeTwilioTemplateVariables(templateKey, variables) {
   if (!variables || typeof variables !== "object") return variables
   // Legacy payment-reminder clients included a non-template "savings" value
@@ -23,13 +35,14 @@ function normalizeTwilioTemplateVariables(templateKey, variables) {
     return {
       1: variables[1],
       2: variables[2],
-      3: variables[3],
+      3: formatRiyadhCutoffLabel(variables[3]) || variables[3],
       4: variables[4],
       5: variables[6],
       6: variables[7],
       7: variables[8],
     }
   }
+  if (templateKey === "payment") return { ...variables, 3: formatRiyadhCutoffLabel(variables[3]) || variables[3] }
   return variables
 }
 
@@ -99,7 +112,7 @@ async function editableTwilioResponse(actionKey, fallback, variables = {}) {
 
 async function getAdminWhatsappConfig() {
   const { data } = await supabase.from("event_state").select("whatsapp_config").eq("match_id", STATIC_MATCH_ID).maybeSingle()
-  return {
+  const config = {
     earlyPrice: 60,
     latePrice: 75,
     paymentCutoffLocal: "",
@@ -113,8 +126,8 @@ async function getAdminWhatsappConfig() {
     mapUrl: "",
     tutorialUrl: "https://blindmatch.app/event3",
     ...(data?.whatsapp_config || {}),
-    latePriceSwitchLabel: "الثلاثاء الساعة 1 ظهرًا",
   }
+  return { ...config, latePriceSwitchLabel: formatRiyadhCutoffLabel(config.paymentCutoffLocal) || config.latePriceSwitchLabel || "الموعد المحدد" }
 }
 
 async function buildFinalConfirmationMessage(participant, config, paymentWaived = false) {
@@ -1545,7 +1558,7 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: "A valid Riyadh-local payment cutoff date and time is required" })
           }
 
-          const cutoffLabel = "الثلاثاء الساعة 1 ظهرًا"
+          const cutoffLabel = formatRiyadhCutoffLabel(config.paymentCutoffLocal)
           const normalizedConfig = {
             ...config,
             earlyPrice: 60,
@@ -1602,9 +1615,14 @@ export default async function handler(req, res) {
             return res.status(500).json({ error: error.message })
           }
 
+          const savedConfig = data?.whatsapp_config || null
+          const normalizedSavedConfig = savedConfig ? {
+            ...savedConfig,
+            latePriceSwitchLabel: formatRiyadhCutoffLabel(savedConfig.paymentCutoffLocal) || savedConfig.latePriceSwitchLabel,
+          } : null
           return res.status(200).json({
             success: true,
-            whatsapp_config: data?.whatsapp_config || null,
+            whatsapp_config: normalizedSavedConfig,
             whatsapp_config_updated_at: data?.whatsapp_config_updated_at || null,
             whatsapp_config_updated_by: data?.whatsapp_config_updated_by || null
           })

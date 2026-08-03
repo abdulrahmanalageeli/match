@@ -19,6 +19,18 @@ const sender = process.env.TWILIO_WHATSAPP_SENDER || "whatsapp:+13527387477"
 const statusCallbackUrl = process.env.TWILIO_STATUS_CALLBACK_URL || "https://blindmatch.app/api/twilio-status"
 const inboundWebhookUrl = process.env.TWILIO_WEBHOOK_URL || "https://blindmatch.app/api/twilio-webhook"
 
+const ARABIC_WEEKDAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"]
+const ARABIC_MONTHS = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
+
+function formatRiyadhCutoffLabel(value) {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/)
+  if (!match) return ""
+  const [, yearText, monthText, dayText, hourText, minute] = match
+  const year = Number(yearText), month = Number(monthText), day = Number(dayText), hour = Number(hourText)
+  const weekday = ARABIC_WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()]
+  return `${weekday} ${day} ${ARABIC_MONTHS[month - 1]} ${year} الساعة ${hour % 12 || 12}:${minute} ${hour < 12 ? "صباحًا" : "مساءً"}`
+}
+
 const DEFAULT_RESPONSES = {
   attendance_payment_pending: "✅ تم تسجيل رغبتك بالحضور للمشارك رقم {participant_number}.\n\nلإكمال تأكيد المقعد، يرجى تحويل الرسوم المطلوبة وقدرها *{price} ريال* ({price_label}) ثم إرسال صورة الإيصال أو ملف PDF هنا.\n\n🏦 طرق الدفع:\n• STC Pay: {stc_pay}\n• {bank_name}\n• IBAN: {iban}\n\nيصبح المقعد مؤكداً نهائياً بعد مراجعة الإيصال.",
   attendance_paid: "✅ تم تسجيل حضورك، ومقعدك مؤكد لأن دفعتك معتمدة.",
@@ -204,7 +216,7 @@ async function getWhatsappConfig() {
 
   if (error) console.error("Failed to load WhatsApp config:", error)
   const savedConfig = data?.whatsapp_config || {}
-  return {
+  const config = {
     earlyPrice: 60,
     latePrice: 75,
     paymentCutoffLocal: "",
@@ -220,8 +232,8 @@ async function getWhatsappConfig() {
     ...savedConfig,
     earlyPrice: 60,
     latePrice: 75,
-    latePriceSwitchLabel: "الثلاثاء الساعة 1 ظهرًا",
   }
+  return { ...config, latePriceSwitchLabel: formatRiyadhCutoffLabel(config.paymentCutoffLocal) || config.latePriceSwitchLabel }
 }
 
 async function getCurrentEventId() {

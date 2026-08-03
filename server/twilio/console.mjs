@@ -10,6 +10,18 @@ const EVENT3_MATCH_ID = "00000000-0000-0000-0000-000000000003"
 const FALLBACK_ADMIN_PASSWORD = process.env.EVENT3_PASSWORD || "soulmatch2026"
 const STATUS_CALLBACK_URL = process.env.TWILIO_STATUS_CALLBACK_URL || "https://blindmatch.app/api/twilio-status"
 
+const ARABIC_WEEKDAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"]
+const ARABIC_MONTHS = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
+
+function formatRiyadhCutoffLabel(value) {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/)
+  if (!match) return ""
+  const [, yearText, monthText, dayText, hourText, minute] = match
+  const year = Number(yearText), month = Number(monthText), day = Number(dayText), hour = Number(hourText)
+  const weekday = ARABIC_WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()]
+  return `${weekday} ${day} ${ARABIC_MONTHS[month - 1]} ${year} الساعة ${hour % 12 || 12}:${minute} ${hour < 12 ? "صباحًا" : "مساءً"}`
+}
+
 function authorized(req) {
   const supplied = req.headers["x-admin-password"] || req.body?.password || ""
   const accepted = [process.env.ADMIN_PASSWORD, process.env.EVENT3_PASSWORD, FALLBACK_ADMIN_PASSWORD].filter(Boolean)
@@ -105,7 +117,7 @@ async function participantPage({ eventId, cursor = 0, search = "", filter = "all
 
 async function whatsappConfig() {
   const { data } = await supabase.from("event_state").select("whatsapp_config").eq("match_id", STATIC_MATCH_ID).maybeSingle()
-  return {
+  const config = {
     earlyPrice: 60,
     latePrice: 75,
     latePriceSwitchLabel: "الموعد المحدد",
@@ -122,8 +134,8 @@ async function whatsappConfig() {
     discountDeadline: "نهاية اليوم",
     eventName: "التوافق الأعمى 4.0",
     ...(data?.whatsapp_config || {}),
-    latePriceSwitchLabel: "الثلاثاء الساعة 1 ظهرًا",
   }
+  return { ...config, latePriceSwitchLabel: formatRiyadhCutoffLabel(config.paymentCutoffLocal) || config.latePriceSwitchLabel }
 }
 
 async function feedbackRemaining(assignedNumber) {

@@ -4,6 +4,7 @@ import { Textarea } from '../../components/ui/textarea';
 import { Checkbox } from '../../components/ui/checkbox';
 import { Check, Copy, MessageSquare, X, Clock, Info, HelpCircle, Settings, FileText, Send, Zap, Users } from 'lucide-react';
 import { buildMatchTemplateVariables } from '~/utils/twilioTemplateVariables';
+import { formatRiyadhCutoffLabel } from '~/utils/formatRiyadhCutoffLabel';
 
 interface WhatsappMessageModalProps {
   participant: any;
@@ -563,7 +564,7 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
                     onChange={e=>setConfig({
                       ...config,
                       paymentCutoffLocal: e.target.value,
-                      latePriceSwitchLabel: e.target.value ? `${e.target.value.replace('T', ' ')} (توقيت الرياض)` : '',
+                      latePriceSwitchLabel: formatRiyadhCutoffLabel(e.target.value),
                     })}/>
                   <p className="mt-1.5 text-[11px] text-slate-400">يُحسب السعر من وقت تسجيل المشارك: قبل هذا الموعد {config.earlyPrice} ريال، وبعده {config.latePrice} ريال. الوقت محفوظ كتوقيت الرياض المحلي.</p>
                 </div>

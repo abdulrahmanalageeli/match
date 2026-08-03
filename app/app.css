@@ -1024,19 +1024,6 @@ html:not(.dark) .ai-ink {
   }
 }
 
-@media (max-width: 420px) {
-  .welcome-topbar {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-  }
-
-  .welcome-topbar-auto {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    width: max-content;
-    justify-self: center;
-  }
-}
-
 @media (max-width: 340px) {
   .welcome-next-event-card--registered > div {
     grid-template-columns: minmax(0, 1fr);

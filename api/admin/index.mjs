@@ -1630,6 +1630,19 @@ export default async function handler(req, res) {
             if (!configuredTemplate.content_sid) return res.status(400).json({ error: "Template SID is missing in Twilio tab" })
             templateSid = configuredTemplate.content_sid
             resolvedTemplateKey = configuredTemplate.template_key
+          } else if (requestedTemplateSid) {
+            // Backward compatibility for admin tabs opened before templateKey
+            // was added to the modal payload. Recognize the template by the SID
+            // stored in the Twilio tab instead of falling back to the PAID flag.
+            const { data: configuredTemplate } = await supabase
+              .from("twilio_templates")
+              .select("template_key,content_sid,enabled")
+              .eq("content_sid", requestedTemplateSid)
+              .maybeSingle()
+            if (configuredTemplate?.enabled) {
+              templateSid = configuredTemplate.content_sid
+              resolvedTemplateKey = configuredTemplate.template_key
+            }
           }
           if (!to) {
             return res.status(400).json({ error: "Missing 'to'" })
@@ -1760,6 +1773,18 @@ export default async function handler(req, res) {
             if (!configuredTemplate.content_sid) return res.status(400).json({ error: "Template SID is missing in Twilio tab" })
             templateSid = configuredTemplate.content_sid
             resolvedTemplateKey = configuredTemplate.template_key
+          } else if (requestedTemplateSid) {
+            // Older open admin tabs only submit the SID. Resolve it against the
+            // Twilio tab so payment reminders use their dedicated sent flag.
+            const { data: configuredTemplate } = await supabase
+              .from("twilio_templates")
+              .select("template_key,content_sid,enabled")
+              .eq("content_sid", requestedTemplateSid)
+              .maybeSingle()
+            if (configuredTemplate?.enabled) {
+              templateSid = configuredTemplate.content_sid
+              resolvedTemplateKey = configuredTemplate.template_key
+            }
           }
           if (!templateSid || !participantNumbers || !Array.isArray(participantNumbers)) {
             return res.status(400).json({ error: "Missing 'templateSid' or 'participantNumbers'" })

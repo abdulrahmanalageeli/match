@@ -3240,7 +3240,7 @@ export default function WelcomePage() {
       <div className={`${positionClass} w-[calc(100vw-1.5rem)] max-w-xl`}>
         <div className="flex flex-col items-center gap-1.5">
           <nav aria-label="التنقل الرئيسي" className="w-full rounded-2xl border border-white/[0.09] bg-slate-950/75 p-1.5 shadow-[0_14px_38px_-24px_rgba(15,23,42,0.95)] backdrop-blur-xl">
-            <div className="flex min-w-0 items-center justify-between gap-1.5">
+            <div className="welcome-topbar">
             {/* Brand / Home */}
             <button
               type="button"
@@ -3253,12 +3253,12 @@ export default function WelcomePage() {
 
             {/* Participant info */}
             {assignedNumber && (
-                <div className="flex min-w-0 items-center gap-1.5 px-1.5">
+                <div className="welcome-topbar-participant">
                   <div className="shrink-0 text-sm font-black text-cyan-300">
                     #{assignedNumber}
                   </div>
                   {participantName && (
-                    <span className="max-w-20 truncate whitespace-nowrap text-sm font-medium text-white/85 sm:max-w-32">
+                    <span className="welcome-topbar-name font-medium text-white/85">
                       {participantName}
                     </span>
                   )}
@@ -3269,7 +3269,7 @@ export default function WelcomePage() {
             {showAutoSignupOffer && !isTokenAndRoundPhase && (
                 <button
                   onClick={enableAutoSignup}
-                  className="flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-emerald-400/25 bg-emerald-400/10 px-2.5 text-[11px] font-bold text-emerald-200 transition-colors hover:bg-emerald-400/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/70 sm:px-3"
+                  className="welcome-topbar-control welcome-topbar-auto flex h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-emerald-400/25 bg-emerald-400/10 font-bold text-emerald-200 transition-colors hover:bg-emerald-400/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/70"
                   title="فعّل التسجيل التلقائي لجميع الأحداث القادمة"
                 >
                   <Sparkles className="h-3.5 w-3.5 text-emerald-300" />
@@ -3279,7 +3279,7 @@ export default function WelcomePage() {
 
             {/* Global Timer - Show only when accessing via token URL AND in round phase */}
             {isTokenAndRoundPhase && (
-                <div className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-blue-400/20 bg-blue-400/10 px-3 text-xs font-medium text-blue-200">
+                <div className="welcome-topbar-control flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-blue-400/20 bg-blue-400/10 font-medium text-blue-200">
                   <Clock className="w-3 h-3" />
                   <span className="font-mono">
                     {!conversationStarted 
@@ -3296,7 +3296,7 @@ export default function WelcomePage() {
             {!isTokenAndRoundPhase && (
                 <button
                   onClick={() => setShowContactForm(true)}
-                  className="flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-cyan-400/20 bg-cyan-400/[0.07] px-2.5 text-xs font-medium text-cyan-200 transition-colors hover:bg-cyan-400/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 sm:px-3"
+                  className="welcome-topbar-control flex h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-cyan-400/20 bg-cyan-400/[0.07] font-medium text-cyan-200 transition-colors hover:bg-cyan-400/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70"
                 >
                   <MessageCircle className="h-3.5 w-3.5" />
                   <span>تواصل</span>

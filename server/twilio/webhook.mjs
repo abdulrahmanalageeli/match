@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
 import crypto from "crypto"
 import { normalizeInboundAction, resolveInboundAction } from "./inbound-actions.mjs"
+import { confirmationPaymentState } from "./confirmation-policy.mjs"
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -197,6 +198,7 @@ async function findParticipantByPhone(phone) {
   const { data: candidates } = await supabase
     .from("participants")
     .select("id, assigned_number, name, phone_number, secure_token, signup_for_next_event, auto_signup_next_event, PAID_DONE, payment_waived, event_id, signup_event_id, match_id, created_at, next_event_signup_timestamp, same_gender_preference, any_gender_preference, age_flex_years, age_flex_event_id, arrival_status, discount_interest")
+    .eq("match_id", STATIC_MATCH_ID)
     .not("phone_number", "is", null)
 
   if (!candidates) return null
@@ -317,9 +319,10 @@ async function confirmAttendance(participant, from) {
 
   await recordAttendanceNotification(participant, from, "confirm")
   await recordParticipantAction(participant, "attendance", "confirmed")
-  if (participant.PAID_DONE || participant.payment_waived) {
+  const paymentState = confirmationPaymentState(participant)
+  if (paymentState !== "payment_pending") {
     const config = await getWhatsappConfig()
-    const intro = await responseText(participant.payment_waived ? "attendance_waived" : "attendance_paid")
+    const intro = await responseText(paymentState === "waived" ? "attendance_waived" : "attendance_paid")
     await sendTwilioReply(from, await finalConfirmationMessage(participant, config, intro), participant)
   } else {
     await sendTwilioReply(from, await paymentReply(participant), participant)

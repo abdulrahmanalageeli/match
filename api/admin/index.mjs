@@ -90,6 +90,23 @@ function swapReason(compatibility) {
     (compatibility.capApplied ? ` (capped @ ${compatibility.capApplied}%)` : "")
 }
 
+function swapPairKey(a, b) {
+  return Number(a) < Number(b) ? `${Number(a)}-${Number(b)}` : `${Number(b)}-${Number(a)}`
+}
+
+function isSwapParticipantPaid(participant) {
+  return participant?.PAID_DONE === true || participant?.receipt_approved === true
+}
+
+function matchesSwapRoundGender(participantA, participantB, round) {
+  const genderA = String(participantA?.gender || participantA?.survey_data?.gender || "").trim().toLowerCase()
+  const genderB = String(participantB?.gender || participantB?.survey_data?.gender || "").trim().toLowerCase()
+  if (!genderA || !genderB) return false
+  if (round === 1) return genderA === genderB
+  if (round === 2) return genderA !== genderB
+  return true
+}
+
 async function attachEventReceipts(participants, eventId) {
   const { data: receipts, error } = await supabase
     .from("participant_receipts")
@@ -1088,7 +1105,7 @@ export default async function handler(req, res) {
         const { event_id } = req.body
         let query = supabase
           .from("participants")
-          .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, payment_waived, phone_number, event_id, name, signup_for_next_event, auto_signup_next_event, updated_at, same_gender_preference, any_gender_preference, survey_data_updated_at, created_at, next_event_signup_timestamp, nationality, open_intent_goal_mismatch, signup_event_id, attendance_confirmed, attendance_confirmed_at, attendance_denied_at, receipt_url, receipt_received_at, receipt_approved, receipt_approved_at, receipt_rejected, receipt_rejected_at, age_flex_years, age_flex_event_id, arrival_status, arrival_status_at, discount_interest, last_twilio_action, last_twilio_action_at")
+          .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, payment_waived, phone_number, event_id, name, signup_for_next_event, auto_signup_next_event, updated_at, gender, age, same_gender_preference, any_gender_preference, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, humor_banter_style, early_openness_comfort, survey_data_updated_at, created_at, next_event_signup_timestamp, nationality, open_intent_goal_mismatch, signup_event_id, attendance_confirmed, attendance_confirmed_at, attendance_denied_at, receipt_url, receipt_received_at, receipt_approved, receipt_approved_at, receipt_rejected, receipt_rejected_at, age_flex_years, age_flex_event_id, arrival_status, arrival_status_at, discount_interest, last_twilio_action, last_twilio_action_at")
           .eq("match_id", STATIC_MATCH_ID)
           .neq("assigned_number", 9999)  // Exclude organizer participant
           .order("assigned_number", { ascending: true })
@@ -4471,12 +4488,75 @@ export default async function handler(req, res) {
           .from("participants")
           .select("*")
           .eq("match_id", STATIC_MATCH_ID)
-          .in("assigned_number", [...resultingNumbers])
+          .in("assigned_number", affected)
 
         if (participantsError) throw participantsError
         const participantMap = new Map((participants || []).map(participant => [Number(participant.assigned_number), participant]))
-        if (participantMap.size !== resultingNumbers.size) {
+        if (participantMap.size !== affected.length) {
           return res.status(400).json({ error: "One or more participants in the swap plan no longer exist" })
+        }
+
+        const numberList = affected.join(",")
+        const [excludedParticipantsResult, excludedPairsResult, previousMatchesResult] = await Promise.all([
+          supabase.from("excluded_participants").select("participant_number").eq("match_id", STATIC_MATCH_ID),
+          supabase.from("excluded_pairs").select("participant1_number, participant2_number").eq("match_id", STATIC_MATCH_ID),
+          supabase.from("match_results")
+            .select("participant_a_number, participant_b_number, event_id")
+            .eq("match_id", STATIC_MATCH_ID)
+            .lt("event_id", eventId)
+            .or(`participant_a_number.in.(${numberList}),participant_b_number.in.(${numberList})`)
+            .limit(10000),
+        ])
+        if (excludedParticipantsResult.error) throw excludedParticipantsResult.error
+        if (excludedPairsResult.error) throw excludedPairsResult.error
+        if (previousMatchesResult.error) throw previousMatchesResult.error
+
+        const excludedNumbers = new Set((excludedParticipantsResult.data || []).map(row => Number(row.participant_number)))
+        for (const row of excludedPairsResult.data || []) {
+          if (Number(row.participant2_number) === -1 || Number(row.participant2_number) === -10) excludedNumbers.add(Number(row.participant1_number))
+        }
+        const excludedPairKeys = new Set((excludedPairsResult.data || [])
+          .filter(row => Number(row.participant1_number) > 0 && Number(row.participant2_number) > 0)
+          .map(row => swapPairKey(row.participant1_number, row.participant2_number)))
+        const previousPairKeys = new Set((previousMatchesResult.data || [])
+          .filter(row => Number(row.participant_a_number) !== 9999 && Number(row.participant_b_number) !== 9999)
+          .map(row => swapPairKey(row.participant_a_number, row.participant_b_number)))
+
+        const paymentScope = req.body.plan_summary?.payment_scope
+        if (paymentScope === "paid" || paymentScope === "not_paid") {
+          const outsidePaymentScope = affected.filter(number => {
+            const paid = isSwapParticipantPaid(participantMap.get(number))
+            return paymentScope === "paid" ? !paid : paid
+          })
+          if (outsidePaymentScope.length) {
+            return res.status(422).json({
+              error: `Payment scope changed or is invalid for participant(s): ${outsidePaymentScope.map(number => `#${number}`).join(", ")}`,
+              criteria: ["payment_scope"],
+            })
+          }
+        }
+
+        const criteriaFailures = []
+        for (const pair of pairs) {
+          const participantA = participantMap.get(pair.a)
+          const participantB = participantMap.get(pair.b)
+          const failures = []
+          if (excludedNumbers.has(pair.a) || excludedNumbers.has(pair.b)) failures.push("admin participant exclusion")
+          if (excludedPairKeys.has(swapPairKey(pair.a, pair.b))) failures.push("admin pair exclusion")
+          if (!isParticipantComplete(participantA, "preference") || !isParticipantComplete(participantB, "preference")) failures.push("incomplete matching profile")
+          if (!checkGenderCompatibility(participantA, participantB, "preference")) failures.push("gender preference")
+          if (!matchesSwapRoundGender(participantA, participantB, round)) failures.push("round gender rule")
+          if (!checkNationalityHardGate(participantA, participantB)) failures.push("nationality preference")
+          if (!checkAgeRangeHardGate(participantA, participantB)) failures.push("preferred age range")
+          if (!checkInteractionStyleCompatibility(participantA, participantB)) failures.push("interaction style")
+          if (previousPairKeys.has(swapPairKey(pair.a, pair.b))) failures.push("previous-event repeat")
+          if (failures.length) criteriaFailures.push({ pair: `#${pair.a} ↔ #${pair.b}`, failures })
+        }
+        if (criteriaFailures.length) {
+          return res.status(422).json({
+            error: `Swap chain violates matching criteria: ${criteriaFailures.map(item => `${item.pair} (${item.failures.join(", ")})`).join("; ")}`,
+            criteria_failures: criteriaFailures,
+          })
         }
 
         const matchRows = []

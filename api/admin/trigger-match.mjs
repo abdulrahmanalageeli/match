@@ -347,7 +347,7 @@ const MBTI_COMPATIBILITY = {
   'ESFP': { top1: 'ISTJ', top2: 'INTJ', top3: 'ISFJ', bonus: ['ESFJ'] }
 }
 // Function to validate if participant has complete data for matching (STRICT)
-function isParticipantComplete(participant) {
+function isParticipantComplete(participant, matchMode = CURRENT_MATCH_MODE) {
   const sd = participant?.survey_data || {}
   const ans = sd?.answers || {}
 
@@ -403,7 +403,7 @@ function isParticipantComplete(participant) {
   // Intent & Goal (Q40) needed for intent/values scoring.
   // For same-gender (R1), goal does not matter — don't require it.
   const intent_goal = ans.intent_goal
-  if (CURRENT_MATCH_MODE !== 'same_gender' && !val(intent_goal)) missing.push('intent_goal')
+  if (matchMode !== 'same_gender' && !val(intent_goal)) missing.push('intent_goal')
 
   // Optional: Vibe (prefer presence for AI, but not mandatory to avoid over-excluding)
   // const vibeComplete = val(sd.vibeDescription) || ['vibe_1','vibe_2','vibe_3','vibe_4','vibe_5','vibe_6'].every(k => val(ans[k]))
@@ -742,7 +742,9 @@ function checkGenderCompatibility(participantA, participantB, forcedMode = null)
   const genderB = participantB.gender || participantB.survey_data?.gender
 
   // FORCED MODE: round-based matching ignores participant gender preferences
-  const effectiveMode = forcedMode || CURRENT_MATCH_MODE
+  // `preference` is used by admin swap planning to enforce the participants'
+  // own choices even while another request may be generating a forced round.
+  const effectiveMode = forcedMode === 'preference' ? null : (forcedMode || CURRENT_MATCH_MODE)
   if (effectiveMode === 'any_gender') {
     if (!genderA || !genderB) return true
     return true

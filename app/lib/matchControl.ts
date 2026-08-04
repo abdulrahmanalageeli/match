@@ -93,6 +93,59 @@ export function isContacted(person?: MatchControlPerson) {
   return person?.PAID === true || person?.PAID_DONE === true || person?.receipt_url != null
 }
 
+export function getPairCriteriaIssues(personA: MatchControlPerson | undefined, personB: MatchControlPerson | undefined, round: number) {
+  if (!personA || !personB) return ["بيانات المشارك غير مكتملة"]
+  const issues: string[] = []
+  const answersA = personA.survey_data?.answers || {}
+  const answersB = personB.survey_data?.answers || {}
+  const genderA = String(personA.gender || personA.survey_data?.gender || answersA.gender || "").trim().toLowerCase()
+  const genderB = String(personB.gender || personB.survey_data?.gender || answersB.gender || "").trim().toLowerCase()
+  const preference = (person: MatchControlPerson, answers: any) => {
+    const raw = String(answers.gender_preference || "").toLowerCase()
+    if (person.any_gender_preference === true || raw.includes("any_gender")) return "any"
+    if (person.same_gender_preference === true || raw.includes("same_gender") || String(answers.same_gender_preference || "").toLowerCase().includes("yes")) return "same"
+    return "opposite"
+  }
+  const preferenceA = preference(personA, answersA)
+  const preferenceB = preference(personB, answersB)
+  if (!genderA || !genderB) issues.push("معلومات الجنس ناقصة")
+  else {
+    const accepts = (own: string, other: string, pref: string) => pref === "any" || (pref === "same" ? own === other : own !== other)
+    if (!accepts(genderA, genderB, preferenceA) || !accepts(genderB, genderA, preferenceB)) issues.push("تفضيل الجنس غير متوافق")
+    if ((round === 1 && genderA !== genderB) || (round === 2 && genderA === genderB)) issues.push("قاعدة الجنس لهذه الجولة غير متوافقة")
+  }
+
+  const preferSameNationalityA = personA.prefer_same_nationality === true || answersA.nationality_preference === "same"
+  const preferSameNationalityB = personB.prefer_same_nationality === true || answersB.nationality_preference === "same"
+  if (preferSameNationalityA || preferSameNationalityB) {
+    const nationalityA = String(personA.nationality || answersA.nationality || "").trim()
+    const nationalityB = String(personB.nationality || answersB.nationality || "").trim()
+    if (!nationalityA || !nationalityB || nationalityA !== nationalityB) issues.push("تفضيل الجنسية غير متوافق")
+  }
+
+  const ageA = Number(personA.age || personA.survey_data?.age)
+  const ageB = Number(personB.age || personB.survey_data?.age)
+  const ageRangePasses = (person: MatchControlPerson, answers: any, partnerAge: number) => {
+    const open = person.open_age_preference === true || answers.open_age_preference === true || answers.open_age_preference === "true"
+    const min = Number(person.preferred_age_min ?? answers.preferred_age_min)
+    const max = Number(person.preferred_age_max ?? answers.preferred_age_max)
+    if (open || !Number.isFinite(min) || !Number.isFinite(max)) return true
+    const eventId = Number(person.signup_event_id || person.event_id || 0)
+    const flex = !person.age_flex_event_id || Number(person.age_flex_event_id) === eventId ? Number(person.age_flex_years || 0) : 0
+    const tolerance = Math.max(round === 1 ? 3 : 1, flex)
+    return Number.isFinite(partnerAge) && partnerAge >= min - tolerance && partnerAge <= max + tolerance
+  }
+  if (!ageRangePasses(personA, answersA, ageB) || !ageRangePasses(personB, answersB, ageA)) issues.push("نطاق العمر المفضل غير متوافق")
+
+  const humorA = String(personA.humor_banter_style || answersA.humor_banter_style || "").toUpperCase()
+  const humorB = String(personB.humor_banter_style || answersB.humor_banter_style || "").toUpperCase()
+  const opennessA = Number(personA.early_openness_comfort ?? answersA.early_openness_comfort)
+  const opennessB = Number(personB.early_openness_comfort ?? answersB.early_openness_comfort)
+  if (humorA && humorB && ((humorA === "A" && humorB === "D") || (humorA === "D" && humorB === "A"))) issues.push("أسلوب المزاح غير متوافق")
+  if (Number.isFinite(opennessA) && Number.isFinite(opennessB) && Math.abs(opennessA - opennessB) === 3) issues.push("الانفتاح المبكر غير متوافق")
+  return issues
+}
+
 export function buildScoreLookup(calculatedPairs: any[], results: MatchControlResult[]) {
   const lookup = new Map<string, any>()
   for (const pair of calculatedPairs || []) {
@@ -255,9 +308,13 @@ export function buildSwapPlans(args: {
   scoreLookup: Map<string, any>
   lockedPairs?: Set<string>
   maxDepth?: number
+  eligibleNumbers?: Set<number>
+  isPairEligible?: (a: number, b: number) => boolean
 }): SwapPlan[] {
   const { source, target, currentPairs, people, scoreLookup } = args
   if (source === target) return []
+  if (args.eligibleNumbers && (!args.eligibleNumbers.has(source) || !args.eligibleNumbers.has(target))) return []
+  if (args.isPairEligible && !args.isPairEligible(source, target)) return []
   const lockedPairs = args.lockedPairs || new Set<string>()
   const matching = currentMatching(currentPairs)
   const sourcePartner = matching.get(source)
@@ -267,17 +324,19 @@ export function buildSwapPlans(args: {
   const completions: Array<{ pairs: PlannedPair[]; unmatched: number[]; title: string }> = []
 
   if (initialOpen.length >= 2) {
-    completions.push({
-      pairs: [forced, { a: initialOpen[0], b: initialOpen[1], score: scoreFor(scoreLookup, initialOpen[0], initialOpen[1]) }],
-      unmatched: [],
-      title: "تبادل مباشر بين زوجين",
-    })
+    if (!args.isPairEligible || args.isPairEligible(initialOpen[0], initialOpen[1])) {
+      completions.push({
+        pairs: [forced, { a: initialOpen[0], b: initialOpen[1], score: scoreFor(scoreLookup, initialOpen[0], initialOpen[1]) }],
+        unmatched: [],
+        title: "تبادل مباشر بين زوجين",
+      })
+    }
   } else {
     completions.push({ pairs: [forced], unmatched: initialOpen, title: initialOpen.length ? "استبدال مباشر ينتهي بمشارك دون شريك" : "مطابقة مباشرة نظيفة" })
   }
 
   const maxDepth = args.maxDepth ?? 2
-  const allNumbers = Array.from(people.keys()).filter(num => num !== 9999)
+  const allNumbers = Array.from(people.keys()).filter(num => num !== 9999 && (!args.eligibleNumbers || args.eligibleNumbers.has(num)))
   const branch = (
     open: number[],
     planned: PlannedPair[],
@@ -291,7 +350,7 @@ export function buildSwapPlans(args: {
     const [person, ...rest] = open
     if (rest.length) {
       const partner = rest[0]
-      branch(rest.slice(1), [...planned, { a: person, b: partner, score: scoreFor(scoreLookup, person, partner) }], new Set([...used, person, partner]), depth)
+      if (!args.isPairEligible || args.isPairEligible(person, partner)) branch(rest.slice(1), [...planned, { a: person, b: partner, score: scoreFor(scoreLookup, person, partner) }], new Set([...used, person, partner]), depth)
     }
     if (depth >= maxDepth) {
       completions.push({ pairs: [forced, ...planned], unmatched: open, title: `سلسلة تنتهي بـ ${open.length} دون شريك` })
@@ -300,6 +359,7 @@ export function buildSwapPlans(args: {
 
     const candidates = allNumbers
       .filter(candidate => candidate !== person && !used.has(candidate) && !open.includes(candidate))
+      .filter(candidate => !args.isPairEligible || args.isPairEligible(person, candidate))
       .map(candidate => ({ candidate, score: scoreFor(scoreLookup, person, candidate) }))
       .filter(item => item.score != null)
       .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
@@ -326,7 +386,10 @@ export function buildSwapPlans(args: {
     people,
     scoreLookup,
     lockedPairs,
-  }))
+  })).filter(plan => {
+    if (plan.unknownScores > 0 || plan.repeatedPairs > 0) return false
+    return !args.eligibleNumbers || plan.affected.every(number => args.eligibleNumbers!.has(number))
+  })
 
   const unique = new Map<string, SwapPlan>()
   for (const plan of plans) if (!unique.has(plan.id)) unique.set(plan.id, plan)

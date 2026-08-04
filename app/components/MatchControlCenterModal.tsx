@@ -43,6 +43,7 @@ import {
   buildScoreLookup,
   buildSwapPlans,
   buildUniquePairs,
+  getPairCriteriaIssues,
   getPersonName,
   getSeatState,
   isContacted,
@@ -77,6 +78,7 @@ type Props = {
 type PoolMode = "all" | "confirmed" | "paid" | "unpaid"
 type PairFilter = "all" | "attention" | "unmatched" | "mixed" | "protected" | "healthy"
 type MobileView = "pairs" | "details"
+type ChainPaymentScope = "any" | "paid" | "not_paid"
 
 const seatMeta: Record<SeatState, { label: string; short: string; className: string }> = {
   paid: { label: "مدفوع / إيصال معتمد", short: "مدفوع", className: "border-emerald-400/30 bg-emerald-500/15 text-emerald-200" },
@@ -187,6 +189,7 @@ export default function MatchControlCenterModal({
   const [candidateQuery, setCandidateQuery] = useState("")
   const [candidatePool, setCandidatePool] = useState<PoolMode>("all")
   const [candidateMatched, setCandidateMatched] = useState<"all" | "matched" | "unmatched">("all")
+  const [chainPaymentScope, setChainPaymentScope] = useState<ChainPaymentScope>("any")
   const [swapTarget, setSwapTarget] = useState<number | null>(null)
   const [chosenPlan, setChosenPlan] = useState<SwapPlan | null>(null)
   const [applying, setApplying] = useState(false)
@@ -206,6 +209,17 @@ export default function MatchControlCenterModal({
     pairs.forEach(pair => { if (pair.b != null) { map.set(pair.a, pair.b); map.set(pair.b, pair.a) } })
     return map
   }, [pairs])
+
+  const chainEligibleNumbers = useMemo(() => {
+    if (chainPaymentScope === "any") return undefined
+    return new Set(Array.from(people.values())
+      .filter(person => {
+        const state = getSeatState(person)
+        if (state === "declined") return false
+        return chainPaymentScope === "paid" ? state === "paid" : state !== "paid"
+      })
+      .map(person => person.assigned_number))
+  }, [chainPaymentScope, people])
 
   const hydratePeopleFromResults = useCallback((serverPeople?: MatchControlPerson[]) => {
     const map = new Map<number, MatchControlPerson>()
@@ -269,6 +283,9 @@ export default function MatchControlCenterModal({
   }, [matchHistory])
 
   const selectedPair = useMemo(() => pairs.find(pair => pair.key === selectedKey) || null, [pairs, selectedKey])
+  const pairMeetsMatchingCriteria = useCallback((a: number, b: number) => (
+    getPairCriteriaIssues(people.get(a), people.get(b), selectedPair?.round || 1).length === 0
+  ), [people, selectedPair?.round])
 
   const poolMatches = useCallback((person?: MatchControlPerson, mode: PoolMode = pool) => {
     if (mode === "all") return getSeatState(person) !== "declined"
@@ -427,6 +444,7 @@ export default function MatchControlCenterModal({
     setCandidateQuery("")
     setCandidatePool("all")
     setCandidateMatched("all")
+    setChainPaymentScope("any")
     setMobileView("details")
   }
 
@@ -435,25 +453,27 @@ export default function MatchControlCenterModal({
     const normalized = candidateQuery.trim().toLowerCase()
     return Array.from(people.values())
       .filter(person => person.assigned_number !== swapSource && person.assigned_number !== partnerMap.get(swapSource) && person.assigned_number !== 9999)
+      .filter(person => !chainEligibleNumbers || chainEligibleNumbers.has(person.assigned_number))
       .filter(person => poolMatches(person, candidatePool))
       .filter(person => candidateMatched === "all" || (candidateMatched === "matched" ? partnerMap.has(person.assigned_number) : !partnerMap.has(person.assigned_number)))
       .filter(person => !normalized || `${person.assigned_number} ${getPersonName(person, person.assigned_number)}`.toLowerCase().includes(normalized))
       .map(person => {
         const number = person.assigned_number
-        const plans = buildSwapPlans({ source: swapSource, target: number, currentPairs: pairs, people, scoreLookup, lockedPairs: lockedKeys, maxDepth: 1 })
+        const plans = buildSwapPlans({ source: swapSource, target: number, currentPairs: pairs, people, scoreLookup, lockedPairs: lockedKeys, maxDepth: chainPaymentScope === "any" ? 1 : 2, eligibleNumbers: chainEligibleNumbers, isPairEligible: pairMeetsMatchingCriteria })
         return { person, number, score: scoreFor(scoreLookup, swapSource, number), currentPartner: partnerMap.get(number), bestPlan: plans[0] || null }
       })
+      .filter(candidate => chainPaymentScope === "any" || candidate.bestPlan != null)
       .sort((a, b) => {
         const verdictRank = { recommended: 0, reasonable: 1, risky: 2 }
         const ar = a.bestPlan ? verdictRank[a.bestPlan.verdict] : 3
         const br = b.bestPlan ? verdictRank[b.bestPlan.verdict] : 3
         return ar - br || (b.score ?? -1) - (a.score ?? -1)
       })
-  }, [candidateMatched, candidatePool, candidateQuery, lockedKeys, pairs, partnerMap, people, poolMatches, scoreLookup, swapSource])
+  }, [candidateMatched, candidatePool, candidateQuery, chainEligibleNumbers, chainPaymentScope, lockedKeys, pairMeetsMatchingCriteria, pairs, partnerMap, people, poolMatches, scoreLookup, swapSource])
 
   const plans = useMemo(() => swapSource != null && swapTarget != null
-    ? buildSwapPlans({ source: swapSource, target: swapTarget, currentPairs: pairs, people, scoreLookup, lockedPairs: lockedKeys, maxDepth: 2 })
-    : [], [lockedKeys, pairs, people, scoreLookup, swapSource, swapTarget])
+    ? buildSwapPlans({ source: swapSource, target: swapTarget, currentPairs: pairs, people, scoreLookup, lockedPairs: lockedKeys, maxDepth: 2, eligibleNumbers: chainEligibleNumbers, isPairEligible: pairMeetsMatchingCriteria })
+    : [], [chainEligibleNumbers, lockedKeys, pairMeetsMatchingCriteria, pairs, people, scoreLookup, swapSource, swapTarget])
 
   useEffect(() => {
     setChosenPlan(plans[0] || null)
@@ -510,6 +530,7 @@ export default function MatchControlCenterModal({
       plan_summary: {
         source: plan.source,
         target: plan.target,
+        payment_scope: chainPaymentScope,
         verdict: plan.verdict,
         delta: plan.delta,
         before_min: plan.beforeMin,
@@ -528,7 +549,8 @@ export default function MatchControlCenterModal({
       chosenPlan.contactedPairsChanged ? `${chosenPlan.contactedPairsChanged} زوج تم التواصل معه سيتغير` : null,
       chosenPlan.repeatedPairs ? `${chosenPlan.repeatedPairs} مطابقة مكررة` : null,
     ].filter(Boolean)
-    const message = `تطبيق خطة التبديل؟\n\n${chosenPlan.afterPairs.map(pair => `#${pair.a} ↔ #${pair.b}`).join("\n")}${warnings.length ? `\n\nتحذيرات:\n• ${warnings.join("\n• ")}` : "\n\nالخطة تنتهي بدون تحذيرات حرجة."}`
+    const scopeLabel = chainPaymentScope === "paid" ? "مدفوع فقط" : chainPaymentScope === "not_paid" ? "غير مدفوع فقط" : "دون قيد دفع"
+    const message = `تطبيق خطة التبديل؟\nنطاق السلسلة: ${scopeLabel}\n\n${chosenPlan.afterPairs.map(pair => `#${pair.a} ↔ #${pair.b}`).join("\n")}${warnings.length ? `\n\nتحذيرات:\n• ${warnings.join("\n• ")}` : "\n\nالخطة تنتهي بدون تحذيرات حرجة."}`
     if (!confirm(message)) return
 
     const undoPairs = chosenPlan.beforePairs.map(pair => ({ a: pair.a, b: pair.b }))
@@ -713,7 +735,7 @@ export default function MatchControlCenterModal({
                 <div className="shrink-0 border-b border-white/8 p-3 sm:p-4">
                   <button onClick={() => { setSwapSource(null); setSwapTarget(null); setChosenPlan(null) }} className="mb-3 flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white"><ArrowLeft className="h-4 w-4" /> العودة لملخص الزوج</button>
                   <div className="flex items-start justify-between gap-3">
-                    <div><p className="text-[10px] font-bold text-cyan-300">تخطيط تبديل للمشارك</p><h3 className="text-lg font-black text-white">{getPersonName(people.get(swapSource), swapSource)} <span className="font-mono text-slate-500">#{swapSource}</span></h3><p className="mt-1 text-xs text-slate-500">اختر أي مشارك، وسنوضح كل الأزواج المتأثرة ونهاية السلسلة قبل الحفظ.</p></div>
+                    <div><p className="text-[10px] font-bold text-cyan-300">تخطيط تبديل للمشارك</p><h3 className="text-lg font-black text-white">{getPersonName(people.get(swapSource), swapSource)} <span className="font-mono text-slate-500">#{swapSource}</span></h3><p className="mt-1 text-xs text-slate-500">تظهر فقط السلاسل التي ينجح كل زوج فيها في تفضيلات الجنس والعمر والجنسية وأسلوب التفاعل ومعايير المطابقة.</p></div>
                     <SeatBadge person={people.get(swapSource)} />
                   </div>
                 </div>
@@ -721,6 +743,15 @@ export default function MatchControlCenterModal({
                 <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(270px,.82fr)_minmax(310px,1.18fr)]">
                   <div className={`${swapTarget == null ? "flex" : "hidden"} min-h-0 flex-col border-white/8 lg:flex lg:border-l`}>
                     <div className="shrink-0 space-y-2 border-b border-white/8 p-3">
+                      <div className="rounded-2xl border border-cyan-400/15 bg-cyan-500/[0.06] p-2.5">
+                        <div className="mb-2 flex items-center justify-between gap-2"><span className="text-[10px] font-black text-cyan-200">نطاق الدفع لكامل سلسلة التبديل</span><span className="text-[9px] text-slate-500">يشمل كل المتأثرين</span></div>
+                        <div className="grid grid-cols-3 gap-1">
+                          {([['any', 'الجميع'], ['paid', 'مدفوع فقط'], ['not_paid', 'غير مدفوع فقط']] as Array<[ChainPaymentScope, string]>).map(([value, label]) => (
+                            <button key={value} onClick={() => { setChainPaymentScope(value); setSwapTarget(null); setChosenPlan(null) }} className={`rounded-xl border px-2 py-2 text-[10px] font-black transition ${chainPaymentScope === value ? "border-cyan-400/45 bg-cyan-500/20 text-cyan-100" : "border-white/8 bg-black/15 text-slate-400 hover:bg-white/5"}`}>{label}</button>
+                          ))}
+                        </div>
+                        <p className="mt-2 text-[9px] leading-4 text-slate-500">لن تظهر أي خطة إذا كان الشخص الأساسي أو شريكه الحالي أو أي شخص سيتم نقله خارج النطاق المختار.</p>
+                      </div>
                       <div className="relative"><Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" /><input value={candidateQuery} onChange={event => setCandidateQuery(event.target.value)} placeholder="ابحث في كل المشاركين..." className="h-10 w-full rounded-xl border border-white/10 bg-white/[0.04] pr-9 pl-3 text-sm text-white outline-none focus:border-cyan-400/40" /></div>
                       <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
                         <ToggleButton active={candidatePool === "all"} onClick={() => setCandidatePool("all")}>الكل</ToggleButton><ToggleButton active={candidatePool === "confirmed"} onClick={() => setCandidatePool("confirmed")}>مؤكد</ToggleButton><ToggleButton active={candidatePool === "paid"} onClick={() => setCandidatePool("paid")}>مدفوع</ToggleButton><ToggleButton active={candidatePool === "unpaid"} onClick={() => setCandidatePool("unpaid")}>احتياط</ToggleButton>
@@ -741,7 +772,7 @@ export default function MatchControlCenterModal({
                           </button>
                         )
                       })}
-                      {!candidates.length && <p className="p-8 text-center text-xs text-slate-500">لا يوجد مشاركون مطابقون للفلاتر</p>}
+                      {!candidates.length && <div className="p-7 text-center"><ShieldAlert className="mx-auto mb-2 h-7 w-7 text-amber-400/60" /><p className="text-xs font-bold text-slate-400">لا توجد سلسلة تطابق النطاق والمعايير</p><p className="mt-1 text-[10px] leading-5 text-slate-600">قد يمنعها نطاق الدفع، تفضيلات الجنس، العمر، الجنسية، أسلوب التفاعل، أو مطابقة سابقة.</p></div>}
                     </div>
                   </div>
 
@@ -752,10 +783,12 @@ export default function MatchControlCenterModal({
                       <div className="space-y-3">
                         <button onClick={() => { setSwapTarget(null); setChosenPlan(null) }} className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white lg:hidden"><ArrowLeft className="h-4 w-4" /> اختيار مشارك آخر</button>
                         <div className="flex items-center justify-between"><div><p className="text-[10px] font-bold text-cyan-300">خطط التبديل المقترحة</p><h4 className="font-black text-white">مع {getPersonName(people.get(swapTarget), swapTarget)} #{swapTarget}</h4></div><span className="text-[10px] text-slate-500">{plans.length} مسارات</span></div>
+                        <div className={`rounded-xl border px-3 py-2 text-[10px] font-bold ${chainPaymentScope === "paid" ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-200" : chainPaymentScope === "not_paid" ? "border-amber-400/20 bg-amber-500/10 text-amber-200" : "border-white/8 bg-white/[0.025] text-slate-400"}`}>نطاق السلسلة: {chainPaymentScope === "paid" ? "كل المتأثرين مدفوعون" : chainPaymentScope === "not_paid" ? "كل المتأثرين غير مدفوعين" : "كل حالات الدفع مسموحة"}</div>
                         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
                           {plans.map((plan, index) => { const meta = verdictMeta[plan.verdict]; const Icon = meta.icon; return <button key={plan.id} onClick={() => setChosenPlan(plan)} className={`min-w-[190px] rounded-xl border p-2.5 text-right ${chosenPlan?.id === plan.id ? "border-cyan-400/50 bg-cyan-500/10" : "border-white/10 bg-white/[0.025]"}`}><div className="flex items-center justify-between"><span className="text-[10px] font-bold text-slate-500">الخطة {index + 1}</span><span className={`inline-flex items-center gap-1 text-[9px] font-bold ${plan.verdict === "recommended" ? "text-emerald-300" : plan.verdict === "risky" ? "text-red-300" : "text-amber-300"}`}><Icon className="h-3 w-3" />{meta.label}</span></div><p className="mt-1 truncate text-xs font-bold text-white">{plan.title}</p><p className={`mt-1 text-[10px] font-bold ${plan.delta >= 0 ? "text-emerald-300" : "text-red-300"}`}>{plan.delta >= 0 ? "+" : ""}{plan.delta} نقطة · {plan.affected.length} متأثر</p></button> })}
                         </div>
                         {chosenPlan && <PlanPreview plan={chosenPlan} people={people} />}
+                        {!plans.length && <div className="rounded-2xl border border-dashed border-amber-400/20 bg-amber-500/[0.06] p-5 text-center"><ShieldAlert className="mx-auto mb-2 h-8 w-8 text-amber-300" /><p className="text-xs font-black text-amber-100">لا توجد سلسلة صالحة وآمنة</p><p className="mt-1 text-[10px] leading-5 text-amber-200/60">أحد الأزواج لا يحقق نطاق الدفع أو تفضيلات المشاركين أو معايير المطابقة. اختر نطاقاً أو مشاركاً آخر.</p></div>}
                         <button onClick={applyPlan} disabled={!chosenPlan || applying} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-cyan-500 to-blue-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-cyan-950/30 hover:from-cyan-400 hover:to-blue-500 disabled:cursor-not-allowed disabled:opacity-40">{applying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} مراجعة التأكيد وتطبيق الخطة</button>
                       </div>
                     )}

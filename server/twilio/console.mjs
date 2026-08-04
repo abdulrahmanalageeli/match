@@ -226,11 +226,13 @@ async function sendApprovedTemplate(template, participant, overrides = {}) {
     twilio_payload: twilio,
   })
   if (!response.ok) throw new Error(twilio.message || "Twilio send failed")
-  const { error: sentFlagError } = await supabase
-    .from("participants")
-    .update(template.template_key === "payment" ? { payment_reminder_sent: true } : { PAID: true })
-    .eq("id", participant.id)
-  if (sentFlagError) console.error("Failed to mark participant as WhatsApp sent:", sentFlagError)
+  if (template.template_key !== "reminder") {
+    const { error: sentFlagError } = await supabase
+      .from("participants")
+      .update(template.template_key === "payment" ? { payment_reminder_sent: true } : { PAID: true })
+      .eq("id", participant.id)
+    if (sentFlagError) console.error("Failed to mark participant as WhatsApp sent:", sentFlagError)
+  }
   return { success: true, sid: twilio.sid, status: twilio.status || "queued", variables: contentVariables }
 }
 
@@ -521,14 +523,22 @@ export default async function handler(req, res) {
       const results = uniqueParticipantNumbers
         .filter(number => !foundNumbers.has(number))
         .map(number => ({ assigned_number: number, success: false, error: "Participant not found" }))
-      const alreadySent = (participants || []).filter(participant => template_key === "payment" ? participant.payment_reminder_sent === true : participant.PAID === true)
+      const alreadySent = (participants || []).filter(participant => template_key === "payment"
+        ? participant.payment_reminder_sent === true
+        : template_key === "reminder"
+          ? false
+          : participant.PAID === true)
       results.push(...alreadySent.map(participant => ({
         assigned_number: participant.assigned_number,
         success: true,
         skipped: true,
         reason: template_key === "payment" ? "Payment reminder already sent" : "Already marked WhatsApp sent",
       })))
-      const participantBatches = (participants || []).filter(participant => template_key === "payment" ? participant.payment_reminder_sent !== true : participant.PAID !== true)
+      const participantBatches = (participants || []).filter(participant => template_key === "payment"
+        ? participant.payment_reminder_sent !== true
+        : template_key === "reminder"
+          ? true
+          : participant.PAID !== true)
       // Small concurrent batches keep event-day sends responsive without flooding
       // Twilio or exhausting the serverless function's connection pool.
       for (let index = 0; index < participantBatches.length; index += 5) {

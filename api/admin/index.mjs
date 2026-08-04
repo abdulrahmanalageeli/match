@@ -1772,7 +1772,7 @@ export default async function handler(req, res) {
               twilio_payload: twilioData || {},
               is_auto_reply: false,
             })
-            if (participant?.id) {
+            if (participant?.id && resolvedTemplateKey !== "reminder") {
               const { error: sentFlagError } = await supabase
                 .from("participants")
                 .update(resolvedTemplateKey === "payment" ? { payment_reminder_sent: true } : { PAID: true })
@@ -1872,7 +1872,13 @@ export default async function handler(req, res) {
           }
 
           for (const p of participants) {
-            const alreadySent = resolvedTemplateKey === "payment" ? p.payment_reminder_sent === true : p.PAID === true
+            // Event reminders are repeatable and must not share the one-time
+            // match/confirmation sent flag.
+            const alreadySent = resolvedTemplateKey === "payment"
+              ? p.payment_reminder_sent === true
+              : resolvedTemplateKey === "reminder"
+                ? false
+                : p.PAID === true
             if (alreadySent) {
               results.push({ number: p.assigned_number, name: p.name, success: true, skipped: true, reason: resolvedTemplateKey === "payment" ? "Payment reminder already sent" : "Already marked WhatsApp sent" })
               skippedCount++
@@ -1932,11 +1938,13 @@ export default async function handler(req, res) {
                     twilio_payload: twilioData || {},
                     is_auto_reply: false,
                   })
-                  const { error: sentFlagError } = await supabase
-                    .from("participants")
-                    .update(resolvedTemplateKey === "payment" ? { payment_reminder_sent: true } : { PAID: true })
-                    .eq("id", p.id)
-                  if (sentFlagError) console.error("Failed to mark bulk participant as WhatsApp sent:", sentFlagError)
+                  if (resolvedTemplateKey !== "reminder") {
+                    const { error: sentFlagError } = await supabase
+                      .from("participants")
+                      .update(resolvedTemplateKey === "payment" ? { payment_reminder_sent: true } : { PAID: true })
+                      .eq("id", p.id)
+                    if (sentFlagError) console.error("Failed to mark bulk participant as WhatsApp sent:", sentFlagError)
+                  }
                 } catch (e) {
                   console.error("Failed to log bulk message:", e)
                 }

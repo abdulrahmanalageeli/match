@@ -51,6 +51,7 @@ import {
   Receipt
 } from "lucide-react"
 import ParticipantResultsModal from "~/components/ParticipantResultsModal"
+import MatchControlCenterModal from "~/components/MatchControlCenterModal"
 import GroupAssignmentsModal from "~/components/GroupAssignmentsModal"
 import ParticipantDualResultsModal from "~/components/ParticipantDualResultsModal"
 import BatchedCacheModal from "~/components/BatchedCacheModal"
@@ -8909,21 +8910,40 @@ Proceed?`
         participants={participants}
       />
 
-      {/* Participant Results Modal */}
-      <ParticipantResultsModal
-        isOpen={showResultsModal}
-        onClose={() => setShowResultsModal(false)}
-        results={participantResults}
-        matchType={matchType}
-        totalMatches={totalMatches}
-        calculatedPairs={calculatedPairs}
-        isFromCache={isFromCache}
-        matchHistory={participantMatchHistory}
-        currentEventId={currentEventId}
-        cohostTheme={isCohost}
-        selectedParticipants={selectedParticipants}
-        toggleParticipantSelection={toggleParticipantSelection}
-      />
+      {/* Individual results use the pair-first Match Control Center. Keep the
+          proven group-results presentation untouched. */}
+      {matchType === "group" ? (
+        <ParticipantResultsModal
+          isOpen={showResultsModal}
+          onClose={() => setShowResultsModal(false)}
+          results={participantResults}
+          matchType={matchType}
+          totalMatches={totalMatches}
+          calculatedPairs={calculatedPairs}
+          isFromCache={isFromCache}
+          matchHistory={participantMatchHistory}
+          currentEventId={currentEventId}
+          cohostTheme={isCohost}
+          selectedParticipants={selectedParticipants}
+          toggleParticipantSelection={toggleParticipantSelection}
+        />
+      ) : (
+        <MatchControlCenterModal
+          isOpen={showResultsModal}
+          onClose={() => setShowResultsModal(false)}
+          results={participantResults}
+          matchType={matchType}
+          totalMatches={totalMatches}
+          calculatedPairs={calculatedPairs}
+          isFromCache={isFromCache}
+          matchHistory={participantMatchHistory}
+          currentEventId={currentEventId}
+          cohostTheme={isCohost}
+          selectedParticipants={selectedParticipants}
+          toggleParticipantSelection={toggleParticipantSelection}
+          onRefresh={() => loadFreshDatabaseResults("individual").then(() => undefined)}
+        />
+      )}
 
       {/* Group Assignments Modal */}
       <GroupAssignmentsModal

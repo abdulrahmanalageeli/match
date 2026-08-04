@@ -56,6 +56,40 @@ async function getCurrentAdminEventId() {
   return Number(data?.current_event_id || 1)
 }
 
+function isMissingSwapRpc(error) {
+  const message = `${error?.message || ""} ${error?.details || ""}`.toLowerCase()
+  return error?.code === "PGRST202" || message.includes("apply_match_swap_plan") || message.includes("undo_match_swap_plan")
+}
+
+function normalizeSwapPairs(value) {
+  if (!Array.isArray(value)) return null
+  const pairs = value.map(pair => ({ a: Number(pair?.a), b: Number(pair?.b) }))
+  const used = new Set()
+  for (const pair of pairs) {
+    if (!Number.isInteger(pair.a) || !Number.isInteger(pair.b) || pair.a <= 0 || pair.b <= 0 || pair.a === pair.b) return null
+    if (used.has(pair.a) || used.has(pair.b)) return null
+    used.add(pair.a)
+    used.add(pair.b)
+  }
+  return pairs
+}
+
+function swapReason(compatibility) {
+  const coreValuesScaled5 = compatibility.coreValuesScaled5 != null
+    ? Number(compatibility.coreValuesScaled5)
+    : Math.max(0, Math.min(5, (Number(compatibility.coreValuesScore || 0) / 20) * 5))
+  return `Synergy: ${Math.round(Number(compatibility.synergyScore || 0))}% + ` +
+    `Vibe: ${Math.round(Number(compatibility.vibeScore || 0))}% + ` +
+    `Lifestyle: ${Math.round(Number(compatibility.lifestyleScore || 0))}% + ` +
+    `Humor/Openness: ${Math.round(Number(compatibility.humorOpenScore || 0))}% + ` +
+    `Communication: ${Math.round(Number(compatibility.communicationScore || 0))}% + ` +
+    `Core Values: ${Math.round(coreValuesScaled5)}%` +
+    (compatibility.attachmentPenaltyApplied ? " - Penalty(Anx x Avoid)" : "") +
+    (compatibility.opennessZeroZeroPenaltyApplied ? " - Penalty(Opn 0 x 0)" : "") +
+    (compatibility.intentBoostApplied ? " x IntentBoost(1.05)" : "") +
+    (compatibility.capApplied ? ` (capped @ ${compatibility.capApplied}%)` : "")
+}
+
 async function attachEventReceipts(participants, eventId) {
   const { data: receipts, error } = await supabase
     .from("participant_receipts")
@@ -4407,6 +4441,123 @@ export default async function handler(req, res) {
     }
 
     // 🔹 GET EXCLUDED PAIRS
+    // Apply every leg of a direct swap or swap chain in one database transaction.
+    // The RPC compares the reviewed pairs with live rows so stale plans cannot
+    // silently overwrite newer matching work.
+    if (action === "apply-match-swap-plan") {
+      try {
+        const pairs = normalizeSwapPairs(req.body.pairs)
+        const expectedPairs = normalizeSwapPairs(req.body.expected_pairs || [])
+        const affected = Array.from(new Set((req.body.affected || []).map(Number)))
+        const round = Number(req.body.round)
+        const eventId = Number(req.body.event_id || await getCurrentAdminEventId())
+
+        if (!pairs?.length || expectedPairs == null) {
+          return res.status(400).json({ error: "The swap plan contains invalid or duplicate participants" })
+        }
+        if (!affected.length || affected.some(number => !Number.isInteger(number) || number <= 0 || number === 9999)) {
+          return res.status(400).json({ error: "The affected participant list is invalid" })
+        }
+        if (!Number.isInteger(round) || round <= 0 || !Number.isInteger(eventId) || eventId <= 0) {
+          return res.status(400).json({ error: "A valid event and round are required" })
+        }
+
+        const resultingNumbers = new Set(pairs.flatMap(pair => [pair.a, pair.b]))
+        if ([...resultingNumbers].some(number => !affected.includes(number))) {
+          return res.status(400).json({ error: "Every resulting participant must be included in the affected list" })
+        }
+
+        const { data: participants, error: participantsError } = await supabase
+          .from("participants")
+          .select("*")
+          .eq("match_id", STATIC_MATCH_ID)
+          .in("assigned_number", [...resultingNumbers])
+
+        if (participantsError) throw participantsError
+        const participantMap = new Map((participants || []).map(participant => [Number(participant.assigned_number), participant]))
+        if (participantMap.size !== resultingNumbers.size) {
+          return res.status(400).json({ error: "One or more participants in the swap plan no longer exist" })
+        }
+
+        const matchRows = []
+        for (const pair of pairs) {
+          const compatibility = await calculateFullCompatibilityWithCache(
+            participantMap.get(pair.a), participantMap.get(pair.b), false, false,
+          )
+          const humorMultiplier = Number(compatibility.humorMultiplier || 1)
+          matchRows.push({
+            a: pair.a,
+            b: pair.b,
+            compatibility_score: Math.round(Number(compatibility.totalScore || 0)),
+            reason: swapReason(compatibility),
+            mbti_compatibility_score: Number(compatibility.mbtiScore || 0),
+            attachment_compatibility_score: Number(compatibility.attachmentScore || 0),
+            communication_compatibility_score: Number(compatibility.communicationScore || 0),
+            lifestyle_compatibility_score: Number(compatibility.lifestyleScore || 0),
+            core_values_compatibility_score: Number(compatibility.coreValuesScore || 0),
+            vibe_compatibility_score: Number(compatibility.vibeScore || 0),
+            synergy_score: Number(compatibility.synergyScore || 0),
+            humor_open_score: Number(compatibility.humorOpenScore || 0),
+            intent_score: Number(compatibility.intentScore || 0),
+            humor_multiplier: humorMultiplier,
+            attachment_penalty_applied: !!compatibility.attachmentPenaltyApplied,
+            intent_boost_applied: !!compatibility.intentBoostApplied,
+            dead_air_veto_applied: !!compatibility.deadAirVetoApplied,
+            humor_clash_veto_applied: !!compatibility.humorClashVetoApplied,
+            cap_applied: compatibility.capApplied ?? null,
+            humor_early_openness_bonus: humorMultiplier === 1.15 ? "full" : humorMultiplier === 1.05 ? "partial" : "none",
+          })
+        }
+
+        const { data, error } = await supabase.rpc("apply_match_swap_plan", {
+          p_match_id: STATIC_MATCH_ID,
+          p_event_id: eventId,
+          p_round: round,
+          p_pairs: matchRows,
+          p_affected: affected,
+          p_expected_pairs: expectedPairs,
+          p_plan_summary: req.body.plan_summary || {},
+        })
+
+        if (error) {
+          if (isMissingSwapRpc(error)) {
+            return res.status(501).json({ error: "The transactional swap migration has not been applied yet", migration_required: true })
+          }
+          if (error.code === "40001" || /state changed|reviewed/i.test(error.message || "")) {
+            return res.status(409).json({ error: error.message })
+          }
+          throw error
+        }
+        return res.status(200).json(data || { success: true })
+      } catch (error) {
+        console.error("Error applying match swap plan:", error)
+        return res.status(500).json({ error: error.message || "Failed to apply the match swap plan" })
+      }
+    }
+
+    if (action === "undo-match-swap-plan") {
+      try {
+        const auditId = String(req.body.audit_id || "")
+        if (!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(auditId)) {
+          return res.status(400).json({ error: "A valid swap audit ID is required" })
+        }
+        const { data, error } = await supabase.rpc("undo_match_swap_plan", { p_audit_id: auditId })
+        if (error) {
+          if (isMissingSwapRpc(error)) {
+            return res.status(501).json({ error: "The transactional swap migration has not been applied yet", migration_required: true })
+          }
+          if (error.code === "40001" || /changed after this swap/i.test(error.message || "")) {
+            return res.status(409).json({ error: error.message })
+          }
+          throw error
+        }
+        return res.status(200).json(data || { success: true })
+      } catch (error) {
+        console.error("Error undoing match swap plan:", error)
+        return res.status(500).json({ error: error.message || "Failed to undo the match swap plan" })
+      }
+    }
+
     if (action === "get-excluded-pairs") {
       try {
         const { data, error } = await supabase

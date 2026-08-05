@@ -4,7 +4,7 @@ import { createHmac, timingSafeEqual } from "node:crypto"
 import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkIntentHardGate, checkInteractionStyleCompatibility, fetchAllCachedPairs, calculateHumorOpennessScore } from "./trigger-match.mjs"
 import { buildWelcomePrompt } from "./ai-welcome-prompt.mjs"
 import { assignPriorityTables } from "../../server/event3/table-priority.mjs"
-import { optimizeRound2ByAge } from "../../server/event3/round2-age-optimizer.mjs"
+import { buildSixBySevenPlan, optimizeRound2ByAge } from "../../server/event3/round2-age-optimizer.mjs"
 
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
@@ -279,6 +279,13 @@ function verifyCohostToken(token) {
 
 function e3GenerateSeatingPlan(participantNumbers, genderMap = {}, lockedPairsSet = new Set(), ageMap = {}) {
   const N = participantNumbers.length
+  const sixBySeven = buildSixBySevenPlan(participantNumbers, genderMap)
+  if (sixBySeven) {
+    const round2 = optimizeRound2ByAge(sixBySeven.round1, sixBySeven.round2, genderMap, ageMap)
+    const positionMap = {}
+    sixBySeven.round1.flat().forEach((number, index) => { positionMap[number] = index })
+    return { round1: sixBySeven.round1, round2, T: 6, G: 7, R: 0, positionMap }
+  }
   // Pick target group size G and number of groups T.
   // Priority: 6 > 5 > 4 > 8.
   // Allow uneven groups (some with G+1) when N is not perfectly divisible by G.

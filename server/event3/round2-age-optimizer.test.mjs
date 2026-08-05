@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { optimizeRound2ByAge, round2AgeCost } from "./round2-age-optimizer.mjs"
+import { buildSixBySevenPlan, optimizeRound2ByAge, round2AgeCost } from "./round2-age-optimizer.mjs"
 
 function pairSet(groups) {
   const pairs = new Set()
@@ -52,4 +52,22 @@ test("is deterministic", () => {
     optimizeRound2ByAge(round1, round2, genders, ages),
     optimizeRound2ByAge(round1, round2, genders, ages),
   )
+})
+
+test("six tables of seven balance gender and repeat women only", () => {
+  const participants = Array.from({ length: 42 }, (_, index) => index + 1)
+  const genders = Object.fromEntries(participants.map(number => [number, number <= 29 ? "female" : "male"]))
+  const plan = buildSixBySevenPlan(participants, genders)
+  assert.ok(plan)
+  assert.deepEqual(plan.round1.map(group => group.length), [7, 7, 7, 7, 7, 7])
+  assert.deepEqual(plan.round2.map(group => group.length), [7, 7, 7, 7, 7, 7])
+
+  const femaleCounts = groups => groups.map(group => group.filter(number => genders[number] === "female").length).sort()
+  assert.deepEqual(femaleCounts(plan.round1), [4, 5, 5, 5, 5, 5])
+  assert.deepEqual(femaleCounts(plan.round2), [4, 5, 5, 5, 5, 5])
+
+  const firstRoundPairs = pairSet(plan.round1)
+  const repeated = [...pairSet(plan.round2)].filter(pair => firstRoundPairs.has(pair))
+  assert.equal(repeated.length, 6)
+  repeated.forEach(pair => pair.split("-").map(Number).forEach(number => assert.equal(genders[number], "female")))
 })

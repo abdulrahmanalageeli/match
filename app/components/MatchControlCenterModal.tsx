@@ -246,7 +246,7 @@ export default function MatchControlCenterModal({
     setLoadingData(true)
     try {
       const [participantsResponse, locksResponse, historyResponse] = await Promise.all([
-        fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "participants", event_id: currentEventId }) }),
+        fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "participants", event_id: currentEventId, include_matching_pool: true }) }),
         fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "get-locked-matches" }) }),
         Object.keys(matchHistory).length
           ? Promise.resolve(null)

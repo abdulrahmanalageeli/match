@@ -108,7 +108,9 @@ export function getPairCriteriaIssues(personA: MatchControlPerson | undefined, p
   }
   const preferenceA = preference(personA, answersA)
   const preferenceB = preference(personB, answersB)
-  if (!genderA || !genderB) issues.push("معلومات الجنس ناقصة")
+  if (!genderA) issues.push(`الجنس غير مسجل للمشارك ${getPersonName(personA, personA.assigned_number)} #${personA.assigned_number}`)
+  if (!genderB) issues.push(`الجنس غير مسجل للمشارك ${getPersonName(personB, personB.assigned_number)} #${personB.assigned_number}`)
+  if (!genderA || !genderB) return issues
   else {
     const accepts = (own: string, other: string, pref: string) => pref === "any" || (pref === "same" ? own === other : own !== other)
     if (!accepts(genderA, genderB, preferenceA) || !accepts(genderB, genderA, preferenceB)) issues.push("تفضيل الجنس غير متوافق")

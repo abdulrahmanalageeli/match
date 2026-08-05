@@ -99,8 +99,8 @@ function isSwapParticipantPaid(participant) {
 }
 
 function matchesSwapRoundGender(participantA, participantB, round) {
-  const genderA = String(participantA?.gender || participantA?.survey_data?.gender || "").trim().toLowerCase()
-  const genderB = String(participantB?.gender || participantB?.survey_data?.gender || "").trim().toLowerCase()
+  const genderA = String(participantA?.gender || participantA?.survey_data?.gender || participantA?.survey_data?.answers?.gender || "").trim().toLowerCase()
+  const genderB = String(participantB?.gender || participantB?.survey_data?.gender || participantB?.survey_data?.answers?.gender || "").trim().toLowerCase()
   if (!genderA || !genderB) return false
   if (round === 1) return genderA === genderB
   if (round === 2) return genderA !== genderB
@@ -1102,7 +1102,7 @@ export default async function handler(req, res) {
       console.log(`Processing action: ${action}`);
 
       if (action === "participants") {
-        const { event_id } = req.body
+        const { event_id, include_matching_pool = false } = req.body
         let query = supabase
           .from("participants")
           .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, payment_waived, phone_number, event_id, name, signup_for_next_event, auto_signup_next_event, updated_at, gender, age, same_gender_preference, any_gender_preference, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, humor_banter_style, early_openness_comfort, survey_data_updated_at, created_at, next_event_signup_timestamp, nationality, open_intent_goal_mismatch, signup_event_id, attendance_confirmed, attendance_confirmed_at, attendance_denied_at, receipt_url, receipt_received_at, receipt_approved, receipt_approved_at, receipt_rejected, receipt_rejected_at, age_flex_years, age_flex_event_id, arrival_status, arrival_status_at, discount_interest, last_twilio_action, last_twilio_action_at")
@@ -1113,8 +1113,17 @@ export default async function handler(req, res) {
         
         // Add event_id filter if provided
         if (event_id) {
-          query = query.eq("event_id", event_id)
-          console.log(`🔍 Filtering participants by event_id: ${event_id}`)
+          const normalizedEventId = Number(event_id)
+          if (!Number.isInteger(normalizedEventId) || normalizedEventId <= 0) {
+            return res.status(400).json({ error: "Invalid event_id" })
+          }
+          if (include_matching_pool) {
+            query = query.or(`event_id.eq.${normalizedEventId},signup_for_next_event.eq.true,auto_signup_next_event.eq.true`)
+            console.log(`🔍 Filtering participants by matching pool for event_id: ${normalizedEventId}`)
+          } else {
+            query = query.eq("event_id", normalizedEventId)
+            console.log(`🔍 Filtering participants by event_id: ${normalizedEventId}`)
+          }
         }
         
         const { data, error } = await query

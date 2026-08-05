@@ -738,8 +738,8 @@ function calculateIntentGoalScore(participantA, participantB) {
 
 // Function to check gender compatibility with support for any_gender_preference
 function checkGenderCompatibility(participantA, participantB, forcedMode = null) {
-  const genderA = participantA.gender || participantA.survey_data?.gender
-  const genderB = participantB.gender || participantB.survey_data?.gender
+  const genderA = participantA.gender || participantA.survey_data?.gender || participantA.survey_data?.answers?.gender
+  const genderB = participantB.gender || participantB.survey_data?.gender || participantB.survey_data?.answers?.gender
 
   // FORCED MODE: round-based matching ignores participant gender preferences
   // `preference` is used by admin swap planning to enforce the participants'

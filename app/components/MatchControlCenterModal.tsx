@@ -473,6 +473,46 @@ export default function MatchControlCenterModal({
       })
   }, [candidateMatched, candidatePool, candidateQuery, chainEligibleNumbers, chainPaymentScope, lockedKeys, pairMeetsMatchingCriteria, pairs, partnerMap, people, poolMatches, scoreLookup, swapSource])
 
+  const emptyCandidateReasons = useMemo(() => {
+    if (swapSource == null || candidates.length) return []
+    const reasons: string[] = []
+    if (candidateQuery.trim()) reasons.push(`لا توجد نتيجة تطابق البحث «${candidateQuery.trim()}» ضمن النطاق الحالي`)
+
+    if (chainEligibleNumbers) {
+      const scopeName = chainPaymentScope === "paid" ? "مدفوع فقط" : "غير مدفوع فقط"
+      const sourcePartner = partnerMap.get(swapSource)
+      if (!chainEligibleNumbers.has(swapSource)) {
+        reasons.push(`المشارك الذي بدأت منه #${swapSource} خارج نطاق «${scopeName}»`)
+      }
+      if (sourcePartner != null && !chainEligibleNumbers.has(sourcePartner)) {
+        reasons.push(`الشريك الحالي المتأثر ${getPersonName(people.get(sourcePartner), sourcePartner)} #${sourcePartner} خارج نطاق «${scopeName}»؛ لم يختره النظام كبديل، لكنه سيتأثر بفك الزوج الحالي`)
+      }
+
+      const scopedTargets = Array.from(people.values()).filter(person =>
+        person.assigned_number !== swapSource &&
+        person.assigned_number !== sourcePartner &&
+        person.assigned_number !== 9999 &&
+        chainEligibleNumbers.has(person.assigned_number)
+      )
+      if (!scopedTargets.length) reasons.push(`لا يوجد مشارك آخر داخل نطاق «${scopeName}»`)
+
+      const targetsBlockedByCurrentPartner = scopedTargets.filter(person => {
+        const currentPartner = partnerMap.get(person.assigned_number)
+        return currentPartner != null && !chainEligibleNumbers.has(currentPartner)
+      })
+      if (scopedTargets.length && targetsBlockedByCurrentPartner.length === scopedTargets.length) {
+        const examples = targetsBlockedByCurrentPartner.slice(0, 3).map(person => {
+          const currentPartner = partnerMap.get(person.assigned_number)!
+          return `#${person.assigned_number} مرتبط بـ #${currentPartner}`
+        }).join("، ")
+        reasons.push(`كل الأهداف داخل النطاق مرتبطة حالياً بشريك خارج النطاق (${examples})`)
+      }
+    }
+
+    if (!reasons.length) reasons.push("لا يوجد هدف يحقق فلاتر العرض وتفضيلات الطرفين ومعايير العمر والجنسية والتفاعل دون إنشاء مطابقة سابقة")
+    return reasons
+  }, [candidateQuery, candidates.length, chainEligibleNumbers, chainPaymentScope, partnerMap, people, swapSource])
+
   const plans = useMemo(() => swapSource != null && swapTarget != null
     ? buildSwapPlans({ source: swapSource, target: swapTarget, currentPairs: pairs, people, scoreLookup, lockedPairs: lockedKeys, maxDepth: 2, eligibleNumbers: chainEligibleNumbers, isPairEligible: pairMeetsMatchingCriteria })
     : [], [chainEligibleNumbers, lockedKeys, pairMeetsMatchingCriteria, pairs, people, scoreLookup, swapSource, swapTarget])
@@ -768,7 +808,7 @@ export default function MatchControlCenterModal({
                         <div className="mb-2 flex items-center justify-between gap-2"><span className="text-[10px] font-black text-cyan-200">نطاق الدفع لكامل سلسلة التبديل</span><span className="text-[9px] text-slate-500">يشمل كل المتأثرين</span></div>
                         <div className="grid grid-cols-3 gap-1">
                           {([['any', 'الجميع'], ['paid', 'مدفوع فقط'], ['not_paid', 'غير مدفوع فقط']] as Array<[ChainPaymentScope, string]>).map(([value, label]) => (
-                            <button key={value} onClick={() => { setChainPaymentScope(value); setSwapTarget(null); setChosenPlan(null) }} className={`rounded-xl border px-2 py-2 text-[10px] font-black transition ${chainPaymentScope === value ? "border-cyan-400/45 bg-cyan-500/20 text-cyan-100" : "border-white/8 bg-black/15 text-slate-400 hover:bg-white/5"}`}>{label}</button>
+                            <button key={value} onClick={() => { setChainPaymentScope(value); setCandidatePool(value === "paid" ? "paid" : value === "not_paid" ? "unpaid" : "all"); setSwapTarget(null); setChosenPlan(null) }} className={`rounded-xl border px-2 py-2 text-[10px] font-black transition ${chainPaymentScope === value ? "border-cyan-400/45 bg-cyan-500/20 text-cyan-100" : "border-white/8 bg-black/15 text-slate-400 hover:bg-white/5"}`}>{label}</button>
                           ))}
                         </div>
                         <p className="mt-2 text-[9px] leading-4 text-slate-500">لن تظهر أي خطة إذا كان الشخص الأساسي أو شريكه الحالي أو أي شخص سيتم نقله خارج النطاق المختار.</p>
@@ -793,7 +833,7 @@ export default function MatchControlCenterModal({
                           </button>
                         )
                       })}
-                      {!candidates.length && <div className="p-7 text-center"><ShieldAlert className="mx-auto mb-2 h-7 w-7 text-amber-400/60" /><p className="text-xs font-bold text-slate-400">لا توجد سلسلة تطابق النطاق والمعايير</p><p className="mt-1 text-[10px] leading-5 text-slate-600">قد يمنعها نطاق الدفع، تفضيلات الجنس، العمر، الجنسية، أسلوب التفاعل، أو مطابقة سابقة.</p></div>}
+                      {!candidates.length && <div className="p-7 text-center"><ShieldAlert className="mx-auto mb-2 h-7 w-7 text-amber-400/60" /><p className="text-xs font-bold text-slate-400">لا توجد سلسلة تطابق النطاق والمعايير</p><ul className="mt-2 list-inside list-disc space-y-1 text-right text-[10px] font-bold leading-5 text-amber-200/70">{emptyCandidateReasons.map(reason => <li key={reason}>{reason}</li>)}</ul></div>}
                     </div>
                   </div>
 

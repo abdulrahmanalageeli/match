@@ -98,15 +98,6 @@ function isSwapParticipantPaid(participant) {
   return participant?.PAID_DONE === true || participant?.receipt_approved === true
 }
 
-function matchesSwapRoundGender(participantA, participantB, round) {
-  const genderA = String(participantA?.gender || participantA?.survey_data?.gender || participantA?.survey_data?.answers?.gender || "").trim().toLowerCase()
-  const genderB = String(participantB?.gender || participantB?.survey_data?.gender || participantB?.survey_data?.answers?.gender || "").trim().toLowerCase()
-  if (!genderA || !genderB) return false
-  if (round === 1) return genderA === genderB
-  if (round === 2) return genderA !== genderB
-  return true
-}
-
 async function attachEventReceipts(participants, eventId) {
   const { data: receipts, error } = await supabase
     .from("participant_receipts")
@@ -4554,7 +4545,6 @@ export default async function handler(req, res) {
           if (excludedPairKeys.has(swapPairKey(pair.a, pair.b))) failures.push("admin pair exclusion")
           if (!isParticipantComplete(participantA, "preference") || !isParticipantComplete(participantB, "preference")) failures.push("incomplete matching profile")
           if (!checkGenderCompatibility(participantA, participantB, "preference")) failures.push("gender preference")
-          if (!matchesSwapRoundGender(participantA, participantB, round)) failures.push("round gender rule")
           if (!checkNationalityHardGate(participantA, participantB)) failures.push("nationality preference")
           if (!checkAgeRangeHardGate(participantA, participantB)) failures.push("preferred age range")
           if (!checkInteractionStyleCompatibility(participantA, participantB)) failures.push("interaction style")

@@ -114,7 +114,6 @@ export function getPairCriteriaIssues(personA: MatchControlPerson | undefined, p
   else {
     const accepts = (own: string, other: string, pref: string) => pref === "any" || (pref === "same" ? own === other : own !== other)
     if (!accepts(genderA, genderB, preferenceA) || !accepts(genderB, genderA, preferenceB)) issues.push("تفضيل الجنس غير متوافق")
-    if ((round === 1 && genderA !== genderB) || (round === 2 && genderA === genderB)) issues.push("قاعدة الجنس لهذه الجولة غير متوافقة")
   }
 
   const preferSameNationalityA = personA.prefer_same_nationality === true || answersA.nationality_preference === "same"

@@ -1859,7 +1859,7 @@ function IceBreaker({ round, tableNumber = 0, myInfo, tablemates }: {
                     : "text-[10px] px-2 py-0.5 rounded-full border transition-all bg-gray-800/40 border-gray-700/40 text-gray-500"
               }
             >
-              {p.name}
+              {p.name}{p.isMe ? " (أنت)" : ""}
             </span>
           ))}
         </div>
@@ -2146,11 +2146,17 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
                   </div>
                 </div>
 
-                {assignment.tablemates?.length > 0 && (
+                {(myInfo || assignment.tablemates?.length > 0) && (
                   <div className="px-5 pb-5 pt-4 border-t border-white/[0.06] bg-black/10">
-                    <p className="text-gray-500 text-xs mb-3">رفاقك في الطاولة</p>
+                    <p className="text-gray-500 text-xs mb-3">أعضاء طاولتك</p>
                     <div className="flex flex-wrap gap-2 justify-center">
-                      {assignment.tablemates.map((m: any) => (
+                      {myInfo && (
+                        <span className="inline-flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-500/15 px-3 py-1.5 text-sm font-black text-amber-200 ring-1 ring-amber-400/10">
+                          <span className="h-2 w-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.65)]" />
+                          {myInfo.name} <span className="text-[11px] text-amber-400">(أنت)</span>
+                        </span>
+                      )}
+                      {(assignment.tablemates || []).map((m: any) => (
                         <span
                           key={m.number}
                           className={`inline-flex items-center gap-2 border rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${

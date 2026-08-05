@@ -92,16 +92,28 @@ const PHASES = [
   { id: "final_reveal",   label: "الكشف النهائي",        icon: "✨", color: "amber" },
 ]
 
-function api(action: string, extra: Record<string, any> = {}) {
+async function api(action: string, extra: Record<string, any> = {}) {
   const body: Record<string, any> = { action, password: _adminPassword, ...extra }
   if (_previewEventId != null && !('preview_event_id' in body) && action.startsWith('e3-') && action !== 'e3-set-current-event' && action !== 'e3-get-current-event' && action !== 'e3-get-event-list') {
     body.preview_event_id = _previewEventId
   }
-  return fetch(API, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  }).then(r => r.json())
+  try {
+    const response = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    })
+    const contentType = response.headers.get("content-type") || ""
+    if (!contentType.includes("application/json")) {
+      return { error: "تعذّر الاتصال بخدمة إدارة الفعالية" }
+    }
+    const data = await response.json().catch(() => null)
+    if (!data || typeof data !== "object") return { error: "وصل رد غير متوقع من الخادم" }
+    if (!response.ok && !data.error) return { ...data, error: "تعذّر إكمال الطلب" }
+    return data
+  } catch {
+    return { error: "تعذّر الاتصال بالخادم" }
+  }
 }
 
 let _previewEventId: number | null = null
@@ -407,22 +419,14 @@ export default function Admin3Page() {
   }, [])
 
   const login = async () => {
-    try {
-      const r = await fetch(API, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "e3-get-current-event", password }),
-      }).then(r => r.json())
-      if (r.error) {
-        toast.error("كلمة المرور غير صحيحة")
-      } else {
-        setAdminPassword(password)
-        sessionStorage.setItem("admin3_pw", password)
-        localStorage.setItem("admin3", "authenticated")
-        setAuthenticated(true)
-      }
-    } catch {
-      toast.error("تعذر الاتصال بالخادم")
+    const result = await api("e3-get-current-event", { password })
+    if (result.error) {
+      toast.error(result.error.toLowerCase().includes("password") ? "كلمة المرور غير صحيحة" : result.error)
+    } else {
+      setAdminPassword(password)
+      sessionStorage.setItem("admin3_pw", password)
+      localStorage.setItem("admin3", "authenticated")
+      setAuthenticated(true)
     }
   }
 
@@ -782,8 +786,10 @@ export default function Admin3Page() {
       if (data.error) toast.error(data.error)
       else toast.success(data.message || "تم بنجاح")
       fetchState()
+      return data
     } catch (e: any) {
       toast.error(e.message || "خطأ")
+      return { error: e.message || "خطأ" }
     } finally {
       setLoading(null)
     }
@@ -795,7 +801,7 @@ export default function Admin3Page() {
     run(`phase-${phase}`, () => api("e3-set-phase", { phase, start_timer: true, timer_duration: duration, timer_round: round }))
   }
   const setPhaseStopTimer = (phase: string) => {
-    if (previewEventId != null) { toast.error("لا يمكن تغيير المرحلة في وضع المعاينة"); return Promise.resolve() }
+    if (previewEventId != null) { toast.error("لا يمكن تغيير المرحلة في وضع المعاينة"); return Promise.resolve({ error: "preview mode" }) }
     return run(`phase-${phase}`, () => api("e3-set-phase", { phase, start_timer: false }))
   }
   const startTimer = (round: number, duration = 1260) => {
@@ -832,7 +838,23 @@ export default function Admin3Page() {
   const doMove = (targetTable: number) => {
     if (!moveA || !mapRound) return
     if (previewEventId != null) { toast.error("لا يمكن تعديل الجلسات في وضع المعاينة"); return }
-    run(`move-${moveA}-to-${targetTable}`, () => api("e3-move-table", { participant_number: moveA, round: mapRound, new_table: targetTable }).then(d => { if (!d.error) { setMoveA(null); fetchSeating() } return d }))
+    const currentTableEntry = Object.entries(seating?.[mapRound] || {}).find(([, members]) =>
+      (members as any[]).some(member => member.number === moveA)
+    )
+    const tableMembers = (currentTableEntry?.[1] as any[] | undefined) || []
+    const participantNumbers = mapRound === 20 || mapRound === 30
+      ? tableMembers.map(member => member.number)
+      : [moveA]
+    run(`move-${moveA}-to-${targetTable}`, () => Promise.all(
+      participantNumbers.map(participantNumber => api("e3-move-table", { participant_number: participantNumber, round: mapRound, new_table: targetTable }))
+    ).then(results => {
+      const failed = results.find(result => result?.error)
+      fetchSeating()
+      if (failed) return { error: `تعذّر نقل كل أعضاء الجلسة: ${failed.error}` }
+      setMoveA(null)
+      fetchMatches()
+      return { message: mapRound === 20 || mapRound === 30 ? `تم نقل الشريكين إلى الطاولة ${targetTable}` : `تم النقل إلى الطاولة ${targetTable}` }
+    }))
   }
 
   const messageTable = async (table: number, members: any[]) => {
@@ -917,14 +939,24 @@ export default function Admin3Page() {
   const renameTable = (round: number, oldTable: number, newTable: number) => {
     const members: any[] = seating?.[round]?.[oldTable] || []
     if (!members.length || newTable === oldTable) { setEditingTableCard(null); return }
-    const otherRound = round === 1 ? 2 : 1
-    const otherMembers: any[] = seating?.[otherRound]?.[oldTable] || []
+    const linkedRounds = round === 1 || round === 2 ? [1, 2] : [round]
+    const moves = linkedRounds.flatMap(linkedRound => {
+      const linkedMembers: any[] = seating?.[linkedRound]?.[oldTable] || []
+      return linkedMembers.map(member => api("e3-move-table", { participant_number: member.number, round: linkedRound, new_table: newTable }))
+    })
     run(`rename-table-${round}-${oldTable}`, () =>
-      Promise.all([
-        ...members.map(m => api("e3-move-table", { participant_number: m.number, round, new_table: newTable })),
-        ...otherMembers.map(m => api("e3-move-table", { participant_number: m.number, round: otherRound, new_table: newTable })),
-      ])
-        .then(() => { setEditingTableCard(null); fetchSeating(); return { message: `Table ${oldTable} → ${newTable} in rounds ${round} & ${otherRound}` } })
+      Promise.all(moves)
+        .then(results => {
+          const failed = results.find(result => result?.error)
+          if (failed) {
+            fetchSeating()
+            return { error: `تعذّر نقل كل المشاركين: ${failed.error}` }
+          }
+          setEditingTableCard(null)
+          fetchSeating()
+          fetchMatches()
+          return { message: linkedRounds.length === 2 ? `Table ${oldTable} → ${newTable} in rounds 1 & 2` : `Table ${oldTable} → ${newTable} in round ${round}` }
+        })
     )
   }
 
@@ -953,12 +985,12 @@ export default function Admin3Page() {
     if (ph === "round1") return { label: "⬅ التصنيف بعد الجولة 1 (5 دقائق)", action: () => setPhaseWithTimer("ranking1", 300, 0), ready: true }
     if (ph === "ranking1") return { label: "⬅ بدء الجولة الثانية (25 دقيقة)", action: () => setPhaseWithTimer("round2", 1500, 2), ready: true }
     if (ph === "round2") return { label: "⬅ التصنيف النهائي (5 دقائق)", action: () => setPhaseWithTimer("ranking2", 300, 0), ready: true }
-    if (ph === "ranking2" && !hasMatches) return { label: "⬅ تشغيل مطابقة اختيار المشاركين", action: () => setPhaseStopTimer("phase2_processing").then(() => run("phase2", () => api("e3-trigger-phase2-matching").then(d => { fetchMatches(); fetchState(); return d }))), ready: ranked > 0 }
+    if (ph === "ranking2" && !hasMatches) return { label: "⬅ تشغيل مطابقة اختيار المشاركين", action: () => setPhaseStopTimer("phase2_processing").then(d => d?.error ? d : run("phase2", () => api("e3-trigger-phase2-matching").then(result => { fetchMatches(); fetchState(); return result }))), ready: ranked > 0 }
     if (ph === "phase2_processing" && hasMatches) return { label: "⬅ استراحة (10 دقائق)", action: () => setPhaseWithTimer("break", 600, 3), ready: true }
     if (ph === "phase2_processing") return { label: "⏳ جاري المطابقة...", action: () => {}, ready: false }
     if (ph === "ranking2" && hasMatches) return { label: "⬅ استراحة (10 دقائق)", action: () => setPhaseWithTimer("break", 600, 3), ready: true }
     if (ph === "break") return { label: "⬅ بدء كشف المرحلة 2 (21 دقيقة)", action: () => setPhaseWithTimer("phase2_reveal", 1260, 4), ready: true }
-    if (ph === "phase2_reveal" && !state.phase3_matches_done) return { label: "⬅ تشغيل مطابقة الخوارزمية", action: () => { if (previewEventId != null) { toast.error("لا يمكن تشغيل المطابقة في وضع المعاينة"); return } run("phase3", () => api("e3-trigger-phase3-matching").then(d => { fetchState(); return d })) }, ready: ranked > 0 }
+    if (ph === "phase2_reveal" && !state.phase3_matches_done) return { label: "⬅ تشغيل مطابقة الخوارزمية", action: triggerPhase3, ready: ranked > 0 }
     if (ph === "phase2_reveal" && state.phase3_matches_done) return { label: "⬅ كشف المرحلة 3 (21 دقيقة)", action: () => setPhaseWithTimer("phase3_reveal", 1260, 5), ready: true }
     if (ph === "phase3_reveal") return { label: "⬅ الكشف النهائي ✨", action: () => setPhase("final_reveal"), ready: true }
     return null
@@ -978,8 +1010,20 @@ export default function Admin3Page() {
     return data
   }) }
 
-  const triggerPhase2 = () => { if (previewEventId != null) { toast.error("لا يمكن تشغيل المطابقة في وضع المعاينة"); return } setPhaseStopTimer("phase2_processing").then(() => run("phase2", () => api("e3-trigger-phase2-matching").then(d => { fetchMatches(); fetchState(); return d }))) }
-  const triggerPhase3 = () => { if (previewEventId != null) { toast.error("لا يمكن تشغيل المطابقة في وضع المعاينة"); return } const tid = toast.loading("جاري حساب توافق المشاركين..."); run("phase3", async () => { const d = await api("e3-trigger-phase3-matching"); toast.dismiss(tid); return d }) }
+  const triggerPhase2 = () => { if (previewEventId != null) { toast.error("لا يمكن تشغيل المطابقة في وضع المعاينة"); return } setPhaseStopTimer("phase2_processing").then(d => d?.error ? d : run("phase2", () => api("e3-trigger-phase2-matching").then(result => { fetchMatches(); fetchState(); return result }))) }
+  const triggerPhase3 = () => {
+    if (previewEventId != null) { toast.error("لا يمكن تشغيل المطابقة في وضع المعاينة"); return }
+    run("phase3", async () => {
+      const tid = toast.loading("جاري حساب توافق المشاركين...")
+      try {
+        const data = await api("e3-trigger-phase3-matching")
+        if (!data.error) { await Promise.all([fetchMatches(), fetchState()]) }
+        return data
+      } finally {
+        toast.dismiss(tid)
+      }
+    })
+  }
 
   const togglePhase2Exclusion = (num: number) => {
     if (previewEventId != null) { toast.error("لا يمكن تعديل الاستبعادات في وضع المعاينة"); return }
@@ -1072,6 +1116,7 @@ export default function Admin3Page() {
   if (!authenticated) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4" dir="rtl">
+        <Toaster position="top-center" />
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 w-full max-w-sm">
           <div className="text-center mb-6">
             <div className="text-4xl mb-2">✨</div>
@@ -2038,14 +2083,14 @@ export default function Admin3Page() {
                 </div>
                 <div className="flex gap-1.5 mt-2">
                   <button
-                    onClick={() => run("phase2", () => api("e3-trigger-phase2-matching").then(d => { fetchMatches(); fetchState(); return d }))}
+                    onClick={triggerPhase2}
                     disabled={!!loading}
                     className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-purple-900/50 hover:bg-purple-900/70 text-purple-300 transition-all disabled:opacity-40"
                   >
                     ⚡ مطابقة المرحلة 2
                   </button>
                   <button
-                    onClick={() => run("phase3", () => api("e3-trigger-phase3-matching").then(d => { fetchState(); return d }))}
+                    onClick={triggerPhase3}
                     disabled={!!loading}
                     className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-purple-900/50 hover:bg-purple-900/70 text-purple-300 transition-all disabled:opacity-40"
                   >
@@ -2378,6 +2423,19 @@ export default function Admin3Page() {
                               <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
                                 pair.matchType === 'mutual' ? 'text-emerald-300' : 'text-amber-400'
                               }`}>{pair.matchType === 'mutual' ? '🔁 تبادل' : '⚡ احتياطي'}</span>
+                              {pair.tablePriority && (
+                                <p className={`mt-1 text-[9px] font-semibold ${
+                                  pair.tablePriority.bothFrequent ? 'text-gray-500' : 'text-cyan-400'
+                                }`}>
+                                  {pair.tablePriority.bothFirstTime
+                                    ? '✨ جديدان · أولوية طاولة'
+                                    : pair.tablePriority.hasFirstTimer
+                                      ? '🌱 مشارك جديد'
+                                      : pair.tablePriority.bothFrequent
+                                        ? '↗ حضرا عدة مرات · 17+ مناسب'
+                                        : 'أولوية عمرية خفيفة'}
+                                </p>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -2431,7 +2489,12 @@ export default function Admin3Page() {
                                 run(`move-pair-${pair.a}`, () => Promise.all([
                                   api("e3-move-table", { participant_number: pair.a, round: 20, new_table: v }),
                                   api("e3-move-table", { participant_number: pair.b, round: 20, new_table: v }),
-                                ]).then(() => { fetchMatches(); return { message: `Pair moved to table ${v}` } }))
+                                ]).then(results => {
+                                  const failed = results.find(result => result?.error)
+                                  fetchMatches()
+                                  fetchSeating()
+                                  return failed ? { error: `تعذّر نقل الشريكين: ${failed.error}` } : { message: `Pair moved to table ${v}` }
+                                }))
                               }
                             }}
                             className="w-16 bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2 py-1 text-center focus:outline-none focus:border-indigo-500"
@@ -2594,7 +2657,16 @@ export default function Admin3Page() {
                                       : 'hover:bg-gray-800/70 border border-transparent hover:border-gray-700/50 text-gray-300 active:scale-[0.98]'
                                   }`}
                                 >
-                                  <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${attendanceByNumber.get(m.number) ? 'bg-emerald-400 ring-2 ring-emerald-400/20' : 'bg-gray-700'}`} title={attendanceByNumber.get(m.number) ? 'حاضر' : 'لم يصل'} />
+                                  <span
+                                    className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                                      m.gender === 'female' ? 'bg-pink-400' : 'bg-blue-400'
+                                    } ${
+                                      attendanceByNumber.get(m.number)
+                                        ? 'ring-2 ring-emerald-400/50'
+                                        : 'opacity-40 ring-2 ring-gray-700'
+                                    }`}
+                                    title={`${m.gender === 'female' ? 'أنثى' : 'ذكر'} · ${attendanceByNumber.get(m.number) ? 'حاضر' : 'لم يصل'}`}
+                                  />
                                   <span className="flex-1 text-sm font-medium truncate text-right">{m.name}</span>
                                   <span className="text-[10px] text-gray-600 font-mono flex-shrink-0">#{m.number}{m.age ? ` · ${m.age}` : ""}</span>
                                   <span className={`w-2 h-2 rounded-full flex-shrink-0 ${rankData?.submitted ? 'bg-green-500' : 'bg-gray-700'}`} title={rankData?.submitted ? 'صوّت' : 'لم يصوّت'} />
@@ -2642,7 +2714,7 @@ export default function Admin3Page() {
         {/* TAB: PARTICIPANTS ───────────────────────────────────────────────── */}
         {activeTab === "participants" && (() => {
           const selected = participants.filter(p => p.selected)
-          const getMatchFor = (num: number) => matchPairs.find((mp: any) => mp.aNumber === num || mp.bNumber === num)
+          const getMatchFor = (num: number) => matchPairs.find((mp: any) => mp.a === num || mp.b === num)
           const getPopularity = (num: number) => {
             let count = 0
             for (const r of allRankings) {
@@ -2695,8 +2767,8 @@ export default function Admin3Page() {
                   const tables = getParticipantTables(p.number)
                   const rankData = allRankings.find(r => r.number === p.number)
                   const match = getMatchFor(p.number)
-                  const matchName = match ? (match.aNumber === p.number ? match.bName : match.aName) : null
-                  const matchScore = match?.compatibilityScore
+                  const matchName = match ? (match.a === p.number ? match.bName : match.aName) : null
+                  const matchScore = match?.compatScore
                   const matchType = match?.matchType
                   const popularity = getPopularity(p.number)
                   return (
@@ -3157,7 +3229,7 @@ export default function Admin3Page() {
                 <h4 className="font-semibold text-gray-300 text-sm">نتائج المطابقة (اختيارك)</h4>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => run("phase2", () => api("e3-trigger-phase2-matching").then(d => { fetchMatches(); return d }))}
+                    onClick={triggerPhase2}
                     disabled={!!loading || (rankStatus?.submitted || 0) === 0}
                     className="flex items-center gap-1.5 bg-pink-900/40 hover:bg-pink-900/70 border border-pink-800/50 text-pink-300 rounded-lg px-3 py-1.5 text-xs disabled:opacity-40"
                   >
@@ -3306,7 +3378,7 @@ export default function Admin3Page() {
                 <h4 className="font-semibold text-gray-300 text-sm">نتائج مطابقة الخوارزمية</h4>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => run("phase3", () => api("e3-trigger-phase3-matching").then(d => { fetchMatches(); fetchState(); return d }))}
+                    onClick={triggerPhase3}
                     disabled={!!loading}
                     className="flex items-center gap-1.5 bg-purple-900/40 hover:bg-purple-900/70 border border-purple-800/50 text-purple-300 rounded-lg px-3 py-1.5 text-xs disabled:opacity-40"
                   >
@@ -3343,6 +3415,16 @@ export default function Admin3Page() {
                           <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${pair.aGender === 'female' ? 'bg-pink-400' : 'bg-blue-400'}`} />
                           <span className="text-sm font-semibold text-white truncate">{pair.aName}</span>
                         </div>
+                        <span
+                          title={pair.tablePriority?.bothFirstTime ? 'First-time pair priority' : pair.tablePriority?.bothFrequent ? 'Both attended multiple prior events' : 'Age-balanced table priority'}
+                          className={`text-[9px] font-black px-2 py-1 rounded-lg border flex-shrink-0 ${
+                            pair.table && [1, 2, 4, 5, 8, 9, 10, 11, 12, 15, 16].includes(pair.table)
+                              ? 'text-cyan-300 bg-cyan-950/30 border-cyan-800/40'
+                              : 'text-gray-400 bg-gray-900 border-gray-700'
+                          }`}
+                        >
+                          ط {pair.table ?? '—'}
+                        </span>
                         {pair.locked && (
                           <span className="text-[9px] text-amber-400 bg-amber-900/30 border border-amber-700/40 px-1.5 py-0.5 rounded-full flex-shrink-0 flex items-center gap-1">
                             <Shield size={8} /> مثبت
@@ -3391,9 +3473,9 @@ export default function Admin3Page() {
         const p = participants.find(x => x.number === selectedParticipantNum)
         const rankData = allRankings.find(r => r.number === selectedParticipantNum)
         const tables = getParticipantTables(selectedParticipantNum)
-        const match = matchPairs.find((mp: any) => mp.aNumber === selectedParticipantNum || mp.bNumber === selectedParticipantNum)
-        const matchName = match ? (match.aNumber === selectedParticipantNum ? match.bName : match.aName) : null
-        const matchScore = match?.compatibilityScore
+        const match = matchPairs.find((mp: any) => mp.a === selectedParticipantNum || mp.b === selectedParticipantNum)
+        const matchName = match ? (match.a === selectedParticipantNum ? match.bName : match.aName) : null
+        const matchScore = match?.compatScore
         const matchType = match?.matchType
         const whoRankedMe = allRankings
           .filter((r: any) => r.number !== selectedParticipantNum && r.submitted)
@@ -3592,7 +3674,7 @@ export default function Admin3Page() {
                     <Eye size={14} /> عرض الاستبيان الكامل
                   </button>
                   <button
-                    onClick={() => { setParticipantPanelOpen(false); setSwapA(p.number); setActiveTab("seating") }}
+                    onClick={() => { setParticipantPanelOpen(false); setSwapA(p.number); setActiveTab("seating"); setMapRound(1) }}
                     className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-900/30 hover:bg-amber-900/50 border border-amber-700/40 text-amber-300 text-sm font-medium transition-all active:scale-[0.98]"
                   >
                     <Shuffle size={14} /> تبديل مكانه في الطاولات
@@ -6199,7 +6281,7 @@ export default function Admin3Page() {
                         const data = await api("e3-ai-welcome-edit", { participant_number: aiWelcomePreview.number, welcome_message: aiWelcomeEditText })
                         if (data.success) {
                           setAiWelcomeData(prev => prev.map(p => p.number === aiWelcomePreview.number ? { ...p, has_welcome: true, welcome: data.welcome } : p))
-                          setAiWelcomePreview(prev => ({ ...prev, welcome: data.welcome }))
+                          setAiWelcomePreview((prev: any) => prev ? ({ ...prev, welcome: data.welcome }) : prev)
                           setAiWelcomeEditing(false)
                           toast.success("تم حفظ التعديل")
                         } else {

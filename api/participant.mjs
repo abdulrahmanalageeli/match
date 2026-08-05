@@ -3118,7 +3118,7 @@ Please respond in JSON format:
           // This prevents marking attendance for people viewing the tutorial at home before the event.
           if (ep && phase !== "setup") {
             try {
-              const { data: attRow } = await supabase.from("event_attendance").select("attended").eq("match_id", MAIN_MATCH).eq("event_id", activeEventId).eq("participant_number", myNumber).maybeSingle()
+              const { data: attRow } = await supabase.from("event_attendance").select("attended,updated_by").eq("match_id", MAIN_MATCH).eq("event_id", activeEventId).eq("participant_number", myNumber).maybeSingle()
               if (!attRow) {
                 await supabase.from("event_attendance").insert({
                   match_id: MAIN_MATCH,
@@ -3129,7 +3129,7 @@ Please respond in JSON format:
                   updated_at: new Date().toISOString(),
                 })
                 console.log(`[auto-attendance] Marked #${myNumber} as attended (phase: ${phase})`)
-              } else if (attRow.attended === false) {
+              } else if (attRow.attended === false && attRow.updated_by === "auto-join") {
                 await supabase.from("event_attendance").update({
                   attended: true,
                   updated_by: "auto-join",
@@ -3166,9 +3166,9 @@ Please respond in JSON format:
         // Heartbeat: also fetch SOS, mood check, and notification data in one round-trip
         if (action === "e3-heartbeat" && participant) {
           const [sosRes, moodRes, notifRes] = await Promise.all([
-            supabase.from("organizer_requests").select("id,status,message,organizer_reply,created_at,chat_history,request_type,table_info").eq("participant_token", token).order("created_at", { ascending: true }),
-            supabase.from("event3_mood_checks").select("check_id,triggered_at").eq("match_id", E3_MATCH_ID).eq("participant_number", myNumber).is("mood", null).order("triggered_at", { ascending: false }).limit(1).maybeSingle(),
-            supabase.from("event3_notifications").select("notif_id,title,body,icon,created_at").eq("match_id", E3_MATCH_ID).eq("participant_number", myNumber).is("seen_at", null).order("created_at", { ascending: false }).limit(1).maybeSingle()
+            supabase.from("organizer_requests").select("id,status,message,organizer_reply,created_at,chat_history,request_type,table_info").eq("participant_token", token).or(`event_id.eq.${activeEventId},event_id.is.null`).order("created_at", { ascending: true }),
+            supabase.from("event3_mood_checks").select("check_id,triggered_at").eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId).eq("participant_number", myNumber).is("mood", null).order("triggered_at", { ascending: false }).limit(1).maybeSingle(),
+            supabase.from("event3_notifications").select("notif_id,title,body,icon,created_at").eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId).eq("participant_number", myNumber).is("seen_at", null).order("created_at", { ascending: false }).limit(1).maybeSingle()
           ])
           baseResponse.sos_requests = sosRes.data || []
           baseResponse.mood_check = moodRes.data ? { pending: true, check_id: moodRes.data.check_id, triggered_at: moodRes.data.triggered_at } : { pending: false }
@@ -3189,10 +3189,12 @@ Please respond in JSON format:
           .from("participants").select("assigned_number,secure_token,name,phone_number")
           .eq("match_id", MAIN_MATCH).not("phone_number", "is", null)
           .ilike("phone_number", `%${last7}`)
-        const match = (candidates || []).find(c => {
+        const exactMatches = (candidates || []).filter(c => {
           const cp = String(c.phone_number || '').replace(/\D/g, '')
           return cp.length >= 7 && cp.slice(-7) === last7
         })
+        if (exactMatches.length > 1) return res.status(409).json({ error: "يوجد أكثر من تسجيل ينتهي بنفس الأرقام. تواصل مع المنظم للدخول بأمان." })
+        const match = exactMatches[0]
         if (!match) return res.status(404).json({ error: "لم يتم العثور على رقمك في الفعالية. تأكد من الرقم أو تواصل مع المنظم." })
         const { data: ep } = await supabase.from("event3_participants")
           .select("participant_number").eq("match_id", E3_MATCH_ID)
@@ -3251,9 +3253,44 @@ Please respond in JSON format:
       if (action === "e3-submit-ranking") {
         const { ranked_list, auto_saved } = req.body
         if (!Array.isArray(ranked_list) || ranked_list.length === 0) return res.status(400).json({ error: "Ranking list cannot be empty" })
-        await supabase.from("participant_rankings").delete().eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("ranker_number", myNumber)
-        const { error } = await supabase.from("participant_rankings").insert(ranked_list.map((num, idx) => ({ match_id: E3_MATCH_ID, event_id: currentEventId, ranker_number: myNumber, ranked_number: num, rank: idx + 1, auto_saved: !!auto_saved })))
-        if (error) return res.status(500).json({ error: error.message })
+        const normalizedRanking = ranked_list.map(Number)
+        if (normalizedRanking.some(num => !Number.isInteger(num) || num <= 0 || num === myNumber) || new Set(normalizedRanking).size !== normalizedRanking.length) {
+          return res.status(400).json({ error: "Ranking list contains an invalid or duplicate participant" })
+        }
+
+        const { data: phaseState } = await supabase.from("event_state").select("phase").eq("match_id", E3_MATCH_ID).maybeSingle()
+        const maxRound = phaseState?.phase === "ranking1" ? 1 : 2
+        const { data: assignments, error: assignmentsError } = await supabase.from("session_assignments")
+          .select("round,table_number,participant_id")
+          .eq("match_id", E3_MATCH_ID)
+          .eq("event_id", currentEventId)
+          .in("round", maxRound === 1 ? [1] : [1, 2])
+        if (assignmentsError) return res.status(500).json({ error: assignmentsError.message })
+        const myAssignments = (assignments || []).filter(row => row.participant_id === myNumber)
+        const allowedNumbers = new Set()
+        for (const myAssignment of myAssignments) {
+          for (const row of assignments || []) {
+            if (row.round === myAssignment.round && row.table_number === myAssignment.table_number && row.participant_id !== myNumber) {
+              allowedNumbers.add(row.participant_id)
+            }
+          }
+        }
+        if (allowedNumbers.size === 0) return res.status(400).json({ error: "No met participants are available to rank" })
+        if (normalizedRanking.length !== allowedNumbers.size || normalizedRanking.some(num => !allowedNumbers.has(num))) {
+          return res.status(400).json({ error: "Ranking must include each participant you met exactly once" })
+        }
+
+        const { data: previousRows } = await supabase.from("participant_rankings").select("ranked_number,rank,auto_saved").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("ranker_number", myNumber)
+        const { error: deleteError } = await supabase.from("participant_rankings").delete().eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("ranker_number", myNumber)
+        if (deleteError) return res.status(500).json({ error: deleteError.message })
+        const newRows = normalizedRanking.map((num, idx) => ({ match_id: E3_MATCH_ID, event_id: currentEventId, ranker_number: myNumber, ranked_number: num, rank: idx + 1, auto_saved: !!auto_saved }))
+        const { error } = await supabase.from("participant_rankings").insert(newRows)
+        if (error) {
+          if (previousRows?.length) {
+            await supabase.from("participant_rankings").insert(previousRows.map(row => ({ ...row, match_id: E3_MATCH_ID, event_id: currentEventId, ranker_number: myNumber })))
+          }
+          return res.status(500).json({ error: error.message })
+        }
         return res.status(200).json({ message: "Rankings submitted successfully" })
       }
 
@@ -3531,6 +3568,7 @@ Please respond in JSON format:
         const { data: existing } = await supabase.from("organizer_requests")
           .select("id,chat_history")
           .eq("participant_token", token)
+          .or(`event_id.eq.${currentEventId},event_id.is.null`)
           .neq("status", "resolved")
           .order("created_at", { ascending: false })
           .limit(1)
@@ -3552,7 +3590,7 @@ Please respond in JSON format:
 
         // Create new request
         const { data: inserted, error: insErr } = await supabase.from("organizer_requests").insert({
-          participant_token: token, participant_number: myNumber, participant_name: pName,
+          event_id: currentEventId, participant_token: token, participant_number: myNumber, participant_name: pName,
           table_info: tableInfo, message: message || null, status: "pending",
           request_type: reqType, chat_history: [chatEntry]
         }).select("id").single()
@@ -3563,7 +3601,7 @@ Please respond in JSON format:
       // e3-sos-check — poll all SOS requests for this user (chat history)
       if (action === "e3-sos-check") {
         if (!participant) return res.status(401).json({ error: "Invalid token" })
-        const { data: requests } = await supabase.from("organizer_requests").select("id,status,message,organizer_reply,created_at,chat_history,request_type,table_info").eq("participant_token", token).order("created_at", { ascending: true })
+        const { data: requests } = await supabase.from("organizer_requests").select("id,status,message,organizer_reply,created_at,chat_history,request_type,table_info").eq("participant_token", token).or(`event_id.eq.${currentEventId},event_id.is.null`).order("created_at", { ascending: true })
         return res.status(200).json({ requests: requests || [] })
       }
 
@@ -3573,6 +3611,7 @@ Please respond in JSON format:
         const { data: pending } = await supabase.from("event3_mood_checks")
           .select("check_id,triggered_at")
           .eq("match_id", E3_MATCH_ID)
+          .eq("event_id", currentEventId)
           .eq("participant_number", myNumber)
           .is("mood", null)
           .order("triggered_at", { ascending: false })
@@ -3591,6 +3630,7 @@ Please respond in JSON format:
         const { error } = await supabase.from("event3_mood_checks")
           .update({ mood, answered_at: new Date().toISOString() })
           .eq("match_id", E3_MATCH_ID)
+          .eq("event_id", currentEventId)
           .eq("check_id", check_id)
           .eq("participant_number", myNumber)
         if (error) return res.status(500).json({ error: error.message })
@@ -3603,6 +3643,7 @@ Please respond in JSON format:
         const { data: pending } = await supabase.from("event3_notifications")
           .select("notif_id,title,body,icon,created_at")
           .eq("match_id", E3_MATCH_ID)
+          .eq("event_id", currentEventId)
           .eq("participant_number", myNumber)
           .is("seen_at", null)
           .order("created_at", { ascending: false })
@@ -3620,6 +3661,7 @@ Please respond in JSON format:
         const { error } = await supabase.from("event3_notifications")
           .update({ seen_at: new Date().toISOString() })
           .eq("match_id", E3_MATCH_ID)
+          .eq("event_id", currentEventId)
           .eq("notif_id", notif_id)
           .eq("participant_number", myNumber)
         if (error) return res.status(500).json({ error: error.message })

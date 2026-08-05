@@ -2805,7 +2805,7 @@ const fetchParticipants = async () => {
     return null;
   };
 
-  const login = () => {
+  const login = async () => {
     // Check if locked out
     const lockout = checkLoginLockout();
     if (lockout.locked) {
@@ -2814,11 +2814,15 @@ const fetchParticipants = async () => {
     }
 
     // Verify password against server
-    fetch("/api/admin", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "e3-get-current-event", password }),
-    }).then(r => r.json()).then(r => {
+    try {
+      const response = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "e3-get-current-event", password }),
+      })
+      const contentType = response.headers.get("content-type") || ""
+      if (!contentType.includes("application/json")) throw new Error("non-json response")
+      const r = await response.json()
       if (r.error) {
         // Failed login - increment attempts
         const newAttempts = loginAttempts + 1;
@@ -2842,9 +2846,9 @@ const fetchParticipants = async () => {
         setLastAttemptTime(null)
         fetchParticipants()
       }
-    }).catch(() => {
+    } catch {
       toast.error("تعذر الاتصال بالخادم")
-    })
+    }
   }
 
   const logout = useCallback(() => {
@@ -4815,6 +4819,7 @@ Proceed?`
   if (!authenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
+        <Toaster position="top-center" />
         <div className="bg-white/10 backdrop-blur-xl border border-white/20 text-white p-8 rounded-2xl shadow-2xl w-full max-w-md space-y-6">
           <div className="text-center space-y-2">
             <div className="flex justify-center">

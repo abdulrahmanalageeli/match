@@ -1,7 +1,9 @@
 import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
+import { createHmac, timingSafeEqual } from "node:crypto"
 import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkIntentHardGate, checkInteractionStyleCompatibility, fetchAllCachedPairs, calculateHumorOpennessScore } from "./trigger-match.mjs"
 import { buildWelcomePrompt } from "./ai-welcome-prompt.mjs"
+import { assignPriorityTables } from "../../server/event3/table-priority.mjs"
 
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
@@ -233,7 +235,46 @@ async function sendFinalConfirmation(participant, paymentWaived = false) {
 // ── Event 4.0 constants & helpers ─────────────────────────────────────────────
 const EVENT3_MATCH_ID = "00000000-0000-0000-0000-000000000003"
 const EVENT3_PASSWORD = process.env.EVENT3_PASSWORD || "soulmatch2026"
+const EVENT3_COHOST_PASSWORD = process.env.EVENT3_COHOST_PASSWORD || "bayan2026"
+const EVENT3_COHOST_TOKEN_TTL_SECONDS = 8 * 60 * 60
+const EVENT3_COHOST_ACTIONS = new Set([
+  "e3-cohost-dashboard",
+  "e3-cohost-set-attendance",
+  "e3-cohost-resolve-sos",
+  "e3-cohost-reply-sos",
+])
 const E3_LATIN_SQUARE = [[0,1,2,3,4,5],[2,3,4,5,0,1],[4,5,0,1,2,3],[1,0,3,2,5,4],[3,2,5,4,1,0],[5,4,1,0,3,2]]
+
+function safeSecretEqual(received, expected) {
+  const left = Buffer.from(String(received || ""))
+  const right = Buffer.from(String(expected || ""))
+  return left.length === right.length && timingSafeEqual(left, right)
+}
+
+function cohostTokenSecret() {
+  return process.env.EVENT3_COHOST_TOKEN_SECRET
+    || process.env.SUPABASE_SERVICE_ROLE_KEY
+    || EVENT3_PASSWORD
+}
+
+function signCohostToken() {
+  const payload = Buffer.from(JSON.stringify({ role: "event3_cohost", exp: Math.floor(Date.now() / 1000) + EVENT3_COHOST_TOKEN_TTL_SECONDS })).toString("base64url")
+  const signature = createHmac("sha256", cohostTokenSecret()).update(payload).digest("base64url")
+  return `${payload}.${signature}`
+}
+
+function verifyCohostToken(token) {
+  try {
+    const [payload, signature, extra] = String(token || "").split(".")
+    if (!payload || !signature || extra) return false
+    const expected = createHmac("sha256", cohostTokenSecret()).update(payload).digest("base64url")
+    if (!safeSecretEqual(signature, expected)) return false
+    const claims = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"))
+    return claims?.role === "event3_cohost" && Number(claims.exp) > Math.floor(Date.now() / 1000)
+  } catch {
+    return false
+  }
+}
 
 function e3GenerateSeatingPlan(participantNumbers, genderMap = {}, lockedPairsSet = new Set()) {
   const N = participantNumbers.length
@@ -431,6 +472,68 @@ const e3FullCalcCompat = async (pA, pB) => {
     intentBoost: r.intentBoostApplied,
     capApplied: r.capApplied,
   }
+}
+
+async function e3BuildPriorityTablePlan(pairs, currentEventId) {
+  if (!Array.isArray(pairs) || pairs.length === 0) return []
+  const participantNumbers = [...new Set(pairs.flatMap(pair => [Number(pair.a), Number(pair.b)]).filter(Number.isFinite))]
+  const [participantResult, attendanceResult, legacyEnrollmentResult] = await Promise.all([
+    supabase
+      .from("participants")
+      .select("assigned_number,age,survey_data")
+      .eq("match_id", STATIC_MATCH_ID)
+      .in("assigned_number", participantNumbers),
+    supabase
+      .from("event_attendance")
+      .select("participant_number,event_id,attended")
+      .eq("match_id", STATIC_MATCH_ID)
+      .neq("event_id", currentEventId)
+      .in("participant_number", participantNumbers),
+    supabase
+      .from("event3_participants")
+      .select("participant_number,event_id")
+      .eq("match_id", EVENT3_MATCH_ID)
+      .neq("event_id", currentEventId)
+      .in("participant_number", participantNumbers),
+  ])
+  if (participantResult.error) throw participantResult.error
+  if (attendanceResult.error) throw attendanceResult.error
+  if (legacyEnrollmentResult.error) throw legacyEnrollmentResult.error
+  const participantRows = participantResult.data || []
+  const attendanceRows = attendanceResult.data || []
+
+  const profiles = {}
+  for (const participant of participantRows || []) {
+    let surveyData = participant.survey_data || {}
+    try { if (typeof surveyData === "string") surveyData = JSON.parse(surveyData || "{}") } catch { surveyData = {} }
+    profiles[participant.assigned_number] = {
+      age: participant.age || surveyData?.answers?.age || surveyData?.age || null,
+    }
+  }
+
+  const attendanceCounts = {}
+  const knownAttendanceKeys = new Set()
+  const countedEventKeys = new Set()
+  for (const row of attendanceRows) {
+    const key = `${row.participant_number}:${row.event_id}`
+    knownAttendanceKeys.add(key)
+    if (!row.attended || countedEventKeys.has(key)) continue
+    countedEventKeys.add(key)
+    attendanceCounts[row.participant_number] = (attendanceCounts[row.participant_number] || 0) + 1
+  }
+  // event_attendance was introduced after Event 3 already had history. Use a
+  // prior enrollment only when that participant/event has no explicit
+  // attendance row, so an explicit no-show is never counted as attendance.
+  for (const row of legacyEnrollmentResult.data || []) {
+    const key = `${row.participant_number}:${row.event_id}`
+    if (knownAttendanceKeys.has(key) || countedEventKeys.has(key)) continue
+    countedEventKeys.add(key)
+    attendanceCounts[row.participant_number] = (attendanceCounts[row.participant_number] || 0) + 1
+  }
+
+  return assignPriorityTables(pairs, profiles, attendanceCounts, {
+    maxTableNumber: Number(process.env.EVENT3_MAX_TABLE_NUMBER || 24),
+  })
 }
 
 export default async function handler(req, res) {
@@ -7919,10 +8022,26 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
       }
     }
 
-    // ── Event 4.0 admin actions (password required in body) ─────────────────────
+    // Co-host login is the only Event 3 action that accepts the co-host password.
+    // The returned short-lived signed token is limited to the explicit action
+    // allow-list below; it can never invoke matching, phase, survey, or payment APIs.
+    if (action === "e3-cohost-login") {
+      if (!safeSecretEqual(req.body?.password, EVENT3_COHOST_PASSWORD)) {
+        return res.status(403).json({ error: "Unauthorized" })
+      }
+      return res.status(200).json({
+        token: signCohostToken(),
+        expires_in: EVENT3_COHOST_TOKEN_TTL_SECONDS,
+      })
+    }
+
+    // ── Event 4.0 admin/co-host actions ────────────────────────────────────────
     if (action && action.startsWith("e3-")) {
-      console.log(`[E3 AUTH] action=${action}, body.password=${req.body?.password ? `[${req.body.password.length} chars]` : 'MISSING'}, env.EVENT3_PASSWORD=${EVENT3_PASSWORD ? `[${EVENT3_PASSWORD.length} chars]` : 'UNDEFINED'}, match=${req.body?.password === EVENT3_PASSWORD}`)
-      if (req.body?.password !== EVENT3_PASSWORD) return res.status(403).json({ error: "Unauthorized" })
+      const bearerToken = String(req.headers?.authorization || "").replace(/^Bearer\s+/i, "")
+      const isCohostAction = EVENT3_COHOST_ACTIONS.has(action)
+      const hasCohostAccess = isCohostAction && verifyCohostToken(bearerToken || req.body?.cohost_token)
+      const hasAdminAccess = safeSecretEqual(req.body?.password, EVENT3_PASSWORD)
+      if (!hasAdminAccess && !hasCohostAccess) return res.status(403).json({ error: "Unauthorized" })
       try {
         // Helper: fetch current event_id from event_state — prefer STATIC_MATCH_ID (main admin)
         // so event3 stays in sync with the main event system, fall back to EVENT3_MATCH_ID
@@ -7934,6 +8053,135 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         }
         const realEventId = await getE3CurrentEventId()
         const currentEventId = (req.body.preview_event_id && typeof req.body.preview_event_id === "number") ? req.body.preview_event_id : realEventId
+
+        if (action === "e3-cohost-dashboard") {
+          const [{ data: stateRow, error: stateError }, { data: eventParticipants, error: eventParticipantsError }] = await Promise.all([
+            supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration,global_timer_round").eq("match_id", EVENT3_MATCH_ID).maybeSingle(),
+            supabase.from("event3_participants").select("participant_number,position").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).order("position", { ascending: true }),
+          ])
+          if (stateError) return res.status(500).json({ error: stateError.message })
+          if (eventParticipantsError) return res.status(500).json({ error: eventParticipantsError.message })
+
+          const numbers = (eventParticipants || []).map(row => row.participant_number)
+          if (numbers.length === 0) {
+            return res.status(200).json({
+              event_id: currentEventId,
+              state: stateRow || { phase: "setup", global_timer_active: false },
+              participants: [],
+              sos_requests: [],
+            })
+          }
+
+          const [participantResult, assignmentResult, matchResult, rankingResult, attendanceResult, historyResult, legacyHistoryResult, sosResult] = await Promise.all([
+            supabase.from("participants").select("assigned_number,name,age").eq("match_id", STATIC_MATCH_ID).in("assigned_number", numbers),
+            supabase.from("session_assignments").select("participant_id,round,table_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("round", [1, 2, 20, 30]).in("participant_id", numbers),
+            supabase.from("event3_matches").select("participant_number,phase2_partner,phase3_partner").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_number", numbers),
+            supabase.from("participant_rankings").select("ranker_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("ranker_number", numbers),
+            supabase.from("event_attendance").select("participant_number,attended").eq("match_id", STATIC_MATCH_ID).eq("event_id", currentEventId).in("participant_number", numbers),
+            supabase.from("event_attendance").select("participant_number,event_id,attended").eq("match_id", STATIC_MATCH_ID).neq("event_id", currentEventId).in("participant_number", numbers),
+            supabase.from("event3_participants").select("participant_number,event_id").eq("match_id", EVENT3_MATCH_ID).neq("event_id", currentEventId).in("participant_number", numbers),
+            supabase.from("organizer_requests").select("id,event_id,participant_number,participant_name,table_info,message,organizer_reply,status,request_type,created_at,updated_at").or(`event_id.eq.${currentEventId},event_id.is.null`).neq("status", "resolved").order("updated_at", { ascending: false }).limit(100),
+          ])
+          const firstError = [participantResult, assignmentResult, matchResult, rankingResult, attendanceResult, historyResult, legacyHistoryResult, sosResult].find(result => result.error)?.error
+          if (firstError) return res.status(500).json({ error: firstError.message })
+
+          const infoMap = new Map((participantResult.data || []).map(participant => [participant.assigned_number, participant]))
+          const tableMap = {}
+          for (const assignment of assignmentResult.data || []) {
+            if (!tableMap[assignment.participant_id]) tableMap[assignment.participant_id] = {}
+            tableMap[assignment.participant_id][assignment.round] = assignment.table_number
+          }
+          const matchMap = new Map((matchResult.data || []).map(match => [match.participant_number, match]))
+          const rankingSubmitted = new Set((rankingResult.data || []).map(row => row.ranker_number))
+          const attendanceMap = new Map((attendanceResult.data || []).map(row => [row.participant_number, !!row.attended]))
+          const priorEventSets = {}
+          const knownAttendanceKeys = new Set()
+          for (const row of historyResult.data || []) {
+            const key = `${row.participant_number}:${row.event_id}`
+            knownAttendanceKeys.add(key)
+            if (!row.attended) continue
+            if (!priorEventSets[row.participant_number]) priorEventSets[row.participant_number] = new Set()
+            priorEventSets[row.participant_number].add(row.event_id)
+          }
+          for (const row of legacyHistoryResult.data || []) {
+            if (knownAttendanceKeys.has(`${row.participant_number}:${row.event_id}`)) continue
+            if (!priorEventSets[row.participant_number]) priorEventSets[row.participant_number] = new Set()
+            priorEventSets[row.participant_number].add(row.event_id)
+          }
+
+          const participants = numbers.map(number => {
+            const info = infoMap.get(number) || {}
+            const matches = matchMap.get(number) || {}
+            const previousEventCount = priorEventSets[number]?.size || 0
+            return {
+              number,
+              name: info.name || `#${number}`,
+              age: info.age || null,
+              attended: attendanceMap.get(number) || false,
+              previous_event_count: previousEventCount,
+              first_time: previousEventCount === 0,
+              ranking_submitted: rankingSubmitted.has(number),
+              tables: tableMap[number] || {},
+              phase2_partner: matches.phase2_partner || null,
+              phase3_partner: matches.phase3_partner || null,
+            }
+          })
+          const numberSet = new Set(numbers)
+          const sosRequests = (sosResult.data || []).filter(request => numberSet.has(request.participant_number))
+          return res.status(200).json({ event_id: currentEventId, state: stateRow || { phase: "setup", global_timer_active: false }, participants, sos_requests: sosRequests })
+        }
+
+        if (action === "e3-cohost-set-attendance") {
+          const participantNumber = Number(req.body?.participant_number)
+          if (!Number.isInteger(participantNumber) || participantNumber <= 0 || participantNumber === 9999) {
+            return res.status(400).json({ error: "Invalid participant_number" })
+          }
+          const { data: enrolled, error: enrolledError } = await supabase.from("event3_participants").select("id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", participantNumber).maybeSingle()
+          if (enrolledError) return res.status(500).json({ error: enrolledError.message })
+          if (!enrolled) return res.status(404).json({ error: "Participant is not enrolled in the current event" })
+          const { data, error } = await supabase.from("event_attendance").upsert({
+            match_id: STATIC_MATCH_ID,
+            event_id: currentEventId,
+            participant_number: participantNumber,
+            attended: !!req.body?.attended,
+            updated_at: new Date().toISOString(),
+            updated_by: "event3-cohost",
+          }, { onConflict: "match_id,event_id,participant_number" }).select("participant_number,attended").single()
+          if (error) return res.status(500).json({ error: error.message })
+          return res.status(200).json({ success: true, participant_number: data.participant_number, attended: data.attended })
+        }
+
+        if (action === "e3-cohost-resolve-sos" || action === "e3-cohost-reply-sos") {
+          const id = String(req.body?.id || "")
+          if (!id) return res.status(400).json({ error: "id required" })
+          const { data: requestRow, error: requestError } = await supabase.from("organizer_requests").select("id,event_id,participant_number,chat_history").eq("id", id).maybeSingle()
+          if (requestError) return res.status(500).json({ error: requestError.message })
+          if (!requestRow) return res.status(404).json({ error: "Request not found" })
+          if (requestRow.event_id != null && Number(requestRow.event_id) !== Number(currentEventId)) {
+            return res.status(403).json({ error: "Request is outside the current event" })
+          }
+          const { data: enrolled } = await supabase.from("event3_participants").select("id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", requestRow.participant_number).maybeSingle()
+          if (!enrolled) return res.status(403).json({ error: "Request is outside the current event" })
+
+          if (action === "e3-cohost-resolve-sos") {
+            const { error } = await supabase.from("organizer_requests").update({ status: "resolved", updated_at: new Date().toISOString() }).eq("id", id)
+            if (error) return res.status(500).json({ error: error.message })
+            return res.status(200).json({ success: true })
+          }
+
+          const reply = String(req.body?.reply || "").trim().slice(0, 1000)
+          if (!reply) return res.status(400).json({ error: "reply required" })
+          const now = new Date().toISOString()
+          const chatHistory = Array.isArray(requestRow.chat_history) ? requestRow.chat_history : []
+          const { error } = await supabase.from("organizer_requests").update({
+            organizer_reply: reply,
+            status: "replied",
+            chat_history: [...chatHistory, { from: "organizer", text: reply, timestamp: now }],
+            updated_at: now,
+          }).eq("id", id)
+          if (error) return res.status(500).json({ error: error.message })
+          return res.status(200).json({ success: true })
+        }
 
         // e3-set-current-event — switch to a different event (e.g. 20 → 21)
         if (action === "e3-set-current-event") {
@@ -8047,6 +8295,57 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             }
           }
 
+          // 6. Multi-event runtime schema required by returning attendees and co-host SOS.
+          const [{ error: rankingSchemaError }, { error: sosSchemaError }] = await Promise.all([
+            supabase.from("participant_rankings").select("event_id").limit(1),
+            supabase.from("organizer_requests").select("event_id").limit(1),
+          ])
+          if (rankingSchemaError || sosSchemaError) {
+            checks.push({ name: "event_runtime_schema", status: "fail", message: rankingSchemaError?.message || sosSchemaError?.message })
+            healthy = false
+          } else {
+            checks.push({ name: "event_runtime_schema", status: "ok", message: "Ranking and organizer-request event scope is available" })
+          }
+
+          // 7. If one-to-one matches already exist, confirm every reciprocal
+          // pair shares one table and no one-to-one table contains extra people.
+          const [{ data: diagnosticMatches, error: diagnosticMatchesError }, { data: diagnosticAssignments, error: diagnosticAssignmentsError }] = await Promise.all([
+            supabase.from("event3_matches").select("participant_number,phase2_partner,phase3_partner").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
+            supabase.from("session_assignments").select("participant_id,round,table_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("round", [20, 30]),
+          ])
+          if (diagnosticMatchesError || diagnosticAssignmentsError) {
+            checks.push({ name: "one_to_one_tables", status: "fail", message: diagnosticMatchesError?.message || diagnosticAssignmentsError?.message })
+            healthy = false
+          } else {
+            const matchesByNumber = new Map((diagnosticMatches || []).map(row => [row.participant_number, row]))
+            for (const { phase, round } of [{ phase: "phase2", round: 20 }, { phase: "phase3", round: 30 }]) {
+              const partnerField = `${phase}_partner`
+              const matchedRows = (diagnosticMatches || []).filter(row => row[partnerField])
+              if (matchedRows.length === 0) {
+                checks.push({ name: `${phase}_tables`, status: "ok", message: `${phase} matches have not been created yet` })
+                continue
+              }
+              const assignments = (diagnosticAssignments || []).filter(row => row.round === round)
+              const assignmentByParticipant = new Map(assignments.map(row => [row.participant_id, row.table_number]))
+              const tableCounts = {}
+              for (const assignment of assignments) tableCounts[assignment.table_number] = (tableCounts[assignment.table_number] || 0) + 1
+              const problems = []
+              for (const row of matchedRows) {
+                const partner = row[partnerField]
+                const reciprocal = matchesByNumber.get(partner)?.[partnerField] === row.participant_number
+                const myTable = assignmentByParticipant.get(row.participant_number)
+                const partnerTable = assignmentByParticipant.get(partner)
+                if (!reciprocal || !myTable || myTable !== partnerTable || tableCounts[myTable] !== 2) problems.push(row.participant_number)
+              }
+              if (problems.length > 0) {
+                checks.push({ name: `${phase}_tables`, status: "fail", message: `${new Set(problems).size} participants have missing, non-reciprocal, or shared one-to-one tables` })
+                healthy = false
+              } else {
+                checks.push({ name: `${phase}_tables`, status: "ok", message: `${matchedRows.length / 2} reciprocal pairs have valid two-person tables` })
+              }
+            }
+          }
+
           return res.status(200).json({ healthy, checks })
         }
 
@@ -8134,7 +8433,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const moodCounts = { good: 0, neutral: 0, bad: 0, unanswered: 0 }
           for (const m of (moodRows || [])) {
             if (m.mood === "good" || m.mood === "happy") moodCounts.good++
-            else if (m.mood === "bad" || m.mood === "sad") moodCounts.bad++
+            else if (m.mood === "bad" || m.mood === "sad" || m.mood === "not_great") moodCounts.bad++
             else if (m.mood === "neutral") moodCounts.neutral++
             else moodCounts.unanswered++
           }
@@ -8537,6 +8836,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             rows.push({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, participant_number: p, phase2_partner: partner, phase2_score: score, phase3_partner: exP.phase3_partner || null, phase3_score: exP.phase3_score || null, phase3_word: exP.phase3_word || null, phase2_word: exP.phase2_word || null, phase2_feedback: exP.phase2_feedback || null, phase3_feedback: exP.phase3_feedback || null, match_preference: exP.match_preference || null })
             rows.push({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, participant_number: partner, phase2_partner: p, phase2_score: score, phase3_partner: exPartner.phase3_partner || null, phase3_score: exPartner.phase3_score || null, phase3_word: exPartner.phase3_word || null, phase2_word: exPartner.phase2_word || null, phase2_feedback: exPartner.phase2_feedback || null, phase3_feedback: exPartner.phase3_feedback || null, match_preference: exPartner.match_preference || null })
           }
+          if (pairs.length === 0) return res.status(400).json({ error: "No valid Phase 2 pairs could be created. Review attendance, rankings, and exclusions." })
           const { error } = await supabase.from("event3_matches").upsert(rows, { onConflict: "match_id,event_id,participant_number" })
           if (error) return res.status(500).json({ error: error.message })
           // Null out phase2_partner/phase2_score for participants not in the new pairing
@@ -8545,16 +8845,24 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           if (unmatchedNums.length > 0) {
             await supabase.from("event3_matches").update({ phase2_partner: null, phase2_score: null }).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_number", unmatchedNums)
           }
-          // Assign each pair a table (pair index + 1) stored as round=20
-          await supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("round", 20)
-          const tableRows = []
-          pairs.forEach(({ a, b }, idx) => {
-            const tbl = idx + 1
-            tableRows.push({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, round: 20, table_number: tbl, participant_id: a })
-            tableRows.push({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, round: 20, table_number: tbl, participant_id: b })
+          // Assign physical tables with a gentle first-timer/age priority. The
+          // requested preferred tables are used first; pairs where both people
+          // attended multiple prior events are the first candidates for 17+.
+          const tablePlan = await e3BuildPriorityTablePlan(pairs, currentEventId)
+          const { error: deleteTablesError } = await supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("round", 20)
+          if (deleteTablesError) return res.status(500).json({ error: deleteTablesError.message })
+          const tableRows = tablePlan.flatMap(({ a, b, table }) => [
+            { match_id: EVENT3_MATCH_ID, event_id: currentEventId, round: 20, table_number: table, participant_id: a },
+            { match_id: EVENT3_MATCH_ID, event_id: currentEventId, round: 20, table_number: table, participant_id: b },
+          ])
+          const { error: insertTablesError } = await supabase.from("session_assignments").insert(tableRows)
+          if (insertTablesError) return res.status(500).json({ error: `Matches were created, but table assignment failed: ${insertTablesError.message}` })
+          const preferredCount = tablePlan.filter(pair => pair.table <= 16 && ![3, 6, 7, 13, 14].includes(pair.table)).length
+          const veteranOverflowCount = tablePlan.filter(pair => pair.priority.bothFrequent && pair.table > 16).length
+          return res.status(200).json({
+            message: `Phase 2 matching complete. Created ${pairs.length} pairs across ${pairs.length} prioritized tables.`,
+            table_summary: { preferred_count: preferredCount, frequent_pairs_above_16: veteranOverflowCount },
           })
-          await supabase.from("session_assignments").insert(tableRows)
-          return res.status(200).json({ message: `Phase 2 matching complete. Created ${pairs.length} pairs across ${pairs.length} tables.` })
         }
         // e3-trigger-phase3-matching (uses locked matches — no recalculation)
         if (action === "e3-trigger-phase3-matching") {
@@ -8698,38 +9006,45 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           }
           } // end normal mode
 
+          if (matches.length === 0) return res.status(400).json({ error: "No valid Phase 3 pairs could be created. Review locked matches, rankings, and exclusions." })
+
           // Clear old phase3 data for all event3 participants
-          await supabase.from("event3_matches").update({ phase3_partner: null, phase3_score: null }).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_number", nums)
+          const { error: clearPhase3Error } = await supabase.from("event3_matches").update({ phase3_partner: null, phase3_score: null }).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_number", nums)
+          if (clearPhase3Error) return res.status(500).json({ error: clearPhase3Error.message })
 
           // Store results — upsert phase3 partner for each matched pair
-          for (const pair of matches) {
-            await supabase.from("event3_matches").upsert({
+          const phase3Rows = matches.flatMap(pair => [
+            {
               match_id: EVENT3_MATCH_ID,
               event_id: currentEventId,
               participant_number: pair.a,
               phase3_partner: pair.b,
               phase3_score: pair.score,
-            }, { onConflict: "match_id,event_id,participant_number" })
-            await supabase.from("event3_matches").upsert({
+            },
+            {
               match_id: EVENT3_MATCH_ID,
               event_id: currentEventId,
               participant_number: pair.b,
               phase3_partner: pair.a,
               phase3_score: pair.score,
-            }, { onConflict: "match_id,event_id,participant_number" })
-          }
+            },
+          ])
+          const { error: storePhase3Error } = await supabase.from("event3_matches").upsert(phase3Rows, { onConflict: "match_id,event_id,participant_number" })
+          if (storePhase3Error) return res.status(500).json({ error: storePhase3Error.message })
 
-          // Create round 30 session_assignments for phase3 pairs (algorithm 1:1 tables)
-          await supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("round", 30)
-          const tableRows = []
-          matches.forEach(({ a, b }, idx) => {
-            const tbl = idx + 1
-            tableRows.push({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, round: 30, table_number: tbl, participant_id: a })
-            tableRows.push({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, round: 30, table_number: tbl, participant_id: b })
-          })
+          // Create round 30 assignments with the same fair physical-table
+          // priority used for Phase 2.
+          const tablePlan = await e3BuildPriorityTablePlan(matches, currentEventId)
+          const { error: deleteTablesError } = await supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("round", 30)
+          if (deleteTablesError) return res.status(500).json({ error: deleteTablesError.message })
+          const tableRows = tablePlan.flatMap(({ a, b, table }) => [
+            { match_id: EVENT3_MATCH_ID, event_id: currentEventId, round: 30, table_number: table, participant_id: a },
+            { match_id: EVENT3_MATCH_ID, event_id: currentEventId, round: 30, table_number: table, participant_id: b },
+          ])
           if (tableRows.length > 0) {
-            await supabase.from("session_assignments").insert(tableRows)
-            console.log(`Phase 3 (locked): Created ${matches.length} table assignments for round 30`)
+            const { error: insertTablesError } = await supabase.from("session_assignments").insert(tableRows)
+            if (insertTablesError) return res.status(500).json({ error: `Matches were created, but table assignment failed: ${insertTablesError.message}` })
+            console.log(`Phase 3 (locked): Created ${matches.length} prioritized table assignments for round 30`)
           }
 
           const stillUnmatchedCount = nums.filter(n => !used.has(n)).length
@@ -8770,7 +9085,10 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const hasRanking = new Set((existingRanks || []).map(r => r.ranker_number))
           const missing = selected.filter(n => !hasRanking.has(n))
           if (missing.length === 0) return res.status(200).json({ message: "All participants already have rankings", saved: 0 })
-          const { data: allAssignments } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_id", missing).lte("round", 2)
+          // Load every selected attendee at the relevant tables. Filtering this
+          // query to only the missing rankers drops tablemates who already
+          // submitted, producing incomplete auto-saved rankings.
+          const { data: allAssignments } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_id", selected).in("round", [1, 2])
           if (!allAssignments || allAssignments.length === 0) return res.status(400).json({ error: "No session assignments found for missing participants" })
           const rows = []
           for (const myNum of missing) {
@@ -8785,7 +9103,8 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             for (let i = 0; i < mates.length; i++) rows.push({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, ranker_number: myNum, ranked_number: mates[i], rank: i + 1, auto_saved: true })
           }
           if (rows.length > 0) { const { error } = await supabase.from("participant_rankings").insert(rows); if (error) return res.status(500).json({ error: error.message }) }
-          return res.status(200).json({ message: `Auto-saved rankings for ${missing.length} participants (${rows.length} entries)`, saved: missing.length })
+          const savedCount = new Set(rows.map(row => row.ranker_number)).size
+          return res.status(200).json({ message: `Auto-saved rankings for ${savedCount} participants (${rows.length} entries)`, saved: savedCount })
         }
         // e3-reset-ranking — delete all rankings for one participant (reset to unranked)
         if (action === "e3-reset-ranking") {
@@ -9053,6 +9372,11 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             const pairTable3 = phase3TableMap[a] || phase3TableMap[b] || null
             phase3Pairs.push({ a, aName: ai.name || `#${a}`, aGender: ai.gender, b, bName: bi.name || `#${b}`, bGender: bi.gender, compatScore: compatScore3, storedScore: storedScore3, compat: compat3, bothComplete: bothComplete3, locked: lockedPairKeys.has(lockedKey), table: pairTable3 })
           }
+          const priorityPlan = await e3BuildPriorityTablePlan([...pairs, ...phase3Pairs], currentEventId)
+          const priorityByPair = new Map(priorityPlan.map(item => [`${Math.min(item.a, item.b)}-${Math.max(item.a, item.b)}`, item.priority]))
+          for (const pair of [...pairs, ...phase3Pairs]) {
+            pair.tablePriority = priorityByPair.get(`${Math.min(pair.a, pair.b)}-${Math.max(pair.a, pair.b)}`) || null
+          }
           return res.status(200).json({ pairs, phase3Pairs })
         }
         // e3-set-ranking (admin override for one participant's ranking list)
@@ -9094,35 +9418,54 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         // e3-move-table (reassign one participant to a different table in one round)
         if (action === "e3-move-table") {
           const { participant_number, round, new_table } = req.body
-          if (!participant_number || !round || !new_table) return res.status(400).json({ error: "participant_number, round, new_table required" })
-          const { error } = await supabase.from("session_assignments")
-            .update({ table_number: parseInt(new_table) })
+          const participantNumber = Number(participant_number)
+          const assignmentRound = Number(round)
+          const tableNumber = Number(new_table)
+          if (!Number.isInteger(participantNumber) || participantNumber <= 0 || participantNumber === 9999) return res.status(400).json({ error: "Invalid participant_number" })
+          if (![1, 2, 20, 30].includes(assignmentRound)) return res.status(400).json({ error: "Round must be 1, 2, 20, or 30" })
+          if (!Number.isInteger(tableNumber) || tableNumber <= 0 || tableNumber > 99) return res.status(400).json({ error: "new_table must be between 1 and 99" })
+          const { data: updatedRows, error } = await supabase.from("session_assignments")
+            .update({ table_number: tableNumber })
             .eq("match_id", EVENT3_MATCH_ID)
             .eq("event_id", currentEventId)
-            .eq("participant_id", parseInt(participant_number))
-            .eq("round", parseInt(round))
+            .eq("participant_id", participantNumber)
+            .eq("round", assignmentRound)
+            .select("id")
           if (error) return res.status(500).json({ error: error.message })
-          return res.status(200).json({ message: `Moved #${participant_number} to table ${new_table} in round ${round}` })
+          if (!updatedRows?.length) return res.status(404).json({ error: `No round ${assignmentRound} assignment found for #${participantNumber}` })
+          return res.status(200).json({ message: `Moved #${participantNumber} to table ${tableNumber} in round ${assignmentRound}` })
         }
-        // e3-swap-seating (swap two participants across all rounds in session_assignments)
+        // e3-swap-seating (swap two participants across the two group rounds).
+        // One-to-one rounds are deliberately excluded because moving seats there
+        // without changing reciprocal match rows would separate partners.
         if (action === "e3-swap-seating") {
-          const { num_a, num_b } = req.body
-          if (!num_a || !num_b || num_a === num_b) return res.status(400).json({ error: "Two different participant numbers required" })
-          const { data: rowsA } = await supabase.from("session_assignments").select("id,round,table_number,event_id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_id", num_a)
-          const { data: rowsB } = await supabase.from("session_assignments").select("id,round,table_number,event_id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_id", num_b)
+          const numA = Number(req.body.num_a)
+          const numB = Number(req.body.num_b)
+          if (!Number.isInteger(numA) || !Number.isInteger(numB) || numA <= 0 || numB <= 0 || numA === numB || numA === 9999 || numB === 9999) return res.status(400).json({ error: "Two different participant numbers required" })
+          const [rowsAResult, rowsBResult] = await Promise.all([
+            supabase.from("session_assignments").select("id,round,table_number,event_id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_id", numA).in("round", [1, 2]),
+            supabase.from("session_assignments").select("id,round,table_number,event_id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_id", numB).in("round", [1, 2]),
+          ])
+          if (rowsAResult.error || rowsBResult.error) return res.status(500).json({ error: rowsAResult.error?.message || rowsBResult.error?.message })
+          const rowsA = rowsAResult.data || []
+          const rowsB = rowsBResult.data || []
           if (!rowsA?.length && !rowsB?.length) return res.status(404).json({ error: "Neither participant found in session assignments" })
           // Delete both first to avoid unique constraint violations, then re-insert with swapped IDs
-          if (rowsA?.length) await supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_id", num_a)
-          if (rowsB?.length) await supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_id", num_b)
+          const deleteResults = await Promise.all([
+            rowsA.length ? supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_id", numA).in("round", [1, 2]) : Promise.resolve({ error: null }),
+            rowsB.length ? supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_id", numB).in("round", [1, 2]) : Promise.resolve({ error: null }),
+          ])
+          const deleteError = deleteResults.find(result => result.error)?.error
+          if (deleteError) return res.status(500).json({ error: deleteError.message })
           const newRows = [
-            ...(rowsA || []).map(r => ({ match_id: EVENT3_MATCH_ID, event_id: r.event_id || currentEventId, round: r.round, table_number: r.table_number, participant_id: num_b })),
-            ...(rowsB || []).map(r => ({ match_id: EVENT3_MATCH_ID, event_id: r.event_id || currentEventId, round: r.round, table_number: r.table_number, participant_id: num_a }))
+            ...rowsA.map(r => ({ match_id: EVENT3_MATCH_ID, event_id: r.event_id || currentEventId, round: r.round, table_number: r.table_number, participant_id: numB })),
+            ...rowsB.map(r => ({ match_id: EVENT3_MATCH_ID, event_id: r.event_id || currentEventId, round: r.round, table_number: r.table_number, participant_id: numA }))
           ]
           if (newRows.length > 0) {
             const { error } = await supabase.from("session_assignments").insert(newRows)
             if (error) return res.status(500).json({ error: error.message })
           }
-          return res.status(200).json({ message: `Swapped #${num_a} ↔ #${num_b} in all rounds` })
+          return res.status(200).json({ message: `Swapped #${numA} ↔ #${numB} in group rounds 1 and 2` })
         }
         // e3-clear-rankings
         if (action === "e3-clear-rankings") {
@@ -9132,7 +9475,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         }
         // e3-get-sos — get all organizer requests
         if (action === "e3-get-sos") {
-          const { data, error } = await supabase.from("organizer_requests").select("*").order("updated_at", { ascending: false })
+          const { data, error } = await supabase.from("organizer_requests").select("*").or(`event_id.eq.${currentEventId},event_id.is.null`).order("updated_at", { ascending: false })
           if (error) return res.status(500).json({ error: error.message })
           return res.status(200).json({ requests: data || [] })
         }
@@ -9150,6 +9493,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const { data: existing } = await supabase.from("organizer_requests")
             .select("id,chat_history")
             .eq("participant_token", pRow.secure_token)
+            .or(`event_id.eq.${currentEventId},event_id.is.null`)
             .neq("status", "resolved")
             .order("created_at", { ascending: false })
             .limit(1)
@@ -9164,7 +9508,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           }
           // Create new organizer-initiated request
           const { data: inserted, error: insErr } = await supabase.from("organizer_requests").insert({
-            participant_token: pRow.secure_token, participant_number, participant_name: pName,
+            event_id: currentEventId, participant_token: pRow.secure_token, participant_number, participant_name: pName,
             table_info: "رسالة من المنظم", message: null, organizer_reply: message, status: "replied",
             request_type: "chat", chat_history: [chatEntry]
           }).select("id").single()
@@ -9176,7 +9520,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const { id, reply, status: newStatus } = req.body
           if (!id) return res.status(400).json({ error: "id required" })
           if (newStatus === 'resolved') {
-            const { error } = await supabase.from("organizer_requests").delete().eq("id", id)
+            const { error } = await supabase.from("organizer_requests").update({ status: "resolved", updated_at: new Date().toISOString() }).eq("id", id).or(`event_id.eq.${currentEventId},event_id.is.null`)
             if (error) return res.status(500).json({ error: error.message })
             return res.status(200).json({ message: "تم الحذف" })
           }
@@ -9195,13 +9539,13 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         }
         // e3-sos-mark-seen — mark all pending requests as seen
         if (action === "e3-sos-mark-seen") {
-          const { error } = await supabase.from("organizer_requests").update({ status: "seen", updated_at: new Date().toISOString() }).eq("status", "pending")
+          const { error } = await supabase.from("organizer_requests").update({ status: "seen", updated_at: new Date().toISOString() }).eq("status", "pending").or(`event_id.eq.${currentEventId},event_id.is.null`)
           if (error) return res.status(500).json({ error: error.message })
           return res.status(200).json({ message: "تم التعليم كمشاهَد" })
         }
         // e3-reset-sos — delete all organizer requests
         if (action === "e3-reset-sos") {
-          const { error } = await supabase.from("organizer_requests").delete().neq("id", "00000000-0000-0000-0000-000000000000")
+          const { error } = await supabase.from("organizer_requests").delete().or(`event_id.eq.${currentEventId},event_id.is.null`)
           if (error) return res.status(500).json({ error: error.message })
           return res.status(200).json({ message: "تم حذف جميع الطلبات" })
         }
@@ -9559,19 +9903,20 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           }
 
           // If phase2, also swap table assignments in round=20
-          if (phase === "phase2") {
-            const { data: missingTable } = await supabase.from("session_assignments").select("id,table_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("round", 20).eq("participant_id", missing_participant).maybeSingle()
-            const { data: replacementTable } = await supabase.from("session_assignments").select("id,table_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("round", 20).eq("participant_id", replacement_participant).maybeSingle()
+          {
+            const assignmentRound = phase === "phase2" ? 20 : 30
+            const { data: missingTable } = await supabase.from("session_assignments").select("id,table_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("round", assignmentRound).eq("participant_id", missing_participant).maybeSingle()
+            const { data: replacementTable } = await supabase.from("session_assignments").select("id,table_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("round", assignmentRound).eq("participant_id", replacement_participant).maybeSingle()
 
             if (missingTable && replacementTable) {
               await supabase.from("session_assignments").update({ table_number: replacementTable.table_number }).eq("id", missingTable.id)
               await supabase.from("session_assignments").update({ table_number: missingTable.table_number }).eq("id", replacementTable.id)
             } else if (missingTable && !replacementTable) {
               await supabase.from("session_assignments").delete().eq("id", missingTable.id)
-              await supabase.from("session_assignments").insert({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, round: 20, table_number: missingTable.table_number, participant_id: replacement_participant })
+              await supabase.from("session_assignments").insert({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, round: assignmentRound, table_number: missingTable.table_number, participant_id: replacement_participant })
             } else if (!missingTable && replacementTable) {
               await supabase.from("session_assignments").delete().eq("id", replacementTable.id)
-              await supabase.from("session_assignments").insert({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, round: 20, table_number: replacementTable.table_number, participant_id: missing_participant })
+              await supabase.from("session_assignments").insert({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, round: assignmentRound, table_number: replacementTable.table_number, participant_id: missing_participant })
             }
           }
 
@@ -9766,6 +10111,7 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             supabase.from("event3_mood_checks").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
             supabase.from("event3_notifications").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
             supabase.from("event3_ai_welcome_messages").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
+            supabase.from("organizer_requests").delete().eq("event_id", currentEventId),
           ])
           await supabase.from("event3_matches")
             .update({ phase2_feedback: null, phase3_feedback: null, phase2_word: null, phase3_word: null, match_preference: null })

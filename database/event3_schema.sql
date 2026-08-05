@@ -204,10 +204,11 @@ CREATE TABLE IF NOT EXISTS public.participant_rankings (
   rank integer NOT NULL,              -- 1 = top choice
   submitted_at timestamptz DEFAULT now(),
   auto_saved boolean NOT NULL DEFAULT false,  -- true if saved by timer auto-save
-  CONSTRAINT participant_rankings_unique UNIQUE (match_id, ranker_number, ranked_number)
+  CONSTRAINT participant_rankings_event_unique UNIQUE (match_id, event_id, ranker_number, ranked_number)
 );
 
 CREATE INDEX IF NOT EXISTS idx_participant_rankings_match_ranker ON public.participant_rankings(match_id, ranker_number);
+CREATE INDEX IF NOT EXISTS idx_participant_rankings_match_event_ranker ON public.participant_rankings(match_id, event_id, ranker_number);
 
 -- =============================================================
 -- organizer_requests
@@ -215,6 +216,7 @@ CREATE INDEX IF NOT EXISTS idx_participant_rankings_match_ranker ON public.parti
 -- =============================================================
 CREATE TABLE IF NOT EXISTS public.organizer_requests (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id integer,
   participant_token text NOT NULL,
   participant_number integer,
   participant_name text,
@@ -231,3 +233,4 @@ CREATE TABLE IF NOT EXISTS public.organizer_requests (
 CREATE INDEX IF NOT EXISTS idx_organizer_requests_token ON public.organizer_requests(participant_token);
 CREATE INDEX IF NOT EXISTS idx_organizer_requests_status ON public.organizer_requests(status);
 CREATE INDEX IF NOT EXISTS idx_organizer_requests_type ON public.organizer_requests(request_type);
+CREATE INDEX IF NOT EXISTS idx_organizer_requests_event_status ON public.organizer_requests(event_id, status, updated_at DESC);

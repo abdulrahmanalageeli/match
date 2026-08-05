@@ -3,7 +3,7 @@ import { useId } from "react"
 import { GroupsPage } from "./groups"
 import { useSearchParams } from "react-router"
 import toast, { Toaster } from "react-hot-toast"
-import { motion, AnimatePresence, Reorder, MotionConfig, useReducedMotion } from "framer-motion"
+import { motion, AnimatePresence, Reorder, MotionConfig, useDragControls, useReducedMotion } from "framer-motion"
 
 async function fireConfetti(opts: any) {
   try {
@@ -154,12 +154,37 @@ async function createAiWelcomeImage(message: string): Promise<Blob> {
 
 const API = "/api/participant"
 
-function call(action: string, token: string | null, extra: Record<string, any> = {}) {
-  return fetch(API, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action, token, ...extra }),
-  }).then(r => r.json())
+async function call(action: string, token: string | null, extra: Record<string, any> = {}) {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 15000)
+  try {
+    const response = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, token, ...extra }),
+      signal: controller.signal,
+    })
+    const contentType = response.headers.get("content-type") || ""
+    if (!contentType.includes("application/json")) {
+      return { error: "تعذّر الاتصال بخدمة الفعالية. حاول مرة أخرى." }
+    }
+    const data = await response.json().catch(() => null)
+    if (!data || typeof data !== "object") {
+      return { error: "وصل رد غير متوقع. حاول مرة أخرى." }
+    }
+    if (!response.ok && !data.error) {
+      return { ...data, error: "تعذّر إكمال الطلب. حاول مرة أخرى." }
+    }
+    return data
+  } catch (error: any) {
+    return {
+      error: error?.name === "AbortError"
+        ? "استغرق الاتصال وقتاً طويلاً. تحقق من الشبكة وحاول مرة أخرى."
+        : "تعذّر الاتصال. تحقق من الشبكة وحاول مرة أخرى."
+    }
+  } finally {
+    clearTimeout(timeout)
+  }
 }
 
 // ─── "Arrived at table" tracking (sessionStorage, event-specific) ────────────
@@ -309,8 +334,10 @@ function useApiPoll<T>(
       if (active && !stopped.current) timeout = setTimeout(tick, currentInterval.current)
     }
 
-    fetchOnce()
-    timeout = setTimeout(tick, interval)
+    // Let the first request finish before scheduling the next one. Starting a
+    // second fixed timer here could overlap slow mobile-network requests and
+    // apply stale responses out of order.
+    tick()
 
     const onVisibility = () => {
       if (!document.hidden && !stopped.current) {
@@ -1522,7 +1549,7 @@ function OnePopup({ onClose, accent, icon, label, title, points, cta = "فهمت
   return (
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[500] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6"
+      className="fixed inset-0 z-[500] bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6"
       dir="rtl"
     >
       <motion.div
@@ -1532,7 +1559,7 @@ function OnePopup({ onClose, accent, icon, label, title, points, cta = "فهمت
         aria-labelledby={titleId}
         initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 24, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ type: "spring", stiffness: 300, damping: 26 }}
-        className={`relative bg-gray-900/95 border border-gray-700/50 rounded-3xl p-6 max-w-xs w-full text-center overflow-hidden ring-1 ${ring}`}
+        className={`relative bg-gray-900/95 border border-gray-700/50 rounded-3xl p-4 sm:p-6 max-w-xs w-full max-h-[calc(100dvh-1.5rem)] text-center overflow-hidden ring-1 ${ring} flex flex-col`}
       >
         {/* Close */}
         <button onClick={onClose} aria-label="إغلاق التذكير" className="absolute top-3 left-3 w-9 h-9 rounded-full bg-gray-800/80 flex items-center justify-center text-gray-400 hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
@@ -1540,24 +1567,24 @@ function OnePopup({ onClose, accent, icon, label, title, points, cta = "فهمت
         </button>
 
         {/* Label chip */}
-        <span className={`inline-flex items-center gap-1.5 ${chipBg} border rounded-full px-3 py-1 text-xs font-black tracking-wide mb-3`}>
+        <span className={`inline-flex self-center shrink-0 items-center gap-1.5 ${chipBg} border rounded-full px-3 py-1 text-xs font-black tracking-wide mb-2 sm:mb-3`}>
           <Lightbulb size={12} /> {label}
         </span>
 
         {/* Icon */}
-        <div className="relative mx-auto w-fit mb-3">
+        <div className="relative mx-auto w-fit mb-2 sm:mb-3 shrink-0">
           <motion.div className="absolute inset-0 rounded-2xl border-2 border-current opacity-20"
             animate={reduceMotion ? { opacity: 0.2 } : { scale: [1, 1.3, 1], opacity: [0.3, 0, 0.3] }} transition={{ duration: 2.5, repeat: Infinity }} style={{ color: "currentColor" }} />
-          <div className="w-14 h-14 rounded-2xl bg-gray-800/80 border border-gray-700/50 flex items-center justify-center">{icon}</div>
+          <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-gray-800/80 border border-gray-700/50 flex items-center justify-center">{icon}</div>
         </div>
 
-        <h2 id={titleId} className="text-white font-black text-lg mb-3">{title}</h2>
+        <h2 id={titleId} className="text-white font-black text-lg mb-2 sm:mb-3 shrink-0">{title}</h2>
 
         {/* Points */}
-        <div className="space-y-2 text-right mb-5">
+        <div className="space-y-1.5 sm:space-y-2 text-right mb-3 sm:mb-5 min-h-0 overflow-y-auto overscroll-contain pr-0.5">
           {points.map((p, i) => (
             <motion.div key={i} initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 + i * 0.08 }}
-              className="flex items-start gap-2.5 bg-white/[0.03] border border-white/[0.06] rounded-xl px-3 py-2">
+              className="flex items-start gap-2 bg-white/[0.03] border border-white/[0.06] rounded-xl px-2.5 sm:px-3 py-1.5 sm:py-2">
               <span className="shrink-0 mt-0.5">{p.icon}</span>
               <p className="text-gray-300 text-[12px] leading-relaxed flex-1">{p.text}</p>
             </motion.div>
@@ -1565,10 +1592,10 @@ function OnePopup({ onClose, accent, icon, label, title, points, cta = "فهمت
         </div>
 
         <motion.button whileTap={{ scale: 0.96 }} onClick={onClose}
-          className={`w-full bg-gradient-to-r ${grad} ${ctaText} rounded-xl py-3 font-black text-sm shadow-lg shadow-black/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300`}>
+          className={`w-full shrink-0 bg-gradient-to-r ${grad} ${ctaText} rounded-xl py-3 font-black text-sm shadow-lg shadow-black/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300`}>
           {cta}
         </motion.button>
-        <p className="text-gray-500 text-xs mt-2">شاهدت الشرح الكامل في البداية — هذا تذكير سريع فقط</p>
+        <p className="text-gray-500 text-[10px] sm:text-xs mt-1.5 shrink-0">شاهدت الشرح الكامل في البداية — هذا تذكير سريع فقط</p>
       </motion.div>
     </motion.div>
   )
@@ -1930,6 +1957,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
 }) {
   const round = parseInt(phase.replace("round", "")) || 1
   const [assignment, setAssignment] = useState<any>(null)
+  const [assignmentError, setAssignmentError] = useState("")
   const [timeLeft, setTimeLeft] = useState(0)
   const [showGroups, setShowGroups] = useState(false)
   const [groupsHaveOpened, setGroupsHaveOpened] = useState(false)
@@ -1964,9 +1992,14 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
     oneMinSublabel: "خلصوا النشاط وتأكدوا من أسماء الجميع — الترتيب يبدأ بعد دقيقة ومحدد بوقت"
   })
 
-  useEffect(() => {
-    call("e3-get-assignment", token, { round }).then(d => { if (!d.error) setAssignment(d) })
+  const loadAssignment = useCallback(async () => {
+    setAssignmentError("")
+    const data = await call("e3-get-assignment", token, { round })
+    if (data.error) { setAssignmentError(data.error); return }
+    setAssignment(data)
   }, [token, round])
+
+  useEffect(() => { loadAssignment() }, [loadAssignment])
 
   useEffect(() => {
     if (!timerActive || !timerStart) { setTimeLeft(0); return }
@@ -2155,6 +2188,15 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
               )}
               </GlassCard>
             </motion.div>
+          ) : assignmentError ? (
+            <GlassCard className="p-8 flex flex-col items-center gap-3 border border-red-500/20">
+              <MapPin size={26} className="text-red-300" />
+              <p className="text-white text-sm font-bold">لم نجد طاولتك لهذه الجولة</p>
+              <p className="text-gray-500 text-xs leading-5">أخبر المنظم برقمك، ثم اضغط إعادة المحاولة.</p>
+              <button onClick={loadAssignment} className="mt-1 flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white/[0.06] px-5 text-xs font-bold text-white">
+                <RefreshCw size={13} /> إعادة المحاولة
+              </button>
+            </GlassCard>
           ) : (
             <GlassCard className="p-10 flex flex-col items-center gap-3">
               <Spinner size={22} />
@@ -2170,8 +2212,9 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
           {/* Groups button */}
           <motion.button
             onClick={openGroups}
+            disabled={!assignment}
             initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
-            className={`group flex items-center gap-3 w-full p-4 rounded-2xl text-right transition-all text-white bg-gradient-to-r ${RC.bar} shadow-lg shadow-black/25 border border-white/[0.08] hover:brightness-110 active:scale-[0.98]`}
+            className={`group flex items-center gap-3 w-full p-4 rounded-2xl text-right transition-all text-white bg-gradient-to-r ${RC.bar} shadow-lg shadow-black/25 border border-white/[0.08] hover:brightness-110 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none`}
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15 ring-1 ring-white/20">
               <Target size={19} />
@@ -2267,11 +2310,44 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
       points={[
         { icon: <Trophy size={14} className="text-amber-400" />, text: <>اسحب البطاقات لترتيب من <span className="text-white font-bold">الأعلى اهتماماً</span> للأقل — الأول هو أولويتك القصوى</> },
         { icon: <Heart size={14} className="text-emerald-400" />, text: <>إذا رتّبت شخصًا <span className="text-white font-bold">#1</span> ورتّبك هو أيضًا <span className="text-white font-bold">#1</span> ← تطابق مثالي وجلسة فردية!</> },
-        { icon: <Sparkles size={14} className="text-cyan-400" />, text: <>الترتيب مو لازم يكون متبادل عشان تتطابقون. مثلاً، تقدر تحط شخص في المركز الأول عندك، وهو يحطك في المركز الثالث عنده؛ وبرضو تتطابقون! كيف؟ لأن اللي كان مرتبته الأول والثاني عنده ما قدروا يتطابقون (يمكن حطوا أشخاص ثانين فوقه في ترتيبهم)، فالنظام يرجع لأعلى خيار متاح له، وهنا يوصل لك.</> },
+        { icon: <Sparkles size={14} className="text-cyan-400" />, text: <>مو لازم تكونوا بنفس المركز: ممكن ترتبه أول وهو يرتبك ثالث، ويختار النظام أعلى تطابق متاح للطرفين</> },
         { icon: <Handshake size={14} className="text-purple-400" />, text: <>التطابق يجب أن يكون <span className="text-white font-bold">متبادلاً</span> — ترتيبك وحده لا يكفي، الطرفان يجب أن يتقاربا</> },
         { icon: <Users size={14} className="text-pink-400" />, text: <>نتيجتك: <span className="text-white font-bold">جلستان فرديتان</span> — واحدة من اختيارك وواحدة يختارها النظام بناءً على التوافق</> },
       ]}
     />
+  )
+}
+
+function RankingReorderCard({
+  value,
+  disabled,
+  className,
+  whileDrag,
+  children,
+}: {
+  value: number
+  disabled: boolean
+  className: string
+  whileDrag?: Record<string, string | number>
+  children: (startDrag: (event: React.PointerEvent<HTMLElement>) => void) => React.ReactNode
+}) {
+  const dragControls = useDragControls()
+  const startDrag = (event: React.PointerEvent<HTMLElement>) => {
+    if (!disabled) dragControls.start(event)
+  }
+
+  return (
+    <Reorder.Item
+      value={value}
+      as="div"
+      className={className}
+      drag={disabled ? false : true}
+      dragListener={false}
+      dragControls={dragControls}
+      whileDrag={disabled ? undefined : whileDrag}
+    >
+      {children(startDrag)}
+    </Reorder.Item>
   )
 }
 
@@ -2568,7 +2644,17 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
       </div>
 
       {/* ── Ranking list ── */}
-      <div className="w-full max-w-md mx-auto pb-20 px-3 sm:px-4 pt-2">
+      <div className="w-full max-w-md mx-auto pb-[calc(10rem+env(safe-area-inset-bottom))] px-3 sm:px-4 pt-2">
+        {order.length > 4 && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-2 flex items-center justify-center gap-2 rounded-xl border border-cyan-800/25 bg-cyan-950/20 px-3 py-2 text-[10px] font-semibold text-cyan-300"
+          >
+            <motion.span animate={{ y: [0, 3, 0] }} transition={{ duration: 1.4, repeat: Infinity }}>↓</motion.span>
+            مرّر لرؤية كل الأسماء · اسحب من المقبض لترتيبهم
+          </motion.div>
+        )}
         <Reorder.Group axis="y" values={order} onReorder={setOrder} className="space-y-1.5" as="div">
           {order.map((num, idx) => {
             const p = personMap[num]
@@ -2576,26 +2662,26 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
             const rb = rankBadge(idx)
             const accent = cardAccent(idx)
             return (
-              <Reorder.Item
+              <RankingReorderCard
                 key={num}
                 value={num}
-                as="div"
                 className={`rounded-xl border transition-colors ${accent} ${
                   submitted
                     ? 'opacity-40 cursor-not-allowed'
                     : isShuffling
                     ? 'border-cyan-800/20 cursor-default pointer-events-none'
-                    : 'hover:border-white/[0.1] cursor-grab active:cursor-grabbing touch-none select-none'
+                    : 'hover:border-white/[0.1] select-none'
                 }`}
+                disabled={submitted || isShuffling}
                 whileDrag={submitted ? undefined : {
                   scale: 1.03,
                   boxShadow: '0 10px 30px rgba(0,0,0,0.45)',
                   borderColor: 'rgba(251,191,36,0.3)',
                   zIndex: 50,
                 }}
-                drag={submitted || isShuffling ? false : true}
               >
-                <div className="flex items-center justify-center gap-2 px-3 py-2">
+                {startDrag => <>
+                <div className="flex items-center justify-center gap-2 px-3 py-2 touch-pan-y">
                   {/* Rank badge with icon for top 3 */}
                   <div className={`flex items-center justify-center flex-shrink-0 bg-gradient-to-br ${rb.bg} ${rb.text} shadow-sm ${rb.glow} ring-1 ${rb.ring} ${
                     idx < 3 ? 'w-8 h-8 rounded-lg gap-0.5' : 'w-7 h-7 rounded-md'
@@ -2635,8 +2721,16 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                     <PenLine size={11} />
                   </button>
 
-                  {/* Drag handle */}
-                  <GripVertical size={12} className="text-gray-700 flex-shrink-0" />
+                  {/* Drag handle — keeping drag here leaves the rest of the card free for page scrolling. */}
+                  <button
+                    type="button"
+                    onPointerDown={startDrag}
+                    disabled={submitted || isShuffling}
+                    aria-label={`اسحب لتغيير ترتيب ${p.first_name}`}
+                    className="flex h-8 w-7 flex-shrink-0 touch-none cursor-grab items-center justify-center rounded-lg text-gray-600 hover:bg-white/[0.05] hover:text-amber-400 active:cursor-grabbing disabled:cursor-default"
+                  >
+                    <GripVertical size={15} />
+                  </button>
                 </div>
 
                 {/* Collapsible note */}
@@ -2670,7 +2764,8 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                     </motion.div>
                   )}
                 </AnimatePresence>
-              </Reorder.Item>
+                </>}
+              </RankingReorderCard>
             )
           })}
         </Reorder.Group>
@@ -3401,7 +3496,6 @@ function SOSButton({ token, position = 'top', sosRequests }: { token: string; po
 function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDuration, correctedNow }: {
   token: string; eventId?: number | string; timerActive: boolean; timerStart: string | null; timerDuration: number; correctedNow?: () => number
 }) {
-  const [data, setData] = useState<any>(null)
   const [revealed, setRevealed] = useState(false)
   const [tableRevealed, setTableRevealed] = useState(false)
   const [timeLeft, setTimeLeft] = useState(0)
@@ -3417,15 +3511,21 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   const [showTimeWarning, setShowTimeWarning] = useState(false)
   const { popup, clearPopup } = useTimerWarnings(timerActive, timeLeft, timerDuration, view === 'session')
 
-  useEffect(() => {
-    call("e3-get-phase2-reveal", token).then(d => {
-      if (!d.error) {
-        setData(d)
-        if (d.my_word) { setWord(d.my_word); setWordSubmitted(true) }
-        if (d.feedback_submitted) setFeedbackDone(true)
-      }
-    })
+  const fetchReveal = useCallback(async () => {
+    const d = await call("e3-get-phase2-reveal", token)
+    if (d.error) throw new Error(d.error)
+    return d
   }, [token])
+
+  const { data, loading, error, retry } = useApiPoll(fetchReveal, {
+    interval: 5000,
+    stopWhen: (d) => d.table_number != null
+  })
+
+  useEffect(() => {
+    if (data?.my_word) { setWord(data.my_word); setWordSubmitted(true) }
+    if (data?.feedback_submitted) setFeedbackDone(true)
+  }, [data])
 
   useEffect(() => {
     if (!timerActive || !timerStart) { setTimeLeft(0); return }
@@ -3524,6 +3624,28 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
     const d = await call("e3-submit-phase2-word", token, { word: word.trim() })
     if (!d.error) { setWordSubmitted(true); toast.success("تم الحفظ!") }
   }
+
+  if (loading && !data && !error) return (
+    <PageWrapper className="flex items-center justify-center">
+      <Spinner size={28} />
+    </PageWrapper>
+  )
+
+  if (error && !data) return (
+    <PageWrapper className="flex flex-col items-center justify-center gap-4 p-6 text-center">
+      <div className="w-14 h-14 rounded-2xl bg-red-950/40 border border-red-800/40 flex items-center justify-center">
+        <AlertTriangle className="text-red-400" size={28} />
+      </div>
+      <div className="space-y-1">
+        <p className="text-white font-semibold">تعذّر تحميل بيانات الجلسة</p>
+        <p className="text-gray-500 text-sm">قد تكون المطابقة ما زالت قيد التجهيز. حاول مرة أخرى بعد لحظات.</p>
+      </div>
+      <button onClick={retry} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium transition-colors">
+        <RefreshCw size={16} />
+        إعادة المحاولة
+      </button>
+    </PageWrapper>
+  )
 
   return (
     <PageWrapper className="overflow-y-auto">
@@ -4717,8 +4839,6 @@ function AiAnalysisCompact({ partnerNum, token, currentEventId, accent, title }:
 }
 
 function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; onQuestionViewerChange?: (open: boolean) => void }) {
-  const [data, setData] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
   const [revealed, setRevealed] = useState(false)
   const [matchPref, setMatchPref] = useState<string | null>(null)
   const [prefSubmitting, setPrefSubmitting] = useState(false)
@@ -4726,6 +4846,18 @@ function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; o
   const [activeTab, setActiveTab] = useState<"choice" | "algorithm">("choice")
   const [screenMode, setScreenMode] = useState<"reveal" | "questions">("reveal")
   const [questionPhase, setQuestionPhase] = useState<"phase1" | "phase2">("phase2")
+  const revealStarted = useRef(false)
+
+  const fetchFinalReveal = useCallback(async () => {
+    const d = await call("e3-get-final-reveal", token)
+    if (d.error) throw new Error(d.error)
+    return d
+  }, [token])
+
+  const { data, loading, error, retry } = useApiPoll(fetchFinalReveal, {
+    interval: 5000,
+    stopWhen: (d) => Boolean(d.phase2?.partner_number && d.phase3?.partner_number)
+  })
 
   useEffect(() => {
     onQuestionViewerChange?.(screenMode === "questions")
@@ -4734,15 +4866,17 @@ function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; o
   useEffect(() => () => onQuestionViewerChange?.(false), [onQuestionViewerChange])
 
   useEffect(() => {
-    call("e3-get-final-reveal", token).then(d => {
-      if (!d.error) { setData(d); setMatchPref(d.match_preference || null); setCurrentEventId(d.current_event_id || 1) }
-      setLoading(false)
-      setTimeout(() => {
-        setRevealed(true)
-        fireConfetti({ particleCount: 60, spread: 65, origin: { y: 0.35 }, colors: ["#a855f7", "#ec4899", "#f43f5e", "#fbbf24"] })
-      }, 500)
-    })
-  }, [token])
+    if (!data) return
+    setMatchPref(data.match_preference || null)
+    setCurrentEventId(data.current_event_id || 1)
+    if (revealStarted.current) return
+    revealStarted.current = true
+    const timer = setTimeout(() => {
+      setRevealed(true)
+      fireConfetti({ particleCount: 60, spread: 65, origin: { y: 0.35 }, colors: ["#a855f7", "#ec4899", "#f43f5e", "#fbbf24"] })
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [data])
 
   const submitPref = async (pref: string) => {
     setPrefSubmitting(true)
@@ -4753,6 +4887,18 @@ function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; o
   }
 
   if (loading) return <PageWrapper className="flex items-center justify-center"><Spinner size={28} /></PageWrapper>
+  if (error && !data) return (
+    <PageWrapper className="flex flex-col items-center justify-center gap-4 p-6 text-center">
+      <AlertTriangle className="text-amber-400" size={30} />
+      <div className="space-y-1">
+        <p className="text-white font-semibold">النتائج النهائية ليست جاهزة بعد</p>
+        <p className="text-gray-500 text-sm">انتظر لحظات ثم حاول مرة أخرى.</p>
+      </div>
+      <button onClick={retry} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium transition-colors">
+        <RefreshCw size={16} /> إعادة المحاولة
+      </button>
+    </PageWrapper>
+  )
   if (!data) return <PageWrapper className="flex items-center justify-center text-gray-500 text-sm">لا توجد نتائج بعد</PageWrapper>
 
   const p2 = data.phase2, p3 = data.phase3

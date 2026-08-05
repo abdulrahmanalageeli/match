@@ -3348,7 +3348,8 @@ const fetchParticipants = async () => {
               vibe_compatibility_score: pair.vibe_compatibility_score,
               humor_early_openness_bonus: pair.bonusType || 'none',
               is_organizer_match: false,
-              paid_done: partnerParticipant?.PAID_DONE || false
+              paid_done: targetParticipant?.PAID_DONE === true,
+              partner_paid_done: partnerParticipant?.PAID_DONE === true
             }
           })
           

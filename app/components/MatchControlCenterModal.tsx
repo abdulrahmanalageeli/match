@@ -300,10 +300,12 @@ export default function MatchControlCenterModal({
     const a = people.get(pair.a)
     const b = pair.b == null ? undefined : people.get(pair.b)
     if (pair.b == null) return "unmatched"
-    if (isSeatConfirmed(a) !== isSeatConfirmed(b)) return "mixed"
+    const aPaymentSettled = ["paid", "waived"].includes(getSeatState(a))
+    const bPaymentSettled = ["paid", "waived"].includes(getSeatState(b))
+    if (aPaymentSettled !== bPaymentSettled) return "mixed"
+    if ((pair.score ?? 0) < 60) return "attention"
     if (lockedKeys.has(pairKey(pair.a, pair.b)) || isContacted(a) || isContacted(b)) return "protected"
-    if ((pair.score ?? 0) >= 60) return "healthy"
-    return "attention"
+    return "healthy"
   }, [lockedKeys, people])
 
   const visiblePairs = useMemo(() => {

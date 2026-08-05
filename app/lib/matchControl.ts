@@ -52,6 +52,7 @@ export type SwapPlan = {
   beforePairs: PlannedPair[]
   afterPairs: PlannedPair[]
   unmatched: number[]
+  releasedOutsideScope: number[]
   affected: number[]
   beforeTotal: number
   afterTotal: number
@@ -246,6 +247,10 @@ function analyzePlan(args: {
   beforePairs = uniquePlannedPairs(beforePairs)
 
   const unmatched = Array.from(new Set(args.unmatched.filter(num => !afterPairs.some(pair => pair.a === num || pair.b === num))))
+  const afterNumbers = new Set(afterPairs.flatMap(pair => [pair.a, pair.b]))
+  const releasedOutsideScope = Array.from(new Set(beforePairs
+    .flatMap(pair => [pair.a, pair.b])
+    .filter(number => !afterNumbers.has(number) && !unmatched.includes(number))))
   const confirmedUnmatched = unmatched.filter(num => isSeatConfirmed(people.get(num)))
   const beforeScores = beforePairs.map(pair => pair.score).filter((score): score is number => score != null)
   const afterScores = afterPairs.map(pair => pair.score).filter((score): score is number => score != null)
@@ -267,6 +272,7 @@ function analyzePlan(args: {
   if (contactedPairsChanged) reasons.push(`يغيّر ${contactedPairsChanged} زوجاً تم التواصل مع أحد طرفيه`)
   if (repeatedPairs) reasons.push(`ينشئ ${repeatedPairs} مطابقة مكررة`)
   if (unknownScores) reasons.push(`توجد ${unknownScores} نتيجة توافق غير محسوبة`)
+  if (releasedOutsideScope.length) reasons.push(`سيتم فك ارتباط ${releasedOutsideScope.length} من الشركاء الحاليين خارج نطاق السلسلة دون إدخالهم فيها`)
   if (delta > 0) reasons.push(`يرفع مجموع التوافق المتأثر بمقدار ${delta} نقطة`)
   if (delta < 0) reasons.push(`يخفض مجموع التوافق المتأثر بمقدار ${Math.abs(delta)} نقطة`)
   if (afterMin != null && beforeMin != null && afterMin > beforeMin) reasons.push(`يحسن أضعف زوج من ${beforeMin}% إلى ${afterMin}%`)
@@ -285,6 +291,7 @@ function analyzePlan(args: {
     beforePairs,
     afterPairs,
     unmatched,
+    releasedOutsideScope,
     affected: Array.from(affectedSet),
     beforeTotal,
     afterTotal,
@@ -320,7 +327,12 @@ export function buildSwapPlans(args: {
   const matching = currentMatching(currentPairs)
   const sourcePartner = matching.get(source)
   const targetPartner = matching.get(target)
-  const initialOpen = [sourcePartner, targetPartner].filter((num): num is number => num != null && num !== source && num !== target)
+  // Existing partners outside a selected payment scope are detached from the
+  // old pair, not pulled into the replacement chain. They remain in affected
+  // for transactional cleanup but do not consume a slot in the scoped pool.
+  const initialOpen = [sourcePartner, targetPartner].filter((num): num is number =>
+    num != null && num !== source && num !== target && (!args.eligibleNumbers || args.eligibleNumbers.has(num))
+  )
   const forced: PlannedPair = { a: source, b: target, score: scoreFor(scoreLookup, source, target) }
   const completions: Array<{ pairs: PlannedPair[]; unmatched: number[]; title: string }> = []
 
@@ -370,7 +382,7 @@ export function buildSwapPlans(args: {
       const displaced = matching.get(candidate)
       if (displaced != null && (used.has(displaced) || displaced === source || displaced === target || displaced === person)) continue
       const nextOpen = [...rest]
-      if (displaced != null && !nextOpen.includes(displaced)) nextOpen.push(displaced)
+      if (displaced != null && (!args.eligibleNumbers || args.eligibleNumbers.has(displaced)) && !nextOpen.includes(displaced)) nextOpen.push(displaced)
       branch(nextOpen, [...planned, { a: person, b: candidate, score }], new Set([...used, person, candidate]), depth + 1)
     }
   }
@@ -393,7 +405,7 @@ export function buildSwapPlans(args: {
     // swap, and analyzePlan already marks these previews as risky so the admin
     // knows that the displayed delta is incomplete.
     if (plan.repeatedPairs > 0) return false
-    return !args.eligibleNumbers || plan.affected.every(number => args.eligibleNumbers!.has(number))
+    return !args.eligibleNumbers || plan.afterPairs.every(pair => args.eligibleNumbers!.has(pair.a) && args.eligibleNumbers!.has(pair.b))
   })
 
   const unique = new Map<string, SwapPlan>()

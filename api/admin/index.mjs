@@ -4524,7 +4524,11 @@ export default async function handler(req, res) {
 
         const paymentScope = req.body.plan_summary?.payment_scope
         if (paymentScope === "paid" || paymentScope === "not_paid") {
-          const outsidePaymentScope = affected.filter(number => {
+          // Payment scope applies to people placed into the resulting pairs.
+          // Former partners still belong in `affected` so the transaction can
+          // remove their old rows, but they are deliberately outside the new
+          // paid/unpaid chain and must not block it.
+          const outsidePaymentScope = [...resultingNumbers].filter(number => {
             const paid = isSwapParticipantPaid(participantMap.get(number))
             return paymentScope === "paid" ? !paid : paid
           })

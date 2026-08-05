@@ -484,9 +484,6 @@ export default function MatchControlCenterModal({
       if (!chainEligibleNumbers.has(swapSource)) {
         reasons.push(`المشارك الذي بدأت منه #${swapSource} خارج نطاق «${scopeName}»`)
       }
-      if (sourcePartner != null && !chainEligibleNumbers.has(sourcePartner)) {
-        reasons.push(`الشريك الحالي المتأثر ${getPersonName(people.get(sourcePartner), sourcePartner)} #${sourcePartner} خارج نطاق «${scopeName}»؛ لم يختره النظام كبديل، لكنه سيتأثر بفك الزوج الحالي`)
-      }
 
       const scopedTargets = Array.from(people.values()).filter(person =>
         person.assigned_number !== swapSource &&
@@ -496,17 +493,6 @@ export default function MatchControlCenterModal({
       )
       if (!scopedTargets.length) reasons.push(`لا يوجد مشارك آخر داخل نطاق «${scopeName}»`)
 
-      const targetsBlockedByCurrentPartner = scopedTargets.filter(person => {
-        const currentPartner = partnerMap.get(person.assigned_number)
-        return currentPartner != null && !chainEligibleNumbers.has(currentPartner)
-      })
-      if (scopedTargets.length && targetsBlockedByCurrentPartner.length === scopedTargets.length) {
-        const examples = targetsBlockedByCurrentPartner.slice(0, 3).map(person => {
-          const currentPartner = partnerMap.get(person.assigned_number)!
-          return `#${person.assigned_number} مرتبط بـ #${currentPartner}`
-        }).join("، ")
-        reasons.push(`كل الأهداف داخل النطاق مرتبطة حالياً بشريك خارج النطاق (${examples})`)
-      }
     }
 
     if (!reasons.length) reasons.push("لا يوجد هدف يحقق فلاتر العرض وتفضيلات الطرفين ومعايير العمر والجنسية والتفاعل دون إنشاء مطابقة سابقة")
@@ -599,6 +585,7 @@ export default function MatchControlCenterModal({
     if (!chosenPlan || !selectedPair) return
     const warnings = [
       chosenPlan.confirmedUnmatched.length ? `${chosenPlan.confirmedUnmatched.length} مقعد مؤكد سيبقى دون شريك` : null,
+      chosenPlan.releasedOutsideScope.length ? `${chosenPlan.releasedOutsideScope.length} شريك حالي خارج نطاق الدفع سيتم فك ارتباطه دون إدخاله في السلسلة` : null,
       chosenPlan.brokenLocks ? `${chosenPlan.brokenLocks} مطابقة مثبتة ستتغير` : null,
       chosenPlan.contactedPairsChanged ? `${chosenPlan.contactedPairsChanged} زوج تم التواصل معه سيتغير` : null,
       chosenPlan.repeatedPairs ? `${chosenPlan.repeatedPairs} مطابقة مكررة` : null,
@@ -811,7 +798,7 @@ export default function MatchControlCenterModal({
                             <button key={value} onClick={() => { setChainPaymentScope(value); setCandidatePool(value === "paid" ? "paid" : value === "not_paid" ? "unpaid" : "all"); setSwapTarget(null); setChosenPlan(null) }} className={`rounded-xl border px-2 py-2 text-[10px] font-black transition ${chainPaymentScope === value ? "border-cyan-400/45 bg-cyan-500/20 text-cyan-100" : "border-white/8 bg-black/15 text-slate-400 hover:bg-white/5"}`}>{label}</button>
                           ))}
                         </div>
-                        <p className="mt-2 text-[9px] leading-4 text-slate-500">لن تظهر أي خطة إذا كان الشخص الأساسي أو شريكه الحالي أو أي شخص سيتم نقله خارج النطاق المختار.</p>
+                        <p className="mt-2 text-[9px] leading-4 text-slate-500">يُطبق النطاق على الأزواج الجديدة فقط. الشريك الحالي خارج النطاق يُفك ارتباطه ويظل خارج السلسلة، ولا يمنع استخدام المشاركين داخل النطاق.</p>
                       </div>
                       <div className="relative"><Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" /><input value={candidateQuery} onChange={event => setCandidateQuery(event.target.value)} placeholder="ابحث في كل المشاركين..." className="h-10 w-full rounded-xl border border-white/10 bg-white/[0.04] pr-9 pl-3 text-sm text-white outline-none focus:border-cyan-400/40" /></div>
                       <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
@@ -933,7 +920,7 @@ function PlanPreview({ plan, people }: { plan: SwapPlan; people: Map<number, Mat
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
         <div className="rounded-2xl border border-red-400/15 bg-red-500/5 p-3"><p className="mb-2 text-[10px] font-black text-red-300">قبل</p>{plan.beforePairs.map(pair => <PlanPairRow key={pairKey(pair.a, pair.b)} pair={pair} people={people} old />)}</div>
-        <div className="rounded-2xl border border-emerald-400/15 bg-emerald-500/5 p-3"><p className="mb-2 text-[10px] font-black text-emerald-300">بعد</p>{plan.afterPairs.map((pair, index) => <PlanPairRow key={`${pairKey(pair.a, pair.b)}-${index}`} pair={pair} people={people} />)}{plan.unmatched.map(number => <div key={number} className={`mt-1 flex items-center justify-between rounded-lg border px-2 py-2 text-[10px] ${isSeatConfirmed(people.get(number)) ? "border-red-400/25 bg-red-500/10 text-red-200" : "border-slate-600/30 bg-slate-800/50 text-slate-400"}`}><span>#{number} {getPersonName(people.get(number), number)}</span><span className="font-black">دون شريك</span></div>)}</div>
+        <div className="rounded-2xl border border-emerald-400/15 bg-emerald-500/5 p-3"><p className="mb-2 text-[10px] font-black text-emerald-300">بعد</p>{plan.afterPairs.map((pair, index) => <PlanPairRow key={`${pairKey(pair.a, pair.b)}-${index}`} pair={pair} people={people} />)}{plan.unmatched.map(number => <div key={number} className={`mt-1 flex items-center justify-between rounded-lg border px-2 py-2 text-[10px] ${isSeatConfirmed(people.get(number)) ? "border-red-400/25 bg-red-500/10 text-red-200" : "border-slate-600/30 bg-slate-800/50 text-slate-400"}`}><span>#{number} {getPersonName(people.get(number), number)}</span><span className="font-black">دون شريك</span></div>)}{plan.releasedOutsideScope.map(number => <div key={`released-${number}`} className="mt-1 flex items-center justify-between rounded-lg border border-slate-600/30 bg-slate-800/50 px-2 py-2 text-[10px] text-slate-400"><span>#{number} {getPersonName(people.get(number), number)}</span><span className="font-black">فُك ارتباطه · خارج النطاق</span></div>)}</div>
       </div>
       <div className="grid grid-cols-3 gap-2 text-center"><Metric label="أضعف زوج" before={plan.beforeMin} after={plan.afterMin} /><Metric label="مؤكدون دون شريك" after={plan.confirmedUnmatched.length} /><Metric label="المتأثرون" after={plan.affected.length} /></div>
     </div>

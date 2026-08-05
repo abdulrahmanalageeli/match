@@ -12,6 +12,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 const STATIC_MATCH_ID = "00000000-0000-0000-0000-000000000000"
 const TWILIO_MATCH_NOTIFICATION_V2_SID = "HX6d318d6310d7cce0c37b1ef5e0b7a17e"
+const TWILIO_MATCH_CANCELLATION_SID = "HX466c880e6809cefe45123a5c02d49a61"
 const TWILIO_STATUS_CALLBACK_URL = process.env.TWILIO_STATUS_CALLBACK_URL || "https://blindmatch.app/api/twilio-status"
 
 const ARABIC_WEEKDAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"]
@@ -1688,7 +1689,7 @@ export default async function handler(req, res) {
         const { data: configuredTemplates } = await supabase
           .from("twilio_templates")
           .select("template_key,content_sid,approval_status,enabled")
-          .in("template_key", ["match", "reminder", "payment"])
+          .in("template_key", ["match", "reminder", "payment", "match_cancellation"])
         const configured = Object.fromEntries((configuredTemplates || []).map(t => [t.template_key, t]))
         return res.status(200).json({
           success: true,
@@ -1696,6 +1697,7 @@ export default async function handler(req, res) {
             match: configured.match?.content_sid || process.env.TWILIO_MATCH_TEMPLATE_SID || TWILIO_MATCH_NOTIFICATION_V2_SID,
             reminder: configured.reminder?.content_sid || process.env.TWILIO_REMINDER_TEMPLATE_SID || null,
             payment: configured.payment?.content_sid || process.env.TWILIO_PAYMENT_TEMPLATE_SID || null,
+            match_cancellation: configured.match_cancellation?.content_sid || process.env.TWILIO_MATCH_CANCELLATION_TEMPLATE_SID || TWILIO_MATCH_CANCELLATION_SID,
           },
           templateMeta: configured,
         })
@@ -1823,7 +1825,7 @@ export default async function handler(req, res) {
               twilio_payload: twilioData || {},
               is_auto_reply: false,
             })
-            if (participant?.id && resolvedTemplateKey !== "reminder") {
+            if (participant?.id && !["reminder", "match_cancellation"].includes(resolvedTemplateKey)) {
               const { error: sentFlagError } = await supabase
                 .from("participants")
                 .update(resolvedTemplateKey === "payment" ? { payment_reminder_sent: true } : { PAID: true })
@@ -1927,7 +1929,7 @@ export default async function handler(req, res) {
             // match/confirmation sent flag.
             const alreadySent = resolvedTemplateKey === "payment"
               ? p.payment_reminder_sent === true
-              : resolvedTemplateKey === "reminder"
+              : ["reminder", "match_cancellation"].includes(resolvedTemplateKey)
                 ? false
                 : p.PAID === true
             if (alreadySent) {
@@ -1989,7 +1991,7 @@ export default async function handler(req, res) {
                     twilio_payload: twilioData || {},
                     is_auto_reply: false,
                   })
-                  if (resolvedTemplateKey !== "reminder") {
+                  if (!["reminder", "match_cancellation"].includes(resolvedTemplateKey)) {
                     const { error: sentFlagError } = await supabase
                       .from("participants")
                       .update(resolvedTemplateKey === "payment" ? { payment_reminder_sent: true } : { PAID: true })

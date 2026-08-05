@@ -14,6 +14,9 @@ interface WhatsappMessageModalProps {
   allParticipants?: any[];
 }
 
+type TwilioTemplateType = 'match' | 'reminder' | 'payment' | 'match_cancellation';
+type MessageTemplateType = 'match' | 'early-match' | 'early-reminder' | 'event-info' | 'faq-payment' | 'faq-location' | 'faq-timing' | 'reminder' | 'payment-reminder' | 'match-cancellation' | 'partner-info' | 'gender-confirmation' | 'preference-flexibility' | 'discount-offer' | 'survey-completion' | 'time-change';
+
 export default function WhatsappMessageModal({ participant, isOpen, onClose, cohostTheme = false, allParticipants = [] }: WhatsappMessageModalProps) {
   const [copied, setCopied] = useState(false);
   const [phoneCopied, setPhoneCopied] = useState(false);
@@ -21,12 +24,12 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose, coh
   const [twilioResult, setTwilioResult] = useState<{ success: boolean; msg: string } | null>(null);
   const [templateMode, setTemplateMode] = useState(false);
   const [templateSid, setTemplateSid] = useState('');
-  const [templateTypeTwilio, setTemplateTypeTwilio] = useState<'match' | 'reminder' | 'payment'>('match');
-  const [envTemplateSids, setEnvTemplateSids] = useState<{ match: string | null; reminder: string | null; payment: string | null }>({ match: null, reminder: null, payment: null });
+  const [templateTypeTwilio, setTemplateTypeTwilio] = useState<TwilioTemplateType>('match');
+  const [envTemplateSids, setEnvTemplateSids] = useState<Record<TwilioTemplateType, string | null>>({ match: null, reminder: null, payment: null, match_cancellation: null });
   const [bulkSending, setBulkSending] = useState(false);
   const [bulkResult, setBulkResult] = useState<{ successCount: number; failCount: number; results: any[] } | null>(null);
   const [urgencyLevel, setUrgencyLevel] = useState<'normal' | 'semi-urgent' | 'urgent'>('normal');
-  const [templateType, setTemplateType] = useState<'match' | 'early-match' | 'early-reminder' | 'event-info' | 'faq-payment' | 'faq-location' | 'faq-timing' | 'reminder' | 'payment-reminder' | 'partner-info' | 'gender-confirmation' | 'preference-flexibility' | 'discount-offer' | 'survey-completion' | 'time-change'>('match');
+  const [templateType, setTemplateType] = useState<MessageTemplateType>('match');
   const [showCustomize, setShowCustomize] = useState(false);
   const [exportMode, setExportMode] = useState(false);
 
@@ -43,6 +46,8 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose, coh
   useEffect(() => {
     const linkedTwilioType = templateType === 'payment-reminder'
       ? 'payment'
+      : templateType === 'match-cancellation'
+        ? 'match_cancellation'
       : templateType === 'reminder'
         ? 'reminder'
         : templateType === 'match'
@@ -306,6 +311,9 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
       case 'partner-info':
         return `*التوافق الأعمى* 🔒\n\nالسلام عليكم *${name}*،\n\n*سياسة الخصوصية ومعلومات الشريك*\n\n*هل يمكنكم مشاركة معلومات عن شريكي؟*\n\nنعتذر، لا يمكننا مشاركة أي معلومات شخصية عن شريكك قبل اللقاء. هذا جزء أساسي من تجربة "التوافق الأعمى" التي تهدف إلى بناء علاقات فكرية وثقافية هادفة قائمة على التوافق الحقيقي.\n\n*طبيعة الفعالية:*\n\nهذه الفعالية مصممة لربط الأشخاص ذوي التفكير المتشابه والاهتمامات المتوافقة في بيئة احترافية آمنة. نحن نركز على التبادل الفكري والثقافي، وليس على المواعدة التقليدية. الهدف هو التعرف على أشخاص متوافقين معكم فكرياً وشخصياً لبناء علاقات ذات معنى.\n\n*فلسفة التوافق:*\n\nنظامنا يعتمد على التوافق الشخصي والفكري بغض النظر عن الهوية الشخصية، الجنسية، المظهر الخارجي، أو الخلفية الاجتماعية. نحن نؤمن بأن التوافق الحقيقي يتجاوز هذه العوامل السطحية.\n\n*منهجية المطابقة:*\n\nخوارزميتنا تبحث عن التوازن المثالي بين التشابه والتكامل. نحن لا نبحث عن التطابق الكامل (100% تشابه) ولا عن الاختلاف الكامل (100% تكامل)، بل عن المزيج الصحيح الذي يخلق علاقة متوازنة ومستدامة.\n\nالتشابه في القيم الأساسية والأهداف الحياتية يخلق أرضية مشتركة، بينما التكامل في الشخصيات وأساليب التفكير يضيف الثراء والنمو المتبادل.\n\n*ما نضمنه لكم:*\n\n• شريكك من نفس الفئة العمرية (الفارق لا يتجاوز 5 سنوات أعلى أو أقل)\n• توافق شخصي عالي بناءً على نوع الشخصية (MBTI)، أسلوب التواصل، القيم والاهتمامات، الأهداف الحياتية، والتوافق الفكري\n• احترام تفضيلاتك الشخصية (نفس الجنس أو جنس مختلف)\n• بيئة آمنة ومحترمة للجميع\n\n*لماذا نحافظ على السرية؟*\n\nالسرية تضمن تجربة حقيقية خالية من الأحكام المسبقة، وتتيح لكم التركيز على الجوهر والشخصية الحقيقية. كما تمنح الجميع فرصة عادلة متساوية وتحترم خصوصية جميع المشاركين.\n\nالدراسات تثبت أن اللقاءات "العمياء" تؤدي إلى تواصل أعمق وأكثر صدقاً، وتقييم أفضل للتوافق الحقيقي، مما ينتج عنه علاقات أقوى وأطول أمداً.\n\n*أسئلة شائعة:*\n\n**س: هل سأعرف اسم شريكي؟**\nج: نعم، خلال اللقاء ستتعرفون على بعضكم بشكل طبيعي وتتبادلون المعلومات كما تشاؤون.\n\n**س: هل يمكنني معرفة جنسية الشريك مسبقاً؟**\nج: نركز على التوافق الشخصي والفكري بغض النظر عن الجنسية أو الأصل.\n\n**س: ماذا لو لم أشعر بالتوافق مع الشريك؟**\nج: لا يوجد أي التزام بعد اللقاء. التجربة مصممة للتعارف واستكشاف التوافق فقط.\n\n**س: كيف تم اختيار شريكي؟**\nج: خوارزميتنا حللت إجاباتكم بعمق واختارت شريكاً متوافقاً معكم بنسبة عالية بناءً على معايير علمية مدروسة.\n\n*ثقوا بالعملية:*\n\nنحن نستخدم منهجية علمية متطورة لضمان أفضل مطابقة ممكنة. امنحوا التجربة فرصة حقيقية، وكونوا منفتحين على التعرف على شخص قد يكون متوافقاً معكم بطرق لم تتوقعوها.\n\n📍 *تفاصيل الفعالية:*\nالمكان: كوفي بلانيت - الدور الثاني\nالعنوان: https://maps.app.goo.gl/CYsyK9M5mxXMNo9YA\nالتاريخ: السبت 1 نوفمبر 2024\nالوقت: 8:15 مساءً\n\nرقم المشارك: *${assignedNumber}*\nرابط حسابك: https://blindmatch.app/welcome?token=${secureToken}\n\nلأي استفسارات إضافية، نحن هنا للمساعدة.\n\nفريق التوافق الأعمى`;
 
+      case 'match-cancellation':
+        return `السلام عليكم *${name}*، نأسف لإبلاغك بأن شريك التوافق اعتذر عن حضور الفعالية، ولذلك لن نتمكن من إكمال اللقاء المقرر لك هذه المرة. يمكنك اختيار أحد الخيارين أدناه: • طلب استرداد رسوم المشاركة • الاحتفاظ بالمبلغ كرصيد للفعالية القادمة اختر ما يناسبك، وسنسجل طلبك ونتابع معك مباشرة. نعتذر عن هذا التغيير الخارج عن إرادتنا، ونقدّر تفهمك 🤍 — *فريق التوافق الأعمى*`;
+
       case 'gender-confirmation':
         return renderCustom(d.genderPreferenceTemplate);
 
@@ -337,7 +345,7 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
     try {
       // If the message already includes a disable-auto section (by link or label), do nothing
       const hasDisable = /disableauto=1|إيقاف التسجيل التلقائي/.test(msg);
-      if (!hasDisable) {
+      if (!hasDisable && templateType !== 'match-cancellation') {
         // Append as a separate block at the end to avoid mutating existing URLs (e.g., ...&redo=1)
         msg = `${msg}\n\n${disableLine}`;
       }
@@ -394,6 +402,10 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
         6: config.bankName || 'TBD',
         7: config.iban || 'TBD',
       };
+    }
+
+    if (templateTypeTwilio === 'match_cancellation') {
+      return { 1: name };
     }
 
     return buildMatchTemplateVariables(p, config);
@@ -833,6 +845,20 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
                 معلومات الشريك
               </button>
               <button
+                onClick={() => {
+                  setTemplateType('match-cancellation');
+                  setTemplateMode(true);
+                }}
+                className={`p-3 rounded-lg text-sm font-medium transition-colors ${
+                  templateType === 'match-cancellation'
+                    ? 'bg-rose-600 text-white'
+                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                }`}
+              >
+                <X className="w-4 h-4 mx-auto mb-1" />
+                إلغاء الشريك / استرداد
+              </button>
+              <button
                 onClick={() => setTemplateType('gender-confirmation')}
                 className={`p-3 rounded-lg text-sm font-medium transition-colors ${
                   templateType === 'gender-confirmation' 
@@ -1001,7 +1027,7 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
               <select
                 value={templateTypeTwilio}
                 onChange={e => {
-                  const val = e.target.value as 'match' | 'reminder' | 'payment';
+                  const val = e.target.value as TwilioTemplateType;
                   setTemplateTypeTwilio(val);
                   const sid = envTemplateSids[val];
                   setTemplateSid(sid || '');
@@ -1011,6 +1037,7 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
                 <option value="match">match_notification_v4 (إشعار التوافق 4.0)</option>
                 <option value="reminder">event_reminder (تذكير الفعالية)</option>
                 <option value="payment">payment_reminder (تذكير الدفع)</option>
+                <option value="match_cancellation">match_cancelled_refund_or_next_event (إلغاء الشريك)</option>
               </select>
               {templateSid ? (
                 <div className="flex items-center gap-2 bg-slate-800/50 border border-slate-600/50 rounded px-3 py-2">
@@ -1026,6 +1053,7 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
                 {templateTypeTwilio === 'match' && '7 متغيرات — تأكيد/اعتذار/اشتراك تلقائي/معلومات الفعالية'}
                 {templateTypeTwilio === 'reminder' && '5 متغيرات — تأكيد/اعتذار'}
                 {templateTypeTwilio === 'payment' && '7 متغيرات — تأكيد/اعتذار'}
+                {templateTypeTwilio === 'match_cancellation' && 'متغير واحد — اسم المشارك، مع خياري الاسترداد أو الفعالية القادمة'}
               </p>
             </div>
           )}

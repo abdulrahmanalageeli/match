@@ -4,6 +4,7 @@ import { createHmac, timingSafeEqual } from "node:crypto"
 import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkIntentHardGate, checkInteractionStyleCompatibility, fetchAllCachedPairs, calculateHumorOpennessScore } from "./trigger-match.mjs"
 import { buildWelcomePrompt } from "./ai-welcome-prompt.mjs"
 import { assignPriorityTables } from "../../server/event3/table-priority.mjs"
+import { optimizeRound2ByAge } from "../../server/event3/round2-age-optimizer.mjs"
 
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
@@ -276,7 +277,7 @@ function verifyCohostToken(token) {
   }
 }
 
-function e3GenerateSeatingPlan(participantNumbers, genderMap = {}, lockedPairsSet = new Set()) {
+function e3GenerateSeatingPlan(participantNumbers, genderMap = {}, lockedPairsSet = new Set(), ageMap = {}) {
   const N = participantNumbers.length
   // Pick target group size G and number of groups T.
   // Priority: 6 > 5 > 4 > 8.
@@ -359,9 +360,11 @@ function e3GenerateSeatingPlan(participantNumbers, genderMap = {}, lockedPairsSe
     round2[bestGroup].push(extras[i])
   }
 
+  const ageOptimizedRound2 = optimizeRound2ByAge(round1, round2, genderMap, ageMap)
+
   const positionMap = {}
   for (let i = 0; i < N; i++) positionMap[interleaved[i]] = i
-  return { round1, round2, T, G, R, positionMap }
+  return { round1, round2: ageOptimizedRound2, T, G, R, positionMap }
 }
 
 function e3GreedyMutualMatching(rankings, participantMap = new Map(), exclusions = new Set()) {
@@ -8518,6 +8521,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
 
           // ── Test mode: random shuffle (no compatibility computation) ──────────
           let orderedNumbers = participantNumbers
+          const ageMap = {}
           let usedCompat = false
           if (isTestMode) {
             console.log(`e3-generate-seating: TEST MODE — skipping compatibility, using random shuffle`)
@@ -8570,7 +8574,6 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               }
             }
             // Build age map for age-aware ordering
-            const ageMap = {}
             for (const p of pdata || []) {
               const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {})
               ageMap[p.assigned_number] = p.age || sd?.answers?.age || sd?.age || null
@@ -8609,12 +8612,13 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
 
           // Fetch gender info for all participants
           const { data: genderRows } = await supabase
-            .from("participants").select("assigned_number,gender,survey_data")
+            .from("participants").select("assigned_number,gender,age,survey_data")
             .eq("match_id", STATIC_MATCH_ID).in("assigned_number", participantNumbers)
           const genderMap = {}
           for (const p of genderRows || []) {
             const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {})
             genderMap[p.assigned_number] = p.gender || sd?.answers?.gender || sd?.gender || "?"
+            if (!ageMap[p.assigned_number]) ageMap[p.assigned_number] = p.age || sd?.answers?.age || sd?.age || null
           }
 
           // Fetch locked matches for current event to avoid seating pairs together
@@ -8634,7 +8638,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           }
           console.log(`e3-generate-seating: ${lockedPairsSet.size} locked pairs to separate in groups`)
 
-          const plan = e3GenerateSeatingPlan(orderedNumbers, genderMap, lockedPairsSet)
+          const plan = e3GenerateSeatingPlan(orderedNumbers, genderMap, lockedPairsSet, ageMap)
           if (plan.error) return res.status(400).json({ error: plan.error })
           const { round1, round2, T, G, R, positionMap } = plan
           await supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)

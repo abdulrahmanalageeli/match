@@ -62,6 +62,7 @@ interface ParticipantResultsModalProps {
   cohostTheme?: boolean
   selectedParticipants?: Set<number>
   toggleParticipantSelection?: (assignedNumber: number) => void
+  onOpenControlCenter?: () => void
 }
 
 export default function ParticipantResultsModal({ 
@@ -80,7 +81,8 @@ export default function ParticipantResultsModal({
   matchHistory = {},
   cohostTheme = false,
   selectedParticipants,
-  toggleParticipantSelection
+  toggleParticipantSelection,
+  onOpenControlCenter,
 }: ParticipantResultsModalProps) {
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [selectedParticipant, setSelectedParticipant] = useState<{assigned_number: number, name: string} | null>(null)
@@ -745,6 +747,13 @@ export default function ParticipantResultsModal({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {onOpenControlCenter && matchType !== "group" && (
+          <div className="mx-6 mt-3 grid grid-cols-2 rounded-xl border border-white/10 bg-black/20 p-1">
+            <button onClick={onOpenControlCenter} className="rounded-lg px-3 py-2 text-xs font-bold text-slate-400 transition hover:bg-white/5 hover:text-white">مركز التحكم الجديد</button>
+            <button className="rounded-lg bg-purple-500 px-3 py-2 text-xs font-black text-white shadow-lg shadow-purple-950/30">عرض النتائج القديم</button>
+          </div>
+        )}
         
         
 

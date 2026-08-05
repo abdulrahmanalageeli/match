@@ -387,7 +387,11 @@ export function buildSwapPlans(args: {
     scoreLookup,
     lockedPairs,
   })).filter(plan => {
-    if (plan.unknownScores > 0 || plan.repeatedPairs > 0) return false
+    // A missing cached score must not make a valid chain disappear. The
+    // transactional API calculates every resulting pair before it writes the
+    // swap, and analyzePlan already marks these previews as risky so the admin
+    // knows that the displayed delta is incomplete.
+    if (plan.repeatedPairs > 0) return false
     return !args.eligibleNumbers || plan.affected.every(number => args.eligibleNumbers!.has(number))
   })
 

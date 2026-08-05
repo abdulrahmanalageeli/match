@@ -73,6 +73,7 @@ type Props = {
   cohostTheme?: boolean
   selectedParticipants?: Set<number>
   toggleParticipantSelection?: (assignedNumber: number) => void
+  onOpenLegacy?: () => void
 }
 
 type PoolMode = "all" | "confirmed" | "paid" | "unpaid"
@@ -174,6 +175,7 @@ export default function MatchControlCenterModal({
   cohostTheme = false,
   selectedParticipants,
   toggleParticipantSelection,
+  onOpenLegacy,
 }: Props) {
   const [people, setPeople] = useState<Map<number, MatchControlPerson>>(new Map())
   const [lockedMatches, setLockedMatches] = useState<any[]>([])
@@ -475,6 +477,18 @@ export default function MatchControlCenterModal({
     ? buildSwapPlans({ source: swapSource, target: swapTarget, currentPairs: pairs, people, scoreLookup, lockedPairs: lockedKeys, maxDepth: 2, eligibleNumbers: chainEligibleNumbers, isPairEligible: pairMeetsMatchingCriteria })
     : [], [chainEligibleNumbers, lockedKeys, pairMeetsMatchingCriteria, pairs, people, scoreLookup, swapSource, swapTarget])
 
+  const planBlockers = useMemo(() => {
+    if (swapSource == null || swapTarget == null || plans.length) return []
+    const blockers: string[] = []
+    const scopeLabel = chainPaymentScope === "paid" ? "مدفوع فقط" : "غير مدفوع فقط"
+    if (chainEligibleNumbers && !chainEligibleNumbers.has(swapSource)) blockers.push(`المشارك الأساسي #${swapSource} خارج نطاق «${scopeLabel}»`)
+    if (chainEligibleNumbers && !chainEligibleNumbers.has(swapTarget)) blockers.push(`المشارك المختار #${swapTarget} خارج نطاق «${scopeLabel}»`)
+    blockers.push(...getPairCriteriaIssues(people.get(swapSource), people.get(swapTarget), selectedPair?.round || 1))
+    if (scoreLookup.get(pairKey(swapSource, swapTarget))?.is_repeated_match === true) blockers.push("هذا الزوج تقابل في فعالية سابقة")
+    if (!blockers.length) blockers.push("لا يمكن إغلاق بقية السلسلة دون كسر تفضيل أو معيار لأحد الأزواج المتأثرين")
+    return Array.from(new Set(blockers))
+  }, [chainEligibleNumbers, chainPaymentScope, people, plans.length, scoreLookup, selectedPair?.round, swapSource, swapTarget])
+
   useEffect(() => {
     setChosenPlan(plans[0] || null)
   }, [plans])
@@ -646,6 +660,13 @@ export default function MatchControlCenterModal({
             <button onClick={onClose} aria-label="إغلاق" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white"><X className="h-5 w-5" /></button>
           </div>
 
+          {onOpenLegacy && (
+            <div className="mt-3 grid grid-cols-2 rounded-2xl border border-white/10 bg-black/20 p-1">
+              <button className="rounded-xl bg-cyan-500 px-3 py-2 text-xs font-black text-slate-950 shadow-lg shadow-cyan-950/30">مركز التحكم الجديد</button>
+              <button onClick={onOpenLegacy} className="rounded-xl px-3 py-2 text-xs font-bold text-slate-400 transition hover:bg-white/5 hover:text-white">عرض النتائج القديم</button>
+            </div>
+          )}
+
           <div className="mt-3 grid grid-cols-4 gap-1.5 sm:gap-2">
             <button onClick={() => setPairFilter("unmatched")} className="rounded-xl border border-red-400/15 bg-red-500/8 p-2 text-right hover:bg-red-500/15">
               <div className="text-[9px] text-red-300 sm:text-[10px]">مؤكدون دون شريك</div><div className="text-lg font-black text-white sm:text-xl">{stats.confirmedUnmatched}</div>
@@ -788,7 +809,7 @@ export default function MatchControlCenterModal({
                           {plans.map((plan, index) => { const meta = verdictMeta[plan.verdict]; const Icon = meta.icon; return <button key={plan.id} onClick={() => setChosenPlan(plan)} className={`min-w-[190px] rounded-xl border p-2.5 text-right ${chosenPlan?.id === plan.id ? "border-cyan-400/50 bg-cyan-500/10" : "border-white/10 bg-white/[0.025]"}`}><div className="flex items-center justify-between"><span className="text-[10px] font-bold text-slate-500">الخطة {index + 1}</span><span className={`inline-flex items-center gap-1 text-[9px] font-bold ${plan.verdict === "recommended" ? "text-emerald-300" : plan.verdict === "risky" ? "text-red-300" : "text-amber-300"}`}><Icon className="h-3 w-3" />{meta.label}</span></div><p className="mt-1 truncate text-xs font-bold text-white">{plan.title}</p><p className={`mt-1 text-[10px] font-bold ${plan.delta >= 0 ? "text-emerald-300" : "text-red-300"}`}>{plan.delta >= 0 ? "+" : ""}{plan.delta} نقطة · {plan.affected.length} متأثر</p></button> })}
                         </div>
                         {chosenPlan && <PlanPreview plan={chosenPlan} people={people} />}
-                        {!plans.length && <div className="rounded-2xl border border-dashed border-amber-400/20 bg-amber-500/[0.06] p-5 text-center"><ShieldAlert className="mx-auto mb-2 h-8 w-8 text-amber-300" /><p className="text-xs font-black text-amber-100">لا توجد سلسلة صالحة وآمنة</p><p className="mt-1 text-[10px] leading-5 text-amber-200/60">أحد الأزواج لا يحقق نطاق الدفع أو تفضيلات المشاركين أو معايير المطابقة. اختر نطاقاً أو مشاركاً آخر.</p></div>}
+                        {!plans.length && <div className="rounded-2xl border border-dashed border-amber-400/20 bg-amber-500/[0.06] p-5 text-center"><ShieldAlert className="mx-auto mb-2 h-8 w-8 text-amber-300" /><p className="text-xs font-black text-amber-100">لا توجد خطة لهذا الاختيار</p><p className="mt-1 text-[10px] leading-5 text-amber-200/60">السبب الفعلي:</p><ul className="mx-auto mt-2 max-w-xl list-inside list-disc space-y-1 text-right text-[10px] font-bold leading-5 text-amber-100/80">{planBlockers.map(blocker => <li key={blocker}>{blocker}</li>)}</ul></div>}
                         <button onClick={applyPlan} disabled={!chosenPlan || applying} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-cyan-500 to-blue-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-cyan-950/30 hover:from-cyan-400 hover:to-blue-500 disabled:cursor-not-allowed disabled:opacity-40">{applying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} مراجعة التأكيد وتطبيق الخطة</button>
                       </div>
                     )}

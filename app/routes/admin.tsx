@@ -609,6 +609,7 @@ export default function AdminPage() {
   const [fixFeedbackLoading, setFixFeedbackLoading] = useState(false)
   
   const [showResultsModal, setShowResultsModal] = useState(false)
+  const [individualResultsView, setIndividualResultsView] = useState<"control" | "legacy">("control")
   const [participantResults, setParticipantResults] = useState<any[]>([])
   const [matchType, setMatchType] = useState<"ai" | "no-ai" | "group">("ai")
   const [totalMatches, setTotalMatches] = useState(0)
@@ -616,7 +617,7 @@ export default function AdminPage() {
   const [lastMatchParams, setLastMatchParams] = useState<{matchResults: any[], totalMatches: number, type: "ai" | "no-ai" | "group", calculatedPairs: any[]} | null>(null)
   const [isFromCache, setIsFromCache] = useState(false)
   const [matchPairs, setMatchPairs] = useState<any[]>([])
-  
+
   // Persistent Results State
   const [availableSessions, setAvailableSessions] = useState<any[]>([])
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
@@ -8912,10 +8913,10 @@ Proceed?`
 
       {/* Individual results use the pair-first Match Control Center. Keep the
           proven group-results presentation untouched. */}
-      {matchType === "group" ? (
+      {matchType === "group" || individualResultsView === "legacy" ? (
         <ParticipantResultsModal
           isOpen={showResultsModal}
-          onClose={() => setShowResultsModal(false)}
+          onClose={() => { setShowResultsModal(false); setIndividualResultsView("control") }}
           results={participantResults}
           matchType={matchType}
           totalMatches={totalMatches}
@@ -8926,11 +8927,12 @@ Proceed?`
           cohostTheme={isCohost}
           selectedParticipants={selectedParticipants}
           toggleParticipantSelection={toggleParticipantSelection}
+          onOpenControlCenter={matchType !== "group" ? () => setIndividualResultsView("control") : undefined}
         />
       ) : (
         <MatchControlCenterModal
           isOpen={showResultsModal}
-          onClose={() => setShowResultsModal(false)}
+          onClose={() => { setShowResultsModal(false); setIndividualResultsView("control") }}
           results={participantResults}
           matchType={matchType}
           totalMatches={totalMatches}
@@ -8942,6 +8944,7 @@ Proceed?`
           selectedParticipants={selectedParticipants}
           toggleParticipantSelection={toggleParticipantSelection}
           onRefresh={() => loadFreshDatabaseResults("individual").then(() => undefined)}
+          onOpenLegacy={() => setIndividualResultsView("legacy")}
         />
       )}
 

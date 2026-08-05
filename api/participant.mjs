@@ -3193,14 +3193,22 @@ Please respond in JSON format:
           const cp = String(c.phone_number || '').replace(/\D/g, '')
           return cp.length >= 7 && cp.slice(-7) === last7
         })
-        if (exactMatches.length > 1) return res.status(409).json({ error: "يوجد أكثر من تسجيل ينتهي بنفس الأرقام. تواصل مع المنظم للدخول بأمان." })
-        const match = exactMatches[0]
-        if (!match) return res.status(404).json({ error: "لم يتم العثور على رقمك في الفعالية. تأكد من الرقم أو تواصل مع المنظم." })
-        const { data: ep } = await supabase.from("event3_participants")
+        if (exactMatches.length === 0) return res.status(404).json({ error: "لم يتم العثور على رقمك في الفعالية. تأكد من الرقم أو تواصل مع المنظم." })
+
+        // Resolve duplicate phone numbers against today's Event3 enrollment
+        // before treating them as ambiguous. This lets a returning participant
+        // log into the one account actually selected for the current event.
+        const candidateNumbers = exactMatches.map(candidate => candidate.assigned_number)
+        const { data: enrolledRows, error: enrolledError } = await supabase.from("event3_participants")
           .select("participant_number").eq("match_id", E3_MATCH_ID)
           .eq("event_id", currentEventId)
-          .eq("participant_number", match.assigned_number).maybeSingle()
-        if (!ep) return res.status(403).json({ error: "رقمك غير مسجّل في هذه الفعالية. تواصل مع المنظم." })
+          .in("participant_number", candidateNumbers)
+        if (enrolledError) return res.status(500).json({ error: "تعذر التحقق من تسجيلك في الفعالية. حاول مرة أخرى." })
+        const enrolledNumbers = new Set((enrolledRows || []).map(row => row.participant_number))
+        const enrolledMatches = exactMatches.filter(candidate => enrolledNumbers.has(candidate.assigned_number))
+        if (enrolledMatches.length > 1) return res.status(409).json({ error: "يوجد أكثر من حساب بنفس رقم الجوال مسجّل في هذه الفعالية. تواصل مع المنظم للدخول بأمان." })
+        if (enrolledMatches.length === 0) return res.status(403).json({ error: "رقمك غير مسجّل في هذه الفعالية. تواصل مع المنظم." })
+        const match = enrolledMatches[0]
         const firstName = (match.name || '').trim().split(/\s+/)[0] || 'مشارك'
         return res.status(200).json({ token: match.secure_token, name: firstName })
       }

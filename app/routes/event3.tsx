@@ -2358,7 +2358,7 @@ function RankingReorderCard({
 }
 
 // ─── Ranking Screen ───────────────────────────────────────────────────────────
-function RankingScreen({ token, completedRounds, currentPhase, timerActive, timerStart, timerDuration, correctedNow }: { token: string, completedRounds: number, currentPhase: string, timerActive: boolean, timerStart: string | null, timerDuration: number, correctedNow?: () => number }) {
+function RankingScreen({ token, completedRounds, currentPhase, timerActive, timerStart, timerDuration, correctedNow, myInfo }: { token: string, completedRounds: number, currentPhase: string, timerActive: boolean, timerStart: string | null, timerDuration: number, correctedNow?: () => number, myInfo: { number: number; name: string; gender: string | null } | null }) {
   const [people, setPeople] = useState<any[]>([])
   const [order, setOrder] = useState<number[]>([])
   const [newNums, setNewNums] = useState<Set<number>>(new Set())
@@ -2557,7 +2557,11 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
               </div>
               <div>
                 <h1 className="text-base font-black text-white leading-tight">رتّب أولوياتك</h1>
-                <p className="text-gray-500 text-[10px] leading-tight mt-0.5">{people.length} أشخاص · اسحب للترتيب</p>
+                <p className="text-gray-500 text-[10px] leading-tight mt-0.5">
+                  {myInfo && <span className="font-bold text-amber-400/80">رقمك #{myInfo.number}</span>}
+                  {myInfo && <span className="mx-1 text-gray-700">·</span>}
+                  {people.length} أشخاص · اسحب للترتيب
+                </p>
               </div>
             </div>
 
@@ -5872,14 +5876,14 @@ export default function Event3Page() {
         </div>
       )}
 
-      {!finalQuestionsOpen && <EventStatusHeader eventState={eventState} isOffline={isOffline} correctedNow={correctedNow} impersonating={isImpersonating} />}
+      {!finalQuestionsOpen && !rankingMatch && <EventStatusHeader eventState={eventState} isOffline={isOffline} correctedNow={correctedNow} impersonating={isImpersonating} />}
 
       {/* Screen content fills available space */}
       <div className="flex-1 overflow-y-auto relative z-10">
         <AnimatePresence>
           {phase === "setup" && <SetupScreen key="setup" token={token} myInfo={myInfo} enrolledCount={eventState?.participants_selected ?? null} />}
           {isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} myInfo={myInfo} onGroupsOpenChange={setGroupsOpen} />}
-          {completedRounds && <RankingScreen key={phase} token={token} completedRounds={completedRounds} currentPhase={phase} {...timerProps} />}
+          {completedRounds && <RankingScreen key={phase} token={token} completedRounds={completedRounds} currentPhase={phase} {...timerProps} myInfo={myInfo} />}
           {phase === "phase2_reveal" && <Phase2RevealScreen key="p2r" token={token} eventId={eventState?.event_id} {...timerProps} />}
           {phase === "phase3_reveal" && <Phase3RevealScreen key="p3r" token={token} eventId={eventState?.event_id} {...timerProps} />}
           {(phase === "phase2_processing" || phase === "phase3_processing") && <ProcessingScreen key="processing" phase={phase} />}

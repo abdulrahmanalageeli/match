@@ -6408,7 +6408,8 @@ export default async function handler(req, res) {
         const { data: cacheData, error: cacheError } = await supabase
           .from("compatibility_cache")
           .select("*")
-          .order("total_compatibility_score", { ascending: false })
+          .order("last_used", { ascending: false, nullsFirst: false })
+          .order("created_at", { ascending: false })
         
         if (cacheError) {
           console.error("Error fetching cache data:", cacheError)
@@ -6457,8 +6458,22 @@ export default async function handler(req, res) {
           matchResultsMap.set(key2, match)
         })
         
-        // Convert cache data to calculated pairs format
-        const calculatedPairs = cacheData.map(cache => {
+        // Questionnaire/model changes intentionally create multiple cache hashes
+        // for the same pair. Expose only the most recently used calculation so
+        // every admin view resolves the same score deterministically.
+        const latestCacheByPair = new Map()
+        for (const cache of cacheData || []) {
+          const a = Math.min(Number(cache.participant_a_number), Number(cache.participant_b_number))
+          const b = Math.max(Number(cache.participant_a_number), Number(cache.participant_b_number))
+          const key = `${a}-${b}`
+          const existing = latestCacheByPair.get(key)
+          const cacheTime = Date.parse(cache.last_used || cache.created_at || "") || 0
+          const existingTime = Date.parse(existing?.last_used || existing?.created_at || "") || 0
+          if (!existing || cacheTime > existingTime) latestCacheByPair.set(key, cache)
+        }
+
+        // Convert the canonical cache rows to calculated pairs format
+        const calculatedPairs = Array.from(latestCacheByPair.values()).map(cache => {
           const key = `${cache.participant_a_number}-${cache.participant_b_number}`
           const matchResult = matchResultsMap.get(key)
           const isActualMatch = !!matchResult
@@ -6546,7 +6561,8 @@ export default async function handler(req, res) {
           participantResults,
           totalMatches: matchResults.length,
           cacheStats: {
-            totalPairs: cacheData.length,
+            totalPairs: calculatedPairs.length,
+            historicalRows: cacheData.length,
             avgUseCount: cacheData.length > 0 ? (cacheData.reduce((sum, c) => sum + c.use_count, 0) / cacheData.length).toFixed(1) : 0
           }
         })

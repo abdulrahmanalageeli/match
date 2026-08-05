@@ -150,24 +150,35 @@ export function getPairCriteriaIssues(personA: MatchControlPerson | undefined, p
 
 export function buildScoreLookup(calculatedPairs: any[], results: MatchControlResult[]) {
   const lookup = new Map<string, any>()
+  const timestamp = (pair: any) => {
+    const value = Date.parse(String(pair?.last_used || pair?.updated_at || pair?.created_at || ""))
+    return Number.isFinite(value) ? value : 0
+  }
   for (const pair of calculatedPairs || []) {
     const a = Number(pair.participant_a)
     const b = Number(pair.participant_b)
     if (!Number.isFinite(a) || !Number.isFinite(b)) continue
-    lookup.set(pairKey(a, b), pair)
+    const key = pairKey(a, b)
+    const current = lookup.get(key)
+    // A pair can have several cache rows after questionnaire/model changes. Always
+    // use the newest calculation instead of whichever database row happens to be last.
+    if (!current || timestamp(pair) > timestamp(current)) lookup.set(key, pair)
   }
   for (const result of results || []) {
     const b = Number(result.partner_assigned_number)
     if (!Number.isFinite(b) || b === 9999) continue
     const key = pairKey(result.assigned_number, b)
-    if (!lookup.has(key)) {
-      lookup.set(key, {
-        participant_a: result.assigned_number,
-        participant_b: b,
-        compatibility_score: result.compatibility_score,
-        is_actual_match: true,
-      })
-    }
+    const calculated = lookup.get(key) || {}
+    // The saved match result is authoritative for the score currently shown to
+    // participants. Preserve richer cached dimensions when the result lacks them.
+    lookup.set(key, {
+      ...calculated,
+      ...Object.fromEntries(Object.entries(result).filter(([, value]) => value !== undefined && value !== null)),
+      participant_a: result.assigned_number,
+      participant_b: b,
+      compatibility_score: result.compatibility_score,
+      is_actual_match: true,
+    })
   }
   return lookup
 }

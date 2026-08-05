@@ -7,6 +7,7 @@ import PairAnalysisModal from "./PairAnalysisModalPro"
 import * as Tooltip from "@radix-ui/react-tooltip"
 import * as Popover from "@radix-ui/react-popover"
 import ParticipantHoverCardContent from "./ParticipantHoverCard"
+import { buildScoreLookup } from "../lib/matchControl"
 
 interface ParticipantResult {
   id: string
@@ -573,17 +574,24 @@ export default function ParticipantResultsModal({
     return true
   })
 
+  // Both the legacy results view and the swap planner must resolve a pair from
+  // the exact same canonical source, including current matches absent from cache.
+  const pairScoreLookup = useMemo(
+    () => buildScoreLookup(calculatedPairs, results),
+    [calculatedPairs, results],
+  )
+
   const fetchParticipantDetails = (participantNumber: number, participantName: string) => {
     setLoadingDetails(true)
     
-    // Filter calculated pairs to get all matches for this participant
-    const participantPairs = calculatedPairs.filter(pair => 
-      pair.participant_a === participantNumber || pair.participant_b === participantNumber
+    // Filter the canonical pair catalog to get all matches for this participant.
+    const participantPairs = Array.from(pairScoreLookup.values()).filter(pair =>
+      Number(pair.participant_a) === participantNumber || Number(pair.participant_b) === participantNumber
     )
     
     // Convert to the format expected by ParticipantDetailModal
     const matches = participantPairs.map(pair => {
-      const otherParticipantNumber = pair.participant_a === participantNumber ? pair.participant_b : pair.participant_a
+      const otherParticipantNumber = Number(pair.participant_a) === participantNumber ? Number(pair.participant_b) : Number(pair.participant_a)
       
       // Try to find name from multiple sources
       const otherParticipantFromResults = results.find(r => r.assigned_number === otherParticipantNumber)
@@ -597,8 +605,8 @@ export default function ParticipantResultsModal({
                                    `المشارك #${otherParticipantNumber}`
       
       // Intent letters from backend mapping
-      const intentSelf = pair.participant_a === participantNumber ? (pair.intent_a || null) : (pair.intent_b || null)
-      const intentOther = pair.participant_a === participantNumber ? (pair.intent_b || null) : (pair.intent_a || null)
+      const intentSelf = Number(pair.participant_a) === participantNumber ? (pair.intent_a || null) : (pair.intent_b || null)
+      const intentOther = Number(pair.participant_a) === participantNumber ? (pair.intent_b || null) : (pair.intent_a || null)
 
       return {
         participant_number: otherParticipantNumber,

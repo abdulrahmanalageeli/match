@@ -835,7 +835,7 @@ export default function MatchControlCenterModal({
                         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
                           {plans.map((plan, index) => { const meta = verdictMeta[plan.verdict]; const Icon = meta.icon; return <button key={plan.id} onClick={() => setChosenPlan(plan)} className={`min-w-[190px] rounded-xl border p-2.5 text-right ${chosenPlan?.id === plan.id ? "border-cyan-400/50 bg-cyan-500/10" : "border-white/10 bg-white/[0.025]"}`}><div className="flex items-center justify-between"><span className="text-[10px] font-bold text-slate-500">الخطة {index + 1}</span><span className={`inline-flex items-center gap-1 text-[9px] font-bold ${plan.verdict === "recommended" ? "text-emerald-300" : plan.verdict === "risky" ? "text-red-300" : "text-amber-300"}`}><Icon className="h-3 w-3" />{meta.label}</span></div><p className="mt-1 truncate text-xs font-bold text-white">{plan.title}</p><p className={`mt-1 text-[10px] font-bold ${plan.delta >= 0 ? "text-emerald-300" : "text-red-300"}`}>{plan.delta >= 0 ? "+" : ""}{plan.delta} نقطة · {plan.affected.length} متأثر</p></button> })}
                         </div>
-                        {chosenPlan && <PlanPreview plan={chosenPlan} people={people} />}
+                        {chosenPlan && <PlanPreview plan={chosenPlan} people={people} scoreLookup={scoreLookup} />}
                         {!plans.length && <div className="rounded-2xl border border-dashed border-amber-400/20 bg-amber-500/[0.06] p-5 text-center"><ShieldAlert className="mx-auto mb-2 h-8 w-8 text-amber-300" /><p className="text-xs font-black text-amber-100">لا توجد خطة لهذا الاختيار</p><p className="mt-1 text-[10px] leading-5 text-amber-200/60">السبب الفعلي:</p><ul className="mx-auto mt-2 max-w-xl list-inside list-disc space-y-1 text-right text-[10px] font-bold leading-5 text-amber-100/80">{planBlockers.map(blocker => <li key={blocker}>{blocker}</li>)}</ul></div>}
                         <button onClick={applyPlan} disabled={!chosenPlan || applying} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-cyan-500 to-blue-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-cyan-950/30 hover:from-cyan-400 hover:to-blue-500 disabled:cursor-not-allowed disabled:opacity-40">{applying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} مراجعة التأكيد وتطبيق الخطة</button>
                       </div>
@@ -909,7 +909,7 @@ function ActionCard({ icon: Icon, label, detail, onClick, disabled, tone }: { ic
   return <button onClick={onClick} disabled={disabled} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.025] p-3 text-right hover:bg-white/[0.055] disabled:cursor-not-allowed disabled:opacity-35"><span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${tones[tone]}`}><Icon className="h-4 w-4" /></span><span><span className="block text-xs font-black text-white">{label}</span><span className="mt-0.5 block text-[10px] text-slate-500">{detail}</span></span></button>
 }
 
-function PlanPreview({ plan, people }: { plan: SwapPlan; people: Map<number, MatchControlPerson> }) {
+function PlanPreview({ plan, people, scoreLookup }: { plan: SwapPlan; people: Map<number, MatchControlPerson>; scoreLookup: Map<string, any> }) {
   const meta = verdictMeta[plan.verdict]
   const Icon = meta.icon
   return (
@@ -919,16 +919,44 @@ function PlanPreview({ plan, people }: { plan: SwapPlan; people: Map<number, Mat
         <ul className="mt-2 space-y-1 text-[10px] leading-5 opacity-90">{plan.reasons.slice(0, 5).map(reason => <li key={reason}>• {reason}</li>)}</ul>
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
-        <div className="rounded-2xl border border-red-400/15 bg-red-500/5 p-3"><p className="mb-2 text-[10px] font-black text-red-300">قبل</p>{plan.beforePairs.map(pair => <PlanPairRow key={pairKey(pair.a, pair.b)} pair={pair} people={people} old />)}</div>
-        <div className="rounded-2xl border border-emerald-400/15 bg-emerald-500/5 p-3"><p className="mb-2 text-[10px] font-black text-emerald-300">بعد</p>{plan.afterPairs.map((pair, index) => <PlanPairRow key={`${pairKey(pair.a, pair.b)}-${index}`} pair={pair} people={people} />)}{plan.unmatched.map(number => <div key={number} className={`mt-1 flex items-center justify-between rounded-lg border px-2 py-2 text-[10px] ${isSeatConfirmed(people.get(number)) ? "border-red-400/25 bg-red-500/10 text-red-200" : "border-slate-600/30 bg-slate-800/50 text-slate-400"}`}><span>#{number} {getPersonName(people.get(number), number)}</span><span className="font-black">دون شريك</span></div>)}{plan.releasedOutsideScope.map(number => <div key={`released-${number}`} className="mt-1 flex items-center justify-between rounded-lg border border-slate-600/30 bg-slate-800/50 px-2 py-2 text-[10px] text-slate-400"><span>#{number} {getPersonName(people.get(number), number)}</span><span className="font-black">فُك ارتباطه · خارج النطاق</span></div>)}</div>
+        <div className="rounded-2xl border border-red-400/15 bg-red-500/5 p-3"><p className="mb-2 text-[10px] font-black text-red-300">قبل</p>{plan.beforePairs.map(pair => <PlanPairRow key={pairKey(pair.a, pair.b)} pair={pair} people={people} pairData={scoreLookup.get(pairKey(pair.a, pair.b))} old />)}</div>
+        <div className="rounded-2xl border border-emerald-400/15 bg-emerald-500/5 p-3"><p className="mb-2 text-[10px] font-black text-emerald-300">بعد</p>{plan.afterPairs.map((pair, index) => <PlanPairRow key={`${pairKey(pair.a, pair.b)}-${index}`} pair={pair} people={people} pairData={scoreLookup.get(pairKey(pair.a, pair.b))} />)}{plan.unmatched.map(number => <div key={number} className={`mt-1 flex items-center justify-between rounded-lg border px-2 py-2 text-[10px] ${isSeatConfirmed(people.get(number)) ? "border-red-400/25 bg-red-500/10 text-red-200" : "border-slate-600/30 bg-slate-800/50 text-slate-400"}`}><span>#{number} {getPersonName(people.get(number), number)}</span><span className="font-black">دون شريك</span></div>)}{plan.releasedOutsideScope.map(number => <div key={`released-${number}`} className="mt-1 flex items-center justify-between rounded-lg border border-slate-600/30 bg-slate-800/50 px-2 py-2 text-[10px] text-slate-400"><span>#{number} {getPersonName(people.get(number), number)}</span><span className="font-black">فُك ارتباطه · خارج النطاق</span></div>)}</div>
       </div>
       <div className="grid grid-cols-3 gap-2 text-center"><Metric label="أضعف زوج" before={plan.beforeMin} after={plan.afterMin} /><Metric label="مؤكدون دون شريك" after={plan.confirmedUnmatched.length} /><Metric label="المتأثرون" after={plan.affected.length} /></div>
     </div>
   )
 }
 
-function PlanPairRow({ pair, people, old = false }: { pair: { a: number; b: number; score: number | null }; people: Map<number, MatchControlPerson>; old?: boolean }) {
-  return <div className="mb-1 flex items-center gap-1.5 rounded-lg bg-black/20 px-2 py-2 text-[10px]"><span className="min-w-0 flex-1 truncate text-slate-200">#{pair.a} {getPersonName(people.get(pair.a), pair.a)}</span><ArrowLeftRight className={`h-3 w-3 shrink-0 ${old ? "text-red-300" : "text-emerald-300"}`} /><span className="min-w-0 flex-1 truncate text-slate-200">#{pair.b} {getPersonName(people.get(pair.b), pair.b)}</span><span className="shrink-0 font-black text-white">{pair.score == null ? "؟" : `${pair.score}%`}</span></div>
+function PlanPairRow({ pair, people, pairData, old = false }: { pair: { a: number; b: number; score: number | null }; people: Map<number, MatchControlPerson>; pairData?: any; old?: boolean }) {
+  return <div className="mb-1 flex items-center gap-1.5 rounded-lg bg-black/20 px-2 py-2 text-[10px]"><PairScoreName number={pair.a} other={pair.b} people={people} pairData={pairData} fallbackScore={pair.score} align="right" /><ArrowLeftRight className={`h-3 w-3 shrink-0 ${old ? "text-red-300" : "text-emerald-300"}`} /><PairScoreName number={pair.b} other={pair.a} people={people} pairData={pairData} fallbackScore={pair.score} align="left" /><span className="shrink-0 font-black text-white">{pair.score == null ? "؟" : `${pair.score}%`}</span></div>
+}
+
+function PairScoreName({ number, other, people, pairData, fallbackScore, align }: { number: number; other: number; people: Map<number, MatchControlPerson>; pairData?: any; fallbackScore: number | null; align: "right" | "left" }) {
+  const total = Number(pairData?.compatibility_score ?? pairData?.total_compatibility_score ?? fallbackScore)
+  const metrics = [
+    ["Vibe", pairData?.vibe_compatibility_score ?? pairData?.vibe_score],
+    ["نمط الحياة", pairData?.lifestyle_compatibility_score ?? pairData?.lifestyle_score],
+    ["الدعابة/الانفتاح", pairData?.humor_open_score ?? pairData?.humor_open_compatibility_score],
+  ] as const
+  const adjustments = [
+    pairData?.humor_early_openness_bonus === "full" ? "مكافأة دعابة/انفتاح كاملة" : pairData?.humor_early_openness_bonus === "partial" ? "مكافأة دعابة/انفتاح جزئية" : null,
+    Number(pairData?.humor_multiplier) > 1 ? `مضاعف الدعابة ×${Number(pairData.humor_multiplier).toFixed(2)}` : null,
+    pairData?.intent_boost_applied ? "مكافأة توافق الهدف مطبقة" : null,
+    pairData?.attachment_penalty_applied ? "خصم نمط التعلق مطبق" : null,
+    pairData?.dead_air_veto_applied ? "تحذير صمت/تفاعل مطبق" : null,
+    pairData?.humor_clash_veto_applied ? "تحذير تعارض الدعابة مطبق" : null,
+    pairData?.cap_applied ? `تم تحديد السقف عند ${pairData.cap_applied}%` : null,
+  ].filter((item): item is string => Boolean(item))
+  return (
+    <span className="group relative min-w-0 flex-1">
+      <button type="button" className="block w-full truncate rounded px-1 text-right text-slate-200 underline decoration-dotted decoration-slate-600 underline-offset-2 outline-none hover:text-cyan-200 focus:text-cyan-200" aria-label={`عرض توافق ${getPersonName(people.get(number), number)} مع ${getPersonName(people.get(other), other)}`}>#{number} {getPersonName(people.get(number), number)}</button>
+      <span role="tooltip" className={`pointer-events-none invisible absolute bottom-full z-40 mb-2 w-[min(280px,calc(100vw-3rem))] rounded-2xl border border-cyan-400/25 bg-[#07111f]/98 p-3 text-right opacity-0 shadow-2xl shadow-black/60 backdrop-blur-xl transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 ${align === "right" ? "right-0" : "left-0"}`}>
+        <span className="flex items-start justify-between gap-3"><span><span className="block text-[10px] font-black text-white">{getPersonName(people.get(number), number)}</span><span className="mt-0.5 block text-[9px] text-slate-400">توافقه مع {getPersonName(people.get(other), other)} #{other}</span></span><span className="text-sm font-black text-cyan-200">{Number.isFinite(total) ? `${Math.round(total)}%` : "غير محسوب"}</span></span>
+        <span className="mt-3 grid grid-cols-3 gap-1.5">{metrics.map(([label, value]) => <span key={label} className="rounded-xl border border-white/8 bg-white/[0.04] p-2 text-center"><span className="block text-[8px] text-slate-400">{label}</span><span className="mt-1 block text-xs font-black text-white">{Number.isFinite(Number(value)) ? `${Math.round(Number(value))}%` : "—"}</span></span>)}</span>
+        {adjustments.length ? <span className="mt-2 block rounded-xl border border-amber-400/15 bg-amber-500/[0.07] p-2"><span className="block text-[8px] font-black text-amber-200">المكافآت والتعديلات</span>{adjustments.map(item => <span key={item} className="mt-1 block text-[9px] leading-4 text-amber-100/80">• {item}</span>)}</span> : <span className="mt-2 block text-[9px] text-slate-500">لا توجد مكافآت أو خصومات مسجلة لهذا الزوج.</span>}
+      </span>
+    </span>
+  )
 }
 
 function Metric({ label, before, after }: { label: string; before?: number | null; after?: number | null }) {

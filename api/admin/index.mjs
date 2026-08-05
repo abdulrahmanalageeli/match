@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
-import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkInteractionStyleCompatibility, fetchAllCachedPairs, calculateHumorOpennessScore } from "./trigger-match.mjs"
+import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkIntentHardGate, checkInteractionStyleCompatibility, fetchAllCachedPairs, calculateHumorOpennessScore } from "./trigger-match.mjs"
 import { buildWelcomePrompt } from "./ai-welcome-prompt.mjs"
 
 const supabase = createClient(
@@ -4551,6 +4551,7 @@ export default async function handler(req, res) {
           if (!checkGenderCompatibility(participantA, participantB, "preference")) failures.push("gender preference")
           if (!checkNationalityHardGate(participantA, participantB)) failures.push("nationality preference")
           if (!checkAgeRangeHardGate(participantA, participantB)) failures.push("preferred age range")
+          if (!checkIntentHardGate(participantA, participantB)) failures.push("intent goal")
           if (!checkInteractionStyleCompatibility(participantA, participantB)) failures.push("interaction style")
           if (previousPairKeys.has(swapPairKey(pair.a, pair.b))) failures.push("previous-event repeat")
           if (failures.length) criteriaFailures.push({ pair: `#${pair.a} ↔ #${pair.b}`, failures })

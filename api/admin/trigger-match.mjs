@@ -418,9 +418,14 @@ function isParticipantComplete(participant, matchMode = CURRENT_MATCH_MODE) {
   return true
 }
 
-// Hard gate: If either participant chooses goal 'B', both must have goal 'B'
+// Hard gate: a participant choosing goal B accepts a non-B goal only when that
+// B participant explicitly opted into goal mismatches.
 function checkIntentHardGate(participantA, participantB) {
   const getAns = (p, k) => (p?.survey_data?.answers?.[k] ?? p?.[k] ?? '').toString().toUpperCase()
+  const isOpen = p => {
+    const raw = p?.open_intent_goal_mismatch ?? p?.survey_data?.answers?.open_intent_goal_mismatch
+    return raw === true || String(raw).toLowerCase() === 'true'
+  }
   const a = getAns(participantA, 'intent_goal')
   const b = getAns(participantB, 'intent_goal')
   if (!a || !b) {
@@ -428,7 +433,7 @@ function checkIntentHardGate(participantA, participantB) {
     return true
   }
   if (a === 'B' || b === 'B') {
-    const ok = (a === 'B' && b === 'B')
+    const ok = (a === 'B' && b === 'B') || (a === 'B' ? isOpen(participantA) : isOpen(participantB))
     if (!ok) {
       console.log(`🚫 Intent hard gate: #${participantA.assigned_number} (${a}) × #${participantB.assigned_number} (${b}) → 'B' must pair only with 'B'`)
     }
@@ -3246,7 +3251,7 @@ function getLockedMatch(participantA, participantB, lockedPairs) {
   )
 }
 
-export { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkInteractionStyleCompatibility, fetchAllCachedPairs, calculateHumorOpennessScore }
+export { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkIntentHardGate, checkInteractionStyleCompatibility, fetchAllCachedPairs, calculateHumorOpennessScore }
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {

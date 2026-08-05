@@ -2681,7 +2681,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                 }}
               >
                 {startDrag => <>
-                <div className="flex items-center justify-center gap-2 px-3 py-2 touch-pan-y">
+                <div className="flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 touch-pan-y">
                   {/* Rank badge with icon for top 3 */}
                   <div className={`flex items-center justify-center flex-shrink-0 bg-gradient-to-br ${rb.bg} ${rb.text} shadow-sm ${rb.glow} ring-1 ${rb.ring} ${
                     idx < 3 ? 'w-8 h-8 rounded-lg gap-0.5' : 'w-7 h-7 rounded-md'
@@ -2727,9 +2727,9 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                     onPointerDown={startDrag}
                     disabled={submitted || isShuffling}
                     aria-label={`اسحب لتغيير ترتيب ${p.first_name}`}
-                    className="flex h-8 w-7 flex-shrink-0 touch-none cursor-grab items-center justify-center rounded-lg text-gray-600 hover:bg-white/[0.05] hover:text-amber-400 active:cursor-grabbing disabled:cursor-default"
+                    className="flex h-11 w-11 min-h-11 min-w-11 flex-shrink-0 touch-none cursor-grab items-center justify-center rounded-xl border border-amber-500/15 bg-amber-500/[0.06] text-amber-400/80 shadow-inner shadow-amber-950/20 transition-colors hover:border-amber-500/30 hover:bg-amber-500/10 hover:text-amber-300 active:cursor-grabbing active:bg-amber-500/15 disabled:cursor-default disabled:border-white/[0.04] disabled:bg-white/[0.02] disabled:text-gray-700"
                   >
-                    <GripVertical size={15} />
+                    <GripVertical size={21} strokeWidth={2.5} />
                   </button>
                 </div>
 

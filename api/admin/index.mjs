@@ -6483,7 +6483,22 @@ export default async function handler(req, res) {
             signup_for_next_event: false,
             PAID: false,
             PAID_DONE: false,
-            payment_waived: false
+            payment_waived: false,
+            payment_reminder_sent: false,
+            attendance_confirmed: false,
+            attendance_confirmed_at: null,
+            attendance_denied_at: null,
+            arrival_status: null,
+            arrival_status_at: null,
+            receipt_url: null,
+            receipt_received_at: null,
+            receipt_approved: false,
+            receipt_approved_at: null,
+            receipt_rejected: false,
+            receipt_rejected_at: null,
+            discount_interest: null,
+            last_twilio_action: null,
+            last_twilio_action_at: null
           })
           .eq("match_id", STATIC_MATCH_ID)
           .select("id, assigned_number")
@@ -6503,7 +6518,13 @@ export default async function handler(req, res) {
           details: {
             signup_for_next_event: false,
             PAID: false,
-            PAID_DONE: false
+            PAID_DONE: false,
+            payment_waived: false,
+            payment_reminder_sent: false,
+            attendance_reset: true,
+            arrival_reset: true,
+            receipt_status_reset: true,
+            twilio_action_reset: true
           }
         })
         

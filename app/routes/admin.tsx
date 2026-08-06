@@ -2084,7 +2084,7 @@ const fetchParticipants = async () => {
 
   const prepareForNextEvent = async () => {
     try {
-      if (!confirm(`⚠️ Prepare for Next Event?\n\nThis will:\n• Set all participants' signup_for_next_event to FALSE\n• Set all participants' PAID and PAID_DONE to FALSE\n• Reset payment status for all participants\n\nThis action cannot be undone. Continue?`)) {
+      if (!confirm(`⚠️ Prepare for Next Event?\n\nThis will reset all participants':\n• Next-event signup flag\n• PAID, PAID_DONE, payment waiver, and payment-reminder status\n• Attendance confirmation/decline status\n• Arrival status\n• Legacy receipt approval/rejection status\n• Discount response and last Twilio action\n\nEvent-scoped message, action, and receipt history will be preserved.\n\nThis action cannot be undone. Continue?`)) {
         return
       }
 

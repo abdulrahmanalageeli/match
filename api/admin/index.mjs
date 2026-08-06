@@ -5775,7 +5775,11 @@ export default async function handler(req, res) {
           participant_name: participantNameMap.get(item.participant1_number) || `المشارك #${item.participant1_number}`,
           created_at: item.created_at,
           reason: item.reason,
-          is_banned: item.participant2_number === -10 // -10 means banned, -1 means excluded
+          is_banned: item.participant2_number === -10, // -10 means banned, -1 means excluded
+          duplicate_ban: item.participant2_number === -10 && item.reason?.startsWith("AUTO_PHONE_BAN:"),
+          duplicate_of: item.reason?.match(/banned participant #(\d+)/)?.[1]
+            ? Number(item.reason.match(/banned participant #(\d+)/)[1])
+            : null
         }))
 
         return res.status(200).json({ excludedParticipants })

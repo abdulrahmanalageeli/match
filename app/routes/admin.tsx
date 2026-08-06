@@ -629,7 +629,7 @@ export default function AdminPage() {
   const [newExcludedPair, setNewExcludedPair] = useState({participant1: '', participant2: ''})
   
   // Excluded participants management
-  const [excludedParticipants, setExcludedParticipants] = useState<Array<{id: string, participant_number: number, participant_name?: string, created_at: string, reason: string, is_banned?: boolean}>>([])
+  const [excludedParticipants, setExcludedParticipants] = useState<Array<{id: string, participant_number: number, participant_name?: string, created_at: string, reason: string, is_banned?: boolean, duplicate_ban?: boolean, duplicate_of?: number | null}>>([])
   const [newExcludedParticipant, setNewExcludedParticipant] = useState('')
   const [banPermanently, setBanPermanently] = useState(false)
   const [groupOnlyExclude, setGroupOnlyExclude] = useState(false)
@@ -6383,12 +6383,22 @@ Proceed?`
                             </span>
                           </div>
                         )}
+                        {participant.duplicate_ban && (
+                          <span
+                            className="text-amber-200 text-xs font-bold px-2 py-0.5 bg-amber-500/20 rounded-full border border-amber-400/30"
+                            title={participant.duplicate_of ? `Phone matches banned participant #${participant.duplicate_of}` : "Phone matches another permanently banned account"}
+                          >
+                            DUPLICATE
+                          </span>
+                        )}
                         <div className="flex flex-col">
                           <span className={`text-sm font-medium ${participant.is_banned ? "text-red-200" : "text-white"}`}>
                             #{participant.participant_number} - {participant.participant_name || `المشارك #${participant.participant_number}`}
                           </span>
                           <span className="text-xs text-slate-400">
-                            {participant.is_banned ? "PERMANENTLY BANNED from all matching" : "Excluded from ALL matching"}
+                            {participant.duplicate_ban
+                              ? `PERMANENTLY BANNED — duplicate phone${participant.duplicate_of ? ` of #${participant.duplicate_of}` : ""}`
+                              : participant.is_banned ? "PERMANENTLY BANNED from all matching" : "Excluded from ALL matching"}
                           </span>
                         </div>
                       </div>

@@ -6209,7 +6209,7 @@ export default function WelcomePage() {
                   <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-300/[0.08] shadow-[0_12px_35px_-14px_rgba(34,211,238,0.9)]">
                     <UserPlus className="h-6 w-6 text-cyan-200" />
                   </div>
-                  <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">أهلاً بك في بلاند ماتش</h2>
+                  <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">أهلاً بك في بلايند ماتش</h2>
                   <p className="mt-2 text-sm font-semibold leading-6 text-slate-200">التوافق الأعمى (BlindMatch)</p>
                 </div>
 
@@ -7417,7 +7417,7 @@ export default function WelcomePage() {
             {/* Final Registration Content */}
             {showRegistrationContent && (
               <>
-                <h1 className="sr-only">بلاند ماتش — منصة التوافق والفعاليات التفاعلية</h1>
+                <h1 className="sr-only">بلايند ماتش — منصة التوافق والفعاليات التفاعلية</h1>
                 {/* Reserved breathing room below the fixed navigation; the visual hero remains intentionally omitted. */}
                 <div className="h-24 sm:h-24" aria-hidden="true" />
 

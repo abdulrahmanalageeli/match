@@ -2289,33 +2289,72 @@ const SurveyComponent = memo(function SurveyComponent({
           </Button>
 
           {currentPage === totalPages - 1 ? (
-            <div className="flex flex-col items-end gap-3">
-              <div className="w-full space-y-3 rounded-xl border border-blue-200 bg-blue-50/80 p-3 text-right dark:border-blue-900 dark:bg-slate-900/70">
-                <label className="flex cursor-pointer items-start gap-3 text-xs text-gray-700 dark:text-gray-200">
-                  <Checkbox
-                    checked={surveyData.termsAccepted}
-                    onCheckedChange={checked => setSurveyData(prev => ({ ...prev, termsAccepted: checked === true }))}
-                    aria-label="الموافقة على الشروط والأحكام"
-                  />
-                  <span>قرأت وأوافق صراحةً على <a href="/terms" target="_blank" rel="noreferrer" className="font-bold text-blue-600 underline">الشروط والأحكام</a>. <span className="text-red-600">مطلوب</span></span>
-                </label>
-                <label className="flex cursor-pointer items-start gap-3 text-xs text-gray-700 dark:text-gray-200">
-                  <Checkbox
-                    checked={surveyData.dataConsent}
-                    onCheckedChange={checked => setSurveyData(prev => ({ ...prev, dataConsent: checked === true }))}
-                    aria-label="الموافقة على معالجة البيانات"
-                  />
-                  <span>أوافق صراحةً على معالجة بياناتي وتحليلها آليًا لأغراض التسجيل والتوافق وإدارة الفعالية، بما في ذلك النقل الموضح في <a href="/privacy" target="_blank" rel="noreferrer" className="font-bold text-blue-600 underline">إشعار الخصوصية</a>. <span className="text-red-600">مطلوب</span></span>
-                </label>
-                <label className="flex cursor-pointer items-start gap-3 text-xs text-gray-700 dark:text-gray-200">
-                  <Checkbox
-                    checked={surveyData.marketingConsent === true}
-                    onCheckedChange={checked => setSurveyData(prev => ({ ...prev, marketingConsent: checked === true }))}
-                    aria-label="الموافقة على الرسائل التسويقية"
-                  />
-                  <span>أوافق اختياريًا على استلام إعلانات الفعاليات القادمة عبر واتساب. يمكنني إلغاء الاشتراك في أي وقت.</span>
-                </label>
-                <button type="button" onClick={() => setShowTermsModal(true)} className="text-xs font-bold text-blue-600 underline">عرض الملخص المختصر لحماية البيانات</button>
+            <div className="flex w-full max-w-lg flex-col items-end gap-3">
+              <div className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white text-right shadow-sm dark:border-slate-700 dark:bg-slate-900/90 dark:shadow-black/20">
+                <div className="flex items-center gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/70">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm shadow-blue-600/20">
+                    <Shield className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-bold text-slate-950 dark:text-white">الموافقة والخصوصية</h3>
+                    <p className="mt-0.5 text-[11px] leading-5 text-slate-600 dark:text-slate-300">راجع الخيارات التالية قبل إرسال الاستبيان</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2 p-3">
+                  <label className="group flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white p-3 transition-colors hover:border-blue-300 hover:bg-blue-50/50 dark:border-slate-700 dark:bg-slate-950/35 dark:hover:border-blue-500/60 dark:hover:bg-blue-500/5">
+                    <Checkbox
+                      checked={surveyData.termsAccepted}
+                      onCheckedChange={checked => setSurveyData(prev => ({ ...prev, termsAccepted: checked === true }))}
+                      aria-label="الموافقة على الشروط والأحكام"
+                      className="mt-0.5 h-5 w-5 rounded-md border-2 border-slate-400 bg-white data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600 data-[state=checked]:text-white dark:border-slate-500 dark:bg-slate-900"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <a href="/terms" target="_blank" rel="noreferrer" className="text-xs font-bold text-blue-700 underline decoration-blue-300 underline-offset-2 dark:text-blue-300">الشروط والأحكام</a>
+                        <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">مطلوب</span>
+                      </span>
+                      <span className="mt-1 block text-xs leading-5 text-slate-700 dark:text-slate-200">قرأت الشروط وأوافق عليها صراحةً.</span>
+                    </span>
+                  </label>
+
+                  <label className="group flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white p-3 transition-colors hover:border-blue-300 hover:bg-blue-50/50 dark:border-slate-700 dark:bg-slate-950/35 dark:hover:border-blue-500/60 dark:hover:bg-blue-500/5">
+                    <Checkbox
+                      checked={surveyData.dataConsent}
+                      onCheckedChange={checked => setSurveyData(prev => ({ ...prev, dataConsent: checked === true }))}
+                      aria-label="الموافقة على معالجة البيانات"
+                      className="mt-0.5 h-5 w-5 rounded-md border-2 border-slate-400 bg-white data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600 data-[state=checked]:text-white dark:border-slate-500 dark:bg-slate-900"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <a href="/privacy" target="_blank" rel="noreferrer" className="text-xs font-bold text-blue-700 underline decoration-blue-300 underline-offset-2 dark:text-blue-300">إشعار الخصوصية</a>
+                        <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">مطلوب</span>
+                      </span>
+                      <span className="mt-1 block text-xs leading-5 text-slate-700 dark:text-slate-200">أوافق صراحةً على معالجة بياناتي وتحليلها آليًا للتسجيل والتوافق وإدارة الفعالية، بما في ذلك النقل الموضح في الإشعار.</span>
+                    </span>
+                  </label>
+
+                  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-3 dark:border-slate-700 dark:bg-slate-800/35">
+                    <Checkbox
+                      checked={surveyData.marketingConsent === true}
+                      onCheckedChange={checked => setSurveyData(prev => ({ ...prev, marketingConsent: checked === true }))}
+                      aria-label="الموافقة على الرسائل التسويقية"
+                      className="mt-0.5 h-5 w-5 rounded-md border-2 border-slate-400 bg-white data-[state=checked]:border-cyan-600 data-[state=checked]:bg-cyan-600 data-[state=checked]:text-white dark:border-slate-500 dark:bg-slate-900"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-100">تحديثات الفعاليات</span>
+                        <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-600 dark:bg-slate-700 dark:text-slate-300">اختياري</span>
+                      </span>
+                      <span className="mt-1 block text-xs leading-5 text-slate-600 dark:text-slate-300">أرغب باستلام إعلانات الفعاليات القادمة عبر واتساب، ويمكنني إلغاء الاشتراك في أي وقت.</span>
+                    </span>
+                  </label>
+                </div>
+
+                <button type="button" onClick={() => setShowTermsModal(true)} className="flex w-full items-center justify-between border-t border-slate-200 px-4 py-3 text-xs font-bold text-blue-700 transition-colors hover:bg-blue-50 dark:border-slate-700 dark:text-blue-300 dark:hover:bg-blue-500/5">
+                  <span>عرض ملخص حماية البيانات</span>
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
               </div>
               
               <Button

@@ -6186,10 +6186,10 @@ export default function WelcomePage() {
               <div className="pointer-events-none absolute -bottom-24 -left-20 h-52 w-52 rounded-full bg-violet-500/10 blur-3xl" />
 
               <div className="relative">
-                <div className="mb-7 flex items-center justify-between gap-3 border-b border-white/[0.08] pb-4">
+                <div className="mb-7 flex items-center justify-between gap-3 border-b border-white/[0.14] pb-4">
                   <button
                     onClick={() => setShowFAQPopup(true)}
-                    className="inline-flex min-h-10 items-center gap-2 rounded-full px-3 text-xs font-medium text-slate-300 transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+                    className="inline-flex min-h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold text-slate-100 transition-colors hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
                     title="الأسئلة الشائعة"
                   >
                     <HelpCircle className="h-4 w-4" />
@@ -6197,7 +6197,7 @@ export default function WelcomePage() {
                   </button>
                   <button
                     onClick={() => setShowInfoPopup(true)}
-                    className="inline-flex min-h-10 items-center gap-2 rounded-full px-3 text-xs font-medium text-slate-300 transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+                    className="inline-flex min-h-10 items-center gap-2 rounded-full px-3 text-xs font-semibold text-slate-100 transition-colors hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
                     title="اضغط لمعرفة المزيد عن الفعالية"
                   >
                     <Info className="h-4 w-4 text-cyan-300" />
@@ -6210,18 +6210,18 @@ export default function WelcomePage() {
                     <UserPlus className="h-6 w-6 text-cyan-200" />
                   </div>
                   <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">أهلاً بك في بلاند ماتش</h2>
-                  <p className="mt-2 text-sm leading-6 text-slate-400">اختر الطريقة المناسبة للدخول إلى تجربتك</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-200">التوافق الأعمى (BlindMatch)</p>
                 </div>
 
                 <div className="space-y-3">
-                  <div className="rounded-2xl border border-white/[0.09] bg-white/[0.035] p-4 sm:p-5">
+                  <div className="rounded-2xl border border-white/[0.16] bg-white/[0.065] p-4 sm:p-5">
                     <div className="mb-4 flex items-center gap-3">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-400/10 text-emerald-300 ring-1 ring-emerald-300/20">
                         <RotateCcw className="h-5 w-5" />
                       </div>
                       <div className="text-right">
                         <h3 className="text-base font-bold text-white">لدي رمز دخول</h3>
-                        <p className="mt-0.5 text-xs text-slate-400">استعد بياناتك وواصل من حيث توقفت</p>
+                        <p className="mt-0.5 text-xs font-medium text-slate-300">استعد بياناتك وواصل من حيث توقفت</p>
                       </div>
                     </div>
 
@@ -6232,7 +6232,7 @@ export default function WelcomePage() {
                         onChange={(e) => setNewUserTokenInput(e.target.value)}
                         placeholder="أدخل الرمز المميز"
                         aria-label="رمز الدخول المميز"
-                        className="min-h-12 min-w-0 flex-1 rounded-xl border border-white/10 bg-black/20 px-4 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-300/50 focus:ring-4 focus:ring-cyan-400/10"
+                        className="min-h-12 min-w-0 flex-1 rounded-xl border border-white/20 bg-black/35 px-4 text-sm text-white outline-none placeholder:font-medium placeholder:text-slate-400 focus:border-cyan-300/70 focus:ring-4 focus:ring-cyan-400/15"
                         dir="ltr"
                       />
                       <button
@@ -6263,9 +6263,9 @@ export default function WelcomePage() {
                   </div>
 
                   <div className="flex items-center gap-3 px-1" aria-hidden="true">
-                    <div className="h-px flex-1 bg-white/[0.08]" />
-                    <span className="text-[11px] font-medium text-slate-600">أو</span>
-                    <div className="h-px flex-1 bg-white/[0.08]" />
+                    <div className="h-px flex-1 bg-white/[0.18]" />
+                    <span className="text-[11px] font-semibold text-slate-300">أو</span>
+                    <div className="h-px flex-1 bg-white/[0.18]" />
                   </div>
 
                   <button
@@ -6277,7 +6277,7 @@ export default function WelcomePage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <h3 className="text-base font-black">أنا مشارك جديد</h3>
-                      <p className="mt-0.5 text-xs font-medium text-slate-800/70">ابدأ التسجيل وأنشئ رمز دخول واحداً</p>
+                      <p className="mt-0.5 text-xs font-semibold text-slate-950/75">ابدأ التسجيل وأنشئ رمز دخول واحداً</p>
                     </div>
                     <ChevronLeft className="h-5 w-5 transition-transform group-hover:-translate-x-1" />
                   </button>

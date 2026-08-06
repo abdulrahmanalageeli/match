@@ -1,13 +1,10 @@
-import { createClient } from "@supabase/supabase-js"
+import { supabaseAdmin } from "../security/supabase-admin.mjs"
+import { enforceRateLimit, requireAdmin } from "../security/request-security.mjs"
 
-const supabase = createClient(
-  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY,
-)
+const supabase = supabaseAdmin
 
 const STATIC_MATCH_ID = "00000000-0000-0000-0000-000000000000"
 const EVENT3_MATCH_ID = "00000000-0000-0000-0000-000000000003"
-const FALLBACK_ADMIN_PASSWORD = process.env.EVENT3_PASSWORD || "soulmatch2026"
 const STATUS_CALLBACK_URL = process.env.TWILIO_STATUS_CALLBACK_URL || "https://blindmatch.app/api/twilio-status"
 
 const ARABIC_WEEKDAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"]
@@ -20,12 +17,6 @@ function formatRiyadhCutoffLabel(value) {
   const year = Number(yearText), month = Number(monthText), day = Number(dayText), hour = Number(hourText)
   const weekday = ARABIC_WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()]
   return `${weekday} ${day} ${ARABIC_MONTHS[month - 1]} ${year} الساعة ${hour % 12 || 12}:${minute} ${hour < 12 ? "صباحًا" : "مساءً"}`
-}
-
-function authorized(req) {
-  const supplied = req.headers["x-admin-password"] || req.body?.password || ""
-  const accepted = [process.env.ADMIN_PASSWORD, process.env.EVENT3_PASSWORD, FALLBACK_ADMIN_PASSWORD].filter(Boolean)
-  return Boolean(supplied && accepted.includes(supplied))
 }
 
 function normalizeWhatsapp(value) {
@@ -56,7 +47,7 @@ async function attachEventReceipts(participants, eventId) {
   if (!participants.length) return participants
   const { data: receipts, error } = await supabase
     .from("participant_receipts")
-    .select("id,participant_id,event_id,receipt_url,status,received_at,reviewed_at,rejection_reason")
+    .select("id,participant_id,event_id,storage_path,status,received_at,reviewed_at,rejection_reason")
     .eq("event_id", eventId)
     .in("participant_id", participants.map(participant => participant.id))
     .order("received_at", { ascending: false })
@@ -68,13 +59,20 @@ async function attachEventReceipts(participants, eventId) {
     if (!latestByParticipant.has(receipt.participant_id)) latestByParticipant.set(receipt.participant_id, receipt)
   }
 
+  const signedUrls = new Map()
+  await Promise.all((receipts || []).map(async receipt => {
+    if (!receipt.storage_path) return
+    const { data } = await supabase.storage.from("receipts").createSignedUrl(receipt.storage_path, 600)
+    if (data?.signedUrl) signedUrls.set(receipt.id, data.signedUrl)
+  }))
+
   return participants.map(participant => {
     const receipt = latestByParticipant.get(participant.id)
     return {
       ...participant,
       receipt_id: receipt?.id || null,
       receipt_event_id: receipt?.event_id || null,
-      receipt_url: receipt?.receipt_url || null,
+      receipt_url: receipt ? signedUrls.get(receipt.id) || null : null,
       receipt_received_at: receipt?.received_at || null,
       receipt_approved: receipt?.status === "approved",
       receipt_approved_at: receipt?.status === "approved" ? receipt.reviewed_at : null,
@@ -223,7 +221,7 @@ async function sendApprovedTemplate(template, participant, overrides = {}) {
     status_updated_at: new Date().toISOString(),
     error_code: twilio.code ? String(twilio.code) : null,
     error_message: response.ok ? null : (twilio.message || `Twilio ${response.status}`),
-    twilio_payload: twilio,
+    twilio_payload: twilio ? { sid: twilio.sid || null, status: twilio.status || null, code: twilio.code || null } : null,
   })
   if (!response.ok) throw new Error(twilio.message || "Twilio send failed")
   if (template.template_key !== "reminder") {
@@ -321,7 +319,7 @@ async function dashboard() {
   const messages = messagesResult.data || []
   const { data: pendingReceiptRows, error: pendingReceiptError } = await supabase
     .from("participant_receipts")
-    .select("id,participant_id,assigned_number,event_id,receipt_url,received_at")
+    .select("id,participant_id,assigned_number,event_id,storage_path,received_at")
     .eq("event_id", eventId).eq("status", "pending")
     .order("received_at", { ascending: false }).limit(100)
   if (pendingReceiptError) throw pendingReceiptError
@@ -332,12 +330,18 @@ async function dashboard() {
       .in("id", pendingReceiptRows.map(row => row.participant_id))
     if (receiptParticipantsError) throw receiptParticipantsError
     const participantById = new Map((receiptParticipants || []).map(participant => [participant.id, participant]))
+    const signed = new Map()
+    await Promise.all(pendingReceiptRows.map(async row => {
+      if (!row.storage_path) return
+      const { data } = await supabase.storage.from("receipts").createSignedUrl(row.storage_path, 600)
+      if (data?.signedUrl) signed.set(row.id, data.signedUrl)
+    }))
     receiptApprovals = pendingReceiptRows.map(row => ({
       ...(participantById.get(row.participant_id) || {}),
       receipt_id: row.id,
       receipt_event_id: row.event_id,
       assigned_number: row.assigned_number,
-      receipt_url: row.receipt_url,
+      receipt_url: signed.get(row.id) || null,
       receipt_received_at: row.received_at,
     }))
   }
@@ -373,7 +377,8 @@ async function dashboard() {
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" })
-  if (!authorized(req)) return res.status(401).json({ error: "Unauthorized" })
+  if (!enforceRateLimit(req, res, { key: "twilio-console", limit: 90, windowMs: 60_000 })) return
+  if (!await requireAdmin(req, res, { action: `twilio-${req.body?.action || "request"}` })) return
   const { action } = req.body || {}
   try {
     if (action === "dashboard") return res.status(200).json(await dashboard())
@@ -464,7 +469,7 @@ export default async function handler(req, res) {
             status_updated_at: now,
             error_code: twilio.error_code ? String(twilio.error_code) : null,
             error_message: twilio.error_message || null,
-            twilio_payload: twilio,
+            twilio_payload: twilio ? { sid: twilio.sid || null, status: twilio.status || null, code: twilio.code || null } : null,
           }
           if (status === "delivered") patch.delivered_at = twilio.date_updated || now
           if (status === "read") {

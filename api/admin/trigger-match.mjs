@@ -1,5 +1,6 @@
-import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
+import { supabaseAdmin } from "../../server/security/supabase-admin.mjs"
+import { enforceRateLimit, requireAdmin } from "../../server/security/request-security.mjs"
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
@@ -30,10 +31,7 @@ async function supabaseRetry(label, op, { attempts = 4, baseDelayMs = 250 } = {}
   throw lastErr
 }
 
-const supabase = createClient(
-  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
-)
+const supabase = supabaseAdmin
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
@@ -3257,6 +3255,8 @@ export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Only POST allowed" })
   }
+  if (!enforceRateLimit(req, res, { key: "admin-match", limit: 40, windowMs: 60_000 })) return
+  if (!await requireAdmin(req, res, { action: "admin-trigger-match" })) return
   // Reset per-request tolerance tracking
   AGE_TOLERANCE_MAP = new Map()
   // Reset forced gender mode (will be set below if matchType requires it)

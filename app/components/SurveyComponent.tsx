@@ -16,6 +16,7 @@ interface SurveyData {
   answers: Record<string, string | string[]>
   termsAccepted: boolean
   dataConsent: boolean
+  marketingConsent?: boolean
   mbtiType?: string
   attachmentStyle?: string
   communicationStyle?: string
@@ -966,6 +967,7 @@ const SurveyComponent = memo(function SurveyComponent({
         answers: { ...prev.answers, ...parsed.answers },
         termsAccepted: parsed.termsAccepted ?? prev.termsAccepted,
         dataConsent: parsed.dataConsent ?? prev.dataConsent,
+        marketingConsent: parsed.marketingConsent ?? prev.marketingConsent,
       }))
       if (typeof parsed.page === 'number' && parsed.page > 0) {
         setCurrentPage(parsed.page)
@@ -988,6 +990,7 @@ const SurveyComponent = memo(function SurveyComponent({
         page: currentPage,
         termsAccepted: surveyData.termsAccepted,
         dataConsent: surveyData.dataConsent,
+        marketingConsent: surveyData.marketingConsent === true,
         savedAt: Date.now(),
       }))
     } catch {}
@@ -2287,19 +2290,32 @@ const SurveyComponent = memo(function SurveyComponent({
 
           {currentPage === totalPages - 1 ? (
             <div className="flex flex-col items-end gap-3">
-              {/* Terms and Conditions Link */}
-              <div className="text-center w-full">
-                <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
-                  بالضغط على "إرسال الاستبيان" فإنك توافق على{' '}
-                  <button
-                    type="button"
-                    onClick={() => setShowTermsModal(true)}
-                    className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline font-medium transition-colors duration-200"
-                  >
-                    الشروط والأحكام
-                  </button>
-                  {' '}وسياسة الخصوصية
-                </p>
+              <div className="w-full space-y-3 rounded-xl border border-blue-200 bg-blue-50/80 p-3 text-right dark:border-blue-900 dark:bg-slate-900/70">
+                <label className="flex cursor-pointer items-start gap-3 text-xs text-gray-700 dark:text-gray-200">
+                  <Checkbox
+                    checked={surveyData.termsAccepted}
+                    onCheckedChange={checked => setSurveyData(prev => ({ ...prev, termsAccepted: checked === true }))}
+                    aria-label="الموافقة على الشروط والأحكام"
+                  />
+                  <span>قرأت وأوافق صراحةً على <a href="/terms" target="_blank" rel="noreferrer" className="font-bold text-blue-600 underline">الشروط والأحكام</a>. <span className="text-red-600">مطلوب</span></span>
+                </label>
+                <label className="flex cursor-pointer items-start gap-3 text-xs text-gray-700 dark:text-gray-200">
+                  <Checkbox
+                    checked={surveyData.dataConsent}
+                    onCheckedChange={checked => setSurveyData(prev => ({ ...prev, dataConsent: checked === true }))}
+                    aria-label="الموافقة على معالجة البيانات"
+                  />
+                  <span>أوافق صراحةً على معالجة بياناتي وتحليلها آليًا لأغراض التسجيل والتوافق وإدارة الفعالية، بما في ذلك النقل الموضح في <a href="/privacy" target="_blank" rel="noreferrer" className="font-bold text-blue-600 underline">إشعار الخصوصية</a>. <span className="text-red-600">مطلوب</span></span>
+                </label>
+                <label className="flex cursor-pointer items-start gap-3 text-xs text-gray-700 dark:text-gray-200">
+                  <Checkbox
+                    checked={surveyData.marketingConsent === true}
+                    onCheckedChange={checked => setSurveyData(prev => ({ ...prev, marketingConsent: checked === true }))}
+                    aria-label="الموافقة على الرسائل التسويقية"
+                  />
+                  <span>أوافق اختياريًا على استلام إعلانات الفعاليات القادمة عبر واتساب. يمكنني إلغاء الاشتراك في أي وقت.</span>
+                </label>
+                <button type="button" onClick={() => setShowTermsModal(true)} className="text-xs font-bold text-blue-600 underline">عرض الملخص المختصر لحماية البيانات</button>
               </div>
               
               <Button
@@ -2340,14 +2356,13 @@ const SurveyComponent = memo(function SurveyComponent({
                     return
                   }
                   
-                  // Auto-accept terms when submitting and call handleSubmit with updated data
-                  const updatedData = { ...surveyData, termsAccepted: true, dataConsent: true };
-                  setSurveyData(updatedData);
-                  
-                  // Call handleSubmit with the updated data directly to avoid race condition
-                  handleSubmitWithData(updatedData);
+                  if (!surveyData.termsAccepted || !surveyData.dataConsent) {
+                    alert("يرجى الموافقة بشكل صريح على الشروط وإشعار الخصوصية قبل الإرسال")
+                    return
+                  }
+                  handleSubmitWithData(surveyData);
                 }}
-                disabled={loading}
+                disabled={loading || !surveyData.termsAccepted || !surveyData.dataConsent}
                 className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-lg shadow hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:transform-none text-sm"
               >
                 {loading ? (

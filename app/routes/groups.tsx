@@ -1117,6 +1117,26 @@ const fiveSecondRuleCategories = [
   "أشياء حمراء", "أشياء دائرية", "أشياء في الثلاجة", "أسماء بنات", "أسماء أولاد", "ألوان"
 ];
 
+async function verifyPhoneByOtp(phoneNumber: string): Promise<string> {
+  const send = await fetch("/api/participant", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "request-otp", phone_number: phoneNumber }),
+  })
+  const sent = await send.json()
+  if (!send.ok) throw new Error(sent?.error || "تعذر إرسال رمز التحقق")
+  const otp = window.prompt("أدخل رمز التحقق المرسل إلى جوالك")
+  if (!otp) throw new Error("يلزم إدخال رمز التحقق")
+  const check = await fetch("/api/participant", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "verify-otp", phone_number: phoneNumber, otp }),
+  })
+  const verified = await check.json()
+  if (!check.ok || !verified?.secure_token) throw new Error(verified?.error || "رمز التحقق غير صحيح")
+  return verified.secure_token
+}
+
 export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tableNumber: activityTableNumber }: {
   disableOnboarding?: boolean;
   onClose?: () => void;
@@ -1784,10 +1804,11 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
     }
     setPhoneLoading(true);
     try {
+      const verifiedToken = await verifyPhoneByOtp(raw)
       const res = await fetch("/api/participant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "group-phone-login", phone_number: raw })
+        body: JSON.stringify({ action: "group-phone-login", phone_number: raw, secure_token: verifiedToken })
       });
       const data = await res.json();
       if (!res.ok || !data?.success) {
@@ -1798,6 +1819,11 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
       setParticipantName(data.name || `المشارك #${data.assigned_number}`);
       setTableNumber(Number.isFinite(data.table_number) ? data.table_number : null);
       if (Array.isArray(data.group_members)) setGroupMembers(data.group_members);
+      if (Array.isArray(data.participant_numbers) && data.participant_numbers.length > 0) {
+        setGroupParticipantNumbers(data.participant_numbers.map((n: any) => Number(n)).filter(Number.isFinite));
+        setIsConfirmed(true);
+        setShowOnboarding(true);
+      }
       // Save returned secure token (enables auto-redirect to rounds)
       try {
         if (data?.secure_token) {
@@ -1910,10 +1936,11 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
     }
     setPhoneLoading(true);
     try {
+      const verifiedToken = await verifyPhoneByOtp(d)
       const res = await fetch("/api/participant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "group-phone-login", phone_number: d })
+        body: JSON.stringify({ action: "group-phone-login", phone_number: d, secure_token: verifiedToken })
       });
       const data = await res.json();
       if (!res.ok || !data?.success) {
@@ -1962,7 +1989,10 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
         return;
       }
       // Fetch group genders/numbers for onboarding visualization (digits flow) and gate access
-      let hasGroup = false;
+      let hasGroup = Array.isArray(data.participant_numbers) && data.participant_numbers.length > 0;
+      if (hasGroup) {
+        setGroupParticipantNumbers(data.participant_numbers.map((n: any) => Number(n)).filter(Number.isFinite));
+      }
       try {
         const eventStateRes = await fetch("/api/admin", {
           method: "POST",

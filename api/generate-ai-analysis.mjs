@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { getAdminSession } from "../server/security/request-security.mjs";
 
 // Initialize OpenAI client
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -7,14 +8,12 @@ export default async function handler(req) {
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 });
   }
+  if (!getAdminSession(req)) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+  }
 
   try {
-    console.log('API Request received:', { 
-      method: req.method,
-      headers: req.headers,
-      bodyType: typeof req.body,
-      bodyLength: req.body ? (typeof req.body === 'string' ? req.body.length : 'object') : 'undefined'
-    });
+    console.log('Authenticated AI analysis request received');
     
     // Parse the request body for Vercel serverless functions
     let body;
@@ -27,8 +26,7 @@ export default async function handler(req) {
       console.error('Error parsing request body:', parseError);
       return new Response(JSON.stringify({ 
         error: 'Invalid JSON in request body',
-        details: parseError.message,
-        receivedBody: typeof req.body === 'string' ? req.body.substring(0, 100) + '...' : 'Not a string'
+        details: "Malformed request"
       }), { 
         status: 400,
         headers: { 'Content-Type': 'application/json' }
@@ -71,36 +69,12 @@ export default async function handler(req) {
     
     // Log participant identification information
     console.log(`Checking participant identification in ${matches.length} matches...`);
-    const sampleMatch = matches[0];
-    console.log('Sample match participant data:', {
-      has_participant_a_number: !!sampleMatch?.participant_a_number,
-      has_participant_b_number: !!sampleMatch?.participant_b_number,
-      participant_a_number: sampleMatch?.participant_a_number,
-      participant_b_number: sampleMatch?.participant_b_number,
-    });
     
     // Process all matches to gather participant statistics
     let matchesWithParticipantNumbers = 0;
     matches.forEach(match => {
       // Extract participant numbers from the participant objects
       // First, let's log the participant structure to understand what's available
-      if (matchesWithParticipantNumbers === 0) {
-        console.log('Participant A structure:', {
-          keys: match.participant_a ? Object.keys(match.participant_a) : 'undefined',
-          number: match.participant_a?.number,
-          id: match.participant_a?.id
-        });
-      }
-      
-      // Check if feedback contains participant numbers
-      if (matchesWithParticipantNumbers === 0 && match.feedback) {
-        console.log('Feedback structure:', {
-          has_feedback: !!match.feedback,
-          participant_a_feedback: match.feedback?.participant_a ? Object.keys(match.feedback.participant_a) : 'null',
-          participant_b_feedback: match.feedback?.participant_b ? Object.keys(match.feedback.participant_b) : 'null',
-          feedback_keys: match.feedback ? Object.keys(match.feedback) : 'null'
-        });
-      }
       
       // Try all possible locations for participant numbers
       let participantANumber = match.participant_a_number || 
@@ -124,11 +98,6 @@ export default async function handler(req) {
       
       // Last resort: try to find assigned_number in the participant object directly
       if (!participantANumber && match.participant_a) {
-        // Log the full participant_a object to see its structure
-        if (matchesWithParticipantNumbers === 0) {
-          console.log('Full participant_a object:', JSON.stringify(match.participant_a).substring(0, 200) + '...');
-        }
-        
         // Try all possible field names for the assigned number
         if (match.participant_a.assigned_number) {
           participantANumber = match.participant_a.assigned_number;
@@ -151,15 +120,7 @@ export default async function handler(req) {
       }
       
       // Skip matches without participant numbers
-      if (!participantANumber || !participantBNumber) {
-        console.log('Skipping match without participant numbers:', {
-          has_participant_a: !!match.participant_a,
-          has_participant_b: !!match.participant_b,
-          round: match.round,
-          table: match.table_number
-        });
-        return;
-      }
+      if (!participantANumber || !participantBNumber) return;
       
       // Store the extracted participant numbers in the match object for consistent access
       match.participant_a_number = participantANumber;
@@ -318,6 +279,7 @@ export default async function handler(req) {
       }
       
       const completion = await openai.chat.completions.create({
+        store: false,
         model: "gpt-5.4-mini",
         messages: [
           { role: "system", content: systemMessage },

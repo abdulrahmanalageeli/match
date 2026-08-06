@@ -1,16 +1,32 @@
-import { createClient } from "@supabase/supabase-js"
+import { supabaseAdmin } from "../server/security/supabase-admin.mjs"
+import { enforceRateLimit, requireAdmin } from "../server/security/request-security.mjs"
 
-const supabase = createClient(
-  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
-)
+const supabase = supabaseAdmin
 
 export default async function handler(req, res) {
+  if (!enforceRateLimit(req, res, { key: "match-results", limit: 90, windowMs: 60_000 })) return
   if (req.method === "POST") {
     try {
-      const { assigned_number, round, match_type = "محايد", action, event_id } = req.body
+      const { assigned_number: requestedAssignedNumber, secure_token, round, match_type = "محايد", action, event_id } = req.body
       const match_id = "00000000-0000-0000-0000-000000000000"
       const currentEventId = event_id || 1 // Default to event 1 if not provided
+      let assigned_number = requestedAssignedNumber
+
+      if (action === "all-matches") {
+        if (!await requireAdmin(req, res, { action: "admin-all-matches" })) return
+      } else {
+        if (!secure_token) return res.status(401).json({ error: "A participant token is required" })
+        const { data: tokenOwner, error: tokenError } = await supabase
+          .from("participants")
+          .select("assigned_number")
+          .eq("match_id", match_id)
+          .eq("secure_token", secure_token)
+          .single()
+        if (tokenError || !tokenOwner || Number(tokenOwner.assigned_number) !== Number(requestedAssignedNumber)) {
+          return res.status(401).json({ error: "Invalid participant token" })
+        }
+        assigned_number = tokenOwner.assigned_number
+      }
 
       // New endpoint for matrix: return all matches
       if (action === "all-matches") {
@@ -213,10 +229,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: err.message || "Unexpected error" })
     }
   } else if (req.method === "DELETE") {
-    // Only allow if admin_token matches
-    if (req.body?.admin_token !== process.env.ADMIN_TOKEN) {
-      return res.status(403).json({ error: "Forbidden" })
-    }
+    if (!await requireAdmin(req, res, { action: "admin-delete-matches" })) return
     const match_id = "00000000-0000-0000-0000-000000000000"
     const { error } = await supabase
       .from("match_results")

@@ -10,4 +10,7 @@ export default [
   route("groups", "routes/groups.tsx"), // ✅ Groups games page
   route("event3", "routes/event3.tsx"), // ✅ BlindMatch 4.0 participant page
   route("admin3", "routes/admin3.tsx"), // ✅ BlindMatch 4.0 admin panel
+  route("privacy", "routes/privacy.tsx"),
+  route("terms", "routes/terms.tsx"),
+  route("privacy-request", "routes/privacy-request.tsx"),
 ] satisfies RouteConfig;

@@ -1,11 +1,10 @@
-import { createClient } from "@supabase/supabase-js"
+import { supabaseAdmin } from "../server/security/supabase-admin.mjs"
+import { requireAdmin } from "../server/security/request-security.mjs"
 
-const supabase = createClient(
-  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
-)
+const supabase = supabaseAdmin
 
 export default async function handler(req, res) {
+  if (!await requireAdmin(req, res, { action: "admin-init-event-state" })) return
   const match_id = "00000000-0000-0000-0000-000000000000"
   
   try {
@@ -73,4 +72,4 @@ export default async function handler(req, res) {
       details: error.message
     });
   }
-} 
+}

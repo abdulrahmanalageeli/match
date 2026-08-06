@@ -1,6 +1,7 @@
-import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
 import { buildWelcomePrompt } from "./admin/ai-welcome-prompt.mjs"
+import { supabaseAdmin } from "../server/security/supabase-admin.mjs"
+import { enforceRateLimit } from "../server/security/request-security.mjs"
 
 // In-memory cache for e3 token resolution (5 min TTL) to reduce Supabase API load
 const _e3TokenCache = new Map() // token -> { participant, expiresAt }
@@ -17,22 +18,7 @@ const logError = (context, error) => {
   })
 }
 
-// Initialize Supabase client with error handling
-let supabase
-try {
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
-  const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
-  
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error('Missing Supabase environment variables')
-  }
-  
-  supabase = createClient(supabaseUrl, supabaseKey)
-  console.log('✅ Supabase client initialized successfully')
-} catch (error) {
-  console.error('❌ Failed to initialize Supabase client:', error)
-  throw error
-}
+const supabase = supabaseAdmin
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -43,6 +29,9 @@ export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Only POST allowed" })
   }
+  const contentLength = Number(req.headers?.["content-length"] || 0)
+  if (contentLength > 1_000_000) return res.status(413).json({ error: "Request body too large" })
+  if (!enforceRateLimit(req, res, { key: "participant-api", limit: 120, windowMs: 60_000 })) return
 
   if (!req.body?.action) return res.status(400).json({ error: 'Missing action' })
 
@@ -50,6 +39,7 @@ export default async function handler(req, res) {
 
   // TOKEN HANDLER ACTIONS
   if (action === "create-token") {
+    if (!enforceRateLimit(req, res, { key: "participant-create", limit: 5, windowMs: 60 * 60_000 })) return
     // Check if registration is enabled
     try {
       const { data: eventState, error: eventError } = await supabase
@@ -187,11 +177,14 @@ export default async function handler(req, res) {
   // GROUP PHONE LOGIN: semi-login for groups by phone number
   if (action === "group-phone-login") {
     try {
-      const { phone_number } = req.body
+      const { phone_number, secure_token } = req.body
       const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
 
       if (!phone_number || typeof phone_number !== 'string') {
         return res.status(400).json({ success: false, error: "Missing or invalid phone_number" })
+      }
+      if (!secure_token || typeof secure_token !== 'string') {
+        return res.status(401).json({ success: false, error: "OTP verification is required" })
       }
 
       // Normalize: use last 7 digits (for higher uniqueness)
@@ -231,7 +224,7 @@ export default async function handler(req, res) {
 
       // Special-case admin bypass: participant #7 (phone 0560899666) always allowed into groups with a fake group
       try {
-        const isAdminByPhone = normalized === '0560899666' || lastSeven === '0899666'
+        const isAdminByPhone = false
         if (isAdminByPhone) {
           // Try to fetch existing participant #7 for token/name; otherwise use sensible defaults
           let adminRow = null
@@ -293,6 +286,7 @@ export default async function handler(req, res) {
         .from("participants")
         .select("id, assigned_number, secure_token, name, survey_data, phone_number, event_id, created_at")
         .eq("match_id", match_id)
+        .eq("secure_token", secure_token)
         .not("phone_number", "is", null)
         .ilike("phone_number", `%${lastSeven}`)
         .order("created_at", { ascending: false })
@@ -466,7 +460,7 @@ export default async function handler(req, res) {
   }
 
   if (action === "resolve-token") {
-    console.log("[API] Action: resolve-token started for token:", req.body.secure_token);
+    console.log("[API] Action: resolve-token started");
     if (!req.body.secure_token) {
       console.log("[API] Error: Missing secure_token");
       return res.status(400).json({ error: 'Missing secure_token' });
@@ -477,7 +471,7 @@ export default async function handler(req, res) {
       .eq("secure_token", req.body.secure_token)
       .single();
 
-    console.log("[API] Participant query result:", { data, error });
+    console.log("[API] Participant token lookup completed", { found: Boolean(data), hasError: Boolean(error) });
 
     if (error || !data) {
       console.log("[API] Error: Participant not found or DB error.");
@@ -527,7 +521,7 @@ export default async function handler(req, res) {
           .or(`participant_a_number.eq.${data.assigned_number},participant_b_number.eq.${data.assigned_number}`)
           .order("created_at", { ascending: false });
 
-        console.log("[API] History query result:", { matches, matchError });
+        console.log("[API] History query completed", { count: matches?.length || 0, hasError: Boolean(matchError) });
 
         if (!matchError && matches) {
           history = matches.map(match => {
@@ -890,11 +884,7 @@ export default async function handler(req, res) {
   // SAVE PARTICIPANT ACTION
   if (action === "save-participant") {
     try {
-      console.log('📨 Received save-participant request:', {
-        method: req.method,
-        body: req.body,
-        headers: req.headers
-      })
+      console.log('📨 Received save-participant request')
 
       const { assigned_number, summary, survey_data, feedback, round, secure_token, event_id } = req.body
       const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
@@ -902,6 +892,16 @@ export default async function handler(req, res) {
       if (!req.body?.assigned_number) {
         console.error('❌ Missing assigned_number in request body')
         return res.status(400).json({ error: 'Missing assigned_number' })
+      }
+      if (!secure_token) return res.status(401).json({ error: "A participant token is required" })
+      const { data: authenticatedParticipant, error: participantAuthError } = await supabase
+        .from("participants")
+        .select("id,assigned_number")
+        .eq("match_id", match_id)
+        .eq("secure_token", secure_token)
+        .single()
+      if (participantAuthError || !authenticatedParticipant || Number(authenticatedParticipant.assigned_number) !== Number(assigned_number)) {
+        return res.status(401).json({ error: "Invalid participant token" })
       }
       
       // Check for either survey data, summary, or feedback
@@ -995,6 +995,10 @@ export default async function handler(req, res) {
         })
       }
 
+      if (survey_data && (survey_data.termsAccepted !== true || survey_data.dataConsent !== true)) {
+        return res.status(400).json({ error: "Explicit acceptance of the terms and privacy notice is required" })
+      }
+
       console.log('📝 Processing participant data for assigned_number:', assigned_number)
 
       const phoneNumber = survey_data?.phoneNumber || survey_data?.answers?.phone_number
@@ -1043,7 +1047,7 @@ export default async function handler(req, res) {
 
       // Handle survey data (only if present)
       if (survey_data) {
-        console.log('📊 Processing survey data:', survey_data)
+        console.log('📊 Processing validated survey data')
         
         const answers = req.body.survey_data?.answers || {};
         const redLinesRaw = answers.redLines;
@@ -1061,6 +1065,10 @@ export default async function handler(req, res) {
             redLines,
           },
         }
+        updateFields.terms_version = "2026-08-06"
+        updateFields.privacy_notice_version = "2026-08-06"
+        updateFields.consented_at = new Date().toISOString()
+        updateFields.marketing_consent = survey_data.marketingConsent === true
 
         // Persist personal info to dedicated columns (extracted from answers)
         if (typeof survey_data.name === 'string' && survey_data.name.trim()) {
@@ -1293,7 +1301,7 @@ export default async function handler(req, res) {
       // Allow saving summary alone or with form data
       if (summary) {
         updateFields.summary = summary
-        console.log('📝 Summary:', summary)
+        console.log('Participant summary received')
       }
 
       if (Object.keys(updateFields).length === 0) {
@@ -1301,7 +1309,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "No valid fields to save" })
       }
 
-      console.log('💾 Saving fields:', updateFields)
+      console.log('Saving validated participant fields', { fieldCount: Object.keys(updateFields).length })
 
       if (existing && existing.length > 0) {
         // ✅ Update existing participant identified by their secure_token
@@ -1404,7 +1412,7 @@ export default async function handler(req, res) {
 
   // GET MATCH RESULTS BY TOKEN ACTION
   if (action === "get-match-results") {
-    console.log("[API] Action: get-match-results started for token:", req.body.secure_token);
+    console.log("[API] Action: get-match-results started");
     if (!req.body.secure_token) {
       console.log("[API] Error: Missing secure_token");
       return res.status(400).json({ error: 'Missing secure_token' });
@@ -1418,7 +1426,7 @@ export default async function handler(req, res) {
         .eq("secure_token", req.body.secure_token)
         .single();
 
-      console.log("[API] Participant query result:", { participant, participantError });
+      console.log("[API] Participant lookup completed", { found: Boolean(participant), hasError: Boolean(participantError) });
 
       if (participantError || !participant) {
         console.log("[API] Error: Participant not found or DB error.");
@@ -1439,7 +1447,7 @@ export default async function handler(req, res) {
         .order("event_id", { ascending: false })
         .order("created_at", { ascending: false });
 
-      console.log("[API] Match results query result:", { matches, matchError });
+      console.log("[API] Match results query completed", { count: matches?.length || 0, hasError: Boolean(matchError) });
 
       if (matchError) {
         console.error("[API] Error fetching match results:", matchError);
@@ -1657,7 +1665,7 @@ export default async function handler(req, res) {
           } catch (err) {
             e3MatchErr = err
           }
-          console.log(`[resolve-token] Event3 matches for #${participant.assigned_number}:`, { count: e3Matches?.length || 0, rows: e3Matches, error: e3MatchErr?.message })
+          console.log(`[resolve-token] Event3 matches loaded`, { count: e3Matches?.length || 0, hasError: Boolean(e3MatchErr) })
           if (e3MatchErr) {
             console.error("[API] Event3 matches query (with match_preference) error:", e3MatchErr.message)
             const { data: fbData, error: fbErr } = await supabase
@@ -2017,8 +2025,6 @@ export default async function handler(req, res) {
 
   // CHECK PHONE NUMBER DUPLICATE (for survey validation)
   if (action === "check-phone-duplicate") {
-    // TEMP DISABLE: Always report not duplicate
-    return res.status(200).json({ duplicate: false, message: "Temporary phone duplicate check disabled" })
     const { phone_number, current_participant_number, secure_token } = req.body
 
     if (!phone_number) {
@@ -2033,7 +2039,7 @@ export default async function handler(req, res) {
       }
       
       const last7Digits = normalizedPhone.slice(-7)
-      console.log(`🔍 Checking phone duplicate for last 7 digits: ${last7Digits}`)
+      console.log('Checking phone duplicate')
       
       // If we have current participant info, this is an edit operation
       if (current_participant_number || secure_token) {
@@ -2067,7 +2073,7 @@ export default async function handler(req, res) {
           
           // Exclude if this is the same participant by token
           if (secure_token && p.secure_token === secure_token) {
-            console.log(`✅ Excluding current participant with token ${secure_token.substring(0, 8)}... from duplicate check`)
+            console.log('Excluding authenticated participant from duplicate check')
             return false
           }
         }
@@ -2167,7 +2173,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "رقم الهاتف قصير جداً (نحتاج آخر 7 أرقام)" })
       }
       const lastSevenDigits = normalizedPhone.slice(-7)
-      console.log(`🔍 Looking up phone ending with: ${lastSevenDigits}`)
+      console.log('Looking up verified participant phone')
 
       // Query by ending digits directly (case-insensitive) and same match_id
       const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
@@ -2284,7 +2290,7 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: "Failed to register for next event" })
       }
 
-      console.log(`✅ Participant ${participant.assigned_number} (${participant.name}) signed up for next event`)
+      console.log(`Participant #${participant.assigned_number} signed up for next event`)
 
       return res.status(200).json({
         success: true,
@@ -2437,7 +2443,7 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: "Failed to register for next event" })
       }
 
-      console.log(`✅ Auto-signup: Participant ${participant.assigned_number} (${participant.name}) signed up for next event`)
+      console.log(`Auto-signup completed for participant #${participant.assigned_number}`)
 
       return res.status(200).json({
         success: true,
@@ -2562,7 +2568,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "Missing secure_token or vibe_answers" })
       }
 
-      console.log('📝 Updating vibe questions for token:', secure_token)
+      console.log('📝 Updating vibe questions for authenticated participant')
 
       // Get participant by token
       const { data: participant, error: participantError } = await supabase
@@ -2787,7 +2793,7 @@ export default async function handler(req, res) {
 الهدف: أن يقرأ المستخدم التحليل ويقول: "واو! الذكاء الاصطناعي فاهمني فعلاً".`
 
       // 7. Generate with Anti-Repetition Settings
-      console.log(`🤖 Generating fresh Vibe Analysis for ${name1} & ${name2}...`)
+      console.log('Generating fresh compatibility analysis')
       
       const completion = await openai.chat.completions.create({
         model: "gpt-5.4-mini",
@@ -2871,7 +2877,7 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: "Failed to enable auto-signup" })
       }
 
-      console.log(`✨ Auto-signup enabled for participant ${participant.assigned_number} (${participant.name})`)
+      console.log(`Auto-signup enabled for participant #${participant.assigned_number}`)
 
       return res.status(200).json({
         success: true,
@@ -3180,6 +3186,8 @@ Please respond in JSON format:
 
       // e3-login-by-phone (no token required)
       if (action === "e3-login-by-phone") {
+        return res.status(410).json({ error: "OTP verification is required" })
+        /* istanbul ignore next -- retained temporarily for rollback history; unreachable */
         const { phone } = req.body
         if (!phone) return res.status(400).json({ error: "رقم الجوال مطلوب" })
         const raw = String(phone).replace(/\D/g, '')
@@ -3858,6 +3866,7 @@ Please respond in JSON format:
 
   // ── Forgot token / OTP recovery via Twilio Verify API ────────────────────
   if (action === "request-otp") {
+    if (!enforceRateLimit(req, res, { key: "request-otp", limit: 5, windowMs: 15 * 60_000 })) return
     try {
       const { phone_number } = req.body
       if (!phone_number) return res.status(400).json({ error: "رقم الجوال مطلوب" })
@@ -3926,6 +3935,7 @@ Please respond in JSON format:
   }
 
   if (action === "verify-otp") {
+    if (!enforceRateLimit(req, res, { key: "verify-otp", limit: 10, windowMs: 15 * 60_000 })) return
     try {
       const { phone_number, otp } = req.body
       if (!phone_number || !otp) return res.status(400).json({ error: "رقم الجوال والرمز مطلوبان" })
@@ -3992,6 +4002,67 @@ Please respond in JSON format:
       console.error("verify-otp error:", err)
       return res.status(500).json({ error: "خطأ في التحقق" })
     }
+  }
+
+  // PDPL data-subject rights: authenticated with the participant's rotated secret token.
+  if (action === "export-my-data" || action === "request-data-deletion" || action === "withdraw-consent") {
+    const secureToken = String(req.body?.secure_token || "")
+    if (!secureToken) return res.status(401).json({ error: "A participant token is required" })
+    if (!enforceRateLimit(req, res, { key: `privacy-${action}`, limit: 5, windowMs: 60 * 60_000 })) return
+
+    const { data: participant, error: participantError } = await supabase
+      .from("participants")
+      .select("*")
+      .eq("secure_token", secureToken)
+      .eq("match_id", "00000000-0000-0000-0000-000000000000")
+      .single()
+    if (participantError || !participant) return res.status(401).json({ error: "Invalid participant token" })
+
+    if (action === "export-my-data") {
+      const number = participant.assigned_number
+      const [matches, feedback, attendance, rankings, requests, receipts] = await Promise.all([
+        supabase.from("match_results").select("event_id,round,match_type,participant_a_number,participant_b_number,participant_c_number,participant_d_number,compatibility_score,created_at").or(`participant_a_number.eq.${number},participant_b_number.eq.${number},participant_c_number.eq.${number},participant_d_number.eq.${number}`),
+        supabase.from("match_feedback").select("event_id,round,submitted_at,compatibility_rate,conversation_quality,personal_connection,shared_interests,comfort_level,communication_style,overall_experience,recommendations,would_meet_again,participant_message").eq("participant_number", number),
+        supabase.from("event_attendance").select("event_id,attended,updated_at").eq("participant_number", number),
+        supabase.from("participant_rankings").select("event_id,ranked_number,rank,submitted_at").eq("ranker_number", number),
+        supabase.from("organizer_requests").select("event_id,message,status,organizer_reply,created_at,request_type,chat_history").eq("participant_number", number),
+        supabase.from("participant_receipts").select("event_id,status,received_at,reviewed_at,rejection_reason").eq("assigned_number", number),
+      ])
+      const { secure_token: _secret, ...profile } = participant
+      res.setHeader("Cache-Control", "no-store")
+      return res.status(200).json({
+        exported_at: new Date().toISOString(),
+        profile,
+        matches: matches.data || [], feedback: feedback.data || [], attendance: attendance.data || [],
+        rankings: rankings.data || [], organizer_requests: requests.data || [], receipts: receipts.data || [],
+      })
+    }
+
+    const requestType = action === "withdraw-consent" ? "withdraw_consent_and_destroy" : "destroy"
+    const { data: existingRequest } = await supabase.from("data_subject_requests")
+      .select("id,status").eq("participant_id", participant.id).eq("request_type", requestType)
+      .in("status", ["received", "verifying", "in_progress"]).maybeSingle()
+    if (!existingRequest) {
+      await supabase.from("data_subject_requests").insert({
+        participant_id: participant.id,
+        assigned_number: participant.assigned_number,
+        request_type: requestType,
+        status: "received",
+        identity_verified_at: new Date().toISOString(),
+        due_at: new Date(Date.now() + 30 * 24 * 60 * 60_000).toISOString(),
+      })
+    }
+    if (action === "withdraw-consent") {
+      await supabase.from("participants").update({
+        consent_withdrawn_at: new Date().toISOString(), marketing_consent: false,
+        auto_signup_next_event: false, signup_for_next_event: false,
+      }).eq("id", participant.id)
+    }
+    return res.status(202).json({
+      success: true,
+      request_id: existingRequest?.id || null,
+      message: "Your verified privacy request has been recorded for completion and confirmation.",
+    })
   }
 
   return res.status(400).json({ error: 'Invalid action' })

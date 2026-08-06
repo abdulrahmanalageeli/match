@@ -1,4 +1,5 @@
 import OpenAI from "openai"
+import { enforceRateLimit } from "../server/security/request-security.mjs"
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -8,6 +9,8 @@ export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Only POST allowed" })
   }
+  if (!enforceRateLimit(req, res, { key: "ai-summary", limit: 10, windowMs: 60 * 60_000 })) return
+  if (Number(req.headers?.["content-length"] || 0) > 250_000) return res.status(413).json({ error: "Request body too large" })
 
   const { responses } = req.body
 
@@ -434,6 +437,7 @@ export default async function handler(req, res) {
     }
 
     const completion = await openai.chat.completions.create({
+      store: false,
       model: "gpt-4-1106-preview",
       messages: [
         {
@@ -452,7 +456,7 @@ export default async function handler(req, res) {
     })
 
     const summary = completion.choices?.[0]?.message?.content?.trim()
-    console.log("GPT Response:", summary)
+    console.log("GPT summary generated")
 
     if (!summary) {
       return res.status(200).json({ summary: "ما طلع ملخص من GPT." })

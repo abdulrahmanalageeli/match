@@ -4745,6 +4745,7 @@ export default function WelcomePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           assigned_number: assignedNumber,
+          secure_token: secureToken || resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token'),
           event_id: currentEventId || 1
         })
         })
@@ -4810,6 +4811,7 @@ export default function WelcomePage() {
         body: JSON.stringify({ 
           assigned_number: assignedNumber, 
           match_type: "محايد", 
+          secure_token: secureToken || resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token'),
           round: 0,
           event_id: currentEventId || 1
         }),
@@ -5329,6 +5331,7 @@ export default function WelcomePage() {
         body: JSON.stringify({
           action: "start",
           assigned_number: assignedNumber,
+          secure_token: secureToken || resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token'),
           round: round,
           duration: duration,
           match_type: round === 0 ? "محايد" : "individual"
@@ -5366,6 +5369,7 @@ export default function WelcomePage() {
         body: JSON.stringify({
           action: "get-status",
           assigned_number: assignedNumber,
+          secure_token: secureToken || resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token'),
           round: round,
           match_type: round === 0 ? "محايد" : "individual"
         }),
@@ -5394,6 +5398,7 @@ export default function WelcomePage() {
         body: JSON.stringify({
           action: "finish",
           assigned_number: assignedNumber,
+          secure_token: secureToken || resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token'),
           round: round,
           match_type: round === 0 ? "محايد" : "individual"
         }),

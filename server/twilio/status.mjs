@@ -1,10 +1,7 @@
-import { createClient } from "@supabase/supabase-js"
 import crypto from "crypto"
+import { supabaseAdmin } from "../security/supabase-admin.mjs"
 
-const supabase = createClient(
-  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY,
-)
+const supabase = supabaseAdmin
 
 function validateTwilioSignature(req) {
   const authToken = process.env.TWILIO_AUTH_TOKEN
@@ -45,7 +42,7 @@ export default async function handler(req, res) {
     status_updated_at: now,
     error_code: req.body.ErrorCode ? String(req.body.ErrorCode) : null,
     error_message: req.body.ErrorMessage || null,
-    twilio_payload: req.body,
+    twilio_payload: { sid, status, error_code: req.body.ErrorCode ? String(req.body.ErrorCode) : null },
   }
   if (status === "delivered") patch.delivered_at = now
   if (status === "read") {

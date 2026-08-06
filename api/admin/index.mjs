@@ -1,15 +1,13 @@
-import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
 import { createHmac, timingSafeEqual } from "node:crypto"
 import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkIntentHardGate, checkInteractionStyleCompatibility, fetchAllCachedPairs, calculateHumorOpennessScore } from "./trigger-match.mjs"
 import { buildWelcomePrompt } from "./ai-welcome-prompt.mjs"
 import { assignPriorityTables } from "../../server/event3/table-priority.mjs"
 import { buildSixBySevenPlan, optimizeRound2ByAge } from "../../server/event3/round2-age-optimizer.mjs"
+import { supabaseAdmin } from "../../server/security/supabase-admin.mjs"
+import { enforceRateLimit, requireAdmin } from "../../server/security/request-security.mjs"
 
-const supabase = createClient(
-  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
-)
+const supabase = supabaseAdmin
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
@@ -105,7 +103,7 @@ function isSwapParticipantPaid(participant) {
 async function attachEventReceipts(participants, eventId) {
   const { data: receipts, error } = await supabase
     .from("participant_receipts")
-    .select("id,participant_id,event_id,receipt_url,status,received_at,reviewed_at,rejection_reason")
+    .select("id,participant_id,event_id,storage_path,status,received_at,reviewed_at,rejection_reason")
     .eq("event_id", eventId)
     .order("received_at", { ascending: false })
     .limit(10000)
@@ -116,13 +114,20 @@ async function attachEventReceipts(participants, eventId) {
     if (!latestByParticipant.has(receipt.participant_id)) latestByParticipant.set(receipt.participant_id, receipt)
   }
 
+  const signedUrls = new Map()
+  await Promise.all((receipts || []).map(async receipt => {
+    if (!receipt.storage_path) return
+    const { data } = await supabase.storage.from("receipts").createSignedUrl(receipt.storage_path, 600)
+    if (data?.signedUrl) signedUrls.set(receipt.id, data.signedUrl)
+  }))
+
   return participants.map(participant => {
     const receipt = latestByParticipant.get(participant.id)
     return {
       ...participant,
       receipt_id: receipt?.id || null,
       receipt_event_id: receipt?.event_id || null,
-      receipt_url: receipt?.receipt_url || null,
+      receipt_url: receipt ? signedUrls.get(receipt.id) || null : null,
       receipt_received_at: receipt?.received_at || null,
       receipt_approved: receipt?.status === "approved",
       receipt_approved_at: receipt?.status === "approved" ? receipt.reviewed_at : null,
@@ -235,8 +240,8 @@ async function sendFinalConfirmation(participant, paymentWaived = false) {
 
 // ── Event 4.0 constants & helpers ─────────────────────────────────────────────
 const EVENT3_MATCH_ID = "00000000-0000-0000-0000-000000000003"
-const EVENT3_PASSWORD = process.env.EVENT3_PASSWORD || "soulmatch2026"
-const EVENT3_COHOST_PASSWORD = process.env.EVENT3_COHOST_PASSWORD || "bayan2026"
+const EVENT3_PASSWORD = process.env.EVENT3_PASSWORD || ""
+const EVENT3_COHOST_PASSWORD = process.env.EVENT3_COHOST_PASSWORD || ""
 const EVENT3_COHOST_TOKEN_TTL_SECONDS = 8 * 60 * 60
 const EVENT3_COHOST_ACTIONS = new Set([
   "e3-cohost-dashboard",
@@ -253,12 +258,11 @@ function safeSecretEqual(received, expected) {
 }
 
 function cohostTokenSecret() {
-  return process.env.EVENT3_COHOST_TOKEN_SECRET
-    || process.env.SUPABASE_SERVICE_ROLE_KEY
-    || EVENT3_PASSWORD
+  return process.env.EVENT3_COHOST_TOKEN_SECRET || ""
 }
 
 function signCohostToken() {
+  if (!cohostTokenSecret()) throw new Error("EVENT3_COHOST_TOKEN_SECRET is not configured")
   const payload = Buffer.from(JSON.stringify({ role: "event3_cohost", exp: Math.floor(Date.now() / 1000) + EVENT3_COHOST_TOKEN_TTL_SECONDS })).toString("base64url")
   const signature = createHmac("sha256", cohostTokenSecret()).update(payload).digest("base64url")
   return `${payload}.${signature}`
@@ -553,13 +557,28 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Database configuration error - missing SUPABASE_URL" });
   }
   
-  if (!process.env.SUPABASE_ANON_KEY && !process.env.VITE_SUPABASE_ANON_KEY) {
-    console.error("Missing SUPABASE_ANON_KEY environment variable");
-    return res.status(500).json({ error: "Database configuration error - missing SUPABASE_ANON_KEY" });
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error("Missing SUPABASE_SERVICE_ROLE_KEY environment variable");
+    return res.status(500).json({ error: "Database configuration error" });
   }
 
   const method = req.method
   const action = req.query.action || req.body?.action
+
+  const bearerToken = String(req.headers?.authorization || "").replace(/^Bearer\s+/i, "")
+  const isCohostLogin = action === "e3-cohost-login"
+  const isPublicEventRead = action === "get-event-state" || action === "get-current-event-id"
+  const hasCohostSession = EVENT3_COHOST_ACTIONS.has(action) && verifyCohostToken(bearerToken || req.body?.cohost_token)
+  if (isCohostLogin) {
+    if (!enforceRateLimit(req, res, { key: "cohost-login", limit: 5, windowMs: 15 * 60_000 })) return
+  } else if (isPublicEventRead) {
+    if (!enforceRateLimit(req, res, { key: "public-event-state", limit: 120, windowMs: 60_000 })) return
+  } else if (hasCohostSession) {
+    req.cohostAuth = true
+  } else {
+    if (!enforceRateLimit(req, res, { key: "admin-api", limit: 180, windowMs: 60_000 })) return
+    if (!await requireAdmin(req, res, { action: action || `${method}-admin` })) return
+  }
 
   console.log(`API Request: ${method} ${action}`);
 
@@ -2144,7 +2163,7 @@ export default async function handler(req, res) {
           const eventId = Number(req.body.event_id || await getCurrentAdminEventId())
           const { data: receiptRows, error: receiptError } = await supabase
             .from("participant_receipts")
-            .select("id,participant_id,assigned_number,event_id,receipt_url,received_at")
+            .select("id,participant_id,assigned_number,event_id,storage_path,received_at")
             .eq("event_id", eventId)
             .eq("status", "pending")
             .order("received_at", { ascending: false })
@@ -2158,12 +2177,18 @@ export default async function handler(req, res) {
           if (participantError) return res.status(500).json({ error: participantError.message })
 
           const participantsById = new Map((participantRows || []).map(participant => [participant.id, participant]))
+          const signedUrls = new Map()
+          await Promise.all(receiptRows.map(async receipt => {
+            if (!receipt.storage_path) return
+            const { data } = await supabase.storage.from("receipts").createSignedUrl(receipt.storage_path, 600)
+            if (data?.signedUrl) signedUrls.set(receipt.id, data.signedUrl)
+          }))
           const receipts = receiptRows.map(receipt => ({
             ...(participantsById.get(receipt.participant_id) || {}),
             receipt_id: receipt.id,
             receipt_event_id: receipt.event_id,
             assigned_number: receipt.assigned_number,
-            receipt_url: receipt.receipt_url,
+            receipt_url: signedUrls.get(receipt.id) || null,
             receipt_received_at: receipt.received_at,
             receipt_approved: false,
             receipt_rejected: false,
@@ -8061,7 +8086,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
     // The returned short-lived signed token is limited to the explicit action
     // allow-list below; it can never invoke matching, phase, survey, or payment APIs.
     if (action === "e3-cohost-login") {
-      if (!safeSecretEqual(req.body?.password, EVENT3_COHOST_PASSWORD)) {
+      if (!EVENT3_COHOST_PASSWORD || !cohostTokenSecret() || !safeSecretEqual(req.body?.password, EVENT3_COHOST_PASSWORD)) {
         return res.status(403).json({ error: "Unauthorized" })
       }
       return res.status(200).json({
@@ -8072,10 +8097,9 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
 
     // ── Event 4.0 admin/co-host actions ────────────────────────────────────────
     if (action && action.startsWith("e3-")) {
-      const bearerToken = String(req.headers?.authorization || "").replace(/^Bearer\s+/i, "")
       const isCohostAction = EVENT3_COHOST_ACTIONS.has(action)
       const hasCohostAccess = isCohostAction && verifyCohostToken(bearerToken || req.body?.cohost_token)
-      const hasAdminAccess = safeSecretEqual(req.body?.password, EVENT3_PASSWORD)
+      const hasAdminAccess = Boolean(req.adminAuth)
       if (!hasAdminAccess && !hasCohostAccess) return res.status(403).json({ error: "Unauthorized" })
       try {
         // Helper: fetch current event_id from event_state — prefer STATIC_MATCH_ID (main admin)

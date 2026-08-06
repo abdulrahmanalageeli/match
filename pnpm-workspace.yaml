@@ -1,0 +1,20 @@
+packages:
+  - .
+
+allowBuilds:
+  '@parcel/watcher': true
+  esbuild: true
+
+minimumReleaseAgeExclude:
+  - '@supabase/auth-js@2.112.2'
+  - '@supabase/functions-js@2.112.2'
+  - '@supabase/postgrest-js@2.112.2'
+  - '@supabase/realtime-js@2.112.2'
+  - '@supabase/storage-js@2.112.2'
+  - '@supabase/supabase-js@2.112.2'
+
+overrides:
+  '@mjackson/node-fetch-server': 0.7.0
+  body-parser: 1.20.6
+  qs: 6.14.2
+  ws: 8.21.0

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 
-export default function MatchResult({ assignedNumber }: { assignedNumber: number | null }) {
+export default function MatchResult({ assignedNumber, secureToken }: { assignedNumber: number | null; secureToken: string }) {
   const [matches, setMatches] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -11,7 +11,7 @@ export default function MatchResult({ assignedNumber }: { assignedNumber: number
       const res = await fetch("/api/get-my-matches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assigned_number: assignedNumber }),
+        body: JSON.stringify({ assigned_number: assignedNumber, secure_token: secureToken }),
       })
       const data = await res.json()
       setMatches(data.matches || [])
@@ -19,7 +19,7 @@ export default function MatchResult({ assignedNumber }: { assignedNumber: number
     }
 
     fetchMatches()
-  }, [assignedNumber])
+  }, [assignedNumber, secureToken])
 
   if (loading) return <p className="text-sm text-muted-foreground">جاري تحميل النتائج...</p>
 

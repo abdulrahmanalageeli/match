@@ -1,15 +1,9 @@
-import { createClient } from "@supabase/supabase-js"
 import crypto from "crypto"
 import { normalizeInboundAction, resolveInboundAction } from "./inbound-actions.mjs"
 import { confirmationPaymentState } from "./confirmation-policy.mjs"
+import { supabaseAdmin } from "../security/supabase-admin.mjs"
 
-const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-const supabaseFallbackKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
-
-// This webhook is server-only. Receipt uploads require the service-role key so
-// Storage RLS can remain closed to public/anonymous uploads.
-const supabase = createClient(supabaseUrl, supabaseServiceRoleKey || supabaseFallbackKey)
+const supabase = supabaseAdmin
 
 const STATIC_MATCH_ID = "00000000-0000-0000-0000-000000000000"
 
@@ -161,7 +155,7 @@ async function sendTwilioReply(to, message, participant = null) {
         status_updated_at: new Date().toISOString(),
         error_code: twilioData?.code ? String(twilioData.code) : null,
         error_message: twilioRes.ok ? null : (twilioData?.message || `Twilio ${twilioRes.status}`),
-        twilio_payload: twilioData || {},
+        twilio_payload: twilioData ? { sid: twilioData.sid || null, status: twilioData.status || null, code: twilioData.code || null } : null,
         is_auto_reply: true,
       })
     } catch (e) {
@@ -403,13 +397,13 @@ export default async function handler(req, res) {
     const mediaContentType0 = req.body.MediaContentType0 || ""
     const messageSid = req.body.MessageSid || ""
 
-    console.log("Twilio webhook:", { from, buttonPayload, buttonText, messageBody, hasMedia: !!mediaUrl0 })
+    console.log("Twilio webhook received", { hasButton: Boolean(buttonPayload || buttonText), hasMessage: Boolean(messageBody), hasMedia: Boolean(mediaUrl0) })
 
     // ── Handle media (receipt upload) ──────────────────────────────────
     if (mediaUrl0) {
       const participant = await findParticipantByPhone(from)
       if (!participant) {
-        console.log("No participant found for phone:", from)
+        console.log("No participant found for inbound webhook")
         await sendTwilioReply(from, await responseText("receipt_unknown_phone"))
         return res.status(200).json({ status: "participant_not_found" })
       }
@@ -454,14 +448,6 @@ export default async function handler(req, res) {
           throw new Error(`Receipt upload failed: ${uploadError.message}`)
         }
 
-        // Store receipt URL in participant record
-        const { data: publicUrlData } = supabase.storage
-          .from("receipts")
-          .getPublicUrl(fileName)
-
-        const receiptUrl = publicUrlData?.publicUrl
-        if (!receiptUrl) throw new Error("Receipt public URL could not be generated")
-
         const now = new Date().toISOString()
         const { data: receipt, error: receiptInsertError } = await supabase
           .from("participant_receipts")
@@ -470,7 +456,7 @@ export default async function handler(req, res) {
             assigned_number: participant.assigned_number,
             event_id: eventId,
             storage_path: fileName,
-            receipt_url: receiptUrl,
+            receipt_url: fileName,
             status: "pending",
             received_at: now,
             source_message_sid: messageSid || null,
@@ -492,7 +478,7 @@ export default async function handler(req, res) {
         const { error: participantUpdateError } = await supabase
           .from("participants")
           .update({
-            receipt_url: receiptUrl,
+            receipt_url: fileName,
             receipt_received_at: now,
             receipt_approved: false,
             receipt_approved_at: null,
@@ -516,7 +502,7 @@ export default async function handler(req, res) {
     if (buttonAction) {
       const participant = await findParticipantByPhone(from)
       if (!participant) {
-        console.log("No participant found for phone:", from)
+        console.log("No participant found for inbound webhook")
         return res.status(200).json({ status: "ignored" })
       }
 
@@ -649,7 +635,7 @@ export default async function handler(req, res) {
         }
 
         default:
-          console.log("Unknown button action:", { buttonPayload, buttonText, messageBody })
+          console.log("Unknown button action received")
           return res.status(200).json({ status: "unknown_button" })
       }
     }

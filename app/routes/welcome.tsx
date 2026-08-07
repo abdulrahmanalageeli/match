@@ -8877,11 +8877,6 @@ export default function WelcomePage() {
                 <h3 className={`text-2xl font-black tracking-tight sm:text-[1.7rem] ${
                   dark ? "text-white" : "text-slate-950"
                 }`}>تم تسجيلك بنجاح</h3>
-                <p className={`mx-auto mt-2 max-w-sm text-sm font-medium leading-6 ${
-                  dark ? "text-slate-300" : "text-slate-600"
-                }`}>
-                  لا تحتاج إلى الانتظار في هذه الصفحة، يمكنك إغلاقها الآن
-                </p>
               </div>
 
               <div className={`rounded-2xl border p-4 text-right ${

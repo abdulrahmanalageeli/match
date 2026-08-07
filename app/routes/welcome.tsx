@@ -6205,7 +6205,7 @@ export default function WelcomePage() {
                       <button
                         onClick={handleReturningUserToken}
                         disabled={newUserTokenLoading || !newUserTokenInput.trim()}
-                        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-bold text-slate-950 transition-colors hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-35 sm:w-auto"
+                        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-bold text-slate-950 transition-colors hover:bg-cyan-50 disabled:cursor-not-allowed disabled:bg-white/[0.10] disabled:text-slate-500 disabled:opacity-100 disabled:ring-1 disabled:ring-inset disabled:ring-white/[0.08] sm:w-auto"
                       >
                         {newUserTokenLoading ? (
                           <>
@@ -6237,14 +6237,14 @@ export default function WelcomePage() {
 
                   <button
                     onClick={handleNewUserDirect}
-                    className="group flex min-h-16 w-full items-center gap-3 rounded-2xl bg-gradient-to-l from-cyan-300 to-blue-400 px-4 text-right text-slate-950 shadow-[0_18px_45px_-20px_rgba(34,211,238,0.85)] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+                    className="group flex min-h-16 w-full items-center gap-3 rounded-2xl bg-gradient-to-l from-cyan-300 to-blue-400 px-4 text-right text-slate-900 shadow-[0_18px_45px_-20px_rgba(34,211,238,0.85)] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
                   >
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-950/10">
                       <Sparkles className="h-5 w-5" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <h3 className="text-base font-black">أنا مشارك جديد</h3>
-                      <p className="mt-0.5 text-xs font-semibold text-slate-950/75">ابدأ التسجيل وأنشئ رمز دخول واحداً</p>
+                      <p className="mt-0.5 text-xs font-semibold text-slate-800/80">ابدأ التسجيل وأنشئ رمز دخول واحداً</p>
                     </div>
                     <ChevronLeft className="h-5 w-5 transition-transform group-hover:-translate-x-1" />
                   </button>

@@ -253,18 +253,38 @@ let CURRENT_MATCH_MODE = null
 
 // Track age tolerance usage per invocation (key: "min-max")
 let AGE_TOLERANCE_MAP = new Map()
-function markAgeTolerance(aNum, bNum, usedA, usedB) {
+function markAgeTolerance(aNum, bNum, usedA, usedB, requiresConfirmationA = false, requiresConfirmationB = false) {
   try {
     const key = `${Math.min(aNum, bNum)}-${Math.max(aNum, bNum)}`
-    const prev = AGE_TOLERANCE_MAP.get(key) || { usedA: false, usedB: false }
-    AGE_TOLERANCE_MAP.set(key, { usedA: prev.usedA || !!usedA, usedB: prev.usedB || !!usedB })
+    const prev = AGE_TOLERANCE_MAP.get(key) || { usedNumbers: new Set(), confirmationNumbers: new Set() }
+    if (usedA) prev.usedNumbers.add(aNum)
+    if (usedB) prev.usedNumbers.add(bNum)
+    if (requiresConfirmationA) prev.confirmationNumbers.add(aNum)
+    if (requiresConfirmationB) prev.confirmationNumbers.add(bNum)
+    AGE_TOLERANCE_MAP.set(key, prev)
   } catch (_) { /* noop */ }
 }
 function getAgeTolerance(aNum, bNum) {
   try {
     const key = `${Math.min(aNum, bNum)}-${Math.max(aNum, bNum)}`
-    return AGE_TOLERANCE_MAP.get(key) || { usedA: false, usedB: false }
-  } catch (_) { return { usedA: false, usedB: false } }
+    const value = AGE_TOLERANCE_MAP.get(key)
+    if (!value) return { usedA: false, usedB: false, requiresConfirmationA: false, requiresConfirmationB: false }
+    return {
+      usedA: value.usedNumbers.has(aNum),
+      usedB: value.usedNumbers.has(bNum),
+      requiresConfirmationA: value.confirmationNumbers.has(aNum),
+      requiresConfirmationB: value.confirmationNumbers.has(bNum)
+    }
+  } catch (_) {
+    return { usedA: false, usedB: false, requiresConfirmationA: false, requiresConfirmationB: false }
+  }
+}
+
+function getAgeToleranceLabel(tolerance) {
+  if (!tolerance.usedA && !tolerance.usedB) return ''
+  return (tolerance.requiresConfirmationA || tolerance.requiresConfirmationB)
+    ? ' ⚠️±1y (confirmation needed)'
+    : ' ✅±1y pre-approved'
 }
 
 // Helper function to auto-save results to admin_results table
@@ -360,11 +380,10 @@ function isParticipantComplete(participant, matchMode = CURRENT_MATCH_MODE) {
   if (!val(gender)) missing.push('gender')
   if (!num(age)) missing.push('age')
 
-  // Personality & styles
-  const mbti = participant.mbti_personality_type || sd.mbtiType || ans.mbti
+  // Derived styles. MBTI is retained for legacy participants and admin views,
+  // but it is no longer collected or required by the active matching survey.
   const attachment = participant.attachment_style || sd.attachmentStyle || ans.attachment_style
   const communication = participant.communication_style || sd.communicationStyle || ans.communication_style
-  if (!val(mbti) || String(mbti).length < 4) missing.push('mbti')
   if (!val(attachment)) missing.push('attachment_style')
   if (!val(communication)) missing.push('communication_style')
 
@@ -628,7 +647,33 @@ function calculateCoreValuesCompatibility(values1, values2) {
   return totalScore
 }
 
-// New: Interaction Synergy (Q35,36,37,38,39,41) → up to 30 pts
+// Preferred distribution of speaking/initiative (question 13) → 0..7 points.
+// Returning null is intentional: pairs where either participant has not answered
+// keep the legacy Q35 score, so existing participants are not penalized.
+function calculateConversationInitiativePreferenceScore(participantA, participantB) {
+  const answer = (participant) => String(
+    participant?.survey_data?.answers?.conversation_initiative_preference ??
+    participant?.conversation_initiative_preference ??
+    ''
+  ).trim().toUpperCase()
+
+  const a = answer(participantA)
+  const b = answer(participantB)
+  const valid = new Set(['A', 'B', 'C', 'D'])
+  if (!valid.has(a) || !valid.has(b)) return null
+
+  // A wants the other person to lead; C prefers to lead; B wants a shared
+  // exchange; D is explicitly adaptable. The matrix is symmetric.
+  const matrix = {
+    A: { A: 1, B: 5, C: 7, D: 6 },
+    B: { A: 5, B: 7, C: 5, D: 6 },
+    C: { A: 7, B: 5, C: 3, D: 6 },
+    D: { A: 6, B: 6, C: 6, D: 6 }
+  }
+  return matrix[a][b]
+}
+
+// New: Interaction Synergy (Q35,36,37,38,39,41) → up to 35 pts
 function calculateInteractionSynergyScore(participantA, participantB) {
   const ans = (p, key) => (p?.survey_data?.answers?.[key] ?? p?.[key] ?? '')
 
@@ -647,8 +692,13 @@ function calculateInteractionSynergyScore(participantA, participantB) {
 
   let total = 0
 
-  // Q35 (7 pts)
-  if ((a35 === 'A' && (b35 === 'B' || b35 === 'C')) || (b35 === 'A' && (a35 === 'B' || a35 === 'C'))) {
+  // Conversational distribution (7 pts). Prefer the new mutual preference
+  // question when both people answered it; otherwise preserve the exact legacy
+  // Q35 calculation for backward compatibility.
+  const initiativePreferenceScore = calculateConversationInitiativePreferenceScore(participantA, participantB)
+  if (initiativePreferenceScore !== null) {
+    total += initiativePreferenceScore
+  } else if ((a35 === 'A' && (b35 === 'B' || b35 === 'C')) || (b35 === 'A' && (a35 === 'B' || a35 === 'C'))) {
     total += 7
   } else if (a35 === 'B' && b35 === 'B') {
     total += 4
@@ -906,8 +956,21 @@ function checkNationalityHardGate(participantA, participantB) {
   return ok
 }
 
-// Hard gate: If a participant specifies a preferred age range, partner must fall within it
-function checkAgeRangeHardGate(participantA, participantB) {
+function getOneYearAgeFlexDecision(participant) {
+  const raw = participant?.survey_data?.answers?.age_flex_one_year ??
+    participant?.age_flex_one_year ??
+    participant?.survey_data?.answers?.age_flex_if_no_match
+  const normalized = String(raw ?? '').trim().toLowerCase()
+  if (raw === true || normalized === 'true' || normalized === 'accept' || normalized === 'yes') return 'accept'
+  if (raw === false || normalized === 'false' || normalized === 'decline' || normalized === 'no') return 'decline'
+  return 'unanswered'
+}
+
+// Hard gate: If a participant specifies a preferred age range, partner must fall within it.
+// A yes answer pre-approves ±1, a no answer is strict, and an unanswered legacy
+// survey keeps the previous ±1 behavior but is marked for manual confirmation.
+function checkAgeRangeHardGate(participantA, participantB, options = {}) {
+  const recordTolerance = options.recordTolerance !== false
   const ageA = participantA.age || participantA?.survey_data?.age
   const ageB = participantB.age || participantB?.survey_data?.age
 
@@ -951,22 +1014,26 @@ function checkAgeRangeHardGate(participantA, participantB) {
   const withinAStrict = hasRangeA ? (ageB >= aMin && ageB <= aMax) : true
   const withinBStrict = hasRangeB ? (ageA >= bMin && ageA <= bMax) : true
 
-  // Base tolerance is ±1 year (±3 in same-gender R1). A participant can
-  // explicitly add event-only flexibility through the Twilio age prompt.
-  const baseTolerance = (CURRENT_MATCH_MODE === 'same_gender') ? 3 : 1
+  // Same-gender R1 keeps its existing ±3 operational rule. In other modes,
+  // explicit declines are strict while accepts and unanswered legacy surveys
+  // retain the existing ±1 candidate search.
+  const decisionA = getOneYearAgeFlexDecision(participantA)
+  const decisionB = getOneYearAgeFlexDecision(participantB)
+  const baseToleranceA = (CURRENT_MATCH_MODE === 'same_gender') ? 3 : (decisionA === 'decline' ? 0 : 1)
+  const baseToleranceB = (CURRENT_MATCH_MODE === 'same_gender') ? 3 : (decisionB === 'decline' ? 0 : 1)
   const eventForA = Number(participantA.signup_event_id || participantA.event_id || 0)
   const eventForB = Number(participantB.signup_event_id || participantB.event_id || 0)
   const flexA = !participantA.age_flex_event_id || Number(participantA.age_flex_event_id) === eventForA ? Number(participantA.age_flex_years || 0) : 0
   const flexB = !participantB.age_flex_event_id || Number(participantB.age_flex_event_id) === eventForB ? Number(participantB.age_flex_years || 0) : 0
-  const toleranceA = Math.max(baseTolerance, flexA)
-  const toleranceB = Math.max(baseTolerance, flexB)
+  const toleranceA = Math.max(baseToleranceA, flexA)
+  const toleranceB = Math.max(baseToleranceB, flexB)
   const withinATol = hasRangeA ? (ageB >= (aMin - toleranceA) && ageB <= (aMax + toleranceA)) : true
   const withinBTol = hasRangeB ? (ageA >= (bMin - toleranceB) && ageA <= (bMax + toleranceB)) : true
 
   const ok = withinATol && withinBTol
 
   // Record tolerance usage if applicable
-  if (ok && (hasRangeA || hasRangeB)) {
+  if (recordTolerance && ok && (hasRangeA || hasRangeB)) {
     const usedA = hasRangeA ? (!withinAStrict && withinATol) : false
     const usedB = hasRangeB ? (!withinBStrict && withinBTol) : false
     if (usedA || usedB) {
@@ -974,17 +1041,19 @@ function checkAgeRangeHardGate(participantA, participantB) {
         participantA.assigned_number,
         participantB.assigned_number,
         usedA,
-        usedB
+        usedB,
+        usedA && CURRENT_MATCH_MODE !== 'same_gender' && decisionA === 'unanswered',
+        usedB && CURRENT_MATCH_MODE !== 'same_gender' && decisionB === 'unanswered'
       )
     }
   }
 
   if (!ok) {
     if (hasRangeA && !withinATol) {
-      console.log(`🚫 Age range hard gate (A): #${participantB.assigned_number} age ${ageB} not in [${aMin}, ${aMax}]±1 preferred by #${participantA.assigned_number}`)
+      console.log(`🚫 Age range hard gate (A): #${participantB.assigned_number} age ${ageB} not in [${aMin}, ${aMax}] with tolerance ${toleranceA} preferred by #${participantA.assigned_number}`)
     }
     if (hasRangeB && !withinBTol) {
-      console.log(`🚫 Age range hard gate (B): #${participantA.assigned_number} age ${ageA} not in [${bMin}, ${bMax}]±1 preferred by #${participantB.assigned_number}`)
+      console.log(`🚫 Age range hard gate (B): #${participantA.assigned_number} age ${ageA} not in [${bMin}, ${bMax}] with tolerance ${toleranceB} preferred by #${participantB.assigned_number}`)
     }
   }
   return ok
@@ -1149,6 +1218,7 @@ function generateCacheKey(participantA, participantB) {
   // New: include Interaction Synergy + Intent answers to avoid stale cache hits
   const getAns = (p, key) => p?.survey_data?.answers?.[key] ?? p?.[key] ?? ''
   const synergyA = [
+    getAns(participantA, 'conversation_initiative_preference'),
     getAns(participantA, 'conversational_role'),
     getAns(participantA, 'conversation_depth_pref'),
     getAns(participantA, 'social_battery'),
@@ -1158,6 +1228,7 @@ function generateCacheKey(participantA, participantB) {
     getAns(participantA, 'intent_goal')
   ].join('|')
   const synergyB = [
+    getAns(participantB, 'conversation_initiative_preference'),
     getAns(participantB, 'conversational_role'),
     getAns(participantB, 'conversation_depth_pref'),
     getAns(participantB, 'social_battery'),
@@ -3249,7 +3320,7 @@ function getLockedMatch(participantA, participantB, lockedPairs) {
   )
 }
 
-export { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkIntentHardGate, checkInteractionStyleCompatibility, fetchAllCachedPairs, calculateHumorOpennessScore }
+export { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkIntentHardGate, checkInteractionStyleCompatibility, fetchAllCachedPairs, calculateHumorOpennessScore, calculateInteractionSynergyScore, calculateConversationInitiativePreferenceScore, getOneYearAgeFlexDecision, getAgeTolerance }
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -5030,7 +5101,7 @@ if (action === "cache-status-by-gender") {
               (compatibilityResult.opennessZeroZeroPenaltyApplied ? ` − Penalty(Opn 0×0)` : '') +
               (compatibilityResult.intentBoostApplied ? ` × IntentBoost(1.05)` : '') +
               (compatibilityResult.capApplied ? ` (capped @ ${compatibilityResult.capApplied}%)` : '')
-            ) + ((() => { const tol = getAgeTolerance(targetParticipant.assigned_number, potentialMatch.assigned_number); return (tol.usedA || tol.usedB) ? ' ⚠️±1y' : '' })()),
+            ) + getAgeToleranceLabel(getAgeTolerance(targetParticipant.assigned_number, potentialMatch.assigned_number)),
             is_actual_match: false, // These are potential matches, not actual matches
             is_repeated_match: isRepeatedMatch // Flag for pairs matched in previous events
           })
@@ -5480,7 +5551,7 @@ if (action === "cache-status-by-gender") {
           (compatibilityResult.capApplied ? ` (capped @ ${compatibilityResult.capApplied}%)` : '')
         {
           const tol = getAgeTolerance(p1.assigned_number, p2.assigned_number)
-          if (tol.usedA || tol.usedB) reasonStr += ' ⚠️±1y'
+          reasonStr += getAgeToleranceLabel(tol)
         }
 
         const matchRecord = {
@@ -6290,7 +6361,7 @@ if (action === "cache-status-by-gender") {
         // Append age tolerance indicator if used
         {
           const tol = getAgeTolerance(a.assigned_number, b.assigned_number)
-          if (tol.usedA || tol.usedB) reason += ' ⚠️±1y'
+          reason += getAgeToleranceLabel(tol)
         }
         
         // Determine bonus type based on humor multiplier
@@ -6610,7 +6681,7 @@ if (action === "cache-status-by-gender") {
             : `🔒 Locked Match (Original: ${lockedMatch.original_compatibility_score}%)`
           {
             const tol = getAgeTolerance(participant1, participant2)
-            if (tol.usedA || tol.usedB) reasonStr += ' ⚠️±1y'
+            reasonStr += getAgeToleranceLabel(tol)
           }
 
           roundMatches.push({

@@ -176,54 +176,21 @@ export const surveyQuestions = [
     required: true,
     category: "interaction_style"
   },
-  // MBTI Questions - Four individual questions to determine personality type
+  // Conversation initiative preference. This replaces the retired MBTI block
+  // without altering the stable numbering of the older questions below.
   {
-    id: "mbti_1",
+    id: "conversation_initiative_preference",
     question: "السؤال 5",
-    description: "عندما تتم دعوتك إلى مناسبة اجتماعية كبيرة، هل:",
+    description: "في الجلسة الفردية، أي توزيع للكلام والمبادرة يريحك أكثر؟",
     type: "radio",
     options: [
-      { value: "أ", label: "أ. تشعر بالحماس لحضورها والتعرّف على أشخاص جدد، وربما تبقى حتى آخر الحفل" },
-      { value: "ب", label: "ب. تشعر بأنك أخذت كفايتك بعد فترة وجيزة وتفكر في المغادرة باكرًا لقضاء بعض الوقت الهادئ" }
+      { value: "A", label: "أرتاح مع شخص يفتح المواضيع ويقود الحوار" },
+      { value: "B", label: "أفضل أن تكون المبادرة والكلام متبادلين" },
+      { value: "C", label: "أرتاح أكثر عندما أكون أنا المبادر" },
+      { value: "D", label: "ما يفرق؛ أتأقلم حسب الشخص" }
     ],
     required: true,
-    category: "mbti"
-  },
-  {
-    id: "mbti_2",
-    question: "السؤال 6",
-    description: "عندما تواجه مشكلة جديدة أو تحديًا غير مألوف، كيف تتعامل معه غالبًا؟",
-    type: "radio",
-    options: [
-      { value: "أ", label: "أ. تبحث عن حلول مجرّبة ومستندة إلى خبرات سابقة أو معلومات واضحة لتطبيقها على الموقف الحالي" },
-      { value: "ب", label: "ب. تفكر بأسلوب ابتكاري وتتبع حدسك في استكشاف حلول جديدة وغير تقليدية قد تقود إلى نتائج أفضل" }
-    ],
-    required: true,
-    category: "mbti"
-  },
-  {
-    id: "mbti_3",
-    question: "السؤال 7",
-    description: "عند اتخاذ قرار مصيري يؤثّر على الآخرين، هل تميل إلى:",
-    type: "radio",
-    options: [
-      { value: "أ", label: "أ. إعطاء الأولوية للمنطق والحقائق الموضوعية حتى لو أدى ذلك إلى إزعاج البعض بالحقيقة" },
-      { value: "ب", label: "ب. مراعاة مشاعر الأطراف المعنيّة والتأكد من أن القرار لا يسبب ضيقًا لأحد قدر الإمكان" }
-    ],
-    required: true,
-    category: "mbti"
-  },
-  {
-    id: "mbti_4",
-    question: "السؤال 8",
-    description: "إذا وضعت خطة مسبقًا لشيء ما (مثل رحلة أو مشروع) ثم تغيّرت الظروف بشكل مفاجئ واضطررت لتغيير خطتك، فكيف يكون شعورك؟",
-    type: "radio",
-    options: [
-      { value: "أ", label: "أ. تشعر بالتوتر والانزعاج لأنك تفضل الالتزام بالخطة الأصلية وتجد صعوبة في تقبّل التغيير المفاجئ" },
-      { value: "ب", label: "ب. تتأقلم بسهولة وترى في التغيير فرصة لخوض تجربة جديدة، ولا تمانع تعديل خططك حسب المعطيات الحالية" }
-    ],
-    required: true,
-    category: "mbti"
+    category: "interaction_synergy"
   },
   // Attachment Style Questions 9-13
   {
@@ -658,6 +625,13 @@ export const surveyQuestions = [
 
 const questionsPerPage = 5
 
+const hasValidAgeFlexDecision = (answers: Record<string, string | string[]>): boolean => {
+  const openAge = answers['open_age_preference'] === 'true' || (answers['open_age_preference'] as any) === true
+  if (openAge) return true
+  const decision = String(answers['age_flex_one_year'] || '')
+  return decision === 'accept' || decision === 'decline'
+}
+
 // Function to convert Arabic numbers to English numbers
 const convertArabicToEnglish = (input: string): string => {
   const arabicNumbers = '٠١٢٣٤٥٦٧٨٩'
@@ -715,34 +689,6 @@ const normalizeAndSplitPhone = (rawInput: string, fallbackCC = '966'): { cc: str
   return { cc, local }
 }
 
-// Function to calculate MBTI personality type from four questions
-const getMBTIType = (answers: Record<string, string | string[]>): string => {
-  // For each question, الخيار (أ) represents the first trait in the pair (E, S, T, or J) 
-  // and الخيار (ب) represents the second trait (I, N, F, or P)
-  
-  const mbti1 = answers['mbti_1'] as string // E vs I (Extroversion vs Introversion)
-  const mbti2 = answers['mbti_2'] as string // S vs N (Sensing vs Intuition)
-  const mbti3 = answers['mbti_3'] as string // T vs F (Thinking vs Feeling)
-  const mbti4 = answers['mbti_4'] as string // J vs P (Judging vs Perceiving)
-  
-  // Build MBTI type string
-  let mbtiType = ''
-  
-  // Question 1: Social events preference (E vs I)
-  mbtiType += (mbti1 === 'أ') ? 'E' : 'I'
-  
-  // Question 2: Problem solving approach (S vs N)
-  mbtiType += (mbti2 === 'أ') ? 'S' : 'N'
-  
-  // Question 3: Decision making style (T vs F)
-  mbtiType += (mbti3 === 'أ') ? 'T' : 'F'
-  
-  // Question 4: Planning preference (J vs P)
-  mbtiType += (mbti4 === 'أ') ? 'J' : 'P'
-  
-  return mbtiType || ''
-}
-
 // Function to calculate attachment style
 const calculateAttachmentStyle = (answers: Record<string, string | string[]>): string => {
   const counts = {
@@ -752,7 +698,8 @@ const calculateAttachmentStyle = (answers: Record<string, string | string[]>): s
     د: 0  // Fearful/Disorganized
   }
 
-  // Count answers for attachment style questions (now questions 9-13)
+  // Attachment questions 1-5. Stored answers remain compatible with surveys
+  // completed while attachment_2 was temporarily hidden.
   for (let i = 1; i <= 5; i++) {
     const questionId = `attachment_${i}`
     const answer = answers[questionId] as string
@@ -1063,8 +1010,8 @@ const SurveyComponent = memo(function SurveyComponent({
       'name','age','gender','nationality','nationality_preference','phone_number',
       // Preferences
       'gender_preference','preferred_age_range',
-      // MBTI
-      'mbti_1','mbti_2','mbti_3','mbti_4',
+      // Conversation initiative (replaces the retired MBTI block)
+      'conversation_initiative_preference',
       // Attachment
       'attachment_1','attachment_2','attachment_3','attachment_4','attachment_5',
       // Communication
@@ -1091,19 +1038,17 @@ const SurveyComponent = memo(function SurveyComponent({
   const getSectionTitle = useCallback((id: string): string | null => {
     const personal = new Set(['name','age','gender','nationality','nationality_preference','phone_number'])
     const prefs = new Set(['gender_preference','preferred_age_range'])
-    const mbti = new Set(['mbti_1','mbti_2','mbti_3','mbti_4'])
     const attach = new Set(['attachment_1','attachment_2','attachment_3','attachment_4','attachment_5'])
     const comm = new Set(['communication_1','communication_2','communication_3','communication_4','communication_5','silence_comfort'])
     const lifestyle = new Set(['lifestyle_1','lifestyle_2','lifestyle_3','lifestyle_4','lifestyle_5'])
     const core = new Set(['core_values_1','core_values_2','core_values_3','core_values_4','core_values_5'])
     const vibe = new Set(['vibe_1','vibe_2','vibe_3','vibe_4','vibe_5','vibe_6'])
     const interactionStyle = new Set(['humor_banter_style','early_openness_comfort'])
-    const interactionSynergy = new Set(['conversational_role','conversation_depth_pref','social_battery','humor_subtype','curiosity_style'])
+    const interactionSynergy = new Set(['conversation_initiative_preference','conversational_role','conversation_depth_pref','social_battery','humor_subtype','curiosity_style'])
     const intent = new Set(['intent_goal'])
 
     if (personal.has(id)) return 'نبذة عنك'
     if (prefs.has(id)) return 'تفضيلات عامة'
-    if (mbti.has(id)) return 'أسئلة شخصية سلوكية'
     if (attach.has(id)) return 'علاقتك بالآخرين'
     if (comm.has(id)) return 'طريقة تواصلك'
     if (lifestyle.has(id)) return 'أسلوب حياتك'
@@ -1220,6 +1165,7 @@ const SurveyComponent = memo(function SurveyComponent({
       if (isNaN(minVal) || isNaN(maxVal)) return true
       if (minVal > maxVal) return true
       if ((maxVal - minVal) < 3) return true
+      if (!hasValidAgeFlexDecision(surveyData.answers)) return true
       return false
     }
     const v = surveyData.answers[id]
@@ -1294,6 +1240,10 @@ const SurveyComponent = memo(function SurveyComponent({
                 isValid = false;
                 break;
               }
+            }
+            if (!hasValidAgeFlexDecision(surveyData.answers)) {
+              isValid = false;
+              break;
             }
           }
         }
@@ -1409,11 +1359,13 @@ const SurveyComponent = memo(function SurveyComponent({
         }
       }
     }
+
+    if (!hasValidAgeFlexDecision(surveyData.answers)) {
+      alert("يرجى تحديد ما إذا كنت توافق على مرونة سنة واحدة في المدى العمري");
+      return;
+    }
     
     if (surveyData.termsAccepted && surveyData.dataConsent) {
-      
-      // Get MBTI personality type from four questions (5-8)
-      const mbtiType = getMBTIType(surveyData.answers)
       
       // Calculate attachment style (questions 9-13)
       const attachmentStyle = calculateAttachmentStyle(surveyData.answers)
@@ -1450,7 +1402,6 @@ const SurveyComponent = memo(function SurveyComponent({
         name,
         gender,
         phoneNumber,
-        mbtiType,
         attachmentStyle,
         communicationStyle,
         lifestylePreferences,
@@ -1498,12 +1449,14 @@ const SurveyComponent = memo(function SurveyComponent({
         }
       }
     }
+
+    if (!hasValidAgeFlexDecision(dataToSubmit.answers)) {
+      alert("يرجى تحديد ما إذا كنت توافق على مرونة سنة واحدة في المدى العمري");
+      return;
+    }
     
     // Terms are already accepted in the provided data, so skip that check
     if (dataToSubmit.termsAccepted && dataToSubmit.dataConsent) {
-      
-      // Get MBTI personality type from four questions (5-8)
-      const mbtiType = getMBTIType(dataToSubmit.answers)
       
       // Calculate attachment style (questions 9-13)
       const attachmentStyle = calculateAttachmentStyle(dataToSubmit.answers)
@@ -1540,7 +1493,6 @@ const SurveyComponent = memo(function SurveyComponent({
         name,
         gender,
         phoneNumber,
-        mbtiType,
         attachmentStyle,
         communicationStyle,
         lifestylePreferences,
@@ -1717,6 +1669,8 @@ const SurveyComponent = memo(function SurveyComponent({
         const minVal = (surveyData.answers['preferred_age_min'] as string) || ""
         const maxVal = (surveyData.answers['preferred_age_max'] as string) || ""
         const openAge = (surveyData.answers['open_age_preference'] === 'true') || (surveyData.answers['open_age_preference'] === true as any)
+        const oneYearFlexDecision = String(surveyData.answers['age_flex_one_year'] || '')
+        const hasOneYearFlexDecision = oneYearFlexDecision === 'accept' || oneYearFlexDecision === 'decline'
         return (
           <div className="mt-4">
             {/* Open Age toggle - centered pill above inputs */}
@@ -1729,6 +1683,7 @@ const SurveyComponent = memo(function SurveyComponent({
                   if (next) {
                     handleInputChange('preferred_age_min', '')
                     handleInputChange('preferred_age_max', '')
+                    handleInputChange('age_flex_one_year', 'not_applicable')
                   }
                 }}
                 aria-pressed={!!openAge}
@@ -1779,6 +1734,40 @@ const SurveyComponent = memo(function SurveyComponent({
             </div>
             {(!openAge && minVal && maxVal && !isNaN(parseInt(minVal)) && !isNaN(parseInt(maxVal)) && (parseInt(maxVal) - parseInt(minVal) < 3)) && (
               <p className="mt-2 text-xs text-red-600 dark:text-red-400 text-center">المدى العمري يجب أن يكون 3 سنوات على الأقل.</p>
+            )}
+            {!openAge && (
+              <div className="mt-3 rounded-xl border border-violet-200 bg-violet-50/70 p-3 dark:border-violet-500/30 dark:bg-violet-950/20" dir="rtl">
+                <p className="mb-3 text-right text-sm font-medium leading-relaxed text-slate-700 dark:text-slate-200">
+                  لو وجدنا لك تطابقًا جيدًا خارج المدى الذي حددته بسنة واحدة فقط، هل توافق؟
+                </p>
+                <RadioGroup
+                  value={oneYearFlexDecision}
+                  onValueChange={(answer) => handleInputChange('age_flex_one_year', answer)}
+                  className="grid gap-2 sm:grid-cols-2"
+                  dir="rtl"
+                >
+                  {[
+                    { value: 'accept', label: 'نعم، أوافق على مرونة ±1 سنة' },
+                    { value: 'decline', label: 'لا، التزموا بالمدى المحدد' }
+                  ].map((option) => (
+                    <Label
+                      key={option.value}
+                      htmlFor={`age-flex-${option.value}`}
+                      className={`flex cursor-pointer items-center gap-2 rounded-lg border p-3 text-right text-sm transition ${
+                        oneYearFlexDecision === option.value
+                          ? 'border-violet-500 bg-violet-100 text-violet-900 dark:bg-violet-900/40 dark:text-violet-100'
+                          : 'border-slate-200 bg-white/70 text-slate-700 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-200'
+                      }`}
+                    >
+                      <RadioGroupItem id={`age-flex-${option.value}`} value={option.value} />
+                      <span>{option.label}</span>
+                    </Label>
+                  ))}
+                </RadioGroup>
+                {!hasOneYearFlexDecision && (
+                  <p className="mt-2 text-center text-xs text-amber-700 dark:text-amber-300">اختر نعم أو لا قبل المتابعة.</p>
+                )}
+              </div>
             )}
             {openAge && (
               <p className="mt-2 text-xs text-green-700 dark:text-green-300 text-center">لن يتم تطبيق أي حدود عمرية عليك أو على شريكك من جهتك — سيتم تجاهل المدى العمري.</p>

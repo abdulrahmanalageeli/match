@@ -910,6 +910,7 @@ const SurveyComponent = memo(function SurveyComponent({
   const [validationAttemptedPages, setValidationAttemptedPages] = useState<Set<number>>(() => new Set())
   const surveyProgressKey = 'survey_progress'
   const hasRestoredRef = useRef(false)
+  const hasInitializedPhoneRef = useRef(false)
 
   // Helper to parse hobbies from the text field
   const getHobbiesArray = useCallback((str: string) => {
@@ -972,16 +973,21 @@ const SurveyComponent = memo(function SurveyComponent({
     try { localStorage.removeItem(surveyProgressKey) } catch {}
   }, [])
 
-  // Auto-parse existing composed phone_number into split fields
+  // Hydrate legacy records that only have a composed phone_number. Run this
+  // once per mount; live edits update all phone fields atomically below.
   useEffect(() => {
+    if (hasInitializedPhoneRef.current) return
     const composedRaw = String(surveyData.answers['phone_number'] || '')
     if (!composedRaw) return
     const fallbackCC = String(surveyData.answers['phone_cc'] || '966')
-    const { cc, local } = normalizeAndSplitPhone(composedRaw, fallbackCC)
+    const parsed = normalizeAndSplitPhone(composedRaw, fallbackCC)
+    const cc = parsed.cc.slice(0, 3)
+    const local = parsed.local.slice(0, Math.max(9, 15 - cc.length))
     const prevCC = String(surveyData.answers['phone_cc'] || '')
     const prevLocal = String(surveyData.answers['phone_local'] || '')
     const newComposed = (cc ? `+${cc}${local}` : local)
     const prevComposed = String(surveyData.answers['phone_number'] || '')
+    hasInitializedPhoneRef.current = true
     if (cc !== prevCC || local !== prevLocal || newComposed !== prevComposed) {
       setSurveyData((prev) => ({
         ...prev,
@@ -1128,6 +1134,28 @@ const SurveyComponent = memo(function SurveyComponent({
     }))
   }, [setSurveyData, setIsEditingSurvey])
 
+  const updatePhoneParts = useCallback((countryCode: string, localNumber: string) => {
+    const nextCC = convertArabicToEnglish(countryCode).replace(/\D/g, '').slice(0, 3)
+    const maxLocalLength = Math.max(9, 15 - nextCC.length)
+    const nextLocal = convertArabicToEnglish(localNumber)
+      .replace(/\D/g, '')
+      .replace(/^0+/, '')
+      .slice(0, maxLocalLength)
+    const nextComposed = nextCC ? `+${nextCC}${nextLocal}` : nextLocal
+
+    hasInitializedPhoneRef.current = true
+    setIsEditingSurvey?.(true)
+    setSurveyData((prev: SurveyData) => ({
+      ...prev,
+      answers: {
+        ...prev.answers,
+        phone_cc: nextCC,
+        phone_local: nextLocal,
+        phone_number: nextComposed,
+      }
+    }))
+  }, [setIsEditingSurvey, setSurveyData])
+
   // Memoize question lookup for performance
   const questionMap = useMemo(() => {
     const map = new Map()
@@ -1178,7 +1206,9 @@ const SurveyComponent = memo(function SurveyComponent({
     if (question.id === 'phone_number') {
       const cc = String(answers['phone_cc'] || '').replace(/\D/g, '')
       const local = String(answers['phone_local'] || '').replace(/\D/g, '').replace(/^0+/, '')
-      if (cc.length < 1 || cc.length > 3 || local.length < 9) return 'أدخل رقم هاتف صحيحًا.'
+      if (cc.length < 1 || cc.length > 3 || local.length < 9 || (cc.length + local.length) > 15) {
+        return 'أدخل رقم هاتف صحيحًا لا يتجاوز 15 رقمًا مع رمز الدولة.'
+      }
       return null
     }
 
@@ -1803,39 +1833,31 @@ const SurveyComponent = memo(function SurveyComponent({
             const cc = convertArabicToEnglish(ccRaw).replace(/[^0-9]/g, '').slice(0, 3)
             const localDigits = convertArabicToEnglish(localRaw).replace(/[^0-9]/g, '')
             const local = localDigits.replace(/^0+/, '')
+            const maxLocalLength = Math.max(9, 15 - cc.length)
             const composed = cc ? `+${cc} ${local}` : local ? `${local}` : ''
             const ccInvalid = cc.length < 1 || cc.length > 3
-            const localInvalid = local.length < 9
+            const localInvalid = local.length < 9 || local.length > maxLocalLength
             const showPhoneErrors = validationAttemptedPages.has(currentPage)
             return (
               <div className="mt-4" dir="rtl">
                 <div className="grid grid-cols-5 gap-2" dir="ltr">
                   <div className="col-span-2">
                     <Label className="text-xs text-gray-600 dark:text-gray-300 block text-right mb-1">رمز الدولة</Label>
-                    <Input
-                      value={`+${cc}`}
-                      onChange={(e) => {
-                        const raw = e.target.value
-                        const looksFull = /[+]|^00|^966|^05/.test(raw) || convertArabicToEnglish(raw).replace(/[^0-9]/g, '').length > 3
-                        if (looksFull) {
-                          const { cc: ncc, local: nlocal } = normalizeAndSplitPhone(raw, String(surveyData.answers['phone_cc'] || '966'))
-                          handleInputChange('phone_cc', ncc)
-                          handleInputChange('phone_local', nlocal)
-                          handleInputChange('phone_number', ncc ? `+${ncc}${nlocal}` : nlocal)
-                          return
-                        }
-                        let v = convertArabicToEnglish(raw)
-                        v = v.replace(/[^0-9]/g, '').slice(0, 3)
-                        handleInputChange('phone_cc', v)
-                        const loc = String(surveyData.answers['phone_local'] || '').replace(/[^0-9]/g, '').replace(/^0+/, '')
-                        handleInputChange('phone_number', v ? `+${v}${loc}` : loc)
-                      }}
-                      placeholder="+966"
-                      className={`text-right border-2 rounded-lg px-3 py-2 text-sm ${
-                        showPhoneErrors && ccInvalid ? 'border-rose-300 dark:border-rose-600 focus:border-rose-500 dark:focus:border-rose-400' : 'border-slate-200 dark:border-slate-700 focus:border-cyan-500 dark:focus:border-cyan-400'
-                      } bg-white dark:bg-slate-700`}
-                      dir="ltr"
-                    />
+                    <div className="relative" dir="ltr">
+                      <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-sm font-bold text-slate-500 dark:text-slate-300">+</span>
+                      <Input
+                        value={cc}
+                        onChange={(e) => updatePhoneParts(e.target.value, local)}
+                        placeholder="966"
+                        className={`rounded-lg border-2 py-2 pl-7 pr-3 text-left text-sm ${
+                          showPhoneErrors && ccInvalid ? 'border-rose-300 dark:border-rose-600 focus:border-rose-500 dark:focus:border-rose-400' : 'border-slate-200 dark:border-slate-700 focus:border-cyan-500 dark:focus:border-cyan-400'
+                        } bg-white dark:bg-slate-700`}
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={3}
+                        autoComplete="tel-country-code"
+                      />
+                    </div>
                   </div>
                   <div className="col-span-3">
                     <Label className="text-xs text-gray-600 dark:text-gray-300 block text-right mb-1">الرقم</Label>
@@ -1843,21 +1865,15 @@ const SurveyComponent = memo(function SurveyComponent({
                       value={local}
                       onChange={(e) => {
                         const raw = e.target.value
-                        const digits = convertArabicToEnglish(raw).replace(/[^0-9]/g, '')
-                        const looksFull = /[+]|^00|^966|^05/.test(raw) || digits.length >= 11
-                        if (looksFull) {
+                        const normalizedRaw = convertArabicToEnglish(raw).trim().replace(/[\s\-()]/g, '')
+                        const digits = normalizedRaw.replace(/[^0-9]/g, '')
+                        const isPastedSaudiNumber = /^(?:\+966|00966|966)/.test(normalizedRaw) && digits.length > 9
+                        if (isPastedSaudiNumber) {
                           const { cc: ncc, local: nlocal } = normalizeAndSplitPhone(raw, String(surveyData.answers['phone_cc'] || '966'))
-                          handleInputChange('phone_cc', ncc)
-                          handleInputChange('phone_local', nlocal)
-                          handleInputChange('phone_number', ncc ? `+${ncc}${nlocal}` : nlocal)
+                          updatePhoneParts(ncc, nlocal)
                           return
                         }
-                        let v = convertArabicToEnglish(raw)
-                        v = v.replace(/[^0-9]/g, '')
-                        v = v.replace(/^0+/, '')
-                        handleInputChange('phone_local', v)
-                        const code = String(surveyData.answers['phone_cc'] || '').replace(/[^0-9]/g, '')
-                        handleInputChange('phone_number', code ? `+${code}${v}` : v)
+                        updatePhoneParts(cc, digits)
                       }}
                       placeholder="5XXXXXXXX"
                       className={`text-right border-2 rounded-lg px-3 py-2 text-sm ${
@@ -1865,6 +1881,8 @@ const SurveyComponent = memo(function SurveyComponent({
                       } bg-white dark:bg-slate-700`}
                       inputMode="numeric"
                       pattern="[0-9]*"
+                      maxLength={20}
+                      autoComplete="tel-national"
                       dir="ltr"
                     />
                   </div>
@@ -1872,7 +1890,11 @@ const SurveyComponent = memo(function SurveyComponent({
                 <div className="flex justify-between items-center mt-2 text-xs">
                   <span className="text-gray-600 dark:text-gray-300" dir="ltr">{composed || question.placeholder}</span>
                   <span className={`font-medium ${showPhoneErrors && (ccInvalid || localInvalid) ? 'text-rose-500 dark:text-rose-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                    {showPhoneErrors && ccInvalid ? 'أدخل رمز دولة صحيح (1-3 أرقام).' : showPhoneErrors && localInvalid ? 'أدخل رقم محلي صحيح (9 أرقام على الأقل بدون صفر في البداية).' : 'رقمك الكامل'}
+                    {showPhoneErrors && ccInvalid
+                      ? 'أدخل رمز دولة صحيحًا (1–3 أرقام).'
+                      : showPhoneErrors && localInvalid
+                        ? 'أدخل رقمًا محليًا صحيحًا ضمن الحد الدولي.'
+                        : `${local.length}/${maxLocalLength} أرقام للرقم المحلي`}
                   </span>
                 </div>
               </div>

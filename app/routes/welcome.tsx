@@ -3170,6 +3170,10 @@ export default function WelcomePage() {
 
   // Unified Navigation Bar for saved users (similar to groups page)
   const NavigationBar = () => {
+    // Keep the survey focused and distraction-free. The bar returns as soon
+    // as the participant submits or leaves the survey.
+    if (step === 2 && showSurvey) return null;
+
     // Show for users with saved tokens or assigned numbers
     // Check localStorage safely (client-side only)
     const hasStoredResultToken = typeof window !== 'undefined' ? localStorage.getItem('blindmatch_result_token') : null;
@@ -4303,17 +4307,29 @@ export default function WelcomePage() {
     console.log(`🔄 Step changed to: ${step} (phase: ${phase})`);
   }, [step, phase])
 
-  // Check if user just created token (to prevent showing incomplete survey popup)
+  // Brand-new participants have already chosen to sign up, so take them
+  // straight into the survey instead of asking for a second confirmation.
   useEffect(() => {
     const justCreated = sessionStorage.getItem('justCreatedToken') === '1';
     if (justCreated) {
-      console.log('🆕 Detected newly created user, setting isJustCreatedUser state');
+      console.log('🆕 Detected newly created user, opening survey directly');
       setIsJustCreatedUser(true);
-      
-      // Clear the flag after survey is completed (when step changes away from 1)
-      // This will be handled in the step change effect
+      setStep(2);
+      setShowSurvey(true);
+      setIsEditingSurvey(false);
     }
   }, []); // Run once on mount
+
+  // Token resolution also applies the event's current step. Reassert the
+  // direct-to-survey destination afterwards so that phase restoration cannot
+  // briefly put a new participant back on the precursor screen.
+  useEffect(() => {
+    if (isResolving || isTokenValid !== true || !token) return;
+    if (sessionStorage.getItem('justCreatedToken') !== '1') return;
+    setStep(2);
+    setShowSurvey(true);
+    setIsEditingSurvey(false);
+  }, [isResolving, isTokenValid, token]);
 
   // Local storage functionality for auto-filling tokens
 

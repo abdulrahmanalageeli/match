@@ -2127,6 +2127,12 @@ const SurveyComponent = memo(function SurveyComponent({
               <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300 sm:text-sm">
                 اختر الإجابة الأقرب لك فعلًا. ما نبحث عن المثالية؛ نبحث عن الشخص المناسب لك.
               </p>
+              <div className="mt-3 flex items-start gap-2 border-t border-cyan-200/70 pt-3 dark:border-cyan-400/15">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rose-600 dark:text-rose-400" />
+                <p className="text-xs font-bold leading-5 text-rose-700 dark:text-rose-300">
+                  تنبيه: أي معلومات غير صحيحة أو مضللة يتم اكتشافها ستؤدي إلى حظر دائم من المشاركة في جميع الفعاليات.
+                </p>
+              </div>
             </div>
           </div>
         )}

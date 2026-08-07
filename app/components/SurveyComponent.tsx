@@ -632,6 +632,23 @@ const hasValidAgeFlexDecision = (answers: Record<string, string | string[]>): bo
   return decision === 'accept' || decision === 'decline'
 }
 
+const getPreferredAgeRangeError = (answers: Record<string, string | string[]>): string | null => {
+  const openAge = answers['open_age_preference'] === 'true' || (answers['open_age_preference'] as any) === true
+  if (openAge) return null
+
+  const minRaw = String(answers['preferred_age_min'] || '').trim()
+  const maxRaw = String(answers['preferred_age_max'] || '').trim()
+  if (!minRaw || !maxRaw) return 'أدخل الحد الأدنى والأعلى للعمر، أو اختر بدون قيود عمرية.'
+
+  const minAge = parseInt(minRaw, 10)
+  const maxAge = parseInt(maxRaw, 10)
+  if (!Number.isFinite(minAge) || !Number.isFinite(maxAge)) return 'أدخل عمرين صحيحين.'
+  if (minAge < 18 || maxAge > 99) return 'اختر أعمارًا بين 18 و99 سنة.'
+  if (minAge > maxAge) return 'العمر الأدنى يجب أن يكون أصغر من العمر الأعلى.'
+  if ((maxAge - minAge) < 3) return 'اجعل المدى العمري 3 سنوات على الأقل.'
+  return null
+}
+
 // Function to convert Arabic numbers to English numbers
 const convertArabicToEnglish = (input: string): string => {
   const arabicNumbers = '٠١٢٣٤٥٦٧٨٩'
@@ -884,6 +901,7 @@ const SurveyComponent = memo(function SurveyComponent({
   const [showPhoneConfirmModal, setShowPhoneConfirmModal] = useState(false)
   const [phoneConfirmDisplay, setPhoneConfirmDisplay] = useState('')
   const [showResumeBanner, setShowResumeBanner] = useState(false)
+  const [validationAttemptedPages, setValidationAttemptedPages] = useState<Set<number>>(() => new Set())
   const surveyProgressKey = 'survey_progress'
   const hasRestoredRef = useRef(false)
 
@@ -1137,124 +1155,90 @@ const SurveyComponent = memo(function SurveyComponent({
     })
   }, [setSurveyData, setIsEditingSurvey, questionMap])
 
-  // Critical questions to highlight when missing
-  const criticalIds = useMemo(() => new Set([
-    'nationality',
-    'nationality_preference',
-    'preferred_age_range',
-    // Q35–Q41
-    'conversational_role',
-    'conversation_depth_pref',
-    'social_battery',
-    'humor_subtype',
-    'curiosity_style',
-    'intent_goal',
-    'silence_comfort'
-  ]), [])
+  const getQuestionValidationMessage = useCallback((question: any): string | null => {
+    const answers = surveyData.answers
 
-  const isCriticalMissing = useCallback((id: string): boolean => {
-    if (!criticalIds.has(id)) return false
-    if (id === 'preferred_age_range') {
-      const openAge = surveyData.answers['open_age_preference'] === 'true' || (surveyData.answers['open_age_preference'] as any) === true
-      if (openAge) return false
-      const minAge = String(surveyData.answers['preferred_age_min'] || '').trim()
-      const maxAge = String(surveyData.answers['preferred_age_max'] || '').trim()
-      if (!minAge || !maxAge) return true
-      const minVal = parseInt(minAge, 10)
-      const maxVal = parseInt(maxAge, 10)
-      if (isNaN(minVal) || isNaN(maxVal)) return true
-      if (minVal > maxVal) return true
-      if ((maxVal - minVal) < 3) return true
-      if (!hasValidAgeFlexDecision(surveyData.answers)) return true
-      return false
+    if (question.id === 'preferred_age_range') {
+      const rangeError = getPreferredAgeRangeError(answers)
+      if (rangeError) return rangeError
+      if (!hasValidAgeFlexDecision(answers)) return 'اختر موافقتك على مرونة سنة واحدة.'
+      return null
     }
-    const v = surveyData.answers[id]
-    if (Array.isArray(v)) return v.length === 0
-    return v == null || String(v).trim() === ''
-  }, [criticalIds, surveyData.answers])
 
-  // Memoize page validation to avoid expensive recalculation on every render
-  const isPageValid = useMemo(() => {
-    const validationCache = new Map<number, boolean>();
+    if (question.id === 'phone_number') {
+      const cc = String(answers['phone_cc'] || '').replace(/\D/g, '')
+      const local = String(answers['phone_local'] || '').replace(/\D/g, '').replace(/^0+/, '')
+      if (cc.length < 1 || cc.length > 3 || local.length < 9) return 'أدخل رقم هاتف صحيحًا.'
+      return null
+    }
 
-    return (page: number) => {
-      if (validationCache.has(page)) {
-        return validationCache.get(page)!;
+    const value = answers[question.id]
+    if (question.required) {
+      if (Array.isArray(value) ? value.length === 0 : value == null || String(value).trim() === '') {
+        return 'هذا الحقل مطلوب.'
       }
-
-      let isValid = true;
-      const startIndex = page * questionsPerPage;
-      const endIndex = Math.min(startIndex + questionsPerPage, orderedQuestions.length);
-
-      for (let i = startIndex; i < endIndex; i++) {
-        const question = orderedQuestions[i];
-        const value = surveyData.answers[question.id];
-
-        if (question.required) {
-          // For phone_number, we validate via split fields (phone_cc, phone_local) below
-          if (question.id !== 'phone_number') {
-            if (Array.isArray(value)) {
-              if (!value || value.length === 0) {
-                isValid = false;
-                break;
-              }
-            } else {
-              if (value == null || String(value).trim() === "") {
-                isValid = false;
-                break;
-              }
-            }
-          }
-        }
-
-        // Special validations
-        if (question.id === 'phone_number') {
-          // Validate split phone inputs: country code (1-3 digits) + local (>=9 digits, no leading zero)
-          const cc = String(surveyData.answers['phone_cc'] || '').replace(/\D/g, '')
-          const localRaw = String(surveyData.answers['phone_local'] || '').replace(/\D/g, '')
-          const local = localRaw.replace(/^0+/, '')
-          if (cc.length < 1 || cc.length > 3 || local.length < 9) {
-            isValid = false;
-            break;
-          }
-        }
-
-        if (question.id === 'preferred_age_range') {
-          const openAge = surveyData.answers['open_age_preference'] === 'true';
-          if (!openAge) {
-            const minAge = surveyData.answers['preferred_age_min'];
-            const maxAge = surveyData.answers['preferred_age_max'];
-            if (minAge == null || maxAge == null || String(minAge).trim() === '' || String(maxAge).trim() === '') {
-              isValid = false;
-              break;
-            }
-            if (parseInt(String(minAge), 10) > parseInt(String(maxAge), 10)) {
-              isValid = false;
-              break;
-            }
-            const minVal = parseInt(String(minAge), 10)
-            const maxVal = parseInt(String(maxAge), 10)
-            if (!isNaN(minVal) && !isNaN(maxVal)) {
-              // Enforce minimum 3-year span
-              if ((maxVal - minVal) < 3) {
-                isValid = false;
-                break;
-              }
-            }
-            if (!hasValidAgeFlexDecision(surveyData.answers)) {
-              isValid = false;
-              break;
-            }
-          }
-        }
+      if (question.type === 'text' && question.maxLength && question.id !== 'name') {
+        const minimum = Math.ceil(question.maxLength * 0.5)
+        const currentLength = String(value || '').length
+        if (currentLength < minimum) return `أضف ${minimum - currentLength} حرفًا على الأقل لإكمال الإجابة.`
       }
+    }
 
-      validationCache.set(page, isValid);
-      return isValid;
-    };
-  }, [surveyData.answers, orderedQuestions]);
+    return null
+  }, [surveyData.answers])
+
+  const navigateToQuestion = useCallback((questionId: string) => {
+    const index = orderedQuestions.findIndex((question) => question.id === questionId)
+    if (index < 0) return
+    const page = Math.floor(index / questionsPerPage)
+    setCurrentPage(page)
+    window.setTimeout(() => {
+      document.getElementById(`survey-question-${questionId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 120)
+  }, [orderedQuestions])
+
+  const optionLabel = useCallback((questionId: string, rawValue: unknown): string => {
+    const value = String(rawValue ?? '')
+    if (!value) return 'غير محدد'
+    const question = questionMap.get(questionId)
+    return question?.options?.find((option: any) => String(option.value) === value)?.label || value
+  }, [questionMap])
+
+  const preferenceReviewItems = useMemo(() => {
+    const answers = surveyData.answers
+    const openAge = answers['open_age_preference'] === 'true' || (answers['open_age_preference'] as any) === true
+    const ageRange = openAge
+      ? 'بدون قيود عمرية'
+      : (answers['preferred_age_min'] && answers['preferred_age_max']
+          ? `${answers['preferred_age_min']}–${answers['preferred_age_max']} سنة`
+          : 'غير محدد')
+    const ageFlex = openAge
+      ? 'غير مطبق — العمر مفتوح'
+      : answers['age_flex_one_year'] === 'accept'
+        ? 'نعم، أقبل ±1 سنة'
+        : answers['age_flex_one_year'] === 'decline'
+          ? 'لا، التزم بالمدى'
+          : 'غير محدد'
+
+    return [
+      { label: 'المدى العمري', value: ageRange, questionId: 'preferred_age_range' },
+      { label: 'مرونة سنة واحدة', value: ageFlex, questionId: 'preferred_age_range' },
+      { label: 'الجنس المفضل', value: optionLabel('gender_preference', answers['gender_preference']), questionId: 'gender_preference' },
+      { label: 'تفضيل الجنسية', value: optionLabel('nationality_preference', answers['nationality_preference']), questionId: 'nationality_preference' },
+      { label: 'هدف المشاركة', value: optionLabel('intent_goal', answers['intent_goal']), questionId: 'intent_goal' },
+    ]
+  }, [optionLabel, surveyData.answers])
 
   const nextPage = async () => {
+    setValidationAttemptedPages((previous) => new Set(previous).add(currentPage))
+    const firstInvalid = currentQuestions.find((question) => getQuestionValidationMessage(question) !== null)
+    if (firstInvalid) {
+      window.setTimeout(() => {
+        document.getElementById(`survey-question-${firstInvalid.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 50)
+      return
+    }
+
     // TEMP DISABLE: skip phone duplicate check on next page
     const TEMP_DISABLE_PHONE_DUP_CHECK = true
     // Check for phone number duplicates when moving from the page that contains phone number
@@ -1284,33 +1268,6 @@ const SurveyComponent = memo(function SurveyComponent({
           // Continue to next page if API call fails
         }
       }
-    }
-    
-    // Check 50% minimum requirement for text questions before proceeding (except name and phone)
-    const startIndex = currentPage * questionsPerPage
-    const endIndex = Math.min(startIndex + questionsPerPage, orderedQuestions.length)
-    const incompleteQuestions: string[] = []
-    
-    for (let i = startIndex; i < endIndex; i++) {
-      const question = orderedQuestions[i]
-      const value = surveyData.answers[question.id]
-      
-      // Skip 50% check for name and phone_number
-      if (question.required && question.type === "text" && question.maxLength && 
-          question.id !== 'name' && question.id !== 'phone_number') {
-        const minRequired = Math.ceil(question.maxLength * 0.5)
-        const currentLength = (value as string || "").length
-        
-        if (currentLength < minRequired) {
-          const remaining = minRequired - currentLength
-          incompleteQuestions.push(`${question.question}: يحتاج ${remaining} حرف إضافي (الحد الأدنى: ${minRequired} حرف من ${question.maxLength})`)
-        }
-      }
-    }
-    
-    if (incompleteQuestions.length > 0) {
-      alert(`⚠️ يرجى إكمال الحد الأدنى المطلوب (50%) للأسئلة التالية:\n\n${incompleteQuestions.join('\n\n')}\n\n💡 نصيحة: الإجابات المفصلة تساعد في إيجاد أفضل توافق لك!`)
-      return // Don't proceed to next page
     }
     
     // Phone confirmation: if we are on the page that includes the phone number, ask user to confirm
@@ -1670,7 +1627,6 @@ const SurveyComponent = memo(function SurveyComponent({
         const maxVal = (surveyData.answers['preferred_age_max'] as string) || ""
         const openAge = (surveyData.answers['open_age_preference'] === 'true') || (surveyData.answers['open_age_preference'] === true as any)
         const oneYearFlexDecision = String(surveyData.answers['age_flex_one_year'] || '')
-        const hasOneYearFlexDecision = oneYearFlexDecision === 'accept' || oneYearFlexDecision === 'decline'
         return (
           <div className="mt-4">
             {/* Open Age toggle - centered pill above inputs */}
@@ -1704,13 +1660,14 @@ const SurveyComponent = memo(function SurveyComponent({
                   value={minVal}
                   disabled={!!openAge}
                   onChange={(e) => {
-                    const converted = convertArabicToEnglish(e.target.value).replace(/[^0-9]/g, '')
+                    const converted = convertArabicToEnglish(e.target.value).replace(/[^0-9]/g, '').slice(0, 2)
                     handleInputChange('preferred_age_min', converted)
                   }}
                   placeholder="مثلاً 24"
                   className="text-right border-2 border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400 bg-white dark:bg-slate-700 rounded-lg px-3 py-2 text-sm"
                   inputMode="numeric"
                   pattern="[0-9]*"
+                  maxLength={2}
                   dir="ltr"
                 />
               </div>
@@ -1721,52 +1678,57 @@ const SurveyComponent = memo(function SurveyComponent({
                   value={maxVal}
                   disabled={!!openAge}
                   onChange={(e) => {
-                    const converted = convertArabicToEnglish(e.target.value).replace(/[^0-9]/g, '')
+                    const converted = convertArabicToEnglish(e.target.value).replace(/[^0-9]/g, '').slice(0, 2)
                     handleInputChange('preferred_age_max', converted)
                   }}
                   placeholder="مثلاً 32"
                   className="text-right border-2 border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400 bg-white dark:bg-slate-700 rounded-lg px-3 py-2 text-sm"
                   inputMode="numeric"
                   pattern="[0-9]*"
+                  maxLength={2}
                   dir="ltr"
                 />
               </div>
             </div>
-            {(!openAge && minVal && maxVal && !isNaN(parseInt(minVal)) && !isNaN(parseInt(maxVal)) && (parseInt(maxVal) - parseInt(minVal) < 3)) && (
-              <p className="mt-2 text-xs text-red-600 dark:text-red-400 text-center">المدى العمري يجب أن يكون 3 سنوات على الأقل.</p>
-            )}
             {!openAge && (
-              <div className="mt-3 rounded-xl border border-violet-200 bg-violet-50/70 p-3 dark:border-violet-500/30 dark:bg-violet-950/20" dir="rtl">
-                <p className="mb-3 text-right text-sm font-medium leading-relaxed text-slate-700 dark:text-slate-200">
-                  لو وجدنا لك تطابقًا جيدًا خارج المدى الذي حددته بسنة واحدة فقط، هل توافق؟
-                </p>
+              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-600/70 dark:bg-slate-900/35" dir="rtl">
+                <div className="mb-2.5 flex items-start justify-between gap-3">
+                  <div className="text-right">
+                    <p className="text-sm font-semibold leading-relaxed text-slate-800 dark:text-slate-100">
+                      هل تقبل مرونة سنة واحدة؟
+                    </p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                      فقط إذا وجدنا تطابقًا جيدًا خارج المدى المحدد بسنة واحدة.
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-400/10 dark:text-amber-300">
+                    مطلوب
+                  </span>
+                </div>
                 <RadioGroup
                   value={oneYearFlexDecision}
                   onValueChange={(answer) => handleInputChange('age_flex_one_year', answer)}
-                  className="grid gap-2 sm:grid-cols-2"
+                  className="grid grid-cols-2 gap-2"
                   dir="rtl"
                 >
                   {[
-                    { value: 'accept', label: 'نعم، أوافق على مرونة ±1 سنة' },
-                    { value: 'decline', label: 'لا، التزموا بالمدى المحدد' }
+                    { value: 'accept', label: 'نعم، سنة إضافية عادي' },
+                    { value: 'decline', label: 'لا، التزم بالمدى' }
                   ].map((option) => (
                     <Label
                       key={option.value}
                       htmlFor={`age-flex-${option.value}`}
-                      className={`flex cursor-pointer items-center gap-2 rounded-lg border p-3 text-right text-sm transition ${
+                      className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-right text-xs font-semibold leading-snug transition-colors sm:text-sm ${
                         oneYearFlexDecision === option.value
-                          ? 'border-violet-500 bg-violet-100 text-violet-900 dark:bg-violet-900/40 dark:text-violet-100'
-                          : 'border-slate-200 bg-white/70 text-slate-700 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-200'
+                          ? 'border-cyan-500 bg-cyan-50 text-cyan-950 ring-1 ring-cyan-500/20 dark:border-cyan-400/70 dark:bg-cyan-400/10 dark:text-cyan-100'
+                          : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-600 dark:bg-slate-800/70 dark:text-slate-200 dark:hover:border-slate-500'
                       }`}
                     >
-                      <RadioGroupItem id={`age-flex-${option.value}`} value={option.value} />
+                      <RadioGroupItem id={`age-flex-${option.value}`} value={option.value} className="shrink-0" />
                       <span>{option.label}</span>
                     </Label>
                   ))}
                 </RadioGroup>
-                {!hasOneYearFlexDecision && (
-                  <p className="mt-2 text-center text-xs text-amber-700 dark:text-amber-300">اختر نعم أو لا قبل المتابعة.</p>
-                )}
               </div>
             )}
             {openAge && (
@@ -2228,7 +2190,7 @@ const SurveyComponent = memo(function SurveyComponent({
         <div className="space-y-4" ref={surveyContainerRef}>
           <div className="space-y-4">
             {currentQuestions.map((question, index) => (
-              <div key={question.id} className="group">
+              <div key={question.id} id={`survey-question-${question.id}`} className="group scroll-mt-28">
                 {/* Section header when a new section starts on this page */}
                 {(() => {
                   const absoluteIndex = currentPage * questionsPerPage + index
@@ -2249,7 +2211,7 @@ const SurveyComponent = memo(function SurveyComponent({
                   return null
                 })()}
                 <div className={`bg-white dark:bg-slate-800 rounded-2xl shadow-lg border p-3 ${
-                  isCriticalMissing(question.id)
+                  validationAttemptedPages.has(currentPage) && getQuestionValidationMessage(question)
                     ? 'border-red-400 dark:border-red-500 ring-1 ring-red-300/50'
                     : 'border-gray-200 dark:border-slate-700'
                 }`}>
@@ -2265,11 +2227,9 @@ const SurveyComponent = memo(function SurveyComponent({
                       </h3>
                       <div className="space-y-3">
                         {renderQuestion(question)}
-                        {isCriticalMissing(question.id) && (
+                        {validationAttemptedPages.has(currentPage) && getQuestionValidationMessage(question) && (
                           <p className="mt-2 text-xs text-red-600 dark:text-red-400 text-right">
-                            {question.id === 'preferred_age_range'
-                              ? 'المدى العمري مطلوب (أدخل من/إلى مع فرق لا يقل عن 3 سنوات) أو فعّل خيار بدون قيود عمرية'
-                              : 'هذا الحقل مطلوب'}
+                            {getQuestionValidationMessage(question)}
                           </p>
                         )}
                       </div>
@@ -2295,6 +2255,41 @@ const SurveyComponent = memo(function SurveyComponent({
 
           {currentPage === totalPages - 1 ? (
             <div className="flex w-full max-w-lg flex-col items-end gap-3">
+              <div className="w-full overflow-hidden rounded-2xl border border-cyan-200 bg-white text-right shadow-sm dark:border-cyan-500/30 dark:bg-slate-900/90 dark:shadow-black/20">
+                <div className="flex items-center gap-3 border-b border-cyan-100 bg-cyan-50/70 px-4 py-3 dark:border-cyan-500/20 dark:bg-cyan-400/5">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-cyan-600 text-white shadow-sm shadow-cyan-600/20">
+                    <FileText className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-bold text-slate-950 dark:text-white">راجع تفضيلات المطابقة</h3>
+                    <p className="mt-0.5 text-[11px] leading-5 text-slate-600 dark:text-slate-300">تأكد منها قبل الإرسال — يمكنك تعديل أي اختيار مباشرة.</p>
+                  </div>
+                </div>
+
+                <div className="divide-y divide-slate-100 px-3 dark:divide-slate-800">
+                  {preferenceReviewItems.map((item) => {
+                    const missing = item.value === 'غير محدد'
+                    return (
+                      <div key={item.label} className="flex items-center gap-3 py-2.5">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">{item.label}</p>
+                          <p className={`mt-0.5 truncate text-sm font-semibold ${missing ? 'text-red-600 dark:text-red-400' : 'text-slate-800 dark:text-slate-100'}`}>
+                            {item.value}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => navigateToQuestion(item.questionId)}
+                          className="shrink-0 rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-bold text-cyan-700 transition-colors hover:border-cyan-300 hover:bg-cyan-50 dark:border-slate-700 dark:text-cyan-300 dark:hover:border-cyan-500/50 dark:hover:bg-cyan-400/5"
+                        >
+                          تعديل
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
               <div className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white text-right shadow-sm dark:border-slate-700 dark:bg-slate-900/90 dark:shadow-black/20">
                 <div className="flex items-center gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/70">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm shadow-blue-600/20">
@@ -2364,39 +2359,12 @@ const SurveyComponent = memo(function SurveyComponent({
               
               <Button
                 onClick={() => {
-                  // Validate last page questions before submitting
-                  const startIndex = currentPage * questionsPerPage
-                  const endIndex = Math.min(startIndex + questionsPerPage, orderedQuestions.length)
-                  const incompleteQuestions: string[] = []
-                  
-                  for (let i = startIndex; i < endIndex; i++) {
-                    const question = orderedQuestions[i]
-                    const value = surveyData.answers[question.id]
-                    
-                    if (question.required) {
-                      if (Array.isArray(value)) {
-                        if (!value || value.length === 0) {
-                          incompleteQuestions.push(`${question.question}: مطلوب`)
-                        }
-                      } else {
-                        if (!value || value === "" || value.trim() === "") {
-                          incompleteQuestions.push(`${question.question}: مطلوب`)
-                        } else if (question.type === "text" && question.maxLength && 
-                                   question.id !== 'name' && question.id !== 'phone_number') {
-                          const minRequired = Math.ceil(question.maxLength * 0.5)
-                          const currentLength = (value as string).length
-                          
-                          if (currentLength < minRequired) {
-                            const remaining = minRequired - currentLength
-                            incompleteQuestions.push(`${question.question}: يحتاج ${remaining} حرف إضافي (الحد الأدنى: ${minRequired})`)
-                          }
-                        }
-                      }
-                    }
-                  }
-                  
-                  if (incompleteQuestions.length > 0) {
-                    alert(`⚠️ يرجى إكمال الأسئلة التالية:\n\n${incompleteQuestions.join('\n\n')}`)
+                  const firstInvalidIndex = orderedQuestions.findIndex((question) => getQuestionValidationMessage(question) !== null)
+                  if (firstInvalidIndex >= 0) {
+                    const invalidQuestion = orderedQuestions[firstInvalidIndex]
+                    const invalidPage = Math.floor(firstInvalidIndex / questionsPerPage)
+                    setValidationAttemptedPages((previous) => new Set(previous).add(invalidPage))
+                    navigateToQuestion(invalidQuestion.id)
                     return
                   }
                   
@@ -2425,7 +2393,7 @@ const SurveyComponent = memo(function SurveyComponent({
           ) : (
             <Button
               onClick={nextPage}
-              disabled={!isPageValid(currentPage)}
+              disabled={loading}
               className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-lg shadow hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:transform-none text-sm"
             >
               <span>التالي</span>

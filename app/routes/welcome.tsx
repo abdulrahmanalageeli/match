@@ -534,7 +534,8 @@ export default function WelcomePage() {
   const [generatingStarters, setGeneratingStarters] = useState(false)
   const [surveyData, setSurveyData] = useState<SurveyData>({
     answers: {
-      gender_preference: "opposite_gender" // Default selection for radio button
+      gender_preference: "opposite_gender", // Default selection for radio button
+      open_intent_goal_mismatch: "true"
     },
     termsAccepted: false,
     dataConsent: false

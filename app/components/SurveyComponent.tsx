@@ -1040,6 +1040,22 @@ const SurveyComponent = memo(function SurveyComponent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Default to accepting a partner with a different participation goal.
+  // Preserve any explicit answer when resuming or editing an existing survey.
+  useEffect(() => {
+    setSurveyData((prev) => {
+      const current = prev.answers['open_intent_goal_mismatch']
+      if (current !== undefined && current !== null && current !== '') return prev
+      return {
+        ...prev,
+        answers: {
+          ...prev.answers,
+          open_intent_goal_mismatch: 'true'
+        }
+      }
+    })
+  }, [setSurveyData])
+
   // Build a stable display order without changing IDs/types (DB-safe)
   const orderedQuestions = useMemo(() => {
     const desiredOrder: string[] = [

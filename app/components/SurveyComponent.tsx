@@ -6,9 +6,7 @@ import { Label } from "../../components/ui/label"
 import { Textarea } from "../../components/ui/textarea"
 import { Input } from "../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/ui/dialog"
-import { Progress } from "../../components/ui/progress"
 import { ChevronLeft, ChevronRight, Shield, AlertTriangle, CheckCircle, Loader2, Star, FileText, X, ListPlus, Sparkles, Info } from "lucide-react"
 import HobbiesPickerModal from "./HobbiesPickerModal"
 
@@ -476,6 +474,7 @@ export const surveyQuestions = [
     placeholder: "مثال: أحب النوم كثيراً، أخرج مع الأصدقاء، أشاهد الأفلام في البيت، أقرأ كتاب...",
     required: true,
     category: "vibe",
+    minLength: 30,
     maxLength: 150
   },
   {
@@ -486,16 +485,18 @@ export const surveyQuestions = [
     placeholder: "مثال: القراءة، السفر، الطبخ، الرسم، الرياضة...",
     required: true,
     category: "vibe",
+    minLength: 20,
     maxLength: 100
   },
   {
     id: "vibe_3",
     question: "السؤال 31",
-    description: "لو بتروح حفل موسيقي، مين الفنان اللي تختار؟",
+    description: "اذكر ثلاثة فنانين أو أنواع موسيقية تفضلها؟",
     type: "text",
-    placeholder: "مثال: عبد المجيد عبد الله، أم كلثوم، Ed Sheeran، أو أي فنان تفضله...",
+    placeholder: "مثال: عبد المجيد عبد الله، أم كلثوم، موسيقى الجاز... (افصل بينها بفواصل)",
     required: true,
     category: "vibe",
+    minLength: 25,
     maxLength: 100
   },
   {
@@ -519,6 +520,7 @@ export const surveyQuestions = [
     placeholder: "مثال: مضحك، هادئ، مستمع جيد، طموح، مساعد...",
     required: true,
     category: "vibe",
+    minLength: 20,
     maxLength: 150
   },
   {
@@ -529,6 +531,7 @@ export const surveyQuestions = [
     placeholder: "مثال: مخلصين، مضحكين، داعمين، أذكياء، متفهمين...",
     required: true,
     category: "vibe",
+    minLength: 20,
     maxLength: 150
   },
   // Interaction Synergy (Q35–Q41)
@@ -631,6 +634,9 @@ const hasValidAgeFlexDecision = (answers: Record<string, string | string[]>): bo
   const decision = String(answers['age_flex_one_year'] || '')
   return decision === 'accept' || decision === 'decline'
 }
+
+const getMeaningfulTextLength = (value: unknown): number =>
+  String(value ?? '').trim().replace(/\s+/g, ' ').length
 
 const getPreferredAgeRangeError = (answers: Record<string, string | string[]>): string | null => {
   const openAge = answers['open_age_preference'] === 'true' || (answers['open_age_preference'] as any) === true
@@ -1091,6 +1097,10 @@ const SurveyComponent = memo(function SurveyComponent({
     orderedQuestions.slice(currentPage * questionsPerPage, (currentPage + 1) * questionsPerPage),
     [currentPage, orderedQuestions]
   )
+  const currentSectionTitle = useMemo(
+    () => getSectionTitle(currentQuestions[0]?.id) || 'استبيان التوافق',
+    [currentQuestions, getSectionTitle]
+  )
 
   // Smoothly scroll to the top of the survey content when navigating pages (with extra offset)
   useEffect(() => {
@@ -1177,9 +1187,9 @@ const SurveyComponent = memo(function SurveyComponent({
       if (Array.isArray(value) ? value.length === 0 : value == null || String(value).trim() === '') {
         return 'هذا الحقل مطلوب.'
       }
-      if (question.type === 'text' && question.maxLength && question.id !== 'name') {
-        const minimum = Math.ceil(question.maxLength * 0.5)
-        const currentLength = String(value || '').length
+      if (question.type === 'text' && question.minLength) {
+        const minimum = question.minLength
+        const currentLength = getMeaningfulTextLength(value)
         if (currentLength < minimum) return `أضف ${minimum - currentLength} حرفًا على الأقل لإكمال الإجابة.`
       }
     }
@@ -1313,6 +1323,10 @@ const SurveyComponent = memo(function SurveyComponent({
             alert(`يرجى تقصير النص في السؤال ${question.question} (الحد الأقصى: ${question.maxLength} حرف)`);
             return;
           }
+          if (question.type === "text" && question.minLength && getMeaningfulTextLength(value) < question.minLength) {
+            alert(`يرجى إضافة تفاصيل أكثر في السؤال ${question.question} (الحد الأدنى: ${question.minLength} حرف)`);
+            return;
+          }
         }
       }
     }
@@ -1403,6 +1417,10 @@ const SurveyComponent = memo(function SurveyComponent({
             alert(`يرجى تقصير النص في السؤال ${question.question} (الحد الأقصى: ${question.maxLength} حرف)`);
             return;
           }
+          if (question.type === "text" && question.minLength && getMeaningfulTextLength(value) < question.minLength) {
+            alert(`يرجى إضافة تفاصيل أكثر في السؤال ${question.question} (الحد الأدنى: ${question.minLength} حرف)`);
+            return;
+          }
         }
       }
     }
@@ -1480,27 +1498,27 @@ const SurveyComponent = memo(function SurveyComponent({
           <RadioGroup
             value={value as string || ""}
             onValueChange={(val) => handleInputChange(question.id, val)}
-            className="space-y-4 mt-4"
+            className="mt-4 space-y-2.5"
             dir="rtl"
           >
             {question.options.map((option: any) => (
               <div
                 key={option.value}
-                className={`group rounded-xl border-2 transition p-3 focus-within:ring-1 focus-within:ring-blue-300 ${
+                className={`group rounded-xl border p-3.5 transition-colors focus-within:ring-2 focus-within:ring-cyan-500/20 ${
                   (value as string) === option.value
-                    ? 'border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-900/20'
-                    : 'border-gray-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-400/50 bg-white dark:bg-slate-800/40'
+                    ? 'border-cyan-500 bg-cyan-50 text-cyan-950 dark:border-cyan-400/70 dark:bg-cyan-400/10'
+                    : 'border-slate-200 bg-white/80 hover:border-cyan-300 hover:bg-cyan-50/40 dark:border-slate-700 dark:bg-slate-900/35 dark:hover:border-cyan-400/40 dark:hover:bg-cyan-400/5'
                 }`}
               >
                 <div className="flex flex-row-reverse items-center gap-3">
                   <RadioGroupItem
                     value={option.value}
                     id={`${question.id}-${option.value}`}
-                    className="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-slate-500 text-blue-600 focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:outline-none ring-0 overflow-hidden data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600 flex-shrink-0"
+                    className="h-5 w-5 shrink-0 overflow-hidden rounded-full border-2 border-slate-300 text-cyan-600 ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 data-[state=checked]:border-cyan-600 data-[state=checked]:bg-cyan-600 dark:border-slate-600"
                   />
                   <Label
                     htmlFor={`${question.id}-${option.value}`}
-                    className="text-right cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 flex-1 leading-relaxed"
+                    className="flex-1 cursor-pointer text-right text-sm font-semibold leading-relaxed text-slate-700 transition-colors group-hover:text-slate-950 dark:text-slate-200 dark:group-hover:text-white"
                   >
                     {option.label}
                   </Label>
@@ -1549,14 +1567,14 @@ const SurveyComponent = memo(function SurveyComponent({
 
       case "checkbox":
         return (
-          <div className="space-y-3 mt-3" dir="rtl">
+          <div className="mt-3 space-y-2.5" dir="rtl">
             {question.options.map((option: any) => (
               <div
                 key={option.value}
-                className={`group rounded-xl border-2 transition p-3 focus-within:ring-1 focus-within:ring-green-300 ${
+                className={`group rounded-xl border p-3.5 transition-colors focus-within:ring-2 focus-within:ring-cyan-500/20 ${
                   ((value as string[] || []).includes(option.value))
-                    ? 'border-green-500 bg-green-50 dark:border-green-400 dark:bg-green-900/20'
-                    : 'border-gray-200 dark:border-slate-600 hover:border-green-300 dark:hover:border-green-400/50 bg-white dark:bg-slate-800/40'
+                    ? 'border-cyan-500 bg-cyan-50 dark:border-cyan-400/70 dark:bg-cyan-400/10'
+                    : 'border-slate-200 bg-white/80 hover:border-cyan-300 hover:bg-cyan-50/40 dark:border-slate-700 dark:bg-slate-900/35 dark:hover:border-cyan-400/40 dark:hover:bg-cyan-400/5'
                 }`}
               >
                 <div className="flex flex-row-reverse items-center gap-3">
@@ -1566,11 +1584,11 @@ const SurveyComponent = memo(function SurveyComponent({
                     onCheckedChange={(checked: boolean) =>
                       handleCheckboxChange(question.id, option.value, checked)
                     }
-                    className="w-5 h-5 rounded-md border-2 border-gray-300 dark:border-slate-500 text-green-600 focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:outline-none ring-0 overflow-hidden data-[state=checked]:border-green-600 data-[state=checked]:bg-green-600 flex-shrink-0"
+                    className="h-5 w-5 shrink-0 overflow-hidden rounded-md border-2 border-slate-300 text-cyan-600 ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 data-[state=checked]:border-cyan-600 data-[state=checked]:bg-cyan-600 dark:border-slate-600"
                   />
                   <Label
                     htmlFor={`${question.id}-${option.value}`}
-                    className="text-right cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-200 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors duration-200 flex-1 leading-relaxed"
+                    className="flex-1 cursor-pointer text-right text-sm font-semibold leading-relaxed text-slate-700 transition-colors group-hover:text-slate-950 dark:text-slate-200 dark:group-hover:text-white"
                   >
                     {option.label}
                   </Label>
@@ -1768,6 +1786,7 @@ const SurveyComponent = memo(function SurveyComponent({
 
       case "text":
         const currentLength = (value as string || "").length
+        const meaningfulLength = getMeaningfulTextLength(value)
         const maxLength = question.maxLength || 1000
         const isOverLimit = currentLength > maxLength
         
@@ -1787,6 +1806,7 @@ const SurveyComponent = memo(function SurveyComponent({
             const composed = cc ? `+${cc} ${local}` : local ? `${local}` : ''
             const ccInvalid = cc.length < 1 || cc.length > 3
             const localInvalid = local.length < 9
+            const showPhoneErrors = validationAttemptedPages.has(currentPage)
             return (
               <div className="mt-4" dir="rtl">
                 <div className="grid grid-cols-5 gap-2" dir="ltr">
@@ -1812,7 +1832,7 @@ const SurveyComponent = memo(function SurveyComponent({
                       }}
                       placeholder="+966"
                       className={`text-right border-2 rounded-lg px-3 py-2 text-sm ${
-                        ccInvalid ? 'border-red-300 dark:border-red-600 focus:border-red-500 dark:focus:border-red-400' : 'border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400'
+                        showPhoneErrors && ccInvalid ? 'border-rose-300 dark:border-rose-600 focus:border-rose-500 dark:focus:border-rose-400' : 'border-slate-200 dark:border-slate-700 focus:border-cyan-500 dark:focus:border-cyan-400'
                       } bg-white dark:bg-slate-700`}
                       dir="ltr"
                     />
@@ -1841,7 +1861,7 @@ const SurveyComponent = memo(function SurveyComponent({
                       }}
                       placeholder="5XXXXXXXX"
                       className={`text-right border-2 rounded-lg px-3 py-2 text-sm ${
-                        localInvalid ? 'border-red-300 dark:border-red-600 focus:border-red-500 dark:focus:border-red-400' : 'border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400'
+                        showPhoneErrors && localInvalid ? 'border-rose-300 dark:border-rose-600 focus:border-rose-500 dark:focus:border-rose-400' : 'border-slate-200 dark:border-slate-700 focus:border-cyan-500 dark:focus:border-cyan-400'
                       } bg-white dark:bg-slate-700`}
                       inputMode="numeric"
                       pattern="[0-9]*"
@@ -1851,8 +1871,8 @@ const SurveyComponent = memo(function SurveyComponent({
                 </div>
                 <div className="flex justify-between items-center mt-2 text-xs">
                   <span className="text-gray-600 dark:text-gray-300" dir="ltr">{composed || question.placeholder}</span>
-                  <span className={`font-medium ${ccInvalid || localInvalid ? 'text-red-500 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                    {ccInvalid ? 'أدخل رمز دولة صحيح (1-3 أرقام).' : localInvalid ? 'أدخل رقم محلي صحيح (9 أرقام على الأقل بدون صفر في البداية).' : 'رقمك الكامل'}
+                  <span className={`font-medium ${showPhoneErrors && (ccInvalid || localInvalid) ? 'text-rose-500 dark:text-rose-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                    {showPhoneErrors && ccInvalid ? 'أدخل رمز دولة صحيح (1-3 أرقام).' : showPhoneErrors && localInvalid ? 'أدخل رقم محلي صحيح (9 أرقام على الأقل بدون صفر في البداية).' : 'رقمك الكامل'}
                   </span>
                 </div>
               </div>
@@ -1891,10 +1911,12 @@ const SurveyComponent = memo(function SurveyComponent({
           )
         }
         
-        // Vibe questions have 50% minimum requirement
-        const minRequired = Math.ceil(maxLength * 0.5)
-        const isBelowMinimum = currentLength < minRequired
-        const remaining = minRequired - currentLength
+        // Matching-oriented free text uses a purpose-specific minimum. Keep the
+        // untouched field neutral, then show progress once the participant types.
+        const minRequired = question.minLength || 0
+        const isBelowMinimum = minRequired > 0 && meaningfulLength < minRequired
+        const showMinimumProgress = meaningfulLength > 0 && isBelowMinimum
+        const remaining = Math.max(0, minRequired - meaningfulLength)
         
         return (
           <div className="mt-4">
@@ -1919,35 +1941,40 @@ const SurveyComponent = memo(function SurveyComponent({
                 }
               }}
               placeholder={question.placeholder}
-              className={`min-h-[40px] text-right border-2 rounded-lg px-3 py-1.5 text-sm resize-none ${
+              className={`min-h-[88px] resize-none rounded-xl border px-3.5 py-3 text-right text-sm leading-6 shadow-none transition-colors ${
                 isOverLimit 
-                  ? 'border-red-300 dark:border-red-600 focus:border-red-500 dark:focus:border-red-400'
-                  : isBelowMinimum
-                  ? 'border-yellow-300 dark:border-yellow-600 focus:border-yellow-500 dark:focus:border-yellow-400'
-                  : 'border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400'
-              } bg-white dark:bg-slate-700`}
+                  ? 'border-rose-300 dark:border-rose-600 focus:border-rose-500 dark:focus:border-rose-400'
+                  : showMinimumProgress
+                  ? 'border-amber-300 dark:border-amber-600 focus:border-amber-500 dark:focus:border-amber-400'
+                  : 'border-slate-200 focus:border-cyan-500 dark:border-slate-700 dark:focus:border-cyan-400'
+              } bg-white/80 placeholder:text-slate-400 dark:bg-slate-900/40 dark:placeholder:text-slate-500`}
             />
             
             {/* Character counter */}
             <div className="flex justify-between items-center mt-2 text-xs">
               <span className={`font-medium ${
                 isOverLimit ? 'text-red-500 dark:text-red-400' : 
-                isBelowMinimum ? 'text-yellow-600 dark:text-yellow-400' : 
-                'text-green-600 dark:text-green-400'
+                isBelowMinimum
+                  ? (showMinimumProgress ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-500 dark:text-gray-400')
+                  : 'text-green-600 dark:text-green-400'
               }`}>
-                {currentLength}/{maxLength} حرف (الحد الأدنى: {minRequired})
+                {currentLength}/{maxLength} حرف
               </span>
               {isOverLimit ? (
                 <span className="text-red-500 dark:text-red-400 font-medium">
                   تجاوزت الحد المسموح
                 </span>
-              ) : isBelowMinimum ? (
+              ) : showMinimumProgress ? (
                 <span className="text-yellow-600 dark:text-yellow-400 font-medium">
-                  يحتاج {remaining} حرف إضافي
+                  باقي {remaining} حرف فقط
+                </span>
+              ) : isBelowMinimum ? (
+                <span className="text-gray-500 dark:text-gray-400 font-medium">
+                  الحد الأدنى: {minRequired} حرف
                 </span>
               ) : (
                 <span className="text-green-600 dark:text-green-400 font-medium">
-                  ✓ مكتمل
+                  ممتاز، كذا يكفي ✓
                 </span>
               )}
             </div>
@@ -2050,72 +2077,57 @@ const SurveyComponent = memo(function SurveyComponent({
           </div>
         </div>
       )}
-      <div className="max-w-3xl mx-auto p-4">
+      <div className="mx-auto max-w-3xl px-2 py-3 sm:px-4 sm:py-5" dir="rtl">
         {/* Header with Progress */}
-        <div className="mb-6">
-          <div className="text-center mb-4">
-            <div className="inline-flex items-center gap-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg">
-              <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full animate-pulse"></div>
-              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                اكتشف أشخاص متوافقين معك
-              </span>
+        <div className="mb-5 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm backdrop-blur-sm dark:border-white/10 dark:bg-slate-950/55 sm:p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 text-right">
+              <div className="mb-1.5 flex items-center gap-2">
+                <span className="inline-flex rounded-full bg-cyan-500/10 px-2.5 py-1 text-[11px] font-bold text-cyan-700 dark:bg-cyan-400/10 dark:text-cyan-300">
+                  {currentSectionTitle}
+                </span>
+                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  خطوة {currentPage + 1} من {totalPages}
+                </span>
+              </div>
+              <h2 className="text-lg font-extrabold tracking-tight text-slate-950 dark:text-white sm:text-xl">
+                خذها سؤال بسؤال
+              </h2>
+              <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400 sm:text-sm">
+                ما فيه إجابة صح أو خطأ — وإجاباتك تنحفظ تلقائيًا.
+              </p>
+            </div>
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cyan-500 text-slate-950 shadow-sm shadow-cyan-500/20">
+              <Sparkles className="h-5 w-5" />
             </div>
           </div>
-          
-          {/* Enhanced Progress Bar */}
-          <div className="mb-4">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-xs font-medium text-gray-600 dark:text-gray-400">التقدم</span>
-              <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{currentPage + 1} من {totalPages}</span>
+
+          <div className="mt-4">
+            <div className="mb-2 flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+              <span>{Math.round(progress)}٪ مكتمل</span>
+              <span>{currentPage === totalPages - 1 ? 'آخر خطوة' : 'كمّل على راحتك'}</span>
             </div>
-            <div className="relative">
-              <div className="h-2 bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full transition-all duration-500 ease-out animate-shimmer"
-                  style={{ width: `${progress}%` }}
-                ></div>
-              </div>
-              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-400/20 to-purple-400/20 animate-pulse"></div>
+            <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+              <div
+                className="h-full rounded-full bg-linear-to-l from-cyan-400 to-blue-600 transition-[width] duration-500 ease-out"
+                style={{ width: `${progress}%` }}
+              />
             </div>
           </div>
         </div>
 
         {/* Disclaimer Section */}
         {currentPage === 0 && (
-          <div className="mb-6">
-            <Card className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border-red-200 dark:border-red-800/50 shadow-lg">
-              <CardContent className="p-6">
-                <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0">
-                    <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-orange-500 rounded-full flex items-center justify-center shadow-lg">
-                      <AlertTriangle className="w-5 h-5 text-white" />
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-bold text-red-800 dark:text-red-200 mb-3">
-                      ⚠️ تنبيه مهم - يرجى القراءة بعناية
-                    </h3>
-                    <div className="space-y-2 text-sm text-red-700 dark:text-red-300">
-                      <p className="font-semibold">
-                        🎯 <strong>كن صادقاً وموضوعياً في إجاباتك</strong>
-                      </p>
-                      <p>
-                        • نظام التوافق يعتمد على صدق إجاباتك لإيجاد الأشخاص المناسبين لك
-                      </p>
-                      <p>
-                        • الإجابات المضللة أو غير الصادقة تؤثر سلباً على جودة المطابقة
-                      </p>
-                      <p>
-                        • <strong className="text-red-800 dark:text-red-200">المشاركون الذين يقدمون معلومات مضللة قد يتم منعهم من الفعاليات المستقبلية</strong>
-                      </p>
-                      <p className="mt-3 p-3 bg-red-100 dark:bg-red-900/30 rounded-lg border border-red-200 dark:border-red-800">
-                        💡 <strong>نصيحة:</strong> أجب بصراحة عن شخصيتك الحقيقية واهتماماتك الفعلية للحصول على أفضل النتائج
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          <div className="mb-5 flex items-start gap-3 rounded-2xl border border-cyan-200/70 bg-cyan-50/70 p-4 text-right dark:border-cyan-400/15 dark:bg-cyan-400/[0.06]">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-cyan-700 shadow-sm dark:bg-slate-900 dark:text-cyan-300">
+              <Shield className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">الصراحة تعطيك تطابقًا أفضل</h3>
+              <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300 sm:text-sm">
+                اختر الإجابة الأقرب لك فعلًا. ما نبحث عن المثالية؛ نبحث عن الشخص المناسب لك.
+              </p>
+            </div>
           </div>
         )}
 
@@ -2147,39 +2159,17 @@ const SurveyComponent = memo(function SurveyComponent({
           if (hasVibeQuestions) {
             return (
               <div className="mb-6">
-                <Card className="bg-linear-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-purple-200 dark:border-purple-800/50 shadow-lg">
-                  <CardContent className="p-6">
-                    <div className="flex items-start gap-4">
-                      <div className="flex-shrink-0">
-                        <div className="w-10 h-10 bg-linear-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg">
-                          <Star className="w-5 h-5 text-white" />
-                        </div>
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-lg font-bold text-purple-800 dark:text-purple-200 mb-3">
-                          ⭐ أسئلة الطاقة والشخصية - الأهم في التوافق!
-                        </h3>
-                        <div className="space-y-2 text-sm text-purple-700 dark:text-purple-300">
-                          <p className="font-semibold">
-                            🎯 <strong>هذه الأسئلة لها أعلى وزن في نظام التوافق </strong>
-                          </p>
-                          <p>
-                            • املأ الإجابات بأكبر قدر من التفاصيل الممكنة
-                          </p>
-                          <p>
-                            • كلما كانت إجاباتك أكثر تفصيلاً، كانت المطابقة أدق وأفضل
-                          </p>
-                          <p>
-                            • استخدم كامل المساحة المتاحة لكل سؤال لوصف شخصيتك بصدق
-                          </p>
-                          <p className="mt-3 p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg border border-purple-200 dark:border-purple-800">
-                            💡 <strong>نصيحة:</strong> هذه الأسئلة تحدد مدى توافق طاقتك وشخصيتك مع الآخرين - لا تتردد في الكتابة بتفصيل!
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                <div className="flex items-start gap-3 rounded-2xl border border-violet-200/70 bg-violet-50/70 p-4 text-right dark:border-violet-400/15 dark:bg-violet-400/[0.06]">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-violet-600 shadow-sm dark:bg-slate-900 dark:text-violet-300">
+                    <Star className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">هنا نحتاج لمحة حقيقية عنك</h3>
+                    <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300 sm:text-sm">
+                      إجابات قصيرة وواضحة تكفي. اكتب بطريقتك، والأمثلة موجودة فقط لمساعدتك تبدأ.
+                    </p>
+                  </div>
+                </div>
               </div>
             );
           }
@@ -2187,8 +2177,8 @@ const SurveyComponent = memo(function SurveyComponent({
         })()}
 
         {/* Survey Content */}
-        <div className="space-y-4" ref={surveyContainerRef}>
-          <div className="space-y-4">
+        <div className="space-y-3" ref={surveyContainerRef}>
+          <div className="space-y-3">
             {currentQuestions.map((question, index) => (
               <div key={question.id} id={`survey-question-${question.id}`} className="group scroll-mt-28">
                 {/* Section header when a new section starts on this page */}
@@ -2198,37 +2188,56 @@ const SurveyComponent = memo(function SurveyComponent({
                   const prevTitle = absoluteIndex > 0 ? getSectionTitle(orderedQuestions[absoluteIndex - 1]?.id) : null
                   if (title && title !== prevTitle) {
                     return (
-                      <div className="mb-3">
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-base font-extrabold bg-linear-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+                      <div className="mb-2 mt-5 first:mt-0">
+                        <div className="flex items-center gap-3">
+                          <h4 className="whitespace-nowrap text-xs font-extrabold text-cyan-700 dark:text-cyan-300">
                             {title}
                           </h4>
-                          <div className="h-1 w-24 rounded-full bg-linear-to-r from-blue-500 via-purple-500 to-pink-500 opacity-70"></div>
+                          <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700"></div>
                         </div>
                       </div>
                     )
                   }
                   return null
                 })()}
-                <div className={`bg-white dark:bg-slate-800 rounded-2xl shadow-lg border p-3 ${
+                <div className={`rounded-2xl border bg-white/95 p-4 shadow-[0_8px_30px_rgba(15,23,42,0.05)] transition-colors dark:bg-slate-950/45 sm:p-5 ${
                   validationAttemptedPages.has(currentPage) && getQuestionValidationMessage(question)
-                    ? 'border-red-400 dark:border-red-500 ring-1 ring-red-300/50'
-                    : 'border-gray-200 dark:border-slate-700'
+                    ? 'border-rose-400 bg-rose-50/30 ring-2 ring-rose-500/10 dark:border-rose-500/70 dark:bg-rose-500/[0.04]'
+                    : 'border-slate-200/90 hover:border-slate-300 dark:border-white/10 dark:hover:border-white/20'
                 }`}>
-                  <div className="flex items-start gap-3">
-                    <div className="relative">
-                      <div className="w-6 h-6 bg-linear-to-br from-blue-500 via-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow">
-                        {currentPage * questionsPerPage + index + 1}
-                      </div>
+                  <div className="min-w-0">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                        سؤال {currentPage * questionsPerPage + index + 1}
+                      </span>
+                      {!getQuestionValidationMessage(question) && (() => {
+                        const rawValue = surveyData.answers[question.id]
+                        const hasAnswer = question.id === 'preferred_age_range'
+                          ? hasValidAgeFlexDecision(surveyData.answers) && (
+                              surveyData.answers['open_age_preference'] === 'true' ||
+                              ((surveyData.answers['preferred_age_min'] as string) && (surveyData.answers['preferred_age_max'] as string))
+                            )
+                          : question.id === 'phone_number'
+                            ? Boolean(surveyData.answers['phone_local'])
+                            : Array.isArray(rawValue)
+                              ? rawValue.length > 0
+                              : Boolean(String(rawValue ?? '').trim())
+                        return hasAnswer ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                            <CheckCircle className="h-3.5 w-3.5" />
+                            تمت الإجابة
+                          </span>
+                        ) : null
+                      })()}
                     </div>
-                    <div className="flex-1">
-                      <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-3 text-right leading-relaxed">
+                    <div>
+                      <h3 className="mb-3 text-right text-[15px] font-bold leading-7 text-slate-900 dark:text-slate-100 sm:text-base">
                         {question.description || question.question}
                       </h3>
                       <div className="space-y-3">
                         {renderQuestion(question)}
                         {validationAttemptedPages.has(currentPage) && getQuestionValidationMessage(question) && (
-                          <p className="mt-2 text-xs text-red-600 dark:text-red-400 text-right">
+                          <p className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-right text-xs font-semibold text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">
                             {getQuestionValidationMessage(question)}
                           </p>
                         )}
@@ -2242,19 +2251,24 @@ const SurveyComponent = memo(function SurveyComponent({
         </div>
 
         {/* Enhanced Navigation */}
-        <div className="flex justify-between items-center mt-8">
+        <div className={currentPage === totalPages - 1
+          ? "mx-auto mt-8 flex max-w-lg flex-col items-stretch gap-4"
+          : "sticky bottom-3 z-20 mt-6 flex items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white/90 p-2.5 shadow-xl shadow-slate-950/10 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/85"
+        }>
           <Button
             onClick={prevPage}
             disabled={currentPage === 0}
             variant="outline"
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border-2 border-gray-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-400 transition-all duration-300 hover:shadow-lg disabled:opacity-50 text-sm"
+            className={`flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 shadow-none transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 ${
+              currentPage === totalPages - 1 ? 'order-2 self-start' : 'shrink-0'
+            }`}
           >
             <ChevronRight className="w-4 h-4" />
             <span className="font-medium">السابق</span>
           </Button>
 
           {currentPage === totalPages - 1 ? (
-            <div className="flex w-full max-w-lg flex-col items-end gap-3">
+            <div className="order-1 flex w-full flex-col items-end gap-3">
               <div className="w-full overflow-hidden rounded-2xl border border-cyan-200 bg-white text-right shadow-sm dark:border-cyan-500/30 dark:bg-slate-900/90 dark:shadow-black/20">
                 <div className="flex items-center gap-3 border-b border-cyan-100 bg-cyan-50/70 px-4 py-3 dark:border-cyan-500/20 dark:bg-cyan-400/5">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-cyan-600 text-white shadow-sm shadow-cyan-600/20">
@@ -2394,7 +2408,7 @@ const SurveyComponent = memo(function SurveyComponent({
             <Button
               onClick={nextPage}
               disabled={loading}
-              className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-lg shadow hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:transform-none text-sm"
+              className="min-h-11 flex-1 items-center gap-2 rounded-xl bg-cyan-500 px-6 text-sm font-extrabold text-slate-950 shadow-sm shadow-cyan-500/20 transition-colors hover:bg-cyan-400 disabled:opacity-50 sm:flex-none sm:min-w-40"
             >
               <span>التالي</span>
               <ChevronLeft className="w-4 h-4" />
@@ -2419,37 +2433,48 @@ const SurveyComponent = memo(function SurveyComponent({
 
         {/* Phone Confirmation Modal */}
         <Dialog open={showPhoneConfirmModal} onOpenChange={setShowPhoneConfirmModal}>
-          <DialogContent className="max-w-md" dir="rtl">
-            <DialogHeader>
-              <DialogTitle className="text-lg font-bold">تأكيد رقم الهاتف</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <p className="text-sm text-gray-700 dark:text-gray-300">
-                هل هذا رقم هاتفك الصحيح؟
-              </p>
-              <div className="text-center">
-                <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100" dir="ltr">
-                  <span className="font-semibold">{phoneConfirmDisplay || '—'}</span>
-                </div>
+          <DialogContent
+            className="w-[calc(100%-2rem)] max-w-sm gap-0 overflow-hidden rounded-2xl border-slate-200 bg-white p-0 shadow-2xl dark:border-slate-700 dark:bg-slate-950 [&>button]:left-4 [&>button]:right-auto [&>button]:top-4"
+            dir="rtl"
+          >
+            <div className="px-6 pb-5 pt-6">
+              <DialogHeader className="pl-8 text-right sm:text-right">
+                <DialogTitle className="text-xl font-bold text-slate-950 dark:text-white">
+                  تأكيد رقم الهاتف
+                </DialogTitle>
+                <p className="pt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                  تأكد من الرقم قبل متابعة الاستبيان
+                </p>
+              </DialogHeader>
+
+              <div className="mt-5 rounded-xl border border-cyan-500/20 bg-cyan-500/[0.06] px-4 py-4 dark:bg-cyan-400/[0.08]">
+                <p className="text-center text-xs font-medium text-slate-500 dark:text-slate-400">
+                  هل هذا رقم هاتفك الصحيح؟
+                </p>
+                <p className="mt-2 text-center text-xl font-bold tracking-wide text-slate-950 dark:text-white" dir="ltr">
+                  {phoneConfirmDisplay || '—'}
+                </p>
               </div>
-              <div className="flex items-center justify-end gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowPhoneConfirmModal(false)}
-                  className="px-3 py-1.5 text-sm"
-                >
-                  تعديل
-                </Button>
-                <Button
-                  onClick={() => {
-                    setShowPhoneConfirmModal(false)
-                    setCurrentPage((p) => Math.min(p + 1, totalPages - 1))
-                  }}
-                  className="px-3 py-1.5 text-sm bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white"
-                >
-                  نعم، صحيح
-                </Button>
-              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 border-t border-slate-200 bg-slate-50/80 px-6 py-4 dark:border-slate-800 dark:bg-slate-900/60">
+              <Button
+                onClick={() => {
+                  setShowPhoneConfirmModal(false)
+                  setCurrentPage((p) => Math.min(p + 1, totalPages - 1))
+                }}
+                className="min-h-11 rounded-xl bg-cyan-500 text-sm font-bold text-slate-950 shadow-none hover:bg-cyan-400"
+              >
+                <CheckCircle className="h-4 w-4" />
+                نعم، صحيح
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowPhoneConfirmModal(false)}
+                className="min-h-11 rounded-xl border-slate-300 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                تعديل الرقم
+              </Button>
             </div>
           </DialogContent>
         </Dialog>

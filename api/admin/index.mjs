@@ -567,7 +567,9 @@ export default async function handler(req, res) {
 
   const bearerToken = String(req.headers?.authorization || "").replace(/^Bearer\s+/i, "")
   const isCohostLogin = action === "e3-cohost-login"
-  const isPublicEventRead = action === "get-event-state" || action === "get-current-event-id"
+  const isPublicEventRead = action === "get-event-state"
+    || action === "get-current-event-id"
+    || action === "get-results-visibility"
   const hasCohostSession = EVENT3_COHOST_ACTIONS.has(action) && verifyCohostToken(bearerToken || req.body?.cohost_token)
   if (isCohostLogin) {
     if (!enforceRateLimit(req, res, { key: "cohost-login", limit: 5, windowMs: 15 * 60_000 })) return

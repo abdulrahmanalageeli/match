@@ -380,9 +380,12 @@ export default function ResultsPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "get-results-visibility" }),
         })
+        if (!visibilityRes.ok) {
+          throw new Error(`Could not check results visibility (${visibilityRes.status})`)
+        }
         const visibilityData = await visibilityRes.json()
         
-        if (!visibilityData.visible) {
+        if (visibilityData.visible === false) {
           setError("waiting")
           setLoading(false)
           return

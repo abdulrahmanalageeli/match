@@ -8047,7 +8047,7 @@ export default function WelcomePage() {
             __html: `
               setTimeout(() => {
                 document.dispatchEvent(new CustomEvent('showRegistrationContent'));
-              }, 3000);
+              }, 4800);
             `,
           }}
         />

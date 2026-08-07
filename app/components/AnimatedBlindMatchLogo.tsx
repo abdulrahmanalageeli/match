@@ -34,24 +34,46 @@ export function AnimatedBlindMatchLogo() {
           <filter id="bm-soft-glow" x="-50%" y="-50%" width="200%" height="200%">
             <feGaussianBlur stdDeviation="16" />
           </filter>
-          <clipPath id="bm-sweep-clip">
-            <circle cx="380" cy="330" r="268" />
-            <rect x="115" y="585" width="530" height="125" rx="28" />
-          </clipPath>
+          <mask id="bm-element-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="760" height="760">
+            <g fill="none" stroke="white" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="380" cy="330" r="255" strokeWidth="14" />
+              <circle cx="380" cy="330" r="236" strokeWidth="9" />
+              <path d="M357 205 C307 190 255 204 221 236 C188 267 179 310 190 350 L171 383 C165 393 169 404 181 409 L199 416 C187 423 187 433 198 439 C188 447 191 457 203 463 L217 469 C210 487 220 506 244 513 L278 521 C306 528 320 552 322 586 C329 550 342 526 365 511" strokeWidth="14" />
+              <path d="M403 205 C453 190 505 204 539 236 C572 267 581 310 570 350 L589 383 C595 393 591 404 579 409 L561 416 C573 423 573 433 562 439 C572 447 569 457 557 463 L543 469 C550 487 540 506 516 513 L482 521 C454 528 440 552 438 586 C431 550 418 526 395 511" strokeWidth="14" />
+              <path d="M303 468 C324 420 354 405 380 405 C406 405 436 420 457 468" strokeWidth="16" />
+              <path d="M230 710 H350 M410 710 H530" strokeWidth="9" />
+            </g>
+            <circle cx="300" cy="474" r="25" fill="white" />
+            <circle cx="460" cy="474" r="25" fill="white" />
+            <circle cx="380" cy="710" r="11" fill="white" />
+            <text
+              x="380"
+              y="664"
+              textAnchor="middle"
+              direction="rtl"
+              fill="white"
+              fontFamily="Tajawal, Arial, sans-serif"
+              fontSize="67"
+              fontWeight="700"
+              letterSpacing="-2"
+            >
+              التوافق الأعمى
+            </text>
+          </mask>
         </defs>
 
         <style>{`
-          .bm-logo-float { transform-origin: 380px 365px; animation: bm-float 3s ease-in-out infinite; }
-          .bm-logo-halo { transform-origin: 380px 330px; animation: bm-halo 2.5s ease-in-out infinite; }
-          .bm-logo-draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: bm-draw 1.15s cubic-bezier(.22,.75,.28,1) forwards; }
-          .bm-logo-ring-two { animation-delay: .12s; }
-          .bm-logo-face { animation-delay: .28s; }
-          .bm-logo-bridge { animation-delay: .52s; }
-          .bm-logo-dot { transform-box: fill-box; transform-origin: center; opacity: 0; animation: bm-dot 1.8s ease-in-out .78s infinite; }
-          .bm-logo-dot-two { animation-delay: .92s; }
-          .bm-logo-wordmark { opacity: 0; transform: translateY(14px); animation: bm-wordmark .72s cubic-bezier(.2,.8,.2,1) .68s forwards; }
-          .bm-logo-rule { opacity: 0; animation: bm-rule .7s ease-out 1s forwards; }
-          .bm-logo-sweep { animation: bm-sweep 2.7s cubic-bezier(.4,0,.2,1) .85s infinite; }
+          .bm-logo-float { transform-origin: 380px 365px; animation: bm-float 5.5s ease-in-out infinite; }
+          .bm-logo-halo { transform-origin: 380px 330px; animation: bm-halo 4.4s ease-in-out infinite; }
+          .bm-logo-draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: bm-draw 1.9s cubic-bezier(.22,.75,.28,1) forwards; }
+          .bm-logo-ring-two { animation-delay: .2s; }
+          .bm-logo-face { animation-delay: .45s; }
+          .bm-logo-bridge { animation-delay: .9s; }
+          .bm-logo-dot { transform-box: fill-box; transform-origin: center; opacity: 0; animation: bm-dot 2.8s ease-in-out 1.3s infinite; }
+          .bm-logo-dot-two { animation-delay: 1.48s; }
+          .bm-logo-wordmark { opacity: 0; transform: translateY(14px); animation: bm-wordmark 1s cubic-bezier(.2,.8,.2,1) 1.55s forwards; }
+          .bm-logo-rule { opacity: 0; animation: bm-rule .85s ease-out 1.95s forwards; }
+          .bm-logo-sweep { mix-blend-mode: screen; animation: bm-sweep 4.8s cubic-bezier(.4,0,.2,1) 1.4s infinite; }
 
           @keyframes bm-draw { to { stroke-dashoffset: 0; } }
           @keyframes bm-wordmark { to { opacity: 1; transform: translateY(0); } }
@@ -155,7 +177,7 @@ export function AnimatedBlindMatchLogo() {
             <circle cx="380" cy="710" r="7" fill="url(#bm-brand-gradient)" stroke="none" />
           </g>
 
-          <g clipPath="url(#bm-sweep-clip)" pointerEvents="none">
+          <g mask="url(#bm-element-mask)" pointerEvents="none">
             <rect className="bm-logo-sweep" x="-180" y="55" width="115" height="650" fill="url(#bm-light-sweep)" opacity="0" />
           </g>
         </g>

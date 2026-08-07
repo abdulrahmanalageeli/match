@@ -115,7 +115,7 @@ export function AnimatedBlindMatchLogo() {
               cx="380"
               cy="330"
               r="255"
-              strokeWidth="4"
+              strokeWidth="6"
               filter="url(#bm-glow)"
             />
             <circle
@@ -124,7 +124,7 @@ export function AnimatedBlindMatchLogo() {
               cx="380"
               cy="330"
               r="236"
-              strokeWidth="1.5"
+              strokeWidth="2.75"
               strokeOpacity="0.8"
             />
 
@@ -132,14 +132,14 @@ export function AnimatedBlindMatchLogo() {
               className="bm-logo-draw bm-logo-face"
               pathLength="1"
               d="M357 205 C307 190 255 204 221 236 C188 267 179 310 190 350 L171 383 C165 393 169 404 181 409 L199 416 C187 423 187 433 198 439 C188 447 191 457 203 463 L217 469 C210 487 220 506 244 513 L278 521 C306 528 320 552 322 586 C329 550 342 526 365 511"
-              strokeWidth="4"
+              strokeWidth="6"
               filter="url(#bm-glow)"
             />
             <path
               className="bm-logo-draw bm-logo-face"
               pathLength="1"
               d="M403 205 C453 190 505 204 539 236 C572 267 581 310 570 350 L589 383 C595 393 591 404 579 409 L561 416 C573 423 573 433 562 439 C572 447 569 457 557 463 L543 469 C550 487 540 506 516 513 L482 521 C454 528 440 552 438 586 C431 550 418 526 395 511"
-              strokeWidth="4"
+              strokeWidth="6"
               filter="url(#bm-glow)"
             />
 
@@ -147,7 +147,7 @@ export function AnimatedBlindMatchLogo() {
               className="bm-logo-draw bm-logo-bridge"
               pathLength="1"
               d="M303 468 C324 420 354 405 380 405 C406 405 436 420 457 468"
-              strokeWidth="5"
+              strokeWidth="7"
               filter="url(#bm-glow)"
             />
           </g>
@@ -172,8 +172,8 @@ export function AnimatedBlindMatchLogo() {
           </g>
 
           <g className="bm-logo-rule" fill="none" stroke="url(#bm-brand-gradient)" strokeLinecap="round">
-            <path d="M230 710 H350" strokeWidth="2" />
-            <path d="M410 710 H530" strokeWidth="2" />
+            <path d="M230 710 H350" strokeWidth="3" />
+            <path d="M410 710 H530" strokeWidth="3" />
             <circle cx="380" cy="710" r="7" fill="url(#bm-brand-gradient)" stroke="none" />
           </g>
 

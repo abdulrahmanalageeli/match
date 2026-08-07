@@ -475,9 +475,6 @@ export default function WelcomePage() {
   const searchParams = useSearchParams()[0]
   const token = searchParams.get("token")
   const forceRound = searchParams.get("force_round")
-  const [typewriterText, setTypewriterText] = useState("")
-  const [isTyping, setIsTyping] = useState(false)
-  const [typewriterCompleted, setTypewriterCompleted] = useState(false)
   const [currentRound, setCurrentRound] = useState(1)
   
   // Option D: overlay rectangles to mask local background under cards, keeping particles visible around edges
@@ -2048,49 +2045,6 @@ export default function WelcomePage() {
     return () => clearInterval(typeInterval)
   }, [step, assignedNumber])
 
-  // Typewriter effect for AI description
-  useEffect(() => {
-    if (!analysisStarted || !personalitySummary || personalitySummary === "ما تم إنشاء ملخص.") {
-      setTypewriterText("")
-      setIsTyping(false)
-      setTypewriterCompleted(false)
-      return
-    }
-
-    // If typewriter is already completed, don't restart
-    if (typewriterCompleted) {
-      return
-    }
-
-    // If the summary is empty or invalid, don't start
-    if (!personalitySummary || personalitySummary.trim() === "") {
-      setTypewriterText(personalitySummary)
-      setIsTyping(false)
-      setTypewriterCompleted(true)
-      return
-    }
-
-    // Starting typewriter effect
-    setIsTyping(true)
-    setTypewriterText("")
-    
-    let index = 0
-    const typeInterval = setInterval(() => {
-      if (index < personalitySummary.length) {
-        setTypewriterText(personalitySummary.substring(0, index + 1))
-        index++
-      } else {
-        clearInterval(typeInterval)
-        setTypewriterText(personalitySummary) // Ensure final text is set
-        setIsTyping(false)
-        setTypewriterCompleted(true)
-        // Typewriter completed
-      }
-    }, 30) // Speed of typing
-
-    return () => clearInterval(typeInterval)
-  }, [analysisStarted, personalitySummary])
-
   useEffect(() => {
     const resolveToken = async () => {
       if (!token) {
@@ -2208,9 +2162,6 @@ export default function WelcomePage() {
           });
           setShowFormFilledPrompt(false);
           setAnalysisStarted(false);
-          setTypewriterText("");
-          setIsTyping(false);
-          setTypewriterCompleted(false);
           
           setStep(-1);
           // Fetch current event state including timer state
@@ -2856,7 +2807,6 @@ export default function WelcomePage() {
               organizerImpression: "",
               participantMessage: ""
             });
-                setTypewriterCompleted(false);
                 setTimerEnded(false);
                 setIsRepeatMatch(false);
                 setPartnerStartedTimer(false);
@@ -4635,14 +4585,10 @@ export default function WelcomePage() {
       const data1 = await res1.json()
       if (!res1.ok) throw new Error(data1.error)
   
-      // 2. Skip AI summary generation for now
-      const newSummary = "تم حفظ بياناتك بنجاح. سيتم تحليل شخصيتك قريباً."
+      // 2. Save a neutral confirmation message until matching communication begins
+      const newSummary = "تم حفظ بياناتك بنجاح. سنتواصل معك عبر واتساب عند توفر توافق مناسب."
       console.log("📝 Using default summary:", newSummary)
       setPersonalitySummary(newSummary)
-      // Reset typewriter state for new summary
-      setTypewriterCompleted(false)
-      setTypewriterText("")
-      setIsTyping(false)
       
       // Save the default summary to database
       const saveRes = await fetch("/api/participant", {
@@ -8930,81 +8876,15 @@ export default function WelcomePage() {
 
                 <h3 className={`text-2xl font-black tracking-tight sm:text-[1.7rem] ${
                   dark ? "text-white" : "text-slate-950"
-                }`}>جاري إعداد ملف توافقك</h3>
+                }`}>تم تسجيلك بنجاح</h3>
                 <p className={`mx-auto mt-2 max-w-sm text-sm font-medium leading-6 ${
                   dark ? "text-slate-300" : "text-slate-600"
                 }`}>
-                  نحلّل إجاباتك بعناية لتحديد التوافقات الأنسب لك
+                  لا تحتاج إلى الانتظار في هذه الصفحة، يمكنك إغلاقها الآن
                 </p>
               </div>
 
-              <div
-                dir="rtl"
-                className={`rounded-2xl border p-4 text-right shadow-lg sm:p-5 ${
-                  dark
-                    ? "border-white/[0.12] bg-white/[0.06] shadow-black/15"
-                    : "border-slate-200 bg-slate-50/90 shadow-slate-200/40"
-                }`}
-              >
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
-                      dark ? "bg-cyan-300/10 text-cyan-200" : "bg-cyan-100 text-cyan-700"
-                    }`}>
-                      <Zap className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h4 className={`text-sm font-extrabold ${dark ? "text-white" : "text-slate-900"}`}>
-                        تحليل الإجابات
-                      </h4>
-                      <p className={`mt-0.5 text-xs font-medium ${dark ? "text-slate-400" : "text-slate-500"}`}>
-                        يتم تجهيز النتيجة الآن
-                      </p>
-                    </div>
-                  </div>
-                  <span className="relative flex h-2.5 w-2.5" aria-label="قيد المعالجة">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-60" />
-                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-cyan-400" />
-                  </span>
-                </div>
-
-                <div
-                  aria-live="polite"
-                  className={`min-h-[5.5rem] rounded-xl border px-4 py-3 text-sm font-medium leading-7 ${
-                    dark
-                      ? "border-white/[0.08] bg-black/20 text-slate-200"
-                      : "border-slate-200/80 bg-white text-slate-700"
-                  }`}
-                >
-                  {loading ? (
-                    <div className="flex min-h-[4rem] items-center gap-3">
-                      <div className={`h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-t-transparent ${
-                        dark ? "border-cyan-300" : "border-cyan-600"
-                      }`} />
-                      جاري تحليل إجاباتك وتجهيز ملف التوافق...
-                    </div>
-                  ) : (
-                    <div className="min-h-[4rem]">
-                      {typewriterText}
-                      {isTyping && <span className={`mr-0.5 inline-block h-4 w-0.5 animate-pulse align-middle ${
-                        dark ? "bg-cyan-300" : "bg-cyan-600"
-                      }`} />}
-                    </div>
-                  )}
-                </div>
-
-                <div className={`mt-4 h-1.5 overflow-hidden rounded-full ${
-                  dark ? "bg-white/[0.08]" : "bg-slate-200"
-                }`} aria-hidden="true">
-                  <motion.div
-                    className="h-full w-2/5 rounded-full bg-gradient-to-r from-violet-400 via-blue-400 to-cyan-300 shadow-[0_0_14px_rgba(34,211,238,0.65)]"
-                    animate={{ x: ["165%", "-250%"] }}
-                    transition={{ duration: 3.8, ease: "easeInOut", repeat: Infinity, repeatDelay: 0.35 }}
-                  />
-                </div>
-              </div>
-
-              <div className={`mt-4 rounded-2xl border p-4 text-right ${
+              <div className={`rounded-2xl border p-4 text-right ${
                 dark
                   ? "border-emerald-300/[0.18] bg-emerald-400/[0.07]"
                   : "border-emerald-200 bg-emerald-50/80"
@@ -9017,10 +8897,10 @@ export default function WelcomePage() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <h4 className={`text-sm font-extrabold ${dark ? "text-emerald-100" : "text-emerald-950"}`}>
-                      سنرسل لك التحديث عبر واتساب
+                      الخطوة التالية عبر واتساب
                     </h4>
                     <p className={`mt-1 text-xs font-medium leading-5 ${dark ? "text-emerald-100/75" : "text-emerald-800"}`}>
-                      ستصلك رسالة فور العثور على توافق مناسب لك
+                      لا يوجد إجراء مطلوب منك الآن؛ سنتواصل معك فور العثور على توافق مناسب
                     </p>
                   </div>
                 </div>

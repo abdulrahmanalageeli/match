@@ -76,6 +76,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Slider } from "../../components/ui/slider"
 import { Switch } from "../../components/ui/switch"
 import { Avatar as AvatarComponent } from "../../components/ui/avatar"
+import { AnimatedBlindMatchLogo } from "../components/AnimatedBlindMatchLogo"
 import "../../app/app.css"
 import MatchResult from "./MatchResult"
 import CircularProgressBar from "../components/CircularProgressBar"
@@ -7339,84 +7340,15 @@ export default function WelcomePage() {
           <div className="max-w-4xl w-full">
             {/* Initial Loading Animation */}
             {!showRegistrationContent && (
-              <div className="text-center">
-                <div className="relative inline-block mb-8">
-                  {/* AI Loading Effect */}
-                  <div className="w-24 h-24 sm:w-32 sm:h-32 bg-gradient-to-r from-cyan-600 to-blue-700 rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse">
-                    <Brain className="w-12 h-12 sm:w-16 sm:h-16 text-white animate-spin" />
-                  </div>
-                  
-                  {/* Neural Network Animation */}
-                  <div className="relative w-64 h-32 mx-auto mb-8">
-                    {[...Array(6)].map((_, i) => (
-                      <div
-                        key={i}
-                        className="absolute w-2 h-2 bg-cyan-400 rounded-full animate-ping"
-                        style={{
-                          left: `${20 + (i * 40)}px`,
-                          top: `${20 + (i % 2) * 80}px`,
-                          animationDelay: `${i * 0.2}s`,
-                        }}
-                      />
-                    ))}
-                    {[...Array(5)].map((_, i) => (
-                      <div
-                        key={`line-${i}`}
-                        className="absolute h-px bg-gradient-to-r from-cyan-400 to-transparent animate-pulse"
-                        style={{
-                          left: `${20 + (i * 40)}px`,
-                          top: `${60 + (i % 2) * 20}px`,
-                          width: '40px',
-                          animationDelay: `${i * 0.3}s`,
-                        }}
-                      />
-                    ))}
-                  </div>
-                  
-                  <h1 className="text-2xl sm:text-4xl font-bold text-white mb-4 tracking-tight animate-in slide-in-from-bottom-4 duration-1000">
-                    <div className="relative inline-block">
-                      {/* Animated Background Glow */}
-                      <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 rounded-3xl blur-2xl opacity-30 animate-pulse"></div>
-                      
-                      {/* Main Logo Container */}
-                      <div className="relative bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-3xl p-3 sm:p-4 border border-cyan-400/30 shadow-2xl">
-                        {/* Animated Border */}
-                        <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 opacity-20 animate-spin" style={{ animationDuration: '8s' }}></div>
-                        
-                        {/* Logo Content */}
-                        <div className="relative flex items-center justify-center">
-                          <img
-                            src="/blindmatch-welcome-loading-logo.png"
-                            alt="شعار التوافق الأعمى"
-                            width={1024}
-                            height={1024}
-                            loading="eager"
-                            fetchPriority="high"
-                            className="h-56 w-56 rounded-2xl object-cover sm:h-72 sm:w-72"
-                          />
-                        </div>
-                        
-                        {/* Floating Particles */}
-                        <div className="absolute inset-0 overflow-hidden rounded-3xl">
-                          {[...Array(8)].map((_, i) => (
-                            <div
-                              key={i}
-                              className="absolute w-1 h-1 bg-cyan-400 rounded-full animate-ping"
-                              style={{
-                                left: `${15 + (i * 12)}%`,
-                                top: `${25 + (i % 2) * 50}%`,
-                                animationDelay: `${i * 0.2}s`,
-                                animationDuration: '2s'
-                              }}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </h1>
-                  <p className="text-sm sm:text-xl text-cyan-100 max-w-2xl mx-auto leading-relaxed animate-in slide-in-from-bottom-4 duration-1000 delay-300">
-                    جاري تحميل الذكاء الاصطناعي...
+              <div className="flex min-h-[100svh] items-center justify-center py-5 text-center">
+                <div className="w-full">
+                  <AnimatedBlindMatchLogo />
+                  <p className="-mt-3 text-sm font-medium tracking-wide text-cyan-100/80 sm:text-base">
+                    جاري تجهيز تجربتك...
                   </p>
+                  <div className="mx-auto mt-4 h-1 w-32 overflow-hidden rounded-full bg-white/10 sm:w-40" aria-hidden="true">
+                    <div className="h-full w-1/2 rounded-full bg-gradient-to-r from-violet-400 via-blue-400 to-cyan-300 animate-[pulse_1.4s_ease-in-out_infinite]" />
+                  </div>
                 </div>
               </div>
             )}

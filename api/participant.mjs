@@ -467,7 +467,7 @@ export default async function handler(req, res) {
     }
     const { data, error } = await supabase
       .from("participants")
-      .select("assigned_number, name, survey_data, summary, signup_for_next_event, auto_signup_next_event, humor_banter_style, early_openness_comfort, same_gender_preference, any_gender_preference, gender, phone_number, age, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
+      .select("assigned_number, name, survey_data, summary, signup_for_next_event, auto_signup_next_event, humor_banter_style, early_openness_comfort, same_gender_preference, any_gender_preference, gender, phone_number, age, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_one_year, intent_goal, open_intent_goal_mismatch")
       .eq("secure_token", req.body.secure_token)
       .single();
 
@@ -785,6 +785,9 @@ export default async function handler(req, res) {
       preferred_age_min: data.preferred_age_min ?? null,
       preferred_age_max: data.preferred_age_max ?? null,
       open_age_preference: typeof data.open_age_preference === 'boolean' ? data.open_age_preference : null,
+      age_flex_one_year: typeof data.age_flex_one_year === 'boolean' ? data.age_flex_one_year : null,
+      intent_goal: data.intent_goal || null,
+      open_intent_goal_mismatch: typeof data.open_intent_goal_mismatch === 'boolean' ? data.open_intent_goal_mismatch : null,
       history: history
     })
   }

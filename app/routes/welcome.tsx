@@ -176,6 +176,7 @@ interface SurveyData {
   answers: Record<string, string | string[]>
   termsAccepted: boolean
   dataConsent: boolean
+  marketingConsent?: boolean
   mbtiType?: string
   attachmentStyle?: string
   communicationStyle?: string
@@ -186,6 +187,108 @@ interface SurveyData {
   name?: string
   gender?: string
   phoneNumber?: string
+}
+
+const SURVEY_DATA_METADATA_KEYS = new Set([
+  'answers',
+  'termsAccepted',
+  'terms_accepted',
+  'dataConsent',
+  'data_consent',
+  'marketingConsent',
+  'marketing_consent',
+  'mbtiType',
+  'attachmentStyle',
+  'communicationStyle',
+  'lifestylePreferences',
+  'coreValues',
+  'vibeDescription',
+  'idealPersonDescription',
+  'phoneNumber',
+])
+
+const isRecord = (value: unknown): value is Record<string, any> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
+const parseBoolean = (value: unknown, fallback = false): boolean => {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'string') {
+    if (value.toLowerCase() === 'true') return true
+    if (value.toLowerCase() === 'false') return false
+  }
+  return fallback
+}
+
+// Participant records have existed in both nested (`survey_data.answers`) and
+// legacy flat (`survey_data.name`, `survey_data.vibe_1`, ...) shapes. Normalize
+// both forms and fill any missing essentials from their dedicated DB columns.
+const normalizeResolvedSurveyData = (participant: any): SurveyData => {
+  let storedSurveyData: Record<string, any> = {}
+  try {
+    const raw = participant?.survey_data
+    storedSurveyData = typeof raw === 'string'
+      ? (JSON.parse(raw || '{}') as Record<string, any>)
+      : isRecord(raw) ? raw : {}
+  } catch {
+    storedSurveyData = {}
+  }
+
+  const legacyAnswers = Object.fromEntries(
+    Object.entries(storedSurveyData).filter(([key, value]) =>
+      !SURVEY_DATA_METADATA_KEYS.has(key)
+      && (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || Array.isArray(value))
+    )
+  )
+  const nestedAnswers = isRecord(storedSurveyData.answers) ? storedSurveyData.answers : {}
+  const answers: Record<string, string | string[]> = {
+    ...Object.fromEntries(Object.entries(legacyAnswers).map(([key, value]) => [key, Array.isArray(value) ? value.map(String) : String(value)])),
+    ...Object.fromEntries(Object.entries(nestedAnswers).map(([key, value]) => [key, Array.isArray(value) ? value.map(String) : String(value ?? '')])),
+  }
+
+  const setIfMissing = (key: string, value: unknown) => {
+    const current = answers[key]
+    if ((current !== undefined && current !== null && String(current).trim() !== '') || value === undefined || value === null || value === '') return
+    answers[key] = Array.isArray(value) ? value.map(String) : String(value)
+  }
+
+  setIfMissing('name', storedSurveyData.name ?? participant?.name)
+  setIfMissing('age', storedSurveyData.age ?? participant?.age)
+  setIfMissing('gender', storedSurveyData.gender ?? participant?.gender)
+  setIfMissing('nationality', storedSurveyData.nationality ?? participant?.nationality)
+  setIfMissing('phone_number', storedSurveyData.phone_number ?? storedSurveyData.phoneNumber ?? participant?.phone_number)
+  setIfMissing('preferred_age_min', storedSurveyData.preferred_age_min ?? participant?.preferred_age_min)
+  setIfMissing('preferred_age_max', storedSurveyData.preferred_age_max ?? participant?.preferred_age_max)
+  setIfMissing('open_age_preference', storedSurveyData.open_age_preference ?? participant?.open_age_preference)
+  setIfMissing('humor_banter_style', storedSurveyData.humor_banter_style ?? participant?.humor_banter_style)
+  setIfMissing('early_openness_comfort', storedSurveyData.early_openness_comfort ?? participant?.early_openness_comfort)
+  setIfMissing('intent_goal', storedSurveyData.intent_goal ?? participant?.intent_goal)
+  setIfMissing('open_intent_goal_mismatch', storedSurveyData.open_intent_goal_mismatch ?? participant?.open_intent_goal_mismatch)
+
+  const ageFlex = storedSurveyData.age_flex_one_year ?? participant?.age_flex_one_year
+  if (answers.age_flex_one_year == null && typeof ageFlex === 'boolean') {
+    answers.age_flex_one_year = ageFlex ? 'accept' : 'decline'
+  }
+
+  if (answers.nationality_preference == null && typeof participant?.prefer_same_nationality === 'boolean') {
+    answers.nationality_preference = participant.prefer_same_nationality ? 'same' : 'any'
+  }
+
+  if (answers.gender_preference == null) {
+    const gender = String(answers.gender || participant?.gender || '').toLowerCase()
+    const normalizedPreference = participant?.gender_preference
+    if (normalizedPreference === 'any_gender') answers.gender_preference = 'any'
+    if (normalizedPreference === 'same_gender' && (gender === 'male' || gender === 'female')) answers.gender_preference = gender
+    if (normalizedPreference === 'opposite_gender' && gender === 'male') answers.gender_preference = 'female'
+    if (normalizedPreference === 'opposite_gender' && gender === 'female') answers.gender_preference = 'male'
+  }
+
+  return {
+    ...storedSurveyData,
+    answers,
+    termsAccepted: parseBoolean(storedSurveyData.termsAccepted ?? storedSurveyData.terms_accepted),
+    dataConsent: parseBoolean(storedSurveyData.dataConsent ?? storedSurveyData.data_consent),
+    marketingConsent: parseBoolean(storedSurveyData.marketingConsent ?? storedSurveyData.marketing_consent),
+  }
 }
 
 interface FeedbackAnswersState {
@@ -561,13 +664,11 @@ export default function WelcomePage() {
   // Helper function to check if user has substantial survey data (more than just default values)
   const hasSubstantialSurveyData = (answers: Record<string, string | string[]> | undefined) => {
     if (!answers) return false;
-    const keys = Object.keys(answers);
-    // If more than 1 key, definitely has substantial data
-    if (keys.length > 1) return true;
-    // If exactly 1 key and it's not just the default gender_preference, has substantial data
-    if (keys.length === 1 && !answers.gender_preference) return true;
-    // Otherwise, only has default values
-    return false;
+    const defaultOnlyKeys = new Set(['gender_preference', 'open_intent_goal_mismatch']);
+    return Object.entries(answers).some(([key, value]) =>
+      !defaultOnlyKeys.has(key)
+      && (Array.isArray(value) ? value.length > 0 : String(value ?? '').trim().length > 0)
+    );
   };
   useEffect(() => {
     if (modalStep !== 'feedback') { setKeyboardOffset(0); return }
@@ -2078,6 +2179,10 @@ export default function WelcomePage() {
             setReturningGenderPreference(data.gender_preference)
             // preference source: DB only (no localStorage caching)
           }
+          const resolvedSurveyData = normalizeResolvedSurveyData(data)
+          if (Object.keys(resolvedSurveyData.answers).length > 0) {
+            setSurveyData(resolvedSurveyData)
+          }
           // If URL still has legacy showToken flag, show modal and then clean it from URL
           try {
             const params = new URLSearchParams(window.location.search)
@@ -2422,13 +2527,7 @@ export default function WelcomePage() {
                 if (userData.name && !participantName) {
                   setParticipantName(userData.name);
                 }
-                const formattedSurveyData = {
-                  answers: userData.survey_data.answers || {},
-                  termsAccepted: userData.survey_data.termsAccepted || false,
-                  dataConsent: userData.survey_data.dataConsent || false,
-                  ...userData.survey_data,
-                };
-                setSurveyData(formattedSurveyData);
+                setSurveyData(normalizeResolvedSurveyData(userData));
               }
             }
           } catch (err) {
@@ -3559,7 +3658,7 @@ export default function WelcomePage() {
       return;
     }
     
-    window.location.href = `/welcome?token=${token}`;
+    window.location.href = `/welcome?token=${encodeURIComponent(token)}&redo=1`;
   };
 
   // Navigate to results page
@@ -8753,13 +8852,7 @@ export default function WelcomePage() {
                             }
                             
                             // Ensure the survey_data has the expected structure
-                            const formattedSurveyData = {
-                              answers: userData.survey_data.answers || {},
-                              termsAccepted: userData.survey_data.termsAccepted || false,
-                              dataConsent: userData.survey_data.dataConsent || false,
-                              ...userData.survey_data
-                            };
-                            setSurveyData(formattedSurveyData);
+                            setSurveyData(normalizeResolvedSurveyData(userData));
                           }
                         } catch (err) {
                           console.error("Failed to load existing survey data:", err);
@@ -11788,13 +11881,7 @@ transition={{ type: "spring", stiffness: 500, damping: 30 }}
                         }
                         
                         // Ensure the survey_data has the expected structure
-                        const formattedSurveyData = {
-                          answers: userData.survey_data.answers || {},
-                          termsAccepted: userData.survey_data.termsAccepted || false,
-                          dataConsent: userData.survey_data.dataConsent || false,
-                          ...userData.survey_data
-                        };
-                        setSurveyData(formattedSurveyData);
+                        setSurveyData(normalizeResolvedSurveyData(userData));
                       }
                     } catch (err) {
                       console.error("Failed to load existing survey data:", err);

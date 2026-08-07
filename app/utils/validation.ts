@@ -7,16 +7,11 @@
  */
 export function hasSubstantialSurveyData(answers: Record<string, string | string[]> | undefined): boolean {
   if (!answers) return false
-  const keys = Object.keys(answers)
-  
-  // If more than 1 key, definitely has substantial data
-  if (keys.length > 1) return true
-  
-  // If exactly 1 key and it's not just the default gender_preference, has substantial data
-  if (keys.length === 1 && !answers.gender_preference) return true
-  
-  // Otherwise, only has default values
-  return false
+  const defaultOnlyKeys = new Set(['gender_preference', 'open_intent_goal_mismatch'])
+  return Object.entries(answers).some(([key, value]) =>
+    !defaultOnlyKeys.has(key)
+    && (Array.isArray(value) ? value.length > 0 : String(value ?? '').trim().length > 0)
+  )
 }
 
 /**

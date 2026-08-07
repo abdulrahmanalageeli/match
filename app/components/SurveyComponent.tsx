@@ -931,9 +931,11 @@ const SurveyComponent = memo(function SurveyComponent({
       const parsed = JSON.parse(saved)
       if (!parsed.answers || typeof parsed.page !== 'number') return
       const hasExistingAnswers = Object.keys(surveyData.answers).some(
-        k => k !== 'gender_preference' && surveyData.answers[k]
+        k => !['gender_preference', 'open_intent_goal_mismatch'].includes(k) && surveyData.answers[k]
       )
-      if (hasExistingAnswers && !parsed.answers) return
+      // Database answers are authoritative when an existing participant edits
+      // their survey. A stale browser draft must never blank or replace them.
+      if (hasExistingAnswers) return
       setSurveyData((prev: SurveyData) => ({
         ...prev,
         answers: { ...prev.answers, ...parsed.answers },

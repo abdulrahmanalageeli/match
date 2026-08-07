@@ -3,7 +3,6 @@ import type { MouseEvent, FormEvent, CSSProperties } from "react"
 import { useSearchParams } from "react-router"
 import { X } from "lucide-react"
 import toast, { Toaster } from 'react-hot-toast'
-import logoPng from "../welcome/blindmatch.png"
 
 import {
   ChevronRightIcon,
@@ -7380,13 +7379,21 @@ export default function WelcomePage() {
                       <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 rounded-3xl blur-2xl opacity-30 animate-pulse"></div>
                       
                       {/* Main Logo Container */}
-                      <div className="relative bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-3xl p-6 sm:p-8 border border-cyan-400/30 shadow-2xl">
+                      <div className="relative bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-3xl p-3 sm:p-4 border border-cyan-400/30 shadow-2xl">
                         {/* Animated Border */}
                         <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 opacity-20 animate-spin" style={{ animationDuration: '8s' }}></div>
                         
                         {/* Logo Content */}
                         <div className="relative flex items-center justify-center">
-                          <img src={logoPng} alt="BlindMatch" className="w-24 h-24 sm:w-36 sm:h-36 object-contain" />
+                          <img
+                            src="/blindmatch-welcome-loading-logo.png"
+                            alt="شعار التوافق الأعمى"
+                            width={1024}
+                            height={1024}
+                            loading="eager"
+                            fetchPriority="high"
+                            className="h-56 w-56 rounded-2xl object-cover sm:h-72 sm:w-72"
+                          />
                         </div>
                         
                         {/* Floating Particles */}

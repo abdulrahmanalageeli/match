@@ -6002,53 +6002,73 @@ export default function WelcomePage() {
   // Token validation loading UI
   if (token && isResolving) {
     return (
-      <div className="min-h-screen relative overflow-hidden page-bg" dir="rtl">
-        {/* Animated Background Elements */}
-        <div className="absolute inset-0">
-          {[...Array(8)].map((_, i) => (
-            <div
-              key={i}
-              className={`absolute rounded-full blur-xl opacity-20 animate-pulse ${
-                i % 2 === 0 ? 'bg-cyan-400' : 'bg-blue-500'
-              }`}
-              style={{
-                width: `${32 + (i % 3) * 24}px`,
-                height: `${32 + (i % 4) * 20}px`,
-                top: `${10 + (i * 10) % 70}%`,
-                left: `${5 + (i * 13) % 85}%`,
-                animationDelay: `${i * 0.7}s`,
-                zIndex: 0,
-              }}
-            />
-          ))}
+      <div className="relative min-h-screen overflow-hidden page-bg" dir="rtl">
+        <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+          <div className="absolute -right-28 -top-36 h-80 w-80 rounded-full bg-cyan-400/[0.12] blur-[90px]" />
+          <div className="absolute -bottom-40 -left-28 h-96 w-96 rounded-full bg-violet-500/[0.12] blur-[110px]" />
+          <div className="absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-500/[0.07] blur-[90px]" />
         </div>
 
-        {/* Main Content */}
-        <div className="relative z-10 min-h-screen flex items-center justify-center px-4">
-          <div className="max-w-md w-full">
-            <div className="bg-white/15 backdrop-blur-2xl border border-cyan-400/40 rounded-2xl p-8 shadow-2xl ring-1 ring-white/10">
-              <div className="text-center">
-                {/* Loading Icon */}
-                <div className="w-20 h-20 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
-                  <div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
-                </div>
-                
-                <h1 className="text-2xl font-bold text-white mb-4">جاري التحقق من الرابط</h1>
-                <p className="text-cyan-200 mb-6 leading-relaxed">
-                  يرجى الانتظار بينما نتحقق من صحة الرابط...
+        <main className="relative z-10 flex min-h-screen items-center justify-center px-4 py-8">
+          <div className="w-full max-w-sm">
+            <div className="relative overflow-hidden rounded-[2rem] border border-white/[0.13] bg-slate-950/80 px-6 py-8 text-center shadow-[0_30px_90px_-35px_rgba(8,145,178,0.55)] backdrop-blur-2xl sm:px-8 sm:py-10">
+              <div className="pointer-events-none absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/80 to-transparent" aria-hidden="true" />
+              <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-cyan-400/[0.09] blur-3xl" aria-hidden="true" />
+
+              <div className="relative mx-auto mb-6 flex h-20 w-20 items-center justify-center" aria-hidden="true">
+                <motion.div
+                  className="absolute inset-0 rounded-[1.6rem] border border-white/[0.1] border-r-cyan-300 border-t-blue-400 shadow-[0_0_28px_-10px_rgba(34,211,238,0.8)]"
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 3.6, ease: "linear", repeat: Infinity }}
+                />
+                <div className="absolute inset-2 rounded-[1.2rem] border border-white/[0.08] bg-gradient-to-br from-cyan-300/15 via-blue-400/10 to-violet-400/15" />
+                <LockKeyhole className="relative h-8 w-8 text-cyan-100" strokeWidth={1.8} />
+                <motion.span
+                  className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-slate-950 bg-emerald-400"
+                  animate={{ scale: [1, 1.25, 1], opacity: [0.8, 1, 0.8] }}
+                  transition={{ duration: 2.2, ease: "easeInOut", repeat: Infinity }}
+                />
+              </div>
+
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-300/[0.18] bg-cyan-300/[0.07] px-3 py-1.5 text-[11px] font-bold text-cyan-200">
+                <Shield className="h-3.5 w-3.5" />
+                اتصال آمن
+              </div>
+
+              <div role="status" aria-live="polite">
+                <h1 className="text-2xl font-black tracking-tight text-white sm:text-[1.7rem]">
+                  نتحقق من رابطك
+                </h1>
+                <p className="mx-auto mt-3 max-w-xs text-sm font-medium leading-6 text-slate-300">
+                  لحظة واحدة للتأكد من صلاحية الرابط وتحميل بياناتك بأمان
                 </p>
-                
-                <div className="flex justify-center">
-                  <div className="flex space-x-2">
-                    <div className="w-3 h-3 bg-cyan-400 rounded-full animate-bounce"></div>
-                    <div className="w-3 h-3 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-3 h-3 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+
+                <div className="mt-7 overflow-hidden rounded-full bg-white/[0.08] p-0.5" aria-hidden="true">
+                  <div className="relative h-1.5 overflow-hidden rounded-full">
+                    <motion.div
+                      className="absolute inset-y-0 w-2/5 rounded-full bg-gradient-to-r from-violet-400 via-blue-400 to-cyan-300 shadow-[0_0_16px_rgba(34,211,238,0.7)]"
+                      animate={{ x: ["190%", "-260%"] }}
+                      transition={{ duration: 3.4, ease: "easeInOut", repeat: Infinity, repeatDelay: 0.3 }}
+                    />
                   </div>
                 </div>
+
+                <div className="mt-4 flex items-center justify-center gap-2 text-xs font-semibold text-slate-400">
+                  <span className="relative flex h-2 w-2" aria-hidden="true">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-50" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-cyan-300" />
+                  </span>
+                  جاري تحميل بيانات الدخول
+                </div>
+              </div>
+
+              <div className="mt-7 flex items-center justify-center gap-2 border-t border-white/[0.08] pt-5 text-[11px] font-medium text-slate-500">
+                <img src="/blindmatch-imprint.png" alt="" className="h-5 w-5 scale-125 object-contain opacity-80" />
+                <span>بلايند ماتش</span>
               </div>
             </div>
           </div>
-        </div>
+        </main>
       </div>
     )
   }

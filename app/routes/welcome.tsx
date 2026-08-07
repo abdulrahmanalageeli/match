@@ -8777,7 +8777,7 @@ export default function WelcomePage() {
 
         {/* خطوة 3 */}
         {step === 3 && (
-          <section className="animate-in slide-in-from-bottom-4 duration-700">
+          <section className="pt-24 sm:pt-28 animate-in slide-in-from-bottom-4 duration-700">
             <div className={`relative isolate overflow-hidden rounded-[2rem] border px-5 py-7 shadow-2xl sm:p-8 ${
               dark
                 ? "border-white/[0.14] bg-slate-950/75 shadow-black/30"

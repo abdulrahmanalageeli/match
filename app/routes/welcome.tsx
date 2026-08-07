@@ -8831,10 +8831,25 @@ export default function WelcomePage() {
 
         {/* خطوة 3 */}
         {step === 3 && (
-          <section className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
-            <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
-              dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
+          <section className="animate-in slide-in-from-bottom-4 duration-700">
+            <div className={`relative isolate overflow-hidden rounded-[2rem] border px-5 py-7 shadow-2xl sm:p-8 ${
+              dark
+                ? "border-white/[0.14] bg-slate-950/75 shadow-black/30"
+                : "border-slate-200/80 bg-white/90 shadow-slate-300/35"
             }`}>
+              <div
+                aria-hidden="true"
+                className={`pointer-events-none absolute -right-20 -top-24 -z-10 h-64 w-64 rounded-full blur-3xl ${
+                  dark ? "bg-cyan-400/[0.12]" : "bg-cyan-300/25"
+                }`}
+              />
+              <div
+                aria-hidden="true"
+                className={`pointer-events-none absolute -bottom-28 -left-20 -z-10 h-64 w-64 rounded-full blur-3xl ${
+                  dark ? "bg-violet-500/[0.12]" : "bg-violet-300/20"
+                }`}
+              />
+
               {/* History Icon - Left corner - TEMPORARILY COMMENTED OUT */}
               {false && historyMatches.length > 0 && (
                 <button
@@ -8872,59 +8887,153 @@ export default function WelcomePage() {
               
 
               {/* Player Avatar - Right corner (original position) */}
-              <div className="absolute -top-3 -right-3 z-10">
+              <div className="absolute right-3 top-3 z-10 sm:right-4 sm:top-4">
                 <ParticipantBadge size="small" />
               </div>
 
-              <div className="flex justify-center mb-4">
-                <Brain className={`w-12 h-12 animate-pulse ${
-                  dark ? "text-slate-400" : "text-gray-600"
-                }`} />
+              <div className="mb-6 text-center">
+                <div className="relative mx-auto mb-5 flex h-20 w-20 items-center justify-center">
+                  <motion.div
+                    aria-hidden="true"
+                    className={`absolute inset-0 rounded-[1.65rem] border ${
+                      dark ? "border-cyan-300/30 bg-cyan-300/[0.07]" : "border-cyan-500/25 bg-cyan-500/[0.07]"
+                    }`}
+                    animate={{ rotate: [0, 4, 0, -4, 0], scale: [1, 1.04, 1] }}
+                    transition={{ duration: 6, ease: "easeInOut", repeat: Infinity }}
+                  />
+                  <div className={`absolute inset-2 rounded-2xl border ${
+                    dark ? "border-white/10 bg-slate-900/80" : "border-white bg-white/80"
+                  }`} />
+                  <Brain className={`relative h-9 w-9 ${dark ? "text-cyan-200" : "text-cyan-700"}`} />
+                  <motion.div
+                    aria-hidden="true"
+                    className={`absolute right-0 top-0 flex h-7 w-7 items-center justify-center rounded-full border shadow-lg ${
+                      dark
+                        ? "border-violet-300/30 bg-violet-400/20 text-violet-200"
+                        : "border-violet-300 bg-violet-100 text-violet-700"
+                    }`}
+                    animate={{ y: [0, -3, 0], rotate: [0, 8, 0] }}
+                    transition={{ duration: 2.8, ease: "easeInOut", repeat: Infinity }}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                  </motion.div>
+                </div>
+
+                <div className={`mx-auto mb-3 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold ${
+                  dark
+                    ? "border-emerald-300/20 bg-emerald-400/[0.09] text-emerald-200"
+                    : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                }`}>
+                  <CheckCircle className="h-3.5 w-3.5" />
+                  تم استلام الاستبيان
+                </div>
+
+                <h3 className={`text-2xl font-black tracking-tight sm:text-[1.7rem] ${
+                  dark ? "text-white" : "text-slate-950"
+                }`}>جاري إعداد ملف توافقك</h3>
+                <p className={`mx-auto mt-2 max-w-sm text-sm font-medium leading-6 ${
+                  dark ? "text-slate-300" : "text-slate-600"
+                }`}>
+                  نحلّل إجاباتك بعناية لتحديد التوافقات الأنسب لك
+                </p>
               </div>
-              <h3 className={`text-lg font-semibold text-center mb-6 ${
-                dark ? "text-slate-200" : "text-gray-800"
-              }`}>تحليل شخصيتك</h3>
-            <div
-              dir="rtl"
-                className={`mx-auto max-w-md rounded-xl border-2 backdrop-blur-sm p-6 shadow-lg ${
-                  dark ? "border-slate-400/30 bg-white/10" : "border-gray-400/30 bg-black/20"
+
+              <div
+                dir="rtl"
+                className={`rounded-2xl border p-4 text-right shadow-lg sm:p-5 ${
+                  dark
+                    ? "border-white/[0.12] bg-white/[0.06] shadow-black/15"
+                    : "border-slate-200 bg-slate-50/90 shadow-slate-200/40"
                 }`}
               >
-                <div className="flex items-center gap-2 mb-3">
-                  <Zap className={`w-5 h-5 ${
-                    dark ? "text-slate-300" : "text-gray-500"
-                  }`} />
-                  <h4 className={`text-sm font-medium ${
-                    dark ? "text-slate-200" : "text-gray-700"
-                  }`}>الذكاء الاصطناعي يحلل...</h4>
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                      dark ? "bg-cyan-300/10 text-cyan-200" : "bg-cyan-100 text-cyan-700"
+                    }`}>
+                      <Zap className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h4 className={`text-sm font-extrabold ${dark ? "text-white" : "text-slate-900"}`}>
+                        تحليل الإجابات
+                      </h4>
+                      <p className={`mt-0.5 text-xs font-medium ${dark ? "text-slate-400" : "text-slate-500"}`}>
+                        يتم تجهيز النتيجة الآن
+                      </p>
+                    </div>
+                  </div>
+                  <span className="relative flex h-2.5 w-2.5" aria-label="قيد المعالجة">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-60" />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-cyan-400" />
+                  </span>
                 </div>
-                <div className={`text-sm text-right leading-relaxed italic min-h-[4rem] ${
-                  dark ? "text-slate-300" : "text-gray-600"
-                }`}>
+
+                <div
+                  aria-live="polite"
+                  className={`min-h-[5.5rem] rounded-xl border px-4 py-3 text-sm font-medium leading-7 ${
+                    dark
+                      ? "border-white/[0.08] bg-black/20 text-slate-200"
+                      : "border-slate-200/80 bg-white text-slate-700"
+                  }`}
+                >
                   {loading ? (
-                    <div className="flex items-center gap-2">
-                      <div className={`animate-spin rounded-full h-4 w-4 border-b-2 ${
-                        dark ? "border-slate-400" : "border-gray-400"
-                      }`}></div>
-                      جاري تحليل شخصيتك...
+                    <div className="flex min-h-[4rem] items-center gap-3">
+                      <div className={`h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-t-transparent ${
+                        dark ? "border-cyan-300" : "border-cyan-600"
+                      }`} />
+                      جاري تحليل إجاباتك وتجهيز ملف التوافق...
                     </div>
                   ) : (
-                    <div>
+                    <div className="min-h-[4rem]">
                       {typewriterText}
-                      {isTyping && <span className="animate-pulse">|</span>}
+                      {isTyping && <span className={`mr-0.5 inline-block h-4 w-0.5 animate-pulse align-middle ${
+                        dark ? "bg-cyan-300" : "bg-cyan-600"
+                      }`} />}
                     </div>
                   )}
                 </div>
+
+                <div className={`mt-4 h-1.5 overflow-hidden rounded-full ${
+                  dark ? "bg-white/[0.08]" : "bg-slate-200"
+                }`} aria-hidden="true">
+                  <motion.div
+                    className="h-full w-2/5 rounded-full bg-gradient-to-r from-violet-400 via-blue-400 to-cyan-300 shadow-[0_0_14px_rgba(34,211,238,0.65)]"
+                    animate={{ x: ["165%", "-250%"] }}
+                    transition={{ duration: 3.8, ease: "easeInOut", repeat: Infinity, repeatDelay: 0.35 }}
+                  />
+                </div>
               </div>
-              <div className="mt-8 flex flex-col items-center justify-center">
-                <div className={`flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-lg shadow-lg border-2 ${
-                  dark ? 'bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-blue-400/30 text-blue-200' : 'bg-gradient-to-r from-blue-200/50 to-cyan-200/50 border-blue-400/30 text-blue-700'
-                }`}> 
-                  <Clock className="w-6 h-6" />
-                  <div className="flex flex-col gap-1">
-                    <div className="font-bold">سنتواصل معك عبر واتساب فور إيجاد شريك متوافق!</div>
-                    <div className="text-sm opacity-90">⚠️ يُرجى عدم الحضور للفعالية إلا بعد استلام رسالة التأكيد</div>
+
+              <div className={`mt-4 rounded-2xl border p-4 text-right ${
+                dark
+                  ? "border-emerald-300/[0.18] bg-emerald-400/[0.07]"
+                  : "border-emerald-200 bg-emerald-50/80"
+              }`}>
+                <div className="flex items-start gap-3">
+                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                    dark ? "bg-emerald-400/15 text-emerald-200" : "bg-emerald-100 text-emerald-700"
+                  }`}>
+                    <MessageCircle className="h-5 w-5" />
                   </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className={`text-sm font-extrabold ${dark ? "text-emerald-100" : "text-emerald-950"}`}>
+                      سنرسل لك التحديث عبر واتساب
+                    </h4>
+                    <p className={`mt-1 text-xs font-medium leading-5 ${dark ? "text-emerald-100/75" : "text-emerald-800"}`}>
+                      ستصلك رسالة فور العثور على توافق مناسب لك
+                    </p>
+                  </div>
+                </div>
+
+                <div className={`mt-3 flex items-start gap-2 rounded-xl border px-3 py-2.5 ${
+                  dark
+                    ? "border-amber-300/[0.16] bg-amber-300/[0.07] text-amber-100"
+                    : "border-amber-200 bg-amber-50 text-amber-900"
+                }`}>
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <p className="text-xs font-semibold leading-5">
+                    يرجى عدم الحضور إلى الفعالية قبل استلام رسالة تأكيد الحضور
+                  </p>
                 </div>
               </div>
             </div>

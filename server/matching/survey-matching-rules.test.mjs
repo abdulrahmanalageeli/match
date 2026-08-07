@@ -126,3 +126,32 @@ test("the one-year age expansion respects yes, no, and legacy-unanswered decisio
   assert.equal(acceptedTolerance.requiresConfirmationA, false)
   assert.equal(unansweredTolerance.requiresConfirmationA, true)
 })
+
+test("the dedicated age-flex column takes precedence over the JSONB fallback", () => {
+  const oneYearOutside = participant(33, 24, {
+    preferred_age_min: "30",
+    preferred_age_max: "34",
+    open_age_preference: "true",
+  })
+  const dedicatedDecline = {
+    ...participant(30, 30, {
+      preferred_age_min: "25",
+      preferred_age_max: "29",
+      age_flex_one_year: "accept",
+    }),
+    age_flex_one_year: false,
+  }
+  const dedicatedAccept = {
+    ...participant(31, 30, {
+      preferred_age_min: "25",
+      preferred_age_max: "29",
+      age_flex_one_year: "decline",
+    }),
+    age_flex_one_year: true,
+  }
+
+  assert.equal(getOneYearAgeFlexDecision(dedicatedDecline), "decline")
+  assert.equal(checkAgeRangeHardGate(dedicatedDecline, oneYearOutside), false)
+  assert.equal(getOneYearAgeFlexDecision(dedicatedAccept), "accept")
+  assert.equal(checkAgeRangeHardGate(dedicatedAccept, oneYearOutside), true)
+})

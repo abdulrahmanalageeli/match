@@ -1143,6 +1143,21 @@ export default async function handler(req, res) {
             }
           }
         }
+
+        // Store the participant's explicit one-year range-expansion consent in
+        // a typed column as well as survey_data JSONB. NULL preserves the
+        // legacy/unanswered and open-age states.
+        const ageFlexOneYearRaw = answers.age_flex_one_year
+        if (ageFlexOneYearRaw !== undefined) {
+          const normalizedAgeFlex = String(ageFlexOneYearRaw).trim().toLowerCase()
+          if (ageFlexOneYearRaw === true || normalizedAgeFlex === 'true' || normalizedAgeFlex === 'accept' || normalizedAgeFlex === 'yes') {
+            updateFields.age_flex_one_year = true
+          } else if (ageFlexOneYearRaw === false || normalizedAgeFlex === 'false' || normalizedAgeFlex === 'decline' || normalizedAgeFlex === 'no') {
+            updateFields.age_flex_one_year = false
+          } else if (normalizedAgeFlex === 'not_applicable') {
+            updateFields.age_flex_one_year = null
+          }
+        }
         
         // Save MBTI personality type to dedicated column (4 characters max)
         if (survey_data.mbtiType && survey_data.mbtiType.length === 4) {

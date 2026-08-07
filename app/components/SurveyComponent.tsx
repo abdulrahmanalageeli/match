@@ -1698,7 +1698,7 @@ const SurveyComponent = memo(function SurveyComponent({
                       هل تقبل مرونة سنة واحدة؟
                     </p>
                     <p className="mt-0.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-                      فقط إذا وجدنا تطابقًا جيدًا خارج المدى المحدد بسنة واحدة.
+                      تُستخدم هذه المرونة فقط إذا لم نجد لك تطابقًا مناسبًا ضمن المدى الذي حددته.
                     </p>
                   </div>
                   <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-400/10 dark:text-amber-300">

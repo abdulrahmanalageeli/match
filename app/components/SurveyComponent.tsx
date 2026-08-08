@@ -241,7 +241,7 @@ export const surveyQuestions = [
     category: "interaction_style"
   },
   // Conversation initiative preference. This replaces the retired MBTI block
-  // without altering the stable numbering of the older questions below.
+  // and belongs to the highlighted matching-update section below.
   {
     id: "conversation_initiative_preference",
     question: "السؤال 5",
@@ -254,7 +254,7 @@ export const surveyQuestions = [
       { value: "D", label: "ما يفرق؛ أتأقلم حسب الشخص" }
     ],
     required: true,
-    category: "interaction_synergy"
+    category: "match_update"
   },
   // Attachment Style Questions 9-13
   {
@@ -1062,9 +1062,7 @@ const SurveyComponent = memo(function SurveyComponent({
       // Preferences
       'gender_preference','preferred_age_range',
       // New matching insights (kept together for fast completion)
-      'match_disagreement_style','match_similarity_preference','match_current_curiosity','match_current_focus',
-      // Conversation initiative (replaces the retired MBTI block)
-      'conversation_initiative_preference',
+      'match_disagreement_style','match_similarity_preference','match_current_curiosity','match_current_focus','conversation_initiative_preference',
       // Attachment
       'attachment_1','attachment_3','attachment_4',
       // Communication
@@ -1091,14 +1089,14 @@ const SurveyComponent = memo(function SurveyComponent({
   const getSectionTitle = useCallback((id: string): string | null => {
     const personal = new Set(['name','age','gender','nationality','nationality_preference','phone_number'])
     const prefs = new Set(['gender_preference','preferred_age_range'])
-    const matchUpdate = new Set(['match_disagreement_style','match_similarity_preference','match_current_curiosity','match_current_focus'])
+    const matchUpdate = new Set(['match_disagreement_style','match_similarity_preference','match_current_curiosity','match_current_focus','conversation_initiative_preference'])
     const attach = new Set(['attachment_1','attachment_3','attachment_4'])
     const comm = new Set(['communication_1','communication_2','communication_3','communication_4','communication_5','silence_comfort'])
     const lifestyle = new Set(['lifestyle_1','lifestyle_2','lifestyle_3','lifestyle_4','lifestyle_5'])
     const core = new Set(['core_values_1','core_values_2','core_values_3','core_values_4','core_values_5'])
     const vibe = new Set(['vibe_2','vibe_3','vibe_4','vibe_5'])
     const interactionStyle = new Set(['humor_banter_style','early_openness_comfort'])
-    const interactionSynergy = new Set(['conversation_initiative_preference','conversational_role','conversation_depth_pref','social_battery','humor_subtype','curiosity_style'])
+    const interactionSynergy = new Set(['conversational_role','conversation_depth_pref','social_battery','humor_subtype','curiosity_style'])
     const intent = new Set(['intent_goal'])
 
     if (personal.has(id)) return 'نبذة عنك'
@@ -1428,7 +1426,7 @@ const SurveyComponent = memo(function SurveyComponent({
       // Add all personality types and personal info to survey data
       const finalData = {
         ...surveyData,
-        matchInsightsVersion: '2026-08-08-v2-attachment-pace',
+        matchInsightsVersion: '2026-08-08-v3-conversation-initiative',
         matchInsightsUpdatedAt: new Date().toISOString(),
         name,
         gender,
@@ -1525,7 +1523,7 @@ const SurveyComponent = memo(function SurveyComponent({
       // Add all personality types and personal info to survey data
       const finalData = {
         ...dataToSubmit,
-        matchInsightsVersion: '2026-08-08-v2-attachment-pace',
+        matchInsightsVersion: '2026-08-08-v3-conversation-initiative',
         matchInsightsUpdatedAt: new Date().toISOString(),
         name,
         gender,
@@ -2248,7 +2246,7 @@ const SurveyComponent = memo(function SurveyComponent({
                   <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-black text-slate-950">جديد</span>
                 </div>
                 <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300 sm:text-sm">
-                  هذه الأسئلة تقيس طريقة التعامل مع الاختلاف، وما يشدّ اهتمامك الآن، ونوع التشابه الذي ترتاح له.
+                  هذه الأسئلة تقيس طريقة التعامل مع الاختلاف، وما يشدّ اهتمامك الآن، ونوع التشابه وتوزيع الكلام والمبادرة اللي ترتاح له.
                 </p>
               </div>
             </div>

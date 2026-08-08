@@ -1,10 +1,11 @@
-export const MATCH_INSIGHTS_VERSION = '2026-08-08-v2-attachment-pace'
+export const MATCH_INSIGHTS_VERSION = '2026-08-08-v3-conversation-initiative'
 
 export const MATCH_INSIGHT_IDS = Object.freeze([
   'match_disagreement_style',
   'match_similarity_preference',
   'match_current_curiosity',
   'match_current_focus',
+  'conversation_initiative_preference',
 ])
 
 export const MATCH_FOCUS_VALUES = Object.freeze([
@@ -173,6 +174,7 @@ export function validateMatchInsights(input, { requireAll = true } = {}) {
   }
   validateChoice('match_disagreement_style')
   validateChoice('match_similarity_preference')
+  validateChoice('conversation_initiative_preference')
 
   if ('match_current_curiosity' in source || requireAll) {
     const curiosity = String(source.match_current_curiosity ?? '').replace(/\s+/g, ' ').trim()

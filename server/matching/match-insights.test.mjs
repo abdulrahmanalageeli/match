@@ -75,24 +75,28 @@ test('attachment pace supports legacy flat survey records', () => {
   assert.ok(calculateAttachmentPaceScore(flat, flat) > 2.5)
 })
 
-test('popup payload validation only accepts the four whitelisted fields', () => {
+test('popup payload validation only accepts the five whitelisted fields', () => {
   const valid = validateMatchInsights({
     match_disagreement_style: 'b',
     match_similarity_preference: 'C',
+    conversation_initiative_preference: 'A',
     match_current_curiosity: 'هذا موضوع يشدني جدًا وأقدر أتكلم عنه بسهولة',
     match_current_focus: ['career', 'creative'],
     unexpected: 'ignored',
   })
   assert.equal(valid.valid, true)
   assert.deepEqual(Object.keys(valid.answers).sort(), [
+    'conversation_initiative_preference',
     'match_current_curiosity',
     'match_current_focus',
     'match_disagreement_style',
     'match_similarity_preference',
   ])
   assert.equal(valid.answers.match_disagreement_style, 'B')
+  assert.equal(valid.answers.conversation_initiative_preference, 'A')
 
   assert.equal(validateMatchInsights({ match_current_focus: ['career', 'career'] }).valid, false)
+  assert.equal(validateMatchInsights({ conversation_initiative_preference: 'E' }).valid, false)
   assert.equal(validateMatchInsights({ match_current_curiosity: 'قصير' }).valid, false)
 })
 

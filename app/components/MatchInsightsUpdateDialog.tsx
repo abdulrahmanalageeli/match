@@ -10,6 +10,7 @@ export const MATCH_INSIGHT_IDS = [
   'match_similarity_preference',
   'match_current_curiosity',
   'match_current_focus',
+  'conversation_initiative_preference',
 ] as const
 
 type InsightId = typeof MATCH_INSIGHT_IDS[number]
@@ -64,6 +65,17 @@ const questions: Array<{
       { value: 'travel_experiences', label: 'السفر والتجارب الجديدة' },
       { value: 'self_growth', label: 'تطوير الذات أو تغيير شخصي' },
       { value: 'other', label: 'شيء آخر' },
+    ],
+  },
+  {
+    id: 'conversation_initiative_preference',
+    title: 'في الجلسة الفردية، أي توزيع للكلام والمبادرة يريحك أكثر؟',
+    type: 'radio',
+    options: [
+      { value: 'A', label: 'أرتاح مع شخص يفتح المواضيع ويقود الحوار' },
+      { value: 'B', label: 'أفضل أن تكون المبادرة والكلام متبادلين' },
+      { value: 'C', label: 'أرتاح أكثر عندما أكون أنا المبادر' },
+      { value: 'D', label: 'ما يفرق؛ أتأقلم حسب الشخص' },
     ],
   },
 ]

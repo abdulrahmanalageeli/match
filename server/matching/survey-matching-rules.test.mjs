@@ -7,6 +7,7 @@ process.env.OPENAI_API_KEY ||= "test-openai-key"
 process.env.MATCH_LOG_LEVEL = "debug"
 
 const {
+  calculateFullCompatibilityWithCache,
   calculateConversationInitiativePreferenceScore,
   calculateInteractionSynergyScore,
   checkAgeRangeHardGate,
@@ -58,6 +59,25 @@ test("a one-sided new answer preserves the legacy interaction score", () => {
 
   legacyB.survey_data.answers.conversation_initiative_preference = "C"
   assert.equal(calculateInteractionSynergyScore(legacyA, legacyB), legacyScore + 3)
+})
+
+test("a model-version cache miss can reuse an unchanged AI vibe score", async () => {
+  const a = synergyParticipant(40, "A")
+  const b = synergyParticipant(41, "C")
+  a.survey_data.answers.match_current_focus = ["career", "creative"]
+  b.survey_data.answers.match_current_focus = ["career", "health_fitness"]
+
+  const result = await calculateFullCompatibilityWithCache(
+    a,
+    b,
+    false,
+    true,
+    { reusedVibeScore: 12.75 },
+  )
+
+  assert.equal(result.vibeScore, 12.75)
+  assert.equal(result.cached, false)
+  assert.ok(Number.isFinite(result.totalScore))
 })
 
 test("a complete new survey does not require retired MBTI answers", () => {

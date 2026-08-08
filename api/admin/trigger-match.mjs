@@ -1622,7 +1622,7 @@ function checkHumorMatch(participantA, participantB) {
 }
 
 // Function to calculate full compatibility with caching
-async function calculateFullCompatibilityWithCache(participantA, participantB, skipAI = false, ignoreCache = false) {
+async function calculateFullCompatibilityWithCache(participantA, participantB, skipAI = false, ignoreCache = false, options = {}) {
   // Check cache first (skip if ignoreCache is true)
   if (!ignoreCache) {
     const cached = await getCachedCompatibility(participantA, participantB)
@@ -1674,7 +1674,14 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   const { score: humorOpenScore, vetoClash } = calculateHumorOpennessScore(participantA, participantB) // 0-15
   const intentRaw = calculateIntentGoalScore(participantA, participantB) // 0 or 5
   const coreValuesScaled5 = Math.max(0, Math.min(5, (coreRaw / 20) * 5))
-  const vibeScore = skipAI ? 9 : await calculateVibeCompatibility(participantA, participantB) // 0–15
+  // A scoring-model/version change should not force another OpenAI call when
+  // the underlying vibe profile is unchanged. The bulk matching path passes
+  // the previous AI sub-score only after verifying the vibe-content hash.
+  const reusableVibe = options?.reusedVibeScore
+  const hasReusableVibe = reusableVibe !== null && reusableVibe !== undefined && reusableVibe !== '' && Number.isFinite(Number(reusableVibe))
+  const vibeScore = hasReusableVibe
+    ? Math.max(0, Math.min(15, Number(reusableVibe)))
+    : (skipAI ? 9 : await calculateVibeCompatibility(participantA, participantB)) // 0–15
   const disagreementScore = calculateDisagreementStyleScore(participantA, participantB) // 0–4
   const currentFocusScore = calculateCurrentFocusScore(participantA, participantB) // 0–5
   const contentSimilarity = Math.max(0, Math.min(1, ((vibeScore / 15) + (currentFocusScore / 5)) / 2))
@@ -6164,14 +6171,26 @@ if (action === "cache-status-by-gender") {
       console.log("⚠️ Continuing without cache optimization...")
     }
     
-    // Build a Map of cached scores for O(1) lookup by pair and content hash
+    // Build maps for exact score hits and reusable AI-vibe hits. A model-version
+    // bump changes the combined hash, but the expensive AI result remains valid
+    // whenever the narrower vibe-content hash is unchanged.
     const cachedScoresMap = new Map()
+    const cachedVibeScoresMap = new Map()
     if (allCachedScores && allCachedScores.length > 0) {
       allCachedScores.forEach(cache => {
-        const pairKey = `${cache.participant_a_number}-${cache.participant_b_number}-${cache.combined_content_hash}`
+        const [cacheSmaller, cacheLarger] = [cache.participant_a_number, cache.participant_b_number].sort((x, y) => x - y)
+        const pairKey = `${cacheSmaller}-${cacheLarger}-${cache.combined_content_hash}`
         cachedScoresMap.set(pairKey, cache)
+
+        if (cache.vibe_content_hash && Number.isFinite(Number(cache.ai_vibe_score))) {
+          const vibeKey = `${cacheSmaller}-${cacheLarger}-${cache.vibe_content_hash}`
+          const previous = cachedVibeScoresMap.get(vibeKey)
+          if (!previous || new Date(cache.created_at || 0).getTime() >= new Date(previous.created_at || 0).getTime()) {
+            cachedVibeScoresMap.set(vibeKey, cache)
+          }
+        }
       })
-      console.log(`✅ Loaded ${cachedScoresMap.size} cached scores into memory in ${Date.now() - cacheStartTime}ms`)
+      console.log(`✅ Loaded ${cachedScoresMap.size} cached scores and ${cachedVibeScoresMap.size} reusable vibe scores into memory in ${Date.now() - cacheStartTime}ms`)
     } else {
       console.log(`ℹ️ No cached scores found - will calculate all from scratch`)
     }
@@ -6184,6 +6203,7 @@ if (action === "cache-status-by-gender") {
     const startTime = Date.now()
     let cacheHits = 0
     let cacheMisses = 0
+    let reusedVibeScores = 0
     let aiCalls = 0
     
     let processedPairs = 0
@@ -6287,6 +6307,7 @@ if (action === "cache-status-by-gender") {
         const cacheKey = generateCacheKey(a, b)
         const cacheLookupKey = `${smaller}-${larger}-${cacheKey.combinedHash}`
         const cachedData = cachedScoresMap.get(cacheLookupKey)
+        const reusableVibeData = cachedVibeScoresMap.get(`${smaller}-${larger}-${cacheKey.vibeHash}`)
         
         let compatibilityResult
         
@@ -6336,6 +6357,21 @@ if (action === "cache-status-by-gender") {
               .then(() => {})
               .catch(err => console.error('Cache update error:', err))
           }
+        } else if (reusableVibeData) {
+          // The participant's AI profile text is identical; only deterministic
+          // scoring inputs/model weights changed. Recalculate those locally and
+          // avoid a slow, unnecessary OpenAI request.
+          cacheHits++
+          reusedVibeScores++
+          compatibilityResult = await calculateFullCompatibilityWithCache(
+            a,
+            b,
+            true,
+            true,
+            { reusedVibeScore: reusableVibeData.ai_vibe_score }
+          )
+          compatibilityResult.cached = true
+          compatibilityResult.reusedCachedVibe = true
         } else {
           // Cache MISS - calculate fresh
           cacheMisses++
@@ -6521,6 +6557,7 @@ if (action === "cache-status-by-gender") {
     console.log(`   Skipped - Excluded pairs: ${skippedExcluded}`)
     console.log(`\n💾 Cache Performance:`)
     console.log(`   Cache hits: ${cacheHits}`)
+    console.log(`   Reused AI vibe scores: ${reusedVibeScores}`)
     console.log(`   Cache misses: ${cacheMisses}`)
     console.log(`   Cache hit rate: ${cacheHits + cacheMisses > 0 ? ((cacheHits / (cacheHits + cacheMisses)) * 100).toFixed(1) : 0}%`)
     console.log(`   AI calls made: ${aiCalls}`)
@@ -7096,6 +7133,7 @@ if (action === "cache-status-by-gender") {
       totalTimeSeconds: (totalTime / 1000).toFixed(1),
       cacheHits: cacheHits,
       cacheMisses: cacheMisses,
+      reusedVibeScores: reusedVibeScores,
       cacheHitRate: parseFloat(cacheHitRate),
       aiCalls: aiCalls,
       totalCalculations: totalCalculations,

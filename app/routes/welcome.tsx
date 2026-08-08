@@ -220,6 +220,52 @@ const parseBoolean = (value: unknown, fallback = false): boolean => {
   return fallback
 }
 
+const normalizeBooleanAnswer = (value: unknown): 'true' | 'false' | null => {
+  if (typeof value === 'boolean') return value ? 'true' : 'false'
+  if (typeof value === 'number') {
+    if (value === 1) return 'true'
+    if (value === 0) return 'false'
+  }
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    if (['true', '1', 'yes'].includes(normalized)) return 'true'
+    if (['false', '0', 'no'].includes(normalized)) return 'false'
+  }
+  return null
+}
+
+const normalizeAgeFlexAnswer = (value: unknown): 'accept' | 'decline' | 'not_applicable' | null => {
+  if (value === true || value === 1) return 'accept'
+  if (value === false || value === 0) return 'decline'
+  if (typeof value !== 'string') return null
+
+  const normalized = value.trim().toLowerCase()
+  if (['accept', 'true', '1', 'yes'].includes(normalized)) return 'accept'
+  if (['decline', 'false', '0', 'no'].includes(normalized)) return 'decline'
+  if (normalized === 'not_applicable') return 'not_applicable'
+  return null
+}
+
+const normalizeGenderPreferenceAnswer = (
+  value: unknown,
+  participantGender: unknown,
+): 'male' | 'female' | 'any' | null => {
+  const rawValue = Array.isArray(value) ? value[0] : value
+  if (typeof rawValue !== 'string') return null
+
+  let normalized = rawValue.trim().toLowerCase()
+  // A few legacy checkbox answers were serialized as a JSON-looking string.
+  normalized = normalized.replace(/^\[?["']?/, '').replace(/["']?\]?$/, '')
+  if (normalized === 'male' || normalized === 'female' || normalized === 'any') return normalized
+  if (normalized === 'any_gender') return 'any'
+
+  const gender = String(participantGender ?? '').trim().toLowerCase()
+  if (gender !== 'male' && gender !== 'female') return null
+  if (normalized === 'same_gender' || normalized === 'yes') return gender
+  if (normalized === 'opposite_gender') return gender === 'male' ? 'female' : 'male'
+  return null
+}
+
 // Participant records have existed in both nested (`survey_data.answers`) and
 // legacy flat (`survey_data.name`, `survey_data.vibe_1`, ...) shapes. Normalize
 // both forms and fill any missing essentials from their dedicated DB columns.
@@ -259,28 +305,52 @@ const normalizeResolvedSurveyData = (participant: any): SurveyData => {
   setIfMissing('phone_number', storedSurveyData.phone_number ?? storedSurveyData.phoneNumber ?? participant?.phone_number)
   setIfMissing('preferred_age_min', storedSurveyData.preferred_age_min ?? participant?.preferred_age_min)
   setIfMissing('preferred_age_max', storedSurveyData.preferred_age_max ?? participant?.preferred_age_max)
-  setIfMissing('open_age_preference', storedSurveyData.open_age_preference ?? participant?.open_age_preference)
   setIfMissing('humor_banter_style', storedSurveyData.humor_banter_style ?? participant?.humor_banter_style)
   setIfMissing('early_openness_comfort', storedSurveyData.early_openness_comfort ?? participant?.early_openness_comfort)
   setIfMissing('intent_goal', storedSurveyData.intent_goal ?? participant?.intent_goal)
   setIfMissing('open_intent_goal_mismatch', storedSurveyData.open_intent_goal_mismatch ?? participant?.open_intent_goal_mismatch)
 
-  const ageFlex = storedSurveyData.age_flex_one_year ?? participant?.age_flex_one_year
-  if (answers.age_flex_one_year == null && typeof ageFlex === 'boolean') {
-    answers.age_flex_one_year = ageFlex ? 'accept' : 'decline'
+  const openAge = normalizeBooleanAnswer(
+    answers.open_age_preference
+    ?? storedSurveyData.open_age_preference
+    ?? participant?.open_age_preference
+  )
+  if (openAge !== null) answers.open_age_preference = openAge
+
+  const ageFlex = normalizeAgeFlexAnswer(
+    answers.age_flex_one_year
+    ?? storedSurveyData.age_flex_one_year
+    ?? participant?.age_flex_one_year
+  )
+  if (ageFlex !== null) {
+    answers.age_flex_one_year = ageFlex
   }
 
-  if (answers.nationality_preference == null && typeof participant?.prefer_same_nationality === 'boolean') {
-    answers.nationality_preference = participant.prefer_same_nationality ? 'same' : 'any'
+  const nationalityPreference = answers.nationality_preference
+  if (nationalityPreference !== 'same' && nationalityPreference !== 'any') {
+    const preferSameNationality = normalizeBooleanAnswer(
+      nationalityPreference
+      ?? storedSurveyData.prefer_same_nationality
+      ?? participant?.prefer_same_nationality
+    )
+    if (preferSameNationality !== null) {
+      answers.nationality_preference = preferSameNationality === 'true' ? 'same' : 'any'
+    }
   }
 
-  if (answers.gender_preference == null) {
-    const gender = String(answers.gender || participant?.gender || '').toLowerCase()
-    const normalizedPreference = participant?.gender_preference
-    if (normalizedPreference === 'any_gender') answers.gender_preference = 'any'
-    if (normalizedPreference === 'same_gender' && (gender === 'male' || gender === 'female')) answers.gender_preference = gender
-    if (normalizedPreference === 'opposite_gender' && gender === 'male') answers.gender_preference = 'female'
-    if (normalizedPreference === 'opposite_gender' && gender === 'female') answers.gender_preference = 'male'
+  const gender = answers.gender ?? storedSurveyData.gender ?? participant?.gender
+  const genderPreference = normalizeGenderPreferenceAnswer(
+    answers.gender_preference
+    ?? answers.actual_gender_preference
+    ?? storedSurveyData.gender_preference
+    ?? participant?.gender_preference
+    ?? (participant?.any_gender_preference === true
+      ? 'any_gender'
+      : participant?.same_gender_preference === true ? 'same_gender' : null),
+    gender,
+  )
+  if (genderPreference !== null) {
+    answers.gender_preference = genderPreference
   }
 
   return {
@@ -660,7 +730,7 @@ export default function WelcomePage() {
   const [generatingStarters, setGeneratingStarters] = useState(false)
   const [surveyData, setSurveyData] = useState<SurveyData>({
     answers: {
-      gender_preference: "opposite_gender", // Default selection for radio button
+      gender_preference: "any",
       open_intent_goal_mismatch: "true"
     },
     termsAccepted: false,

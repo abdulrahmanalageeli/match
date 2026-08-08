@@ -828,6 +828,8 @@ export default async function handler(req, res) {
       humor_banter_style: data.humor_banter_style,
       early_openness_comfort: data.early_openness_comfort,
       gender_preference: computedGenderPreference,
+      same_gender_preference: typeof data.same_gender_preference === 'boolean' ? data.same_gender_preference : null,
+      any_gender_preference: typeof data.any_gender_preference === 'boolean' ? data.any_gender_preference : null,
       // Extra fields to help client-side completeness checks with fallbacks
       gender: data.gender || null,
       phone_number: data.phone_number || null,
@@ -1286,11 +1288,10 @@ export default async function handler(req, res) {
           console.log('👥 Gender Preferences (default): opposite gender matching')
         }
 
-        // Persist normalized value back into survey_data JSONB for consistency
+        // Keep the customer-facing choice in gender_preference so the edit form
+        // can restore it, while actual_gender_preference remains normalized for matching.
         try {
           if (updateFields.survey_data && updateFields.survey_data.answers) {
-            updateFields.survey_data.answers.gender_preference = normalizedGenderPrefStr
-            // Keep actual_gender_preference in sync as well
             updateFields.survey_data.answers.actual_gender_preference = normalizedGenderPrefStr
           }
         } catch (e) {

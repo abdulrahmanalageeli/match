@@ -9,6 +9,7 @@ import {
   calculateSimilarityPreferenceScore,
   getAttachmentPaceCacheContent,
   getMatchInsightsCacheContent,
+  getPairMatchInsightsCoverage,
 } from "../../server/matching/match-insights.mjs"
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -5185,6 +5186,7 @@ if (action === "cache-status-by-gender") {
           calculatedPairs.push({
             participant_a: targetParticipant.assigned_number,
             participant_b: potentialMatch.assigned_number,
+            ...getPairMatchInsightsCoverage(targetParticipant, potentialMatch),
             compatibility_score: totalCompatibility,
             humor_early_openness_bonus: (compatibilityResult.bonusType || (compatibilityResult.humorMultiplier === 1.15 ? 'full' : (compatibilityResult.humorMultiplier === 1.05 ? 'partial' : 'none'))),
             // Legacy fields (kept for backward compatibility)
@@ -6562,6 +6564,7 @@ if (action === "cache-status-by-gender") {
         compatibilityScores.push({
           a: a.assigned_number,
           b: b.assigned_number,
+          ...getPairMatchInsightsCoverage(a, b),
           score: finalScore,
           reason: reason,
           mbtiScore: mbtiScore,
@@ -7212,6 +7215,15 @@ if (action === "cache-status-by-gender") {
     const calculatedPairs = compatibilityScores.map(pair => ({
       participant_a: pair.a,
       participant_b: pair.b,
+      match_insights_status: pair.match_insights_status,
+      match_insights_complete_a: pair.match_insights_complete_a,
+      match_insights_complete_b: pair.match_insights_complete_b,
+      match_insights_answered_a: pair.match_insights_answered_a,
+      match_insights_answered_b: pair.match_insights_answered_b,
+      match_insights_total_questions: pair.match_insights_total_questions,
+      match_insights_version_a: pair.match_insights_version_a,
+      match_insights_version_b: pair.match_insights_version_b,
+      score_model_version: pair.score_model_version,
       compatibility_score: Math.round(pair.score),
       mbti_compatibility_score: pair.mbtiScore,
       attachment_compatibility_score: pair.attachmentScore,

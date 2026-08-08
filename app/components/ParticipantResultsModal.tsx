@@ -7,7 +7,7 @@ import PairAnalysisModal from "./PairAnalysisModalPro"
 import * as Tooltip from "@radix-ui/react-tooltip"
 import * as Popover from "@radix-ui/react-popover"
 import ParticipantHoverCardContent from "./ParticipantHoverCard"
-import { buildScoreLookup } from "../lib/matchControl"
+import { buildScoreLookup, getPairMatchInsightsCoverage, pairKey } from "../lib/matchControl"
 
 interface ParticipantResult {
   id: string
@@ -68,6 +68,25 @@ interface ParticipantResultsModalProps {
   selectedParticipants?: Set<number>
   toggleParticipantSelection?: (assignedNumber: number) => void
   onOpenControlCenter?: () => void
+}
+
+function MatchInsightsCoverageBadge({ pair }: { pair?: any }) {
+  const coverage = getPairMatchInsightsCoverage(pair)
+  const meta = coverage.status === "both"
+    ? { label: "الأسئلة الجديدة 2/2", className: "border-emerald-400/30 bg-emerald-500/15 text-emerald-200" }
+    : coverage.status === "mixed"
+      ? { label: "الأسئلة الجديدة 1/2", className: "border-amber-400/30 bg-amber-500/15 text-amber-200" }
+      : coverage.status === "neither"
+        ? { label: "الأسئلة الجديدة 0/2", className: "border-slate-500/30 bg-slate-500/10 text-slate-300" }
+        : { label: "حسبة سابقة", className: "border-violet-400/25 bg-violet-500/10 text-violet-200" }
+  const completed = [
+    coverage.completeA ? coverage.participantA : null,
+    coverage.completeB ? coverage.participantB : null,
+  ].filter((number): number is number => number != null)
+  const title = coverage.status === "untracked"
+    ? "لا توجد لقطة محفوظة لحالة الأسئلة وقت هذه الحسبة. أعد تشغيل المطابقة لإظهار الحالة بدقة."
+    : `وقت الحساب: #${coverage.participantA ?? "؟"} أجاب ${coverage.answeredA ?? 0}/${coverage.totalQuestions}، و#${coverage.participantB ?? "؟"} أجاب ${coverage.answeredB ?? 0}/${coverage.totalQuestions}.${coverage.status === "mixed" ? ` المكتمل: #${completed[0] ?? "؟"}.` : ""}`
+  return <span title={title} className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-1 text-[9px] font-bold ${meta.className}`}><Sparkles className="h-2.5 w-2.5" />{meta.label}</span>
 }
 
 export default function ParticipantResultsModal({ 
@@ -584,6 +603,11 @@ export default function ParticipantResultsModal({
     () => buildScoreLookup(calculatedPairs, results),
     [calculatedPairs, results],
   )
+  const getResultPairData = (participant: ParticipantResult) => {
+    const partner = Number(participant.partner_assigned_number)
+    if (!Number.isFinite(partner) || partner <= 0 || partner === 9999) return undefined
+    return pairScoreLookup.get(pairKey(participant.assigned_number, partner))
+  }
 
   const fetchParticipantDetails = (participantNumber: number, participantName: string) => {
     setLoadingDetails(true)
@@ -1403,6 +1427,7 @@ export default function ParticipantResultsModal({
                                   </span>
                                 </div>
                               )}
+                              <MatchInsightsCoverageBadge pair={getResultPairData(participant)} />
                               {/* Humor/Early Openness Bonus Indicator */}
                               {participant.humor_early_openness_bonus && participant.humor_early_openness_bonus !== 'none' && (
                                 <Tooltip.Provider delayDuration={300}>

@@ -8,6 +8,8 @@ import {
   calculateDisagreementStyleScore,
   calculateSimilarityPreferenceScore,
   getMatchInsightsCacheContent,
+  getMatchInsightsCompletion,
+  getPairMatchInsightsCoverage,
   validateMatchInsights,
 } from './match-insights.mjs'
 
@@ -111,4 +113,23 @@ test('vibe profile and cache content include the new topical answers', () => {
   assert.match(description, /الذكاء الاصطناعي/)
   assert.match(description, /study, creative/)
   assert.match(getMatchInsightsCacheContent(participant(answers)), /match_current_curiosity/)
+})
+
+test('snapshots whether neither, one, or both participants completed the new questions', () => {
+  const completeAnswers = {
+    match_disagreement_style: 'B',
+    match_similarity_preference: 'C',
+    match_current_curiosity: 'موضوع طويل بما يكفي لاجتياز التحقق',
+    match_current_focus: ['career', 'creative'],
+    conversation_initiative_preference: 'A',
+  }
+  const complete = participant(completeAnswers)
+  const partial = participant({ match_disagreement_style: 'A' })
+  const legacy = participant({})
+
+  assert.equal(getMatchInsightsCompletion(complete).answeredCount, 5)
+  assert.equal(getMatchInsightsCompletion(partial).answeredCount, 1)
+  assert.equal(getPairMatchInsightsCoverage(complete, complete).match_insights_status, 'both')
+  assert.equal(getPairMatchInsightsCoverage(complete, legacy).match_insights_status, 'mixed')
+  assert.equal(getPairMatchInsightsCoverage(partial, legacy).match_insights_status, 'neither')
 })

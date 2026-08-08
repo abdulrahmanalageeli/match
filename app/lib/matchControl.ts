@@ -42,6 +42,40 @@ export type MatchControlPair = {
   organizerMatch: boolean
 }
 
+export type PairMatchInsightsCoverage = {
+  status: "both" | "mixed" | "neither" | "untracked"
+  completeA: boolean
+  completeB: boolean
+  answeredA: number | null
+  answeredB: number | null
+  totalQuestions: number
+  participantA: number | null
+  participantB: number | null
+}
+
+export function getPairMatchInsightsCoverage(pair?: any): PairMatchInsightsCoverage {
+  const explicit = String(pair?.match_insights_status || "").toLowerCase()
+  const tracked = ["both", "mixed", "neither"].includes(explicit)
+  const completeA = pair?.match_insights_complete_a === true
+  const completeB = pair?.match_insights_complete_b === true
+  const inferred = completeA && completeB ? "both" : completeA || completeB ? "mixed" : "neither"
+  const numericOrNull = (value: unknown) => {
+    if (value === undefined || value === null || value === "") return null
+    const number = Number(value)
+    return Number.isFinite(number) ? number : null
+  }
+  return {
+    status: tracked ? explicit as PairMatchInsightsCoverage["status"] : (pair?.match_insights_complete_a != null || pair?.match_insights_complete_b != null ? inferred : "untracked"),
+    completeA,
+    completeB,
+    answeredA: numericOrNull(pair?.match_insights_answered_a),
+    answeredB: numericOrNull(pair?.match_insights_answered_b),
+    totalQuestions: numericOrNull(pair?.match_insights_total_questions) || 5,
+    participantA: numericOrNull(pair?.participant_a ?? pair?.a),
+    participantB: numericOrNull(pair?.participant_b ?? pair?.b),
+  }
+}
+
 export type PlannedPair = { a: number; b: number; score: number | null }
 
 export type SwapPlan = {

@@ -44,6 +44,7 @@ import {
   buildSwapPlans,
   buildUniquePairs,
   getPairCriteriaIssues,
+  getPairMatchInsightsCoverage,
   getPersonName,
   getSeatState,
   isContacted,
@@ -122,6 +123,30 @@ function ScorePill({ score, previous }: { score: number | null; previous?: numbe
       {delta != null && delta !== 0 && (
         <span className={delta > 0 ? "text-emerald-300" : "text-red-300"}>{delta > 0 ? `+${delta}` : delta}</span>
       )}
+    </span>
+  )
+}
+
+function MatchInsightsCoverageBadge({ pair, compact = false }: { pair?: any; compact?: boolean }) {
+  const coverage = getPairMatchInsightsCoverage(pair)
+  const meta = coverage.status === "both"
+    ? { label: "الأسئلة الجديدة 2/2", className: "border-emerald-400/30 bg-emerald-500/15 text-emerald-200" }
+    : coverage.status === "mixed"
+      ? { label: "الأسئلة الجديدة 1/2", className: "border-amber-400/30 bg-amber-500/15 text-amber-200" }
+      : coverage.status === "neither"
+        ? { label: "الأسئلة الجديدة 0/2", className: "border-slate-500/30 bg-slate-500/10 text-slate-300" }
+        : { label: "حسبة سابقة", className: "border-violet-400/25 bg-violet-500/10 text-violet-200" }
+  const completed = [
+    coverage.completeA ? coverage.participantA : null,
+    coverage.completeB ? coverage.participantB : null,
+  ].filter((number): number is number => number != null)
+  const counts = coverage.status === "untracked"
+    ? "لا توجد لقطة محفوظة لحالة الأسئلة وقت هذه الحسبة. أعد تشغيل المطابقة لإظهار الحالة بدقة."
+    : `وقت الحساب: #${coverage.participantA ?? "؟"} أجاب ${coverage.answeredA ?? 0}/${coverage.totalQuestions}، و#${coverage.participantB ?? "؟"} أجاب ${coverage.answeredB ?? 0}/${coverage.totalQuestions}.${coverage.status === "mixed" ? ` المكتمل: #${completed[0] ?? "؟"}.` : ""}`
+  return (
+    <span title={counts} className={`inline-flex items-center gap-1 rounded-full border font-bold ${compact ? "px-1.5 py-0.5 text-[8px]" : "px-2 py-1 text-[10px]"} ${meta.className}`}>
+      <Sparkles className={compact ? "h-2.5 w-2.5" : "h-3 w-3"} />
+      {meta.label}
     </span>
   )
 }
@@ -667,6 +692,7 @@ export default function MatchControlCenterModal({
 
   const selectedA = selectedPair ? people.get(selectedPair.a) : undefined
   const selectedB = selectedPair?.b != null ? people.get(selectedPair.b) : undefined
+  const selectedPairData = selectedPair?.b != null ? scoreLookup.get(pairKey(selectedPair.a, selectedPair.b)) : undefined
   const selectedLocked = selectedPair?.b != null && lockedKeys.has(pairKey(selectedPair.a, selectedPair.b))
 
   return (
@@ -765,6 +791,7 @@ export default function MatchControlCenterModal({
                       <div className="flex items-center gap-1.5">
                         {category === "unmatched" && <span className="rounded-full bg-red-500/15 px-2 py-1 text-[9px] font-bold text-red-300">دون شريك</span>}
                         {category === "mixed" && <span className="rounded-full bg-amber-500/15 px-2 py-1 text-[9px] font-bold text-amber-300">دفع مختلط</span>}
+                        {pair.b != null && <MatchInsightsCoverageBadge pair={scoreLookup.get(pairKey(pair.a, pair.b))} compact />}
                         {protectedPair && <Lock className="h-3.5 w-3.5 text-blue-300" />}
                         {(isContacted(a) || isContacted(b)) && <MessageCircle className="h-3.5 w-3.5 text-blue-300" />}
                       </div>
@@ -855,7 +882,7 @@ export default function MatchControlCenterModal({
                   <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.055] to-white/[0.015] p-3 sm:p-5">
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                       <div><p className="text-[10px] font-bold uppercase tracking-widest text-cyan-300">المطابقة الحالية</p><h3 className="mt-0.5 text-lg font-black text-white">عرض الزوج والنتائج الفردية</h3></div>
-                      <div className="flex items-center gap-2"><ScorePill score={selectedPair.score} />{selectedLocked && <span className="flex items-center gap-1 rounded-full border border-blue-400/25 bg-blue-500/10 px-2 py-1 text-[10px] font-bold text-blue-200"><Lock className="h-3 w-3" /> مثبت</span>}</div>
+                      <div className="flex flex-wrap items-center justify-end gap-2"><MatchInsightsCoverageBadge pair={selectedPairData} /><ScorePill score={selectedPair.score} />{selectedLocked && <span className="flex items-center gap-1 rounded-full border border-blue-400/25 bg-blue-500/10 px-2 py-1 text-[10px] font-bold text-blue-200"><Lock className="h-3 w-3" /> مثبت</span>}</div>
                     </div>
                     <div className="flex items-stretch gap-2 sm:gap-3">
                       <PersonButton number={selectedPair.a} person={selectedA} onClick={() => startSwap(selectedPair.a)} onIndividual={() => openIndividual(selectedPair.a)} />
@@ -986,5 +1013,5 @@ function PairBreakdown({ pair, fallbackScore }: { pair: any; fallbackScore: numb
     ["التواصل", pair?.communication_compatibility_score, 3],
     ["الهدف", pair?.intent_score, 5],
   ] as const
-  return <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-3 sm:p-4"><div className="mb-3 flex items-center justify-between"><div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-purple-300" /><span className="text-xs font-black text-white">تفصيل نتيجة الزوج</span></div><ScorePill score={pair?.compatibility_score != null ? Math.round(Number(pair.compatibility_score)) : fallbackScore} /></div><div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">{metrics.map(([label, value, max]) => <div key={String(label)} className="rounded-xl bg-black/20 p-2 text-center"><div className="text-[9px] text-slate-500">{label}</div><div className="mt-1 text-sm font-black text-slate-200">{Number.isFinite(Number(value)) ? `${Number(value).toFixed(1)}/${max}` : "—"}</div></div>)}</div>{pair?.reason && <p className="mt-3 rounded-xl border border-white/5 bg-black/20 p-2 text-[10px] leading-5 text-slate-400">{pair.reason}</p>}</div>
+  return <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-3 sm:p-4"><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-purple-300" /><span className="text-xs font-black text-white">تفصيل نتيجة الزوج</span></div><div className="flex items-center gap-2"><MatchInsightsCoverageBadge pair={pair} /><ScorePill score={pair?.compatibility_score != null ? Math.round(Number(pair.compatibility_score)) : fallbackScore} /></div></div><div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">{metrics.map(([label, value, max]) => <div key={String(label)} className="rounded-xl bg-black/20 p-2 text-center"><div className="text-[9px] text-slate-500">{label}</div><div className="mt-1 text-sm font-black text-slate-200">{Number.isFinite(Number(value)) ? `${Number(value).toFixed(1)}/${max}` : "—"}</div></div>)}</div>{pair?.reason && <p className="mt-3 rounded-xl border border-white/5 bg-black/20 p-2 text-[10px] leading-5 text-slate-400">{pair.reason}</p>}</div>
 }

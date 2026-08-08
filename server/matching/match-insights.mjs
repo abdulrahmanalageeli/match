@@ -161,6 +161,48 @@ export function getMatchInsightsCacheContent(participant) {
   }).join('|')
 }
 
+export function getMatchInsightsCompletion(participant) {
+  const validChoice = (key) => ['A', 'B', 'C', 'D'].includes(String(getMatchAnswer(participant, key) || '').trim().toUpperCase())
+  const curiosity = String(getMatchAnswer(participant, 'match_current_curiosity') || '').replace(/\s+/g, ' ').trim()
+  const focus = normalizeFocus(getMatchAnswer(participant, 'match_current_focus'))
+  const checks = {
+    match_disagreement_style: validChoice('match_disagreement_style'),
+    match_similarity_preference: validChoice('match_similarity_preference'),
+    match_current_curiosity: curiosity.length >= 20 && curiosity.length <= 150,
+    match_current_focus: focus.length === 2,
+    conversation_initiative_preference: validChoice('conversation_initiative_preference'),
+  }
+  const answeredCount = Object.values(checks).filter(Boolean).length
+  return {
+    answeredCount,
+    totalCount: MATCH_INSIGHT_IDS.length,
+    complete: answeredCount === MATCH_INSIGHT_IDS.length,
+    answeredIds: MATCH_INSIGHT_IDS.filter((id) => checks[id]),
+    version: participant?.survey_data?.matchInsightsVersion || null,
+    updatedAt: participant?.survey_data?.matchInsightsUpdatedAt || null,
+  }
+}
+
+// Snapshot the questionnaire generation actually available when the pair was
+// scored. Deriving this later from live profiles could make an old score look
+// current after one of the participants submits the new answers.
+export function getPairMatchInsightsCoverage(participantA, participantB) {
+  const a = getMatchInsightsCompletion(participantA)
+  const b = getMatchInsightsCompletion(participantB)
+  const completedCount = Number(a.complete) + Number(b.complete)
+  return {
+    match_insights_status: completedCount === 2 ? 'both' : completedCount === 1 ? 'mixed' : 'neither',
+    match_insights_complete_a: a.complete,
+    match_insights_complete_b: b.complete,
+    match_insights_answered_a: a.answeredCount,
+    match_insights_answered_b: b.answeredCount,
+    match_insights_total_questions: MATCH_INSIGHT_IDS.length,
+    match_insights_version_a: a.version,
+    match_insights_version_b: b.version,
+    score_model_version: MATCH_INSIGHTS_VERSION,
+  }
+}
+
 export function validateMatchInsights(input, { requireAll = true } = {}) {
   const source = input && typeof input === 'object' && !Array.isArray(input) ? input : {}
   const errors = {}

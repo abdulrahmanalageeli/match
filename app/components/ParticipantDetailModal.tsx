@@ -3,6 +3,7 @@ import { X, User, Users, Heart, Brain, MessageCircle, Home, Star, Zap, ArrowLeft
 import * as Tooltip from "@radix-ui/react-tooltip"
 import * as Popover from "@radix-ui/react-popover"
 import ParticipantHoverCardContent from "./ParticipantHoverCard"
+import { getPairMatchInsightsCoverage } from "../lib/matchControl"
 
 interface ParticipantMatch {
   participant_number: number
@@ -21,6 +22,18 @@ interface ParticipantMatch {
   synergy_score?: number
   humor_open_score?: number
   intent_score?: number
+  disagreement_style_score?: number
+  current_life_overlap_score?: number
+  similarity_preference_score?: number
+  attachment_pace_score?: number
+  participant_a?: number
+  participant_b?: number
+  match_insights_status?: 'both' | 'mixed' | 'neither'
+  match_insights_complete_a?: boolean
+  match_insights_complete_b?: boolean
+  match_insights_answered_a?: number
+  match_insights_answered_b?: number
+  match_insights_total_questions?: number
   intent_self?: string
   intent_other?: string
   // Gates & bonuses flags (optional)
@@ -31,6 +44,25 @@ interface ParticipantMatch {
   cap_applied?: number | null
   reason?: string
   openness_zero_zero_penalty_applied?: boolean
+}
+
+function MatchInsightsCoverageBadge({ match }: { match: ParticipantMatch }) {
+  const coverage = getPairMatchInsightsCoverage(match)
+  const meta = coverage.status === "both"
+    ? { label: "الأسئلة الجديدة 2/2", className: "border-emerald-400/30 bg-emerald-500/15 text-emerald-200" }
+    : coverage.status === "mixed"
+      ? { label: "الأسئلة الجديدة 1/2", className: "border-amber-400/30 bg-amber-500/15 text-amber-200" }
+      : coverage.status === "neither"
+        ? { label: "الأسئلة الجديدة 0/2", className: "border-slate-500/30 bg-slate-500/10 text-slate-300" }
+        : { label: "حسبة سابقة", className: "border-violet-400/25 bg-violet-500/10 text-violet-200" }
+  const completed = [
+    coverage.completeA ? coverage.participantA : null,
+    coverage.completeB ? coverage.participantB : null,
+  ].filter((number): number is number => number != null)
+  const title = coverage.status === "untracked"
+    ? "لا توجد لقطة محفوظة لحالة الأسئلة وقت هذه الحسبة. أعد تشغيل المطابقة لإظهار الحالة بدقة."
+    : `وقت الحساب: #${coverage.participantA ?? "؟"} أجاب ${coverage.answeredA ?? 0}/${coverage.totalQuestions}، و#${coverage.participantB ?? "؟"} أجاب ${coverage.answeredB ?? 0}/${coverage.totalQuestions}.${coverage.status === "mixed" ? ` المكتمل: #${completed[0] ?? "؟"}.` : ""}`
+  return <span title={title} className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-1 text-[9px] font-bold ${meta.className}`}><Sparkles className="h-2.5 w-2.5" />{meta.label}</span>
 }
 
 interface ParticipantDetailModalProps {
@@ -463,38 +495,42 @@ export default function ParticipantDetailModal({
                             <th className="text-center p-4 text-sm font-semibold text-slate-300">
                               <div className="flex items-center justify-center gap-1">
                                 <Users className="w-3 h-3" />
-                                <span className="text-xs">التفاعل</span>
+                                <span className="text-xs">التفاعل /30</span>
                               </div>
                             </th>
+                            <th className="text-center p-4 text-sm font-semibold text-slate-300"><span className="text-xs">أسلوب الاختلاف /4</span></th>
+                            <th className="text-center p-4 text-sm font-semibold text-slate-300"><span className="text-xs">المرحلة الحالية /5</span></th>
+                            <th className="text-center p-4 text-sm font-semibold text-slate-300"><span className="text-xs">تفضيل التشابه /5</span></th>
+                            <th className="text-center p-4 text-sm font-semibold text-slate-300"><span className="text-xs">وتيرة التقارب /3</span></th>
                             <th className="text-center p-4 text-sm font-semibold text-slate-300">
                               <div className="flex items-center justify-center gap-1">
                                 <Home className="w-3 h-3" />
-                                <span className="text-xs">نمط الحياة</span>
+                                <span className="text-xs">نمط الحياة /10</span>
                               </div>
                             </th>
                             <th className="text-center p-4 text-sm font-semibold text-slate-300">
                               <div className="flex items-center justify-center gap-1">
                                 <Sparkles className="w-3 h-3" />
-                                <span className="text-xs">الدعابة/الانفتاح</span>
+                                <span className="text-xs">الدعابة/الانفتاح /15</span>
                               </div>
                             </th>
                             <th className="text-center p-4 text-sm font-semibold text-slate-300">
                               <div className="flex items-center justify-center gap-1">
                                 <MessageCircle className="w-3 h-3" />
-                                <span className="text-xs">التواصل</span>
+                                <span className="text-xs">التواصل /3</span>
                               </div>
                             </th>
                             <th className="text-center p-4 text-sm font-semibold text-slate-300">
                               <div className="flex items-center justify-center gap-1">
                                 <Star className="w-3 h-3" />
-                                <span className="text-xs">الأهداف/القيم</span>
+                                <span className="text-xs">الأهداف/القيم /5</span>
                               </div>
                             </th>
                             {matchType === "ai" && (
                               <th className="text-center p-4 text-sm font-semibold text-slate-300">
                                 <div className="flex items-center justify-center gap-1">
                                   <Zap className="w-3 h-3" />
-                                  <span className="text-xs">الطاقة</span>
+                                  <span className="text-xs">الطاقة /25</span>
                                 </div>
                               </th>
                             )}
@@ -683,10 +719,11 @@ export default function ParticipantDetailModal({
                             )}
                           </td>
                           <td className="p-4 text-center">
-                            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${getScoreBg(match.compatibility_score)}`}>
-                              <span className={`font-bold ${getScoreColor(match.compatibility_score)}`}>
-                                {match.compatibility_score}%
-                              </span>
+                            <div className="flex flex-col items-center gap-1.5">
+                              <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${getScoreBg(match.compatibility_score)}`}>
+                                <span className={`font-bold ${getScoreColor(match.compatibility_score)}`}>
+                                  {match.compatibility_score}%
+                                </span>
                               {(() => {
                                 const locked = lockedByParticipant.get(match.participant_number)
                                 if (!locked) return null
@@ -750,6 +787,8 @@ export default function ParticipantDetailModal({
                                   </Tooltip.Root>
                                 </Tooltip.Provider>
                               )}
+                              </div>
+                              <MatchInsightsCoverageBadge match={match} />
                             </div>
                           </td>
                           {swapMode && (
@@ -892,13 +931,17 @@ export default function ParticipantDetailModal({
                           )}
                           {matchType !== "group" && (
                             <>
-                              <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.synergy_score ?? 0).toFixed(1)}%</span></td>
-                              <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.lifestyle_compatibility_score ?? 0).toFixed(1)}%</span></td>
-                              <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.humor_open_score ?? 0).toFixed(1)}%</span></td>
-                              <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.communication_compatibility_score ?? 0).toFixed(1)}%</span></td>
-                              <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.intent_score ?? 0).toFixed(1)}%</span></td>
+                              <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.synergy_score ?? 0).toFixed(1)}/30</span></td>
+                              <td className="p-4 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number.isFinite(Number(match.disagreement_style_score)) ? `${Number(match.disagreement_style_score).toFixed(1)}/4` : "—"}</span></td>
+                              <td className="p-4 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number.isFinite(Number(match.current_life_overlap_score)) ? `${Number(match.current_life_overlap_score).toFixed(1)}/5` : "—"}</span></td>
+                              <td className="p-4 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number.isFinite(Number(match.similarity_preference_score)) ? `${Number(match.similarity_preference_score).toFixed(1)}/5` : "—"}</span></td>
+                              <td className="p-4 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number.isFinite(Number(match.attachment_pace_score)) ? `${Number(match.attachment_pace_score).toFixed(1)}/3` : "—"}</span></td>
+                              <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.lifestyle_compatibility_score ?? 0).toFixed(1)}/10</span></td>
+                              <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.humor_open_score ?? 0).toFixed(1)}/15</span></td>
+                              <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.communication_compatibility_score ?? 0).toFixed(1)}/3</span></td>
+                              <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.intent_score ?? 0).toFixed(1)}/5</span></td>
                               {matchType === "ai" && (
-                                <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.vibe_compatibility_score ?? 0).toFixed(1)}%</span></td>
+                                <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.vibe_compatibility_score ?? 0).toFixed(1)}/25</span></td>
                               )}
                             </>
                           )}

@@ -67,17 +67,20 @@ export default function TwilioAdminPanel({ adminPassword, onParticipantChanged, 
   const [participantLoading, setParticipantLoading] = useState(false)
 
   const call = useCallback(async (action: string, body: Record<string, any> = {}) => {
-    if (!adminPassword) {
-      onUnauthorized?.()
-      throw new Error("انتهت جلسة الإدارة. سجّل الدخول مجدداً.")
+    const headers: Record<string, string> = { "Content-Type": "application/json" }
+    const requestBody: Record<string, any> = { action, ...body }
+    if (adminPassword) {
+      headers["X-Admin-Password"] = adminPassword
+      requestBody.password = adminPassword
     }
     const response = await fetch("/api/twilio-console", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Admin-Password": adminPassword },
-      body: JSON.stringify({ action, password: adminPassword, ...body }),
+      headers,
+      credentials: "same-origin",
+      body: JSON.stringify(requestBody),
     })
     const result = await response.json()
-    if (response.status === 401 || response.status === 403) {
+    if (response.status === 401) {
       onUnauthorized?.()
       throw new Error("انتهت جلسة الإدارة. سجّل الدخول مجدداً.")
     }
@@ -367,7 +370,13 @@ function ApprovalsPanel({ data, adminPassword, onRefresh }: { data: any; adminPa
   const adminCall = async (action: string, body: any) => {
     setWorking(`${action}-${body.assigned_number || body.id}`)
     try {
-      const response = await fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json", "X-Admin-Password": adminPassword }, body: JSON.stringify({ action, password: adminPassword, ...body }) })
+      const headers: Record<string, string> = { "Content-Type": "application/json" }
+      const requestBody: Record<string, any> = { action, ...body }
+      if (adminPassword) {
+        headers["X-Admin-Password"] = adminPassword
+        requestBody.password = adminPassword
+      }
+      const response = await fetch("/api/admin", { method: "POST", headers, credentials: "same-origin", body: JSON.stringify(requestBody) })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || "Request failed")
       toast.success("تم تنفيذ الإجراء")

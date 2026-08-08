@@ -4,6 +4,7 @@ import { supabaseAdmin } from "./supabase-admin.mjs"
 
 const ADMIN_COOKIE = "blindmatch_admin_session"
 const ADMIN_SESSION_SECONDS = 4 * 60 * 60
+const ADMIN_SESSION_REFRESH_WINDOW_SECONDS = 60 * 60
 const buckets = new Map()
 
 function secretEqual(leftValue, rightValue) {
@@ -62,10 +63,10 @@ function appendSetCookie(res, cookie) {
   res.setHeader("Set-Cookie", [...values, cookie])
 }
 
-function issueAdminSession(res) {
+function issueAdminSession(res, sessionId = randomUUID()) {
   if (!sessionSecret()) throw new Error("ADMIN_SESSION_SECRET or EVENT3_COHOST_TOKEN_SECRET must be configured")
   const now = Math.floor(Date.now() / 1000)
-  const token = signSession({ role: "admin", sid: randomUUID(), iat: now, exp: now + ADMIN_SESSION_SECONDS })
+  const token = signSession({ role: "admin", sid: sessionId, iat: now, exp: now + ADMIN_SESSION_SECONDS })
   appendSetCookie(res, `${ADMIN_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${ADMIN_SESSION_SECONDS}`)
   return token
 }
@@ -130,6 +131,10 @@ export async function recordSecurityEvent(req, {
 export async function requireAdmin(req, res, { action = "admin-request", allowPassword = true } = {}) {
   const cookieSession = verifySession(parseCookies(req)[ADMIN_COOKIE])
   if (cookieSession) {
+    const secondsRemaining = Number(cookieSession.exp) - Math.floor(Date.now() / 1000)
+    if (secondsRemaining <= ADMIN_SESSION_REFRESH_WINDOW_SECONDS) {
+      issueAdminSession(res, cookieSession.sid)
+    }
     req.adminAuth = { method: "session", sessionId: cookieSession.sid }
     await recordSecurityEvent(req, { actorType: "admin", actorId: cookieSession.sid, action, outcome: "success" })
     return req.adminAuth

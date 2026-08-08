@@ -5,7 +5,7 @@ import { buildWelcomePrompt } from "./ai-welcome-prompt.mjs"
 import { assignPriorityTables } from "../../server/event3/table-priority.mjs"
 import { buildSixBySevenPlan, optimizeRound2ByAge } from "../../server/event3/round2-age-optimizer.mjs"
 import { supabaseAdmin } from "../../server/security/supabase-admin.mjs"
-import { enforceRateLimit, requireAdmin } from "../../server/security/request-security.mjs"
+import { clearAdminSession, enforceRateLimit, requireAdmin } from "../../server/security/request-security.mjs"
 
 const supabase = supabaseAdmin
 
@@ -585,6 +585,14 @@ export default async function handler(req, res) {
   console.log(`API Request: ${method} ${action}`);
 
   try {
+    if (action === "admin-session") {
+      return res.status(200).json({ authenticated: true })
+    }
+
+    if (action === "admin-logout") {
+      clearAdminSession(res)
+      return res.status(200).json({ success: true })
+    }
     // 🔹 GET participants
     if (method === "GET") {
       const { data, error } = await supabase

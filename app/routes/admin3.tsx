@@ -93,7 +93,8 @@ const PHASES = [
 ]
 
 async function api(action: string, extra: Record<string, any> = {}) {
-  const body: Record<string, any> = { action, password: _adminPassword, ...extra }
+  const body: Record<string, any> = { action, ...extra }
+  if (_adminPassword && !("password" in body)) body.password = _adminPassword
   if (_previewEventId != null && !('preview_event_id' in body) && action.startsWith('e3-') && action !== 'e3-set-current-event' && action !== 'e3-get-current-event' && action !== 'e3-get-event-list') {
     body.preview_event_id = _previewEventId
   }
@@ -101,6 +102,7 @@ async function api(action: string, extra: Record<string, any> = {}) {
     const response = await fetch(API, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
       body: JSON.stringify(body),
     })
     const contentType = response.headers.get("content-type") || ""
@@ -248,6 +250,8 @@ function FeedbackEditModal({ entry, phase, onClose, onSave }: {
 
 export default function Admin3Page() {
   const [authenticated, setAuthenticated] = useState(false)
+  const [authChecking, setAuthChecking] = useState(true)
+  const [authCheckUnavailable, setAuthCheckUnavailable] = useState(false)
   const [password, setPassword] = useState("")
 
   const [state, setState] = useState<any>(null)
@@ -409,17 +413,35 @@ export default function Admin3Page() {
   const [aiWelcomeEditSaving, setAiWelcomeEditSaving] = useState(false)
 
   useEffect(() => {
-    const stored = sessionStorage.getItem("admin3_pw")
-    if (stored) {
+    let cancelled = false
+    const restoreAdminSession = async () => {
+      const stored = sessionStorage.getItem("admin3_pw") || ""
       setAdminPassword(stored)
-      if (localStorage.getItem("admin3") === "authenticated") {
+      const result = await api("admin-session")
+
+      if (cancelled) return
+      if (result.authenticated) {
+        setAuthCheckUnavailable(false)
+        localStorage.setItem("admin3", "authenticated")
         setAuthenticated(true)
+      } else if (String(result.error || "").toLowerCase() === "unauthorized") {
+        setAuthCheckUnavailable(false)
+        setAdminPassword("")
+        sessionStorage.removeItem("admin3_pw")
+        localStorage.removeItem("admin3")
+        setAuthenticated(false)
+      } else {
+        setAuthCheckUnavailable(true)
       }
+      setAuthChecking(false)
     }
+
+    restoreAdminSession()
+    return () => { cancelled = true }
   }, [])
 
   const login = async () => {
-    const result = await api("e3-get-current-event", { password })
+    const result = await api("admin-session", { password })
     if (result.error) {
       toast.error(result.error.toLowerCase().includes("password") ? "كلمة المرور غير صحيحة" : result.error)
     } else {
@@ -430,12 +452,16 @@ export default function Admin3Page() {
     }
   }
 
-  const logout = () => {
-    setAdminPassword("")
-    sessionStorage.removeItem("admin3_pw")
-    localStorage.removeItem("admin3")
-    setAuthenticated(false)
-    setPassword("")
+  const logout = async () => {
+    try {
+      await api("admin-logout")
+    } finally {
+      setAdminPassword("")
+      sessionStorage.removeItem("admin3_pw")
+      localStorage.removeItem("admin3")
+      setAuthenticated(false)
+      setPassword("")
+    }
   }
 
   const runDiagnostics = useCallback(async () => {
@@ -1111,6 +1137,28 @@ export default function Admin3Page() {
   const selectAllPaid = () => {
     const paidNums = participants.filter(p => p.paid).map(p => p.number)
     setSelectedNumbers(new Set(paidNums))
+  }
+
+  if (authChecking) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
+      </div>
+    )
+  }
+
+  if (authCheckUnavailable) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4" dir="rtl">
+        <div className="w-full max-w-sm rounded-2xl border border-gray-800 bg-gray-900 p-7 text-center text-white">
+          <AlertCircle className="mx-auto mb-3 h-9 w-9 text-amber-400" />
+          <p className="font-semibold">تعذر التحقق من جلسة الإدارة مؤقتاً</p>
+          <button onClick={() => window.location.reload()} className="mt-5 rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-semibold hover:bg-purple-700">
+            إعادة المحاولة
+          </button>
+        </div>
+      </div>
+    )
   }
 
   if (!authenticated) {

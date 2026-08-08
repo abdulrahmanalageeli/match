@@ -565,6 +565,8 @@ export default function AdminPage() {
   const isCohost = location.pathname.includes('cohost') || new URLSearchParams(location.search).get('cohost') === '1'
   const [password, setPassword] = useState("")
   const [authenticated, setAuthenticated] = useState(false)
+  const [authChecking, setAuthChecking] = useState(true)
+  const [authCheckUnavailable, setAuthCheckUnavailable] = useState(false)
   const [adminCredential, setAdminCredential] = useState("")
   const [adminWorkspace, setAdminWorkspace] = useState<'dashboard' | 'twilio'>('dashboard')
   const [participants, setParticipants] = useState<any[]>([])
@@ -2826,7 +2828,8 @@ const fetchParticipants = async () => {
       const response = await fetch("/api/admin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "e3-get-current-event", password }),
+        credentials: "same-origin",
+        body: JSON.stringify({ action: "admin-session", password }),
       })
       const contentType = response.headers.get("content-type") || ""
       if (!contentType.includes("application/json")) throw new Error("non-json response")
@@ -2852,95 +2855,141 @@ const fetchParticipants = async () => {
         setLoginAttempts(0)
         setLockoutUntil(null)
         setLastAttemptTime(null)
-        fetchParticipants()
       }
     } catch {
       toast.error("تعذر الاتصال بالخادم")
     }
   }
 
-  const logout = useCallback(() => {
-    setAdminCredential("")
-    sessionStorage.removeItem("admin_pw")
-    localStorage.removeItem("admin")
-    setAuthenticated(false)
-    setPassword("")
+  const logout = useCallback(async () => {
+    try {
+      await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ action: "admin-logout" }),
+      })
+    } finally {
+      setAdminCredential("")
+      sessionStorage.removeItem("admin_pw")
+      localStorage.removeItem("admin")
+      setAuthenticated(false)
+      setPassword("")
+    }
   }, [])
 
   useEffect(() => {
-    // Clear tracking values on page refresh to start fresh
     localStorage.removeItem('admin_previous_total')
     localStorage.removeItem('admin_previous_eligible')
-    
-    const storedPw = sessionStorage.getItem("admin_pw")
-    const hasRememberedLogin = localStorage.getItem("admin") === "authenticated"
-    if (storedPw && hasRememberedLogin) {
-      setAdminCredential(storedPw)
-      setAuthenticated(true)
-      fetchParticipants()
-      fetchExcludedPairs()
-      fetchExcludedParticipants()
-      fetchGroupExcludedParticipants()
 
-      // Poll WhatsApp inbox for unread count using per-participant localStorage timestamps
-      const pollWaInbox = async () => {
-        try {
-          const res = await fetch('/api/admin', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'get-whatsapp-inbox' }),
-          })
-          const data = await res.json()
-          if (data?.success && data.messages) {
-            setWaInboxMessages(data.messages)
-            // Compute unread per participant using stored read timestamps
-            const readMap = JSON.parse(localStorage.getItem('wa_read_timestamps') || '{}')
-            let totalUnread = 0
-            for (const m of data.messages) {
-              if (m.direction !== 'inbound') continue
-              const num = String(m.assigned_number || '0')
-              const lastRead = readMap[num] ? new Date(readMap[num]).getTime() : 0
-              if (new Date(m.created_at).getTime() > lastRead) totalUnread++
-            }
-            setWaUnreadCount(totalUnread)
-          }
-        } catch (e) {
-          // silent fail
-        }
-      }
-      pollWaInbox()
-      const waInterval = setInterval(pollWaInbox, 15000)
+    let cancelled = false
+    const restoreAdminSession = async () => {
+      const storedPw = sessionStorage.getItem("admin_pw") || ""
+      const requestBody: Record<string, string> = { action: "admin-session" }
+      if (storedPw) requestBody.password = storedPw
 
-      // Poll attendance requests
-      const pollAttendanceReqs = async () => {
-        try {
-          const res = await fetch('/api/admin', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'get-attendance-requests' }),
-          })
-          const data = await res.json()
-          if (data?.success) {
-            setAttendanceRequests(data.requests || [])
+      try {
+        const response = await fetch("/api/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify(requestBody),
+        })
+
+        if (response.status === 401) {
+          sessionStorage.removeItem("admin_pw")
+          localStorage.removeItem("admin")
+          if (!cancelled) {
+            setAuthCheckUnavailable(false)
+            setAdminCredential("")
+            setAuthenticated(false)
           }
-        } catch (e) {
-          // silent fail
+          return
         }
+        if (!response.ok) throw new Error(`Admin session check failed (${response.status})`)
+
+        if (!cancelled) {
+          setAuthCheckUnavailable(false)
+          setAdminCredential(storedPw)
+          localStorage.setItem("admin", "authenticated")
+          setAuthenticated(true)
+        }
+      } catch {
+        // Keep remembered state on temporary server/network failures so a retry can recover it.
+        if (!cancelled) {
+          setAuthenticated(false)
+          setAuthCheckUnavailable(true)
+        }
+      } finally {
+        if (!cancelled) setAuthChecking(false)
       }
-      pollAttendanceReqs()
-      const attInterval = setInterval(pollAttendanceReqs, 15000)
-      fetchReceiptReviewQueue()
-      const receiptInterval = setInterval(fetchReceiptReviewQueue, 15000)
-      return () => { clearInterval(waInterval); clearInterval(attInterval); clearInterval(receiptInterval) }
-    } else if (hasRememberedLogin) {
-      // The browser session ended, so the password is no longer available.
-      // Do not leave the UI in a misleading authenticated state.
-      localStorage.removeItem("admin")
-      sessionStorage.removeItem("admin_pw")
-      setAdminCredential("")
-      setAuthenticated(false)
     }
+
+    restoreAdminSession()
+    return () => { cancelled = true }
   }, [])
+
+  useEffect(() => {
+    if (!authenticated) return
+
+    fetchParticipants()
+    fetchExcludedPairs()
+    fetchExcludedParticipants()
+    fetchGroupExcludedParticipants()
+
+    const pollWaInbox = async () => {
+      try {
+        const res = await fetch('/api/admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ action: 'get-whatsapp-inbox' }),
+        })
+        const data = await res.json()
+        if (data?.success && data.messages) {
+          setWaInboxMessages(data.messages)
+          const readMap = JSON.parse(localStorage.getItem('wa_read_timestamps') || '{}')
+          let totalUnread = 0
+          for (const m of data.messages) {
+            if (m.direction !== 'inbound') continue
+            const num = String(m.assigned_number || '0')
+            const lastRead = readMap[num] ? new Date(readMap[num]).getTime() : 0
+            if (new Date(m.created_at).getTime() > lastRead) totalUnread++
+          }
+          setWaUnreadCount(totalUnread)
+        }
+      } catch {
+        // Polling is best-effort; the next interval retries automatically.
+      }
+    }
+
+    const pollAttendanceReqs = async () => {
+      try {
+        const res = await fetch('/api/admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ action: 'get-attendance-requests' }),
+        })
+        const data = await res.json()
+        if (data?.success) setAttendanceRequests(data.requests || [])
+      } catch {
+        // Polling is best-effort; the next interval retries automatically.
+      }
+    }
+
+    pollWaInbox()
+    pollAttendanceReqs()
+    fetchReceiptReviewQueue()
+    const waInterval = setInterval(pollWaInbox, 15000)
+    const attInterval = setInterval(pollAttendanceReqs, 15000)
+    const receiptInterval = setInterval(fetchReceiptReviewQueue, 15000)
+    return () => {
+      clearInterval(waInterval)
+      clearInterval(attInterval)
+      clearInterval(receiptInterval)
+    }
+  }, [authenticated])
 
   // Real-time clock update
   useEffect(() => {
@@ -4848,6 +4897,28 @@ Proceed?`
     } finally {
       setReceiptReviewProcessing(null)
     }
+  }
+
+  if (authChecking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        <Loader2 className="h-8 w-8 animate-spin text-slate-300" />
+      </div>
+    )
+  }
+
+  if (authCheckUnavailable) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
+        <div className="max-w-sm rounded-2xl border border-white/15 bg-white/10 p-6 text-center text-white shadow-2xl backdrop-blur-xl">
+          <AlertCircle className="mx-auto mb-3 h-9 w-9 text-amber-300" />
+          <p className="font-semibold">تعذر التحقق من جلسة الإدارة مؤقتاً</p>
+          <button onClick={() => window.location.reload()} className="mt-5 rounded-xl bg-white/15 px-5 py-2.5 text-sm font-semibold hover:bg-white/20">
+            إعادة المحاولة
+          </button>
+        </div>
+      </div>
+    )
   }
 
   if (!authenticated) {

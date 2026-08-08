@@ -77,6 +77,7 @@ import { Slider } from "../../components/ui/slider"
 import { Switch } from "../../components/ui/switch"
 import { Avatar as AvatarComponent } from "../../components/ui/avatar"
 import { AnimatedBlindMatchLogo } from "../components/AnimatedBlindMatchLogo"
+import { MatchInsightsUpdateDialog, getMissingMatchInsightIds } from "../components/MatchInsightsUpdateDialog"
 import "../../app/app.css"
 import MatchResult from "./MatchResult"
 import CircularProgressBar from "../components/CircularProgressBar"
@@ -640,6 +641,8 @@ export default function WelcomePage() {
     termsAccepted: false,
     dataConsent: false
   })
+  const [showMatchInsightsUpdate, setShowMatchInsightsUpdate] = useState(false)
+  const [missingMatchInsightIds, setMissingMatchInsightIds] = useState<ReturnType<typeof getMissingMatchInsightIds>>([])
   
   const [showSurvey, setShowSurvey] = useState(false)
   const [isEditingSurvey, setIsEditingSurvey] = useState(false)
@@ -2183,6 +2186,14 @@ export default function WelcomePage() {
           if (Object.keys(resolvedSurveyData.answers).length > 0) {
             setSurveyData(resolvedSurveyData)
           }
+          const looksLikeCompletedSurvey = resolvedSurveyData.termsAccepted && resolvedSurveyData.dataConsent
+            || Boolean(resolvedSurveyData.vibeDescription || resolvedSurveyData.communicationStyle || resolvedSurveyData.attachmentStyle)
+          const missingInsights = hasSubstantialSurveyData(resolvedSurveyData.answers)
+            && looksLikeCompletedSurvey
+            ? getMissingMatchInsightIds(resolvedSurveyData.answers)
+            : []
+          setMissingMatchInsightIds(missingInsights)
+          setShowMatchInsightsUpdate(missingInsights.length > 0)
           // If URL still has legacy showToken flag, show modal and then clean it from URL
           try {
             const params = new URLSearchParams(window.location.search)
@@ -2219,7 +2230,7 @@ export default function WelcomePage() {
                 mutual_match: !!h.mutual_match,
               })) as MatchResultEntry[]
               setHistoryMatches(mapped)
-              setShowHistory(true)
+              setShowHistory(missingInsights.length === 0)
             } else {
               setHistoryMatches([])
             }
@@ -8363,6 +8374,20 @@ export default function WelcomePage() {
       {step !== 4 && <BottomLeftContactButton />}
       {/* Participant Icon - Hide in step 4 (round mode) as it's included in page content */}
       {step !== 4 && <ParticipantIcon />}
+
+      <MatchInsightsUpdateDialog
+        open={showMatchInsightsUpdate}
+        missingIds={missingMatchInsightIds}
+        secureToken={secureToken || token || ''}
+        onOpenChange={setShowMatchInsightsUpdate}
+        onSaved={(updatedSurveyData) => {
+          const normalized = normalizeResolvedSurveyData({ survey_data: updatedSurveyData })
+          setSurveyData(normalized)
+          setMissingMatchInsightIds([])
+          toast.success('تم تحديث إجابات المطابقة')
+          if (historyMatches.length > 0) window.setTimeout(() => setShowHistory(true), 350)
+        }}
+      />
       
       {showTokenModal && (
         <div data-welcome-dialog role="dialog" aria-modal="true" aria-label="تم إنشاء الحساب" tabIndex={-1} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">

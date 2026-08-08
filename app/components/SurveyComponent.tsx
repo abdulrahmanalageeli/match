@@ -144,6 +144,72 @@ export const surveyQuestions = [
     category: "personal_info",
     defaultValue: "any"
   },
+  // New matching insights — intentionally grouped together so returning
+  // participants can answer them in one short, clearly highlighted section.
+  {
+    id: "match_disagreement_style",
+    question: "سؤال جديد 1",
+    description: "فتحتوا موضوع واكتشفت إن رأيه عكس رأيك تمامًا—بس طريقته محترمة. وش يخلي السالفة أمتع بالنسبة لك؟",
+    type: "radio",
+    options: [
+      { value: "A", label: "نكمل النقاش، وكل واحد يحاول يقنع الثاني" },
+      { value: "B", label: "أفهم ليه يشوفها كذا، حتى لو ما اتفقنا" },
+      { value: "C", label: "نمزح على اختلافنا وننتقل لموضوع ثاني" },
+      { value: "D", label: "نترك الموضوع ونبحث عن شيء نتفق عليه" }
+    ],
+    required: true,
+    category: "match_update",
+    isNew: true
+  },
+  {
+    id: "match_similarity_preference",
+    question: "سؤال جديد 2",
+    description: "تخيل دخلت جلستين، والاثنتين كان الحوار فيها مريح. في الأولى اكتشفت إن بينكم أشياء كثيرة مشتركة، وفي الثانية الشخص مختلف عنك وفتح لك عالم جديد. أي جلسة غالبًا تختار تكملها؟",
+    type: "radio",
+    options: [
+      { value: "A", label: "الأولى؛ يجذبني الشخص اللي بيني وبينه أشياء كثيرة مشتركة" },
+      { value: "B", label: "الثانية؛ يجذبني الشخص اللي يعرّفني على أفكار وتجارب مختلفة" },
+      { value: "C", label: "أفضل نتشابه في الأساسيات ونختلف في التفاصيل" },
+      { value: "D", label: "ما يفرق؛ إذا الحوار ممتع أقدر أنسجم مع الاثنين" }
+    ],
+    required: true,
+    category: "match_update",
+    isNew: true
+  },
+  {
+    id: "match_current_curiosity",
+    question: "سؤال جديد 3",
+    description: "وش الموضوع اللي شادك هالفترة وتقدر تسولف عنه بدون تحضير؟",
+    type: "text",
+    placeholder: "ممكن يكون فكرة، مجال، حدث، هواية، أو حتى شيء غريب دخلت فيه من باب الفضول...",
+    helpText: "اكتب الموضوع بطريقتك؛ نستخدمه لفهم وش ممكن يشعل السالفة بينكم.",
+    required: true,
+    category: "match_update",
+    minLength: 20,
+    maxLength: 150,
+    isNew: true
+  },
+  {
+    id: "match_current_focus",
+    question: "سؤال جديد 4",
+    description: "هالفترة، وش أكثر شيئين ماخذين من وقتك أو تفكيرك؟ اختر اثنين فقط.",
+    type: "checkbox",
+    options: [
+      { value: "study", label: "الدراسة والتعلّم" },
+      { value: "career", label: "الوظيفة والمسار المهني" },
+      { value: "business", label: "مشروع أو بزنس" },
+      { value: "family_social", label: "العائلة والعلاقات الاجتماعية" },
+      { value: "health_fitness", label: "الرياضة والصحة" },
+      { value: "creative", label: "الفن أو المحتوى أو الإبداع" },
+      { value: "travel_experiences", label: "السفر والتجارب الجديدة" },
+      { value: "self_growth", label: "تطوير الذات أو تغيير شخصي" },
+      { value: "other", label: "شيء آخر" }
+    ],
+    required: true,
+    category: "match_update",
+    maxSelections: 2,
+    isNew: true
+  },
   // Humor/Banter Style - Matching Determinant
   {
     id: "humor_banter_style",
@@ -206,20 +272,6 @@ export const surveyQuestions = [
     category: "attachment"
   },
   {
-    id: "attachment_2",
-    question: "السؤال 10",
-    description: "كيف تتصرف عندما يحدث خلاف بينك وبين شخص قريب منك؟",
-    type: "radio",
-    options: [
-      { value: "أ", label: "أ. أواجهه بهدوء وأحاول التفاهم" },
-      { value: "ب", label: "ب. أقلق من مواجهته وأفضل أن أبقى منزعجًا بصمت" },
-      { value: "ج", label: "ج. أنسحب وأحاول تجاهل الموقف أو الشخص" },
-      { value: "د", label: "د. أقترب جدًا ثم أبتعد فجأة" }
-    ],
-    required: true,
-    category: "attachment"
-  },
-  {
     id: "attachment_3",
     question: "السؤال 11",
     description: "ما شعورك تجاه القرب العاطفي من الآخرين؟",
@@ -243,20 +295,6 @@ export const surveyQuestions = [
       { value: "ب", label: "ب. أحتاجهم بشدة وأتضايق إن لم يستجيبوا فورًا" },
       { value: "ج", label: "ج. أفضّل حل مشاكلي لوحدي" },
       { value: "د", label: "د. أحيانًا أطلب الدعم ثم أندم وأغلق على نفسي" }
-    ],
-    required: true,
-    category: "attachment"
-  },
-  {
-    id: "attachment_5",
-    question: "السؤال 13",
-    description: "ما رأيك في العلاقات المقربة طويلة المدى؟",
-    type: "radio",
-    options: [
-      { value: "أ", label: "أ. أراها صحّية وأحب وجودها في حياتي" },
-      { value: "ب", label: "ب. أراها مهمّة لكنني أخاف فقدانها" },
-      { value: "ج", label: "ج. أفضل العلاقات الخفيفة والمرنة" },
-      { value: "د", label: "د. أريدها ولكن أرتبك وأتجنّبها إذا شعرت بالضغط" }
     ],
     required: true,
     category: "attachment"
@@ -467,17 +505,6 @@ export const surveyQuestions = [
   },
   // Vibe and Compatibility Questions 29-34
   {
-    id: "vibe_1",
-    question: "السؤال 29",
-    description: "كيف توصف الويكند المثالي بالنسبه لك؟",
-    type: "text",
-    placeholder: "مثال: أحب النوم كثيراً، أخرج مع الأصدقاء، أشاهد الأفلام في البيت، أقرأ كتاب...",
-    required: true,
-    category: "vibe",
-    minLength: 30,
-    maxLength: 150
-  },
-  {
     id: "vibe_2",
     question: "السؤال 30",
     description: "عدد خمس هوايات تستمتع فيها؟",
@@ -518,17 +545,6 @@ export const surveyQuestions = [
     description: "كيف يوصفونك اصدقائك بالعادة؟",
     type: "text",
     placeholder: "مثال: مضحك، هادئ، مستمع جيد، طموح، مساعد...",
-    required: true,
-    category: "vibe",
-    minLength: 20,
-    maxLength: 150
-  },
-  {
-    id: "vibe_6",
-    question: "السؤال 34",
-    description: "كيف تصف اصدقائك؟",
-    type: "text",
-    placeholder: "مثال: مخلصين، مضحكين، داعمين، أذكياء، متفهمين...",
     required: true,
     category: "vibe",
     minLength: 20,
@@ -721,9 +737,10 @@ const calculateAttachmentStyle = (answers: Record<string, string | string[]>): s
     د: 0  // Fearful/Disorganized
   }
 
-  // Attachment questions 1-5. Stored answers remain compatible with surveys
-  // completed while attachment_2 was temporarily hidden.
-  for (let i = 1; i <= 5; i++) {
+  // The active short-form attachment profile intentionally uses the three
+  // highest-signal items. Legacy attachment_2/attachment_5 answers remain in
+  // stored JSON for history but no longer influence the active profile.
+  for (const i of [1, 3, 4]) {
     const questionId = `attachment_${i}`
     const answer = answers[questionId] as string
     
@@ -843,21 +860,23 @@ const calculateCoreValues = (answers: Record<string, string | string[]>): string
 
 // Function to extract and merge vibe description from all 6 questions (now questions 29-34)
 const extractVibeDescription = (answers: Record<string, string | string[]>): string => {
-  const weekend = (answers['vibe_1'] as string) || ''
+  const currentCuriosity = (answers['match_current_curiosity'] as string) || ''
   const hobbies = (answers['vibe_2'] as string) || ''
   const music = (answers['vibe_3'] as string) || ''
   const deepTalk = (answers['vibe_4'] as string) || ''
   const friendsDescribe = (answers['vibe_5'] as string) || ''
-  const describeFriends = (answers['vibe_6'] as string) || ''
+  const currentFocus = Array.isArray(answers['match_current_focus'])
+    ? (answers['match_current_focus'] as string[]).join(', ')
+    : String(answers['match_current_focus'] || '')
   
   // Create a structured, token-efficient prompt combining all answers
   const structuredPrompt = [
-    weekend ? `Weekend: ${weekend}` : '',
+    currentCuriosity ? `Current curiosity: ${currentCuriosity}` : '',
     hobbies ? `Hobbies: ${hobbies}` : '',
     music ? `Music: ${music}` : '',
     deepTalk ? `Deep conversations: ${deepTalk}` : '',
     friendsDescribe ? `Friends describe me as: ${friendsDescribe}` : '',
-    describeFriends ? `I describe my friends as: ${describeFriends}` : ''
+    currentFocus ? `Current life focus: ${currentFocus}` : ''
   ].filter(Boolean).join(' | ')
   
   return structuredPrompt
@@ -1042,10 +1061,12 @@ const SurveyComponent = memo(function SurveyComponent({
       'name','age','gender','nationality','nationality_preference','phone_number',
       // Preferences
       'gender_preference','preferred_age_range',
+      // New matching insights (kept together for fast completion)
+      'match_disagreement_style','match_similarity_preference','match_current_curiosity','match_current_focus',
       // Conversation initiative (replaces the retired MBTI block)
       'conversation_initiative_preference',
       // Attachment
-      'attachment_1','attachment_2','attachment_3','attachment_4','attachment_5',
+      'attachment_1','attachment_3','attachment_4',
       // Communication
       'communication_1','communication_2','communication_3','communication_4','communication_5','silence_comfort',
       // Lifestyle
@@ -1053,7 +1074,7 @@ const SurveyComponent = memo(function SurveyComponent({
       // Core Values
       'core_values_1','core_values_2','core_values_3','core_values_4','core_values_5',
       // Vibe
-      'vibe_1','vibe_2','vibe_3','vibe_4','vibe_5','vibe_6',
+      'vibe_2','vibe_3','vibe_4','vibe_5',
       // Interaction Style
       'humor_banter_style','early_openness_comfort',
       // Interaction Synergy
@@ -1070,17 +1091,19 @@ const SurveyComponent = memo(function SurveyComponent({
   const getSectionTitle = useCallback((id: string): string | null => {
     const personal = new Set(['name','age','gender','nationality','nationality_preference','phone_number'])
     const prefs = new Set(['gender_preference','preferred_age_range'])
-    const attach = new Set(['attachment_1','attachment_2','attachment_3','attachment_4','attachment_5'])
+    const matchUpdate = new Set(['match_disagreement_style','match_similarity_preference','match_current_curiosity','match_current_focus'])
+    const attach = new Set(['attachment_1','attachment_3','attachment_4'])
     const comm = new Set(['communication_1','communication_2','communication_3','communication_4','communication_5','silence_comfort'])
     const lifestyle = new Set(['lifestyle_1','lifestyle_2','lifestyle_3','lifestyle_4','lifestyle_5'])
     const core = new Set(['core_values_1','core_values_2','core_values_3','core_values_4','core_values_5'])
-    const vibe = new Set(['vibe_1','vibe_2','vibe_3','vibe_4','vibe_5','vibe_6'])
+    const vibe = new Set(['vibe_2','vibe_3','vibe_4','vibe_5'])
     const interactionStyle = new Set(['humor_banter_style','early_openness_comfort'])
     const interactionSynergy = new Set(['conversation_initiative_preference','conversational_role','conversation_depth_pref','social_battery','humor_subtype','curiosity_style'])
     const intent = new Set(['intent_goal'])
 
     if (personal.has(id)) return 'نبذة عنك'
     if (prefs.has(id)) return 'تفضيلات عامة'
+    if (matchUpdate.has(id)) return 'جديد — تفاصيل تصنع فرق اللقاء'
     if (attach.has(id)) return 'علاقتك بالآخرين'
     if (comm.has(id)) return 'طريقة تواصلك'
     if (lifestyle.has(id)) return 'أسلوب حياتك'
@@ -1219,6 +1242,9 @@ const SurveyComponent = memo(function SurveyComponent({
       if (Array.isArray(value) ? value.length === 0 : value == null || String(value).trim() === '') {
         return 'هذا الحقل مطلوب.'
       }
+      if (Array.isArray(value) && question.maxSelections && value.length !== question.maxSelections) {
+        return `اختر ${question.maxSelections} بالضبط.`
+      }
       if (question.type === 'text' && question.minLength) {
         const minimum = question.minLength
         const currentLength = getMeaningfulTextLength(value)
@@ -1340,7 +1366,7 @@ const SurveyComponent = memo(function SurveyComponent({
         const value = surveyData.answers[question.id];
         
         if (Array.isArray(value)) {
-          if (!value || value.length === 0) {
+          if (!value || value.length === 0 || (question.maxSelections && value.length !== question.maxSelections)) {
             alert("يرجى استكمال جميع أسئلة الاستبيان المطلوبة");
             return;
           }
@@ -1402,6 +1428,8 @@ const SurveyComponent = memo(function SurveyComponent({
       // Add all personality types and personal info to survey data
       const finalData = {
         ...surveyData,
+        matchInsightsVersion: '2026-08-08-v2-attachment-pace',
+        matchInsightsUpdatedAt: new Date().toISOString(),
         name,
         gender,
         phoneNumber,
@@ -1434,7 +1462,7 @@ const SurveyComponent = memo(function SurveyComponent({
         const value = dataToSubmit.answers[question.id];
         
         if (Array.isArray(value)) {
-          if (!value || value.length === 0) {
+          if (!value || value.length === 0 || (question.maxSelections && value.length !== question.maxSelections)) {
             alert("يرجى استكمال جميع أسئلة الاستبيان المطلوبة");
             return;
           }
@@ -1497,6 +1525,8 @@ const SurveyComponent = memo(function SurveyComponent({
       // Add all personality types and personal info to survey data
       const finalData = {
         ...dataToSubmit,
+        matchInsightsVersion: '2026-08-08-v2-attachment-pace',
+        matchInsightsUpdatedAt: new Date().toISOString(),
         name,
         gender,
         phoneNumber,
@@ -2206,6 +2236,25 @@ const SurveyComponent = memo(function SurveyComponent({
           return null;
         })()}
 
+        {currentQuestions.some((question) => question.category === 'match_update') && (
+          <div className="mb-5 overflow-hidden rounded-2xl border border-amber-300/80 bg-gradient-to-br from-amber-50 via-white to-cyan-50 p-4 text-right shadow-sm dark:border-amber-400/25 dark:from-amber-400/[0.10] dark:via-slate-950 dark:to-cyan-400/[0.06]">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-400 text-slate-950 shadow-sm shadow-amber-400/25">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-sm font-extrabold text-slate-950 dark:text-white">أسئلة جديدة تحسّن اختيار جلسة الـ20 دقيقة</h3>
+                  <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-black text-slate-950">جديد</span>
+                </div>
+                <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300 sm:text-sm">
+                  هذه الأسئلة تقيس طريقة التعامل مع الاختلاف، وما يشدّ اهتمامك الآن، ونوع التشابه الذي ترتاح له.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Survey Content */}
         <div className="space-y-3" ref={surveyContainerRef}>
           <div className="space-y-3">
@@ -2230,16 +2279,23 @@ const SurveyComponent = memo(function SurveyComponent({
                   }
                   return null
                 })()}
-                <div className={`rounded-2xl border bg-white/95 p-4 shadow-[0_8px_30px_rgba(15,23,42,0.05)] transition-colors dark:bg-slate-950/45 sm:p-5 ${
+                <div className={`rounded-2xl border p-4 shadow-[0_8px_30px_rgba(15,23,42,0.05)] transition-colors sm:p-5 ${
                   validationAttemptedPages.has(currentPage) && getQuestionValidationMessage(question)
                     ? 'border-rose-400 bg-rose-50/30 ring-2 ring-rose-500/10 dark:border-rose-500/70 dark:bg-rose-500/[0.04]'
-                    : 'border-slate-200/90 hover:border-slate-300 dark:border-white/10 dark:hover:border-white/20'
+                    : question.isNew
+                      ? 'border-amber-300/80 bg-gradient-to-br from-amber-50/80 via-white to-cyan-50/50 ring-1 ring-amber-200/40 hover:border-amber-400 dark:border-amber-400/25 dark:from-amber-400/[0.07] dark:via-slate-950/70 dark:to-cyan-400/[0.04]'
+                      : 'border-slate-200/90 bg-white/95 hover:border-slate-300 dark:border-white/10 dark:bg-slate-950/45 dark:hover:border-white/20'
                 }`}>
                   <div className="min-w-0">
                     <div className="mb-3 flex items-center justify-between gap-3">
-                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                        سؤال {currentPage * questionsPerPage + index + 1}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                          سؤال {currentPage * questionsPerPage + index + 1}
+                        </span>
+                        {question.isNew && (
+                          <span className="rounded-full bg-amber-400 px-2.5 py-1 text-[10px] font-black text-slate-950 shadow-sm">جديد</span>
+                        )}
+                      </div>
                       {!getQuestionValidationMessage(question) && (() => {
                         const rawValue = surveyData.answers[question.id]
                         const hasAnswer = question.id === 'preferred_age_range'

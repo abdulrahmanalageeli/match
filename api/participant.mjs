@@ -2,6 +2,11 @@ import OpenAI from "openai"
 import { buildWelcomePrompt } from "./admin/ai-welcome-prompt.mjs"
 import { supabaseAdmin } from "../server/security/supabase-admin.mjs"
 import { enforceRateLimit } from "../server/security/request-security.mjs"
+import {
+  MATCH_INSIGHTS_VERSION,
+  buildVibeDescription,
+  validateMatchInsights,
+} from "../server/matching/match-insights.mjs"
 
 // In-memory cache for e3 token resolution (5 min TTL) to reduce Supabase API load
 const _e3TokenCache = new Map() // token -> { participant, expiresAt }
@@ -457,6 +462,53 @@ export default async function handler(req, res) {
       console.error("Error in group-phone-login:", error)
       return res.status(500).json({ success: false, error: "حدث خطأ أثناء تسجيل الدخول" })
     }
+  }
+
+  if (action === "save-match-insights") {
+    if (!enforceRateLimit(req, res, { key: "participant-match-insights", limit: 12, windowMs: 60_000 })) return
+    const secureToken = String(req.body?.secure_token || '').trim()
+    if (!secureToken) return res.status(401).json({ error: 'A participant token is required' })
+
+    const validation = validateMatchInsights(req.body?.answers, { requireAll: false })
+    if (!validation.valid || Object.keys(validation.answers).length === 0) {
+      return res.status(400).json({ error: 'Invalid match insight answers', fields: validation.errors })
+    }
+
+    const { data: participant, error: lookupError } = await supabase
+      .from('participants')
+      .select('id, assigned_number, survey_data')
+      .eq('secure_token', secureToken)
+      .single()
+    if (lookupError || !participant) return res.status(404).json({ error: 'Participant not found' })
+
+    let storedSurveyData = participant.survey_data
+    if (typeof storedSurveyData === 'string') {
+      try { storedSurveyData = JSON.parse(storedSurveyData) } catch (_) { storedSurveyData = {} }
+    }
+    if (!storedSurveyData || typeof storedSurveyData !== 'object' || Array.isArray(storedSurveyData)) storedSurveyData = {}
+    const existingAnswers = storedSurveyData.answers && typeof storedSurveyData.answers === 'object' && !Array.isArray(storedSurveyData.answers)
+      ? storedSurveyData.answers
+      : {}
+    const mergedAnswers = { ...existingAnswers, ...validation.answers }
+    const nextSurveyData = {
+      ...storedSurveyData,
+      answers: mergedAnswers,
+      vibeDescription: buildVibeDescription({ ...storedSurveyData, ...mergedAnswers }),
+      matchInsightsVersion: MATCH_INSIGHTS_VERSION,
+      matchInsightsUpdatedAt: new Date().toISOString(),
+    }
+
+    const { error: updateError } = await supabase
+      .from('participants')
+      .update({ survey_data: nextSurveyData })
+      .eq('id', participant.id)
+    if (updateError) {
+      logError('Error saving match insights', updateError)
+      return res.status(500).json({ error: 'Failed to save answers' })
+    }
+
+    _e3TokenCache.delete(secureToken)
+    return res.status(200).json({ success: true, assigned_number: participant.assigned_number, survey_data: nextSurveyData })
   }
 
   if (action === "resolve-token") {

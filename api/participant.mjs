@@ -498,9 +498,15 @@ export default async function handler(req, res) {
       matchInsightsUpdatedAt: new Date().toISOString(),
     }
 
+    const participantUpdate = { survey_data: nextSurveyData }
+    const ageFlexAnswer = validation.answers.age_flex_one_year
+    if (ageFlexAnswer === 'accept') participantUpdate.age_flex_one_year = true
+    else if (ageFlexAnswer === 'decline') participantUpdate.age_flex_one_year = false
+    else if (ageFlexAnswer === 'not_applicable') participantUpdate.age_flex_one_year = null
+
     const { error: updateError } = await supabase
       .from('participants')
-      .update({ survey_data: nextSurveyData })
+      .update(participantUpdate)
       .eq('id', participant.id)
     if (updateError) {
       logError('Error saving match insights', updateError)

@@ -324,6 +324,9 @@ const normalizeResolvedSurveyData = (participant: any): SurveyData => {
   )
   if (ageFlex !== null) {
     answers.age_flex_one_year = ageFlex
+  } else if (openAge === 'true') {
+    // Open-age participants do not need the one-year fallback question.
+    answers.age_flex_one_year = 'not_applicable'
   }
 
   const nationalityPreference = answers.nationality_preference

@@ -6,6 +6,7 @@ import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group"
 import { Textarea } from "../../components/ui/textarea"
 
 export const MATCH_INSIGHT_IDS = [
+  'age_flex_one_year',
   'match_disagreement_style',
   'match_similarity_preference',
   'match_current_curiosity',
@@ -23,6 +24,15 @@ const questions: Array<{
   options?: Array<{ value: string; label: string }>
   placeholder?: string
 }> = [
+  {
+    id: 'age_flex_one_year',
+    title: 'إذا ما لقينا لك تطابق مناسب داخل المدى العمري اللي اخترته، هل تقبل نوسّعه سنة واحدة فقط من كل جهة؟',
+    type: 'radio',
+    options: [
+      { value: 'accept', label: 'نعم، عادي يكون أصغر أو أكبر بسنة' },
+      { value: 'decline', label: 'لا، التزموا بالمدى اللي اخترته' },
+    ],
+  },
   {
     id: 'match_disagreement_style',
     title: 'فتحتوا موضوع واكتشفت إن رأيه عكس رأيك تمامًا—بس طريقته محترمة. وش يخلي السالفة أمتع بالنسبة لك؟',
@@ -83,6 +93,7 @@ const questions: Array<{
 export function getMissingMatchInsightIds(answers: Answers): InsightId[] {
   return MATCH_INSIGHT_IDS.filter((id) => {
     const value = answers[id]
+    if (id === 'age_flex_one_year') return !['accept', 'decline', 'not_applicable'].includes(String(value || '').toLowerCase())
     if (id === 'match_current_focus') return !Array.isArray(value) || value.length !== 2
     if (id === 'match_current_curiosity') return typeof value !== 'string' || value.trim().length < 20
     return !['A', 'B', 'C', 'D'].includes(String(value || '').toUpperCase())
@@ -121,7 +132,11 @@ export function MatchInsightsUpdateDialog({ open, missingIds, secureToken, onOpe
 
   const submit = async () => {
     const payload = Object.fromEntries(missingIds.map((id) => [id, answers[id]])) as Answers
-    const missingChoice = missingIds.some((id) => id !== 'match_current_curiosity' && id !== 'match_current_focus' && !['A', 'B', 'C', 'D'].includes(String(payload[id] || '')))
+    const missingChoice = missingIds.some((id) => {
+      if (id === 'match_current_curiosity' || id === 'match_current_focus') return false
+      if (id === 'age_flex_one_year') return !['accept', 'decline'].includes(String(payload[id] || '').toLowerCase())
+      return !['A', 'B', 'C', 'D'].includes(String(payload[id] || ''))
+    })
     const curiosityInvalid = missingIds.includes('match_current_curiosity') && String(payload.match_current_curiosity || '').trim().length < 20
     const focusInvalid = missingIds.includes('match_current_focus') && (!Array.isArray(payload.match_current_focus) || payload.match_current_focus.length !== 2)
     if (missingChoice || curiosityInvalid || focusInvalid) {

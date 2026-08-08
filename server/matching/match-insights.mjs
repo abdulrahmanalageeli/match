@@ -218,6 +218,15 @@ export function validateMatchInsights(input, { requireAll = true } = {}) {
   validateChoice('match_similarity_preference')
   validateChoice('conversation_initiative_preference')
 
+  // The welcome update popup also carries the one-year age-range fallback.
+  // It is optional here because it is a hard matching preference, not one of
+  // the five scored match-insight questions.
+  if ('age_flex_one_year' in source) {
+    const ageFlex = String(source.age_flex_one_year ?? '').trim().toLowerCase()
+    if (!['accept', 'decline', 'not_applicable'].includes(ageFlex)) errors.age_flex_one_year = 'invalid_choice'
+    else cleaned.age_flex_one_year = ageFlex
+  }
+
   if ('match_current_curiosity' in source || requireAll) {
     const curiosity = String(source.match_current_curiosity ?? '').replace(/\s+/g, ' ').trim()
     if (curiosity.length < 20 || curiosity.length > 150) errors.match_current_curiosity = 'invalid_length'

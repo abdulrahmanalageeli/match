@@ -77,8 +77,9 @@ test('attachment pace supports legacy flat survey records', () => {
   assert.ok(calculateAttachmentPaceScore(flat, flat) > 2.5)
 })
 
-test('popup payload validation only accepts the five whitelisted fields', () => {
+test('popup payload validation accepts the five match insights and age flexibility', () => {
   const valid = validateMatchInsights({
+    age_flex_one_year: 'accept',
     match_disagreement_style: 'b',
     match_similarity_preference: 'C',
     conversation_initiative_preference: 'A',
@@ -88,6 +89,7 @@ test('popup payload validation only accepts the five whitelisted fields', () => 
   })
   assert.equal(valid.valid, true)
   assert.deepEqual(Object.keys(valid.answers).sort(), [
+    'age_flex_one_year',
     'conversation_initiative_preference',
     'match_current_curiosity',
     'match_current_focus',
@@ -96,10 +98,12 @@ test('popup payload validation only accepts the five whitelisted fields', () => 
   ])
   assert.equal(valid.answers.match_disagreement_style, 'B')
   assert.equal(valid.answers.conversation_initiative_preference, 'A')
+  assert.equal(valid.answers.age_flex_one_year, 'accept')
 
   assert.equal(validateMatchInsights({ match_current_focus: ['career', 'career'] }).valid, false)
   assert.equal(validateMatchInsights({ conversation_initiative_preference: 'E' }).valid, false)
   assert.equal(validateMatchInsights({ match_current_curiosity: 'قصير' }).valid, false)
+  assert.equal(validateMatchInsights({ age_flex_one_year: 'sometimes' }, { requireAll: false }).valid, false)
 })
 
 test('vibe profile and cache content include the new topical answers', () => {

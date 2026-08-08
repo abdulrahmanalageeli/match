@@ -2593,19 +2593,19 @@ export default function WelcomePage() {
           setIsTokenValid(false)
           setTokenError(data.error || "الرابط غير صحيح أو منتهي الصلاحية")
           console.error("Invalid token:", data.error)
-          
-          // Clear localStorage to allow user to create new account
-          console.log("🗑️ Clearing localStorage due to invalid token")
-          clearSavedTokens()
+
+          // Keep any previously saved account intact. The URL may contain an
+          // old or mistyped token that is unrelated to the signed-in account.
+          console.log("Keeping saved participant login after invalid URL token")
         }
       } catch (err) {
         console.error("Error resolving token:", err)
         setIsTokenValid(false)
         setTokenError("حدث خطأ في التحقق من الرابط. يرجى المحاولة مرة أخرى.")
-        
-        // Clear localStorage to allow user to create new account
-        console.log("🗑️ Clearing localStorage due to token resolution error")
-        clearSavedTokens()
+
+        // Network, server, and response-parsing failures are temporary and
+        // must never be treated as a logout signal.
+        console.log("Keeping saved participant login after token resolution error")
       } finally {
         setIsResolving(false)
       }
@@ -4703,14 +4703,6 @@ export default function WelcomePage() {
     }
   }, [secureToken]);
 
-  // Save token immediately when URL contains token parameter (before resolution)
-  useEffect(() => {
-    if (token && token.trim()) {
-      console.log('💾 Auto-saving token from URL parameter:', token);
-      saveUserToken(token);
-    }
-  }, [token]);
-
   // Save token when user successfully completes survey or joins
   const saveUserToken = (token: string, name?: string, number?: number) => {
     if (token && token.trim()) {
@@ -4724,54 +4716,6 @@ export default function WelcomePage() {
       }
       setResultToken(token);
       setReturningPlayerToken(token);
-    }
-  };
-
-  // Clear saved tokens
-  const clearSavedTokens = () => {
-    localStorage.removeItem('blindmatch_result_token');
-    localStorage.removeItem('blindmatch_returning_token');
-    localStorage.removeItem('blindmatch_participant_name');
-    localStorage.removeItem('blindmatch_participant_number');
-    // Also clear sessionStorage items related to tokens
-    sessionStorage.removeItem('justCreatedToken');
-    sessionStorage.removeItem('justCreatedTokenValue');
-    setResultToken('');
-    setReturningPlayerToken('');
-    setParticipantName(null);
-    setAssignedNumber(null);
-    setSecureToken(null); // Clear secure token state
-    console.log('🗑️ Cleared all saved tokens from localStorage and sessionStorage');
-  };
-
-  // Clear specific token (for individual X buttons)
-  const clearSpecificToken = (tokenType: 'result' | 'returning') => {
-    if (tokenType === 'result') {
-      localStorage.removeItem('blindmatch_result_token');
-      localStorage.removeItem('blindmatch_returning_token'); // Clear both since they're synced
-      localStorage.removeItem('blindmatch_participant_name');
-      localStorage.removeItem('blindmatch_participant_number');
-      sessionStorage.removeItem('justCreatedToken');
-      sessionStorage.removeItem('justCreatedTokenValue');
-      setResultToken('');
-      setReturningPlayerToken('');
-      setParticipantName(null);
-      setAssignedNumber(null);
-      setSecureToken(null); // Clear secure token state
-      console.log('🗑️ Cleared result token from localStorage and sessionStorage');
-    } else if (tokenType === 'returning') {
-      localStorage.removeItem('blindmatch_returning_token');
-      localStorage.removeItem('blindmatch_result_token'); // Clear both since they're synced
-      localStorage.removeItem('blindmatch_participant_name');
-      localStorage.removeItem('blindmatch_participant_number');
-      sessionStorage.removeItem('justCreatedToken');
-      sessionStorage.removeItem('justCreatedTokenValue');
-      setResultToken('');
-      setReturningPlayerToken('');
-      setParticipantName(null);
-      setAssignedNumber(null);
-      setSecureToken(null); // Clear secure token state
-      console.log('🗑️ Cleared returning token from localStorage and sessionStorage');
     }
   };
 

@@ -5070,6 +5070,7 @@ if (action === "cache-status-by-gender") {
           
           const intentA = String((targetParticipant?.survey_data?.answers?.intent_goal ?? targetParticipant?.intent_goal ?? '')).toUpperCase()
           const intentB = String((potentialMatch?.survey_data?.answers?.intent_goal ?? potentialMatch?.intent_goal ?? '')).toUpperCase()
+          const ageTolerance = getAgeTolerance(targetParticipant.assigned_number, potentialMatch.assigned_number)
           calculatedPairs.push({
             participant_a: targetParticipant.assigned_number,
             participant_b: potentialMatch.assigned_number,
@@ -5101,7 +5102,11 @@ if (action === "cache-status-by-gender") {
               (compatibilityResult.opennessZeroZeroPenaltyApplied ? ` − Penalty(Opn 0×0)` : '') +
               (compatibilityResult.intentBoostApplied ? ` × IntentBoost(1.05)` : '') +
               (compatibilityResult.capApplied ? ` (capped @ ${compatibilityResult.capApplied}%)` : '')
-            ) + getAgeToleranceLabel(getAgeTolerance(targetParticipant.assigned_number, potentialMatch.assigned_number)),
+            ) + getAgeToleranceLabel(ageTolerance),
+            age_tolerance_used_a: ageTolerance.usedA,
+            age_tolerance_used_b: ageTolerance.usedB,
+            age_tolerance_confirmation_a: ageTolerance.requiresConfirmationA,
+            age_tolerance_confirmation_b: ageTolerance.requiresConfirmationB,
             is_actual_match: false, // These are potential matches, not actual matches
             is_repeated_match: isRepeatedMatch // Flag for pairs matched in previous events
           })
@@ -6359,10 +6364,8 @@ if (action === "cache-status-by-gender") {
         }
 
         // Append age tolerance indicator if used
-        {
-          const tol = getAgeTolerance(a.assigned_number, b.assigned_number)
-          reason += getAgeToleranceLabel(tol)
-        }
+        const ageTolerance = getAgeTolerance(a.assigned_number, b.assigned_number)
+        reason += getAgeToleranceLabel(ageTolerance)
         
         // Determine bonus type based on humor multiplier
         let bonusType = 'none'
@@ -6433,7 +6436,8 @@ if (action === "cache-status-by-gender") {
           aCoreValues: aCoreValues,
           bCoreValues: bCoreValues,
           aVibeDescription: a.survey_data?.vibeDescription || '',
-          bVibeDescription: b.survey_data?.vibeDescription || ''
+          bVibeDescription: b.survey_data?.vibeDescription || '',
+          ageTolerance
         })
       } catch (pairError) {
         console.error(`❌ ERROR processing pair #${a.assigned_number} × #${b.assigned_number}:`, pairError.message)
@@ -7060,6 +7064,10 @@ if (action === "cache-status-by-gender") {
       cap_applied: pair.capApplied ?? null,
       humor_early_openness_bonus: pair.bonusType,
       reason: pair.reason,
+      age_tolerance_used_a: !!pair.ageTolerance?.usedA,
+      age_tolerance_used_b: !!pair.ageTolerance?.usedB,
+      age_tolerance_confirmation_a: !!pair.ageTolerance?.requiresConfirmationA,
+      age_tolerance_confirmation_b: !!pair.ageTolerance?.requiresConfirmationB,
       is_actual_match: finalMatches.some(match => 
         (match.participant_a_number === pair.a && match.participant_b_number === pair.b) ||
         (match.participant_a_number === pair.b && match.participant_b_number === pair.a)

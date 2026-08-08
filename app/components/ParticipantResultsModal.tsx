@@ -659,6 +659,17 @@ export default function ParticipantResultsModal({
     return "bg-red-500/20 border-red-400/30"
   }
 
+  const getAgeFlexDecision = (participantNumber: number): 'accepted' | 'declined' | 'unanswered' => {
+    const pData = participantData.get(participantNumber)
+    const raw = pData?.age_flex_one_year ??
+      pData?.survey_data?.answers?.age_flex_one_year ??
+      pData?.survey_data?.answers?.age_flex_if_no_match
+    const normalized = String(raw ?? '').trim().toLowerCase()
+    if (raw === true || ['true', 'accept', 'accepted', 'yes'].includes(normalized)) return 'accepted'
+    if (raw === false || ['false', 'decline', 'declined', 'no'].includes(normalized)) return 'declined'
+    return 'unanswered'
+  }
+
   // Open pair analysis for a specific row
   const openPairAnalysis = (participant: ParticipantResult) => {
     const hasRealPartner = !!participant.partner_assigned_number && participant.partner_assigned_number !== 9999
@@ -1516,7 +1527,24 @@ export default function ParticipantResultsModal({
                               return (a === x && b === y) || (a === y && b === x)
                             })
                             const hasAny = pair && (pair.intent_boost_applied || pair.attachment_penalty_applied || pair.dead_air_veto_applied || pair.humor_clash_veto_applied || pair.cap_applied != null || (pair.humor_early_openness_bonus && pair.humor_early_openness_bonus !== 'none'))
-                            const tolerated = !!(pair && typeof pair.reason === 'string' && pair.reason.includes('±1y'))
+                            const hasStructuredTolerance = pair && (
+                              typeof pair.age_tolerance_used_a === 'boolean' ||
+                              typeof pair.age_tolerance_used_b === 'boolean'
+                            )
+                            const tolerated = !!pair && (hasStructuredTolerance
+                              ? (pair.age_tolerance_used_a || pair.age_tolerance_used_b)
+                              : (typeof pair.reason === 'string' && pair.reason.includes('±1y')))
+                            const flexDecision = getAgeFlexDecision(participant.assigned_number)
+                            const toleranceStyle = flexDecision === 'accepted'
+                              ? 'bg-green-500/20 border-green-400/30 text-green-300'
+                              : flexDecision === 'declined'
+                                ? 'bg-red-500/20 border-red-400/30 text-red-300'
+                                : 'bg-yellow-500/20 border-yellow-400/30 text-yellow-300'
+                            const toleranceTitle = flexDecision === 'accepted'
+                              ? 'حالة مرونة ±1 سنة: وافق المشارك'
+                              : flexDecision === 'declined'
+                                ? 'حالة مرونة ±1 سنة: رفض المشارك'
+                                : 'حالة مرونة ±1 سنة: لم يرسل المشارك اختياره بعد'
                             return (
                               <td className="p-2 text-center">
                                 {(hasAny || tolerated) ? (
@@ -1647,8 +1675,8 @@ export default function ParticipantResultsModal({
                                       </Tooltip.Provider>
                                     )}
                                     {tolerated && (
-                                      <div className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-yellow-500/20 border border-yellow-400/30" title="تم قبول خارج تفضيل العمر ضمن تسامح ±1 سنة">
-                                        <span className="text-yellow-300 text-[11px] font-bold">±1</span>
+                                      <div className={`inline-flex items-center justify-center w-7 h-7 rounded-full border ${toleranceStyle}`} title={toleranceTitle}>
+                                        <span className="text-[11px] font-bold">±1</span>
                                       </div>
                                     )}
                                   </div>

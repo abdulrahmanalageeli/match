@@ -22,6 +22,7 @@ import {
   Search,
   Filter,
   BarChart3,
+  Brain,
   Shield,
   LogOut,
   Plus,
@@ -63,6 +64,7 @@ import ParticipantQRModal from "~/components/ParticipantQRModal"
 import ParticipantProfileModal from "~/components/ParticipantProfileModal"
 import TwilioAdminPanel from "~/components/TwilioAdminPanel"
 import { surveyQuestions } from "~/components/SurveyComponent"
+import PairAnalysisModal from "~/components/PairAnalysisModalPro"
 
 // ─── Match Analyzer Modal ───────────────────────────────────────────────────
 function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
@@ -662,6 +664,11 @@ export default function AdminPage() {
   const [testModeOnly, setTestModeOnly] = useState(false)
   const [showAllMatches, setShowAllMatches] = useState(false)
   const [debugPair, setDebugPair] = useState(false)
+  const [analyzeManualPair, setAnalyzeManualPair] = useState(false)
+  const [showManualPairAnalysis, setShowManualPairAnalysis] = useState(false)
+  const [manualAnalysisA, setManualAnalysisA] = useState<any | null>(null)
+  const [manualAnalysisB, setManualAnalysisB] = useState<any | null>(null)
+  const [manualAnalysisPair, setManualAnalysisPair] = useState<any | null>(null)
   const [viewAllMatchesLoading, setViewAllMatchesLoading] = useState(false)
 
   // Deep personality analysis
@@ -3405,8 +3412,8 @@ const fetchParticipants = async () => {
             manualMatch: {
               participant1: participant1,
               participant2: participant2,
-              bypassEligibility: bypassEligibility,
-              testModeOnly: testModeOnly,
+              bypassEligibility: analyzeManualPair || bypassEligibility,
+              testModeOnly: analyzeManualPair || testModeOnly,
               debugPair: debugPair,
               ...(forceSwap ? { forceSwap: true } : {})
             }
@@ -3418,7 +3425,7 @@ const fetchParticipants = async () => {
 
       let { res, data } = await sendManualMatch(false)
 
-      if (res.status === 409 && data?.conflict && !debugPair && !testModeOnly) {
+      if (res.status === 409 && data?.conflict && !debugPair && !testModeOnly && !analyzeManualPair) {
         const round = Number(data?.conflict?.round)
         const roundLabel = round === 2 ? 'Round 2 (Opposite Gender)' : 'Round 1 (Same Gender)'
         const items = Array.isArray(data?.conflict?.participants) ? data.conflict.participants : []
@@ -3451,6 +3458,32 @@ const fetchParticipants = async () => {
         
         // Extract detailed scores from the response
         const result = data.results?.[0]
+        if (analyzeManualPair) {
+          const participantA = participants.find((p: any) => p.assigned_number === participant1)
+          const participantB = participants.find((p: any) => p.assigned_number === participant2)
+          if (!participantA || !participantB) {
+            toast.error('Could not load both participants for analysis')
+            return
+          }
+          setManualAnalysisA(participantA)
+          setManualAnalysisB(participantB)
+          setManualAnalysisPair(result ? {
+            ...result,
+            participant_a: participant1,
+            participant_b: participant2,
+            compatibility_score: data.compatibility_score,
+            synergy_score: result.synergyScore,
+            humor_open_score: result.humorOpenScore,
+            intent_score: result.intentScore,
+            communication_compatibility_score: result.communicationScore,
+            lifestyle_compatibility_score: result.lifestyleScore,
+            core_values_compatibility_score: result.coreValuesScore,
+            vibe_compatibility_score: result.vibeScore,
+          } : null)
+          setShowManualPairAnalysis(true)
+          toast.success(`Analysis ready for #${participant1} ↔ #${participant2}`)
+          return
+        }
         if (data.debug) {
           const lines: string[] = []
           lines.push(`🕵️ Debug Pair: #${participant1} ↔ #${participant2}`)
@@ -6455,7 +6488,9 @@ Proceed?`
                 onClick={addManualMatch}
                 disabled={!newManualMatch.participant1 || (!showAllMatches && !runPersonalityAnalysis && !newManualMatch.participant2) || viewAllMatchesLoading || personalityAnalysisLoading}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 ${
-                  runPersonalityAnalysis
+                  analyzeManualPair
+                    ? 'bg-gradient-to-r from-purple-600 to-violet-700 hover:from-purple-700 hover:to-violet-800 text-white'
+                    : runPersonalityAnalysis
                     ? 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white'
                     : showAllMatches
                     ? 'bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white'
@@ -6466,7 +6501,12 @@ Proceed?`
                     : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white'
                 }`}
               >
-                {personalityAnalysisLoading ? (
+                {analyzeManualPair ? (
+                  <>
+                    <Brain className="w-4 h-4" />
+                    Analyze Pair
+                  </>
+                ) : personalityAnalysisLoading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Analyzing...
@@ -6571,6 +6611,23 @@ Proceed?`
                 </span>
               </label>
             </div>
+            {/* Analyze Pair Checkbox */}
+            <div className="flex items-center gap-3 mt-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={analyzeManualPair}
+                  onChange={(e) => setAnalyzeManualPair(e.target.checked)}
+                  className="w-4 h-4 text-purple-500 bg-white/10 border-white/20 rounded focus:ring-purple-400/50 focus:ring-2"
+                />
+                <span className={`text-sm font-medium transition-colors ${
+                  analyzeManualPair ? 'text-purple-300' : 'text-slate-400'
+                }`}>
+                  🧠 Analyze Pair (do not create match)
+                </span>
+              </label>
+            </div>
+
             {/* Deep Personality Analysis Checkbox */}
             <div className="flex items-center gap-3 mt-2">
               <label className="flex items-center gap-2 cursor-pointer">
@@ -9469,6 +9526,17 @@ Proceed?`
       )}
 
       </div>
+
+      <PairAnalysisModal
+        open={showManualPairAnalysis}
+        onOpenChange={setShowManualPairAnalysis}
+        a={manualAnalysisA}
+        b={manualAnalysisB}
+        pair={manualAnalysisPair}
+        historyA={manualAnalysisA?.assigned_number ? (participantMatchHistory[manualAnalysisA.assigned_number] || []) : []}
+        historyB={manualAnalysisB?.assigned_number ? (participantMatchHistory[manualAnalysisB.assigned_number] || []) : []}
+        currentEventId={currentEventId}
+      />
 
       {/* React Hot Toast Container */}
       <Toaster

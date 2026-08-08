@@ -24,6 +24,10 @@ interface ParticipantResult {
   synergy_score?: number
   humor_open_score?: number
   intent_score?: number
+  disagreement_style_score?: number
+  current_life_overlap_score?: number
+  similarity_preference_score?: number
+  attachment_pace_score?: number
   attachment_penalty_applied?: boolean
   intent_boost_applied?: boolean
   dead_air_veto_applied?: boolean
@@ -622,6 +626,10 @@ export default function ParticipantResultsModal({
         synergy_score: pair.synergy_score,
         humor_open_score: pair.humor_open_score,
         intent_score: pair.intent_score,
+        disagreement_style_score: pair.disagreement_style_score,
+        current_life_overlap_score: pair.current_life_overlap_score,
+        similarity_preference_score: pair.similarity_preference_score,
+        attachment_pace_score: pair.attachment_pace_score,
         intent_a: pair.intent_a,
         intent_b: pair.intent_b,
         intent_self: intentSelf,
@@ -780,13 +788,18 @@ export default function ParticipantResultsModal({
         {matchType !== "group" && (
           <div className="mx-6 mt-3 mb-1 text-xs text-slate-300/80">
             <div className="inline-flex flex-wrap items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2">
-              <span className="font-semibold text-slate-200">معادلة 100 نقطة:</span>
+              <span className="font-semibold text-slate-200">عوامل الدرجة قبل المكافآت والحد الأعلى 100:</span>
               <span>التفاعل 35</span>
-              <span>الطاقة 20</span>
+              <span>الطاقة 15</span>
+              <span>أسلوب الاختلاف 4</span>
+              <span>المرحلة الحالية 5</span>
+              <span>تفضيل التشابه 5</span>
+              <span>وتيرة التقارب 3</span>
               <span>نمط الحياة 15</span>
               <span>الدعابة/الانفتاح 15</span>
-              <span>التواصل 10</span>
-              <span>الأهداف 5</span>
+              <span>التواصل 3</span>
+              <span>القيم 5</span>
+              <span>الهدف 5</span>
             </div>
           </div>
         )}
@@ -959,6 +972,18 @@ export default function ParticipantResultsModal({
                                 <Users className="w-3 h-3" />
                                 <span className="text-xs">التفاعل</span>
                               </div>
+                            </th>
+                            <th className="text-center p-2 text-sm font-semibold text-slate-300">
+                              <span className="text-xs">أسلوب الاختلاف /4</span>
+                            </th>
+                            <th className="text-center p-2 text-sm font-semibold text-slate-300">
+                              <span className="text-xs">المرحلة الحالية /5</span>
+                            </th>
+                            <th className="text-center p-2 text-sm font-semibold text-slate-300">
+                              <span className="text-xs">تفضيل التشابه /5</span>
+                            </th>
+                            <th className="text-center p-2 text-sm font-semibold text-slate-300">
+                              <span className="text-xs">وتيرة التقارب /3</span>
                             </th>
                             <th className="text-center p-2 text-sm font-semibold text-slate-300">
                               <div className="flex items-center justify-center gap-1">
@@ -1702,9 +1727,17 @@ export default function ParticipantResultsModal({
                             const comm = pair?.communication_compatibility_score ?? 0
                             const intent = pair?.intent_score ?? 0
                             const vibe = pair?.vibe_compatibility_score ?? 0
+                            const disagreement = pair?.disagreement_style_score ?? 0
+                            const currentLife = pair?.current_life_overlap_score ?? 0
+                            const similarityPreference = pair?.similarity_preference_score ?? 0
+                            const attachmentPace = pair?.attachment_pace_score ?? 0
                             return (
                               <>
                                 <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(synergy).toFixed(1)}%</span></td>
+                                <td className="p-2 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number(disagreement).toFixed(1)}/4</span></td>
+                                <td className="p-2 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number(currentLife).toFixed(1)}/5</span></td>
+                                <td className="p-2 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number(similarityPreference).toFixed(1)}/5</span></td>
+                                <td className="p-2 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number(attachmentPace).toFixed(1)}/3</span></td>
                                 <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(life).toFixed(1)}%</span></td>
                                 <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(humorOpen).toFixed(1)}%</span></td>
                                 <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(comm).toFixed(1)}%</span></td>

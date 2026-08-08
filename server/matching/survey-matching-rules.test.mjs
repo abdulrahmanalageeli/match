@@ -78,6 +78,10 @@ test("a model-version cache miss can reuse an unchanged AI vibe score", async ()
   assert.equal(result.vibeScore, 12.75)
   assert.equal(result.cached, false)
   assert.ok(Number.isFinite(result.totalScore))
+  assert.ok(result.disagreementScore >= 0 && result.disagreementScore <= 4)
+  assert.ok(result.currentFocusScore >= 0 && result.currentFocusScore <= 5)
+  assert.ok(result.similarityPreferenceScore >= 0 && result.similarityPreferenceScore <= 5)
+  assert.ok(result.attachmentPaceScore >= 0 && result.attachmentPaceScore <= 3)
 })
 
 test("a complete new survey does not require retired MBTI answers", () => {

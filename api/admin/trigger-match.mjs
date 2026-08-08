@@ -5128,6 +5128,11 @@ if (action === "cache-status-by-gender") {
           const intentA = String((targetParticipant?.survey_data?.answers?.intent_goal ?? targetParticipant?.intent_goal ?? '')).toUpperCase()
           const intentB = String((potentialMatch?.survey_data?.answers?.intent_goal ?? potentialMatch?.intent_goal ?? '')).toUpperCase()
           const ageTolerance = getAgeTolerance(targetParticipant.assigned_number, potentialMatch.assigned_number)
+          const shortMeetingInsights = calculateShortMeetingInsightScores(
+            targetParticipant,
+            potentialMatch,
+            compatibilityResult.vibeScore,
+          )
           calculatedPairs.push({
             participant_a: targetParticipant.assigned_number,
             participant_b: potentialMatch.assigned_number,
@@ -5145,6 +5150,10 @@ if (action === "cache-status-by-gender") {
             synergy_score: compatibilityResult.synergyScore,                 // 0-35
             humor_open_score: compatibilityResult.humorOpenScore,           // 0-15
             intent_score: compatibilityResult.intentScore,                  // 0-5 (Goal & Values)
+            disagreement_style_score: compatibilityResult.disagreementScore ?? shortMeetingInsights.disagreementScore, // 0-4
+            current_life_overlap_score: compatibilityResult.currentFocusScore ?? shortMeetingInsights.currentFocusScore, // 0-5
+            similarity_preference_score: compatibilityResult.similarityPreferenceScore ?? shortMeetingInsights.similarityPreferenceScore, // 0-5
+            attachment_pace_score: compatibilityResult.attachmentPaceScore ?? calculateAttachmentPaceScore(targetParticipant, potentialMatch), // 0-3
             openness_zero_zero_penalty_applied: compatibilityResult.opennessZeroZeroPenaltyApplied || false,
             intent_a: intentA,
             intent_b: intentB,
@@ -6410,6 +6419,11 @@ if (action === "cache-status-by-gender") {
         const synergyScore = Number(compatibilityResult.synergyScore ?? 0)
         const humorOpenScore = Number(compatibilityResult.humorOpenScore ?? 0)
         const intentScore = Number(compatibilityResult.intentScore ?? 0)
+        const {
+          disagreementScore,
+          currentFocusScore,
+          similarityPreferenceScore,
+        } = calculateShortMeetingInsightScores(a, b, vibeScore)
         const attachmentPaceScore = Number(compatibilityResult.attachmentPaceScore ?? calculateAttachmentPaceScore(a, b))
         const attachmentPenaltyApplied = !!compatibilityResult.attachmentPenaltyApplied
         const intentBoostApplied = !!compatibilityResult.intentBoostApplied
@@ -6510,6 +6524,9 @@ if (action === "cache-status-by-gender") {
           synergyScore: synergyScore,
           humorOpenScore: humorOpenScore,
           intentScore: intentScore,
+          disagreementScore: Number(compatibilityResult.disagreementScore ?? disagreementScore),
+          currentFocusScore: Number(compatibilityResult.currentFocusScore ?? currentFocusScore),
+          similarityPreferenceScore: Number(compatibilityResult.similarityPreferenceScore ?? similarityPreferenceScore),
           attachmentPaceScore: attachmentPaceScore,
           attachmentPenaltyApplied: attachmentPenaltyApplied,
           intentBoostApplied: intentBoostApplied,
@@ -7154,6 +7171,10 @@ if (action === "cache-status-by-gender") {
       synergy_score: pair.synergyScore ?? 0,
       humor_open_score: pair.humorOpenScore ?? 0,
       intent_score: pair.intentScore ?? 0,
+      disagreement_style_score: pair.disagreementScore ?? 0,
+      current_life_overlap_score: pair.currentFocusScore ?? 0,
+      similarity_preference_score: pair.similarityPreferenceScore ?? 0,
+      attachment_pace_score: pair.attachmentPaceScore ?? 0,
       intent_a: pair.aIntent || null,
       intent_b: pair.bIntent || null,
       attachment_penalty_applied: !!pair.attachmentPenaltyApplied,

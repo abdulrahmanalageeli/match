@@ -151,9 +151,9 @@ export function MatchInsightsUpdateDialog({ open, missingIds, secureToken, onOpe
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <DialogTitle className="text-right text-xl font-black leading-8 text-slate-950 dark:text-white sm:text-2xl">خلّنا نضبط جلستك القادمة أكثر</DialogTitle>
+            <DialogTitle className="text-right text-xl font-black leading-8 text-slate-950 dark:text-white sm:text-2xl">خلّنا نعرفك أكثر</DialogTitle>
             <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-              أضفنا {missingIds.length === 1 ? 'سؤالًا واحدًا' : `${missingIds.length} أسئلة`} تفرق فعلًا في انسجام جلسة مدتها 20 دقيقة. جاوبها هنا بدون الرجوع للاستبيان الكامل.
+              عندنا {missingIds.length === 1 ? 'سؤال واحد جديد' : `${missingIds.length} أسئلة جديدة`} تساعدنا نفهمك بشكل أدق. جاوبها هنا بدون ما ترجع للاستبيان كامل.
             </p>
           </DialogHeader>
         </div>

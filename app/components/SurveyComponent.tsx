@@ -2244,7 +2244,7 @@ const SurveyComponent = memo(function SurveyComponent({
               </div>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-sm font-extrabold text-slate-950 dark:text-white">أسئلة جديدة تحسّن اختيار جلسة الـ20 دقيقة</h3>
+                  <h3 className="text-sm font-extrabold text-slate-950 dark:text-white">كم سؤال جديد عشان نعرفك أكثر</h3>
                   <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-black text-slate-950">جديد</span>
                 </div>
                 <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300 sm:text-sm">

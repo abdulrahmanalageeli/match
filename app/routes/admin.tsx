@@ -85,9 +85,9 @@ function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
   matchRows.forEach((mr: any) => matchRowMap.set(mr.participant_number, mr))
 
   // Original max weights for scaling
-  const originalMax: Record<string, number> = { synergy: 35, vibe: 20, lifestyle: 15, humorOpen: 15, communication: 10, coreValues: 5, intent: 5 }
+  const originalMax: Record<string, number> = { synergy: 30, vibe: 25, lifestyle: 10, humorOpen: 15, communication: 3, coreValues: 5, intent: 5 }
 
-  const defaultWeights = { synergy: 35, vibe: 20, lifestyle: 15, humorOpen: 15, communication: 10, coreValues: 5, intent: 5 }
+  const defaultWeights = { synergy: 30, vibe: 25, lifestyle: 10, humorOpen: 15, communication: 3, coreValues: 5, intent: 5 }
 
   // Compute recalculated score for a pair given specific weights
   const recalcScore = (pair: any, w: typeof weights) => {
@@ -174,7 +174,7 @@ function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
     { key: 'intent', label: 'Intent/Goal', color: 'text-orange-400' },
   ]
 
-  const resetWeights = () => setWeights({ synergy: 35, vibe: 20, lifestyle: 15, humorOpen: 15, communication: 10, coreValues: 5, intent: 5 })
+  const resetWeights = () => setWeights({ synergy: 30, vibe: 25, lifestyle: 10, humorOpen: 15, communication: 3, coreValues: 5, intent: 5 })
 
   // Sort pairs by original score descending
   const sortedPairs = [...pairs].sort((a, b) => {
@@ -703,11 +703,11 @@ export default function AdminPage() {
   const [analyzerData, setAnalyzerData] = useState<any>(null)
   const [analyzerLoading, setAnalyzerLoading] = useState(false)
   const [scoreWeights, setScoreWeights] = useState({
-    synergy: 35,
-    vibe: 20,
-    lifestyle: 15,
+    synergy: 30,
+    vibe: 25,
+    lifestyle: 10,
     humorOpen: 15,
-    communication: 10,
+    communication: 3,
     coreValues: 5,
     intent: 5,
   })
@@ -2507,16 +2507,17 @@ const fetchParticipants = async () => {
       // Scoring criteria reference
       const scoringCriteria = [
         ['Category', 'Max Score', 'Weight in Total', 'Scoring Logic'],
-        ['Synergy (Interaction)', '35', 'Major component', 'Based on Q35-Q41: conversational role, depth pref, social battery, humor subtype, curiosity style alignment'],
-        ['Vibe Compatibility', '20', 'Major component', 'AI-analyzed (GPT-4o-mini) shared interests from Q29-Q34: weekend, hobbies, music, conversation depth, friend descriptions'],
-        ['Lifestyle', '15 (capped at 10)', 'Moderate', 'Based on Q14-Q18: activity time, contact frequency, personal space, planning style, weekend pref. Proximity-based scoring'],
+        ['Synergy (Interaction)', '30', 'Major component', 'Based on Q35-Q41: conversational role, depth pref, social battery, humor subtype, curiosity style alignment'],
+        ['Vibe Compatibility', '25', 'Major component', 'AI-analyzed shared interests and conversational fit from the open-ended profile'],
+        ['Lifestyle', '15 raw (scaled to 10)', 'Moderate', 'Based on Q14-Q18: activity time, contact frequency, personal space, planning style, weekend pref. Raw total is proportionally scaled by 10/15'],
         ['Humor/Openness', '15', 'Moderate', 'Based on Q4.25 (humor banter style) + Q4.75 (early openness comfort) alignment'],
-        ['Communication', '10', 'Moderate', 'Based on Q24-Q28: Assertive/Passive/Aggressive/Passive-Aggressive compatibility matrix'],
+        ['Communication', '10 raw (scaled to 3)', 'Minor in total', 'Based on Q24-Q28: Assertive/Passive/Aggressive/Passive-Aggressive compatibility matrix'],
+        ['New matching signals', '17', 'Major component', 'Disagreement 4 + current-life overlap 5 + similarity preference 5 + attachment/connection pace 3'],
         ['Core Values', '20 raw (scaled to 5)', 'Minor in total', 'Based on Q19-Q23: 5 value questions. Identical=4pts, adjacent=2pts, opposite=0pts. Raw 0-20 scaled to 0-5'],
         ['Intent/Goal', '5', 'Minor', 'Based on Q40: same intent=5, compatible=3-4, mismatch=2'],
         ['MBTI', '5', 'NOT in new total', 'Based on Q5-Q8: I/E complement + N/S,T/F,J/P matching. Historical only'],
         ['Attachment', '5', 'NOT in new total', 'Based on Q9-Q13: Secure=full score. Historical only. Anxious+Avoidant=-5 penalty'],
-        ['Total Formula', '100', 'Final score', 'synergy + vibe + lifestyle + humorOpen + communication + coreValuesScaled5 + intent (with penalties, multipliers, caps)'],
+        ['Total Formula', '105 before bonuses', 'Final score capped at 100', 'All direct components total 105; bonuses and vetoes apply before the final 100 cap'],
         ['Penalty: Anxious x Avoidant', '-5', 'Applied before caps', 'When one is Anxious and other is Avoidant'],
         ['Penalty: Openness 0x0', '-5', 'Applied before multipliers', 'Both participants have early_openness_comfort=0'],
         ['Penalty: Asymmetric Openness', '-4', 'Applied before multipliers', 'One has openness=0, other has openness>=2'],
@@ -3516,16 +3517,16 @@ const fetchParticipants = async () => {
           )
           if (hasNewModel) {
             const round = (v:any) => Math.round((Number(v) || 0) * 100) / 100
-            detailedMessage += `⚡ Synergy: ${round(result.synergyScore)}/35\n`
+            detailedMessage += `⚡ Synergy: ${round(result.synergyScore)}/30\n`
             // Core Values are part of new weights (scaled 0–5)
             const core5 = (result.coreValuesScaled5 != null)
               ? Number(result.coreValuesScaled5)
               : Math.max(0, Math.min(5, ((Number(result.core_values_compatibility_score) || 0) / 20) * 5))
             detailedMessage += `🧩 Core Values: ${round(core5)}/5\n`
-            detailedMessage += `🏠 Lifestyle: ${round(result.lifestyleScore)}/15\n`
+            detailedMessage += `🏠 Lifestyle: ${round(result.lifestyleScore)}/10\n`
             detailedMessage += `😄 Humor & Openness: ${round(result.humorOpenScore)}/15\n`
             detailedMessage += `💬 Communication: ${round(result.communicationScore)}/10\n`
-            detailedMessage += `✨ AI Vibe: ${round(result.vibeScore)}/20\n`
+            detailedMessage += `✨ AI Vibe: ${round(result.vibeScore)}/25\n`
             detailedMessage += `🎯 Meeting Goal & Values: ${round(result.intentScore)}/5\n`
             // Safety row (if flags present)
             const safety: string[] = []

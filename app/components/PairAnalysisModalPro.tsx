@@ -472,13 +472,14 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
     return score
   })()
 
+  const scaledComputedSynergy = (computedSynergy / 35) * 30
   const scores = {
-    synergy: pair?.synergy_score !== undefined && pair?.synergy_score !== null ? normalize(pair.synergy_score as number, 35) : normalize(computedSynergy, 35),
-    lifestyle: normalize(pair?.lifestyle_compatibility_score as number, 15),
+    synergy: pair?.synergy_score !== undefined && pair?.synergy_score !== null ? normalize(pair.synergy_score as number, 30) : normalize(scaledComputedSynergy, 30),
+    lifestyle: normalize(pair?.lifestyle_compatibility_score as number, 10),
     humor: pair?.humor_open_score !== undefined && pair?.humor_open_score !== null ? normalize(pair.humor_open_score as number, 15) : normalize(hbForSummary.total, 15),
-    communication: normalize(pair?.communication_compatibility_score as number, 10),
+    communication: normalize(pair?.communication_compatibility_score as number, 3),
     coreValues: normalize(pair?.core_values_compatibility_score as number, 20),
-    vibe: normalize(pair?.vibe_compatibility_score as number, 20),
+    vibe: normalize(pair?.vibe_compatibility_score as number, 25),
   }
   const coreValues5 = Math.max(0, Math.min(5, (scores.coreValues / 20) * 5))
 
@@ -508,23 +509,23 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
 
   // Build current pair vector (use API values if available, else computed fallbacks)
   const currentVector = useMemo(() => {
-    const s = typeof pair?.synergy_score === 'number' ? pair!.synergy_score : computedSynergy
+    const s = typeof pair?.synergy_score === 'number' ? pair!.synergy_score : scaledComputedSynergy
     const l = typeof pair?.lifestyle_compatibility_score === 'number' ? pair!.lifestyle_compatibility_score : 0
     const h = typeof pair?.humor_open_score === 'number' ? pair!.humor_open_score : hbForSummary.total
     const c = typeof pair?.communication_compatibility_score === 'number' ? pair!.communication_compatibility_score : 0
     const cv = typeof pair?.core_values_compatibility_score === 'number' ? pair!.core_values_compatibility_score : (scores.coreValues ? (scores.coreValues as number) : 0)
     const v = typeof pair?.vibe_compatibility_score === 'number' ? pair!.vibe_compatibility_score : 0
     return {
-      synergy: Number(s) || 0,           // 0..35
-      lifestyle: Number(l) || 0,         // 0..15
+      synergy: Number(s) || 0,           // 0..30
+      lifestyle: Number(l) || 0,         // 0..10
       humor_open: Number(h) || 0,        // 0..15
-      communication: Number(c) || 0,     // 0..10
+      communication: Number(c) || 0,     // 0..3
       core_values: Number(cv) || 0,      // 0..20
-      vibe: Number(v) || 0               // 0..20
+      vibe: Number(v) || 0               // 0..25
     }
-  }, [pair, computedSynergy, hbForSummary.total, scores.coreValues])
+  }, [pair, scaledComputedSynergy, hbForSummary.total, scores.coreValues])
 
-  const dimMax = { synergy: 35, lifestyle: 15, humor_open: 15, communication: 10, core_values: 20, vibe: 20 }
+  const dimMax = { synergy: 30, lifestyle: 10, humor_open: 15, communication: 3, core_values: 20, vibe: 25 }
 
   const computeSimilarityPct = (aVec: any, bVec: any) => {
     const keys = Object.keys(dimMax) as Array<keyof typeof dimMax>
@@ -742,7 +743,7 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
     try {
       const agesLine = `الأعمار: ${aAgeLabel != null ? aAgeLabel : '—'} و ${bAgeLabel != null ? bAgeLabel : '—'}${ageDiff !== null ? ` (فارق ${ageDiff})` : ''}`
       const gendersLine = `النوع: ${mapGenderLabel(a)} و ${mapGenderLabel(b)}`
-      const main = `التفاعل: ${scores.synergy.toFixed(1)}/35، الطاقة: ${scores.vibe.toFixed(1)}/20، نمط الحياة: ${scores.lifestyle.toFixed(1)}/15، الدعابة/الانفتاح: ${scores.humor.toFixed(1)}/15، التواصل: ${scores.communication.toFixed(1)}/10، القيم: ${scores.coreValues.toFixed(1)}/20، الأهداف: ${coreValues5 .toFixed(1)}/5`
+      const main = `التفاعل: ${scores.synergy.toFixed(1)}/30، الطاقة: ${scores.vibe.toFixed(1)}/25، نمط الحياة: ${scores.lifestyle.toFixed(1)}/10، الدعابة/الانفتاح: ${scores.humor.toFixed(1)}/15، التواصل: ${scores.communication.toFixed(1)}/3، القيم: ${scores.coreValues.toFixed(1)}/20، الأهداف: ${coreValues5 .toFixed(1)}/5`
       const text = `${agesLine}\n${gendersLine}\n${main}`
       await navigator.clipboard.writeText(text)
       setCopied(true); setTimeout(() => setCopied(false), 1200)
@@ -1377,9 +1378,9 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
               if (pair?.reason) lines.push(`السبب: ${pair.reason}`)
               lines.push(`الأعمار: ${aAgeLabel != null ? aAgeLabel : '—'} و ${bAgeLabel != null ? bAgeLabel : '—'}${ageDiff !== null ? ` (فارق ${ageDiff})` : ''}`)
               lines.push(`النوع: ${mapGenderLabel(a)} و ${mapGenderLabel(b)}`)
-              lines.push(`التفاعل: ${scores.synergy.toFixed(1)}/35`)
-              lines.push(`الطاقة: ${scores.vibe.toFixed(1)}/20`)
-              lines.push(`نمط الحياة: ${scores.lifestyle.toFixed(1)}/15`)
+              lines.push(`التفاعل: ${scores.synergy.toFixed(1)}/30`)
+              lines.push(`الطاقة: ${scores.vibe.toFixed(1)}/25`)
+              lines.push(`نمط الحياة: ${scores.lifestyle.toFixed(1)}/10`)
               lines.push(`الدعابة/الانفتاح: ${scores.humor.toFixed(1)}/15 (×${humorMultiplier.toFixed(2)})`)
               lines.push(`التواصل: ${scores.communication.toFixed(1)}/10`)
               lines.push(`القيم: ${scores.coreValues.toFixed(1)}/20`)

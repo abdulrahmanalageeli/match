@@ -789,13 +789,13 @@ export default function ParticipantResultsModal({
           <div className="mx-6 mt-3 mb-1 text-xs text-slate-300/80">
             <div className="inline-flex flex-wrap items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2">
               <span className="font-semibold text-slate-200">عوامل الدرجة قبل المكافآت والحد الأعلى 100:</span>
-              <span>التفاعل 35</span>
-              <span>الطاقة 15</span>
+              <span>التفاعل 30</span>
+              <span>الطاقة 25</span>
               <span>أسلوب الاختلاف 4</span>
               <span>المرحلة الحالية 5</span>
               <span>تفضيل التشابه 5</span>
               <span>وتيرة التقارب 3</span>
-              <span>نمط الحياة 15</span>
+              <span>نمط الحياة 10</span>
               <span>الدعابة/الانفتاح 15</span>
               <span>التواصل 3</span>
               <span>القيم 5</span>
@@ -970,7 +970,7 @@ export default function ParticipantResultsModal({
                             <th className="text-center p-2 text-sm font-semibold text-slate-300">
                               <div className="flex items-center justify-center gap-1">
                                 <Users className="w-3 h-3" />
-                                <span className="text-xs">التفاعل</span>
+                                <span className="text-xs">التفاعل /30</span>
                               </div>
                             </th>
                             <th className="text-center p-2 text-sm font-semibold text-slate-300">
@@ -988,19 +988,19 @@ export default function ParticipantResultsModal({
                             <th className="text-center p-2 text-sm font-semibold text-slate-300">
                               <div className="flex items-center justify-center gap-1">
                                 <Home className="w-3 h-3" />
-                                <span className="text-xs">نمط الحياة</span>
+                                <span className="text-xs">نمط الحياة /10</span>
                               </div>
                             </th>
                             <th className="text-center p-2 text-sm font-semibold text-slate-300">
                               <div className="flex items-center justify-center gap-1">
                                 <Sparkles className="w-3 h-3" />
-                                <span className="text-xs">الدعابة/الانفتاح</span>
+                                <span className="text-xs">الدعابة/الانفتاح /15</span>
                               </div>
                             </th>
                             <th className="text-center p-2 text-sm font-semibold text-slate-300">
                               <div className="flex items-center justify-center gap-1">
                                 <MessageCircle className="w-3 h-3" />
-                                <span className="text-xs">التواصل</span>
+                                <span className="text-xs">التواصل /3</span>
                               </div>
                             </th>
                             <th className="text-center p-2 text-sm font-semibold text-slate-300">
@@ -1013,7 +1013,7 @@ export default function ParticipantResultsModal({
                               <th className="text-center p-2 text-sm font-semibold text-slate-300">
                                 <div className="flex items-center justify-center gap-1">
                                   <Zap className="w-3 h-3" />
-                                  <span className="text-xs">الطاقة</span>
+                                  <span className="text-xs">الطاقة /25</span>
                                 </div>
                               </th>
                             )}
@@ -1733,17 +1733,17 @@ export default function ParticipantResultsModal({
                             const attachmentPace = pair?.attachment_pace_score
                             return (
                               <>
-                                <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(synergy).toFixed(1)}%</span></td>
+                                <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(synergy).toFixed(1)}/30</span></td>
                                 <td className="p-2 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number.isFinite(Number(disagreement)) ? `${Number(disagreement).toFixed(1)}/4` : "—"}</span></td>
                                 <td className="p-2 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number.isFinite(Number(currentLife)) ? `${Number(currentLife).toFixed(1)}/5` : "—"}</span></td>
                                 <td className="p-2 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number.isFinite(Number(similarityPreference)) ? `${Number(similarityPreference).toFixed(1)}/5` : "—"}</span></td>
                                 <td className="p-2 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number.isFinite(Number(attachmentPace)) ? `${Number(attachmentPace).toFixed(1)}/3` : "—"}</span></td>
-                                <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(life).toFixed(1)}%</span></td>
-                                <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(humorOpen).toFixed(1)}%</span></td>
-                                <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(comm).toFixed(1)}%</span></td>
+                                <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(life).toFixed(1)}/10</span></td>
+                                <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(humorOpen).toFixed(1)}/15</span></td>
+                                <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(comm).toFixed(1)}/3</span></td>
                                 <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(intent).toFixed(1)}%</span></td>
                                 {matchType === "ai" && (
-                                  <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(vibe).toFixed(1)}%</span></td>
+                                  <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(vibe).toFixed(1)}/25</span></td>
                                 )}
                               </>
                             )

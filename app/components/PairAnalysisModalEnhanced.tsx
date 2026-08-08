@@ -420,17 +420,17 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
   const scores = {
     // Prefer API-provided numbers; if missing/undefined, fall back to local computation
     synergy: pair?.synergy_score !== undefined && pair?.synergy_score !== null
-      ? normalize(pair.synergy_score as number, 35)
+      ? normalize(pair.synergy_score as number, 30)
       : normalize(computedSynergy, 35),
-    lifestyle: normalize(pair?.lifestyle_compatibility_score as number, 15),
+    lifestyle: normalize(pair?.lifestyle_compatibility_score as number, 10),
     humor: pair?.humor_open_score !== undefined && pair?.humor_open_score !== null
       ? normalize(pair.humor_open_score as number, 15)
       : normalize(hbForSummary.total, 15),
-    communication: normalize(pair?.communication_compatibility_score as number, 10),
+    communication: normalize(pair?.communication_compatibility_score as number, 3),
     intent: pair?.intent_score !== undefined && pair?.intent_score !== null
       ? normalize(pair.intent_score as number, 5)
       : normalize(computedIntent, 5),
-    vibe: normalize(pair?.vibe_compatibility_score as number, 20),
+    vibe: normalize(pair?.vibe_compatibility_score as number, 25),
   }
 
   // Humor multiplier + synergy details + AI
@@ -445,8 +445,8 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
   const handleCopy = async () => {
     try {
       const text = pair?.reason
-        ? `السبب: ${pair.reason}\nالتفاعل: ${scores.synergy.toFixed(1)}/35، الطاقة: ${scores.vibe.toFixed(1)}/20، نمط الحياة: ${scores.lifestyle.toFixed(1)}/15، الدعابة/الانفتاح: ${scores.humor.toFixed(1)}/15، التواصل: ${scores.communication.toFixed(1)}/10، الأهداف/القيم: ${scores.intent.toFixed(1)}/5`
-        : `التفاعل: ${scores.synergy.toFixed(1)}/35، الطاقة: ${scores.vibe.toFixed(1)}/20، نمط الحياة: ${scores.lifestyle.toFixed(1)}/15، الدعابة/الانفتاح: ${scores.humor.toFixed(1)}/15، التواصل: ${scores.communication.toFixed(1)}/10، الأهداف/القيم: ${scores.intent.toFixed(1)}/5`
+        ? `السبب: ${pair.reason}\nالتفاعل: ${scores.synergy.toFixed(1)}/30، الطاقة: ${scores.vibe.toFixed(1)}/25، نمط الحياة: ${scores.lifestyle.toFixed(1)}/10، الدعابة/الانفتاح: ${scores.humor.toFixed(1)}/15، التواصل: ${scores.communication.toFixed(1)}/3، الأهداف/القيم: ${scores.intent.toFixed(1)}/5`
+        : `التفاعل: ${scores.synergy.toFixed(1)}/30، الطاقة: ${scores.vibe.toFixed(1)}/25، نمط الحياة: ${scores.lifestyle.toFixed(1)}/10، الدعابة/الانفتاح: ${scores.humor.toFixed(1)}/15، التواصل: ${scores.communication.toFixed(1)}/3، الأهداف/القيم: ${scores.intent.toFixed(1)}/5`
       await navigator.clipboard.writeText(text)
       setCopied(true)
       setTimeout(() => setCopied(false), 1200)

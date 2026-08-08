@@ -10,6 +10,7 @@ const {
   calculateFullCompatibilityWithCache,
   calculateConversationInitiativePreferenceScore,
   calculateInteractionSynergyScore,
+  calculateLifestyleCompatibility,
   checkAgeRangeHardGate,
   getAgeTolerance,
   getOneYearAgeFlexDecision,
@@ -58,7 +59,16 @@ test("a one-sided new answer preserves the legacy interaction score", () => {
   assert.equal(calculateInteractionSynergyScore(legacyA, legacyB), legacyScore)
 
   legacyB.survey_data.answers.conversation_initiative_preference = "C"
-  assert.equal(calculateInteractionSynergyScore(legacyA, legacyB), legacyScore + 3)
+  const recalibratedScore = calculateInteractionSynergyScore(legacyA, legacyB)
+  assert.ok(Math.abs(recalibratedScore - (legacyScore + ((3 / 35) * 30))) < 1e-9)
+})
+
+test("lifestyle uses all five raw scores and proportionally scales 15 points to 10", () => {
+  const perfect = calculateLifestyleCompatibility("أ,أ,أ,أ,أ", "أ,أ,أ,أ,أ")
+  const fourOfFive = calculateLifestyleCompatibility("أ,أ,أ,أ,أ", "أ,أ,أ,أ,ج")
+
+  assert.equal(perfect, 10)
+  assert.equal(fourOfFive, 8)
 })
 
 test("a model-version cache miss can reuse an unchanged AI vibe score", async () => {
@@ -75,13 +85,27 @@ test("a model-version cache miss can reuse an unchanged AI vibe score", async ()
     { reusedVibeScore: 12.75 },
   )
 
-  assert.equal(result.vibeScore, 12.75)
+  assert.equal(result.vibeScore, 21.25)
   assert.equal(result.cached, false)
   assert.ok(Number.isFinite(result.totalScore))
   assert.ok(result.disagreementScore >= 0 && result.disagreementScore <= 4)
   assert.ok(result.currentFocusScore >= 0 && result.currentFocusScore <= 5)
   assert.ok(result.similarityPreferenceScore >= 0 && result.similarityPreferenceScore <= 5)
   assert.ok(result.attachmentPaceScore >= 0 && result.attachmentPaceScore <= 3)
+})
+
+test("a 25-point cached vibe score is not scaled a second time", async () => {
+  const a = synergyParticipant(42, "A")
+  const b = synergyParticipant(43, "C")
+  const result = await calculateFullCompatibilityWithCache(
+    a,
+    b,
+    false,
+    true,
+    { reusedVibeScore: 18.5, reusedVibeSourceMax: 25 },
+  )
+
+  assert.equal(result.vibeScore, 18.5)
 })
 
 test("a complete new survey does not require retired MBTI answers", () => {

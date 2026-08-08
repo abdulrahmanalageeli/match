@@ -4565,15 +4565,15 @@ export default function Admin3Page() {
                         {pd.compatScore}%
                       </div>
                     </div>
-                    <p className="text-[10px] text-amber-400/70 mb-2">⚠ نسبة الـ vibe (ذكاء اصطناعي) محسوبة افتراضياً بـ 12/25 بدون AI</p>
-                    <ScoreBar label="التناغم التفاعلي Synergy" score={c.synergyScore ?? 0} max={35} color="purple" />
+                    <p className="text-[10px] text-amber-400/70 mb-2">⚠ نسبة الـ vibe (ذكاء اصطناعي) محسوبة افتراضياً بـ 15/25 بدون AI</p>
+                    <ScoreBar label="التناغم التفاعلي Synergy" score={c.synergyScore ?? 0} max={30} color="purple" />
                     <ScoreBar label="الفكاهة + الانفتاح" score={c.humorOpenScore ?? 0} max={15} color="amber" />
                     <ScoreBar label="أسلوب الحياة" score={c.lifestyleScore ?? 0} max={10} color="teal" />
-                    <ScoreBar label="التواصل" score={c.communicationScore ?? 0} max={10} color="blue" />
+                    <ScoreBar label="التواصل" score={c.communicationScore ?? 0} max={3} color="blue" />
                     <ScoreBar label="القيم الجوهرية (الخام)" score={c.coreValuesScore ?? 0} max={20} color="rose" />
                     <ScoreBar label="القيم (مرجّح ×0.25)" score={+(c.coreValuesScaled5 ?? 0)} max={5} color="pink" />
                     <ScoreBar label="الهدف / النية" score={c.intentScore ?? 0} max={5} color="green" />
-                    <ScoreBar label="Vibe (افتراضي)" score={c.vibeScore ?? 12} max={25} color="indigo" />
+                    <ScoreBar label="Vibe (افتراضي)" score={c.vibeScore ?? 15} max={25} color="indigo" />
                     {/* Flags */}
                     <div className="flex flex-wrap gap-2 pt-1">
                       {c.attachmentPenalty && <span className="text-[10px] bg-red-900/30 text-red-400 border border-red-800/40 px-2 py-0.5 rounded-full">⚠ عقوبة التعلق -5</span>}

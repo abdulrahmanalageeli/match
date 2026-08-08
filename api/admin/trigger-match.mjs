@@ -44,6 +44,27 @@ const supabase = supabaseAdmin
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
+const SCORE_MAX = Object.freeze({
+  synergy: 30,
+  vibe: 25,
+  lifestyle: 10,
+  humorOpen: 15,
+  communication: 3,
+  coreValues: 5,
+})
+const LEGACY_VIBE_MAX = 15
+const CACHE_MODEL_USED = 'gpt-5.4-mini|vibe25'
+// Production cache rows created from this point used the temporary 15-point
+// calibration. Earlier untagged rows used the original 25-point scale.
+const VIBE_15_CACHE_CUTOFF = Date.parse('2026-08-08T10:00:00Z')
+
+function normalizeCachedVibeScore(value, sourceMax = LEGACY_VIBE_MAX) {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return 0
+  const storedMax = Number(sourceMax) === SCORE_MAX.vibe ? SCORE_MAX.vibe : LEGACY_VIBE_MAX
+  return Math.max(0, Math.min(SCORE_MAX.vibe, (numeric / storedMax) * SCORE_MAX.vibe))
+}
+
 // Logging control: reduce noise by default and keep functional logs only
 // LOG_LEVEL options: 'debug' | 'info' | 'warn' | 'error' | 'silent'
 // Default is 'warn' (keep warnings and errors only)
@@ -170,7 +191,7 @@ async function storeCachedCompatibility(participantA, participantB, scores) {
       total_compatibility_score: scores.totalScore,
       humor_multiplier: scores.humorMultiplier,
       humor_early_openness_bonus: bonusType,
-      model_used: 'gpt-5.4-mini',
+      model_used: CACHE_MODEL_USED,
       last_used: new Date().toISOString(),
       use_count: 1
     }
@@ -203,16 +224,16 @@ async function storeCachedCompatibility(participantA, participantB, scores) {
 // Emphasize high interaction synergy and low alignment in other dimensions.
 // Uses only provided components; if a component/max is unavailable, it is skipped from the denominator.
 function computeOppositesPercent(components) {
-  const synergy = Number(components.synergyScore ?? 0) // max 35
-  const synergyMax = 35
+  const synergy = Number(components.synergyScore ?? 0)
+  const synergyMax = SCORE_MAX.synergy
   const synergyNorm = Math.max(0, Math.min(1, synergyMax > 0 ? synergy / synergyMax : 0))
 
   const otherParts = []
   // Push tuples of [value, max]
   if (components.coreValuesScore != null) otherParts.push([Number(components.coreValuesScore), 20])
-  if (components.lifestyleScore != null)   otherParts.push([Number(components.lifestyleScore), 15])
-  if (components.vibeScore != null)        otherParts.push([Number(components.vibeScore), 20])
-  if (components.communicationScore != null) otherParts.push([Number(components.communicationScore), 10])
+  if (components.lifestyleScore != null)   otherParts.push([Number(components.lifestyleScore), SCORE_MAX.lifestyle])
+  if (components.vibeScore != null)        otherParts.push([Number(components.vibeScore), SCORE_MAX.vibe])
+  if (components.communicationScore != null) otherParts.push([Number(components.communicationScore), SCORE_MAX.communication])
   if (components.mbtiScore != null)        otherParts.push([Number(components.mbtiScore), 5])
 
   let otherVal = 0
@@ -227,28 +248,28 @@ function computeOppositesPercent(components) {
   return Math.max(0, Math.min(100, Math.round(oppNorm * 100)))
 }
 
-// New opposites-mode formula (no cache changes):
-// final = synergy(0-35) + values(0-5) + communication(0-10)
-//       + (15 - lifestyle) + (20 - vibe) + (15 - humorOpen)
+// Opposites mode keeps interaction synergy positive and flips the alignment
+// components, then normalizes its 88-point raw maximum back to a percentage.
 function computeOppositesFlippedScore(components) {
-  const synergy = Number(components.synergyScore ?? 0)
+  const synergy = Math.max(0, Math.min(SCORE_MAX.synergy, Number(components.synergyScore ?? 0)))
   // Accept either pre-scaled 0..5 or raw 0..20 for core values
   const values5 = components.coreValuesScaled5 != null
     ? Number(components.coreValuesScaled5)
     : (components.coreValuesScore != null
         ? Math.max(0, Math.min(5, (Number(components.coreValuesScore) / 20) * 5))
         : 0)
-  const comm = Number(components.communicationScore ?? 0)
-  const lifestyle = Number(components.lifestyleScore ?? 0)
-  const vibe = Number(components.vibeScore ?? 0)
-  const humor = Number(components.humorOpenScore ?? 0)
+  const comm = Math.max(0, Math.min(SCORE_MAX.communication, Number(components.communicationScore ?? 0)))
+  const lifestyle = Math.max(0, Math.min(SCORE_MAX.lifestyle, Number(components.lifestyleScore ?? 0)))
+  const vibe = Math.max(0, Math.min(SCORE_MAX.vibe, Number(components.vibeScore ?? 0)))
+  const humor = Math.max(0, Math.min(SCORE_MAX.humorOpen, Number(components.humorOpenScore ?? 0)))
 
-  const flippedLifestyle = Math.max(0, 15 - lifestyle)
-  const flippedVibe = Math.max(0, 20 - vibe)
-  const flippedHumor = Math.max(0, 15 - humor)
+  const flippedLifestyle = SCORE_MAX.lifestyle - lifestyle
+  const flippedVibe = SCORE_MAX.vibe - vibe
+  const flippedHumor = SCORE_MAX.humorOpen - humor
 
   const total = synergy + values5 + comm + flippedLifestyle + flippedVibe + flippedHumor
-  return Math.max(0, Math.min(100, Math.round(total)))
+  const maximum = SCORE_MAX.synergy + SCORE_MAX.coreValues + SCORE_MAX.communication + SCORE_MAX.lifestyle + SCORE_MAX.vibe + SCORE_MAX.humorOpen
+  return Math.max(0, Math.min(100, Math.round((total / maximum) * 100)))
 }
 
 // Preview guard to skip ALL DB writes in non-mutating flows
@@ -612,8 +633,9 @@ function calculateLifestyleCompatibility(preferences1, preferences2) {
   const w1 = ord[prefs1[4]], w2 = ord[prefs2[4]]
   if (w1 && w2) { const d = Math.abs(w1 - w2); score += d === 0 ? 3 : d === 1 ? 1.5 : 0 }
 
-  // Max raw = 15 (all perfect), cap at 10 to reflect lifestyle's reduced weight for initial spark
-  return Math.max(0, Math.min(10, score))
+  // Keep all five questions meaningful: proportionally scale raw 0-15 to 0-10
+  // instead of saturating strong matches at a hard 10-point cap.
+  return Math.max(0, Math.min(SCORE_MAX.lifestyle, (score / 15) * SCORE_MAX.lifestyle))
 }
 
 // Function to calculate core values compatibility score (up to 20% of total)
@@ -682,7 +704,7 @@ function calculateConversationInitiativePreferenceScore(participantA, participan
   return matrix[a][b]
 }
 
-// New: Interaction Synergy (Q35,36,37,38,39,41) → up to 35 pts
+// Interaction Synergy (Q35,36,37,38,39,41): raw 35, scaled to 30 points
 function calculateInteractionSynergyScore(participantA, participantB) {
   const ans = (p, key) => (p?.survey_data?.answers?.[key] ?? p?.[key] ?? '')
 
@@ -777,8 +799,9 @@ function calculateInteractionSynergyScore(participantA, participantB) {
   else if (energyDiff <= 4) total += 2
   // energyDiff >= 5: 0pts — very different energy levels will feel jarring in person
 
-  // Max raw is now 35 (7+5+4+4+5+5+5) — direct cap, no multiplier needed
-  return Math.min(35, total)
+  // Preserve the original rubric, then proportionally fit it into 30 points.
+  const rawScore = Math.max(0, Math.min(35, total))
+  return (rawScore / 35) * SCORE_MAX.synergy
 }
 
 // Intent & Goal (Q40) → richer compatibility matrix
@@ -1195,7 +1218,7 @@ function generateContentHash(content) {
 }
 
 // Function to generate cache key for participant pair
-function generateCacheKey(participantA, participantB) {
+function generateCacheKey(participantA, participantB, modelVersion = MATCH_INSIGHTS_VERSION) {
   const vibeA = participantA.survey_data?.vibeDescription || ''
   const vibeB = participantB.survey_data?.vibeDescription || ''
   const mbtiA = participantA.mbti_personality_type || participantA.survey_data?.mbtiType || ''
@@ -1226,8 +1249,9 @@ function generateCacheKey(participantA, participantB) {
   
   // New: include Interaction Synergy + Intent answers to avoid stale cache hits
   const getAns = (p, key) => p?.survey_data?.answers?.[key] ?? p?.[key] ?? ''
+  const includeConversationInitiative = modelVersion !== '2026-08-08-v2-attachment-pace'
   const synergyA = [
-    getAns(participantA, 'conversation_initiative_preference'),
+    ...(includeConversationInitiative ? [getAns(participantA, 'conversation_initiative_preference')] : []),
     getAns(participantA, 'conversational_role'),
     getAns(participantA, 'conversation_depth_pref'),
     getAns(participantA, 'social_battery'),
@@ -1237,7 +1261,7 @@ function generateCacheKey(participantA, participantB) {
     getAns(participantA, 'intent_goal')
   ].join('|')
   const synergyB = [
-    getAns(participantB, 'conversation_initiative_preference'),
+    ...(includeConversationInitiative ? [getAns(participantB, 'conversation_initiative_preference')] : []),
     getAns(participantB, 'conversational_role'),
     getAns(participantB, 'conversation_depth_pref'),
     getAns(participantB, 'social_battery'),
@@ -1274,14 +1298,30 @@ function generateCacheKey(participantA, participantB) {
     synergyHash: generateContentHash(synergyContent),
     // The explicit model version invalidates rows whenever score semantics change,
     // while the answer content invalidates only the affected participant pairs.
-    combinedHash: generateContentHash(MATCH_INSIGHTS_VERSION + vibeContent + mbtiContent + attachmentContent + attachmentPaceContent + communicationContent + lifestyleContent + coreValuesContent + synergyContent + humorOpenContent + matchInsightsContent)
+    combinedHash: generateContentHash(modelVersion + vibeContent + mbtiContent + attachmentContent + attachmentPaceContent + communicationContent + lifestyleContent + coreValuesContent + synergyContent + humorOpenContent + matchInsightsContent)
   }
+}
+
+function getCachedVibeSourceMax(cacheRow, participantA, participantB) {
+  if (String(cacheRow?.model_used || '').includes('|vibe25')) return SCORE_MAX.vibe
+  const createdAt = Date.parse(String(cacheRow?.created_at || ''))
+  if (Number.isFinite(createdAt) && createdAt >= VIBE_15_CACHE_CUTOFF) return LEGACY_VIBE_MAX
+  if (!cacheRow?.combined_content_hash || !participantA || !participantB) return LEGACY_VIBE_MAX
+
+  const fifteenPointVersions = [
+    '2026-08-08-v2-attachment-pace',
+    '2026-08-08-v3-conversation-initiative',
+  ]
+  const isFifteenPointRow = fifteenPointVersions.some(
+    (version) => generateCacheKey(participantA, participantB, version).combinedHash === cacheRow.combined_content_hash,
+  )
+  return isFifteenPointRow ? LEGACY_VIBE_MAX : SCORE_MAX.vibe
 }
 
 function calculateShortMeetingInsightScores(participantA, participantB, vibeScore) {
   const disagreementScore = calculateDisagreementStyleScore(participantA, participantB)
   const currentFocusScore = calculateCurrentFocusScore(participantA, participantB)
-  const contentSimilarity = Math.max(0, Math.min(1, ((Number(vibeScore || 0) / 15) + (currentFocusScore / 5)) / 2))
+  const contentSimilarity = Math.max(0, Math.min(1, ((Number(vibeScore || 0) / SCORE_MAX.vibe) + (currentFocusScore / 5)) / 2))
   const similarityPreferenceScore = calculateSimilarityPreferenceScore(participantA, participantB, contentSimilarity)
   return { disagreementScore, currentFocusScore, similarityPreferenceScore }
 }
@@ -1330,11 +1370,11 @@ async function getCachedCompatibility(participantA, participantB, options = {}) 
       const communicationScore = parseFloat(data.communication_score)
       const lifestyleScore = parseFloat(data.lifestyle_score)
       const coreValuesScore = parseFloat(data.core_values_score)
-      const vibeScore = parseFloat(data.ai_vibe_score ?? 0)
+      const vibeScore = normalizeCachedVibeScore(data.ai_vibe_score, getCachedVibeSourceMax(data, participantA, participantB))
       const totalScore = parseFloat(data.total_compatibility_score)
       const disagreementScore = calculateDisagreementStyleScore(participantA, participantB)
       const currentFocusScore = calculateCurrentFocusScore(participantA, participantB)
-      const contentSimilarity = Math.max(0, Math.min(1, ((vibeScore / 15) + (currentFocusScore / 5)) / 2))
+      const contentSimilarity = Math.max(0, Math.min(1, ((vibeScore / SCORE_MAX.vibe) + (currentFocusScore / 5)) / 2))
       const similarityPreferenceScore = calculateSimilarityPreferenceScore(participantA, participantB, contentSimilarity)
       const attachmentPaceScore = calculateAttachmentPaceScore(participantA, participantB)
 
@@ -1434,7 +1474,7 @@ async function getCachedCompatibility(participantA, participantB, options = {}) 
             .eq('id', gdata.id)
         }
         console.log(`🎯 Group Cache HIT: #${smaller}-#${larger} (groups; used ${(gdata.use_count || 0) + 1} times)`)
-        const groupVibeScore = parseFloat(gdata.ai_vibe_score ?? 0)
+        const groupVibeScore = normalizeCachedVibeScore(gdata.ai_vibe_score, getCachedVibeSourceMax(gdata, participantA, participantB))
         const groupInsightScores = calculateShortMeetingInsightScores(participantA, participantB, groupVibeScore)
         return {
           mbtiScore: parseFloat(gdata.mbti_score),
@@ -1464,36 +1504,44 @@ async function getCachedCompatibility(participantA, participantB, options = {}) 
         const bAttachment = participantB.attachment_style || participantB.survey_data?.attachmentStyle
         const aCommunication = participantA.communication_style || participantA.survey_data?.communicationStyle
         const bCommunication = participantB.communication_style || participantB.survey_data?.communicationStyle
-        const aLifestyle = participantA.survey_data?.lifestylePreferences || participantA.survey_data?.answers?.lifestyle_1 || null
-        const bLifestyle = participantB.survey_data?.lifestylePreferences || participantB.survey_data?.answers?.lifestyle_1 || null
-        const aCoreValues = participantA.survey_data?.coreValues || participantA.survey_data?.answers?.core_values_1 || null
-        const bCoreValues = participantB.survey_data?.coreValues || participantB.survey_data?.answers?.core_values_1 || null
+        const aLifestyle = participantA.survey_data?.lifestylePreferences || (participantA.survey_data?.answers
+          ? [1, 2, 3, 4, 5].map((index) => participantA.survey_data.answers[`lifestyle_${index}`]).join(',')
+          : null)
+        const bLifestyle = participantB.survey_data?.lifestylePreferences || (participantB.survey_data?.answers
+          ? [1, 2, 3, 4, 5].map((index) => participantB.survey_data.answers[`lifestyle_${index}`]).join(',')
+          : null)
+        const aCoreValues = participantA.survey_data?.coreValues || (participantA.survey_data?.answers
+          ? [1, 2, 3, 4, 5].map((index) => participantA.survey_data.answers[`core_values_${index}`]).join(',')
+          : null)
+        const bCoreValues = participantB.survey_data?.coreValues || (participantB.survey_data?.answers
+          ? [1, 2, 3, 4, 5].map((index) => participantB.survey_data.answers[`core_values_${index}`]).join(',')
+          : null)
 
         const mbtiScore = calculateMBTICompatibility(aMBTI, bMBTI)
         const attachmentScore = calculateAttachmentCompatibility(aAttachment, bAttachment)
         const communicationScore = calculateCommunicationCompatibility(aCommunication, bCommunication)
         const lifestyleScore = calculateLifestyleCompatibility(aLifestyle, bLifestyle)
         const coreValuesScore = calculateCoreValuesCompatibility(aCoreValues, bCoreValues) // raw 0–20
-        const synergyScore = calculateInteractionSynergyScore(participantA, participantB) // 0–35
+        const synergyScore = calculateInteractionSynergyScore(participantA, participantB) // 0–30
         const { score: humorOpenScore } = calculateHumorOpennessScore(participantA, participantB) // 0–15 (not stored directly)
         const intentScore = calculateIntentGoalScore(participantA, participantB) // 0 or 5
-        const vibeScore = await calculateVibeCompatibility(participantA, participantB) // 0–15
+        const vibeScore = await calculateVibeCompatibility(participantA, participantB) // 0–25
         const { disagreementScore, currentFocusScore, similarityPreferenceScore } = calculateShortMeetingInsightScores(participantA, participantB, vibeScore)
         const attachmentPaceScore = calculateAttachmentPaceScore(participantA, participantB)
         // Group spark model: 14 points come from the new questions and 3 from
         // attachment needs matched against the partner's observed behavior.
-        const W_SYNERGY = 37 / 35
+        const W_SYNERGY = 37 / 30
         const W_HUMOR = 27 / 15
-        const W_VIBE = 12 / 15
-        const W_LIFESTYLE = 3 / 15
+        const W_VIBE = 12 / 25
+        const W_LIFESTYLE = 3 / 10
         const W_VALUES = 4 / 10
         const coreValuesScaled10 = Math.max(0, Math.min(10, (coreValuesScore / 20) * 10))
-        const regularTotal = (Math.max(0, Math.min(35, synergyScore)) * W_SYNERGY)
+        const regularTotal = (Math.max(0, Math.min(30, synergyScore)) * W_SYNERGY)
           + (Math.max(0, Math.min(15, humorOpenScore)) * W_HUMOR)
-          + (Math.max(0, Math.min(15, vibeScore)) * W_VIBE)
+          + (Math.max(0, Math.min(25, vibeScore)) * W_VIBE)
           + disagreementScore + currentFocusScore + similarityPreferenceScore
           + attachmentPaceScore
-          + (Math.max(0, Math.min(15, lifestyleScore)) * W_LIFESTYLE)
+          + (Math.max(0, Math.min(10, lifestyleScore)) * W_LIFESTYLE)
           + (coreValuesScaled10 * W_VALUES)
 
         // Store in group cache and return structured object
@@ -1566,7 +1614,7 @@ async function storeGroupCachedCompatibility(participantA, participantB, payload
       total_compatibility_score: payload.totalScore,
       humor_multiplier: humorMultiplier,
       humor_early_openness_bonus: bonusType,
-      model_used: 'gpt-5.4-mini',
+      model_used: CACHE_MODEL_USED,
       use_count: 1,
       last_used: new Date().toISOString(),
       participant_a_cached_at: new Date().toISOString(),
@@ -1667,10 +1715,10 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   // Calculate all compatibility scores
   // Raw components used for new weighting
   const coreRaw = calculateCoreValuesCompatibility(aCoreValues, bCoreValues) // 0-20 (values)
-  const lifestyleScore = calculateLifestyleCompatibility(aLifestyle, bLifestyle) // 0-15 (new)
+  const lifestyleScore = calculateLifestyleCompatibility(aLifestyle, bLifestyle) // 0-10
   const communicationRaw = calculateCommunicationCompatibility(aCommunication, bCommunication) // 0-10 legacy model
   const communicationScore = Math.max(0, Math.min(3, (communicationRaw / 10) * 3))
-  const synergyScore = calculateInteractionSynergyScore(participantA, participantB) // 0-35 (scaled)
+  const synergyScore = calculateInteractionSynergyScore(participantA, participantB) // 0-30 (scaled)
   const { score: humorOpenScore, vetoClash } = calculateHumorOpennessScore(participantA, participantB) // 0-15
   const intentRaw = calculateIntentGoalScore(participantA, participantB) // 0 or 5
   const coreValuesScaled5 = Math.max(0, Math.min(5, (coreRaw / 20) * 5))
@@ -1680,16 +1728,17 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   const reusableVibe = options?.reusedVibeScore
   const hasReusableVibe = reusableVibe !== null && reusableVibe !== undefined && reusableVibe !== '' && Number.isFinite(Number(reusableVibe))
   const vibeScore = hasReusableVibe
-    ? Math.max(0, Math.min(15, Number(reusableVibe)))
-    : (skipAI ? 9 : await calculateVibeCompatibility(participantA, participantB)) // 0–15
+    ? normalizeCachedVibeScore(reusableVibe, options?.reusedVibeSourceMax)
+    : (skipAI ? 15 : await calculateVibeCompatibility(participantA, participantB)) // 0–25
   const disagreementScore = calculateDisagreementStyleScore(participantA, participantB) // 0–4
   const currentFocusScore = calculateCurrentFocusScore(participantA, participantB) // 0–5
-  const contentSimilarity = Math.max(0, Math.min(1, ((vibeScore / 15) + (currentFocusScore / 5)) / 2))
+  const contentSimilarity = Math.max(0, Math.min(1, ((vibeScore / SCORE_MAX.vibe) + (currentFocusScore / 5)) / 2))
   const similarityPreferenceScore = calculateSimilarityPreferenceScore(participantA, participantB, contentSimilarity) // 0–5
   const attachmentPaceScore = calculateAttachmentPaceScore(participantA, participantB) // 0–3
 
-  // The maximum stays at 100 after replacing 10 legacy points with the three
-  // structured short-meeting signals (4 + 5 + 5) and scaling AI vibe to 15.
+  // The direct components intentionally total 105 before bonuses and the final
+  // 100-point cap: synergy 30, vibe 25, new signals 17, lifestyle 10,
+  // humor/openness 15, communication 3, and core values 5.
   let totalScore = synergyScore + vibeScore + currentFocusScore + similarityPreferenceScore + disagreementScore + attachmentPaceScore + lifestyleScore + humorOpenScore + communicationScore + coreValuesScaled5
   const attachmentPenaltyApplied = false
   let intentBoostApplied = false
@@ -1762,13 +1811,13 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
     mbtiScore: 0, // MBTI not counted in total now
     attachmentScore: 0,
     communicationScore,           // 0-3
-    lifestyleScore,               // 0-15
+    lifestyleScore,               // 0-10
     coreValuesScore: coreRaw,     // raw 0-20 (for transparency)
     coreValuesScaled5: coreValuesScaled5, // scaled 0-5 used in total
-    synergyScore,                 // 0-35
+    synergyScore,                 // 0-30
     humorOpenScore,               // 0-15
     intentScore: intentRaw, // for transparency (not added directly)
-    vibeScore,                    // 0-15
+    vibeScore,                    // 0-25
     disagreementScore,            // 0-4
     currentFocusScore,             // 0-5
     similarityPreferenceScore,     // 0-5
@@ -1792,7 +1841,7 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   return result
 }
 
-// Function to calculate conversation/content compatibility using AI (up to 15% of total)
+// Function to calculate conversation/content compatibility using AI (up to 25 points)
 async function calculateVibeCompatibility(participantA, participantB) {
   try {
     // Get combined vibe descriptions from all 6 questions
@@ -1801,14 +1850,14 @@ async function calculateVibeCompatibility(participantA, participantB) {
 
     if (!aVibeDescription || !bVibeDescription) {
       console.warn("❌ Missing vibe descriptions, using default AI conversation score")
-      return 7.5
+      return 12.5
     }
 
     // Calculate mutual compatibility between the two combined profiles
     const raw35 = await calculateCombinedVibeCompatibility(aVibeDescription, bVibeDescription)
-    const vibeScore = Math.max(0, Math.min(15, (raw35 / 35) * 15))
+    const vibeScore = Math.max(0, Math.min(SCORE_MAX.vibe, (raw35 / 35) * SCORE_MAX.vibe))
     
-    console.log(`🎯 Conversation compatibility: AI raw=${raw35}/35 → scaled=${vibeScore.toFixed(2)}/15`)
+    console.log(`🎯 Conversation compatibility: AI raw=${raw35}/35 → scaled=${vibeScore.toFixed(2)}/25`)
     console.log(`📝 Profile A preview: "${aVibeDescription.substring(0, 100)}..."`)
     console.log(`📝 Profile B preview: "${bVibeDescription.substring(0, 100)}..."`)
     
@@ -1816,7 +1865,7 @@ async function calculateVibeCompatibility(participantA, participantB) {
 
   } catch (error) {
     console.error("🔥 Vibe compatibility calculation error:", error)
-    return 7.5
+    return 12.5
   }
 }
 
@@ -1880,7 +1929,7 @@ GUIDELINES
     // Validate score is within range
     if (isNaN(score) || score < 0 || score > 35) {
       console.warn("❌ Invalid AI score, using default:", rawResponse)
-      return 14 // Neutral fallback (14/35 * 20 = 8/20) — avoid over-rewarding AI failures
+      return 14 // Neutral fallback; caller scales 14/35 to 10/25
     }
 
     // Ensure top-end is reachable in practice: round 34 up to 35
@@ -1897,7 +1946,7 @@ GUIDELINES
       console.error("   API response status:", error.response.status)
       console.error("   API response data:", error.response.data)
     }
-    return 14 // Neutral fallback (14/35 * 20 = 8/20) — avoid over-rewarding AI failures
+    return 14 // Neutral fallback; caller scales 14/35 to 10/25
   }
 }
 
@@ -2048,21 +2097,21 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
       
       // Add Interaction Synergy (Q35..41) and Humor & Openness into group pair score
       // Mimic individual regular mode weights:
-      //   Synergy 0–35 (no downscale), Humor/Openness 0–15 (veto sets to 0)
+      //   Synergy 0–30, Humor/Openness 0–15 (veto sets to 0)
       const synergyRaw = calculateInteractionSynergyScore(a, b)
       const { score: humorOpenRaw, vetoClash } = calculateHumorOpennessScore(a, b)
-      const synergyScore = Math.max(0, Math.min(35, synergyRaw))
+      const synergyScore = Math.max(0, Math.min(30, synergyRaw))
       const humorOpenScore = vetoClash ? 0 : Math.max(0, Math.min(15, humorOpenRaw))
 
       // Core values: scale raw 0–20 to 0–10
       const coreValuesScaled10 = Math.max(0, Math.min(10, (coreValuesScore / 20) * 10))
 
-      // Conversation/content score: prefer cache; in group mode compute/store on miss (0–15 scale)
-      let vibeScore = 7.5
+      // Conversation/content score: prefer cache; in group mode compute/store on miss (0–25 scale)
+      let vibeScore = 12.5
       try {
         const cached = await getCachedCompatibility(a, b, { groupMode: true, computeIfMissing: true })
         if (cached && Number.isFinite(cached.vibeScore)) {
-          vibeScore = Math.max(0, Math.min(15, Number(cached.vibeScore)))
+          vibeScore = Math.max(0, Math.min(25, Number(cached.vibeScore)))
         }
       } catch (e) {
         // ignore cache errors
@@ -2073,10 +2122,10 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
       // Totals (Spark-Only model, 0–100): synergy 37, humor/openness 27,
       // AI content 12, new structured signals 14, attachment pace 3,
       // lifestyle 3, and values 4.
-      const W_SYNERGY = 37 / 35
+      const W_SYNERGY = 37 / 30
       const W_HUMOR = 27 / 15
-      const W_VIBE = 12 / 15
-      const W_LIFESTYLE = 3 / 15
+      const W_VIBE = 12 / 25
+      const W_LIFESTYLE = 3 / 10
       const W_VALUES = 4 / 10
 
       const regularTotal =
@@ -2089,8 +2138,8 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
         (coreValuesScaled10 * W_VALUES)
 
       // Opposites (Spark-Only): flip lifestyle/vibe/humor, keep synergy/values positive
-      const flippedLifestyle = Math.max(0, 15 - lifestyleScore)
-      const flippedVibe = Math.max(0, 15 - vibeScore)
+      const flippedLifestyle = Math.max(0, 10 - lifestyleScore)
+      const flippedVibe = Math.max(0, 25 - vibeScore)
       const flippedHumor = Math.max(0, 15 - humorOpenScore)
       const oppositesTotal =
         (synergyScore * W_SYNERGY) +
@@ -2149,7 +2198,7 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
   
   console.log(`\n📊 Top compatibility pairs for groups (0–100% Spark-Only):`)
   pairScores.slice(0, 10).forEach(pair => {
-    console.log(`  ${pair.participants[0]} × ${pair.participants[1]}: ${Math.round(pair.score)}% (Interact: ${Math.round(pair.synergyScore)} /35, Humor/Open: ${Math.round(pair.humorOpenScore)} /15, Vibe: ${Math.round(pair.vibeScore)} /20, Life: ${Math.round(pair.lifestyleScore)} /15, Values: ${Math.round(pair.coreValuesScore)} /10)`)
+    console.log(`  ${pair.participants[0]} × ${pair.participants[1]}: ${Math.round(pair.score)}% (Interact: ${Math.round(pair.synergyScore)} /30, Humor/Open: ${Math.round(pair.humorOpenScore)} /15, Vibe: ${Math.round(pair.vibeScore)} /25, Life: ${Math.round(pair.lifestyleScore)} /10, Values: ${Math.round(pair.coreValuesScore)} /10)`)
   })
 
   // Enhanced group formation algorithm with fallback support
@@ -3376,7 +3425,7 @@ function getLockedMatch(participantA, participantB, lockedPairs) {
   )
 }
 
-export { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkIntentHardGate, checkInteractionStyleCompatibility, fetchAllCachedPairs, calculateHumorOpennessScore, calculateInteractionSynergyScore, calculateConversationInitiativePreferenceScore, getOneYearAgeFlexDecision, getAgeTolerance }
+export { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkIntentHardGate, checkInteractionStyleCompatibility, fetchAllCachedPairs, calculateHumorOpennessScore, calculateInteractionSynergyScore, calculateLifestyleCompatibility, calculateConversationInitiativePreferenceScore, getOneYearAgeFlexDecision, getAgeTolerance }
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -4176,7 +4225,7 @@ if (action === "cache-status-by-gender") {
           .from('compatibility_cache')
           .delete()
           .or(updatedParticipantNumbers.map(num => `participant_a_number.eq.${num},participant_b_number.eq.${num}`).join(','))
-          .or('model_used.is.null,model_used.neq.gpt-5.4-mini')
+          .or('model_used.is.null,model_used.not.like.gpt-5.4-mini%')
           .select()
         
         if (deleteError) {
@@ -4429,7 +4478,7 @@ if (action === "cache-status-by-gender") {
             .from('compatibility_cache')
             .delete()
             .or(updatedParticipantNumbers.map(num => `participant_a_number.eq.${num},participant_b_number.eq.${num}`).join(','))
-            .or('model_used.is.null,model_used.neq.gpt-5.4-mini')
+            .or('model_used.is.null,model_used.not.like.gpt-5.4-mini%')
             .select()
 
           console.log(`🗑️ Delta batched: Deleted ${deletedEntries?.length || 0} old cache entries for updated participants`)
@@ -4640,7 +4689,7 @@ if (action === "cache-status-by-gender") {
         .limit(1)
         .maybeSingle()
 
-      if (skipNewModel && existing?.model_used === 'gpt-5.4-mini') return 'skip'
+      if (skipNewModel && String(existing?.model_used || '').startsWith('gpt-5.4-mini')) return 'skip'
 
       if (existing?.id) {
         await supabase.from("compatibility_cache").delete().eq("id", existing.id)
@@ -5056,7 +5105,7 @@ if (action === "cache-status-by-gender") {
               communicationScore: parseFloat(cachedData.communication_score),
               lifestyleScore: parseFloat(cachedData.lifestyle_score),
               coreValuesScore: parseFloat(cachedData.core_values_score),
-              vibeScore: parseFloat(cachedData.ai_vibe_score),
+              vibeScore: normalizeCachedVibeScore(cachedData.ai_vibe_score, getCachedVibeSourceMax(cachedData, targetParticipant, potentialMatch)),
               totalScore: parseFloat(cachedData.total_compatibility_score),
               humorMultiplier: parseFloat(cachedData.humor_multiplier || 1.0),
               bonusType: cachedData.humor_early_openness_bonus || 'none',
@@ -5147,7 +5196,7 @@ if (action === "cache-status-by-gender") {
             vibe_compatibility_score: compatibilityResult.vibeScore,
             humor_multiplier: compatibilityResult.humorMultiplier,
             // New model fields
-            synergy_score: compatibilityResult.synergyScore,                 // 0-35
+            synergy_score: compatibilityResult.synergyScore,                 // 0-30
             humor_open_score: compatibilityResult.humorOpenScore,           // 0-15
             intent_score: compatibilityResult.intentScore,                  // 0-5 (Goal & Values)
             disagreement_style_score: compatibilityResult.disagreementScore ?? shortMeetingInsights.disagreementScore, // 0-4
@@ -5699,18 +5748,18 @@ if (action === "cache-status-by-gender") {
           core_values_compatibility_score: coreValuesScore,
           vibe_compatibility_score: vibeScore,
           // New-model fields for current weights breakdown
-          synergyScore: Number(compatibilityResult.synergyScore ?? 0),           // 0-35
+          synergyScore: Number(compatibilityResult.synergyScore ?? 0),           // 0-30
           humorOpenScore: Number(compatibilityResult.humorOpenScore ?? 0),       // 0-15
           intentScore: Number(compatibilityResult.intentScore ?? 0),             // 0 or 5
-          communicationScore: Number(compatibilityResult.communicationScore ?? 0), // 0-10
-          lifestyleScore: Number(compatibilityResult.lifestyleScore ?? 0),       // 0-15
+          communicationScore: Number(compatibilityResult.communicationScore ?? 0), // 0-3
+          lifestyleScore: Number(compatibilityResult.lifestyleScore ?? 0),       // 0-10
           coreValuesScore: Number(compatibilityResult.coreValuesScore ?? coreValuesScore ?? 0), // raw 0-20 (transparency)
           coreValuesScaled5: (
             compatibilityResult.coreValuesScaled5 != null
               ? Number(compatibilityResult.coreValuesScaled5)
               : Math.max(0, Math.min(5, (Number(compatibilityResult.coreValuesScore ?? coreValuesScore ?? 0) / 20) * 5))
           ),
-          vibeScore: Number(compatibilityResult.vibeScore ?? vibeScore ?? 0),    // 0-20
+          vibeScore: Number(compatibilityResult.vibeScore ?? vibeScore ?? 0),    // 0-25
           // Safety/cap flags
           attachmentPenaltyApplied: !!compatibilityResult.attachmentPenaltyApplied,
           intentBoostApplied:       !!compatibilityResult.intentBoostApplied,
@@ -5865,10 +5914,10 @@ if (action === "cache-status-by-gender") {
           const pMap = new Map((participants||[]).map(p=>[p.assigned_number, p]))
 
           // Weights (Spark-Only)
-          const W_SYNERGY = 37 / 35
+          const W_SYNERGY = 37 / 30
           const W_HUMOR = 27 / 15
-          const W_VIBE = 12 / 15
-          const W_LIFESTYLE = 3 / 15
+          const W_VIBE = 12 / 25
+          const W_LIFESTYLE = 3 / 10
           const W_VALUES = 4 / 10
 
           const pairs = []
@@ -5885,13 +5934,13 @@ if (action === "cache-status-by-gender") {
               const coreValuesScore = Math.max(0, Math.min(10, (coreValuesScoreRaw / 20) * 10))
               const synergyRaw = calculateInteractionSynergyScore(a, b)
               const { score: humorOpenRaw, vetoClash } = calculateHumorOpennessScore(a, b)
-              const synergyScore = Math.max(0, Math.min(35, synergyRaw))
+              const synergyScore = Math.max(0, Math.min(30, synergyRaw))
               const humorOpenScore = vetoClash ? 0 : Math.max(0, Math.min(15, humorOpenRaw))
-              let vibeScore = 7.5
+              let vibeScore = 12.5
               try {
                 const cached = await getCachedCompatibility(a, b)
                 if (cached && Number.isFinite(cached.vibeScore)) {
-                  vibeScore = Math.max(0, Math.min(15, Number(cached.vibeScore)))
+                  vibeScore = Math.max(0, Math.min(25, Number(cached.vibeScore)))
                 }
               } catch {}
 
@@ -6332,7 +6381,7 @@ if (action === "cache-status-by-gender") {
             communicationScore: parseFloat(cachedData.communication_score),
             lifestyleScore: parseFloat(cachedData.lifestyle_score),
             coreValuesScore: parseFloat(cachedData.core_values_score),
-            vibeScore: parseFloat(cachedData.ai_vibe_score),
+            vibeScore: normalizeCachedVibeScore(cachedData.ai_vibe_score, getCachedVibeSourceMax(cachedData, a, b)),
             totalScore: parseFloat(cachedData.total_compatibility_score),
             humorMultiplier: parseFloat(cachedData.humor_multiplier || 1.0),
             bonusType: cachedData.humor_early_openness_bonus || 'none',
@@ -6377,7 +6426,10 @@ if (action === "cache-status-by-gender") {
             b,
             true,
             true,
-            { reusedVibeScore: reusableVibeData.ai_vibe_score }
+            {
+              reusedVibeScore: reusableVibeData.ai_vibe_score,
+              reusedVibeSourceMax: getCachedVibeSourceMax(reusableVibeData, a, b),
+            }
           )
           compatibilityResult.cached = true
           compatibilityResult.reusedCachedVibe = true
@@ -6832,10 +6884,10 @@ if (action === "cache-status-by-gender") {
             // Add score breakdown
             mbti_compatibility_score: compatibilityData?.mbtiScore || 15,
             attachment_compatibility_score: compatibilityData?.attachmentScore || 15,
-            communication_compatibility_score: compatibilityData?.communicationScore || 15,
-            lifestyle_compatibility_score: compatibilityData?.lifestyleScore || 15,
+            communication_compatibility_score: compatibilityData?.communicationScore ?? calc?.communicationScore ?? 3,
+            lifestyle_compatibility_score: compatibilityData?.lifestyleScore ?? calc?.lifestyleScore ?? 10,
             core_values_compatibility_score: compatibilityData?.coreValuesScore || 15,
-            vibe_compatibility_score: compatibilityData?.vibeScore || 10,
+            vibe_compatibility_score: compatibilityData?.vibeScore ?? calc?.vibeScore ?? 15,
             // New-model persisted fields
             synergy_score: (compatibilityData?.synergyScore ?? calc?.synergyScore) ?? 0,
             humor_open_score: (compatibilityData?.humorOpenScore ?? calc?.humorOpenScore) ?? 0,

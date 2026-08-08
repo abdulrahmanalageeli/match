@@ -925,11 +925,11 @@ export default function MatrixPage() {
 
                                   const items = hasNew
                                     ? [
-                                        { name: "التفاعل", score: match.detailed_scores.synergy || 0, max: 35 },
-                                        { name: "الطاقة", score: match.detailed_scores.vibe || 0, max: 20 },
-                                        { name: "نمط الحياة", score: match.detailed_scores.lifestyle || 0, max: 15 },
+                                        { name: "التفاعل", score: match.detailed_scores.synergy || 0, max: 30 },
+                                        { name: "الطاقة", score: match.detailed_scores.vibe || 0, max: 25 },
+                                        { name: "نمط الحياة", score: match.detailed_scores.lifestyle || 0, max: 10 },
                                         { name: "الدعابة/الانفتاح", score: match.detailed_scores.humor_open || 0, max: 15 },
-                                        { name: "التواصل", score: match.detailed_scores.communication || 0, max: 10 },
+                                        { name: "التواصل", score: match.detailed_scores.communication || 0, max: 3 },
                                         { name: "الأهداف", score: match.detailed_scores.intent || 0, max: 5 }
                                       ]
                                     : [

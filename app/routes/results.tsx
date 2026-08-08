@@ -171,9 +171,9 @@ export default function ResultsPage() {
       const communicationNewMatch = reason.match(/(?:Communication|التواصل):\s*(\d+)%/)
       const intentValuesMatch = reason.match(/(?:Intent|Goal&Values|Goals|الأهداف(?:\/القيم)?):\s*(\d+)%/)
 
-      const synergyScore = synergyMatch ? parseInt(synergyMatch[1]) || 0 : 0 // max 35
-      const vibeNewScore = vibeNewMatch ? parseInt(vibeNewMatch[1]) || 0 : 0   // max 20
-      const lifestyleNewScore = lifestyleNewMatch ? parseInt(lifestyleNewMatch[1]) || 0 : 0 // max 15
+      const synergyScore = synergyMatch ? parseInt(synergyMatch[1]) || 0 : 0 // max 30
+      const vibeNewScore = vibeNewMatch ? parseInt(vibeNewMatch[1]) || 0 : 0   // max 25
+      const lifestyleNewScore = lifestyleNewMatch ? parseInt(lifestyleNewMatch[1]) || 0 : 0 // max 10
       const humorOpenScore = humorOpenMatch ? parseInt(humorOpenMatch[1]) || 0 : 0 // max 15
       const communicationNewScore = communicationNewMatch ? parseInt(communicationNewMatch[1]) || 0 : 0 // max 10
       const intentValuesNewScore = intentValuesMatch ? parseInt(intentValuesMatch[1]) || 0 : 0 // max 5
@@ -868,8 +868,8 @@ export default function ResultsPage() {
                               const m = formattedReason.metrics
                               const percent = (v: number, max: number) => Math.max(0, Math.min(100, Math.round((v / max) * 100)))
                               const dims = [
-                                { label: 'الطاقة والكيمياء', value: m.vibe, max: 20, bar: 'from-purple-500 to-pink-500' },
-                                { label: 'نمط الحياة', value: m.lifestyle, max: 15, bar: 'from-cyan-500 to-blue-500' },
+                                { label: 'الطاقة والكيمياء', value: m.vibe, max: 25, bar: 'from-purple-500 to-pink-500' },
+                                { label: 'نمط الحياة', value: m.lifestyle, max: 10, bar: 'from-cyan-500 to-blue-500' },
                                 { label: 'الدعابة/الانفتاح', value: m.humorOpen, max: 15, bar: 'from-amber-500 to-orange-500' },
                                 { label: 'التواصل', value: m.communication, max: 10, bar: 'from-indigo-500 to-sky-500' },
                                 { label: 'الأهداف/القيم', value: m.intentValues, max: 5, bar: 'from-emerald-500 to-teal-500' },
@@ -900,8 +900,8 @@ export default function ResultsPage() {
                                           const synergyMax = m.synergyMax || 35
                                           const items = [
                                             { label: 'التفاعل', value: synergyVal, max: synergyMax, bar: 'from-emerald-500 to-teal-500' },
-                                            { label: 'الطاقة', value: vibeVal, max: 20, bar: 'from-purple-500 to-pink-500' },
-                                            { label: 'نمط الحياة', value: lifestyleVal, max: 15, bar: 'from-cyan-500 to-blue-500' },
+                                            { label: 'الطاقة', value: vibeVal, max: 25, bar: 'from-purple-500 to-pink-500' },
+                                            { label: 'نمط الحياة', value: lifestyleVal, max: 10, bar: 'from-cyan-500 to-blue-500' },
                                             { label: 'الدعابة/الانفتاح', value: humorOpenVal, max: 15, bar: 'from-amber-500 to-orange-500' },
                                             { label: 'التواصل', value: communicationVal, max: 10, bar: 'from-indigo-500 to-sky-500' },
                                             { label: 'الأهداف', value: intentVal, max: 5, bar: 'from-emerald-500 to-teal-500' }

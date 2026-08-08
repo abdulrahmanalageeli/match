@@ -215,15 +215,15 @@ export default function FeedbackPairsModal({ eventId, onClose }: { eventId: numb
                           <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
                             <div>
                               <span className="text-slate-400">التفاعل:</span>{' '}
-                              <span className={pctColor(row.synergy_score ?? 0, 35)}>{Math.round(row.synergy_score ?? 0)}/35</span>
+                              <span className={pctColor(row.synergy_score ?? 0, 30)}>{Math.round(row.synergy_score ?? 0)}/30</span>
                             </div>
                             <div>
                               <span className="text-slate-400">الطاقة:</span>{' '}
-                              <span className={pctColor(row.vibe_compatibility_score ?? 0, 20)}>{Math.round(row.vibe_compatibility_score ?? 0)}/20</span>
+                              <span className={pctColor(row.vibe_compatibility_score ?? 0, 25)}>{Math.round(row.vibe_compatibility_score ?? 0)}/25</span>
                             </div>
                             <div>
                               <span className="text-slate-400">الحياة:</span>{' '}
-                              <span className={pctColor(row.lifestyle_compatibility_score ?? 0, 15)}>{Math.round(row.lifestyle_compatibility_score ?? 0)}/15</span>
+                              <span className={pctColor(row.lifestyle_compatibility_score ?? 0, 10)}>{Math.round(row.lifestyle_compatibility_score ?? 0)}/10</span>
                             </div>
                             <div>
                               <span className="text-slate-400">الدعابة/الانفتاح:</span>{' '}
@@ -231,7 +231,7 @@ export default function FeedbackPairsModal({ eventId, onClose }: { eventId: numb
                             </div>
                             <div>
                               <span className="text-slate-400">التواصل:</span>{' '}
-                              <span className={pctColor(row.communication_compatibility_score ?? 0, 10)}>{Math.round(row.communication_compatibility_score ?? 0)}/10</span>
+                              <span className={pctColor(row.communication_compatibility_score ?? 0, 3)}>{Math.round(row.communication_compatibility_score ?? 0)}/3</span>
                             </div>
                             <div>
                               <span className="text-slate-400">الأهداف:</span>{' '}

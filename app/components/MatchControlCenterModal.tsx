@@ -940,12 +940,12 @@ function PlanPairRow({ pair, people, pairData, old = false }: { pair: { a: numbe
 function PairScoreName({ number, other, people, pairData, fallbackScore, align }: { number: number; other: number; people: Map<number, MatchControlPerson>; pairData?: any; fallbackScore: number | null; align: "right" | "left" }) {
   const total = Number(pairData?.compatibility_score ?? pairData?.total_compatibility_score ?? fallbackScore)
   const metrics = [
-    ["الطاقة", pairData?.vibe_compatibility_score ?? pairData?.vibe_score, 15],
+    ["الطاقة", pairData?.vibe_compatibility_score ?? pairData?.vibe_score, 25],
     ["الاختلاف", pairData?.disagreement_style_score, 4],
     ["المرحلة الحالية", pairData?.current_life_overlap_score, 5],
     ["تفضيل التشابه", pairData?.similarity_preference_score, 5],
     ["وتيرة التقارب", pairData?.attachment_pace_score, 3],
-    ["نمط الحياة", pairData?.lifestyle_compatibility_score ?? pairData?.lifestyle_score, 15],
+    ["نمط الحياة", pairData?.lifestyle_compatibility_score ?? pairData?.lifestyle_score, 10],
     ["الدعابة/الانفتاح", pairData?.humor_open_score ?? pairData?.humor_open_compatibility_score, 15],
   ] as const
   const adjustments = [
@@ -975,13 +975,13 @@ function Metric({ label, before, after }: { label: string; before?: number | nul
 
 function PairBreakdown({ pair, fallbackScore }: { pair: any; fallbackScore: number | null }) {
   const metrics = [
-    ["التفاعل", pair?.synergy_score, 35],
-    ["الطاقة", pair?.vibe_compatibility_score, 15],
+    ["التفاعل", pair?.synergy_score, 30],
+    ["الطاقة", pair?.vibe_compatibility_score, 25],
     ["أسلوب الاختلاف", pair?.disagreement_style_score, 4],
     ["المرحلة الحالية", pair?.current_life_overlap_score, 5],
     ["تفضيل التشابه", pair?.similarity_preference_score, 5],
     ["وتيرة التقارب", pair?.attachment_pace_score, 3],
-    ["نمط الحياة", pair?.lifestyle_compatibility_score, 15],
+    ["نمط الحياة", pair?.lifestyle_compatibility_score, 10],
     ["الدعابة/الانفتاح", pair?.humor_open_score, 15],
     ["التواصل", pair?.communication_compatibility_score, 3],
     ["الهدف", pair?.intent_score, 5],

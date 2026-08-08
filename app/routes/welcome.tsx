@@ -292,6 +292,31 @@ const normalizeResolvedSurveyData = (participant: any): SurveyData => {
   }
 }
 
+const getPendingMatchInsightIds = (resolvedSurveyData: SurveyData) => {
+  const meaningfulAnswerCount = Object.entries(resolvedSurveyData.answers).filter(([key, value]) => {
+    if (key === 'gender_preference' || key === 'open_intent_goal_mismatch') return false
+    return Array.isArray(value) ? value.length > 0 : String(value ?? '').trim().length > 0
+  }).length
+
+  // Older completed questionnaires do not always carry the current consent or
+  // generated-profile fields. A full answer set is therefore also a reliable
+  // completion signal, while the threshold keeps this prompt away from people
+  // who only started the survey.
+  const isCompletedSurvey = (
+    (resolvedSurveyData.termsAccepted && resolvedSurveyData.dataConsent)
+    || Boolean(
+      resolvedSurveyData.vibeDescription
+      || resolvedSurveyData.communicationStyle
+      || resolvedSurveyData.attachmentStyle
+      || resolvedSurveyData.lifestylePreferences
+      || resolvedSurveyData.coreValues
+    )
+    || meaningfulAnswerCount >= 20
+  )
+
+  return isCompletedSurvey ? getMissingMatchInsightIds(resolvedSurveyData.answers) : []
+}
+
 interface FeedbackAnswersState {
   compatibilityRate: number
   sliderMoved: boolean
@@ -673,6 +698,33 @@ export default function WelcomePage() {
       && (Array.isArray(value) ? value.length > 0 : String(value ?? '').trim().length > 0)
     );
   };
+
+  const applyMatchInsightsPrompt = useCallback((participant: any) => {
+    const resolvedSurveyData = normalizeResolvedSurveyData(participant)
+    const missingInsights = getPendingMatchInsightIds(resolvedSurveyData)
+
+    if (Object.keys(resolvedSurveyData.answers).length > 0) {
+      setSurveyData(resolvedSurveyData)
+    }
+    setMissingMatchInsightIds(missingInsights)
+    setShowMatchInsightsUpdate(missingInsights.length > 0)
+
+    return { resolvedSurveyData, missingInsights }
+  }, [])
+
+  const checkMatchInsightsForSavedParticipant = useCallback(async (tokenToCheck: string) => {
+    try {
+      const response = await fetch('/api/participant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
+        body: JSON.stringify({ action: 'resolve-token', secure_token: tokenToCheck }),
+      })
+      const participant = await response.json()
+      if (response.ok && participant?.success) applyMatchInsightsPrompt(participant)
+    } catch (error) {
+      console.error('Failed to check the saved participant match questions:', error)
+    }
+  }, [applyMatchInsightsPrompt])
   useEffect(() => {
     if (modalStep !== 'feedback') { setKeyboardOffset(0); return }
     const vv: any = (window as any).visualViewport
@@ -2182,18 +2234,7 @@ export default function WelcomePage() {
             setReturningGenderPreference(data.gender_preference)
             // preference source: DB only (no localStorage caching)
           }
-          const resolvedSurveyData = normalizeResolvedSurveyData(data)
-          if (Object.keys(resolvedSurveyData.answers).length > 0) {
-            setSurveyData(resolvedSurveyData)
-          }
-          const looksLikeCompletedSurvey = resolvedSurveyData.termsAccepted && resolvedSurveyData.dataConsent
-            || Boolean(resolvedSurveyData.vibeDescription || resolvedSurveyData.communicationStyle || resolvedSurveyData.attachmentStyle)
-          const missingInsights = hasSubstantialSurveyData(resolvedSurveyData.answers)
-            && looksLikeCompletedSurvey
-            ? getMissingMatchInsightIds(resolvedSurveyData.answers)
-            : []
-          setMissingMatchInsightIds(missingInsights)
-          setShowMatchInsightsUpdate(missingInsights.length > 0)
+          const { missingInsights } = applyMatchInsightsPrompt(data)
           // If URL still has legacy showToken flag, show modal and then clean it from URL
           try {
             const params = new URLSearchParams(window.location.search)
@@ -2500,7 +2541,7 @@ export default function WelcomePage() {
       }
     }
     resolveToken()
-  }, [token])
+  }, [token, applyMatchInsightsPrompt])
 
   // Auto-open survey when redirected for redo: /welcome?token=...&redo=1 or flow=redo
   useEffect(() => {
@@ -4457,6 +4498,11 @@ export default function WelcomePage() {
       setResultToken(tokenToUse);
       setReturningPlayerToken(tokenToUse);
       console.log('💾 Auto-filled both token fields with saved token:', tokenToUse);
+
+      // Returning participants normally land on /welcome without a token in
+      // the URL. Check their saved account here so the short update dialog is
+      // available on the main welcome page as intended.
+      void checkMatchInsightsForSavedParticipant(tokenToUse)
       
       // Check for next event signup on all steps EXCEPT survey (step 1)
       // Don't show popup when user is accessing a specific token URL
@@ -4501,7 +4547,7 @@ export default function WelcomePage() {
       
       setTokenValidationCompleted(true);
     }
-  }, []); // Run once on mount
+  }, [checkMatchInsightsForSavedParticipant]);
 
   // Load saved participant data on page load
   useEffect(() => {
@@ -5825,6 +5871,39 @@ export default function WelcomePage() {
   // New User Type Popup will be rendered within main page structure
 
   // Contact Form Popup will be rendered within main page structure
+
+  const handleMatchInsightsSaved = (updatedSurveyData: Record<string, unknown>) => {
+    const normalized = normalizeResolvedSurveyData({ survey_data: updatedSurveyData })
+    setSurveyData(normalized)
+    setMissingMatchInsightIds([])
+    toast.success('تم تحديث إجابات المطابقة')
+    if (historyMatches.length > 0) window.setTimeout(() => setShowHistory(true), 350)
+  }
+
+  // This prompt must sit above every welcome-page branch. Returning users
+  // often arrive without `?token=...`, which otherwise takes the registration
+  // return path before the dialog can be mounted.
+  if (showMatchInsightsUpdate && missingMatchInsightIds.length > 0) {
+    return (
+      <>
+        <div className="relative min-h-screen overflow-hidden page-bg" dir="rtl" aria-hidden="true">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.12),transparent_38%),radial-gradient(circle_at_bottom_left,rgba(139,92,246,0.12),transparent_42%)]" />
+          <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-3 text-white/35">
+            <img src="/blindmatch-imprint.png" alt="" className="h-12 w-12 object-contain opacity-70" />
+            <span className="text-sm font-bold">بلايند ماتش</span>
+          </div>
+        </div>
+        <MatchInsightsUpdateDialog
+          open
+          missingIds={missingMatchInsightIds}
+          secureToken={secureToken || token || resultToken || returningPlayerToken || ''}
+          onOpenChange={setShowMatchInsightsUpdate}
+          onSaved={handleMatchInsightsSaved}
+        />
+        <Toaster position="top-center" />
+      </>
+    )
+  }
 
   // Vibe Questions Completion Popup - Top Level (highest priority for displaying)
   if (vibeCompletionPopupEnabled && showVibeCompletionPopup && Object.keys(incompleteVibeQuestions).length > 0) {
@@ -8375,20 +8454,6 @@ export default function WelcomePage() {
       {/* Participant Icon - Hide in step 4 (round mode) as it's included in page content */}
       {step !== 4 && <ParticipantIcon />}
 
-      <MatchInsightsUpdateDialog
-        open={showMatchInsightsUpdate}
-        missingIds={missingMatchInsightIds}
-        secureToken={secureToken || token || ''}
-        onOpenChange={setShowMatchInsightsUpdate}
-        onSaved={(updatedSurveyData) => {
-          const normalized = normalizeResolvedSurveyData({ survey_data: updatedSurveyData })
-          setSurveyData(normalized)
-          setMissingMatchInsightIds([])
-          toast.success('تم تحديث إجابات المطابقة')
-          if (historyMatches.length > 0) window.setTimeout(() => setShowHistory(true), 350)
-        }}
-      />
-      
       {showTokenModal && (
         <div data-welcome-dialog role="dialog" aria-modal="true" aria-label="تم إنشاء الحساب" tabIndex={-1} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className={`${dark ? "bg-slate-800/95 border-slate-700" : "bg-white/95 border-gray-200"} w-full max-w-md mx-4 rounded-2xl border p-5 shadow-2xl`} dir="rtl">

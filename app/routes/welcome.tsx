@@ -5947,7 +5947,6 @@ export default function WelcomePage() {
     setSurveyData(normalized)
     setMissingMatchInsightIds([])
     toast.success('تم تحديث إجابات المطابقة')
-    if (historyMatches.length > 0) window.setTimeout(() => setShowHistory(true), 350)
   }
 
   // This prompt must sit above every welcome-page branch. Returning users

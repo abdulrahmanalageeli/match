@@ -1727,17 +1727,17 @@ export default function ParticipantResultsModal({
                             const comm = pair?.communication_compatibility_score ?? 0
                             const intent = pair?.intent_score ?? 0
                             const vibe = pair?.vibe_compatibility_score ?? 0
-                            const disagreement = pair?.disagreement_style_score ?? 0
-                            const currentLife = pair?.current_life_overlap_score ?? 0
-                            const similarityPreference = pair?.similarity_preference_score ?? 0
-                            const attachmentPace = pair?.attachment_pace_score ?? 0
+                            const disagreement = pair?.disagreement_style_score
+                            const currentLife = pair?.current_life_overlap_score
+                            const similarityPreference = pair?.similarity_preference_score
+                            const attachmentPace = pair?.attachment_pace_score
                             return (
                               <>
                                 <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(synergy).toFixed(1)}%</span></td>
-                                <td className="p-2 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number(disagreement).toFixed(1)}/4</span></td>
-                                <td className="p-2 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number(currentLife).toFixed(1)}/5</span></td>
-                                <td className="p-2 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number(similarityPreference).toFixed(1)}/5</span></td>
-                                <td className="p-2 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number(attachmentPace).toFixed(1)}/3</span></td>
+                                <td className="p-2 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number.isFinite(Number(disagreement)) ? `${Number(disagreement).toFixed(1)}/4` : "—"}</span></td>
+                                <td className="p-2 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number.isFinite(Number(currentLife)) ? `${Number(currentLife).toFixed(1)}/5` : "—"}</span></td>
+                                <td className="p-2 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number.isFinite(Number(similarityPreference)) ? `${Number(similarityPreference).toFixed(1)}/5` : "—"}</span></td>
+                                <td className="p-2 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number.isFinite(Number(attachmentPace)) ? `${Number(attachmentPace).toFixed(1)}/3` : "—"}</span></td>
                                 <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(life).toFixed(1)}%</span></td>
                                 <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(humorOpen).toFixed(1)}%</span></td>
                                 <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(comm).toFixed(1)}%</span></td>

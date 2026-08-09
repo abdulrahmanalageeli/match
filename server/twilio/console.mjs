@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../security/supabase-admin.mjs"
 import { enforceRateLimit, requireAdmin } from "../security/request-security.mjs"
+import { getMatchInsightsCompletion } from "../matching/match-insights.mjs"
 
 const supabase = supabaseAdmin
 
@@ -34,6 +35,7 @@ function templateEnvSid(key) {
     discount: process.env.TWILIO_DISCOUNT_TEMPLATE_SID,
     late_check: process.env.TWILIO_LATE_CHECK_TEMPLATE_SID,
     feedback_remaining: process.env.TWILIO_FEEDBACK_TEMPLATE_SID,
+    survey_update: process.env.TWILIO_SURVEY_UPDATE_TEMPLATE_SID || "HX29303de3e62bac314552ee3056578c4f",
   }
   return envMap[key] || null
 }
@@ -104,9 +106,14 @@ async function participantPage({ eventId, cursor = 0, search = "", filter = "all
     query = query.or(clauses.join(","))
   }
 
-  const { data, error } = await query.order("assigned_number").limit(pageSize + 1)
+  const completionFilter = filter === "incomplete_questions" || filter === "complete_questions"
+  const { data, error } = await query.order("assigned_number").limit(completionFilter ? 10000 : pageSize + 1)
   if (error) throw error
-  const rows = data || []
+  const rows = completionFilter
+    ? (data || []).filter(participant => filter === "complete_questions"
+      ? getMatchInsightsCompletion(participant).complete
+      : !getMatchInsightsCompletion(participant).complete)
+    : (data || [])
   const hasMore = rows.length > pageSize
   const visible = rows.slice(0, pageSize)
   const participants = await attachEventReceipts(visible, eventId)
@@ -176,6 +183,7 @@ async function buildVariables(templateKey, participant, overrides = {}) {
   if (templateKey === "feedback_remaining") values = {
     1: name, 2: await feedbackRemaining(participant.assigned_number), 3: config.eventName, 4: participant.secure_token,
   }
+  if (templateKey === "survey_update") values = { 1: name }
   return { ...values, ...overrides }
 }
 
@@ -224,7 +232,7 @@ async function sendApprovedTemplate(template, participant, overrides = {}) {
     twilio_payload: twilio ? { sid: twilio.sid || null, status: twilio.status || null, code: twilio.code || null } : null,
   })
   if (!response.ok) throw new Error(twilio.message || "Twilio send failed")
-  if (template.template_key !== "reminder") {
+  if (!["reminder", "survey_update"].includes(template.template_key)) {
     const { error: sentFlagError } = await supabase
       .from("participants")
       .update(template.template_key === "payment" ? { payment_reminder_sent: true } : { PAID: true })

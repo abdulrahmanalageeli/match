@@ -5,6 +5,7 @@ import { Checkbox } from '../../components/ui/checkbox';
 import { Check, Copy, MessageSquare, X, Clock, Info, HelpCircle, Settings, FileText, Send, Zap, Users } from 'lucide-react';
 import { buildMatchTemplateVariables } from '~/utils/twilioTemplateVariables';
 import { formatRiyadhCutoffLabel } from '~/utils/formatRiyadhCutoffLabel';
+import { getParticipantMatchInsightsCompletion } from '~/lib/matchControl';
 
 interface WhatsappMessageModalProps {
   participant: any;
@@ -14,7 +15,7 @@ interface WhatsappMessageModalProps {
   allParticipants?: any[];
 }
 
-type TwilioTemplateType = 'match' | 'reminder' | 'payment' | 'match_cancellation';
+type TwilioTemplateType = 'match' | 'reminder' | 'payment' | 'match_cancellation' | 'survey_update';
 type MessageTemplateType = 'match' | 'early-match' | 'early-reminder' | 'event-info' | 'faq-payment' | 'faq-location' | 'faq-timing' | 'reminder' | 'payment-reminder' | 'match-cancellation' | 'partner-info' | 'gender-confirmation' | 'preference-flexibility' | 'discount-offer' | 'survey-completion' | 'time-change';
 
 export default function WhatsappMessageModal({ participant, isOpen, onClose, cohostTheme = false, allParticipants = [] }: WhatsappMessageModalProps) {
@@ -25,7 +26,7 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose, coh
   const [templateMode, setTemplateMode] = useState(false);
   const [templateSid, setTemplateSid] = useState('');
   const [templateTypeTwilio, setTemplateTypeTwilio] = useState<TwilioTemplateType>('match');
-  const [envTemplateSids, setEnvTemplateSids] = useState<Record<TwilioTemplateType, string | null>>({ match: null, reminder: null, payment: null, match_cancellation: null });
+  const [envTemplateSids, setEnvTemplateSids] = useState<Record<TwilioTemplateType, string | null>>({ match: null, reminder: null, payment: null, match_cancellation: null, survey_update: null });
   const [bulkSending, setBulkSending] = useState(false);
   const [bulkResult, setBulkResult] = useState<{ successCount: number; failCount: number; results: any[] } | null>(null);
   const [urgencyLevel, setUrgencyLevel] = useState<'normal' | 'semi-urgent' | 'urgent'>('normal');
@@ -48,6 +49,8 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose, coh
       ? 'payment'
       : templateType === 'match-cancellation'
         ? 'match_cancellation'
+      : templateType === 'survey-completion'
+        ? 'survey_update'
       : templateType === 'reminder'
         ? 'reminder'
         : templateType === 'match'
@@ -408,6 +411,10 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
       return { 1: name };
     }
 
+    if (templateTypeTwilio === 'survey_update') {
+      return { 1: name };
+    }
+
     return buildMatchTemplateVariables(p, config);
   };
 
@@ -417,7 +424,9 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
       setTwilioResult({ success: false, msg: 'أدخل Template SID أولاً' });
       return;
     }
-    const eligible = allParticipants.filter(p => p.phone_number);
+    const eligible = allParticipants.filter(p => (
+      p.phone_number && (templateTypeTwilio !== 'survey_update' || !getParticipantMatchInsightsCompletion(p).complete)
+    ));
     if (eligible.length === 0) {
       setTwilioResult({ success: false, msg: 'لا يوجد مشاركون بأرقام هاتف' });
       return;
@@ -1038,6 +1047,7 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
                 <option value="reminder">event_reminder (تذكير الفعالية)</option>
                 <option value="payment">payment_reminder (تذكير الدفع)</option>
                 <option value="match_cancellation">match_cancelled_refund_or_next_event (إلغاء الشريك)</option>
+                <option value="survey_update">copy_of_complete_new_survey_questions (إكمال الأسئلة الجديدة)</option>
               </select>
               {templateSid ? (
                 <div className="flex items-center gap-2 bg-slate-800/50 border border-slate-600/50 rounded px-3 py-2">
@@ -1054,6 +1064,7 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
                 {templateTypeTwilio === 'reminder' && '5 متغيرات — تأكيد/اعتذار'}
                 {templateTypeTwilio === 'payment' && '7 متغيرات — تأكيد/اعتذار'}
                 {templateTypeTwilio === 'match_cancellation' && 'متغير واحد — اسم المشارك، مع خياري الاسترداد أو الفعالية القادمة'}
+                {templateTypeTwilio === 'survey_update' && 'متغير واحد — اسم المشارك. الإرسال الجماعي يستهدف تلقائياً من لم يكملوا الأسئلة الجديدة.'}
               </p>
             </div>
           )}
@@ -1065,7 +1076,7 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
                 className="bg-orange-600 hover:bg-orange-700 text-white text-sm disabled:opacity-50"
               >
                 {bulkSending ? <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2" /> : <Users className="w-4 h-4 mr-2" />}
-                {bulkSending ? 'جارٍ الإرسال الجماعي...' : `إرسال جماعي (${allParticipants.filter(p => p.phone_number).length})`}
+                {bulkSending ? 'جارٍ الإرسال الجماعي...' : `إرسال جماعي (${allParticipants.filter(p => p.phone_number && (templateTypeTwilio !== 'survey_update' || !getParticipantMatchInsightsCompletion(p).complete)).length})`}
               </Button>
             </div>
           )}

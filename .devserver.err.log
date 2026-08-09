@@ -1,0 +1,21 @@
+Error: No route matches URL "/welcome-round"
+    at getInternalRouterError (file:///C:/Users/timgo/Downloads/BlindComp/my-project/match/node_modules/.pnpm/react-router@7.5.3_react-do_3932a1b70e13b263f11ffaaad9e71833/node_modules/react-router/dist/development/chunk-AYJ5UCUI.mjs:4491:5)
+    at Object.query (file:///C:/Users/timgo/Downloads/BlindComp/my-project/match/node_modules/.pnpm/react-router@7.5.3_react-do_3932a1b70e13b263f11ffaaad9e71833/node_modules/react-router/dist/development/chunk-AYJ5UCUI.mjs:2713:19)
+    at handleDocumentRequest (file:///C:/Users/timgo/Downloads/BlindComp/my-project/match/node_modules/.pnpm/react-router@7.5.3_react-do_3932a1b70e13b263f11ffaaad9e71833/node_modules/react-router/dist/development/chunk-AYJ5UCUI.mjs:10261:40)
+    at requestHandler (file:///C:/Users/timgo/Downloads/BlindComp/my-project/match/node_modules/.pnpm/react-router@7.5.3_react-do_3932a1b70e13b263f11ffaaad9e71833/node_modules/react-router/dist/development/chunk-AYJ5UCUI.mjs:10176:24)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at nodeHandler (C:\Users\timgo\Downloads\BlindComp\my-project\match\node_modules\.pnpm\@react-router+dev@7.5.3_@re_25c2145acb23b9a0db2623b11c5c8649\node_modules\@react-router\dev\dist\vite.js:3030:30)
+    at C:\Users\timgo\Downloads\BlindComp\my-project\match\node_modules\.pnpm\@react-router+dev@7.5.3_@re_25c2145acb23b9a0db2623b11c5c8649\node_modules\@react-router\dev\dist\vite.js:3036:17
+No routes matched location "/welcome-round?round=1" 
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+Error: No route matches URL "/welcome-round"
+    at getInternalRouterError (file:///C:/Users/timgo/Downloads/BlindComp/my-project/match/node_modules/.pnpm/react-router@7.5.3_react-do_3932a1b70e13b263f11ffaaad9e71833/node_modules/react-router/dist/development/chunk-AYJ5UCUI.mjs:4491:5)
+    at Object.query (file:///C:/Users/timgo/Downloads/BlindComp/my-project/match/node_modules/.pnpm/react-router@7.5.3_react-do_3932a1b70e13b263f11ffaaad9e71833/node_modules/react-router/dist/development/chunk-AYJ5UCUI.mjs:2713:19)
+    at handleDocumentRequest (file:///C:/Users/timgo/Downloads/BlindComp/my-project/match/node_modules/.pnpm/react-router@7.5.3_react-do_3932a1b70e13b263f11ffaaad9e71833/node_modules/react-router/dist/development/chunk-AYJ5UCUI.mjs:10261:40)
+    at requestHandler (file:///C:/Users/timgo/Downloads/BlindComp/my-project/match/node_modules/.pnpm/react-router@7.5.3_react-do_3932a1b70e13b263f11ffaaad9e71833/node_modules/react-router/dist/development/chunk-AYJ5UCUI.mjs:10176:24)
+    at nodeHandler (C:\Users\timgo\Downloads\BlindComp\my-project\match\node_modules\.pnpm\@react-router+dev@7.5.3_@re_25c2145acb23b9a0db2623b11c5c8649\node_modules\@react-router\dev\dist\vite.js:3030:30)
+    at C:\Users\timgo\Downloads\BlindComp\my-project\match\node_modules\.pnpm\@react-router+dev@7.5.3_@re_25c2145acb23b9a0db2623b11c5c8649\node_modules\@react-router\dev\dist\vite.js:3036:17
+No routes matched location "/welcome-round?round=1" 
+[BABEL] Note: The code generator has deoptimised the styling of C:\Users\timgo\Downloads\BlindComp\my-project\match\app\routes\event3.tsx as it exceeds the max of 500KB.
+[BABEL] Note: The code generator has deoptimised the styling of C:\Users\timgo\Downloads\BlindComp\my-project\match\app\routes\event3.tsx as it exceeds the max of 500KB.
+[BABEL] Note: The code generator has deoptimised the styling of C:\Users\timgo\Downloads\BlindComp\my-project\match\app\routes\event3.tsx as it exceeds the max of 500KB.

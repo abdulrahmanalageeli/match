@@ -131,6 +131,7 @@ export default function ParticipantResultsModal({
   const [hidePaid, setHidePaid] = useState(false)
   const [showNewOnly, setShowNewOnly] = useState(false)
   const [showPaidOnly, setShowPaidOnly] = useState(false)
+  const [showUnmessagedFemalesOnly, setShowUnmessagedFemalesOnly] = useState(false)
   const [bulkExcludingUnpaidGirls, setBulkExcludingUnpaidGirls] = useState(false)
   // Impressions: map of participant_number -> Impression[]
   const [impressionsMap, setImpressionsMap] = useState<Record<number, any[]>>({})
@@ -594,6 +595,9 @@ export default function ParticipantResultsModal({
       const partnerPaid = hasPartner ? !!r.partner_paid_done : false
       if (!selfPaid && !partnerPaid) return false
     }
+    if (showUnmessagedFemalesOnly) {
+      if (!isFemaleParticipant(r.assigned_number) || isMessageSent(r.assigned_number)) return false
+    }
     return true
   })
 
@@ -914,6 +918,20 @@ export default function ParticipantResultsModal({
               <DollarSign className="w-4 h-4" />
               <span>مدفوع فقط</span>
             </label>
+            <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border cursor-pointer transition-all duration-200 text-sm ${
+              showUnmessagedFemalesOnly
+                ? 'bg-pink-500/20 border-pink-400/40 text-pink-200'
+                : 'bg-white/5 border-white/15 text-slate-300 hover:bg-white/10'
+            }`}>
+              <input
+                type="checkbox"
+                checked={showUnmessagedFemalesOnly}
+                onChange={(e) => setShowUnmessagedFemalesOnly(e.target.checked)}
+                className="accent-pink-500 w-4 h-4"
+              />
+              <MessageCircle className="w-4 h-4" />
+              <span>بنات لم يتم التواصل معهن فقط</span>
+            </label>
             <button
               onClick={bulkExcludeUnpaidGirls}
               disabled={bulkExcludingUnpaidGirls}
@@ -927,7 +945,7 @@ export default function ParticipantResultsModal({
               <UserX className={"w-4 h-4" + (bulkExcludingUnpaidGirls ? " animate-pulse" : "")} />
               <span>استبعاد غير المدفوعات (بنات)</span>
             </button>
-            {(hideMessaged || hidePaid || showNewOnly || showPaidOnly) && (
+            {(hideMessaged || hidePaid || showNewOnly || showPaidOnly || showUnmessagedFemalesOnly) && (
               <span className="text-xs text-slate-400">
                 ({visibleResults.length} ظاهر من {sortedResults.length})
               </span>
@@ -1154,6 +1172,19 @@ export default function ParticipantResultsModal({
                                               جديد
                                             </span>
                                           )}
+                                          {(() => {
+                                            const decision = getAgeFlexDecision(participant.assigned_number)
+                                            const meta = decision === "accepted"
+                                              ? { label: "مرونة العمر ✓", style: "bg-emerald-500/20 border-emerald-400/30 text-emerald-300", title: "وافق على مرونة العمر ±1 سنة" }
+                                              : decision === "declined"
+                                                ? { label: "مرونة العمر ✕", style: "bg-red-500/20 border-red-400/30 text-red-300", title: "رفض مرونة العمر ±1 سنة" }
+                                                : { label: "مرونة العمر —", style: "bg-amber-500/20 border-amber-400/30 text-amber-300", title: "لم يجب عن مرونة العمر ±1 سنة" }
+                                            return (
+                                              <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-bold ${meta.style}`} title={meta.title}>
+                                                {meta.label}
+                                              </span>
+                                            )
+                                          })()}
                                         </div>
                                       </Popover.Trigger>
                                     </Tooltip.Trigger>

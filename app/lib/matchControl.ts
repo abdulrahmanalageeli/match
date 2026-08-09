@@ -53,6 +53,39 @@ export type PairMatchInsightsCoverage = {
   participantB: number | null
 }
 
+const MATCH_INSIGHT_IDS = [
+  "match_disagreement_style",
+  "match_similarity_preference",
+  "match_current_curiosity",
+  "match_current_focus",
+  "conversation_initiative_preference",
+] as const
+
+const MATCH_FOCUS_VALUES = new Set([
+  "study", "career", "business", "family_social", "health_fitness",
+  "creative", "travel_experiences", "self_growth", "other",
+])
+
+export function getParticipantMatchInsightsCompletion(participant?: MatchControlPerson) {
+  const answers = participant?.survey_data?.answers || {}
+  const value = (key: string) => answers[key] ?? participant?.survey_data?.[key] ?? participant?.[key]
+  const validChoice = (key: string) => ["A", "B", "C", "D"].includes(String(value(key) || "").trim().toUpperCase())
+  const curiosity = String(value("match_current_curiosity") || "").replace(/\s+/g, " ").trim()
+  const rawFocus = value("match_current_focus")
+  const focus = (Array.isArray(rawFocus) ? rawFocus : typeof rawFocus === "string" ? rawFocus.split(",") : [])
+    .map((item: unknown) => String(item).trim())
+    .filter((item: string) => MATCH_FOCUS_VALUES.has(item))
+  const completed = [
+    validChoice("match_disagreement_style"),
+    validChoice("match_similarity_preference"),
+    curiosity.length >= 20 && curiosity.length <= 150,
+    new Set(focus).size >= 2,
+    validChoice("conversation_initiative_preference"),
+  ].filter(Boolean).length
+
+  return { completed, total: MATCH_INSIGHT_IDS.length, complete: completed === MATCH_INSIGHT_IDS.length }
+}
+
 export function getPairMatchInsightsCoverage(pair?: any): PairMatchInsightsCoverage {
   const explicit = String(pair?.match_insights_status || "").toLowerCase()
   const tracked = ["both", "mixed", "neither"].includes(explicit)

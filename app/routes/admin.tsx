@@ -65,6 +65,7 @@ import ParticipantProfileModal from "~/components/ParticipantProfileModal"
 import TwilioAdminPanel from "~/components/TwilioAdminPanel"
 import { surveyQuestions } from "~/components/SurveyComponent"
 import PairAnalysisModal from "~/components/PairAnalysisModalPro"
+import { getParticipantMatchInsightsCompletion } from "~/lib/matchControl"
 
 // ─── Match Analyzer Modal ───────────────────────────────────────────────────
 function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
@@ -584,6 +585,7 @@ export default function AdminPage() {
   const [paymentFilter, setPaymentFilter] = useState("all") // "all", "paid", "unpaid", "done"
   const [confirmationFilter, setConfirmationFilter] = useState("all") // "all", "confirmed", "awaiting_receipt", "declined"
   const [whatsappFilter, setWhatsappFilter] = useState(() => isCohost ? "not_sent" : "all") // "all", "sent", "not_sent"
+  const [matchInsightsFilter, setMatchInsightsFilter] = useState("all") // "all", "complete", "incomplete"
   const [signupFilter, setSignupFilter] = useState("all") // "all", "manual", "auto"
   const [showDuplicatePhones, setShowDuplicatePhones] = useState(false)
   const [surveyChangeCounts, setSurveyChangeCounts] = useState<Record<number, { count: number; hasSuspicious: boolean }>>({})
@@ -3763,6 +3765,11 @@ const fetchParticipants = async () => {
           matchesWhatsapp = (!p.PAID || p.PAID === false)
         }
       }
+
+      const insightsCompletion = getParticipantMatchInsightsCompletion(p)
+      const matchesMatchInsights = matchInsightsFilter === "all" || (
+        matchInsightsFilter === "complete" ? insightsCompletion.complete : !insightsCompletion.complete
+      )
       
       // Signup type filter
       let matchesSignup = true
@@ -3775,7 +3782,7 @@ const fetchParticipants = async () => {
       // Duplicate phone filter
       const matchesDuplicatePhone = !showDuplicatePhones || duplicatePhoneNumbers.has((p.phone_number || "").replace(/\D/g, ""))
       
-      return matchesSearch && isEligible && matchesEligibleSub && matchesGender && matchesPayment && matchesConfirmation && matchesWhatsapp && matchesSignup && matchesDuplicatePhone
+      return matchesSearch && isEligible && matchesEligibleSub && matchesGender && matchesPayment && matchesConfirmation && matchesWhatsapp && matchesMatchInsights && matchesSignup && matchesDuplicatePhone
     })
 
     // Sort the filtered results
@@ -3804,7 +3811,7 @@ const fetchParticipants = async () => {
       }
       return 0
     })
-  }, [participants, debouncedSearch, searchByPhone, showEligibleOnly, eligibleSubFilter, genderFilter, paymentFilter, confirmationFilter, whatsappFilter, signupFilter, sortBy, currentEventId, excludedParticipants, showDuplicatePhones, duplicatePhoneNumbers])
+  }, [participants, debouncedSearch, searchByPhone, showEligibleOnly, eligibleSubFilter, genderFilter, paymentFilter, confirmationFilter, whatsappFilter, matchInsightsFilter, signupFilter, sortBy, currentEventId, excludedParticipants, showDuplicatePhones, duplicatePhoneNumbers])
   
   // Virtualized participants - only show a subset for performance
   const visibleParticipants = useMemo(() => {
@@ -7313,6 +7320,18 @@ Proceed?`
                 </select>
                 <ChevronRight className="absolute right-2 top-1/2 -translate-y-1/2 rotate-90 w-4 h-4 text-slate-400 pointer-events-none" />
               </div>
+              <div className="flex-1 relative">
+                <select
+                  value={matchInsightsFilter}
+                  onChange={(e) => setMatchInsightsFilter(e.target.value)}
+                  className="w-full appearance-none bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-3 py-2 pr-8 text-white text-sm focus:outline-none"
+                >
+                  <option value="all" className="bg-slate-800 text-white">New Questions</option>
+                  <option value="incomplete" className="bg-slate-800 text-white">Incomplete</option>
+                  <option value="complete" className="bg-slate-800 text-white">Complete</option>
+                </select>
+                <ChevronRight className="absolute right-2 top-1/2 -translate-y-1/2 rotate-90 w-4 h-4 text-slate-400 pointer-events-none" />
+              </div>
             </div>
           </div>
         )}
@@ -7413,6 +7432,24 @@ Proceed?`
               <ChevronRight className="absolute right-2 top-1/2 transform -translate-y-1/2 rotate-90 w-4 h-4 text-slate-400 pointer-events-none" />
             </div>
 
+            {/* New questionnaire completion filter */}
+            <div className="relative">
+              <select
+                value={matchInsightsFilter}
+                onChange={(e) => setMatchInsightsFilter(e.target.value)}
+                className={`appearance-none rounded-xl border px-4 py-2 pr-8 text-sm focus:outline-none focus:ring-2 transition-all duration-300 ${
+                  matchInsightsFilter !== "all"
+                    ? "bg-teal-500/20 border-teal-400/50 text-teal-300 focus:ring-teal-400/50"
+                    : "bg-white/10 border-white/20 text-slate-300 focus:ring-slate-400/50"
+                }`}
+              >
+                <option value="all" className="bg-slate-800 text-white">All New Questions</option>
+                <option value="incomplete" className="bg-slate-800 text-white">New Questions Incomplete</option>
+                <option value="complete" className="bg-slate-800 text-white">New Questions Complete</option>
+              </select>
+              <ChevronRight className="absolute right-2 top-1/2 -translate-y-1/2 rotate-90 w-4 h-4 text-slate-400 pointer-events-none" />
+            </div>
+
             {/* Signup Type Filter */}
             <div className="relative">
               <select
@@ -7477,7 +7514,7 @@ Proceed?`
               </button>
             )}
 
-            {(showEligibleOnly || eligibleSubFilter !== "none" || genderFilter !== "all" || paymentFilter !== "all" || confirmationFilter !== "all" || whatsappFilter !== "all" || signupFilter !== "all" || showDuplicatePhones) && (
+            {(showEligibleOnly || eligibleSubFilter !== "none" || genderFilter !== "all" || paymentFilter !== "all" || confirmationFilter !== "all" || whatsappFilter !== "all" || matchInsightsFilter !== "all" || signupFilter !== "all" || showDuplicatePhones) && (
               <div className="bg-green-500/20 backdrop-blur-sm border border-green-400/30 rounded-xl px-3 py-2">
                 <span className="text-green-300 text-sm">Filtered: </span>
                 <span className="font-bold text-green-200">{filteredParticipants.length}</span>
@@ -7867,6 +7904,24 @@ Proceed?`
                         {p.discount_interest === 'interested' && <span className="rounded-full border border-fuchsia-400/25 bg-fuchsia-500/10 px-2 py-1 text-[10px] font-bold text-fuchsia-300">مهتم بالعرض</span>}
                       </div>
                     )}
+
+                    {(() => {
+                      const completion = getParticipantMatchInsightsCompletion(p)
+                      return (
+                        <div className="mb-3 flex justify-center">
+                          <span
+                            className={`rounded-full border px-2 py-1 text-[10px] font-bold ${
+                              completion.complete
+                                ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-300"
+                                : "border-teal-400/25 bg-teal-500/10 text-teal-200"
+                            }`}
+                            title={`New compatibility questions: ${completion.completed}/${completion.total}`}
+                          >
+                            {completion.complete ? "New questions ✓" : `New questions ${completion.completed}/${completion.total}`}
+                          </span>
+                        </div>
+                      )
+                    })()}
 
                     {/* Co-host Mobile: status pill under name */}
                     {isCohost && (

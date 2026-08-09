@@ -10,40 +10,65 @@ interface ParticipantProfileModalProps {
   cohostTheme?: boolean;
 }
 
+type SelectOption = string | { value: string; label: string };
+
+const getParticipantValue = (participant: any, field: string) =>
+  participant?.survey_data?.answers?.[field]
+  ?? participant?.survey_data?.[field]
+  ?? participant?.[field]
+  ?? '';
+
+const getGenderPreference = (participant: any) => {
+  const raw = getParticipantValue(participant, 'gender_preference');
+  if (raw === 'male' || raw === 'female' || raw === 'any') return raw;
+
+  const gender = getParticipantValue(participant, 'gender');
+  if (raw === 'same_gender') return gender || '';
+  if (raw === 'opposite_gender') return gender === 'male' ? 'female' : gender === 'female' ? 'male' : '';
+  if (raw === 'any_gender' || participant?.any_gender_preference) return 'any';
+  if (participant?.same_gender_preference) return gender || '';
+  return gender === 'male' ? 'female' : gender === 'female' ? 'male' : '';
+};
+
+const buildParticipantData = (participant: any) => {
+  const surveyData = participant?.survey_data || {};
+  const answers = surveyData.answers || {};
+  const merged = { ...surveyData, ...participant, ...answers };
+
+  return {
+    ...merged,
+    name: getParticipantValue(participant, 'name'),
+    phone_number: getParticipantValue(participant, 'phone_number'),
+    age: getParticipantValue(participant, 'age'),
+    gender: getParticipantValue(participant, 'gender'),
+    nationality: getParticipantValue(participant, 'nationality'),
+    nationality_preference: getParticipantValue(participant, 'nationality_preference')
+      || (participant?.prefer_same_nationality === true ? 'same' : participant?.prefer_same_nationality === false ? 'any' : ''),
+    gender_preference: getGenderPreference(participant),
+    age_flex_one_year: getParticipantValue(participant, 'age_flex_one_year') === true
+      ? 'accept'
+      : getParticipantValue(participant, 'age_flex_one_year') === false
+        ? 'decline'
+        : getParticipantValue(participant, 'age_flex_one_year'),
+  };
+};
+
+const optionValue = (option: SelectOption) => typeof option === 'string' ? option : option.value;
+const optionLabel = (option: SelectOption) => typeof option === 'string' ? option : option.label;
+
 export default function ParticipantProfileModal({ participant, isOpen, onClose, onUpdate, cohostTheme = false }: ParticipantProfileModalProps) {
   const [editMode, setEditMode] = useState<Record<string, boolean>>({});
   const [editedData, setEditedData] = useState<any>({});
+  const [originalData, setOriginalData] = useState<any>({});
   const [saving, setSaving] = useState(false);
   const [messageSent, setMessageSent] = useState(false);
   const [markingSent, setMarkingSent] = useState(false);
 
   useEffect(() => {
     if (participant && isOpen) {
-      // Initialize edited data with participant's current values
-      // Handle cases where survey_data might be NULL
-      const surveyAnswers = participant.survey_data?.answers || {};
-      
-      setEditedData({
-        name: participant.name || '',
-        phone_number: participant.phone_number || '',
-        age: participant.age || surveyAnswers.age || '',
-        gender: participant.gender || surveyAnswers.gender || '',
-        preferred_age_min: participant.preferred_age_min ?? surveyAnswers.preferred_age_min ?? '',
-        preferred_age_max: participant.preferred_age_max ?? surveyAnswers.preferred_age_max ?? '',
-        open_age_preference: participant.open_age_preference ?? surveyAnswers.open_age_preference ?? false,
-        intent_goal: participant.intent_goal || surveyAnswers.intent_goal || '',
-        open_intent_goal_mismatch: participant.open_intent_goal_mismatch ?? surveyAnswers.open_intent_goal_mismatch ?? false,
-        humor_banter_style: participant.humor_banter_style || surveyAnswers.humor_banter_style || '',
-        early_openness_comfort: participant.early_openness_comfort ?? surveyAnswers.early_openness_comfort ?? '',
-        gender_preference: (() => {
-          const raw = surveyAnswers.gender_preference;
-          if (raw === 'opposite_gender' || raw === 'same_gender' || raw === 'any_gender') return raw;
-          if (participant.same_gender_preference) return 'same_gender';
-          if (participant.any_gender_preference) return 'any_gender';
-          return 'opposite_gender';
-        })(),
-        ...surveyAnswers
-      });
+      const initialData = buildParticipantData(participant);
+      setEditedData(initialData);
+      setOriginalData(initialData);
       setEditMode({});
       setMessageSent(!!participant.PAID);
     }
@@ -90,31 +115,21 @@ export default function ParticipantProfileModal({ participant, isOpen, onClose, 
     setEditedData((prev: any) => ({ ...prev, [field]: value }));
   };
 
+  const cancelEdit = (field: string) => {
+    setEditedData((prev: any) => ({ ...prev, [field]: originalData[field] ?? '' }));
+    toggleEdit(field);
+  };
+
+  const finishSave = (field: string) => {
+    setOriginalData((prev: any) => ({ ...prev, [field]: editedData[field] }));
+    toast.success(`Updated ${field}`);
+    toggleEdit(field);
+    onUpdate();
+  };
+
   const saveField = async (field: string) => {
     setSaving(true);
     try {
-      // Gender preference uses a separate API that also updates boolean columns
-      if (field === 'gender_preference') {
-        const response = await fetch("/api/admin", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "update-gender-preference",
-            participantNumber: participant.assigned_number,
-            genderPreference: editedData[field]
-          })
-        });
-        const data = await response.json();
-        if (response.ok && data.success) {
-          toast.success(`Updated ${field}`);
-          toggleEdit(field);
-          onUpdate();
-        } else {
-          toast.error(data.error || "Failed to update");
-        }
-        return;
-      }
-
       const response = await fetch("/api/admin/update-participant-field", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -127,9 +142,7 @@ export default function ParticipantProfileModal({ participant, isOpen, onClose, 
 
       const data = await response.json();
       if (response.ok && data.success) {
-        toast.success(`Updated ${field}`);
-        toggleEdit(field);
-        onUpdate();
+        finishSave(field);
       } else {
         toast.error(data.error || "Failed to update");
       }
@@ -141,10 +154,12 @@ export default function ParticipantProfileModal({ participant, isOpen, onClose, 
     }
   };
 
-  const renderField = (label: string, field: string, icon: any, type: 'text' | 'number' | 'select' = 'text', options?: string[]) => {
+  const renderField = (label: string, field: string, icon: any, type: 'text' | 'number' | 'select' = 'text', options?: SelectOption[]) => {
     const Icon = icon;
     const isEditing = editMode[field];
-    const value = editedData[field] || '';
+    const value = editedData[field] ?? '';
+    const selectedOption = options?.find(option => optionValue(option) === String(value));
+    const displayValue = selectedOption ? optionLabel(selectedOption) : value;
 
     return (
       <div className="bg-white/5 rounded-xl p-4 border border-white/10">
@@ -172,10 +187,7 @@ export default function ParticipantProfileModal({ participant, isOpen, onClose, 
                 <Save className="w-4 h-4 text-green-400" />
               </button>
               <button
-                onClick={() => {
-                  setEditedData((prev: any) => ({ ...prev, [field]: participant.survey_data?.answers?.[field] || participant[field] || '' }));
-                  toggleEdit(field);
-                }}
+                onClick={() => cancelEdit(field)}
                 className="p-1 hover:bg-red-500/20 rounded transition-colors"
                 title="Cancel"
               >
@@ -191,9 +203,10 @@ export default function ParticipantProfileModal({ participant, isOpen, onClose, 
               onChange={(e) => handleFieldChange(field, e.target.value)}
               className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-400/50"
             >
+              <option value="" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Not provided</option>
               {options.map(opt => (
-                <option key={opt} value={opt} style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>
-                  {opt}
+                <option key={optionValue(opt)} value={optionValue(opt)} style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>
+                  {optionLabel(opt)}
                 </option>
               ))}
             </select>
@@ -207,7 +220,7 @@ export default function ParticipantProfileModal({ participant, isOpen, onClose, 
             />
           )
         ) : (
-          <p className="text-white text-sm">{value || <span className="text-slate-500 italic">Not provided</span>}</p>
+          <p className="text-white text-sm">{displayValue !== '' ? displayValue : <span className="text-slate-500 italic">Not provided</span>}</p>
         )}
       </div>
     );
@@ -245,10 +258,7 @@ export default function ParticipantProfileModal({ participant, isOpen, onClose, 
                 <Save className="w-4 h-4 text-green-400" />
               </button>
               <button
-                onClick={() => {
-                  setEditedData((prev: any) => ({ ...prev, [field]: participant[field] ?? false }));
-                  toggleEdit(field);
-                }}
+                onClick={() => cancelEdit(field)}
                 className="p-1 hover:bg-red-500/20 rounded transition-colors"
                 title="Cancel"
               >
@@ -282,7 +292,7 @@ export default function ParticipantProfileModal({ participant, isOpen, onClose, 
   const renderTextAreaField = (label: string, field: string, icon: any, maxLength?: number) => {
     const Icon = icon;
     const isEditing = editMode[field];
-    const value = editedData[field] || '';
+    const value = editedData[field] ?? '';
 
     return (
       <div className="bg-white/5 rounded-xl p-4 border border-white/10">
@@ -310,10 +320,7 @@ export default function ParticipantProfileModal({ participant, isOpen, onClose, 
                 <Save className="w-4 h-4 text-green-400" />
               </button>
               <button
-                onClick={() => {
-                  setEditedData((prev: any) => ({ ...prev, [field]: participant.survey_data?.answers?.[field] || '' }));
-                  toggleEdit(field);
-                }}
+                onClick={() => cancelEdit(field)}
                 className="p-1 hover:bg-red-500/20 rounded transition-colors"
                 title="Cancel"
               >
@@ -339,6 +346,67 @@ export default function ParticipantProfileModal({ participant, isOpen, onClose, 
           </div>
         ) : (
           <p className="text-white text-sm whitespace-pre-wrap">{value || <span className="text-slate-500 italic">Not provided</span>}</p>
+        )}
+      </div>
+    );
+  };
+
+  const renderMultiSelectField = (label: string, field: string, icon: any, options: SelectOption[], maxSelections = 2) => {
+    const Icon = icon;
+    const isEditing = editMode[field];
+    const selected: string[] = Array.isArray(editedData[field]) ? editedData[field] : [];
+    const labels = selected.map(value => optionLabel(options.find(option => optionValue(option) === value) || value));
+
+    const toggleSelection = (value: string) => {
+      const next = selected.includes(value)
+        ? selected.filter(item => item !== value)
+        : selected.length < maxSelections ? [...selected, value] : selected;
+      handleFieldChange(field, next);
+    };
+
+    return (
+      <div className="bg-white/5 rounded-xl p-4 border border-white/10 md:col-span-2">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Icon className="w-4 h-4 text-slate-400" />
+            <label className="text-sm font-semibold text-slate-300">{label}</label>
+          </div>
+          {!isEditing ? (
+            <button onClick={() => toggleEdit(field)} className="p-1 hover:bg-white/10 rounded transition-colors" title="Edit">
+              <Edit2 className="w-4 h-4 text-slate-400 hover:text-white" />
+            </button>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                onClick={() => saveField(field)}
+                disabled={saving || selected.length !== maxSelections}
+                className="p-1 hover:bg-green-500/20 rounded transition-colors disabled:opacity-50"
+                title={`Save (${maxSelections} selections required)`}
+              >
+                <Save className="w-4 h-4 text-green-400" />
+              </button>
+              <button onClick={() => cancelEdit(field)} className="p-1 hover:bg-red-500/20 rounded transition-colors" title="Cancel">
+                <X className="w-4 h-4 text-red-400" />
+              </button>
+            </div>
+          )}
+        </div>
+        {isEditing ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {options.map(option => {
+              const value = optionValue(option);
+              const checked = selected.includes(value);
+              return (
+                <label key={value} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer ${checked ? 'bg-blue-500/20 border-blue-400/50 text-blue-100' : 'bg-white/5 border-white/10 text-slate-300'}`}>
+                  <input type="checkbox" checked={checked} onChange={() => toggleSelection(value)} className="accent-blue-500" />
+                  {optionLabel(option)}
+                </label>
+              );
+            })}
+            <p className="text-xs text-slate-400 sm:col-span-2">Select exactly {maxSelections}. Selected: {selected.length}</p>
+          </div>
+        ) : (
+          <p className="text-white text-sm">{labels.length ? labels.join('، ') : <span className="text-slate-500 italic">Not provided</span>}</p>
         )}
       </div>
     );
@@ -413,6 +481,56 @@ export default function ParticipantProfileModal({ participant, isOpen, onClose, 
               {renderField('Phone Number', 'phone_number', Phone)}
               {renderField('Age', 'age', Calendar, 'number')}
               {renderField('Gender', 'gender', Users, 'select', ['male', 'female'])}
+              {renderField('Nationality', 'nationality', MapPin)}
+              {renderField('Nationality Preference', 'nationality_preference', MapPin, 'select', [
+                { value: 'same', label: 'أفضل نفس الجنسية' },
+                { value: 'any', label: 'لا يفرق؛ الأهم التوافق' },
+              ])}
+            </div>
+          </div>
+
+          {/* New compatibility questions */}
+          <div>
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <SlidersHorizontal className="w-5 h-5 text-cyan-400" />
+              New Compatibility Questions
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {renderField('Age Flexibility (±1 year)', 'age_flex_one_year', Calendar, 'select', [
+                { value: 'accept', label: 'نعم، أقبل التوسيع سنة' },
+                { value: 'decline', label: 'لا، التزموا بالمدى' },
+                { value: 'not_applicable', label: 'غير منطبق' },
+              ])}
+              {renderField('Disagreement Style', 'match_disagreement_style', MessageSquare, 'select', [
+                { value: 'A', label: 'A — نكمل النقاش ونحاول الإقناع' },
+                { value: 'B', label: 'B — أفهم وجهة نظره حتى لو اختلفنا' },
+                { value: 'C', label: 'C — نمزح وننتقل لموضوع آخر' },
+                { value: 'D', label: 'D — نبحث عن شيء نتفق عليه' },
+              ])}
+              {renderField('Similarity Preference', 'match_similarity_preference', Users, 'select', [
+                { value: 'A', label: 'A — أفضل التشابه' },
+                { value: 'B', label: 'B — أفضل الاختلاف والتجارب الجديدة' },
+                { value: 'C', label: 'C — تشابه بالأساسيات واختلاف بالتفاصيل' },
+                { value: 'D', label: 'D — لا يفرق إذا كان الحوار ممتعًا' },
+              ])}
+              {renderField('Conversation Initiative Preference', 'conversation_initiative_preference', MessageSquare, 'select', [
+                { value: 'A', label: 'A — الطرف الآخر يقود الحوار' },
+                { value: 'B', label: 'B — المبادرة متبادلة' },
+                { value: 'C', label: 'C — أنا أبادر' },
+                { value: 'D', label: 'D — أتأقلم حسب الشخص' },
+              ])}
+              {renderTextAreaField('Current Curiosity', 'match_current_curiosity', Brain, 150)}
+              {renderMultiSelectField('Current Focus (choose 2)', 'match_current_focus', Star, [
+                { value: 'study', label: 'الدراسة والتعلّم' },
+                { value: 'career', label: 'الوظيفة والمسار المهني' },
+                { value: 'business', label: 'مشروع أو بزنس' },
+                { value: 'family_social', label: 'العائلة والعلاقات الاجتماعية' },
+                { value: 'health_fitness', label: 'الرياضة والصحة' },
+                { value: 'creative', label: 'الفن أو المحتوى أو الإبداع' },
+                { value: 'travel_experiences', label: 'السفر والتجارب الجديدة' },
+                { value: 'self_growth', label: 'تطوير الذات أو تغيير شخصي' },
+                { value: 'other', label: 'شيء آخر' },
+              ])}
             </div>
           </div>
 
@@ -430,6 +548,34 @@ export default function ParticipantProfileModal({ participant, isOpen, onClose, 
             </div>
           </div>
 
+          {/* Interaction Synergy */}
+          <div>
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Users className="w-5 h-5 text-indigo-400" />
+              Interaction Synergy
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {renderField('Conversational Role', 'conversational_role', MessageSquare, 'select', [
+                { value: 'A', label: 'A — المبادر' }, { value: 'B', label: 'B — المتفاعل' }, { value: 'C', label: 'C — المستمع' },
+              ])}
+              {renderField('Conversation Depth', 'conversation_depth_pref', Brain, 'select', [
+                { value: 'A', label: 'A — سوالف عميقة وتحليلية' }, { value: 'B', label: 'B — سوالف واقعية وملموسة' },
+              ])}
+              {renderField('Social Battery', 'social_battery', Users, 'select', [
+                { value: 'A', label: 'A — تزيد مع الناس' }, { value: 'B', label: 'B — تقل وأحتاج هدوءًا' },
+              ])}
+              {renderField('Humor Subtype', 'humor_subtype', Coffee, 'select', [
+                { value: 'A', label: 'A — الذبات وسرعة الرد' }, { value: 'B', label: 'B — المواقف العفوية' }, { value: 'C', label: 'C — القصص والسرد' },
+              ])}
+              {renderField('Curiosity Style', 'curiosity_style', Brain, 'select', [
+                { value: 'A', label: 'A — أحب أن يسألني بعمق' }, { value: 'B', label: 'B — أحب أن أسأل وأكتشف' }, { value: 'C', label: 'C — أخذ وعطاء سريع ومزح' },
+              ])}
+              {renderField('Silence Comfort', 'silence_comfort', MessageSquare, 'select', [
+                { value: 'A', label: 'A — أقلق وأكسر الصمت' }, { value: 'B', label: 'B — مرتاح مع الهدوء' },
+              ])}
+            </div>
+          </div>
+
           {/* Vibe Questions */}
           <div>
             <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
@@ -437,12 +583,12 @@ export default function ParticipantProfileModal({ participant, isOpen, onClose, 
               Vibe & Personality
             </h3>
             <div className="space-y-4">
-              {renderTextAreaField('Weekend Activities', 'vibe_1', Coffee, 75)}
-              {renderTextAreaField('Hobbies', 'vibe_2', Heart, 50)}
-              {renderTextAreaField('Music Taste', 'vibe_3', Coffee, 50)}
-              {renderField('Deep Conversations', 'vibe_4', MessageSquare, 'select', ['نعم', 'لا'])}
-              {renderTextAreaField('How Friends Describe Me', 'vibe_5', Users, 100)}
-              {renderTextAreaField('How I Describe Friends', 'vibe_6', Users, 100)}
+              {renderTextAreaField('Weekend Activities', 'vibe_1', Coffee)}
+              {renderTextAreaField('Hobbies', 'vibe_2', Heart, 100)}
+              {renderTextAreaField('Music Taste', 'vibe_3', Coffee, 100)}
+              {renderField('Deep Conversations', 'vibe_4', MessageSquare, 'select', ['نعم', 'لا', 'أحياناً'])}
+              {renderTextAreaField('How Friends Describe Me', 'vibe_5', Users, 150)}
+              {renderTextAreaField('How I Describe Friends', 'vibe_6', Users)}
             </div>
           </div>
 
@@ -513,7 +659,9 @@ export default function ParticipantProfileModal({ participant, isOpen, onClose, 
               Matching Preferences
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {renderField('Gender Preference', 'gender_preference', ArrowLeftRight, 'select', ['opposite_gender', 'same_gender', 'any_gender'])}
+              {renderField('Gender Preference', 'gender_preference', ArrowLeftRight, 'select', [
+                { value: 'male', label: 'male' }, { value: 'female', label: 'female' }, { value: 'any', label: 'any' },
+              ])}
               {renderField('Intent Goal', 'intent_goal', Star, 'select', ['A', 'B', 'C'])}
               {renderField('Preferred Age (Min)', 'preferred_age_min', Calendar, 'number')}
               {renderField('Preferred Age (Max)', 'preferred_age_max', Calendar, 'number')}

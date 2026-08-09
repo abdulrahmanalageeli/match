@@ -5,6 +5,14 @@ const supabase = supabaseAdmin
 
 const STATIC_MATCH_ID = "00000000-0000-0000-0000-000000000000"
 
+const normalizeChoice = (value, allowed, field) => {
+  const normalized = String(value ?? '').trim().toUpperCase()
+  if (!allowed.includes(normalized)) {
+    throw new Error(`${field} must be one of ${allowed.join(', ')}`)
+  }
+  return normalized
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" })
@@ -23,6 +31,63 @@ export default async function handler(req, res) {
 
     // Basic server-side validations/sanitization
     let normalizedValue = value
+
+    const choiceFields = {
+      match_disagreement_style: ['A', 'B', 'C', 'D'],
+      match_similarity_preference: ['A', 'B', 'C', 'D'],
+      conversation_initiative_preference: ['A', 'B', 'C', 'D'],
+      conversational_role: ['A', 'B', 'C'],
+      conversation_depth_pref: ['A', 'B'],
+      social_battery: ['A', 'B'],
+      humor_subtype: ['A', 'B', 'C'],
+      curiosity_style: ['A', 'B', 'C'],
+      silence_comfort: ['A', 'B']
+    }
+
+    if (choiceFields[field]) {
+      try {
+        normalizedValue = normalizeChoice(value, choiceFields[field], field)
+      } catch (error) {
+        return res.status(400).json({ error: error.message })
+      }
+    }
+
+    if (field === 'match_current_curiosity') {
+      normalizedValue = String(value ?? '').trim()
+      if (normalizedValue.length < 20 || normalizedValue.length > 150) {
+        return res.status(400).json({ error: 'match_current_curiosity must be between 20 and 150 characters' })
+      }
+    }
+
+    if (field === 'match_current_focus') {
+      const allowedFocus = ['study', 'career', 'business', 'family_social', 'health_fitness', 'creative', 'travel_experiences', 'self_growth', 'other']
+      const focus = Array.isArray(value) ? [...new Set(value.map(item => String(item)))] : []
+      if (focus.length !== 2 || focus.some(item => !allowedFocus.includes(item))) {
+        return res.status(400).json({ error: 'match_current_focus must contain exactly two valid selections' })
+      }
+      normalizedValue = focus
+    }
+
+    if (field === 'age_flex_one_year') {
+      normalizedValue = String(value ?? '').trim().toLowerCase()
+      if (!['accept', 'decline', 'not_applicable'].includes(normalizedValue)) {
+        return res.status(400).json({ error: 'age_flex_one_year must be accept, decline, or not_applicable' })
+      }
+    }
+
+    if (field === 'nationality_preference') {
+      normalizedValue = String(value ?? '').trim().toLowerCase()
+      if (!['same', 'any'].includes(normalizedValue)) {
+        return res.status(400).json({ error: 'nationality_preference must be same or any' })
+      }
+    }
+
+    if (field === 'gender_preference') {
+      normalizedValue = String(value ?? '').trim().toLowerCase()
+      if (!['male', 'female', 'any'].includes(normalizedValue)) {
+        return res.status(400).json({ error: 'gender_preference must be male, female, or any' })
+      }
+    }
     // Age validation (keep as-is)
     if (field === 'age') {
       const ageInt = parseInt(value, 10)
@@ -85,7 +150,7 @@ export default async function handler(req, res) {
     // Get current participant data
     const { data: currentData, error: fetchError } = await supabase
       .from("participants")
-      .select("survey_data, name, phone_number, age, gender, preferred_age_min, preferred_age_max, open_age_preference, open_intent_goal_mismatch, intent_goal, humor_banter_style, early_openness_comfort")
+      .select("survey_data, name, phone_number, age, gender, nationality, prefer_same_nationality, same_gender_preference, any_gender_preference, preferred_age_min, preferred_age_max, open_age_preference, open_intent_goal_mismatch, intent_goal, humor_banter_style, early_openness_comfort, age_flex_one_year, conversational_role, conversation_depth_pref, social_battery, humor_subtype, curiosity_style, silence_comfort")
       .eq("match_id", STATIC_MATCH_ID)
       .eq("assigned_number", participantNumber)
       .single()
@@ -115,13 +180,20 @@ export default async function handler(req, res) {
       'phone_number',
       'age',
       'gender',
+      'nationality',
       'preferred_age_min',
       'preferred_age_max',
       'open_age_preference',
       'open_intent_goal_mismatch',
       'intent_goal',
       'humor_banter_style',
-      'early_openness_comfort'
+      'early_openness_comfort',
+      'conversational_role',
+      'conversation_depth_pref',
+      'social_battery',
+      'humor_subtype',
+      'curiosity_style',
+      'silence_comfort'
     ]
     
     if (directFields.includes(field)) {
@@ -137,6 +209,22 @@ export default async function handler(req, res) {
     // Update the field in survey_data.answers
     surveyData.answers[field] = normalizedValue
     updateData.survey_data = surveyData
+
+    if (field === 'nationality_preference') {
+      updateData.prefer_same_nationality = normalizedValue === 'same'
+    }
+
+    if (field === 'age_flex_one_year') {
+      updateData.age_flex_one_year = normalizedValue === 'accept'
+        ? true
+        : normalizedValue === 'decline' ? false : null
+    }
+
+    if (field === 'gender_preference') {
+      const participantGender = currentData.gender || currentData.survey_data?.answers?.gender || currentData.survey_data?.gender
+      updateData.same_gender_preference = normalizedValue !== 'any' && normalizedValue === participantGender
+      updateData.any_gender_preference = normalizedValue === 'any'
+    }
 
     // Special handling for gender - update both places
     if (field === 'gender') {
@@ -200,7 +288,7 @@ export default async function handler(req, res) {
       message: `Updated ${field} successfully`,
       participantNumber,
       field,
-      value
+      value: normalizedValue
     })
 
   } catch (error) {

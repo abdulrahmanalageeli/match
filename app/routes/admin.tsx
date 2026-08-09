@@ -666,6 +666,7 @@ export default function AdminPage() {
   const [newManualMatch, setNewManualMatch] = useState({participant1: '', participant2: ''})
   const [bypassEligibility, setBypassEligibility] = useState(false)
   const [testModeOnly, setTestModeOnly] = useState(false)
+  const [manualMatchMode, setManualMatchMode] = useState<'standard' | 'opposites'>('standard')
   const [showAllMatches, setShowAllMatches] = useState(false)
   const [debugPair, setDebugPair] = useState(false)
   const [analyzeManualPair, setAnalyzeManualPair] = useState(false)
@@ -3461,10 +3462,14 @@ const fetchParticipants = async () => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             eventId: currentEventId,
+            matchType: 'individual',
+            oppositesMode: manualMatchMode === 'opposites',
             manualMatch: {
               participant1: participant1,
               participant2: participant2,
-              bypassEligibility: analyzeManualPair || bypassEligibility,
+              // A score test must work for any existing pair, even when normal
+              // matching would filter one or both participants out.
+              bypassEligibility: analyzeManualPair || testModeOnly || bypassEligibility,
               testModeOnly: analyzeManualPair || testModeOnly,
               debugPair: debugPair,
               ...(forceSwap ? { forceSwap: true } : {})
@@ -3576,15 +3581,34 @@ const fetchParticipants = async () => {
             detailedMessage += `🧩 Core Values: ${round(core5)}/5\n`
             detailedMessage += `🏠 Lifestyle: ${round(result.lifestyleScore)}/10\n`
             detailedMessage += `😄 Humor & Openness: ${round(result.humorOpenScore)}/15\n`
-            detailedMessage += `💬 Communication: ${round(result.communicationScore)}/10\n`
+            detailedMessage += `💬 Communication: ${round(result.communicationScore)}/3\n`
             detailedMessage += `✨ AI Vibe: ${round(result.vibeScore)}/25\n`
-            detailedMessage += `🎯 Meeting Goal & Values: ${round(result.intentScore)}/5\n`
+            detailedMessage += `🧭 Disagreement Style: ${round(result.disagreementScore)}/4\n`
+            detailedMessage += `🔎 Current Focus: ${round(result.currentFocusScore)}/5\n`
+            detailedMessage += `🪞 Similarity Preference: ${round(result.similarityPreferenceScore)}/5\n`
+            detailedMessage += `🤝 Connection Pace: ${round(result.attachmentPaceScore)}/3\n`
+            detailedMessage += `🎯 Meeting Goal: ${round(result.intentScore)}/5\n`
+            detailedMessage += `\n🧮 Mode: ${data.mode || manualMatchMode}\n`
+            detailedMessage += `💾 Cache: ${data.cache_status || 'unknown'}\n`
+            if (data.score_model_version) detailedMessage += `🧬 Model: ${data.score_model_version}\n`
+            if (result.oppositesBreakdown) {
+              const opposite = result.oppositesBreakdown
+              detailedMessage += `\n🧲 Opposites formula (${round(opposite.rawTotal)}/${opposite.rawMaximum}):\n`
+              detailedMessage += `• Synergy: ${round(opposite.synergy)}/30\n`
+              detailedMessage += `• Core Values: ${round(opposite.coreValues)}/5\n`
+              detailedMessage += `• Communication: ${round(opposite.communication)}/3\n`
+              detailedMessage += `• Flipped Lifestyle: ${round(opposite.flippedLifestyle)}/10\n`
+              detailedMessage += `• Flipped Vibe: ${round(opposite.flippedVibe)}/25\n`
+              detailedMessage += `• Flipped Humor/Openness: ${round(opposite.flippedHumor)}/15\n`
+            }
             // Safety row (if flags present)
             const safety: string[] = []
-            if (result.attachmentPenaltyApplied) safety.push('Attachment penalty: −5 (Anxious × Avoidant)')
-            if (result.intentBoostApplied) safety.push('Intent Match: ×1.05 (Deep Seekers)')
+            if (Number(result.opennessPenalty) < 0) safety.push(`Openness penalty: ${result.opennessPenalty} (${result.opennessPenaltyType})`)
+            if (Number(result.humor_multiplier) > 1) safety.push(`Humor/Openness multiplier: ×${result.humor_multiplier} (${result.humor_bonus})`)
+            if (result.intentBoostApplied) safety.push('Strong intent alignment included in the intent points')
             if (result.deadAirVetoApplied) safety.push('Capped by Dead‑Air (40%)')
             if (result.humorClashVetoApplied) safety.push('Capped by Humor Clash (50%)')
+            if (result.maxScoreCapApplied) safety.push('Capped at the maximum score (100%)')
             if (result.capApplied && !result.deadAirVetoApplied && !result.humorClashVetoApplied) safety.push(`Capped by rule (${result.capApplied}%)`)
             if (safety.length > 0) {
               detailedMessage += `\n🛡️ Safety:\n- ${safety.join('\n- ')}\n`
@@ -3600,8 +3624,8 @@ const fetchParticipants = async () => {
           }
         }
         
-        toast.success(detailedMessage, { duration: 6000 })
-        fetchParticipants() // Refresh to show updated data
+        toast.success(detailedMessage, { duration: data.testMode ? 12000 : 6000 })
+        if (!data.testMode) fetchParticipants()
       } else {
         toast.error(data.error)
       }
@@ -6563,6 +6587,15 @@ Proceed?`
                 onChange={(e) => setNewManualMatch({...newManualMatch, participant2: e.target.value})}
                 className="w-32 px-3 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400/50 transition-all duration-300"
               />
+              <select
+                value={manualMatchMode}
+                onChange={(event) => setManualMatchMode(event.target.value as typeof manualMatchMode)}
+                className="px-3 py-2 bg-slate-900 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-400/50"
+                title="Choose the generation scoring formula to test"
+              >
+                <option value="standard">Standard formula</option>
+                <option value="opposites">Opposites formula</option>
+              </select>
               <button
                 onClick={addManualMatch}
                 disabled={!newManualMatch.participant1 || (!showAllMatches && !runPersonalityAnalysis && !newManualMatch.participant2) || viewAllMatchesLoading || personalityAnalysisLoading}
@@ -6734,10 +6767,10 @@ Proceed?`
                 </>
               ) : testModeOnly ? (
                 <>
-                  <p>• Calculates compatibility scores without saving to database</p>
-                  <p>• Ignores compatibility cache for fresh calculations</p>
-                  <p>• Does not check for or affect existing matches</p>
-                  <p>• Perfect for testing algorithm changes or participant compatibility</p>
+                  <p>• Scores any selected pair, even when they are not eligible to be matched</p>
+                  <p>• Uses the selected generation formula, percentages, bonuses, penalties, and caps</p>
+                  <p>• Reads the same compatibility cache as generation, without updating it</p>
+                  <p>• Does not create, replace, or modify any matches or cache records</p>
                 </>
               ) : (
                 <>

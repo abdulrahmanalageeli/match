@@ -251,7 +251,7 @@ function computeOppositesPercent(components) {
 
 // Opposites mode keeps interaction synergy positive and flips the alignment
 // components, then normalizes its 88-point raw maximum back to a percentage.
-function computeOppositesFlippedScore(components) {
+function computeOppositesBreakdown(components) {
   const synergy = Math.max(0, Math.min(SCORE_MAX.synergy, Number(components.synergyScore ?? 0)))
   // Accept either pre-scaled 0..5 or raw 0..20 for core values
   const values5 = components.coreValuesScaled5 != null
@@ -270,7 +270,21 @@ function computeOppositesFlippedScore(components) {
 
   const total = synergy + values5 + comm + flippedLifestyle + flippedVibe + flippedHumor
   const maximum = SCORE_MAX.synergy + SCORE_MAX.coreValues + SCORE_MAX.communication + SCORE_MAX.lifestyle + SCORE_MAX.vibe + SCORE_MAX.humorOpen
-  return Math.max(0, Math.min(100, Math.round((total / maximum) * 100)))
+  return {
+    synergy,
+    coreValues: values5,
+    communication: comm,
+    flippedLifestyle,
+    flippedVibe,
+    flippedHumor,
+    rawTotal: total,
+    rawMaximum: maximum,
+    percent: Math.max(0, Math.min(100, Math.round((total / maximum) * 100))),
+  }
+}
+
+function computeOppositesFlippedScore(components) {
+  return computeOppositesBreakdown(components).percent
 }
 
 // Preview guard to skip ALL DB writes in non-mutating flows
@@ -999,6 +1013,23 @@ function getOneYearAgeFlexDecision(participant) {
   return 'unanswered'
 }
 
+function calculateOpennessPenalty(participantA, participantB) {
+  const read = (participant) => {
+    const raw = participant?.early_openness_comfort ?? participant?.survey_data?.answers?.early_openness_comfort
+    const value = raw !== undefined && raw !== null ? parseInt(raw, 10) : NaN
+    return Number.isFinite(value) ? value : null
+  }
+  const opennessA = read(participantA)
+  const opennessB = read(participantB)
+  if (opennessA === 0 && opennessB === 0) {
+    return { points: -5, type: 'both_closed', opennessA, opennessB }
+  }
+  if ((opennessA === 0 && opennessB >= 2) || (opennessA >= 2 && opennessB === 0)) {
+    return { points: -4, type: 'asymmetric', opennessA, opennessB }
+  }
+  return { points: 0, type: 'none', opennessA, opennessB }
+}
+
 // Hard gate: If a participant specifies a preferred age range, partner must fall within it.
 // A yes answer pre-approves ±1, a no answer is strict, and an unanswered legacy
 // survey keeps the previous ±1 behavior but is marked for manual confirmation.
@@ -1398,7 +1429,7 @@ async function getCachedCompatibility(participantA, participantB, options = {}) 
 
       // Derive gate/bonus flags and caps for transparency (does NOT mutate cached totalScore)
       const getAns = (p, k) => (p?.survey_data?.answers?.[k] ?? p?.[k] ?? '').toString().toUpperCase()
-      const intentBoostApplied = false
+      const intentBoostApplied = intentScore >= 4
 
       // Attachment is deliberately not used as a short-meeting penalty. The
       // remaining attachment answers stay available as coarse profile context.
@@ -1410,23 +1441,24 @@ async function getCachedCompatibility(participantA, participantB, options = {}) 
       const b41 = getAns(participantB, 'silence_comfort')
       const deadAirBoth = (a35 === 'C' && b35 === 'C' && a41 === 'B' && b41 === 'B')
 
-      // Reconstruct pre-cap with new model: add Core Values scaled to 5 (no additive intent)
+      // Reconstruct the exact pre-cap total so cached dry runs expose the same
+      // bonus, penalty, and veto metadata as a fresh generation calculation.
       const coreValuesScaled5 = Math.max(0, Math.min(5, (coreValuesScore / 20) * 5))
       let preCap = synergyScore + vibeScore + currentFocusScore + similarityPreferenceScore + disagreementScore + attachmentPaceScore + lifestyleScore + humorOpenScore + communicationScore + coreValuesScaled5
+      const opennessPenalty = calculateOpennessPenalty(participantA, participantB)
+      preCap = Math.max(0, preCap + opennessPenalty.points)
+      const cachedHumorMultiplier = parseFloat(data.humor_multiplier || 1.0)
+      preCap = (preCap * cachedHumorMultiplier) + intentScore
       const deadAirVetoApplied = deadAirBoth && preCap > 40
-      const humorClashVetoApplied = !!vetoClash && preCap > 50
+      const afterDeadAir = deadAirVetoApplied ? 40 : preCap
+      const humorClashVetoApplied = !!vetoClash && afterDeadAir > 50
+      const afterSafetyCaps = deadAirVetoApplied ? 40 : (humorClashVetoApplied ? 50 : preCap)
+      const maxScoreCapApplied = afterSafetyCaps > 100
       let capApplied = null
       if (deadAirVetoApplied) capApplied = 40
       else if (humorClashVetoApplied) capApplied = 50
 
-      // Derive openness 0×0 penalty flag from participant data
-      const openAraw = (participantA.early_openness_comfort !== undefined && participantA.early_openness_comfort !== null)
-        ? participantA.early_openness_comfort
-        : participantA?.survey_data?.answers?.early_openness_comfort
-      const openBraw = (participantB.early_openness_comfort !== undefined && participantB.early_openness_comfort !== null)
-        ? participantB.early_openness_comfort
-        : participantB?.survey_data?.answers?.early_openness_comfort
-      const opennessZeroZeroPenaltyApplied = (parseInt(openAraw) === 0 && parseInt(openBraw) === 0)
+      const opennessZeroZeroPenaltyApplied = opennessPenalty.type === 'both_closed'
 
       return {
         mbtiScore: parseFloat(data.mbti_score),
@@ -1444,14 +1476,17 @@ async function getCachedCompatibility(participantA, participantB, options = {}) 
         similarityPreferenceScore,
         attachmentPaceScore,
         totalScore,
-        humorMultiplier: parseFloat(data.humor_multiplier || 1.0),
+        humorMultiplier: cachedHumorMultiplier,
         bonusType: data.humor_early_openness_bonus || 'none',
         attachmentPenaltyApplied,
         intentBoostApplied,
         deadAirVetoApplied,
         humorClashVetoApplied,
+        maxScoreCapApplied,
         capApplied,
         opennessZeroZeroPenaltyApplied,
+        opennessPenalty: opennessPenalty.points,
+        opennessPenaltyType: opennessPenalty.type,
         cached: true
       }
     }
@@ -1745,30 +1780,17 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   let intentBoostApplied = false
   let deadAirVetoApplied = false
   let humorClashVetoApplied = false
+  let maxScoreCapApplied = false
   let capApplied = null
   let opennessZeroZeroPenaltyApplied = false
+  const opennessPenalty = calculateOpennessPenalty(participantA, participantB)
 
   // Early openness 0×0 penalty (apply before multipliers and caps)
-  try {
-    const openAraw = (participantA.early_openness_comfort !== undefined && participantA.early_openness_comfort !== null)
-      ? participantA.early_openness_comfort
-      : participantA?.survey_data?.answers?.early_openness_comfort
-    const openBraw = (participantB.early_openness_comfort !== undefined && participantB.early_openness_comfort !== null)
-      ? participantB.early_openness_comfort
-      : participantB?.survey_data?.answers?.early_openness_comfort
-    const oA = openAraw !== undefined && openAraw !== null ? parseInt(openAraw) : undefined
-    const oB = openBraw !== undefined && openBraw !== null ? parseInt(openBraw) : undefined
-    if (oA === 0 && oB === 0) {
-      totalScore -= 5
-      opennessZeroZeroPenaltyApplied = true
-      console.log(`⚠️ Early openness penalty applied: 0×0 → -5`)
-    } else if ((oA === 0 && oB >= 2) || (oA >= 2 && oB === 0)) {
-      // Asymmetric: one fully closed (0) + one genuinely open (2+) → the open person extends warmth
-      // that gets no response; arguably more friction than symmetric 0×0
-      totalScore -= 4
-      console.log(`⚠️ Asymmetric openness penalty: ${oA} vs ${oB} → -4`)
-    }
-  } catch (_) {}
+  if (opennessPenalty.points !== 0) {
+    totalScore += opennessPenalty.points
+    opennessZeroZeroPenaltyApplied = opennessPenalty.type === 'both_closed'
+    console.log(`⚠️ Openness penalty applied (${opennessPenalty.type}): ${opennessPenalty.points}`)
+  }
   if (totalScore < 0) totalScore = 0
 
   // Apply multipliers before veto caps
@@ -1805,6 +1827,7 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   if (totalScore > 100) {
     console.log(`⚠️ Score capped: ${totalScore.toFixed(2)} → 100.00 (max compatibility)`)
     totalScore = 100
+    maxScoreCapApplied = true
   }
   
   const result = {
@@ -1817,7 +1840,7 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
     coreValuesScaled5: coreValuesScaled5, // scaled 0-5 used in total
     synergyScore,                 // 0-30
     humorOpenScore,               // 0-15
-    intentScore: intentRaw, // for transparency (not added directly)
+    intentScore: intentRaw, // direct 0-5 point contribution
     vibeScore,                    // 0-25
     disagreementScore,            // 0-4
     currentFocusScore,             // 0-5
@@ -1829,8 +1852,11 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
     intentBoostApplied,
     deadAirVetoApplied,
     humorClashVetoApplied,
+    maxScoreCapApplied,
     capApplied,
     opennessZeroZeroPenaltyApplied,
+    opennessPenalty: opennessPenalty.points,
+    opennessPenaltyType: opennessPenalty.type,
     cached: false
   }
   
@@ -3458,8 +3484,10 @@ export default async function handler(req, res) {
   // Round number for DB inserts: 1 = same-gender, 2 = opposite-gender, default = 1
   const targetRound = matchType === 'opposite_gender' ? 2 : 1
 
-  // Preview mode: disable all DB writes (no inserts/updates/RPC)
-  SKIP_DB_WRITES = !!preview
+  // Preview and manual test modes are strict read-only dry runs. They may read
+  // the same compatibility cache as generation, but never touch usage stats,
+  // create cache rows, insert results, or run cleanup writes.
+  SKIP_DB_WRITES = !!preview || !!manualMatch?.testModeOnly
   
   // Handle pre-cache action
   if (action === "pre-cache") {
@@ -5214,10 +5242,9 @@ if (action === "cache-status-by-gender") {
             humor_clash_veto_applied: compatibilityResult.humorClashVetoApplied || false,
             cap_applied: compatibilityResult.capApplied || null,
             reason: (
-              `Synergy: ${Math.round(compatibilityResult.synergyScore)}% + Vibe: ${Math.round(compatibilityResult.vibeScore)}% + Lifestyle: ${Math.round(compatibilityResult.lifestyleScore)}% + Humor/Openness: ${Math.round(compatibilityResult.humorOpenScore)}% + Communication: ${Math.round(compatibilityResult.communicationScore)}% + Connection pace: ${Math.round(Number(compatibilityResult.attachmentPaceScore || 0))}% + Core Values: ${Math.round(compatibilityResult.coreValuesScaled5 != null ? Number(compatibilityResult.coreValuesScaled5) : Math.max(0, Math.min(5, (Number(compatibilityResult.coreValuesScore || 0) / 20) * 5)))}%` +
-              (compatibilityResult.attachmentPenaltyApplied ? ` − Penalty(Anx×Avoid)` : '') +
-              (compatibilityResult.opennessZeroZeroPenaltyApplied ? ` − Penalty(Opn 0×0)` : '') +
-              (compatibilityResult.intentBoostApplied ? ` × IntentBoost(1.05)` : '') +
+              `Synergy: ${Math.round(compatibilityResult.synergyScore)}% + Vibe: ${Math.round(compatibilityResult.vibeScore)}% + Current Focus: ${Math.round(Number(compatibilityResult.currentFocusScore || 0))}% + Similarity: ${Math.round(Number(compatibilityResult.similarityPreferenceScore || 0))}% + Disagreement: ${Math.round(Number(compatibilityResult.disagreementScore || 0))}% + Connection Pace: ${Math.round(Number(compatibilityResult.attachmentPaceScore || 0))}% + Lifestyle: ${Math.round(compatibilityResult.lifestyleScore)}% + Humor/Openness: ${Math.round(compatibilityResult.humorOpenScore)}% + Communication: ${Math.round(compatibilityResult.communicationScore)}% + Core Values: ${Math.round(compatibilityResult.coreValuesScaled5 != null ? Number(compatibilityResult.coreValuesScaled5) : Math.max(0, Math.min(5, (Number(compatibilityResult.coreValuesScore || 0) / 20) * 5)))}% + Intent: ${Math.round(Number(compatibilityResult.intentScore || 0))}%` +
+              (Number(compatibilityResult.opennessPenalty || 0) < 0 ? ` ${compatibilityResult.opennessPenalty} Openness` : '') +
+              (Number(compatibilityResult.humorMultiplier || 1) > 1 ? ` × Humor/Openness ${compatibilityResult.humorMultiplier}` : '') +
               (compatibilityResult.capApplied ? ` (capped @ ${compatibilityResult.capApplied}%)` : '')
             ) + getAgeToleranceLabel(ageTolerance),
             age_tolerance_used_a: ageTolerance.usedA,
@@ -5333,7 +5360,8 @@ if (action === "cache-status-by-gender") {
           : (genderA && genderB)
             ? (genderA === genderB ? 1 : 2)
             : 1
-      const forcedGenderMode = (inferredRound === 1) ? 'same_gender' : (inferredRound === 2) ? 'opposite_gender' : null
+      // Test mode intentionally skips pair eligibility gates. It answers one
+      // question only: what score would the generation formula give this pair?
       
       // If debug mode is requested, analyze constraints and return reasons (no DB writes)
       if (manualMatch.debugPair) {
@@ -5616,8 +5644,9 @@ if (action === "cache-status-by-gender") {
           [p2.survey_data.answers.core_values_1, p2.survey_data.answers.core_values_2, p2.survey_data.answers.core_values_3, p2.survey_data.answers.core_values_4, p2.survey_data.answers.core_values_5].join(',') : 
           null)
       
-      // Use caching system for manual match calculation (ignore cache in test mode)
-      const compatibilityResult = await calculateFullCompatibilityWithCache(p1, p2, skipAI, manualMatch.testModeOnly)
+      // Use the exact cache path generation uses. In test mode SKIP_DB_WRITES is
+      // active, so cache reads are allowed while usage updates/inserts are not.
+      const compatibilityResult = await calculateFullCompatibilityWithCache(p1, p2, skipAI, false)
       
       const mbtiScore = compatibilityResult.mbtiScore
       const attachmentScore = compatibilityResult.attachmentScore
@@ -5626,8 +5655,8 @@ if (action === "cache-status-by-gender") {
       const coreValuesScore = compatibilityResult.coreValuesScore
       const vibeScore = compatibilityResult.vibeScore
       const humorMultiplier = compatibilityResult.humorMultiplier
-      const totalCompatibility = oppositesMode
-        ? computeOppositesFlippedScore({
+      const oppositesBreakdown = oppositesMode
+        ? computeOppositesBreakdown({
             synergyScore: Number(compatibilityResult.synergyScore ?? 0),
             coreValuesScaled5: (
               compatibilityResult.coreValuesScaled5 != null
@@ -5639,12 +5668,15 @@ if (action === "cache-status-by-gender") {
             vibeScore: Number(compatibilityResult.vibeScore ?? 0),
             humorOpenScore: Number(compatibilityResult.humorOpenScore ?? 0),
           })
+        : null
+      const totalCompatibility = oppositesBreakdown
+        ? oppositesBreakdown.percent
         : Math.round(compatibilityResult.totalScore)
       
-      if (compatibilityResult.cached && !manualMatch.testModeOnly) {
-        console.log(`🎯 Manual match used cached result for #${p1.assigned_number}-#${p2.assigned_number}`)
+      if (compatibilityResult.cached) {
+        console.log(`${manualMatch.testModeOnly ? '🧪 TEST MODE' : '🎯 Manual match'}: Used generated compatibility cache for #${p1.assigned_number}-#${p2.assigned_number}`)
       } else if (manualMatch.testModeOnly) {
-        console.log(`🧪 TEST MODE: Fresh calculation for #${p1.assigned_number}-#${p2.assigned_number} (cache ignored)`)
+        console.log(`🧪 TEST MODE: Cache miss; fresh read-only calculation for #${p1.assigned_number}-#${p2.assigned_number}`)
       }
       
       // Determine bonus type for manual match
@@ -5663,13 +5695,17 @@ if (action === "cache-status-by-gender") {
         let reasonStr =
           `Synergy: ${Math.round(Number(compatibilityResult.synergyScore ?? 0))}% + ` +
           `Vibe: ${Math.round(Number(vibeScore || 0))}% + ` +
+          `Current Focus: ${Math.round(Number(compatibilityResult.currentFocusScore ?? 0))}% + ` +
+          `Similarity Preference: ${Math.round(Number(compatibilityResult.similarityPreferenceScore ?? 0))}% + ` +
+          `Disagreement Style: ${Math.round(Number(compatibilityResult.disagreementScore ?? 0))}% + ` +
+          `Connection Pace: ${Math.round(Number(compatibilityResult.attachmentPaceScore ?? 0))}% + ` +
           `Lifestyle: ${Math.round(Number(lifestyleScore || 0))}% + ` +
           `Humor/Openness: ${Math.round(Number(compatibilityResult.humorOpenScore ?? 0))}% + ` +
           `Communication: ${Math.round(Number(communicationScore || 0))}% + ` +
-          `Core Values: ${Math.round(Number(compatibilityResult.coreValuesScaled5 != null ? compatibilityResult.coreValuesScaled5 : Math.max(0, Math.min(5, (Number(coreValuesScore || 0) / 20) * 5))))}%` +
-          (compatibilityResult.attachmentPenaltyApplied ? ` − Penalty(Anx×Avoid)` : '') +
-          (compatibilityResult.opennessZeroZeroPenaltyApplied ? ` − Penalty(Opn 0×0)` : '') +
-          (compatibilityResult.intentBoostApplied ? ` × IntentBoost(1.05)` : '') +
+          `Core Values: ${Math.round(Number(compatibilityResult.coreValuesScaled5 != null ? compatibilityResult.coreValuesScaled5 : Math.max(0, Math.min(5, (Number(coreValuesScore || 0) / 20) * 5))))}% + ` +
+          `Intent: ${Math.round(Number(compatibilityResult.intentScore ?? 0))}%` +
+          (Number(compatibilityResult.opennessPenalty || 0) < 0 ? ` ${compatibilityResult.opennessPenalty} Openness` : '') +
+          (humorMultiplier > 1 ? ` × Humor/Openness ${humorMultiplier}` : '') +
           (compatibilityResult.capApplied ? ` (capped @ ${compatibilityResult.capApplied}%)` : '')
         {
           const tol = getAgeTolerance(p1.assigned_number, p2.assigned_number)
@@ -5739,6 +5775,11 @@ if (action === "cache-status-by-gender") {
         cleanup_summary: cleanupSummary,
         match: insertData ? insertData[0] : null,
         testMode: manualMatch.testModeOnly || false,
+        eligible: true,
+        mode: oppositesMode ? 'opposites' : (CURRENT_MATCH_MODE || 'individual'),
+        score_model_version: MATCH_INSIGHTS_VERSION,
+        cache_status: compatibilityResult.cached ? 'hit' : 'miss',
+        opposites_breakdown: oppositesBreakdown,
         results: [{
           participant: p1.assigned_number,
           partner: p2.assigned_number,
@@ -5762,15 +5803,23 @@ if (action === "cache-status-by-gender") {
               : Math.max(0, Math.min(5, (Number(compatibilityResult.coreValuesScore ?? coreValuesScore ?? 0) / 20) * 5))
           ),
           vibeScore: Number(compatibilityResult.vibeScore ?? vibeScore ?? 0),    // 0-25
+          disagreementScore: Number(compatibilityResult.disagreementScore ?? 0), // 0-4
+          currentFocusScore: Number(compatibilityResult.currentFocusScore ?? 0), // 0-5
+          similarityPreferenceScore: Number(compatibilityResult.similarityPreferenceScore ?? 0), // 0-5
+          attachmentPaceScore: Number(compatibilityResult.attachmentPaceScore ?? 0), // 0-3
           // Safety/cap flags
           attachmentPenaltyApplied: !!compatibilityResult.attachmentPenaltyApplied,
           intentBoostApplied:       !!compatibilityResult.intentBoostApplied,
           deadAirVetoApplied:       !!compatibilityResult.deadAirVetoApplied,
           humorClashVetoApplied:    !!compatibilityResult.humorClashVetoApplied,
+          maxScoreCapApplied:       !!compatibilityResult.maxScoreCapApplied,
           opennessZeroZeroPenaltyApplied: !!compatibilityResult.opennessZeroZeroPenaltyApplied,
+          opennessPenalty: Number(compatibilityResult.opennessPenalty ?? 0),
+          opennessPenaltyType: compatibilityResult.opennessPenaltyType || 'none',
           capApplied: compatibilityResult.capApplied ?? null,
           humor_multiplier: humorMultiplier,
-          humor_bonus: manualBonusType
+          humor_bonus: manualBonusType,
+          oppositesBreakdown,
         }],
         sessionId: null // Manual matches don't create new sessions, they modify existing data
       })
@@ -6188,26 +6237,26 @@ if (action === "cache-status-by-gender") {
     if (aliasMap.size > 0) {
       console.log(`📱 Detected ${aliasMap.size} participants with duplicate phone numbers (alias accounts)`)
     }
-    
+
     // Collect ALL assigned numbers to query: current participants + their aliases
     const allNumbersToQuery = new Set(numbers)
     for (const aliases of aliasMap.values()) {
       for (const num of aliases) allNumbersToQuery.add(num)
     }
     const allQueryNumbers = Array.from(allNumbersToQuery)
-    
+
     const { data: allPreviousMatches, error: previousMatchError } = await supabase
       .from("match_results")
       .select("participant_a_number, participant_b_number, event_id")
       .lt("event_id", eventId) // Only previous events
       .in("participant_a_number", allQueryNumbers)
       .in("participant_b_number", allQueryNumbers)
-    
+
     if (previousMatchError) {
       console.error("⚠️ Error fetching previous matches:", previousMatchError)
       console.log("⚠️ Continuing without previous match filtering...")
     }
-    
+
     // Build a Set of previously matched pairs for O(1) lookup
     const previousMatchPairs = new Set()
     if (allPreviousMatches && allPreviousMatches.length > 0) {
@@ -6297,13 +6346,13 @@ if (action === "cache-status-by-gender") {
           console.log(`🚫 Skipping excluded pair: #${a.assigned_number} ↔ #${b.assigned_number}`)
           continue
         }
-        
+
         // Check gender compatibility first (opposite gender only)
         if (!checkGenderCompatibility(a, b)) {
           skippedGender++
           continue
         }
-        
+
         // Hard gates: nationality, age range, and intent (mutual)
         if (!checkNationalityHardGate(a, b)) {
           skippedNationality++
@@ -6314,13 +6363,13 @@ if (action === "cache-status-by-gender") {
           continue
         }
         // Intent is no longer a hard gate; keep scoring-only preference
-        
+
         // Check interaction style compatibility (matching determinants)
         if (!checkInteractionStyleCompatibility(a, b)) {
           skippedInteractionStyle++
           continue
         }
-        
+
         // Check if this pair has been matched in previous events (O(1) Set lookup)
         // Also check alias accounts (same phone number, different assigned_number)
         const pairKey = [a.assigned_number, b.assigned_number].sort().join('-')
@@ -6392,18 +6441,47 @@ if (action === "cache-status-by-gender") {
 
           // Ensure new-model fields are populated even on cache hits
           const _cachedSynergy2 = parseFloat(cachedData.interaction_synergy_score)
-          const _coreValForIntent2 = parseFloat(cachedData.core_values_score)
           const _cachedIntent2 = parseFloat(cachedData.intent_goal_score)
           const _derivedSynergy2 = Number.isFinite(_cachedSynergy2)
             ? _cachedSynergy2
             : calculateInteractionSynergyScore(a, b)
-          const { score: _derivedHumorOpen2 } = calculateHumorOpennessScore(a, b)
+          const { score: _derivedHumorOpen2, vetoClash: _vetoClash2 } = calculateHumorOpennessScore(a, b)
           const _derivedIntent2 = Number.isFinite(_cachedIntent2)
             ? _cachedIntent2
-            : Math.min(5, (calculateIntentGoalScore(a, b) / 5) * 3 + ( (_coreValForIntent2 || 0) / 20) * 2)
+            : calculateIntentGoalScore(a, b)
+          const _insights2 = calculateShortMeetingInsightScores(a, b, compatibilityResult.vibeScore)
+          const _attachmentPace2 = calculateAttachmentPaceScore(a, b)
+          const _opennessPenalty2 = calculateOpennessPenalty(a, b)
+          const _coreScaled2 = Math.max(0, Math.min(5, (compatibilityResult.coreValuesScore / 20) * 5))
+          let _preCap2 = _derivedSynergy2 + compatibilityResult.vibeScore
+            + _insights2.currentFocusScore + _insights2.similarityPreferenceScore + _insights2.disagreementScore
+            + _attachmentPace2 + compatibilityResult.lifestyleScore + _derivedHumorOpen2
+            + compatibilityResult.communicationScore + _coreScaled2 + _opennessPenalty2.points
+          _preCap2 = (Math.max(0, _preCap2) * compatibilityResult.humorMultiplier) + _derivedIntent2
+          const _getAnswer2 = (participant, key) => String(participant?.survey_data?.answers?.[key] ?? participant?.[key] ?? '').toUpperCase()
+          const _deadAir2 = _getAnswer2(a, 'conversational_role') === 'C'
+            && _getAnswer2(b, 'conversational_role') === 'C'
+            && _getAnswer2(a, 'silence_comfort') === 'B'
+            && _getAnswer2(b, 'silence_comfort') === 'B'
+          const _deadAirApplied2 = _deadAir2 && _preCap2 > 40
+          const _humorClashApplied2 = !_deadAirApplied2 && _vetoClash2 && _preCap2 > 50
+          const _maxScoreCapApplied2 = !_deadAirApplied2 && !_humorClashApplied2 && _preCap2 > 100
           compatibilityResult.synergyScore = _derivedSynergy2
           compatibilityResult.humorOpenScore = _derivedHumorOpen2
           compatibilityResult.intentScore = _derivedIntent2
+          compatibilityResult.coreValuesScaled5 = _coreScaled2
+          compatibilityResult.disagreementScore = _insights2.disagreementScore
+          compatibilityResult.currentFocusScore = _insights2.currentFocusScore
+          compatibilityResult.similarityPreferenceScore = _insights2.similarityPreferenceScore
+          compatibilityResult.attachmentPaceScore = _attachmentPace2
+          compatibilityResult.opennessPenalty = _opennessPenalty2.points
+          compatibilityResult.opennessPenaltyType = _opennessPenalty2.type
+          compatibilityResult.opennessZeroZeroPenaltyApplied = _opennessPenalty2.type === 'both_closed'
+          compatibilityResult.intentBoostApplied = _derivedIntent2 >= 4
+          compatibilityResult.deadAirVetoApplied = _deadAirApplied2
+          compatibilityResult.humorClashVetoApplied = _humorClashApplied2
+          compatibilityResult.maxScoreCapApplied = _maxScoreCapApplied2
+          compatibilityResult.capApplied = _deadAirApplied2 ? 40 : (_humorClashApplied2 ? 50 : null)
           
           // Update cache usage statistics in background (don't await)
           if (!SKIP_DB_WRITES) {
@@ -6484,6 +6562,7 @@ if (action === "cache-status-by-gender") {
         const deadAirVetoApplied = !!compatibilityResult.deadAirVetoApplied
         const humorClashVetoApplied = !!compatibilityResult.humorClashVetoApplied
         const capApplied = compatibilityResult.capApplied ?? null
+        const opennessPenalty = calculateOpennessPenalty(a, b)
         
         // Extract data for reason string and storage
         const aMBTI = a.mbti_personality_type || a.survey_data?.mbtiType
@@ -6510,14 +6589,12 @@ if (action === "cache-status-by-gender") {
             null)
         
         // Modern reason string reflecting the current 100-pt model
-        let reason = `التفاعل: ${Math.round(synergyScore)}% + الطاقة: ${Math.round(vibeScore)}% + نمط الحياة: ${Math.round(lifestyleScore)}% + الدعابة/الانفتاح: ${Math.round(humorOpenScore)}% + التواصل: ${Math.round(communicationScore)}% + وتيرة التقارب: ${Math.round(attachmentPaceScore)}% + الأهداف/القيم: ${Math.round(intentScore)}%`
+        let reason = `التفاعل: ${Math.round(synergyScore)}% + الطاقة: ${Math.round(vibeScore)}% + التركيز الحالي: ${Math.round(currentFocusScore)}% + تفضيل التشابه: ${Math.round(similarityPreferenceScore)}% + أسلوب الاختلاف: ${Math.round(disagreementScore)}% + وتيرة التقارب: ${Math.round(attachmentPaceScore)}% + نمط الحياة: ${Math.round(lifestyleScore)}% + الدعابة/الانفتاح: ${Math.round(humorOpenScore)}% + التواصل: ${Math.round(communicationScore)}% + الأهداف: ${Math.round(intentScore)}%`
         // Append applied boosts/penalties/caps for transparency
         if (attachmentPenaltyApplied) {
           reason += ` − عقوبة التعلق (قلق×تجنُّب)`
         }
-        if (intentBoostApplied) {
-          reason += ` + مضاعف الهدف (×1.1)`
-        }
+        if (opennessPenalty.points < 0) reason += ` ${opennessPenalty.points} عقوبة الانفتاح`
         if (humorMultiplier > 1.0) {
           reason += ` × مضاعف الدعابة/الانفتاح (×${humorMultiplier})`
         }
@@ -6535,11 +6612,6 @@ if (action === "cache-status-by-gender") {
           bonusType = 'full' // Both humor and early openness match
         } else if (humorMultiplier === 1.05) {
           bonusType = 'partial' // Only one matches (humor OR openness)
-        }
-        
-        // Add humor multiplier to reason if applicable
-        if (humorMultiplier > 1.0) {
-          reason += ` × مضاعف الدعابة المتشابهة: (×${humorMultiplier})`
         }
         
         // Capture intent letters for UI highlighting

@@ -7683,7 +7683,7 @@ export default function WelcomePage() {
                                     ? 'يتحدث الآن'
                                     : `${upcomingEvent.registeredCount.toLocaleString('ar-SA')} حتى الآن`}
                                 </p>
-                                <p className="mt-0.5 text-[9px] font-medium leading-4 text-emerald-100/55">بعضهم لم يؤكد حضوره بعد • الحد الأقصى للحضور ٤٢ شخصًا</p>
+                                <p className="mt-0.5 text-[9px] font-medium leading-4 text-emerald-100/55">الحد الأقصى للحضور ٤٢ شخصًا</p>
                               </div>
                             </div>
                           </div>

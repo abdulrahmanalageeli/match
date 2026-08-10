@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react"
-import { X, Users, Heart, Trophy, Star, Eye, ArrowUpDown, CheckCircle, XCircle, AlertTriangle, Zap, Brain, MessageCircle, Home, DollarSign, Info, Lock, Unlock, MessageSquare, Ban, UserX, Sparkles, Flame, Square, CheckSquare } from "lucide-react"
+import { X, Users, Heart, Trophy, Star, Eye, ArrowUpDown, CheckCircle, XCircle, AlertTriangle, Zap, Brain, MessageCircle, Home, DollarSign, Info, Lock, Unlock, MessageSquare, Ban, UserX, Sparkles, Flame, Square, CheckSquare, Search } from "lucide-react"
 import { toast } from "react-hot-toast"
 import ParticipantDetailModal from "./ParticipantDetailModal"
 import WhatsappMessageModal from "./WhatsappMessageModal"
@@ -43,6 +43,25 @@ interface ParticipantResult {
   humor_early_openness_bonus?: 'full' | 'partial' | 'none'
   round?: number | null
 }
+
+type ResultSortKey =
+  | "assigned_number"
+  | "name"
+  | "partner"
+  | "compatibility_score"
+  | "synergy_score"
+  | "disagreement_style_score"
+  | "current_life_overlap_score"
+  | "similarity_preference_score"
+  | "attachment_pace_score"
+  | "lifestyle_compatibility_score"
+  | "humor_open_score"
+  | "communication_compatibility_score"
+  | "core_values_compatibility_score"
+  | "intent_score"
+  | "vibe_compatibility_score"
+
+type SortDirection = "asc" | "desc"
 
 interface ParticipantResultsModalProps {
   isOpen: boolean
@@ -132,6 +151,10 @@ export default function ParticipantResultsModal({
   const [showNewOnly, setShowNewOnly] = useState(false)
   const [showPaidOnly, setShowPaidOnly] = useState(false)
   const [showUnmessagedFemalesOnly, setShowUnmessagedFemalesOnly] = useState(false)
+  const [resultQuery, setResultQuery] = useState("")
+  const [attendanceFilter, setAttendanceFilter] = useState<"all" | "confirmed" | "declined" | "pending" | "arrived">("all")
+  const [resultSortKey, setResultSortKey] = useState<ResultSortKey>("compatibility_score")
+  const [resultSortDirection, setResultSortDirection] = useState<SortDirection>("desc")
   const [bulkExcludingUnpaidGirls, setBulkExcludingUnpaidGirls] = useState(false)
   // Impressions: map of participant_number -> Impression[]
   const [impressionsMap, setImpressionsMap] = useState<Record<number, any[]>>({})
@@ -567,14 +590,59 @@ export default function ParticipantResultsModal({
     }
   }
 
-  // Default order (compatibility desc)
-  const sortedResults = [...processedResults].sort((a, b) => b.compatibility_score - a.compatibility_score)
+  const changeResultSort = (key: ResultSortKey) => {
+    if (resultSortKey === key) {
+      setResultSortDirection(direction => direction === "asc" ? "desc" : "asc")
+      return
+    }
+    setResultSortKey(key)
+    setResultSortDirection(key === "name" || key === "partner" || key === "assigned_number" ? "asc" : "desc")
+  }
+
+  const resultSortValue = (result: ParticipantResult): number | string | null => {
+    if (resultSortKey === "name") return result.name || ""
+    if (resultSortKey === "partner") return result.partner_assigned_number ?? result.partner_name ?? ""
+    let value = result[resultSortKey]
+    if (value == null && result.partner_assigned_number) {
+      const pair = calculatedPairs.find((candidate: any) =>
+        (Number(candidate.participant_a) === result.assigned_number && Number(candidate.participant_b) === result.partner_assigned_number) ||
+        (Number(candidate.participant_b) === result.assigned_number && Number(candidate.participant_a) === result.partner_assigned_number)
+      )
+      value = pair?.[resultSortKey]
+    }
+    return typeof value === "number" || typeof value === "string" ? value : null
+  }
+
+  const sortedResults = [...processedResults].sort((a, b) => {
+    const left = resultSortValue(a)
+    const right = resultSortValue(b)
+    if (left == null && right == null) return 0
+    if (left == null) return 1
+    if (right == null) return -1
+    const comparison = typeof left === "string" || typeof right === "string"
+      ? String(left).localeCompare(String(right), "ar", { numeric: true, sensitivity: "base" })
+      : Number(left) - Number(right)
+    return resultSortDirection === "asc" ? comparison : -comparison
+  })
 
   // Apply temporary filters (hide only — preserve normal order)
   // Two-way: a participant is hidden if they OR their partner matches the filter.
   const visibleResults = sortedResults.filter((r) => {
     const partner = r.partner_assigned_number
     const hasPartner = !!partner && partner !== 9999
+    const normalizedQuery = resultQuery.trim().toLocaleLowerCase("ar")
+    if (normalizedQuery) {
+      const haystack = [r.assigned_number, r.name, r.partner_assigned_number, r.partner_name]
+        .filter(value => value != null)
+        .join(" ")
+        .toLocaleLowerCase("ar")
+      if (!haystack.includes(normalizedQuery)) return false
+    }
+    const participant = participantData.get(r.assigned_number)
+    if (attendanceFilter === "confirmed" && participant?.attendance_confirmed !== true) return false
+    if (attendanceFilter === "declined" && !participant?.attendance_denied_at) return false
+    if (attendanceFilter === "pending" && (participant?.attendance_confirmed === true || participant?.attendance_denied_at)) return false
+    if (attendanceFilter === "arrived" && participant?.arrival_status !== "arrived") return false
     if (hideMessaged) {
       const selfMessaged = isMessageSent(r.assigned_number)
       const partnerMessaged = hasPartner ? isMessageSent(partner as number) : false
@@ -757,6 +825,21 @@ export default function ParticipantResultsModal({
     setShowPairAnalysis(true)
   }
 
+  const renderSortableHeader = (label: string, key: ResultSortKey, align: "right" | "center" = "center") => (
+    <th className={`${align === "right" ? "text-right" : "text-center"} p-2 text-sm font-semibold text-slate-300`}>
+      <button
+        type="button"
+        onClick={() => changeResultSort(key)}
+        className={`inline-flex w-full items-center gap-1 rounded px-1 py-1 transition-colors hover:bg-white/10 hover:text-white ${align === "right" ? "justify-start" : "justify-center"}`}
+        title={`ترتيب حسب ${label}`}
+      >
+        <span className="text-xs">{label}</span>
+        <ArrowUpDown className={`h-3 w-3 ${resultSortKey === key ? "text-cyan-300" : "text-slate-500"}`} />
+        {resultSortKey === key && <span className="text-[9px] text-cyan-300">{resultSortDirection === "asc" ? "▲" : "▼"}</span>}
+      </button>
+    </th>
+  )
+
   return (
     <div className={`fixed inset-0 ${cohostTheme ? 'bg-rose-900/40' : 'bg-black/50'} backdrop-blur-sm z-50 flex items-center justify-center p-4`}>
       <div className={`${cohostTheme ? 'bg-gradient-to-br from-rose-950 via-slate-900 to-rose-950 border-4 border-rose-400/30 rounded-3xl' : 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-white/20 rounded-2xl'} shadow-2xl w-full max-w-6xl max-h-[90dvh] overflow-hidden flex flex-col`}>
@@ -862,6 +945,27 @@ export default function ParticipantResultsModal({
         {matchType !== "group" && results.length > 0 && (
           <div className="mx-6 mt-4 flex flex-wrap items-center gap-3">
             <span className="text-xs text-slate-400">فلترة مؤقتة:</span>
+            <label className="relative min-w-[190px] flex-1 sm:max-w-xs">
+              <Search className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+              <input
+                value={resultQuery}
+                onChange={(event) => setResultQuery(event.target.value)}
+                placeholder="بحث بالرقم أو الاسم أو الشريك..."
+                className="w-full rounded-lg border border-white/15 bg-white/5 py-1.5 pl-3 pr-8 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-400/50"
+              />
+            </label>
+            <select
+              value={attendanceFilter}
+              onChange={(event) => setAttendanceFilter(event.target.value as typeof attendanceFilter)}
+              className="rounded-lg border border-white/15 bg-slate-900 px-3 py-1.5 text-sm text-slate-200 outline-none focus:border-cyan-400/50"
+              aria-label="فلترة حالة الحضور"
+            >
+              <option value="all">كل حالات الحضور</option>
+              <option value="confirmed">حضور مؤكد</option>
+              <option value="arrived">وصل</option>
+              <option value="declined">اعتذر</option>
+              <option value="pending">لم يرد</option>
+            </select>
             <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border cursor-pointer transition-all duration-200 text-sm ${
               hideMessaged
                 ? 'bg-blue-500/20 border-blue-400/40 text-blue-200'
@@ -945,7 +1049,7 @@ export default function ParticipantResultsModal({
               <UserX className={"w-4 h-4" + (bulkExcludingUnpaidGirls ? " animate-pulse" : "")} />
               <span>استبعاد غير المدفوعات (بنات)</span>
             </button>
-            {(hideMessaged || hidePaid || showNewOnly || showPaidOnly || showUnmessagedFemalesOnly) && (
+            {(resultQuery || attendanceFilter !== "all" || hideMessaged || hidePaid || showNewOnly || showPaidOnly || showUnmessagedFemalesOnly) && (
               <span className="text-xs text-slate-400">
                 ({visibleResults.length} ظاهر من {sortedResults.length})
               </span>
@@ -993,10 +1097,10 @@ export default function ParticipantResultsModal({
                   <table className="w-full">
                     <thead className="bg-white/10">
                       <tr>
-                        <th className="text-right p-2 text-sm font-semibold text-slate-300">رقم المشارك</th>
-                        <th className="text-right p-2 text-sm font-semibold text-slate-300">الاسم</th>
-                        <th className="text-right p-2 text-sm font-semibold text-slate-300">الشريك</th>
-                        <th className="text-center p-2 text-sm font-semibold text-slate-300">التوافق الإجمالي</th>
+                        {renderSortableHeader("رقم المشارك", "assigned_number", "right")}
+                        {renderSortableHeader("الاسم", "name", "right")}
+                        {renderSortableHeader("الشريك", "partner", "right")}
+                        {renderSortableHeader("التوافق الإجمالي", "compatibility_score")}
                         {matchType !== "group" && (
                           <th className="text-center p-2 text-sm font-semibold text-slate-300">استبعاد</th>
                         )}
@@ -1017,55 +1121,17 @@ export default function ParticipantResultsModal({
                         )}
                         {matchType !== "group" && (
                           <>
-                            <th className="text-center p-2 text-sm font-semibold text-slate-300">
-                              <div className="flex items-center justify-center gap-1">
-                                <Users className="w-3 h-3" />
-                                <span className="text-xs">التفاعل /30</span>
-                              </div>
-                            </th>
-                            <th className="text-center p-2 text-sm font-semibold text-slate-300">
-                              <span className="text-xs">أسلوب الاختلاف /4</span>
-                            </th>
-                            <th className="text-center p-2 text-sm font-semibold text-slate-300">
-                              <span className="text-xs">المرحلة الحالية /5</span>
-                            </th>
-                            <th className="text-center p-2 text-sm font-semibold text-slate-300">
-                              <span className="text-xs">تفضيل التشابه /5</span>
-                            </th>
-                            <th className="text-center p-2 text-sm font-semibold text-slate-300">
-                              <span className="text-xs">وتيرة التقارب /3</span>
-                            </th>
-                            <th className="text-center p-2 text-sm font-semibold text-slate-300">
-                              <div className="flex items-center justify-center gap-1">
-                                <Home className="w-3 h-3" />
-                                <span className="text-xs">نمط الحياة /10</span>
-                              </div>
-                            </th>
-                            <th className="text-center p-2 text-sm font-semibold text-slate-300">
-                              <div className="flex items-center justify-center gap-1">
-                                <Sparkles className="w-3 h-3" />
-                                <span className="text-xs">الدعابة/الانفتاح /15</span>
-                              </div>
-                            </th>
-                            <th className="text-center p-2 text-sm font-semibold text-slate-300">
-                              <div className="flex items-center justify-center gap-1">
-                                <MessageCircle className="w-3 h-3" />
-                                <span className="text-xs">التواصل /3</span>
-                              </div>
-                            </th>
-                            <th className="text-center p-2 text-sm font-semibold text-slate-300">
-                              <div className="flex items-center justify-center gap-1">
-                                <Star className="w-3 h-3" />
-                                <span className="text-xs">الأهداف/القيم</span>
-                              </div>
-                            </th>
+                            {renderSortableHeader("التفاعل /30", "synergy_score")}
+                            {renderSortableHeader("أسلوب الاختلاف /4", "disagreement_style_score")}
+                            {renderSortableHeader("المرحلة الحالية /5", "current_life_overlap_score")}
+                            {renderSortableHeader("تفضيل التشابه /5", "similarity_preference_score")}
+                            {renderSortableHeader("وتيرة التقارب /3", "attachment_pace_score")}
+                            {renderSortableHeader("نمط الحياة /10", "lifestyle_compatibility_score")}
+                            {renderSortableHeader("الدعابة/الانفتاح /15", "humor_open_score")}
+                            {renderSortableHeader("التواصل /3", "communication_compatibility_score")}
+                            {renderSortableHeader("الأهداف/القيم", "intent_score")}
                             {matchType === "ai" && (
-                              <th className="text-center p-2 text-sm font-semibold text-slate-300">
-                                <div className="flex items-center justify-center gap-1">
-                                  <Zap className="w-3 h-3" />
-                                  <span className="text-xs">الطاقة /25</span>
-                                </div>
-                              </th>
+                              renderSortableHeader("الطاقة /25", "vibe_compatibility_score")
                             )}
                           </>
                         )}

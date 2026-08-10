@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react"
-import { X, User, Users, Heart, Brain, MessageCircle, Home, Star, Zap, ArrowLeft, ArrowLeftRight, RotateCcw, Sparkles, Lock, TrendingUp, TrendingDown, Info, AlertTriangle } from "lucide-react"
+import { X, User, Users, Heart, Brain, MessageCircle, Home, Star, Zap, ArrowLeft, ArrowLeftRight, RotateCcw, Sparkles, Lock, TrendingUp, TrendingDown, Info, AlertTriangle, Search, DollarSign, ArrowUpDown } from "lucide-react"
 import * as Tooltip from "@radix-ui/react-tooltip"
 import * as Popover from "@radix-ui/react-popover"
 import ParticipantHoverCardContent from "./ParticipantHoverCard"
@@ -45,6 +45,25 @@ interface ParticipantMatch {
   reason?: string
   openness_zero_zero_penalty_applied?: boolean
 }
+
+type DetailSortKey =
+  | "participant_number"
+  | "participant_name"
+  | "status"
+  | "payment"
+  | "compatibility_score"
+  | "flags"
+  | "synergy_score"
+  | "disagreement_style_score"
+  | "current_life_overlap_score"
+  | "similarity_preference_score"
+  | "attachment_pace_score"
+  | "lifestyle_compatibility_score"
+  | "humor_open_score"
+  | "communication_compatibility_score"
+  | "core_values_compatibility_score"
+  | "intent_score"
+  | "vibe_compatibility_score"
 
 function MatchInsightsCoverageBadge({ match }: { match: ParticipantMatch }) {
   const coverage = getPairMatchInsightsCoverage(match)
@@ -95,6 +114,13 @@ export default function ParticipantDetailModal({
   // Loading indicator for creating a manual match for a specific partner number
   const [creatingManualFor, setCreatingManualFor] = useState<number | null>(null)
   const [orgImpressions, setOrgImpressions] = useState<Array<{ text: string; eventId?: number; partner?: number; submitted_at?: string }>>([])
+  const [matchQuery, setMatchQuery] = useState("")
+  const [paymentFilter, setPaymentFilter] = useState<"all" | "paid" | "unpaid" | "waived">("all")
+  const [contactFilter, setContactFilter] = useState<"all" | "contacted" | "not_contacted">("all")
+  const [attendanceFilter, setAttendanceFilter] = useState<"all" | "confirmed" | "declined" | "pending" | "arrived">("all")
+  const [matchStatusFilter, setMatchStatusFilter] = useState<"all" | "actual" | "potential" | "repeated">("all")
+  const [detailSortKey, setDetailSortKey] = useState<DetailSortKey>("compatibility_score")
+  const [detailSortDirection, setDetailSortDirection] = useState<"asc" | "desc">("desc")
 
   // Build quick lookup for locked partners and their locked scores
   const lockedByParticipant = useMemo(() => {
@@ -346,8 +372,70 @@ export default function ParticipantDetailModal({
 
   if (!isOpen || !participant) return null
 
-  // Sort matches by compatibility score (descending)
-  const sortedMatches = [...matches].sort((a, b) => b.compatibility_score - a.compatibility_score)
+  const changeDetailSort = (key: DetailSortKey) => {
+    if (detailSortKey === key) {
+      setDetailSortDirection(direction => direction === "asc" ? "desc" : "asc")
+      return
+    }
+    setDetailSortKey(key)
+    setDetailSortDirection(key === "participant_name" || key === "participant_number" ? "asc" : "desc")
+  }
+
+  const matchStatusRank = (match: ParticipantMatch) => match.is_actual_match ? 3 : match.is_repeated_match ? 2 : 1
+  const matchFlagCount = (match: ParticipantMatch) => [
+    match.attachment_penalty_applied,
+    match.intent_boost_applied,
+    match.dead_air_veto_applied,
+    match.humor_clash_veto_applied,
+    match.openness_zero_zero_penalty_applied,
+    match.cap_applied != null,
+  ].filter(Boolean).length
+
+  const detailSortValue = (match: ParticipantMatch): number | string | null => {
+    if (detailSortKey === "participant_name") return match.participant_name || ""
+    if (detailSortKey === "status") return matchStatusRank(match)
+    if (detailSortKey === "payment") {
+      const data = participantData.get(match.participant_number)
+      return data?.payment_waived === true ? 2 : data?.PAID_DONE === true ? 3 : 1
+    }
+    if (detailSortKey === "flags") return matchFlagCount(match)
+    const value = match[detailSortKey]
+    return typeof value === "number" || typeof value === "string" ? value : null
+  }
+
+  const normalizedMatchQuery = matchQuery.trim().toLocaleLowerCase("ar")
+  const sortedMatches = matches
+    .filter(match => {
+      const data = participantData.get(match.participant_number)
+      if (normalizedMatchQuery) {
+        const haystack = `${match.participant_number} ${match.participant_name || ""}`.toLocaleLowerCase("ar")
+        if (!haystack.includes(normalizedMatchQuery)) return false
+      }
+      if (paymentFilter === "paid" && data?.PAID_DONE !== true) return false
+      if (paymentFilter === "unpaid" && (data?.PAID_DONE === true || data?.payment_waived === true)) return false
+      if (paymentFilter === "waived" && data?.payment_waived !== true) return false
+      if (contactFilter === "contacted" && data?.PAID !== true) return false
+      if (contactFilter === "not_contacted" && data?.PAID === true) return false
+      if (attendanceFilter === "confirmed" && data?.attendance_confirmed !== true) return false
+      if (attendanceFilter === "declined" && !data?.attendance_denied_at) return false
+      if (attendanceFilter === "pending" && (data?.attendance_confirmed === true || data?.attendance_denied_at)) return false
+      if (attendanceFilter === "arrived" && data?.arrival_status !== "arrived") return false
+      if (matchStatusFilter === "actual" && !match.is_actual_match) return false
+      if (matchStatusFilter === "repeated" && !match.is_repeated_match) return false
+      if (matchStatusFilter === "potential" && (match.is_actual_match || match.is_repeated_match)) return false
+      return true
+    })
+    .sort((a, b) => {
+      const left = detailSortValue(a)
+      const right = detailSortValue(b)
+      if (left == null && right == null) return 0
+      if (left == null) return 1
+      if (right == null) return -1
+      const comparison = typeof left === "string" || typeof right === "string"
+        ? String(left).localeCompare(String(right), "ar", { numeric: true, sensitivity: "base" })
+        : Number(left) - Number(right)
+      return detailSortDirection === "asc" ? comparison : -comparison
+    })
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-green-400"
@@ -361,6 +449,50 @@ export default function ParticipantDetailModal({
     if (score >= 60) return "bg-yellow-500/20 border-yellow-400/30"
     if (score >= 40) return "bg-orange-500/20 border-orange-400/30"
     return "bg-red-500/20 border-red-400/30"
+  }
+
+  const renderSortableHeader = (label: string, key: DetailSortKey, align: "right" | "center" = "center") => (
+    <th className={`${align === "right" ? "text-right" : "text-center"} p-4 text-sm font-semibold text-slate-300`}>
+      <button
+        type="button"
+        onClick={() => changeDetailSort(key)}
+        className={`inline-flex w-full items-center gap-1 rounded px-1 py-1 transition-colors hover:bg-white/10 hover:text-white ${align === "right" ? "justify-start" : "justify-center"}`}
+        title={`ترتيب حسب ${label}`}
+      >
+        <span className="text-xs">{label}</span>
+        <ArrowUpDown className={`h-3 w-3 ${detailSortKey === key ? "text-cyan-300" : "text-slate-500"}`} />
+        {detailSortKey === key && <span className="text-[9px] text-cyan-300">{detailSortDirection === "asc" ? "▲" : "▼"}</span>}
+      </button>
+    </th>
+  )
+
+  const renderParticipantBadges = (participantNumber: number) => {
+    const data = participantData.get(participantNumber)
+    if (!data) return <span className="text-xs text-slate-500">—</span>
+    const isNew = data.created_at && new Date(data.created_at).toDateString() === new Date().toDateString()
+    return (
+      <div className="flex min-w-[150px] flex-wrap items-center justify-center gap-1">
+        <span className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-bold ${
+          data.payment_waived === true
+            ? "border-violet-400/30 bg-violet-500/15 text-violet-200"
+            : data.PAID_DONE === true
+              ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-200"
+              : "border-red-400/30 bg-red-500/15 text-red-200"
+        }`} title="حالة الدفع">
+          <DollarSign className="h-2.5 w-2.5" />
+          {data.payment_waived === true ? "معفى" : data.PAID_DONE === true ? "مدفوع" : "غير مدفوع"}
+        </span>
+        <span className={`rounded-full border px-1.5 py-0.5 text-[10px] font-bold ${data.PAID === true ? "border-blue-400/30 bg-blue-500/15 text-blue-200" : "border-slate-500/30 bg-slate-500/10 text-slate-400"}`}>
+          {data.PAID === true ? "تم التواصل" : "لم يتم التواصل"}
+        </span>
+        {data.attendance_confirmed === true && <span className="rounded-full border border-emerald-400/30 bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-200">حضور مؤكد</span>}
+        {!data.attendance_confirmed && data.attendance_denied_at && <span className="rounded-full border border-red-400/30 bg-red-500/15 px-1.5 py-0.5 text-[10px] font-bold text-red-200">اعتذر</span>}
+        {data.arrival_status === "arrived" && <span className="rounded-full border border-cyan-400/30 bg-cyan-500/15 px-1.5 py-0.5 text-[10px] font-bold text-cyan-200">وصل</span>}
+        {data.arrival_status === "on_way" && <span className="rounded-full border border-blue-400/30 bg-blue-500/15 px-1.5 py-0.5 text-[10px] font-bold text-blue-200">في الطريق</span>}
+        {data.arrival_status === "late" && <span className="rounded-full border border-orange-400/30 bg-orange-500/15 px-1.5 py-0.5 text-[10px] font-bold text-orange-200">متأخر</span>}
+        {isNew && <span className="rounded-full border border-cyan-400/30 bg-cyan-500/15 px-1.5 py-0.5 text-[10px] font-bold text-cyan-200">جديد</span>}
+      </div>
+    )
   }
 
   return (
@@ -433,6 +565,44 @@ export default function ParticipantDetailModal({
                   </ul>
                 )}
               </div>
+              {/* Match filters */}
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-white/15 bg-white/5 p-3">
+                <label className="relative min-w-[210px] flex-1">
+                  <Search className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                  <input
+                    value={matchQuery}
+                    onChange={(event) => setMatchQuery(event.target.value)}
+                    placeholder="بحث بالرقم أو الاسم..."
+                    className="w-full rounded-lg border border-white/15 bg-slate-950/50 py-2 pl-3 pr-8 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-400/50"
+                  />
+                </label>
+                <select value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value as typeof paymentFilter)} className="rounded-lg border border-white/15 bg-slate-900 px-2 py-2 text-xs text-slate-200 outline-none">
+                  <option value="all">كل حالات الدفع</option>
+                  <option value="paid">مدفوع</option>
+                  <option value="unpaid">غير مدفوع</option>
+                  <option value="waived">معفى</option>
+                </select>
+                <select value={contactFilter} onChange={(event) => setContactFilter(event.target.value as typeof contactFilter)} className="rounded-lg border border-white/15 bg-slate-900 px-2 py-2 text-xs text-slate-200 outline-none">
+                  <option value="all">كل حالات التواصل</option>
+                  <option value="contacted">تم التواصل</option>
+                  <option value="not_contacted">لم يتم التواصل</option>
+                </select>
+                <select value={attendanceFilter} onChange={(event) => setAttendanceFilter(event.target.value as typeof attendanceFilter)} className="rounded-lg border border-white/15 bg-slate-900 px-2 py-2 text-xs text-slate-200 outline-none">
+                  <option value="all">كل حالات الحضور</option>
+                  <option value="confirmed">حضور مؤكد</option>
+                  <option value="arrived">وصل</option>
+                  <option value="declined">اعتذر</option>
+                  <option value="pending">لم يرد</option>
+                </select>
+                <select value={matchStatusFilter} onChange={(event) => setMatchStatusFilter(event.target.value as typeof matchStatusFilter)} className="rounded-lg border border-white/15 bg-slate-900 px-2 py-2 text-xs text-slate-200 outline-none">
+                  <option value="all">كل المطابقات</option>
+                  <option value="actual">فعلية</option>
+                  <option value="potential">محتملة</option>
+                  <option value="repeated">سابقة</option>
+                </select>
+                <span className="text-xs text-slate-400">{sortedMatches.length} من {matches.length}</span>
+              </div>
+
               {/* Summary Stats */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-4">
@@ -480,65 +650,43 @@ export default function ParticipantDetailModal({
                   <table className="w-full">
                     <thead className="bg-white/10">
                       <tr>
-                        <th className="text-right p-4 text-sm font-semibold text-slate-300">المشارك</th>
-                        <th className="text-right p-4 text-sm font-semibold text-slate-300">الاسم</th>
-                        <th className="text-center p-4 text-sm font-semibold text-slate-300">الحالة</th>
-                        <th className="text-center p-4 text-sm font-semibold text-slate-300">التوافق الإجمالي</th>
+                        {renderSortableHeader("المشارك", "participant_number", "right")}
+                        {renderSortableHeader("الاسم", "participant_name", "right")}
+                        {renderSortableHeader("الدفع والحالات", "payment")}
+                        {renderSortableHeader("الحالة", "status")}
+                        {renderSortableHeader("التوافق الإجمالي", "compatibility_score")}
                         {swapMode && (
                           <th className="text-center p-4 text-sm font-semibold text-slate-300">اختيار</th>
                         )}
                         {matchType !== "group" && (
-                          <th className="text-center p-4 text-sm font-semibold text-slate-300">القيود/المكافآت</th>
+                          renderSortableHeader("القيود/المكافآت", "flags")
                         )}
                         {matchType !== "group" && (
                           <>
-                            <th className="text-center p-4 text-sm font-semibold text-slate-300">
-                              <div className="flex items-center justify-center gap-1">
-                                <Users className="w-3 h-3" />
-                                <span className="text-xs">التفاعل /30</span>
-                              </div>
-                            </th>
-                            <th className="text-center p-4 text-sm font-semibold text-slate-300"><span className="text-xs">أسلوب الاختلاف /4</span></th>
-                            <th className="text-center p-4 text-sm font-semibold text-slate-300"><span className="text-xs">المرحلة الحالية /5</span></th>
-                            <th className="text-center p-4 text-sm font-semibold text-slate-300"><span className="text-xs">تفضيل التشابه /5</span></th>
-                            <th className="text-center p-4 text-sm font-semibold text-slate-300"><span className="text-xs">وتيرة التقارب /3</span></th>
-                            <th className="text-center p-4 text-sm font-semibold text-slate-300">
-                              <div className="flex items-center justify-center gap-1">
-                                <Home className="w-3 h-3" />
-                                <span className="text-xs">نمط الحياة /10</span>
-                              </div>
-                            </th>
-                            <th className="text-center p-4 text-sm font-semibold text-slate-300">
-                              <div className="flex items-center justify-center gap-1">
-                                <Sparkles className="w-3 h-3" />
-                                <span className="text-xs">الدعابة/الانفتاح /15</span>
-                              </div>
-                            </th>
-                            <th className="text-center p-4 text-sm font-semibold text-slate-300">
-                              <div className="flex items-center justify-center gap-1">
-                                <MessageCircle className="w-3 h-3" />
-                                <span className="text-xs">التواصل /3</span>
-                              </div>
-                            </th>
-                            <th className="text-center p-4 text-sm font-semibold text-slate-300">
-                              <div className="flex items-center justify-center gap-1">
-                                <Star className="w-3 h-3" />
-                                <span className="text-xs">الأهداف/القيم /5</span>
-                              </div>
-                            </th>
+                            {renderSortableHeader("التفاعل /30", "synergy_score")}
+                            {renderSortableHeader("أسلوب الاختلاف /4", "disagreement_style_score")}
+                            {renderSortableHeader("المرحلة الحالية /5", "current_life_overlap_score")}
+                            {renderSortableHeader("تفضيل التشابه /5", "similarity_preference_score")}
+                            {renderSortableHeader("وتيرة التقارب /3", "attachment_pace_score")}
+                            {renderSortableHeader("نمط الحياة /10", "lifestyle_compatibility_score")}
+                            {renderSortableHeader("الدعابة/الانفتاح /15", "humor_open_score")}
+                            {renderSortableHeader("التواصل /3", "communication_compatibility_score")}
+                            {renderSortableHeader("الأهداف/القيم /5", "intent_score")}
                             {matchType === "ai" && (
-                              <th className="text-center p-4 text-sm font-semibold text-slate-300">
-                                <div className="flex items-center justify-center gap-1">
-                                  <Zap className="w-3 h-3" />
-                                  <span className="text-xs">الطاقة /25</span>
-                                </div>
-                              </th>
+                              renderSortableHeader("الطاقة /25", "vibe_compatibility_score")
                             )}
                           </>
                         )}
                       </tr>
                     </thead>
                     <tbody>
+                      {sortedMatches.length === 0 && (
+                        <tr>
+                          <td colSpan={21} className="p-10 text-center text-sm text-slate-400">
+                            لا توجد نتائج تطابق الفلاتر الحالية
+                          </td>
+                        </tr>
+                      )}
                       {sortedMatches.map((match, index) => (
                         <tr 
                           key={match.participant_number} 
@@ -588,7 +736,7 @@ export default function ParticipantDetailModal({
                             </div>
                           </td>
                           <td className="p-4">
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <Popover.Root>
                                 <Tooltip.Provider delayDuration={300}>
                                   <Tooltip.Root>
@@ -699,6 +847,9 @@ export default function ParticipantDetailModal({
                                 </div>
                               )}
                             </div>
+                          </td>
+                          <td className="p-3 text-center">
+                            {renderParticipantBadges(match.participant_number)}
                           </td>
                           <td className="p-4 text-center">
                             {match.is_actual_match ? (

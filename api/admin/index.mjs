@@ -569,6 +569,7 @@ export default async function handler(req, res) {
   const bearerToken = String(req.headers?.authorization || "").replace(/^Bearer\s+/i, "")
   const isCohostLogin = action === "e3-cohost-login"
   const isPublicEventRead = action === "get-event-state"
+    || action === "get-upcoming-event-summary"
     || action === "get-current-event-id"
     || action === "get-results-visibility"
   const hasCohostSession = EVENT3_COHOST_ACTIONS.has(action) && verifyCohostToken(bearerToken || req.body?.cohost_token)
@@ -2696,6 +2697,45 @@ export default async function handler(req, res) {
         }
       }
 
+      if (action === "get-upcoming-event-summary") {
+        const { data: eventSummaryState, error: eventSummaryError } = await supabase
+          .from("event_state")
+          .select("current_event_id, whatsapp_config")
+          .eq("match_id", STATIC_MATCH_ID)
+          .single()
+
+        if (eventSummaryError) {
+          if (eventSummaryError.code === "PGRST116") {
+            return res.status(200).json({ upcoming_event: null })
+          }
+          console.error("get-upcoming-event-summary error:", eventSummaryError)
+          return res.status(500).json({ error: eventSummaryError.message })
+        }
+
+        const currentEventId = Number(eventSummaryState.current_event_id || 1)
+        const { count: registeredCount, error: registrationCountError } = await supabase
+          .from("participants")
+          .select("id", { count: "exact", head: true })
+          .eq("match_id", STATIC_MATCH_ID)
+          .neq("assigned_number", 9999)
+          .or(`signup_event_id.eq.${currentEventId},and(event_id.eq.${currentEventId},signup_for_next_event.eq.true)`)
+
+        if (registrationCountError) {
+          console.error("get-upcoming-event-summary registration count error:", registrationCountError)
+        }
+
+        const whatsappConfig = eventSummaryState.whatsapp_config || {}
+        return res.status(200).json({
+          upcoming_event: {
+            event_id: currentEventId,
+            date_text: String(whatsappConfig.eventDateText || "").trim() || null,
+            time_text: String(whatsappConfig.eventTimeText || "").trim() || null,
+            arrival_time_text: String(whatsappConfig.arrivalTimeText || "").trim() || null,
+            registered_count: registrationCountError ? null : Number(registeredCount || 0),
+          },
+        })
+      }
+
       if (action === "get-event-state") {
         console.log("Fetching event state for match_id:", STATIC_MATCH_ID);
         const { data, error } = await supabase
@@ -2728,6 +2768,7 @@ export default async function handler(req, res) {
           }
           return res.status(500).json({ error: error.message })
         }
+
         console.log("Event state found:", data);
         return res.status(200).json({ 
           phase: data.phase,

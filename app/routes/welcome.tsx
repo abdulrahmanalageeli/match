@@ -59,6 +59,7 @@ import {
   Coffee,
   Trophy,
   EyeOff,
+  CalendarDays,
 } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Avatar, AvatarFallback } from "../../components/ui/avatar"
@@ -188,6 +189,14 @@ interface SurveyData {
   name?: string
   gender?: string
   phoneNumber?: string
+}
+
+interface UpcomingEventSummary {
+  eventId: number
+  dateText: string | null
+  timeText: string | null
+  arrivalTimeText: string | null
+  registeredCount: number | null
 }
 
 const SURVEY_DATA_METADATA_KEYS = new Set([
@@ -727,6 +736,8 @@ export default function WelcomePage() {
   const [showHistoryDetail, setShowHistoryDetail] = useState(false)
   const [animationStep, setAnimationStep] = useState(0)
   const [showRegistrationContent, setShowRegistrationContent] = useState(false)
+  const [upcomingEvent, setUpcomingEvent] = useState<UpcomingEventSummary | null>(null)
+  const [upcomingEventLoading, setUpcomingEventLoading] = useState(true)
   // const [secureToken, setSecureToken] = useState<string>("")
   const [conversationStarters, setConversationStarters] = useState<string[]>([])
   const [showConversationStarters, setShowConversationStarters] = useState(false)
@@ -798,6 +809,52 @@ export default function WelcomePage() {
       console.error('Failed to check the saved participant match questions:', error)
     }
   }, [applyMatchInsightsPrompt])
+
+  const loadUpcomingEvent = useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'get-upcoming-event-summary',
+          match_id: '00000000-0000-0000-0000-000000000000',
+        }),
+      })
+      if (!response.ok) throw new Error(`Event summary request failed (${response.status})`)
+
+      const data = await response.json()
+      const summary = data?.upcoming_event
+      if (!summary) {
+        setUpcomingEvent(null)
+        return
+      }
+
+      setUpcomingEvent({
+        eventId: Number(summary.event_id || data.current_event_id || 1),
+        dateText: typeof summary.date_text === 'string' ? summary.date_text : null,
+        timeText: typeof summary.time_text === 'string' ? summary.time_text : null,
+        arrivalTimeText: typeof summary.arrival_time_text === 'string' ? summary.arrival_time_text : null,
+        registeredCount: Number.isFinite(Number(summary.registered_count))
+          ? Number(summary.registered_count)
+          : null,
+      })
+    } catch (error) {
+      console.error('Failed to load upcoming event summary:', error)
+    } finally {
+      setUpcomingEventLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadUpcomingEvent()
+    const interval = window.setInterval(loadUpcomingEvent, 60_000)
+    window.addEventListener('focus', loadUpcomingEvent)
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener('focus', loadUpcomingEvent)
+    }
+  }, [loadUpcomingEvent])
+
   useEffect(() => {
     if (modalStep !== 'feedback') { setKeyboardOffset(0); return }
     const vv: any = (window as any).visualViewport
@@ -7548,8 +7605,101 @@ export default function WelcomePage() {
                 {/* Reserved breathing room below the fixed navigation; the visual hero remains intentionally omitted. */}
                 <div className="h-24 sm:h-24" aria-hidden="true" />
 
+                {/* Upcoming event — intentionally kept as a slim companion to the existing boxes. */}
+                {(upcomingEventLoading || upcomingEvent) && (
+                  <section
+                    aria-label="معلومات الفعالية القادمة"
+                    aria-busy={upcomingEventLoading}
+                    className="mx-3 mb-4 mt-3 max-w-5xl sm:mx-auto sm:mt-0"
+                  >
+                    <div className="relative isolate overflow-hidden rounded-3xl border border-cyan-300/[0.14] bg-slate-950/70 p-3 shadow-[0_24px_75px_-45px_rgba(34,211,238,0.7)] ring-1 ring-white/[0.025] backdrop-blur-2xl sm:p-4">
+                      <div className="pointer-events-none absolute inset-x-16 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/75 to-transparent" aria-hidden="true" />
+                      <div className="pointer-events-none absolute -right-20 -top-24 h-48 w-48 rounded-full bg-cyan-400/[0.09] blur-3xl" aria-hidden="true" />
+                      <div className="pointer-events-none absolute -bottom-24 left-1/4 h-44 w-44 rounded-full bg-violet-500/[0.07] blur-3xl" aria-hidden="true" />
+
+                      {upcomingEventLoading ? (
+                        <div className="relative animate-pulse space-y-3" role="status">
+                          <span className="sr-only">جاري تحميل معلومات الفعالية القادمة</span>
+                          <div className="h-4 w-28 rounded-full bg-white/[0.08]" />
+                          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                            <div className="col-span-2 h-16 rounded-2xl bg-white/[0.055] sm:col-span-1" />
+                            <div className="h-16 rounded-2xl bg-white/[0.055]" />
+                            <div className="h-16 rounded-2xl bg-white/[0.055]" />
+                          </div>
+                        </div>
+                      ) : upcomingEvent ? (
+                        <div className="relative">
+                          <div className="mb-3 flex items-center justify-between gap-3 px-1">
+                            <div className="flex min-w-0 items-center gap-3 text-right">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-300/[0.09] text-cyan-200 shadow-[0_10px_30px_-15px_rgba(34,211,238,0.9)]">
+                                <CalendarDays className="h-5 w-5" />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 text-[10px] font-black tracking-[0.08em] text-cyan-300/80 sm:text-[11px]">
+                                  <span className="relative flex h-2 w-2" aria-hidden="true">
+                                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-55" />
+                                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-300" />
+                                  </span>
+                                  الموعد القادم
+                                </div>
+                                <h2 className="mt-0.5 truncate text-sm font-black text-white sm:text-base">فعالية التوافق الأعمى</h2>
+                              </div>
+                            </div>
+                            <span className="shrink-0 rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold text-slate-400">
+                              فعالية {upcomingEvent.eventId}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                            <div className="col-span-2 flex min-h-[68px] items-center gap-3 rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-2.5 text-right sm:col-span-1">
+                              <CalendarDays className="h-4 w-4 shrink-0 text-violet-200" />
+                              <div className="min-w-0">
+                                <p className="text-[10px] font-bold text-slate-500">التاريخ</p>
+                                <p className="mt-0.5 text-xs font-black leading-5 text-slate-100 sm:text-[13px]">
+                                  {upcomingEvent.dateText || 'يُعلن قريباً'}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex min-h-[68px] items-center gap-2.5 rounded-2xl border border-white/[0.075] bg-white/[0.035] px-3 py-2.5 text-right">
+                              <Clock className="h-4 w-4 shrink-0 text-amber-200" />
+                              <div className="min-w-0">
+                                <p className="text-[10px] font-bold text-slate-500">الوقت</p>
+                                <p className="mt-0.5 text-xs font-black text-slate-100 sm:text-[13px]">
+                                  {upcomingEvent.timeText || 'يُعلن قريباً'}
+                                </p>
+                                {upcomingEvent.arrivalTimeText && (
+                                  <p className="mt-0.5 text-[9px] font-medium text-slate-500">الحضور {upcomingEvent.arrivalTimeText}</p>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex min-h-[68px] items-center gap-2.5 rounded-2xl border border-emerald-300/[0.13] bg-emerald-300/[0.045] px-3 py-2.5 text-right">
+                              <Users className="h-4 w-4 shrink-0 text-emerald-200" />
+                              <div className="min-w-0">
+                                <p className="text-[10px] font-bold text-emerald-100/55">المسجلون</p>
+                                <p className="mt-0.5 text-xs font-black text-emerald-100 sm:text-[13px]">
+                                  {upcomingEvent.registeredCount === null
+                                    ? 'يتحدث الآن'
+                                    : `${upcomingEvent.registeredCount.toLocaleString('ar-SA')} حتى الآن`}
+                                </p>
+                                <p className="mt-0.5 text-[9px] font-medium text-emerald-100/40">يشمل جميع المسجلين</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="mt-2.5 flex items-start gap-2 px-1 text-right text-[10px] font-medium leading-5 text-slate-500 sm:text-[11px]">
+                            <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-violet-300/75" />
+                            <span>كل شخص جديد يضيف احتمالات مختلفة للمجموعات والمطابقات.</span>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  </section>
+                )}
+
                 {/* Process guide */}
-                <div className="welcome-process-panel relative mx-3 mb-4 mt-3 max-w-5xl overflow-hidden rounded-3xl border border-white/[0.09] bg-slate-950/55 shadow-[0_22px_70px_-42px_rgba(34,211,238,0.42)] backdrop-blur-xl sm:mx-auto sm:mt-0">
+                <div className="welcome-process-panel relative mx-3 mb-4 max-w-5xl overflow-hidden rounded-3xl border border-white/[0.09] bg-slate-950/55 shadow-[0_22px_70px_-42px_rgba(34,211,238,0.42)] backdrop-blur-xl sm:mx-auto">
                   <div className="pointer-events-none absolute -right-28 -top-32 h-72 w-72 rounded-full bg-cyan-400/[0.07] blur-3xl" aria-hidden="true" />
                   <div className="relative z-[1] py-3 text-center sm:py-4">
                   <div className="mx-auto mb-1 max-w-3xl px-3 sm:px-5">

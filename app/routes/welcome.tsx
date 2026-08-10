@@ -7677,13 +7677,13 @@ export default function WelcomePage() {
                             <div className="flex min-h-[68px] items-center gap-2.5 rounded-2xl border border-emerald-300/[0.13] bg-emerald-300/[0.045] px-3 py-2.5 text-right">
                               <Users className="h-4 w-4 shrink-0 text-emerald-200" />
                               <div className="min-w-0">
-                                <p className="text-[10px] font-bold text-emerald-100/55">المسجلون للفعالية</p>
+                                <p className="text-[10px] font-bold text-emerald-100/55">المسجلون للفعالية القادمة</p>
                                 <p className="mt-0.5 text-xs font-black text-emerald-100 sm:text-[13px]">
                                   {upcomingEvent.registeredCount === null
                                     ? 'يتحدث الآن'
                                     : `${upcomingEvent.registeredCount.toLocaleString('ar-SA')} حتى الآن`}
                                 </p>
-                                <p className="mt-0.5 text-[9px] font-medium text-emerald-100/55">عدد المسجلين فقط — لا يعني تأكيد الحضور</p>
+                                <p className="mt-0.5 text-[9px] font-medium leading-4 text-emerald-100/55">بعضهم لم يؤكد حضوره بعد • الحد الأقصى للحضور ٤٢ شخصًا</p>
                               </div>
                             </div>
                           </div>

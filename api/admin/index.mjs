@@ -2718,7 +2718,9 @@ export default async function handler(req, res) {
           .select("id", { count: "exact", head: true })
           .eq("match_id", STATIC_MATCH_ID)
           .neq("assigned_number", 9999)
-          .or(`signup_event_id.eq.${currentEventId},and(event_id.eq.${currentEventId},signup_for_next_event.eq.true)`)
+          // Match the admin's complete upcoming-event pool. Do not apply payment,
+          // attendance, survey, exclusion-list, or matchability filters here.
+          .or(`signup_for_next_event.eq.true,auto_signup_next_event.eq.true,event_id.eq.${currentEventId}`)
 
         if (registrationCountError) {
           console.error("get-upcoming-event-summary registration count error:", registrationCountError)

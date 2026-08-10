@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { X, Send, Loader2, Users, AlertCircle, CheckCircle2, XCircle, Zap } from "lucide-react"
 import { buildMatchTemplateVariables } from "~/utils/twilioTemplateVariables"
+import { getParticipantMatchInsightsCompletion } from "~/lib/matchControl"
 
 interface BulkWhatsAppModalProps {
   isOpen: boolean
@@ -9,11 +10,13 @@ interface BulkWhatsAppModalProps {
   participants: any[]
 }
 
-type TemplateType = 'match' | 'reminder' | 'payment'
+type TemplateType = 'match' | 'reminder' | 'payment' | 'survey_update'
+
+type TemplateSids = Record<TemplateType, string | null>
 
 export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipants, participants }: BulkWhatsAppModalProps) {
   const [templateType, setTemplateType] = useState<TemplateType>('match')
-  const [envSids, setEnvSids] = useState<{ match: string | null; reminder: string | null; payment: string | null }>({ match: null, reminder: null, payment: null })
+  const [envSids, setEnvSids] = useState<TemplateSids>({ match: null, reminder: null, payment: null, survey_update: null })
   const [config, setConfig] = useState<any>(null)
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState<{ successCount: number; failCount: number; skippedCount: number; results: any[] } | null>(null)
@@ -22,8 +25,14 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
 
   const currentSid = envSids[templateType]
   const selectedList = participants.filter(p => selectedParticipants.has(p.assigned_number))
-  const eligibleList = selectedList.filter(p => p.phone_number)
-  const withoutPhone = selectedList.filter(p => !p.phone_number)
+  const surveyComplete = templateType === 'survey_update'
+    ? selectedList.filter(p => getParticipantMatchInsightsCompletion(p).complete)
+    : []
+  const targetList = templateType === 'survey_update'
+    ? selectedList.filter(p => !getParticipantMatchInsightsCompletion(p).complete)
+    : selectedList
+  const eligibleList = targetList.filter(p => p.phone_number)
+  const withoutPhone = targetList.filter(p => !p.phone_number)
 
   const loadData = useCallback(async () => {
     if (!isOpen) return
@@ -89,6 +98,10 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
       }
     }
 
+    if (templateType === 'survey_update') {
+      return { 1: name }
+    }
+
     return buildMatchTemplateVariables(p, cfg)
   }
 
@@ -139,8 +152,12 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
 
   const templateName = templateType === 'match'
     ? 'match_notification_v4'
-    : templateType === 'reminder' ? 'event_reminder' : 'payment_reminder'
-  const requiredVariableCount = templateType === 'match' ? 7 : templateType === 'reminder' ? 5 : 7
+    : templateType === 'reminder'
+      ? 'event_reminder'
+      : templateType === 'payment'
+        ? 'payment_reminder'
+        : 'copy_of_complete_new_survey_questions'
+  const requiredVariableCount = templateType === 'match' ? 7 : templateType === 'reminder' ? 5 : templateType === 'payment' ? 7 : 1
   const previewParticipant = eligibleList[0] || null
   const previewVariables: Record<string, any> = previewParticipant ? buildVariables(previewParticipant) : {}
   const missingVariables = Array.from({ length: requiredVariableCount }, (_, index) => String(index + 1)).filter(key => {
@@ -184,6 +201,12 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
                 <div className={`rounded-xl border p-3 text-center ${missingVariables.length ? 'bg-red-500/10 border-red-500/25' : 'bg-blue-500/10 border-blue-500/25'}`}><p className={`text-xl font-black ${missingVariables.length ? 'text-red-400' : 'text-blue-400'}`}>{missingVariables.length}</p><p className="text-[10px] text-white/45">Invalid fields</p></div>
               </div>
 
+              {surveyComplete.length > 0 && (
+                <div className="rounded-xl bg-blue-500/10 border border-blue-500/25 p-3 text-sm text-blue-300">
+                  {surveyComplete.length} participant{surveyComplete.length === 1 ? '' : 's'} already completed the survey update and will be skipped.
+                </div>
+              )}
+
               <div className="rounded-xl bg-white/5 border border-white/10 p-4 space-y-2">
                 <div className="flex justify-between gap-3 text-sm"><span className="text-white/45">Template</span><span className="text-white font-medium text-right">{templateName}</span></div>
                 <div className="flex justify-between gap-3 text-sm"><span className="text-white/45">SID</span><code className="text-green-400 text-[11px] break-all text-right">{currentSid}</code></div>
@@ -201,6 +224,7 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
                 <div className="max-h-32 overflow-y-auto rounded-xl border border-white/10 divide-y divide-white/5">
                   {eligibleList.map(person => <div key={person.assigned_number} className="px-3 py-2 flex justify-between text-xs"><span className="text-white">{person.name || `#${person.assigned_number}`}</span><span className="text-white/40">#{person.assigned_number} · {person.phone_number}</span></div>)}
                   {withoutPhone.map(person => <div key={person.assigned_number} className="px-3 py-2 flex justify-between text-xs bg-amber-500/5"><span className="text-amber-300">{person.name || `#${person.assigned_number}`}</span><span className="text-amber-500">Skipped · no phone</span></div>)}
+                  {surveyComplete.map(person => <div key={person.assigned_number} className="px-3 py-2 flex justify-between text-xs bg-blue-500/5"><span className="text-blue-300">{person.name || `#${person.assigned_number}`}</span><span className="text-blue-400">Skipped · survey complete</span></div>)}
                 </div>
               </div>
 
@@ -230,8 +254,8 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
           {/* Template type selector */}
           <div>
             <label className="text-sm text-white/70 mb-2 block">Template Type</label>
-            <div className="grid grid-cols-3 gap-2">
-              {(['match', 'reminder', 'payment'] as TemplateType[]).map(type => (
+            <div className="grid grid-cols-2 gap-2">
+              {(['match', 'reminder', 'payment', 'survey_update'] as TemplateType[]).map(type => (
                 <button
                   key={type}
                   onClick={() => { setTemplateType(type); setResult(null) }}
@@ -244,6 +268,7 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
                   {type === 'match' && 'Match'}
                   {type === 'reminder' && 'Reminder'}
                   {type === 'payment' && 'Payment'}
+                  {type === 'survey_update' && 'Survey Completion'}
                 </button>
               ))}
             </div>
@@ -283,6 +308,12 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
                 <span className="text-amber-400 font-medium">{withoutPhone.length} (skipped)</span>
               </div>
             )}
+            {surveyComplete.length > 0 && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-white/60">Survey already complete:</span>
+                <span className="text-blue-400 font-medium">{surveyComplete.length} (skipped)</span>
+              </div>
+            )}
           </div>
 
           {/* Error */}
@@ -309,7 +340,7 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
                 </div>
                 <div className="bg-amber-900/20 border border-amber-600/30 rounded-xl p-3 text-center">
                   <div className="text-2xl font-bold text-amber-400">{result.skippedCount}</div>
-                  <div className="text-xs text-amber-300/70">Already sent</div>
+                  <div className="text-xs text-amber-300/70">Skipped</div>
                 </div>
               </div>
               {result.results.length > 0 && (

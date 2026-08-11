@@ -11,11 +11,38 @@ const {
   calculateConversationInitiativePreferenceScore,
   calculateInteractionSynergyScore,
   calculateLifestyleCompatibility,
+  buildManualPairGateReport,
   checkAgeRangeHardGate,
   getAgeTolerance,
   getOneYearAgeFlexDecision,
   isParticipantComplete,
 } = await import("../../api/admin/trigger-match.mjs")
+
+function gateParticipant(number, overrides = {}) {
+  return {
+    assigned_number: number,
+    age: 30,
+    gender: number % 2 ? "male" : "female",
+    nationality: "Saudi",
+    preferred_age_min: 20,
+    preferred_age_max: 40,
+    signup_for_next_event: true,
+    event_id: 21,
+    attachment_style: "Secure",
+    communication_style: "Direct",
+    humor_banter_style: "B",
+    early_openness_comfort: 2,
+    survey_data: {
+      answers: {
+        lifestyle_1: "A", lifestyle_2: "A", lifestyle_3: "A", lifestyle_4: "A", lifestyle_5: "A",
+        core_values_1: "A", core_values_2: "A", core_values_3: "A", core_values_4: "A", core_values_5: "A",
+        conversational_role: "A", conversation_depth_pref: "A", social_battery: "A",
+        humor_subtype: "A", curiosity_style: "A", silence_comfort: "A", intent_goal: "A",
+      },
+    },
+    ...overrides,
+  }
+}
 
 function participant(number, age, answers = {}) {
   return {
@@ -48,6 +75,56 @@ test("conversation initiative scoring is symmetric and neutral when either answe
   assert.equal(calculateConversationInitiativePreferenceScore(wantsPartnerToLead, wantsToLead), 7)
   assert.equal(calculateConversationInitiativePreferenceScore(wantsToLead, wantsPartnerToLead), 7)
   assert.equal(calculateConversationInitiativePreferenceScore(wantsPartnerToLead, missing), null)
+})
+
+test("manual pair test mode reports every active gate when a pair is eligible", () => {
+  const report = buildManualPairGateReport({
+    participantA: gateParticipant(1),
+    participantB: gateParticipant(2),
+    eventId: 21,
+  })
+
+  assert.equal(report.eligible, true)
+  assert.equal(report.blockers.length, 0)
+  assert.ok(report.gates.length >= 12)
+  assert.equal(report.gates.find(gate => gate.key === "payment").applicable, false)
+  assert.ok(report.gates.filter(gate => gate.blocking && gate.applicable).every(gate => gate.passed))
+})
+
+test("manual pair test mode explains all blockers instead of hiding the pair", () => {
+  const a = gateParticipant(11, { signup_for_next_event: false, event_id: 20, preferred_age_min: 35, preferred_age_max: 40 })
+  const b = gateParticipant(13, { signup_for_next_event: false, event_id: 20, age: 30 })
+  const report = buildManualPairGateReport({
+    participantA: a,
+    participantB: b,
+    eventId: 21,
+    excludedParticipantNumbers: [11],
+    pairExcluded: true,
+    previousMatchEvents: [19],
+  })
+
+  assert.equal(report.eligible, false)
+  assert.ok(report.blockers.includes("current_event"))
+  assert.ok(report.blockers.includes("admin_participant_exclusion"))
+  assert.ok(report.blockers.includes("gender"))
+  assert.ok(report.blockers.includes("age"))
+  assert.ok(report.blockers.includes("excluded_pair"))
+  assert.ok(report.blockers.includes("previous_match"))
+})
+
+test("manual pair gate report scopes the same-gender payment gate to the active event", () => {
+  const report = buildManualPairGateReport({
+    participantA: gateParticipant(21, { PAID_DONE: true, payment_completed_event_id: 20, same_gender_preference: true }),
+    participantB: gateParticipant(23, { PAID_DONE: true, payment_completed_event_id: 21, same_gender_preference: true }),
+    eventId: 21,
+    matchType: "same_gender",
+    forcedGenderMode: "same_gender",
+  })
+
+  const paymentGate = report.gates.find(gate => gate.key === "payment")
+  assert.equal(paymentGate.applicable, true)
+  assert.equal(paymentGate.passed, false)
+  assert.ok(report.blockers.includes("payment"))
 })
 
 test("a one-sided new answer preserves the legacy interaction score", () => {

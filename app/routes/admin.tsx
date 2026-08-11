@@ -674,6 +674,7 @@ export default function AdminPage() {
   const [manualAnalysisA, setManualAnalysisA] = useState<any | null>(null)
   const [manualAnalysisB, setManualAnalysisB] = useState<any | null>(null)
   const [manualAnalysisPair, setManualAnalysisPair] = useState<any | null>(null)
+  const [manualGateReport, setManualGateReport] = useState<any | null>(null)
   const [viewAllMatchesLoading, setViewAllMatchesLoading] = useState(false)
 
   // Deep personality analysis
@@ -3456,6 +3457,7 @@ const fetchParticipants = async () => {
     }
     
     try {
+      setManualGateReport(null)
       const sendManualMatch = async (forceSwap: boolean) => {
         const res = await fetch("/api/admin/trigger-match", {
           method: "POST",
@@ -3509,6 +3511,14 @@ const fetchParticipants = async () => {
       }
       
       if (res.ok) {
+        if (data.gate_report) {
+          setManualGateReport({
+            ...data.gate_report,
+            participant1,
+            participant2,
+            compatibility_score: data.compatibility_score,
+          })
+        }
         if (!debugPair) {
           setNewManualMatch({participant1: '', participant2: ''})
         }
@@ -3560,6 +3570,14 @@ const fetchParticipants = async () => {
           ? `🧪 TEST MODE: ${data.message}\n\n🎯 COMPATIBILITY BREAKDOWN:\n`
           : `✅ ${data.message}\n\n🎯 COMPATIBILITY BREAKDOWN:\n`
         detailedMessage += `📊 Total Score: ${data.compatibility_score}%\n\n`
+        if (testModeOnly && data.gate_report) {
+          const blockers = Array.isArray(data.gate_report.gates)
+            ? data.gate_report.gates.filter((gate: any) => gate.blocking && gate.applicable && !gate.passed)
+            : []
+          detailedMessage += data.gate_report.eligible
+            ? `✅ GATES: Eligible — all active gates passed\n\n`
+            : `⛔ GATES: Not eligible — ${blockers.length} blocker${blockers.length === 1 ? '' : 's'} (see the gate report below)\n\n`
+        }
         
         if (result) {
           // Prefer new model fields if present
@@ -6768,6 +6786,7 @@ Proceed?`
               ) : testModeOnly ? (
                 <>
                   <p>• Scores any selected pair, even when they are not eligible to be matched</p>
+                  <p>• Shows every visibility and generation gate as PASS, BLOCK, or N/A with both participants' values</p>
                   <p>• Uses the selected generation formula, percentages, bonuses, penalties, and caps</p>
                   <p>• Reads the same compatibility cache as generation, without updating it</p>
                   <p>• Does not create, replace, or modify any matches or cache records</p>
@@ -6790,6 +6809,57 @@ Proceed?`
                 <p className="text-cyan-300 font-medium">🧪 Test mode enabled - will calculate compatibility but NOT save to database or affect existing matches</p>
               )}
             </div>
+
+            {manualGateReport && (
+              <div className={`rounded-2xl border p-4 ${manualGateReport.eligible ? 'border-emerald-400/30 bg-emerald-500/5' : 'border-red-400/30 bg-red-500/5'}`}>
+                <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      {manualGateReport.eligible
+                        ? <CheckCircle className="h-5 w-5 text-emerald-400" />
+                        : <AlertCircle className="h-5 w-5 text-red-400" />}
+                      <h4 className="font-semibold text-white">Gate report: #{manualGateReport.participant1} ↔ #{manualGateReport.participant2}</h4>
+                    </div>
+                    <p className={`mt-1 text-sm ${manualGateReport.eligible ? 'text-emerald-300' : 'text-red-300'}`}>
+                      {manualGateReport.summary}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-right">
+                    <p className="text-[10px] uppercase tracking-wider text-slate-500">Compatibility</p>
+                    <p className="font-mono text-lg font-bold text-cyan-300">{manualGateReport.compatibility_score}%</p>
+                  </div>
+                </div>
+
+                <div className="grid gap-2 md:grid-cols-2">
+                  {(manualGateReport.gates || []).map((gate: any) => {
+                    const inactive = gate.applicable === false
+                    const passed = gate.passed === true
+                    return (
+                      <div key={gate.key} className={`rounded-xl border p-3 ${inactive ? 'border-white/10 bg-white/[0.025]' : passed ? 'border-emerald-400/20 bg-emerald-500/[0.04]' : 'border-red-400/25 bg-red-500/[0.06]'}`}>
+                        <div className="flex items-center gap-2">
+                          {inactive
+                            ? <Minus className="h-4 w-4 text-slate-500" />
+                            : passed
+                              ? <CheckCircle className="h-4 w-4 text-emerald-400" />
+                              : <X className="h-4 w-4 text-red-400" />}
+                          <span className={`text-[10px] font-black uppercase tracking-wider ${inactive ? 'text-slate-500' : passed ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {inactive ? 'N/A' : passed ? 'PASS' : 'BLOCK'}
+                          </span>
+                          <span className="text-sm font-semibold text-white">{gate.label}</span>
+                        </div>
+                        <p className="mt-1.5 text-xs leading-5 text-slate-400">{gate.detail}</p>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <p className="mt-3 text-xs leading-5 text-slate-400">
+                  {manualGateReport.eligible
+                    ? 'They can appear for each other. If they still were not paired, the reason is global optimization: another available combination, lock, or higher-scoring allocation produced a better complete event result.'
+                    : 'The score shows theoretical compatibility. A high score does not override a blocked gate; every red gate explains why the couple would not appear for each other.'}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

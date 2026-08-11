@@ -3445,6 +3445,127 @@ function isPairLocked(participantA, participantB, lockedPairs) {
   )
 }
 
+function participantGateSnapshot(participant, eventId) {
+  const answers = participant?.survey_data?.answers || {}
+  const gender = participant?.gender || participant?.survey_data?.gender || answers.gender || null
+  const genderPreference = participant?.any_gender_preference === true || answers.gender_preference === 'any_gender'
+    ? 'any gender'
+    : participant?.same_gender_preference === true || answers.gender_preference === 'same_gender'
+      ? 'same gender'
+      : 'opposite gender'
+  const age = participant?.age || participant?.survey_data?.age || null
+  const openAge = participant?.open_age_preference === true || answers.open_age_preference === true || answers.open_age_preference === 'true'
+  const minAge = participant?.preferred_age_min ?? answers.preferred_age_min ?? null
+  const maxAge = participant?.preferred_age_max ?? answers.preferred_age_max ?? null
+  const nationality = participant?.nationality || answers.nationality || null
+  const sameNationality = participant?.prefer_same_nationality === true || answers.nationality_preference === 'same'
+  const enrolled = participant?.signup_for_next_event === true
+    || participant?.auto_signup_next_event === true
+    || Number(participant?.event_id) === Number(eventId)
+
+  return {
+    number: participant?.assigned_number,
+    enrolled,
+    paid: isPaidForEvent(participant, eventId),
+    complete: isParticipantComplete(participant),
+    gender,
+    genderPreference,
+    age,
+    ageRange: openAge ? 'open' : `${minAge ?? '?'}-${maxAge ?? '?'}`,
+    nationality,
+    sameNationality,
+    humor: participant?.humor_banter_style || answers.humor_banter_style || null,
+    openness: participant?.early_openness_comfort ?? answers.early_openness_comfort ?? null,
+    intent: answers.intent_goal || participant?.intent_goal || null,
+  }
+}
+
+function buildManualPairGateReport({
+  participantA,
+  participantB,
+  eventId,
+  matchType = 'individual',
+  paidOnly = false,
+  excludedParticipantNumbers = [],
+  pairExcluded = false,
+  pairLockedTogether = false,
+  lockedPartnerA = null,
+  lockedPartnerB = null,
+  previousMatchEvents = [],
+  currentRoundPartnersA = [],
+  currentRoundPartnersB = [],
+  forcedGenderMode = null,
+}) {
+  const a = participantGateSnapshot(participantA, eventId)
+  const b = participantGateSnapshot(participantB, eventId)
+  const excluded = new Set((excludedParticipantNumbers || []).map(Number))
+  const paymentRequired = paidOnly || matchType === 'same_gender'
+  const nationalityPresent = Boolean(a.nationality && b.nationality)
+  const lockedElsewhere = Boolean(lockedPartnerA || lockedPartnerB)
+  const currentRoundBusy = currentRoundPartnersA.length > 0 || currentRoundPartnersB.length > 0
+  const gates = []
+  const add = (key, label, passed, detail, options = {}) => gates.push({
+    key,
+    label,
+    passed: Boolean(passed),
+    blocking: options.blocking !== false,
+    applicable: options.applicable !== false,
+    detail,
+  })
+
+  add('current_event', 'Current-event pool', a.enrolled && b.enrolled,
+    `#${a.number}: ${a.enrolled ? 'in pool' : 'not signed up'} · #${b.number}: ${b.enrolled ? 'in pool' : 'not signed up'}`)
+  add('survey_complete', 'Required survey data', a.complete && b.complete,
+    `#${a.number}: ${a.complete ? 'complete' : 'incomplete'} · #${b.number}: ${b.complete ? 'complete' : 'incomplete'}`)
+  add('nationality_present', 'Nationality available for discovery', nationalityPresent,
+    `#${a.number}: ${a.nationality || 'missing'} · #${b.number}: ${b.nationality || 'missing'}`)
+  add('admin_participant_exclusion', 'Admin participant exclusion',
+    !excluded.has(Number(a.number)) && !excluded.has(Number(b.number)),
+    `#${a.number}: ${excluded.has(Number(a.number)) ? 'excluded' : 'allowed'} · #${b.number}: ${excluded.has(Number(b.number)) ? 'excluded' : 'allowed'}`)
+  add('payment', 'Payment requirement', !paymentRequired || (a.paid && b.paid),
+    paymentRequired
+      ? `#${a.number}: ${a.paid ? 'paid for event' : 'not paid for event'} · #${b.number}: ${b.paid ? 'paid for event' : 'not paid for event'}`
+      : 'Not required for this individual matching run',
+    { blocking: paymentRequired, applicable: paymentRequired })
+  add('gender', 'Mutual gender preference', checkGenderCompatibility(participantA, participantB, forcedGenderMode),
+    `#${a.number}: ${a.gender || 'unknown'} / ${a.genderPreference} · #${b.number}: ${b.gender || 'unknown'} / ${b.genderPreference}`)
+  add('nationality', 'Same-nationality preference', checkNationalityHardGate(participantA, participantB),
+    `#${a.number}: ${a.nationality || 'missing'}${a.sameNationality ? ' (requires same)' : ''} · #${b.number}: ${b.nationality || 'missing'}${b.sameNationality ? ' (requires same)' : ''}`)
+  add('age', 'Mutual age ranges', checkAgeRangeHardGate(participantA, participantB, { recordTolerance: false }),
+    `#${a.number}: age ${a.age ?? '?'} / accepts ${a.ageRange} · #${b.number}: age ${b.age ?? '?'} / accepts ${b.ageRange}`)
+  add('interaction', 'Humor and early-openness veto', checkInteractionStyleCompatibility(participantA, participantB),
+    `#${a.number}: humor ${a.humor ?? '?'}, openness ${a.openness ?? '?'} · #${b.number}: humor ${b.humor ?? '?'}, openness ${b.openness ?? '?'}`)
+  add('intent', 'Meeting goal', true,
+    `#${a.number}: ${a.intent || 'missing'} · #${b.number}: ${b.intent || 'missing'} · scoring preference only, not a hard gate`,
+    { blocking: false, applicable: false })
+  add('excluded_pair', 'Admin pair exclusion', !pairExcluded,
+    pairExcluded ? `#${a.number} and #${b.number} are explicitly blocked as a pair` : 'No explicit pair exclusion')
+  add('previous_match', 'Previous-event repeat gate', previousMatchEvents.length === 0,
+    previousMatchEvents.length ? `Previously matched in event(s): ${previousMatchEvents.join(', ')}` : 'No previous-event match found, including phone aliases')
+  add('locked_match', 'Locked-match availability', pairLockedTogether || !lockedElsewhere,
+    pairLockedTogether
+      ? 'This exact pair is locked together'
+      : lockedElsewhere
+        ? [`#${a.number}${lockedPartnerA ? ` locked with #${lockedPartnerA}` : ''}`, `#${b.number}${lockedPartnerB ? ` locked with #${lockedPartnerB}` : ''}`].join(' · ')
+        : 'Neither participant is locked to somebody else')
+  add('current_round', 'Current-round availability', !currentRoundBusy,
+    currentRoundBusy
+      ? `Existing partner(s): #${a.number} → ${currentRoundPartnersA.join(', ') || 'none'} · #${b.number} → ${currentRoundPartnersB.join(', ') || 'none'}`
+      : 'Neither participant already has a match in this round')
+
+  const blockingGates = gates.filter(gate => gate.blocking && gate.applicable)
+  const blockers = blockingGates.filter(gate => !gate.passed)
+  return {
+    eligible: blockers.length === 0,
+    summary: blockers.length === 0
+      ? 'This couple passes every active visibility and generation gate.'
+      : `This couple is blocked by ${blockers.length} active gate${blockers.length === 1 ? '' : 's'}.`,
+    blockers: blockers.map(gate => gate.key),
+    gates,
+    participants: { a, b },
+  }
+}
+
 // Function to get locked match data for a pair
 function getLockedMatch(participantA, participantB, lockedPairs) {
   if (!lockedPairs || lockedPairs.length === 0) {
@@ -3457,7 +3578,7 @@ function getLockedMatch(participantA, participantB, lockedPairs) {
   )
 }
 
-export { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkIntentHardGate, checkInteractionStyleCompatibility, fetchAllCachedPairs, calculateHumorOpennessScore, calculateInteractionSynergyScore, calculateLifestyleCompatibility, calculateConversationInitiativePreferenceScore, getOneYearAgeFlexDecision, getAgeTolerance }
+export { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkIntentHardGate, checkInteractionStyleCompatibility, fetchAllCachedPairs, calculateHumorOpennessScore, calculateInteractionSynergyScore, calculateLifestyleCompatibility, calculateConversationInitiativePreferenceScore, getOneYearAgeFlexDecision, getAgeTolerance, buildManualPairGateReport }
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -5294,14 +5415,15 @@ if (action === "cache-status-by-gender") {
       console.log(`🎯 Manual match requested: #${manualMatch.participant1} ↔ #${manualMatch.participant2}`)
       
       let p1, p2
+      let participantUniverse = []
       
-      if (manualMatch.bypassEligibility) {
+      if (manualMatch.bypassEligibility || manualMatch.testModeOnly) {
         console.log(`⚠️ Eligibility bypass enabled - searching ALL participants in database`)
         
         // Fetch ALL participants from database without any filtering for true bypass
         const { data: allDatabaseParticipants, error: bypassError } = await supabase
           .from("participants")
-          .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
+          .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_one_year, age_flex_years, age_flex_event_id, event_id, signup_event_id, phone_number")
           .eq("match_id", match_id)
           .neq("assigned_number", 9999)  // Only exclude organizer
         
@@ -5312,6 +5434,7 @@ if (action === "cache-status-by-gender") {
         
         console.log(`🔍 BYPASS: Found ${allDatabaseParticipants?.length || 0} total participants in database (no filtering applied)`)
         
+        participantUniverse = allDatabaseParticipants || []
         // Use completely unfiltered participants for bypass
         p1 = allDatabaseParticipants?.find(p => p.assigned_number === parseInt(manualMatch.participant1))
         p2 = allDatabaseParticipants?.find(p => p.assigned_number === parseInt(manualMatch.participant2))
@@ -5334,6 +5457,7 @@ if (action === "cache-status-by-gender") {
         // Find the two specific participants from eligible participants only
         p1 = eligibleParticipants.find(p => p.assigned_number === parseInt(manualMatch.participant1))
         p2 = eligibleParticipants.find(p => p.assigned_number === parseInt(manualMatch.participant2))
+        participantUniverse = allParticipants || []
         
         if (!p1 || !p2) {
           const missingParticipants = []
@@ -5365,8 +5489,93 @@ if (action === "cache-status-by-gender") {
           : (genderA && genderB)
             ? (genderA === genderB ? 1 : 2)
             : 1
-      // Test mode intentionally skips pair eligibility gates. It answers one
-      // question only: what score would the generation formula give this pair?
+      // Test mode still scores any existing pair, but also reports every gate
+      // that controls whether the two people can appear for one another.
+      let gateReport = null
+      if (manualMatch.testModeOnly || manualMatch.debugPair) {
+        const normalizePhone = value => String(value || '').replace(/\D/g, '')
+        const phoneKey = participant => {
+          const phone = normalizePhone(participant?.phone_number)
+          return phone.length >= 7 ? phone.slice(-7) : null
+        }
+        const aliasesFor = participant => {
+          const key = phoneKey(participant)
+          const aliases = key
+            ? participantUniverse.filter(candidate => phoneKey(candidate) === key).map(candidate => Number(candidate.assigned_number))
+            : [Number(participant.assigned_number)]
+          return new Set(aliases.length ? aliases : [Number(participant.assigned_number)])
+        }
+        const aliasesA = aliasesFor(p1)
+        const aliasesB = aliasesFor(p2)
+        const relatedNumbers = [...new Set([...aliasesA, ...aliasesB])].filter(Number.isInteger)
+        const numberList = relatedNumbers.join(',')
+
+        const [pairExclusionsResult, locksResult, previousResult, currentRoundResult] = await Promise.all([
+          supabase.from('excluded_pairs')
+            .select('participant1_number,participant2_number,reason')
+            .eq('match_id', match_id),
+          supabase.from('locked_matches')
+            .select('participant1_number,participant2_number,original_match_round')
+            .eq('match_id', match_id),
+          supabase.from('match_results')
+            .select('participant_a_number,participant_b_number,event_id')
+            .eq('match_id', match_id)
+            .lt('event_id', eventId)
+            .or(`participant_a_number.in.(${numberList}),participant_b_number.in.(${numberList})`),
+          supabase.from('match_results')
+            .select('participant_a_number,participant_b_number,event_id,round')
+            .eq('match_id', match_id)
+            .eq('event_id', eventId)
+            .eq('round', inferredRound)
+            .or(`participant_a_number.in.(${numberList}),participant_b_number.in.(${numberList})`),
+        ])
+        for (const result of [pairExclusionsResult, locksResult, previousResult, currentRoundResult]) {
+          if (result.error) throw result.error
+        }
+
+        const pairExclusions = pairExclusionsResult.data || []
+        const relevantLocks = (locksResult.data || []).filter(lock =>
+          lock.original_match_round == null || Number(lock.original_match_round) === Number(inferredRound))
+        const exactPair = row => (
+          (Number(row.participant1_number) === Number(p1.assigned_number) && Number(row.participant2_number) === Number(p2.assigned_number))
+          || (Number(row.participant1_number) === Number(p2.assigned_number) && Number(row.participant2_number) === Number(p1.assigned_number))
+        )
+        const pairLockedTogether = relevantLocks.some(exactPair)
+        const lockedPartner = participantNumber => {
+          const lock = relevantLocks.find(row =>
+            !exactPair(row) && (Number(row.participant1_number) === Number(participantNumber) || Number(row.participant2_number) === Number(participantNumber)))
+          if (!lock) return null
+          return Number(lock.participant1_number) === Number(participantNumber) ? lock.participant2_number : lock.participant1_number
+        }
+        const previousMatchEvents = [...new Set((previousResult.data || [])
+          .filter(row => (
+            (aliasesA.has(Number(row.participant_a_number)) && aliasesB.has(Number(row.participant_b_number)))
+            || (aliasesB.has(Number(row.participant_a_number)) && aliasesA.has(Number(row.participant_b_number)))
+          ))
+          .map(row => Number(row.event_id)))]
+        const currentPartners = participantNumber => (currentRoundResult.data || []).flatMap(row => {
+          if (Number(row.participant_a_number) === Number(participantNumber)) return [Number(row.participant_b_number)]
+          if (Number(row.participant_b_number) === Number(participantNumber)) return [Number(row.participant_a_number)]
+          return []
+        })
+
+        gateReport = buildManualPairGateReport({
+          participantA: p1,
+          participantB: p2,
+          eventId,
+          matchType: genderA && genderB && genderA === genderB ? 'same_gender' : matchType,
+          paidOnly,
+          excludedParticipantNumbers: (excludedParticipants || []).map(row => row.participant_number),
+          pairExcluded: isPairExcluded(p1.assigned_number, p2.assigned_number, pairExclusions),
+          pairLockedTogether,
+          lockedPartnerA: lockedPartner(p1.assigned_number),
+          lockedPartnerB: lockedPartner(p2.assigned_number),
+          previousMatchEvents,
+          currentRoundPartnersA: currentPartners(p1.assigned_number),
+          currentRoundPartnersB: currentPartners(p2.assigned_number),
+          forcedGenderMode: CURRENT_MATCH_MODE,
+        })
+      }
       
       // If debug mode is requested, analyze constraints and return reasons (no DB writes)
       if (manualMatch.debugPair) {
@@ -5416,7 +5625,7 @@ if (action === "cache-status-by-gender") {
             }
 
             // Gender compatibility
-            if (!checkGenderCompatibility(p1, p2, forcedGenderMode)) {
+            if (!checkGenderCompatibility(p1, p2, CURRENT_MATCH_MODE)) {
               reasons.push(`Gender preference mismatch (requires opposite or explicit same-gender preference)`)
             }
 
@@ -5470,7 +5679,8 @@ if (action === "cache-status-by-gender") {
           return res.status(200).json({
             success: true,
             debug: { reasons: reasons.concat(info) },
-            compatibility_score: potential
+            compatibility_score: potential,
+            gate_report: gateReport,
           })
         } catch (err) {
           return res.status(200).json({ success: true, debug: { reasons: [String(err?.message || err) || 'Unknown error during debug'] } })
@@ -5784,6 +5994,7 @@ if (action === "cache-status-by-gender") {
         mode: oppositesMode ? 'opposites' : (CURRENT_MATCH_MODE || 'individual'),
         score_model_version: MATCH_INSIGHTS_VERSION,
         cache_status: compatibilityResult.cached ? 'hit' : 'miss',
+        gate_report: gateReport,
         opposites_breakdown: oppositesBreakdown,
         results: [{
           participant: p1.assigned_number,

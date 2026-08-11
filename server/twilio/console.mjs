@@ -85,7 +85,7 @@ async function attachEventReceipts(participants, eventId) {
   })
 }
 
-const PARTICIPANT_SELECT = "id,assigned_number,name,phone_number,secure_token,event_id,survey_data,preferred_age_min,preferred_age_max,attendance_confirmed,attendance_confirmed_at,attendance_denied_at,PAID,PAID_DONE,payment_waived,receipt_url,receipt_received_at,receipt_approved,receipt_rejected,same_gender_preference,any_gender_preference,age_flex_years,age_flex_event_id,arrival_status,arrival_status_at,discount_interest,auto_signup_next_event,last_twilio_action,last_twilio_action_at"
+const PARTICIPANT_SELECT = "id,assigned_number,name,phone_number,secure_token,event_id,survey_data,preferred_age_min,preferred_age_max,attendance_confirmed,attendance_confirmed_at,attendance_denied_at,PAID,PAID_DONE,payment_completed_event_id,payment_waived,payment_waived_event_id,whatsapp_contacted_event_id,receipt_url,receipt_received_at,receipt_approved,receipt_rejected,same_gender_preference,any_gender_preference,age_flex_years,age_flex_event_id,arrival_status,arrival_status_at,discount_interest,auto_signup_next_event,last_twilio_action,last_twilio_action_at"
 
 async function participantPage({ eventId, cursor = 0, search = "", filter = "all", limit = 40 } = {}) {
   const pageSize = Math.min(Math.max(Number(limit) || 40, 10), 50)
@@ -94,7 +94,9 @@ async function participantPage({ eventId, cursor = 0, search = "", filter = "all
     .gt("assigned_number", Math.max(Number(cursor) || 0, 0))
 
   if (filter === "confirmed") query = query.eq("attendance_confirmed", true)
-  if (filter === "awaiting_payment") query = query.eq("attendance_confirmed", true).eq("PAID_DONE", false).eq("payment_waived", false)
+  if (filter === "awaiting_payment") query = query.eq("attendance_confirmed", true)
+    .or(`PAID_DONE.eq.false,PAID_DONE.is.null,payment_completed_event_id.neq.${eventId},payment_completed_event_id.is.null`)
+    .or(`payment_waived.eq.false,payment_waived.is.null,payment_waived_event_id.neq.${eventId},payment_waived_event_id.is.null`)
   if (filter === "declined") query = query.not("attendance_denied_at", "is", null)
   if (["on_way", "late", "arrived"].includes(filter)) query = query.eq("arrival_status", filter)
 
@@ -116,7 +118,13 @@ async function participantPage({ eventId, cursor = 0, search = "", filter = "all
     : (data || [])
   const hasMore = rows.length > pageSize
   const visible = rows.slice(0, pageSize)
-  const participants = await attachEventReceipts(visible, eventId)
+  const scopedParticipants = visible.map(participant => ({
+    ...participant,
+    PAID: participant.PAID === true && Number(participant.whatsapp_contacted_event_id) === Number(eventId),
+    PAID_DONE: participant.PAID_DONE === true && Number(participant.payment_completed_event_id) === Number(eventId),
+    payment_waived: participant.payment_waived === true && Number(participant.payment_waived_event_id) === Number(eventId),
+  }))
+  const participants = await attachEventReceipts(scopedParticipants, eventId)
   return { participants, hasMore, nextCursor: hasMore ? visible.at(-1)?.assigned_number || null : null, pageSize }
 }
 
@@ -187,7 +195,7 @@ async function buildVariables(templateKey, participant, overrides = {}) {
   return { ...values, ...overrides }
 }
 
-async function sendApprovedTemplate(template, participant, overrides = {}) {
+async function sendApprovedTemplate(template, participant, eventId, overrides = {}) {
   const sid = template.content_sid || templateEnvSid(template.template_key)
   if (!sid) throw new Error("Template SID is missing")
   if (!template.enabled) throw new Error("Template is disabled")
@@ -235,7 +243,9 @@ async function sendApprovedTemplate(template, participant, overrides = {}) {
   if (!["reminder", "survey_update"].includes(template.template_key)) {
     const { error: sentFlagError } = await supabase
       .from("participants")
-      .update(template.template_key === "payment" ? { payment_reminder_sent: true } : { PAID: true })
+      .update(template.template_key === "payment"
+        ? { payment_reminder_sent: true }
+        : { PAID: true, whatsapp_contacted_event_id: eventId })
       .eq("id", participant.id)
     if (sentFlagError) console.error("Failed to mark participant as WhatsApp sent:", sentFlagError)
   }
@@ -272,14 +282,14 @@ async function updateParticipantAction(participant, actionKey, value, eventId) {
         .eq("status", "approved")
         .limit(1)
         .maybeSingle()
-      if (approvedReceipt) Object.assign(update, { PAID_DONE: true, payment_waived: false })
+      if (approvedReceipt) Object.assign(update, { PAID_DONE: true, payment_completed_event_id: eventId, payment_waived: false, payment_waived_event_id: null })
     }
-    if (value === "declined") update = { attendance_confirmed: false, attendance_confirmed_at: null, attendance_denied_at: now, PAID_DONE: false, payment_waived: false }
-    if (value === "pending") update = { attendance_confirmed: false, attendance_confirmed_at: null, attendance_denied_at: null, PAID_DONE: false, payment_waived: false }
+    if (value === "declined") update = { attendance_confirmed: false, attendance_confirmed_at: null, attendance_denied_at: now, PAID_DONE: false, payment_completed_event_id: null, payment_waived: false, payment_waived_event_id: null }
+    if (value === "pending") update = { attendance_confirmed: false, attendance_confirmed_at: null, attendance_denied_at: null, PAID_DONE: false, payment_completed_event_id: null, payment_waived: false, payment_waived_event_id: null }
   } else if (actionKey === "payment") {
-    if (value === "paid") update = { PAID: true, PAID_DONE: true, payment_waived: false, receipt_approved: true, receipt_approved_at: now, receipt_rejected: false, receipt_rejected_at: null }
-    if (value === "unpaid") update = { PAID: false, PAID_DONE: false, payment_waived: false, receipt_approved: false, receipt_approved_at: null }
-    if (value === "waived") update = { PAID: false, PAID_DONE: false, payment_waived: true, receipt_approved: false, receipt_approved_at: null }
+    if (value === "paid") update = { PAID: true, PAID_DONE: true, payment_completed_event_id: eventId, payment_waived: false, payment_waived_event_id: null, receipt_approved: true, receipt_approved_at: now, receipt_rejected: false, receipt_rejected_at: null }
+    if (value === "unpaid") update = { PAID: false, PAID_DONE: false, payment_completed_event_id: null, payment_waived: false, payment_waived_event_id: null, receipt_approved: false, receipt_approved_at: null }
+    if (value === "waived") update = { PAID: false, PAID_DONE: false, payment_completed_event_id: null, payment_waived: true, payment_waived_event_id: eventId, receipt_approved: false, receipt_approved_at: null }
   } else if (actionKey === "gender_preference") {
     if (value === "any") update = { any_gender_preference: true, same_gender_preference: false }
     if (value === "same") update = { any_gender_preference: false, same_gender_preference: true }
@@ -313,8 +323,8 @@ async function dashboard() {
     supabase.from("participants").select("id", { count: "exact", head: true }).eq("match_id", STATIC_MATCH_ID).neq("assigned_number", 9999),
     supabase.from("participants").select("id", { count: "exact", head: true }).eq("match_id", STATIC_MATCH_ID).eq("attendance_confirmed", true).neq("assigned_number", 9999),
     supabase.from("participants").select("id", { count: "exact", head: true }).eq("match_id", STATIC_MATCH_ID).not("attendance_denied_at", "is", null).neq("assigned_number", 9999),
-    supabase.from("participants").select("id", { count: "exact", head: true }).eq("match_id", STATIC_MATCH_ID).eq("attendance_confirmed", true).or("PAID_DONE.eq.true,payment_waived.eq.true").neq("assigned_number", 9999),
-    supabase.from("participants").select("id", { count: "exact", head: true }).eq("match_id", STATIC_MATCH_ID).eq("attendance_confirmed", true).eq("PAID_DONE", false).eq("payment_waived", false).neq("assigned_number", 9999),
+    supabase.from("participants").select("id", { count: "exact", head: true }).eq("match_id", STATIC_MATCH_ID).eq("attendance_confirmed", true).or(`and(PAID_DONE.eq.true,payment_completed_event_id.eq.${eventId}),and(payment_waived.eq.true,payment_waived_event_id.eq.${eventId})`).neq("assigned_number", 9999),
+    supabase.from("participants").select("id", { count: "exact", head: true }).eq("match_id", STATIC_MATCH_ID).eq("attendance_confirmed", true).or(`PAID_DONE.eq.false,PAID_DONE.is.null,payment_completed_event_id.neq.${eventId},payment_completed_event_id.is.null`).or(`payment_waived.eq.false,payment_waived.is.null,payment_waived_event_id.neq.${eventId},payment_waived_event_id.is.null`).neq("assigned_number", 9999),
     supabase.from("participant_receipts").select("id", { count: "exact", head: true }).eq("event_id", eventId).eq("status", "pending"),
     supabase.from("participants").select("id", { count: "exact", head: true }).eq("match_id", STATIC_MATCH_ID).eq("arrival_status", "on_way").neq("assigned_number", 9999),
     supabase.from("participants").select("id", { count: "exact", head: true }).eq("match_id", STATIC_MATCH_ID).eq("arrival_status", "late").neq("assigned_number", 9999),
@@ -511,18 +521,20 @@ export default async function handler(req, res) {
 
     if (action === "send-template") {
       const { assigned_number, template_key, variables = {} } = req.body
+      const eventId = await currentEventId()
       const [{ data: participant, error: participantError }, { data: template, error: templateError }] = await Promise.all([
         supabase.from("participants").select("*").eq("match_id", STATIC_MATCH_ID).eq("assigned_number", assigned_number).single(),
         supabase.from("twilio_templates").select("*").eq("template_key", template_key).single(),
       ])
       if (participantError || !participant) return res.status(404).json({ error: "Participant not found" })
       if (templateError || !template) return res.status(404).json({ error: "Template not found" })
-      const result = await sendApprovedTemplate(template, participant, variables)
+      const result = await sendApprovedTemplate(template, participant, eventId, variables)
       return res.status(200).json(result)
     }
 
     if (action === "bulk-send-template") {
       const { participant_numbers, template_key } = req.body
+      const eventId = await currentEventId()
       if (!Array.isArray(participant_numbers) || participant_numbers.length < 1) return res.status(400).json({ error: "Select at least one participant" })
       if (participant_numbers.length > 500) return res.status(400).json({ error: "A bulk send is limited to 500 participants" })
       const uniqueParticipantNumbers = [...new Set(participant_numbers)]
@@ -540,7 +552,7 @@ export default async function handler(req, res) {
         ? participant.payment_reminder_sent === true
         : template_key === "reminder"
           ? false
-          : participant.PAID === true)
+          : participant.PAID === true && Number(participant.whatsapp_contacted_event_id) === eventId)
       results.push(...alreadySent.map(participant => ({
         assigned_number: participant.assigned_number,
         success: true,
@@ -551,13 +563,13 @@ export default async function handler(req, res) {
         ? participant.payment_reminder_sent !== true
         : template_key === "reminder"
           ? true
-          : participant.PAID !== true)
+          : participant.PAID !== true || Number(participant.whatsapp_contacted_event_id) !== eventId)
       // Small concurrent batches keep event-day sends responsive without flooding
       // Twilio or exhausting the serverless function's connection pool.
       for (let index = 0; index < participantBatches.length; index += 5) {
         const batchResults = await Promise.all(participantBatches.slice(index, index + 5).map(async participant => {
           try {
-            const result = await sendApprovedTemplate(template, participant)
+            const result = await sendApprovedTemplate(template, participant, eventId)
             return { assigned_number: participant.assigned_number, ...result }
           } catch (error) {
             return { assigned_number: participant.assigned_number, success: false, error: error?.message || "Send failed" }

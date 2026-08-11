@@ -97,8 +97,9 @@ function swapPairKey(a, b) {
   return Number(a) < Number(b) ? `${Number(a)}-${Number(b)}` : `${Number(b)}-${Number(a)}`
 }
 
-function isSwapParticipantPaid(participant) {
-  return participant?.PAID_DONE === true || participant?.receipt_approved === true
+function isSwapParticipantPaid(participant, eventId) {
+  return participant?.PAID_DONE === true
+    && Number(participant?.payment_completed_event_id) === Number(eventId)
 }
 
 async function attachEventReceipts(participants, eventId) {
@@ -599,7 +600,7 @@ export default async function handler(req, res) {
     if (method === "GET") {
       const { data, error } = await supabase
         .from("participants")
-        .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, payment_waived, phone_number, event_id, name, signup_for_next_event, auto_signup_next_event, updated_at, same_gender_preference, any_gender_preference, survey_data_updated_at, created_at, next_event_signup_timestamp, nationality, attendance_confirmed, attendance_confirmed_at, attendance_denied_at, receipt_url, receipt_received_at, receipt_approved, receipt_approved_at, receipt_rejected, receipt_rejected_at, age_flex_years, age_flex_event_id, arrival_status, arrival_status_at, discount_interest, last_twilio_action, last_twilio_action_at")
+        .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, payment_completed_event_id, payment_waived, payment_waived_event_id, whatsapp_contacted_event_id, phone_number, event_id, name, signup_for_next_event, auto_signup_next_event, updated_at, same_gender_preference, any_gender_preference, survey_data_updated_at, created_at, next_event_signup_timestamp, nationality, attendance_confirmed, attendance_confirmed_at, attendance_denied_at, receipt_url, receipt_received_at, receipt_approved, receipt_approved_at, receipt_rejected, receipt_rejected_at, age_flex_years, age_flex_event_id, arrival_status, arrival_status_at, discount_interest, last_twilio_action, last_twilio_action_at")
         .eq("match_id", STATIC_MATCH_ID)
         .neq("assigned_number", 9999)  // Exclude organizer participant
         .order("assigned_number", { ascending: true })
@@ -657,9 +658,15 @@ export default async function handler(req, res) {
         console.error("Error in get-group-excluded-participants:", error)
         return res.status(500).json({ error: "Failed to fetch group-excluded participants" })
       }
-    }
+      }
       const receiptEventId = Number(req.query.event_id || await getCurrentAdminEventId())
-      return res.status(200).json({ participants: await attachEventReceipts(data || [], receiptEventId), event_id: receiptEventId })
+      const currentEventParticipants = (data || []).map(participant => ({
+        ...participant,
+        PAID: participant.PAID === true && Number(participant.whatsapp_contacted_event_id) === receiptEventId,
+        PAID_DONE: participant.PAID_DONE === true && Number(participant.payment_completed_event_id) === receiptEventId,
+        payment_waived: participant.payment_waived === true && Number(participant.payment_waived_event_id) === receiptEventId,
+      }))
+      return res.status(200).json({ participants: await attachEventReceipts(currentEventParticipants, receiptEventId), event_id: receiptEventId })
     }
 
     // 🔹 POST actions
@@ -1241,7 +1248,7 @@ export default async function handler(req, res) {
         const { event_id, include_matching_pool = false } = req.body
         let query = supabase
           .from("participants")
-          .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, payment_waived, phone_number, event_id, name, signup_for_next_event, auto_signup_next_event, updated_at, gender, age, same_gender_preference, any_gender_preference, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, humor_banter_style, early_openness_comfort, survey_data_updated_at, created_at, next_event_signup_timestamp, nationality, open_intent_goal_mismatch, signup_event_id, attendance_confirmed, attendance_confirmed_at, attendance_denied_at, receipt_url, receipt_received_at, receipt_approved, receipt_approved_at, receipt_rejected, receipt_rejected_at, age_flex_years, age_flex_event_id, arrival_status, arrival_status_at, discount_interest, last_twilio_action, last_twilio_action_at")
+          .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, payment_completed_event_id, payment_waived, payment_waived_event_id, whatsapp_contacted_event_id, phone_number, event_id, name, signup_for_next_event, auto_signup_next_event, updated_at, gender, age, same_gender_preference, any_gender_preference, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, humor_banter_style, early_openness_comfort, survey_data_updated_at, created_at, next_event_signup_timestamp, nationality, open_intent_goal_mismatch, signup_event_id, attendance_confirmed, attendance_confirmed_at, attendance_denied_at, receipt_url, receipt_received_at, receipt_approved, receipt_approved_at, receipt_rejected, receipt_rejected_at, age_flex_years, age_flex_event_id, arrival_status, arrival_status_at, discount_interest, last_twilio_action, last_twilio_action_at")
           .eq("match_id", STATIC_MATCH_ID)
           .neq("assigned_number", 9999)  // Exclude organizer participant
           .order("assigned_number", { ascending: true })
@@ -1269,7 +1276,13 @@ export default async function handler(req, res) {
           return res.status(500).json({ error: error.message })
         }
         const receiptEventId = Number(event_id || await getCurrentAdminEventId())
-        return res.status(200).json({ participants: await attachEventReceipts(data || [], receiptEventId), event_id: receiptEventId })
+        const currentEventParticipants = (data || []).map(participant => ({
+          ...participant,
+          PAID: participant.PAID === true && Number(participant.whatsapp_contacted_event_id) === receiptEventId,
+          PAID_DONE: participant.PAID_DONE === true && Number(participant.payment_completed_event_id) === receiptEventId,
+          payment_waived: participant.payment_waived === true && Number(participant.payment_waived_event_id) === receiptEventId,
+        }))
+        return res.status(200).json({ participants: await attachEventReceipts(currentEventParticipants, receiptEventId), event_id: receiptEventId })
       }
 
       if (action === "delete") {
@@ -1971,9 +1984,12 @@ export default async function handler(req, res) {
               is_auto_reply: false,
             })
             if (participant?.id && !["reminder", "match_cancellation", "survey_update"].includes(resolvedTemplateKey)) {
+              const currentEventId = await getCurrentAdminEventId()
               const { error: sentFlagError } = await supabase
                 .from("participants")
-                .update(resolvedTemplateKey === "payment" ? { payment_reminder_sent: true } : { PAID: true })
+                .update(resolvedTemplateKey === "payment"
+                  ? { payment_reminder_sent: true }
+                  : { PAID: true, whatsapp_contacted_event_id: currentEventId })
                 .eq("id", participant.id)
               if (sentFlagError) console.error("Failed to mark participant as WhatsApp sent:", sentFlagError)
             }
@@ -2044,7 +2060,7 @@ export default async function handler(req, res) {
           // Fetch participant data for the given numbers
           const { data: participants } = await supabase
             .from("participants")
-            .select("id, assigned_number, name, phone_number, secure_token, signup_for_next_event, survey_data, PAID, payment_reminder_sent")
+            .select("id, assigned_number, name, phone_number, secure_token, signup_for_next_event, survey_data, PAID, whatsapp_contacted_event_id, payment_reminder_sent")
             .eq("match_id", STATIC_MATCH_ID)
             .in("assigned_number", uniqueParticipantNumbers)
             .not("phone_number", "is", null)
@@ -2057,6 +2073,7 @@ export default async function handler(req, res) {
           const authHeader = "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64")
 
           const results = []
+          const currentEventId = await getCurrentAdminEventId()
           let successCount = 0
           let failCount = 0
           let skippedCount = 0
@@ -2076,7 +2093,7 @@ export default async function handler(req, res) {
               ? p.payment_reminder_sent === true
               : ["reminder", "match_cancellation", "survey_update"].includes(resolvedTemplateKey)
                 ? false
-                : p.PAID === true
+                : p.PAID === true && Number(p.whatsapp_contacted_event_id) === Number(currentEventId)
             if (alreadySent) {
               results.push({ number: p.assigned_number, name: p.name, success: true, skipped: true, reason: resolvedTemplateKey === "payment" ? "Payment reminder already sent" : "Already marked WhatsApp sent" })
               skippedCount++
@@ -2139,7 +2156,9 @@ export default async function handler(req, res) {
                   if (!["reminder", "match_cancellation", "survey_update"].includes(resolvedTemplateKey)) {
                     const { error: sentFlagError } = await supabase
                       .from("participants")
-                      .update(resolvedTemplateKey === "payment" ? { payment_reminder_sent: true } : { PAID: true })
+                      .update(resolvedTemplateKey === "payment"
+                        ? { payment_reminder_sent: true }
+                        : { PAID: true, whatsapp_contacted_event_id: currentEventId })
                       .eq("id", p.id)
                     if (sentFlagError) console.error("Failed to mark bulk participant as WhatsApp sent:", sentFlagError)
                   }
@@ -2261,7 +2280,9 @@ export default async function handler(req, res) {
               receipt_rejected: false,
               receipt_rejected_at: null,
               PAID_DONE: true,
+              payment_completed_event_id: receipt.event_id,
               payment_waived: false,
+              payment_waived_event_id: null,
               attendance_confirmed: true,
               attendance_confirmed_at: new Date().toISOString(),
               attendance_denied_at: null,
@@ -2317,12 +2338,16 @@ export default async function handler(req, res) {
             .single()
           if (fetchError || !participant) return res.status(404).json({ error: "Participant not found" })
 
+          const waiverEventId = await getCurrentAdminEventId()
+
           const { error: updateError } = await supabase.from("participants").update({
             attendance_confirmed: true,
             attendance_confirmed_at: new Date().toISOString(),
             attendance_denied_at: null,
             payment_waived: true,
+            payment_waived_event_id: waiverEventId,
             PAID_DONE: false,
+            payment_completed_event_id: null,
           }).eq("id", participant.id)
           if (updateError) return res.status(500).json({ error: updateError.message })
 
@@ -2380,7 +2405,9 @@ export default async function handler(req, res) {
               receipt_approved: false,
               receipt_approved_at: null,
               PAID_DONE: false,
+              payment_completed_event_id: null,
               payment_waived: false,
+              payment_waived_event_id: null,
             })
             .eq("id", participant.id)
 
@@ -3620,7 +3647,9 @@ export default async function handler(req, res) {
           const yes = conv.filter(v=>v==='yes').length; const no = conv.filter(v=>v==='no').length
           if (yes>0 && no>0) warnings.push("تعارض في عمق المحادثة (لا يمكن مزج 'نعم' و'لا')")
           // Payment status
-          const unpaid = participants.filter(p=>p.PAID_DONE===false).map(p=>p.assigned_number)
+          const unpaid = participants
+            .filter(p => !(p.PAID_DONE === true && Number(p.payment_completed_event_id) === Number(event_id)))
+            .map(p => p.assigned_number)
           if (unpaid.length>0) warnings.push(`مشاركون غير مسددين: [${unpaid.join(', ')}]`)
           // Wide age range (soft)
           const ages = participants.map(p=>p.age || p.survey_data?.age).filter(a=>a!==undefined && a!==null)
@@ -3707,7 +3736,7 @@ export default async function handler(req, res) {
         const allNums = Array.from(new Set(groupA_number === groupB_number ? [...newA] : [...newA, ...newB]))
         const { data: pData, error: pErr } = await supabase
           .from('participants')
-          .select('assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, PAID_DONE, name')
+          .select('assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, PAID_DONE, payment_completed_event_id, name')
           .in('assigned_number', allNums)
         if (pErr) { return res.status(500).json({ error: 'Failed fetching participants' }) }
         const pMap = new Map(pData.map(p=>[p.assigned_number, p]))
@@ -4724,7 +4753,7 @@ export default async function handler(req, res) {
           // remove their old rows, but they are deliberately outside the new
           // paid/unpaid chain and must not block it.
           const outsidePaymentScope = [...resultingNumbers].filter(number => {
-            const paid = isSwapParticipantPaid(participantMap.get(number))
+            const paid = isSwapParticipantPaid(participantMap.get(number), eventId)
             return paymentScope === "paid" ? !paid : paid
           })
           if (outsidePaymentScope.length) {
@@ -6472,9 +6501,21 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: "Invalid field name" })
         }
         
+        const updateFields = { [field]: value }
+        if (field === "PAID") {
+          updateFields.whatsapp_contacted_event_id = value ? await getCurrentAdminEventId() : null
+        }
+        if (field === "PAID_DONE") {
+          const paymentEventId = await getCurrentAdminEventId()
+          updateFields.payment_completed_event_id = value ? paymentEventId : null
+          if (value) {
+            updateFields.payment_waived = false
+            updateFields.payment_waived_event_id = null
+          }
+        }
         const { data, error } = await supabase
           .from("participants")
-          .update({ [field]: value })
+          .update(updateFields)
           .eq("id", participant_id)
           .eq("match_id", STATIC_MATCH_ID)
           .select()
@@ -6562,8 +6603,11 @@ export default async function handler(req, res) {
           .update({
             signup_for_next_event: false,
             PAID: false,
+            whatsapp_contacted_event_id: null,
             PAID_DONE: false,
+            payment_completed_event_id: null,
             payment_waived: false,
+            payment_waived_event_id: null,
             payment_reminder_sent: false,
             attendance_confirmed: false,
             attendance_confirmed_at: null,
@@ -6652,7 +6696,7 @@ export default async function handler(req, res) {
         // Get all participants to have their names and info
         const { data: participants, error: participantsError } = await supabase
           .from("participants")
-          .select("id, assigned_number, name, survey_data, PAID_DONE")
+          .select("id, assigned_number, name, survey_data, PAID_DONE, payment_completed_event_id")
           .eq("match_id", STATIC_MATCH_ID)
         
         if (participantsError) {
@@ -6666,7 +6710,7 @@ export default async function handler(req, res) {
           participantInfoMap.set(p.assigned_number, {
             id: p.id,
             name: p.name || p.survey_data?.name || `المشارك #${p.assigned_number}`,
-            paid_done: p.PAID_DONE || false
+            paid_done: p.PAID_DONE === true && Number(p.payment_completed_event_id) === Number(event_id)
           })
         })
         
@@ -7377,10 +7421,11 @@ export default async function handler(req, res) {
         
         console.log(`📱 Marking ${participantNumbers.length} participants as message sent: ${participantNumbers.join(', ')}`)
         
-        // Update PAID column to true for selected participants
+        const currentEventId = await getCurrentAdminEventId()
+        // Keep the legacy UI flag while recording which event this contact belongs to.
         const { data, error } = await supabase
           .from("participants")
-          .update({ PAID: true })
+          .update({ PAID: true, whatsapp_contacted_event_id: currentEventId })
           .eq("match_id", STATIC_MATCH_ID)
           .in("assigned_number", participantNumbers)
         
@@ -7414,10 +7459,11 @@ export default async function handler(req, res) {
         
         console.log(`📱 Toggling message status for participant #${participantNumber} to ${newStatus}`)
         
-        // Update PAID column for the specific participant
+        const currentEventId = await getCurrentAdminEventId()
+        // Clearing the flag also clears its event scope so it cannot authorize a reply.
         const { data, error } = await supabase
           .from("participants")
-          .update({ PAID: newStatus })
+          .update({ PAID: newStatus, whatsapp_contacted_event_id: newStatus ? currentEventId : null })
           .eq("match_id", STATIC_MATCH_ID)
           .eq("assigned_number", participantNumber)
         
@@ -7451,11 +7497,16 @@ export default async function handler(req, res) {
         }
         
         console.log(`💰 Toggling payment status for participant #${participantNumber} to ${newStatus}`)
+        const paymentEventId = await getCurrentAdminEventId()
         
         // Update PAID_DONE column for the specific participant
         const { data, error } = await supabase
           .from("participants")
-          .update({ PAID_DONE: newStatus, ...(newStatus ? { payment_waived: false } : {}) })
+          .update({
+            PAID_DONE: newStatus,
+            payment_completed_event_id: newStatus ? paymentEventId : null,
+            ...(newStatus ? { payment_waived: false, payment_waived_event_id: null } : {}),
+          })
           .eq("match_id", STATIC_MATCH_ID)
           .eq("assigned_number", participantNumber)
         
@@ -7497,10 +7548,15 @@ export default async function handler(req, res) {
         }
 
         console.log(`💳 Bulk updating PAID_DONE=${paid} for ${list.length} participants: [${list.join(', ')}]`)
+        const paymentEventId = await getCurrentAdminEventId()
 
         const { data, error } = await supabase
           .from("participants")
-          .update({ PAID_DONE: paid, ...(paid ? { payment_waived: false } : {}) })
+          .update({
+            PAID_DONE: paid,
+            payment_completed_event_id: paid ? paymentEventId : null,
+            ...(paid ? { payment_waived: false, payment_waived_event_id: null } : {}),
+          })
           .eq("match_id", STATIC_MATCH_ID)
           .in("assigned_number", list)
           .select("assigned_number")
@@ -7617,6 +7673,7 @@ export default async function handler(req, res) {
           .select("assigned_number, survey_data, name, gender, age")
           .eq("match_id", STATIC_MATCH_ID)
           .eq("PAID_DONE", true)
+          .eq("payment_completed_event_id", Number(eventId))
           .neq("assigned_number", 9999)
         
         if (paidError) {
@@ -8014,7 +8071,7 @@ export default async function handler(req, res) {
 
         const { data: participant, error: pErr } = await supabase
           .from("participants")
-          .select("assigned_number, name, gender, age, nationality, mbti_personality_type, attachment_style, communication_style, same_gender_preference, any_gender_preference, preferred_age_min, preferred_age_max, open_age_preference, prefer_same_nationality, survey_data, PAID_DONE, event_id")
+          .select("assigned_number, name, gender, age, nationality, mbti_personality_type, attachment_style, communication_style, same_gender_preference, any_gender_preference, preferred_age_min, preferred_age_max, open_age_preference, prefer_same_nationality, survey_data, PAID_DONE, payment_completed_event_id, event_id")
           .eq("match_id", STATIC_MATCH_ID)
           .eq("assigned_number", participantNumber)
           .single()
@@ -8058,7 +8115,7 @@ export default async function handler(req, res) {
             Object.entries(answers).filter(([k]) => k.startsWith("q") || k.startsWith("vibe") || ["name","gender","age","nationality","redLines","relationshipGoals","dealBreakers"].includes(k))
           ),
           meta: {
-            paid: participant.PAID_DONE,
+            paid: participant.PAID_DONE === true && Number(participant.payment_completed_event_id) === Number(await getCurrentAdminEventId()),
             event_id: participant.event_id,
           }
         }
@@ -8593,7 +8650,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         }
         // e3-get-participants
         if (action === "e3-get-participants") {
-          const { data, error } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,PAID_DONE").eq("match_id", STATIC_MATCH_ID).neq("assigned_number", 9999).order("assigned_number", { ascending: true })
+          const { data, error } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,PAID_DONE,payment_completed_event_id").eq("match_id", STATIC_MATCH_ID).neq("assigned_number", 9999).order("assigned_number", { ascending: true })
           if (error) return res.status(500).json({ error: error.message })
           const { data: sel, error: selErr } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           if (selErr) console.error("[e3-get-participants] selected error:", selErr.message)
@@ -8603,7 +8660,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           if (e3pErr) console.error("[e3-get-participants] phase2_excluded error:", e3pErr.message)
           const phase2ExcludedMap = {}
           for (const r of e3p || []) { phase2ExcludedMap[r.participant_number] = !!r.phase2_excluded }
-          const participants = (data || []).map(p => { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); return { number: p.assigned_number, name: p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`, gender: p.gender || sd?.answers?.gender || sd?.gender || "?", age: p.age || sd?.answers?.age || sd?.age || "?", paid: !!p.PAID_DONE, selected: selectedSet.has(p.assigned_number), phase2_excluded: !!phase2ExcludedMap[p.assigned_number] } })
+          const participants = (data || []).map(p => { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); return { number: p.assigned_number, name: p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`, gender: p.gender || sd?.answers?.gender || sd?.gender || "?", age: p.age || sd?.answers?.age || sd?.age || "?", paid: p.PAID_DONE === true && Number(p.payment_completed_event_id) === Number(currentEventId), selected: selectedSet.has(p.assigned_number), phase2_excluded: !!phase2ExcludedMap[p.assigned_number] } })
           return res.status(200).json({ participants, selected_count: selectedSet.size })
         }
         // e3-set-participants

@@ -46,6 +46,32 @@ function fmtDate(value?: string | null) {
   return new Date(value).toLocaleString("ar-SA", { dateStyle: "short", timeStyle: "short" })
 }
 
+function actionLabel(action: any) {
+  const labels: Record<string, string> = {
+    attendance: "قرار حضور",
+    event_signup: "انضمام للفعالية الحالية",
+    payment_access_blocked: "محاولة موقوفة قبل الدفع",
+    unknown_participant: "رسالة من رقم غير معروف",
+    receipt: "إيصال",
+    discount: "رد على عرض",
+    auto_signup: "تسجيل تلقائي",
+    gender_preference: "تفضيل الجنس",
+    age_flexibility: "مرونة العمر",
+    arrival: "حالة الوصول",
+  }
+  return labels[action?.action_key] || action?.action_key || "إجراء"
+}
+
+function actionDetail(action: any) {
+  const raw = action?.action_value || {}
+  const value = raw?.value ?? raw
+  if (value && typeof value === "object") {
+    const reason = value.reason === "not_enrolled" ? "غير مسجل في الفعالية" : value.reason === "not_contacted" ? "لم يتم التواصل معه لهذه الفعالية" : value.reason
+    return [value.attempted_action, reason, value.phone_number].filter(Boolean).join(" · ")
+  }
+  return String(value || action?.note || "—")
+}
+
 function participantName(p: any) {
   return p?.name || p?.survey_data?.answers?.name || p?.survey_data?.name || `المشارك #${p?.assigned_number}`
 }
@@ -241,8 +267,9 @@ export default function TwilioAdminPanel({ adminPassword, onParticipantChanged, 
   if (loading) return <div className="flex min-h-[420px] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-cyan-300" /></div>
   if (!data) return <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-6 text-red-200">تعذر تحميل لوحة Twilio.</div>
 
+  const inboundActions = (data.actions || []).filter((action: any) => action.source !== "admin")
   const nav: { id: ConsoleTab; label: string; icon: any; count?: number }[] = [
-    { id: "overview", label: "العمليات", icon: Activity },
+    { id: "overview", label: "العمليات", icon: Activity, count: inboundActions.length },
     { id: "templates", label: "القوالب", icon: Smartphone, count: data.templates?.filter((t: any) => t.approval_status !== "approved").length },
     { id: "responses", label: "الردود", icon: MessageCircle },
     { id: "participants", label: "المشاركون", icon: Users },
@@ -292,6 +319,10 @@ export default function TwilioAdminPanel({ adminPassword, onParticipantChanged, 
           <div className="mb-4 flex items-center justify-between"><h3 className="font-black">جاهزية القوالب</h3><button onClick={syncApprovals} disabled={saving === "sync"} className={`${buttonClass} border-violet-400/20 bg-violet-400/10 text-violet-200`}><RefreshCw className={`h-3.5 w-3.5 ${saving === "sync" ? "animate-spin" : ""}`} />مزامنة</button></div>
           <div className="space-y-2">{data.templates.map((t: any) => <button key={t.id} onClick={() => setTab("templates")} className="flex w-full items-center justify-between rounded-xl border border-white/5 bg-black/15 px-3 py-2 text-right"><div><p className="text-xs font-bold text-white">{t.friendly_name}</p><p className="mt-0.5 text-[10px] text-slate-500">{t.content_sid || "SID غير مضاف"}</p></div><StatusBadge status={t.approval_status} /></button>)}</div>
         </div>
+      </div>
+      <div className="rounded-2xl border border-amber-400/15 bg-amber-400/[0.035] p-4 sm:p-5">
+        <div className="mb-4 flex items-center justify-between"><div><h3 className="font-black">آخر إجراءات WhatsApp</h3><p className="text-xs text-slate-500">انضمام، محاولات موقوفة، تأكيدات وأرقام غير معروفة · الفعالية {data.eventId}</p></div><Activity className="h-5 w-5 text-amber-300" /></div>
+        <div className="grid gap-2 lg:grid-cols-2">{inboundActions.slice(0, 12).map((action: any) => <div key={action.id} className="rounded-xl border border-white/10 bg-slate-950/45 p-3"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-black">{action.assigned_number ? `#${action.assigned_number} · ` : ""}{actionLabel(action)}</p><p className="mt-1 text-[10px] leading-5 text-slate-400">{actionDetail(action)}</p></div><span className="shrink-0 text-[9px] text-slate-600">{fmtDate(action.updated_at)}</span></div></div>)}{inboundActions.length === 0 && <EmptyState text="لا توجد إجراءات واردة لهذه الفعالية" />}</div>
       </div>
     </>}
 

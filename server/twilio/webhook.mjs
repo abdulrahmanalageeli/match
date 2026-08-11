@@ -1,6 +1,6 @@
 import crypto from "crypto"
 import { normalizeInboundAction, resolveInboundAction } from "./inbound-actions.mjs"
-import { confirmationPaymentState } from "./confirmation-policy.mjs"
+import { confirmationPaymentState, isParticipantEnrolledForEvent, paymentAccessState } from "./confirmation-policy.mjs"
 import { supabaseAdmin } from "../security/supabase-admin.mjs"
 
 const supabase = supabaseAdmin
@@ -32,6 +32,11 @@ const DEFAULT_RESPONSES = {
   attendance_waived: "✅ تم تسجيل حضورك، ومقعدك مؤكد بإعفاء من الدفع من المنظم.",
   attendance_denied: "تم تسجيل اعتذاركم مباشرة 🙏 شكراً لكم، ونرحب بكم في فعاليات قادمة!",
   attendance_confirmation_pending: "✅ استلمنا طلب تأكيد حضورك. الطلب الآن بانتظار اعتماد المنظم، ولن تتغير حالة حضورك حتى تتم مراجعته.",
+  current_event_signup_required: "أهلاً بك 👋\n\nلا يظهر لدينا تسجيلك في الفعالية الحالية بعد. إذا رغبت بالانضمام إلى قائمة المرشحين، أرسل كلمة *انضمام*.\n\nبعد التسجيل سنراجع التوافق، وسنتواصل معك مباشرة عند توفر توافق مناسب. لا يلزم أي دفع قبل وصول رسالة تأكيد منا.",
+  current_event_joined: "✅ تم تسجيل اهتمامك بالانضمام إلى الفعالية الحالية.\n\nسندرج ملفك ضمن قائمة المرشحين ونراجع التوافق بعناية. سنتواصل معك مباشرة إذا وجدنا توافقاً مناسباً — ولا يلزم أي دفع الآن.",
+  current_event_already_joined: "✅ أنت مسجل بالفعل ضمن قائمة المرشحين للفعالية الحالية.\n\nما زلنا نراجع التوافق، وسنتواصل معك مباشرة عند توفر توافق مناسب. لا يلزم أي دفع قبل وصول رسالة تأكيد منا.",
+  current_event_not_contacted: "شكراً لتواصلك 🤍\n\nلم نرسل لك تأكيد توافق للفعالية الحالية حتى الآن. ما زلنا نراجع الترشيحات، وسنتواصل معك مباشرة إذا وجدنا توافقاً مناسباً.\n\nحرصاً على وضوح الإجراءات، لا يلزم أي دفع إلا بعد وصول رسالة تأكيد رسمية منا لهذه الفعالية.",
+  participant_not_registered: "أهلاً بك 👋\n\nلم نتمكن من العثور على ملف مشارك مرتبط بهذا الرقم. يرجى التسجيل أولاً من خلال المنصة، أو التواصل معنا إذا كنت مسجلاً برقم مختلف.\n\nلا يلزم إجراء أي دفع في هذه المرحلة.",
   attendance_denial_pending: "🙏 استلمنا اعتذارك عن الحضور. الطلب الآن بانتظار اعتماد المنظم، ولن تتغير حالة حضورك حتى تتم مراجعته.",
   gender_any: "✅ تم تحديث تفضيلك إلى: *أي جنس*. سنعتمد هذا الاختيار في المطابقة القادمة.",
   gender_same: "✅ تم تحديث تفضيلك إلى: *نفس الجنس*. سنعتمد هذا الاختيار في المطابقة القادمة.",
@@ -74,9 +79,9 @@ async function responseText(actionKey, variables = {}) {
   return rendered.includes("*فريق التوافق الأعمى*") ? rendered : `${rendered}\n\n${signature}`
 }
 
-async function recordParticipantAction(participant, actionKey, value, source = "participant", note = null) {
+async function recordParticipantAction(participant, actionKey, value, source = "participant", note = null, eventIdOverride = null) {
   const now = new Date().toISOString()
-  const eventId = Number(participant.signup_event_id || participant.event_id || 1)
+  const eventId = Number(eventIdOverride || participant.signup_event_id || participant.event_id || 1)
   await supabase.from("participant_twilio_actions").upsert({
     participant_id: participant.id,
     assigned_number: participant.assigned_number,
@@ -191,7 +196,7 @@ async function findParticipantByPhone(phone) {
 
   const { data: candidates } = await supabase
     .from("participants")
-    .select("id, assigned_number, name, phone_number, secure_token, signup_for_next_event, auto_signup_next_event, PAID_DONE, payment_waived, event_id, signup_event_id, match_id, created_at, next_event_signup_timestamp, same_gender_preference, any_gender_preference, age_flex_years, age_flex_event_id, arrival_status, discount_interest")
+    .select("id, assigned_number, name, phone_number, secure_token, signup_for_next_event, auto_signup_next_event, PAID, PAID_DONE, payment_completed_event_id, payment_waived, payment_waived_event_id, whatsapp_contacted_event_id, event_id, signup_event_id, match_id, created_at, next_event_signup_timestamp, same_gender_preference, any_gender_preference, age_flex_years, age_flex_event_id, arrival_status, discount_interest")
     .eq("match_id", STATIC_MATCH_ID)
     .not("phone_number", "is", null)
 
@@ -295,7 +300,40 @@ async function recordAttendanceNotification(participant, from, requestType) {
   if (error) console.error("Failed to record attendance notification:", error)
 }
 
+async function recordBlockedAccess(participant, eventId, attemptedAction, accessState) {
+  await recordParticipantAction(
+    participant,
+    "payment_access_blocked",
+    { attempted_action: attemptedAction, reason: accessState },
+    "system",
+    "Current-event enrollment/contact gate blocked the inbound action",
+    eventId,
+  )
+}
+
+async function recordUnknownParticipant(from, attemptedAction) {
+  const eventId = await getCurrentEventId()
+  await supabase.from("participant_twilio_actions").insert({
+    participant_id: null,
+    assigned_number: null,
+    event_id: eventId,
+    action_key: "unknown_participant",
+    action_value: { attempted_action: attemptedAction, phone_number: from },
+    source: "system",
+    note: "Inbound WhatsApp could not be linked to a participant",
+  })
+}
+
 async function confirmAttendance(participant, from) {
+  const eventId = await getCurrentEventId()
+  const accessState = paymentAccessState(participant, eventId)
+  if (accessState !== "eligible") {
+    await recordBlockedAccess(participant, eventId, "confirm_attendance", accessState)
+    const responseKey = accessState === "not_enrolled" ? "current_event_signup_required" : "current_event_not_contacted"
+    await sendTwilioReply(from, await responseText(responseKey), participant)
+    return accessState
+  }
+
   const now = new Date().toISOString()
   const { error: participantError } = await supabase.from("participants").update({
     attendance_confirmed: true,
@@ -312,8 +350,8 @@ async function confirmAttendance(participant, from) {
   if (exclusionError) throw exclusionError
 
   await recordAttendanceNotification(participant, from, "confirm")
-  await recordParticipantAction(participant, "attendance", "confirmed")
-  const paymentState = confirmationPaymentState(participant)
+  await recordParticipantAction(participant, "attendance", "confirmed", "participant", null, eventId)
+  const paymentState = confirmationPaymentState(participant, eventId)
   if (paymentState !== "payment_pending") {
     const config = await getWhatsappConfig()
     const intro = await responseText(paymentState === "waived" ? "attendance_waived" : "attendance_paid")
@@ -321,6 +359,40 @@ async function confirmAttendance(participant, from) {
   } else {
     await sendTwilioReply(from, await paymentReply(participant), participant)
   }
+  return "confirmed"
+}
+
+async function sendPaymentAccessReply(participant, from) {
+  const eventId = await getCurrentEventId()
+  const accessState = paymentAccessState(participant, eventId)
+  if (accessState === "eligible") {
+    await sendTwilioReply(from, await paymentReply(participant), participant)
+  } else {
+    await recordBlockedAccess(participant, eventId, "payment_request", accessState)
+    const responseKey = accessState === "not_enrolled" ? "current_event_signup_required" : "current_event_not_contacted"
+    await sendTwilioReply(from, await responseText(responseKey), participant)
+  }
+  return accessState
+}
+
+async function joinCurrentEvent(participant, from) {
+  const eventId = await getCurrentEventId()
+  if (isParticipantEnrolledForEvent(participant, eventId)) {
+    await recordParticipantAction(participant, "event_signup", "already_joined", "participant", "Repeated current-event join keyword", eventId)
+    await sendTwilioReply(from, await responseText("current_event_already_joined"), participant)
+    return "already_joined"
+  }
+
+  const now = new Date().toISOString()
+  const { error } = await supabase.from("participants").update({
+    signup_for_next_event: true,
+    signup_event_id: eventId,
+    next_event_signup_timestamp: now,
+  }).eq("id", participant.id)
+  if (error) throw error
+  await recordParticipantAction(participant, "event_signup", "joined", "participant", "Joined current event by WhatsApp keyword", eventId)
+  await sendTwilioReply(from, await responseText("current_event_joined"), participant)
+  return "joined"
 }
 
 async function paymentReply(participant) {
@@ -341,6 +413,15 @@ async function paymentReply(participant) {
 }
 
 async function denyAttendance(participant, from) {
+  const eventId = await getCurrentEventId()
+  const accessState = paymentAccessState(participant, eventId)
+  if (accessState !== "eligible") {
+    await recordBlockedAccess(participant, eventId, "deny_attendance", accessState)
+    const responseKey = accessState === "not_enrolled" ? "current_event_signup_required" : "current_event_not_contacted"
+    await sendTwilioReply(from, await responseText(responseKey), participant)
+    return accessState
+  }
+
   const now = new Date().toISOString()
   const { error: participantError } = await supabase.from("participants").update({
     attendance_confirmed: false,
@@ -363,7 +444,7 @@ async function denyAttendance(participant, from) {
   }
 
   await recordAttendanceNotification(participant, from, "deny")
-  await recordParticipantAction(participant, "attendance", "declined")
+  await recordParticipantAction(participant, "attendance", "declined", "participant", null, eventId)
   const { data: latestPreference, error: preferenceError } = await supabase.from("participants")
     .select("auto_signup_next_event").eq("id", participant.id).single()
   if (preferenceError) throw preferenceError
@@ -374,6 +455,7 @@ async function denyAttendance(participant, from) {
       ? "إذا رغبت بإيقاف التسجيل التلقائي للفعاليات القادمة، أرسل: *إيقاف*"
       : "إذا رغبت بالتسجيل التلقائي في أي فعالية قادمة، أرسل: *تفعيل*",
   }), participant)
+  return "denied"
 }
 
 export default async function handler(req, res) {
@@ -404,12 +486,22 @@ export default async function handler(req, res) {
       const participant = await findParticipantByPhone(from)
       if (!participant) {
         console.log("No participant found for inbound webhook")
-        await sendTwilioReply(from, await responseText("receipt_unknown_phone"))
+        await recordUnknownParticipant(from, "receipt")
+        await sendTwilioReply(from, await responseText("participant_not_registered"))
         return res.status(200).json({ status: "participant_not_found" })
       }
 
       // Log incoming media message
       await logIncomingMessage(participant, { from, messageBody, mediaUrl0, mediaContentType0 })
+
+      const receiptEventId = await getCurrentEventId()
+      const receiptAccessState = paymentAccessState(participant, receiptEventId)
+      if (receiptAccessState !== "eligible") {
+        await recordBlockedAccess(participant, receiptEventId, "receipt", receiptAccessState)
+        const responseKey = receiptAccessState === "not_enrolled" ? "current_event_signup_required" : "current_event_not_contacted"
+        await sendTwilioReply(from, await responseText(responseKey), participant)
+        return res.status(200).json({ status: receiptAccessState })
+      }
 
       // Download and store the receipt
       const isImage = mediaContentType0 && mediaContentType0.startsWith("image/")
@@ -418,7 +510,7 @@ export default async function handler(req, res) {
         await sendTwilioReply(from, await responseText("receipt_unsupported"), participant)
         return res.status(200).json({ status: "unsupported_receipt_type" })
       }
-      const eventId = await getCurrentEventId()
+      const eventId = receiptEventId
       const fileExt = isPdf ? "pdf" : mediaContentType0 === "image/png" ? "png" : mediaContentType0 === "image/webp" ? "webp" : "jpg"
       const fileName = "event-" + eventId + "/" + participant.assigned_number + "_" + Date.now() + "." + fileExt
 
@@ -485,7 +577,7 @@ export default async function handler(req, res) {
           .eq("id", participant.id)
         if (participantUpdateError) throw new Error(`Participant receipt update failed: ${participantUpdateError.message}`)
 
-        await recordParticipantAction(participant, "receipt", "pending_review")
+        await recordParticipantAction(participant, "receipt", "pending_review", "participant", null, eventId)
         await sendTwilioReply(from, await responseText("receipt_received", { participant_number: participant.assigned_number }), participant)
         return res.status(200).json({ status: "receipt_received" })
       } catch (e) {
@@ -500,7 +592,9 @@ export default async function handler(req, res) {
       const participant = await findParticipantByPhone(from)
       if (!participant) {
         console.log("No participant found for inbound webhook")
-        return res.status(200).json({ status: "ignored" })
+        await recordUnknownParticipant(from, buttonAction || "button")
+        await sendTwilioReply(from, await responseText("participant_not_registered"))
+        return res.status(200).json({ status: "participant_not_found" })
       }
 
       // Log incoming button press
@@ -508,13 +602,13 @@ export default async function handler(req, res) {
 
       switch (buttonAction) {
         case "confirm_attendance": {
-          await confirmAttendance(participant, from)
-          return res.status(200).json({ status: "confirmed" })
+          const status = await confirmAttendance(participant, from)
+          return res.status(200).json({ status })
         }
 
         case "deny_attendance": {
-          await denyAttendance(participant, from)
-          return res.status(200).json({ status: "denied" })
+          const status = await denyAttendance(participant, from)
+          return res.status(200).json({ status })
         }
 
         case "toggle_auto_signup": {
@@ -616,8 +710,8 @@ export default async function handler(req, res) {
         }
 
         case "arrival_cancel": {
-          await denyAttendance(participant, from)
-          return res.status(200).json({ status: "cancellation_pending_approval" })
+          const status = await denyAttendance(participant, from)
+          return res.status(200).json({ status: status === "denied" ? "cancellation_pending_approval" : status })
         }
         case "arrival_on_way":
         case "arrival_late": {
@@ -645,11 +739,18 @@ export default async function handler(req, res) {
       if (!participant) {
         // Still log unknown incoming messages
         await logIncomingMessage(null, { from, messageBody })
-        return res.status(200).json({ status: "ignored" })
+        await recordUnknownParticipant(from, normalizeInboundAction(messageBody) || "message")
+        await sendTwilioReply(from, await responseText("participant_not_registered"))
+        return res.status(200).json({ status: "participant_not_found" })
       }
 
       // Log incoming free-text message
       await logIncomingMessage(participant, { from, messageBody })
+
+      if (text === "انضمام" || text === "join") {
+        const status = await joinCurrentEvent(participant, from)
+        return res.status(200).json({ status })
+      }
 
       const genderPreferenceCommands = {
         "اي جنس": { same_gender_preference: false, any_gender_preference: true, label: "أي جنس" },
@@ -690,18 +791,22 @@ export default async function handler(req, res) {
         const value = text === "مهتم" ? "interested" : "declined"
         await supabase.from("participants").update({ discount_interest: value }).eq("id", participant.id)
         await recordParticipantAction(participant, "discount", value)
-        await sendTwilioReply(from, value === "interested" ? await paymentReply(participant) : await responseText("discount_declined"), participant)
-        return res.status(200).json({ status: text === "مهتم" ? "offer_interested" : "offer_declined" })
+        if (value === "interested") {
+          const status = await sendPaymentAccessReply(participant, from)
+          return res.status(200).json({ status })
+        }
+        await sendTwilioReply(from, await responseText("discount_declined"), participant)
+        return res.status(200).json({ status: "offer_declined" })
       }
 
       if (text === "تاكيد" || text === "confirm" || text === "نعم") {
-        await confirmAttendance(participant, from)
-        return res.status(200).json({ status: "confirmed" })
+        const status = await confirmAttendance(participant, from)
+        return res.status(200).json({ status })
       }
 
       if (text === "اعتذار" || text === "deny" || text === "لا") {
-        await denyAttendance(participant, from)
-        return res.status(200).json({ status: "denied" })
+        const status = await denyAttendance(participant, from)
+        return res.status(200).json({ status })
       }
 
       if (text === "ايقاف" || text === "stop") {
@@ -733,6 +838,14 @@ export default async function handler(req, res) {
       }
 
       // Unrecognized text — send help
+      const eventId = await getCurrentEventId()
+      const accessState = paymentAccessState(participant, eventId)
+      if (accessState !== "eligible") {
+        await recordBlockedAccess(participant, eventId, "message", accessState)
+        const responseKey = accessState === "not_enrolled" ? "current_event_signup_required" : "current_event_not_contacted"
+        await sendTwilioReply(from, await responseText(responseKey), participant)
+        return res.status(200).json({ status: accessState })
+      }
       await sendTwilioReply(from, await responseText("unknown_message"), participant)
       return res.status(200).json({ status: "help_sent" })
     }

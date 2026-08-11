@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 import {
+  attendanceDeclineAccessState,
   confirmationPaymentState,
   isParticipantEnrolledForEvent,
   paymentAccessState,
@@ -36,4 +37,29 @@ test("only unlocks payment after current-event admin contact", () => {
   assert.equal(paymentAccessState({ ...enrolled, PAID: false, whatsapp_contacted_event_id: 21 }, 21), "not_contacted")
   assert.equal(paymentAccessState({ ...enrolled, PAID: true, whatsapp_contacted_event_id: 21 }, 21), "eligible")
   assert.equal(paymentAccessState({ event_id: 20, PAID: true, whatsapp_contacted_event_id: 21 }, 21), "not_enrolled")
+})
+
+test("accepts a decline from a current-event invitee even when signup metadata is stale", () => {
+  assert.equal(attendanceDeclineAccessState({
+    event_id: 18,
+    signup_for_next_event: true,
+    signup_event_id: null,
+    PAID: true,
+    whatsapp_contacted_event_id: 24,
+  }, 24), "eligible")
+
+  assert.equal(attendanceDeclineAccessState({
+    event_id: 23,
+    signup_for_next_event: true,
+    signup_event_id: null,
+    PAID: true,
+    whatsapp_contacted_event_id: 23,
+  }, 24), "not_enrolled")
+
+  assert.equal(attendanceDeclineAccessState({
+    signup_for_next_event: true,
+    signup_event_id: 24,
+    PAID: false,
+    whatsapp_contacted_event_id: null,
+  }, 24), "not_contacted")
 })

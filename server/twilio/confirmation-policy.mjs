@@ -23,3 +23,15 @@ export function paymentAccessState(participant, currentEventId) {
   if (participant?.PAID !== true || Number(participant?.whatsapp_contacted_event_id) !== Number(currentEventId)) return "not_contacted"
   return "eligible"
 }
+
+export function attendanceDeclineAccessState(participant, currentEventId) {
+  const eventId = Number(currentEventId)
+  const contactedForCurrentEvent = participant?.PAID === true
+    && Number(participant?.whatsapp_contacted_event_id) === eventId
+
+  // A current-event invitee must always be able to decline the invitation,
+  // even when an older account has stale/missing signup_event_id metadata.
+  if (contactedForCurrentEvent) return "eligible"
+  if (!isParticipantEnrolledForEvent(participant, eventId)) return "not_enrolled"
+  return "not_contacted"
+}

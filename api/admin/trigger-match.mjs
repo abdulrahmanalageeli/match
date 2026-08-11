@@ -41,6 +41,32 @@ async function supabaseRetry(label, op, { attempts = 4, baseDelayMs = 250 } = {}
   throw lastErr
 }
 
+function isTransientOpenAIError(err) {
+  const status = Number(err?.status)
+  const code = String(err?.code || err?.cause?.code || '')
+  const message = String(err?.message || err?.cause?.message || '')
+  return err?.name === 'APIConnectionError'
+    || [408, 409, 429].includes(status)
+    || status >= 500
+    || /EBUSY|EAI_AGAIN|ENOTFOUND|ECONNRESET|ETIMEDOUT|fetch failed|connection error/i.test(`${code} ${message}`)
+}
+
+async function openAIRetry(label, op, { attempts = 3, baseDelayMs = 400 } = {}) {
+  let lastError = null
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await op()
+    } catch (error) {
+      lastError = error
+      if (!isTransientOpenAIError(error) || attempt >= attempts) throw error
+      const delay = baseDelayMs * (2 ** (attempt - 1)) + Math.floor(Math.random() * 150)
+      console.warn(`${label} transient failure (attempt ${attempt}/${attempts}); retrying in ${delay}ms`)
+      await sleep(delay)
+    }
+  }
+  throw lastError
+}
+
 const supabase = supabaseAdmin
 
 function isPaidForEvent(participant, eventId) {
@@ -48,7 +74,9 @@ function isPaidForEvent(participant, eventId) {
     && Number(participant?.payment_completed_event_id) === Number(eventId)
 }
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+// Keep retry timing explicit so serverless DNS/socket failures do not create
+// nested SDK retries with unpredictable request duration.
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, maxRetries: 0 })
 
 const SCORE_MAX = Object.freeze({
   synergy: 30,
@@ -167,6 +195,10 @@ async function fetchCachedPairsForOuterParticipants(participantNumbers, outerPar
 // -----------------------------------------------------------------------------
 async function storeCachedCompatibility(participantA, participantB, scores) {
   try {
+    if (scores?.aiVibeCacheable === false) {
+      console.warn(`Skipping cache store #${participantA.assigned_number}-#${participantB.assigned_number}: AI vibe used a temporary fallback (${scores.aiVibeFallbackReason || 'unknown'})`)
+      return
+    }
     if (SKIP_DB_WRITES) { console.log('🧪 Preview mode: skip cache store'); return }
     const [smaller, larger] = [participantA.assigned_number, participantB.assigned_number].sort((a, b) => a - b)
     const cacheKey = generateCacheKey(participantA, participantB)
@@ -1774,9 +1806,10 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   // the previous AI sub-score only after verifying the vibe-content hash.
   const reusableVibe = options?.reusedVibeScore
   const hasReusableVibe = reusableVibe !== null && reusableVibe !== undefined && reusableVibe !== '' && Number.isFinite(Number(reusableVibe))
+  const vibeMeta = { cacheable: true, fallbackReason: null }
   const vibeScore = hasReusableVibe
     ? normalizeCachedVibeScore(reusableVibe, options?.reusedVibeSourceMax)
-    : (skipAI ? 15 : await calculateVibeCompatibility(participantA, participantB)) // 0–25
+    : (skipAI ? 15 : await calculateVibeCompatibility(participantA, participantB, vibeMeta)) // 0–25
   const disagreementScore = calculateDisagreementStyleScore(participantA, participantB) // 0–4
   const currentFocusScore = calculateCurrentFocusScore(participantA, participantB) // 0–5
   const contentSimilarity = Math.max(0, Math.min(1, ((vibeScore / SCORE_MAX.vibe) + (currentFocusScore / 5)) / 2))
@@ -1869,6 +1902,8 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
     opennessZeroZeroPenaltyApplied,
     opennessPenalty: opennessPenalty.points,
     opennessPenaltyType: opennessPenalty.type,
+    aiVibeCacheable: vibeMeta.cacheable !== false,
+    aiVibeFallbackReason: vibeMeta.fallbackReason,
     cached: false
   }
   
@@ -1881,7 +1916,7 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
 }
 
 // Function to calculate conversation/content compatibility using AI (up to 25 points)
-async function calculateVibeCompatibility(participantA, participantB) {
+async function calculateVibeCompatibility(participantA, participantB, vibeMeta = null) {
   try {
     // Get combined vibe descriptions from all 6 questions
     const aVibeDescription = participantA.survey_data?.vibeDescription || ""
@@ -1889,11 +1924,12 @@ async function calculateVibeCompatibility(participantA, participantB) {
 
     if (!aVibeDescription || !bVibeDescription) {
       console.warn("❌ Missing vibe descriptions, using default AI conversation score")
+      if (vibeMeta) vibeMeta.fallbackReason = 'missing_vibe_description'
       return 12.5
     }
 
     // Calculate mutual compatibility between the two combined profiles
-    const raw35 = await calculateCombinedVibeCompatibility(aVibeDescription, bVibeDescription)
+    const raw35 = await calculateCombinedVibeCompatibility(aVibeDescription, bVibeDescription, vibeMeta)
     const vibeScore = Math.max(0, Math.min(SCORE_MAX.vibe, (raw35 / 35) * SCORE_MAX.vibe))
     
     console.log(`🎯 Conversation compatibility: AI raw=${raw35}/35 → scaled=${vibeScore.toFixed(2)}/25`)
@@ -1904,12 +1940,16 @@ async function calculateVibeCompatibility(participantA, participantB) {
 
   } catch (error) {
     console.error("🔥 Vibe compatibility calculation error:", error)
+    if (vibeMeta) {
+      vibeMeta.cacheable = false
+      vibeMeta.fallbackReason = isTransientOpenAIError(error) ? 'openai_connection_error' : 'openai_error'
+    }
     return 12.5
   }
 }
 
 // Helper function to calculate combined vibe compatibility using AI
-async function calculateCombinedVibeCompatibility(profileA, profileB) {
+async function calculateCombinedVibeCompatibility(profileA, profileB, vibeMeta = null) {
   try {
     const systemMessage = `You are a personal compatibility rater. Output a single integer from 0 to 35 only, no extra text.
 
@@ -1945,17 +1985,19 @@ GUIDELINES
     console.log(`🤖 Calling OpenAI API (model: gpt-5.4-mini)...`)
     const apiStartTime = Date.now()
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-5.4-mini",
-      messages: [
-        { role: "system", content: systemMessage },
-        { role: "user", content: userMessage }
-      ],
-      max_completion_tokens: 60,
-      temperature: 0
-    }, {
-      timeout: 6500
-    })
+    const completion = await openAIRetry('OpenAI compatibility request', () =>
+      openai.chat.completions.create({
+        model: "gpt-5.4-mini",
+        messages: [
+          { role: "system", content: systemMessage },
+          { role: "user", content: userMessage }
+        ],
+        max_completion_tokens: 60,
+        temperature: 0
+      }, {
+        timeout: 6500
+      })
+    )
     
     const apiDuration = Date.now() - apiStartTime
     console.log(`   ✅ OpenAI API responded in ${apiDuration}ms`)
@@ -1968,6 +2010,10 @@ GUIDELINES
     // Validate score is within range
     if (isNaN(score) || score < 0 || score > 35) {
       console.warn("❌ Invalid AI score, using default:", rawResponse)
+      if (vibeMeta) {
+        vibeMeta.cacheable = false
+        vibeMeta.fallbackReason = 'invalid_openai_response'
+      }
       return 14 // Neutral fallback; caller scales 14/35 to 10/25
     }
 
@@ -1985,7 +2031,7 @@ GUIDELINES
       console.error("   API response status:", error.response.status)
       console.error("   API response data:", error.response.data)
     }
-    return 14 // Neutral fallback; caller scales 14/35 to 10/25
+    throw error
   }
 }
 

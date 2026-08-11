@@ -4319,18 +4319,16 @@ export default async function handler(req, res) {
           .select("event_finished")
           .eq("event_id", event_id)
           .limit(1)
-          .single()
+          .maybeSingle()
 
         if (error) {
           console.error("Error getting event finished status:", error)
-          
-          // If no record exists, return default (false)
-          if (error.code === 'PGRST116') {
-            console.log(`No match_results records found for event ${event_id}, returning default finished (false)`)
-            return res.status(200).json({ finished: false })
-          }
-          
           return res.status(500).json({ error: error.message })
+        }
+
+        if (!data) {
+          console.log(`No match_results records found for event ${event_id}, returning default finished (false)`)
+          return res.status(200).json({ finished: false })
         }
 
         const finished = data?.event_finished === true // Default to false (ongoing) if null/undefined

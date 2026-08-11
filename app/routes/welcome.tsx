@@ -684,7 +684,7 @@ export default function WelcomePage() {
 
 
   const searchParams = useSearchParams()[0]
-  const token = searchParams.get("token")
+  const token = searchParams.get("token")?.trim() || null
   const forceRound = searchParams.get("force_round")
   const [currentRound, setCurrentRound] = useState(1)
   
@@ -3819,7 +3819,8 @@ export default function WelcomePage() {
       return;
     }
     
-    if (!token.trim()) {
+    const normalizedToken = token.trim();
+    if (!normalizedToken) {
       handleTokenAttempt('token', false);
       toast.error("يرجى إدخال رمز صحيح");
       return;
@@ -3830,17 +3831,17 @@ export default function WelcomePage() {
     handleTokenAttempt('token', true);
     
     // Save token to localStorage before redirecting
-    saveUserToken(token);
-    console.log('💾 Saved returning player token before navigation:', token);
+    saveUserToken(normalizedToken);
+    console.log('💾 Saved returning player token before navigation:', normalizedToken);
     
     // Immediately check for incomplete survey and show popup if needed instead of redirecting
-    const hasIncomplete = await checkIncompleteSurvey(token);
+    const hasIncomplete = await checkIncompleteSurvey(normalizedToken);
     if (hasIncomplete) {
       // Popup will show; do not redirect so user can choose to redo survey
       return;
     }
     
-    window.location.href = `/welcome?token=${encodeURIComponent(token)}&redo=1`;
+    window.location.href = `/welcome?token=${encodeURIComponent(normalizedToken)}&redo=1`;
   };
 
   // Navigate to results page
@@ -3851,7 +3852,8 @@ export default function WelcomePage() {
       return;
     }
     
-    if (!token.trim()) {
+    const normalizedToken = token.trim();
+    if (!normalizedToken) {
       handleTokenAttempt('resultToken', false);
       toast.error("يرجى إدخال رمز صحيح");
       return;
@@ -3862,11 +3864,11 @@ export default function WelcomePage() {
     handleTokenAttempt('resultToken', true);
     
     // Save token to localStorage before redirecting
-    saveUserToken(token);
-    console.log('💾 Saved result token before navigation:', token);
+    saveUserToken(normalizedToken);
+    console.log('💾 Saved result token before navigation:', normalizedToken);
     
     // Navigate to results page with token as URL parameter
-    window.location.href = `/results?token=${encodeURIComponent(token)}`;
+    window.location.href = `/results?token=${encodeURIComponent(normalizedToken)}`;
   };
 
   const restart = () => {
@@ -4683,7 +4685,13 @@ export default function WelcomePage() {
   useEffect(() => {
     const savedName = localStorage.getItem('blindmatch_participant_name');
     const savedNumber = localStorage.getItem('blindmatch_participant_number');
-    const savedToken = localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token');
+    const rawSavedToken = localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token');
+    const savedToken = rawSavedToken?.trim() || null;
+
+    if (savedToken && savedToken !== rawSavedToken) {
+      localStorage.setItem('blindmatch_result_token', savedToken);
+      localStorage.setItem('blindmatch_returning_token', savedToken);
+    }
     
     if (savedName) {
       setParticipantName(savedName);
@@ -4765,17 +4773,18 @@ export default function WelcomePage() {
 
   // Save token when user successfully completes survey or joins
   const saveUserToken = (token: string, name?: string, number?: number) => {
-    if (token && token.trim()) {
-      localStorage.setItem('blindmatch_result_token', token);
-      localStorage.setItem('blindmatch_returning_token', token);
+    const normalizedToken = token.trim();
+    if (normalizedToken) {
+      localStorage.setItem('blindmatch_result_token', normalizedToken);
+      localStorage.setItem('blindmatch_returning_token', normalizedToken);
       if (name) {
         localStorage.setItem('blindmatch_participant_name', name);
       }
       if (number) {
         localStorage.setItem('blindmatch_participant_number', number.toString());
       }
-      setResultToken(token);
-      setReturningPlayerToken(token);
+      setResultToken(normalizedToken);
+      setReturningPlayerToken(normalizedToken);
     }
   };
 

@@ -1,6 +1,6 @@
 import crypto from "crypto"
 import { normalizeInboundAction, resolveInboundAction } from "./inbound-actions.mjs"
-import { confirmationPaymentState, isParticipantEnrolledForEvent, paymentAccessState } from "./confirmation-policy.mjs"
+import { attendanceDeclineAccessState, confirmationPaymentState, isParticipantEnrolledForEvent, paymentAccessState } from "./confirmation-policy.mjs"
 import { supabaseAdmin } from "../security/supabase-admin.mjs"
 
 const supabase = supabaseAdmin
@@ -414,7 +414,7 @@ async function paymentReply(participant) {
 
 async function denyAttendance(participant, from) {
   const eventId = await getCurrentEventId()
-  const accessState = paymentAccessState(participant, eventId)
+  const accessState = attendanceDeclineAccessState(participant, eventId)
   if (accessState !== "eligible") {
     await recordBlockedAccess(participant, eventId, "deny_attendance", accessState)
     const responseKey = accessState === "not_enrolled" ? "current_event_signup_required" : "current_event_not_contacted"

@@ -182,13 +182,14 @@ export default async function handler(req, res) {
   // GROUP PHONE LOGIN: semi-login for groups by phone number
   if (action === "group-phone-login") {
     try {
-      const { phone_number, secure_token } = req.body
+      const { phone_number } = req.body
+      const secureToken = typeof req.body?.secure_token === "string" ? req.body.secure_token.trim() : ""
       const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
 
       if (!phone_number || typeof phone_number !== 'string') {
         return res.status(400).json({ success: false, error: "Missing or invalid phone_number" })
       }
-      if (!secure_token || typeof secure_token !== 'string') {
+      if (!secureToken) {
         return res.status(401).json({ success: false, error: "OTP verification is required" })
       }
 
@@ -291,7 +292,7 @@ export default async function handler(req, res) {
         .from("participants")
         .select("id, assigned_number, secure_token, name, survey_data, phone_number, event_id, created_at")
         .eq("match_id", match_id)
-        .eq("secure_token", secure_token)
+        .eq("secure_token", secureToken)
         .not("phone_number", "is", null)
         .ilike("phone_number", `%${lastSeven}`)
         .order("created_at", { ascending: false })
@@ -519,14 +520,15 @@ export default async function handler(req, res) {
 
   if (action === "resolve-token") {
     console.log("[API] Action: resolve-token started");
-    if (!req.body.secure_token) {
+    const secureToken = typeof req.body?.secure_token === "string" ? req.body.secure_token.trim() : "";
+    if (!secureToken) {
       console.log("[API] Error: Missing secure_token");
       return res.status(400).json({ error: 'Missing secure_token' });
     }
     const { data, error } = await supabase
       .from("participants")
       .select("assigned_number, name, survey_data, summary, signup_for_next_event, auto_signup_next_event, humor_banter_style, early_openness_comfort, same_gender_preference, any_gender_preference, gender, phone_number, age, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_one_year, intent_goal, open_intent_goal_mismatch")
-      .eq("secure_token", req.body.secure_token)
+      .eq("secure_token", secureToken)
       .single();
 
     console.log("[API] Participant token lookup completed", { found: Boolean(data), hasError: Boolean(error) });

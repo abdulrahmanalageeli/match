@@ -1144,8 +1144,7 @@ function checkInteractionStyleCompatibility(participantA, participantB) {
   // Check humor/banter style compatibility
   const humorCompatible = checkHumorCompatibility(humorA, humorB)
   if (!humorCompatible) {
-    console.log(`🚫 Humor incompatible: ${participantA.assigned_number} (${humorA}) × ${participantB.assigned_number} (${humorB})`)
-    return false
+    console.log(`⚠️ Humor A↔D warning (pair retained): ${participantA.assigned_number} (${humorA}) × ${participantB.assigned_number} (${humorB})`)
   }
   
   // Check early openness compatibility
@@ -1157,6 +1156,12 @@ function checkInteractionStyleCompatibility(participantA, participantB) {
   
   console.log(`✅ Interaction styles compatible: ${participantA.assigned_number} (H:${humorA}, O:${opennessA}) × ${participantB.assigned_number} (H:${humorB}, O:${opennessB})`)
   return true
+}
+
+function hasHumorStyleClash(participantA, participantB) {
+  const humorA = String(participantA?.humor_banter_style || participantA?.survey_data?.humor_banter_style || participantA?.survey_data?.answers?.humor_banter_style || '').toUpperCase()
+  const humorB = String(participantB?.humor_banter_style || participantB?.survey_data?.humor_banter_style || participantB?.survey_data?.answers?.humor_banter_style || '').toUpperCase()
+  return (humorA === 'A' && humorB === 'D') || (humorA === 'D' && humorB === 'A')
 }
 
 // Helper function to check humor/banter style compatibility
@@ -1486,6 +1491,7 @@ async function getCachedCompatibility(participantA, participantB, options = {}) 
         attachmentPenaltyApplied,
         intentBoostApplied,
         deadAirVetoApplied,
+        humorClashDetected: !!vetoClash,
         humorClashVetoApplied,
         maxScoreCapApplied,
         capApplied,
@@ -1856,6 +1862,7 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
     attachmentPenaltyApplied,
     intentBoostApplied,
     deadAirVetoApplied,
+    humorClashDetected: !!vetoClash,
     humorClashVetoApplied,
     maxScoreCapApplied,
     capApplied,
@@ -3533,8 +3540,13 @@ function buildManualPairGateReport({
     `#${a.number}: ${a.nationality || 'missing'}${a.sameNationality ? ' (requires same)' : ''} · #${b.number}: ${b.nationality || 'missing'}${b.sameNationality ? ' (requires same)' : ''}`)
   add('age', 'Mutual age ranges', checkAgeRangeHardGate(participantA, participantB, { recordTolerance: false }),
     `#${a.number}: age ${a.age ?? '?'} / accepts ${a.ageRange} · #${b.number}: age ${b.age ?? '?'} / accepts ${b.ageRange}`)
-  add('interaction', 'Humor and early-openness veto', checkInteractionStyleCompatibility(participantA, participantB),
+  add('interaction', 'Early-openness compatibility', checkInteractionStyleCompatibility(participantA, participantB),
     `#${a.number}: humor ${a.humor ?? '?'}, openness ${a.openness ?? '?'} · #${b.number}: humor ${b.humor ?? '?'}, openness ${b.openness ?? '?'}`)
+  add('humor_clash', 'A↔D humor-style warning', !hasHumorStyleClash(participantA, participantB),
+    hasHumorStyleClash(participantA, participantB)
+      ? `#${a.number} and #${b.number} have A↔D humor styles; pair retained with a warning badge and the normal score cap`
+      : 'No A↔D humor-style clash',
+    { blocking: false })
   add('intent', 'Meeting goal', true,
     `#${a.number}: ${a.intent || 'missing'} · #${b.number}: ${b.intent || 'missing'} · scoring preference only, not a hard gate`,
     { blocking: false, applicable: false })
@@ -3578,7 +3590,7 @@ function getLockedMatch(participantA, participantB, lockedPairs) {
   )
 }
 
-export { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkIntentHardGate, checkInteractionStyleCompatibility, fetchAllCachedPairs, calculateHumorOpennessScore, calculateInteractionSynergyScore, calculateLifestyleCompatibility, calculateConversationInitiativePreferenceScore, getOneYearAgeFlexDecision, getAgeTolerance, buildManualPairGateReport }
+export { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkIntentHardGate, checkInteractionStyleCompatibility, hasHumorStyleClash, fetchAllCachedPairs, calculateHumorOpennessScore, calculateInteractionSynergyScore, calculateLifestyleCompatibility, calculateConversationInitiativePreferenceScore, getOneYearAgeFlexDecision, getAgeTolerance, buildManualPairGateReport }
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -5365,6 +5377,7 @@ if (action === "cache-status-by-gender") {
             attachment_penalty_applied: compatibilityResult.attachmentPenaltyApplied || false,
             intent_boost_applied: compatibilityResult.intentBoostApplied || false,
             dead_air_veto_applied: compatibilityResult.deadAirVetoApplied || false,
+            humor_clash_detected: compatibilityResult.humorClashDetected || hasHumorStyleClash(targetParticipant, potentialMatch),
             humor_clash_veto_applied: compatibilityResult.humorClashVetoApplied || false,
             cap_applied: compatibilityResult.capApplied || null,
             reason: (
@@ -6027,6 +6040,7 @@ if (action === "cache-status-by-gender") {
           attachmentPenaltyApplied: !!compatibilityResult.attachmentPenaltyApplied,
           intentBoostApplied:       !!compatibilityResult.intentBoostApplied,
           deadAirVetoApplied:       !!compatibilityResult.deadAirVetoApplied,
+          humorClashDetected:       !!compatibilityResult.humorClashDetected || hasHumorStyleClash(p1, p2),
           humorClashVetoApplied:    !!compatibilityResult.humorClashVetoApplied,
           maxScoreCapApplied:       !!compatibilityResult.maxScoreCapApplied,
           opennessZeroZeroPenaltyApplied: !!compatibilityResult.opennessZeroZeroPenaltyApplied,
@@ -6695,6 +6709,7 @@ if (action === "cache-status-by-gender") {
           compatibilityResult.opennessZeroZeroPenaltyApplied = _opennessPenalty2.type === 'both_closed'
           compatibilityResult.intentBoostApplied = _derivedIntent2 >= 4
           compatibilityResult.deadAirVetoApplied = _deadAirApplied2
+          compatibilityResult.humorClashDetected = !!_vetoClash2
           compatibilityResult.humorClashVetoApplied = _humorClashApplied2
           compatibilityResult.maxScoreCapApplied = _maxScoreCapApplied2
           compatibilityResult.capApplied = _deadAirApplied2 ? 40 : (_humorClashApplied2 ? 50 : null)
@@ -6776,6 +6791,7 @@ if (action === "cache-status-by-gender") {
         const attachmentPenaltyApplied = !!compatibilityResult.attachmentPenaltyApplied
         const intentBoostApplied = !!compatibilityResult.intentBoostApplied
         const deadAirVetoApplied = !!compatibilityResult.deadAirVetoApplied
+        const humorClashDetected = !!compatibilityResult.humorClashDetected || hasHumorStyleClash(a, b)
         const humorClashVetoApplied = !!compatibilityResult.humorClashVetoApplied
         const capApplied = compatibilityResult.capApplied ?? null
         const opennessPenalty = calculateOpennessPenalty(a, b)
@@ -6874,6 +6890,7 @@ if (action === "cache-status-by-gender") {
           attachmentPenaltyApplied: attachmentPenaltyApplied,
           intentBoostApplied: intentBoostApplied,
           deadAirVetoApplied: deadAirVetoApplied,
+          humorClashDetected: humorClashDetected,
           humorClashVetoApplied: humorClashVetoApplied,
           capApplied: capApplied,
           // Intent letters for admin UI
@@ -7532,6 +7549,7 @@ if (action === "cache-status-by-gender") {
       attachment_penalty_applied: !!pair.attachmentPenaltyApplied,
       intent_boost_applied: !!pair.intentBoostApplied,
       dead_air_veto_applied: !!pair.deadAirVetoApplied,
+      humor_clash_detected: !!pair.humorClashDetected,
       humor_clash_veto_applied: !!pair.humorClashVetoApplied,
       cap_applied: pair.capApplied ?? null,
       humor_early_openness_bonus: pair.bonusType,

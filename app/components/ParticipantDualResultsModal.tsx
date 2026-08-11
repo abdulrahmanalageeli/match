@@ -13,6 +13,8 @@ interface PartnerMatch {
   core_values_compatibility_score?: number
   vibe_compatibility_score?: number
   humor_early_openness_bonus?: 'full' | 'partial' | 'none'
+  humor_clash_detected?: boolean
+  humor_clash_veto_applied?: boolean
   is_organizer_match?: boolean
   table_number?: number | null
   reason?: string
@@ -117,6 +119,11 @@ function MatchSide({
           <span className="text-white/60">طاولة {match.table_number}</span>
         )}
       </div>
+      {(match.humor_clash_detected || match.humor_clash_veto_applied) && (
+        <span title="اختلاف أسلوب الدعابة A↔D — المطابقة مسموحة مع تنبيه" className="mt-1 inline-flex w-fit items-center gap-1 rounded-full border border-amber-400/30 bg-amber-500/15 px-2 py-1 text-[10px] font-black text-amber-200">
+          <AlertTriangle className="h-3 w-3" /> A↔D دعابة
+        </span>
+      )}
       {(match.mbti_compatibility_score != null || match.vibe_compatibility_score != null) && (
         <div className="grid grid-cols-3 gap-1 text-[10px] text-white/70 mt-1">
           {match.mbti_compatibility_score != null && (

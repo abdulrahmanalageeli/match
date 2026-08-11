@@ -40,6 +40,7 @@ interface ParticipantMatch {
   attachment_penalty_applied?: boolean
   intent_boost_applied?: boolean
   dead_air_veto_applied?: boolean
+  humor_clash_detected?: boolean
   humor_clash_veto_applied?: boolean
   cap_applied?: number | null
   reason?: string
@@ -386,6 +387,7 @@ export default function ParticipantDetailModal({
     match.attachment_penalty_applied,
     match.intent_boost_applied,
     match.dead_air_veto_applied,
+    match.humor_clash_detected,
     match.humor_clash_veto_applied,
     match.openness_zero_zero_penalty_applied,
     match.cap_applied != null,
@@ -852,6 +854,7 @@ export default function ParticipantDetailModal({
                             {renderParticipantBadges(match.participant_number)}
                           </td>
                           <td className="p-4 text-center">
+                            <div className="flex flex-col items-center gap-1.5">
                             {match.is_actual_match ? (
                               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-500/20 border border-green-400/30 text-green-300 text-xs">
                                 <Heart className="w-3 h-3" />
@@ -868,6 +871,12 @@ export default function ParticipantDetailModal({
                                 محتملة
                               </span>
                             )}
+                            {(match.humor_clash_detected || match.humor_clash_veto_applied) && (
+                              <span title="اختلاف أسلوب الدعابة A↔D — لم يعد يستبعد هذا الشخص" className="inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-500/15 px-2 py-1 text-[10px] font-black text-amber-200">
+                                <AlertTriangle className="h-3 w-3" /> A↔D دعابة
+                              </span>
+                            )}
+                            </div>
                           </td>
                           <td className="p-4 text-center">
                             <div className="flex flex-col items-center gap-1.5">
@@ -960,6 +969,7 @@ export default function ParticipantDetailModal({
                                   !!match.intent_boost_applied ||
                                   !!match.attachment_penalty_applied ||
                                   !!match.dead_air_veto_applied ||
+                                  !!match.humor_clash_detected ||
                                   !!match.humor_clash_veto_applied ||
                                   match.cap_applied != null ||
                                   (match.humor_early_openness_bonus && match.humor_early_openness_bonus !== 'none')
@@ -1041,8 +1051,8 @@ export default function ParticipantDetailModal({
                                                 {tolerated && (
                                                   <div className="text-yellow-300">• تسامح العمر: خارج النطاق ضمن ±1 سنة</div>
                                                 )}
-                                                {match.humor_clash_veto_applied && (
-                                                  <div className="text-red-300">• تعارض الدعابة: تم تقييد الدرجة إلى 50%</div>
+                                                {(match.humor_clash_detected || match.humor_clash_veto_applied) && (
+                                                  <div className="text-amber-300">• اختلاف الدعابة A↔D: الشخص متاح{match.humor_clash_veto_applied ? '، وتم تقييد الدرجة إلى 50%' : ''}</div>
                                                 )}
                                                 {match.cap_applied != null && (
                                                   <div className="text-yellow-300">• تقييد نهائي: {match.cap_applied}%</div>

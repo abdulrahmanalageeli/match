@@ -127,6 +127,15 @@ function ScorePill({ score, previous }: { score: number | null; previous?: numbe
   )
 }
 
+function HumorClashBadge({ pair, compact = false }: { pair?: any; compact?: boolean }) {
+  if (!pair?.humor_clash_detected && !pair?.humor_clash_veto_applied) return null
+  return (
+    <span title="اختلاف واضح في أسلوب الدعابة A↔D — الزوج ما زال متاحاً" className={`inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-500/12 font-black text-amber-200 ${compact ? 'px-1.5 py-0.5 text-[9px]' : 'px-2 py-1 text-[10px]'}`}>
+      <AlertTriangle className={compact ? 'h-2.5 w-2.5' : 'h-3 w-3'} /> A↔D
+    </span>
+  )
+}
+
 function MatchInsightsCoverageBadge({ pair, compact = false }: { pair?: any; compact?: boolean }) {
   const coverage = getPairMatchInsightsCoverage(pair)
   const meta = coverage.status === "both"
@@ -401,6 +410,7 @@ export default function MatchControlCenterModal({
           attachment_penalty_applied: pair.attachment_penalty_applied,
           intent_boost_applied: pair.intent_boost_applied,
           dead_air_veto_applied: pair.dead_air_veto_applied,
+          humor_clash_detected: pair.humor_clash_detected,
           humor_clash_veto_applied: pair.humor_clash_veto_applied,
           cap_applied: pair.cap_applied,
           reason: pair.reason,
@@ -851,12 +861,13 @@ export default function MatchControlCenterModal({
                       {candidates.map(candidate => {
                         const meta = candidate.bestPlan ? verdictMeta[candidate.bestPlan.verdict] : verdictMeta.risky
                         const Icon = meta.icon
+                        const candidatePairData = scoreLookup.get(pairKey(swapSource!, candidate.number))
                         return (
                           <button key={candidate.number} onClick={() => setSwapTarget(candidate.number)} className={`w-full rounded-xl border p-2.5 text-right transition ${swapTarget === candidate.number ? "border-cyan-400/45 bg-cyan-500/10" : "border-white/8 bg-white/[0.025] hover:bg-white/[0.055]"}`}>
                             <div className="flex items-center gap-2">
                               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-800 text-[11px] font-black text-slate-200">#{candidate.number}</span>
                               <span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold text-white">{getPersonName(candidate.person, candidate.number)}</span><span className="mt-1 flex flex-wrap items-center gap-1"><SeatBadge person={candidate.person} compact />{candidate.currentPartner && <span className="text-[9px] text-slate-500">مع #{candidate.currentPartner}</span>}</span></span>
-                              <span className="flex flex-col items-end gap-1"><ScorePill score={candidate.score} /><span className={`inline-flex items-center gap-1 text-[9px] font-bold ${candidate.bestPlan?.verdict === "recommended" ? "text-emerald-300" : candidate.bestPlan?.verdict === "risky" ? "text-red-300" : "text-amber-300"}`}><Icon className="h-3 w-3" />{meta.label}</span></span>
+                              <span className="flex flex-col items-end gap-1"><ScorePill score={candidate.score} /><HumorClashBadge pair={candidatePairData} compact /><span className={`inline-flex items-center gap-1 text-[9px] font-bold ${candidate.bestPlan?.verdict === "recommended" ? "text-emerald-300" : candidate.bestPlan?.verdict === "risky" ? "text-red-300" : "text-amber-300"}`}><Icon className="h-3 w-3" />{meta.label}</span></span>
                             </div>
                           </button>
                         )
@@ -890,7 +901,7 @@ export default function MatchControlCenterModal({
                   <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.055] to-white/[0.015] p-3 sm:p-5">
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                       <div><p className="text-[10px] font-bold uppercase tracking-widest text-cyan-300">المطابقة الحالية</p><h3 className="mt-0.5 text-lg font-black text-white">عرض الزوج والنتائج الفردية</h3></div>
-                      <div className="flex flex-wrap items-center justify-end gap-2"><MatchInsightsCoverageBadge pair={selectedPairData} /><ScorePill score={selectedPair.score} />{selectedLocked && <span className="flex items-center gap-1 rounded-full border border-blue-400/25 bg-blue-500/10 px-2 py-1 text-[10px] font-bold text-blue-200"><Lock className="h-3 w-3" /> مثبت</span>}</div>
+                      <div className="flex flex-wrap items-center justify-end gap-2"><HumorClashBadge pair={selectedPairData} /><MatchInsightsCoverageBadge pair={selectedPairData} /><ScorePill score={selectedPair.score} />{selectedLocked && <span className="flex items-center gap-1 rounded-full border border-blue-400/25 bg-blue-500/10 px-2 py-1 text-[10px] font-bold text-blue-200"><Lock className="h-3 w-3" /> مثبت</span>}</div>
                     </div>
                     <div className="flex items-stretch gap-2 sm:gap-3">
                       <PersonButton number={selectedPair.a} person={selectedA} onClick={() => startSwap(selectedPair.a)} onIndividual={() => openIndividual(selectedPair.a)} />
@@ -989,7 +1000,7 @@ function PairScoreName({ number, other, people, pairData, fallbackScore, align }
     pairData?.intent_boost_applied ? "مكافأة توافق الهدف مطبقة" : null,
     pairData?.attachment_penalty_applied ? "خصم نمط التعلق مطبق" : null,
     pairData?.dead_air_veto_applied ? "تحذير صمت/تفاعل مطبق" : null,
-    pairData?.humor_clash_veto_applied ? "تحذير تعارض الدعابة مطبق" : null,
+    (pairData?.humor_clash_detected || pairData?.humor_clash_veto_applied) ? "اختلاف أسلوب الدعابة A↔D — الزوج متاح مع تنبيه" : null,
     pairData?.cap_applied ? `تم تحديد السقف عند ${pairData.cap_applied}%` : null,
   ].filter((item): item is string => Boolean(item))
   return (

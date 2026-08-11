@@ -68,6 +68,115 @@ import PairAnalysisModal from "~/components/PairAnalysisModalPro"
 import { getParticipantMatchInsightsCompletion } from "~/lib/matchControl"
 
 // ─── Match Analyzer Modal ───────────────────────────────────────────────────
+function ManualCompatibilityResultModal({ data, onClose }: { data: any; onClose: () => void }) {
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => event.key === 'Escape' && onClose()
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [onClose])
+
+  const result = data?.result || {}
+  const gateReport = data?.gate_report || {}
+  const score = Math.max(0, Math.min(100, Number(data?.compatibility_score) || 0))
+  const round = (value: any) => Math.round((Number(value) || 0) * 100) / 100
+  const coreValues = result.coreValuesScaled5 != null
+    ? Number(result.coreValuesScaled5)
+    : Math.max(0, Math.min(5, ((Number(result.core_values_compatibility_score) || 0) / 20) * 5))
+  const gates = Array.isArray(gateReport.gates) ? gateReport.gates : []
+  const blockers = gates.filter((gate: any) => gate.blocking && gate.applicable !== false && gate.passed !== true)
+  const warnings = gates.filter((gate: any) => gate.blocking === false && gate.applicable !== false && gate.passed !== true)
+  const eligible = gateReport.eligible === true
+  const categories = [
+    { label: 'Synergy', value: result.synergyScore, max: 30, icon: '⚡', color: '#22d3ee' },
+    { label: 'Core Values', value: coreValues, max: 5, icon: '🧩', color: '#a78bfa' },
+    { label: 'Lifestyle', value: result.lifestyleScore, max: 10, icon: '🏠', color: '#34d399' },
+    { label: 'Humor & Openness', value: result.humorOpenScore, max: 15, icon: '😄', color: '#fbbf24' },
+    { label: 'Communication', value: result.communicationScore, max: 3, icon: '💬', color: '#60a5fa' },
+    { label: 'AI Vibe', value: result.vibeScore, max: 25, icon: '✨', color: '#f472b6' },
+    { label: 'Disagreement Style', value: result.disagreementScore, max: 4, icon: '🧭', color: '#fb7185' },
+    { label: 'Current Focus', value: result.currentFocusScore, max: 5, icon: '🔎', color: '#2dd4bf' },
+    { label: 'Similarity Preference', value: result.similarityPreferenceScore, max: 5, icon: '🪞', color: '#c084fc' },
+    { label: 'Connection Pace', value: result.attachmentPaceScore, max: 3, icon: '🤝', color: '#4ade80' },
+    { label: 'Meeting Goal', value: result.intentScore, max: 5, icon: '🎯', color: '#fb923c' },
+  ].filter(item => item.value != null)
+  const safety: string[] = []
+  if (Number(result.opennessPenalty) < 0) safety.push(`Openness penalty: ${result.opennessPenalty} (${result.opennessPenaltyType || 'rule'})`)
+  if (Number(result.humor_multiplier) > 1) safety.push(`Humor & openness multiplier: ×${result.humor_multiplier} (${result.humor_bonus || 'bonus'})`)
+  if (result.intentBoostApplied) safety.push('Strong intent alignment is included in the meeting-goal points')
+  if (result.deadAirVetoApplied) safety.push('Final score capped by the Dead-Air safety rule at 40%')
+  if (result.humorClashVetoApplied) safety.push('Final score capped by the Humor Clash safety rule at 50%')
+  if (result.maxScoreCapApplied) safety.push('Final score capped at the model maximum of 100%')
+  if (result.capApplied && !result.deadAirVetoApplied && !result.humorClashVetoApplied) safety.push(`Final score capped by a safety rule at ${result.capApplied}%`)
+  const participantLabel = (number: any, name?: string) => name ? `${name} · #${number}` : `Participant #${number}`
+
+  return (
+    <div className="fixed inset-0 z-[350] flex items-center justify-center bg-slate-950/85 p-2 backdrop-blur-xl sm:p-5" onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-label="Manual compatibility test result" className="relative max-h-[96vh] w-full max-w-6xl overflow-hidden rounded-[28px] border border-cyan-300/20 bg-slate-950 text-white shadow-[0_30px_120px_rgba(6,182,212,0.22)]" onClick={(event) => event.stopPropagation()}>
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.18),transparent_68%)]" />
+        <div className="relative max-h-[96vh] overflow-y-auto">
+          <header className="border-b border-white/10 px-5 py-5 sm:px-8 sm:py-7">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.2em] text-cyan-200">Test mode · Read only</span>
+                  <span className={`rounded-full border px-3 py-1 text-[11px] font-bold ${eligible ? 'border-emerald-300/25 bg-emerald-400/10 text-emerald-200' : 'border-red-300/25 bg-red-400/10 text-red-200'}`}>{eligible ? 'All eligibility gates passed' : `${blockers.length} blocking gate${blockers.length === 1 ? '' : 's'}`}</span>
+                </div>
+                <h2 className="text-2xl font-black tracking-tight sm:text-4xl">Compatibility Intelligence Report</h2>
+                <p className="mt-2 text-sm text-slate-400 sm:text-base">{participantLabel(data.participant1, data.participant_a_name)}<span className="mx-2 text-cyan-300">↔</span>{participantLabel(data.participant2, data.participant_b_name)}</p>
+              </div>
+              <button onClick={onClose} className="rounded-full border border-white/10 bg-white/5 p-2.5 text-slate-400 transition hover:bg-white/10 hover:text-white" aria-label="Close report"><X className="h-5 w-5" /></button>
+            </div>
+          </header>
+
+          <main className="relative space-y-6 p-4 sm:p-8">
+            <section className="grid gap-4 lg:grid-cols-[280px_1fr]">
+              <div className="flex flex-col items-center justify-center rounded-3xl border border-white/10 bg-white/[0.035] p-6">
+                <div className="relative grid h-44 w-44 place-items-center rounded-full" style={{ background: `conic-gradient(${eligible ? '#34d399' : '#22d3ee'} ${score * 3.6}deg, rgba(148,163,184,0.12) 0deg)` }}>
+                  <div className="grid h-36 w-36 place-items-center rounded-full border border-white/10 bg-slate-950 shadow-inner"><div className="text-center"><div className="text-5xl font-black tracking-tighter">{round(score)}<span className="text-2xl text-slate-500">%</span></div><div className="mt-1 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">Final score</div></div></div>
+                </div>
+                <div className={`mt-5 flex items-center gap-2 text-sm font-bold ${eligible ? 'text-emerald-300' : 'text-red-300'}`}>{eligible ? <CheckCircle className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}{eligible ? 'Eligible to appear together' : 'Not eligible for automatic matching'}</div>
+                <p className="mt-2 text-center text-xs leading-5 text-slate-500">{eligible ? 'The pair passes every active gate. Final selection can still depend on global optimization and stronger allocations.' : 'This is their theoretical compatibility score. Blocking gates always take priority over the score.'}</p>
+              </div>
+
+              <div className="rounded-3xl border border-white/10 bg-white/[0.025] p-4 sm:p-6">
+                <div className="mb-5 flex items-center justify-between gap-3"><div><h3 className="flex items-center gap-2 text-lg font-black"><BarChart3 className="h-5 w-5 text-cyan-300" /> Score architecture</h3><p className="mt-1 text-xs text-slate-500">Every scoring dimension used by the current model</p></div><span className="hidden rounded-xl border border-white/10 bg-black/20 px-3 py-2 font-mono text-xs text-slate-400 sm:block">{data.score_model_version || 'Model unavailable'}</span></div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {categories.map(category => {
+                    const percentage = Math.max(0, Math.min(100, (Number(category.value) / category.max) * 100))
+                    return <div key={category.label} className="rounded-2xl border border-white/10 bg-slate-900/70 p-3.5"><div className="mb-2.5 flex items-center justify-between gap-3"><span className="flex items-center gap-2 text-sm font-semibold"><span>{category.icon}</span>{category.label}</span><span className="font-mono text-sm font-black" style={{ color: category.color }}>{round(category.value)}<span className="text-slate-600">/{category.max}</span></span></div><div className="h-1.5 overflow-hidden rounded-full bg-white/5"><div className="h-full rounded-full transition-all duration-700" style={{ width: `${percentage}%`, backgroundColor: category.color, boxShadow: `0 0 14px ${category.color}66` }} /></div></div>
+                  })}
+                </div>
+              </div>
+            </section>
+
+            <section className={`rounded-3xl border p-4 sm:p-6 ${eligible ? 'border-emerald-300/20 bg-emerald-400/[0.04]' : 'border-red-300/20 bg-red-400/[0.04]'}`}>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="flex items-center gap-2 text-lg font-black"><Shield className={`h-5 w-5 ${eligible ? 'text-emerald-300' : 'text-red-300'}`} /> Eligibility gate report</h3><p className={`mt-1 text-sm ${eligible ? 'text-emerald-200/80' : 'text-red-200/80'}`}>{gateReport.summary || 'Gate evaluation completed.'}</p></div><div className="flex flex-wrap gap-2 text-xs font-bold"><span className="rounded-lg bg-emerald-400/10 px-2.5 py-1.5 text-emerald-300">{gates.filter((gate: any) => gate.applicable !== false && gate.passed === true).length} passed</span><span className="rounded-lg bg-red-400/10 px-2.5 py-1.5 text-red-300">{blockers.length} blocked</span>{warnings.length > 0 && <span className="rounded-lg bg-amber-400/10 px-2.5 py-1.5 text-amber-300">{warnings.length} warning</span>}<span className="rounded-lg bg-white/5 px-2.5 py-1.5 text-slate-400">{gates.filter((gate: any) => gate.applicable === false).length} N/A</span></div></div>
+              <div className="grid gap-2 md:grid-cols-2">
+                {gates.map((gate: any) => {
+                  const inactive = gate.applicable === false
+                  const passed = gate.passed === true
+                  const warning = !inactive && !passed && gate.blocking === false
+                  return <div key={gate.key} className={`rounded-2xl border p-3.5 ${inactive ? 'border-white/10 bg-white/[0.02]' : passed ? 'border-emerald-300/15 bg-emerald-400/[0.035]' : warning ? 'border-amber-300/20 bg-amber-400/[0.06]' : 'border-red-300/20 bg-red-400/[0.06]'}`}><div className="flex items-start gap-3"><div className={`mt-0.5 rounded-full p-1 ${inactive ? 'bg-white/5 text-slate-500' : passed ? 'bg-emerald-400/10 text-emerald-300' : warning ? 'bg-amber-400/10 text-amber-300' : 'bg-red-400/10 text-red-300'}`}>{inactive ? <Minus className="h-3.5 w-3.5" /> : passed ? <CheckCircle className="h-3.5 w-3.5" /> : warning ? <AlertTriangle className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}</div><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="text-sm font-bold text-white">{gate.label}</p><span className={`text-[9px] font-black uppercase tracking-widest ${inactive ? 'text-slate-600' : passed ? 'text-emerald-400' : warning ? 'text-amber-400' : 'text-red-400'}`}>{inactive ? 'N/A' : passed ? 'Pass' : gate.blocking ? 'Block' : 'Warning'}</span></div><p className="mt-1 text-xs leading-5 text-slate-400">{gate.detail}</p></div></div></div>
+                })}
+              </div>
+            </section>
+
+            {safety.length > 0 && <section className="rounded-3xl border border-amber-300/20 bg-amber-300/[0.045] p-4 sm:p-6"><h3 className="flex items-center gap-2 text-lg font-black text-amber-100"><AlertTriangle className="h-5 w-5 text-amber-300" /> Safety rules & score caps</h3><div className="mt-3 grid gap-2 sm:grid-cols-2">{safety.map(item => <div key={item} className="rounded-xl border border-amber-200/10 bg-black/15 px-3 py-2.5 text-sm text-amber-100/80">{item}</div>)}</div></section>}
+
+            <section className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4"><p className="text-[10px] font-bold uppercase tracking-widest text-slate-600">Calculation mode</p><p className="mt-1 font-semibold capitalize text-slate-200">{data.mode || 'individual'}</p></div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4"><p className="text-[10px] font-bold uppercase tracking-widest text-slate-600">Cache</p><p className="mt-1 font-semibold capitalize text-slate-200">{data.cache_status || 'unknown'}</p></div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4"><p className="text-[10px] font-bold uppercase tracking-widest text-slate-600">Model</p><p className="mt-1 break-all font-mono text-xs text-slate-300">{data.score_model_version || 'unknown'}</p></div>
+            </section>
+            <details className="rounded-2xl border border-white/10 bg-black/20 p-4 text-xs text-slate-400"><summary className="cursor-pointer select-none font-bold text-slate-300">Raw diagnostic payload</summary><pre className="mt-4 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-black/30 p-4 font-mono text-[10px] leading-5 text-slate-500">{JSON.stringify(data.raw_payload || data, null, 2)}</pre></details>
+          </main>
+          <footer className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-white/10 bg-slate-950/90 px-5 py-4 backdrop-blur-xl sm:px-8"><p className="hidden text-xs text-slate-600 sm:block">No match was created and no participant data was changed.</p><button onClick={onClose} className="ml-auto rounded-xl bg-cyan-300 px-5 py-2.5 text-sm font-black text-slate-950 transition hover:bg-cyan-200">Close report</button></footer>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
   data: any
   weights: { synergy: number; vibe: number; lifestyle: number; humorOpen: number; communication: number; coreValues: number; intent: number }
@@ -675,6 +784,7 @@ export default function AdminPage() {
   const [manualAnalysisB, setManualAnalysisB] = useState<any | null>(null)
   const [manualAnalysisPair, setManualAnalysisPair] = useState<any | null>(null)
   const [manualGateReport, setManualGateReport] = useState<any | null>(null)
+  const [manualTestResult, setManualTestResult] = useState<any | null>(null)
   const [viewAllMatchesLoading, setViewAllMatchesLoading] = useState(false)
 
   // Deep personality analysis
@@ -3458,6 +3568,7 @@ const fetchParticipants = async () => {
     
     try {
       setManualGateReport(null)
+      setManualTestResult(null)
       const sendManualMatch = async (forceSwap: boolean) => {
         const res = await fetch("/api/admin/trigger-match", {
           method: "POST",
@@ -3564,6 +3675,19 @@ const fetchParticipants = async () => {
             lines.push('', `📊 Potential Score (if allowed): ${data.compatibility_score}%`)
           }
           toast[data.debug.reasons?.length ? 'error' : 'success'](lines.join('\n'), { duration: 7000 })
+          return
+        }
+        if (testModeOnly) {
+          const participantA = participants.find((participant: any) => Number(participant.assigned_number) === Number(participant1))
+          const participantB = participants.find((participant: any) => Number(participant.assigned_number) === Number(participant2))
+          setManualTestResult({
+            ...data,
+            participant1,
+            participant2,
+            participant_a_name: participantA?.name,
+            participant_b_name: participantB?.name,
+            result,
+          })
           return
         }
         let detailedMessage = testModeOnly 
@@ -4005,10 +4129,12 @@ const fetchParticipants = async () => {
       const allParticipants: any[] = partData.participants || []
       const nameMap = new Map<number, string>()
       const paidMap = new Map<number, boolean>()
+      const humorMap = new Map<number, string>()
       allParticipants.forEach((p: any) => {
         const n = p.name || p.survey_data?.name || `المشارك #${p.assigned_number}`
         nameMap.set(p.assigned_number, n)
         paidMap.set(p.assigned_number, !!p.PAID_DONE)
+        humorMap.set(p.assigned_number, String(p.humor_banter_style || p.survey_data?.answers?.humor_banter_style || '').toUpperCase())
       })
 
       // Helper: convert a raw match_results row into a UI-friendly partner object
@@ -4028,6 +4154,11 @@ const fetchParticipants = async () => {
           core_values_compatibility_score: match.core_values_compatibility_score || 0,
           vibe_compatibility_score: match.vibe_compatibility_score || 0,
           humor_early_openness_bonus: match.humor_early_openness_bonus || 'none',
+          humor_clash_detected: (
+            (humorMap.get(selfNumber) === 'A' && humorMap.get(partnerNum) === 'D') ||
+            (humorMap.get(selfNumber) === 'D' && humorMap.get(partnerNum) === 'A')
+          ),
+          humor_clash_veto_applied: !!match.humor_clash_veto_applied,
           is_organizer_match: partnerNum === 9999,
           table_number: match.table_number || null,
           reason: match.reason || '',
@@ -6810,7 +6941,7 @@ Proceed?`
               )}
             </div>
 
-            {manualGateReport && (
+            {manualGateReport && !testModeOnly && (
               <div className={`rounded-2xl border p-4 ${manualGateReport.eligible ? 'border-emerald-400/30 bg-emerald-500/5' : 'border-red-400/30 bg-red-500/5'}`}>
                 <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -9756,6 +9887,13 @@ Proceed?`
       )}
 
       </div>
+
+      {manualTestResult && (
+        <ManualCompatibilityResultModal
+          data={manualTestResult}
+          onClose={() => setManualTestResult(null)}
+        />
+      )}
 
       <PairAnalysisModal
         open={showManualPairAnalysis}

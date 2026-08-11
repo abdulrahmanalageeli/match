@@ -31,6 +31,7 @@ interface ParticipantResult {
   attachment_penalty_applied?: boolean
   intent_boost_applied?: boolean
   dead_air_veto_applied?: boolean
+  humor_clash_detected?: boolean
   humor_clash_veto_applied?: boolean
   humor_multiplier?: number
   cap_applied?: number | null
@@ -742,6 +743,7 @@ export default function ParticipantResultsModal({
         attachment_penalty_applied: pair.attachment_penalty_applied,
         intent_boost_applied: pair.intent_boost_applied,
         dead_air_veto_applied: pair.dead_air_veto_applied,
+        humor_clash_detected: pair.humor_clash_detected,
         humor_clash_veto_applied: pair.humor_clash_veto_applied,
         cap_applied: pair.cap_applied,
         reason: pair.reason,
@@ -1533,6 +1535,11 @@ export default function ParticipantResultsModal({
                                 </div>
                               )}
                               <MatchInsightsCoverageBadge pair={getResultPairData(participant)} />
+                              {(getResultPairData(participant)?.humor_clash_detected || getResultPairData(participant)?.humor_clash_veto_applied) && (
+                                <span title="اختلاف أسلوب الدعابة A↔D — الشخص ما زال ضمن النتائج" className="inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-500/15 px-2 py-1 text-[10px] font-black text-amber-200">
+                                  <AlertTriangle className="h-3 w-3" /> A↔D
+                                </span>
+                              )}
                               {/* Humor/Early Openness Bonus Indicator */}
                               {participant.humor_early_openness_bonus && participant.humor_early_openness_bonus !== 'none' && (
                                 <Tooltip.Provider delayDuration={300}>
@@ -1681,7 +1688,7 @@ export default function ParticipantResultsModal({
                               if (!y) return false
                               return (a === x && b === y) || (a === y && b === x)
                             })
-                            const hasAny = pair && (pair.intent_boost_applied || pair.attachment_penalty_applied || pair.dead_air_veto_applied || pair.humor_clash_veto_applied || pair.cap_applied != null || (pair.humor_early_openness_bonus && pair.humor_early_openness_bonus !== 'none'))
+                            const hasAny = pair && (pair.intent_boost_applied || pair.attachment_penalty_applied || pair.dead_air_veto_applied || pair.humor_clash_detected || pair.humor_clash_veto_applied || pair.cap_applied != null || (pair.humor_early_openness_bonus && pair.humor_early_openness_bonus !== 'none'))
                             const hasStructuredTolerance = pair && (
                               typeof pair.age_tolerance_used_a === 'boolean' ||
                               typeof pair.age_tolerance_used_b === 'boolean'
@@ -1813,8 +1820,8 @@ export default function ParticipantResultsModal({
                                                 {pair?.dead_air_veto_applied && (
                                                   <div className="text-red-300">• قيد الصمت: تم تقييد الدرجة إلى 40%</div>
                                                 )}
-                                                {pair?.humor_clash_veto_applied && (
-                                                  <div className="text-red-300">• تعارض الدعابة: تم تقييد الدرجة إلى 50%</div>
+                                                {(pair?.humor_clash_detected || pair?.humor_clash_veto_applied) && (
+                                                  <div className="text-amber-300">• اختلاف الدعابة A↔D: الشخص متاح{pair?.humor_clash_veto_applied ? '، وتم تقييد الدرجة إلى 50%' : ''}</div>
                                                 )}
                                                 {pair?.cap_applied != null && (
                                                   <div className="text-yellow-300">• تقييد نهائي: {pair.cap_applied}%</div>

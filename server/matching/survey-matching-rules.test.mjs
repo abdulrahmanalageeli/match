@@ -13,8 +13,10 @@ const {
   calculateLifestyleCompatibility,
   buildManualPairGateReport,
   checkAgeRangeHardGate,
+  checkInteractionStyleCompatibility,
   getAgeTolerance,
   getOneYearAgeFlexDecision,
+  hasHumorStyleClash,
   isParticipantComplete,
 } = await import("../../api/admin/trigger-match.mjs")
 
@@ -125,6 +127,30 @@ test("manual pair gate report scopes the same-gender payment gate to the active 
   assert.equal(paymentGate.applicable, true)
   assert.equal(paymentGate.passed, false)
   assert.ok(report.blockers.includes("payment"))
+})
+
+test("A-to-D humor clash is retained as a non-blocking warning", () => {
+  const a = gateParticipant(31, { humor_banter_style: "A" })
+  const b = gateParticipant(32, { humor_banter_style: "D" })
+  const report = buildManualPairGateReport({ participantA: a, participantB: b, eventId: 21 })
+  const humorWarning = report.gates.find(gate => gate.key === "humor_clash")
+
+  assert.equal(hasHumorStyleClash(a, b), true)
+  assert.equal(checkInteractionStyleCompatibility(a, b), true)
+  assert.equal(humorWarning.passed, false)
+  assert.equal(humorWarning.blocking, false)
+  assert.equal(report.blockers.includes("humor_clash"), false)
+  assert.equal(report.eligible, true)
+})
+
+test("extreme early-openness mismatch remains a blocking interaction gate", () => {
+  const a = gateParticipant(33, { humor_banter_style: "A", early_openness_comfort: 0 })
+  const b = gateParticipant(34, { humor_banter_style: "D", early_openness_comfort: 3 })
+  const report = buildManualPairGateReport({ participantA: a, participantB: b, eventId: 21 })
+
+  assert.equal(checkInteractionStyleCompatibility(a, b), false)
+  assert.ok(report.blockers.includes("interaction"))
+  assert.equal(report.blockers.includes("humor_clash"), false)
 })
 
 test("a one-sided new answer preserves the legacy interaction score", () => {

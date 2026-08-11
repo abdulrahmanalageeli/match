@@ -1492,13 +1492,9 @@ async function getCachedCompatibility(participantA, participantB, options = {}) 
       const cachedHumorMultiplier = parseFloat(data.humor_multiplier || 1.0)
       preCap = (preCap * cachedHumorMultiplier) + intentScore
       const deadAirVetoApplied = deadAirBoth && preCap > 40
-      const afterDeadAir = deadAirVetoApplied ? 40 : preCap
-      const humorClashVetoApplied = !!vetoClash && afterDeadAir > 50
-      const afterSafetyCaps = deadAirVetoApplied ? 40 : (humorClashVetoApplied ? 50 : preCap)
+      const afterSafetyCaps = deadAirVetoApplied ? 40 : preCap
       const maxScoreCapApplied = afterSafetyCaps > 100
-      let capApplied = null
-      if (deadAirVetoApplied) capApplied = 40
-      else if (humorClashVetoApplied) capApplied = 50
+      const capApplied = deadAirVetoApplied ? 40 : null
 
       const opennessZeroZeroPenaltyApplied = opennessPenalty.type === 'both_closed'
 
@@ -1524,7 +1520,7 @@ async function getCachedCompatibility(participantA, participantB, options = {}) 
         intentBoostApplied,
         deadAirVetoApplied,
         humorClashDetected: !!vetoClash,
-        humorClashVetoApplied,
+        humorClashVetoApplied: false,
         maxScoreCapApplied,
         capApplied,
         opennessZeroZeroPenaltyApplied,
@@ -1859,14 +1855,6 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
     capApplied = 40
   }
 
-  // Humor clash veto cap 50%
-  if (vetoClash && totalScore > 50) {
-    console.log(`⛔ Humor clash veto applied: total ${totalScore.toFixed(2)} → 50.00`)
-    totalScore = 50
-    humorClashVetoApplied = true
-    if (!capApplied) capApplied = 50
-  }
-  
   // Cap at 100% to ensure compatibility never exceeds maximum
   if (totalScore > 100) {
     console.log(`⚠️ Score capped: ${totalScore.toFixed(2)} → 100.00 (max compatibility)`)
@@ -3590,7 +3578,7 @@ function buildManualPairGateReport({
     `#${a.number}: humor ${a.humor ?? '?'}, openness ${a.openness ?? '?'} · #${b.number}: humor ${b.humor ?? '?'}, openness ${b.openness ?? '?'}`)
   add('humor_clash', 'A↔D humor-style warning', !hasHumorStyleClash(participantA, participantB),
     hasHumorStyleClash(participantA, participantB)
-      ? `#${a.number} and #${b.number} have A↔D humor styles; pair retained with a warning badge and the normal score cap`
+      ? `#${a.number} and #${b.number} have A↔D humor styles; pair retained with a warning badge and a lower humor component`
       : 'No A↔D humor-style clash',
     { blocking: false })
   add('intent', 'Meeting goal', true,
@@ -6740,8 +6728,7 @@ if (action === "cache-status-by-gender") {
             && _getAnswer2(a, 'silence_comfort') === 'B'
             && _getAnswer2(b, 'silence_comfort') === 'B'
           const _deadAirApplied2 = _deadAir2 && _preCap2 > 40
-          const _humorClashApplied2 = !_deadAirApplied2 && _vetoClash2 && _preCap2 > 50
-          const _maxScoreCapApplied2 = !_deadAirApplied2 && !_humorClashApplied2 && _preCap2 > 100
+          const _maxScoreCapApplied2 = !_deadAirApplied2 && _preCap2 > 100
           compatibilityResult.synergyScore = _derivedSynergy2
           compatibilityResult.humorOpenScore = _derivedHumorOpen2
           compatibilityResult.intentScore = _derivedIntent2
@@ -6756,9 +6743,9 @@ if (action === "cache-status-by-gender") {
           compatibilityResult.intentBoostApplied = _derivedIntent2 >= 4
           compatibilityResult.deadAirVetoApplied = _deadAirApplied2
           compatibilityResult.humorClashDetected = !!_vetoClash2
-          compatibilityResult.humorClashVetoApplied = _humorClashApplied2
+          compatibilityResult.humorClashVetoApplied = false
           compatibilityResult.maxScoreCapApplied = _maxScoreCapApplied2
-          compatibilityResult.capApplied = _deadAirApplied2 ? 40 : (_humorClashApplied2 ? 50 : null)
+          compatibilityResult.capApplied = _deadAirApplied2 ? 40 : null
           
           // Update cache usage statistics in background (don't await)
           if (!SKIP_DB_WRITES) {

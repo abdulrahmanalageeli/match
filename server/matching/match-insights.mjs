@@ -1,4 +1,4 @@
-export const MATCH_INSIGHTS_VERSION = '2026-08-08-v4-score-calibration'
+export const MATCH_INSIGHTS_VERSION = '2026-08-11-v5-weighted-humor-clash'
 
 export const MATCH_INSIGHT_IDS = Object.freeze([
   'match_disagreement_style',

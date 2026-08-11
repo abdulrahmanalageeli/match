@@ -143,6 +143,44 @@ test("A-to-D humor clash is retained as a non-blocking warning", () => {
   assert.equal(report.eligible, true)
 })
 
+test("A-to-D humor lowers its component without capping the overall score", async () => {
+  const playful = synergyParticipant(35, "A")
+  const serious = synergyParticipant(36, "A")
+  playful.humor_banter_style = "A"
+  serious.humor_banter_style = "D"
+  playful.survey_data.answers.humor_banter_style = "A"
+  serious.survey_data.answers.humor_banter_style = "D"
+
+  const alignedA = synergyParticipant(37, "A")
+  const alignedB = synergyParticipant(38, "A")
+  alignedA.humor_banter_style = "B"
+  alignedB.humor_banter_style = "B"
+  alignedA.survey_data.answers.humor_banter_style = "B"
+  alignedB.survey_data.answers.humor_banter_style = "B"
+
+  const clash = await calculateFullCompatibilityWithCache(
+    playful,
+    serious,
+    false,
+    true,
+    { reusedVibeScore: 20, reusedVibeSourceMax: 25 },
+  )
+  const aligned = await calculateFullCompatibilityWithCache(
+    alignedA,
+    alignedB,
+    false,
+    true,
+    { reusedVibeScore: 20, reusedVibeSourceMax: 25 },
+  )
+
+  assert.equal(clash.humorClashDetected, true)
+  assert.equal(clash.humorClashVetoApplied, false)
+  assert.notEqual(clash.capApplied, 50)
+  assert.ok(clash.totalScore > 50)
+  assert.ok(clash.humorOpenScore < aligned.humorOpenScore)
+  assert.ok(clash.totalScore < aligned.totalScore)
+})
+
 test("extreme early-openness mismatch remains a blocking interaction gate", () => {
   const a = gateParticipant(33, { humor_banter_style: "A", early_openness_comfort: 0 })
   const b = gateParticipant(34, { humor_banter_style: "D", early_openness_comfort: 3 })

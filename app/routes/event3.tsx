@@ -4663,9 +4663,9 @@ function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow }: {
           <Coffee className="w-12 h-12 text-teal-400" />
         </motion.div>
 
-        <h1 className="text-3xl font-bold text-white mb-3">استراحة</h1>
+        <h1 className="text-3xl font-bold text-white mb-3">اشحن طاقتك للقاء القادم ☕</h1>
         <p className="text-gray-400 text-sm mb-8">
-          خذ استراحة قصيرة، تناول شيئًا، واستعد للمرحلة التالية
+          الآن وقت القهوة — خذ قهوتك من المقهى واستعد لجولتك الفردية
         </p>
 
         {timerActive && timeLeft > 0 ? (

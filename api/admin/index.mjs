@@ -573,6 +573,7 @@ export default async function handler(req, res) {
     || action === "get-upcoming-event-summary"
     || action === "get-current-event-id"
     || action === "get-results-visibility"
+    || action === "get-group-matches"
   const hasCohostSession = EVENT3_COHOST_ACTIONS.has(action) && verifyCohostToken(bearerToken || req.body?.cohost_token)
   if (isCohostLogin) {
     if (!enforceRateLimit(req, res, { key: "cohost-login", limit: 5, windowMs: 15 * 60_000 })) return

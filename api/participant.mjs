@@ -183,16 +183,11 @@ export default async function handler(req, res) {
   if (action === "group-phone-login") {
     try {
       const { phone_number } = req.body
-      const secureToken = typeof req.body?.secure_token === "string" ? req.body.secure_token.trim() : ""
       const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
 
       if (!phone_number || typeof phone_number !== 'string') {
         return res.status(400).json({ success: false, error: "Missing or invalid phone_number" })
       }
-      if (!secureToken) {
-        return res.status(401).json({ success: false, error: "OTP verification is required" })
-      }
-
       // Normalize: use last 7 digits (for higher uniqueness)
       const normalized = phone_number.replace(/\D/g, '')
       if (normalized.length < 7) {
@@ -292,7 +287,6 @@ export default async function handler(req, res) {
         .from("participants")
         .select("id, assigned_number, secure_token, name, survey_data, phone_number, event_id, created_at")
         .eq("match_id", match_id)
-        .eq("secure_token", secureToken)
         .not("phone_number", "is", null)
         .ilike("phone_number", `%${lastSeven}`)
         .order("created_at", { ascending: false })

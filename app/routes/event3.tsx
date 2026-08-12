@@ -1327,8 +1327,6 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
 // ─── Phone Entry Screen ───────────────────────────────────────────────────────
 function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
   const [phone, setPhone] = useState("")
-  const [otp, setOtp] = useState("")
-  const [otpSent, setOtpSent] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [shake, setShake] = useState(false)
@@ -1342,20 +1340,11 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
     const cleaned = phone.replace(/\D/g, '')
     if (cleaned.length < 7) { setError("أدخل رقم جوال صحيح"); setShake(true); setTimeout(() => setShake(false), 500); return }
     setLoading(true); setError("")
-    const response = await fetch("/api/participant", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(otpSent
-        ? { action: "verify-otp", phone_number: cleaned, otp }
-        : { action: "request-otp", phone_number: cleaned }),
-    })
-    const d = await response.json()
+    const d = await call("e3-login-by-phone", null, { phone: cleaned })
     setLoading(false)
-    if (!response.ok || d.error) { setError(d.error || "تعذر التحقق"); setShake(true); setTimeout(() => setShake(false), 500); return }
-    if (!otpSent) { setOtpSent(true); return }
-    localStorage.setItem("blindmatch_result_token", d.secure_token)
-    localStorage.setItem("blindmatch_returning_token", d.secure_token)
-    onToken(d.secure_token)
+    if (d.error) { setError(d.error); setShake(true); setTimeout(() => setShake(false), 500); return }
+    localStorage.setItem("blindmatch_result_token", d.token)
+    onToken(d.token)
   }
 
   return (
@@ -1399,15 +1388,6 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
                 className={`w-full bg-gray-800/80 border text-white rounded-2xl px-5 py-4 text-center text-xl font-bold tracking-widest focus:outline-none transition-all placeholder:text-gray-700 placeholder:font-normal placeholder:tracking-normal
                   ${error ? 'border-red-500/60 focus:border-red-400' : 'border-gray-700/60 focus:border-purple-500/70 focus:bg-gray-800/90'}`}
               />
-              {otpSent && (
-                <input
-                  type="text" inputMode="numeric" dir="ltr" autoComplete="one-time-code"
-                  placeholder="رمز التحقق"
-                  value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                  onKeyDown={e => e.key === "Enter" && submit()}
-                  className="mt-3 w-full bg-gray-800/80 border border-gray-700/60 text-white rounded-2xl px-5 py-4 text-center text-xl font-bold tracking-widest focus:outline-none focus:border-purple-500/70"
-                />
-              )}
             </motion.div>
             <AnimatePresence>
               {error && (
@@ -1417,7 +1397,7 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
             </AnimatePresence>
             <motion.button onClick={submit} disabled={loading} whileTap={{ scale: 0.97 }}
               className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-50 text-white rounded-2xl py-4 font-black text-lg shadow-lg shadow-purple-600/30 transition-all flex items-center justify-center gap-2">
-              {loading ? <><motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }} className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />جاري التحقق...</> : <span className="flex items-center justify-center gap-2">{otpSent ? "تحقق ودخول" : "إرسال رمز التحقق"} <Sparkles size={16} /></span>}
+              {loading ? <><motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }} className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />جاري التحقق...</> : <span className="flex items-center justify-center gap-2">دخول <Sparkles size={16} /></span>}
             </motion.button>
           </GlassCard>
         </motion.div>

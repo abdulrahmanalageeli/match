@@ -3265,8 +3265,6 @@ Please respond in JSON format:
 
       // e3-login-by-phone (no token required)
       if (action === "e3-login-by-phone") {
-        return res.status(410).json({ error: "OTP verification is required" })
-        /* istanbul ignore next -- retained temporarily for rollback history; unreachable */
         const { phone } = req.body
         if (!phone) return res.status(400).json({ error: "رقم الجوال مطلوب" })
         const raw = String(phone).replace(/\D/g, '')

@@ -1,7 +1,7 @@
 export function AnimatedBlindMatchLogo() {
   return (
     <div
-      className="bm-loading-logo relative mx-auto aspect-square w-[9rem] sm:w-[11rem]"
+      className="bm-loading-logo relative mx-auto aspect-square w-[7.5rem] sm:w-[9rem]"
       role="img"
       aria-label="شعار التوافق الأعمى المتحرك"
     >

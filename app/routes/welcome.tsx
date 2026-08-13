@@ -7595,9 +7595,9 @@ export default function WelcomePage() {
             {/* Initial Loading Animation */}
             {!showRegistrationContent && (
               <div className="flex min-h-[100svh] items-center justify-center py-5 text-center">
-                <div className="w-full">
+                <div className="w-full -translate-y-8 sm:-translate-y-10">
                   <AnimatedBlindMatchLogo />
-                  <p className="-mt-3 text-sm font-medium tracking-wide text-cyan-100/80 sm:text-base">
+                  <p className="mt-3 text-sm font-medium tracking-wide text-cyan-100/80 sm:text-base">
                     جاري تجهيز تجربتك...
                   </p>
                   <div className="mx-auto mt-4 h-1 w-32 overflow-hidden rounded-full bg-white/10 sm:w-40" aria-hidden="true">

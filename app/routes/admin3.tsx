@@ -3448,7 +3448,9 @@ export default function Admin3Page() {
               <div className="bg-purple-950/20 border border-purple-800/30 rounded-lg px-3 py-2">
                 <p className="text-[10px] text-purple-300/70 flex items-center gap-1.5">
                   <Shield size={10} className="flex-shrink-0" />
-                  المطابقة تستخدم الأزواج المثبتة (locked matches) من لوحة التحكم — لا يتم إعادة الحساب
+                  {testMode
+                    ? "وضع الاختبار ينشئ أزواج خوارزمية مثبتة مؤقتاً — تظهر في لوحة التحكم ولا تدخل في السجل السابق وتُحذف عند إنهاء الاختبار"
+                    : "المطابقة تستخدم الأزواج المثبتة (locked matches) من لوحة التحكم — لا يتم إعادة الحساب"}
                 </p>
               </div>
 
@@ -3482,7 +3484,7 @@ export default function Admin3Page() {
                         </span>
                         {pair.locked && (
                           <span className="text-[9px] text-amber-400 bg-amber-900/30 border border-amber-700/40 px-1.5 py-0.5 rounded-full flex-shrink-0 flex items-center gap-1">
-                            <Shield size={8} /> مثبت
+                            <Shield size={8} /> {pair.isTestMode ? "مثبت مؤقت" : "مثبت"}
                           </span>
                         )}
                         {pair.compatScore != null && (

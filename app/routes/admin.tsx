@@ -1769,7 +1769,7 @@ const loadFreshDatabaseResults = async (matchType: "individual" | "group") => {
       
       // Clear session info since this is fresh data, not a cached session
       setCurrentSessionId(null)
-      setCurrentSessionInfo(null)
+      setCurrentSessionInfo(data.test_mode ? { is_test_mode: true } : null)
       setIsFromCache(false)
       
       await showParticipantResults(
@@ -1800,7 +1800,8 @@ const loadSessionResults = async (session: any) => {
       generation_type: session.generation_type,
       generation_duration_ms: session.generation_duration_ms,
       cache_hit_rate: session.cache_hit_rate,
-      ai_calls_made: session.ai_calls_made
+      ai_calls_made: session.ai_calls_made,
+      is_test_mode: session.is_test_mode === true,
     })
     setMatchType(session.match_type === 'group' ? 'group' : (session.generation_type === 'no-ai' ? 'no-ai' : 'ai'))
     setTotalMatches(session.total_matches || 0)
@@ -1815,6 +1816,8 @@ const loadSessionResults = async (session: any) => {
         session.match_type === 'group' ? 'group' : (session.generation_type === 'no-ai' ? 'no-ai' : 'ai'),
         session.calculated_pairs || []
       )
+    } else if (session.is_test_mode) {
+      await showParticipantResults([], 0, "ai", [])
     }
     
     console.log(`✅ Loaded session: ${session.session_id}`)
@@ -4364,7 +4367,8 @@ const fetchParticipants = async () => {
               paid_done: participantInfo?.paid_done || false,
               partner_paid_done: participantInfoMap.get(match.participant_b_number)?.paid_done || false,
               humor_early_openness_bonus: match.humor_early_openness_bonus || 'none',
-              round: match.round ?? null
+              round: match.round ?? null,
+              is_test_mode: match.is_test_mode === true,
             })
           }
         }
@@ -4398,7 +4402,8 @@ const fetchParticipants = async () => {
               paid_done: participantInfo?.paid_done || false,
               partner_paid_done: participantInfoMap.get(match.participant_a_number)?.paid_done || false,
               humor_early_openness_bonus: match.humor_early_openness_bonus || 'none',
-              round: match.round ?? null
+              round: match.round ?? null,
+              is_test_mode: match.is_test_mode === true,
             })
           }
         }
@@ -9372,6 +9377,7 @@ Proceed?`
           toggleParticipantSelection={toggleParticipantSelection}
           onRefresh={() => loadFreshDatabaseResults("individual").then(() => undefined)}
           onOpenLegacy={() => setIndividualResultsView("legacy")}
+          testMode={currentSessionInfo?.is_test_mode === true || participantResults.some((result: any) => result.is_test_mode === true)}
         />
       )}
 

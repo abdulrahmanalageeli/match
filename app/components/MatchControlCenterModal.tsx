@@ -75,6 +75,7 @@ type Props = {
   selectedParticipants?: Set<number>
   toggleParticipantSelection?: (assignedNumber: number) => void
   onOpenLegacy?: () => void
+  testMode?: boolean
 }
 
 type PoolMode = "all" | "confirmed" | "paid" | "unpaid"
@@ -210,6 +211,7 @@ export default function MatchControlCenterModal({
   selectedParticipants,
   toggleParticipantSelection,
   onOpenLegacy,
+  testMode = false,
 }: Props) {
   const [people, setPeople] = useState<Map<number, MatchControlPerson>>(new Map())
   const [lockedMatches, setLockedMatches] = useState<any[]>([])
@@ -239,6 +241,7 @@ export default function MatchControlCenterModal({
 
   const scoreLookup = useMemo(() => buildScoreLookup(calculatedPairs, results), [calculatedPairs, results])
   const pairs = useMemo(() => buildUniquePairs(results), [results])
+  const isTestMode = useMemo(() => testMode || results.some(result => result.is_test_mode === true), [results, testMode])
   const lockedKeys = useMemo(() => new Set(lockedMatches.map(lock => pairKey(Number(lock.participant1_number), Number(lock.participant2_number)))), [lockedMatches])
   const partnerMap = useMemo(() => {
     const map = new Map<number, number>()
@@ -282,9 +285,11 @@ export default function MatchControlCenterModal({
       const [participantsResponse, locksResponse, historyResponse] = await Promise.all([
         fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "participants", event_id: currentEventId, include_matching_pool: true }) }),
         fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "get-locked-matches" }) }),
-        Object.keys(matchHistory).length
+        !isTestMode && Object.keys(matchHistory).length
           ? Promise.resolve(null)
-          : fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "get-all-match-history", match_id: "00000000-0000-0000-0000-000000000000" }) }),
+          : isTestMode
+            ? Promise.resolve(null)
+            : fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "get-all-match-history", match_id: "00000000-0000-0000-0000-000000000000" }) }),
       ])
       const participantsData = await participantsResponse.json()
       const locksData = await locksResponse.json()
@@ -301,7 +306,7 @@ export default function MatchControlCenterModal({
     } finally {
       setLoadingData(false)
     }
-  }, [currentEventId, hydratePeopleFromResults, matchHistory])
+  }, [currentEventId, hydratePeopleFromResults, isTestMode, matchHistory])
 
   useEffect(() => {
     if (!isOpen) return
@@ -434,9 +439,13 @@ export default function MatchControlCenterModal({
     setAnalysisOpen(true)
   }
 
-  const openWhatsapp = (number: number) => setWhatsappPerson(people.get(number) || { assigned_number: number, name: getPersonName(undefined, number) })
+  const openWhatsapp = (number: number) => {
+    if (isTestMode) return toast.error("Test results cannot send participant messages")
+    setWhatsappPerson(people.get(number) || { assigned_number: number, name: getPersonName(undefined, number) })
+  }
 
   const toggleLock = async (pair: MatchControlPair) => {
+    if (isTestMode) return toast.error("Test locks mirror admin3 and are read-only")
     if (pair.b == null) return
     const key = pairKey(pair.a, pair.b)
     setBusyAction(`lock-${key}`)
@@ -458,6 +467,7 @@ export default function MatchControlCenterModal({
   }
 
   const excludePair = async (pair: MatchControlPair) => {
+    if (isTestMode) return toast.error("Test results cannot create permanent exclusions")
     if (pair.b == null || !confirm(`استبعاد الزوج #${pair.a} ↔ #${pair.b} من المطابقات المستقبلية؟`)) return
     setBusyAction(`exclude-${pair.key}`)
     try {
@@ -473,6 +483,7 @@ export default function MatchControlCenterModal({
   }
 
   const excludePerson = async (number: number, permanent = false) => {
+    if (isTestMode) return toast.error("Test results cannot change participant eligibility")
     const label = permanent ? "حظر نهائي" : "استبعاد مؤقت"
     if (!confirm(`${label} للمشارك #${number}؟`)) return
     setBusyAction(`${permanent ? "ban" : "exclude-person"}-${number}`)
@@ -489,6 +500,10 @@ export default function MatchControlCenterModal({
   }
 
   const startSwap = (number: number) => {
+    if (isTestMode) {
+      toast.error("Test results are isolated; use admin3 to rerun the simulated algorithm")
+      return
+    }
     setSwapSource(number)
     setSwapTarget(null)
     setChosenPlan(null)
@@ -631,6 +646,7 @@ export default function MatchControlCenterModal({
   }
 
   const applyPlan = async () => {
+    if (isTestMode) return toast.error("Test results cannot mutate the real match lineup")
     if (!chosenPlan || !selectedPair) return
     const warnings = [
       chosenPlan.confirmedUnmatched.length ? `${chosenPlan.confirmedUnmatched.length} مقعد مؤكد سيبقى دون شريك` : null,
@@ -729,7 +745,7 @@ export default function MatchControlCenterModal({
               </div>
               <p className="mt-0.5 truncate text-[11px] text-slate-400 sm:text-xs">{pairs.length} زوج/حالة · {people.size} مشارك متاح · الفعالية #{currentEventId}</p>
             </div>
-            {lastUndo && (
+            {lastUndo && !isTestMode && (
               <button onClick={undoLast} disabled={applying} className="hidden items-center gap-1.5 rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200 hover:bg-amber-500/20 disabled:opacity-50 sm:flex">
                 <Undo2 className="h-4 w-4" /> تراجع
               </button>
@@ -737,10 +753,17 @@ export default function MatchControlCenterModal({
             <button onClick={onClose} aria-label="إغلاق" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white"><X className="h-5 w-5" /></button>
           </div>
 
-          {onOpenLegacy && (
+          {onOpenLegacy && !isTestMode && (
             <div className="mt-3 grid grid-cols-2 rounded-2xl border border-white/10 bg-black/20 p-1">
               <button className="rounded-xl bg-cyan-500 px-3 py-2 text-xs font-black text-slate-950 shadow-lg shadow-cyan-950/30">مركز التحكم الجديد</button>
               <button onClick={onOpenLegacy} className="rounded-xl px-3 py-2 text-xs font-bold text-slate-400 transition hover:bg-white/5 hover:text-white">عرض النتائج القديم</button>
+            </div>
+          )}
+
+          {isTestMode && (
+            <div className="mt-3 flex items-start gap-2 rounded-2xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[11px] font-bold text-amber-100">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>محاكاة وضع الاختبار: هذه الأزواج المثبتة مؤقتة، لا تدخل في سجل المطابقات السابقة، وتُحذف عند إنهاء الاختبار. إجراءات التبديل والاستبعاد والمراسلة الدائمة معطلة هنا.</span>
             </div>
           )}
 
@@ -912,9 +935,9 @@ export default function MatchControlCenterModal({
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <ActionCard icon={selectedLocked ? Unlock : Lock} label={selectedLocked ? "إلغاء تثبيت الزوج" : "تثبيت الزوج"} detail="حماية المطابقة أو تحريرها" onClick={() => toggleLock(selectedPair)} disabled={selectedPair.b == null || busyAction === `lock-${selectedPair.key}`} tone="blue" />
+                    <ActionCard icon={selectedLocked ? Unlock : Lock} label={selectedLocked ? "إلغاء تثبيت الزوج" : "تثبيت الزوج"} detail={isTestMode ? "مثبت مؤقتاً من admin3" : "حماية المطابقة أو تحريرها"} onClick={() => toggleLock(selectedPair)} disabled={isTestMode || selectedPair.b == null || busyAction === `lock-${selectedPair.key}`} tone="blue" />
                     <ActionCard icon={Brain} label="تحليل الزوج" detail="مقارنة الشخصية والقيود" onClick={() => openAnalysis(selectedPair)} disabled={selectedPair.b == null} tone="purple" />
-                    <ActionCard icon={Ban} label="استبعاد الزوج" detail="من المطابقات المستقبلية" onClick={() => excludePair(selectedPair)} disabled={selectedPair.b == null || busyAction === `exclude-${selectedPair.key}`} tone="red" />
+                    <ActionCard icon={Ban} label="استبعاد الزوج" detail={isTestMode ? "معطل للنتائج التجريبية" : "من المطابقات المستقبلية"} onClick={() => excludePair(selectedPair)} disabled={isTestMode || selectedPair.b == null || busyAction === `exclude-${selectedPair.key}`} tone="red" />
                     <ActionCard icon={RefreshCw} label="تحديث البيانات" detail="تحميل حالة قاعدة البيانات" onClick={async () => { if (onRefresh) await onRefresh(); else await fetchControlData() }} tone="cyan" />
                   </div>
 
@@ -923,7 +946,7 @@ export default function MatchControlCenterModal({
                       const person = people.get(number)
                       return (
                         <div key={number} className="rounded-2xl border border-white/10 bg-white/[0.025] p-3 sm:p-4">
-                          <div className="flex items-center gap-2"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-800 text-[11px] font-black text-white">#{number}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-black text-white">{getPersonName(person, number)}</span><span className="mt-1 block"><SeatBadge person={person} compact /></span></span>{toggleParticipantSelection && selectedParticipants && <button onClick={() => toggleParticipantSelection(number)} title="تحديد للتصدير" className={`flex h-8 w-8 items-center justify-center rounded-lg ${selectedParticipants.has(number) ? "bg-cyan-500 text-slate-950" : "bg-white/5 text-slate-500"}`}><Check className="h-4 w-4" /></button>}</div>
+                          <div className="flex items-center gap-2"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-800 text-[11px] font-black text-white">#{number}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-black text-white">{getPersonName(person, number)}</span><span className="mt-1 block"><SeatBadge person={person} compact /></span></span>{!isTestMode && toggleParticipantSelection && selectedParticipants && <button onClick={() => toggleParticipantSelection(number)} title="تحديد للتصدير" className={`flex h-8 w-8 items-center justify-center rounded-lg ${selectedParticipants.has(number) ? "bg-cyan-500 text-slate-950" : "bg-white/5 text-slate-500"}`}><Check className="h-4 w-4" /></button>}</div>
                           <div className="mt-3 grid grid-cols-2 gap-2">
                             <button onClick={() => openIndividual(number)} className="flex items-center justify-center gap-1.5 rounded-xl bg-blue-500/10 px-2 py-2 text-[11px] font-bold text-blue-200 hover:bg-blue-500/20"><Eye className="h-3.5 w-3.5" /> كل نتائجه</button>
                             <button onClick={() => startSwap(number)} className="flex items-center justify-center gap-1.5 rounded-xl bg-cyan-500/10 px-2 py-2 text-[11px] font-bold text-cyan-200 hover:bg-cyan-500/20"><ArrowLeftRight className="h-3.5 w-3.5" /> تبديل</button>

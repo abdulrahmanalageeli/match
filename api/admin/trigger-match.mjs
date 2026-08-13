@@ -12,6 +12,11 @@ import {
   getPairMatchInsightsCoverage,
 } from "../../server/matching/match-insights.mjs"
 import { calculateFinalCompatibilityScore } from "../../server/matching/compatibility-score.mjs"
+import {
+  EVENT3_TEST_MATCH_ID,
+  isReadOnlyMatchRequest,
+  shouldBlockRealMatchGeneration,
+} from "../../server/event3/test-match-results.mjs"
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
@@ -1409,7 +1414,7 @@ async function getCachedCompatibility(participantA, participantB, options = {}) 
   try {
     const [smaller, larger] = [participantA.assigned_number, participantB.assigned_number].sort((a, b) => a - b)
     const cacheKey = generateCacheKey(participantA, participantB)
-    const { groupMode = false, computeIfMissing = false } = options || {}
+    const { groupMode = false, computeIfMissing = false, skipUsageUpdate = false } = options || {}
 
     console.log(`🔍 Cache lookup: #${smaller}-#${larger}, hash=${cacheKey.combinedHash.substring(0, 10)}...`)
 
@@ -1428,7 +1433,7 @@ async function getCachedCompatibility(participantA, participantB, options = {}) 
       
     if (data && !error) {
       // Update usage statistics (skip in preview mode)
-      if (!SKIP_DB_WRITES) {
+      if (!SKIP_DB_WRITES && !skipUsageUpdate) {
         await supabase
           .from('compatibility_cache')
           .update({ 
@@ -1750,7 +1755,7 @@ function checkHumorMatch(participantA, participantB) {
 async function calculateFullCompatibilityWithCache(participantA, participantB, skipAI = false, ignoreCache = false, options = {}) {
   // Check cache first (skip if ignoreCache is true)
   if (!ignoreCache) {
-    const cached = await getCachedCompatibility(participantA, participantB)
+    const cached = await getCachedCompatibility(participantA, participantB, options)
     if (cached) {
       return cached
     }
@@ -1891,7 +1896,7 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   }
   
   // Store in cache for future use (skip if ignoreCache is true)
-  if (!ignoreCache) {
+  if (!ignoreCache && !options?.skipCacheWrite) {
     await storeCachedCompatibility(participantA, participantB, result)
   }
   
@@ -3634,6 +3639,36 @@ export default async function handler(req, res) {
 
   const { skipAI = false, matchType = "individual", eventId, excludedPairs = [], manualMatch = null, viewAllMatches = null, action = null, count = 50, direction = 'forward', cacheAll = false, preview = false, paidOnly = false, ignoreLocked = false, oppositesMode = false, fromR2Pool = false } = req.body || {}
 
+  const readOnlyRequest = isReadOnlyMatchRequest({ preview, manualMatch, action })
+  if (!readOnlyRequest) {
+    const { data: event3TestState, error: event3TestStateError } = await supabase
+      .from("event_state")
+      .select("test_mode_active")
+      .eq("match_id", EVENT3_TEST_MATCH_ID)
+      .maybeSingle()
+
+    if (event3TestStateError) {
+      console.error("Failed to verify Event3 test-mode safety interlock:", event3TestStateError)
+      return res.status(503).json({
+        error: "Unable to verify Event3 test mode. Real match generation was stopped for safety.",
+        generation_blocked: true,
+      })
+    }
+
+    if (shouldBlockRealMatchGeneration({
+      testModeActive: event3TestState?.test_mode_active === true,
+      preview,
+      manualMatch,
+      action,
+    })) {
+      return res.status(409).json({
+        error: "Event3 test mode is active. End test mode before generating or changing real matches.",
+        test_mode: true,
+        generation_blocked: true,
+      })
+    }
+  }
+
   // Activate forced gender mode for round-based matching
   // 'same_gender'     → Round 1 (everyone matched with same gender, ignoring preference)
   // 'opposite_gender' → Round 2 (everyone matched with opposite gender, ignoring preference)
@@ -3654,7 +3689,7 @@ export default async function handler(req, res) {
   // Preview and manual test modes are strict read-only dry runs. They may read
   // the same compatibility cache as generation, but never touch usage stats,
   // create cache rows, insert results, or run cleanup writes.
-  SKIP_DB_WRITES = !!preview || !!manualMatch?.testModeOnly
+  SKIP_DB_WRITES = !!preview || !!manualMatch?.testModeOnly || !!manualMatch?.debugPair
   
   // Handle pre-cache action
   if (action === "pre-cache") {

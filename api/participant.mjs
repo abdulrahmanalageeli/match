@@ -3207,6 +3207,10 @@ Please respond in JSON format:
             supabase.from("participants").select("event_id,signup_for_next_event,auto_signup_next_event").eq("match_id", MAIN_MATCH).eq("assigned_number", myNumber).maybeSingle(),
           ])
           const signedUp = isEvent3SignedUp(currentSignup || participant, activeEventId)
+          // event3_participants is the authoritative live roster. Test mode and
+          // mid-event replacements intentionally add people here without changing
+          // their normal event signup fields, so roster membership must grant access.
+          const enrolledInActiveRoster = Boolean(ep)
           // Auto-mark attendance when enrolled participant polls state during a live event (not setup).
           // This prevents marking attendance for people viewing the tutorial at home before the event.
           if (ep && phase !== "setup") {
@@ -3242,9 +3246,9 @@ Please respond in JSON format:
             : null
           if (ep && currentRound) {
             const { data: sa } = await supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId).eq("round", currentRound).eq("participant_id", myNumber).maybeSingle()
-            myAssignment = sa ? { round: currentRound, table: sa.table_number, enrolled: true } : { enrolled: signedUp }
+            myAssignment = sa ? { round: currentRound, table: sa.table_number, enrolled: true } : { enrolled: enrolledInActiveRoster || signedUp }
           } else {
-            myAssignment = { enrolled: signedUp }
+            myAssignment = { enrolled: enrolledInActiveRoster || signedUp }
           }
         }
         let myInfo = null

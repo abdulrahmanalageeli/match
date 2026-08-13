@@ -4,6 +4,7 @@ import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticip
 import { buildWelcomePrompt } from "./ai-welcome-prompt.mjs"
 import { assignPriorityTables } from "../../server/event3/table-priority.mjs"
 import { buildSixBySevenPlan, optimizeRound2ByAge } from "../../server/event3/round2-age-optimizer.mjs"
+import { collectEventSwapPairs, collectMatchResultSwapPairs, getTableSwapRounds } from "../../server/event3/participant-swap.mjs"
 import { supabaseAdmin } from "../../server/security/supabase-admin.mjs"
 import { clearAdminSession, enforceRateLimit, requireAdmin } from "../../server/security/request-security.mjs"
 
@@ -76,6 +77,14 @@ function isMissingSwapRpc(error) {
   return error?.code === "PGRST202" || message.includes("apply_match_swap_plan") || message.includes("undo_match_swap_plan")
 }
 
+function isMissingAdmin3SwapRpc(error) {
+  const message = `${error?.message || ""} ${error?.details || ""}`.toLowerCase()
+  return error?.code === "PGRST202"
+    || message.includes("swap_event3_group_seats")
+    || message.includes("swap_event3_table_numbers")
+    || message.includes("replace_event3_participant")
+}
+
 function normalizeSwapPairs(value) {
   if (!Array.isArray(value)) return null
   const pairs = value.map(pair => ({ a: Number(pair?.a), b: Number(pair?.b) }))
@@ -103,6 +112,30 @@ function swapReason(compatibility) {
     (compatibility.opennessZeroZeroPenaltyApplied ? " - Penalty(Opn 0 x 0)" : "") +
     (compatibility.intentBoostApplied ? " x IntentBoost(1.05)" : "") +
     (compatibility.capApplied ? ` (capped @ ${compatibility.capApplied}%)` : "")
+}
+
+function compatibilityResultPayload(compatibility) {
+  const humorMultiplier = Number(compatibility.humorMultiplier || 1)
+  return {
+    compatibility_score: Math.round(Number(compatibility.totalScore || 0)),
+    reason: swapReason(compatibility),
+    mbti_compatibility_score: Number(compatibility.mbtiScore || 0),
+    attachment_compatibility_score: Number(compatibility.attachmentScore || 0),
+    communication_compatibility_score: Number(compatibility.communicationScore || 0),
+    lifestyle_compatibility_score: Number(compatibility.lifestyleScore || 0),
+    core_values_compatibility_score: Number(compatibility.coreValuesScore || 0),
+    vibe_compatibility_score: Number(compatibility.vibeScore || 0),
+    synergy_score: Number(compatibility.synergyScore || 0),
+    humor_open_score: Number(compatibility.humorOpenScore || 0),
+    intent_score: Number(compatibility.intentScore || 0),
+    humor_multiplier: humorMultiplier,
+    attachment_penalty_applied: !!compatibility.attachmentPenaltyApplied,
+    intent_boost_applied: !!compatibility.intentBoostApplied,
+    dead_air_veto_applied: !!compatibility.deadAirVetoApplied,
+    humor_clash_veto_applied: !!compatibility.humorClashVetoApplied,
+    cap_applied: compatibility.capApplied ?? null,
+    humor_early_openness_bonus: humorMultiplier === 1.15 ? "full" : humorMultiplier === 1.05 ? "partial" : "none",
+  }
 }
 
 function swapPairKey(a, b) {
@@ -9106,13 +9139,15 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           } else {
             // ── Normal mode: locked matches ─────────────────────────────────────
 
-          // Fetch ALL locked matches for this match_id (regardless of event_id)
+          // Locked admin results are event-scoped. Historical locks must not
+          // leak into this event after an operational participant replacement.
           const { data: lockedMatches } = await supabase
             .from("locked_matches")
             .select("participant1_number,participant2_number,original_compatibility_score,event_id")
             .eq("match_id", STATIC_MATCH_ID)
+            .eq("event_id", currentEventId)
 
-          console.log(`Phase 3 (locked): Found ${lockedMatches?.length || 0} total locked matches (all event_ids)`)
+          console.log(`Phase 3 (locked): Found ${lockedMatches?.length || 0} locked matches for event ${currentEventId}`)
 
           // Filter to only pairs where BOTH participants are in event3 and NOT excluded
           const lockedPairs = (lockedMatches || []).filter(l =>
@@ -9626,6 +9661,35 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           if (!updatedRows?.length) return res.status(404).json({ error: `No round ${assignmentRound} assignment found for #${participantNumber}` })
           return res.status(200).json({ message: `Moved #${participantNumber} to table ${tableNumber} in round ${assignmentRound}` })
         }
+        // e3-swap-table-numbers (atomically exchange two complete tables).
+        // Group-round table labels stay linked across rounds 1 and 2. The two
+        // one-to-one phases (20/30) are exchanged independently.
+        if (action === "e3-swap-table-numbers") {
+          const round = Number(req.body.round)
+          const tableA = Number(req.body.table_a)
+          const tableB = Number(req.body.table_b)
+          const rounds = getTableSwapRounds(round)
+          if (!rounds) return res.status(400).json({ error: "Round must be 1, 2, 20, or 30" })
+          if (!Number.isInteger(tableA) || !Number.isInteger(tableB) || tableA <= 0 || tableB <= 0 || tableA > 99 || tableB > 99 || tableA === tableB) {
+            return res.status(400).json({ error: "Two different table numbers between 1 and 99 are required" })
+          }
+
+          const { data, error } = await supabase.rpc("swap_event3_table_numbers", {
+            p_match_id: EVENT3_MATCH_ID,
+            p_event_id: currentEventId,
+            p_rounds: rounds,
+            p_table_a: tableA,
+            p_table_b: tableB,
+          })
+          if (error) {
+            if (isMissingAdmin3SwapRpc(error)) {
+              return res.status(501).json({ error: "The atomic admin3 swap migration has not been applied yet", migration_required: true })
+            }
+            return res.status(500).json({ error: error.message })
+          }
+          const roundLabel = rounds.length === 2 ? "group rounds 1 and 2" : `round ${round}`
+          return res.status(200).json({ ...data, message: `Swapped table ${tableA} ↔ ${tableB} in ${roundLabel}` })
+        }
         // e3-swap-seating (swap two participants across the two group rounds).
         // One-to-one rounds are deliberately excluded because moving seats there
         // without changing reciprocal match rows would separate partners.
@@ -9633,30 +9697,19 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const numA = Number(req.body.num_a)
           const numB = Number(req.body.num_b)
           if (!Number.isInteger(numA) || !Number.isInteger(numB) || numA <= 0 || numB <= 0 || numA === numB || numA === 9999 || numB === 9999) return res.status(400).json({ error: "Two different participant numbers required" })
-          const [rowsAResult, rowsBResult] = await Promise.all([
-            supabase.from("session_assignments").select("id,round,table_number,event_id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_id", numA).in("round", [1, 2]),
-            supabase.from("session_assignments").select("id,round,table_number,event_id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_id", numB).in("round", [1, 2]),
-          ])
-          if (rowsAResult.error || rowsBResult.error) return res.status(500).json({ error: rowsAResult.error?.message || rowsBResult.error?.message })
-          const rowsA = rowsAResult.data || []
-          const rowsB = rowsBResult.data || []
-          if (!rowsA?.length && !rowsB?.length) return res.status(404).json({ error: "Neither participant found in session assignments" })
-          // Delete both first to avoid unique constraint violations, then re-insert with swapped IDs
-          const deleteResults = await Promise.all([
-            rowsA.length ? supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_id", numA).in("round", [1, 2]) : Promise.resolve({ error: null }),
-            rowsB.length ? supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_id", numB).in("round", [1, 2]) : Promise.resolve({ error: null }),
-          ])
-          const deleteError = deleteResults.find(result => result.error)?.error
-          if (deleteError) return res.status(500).json({ error: deleteError.message })
-          const newRows = [
-            ...rowsA.map(r => ({ match_id: EVENT3_MATCH_ID, event_id: r.event_id || currentEventId, round: r.round, table_number: r.table_number, participant_id: numB })),
-            ...rowsB.map(r => ({ match_id: EVENT3_MATCH_ID, event_id: r.event_id || currentEventId, round: r.round, table_number: r.table_number, participant_id: numA }))
-          ]
-          if (newRows.length > 0) {
-            const { error } = await supabase.from("session_assignments").insert(newRows)
-            if (error) return res.status(500).json({ error: error.message })
+          const { data, error } = await supabase.rpc("swap_event3_group_seats", {
+            p_match_id: EVENT3_MATCH_ID,
+            p_event_id: currentEventId,
+            p_participant_a: numA,
+            p_participant_b: numB,
+          })
+          if (error) {
+            if (isMissingAdmin3SwapRpc(error)) {
+              return res.status(501).json({ error: "The atomic admin3 swap migration has not been applied yet", migration_required: true })
+            }
+            return res.status(500).json({ error: error.message })
           }
-          return res.status(200).json({ message: `Swapped #${numA} ↔ #${numB} in group rounds 1 and 2` })
+          return res.status(200).json({ ...data, message: `Swapped #${numA} ↔ #${numB} in group rounds 1 and 2` })
         }
         // e3-clear-rankings
         if (action === "e3-clear-rankings") {
@@ -10117,8 +10170,86 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
 
           return res.status(200).json({ message: msg })
         }
-        // e3-replace-participant — full ID swap across ALL event3 tables (last-minute replacement)
+        // e3-replace-participant — atomically transfer/swap every event identity,
+        // feedback record, locked admin result, and generated table assignment.
         if (action === "e3-replace-participant") {
+          const oldNum = Number(req.body.old_participant)
+          const newNum = Number(req.body.new_participant)
+          if (!Number.isInteger(oldNum) || !Number.isInteger(newNum) || oldNum <= 0 || newNum <= 0 || oldNum === 9999 || newNum === 9999 || oldNum === newNum) {
+            return res.status(400).json({ error: "Two different participant numbers are required" })
+          }
+
+          const [eventParticipantsResult, eventMatchesResult, normalResultsResult, profilesResult] = await Promise.all([
+            supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_number", [oldNum, newNum]),
+            supabase.from("event3_matches").select("participant_number,phase2_partner,phase3_partner").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
+            supabase.from("match_results").select("id,participant_a_number,participant_b_number,participant_c_number").eq("match_id", STATIC_MATCH_ID).eq("event_id", currentEventId).or(`participant_a_number.in.(${oldNum},${newNum}),participant_b_number.in.(${oldNum},${newNum})`),
+            supabase.from("participants").select("*").eq("match_id", STATIC_MATCH_ID).in("assigned_number", [oldNum, newNum]),
+          ])
+          const readError = eventParticipantsResult.error || eventMatchesResult.error || normalResultsResult.error || profilesResult.error
+          if (readError) return res.status(500).json({ error: readError.message })
+
+          const profileMap = new Map((profilesResult.data || []).map(profile => [Number(profile.assigned_number), profile]))
+          if (!profileMap.has(oldNum) || !profileMap.has(newNum)) return res.status(404).json({ error: "Both participants must exist" })
+          const swapBoth = (eventParticipantsResult.data || []).some(row => Number(row.participant_number) === newNum)
+          const profileNumbers = new Set([oldNum, newNum])
+          const eventPairs = collectEventSwapPairs(eventMatchesResult.data || [], oldNum, newNum, swapBoth)
+          const normalPairs = collectMatchResultSwapPairs(normalResultsResult.data || [], oldNum, newNum)
+          for (const pair of [...eventPairs, ...normalPairs]) {
+            profileNumbers.add(pair.a)
+            profileNumbers.add(pair.b)
+          }
+
+          const missingProfileNumbers = [...profileNumbers].filter(number => !profileMap.has(number))
+          if (missingProfileNumbers.length) {
+            const { data: partnerProfiles, error: partnerError } = await supabase.from("participants").select("*").eq("match_id", STATIC_MATCH_ID).in("assigned_number", missingProfileNumbers)
+            if (partnerError) return res.status(500).json({ error: partnerError.message })
+            for (const profile of partnerProfiles || []) profileMap.set(Number(profile.assigned_number), profile)
+          }
+
+          const eventScores = []
+          for (const pair of eventPairs) {
+            const profileA = profileMap.get(pair.a)
+            const profileB = profileMap.get(pair.b)
+            if (!profileA || !profileB) return res.status(422).json({ error: `Missing matching profile for #${!profileA ? pair.a : pair.b}` })
+            const compatibility = await calculateFullCompatibilityWithCache(profileA, profileB, false, false)
+            eventScores.push({ phase: pair.phase, a: pair.a, b: pair.b, score: Math.round(Number(compatibility.totalScore || 0)) })
+          }
+
+          const normalScores = []
+          for (const pair of normalPairs) {
+            const profileA = profileMap.get(pair.a)
+            const profileB = profileMap.get(pair.b)
+            if (!profileA || !profileB) return res.status(422).json({ error: `Missing matching profile for #${!profileA ? pair.a : pair.b}` })
+            const compatibility = await calculateFullCompatibilityWithCache(profileA, profileB, false, false)
+            normalScores.push({ id: pair.id, a: pair.a, b: pair.b, ...compatibilityResultPayload(compatibility) })
+          }
+
+          const { data, error } = await supabase.rpc("replace_event3_participant", {
+            p_event3_match_id: EVENT3_MATCH_ID,
+            p_static_match_id: STATIC_MATCH_ID,
+            p_event_id: currentEventId,
+            p_old_participant: oldNum,
+            p_new_participant: newNum,
+            p_event_scores: eventScores,
+            p_match_result_scores: normalScores,
+          })
+          if (error) {
+            if (isMissingAdmin3SwapRpc(error)) {
+              return res.status(501).json({ error: "The atomic admin3 swap migration has not been applied yet", migration_required: true })
+            }
+            return res.status(500).json({ error: error.message })
+          }
+
+          return res.status(200).json({
+            ...data,
+            message: swapBoth
+              ? `تم تبديل #${oldNum} و #${newNum} فوراً في الطاولات والمطابقات والأقفال والتقييمات`
+              : `تم استبدال #${oldNum} بـ #${newNum} فوراً في الطاولات والمطابقات والأقفال والتقييمات`,
+          })
+        }
+        // Legacy implementation retained temporarily for old deployments. The
+        // atomic handler above returns first for every current request.
+        if (false) {
           const { old_participant, new_participant } = req.body
           if (!old_participant || !new_participant) return res.status(400).json({ error: "old_participant and new_participant required" })
           if (old_participant === new_participant) return res.status(400).json({ error: "Cannot replace with the same participant" })

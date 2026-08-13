@@ -858,7 +858,14 @@ export default function Admin3Page() {
 
   const doSwap = (numB: number) => {
     if (previewEventId != null) { toast.error("لا يمكن تعديل الجلسات في وضع المعاينة"); return }
-    run(`swap-${swapA}-${numB}`, () => api("e3-swap-seating", { num_a: swapA, num_b: numB }).then(d => { if (!d.error) { setSwapA(null); fetchSeating() } return d }))
+    run(`swap-${swapA}-${numB}`, () => api("e3-swap-seating", { num_a: swapA, num_b: numB }).then(d => {
+      if (!d.error) {
+        setSwapA(null)
+        fetchSeating()
+        fetchParticipants({ preserveSelection: true })
+      }
+      return d
+    }))
   }
 
   const doMove = (targetTable: number) => {
@@ -900,16 +907,21 @@ export default function Admin3Page() {
     if (!swapMatch || !swapReplacement) return
     if (previewEventId != null) { toast.error("لا يمكن تعديل المطابقات في وضع المعاينة"); return }
     run(`swap-match-${swapMatch.missingNum}-${swapReplacement}`, () =>
-      api("e3-swap-match-partner", {
-        phase: swapMatch.phase,
-        missing_participant: swapMatch.missingNum,
-        replacement_participant: swapReplacement,
+      api("e3-replace-participant", {
+        old_participant: swapMatch.missingNum,
+        new_participant: swapReplacement,
       }).then(d => {
         if (!d.error) {
           setSwapMatch(null)
           setSwapReplacement(null)
+          fetchParticipants()
+          fetchSeating()
           fetchMatches()
           fetchState()
+          fetchRankStatus()
+          fetchFeedback()
+          fetchAttendance()
+          if (activeTab === "overview") fetchOverview()
         }
         return d
       })
@@ -933,6 +945,9 @@ export default function Admin3Page() {
           fetchMatches()
           fetchState()
           fetchRankStatus()
+          fetchFeedback()
+          fetchAttendance()
+          if (activeTab === "overview") fetchOverview()
           toast.success(d.message)
         }
         return d
@@ -965,24 +980,16 @@ export default function Admin3Page() {
   const renameTable = (round: number, oldTable: number, newTable: number) => {
     const members: any[] = seating?.[round]?.[oldTable] || []
     if (!members.length || newTable === oldTable) { setEditingTableCard(null); return }
-    const linkedRounds = round === 1 || round === 2 ? [1, 2] : [round]
-    const moves = linkedRounds.flatMap(linkedRound => {
-      const linkedMembers: any[] = seating?.[linkedRound]?.[oldTable] || []
-      return linkedMembers.map(member => api("e3-move-table", { participant_number: member.number, round: linkedRound, new_table: newTable }))
-    })
-    run(`rename-table-${round}-${oldTable}`, () =>
-      Promise.all(moves)
-        .then(results => {
-          const failed = results.find(result => result?.error)
-          if (failed) {
-            fetchSeating()
-            return { error: `تعذّر نقل كل المشاركين: ${failed.error}` }
-          }
+    if (previewEventId != null) { toast.error("لا يمكن تعديل أرقام الطاولات في وضع المعاينة"); return }
+    run(`swap-tables-${round}-${oldTable}-${newTable}`, () =>
+      api("e3-swap-table-numbers", { round, table_a: oldTable, table_b: newTable }).then(d => {
+        if (!d.error) {
           setEditingTableCard(null)
           fetchSeating()
           fetchMatches()
-          return { message: linkedRounds.length === 2 ? `Table ${oldTable} → ${newTable} in rounds 1 & 2` : `Table ${oldTable} → ${newTable} in round ${round}` }
-        })
+        }
+        return d
+      })
     )
   }
 
@@ -2632,7 +2639,7 @@ export default function Admin3Page() {
                               <button
                                 onClick={() => setEditingTableCard({ round: mapRound as number, table, value: String(table) })}
                                 className="w-10 h-10 rounded-xl bg-indigo-900/40 hover:bg-indigo-800/60 border border-indigo-800/50 hover:border-indigo-600/60 flex items-center justify-center flex-shrink-0 transition-all group"
-                                title="اضغط لتغيير رقم الطاولة"
+                                title="اضغط لتبديل رقم هذه الطاولة مع رقم طاولة أخرى"
                               >
                                 <span className="text-indigo-300 font-black text-lg leading-none group-hover:hidden">{table}</span>
                                 <span className="text-indigo-400 text-sm leading-none hidden group-hover:block">✏</span>
@@ -5737,6 +5744,9 @@ export default function Admin3Page() {
                 <button onClick={() => { setSwapMatch(null); setSwapReplacement(null) }} className="p-2 rounded-xl hover:bg-gray-800 text-gray-500 hover:text-white transition-colors">✕</button>
               </div>
               <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
+                <div className="rounded-lg border border-amber-800/40 bg-amber-950/20 px-3 py-2 text-[11px] leading-relaxed text-amber-300">
+                  البديل سيأخذ مكان المشارك الغائب في جميع الطاولات والمراحل والمطابقات المقفلة والتقييمات، وليس في هذه الجلسة فقط.
+                </div>
                 <p className="text-xs text-gray-400">اختر المشارك البديل:</p>
                 <div className="space-y-1.5">
                   {availableParticipants.length === 0 ? (
@@ -5788,18 +5798,18 @@ export default function Admin3Page() {
             <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[90vw] max-w-md bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl overflow-hidden" dir="rtl">
               <div className="flex items-center justify-between p-4 border-b border-gray-800">
                 <div>
-                  <h3 className="font-bold text-white text-sm">استبدال مشارك بالكامل</h3>
-                  <p className="text-[11px] text-gray-500 mt-0.5">استبدال {replaceParticipant.oldName} (#{replaceParticipant.oldNum}) في جميع الجداول</p>
+                  <h3 className="font-bold text-white text-sm">استبدال فوري شامل</h3>
+                  <p className="text-[11px] text-gray-500 mt-0.5">ضع البديل مكان {replaceParticipant.oldName} (#{replaceParticipant.oldNum}) الآن</p>
                 </div>
                 <button onClick={() => { setReplaceParticipant(null); setReplaceWith(null) }} className="p-2 rounded-xl hover:bg-gray-800 text-gray-500 hover:text-white transition-colors">✕</button>
               </div>
               <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
                 <div className="bg-red-900/20 border border-red-800/30 rounded-lg px-3 py-2.5">
                   <p className="text-[11px] text-red-300 leading-relaxed">
-                    ⚠️ سيتم استبدال المشارك في كل شيء: الطاولات، المطابقات، التصنيفات، الملاحظات، والإشعارات. لن يتم إعادة حساب أي شيء إلا نقطة التوافق للمطابقة الثانية (phase3) للزوج الجديد فقط.
+                    سيتم التبديل دفعة واحدة في كل الجولات الحالية والقادمة، المطابقات المقفلة في لوحة النتائج، التصنيفات، التقييمات، الملاحظات والإشعارات. ستُعاد درجات الأزواج المتأثرة تلقائياً، ولن يظهر أي تغيير جزئي إذا تعذّر التنفيذ.
                   </p>
                 </div>
-                <p className="text-xs text-gray-400">اختر المشارك البديل (يمكن أن يكون أي شخص):</p>
+                <p className="text-xs text-gray-400">اختر المشارك الذي سيأخذ مكانه فوراً:</p>
                 <div className="space-y-1.5">
                   {allPeople.length === 0 ? (
                     <p className="text-xs text-gray-600 text-center py-4">لا يوجد مشاركون</p>

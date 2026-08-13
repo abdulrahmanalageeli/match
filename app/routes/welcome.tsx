@@ -4176,8 +4176,8 @@ export default function WelcomePage() {
           hasOpennessComfort: !!hasOpennessComfort
         })
         
-        // Show popup if signup_for_next_event is false
-        if (!participant.signup_for_next_event) {
+        // Enrollment includes direct event assignment, manual signup, and auto-signup.
+        if (!participant.is_signed_up) {
           setParticipantInfo({
             name: participant.name,
             assigned_number: participant.assigned_number
@@ -7697,9 +7697,17 @@ export default function WelcomePage() {
                             </div>
                           </div>
 
-                          <div className="mt-2.5 flex items-start gap-2 px-1 text-right text-[10px] font-medium leading-5 text-slate-500 sm:text-[11px]">
-                            <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-violet-300/75" />
-                            <span>كل شخص جديد يضيف احتمالات مختلفة للمجموعات والمطابقات.</span>
+                          <div className={`mt-2.5 flex items-center gap-2 rounded-xl border px-3 py-2 text-right text-[11px] font-bold sm:text-xs ${
+                            showNextEventSignup
+                              ? 'border-emerald-300/15 bg-emerald-300/[0.06] text-emerald-200'
+                              : 'border-amber-300/15 bg-amber-300/[0.06] text-amber-100'
+                          }`}>
+                            {showNextEventSignup ? (
+                              <CheckCircle className="h-4 w-4 shrink-0 text-emerald-300" />
+                            ) : (
+                              <AlertCircle className="h-4 w-4 shrink-0 text-amber-300" />
+                            )}
+                            <span>{showNextEventSignup ? 'أنت مسجل في الفعالية القادمة' : 'أنت غير مسجل — سجل من الأسفل'}</span>
                           </div>
                         </div>
                       ) : null}
@@ -8069,7 +8077,7 @@ export default function WelcomePage() {
                       
                       <div className="grid grid-cols-2 gap-2 sm:gap-3">
                         {/* Next Event Signup Card - Full Width Row 1 */}
-                        <div className={`welcome-next-event-card relative col-span-2 rounded-2xl p-3 text-right group ${
+                        <div id="next-event-signup-card" className={`welcome-next-event-card relative col-span-2 rounded-2xl p-3 text-right group ${
                           showNextEventSignup 
                             ? "welcome-next-event-card--registered"
                             : "welcome-next-event-card--available"

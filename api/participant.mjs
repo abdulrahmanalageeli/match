@@ -2391,7 +2391,7 @@ export default async function handler(req, res) {
       // Get participant data by token
       const { data: participant, error: participantError } = await supabase
         .from("participants")
-        .select("id, assigned_number, name, phone_number, signup_for_next_event, auto_signup_next_event, humor_banter_style, early_openness_comfort")
+        .select("id, assigned_number, name, phone_number, event_id, signup_for_next_event, auto_signup_next_event, humor_banter_style, early_openness_comfort")
         .eq("secure_token", secure_token)
         .single()
 
@@ -2399,6 +2399,13 @@ export default async function handler(req, res) {
         console.error("Participant lookup error:", participantError)
         return res.status(404).json({ error: "Participant not found" })
       }
+
+      const { data: eventState } = await supabase
+        .from("event_state")
+        .select("current_event_id")
+        .eq("match_id", "00000000-0000-0000-0000-000000000000")
+        .maybeSingle()
+      const currentEventId = Number(eventState?.current_event_id || 1)
 
       return res.status(200).json({
         success: true,
@@ -2408,6 +2415,8 @@ export default async function handler(req, res) {
           phone_number: participant.phone_number,
           signup_for_next_event: participant.signup_for_next_event,
           auto_signup_next_event: participant.auto_signup_next_event,
+          is_signed_up: isEvent3SignedUp(participant, currentEventId),
+          current_event_id: currentEventId,
           humor_banter_style: participant.humor_banter_style,
           early_openness_comfort: participant.early_openness_comfort
         }

@@ -11,6 +11,7 @@ import {
   getMatchInsightsCacheContent,
   getPairMatchInsightsCoverage,
 } from "../../server/matching/match-insights.mjs"
+import { calculateFinalCompatibilityScore } from "../../server/matching/compatibility-score.mjs"
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
@@ -1445,7 +1446,6 @@ async function getCachedCompatibility(participantA, participantB, options = {}) 
       const lifestyleScore = parseFloat(data.lifestyle_score)
       const coreValuesScore = parseFloat(data.core_values_score)
       const vibeScore = normalizeCachedVibeScore(data.ai_vibe_score, getCachedVibeSourceMax(data, participantA, participantB))
-      const totalScore = parseFloat(data.total_compatibility_score)
       const disagreementScore = calculateDisagreementStyleScore(participantA, participantB)
       const currentFocusScore = calculateCurrentFocusScore(participantA, participantB)
       const contentSimilarity = Math.max(0, Math.min(1, ((vibeScore / SCORE_MAX.vibe) + (currentFocusScore / 5)) / 2))
@@ -1469,7 +1469,8 @@ async function getCachedCompatibility(participantA, participantB, options = {}) 
         intentScore = intentRaw
       }
 
-      // Derive gate/bonus flags and caps for transparency (does NOT mutate cached totalScore)
+      // Rebuild the final score from the cached components so the percentage and
+      // the bonus/penalty explanation can never drift apart in admin test mode.
       const getAns = (p, k) => (p?.survey_data?.answers?.[k] ?? p?.[k] ?? '').toString().toUpperCase()
       const intentBoostApplied = intentScore >= 4
 
@@ -1486,15 +1487,16 @@ async function getCachedCompatibility(participantA, participantB, options = {}) 
       // Reconstruct the exact pre-cap total so cached dry runs expose the same
       // bonus, penalty, and veto metadata as a fresh generation calculation.
       const coreValuesScaled5 = Math.max(0, Math.min(5, (coreValuesScore / 20) * 5))
-      let preCap = synergyScore + vibeScore + currentFocusScore + similarityPreferenceScore + disagreementScore + attachmentPaceScore + lifestyleScore + humorOpenScore + communicationScore + coreValuesScaled5
+      const componentTotal = synergyScore + vibeScore + currentFocusScore + similarityPreferenceScore + disagreementScore + attachmentPaceScore + lifestyleScore + humorOpenScore + communicationScore + coreValuesScaled5
       const opennessPenalty = calculateOpennessPenalty(participantA, participantB)
-      preCap = Math.max(0, preCap + opennessPenalty.points)
-      const cachedHumorMultiplier = parseFloat(data.humor_multiplier || 1.0)
-      preCap = (preCap * cachedHumorMultiplier) + intentScore
-      const deadAirVetoApplied = deadAirBoth && preCap > 40
-      const afterSafetyCaps = deadAirVetoApplied ? 40 : preCap
-      const maxScoreCapApplied = afterSafetyCaps > 100
-      const capApplied = deadAirVetoApplied ? 40 : null
+      const cachedHumorMultiplier = checkHumorMatch(participantA, participantB)
+      const finalScore = calculateFinalCompatibilityScore({
+        componentTotal,
+        opennessPenalty: opennessPenalty.points,
+        humorMultiplier: cachedHumorMultiplier,
+        intentScore,
+        deadAirVeto: deadAirBoth,
+      })
 
       const opennessZeroZeroPenaltyApplied = opennessPenalty.type === 'both_closed'
 
@@ -1513,16 +1515,16 @@ async function getCachedCompatibility(participantA, participantB, options = {}) 
         currentFocusScore,
         similarityPreferenceScore,
         attachmentPaceScore,
-        totalScore,
+        totalScore: finalScore.totalScore,
         humorMultiplier: cachedHumorMultiplier,
-        bonusType: data.humor_early_openness_bonus || 'none',
+        bonusType: cachedHumorMultiplier === 1.15 ? 'full' : cachedHumorMultiplier === 1.05 ? 'partial' : 'none',
         attachmentPenaltyApplied,
         intentBoostApplied,
-        deadAirVetoApplied,
+        deadAirVetoApplied: finalScore.deadAirVetoApplied,
         humorClashDetected: !!vetoClash,
         humorClashVetoApplied: false,
-        maxScoreCapApplied,
-        capApplied,
+        maxScoreCapApplied: finalScore.maxScoreCapApplied,
+        capApplied: finalScore.capApplied,
         opennessZeroZeroPenaltyApplied,
         opennessPenalty: opennessPenalty.points,
         opennessPenaltyType: opennessPenalty.type,
@@ -1815,29 +1817,18 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   // The direct components intentionally total 105 before bonuses and the final
   // 100-point cap: synergy 30, vibe 25, new signals 17, lifestyle 10,
   // humor/openness 15, communication 3, and core values 5.
-  let totalScore = synergyScore + vibeScore + currentFocusScore + similarityPreferenceScore + disagreementScore + attachmentPaceScore + lifestyleScore + humorOpenScore + communicationScore + coreValuesScaled5
+  const componentTotal = synergyScore + vibeScore + currentFocusScore + similarityPreferenceScore + disagreementScore + attachmentPaceScore + lifestyleScore + humorOpenScore + communicationScore + coreValuesScaled5
   const attachmentPenaltyApplied = false
-  let intentBoostApplied = false
-  let deadAirVetoApplied = false
   let humorClashVetoApplied = false
-  let maxScoreCapApplied = false
-  let capApplied = null
-  let opennessZeroZeroPenaltyApplied = false
   const opennessPenalty = calculateOpennessPenalty(participantA, participantB)
 
   // Early openness 0×0 penalty (apply before multipliers and caps)
   if (opennessPenalty.points !== 0) {
-    totalScore += opennessPenalty.points
-    opennessZeroZeroPenaltyApplied = opennessPenalty.type === 'both_closed'
     console.log(`⚠️ Openness penalty applied (${opennessPenalty.type}): ${opennessPenalty.points}`)
   }
-  if (totalScore < 0) totalScore = 0
 
   // Apply multipliers before veto caps
   const humorMultiplier = checkHumorMatch(participantA, participantB)
-  totalScore = totalScore * humorMultiplier
-  totalScore += intentRaw  // direct 0-5 pt contribution: same intent=5, compatible=3-4, mismatch=2
-  if (intentRaw >= 4) intentBoostApplied = true
 
   // Prepare accessor for veto checks
   const getAns = (p, k) => (p?.survey_data?.answers?.[k] ?? p?.[k] ?? '').toString().toUpperCase()
@@ -1848,18 +1839,22 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   const a41 = getAns(participantA, 'silence_comfort')
   const b41 = getAns(participantB, 'silence_comfort')
   const deadAirBoth = (a35 === 'C' && b35 === 'C' && a41 === 'B' && b41 === 'B')
-  if (deadAirBoth && totalScore > 40) {
-    console.log(`⛔ Dead-Air veto applied: total ${totalScore.toFixed(2)} → 40.00`)
-    totalScore = 40
-    deadAirVetoApplied = true
-    capApplied = 40
-  }
+  const finalScore = calculateFinalCompatibilityScore({
+    componentTotal,
+    opennessPenalty: opennessPenalty.points,
+    humorMultiplier,
+    intentScore: intentRaw,
+    deadAirVeto: deadAirBoth,
+  })
+  const totalScore = finalScore.totalScore
+  const intentBoostApplied = intentRaw >= 4
+  const opennessZeroZeroPenaltyApplied = opennessPenalty.type === 'both_closed'
+  const { deadAirVetoApplied, maxScoreCapApplied, capApplied } = finalScore
 
-  // Cap at 100% to ensure compatibility never exceeds maximum
-  if (totalScore > 100) {
-    console.log(`⚠️ Score capped: ${totalScore.toFixed(2)} → 100.00 (max compatibility)`)
-    totalScore = 100
-    maxScoreCapApplied = true
+  if (deadAirVetoApplied) {
+    console.log(`⛔ Dead-Air veto applied: total ${finalScore.afterBonuses.toFixed(2)} → 40.00`)
+  } else if (maxScoreCapApplied) {
+    console.log(`⚠️ Score capped: ${finalScore.afterBonuses.toFixed(2)} → 100.00 (max compatibility)`)
   }
   
   const result = {

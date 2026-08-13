@@ -320,7 +320,7 @@ export default function MatchControlCenterModal({
 
   const selectedPair = useMemo(() => pairs.find(pair => pair.key === selectedKey) || null, [pairs, selectedKey])
   const pairMeetsMatchingCriteria = useCallback((a: number, b: number) => (
-    getPairCriteriaIssues(people.get(a), people.get(b), selectedPair?.round || 1).length === 0
+    getPairCriteriaIssues(people.get(a), people.get(b), selectedPair?.round || 1, { ignoreInteractionStyle: true }).length === 0
   ), [people, selectedPair?.round])
 
   const poolMatches = useCallback((person?: MatchControlPerson, mode: PoolMode = pool) => {
@@ -544,7 +544,7 @@ export default function MatchControlCenterModal({
 
     }
 
-    if (!reasons.length) reasons.push("لا يوجد هدف يحقق فلاتر العرض وتفضيلات الطرفين ومعايير العمر والجنسية والتفاعل دون إنشاء مطابقة سابقة")
+    if (!reasons.length) reasons.push("لا يوجد هدف يحقق فلاتر العرض وتفضيلات الطرفين ومعايير العمر والجنسية دون إنشاء مطابقة سابقة")
     return reasons
   }, [candidateQuery, candidates.length, chainEligibleNumbers, chainPaymentScope, partnerMap, people, swapSource])
 
@@ -558,7 +558,7 @@ export default function MatchControlCenterModal({
     const scopeLabel = chainPaymentScope === "paid" ? "مدفوع فقط" : "غير مدفوع فقط"
     if (chainEligibleNumbers && !chainEligibleNumbers.has(swapSource)) blockers.push(`المشارك الأساسي #${swapSource} خارج نطاق «${scopeLabel}»`)
     if (chainEligibleNumbers && !chainEligibleNumbers.has(swapTarget)) blockers.push(`المشارك المختار #${swapTarget} خارج نطاق «${scopeLabel}»`)
-    blockers.push(...getPairCriteriaIssues(people.get(swapSource), people.get(swapTarget), selectedPair?.round || 1))
+    blockers.push(...getPairCriteriaIssues(people.get(swapSource), people.get(swapTarget), selectedPair?.round || 1, { ignoreInteractionStyle: true }))
     if (scoreLookup.get(pairKey(swapSource, swapTarget))?.is_repeated_match === true) blockers.push("هذا الزوج تقابل في فعالية سابقة")
     if (!blockers.length) blockers.push("لا يمكن إغلاق بقية السلسلة دون كسر تفضيل أو معيار لأحد الأزواج المتأثرين")
     return Array.from(new Set(blockers))
@@ -834,7 +834,7 @@ export default function MatchControlCenterModal({
                 <div className="shrink-0 border-b border-white/8 p-3 sm:p-4">
                   <button onClick={() => { setSwapSource(null); setSwapTarget(null); setChosenPlan(null) }} className="mb-3 flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white"><ArrowLeft className="h-4 w-4" /> العودة لملخص الزوج</button>
                   <div className="flex items-start justify-between gap-3">
-                    <div><p className="text-[10px] font-bold text-cyan-300">تخطيط تبديل للمشارك</p><h3 className="text-lg font-black text-white">{getPersonName(people.get(swapSource), swapSource)} <span className="font-mono text-slate-500">#{swapSource}</span></h3><p className="mt-1 text-xs text-slate-500">تظهر فقط السلاسل التي ينجح كل زوج فيها في تفضيلات الجنس والعمر والجنسية وأسلوب التفاعل ومعايير المطابقة.</p></div>
+                    <div><p className="text-[10px] font-bold text-cyan-300">تخطيط تبديل للمشارك</p><h3 className="text-lg font-black text-white">{getPersonName(people.get(swapSource), swapSource)} <span className="font-mono text-slate-500">#{swapSource}</span></h3><p className="mt-1 text-xs text-slate-500">تظهر فقط السلاسل التي ينجح كل زوج فيها في تفضيلات الجنس والعمر والجنسية ومعايير المطابقة. لا يمنع اختلاف أسلوب التفاعل سلسلة التبديل.</p></div>
                     <SeatBadge person={people.get(swapSource)} />
                   </div>
                 </div>

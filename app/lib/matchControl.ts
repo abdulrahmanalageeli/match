@@ -161,7 +161,12 @@ export function isContacted(person?: MatchControlPerson) {
   return person?.PAID === true || person?.PAID_DONE === true || person?.receipt_url != null
 }
 
-export function getPairCriteriaIssues(personA: MatchControlPerson | undefined, personB: MatchControlPerson | undefined, round: number) {
+export function getPairCriteriaIssues(
+  personA: MatchControlPerson | undefined,
+  personB: MatchControlPerson | undefined,
+  round: number,
+  options: { ignoreInteractionStyle?: boolean } = {},
+) {
   if (!personA || !personB) return ["بيانات المشارك غير مكتملة"]
   const issues: string[] = []
   const answersA = personA.survey_data?.answers || {}
@@ -218,12 +223,14 @@ export function getPairCriteriaIssues(personA: MatchControlPerson | undefined, p
     if (blockedByA || blockedByB) issues.push("هدف المشاركة غير متوافق")
   }
 
-  const humorA = String(personA.humor_banter_style || answersA.humor_banter_style || "").toUpperCase()
-  const humorB = String(personB.humor_banter_style || answersB.humor_banter_style || "").toUpperCase()
-  const opennessA = Number(personA.early_openness_comfort ?? answersA.early_openness_comfort)
-  const opennessB = Number(personB.early_openness_comfort ?? answersB.early_openness_comfort)
-  if (humorA && humorB && ((humorA === "A" && humorB === "D") || (humorA === "D" && humorB === "A"))) issues.push("أسلوب المزاح غير متوافق")
-  if (Number.isFinite(opennessA) && Number.isFinite(opennessB) && Math.abs(opennessA - opennessB) === 3) issues.push("الانفتاح المبكر غير متوافق")
+  if (!options.ignoreInteractionStyle) {
+    const humorA = String(personA.humor_banter_style || answersA.humor_banter_style || "").toUpperCase()
+    const humorB = String(personB.humor_banter_style || answersB.humor_banter_style || "").toUpperCase()
+    const opennessA = Number(personA.early_openness_comfort ?? answersA.early_openness_comfort)
+    const opennessB = Number(personB.early_openness_comfort ?? answersB.early_openness_comfort)
+    if (humorA && humorB && ((humorA === "A" && humorB === "D") || (humorA === "D" && humorB === "A"))) issues.push("أسلوب المزاح غير متوافق")
+    if (Number.isFinite(opennessA) && Number.isFinite(opennessB) && Math.abs(opennessA - opennessB) === 3) issues.push("الانفتاح المبكر غير متوافق")
+  }
   return issues
 }
 

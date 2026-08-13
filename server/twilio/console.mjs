@@ -20,6 +20,15 @@ function formatRiyadhCutoffLabel(value) {
   return `${weekday} ${day} ${ARABIC_MONTHS[month - 1]} ${year} الساعة ${hour % 12 || 12}:${minute} ${hour < 12 ? "صباحًا" : "مساءً"}`
 }
 
+function formatRiyadhDeadline(minutes = 15) {
+  return new Intl.DateTimeFormat("ar-SA", {
+    timeZone: "Asia/Riyadh",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(new Date(Date.now() + minutes * 60 * 1000))
+}
+
 function normalizeWhatsapp(value) {
   const compact = String(value || "").replace(/\s/g, "")
   return compact.startsWith("whatsapp:") ? compact : `whatsapp:${compact}`
@@ -192,7 +201,11 @@ async function buildVariables(templateKey, participant, overrides = {}) {
     1: name, 2: await feedbackRemaining(participant.assigned_number), 3: config.eventName, 4: participant.secure_token,
   }
   if (templateKey === "survey_update") values = { 1: name }
-  return { ...values, ...overrides }
+  if (templateKey === "seat_payment_deadline") values = { 1: name, 2: formatRiyadhDeadline(15) }
+  const merged = { ...values, ...overrides }
+  // The approved seat-payment template always promises a 15-minute window.
+  if (templateKey === "seat_payment_deadline") merged[2] = formatRiyadhDeadline(15)
+  return merged
 }
 
 async function sendApprovedTemplate(template, participant, eventId, overrides = {}) {
@@ -240,7 +253,7 @@ async function sendApprovedTemplate(template, participant, eventId, overrides = 
     twilio_payload: twilio ? { sid: twilio.sid || null, status: twilio.status || null, code: twilio.code || null } : null,
   })
   if (!response.ok) throw new Error(twilio.message || "Twilio send failed")
-  if (!["reminder", "survey_update"].includes(template.template_key)) {
+  if (["match", "payment"].includes(template.template_key)) {
     const { error: sentFlagError } = await supabase
       .from("participants")
       .update(template.template_key === "payment"
@@ -550,9 +563,9 @@ export default async function handler(req, res) {
         .map(number => ({ assigned_number: number, success: false, error: "Participant not found" }))
       const alreadySent = (participants || []).filter(participant => template_key === "payment"
         ? participant.payment_reminder_sent === true
-        : template_key === "reminder"
-          ? false
-          : participant.PAID === true && Number(participant.whatsapp_contacted_event_id) === eventId)
+        : template_key === "match"
+          ? participant.PAID === true && Number(participant.whatsapp_contacted_event_id) === eventId
+          : false)
       results.push(...alreadySent.map(participant => ({
         assigned_number: participant.assigned_number,
         success: true,
@@ -561,9 +574,9 @@ export default async function handler(req, res) {
       })))
       const participantBatches = (participants || []).filter(participant => template_key === "payment"
         ? participant.payment_reminder_sent !== true
-        : template_key === "reminder"
-          ? true
-          : participant.PAID !== true || Number(participant.whatsapp_contacted_event_id) !== eventId)
+        : template_key === "match"
+          ? participant.PAID !== true || Number(participant.whatsapp_contacted_event_id) !== eventId
+          : true)
       // Small concurrent batches keep event-day sends responsive without flooding
       // Twilio or exhausting the serverless function's connection pool.
       for (let index = 0; index < participantBatches.length; index += 5) {

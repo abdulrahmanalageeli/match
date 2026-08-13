@@ -5740,7 +5740,7 @@ export default function Event3Page() {
       }
       throw new Error(d.error)
     }
-    setEnrolled(prev => prev === null ? (d.enrolled !== false) : prev)
+    setEnrolled(d.enrolled !== false)
     setMyInfo(prev => prev ?? (d.my_info || null))
     return d
   }, [token])

@@ -1,6 +1,6 @@
 import OpenAI from "openai"
 import { createHmac, timingSafeEqual } from "node:crypto"
-import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkIntentHardGate, checkInteractionStyleCompatibility, fetchAllCachedPairs, calculateHumorOpennessScore } from "./trigger-match.mjs"
+import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkIntentHardGate, fetchAllCachedPairs, calculateHumorOpennessScore } from "./trigger-match.mjs"
 import { buildWelcomePrompt } from "./ai-welcome-prompt.mjs"
 import { assignPriorityTables } from "../../server/event3/table-priority.mjs"
 import { buildSixBySevenPlan, optimizeRound2ByAge } from "../../server/event3/round2-age-optimizer.mjs"
@@ -29,7 +29,19 @@ function formatRiyadhCutoffLabel(value) {
   return `${weekday} ${day} ${ARABIC_MONTHS[month - 1]} ${year} الساعة ${hour % 12 || 12}:${minute} ${hour < 12 ? "صباحًا" : "مساءً"}`
 }
 
+function formatRiyadhDeadline(minutes = 15) {
+  return new Intl.DateTimeFormat("ar-SA", {
+    timeZone: "Asia/Riyadh",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(new Date(Date.now() + minutes * 60 * 1000))
+}
+
 function normalizeTwilioTemplateVariables(templateKey, variables) {
+  if (templateKey === "seat_payment_deadline") {
+    return { ...(variables && typeof variables === "object" ? variables : {}), 2: formatRiyadhDeadline(15) }
+  }
   if (!variables || typeof variables !== "object") return variables
   // Legacy payment-reminder clients included a non-template "savings" value
   // at {{5}}, shifting all payment details. Normalize those payloads at the
@@ -1847,7 +1859,7 @@ export default async function handler(req, res) {
         const { data: configuredTemplates } = await supabase
           .from("twilio_templates")
           .select("template_key,content_sid,approval_status,enabled")
-          .in("template_key", ["match", "reminder", "payment", "match_cancellation", "survey_update"])
+          .in("template_key", ["match", "reminder", "payment", "match_cancellation", "survey_update", "seat_payment_deadline"])
         const configured = Object.fromEntries((configuredTemplates || []).map(t => [t.template_key, t]))
         return res.status(200).json({
           success: true,
@@ -1857,6 +1869,7 @@ export default async function handler(req, res) {
             payment: configured.payment?.content_sid || process.env.TWILIO_PAYMENT_TEMPLATE_SID || null,
             match_cancellation: configured.match_cancellation?.content_sid || process.env.TWILIO_MATCH_CANCELLATION_TEMPLATE_SID || TWILIO_MATCH_CANCELLATION_SID,
             survey_update: configured.survey_update?.content_sid || process.env.TWILIO_SURVEY_UPDATE_TEMPLATE_SID || TWILIO_SURVEY_UPDATE_SID,
+            seat_payment_deadline: configured.seat_payment_deadline?.content_sid || null,
           },
           templateMeta: configured,
         })
@@ -1918,7 +1931,7 @@ export default async function handler(req, res) {
           const last7 = cleanPhone.replace(/\D/g, "").slice(-7)
           const { data: participantMatches } = await supabase
             .from("participants")
-            .select("id, assigned_number, phone_number, payment_reminder_sent")
+            .select("id, assigned_number, name, phone_number, payment_reminder_sent")
             .eq("match_id", STATIC_MATCH_ID)
             .not("phone_number", "is", null)
           const participant = participantMatches?.find(p => String(p.phone_number || "").replace(/\D/g, "").endsWith(last7))
@@ -1932,6 +1945,9 @@ export default async function handler(req, res) {
           body.append("To", normalizedTo)
 
           const effectiveVariables = normalizeTwilioTemplateVariables(resolvedTemplateKey, variables)
+          if (resolvedTemplateKey === "seat_payment_deadline") {
+            effectiveVariables[1] = effectiveVariables[1] || participant?.name || `#${participant?.assigned_number || ""}`
+          }
           if (templateSid) {
             // Template-based send with ContentSid + ContentVariables
             body.append("ContentSid", templateSid)
@@ -1984,7 +2000,7 @@ export default async function handler(req, res) {
               twilio_payload: twilioData || {},
               is_auto_reply: false,
             })
-            if (participant?.id && !["reminder", "match_cancellation", "survey_update"].includes(resolvedTemplateKey)) {
+            if (participant?.id && ["match", "payment"].includes(resolvedTemplateKey)) {
               const currentEventId = await getCurrentAdminEventId()
               const { error: sentFlagError } = await supabase
                 .from("participants")
@@ -2092,9 +2108,9 @@ export default async function handler(req, res) {
             // match/confirmation sent flag.
             const alreadySent = resolvedTemplateKey === "payment"
               ? p.payment_reminder_sent === true
-              : ["reminder", "match_cancellation", "survey_update"].includes(resolvedTemplateKey)
-                ? false
-                : p.PAID === true && Number(p.whatsapp_contacted_event_id) === Number(currentEventId)
+              : resolvedTemplateKey === "match"
+                ? p.PAID === true && Number(p.whatsapp_contacted_event_id) === Number(currentEventId)
+                : false
             if (alreadySent) {
               results.push({ number: p.assigned_number, name: p.name, success: true, skipped: true, reason: resolvedTemplateKey === "payment" ? "Payment reminder already sent" : "Already marked WhatsApp sent" })
               skippedCount++
@@ -2115,6 +2131,9 @@ export default async function handler(req, res) {
                 vars = variablesMap[p.assigned_number] || variablesMap[String(p.assigned_number)] || {}
               }
               vars = normalizeTwilioTemplateVariables(resolvedTemplateKey, vars)
+              if (resolvedTemplateKey === "seat_payment_deadline") {
+                vars[1] = vars[1] || p.name || `#${p.assigned_number}`
+              }
 
               const body = new URLSearchParams()
               body.append("From", sender)
@@ -2154,7 +2173,7 @@ export default async function handler(req, res) {
                     twilio_payload: twilioData || {},
                     is_auto_reply: false,
                   })
-                  if (!["reminder", "match_cancellation", "survey_update"].includes(resolvedTemplateKey)) {
+                  if (["match", "payment"].includes(resolvedTemplateKey)) {
                     const { error: sentFlagError } = await supabase
                       .from("participants")
                       .update(resolvedTemplateKey === "payment"
@@ -4775,7 +4794,8 @@ export default async function handler(req, res) {
           if (!checkNationalityHardGate(participantA, participantB)) failures.push("nationality preference")
           if (!checkAgeRangeHardGate(participantA, participantB)) failures.push("preferred age range")
           if (!checkIntentHardGate(participantA, participantB)) failures.push("intent goal")
-          if (!checkInteractionStyleCompatibility(participantA, participantB)) failures.push("interaction style")
+          // Swap chains are an explicit organizer override: retain interaction-style
+          // penalties in the calculated score, but do not reject a chain leg for them.
           if (previousPairKeys.has(swapPairKey(pair.a, pair.b))) failures.push("previous-event repeat")
           if (failures.length) criteriaFailures.push({ pair: `#${pair.a} ↔ #${pair.b}`, failures })
         }

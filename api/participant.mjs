@@ -7,6 +7,7 @@ import {
   buildVibeDescription,
   validateMatchInsights,
 } from "../server/matching/match-insights.mjs"
+import { isEvent3SignedUp } from "../server/event3/enrollment.mjs"
 
 // In-memory cache for e3 token resolution (5 min TTL) to reduce Supabase API load
 const _e3TokenCache = new Map() // token -> { participant, expiresAt }
@@ -3136,7 +3137,7 @@ Please respond in JSON format:
       if (!tok) return null
       const cached = _e3TokenCache.get(tok)
       if (cached && cached.expiresAt > Date.now()) return cached.participant
-      const { data } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data").eq("secure_token", tok).eq("match_id", MAIN_MATCH).single()
+      const { data } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,event_id,signup_for_next_event,auto_signup_next_event").eq("secure_token", tok).eq("match_id", MAIN_MATCH).single()
       const participant = data || null
       _e3TokenCache.set(tok, { participant, expiresAt: Date.now() + E3_TOKEN_CACHE_TTL_MS })
       return participant
@@ -3192,7 +3193,11 @@ Please respond in JSON format:
 
         let myAssignment = null
         if (participant) {
-          const { data: ep } = await supabase.from("event3_participants").select("position").eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId).eq("participant_number", myNumber).maybeSingle()
+          const [{ data: ep }, { data: currentSignup }] = await Promise.all([
+            supabase.from("event3_participants").select("position").eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId).eq("participant_number", myNumber).maybeSingle(),
+            supabase.from("participants").select("event_id,signup_for_next_event,auto_signup_next_event").eq("match_id", MAIN_MATCH).eq("assigned_number", myNumber).maybeSingle(),
+          ])
+          const signedUp = isEvent3SignedUp(currentSignup || participant, activeEventId)
           // Auto-mark attendance when enrolled participant polls state during a live event (not setup).
           // This prevents marking attendance for people viewing the tutorial at home before the event.
           if (ep && phase !== "setup") {
@@ -3228,9 +3233,9 @@ Please respond in JSON format:
             : null
           if (ep && currentRound) {
             const { data: sa } = await supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId).eq("round", currentRound).eq("participant_id", myNumber).maybeSingle()
-            myAssignment = sa ? { round: currentRound, table: sa.table_number, enrolled: true } : { enrolled: true }
+            myAssignment = sa ? { round: currentRound, table: sa.table_number, enrolled: true } : { enrolled: signedUp }
           } else {
-            myAssignment = { enrolled: !!ep }
+            myAssignment = { enrolled: signedUp }
           }
         }
         let myInfo = null

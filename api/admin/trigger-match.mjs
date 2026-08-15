@@ -4761,7 +4761,7 @@ if (action === "cache-status-by-gender") {
       const effectiveMaxDurationMs = Math.max(1000, Math.min(parseInt(maxDurationMs) || 8000, 9000))
       // This limit protects the slow external-AI path. Reused vibe scores are
       // deterministic local work and do not consume an AI slot.
-      const effectiveMaxAiCalls = Math.max(1, Math.min(parseInt(maxNewCachesPerRequest) || (skipAI ? 25 : 2), skipAI ? 500 : 25))
+      const effectiveMaxAiCalls = Math.max(1, Math.min(parseInt(maxNewCachesPerRequest) || (skipAI ? 25 : 12), skipAI ? 500 : 25))
       const effectiveMaxPairs = Math.max(25, Math.min(parseInt(maxPairsPerRequest) || (skipAI ? 1500 : 250), 20000))
 
       let newlyCached = 0
@@ -4781,7 +4781,7 @@ if (action === "cache-status-by-gender") {
       if (cursorI > totalParticipants) cursorI = totalParticipants
 
       let nextResumeCursor = null
-      const maxConcurrentCacheWrites = 8
+      const maxConcurrentCacheWrites = 12
       let pendingCacheJobs = []
 
       const makeNextCursor = (i, j) => {

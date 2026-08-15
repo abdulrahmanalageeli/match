@@ -6,6 +6,7 @@ import { assignPriorityTables } from "../../server/event3/table-priority.mjs"
 import { buildSixBySevenPlan, optimizeRound2ByAge } from "../../server/event3/round2-age-optimizer.mjs"
 import { collectEventSwapPairs, collectMatchResultSwapPairs, getTableSwapRounds } from "../../server/event3/participant-swap.mjs"
 import { buildTestAdminSession, testMatchToLockedMatch } from "../../server/event3/test-match-results.mjs"
+import { buildDislikeLeaderboard } from "../../server/event3/dislike-ranking.mjs"
 import { supabaseAdmin } from "../../server/security/supabase-admin.mjs"
 import { clearAdminSession, enforceRateLimit, requireAdmin } from "../../server/security/request-security.mjs"
 
@@ -9523,16 +9524,50 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         }
         // e3-get-all-rankings
         if (action === "e3-get-all-rankings") {
-          const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          const { data: ep, error: participantError } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          if (participantError) return res.status(500).json({ error: participantError.message })
           const selected = (ep || []).map(r => r.participant_number)
-          if (selected.length === 0) return res.status(200).json({ rankings: [] })
-          const { data: pdata } = await supabase.from("participants").select("assigned_number,name,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", selected)
+          const loadRankingRows = async (eventId = null) => {
+            const pageSize = 1000
+            const rows = []
+            for (let offset = 0; ; offset += pageSize) {
+              let query = supabase.from("participant_rankings")
+                .select("event_id,ranker_number,ranked_number,rank,auto_saved")
+                .eq("match_id", EVENT3_MATCH_ID)
+                .order("event_id", { ascending: true })
+                .order("ranker_number", { ascending: true })
+                .order("rank", { ascending: true })
+                .order("ranked_number", { ascending: true })
+                .range(offset, offset + pageSize - 1)
+              if (eventId != null) query = query.eq("event_id", eventId)
+              const { data, error } = await query
+              if (error) throw error
+              rows.push(...(data || []))
+              if (!data || data.length < pageSize) break
+            }
+            return rows
+          }
+
+          let allEventRanks
+          try {
+            allEventRanks = await loadRankingRows()
+          } catch (error) {
+            return res.status(500).json({ error: error.message })
+          }
+          const currentRanks = allEventRanks.filter(row => Number(row.event_id) === Number(currentEventId))
+          const knownNumbers = [...new Set([
+            ...selected,
+            ...allEventRanks.flatMap(row => [row.ranker_number, row.ranked_number]),
+          ])]
+          const { data: pdata, error: profileError } = knownNumbers.length > 0
+            ? await supabase.from("participants").select("assigned_number,name,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", knownNumbers)
+            : { data: [], error: null }
+          if (profileError) return res.status(500).json({ error: profileError.message })
           const nameMap = {}
           for (const p of pdata || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); nameMap[p.assigned_number] = p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}` }
-          const { data: allRanks } = await supabase.from("participant_rankings").select("ranker_number,ranked_number,rank,auto_saved").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).order("rank", { ascending: true })
           const byRanker = {}
           const autoSavedByRanker = {}
-          for (const r of allRanks || []) {
+          for (const r of currentRanks) {
             if (!byRanker[r.ranker_number]) byRanker[r.ranker_number] = []
             byRanker[r.ranker_number].push({ number: r.ranked_number, rank: r.rank, name: nameMap[r.ranked_number] || `#${r.ranked_number}` })
             if (r.auto_saved) autoSavedByRanker[r.ranker_number] = true
@@ -9545,7 +9580,15 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             count: (byRanker[n] || []).length,
             ranked_list: (byRanker[n] || []).sort((a, b) => a.rank - b.rank),
           }))
-          return res.status(200).json({ rankings: result })
+          return res.status(200).json({
+            rankings: result,
+            dislike_rankings: {
+              event_id: currentEventId,
+              event: buildDislikeLeaderboard(currentRanks, nameMap),
+              overall: buildDislikeLeaderboard(allEventRanks, nameMap),
+              excludes_auto_saved: true,
+            },
+          })
         }
         // e3-force-auto-save-rankings — save last-known state for all unsubmitted participants
         if (action === "e3-force-auto-save-rankings") {

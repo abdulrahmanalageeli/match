@@ -272,6 +272,7 @@ export default function Admin3Page() {
   const [seating, setSeating] = useState<any>(null)
   const [rankStatus, setRankStatus] = useState<any>(null)
   const [allRankings, setAllRankings] = useState<any[]>([])
+  const [dislikeRankings, setDislikeRankings] = useState<{ event_id: number | null; event: any[]; overall: any[] }>({ event_id: null, event: [], overall: [] })
   const [expandedRanker, setExpandedRanker] = useState<number | null>(null)
   const [copied, setCopied] = useState(false)
   const [matchPairs, setMatchPairs] = useState<any[]>([])
@@ -374,6 +375,7 @@ export default function Admin3Page() {
   const [notifIcon, setNotifIcon] = useState<string>("info")
   const [rankSearch, setRankSearch] = useState("")
   const [rankFilter, setRankFilter] = useState<"all" | "submitted" | "pending">("all")
+  const [rankingSentiment, setRankingSentiment] = useState<"liked" | "disliked">("disliked")
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
 
@@ -727,6 +729,7 @@ export default function Admin3Page() {
     setRankStatus(data)
     const allData = await api("e3-get-all-rankings")
     setAllRankings(allData.rankings || [])
+    setDislikeRankings(allData.dislike_rankings || { event_id: null, event: [], overall: [] })
     await fetchMatches()
   }, [fetchMatches])
 
@@ -2929,6 +2932,60 @@ export default function Admin3Page() {
             return "bg-gray-800 text-gray-500"
           }
           const moveItem = (arr: any[], from: number, to: number) => { const a = [...arr]; const [item] = a.splice(from, 1); a.splice(to, 0, item); return a }
+          const isLikedSort = rankingSentiment === "liked"
+          const sortPreferenceEntries = (entries: any[]) => [...entries].sort((a, b) => {
+            const scoreKey = isLikedSort ? "like_score" : "dislike_score"
+            const placementRateKey = isLikedSort ? "first_place_rate" : "last_place_rate"
+            return (b[scoreKey] || 0) - (a[scoreKey] || 0)
+              || (b[placementRateKey] || 0) - (a[placementRateKey] || 0)
+              || b.received_rankings - a.received_rankings
+              || a.number - b.number
+          })
+          const preferencePanel = (title: string, subtitle: string, entries: any[], scope: "event" | "overall") => {
+            const accent = isLikedSort
+              ? (scope === "event" ? { shell: "bg-emerald-950/20 border-emerald-900/50", badge: "bg-emerald-900/50 text-emerald-300", top: "bg-emerald-900/60 text-emerald-200", score: "text-emerald-300", bar: "bg-gradient-to-l from-emerald-400 to-teal-700" } : { shell: "bg-sky-950/20 border-sky-900/50", badge: "bg-sky-900/50 text-sky-300", top: "bg-sky-900/60 text-sky-200", score: "text-sky-300", bar: "bg-gradient-to-l from-sky-400 to-blue-700" })
+              : (scope === "event" ? { shell: "bg-rose-950/20 border-rose-900/50", badge: "bg-rose-900/50 text-rose-300", top: "bg-rose-900/60 text-rose-200", score: "text-rose-300", bar: "bg-gradient-to-l from-rose-500 to-pink-700" } : { shell: "bg-orange-950/20 border-orange-900/50", badge: "bg-orange-900/50 text-orange-300", top: "bg-orange-900/60 text-orange-200", score: "text-orange-300", bar: "bg-gradient-to-l from-orange-500 to-amber-700" })
+            const sortedEntries = sortPreferenceEntries(entries)
+            return (
+            <div className={`rounded-2xl border overflow-hidden ${accent.shell}`}>
+              <div className="p-3 border-b border-white/5">
+                <div className="flex items-center gap-2">
+                  <span className={`w-7 h-7 rounded-lg flex items-center justify-center ${accent.badge}`}>{isLikedSort ? "↑" : "↓"}</span>
+                  <div>
+                    <h4 className="text-sm font-bold text-gray-100">{title}</h4>
+                    <p className="text-[10px] text-gray-500 mt-0.5">{subtitle}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="max-h-80 overflow-y-auto divide-y divide-white/5">
+                {sortedEntries.length === 0 ? (
+                  <div className="p-6 text-center text-xs text-gray-600">لا توجد تصنيفات يدوية كافية للحساب</div>
+                ) : sortedEntries.map((person: any, index: number) => {
+                  const preferenceScore = isLikedSort ? person.like_score : person.dislike_score
+                  return (
+                  <div key={person.number} className="p-3 flex items-center gap-3 hover:bg-white/[0.025] transition-colors">
+                    <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0 ${index < 3 ? accent.top : "bg-gray-900 text-gray-500"}`}>{index + 1}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-semibold text-gray-200 truncate">{person.name} <span className="font-mono text-[10px] text-gray-600">#{person.number}</span></p>
+                        <span className={`text-xs font-black tabular-nums ${accent.score}`}>{preferenceScore}</span>
+                      </div>
+                      <div className="h-1 bg-gray-800 rounded-full overflow-hidden my-1.5">
+                        <div className={`h-full rounded-full ${accent.bar}`} style={{ width: `${Math.min(100, preferenceScore || 0)}%` }} />
+                      </div>
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[9px] text-gray-500">
+                        <span>{isLikedSort ? `${person.first_place_count} أول (${person.first_place_rate}٪)` : `${person.last_place_count} أخير (${person.last_place_rate}٪)`}</span>
+                        <span>{isLikedSort ? `${person.top_third_count} في الثلث الأول` : `${person.bottom_third_count} في الثلث الأخير`}</span>
+                        <span>{person.received_rankings} تصنيفات{person.events_count > 1 ? ` · ${person.events_count} فعاليات` : ""}</span>
+                      </div>
+                    </div>
+                  </div>
+                  )
+                })}
+              </div>
+            </div>
+            )
+          }
           return (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -3003,6 +3060,27 @@ export default function Admin3Page() {
                       <p className="text-sm font-bold text-pink-400 truncate">{allRankings.find((x: any) => x.number === Number(topPopular[0][0]))?.name || `#${topPopular[0][0]}`}</p>
                     ) : <p className="text-sm text-gray-600">—</p>}
                     <p className="text-[9px] text-gray-600 mt-1">{topPopular.length > 0 ? `${topPopular[0][1]} أصوات` : ''}</p>
+                  </div>
+                </div>
+
+                {/* Preference leaderboards (read-only, available in preview) */}
+                <div className="space-y-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-200">ترتيب التفضيلات المتكررة</h4>
+                      <p className="text-[10px] text-gray-500 mt-0.5">درجة من 100 توحّد أحجام القوائم، تركّز على المراكز الأولى أو الأخيرة، وتزيد الثقة عند تكرار النتيجة. الحفظ التلقائي مستبعد.</p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                      <div className="flex rounded-lg bg-gray-900 border border-gray-800 p-0.5">
+                        <button onClick={() => setRankingSentiment("liked")} className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-colors ${isLikedSort ? "bg-emerald-800 text-emerald-100" : "text-gray-500 hover:text-gray-300"}`}>↑ الأكثر إعجاباً</button>
+                        <button onClick={() => setRankingSentiment("disliked")} className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-colors ${!isLikedSort ? "bg-rose-900 text-rose-100" : "text-gray-500 hover:text-gray-300"}`}>↓ الأقل تفضيلاً</button>
+                      </div>
+                      {previewEventId != null && <span className="px-2 py-1 rounded-lg bg-amber-900/30 border border-amber-800/40 text-amber-300 text-[10px] whitespace-nowrap">متاح في المعاينة</span>}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                    {preferencePanel(`الفعالية ${dislikeRankings.event_id ?? (previewEventId ?? realCurrentEventId)}`, "نتائج هذه الفعالية فقط", dislikeRankings.event || [], "event")}
+                    {preferencePanel("الإجمالي عبر كل الفعاليات", "النمط المتكرر في جميع الفعاليات", dislikeRankings.overall || [], "overall")}
                   </div>
                 </div>
 

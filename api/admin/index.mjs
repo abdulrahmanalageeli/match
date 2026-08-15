@@ -11191,46 +11191,58 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
         // e3-ai-welcome-generate — generate for specific participants (batch)
         if (action === "e3-ai-welcome-generate") {
           const { participant_numbers, regenerate = false } = req.body
-          const nums = Array.isArray(participant_numbers) ? participant_numbers : [participant_numbers]
+          const requestedNums = Array.isArray(participant_numbers) ? participant_numbers : [participant_numbers]
+          const nums = [...new Set(requestedNums.map(Number).filter(num => Number.isInteger(num) && num > 0))]
           if (nums.length === 0) return res.status(400).json({ error: "No participants specified" })
 
-          const { data: pInfos, error: pErr } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,secure_token").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
-          if (pErr) return res.status(500).json({ error: pErr.message })
+          const [pInfosRes, currentWelcomesRes, priorWelcomesRes] = await Promise.all([
+            supabase.from("participants").select("assigned_number,name,gender,age,survey_data,secure_token").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums),
+            supabase.from("event3_ai_welcome_messages").select("participant_number,welcome_message").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_number", nums),
+            supabase.from("event3_ai_welcome_messages").select("participant_number,welcome_message,anchor_used,event_id").eq("match_id", EVENT3_MATCH_ID).in("participant_number", nums).neq("event_id", currentEventId),
+          ])
+          if (pInfosRes.error) return res.status(500).json({ error: pInfosRes.error.message })
+          if (currentWelcomesRes.error) return res.status(500).json({ error: currentWelcomesRes.error.message })
+          if (priorWelcomesRes.error) return res.status(500).json({ error: priorWelcomesRes.error.message })
 
-          const results = []
+          const participantMap = new Map((pInfosRes.data || []).map(p => [p.assigned_number, p]))
+          const currentWelcomeMap = new Map((currentWelcomesRes.data || []).map(w => [w.participant_number, w]))
+          const priorWelcomeMap = new Map()
+          for (const welcome of priorWelcomesRes.data || []) {
+            if (!priorWelcomeMap.has(welcome.participant_number)) priorWelcomeMap.set(welcome.participant_number, [])
+            priorWelcomeMap.get(welcome.participant_number).push(welcome)
+          }
+
+          const resultByNumber = new Map()
+          const generationJobs = []
           for (const num of nums) {
-            const p = (pInfos || []).find(x => x.assigned_number === num)
-            if (!p) { results.push({ number: num, status: "error", error: "Not found" }); continue }
-
-            const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {})
-
-            // Check for cached welcome in dedicated table
-            const { data: cachedWelcome } = await supabase.from("event3_ai_welcome_messages")
-              .select("welcome_message")
-              .eq("match_id", EVENT3_MATCH_ID)
-              .eq("event_id", currentEventId)
-              .eq("participant_number", num)
-              .maybeSingle()
-            if (cachedWelcome?.welcome_message && !regenerate) {
-              results.push({ number: num, name: p.name, status: "cached", welcome: cachedWelcome.welcome_message })
+            const p = participantMap.get(num)
+            if (!p) {
+              resultByNumber.set(num, { number: num, status: "error", error: "Not found" })
               continue
             }
 
-            try {
+            const cachedWelcome = currentWelcomeMap.get(num)
+            if (cachedWelcome?.welcome_message && !regenerate) {
+              resultByNumber.set(num, { number: num, name: p.name, status: "cached", welcome: cachedWelcome.welcome_message })
+              continue
+            }
+
+            generationJobs.push({ num, p })
+          }
+
+          const generatedRows = []
+          const generatedResults = new Map()
+          const WELCOME_CONCURRENCY = 12
+          for (let start = 0; start < generationJobs.length; start += WELCOME_CONCURRENCY) {
+            const chunk = generationJobs.slice(start, start + WELCOME_CONCURRENCY)
+            const settled = await Promise.allSettled(chunk.map(async ({ num, p }) => {
+              const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {})
               const firstName = (p.name || sd?.answers?.name || sd?.name || "").trim().split(/\s+/)[0] || "صديقنا"
               const gender = p.gender || sd?.answers?.gender || sd?.gender || ""
               const age = p.age || sd?.answers?.age || sd?.age || ""
-
-              // Returning participant detection: fetch prior welcome messages from other events
-              const { data: priorWelcomes } = await supabase.from("event3_ai_welcome_messages")
-                .select("welcome_message,anchor_used,event_id")
-                .eq("match_id", EVENT3_MATCH_ID)
-                .eq("participant_number", num)
-                .neq("event_id", currentEventId)
-              const priorMessages = (priorWelcomes || []).map(w => w.welcome_message).filter(Boolean)
-              const priorAnchors = [...new Set((priorWelcomes || []).flatMap(w => (w.anchor_used || "").split(",").filter(Boolean)))]
-
-              // Build prompt using shared builder
+              const priorWelcomes = priorWelcomeMap.get(num) || []
+              const priorMessages = priorWelcomes.map(w => w.welcome_message).filter(Boolean)
+              const priorAnchors = [...new Set(priorWelcomes.flatMap(w => (w.anchor_used || "").split(",").filter(Boolean)))]
               const { prompt, anchorsUsed } = buildWelcomePrompt({
                 participantNum: num,
                 firstName,
@@ -11249,30 +11261,60 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
                 presence_penalty: 0.8,
                 frequency_penalty: 0.5,
               })
-
               const message = completion.choices[0]?.message?.content?.trim()
               if (!message) throw new Error("Empty response")
 
-              // Cache in dedicated table with anchor_used
-              await supabase.from("event3_ai_welcome_messages")
-                .upsert({
+              return {
+                num,
+                firstName,
+                result: { number: num, name: p.name, status: "generated", welcome: message },
+                row: {
                   match_id: EVENT3_MATCH_ID,
                   event_id: currentEventId,
                   participant_number: num,
                   welcome_message: message,
                   generated_by: 'admin',
                   anchor_used: anchorsUsed.join(","),
-                }, { onConflict: 'match_id, event_id, participant_number' })
+                },
+                anchorsUsed,
+              }
+            }))
 
-              results.push({ number: num, name: p.name, status: "generated", welcome: message })
-              console.log(`[ai-welcome-batch] Generated for #${num} (${firstName}) — anchors: ${anchorsUsed.join(",")}`)
-            } catch (genErr) {
-              console.error(`[ai-welcome-batch] Error for #${num}:`, genErr.message)
-              results.push({ number: num, name: p.name, status: "error", error: genErr.message })
+            settled.forEach((outcome, index) => {
+              const { num, p } = chunk[index]
+              if (outcome.status === 'fulfilled') {
+                generatedRows.push(outcome.value.row)
+                generatedResults.set(num, outcome.value.result)
+                console.log(`[ai-welcome-batch] Generated for #${num} (${outcome.value.firstName}) — anchors: ${outcome.value.anchorsUsed.join(",")}`)
+              } else {
+                const message = outcome.reason?.message || "Generation failed"
+                console.error(`[ai-welcome-batch] Error for #${num}:`, message)
+                resultByNumber.set(num, { number: num, name: p.name, status: "error", error: message })
+              }
+            })
+          }
+
+          if (generatedRows.length > 0) {
+            const { error: upsertError } = await supabase
+              .from("event3_ai_welcome_messages")
+              .upsert(generatedRows, { onConflict: 'match_id,event_id,participant_number' })
+            if (upsertError) {
+              for (const [num, generatedResult] of generatedResults) {
+                resultByNumber.set(num, { number: num, name: generatedResult.name, status: "error", error: upsertError.message })
+              }
+            } else {
+              for (const [num, generatedResult] of generatedResults) resultByNumber.set(num, generatedResult)
             }
           }
 
-          return res.status(200).json({ results })
+          const results = nums.map(num => resultByNumber.get(num))
+          return res.status(200).json({
+            results,
+            generated: results.filter(result => result?.status === 'generated').length,
+            cached: results.filter(result => result?.status === 'cached').length,
+            errors: results.filter(result => result?.status === 'error').length,
+            concurrency: WELCOME_CONCURRENCY,
+          })
         }
 
         // e3-ai-welcome-delete — delete a welcome message for a participant

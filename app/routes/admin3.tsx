@@ -6014,8 +6014,9 @@ export default function Admin3Page() {
           }
           setAiWelcomeGenerating(true)
           setAiWelcomeProgress({ done: 0, total: nums.length })
-          // Process in chunks of 3 to avoid timeouts
-          const chunkSize = 3
+          // Backend runs each chunk with a bounded 12-call worker pool.
+          const chunkSize = 12
+          let failed = 0
           for (let i = 0; i < nums.length; i += chunkSize) {
             const chunk = nums.slice(i, i + chunkSize)
             try {
@@ -6024,18 +6025,24 @@ export default function Admin3Page() {
                 for (const r of data.results) {
                   if (r.status === "generated" || r.status === "cached") {
                     setAiWelcomeData(prev => prev.map(p => p.number === r.number ? { ...p, has_welcome: true, welcome: r.welcome } : p))
+                  } else if (r.status === "error") {
+                    failed++
                   }
                 }
+              } else {
+                failed += chunk.length
               }
             } catch (e) {
               console.error("Batch generate error:", e)
+              failed += chunk.length
             }
             setAiWelcomeProgress({ done: Math.min(i + chunkSize, nums.length), total: nums.length })
           }
           setAiWelcomeGenerating(false)
           setAiWelcomeProgress(null)
           setAiWelcomeSelected(new Set())
-          toast.success(`تم توليد ${nums.length} رسالة ترحيب`)
+          if (failed > 0) toast.error(`فشل توليد ${failed} من ${nums.length} رسالة ترحيب`)
+          else toast.success(`تم توليد ${nums.length} رسالة ترحيب`)
         }
 
         const generateAll = async (regenerate: boolean = false) => {
@@ -6048,7 +6055,8 @@ export default function Admin3Page() {
           }
           setAiWelcomeGenerating(true)
           setAiWelcomeProgress({ done: 0, total: nums.length })
-          const chunkSize = 3
+          const chunkSize = 12
+          let failed = 0
           for (let i = 0; i < nums.length; i += chunkSize) {
             const chunk = nums.slice(i, i + chunkSize)
             try {
@@ -6057,17 +6065,23 @@ export default function Admin3Page() {
                 for (const r of data.results) {
                   if (r.status === "generated" || r.status === "cached") {
                     setAiWelcomeData(prev => prev.map(p => p.number === r.number ? { ...p, has_welcome: true, welcome: r.welcome } : p))
+                  } else if (r.status === "error") {
+                    failed++
                   }
                 }
+              } else {
+                failed += chunk.length
               }
             } catch (e) {
               console.error("Batch generate error:", e)
+              failed += chunk.length
             }
             setAiWelcomeProgress({ done: Math.min(i + chunkSize, nums.length), total: nums.length })
           }
           setAiWelcomeGenerating(false)
           setAiWelcomeProgress(null)
-          toast.success(`تم توليد ${nums.length} رسالة ترحيب`)
+          if (failed > 0) toast.error(`فشل توليد ${failed} من ${nums.length} رسالة ترحيب`)
+          else toast.success(`تم توليد ${nums.length} رسالة ترحيب`)
         }
 
         const deleteWelcome = async (num: number) => {

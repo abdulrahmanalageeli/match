@@ -207,6 +207,9 @@ async function storeCachedCompatibility(participantA, participantB, scores) {
     }
     if (SKIP_DB_WRITES) { console.log('🧪 Preview mode: skip cache store'); return }
     const [smaller, larger] = [participantA.assigned_number, participantB.assigned_number].sort((a, b) => a - b)
+    const participantForA = participantA.assigned_number === smaller ? participantA : participantB
+    const participantForB = participantA.assigned_number === smaller ? participantB : participantA
+    const cachedAt = new Date().toISOString()
     const cacheKey = generateCacheKey(participantA, participantB)
  
     let bonusType = 'none'
@@ -236,7 +239,9 @@ async function storeCachedCompatibility(participantA, participantB, scores) {
       humor_multiplier: scores.humorMultiplier,
       humor_early_openness_bonus: bonusType,
       model_used: CACHE_MODEL_USED,
-      last_used: new Date().toISOString(),
+      participant_a_cached_at: participantForA.survey_data_updated_at || cachedAt,
+      participant_b_cached_at: participantForB.survey_data_updated_at || cachedAt,
+      last_used: cachedAt,
       use_count: 1
     }
  
@@ -249,7 +254,6 @@ async function storeCachedCompatibility(participantA, participantB, scores) {
       .upsert(row, {
         onConflict: 'participant_a_number,participant_b_number,combined_content_hash'
       })
-      .select()
  
     if (!error) {
       console.warn(`✅ Cache stored #${smaller}-#${larger} hash=${cacheKey.combinedHash.substring(0,10)} total=${Math.round(scores.totalScore)}%`)
@@ -1754,7 +1758,9 @@ function checkHumorMatch(participantA, participantB) {
 // Function to calculate full compatibility with caching
 async function calculateFullCompatibilityWithCache(participantA, participantB, skipAI = false, ignoreCache = false, options = {}) {
   // Check cache first (skip if ignoreCache is true)
-  if (!ignoreCache) {
+  // Bulk callers can skip this when they have already performed the exact same
+  // lookup. Cache writes remain enabled, unlike ignoreCache preview mode.
+  if (!ignoreCache && !options?.skipCacheLookup) {
     const cached = await getCachedCompatibility(participantA, participantB, options)
     if (cached) {
       return cached
@@ -3794,7 +3800,7 @@ export default async function handler(req, res) {
         console.log(`   🔄 Calling calculateFullCompatibilityWithCache (skipAI=${skipAI})...`)
         
         try {
-          const result = await calculateFullCompatibilityWithCache(p1, p2, skipAI, false)
+          const result = await calculateFullCompatibilityWithCache(p1, p2, skipAI, false, { skipCacheLookup: true })
           console.log(`   ✅ Successfully cached! Total: ${result.totalScore.toFixed(2)}% (vibe: ${result.vibeScore}, humorMultiplier: ${result.humorMultiplier})`)
           cachedCount++
         } catch (error) {
@@ -4528,24 +4534,10 @@ if (action === "cache-status-by-gender") {
         console.log(`   💾 CACHING NOW (pair ${cachedCount + 1})...`)
         
         try {
-          const result = await calculateFullCompatibilityWithCache(p1, p2, skipAI, false)
+          const result = await calculateFullCompatibilityWithCache(p1, p2, skipAI, false, { skipCacheLookup: true })
           console.log(`   ✅ CACHED SUCCESSFULLY! Score: ${result.totalScore.toFixed(2)}% (MBTI: ${result.mbtiScore}, Vibe: ${result.vibeScore})`)
           cachedCount++
           if (!skipAI) aiCallsMade++
-          
-          // Update the cache entry with participant timestamps
-          const [smaller, larger] = [p1.assigned_number, p2.assigned_number].sort((a, b) => a - b)
-          const cacheKey = generateCacheKey(p1, p2)
-          
-          await supabase
-            .from('compatibility_cache')
-            .update({
-              participant_a_cached_at: p1.survey_data_updated_at || new Date().toISOString(),
-              participant_b_cached_at: p2.survey_data_updated_at || new Date().toISOString()
-            })
-            .eq('participant_a_number', smaller)
-            .eq('participant_b_number', larger)
-            .eq('combined_content_hash', cacheKey.combinedHash)
           
         } catch (error) {
           console.error(`   ❌ ERROR caching pair #${p1.assigned_number} × #${p2.assigned_number}:`, error.message)
@@ -4738,12 +4730,32 @@ if (action === "cache-status-by-gender") {
       if (cursorI > totalParticipants) cursorI = totalParticipants
 
       let nextResumeCursor = null
+      const maxConcurrentCacheWrites = skipAI ? 8 : 2
+      let pendingCacheJobs = []
 
       const makeNextCursor = (i, j) => {
         const nextJ = j + 1
         if (nextJ < totalParticipants) return { i, j: nextJ }
         const nextI = i + 1
         return { i: nextI, j: nextI + 1 }
+      }
+
+      const flushPendingCacheJobs = async () => {
+        if (pendingCacheJobs.length === 0) return
+        const jobs = pendingCacheJobs
+        pendingCacheJobs = []
+        const results = await Promise.allSettled(jobs.map(job => job.promise))
+
+        results.forEach((result, index) => {
+          const { p1, p2 } = jobs[index]
+          if (result.status === 'fulfilled') {
+            newlyCached++
+            if (!skipAI) aiCallsMade++
+          } else {
+            console.error(`Delta batched cache error #${p1.assigned_number}x#${p2.assigned_number}:`, result.reason?.message)
+            errors++
+          }
+        })
       }
 
       outerLoop:
@@ -4779,22 +4791,20 @@ if (action === "cache-status-by-gender") {
               continue
             }
 
-            await calculateFullCompatibilityWithCache(p1, p2, !!skipAI, false)
-            newlyCached++
-            if (!skipAI) aiCallsMade++
+            // The lookup above already proved this exact content hash is absent.
+            // Start independent calculations immediately and flush them in a
+            // bounded group to reduce AI wall-clock time.
+            pendingCacheJobs.push({
+              p1,
+              p2,
+              promise: calculateFullCompatibilityWithCache(p1, p2, !!skipAI, false, { skipCacheLookup: true }),
+            })
 
-            // Update the cache entry with participant timestamps
-            const [smaller, larger] = [p1.assigned_number, p2.assigned_number].sort((a, b) => a - b)
-            const cacheKey = generateCacheKey(p1, p2)
-            await supabase
-              .from('compatibility_cache')
-              .update({
-                participant_a_cached_at: p1.survey_data_updated_at || new Date().toISOString(),
-                participant_b_cached_at: p2.survey_data_updated_at || new Date().toISOString()
-              })
-              .eq('participant_a_number', smaller)
-              .eq('participant_b_number', larger)
-              .eq('combined_content_hash', cacheKey.combinedHash)
+            const remainingCacheSlots = effectiveMaxNewCaches - newlyCached
+            const concurrencyLimit = Math.max(1, Math.min(maxConcurrentCacheWrites, remainingCacheSlots))
+            if (pendingCacheJobs.length >= concurrencyLimit) {
+              await flushPendingCacheJobs()
+            }
 
             if (newlyCached >= effectiveMaxNewCaches || (Date.now() - startTime) >= effectiveMaxDurationMs) {
               nextResumeCursor = makeNextCursor(i, j)
@@ -4810,6 +4820,8 @@ if (action === "cache-status-by-gender") {
           }
         }
       }
+
+      await flushPendingCacheJobs()
 
       const hasMore = !!nextResumeCursor
       const durationMs = Date.now() - startTime

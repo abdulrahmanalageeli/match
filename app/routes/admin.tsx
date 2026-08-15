@@ -67,6 +67,29 @@ import { surveyQuestions } from "~/components/SurveyComponent"
 import PairAnalysisModal from "~/components/PairAnalysisModalPro"
 import { getParticipantMatchInsightsCompletion } from "~/lib/matchControl"
 
+type DeltaCacheRunStatus = 'running' | 'completed' | 'failed'
+
+interface DeltaCacheRunProgress {
+  status: DeltaCacheRunStatus
+  percent: number
+  batch: number
+  pairsCompleted: number
+  totalPairs: number
+  newlyCached: number
+  cacheHits: number
+  reusedVibe: number
+  aiCalls: number
+  skipped: number
+  errors: number
+  prefetchedRows: number
+  message: string
+  failures: Array<{
+    participant_a_number?: number
+    participant_b_number?: number
+    reason?: string
+  }>
+}
+
 // ─── Match Analyzer Modal ───────────────────────────────────────────────────
 function ManualCompatibilityResultModal({ data, onClose }: { data: any; onClose: () => void }) {
   useEffect(() => {
@@ -879,6 +902,7 @@ export default function AdminPage() {
   
   // Delta pre-cache state
   const [deltaCaching, setDeltaCaching] = useState(false);
+  const [deltaCacheProgress, setDeltaCacheProgress] = useState<DeltaCacheRunProgress | null>(null);
   
   // Group debug state
   const [showGroupDebugModal, setShowGroupDebugModal] = useState(false);
@@ -4548,6 +4572,22 @@ Proceed?`
     if (!confirm(confirmMessage)) return
     
     setDeltaCaching(true)
+    setDeltaCacheProgress({
+      status: 'running',
+      percent: 0,
+      batch: 0,
+      pairsCompleted: 0,
+      totalPairs: 0,
+      newlyCached: 0,
+      cacheHits: 0,
+      reusedVibe: 0,
+      aiCalls: 0,
+      skipped: 0,
+      errors: 0,
+      prefetchedRows: 0,
+      message: 'Preparing delta cache…',
+      failures: [],
+    })
     try {
       let resumeCursor: { i: number; j: number } | null = null
       let totalNewlyCached = 0
@@ -4556,6 +4596,10 @@ Proceed?`
       let totalErrors = 0
       let totalPairsProcessed = 0
       let totalAiCalls = 0
+      let totalReusedVibe = 0
+      let totalDeltaPairs = 0
+      let prefetchedRows = 0
+      let failureDetails: DeltaCacheRunProgress['failures'] = []
       let participantsNeedingCache = 0
       let totalEligible = 0
       let lastCacheTimestamp: string | null = null
@@ -4564,24 +4608,50 @@ Proceed?`
 
       while (true) {
         batchNum++
-        const res: Response = await fetch("/api/admin/trigger-match", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "delta-pre-cache-batched",
-            eventId: currentEventId,
-            skipAI: false,
-            resumeCursor,
-            maxDurationMs: 8000,
-            maxNewCachesPerRequest: 2,
-            maxPairsPerRequest: 250,
-          }),
-        })
+        setDeltaCacheProgress(previous => previous ? {
+          ...previous,
+          status: 'running',
+          batch: batchNum,
+          message: `Running batch ${batchNum}…`,
+        } : previous)
+        const batchController = new AbortController()
+        const batchTimeout = window.setTimeout(() => batchController.abort(), 30_000)
+        let res: Response
+        try {
+          res = await fetch("/api/admin/trigger-match", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: batchController.signal,
+            body: JSON.stringify({
+              action: "delta-pre-cache-batched",
+              eventId: currentEventId,
+              skipAI: false,
+              resumeCursor,
+              maxDurationMs: 8000,
+              maxNewCachesPerRequest: 2,
+              maxPairsPerRequest: 250,
+            }),
+          })
+        } finally {
+          window.clearTimeout(batchTimeout)
+        }
 
-        const data: any = await res.json()
+        const rawResponse = await res.text()
+        let data: any = null
+        try {
+          data = rawResponse ? JSON.parse(rawResponse) : null
+        } catch {
+          throw new Error(rawResponse?.trim() || `Delta cache returned HTTP ${res.status}`)
+        }
 
-        if (!res.ok || !data.success) {
-          if (data.error && data.error.includes('No cache metadata')) {
+        if (!res.ok || !data?.success) {
+          const errorMessage = data?.message || data?.error || `Delta cache failed with HTTP ${res.status}`
+          setDeltaCacheProgress(previous => previous ? {
+            ...previous,
+            status: 'failed',
+            message: errorMessage,
+          } : previous)
+          if (data?.error && data.error.includes('No cache metadata')) {
             toast.error(`❌ Delta Cache Not Available\n\n${data.message || data.error}\n\n💡 Tip: Use the Pre-Cache button first to establish a baseline cache.`, { duration: 8000 })
           } else {
             toast.error(`Failed to delta cache: ${data.error || 'Unknown error'}`)
@@ -4595,13 +4665,71 @@ Proceed?`
         totalErrors += data.errors || 0
         totalPairsProcessed += data.pairs_processed || 0
         totalAiCalls += data.ai_calls_made || 0
+        totalReusedVibe += data.reused_vibe_count || 0
         participantsNeedingCache = data.participants_needing_cache || 0
         totalEligible = data.total_eligible || 0
         lastCacheTimestamp = data.last_cache_timestamp || null
+        totalDeltaPairs = data.progress?.total_pairs ?? totalDeltaPairs
+        prefetchedRows = data.cache_rows_prefetched ?? prefetchedRows
+        if (Array.isArray(data.failures) && data.failures.length > 0) {
+          failureDetails = [...failureDetails, ...data.failures].slice(0, 10)
+        }
+
+        const completedPairs = totalDeltaPairs > 0
+          ? Math.min(totalPairsProcessed, totalDeltaPairs)
+          : 0
+        const percent = totalDeltaPairs > 0
+          ? Math.min(100, Math.round((completedPairs / totalDeltaPairs) * 100))
+          : (data.progress?.has_more ? 0 : 100)
+
+        setDeltaCacheProgress({
+          status: 'running',
+          percent,
+          batch: batchNum,
+          pairsCompleted: completedPairs,
+          totalPairs: totalDeltaPairs,
+          newlyCached: totalNewlyCached,
+          cacheHits: totalAlreadyCached,
+          reusedVibe: totalReusedVibe,
+          aiCalls: totalAiCalls,
+          skipped: totalSkipped,
+          errors: totalErrors,
+          prefetchedRows,
+          message: data.progress?.has_more
+            ? `Batch ${batchNum} complete. Starting the next batch…`
+            : 'Finalizing delta cache…',
+          failures: failureDetails,
+        })
+
+        if (totalErrors > 0) {
+          const failedPair = failureDetails[0]
+          const pairLabel = failedPair?.participant_a_number != null && failedPair?.participant_b_number != null
+            ? ` Pair #${failedPair.participant_a_number} × #${failedPair.participant_b_number}: ${failedPair.reason || 'unknown error'}.`
+            : ''
+          const failureMessage = `Delta cache stopped after ${totalErrors} pair failure${totalErrors === 1 ? '' : 's'}.${pairLabel} Cache freshness was not advanced; run it again to retry.`
+          setDeltaCacheProgress(previous => previous ? {
+            ...previous,
+            status: 'failed',
+            message: failureMessage,
+          } : previous)
+          toast.error(failureMessage, { duration: 10000 })
+          return
+        }
 
         if (participantsNeedingCache === 0) {
           isFresh = true
           break
+        }
+
+        if (!data.progress?.has_more && data.metadata_updated === false) {
+          const metadataMessage = data.metadata_error || 'Delta cache finished, but cache freshness metadata could not be updated.'
+          setDeltaCacheProgress(previous => previous ? {
+            ...previous,
+            status: 'failed',
+            message: `${metadataMessage} Run delta cache again to retry finalization.`,
+          } : previous)
+          toast.error(metadataMessage, { duration: 10000 })
+          return
         }
 
         if (!data.progress?.has_more) break
@@ -4612,6 +4740,23 @@ Proceed?`
         await new Promise(r => setTimeout(r, 100))
       }
 
+      setDeltaCacheProgress({
+        status: 'completed',
+        percent: 100,
+        batch: batchNum,
+        pairsCompleted: totalDeltaPairs,
+        totalPairs: totalDeltaPairs,
+        newlyCached: totalNewlyCached,
+        cacheHits: totalAlreadyCached,
+        reusedVibe: totalReusedVibe,
+        aiCalls: totalAiCalls,
+        skipped: totalSkipped,
+        errors: totalErrors,
+        prefetchedRows,
+        message: isFresh ? 'Cache is already fresh.' : 'Delta cache completed successfully.',
+        failures: failureDetails,
+      })
+
       if (isFresh) {
         toast.success(`✅ Cache is FRESH!\n\nNo participants have updated their surveys since last cache.\n\n📊 Stats:\n• Total eligible: ${totalEligible}\n• Last cache: ${lastCacheTimestamp ? new Date(lastCacheTimestamp).toLocaleString() : 'N/A'}`, { duration: 8000 })
       } else {
@@ -4619,6 +4764,7 @@ Proceed?`
         successMessage += `\n\n📊 Smart Caching Results:`
         successMessage += `\n• Updated participants: ${participantsNeedingCache}`
         successMessage += `\n• New pairs cached: ${totalNewlyCached}`
+        if (totalReusedVibe > 0) successMessage += `\n• AI vibe scores reused: ${totalReusedVibe}`
         if (totalAlreadyCached > 0) successMessage += `\n• Reused cached: ${totalAlreadyCached}`
         if (totalSkipped > 0) successMessage += `\n• Skipped (incompatible): ${totalSkipped}`
         if (totalErrors > 0) successMessage += `\n• Errors: ${totalErrors}`
@@ -4631,9 +4777,17 @@ Proceed?`
       }
 
       fetchParticipants()
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error delta caching:", error)
-      toast.error("Error running delta pre-cache")
+      const errorMessage = error?.name === 'AbortError'
+        ? 'Delta cache batch timed out after 30 seconds'
+        : (error?.message || 'Error running delta pre-cache')
+      setDeltaCacheProgress(previous => previous ? {
+        ...previous,
+        status: 'failed',
+        message: `${errorMessage}. Progress was preserved; run delta cache again to retry.`,
+      } : previous)
+      toast.error(errorMessage, { duration: 10000 })
     } finally {
       setDeltaCaching(false)
     }
@@ -6134,6 +6288,100 @@ Proceed?`
                     Load Cached Results
                   </button>
                 </div>
+
+                {deltaCacheProgress && (
+                  <div className={`mt-3 rounded-xl border p-3 ${
+                    deltaCacheProgress.status === 'failed'
+                      ? 'border-rose-400/40 bg-rose-950/30'
+                      : deltaCacheProgress.status === 'completed'
+                        ? 'border-emerald-400/30 bg-emerald-950/20'
+                        : 'border-cyan-400/30 bg-cyan-950/20'
+                  }`}>
+                    <div className="mb-2 flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-2">
+                        {deltaCacheProgress.status === 'running' ? (
+                          <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-cyan-300" />
+                        ) : deltaCacheProgress.status === 'completed' ? (
+                          <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
+                        ) : (
+                          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-300" />
+                        )}
+                        <div>
+                          <div className="text-sm font-semibold text-white">
+                            Delta Cache {deltaCacheProgress.status === 'running'
+                              ? 'Running'
+                              : deltaCacheProgress.status === 'completed'
+                                ? 'Complete'
+                                : 'Failed'}
+                          </div>
+                          <div className={`text-xs ${deltaCacheProgress.status === 'failed' ? 'text-rose-200' : 'text-slate-300'}`}>
+                            {deltaCacheProgress.message}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-white">{deltaCacheProgress.percent}%</span>
+                        {deltaCacheProgress.status !== 'running' && (
+                          <button
+                            type="button"
+                            onClick={() => setDeltaCacheProgress(null)}
+                            className="rounded p-1 text-slate-400 hover:bg-white/10 hover:text-white"
+                            aria-label="Dismiss delta cache progress"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div
+                      className="h-2.5 w-full overflow-hidden rounded-full bg-slate-900/80"
+                      role="progressbar"
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={deltaCacheProgress.percent}
+                      aria-label="Delta cache progress"
+                    >
+                      <div
+                        className={`h-full rounded-full transition-[width] duration-500 ${
+                          deltaCacheProgress.status === 'failed'
+                            ? 'bg-gradient-to-r from-rose-500 to-red-400'
+                            : deltaCacheProgress.status === 'completed'
+                              ? 'bg-gradient-to-r from-emerald-500 to-green-400'
+                              : 'animate-pulse bg-gradient-to-r from-cyan-500 to-blue-500'
+                        }`}
+                        style={{ width: `${deltaCacheProgress.percent}%` }}
+                      />
+                    </div>
+
+                    <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-slate-300 sm:grid-cols-4 lg:grid-cols-8">
+                      <span>Batch <strong className="text-white">{deltaCacheProgress.batch}</strong></span>
+                      <span>Pairs <strong className="text-white">{deltaCacheProgress.pairsCompleted}/{deltaCacheProgress.totalPairs}</strong></span>
+                      <span>Cached <strong className="text-emerald-300">{deltaCacheProgress.newlyCached}</strong></span>
+                      <span>Exact hits <strong className="text-cyan-200">{deltaCacheProgress.cacheHits}</strong></span>
+                      <span>Vibe reused <strong className="text-violet-300">{deltaCacheProgress.reusedVibe}</strong></span>
+                      <span>AI calls <strong className="text-amber-200">{deltaCacheProgress.aiCalls}</strong></span>
+                      <span>Skipped <strong className="text-slate-100">{deltaCacheProgress.skipped}</strong></span>
+                      <span>Errors <strong className={deltaCacheProgress.errors > 0 ? 'text-rose-300' : 'text-white'}>{deltaCacheProgress.errors}</strong></span>
+                    </div>
+
+                    {deltaCacheProgress.prefetchedRows > 0 && (
+                      <div className="mt-1 text-[10px] text-slate-500">
+                        Bulk-loaded {deltaCacheProgress.prefetchedRows} relevant cache rows for the current batch.
+                      </div>
+                    )}
+
+                    {deltaCacheProgress.failures.length > 0 && (
+                      <div className="mt-2 space-y-1 rounded-lg border border-rose-400/20 bg-rose-950/30 p-2 text-[11px] text-rose-200">
+                        {deltaCacheProgress.failures.slice(0, 3).map((failure, index) => (
+                          <div key={`${failure.participant_a_number}-${failure.participant_b_number}-${index}`}>
+                            Pair #{failure.participant_a_number ?? '?'} × #{failure.participant_b_number ?? '?'}: {failure.reason || 'Unknown failure'}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Section 2: View & Manage */}

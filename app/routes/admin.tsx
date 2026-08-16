@@ -6171,7 +6171,7 @@ Proceed?`
                     Delta Cache
                   </button>
 
-                  {/* Batched Pre-Cache by mutual preference or forced round gender */}
+                  {/* Batched Pre-Cache by mutual gender preference */}
                   <button
                     onClick={() => setShowBatchedCacheModal(true)}
                     disabled={loading}
@@ -9643,7 +9643,7 @@ Proceed?`
         cohostTheme={isCohost}
       />
 
-      {/* Batched Pre-Cache Modal (mutual preference + forced R1/R2 modes) */}
+      {/* Batched Pre-Cache Modal (mutual gender preference) */}
       <BatchedCacheModal
         isOpen={showBatchedCacheModal}
         onClose={() => setShowBatchedCacheModal(false)}

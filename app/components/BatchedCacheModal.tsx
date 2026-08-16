@@ -7,7 +7,7 @@ interface BatchedCacheModalProps {
   eventId: number
 }
 
-type GenderMode = "same" | "opposite" | "preference"
+type GenderMode = "preference"
 
 interface CacheStatus {
   participants_total: number
@@ -83,23 +83,13 @@ function formatDuration(ms: number) {
 }
 
 export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedCacheModalProps) {
-  const [same, setSame] = useState<SideState>(initialSide())
-  const [opposite, setOpposite] = useState<SideState>(initialSide())
   const [preference, setPreference] = useState<SideState>(initialSide())
 
   // Refs to read fresh state inside async loops (avoid stale closures)
-  const sameRef = useRef(same)
-  const oppositeRef = useRef(opposite)
   const preferenceRef = useRef(preference)
-  useEffect(() => { sameRef.current = same }, [same])
-  useEffect(() => { oppositeRef.current = opposite }, [opposite])
   useEffect(() => { preferenceRef.current = preference }, [preference])
 
-  const setSide = (mode: GenderMode, updater: (prev: SideState) => SideState) => {
-    if (mode === "same") setSame(updater)
-    else if (mode === "opposite") setOpposite(updater)
-    else setPreference(updater)
-  }
+  const setSide = (_mode: GenderMode, updater: (prev: SideState) => SideState) => setPreference(updater)
 
   const fetchStatus = async (mode: GenderMode) => {
     setSide(mode, (p) => ({ ...p, statusLoading: true, lastError: null }))
@@ -174,11 +164,7 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
 
   // Sequential batch driver for a single side. Reads cancel/pause flags from refs.
   const runBatches = async (mode: GenderMode) => {
-    const getRef = () => mode === "same"
-      ? sameRef.current
-      : mode === "opposite"
-        ? oppositeRef.current
-        : preferenceRef.current
+    const getRef = () => preferenceRef.current
 
     setSide(mode, (p) => ({
       ...p,
@@ -281,8 +267,6 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
   // Auto-fetch status when modal opens or event changes
   useEffect(() => {
     if (!isOpen || !eventId) return
-    fetchStatus("same")
-    fetchStatus("opposite")
     fetchStatus("preference")
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, eventId])
@@ -291,7 +275,7 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
 
   return (
     <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="w-full max-w-5xl max-h-[90vh] flex flex-col bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+      <div className="w-full max-w-2xl max-h-[90vh] flex flex-col bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-white/10 bg-white/5">
           <div className="flex items-center gap-3">
@@ -301,7 +285,7 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
             <div>
               <h2 className="text-lg font-bold text-white">Batched Pre-Cache</h2>
               <p className="text-xs text-white/60">
-                Cache forced round pairs or only pairs allowed by participants' gender preferences.
+                Cache only pairs allowed by both participants' gender preferences.
               </p>
             </div>
           </div>
@@ -315,7 +299,7 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="flex-1 overflow-y-auto p-4">
           <SideCard
             title="حسب التفضيلات"
             subtitle="Mutual gender preferences (recommended)"
@@ -328,32 +312,6 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
             onStop={onStop}
             onRefreshStatus={fetchStatus}
             onBatchSizeChange={(v) => setPreference((p) => ({ ...p, batchSize: v }))}
-          />
-          <SideCard
-            title="نفس الجنس (R1)"
-            subtitle="Same-gender pairs"
-            accent="from-cyan-600/30 to-blue-700/20 border-cyan-400/30"
-            mode="same"
-            state={same}
-            onStart={onStart}
-            onPause={onPause}
-            onResume={onResume}
-            onStop={onStop}
-            onRefreshStatus={fetchStatus}
-            onBatchSizeChange={(v) => setSame((p) => ({ ...p, batchSize: v }))}
-          />
-          <SideCard
-            title="الجنس الآخر (R2)"
-            subtitle="Opposite-gender pairs"
-            accent="from-rose-600/30 to-orange-600/20 border-rose-400/30"
-            mode="opposite"
-            state={opposite}
-            onStart={onStart}
-            onPause={onPause}
-            onResume={onResume}
-            onStop={onStop}
-            onRefreshStatus={fetchStatus}
-            onBatchSizeChange={(v) => setOpposite((p) => ({ ...p, batchSize: v }))}
           />
         </div>
 

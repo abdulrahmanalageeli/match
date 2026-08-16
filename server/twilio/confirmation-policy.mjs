@@ -25,13 +25,13 @@ export function isParticipantContactedForEvent(participant, currentEventId) {
 }
 
 export function paymentAccessState(participant, currentEventId) {
-  return isParticipantContactedForEvent(participant, currentEventId)
-    ? "eligible"
-    : "not_contacted"
+  if (isParticipantContactedForEvent(participant, currentEventId)) return "eligible"
+  if (!isParticipantEnrolledForEvent(participant, currentEventId)) return "not_enrolled"
+  return "not_contacted"
 }
 
 export function attendanceDeclineAccessState(participant, currentEventId) {
-  return isParticipantContactedForEvent(participant, currentEventId)
-    ? "eligible"
-    : "not_contacted"
+  if (isParticipantContactedForEvent(participant, currentEventId)) return "eligible"
+  if (!isParticipantEnrolledForEvent(participant, currentEventId)) return "not_enrolled"
+  return "not_contacted"
 }

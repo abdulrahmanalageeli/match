@@ -38,6 +38,7 @@ test("uses only the current-event WhatsApp contact marker for Twilio access", ()
   assert.equal(paymentAccessState({ signup_for_next_event: false, PAID: false, whatsapp_contacted_event_id: 21 }, 21), "eligible")
   assert.equal(paymentAccessState({ event_id: 21, PAID: true, whatsapp_contacted_event_id: 20 }, 21), "not_contacted")
   assert.equal(paymentAccessState({ auto_signup_next_event: true, PAID: true }, 21), "not_contacted")
+  assert.equal(paymentAccessState({ event_id: 20, signup_for_next_event: false, auto_signup_next_event: false }, 21), "not_enrolled")
 })
 
 test("uses the same current-event contact marker for attendance declines", () => {
@@ -54,11 +55,18 @@ test("uses the same current-event contact marker for attendance declines", () =>
     signup_event_id: null,
     PAID: true,
     whatsapp_contacted_event_id: 23,
-  }, 24), "not_contacted")
+  }, 24), "not_enrolled")
 
   assert.equal(attendanceDeclineAccessState({
     signup_for_next_event: true,
     signup_event_id: 24,
     whatsapp_contacted_event_id: null,
   }, 24), "not_contacted")
+
+  assert.equal(attendanceDeclineAccessState({
+    event_id: 23,
+    signup_for_next_event: false,
+    auto_signup_next_event: false,
+    whatsapp_contacted_event_id: null,
+  }, 24), "not_enrolled")
 })

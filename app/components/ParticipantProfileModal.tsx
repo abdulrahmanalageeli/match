@@ -6,7 +6,7 @@ interface ParticipantProfileModalProps {
   participant: any;
   isOpen: boolean;
   onClose: () => void;
-  onUpdate: () => void;
+  onUpdate: (participantNumber: number, updates: Record<string, any>) => void;
   cohostTheme?: boolean;
 }
 
@@ -94,10 +94,11 @@ export default function ParticipantProfileModal({ participant, isOpen, onClose, 
             newStatus: true
           })
         });
+        const data = await response.json().catch(() => ({}));
         if (response.ok) {
           setMessageSent(true);
           toast.success('Marked as messaged');
-          onUpdate();
+          onUpdate(participant.assigned_number, data.updates || { PAID: true });
         }
       } catch (e) {
         console.error('Error marking as sent:', e);
@@ -120,11 +121,11 @@ export default function ParticipantProfileModal({ participant, isOpen, onClose, 
     toggleEdit(field);
   };
 
-  const finishSave = (field: string) => {
+  const finishSave = (field: string, updates: Record<string, any>) => {
     setOriginalData((prev: any) => ({ ...prev, [field]: editedData[field] }));
     toast.success(`Updated ${field}`);
     toggleEdit(field);
-    onUpdate();
+    onUpdate(participant.assigned_number, updates);
   };
 
   const saveField = async (field: string) => {
@@ -142,7 +143,7 @@ export default function ParticipantProfileModal({ participant, isOpen, onClose, 
 
       const data = await response.json();
       if (response.ok && data.success) {
-        finishSave(field);
+        finishSave(field, data.updates || { [field]: data.value });
       } else {
         toast.error(data.error || "Failed to update");
       }

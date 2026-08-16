@@ -2921,6 +2921,15 @@ const fetchParticipants = async () => {
     return { locked: true, remaining };
   };
 
+  const updateParticipantLocally = (participantNumber: number, updates: Record<string, any>) => {
+    const mergeParticipant = (participant: any) => {
+      if (!participant || Number(participant.assigned_number) !== Number(participantNumber)) return participant
+      return { ...participant, ...updates }
+    }
+
+    setParticipants(current => current.map(mergeParticipant))
+  }
+
   // Get security status message for login
   const getLoginSecurityStatus = () => {
     const lockout = checkLoginLockout();
@@ -10000,7 +10009,7 @@ Proceed?`
           setShowProfileModal(false);
           setProfileModalParticipant(null);
         }}
-        onUpdate={fetchParticipants}
+        onUpdate={updateParticipantLocally}
         cohostTheme={isCohost}
       />
 

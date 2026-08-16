@@ -7728,7 +7728,11 @@ export default async function handler(req, res) {
           success: true,
           message: `Updated message status for participant #${participantNumber}`,
           participantNumber,
-          newStatus
+          newStatus,
+          updates: {
+            PAID: newStatus,
+            whatsapp_contacted_event_id: newStatus ? currentEventId : null,
+          },
         })
         
       } catch (error) {

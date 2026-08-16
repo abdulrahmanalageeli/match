@@ -288,7 +288,8 @@ export default async function handler(req, res) {
       message: `Updated ${field} successfully`,
       participantNumber,
       field,
-      value: normalizedValue
+      value: normalizedValue,
+      updates: updateData,
     })
 
   } catch (error) {

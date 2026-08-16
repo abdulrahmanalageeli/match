@@ -161,7 +161,12 @@ async function call(action: string, token: string | null, extra: Record<string, 
     const response = await fetch(API, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, token, ...extra }),
+      body: JSON.stringify({
+        action,
+        token,
+        impersonate: typeof window !== "undefined" && new URLSearchParams(window.location.search).get("impersonate") === "1",
+        ...extra,
+      }),
       signal: controller.signal,
     })
     const contentType = response.headers.get("content-type") || ""
@@ -5926,6 +5931,7 @@ export default function Event3Page() {
   const [myInfo, setMyInfo] = useState<{ number: number; name: string; gender: string | null } | null>(null)
   const [isOffline, setIsOffline] = useState(false)
   const [tokenError, setTokenError] = useState(false)
+  const [testModeBlocked, setTestModeBlocked] = useState(false)
   const [groupsOpen, setGroupsOpen] = useState(false)
   const [finalQuestionsOpen, setFinalQuestionsOpen] = useState(false)
   const aiWelcomeSeenKey = token ? `e3_ai_welcome_seen_${token}` : null
@@ -5934,6 +5940,7 @@ export default function Event3Page() {
     if (!token) throw new Error("No token")
     const d = await call("e3-heartbeat", token)
     if (d.error) {
+      if (d.code === "EVENT3_TEST_MODE_LOCKED") setTestModeBlocked(true)
       if (d.error.includes("Invalid") || d.error.includes("token") || d.error.includes("expired") || d.error.includes("لم يتم العثور") || d.error.includes("غير مسجّل")) {
         setTokenError(true)
         if (!isImpersonating) localStorage.removeItem("blindmatch_result_token")
@@ -6047,6 +6054,23 @@ export default function Event3Page() {
       </main>
     )
   }
+
+  if (testModeBlocked) return (
+    <PageWrapper className="flex items-center justify-center p-6 text-center">
+      <div className="w-full max-w-sm rounded-3xl border border-amber-500/20 bg-gradient-to-b from-amber-950/35 to-gray-950 p-7 shadow-2xl shadow-amber-950/20">
+        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-amber-500/25 bg-amber-500/10">
+          <ShieldCheck className="text-amber-300" size={31} />
+        </div>
+        <p className="mb-2 text-xs font-bold tracking-wide text-amber-300">وضع الاختبار</p>
+        <h1 className="text-xl font-black text-white">نجهّز التجربة الآن</h1>
+        <p className="mt-3 text-sm leading-7 text-gray-400">المنظم يجري اختباراً سريعاً للنظام. سيفتح دخول المشاركين تلقائياً بعد انتهاء الاختبار.</p>
+        <button onClick={() => { setTestModeBlocked(false); retryState() }} className="mt-6 inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-4 py-2.5 text-sm font-bold text-gray-200 transition-colors hover:bg-white/[0.08]">
+          <RefreshCw size={15} />
+          التحقق مجدداً
+        </button>
+      </div>
+    </PageWrapper>
+  )
 
   if (showWelcome) return <WelcomeScreen onDone={handleWelcomeDone} />
   if (!token || tokenError) return <PhoneEntry onToken={t => { setToken(t); setTokenError(false) }} />

@@ -1,4 +1,5 @@
 import OpenAI from "openai"
+import { canAccessEvent3DuringTest } from "../server/event3/test-access.mjs"
 import { buildWelcomePrompt } from "./admin/ai-welcome-prompt.mjs"
 import { supabaseAdmin } from "../server/security/supabase-admin.mjs"
 import { enforceRateLimit } from "../server/security/request-security.mjs"
@@ -3209,8 +3210,22 @@ Please respond in JSON format:
     const participant = token ? await resolveE3Token(token) : null
     const myNumber = participant?.assigned_number
     const { data: mainEventState } = await supabase.from("event_state").select("current_event_id").eq("match_id", MAIN_MATCH).maybeSingle()
-    const { data: e3EventState } = await supabase.from("event_state").select("current_event_id").eq("match_id", E3_MATCH_ID).maybeSingle()
+    const { data: e3EventState } = await supabase.from("event_state").select("current_event_id,test_mode_active").eq("match_id", E3_MATCH_ID).maybeSingle()
     const currentEventId = mainEventState?.current_event_id || e3EventState?.current_event_id || 20
+
+    // Test mode uses real participant records, so prevent ordinary participant
+    // links from entering its temporary phases. Admin test links explicitly add
+    // ?impersonate=1, which the Event3 client forwards with every request.
+    if (!canAccessEvent3DuringTest({
+      testModeActive: e3EventState?.test_mode_active === true,
+      impersonate: req.body?.impersonate,
+    })) {
+      return res.status(423).json({
+        error: "المنظم يجري اختباراً للنظام حالياً. سيفتح الدخول للفعالية بعد انتهاء الاختبار.",
+        code: "EVENT3_TEST_MODE_LOCKED",
+        test_mode: true,
+      })
+    }
 
     try {
       // e3-get-state (no auth required) / e3-heartbeat (combines state + sos + mood + notification)
@@ -3942,7 +3957,7 @@ Please respond in JSON format:
         const sd = typeof freshParticipant.survey_data === "string" ? JSON.parse(freshParticipant.survey_data || "{}") : (freshParticipant.survey_data || {})
 
         // Check test mode — if testing, delete any cached welcome and don't show
-        const { data: tmState } = await supabase.from("event_state").select("test_mode_active").eq("match_id", MAIN_MATCH).maybeSingle()
+        const { data: tmState } = await supabase.from("event_state").select("test_mode_active").eq("match_id", E3_MATCH_ID).maybeSingle()
         if (tmState?.test_mode_active) {
           // Clean up any cached welcome in test mode
           await supabase.from("event3_ai_welcome_messages")

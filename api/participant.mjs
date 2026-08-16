@@ -9,7 +9,7 @@ import {
   validateMatchInsights,
 } from "../server/matching/match-insights.mjs"
 import { isEvent3SignedUp } from "../server/event3/enrollment.mjs"
-import { normalizeGroupReflectionInput } from "../server/event3/group-reflection.mjs"
+import { normalizeGroupMemberFeedback } from "../server/event3/group-member-feedback.mjs"
 import {
   isPlausibleParticipantPhone,
   normalizeParticipantPhone,
@@ -3477,23 +3477,25 @@ Please respond in JSON format:
         return res.status(200).json({ people: metNumbers.map(m => ({ number: m.number, first_name: firstName(nameMap[m.number]), round: m.round, table_number: tableMap[m.number] || null })), existing_rankings: rankingMap, already_submitted: (existingRankings || []).length > 0 && (existingRankings || []).length >= metNumbers.length })
       }
 
-      // Optional per-group-round top-three reflection. This is deliberately
-      // separate from participant_rankings and never affects live matching.
+      // Optional absolute feedback about individual tablemates. This is
+      // deliberately separate from participant_rankings and never affects
+      // live matching.
       if (action === "e3-get-group-reflection") {
         const groupRound = Number(req.body.group_round)
         if (![1, 2].includes(groupRound)) return res.status(400).json({ error: "group_round must be 1 or 2" })
-        const [people, reflectionResult] = await Promise.all([
+        const [people, feedbackResult] = await Promise.all([
           getE3GroupPeople(groupRound),
-          supabase.from("event3_group_reflections")
-            .select("ranked_numbers,organizer_note,group_round,source_phase,submitted_at,updated_at")
+          supabase.from("event3_group_member_feedback")
+            .select("member_number,experience,tags,organizer_note,submitted_at,updated_at")
             .eq("match_id", E3_MATCH_ID)
             .eq("event_id", currentEventId)
-            .eq("ranker_number", myNumber)
             .eq("group_round", groupRound)
-            .maybeSingle(),
+            .eq("reviewer_number", myNumber)
+            .eq("is_test_mode", e3EventState?.test_mode_active === true)
+            .order("member_number", { ascending: true }),
         ])
-        if (reflectionResult.error) return res.status(500).json({ error: reflectionResult.error.message })
-        return res.status(200).json({ people, reflection: reflectionResult.data || null })
+        if (feedbackResult.error) return res.status(500).json({ error: feedbackResult.error.message })
+        return res.status(200).json({ people, feedback: feedbackResult.data || [] })
       }
 
       if (action === "e3-submit-group-reflection") {
@@ -3501,33 +3503,24 @@ Please respond in JSON format:
         if (![1, 2].includes(groupRound)) return res.status(400).json({ error: "group_round must be 1 or 2" })
         const people = await getE3GroupPeople(groupRound)
         const allowedNumbers = new Set(people.map(person => person.number))
-        const normalized = normalizeGroupReflectionInput({
-          rankedNumbers: req.body.ranked_numbers,
-          organizerNote: req.body.organizer_note,
+        const normalized = normalizeGroupMemberFeedback({
+          entries: req.body.entries,
           groupRound,
-          rankerNumber: myNumber,
+          reviewerNumber: myNumber,
           allowedNumbers,
         })
         if (normalized.error) return res.status(400).json({ error: normalized.error })
-        const { rankedNumbers, organizerNote, sourcePhase } = normalized.value
-
-        const now = new Date().toISOString()
-        const { data, error } = await supabase.from("event3_group_reflections")
-          .upsert({
-            match_id: E3_MATCH_ID,
-            event_id: currentEventId,
-            ranker_number: myNumber,
-            group_round: groupRound,
-            ranked_numbers: rankedNumbers,
-            organizer_note: organizerNote || null,
-            source_phase: sourcePhase,
-            updated_at: now,
-          }, { onConflict: "match_id,event_id,ranker_number,group_round" })
-          .select("ranked_numbers,organizer_note,group_round,source_phase,submitted_at,updated_at")
-          .single()
+        const { data: savedCount, error } = await supabase.rpc("replace_event3_group_member_feedback", {
+          p_match_id: E3_MATCH_ID,
+          p_event_id: currentEventId,
+          p_group_round: groupRound,
+          p_reviewer_number: myNumber,
+          p_is_test_mode: e3EventState?.test_mode_active === true,
+          p_rows: normalized.value.entries,
+        })
 
         if (error) return res.status(500).json({ error: error.message })
-        return res.status(200).json({ message: "Group reflection saved", reflection: data })
+        return res.status(200).json({ message: "Group member feedback saved", saved_count: savedCount || normalized.value.entries.length })
       }
 
       // e3-submit-ranking

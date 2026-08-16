@@ -57,6 +57,11 @@ const communicationLabels: Record<string, string> = {
   AGGRESSIVE: "عدواني",
 }
 
+const groupFeedbackTagLabels: Record<string, string> = {
+  fun: "ممتع", comfortable: "مريح", good_listener: "مستمع جيد", respectful: "محترم", engaging: "متفاعل",
+  quiet: "هادئ", hard_to_connect: "صعب التواصل", interrupts: "يقاطع", dominates: "يسيطر", disrespectful: "غير محترم",
+}
+
 function mapEnumLabel3(fieldKey: string, rawValue: any): string {
   if (rawValue == null || rawValue === "") return "—"
   const qId = fieldToQuestionId[fieldKey]
@@ -272,7 +277,7 @@ export default function Admin3Page() {
   const [seating, setSeating] = useState<any>(null)
   const [rankStatus, setRankStatus] = useState<any>(null)
   const [allRankings, setAllRankings] = useState<any[]>([])
-  const [groupReflections, setGroupReflections] = useState<{ submissions: any[]; leaderboard: any[] }>({ submissions: [], leaderboard: [] })
+  const [groupMemberFeedback, setGroupMemberFeedback] = useState<{ submissions: any[]; summary: any[] }>({ submissions: [], summary: [] })
   const [dislikeRankings, setDislikeRankings] = useState<{ event_id: number | null; event: any[]; overall: any[] }>({ event_id: null, event: [], overall: [] })
   const [expandedRanker, setExpandedRanker] = useState<number | null>(null)
   const [copied, setCopied] = useState(false)
@@ -730,7 +735,7 @@ export default function Admin3Page() {
     setRankStatus(data)
     const allData = await api("e3-get-all-rankings")
     setAllRankings(allData.rankings || [])
-    setGroupReflections(allData.group_reflections || { submissions: [], leaderboard: [] })
+    setGroupMemberFeedback(allData.group_member_feedback || { submissions: [], summary: [] })
     setDislikeRankings(allData.dislike_rankings || { event_id: null, event: [], overall: [] })
     await fetchMatches()
   }, [fetchMatches])
@@ -3065,48 +3070,51 @@ export default function Admin3Page() {
                   </div>
                 </div>
 
-                {/* Optional per-round group reflections */}
-                {groupReflections.submissions.length > 0 && (
+                {/* Optional per-tablemate group experience feedback */}
+                {groupMemberFeedback.submissions.length > 0 && (
                   <div className="rounded-2xl border border-violet-800/40 bg-gradient-to-br from-violet-950/30 via-gray-950 to-fuchsia-950/15 overflow-hidden">
                     <div className="flex items-center justify-between gap-3 border-b border-white/5 p-3.5">
                       <div className="flex items-center gap-2.5">
                         <div className="w-9 h-9 rounded-xl border border-violet-700/40 bg-violet-900/40 flex items-center justify-center"><Trophy size={16} className="text-violet-300" /></div>
                         <div>
-                          <h4 className="text-sm font-bold text-gray-100">انطباع المجموعات الاختياري</h4>
-                          <p className="text-[10px] text-gray-500">بعد تصنيف كل جولة · لا يدخل في خوارزمية المطابقة</p>
+                          <h4 className="text-sm font-bold text-gray-100">تجربة أفراد المجموعات</h4>
+                          <p className="text-[10px] text-gray-500">تقييم مطلق للسلوك والتعامل · لا يدخل في خوارزمية المطابقة</p>
                         </div>
                       </div>
-                      <span className="rounded-full border border-violet-800/50 bg-violet-900/30 px-2.5 py-1 text-[10px] font-bold text-violet-300">{groupReflections.submissions.length} مشاركة</span>
+                      <span className="rounded-full border border-violet-800/50 bg-violet-900/30 px-2.5 py-1 text-[10px] font-bold text-violet-300">{groupMemberFeedback.submissions.length} تقييم</span>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 p-3">
                       <div className="rounded-xl border border-white/5 bg-black/20 p-3">
-                        <p className="mb-2.5 text-[10px] font-bold text-gray-500">الأكثر بروزاً في المجموعات</p>
+                        <p className="mb-2.5 text-[10px] font-bold text-gray-500">ملخص التجربة لكل مشارك</p>
                         <div className="space-y-1.5">
-                          {groupReflections.leaderboard.slice(0, 6).map((person: any, index: number) => (
+                          {groupMemberFeedback.summary.slice(0, 8).map((person: any, index: number) => (
                             <div key={person.number} className="flex items-center gap-2 rounded-lg bg-white/[0.025] px-2.5 py-2">
                               <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black ${index === 0 ? 'bg-amber-500 text-amber-950' : index === 1 ? 'bg-slate-300 text-slate-800' : index === 2 ? 'bg-orange-700 text-orange-100' : 'bg-gray-800 text-gray-500'}`}>{index + 1}</span>
-                              <p className="min-w-0 flex-1 truncate text-xs font-semibold text-gray-200">{person.name} <span className="font-mono text-[9px] text-gray-600">#{person.number}</span></p>
-                              <div className="text-left"><p className="text-xs font-black tabular-nums text-violet-300">{person.points}</p><p className="text-[8px] text-gray-600">نقطة</p></div>
-                              <div className="text-left"><p className="text-[10px] font-bold text-gray-400">{person.first_place_count}× أول</p><p className="text-[8px] text-gray-600">{person.selections} اختيار</p></div>
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-xs font-semibold text-gray-200">{person.name} <span className="font-mono text-[9px] text-gray-600">#{person.number}</span></p>
+                                {person.top_tags?.length > 0 && <p className="mt-0.5 truncate text-[8px] text-gray-600">{person.top_tags.map(([tag, count]: [string, number]) => `${groupFeedbackTagLabels[tag] || tag} ×${count}`).join(' · ')}</p>}
+                              </div>
+                              <div className="text-left"><p className="text-xs font-black tabular-nums text-violet-300">{person.average}/4</p><p className="text-[8px] text-gray-600">{person.reviews} تقييم</p></div>
+                              <div className="text-left"><p className="text-[10px] font-bold text-emerald-400">+{person.positive}</p><p className="text-[8px] text-rose-500">−{person.negative}</p></div>
                             </div>
                           ))}
                         </div>
                       </div>
 
                       <div className="rounded-xl border border-white/5 bg-black/20 p-3">
-                        <p className="mb-2.5 text-[10px] font-bold text-gray-500">ملاحظات خاصة للمنظم</p>
+                        <p className="mb-2.5 text-[10px] font-bold text-gray-500">كل التقييمات والملاحظات</p>
                         <div className="max-h-64 space-y-2 overflow-y-auto">
-                          {groupReflections.submissions.some((entry: any) => entry.organizer_note) ? groupReflections.submissions.filter((entry: any) => entry.organizer_note).map((entry: any) => (
-                            <div key={`${entry.ranker_number}-${entry.updated_at}`} className="rounded-xl border border-white/5 bg-white/[0.025] p-2.5">
+                          {groupMemberFeedback.submissions.map((entry: any) => (
+                            <div key={`${entry.reviewer_number}-${entry.member_number}-${entry.group_round}`} className="rounded-xl border border-white/5 bg-white/[0.025] p-2.5">
                               <div className="mb-1.5 flex items-center justify-between gap-2">
-                                <p className="text-[10px] font-bold text-violet-300">{entry.ranker_name} <span className="font-mono text-gray-600">#{entry.ranker_number}</span></p>
+                                <p className="text-[10px] font-bold text-violet-300">{entry.reviewer_name} <span className="text-gray-600">عن</span> {entry.member_name}</p>
                                 <span className="text-[8px] text-gray-700">الجولة {entry.group_round} · خاص</span>
                               </div>
-                              <p className="whitespace-pre-wrap text-[11px] leading-relaxed text-gray-300">{entry.organizer_note}</p>
-                              {entry.ranked_list?.length > 0 && <p className="mt-2 text-[9px] text-gray-600">اختياره: {entry.ranked_list.map((person: any) => `${person.rank}. ${person.name}`).join(' · ')}</p>}
+                              {entry.organizer_note && <p className="whitespace-pre-wrap text-[11px] leading-relaxed text-gray-300">{entry.organizer_note}</p>}
+                              <p className={`${entry.organizer_note ? 'mt-2' : ''} text-[9px] text-gray-600`}>التقييم: {entry.experience === 'great' ? 'ممتاز' : entry.experience === 'good' ? 'جيد' : entry.experience === 'neutral' ? 'عادي' : 'غير مريح'}{entry.tags?.length ? ` · ${entry.tags.map((tag: string) => groupFeedbackTagLabels[tag] || tag).join('، ')}` : ''}</p>
                             </div>
-                          )) : <div className="py-8 text-center text-[11px] text-gray-700">لا توجد ملاحظات نصية</div>}
+                          ))}
                         </div>
                       </div>
                     </div>

@@ -2949,8 +2949,8 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
   previewPeople?: { number: number; first_name: string; rounds: number[] }[]
 }) {
   const [people, setPeople] = useState<{ number: number; first_name: string; rounds: number[] }[]>([])
-  const [selected, setSelected] = useState<number[]>([])
-  const [note, setNote] = useState('')
+  const [drafts, setDrafts] = useState<Record<number, { experience: string; tags: string[]; organizer_note: string }>>({})
+  const [expanded, setExpanded] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -2971,36 +2971,57 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
         return
       }
       setPeople(data.people || [])
-      setSelected(Array.isArray(data.reflection?.ranked_numbers) ? data.reflection.ranked_numbers : [])
-      setNote(data.reflection?.organizer_note || '')
+      const existing: Record<number, { experience: string; tags: string[]; organizer_note: string }> = {}
+      for (const row of data.feedback || []) {
+        existing[row.member_number] = {
+          experience: row.experience,
+          tags: Array.isArray(row.tags) ? row.tags : [],
+          organizer_note: row.organizer_note || '',
+        }
+      }
+      setDrafts(existing)
       setLoading(false)
     })
     return () => { active = false }
   }, [token, previewPeople, groupRound])
 
-  const togglePerson = (number: number) => {
+  const setExperience = (number: number, experience: string) => {
     setSaved(false)
-    setSelected(current => {
-      if (current.includes(number)) return current.filter(value => value !== number)
-      if (current.length >= 3) {
-        toast('اختر ثلاثة فقط — اضغط على اسم لإزالته', { icon: '✨' })
-        return current
-      }
-      return [...current, number]
+    setDrafts(current => ({
+      ...current,
+      [number]: { experience, tags: current[number]?.tags || [], organizer_note: current[number]?.organizer_note || '' },
+    }))
+  }
+
+  const toggleTag = (number: number, tag: string) => {
+    setSaved(false)
+    setDrafts(current => {
+      const item = current[number]
+      if (!item?.experience) return current
+      const tags = item.tags.includes(tag) ? item.tags.filter(value => value !== tag) : [...item.tags, tag]
+      if (tags.length > 3) { toast('اختر حتى 3 صفات فقط', { icon: '✨' }); return current }
+      return { ...current, [number]: { ...item, tags } }
     })
   }
 
   const save = async () => {
-    if (selected.length === 0 && !note.trim()) {
-      toast.error('اختر شخصاً أو اكتب ملاحظة، أو اضغط تخطي')
+    const entries = Object.entries(drafts)
+      .filter(([, value]) => value.experience)
+      .map(([memberNumber, value]) => ({
+        member_number: Number(memberNumber),
+        experience: value.experience,
+        tags: value.tags,
+        organizer_note: value.organizer_note.trim(),
+      }))
+    if (entries.length === 0) {
+      toast.error('قيّم شخصاً واحداً على الأقل، أو اضغط تخطي')
       return
     }
     if (!token) { toast.success('معاينة فقط — التصميم جاهز'); return }
     setSaving(true)
     const data = await call('e3-submit-group-reflection', token, {
-      ranked_numbers: selected,
-      organizer_note: note.trim(),
       group_round: groupRound,
+      entries,
     })
     setSaving(false)
     if (data.error) { toast.error(data.error); return }
@@ -3009,12 +3030,17 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
     setTimeout(onClose, 700)
   }
 
-  const medal = (index: number) => [Crown, Medal, Award][index] || Star
-  const medalStyle = (index: number) => [
-    'border-amber-400/40 bg-amber-500/15 text-amber-300',
-    'border-slate-300/30 bg-slate-300/10 text-slate-200',
-    'border-orange-500/30 bg-orange-600/10 text-orange-300',
-  ][index]
+  const reviewedCount = Object.values(drafts).filter(value => value.experience).length
+  const experiences = [
+    { value: 'great', label: 'ممتاز', icon: Sparkles, style: 'border-emerald-400/40 bg-emerald-500/15 text-emerald-300' },
+    { value: 'good', label: 'جيد', icon: Smile, style: 'border-cyan-400/35 bg-cyan-500/12 text-cyan-300' },
+    { value: 'neutral', label: 'عادي', icon: Meh, style: 'border-amber-400/35 bg-amber-500/12 text-amber-300' },
+    { value: 'uncomfortable', label: 'غير مريح', icon: Frown, style: 'border-rose-400/35 bg-rose-500/12 text-rose-300' },
+  ]
+  const tags = [
+    ['fun', 'ممتع'], ['comfortable', 'مريح'], ['good_listener', 'مستمع جيد'], ['respectful', 'محترم'], ['engaging', 'متفاعل'],
+    ['quiet', 'هادئ'], ['hard_to_connect', 'صعب التواصل'], ['interrupts', 'يقاطع'], ['dominates', 'يسيطر على الحوار'], ['disrespectful', 'غير محترم'],
+  ]
 
   return (
     <motion.div
@@ -3037,10 +3063,10 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-black text-white">مين برز في المجموعة {groupRound}؟</h2>
+              <h2 className="text-lg font-black text-white">كيف كانت تجربتك مع كل شخص؟</h2>
               <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-2 py-0.5 text-[9px] font-bold text-gray-500">اختياري</span>
             </div>
-            <p className="mt-1 text-xs leading-relaxed text-gray-500">اختر حتى 3 من هذه الجولة فقط. خاص بالمنظم ولا يؤثر على تطابقك.</p>
+            <p className="mt-1 text-xs leading-relaxed text-gray-500">الجولة {groupRound} · قيّم شخصاً أو الجميع. خاص بالمنظم ولا يؤثر على تطابقك.</p>
           </div>
           <button onClick={onClose} aria-label="إغلاق" className="w-9 h-9 rounded-full bg-white/[0.05] text-gray-500 flex items-center justify-center active:scale-90 transition">
             <X size={17} />
@@ -3058,47 +3084,59 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
             </div>
           ) : (
             <>
-              {selected.length > 0 && (
-                <div className="grid grid-cols-3 gap-2">
-                  {[0, 1, 2].map(index => {
-                    const number = selected[index]
-                    const person = people.find(item => item.number === number)
-                    const Icon = medal(index)
-                    return (
-                      <button key={index} disabled={!person} onClick={() => person && togglePerson(person.number)}
-                        className={`min-h-[70px] rounded-2xl border p-2 flex flex-col items-center justify-center gap-1 transition ${person ? medalStyle(index) : 'border-dashed border-white/[0.06] text-gray-700'}`}>
-                        <Icon size={14} />
-                        <span className="max-w-full truncate text-xs font-black">{person?.first_name || `${index + 1}`}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-
-              <div>
-                <p className="mb-2 text-[10px] font-bold tracking-wide text-gray-600">اضغط بالترتيب: الأول، ثم الثاني، ثم الثالث</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {people.map(person => {
-                    const rank = selected.indexOf(person.number)
-                    return (
-                      <motion.button key={person.number} whileTap={{ scale: 0.96 }} onClick={() => togglePerson(person.number)}
-                        className={`relative min-h-14 rounded-2xl border px-3 py-2.5 flex items-center gap-2.5 text-right transition-all ${rank >= 0 ? 'border-purple-400/45 bg-purple-500/15 shadow-[0_0_24px_-12px_rgba(168,85,247,0.8)]' : 'border-white/[0.06] bg-white/[0.035] active:bg-white/[0.07]'}`}>
-                        <span className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-black shrink-0 ${rank >= 0 ? 'bg-purple-400 text-gray-950' : 'bg-white/[0.05] text-gray-600'}`}>{rank >= 0 ? rank + 1 : '+'}</span>
-                        <span className={`truncate text-sm font-bold ${rank >= 0 ? 'text-white' : 'text-gray-400'}`}>{person.first_name}</span>
-                      </motion.button>
-                    )
-                  })}
-                </div>
+              <div className="flex items-center justify-between rounded-2xl border border-white/[0.06] bg-white/[0.025] px-3.5 py-2.5">
+                <p className="text-[11px] text-gray-500">اضغط تقييماً سريعاً لكل شخص ترغب بمراجعته</p>
+                <span className="rounded-full bg-purple-500/12 px-2.5 py-1 text-[10px] font-black text-purple-300">{reviewedCount}/{people.length}</span>
               </div>
 
-              <div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-3.5">
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 text-gray-300"><PenLine size={14} className="text-purple-400" /><span className="text-xs font-bold">ملاحظة خاصة للمنظم</span></div>
-                  <span className="text-[9px] tabular-nums text-gray-700">{note.length}/300</span>
-                </div>
-                <textarea value={note} onChange={event => { setSaved(false); setNote(event.target.value.slice(0, 300)) }} rows={3}
-                  placeholder="شيء لفت انتباهك؟ اتركه هنا..."
-                  className="w-full resize-none bg-transparent text-sm leading-relaxed text-gray-200 placeholder:text-gray-700 focus:outline-none" />
+              <div className="space-y-2">
+                {people.map(person => {
+                  const draft = drafts[person.number]
+                  const isExpanded = expanded === person.number
+                  return (
+                    <motion.div layout key={person.number} className={`overflow-hidden rounded-2xl border transition ${draft?.experience ? 'border-purple-400/25 bg-purple-500/[0.07]' : 'border-white/[0.06] bg-white/[0.025]'}`}>
+                      <div className="flex items-center gap-2.5 px-3 py-2.5">
+                        <button onClick={() => setExpanded(isExpanded ? null : person.number)} className="min-w-0 flex-1 text-right">
+                          <p className="truncate text-sm font-black text-white">{person.first_name}</p>
+                          <p className="mt-0.5 text-[9px] text-gray-600">تفاصيل وملاحظة اختيارية</p>
+                        </button>
+                        <div className="grid grid-cols-4 gap-1">
+                          {experiences.map(option => {
+                            const Icon = option.icon
+                            const active = draft?.experience === option.value
+                            return (
+                              <button key={option.value} onClick={() => setExperience(person.number, option.value)} title={option.label}
+                                className={`flex h-10 w-10 flex-col items-center justify-center rounded-xl border transition active:scale-90 ${active ? option.style : 'border-white/[0.05] bg-white/[0.025] text-gray-700'}`}>
+                                <Icon size={14} />
+                                <span className="mt-0.5 text-[7px] font-bold leading-none">{option.label}</span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      <AnimatePresence initial={false}>
+                        {isExpanded && draft?.experience && (
+                          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                            <div className="border-t border-white/[0.05] px-3 pb-3 pt-2.5">
+                              <p className="mb-2 text-[9px] font-bold text-gray-600">صفات اختيارية · حتى 3</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {tags.map(([value, label]) => {
+                                  const active = draft.tags.includes(value)
+                                  return <button key={value} onClick={() => toggleTag(person.number, value)} className={`rounded-full border px-2.5 py-1.5 text-[10px] font-bold transition ${active ? 'border-purple-400/35 bg-purple-500/15 text-purple-200' : 'border-white/[0.06] bg-white/[0.025] text-gray-600'}`}>{label}</button>
+                                })}
+                              </div>
+                              <div className="mt-3 rounded-xl border border-white/[0.05] bg-black/15 p-2.5">
+                                <div className="mb-1.5 flex items-center justify-between"><span className="text-[10px] font-bold text-gray-500">ملاحظة خاصة للمنظم</span><span className="text-[8px] text-gray-700">{draft.organizer_note.length}/300</span></div>
+                                <textarea value={draft.organizer_note} rows={2} onChange={event => { const value = event.target.value.slice(0, 300); setSaved(false); setDrafts(current => ({ ...current, [person.number]: { ...current[person.number], organizer_note: value } })) }} placeholder="اختياري..." className="w-full resize-none bg-transparent text-xs leading-relaxed text-gray-200 placeholder:text-gray-700 focus:outline-none" />
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  )
+                })}
               </div>
 
               <div className="flex gap-2 pb-[max(0.25rem,env(safe-area-inset-bottom))]">
@@ -3106,7 +3144,7 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
                 <motion.button whileTap={{ scale: 0.97 }} onClick={save} disabled={saving || saved}
                   className="flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500 text-sm font-black text-white shadow-[0_10px_30px_-12px_rgba(168,85,247,0.9)] disabled:opacity-60 flex items-center justify-center gap-2">
                   {saving ? <Spinner size={16} /> : saved ? <CheckCircle size={17} /> : <Send size={16} />}
-                  {saved ? 'تم الحفظ' : selected.length ? `حفظ أفضل ${selected.length}` : 'حفظ الملاحظة'}
+                  {saved ? 'تم الحفظ' : reviewedCount ? `حفظ ${reviewedCount} تقييم` : 'حفظ التقييمات'}
                 </motion.button>
               </div>
             </>

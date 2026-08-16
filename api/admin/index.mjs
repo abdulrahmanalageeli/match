@@ -3458,6 +3458,20 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: "Invalid event_id. Must be a positive integer." })
         }
 
+        // Refuse the whole switch before changing the main event if Event3 is
+        // currently preserving a live test snapshot.
+        const { data: event3State, error: event3StateError } = await supabase
+          .from("event_state")
+          .select("test_mode_active,current_event_id")
+          .eq("match_id", EVENT3_MATCH_ID)
+          .maybeSingle()
+        if (event3StateError) {
+          return res.status(500).json({ error: `Event3 state lookup failed: ${event3StateError.message}` })
+        }
+        if (event3State?.test_mode_active === true) {
+          return res.status(409).json({ error: "End Event3 test mode before switching events", test_mode: true })
+        }
+
         // Store current event ID in event_state table
         const { error } = await supabase
           .from("event_state")
@@ -3469,6 +3483,25 @@ export default async function handler(req, res) {
         if (error) {
           console.error("Error setting current event ID:", error)
           return res.status(500).json({ error: `Database error: ${error.message}` })
+        }
+
+        // Keep Event3 on the same live event. A stale Event3 pointer prevents
+        // the isolated test-mode RPC from starting even though the main admin
+        // has already switched events.
+        if (event3State && Number(event3State.current_event_id) !== Number(event_id)) {
+          const { error: event3SyncError } = await supabase.from("event_state").update({
+            current_event_id: event_id,
+            phase: "setup",
+            global_timer_active: false,
+            global_timer_start_time: null,
+            global_timer_duration: null,
+            global_timer_round: null,
+            phase2_score_revealed: false,
+            phase3_score_revealed: false,
+          }).eq("match_id", EVENT3_MATCH_ID).eq("test_mode_active", false)
+          if (event3SyncError) {
+            return res.status(500).json({ error: `Event3 event sync failed: ${event3SyncError.message}` })
+          }
         }
 
         console.log(`Successfully set current event ID to: ${event_id}`)
@@ -11137,6 +11170,38 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
 
           const cacheMisses = missingPairs.length
           const cachePct = totalPairs > 0 ? Math.round((cacheHits / totalPairs) * 100) : 0
+
+          // Historical preview selection must never redirect the live test
+          // runtime. Test mode always belongs to the actual current event.
+          if (Number(currentEventId) !== Number(realEventId)) {
+            return res.status(409).json({ error: `Test mode can only start for the current event (${realEventId})` })
+          }
+
+          // Self-heal legacy state where the main admin advanced events but
+          // Event3's dedicated state row did not. This is safe only while test
+          // mode is inactive; an active snapshot must never be redirected.
+          const { data: testEvent3State, error: testEvent3StateError } = await supabase
+            .from("event_state")
+            .select("current_event_id,test_mode_active")
+            .eq("match_id", EVENT3_MATCH_ID)
+            .maybeSingle()
+          if (testEvent3StateError) return res.status(500).json({ error: testEvent3StateError.message })
+          if (testEvent3State?.test_mode_active === true) {
+            return res.status(409).json({ error: "Event3 test mode is already active", test_mode: true })
+          }
+          if (testEvent3State && Number(testEvent3State.current_event_id) !== Number(currentEventId)) {
+            const { error: syncEventError } = await supabase.from("event_state").update({
+              current_event_id: Number(currentEventId),
+              phase: "setup",
+              global_timer_active: false,
+              global_timer_start_time: null,
+              global_timer_duration: null,
+              global_timer_round: null,
+              phase2_score_revealed: false,
+              phase3_score_revealed: false,
+            }).eq("match_id", EVENT3_MATCH_ID).eq("test_mode_active", false)
+            if (syncEventError) return res.status(500).json({ error: `Event3 event sync failed: ${syncEventError.message}` })
+          }
 
           // 5. Atomically snapshot the current Event3 runtime, replace it with
           // the selected test roster, and activate test mode. If anything

@@ -8,6 +8,11 @@ import {
   validateMatchInsights,
 } from "../server/matching/match-insights.mjs"
 import { isEvent3SignedUp } from "../server/event3/enrollment.mjs"
+import {
+  isPlausibleParticipantPhone,
+  normalizeParticipantPhone,
+  participantPhoneToE164,
+} from "../server/participants/phone-normalization.mjs"
 
 // In-memory cache for e3 token resolution (5 min TTL) to reduce Supabase API load
 const _e3TokenCache = new Map() // token -> { participant, expiresAt }
@@ -25,6 +30,52 @@ const logError = (context, error) => {
 }
 
 const supabase = supabaseAdmin
+const STATIC_MATCH_ID = "00000000-0000-0000-0000-000000000000"
+
+async function findParticipantsByExactPhone(phoneNumber, columns = "id, assigned_number, name, phone_number, secure_token") {
+  const normalizedPhone = normalizeParticipantPhone(phoneNumber)
+  if (!isPlausibleParticipantPhone(normalizedPhone)) {
+    return { normalizedPhone, participants: [], error: null }
+  }
+
+  const { data, error } = await supabase
+    .from("participants")
+    .select(columns)
+    .eq("match_id", process.env.CURRENT_MATCH_ID || STATIC_MATCH_ID)
+    .eq("phone_normalized", normalizedPhone)
+    .order("created_at", { ascending: false })
+
+  return { normalizedPhone, participants: data || [], error }
+}
+
+async function discardUnusedProvisionalParticipant(provisionalToken, authenticatedParticipantId) {
+  const token = String(provisionalToken || '').trim()
+  if (!token) return false
+
+  const { data: provisional, error } = await supabase
+    .from("participants")
+    .select("id, name, phone_number, survey_data, summary, created_at")
+    .eq("match_id", process.env.CURRENT_MATCH_ID || STATIC_MATCH_ID)
+    .eq("secure_token", token)
+    .maybeSingle()
+
+  if (error || !provisional || provisional.id === authenticatedParticipantId) return false
+  const createdAt = new Date(provisional.created_at || 0).getTime()
+  const isRecent = Number.isFinite(createdAt) && Date.now() - createdAt <= 24 * 60 * 60 * 1000
+  const isBlank = !provisional.name && !provisional.phone_number && !provisional.survey_data && !provisional.summary
+  if (!isRecent || !isBlank) return false
+
+  const { error: deleteError } = await supabase
+    .from("participants")
+    .delete()
+    .eq("id", provisional.id)
+
+  if (deleteError) {
+    console.error("Could not discard provisional participant:", deleteError)
+    return false
+  }
+  return true
+}
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -1063,44 +1114,49 @@ export default async function handler(req, res) {
 
       const phoneNumber = survey_data?.phoneNumber || survey_data?.answers?.phone_number
 
-      // Security check: If phone number is provided, ensure it's not already taken by another user
-      /* --- PHONE CHECK TEMPORARILY DISABLED ---
-      if (phoneNumber) {
-        const { data: phoneOwner, error: phoneOwnerError } = await supabase
-          .from("participants")
-          .select("id, secure_token, assigned_number")
-          .eq("phone_number", phoneNumber)
-          .eq("match_id", match_id)
-          .limit(1)
-
-        if (phoneOwnerError) {
-          logError("Error checking phone owner", phoneOwnerError)
-          throw phoneOwnerError
-        }
-
-        if (phoneOwner && phoneOwner.length > 0) {
-          const owner = phoneOwner[0]
-          // If the phone number belongs to someone else (identified by a different token), block the request.
-          if (owner.secure_token !== secure_token) {
-            return res.status(409).json({ 
-              error: "Phone number already registered.",
-              message: "رقم الهاتف مسجل بالفعل. يرجى استخدام الرابط الأصلي الخاص بك لتعديل بياناتك."
-            })
-          }
-        }
-      }
-      */
-
       // Find the participant to update using their secure_token as the primary identifier
       const { data: existing, error: existingError } = await supabase
         .from("participants")
-        .select("id, assigned_number, survey_data")
+        .select("id, assigned_number, survey_data, secure_token")
         .eq("match_id", match_id)
         .eq("secure_token", secure_token)
 
       if (existingError) {
         logError("Error checking existing participant", existingError)
         throw existingError
+      }
+
+      // A phone number is an account identity. Never let one participant claim
+      // a number that already belongs to another account. The database trigger
+      // enforces the same rule to close the check/update race window.
+      if (phoneNumber) {
+        if (!isPlausibleParticipantPhone(phoneNumber)) {
+          return res.status(400).json({
+            code: "INVALID_PHONE_NUMBER",
+            error: "رقم الجوال غير صحيح",
+          })
+        }
+
+        const { participants: phoneOwners, error: phoneOwnerError } = await findParticipantsByExactPhone(
+          phoneNumber,
+          "id, assigned_number, phone_number, secure_token, created_at"
+        )
+        if (phoneOwnerError) {
+          logError("Error checking phone owner", phoneOwnerError)
+          throw phoneOwnerError
+        }
+
+        const currentParticipantId = existing?.[0]?.id || null
+        const otherOwners = phoneOwners.filter(owner => owner.id !== currentParticipantId)
+        if (otherOwners.length > 0) {
+          return res.status(409).json({
+            code: "PHONE_ALREADY_REGISTERED",
+            duplicate: true,
+            requires_otp: true,
+            error: "رقم الجوال مرتبط بحساب موجود",
+            message: "سنرسل رمز تحقق لتسجيل دخولك إلى حسابك الحالي.",
+          })
+        }
       }
 
       const updateFields = {}
@@ -1385,6 +1441,7 @@ export default async function handler(req, res) {
 
       console.log('Saving validated participant fields', { fieldCount: Object.keys(updateFields).length })
 
+      let existingByNumber = []
       if (existing && existing.length > 0) {
         // ✅ Update existing participant identified by their secure_token
         console.log('🔄 Updating existing participant')
@@ -1400,11 +1457,13 @@ export default async function handler(req, res) {
         }
       } else {
         // 🔎 Fallback: check by assigned_number ONLY (match_id is same for everyone per app design)
-        const { data: existingByNumber, error: numberCheckErr } = await supabase
+        const { data: numberMatches, error: numberCheckErr } = await supabase
           .from("participants")
           .select("id, secure_token, survey_data")
           .eq("assigned_number", assigned_number)
           .limit(1)
+
+        existingByNumber = numberMatches || []
 
         if (numberCheckErr) {
           logError("Error checking existing by assigned_number", numberCheckErr)
@@ -1480,6 +1539,15 @@ export default async function handler(req, res) {
       return res.status(200).json({ message: "Saved", match_id })
     } catch (err) {
       logError("Server Error", err)
+      if (err?.code === "23505" && String(err?.message || "").includes("phone")) {
+        return res.status(409).json({
+          code: "PHONE_ALREADY_REGISTERED",
+          duplicate: true,
+          requires_otp: true,
+          error: "رقم الجوال مرتبط بحساب موجود",
+          message: "سنرسل رمز تحقق لتسجيل دخولك إلى حسابك الحالي.",
+        })
+      }
       return res.status(500).json({ error: err.message || "Unexpected error" })
     }
   }
@@ -2099,75 +2167,59 @@ export default async function handler(req, res) {
 
   // CHECK PHONE NUMBER DUPLICATE (for survey validation)
   if (action === "check-phone-duplicate") {
-    const { phone_number, current_participant_number, secure_token } = req.body
+    const { phone_number, secure_token } = req.body
 
     if (!phone_number) {
       return res.status(400).json({ error: "Phone number is required" })
     }
 
     try {
-      // Normalize phone number - extract last 7 digits for more precise matching
-      const normalizedPhone = phone_number.replace(/\D/g, '') // Remove all non-digits
-      if (normalizedPhone.length < 7) {
-        return res.status(400).json({ error: "رقم الهاتف قصير جداً" })
-      }
-      
-      const last7Digits = normalizedPhone.slice(-7)
-      console.log('Checking phone duplicate')
-      
-      // If we have current participant info, this is an edit operation
-      if (current_participant_number || secure_token) {
-        console.log(`📝 Edit mode detected - current participant: #${current_participant_number}, token: ${secure_token ? 'provided' : 'none'}`)
-      }
-
-      // Search for participants with matching last 7 digits
-      const { data: existingParticipants, error } = await supabase
-        .from("participants")
-        .select("assigned_number, name, phone_number, secure_token")
-        .not("phone_number", "is", null)
-
-      if (error) {
-        console.error("Database error:", error)
-        return res.status(500).json({ error: "Database error" })
-      }
-
-      // Check for matches in last 7 digits
-      const matchingParticipants = existingParticipants.filter(p => {
-        const existingNormalized = p.phone_number.replace(/\D/g, '')
-        const existingLast7 = existingNormalized.slice(-7)
-        const phoneMatches = existingLast7 === last7Digits
-        
-        // If this is an edit operation, exclude the current participant from duplicate check
-        if (phoneMatches && (current_participant_number || secure_token)) {
-          // Exclude if this is the same participant by number
-          if (current_participant_number && p.assigned_number === current_participant_number) {
-            console.log(`✅ Excluding current participant #${current_participant_number} from duplicate check`)
-            return false
-          }
-          
-          // Exclude if this is the same participant by token
-          if (secure_token && p.secure_token === secure_token) {
-            console.log('Excluding authenticated participant from duplicate check')
-            return false
-          }
-        }
-        
-        return phoneMatches
-      })
-
-      if (matchingParticipants.length > 0) {
-        console.log(`❌ Phone duplicate found: ${matchingParticipants.length} matches (after excluding current participant)`)
-        return res.status(409).json({ 
-          duplicate: true,
-          error: "رقم الهاتف مسجل مسبقاً",
-          message: "يرجى استخدام زر 'لاعب عائد' لتعديل بياناتك"
+      if (!isPlausibleParticipantPhone(phone_number)) {
+        return res.status(400).json({
+          code: "INVALID_PHONE_NUMBER",
+          error: "رقم الجوال غير صحيح",
         })
       }
 
-      console.log(`✅ Phone number is unique`)
+      let currentParticipantId = null
+      if (secure_token) {
+        const { data: currentParticipant, error: currentError } = await supabase
+          .from("participants")
+          .select("id")
+          .eq("match_id", process.env.CURRENT_MATCH_ID || STATIC_MATCH_ID)
+          .eq("secure_token", secure_token)
+          .maybeSingle()
+        if (currentError) {
+          console.error("Current participant lookup failed:", currentError)
+          return res.status(500).json({ error: "Database error" })
+        }
+        currentParticipantId = currentParticipant?.id || null
+      }
+
+      const { participants, error } = await findParticipantsByExactPhone(
+        phone_number,
+        "id, assigned_number, phone_number, created_at"
+      )
+      if (error) {
+        console.error("Exact phone lookup failed:", error)
+        return res.status(500).json({ error: "Database error" })
+      }
+
+      const matchingParticipants = participants.filter(participant => participant.id !== currentParticipantId)
+
+      if (matchingParticipants.length > 0) {
+        return res.status(409).json({ 
+          code: "PHONE_ALREADY_REGISTERED",
+          duplicate: true,
+          requires_otp: true,
+          error: "رقم الجوال مرتبط بحساب موجود",
+          message: "سنرسل رمز تحقق لتسجيل دخولك إلى حسابك الحالي.",
+        })
+      }
+
       return res.status(200).json({ 
         duplicate: false,
-        message: "رقم الهاتف متاح"
+        message: "رقم الجوال متاح"
       })
 
     } catch (error) {
@@ -3960,27 +4012,25 @@ Please respond in JSON format:
       const { phone_number } = req.body
       if (!phone_number) return res.status(400).json({ error: "رقم الجوال مطلوب" })
 
-      const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
-      const raw = String(phone_number).replace(/\D/g, "")
-      if (raw.length < 7) return res.status(400).json({ error: "رقم الجوال غير صحيح" })
-      const last7 = raw.slice(-7)
+      if (!isPlausibleParticipantPhone(phone_number)) {
+        return res.status(400).json({ error: "رقم الجوال غير صحيح" })
+      }
 
-      // Find participant by last 7 digits of phone (ilike to avoid 1000-row limit)
-      const { data: candidates } = await supabase
-        .from("participants")
-        .select("id, assigned_number, name, phone_number, secure_token")
-        .eq("match_id", match_id)
-        .not("phone_number", "is", null)
-        .ilike("phone_number", `%${last7}`)
-
-      const participant = candidates?.find(p => {
-        const cp = String(p.phone_number || "").replace(/\D/g, "")
-        return cp.endsWith(last7)
-      })
-
-      if (!participant || !participant.phone_number) {
+      const { participants, error: lookupError } = await findParticipantsByExactPhone(phone_number)
+      if (lookupError) {
+        console.error("request-otp phone lookup error:", lookupError)
+        return res.status(500).json({ error: "خطأ في البحث عن الحساب" })
+      }
+      if (participants.length === 0) {
         return res.status(400).json({ error: "لم يتم العثور على مشارك بهذا الرقم" })
       }
+      if (participants.length > 1) {
+        return res.status(409).json({
+          code: "PHONE_ACCOUNT_AMBIGUOUS",
+          error: "يوجد أكثر من حساب قديم مرتبط بهذا الرقم. يرجى التواصل مع المنظم.",
+        })
+      }
+      const participant = participants[0]
 
       const accountSid = process.env.TWILIO_ACCOUNT_SID
       const authToken = process.env.TWILIO_AUTH_TOKEN
@@ -3991,9 +4041,7 @@ Please respond in JSON format:
       }
 
       // Normalize phone to E.164 format (Twilio Verify requires it)
-      let to = String(participant.phone_number).replace(/\s/g, "")
-      if (to.startsWith("whatsapp:")) to = to.replace("whatsapp:", "")
-      if (!to.startsWith("+")) to = "+" + to
+      const to = participantPhoneToE164(participant.phone_number)
 
       // Call Twilio Verify API to send OTP via WhatsApp
       const verifyUrl = `https://verify.twilio.com/v2/Services/${verifyServiceSid}/Verifications`
@@ -4016,7 +4064,7 @@ Please respond in JSON format:
         return res.status(500).json({ error: "فشل في إرسال رمز التحقق" })
       }
 
-      return res.status(200).json({ success: true, message: "تم إرسال رمز التحقق عبر واتساب" })
+      return res.status(200).json({ success: true, message: "تم إرسال رمز التحقق عبر الرسائل القصيرة" })
     } catch (err) {
       console.error("request-otp error:", err)
       return res.status(500).json({ error: "خطأ في الطلب" })
@@ -4026,28 +4074,23 @@ Please respond in JSON format:
   if (action === "verify-otp") {
     if (!enforceRateLimit(req, res, { key: "verify-otp", limit: 10, windowMs: 15 * 60_000 })) return
     try {
-      const { phone_number, otp } = req.body
+      const { phone_number, otp, provisional_secure_token } = req.body
       if (!phone_number || !otp) return res.status(400).json({ error: "رقم الجوال والرمز مطلوبان" })
 
-      const raw = String(phone_number).replace(/\D/g, "")
-      if (raw.length < 7) return res.status(400).json({ error: "رقم الجوال غير صحيح" })
-      const last7 = raw.slice(-7)
-
-      const { data: candidates } = await supabase
-        .from("participants")
-        .select("id, phone_number, secure_token, assigned_number, name")
-        .eq("match_id", process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000")
-        .not("phone_number", "is", null)
-        .ilike("phone_number", `%${last7}`)
-
-      const participant = candidates?.find(p => {
-        const cp = String(p.phone_number || "").replace(/\D/g, "")
-        return cp.endsWith(last7)
-      })
-
-      if (!participant) {
+      if (!isPlausibleParticipantPhone(phone_number)) {
         return res.status(400).json({ error: "رقم غير صحيح" })
       }
+
+      const { participants, error: lookupError } = await findParticipantsByExactPhone(phone_number)
+      if (lookupError) return res.status(500).json({ error: "خطأ في البحث عن الحساب" })
+      if (participants.length === 0) return res.status(400).json({ error: "رقم غير صحيح" })
+      if (participants.length > 1) {
+        return res.status(409).json({
+          code: "PHONE_ACCOUNT_AMBIGUOUS",
+          error: "يوجد أكثر من حساب قديم مرتبط بهذا الرقم. يرجى التواصل مع المنظم.",
+        })
+      }
+      const participant = participants[0]
 
       const accountSid = process.env.TWILIO_ACCOUNT_SID
       const authToken = process.env.TWILIO_AUTH_TOKEN
@@ -4057,9 +4100,7 @@ Please respond in JSON format:
       }
 
       // Normalize phone to E.164
-      let to = String(participant.phone_number).replace(/\s/g, "")
-      if (to.startsWith("whatsapp:")) to = to.replace("whatsapp:", "")
-      if (!to.startsWith("+")) to = "+" + to
+      const to = participantPhoneToE164(participant.phone_number)
 
       // Call Twilio Verify API to check the OTP
       const checkUrl = `https://verify.twilio.com/v2/Services/${verifyServiceSid}/VerificationCheck`
@@ -4081,11 +4122,17 @@ Please respond in JSON format:
         return res.status(400).json({ error: "رمز التحقق غير صحيح أو منتهي الصلاحية" })
       }
 
+      const provisional_discarded = await discardUnusedProvisionalParticipant(
+        provisional_secure_token,
+        participant.id
+      )
+
       return res.status(200).json({
         success: true,
         secure_token: participant.secure_token,
         assigned_number: participant.assigned_number,
         name: participant.name,
+        provisional_discarded,
       })
     } catch (err) {
       console.error("verify-otp error:", err)

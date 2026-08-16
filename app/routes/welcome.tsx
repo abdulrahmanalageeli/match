@@ -955,6 +955,7 @@ export default function WelcomePage() {
   const [forgotPhone, setForgotPhone] = useState("")
   const [forgotOtp, setForgotOtp] = useState("")
   const [forgotStep, setForgotStep] = useState<'phone' | 'otp' | 'success'>('phone')
+  const [forgotOrigin, setForgotOrigin] = useState<'recovery' | 'signup-duplicate'>('recovery')
   const [forgotLoading, setForgotLoading] = useState(false)
   const [forgotError, setForgotError] = useState<string | null>(null)
   const [recoveredToken, setRecoveredToken] = useState('')
@@ -4379,8 +4380,9 @@ export default function WelcomePage() {
   };
 
   // Handle forgot token OTP via Twilio WhatsApp
-  const handleRequestOtp = async () => {
-    if (!forgotPhone.trim().replace(/\D/g, "")) {
+  const handleRequestOtp = async (phoneOverride?: string) => {
+    const phone = typeof phoneOverride === 'string' ? phoneOverride.trim() : forgotPhone.trim()
+    if (!phone.replace(/\D/g, "")) {
       setForgotError("يرجى إدخال رقم الجوال")
       return
     }
@@ -4392,7 +4394,7 @@ export default function WelcomePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "request-otp",
-          phone_number: forgotPhone.trim(),
+          phone_number: phone,
         }),
       })
       const data = await res.json()
@@ -4409,6 +4411,17 @@ export default function WelcomePage() {
     }
   }
 
+  const handleExistingPhoneDetected = useCallback(async (phoneNumber: string) => {
+    const phone = phoneNumber.trim()
+    setForgotOrigin('signup-duplicate')
+    setForgotPhone(phone)
+    setForgotOtp("")
+    setForgotError(null)
+    setForgotStep('phone')
+    setShowForgotTokenModal(true)
+    await handleRequestOtp(phone)
+  }, [])
+
   const handleVerifyOtp = async () => {
     if (!forgotOtp.trim()) {
       setForgotError("يرجى إدخال رمز التحقق")
@@ -4424,6 +4437,9 @@ export default function WelcomePage() {
           action: "verify-otp",
           phone_number: forgotPhone.trim(),
           otp: forgotOtp.trim(),
+          provisional_secure_token: forgotOrigin === 'signup-duplicate' && isJustCreatedUser
+            ? secureToken
+            : undefined,
         }),
       })
       const data = await res.json()
@@ -4436,6 +4452,14 @@ export default function WelcomePage() {
           if (data.assigned_number) localStorage.setItem('blindmatch_participant_number', String(data.assigned_number))
         }
         toast.success(`مرحباً ${data.name || ''}! تم استعادة بياناتك`)
+        if (forgotOrigin === 'signup-duplicate' && token) {
+          localStorage.removeItem('survey_progress')
+          sessionStorage.removeItem('justCreatedToken')
+          sessionStorage.removeItem('justCreatedTokenValue')
+          setIsJustCreatedUser(false)
+          window.location.href = `/welcome?token=${encodeURIComponent(token)}`
+          return
+        }
         setRecoveredToken(token || '')
         setRecoveredName(data.name || '')
         setRecoveredNumber(data.assigned_number || null)
@@ -4838,6 +4862,11 @@ export default function WelcomePage() {
         }),
       })
       const data1 = await res1.json()
+      if (res1.status === 409 && data1.requires_otp) {
+        const duplicatePhone = String(dataToUse?.phoneNumber || dataToUse?.answers?.phone_number || '')
+        await handleExistingPhoneDetected(duplicatePhone)
+        return
+      }
       if (!res1.ok) throw new Error(data1.error)
   
       // 2. Save a neutral confirmation message until matching communication begins
@@ -6509,7 +6538,7 @@ export default function WelcomePage() {
                     </div>
 
                     <button
-                      onClick={() => { setShowForgotTokenModal(true); setForgotStep('phone'); setForgotError(null); setShowNewUserTypePopup(false); }}
+                      onClick={() => { setForgotOrigin('recovery'); setShowForgotTokenModal(true); setForgotStep('phone'); setForgotError(null); setShowNewUserTypePopup(false); }}
                       className="mt-3 text-xs font-medium text-cyan-300 transition-colors hover:text-cyan-200 hover:underline"
                     >
                       نسيت الرمز؟ استرجعه عبر الرسائل القصيرة
@@ -6548,7 +6577,7 @@ export default function WelcomePage() {
               <button
                 data-dialog-close
                 aria-label="إغلاق نافذة استعادة الرمز"
-                onClick={() => { setShowForgotTokenModal(false); setForgotPhone(""); setForgotOtp(""); setForgotStep('phone'); setForgotError(null); }}
+                onClick={() => { setShowForgotTokenModal(false); setForgotPhone(""); setForgotOtp(""); setForgotStep('phone'); setForgotOrigin('recovery'); setForgotError(null); }}
                 className="absolute top-4 right-4 text-slate-400 hover:text-white"
               >
                 <X className="w-5 h-5" />
@@ -6557,8 +6586,14 @@ export default function WelcomePage() {
                 <div className="w-16 h-16 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center mx-auto mb-4 shadow-lg">
                   <MessageSquare className="w-8 h-8 text-white" />
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">استرجاع الرمز المميز</h3>
-                <p className="text-slate-300 text-sm">سنرسل رمز تحقق إلى رقم جوالك عبر الرسائل القصيرة</p>
+                <h3 className="text-xl font-bold text-white mb-2">
+                  {forgotOrigin === 'signup-duplicate' ? 'هذا الرقم مسجل بالفعل' : 'استرجاع الرمز المميز'}
+                </h3>
+                <p className="text-slate-300 text-sm">
+                  {forgotOrigin === 'signup-duplicate'
+                    ? 'تحقق من رقم جوالك للدخول إلى حسابك الحالي بدل إنشاء حساب جديد.'
+                    : 'سنرسل رمز تحقق إلى رقم جوالك عبر الرسائل القصيرة'}
+                </p>
               </div>
 
               {forgotStep === 'success' ? (
@@ -6601,6 +6636,7 @@ export default function WelcomePage() {
                       setForgotPhone("")
                       setForgotOtp("")
                       setForgotStep('phone')
+                      setForgotOrigin('recovery')
                       setRecoveredToken('')
                       setTokenCopied(false)
                       if (recoveredToken) {
@@ -6621,6 +6657,7 @@ export default function WelcomePage() {
                       type="tel"
                       value={forgotPhone}
                       onChange={(e) => setForgotPhone(e.target.value)}
+                      readOnly={forgotOrigin === 'signup-duplicate'}
                       placeholder="مثال: 0501234567"
                       className="w-full px-4 py-3 text-sm rounded-lg border bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
                       dir="ltr"
@@ -6632,7 +6669,7 @@ export default function WelcomePage() {
                     </div>
                   )}
                   <button
-                    onClick={handleRequestOtp}
+                    onClick={() => handleRequestOtp()}
                     disabled={forgotLoading}
                     className="w-full px-4 py-3 bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium"
                   >
@@ -9163,6 +9200,7 @@ export default function WelcomePage() {
                       loading={loading}
                       assignedNumber={assignedNumber || undefined}
                       secureToken={secureToken || undefined}
+                      onExistingPhoneDetected={handleExistingPhoneDetected}
                     />
                   </Suspense>
                 </>

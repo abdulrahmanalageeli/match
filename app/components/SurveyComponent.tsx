@@ -908,7 +908,8 @@ const SurveyComponent = memo(function SurveyComponent({
   setIsEditingSurvey,
   loading = false,
   assignedNumber,
-  secureToken
+  secureToken,
+  onExistingPhoneDetected,
 }: { 
   onSubmit: (data: SurveyData) => void
   surveyData: SurveyData
@@ -917,6 +918,7 @@ const SurveyComponent = memo(function SurveyComponent({
   loading?: boolean
   assignedNumber?: number
   secureToken?: string
+  onExistingPhoneDetected?: (phoneNumber: string) => void | Promise<void>
 }) {
   
   const [currentPage, setCurrentPage] = useState(0)
@@ -1305,10 +1307,9 @@ const SurveyComponent = memo(function SurveyComponent({
       return
     }
 
-    // TEMP DISABLE: skip phone duplicate check on next page
-    const TEMP_DISABLE_PHONE_DUP_CHECK = true
-    // Check for phone number duplicates when moving from the page that contains phone number
-    if (!TEMP_DISABLE_PHONE_DUP_CHECK && currentPage === phoneQuestionPage) {
+    // Phone ownership is checked before the participant spends time completing
+    // the rest of the survey. Existing numbers continue through OTP login.
+    if (currentPage === phoneQuestionPage) {
       const phoneNumber = surveyData.answers.phone_number
       if (phoneNumber) {
         try {
@@ -1318,20 +1319,24 @@ const SurveyComponent = memo(function SurveyComponent({
             body: JSON.stringify({
               action: "check-phone-duplicate",
               phone_number: phoneNumber,
-              current_participant_number: assignedNumber, // Exclude current participant from duplicate check
-              secure_token: secureToken // For additional validation
+              secure_token: secureToken,
             }),
           })
           
           const data = await res.json()
           
           if (!res.ok && data.duplicate) {
-            alert(`❌ رقم الهاتف مسجل مسبقاً!\n\nإذا كنت مشاركاً سابقاً، يرجى استخدام زر "لاعب عائد" لتعديل بياناتك.\n\nلا يُسمح بإنشاء أكثر من حساب واحد.`)
-            return // Don't proceed to next page
+            await onExistingPhoneDetected?.(String(phoneNumber))
+            return
+          }
+          if (!res.ok) {
+            alert(data.error || "تعذر التحقق من رقم الجوال. حاول مرة أخرى.")
+            return
           }
         } catch (error) {
           console.error("Error checking phone duplicate:", error)
-          // Continue to next page if API call fails
+          alert("تعذر التحقق من رقم الجوال. تحقق من اتصالك وحاول مرة أخرى.")
+          return
         }
       }
     }

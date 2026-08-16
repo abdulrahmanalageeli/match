@@ -101,6 +101,10 @@ const getPairPriorityScore = (pair) => {
 }
 const LEGACY_VIBE_MAX = 15
 const CACHE_MODEL_USED = 'gpt-5.4-mini|vibe25'
+
+function isCurrentVibeModel(modelUsed) {
+  return String(modelUsed || '').startsWith('gpt-5.4-mini')
+}
 const COMPATIBILITY_SCORE_VERSION = '2026-08-16-v6-feedback-composites'
 // Production cache rows created from this point used the temporary 15-point
 // calibration. Earlier untagged rows used the original 25-point scale.
@@ -3739,7 +3743,7 @@ function getLockedMatch(participantA, participantB, lockedPairs) {
   )
 }
 
-export { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkIntentHardGate, checkInteractionStyleCompatibility, hasHumorStyleClash, fetchAllCachedPairs, calculateHumorOpennessScore, calculateInteractionSynergyScore, calculateLifestyleCompatibility, calculateConversationInitiativePreferenceScore, getOneYearAgeFlexDecision, getAgeTolerance, buildManualPairGateReport }
+export { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkAgeCompatibility, checkIntentHardGate, checkInteractionStyleCompatibility, hasHumorStyleClash, fetchAllCachedPairs, calculateHumorOpennessScore, calculateInteractionSynergyScore, calculateLifestyleCompatibility, calculateConversationInitiativePreferenceScore, getOneYearAgeFlexDecision, getAgeTolerance, buildManualPairGateReport, isCurrentVibeModel }
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -3969,7 +3973,8 @@ export default async function handler(req, res) {
   // -------------------------------------------------------------------------
   // BATCHED GENDER-MODE PRE-CACHE
   // -------------------------------------------------------------------------
-  // Caches same-gender (R1) or opposite-gender (R2) pairs in small batches so
+  // Caches same-gender (R1), opposite-gender (R2), or mutually preference-compatible
+  // pairs in small batches so
   // the system isn't overpowered. Each call processes a slice of participants
   // (default 5 outer-loop participants) and returns progress + hasMore flag.
   // The frontend drives sequential calls until hasMore=false.
@@ -3990,12 +3995,16 @@ export default async function handler(req, res) {
       finalizeDeltaCacheMetadata = true,
     } = req.body || {}
 
-    if (genderMode !== 'same' && genderMode !== 'opposite') {
-      return res.status(400).json({ error: "genderMode must be 'same' or 'opposite'" })
+    if (!['same', 'opposite', 'preference'].includes(genderMode)) {
+      return res.status(400).json({ error: "genderMode must be 'same', 'opposite', or 'preference'" })
     }
 
     // Use request-local forced mode to avoid cross-request global races
-    const forcedGenderMode = genderMode === 'same' ? 'same_gender' : 'opposite_gender'
+    const forcedGenderMode = genderMode === 'same'
+      ? 'same_gender'
+      : genderMode === 'opposite'
+        ? 'opposite_gender'
+        : 'preference'
 
     const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
     const startTime = Date.now()
@@ -4322,11 +4331,15 @@ if (action === "cache-status-by-gender") {
   if (!eventId) return res.status(400).json({ error: "eventId is required" })
  
   const { genderMode } = req.body || {}
-  if (genderMode !== 'same' && genderMode !== 'opposite') {
-    return res.status(400).json({ error: "genderMode must be 'same' or 'opposite'" })
+  if (!['same', 'opposite', 'preference'].includes(genderMode)) {
+    return res.status(400).json({ error: "genderMode must be 'same', 'opposite', or 'preference'" })
   }
 
-  const forcedGenderMode = genderMode === 'same' ? 'same_gender' : 'opposite_gender'
+  const forcedGenderMode = genderMode === 'same'
+    ? 'same_gender'
+    : genderMode === 'opposite'
+      ? 'opposite_gender'
+      : 'preference'
   const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
  
   try {
@@ -4409,11 +4422,15 @@ if (action === "cache-status-by-gender") {
       maxDurationMs = null,
     } = req.body || {}
 
-    if (genderMode !== 'same' && genderMode !== 'opposite') {
-      return res.status(400).json({ error: "genderMode must be 'same' or 'opposite'" })
+    if (!['same', 'opposite', 'preference'].includes(genderMode)) {
+      return res.status(400).json({ error: "genderMode must be 'same', 'opposite', or 'preference'" })
     }
 
-    const forcedGenderMode = genderMode === 'same' ? 'same_gender' : 'opposite_gender'
+    const forcedGenderMode = genderMode === 'same'
+      ? 'same_gender'
+      : genderMode === 'opposite'
+        ? 'opposite_gender'
+        : 'preference'
     const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
     const startTime = Date.now()
 
@@ -5223,17 +5240,17 @@ if (action === "cache-status-by-gender") {
       .neq("assigned_number", 9999)
 
     const allEligible = (allRaw || []).filter(p => isParticipantComplete(p))
-    const paidParticipants = paidOnly ? allEligible.filter(p => isPaidForEvent(p, eventId)) : allEligible
-    const pMap = new Map(allEligible.map(p => [p.assigned_number, p]))
+    const candidatePool = paidOnly ? allEligible.filter(p => isPaidForEvent(p, eventId)) : allEligible
+    const pMap = new Map(candidatePool.map(p => [p.assigned_number, p]))
 
     const targets = (Array.isArray(participant_numbers) && participant_numbers.length > 0)
-      ? allEligible.filter(p => participant_numbers.includes(p.assigned_number))
-      : paidOnly ? paidParticipants : allEligible
+      ? candidatePool.filter(p => participant_numbers.includes(p.assigned_number))
+      : candidatePool
 
     const seenPairs = new Set()
     const allPairs = []
     for (const target of targets) {
-      for (const other of allEligible) {
+      for (const other of candidatePool) {
         if (target.assigned_number === other.assigned_number) continue
         // Only fix pairs that would actually be matched (same gates as batched/delta cache)
         if (!checkGenderCompatibility(target, other)) continue
@@ -5255,7 +5272,7 @@ if (action === "cache-status-by-gender") {
 
     // Prefetch relevant cache rows once instead of selecting one row for every
     // pair. The latest row per pair preserves the old last_used ordering.
-    const allParticipantNumbers = allEligible.map(p => p.assigned_number)
+    const allParticipantNumbers = candidatePool.map(p => p.assigned_number)
     const sliceParticipantNumbers = [...new Set(slice.flatMap(pair => [pair.a, pair.b]))]
     const { data: prefetchedCacheRows, error: prefetchError } = await fetchCachedPairsForOuterParticipants(
       allParticipantNumbers,
@@ -5265,13 +5282,12 @@ if (action === "cache-status-by-gender") {
     )
     if (prefetchError) throw prefetchError
 
-    const latestCacheByPair = new Map()
+    const cacheRowsByPair = new Map()
     ;(prefetchedCacheRows || []).forEach(cacheRow => {
       const pairKey = `${cacheRow.participant_a_number}-${cacheRow.participant_b_number}`
-      const previous = latestCacheByPair.get(pairKey)
-      const rowTime = new Date(cacheRow.last_used || cacheRow.created_at || 0).getTime()
-      const previousTime = new Date(previous?.last_used || previous?.created_at || 0).getTime()
-      if (!previous || rowTime >= previousTime) latestCacheByPair.set(pairKey, cacheRow)
+      const rows = cacheRowsByPair.get(pairKey) || []
+      rows.push(cacheRow)
+      cacheRowsByPair.set(pairKey, rows)
     })
 
     // Process one pair: use prefetched cache state, delete if bad, recalculate.
@@ -5280,12 +5296,26 @@ if (action === "cache-status-by-gender") {
       const p2 = pMap.get(b)
       if (!p1 || !p2) return 'error'
 
-      const existing = latestCacheByPair.get(`${a}-${b}`)
+      const existingRows = cacheRowsByPair.get(`${a}-${b}`) || []
+      const existing = existingRows.reduce((latest, row) => {
+        if (!latest) return row
+        const rowTime = new Date(row.last_used || row.created_at || 0).getTime()
+        const latestTime = new Date(latest.last_used || latest.created_at || 0).getTime()
+        return rowTime >= latestTime ? row : latest
+      }, null)
 
-      if (skipNewModel && String(existing?.model_used || '').startsWith('gpt-5.4-mini')) return 'skip'
+      if (!force && skipNewModel && isCurrentVibeModel(existing?.model_used)) {
+        const duplicateIds = existingRows.filter(row => row.id && row.id !== existing.id).map(row => row.id)
+        if (duplicateIds.length > 0) {
+          const { error: duplicateDeleteError } = await supabase.from("compatibility_cache").delete().in("id", duplicateIds)
+          if (duplicateDeleteError) throw duplicateDeleteError
+        }
+        return 'skip'
+      }
 
-      if (existing?.id) {
-        const { error: deleteError } = await supabase.from("compatibility_cache").delete().eq("id", existing.id)
+      const existingIds = existingRows.map(row => row.id).filter(Boolean)
+      if (existingIds.length > 0) {
+        const { error: deleteError } = await supabase.from("compatibility_cache").delete().in("id", existingIds)
         if (deleteError) throw deleteError
       }
 

@@ -7,7 +7,7 @@ interface BatchedCacheModalProps {
   eventId: number
 }
 
-type GenderMode = "same" | "opposite"
+type GenderMode = "same" | "opposite" | "preference"
 
 interface CacheStatus {
   participants_total: number
@@ -85,16 +85,20 @@ function formatDuration(ms: number) {
 export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedCacheModalProps) {
   const [same, setSame] = useState<SideState>(initialSide())
   const [opposite, setOpposite] = useState<SideState>(initialSide())
+  const [preference, setPreference] = useState<SideState>(initialSide())
 
   // Refs to read fresh state inside async loops (avoid stale closures)
   const sameRef = useRef(same)
   const oppositeRef = useRef(opposite)
+  const preferenceRef = useRef(preference)
   useEffect(() => { sameRef.current = same }, [same])
   useEffect(() => { oppositeRef.current = opposite }, [opposite])
+  useEffect(() => { preferenceRef.current = preference }, [preference])
 
   const setSide = (mode: GenderMode, updater: (prev: SideState) => SideState) => {
     if (mode === "same") setSame(updater)
-    else setOpposite(updater)
+    else if (mode === "opposite") setOpposite(updater)
+    else setPreference(updater)
   }
 
   const fetchStatus = async (mode: GenderMode) => {
@@ -170,7 +174,11 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
 
   // Sequential batch driver for a single side. Reads cancel/pause flags from refs.
   const runBatches = async (mode: GenderMode) => {
-    const getRef = () => (mode === "same" ? sameRef.current : oppositeRef.current)
+    const getRef = () => mode === "same"
+      ? sameRef.current
+      : mode === "opposite"
+        ? oppositeRef.current
+        : preferenceRef.current
 
     setSide(mode, (p) => ({
       ...p,
@@ -275,6 +283,7 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
     if (!isOpen || !eventId) return
     fetchStatus("same")
     fetchStatus("opposite")
+    fetchStatus("preference")
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, eventId])
 
@@ -290,9 +299,9 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
               <Database className="w-5 h-5 text-indigo-300" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white">Batched Pre-Cache (by Round)</h2>
+              <h2 className="text-lg font-bold text-white">Batched Pre-Cache</h2>
               <p className="text-xs text-white/60">
-                Caches same-gender (R1) and opposite-gender (R2) pairs in small participant batches.
+                Cache forced round pairs or only pairs allowed by participants' gender preferences.
               </p>
             </div>
           </div>
@@ -306,7 +315,20 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="flex-1 overflow-y-auto p-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <SideCard
+            title="حسب التفضيلات"
+            subtitle="Mutual gender preferences (recommended)"
+            accent="from-emerald-600/30 to-teal-700/20 border-emerald-400/30"
+            mode="preference"
+            state={preference}
+            onStart={onStart}
+            onPause={onPause}
+            onResume={onResume}
+            onStop={onStop}
+            onRefreshStatus={fetchStatus}
+            onBatchSizeChange={(v) => setPreference((p) => ({ ...p, batchSize: v }))}
+          />
           <SideCard
             title="نفس الجنس (R1)"
             subtitle="Same-gender pairs"

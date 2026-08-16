@@ -124,6 +124,7 @@ export default function VibeFixModal({ isOpen, onClose, eventId }: VibeFixModalP
   if (!isOpen) return null
 
   const totalBad = participants.reduce((s, p) => s + p.bad_vibe_pairs, 0)
+  const totalOldParticipants = participants.filter(p => p.has_old_model).length
 
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/70 backdrop-blur-sm">
@@ -154,7 +155,7 @@ export default function VibeFixModal({ isOpen, onClose, eventId }: VibeFixModalP
             <span className={`w-2 h-2 rounded-full ${paidOnly ? 'bg-green-400' : 'bg-gray-500'}`} />
             {paidOnly ? 'Paid Only' : 'All Eligible'}
           </button>
-          <span className="text-xs text-gray-500">{paidOnly ? 'Only fixing pairs where both participants have paid' : 'Fixing all eligible participants regardless of payment'}</span>
+          <span className="text-xs text-gray-500">{paidOnly ? 'Only pairs where both participants paid for this event' : 'All preference-compatible eligible pairs'}</span>
           <div className="w-px h-4 bg-gray-700 mx-1" />
           <label className="flex items-center gap-2 cursor-pointer select-none" title="Skip pairs already cached with gpt-5.4-mini">
             <input
@@ -178,6 +179,11 @@ export default function VibeFixModal({ isOpen, onClose, eventId }: VibeFixModalP
             <span className={`font-bold ${totalBad > 0 ? 'text-red-400' : 'text-green-400'}`}>{totalBad}</span>
             <span className="text-gray-400"> pairs with vibe≈10 (fallback)</span>
           </div>
+          <div className="w-px h-4 bg-gray-700" />
+          <div className="text-sm">
+            <span className={`font-bold ${totalOldParticipants > 0 ? 'text-orange-400' : 'text-green-400'}`}>{totalOldParticipants}</span>
+            <span className="text-gray-400"> participants with old eligible pairs</span>
+          </div>
           <div className="ml-auto flex items-center gap-2">
             <button
               onClick={fetchStatus}
@@ -197,7 +203,7 @@ export default function VibeFixModal({ isOpen, onClose, eventId }: VibeFixModalP
             </button>
             <button
               onClick={() => runFix()}
-              disabled={running || totalBad === 0}
+              disabled={running || (totalBad === 0 && totalOldParticipants === 0)}
               className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white text-sm font-semibold rounded-lg transition"
             >
               {running && activeTarget === 'all' ? 'Fixing All…' : 'Fix All'}
@@ -307,7 +313,7 @@ export default function VibeFixModal({ isOpen, onClose, eventId }: VibeFixModalP
               </button>
               <button
                 onClick={() => runFix([p.number])}
-                disabled={running || p.bad_vibe_pairs === 0}
+                disabled={running || (p.bad_vibe_pairs === 0 && !p.has_old_model)}
                 className="ml-1 px-2.5 py-1 bg-indigo-600/70 hover:bg-indigo-600 disabled:opacity-30 text-white text-xs font-medium rounded-lg transition flex-shrink-0"
               >
                 {running && Array.isArray(activeTarget) && activeTarget[0] === p.number ? '…' : 'Fix'}
@@ -317,7 +323,7 @@ export default function VibeFixModal({ isOpen, onClose, eventId }: VibeFixModalP
         </div>
 
         <p className="text-gray-600 text-xs flex-shrink-0 text-center">
-          Only fixes pairs where ai_vibe_score ≈ 10 (OpenAI timeout fallback). Requires active OpenAI credit.
+          Fix processes old-model or fallback-vibe pairs; Force recalculates every eligible pair. Requires active OpenAI credit.
         </p>
       </div>
     </div>

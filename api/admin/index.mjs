@@ -1,6 +1,6 @@
 import OpenAI from "openai"
 import { createHmac, timingSafeEqual } from "node:crypto"
-import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkIntentHardGate, fetchAllCachedPairs, calculateHumorOpennessScore } from "./trigger-match.mjs"
+import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkAgeCompatibility, checkIntentHardGate, fetchAllCachedPairs, calculateHumorOpennessScore, isCurrentVibeModel } from "./trigger-match.mjs"
 import { buildWelcomePrompt } from "./ai-welcome-prompt.mjs"
 import { assignPriorityTables } from "../../server/event3/table-priority.mjs"
 import { buildSixBySevenPlan, optimizeRound2ByAge } from "../../server/event3/round2-age-optimizer.mjs"
@@ -5797,27 +5797,51 @@ export default async function handler(req, res) {
 
         const { data: rawParticipants } = await supabase
           .from("participants")
-          .select("assigned_number, name, survey_data, gender")
+          .select("assigned_number, name, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id")
           .eq("match_id", STATIC_MATCH_ID)
           .or(`signup_for_next_event.eq.true,event_id.eq.${event_id},auto_signup_next_event.eq.true`)
           .neq("assigned_number", 9999)
 
-        const eligible = (rawParticipants || []).filter(p =>
-          p.survey_data && typeof p.survey_data === 'object' && Object.keys(p.survey_data).length > 0
-        )
+        const eligible = (rawParticipants || []).filter(p => isParticipantComplete(p))
         const allNums = eligible.map(p => p.assigned_number)
 
         if (allNums.length === 0) return res.status(200).json({ participants: [] })
 
-        const [{ data: cacheA }, { data: cacheB }] = await Promise.all([
-          supabase.from("compatibility_cache").select("participant_a_number, participant_b_number, ai_vibe_score, model_used").in("participant_a_number", allNums),
-          supabase.from("compatibility_cache").select("participant_a_number, participant_b_number, ai_vibe_score, model_used").in("participant_b_number", allNums),
-        ])
+        const { data: cacheRows, error: cacheError } = await fetchAllCachedPairs("compatibility_cache", allNums)
+        if (cacheError) throw cacheError
+
+        const eligiblePairKeys = new Set()
+        for (let i = 0; i < eligible.length; i++) {
+          for (let j = i + 1; j < eligible.length; j++) {
+            const a = eligible[i]
+            const b = eligible[j]
+            if (!checkGenderCompatibility(a, b, "preference")) continue
+            if (!checkNationalityHardGate(a, b)) continue
+            if (!checkAgeRangeHardGate(a, b)) continue
+            if (!checkAgeCompatibility(a, b)) continue
+            const [smaller, larger] = [a.assigned_number, b.assigned_number].sort((x, y) => x - y)
+            eligiblePairKeys.add(`${smaller}-${larger}`)
+          }
+        }
 
         const pairMap = new Map()
-        for (const c of [...(cacheA || []), ...(cacheB || [])]) {
+        for (const c of (cacheRows || [])) {
           const [a, b] = [c.participant_a_number, c.participant_b_number].sort((x, y) => x - y)
-          pairMap.set(`${a}-${b}`, { vibe: parseFloat(c.ai_vibe_score), model: c.model_used || null })
+          const key = `${a}-${b}`
+          if (!eligiblePairKeys.has(key)) continue
+          const previous = pairMap.get(key)
+          const rowTime = new Date(c.last_used || c.created_at || 0).getTime()
+          const previousTime = new Date(previous?.last_used || previous?.created_at || 0).getTime()
+          const rowIsNewer = rowTime > previousTime || (rowTime === previousTime && String(c.id || '') > String(previous?.id || ''))
+          if (!previous || rowIsNewer) {
+            pairMap.set(key, {
+              id: c.id,
+              vibe: parseFloat(c.ai_vibe_score),
+              model: c.model_used || null,
+              last_used: c.last_used,
+              created_at: c.created_at,
+            })
+          }
         }
 
         const participants = eligible.map(p => {
@@ -5828,7 +5852,7 @@ export default async function handler(req, res) {
           })
           const vibes = myPairs.map(([, v]) => v.vibe)
           const models = [...new Set(myPairs.map(([, v]) => v.model).filter(Boolean))]
-          const hasOldModel = myPairs.some(([, v]) => !v.model || v.model !== 'gpt-5.4-mini')
+          const hasOldModel = myPairs.some(([, v]) => !isCurrentVibeModel(v.model))
           const badVibes = vibes.filter(v => Math.abs(v - 10) <= 0.5).length
           const avgVibe = vibes.length > 0
             ? Math.round((vibes.reduce((s, v) => s + v, 0) / vibes.length) * 10) / 10

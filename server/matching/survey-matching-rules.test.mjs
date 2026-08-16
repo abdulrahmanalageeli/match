@@ -13,12 +13,34 @@ const {
   calculateLifestyleCompatibility,
   buildManualPairGateReport,
   checkAgeRangeHardGate,
+  checkGenderCompatibility,
   checkInteractionStyleCompatibility,
   getAgeTolerance,
   getOneYearAgeFlexDecision,
   hasHumorStyleClash,
   isParticipantComplete,
+  isCurrentVibeModel,
 } = await import("../../api/admin/trigger-match.mjs")
+
+test("vibe model detection accepts current score variants without accepting legacy models", () => {
+  assert.equal(isCurrentVibeModel("gpt-5.4-mini"), true)
+  assert.equal(isCurrentVibeModel("gpt-5.4-mini|vibe25"), true)
+  assert.equal(isCurrentVibeModel("gpt-4o-mini"), false)
+  assert.equal(isCurrentVibeModel(null), false)
+})
+
+test("preference gender mode honors both participants and supports same or opposite gender", () => {
+  const maleOpposite = gateParticipant(1, { gender: "male", same_gender_preference: false, any_gender_preference: false })
+  const femaleOpposite = gateParticipant(2, { gender: "female", same_gender_preference: false, any_gender_preference: false })
+  const maleSameA = gateParticipant(3, { gender: "male", same_gender_preference: true, any_gender_preference: false })
+  const maleSameB = gateParticipant(5, { gender: "male", same_gender_preference: true, any_gender_preference: false })
+  const femaleAny = gateParticipant(4, { gender: "female", same_gender_preference: false, any_gender_preference: true })
+
+  assert.equal(checkGenderCompatibility(maleOpposite, femaleOpposite, "preference"), true)
+  assert.equal(checkGenderCompatibility(maleSameA, maleSameB, "preference"), true)
+  assert.equal(checkGenderCompatibility(maleSameA, femaleOpposite, "preference"), false)
+  assert.equal(checkGenderCompatibility(maleSameA, femaleAny, "preference"), false)
+})
 
 function gateParticipant(number, overrides = {}) {
   return {

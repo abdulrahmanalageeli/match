@@ -181,6 +181,50 @@ test("A-to-D humor lowers its component without capping the overall score", asyn
   assert.ok(clash.totalScore < aligned.totalScore)
 })
 
+test("fresh compatibility scoring applies feedback composites once and preserves veto caps", async () => {
+  const bonusA = synergyParticipant(44, "A")
+  const bonusB = synergyParticipant(45, "A")
+  bonusA.humor_banter_style = "B"
+  bonusB.humor_banter_style = "C"
+  bonusA.survey_data.answers.humor_banter_style = "B"
+  bonusB.survey_data.answers.humor_banter_style = "C"
+  const bonus = await calculateFullCompatibilityWithCache(
+    bonusA,
+    bonusB,
+    false,
+    true,
+    { reusedVibeScore: 18, reusedVibeSourceMax: 25 },
+  )
+
+  assert.equal(bonus.compositeAdjustment, 8)
+  assert.equal(bonus.priorityScore, bonus.baseCompatibilityScore + 8)
+  assert.equal(bonus.totalScore, Math.min(100, bonus.priorityScore))
+
+  const vetoA = synergyParticipant(46, "A")
+  const vetoB = synergyParticipant(47, "A")
+  vetoA.humor_banter_style = "B"
+  vetoB.humor_banter_style = "C"
+  vetoA.survey_data.answers.humor_banter_style = "B"
+  vetoB.survey_data.answers.humor_banter_style = "C"
+  vetoA.survey_data.answers.conversational_role = "C"
+  vetoB.survey_data.answers.conversational_role = "C"
+  vetoA.survey_data.answers.silence_comfort = "B"
+  vetoB.survey_data.answers.silence_comfort = "B"
+  const vetoed = await calculateFullCompatibilityWithCache(
+    vetoA,
+    vetoB,
+    false,
+    true,
+    { reusedVibeScore: 25, reusedVibeSourceMax: 25 },
+  )
+
+  assert.equal(vetoed.compositeAdjustment, 8)
+  assert.equal(vetoed.deadAirVetoApplied, true)
+  assert.equal(vetoed.capApplied, 40)
+  assert.equal(vetoed.priorityScore, 40)
+  assert.equal(vetoed.totalScore, 40)
+})
+
 test("extreme early-openness mismatch remains a blocking interaction gate", () => {
   const a = gateParticipant(33, { humor_banter_style: "A", early_openness_comfort: 0 })
   const b = gateParticipant(34, { humor_banter_style: "D", early_openness_comfort: 3 })

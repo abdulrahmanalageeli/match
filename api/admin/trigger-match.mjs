@@ -2,7 +2,6 @@ import OpenAI from "openai"
 import { supabaseAdmin } from "../../server/security/supabase-admin.mjs"
 import { enforceRateLimit, requireAdmin } from "../../server/security/request-security.mjs"
 import {
-  MATCH_INSIGHTS_VERSION,
   calculateAttachmentPaceScore,
   calculateCurrentFocusScore,
   calculateDisagreementStyleScore,
@@ -11,7 +10,10 @@ import {
   getMatchInsightsCacheContent,
   getPairMatchInsightsCoverage,
 } from "../../server/matching/match-insights.mjs"
-import { calculateFinalCompatibilityScore } from "../../server/matching/compatibility-score.mjs"
+import {
+  applyFeedbackCompositeAdjustment,
+  calculateFinalCompatibilityScore,
+} from "../../server/matching/compatibility-score.mjs"
 import {
   EVENT3_TEST_MATCH_ID,
   isReadOnlyMatchRequest,
@@ -92,8 +94,14 @@ const SCORE_MAX = Object.freeze({
   communication: 3,
   coreValues: 5,
 })
+
+const getPairPriorityScore = (pair) => {
+  const priority = Number(pair?.priorityScore)
+  return Number.isFinite(priority) ? priority : Number(pair?.score || 0)
+}
 const LEGACY_VIBE_MAX = 15
 const CACHE_MODEL_USED = 'gpt-5.4-mini|vibe25'
+const COMPATIBILITY_SCORE_VERSION = '2026-08-16-v6-feedback-composites'
 // Production cache rows created from this point used the temporary 15-point
 // calibration. Earlier untagged rows used the original 25-point scale.
 const VIBE_15_CACHE_CUTOFF = Date.parse('2026-08-08T10:00:00Z')
@@ -1313,7 +1321,7 @@ function generateContentHash(content) {
 }
 
 // Function to generate cache key for participant pair
-function generateCacheKey(participantA, participantB, modelVersion = MATCH_INSIGHTS_VERSION) {
+function generateCacheKey(participantA, participantB, modelVersion = COMPATIBILITY_SCORE_VERSION) {
   const vibeA = participantA.survey_data?.vibeDescription || ''
   const vibeB = participantB.survey_data?.vibeDescription || ''
   const mbtiA = participantA.mbti_personality_type || participantA.survey_data?.mbtiType || ''
@@ -1491,34 +1499,30 @@ async function getCachedCompatibility(participantA, participantB, options = {}) 
 
       // Rebuild the final score from the cached components so the percentage and
       // the bonus/penalty explanation can never drift apart in admin test mode.
-      const getAns = (p, k) => (p?.survey_data?.answers?.[k] ?? p?.[k] ?? '').toString().toUpperCase()
       const intentBoostApplied = intentScore >= 4
 
       // Attachment is deliberately not used as a short-meeting penalty. The
       // remaining attachment answers stay available as coarse profile context.
       const attachmentPenaltyApplied = false
 
-      const a35 = getAns(participantA, 'conversational_role')
-      const b35 = getAns(participantB, 'conversational_role')
-      const a41 = getAns(participantA, 'silence_comfort')
-      const b41 = getAns(participantB, 'silence_comfort')
-      const deadAirBoth = (a35 === 'C' && b35 === 'C' && a41 === 'B' && b41 === 'B')
-
-      // Reconstruct the exact pre-cap total so cached dry runs expose the same
-      // bonus, penalty, and veto metadata as a fresh generation calculation.
       const coreValuesScaled5 = Math.max(0, Math.min(5, (coreValuesScore / 20) * 5))
-      const componentTotal = synergyScore + vibeScore + currentFocusScore + similarityPreferenceScore + disagreementScore + attachmentPaceScore + lifestyleScore + humorOpenScore + communicationScore + coreValuesScaled5
       const opennessPenalty = calculateOpennessPenalty(participantA, participantB)
       const cachedHumorMultiplier = checkHumorMatch(participantA, participantB)
-      const finalScore = calculateFinalCompatibilityScore({
-        componentTotal,
-        opennessPenalty: opennessPenalty.points,
-        humorMultiplier: cachedHumorMultiplier,
+      const scoreOutcome = calculateCompatibilityScoreOutcome(participantA, participantB, {
+        synergyScore,
+        vibeScore,
+        disagreementScore,
+        currentFocusScore,
+        similarityPreferenceScore,
+        attachmentPaceScore,
+        lifestyleScore,
+        humorOpenScore,
+        communicationScore,
+        coreValuesScore,
+        coreValuesScaled5,
         intentScore,
-        deadAirVeto: deadAirBoth,
+        humorMultiplier: cachedHumorMultiplier,
       })
-
-      const opennessZeroZeroPenaltyApplied = opennessPenalty.type === 'both_closed'
 
       return {
         mbtiScore: parseFloat(data.mbti_score),
@@ -1535,17 +1539,23 @@ async function getCachedCompatibility(participantA, participantB, options = {}) 
         currentFocusScore,
         similarityPreferenceScore,
         attachmentPaceScore,
-        totalScore: finalScore.totalScore,
+        totalScore: scoreOutcome.totalScore,
+        priorityScore: scoreOutcome.priorityScore,
+        baseCompatibilityScore: scoreOutcome.baseCompatibilityScore,
+        compositeAdjustment: scoreOutcome.compositeAdjustment,
+        compositeRules: scoreOutcome.compositeRules,
+        compositeDisplayCapApplied: scoreOutcome.compositeDisplayCapApplied,
+        compositeHardCapApplied: scoreOutcome.compositeHardCapApplied,
         humorMultiplier: cachedHumorMultiplier,
         bonusType: cachedHumorMultiplier === 1.15 ? 'full' : cachedHumorMultiplier === 1.05 ? 'partial' : 'none',
         attachmentPenaltyApplied,
         intentBoostApplied,
-        deadAirVetoApplied: finalScore.deadAirVetoApplied,
+        deadAirVetoApplied: scoreOutcome.deadAirVetoApplied,
         humorClashDetected: !!vetoClash,
         humorClashVetoApplied: false,
-        maxScoreCapApplied: finalScore.maxScoreCapApplied,
-        capApplied: finalScore.capApplied,
-        opennessZeroZeroPenaltyApplied,
+        maxScoreCapApplied: scoreOutcome.maxScoreCapApplied,
+        capApplied: scoreOutcome.capApplied,
+        opennessZeroZeroPenaltyApplied: scoreOutcome.opennessZeroZeroPenaltyApplied,
         opennessPenalty: opennessPenalty.points,
         opennessPenaltyType: opennessPenalty.type,
         cached: true
@@ -1766,6 +1776,75 @@ function checkHumorMatch(participantA, participantB) {
   return 1.0
 }
 
+function calculateCompatibilityScoreOutcome(participantA, participantB, scores = {}) {
+  const numberOr = (value, fallback = 0) => {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : fallback
+  }
+  const vibeScore = numberOr(scores.vibeScore)
+  const shortMeetingInsights = calculateShortMeetingInsightScores(participantA, participantB, vibeScore)
+  const synergyScore = numberOr(scores.synergyScore, calculateInteractionSynergyScore(participantA, participantB))
+  const humorOpenScore = numberOr(scores.humorOpenScore, calculateHumorOpennessScore(participantA, participantB).score)
+  const intentScore = numberOr(scores.intentScore, calculateIntentGoalScore(participantA, participantB))
+  const disagreementScore = numberOr(scores.disagreementScore, shortMeetingInsights.disagreementScore)
+  const currentFocusScore = numberOr(scores.currentFocusScore, shortMeetingInsights.currentFocusScore)
+  const similarityPreferenceScore = numberOr(scores.similarityPreferenceScore, shortMeetingInsights.similarityPreferenceScore)
+  const attachmentPaceScore = numberOr(scores.attachmentPaceScore, calculateAttachmentPaceScore(participantA, participantB))
+  const lifestyleScore = numberOr(scores.lifestyleScore)
+  const communicationScore = numberOr(scores.communicationScore)
+  const coreValuesScore = numberOr(scores.coreValuesScore)
+  const coreValuesScaled5 = scores.coreValuesScaled5 !== undefined && scores.coreValuesScaled5 !== null
+    ? Math.max(0, Math.min(5, numberOr(scores.coreValuesScaled5)))
+    : Math.max(0, Math.min(5, (coreValuesScore / 20) * 5))
+  const humorMultiplier = numberOr(scores.humorMultiplier, checkHumorMatch(participantA, participantB))
+  const opennessPenalty = calculateOpennessPenalty(participantA, participantB)
+
+  const componentTotal = synergyScore + vibeScore + currentFocusScore + similarityPreferenceScore
+    + disagreementScore + attachmentPaceScore + lifestyleScore + humorOpenScore
+    + communicationScore + coreValuesScaled5
+  const getAnswer = (participant, key) => String(participant?.survey_data?.answers?.[key] ?? participant?.[key] ?? '').toUpperCase()
+  const deadAirBoth = getAnswer(participantA, 'conversational_role') === 'C'
+    && getAnswer(participantB, 'conversational_role') === 'C'
+    && getAnswer(participantA, 'silence_comfort') === 'B'
+    && getAnswer(participantB, 'silence_comfort') === 'B'
+  const baseFinalScore = calculateFinalCompatibilityScore({
+    componentTotal,
+    opennessPenalty: opennessPenalty.points,
+    humorMultiplier,
+    intentScore,
+    deadAirVeto: deadAirBoth,
+  })
+  const feedbackScore = applyFeedbackCompositeAdjustment({
+    baseScore: baseFinalScore.totalScore,
+    participantA,
+    participantB,
+    hardCap: deadAirBoth ? 40 : null,
+  })
+  const deadAirVetoApplied = baseFinalScore.deadAirVetoApplied || feedbackScore.compositeHardCapApplied
+
+  return {
+    ...feedbackScore,
+    componentTotal,
+    synergyScore,
+    humorOpenScore,
+    intentScore,
+    disagreementScore,
+    currentFocusScore,
+    similarityPreferenceScore,
+    attachmentPaceScore,
+    coreValuesScaled5,
+    humorMultiplier,
+    opennessPenalty: opennessPenalty.points,
+    opennessPenaltyType: opennessPenalty.type,
+    opennessZeroZeroPenaltyApplied: opennessPenalty.type === 'both_closed',
+    intentBoostApplied: intentScore >= 4,
+    deadAirVetoApplied,
+    maxScoreCapApplied: baseFinalScore.maxScoreCapApplied || feedbackScore.compositeDisplayCapApplied,
+    capApplied: deadAirVetoApplied ? 40 : null,
+    preVetoScore: baseFinalScore.afterBonuses,
+  }
+}
+
 // Function to calculate full compatibility with caching
 async function calculateFullCompatibilityWithCache(participantA, participantB, skipAI = false, ignoreCache = false, options = {}) {
   // Check cache first (skip if ignoreCache is true)
@@ -1868,15 +1947,26 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
     intentScore: intentRaw,
     deadAirVeto: deadAirBoth,
   })
-  const totalScore = finalScore.totalScore
+  const feedbackScore = applyFeedbackCompositeAdjustment({
+    baseScore: finalScore.totalScore,
+    participantA,
+    participantB,
+    hardCap: deadAirBoth ? 40 : null,
+  })
+  const totalScore = feedbackScore.totalScore
   const intentBoostApplied = intentRaw >= 4
   const opennessZeroZeroPenaltyApplied = opennessPenalty.type === 'both_closed'
-  const { deadAirVetoApplied, maxScoreCapApplied, capApplied } = finalScore
+  const deadAirVetoApplied = finalScore.deadAirVetoApplied || feedbackScore.compositeHardCapApplied
+  const maxScoreCapApplied = finalScore.maxScoreCapApplied || feedbackScore.compositeDisplayCapApplied
+  const capApplied = deadAirVetoApplied ? 40 : null
 
   if (deadAirVetoApplied) {
     console.log(`⛔ Dead-Air veto applied: total ${finalScore.afterBonuses.toFixed(2)} → 40.00`)
   } else if (maxScoreCapApplied) {
-    console.log(`⚠️ Score capped: ${finalScore.afterBonuses.toFixed(2)} → 100.00 (max compatibility)`)
+    console.log(`⚠️ Score capped: ${feedbackScore.priorityScore.toFixed(2)} → 100.00 (max compatibility)`)
+  }
+  if (feedbackScore.compositeAdjustment !== 0) {
+    console.log(`🧩 Feedback composite adjustment: ${feedbackScore.compositeAdjustment > 0 ? '+' : ''}${feedbackScore.compositeAdjustment}`)
   }
   
   const result = {
@@ -1897,6 +1987,12 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
     attachmentPaceScore,            // 0-3
     humorMultiplier: humorMultiplier,
     totalScore,
+    priorityScore: feedbackScore.priorityScore,
+    baseCompatibilityScore: feedbackScore.baseCompatibilityScore,
+    compositeAdjustment: feedbackScore.compositeAdjustment,
+    compositeRules: feedbackScore.compositeRules,
+    compositeDisplayCapApplied: feedbackScore.compositeDisplayCapApplied,
+    compositeHardCapApplied: feedbackScore.compositeHardCapApplied,
     attachmentPenaltyApplied,
     intentBoostApplied,
     deadAirVetoApplied,
@@ -5625,6 +5721,10 @@ if (action === "cache-status-by-gender") {
             compatibilityResult.humorOpenScore = _derivedHumorOpen
             compatibilityResult.intentScore = _derivedIntent
             compatibilityResult.attachmentPaceScore = calculateAttachmentPaceScore(targetParticipant, potentialMatch)
+            Object.assign(
+              compatibilityResult,
+              calculateCompatibilityScoreOutcome(targetParticipant, potentialMatch, compatibilityResult),
+            )
             
             // Update cache usage statistics in background (don't await) - skip in preview
             if (!SKIP_DB_WRITES) {
@@ -5672,7 +5772,10 @@ if (action === "cache-status-by-gender") {
             humorOpenScore: Number(compatibilityResult.humorOpenScore ?? 0),
           })
         : Math.round(compatibilityResult.totalScore)
-          
+          const priorityCompatibility = oppositesMode
+            ? totalCompatibility
+            : Number(compatibilityResult.priorityScore ?? compatibilityResult.totalScore)
+
           const intentA = String((targetParticipant?.survey_data?.answers?.intent_goal ?? targetParticipant?.intent_goal ?? '')).toUpperCase()
           const intentB = String((potentialMatch?.survey_data?.answers?.intent_goal ?? potentialMatch?.intent_goal ?? '')).toUpperCase()
           const ageTolerance = getAgeTolerance(targetParticipant.assigned_number, potentialMatch.assigned_number)
@@ -5685,7 +5788,12 @@ if (action === "cache-status-by-gender") {
             participant_a: targetParticipant.assigned_number,
             participant_b: potentialMatch.assigned_number,
             ...getPairMatchInsightsCoverage(targetParticipant, potentialMatch),
+            score_model_version: COMPATIBILITY_SCORE_VERSION,
             compatibility_score: totalCompatibility,
+            priority_score: priorityCompatibility,
+            base_compatibility_score: oppositesMode ? totalCompatibility : (compatibilityResult.baseCompatibilityScore ?? compatibilityResult.totalScore),
+            composite_adjustment: oppositesMode ? 0 : (compatibilityResult.compositeAdjustment ?? 0),
+            composite_rules: oppositesMode ? [] : (compatibilityResult.compositeRules ?? []),
             humor_early_openness_bonus: (compatibilityResult.bonusType || (compatibilityResult.humorMultiplier === 1.15 ? 'full' : (compatibilityResult.humorMultiplier === 1.05 ? 'partial' : 'none'))),
             // Legacy fields (kept for backward compatibility)
             mbti_compatibility_score: compatibilityResult.mbtiScore,
@@ -5716,6 +5824,7 @@ if (action === "cache-status-by-gender") {
               `Synergy: ${Math.round(compatibilityResult.synergyScore)}% + Vibe: ${Math.round(compatibilityResult.vibeScore)}% + Current Focus: ${Math.round(Number(compatibilityResult.currentFocusScore || 0))}% + Similarity: ${Math.round(Number(compatibilityResult.similarityPreferenceScore || 0))}% + Disagreement: ${Math.round(Number(compatibilityResult.disagreementScore || 0))}% + Connection Pace: ${Math.round(Number(compatibilityResult.attachmentPaceScore || 0))}% + Lifestyle: ${Math.round(compatibilityResult.lifestyleScore)}% + Humor/Openness: ${Math.round(compatibilityResult.humorOpenScore)}% + Communication: ${Math.round(compatibilityResult.communicationScore)}% + Core Values: ${Math.round(compatibilityResult.coreValuesScaled5 != null ? Number(compatibilityResult.coreValuesScaled5) : Math.max(0, Math.min(5, (Number(compatibilityResult.coreValuesScore || 0) / 20) * 5)))}% + Intent: ${Math.round(Number(compatibilityResult.intentScore || 0))}%` +
               (Number(compatibilityResult.opennessPenalty || 0) < 0 ? ` ${compatibilityResult.opennessPenalty} Openness` : '') +
               (Number(compatibilityResult.humorMultiplier || 1) > 1 ? ` × Humor/Openness ${compatibilityResult.humorMultiplier}` : '') +
+              (!oppositesMode && Number(compatibilityResult.compositeAdjustment || 0) !== 0 ? ` ${Number(compatibilityResult.compositeAdjustment) > 0 ? '+' : ''}${compatibilityResult.compositeAdjustment} Feedback composite` : '') +
               (compatibilityResult.capApplied ? ` (capped @ ${compatibilityResult.capApplied}%)` : '')
             ) + getAgeToleranceLabel(ageTolerance),
             age_tolerance_used_a: ageTolerance.usedA,
@@ -5731,8 +5840,8 @@ if (action === "cache-status-by-gender") {
         }
       }
       
-      // Sort by compatibility score (descending)
-      calculatedPairs.sort((a, b) => b.compatibility_score - a.compatibility_score)
+      // Sort by uncapped priority so two strong 100% display scores do not tie.
+      calculatedPairs.sort((a, b) => b.priority_score - a.priority_score)
       
       console.log(`✅ Calculated ${calculatedPairs.length} compatibility scores for participant #${participantNumber}`)
       console.log(`   - Filtered by gender preferences: ${genderCompatibleMatches.length} matches`)
@@ -6266,6 +6375,7 @@ if (action === "cache-status-by-gender") {
           `Intent: ${Math.round(Number(compatibilityResult.intentScore ?? 0))}%` +
           (Number(compatibilityResult.opennessPenalty || 0) < 0 ? ` ${compatibilityResult.opennessPenalty} Openness` : '') +
           (humorMultiplier > 1 ? ` × Humor/Openness ${humorMultiplier}` : '') +
+          (!oppositesMode && Number(compatibilityResult.compositeAdjustment || 0) !== 0 ? ` ${Number(compatibilityResult.compositeAdjustment) > 0 ? '+' : ''}${compatibilityResult.compositeAdjustment} Feedback composite` : '') +
           (compatibilityResult.capApplied ? ` (capped @ ${compatibilityResult.capApplied}%)` : '')
         {
           const tol = getAgeTolerance(p1.assigned_number, p2.assigned_number)
@@ -6332,12 +6442,16 @@ if (action === "cache-status-by-gender") {
         message: successMessage,
         count: manualMatch.testModeOnly ? 0 : 1,
         compatibility_score: totalCompatibility,
+        priority_score: oppositesMode ? totalCompatibility : Number(compatibilityResult.priorityScore ?? totalCompatibility),
+        base_compatibility_score: oppositesMode ? totalCompatibility : (compatibilityResult.baseCompatibilityScore ?? totalCompatibility),
+        composite_adjustment: oppositesMode ? 0 : (compatibilityResult.compositeAdjustment ?? 0),
+        composite_rules: oppositesMode ? [] : (compatibilityResult.compositeRules ?? []),
         cleanup_summary: cleanupSummary,
         match: insertData ? insertData[0] : null,
         testMode: manualMatch.testModeOnly || false,
         eligible: true,
         mode: oppositesMode ? 'opposites' : (CURRENT_MATCH_MODE || 'individual'),
-        score_model_version: MATCH_INSIGHTS_VERSION,
+        score_model_version: COMPATIBILITY_SCORE_VERSION,
         cache_status: compatibilityResult.cached ? 'hit' : 'miss',
         gate_report: gateReport,
         opposites_breakdown: oppositesBreakdown,
@@ -6345,6 +6459,10 @@ if (action === "cache-status-by-gender") {
           participant: p1.assigned_number,
           partner: p2.assigned_number,
           compatibility_score: totalCompatibility,
+          priorityScore: oppositesMode ? totalCompatibility : Number(compatibilityResult.priorityScore ?? totalCompatibility),
+          baseCompatibilityScore: oppositesMode ? totalCompatibility : (compatibilityResult.baseCompatibilityScore ?? totalCompatibility),
+          compositeAdjustment: oppositesMode ? 0 : (compatibilityResult.compositeAdjustment ?? 0),
+          compositeRules: oppositesMode ? [] : (compatibilityResult.compositeRules ?? []),
           mbti_compatibility_score: mbtiScore,
           attachment_compatibility_score: attachmentScore,
           communication_compatibility_score: communicationScore,
@@ -7011,39 +7129,15 @@ if (action === "cache-status-by-gender") {
           const _derivedIntent2 = Number.isFinite(_cachedIntent2)
             ? _cachedIntent2
             : calculateIntentGoalScore(a, b)
-          const _insights2 = calculateShortMeetingInsightScores(a, b, compatibilityResult.vibeScore)
-          const _attachmentPace2 = calculateAttachmentPaceScore(a, b)
-          const _opennessPenalty2 = calculateOpennessPenalty(a, b)
-          const _coreScaled2 = Math.max(0, Math.min(5, (compatibilityResult.coreValuesScore / 20) * 5))
-          let _preCap2 = _derivedSynergy2 + compatibilityResult.vibeScore
-            + _insights2.currentFocusScore + _insights2.similarityPreferenceScore + _insights2.disagreementScore
-            + _attachmentPace2 + compatibilityResult.lifestyleScore + _derivedHumorOpen2
-            + compatibilityResult.communicationScore + _coreScaled2 + _opennessPenalty2.points
-          _preCap2 = (Math.max(0, _preCap2) * compatibilityResult.humorMultiplier) + _derivedIntent2
-          const _getAnswer2 = (participant, key) => String(participant?.survey_data?.answers?.[key] ?? participant?.[key] ?? '').toUpperCase()
-          const _deadAir2 = _getAnswer2(a, 'conversational_role') === 'C'
-            && _getAnswer2(b, 'conversational_role') === 'C'
-            && _getAnswer2(a, 'silence_comfort') === 'B'
-            && _getAnswer2(b, 'silence_comfort') === 'B'
-          const _deadAirApplied2 = _deadAir2 && _preCap2 > 40
-          const _maxScoreCapApplied2 = !_deadAirApplied2 && _preCap2 > 100
           compatibilityResult.synergyScore = _derivedSynergy2
           compatibilityResult.humorOpenScore = _derivedHumorOpen2
           compatibilityResult.intentScore = _derivedIntent2
-          compatibilityResult.coreValuesScaled5 = _coreScaled2
-          compatibilityResult.disagreementScore = _insights2.disagreementScore
-          compatibilityResult.currentFocusScore = _insights2.currentFocusScore
-          compatibilityResult.similarityPreferenceScore = _insights2.similarityPreferenceScore
-          compatibilityResult.attachmentPaceScore = _attachmentPace2
-          compatibilityResult.opennessPenalty = _opennessPenalty2.points
-          compatibilityResult.opennessPenaltyType = _opennessPenalty2.type
-          compatibilityResult.opennessZeroZeroPenaltyApplied = _opennessPenalty2.type === 'both_closed'
-          compatibilityResult.intentBoostApplied = _derivedIntent2 >= 4
-          compatibilityResult.deadAirVetoApplied = _deadAirApplied2
           compatibilityResult.humorClashDetected = !!_vetoClash2
           compatibilityResult.humorClashVetoApplied = false
-          compatibilityResult.maxScoreCapApplied = _maxScoreCapApplied2
-          compatibilityResult.capApplied = _deadAirApplied2 ? 40 : null
+          Object.assign(
+            compatibilityResult,
+            calculateCompatibilityScoreOutcome(a, b, compatibilityResult),
+          )
           
           // Update cache usage statistics in background (don't await)
           if (!SKIP_DB_WRITES) {
@@ -7095,9 +7189,11 @@ if (action === "cache-status-by-gender") {
         // In Preview Paid Matches mode, cap any full humor bonus (1.15) to partial (1.05)
         // This makes preview scoring ignore the extra boost from full humor+openness match
         if (SKIP_DB_WRITES && paidOnly && compatibilityResult && typeof compatibilityResult.humorMultiplier === 'number' && compatibilityResult.humorMultiplier > 1.05) {
-          const baseBeforeMultiplier = compatibilityResult.totalScore / compatibilityResult.humorMultiplier
           compatibilityResult.humorMultiplier = 1.05
-          compatibilityResult.totalScore = baseBeforeMultiplier * 1.05
+          Object.assign(
+            compatibilityResult,
+            calculateCompatibilityScoreOutcome(a, b, compatibilityResult),
+          )
         }
 
         const mbtiScore = compatibilityResult.mbtiScore
@@ -7161,6 +7257,10 @@ if (action === "cache-status-by-gender") {
         if (humorMultiplier > 1.0) {
           reason += ` × مضاعف الدعابة/الانفتاح (×${humorMultiplier})`
         }
+        if (!oppositesMode && Number(compatibilityResult.compositeAdjustment || 0) !== 0) {
+          const sign = Number(compatibilityResult.compositeAdjustment) > 0 ? '+' : ''
+          reason += ` ${sign}${compatibilityResult.compositeAdjustment} تعديل الأنماط المركبة`
+        }
         if (capApplied != null) {
           reason += ` — تم التقييد عند ${capApplied}%`
         }
@@ -7195,12 +7295,20 @@ if (action === "cache-status-by-gender") {
               humorOpenScore: Number(humorOpenScore ?? 0),
             })
           : Math.round(totalScore)
+        const priorityScore = oppositesMode
+          ? finalScore
+          : Number(compatibilityResult.priorityScore ?? totalScore)
 
         compatibilityScores.push({
           a: a.assigned_number,
           b: b.assigned_number,
           ...getPairMatchInsightsCoverage(a, b),
+          score_model_version: COMPATIBILITY_SCORE_VERSION,
           score: finalScore,
+          priorityScore,
+          baseCompatibilityScore: oppositesMode ? finalScore : (compatibilityResult.baseCompatibilityScore ?? totalScore),
+          compositeAdjustment: oppositesMode ? 0 : (compatibilityResult.compositeAdjustment ?? 0),
+          compositeRules: oppositesMode ? [] : (compatibilityResult.compositeRules ?? []),
           reason: reason,
           mbtiScore: mbtiScore,
           attachmentScore: attachmentScore,
@@ -7280,7 +7388,7 @@ if (action === "cache-status-by-gender") {
     // Show ALL calculated pairs with scores (sorted by compatibility)
     if (compatibilityScores.length > 0) {
       compatibilityScores
-        .sort((a, b) => b.score - a.score)
+        .sort((a, b) => getPairPriorityScore(b) - getPairPriorityScore(a))
         .forEach(pair => {
           console.log(`   Partner ${pair.a} and Partner ${pair.b} [${pair.score.toFixed(1)}%]`)
         })
@@ -7552,7 +7660,7 @@ if (action === "cache-status-by-gender") {
         ? compatibilityScores.filter(p => stableHostSet.has(p.a) !== stableHostSet.has(p.b))
         : compatibilityScores
 
-      const sortedPairs = [...candidatePairs].sort((a, b) => b.score - a.score)
+      const sortedPairs = [...candidatePairs].sort((a, b) => getPairPriorityScore(b) - getPairPriorityScore(a))
       console.log(`📊 Processing remaining ${sortedPairs.length} calculated pairs...`)
 
       if (SKIP_DB_WRITES) {
@@ -7592,7 +7700,7 @@ if (action === "cache-status-by-gender") {
               const q1 = pairMap.get(k1)
               const q2 = pairMap.get(k2)
               if (q1 && q2) {
-                const delta = (q1.score + q2.score) - (p1.score + p2.score)
+                const delta = (getPairPriorityScore(q1) + getPairPriorityScore(q2)) - (getPairPriorityScore(p1) + getPairPriorityScore(p2))
                 if (delta > bestDelta) { bestDelta = delta; bestSwap = [q1, q2] }
               }
               // Option 2: (a,d)+(b,c)
@@ -7601,7 +7709,7 @@ if (action === "cache-status-by-gender") {
               const r1 = pairMap.get(k3)
               const r2 = pairMap.get(k4)
               if (r1 && r2) {
-                const delta2 = (r1.score + r2.score) - (p1.score + p2.score)
+                const delta2 = (getPairPriorityScore(r1) + getPairPriorityScore(r2)) - (getPairPriorityScore(p1) + getPairPriorityScore(p2))
                 if (delta2 > bestDelta) { bestDelta = delta2; bestSwap = [r1, r2] }
               }
               if (bestDelta > 0) {
@@ -7861,6 +7969,10 @@ if (action === "cache-status-by-gender") {
       match_insights_version_b: pair.match_insights_version_b,
       score_model_version: pair.score_model_version,
       compatibility_score: Math.round(pair.score),
+      priority_score: pair.priorityScore ?? pair.score,
+      base_compatibility_score: pair.baseCompatibilityScore ?? pair.score,
+      composite_adjustment: pair.compositeAdjustment ?? 0,
+      composite_rules: pair.compositeRules ?? [],
       mbti_compatibility_score: pair.mbtiScore,
       attachment_compatibility_score: pair.attachmentScore,
       communication_compatibility_score: pair.communicationScore,

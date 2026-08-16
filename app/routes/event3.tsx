@@ -3093,12 +3093,13 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
                 {people.map(person => {
                   const draft = drafts[person.number]
                   const isExpanded = expanded === person.number
+                  const hasPersonalDetails = Boolean(draft?.organizer_note.trim() || draft?.tags.length)
                   return (
                     <motion.div layout key={person.number} className={`overflow-hidden rounded-2xl border transition ${draft?.experience ? 'border-purple-400/25 bg-purple-500/[0.07]' : 'border-white/[0.06] bg-white/[0.025]'}`}>
                       <div className="flex items-center gap-2.5 px-3 py-2.5">
-                        <button onClick={() => setExpanded(isExpanded ? null : person.number)} className="min-w-0 flex-1 text-right">
+                        <button onClick={() => draft?.experience && setExpanded(isExpanded ? null : person.number)} aria-expanded={isExpanded} className="min-w-0 flex-1 text-right">
                           <p className="truncate text-sm font-black text-white">{person.first_name}</p>
-                          <p className="mt-0.5 text-[9px] text-gray-600">تفاصيل وملاحظة اختيارية</p>
+                          <p className="mt-0.5 text-[9px] text-gray-600">{draft?.experience ? (isExpanded ? 'إخفاء التفاصيل' : 'يمكنك إضافة ملاحظة خاصة') : 'اختر تقييماً سريعاً'}</p>
                         </button>
                         <div className="grid grid-cols-4 gap-1">
                           {experiences.map(option => {
@@ -3115,6 +3116,13 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
                         </div>
                       </div>
 
+                      {draft?.experience && !isExpanded && (
+                        <button onClick={() => setExpanded(person.number)} className="flex w-full items-center justify-center gap-1.5 border-t border-purple-400/10 bg-purple-500/[0.04] px-3 py-2 text-[10px] font-bold text-purple-300 transition active:bg-purple-500/10">
+                          <PenLine size={11} />
+                          <span>{hasPersonalDetails ? `تعديل ملاحظتك والصفات الخاصة بـ ${person.first_name}` : `أضف ملاحظة خاصة عن ${person.first_name} أو صفات`}</span>
+                        </button>
+                      )}
+
                       <AnimatePresence initial={false}>
                         {isExpanded && draft?.experience && (
                           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
@@ -3127,8 +3135,8 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
                                 })}
                               </div>
                               <div className="mt-3 rounded-xl border border-white/[0.05] bg-black/15 p-2.5">
-                                <div className="mb-1.5 flex items-center justify-between"><span className="text-[10px] font-bold text-gray-500">ملاحظة خاصة للمنظم</span><span className="text-[8px] text-gray-700">{draft.organizer_note.length}/300</span></div>
-                                <textarea value={draft.organizer_note} rows={2} onChange={event => { const value = event.target.value.slice(0, 300); setSaved(false); setDrafts(current => ({ ...current, [person.number]: { ...current[person.number], organizer_note: value } })) }} placeholder="اختياري..." className="w-full resize-none bg-transparent text-xs leading-relaxed text-gray-200 placeholder:text-gray-700 focus:outline-none" />
+                                <div className="mb-1.5 flex items-center justify-between"><span className="text-[10px] font-bold text-gray-500">ملاحظة خاصة عن {person.first_name} للمنظم</span><span className="text-[8px] text-gray-700">{draft.organizer_note.length}/300</span></div>
+                                <textarea value={draft.organizer_note} rows={2} onChange={event => { const value = event.target.value.slice(0, 300); setSaved(false); setDrafts(current => ({ ...current, [person.number]: { ...current[person.number], organizer_note: value } })) }} placeholder={`اكتب ملاحظة عن ${person.first_name}...`} className="w-full resize-none bg-transparent text-xs leading-relaxed text-gray-200 placeholder:text-gray-700 focus:outline-none" />
                               </div>
                             </div>
                           </motion.div>

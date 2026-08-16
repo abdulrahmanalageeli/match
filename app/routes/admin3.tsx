@@ -62,6 +62,140 @@ const groupFeedbackTagLabels: Record<string, string> = {
   quiet: "هادئ", hard_to_connect: "صعب التواصل", interrupts: "يقاطع", dominates: "يسيطر", disrespectful: "غير محترم",
 }
 
+type GroupMemberFeedbackData = {
+  submissions: any[]
+  summary: any[]
+  reviewer_count?: number
+  participant_count?: number
+  event_id?: number | null
+  test_mode?: boolean
+}
+
+function GroupMemberFeedbackPanel({ data }: { data: GroupMemberFeedbackData }) {
+  const [search, setSearch] = useState("")
+  const [roundFilter, setRoundFilter] = useState<"all" | "1" | "2">("all")
+  const submissions = data.submissions || []
+  const searchText = search.toLowerCase().trim()
+  const searchNumber = search.replace(/[^0-9]/g, "")
+  const filtered = submissions.filter((entry: any) => {
+    if (roundFilter !== "all" && Number(entry.group_round) !== Number(roundFilter)) return false
+    if (!searchText && !searchNumber) return true
+    return entry.reviewer_name?.toLowerCase().includes(searchText)
+      || entry.member_name?.toLowerCase().includes(searchText)
+      || String(entry.reviewer_number) === searchNumber
+      || String(entry.member_number) === searchNumber
+  })
+  const notesCount = submissions.filter((entry: any) => entry.organizer_note).length
+  const reviewedCount = new Set(submissions.map((entry: any) => entry.member_number)).size
+  const experienceLabel: Record<string, string> = { great: "ممتاز", good: "جيد", neutral: "عادي", uncomfortable: "غير مريح" }
+  const experienceStyle: Record<string, string> = {
+    great: "border-emerald-700/40 bg-emerald-950/50 text-emerald-300",
+    good: "border-cyan-700/40 bg-cyan-950/50 text-cyan-300",
+    neutral: "border-amber-700/40 bg-amber-950/40 text-amber-300",
+    uncomfortable: "border-rose-700/40 bg-rose-950/50 text-rose-300",
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-2xl border border-violet-800/40 bg-gradient-to-br from-violet-950/30 via-gray-950 to-fuchsia-950/15 overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/5 p-4">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-violet-700/40 bg-violet-900/40"><Users size={17} className="text-violet-300" /></div>
+            <div>
+              <h4 className="text-sm font-bold text-gray-100">تقييم أفراد المجموعات</h4>
+              <p className="mt-0.5 text-[10px] text-gray-500">تقييمات وملاحظات خاصة بكل شخص بعد جولتي المجموعات</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {data.test_mode && <span className="rounded-full border border-amber-700/40 bg-amber-950/40 px-2.5 py-1 text-[9px] font-bold text-amber-300">بيانات اختبار</span>}
+            <span className="rounded-full border border-violet-800/50 bg-violet-900/30 px-2.5 py-1 text-[10px] font-bold text-violet-300">{submissions.length} تقييم</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 border-b border-white/5 p-3 sm:grid-cols-4">
+          {[
+            [data.reviewer_count ?? new Set(submissions.map((entry: any) => entry.reviewer_number)).size, "مشاركون قيّموا"],
+            [reviewedCount, "أشخاص تم تقييمهم"],
+            [notesCount, "ملاحظات خاصة"],
+            [data.summary?.length || 0, "ملخصات أفراد"],
+          ].map(([value, label]) => (
+            <div key={String(label)} className="rounded-xl border border-white/5 bg-black/20 px-3 py-2.5 text-center">
+              <p className="text-lg font-black text-white">{value}</p>
+              <p className="text-[9px] text-gray-600">{label}</p>
+            </div>
+          ))}
+        </div>
+
+        {submissions.length === 0 ? (
+          <div className="px-4 py-14 text-center">
+            <MessageSquare size={24} className="mx-auto mb-2 text-gray-700" />
+            <p className="text-sm text-gray-500">لم يرسل أحد تقييم أفراد المجموعة بعد</p>
+            <p className="mt-1 text-[10px] text-gray-700">ستظهر هنا التقييمات والصفات والملاحظات الخاصة بكل شخص</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 p-3 xl:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.5fr)]">
+            <div className="rounded-xl border border-white/5 bg-black/20 p-3">
+              <p className="mb-2.5 text-[10px] font-bold text-gray-500">ملخص التجربة لكل شخص</p>
+              <div className="max-h-[34rem] space-y-1.5 overflow-y-auto pl-1">
+                {(data.summary || []).map((person: any) => (
+                  <div key={person.number} className="flex items-center gap-2 rounded-lg bg-white/[0.025] px-2.5 py-2">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-900/30 text-[10px] font-black text-violet-300">{person.average}</div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-semibold text-gray-200">{person.name} <span className="font-mono text-[9px] text-gray-600">#{person.number}</span></p>
+                      {person.top_tags?.length > 0 && <p className="mt-0.5 truncate text-[8px] text-gray-600">{person.top_tags.map(([tag, count]: [string, number]) => `${groupFeedbackTagLabels[tag] || tag} ×${count}`).join(" · ")}</p>}
+                    </div>
+                    <div className="text-left"><p className="text-[10px] font-bold text-emerald-400">+{person.positive}</p><p className="text-[8px] text-rose-500">−{person.negative}</p></div>
+                    <p className="w-12 text-left text-[8px] text-gray-600">{person.reviews} تقييم</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-white/5 bg-black/20 p-3">
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <div className="relative min-w-[180px] flex-1">
+                  <Search size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600" />
+                  <input value={search} onChange={event => setSearch(event.target.value)} placeholder="ابحث بالمقيّم أو الشخص..." className="w-full rounded-lg border border-gray-800 bg-gray-900 py-1.5 pl-3 pr-9 text-xs text-white placeholder:text-gray-700 focus:border-violet-700 focus:outline-none" />
+                </div>
+                <div className="flex gap-1">
+                  {([['all', 'الكل'], ['1', 'الجولة 1'], ['2', 'الجولة 2']] as const).map(([value, label]) => (
+                    <button key={value} onClick={() => setRoundFilter(value)} className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-bold ${roundFilter === value ? 'border-violet-700/50 bg-violet-900/40 text-violet-300' : 'border-gray-800 bg-gray-900 text-gray-600'}`}>{label}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="max-h-[34rem] space-y-2 overflow-y-auto pl-1">
+                {filtered.map((entry: any) => (
+                  <div key={`${entry.reviewer_number}-${entry.member_number}-${entry.group_round}`} className="rounded-xl border border-white/5 bg-white/[0.025] p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-1.5 text-[11px]">
+                        <span className="truncate font-bold text-violet-300">{entry.reviewer_name} <span className="font-mono text-[9px] text-gray-700">#{entry.reviewer_number}</span></span>
+                        <ArrowLeft size={10} className="shrink-0 text-gray-700" />
+                        <span className="truncate font-bold text-gray-200">{entry.member_name} <span className="font-mono text-[9px] text-gray-700">#{entry.member_number}</span></span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="rounded-md bg-gray-900 px-2 py-1 text-[8px] text-gray-600">الجولة {entry.group_round}</span>
+                        <span className={`rounded-md border px-2 py-1 text-[9px] font-bold ${experienceStyle[entry.experience] || 'border-gray-700 text-gray-400'}`}>{experienceLabel[entry.experience] || entry.experience}</span>
+                      </div>
+                    </div>
+                    {entry.tags?.length > 0 && <div className="mt-2 flex flex-wrap gap-1">{entry.tags.map((tag: string) => <span key={tag} className="rounded-full border border-violet-800/30 bg-violet-950/25 px-2 py-1 text-[9px] text-violet-300">{groupFeedbackTagLabels[tag] || tag}</span>)}</div>}
+                    {entry.organizer_note && (
+                      <div className="mt-2 rounded-lg border border-amber-800/20 bg-amber-950/15 p-2.5">
+                        <p className="mb-1 text-[8px] font-bold text-amber-500/70">ملاحظة خاصة عن {entry.member_name}</p>
+                        <p className="whitespace-pre-wrap text-[11px] leading-relaxed text-gray-300">{entry.organizer_note}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {filtered.length === 0 && <div className="py-12 text-center text-xs text-gray-700">لا توجد تقييمات مطابقة للبحث</div>}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function mapEnumLabel3(fieldKey: string, rawValue: any): string {
   if (rawValue == null || rawValue === "") return "—"
   const qId = fieldToQuestionId[fieldKey]
@@ -277,7 +411,7 @@ export default function Admin3Page() {
   const [seating, setSeating] = useState<any>(null)
   const [rankStatus, setRankStatus] = useState<any>(null)
   const [allRankings, setAllRankings] = useState<any[]>([])
-  const [groupMemberFeedback, setGroupMemberFeedback] = useState<{ submissions: any[]; summary: any[] }>({ submissions: [], summary: [] })
+  const [groupMemberFeedback, setGroupMemberFeedback] = useState<GroupMemberFeedbackData>({ submissions: [], summary: [] })
   const [dislikeRankings, setDislikeRankings] = useState<{ event_id: number | null; event: any[]; overall: any[] }>({ event_id: null, event: [], overall: [] })
   const [expandedRanker, setExpandedRanker] = useState<number | null>(null)
   const [copied, setCopied] = useState(false)
@@ -349,7 +483,7 @@ export default function Admin3Page() {
   const [feedbackData, setFeedbackData] = useState<any>(null)
   const [feedbackLoading, setFeedbackLoading] = useState(false)
   const [feedbackPolling, setFeedbackPolling] = useState(false)
-  const [feedbackPhase, setFeedbackPhase] = useState<"phase2" | "phase3">("phase2")
+  const [feedbackPhase, setFeedbackPhase] = useState<"phase2" | "phase3" | "groups">("phase2")
   const [editingFeedback, setEditingFeedback] = useState<any>(null)
   const [analyzingPair, setAnalyzingPair] = useState<{ entry: any; phase: string } | null>(null)
   const [pairAnalysisResult, setPairAnalysisResult] = useState<{
@@ -546,8 +680,12 @@ export default function Admin3Page() {
 
   const fetchFeedback = useCallback(async () => {
     setFeedbackLoading(true)
-    const data = await api("e3-get-feedback")
+    const [data, groupData] = await Promise.all([
+      api("e3-get-feedback"),
+      api("e3-get-group-member-feedback"),
+    ])
     setFeedbackData(data)
+    if (!groupData.error) setGroupMemberFeedback(groupData)
     setFeedbackLoading(false)
   }, [])
 
@@ -3070,57 +3208,6 @@ export default function Admin3Page() {
                   </div>
                 </div>
 
-                {/* Optional per-tablemate group experience feedback */}
-                {groupMemberFeedback.submissions.length > 0 && (
-                  <div className="rounded-2xl border border-violet-800/40 bg-gradient-to-br from-violet-950/30 via-gray-950 to-fuchsia-950/15 overflow-hidden">
-                    <div className="flex items-center justify-between gap-3 border-b border-white/5 p-3.5">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-xl border border-violet-700/40 bg-violet-900/40 flex items-center justify-center"><Trophy size={16} className="text-violet-300" /></div>
-                        <div>
-                          <h4 className="text-sm font-bold text-gray-100">تجربة أفراد المجموعات</h4>
-                          <p className="text-[10px] text-gray-500">تقييم مطلق للسلوك والتعامل · لا يدخل في خوارزمية المطابقة</p>
-                        </div>
-                      </div>
-                      <span className="rounded-full border border-violet-800/50 bg-violet-900/30 px-2.5 py-1 text-[10px] font-bold text-violet-300">{groupMemberFeedback.submissions.length} تقييم</span>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 p-3">
-                      <div className="rounded-xl border border-white/5 bg-black/20 p-3">
-                        <p className="mb-2.5 text-[10px] font-bold text-gray-500">ملخص التجربة لكل مشارك</p>
-                        <div className="space-y-1.5">
-                          {groupMemberFeedback.summary.slice(0, 8).map((person: any, index: number) => (
-                            <div key={person.number} className="flex items-center gap-2 rounded-lg bg-white/[0.025] px-2.5 py-2">
-                              <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black ${index === 0 ? 'bg-amber-500 text-amber-950' : index === 1 ? 'bg-slate-300 text-slate-800' : index === 2 ? 'bg-orange-700 text-orange-100' : 'bg-gray-800 text-gray-500'}`}>{index + 1}</span>
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-xs font-semibold text-gray-200">{person.name} <span className="font-mono text-[9px] text-gray-600">#{person.number}</span></p>
-                                {person.top_tags?.length > 0 && <p className="mt-0.5 truncate text-[8px] text-gray-600">{person.top_tags.map(([tag, count]: [string, number]) => `${groupFeedbackTagLabels[tag] || tag} ×${count}`).join(' · ')}</p>}
-                              </div>
-                              <div className="text-left"><p className="text-xs font-black tabular-nums text-violet-300">{person.average}/4</p><p className="text-[8px] text-gray-600">{person.reviews} تقييم</p></div>
-                              <div className="text-left"><p className="text-[10px] font-bold text-emerald-400">+{person.positive}</p><p className="text-[8px] text-rose-500">−{person.negative}</p></div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="rounded-xl border border-white/5 bg-black/20 p-3">
-                        <p className="mb-2.5 text-[10px] font-bold text-gray-500">كل التقييمات والملاحظات</p>
-                        <div className="max-h-64 space-y-2 overflow-y-auto">
-                          {groupMemberFeedback.submissions.map((entry: any) => (
-                            <div key={`${entry.reviewer_number}-${entry.member_number}-${entry.group_round}`} className="rounded-xl border border-white/5 bg-white/[0.025] p-2.5">
-                              <div className="mb-1.5 flex items-center justify-between gap-2">
-                                <p className="text-[10px] font-bold text-violet-300">{entry.reviewer_name} <span className="text-gray-600">عن</span> {entry.member_name}</p>
-                                <span className="text-[8px] text-gray-700">الجولة {entry.group_round} · خاص</span>
-                              </div>
-                              {entry.organizer_note && <p className="whitespace-pre-wrap text-[11px] leading-relaxed text-gray-300">{entry.organizer_note}</p>}
-                              <p className={`${entry.organizer_note ? 'mt-2' : ''} text-[9px] text-gray-600`}>التقييم: {entry.experience === 'great' ? 'ممتاز' : entry.experience === 'good' ? 'جيد' : entry.experience === 'neutral' ? 'عادي' : 'غير مريح'}{entry.tags?.length ? ` · ${entry.tags.map((tag: string) => groupFeedbackTagLabels[tag] || tag).join('، ')}` : ''}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 {/* Preference leaderboards (read-only, available in preview) */}
                 <div className="space-y-2">
                   <div className="flex items-start justify-between gap-3">
@@ -4872,22 +4959,28 @@ export default function Admin3Page() {
               </div>
             </div>
             {feedbackData && (
-              <div className="grid grid-cols-2 gap-3">
-                {([{id:"phase2",label:"💘 اختيارك",submitted:feedbackData.phase2_submitted,total:feedbackData.phase2?.length??0,color:"pink"},{id:"phase3",label:"🧠 الخوارزمية",submitted:feedbackData.phase3_submitted,total:feedbackData.phase3?.length??0,color:"purple"}] as any[]).map(ph => (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                {([
+                  {id:"phase2",label:"💘 اختيارك",submitted:feedbackData.phase2_submitted,total:feedbackData.phase2?.length??0,color:"pink"},
+                  {id:"phase3",label:"🧠 الخوارزمية",submitted:feedbackData.phase3_submitted,total:feedbackData.phase3?.length??0,color:"purple"},
+                  {id:"groups",label:"👥 أفراد المجموعات",submitted:groupMemberFeedback.submissions.length,total:null,color:"violet",reviewers:groupMemberFeedback.reviewer_count??0},
+                ] as any[]).map(ph => (
                   <button key={ph.id} onClick={() => setFeedbackPhase(ph.id)}
                     className={`rounded-xl p-3 text-center transition-all border ${
                       feedbackPhase === ph.id
-                        ? ph.color === "pink" ? "bg-pink-900/30 border-pink-700/50" : "bg-purple-900/30 border-purple-700/50"
+                        ? ph.color === "pink" ? "bg-pink-900/30 border-pink-700/50" : ph.color === "purple" ? "bg-purple-900/30 border-purple-700/50" : "bg-violet-900/30 border-violet-700/50"
                         : "bg-gray-800/50 border-gray-700/50 hover:border-gray-600"
                     }`}>
-                    <div className={`text-xl font-bold ${ph.color === "pink" ? "text-pink-300" : "text-purple-300"}`}>
-                      {ph.submitted}<span className="text-gray-500 text-sm font-normal">/{ph.total}</span>
+                    <div className={`text-xl font-bold ${ph.color === "pink" ? "text-pink-300" : ph.color === "purple" ? "text-purple-300" : "text-violet-300"}`}>
+                      {ph.submitted}{ph.total != null && <span className="text-gray-500 text-sm font-normal">/{ph.total}</span>}
                     </div>
                     <div className="text-[10px] text-gray-400 mt-0.5">{ph.label}</div>
-                    <div className="h-1 bg-gray-700 rounded-full mt-2 overflow-hidden">
-                      <div className={`h-full ${ph.color === "pink" ? "bg-pink-500" : "bg-purple-500"} rounded-full transition-all duration-500`}
-                        style={{ width: `${ph.total > 0 ? (ph.submitted / ph.total) * 100 : 0}%` }} />
-                    </div>
+                    {ph.total != null ? (
+                      <div className="h-1 bg-gray-700 rounded-full mt-2 overflow-hidden">
+                        <div className={`h-full ${ph.color === "pink" ? "bg-pink-500" : "bg-purple-500"} rounded-full transition-all duration-500`}
+                          style={{ width: `${ph.total > 0 ? (ph.submitted / ph.total) * 100 : 0}%` }} />
+                      </div>
+                    ) : <p className="mt-1.5 text-[9px] text-gray-600">من {ph.reviewers} مشاركين</p>}
                   </button>
                 ))}
               </div>
@@ -4895,7 +4988,7 @@ export default function Admin3Page() {
           </div>
 
           {/* Search & Filter Bar */}
-          {feedbackData && (
+          {feedbackData && feedbackPhase !== "groups" && (
             <div className="flex flex-wrap items-center gap-2 bg-gray-900 border border-gray-800 rounded-xl p-3">
               <div className="relative flex-1 min-w-[180px]">
                 <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600" />
@@ -4918,7 +5011,9 @@ export default function Admin3Page() {
           )}
 
           {/* Entries */}
-          {!feedbackData ? (
+          {feedbackPhase === "groups" ? (
+            <GroupMemberFeedbackPanel data={groupMemberFeedback} />
+          ) : !feedbackData ? (
             <div className="text-center py-16">
               {feedbackLoading
                 ? <Loader2 size={24} className="animate-spin mx-auto text-purple-400" />

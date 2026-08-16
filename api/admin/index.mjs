@@ -9575,6 +9575,71 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             test_mode: isTestMode3,
           })
         }
+        // e3-get-group-member-feedback — lightweight feed for the Admin3
+        // feedback tab. Keep this separate from the heavier rankings report so
+        // live feedback polling does not repeatedly load every historical rank.
+        if (action === "e3-get-group-member-feedback") {
+          const { data: feedbackState, error: feedbackStateError } = await supabase
+            .from("event_state")
+            .select("current_event_id,test_mode_active")
+            .eq("match_id", EVENT3_MATCH_ID)
+            .maybeSingle()
+          if (feedbackStateError) return res.status(500).json({ error: feedbackStateError.message })
+
+          const isFeedbackTestMode = feedbackState?.test_mode_active === true
+            && Number(feedbackState?.current_event_id) === Number(currentEventId)
+          const [feedbackResult, participantResult] = await Promise.all([
+            supabase.from("event3_group_member_feedback")
+              .select("reviewer_number,member_number,experience,tags,organizer_note,group_round,submitted_at,updated_at")
+              .eq("match_id", EVENT3_MATCH_ID)
+              .eq("event_id", currentEventId)
+              .eq("is_test_mode", isFeedbackTestMode)
+              .order("updated_at", { ascending: false }),
+            supabase.from("event3_participants")
+              .select("participant_number")
+              .eq("match_id", EVENT3_MATCH_ID)
+              .eq("event_id", currentEventId),
+          ])
+          if (feedbackResult.error) return res.status(500).json({ error: feedbackResult.error.message })
+          if (participantResult.error) return res.status(500).json({ error: participantResult.error.message })
+
+          const feedbackRows = feedbackResult.data || []
+          const knownNumbers = [...new Set(feedbackRows.flatMap(row => [row.reviewer_number, row.member_number]))]
+          const { data: profiles, error: profileError } = knownNumbers.length > 0
+            ? await supabase.from("participants").select("assigned_number,name,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", knownNumbers)
+            : { data: [], error: null }
+          if (profileError) return res.status(500).json({ error: profileError.message })
+
+          const nameMap = {}
+          for (const profile of profiles || []) {
+            let surveyData = profile.survey_data || {}
+            if (typeof surveyData === "string") {
+              try { surveyData = JSON.parse(surveyData || "{}") } catch { surveyData = {} }
+            }
+            nameMap[profile.assigned_number] = profile.name || surveyData?.answers?.name || surveyData?.name || `#${profile.assigned_number}`
+          }
+          const submissions = feedbackRows.map(row => ({
+            reviewer_number: row.reviewer_number,
+            reviewer_name: nameMap[row.reviewer_number] || `#${row.reviewer_number}`,
+            member_number: row.member_number,
+            member_name: nameMap[row.member_number] || `#${row.member_number}`,
+            experience: row.experience,
+            tags: row.tags || [],
+            organizer_note: row.organizer_note || null,
+            group_round: row.group_round,
+            submitted_at: row.submitted_at,
+            updated_at: row.updated_at,
+          }))
+          return res.status(200).json({
+            event_id: currentEventId,
+            test_mode: isFeedbackTestMode,
+            participant_count: (participantResult.data || []).length,
+            reviewer_count: new Set(feedbackRows.map(row => row.reviewer_number)).size,
+            submissions,
+            summary: buildGroupMemberFeedbackSummary(feedbackRows, nameMap),
+          })
+        }
+
         // e3-get-all-rankings
         if (action === "e3-get-all-rankings") {
           const { data: ep, error: participantError } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
@@ -9607,13 +9672,15 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           } catch (error) {
             return res.status(500).json({ error: error.message })
           }
-          const { data: feedbackTestState } = await supabase.from("event_state").select("test_mode_active").eq("match_id", EVENT3_MATCH_ID).maybeSingle()
+          const { data: feedbackTestState } = await supabase.from("event_state").select("current_event_id,test_mode_active").eq("match_id", EVENT3_MATCH_ID).maybeSingle()
+          const isFeedbackTestMode = feedbackTestState?.test_mode_active === true
+            && Number(feedbackTestState?.current_event_id) === Number(currentEventId)
           const { data: groupFeedbackRows, error: groupFeedbackError } = await supabase
             .from("event3_group_member_feedback")
             .select("reviewer_number,member_number,experience,tags,organizer_note,group_round,submitted_at,updated_at")
             .eq("match_id", EVENT3_MATCH_ID)
             .eq("event_id", currentEventId)
-            .eq("is_test_mode", feedbackTestState?.test_mode_active === true)
+            .eq("is_test_mode", isFeedbackTestMode)
             .order("updated_at", { ascending: false })
           if (groupFeedbackError) return res.status(500).json({ error: groupFeedbackError.message })
           const currentRanks = allEventRanks.filter(row => Number(row.event_id) === Number(currentEventId))
@@ -10434,14 +10501,31 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             feedbackSignal,
           })
         }
-        // e3-delete-feedback — clear all feedback for current event3
+        // e3-delete-feedback — clear one-to-one and per-tablemate feedback for
+        // the current Event3 context. Test-mode group feedback remains isolated
+        // from any real feedback saved for the same event.
         if (action === "e3-delete-feedback") {
-          const { error } = await supabase
-            .from("event3_matches")
-            .update({ phase2_feedback: null, phase3_feedback: null })
+          const { data: feedbackState, error: feedbackStateError } = await supabase
+            .from("event_state")
+            .select("current_event_id,test_mode_active")
             .eq("match_id", EVENT3_MATCH_ID)
-            .eq("event_id", currentEventId)
-          if (error) return res.status(500).json({ error: error.message })
+            .maybeSingle()
+          if (feedbackStateError) return res.status(500).json({ error: feedbackStateError.message })
+          const isFeedbackTestMode = feedbackState?.test_mode_active === true
+            && Number(feedbackState?.current_event_id) === Number(currentEventId)
+          const [pairFeedbackResult, groupFeedbackResult] = await Promise.all([
+            supabase.from("event3_matches")
+              .update({ phase2_feedback: null, phase3_feedback: null })
+              .eq("match_id", EVENT3_MATCH_ID)
+              .eq("event_id", currentEventId),
+            supabase.from("event3_group_member_feedback")
+              .delete()
+              .eq("match_id", EVENT3_MATCH_ID)
+              .eq("event_id", currentEventId)
+              .eq("is_test_mode", isFeedbackTestMode),
+          ])
+          if (pairFeedbackResult.error) return res.status(500).json({ error: pairFeedbackResult.error.message })
+          if (groupFeedbackResult.error) return res.status(500).json({ error: groupFeedbackResult.error.message })
           return res.status(200).json({ message: "All feedback deleted successfully" })
         }
         // e3-edit-feedback — admin modifies a specific participant's feedback

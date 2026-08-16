@@ -2915,14 +2915,193 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
 }
 
 
+// ─── Optional Group Reflection ────────────────────────────────────────────────
+function GroupReflectionSheet({ token, sourcePhase, onClose, previewPeople }: {
+  token: string | null
+  sourcePhase: 'phase2_feedback' | 'phase3_feedback'
+  onClose: () => void
+  previewPeople?: { number: number; first_name: string; rounds: number[] }[]
+}) {
+  const [people, setPeople] = useState<{ number: number; first_name: string; rounds: number[] }[]>([])
+  const [selected, setSelected] = useState<number[]>([])
+  const [note, setNote] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    if (previewPeople) {
+      setPeople(previewPeople)
+      setLoading(false)
+      return
+    }
+    if (!token) return
+    let active = true
+    call('e3-get-group-reflection', token).then(data => {
+      if (!active) return
+      if (data.error) {
+        toast.error(data.error)
+        onClose()
+        return
+      }
+      setPeople(data.people || [])
+      setSelected(Array.isArray(data.reflection?.ranked_numbers) ? data.reflection.ranked_numbers : [])
+      setNote(data.reflection?.organizer_note || '')
+      setLoading(false)
+    })
+    return () => { active = false }
+  }, [token, previewPeople])
+
+  const togglePerson = (number: number) => {
+    setSaved(false)
+    setSelected(current => {
+      if (current.includes(number)) return current.filter(value => value !== number)
+      if (current.length >= 3) {
+        toast('اختر ثلاثة فقط — اضغط على اسم لإزالته', { icon: '✨' })
+        return current
+      }
+      return [...current, number]
+    })
+  }
+
+  const save = async () => {
+    if (selected.length === 0 && !note.trim()) {
+      toast.error('اختر شخصاً أو اكتب ملاحظة، أو اضغط تخطي')
+      return
+    }
+    if (!token) { toast.success('معاينة فقط — التصميم جاهز'); return }
+    setSaving(true)
+    const data = await call('e3-submit-group-reflection', token, {
+      ranked_numbers: selected,
+      organizer_note: note.trim(),
+      source_phase: sourcePhase,
+    })
+    setSaving(false)
+    if (data.error) { toast.error(data.error); return }
+    setSaved(true)
+    toast.success('تم حفظ انطباعك بسرية')
+    setTimeout(onClose, 700)
+  }
+
+  const medal = (index: number) => [Crown, Medal, Award][index] || Star
+  const medalStyle = (index: number) => [
+    'border-amber-400/40 bg-amber-500/15 text-amber-300',
+    'border-slate-300/30 bg-slate-300/10 text-slate-200',
+    'border-orange-500/30 bg-orange-600/10 text-orange-300',
+  ][index]
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[550] bg-black/75 backdrop-blur-lg flex items-end sm:items-center justify-center"
+      onClick={onClose}
+    >
+      <motion.section
+        initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 340, damping: 34 }}
+        onClick={event => event.stopPropagation()}
+        className="relative w-full sm:max-w-md max-h-[92dvh] overflow-hidden rounded-t-[2rem] sm:rounded-[2rem] border border-purple-400/15 bg-gradient-to-b from-[#171023] via-[#0d0a14] to-[#08070c] shadow-[0_-20px_80px_-20px_rgba(139,92,246,0.45)]"
+        dir="rtl"
+      >
+        <div className="absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.20),transparent_70%)] pointer-events-none" />
+        <div className="sm:hidden w-10 h-1 rounded-full bg-white/15 mx-auto mt-2.5" />
+        <header className="relative flex items-start gap-3 px-5 pt-5 pb-4 border-b border-white/[0.06]">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-purple-500/25 to-fuchsia-500/10 border border-purple-400/20 flex items-center justify-center shrink-0">
+            <Trophy size={20} className="text-purple-300" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-black text-white">مين ترك أفضل انطباع؟</h2>
+              <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-2 py-0.5 text-[9px] font-bold text-gray-500">اختياري</span>
+            </div>
+            <p className="mt-1 text-xs leading-relaxed text-gray-500">اختر حتى 3 بالترتيب. خاص بالمنظم ولا يؤثر على تطابقك.</p>
+          </div>
+          <button onClick={onClose} aria-label="إغلاق" className="w-9 h-9 rounded-full bg-white/[0.05] text-gray-500 flex items-center justify-center active:scale-90 transition">
+            <X size={17} />
+          </button>
+        </header>
+
+        <div className="relative overflow-y-auto overscroll-contain px-5 py-4 space-y-4" style={{ maxHeight: 'calc(92dvh - 92px)' }}>
+          {loading ? (
+            <div className="h-64 flex items-center justify-center"><Spinner size={24} /></div>
+          ) : people.length === 0 ? (
+            <div className="py-14 text-center space-y-2">
+              <Users size={28} className="mx-auto text-gray-700" />
+              <p className="text-sm font-bold text-gray-400">ما لقينا مشاركين من جولاتك الجماعية</p>
+              <button onClick={onClose} className="text-xs text-purple-300">رجوع</button>
+            </div>
+          ) : (
+            <>
+              {selected.length > 0 && (
+                <div className="grid grid-cols-3 gap-2">
+                  {[0, 1, 2].map(index => {
+                    const number = selected[index]
+                    const person = people.find(item => item.number === number)
+                    const Icon = medal(index)
+                    return (
+                      <button key={index} disabled={!person} onClick={() => person && togglePerson(person.number)}
+                        className={`min-h-[70px] rounded-2xl border p-2 flex flex-col items-center justify-center gap-1 transition ${person ? medalStyle(index) : 'border-dashed border-white/[0.06] text-gray-700'}`}>
+                        <Icon size={14} />
+                        <span className="max-w-full truncate text-xs font-black">{person?.first_name || `${index + 1}`}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
+              <div>
+                <p className="mb-2 text-[10px] font-bold tracking-wide text-gray-600">اضغط بالترتيب: الأول، ثم الثاني، ثم الثالث</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {people.map(person => {
+                    const rank = selected.indexOf(person.number)
+                    return (
+                      <motion.button key={person.number} whileTap={{ scale: 0.96 }} onClick={() => togglePerson(person.number)}
+                        className={`relative min-h-14 rounded-2xl border px-3 py-2.5 flex items-center gap-2.5 text-right transition-all ${rank >= 0 ? 'border-purple-400/45 bg-purple-500/15 shadow-[0_0_24px_-12px_rgba(168,85,247,0.8)]' : 'border-white/[0.06] bg-white/[0.035] active:bg-white/[0.07]'}`}>
+                        <span className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-black shrink-0 ${rank >= 0 ? 'bg-purple-400 text-gray-950' : 'bg-white/[0.05] text-gray-600'}`}>{rank >= 0 ? rank + 1 : '+'}</span>
+                        <span className={`truncate text-sm font-bold ${rank >= 0 ? 'text-white' : 'text-gray-400'}`}>{person.first_name}</span>
+                      </motion.button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-3.5">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-gray-300"><PenLine size={14} className="text-purple-400" /><span className="text-xs font-bold">ملاحظة خاصة للمنظم</span></div>
+                  <span className="text-[9px] tabular-nums text-gray-700">{note.length}/300</span>
+                </div>
+                <textarea value={note} onChange={event => { setSaved(false); setNote(event.target.value.slice(0, 300)) }} rows={3}
+                  placeholder="شيء لفت انتباهك؟ اتركه هنا..."
+                  className="w-full resize-none bg-transparent text-sm leading-relaxed text-gray-200 placeholder:text-gray-700 focus:outline-none" />
+              </div>
+
+              <div className="flex gap-2 pb-[max(0.25rem,env(safe-area-inset-bottom))]">
+                <button onClick={onClose} className="px-5 py-3.5 rounded-2xl border border-white/[0.07] bg-white/[0.035] text-sm font-bold text-gray-500 active:scale-95 transition">تخطي</button>
+                <motion.button whileTap={{ scale: 0.97 }} onClick={save} disabled={saving || saved}
+                  className="flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500 text-sm font-black text-white shadow-[0_10px_30px_-12px_rgba(168,85,247,0.9)] disabled:opacity-60 flex items-center justify-center gap-2">
+                  {saving ? <Spinner size={16} /> : saved ? <CheckCircle size={17} /> : <Send size={16} />}
+                  {saved ? 'تم الحفظ' : selected.length ? `حفظ أفضل ${selected.length}` : 'حفظ الملاحظة'}
+                </motion.button>
+              </div>
+            </>
+          )}
+        </div>
+      </motion.section>
+    </motion.div>
+  )
+}
+
 // ─── Shared Feedback Flow ─────────────────────────────────────────────────────
-function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLastSession }: {
+function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLastSession, token, reflectionSource }: {
   partnerName: string | null; word: string; done: boolean
   onDone: () => void; onBack: () => void; onSubmit: (fb: Record<string, any>) => Promise<boolean>
   isLastSession?: boolean
+  token: string
+  reflectionSource: 'phase2_feedback' | 'phase3_feedback'
 }) {
   const [step, setStep] = useState(0)
   const [submitting, setSubmitting] = useState(false)
+  const [showGroupReflection, setShowGroupReflection] = useState(false)
   const [dir, setDir] = useState(1)
   const [fb, setFb] = useState({
     conversationQuality: 0, personalConnection: 0,
@@ -2980,6 +3159,20 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
         <p className="text-white font-black text-2xl">شكراً!</p>
         <p className="text-gray-400 text-sm">تم حفظ تقييمك — انتظر المرحلة التالية</p>
       </div>
+      <motion.button
+        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
+        onClick={() => setShowGroupReflection(true)} whileTap={{ scale: 0.97 }}
+        className="w-full max-w-sm overflow-hidden rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/15 via-violet-500/10 to-fuchsia-500/[0.07] p-4 text-right shadow-[0_18px_50px_-28px_rgba(168,85,247,0.85)]"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-2xl bg-purple-400/15 border border-purple-400/20 flex items-center justify-center shrink-0"><Trophy size={19} className="text-purple-300" /></div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2"><p className="text-sm font-black text-white">مين برز في مجموعتك؟</p><span className="text-[9px] rounded-full bg-white/[0.05] px-2 py-0.5 text-gray-500">اختياري</span></div>
+            <p className="mt-1 text-[11px] text-gray-500">اختر أفضل 3 أو اترك ملاحظة خاصة للمنظم</p>
+          </div>
+          <ChevronRight size={18} className="text-purple-300" />
+        </div>
+      </motion.button>
       {isLastSession && (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
           className="max-w-sm rounded-2xl border border-purple-700/30 bg-gradient-to-br from-purple-950/40 to-violet-950/20 p-5 text-center space-y-2"
@@ -2995,6 +3188,9 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
           </p>
         </motion.div>
       )}
+      <AnimatePresence>
+        {showGroupReflection && <GroupReflectionSheet token={token} sourcePhase={reflectionSource} onClose={() => setShowGroupReflection(false)} />}
+      </AnimatePresence>
     </motion.div>
   )
   return (
@@ -3880,6 +4076,8 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
             partnerName={data?.partner_first_name || null}
             word={word}
             done={feedbackDone}
+            token={token}
+            reflectionSource="phase2_feedback"
             onDone={() => setFeedbackDone(true)}
             onBack={() => setView('session')}
             onSubmit={async (fbData) => {
@@ -4561,6 +4759,8 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
             partnerName={data?.partner_first_name || null}
             word={word}
             done={feedbackDone}
+            token={token}
+            reflectionSource="phase3_feedback"
             onDone={() => setFeedbackDone(true)}
             onBack={() => setView('session')}
             isLastSession
@@ -5806,6 +6006,25 @@ export default function Event3Page() {
   // Lightweight, token-free visual QA for the two mobile question experiences.
   // This is intentionally read-only and does not touch event or participant data.
   const questionPreview = searchParams.get("questionPreview")
+  if (questionPreview === "groupReflection") {
+    return (
+      <main className="min-h-[100dvh] bg-gray-950 text-white" dir="rtl">
+        <GroupReflectionSheet
+          token={null}
+          sourcePhase="phase2_feedback"
+          onClose={() => {}}
+          previewPeople={[
+            { number: 142, first_name: 'سارة', rounds: [1] },
+            { number: 318, first_name: 'نورة', rounds: [1, 2] },
+            { number: 507, first_name: 'ليان', rounds: [1] },
+            { number: 664, first_name: 'ريم', rounds: [2] },
+            { number: 831, first_name: 'جود', rounds: [2] },
+            { number: 940, first_name: 'لمى', rounds: [2] },
+          ]}
+        />
+      </main>
+    )
+  }
   if (questionPreview === "phase1" || questionPreview === "phase2") {
     const isPhaseOne = questionPreview === "phase1"
     return (

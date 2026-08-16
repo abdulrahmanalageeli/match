@@ -7,6 +7,7 @@ import { buildSixBySevenPlan, optimizeRound2ByAge } from "../../server/event3/ro
 import { collectEventSwapPairs, collectMatchResultSwapPairs, getTableSwapRounds } from "../../server/event3/participant-swap.mjs"
 import { buildTestAdminSession, testMatchToLockedMatch } from "../../server/event3/test-match-results.mjs"
 import { buildDislikeLeaderboard } from "../../server/event3/dislike-ranking.mjs"
+import { buildGroupReflectionLeaderboard } from "../../server/event3/group-reflection.mjs"
 import { supabaseAdmin } from "../../server/security/supabase-admin.mjs"
 import { clearAdminSession, enforceRateLimit, requireAdmin } from "../../server/security/request-security.mjs"
 
@@ -9573,10 +9574,18 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           } catch (error) {
             return res.status(500).json({ error: error.message })
           }
+          const { data: groupReflectionRows, error: groupReflectionError } = await supabase
+            .from("event3_group_reflections")
+            .select("ranker_number,ranked_numbers,organizer_note,source_phase,submitted_at,updated_at")
+            .eq("match_id", EVENT3_MATCH_ID)
+            .eq("event_id", currentEventId)
+            .order("updated_at", { ascending: false })
+          if (groupReflectionError) return res.status(500).json({ error: groupReflectionError.message })
           const currentRanks = allEventRanks.filter(row => Number(row.event_id) === Number(currentEventId))
           const knownNumbers = [...new Set([
             ...selected,
             ...allEventRanks.flatMap(row => [row.ranker_number, row.ranked_number]),
+            ...(groupReflectionRows || []).flatMap(row => [row.ranker_number, ...(row.ranked_numbers || [])]),
           ])]
           const { data: pdata, error: profileError } = knownNumbers.length > 0
             ? await supabase.from("participants").select("assigned_number,name,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", knownNumbers)
@@ -9599,8 +9608,21 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             count: (byRanker[n] || []).length,
             ranked_list: (byRanker[n] || []).sort((a, b) => a.rank - b.rank),
           }))
+          const groupReflections = (groupReflectionRows || []).map(row => ({
+            ranker_number: row.ranker_number,
+            ranker_name: nameMap[row.ranker_number] || `#${row.ranker_number}`,
+            ranked_list: (row.ranked_numbers || []).map((number, index) => ({ number, name: nameMap[number] || `#${number}`, rank: index + 1 })),
+            organizer_note: row.organizer_note || null,
+            source_phase: row.source_phase,
+            submitted_at: row.submitted_at,
+            updated_at: row.updated_at,
+          }))
           return res.status(200).json({
             rankings: result,
+            group_reflections: {
+              submissions: groupReflections,
+              leaderboard: buildGroupReflectionLeaderboard(groupReflectionRows || [], nameMap),
+            },
             dislike_rankings: {
               event_id: currentEventId,
               event: buildDislikeLeaderboard(currentRanks, nameMap),
@@ -10710,7 +10732,32 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             updates.push("participant_rankings")
           }
 
-          // 5. event3_participant_notes — swap participant_number
+          // 5. Optional group reflections — swap the author and every ranked
+          // reference while preserving the unique author row.
+          {
+            const { data: reflectionRows } = await supabase.from("event3_group_reflections")
+              .select("id,ranker_number,ranked_numbers")
+              .eq("match_id", EVENT3_MATCH_ID)
+              .eq("event_id", currentEventId)
+            const oldReflection = (reflectionRows || []).find(row => row.ranker_number === oldNum)
+            const newReflection = (reflectionRows || []).find(row => row.ranker_number === newNum)
+            const swapRankedNumbers = (numbers = []) => numbers.map(number => number === oldNum ? newNum : number === newNum ? oldNum : number)
+
+            if (oldReflection) await supabase.from("event3_group_reflections").update({ ranker_number: -1, ranked_numbers: swapRankedNumbers(oldReflection.ranked_numbers) }).eq("id", oldReflection.id)
+            if (newReflection) await supabase.from("event3_group_reflections").update({ ranker_number: oldNum, ranked_numbers: swapRankedNumbers(newReflection.ranked_numbers) }).eq("id", newReflection.id)
+            if (oldReflection) await supabase.from("event3_group_reflections").update({ ranker_number: newNum }).eq("id", oldReflection.id)
+
+            for (const row of reflectionRows || []) {
+              if (row.id === oldReflection?.id || row.id === newReflection?.id) continue
+              const swapped = swapRankedNumbers(row.ranked_numbers)
+              if (swapped.some((number, index) => number !== (row.ranked_numbers || [])[index])) {
+                await supabase.from("event3_group_reflections").update({ ranked_numbers: swapped }).eq("id", row.id)
+              }
+            }
+            updates.push("event3_group_reflections")
+          }
+
+          // 6. event3_participant_notes — swap participant_number
           {
             const { data: oldNotes } = await supabase.from("event3_participant_notes").select("id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", oldNum)
             const { data: newNotes } = await supabase.from("event3_participant_notes").select("id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", newNum)
@@ -10759,6 +10806,7 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
         if (action === "e3-clear-test-data") {
           await Promise.all([
             supabase.from("participant_rankings").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
+            supabase.from("event3_group_reflections").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
             supabase.from("event3_participant_notes").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
             supabase.from("event3_mood_checks").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
             supabase.from("event3_notifications").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
@@ -10875,6 +10923,7 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             supabase.from("event3_matches").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
             supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
             supabase.from("participant_rankings").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
+            supabase.from("event3_group_reflections").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
             supabase.from("event3_mood_checks").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
             supabase.from("event3_notifications").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
             supabase.from("event3_ai_welcome_messages").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),

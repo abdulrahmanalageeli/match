@@ -8,6 +8,7 @@ import {
   validateMatchInsights,
 } from "../server/matching/match-insights.mjs"
 import { isEvent3SignedUp } from "../server/event3/enrollment.mjs"
+import { normalizeGroupReflectionInput } from "../server/event3/group-reflection.mjs"
 import {
   isPlausibleParticipantPhone,
   normalizeParticipantPhone,
@@ -3364,6 +3365,59 @@ Please respond in JSON format:
 
       if (!participant) return res.status(401).json({ error: "Invalid or missing token" })
 
+      // Resolve only the people this participant actually shared a table with
+      // during Event3's group rounds. Reused by the optional group reflection
+      // flow so clients cannot submit rankings for arbitrary participants.
+      const getE3GroupPeople = async () => {
+        const { data: assignments, error: assignmentsError } = await supabase
+          .from("session_assignments")
+          .select("round,table_number,participant_id")
+          .eq("match_id", E3_MATCH_ID)
+          .eq("event_id", currentEventId)
+          .in("round", [1, 2])
+
+        if (assignmentsError) throw assignmentsError
+
+        const myTables = new Map()
+        for (const row of assignments || []) {
+          if (row.participant_id === myNumber) myTables.set(row.round, row.table_number)
+        }
+
+        const metByNumber = new Map()
+        for (const row of assignments || []) {
+          if (row.participant_id === myNumber || myTables.get(row.round) !== row.table_number) continue
+          const previous = metByNumber.get(row.participant_id) || { number: row.participant_id, rounds: [], table_numbers: [] }
+          if (!previous.rounds.includes(row.round)) previous.rounds.push(row.round)
+          if (!previous.table_numbers.includes(row.table_number)) previous.table_numbers.push(row.table_number)
+          metByNumber.set(row.participant_id, previous)
+        }
+
+        const met = [...metByNumber.values()].sort((a, b) => a.rounds[0] - b.rounds[0] || a.number - b.number)
+        if (met.length === 0) return []
+
+        const { data: participantRows, error: participantError } = await supabase
+          .from("participants")
+          .select("assigned_number,name,survey_data")
+          .eq("match_id", MAIN_MATCH)
+          .in("assigned_number", met.map(person => person.number))
+
+        if (participantError) throw participantError
+
+        const names = new Map()
+        for (const row of participantRows || []) {
+          let survey = row.survey_data || {}
+          if (typeof survey === "string") {
+            try { survey = JSON.parse(survey || "{}") } catch { survey = {} }
+          }
+          names.set(row.assigned_number, row.name || survey?.answers?.name || survey?.name || `#${row.assigned_number}`)
+        }
+
+        return met.map(person => ({
+          ...person,
+          first_name: firstName(names.get(person.number)),
+        }))
+      }
+
       // e3-get-assignment
       if (action === "e3-get-assignment") {
         const { round } = req.body
@@ -3404,6 +3458,53 @@ Please respond in JSON format:
         const rankingMap = {}
         for (const r of existingRankings || []) rankingMap[r.ranked_number] = r.rank
         return res.status(200).json({ people: metNumbers.map(m => ({ number: m.number, first_name: firstName(nameMap[m.number]), round: m.round, table_number: tableMap[m.number] || null })), existing_rankings: rankingMap, already_submitted: (existingRankings || []).length > 0 && (existingRankings || []).length >= metNumbers.length })
+      }
+
+      // Optional post-feedback top-three reflection. This is deliberately
+      // separate from participant_rankings and never affects live matching.
+      if (action === "e3-get-group-reflection") {
+        const [people, reflectionResult] = await Promise.all([
+          getE3GroupPeople(),
+          supabase.from("event3_group_reflections")
+            .select("ranked_numbers,organizer_note,source_phase,submitted_at,updated_at")
+            .eq("match_id", E3_MATCH_ID)
+            .eq("event_id", currentEventId)
+            .eq("ranker_number", myNumber)
+            .maybeSingle(),
+        ])
+        if (reflectionResult.error) return res.status(500).json({ error: reflectionResult.error.message })
+        return res.status(200).json({ people, reflection: reflectionResult.data || null })
+      }
+
+      if (action === "e3-submit-group-reflection") {
+        const people = await getE3GroupPeople()
+        const allowedNumbers = new Set(people.map(person => person.number))
+        const normalized = normalizeGroupReflectionInput({
+          rankedNumbers: req.body.ranked_numbers,
+          organizerNote: req.body.organizer_note,
+          sourcePhase: req.body.source_phase,
+          rankerNumber: myNumber,
+          allowedNumbers,
+        })
+        if (normalized.error) return res.status(400).json({ error: normalized.error })
+        const { rankedNumbers, organizerNote, sourcePhase } = normalized.value
+
+        const now = new Date().toISOString()
+        const { data, error } = await supabase.from("event3_group_reflections")
+          .upsert({
+            match_id: E3_MATCH_ID,
+            event_id: currentEventId,
+            ranker_number: myNumber,
+            ranked_numbers: rankedNumbers,
+            organizer_note: organizerNote || null,
+            source_phase: sourcePhase,
+            updated_at: now,
+          }, { onConflict: "match_id,event_id,ranker_number" })
+          .select("ranked_numbers,organizer_note,source_phase,submitted_at,updated_at")
+          .single()
+
+        if (error) return res.status(500).json({ error: error.message })
+        return res.status(200).json({ message: "Group reflection saved", reflection: data })
       }
 
       // e3-submit-ranking

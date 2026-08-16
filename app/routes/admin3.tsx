@@ -3065,15 +3065,15 @@ export default function Admin3Page() {
                   </div>
                 </div>
 
-                {/* Optional post-feedback group reflections */}
+                {/* Optional per-round group reflections */}
                 {groupReflections.submissions.length > 0 && (
                   <div className="rounded-2xl border border-violet-800/40 bg-gradient-to-br from-violet-950/30 via-gray-950 to-fuchsia-950/15 overflow-hidden">
                     <div className="flex items-center justify-between gap-3 border-b border-white/5 p-3.5">
                       <div className="flex items-center gap-2.5">
                         <div className="w-9 h-9 rounded-xl border border-violet-700/40 bg-violet-900/40 flex items-center justify-center"><Trophy size={16} className="text-violet-300" /></div>
                         <div>
-                          <h4 className="text-sm font-bold text-gray-100">انطباع المجموعة الاختياري</h4>
-                          <p className="text-[10px] text-gray-500">أفضل 3 بعد الجلسات · لا يدخل في خوارزمية المطابقة</p>
+                          <h4 className="text-sm font-bold text-gray-100">انطباع المجموعات الاختياري</h4>
+                          <p className="text-[10px] text-gray-500">بعد تصنيف كل جولة · لا يدخل في خوارزمية المطابقة</p>
                         </div>
                       </div>
                       <span className="rounded-full border border-violet-800/50 bg-violet-900/30 px-2.5 py-1 text-[10px] font-bold text-violet-300">{groupReflections.submissions.length} مشاركة</span>
@@ -3101,7 +3101,7 @@ export default function Admin3Page() {
                             <div key={`${entry.ranker_number}-${entry.updated_at}`} className="rounded-xl border border-white/5 bg-white/[0.025] p-2.5">
                               <div className="mb-1.5 flex items-center justify-between gap-2">
                                 <p className="text-[10px] font-bold text-violet-300">{entry.ranker_name} <span className="font-mono text-gray-600">#{entry.ranker_number}</span></p>
-                                <span className="text-[8px] text-gray-700">خاص</span>
+                                <span className="text-[8px] text-gray-700">الجولة {entry.group_round} · خاص</span>
                               </div>
                               <p className="whitespace-pre-wrap text-[11px] leading-relaxed text-gray-300">{entry.organizer_note}</p>
                               {entry.ranked_list?.length > 0 && <p className="mt-2 text-[9px] text-gray-600">اختياره: {entry.ranked_list.map((person: any) => `${person.rank}. ${person.name}`).join(' · ')}</p>}

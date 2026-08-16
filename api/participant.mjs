@@ -3383,13 +3383,15 @@ Please respond in JSON format:
       // Resolve only the people this participant actually shared a table with
       // during Event3's group rounds. Reused by the optional group reflection
       // flow so clients cannot submit rankings for arbitrary participants.
-      const getE3GroupPeople = async () => {
+      const getE3GroupPeople = async (groupRound) => {
+        const round = Number(groupRound)
+        if (![1, 2].includes(round)) throw new Error("Group round must be 1 or 2")
         const { data: assignments, error: assignmentsError } = await supabase
           .from("session_assignments")
           .select("round,table_number,participant_id")
           .eq("match_id", E3_MATCH_ID)
           .eq("event_id", currentEventId)
-          .in("round", [1, 2])
+          .eq("round", round)
 
         if (assignmentsError) throw assignmentsError
 
@@ -3475,16 +3477,19 @@ Please respond in JSON format:
         return res.status(200).json({ people: metNumbers.map(m => ({ number: m.number, first_name: firstName(nameMap[m.number]), round: m.round, table_number: tableMap[m.number] || null })), existing_rankings: rankingMap, already_submitted: (existingRankings || []).length > 0 && (existingRankings || []).length >= metNumbers.length })
       }
 
-      // Optional post-feedback top-three reflection. This is deliberately
+      // Optional per-group-round top-three reflection. This is deliberately
       // separate from participant_rankings and never affects live matching.
       if (action === "e3-get-group-reflection") {
+        const groupRound = Number(req.body.group_round)
+        if (![1, 2].includes(groupRound)) return res.status(400).json({ error: "group_round must be 1 or 2" })
         const [people, reflectionResult] = await Promise.all([
-          getE3GroupPeople(),
+          getE3GroupPeople(groupRound),
           supabase.from("event3_group_reflections")
-            .select("ranked_numbers,organizer_note,source_phase,submitted_at,updated_at")
+            .select("ranked_numbers,organizer_note,group_round,source_phase,submitted_at,updated_at")
             .eq("match_id", E3_MATCH_ID)
             .eq("event_id", currentEventId)
             .eq("ranker_number", myNumber)
+            .eq("group_round", groupRound)
             .maybeSingle(),
         ])
         if (reflectionResult.error) return res.status(500).json({ error: reflectionResult.error.message })
@@ -3492,12 +3497,14 @@ Please respond in JSON format:
       }
 
       if (action === "e3-submit-group-reflection") {
-        const people = await getE3GroupPeople()
+        const groupRound = Number(req.body.group_round)
+        if (![1, 2].includes(groupRound)) return res.status(400).json({ error: "group_round must be 1 or 2" })
+        const people = await getE3GroupPeople(groupRound)
         const allowedNumbers = new Set(people.map(person => person.number))
         const normalized = normalizeGroupReflectionInput({
           rankedNumbers: req.body.ranked_numbers,
           organizerNote: req.body.organizer_note,
-          sourcePhase: req.body.source_phase,
+          groupRound,
           rankerNumber: myNumber,
           allowedNumbers,
         })
@@ -3510,12 +3517,13 @@ Please respond in JSON format:
             match_id: E3_MATCH_ID,
             event_id: currentEventId,
             ranker_number: myNumber,
+            group_round: groupRound,
             ranked_numbers: rankedNumbers,
             organizer_note: organizerNote || null,
             source_phase: sourcePhase,
             updated_at: now,
-          }, { onConflict: "match_id,event_id,ranker_number" })
-          .select("ranked_numbers,organizer_note,source_phase,submitted_at,updated_at")
+          }, { onConflict: "match_id,event_id,ranker_number,group_round" })
+          .select("ranked_numbers,organizer_note,group_round,source_phase,submitted_at,updated_at")
           .single()
 
         if (error) return res.status(500).json({ error: error.message })

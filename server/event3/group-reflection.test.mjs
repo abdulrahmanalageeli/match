@@ -5,17 +5,22 @@ import { buildGroupReflectionLeaderboard, normalizeGroupReflectionInput } from '
 
 test('accepts a private note with no ranking and normalizes whitespace', () => {
   const result = normalizeGroupReflectionInput({
-    rankedNumbers: [], organizerNote: '  ملاحظة مفيدة  ', sourcePhase: 'phase2_feedback', rankerNumber: 7, allowedNumbers: new Set([8]),
+    rankedNumbers: [], organizerNote: '  ملاحظة مفيدة  ', groupRound: 1, rankerNumber: 7, allowedNumbers: new Set([8]),
   })
-  assert.deepEqual(result.value, { rankedNumbers: [], organizerNote: 'ملاحظة مفيدة', sourcePhase: 'phase2_feedback' })
+  assert.deepEqual(result.value, { rankedNumbers: [], organizerNote: 'ملاحظة مفيدة', groupRound: 1, sourcePhase: 'ranking1' })
 })
 
 test('rejects duplicate, self, arbitrary, and oversized rankings', () => {
-  const base = { organizerNote: '', sourcePhase: 'event3', rankerNumber: 7, allowedNumbers: new Set([8, 9, 10, 11]) }
+  const base = { organizerNote: '', groupRound: 2, rankerNumber: 7, allowedNumbers: new Set([8, 9, 10, 11]) }
   assert.match(normalizeGroupReflectionInput({ ...base, rankedNumbers: [8, 8] }).error, /invalid or duplicate/)
   assert.match(normalizeGroupReflectionInput({ ...base, rankedNumbers: [7] }).error, /invalid or duplicate/)
   assert.match(normalizeGroupReflectionInput({ ...base, rankedNumbers: [99] }).error, /only rank participants/)
   assert.match(normalizeGroupReflectionInput({ ...base, rankedNumbers: [8, 9, 10, 11] }).error, /no more than three/)
+})
+
+test('requires a real group round', () => {
+  const result = normalizeGroupReflectionInput({ rankedNumbers: [8], organizerNote: '', groupRound: 3, rankerNumber: 7, allowedNumbers: new Set([8]) })
+  assert.match(result.error, /round must be 1 or 2/)
 })
 
 test('scores top-three selections 3, 2, 1 and uses deterministic tie breaks', () => {

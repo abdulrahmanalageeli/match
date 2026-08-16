@@ -2374,6 +2374,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   const [openNote, setOpenNote] = useState<number | null>(null)
   const [savingNote, setSavingNote] = useState<number | null>(null)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [showGroupReflection, setShowGroupReflection] = useState(false)
   const [showPhaseWarning, setShowPhaseWarning] = useState(false)
   const [showRankTutorial, setShowRankTutorial] = useState(typeof window === "undefined" || sessionStorage.getItem('e3_tut_ranking') !== "1")
   const [timeLeft, setTimeLeft] = useState(300) // fallback, overwritten by server timer
@@ -2452,6 +2453,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
       setAutoSaving(false)
       if (d.error) { toast.error(d.error); return }
       setSubmitted(true)
+      setShowGroupReflection(true)
       toast('انتهى الوقت — تم حفظ تصنيفك تلقائياً', { duration: 5000, icon: '⏰' })
     }
     doAutoSave()
@@ -2478,6 +2480,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
     if (d.error) { toast.error(d.error); return }
     setSubmitted(true)
     setShowConfirm(false)
+    setShowGroupReflection(true)
     toast.success(completedRounds >= 2 ? "تم حفظ تصنيفك النهائي!" : "تم حفظ تصنيفك!")
   }
 
@@ -2807,6 +2810,14 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                   </p>
                 )}
               </div>
+              <motion.button
+                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                onClick={() => setShowGroupReflection(true)} whileTap={{ scale: 0.97 }}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-purple-400/20 bg-purple-500/10 py-3 text-xs font-black text-purple-200"
+              >
+                <Trophy size={14} />
+                تقييم أفراد المجموعة {completedRounds}
+              </motion.button>
               <p className="text-gray-600 text-[10px]">انتظر المنظم للانتقال للمرحلة التالية</p>
               {!autoSavedRef.current && (
                 <button onClick={() => setSubmitted(false)} disabled={submitting}
@@ -2915,15 +2926,25 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
           </motion.div>
         )}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {showGroupReflection && (
+          <GroupReflectionSheet
+            token={token}
+            groupRound={(completedRounds >= 2 ? 2 : 1) as 1 | 2}
+            onClose={() => setShowGroupReflection(false)}
+          />
+        )}
+      </AnimatePresence>
     </PageWrapper>
   )
 }
 
 
 // ─── Optional Group Reflection ────────────────────────────────────────────────
-function GroupReflectionSheet({ token, sourcePhase, onClose, previewPeople }: {
+function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
   token: string | null
-  sourcePhase: 'phase2_feedback' | 'phase3_feedback'
+  groupRound: 1 | 2
   onClose: () => void
   previewPeople?: { number: number; first_name: string; rounds: number[] }[]
 }) {
@@ -2942,7 +2963,7 @@ function GroupReflectionSheet({ token, sourcePhase, onClose, previewPeople }: {
     }
     if (!token) return
     let active = true
-    call('e3-get-group-reflection', token).then(data => {
+    call('e3-get-group-reflection', token, { group_round: groupRound }).then(data => {
       if (!active) return
       if (data.error) {
         toast.error(data.error)
@@ -2955,7 +2976,7 @@ function GroupReflectionSheet({ token, sourcePhase, onClose, previewPeople }: {
       setLoading(false)
     })
     return () => { active = false }
-  }, [token, previewPeople])
+  }, [token, previewPeople, groupRound])
 
   const togglePerson = (number: number) => {
     setSaved(false)
@@ -2979,7 +3000,7 @@ function GroupReflectionSheet({ token, sourcePhase, onClose, previewPeople }: {
     const data = await call('e3-submit-group-reflection', token, {
       ranked_numbers: selected,
       organizer_note: note.trim(),
-      source_phase: sourcePhase,
+      group_round: groupRound,
     })
     setSaving(false)
     if (data.error) { toast.error(data.error); return }
@@ -3016,10 +3037,10 @@ function GroupReflectionSheet({ token, sourcePhase, onClose, previewPeople }: {
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-black text-white">مين ترك أفضل انطباع؟</h2>
+              <h2 className="text-lg font-black text-white">مين برز في المجموعة {groupRound}؟</h2>
               <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-2 py-0.5 text-[9px] font-bold text-gray-500">اختياري</span>
             </div>
-            <p className="mt-1 text-xs leading-relaxed text-gray-500">اختر حتى 3 بالترتيب. خاص بالمنظم ولا يؤثر على تطابقك.</p>
+            <p className="mt-1 text-xs leading-relaxed text-gray-500">اختر حتى 3 من هذه الجولة فقط. خاص بالمنظم ولا يؤثر على تطابقك.</p>
           </div>
           <button onClick={onClose} aria-label="إغلاق" className="w-9 h-9 rounded-full bg-white/[0.05] text-gray-500 flex items-center justify-center active:scale-90 transition">
             <X size={17} />
@@ -3097,16 +3118,13 @@ function GroupReflectionSheet({ token, sourcePhase, onClose, previewPeople }: {
 }
 
 // ─── Shared Feedback Flow ─────────────────────────────────────────────────────
-function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLastSession, token, reflectionSource }: {
+function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLastSession }: {
   partnerName: string | null; word: string; done: boolean
   onDone: () => void; onBack: () => void; onSubmit: (fb: Record<string, any>) => Promise<boolean>
   isLastSession?: boolean
-  token: string
-  reflectionSource: 'phase2_feedback' | 'phase3_feedback'
 }) {
   const [step, setStep] = useState(0)
   const [submitting, setSubmitting] = useState(false)
-  const [showGroupReflection, setShowGroupReflection] = useState(false)
   const [dir, setDir] = useState(1)
   const [fb, setFb] = useState({
     conversationQuality: 0, personalConnection: 0,
@@ -3164,20 +3182,6 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
         <p className="text-white font-black text-2xl">شكراً!</p>
         <p className="text-gray-400 text-sm">تم حفظ تقييمك — انتظر المرحلة التالية</p>
       </div>
-      <motion.button
-        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
-        onClick={() => setShowGroupReflection(true)} whileTap={{ scale: 0.97 }}
-        className="w-full max-w-sm overflow-hidden rounded-3xl border border-purple-400/20 bg-gradient-to-br from-purple-500/15 via-violet-500/10 to-fuchsia-500/[0.07] p-4 text-right shadow-[0_18px_50px_-28px_rgba(168,85,247,0.85)]"
-      >
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-purple-400/15 border border-purple-400/20 flex items-center justify-center shrink-0"><Trophy size={19} className="text-purple-300" /></div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2"><p className="text-sm font-black text-white">مين برز في مجموعتك؟</p><span className="text-[9px] rounded-full bg-white/[0.05] px-2 py-0.5 text-gray-500">اختياري</span></div>
-            <p className="mt-1 text-[11px] text-gray-500">اختر أفضل 3 أو اترك ملاحظة خاصة للمنظم</p>
-          </div>
-          <ChevronRight size={18} className="text-purple-300" />
-        </div>
-      </motion.button>
       {isLastSession && (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
           className="max-w-sm rounded-2xl border border-purple-700/30 bg-gradient-to-br from-purple-950/40 to-violet-950/20 p-5 text-center space-y-2"
@@ -3193,9 +3197,6 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
           </p>
         </motion.div>
       )}
-      <AnimatePresence>
-        {showGroupReflection && <GroupReflectionSheet token={token} sourcePhase={reflectionSource} onClose={() => setShowGroupReflection(false)} />}
-      </AnimatePresence>
     </motion.div>
   )
   return (
@@ -4081,8 +4082,6 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
             partnerName={data?.partner_first_name || null}
             word={word}
             done={feedbackDone}
-            token={token}
-            reflectionSource="phase2_feedback"
             onDone={() => setFeedbackDone(true)}
             onBack={() => setView('session')}
             onSubmit={async (fbData) => {
@@ -4764,8 +4763,6 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
             partnerName={data?.partner_first_name || null}
             word={word}
             done={feedbackDone}
-            token={token}
-            reflectionSource="phase3_feedback"
             onDone={() => setFeedbackDone(true)}
             onBack={() => setView('session')}
             isLastSession
@@ -6018,15 +6015,15 @@ export default function Event3Page() {
       <main className="min-h-[100dvh] bg-gray-950 text-white" dir="rtl">
         <GroupReflectionSheet
           token={null}
-          sourcePhase="phase2_feedback"
+          groupRound={1}
           onClose={() => {}}
           previewPeople={[
             { number: 142, first_name: 'سارة', rounds: [1] },
-            { number: 318, first_name: 'نورة', rounds: [1, 2] },
+            { number: 318, first_name: 'نورة', rounds: [1] },
             { number: 507, first_name: 'ليان', rounds: [1] },
-            { number: 664, first_name: 'ريم', rounds: [2] },
-            { number: 831, first_name: 'جود', rounds: [2] },
-            { number: 940, first_name: 'لمى', rounds: [2] },
+            { number: 664, first_name: 'ريم', rounds: [1] },
+            { number: 831, first_name: 'جود', rounds: [1] },
+            { number: 940, first_name: 'لمى', rounds: [1] },
           ]}
         />
       </main>

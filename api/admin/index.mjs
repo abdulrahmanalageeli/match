@@ -9609,7 +9609,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           }
           const { data: groupReflectionRows, error: groupReflectionError } = await supabase
             .from("event3_group_reflections")
-            .select("ranker_number,ranked_numbers,organizer_note,source_phase,submitted_at,updated_at")
+            .select("ranker_number,ranked_numbers,organizer_note,group_round,source_phase,submitted_at,updated_at")
             .eq("match_id", EVENT3_MATCH_ID)
             .eq("event_id", currentEventId)
             .order("updated_at", { ascending: false })
@@ -9646,6 +9646,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             ranker_name: nameMap[row.ranker_number] || `#${row.ranker_number}`,
             ranked_list: (row.ranked_numbers || []).map((number, index) => ({ number, name: nameMap[number] || `#${number}`, rank: index + 1 })),
             organizer_note: row.organizer_note || null,
+            group_round: row.group_round,
             source_phase: row.source_phase,
             submitted_at: row.submitted_at,
             updated_at: row.updated_at,
@@ -10766,22 +10767,23 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           }
 
           // 5. Optional group reflections — swap the author and every ranked
-          // reference while preserving the unique author row.
+          // reference while preserving the unique author row for each round.
           {
             const { data: reflectionRows } = await supabase.from("event3_group_reflections")
               .select("id,ranker_number,ranked_numbers")
               .eq("match_id", EVENT3_MATCH_ID)
               .eq("event_id", currentEventId)
-            const oldReflection = (reflectionRows || []).find(row => row.ranker_number === oldNum)
-            const newReflection = (reflectionRows || []).find(row => row.ranker_number === newNum)
+            const oldReflections = (reflectionRows || []).filter(row => row.ranker_number === oldNum)
+            const newReflections = (reflectionRows || []).filter(row => row.ranker_number === newNum)
             const swapRankedNumbers = (numbers = []) => numbers.map(number => number === oldNum ? newNum : number === newNum ? oldNum : number)
 
-            if (oldReflection) await supabase.from("event3_group_reflections").update({ ranker_number: -1, ranked_numbers: swapRankedNumbers(oldReflection.ranked_numbers) }).eq("id", oldReflection.id)
-            if (newReflection) await supabase.from("event3_group_reflections").update({ ranker_number: oldNum, ranked_numbers: swapRankedNumbers(newReflection.ranked_numbers) }).eq("id", newReflection.id)
-            if (oldReflection) await supabase.from("event3_group_reflections").update({ ranker_number: newNum }).eq("id", oldReflection.id)
+            for (const row of oldReflections) await supabase.from("event3_group_reflections").update({ ranker_number: -1, ranked_numbers: swapRankedNumbers(row.ranked_numbers) }).eq("id", row.id)
+            for (const row of newReflections) await supabase.from("event3_group_reflections").update({ ranker_number: oldNum, ranked_numbers: swapRankedNumbers(row.ranked_numbers) }).eq("id", row.id)
+            for (const row of oldReflections) await supabase.from("event3_group_reflections").update({ ranker_number: newNum }).eq("id", row.id)
 
+            const authorRowIds = new Set([...oldReflections, ...newReflections].map(row => row.id))
             for (const row of reflectionRows || []) {
-              if (row.id === oldReflection?.id || row.id === newReflection?.id) continue
+              if (authorRowIds.has(row.id)) continue
               const swapped = swapRankedNumbers(row.ranked_numbers)
               if (swapped.some((number, index) => number !== (row.ranked_numbers || [])[index])) {
                 await supabase.from("event3_group_reflections").update({ ranked_numbers: swapped }).eq("id", row.id)

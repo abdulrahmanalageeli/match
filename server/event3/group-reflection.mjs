@@ -1,10 +1,10 @@
-const ALLOWED_SOURCES = new Set(['phase2_feedback', 'phase3_feedback', 'event3'])
-
-export function normalizeGroupReflectionInput({ rankedNumbers, organizerNote, sourcePhase, rankerNumber, allowedNumbers }) {
+export function normalizeGroupReflectionInput({ rankedNumbers, organizerNote, groupRound, rankerNumber, allowedNumbers }) {
   const ranking = Array.isArray(rankedNumbers) ? rankedNumbers.map(Number) : []
   const note = String(organizerNote || '').trim()
   const allowed = allowedNumbers instanceof Set ? allowedNumbers : new Set(allowedNumbers || [])
+  const round = Number(groupRound)
 
+  if (![1, 2].includes(round)) return { error: 'Group round must be 1 or 2' }
   if (ranking.length > 3) return { error: 'Choose no more than three participants' }
   if (note.length > 300) return { error: 'Organizer note must be 300 characters or fewer' }
   if (ranking.length === 0 && !note) return { error: 'Choose someone or add a note before saving' }
@@ -17,7 +17,8 @@ export function normalizeGroupReflectionInput({ rankedNumbers, organizerNote, so
     value: {
       rankedNumbers: ranking,
       organizerNote: note,
-      sourcePhase: ALLOWED_SOURCES.has(sourcePhase) ? sourcePhase : 'event3',
+      groupRound: round,
+      sourcePhase: `ranking${round}`,
     },
   }
 }

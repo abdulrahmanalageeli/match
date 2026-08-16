@@ -16,11 +16,35 @@ const {
   checkGenderCompatibility,
   checkInteractionStyleCompatibility,
   getAgeTolerance,
+  getParticipantDeltaCacheReason,
   getOneYearAgeFlexDecision,
   hasHumorStyleClash,
   isParticipantComplete,
   isCurrentVibeModel,
 } = await import("../../api/admin/trigger-match.mjs")
+
+test("delta cache detects survey edits and new event enrollments", () => {
+  const baseline = "2026-08-16T10:00:00.000Z"
+  assert.equal(getParticipantDeltaCacheReason({
+    survey_data_updated_at: "2026-08-16T10:01:00.000Z",
+  }, baseline, 22), "survey_updated")
+  assert.equal(getParticipantDeltaCacheReason({
+    signup_for_next_event: true,
+    next_event_signup_timestamp: "2026-08-16T10:02:00.000Z",
+  }, baseline, 22), "newly_enrolled")
+  assert.equal(getParticipantDeltaCacheReason({
+    event_id: 22,
+    created_at: "2026-08-16T10:03:00.000Z",
+  }, baseline, 22), "newly_enrolled")
+  assert.equal(getParticipantDeltaCacheReason({
+    auto_signup_next_event: true,
+    updated_at: "2026-08-16T10:04:00.000Z",
+  }, baseline, 22), "newly_enrolled")
+  assert.equal(getParticipantDeltaCacheReason({
+    signup_for_next_event: true,
+    next_event_signup_timestamp: "2026-08-16T09:59:00.000Z",
+  }, baseline, 22), null)
+})
 
 test("vibe model detection accepts current score variants without accepting legacy models", () => {
   assert.equal(isCurrentVibeModel("gpt-5.4-mini"), true)

@@ -1,5 +1,5 @@
 import React, { useMemo } from "react"
-import { MessageSquare, Users, Clock, Sparkles, ChevronLeft, CalendarCheck } from "lucide-react"
+import { MessageSquare, Users, Sparkles, ChevronLeft, CalendarCheck } from "lucide-react"
 import { surveyQuestions } from "~/components/SurveyComponent"
 
 // Build lookup map for enum value → Arabic label
@@ -137,14 +137,19 @@ export default function ParticipantHoverCardContent({
       answers.vibe_4, answers.vibe_5, answers.vibe_6,
     ].filter(Boolean)
 
+    const signupEventId = Number(pData?.signup_event_id || 0)
+    const hasCurrentSignup = !!pData?.next_event_signup_timestamp && (
+      pData?.auto_signup_next_event === true
+      || (pData?.signup_for_next_event === true && (!signupEventId || signupEventId === Number(currentEventId)))
+    )
+
     return {
       age: answers.age || surveyData.age || pData?.age || "غير محدد",
       mbti: pData?.mbti_personality_type || answers.mbti || "غير محدد",
       genderPref, agePref, nationality, natPref, intentGoal, openIntentMismatch, vibes,
-      updatedAgo: timeAgo(pData?.updated_at || null),
-      signupAgo: timeAgo(pData?.next_event_signup_timestamp || null),
+      signupAgo: hasCurrentSignup ? timeAgo(pData.next_event_signup_timestamp) : null,
     }
-  }, [pData, answers])
+  }, [pData, answers, currentEventId])
 
   const visibleHistory = useMemo(() => history.slice(0, 5), [history])
   const visibleImpressions = useMemo(() => impressions.slice(0, 6), [impressions])
@@ -168,11 +173,10 @@ export default function ParticipantHoverCardContent({
           {eventCount > 0 && (
             <span className="flex items-center gap-0.5 text-cyan-400/70"><CalendarCheck size={9} />{eventCount} فعالية</span>
           )}
-          {computed.updatedAgo && (
-            <span className="flex items-center gap-0.5"><Clock size={9} />{computed.updatedAgo}</span>
-          )}
           {computed.signupAgo && (
-            <span className="flex items-center gap-0.5"><Sparkles size={9} />{computed.signupAgo}</span>
+            <span className="flex items-center gap-1 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-1.5 py-0.5 text-emerald-300">
+              <CalendarCheck size={9} />مسجل {computed.signupAgo}
+            </span>
           )}
         </div>
       </div>

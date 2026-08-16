@@ -105,6 +105,36 @@ const CACHE_MODEL_USED = 'gpt-5.4-mini|vibe25'
 function isCurrentVibeModel(modelUsed) {
   return String(modelUsed || '').startsWith('gpt-5.4-mini')
 }
+
+function getParticipantDeltaCacheReason(participant, lastCacheTimestamp, eventId) {
+  const baseline = Date.parse(String(lastCacheTimestamp || ''))
+  if (!Number.isFinite(baseline)) return null
+
+  const surveyUpdatedAt = Date.parse(String(participant?.survey_data_updated_at || ''))
+  if (Number.isFinite(surveyUpdatedAt) && surveyUpdatedAt > baseline) return 'survey_updated'
+
+  const enrollmentTimes = []
+  const addEnrollmentTime = value => {
+    const timestamp = Date.parse(String(value || ''))
+    if (Number.isFinite(timestamp)) enrollmentTimes.push(timestamp)
+  }
+  const activeEventId = Number(eventId)
+  const directlyAssigned = Number(participant?.event_id) === activeEventId
+  const signedUp = participant?.signup_for_next_event === true
+  const autoSignedUp = participant?.auto_signup_next_event === true
+
+  if (signedUp || autoSignedUp) {
+    addEnrollmentTime(participant?.next_event_signup_timestamp)
+    // Older/admin auto-signup paths did not always set the dedicated signup timestamp.
+    if (enrollmentTimes.length === 0) addEnrollmentTime(participant?.updated_at)
+  }
+  if (directlyAssigned) {
+    addEnrollmentTime(participant?.created_at)
+    addEnrollmentTime(participant?.updated_at)
+  }
+
+  return enrollmentTimes.some(timestamp => timestamp > baseline) ? 'newly_enrolled' : null
+}
 const COMPATIBILITY_SCORE_VERSION = '2026-08-16-v6-feedback-composites'
 // Production cache rows created from this point used the temporary 15-point
 // calibration. Earlier untagged rows used the original 25-point scale.
@@ -3743,7 +3773,7 @@ function getLockedMatch(participantA, participantB, lockedPairs) {
   )
 }
 
-export { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkAgeCompatibility, checkIntentHardGate, checkInteractionStyleCompatibility, hasHumorStyleClash, fetchAllCachedPairs, calculateHumorOpennessScore, calculateInteractionSynergyScore, calculateLifestyleCompatibility, calculateConversationInitiativePreferenceScore, getOneYearAgeFlexDecision, getAgeTolerance, buildManualPairGateReport, isCurrentVibeModel }
+export { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkAgeCompatibility, checkIntentHardGate, checkInteractionStyleCompatibility, hasHumorStyleClash, fetchAllCachedPairs, calculateHumorOpennessScore, calculateInteractionSynergyScore, calculateLifestyleCompatibility, calculateConversationInitiativePreferenceScore, getOneYearAgeFlexDecision, getAgeTolerance, buildManualPairGateReport, isCurrentVibeModel, getParticipantDeltaCacheReason }
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -4013,7 +4043,7 @@ export default async function handler(req, res) {
       // Fetch eligible participants (same filter as pre-cache)
       const { data: allParticipants, error } = await supabase
         .from("participants")
-        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, survey_data_updated_at, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
+        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, survey_data_updated_at, next_event_signup_timestamp, created_at, updated_at, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
         .eq("match_id", match_id)
         .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
         .neq("assigned_number", 9999)
@@ -4051,7 +4081,7 @@ export default async function handler(req, res) {
       const effectiveMaxNewCaches = Math.max(
         1,
         Math.min(
-          parseInt(maxNewCachesPerRequest) || (skipAI ? 25 : 12),
+          parseInt(maxNewCachesPerRequest) || (skipAI ? 25 : 16),
           skipAI ? 500 : 25
         )
       )
@@ -4111,7 +4141,7 @@ export default async function handler(req, res) {
       if (cursorI > endExclusive) cursorI = endExclusive
 
       let nextResumeCursor = null
-      const maxConcurrentCacheWrites = 12
+      const maxConcurrentCacheWrites = 16
       let pendingCacheJobs = []
 
       const makeNextCursor = (i, j) => {
@@ -4613,19 +4643,13 @@ if (action === "cache-status-by-gender") {
       console.log(`${'='.repeat(80)}\n`)
       
       const participantsNeedingCache = allEligibleParticipants.filter(p => {
-        if (!p.survey_data_updated_at) {
-          // Never cached - skip for delta cache (use regular pre-cache for first-time caching)
-          console.log(`⏭️  #${p.assigned_number} - NEVER CACHED (survey_data_updated_at: NULL) - Use pre-cache, not delta`)
-          return false
-        }
-        // Updated after last cache
-        const needsUpdate = new Date(p.survey_data_updated_at) > new Date(lastCacheTimestamp)
-        if (needsUpdate) {
-          console.log(`🔄 #${p.assigned_number} - UPDATED after cache (survey_data_updated_at: ${p.survey_data_updated_at})`)
+        const reason = getParticipantDeltaCacheReason(p, lastCacheTimestamp, eventId)
+        if (reason) {
+          console.log(`🔄 #${p.assigned_number} - ${reason === 'newly_enrolled' ? 'ENROLLED' : 'UPDATED'} after cache`)
         } else {
-          console.log(`✅ #${p.assigned_number} - FRESH (survey_data_updated_at: ${p.survey_data_updated_at})`)
+          console.log(`✅ #${p.assigned_number} - FRESH`)
         }
-        return needsUpdate
+        return !!reason
       })
       
       console.log(`\n${'='.repeat(80)}`)
@@ -4636,7 +4660,7 @@ if (action === "cache-status-by-gender") {
       console.log(`${'='.repeat(80)}\n`)
       
       if (participantsNeedingCache.length > 0) {
-        console.log(`🎯 Updated participants needing delta cache:`)
+        console.log(`🎯 Changed or newly enrolled participants needing delta cache:`)
         participantsNeedingCache.forEach(p => {
           const genderPref = p.same_gender_preference ? 'same-gender' : p.any_gender_preference ? 'any-gender' : 'opposite-gender'
           console.log(`   • #${p.assigned_number} - ${p.gender}, ${genderPref}, age ${p.age} (updated: ${p.survey_data_updated_at})`)
@@ -4645,9 +4669,7 @@ if (action === "cache-status-by-gender") {
       }
       
       if (participantsNeedingCache.length === 0) {
-        console.log(`✅ Cache is fresh! No participants have updated their surveys since last cache.`)
-        console.log(`💡 Note: Delta cache only updates participants who CHANGED their survey after last cache.`)
-        console.log(`💡 For first-time caching of new participants, use regular Pre-Cache instead.`)
+        console.log(`✅ Cache is fresh! No surveys changed and no participants enrolled since last cache.`)
         
         return res.status(200).json({
           success: true,
@@ -4658,16 +4680,16 @@ if (action === "cache-status-by-gender") {
           total_eligible: allEligibleParticipants.length,
           last_cache_timestamp: lastCacheTimestamp,
           duration_seconds: ((Date.now() - startTime) / 1000).toFixed(2),
-          message: 'Cache is fresh - no participants updated their surveys. Use Pre-Cache for first-time caching.'
+          message: 'Cache is fresh - no surveys changed and no participants enrolled since the last cache.'
         })
       }
       
-      // Step 4: Generate pairs involving updated participants only
+      // Step 4: Generate pairs involving changed or newly enrolled participants only
       const pairsToCache = []
       const updatedNumbers = new Set(participantsNeedingCache.map(p => p.assigned_number))
       
       console.log(`\n${'='.repeat(80)}`)
-      console.log(`🔗 GENERATING PAIRS involving updated participants...`)
+      console.log(`🔗 GENERATING PAIRS involving changed/newly enrolled participants...`)
       console.log(`${'='.repeat(80)}\n`)
       
       for (let i = 0; i < allEligibleParticipants.length; i++) {
@@ -4839,7 +4861,7 @@ if (action === "cache-status-by-gender") {
         ai_calls_made: aiCallsMade,
         last_cache_timestamp: lastCacheTimestamp,
         duration_seconds: duration,
-        message: `Delta cached ${cachedCount} pairs for ${participantsNeedingCache.length} updated participants`
+        message: `Delta cached ${cachedCount} pairs for ${participantsNeedingCache.length} changed/newly enrolled participants`
       })
     } catch (error) {
       console.error("❌ Delta pre-cache error:", error)
@@ -4850,7 +4872,7 @@ if (action === "cache-status-by-gender") {
   // -------------------------------------------------------------------------
   // BATCHED DELTA PRE-CACHE
   // -------------------------------------------------------------------------
-  // Same logic as delta-pre-cache (only pairs involving updated participants)
+  // Same logic as delta-pre-cache (pairs involving changed/newly enrolled participants)
   // but processed in batches with resumeCursor to avoid Vercel timeouts.
   // Frontend drives sequential calls until has_more=false.
   // -------------------------------------------------------------------------
@@ -4895,7 +4917,7 @@ if (action === "cache-status-by-gender") {
       // Step 2: Fetch all eligible participants
       const { data: allParticipants, error } = await supabase
         .from("participants")
-        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, survey_data_updated_at, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
+        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, survey_data_updated_at, next_event_signup_timestamp, created_at, updated_at, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
         .eq("match_id", match_id)
         .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
         .neq("assigned_number", 9999)
@@ -4915,10 +4937,9 @@ if (action === "cache-status-by-gender") {
       // Step 3: Identify participants who need recaching
       const updatedNumbers = new Set()
       const participantsNeedingCache = allEligibleParticipants.filter(p => {
-        if (!p.survey_data_updated_at) return false
-        const needsUpdate = new Date(p.survey_data_updated_at) > new Date(lastCacheTimestamp)
-        if (needsUpdate) updatedNumbers.add(p.assigned_number)
-        return needsUpdate
+        const reason = getParticipantDeltaCacheReason(p, lastCacheTimestamp, eventId)
+        if (reason) updatedNumbers.add(p.assigned_number)
+        return !!reason
       })
       const updatedParticipantNumbers = participantsNeedingCache.map(p => p.assigned_number)
       const participantNumbers = allEligibleParticipants.map(p => p.assigned_number)
@@ -4935,7 +4956,7 @@ if (action === "cache-status-by-gender") {
           participants_needing_cache: 0,
           total_eligible: totalParticipants,
           last_cache_timestamp: lastCacheTimestamp,
-          message: 'Cache is fresh - no participants updated their surveys.',
+          message: 'Cache is fresh - no surveys changed and no participants enrolled.',
           progress: {
             has_more: false,
             participants_total: totalParticipants,
@@ -4994,7 +5015,7 @@ if (action === "cache-status-by-gender") {
       const effectiveMaxDurationMs = Math.max(1000, Math.min(parseInt(maxDurationMs) || 8000, 9000))
       // This limit protects the slow external-AI path. Reused vibe scores are
       // deterministic local work and do not consume an AI slot.
-      const effectiveMaxAiCalls = Math.max(1, Math.min(parseInt(maxNewCachesPerRequest) || (skipAI ? 25 : 12), skipAI ? 500 : 25))
+      const effectiveMaxAiCalls = Math.max(1, Math.min(parseInt(maxNewCachesPerRequest) || (skipAI ? 25 : 16), skipAI ? 500 : 25))
       const effectiveMaxPairs = Math.max(25, Math.min(parseInt(maxPairsPerRequest) || (skipAI ? 1500 : 250), 20000))
 
       let newlyCached = 0
@@ -5014,7 +5035,7 @@ if (action === "cache-status-by-gender") {
       if (cursorI > totalParticipants) cursorI = totalParticipants
 
       let nextResumeCursor = null
-      const maxConcurrentCacheWrites = 12
+      const maxConcurrentCacheWrites = 16
       let pendingCacheJobs = []
 
       const makeNextCursor = (i, j) => {
@@ -5079,7 +5100,7 @@ if (action === "cache-status-by-gender") {
           const p1 = allEligibleParticipants[i]
           const p2 = allEligibleParticipants[j]
 
-          // Delta filter: only process pairs where at least one participant was updated
+          // Delta filter: only process pairs where at least one participant changed or newly enrolled
           if (!updatedNumbers.has(p1.assigned_number) && !updatedNumbers.has(p2.assigned_number)) {
             continue
           }
@@ -5229,7 +5250,7 @@ if (action === "cache-status-by-gender") {
     const { participant_numbers, cursor = 0, force = false, paidOnly = false, skipNewModel = false } = req.body || {}
     if (!eventId) return res.status(400).json({ error: "eventId is required" })
 
-    const CONCURRENCY = 12  // parallel OpenAI calls per request
+    const CONCURRENCY = 16  // parallel OpenAI calls per request
     const MAX_PER_CALL = CONCURRENCY // frontend loops for more
 
     const { data: allRaw } = await supabase

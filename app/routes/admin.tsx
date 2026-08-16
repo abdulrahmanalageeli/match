@@ -4556,13 +4556,13 @@ Proceed?`
     }
   }
   
-  // Delta Pre-Cache Function - Smart incremental caching (only updated participants) - BATCHED
+  // Delta Pre-Cache Function - Smart incremental caching (survey changes + new enrollments) - BATCHED
   const deltaCacheMatches = async () => {
     const confirmMessage = `🔄 Smart Delta Pre-Cache for Event ${currentEventId}?
 
 This will:
 • Detect participants who updated surveys since last cache
-• Only cache pairs involving updated participants
+• Only cache pairs involving changed or newly enrolled participants
 • Process in batches to avoid timeouts
 • Reuse existing cache for unchanged participants
 • Save time and API costs!
@@ -4758,11 +4758,11 @@ Proceed?`
       })
 
       if (isFresh) {
-        toast.success(`✅ Cache is FRESH!\n\nNo participants have updated their surveys since last cache.\n\n📊 Stats:\n• Total eligible: ${totalEligible}\n• Last cache: ${lastCacheTimestamp ? new Date(lastCacheTimestamp).toLocaleString() : 'N/A'}`, { duration: 8000 })
+        toast.success(`✅ Cache is FRESH!\n\nNo surveys changed and no participants enrolled since last cache.\n\n📊 Stats:\n• Total eligible: ${totalEligible}\n• Last cache: ${lastCacheTimestamp ? new Date(lastCacheTimestamp).toLocaleString() : 'N/A'}`, { duration: 8000 })
       } else {
         let successMessage = `✅ Delta Cache Complete!`
         successMessage += `\n\n📊 Smart Caching Results:`
-        successMessage += `\n• Updated participants: ${participantsNeedingCache}`
+        successMessage += `\n• Changed/new participants: ${participantsNeedingCache}`
         successMessage += `\n• New pairs cached: ${totalNewlyCached}`
         if (totalReusedVibe > 0) successMessage += `\n• AI vibe scores reused: ${totalReusedVibe}`
         if (totalAlreadyCached > 0) successMessage += `\n• Reused cached: ${totalAlreadyCached}`
@@ -5623,8 +5623,8 @@ Proceed?`
                 }
               }}
               title={deltaCacheCount === 0 
-                ? "Delta cache only counts participants who UPDATED their survey after last cache. Use Pre-Cache for first-time caching." 
-                : "Click to see participants who updated their survey data since last cache"}
+                ? "Delta cache counts survey changes and participants newly enrolled after the last cache."
+                : "Click to see participants with survey changes or new event enrollment"}
             >
               <span className="text-cyan-300 text-sm">Delta Cache: </span>
               <span className="font-bold text-cyan-200">{deltaCacheCount}</span>
@@ -5691,7 +5691,7 @@ Proceed?`
                   
                   <div className="mt-3 pt-2 border-t border-cyan-500/20">
                     <p className="text-cyan-400/60 text-xs">
-                      These participants updated their survey data since the last cache. 
+                      These participants changed their survey or enrolled after the last cache.
                       Use "Delta Cache" to update only these participants.
                     </p>
                   </div>

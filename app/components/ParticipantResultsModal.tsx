@@ -8,6 +8,11 @@ import * as Tooltip from "@radix-ui/react-tooltip"
 import * as Popover from "@radix-ui/react-popover"
 import ParticipantHoverCardContent from "./ParticipantHoverCard"
 import { buildScoreLookup, getPairMatchInsightsCoverage, pairKey } from "../lib/matchControl"
+const shadowMetrics = [
+  { id: "expression_language", label: "اللغة", max: 5 },
+  { id: "social_relationship_style", label: "الأسلوب الاجتماعي", max: 4 },
+  { id: "minimum_partner_religious_commitment", label: "توقعات الالتزام", max: 4 },
+] as const
 
 interface ParticipantResult {
   id: string
@@ -107,6 +112,50 @@ function MatchInsightsCoverageBadge({ pair }: { pair?: any }) {
     ? "لا توجد لقطة محفوظة لحالة الأسئلة وقت هذه الحسبة. أعد تشغيل المطابقة لإظهار الحالة بدقة."
     : `وقت الحساب: #${coverage.participantA ?? "؟"} أجاب ${coverage.answeredA ?? 0}/${coverage.totalQuestions}، و#${coverage.participantB ?? "؟"} أجاب ${coverage.answeredB ?? 0}/${coverage.totalQuestions}.${coverage.status === "mixed" ? ` المكتمل: #${completed[0] ?? "؟"}.` : ""}`
   return <span title={title} className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-1 text-[9px] font-bold ${meta.className}`}><Sparkles className="h-2.5 w-2.5" />{meta.label}</span>
+}
+
+function parseShadowAnswer(pData: any, key: string): number | null {
+  if (!pData) return null
+  const surveyData = pData.survey_data || {}
+  const source = (surveyData.answers?.[key] ?? pData[key])
+  const raw = String(source || "")
+  const num = Number.parseInt(raw, 10)
+  return Number.isFinite(num) ? num : null
+}
+
+function scoreByDistance(aRaw: number | null, bRaw: number | null, max: number): number | null {
+  if (aRaw == null || bRaw == null) return null
+  const a = Number(aRaw)
+  const b = Number(bRaw)
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return null
+  const diff = Math.abs(a - b)
+  const normalized = Math.max(0, 1 - (diff / (max - 1)))
+  return Math.max(0, Math.min(1, normalized))
+}
+
+function buildShadowBadges(p1: number, p2: number | undefined | null, participantData: Map<number, any>) {
+  const fallback = {
+    expression_language: null,
+    social_relationship_style: null,
+    minimum_partner_religious_commitment: null,
+    overall: null,
+  } as Record<string, number | null>
+  if (!p2 || p2 === 9999) return fallback
+  const a = participantData.get(p1) || {}
+  const b = participantData.get(p2) || {}
+  const scores: Record<string, number | null> = {}
+  const values: number[] = []
+  for (const metric of shadowMetrics) {
+    const s = scoreByDistance(
+      parseShadowAnswer(a, metric.id),
+      parseShadowAnswer(b, metric.id),
+      metric.max
+    )
+    scores[metric.id] = s == null ? null : Math.round(s * 100)
+    if (s != null) values.push(s)
+  }
+  const overall = values.length === 0 ? null : Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 100)
+  return { ...scores, overall }
 }
 
 export default function ParticipantResultsModal({ 
@@ -670,6 +719,43 @@ export default function ParticipantResultsModal({
     return true
   })
 
+  const shadowAggregate = useMemo(() => {
+    const aggregate = {
+      total: { total: 0, count: 0 },
+      expression_language: { total: 0, count: 0 },
+      social_relationship_style: { total: 0, count: 0 },
+      minimum_partner_religious_commitment: { total: 0, count: 0 },
+    }
+
+    const toPercent = (sum: number, count: number) => count > 0 ? Math.round(sum / count) : null
+
+    const bump = (key: keyof typeof aggregate, value: number) => {
+      aggregate[key].total += value
+      aggregate[key].count += 1
+    }
+
+    for (const row of visibleResults) {
+      const x = row.assigned_number
+      const y = row.partner_assigned_number
+      const scores = buildShadowBadges(x, y, participantData)
+      for (const metric of shadowMetrics) {
+        const value = scores[metric.id]
+        if (typeof value === "number") {
+          bump(metric.id as keyof typeof aggregate, value)
+          bump("total", value)
+        }
+      }
+    }
+
+    return {
+      overall: toPercent(aggregate.total.total, aggregate.total.count),
+      expression_language: toPercent(aggregate.expression_language.total, aggregate.expression_language.count),
+      social_relationship_style: toPercent(aggregate.social_relationship_style.total, aggregate.social_relationship_style.count),
+      minimum_partner_religious_commitment: toPercent(aggregate.minimum_partner_religious_commitment.total, aggregate.minimum_partner_religious_commitment.count),
+    }
+  }, [visibleResults, participantData])
+  }, [visibleResults, participantData])
+
   // Both the legacy results view and the swap planner must resolve a pair from
   // the exact same canonical source, including current matches absent from cache.
   const pairScoreLookup = useMemo(
@@ -1091,6 +1177,20 @@ export default function ParticipantResultsModal({
                   <span className="text-slate-300">المطابقات:</span>
                   <span className="font-bold text-white">{totalMatches}</span>
                 </div>
+                <div className="bg-white/5 border border-white/20 rounded-lg px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <Brain className="w-4 h-4 text-purple-400" />
+                    <span className="text-slate-300 text-sm">متوسط الظل:</span>
+                  </div>
+                  <span className="font-bold text-white mt-1 inline-flex items-center gap-1">
+                    {shadowAggregate.overall == null ? "—" : `${shadowAggregate.overall}%`}
+                  </span>
+                  <div className="mt-1 text-xs text-slate-400 flex flex-wrap gap-2">
+                    <span>لغة: {shadowAggregate.expression_language == null ? "—" : `${shadowAggregate.expression_language}%`}</span>
+                    <span>الأسلوب: {shadowAggregate.social_relationship_style == null ? "—" : `${shadowAggregate.social_relationship_style}%`}</span>
+                    <span>الالتزام: {shadowAggregate.minimum_partner_religious_commitment == null ? "—" : `${shadowAggregate.minimum_partner_religious_commitment}%`}</span>
+                  </div>
+                </div>
               </div>
 
               {/* Participants Table */}
@@ -1103,6 +1203,9 @@ export default function ParticipantResultsModal({
                         {renderSortableHeader("الاسم", "name", "right")}
                         {renderSortableHeader("الشريك", "partner", "right")}
                         {renderSortableHeader("التوافق الإجمالي", "compatibility_score")}
+                        {matchType !== "group" && (
+                          <th className="text-center p-2 text-sm font-semibold text-slate-300">المؤشر الظلي</th>
+                        )}
                         {matchType !== "group" && (
                           <th className="text-center p-2 text-sm font-semibold text-slate-300">استبعاد</th>
                         )}
@@ -1226,54 +1329,35 @@ export default function ParticipantResultsModal({
                                 </button>
                               )}
                               <Popover.Root>
-                                <Tooltip.Provider delayDuration={300}>
-                                  <Tooltip.Root>
-                                    <Tooltip.Trigger asChild>
-                                      <Popover.Trigger asChild>
-                                        <div className="flex items-center gap-2 cursor-pointer">
-                                          <span className="text-white font-medium hover:text-cyan-300 transition-colors">
-                                            {participant.name || "غير محدد"}
-                                          </span>
-                                          {isNewUser(participant.assigned_number) && (
-                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-400/30 text-cyan-300 text-[10px] font-medium" title="مستخدم جديد — تم إنشاء الحساب اليوم">
-                                              <Sparkles className="w-2.5 h-2.5" />
-                                              جديد
-                                            </span>
-                                          )}
-                                          {(() => {
-                                            const decision = getAgeFlexDecision(participant.assigned_number)
-                                            const meta = decision === "accepted"
-                                              ? { label: "مرونة العمر ✓", style: "bg-emerald-500/20 border-emerald-400/30 text-emerald-300", title: "وافق على مرونة العمر ±1 سنة" }
-                                              : decision === "declined"
-                                                ? { label: "مرونة العمر ✕", style: "bg-red-500/20 border-red-400/30 text-red-300", title: "رفض مرونة العمر ±1 سنة" }
-                                                : { label: "مرونة العمر —", style: "bg-amber-500/20 border-amber-400/30 text-amber-300", title: "لم يجب عن مرونة العمر ±1 سنة" }
-                                            return (
-                                              <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-bold ${meta.style}`} title={meta.title}>
-                                                {meta.label}
-                                              </span>
-                                            )
-                                          })()}
-                                        </div>
-                                      </Popover.Trigger>
-                                    </Tooltip.Trigger>
-                                    <Tooltip.Portal>
-                                      <Tooltip.Content
-                                        className="z-[100] p-3 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
-                                        sideOffset={5}
-                                      >
-                                        <ParticipantHoverCardContent
-                                          participantNumber={participant.assigned_number}
-                                          participantName={participant.name || "غير محدد"}
-                                          pData={participantData.get(participant.assigned_number)}
-                                          history={localMatchHistory[participant.assigned_number] || []}
-                                          currentEventId={currentEventId}
-                                          impressions={impressionsMap[participant.assigned_number] || []}
-                                        />
-                                        <Tooltip.Arrow className="fill-cyan-400/30" />
-                                      </Tooltip.Content>
-                                    </Tooltip.Portal>
-                                  </Tooltip.Root>
-                                </Tooltip.Provider>
+                                <Popover.Trigger asChild>
+                                  <button
+                                    type="button"
+                                    className="flex items-center gap-2 text-right transition-colors"
+                                  >
+                                    <span className="text-white font-medium hover:text-cyan-300 transition-colors">
+                                      {participant.name || "غير محدد"}
+                                    </span>
+                                    {isNewUser(participant.assigned_number) && (
+                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-400/30 text-cyan-300 text-[10px] font-medium" title="مستخدم جديد — تم إنشاء الحساب اليوم">
+                                        <Sparkles className="w-2.5 h-2.5" />
+                                        جديد
+                                      </span>
+                                    )}
+                                    {(() => {
+                                      const decision = getAgeFlexDecision(participant.assigned_number)
+                                      const meta = decision === "accepted"
+                                        ? { label: "مرونة العمر ✓", style: "bg-emerald-500/20 border-emerald-400/30 text-emerald-300", title: "وافق على مرونة العمر ±1 سنة" }
+                                        : decision === "declined"
+                                          ? { label: "مرونة العمر ✕", style: "bg-red-500/20 border-red-400/30 text-red-300", title: "رفض مرونة العمر ±1 سنة" }
+                                          : { label: "مرونة العمر —", style: "bg-amber-500/20 border-amber-400/30 text-amber-300", title: "لم يجب عن مرونة العمر ±1 سنة" }
+                                      return (
+                                        <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-bold ${meta.style}`} title={meta.title}>
+                                          {meta.label}
+                                        </span>
+                                      )
+                                    })()}
+                                  </button>
+                                </Popover.Trigger>
                                 <Popover.Portal>
                                   <Popover.Content
                                     className="z-[110] p-3 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
@@ -1381,10 +1465,10 @@ export default function ParticipantResultsModal({
                               )}
                             </div>
                           </td>
-                          <td className="p-2">
-                            {participant.partner_assigned_number ? (
-                              <div className="text-slate-300">
-                                {participant.partner_assigned_number === 9999 ? (
+                            <td className="p-2">
+                              {participant.partner_assigned_number ? (
+                                <div className="text-slate-300">
+                                  {participant.partner_assigned_number === 9999 ? (
                                   <div className="flex items-center gap-2">
                                     <AlertTriangle className="w-4 h-4 text-red-400" />
                                     <div>
@@ -1398,31 +1482,14 @@ export default function ParticipantResultsModal({
                                       <div className="font-mono">#{participant.partner_assigned_number}</div>
                                       {participant.partner_name && (
                                         <Popover.Root>
-                                          <Tooltip.Provider delayDuration={300}>
-                                            <Tooltip.Root>
-                                              <Tooltip.Trigger asChild>
-                                                <Popover.Trigger asChild>
-                                                  <div className="text-xs text-slate-400 cursor-pointer hover:text-cyan-300 transition-colors">{participant.partner_name}</div>
-                                                </Popover.Trigger>
-                                              </Tooltip.Trigger>
-                                              <Tooltip.Portal>
-                                                <Tooltip.Content
-                                                  className="z-[100] p-3 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
-                                                  sideOffset={5}
-                                                >
-                                                  <ParticipantHoverCardContent
-                                                    participantNumber={participant.partner_assigned_number!}
-                                                    participantName={participant.partner_name}
-                                                    pData={participantData.get(participant.partner_assigned_number!)}
-                                                    history={localMatchHistory[participant.partner_assigned_number || 0] || []}
-                                                    currentEventId={currentEventId}
-                                                    impressions={impressionsMap[participant.partner_assigned_number || 0] || []}
-                                                  />
-                                                  <Tooltip.Arrow className="fill-cyan-400/30" />
-                                                </Tooltip.Content>
-                                              </Tooltip.Portal>
-                                            </Tooltip.Root>
-                                          </Tooltip.Provider>
+                                          <Popover.Trigger asChild>
+                                            <button
+                                              type="button"
+                                              className="text-xs text-slate-400 cursor-pointer hover:text-cyan-300 transition-colors"
+                                            >
+                                              {participant.partner_name}
+                                            </button>
+                                          </Popover.Trigger>
                                           <Popover.Portal>
                                             <Popover.Content
                                               className="z-[110] p-3 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
@@ -1493,6 +1560,42 @@ export default function ParticipantResultsModal({
                               <span className="text-slate-500 text-sm">لا يوجد شريك</span>
                             )}
                           </td>
+                          {(() => {
+                            const shadow = buildShadowBadges(participant.assigned_number, participant.partner_assigned_number, participantData)
+                            return (
+                              <td className="p-2 text-center">
+                                <div className="flex justify-center">
+                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1">
+                                    {shadowMetrics.map((metric) => {
+                                      const value = shadow[metric.id]
+                                      return (
+                                        <span
+                                          key={metric.id}
+                                          className={`rounded-full border px-1.5 py-1 text-[10px] font-bold ${
+                                            value == null
+                                              ? "border-slate-500/30 bg-slate-500/10 text-slate-400"
+                                              : value >= 85
+                                                ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-200"
+                                                : value >= 65
+                                                  ? "border-cyan-400/30 bg-cyan-500/15 text-cyan-200"
+                                                  : value >= 45
+                                                    ? "border-amber-400/30 bg-amber-500/15 text-amber-200"
+                                                    : "border-red-400/30 bg-red-500/15 text-red-200"
+                                          }`}
+                                          title={`${metric.label}: ${value == null ? "غير مكتمل" : `${value}%`}`}
+                                        >
+                                          {metric.label} {value == null ? "—" : `${value}%`}
+                                        </span>
+                                      )
+                                    })}
+                                    <span className={`col-span-2 sm:col-span-1 rounded-full border px-1.5 py-1 text-[10px] font-bold ${shadow.overall == null ? "border-slate-500/30 bg-slate-500/10 text-slate-400" : "border-purple-400/30 bg-purple-500/15 text-purple-200"}`} title={`متوسط الظل: ${shadow.overall == null ? "غير مكتمل" : `${shadow.overall}%`}`}>
+                                      المتوسط {shadow.overall == null ? "—" : `${shadow.overall}%`}
+                                    </span>
+                                  </div>
+                                </div>
+                              </td>
+                            )
+                          })()}
                           <td className="p-2 text-center">
                             <div className="flex items-center justify-center gap-2">
                               {/* Compatibility Score with Tooltip */}

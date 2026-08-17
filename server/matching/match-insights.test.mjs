@@ -119,6 +119,24 @@ test('vibe profile and cache content include the new topical answers', () => {
   assert.match(getMatchInsightsCacheContent(participant(answers)), /match_current_curiosity/)
 })
 
+test('unscored profile data collection does not change matching cache content', () => {
+  const base = participant({
+    match_disagreement_style: 'B',
+    match_similarity_preference: 'C',
+    match_current_curiosity: 'تصميم تجارب اجتماعية أفضل وأكثر إنسانية',
+    match_current_focus: ['creative', 'self_growth'],
+    conversation_initiative_preference: 'A',
+  })
+  const withProfileData = participant({
+    ...base.survey_data.answers,
+    expression_language: '5',
+    minimum_partner_religious_commitment: '4',
+    social_relationship_style: '4',
+  })
+
+  assert.equal(getMatchInsightsCacheContent(withProfileData), getMatchInsightsCacheContent(base))
+})
+
 test('snapshots whether neither, one, or both participants completed the new questions', () => {
   const completeAnswers = {
     match_disagreement_style: 'B',

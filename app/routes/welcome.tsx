@@ -318,6 +318,9 @@ const normalizeResolvedSurveyData = (participant: any): SurveyData => {
   setIfMissing('early_openness_comfort', storedSurveyData.early_openness_comfort ?? participant?.early_openness_comfort)
   setIfMissing('intent_goal', storedSurveyData.intent_goal ?? participant?.intent_goal)
   setIfMissing('open_intent_goal_mismatch', storedSurveyData.open_intent_goal_mismatch ?? participant?.open_intent_goal_mismatch)
+  setIfMissing('expression_language', storedSurveyData.expression_language ?? participant?.expression_language)
+  setIfMissing('minimum_partner_religious_commitment', storedSurveyData.minimum_partner_religious_commitment ?? participant?.minimum_partner_religious_commitment)
+  setIfMissing('social_relationship_style', storedSurveyData.social_relationship_style ?? participant?.social_relationship_style)
 
   const openAge = normalizeBooleanAnswer(
     answers.open_age_preference

@@ -14,7 +14,15 @@ export const MATCH_INSIGHT_IDS = [
   'conversation_initiative_preference',
 ] as const
 
-type InsightId = typeof MATCH_INSIGHT_IDS[number]
+export const PROFILE_DATA_COLLECTION_IDS = [
+  'expression_language',
+  'minimum_partner_religious_commitment',
+  'social_relationship_style',
+] as const
+
+export const SURVEY_UPDATE_IDS = [...MATCH_INSIGHT_IDS, ...PROFILE_DATA_COLLECTION_IDS] as const
+
+type InsightId = typeof SURVEY_UPDATE_IDS[number]
 type Answers = Record<string, string | string[]>
 
 const questions: Array<{
@@ -23,6 +31,7 @@ const questions: Array<{
   type: 'radio' | 'text' | 'checkbox'
   options?: Array<{ value: string; label: string }>
   placeholder?: string
+  supportingText?: string
 }> = [
   {
     id: 'age_flex_one_year',
@@ -88,14 +97,54 @@ const questions: Array<{
       { value: 'D', label: 'أبدأ منتظرًا، لكن إذا طال الهدوء أتحول أنا للمبادر' },
     ],
   },
+  {
+    id: 'expression_language',
+    title: 'بأي لغة تقدر تعبّر عن نفسك بأفضل شكل؟',
+    supportingText: 'نقصد اللغة اللي تقدر فيها تكون على طبيعتك وتوصل أفكارك ومشاعرك بدقة.',
+    type: 'radio',
+    options: [
+      { value: '1', label: 'العربية فقط أو تقريبًا — الإنجليزية ما تكفيني لسالفة كاملة.' },
+      { value: '2', label: 'العربية أفضل — أقدر أسولف بالإنجليزية، لكن تعبيري بالعربية أوضح.' },
+      { value: '3', label: 'اللغتان بنفس الراحة — أعبّر عن نفسي بالعربية والإنجليزية بنفس المستوى.' },
+      { value: '4', label: 'الإنجليزية أفضل — أقدر أسولف بالعربية، لكن تعبيري بالإنجليزية أوضح.' },
+      { value: '5', label: 'الإنجليزية فقط أو تقريبًا — العربية ما تكفيني للتعبير عن نفسي براحة.' },
+    ],
+  },
+  {
+    id: 'minimum_partner_religious_commitment',
+    title: 'ما الحد الأدنى من الالتزام الديني اللي يهمك وجوده في الشخص اللي ممكن ترتبط فيه؟',
+    type: 'radio',
+    options: [
+      { value: '1', label: 'أفضل شخصًا ملتزمًا بوضوح؛ محافظًا على الفروض في وقتها، ونمط حياته يميل للمحافظة والجدية في الدين.' },
+      { value: '2', label: 'يكفيني أن يكون محافظًا على الأساسيات، خصوصًا الصلاة، مع مرونة في الحياة اليومية بدون تشدد أو مبالغة.' },
+      { value: '3', label: 'أفضل شخصًا منفتحًا، يرى أن الدين علاقة شخصية، ولا يميل للتدقيق أو التدخل في مستوى التزام الطرف الآخر.' },
+      { value: '4', label: 'الالتزام الديني ليس معيارًا أساسيًا بالنسبة لي في اختيار الشريك؛ يهمني أكثر التوافق الفكري، الشخصي، وطريقة الحياة.' },
+    ],
+  },
+  {
+    id: 'social_relationship_style',
+    title: 'أي وصف أقرب لأسلوبك في العلاقات والتجمعات الاجتماعية؟',
+    supportingText: 'اختر الوصف الأقرب لك بشكل عام — مو لازم كل مثال ينطبق عليك 100٪.',
+    type: 'radio',
+    options: [
+      { value: '1', label: 'محافظ بوضوح — أفضل أن تكون العلاقة بين الرجل والمرأة رسمية ومحدودة غالبًا، وأرتاح أكثر في التجمعات غير المختلطة أو الأجواء الهادئة ذات الحدود الواضحة.' },
+      { value: '2', label: 'محافظ نسبيًا — أتقبل التعامل الطبيعي والتجمعات المختلطة إذا كانت ضمن سياق واضح، لكن لا أفضّل الصداقات القريبة بين الرجل والمرأة، وأميل لاختيار الأجواء الاجتماعية الأكثر هدوءًا وانضباطًا.' },
+      { value: '3', label: 'منفتح نسبيًا — الصداقة بين الرجل والمرأة والتجمعات المختلطة مقبولة عندي غالبًا إذا كان فيها احترام ووضوح حدود، وأقيّم الأجواء الاجتماعية حسب الأشخاص والمكان.' },
+      { value: '4', label: 'منفتح بوضوح — الصداقة، الاختلاط، والأجواء الاجتماعية المفتوحة جزء طبيعي من أسلوب حياتي، ونادرًا ما تكون الحدود الاجتماعية التقليدية عاملًا مؤثرًا في اختياراتي أو ارتياحي.' },
+    ],
+  },
 ]
 
 export function getMissingMatchInsightIds(answers: Answers): InsightId[] {
-  return MATCH_INSIGHT_IDS.filter((id) => {
+  return SURVEY_UPDATE_IDS.filter((id) => {
     const value = answers[id]
     if (id === 'age_flex_one_year') return !['accept', 'decline', 'not_applicable'].includes(String(value || '').toLowerCase())
     if (id === 'match_current_focus') return !Array.isArray(value) || value.length !== 2
     if (id === 'match_current_curiosity') return typeof value !== 'string' || value.trim().length < 20
+    if (id === 'expression_language') return !['1', '2', '3', '4', '5'].includes(String(value || ''))
+    if (id === 'minimum_partner_religious_commitment' || id === 'social_relationship_style') {
+      return !['1', '2', '3', '4'].includes(String(value || ''))
+    }
     return !['A', 'B', 'C', 'D'].includes(String(value || '').toUpperCase())
   })
 }
@@ -135,12 +184,16 @@ export function MatchInsightsUpdateDialog({ open, missingIds, secureToken, onOpe
     const missingChoice = missingIds.some((id) => {
       if (id === 'match_current_curiosity' || id === 'match_current_focus') return false
       if (id === 'age_flex_one_year') return !['accept', 'decline'].includes(String(payload[id] || '').toLowerCase())
+      if (id === 'expression_language') return !['1', '2', '3', '4', '5'].includes(String(payload[id] || ''))
+      if (id === 'minimum_partner_religious_commitment' || id === 'social_relationship_style') {
+        return !['1', '2', '3', '4'].includes(String(payload[id] || ''))
+      }
       return !['A', 'B', 'C', 'D'].includes(String(payload[id] || ''))
     })
     const curiosityInvalid = missingIds.includes('match_current_curiosity') && String(payload.match_current_curiosity || '').trim().length < 20
     const focusInvalid = missingIds.includes('match_current_focus') && (!Array.isArray(payload.match_current_focus) || payload.match_current_focus.length !== 2)
     if (missingChoice || curiosityInvalid || focusInvalid) {
-      setError('كمّل كل الإجابات المطلوبة قبل الحفظ. اختر خيارين بالضبط، واكتب 20 حرفًا على الأقل في الإجابة المفتوحة.')
+      setError('كمّل كل الإجابات المطلوبة قبل الحفظ. وإذا ظهر سؤال الاهتمامات فاختر خيارين بالضبط، واكتب 20 حرفًا على الأقل في الإجابة المفتوحة.')
       return
     }
 
@@ -190,7 +243,10 @@ export function MatchInsightsUpdateDialog({ open, missingIds, secureToken, onOpe
             <section key={question.id} className="rounded-2xl border border-slate-200 bg-white p-4 text-right shadow-sm dark:border-white/10 dark:bg-white/[0.035] sm:p-5">
               <div className="mb-3 flex items-start gap-3">
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cyan-600 text-xs font-black text-white">{index + 1}</span>
-                <h3 className="text-sm font-bold leading-6 text-slate-900 dark:text-white sm:text-[15px]">{question.title}</h3>
+                <div>
+                  <h3 className="text-sm font-bold leading-6 text-slate-900 dark:text-white sm:text-[15px]">{question.title}</h3>
+                  {question.supportingText && <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{question.supportingText}</p>}
+                </div>
               </div>
               {question.type === 'radio' && (
                 <RadioGroup value={String(answers[question.id] || '')} onValueChange={(value) => setAnswers((current) => ({ ...current, [question.id]: value }))} className="grid gap-2">
@@ -230,7 +286,7 @@ export function MatchInsightsUpdateDialog({ open, missingIds, secureToken, onOpe
         <div className="shrink-0 border-t border-slate-200 bg-white/90 px-4 py-4 dark:border-white/10 dark:bg-slate-950/90 sm:px-7">
           <button type="button" onClick={submit} disabled={saving} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-l from-cyan-500 to-blue-600 px-5 text-sm font-extrabold text-white shadow-lg shadow-cyan-500/20 transition hover:brightness-105 disabled:cursor-wait disabled:opacity-70">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-            {saving ? 'جاري الحفظ...' : 'حفظ وتحسين المطابقة'}
+            {saving ? 'جاري الحفظ...' : 'حفظ الإجابات'}
           </button>
           <p className="mt-2 text-center text-[11px] text-slate-500 dark:text-slate-400">لن نطلب منك إعادة الاستبيان أو تغيير إجاباتك السابقة.</p>
         </div>

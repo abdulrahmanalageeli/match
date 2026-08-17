@@ -16,6 +16,7 @@ import {
   normalizeParticipantPhone,
   participantPhoneToE164,
 } from "../server/participants/phone-normalization.mjs"
+import { validateProfileDataCollection } from "../server/participants/profile-data-collection.mjs"
 
 // In-memory cache for e3 token resolution (5 min TTL) to reduce Supabase API load
 const _e3TokenCache = new Map() // token -> { participant, expiresAt }
@@ -519,9 +520,12 @@ export default async function handler(req, res) {
     const secureToken = String(req.body?.secure_token || '').trim()
     if (!secureToken) return res.status(401).json({ error: 'A participant token is required' })
 
-    const validation = validateMatchInsights(req.body?.answers, { requireAll: false })
-    if (!validation.valid || Object.keys(validation.answers).length === 0) {
-      return res.status(400).json({ error: 'Invalid match insight answers', fields: validation.errors })
+    const matchValidation = validateMatchInsights(req.body?.answers, { requireAll: false })
+    const profileValidation = validateProfileDataCollection(req.body?.answers, { requireAll: false })
+    const validatedAnswers = { ...matchValidation.answers, ...profileValidation.answers }
+    const validationErrors = { ...matchValidation.errors, ...profileValidation.errors }
+    if (!matchValidation.valid || !profileValidation.valid || Object.keys(validatedAnswers).length === 0) {
+      return res.status(400).json({ error: 'Invalid survey update answers', fields: validationErrors })
     }
 
     const { data: participant, error: lookupError } = await supabase
@@ -539,20 +543,26 @@ export default async function handler(req, res) {
     const existingAnswers = storedSurveyData.answers && typeof storedSurveyData.answers === 'object' && !Array.isArray(storedSurveyData.answers)
       ? storedSurveyData.answers
       : {}
-    const mergedAnswers = { ...existingAnswers, ...validation.answers }
+    const mergedAnswers = { ...existingAnswers, ...validatedAnswers }
+    const includesScoredInsights = Object.keys(matchValidation.answers).some((id) => id !== 'age_flex_one_year')
     const nextSurveyData = {
       ...storedSurveyData,
       answers: mergedAnswers,
-      vibeDescription: buildVibeDescription({ ...storedSurveyData, ...mergedAnswers }),
-      matchInsightsVersion: MATCH_INSIGHTS_VERSION,
-      matchInsightsUpdatedAt: new Date().toISOString(),
+      ...(includesScoredInsights ? {
+        vibeDescription: buildVibeDescription({ ...storedSurveyData, ...mergedAnswers }),
+        matchInsightsVersion: MATCH_INSIGHTS_VERSION,
+        matchInsightsUpdatedAt: new Date().toISOString(),
+      } : {}),
     }
 
     const participantUpdate = { survey_data: nextSurveyData }
-    const ageFlexAnswer = validation.answers.age_flex_one_year
+    const ageFlexAnswer = matchValidation.answers.age_flex_one_year
     if (ageFlexAnswer === 'accept') participantUpdate.age_flex_one_year = true
     else if (ageFlexAnswer === 'decline') participantUpdate.age_flex_one_year = false
     else if (ageFlexAnswer === 'not_applicable') participantUpdate.age_flex_one_year = null
+    for (const [column, value] of Object.entries(profileValidation.answers)) {
+      participantUpdate[column] = Number(value)
+    }
 
     const { error: updateError } = await supabase
       .from('participants')
@@ -576,7 +586,7 @@ export default async function handler(req, res) {
     }
     const { data, error } = await supabase
       .from("participants")
-      .select("assigned_number, name, survey_data, summary, signup_for_next_event, auto_signup_next_event, humor_banter_style, early_openness_comfort, same_gender_preference, any_gender_preference, gender, phone_number, age, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_one_year, intent_goal, open_intent_goal_mismatch")
+      .select("assigned_number, name, survey_data, summary, signup_for_next_event, auto_signup_next_event, humor_banter_style, early_openness_comfort, same_gender_preference, any_gender_preference, gender, phone_number, age, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_one_year, intent_goal, open_intent_goal_mismatch, expression_language, minimum_partner_religious_commitment, social_relationship_style")
       .eq("secure_token", secureToken)
       .single();
 
@@ -899,6 +909,9 @@ export default async function handler(req, res) {
       age_flex_one_year: typeof data.age_flex_one_year === 'boolean' ? data.age_flex_one_year : null,
       intent_goal: data.intent_goal || null,
       open_intent_goal_mismatch: typeof data.open_intent_goal_mismatch === 'boolean' ? data.open_intent_goal_mismatch : null,
+      expression_language: data.expression_language ?? null,
+      minimum_partner_religious_commitment: data.minimum_partner_religious_commitment ?? null,
+      social_relationship_style: data.social_relationship_style ?? null,
       history: history
     })
   }
@@ -1168,7 +1181,12 @@ export default async function handler(req, res) {
       if (survey_data) {
         console.log('📊 Processing validated survey data')
         
-        const answers = req.body.survey_data?.answers || {};
+        const rawAnswers = req.body.survey_data?.answers || {};
+        const profileValidation = validateProfileDataCollection(rawAnswers, { requireAll: false })
+        if (!profileValidation.valid) {
+          return res.status(400).json({ error: 'Invalid profile data collection answers', fields: profileValidation.errors })
+        }
+        const answers = { ...rawAnswers, ...profileValidation.answers };
         const redLinesRaw = answers.redLines;
         const redLines = Array.isArray(redLinesRaw)
           ? redLinesRaw
@@ -1188,6 +1206,10 @@ export default async function handler(req, res) {
         updateFields.privacy_notice_version = "2026-08-06"
         updateFields.consented_at = new Date().toISOString()
         updateFields.marketing_consent = survey_data.marketingConsent === true
+
+        for (const [column, value] of Object.entries(profileValidation.answers)) {
+          updateFields[column] = Number(value)
+        }
 
         // Persist personal info to dedicated columns (extracted from answers)
         if (typeof survey_data.name === 'string' && survey_data.name.trim()) {

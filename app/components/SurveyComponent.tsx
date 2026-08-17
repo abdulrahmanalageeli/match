@@ -256,6 +256,56 @@ export const surveyQuestions = [
     required: true,
     category: "match_update"
   },
+  // New profile context — collected for future analysis only. These answers
+  // are intentionally not part of the matching score or vibe description.
+  {
+    id: "expression_language",
+    question: "سؤال جديد",
+    description: "بأي لغة تقدر تعبّر عن نفسك بأفضل شكل؟",
+    supportingText: "نقصد اللغة اللي تقدر فيها تكون على طبيعتك وتوصل أفكارك ومشاعرك بدقة.",
+    type: "radio",
+    options: [
+      { value: "1", label: "العربية فقط أو تقريبًا — الإنجليزية ما تكفيني لسالفة كاملة." },
+      { value: "2", label: "العربية أفضل — أقدر أسولف بالإنجليزية، لكن تعبيري بالعربية أوضح." },
+      { value: "3", label: "اللغتان بنفس الراحة — أعبّر عن نفسي بالعربية والإنجليزية بنفس المستوى." },
+      { value: "4", label: "الإنجليزية أفضل — أقدر أسولف بالعربية، لكن تعبيري بالإنجليزية أوضح." },
+      { value: "5", label: "الإنجليزية فقط أو تقريبًا — العربية ما تكفيني للتعبير عن نفسي براحة." }
+    ],
+    required: true,
+    category: "profile_data_collection",
+    isNew: true
+  },
+  {
+    id: "minimum_partner_religious_commitment",
+    question: "سؤال جديد",
+    description: "ما الحد الأدنى من الالتزام الديني اللي يهمك وجوده في الشخص اللي ممكن ترتبط فيه؟",
+    type: "radio",
+    options: [
+      { value: "1", label: "أفضل شخصًا ملتزمًا بوضوح؛ محافظًا على الفروض في وقتها، ونمط حياته يميل للمحافظة والجدية في الدين." },
+      { value: "2", label: "يكفيني أن يكون محافظًا على الأساسيات، خصوصًا الصلاة، مع مرونة في الحياة اليومية بدون تشدد أو مبالغة." },
+      { value: "3", label: "أفضل شخصًا منفتحًا، يرى أن الدين علاقة شخصية، ولا يميل للتدقيق أو التدخل في مستوى التزام الطرف الآخر." },
+      { value: "4", label: "الالتزام الديني ليس معيارًا أساسيًا بالنسبة لي في اختيار الشريك؛ يهمني أكثر التوافق الفكري، الشخصي، وطريقة الحياة." }
+    ],
+    required: true,
+    category: "profile_data_collection",
+    isNew: true
+  },
+  {
+    id: "social_relationship_style",
+    question: "سؤال جديد",
+    description: "أي وصف أقرب لأسلوبك في العلاقات والتجمعات الاجتماعية؟",
+    supportingText: "اختر الوصف الأقرب لك بشكل عام — مو لازم كل مثال ينطبق عليك 100٪.",
+    type: "radio",
+    options: [
+      { value: "1", label: "محافظ بوضوح — أفضل أن تكون العلاقة بين الرجل والمرأة رسمية ومحدودة غالبًا، وأرتاح أكثر في التجمعات غير المختلطة أو الأجواء الهادئة ذات الحدود الواضحة." },
+      { value: "2", label: "محافظ نسبيًا — أتقبل التعامل الطبيعي والتجمعات المختلطة إذا كانت ضمن سياق واضح، لكن لا أفضّل الصداقات القريبة بين الرجل والمرأة، وأميل لاختيار الأجواء الاجتماعية الأكثر هدوءًا وانضباطًا." },
+      { value: "3", label: "منفتح نسبيًا — الصداقة بين الرجل والمرأة والتجمعات المختلطة مقبولة عندي غالبًا إذا كان فيها احترام ووضوح حدود، وأقيّم الأجواء الاجتماعية حسب الأشخاص والمكان." },
+      { value: "4", label: "منفتح بوضوح — الصداقة، الاختلاط، والأجواء الاجتماعية المفتوحة جزء طبيعي من أسلوب حياتي، ونادرًا ما تكون الحدود الاجتماعية التقليدية عاملًا مؤثرًا في اختياراتي أو ارتياحي." }
+    ],
+    required: true,
+    category: "profile_data_collection",
+    isNew: true
+  },
   // Attachment Style Questions 9-13
   {
     id: "attachment_1",
@@ -1065,6 +1115,8 @@ const SurveyComponent = memo(function SurveyComponent({
       'gender_preference','preferred_age_range',
       // New matching insights (kept together for fast completion)
       'match_disagreement_style','match_similarity_preference','match_current_curiosity','match_current_focus','conversation_initiative_preference',
+      // New profile data collection (not scored yet)
+      'expression_language','minimum_partner_religious_commitment','social_relationship_style',
       // Attachment
       'attachment_1','attachment_3','attachment_4',
       // Communication
@@ -1092,6 +1144,7 @@ const SurveyComponent = memo(function SurveyComponent({
     const personal = new Set(['name','age','gender','nationality','nationality_preference','phone_number'])
     const prefs = new Set(['gender_preference','preferred_age_range'])
     const matchUpdate = new Set(['match_disagreement_style','match_similarity_preference','match_current_curiosity','match_current_focus','conversation_initiative_preference'])
+    const profileDataCollection = new Set(['expression_language','minimum_partner_religious_commitment','social_relationship_style'])
     const attach = new Set(['attachment_1','attachment_3','attachment_4'])
     const comm = new Set(['communication_1','communication_2','communication_3','communication_4','communication_5','silence_comfort'])
     const lifestyle = new Set(['lifestyle_1','lifestyle_2','lifestyle_3','lifestyle_4','lifestyle_5'])
@@ -1104,6 +1157,7 @@ const SurveyComponent = memo(function SurveyComponent({
     if (personal.has(id)) return 'نبذة عنك'
     if (prefs.has(id)) return 'تفضيلات عامة'
     if (matchUpdate.has(id)) return 'جديد — تفاصيل تصنع فرق اللقاء'
+    if (profileDataCollection.has(id)) return 'جديد — تفاصيل تساعدنا نفهمك أكثر'
     if (attach.has(id)) return 'علاقتك بالآخرين'
     if (comm.has(id)) return 'طريقة تواصلك'
     if (lifestyle.has(id)) return 'أسلوب حياتك'
@@ -2323,6 +2377,11 @@ const SurveyComponent = memo(function SurveyComponent({
                       <h3 className="mb-3 text-right text-[15px] font-bold leading-7 text-slate-900 dark:text-slate-100 sm:text-base">
                         {question.description || question.question}
                       </h3>
+                      {'supportingText' in question && question.supportingText && (
+                        <p className="-mt-1 mb-3 text-right text-xs leading-5 text-slate-500 dark:text-slate-400 sm:text-sm">
+                          {question.supportingText}
+                        </p>
+                      )}
                       <div className="space-y-3">
                         {renderQuestion(question)}
                         {validationAttemptedPages.has(currentPage) && getQuestionValidationMessage(question) && (

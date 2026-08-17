@@ -7281,7 +7281,7 @@ export default function WelcomePage() {
                           مستوى الانفتاح المبكر (مطلوب)
                         </p>
                         <p className={`text-xs mb-3 ${dark ? "text-orange-200" : "text-orange-600"}`}>
-                          عندما تقابل شخصاً جديداً، ما الذي يبدو مناسباً لك؟
+                          في أول لقاء، إلى أي مستوى يصل حديثك عادة بشكل طبيعي؟
                         </p>
                         <RadioGroup 
                           value={returningOpennessComfort} 
@@ -7291,25 +7291,25 @@ export default function WelcomePage() {
                           <div className="flex items-center gap-3">
                             <RadioGroupItem value="0" id="next-openness-0" className={`${dark ? "border-orange-400/50 text-orange-400" : "border-orange-500/50 text-orange-500"}`} />
                             <Label htmlFor="next-openness-0" className={`text-sm cursor-pointer ${dark ? "text-orange-200" : "text-orange-700"}`}>
-                              أحتفظ بالأمور الشخصية حتى أتعرف عليهم جيداً
+                              أبقى غالبًا في الاهتمامات والأحداث والمواضيع العامة
                             </Label>
                           </div>
                           <div className="flex items-center gap-3">
                             <RadioGroupItem value="1" id="next-openness-1" className={`${dark ? "border-orange-400/50 text-orange-400" : "border-orange-500/50 text-orange-500"}`} />
                             <Label htmlFor="next-openness-1" className={`text-sm cursor-pointer ${dark ? "text-orange-200" : "text-orange-700"}`}>
-                              أفضل الحديث السطحي في البداية
+                              أشارك آراء وتجارب خفيفة، بدون تفاصيل شخصية كثيرة
                             </Label>
                           </div>
                           <div className="flex items-center gap-3">
                             <RadioGroupItem value="2" id="next-openness-2" className={`${dark ? "border-orange-400/50 text-orange-400" : "border-orange-500/50 text-orange-500"}`} />
                             <Label htmlFor="next-openness-2" className={`text-sm cursor-pointer ${dark ? "text-orange-200" : "text-orange-700"}`}>
-                              أحب المشاركة المتوازنة - مزيج من الخفيف والحقيقي
+                              ممكن أشارك موضوعًا شخصيًا واحدًا إذا جاء في سياق السالفة
                             </Label>
                           </div>
                           <div className="flex items-center gap-3">
                             <RadioGroupItem value="3" id="next-openness-3" className={`${dark ? "border-orange-400/50 text-orange-400" : "border-orange-500/50 text-orange-500"}`} />
                             <Label htmlFor="next-openness-3" className={`text-sm cursor-pointer ${dark ? "text-orange-200" : "text-orange-700"}`}>
-                              أنفتح بسرعة وأشارك القصص الشخصية
+                              أرتاح من البداية لمشاركة قصص وتجارب شخصية
                             </Label>
                           </div>
                         </RadioGroup>
@@ -7494,7 +7494,7 @@ export default function WelcomePage() {
                           مستوى الانفتاح المبكر (مطلوب)
                         </p>
                         <p className={`text-xs mb-3 ${dark ? "text-orange-200" : "text-orange-600"}`}>
-                          عندما تقابل شخصاً جديداً، ما الذي يبدو مناسباً لك؟
+                          في أول لقاء، إلى أي مستوى يصل حديثك عادة بشكل طبيعي؟
                         </p>
                         <RadioGroup 
                           value={returningOpennessComfort} 
@@ -7504,25 +7504,25 @@ export default function WelcomePage() {
                           <div className="flex items-center gap-3">
                             <RadioGroupItem value="0" id="openness-0" className={`${dark ? "border-orange-400/50 text-orange-400" : "border-orange-500/50 text-orange-500"}`} />
                             <Label htmlFor="openness-0" className={`text-sm cursor-pointer ${dark ? "text-orange-200" : "text-orange-700"}`}>
-                              أحتفظ بالأمور الشخصية حتى أتعرف عليهم جيداً
+                              أبقى غالبًا في الاهتمامات والأحداث والمواضيع العامة
                             </Label>
                           </div>
                           <div className="flex items-center gap-3">
                             <RadioGroupItem value="1" id="openness-1" className={`${dark ? "border-orange-400/50 text-orange-400" : "border-orange-500/50 text-orange-500"}`} />
                             <Label htmlFor="openness-1" className={`text-sm cursor-pointer ${dark ? "text-orange-200" : "text-orange-700"}`}>
-                              أفضل الحديث السطحي في البداية
+                              أشارك آراء وتجارب خفيفة، بدون تفاصيل شخصية كثيرة
                             </Label>
                           </div>
                           <div className="flex items-center gap-3">
                             <RadioGroupItem value="2" id="openness-2" className={`${dark ? "border-orange-400/50 text-orange-400" : "border-orange-500/50 text-orange-500"}`} />
                             <Label htmlFor="openness-2" className={`text-sm cursor-pointer ${dark ? "text-orange-200" : "text-orange-700"}`}>
-                              أحب المشاركة المتوازنة - مزيج من الخفيف والحقيقي
+                              ممكن أشارك موضوعًا شخصيًا واحدًا إذا جاء في سياق السالفة
                             </Label>
                           </div>
                           <div className="flex items-center gap-3">
                             <RadioGroupItem value="3" id="openness-3" className={`${dark ? "border-orange-400/50 text-orange-400" : "border-orange-500/50 text-orange-500"}`} />
                             <Label htmlFor="openness-3" className={`text-sm cursor-pointer ${dark ? "text-orange-200" : "text-orange-700"}`}>
-                              أنفتح بسرعة وأشارك القصص الشخصية
+                              أرتاح من البداية لمشاركة قصص وتجارب شخصية
                             </Label>
                           </div>
                         </RadioGroup>

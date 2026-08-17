@@ -3059,12 +3059,13 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
         initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }}
         transition={{ type: 'spring', stiffness: 340, damping: 34 }}
         onClick={event => event.stopPropagation()}
-        className="relative w-full sm:max-w-md max-h-[92dvh] overflow-hidden rounded-t-[2rem] sm:rounded-[2rem] border border-purple-400/15 bg-gradient-to-b from-[#171023] via-[#0d0a14] to-[#08070c] shadow-[0_-20px_80px_-20px_rgba(139,92,246,0.45)]"
+        className="relative flex w-full max-h-[92dvh] flex-col overflow-hidden sm:max-w-md rounded-t-[2rem] sm:rounded-[2rem] border border-purple-400/15 bg-gradient-to-b from-[#171023] via-[#0d0a14] to-[#08070c] shadow-[0_-20px_80px_-20px_rgba(139,92,246,0.45)]"
+        style={{ height: 'min(92dvh, 760px)' }}
         dir="rtl"
       >
         <div className="absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.20),transparent_70%)] pointer-events-none" />
         <div className="sm:hidden w-10 h-1 rounded-full bg-white/15 mx-auto mt-2.5" />
-        <header className="relative flex items-start gap-3 px-5 pt-5 pb-4 border-b border-white/[0.06]">
+        <header className="relative flex shrink-0 items-start gap-3 px-5 pt-5 pb-4 border-b border-white/[0.06]">
           <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-purple-500/25 to-fuchsia-500/10 border border-purple-400/20 flex items-center justify-center shrink-0">
             <Trophy size={20} className="text-purple-300" />
           </div>
@@ -3080,7 +3081,7 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
           </button>
         </header>
 
-        <div className="relative overflow-y-auto overscroll-contain px-5 py-4 space-y-4" style={{ maxHeight: 'calc(92dvh - 92px)' }}>
+        <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 space-y-4">
           {loading ? (
             <div className="h-64 flex items-center justify-center"><Spinner size={24} /></div>
           ) : people.length === 0 ? (
@@ -3154,7 +3155,7 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
                 })}
               </div>
 
-              <div className="flex gap-2 pb-[max(0.25rem,env(safe-area-inset-bottom))]">
+              <div className="sticky bottom-0 z-20 -mx-5 flex gap-2 border-t border-white/[0.07] bg-[#09070e]/95 px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
                 <button onClick={onClose} className="px-5 py-3.5 rounded-2xl border border-white/[0.07] bg-white/[0.035] text-sm font-bold text-gray-500 active:scale-95 transition">تخطي</button>
                 <motion.button whileTap={{ scale: 0.97 }} onClick={save} disabled={saving || saved}
                   className="flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500 text-sm font-black text-white shadow-[0_10px_30px_-12px_rgba(168,85,247,0.9)] disabled:opacity-60 flex items-center justify-center gap-2">
@@ -5331,7 +5332,7 @@ function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; o
 }
 
 // ─── AI Welcome Popup ─────────────────────────────────────────────────────────
-function AiWelcomePopup({ token, onDone }: { token: string; onDone: () => void }) {
+function AiWelcomePopup({ token, onDone, previewMessage }: { token: string; onDone: () => void; previewMessage?: string }) {
   const [message, setMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [typed, setTyped] = useState("")
@@ -5340,11 +5341,27 @@ function AiWelcomePopup({ token, onDone }: { token: string; onDone: () => void }
   const [closing, setClosing] = useState(false)
   const [failed, setFailed] = useState(false)
   const [savingImage, setSavingImage] = useState(false)
+  const typingRunRef = useRef(0)
+  const reduceMotion = useReducedMotion()
 
   useEffect(() => {
+    if (previewMessage) {
+      setMessage(previewMessage)
+      setLoading(false)
+      return
+    }
     let active = true
+    let settled = false
+    const timeoutId = window.setTimeout(() => {
+      if (!active || settled) return
+      settled = true
+      setFailed(true)
+      setLoading(false)
+    }, 18000)
     call("e3-ai-welcome", token).then(d => {
-      if (!active) return
+      if (!active || settled) return
+      settled = true
+      window.clearTimeout(timeoutId)
       if (d.success && d.message) {
         setMessage(d.message)
         setLoading(false)
@@ -5352,31 +5369,73 @@ function AiWelcomePopup({ token, onDone }: { token: string; onDone: () => void }
         setFailed(true)
         setLoading(false)
       }
-    }).catch(() => { if (active) { setFailed(true); setLoading(false) } })
-    return () => { active = false }
-  }, [token])
+    }).catch(() => {
+      if (!active || settled) return
+      settled = true
+      window.clearTimeout(timeoutId)
+      setFailed(true)
+      setLoading(false)
+    })
+    return () => { active = false; window.clearTimeout(timeoutId) }
+  }, [token, previewMessage])
 
-  // Typewriter effect
-  useEffect(() => {
+  const finishTyping = useCallback(() => {
     if (!message) return
-    setTyped("")
-    setTyping(true)
-    let i = 0
-    const speed = 32
-    const iv = setInterval(() => {
-      i++
-      setTyped(message.slice(0, i))
-      if (i >= message.length) {
-        clearInterval(iv)
-        setTyping(false)
-        setDone(true)
-        fireConfetti({ particleCount: 80, spread: 70, origin: { y: 0.6 }, colors: ["#a855f7", "#ec4899", "#f0abfc", "#c084fc"] })
-      }
-    }, speed)
-    return () => clearInterval(iv)
+    typingRunRef.current += 1
+    setTyped(message)
+    setTyping(false)
+    setDone(true)
   }, [message])
 
+  // Time-based and throttled so slow phones never have to render every character.
+  useEffect(() => {
+    if (!message) return
+    const runId = ++typingRunRef.current
+    setTyped("")
+    setTyping(true)
+    setDone(false)
+
+    if (reduceMotion) {
+      setTyped(message)
+      setTyping(false)
+      setDone(true)
+      return
+    }
+
+    const duration = Math.min(5200, Math.max(2200, message.length * 18))
+    let frame = 0
+    let startedAt = 0
+    let lastPaint = 0
+    const tick = (now: number) => {
+      if (typingRunRef.current !== runId) return
+      if (!startedAt) startedAt = now
+      const elapsed = now - startedAt
+      const nextIndex = Math.min(message.length, Math.floor((elapsed / duration) * message.length))
+
+      if (nextIndex >= message.length) {
+        setTyped(message)
+        setTyping(false)
+        setDone(true)
+        const compactScreen = window.matchMedia('(max-width: 639px)').matches
+        fireConfetti({ particleCount: compactScreen ? 36 : 80, spread: 70, origin: { y: 0.6 }, colors: ["#a855f7", "#ec4899", "#f0abfc", "#c084fc"] })
+        return
+      }
+
+      if (now - lastPaint >= 50) {
+        lastPaint = now
+        setTyped(message.slice(0, nextIndex))
+      }
+      frame = window.requestAnimationFrame(tick)
+    }
+    frame = window.requestAnimationFrame(tick)
+    return () => {
+      typingRunRef.current += 1
+      window.cancelAnimationFrame(frame)
+    }
+  }, [message, reduceMotion])
+
   const dismiss = () => {
+    if (closing) return
     setClosing(true)
     setTimeout(() => onDone(), 400)
   }
@@ -5419,7 +5478,8 @@ function AiWelcomePopup({ token, onDone }: { token: string; onDone: () => void }
         animate={{ opacity: closing ? 0 : 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.4 }}
-        className="fixed inset-0 z-[290] flex items-center justify-center p-4 overflow-hidden"
+        className="fixed inset-0 z-[290] flex items-center justify-center overflow-hidden p-2 sm:p-4"
+        onClick={() => done && dismiss()}
         dir="rtl"
       >
         {/* ─── Full-screen animated background ─── */}
@@ -5428,17 +5488,17 @@ function AiWelcomePopup({ token, onDone }: { token: string; onDone: () => void }
 
         {/* Animated mesh orbs */}
         <motion.div
-          className="absolute top-[10%] right-[5%] w-72 h-72 rounded-full bg-purple-600/20 blur-[100px] pointer-events-none"
+          className="absolute top-[10%] right-[5%] hidden w-72 h-72 rounded-full bg-purple-600/20 blur-[100px] pointer-events-none sm:block"
           animate={{ scale: [1, 1.4, 1], opacity: [0.3, 0.5, 0.3], x: [0, -30, 0], y: [0, 20, 0] }}
           transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
         />
         <motion.div
-          className="absolute bottom-[10%] left-[5%] w-64 h-64 rounded-full bg-pink-600/15 blur-[90px] pointer-events-none"
+          className="absolute bottom-[10%] left-[5%] hidden w-64 h-64 rounded-full bg-pink-600/15 blur-[90px] pointer-events-none sm:block"
           animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.4, 0.2], x: [0, 30, 0], y: [0, -20, 0] }}
           transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 1 }}
         />
         <motion.div
-          className="absolute top-[50%] left-[40%] w-56 h-56 rounded-full bg-fuchsia-600/10 blur-[80px] pointer-events-none"
+          className="absolute top-[50%] left-[40%] hidden w-56 h-56 rounded-full bg-fuchsia-600/10 blur-[80px] pointer-events-none sm:block"
           animate={{ scale: [1, 1.5, 1], opacity: [0.15, 0.3, 0.15], x: [0, 20, 0] }}
           transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 2 }}
         />
@@ -5447,7 +5507,7 @@ function AiWelcomePopup({ token, onDone }: { token: string; onDone: () => void }
         {[...Array(12)].map((_, i) => (
           <motion.div
             key={i}
-            className="absolute pointer-events-none"
+            className="absolute hidden pointer-events-none sm:block"
             style={{ top: `${15 + (i * 7) % 70}%`, left: `${10 + (i * 13) % 80}%` }}
             animate={{
               y: [0, -15, 0],
@@ -5471,7 +5531,7 @@ function AiWelcomePopup({ token, onDone }: { token: string; onDone: () => void }
           animate={{ scale: closing ? 0.9 : 1, y: closing ? 30 : 0, opacity: closing ? 0 : 1 }}
           transition={{ type: "spring", stiffness: 240, damping: 24 }}
           onClick={e => e.stopPropagation()}
-          className="relative w-full max-w-md rounded-[32px] overflow-hidden border border-white/[0.08] shadow-2xl shadow-purple-900/50 z-10"
+          className="relative z-10 flex max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col overflow-hidden rounded-[32px] border border-white/[0.08] shadow-2xl shadow-purple-900/50"
         >
           {/* Animated gradient border glow */}
           <motion.div
@@ -5484,10 +5544,10 @@ function AiWelcomePopup({ token, onDone }: { token: string; onDone: () => void }
           />
 
           {/* Inner background */}
-          <div className="relative bg-gradient-to-b from-gray-900/95 via-[#140a26]/95 to-gray-950/95 backdrop-blur-2xl">
+          <div className="relative min-h-0 overflow-y-auto overscroll-contain bg-gradient-to-b from-gray-900/95 via-[#140a26]/95 to-gray-950/95 backdrop-blur-2xl">
 
             {/* ─── Brand Header — "التوافق الأعمى يرحب بك" ─── */}
-            <div className="relative px-6 pt-8 pb-5 text-center overflow-hidden">
+            <div className="relative overflow-hidden px-4 pb-3 pt-4 text-center sm:px-6 sm:pb-5 sm:pt-8">
               {/* Shimmer sweep */}
               <motion.div
                 className="absolute inset-0 pointer-events-none"
@@ -5503,7 +5563,7 @@ function AiWelcomePopup({ token, onDone }: { token: string; onDone: () => void }
                 initial={{ scale: 0, rotate: -30 }}
                 animate={{ scale: 1, rotate: 0 }}
                 transition={{ delay: 0.15, type: "spring", stiffness: 280, damping: 14 }}
-                className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-600 to-pink-600 shadow-xl shadow-purple-600/40 mb-3"
+                className="mb-2 inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-600 to-pink-600 shadow-xl shadow-purple-600/40 sm:mb-3 sm:h-14 sm:w-14"
               >
                 <motion.div
                   animate={{ rotate: [0, 10, -10, 0] }}
@@ -5617,12 +5677,12 @@ function AiWelcomePopup({ token, onDone }: { token: string; onDone: () => void }
             {!loading && !failed && message && (
               <>
                 {/* Message card */}
-                <div className="relative px-6 pb-5">
+                <div className="relative px-4 pb-3 sm:px-6 sm:pb-5">
                   <motion.div
                     initial={{ opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1, duration: 0.5 }}
-                    className="relative rounded-2xl bg-white/[0.03] border border-white/[0.06] p-5 overflow-hidden"
+                    className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 sm:p-5"
                   >
                     {/* Corner glow */}
                     <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-purple-600/10 blur-2xl pointer-events-none" />
@@ -5634,8 +5694,8 @@ function AiWelcomePopup({ token, onDone }: { token: string; onDone: () => void }
                     </div>
 
                     {/* Message body with typewriter */}
-                    <div className="relative min-h-[120px] flex items-center justify-center">
-                      <p className="text-gray-100 text-[15px] leading-[2.2] text-center whitespace-pre-wrap font-medium tracking-wide">
+                    <div className="relative flex min-h-[96px] items-center justify-center sm:min-h-[120px]">
+                      <p className="whitespace-pre-wrap text-center text-sm font-medium leading-7 tracking-wide text-gray-100 sm:text-[15px] sm:leading-[2.2]">
                         {typed}
                         {typing && (
                           <motion.span
@@ -5661,6 +5721,17 @@ function AiWelcomePopup({ token, onDone }: { token: string; onDone: () => void }
                   </motion.div>
                 </div>
 
+                {typing && (
+                  <div className="sticky bottom-0 z-20 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-6">
+                    <button
+                      onClick={finishTyping}
+                      className="w-full rounded-2xl border border-purple-400/20 bg-purple-500/10 py-3 text-sm font-bold text-purple-200 transition active:scale-[0.98]"
+                    >
+                      عرض الرسالة كاملة
+                    </button>
+                  </div>
+                )}
+
                 {/* Dismiss button — appears after typing completes */}
                 <AnimatePresence>
                   {done && (
@@ -5669,7 +5740,7 @@ function AiWelcomePopup({ token, onDone }: { token: string; onDone: () => void }
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0 }}
                       transition={{ duration: 0.4 }}
-                      className="relative px-6 pb-7"
+                      className="sticky bottom-0 z-20 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-6 sm:pb-7"
                     >
                       <div className="grid grid-cols-[0.9fr_1.1fr] gap-2.5">
                         <motion.button
@@ -5704,7 +5775,7 @@ function AiWelcomePopup({ token, onDone }: { token: string; onDone: () => void }
             initial={{ opacity: 0 }}
             animate={{ opacity: 0.4 }}
             transition={{ delay: 1 }}
-            className="absolute bottom-6 left-1/2 -translate-x-1/2 text-gray-500 text-[11px] z-20"
+            className="absolute bottom-6 left-1/2 z-20 hidden -translate-x-1/2 text-[11px] text-gray-500 sm:block"
           >
             اضغط في أي مكان للمتابعة
           </motion.p>
@@ -6063,6 +6134,25 @@ export default function Event3Page() {
   // Lightweight, token-free visual QA for the two mobile question experiences.
   // This is intentionally read-only and does not touch event or participant data.
   const questionPreview = searchParams.get("questionPreview")
+  if (questionPreview === "mobileQA") {
+    return (
+      <main className="flex min-h-[100dvh] flex-wrap items-center justify-center gap-6 bg-slate-950 p-6">
+        <iframe title="معاينة تقييم المجموعة" src="/event3?questionPreview=groupReflection" className="h-[568px] w-[320px] rounded-xl border border-slate-700 bg-gray-950" />
+        <iframe title="معاينة رسالة الترحيب" src="/event3?questionPreview=aiWelcome" className="h-[568px] w-[320px] rounded-xl border border-slate-700 bg-gray-950" />
+      </main>
+    )
+  }
+  if (questionPreview === "aiWelcome") {
+    return (
+      <main className="min-h-[100dvh] bg-gray-950 text-white" dir="rtl">
+        <AiWelcomePopup
+          token="preview"
+          onDone={() => {}}
+          previewMessage="هذه رسالتك الخاصة: حضورك الهادئ وفضولك تجاه الناس يعطيانك فرصة جميلة لاكتشاف أشخاص يشبهونك بطرق لم تتوقعها. خذ وقتك، اسأل بصدق، ولا تشغل بالك بإعطاء الانطباع المثالي. أجمل الحوارات تبدأ عندما يكون كل شخص على طبيعته ويترك مساحة حقيقية للطرف الآخر."
+        />
+      </main>
+    )
+  }
   if (questionPreview === "groupReflection") {
     return (
       <main className="min-h-[100dvh] bg-gray-950 text-white" dir="rtl">

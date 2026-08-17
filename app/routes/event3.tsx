@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react"
 import { useId } from "react"
+import { flushSync } from "react-dom"
 import { GroupsPage } from "./groups"
 import { useSearchParams } from "react-router"
 import toast, { Toaster } from "react-hot-toast"
@@ -2452,8 +2453,10 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
       const d = await call('e3-submit-ranking', token, { ranked_list: orderRef.current, auto_saved: true })
       setAutoSaving(false)
       if (d.error) { toast.error(d.error); return }
+      // Open the optional group feedback at the exact successful-save boundary,
+      // before rendering the submitted ranking state.
+      flushSync(() => setShowGroupReflection(true))
       setSubmitted(true)
-      setShowGroupReflection(true)
       toast('انتهى الوقت — تم حفظ تصنيفك تلقائياً', { duration: 5000, icon: '⏰' })
     }
     doAutoSave()
@@ -2478,9 +2481,12 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
     const d = await call("e3-submit-ranking", token, { ranked_list: order })
     setSubmitting(false)
     if (d.error) { toast.error(d.error); return }
+    // Replace the confirmation with feedback immediately after the save succeeds.
+    flushSync(() => {
+      setShowConfirm(false)
+      setShowGroupReflection(true)
+    })
     setSubmitted(true)
-    setShowConfirm(false)
-    setShowGroupReflection(true)
     toast.success(completedRounds >= 2 ? "تم حفظ تصنيفك النهائي!" : "تم حفظ تصنيفك!")
   }
 
@@ -2987,6 +2993,7 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
 
   const setExperience = (number: number, experience: string) => {
     setSaved(false)
+    setExpanded(number)
     setDrafts(current => ({
       ...current,
       [number]: { experience, tags: current[number]?.tags || [], organizer_note: current[number]?.organizer_note || '' },

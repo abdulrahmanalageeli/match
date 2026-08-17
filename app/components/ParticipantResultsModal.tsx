@@ -754,7 +754,6 @@ export default function ParticipantResultsModal({
       minimum_partner_religious_commitment: toPercent(aggregate.minimum_partner_religious_commitment.total, aggregate.minimum_partner_religious_commitment.count),
     }
   }, [visibleResults, participantData])
-  }, [visibleResults, participantData])
 
   // Both the legacy results view and the swap planner must resolve a pair from
   // the exact same canonical source, including current matches absent from cache.

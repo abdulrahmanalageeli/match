@@ -16,6 +16,7 @@ const {
   checkGenderCompatibility,
   checkInteractionStyleCompatibility,
   getAgeTolerance,
+  getDeltaCacheReasonCounts,
   getParticipantDeltaCacheReason,
   getOneYearAgeFlexDecision,
   hasHumorStyleClash,
@@ -23,7 +24,7 @@ const {
   isCurrentVibeModel,
 } = await import("../../api/admin/trigger-match.mjs")
 
-test("delta cache detects survey edits and new event enrollments", () => {
+test("delta cache detects only survey edits and dedicated event enrollment timestamps", () => {
   const baseline = "2026-08-16T10:00:00.000Z"
   assert.equal(getParticipantDeltaCacheReason({
     survey_data_updated_at: "2026-08-16T10:01:00.000Z",
@@ -34,17 +35,50 @@ test("delta cache detects survey edits and new event enrollments", () => {
   }, baseline, 22), "newly_enrolled")
   assert.equal(getParticipantDeltaCacheReason({
     event_id: 22,
-    created_at: "2026-08-16T10:03:00.000Z",
+    event_enrolled_at: "2026-08-16T10:03:00.000Z",
   }, baseline, 22), "newly_enrolled")
   assert.equal(getParticipantDeltaCacheReason({
-    auto_signup_next_event: true,
-    updated_at: "2026-08-16T10:04:00.000Z",
+    event_id: 22,
+    created_at: "2026-08-16T10:04:00.000Z",
   }, baseline, 22), "newly_enrolled")
   assert.equal(getParticipantDeltaCacheReason({
     signup_for_next_event: true,
     next_event_signup_timestamp: "2026-08-16T09:59:00.000Z",
   }, baseline, 22), null)
 
+})
+
+test("operational participant updates do not invalidate delta cache", () => {
+  const baseline = "2026-08-16T10:00:00.000Z"
+  const operationalUpdate = "2026-08-16T10:05:00.000Z"
+
+  assert.equal(getParticipantDeltaCacheReason({
+    event_id: 22,
+    event_enrolled_at: "2026-08-16T09:00:00.000Z",
+    created_at: "2026-08-15T09:00:00.000Z",
+    updated_at: operationalUpdate,
+    last_twilio_action: "receipt",
+    last_twilio_action_at: operationalUpdate,
+  }, baseline, 22), null)
+
+  assert.equal(getParticipantDeltaCacheReason({
+    auto_signup_next_event: true,
+    next_event_signup_timestamp: "2026-08-16T09:30:00.000Z",
+    updated_at: operationalUpdate,
+  }, baseline, 22), null)
+})
+
+test("delta cache reports survey changes and enrollments separately", () => {
+  const baseline = "2026-08-16T10:00:00.000Z"
+  assert.deepEqual(getDeltaCacheReasonCounts([
+    { survey_data_updated_at: "2026-08-16T10:01:00.000Z" },
+    { event_id: 22, event_enrolled_at: "2026-08-16T10:02:00.000Z" },
+    { signup_for_next_event: true, next_event_signup_timestamp: "2026-08-16T10:03:00.000Z" },
+    { event_id: 22, event_enrolled_at: "2026-08-16T09:00:00.000Z", updated_at: "2026-08-16T10:04:00.000Z" },
+  ], baseline, 22), {
+    survey_changes: 1,
+    new_enrollments: 2,
+  })
 })
 
 test("vibe model detection accepts current score variants without accepting legacy models", () => {

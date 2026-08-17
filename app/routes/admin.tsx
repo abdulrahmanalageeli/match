@@ -787,6 +787,7 @@ export default function AdminPage() {
   
   // Delta cache count
   const [deltaCacheCount, setDeltaCacheCount] = useState(0)
+  const [deltaCacheReasonCounts, setDeltaCacheReasonCounts] = useState({ survey_changes: 0, new_enrollments: 0 })
   
   // Manual match management
   const [newManualMatch, setNewManualMatch] = useState({participant1: '', participant2: ''})
@@ -1896,6 +1897,7 @@ const fetchDeltaCacheParticipants = async () => {
     
     if (res.ok && data.participants) {
       setDeltaCacheParticipants(data.participants);
+      if (data.reasonCounts) setDeltaCacheReasonCounts(data.reasonCounts);
       console.log(`📋 Loaded ${data.participants.length} participants needing delta cache update`);
     } else {
       console.error("Error fetching delta cache participants:", data.error);
@@ -2101,9 +2103,11 @@ const fetchParticipants = async () => {
         })
         const deltaCacheData = await deltaCacheRes.json()
         setDeltaCacheCount(deltaCacheData.count || 0)
+        setDeltaCacheReasonCounts(deltaCacheData.reasonCounts || { survey_changes: 0, new_enrollments: 0 })
       } catch (deltaCacheError) {
         console.error("Error fetching delta cache count:", deltaCacheError)
         setDeltaCacheCount(0)
+        setDeltaCacheReasonCounts({ survey_changes: 0, new_enrollments: 0 })
       }
       
       // Auto-load available sessions and latest results (only on initial load)
@@ -4605,6 +4609,7 @@ Proceed?`
       let prefetchedRows = 0
       let failureDetails: DeltaCacheRunProgress['failures'] = []
       let participantsNeedingCache = 0
+      let deltaReasonCounts = { survey_changes: 0, new_enrollments: 0 }
       let totalEligible = 0
       let lastCacheTimestamp: string | null = null
       let isFresh = false
@@ -4671,6 +4676,7 @@ Proceed?`
         totalAiCalls += data.ai_calls_made || 0
         totalReusedVibe += data.reused_vibe_count || 0
         participantsNeedingCache = data.participants_needing_cache || 0
+        if (data.reason_counts) deltaReasonCounts = data.reason_counts
         totalEligible = data.total_eligible || 0
         lastCacheTimestamp = data.last_cache_timestamp || null
         totalDeltaPairs = data.progress?.total_pairs ?? totalDeltaPairs
@@ -4766,7 +4772,8 @@ Proceed?`
       } else {
         let successMessage = `✅ Delta Cache Complete!`
         successMessage += `\n\n📊 Smart Caching Results:`
-        successMessage += `\n• Changed/new participants: ${participantsNeedingCache}`
+        successMessage += `\n• Survey changes: ${deltaReasonCounts.survey_changes}`
+        successMessage += `\n• New enrollments: ${deltaReasonCounts.new_enrollments}`
         successMessage += `\n• New pairs cached: ${totalNewlyCached}`
         if (totalReusedVibe > 0) successMessage += `\n• AI vibe scores reused: ${totalReusedVibe}`
         if (totalAlreadyCached > 0) successMessage += `\n• Reused cached: ${totalAlreadyCached}`
@@ -5627,11 +5634,16 @@ Proceed?`
                 }
               }}
               title={deltaCacheCount === 0 
-                ? "Delta cache counts survey changes and participants newly enrolled after the last cache."
-                : "Click to see participants with survey changes or new event enrollment"}
+                ? "Delta cache follows matching data only: survey changes and new event enrollments."
+                : `${deltaCacheReasonCounts.survey_changes} survey changes, ${deltaCacheReasonCounts.new_enrollments} new enrollments`}
             >
               <span className="text-cyan-300 text-sm">Delta Cache: </span>
               <span className="font-bold text-cyan-200">{deltaCacheCount}</span>
+              {deltaCacheCount > 0 && (
+                <span className="ml-2 text-[10px] text-cyan-200/75">
+                  {deltaCacheReasonCounts.survey_changes} survey · {deltaCacheReasonCounts.new_enrollments} enrolled
+                </span>
+              )}
               {deltaCacheCount > 0 && (
                 <span className="ml-2 inline-flex items-center gap-1 bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 text-xs font-semibold px-2 py-0.5 rounded-full">
                   <Zap className="w-3 h-3" />
@@ -5654,6 +5666,17 @@ Proceed?`
                       <X className="w-3.5 h-3.5" />
                     </button>
                   </div>
+
+                  <div className="mb-3 grid grid-cols-2 gap-2">
+                    <div className="rounded-lg border border-violet-400/25 bg-violet-500/10 px-2.5 py-2">
+                      <div className="text-[10px] uppercase tracking-wide text-violet-300/70">Survey changes</div>
+                      <div className="text-sm font-bold text-violet-200">{deltaCacheReasonCounts.survey_changes}</div>
+                    </div>
+                    <div className="rounded-lg border border-emerald-400/25 bg-emerald-500/10 px-2.5 py-2">
+                      <div className="text-[10px] uppercase tracking-wide text-emerald-300/70">New enrollments</div>
+                      <div className="text-sm font-bold text-emerald-200">{deltaCacheReasonCounts.new_enrollments}</div>
+                    </div>
+                  </div>
                   
                   {loadingDeltaCacheParticipants ? (
                     <div className="flex items-center gap-2 text-cyan-300/70 text-xs">
@@ -5674,12 +5697,18 @@ Proceed?`
                             </span>
                           </div>
                           <div className="flex items-center gap-1.5">
+                            <span className={`border text-[10px] px-1.5 py-0.5 rounded ${participant.delta_reason === 'survey_updated'
+                              ? 'bg-violet-500/15 border-violet-500/30 text-violet-300'
+                              : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+                            }`}>
+                              {participant.delta_reason === 'survey_updated' ? 'Survey' : 'Enrolled'}
+                            </span>
                             <span className="bg-cyan-500/15 border border-cyan-500/30 text-cyan-400/80 text-[10px] px-1.5 py-0.5 rounded">
                               {participant.eligibility_reason}
                             </span>
                             <span className="text-cyan-500/60 text-[10px]">
-                              {participant.survey_data_updated_at ? 
-                                new Date(participant.survey_data_updated_at).toLocaleDateString() : 
+                              {participant.delta_changed_at ?
+                                new Date(participant.delta_changed_at).toLocaleDateString() :
                                 'Recently'
                               }
                             </span>
@@ -5695,8 +5724,8 @@ Proceed?`
                   
                   <div className="mt-3 pt-2 border-t border-cyan-500/20">
                     <p className="text-cyan-400/60 text-xs">
-                      These participants changed their survey or enrolled after the last cache.
-                      Use "Delta Cache" to update only these participants.
+                      Only matching-relevant survey changes and event enrollments appear here.
+                      Twilio, payment, receipt, and attendance updates do not invalidate the cache.
                     </p>
                   </div>
                 </div>

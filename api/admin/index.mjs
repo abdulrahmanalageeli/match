@@ -1,6 +1,6 @@
 import OpenAI from "openai"
 import { createHmac, timingSafeEqual } from "node:crypto"
-import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkAgeCompatibility, checkIntentHardGate, fetchAllCachedPairs, calculateHumorOpennessScore, isCurrentVibeModel, getParticipantDeltaCacheReason } from "./trigger-match.mjs"
+import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkAgeCompatibility, checkIntentHardGate, fetchAllCachedPairs, calculateHumorOpennessScore, isCurrentVibeModel, getParticipantDeltaCacheReason, getDeltaCacheReasonCounts } from "./trigger-match.mjs"
 import { buildWelcomePrompt } from "./ai-welcome-prompt.mjs"
 import { assignPriorityTables } from "../../server/event3/table-priority.mjs"
 import { buildSixBySevenPlan, optimizeRound2ByAge } from "../../server/event3/round2-age-optimizer.mjs"
@@ -5765,7 +5765,7 @@ export default async function handler(req, res) {
         // Fetch eligible participants (same logic as delta-pre-cache)
         const { data: allParticipants } = await supabase
           .from("participants")
-          .select("assigned_number, survey_data, survey_data_updated_at, signup_for_next_event, auto_signup_next_event, next_event_signup_timestamp, created_at, updated_at, event_id, signup_event_id")
+          .select("assigned_number, survey_data, survey_data_updated_at, signup_for_next_event, auto_signup_next_event, next_event_signup_timestamp, event_enrolled_at, created_at, event_id, signup_event_id")
           .eq("match_id", STATIC_MATCH_ID)
           .or(`signup_for_next_event.eq.true,event_id.eq.${event_id},auto_signup_next_event.eq.true`)
           .neq("assigned_number", 9999)
@@ -5782,9 +5782,11 @@ export default async function handler(req, res) {
         const needsCacheCount = eligibleParticipants.filter(p =>
           !!getParticipantDeltaCacheReason(p, lastCacheTimestamp, event_id)
         ).length
+        const reasonCounts = getDeltaCacheReasonCounts(eligibleParticipants, lastCacheTimestamp, event_id)
         
         return res.status(200).json({ 
           count: needsCacheCount,
+          reasonCounts,
           totalEligible: eligibleParticipants.length,
           lastCacheTimestamp
         })
@@ -5905,7 +5907,7 @@ export default async function handler(req, res) {
         // Fetch eligible participants with full details
         const { data: allParticipants } = await supabase
           .from("participants")
-          .select("assigned_number, name, survey_data, survey_data_updated_at, signup_for_next_event, auto_signup_next_event, next_event_signup_timestamp, created_at, updated_at, event_id, signup_event_id")
+          .select("assigned_number, name, survey_data, survey_data_updated_at, signup_for_next_event, auto_signup_next_event, next_event_signup_timestamp, event_enrolled_at, created_at, event_id, signup_event_id")
           .eq("match_id", STATIC_MATCH_ID)
           .or(`signup_for_next_event.eq.true,event_id.eq.${event_id},auto_signup_next_event.eq.true`)
           .neq("assigned_number", 9999)
@@ -5927,6 +5929,10 @@ export default async function handler(req, res) {
           name: p.name || p.survey_data?.name || `#${p.assigned_number}`,
           survey_data_updated_at: p.survey_data_updated_at,
           next_event_signup_timestamp: p.next_event_signup_timestamp,
+          event_enrolled_at: p.event_enrolled_at,
+          delta_changed_at: delta_reason === 'survey_updated'
+            ? p.survey_data_updated_at
+            : (p.next_event_signup_timestamp || p.event_enrolled_at || p.created_at),
           delta_reason,
           eligibility_reason: p.event_id === event_id ? 'Current Event' : 
                              p.signup_for_next_event ? 'Next Event Signup' : 
@@ -5936,6 +5942,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ 
           participants: needsCacheParticipants,
           count: needsCacheParticipants.length,
+          reasonCounts: getDeltaCacheReasonCounts(eligibleParticipants, lastCacheTimestamp, event_id),
           lastCacheTimestamp,
           totalEligible: eligibleParticipants.length
         })
@@ -8062,38 +8069,51 @@ export default async function handler(req, res) {
       try {
         const { event_id, last_cache_timestamp } = req.body
         console.log(`Getting participants needing cache for event_id: ${event_id}`)
-        
-        // Build query to find participants updated after last cache timestamp
-        let query = supabase
+
+        const baseline = last_cache_timestamp || (await supabase
+          .rpc('get_last_precache_timestamp', { p_event_id: event_id })).data
+        if (!baseline) {
+          return res.status(200).json({
+            success: true,
+            event_id,
+            last_cache_timestamp: null,
+            participants: [],
+            count: 0,
+            reasonCounts: { survey_changes: 0, new_enrollments: 0 },
+          })
+        }
+
+        const { data, error } = await supabase
           .from("participants")
-          .select("assigned_number, survey_data_updated_at, name, gender, age")
+          .select("assigned_number, survey_data, survey_data_updated_at, signup_for_next_event, auto_signup_next_event, next_event_signup_timestamp, event_enrolled_at, created_at, event_id, signup_event_id, name, gender, age")
           .eq("match_id", STATIC_MATCH_ID)
           .neq("assigned_number", 9999)
           .not("survey_data", "is", null)
-        
-        // Filter by event eligibility
-        query = query.or(`signup_for_next_event.eq.true,event_id.eq.${event_id},auto_signup_next_event.eq.true`)
-        
-        // If last_cache_timestamp provided, filter for updates after that time
-        if (last_cache_timestamp && last_cache_timestamp !== '1970-01-01T00:00:00Z') {
-          query = query.or(`survey_data_updated_at.is.null,survey_data_updated_at.gt.${last_cache_timestamp}`)
-        }
-        
-        const { data, error } = await query.order('survey_data_updated_at', { ascending: false, nullsFirst: false })
+          .or(`signup_for_next_event.eq.true,event_id.eq.${event_id},auto_signup_next_event.eq.true`)
         
         if (error) {
           console.error("Error getting participants needing cache:", error)
           return res.status(500).json({ error: error.message })
         }
-        
-        console.log(`Found ${data?.length || 0} participants needing cache`)
+
+        const eligibleParticipants = (data || []).filter(p =>
+          p.survey_data && typeof p.survey_data === 'object' && Object.keys(p.survey_data).length > 0
+        )
+        const participants = eligibleParticipants.map(participant => ({
+          ...participant,
+          delta_reason: getParticipantDeltaCacheReason(participant, baseline, event_id),
+        })).filter(participant => !!participant.delta_reason)
+        const reasonCounts = getDeltaCacheReasonCounts(eligibleParticipants, baseline, event_id)
+
+        console.log(`Found ${participants.length} participants needing cache`)
         
         return res.status(200).json({
           success: true,
           event_id,
-          last_cache_timestamp,
-          participants: data || [],
-          count: data?.length || 0
+          last_cache_timestamp: baseline,
+          participants,
+          count: participants.length,
+          reasonCounts,
         })
       } catch (error) {
         console.error("Error in get-participants-needing-cache:", error)

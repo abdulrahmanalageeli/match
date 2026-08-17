@@ -2,12 +2,14 @@
 
 ## Overview
 
-The Delta Caching system provides **smart incremental caching** that only recalculates compatibility for participants who have updated their survey data, dramatically reducing API costs and processing time.
+The Delta Caching system provides **smart incremental caching** that only recalculates compatibility for participants whose matching data changed: a survey edit or a new event enrollment. Operational participant updates such as Twilio actions, receipts, payment, and attendance do not invalidate compatibility cache entries.
 
 ## 🎯 Key Features
 
 - ✅ **Tracks Last Cache Timestamp** per event
 - ✅ **Identifies Updated Participants** automatically
+- ✅ **Separates Survey Changes from New Enrollments**
+- ✅ **Ignores Operational `updated_at` Changes**
 - ✅ **Caches Only Changed Pairs** (not everything)
 - ✅ **Records Cache Sessions** with metrics
 - ✅ **Cache Freshness Monitoring** 
@@ -68,6 +70,10 @@ POST /api/admin/trigger-match
   "already_cached": 12,
   "skipped": 3,
   "participants_needing_cache": 5,
+  "reason_counts": {
+    "survey_changes": 3,
+    "new_enrollments": 2
+  },
   "total_eligible": 50,
   "pairs_checked": 245,
   "ai_calls_made": 45,
@@ -79,7 +85,7 @@ POST /api/admin/trigger-match
 
 **How It Works:**
 1. Gets last cache timestamp for the event
-2. Finds participants updated after that timestamp
+2. Finds survey edits and dedicated event-enrollment timestamps after that timestamp
 3. **Deletes all existing cache entries** for updated participants (prevents orphaned entries)
 4. Caches only pairs involving updated participants
 5. Records session metadata for future delta runs
@@ -145,6 +151,7 @@ POST /api/admin
     {
       "assigned_number": 1001,
       "survey_data_updated_at": "2025-11-12T02:30:00Z",
+      "delta_reason": "survey_updated",
       "name": "Ahmed",
       "gender": "male",
       "age": 28

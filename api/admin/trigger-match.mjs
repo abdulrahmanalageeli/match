@@ -125,15 +125,29 @@ function getParticipantDeltaCacheReason(participant, lastCacheTimestamp, eventId
 
   if (signedUp || autoSignedUp) {
     addEnrollmentTime(participant?.next_event_signup_timestamp)
-    // Older/admin auto-signup paths did not always set the dedicated signup timestamp.
-    if (enrollmentTimes.length === 0) addEnrollmentTime(participant?.updated_at)
   }
   if (directlyAssigned) {
-    addEnrollmentTime(participant?.created_at)
-    addEnrollmentTime(participant?.updated_at)
+    const eventEnrolledAt = Date.parse(String(participant?.event_enrolled_at || ''))
+    if (Number.isFinite(eventEnrolledAt)) {
+      enrollmentTimes.push(eventEnrolledAt)
+    } else {
+      // Temporary fallback for rows created before event_enrolled_at existed.
+      // Never fall back to updated_at: receipts, attendance, payment, and Twilio
+      // actions update it without changing anything used for matching.
+      addEnrollmentTime(participant?.created_at)
+    }
   }
 
   return enrollmentTimes.some(timestamp => timestamp > baseline) ? 'newly_enrolled' : null
+}
+
+function getDeltaCacheReasonCounts(participants, lastCacheTimestamp, eventId) {
+  return (participants || []).reduce((counts, participant) => {
+    const reason = getParticipantDeltaCacheReason(participant, lastCacheTimestamp, eventId)
+    if (reason === 'survey_updated') counts.survey_changes += 1
+    if (reason === 'newly_enrolled') counts.new_enrollments += 1
+    return counts
+  }, { survey_changes: 0, new_enrollments: 0 })
 }
 
 const COMPATIBILITY_SCORE_VERSION = '2026-08-16-v6-feedback-composites'
@@ -3774,7 +3788,7 @@ function getLockedMatch(participantA, participantB, lockedPairs) {
   )
 }
 
-export { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkAgeCompatibility, checkIntentHardGate, checkInteractionStyleCompatibility, hasHumorStyleClash, fetchAllCachedPairs, calculateHumorOpennessScore, calculateInteractionSynergyScore, calculateLifestyleCompatibility, calculateConversationInitiativePreferenceScore, getOneYearAgeFlexDecision, getAgeTolerance, buildManualPairGateReport, isCurrentVibeModel, getParticipantDeltaCacheReason }
+export { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkAgeCompatibility, checkIntentHardGate, checkInteractionStyleCompatibility, hasHumorStyleClash, fetchAllCachedPairs, calculateHumorOpennessScore, calculateInteractionSynergyScore, calculateLifestyleCompatibility, calculateConversationInitiativePreferenceScore, getOneYearAgeFlexDecision, getAgeTolerance, buildManualPairGateReport, isCurrentVibeModel, getParticipantDeltaCacheReason, getDeltaCacheReasonCounts }
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -4650,7 +4664,7 @@ if (action === "cache-status-by-gender") {
       // Step 2: Fetch all eligible participants
       const { data: allParticipants, error } = await supabase
         .from("participants")
-        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, survey_data_updated_at, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
+        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, survey_data_updated_at, next_event_signup_timestamp, event_enrolled_at, created_at, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
         .eq("match_id", match_id)
         .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
         .neq("assigned_number", 9999)
@@ -4681,6 +4695,7 @@ if (action === "cache-status-by-gender") {
         }
         return !!reason
       })
+      const reasonCounts = getDeltaCacheReasonCounts(allEligibleParticipants, lastCacheTimestamp, eventId)
       
       console.log(`\n${'='.repeat(80)}`)
       console.log(`📊 DELTA CACHE SUMMARY:`)
@@ -4707,6 +4722,7 @@ if (action === "cache-status-by-gender") {
           already_cached: 0,
           skipped: 0,
           participants_needing_cache: 0,
+          reason_counts: reasonCounts,
           total_eligible: allEligibleParticipants.length,
           last_cache_timestamp: lastCacheTimestamp,
           duration_seconds: ((Date.now() - startTime) / 1000).toFixed(2),
@@ -4897,6 +4913,7 @@ if (action === "cache-status-by-gender") {
         metadata_updated: metadataUpdated,
         metadata_error: metadataUpdateError,
         participants_needing_cache: participantsNeedingCache.length,
+        reason_counts: reasonCounts,
         total_eligible: allEligibleParticipants.length,
         pairs_checked: pairsToCache.length,
         ai_calls_made: aiCallsMade,
@@ -4958,7 +4975,7 @@ if (action === "cache-status-by-gender") {
       // Step 2: Fetch all eligible participants
       const { data: allParticipants, error } = await supabase
         .from("participants")
-        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, survey_data_updated_at, next_event_signup_timestamp, created_at, updated_at, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
+        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, survey_data_updated_at, next_event_signup_timestamp, event_enrolled_at, created_at, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
         .eq("match_id", match_id)
         .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
         .neq("assigned_number", 9999)
@@ -4982,6 +4999,7 @@ if (action === "cache-status-by-gender") {
         if (reason) updatedNumbers.add(p.assigned_number)
         return !!reason
       })
+      const reasonCounts = getDeltaCacheReasonCounts(allEligibleParticipants, lastCacheTimestamp, eventId)
       const updatedParticipantNumbers = participantsNeedingCache.map(p => p.assigned_number)
       const participantNumbers = allEligibleParticipants.map(p => p.assigned_number)
       const unchangedParticipants = totalParticipants - participantsNeedingCache.length
@@ -4995,6 +5013,7 @@ if (action === "cache-status-by-gender") {
           already_cached: 0,
           skipped: 0,
           participants_needing_cache: 0,
+          reason_counts: reasonCounts,
           total_eligible: totalParticipants,
           last_cache_timestamp: lastCacheTimestamp,
           message: 'Cache is fresh - no surveys changed and no participants enrolled.',
@@ -5264,6 +5283,7 @@ if (action === "cache-status-by-gender") {
         errors,
         failures: failureDetails,
         participants_needing_cache: participantsNeedingCache.length,
+        reason_counts: reasonCounts,
         total_eligible: totalParticipants,
         pairs_processed: pairsProcessed,
         ai_calls_made: aiCallsMade,

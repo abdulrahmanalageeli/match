@@ -1,6 +1,5 @@
 ﻿import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react"
 import { useId } from "react"
-import { flushSync } from "react-dom"
 import { GroupsPage } from "./groups"
 import { useSearchParams } from "react-router"
 import toast, { Toaster } from "react-hot-toast"
@@ -2364,7 +2363,7 @@ function RankingReorderCard({
 }
 
 // ─── Ranking Screen ───────────────────────────────────────────────────────────
-function RankingScreen({ token, completedRounds, currentPhase, timerActive, timerStart, timerDuration, correctedNow, myInfo }: { token: string, completedRounds: number, currentPhase: string, timerActive: boolean, timerStart: string | null, timerDuration: number, correctedNow?: () => number, myInfo: { number: number; name: string; gender: string | null } | null }) {
+function RankingScreen({ token, completedRounds, currentPhase, timerActive, timerStart, timerDuration, correctedNow, myInfo, onOpenGroupFeedback }: { token: string, completedRounds: number, currentPhase: string, timerActive: boolean, timerStart: string | null, timerDuration: number, correctedNow?: () => number, myInfo: { number: number; name: string; gender: string | null } | null, onOpenGroupFeedback: (round: 1 | 2) => void }) {
   const [people, setPeople] = useState<any[]>([])
   const [order, setOrder] = useState<number[]>([])
   const [newNums, setNewNums] = useState<Set<number>>(new Set())
@@ -2375,7 +2374,6 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   const [openNote, setOpenNote] = useState<number | null>(null)
   const [savingNote, setSavingNote] = useState<number | null>(null)
   const [showConfirm, setShowConfirm] = useState(false)
-  const [showGroupReflection, setShowGroupReflection] = useState(false)
   const [showPhaseWarning, setShowPhaseWarning] = useState(false)
   const [showRankTutorial, setShowRankTutorial] = useState(typeof window === "undefined" || sessionStorage.getItem('e3_tut_ranking') !== "1")
   const [timeLeft, setTimeLeft] = useState(300) // fallback, overwritten by server timer
@@ -2453,9 +2451,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
       const d = await call('e3-submit-ranking', token, { ranked_list: orderRef.current, auto_saved: true })
       setAutoSaving(false)
       if (d.error) { toast.error(d.error); return }
-      // Open the optional group feedback at the exact successful-save boundary,
-      // before rendering the submitted ranking state.
-      flushSync(() => setShowGroupReflection(true))
+      onOpenGroupFeedback(completedRounds >= 2 ? 2 : 1)
       setSubmitted(true)
       toast('انتهى الوقت — تم حفظ تصنيفك تلقائياً', { duration: 5000, icon: '⏰' })
     }
@@ -2481,11 +2477,8 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
     const d = await call("e3-submit-ranking", token, { ranked_list: order })
     setSubmitting(false)
     if (d.error) { toast.error(d.error); return }
-    // Replace the confirmation with feedback immediately after the save succeeds.
-    flushSync(() => {
-      setShowConfirm(false)
-      setShowGroupReflection(true)
-    })
+    setShowConfirm(false)
+    onOpenGroupFeedback(completedRounds >= 2 ? 2 : 1)
     setSubmitted(true)
     toast.success(completedRounds >= 2 ? "تم حفظ تصنيفك النهائي!" : "تم حفظ تصنيفك!")
   }
@@ -2818,7 +2811,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
               </div>
               <motion.button
                 initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                onClick={() => setShowGroupReflection(true)} whileTap={{ scale: 0.97 }}
+                onClick={() => onOpenGroupFeedback(completedRounds >= 2 ? 2 : 1)} whileTap={{ scale: 0.97 }}
                 className="flex w-full items-center justify-center gap-2 rounded-xl border border-purple-400/20 bg-purple-500/10 py-3 text-xs font-black text-purple-200"
               >
                 <Trophy size={14} />
@@ -2933,15 +2926,6 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {showGroupReflection && (
-          <GroupReflectionSheet
-            token={token}
-            groupRound={(completedRounds >= 2 ? 2 : 1) as 1 | 2}
-            onClose={() => setShowGroupReflection(false)}
-          />
-        )}
-      </AnimatePresence>
     </PageWrapper>
   )
 }
@@ -6055,6 +6039,7 @@ export default function Event3Page() {
   const [testModeBlocked, setTestModeBlocked] = useState(false)
   const [groupsOpen, setGroupsOpen] = useState(false)
   const [finalQuestionsOpen, setFinalQuestionsOpen] = useState(false)
+  const [pendingGroupFeedbackRound, setPendingGroupFeedbackRound] = useState<1 | 2 | null>(null)
   const aiWelcomeSeenKey = token ? `e3_ai_welcome_seen_${token}` : null
 
   const fetchState = useCallback(async () => {
@@ -6105,6 +6090,18 @@ export default function Event3Page() {
     }
     prevPhaseRef.current = cur
   }, [eventState?.phase])
+
+  // Feedback belongs to one completed group round. It may remain open while
+  // the organizer advances to the following phase, but stale round-1 feedback
+  // must never cover the second ranking screen.
+  useEffect(() => {
+    if (!pendingGroupFeedbackRound) return
+    const phase = String(eventState?.phase || "")
+    const nextRanking = phase.match(/^ranking([12])$/)
+    if (phase === "setup" || (nextRanking && Number(nextRanking[1]) !== pendingGroupFeedbackRound)) {
+      setPendingGroupFeedbackRound(null)
+    }
+  }, [eventState?.phase, pendingGroupFeedbackRound])
 
   useEffect(() => {
     const p = searchParams.get("token") || searchParams.get("t")
@@ -6245,6 +6242,11 @@ export default function Event3Page() {
   const isRound = /^round[123]$/.test(phase)
   const rankingMatch = phase.match(/^ranking([123])$/)
   const completedRounds = rankingMatch ? parseInt(rankingMatch[1]) : null
+  const visibleGroupFeedbackRound = pendingGroupFeedbackRound
+    && phase !== "setup"
+    && !(completedRounds && completedRounds !== pendingGroupFeedbackRound)
+    ? pendingGroupFeedbackRound
+    : null
 
   return (
     <div className="h-[100dvh] flex flex-col bg-gray-950 overflow-hidden" dir="rtl">
@@ -6266,7 +6268,7 @@ export default function Event3Page() {
         <AnimatePresence>
           {phase === "setup" && <SetupScreen key="setup" token={token} myInfo={myInfo} enrolledCount={eventState?.participants_selected ?? null} />}
           {isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} myInfo={myInfo} onGroupsOpenChange={setGroupsOpen} />}
-          {completedRounds && <RankingScreen key={phase} token={token} completedRounds={completedRounds} currentPhase={phase} {...timerProps} myInfo={myInfo} />}
+          {completedRounds && <RankingScreen key={phase} token={token} completedRounds={completedRounds} currentPhase={phase} {...timerProps} myInfo={myInfo} onOpenGroupFeedback={setPendingGroupFeedbackRound} />}
           {phase === "phase2_reveal" && <Phase2RevealScreen key="p2r" token={token} eventId={eventState?.event_id} {...timerProps} />}
           {phase === "phase3_reveal" && <Phase3RevealScreen key="p3r" token={token} eventId={eventState?.event_id} {...timerProps} />}
           {(phase === "phase2_processing" || phase === "phase3_processing") && <ProcessingScreen key="processing" phase={phase} />}
@@ -6282,6 +6284,17 @@ export default function Event3Page() {
       {enrolled && token && !finalQuestionsOpen && <MoodCheckModal token={token} name={myInfo?.name} moodCheck={eventState?.mood_check} />}
       {/* Notification popup — receives notification data from heartbeat */}
       {enrolled && token && !finalQuestionsOpen && <NotificationModal token={token} notification={eventState?.notification} />}
+
+      <AnimatePresence>
+        {visibleGroupFeedbackRound && (
+          <GroupReflectionSheet
+            key={`group-feedback-${visibleGroupFeedbackRound}`}
+            token={token}
+            groupRound={visibleGroupFeedbackRound}
+            onClose={() => setPendingGroupFeedbackRound(null)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* AI Welcome popup — shows once after welcome screen */}
       {showAiWelcome && token && !finalQuestionsOpen && <AiWelcomePopup token={token} onDone={() => {

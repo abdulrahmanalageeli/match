@@ -23,6 +23,7 @@ interface RunStats {
   skipped: number
   errors: number
   pairs_processed: number
+  failures?: Array<{ participant_a_number?: number; participant_b_number?: number; reason?: string }>
 }
 
 interface BatchProgress {
@@ -91,8 +92,15 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
 
   const setSide = (_mode: GenderMode, updater: (prev: SideState) => SideState) => setPreference(updater)
 
-  const fetchStatus = async (mode: GenderMode) => {
-    setSide(mode, (p) => ({ ...p, statusLoading: true, lastError: null }))
+  const fetchStatus = async (
+    mode: GenderMode,
+    { preserveError = false }: { preserveError?: boolean } = {},
+  ) => {
+    setSide(mode, (p) => ({
+      ...p,
+      statusLoading: true,
+      lastError: preserveError ? p.lastError : null,
+    }))
     try {
       let nextStart = 0
       let resumeCursor: { i: number; j: number } | null = null
@@ -180,6 +188,8 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
 
     let nextStart = 0
     let resumeCursor: { i: number; j: number } | null = null
+    let cumulativeErrors = 0
+    let runError: string | null = null
     while (true) {
       const cur = getRef()
       if (cur.cancelRequested) break
@@ -202,6 +212,7 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
             batchSize,
             resumeCursor,
             skipAI: false,
+            priorErrors: cumulativeErrors,
           }),
         })
         const data = await readJsonResponse(res)
@@ -211,6 +222,7 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
 
         const stats: RunStats = data.stats
         const progress: BatchProgress = data.progress
+        cumulativeErrors += stats.errors || 0
 
         setSide(mode, (p) => ({
           ...p,
@@ -227,6 +239,22 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
 
         resumeCursor = progress.resume_cursor ?? null
 
+        if (stats.errors > 0) {
+          const firstFailure = Array.isArray(stats.failures) ? stats.failures[0] : null
+          const pairLabel = firstFailure?.participant_a_number != null && firstFailure?.participant_b_number != null
+            ? ` Pair #${firstFailure.participant_a_number} × #${firstFailure.participant_b_number}: ${firstFailure.reason || "unknown error"}.`
+            : ""
+          runError = `Pre-cache stopped after ${cumulativeErrors} pair failure${cumulativeErrors === 1 ? "" : "s"}.${pairLabel} Cache freshness was not advanced; run it again to retry.`
+          setSide(mode, (p) => ({ ...p, lastError: runError }))
+          break
+        }
+
+        if (!progress.has_more && data.metadata_updated === false) {
+          runError = data.metadata_error || "Caching finished, but cache freshness metadata could not be updated."
+          setSide(mode, (p) => ({ ...p, lastError: runError }))
+          break
+        }
+
         if (!progress.has_more || progress.next_batch_start == null) break
 
         if (progress.next_batch_start !== nextStart) {
@@ -237,14 +265,15 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
         // Small breather between batches so the system isn't slammed
         await new Promise((r) => setTimeout(r, 150))
       } catch (err: any) {
-        setSide(mode, (p) => ({ ...p, lastError: err?.message || String(err) }))
+        runError = err?.message || String(err)
+        setSide(mode, (p) => ({ ...p, lastError: runError }))
         break
       }
     }
 
-    setSide(mode, (p) => ({ ...p, running: false, finished: !p.cancelRequested }))
+    setSide(mode, (p) => ({ ...p, running: false, finished: !p.cancelRequested && !runError }))
     // Refresh status to reflect new cache coverage
-    await fetchStatus(mode)
+    await fetchStatus(mode, { preserveError: Boolean(runError) })
   }
 
   const onStart = (mode: GenderMode) => {

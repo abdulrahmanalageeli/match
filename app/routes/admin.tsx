@@ -4637,7 +4637,7 @@ Proceed?`
               skipAI: false,
               resumeCursor,
               maxDurationMs: 8000,
-              maxNewCachesPerRequest: 12,
+              maxNewCachesPerRequest: 16,
               maxPairsPerRequest: 250,
             }),
           })

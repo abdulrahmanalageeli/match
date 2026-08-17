@@ -106,7 +106,7 @@ function isCurrentVibeModel(modelUsed) {
   return String(modelUsed || '').startsWith('gpt-5.4-mini')
 }
 
-function getParticipantDeltaCacheReason(participant, lastCacheTimestamp, eventId) {
+function getParticipantDeltaCacheReason(participant, lastCacheTimestamp, eventId, cachedParticipantNumbers = null) {
   const baseline = Date.parse(String(lastCacheTimestamp || ''))
   if (!Number.isFinite(baseline)) return null
 
@@ -119,6 +119,12 @@ function getParticipantDeltaCacheReason(participant, lastCacheTimestamp, eventId
     if (Number.isFinite(timestamp)) enrollmentTimes.push(timestamp)
   }
   const activeEventId = Number(eventId)
+  const participantNumber = Number(participant?.assigned_number)
+  if (cachedParticipantNumbers instanceof Set
+      && Number.isFinite(participantNumber)
+      && !cachedParticipantNumbers.has(participantNumber)) {
+    return 'newly_enrolled'
+  }
   const directlyAssigned = Number(participant?.event_id) === activeEventId
   const signedUp = participant?.signup_for_next_event === true
   const autoSignedUp = participant?.auto_signup_next_event === true
@@ -134,6 +140,42 @@ function getParticipantDeltaCacheReason(participant, lastCacheTimestamp, eventId
   }
 
   return enrollmentTimes.some(timestamp => timestamp > baseline) ? 'newly_enrolled' : null
+}
+
+async function fetchCachedParticipantNumbers(matchId, eventId) {
+  const { data, error } = await supabase
+    .from('cache_participant_snapshots')
+    .select('participant_number')
+    .eq('match_id', matchId)
+    .eq('event_id', eventId)
+  if (error) throw error
+  return new Set((data || []).map(row => Number(row.participant_number)))
+}
+
+async function recordCompletedCacheSession({
+  matchId,
+  eventId,
+  participantNumbers,
+  participantsCached,
+  pairsCached,
+  durationMs,
+  aiCalls,
+  cacheHitRate,
+  notes,
+}) {
+  const { data, error } = await supabase.rpc('record_cache_session_with_participants', {
+    p_match_id: matchId,
+    p_event_id: eventId,
+    p_participant_numbers: participantNumbers,
+    p_participants_cached: participantsCached,
+    p_pairs_cached: pairsCached,
+    p_duration_ms: durationMs,
+    p_ai_calls: aiCalls,
+    p_cache_hit_rate: cacheHitRate,
+    p_notes: notes,
+  })
+  if (error) throw error
+  return data
 }
 const COMPATIBILITY_SCORE_VERSION = '2026-08-16-v6-feedback-composites'
 // Production cache rows created from this point used the temporary 15-point
@@ -3883,6 +3925,7 @@ export default async function handler(req, res) {
       let cachedCount = 0
       let alreadyCached = 0
       let skipped = 0
+      let errors = 0
       let totalPairs = 0
       
       // Calculate total possible pairs for logging
@@ -3949,7 +3992,7 @@ export default async function handler(req, res) {
         } catch (error) {
           console.error(`   ❌ ERROR caching pair #${p1.assigned_number} × #${p2.assigned_number}:`, error.message)
           console.error(`   Stack trace:`, error.stack)
-          // Don't increment cachedCount on error, continue to next pair
+          errors++
         }
         }
       }
@@ -3967,20 +4010,33 @@ export default async function handler(req, res) {
       const duration = ((Date.now() - startTime) / 1000).toFixed(2)
       const durationMs = Date.now() - startTime
       
-      // Record cache session metadata
-      try {
-        await supabase.rpc('record_cache_session', {
-          p_event_id: eventId,
-          p_participants_cached: participants.length,
-          p_pairs_cached: cachedCount,
-          p_duration_ms: durationMs,
-          p_ai_calls: cachedCount, // Each new cache uses AI
-          p_cache_hit_rate: totalPairs > 0 ? parseFloat(((alreadyCached / totalPairs) * 100).toFixed(2)) : 0,
-          p_notes: `Pre-cache: ${cacheAll ? 'ALL' : count} pairs, ${direction} direction`
-        })
-        console.log(`✅ Cache session metadata recorded`)
-      } catch (metaError) {
-        console.error("⚠️ Failed to record cache metadata (non-fatal):", metaError)
+      let metadataUpdated = null
+      let metadataUpdateError = null
+      // A partial count run is not a complete freshness baseline. Only a
+      // successful all-pairs run may advance the delta-cache session.
+      if (cacheAll && errors === 0) {
+        try {
+          await recordCompletedCacheSession({
+            matchId: match_id,
+            eventId,
+            participantNumbers: participants.map(participant => participant.assigned_number),
+            participantsCached: participants.length,
+            pairsCached: cachedCount,
+            durationMs,
+            aiCalls: cachedCount,
+            cacheHitRate: totalPairs > 0 ? parseFloat(((alreadyCached / totalPairs) * 100).toFixed(2)) : 0,
+            notes: `Pre-cache: ALL pairs, ${direction} direction`,
+          })
+          metadataUpdated = true
+          console.log(`✅ Cache session metadata and participant snapshot recorded`)
+        } catch (metaError) {
+          metadataUpdated = false
+          metadataUpdateError = metaError?.message || 'Failed to update cache metadata'
+          console.error("⚠️ Failed to record cache metadata:", metaError)
+        }
+      } else if (cacheAll && errors > 0) {
+        metadataUpdated = false
+        metadataUpdateError = `Cache freshness was not advanced because ${errors} pair(s) failed`
       }
       
       console.log(`✅ PRE-CACHE COMPLETE: ${cachedCount} new, ${alreadyCached} already cached, ${skipped} skipped, ${duration}s`)
@@ -3990,6 +4046,9 @@ export default async function handler(req, res) {
         cached_count: cachedCount,
         already_cached: alreadyCached,
         skipped: skipped,
+        errors,
+        metadata_updated: metadataUpdated,
+        metadata_error: metadataUpdateError,
         total_cached: totalCached || 0,
         duration_seconds: duration,
         message: `Pre-cached ${cachedCount} compatibility calculations`
@@ -4023,6 +4082,7 @@ export default async function handler(req, res) {
       maxNewCachesPerRequest = null,
       maxDurationMs = null,
       finalizeDeltaCacheMetadata = true,
+      priorErrors = 0,
     } = req.body || {}
 
     if (!['same', 'opposite', 'preference'].includes(genderMode)) {
@@ -4286,6 +4346,8 @@ export default async function handler(req, res) {
 
       const hasMore = !!nextResumeCursor || endExclusive < totalParticipants
       const durationMs = Date.now() - startTime
+      const safePriorErrors = Math.max(0, Number.parseInt(priorErrors) || 0)
+      const cumulativeErrors = safePriorErrors + errors
 
       console.log(`💾 BATCH CACHE [${genderMode}] COMPLETE: processed=${pairsProcessed}, newly=${newlyCached}, already=${alreadyCached}, skipped=${skipped}, errors=${errors}`)
 
@@ -4293,23 +4355,32 @@ export default async function handler(req, res) {
       // Batched caching can fully refresh the cache, but without updating cache_metadata
       // delta cache will still think work remains (because last_precache_timestamp is stale).
       // Only update metadata when the entire batched run is complete (has_more=false).
-      if (!hasMore && finalizeDeltaCacheMetadata && errors === 0) {
+      let metadataUpdated = null
+      let metadataUpdateError = null
+      if (!hasMore && finalizeDeltaCacheMetadata && cumulativeErrors === 0) {
         try {
-          await supabase.rpc('record_cache_session', {
-            p_event_id: eventId,
-            p_participants_cached: totalParticipants,
+          await recordCompletedCacheSession({
+            matchId: match_id,
+            eventId,
+            participantNumbers,
+            participantsCached: totalParticipants,
             // We can't reliably know total new caches across all batch requests without client aggregation.
-            // The key requirement for delta cache is updating last_precache_timestamp, which this RPC does.
-            p_pairs_cached: newlyCached,
-            p_duration_ms: durationMs,
-            p_ai_calls: aiCallsMade,
-            p_cache_hit_rate: pairsProcessed > 0 ? parseFloat(((alreadyCached / pairsProcessed) * 100).toFixed(2)) : 0,
-            p_notes: `Batched pre-cache (${genderMode}) complete: participants=${totalParticipants}`
+            pairsCached: newlyCached,
+            durationMs,
+            aiCalls: aiCallsMade,
+            cacheHitRate: pairsProcessed > 0 ? parseFloat(((alreadyCached / pairsProcessed) * 100).toFixed(2)) : 0,
+            notes: `Batched pre-cache (${genderMode}) complete: participants=${totalParticipants}`,
           })
+          metadataUpdated = true
           console.log(`✅ Batched cache completed: cache_metadata updated (delta cache will be fresh)`)
         } catch (metaError) {
+          metadataUpdated = false
+          metadataUpdateError = metaError?.message || 'Failed to update cache metadata'
           console.error('⚠️ Failed to update cache_metadata for batched cache (non-fatal):', metaError)
         }
+      } else if (!hasMore && cumulativeErrors > 0) {
+        metadataUpdated = false
+        metadataUpdateError = `Cache metadata was not advanced because ${cumulativeErrors} pair(s) failed during this run`
       }
 
       return res.status(200).json({
@@ -4332,6 +4403,8 @@ export default async function handler(req, res) {
           cache_rows_prefetched: prefetchedCacheRows?.length || 0,
           duration_ms: durationMs,
         },
+        metadata_updated: metadataUpdated,
+        metadata_error: metadataUpdateError,
         progress: {
           participants_completed: nextResumeCursor ? Math.min(endExclusive, nextResumeCursor.i) : endExclusive,
           participants_total: totalParticipants,
@@ -4629,6 +4702,7 @@ if (action === "cache-status-by-gender") {
       
       // Filter for complete participants
       const allEligibleParticipants = allParticipants.filter(p => isParticipantComplete(p))
+      const cachedParticipantNumbers = await fetchCachedParticipantNumbers(match_id, eventId)
       
       console.log(`📊 Found ${allEligibleParticipants.length} total eligible participants`)
       
@@ -4643,7 +4717,7 @@ if (action === "cache-status-by-gender") {
       console.log(`${'='.repeat(80)}\n`)
       
       const participantsNeedingCache = allEligibleParticipants.filter(p => {
-        const reason = getParticipantDeltaCacheReason(p, lastCacheTimestamp, eventId)
+        const reason = getParticipantDeltaCacheReason(p, lastCacheTimestamp, eventId, cachedParticipantNumbers)
         if (reason) {
           console.log(`🔄 #${p.assigned_number} - ${reason === 'newly_enrolled' ? 'ENROLLED' : 'UPDATED'} after cache`)
         } else {
@@ -4750,6 +4824,7 @@ if (action === "cache-status-by-gender") {
       let alreadyCached = 0
       let skipped = 0
       let aiCallsMade = 0
+      let errors = 0
       
       console.log(`\n${'='.repeat(80)}`)
       console.log(`⚡ DELTA CACHING PROCESS STARTED`)
@@ -4808,29 +4883,37 @@ if (action === "cache-status-by-gender") {
           
         } catch (error) {
           console.error(`   ❌ ERROR caching pair #${p1.assigned_number} × #${p2.assigned_number}:`, error.message)
+          errors++
         }
       }
       
       const duration = ((Date.now() - startTime) / 1000).toFixed(2)
       const durationMs = Date.now() - startTime
       
-      // Step 7: Record cache session in metadata
-      try {
-        const cacheHitRate = pairsToCache.length > 0 ? ((alreadyCached / pairsToCache.length) * 100).toFixed(2) : 0
-        
-        await supabase.rpc('record_cache_session', {
-          p_event_id: eventId,
-          p_participants_cached: participantsNeedingCache.length,
-          p_pairs_cached: cachedCount,
-          p_duration_ms: durationMs,
-          p_ai_calls: aiCallsMade,
-          p_cache_hit_rate: parseFloat(cacheHitRate),
-          p_notes: `Delta cache: ${participantsNeedingCache.length} participants updated since ${lastCacheTimestamp}`
-        })
-        
-        console.log(`✅ Cache session metadata recorded`)
-      } catch (metaError) {
-        console.error("⚠️ Failed to record cache metadata (non-fatal):", metaError)
+      let metadataUpdated = false
+      let metadataUpdateError = null
+      if (errors === 0) {
+        try {
+          const cacheHitRate = pairsToCache.length > 0 ? ((alreadyCached / pairsToCache.length) * 100).toFixed(2) : 0
+          await recordCompletedCacheSession({
+            matchId: match_id,
+            eventId,
+            participantNumbers: allEligibleParticipants.map(participant => participant.assigned_number),
+            participantsCached: participantsNeedingCache.length,
+            pairsCached: cachedCount,
+            durationMs,
+            aiCalls: aiCallsMade,
+            cacheHitRate: parseFloat(cacheHitRate),
+            notes: `Delta cache: ${participantsNeedingCache.length} participants updated since ${lastCacheTimestamp}`,
+          })
+          metadataUpdated = true
+          console.log(`✅ Cache session metadata and participant snapshot recorded`)
+        } catch (metaError) {
+          metadataUpdateError = metaError?.message || 'Failed to update cache metadata'
+          console.error("⚠️ Failed to record cache metadata:", metaError)
+        }
+      } else {
+        metadataUpdateError = `Cache freshness was not advanced because ${errors} pair(s) failed`
       }
       
       console.log(`\n${'='.repeat(80)}`)
@@ -4855,6 +4938,9 @@ if (action === "cache-status-by-gender") {
         cached_count: cachedCount,
         already_cached: alreadyCached,
         skipped: skipped,
+        errors,
+        metadata_updated: metadataUpdated,
+        metadata_error: metadataUpdateError,
         participants_needing_cache: participantsNeedingCache.length,
         total_eligible: allEligibleParticipants.length,
         pairs_checked: pairsToCache.length,
@@ -4927,6 +5013,7 @@ if (action === "cache-status-by-gender") {
       const allEligibleParticipants = (allParticipants || [])
         .filter(p => isParticipantComplete(p))
         .sort((a, b) => a.assigned_number - b.assigned_number)
+      const cachedParticipantNumbers = await fetchCachedParticipantNumbers(match_id, eventId)
 
       const totalParticipants = allEligibleParticipants.length
 
@@ -4937,7 +5024,7 @@ if (action === "cache-status-by-gender") {
       // Step 3: Identify participants who need recaching
       const updatedNumbers = new Set()
       const participantsNeedingCache = allEligibleParticipants.filter(p => {
-        const reason = getParticipantDeltaCacheReason(p, lastCacheTimestamp, eventId)
+        const reason = getParticipantDeltaCacheReason(p, lastCacheTimestamp, eventId, cachedParticipantNumbers)
         if (reason) updatedNumbers.add(p.assigned_number)
         return !!reason
       })
@@ -5192,16 +5279,17 @@ if (action === "cache-status-by-gender") {
       let metadataUpdateError = null
       if (!hasMore && finalizeDeltaCacheMetadata && errors === 0) {
         try {
-          const { error: metadataError } = await supabase.rpc('record_cache_session', {
-            p_event_id: eventId,
-            p_participants_cached: participantsNeedingCache.length,
-            p_pairs_cached: newlyCached,
-            p_duration_ms: durationMs,
-            p_ai_calls: aiCallsMade,
-            p_cache_hit_rate: pairsProcessed > 0 ? parseFloat(((alreadyCached / pairsProcessed) * 100).toFixed(2)) : 0,
-            p_notes: `Delta batched cache: ${participantsNeedingCache.length} participants updated since ${lastCacheTimestamp}`
+          await recordCompletedCacheSession({
+            matchId: match_id,
+            eventId,
+            participantNumbers,
+            participantsCached: participantsNeedingCache.length,
+            pairsCached: newlyCached,
+            durationMs,
+            aiCalls: aiCallsMade,
+            cacheHitRate: pairsProcessed > 0 ? parseFloat(((alreadyCached / pairsProcessed) * 100).toFixed(2)) : 0,
+            notes: `Delta batched cache: ${participantsNeedingCache.length} participants updated since ${lastCacheTimestamp}`,
           })
-          if (metadataError) throw metadataError
           metadataUpdated = true
           console.log(`✅ Delta batched cache completed: cache_metadata updated`)
         } catch (metaError) {
@@ -8087,14 +8175,16 @@ if (action === "cache-status-by-gender") {
     try {
       if (!SKIP_DB_WRITES) {
         console.log(`💾 Recording cache session metadata for match generation...`)
-        await supabase.rpc('record_cache_session', {
-          p_event_id: eventId,
-          p_participants_cached: eligibleParticipants.length,
-          p_pairs_cached: cacheMisses, // Only count newly cached pairs
-          p_duration_ms: totalTime,
-          p_ai_calls: aiCalls,
-          p_cache_hit_rate: parseFloat(cacheHitRate),
-          p_notes: `Match generation: ${finalMatches.length} matches created, ${cacheMisses} new cache entries, ${cacheHits} cache hits`
+        await recordCompletedCacheSession({
+          matchId: process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000",
+          eventId,
+          participantNumbers: eligibleParticipants.map(participant => participant.assigned_number),
+          participantsCached: eligibleParticipants.length,
+          pairsCached: cacheMisses,
+          durationMs: totalTime,
+          aiCalls,
+          cacheHitRate: parseFloat(cacheHitRate),
+          notes: `Match generation: ${finalMatches.length} matches created, ${cacheMisses} new cache entries, ${cacheHits} cache hits`,
         })
         console.log(`✅ Cache session metadata recorded`)
       } else {

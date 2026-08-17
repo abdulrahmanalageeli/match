@@ -228,6 +228,10 @@ const EVENT3_PHASE_SECONDS = {
   phase3_reveal: 26 * 60,
 } as const
 
+function getEvent3PhaseSeconds(phase: unknown) {
+  return EVENT3_PHASE_SECONDS[String(phase || "") as keyof typeof EVENT3_PHASE_SECONDS] ?? 0
+}
+
 const PHASES = [
   { id: "setup",          label: "إعداد الفعالية",       icon: "⚙️", color: "gray" },
   { id: "round1",         label: "الجولة الأولى",        icon: "1️⃣", color: "blue" },
@@ -955,12 +959,12 @@ export default function Admin3Page() {
     }
     const update = () => {
       const elapsed = Math.floor((Date.now() - new Date(state.timer_start).getTime()) / 1000)
-      setTimerRemaining(Math.max(0, (state.timer_duration || 1260) - elapsed))
+      setTimerRemaining(Math.max(0, (state.timer_duration ?? getEvent3PhaseSeconds(state.phase)) - elapsed))
     }
     update()
     const iv = setInterval(update, 1000)
     return () => clearInterval(iv)
-  }, [state?.timer_active, state?.timer_start, state?.timer_duration])
+  }, [state?.phase, state?.timer_active, state?.timer_start, state?.timer_duration])
 
   const run = async (label: string, fn: () => Promise<any>) => {
     setLoading(label)
@@ -1353,6 +1357,10 @@ export default function Admin3Page() {
       </div>
     )
   }
+
+  const effectiveTimerDuration = state
+    ? (state.timer_duration ?? getEvent3PhaseSeconds(state.phase))
+    : 0
 
   return (
     <div className="min-h-screen bg-gray-950 text-white" dir="rtl">
@@ -1876,7 +1884,7 @@ export default function Admin3Page() {
             <div className="h-1.5 bg-blue-950/60">
               <div
                 className={`h-full transition-all duration-1000 ${timerRemaining < 120 ? 'bg-red-500' : 'bg-blue-400'}`}
-                style={{ width: `${Math.min(100, (timerRemaining / (state.timer_duration || 1260)) * 100)}%` }}
+                style={{ width: `${effectiveTimerDuration > 0 ? Math.min(100, (timerRemaining / effectiveTimerDuration) * 100) : 0}%` }}
               />
             </div>
           </div>

@@ -8,6 +8,11 @@ import { collectEventSwapPairs, collectMatchResultSwapPairs, getTableSwapRounds 
 import { buildTestAdminSession, testMatchToLockedMatch } from "../../server/event3/test-match-results.mjs"
 import { buildDislikeLeaderboard } from "../../server/event3/dislike-ranking.mjs"
 import { buildGroupMemberFeedbackSummary } from "../../server/event3/group-member-feedback.mjs"
+import {
+  EVENT3_PHASE_TIMER_SECONDS,
+  EVENT3_TIMER_ROUND_SECONDS,
+  getEvent3PhaseTimerSeconds,
+} from "../../server/event3/timing.mjs"
 import { supabaseAdmin } from "../../server/security/supabase-admin.mjs"
 import { clearAdminSession, enforceRateLimit, requireAdmin } from "../../server/security/request-security.mjs"
 
@@ -326,23 +331,6 @@ const EVENT3_MATCH_ID = "00000000-0000-0000-0000-000000000003"
 const EVENT3_PASSWORD = process.env.EVENT3_PASSWORD || ""
 const EVENT3_COHOST_PASSWORD = process.env.EVENT3_COHOST_PASSWORD || ""
 const EVENT3_COHOST_TOKEN_TTL_SECONDS = 8 * 60 * 60
-const EVENT3_PHASE_TIMER_SECONDS = Object.freeze({
-  round1: 35 * 60,
-  ranking1: 3 * 60,
-  round2: 25 * 60,
-  ranking2: 3 * 60,
-  break: 10 * 60,
-  phase2_reveal: 26 * 60,
-  phase3_reveal: 26 * 60,
-})
-const EVENT3_TIMER_ROUND_SECONDS = Object.freeze({
-  0: EVENT3_PHASE_TIMER_SECONDS.ranking1,
-  1: EVENT3_PHASE_TIMER_SECONDS.round1,
-  2: EVENT3_PHASE_TIMER_SECONDS.round2,
-  3: EVENT3_PHASE_TIMER_SECONDS.break,
-  4: EVENT3_PHASE_TIMER_SECONDS.phase2_reveal,
-  5: EVENT3_PHASE_TIMER_SECONDS.phase3_reveal,
-})
 const EVENT3_COHOST_ACTIONS = new Set([
   "e3-cohost-dashboard",
   "e3-cohost-set-attendance",
@@ -3475,50 +3463,24 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: "Invalid event_id. Must be a positive integer." })
         }
 
-        // Refuse the whole switch before changing the main event if Event3 is
-        // currently preserving a live test snapshot.
-        const { data: event3State, error: event3StateError } = await supabase
-          .from("event_state")
-          .select("test_mode_active,current_event_id")
-          .eq("match_id", EVENT3_MATCH_ID)
-          .maybeSingle()
-        if (event3StateError) {
-          return res.status(500).json({ error: `Event3 state lookup failed: ${event3StateError.message}` })
-        }
-        if (event3State?.test_mode_active === true) {
-          return res.status(409).json({ error: "End Event3 test mode before switching events", test_mode: true })
-        }
-
-        // Store current event ID in event_state table
-        const { error } = await supabase
-          .from("event_state")
-          .upsert({ 
-            match_id: STATIC_MATCH_ID, 
-            current_event_id: event_id
-          }, { onConflict: "match_id" })
-
+        // One database transaction updates both pointers and resets Event3
+        // only when the event actually changes. Any failure rolls everything back.
+        const { error } = await supabase.rpc("set_current_event_with_event3_sync", {
+          p_event_id: Number(event_id),
+        })
         if (error) {
           console.error("Error setting current event ID:", error)
-          return res.status(500).json({ error: `Database error: ${error.message}` })
-        }
-
-        // Keep Event3 on the same live event. A stale Event3 pointer prevents
-        // the isolated test-mode RPC from starting even though the main admin
-        // has already switched events.
-        if (event3State && Number(event3State.current_event_id) !== Number(event_id)) {
-          const { error: event3SyncError } = await supabase.from("event_state").update({
-            current_event_id: event_id,
-            phase: "setup",
-            global_timer_active: false,
-            global_timer_start_time: null,
-            global_timer_duration: null,
-            global_timer_round: null,
-            phase2_score_revealed: false,
-            phase3_score_revealed: false,
-          }).eq("match_id", EVENT3_MATCH_ID).eq("test_mode_active", false)
-          if (event3SyncError) {
-            return res.status(500).json({ error: `Event3 event sync failed: ${event3SyncError.message}` })
+          const message = `${error.message || ""} ${error.details || ""}`
+          if (message.includes("End Event3 test mode")) {
+            return res.status(409).json({ error: "End Event3 test mode before switching events", test_mode: true })
           }
+          const migrationRequired = error.code === "PGRST202" || message.includes("set_current_event_with_event3_sync")
+          return res.status(migrationRequired ? 501 : 500).json({
+            error: migrationRequired
+              ? `The event synchronization migration must be applied. ${error.message}`
+              : `Database error: ${error.message}`,
+            migration_required: migrationRequired,
+          })
         }
 
         console.log(`Successfully set current event ID to: ${event_id}`)
@@ -8960,7 +8922,8 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const { data: rankRows, error: rankErr } = await supabase.from("participant_rankings").select("ranker_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           if (rankErr) console.error("[e3-get-state] rankings error:", rankErr.message)
           const uniqueRankers = new Set((rankRows || []).map(r => r.ranker_number)).size
-          return res.status(200).json({ phase: stateRow?.phase || "setup", timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration || 1200, timer_round: stateRow?.global_timer_round || null, participants_selected: pc || 0, seating_generated: (sc || 0) > 0, rankings_submitted: uniqueRankers, phase2_matches_done: (mc || 0) > 0, phase3_matches_done: (mc3 || 0) > 0, phase2_score_revealed: stateRow?.phase2_score_revealed || false, phase3_score_revealed: stateRow?.phase3_score_revealed || false, current_event_id: currentEventId, _debug: { realEventId, currentEventId, errors: { participants: pcErr?.message || null, seating: scErr?.message || null, matches: mcErr?.message || null, phase3: mc3Err?.message || null, rankings: rankErr?.message || null } } })
+          const phase = stateRow?.phase || "setup"
+          return res.status(200).json({ phase, timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration ?? getEvent3PhaseTimerSeconds(phase), timer_round: stateRow?.global_timer_round ?? null, participants_selected: pc || 0, seating_generated: (sc || 0) > 0, rankings_submitted: uniqueRankers, phase2_matches_done: (mc || 0) > 0, phase3_matches_done: (mc3 || 0) > 0, phase2_score_revealed: stateRow?.phase2_score_revealed || false, phase3_score_revealed: stateRow?.phase3_score_revealed || false, current_event_id: currentEventId, _debug: { realEventId, currentEventId, errors: { participants: pcErr?.message || null, seating: scErr?.message || null, matches: mcErr?.message || null, phase3: mc3Err?.message || null, rankings: rankErr?.message || null } } })
         }
         // e3-get-participants
         if (action === "e3-get-participants") {
@@ -9203,8 +9166,8 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           if (typeof delta_seconds !== "number" || delta_seconds === 0) return res.status(400).json({ error: "delta_seconds (non-zero number) required" })
           const { data: stateRow } = await supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration").eq("match_id", EVENT3_MATCH_ID).single()
           if (!stateRow?.global_timer_active || !stateRow?.global_timer_start_time) return res.status(400).json({ error: "Timer is not active" })
-          const fallbackDuration = EVENT3_PHASE_TIMER_SECONDS[stateRow.phase] || 26 * 60
-          const newDuration = Math.max(0, (stateRow.global_timer_duration || fallbackDuration) + delta_seconds)
+          const fallbackDuration = getEvent3PhaseTimerSeconds(stateRow.phase)
+          const newDuration = Math.max(0, (stateRow.global_timer_duration ?? fallbackDuration) + delta_seconds)
           const { error } = await supabase.from("event_state").update({ global_timer_duration: newDuration }).eq("match_id", EVENT3_MATCH_ID)
           if (error) return res.status(500).json({ error: error.message })
           return res.status(200).json({ message: `Timer adjusted by ${delta_seconds > 0 ? "+" : ""}${delta_seconds}s`, new_duration: newDuration })
@@ -10962,21 +10925,10 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
         }
         // e3-clear-test-data — clear rankings, feedback, words, and notes (keep participants, seating, matches)
         if (action === "e3-clear-test-data") {
-          await Promise.all([
-            supabase.from("participant_rankings").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
-            supabase.from("event3_group_reflections").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
-            supabase.from("event3_group_member_feedback").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
-            supabase.from("event3_participant_notes").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
-            supabase.from("event3_mood_checks").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
-            supabase.from("event3_notifications").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
-            supabase.from("event3_ai_welcome_messages").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
-            supabase.from("event3_test_match_results").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
-            supabase.from("organizer_requests").delete().eq("event_id", currentEventId),
-          ])
-          await supabase.from("event3_matches")
-            .update({ phase2_feedback: null, phase3_feedback: null, phase2_word: null, phase3_word: null, match_preference: null })
-            .eq("match_id", EVENT3_MATCH_ID)
-            .eq("event_id", currentEventId)
+          const { error: clearError } = await supabase.rpc("clear_event3_test_data", {
+            p_event_id: Number(currentEventId),
+          })
+          if (clearError) return res.status(500).json({ error: `Test data cleanup failed: ${clearError.message}` })
           return res.status(200).json({ message: "Test data cleared: rankings, feedback, words, and notes removed. Participants, seating, and matches preserved." })
         }
         // e3-clear-mood-checks
@@ -11077,7 +11029,7 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
         }
         // e3-reset-event — reset ONLY current event_id data (preserves other events)
         if (action === "e3-reset-event") {
-          await Promise.all([
+          const resetResults = await Promise.all([
             supabase.from("event3_participants").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
             supabase.from("event3_matches").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
             supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
@@ -11088,8 +11040,11 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             supabase.from("event3_notifications").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
             supabase.from("event3_ai_welcome_messages").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
           ])
+          const resetError = resetResults.find(result => result.error)?.error
+          if (resetError) return res.status(500).json({ error: `Event reset failed: ${resetError.message}` })
           // Reset phase/timer for EVENT3 but preserve current_event_id
-          await supabase.from("event_state").update({ phase: "setup", global_timer_active: false, global_timer_start_time: null, global_timer_duration: null, global_timer_round: null, phase2_score_revealed: false, phase3_score_revealed: false }).eq("match_id", EVENT3_MATCH_ID)
+          const { error: resetStateError } = await supabase.from("event_state").update({ phase: "setup", global_timer_active: false, global_timer_start_time: null, global_timer_duration: null, global_timer_round: null, phase2_score_revealed: false, phase3_score_revealed: false }).eq("match_id", EVENT3_MATCH_ID)
+          if (resetStateError) return res.status(500).json({ error: `Event state reset failed: ${resetStateError.message}` })
           return res.status(200).json({ message: `Event ${currentEventId} reset successfully (other events preserved)` })
         }
 
@@ -11333,13 +11288,13 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           // 5. Atomically snapshot the current Event3 runtime, replace it with
           // the selected test roster, and activate test mode. If anything
           // fails, Postgres rolls back the entire transition.
-          const { data: testStartResult, error: testStartError } = await supabase.rpc("begin_event3_test_mode", {
+          const { data: testStartResult, error: testStartError } = await supabase.rpc("begin_event3_test_mode_with_group_feedback", {
             p_event_id: Number(currentEventId),
             p_participant_numbers: selectedNums,
           })
           if (testStartError) {
             const message = `${testStartError.message || ""} ${testStartError.details || ""}`
-            const migrationRequired = testStartError.code === "PGRST202" || message.includes("begin_event3_test_mode")
+            const migrationRequired = testStartError.code === "PGRST202" || message.includes("begin_event3_test_mode_with_group_feedback")
             return res.status(migrationRequired ? 501 : 500).json({
               error: migrationRequired
                 ? `The isolated test-results migration must be applied before starting test mode. ${testStartError.message}`
@@ -11347,14 +11302,6 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
               migration_required: migrationRequired,
             })
           }
-
-          // Test feedback is isolated by a dedicated flag rather than being
-          // mixed with any real feedback that may already exist for the event.
-          await supabase.from("event3_group_member_feedback")
-            .delete()
-            .eq("match_id", EVENT3_MATCH_ID)
-            .eq("event_id", currentEventId)
-            .eq("is_test_mode", true)
 
           // 8. Build test users list
           const testUsers = selected.map(p => ({
@@ -11416,7 +11363,7 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           // Atomically delete the test runtime/results and restore the exact
           // Event3 lineup, assignments, feedback, notes, and state snapshot
           // that existed before testing began.
-          const { data: restoreResult, error: restoreError } = await supabase.rpc("end_event3_test_mode", {
+          const { data: restoreResult, error: restoreError } = await supabase.rpc("end_event3_test_mode_with_group_feedback", {
             p_event_id: Number(currentEventId),
           })
           if (restoreError) {
@@ -11424,12 +11371,6 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
               error: `Could not restore the pre-test Event3 runtime; test mode remains active. ${restoreError.message}`,
             })
           }
-
-          await supabase.from("event3_group_member_feedback")
-            .delete()
-            .eq("match_id", EVENT3_MATCH_ID)
-            .eq("event_id", currentEventId)
-            .eq("is_test_mode", true)
 
           return res.status(200).json({
             message: restoreResult?.legacy_cleanup

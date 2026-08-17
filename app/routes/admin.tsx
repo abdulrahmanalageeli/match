@@ -66,6 +66,7 @@ import TwilioAdminPanel from "~/components/TwilioAdminPanel"
 import { surveyQuestions } from "~/components/SurveyComponent"
 import PairAnalysisModal from "~/components/PairAnalysisModalPro"
 import { getParticipantMatchInsightsCompletion } from "~/lib/matchControl"
+import { matchesParticipantConfirmationFilter } from "~/lib/participant-confirmation-filter.mjs"
 
 type DeltaCacheRunStatus = 'running' | 'completed' | 'failed'
 
@@ -3941,15 +3942,9 @@ const fetchParticipants = async () => {
         }
       }
       
-      // A final confirmation can come from payment approval or an organizer waiver.
-      let matchesConfirmation = true
-      if (confirmationFilter === "confirmed") {
-        matchesConfirmation = p.attendance_confirmed === true && (p.receipt_approved === true || p.PAID_DONE === true || p.payment_waived === true)
-      } else if (confirmationFilter === "awaiting_receipt") {
-        matchesConfirmation = p.attendance_confirmed === true && p.receipt_approved !== true && p.PAID_DONE !== true && p.payment_waived !== true
-      } else if (confirmationFilter === "declined") {
-        matchesConfirmation = p.attendance_confirmed === false && !!p.attendance_denied_at
-      }
+      // Keep participant cards aligned with Twilio: confirmed means the person
+      // confirmed interest in attending, independently of payment status.
+      const matchesConfirmation = matchesParticipantConfirmationFilter(p, confirmationFilter)
 
       // WhatsApp filter - using PAID as WhatsApp sent indicator
       let matchesWhatsapp = true

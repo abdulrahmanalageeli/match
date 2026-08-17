@@ -45,19 +45,6 @@ test("delta cache detects survey edits and new event enrollments", () => {
     next_event_signup_timestamp: "2026-08-16T09:59:00.000Z",
   }, baseline, 22), null)
 
-  const cachedParticipants = new Set([41])
-  assert.equal(getParticipantDeltaCacheReason({
-    assigned_number: 42,
-    event_id: 22,
-    created_at: "2026-08-16T09:00:00.000Z",
-    updated_at: "2026-08-16T09:00:00.000Z",
-  }, baseline, 22, cachedParticipants), "newly_enrolled")
-  assert.equal(getParticipantDeltaCacheReason({
-    assigned_number: 41,
-    event_id: 22,
-    created_at: "2026-08-16T09:00:00.000Z",
-    updated_at: "2026-08-16T09:00:00.000Z",
-  }, baseline, 22, cachedParticipants), null)
 })
 
 test("vibe model detection accepts current score variants without accepting legacy models", () => {

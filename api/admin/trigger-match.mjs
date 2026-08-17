@@ -106,7 +106,7 @@ function isCurrentVibeModel(modelUsed) {
   return String(modelUsed || '').startsWith('gpt-5.4-mini')
 }
 
-function getParticipantDeltaCacheReason(participant, lastCacheTimestamp, eventId, cachedParticipantNumbers = null) {
+function getParticipantDeltaCacheReason(participant, lastCacheTimestamp, eventId) {
   const baseline = Date.parse(String(lastCacheTimestamp || ''))
   if (!Number.isFinite(baseline)) return null
 
@@ -119,12 +119,6 @@ function getParticipantDeltaCacheReason(participant, lastCacheTimestamp, eventId
     if (Number.isFinite(timestamp)) enrollmentTimes.push(timestamp)
   }
   const activeEventId = Number(eventId)
-  const participantNumber = Number(participant?.assigned_number)
-  if (cachedParticipantNumbers instanceof Set
-      && Number.isFinite(participantNumber)
-      && !cachedParticipantNumbers.has(participantNumber)) {
-    return 'newly_enrolled'
-  }
   const directlyAssigned = Number(participant?.event_id) === activeEventId
   const signedUp = participant?.signup_for_next_event === true
   const autoSignedUp = participant?.auto_signup_next_event === true
@@ -142,41 +136,6 @@ function getParticipantDeltaCacheReason(participant, lastCacheTimestamp, eventId
   return enrollmentTimes.some(timestamp => timestamp > baseline) ? 'newly_enrolled' : null
 }
 
-async function fetchCachedParticipantNumbers(matchId, eventId) {
-  const { data, error } = await supabase
-    .from('cache_participant_snapshots')
-    .select('participant_number')
-    .eq('match_id', matchId)
-    .eq('event_id', eventId)
-  if (error) throw error
-  return new Set((data || []).map(row => Number(row.participant_number)))
-}
-
-async function recordCompletedCacheSession({
-  matchId,
-  eventId,
-  participantNumbers,
-  participantsCached,
-  pairsCached,
-  durationMs,
-  aiCalls,
-  cacheHitRate,
-  notes,
-}) {
-  const { data, error } = await supabase.rpc('record_cache_session_with_participants', {
-    p_match_id: matchId,
-    p_event_id: eventId,
-    p_participant_numbers: participantNumbers,
-    p_participants_cached: participantsCached,
-    p_pairs_cached: pairsCached,
-    p_duration_ms: durationMs,
-    p_ai_calls: aiCalls,
-    p_cache_hit_rate: cacheHitRate,
-    p_notes: notes,
-  })
-  if (error) throw error
-  return data
-}
 const COMPATIBILITY_SCORE_VERSION = '2026-08-16-v6-feedback-composites'
 // Production cache rows created from this point used the temporary 15-point
 // calibration. Earlier untagged rows used the original 25-point scale.
@@ -4016,19 +3975,18 @@ export default async function handler(req, res) {
       // successful all-pairs run may advance the delta-cache session.
       if (cacheAll && errors === 0) {
         try {
-          await recordCompletedCacheSession({
-            matchId: match_id,
-            eventId,
-            participantNumbers: participants.map(participant => participant.assigned_number),
-            participantsCached: participants.length,
-            pairsCached: cachedCount,
-            durationMs,
-            aiCalls: cachedCount,
-            cacheHitRate: totalPairs > 0 ? parseFloat(((alreadyCached / totalPairs) * 100).toFixed(2)) : 0,
-            notes: `Pre-cache: ALL pairs, ${direction} direction`,
+          const { error: metadataError } = await supabase.rpc('record_cache_session', {
+            p_event_id: eventId,
+            p_participants_cached: participants.length,
+            p_pairs_cached: cachedCount,
+            p_duration_ms: durationMs,
+            p_ai_calls: cachedCount,
+            p_cache_hit_rate: totalPairs > 0 ? parseFloat(((alreadyCached / totalPairs) * 100).toFixed(2)) : 0,
+            p_notes: `Pre-cache: ALL pairs, ${direction} direction`,
           })
+          if (metadataError) throw metadataError
           metadataUpdated = true
-          console.log(`✅ Cache session metadata and participant snapshot recorded`)
+          console.log(`✅ Cache session metadata recorded`)
         } catch (metaError) {
           metadataUpdated = false
           metadataUpdateError = metaError?.message || 'Failed to update cache metadata'
@@ -4359,18 +4317,17 @@ export default async function handler(req, res) {
       let metadataUpdateError = null
       if (!hasMore && finalizeDeltaCacheMetadata && cumulativeErrors === 0) {
         try {
-          await recordCompletedCacheSession({
-            matchId: match_id,
-            eventId,
-            participantNumbers,
-            participantsCached: totalParticipants,
+          const { error: metadataError } = await supabase.rpc('record_cache_session', {
+            p_event_id: eventId,
+            p_participants_cached: totalParticipants,
             // We can't reliably know total new caches across all batch requests without client aggregation.
-            pairsCached: newlyCached,
-            durationMs,
-            aiCalls: aiCallsMade,
-            cacheHitRate: pairsProcessed > 0 ? parseFloat(((alreadyCached / pairsProcessed) * 100).toFixed(2)) : 0,
-            notes: `Batched pre-cache (${genderMode}) complete: participants=${totalParticipants}`,
+            p_pairs_cached: newlyCached,
+            p_duration_ms: durationMs,
+            p_ai_calls: aiCallsMade,
+            p_cache_hit_rate: pairsProcessed > 0 ? parseFloat(((alreadyCached / pairsProcessed) * 100).toFixed(2)) : 0,
+            p_notes: `Batched pre-cache (${genderMode}) complete: participants=${totalParticipants}`,
           })
+          if (metadataError) throw metadataError
           metadataUpdated = true
           console.log(`✅ Batched cache completed: cache_metadata updated (delta cache will be fresh)`)
         } catch (metaError) {
@@ -4702,7 +4659,6 @@ if (action === "cache-status-by-gender") {
       
       // Filter for complete participants
       const allEligibleParticipants = allParticipants.filter(p => isParticipantComplete(p))
-      const cachedParticipantNumbers = await fetchCachedParticipantNumbers(match_id, eventId)
       
       console.log(`📊 Found ${allEligibleParticipants.length} total eligible participants`)
       
@@ -4717,7 +4673,7 @@ if (action === "cache-status-by-gender") {
       console.log(`${'='.repeat(80)}\n`)
       
       const participantsNeedingCache = allEligibleParticipants.filter(p => {
-        const reason = getParticipantDeltaCacheReason(p, lastCacheTimestamp, eventId, cachedParticipantNumbers)
+        const reason = getParticipantDeltaCacheReason(p, lastCacheTimestamp, eventId)
         if (reason) {
           console.log(`🔄 #${p.assigned_number} - ${reason === 'newly_enrolled' ? 'ENROLLED' : 'UPDATED'} after cache`)
         } else {
@@ -4895,19 +4851,18 @@ if (action === "cache-status-by-gender") {
       if (errors === 0) {
         try {
           const cacheHitRate = pairsToCache.length > 0 ? ((alreadyCached / pairsToCache.length) * 100).toFixed(2) : 0
-          await recordCompletedCacheSession({
-            matchId: match_id,
-            eventId,
-            participantNumbers: allEligibleParticipants.map(participant => participant.assigned_number),
-            participantsCached: participantsNeedingCache.length,
-            pairsCached: cachedCount,
-            durationMs,
-            aiCalls: aiCallsMade,
-            cacheHitRate: parseFloat(cacheHitRate),
-            notes: `Delta cache: ${participantsNeedingCache.length} participants updated since ${lastCacheTimestamp}`,
+          const { error: metadataError } = await supabase.rpc('record_cache_session', {
+            p_event_id: eventId,
+            p_participants_cached: participantsNeedingCache.length,
+            p_pairs_cached: cachedCount,
+            p_duration_ms: durationMs,
+            p_ai_calls: aiCallsMade,
+            p_cache_hit_rate: parseFloat(cacheHitRate),
+            p_notes: `Delta cache: ${participantsNeedingCache.length} participants updated since ${lastCacheTimestamp}`,
           })
+          if (metadataError) throw metadataError
           metadataUpdated = true
-          console.log(`✅ Cache session metadata and participant snapshot recorded`)
+          console.log(`✅ Cache session metadata recorded`)
         } catch (metaError) {
           metadataUpdateError = metaError?.message || 'Failed to update cache metadata'
           console.error("⚠️ Failed to record cache metadata:", metaError)
@@ -5013,7 +4968,6 @@ if (action === "cache-status-by-gender") {
       const allEligibleParticipants = (allParticipants || [])
         .filter(p => isParticipantComplete(p))
         .sort((a, b) => a.assigned_number - b.assigned_number)
-      const cachedParticipantNumbers = await fetchCachedParticipantNumbers(match_id, eventId)
 
       const totalParticipants = allEligibleParticipants.length
 
@@ -5024,7 +4978,7 @@ if (action === "cache-status-by-gender") {
       // Step 3: Identify participants who need recaching
       const updatedNumbers = new Set()
       const participantsNeedingCache = allEligibleParticipants.filter(p => {
-        const reason = getParticipantDeltaCacheReason(p, lastCacheTimestamp, eventId, cachedParticipantNumbers)
+        const reason = getParticipantDeltaCacheReason(p, lastCacheTimestamp, eventId)
         if (reason) updatedNumbers.add(p.assigned_number)
         return !!reason
       })
@@ -5279,17 +5233,16 @@ if (action === "cache-status-by-gender") {
       let metadataUpdateError = null
       if (!hasMore && finalizeDeltaCacheMetadata && errors === 0) {
         try {
-          await recordCompletedCacheSession({
-            matchId: match_id,
-            eventId,
-            participantNumbers,
-            participantsCached: participantsNeedingCache.length,
-            pairsCached: newlyCached,
-            durationMs,
-            aiCalls: aiCallsMade,
-            cacheHitRate: pairsProcessed > 0 ? parseFloat(((alreadyCached / pairsProcessed) * 100).toFixed(2)) : 0,
-            notes: `Delta batched cache: ${participantsNeedingCache.length} participants updated since ${lastCacheTimestamp}`,
+          const { error: metadataError } = await supabase.rpc('record_cache_session', {
+            p_event_id: eventId,
+            p_participants_cached: participantsNeedingCache.length,
+            p_pairs_cached: newlyCached,
+            p_duration_ms: durationMs,
+            p_ai_calls: aiCallsMade,
+            p_cache_hit_rate: pairsProcessed > 0 ? parseFloat(((alreadyCached / pairsProcessed) * 100).toFixed(2)) : 0,
+            p_notes: `Delta batched cache: ${participantsNeedingCache.length} participants updated since ${lastCacheTimestamp}`,
           })
+          if (metadataError) throw metadataError
           metadataUpdated = true
           console.log(`✅ Delta batched cache completed: cache_metadata updated`)
         } catch (metaError) {
@@ -8175,17 +8128,16 @@ if (action === "cache-status-by-gender") {
     try {
       if (!SKIP_DB_WRITES) {
         console.log(`💾 Recording cache session metadata for match generation...`)
-        await recordCompletedCacheSession({
-          matchId: process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000",
-          eventId,
-          participantNumbers: eligibleParticipants.map(participant => participant.assigned_number),
-          participantsCached: eligibleParticipants.length,
-          pairsCached: cacheMisses,
-          durationMs: totalTime,
-          aiCalls,
-          cacheHitRate: parseFloat(cacheHitRate),
-          notes: `Match generation: ${finalMatches.length} matches created, ${cacheMisses} new cache entries, ${cacheHits} cache hits`,
+        const { error: metadataError } = await supabase.rpc('record_cache_session', {
+          p_event_id: eventId,
+          p_participants_cached: eligibleParticipants.length,
+          p_pairs_cached: cacheMisses,
+          p_duration_ms: totalTime,
+          p_ai_calls: aiCalls,
+          p_cache_hit_rate: parseFloat(cacheHitRate),
+          p_notes: `Match generation: ${finalMatches.length} matches created, ${cacheMisses} new cache entries, ${cacheHits} cache hits`,
         })
+        if (metadataError) throw metadataError
         console.log(`✅ Cache session metadata recorded`)
       } else {
         console.log('🧪 Preview mode: skipping cache session metadata RPC')

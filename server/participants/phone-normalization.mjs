@@ -31,3 +31,17 @@ export function participantPhoneToE164(value) {
   const normalized = normalizeParticipantPhone(value)
   return normalized ? `+${normalized}` : ''
 }
+
+/**
+ * Account ownership only needs to be checked for a provisional registration
+ * or when an authenticated participant is actually claiming a different
+ * canonical phone identity. Reformatting an existing number is still an edit.
+ */
+export function shouldCheckParticipantPhoneOwnership({
+  hasExistingSurvey,
+  currentPhone,
+  nextPhone,
+}) {
+  if (!hasExistingSurvey) return true
+  return normalizeParticipantPhone(currentPhone) !== normalizeParticipantPhone(nextPhone)
+}

@@ -53,7 +53,6 @@ import {
   Bell,
   Info,
   Home,
-  Copy,
   Shuffle,
   GripVertical,
   Coffee,
@@ -79,6 +78,7 @@ import { Switch } from "../../components/ui/switch"
 import { Avatar as AvatarComponent } from "../../components/ui/avatar"
 import { AnimatedBlindMatchLogo } from "../components/AnimatedBlindMatchLogo"
 import { MatchInsightsUpdateDialog, getMissingMatchInsightIds } from "../components/MatchInsightsUpdateDialog"
+import { ParticipantOtpModal } from "../components/ParticipantOtpModal"
 import "../../app/app.css"
 import MatchResult from "./MatchResult"
 import CircularProgressBar from "../components/CircularProgressBar"
@@ -255,6 +255,12 @@ const normalizeAgeFlexAnswer = (value: unknown): 'accept' | 'decline' | 'not_app
   return null
 }
 
+const normalizeOtpEntry = (value: string): string => String(value ?? '')
+  .replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
+  .replace(/[۰-۹]/g, digit => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)))
+  .replace(/\D/g, '')
+  .slice(0, 6)
+
 const normalizeGenderPreferenceAnswer = (
   value: unknown,
   participantGender: unknown,
@@ -311,7 +317,13 @@ const normalizeResolvedSurveyData = (participant: any): SurveyData => {
   setIfMissing('age', storedSurveyData.age ?? participant?.age)
   setIfMissing('gender', storedSurveyData.gender ?? participant?.gender)
   setIfMissing('nationality', storedSurveyData.nationality ?? participant?.nationality)
-  setIfMissing('phone_number', storedSurveyData.phone_number ?? storedSurveyData.phoneNumber ?? participant?.phone_number)
+  // The dedicated participant column is the account's authoritative phone.
+  // Legacy/merged survey JSON can contain a stale copy and must not overwrite
+  // the current account identity when the participant edits their survey.
+  const authoritativePhone = participant?.phone_number ?? storedSurveyData.phone_number ?? storedSurveyData.phoneNumber
+  if (authoritativePhone !== undefined && authoritativePhone !== null && String(authoritativePhone).trim()) {
+    answers.phone_number = String(authoritativePhone)
+  }
   setIfMissing('preferred_age_min', storedSurveyData.preferred_age_min ?? participant?.preferred_age_min)
   setIfMissing('preferred_age_max', storedSurveyData.preferred_age_max ?? participant?.preferred_age_max)
   setIfMissing('humor_banter_style', storedSurveyData.humor_banter_style ?? participant?.humor_banter_style)
@@ -961,6 +973,8 @@ export default function WelcomePage() {
   const [forgotOrigin, setForgotOrigin] = useState<'recovery' | 'signup-duplicate'>('recovery')
   const [forgotLoading, setForgotLoading] = useState(false)
   const [forgotError, setForgotError] = useState<string | null>(null)
+  const otpRequestInFlightRef = useRef(false)
+  const otpVerificationInFlightRef = useRef(false)
   const [recoveredToken, setRecoveredToken] = useState('')
   const [recoveredName, setRecoveredName] = useState('')
   const [recoveredNumber, setRecoveredNumber] = useState<number | null>(null)
@@ -4383,12 +4397,14 @@ export default function WelcomePage() {
   };
 
   // Handle forgot token OTP via Twilio WhatsApp
-  const handleRequestOtp = async (phoneOverride?: string) => {
+  const handleRequestOtp = useCallback(async (phoneOverride?: string) => {
     const phone = typeof phoneOverride === 'string' ? phoneOverride.trim() : forgotPhone.trim()
     if (!phone.replace(/\D/g, "")) {
       setForgotError("يرجى إدخال رقم الجوال")
       return
     }
+    if (otpRequestInFlightRef.current) return
+    otpRequestInFlightRef.current = true
     setForgotLoading(true)
     setForgotError(null)
     try {
@@ -4410,9 +4426,10 @@ export default function WelcomePage() {
     } catch (err) {
       setForgotError("حدث خطأ في الاتصال")
     } finally {
+      otpRequestInFlightRef.current = false
       setForgotLoading(false)
     }
-  }
+  }, [forgotPhone])
 
   const handleExistingPhoneDetected = useCallback(async (phoneNumber: string) => {
     const phone = phoneNumber.trim()
@@ -4423,13 +4440,15 @@ export default function WelcomePage() {
     setForgotStep('phone')
     setShowForgotTokenModal(true)
     await handleRequestOtp(phone)
-  }, [])
+  }, [handleRequestOtp])
 
   const handleVerifyOtp = async () => {
-    if (!forgotOtp.trim()) {
-      setForgotError("يرجى إدخال رمز التحقق")
+    if (!/^\d{6}$/.test(forgotOtp.trim())) {
+      setForgotError("يرجى إدخال رمز التحقق المكون من 6 أرقام")
       return
     }
+    if (otpVerificationInFlightRef.current) return
+    otpVerificationInFlightRef.current = true
     setForgotLoading(true)
     setForgotError(null)
     try {
@@ -4473,6 +4492,7 @@ export default function WelcomePage() {
     } catch (err) {
       setForgotError("حدث خطأ في الاتصال")
     } finally {
+      otpVerificationInFlightRef.current = false
       setForgotLoading(false)
     }
   }
@@ -4865,12 +4885,12 @@ export default function WelcomePage() {
         }),
       })
       const data1 = await res1.json()
-      if (res1.status === 409 && data1.requires_otp) {
+      if (isJustCreatedUser && res1.status === 409 && data1.requires_otp) {
         const duplicatePhone = String(dataToUse?.phoneNumber || dataToUse?.answers?.phone_number || '')
         await handleExistingPhoneDetected(duplicatePhone)
         return
       }
-      if (!res1.ok) throw new Error(data1.error)
+      if (!res1.ok) throw new Error(data1.error || data1.message || "تعذر حفظ الاستبيان")
   
       // 2. Save a neutral confirmation message until matching communication begins
       const newSummary = "تم حفظ بياناتك بنجاح. سنتواصل معك عبر واتساب عند توفر توافق مناسب."
@@ -4933,6 +4953,7 @@ export default function WelcomePage() {
       }
     } catch (err) {
       console.error("Submit error:", err)
+      toast.error(err instanceof Error ? err.message : "تعذر حفظ الاستبيان. حاول مرة أخرى.")
       setPersonalitySummary("تم حفظ بياناتك بنجاح.")
       // Don't auto-advance on error either
     } finally {
@@ -6392,6 +6413,57 @@ export default function WelcomePage() {
     )
   }
 
+  const participantOtpModal = (
+    <ParticipantOtpModal
+      open={showForgotTokenModal}
+      origin={forgotOrigin}
+      step={forgotStep}
+      phone={forgotPhone}
+      otp={forgotOtp}
+      loading={forgotLoading}
+      error={forgotError}
+      recoveredToken={recoveredToken}
+      recoveredName={recoveredName}
+      recoveredNumber={recoveredNumber}
+      tokenCopied={tokenCopied}
+      onClose={() => {
+        setShowForgotTokenModal(false)
+        setForgotPhone("")
+        setForgotOtp("")
+        setForgotStep('phone')
+        setForgotOrigin('recovery')
+        setForgotError(null)
+      }}
+      onPhoneChange={setForgotPhone}
+      onOtpChange={(value) => setForgotOtp(normalizeOtpEntry(value))}
+      onRequestOtp={() => handleRequestOtp()}
+      onVerifyOtp={handleVerifyOtp}
+      onBackToPhone={() => {
+        setForgotStep('phone')
+        setForgotError(null)
+      }}
+      onCopyToken={() => {
+        void navigator.clipboard.writeText(recoveredToken).then(() => {
+          setTokenCopied(true)
+          window.setTimeout(() => setTokenCopied(false), 2000)
+        }).catch(() => setForgotError("تعذر نسخ الرمز. انسخه يدويًا."))
+      }}
+      onContinue={() => {
+        const tokenToOpen = recoveredToken
+        setShowForgotTokenModal(false)
+        setForgotPhone("")
+        setForgotOtp("")
+        setForgotStep('phone')
+        setForgotOrigin('recovery')
+        setRecoveredToken('')
+        setTokenCopied(false)
+        if (tokenToOpen) {
+          window.location.href = `/welcome?token=${encodeURIComponent(tokenToOpen)}`
+        }
+      }}
+    />
+  )
+
   // Token validation error UI
   if (token && !isResolving && isTokenValid === false) {
     return (
@@ -6573,170 +6645,8 @@ export default function WelcomePage() {
           </div>
         )}
 
-        {/* Forgot Token OTP Modal */}
-        {showForgotTokenModal && (
-          <div data-welcome-dialog role="dialog" aria-modal="true" aria-label="استعادة رمز الدخول" tabIndex={-1} className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-            <div className="max-w-md w-full bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-600/50 rounded-2xl shadow-2xl p-6 relative" dir="rtl">
-              <button
-                data-dialog-close
-                aria-label="إغلاق نافذة استعادة الرمز"
-                onClick={() => { setShowForgotTokenModal(false); setForgotPhone(""); setForgotOtp(""); setForgotStep('phone'); setForgotOrigin('recovery'); setForgotError(null); }}
-                className="absolute top-4 right-4 text-slate-400 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-              <div className="text-center mb-6">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center mx-auto mb-4 shadow-lg">
-                  <MessageSquare className="w-8 h-8 text-white" />
-                </div>
-                <h3 className="text-xl font-bold text-white mb-2">
-                  {forgotOrigin === 'signup-duplicate' ? 'هذا الرقم مسجل بالفعل' : 'استرجاع الرمز المميز'}
-                </h3>
-                <p className="text-slate-300 text-sm">
-                  {forgotOrigin === 'signup-duplicate'
-                    ? 'تحقق من رقم جوالك للدخول إلى حسابك الحالي بدل إنشاء حساب جديد.'
-                    : 'سنرسل رمز تحقق إلى رقم جوالك عبر الرسائل القصيرة'}
-                </p>
-              </div>
-
-              {forgotStep === 'success' ? (
-                <div className="space-y-4">
-                  <div className="text-center">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center mx-auto mb-3 shadow-lg">
-                      <CheckCircle className="w-8 h-8 text-white" />
-                    </div>
-                    <h4 className="text-lg font-bold text-white mb-1">تم استعادة بياناتك!</h4>
-                    {recoveredName && <p className="text-slate-300 text-sm mb-1">{recoveredName}</p>}
-                    {recoveredNumber && <p className="text-slate-400 text-xs mb-4">رقم المشارك: #{recoveredNumber}</p>}
-                  </div>
-                  <div>
-                    <label className="text-slate-300 text-sm block mb-2">الرمز المميز الخاص بك</label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        readOnly
-                        value={recoveredToken}
-                        className="w-full px-4 py-3 text-sm rounded-lg border bg-slate-700/50 border-slate-600 text-white font-mono text-center tracking-wider focus:outline-none"
-                        dir="ltr"
-                      />
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(recoveredToken)
-                          setTokenCopied(true)
-                          setTimeout(() => setTokenCopied(false), 2000)
-                        }}
-                        className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-lg bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 transition-colors"
-                        title="نسخ"
-                      >
-                        {tokenCopied ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                      </button>
-                    </div>
-                    <p className="text-amber-300/70 text-xs mt-2 text-center">احفظ هذا الرمز في مكان آمن — ستحتاجه للدخول</p>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setShowForgotTokenModal(false)
-                      setForgotPhone("")
-                      setForgotOtp("")
-                      setForgotStep('phone')
-                      setForgotOrigin('recovery')
-                      setRecoveredToken('')
-                      setTokenCopied(false)
-                      if (recoveredToken) {
-                        window.location.href = `/welcome?token=${recoveredToken}`
-                      }
-                    }}
-                    className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white rounded-lg transition-all duration-300 flex items-center justify-center gap-2 font-medium"
-                  >
-                    <span>المتابعة</span>
-                    <ChevronLeft className="w-4 h-4 transform rotate-180" />
-                  </button>
-                </div>
-              ) : forgotStep === 'phone' ? (
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-slate-300 text-sm block mb-2">رقم الجوال</label>
-                    <input
-                      type="tel"
-                      value={forgotPhone}
-                      onChange={(e) => setForgotPhone(e.target.value)}
-                      readOnly={forgotOrigin === 'signup-duplicate'}
-                      placeholder="مثال: 0501234567"
-                      className="w-full px-4 py-3 text-sm rounded-lg border bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
-                      dir="ltr"
-                    />
-                  </div>
-                  {forgotError && (
-                    <div className="text-red-300 text-sm bg-red-900/20 border border-red-500/30 rounded-lg p-3">
-                      {forgotError}
-                    </div>
-                  )}
-                  <button
-                    onClick={() => handleRequestOtp()}
-                    disabled={forgotLoading}
-                    className="w-full px-4 py-3 bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium"
-                  >
-                    {forgotLoading ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        <span>جاري الإرسال...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-4 h-4" />
-                        <span>إرسال رمز التحقق</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-slate-300 text-sm block mb-2">رمز التحقق</label>
-                    <input
-                      type="text"
-                      value={forgotOtp}
-                      onChange={(e) => setForgotOtp(e.target.value)}
-                      placeholder="أدخل الرقم المكون من 6 أرقام"
-                      className="w-full px-4 py-3 text-sm rounded-lg border bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 text-center tracking-widest text-lg"
-                      dir="ltr"
-                      maxLength={6}
-                    />
-                  </div>
-                  {forgotError && (
-                    <div className="text-red-300 text-sm bg-red-900/20 border border-red-500/30 rounded-lg p-3">
-                      {forgotError}
-                    </div>
-                  )}
-                  <button
-                    onClick={handleVerifyOtp}
-                    disabled={forgotLoading}
-                    className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium"
-                  >
-                    {forgotLoading ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        <span>جاري التحقق...</span>
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="w-4 h-4" />
-                        <span>تحقق واستعادة</span>
-                      </>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => { setForgotStep('phone'); setForgotError(null); }}
-                    disabled={forgotLoading}
-                    className="w-full px-4 py-2 text-slate-400 hover:text-slate-300 text-sm transition-colors"
-                  >
-                    إعادة إرسال الرمز
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        {/* Forgot-token recovery is available on the public landing page. */}
+        {participantOtpModal}
 
         {/* Info Popup */}
         {showInfoPopup && (
@@ -8668,6 +8578,9 @@ export default function WelcomePage() {
 }
   
   return (<>
+      {/* Keep OTP recovery mounted over token-authenticated registration/survey pages. */}
+      {participantOtpModal}
+
       {/* Unified Navigation Bar - Hide in step 4 (round mode) as it's included in page content */}
       {step !== 4 && <NavigationBar />}
       {/* Clickable Logo Header - Hide in step 4 (round mode) as it's included in page content */}
@@ -9203,7 +9116,8 @@ export default function WelcomePage() {
                       loading={loading}
                       assignedNumber={assignedNumber || undefined}
                       secureToken={secureToken || undefined}
-                      onExistingPhoneDetected={handleExistingPhoneDetected}
+                      isNewRegistration={isJustCreatedUser}
+                      onExistingPhoneDetected={isJustCreatedUser ? handleExistingPhoneDetected : undefined}
                     />
                   </Suspense>
                 </>

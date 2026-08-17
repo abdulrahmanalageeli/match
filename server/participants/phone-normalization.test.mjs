@@ -5,6 +5,7 @@ import {
   isPlausibleParticipantPhone,
   normalizeParticipantPhone,
   participantPhoneToE164,
+  shouldCheckParticipantPhoneOwnership,
 } from './phone-normalization.mjs'
 
 test('normalizes equivalent Saudi phone formats to one identity', () => {
@@ -29,4 +30,26 @@ test('rejects missing and implausibly short phone identities', () => {
   assert.equal(normalizeParticipantPhone(null), '')
   assert.equal(isPlausibleParticipantPhone('1234567'), false)
   assert.equal(isPlausibleParticipantPhone('+966501234567'), true)
+})
+
+test('does not run registration ownership checks for an unchanged survey-edit phone', () => {
+  assert.equal(shouldCheckParticipantPhoneOwnership({
+    hasExistingSurvey: true,
+    currentPhone: '050 123 4567',
+    nextPhone: '+966501234567',
+  }), false)
+})
+
+test('checks ownership for provisional registrations and actual phone identity changes', () => {
+  assert.equal(shouldCheckParticipantPhoneOwnership({
+    hasExistingSurvey: false,
+    currentPhone: null,
+    nextPhone: '+966501234567',
+  }), true)
+
+  assert.equal(shouldCheckParticipantPhoneOwnership({
+    hasExistingSurvey: true,
+    currentPhone: '+966501234567',
+    nextPhone: '+966551234567',
+  }), true)
 })

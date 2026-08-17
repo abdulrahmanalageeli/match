@@ -8,6 +8,7 @@ import { Input } from "../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/ui/dialog"
 import { ChevronLeft, ChevronRight, Shield, AlertTriangle, CheckCircle, Loader2, Star, FileText, X, ListPlus, Sparkles, Info } from "lucide-react"
+import { shouldRunSurveyPhoneDuplicateCheck } from "../lib/survey-phone-flow.mjs"
 import HobbiesPickerModal from "./HobbiesPickerModal"
 
 interface SurveyData {
@@ -959,6 +960,7 @@ const SurveyComponent = memo(function SurveyComponent({
   loading = false,
   assignedNumber,
   secureToken,
+  isNewRegistration,
   onExistingPhoneDetected,
 }: { 
   onSubmit: (data: SurveyData) => void
@@ -968,6 +970,7 @@ const SurveyComponent = memo(function SurveyComponent({
   loading?: boolean
   assignedNumber?: number
   secureToken?: string
+  isNewRegistration: boolean
   onExistingPhoneDetected?: (phoneNumber: string) => void | Promise<void>
 }) {
   
@@ -979,9 +982,11 @@ const SurveyComponent = memo(function SurveyComponent({
   const [phoneConfirmDisplay, setPhoneConfirmDisplay] = useState('')
   const [showResumeBanner, setShowResumeBanner] = useState(false)
   const [validationAttemptedPages, setValidationAttemptedPages] = useState<Set<number>>(() => new Set())
+  const [checkingPhone, setCheckingPhone] = useState(false)
   const surveyProgressKey = 'survey_progress'
   const hasRestoredRef = useRef(false)
   const hasInitializedPhoneRef = useRef(false)
+  const phoneCheckInFlightRef = useRef(false)
 
   // Helper to parse hobbies from the text field
   const getHobbiesArray = useCallback((str: string) => {
@@ -1361,11 +1366,15 @@ const SurveyComponent = memo(function SurveyComponent({
       return
     }
 
-    // Phone ownership is checked before the participant spends time completing
-    // the rest of the survey. Existing numbers continue through OTP login.
-    if (currentPage === phoneQuestionPage) {
+    // Phone ownership belongs to account registration, not authenticated survey
+    // edits. Existing survey owners must be able to advance without an account
+    // recovery request, even for legacy records.
+    if (shouldRunSurveyPhoneDuplicateCheck({ isNewRegistration, currentPage, phoneQuestionPage })) {
       const phoneNumber = surveyData.answers.phone_number
       if (phoneNumber) {
+        if (phoneCheckInFlightRef.current) return
+        phoneCheckInFlightRef.current = true
+        setCheckingPhone(true)
         try {
           const res = await fetch("/api/participant", {
             method: "POST",
@@ -1391,6 +1400,9 @@ const SurveyComponent = memo(function SurveyComponent({
           console.error("Error checking phone duplicate:", error)
           alert("تعذر التحقق من رقم الجوال. تحقق من اتصالك وحاول مرة أخرى.")
           return
+        } finally {
+          phoneCheckInFlightRef.current = false
+          setCheckingPhone(false)
         }
       }
     }
@@ -2555,11 +2567,20 @@ const SurveyComponent = memo(function SurveyComponent({
           ) : (
             <Button
               onClick={nextPage}
-              disabled={loading}
+              disabled={loading || checkingPhone}
               className="min-h-11 flex-1 items-center gap-2 rounded-xl bg-cyan-500 px-6 text-sm font-extrabold text-slate-950 shadow-sm shadow-cyan-500/20 transition-colors hover:bg-cyan-400 disabled:opacity-50 sm:flex-none sm:min-w-40"
             >
-              <span>التالي</span>
-              <ChevronLeft className="w-4 h-4" />
+              {checkingPhone ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>جاري التحقق...</span>
+                </>
+              ) : (
+                <>
+                  <span>التالي</span>
+                  <ChevronLeft className="w-4 h-4" />
+                </>
+              )}
             </Button>
           )}
         </div>

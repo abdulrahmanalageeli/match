@@ -15,6 +15,7 @@ import {
   isPlausibleParticipantPhone,
   normalizeParticipantPhone,
   participantPhoneToE164,
+  shouldCheckParticipantPhoneOwnership,
 } from "../server/participants/phone-normalization.mjs"
 import { validateProfileDataCollection } from "../server/participants/profile-data-collection.mjs"
 
@@ -1010,6 +1011,7 @@ export default async function handler(req, res) {
 
   // SAVE PARTICIPANT ACTION
   if (action === "save-participant") {
+    let phoneConflictRequiresOtp = false
     try {
       console.log('📨 Received save-participant request')
 
@@ -1133,7 +1135,7 @@ export default async function handler(req, res) {
       // Find the participant to update using their secure_token as the primary identifier
       const { data: existing, error: existingError } = await supabase
         .from("participants")
-        .select("id, assigned_number, survey_data, secure_token")
+        .select("id, assigned_number, survey_data, secure_token, phone_number")
         .eq("match_id", match_id)
         .eq("secure_token", secure_token)
 
@@ -1142,9 +1144,14 @@ export default async function handler(req, res) {
         throw existingError
       }
 
-      // A phone number is an account identity. Never let one participant claim
-      // a number that already belongs to another account. The database trigger
-      // enforces the same rule to close the check/update race window.
+      const currentParticipant = existing?.[0] || null
+      const hasExistingSurvey = currentParticipant?.survey_data != null
+      phoneConflictRequiresOtp = !hasExistingSurvey
+
+      // Duplicate-account recovery is a registration concern. An authenticated
+      // survey edit with the same canonical phone skips the ownership lookup;
+      // a genuine phone identity change remains protected by this check and by
+      // the database trigger that closes the check/update race window.
       if (phoneNumber) {
         if (!isPlausibleParticipantPhone(phoneNumber)) {
           return res.status(400).json({
@@ -1153,25 +1160,35 @@ export default async function handler(req, res) {
           })
         }
 
-        const { participants: phoneOwners, error: phoneOwnerError } = await findParticipantsByExactPhone(
-          phoneNumber,
-          "id, assigned_number, phone_number, secure_token, created_at"
-        )
-        if (phoneOwnerError) {
-          logError("Error checking phone owner", phoneOwnerError)
-          throw phoneOwnerError
-        }
+        const shouldCheckPhoneOwnership = shouldCheckParticipantPhoneOwnership({
+          hasExistingSurvey,
+          currentPhone: currentParticipant?.phone_number,
+          nextPhone: phoneNumber,
+        })
 
-        const currentParticipantId = existing?.[0]?.id || null
-        const otherOwners = phoneOwners.filter(owner => owner.id !== currentParticipantId)
-        if (otherOwners.length > 0) {
-          return res.status(409).json({
-            code: "PHONE_ALREADY_REGISTERED",
-            duplicate: true,
-            requires_otp: true,
-            error: "رقم الجوال مرتبط بحساب موجود",
-            message: "سنرسل رمز تحقق لتسجيل دخولك إلى حسابك الحالي.",
-          })
+        if (shouldCheckPhoneOwnership) {
+          const { participants: phoneOwners, error: phoneOwnerError } = await findParticipantsByExactPhone(
+            phoneNumber,
+            "id, assigned_number, phone_number, secure_token, created_at"
+          )
+          if (phoneOwnerError) {
+            logError("Error checking phone owner", phoneOwnerError)
+            throw phoneOwnerError
+          }
+
+          const currentParticipantId = currentParticipant?.id || null
+          const otherOwners = phoneOwners.filter(owner => owner.id !== currentParticipantId)
+          if (otherOwners.length > 0) {
+            return res.status(409).json({
+              code: "PHONE_ALREADY_REGISTERED",
+              duplicate: true,
+              requires_otp: phoneConflictRequiresOtp,
+              error: "رقم الجوال مرتبط بحساب موجود",
+              message: phoneConflictRequiresOtp
+                ? "سنرسل رمز تحقق لتسجيل دخولك إلى حسابك الحالي."
+                : "استخدم رقم جوال غير مرتبط بحساب آخر.",
+            })
+          }
         }
       }
 
@@ -1568,9 +1585,11 @@ export default async function handler(req, res) {
         return res.status(409).json({
           code: "PHONE_ALREADY_REGISTERED",
           duplicate: true,
-          requires_otp: true,
+          requires_otp: phoneConflictRequiresOtp,
           error: "رقم الجوال مرتبط بحساب موجود",
-          message: "سنرسل رمز تحقق لتسجيل دخولك إلى حسابك الحالي.",
+          message: phoneConflictRequiresOtp
+            ? "سنرسل رمز تحقق لتسجيل دخولك إلى حسابك الحالي."
+            : "استخدم رقم جوال غير مرتبط بحساب آخر.",
         })
       }
       return res.status(500).json({ error: err.message || "Unexpected error" })
@@ -2210,7 +2229,7 @@ export default async function handler(req, res) {
       if (secure_token) {
         const { data: currentParticipant, error: currentError } = await supabase
           .from("participants")
-          .select("id")
+          .select("id, survey_data")
           .eq("match_id", process.env.CURRENT_MATCH_ID || STATIC_MATCH_ID)
           .eq("secure_token", secure_token)
           .maybeSingle()
@@ -2219,6 +2238,14 @@ export default async function handler(req, res) {
           return res.status(500).json({ error: "Database error" })
         }
         currentParticipantId = currentParticipant?.id || null
+        if (currentParticipant?.survey_data != null) {
+          return res.status(200).json({
+            duplicate: false,
+            skipped: true,
+            reason: "survey_edit",
+            message: "تم تجاوز فحص التسجيل لتعديل الاستبيان",
+          })
+        }
       }
 
       const { participants, error } = await findParticipantsByExactPhone(

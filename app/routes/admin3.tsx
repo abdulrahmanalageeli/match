@@ -218,6 +218,15 @@ function mapEnumLabel3(fieldKey: string, rawValue: any): string {
 let _adminPassword = ""
 function setAdminPassword(p: string) { _adminPassword = p }
 const API = "/api/admin"
+const EVENT3_PHASE_SECONDS = {
+  round1: 35 * 60,
+  ranking1: 3 * 60,
+  round2: 25 * 60,
+  ranking2: 3 * 60,
+  break: 10 * 60,
+  phase2_reveal: 26 * 60,
+  phase3_reveal: 26 * 60,
+} as const
 
 const PHASES = [
   { id: "setup",          label: "إعداد الفعالية",       icon: "⚙️", color: "gray" },
@@ -978,7 +987,7 @@ export default function Admin3Page() {
     if (previewEventId != null) { toast.error("لا يمكن تغيير المرحلة في وضع المعاينة"); return Promise.resolve({ error: "preview mode" }) }
     return run(`phase-${phase}`, () => api("e3-set-phase", { phase, start_timer: false }))
   }
-  const startTimer = (round: number, duration = 1260) => {
+  const startTimer = (round: number, duration?: number) => {
     if (previewEventId != null) { toast.error("لا يمكن تشغيل المؤقت في وضع المعاينة"); return }
     run("timer", () => api("e3-start-timer", { round, duration }))
   }
@@ -1162,17 +1171,17 @@ export default function Admin3Page() {
     const hasMatches = state.phase2_matches_done
     const sel = state.participants_selected || 0
     if (ph === "setup" && !hasSeating) return { label: "توليد خطة الجلسات", action: generateSeating, ready: sel >= 6 }
-    if (ph === "setup" && hasSeating) return { label: "⬅ بدء الجولة الأولى (30 دقيقة)", action: () => setPhaseWithTimer("round1", 1800, 1), ready: true }
-    if (ph === "round1") return { label: "⬅ التصنيف بعد الجولة 1 (5 دقائق)", action: () => setPhaseWithTimer("ranking1", 300, 0), ready: true }
-    if (ph === "ranking1") return { label: "⬅ بدء الجولة الثانية (25 دقيقة)", action: () => setPhaseWithTimer("round2", 1500, 2), ready: true }
-    if (ph === "round2") return { label: "⬅ التصنيف النهائي (5 دقائق)", action: () => setPhaseWithTimer("ranking2", 300, 0), ready: true }
+    if (ph === "setup" && hasSeating) return { label: "⬅ بدء الجولة الأولى (35 دقيقة)", action: () => setPhaseWithTimer("round1", EVENT3_PHASE_SECONDS.round1, 1), ready: true }
+    if (ph === "round1") return { label: "⬅ التصنيف بعد الجولة 1 (3 دقائق)", action: () => setPhaseWithTimer("ranking1", EVENT3_PHASE_SECONDS.ranking1, 0), ready: true }
+    if (ph === "ranking1") return { label: "⬅ بدء الجولة الثانية (25 دقيقة)", action: () => setPhaseWithTimer("round2", EVENT3_PHASE_SECONDS.round2, 2), ready: true }
+    if (ph === "round2") return { label: "⬅ التصنيف النهائي (3 دقائق)", action: () => setPhaseWithTimer("ranking2", EVENT3_PHASE_SECONDS.ranking2, 0), ready: true }
     if (ph === "ranking2" && !hasMatches) return { label: "⬅ تشغيل مطابقة اختيار المشاركين", action: () => setPhaseStopTimer("phase2_processing").then(d => d?.error ? d : run("phase2", () => api("e3-trigger-phase2-matching").then(result => { fetchMatches(); fetchState(); return result }))), ready: ranked > 0 }
-    if (ph === "phase2_processing" && hasMatches) return { label: "⬅ استراحة (10 دقائق)", action: () => setPhaseWithTimer("break", 600, 3), ready: true }
+    if (ph === "phase2_processing" && hasMatches) return { label: "⬅ استراحة (10 دقائق)", action: () => setPhaseWithTimer("break", EVENT3_PHASE_SECONDS.break, 3), ready: true }
     if (ph === "phase2_processing") return { label: "⏳ جاري المطابقة...", action: () => {}, ready: false }
-    if (ph === "ranking2" && hasMatches) return { label: "⬅ استراحة (10 دقائق)", action: () => setPhaseWithTimer("break", 600, 3), ready: true }
-    if (ph === "break") return { label: "⬅ بدء كشف المرحلة 2 (21 دقيقة)", action: () => setPhaseWithTimer("phase2_reveal", 1260, 4), ready: true }
+    if (ph === "ranking2" && hasMatches) return { label: "⬅ استراحة (10 دقائق)", action: () => setPhaseWithTimer("break", EVENT3_PHASE_SECONDS.break, 3), ready: true }
+    if (ph === "break") return { label: "⬅ بدء كشف المرحلة 2 (26 دقيقة)", action: () => setPhaseWithTimer("phase2_reveal", EVENT3_PHASE_SECONDS.phase2_reveal, 4), ready: true }
     if (ph === "phase2_reveal" && !state.phase3_matches_done) return { label: "⬅ تشغيل مطابقة الخوارزمية", action: triggerPhase3, ready: ranked > 0 }
-    if (ph === "phase2_reveal" && state.phase3_matches_done) return { label: "⬅ كشف المرحلة 3 (21 دقيقة)", action: () => setPhaseWithTimer("phase3_reveal", 1260, 5), ready: true }
+    if (ph === "phase2_reveal" && state.phase3_matches_done) return { label: "⬅ كشف المرحلة 3 (26 دقيقة)", action: () => setPhaseWithTimer("phase3_reveal", EVENT3_PHASE_SECONDS.phase3_reveal, 5), ready: true }
     if (ph === "phase3_reveal") return { label: "⬅ الكشف النهائي ✨", action: () => setPhase("final_reveal"), ready: true }
     return null
   }
@@ -2028,8 +2037,8 @@ export default function Admin3Page() {
                   },
                   {
                     label: "بدء الجولة الأولى",
-                    desc: "30 دقيقة",
-                    action: () => setPhaseWithTimer("round1", 1800, 1),
+                    desc: "35 دقيقة",
+                    action: () => setPhaseWithTimer("round1", EVENT3_PHASE_SECONDS.round1, 1),
                     icon: Play,
                     color: "green",
                     enabled: state?.seating_generated,
@@ -2037,8 +2046,8 @@ export default function Admin3Page() {
                   },
                   {
                     label: "التصنيف بعد الجولة 1",
-                    desc: "5 دقائق",
-                    action: () => setPhaseWithTimer("ranking1", 300, 0),
+                    desc: "3 دقائق",
+                    action: () => setPhaseWithTimer("ranking1", EVENT3_PHASE_SECONDS.ranking1, 0),
                     icon: BarChart3,
                     color: "yellow",
                     enabled: true,
@@ -2047,7 +2056,7 @@ export default function Admin3Page() {
                   {
                     label: "بدء الجولة الثانية",
                     desc: "25 دقيقة",
-                    action: () => setPhaseWithTimer("round2", 1500, 2),
+                    action: () => setPhaseWithTimer("round2", EVENT3_PHASE_SECONDS.round2, 2),
                     icon: Play,
                     color: "green",
                     enabled: true,
@@ -2055,8 +2064,8 @@ export default function Admin3Page() {
                   },
                   {
                     label: "التصنيف بعد الجولة 2",
-                    desc: "5 دقائق",
-                    action: () => setPhaseWithTimer("ranking2", 300, 0),
+                    desc: "3 دقائق",
+                    action: () => setPhaseWithTimer("ranking2", EVENT3_PHASE_SECONDS.ranking2, 0),
                     icon: BarChart3,
                     color: "yellow",
                     enabled: true,
@@ -2074,7 +2083,7 @@ export default function Admin3Page() {
                   {
                     label: "استراحة",
                     desc: "10 دقائق",
-                    action: () => setPhaseWithTimer("break", 600, 3),
+                    action: () => setPhaseWithTimer("break", EVENT3_PHASE_SECONDS.break, 3),
                     icon: Coffee,
                     color: "orange",
                     enabled: state?.phase2_matches_done,
@@ -2082,8 +2091,8 @@ export default function Admin3Page() {
                   },
                   {
                     label: "كشف المرحلة 2",
-                    desc: "21 دقيقة",
-                    action: () => setPhaseWithTimer("phase2_reveal", 1260, 4),
+                    desc: "26 دقيقة",
+                    action: () => setPhaseWithTimer("phase2_reveal", EVENT3_PHASE_SECONDS.phase2_reveal, 4),
                     icon: Eye,
                     color: "pink",
                     enabled: state?.phase2_matches_done,
@@ -2100,8 +2109,8 @@ export default function Admin3Page() {
                   },
                   {
                     label: "كشف المرحلة 3",
-                    desc: "21 دقيقة",
-                    action: () => setPhaseWithTimer("phase3_reveal", 1260, 5),
+                    desc: "26 دقيقة",
+                    action: () => setPhaseWithTimer("phase3_reveal", EVENT3_PHASE_SECONDS.phase3_reveal, 5),
                     icon: Sparkles,
                     color: "purple",
                     enabled: true,
@@ -2263,13 +2272,13 @@ export default function Admin3Page() {
                           if (phase.id === "phase2_processing" || phase.id === "phase3_processing") return
                           if (phase.id === "setup") setPhase("setup")
                           else if (phase.id === "final_reveal") setPhase("final_reveal")
-                          else if (phase.id === "break") setPhaseWithTimer("break", 600, 3)
-                          else if (phase.id === "round1") setPhaseWithTimer("round1", 1800, 1)
-                          else if (phase.id === "ranking1") setPhaseWithTimer("ranking1", 300, 0)
-                          else if (phase.id === "round2") setPhaseWithTimer("round2", 1500, 2)
-                          else if (phase.id === "ranking2") setPhaseWithTimer("ranking2", 300, 0)
-                          else if (phase.id === "phase2_reveal") setPhaseWithTimer("phase2_reveal", 1260, 4)
-                          else if (phase.id === "phase3_reveal") setPhaseWithTimer("phase3_reveal", 1260, 5)
+                          else if (phase.id === "break") setPhaseWithTimer("break", EVENT3_PHASE_SECONDS.break, 3)
+                          else if (phase.id === "round1") setPhaseWithTimer("round1", EVENT3_PHASE_SECONDS.round1, 1)
+                          else if (phase.id === "ranking1") setPhaseWithTimer("ranking1", EVENT3_PHASE_SECONDS.ranking1, 0)
+                          else if (phase.id === "round2") setPhaseWithTimer("round2", EVENT3_PHASE_SECONDS.round2, 2)
+                          else if (phase.id === "ranking2") setPhaseWithTimer("ranking2", EVENT3_PHASE_SECONDS.ranking2, 0)
+                          else if (phase.id === "phase2_reveal") setPhaseWithTimer("phase2_reveal", EVENT3_PHASE_SECONDS.phase2_reveal, 4)
+                          else if (phase.id === "phase3_reveal") setPhaseWithTimer("phase3_reveal", EVENT3_PHASE_SECONDS.phase3_reveal, 5)
                           else setPhase(phase.id)
                         }}
                         disabled={!!loading || isCurrent}

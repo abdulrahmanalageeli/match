@@ -3238,7 +3238,7 @@ Please respond in JSON format:
         // Server-side auto-save: if ranking phase and timer expired, auto-save for this participant
         if (participant && (phase === "ranking1" || phase === "ranking2") && stateRow?.global_timer_active && stateRow?.global_timer_start_time) {
           const elapsed = Math.floor((Date.now() - new Date(stateRow.global_timer_start_time).getTime()) / 1000)
-          const remaining = Math.max(0, (stateRow.global_timer_duration || 300) - elapsed)
+          const remaining = Math.max(0, (stateRow.global_timer_duration || 180) - elapsed)
           if (remaining === 0) {
             // Check if participant already has rankings
             const { data: existingRanks } = await supabase.from("participant_rankings").select("id").eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId).eq("ranker_number", myNumber).limit(1)
@@ -3326,7 +3326,13 @@ Please respond in JSON format:
           const firstName = fullName.split(" ")[0] || fullName
           myInfo = { number: myNumber, name: firstName, gender: participant.gender || sd?.answers?.gender || sd?.gender || null }
         }
-        const baseResponse = { phase, event_id: activeEventId, timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration || 1260, timer_round: stateRow?.global_timer_round || null, my_assignment: myAssignment, enrolled: myAssignment?.enrolled || false, my_info: myInfo, participants_selected: participantsSelected || 0, phase2_score_revealed: stateRow?.phase2_score_revealed || false, phase3_score_revealed: stateRow?.phase3_score_revealed || false, server_time: new Date().toISOString() }
+        const fallbackTimerDuration = phase === "round1" ? 35 * 60
+          : phase === "ranking1" || phase === "ranking2" ? 3 * 60
+          : phase === "round2" ? 25 * 60
+          : phase === "break" ? 10 * 60
+          : phase === "phase2_reveal" || phase === "phase3_reveal" ? 26 * 60
+          : 26 * 60
+        const baseResponse = { phase, event_id: activeEventId, timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration || fallbackTimerDuration, timer_round: stateRow?.global_timer_round || null, my_assignment: myAssignment, enrolled: myAssignment?.enrolled || false, my_info: myInfo, participants_selected: participantsSelected || 0, phase2_score_revealed: stateRow?.phase2_score_revealed || false, phase3_score_revealed: stateRow?.phase3_score_revealed || false, server_time: new Date().toISOString() }
 
         // Heartbeat: also fetch SOS, mood check, and notification data in one round-trip
         if (action === "e3-heartbeat" && participant) {

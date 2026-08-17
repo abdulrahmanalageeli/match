@@ -197,11 +197,11 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
       details: groupMembers.length > 0 ? [
         "تأكد أن جميع أعضاء المجموعة حاضرون (٣-٦ مشاركين)",
         "يمكنكم التبديل بين الألعاب في أي وقت",
-        "بعد الأنشطة الجماعية ستنتقل إلى جلسات فردية 1-ل-1 لمدة 30 دقيقة على الأقل",
+        "بعد الأنشطة الجماعية ستنتقل إلى جلسات فردية 1-ل-1 لمدة 25 دقيقة",
         "استمتعوا ولا تنسوا التفاعل مع بعض!"
       ] : [
         "انتظر تنسيق المجموعة",
-        "بعد الأنشطة الجماعية ستنتقل إلى جلسات فردية 1-ل-1 لمدة 30 دقيقة على الأقل",
+        "بعد الأنشطة الجماعية ستنتقل إلى جلسات فردية 1-ل-1 لمدة 25 دقيقة",
         "أو ابدأ التصفح الآن"
       ]
     }
@@ -347,7 +347,7 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
             {/* One-on-one explanation callout */}
             <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-500/10 border border-blue-400/20 text-blue-100 text-xs sm:text-sm justify-center">
               <Clock className="w-4 h-4" />
-              <span>بعد الأنشطة الجماعية تبدأ جلسات 1-ل-1 لمدة 30 دقيقة على الأقل</span>
+              <span>بعد الأنشطة الجماعية تبدأ جلسات 1-ل-1 لمدة 25 دقيقة</span>
             </div>
             <AnimatePresence mode="wait">
               <motion.div

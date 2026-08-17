@@ -1419,12 +1419,12 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
 function SetupScreen({ token, myInfo, enrolledCount }: { token: string; myInfo: { number: number; name: string; gender: string | null } | null; enrolledCount: number | null }) {
 
   const timeline = [
-    { icon: <Users size={14} className="text-purple-400" />, label: "جلسة جماعية أولى", time: "30 دقيقة" },
+    { icon: <Users size={14} className="text-purple-400" />, label: "جلسة جماعية أولى", time: "35 دقيقة" },
     { icon: <Shuffle size={14} className="text-purple-400" />, label: "جلسة جماعية ثانية", time: "25 دقيقة" },
-    { icon: <Trophy size={14} className="text-purple-400" />, label: "ترتيب المشاركين", time: "5 دقائق" },
+    { icon: <Trophy size={14} className="text-purple-400" />, label: "ترتيب المشاركين", time: "3 دقائق" },
     { icon: <Coffee size={14} className="text-orange-400" />, label: "استراحة", time: "10 دقائق" },
-    { icon: <Star size={14} className="text-purple-400" />, label: "جلسة فردية (اختيارك)", time: "20 دقيقة" },
-    { icon: <Brain size={14} className="text-purple-400" />, label: "جلسة فردية (اختيار النظام)", time: "20 دقيقة" },
+    { icon: <Star size={14} className="text-purple-400" />, label: "جلسة فردية (اختيارك)", time: "25 دقيقة" },
+    { icon: <Brain size={14} className="text-purple-400" />, label: "جلسة فردية (اختيار النظام)", time: "25 دقيقة" },
     { icon: <Sparkles size={14} className="text-purple-400" />, label: "الكشف النهائي", time: "النتيجة" },
   ]
 
@@ -4982,11 +4982,11 @@ function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow }: {
           <div className="space-y-3 text-gray-300 text-sm leading-relaxed">
             <div className="flex items-start gap-2">
               <span className="text-teal-400 mt-0.5 shrink-0">١.</span>
-              <span>ستعرف طاولتك وتتوجه إليها، ثم ستجلس <b className="text-pink-300">لقاء واحد لواحد مع اختيارك</b> لمدة 20 دقيقة. بعدها ستشاركنا انطباعك عن اللقاء.</span>
+              <span>ستعرف طاولتك وتتوجه إليها، ثم ستجلس <b className="text-pink-300">لقاء واحد لواحد مع اختيارك</b> لمدة 25 دقيقة. بعدها ستشاركنا انطباعك عن اللقاء.</span>
             </div>
             <div className="flex items-start gap-2">
               <span className="text-teal-400 mt-0.5 shrink-0">٢.</span>
-              <span>ثم ستنتقل إلى طاولة جديدة وستجلس <b className="text-purple-300">لقاء واحد لواحد مع اختيارنا</b> لمدة 20 دقيقة. بعدها ستشاركنا انطباعك عن هذا اللقاء أيضًا.</span>
+              <span>ثم ستنتقل إلى طاولة جديدة وستجلس <b className="text-purple-300">لقاء واحد لواحد مع اختيارنا</b> لمدة 25 دقيقة. بعدها ستشاركنا انطباعك عن هذا اللقاء أيضًا.</span>
             </div>
             <div className="flex items-start gap-2">
               <span className="text-teal-400 mt-0.5 shrink-0">٣.</span>

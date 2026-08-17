@@ -59,15 +59,17 @@ interface Game {
   color: string;
 }
 
+const HOT_SEAT_DURATION_SECONDS = 90;
+
 // Conversational activities first, then game/party activities
 const games: Game[] = [
   {
     id: "hot-seat",
     name: "Hot Seat",
     nameAr: "الكرسي الساخن",
-    description: "Each person gets 2 minutes in the hot seat — anyone can ask anything",
-    descriptionAr: "كل شخص يجلس على الكرسي الساخن لمدة دقيقتين والجميع يسألونه أي سؤال",
-    duration: 12,
+    description: "Each person gets 90 seconds in the hot seat — anyone can ask anything",
+    descriptionAr: "كل شخص يجلس على الكرسي الساخن لمدة دقيقة ونصف والجميع يسألونه أي سؤال",
+    duration: 9,
     icon: <Mic className="w-6 h-6" />,
     color: "from-amber-500 to-orange-600"
   },
@@ -1192,7 +1194,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
   const [shuffledHotSeat, setShuffledHotSeat] = useState<string[]>([]);
   const [hotSeatParticipants, setHotSeatParticipants] = useState<string[]>([]);
   const [hotSeatIndex, setHotSeatIndex] = useState(0);
-  const [hotSeatTimer, setHotSeatTimer] = useState(120); // 2 minutes in seconds
+  const [hotSeatTimer, setHotSeatTimer] = useState(HOT_SEAT_DURATION_SECONDS);
   const [hotSeatTimerActive, setHotSeatTimerActive] = useState(false);
   const [hotSeatQuestionIndex, setHotSeatQuestionIndex] = useState(0);
   
@@ -1425,7 +1427,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
         setCharadesTimerActive(false);
         setCharadesTimer(90);
         setHotSeatTimerActive(false);
-        setHotSeatTimer(120);
+        setHotSeatTimer(HOT_SEAT_DURATION_SECONDS);
         setHotSeatParticipants([]);
       } else {
         // If on main groups page, go to welcome page
@@ -2338,7 +2340,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
     } else if (gameId === "hot-seat") {
       setShuffledHotSeat(shuffleArray(hotSeatQuestions));
       setHotSeatIndex(0);
-      setHotSeatTimer(120);
+      setHotSeatTimer(HOT_SEAT_DURATION_SECONDS);
       setHotSeatTimerActive(false);
       setHotSeatQuestionIndex(0);
       // Pre-fill participants from groupMembers if available
@@ -3607,7 +3609,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                   <span className="text-amber-200 text-xs font-bold">كرسي ساخن</span>
                 </div>
                 <h3 className="text-3xl font-extrabold text-white mb-2">الكرسي الساخن</h3>
-                <p className="text-amber-100/90">كل شخص يجلس دقيقتين والجميع يسألونه أي سؤال</p>
+                <p className="text-amber-100/90">كل شخص يجلس دقيقة ونصف والجميع يسألونه أي سؤال</p>
               </div>
 
               {/* Game Instructions */}
@@ -3618,7 +3620,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 </h4>
                 <ol className="text-amber-100/90 space-y-3 list-decimal list-inside">
                   <li className="flex items-start">
-                    <span className="font-medium">اضغطوا "ابدأ" ليبدأ الشخص الأول جلسته على الكرسي الساخن (دقيقتان).</span>
+                    <span className="font-medium">اضغطوا "ابدأ" ليبدأ الشخص الأول جلسته على الكرسي الساخن (دقيقة ونصف).</span>
                   </li>
                   <li className="flex items-start">
                     <span className="font-medium">الجميع يسألونه أي سؤال — استخدموا الأسئلة المقترحة أو اسألوا أي شي.</span>
@@ -3727,7 +3729,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                       <div className="w-full bg-slate-700/50 rounded-full h-2 overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all duration-1000 ${hotSeatTimer <= 30 ? 'bg-red-500' : 'bg-gradient-to-r from-amber-500 to-orange-500'}`}
-                          style={{ width: `${(hotSeatTimer / 120) * 100}%` }}
+                          style={{ width: `${(hotSeatTimer / HOT_SEAT_DURATION_SECONDS) * 100}%` }}
                         />
                       </div>
                     </div>
@@ -3752,7 +3754,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                         </Button>
                       ) : null}
                       <Button
-                        onClick={() => { setHotSeatTimer(120); setHotSeatTimerActive(false); }}
+                        onClick={() => { setHotSeatTimer(HOT_SEAT_DURATION_SECONDS); setHotSeatTimerActive(false); }}
                         className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-xl font-semibold shadow-lg transition-all"
                       >
                         <SkipForward className="w-4 h-4 ml-2" />
@@ -3809,7 +3811,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                       onClick={() => {
                         if (hotSeatIndex < hotSeatParticipants.length - 1) {
                           setHotSeatIndex(prev => prev + 1);
-                          setHotSeatTimer(120);
+                          setHotSeatTimer(HOT_SEAT_DURATION_SECONDS);
                           setHotSeatTimerActive(false);
                           setHotSeatQuestionIndex(0);
                         } else {
@@ -4114,7 +4116,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 </ul>
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-400/20 text-amber-100 text-xs">
                   <Clock className="w-4 h-4" />
-                  <span>بعد الأنشطة الجماعية تبدأ جلسات 1-ل-1 لمدة 30 دقيقة على الأقل</span>
+                  <span>بعد الأنشطة الجماعية تبدأ جلسات 1-ل-1 لمدة 25 دقيقة</span>
                 </div>
               </div>
 

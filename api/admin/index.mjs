@@ -326,6 +326,23 @@ const EVENT3_MATCH_ID = "00000000-0000-0000-0000-000000000003"
 const EVENT3_PASSWORD = process.env.EVENT3_PASSWORD || ""
 const EVENT3_COHOST_PASSWORD = process.env.EVENT3_COHOST_PASSWORD || ""
 const EVENT3_COHOST_TOKEN_TTL_SECONDS = 8 * 60 * 60
+const EVENT3_PHASE_TIMER_SECONDS = Object.freeze({
+  round1: 35 * 60,
+  ranking1: 3 * 60,
+  round2: 25 * 60,
+  ranking2: 3 * 60,
+  break: 10 * 60,
+  phase2_reveal: 26 * 60,
+  phase3_reveal: 26 * 60,
+})
+const EVENT3_TIMER_ROUND_SECONDS = Object.freeze({
+  0: EVENT3_PHASE_TIMER_SECONDS.ranking1,
+  1: EVENT3_PHASE_TIMER_SECONDS.round1,
+  2: EVENT3_PHASE_TIMER_SECONDS.round2,
+  3: EVENT3_PHASE_TIMER_SECONDS.break,
+  4: EVENT3_PHASE_TIMER_SECONDS.phase2_reveal,
+  5: EVENT3_PHASE_TIMER_SECONDS.phase3_reveal,
+})
 const EVENT3_COHOST_ACTIONS = new Set([
   "e3-cohost-dashboard",
   "e3-cohost-set-attendance",
@@ -9152,7 +9169,9 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           if (start_timer) {
             update.global_timer_active = true
             update.global_timer_start_time = new Date().toISOString()
-            update.global_timer_duration = timer_duration || 1260
+            update.global_timer_duration = Number(timer_duration) > 0
+              ? Number(timer_duration)
+              : (EVENT3_PHASE_TIMER_SECONDS[phase] || 26 * 60)
             update.global_timer_round = timer_round ?? 0
           } else if (start_timer === false) {
             update.global_timer_active = false
@@ -9166,8 +9185,9 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         }
         // e3-start-timer
         if (action === "e3-start-timer") {
-          const { round, duration = 1260 } = req.body
-          const { error } = await supabase.from("event_state").update({ global_timer_active: true, global_timer_start_time: new Date().toISOString(), global_timer_duration: duration, global_timer_round: round }).eq("match_id", EVENT3_MATCH_ID)
+          const { round, duration } = req.body
+          const resolvedDuration = Number(duration) > 0 ? Number(duration) : (EVENT3_TIMER_ROUND_SECONDS[round] || 26 * 60)
+          const { error } = await supabase.from("event_state").update({ global_timer_active: true, global_timer_start_time: new Date().toISOString(), global_timer_duration: resolvedDuration, global_timer_round: round }).eq("match_id", EVENT3_MATCH_ID)
           if (error) return res.status(500).json({ error: error.message })
           return res.status(200).json({ message: "Timer started" })
         }
@@ -9181,9 +9201,10 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         if (action === "e3-adjust-timer") {
           const { delta_seconds } = req.body
           if (typeof delta_seconds !== "number" || delta_seconds === 0) return res.status(400).json({ error: "delta_seconds (non-zero number) required" })
-          const { data: stateRow } = await supabase.from("event_state").select("global_timer_active,global_timer_start_time,global_timer_duration").eq("match_id", EVENT3_MATCH_ID).single()
+          const { data: stateRow } = await supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration").eq("match_id", EVENT3_MATCH_ID).single()
           if (!stateRow?.global_timer_active || !stateRow?.global_timer_start_time) return res.status(400).json({ error: "Timer is not active" })
-          const newDuration = Math.max(0, (stateRow.global_timer_duration || 1260) + delta_seconds)
+          const fallbackDuration = EVENT3_PHASE_TIMER_SECONDS[stateRow.phase] || 26 * 60
+          const newDuration = Math.max(0, (stateRow.global_timer_duration || fallbackDuration) + delta_seconds)
           const { error } = await supabase.from("event_state").update({ global_timer_duration: newDuration }).eq("match_id", EVENT3_MATCH_ID)
           if (error) return res.status(500).json({ error: error.message })
           return res.status(200).json({ message: `Timer adjusted by ${delta_seconds > 0 ? "+" : ""}${delta_seconds}s`, new_duration: newDuration })

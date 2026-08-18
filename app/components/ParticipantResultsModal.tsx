@@ -66,6 +66,7 @@ type ResultSortKey =
   | "core_values_compatibility_score"
   | "intent_score"
   | "vibe_compatibility_score"
+  | "compound_lifestyle_score"
 
 type SortDirection = "asc" | "desc"
 
@@ -652,6 +653,21 @@ export default function ParticipantResultsModal({
   const resultSortValue = (result: ParticipantResult): number | string | null => {
     if (resultSortKey === "name") return result.name || ""
     if (resultSortKey === "partner") return result.partner_assigned_number ?? result.partner_name ?? ""
+    if (resultSortKey === "compound_lifestyle_score") {
+      if (!result.partner_assigned_number) return null
+      const pair = calculatedPairs?.find((candidate: any) =>
+        (Number(candidate.participant_a) === result.assigned_number && Number(candidate.participant_b) === result.partner_assigned_number) ||
+        (Number(candidate.participant_b) === result.assigned_number && Number(candidate.participant_a) === result.partner_assigned_number)
+      )
+      if (!pair) return null
+      const vibe = pair.vibe_compatibility_score ?? 0
+      const disagreement = pair.disagreement_style_score ?? 0
+      const currentLife = pair.current_life_overlap_score ?? 0
+      const similarity = pair.similarity_preference_score ?? 0
+      const attachment = pair.attachment_pace_score ?? 0
+      const lifestyle = pair.lifestyle_compatibility_score ?? 0
+      return vibe + disagreement + currentLife + similarity + attachment + lifestyle
+    }
     let value = result[resultSortKey]
     if (value == null && result.partner_assigned_number) {
       const pair = calculatedPairs.find((candidate: any) =>
@@ -1259,6 +1275,7 @@ export default function ParticipantResultsModal({
                             {matchType === "ai" && (
                               renderSortableHeader("الطاقة /25", "vibe_compatibility_score")
                             )}
+                            {renderSortableHeader("مجموع نمط الحياة", "compound_lifestyle_score")}
                           </>
                         )}
                       </tr>
@@ -2026,10 +2043,11 @@ export default function ParticipantResultsModal({
                             const comm = pair?.communication_compatibility_score ?? 0
                             const intent = pair?.intent_score ?? 0
                             const vibe = pair?.vibe_compatibility_score ?? 0
-                            const disagreement = pair?.disagreement_style_score
-                            const currentLife = pair?.current_life_overlap_score
-                            const similarityPreference = pair?.similarity_preference_score
-                            const attachmentPace = pair?.attachment_pace_score
+                            const disagreement = pair?.disagreement_style_score ?? 0
+                            const currentLife = pair?.current_life_overlap_score ?? 0
+                            const similarityPreference = pair?.similarity_preference_score ?? 0
+                            const attachmentPace = pair?.attachment_pace_score ?? 0
+                            const compoundLifestyle = vibe + disagreement + currentLife + similarityPreference + attachmentPace + life
                             return (
                               <>
                                 <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(synergy).toFixed(1)}/30</span></td>
@@ -2044,6 +2062,7 @@ export default function ParticipantResultsModal({
                                 {matchType === "ai" && (
                                   <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(vibe).toFixed(1)}/25</span></td>
                                 )}
+                                <td className="p-2 text-center"><span className="text-purple-200 text-sm font-bold">{Number.isFinite(Number(compoundLifestyle)) ? `${Number(compoundLifestyle).toFixed(1)}` : "—"}</span></td>
                               </>
                             )
                           })()}

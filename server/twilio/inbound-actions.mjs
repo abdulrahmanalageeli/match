@@ -15,6 +15,7 @@ export function normalizeInboundAction(value) {
 const ACTION_ALIASES = {
   confirm_attendance: ["confirm_attendance", "تأكيد المشاركة", "تاكيد المشاركة", "نعم سأحضر", "نعم ساحضر", "تأكيد", "تاكيد", "نعم", "confirm"],
   deny_attendance: ["deny_attendance", "اعتذار عن المشاركة", "اعتذار", "لن أحضر", "لن احضر", "لا أستطيع الحضور", "لا استطيع الحضور", "لا", "deny"],
+  payment_request: ["payment_request", "عرض تفاصيل الدفع"],
   toggle_auto_signup: ["toggle_auto_signup", "التسجيل التلقائي", "تفعيل التسجيل التلقائي", "تفعيل", "activate"],
   event3_information: ["event3_information", "معلومات الفعالية", "معلومات عن الفعالية"],
   gender_any: ["gender_any", "أي جنس", "اي جنس"],

@@ -725,6 +725,11 @@ export default async function handler(req, res) {
           return res.status(200).json({ status: `arrival_${value}` })
         }
 
+        case "payment_request": {
+          const status = await sendPaymentAccessReply(participant, from)
+          return res.status(200).json({ status })
+        }
+
         default:
           console.log("Unknown button action received")
           return res.status(200).json({ status: "unknown_button" })

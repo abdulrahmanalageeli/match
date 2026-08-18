@@ -24,6 +24,7 @@ test("resolves visible labels for every interactive template", () => {
     ["في الطريق", "arrival_on_way"],
     ["سأتأخر", "arrival_late"],
     ["لن أحضر", "arrival_cancel"],
+    ["عرض تفاصيل الدفع", "payment_request"],
     ["طلب استرداد", "cancellation_refund"],
     ["للفعالية القادمة", "cancellation_next_event"],
   ]

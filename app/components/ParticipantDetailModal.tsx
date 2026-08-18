@@ -5,6 +5,54 @@ import * as Popover from "@radix-ui/react-popover"
 import ParticipantHoverCardContent from "./ParticipantHoverCard"
 import { getPairMatchInsightsCoverage } from "../lib/matchControl"
 
+const shadowMetrics = [
+  { id: "expression_language", label: "لغة", max: 5 },
+  { id: "social_relationship_style", label: "اجتماعي", max: 4 },
+  { id: "minimum_partner_religious_commitment", label: "التزام", max: 4 },
+] as const
+
+function parseShadowAnswer(participant: any, metricId: string): number | null {
+  const raw = participant?.survey_data?.answers?.[metricId]
+  if (raw === undefined || raw === null || raw === "") return null
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function scoreByDistance(aRaw: number | null, bRaw: number | null, max: number): number | null {
+  if (aRaw == null || bRaw == null) return null
+  const a = Number(aRaw)
+  const b = Number(bRaw)
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return null
+  const diff = Math.abs(a - b)
+  const normalized = Math.max(0, 1 - (diff / (max - 1)))
+  return Math.max(0, Math.min(1, normalized))
+}
+
+function buildShadowBadges(p1: number, p2: number | undefined | null, participantData: Map<number, any>) {
+  const fallback = {
+    expression_language: null,
+    social_relationship_style: null,
+    minimum_partner_religious_commitment: null,
+    overall: null,
+  } as Record<string, number | null>
+  if (!p2 || p2 === 9999) return fallback
+  const a = participantData.get(p1) || {}
+  const b = participantData.get(p2) || {}
+  const scores: Record<string, number | null> = {}
+  const values: number[] = []
+  for (const metric of shadowMetrics) {
+    const s = scoreByDistance(
+      parseShadowAnswer(a, metric.id),
+      parseShadowAnswer(b, metric.id),
+      metric.max
+    )
+    scores[metric.id] = s == null ? null : Math.round(s * 100)
+    if (s != null) values.push(s)
+  }
+  const overall = values.length === 0 ? null : Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 100)
+  return { ...scores, overall }
+}
+
 interface ParticipantMatch {
   participant_number: number
   participant_name: string
@@ -45,6 +93,7 @@ interface ParticipantMatch {
   cap_applied?: number | null
   reason?: string
   openness_zero_zero_penalty_applied?: boolean
+  compound_lifestyle_score?: number
 }
 
 type DetailSortKey =
@@ -65,6 +114,7 @@ type DetailSortKey =
   | "core_values_compatibility_score"
   | "intent_score"
   | "vibe_compatibility_score"
+  | "compound_lifestyle_score"
 
 function MatchInsightsCoverageBadge({ match }: { match: ParticipantMatch }) {
   const coverage = getPairMatchInsightsCoverage(match)
@@ -401,6 +451,15 @@ export default function ParticipantDetailModal({
       return data?.payment_waived === true ? 2 : data?.PAID_DONE === true ? 3 : 1
     }
     if (detailSortKey === "flags") return matchFlagCount(match)
+    if (detailSortKey === "compound_lifestyle_score") {
+      const vibe = match.vibe_compatibility_score ?? 0
+      const disagreement = match.disagreement_style_score ?? 0
+      const currentLife = match.current_life_overlap_score ?? 0
+      const similarity = match.similarity_preference_score ?? 0
+      const attachment = match.attachment_pace_score ?? 0
+      const lifestyle = match.lifestyle_compatibility_score ?? 0
+      return vibe + disagreement + currentLife + similarity + attachment + lifestyle
+    }
     const value = match[detailSortKey]
     return typeof value === "number" || typeof value === "string" ? value : null
   }
@@ -664,6 +723,9 @@ export default function ParticipantDetailModal({
                           renderSortableHeader("القيود/المكافآت", "flags")
                         )}
                         {matchType !== "group" && (
+                          <th className="text-center p-4 text-sm font-semibold text-slate-300">المؤشر الظلي</th>
+                        )}
+                        {matchType !== "group" && (
                           <>
                             {renderSortableHeader("التفاعل /30", "synergy_score")}
                             {renderSortableHeader("أسلوب الاختلاف /4", "disagreement_style_score")}
@@ -677,6 +739,7 @@ export default function ParticipantDetailModal({
                             {matchType === "ai" && (
                               renderSortableHeader("الطاقة /25", "vibe_compatibility_score")
                             )}
+                            {renderSortableHeader("مجموع نمط الحياة", "compound_lifestyle_score")}
                           </>
                         )}
                       </tr>
@@ -1091,6 +1154,57 @@ export default function ParticipantDetailModal({
                             </td>
                           )}
                           {matchType !== "group" && (
+                            <td className="p-4 text-center">
+                              <div className="flex justify-center">
+                                <div className="flex w-full min-w-0 flex-col gap-1">
+                                  <div className="flex w-full min-w-0 items-center justify-center gap-1">
+                                    {(() => {
+                                      const shadow = buildShadowBadges(participant.assigned_number, match.participant_number, participantData)
+                                      return (
+                                        <>
+                                          {shadowMetrics.map((metric) => {
+                                            const value = shadow[metric.id]
+                                            return (
+                                              <span
+                                                key={metric.id}
+                                                className={`flex min-w-0 flex-1 flex-col items-center justify-center rounded-sm border px-1 py-0.5 text-center ${
+                                                  value == null
+                                                    ? "border-slate-500/30 bg-slate-500/10 text-slate-400"
+                                                    : value >= 85
+                                                      ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-200"
+                                                      : value >= 65
+                                                        ? "border-cyan-400/30 bg-cyan-500/15 text-cyan-200"
+                                                        : value >= 45
+                                                          ? "border-amber-400/30 bg-amber-500/15 text-amber-200"
+                                                          : "border-red-400/30 bg-red-500/15 text-red-200"
+                                                }`}
+                                                title={`${metric.label}: ${value == null ? "غير مكتمل" : `${value}%`}`}
+                                              >
+                                                <span className="block w-full min-w-0 truncate text-[7px] font-medium leading-tight opacity-90">
+                                                  {metric.label}
+                                                </span>
+                                                <span className="mt-0 block whitespace-nowrap text-[9px] font-bold leading-none">
+                                                  {value == null ? "—" : `${value}%`}
+                                                </span>
+                                              </span>
+                                            )
+                                          })}
+                                          <span
+                                            className={`flex min-w-0 flex-1 items-center justify-center gap-0.5 rounded-sm border px-1 py-0.5 text-center text-[8px] font-bold leading-none ${shadow.overall == null ? "border-slate-500/30 bg-slate-500/10 text-slate-400" : "border-purple-400/30 bg-purple-500/15 text-purple-200"}`}
+                                            title={`متوسط الظل: ${shadow.overall == null ? "غير مكتمل" : `${shadow.overall}%`}`}
+                                          >
+                                            <span>المتوسط:</span>
+                                            <span>{shadow.overall == null ? "—" : `${shadow.overall}%`}</span>
+                                          </span>
+                                        </>
+                                      )
+                                    })()}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                          )}
+                          {matchType !== "group" && (
                             <>
                               <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.synergy_score ?? 0).toFixed(1)}/30</span></td>
                               <td className="p-4 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number.isFinite(Number(match.disagreement_style_score)) ? `${Number(match.disagreement_style_score).toFixed(1)}/4` : "—"}</span></td>
@@ -1104,6 +1218,7 @@ export default function ParticipantDetailModal({
                               {matchType === "ai" && (
                                 <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.vibe_compatibility_score ?? 0).toFixed(1)}/25</span></td>
                               )}
+                              <td className="p-4 text-center"><span className="text-purple-200 text-sm font-bold">{Number.isFinite(Number(match.compound_lifestyle_score)) ? `${Number(match.compound_lifestyle_score).toFixed(1)}` : "—"}</span></td>
                             </>
                           )}
                         </tr>

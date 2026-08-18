@@ -1200,7 +1200,7 @@ export default function ParticipantResultsModal({
                   <span className="font-bold text-white mt-1 inline-flex items-center gap-1">
                     {shadowAggregate.overall == null ? "—" : `${shadowAggregate.overall}%`}
                   </span>
-                  <div className="mt-2 grid w-full min-w-0 grid-cols-3 gap-1.5">
+                  <div className="mt-2 flex w-full min-w-0 items-center justify-center gap-2">
                     {[
                       ["لغة", shadowAggregate.expression_language],
                       ["اجتماعي", shadowAggregate.social_relationship_style],
@@ -1210,19 +1210,11 @@ export default function ParticipantResultsModal({
                       return (
                         <div
                           key={label}
-                          className="
-                            flex min-w-0 w-full
-                            flex-col items-center justify-center
-                            rounded-md
-                            border border-white/15
-                            bg-white/5
-                            px-1 py-1.5
-                            text-center
-                          "
+                          className="flex min-w-0 flex-1 flex-col items-center justify-center rounded-sm border border-white/10 bg-white/5 px-1.5 py-1 text-center"
                           title={`${label}: ${text}`}
                         >
-                          <span className="block w-full min-w-0 truncate text-[10px] leading-tight text-slate-400">{label}</span>
-                          <span className="mt-0.5 block whitespace-nowrap text-xs font-bold leading-none text-white">{text}</span>
+                          <span className="block w-full min-w-0 truncate text-[9px] leading-tight text-slate-400">{label}</span>
+                          <span className="mt-0.5 block whitespace-nowrap text-[10px] font-bold leading-none text-white">{text}</span>
                         </div>
                       )
                     })}
@@ -1631,14 +1623,14 @@ export default function ParticipantResultsModal({
                             return (
                               <td className="p-2 text-center">
                                 <div className="flex justify-center">
-                                  <div className="flex w-full min-w-0 flex-col gap-1.5">
-                                    <div className="grid w-full min-w-0 grid-cols-3 gap-1.5">
+                                  <div className="flex w-full min-w-0 flex-col gap-1">
+                                    <div className="flex w-full min-w-0 items-center justify-center gap-1">
                                     {shadowMetrics.map((metric) => {
                                       const value = shadow[metric.id]
                                       return (
                                         <span
                                           key={metric.id}
-                                          className={`flex w-full min-w-0 flex-col items-center justify-center overflow-hidden rounded-lg border px-1 py-1.5 text-center ${
+                                          className={`flex min-w-0 flex-1 flex-col items-center justify-center rounded-sm border px-1 py-0.5 text-center ${
                                             value == null
                                               ? "border-slate-500/30 bg-slate-500/10 text-slate-400"
                                               : value >= 85
@@ -1651,16 +1643,16 @@ export default function ParticipantResultsModal({
                                           }`}
                                           title={`${metric.label}: ${value == null ? "غير مكتمل" : `${value}%`}`}
                                         >
-                                          <span className="block w-full min-w-0 break-words text-[8px] font-medium leading-[1.1] opacity-90">
+                                          <span className="block w-full min-w-0 truncate text-[7px] font-medium leading-tight opacity-90">
                                             {metric.label}
                                           </span>
-                                          <span className="mt-0.5 block whitespace-nowrap text-[11px] font-extrabold leading-none">
+                                          <span className="mt-0 block whitespace-nowrap text-[9px] font-bold leading-none">
                                             {value == null ? "—" : `${value}%`}
                                           </span>
                                    </span>
                                    )})}
                                     <span
-                                      className={`flex w-full min-w-0 items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-center text-[10px] font-bold leading-none ${shadow.overall == null ? "border-slate-500/30 bg-slate-500/10 text-slate-400" : "border-purple-400/30 bg-purple-500/15 text-purple-200"}`}
+                                      className={`flex min-w-0 flex-1 items-center justify-center gap-0.5 rounded-sm border px-1 py-0.5 text-center text-[8px] font-bold leading-none ${shadow.overall == null ? "border-slate-500/30 bg-slate-500/10 text-slate-400" : "border-purple-400/30 bg-purple-500/15 text-purple-200"}`}
                                       title={`متوسط الظل: ${shadow.overall == null ? "غير مكتمل" : `${shadow.overall}%`}`}
                                     >
                                       <span>المتوسط:</span>

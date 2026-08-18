@@ -1219,7 +1219,16 @@ export default function ParticipantDetailModal({
                               {matchType === "ai" && (
                                 <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.vibe_compatibility_score ?? 0).toFixed(1)}/25</span></td>
                               )}
-                              <td className="p-4 text-center"><span className="text-purple-200 text-sm font-bold">{Number.isFinite(Number(match.compound_lifestyle_score)) ? `${Number(match.compound_lifestyle_score).toFixed(1)}` : "—"}</span></td>
+                              <td className="p-4 text-center"><span className="text-purple-200 text-sm font-bold">{(() => {
+                                const vibe = match.vibe_compatibility_score ?? 0
+                                const disagreement = match.disagreement_style_score ?? 0
+                                const currentLife = match.current_life_overlap_score ?? 0
+                                const similarity = match.similarity_preference_score ?? 0
+                                const attachment = match.attachment_pace_score ?? 0
+                                const lifestyle = match.lifestyle_compatibility_score ?? 0
+                                const compound = vibe + disagreement + currentLife + similarity + attachment + lifestyle
+                                return Number.isFinite(compound) ? `${compound.toFixed(1)}` : "—"
+                              })()}</span></td>
                             </>
                           )}
                         </tr>

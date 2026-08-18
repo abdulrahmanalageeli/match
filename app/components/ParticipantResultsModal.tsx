@@ -1194,10 +1194,10 @@ export default function ParticipantResultsModal({
                       return (
                         <span
                           key={label}
-                          className="inline-flex flex-col items-center rounded-full bg-white/10 border border-white/20 px-2 py-1 text-[10px] text-slate-200 min-w-[90px]"
+                          className="inline-flex flex-col items-center rounded-lg bg-white/10 border border-white/20 px-2 py-1 text-[10px] text-slate-200 min-w-[126px] max-w-[152px] text-center break-words leading-tight"
                           title={`${label}: ${text}`}
                         >
-                          <span className="text-[9px] leading-none text-slate-400">{label}</span>
+                          <span className="text-[9px] leading-tight text-slate-300">{label}</span>
                           <span className="font-semibold leading-none">{text}</span>
                         </span>
                       )
@@ -1373,7 +1373,9 @@ export default function ParticipantResultsModal({
                                 </Popover.Trigger>
                                 <Popover.Portal>
                                   <Popover.Content
-                                    className="z-[110] p-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl overflow-hidden w-[min(94vw,680px)] max-h-[min(84dvh,820px)]"
+                                    className="z-[130] p-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl overflow-hidden w-[min(94vw,680px)] max-h-[min(84dvh,820px)] !fixed !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2"
+                                    style={{ transform: "translate(-50%, -50%)", zIndex: 130 }}
+                                    modal={true}
                                     sideOffset={6}
                                     align="center"
                                   >
@@ -1505,7 +1507,9 @@ export default function ParticipantResultsModal({
                                           </Popover.Trigger>
                                           <Popover.Portal>
                                     <Popover.Content
-                                      className="z-[110] p-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl overflow-hidden w-[min(94vw,680px)] max-h-[min(84dvh,820px)]"
+                                      className="z-[130] p-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl overflow-hidden w-[min(94vw,680px)] max-h-[min(84dvh,820px)] !fixed !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2"
+                                      style={{ transform: "translate(-50%, -50%)", zIndex: 130 }}
+                                      modal={true}
                                       sideOffset={6}
                                       align="center"
                                     >
@@ -1584,7 +1588,7 @@ export default function ParticipantResultsModal({
                                       return (
                                         <span
                                           key={metric.id}
-                                          className={`rounded-full border px-1.5 py-1 text-[10px] font-bold ${
+                                          className={`rounded-full border px-1.5 py-1 text-[10px] font-bold min-w-[104px] max-w-[136px] text-center break-words ${
                                             value == null
                                               ? "border-slate-500/30 bg-slate-500/10 text-slate-400"
                                               : value >= 85
@@ -1603,7 +1607,7 @@ export default function ParticipantResultsModal({
                                   )
                                 })}
                                     <span
-                                      className={`col-span-2 sm:col-span-1 rounded-full border px-1.5 py-1 text-[10px] font-bold ${shadow.overall == null ? "border-slate-500/30 bg-slate-500/10 text-slate-400" : "border-purple-400/30 bg-purple-500/15 text-purple-200"} leading-tight`}
+                                      className={`col-span-2 sm:col-span-1 rounded-full border px-1.5 py-1 text-[10px] font-bold min-w-[104px] max-w-[136px] text-center break-words ${shadow.overall == null ? "border-slate-500/30 bg-slate-500/10 text-slate-400" : "border-purple-400/30 bg-purple-500/15 text-purple-200"} leading-tight`}
                                       title={`متوسط الظل: ${shadow.overall == null ? "غير مكتمل" : `${shadow.overall}%`}`}
                                     >
                                       <span className="text-[9px] block leading-none opacity-90">المتوسط</span>

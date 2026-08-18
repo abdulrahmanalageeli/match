@@ -1359,21 +1359,21 @@ export default function ParticipantResultsModal({
                                 </Popover.Trigger>
                                 <Popover.Portal>
                                   <Popover.Content
-                                    className="z-[110] p-3 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
+                                    className="z-[110] p-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl overflow-hidden w-[min(94vw,680px)] max-h-[min(84dvh,820px)]"
                                     sideOffset={6}
                                     align="center"
                                   >
                                     <div className="relative">
-                                      <Popover.Close
-                                        className="absolute top-2 left-2 p-1 rounded-md bg-white/10 hover:bg-white/20 text-white"
-                                        aria-label="Close"
-                                      >
-                                        <X className="w-4 h-4" />
-                                      </Popover.Close>
-                                      <ParticipantHoverCardContent
-                                        participantNumber={participant.assigned_number}
-                                        participantName={participant.name || "غير محدد"}
-                                        pData={participantData.get(participant.assigned_number)}
+                                    <Popover.Close
+                                      className="absolute top-2 left-2 p-1 rounded-md bg-white/10 hover:bg-white/20 text-white"
+                                      aria-label="Close"
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </Popover.Close>
+                                    <ParticipantHoverCardContent
+                                      participantNumber={participant.assigned_number}
+                                      participantName={participant.name || "غير محدد"}
+                                      pData={participantData.get(participant.assigned_number)}
                                         history={localMatchHistory[participant.assigned_number] || []}
                                         currentEventId={currentEventId}
                                         impressions={impressionsMap[participant.assigned_number] || []}
@@ -1490,28 +1490,28 @@ export default function ParticipantResultsModal({
                                             </button>
                                           </Popover.Trigger>
                                           <Popover.Portal>
-                                            <Popover.Content
-                                              className="z-[110] p-3 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
-                                              sideOffset={6}
-                                              align="center"
-                                            >
+                                    <Popover.Content
+                                      className="z-[110] p-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl overflow-hidden w-[min(94vw,680px)] max-h-[min(84dvh,820px)]"
+                                      sideOffset={6}
+                                      align="center"
+                                    >
                                               <div className="relative">
-                                                <Popover.Close
-                                                  className="absolute top-2 left-2 p-1 rounded-md bg-white/10 hover:bg-white/20 text-white"
-                                                  aria-label="Close"
-                                                >
-                                                  <X className="w-4 h-4" />
-                                                </Popover.Close>
-                                                <ParticipantHoverCardContent
-                                                  participantNumber={participant.partner_assigned_number!}
-                                                  participantName={participant.partner_name}
-                                                  pData={participantData.get(participant.partner_assigned_number!)}
-                                                  history={localMatchHistory[participant.partner_assigned_number || 0] || []}
-                                                  currentEventId={currentEventId}
-                                                  impressions={impressionsMap[participant.partner_assigned_number || 0] || []}
-                                                />
-                                              </div>
-                                            </Popover.Content>
+                                      <Popover.Close
+                                        className="absolute top-2 left-2 p-1 rounded-md bg-white/10 hover:bg-white/20 text-white"
+                                        aria-label="Close"
+                                      >
+                                        <X className="w-4 h-4" />
+                                      </Popover.Close>
+                                      <ParticipantHoverCardContent
+                                        participantNumber={participant.partner_assigned_number!}
+                                        participantName={participant.partner_name}
+                                        pData={participantData.get(participant.partner_assigned_number!)}
+                                        history={localMatchHistory[participant.partner_assigned_number || 0] || []}
+                                        currentEventId={currentEventId}
+                                        impressions={impressionsMap[participant.partner_assigned_number || 0] || []}
+                                      />
+                                    </div>
+                                  </Popover.Content>
                                           </Popover.Portal>
                                         </Popover.Root>
                                       )}

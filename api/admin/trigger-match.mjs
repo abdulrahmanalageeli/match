@@ -1945,7 +1945,6 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   const coreRaw = calculateCoreValuesCompatibility(aCoreValues, bCoreValues) // 0-20 (values)
   const lifestyleScore = calculateLifestyleCompatibility(aLifestyle, bLifestyle) // 0-10
   const communicationRaw = calculateCommunicationCompatibility(aCommunication, bCommunication) // 0-10 legacy model
-  const communicationScore = Math.max(0, Math.min(3, (communicationRaw / 10) * 3))
   const synergyScore = calculateInteractionSynergyScore(participantA, participantB) // 0-30 (scaled)
   const { score: humorOpenScore, vetoClash } = calculateHumorOpennessScore(participantA, participantB) // 0-15
   const intentRaw = calculateIntentGoalScore(participantA, participantB) // 0 or 5

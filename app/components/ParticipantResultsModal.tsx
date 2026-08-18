@@ -1867,7 +1867,8 @@ export default function ParticipantResultsModal({
                               if (!y) return false
                               return (a === x && b === y) || (a === y && b === x)
                             })
-                            const hasAny = pair && (pair.intent_boost_applied || pair.attachment_penalty_applied || pair.dead_air_veto_applied || pair.humor_clash_detected || pair.humor_clash_veto_applied || pair.cap_applied != null || (pair.humor_early_openness_bonus && pair.humor_early_openness_bonus !== 'none'))
+                            const pairForDisplay = normalizePairForDisplay(pair)
+                            const hasAny = pairForDisplay && (pairForDisplay.intent_boost_applied || pairForDisplay.attachment_penalty_applied || pairForDisplay.dead_air_veto_applied || pairForDisplay.humor_clash_detected || pairForDisplay.humor_clash_veto_applied || pairForDisplay.cap_applied != null || (pairForDisplay.humor_early_openness_bonus && pairForDisplay.humor_early_openness_bonus !== 'none'))
                             const hasStructuredTolerance = pair && (
                               typeof pair.age_tolerance_used_a === 'boolean' ||
                               typeof pair.age_tolerance_used_b === 'boolean'
@@ -1875,6 +1876,7 @@ export default function ParticipantResultsModal({
                             const tolerated = !!pair && (hasStructuredTolerance
                               ? (pair.age_tolerance_used_a || pair.age_tolerance_used_b)
                               : (typeof pair.reason === 'string' && pair.reason.includes('±1y')))
+                            const hasDeadAirPenalty = !!pairForDisplay?.dead_air_veto_applied
                             const flexDecision = getAgeFlexDecision(participant.assigned_number)
                             const toleranceStyle = flexDecision === 'accepted'
                               ? 'bg-green-500/20 border-green-400/30 text-green-300'
@@ -1890,6 +1892,11 @@ export default function ParticipantResultsModal({
                               <td className="p-2 text-center">
                                 {(hasAny || tolerated) ? (
                                   <div className="inline-flex items-center gap-2 justify-center">
+                                    {hasDeadAirPenalty && (
+                                      <span className="inline-flex items-center rounded-full border border-red-400/40 bg-red-500/20 px-2 py-0.5 text-[10px] font-bold text-red-200">
+                                        صمت
+                                      </span>
+                                    )}
                                     {hasAny && (
                                       <Tooltip.Provider delayDuration={200}>
                                         <Tooltip.Root>

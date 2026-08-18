@@ -1039,8 +1039,14 @@ export default function ParticipantDetailModal({
                                   (match.humor_early_openness_bonus && match.humor_early_openness_bonus !== 'none')
                                 )
                                 const tolerated = !!(match && typeof match.reason === 'string' && match.reason.includes('±1y'))
+                                const hasDeadAirPenalty = !!match.dead_air_veto_applied
                                 return (
                                   <div className="inline-flex items-center gap-2 justify-center">
+                                    {hasDeadAirPenalty && (
+                                      <span className="inline-flex items-center rounded-full border border-red-400/40 bg-red-500/20 px-2 py-0.5 text-[10px] font-bold text-red-200">
+                                        فشل الصمت
+                                      </span>
+                                    )}
                                     {hasAny && (
                                       <Tooltip.Provider delayDuration={200}>
                                         <Tooltip.Root>

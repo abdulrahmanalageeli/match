@@ -1184,10 +1184,24 @@ export default function ParticipantResultsModal({
                   <span className="font-bold text-white mt-1 inline-flex items-center gap-1">
                     {shadowAggregate.overall == null ? "—" : `${shadowAggregate.overall}%`}
                   </span>
-                  <div className="mt-1 text-xs text-slate-400 flex flex-wrap gap-2">
-                    <span>لغة: {shadowAggregate.expression_language == null ? "—" : `${shadowAggregate.expression_language}%`}</span>
-                    <span>الأسلوب: {shadowAggregate.social_relationship_style == null ? "—" : `${shadowAggregate.social_relationship_style}%`}</span>
-                    <span>الالتزام: {shadowAggregate.minimum_partner_religious_commitment == null ? "—" : `${shadowAggregate.minimum_partner_religious_commitment}%`}</span>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    {[
+                      ["لغة", shadowAggregate.expression_language],
+                      ["الأسلوب الاجتماعي", shadowAggregate.social_relationship_style],
+                      ["توقعات الالتزام", shadowAggregate.minimum_partner_religious_commitment],
+                    ].map(([label, value]) => {
+                      const text = value == null ? "—" : `${value}%`
+                      return (
+                        <span
+                          key={label}
+                          className="inline-flex flex-col items-center rounded-full bg-white/10 border border-white/20 px-2 py-1 text-[10px] text-slate-200 min-w-[90px]"
+                          title={`${label}: ${text}`}
+                        >
+                          <span className="text-[9px] leading-none text-slate-400">{label}</span>
+                          <span className="font-semibold leading-none">{text}</span>
+                        </span>
+                      )
+                    })}
                   </div>
                 </div>
               </div>
@@ -1583,12 +1597,17 @@ export default function ParticipantResultsModal({
                                           }`}
                                           title={`${metric.label}: ${value == null ? "غير مكتمل" : `${value}%`}`}
                                         >
-                                          {metric.label} {value == null ? "—" : `${value}%`}
-                                        </span>
-                                      )
-                                    })}
-                                    <span className={`col-span-2 sm:col-span-1 rounded-full border px-1.5 py-1 text-[10px] font-bold ${shadow.overall == null ? "border-slate-500/30 bg-slate-500/10 text-slate-400" : "border-purple-400/30 bg-purple-500/15 text-purple-200"}`} title={`متوسط الظل: ${shadow.overall == null ? "غير مكتمل" : `${shadow.overall}%`}`}>
-                                      المتوسط {shadow.overall == null ? "—" : `${shadow.overall}%`}
+                                      <span className="text-[9px] leading-none text-center opacity-90">{metric.label}</span>
+                                      <span className="leading-none font-extrabold">{value == null ? "—" : `${value}%`}</span>
+                                    </span>
+                                  )
+                                })}
+                                    <span
+                                      className={`col-span-2 sm:col-span-1 rounded-full border px-1.5 py-1 text-[10px] font-bold ${shadow.overall == null ? "border-slate-500/30 bg-slate-500/10 text-slate-400" : "border-purple-400/30 bg-purple-500/15 text-purple-200"} leading-tight`}
+                                      title={`متوسط الظل: ${shadow.overall == null ? "غير مكتمل" : `${shadow.overall}%`}`}
+                                    >
+                                      <span className="text-[9px] block leading-none opacity-90">المتوسط</span>
+                                      <span className="text-[10px] block leading-none">{shadow.overall == null ? "—" : `${shadow.overall}%`}</span>
                                     </span>
                                   </div>
                                 </div>

@@ -5,7 +5,7 @@ import ParticipantDetailModal from "./ParticipantDetailModal"
 import WhatsappMessageModal from "./WhatsappMessageModal"
 import PairAnalysisModal from "./PairAnalysisModalPro"
 import * as Tooltip from "@radix-ui/react-tooltip"
-import * as Popover from "@radix-ui/react-popover"
+import * as Dialog from "@radix-ui/react-dialog"
 import ParticipantHoverCardContent from "./ParticipantHoverCard"
 import { buildScoreLookup, getPairMatchInsightsCoverage, pairKey } from "../lib/matchControl"
 const shadowMetrics = [
@@ -1184,7 +1184,7 @@ export default function ParticipantResultsModal({
                   <span className="font-bold text-white mt-1 inline-flex items-center gap-1">
                     {shadowAggregate.overall == null ? "—" : `${shadowAggregate.overall}%`}
                   </span>
-                  <div className="mt-1 flex flex-wrap gap-2">
+                  <div className="mt-2 grid w-full min-w-0 grid-cols-3 gap-2">
                     {[
                       ["لغة", shadowAggregate.expression_language],
                       ["الأسلوب الاجتماعي", shadowAggregate.social_relationship_style],
@@ -1192,14 +1192,23 @@ export default function ParticipantResultsModal({
                     ].map(([label, value]) => {
                       const text = value == null ? "—" : `${value}%`
                       return (
-                        <span
+                        <div
                           key={label}
-                          className="inline-flex flex-col items-center rounded-lg bg-white/10 border border-white/20 px-2 py-1 text-[10px] text-slate-200 min-w-[126px] max-w-[152px] text-center break-words leading-tight"
+                          className="
+                            flex min-w-0 w-full
+                            flex-col items-center justify-center
+                            rounded-lg
+                            border border-white/20
+                            bg-white/10
+                            px-1.5 py-1.5
+                            text-center
+                            text-slate-200
+                          "
                           title={`${label}: ${text}`}
                         >
-                          <span className="text-[9px] leading-tight text-slate-300">{label}</span>
-                          <span className="font-semibold leading-none">{text}</span>
-                        </span>
+                          <span className="block w-full min-w-0 break-words text-[9px] leading-tight text-slate-300">{label}</span>
+                          <span className="mt-0.5 block whitespace-nowrap text-[11px] font-bold leading-none">{text}</span>
+                        </div>
                       )
                     })}
                   </div>
@@ -1341,11 +1350,11 @@ export default function ParticipantResultsModal({
                                   )}
                                 </button>
                               )}
-                              <Popover.Root>
-                                <Popover.Trigger asChild>
+                              <Dialog.Root>
+                                <Dialog.Trigger asChild>
                                   <button
                                     type="button"
-                                    className="flex items-center gap-2 text-right transition-colors"
+                                    className="cursor-pointer text-left hover:underline focus:outline-none"
                                   >
                                     <span className="text-white font-medium hover:text-cyan-300 transition-colors">
                                       {participant.name || "غير محدد"}
@@ -1370,34 +1379,46 @@ export default function ParticipantResultsModal({
                                       )
                                     })()}
                                   </button>
-                                </Popover.Trigger>
-                                <Popover.Portal>
-                                  <Popover.Content
-                                    className="z-[130] p-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl overflow-hidden w-[min(94vw,680px)] max-h-[min(84dvh,820px)] !fixed !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2"
-                                    style={{ transform: "translate(-50%, -50%)", zIndex: 130 }}
-                                    modal={true}
-                                    sideOffset={6}
-                                    align="center"
+                                </Dialog.Trigger>
+                                <Dialog.Portal>
+                                  <Dialog.Overlay className="fixed inset-0 z-[129] bg-slate-950/55 backdrop-blur-[1px]" />
+                                  <Dialog.Content
+                                    dir="rtl"
+                                    className="
+                                      fixed left-1/2 top-1/2 z-[130]
+                                      w-[min(94vw,680px)]
+                                      max-h-[84dvh]
+                                      -translate-x-1/2 -translate-y-1/2
+                                      overflow-hidden
+                                      rounded-xl
+                                      border border-cyan-400/30
+                                      bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900
+                                      shadow-2xl
+                                      focus:outline-none
+                                    "
                                   >
-                                    <div className="relative">
-                                    <Popover.Close
-                                      className="absolute top-2 left-2 p-1 rounded-md bg-white/10 hover:bg-white/20 text-white"
-                                      aria-label="Close"
+                                    <Dialog.Close
+                                      className="
+                                        absolute left-2 top-2 z-20
+                                        rounded-md bg-white/10 p-1.5
+                                        text-white
+                                        hover:bg-white/20
+                                      "
+                                      aria-label="إغلاق"
                                     >
-                                      <X className="w-4 h-4" />
-                                    </Popover.Close>
+                                      <X className="h-4 w-4" />
+                                    </Dialog.Close>
                                     <ParticipantHoverCardContent
                                       participantNumber={participant.assigned_number}
                                       participantName={participant.name || "غير محدد"}
                                       pData={participantData.get(participant.assigned_number)}
-                                        history={localMatchHistory[participant.assigned_number] || []}
-                                        currentEventId={currentEventId}
-                                        impressions={impressionsMap[participant.assigned_number] || []}
-                                      />
-                                    </div>
-                                  </Popover.Content>
-                                </Popover.Portal>
-                              </Popover.Root>
+                                      history={localMatchHistory[participant.assigned_number] || []}
+                                      currentEventId={currentEventId}
+                                      impressions={impressionsMap[participant.assigned_number] || []}
+                                    />
+                                  </Dialog.Content>
+                                </Dialog.Portal>
+                              </Dialog.Root>
                               {(() => {
                                 // Show yellow alert icon next to the participant name if openness is 0×0 for this pair
                                 const x = participant.assigned_number
@@ -1493,45 +1514,57 @@ export default function ParticipantResultsModal({
                                   </div>
                                 ) : (
                                   <div className="flex items-center gap-2">
-                                    <div>
-                                      <div className="font-mono">#{participant.partner_assigned_number}</div>
-                                      {participant.partner_name && (
-                                        <Popover.Root>
-                                          <Popover.Trigger asChild>
+                                      <div>
+                                        <div className="font-mono">#{participant.partner_assigned_number}</div>
+                                        {participant.partner_name && (
+                                        <Dialog.Root>
+                                          <Dialog.Trigger asChild>
                                             <button
                                               type="button"
                                               className="text-xs text-slate-400 cursor-pointer hover:text-cyan-300 transition-colors"
                                             >
                                               {participant.partner_name}
                                             </button>
-                                          </Popover.Trigger>
-                                          <Popover.Portal>
-                                    <Popover.Content
-                                      className="z-[130] p-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl overflow-hidden w-[min(94vw,680px)] max-h-[min(84dvh,820px)] !fixed !left-1/2 !top-1/2 !-translate-x-1/2 !-translate-y-1/2"
-                                      style={{ transform: "translate(-50%, -50%)", zIndex: 130 }}
-                                      modal={true}
-                                      sideOffset={6}
-                                      align="center"
-                                    >
-                                              <div className="relative">
-                                      <Popover.Close
-                                        className="absolute top-2 left-2 p-1 rounded-md bg-white/10 hover:bg-white/20 text-white"
-                                        aria-label="Close"
-                                      >
-                                        <X className="w-4 h-4" />
-                                      </Popover.Close>
-                                      <ParticipantHoverCardContent
-                                        participantNumber={participant.partner_assigned_number!}
-                                        participantName={participant.partner_name}
-                                        pData={participantData.get(participant.partner_assigned_number!)}
-                                        history={localMatchHistory[participant.partner_assigned_number || 0] || []}
-                                        currentEventId={currentEventId}
-                                        impressions={impressionsMap[participant.partner_assigned_number || 0] || []}
-                                      />
-                                    </div>
-                                  </Popover.Content>
-                                          </Popover.Portal>
-                                        </Popover.Root>
+                                          </Dialog.Trigger>
+                                          <Dialog.Portal>
+                                            <Dialog.Overlay className="fixed inset-0 z-[129] bg-slate-950/55 backdrop-blur-[1px]" />
+                                            <Dialog.Content
+                                              dir="rtl"
+                                              className="
+                                                fixed left-1/2 top-1/2 z-[130]
+                                                w-[min(94vw,680px)]
+                                                max-h-[84dvh]
+                                                -translate-x-1/2 -translate-y-1/2
+                                                overflow-hidden
+                                                rounded-xl
+                                                border border-cyan-400/30
+                                                bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900
+                                                shadow-2xl
+                                                focus:outline-none
+                                              "
+                                            >
+                                              <Dialog.Close
+                                                className="
+                                                  absolute left-2 top-2 z-20
+                                                  rounded-md bg-white/10 p-1.5
+                                                  text-white
+                                                  hover:bg-white/20
+                                                "
+                                                aria-label="إغلاق"
+                                              >
+                                                <X className="h-4 w-4" />
+                                              </Dialog.Close>
+                                              <ParticipantHoverCardContent
+                                                participantNumber={participant.partner_assigned_number!}
+                                                participantName={participant.partner_name}
+                                                pData={participantData.get(participant.partner_assigned_number!)}
+                                                history={localMatchHistory[participant.partner_assigned_number || 0] || []}
+                                                currentEventId={currentEventId}
+                                                impressions={impressionsMap[participant.partner_assigned_number || 0] || []}
+                                              />
+                                            </Dialog.Content>
+                                          </Dialog.Portal>
+                                        </Dialog.Root>
                                       )}
                                     </div>
                                     {(() => {
@@ -1582,13 +1615,14 @@ export default function ParticipantResultsModal({
                             return (
                               <td className="p-2 text-center">
                                 <div className="flex justify-center">
-                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1">
+                                  <div className="flex w-full min-w-0 flex-col gap-1.5">
+                                    <div className="grid w-full min-w-0 grid-cols-3 gap-1.5">
                                     {shadowMetrics.map((metric) => {
                                       const value = shadow[metric.id]
                                       return (
                                         <span
                                           key={metric.id}
-                                          className={`rounded-full border px-1.5 py-1 text-[10px] font-bold min-w-[104px] max-w-[136px] text-center break-words ${
+                                          className={`flex w-full min-w-0 flex-col items-center justify-center overflow-hidden rounded-lg border px-1 py-1.5 text-center ${
                                             value == null
                                               ? "border-slate-500/30 bg-slate-500/10 text-slate-400"
                                               : value >= 85
@@ -1601,18 +1635,22 @@ export default function ParticipantResultsModal({
                                           }`}
                                           title={`${metric.label}: ${value == null ? "غير مكتمل" : `${value}%`}`}
                                         >
-                                      <span className="text-[9px] leading-none text-center opacity-90">{metric.label}</span>
-                                      <span className="leading-none font-extrabold">{value == null ? "—" : `${value}%`}</span>
-                                    </span>
-                                  )
-                                })}
+                                          <span className="block w-full min-w-0 break-words text-[8px] font-medium leading-[1.1] opacity-90">
+                                            {metric.label}
+                                          </span>
+                                          <span className="mt-0.5 block whitespace-nowrap text-[11px] font-extrabold leading-none">
+                                            {value == null ? "—" : `${value}%`}
+                                          </span>
+                                   </span>
+                                   )})}
                                     <span
-                                      className={`col-span-2 sm:col-span-1 rounded-full border px-1.5 py-1 text-[10px] font-bold min-w-[104px] max-w-[136px] text-center break-words ${shadow.overall == null ? "border-slate-500/30 bg-slate-500/10 text-slate-400" : "border-purple-400/30 bg-purple-500/15 text-purple-200"} leading-tight`}
+                                      className={`flex w-full min-w-0 items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-center text-[10px] font-bold leading-none ${shadow.overall == null ? "border-slate-500/30 bg-slate-500/10 text-slate-400" : "border-purple-400/30 bg-purple-500/15 text-purple-200"}`}
                                       title={`متوسط الظل: ${shadow.overall == null ? "غير مكتمل" : `${shadow.overall}%`}`}
                                     >
-                                      <span className="text-[9px] block leading-none opacity-90">المتوسط</span>
-                                      <span className="text-[10px] block leading-none">{shadow.overall == null ? "—" : `${shadow.overall}%`}</span>
+                                      <span>المتوسط:</span>
+                                      <span>{shadow.overall == null ? "—" : `${shadow.overall}%`}</span>
                                     </span>
+                                  </div>
                                   </div>
                                 </div>
                               </td>

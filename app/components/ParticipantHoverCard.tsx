@@ -249,7 +249,14 @@ export default function ParticipantHoverCardContent({
   }, [history])
 
   return (
-    <div className="w-[min(94vw,640px)] space-y-3 max-h-[84dvh] overflow-y-auto px-3 py-3" dir="rtl">
+    <div className="
+      w-full max-w-full
+      space-y-3
+      max-h-[84dvh]
+      overflow-x-hidden overflow-y-auto
+      px-3 py-3
+      [overflow-wrap:anywhere]
+    " dir="rtl">
       <div className="flex items-center justify-between pb-2 border-b border-white/10">
         <div className="flex items-center gap-2">
           <span className="inline-flex rounded-full border border-cyan-400/40 bg-cyan-500/15 p-1.5">
@@ -358,7 +365,7 @@ export default function ParticipantHoverCardContent({
                 <div className="mb-1 text-[10px] uppercase tracking-wide text-cyan-300/80">{group.category}</div>
                 <div className="space-y-1.5 rounded-lg border border-white/5 bg-white/[0.03] p-2">
                   {group.entries.map((entry) => (
-                    <div key={entry.label + entry.value} className="text-[11px] leading-relaxed break-words">
+                     <div key={entry.label + entry.value} className="min-w-0 whitespace-normal break-words text-[11px] leading-relaxed [overflow-wrap:anywhere]">
                       <div className="text-slate-400 mb-0.5">{entry.label}</div>
                       <div className="text-slate-200">{entry.value}</div>
                     </div>

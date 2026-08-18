@@ -1576,7 +1576,7 @@ async function getCachedCompatibility(participantA, participantB, options = {}) 
       return {
         mbtiScore: parseFloat(data.mbti_score),
         attachmentScore: parseFloat(data.attachment_score),
-        communicationScore,
+        communicationScore: scoreOutcome.communicationScore,
         lifestyleScore,
         coreValuesScore,
         coreValuesScaled5,
@@ -1840,7 +1840,12 @@ function calculateCompatibilityScoreOutcome(participantA, participantB, scores =
   const similarityPreferenceScore = numberOr(scores.similarityPreferenceScore, shortMeetingInsights.similarityPreferenceScore)
   const attachmentPaceScore = numberOr(scores.attachmentPaceScore, calculateAttachmentPaceScore(participantA, participantB))
   const lifestyleScore = numberOr(scores.lifestyleScore)
-  const communicationScore = numberOr(scores.communicationScore)
+  const getAnswer = (participant, key) => String(participant?.survey_data?.answers?.[key] ?? participant?.[key] ?? '').toUpperCase()
+  const deadAirBoth = getAnswer(participantA, 'conversational_role') === 'C'
+    && getAnswer(participantB, 'conversational_role') === 'C'
+    && getAnswer(participantA, 'silence_comfort') === 'B'
+    && getAnswer(participantB, 'silence_comfort') === 'B'
+  const communicationScore = deadAirBoth ? 0 : numberOr(scores.communicationScore)
   const coreValuesScore = numberOr(scores.coreValuesScore)
   const coreValuesScaled5 = scores.coreValuesScaled5 !== undefined && scores.coreValuesScaled5 !== null
     ? Math.max(0, Math.min(5, numberOr(scores.coreValuesScaled5)))
@@ -1851,11 +1856,6 @@ function calculateCompatibilityScoreOutcome(participantA, participantB, scores =
   const componentTotal = synergyScore + vibeScore + currentFocusScore + similarityPreferenceScore
     + disagreementScore + attachmentPaceScore + lifestyleScore + humorOpenScore
     + communicationScore + coreValuesScaled5
-  const getAnswer = (participant, key) => String(participant?.survey_data?.answers?.[key] ?? participant?.[key] ?? '').toUpperCase()
-  const deadAirBoth = getAnswer(participantA, 'conversational_role') === 'C'
-    && getAnswer(participantB, 'conversational_role') === 'C'
-    && getAnswer(participantA, 'silence_comfort') === 'B'
-    && getAnswer(participantB, 'silence_comfort') === 'B'
   const baseFinalScore = calculateFinalCompatibilityScore({
     componentTotal,
     opennessPenalty: opennessPenalty.points,
@@ -1867,12 +1867,13 @@ function calculateCompatibilityScoreOutcome(participantA, participantB, scores =
     baseScore: baseFinalScore.totalScore,
     participantA,
     participantB,
-    hardCap: deadAirBoth ? 40 : null,
+    hardCap: null,
   })
-  const deadAirVetoApplied = baseFinalScore.deadAirVetoApplied || feedbackScore.compositeHardCapApplied
+  const deadAirVetoApplied = deadAirBoth || baseFinalScore.deadAirVetoApplied || feedbackScore.compositeHardCapApplied
 
   return {
     ...feedbackScore,
+    communicationScore,
     componentTotal,
     synergyScore,
     humorOpenScore,
@@ -1889,7 +1890,7 @@ function calculateCompatibilityScoreOutcome(participantA, participantB, scores =
     intentBoostApplied: intentScore >= 4,
     deadAirVetoApplied,
     maxScoreCapApplied: baseFinalScore.maxScoreCapApplied || feedbackScore.compositeDisplayCapApplied,
-    capApplied: deadAirVetoApplied ? 40 : null,
+    capApplied: null,
     preVetoScore: baseFinalScore.afterBonuses,
   }
 }
@@ -1967,6 +1968,19 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   // The direct components intentionally total 105 before bonuses and the final
   // 100-point cap: synergy 30, vibe 25, new signals 17, lifestyle 10,
   // humor/openness 15, communication 3, and core values 5.
+  // Communication gets marked as 0 when both participants are Q35=C and Q41=B.
+  // This is intentionally category-level rather than a total-score cap.
+  const communicationScoreRaw = Math.max(0, Math.min(3, (communicationRaw / 10) * 3))
+  const deadAirBoth = (() => {
+    const getAns = (p, k) => (p?.survey_data?.answers?.[k] ?? p?.[k] ?? '').toString().toUpperCase()
+    const a35 = getAns(participantA, 'conversational_role')
+    const b35 = getAns(participantB, 'conversational_role')
+    const a41 = getAns(participantA, 'silence_comfort')
+    const b41 = getAns(participantB, 'silence_comfort')
+    return (a35 === 'C' && b35 === 'C' && a41 === 'B' && b41 === 'B')
+  })()
+  const communicationScore = deadAirBoth ? 0 : communicationScoreRaw
+
   const componentTotal = synergyScore + vibeScore + currentFocusScore + similarityPreferenceScore + disagreementScore + attachmentPaceScore + lifestyleScore + humorOpenScore + communicationScore + coreValuesScaled5
   const attachmentPenaltyApplied = false
   let humorClashVetoApplied = false
@@ -1980,15 +1994,7 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   // Apply multipliers before veto caps
   const humorMultiplier = checkHumorMatch(participantA, participantB)
 
-  // Prepare accessor for veto checks
-  const getAns = (p, k) => (p?.survey_data?.answers?.[k] ?? p?.[k] ?? '').toString().toUpperCase()
-
-  // Dead-Air Veto: BOTH participants Q35=C and Q41=B → cap 40%
-  const a35 = getAns(participantA, 'conversational_role')
-  const b35 = getAns(participantB, 'conversational_role')
-  const a41 = getAns(participantA, 'silence_comfort')
-  const b41 = getAns(participantB, 'silence_comfort')
-  const deadAirBoth = (a35 === 'C' && b35 === 'C' && a41 === 'B' && b41 === 'B')
+  // Dead-Air: BOTH participants Q35=C and Q41=B
   const finalScore = calculateFinalCompatibilityScore({
     componentTotal,
     opennessPenalty: opennessPenalty.points,
@@ -2000,18 +2006,16 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
     baseScore: finalScore.totalScore,
     participantA,
     participantB,
-    hardCap: deadAirBoth ? 40 : null,
+    hardCap: null,
   })
   const totalScore = feedbackScore.totalScore
   const intentBoostApplied = intentRaw >= 4
   const opennessZeroZeroPenaltyApplied = opennessPenalty.type === 'both_closed'
-  const deadAirVetoApplied = finalScore.deadAirVetoApplied || feedbackScore.compositeHardCapApplied
+  const deadAirVetoApplied = deadAirBoth || finalScore.deadAirVetoApplied || feedbackScore.compositeHardCapApplied
   const maxScoreCapApplied = finalScore.maxScoreCapApplied || feedbackScore.compositeDisplayCapApplied
-  const capApplied = deadAirVetoApplied ? 40 : null
+  const capApplied = null
 
-  if (deadAirVetoApplied) {
-    console.log(`⛔ Dead-Air veto applied: total ${finalScore.afterBonuses.toFixed(2)} → 40.00`)
-  } else if (maxScoreCapApplied) {
+  if (maxScoreCapApplied) {
     console.log(`⚠️ Score capped: ${feedbackScore.priorityScore.toFixed(2)} → 100.00 (max compatibility)`)
   }
   if (feedbackScore.compositeAdjustment !== 0) {

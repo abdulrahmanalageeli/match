@@ -939,8 +939,8 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
                           </span>
                         )}
                         {pair?.dead_air_veto_applied && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-red-400/40 bg-red-500/10 text-red-200" title="كلاهما دور C وراحة الصمت B ⇒ سقف 40%">
-                            <Info className="w-4 h-4" /> قيد الصمت: سقف 40%
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-red-400/40 bg-red-500/10 text-red-200" title="كلاهما دور C وراحة الصمت B ⇒ فئة التفاعل = 0/3">
+                            <Info className="w-4 h-4" /> قيد الصمت: فئة التفاعل 0/3
                           </span>
                         )}
                         {pair?.humor_clash_veto_applied && (
@@ -1391,7 +1391,7 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
               if (pair?.humor_early_openness_bonus && pair.humor_early_openness_bonus !== 'none') flags.push(`مكافأة الدعابة/الانفتاح: ${pair.humor_early_openness_bonus}`)
               if (pair?.intent_boost_applied) flags.push('مضاعف الهدف')
               if (pair?.attachment_penalty_applied) flags.push('عقوبة التعلق')
-              if (pair?.dead_air_veto_applied) flags.push('قيد الصمت')
+              if (pair?.dead_air_veto_applied) flags.push('فشل فئة التفاعل: 0/3')
               if (pair?.humor_clash_veto_applied) flags.push('تعارض الدعابة')
               if (pair?.cap_applied != null) flags.push(`تقييد نهائي: ${pair?.cap_applied}%`)
               if (flags.length) lines.push(`القيود/المكافآت: ${flags.join('، ')}`)

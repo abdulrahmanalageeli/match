@@ -4875,7 +4875,7 @@ export default function Admin3Page() {
                     <div className="flex flex-wrap gap-2 pt-1">
                       {c.attachmentPenalty && <span className="text-[10px] bg-red-900/30 text-red-400 border border-red-800/40 px-2 py-0.5 rounded-full">⚠ عقوبة التعلق -5</span>}
                       {c.opennessZeroZero && <span className="text-[10px] bg-orange-900/30 text-orange-400 border border-orange-800/40 px-2 py-0.5 rounded-full">⚠ انفتاح 0×0 -5</span>}
-                      {c.deadAirVeto && <span className="text-[10px] bg-red-900/30 text-red-400 border border-red-800/40 px-2 py-0.5 rounded-full">⛔ فيتو الصمت ≤40%</span>}
+                      {c.deadAirVeto && <span className="text-[10px] bg-red-900/30 text-red-400 border border-red-800/40 px-2 py-0.5 rounded-full">⛔ فئة التفاعل: 0/3</span>}
                       {c.humorClashVeto && <span className="text-[10px] bg-red-900/30 text-red-400 border border-red-800/40 px-2 py-0.5 rounded-full">⛔ فيتو الفكاهة ≤50%</span>}
                       {c.intentBoost && <span className="text-[10px] bg-green-900/30 text-green-400 border border-green-800/40 px-2 py-0.5 rounded-full">✅ دفعة الهدف</span>}
                     </div>

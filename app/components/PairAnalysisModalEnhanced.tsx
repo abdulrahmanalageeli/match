@@ -560,8 +560,8 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
                         </div>
                       )}
                       {pair?.dead_air_veto_applied && (
-                        <div className="flex items-center gap-2 text-red-300" title="كلاهما دور C وراحة الصمت B ⇒ سقف 40%">
-                          <Info className="w-4 h-4" /> قيد الصمت: سقف 40%
+                        <div className="flex items-center gap-2 text-red-300" title="كلاهما دور C وراحة الصمت B ⇒ فئة التفاعل = 0/3">
+                          <Info className="w-4 h-4" /> قيد الصمت: فئة التفاعل 0/3
                         </div>
                       )}
                       {pair?.humor_clash_veto_applied && (

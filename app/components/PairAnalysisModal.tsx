@@ -427,7 +427,7 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
                         <div className="flex items-center gap-2 text-red-300"><Shield className="w-4 h-4" /> عقوبة التعلق −5</div>
                       )}
                       {pair?.dead_air_veto_applied && (
-                        <div className="flex items-center gap-2 text-red-300"><Info className="w-4 h-4" /> قيد الصمت: سقف 40%</div>
+                        <div className="flex items-center gap-2 text-red-300"><Info className="w-4 h-4" /> قيد الصمت: فئة التفاعل 0/3</div>
                       )}
                       {pair?.humor_clash_veto_applied && (
                         <div className="flex items-center gap-2 text-red-300"><Info className="w-4 h-4" /> تعارض الدعابة: سقف 50%</div>

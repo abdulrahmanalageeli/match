@@ -1989,7 +1989,7 @@ export default function ParticipantResultsModal({
                                                   <div className="text-red-300">• عقوبة تعلق (قلق × تجنُّب) −5</div>
                                                 )}
                                                 {pair?.dead_air_veto_applied && (
-                                                  <div className="text-red-300">• قيد الصمت: تم تقييد الدرجة إلى 40%</div>
+                                                  <div className="text-red-300">• قيد الصمت: فئة التفاعل 0/3</div>
                                                 )}
                                                 {(pair?.humor_clash_detected || pair?.humor_clash_veto_applied) && (
                                                   <div className="text-amber-300">• اختلاف الدعابة A↔D: الشخص متاح{pair?.humor_clash_veto_applied ? '، وتم تقييد الدرجة إلى 50%' : ''}</div>

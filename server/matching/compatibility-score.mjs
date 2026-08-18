@@ -122,11 +122,8 @@ export function calculateFinalCompatibilityScore({
   let capApplied = null
   let deadAirVetoApplied = false
 
-  if (deadAirVeto && totalScore > 40) {
-    totalScore = 40
-    capApplied = 40
-    deadAirVetoApplied = true
-  }
+  // Dead-Air is now handled as a category-level incompatibility mark (not
+  // a total-score hard cap), so we only keep generic component-level capping here.
 
   const maxScoreCapApplied = totalScore > 100
   totalScore = Math.max(0, Math.min(100, totalScore))

@@ -1094,7 +1094,7 @@ export default function ParticipantDetailModal({
                                                   <div className="text-red-300">• عقوبة تعلق (قلق × تجنُّب) −5</div>
                                                 )}
                                                 {match.dead_air_veto_applied && (
-                                                  <div className="text-red-300">• قيد الصمت: تم تقييد الدرجة إلى 40%</div>
+                                                  <div className="text-red-300">• قيد الصمت: فئة التفاعل = 0/3</div>
                                                 )}
                                                 {(() => {
                                                   const pA = participantData.get(participant.assigned_number)

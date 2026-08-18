@@ -127,7 +127,7 @@ function ManualCompatibilityResultModal({ data, onClose }: { data: any; onClose:
   if (Number(result.opennessPenalty) < 0) safety.push(`Openness penalty: ${result.opennessPenalty} (${result.opennessPenaltyType || 'rule'})`)
   if (Number(result.humor_multiplier) > 1) safety.push(`Humor & openness multiplier: ×${result.humor_multiplier} (${result.humor_bonus || 'bonus'})`)
   if (result.intentBoostApplied) safety.push('Strong intent alignment is included in the meeting-goal points')
-  if (result.deadAirVetoApplied) safety.push('Final score capped by the Dead-Air safety rule at 40%')
+  if (result.deadAirVetoApplied) safety.push('Dead-Air interaction category marked as 0/3 before final aggregation')
   if (result.humorClashDetected) safety.push('A↔D humor styles lowered the Humor & Openness component')
   if (result.maxScoreCapApplied) safety.push('Final score capped at the model maximum of 100%')
   if (result.capApplied && !result.deadAirVetoApplied && !result.humorClashVetoApplied) safety.push(`Final score capped by a safety rule at ${result.capApplied}%`)
@@ -2662,7 +2662,7 @@ const fetchParticipants = async () => {
         ['Penalty: Anxious x Avoidant', '-5', 'Applied before caps', 'When one is Anxious and other is Avoidant'],
         ['Penalty: Openness 0x0', '-5', 'Applied before multipliers', 'Both participants have early_openness_comfort=0'],
         ['Penalty: Asymmetric Openness', '-4', 'Applied before multipliers', 'One has openness=0, other has openness>=2'],
-        ['Veto: Dead-Air', 'Cap at 40', 'After multipliers', 'Both Q35=C (listener) AND Q41=B (comfortable with silence)'],
+        ['Veto: Dead-Air', 'Communication 0/3', 'After multipliers', 'Both Q35=C (listener) AND Q41=B (comfortable with silence)'],
         ['Penalty: A↔D Humor Clash', 'Lowest humor component', 'Inside Humor & Openness', 'The pair remains eligible and the overall score is not capped'],
         ['Humor Multiplier', '1.0-1.15', 'Applied to total', 'Full humor match=1.15x, Partial=1.05x, No match=1.0x'],
         ['Max Cap', '100', 'Final cap', 'Total cannot exceed 100'],
@@ -3782,7 +3782,7 @@ const fetchParticipants = async () => {
             if (Number(result.opennessPenalty) < 0) safety.push(`Openness penalty: ${result.opennessPenalty} (${result.opennessPenaltyType})`)
             if (Number(result.humor_multiplier) > 1) safety.push(`Humor/Openness multiplier: ×${result.humor_multiplier} (${result.humor_bonus})`)
             if (result.intentBoostApplied) safety.push('Strong intent alignment included in the intent points')
-            if (result.deadAirVetoApplied) safety.push('Capped by Dead‑Air (40%)')
+            if (result.deadAirVetoApplied) safety.push('Dead-Air: Communication category forced to 0/3')
             if (result.humorClashDetected) safety.push('A↔D humor styles lowered the Humor & Openness component')
             if (result.maxScoreCapApplied) safety.push('Capped at the maximum score (100%)')
             if (result.capApplied && !result.deadAirVetoApplied && !result.humorClashVetoApplied) safety.push(`Capped by rule (${result.capApplied}%)`)

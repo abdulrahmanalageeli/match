@@ -12,7 +12,8 @@ const shadowMetrics = [
 ] as const
 
 function parseShadowAnswer(participant: any, metricId: string): number | null {
-  const raw = participant?.survey_data?.answers?.[metricId]
+  // Check both survey_data.answers and direct participant columns
+  const raw = participant?.[metricId] ?? participant?.survey_data?.answers?.[metricId]
   if (raw === undefined || raw === null || raw === "") return null
   const parsed = Number(raw)
   return Number.isFinite(parsed) ? parsed : null

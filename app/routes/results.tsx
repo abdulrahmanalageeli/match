@@ -678,83 +678,81 @@ export default function ResultsPage() {
                                       </div>
                                       
                                       <div className="flex-1 min-w-0">
-                                        <h3 className={`font-bold text-sm sm:text-base truncate mb-2 ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
-                                          {match.partner_name || 'شريك المحادثة'}
-                                        </h3>
-                                        
-                                        <div className="flex flex-col gap-1.5">
-                                          {/* Primary badges row - mutual match and score */}
-                                          <div className="flex items-center gap-2 flex-wrap">
-                                            {/* Same match badge for event3 */}
-                                            {e3SameMatchByEvent[match.event_id ?? 0] && match.match_type === 'choice' && (
-                                              <span className="text-xs px-2.5 py-1 rounded-full flex items-center gap-1 bg-gradient-to-r from-amber-500 to-yellow-500 text-white font-bold">
-                                                <Trophy className="w-3 h-3" />
-                                                مطابقة مثالية!
-                                              </span>
-                                            )}
-                                            {/* Status Badge - Enhanced for Mutual Match */}
-                                            {match.mutual_match ? (
-                                              <span className="relative flex items-center gap-1.5 rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 px-2.5 py-1 text-xs font-black text-white shadow-lg">
-                                                <Handshake className="w-3.5 h-3.5" />
-                                                مطابقة متبادلة
-                                              </span>
-                                            ) : (
-                                              <span className={`text-xs px-2.5 py-1 rounded-full flex items-center gap-1 font-medium ${
-                                                dark ? `${status.bgColor}/20 ${status.color}` : `${status.bgColor} ${status.color}`
-                                              }`}>
-                                                <StatusIcon className="w-3 h-3" />
-                                                {status.text}
-                                              </span>
-                                            )}
-                                            
-                                            {/* Score Badge */}
-                                            <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full border ${
-                                              getOriginalScore(match) >= 70 ? 'bg-green-500/10 border-green-500/30' :
-                                              getOriginalScore(match) >= 50 ? 'bg-yellow-500/10 border-yellow-500/30' :
-                                              'bg-red-500/10 border-red-500/30'
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <h3 className={`font-bold text-sm sm:text-base truncate ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
+                                            {match.partner_name || 'شريك المحادثة'}
+                                          </h3>
+                                          {/* Event 3+: show choice/algorithm badge instead of round */}
+                                          {match.match_type === 'choice' ? (
+                                            <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0 flex items-center gap-1 bg-pink-500/20 text-pink-300 border border-pink-500/30">
+                                              <Heart className="w-3 h-3" />
+                                              اختيارك الشخصي
+                                            </span>
+                                          ) : match.match_type === 'algorithm' ? (
+                                            <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0 flex items-center gap-1 bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                              <Brain className="w-3 h-3" />
+                                              اختيار الخوارزمية
+                                            </span>
+                                          ) : (
+                                            <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${
+                                              dark ? 'bg-slate-600/70 text-slate-200' : 'bg-gray-200/70 text-gray-700'
                                             }`}>
-                                              <Award className={`w-3 h-3 ${
-                                                getOriginalScore(match) >= 70 ? 'text-green-500' :
-                                                getOriginalScore(match) >= 50 ? 'text-yellow-500' :
-                                                'text-red-500'
-                                              }`} />
-                                              <span className={`text-xs font-bold ${
-                                                getOriginalScore(match) >= 70 ? 'text-green-500' :
-                                                getOriginalScore(match) >= 50 ? 'text-yellow-500' :
-                                                'text-red-500'
-                                              }`}>
-                                                {getOriginalScore(match)}%
+                                              {match.round === 2 ? 'الجولة الثانية' : 'الجولة الأولى'}
+                                            </span>
+                                          )}
+                                          {match.is_repeat_match && (
+                                            <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${
+                                              dark ? 'bg-amber-600/70 text-amber-200' : 'bg-amber-200/70 text-amber-700'
+                                            }`}>
+                                              تكرار
+                                            </span>
+                                          )}
+                                        </div>
+                                        
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          {/* Same match badge for event3 */}
+                                          {e3SameMatchByEvent[match.event_id ?? 0] && match.match_type === 'choice' && (
+                                            <span className="text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-gradient-to-r from-amber-500 to-yellow-500 text-white font-bold">
+                                              <Trophy className="w-3.5 h-3.5" />
+                                              مطابقة مثالية!
+                                            </span>
+                                          )}
+                                          {/* Status Badge - Enhanced for Mutual Match */}
+                                          {match.mutual_match ? (
+                                            <div className="relative">
+                                              <span className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full opacity-50 blur-sm animate-pulse"></span>
+                                              <span className="relative flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 px-3 py-1.5 text-xs font-black text-white shadow-lg sm:px-4 sm:py-2 sm:text-sm">
+                                                <Handshake className="w-4 h-4 animate-pulse" />
+                                                مطابقة متبادلة!
                                               </span>
                                             </div>
-                                          </div>
+                                          ) : (
+                                            <span className={`text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 font-medium ${
+                                              dark ? `${status.bgColor}/20 ${status.color}` : `${status.bgColor} ${status.color}`
+                                            }`}>
+                                              <StatusIcon className="w-3.5 h-3.5" />
+                                              {status.text}
+                                            </span>
+                                          )}
                                           
-                                          {/* Secondary badges row - match type and info */}
-                                          <div className="flex items-center gap-1.5 flex-wrap">
-                                            {/* Event 3+: show choice/algorithm badge instead of round */}
-                                            {match.match_type === 'choice' ? (
-                                              <span className="text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 bg-pink-500/15 text-pink-300 border border-pink-500/25">
-                                                <Heart className="w-2.5 h-2.5" />
-                                                اختيارك
-                                              </span>
-                                            ) : match.match_type === 'algorithm' ? (
-                                              <span className="text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 bg-purple-500/15 text-purple-300 border border-purple-500/25">
-                                                <Brain className="w-2.5 h-2.5" />
-                                                الخوارزمية
-                                              </span>
-                                            ) : (
-                                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                                                dark ? 'bg-slate-600/50 text-slate-300' : 'bg-gray-200/50 text-gray-600'
-                                              }`}>
-                                                {match.round === 2 ? 'الجولة الثانية' : 'الجولة الأولى'}
-                                              </span>
-                                            )}
-                                            {match.is_repeat_match && (
-                                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                                                dark ? 'bg-amber-600/50 text-amber-200' : 'bg-amber-200/50 text-amber-700'
-                                              }`}>
-                                                تكرار
-                                              </span>
-                                            )}
+                                          {/* Score Badge */}
+                                          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${
+                                            getOriginalScore(match) >= 70 ? 'bg-green-500/10 border border-green-500/30' :
+                                            getOriginalScore(match) >= 50 ? 'bg-yellow-500/10 border border-yellow-500/30' :
+                                            'bg-red-500/10 border border-red-500/30'
+                                          }`}>
+                                            <Award className={`w-3.5 h-3.5 ${
+                                              getOriginalScore(match) >= 70 ? 'text-green-500' :
+                                              getOriginalScore(match) >= 50 ? 'text-yellow-500' :
+                                              'text-red-500'
+                                            }`} />
+                                            <span className={`text-sm font-bold ${
+                                              getOriginalScore(match) >= 70 ? 'text-green-500' :
+                                              getOriginalScore(match) >= 50 ? 'text-yellow-500' :
+                                              'text-red-500'
+                                            }`}>
+                                              {getOriginalScore(match)}%
+                                            </span>
                                           </div>
                                         </div>
                                       </div>

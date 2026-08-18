@@ -1184,11 +1184,11 @@ export default function ParticipantResultsModal({
                   <span className="font-bold text-white mt-1 inline-flex items-center gap-1">
                     {shadowAggregate.overall == null ? "—" : `${shadowAggregate.overall}%`}
                   </span>
-                  <div className="mt-2 grid w-full min-w-0 grid-cols-3 gap-2">
+                  <div className="mt-2 grid w-full min-w-0 grid-cols-3 gap-1.5">
                     {[
                       ["لغة", shadowAggregate.expression_language],
-                      ["الأسلوب الاجتماعي", shadowAggregate.social_relationship_style],
-                      ["توقعات الالتزام", shadowAggregate.minimum_partner_religious_commitment],
+                      ["الاجتماعي", shadowAggregate.social_relationship_style],
+                      ["الالتزام", shadowAggregate.minimum_partner_religious_commitment],
                     ].map(([label, value]) => {
                       const text = value == null ? "—" : `${value}%`
                       return (
@@ -1197,17 +1197,16 @@ export default function ParticipantResultsModal({
                           className="
                             flex min-w-0 w-full
                             flex-col items-center justify-center
-                            rounded-lg
-                            border border-white/20
-                            bg-white/10
-                            px-1.5 py-1.5
+                            rounded-md
+                            border border-white/15
+                            bg-white/5
+                            px-1 py-1.5
                             text-center
-                            text-slate-200
                           "
                           title={`${label}: ${text}`}
                         >
-                          <span className="block w-full min-w-0 break-words text-[9px] leading-tight text-slate-300">{label}</span>
-                          <span className="mt-0.5 block whitespace-nowrap text-[11px] font-bold leading-none">{text}</span>
+                          <span className="block w-full min-w-0 truncate text-[10px] leading-tight text-slate-400">{label}</span>
+                          <span className="mt-0.5 block whitespace-nowrap text-xs font-bold leading-none text-white">{text}</span>
                         </div>
                       )
                     })}

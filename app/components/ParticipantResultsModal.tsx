@@ -777,10 +777,17 @@ export default function ParticipantResultsModal({
     () => buildScoreLookup(calculatedPairs, results),
     [calculatedPairs, results],
   )
+  const normalizePairForDisplay = (pair: any) => {
+    if (!pair) return pair
+    return {
+      ...pair,
+      dead_air_veto_applied: !!(pair.dead_air_veto_applied || pair.deadAirVetoApplied || pair.deadAirVeto),
+    }
+  }
   const getResultPairData = (participant: ParticipantResult) => {
     const partner = Number(participant.partner_assigned_number)
     if (!Number.isFinite(partner) || partner <= 0 || partner === 9999) return undefined
-    return pairScoreLookup.get(pairKey(participant.assigned_number, partner))
+    return normalizePairForDisplay(pairScoreLookup.get(pairKey(participant.assigned_number, partner)))
   }
 
   const fetchParticipantDetails = (participantNumber: number, participantName: string) => {
@@ -793,6 +800,7 @@ export default function ParticipantResultsModal({
     
     // Convert to the format expected by ParticipantDetailModal
     const matches = participantPairs.map(pair => {
+      const normalizedPair = normalizePairForDisplay(pair)
       const otherParticipantNumber = Number(pair.participant_a) === participantNumber ? Number(pair.participant_b) : Number(pair.participant_a)
       
       // Try to find name from multiple sources
@@ -843,7 +851,7 @@ export default function ParticipantResultsModal({
         // Gates & bonuses
         attachment_penalty_applied: pair.attachment_penalty_applied,
         intent_boost_applied: pair.intent_boost_applied,
-        dead_air_veto_applied: pair.dead_air_veto_applied,
+        dead_air_veto_applied: normalizedPair.dead_air_veto_applied,
         humor_clash_detected: pair.humor_clash_detected,
         humor_clash_veto_applied: pair.humor_clash_veto_applied,
         cap_applied: pair.cap_applied,

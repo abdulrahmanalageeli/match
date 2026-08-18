@@ -20,7 +20,9 @@ function formatRiyadhCutoffLabel(value) {
   return `${weekday} ${day} ${ARABIC_MONTHS[month - 1]} ${year} الساعة ${hour % 12 || 12}:${minute} ${hour < 12 ? "صباحًا" : "مساءً"}`
 }
 
-function formatRiyadhDeadline(minutes = 15) {
+const SEAT_PAYMENT_DEADLINE_MINUTES = 180
+
+function formatRiyadhDeadline(minutes = SEAT_PAYMENT_DEADLINE_MINUTES) {
   return new Intl.DateTimeFormat("ar-SA", {
     timeZone: "Asia/Riyadh",
     hour: "numeric",
@@ -201,10 +203,10 @@ async function buildVariables(templateKey, participant, overrides = {}) {
     1: name, 2: await feedbackRemaining(participant.assigned_number), 3: config.eventName, 4: participant.secure_token,
   }
   if (templateKey === "survey_update") values = { 1: name }
-  if (templateKey === "seat_payment_deadline") values = { 1: name, 2: formatRiyadhDeadline(15) }
+  if (templateKey === "seat_payment_deadline") values = { 1: name, 2: formatRiyadhDeadline(SEAT_PAYMENT_DEADLINE_MINUTES) }
   const merged = { ...values, ...overrides }
-  // The approved seat-payment template always promises a 15-minute window.
-  if (templateKey === "seat_payment_deadline") merged[2] = formatRiyadhDeadline(15)
+  // The approved seat-payment template promises a 3-hour window.
+  if (templateKey === "seat_payment_deadline") merged[2] = formatRiyadhDeadline(SEAT_PAYMENT_DEADLINE_MINUTES)
   return merged
 }
 

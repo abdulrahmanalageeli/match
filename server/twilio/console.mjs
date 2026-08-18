@@ -20,15 +20,19 @@ function formatRiyadhCutoffLabel(value) {
   return `${weekday} ${day} ${ARABIC_MONTHS[month - 1]} ${year} الساعة ${hour % 12 || 12}:${minute} ${hour < 12 ? "صباحًا" : "مساءً"}`
 }
 
-const SEAT_PAYMENT_DEADLINE_MINUTES = 180
+const SEAT_PAYMENT_DEADLINE_TIME = { hour: 21, minute: 0 }
 
-function formatRiyadhDeadline(minutes = SEAT_PAYMENT_DEADLINE_MINUTES) {
+function formatRiyadhDeadline(deadline = SEAT_PAYMENT_DEADLINE_TIME) {
+  const riyadhNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Riyadh" }))
+  const target = new Date(riyadhNow)
+  target.setHours(deadline.hour, deadline.minute, 0, 0)
+  if (riyadhNow.getTime() >= target.getTime()) target.setDate(target.getDate() + 1)
   return new Intl.DateTimeFormat("ar-SA", {
     timeZone: "Asia/Riyadh",
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
-  }).format(new Date(Date.now() + minutes * 60 * 1000))
+  }).format(target)
 }
 
 function normalizeWhatsapp(value) {
@@ -203,10 +207,10 @@ async function buildVariables(templateKey, participant, overrides = {}) {
     1: name, 2: await feedbackRemaining(participant.assigned_number), 3: config.eventName, 4: participant.secure_token,
   }
   if (templateKey === "survey_update") values = { 1: name }
-  if (templateKey === "seat_payment_deadline") values = { 1: name, 2: formatRiyadhDeadline(SEAT_PAYMENT_DEADLINE_MINUTES) }
+  if (templateKey === "seat_payment_deadline") values = { 1: name, 2: formatRiyadhDeadline() }
   const merged = { ...values, ...overrides }
-  // The approved seat-payment template promises a 3-hour window.
-  if (templateKey === "seat_payment_deadline") merged[2] = formatRiyadhDeadline(SEAT_PAYMENT_DEADLINE_MINUTES)
+  // Ensure seat-payment reminders always use the fixed cutoff.
+  if (templateKey === "seat_payment_deadline") merged[2] = formatRiyadhDeadline()
   return merged
 }
 

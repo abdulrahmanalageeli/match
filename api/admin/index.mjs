@@ -28,7 +28,7 @@ const TWILIO_STATUS_CALLBACK_URL = process.env.TWILIO_STATUS_CALLBACK_URL || "ht
 
 const ARABIC_WEEKDAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"]
 const ARABIC_MONTHS = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
-const SEAT_PAYMENT_DEADLINE_MINUTES = 180
+const SEAT_PAYMENT_DEADLINE_TIME = { hour: 21, minute: 0 }
 
 function formatRiyadhCutoffLabel(value) {
   const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/)
@@ -39,18 +39,22 @@ function formatRiyadhCutoffLabel(value) {
   return `${weekday} ${day} ${ARABIC_MONTHS[month - 1]} ${year} الساعة ${hour % 12 || 12}:${minute} ${hour < 12 ? "صباحًا" : "مساءً"}`
 }
 
-function formatRiyadhDeadline(minutes = SEAT_PAYMENT_DEADLINE_MINUTES) {
+function formatRiyadhDeadline(deadline = SEAT_PAYMENT_DEADLINE_TIME) {
+  const riyadhNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Riyadh" }))
+  const target = new Date(riyadhNow)
+  target.setHours(deadline.hour, deadline.minute, 0, 0)
+  if (riyadhNow.getTime() >= target.getTime()) target.setDate(target.getDate() + 1)
   return new Intl.DateTimeFormat("ar-SA", {
     timeZone: "Asia/Riyadh",
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
-  }).format(new Date(Date.now() + minutes * 60 * 1000))
+  }).format(target)
 }
 
 function normalizeTwilioTemplateVariables(templateKey, variables) {
   if (templateKey === "seat_payment_deadline") {
-    return { ...(variables && typeof variables === "object" ? variables : {}), 2: formatRiyadhDeadline(SEAT_PAYMENT_DEADLINE_MINUTES) }
+    return { ...(variables && typeof variables === "object" ? variables : {}), 2: formatRiyadhDeadline() }
   }
   if (!variables || typeof variables !== "object") return variables
   // Legacy payment-reminder clients included a non-template "savings" value

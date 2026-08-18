@@ -29,6 +29,7 @@ const TWILIO_STATUS_CALLBACK_URL = process.env.TWILIO_STATUS_CALLBACK_URL || "ht
 const ARABIC_WEEKDAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"]
 const ARABIC_MONTHS = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
 const SEAT_PAYMENT_DEADLINE_TIME = { hour: 21, minute: 0 }
+const SEAT_PAYMENT_DEADLINE_LABEL = "9:00 مساءً"
 
 function formatRiyadhCutoffLabel(value) {
   const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/)
@@ -40,6 +41,7 @@ function formatRiyadhCutoffLabel(value) {
 }
 
 function formatRiyadhDeadline(deadline = SEAT_PAYMENT_DEADLINE_TIME) {
+  if (deadline.hour === 21 && deadline.minute === 0) return SEAT_PAYMENT_DEADLINE_LABEL
   const riyadhNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Riyadh" }))
   const target = new Date(riyadhNow)
   target.setHours(deadline.hour, deadline.minute, 0, 0)

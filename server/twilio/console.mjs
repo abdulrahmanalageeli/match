@@ -21,8 +21,10 @@ function formatRiyadhCutoffLabel(value) {
 }
 
 const SEAT_PAYMENT_DEADLINE_TIME = { hour: 21, minute: 0 }
+const SEAT_PAYMENT_DEADLINE_LABEL = "9:00 مساءً"
 
 function formatRiyadhDeadline(deadline = SEAT_PAYMENT_DEADLINE_TIME) {
+  if (deadline.hour === 21 && deadline.minute === 0) return SEAT_PAYMENT_DEADLINE_LABEL
   const riyadhNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Riyadh" }))
   const target = new Date(riyadhNow)
   target.setHours(deadline.hour, deadline.minute, 0, 0)

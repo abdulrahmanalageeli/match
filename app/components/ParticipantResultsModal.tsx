@@ -9,9 +9,9 @@ import * as Dialog from "@radix-ui/react-dialog"
 import ParticipantHoverCardContent from "./ParticipantHoverCard"
 import { buildScoreLookup, getPairMatchInsightsCoverage, pairKey } from "../lib/matchControl"
 const shadowMetrics = [
-  { id: "expression_language", label: "اللغة", max: 5 },
-  { id: "social_relationship_style", label: "الأسلوب الاجتماعي", max: 4 },
-  { id: "minimum_partner_religious_commitment", label: "توقعات الالتزام", max: 4 },
+  { id: "expression_language", label: "لغة", max: 5 },
+  { id: "social_relationship_style", label: "اجتماعي", max: 4 },
+  { id: "minimum_partner_religious_commitment", label: "التزام", max: 4 },
 ] as const
 
 interface ParticipantResult {
@@ -1187,8 +1187,8 @@ export default function ParticipantResultsModal({
                   <div className="mt-2 grid w-full min-w-0 grid-cols-3 gap-1.5">
                     {[
                       ["لغة", shadowAggregate.expression_language],
-                      ["الاجتماعي", shadowAggregate.social_relationship_style],
-                      ["الالتزام", shadowAggregate.minimum_partner_religious_commitment],
+                      ["اجتماعي", shadowAggregate.social_relationship_style],
+                      ["التزام", shadowAggregate.minimum_partner_religious_commitment],
                     ].map(([label, value]) => {
                       const text = value == null ? "—" : `${value}%`
                       return (

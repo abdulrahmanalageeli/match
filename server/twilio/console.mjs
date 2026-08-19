@@ -20,15 +20,11 @@ function formatRiyadhCutoffLabel(value) {
   return `${weekday} ${day} ${ARABIC_MONTHS[month - 1]} ${year} الساعة ${hour % 12 || 12}:${minute} ${hour < 12 ? "صباحًا" : "مساءً"}`
 }
 
-const SEAT_PAYMENT_DEADLINE_TIME = { hour: 21, minute: 0 }
-const SEAT_PAYMENT_DEADLINE_LABEL = "9:00 مساءً"
+const SEAT_PAYMENT_DEADLINE_OFFSET_MINUTES = 30
 
-function formatRiyadhDeadline(deadline = SEAT_PAYMENT_DEADLINE_TIME) {
-  if (deadline.hour === 21 && deadline.minute === 0) return SEAT_PAYMENT_DEADLINE_LABEL
+function formatRiyadhDeadline(deadlineOffsetMinutes = SEAT_PAYMENT_DEADLINE_OFFSET_MINUTES) {
   const riyadhNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Riyadh" }))
-  const target = new Date(riyadhNow)
-  target.setHours(deadline.hour, deadline.minute, 0, 0)
-  if (riyadhNow.getTime() >= target.getTime()) target.setDate(target.getDate() + 1)
+  const target = new Date(riyadhNow.getTime() + Number(deadlineOffsetMinutes || SEAT_PAYMENT_DEADLINE_OFFSET_MINUTES) * 60000)
   return new Intl.DateTimeFormat("ar-SA", {
     timeZone: "Asia/Riyadh",
     hour: "numeric",
@@ -211,7 +207,7 @@ async function buildVariables(templateKey, participant, overrides = {}) {
   if (templateKey === "survey_update") values = { 1: name }
   if (templateKey === "seat_payment_deadline") values = { 1: name, 2: formatRiyadhDeadline() }
   const merged = { ...values, ...overrides }
-  // Ensure seat-payment reminders always use the fixed cutoff.
+  // Ensure seat-payment reminders always use the fixed relative cutoff.
   if (templateKey === "seat_payment_deadline") merged[2] = formatRiyadhDeadline()
   return merged
 }

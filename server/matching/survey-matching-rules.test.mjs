@@ -39,6 +39,31 @@ test("generated match rows map all match-insight scores to persisted columns", (
   })
 })
 
+test("generated match rows recalculate insight scores when an old cache has zero placeholders", () => {
+  const participantA = { survey_data: { answers: {
+    match_disagreement_style: "A",
+    match_current_focus: ["career", "self_growth"],
+    match_similarity_preference: "A",
+  } } }
+  const participantB = { survey_data: { answers: {
+    match_disagreement_style: "A",
+    match_current_focus: ["career", "self_growth"],
+    match_similarity_preference: "A",
+  } } }
+
+  assert.deepEqual(buildPersistedMatchInsightFields({
+    disagreementScore: 0,
+    currentFocusScore: 0,
+    similarityPreferenceScore: 0,
+    attachmentPaceScore: 0,
+  }, participantA, participantB, 25), {
+    disagreement_style_score: 4,
+    current_life_overlap_score: 5,
+    similarity_preference_score: 5,
+    attachment_pace_score: 1.5,
+  })
+})
+
 test("delta cache detects only survey edits and dedicated event enrollment timestamps", () => {
   const baseline = "2026-08-16T10:00:00.000Z"
   assert.equal(getParticipantDeltaCacheReason({

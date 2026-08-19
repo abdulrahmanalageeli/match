@@ -28,21 +28,35 @@ function isFetchFailedLikeError(err) {
   return /fetch failed/i.test(msg) || /fetch failed/i.test(details)
 }
 
+const MATCH_INSIGHT_COLUMN_NAMES = [
+  'disagreement_style_score',
+  'current_life_overlap_score',
+  'similarity_preference_score',
+  'attachment_pace_score',
+]
+
+function isMatchInsightSchemaCacheError(err) {
+  const message = `${err?.message || ''} ${err?.details || ''}`
+  return err?.code === 'PGRST204'
+    && message.includes('match_results')
+    && MATCH_INSIGHT_COLUMN_NAMES.some(column => message.includes(column))
+}
+
 async function supabaseRetry(label, op, { attempts = 4, baseDelayMs = 250 } = {}) {
   let lastErr = null
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
       const res = await op()
-      if (res?.error && isFetchFailedLikeError(res.error)) {
+      if (res?.error && (isFetchFailedLikeError(res.error) || isMatchInsightSchemaCacheError(res.error))) {
         throw res.error
       }
       return res
     } catch (err) {
       lastErr = err
-      const shouldRetry = isFetchFailedLikeError(err)
+      const shouldRetry = isFetchFailedLikeError(err) || isMatchInsightSchemaCacheError(err)
       if (!shouldRetry || attempt >= attempts) break
       const delay = baseDelayMs * attempt
-      console.warn(`⚠️ ${label} failed with fetch error (attempt ${attempt}/${attempts}). Retrying in ${delay}ms...`)
+      console.warn(`⚠️ ${label} failed with a transient Supabase error (attempt ${attempt}/${attempts}). Retrying in ${delay}ms...`)
       await sleep(delay)
     }
   }
@@ -1482,12 +1496,34 @@ function calculateShortMeetingInsightScores(participantA, participantB, vibeScor
   return { disagreementScore, currentFocusScore, similarityPreferenceScore }
 }
 
-function buildPersistedMatchInsightFields(scores = {}) {
+function buildPersistedMatchInsightFields(scores = {}, participantA = null, participantB = null, vibeScore = null) {
+  const canGenerate = !!participantA && !!participantB
+  const currentValue = Number(scores.currentFocusScore)
+  // Current-focus scoring always has a positive fallback. Zero means an old
+  // cache did not carry these fields, so regenerate all four from answers.
+  const regenerateAll = canGenerate && !(Number.isFinite(currentValue) && currentValue > 0)
+  const generated = canGenerate
+    ? {
+        ...calculateShortMeetingInsightScores(
+          participantA,
+          participantB,
+          vibeScore ?? scores.vibeScore ?? 0,
+        ),
+        attachmentPaceScore: calculateAttachmentPaceScore(participantA, participantB),
+      }
+    : {}
+  const score = (key) => {
+    const existing = Number(scores[key])
+    if (!regenerateAll && Number.isFinite(existing)) return existing
+    const fallback = Number(generated[key])
+    return Number.isFinite(fallback) ? fallback : 0
+  }
+
   return {
-    disagreement_style_score: Number(scores.disagreementScore ?? 0),
-    current_life_overlap_score: Number(scores.currentFocusScore ?? 0),
-    similarity_preference_score: Number(scores.similarityPreferenceScore ?? 0),
-    attachment_pace_score: Number(scores.attachmentPaceScore ?? 0),
+    disagreement_style_score: score('disagreementScore'),
+    current_life_overlap_score: score('currentFocusScore'),
+    similarity_preference_score: score('similarityPreferenceScore'),
+    attachment_pace_score: score('attachmentPaceScore'),
   }
 }
 
@@ -6532,7 +6568,7 @@ if (action === "cache-status-by-gender") {
           lifestyle_compatibility_score: lifestyleScore,
           core_values_compatibility_score: coreValuesScore,
           vibe_compatibility_score: vibeScore,
-          ...buildPersistedMatchInsightFields(compatibilityResult),
+          ...buildPersistedMatchInsightFields(compatibilityResult, p1, p2, vibeScore),
           // New-model persisted fields
           synergy_score: compatibilityResult.synergyScore ?? 0,
           humor_open_score: compatibilityResult.humorOpenScore ?? 0,
@@ -7023,6 +7059,7 @@ if (action === "cache-status-by-gender") {
     console.log(`🔍 Retrieved ${eligibleParticipants.length} eligible participants for matching`)
 
     const numbers = eligibleParticipants.map(p => p.assigned_number)
+    const participantByNumber = new Map(eligibleParticipants.map(participant => [participant.assigned_number, participant]))
     const pairs = []
 
     for (let i = 0; i < eligibleParticipants.length; i++) {
@@ -7785,12 +7822,12 @@ if (action === "cache-status-by-gender") {
             lifestyle_compatibility_score: compatibilityData?.lifestyleScore ?? calc?.lifestyleScore ?? 10,
             core_values_compatibility_score: compatibilityData?.coreValuesScore || 15,
             vibe_compatibility_score: compatibilityData?.vibeScore ?? calc?.vibeScore ?? 15,
-            ...buildPersistedMatchInsightFields(compatibilityData || calc || {
-              disagreementScore: calculateDisagreementStyleScore(p1Data, p2Data),
-              currentFocusScore: calculateCurrentFocusScore(p1Data, p2Data),
-              similarityPreferenceScore: calculateShortMeetingInsightScores(p1Data, p2Data, 15).similarityPreferenceScore,
-              attachmentPaceScore: calculateAttachmentPaceScore(p1Data, p2Data),
-            }),
+            ...buildPersistedMatchInsightFields(
+              compatibilityData || calc || {},
+              p1Data,
+              p2Data,
+              compatibilityData?.vibeScore ?? calc?.vibeScore ?? 15,
+            ),
             // New-model persisted fields
             synergy_score: (compatibilityData?.synergyScore ?? calc?.synergyScore) ?? 0,
             humor_open_score: (compatibilityData?.humorOpenScore ?? calc?.humorOpenScore) ?? 0,
@@ -7920,7 +7957,12 @@ if (action === "cache-status-by-gender") {
               lifestyle_compatibility_score: pair.lifestyleScore,
               core_values_compatibility_score: pair.coreValuesScore,
               vibe_compatibility_score: pair.vibeScore,
-              ...buildPersistedMatchInsightFields(pair),
+              ...buildPersistedMatchInsightFields(
+                pair,
+                participantByNumber.get(pair.a),
+                participantByNumber.get(pair.b),
+                pair.vibeScore,
+              ),
               // New-model persisted fields
               synergy_score: pair.synergyScore ?? 0,
               humor_open_score: pair.humorOpenScore ?? 0,
@@ -7985,7 +8027,12 @@ if (action === "cache-status-by-gender") {
               lifestyle_compatibility_score: pair.lifestyleScore,
               core_values_compatibility_score: pair.coreValuesScore,
               vibe_compatibility_score: pair.vibeScore,
-              ...buildPersistedMatchInsightFields(pair),
+              ...buildPersistedMatchInsightFields(
+                pair,
+                participantByNumber.get(pair.a),
+                participantByNumber.get(pair.b),
+                pair.vibeScore,
+              ),
               // New-model persisted fields
               synergy_score: pair.synergyScore ?? 0,
               humor_open_score: pair.humorOpenScore ?? 0,

@@ -71,6 +71,20 @@ export function calculateSimilarityPreferenceScore(participantA, participantB, c
   return ((preferenceSatisfaction(a, similarity) + preferenceSatisfaction(b, similarity)) / 2) * 5
 }
 
+export function calculatePersistedMatchInsightScores(participantA, participantB, vibeScore, vibeMaximum = 25) {
+  const disagreementStyleScore = calculateDisagreementStyleScore(participantA, participantB)
+  const currentLifeOverlapScore = calculateCurrentFocusScore(participantA, participantB)
+  const normalizedVibe = clamp(Number(vibeScore) || 0, 0, vibeMaximum) / vibeMaximum
+  const contentSimilarity = clamp((normalizedVibe + (currentLifeOverlapScore / 5)) / 2, 0, 1)
+
+  return {
+    disagreement_style_score: disagreementStyleScore,
+    current_life_overlap_score: currentLifeOverlapScore,
+    similarity_preference_score: calculateSimilarityPreferenceScore(participantA, participantB, contentSimilarity),
+    attachment_pace_score: calculateAttachmentPaceScore(participantA, participantB),
+  }
+}
+
 const attachmentNeed = {
   attachment_1: { A: 2, B: 3, C: 0.5, D: 2.25 },
   attachment_3: { A: 2, B: 3, C: 0, D: 1.5 },

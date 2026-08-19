@@ -15,6 +15,7 @@ import {
 } from "../../server/event3/timing.mjs"
 import { supabaseAdmin } from "../../server/security/supabase-admin.mjs"
 import { clearAdminSession, enforceRateLimit, requireAdmin } from "../../server/security/request-security.mjs"
+import { calculatePersistedMatchInsightScores } from "../../server/matching/match-insights.mjs"
 
 const supabase = supabaseAdmin
 
@@ -176,6 +177,10 @@ function compatibilityResultPayload(compatibility) {
     synergy_score: Number(compatibility.synergyScore || 0),
     humor_open_score: Number(compatibility.humorOpenScore || 0),
     intent_score: Number(compatibility.intentScore || 0),
+    disagreement_style_score: Number(compatibility.disagreementScore || 0),
+    current_life_overlap_score: Number(compatibility.currentFocusScore || 0),
+    similarity_preference_score: Number(compatibility.similarityPreferenceScore || 0),
+    attachment_pace_score: Number(compatibility.attachmentPaceScore || 0),
     humor_multiplier: humorMultiplier,
     attachment_penalty_applied: !!compatibility.attachmentPenaltyApplied,
     intent_boost_applied: !!compatibility.intentBoostApplied,
@@ -193,6 +198,74 @@ function swapPairKey(a, b) {
 function isSwapParticipantPaid(participant, eventId) {
   return participant?.PAID_DONE === true
     && Number(participant?.payment_completed_event_id) === Number(eventId)
+}
+
+async function repairMissingSwapInsightScores(eventId, requestedPairs = null) {
+  const numericEventId = Number(eventId)
+  if (!Number.isInteger(numericEventId) || numericEventId <= 0) return 0
+
+  try {
+    const requestedPairKeys = Array.isArray(requestedPairs) && requestedPairs.length > 0
+      ? new Set(requestedPairs.map(pair => swapPairKey(pair.a, pair.b)))
+      : null
+
+    const { data: matchRows, error: matchError } = await supabase
+      .from("match_results")
+      .select("id,participant_a_number,participant_b_number,vibe_compatibility_score,current_life_overlap_score")
+      .eq("match_id", STATIC_MATCH_ID)
+      .eq("event_id", numericEventId)
+
+    if (matchError) throw matchError
+    const brokenRows = (matchRows || []).filter(row => (
+      (!requestedPairKeys || requestedPairKeys.has(swapPairKey(row.participant_a_number, row.participant_b_number)))
+      // Current-focus scoring always has a positive fallback, so zero/null is
+      // an unambiguous corruption marker. This also covers the old manual
+      // fallback path, which did not create a swap audit row.
+      && Number(row.participant_a_number) !== 9999
+      && Number(row.participant_b_number) !== 9999
+      && !(Number(row.current_life_overlap_score) > 0)
+    ))
+    if (brokenRows.length === 0) return 0
+
+    const participantNumbers = Array.from(new Set(brokenRows.flatMap(row => [
+      Number(row.participant_a_number),
+      Number(row.participant_b_number),
+    ])))
+    const { data: participants, error: participantError } = await supabase
+      .from("participants")
+      .select("*")
+      .eq("match_id", STATIC_MATCH_ID)
+      .in("assigned_number", participantNumbers)
+
+    if (participantError) throw participantError
+    const participantMap = new Map((participants || []).map(participant => [Number(participant.assigned_number), participant]))
+    let repaired = 0
+
+    for (const row of brokenRows) {
+      const participantA = participantMap.get(Number(row.participant_a_number))
+      const participantB = participantMap.get(Number(row.participant_b_number))
+      if (!participantA || !participantB) continue
+
+      const scoreFields = calculatePersistedMatchInsightScores(
+        participantA,
+        participantB,
+        Number(row.vibe_compatibility_score || 0),
+      )
+      const { error: updateError } = await supabase
+        .from("match_results")
+        .update(scoreFields)
+        .eq("id", row.id)
+
+      if (updateError) throw updateError
+      repaired += 1
+    }
+
+    if (repaired > 0) console.log(`✅ Repaired match-insight scores for ${repaired} swapped match row(s) in event ${numericEventId}`)
+    return repaired
+  } catch (error) {
+    console.error("Failed to repair swapped match-insight scores:", error)
+    return 0
+  }
 }
 
 async function attachEventReceipts(participants, eventId) {
@@ -5048,7 +5121,11 @@ export default async function handler(req, res) {
           }
           throw error
         }
-        return res.status(200).json(data || { success: true })
+        // The first deployed swap RPC predated the four match-insight columns.
+        // Repair the rows immediately even if that stale database function is
+        // still installed; the forward-compatible RPC simply results in zero repairs.
+        const repairedInsightRows = await repairMissingSwapInsightScores(eventId, pairs)
+        return res.status(200).json({ ...(data || { success: true }), repaired_insight_rows: repairedInsightRows })
       } catch (error) {
         console.error("Error applying match swap plan:", error)
         return res.status(500).json({ error: error.message || "Failed to apply the match swap plan" })
@@ -6924,6 +7001,11 @@ export default async function handler(req, res) {
         }
         
         console.log(`🔍 Fetching cached results for event ${event_id}`)
+
+        // Self-heal swap rows created before the RPC persisted these columns.
+        // This also repairs already-affected pairs such as an existing chain
+        // without requiring the organizer to perform another swap.
+        await repairMissingSwapInsightScores(event_id)
         
         // Get all compatibility cache entries and match results for the event
         const { data: cacheData, error: cacheError } = await supabase
@@ -7398,6 +7480,7 @@ export default async function handler(req, res) {
           if (testSession) {
             matchResults = testSession.match_results
           } else {
+            await repairMissingSwapInsightScores(event_id)
             const result = await supabase
               .from("match_results")
               .select("*")

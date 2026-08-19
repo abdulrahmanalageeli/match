@@ -6,6 +6,7 @@ import {
   calculateAttachmentPaceScore,
   calculateCurrentFocusScore,
   calculateDisagreementStyleScore,
+  calculatePersistedMatchInsightScores,
   calculateSimilarityPreferenceScore,
   getMatchInsightsCacheContent,
   getMatchInsightsCompletion,
@@ -75,6 +76,29 @@ test('attachment pace supports legacy flat survey records', () => {
     },
   }
   assert.ok(calculateAttachmentPaceScore(flat, flat) > 2.5)
+})
+
+test('persisted swap scores rebuild every match-insight column from participant data', () => {
+  const a = participant({
+    match_disagreement_style: 'B',
+    match_similarity_preference: 'A',
+    match_current_focus: ['career', 'creative'],
+    attachment_1: 'A', attachment_3: 'A', attachment_4: 'A',
+    early_openness_comfort: '2', conversation_depth_pref: 'A', conversational_role: 'B', curiosity_style: 'B',
+  })
+  const b = participant({
+    match_disagreement_style: 'C',
+    match_similarity_preference: 'C',
+    match_current_focus: ['career', 'self_growth'],
+    attachment_1: 'B', attachment_3: 'A', attachment_4: 'B',
+    early_openness_comfort: '3', conversation_depth_pref: 'A', conversational_role: 'A', curiosity_style: 'B',
+  })
+
+  const scores = calculatePersistedMatchInsightScores(a, b, 20)
+  assert.equal(scores.disagreement_style_score, 3)
+  assert.equal(scores.current_life_overlap_score, 3)
+  assert.ok(scores.similarity_preference_score > 0)
+  assert.ok(scores.attachment_pace_score > 0)
 })
 
 test('popup payload validation accepts the five match insights and age flexibility', () => {

@@ -6523,6 +6523,10 @@ if (action === "cache-status-by-gender") {
           lifestyle_compatibility_score: lifestyleScore,
           core_values_compatibility_score: coreValuesScore,
           vibe_compatibility_score: vibeScore,
+          disagreement_style_score: Number(compatibilityResult.disagreementScore ?? 0),
+          current_life_overlap_score: Number(compatibilityResult.currentFocusScore ?? 0),
+          similarity_preference_score: Number(compatibilityResult.similarityPreferenceScore ?? 0),
+          attachment_pace_score: Number(compatibilityResult.attachmentPaceScore ?? 0),
           // New-model persisted fields
           synergy_score: compatibilityResult.synergyScore ?? 0,
           humor_open_score: compatibilityResult.humorOpenScore ?? 0,

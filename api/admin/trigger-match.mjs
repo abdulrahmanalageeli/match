@@ -263,14 +263,16 @@ async function fetchCachedPairsForOuterParticipants(
 // -----------------------------------------------------------------------------
 async function storeCachedCompatibility(participantA, participantB, scores) {
   try {
-    if (scores?.aiVibeCacheable === false) {
-      console.warn(`Skipping cache store #${participantA.assigned_number}-#${participantB.assigned_number}: AI vibe used a temporary fallback (${scores.aiVibeFallbackReason || 'unknown'})`)
-      return { stored: false, reason: scores.aiVibeFallbackReason || 'AI vibe used a temporary fallback' }
-    }
     if (SKIP_DB_WRITES) {
       console.log('🧪 Preview mode: skip cache store')
       return { stored: false, reason: 'Database writes are disabled' }
     }
+
+    const fallbackReason = String(scores?.aiVibeFallbackReason || '').trim()
+    if (fallbackReason) {
+      console.warn(`⚠️ Cache store with fallback score #${participantA.assigned_number}-#${participantB.assigned_number}: ${fallbackReason}`)
+    }
+
     const [smaller, larger] = [participantA.assigned_number, participantB.assigned_number].sort((a, b) => a - b)
     const participantForA = participantA.assigned_number === smaller ? participantA : participantB
     const participantForB = participantA.assigned_number === smaller ? participantB : participantA
@@ -303,7 +305,9 @@ async function storeCachedCompatibility(participantA, participantB, scores) {
       total_compatibility_score: scores.totalScore,
       humor_multiplier: scores.humorMultiplier,
       humor_early_openness_bonus: bonusType,
-      model_used: CACHE_MODEL_USED,
+      model_used: fallbackReason
+        ? `${CACHE_MODEL_USED}|fallback|${fallbackReason}`
+        : CACHE_MODEL_USED,
       participant_a_cached_at: participantForA.survey_data_updated_at || cachedAt,
       participant_b_cached_at: participantForB.survey_data_updated_at || cachedAt,
       last_used: cachedAt,
@@ -3878,6 +3882,7 @@ export default async function handler(req, res) {
         .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
         .eq("match_id", match_id)
         .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
+        .not("attendance_denied_at", "is", null)
         .neq("assigned_number", 9999)
       
       if (error) throw error
@@ -4081,6 +4086,7 @@ export default async function handler(req, res) {
         .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, survey_data_updated_at, next_event_signup_timestamp, created_at, updated_at, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
         .eq("match_id", match_id)
         .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
+        .not("attendance_denied_at", "is", null)
         .neq("assigned_number", 9999)
 
       if (error) throw error
@@ -4425,6 +4431,7 @@ if (action === "cache-status-by-gender") {
       .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
       .eq("match_id", match_id)
       .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
+      .not("attendance_denied_at", "is", null)
       .neq("assigned_number", 9999)
  
     if (error) throw error
@@ -4517,6 +4524,7 @@ if (action === "cache-status-by-gender") {
         .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
         .eq("match_id", match_id)
         .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
+        .not("attendance_denied_at", "is", null)
         .neq("assigned_number", 9999)
 
       if (error) throw error
@@ -4670,6 +4678,7 @@ if (action === "cache-status-by-gender") {
         .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, survey_data_updated_at, next_event_signup_timestamp, event_enrolled_at, created_at, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
         .eq("match_id", match_id)
         .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
+        .not("attendance_denied_at", "is", null)
         .neq("assigned_number", 9999)
       
       if (error) throw error
@@ -4981,6 +4990,7 @@ if (action === "cache-status-by-gender") {
         .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, survey_data_updated_at, next_event_signup_timestamp, event_enrolled_at, created_at, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
         .eq("match_id", match_id)
         .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
+        .not("attendance_denied_at", "is", null)
         .neq("assigned_number", 9999)
 
       if (error) throw error
@@ -5322,6 +5332,7 @@ if (action === "cache-status-by-gender") {
       .select("assigned_number,name,survey_data,mbti_personality_type,attachment_style,communication_style,gender,age,same_gender_preference,any_gender_preference,humor_banter_style,early_openness_comfort,nationality,prefer_same_nationality,preferred_age_min,preferred_age_max,open_age_preference,age_flex_years,age_flex_event_id,event_id,signup_event_id,PAID_DONE,payment_completed_event_id")
       .eq("match_id", _match_id)
       .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
+      .not("attendance_denied_at", "is", null)
       .neq("assigned_number", 9999)
 
     const allEligible = (allRaw || []).filter(p => isParticipantComplete(p))
@@ -5522,6 +5533,7 @@ if (action === "cache-status-by-gender") {
       .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id, phone_number")
       .eq("match_id", match_id)
       .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)  // Participants who signed up for next event OR have current event_id OR have auto_signup enabled
+      .not("attendance_denied_at", "is", null)
       .neq("assigned_number", 9999)  // Exclude organizer participant from matching
 
     if (error) throw error
@@ -5660,6 +5672,7 @@ if (action === "cache-status-by-gender") {
           .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
           .eq("match_id", match_id)
           .neq("assigned_number", 9999)
+          .not("attendance_denied_at", "is", null)
         if (allPoolErr) {
           console.error("Error fetching participants for STANDARD all-eligible pool:", allPoolErr)
           return res.status(500).json({ error: "Failed to fetch participants for view-all-matches" })

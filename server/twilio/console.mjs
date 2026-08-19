@@ -23,8 +23,7 @@ function formatRiyadhCutoffLabel(value) {
 const SEAT_PAYMENT_DEADLINE_OFFSET_MINUTES = 30
 
 function formatRiyadhDeadline(deadlineOffsetMinutes = SEAT_PAYMENT_DEADLINE_OFFSET_MINUTES) {
-  const riyadhNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Riyadh" }))
-  const target = new Date(riyadhNow.getTime() + Number(deadlineOffsetMinutes || SEAT_PAYMENT_DEADLINE_OFFSET_MINUTES) * 60000)
+  const target = new Date(Date.now() + Number(deadlineOffsetMinutes || SEAT_PAYMENT_DEADLINE_OFFSET_MINUTES) * 60000)
   return new Intl.DateTimeFormat("ar-SA", {
     timeZone: "Asia/Riyadh",
     hour: "numeric",

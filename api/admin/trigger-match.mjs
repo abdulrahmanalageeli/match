@@ -1482,6 +1482,15 @@ function calculateShortMeetingInsightScores(participantA, participantB, vibeScor
   return { disagreementScore, currentFocusScore, similarityPreferenceScore }
 }
 
+function buildPersistedMatchInsightFields(scores = {}) {
+  return {
+    disagreement_style_score: Number(scores.disagreementScore ?? 0),
+    current_life_overlap_score: Number(scores.currentFocusScore ?? 0),
+    similarity_preference_score: Number(scores.similarityPreferenceScore ?? 0),
+    attachment_pace_score: Number(scores.attachmentPaceScore ?? 0),
+  }
+}
+
 // Function to get cached compatibility result
 // options:
 //   - groupMode: when true, also look into compatibility_cache_groups and (optionally) compute + store on miss
@@ -3795,7 +3804,7 @@ function getLockedMatch(participantA, participantB, lockedPairs) {
   )
 }
 
-export { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkAgeCompatibility, checkIntentHardGate, checkInteractionStyleCompatibility, hasHumorStyleClash, fetchAllCachedPairs, calculateHumorOpennessScore, calculateInteractionSynergyScore, calculateLifestyleCompatibility, calculateConversationInitiativePreferenceScore, getOneYearAgeFlexDecision, getAgeTolerance, buildManualPairGateReport, isCurrentVibeModel, getParticipantDeltaCacheReason, getDeltaCacheReasonCounts }
+export { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkAgeCompatibility, checkIntentHardGate, checkInteractionStyleCompatibility, hasHumorStyleClash, fetchAllCachedPairs, calculateHumorOpennessScore, calculateInteractionSynergyScore, calculateLifestyleCompatibility, calculateConversationInitiativePreferenceScore, getOneYearAgeFlexDecision, getAgeTolerance, buildManualPairGateReport, isCurrentVibeModel, getParticipantDeltaCacheReason, getDeltaCacheReasonCounts, buildPersistedMatchInsightFields }
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -6523,10 +6532,7 @@ if (action === "cache-status-by-gender") {
           lifestyle_compatibility_score: lifestyleScore,
           core_values_compatibility_score: coreValuesScore,
           vibe_compatibility_score: vibeScore,
-          disagreement_style_score: Number(compatibilityResult.disagreementScore ?? 0),
-          current_life_overlap_score: Number(compatibilityResult.currentFocusScore ?? 0),
-          similarity_preference_score: Number(compatibilityResult.similarityPreferenceScore ?? 0),
-          attachment_pace_score: Number(compatibilityResult.attachmentPaceScore ?? 0),
+          ...buildPersistedMatchInsightFields(compatibilityResult),
           // New-model persisted fields
           synergy_score: compatibilityResult.synergyScore ?? 0,
           humor_open_score: compatibilityResult.humorOpenScore ?? 0,
@@ -7703,6 +7709,13 @@ if (action === "cache-status-by-gender") {
                 vibeScore: fresh.vibeScore ?? 0,
                 lifestyleScore: fresh.lifestyleScore ?? 0,
                 communicationScore: fresh.communicationScore ?? 0,
+                disagreementScore: fresh.disagreementScore ?? calculateDisagreementStyleScore(p1Data, p2Data),
+                currentFocusScore: fresh.currentFocusScore ?? calculateCurrentFocusScore(p1Data, p2Data),
+                similarityPreferenceScore: fresh.similarityPreferenceScore ?? calculateSimilarityPreferenceScore(
+                  p1Data,
+                  p2Data,
+                  Math.max(0, Math.min(1, ((Number(fresh.vibeScore || 0) / SCORE_MAX.vibe) + (calculateCurrentFocusScore(p1Data, p2Data) / 5)) / 2)),
+                ),
                 attachmentPaceScore: fresh.attachmentPaceScore ?? calculateAttachmentPaceScore(p1Data, p2Data),
                 attachmentPenaltyApplied: !!fresh.attachmentPenaltyApplied,
                 capApplied: fresh.capApplied ?? null,
@@ -7772,6 +7785,12 @@ if (action === "cache-status-by-gender") {
             lifestyle_compatibility_score: compatibilityData?.lifestyleScore ?? calc?.lifestyleScore ?? 10,
             core_values_compatibility_score: compatibilityData?.coreValuesScore || 15,
             vibe_compatibility_score: compatibilityData?.vibeScore ?? calc?.vibeScore ?? 15,
+            ...buildPersistedMatchInsightFields(compatibilityData || calc || {
+              disagreementScore: calculateDisagreementStyleScore(p1Data, p2Data),
+              currentFocusScore: calculateCurrentFocusScore(p1Data, p2Data),
+              similarityPreferenceScore: calculateShortMeetingInsightScores(p1Data, p2Data, 15).similarityPreferenceScore,
+              attachmentPaceScore: calculateAttachmentPaceScore(p1Data, p2Data),
+            }),
             // New-model persisted fields
             synergy_score: (compatibilityData?.synergyScore ?? calc?.synergyScore) ?? 0,
             humor_open_score: (compatibilityData?.humorOpenScore ?? calc?.humorOpenScore) ?? 0,
@@ -7901,6 +7920,7 @@ if (action === "cache-status-by-gender") {
               lifestyle_compatibility_score: pair.lifestyleScore,
               core_values_compatibility_score: pair.coreValuesScore,
               vibe_compatibility_score: pair.vibeScore,
+              ...buildPersistedMatchInsightFields(pair),
               // New-model persisted fields
               synergy_score: pair.synergyScore ?? 0,
               humor_open_score: pair.humorOpenScore ?? 0,
@@ -7965,6 +7985,7 @@ if (action === "cache-status-by-gender") {
               lifestyle_compatibility_score: pair.lifestyleScore,
               core_values_compatibility_score: pair.coreValuesScore,
               vibe_compatibility_score: pair.vibeScore,
+              ...buildPersistedMatchInsightFields(pair),
               // New-model persisted fields
               synergy_score: pair.synergyScore ?? 0,
               humor_open_score: pair.humorOpenScore ?? 0,

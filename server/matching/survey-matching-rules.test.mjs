@@ -12,6 +12,7 @@ const {
   calculateInteractionSynergyScore,
   calculateLifestyleCompatibility,
   buildManualPairGateReport,
+  buildPersistedMatchInsightFields,
   checkAgeRangeHardGate,
   checkGenderCompatibility,
   checkInteractionStyleCompatibility,
@@ -23,6 +24,20 @@ const {
   isParticipantComplete,
   isCurrentVibeModel,
 } = await import("../../api/admin/trigger-match.mjs")
+
+test("generated match rows map all match-insight scores to persisted columns", () => {
+  assert.deepEqual(buildPersistedMatchInsightFields({
+    disagreementScore: 3,
+    currentFocusScore: 5,
+    similarityPreferenceScore: 4.25,
+    attachmentPaceScore: 2.5,
+  }), {
+    disagreement_style_score: 3,
+    current_life_overlap_score: 5,
+    similarity_preference_score: 4.25,
+    attachment_pace_score: 2.5,
+  })
+})
 
 test("delta cache detects only survey edits and dedicated event enrollment timestamps", () => {
   const baseline = "2026-08-16T10:00:00.000Z"

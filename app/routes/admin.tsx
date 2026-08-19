@@ -4386,12 +4386,17 @@ const fetchParticipants = async () => {
               assigned_number: match.participant_a_number,
               name: participantName,
               compatibility_score: match.compatibility_score || 0,
+              humor_open_score: match.humor_open_score || 0,
               mbti_compatibility_score: match.mbti_compatibility_score || 0,
               attachment_compatibility_score: match.attachment_compatibility_score || 0,
               communication_compatibility_score: match.communication_compatibility_score || 0,
               lifestyle_compatibility_score: match.lifestyle_compatibility_score || 0,
               core_values_compatibility_score: match.core_values_compatibility_score || 0,
               vibe_compatibility_score: match.vibe_compatibility_score || 0,
+              disagreement_style_score: match.disagreement_style_score || 0,
+              current_life_overlap_score: match.current_life_overlap_score || 0,
+              similarity_preference_score: match.similarity_preference_score || 0,
+              attachment_pace_score: match.attachment_pace_score || 0,
               partner_assigned_number: match.participant_b_number,
               partner_name: participantInfoMap.get(match.participant_b_number)?.name || `المشارك #${match.participant_b_number}`,
               is_organizer_match: match.participant_b_number === 9999,
@@ -4421,12 +4426,17 @@ const fetchParticipants = async () => {
               assigned_number: match.participant_b_number,
               name: participantName,
               compatibility_score: match.compatibility_score || 0,
+              humor_open_score: match.humor_open_score || 0,
               mbti_compatibility_score: match.mbti_compatibility_score || 0,
               attachment_compatibility_score: match.attachment_compatibility_score || 0,
               communication_compatibility_score: match.communication_compatibility_score || 0,
               lifestyle_compatibility_score: match.lifestyle_compatibility_score || 0,
               core_values_compatibility_score: match.core_values_compatibility_score || 0,
               vibe_compatibility_score: match.vibe_compatibility_score || 0,
+              disagreement_style_score: match.disagreement_style_score || 0,
+              current_life_overlap_score: match.current_life_overlap_score || 0,
+              similarity_preference_score: match.similarity_preference_score || 0,
+              attachment_pace_score: match.attachment_pace_score || 0,
               partner_assigned_number: match.participant_a_number,
               partner_name: participantInfoMap.get(match.participant_a_number)?.name || `المشارك #${match.participant_a_number}`,
               is_organizer_match: match.participant_a_number === 9999,
@@ -4614,17 +4624,19 @@ Proceed?`
       let lastCacheTimestamp: string | null = null
       let isFresh = false
       let batchNum = 0
+      let forceNoAI = false
 
       while (true) {
         batchNum++
+        const attemptMode = forceNoAI ? "skipAI" : "ai"
         setDeltaCacheProgress(previous => previous ? {
           ...previous,
           status: 'running',
           batch: batchNum,
-          message: `Running batch ${batchNum}…`,
+          message: `Running batch ${batchNum}${attemptMode === 'skipAI' ? ' (no-AI retry)' : ''}…`,
         } : previous)
         const batchController = new AbortController()
-        const batchTimeout = window.setTimeout(() => batchController.abort(), 30_000)
+        const batchTimeout = window.setTimeout(() => batchController.abort(), 45_000)
         let res: Response
         try {
           res = await fetch("/api/admin/trigger-match", {
@@ -4634,10 +4646,10 @@ Proceed?`
             body: JSON.stringify({
               action: "delta-pre-cache-batched",
               eventId: currentEventId,
-              skipAI: false,
+              skipAI: forceNoAI,
               resumeCursor,
               maxDurationMs: 8000,
-              maxNewCachesPerRequest: 12,
+              maxNewCachesPerRequest: forceNoAI ? 25 : 6,
               maxPairsPerRequest: 250,
             }),
           })
@@ -4790,14 +4802,24 @@ Proceed?`
       fetchParticipants()
     } catch (error: any) {
       console.error("Error delta caching:", error)
-      const errorMessage = error?.name === 'AbortError'
-        ? 'Delta cache batch timed out after 30 seconds'
-        : (error?.message || 'Error running delta pre-cache')
-      setDeltaCacheProgress(previous => previous ? {
-        ...previous,
-        status: 'failed',
-        message: `${errorMessage}. Progress was preserved; run delta cache again to retry.`,
-      } : previous)
+        const errorMessage = error?.name === 'AbortError'
+          ? 'Delta cache batch timed out after 45 seconds'
+          : (error?.message || 'Error running delta pre-cache')
+        const timeoutHint = error?.name === 'AbortError' || /timed out|timeout/i.test(errorMessage)
+        if (timeoutHint && !forceNoAI) {
+          forceNoAI = true
+          setDeltaCacheProgress(previous => previous ? {
+            ...previous,
+            status: 'running',
+            message: `Timeout while using AI. Retrying remaining batches without AI…`,
+          } : previous)
+          continue
+        }
+        setDeltaCacheProgress(previous => previous ? {
+          ...previous,
+          status: 'failed',
+          message: `${errorMessage}. Progress was preserved; run delta cache again to retry.`,
+        } : previous)
       toast.error(errorMessage, { duration: 10000 })
     } finally {
       setDeltaCaching(false)

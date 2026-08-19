@@ -364,7 +364,7 @@ function analyzePlan(args: {
   afterPairs.forEach(pair => { affectedSet.add(pair.a); affectedSet.add(pair.b) })
   let beforePairs = currentPairs
     .filter(pair => pair.b != null && (affectedSet.has(pair.a) || affectedSet.has(pair.b)))
-    .map(pair => ({ a: pair.a, b: pair.b as number, score: pair.score }))
+    .map(pair => ({ a: pair.a, b: pair.b as number, score: scoreFor(scoreLookup, pair.a, pair.b as number, args.scoreMetric) }))
   beforePairs.forEach(pair => { affectedSet.add(pair.a); affectedSet.add(pair.b) })
   beforePairs = uniquePlannedPairs(beforePairs)
 

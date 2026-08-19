@@ -1498,7 +1498,13 @@ function calculateShortMeetingInsightScores(participantA, participantB, vibeScor
 
 function buildPersistedMatchInsightFields(scores = {}, participantA = null, participantB = null, vibeScore = null) {
   const canGenerate = !!participantA && !!participantB
-  const currentValue = Number(scores.currentFocusScore)
+  const hasFiniteScore = (value) => value !== null
+    && value !== undefined
+    && value !== ''
+    && Number.isFinite(Number(value))
+  const currentValue = hasFiniteScore(scores.currentFocusScore)
+    ? Number(scores.currentFocusScore)
+    : Number.NaN
   // Current-focus scoring always has a positive fallback. Zero means an old
   // cache did not carry these fields, so regenerate all four from answers.
   const regenerateAll = canGenerate && !(Number.isFinite(currentValue) && currentValue > 0)
@@ -1513,8 +1519,7 @@ function buildPersistedMatchInsightFields(scores = {}, participantA = null, part
       }
     : {}
   const score = (key) => {
-    const existing = Number(scores[key])
-    if (!regenerateAll && Number.isFinite(existing)) return existing
+    if (!regenerateAll && hasFiniteScore(scores[key])) return Number(scores[key])
     const fallback = Number(generated[key])
     return Number.isFinite(fallback) ? fallback : 0
   }
@@ -8083,6 +8088,7 @@ if (action === "cache-status-by-gender") {
             lifestyle_compatibility_score: 70,
             core_values_compatibility_score: 70,
             vibe_compatibility_score: 70,
+            ...buildPersistedMatchInsightFields(),
             // New-model persisted fields (defaults for organizer match)
             synergy_score: 0,
             humor_open_score: 0,
@@ -8134,6 +8140,20 @@ if (action === "cache-status-by-gender") {
         }
       }
       console.log(`💾 Inserting ${finalMatches.length} new matches for match_id: ${match_id}, event_id: ${eventId}, round: ${targetRound}`)
+      // PostgREST bulk inserts use the union of keys across every row. Ensure
+      // organizer and any legacy-cache rows carry finite values so a missing
+      // key can never become an explicit NULL for the whole batch.
+      for (const match of finalMatches) {
+        const participantA = participantByNumber.get(match.participant_a_number)
+        const participantB = participantByNumber.get(match.participant_b_number)
+        Object.assign(match, buildPersistedMatchInsightFields({
+          disagreementScore: match.disagreement_style_score,
+          currentFocusScore: match.current_life_overlap_score,
+          similarityPreferenceScore: match.similarity_preference_score,
+          attachmentPaceScore: match.attachment_pace_score,
+          vibeScore: match.vibe_compatibility_score,
+        }, participantA, participantB, match.vibe_compatibility_score))
+      }
       const { error: insertError } = await supabaseRetry(
         `Insert match_results (count=${finalMatches.length})`,
         () => supabase

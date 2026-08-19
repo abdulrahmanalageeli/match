@@ -64,6 +64,36 @@ test("generated match rows recalculate insight scores when an old cache has zero
   })
 })
 
+test("generated match rows replace explicit nulls and give organizer rows safe defaults", () => {
+  const participantA = { survey_data: { answers: {
+    match_disagreement_style: "B",
+    match_current_focus: ["career", "business"],
+    match_similarity_preference: "D",
+  } } }
+  const participantB = { survey_data: { answers: {
+    match_disagreement_style: "B",
+    match_current_focus: ["career", "travel_experiences"],
+    match_similarity_preference: "D",
+  } } }
+
+  const generated = buildPersistedMatchInsightFields({
+    disagreementScore: null,
+    currentFocusScore: 3,
+    similarityPreferenceScore: null,
+    attachmentPaceScore: null,
+  }, participantA, participantB, 20)
+  assert.equal(generated.disagreement_style_score, 4)
+  assert.equal(generated.current_life_overlap_score, 3)
+  assert.equal(generated.similarity_preference_score, 3)
+  assert.equal(generated.attachment_pace_score, 1.5)
+  assert.deepEqual(buildPersistedMatchInsightFields(), {
+    disagreement_style_score: 0,
+    current_life_overlap_score: 0,
+    similarity_preference_score: 0,
+    attachment_pace_score: 0,
+  })
+})
+
 test("delta cache detects only survey edits and dedicated event enrollment timestamps", () => {
   const baseline = "2026-08-16T10:00:00.000Z"
   assert.equal(getParticipantDeltaCacheReason({

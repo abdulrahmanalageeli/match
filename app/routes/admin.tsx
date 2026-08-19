@@ -4627,139 +4627,164 @@ Proceed?`
       let forceNoAI = false
 
       while (true) {
-        batchNum++
-        const attemptMode = forceNoAI ? "skipAI" : "ai"
-        setDeltaCacheProgress(previous => previous ? {
-          ...previous,
-          status: 'running',
-          batch: batchNum,
-          message: `Running batch ${batchNum}${attemptMode === 'skipAI' ? ' (no-AI retry)' : ''}…`,
-        } : previous)
-        const batchController = new AbortController()
-        const batchTimeout = window.setTimeout(() => batchController.abort(), 45_000)
-        let res: Response
         try {
-          res = await fetch("/api/admin/trigger-match", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            signal: batchController.signal,
-            body: JSON.stringify({
-              action: "delta-pre-cache-batched",
-              eventId: currentEventId,
-              skipAI: forceNoAI,
-              resumeCursor,
-              maxDurationMs: 8000,
-              maxNewCachesPerRequest: forceNoAI ? 25 : 6,
-              maxPairsPerRequest: 250,
-            }),
-          })
-        } finally {
-          window.clearTimeout(batchTimeout)
-        }
-
-        const rawResponse = await res.text()
-        let data: any = null
-        try {
-          data = rawResponse ? JSON.parse(rawResponse) : null
-        } catch {
-          throw new Error(rawResponse?.trim() || `Delta cache returned HTTP ${res.status}`)
-        }
-
-        if (!res.ok || !data?.success) {
-          const errorMessage = data?.message || data?.error || `Delta cache failed with HTTP ${res.status}`
+          batchNum++
+          const attemptMode = forceNoAI ? "skipAI" : "ai"
           setDeltaCacheProgress(previous => previous ? {
             ...previous,
-            status: 'failed',
-            message: errorMessage,
+            status: 'running',
+            batch: batchNum,
+            message: `Running batch ${batchNum}${attemptMode === 'skipAI' ? ' (no-AI retry)' : ''}…`,
           } : previous)
-          if (data?.error && data.error.includes('No cache metadata')) {
-            toast.error(`❌ Delta Cache Not Available\n\n${data.message || data.error}\n\n💡 Tip: Use the Pre-Cache button first to establish a baseline cache.`, { duration: 8000 })
-          } else {
-            toast.error(`Failed to delta cache: ${data.error || 'Unknown error'}`)
+          const batchController = new AbortController()
+          const batchTimeout = window.setTimeout(() => batchController.abort(), 45_000)
+          let res: Response
+          try {
+            res = await fetch("/api/admin/trigger-match", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              signal: batchController.signal,
+              body: JSON.stringify({
+                action: "delta-pre-cache-batched",
+                eventId: currentEventId,
+                skipAI: forceNoAI,
+                resumeCursor,
+                maxDurationMs: 8000,
+                maxNewCachesPerRequest: forceNoAI ? 25 : 6,
+                maxPairsPerRequest: 250,
+              }),
+            })
+          } finally {
+            window.clearTimeout(batchTimeout)
           }
-          return
-        }
 
-        totalNewlyCached += data.cached_count || 0
-        totalAlreadyCached += data.already_cached || 0
-        totalSkipped += data.skipped || 0
-        totalErrors += data.errors || 0
-        totalPairsProcessed += data.pairs_processed || 0
-        totalAiCalls += data.ai_calls_made || 0
-        totalReusedVibe += data.reused_vibe_count || 0
-        participantsNeedingCache = data.participants_needing_cache || 0
-        if (data.reason_counts) deltaReasonCounts = data.reason_counts
-        totalEligible = data.total_eligible || 0
-        lastCacheTimestamp = data.last_cache_timestamp || null
-        totalDeltaPairs = data.progress?.total_pairs ?? totalDeltaPairs
-        prefetchedRows = data.cache_rows_prefetched ?? prefetchedRows
-        if (Array.isArray(data.failures) && data.failures.length > 0) {
-          failureDetails = [...failureDetails, ...data.failures].slice(0, 10)
-        }
+          const rawResponse = await res.text()
+          let data: any = null
+          try {
+            data = rawResponse ? JSON.parse(rawResponse) : null
+          } catch {
+            throw new Error(rawResponse?.trim() || `Delta cache returned HTTP ${res.status}`)
+          }
 
-        const completedPairs = totalDeltaPairs > 0
-          ? Math.min(totalPairsProcessed, totalDeltaPairs)
-          : 0
-        const percent = totalDeltaPairs > 0
-          ? Math.min(100, Math.round((completedPairs / totalDeltaPairs) * 100))
-          : (data.progress?.has_more ? 0 : 100)
+          if (!res.ok || !data?.success) {
+            const errorMessage = data?.message || data?.error || `Delta cache failed with HTTP ${res.status}`
+            setDeltaCacheProgress(previous => previous ? {
+              ...previous,
+              status: 'failed',
+              message: errorMessage,
+            } : previous)
+            if (data?.error && data.error.includes('No cache metadata')) {
+              toast.error(`❌ Delta Cache Not Available\n\n${data.message || data.error}\n\n💡 Tip: Use the Pre-Cache button first to establish a baseline cache.`, { duration: 8000 })
+            } else {
+              toast.error(`Failed to delta cache: ${data.error || 'Unknown error'}`)
+            }
+            return
+          }
 
-        setDeltaCacheProgress({
-          status: 'running',
-          percent,
-          batch: batchNum,
-          pairsCompleted: completedPairs,
-          totalPairs: totalDeltaPairs,
-          newlyCached: totalNewlyCached,
-          cacheHits: totalAlreadyCached,
-          reusedVibe: totalReusedVibe,
-          aiCalls: totalAiCalls,
-          skipped: totalSkipped,
-          errors: totalErrors,
-          prefetchedRows,
-          message: data.progress?.has_more
-            ? `Batch ${batchNum} complete. Starting the next batch…`
-            : 'Finalizing delta cache…',
-          failures: failureDetails,
-        })
+          totalNewlyCached += data.cached_count || 0
+          totalAlreadyCached += data.already_cached || 0
+          totalSkipped += data.skipped || 0
+          totalErrors += data.errors || 0
+          totalPairsProcessed += data.pairs_processed || 0
+          totalAiCalls += data.ai_calls_made || 0
+          totalReusedVibe += data.reused_vibe_count || 0
+          participantsNeedingCache = data.participants_needing_cache || 0
+          if (data.reason_counts) deltaReasonCounts = data.reason_counts
+          totalEligible = data.total_eligible || 0
+          lastCacheTimestamp = data.last_cache_timestamp || null
+          totalDeltaPairs = data.progress?.total_pairs ?? totalDeltaPairs
+          prefetchedRows = data.cache_rows_prefetched ?? prefetchedRows
+          if (Array.isArray(data.failures) && data.failures.length > 0) {
+            failureDetails = [...failureDetails, ...data.failures].slice(0, 10)
+          }
 
-        if (totalErrors > 0) {
-          const failedPair = failureDetails[0]
-          const pairLabel = failedPair?.participant_a_number != null && failedPair?.participant_b_number != null
-            ? ` Pair #${failedPair.participant_a_number} × #${failedPair.participant_b_number}: ${failedPair.reason || 'unknown error'}.`
-            : ''
-          const failureMessage = `Delta cache stopped after ${totalErrors} pair failure${totalErrors === 1 ? '' : 's'}.${pairLabel} Cache freshness was not advanced; run it again to retry.`
+          const completedPairs = totalDeltaPairs > 0
+            ? Math.min(totalPairsProcessed, totalDeltaPairs)
+            : 0
+          const percent = totalDeltaPairs > 0
+            ? Math.min(100, Math.round((completedPairs / totalDeltaPairs) * 100))
+            : (data.progress?.has_more ? 0 : 100)
+
+          setDeltaCacheProgress({
+            status: 'running',
+            percent,
+            batch: batchNum,
+            pairsCompleted: completedPairs,
+            totalPairs: totalDeltaPairs,
+            newlyCached: totalNewlyCached,
+            cacheHits: totalAlreadyCached,
+            reusedVibe: totalReusedVibe,
+            aiCalls: totalAiCalls,
+            skipped: totalSkipped,
+            errors: totalErrors,
+            prefetchedRows,
+            message: data.progress?.has_more
+              ? `Batch ${batchNum} complete. Starting the next batch…`
+              : 'Finalizing delta cache…',
+            failures: failureDetails,
+          })
+
+          if (totalErrors > 0) {
+            const failedPair = failureDetails[0]
+            const pairLabel = failedPair?.participant_a_number != null && failedPair?.participant_b_number != null
+              ? ` Pair #${failedPair.participant_a_number} × #${failedPair.participant_b_number}: ${failedPair.reason || 'unknown error'}.`
+              : ''
+            const failureMessage = `Delta cache stopped after ${totalErrors} pair failure${totalErrors === 1 ? '' : 's'}.${pairLabel} Cache freshness was not advanced; run it again to retry.`
+            setDeltaCacheProgress(previous => previous ? {
+              ...previous,
+              status: 'failed',
+              message: failureMessage,
+            } : previous)
+            toast.error(failureMessage, { duration: 10000 })
+            return
+          }
+
+          if (participantsNeedingCache === 0) {
+            isFresh = true
+            break
+          }
+
+          if (!data.progress?.has_more && data.metadata_updated === false) {
+            const metadataMessage = data.metadata_error || 'Delta cache finished, but cache freshness metadata could not be updated.'
+            setDeltaCacheProgress(previous => previous ? {
+              ...previous,
+              status: 'failed',
+              message: `${metadataMessage} Run delta cache again to retry finalization.`,
+            } : previous)
+            toast.error(metadataMessage, { duration: 10000 })
+            return
+          }
+
+          if (!data.progress?.has_more) break
+
+          resumeCursor = data.progress.resume_cursor
+          if (!resumeCursor) break
+
+          await new Promise(r => setTimeout(r, 100))
+        } catch (error: any) {
+          console.error("Error delta caching:", error)
+          const errorMessage = error?.name === 'AbortError'
+            ? 'Delta cache batch timed out after 45 seconds'
+            : (error?.message || 'Error running delta pre-cache')
+          const timeoutHint = error?.name === 'AbortError' || /timed out|timeout/i.test(errorMessage)
+          if (timeoutHint && !forceNoAI) {
+            forceNoAI = true
+            setDeltaCacheProgress(previous => previous ? {
+              ...previous,
+              status: 'running',
+              message: `Timeout while using AI. Retrying remaining batches without AI…`,
+            } : previous)
+            await new Promise(r => setTimeout(r, 250))
+            continue
+          }
           setDeltaCacheProgress(previous => previous ? {
             ...previous,
             status: 'failed',
-            message: failureMessage,
+            message: `${errorMessage}. Progress was preserved; run delta cache again to retry.`,
           } : previous)
-          toast.error(failureMessage, { duration: 10000 })
+          toast.error(errorMessage, { duration: 10000 })
           return
         }
-
-        if (participantsNeedingCache === 0) {
-          isFresh = true
-          break
-        }
-
-        if (!data.progress?.has_more && data.metadata_updated === false) {
-          const metadataMessage = data.metadata_error || 'Delta cache finished, but cache freshness metadata could not be updated.'
-          setDeltaCacheProgress(previous => previous ? {
-            ...previous,
-            status: 'failed',
-            message: `${metadataMessage} Run delta cache again to retry finalization.`,
-          } : previous)
-          toast.error(metadataMessage, { duration: 10000 })
-          return
-        }
-
-        if (!data.progress?.has_more) break
-
-        resumeCursor = data.progress.resume_cursor
-        if (!resumeCursor) break
-
-        await new Promise(r => setTimeout(r, 100))
       }
 
       setDeltaCacheProgress({
@@ -4800,27 +4825,6 @@ Proceed?`
       }
 
       fetchParticipants()
-    } catch (error: any) {
-      console.error("Error delta caching:", error)
-        const errorMessage = error?.name === 'AbortError'
-          ? 'Delta cache batch timed out after 45 seconds'
-          : (error?.message || 'Error running delta pre-cache')
-        const timeoutHint = error?.name === 'AbortError' || /timed out|timeout/i.test(errorMessage)
-        if (timeoutHint && !forceNoAI) {
-          forceNoAI = true
-          setDeltaCacheProgress(previous => previous ? {
-            ...previous,
-            status: 'running',
-            message: `Timeout while using AI. Retrying remaining batches without AI…`,
-          } : previous)
-          continue
-        }
-        setDeltaCacheProgress(previous => previous ? {
-          ...previous,
-          status: 'failed',
-          message: `${errorMessage}. Progress was preserved; run delta cache again to retry.`,
-        } : previous)
-      toast.error(errorMessage, { duration: 10000 })
     } finally {
       setDeltaCaching(false)
     }

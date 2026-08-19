@@ -525,8 +525,25 @@ export default function MatchControlCenterModal({
       .filter(person => !normalized || `${person.assigned_number} ${getPersonName(person, person.assigned_number)}`.toLowerCase().includes(normalized))
       .map(person => {
         const number = person.assigned_number
-        const plans = buildSwapPlans({ source: swapSource, target: number, currentPairs: pairs, people, scoreLookup, lockedPairs: lockedKeys, maxDepth: chainPaymentScope === "any" ? 1 : 2, eligibleNumbers: chainEligibleNumbers, isPairEligible: pairMeetsMatchingCriteria })
-        return { person, number, score: scoreFor(scoreLookup, swapSource, number), currentPartner: partnerMap.get(number), bestPlan: plans[0] || null }
+        const plans = buildSwapPlans({
+          source: swapSource,
+          target: number,
+          currentPairs: pairs,
+          people,
+          scoreLookup,
+          lockedPairs: lockedKeys,
+          maxDepth: chainPaymentScope === "any" ? 1 : 2,
+          eligibleNumbers: chainEligibleNumbers,
+          isPairEligible: pairMeetsMatchingCriteria,
+          scoreMetric: "compound_lifestyle",
+        })
+        return {
+          person,
+          number,
+          score: scoreFor(scoreLookup, swapSource, number, "compound_lifestyle"),
+          currentPartner: partnerMap.get(number),
+          bestPlan: plans[0] || null,
+        }
       })
       .filter(candidate => chainPaymentScope === "any" || candidate.bestPlan != null)
       .sort((a, b) => {
@@ -564,7 +581,18 @@ export default function MatchControlCenterModal({
   }, [candidateQuery, candidates.length, chainEligibleNumbers, chainPaymentScope, partnerMap, people, swapSource])
 
   const plans = useMemo(() => swapSource != null && swapTarget != null
-    ? buildSwapPlans({ source: swapSource, target: swapTarget, currentPairs: pairs, people, scoreLookup, lockedPairs: lockedKeys, maxDepth: 2, eligibleNumbers: chainEligibleNumbers, isPairEligible: pairMeetsMatchingCriteria })
+    ? buildSwapPlans({
+      source: swapSource,
+      target: swapTarget,
+      currentPairs: pairs,
+      people,
+      scoreLookup,
+      lockedPairs: lockedKeys,
+      maxDepth: 2,
+      eligibleNumbers: chainEligibleNumbers,
+      isPairEligible: pairMeetsMatchingCriteria,
+      scoreMetric: "compound_lifestyle",
+    })
     : [], [chainEligibleNumbers, lockedKeys, pairMeetsMatchingCriteria, pairs, people, scoreLookup, swapSource, swapTarget])
 
   const planBlockers = useMemo(() => {

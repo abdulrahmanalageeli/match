@@ -141,6 +141,27 @@ export function getPersonName(person: MatchControlPerson | undefined, fallbackNu
   return person?.name || person?.survey_data?.name || person?.survey_data?.answers?.name || `المشارك #${fallbackNumber}`
 }
 
+type ScoreMetric = "total_compatibility" | "compound_lifestyle"
+
+function numberOrNull(value: unknown) {
+  const score = Number(value)
+  return Number.isFinite(score) ? score : null
+}
+
+function lifestyleCompoundScore(pair?: any): number | null {
+  if (!pair) return null
+  const components = [
+    numberOrNull(pair.vibe_compatibility_score),
+    numberOrNull(pair.disagreement_style_score),
+    numberOrNull(pair.current_life_overlap_score),
+    numberOrNull(pair.similarity_preference_score),
+    numberOrNull(pair.attachment_pace_score),
+    numberOrNull(pair.lifestyle_compatibility_score) ?? numberOrNull(pair.lifestyle_score),
+  ]
+  if (components.every(value => value == null)) return null
+  return components.reduce((sum, value) => sum + (value ?? 0), 0)
+}
+
 export function getSeatState(person?: MatchControlPerson): SeatState {
   if (!person) return "unpaid"
   if (person.attendance_confirmed === false && person.attendance_denied_at) return "declined"
@@ -269,9 +290,12 @@ export function buildScoreLookup(calculatedPairs: any[], results: MatchControlRe
   return lookup
 }
 
-export function scoreFor(lookup: Map<string, any>, a: number, b: number): number | null {
+export function scoreFor(lookup: Map<string, any>, a: number, b: number, scoreMetric: ScoreMetric = "total_compatibility"): number | null {
   const pair = lookup.get(pairKey(a, b))
-  const raw = pair?.compatibility_score ?? pair?.total_compatibility_score
+  const raw = scoreMetric === "compound_lifestyle"
+    ? lifestyleCompoundScore(pair)
+    : pair?.compatibility_score ?? pair?.total_compatibility_score
+  if (raw == null) return null
   const score = Number(raw)
   return Number.isFinite(score) ? Math.round(score) : null
 }
@@ -332,9 +356,10 @@ function analyzePlan(args: {
   people: Map<number, MatchControlPerson>
   scoreLookup: Map<string, any>
   lockedPairs: Set<string>
+  scoreMetric: ScoreMetric
 }) : SwapPlan {
   const { source, target, title, currentPairs, people, scoreLookup, lockedPairs } = args
-  const afterPairs = uniquePlannedPairs(args.afterPairs).map(pair => ({ ...pair, score: pair.score ?? scoreFor(scoreLookup, pair.a, pair.b) }))
+  const afterPairs = uniquePlannedPairs(args.afterPairs).map(pair => ({ ...pair, score: pair.score ?? scoreFor(scoreLookup, pair.a, pair.b, args.scoreMetric) }))
   const affectedSet = new Set<number>([source, target, ...args.unmatched])
   afterPairs.forEach(pair => { affectedSet.add(pair.a); affectedSet.add(pair.b) })
   let beforePairs = currentPairs
@@ -415,8 +440,10 @@ export function buildSwapPlans(args: {
   maxDepth?: number
   eligibleNumbers?: Set<number>
   isPairEligible?: (a: number, b: number) => boolean
+  scoreMetric?: ScoreMetric
 }): SwapPlan[] {
   const { source, target, currentPairs, people, scoreLookup } = args
+  const scoreMetric = args.scoreMetric || "total_compatibility"
   if (source === target) return []
   if (args.eligibleNumbers && (!args.eligibleNumbers.has(source) || !args.eligibleNumbers.has(target))) return []
   if (args.isPairEligible && !args.isPairEligible(source, target)) return []
@@ -430,13 +457,13 @@ export function buildSwapPlans(args: {
   const initialOpen = [sourcePartner, targetPartner].filter((num): num is number =>
     num != null && num !== source && num !== target && (!args.eligibleNumbers || args.eligibleNumbers.has(num))
   )
-  const forced: PlannedPair = { a: source, b: target, score: scoreFor(scoreLookup, source, target) }
+  const forced: PlannedPair = { a: source, b: target, score: scoreFor(scoreLookup, source, target, scoreMetric) }
   const completions: Array<{ pairs: PlannedPair[]; unmatched: number[]; title: string }> = []
 
   if (initialOpen.length >= 2) {
     if (!args.isPairEligible || args.isPairEligible(initialOpen[0], initialOpen[1])) {
       completions.push({
-        pairs: [forced, { a: initialOpen[0], b: initialOpen[1], score: scoreFor(scoreLookup, initialOpen[0], initialOpen[1]) }],
+        pairs: [forced, { a: initialOpen[0], b: initialOpen[1], score: scoreFor(scoreLookup, initialOpen[0], initialOpen[1], scoreMetric) }],
         unmatched: [],
         title: "تبادل مباشر بين زوجين",
       })
@@ -460,7 +487,7 @@ export function buildSwapPlans(args: {
     const [person, ...rest] = open
     if (rest.length) {
       const partner = rest[0]
-      if (!args.isPairEligible || args.isPairEligible(person, partner)) branch(rest.slice(1), [...planned, { a: person, b: partner, score: scoreFor(scoreLookup, person, partner) }], new Set([...used, person, partner]), depth)
+      if (!args.isPairEligible || args.isPairEligible(person, partner)) branch(rest.slice(1), [...planned, { a: person, b: partner, score: scoreFor(scoreLookup, person, partner, scoreMetric) }], new Set([...used, person, partner]), depth)
     }
     if (depth >= maxDepth) {
       completions.push({ pairs: [forced, ...planned], unmatched: open, title: `سلسلة تنتهي بـ ${open.length} دون شريك` })
@@ -470,7 +497,7 @@ export function buildSwapPlans(args: {
     const candidates = allNumbers
       .filter(candidate => candidate !== person && !used.has(candidate) && !open.includes(candidate))
       .filter(candidate => !args.isPairEligible || args.isPairEligible(person, candidate))
-      .map(candidate => ({ candidate, score: scoreFor(scoreLookup, person, candidate) }))
+      .map(candidate => ({ candidate, score: scoreFor(scoreLookup, person, candidate, scoreMetric) }))
       .filter(item => item.score != null)
       .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
       .slice(0, 4)
@@ -496,6 +523,7 @@ export function buildSwapPlans(args: {
     people,
     scoreLookup,
     lockedPairs,
+    scoreMetric,
   })).filter(plan => {
     // A missing cached score must not make a valid chain disappear. The
     // transactional API calculates every resulting pair before it writes the

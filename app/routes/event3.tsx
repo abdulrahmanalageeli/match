@@ -14,7 +14,7 @@ async function fireConfetti(opts: any) {
 import {
   Clock, MapPin, Brain, ExternalLink, ArrowLeft, KeyRound,
   CheckCircle, Send, RefreshCw, Sparkles, Home, Trophy, Lock, GripVertical,
-  MessageSquare, ChevronRight, Users, PenLine, Shuffle, BarChart3, GitMerge, X, Heart,
+  MessageSquare, ChevronRight, Users, PenLine, Shuffle, BarChart3, GitMerge, X, Heart, LogOut,
   Frown, Meh, Smile, Layers, Zap,
   Snowflake, Target, Star, Drama, AlertTriangle, Lightbulb, PartyPopper, LifeBuoy,
   EyeOff, Smartphone, Handshake, Timer, Ban, ShieldCheck, Coffee, Bell, Info, Loader2,
@@ -212,6 +212,28 @@ function clearAllArrived() {
     const k = sessionStorage.key(i)
     if (k && k.startsWith("e3_arrived_")) sessionStorage.removeItem(k)
   }
+}
+
+function clearBrowserSessionArtifacts() {
+  if (typeof window === "undefined") return
+
+  try { localStorage.clear() } catch {}
+  try { sessionStorage.clear() } catch {}
+
+  const cookies = document.cookie ? document.cookie.split(";") : []
+  cookies.forEach(cookie => {
+    const name = cookie.split("=")[0]?.trim()
+    if (!name) return
+    const set = (appendix: string) => {
+      document.cookie = `${name}=; Max-Age=0; ${appendix}`
+    }
+    set("path=/")
+    set(`path=/; domain=${window.location.hostname}`)
+    const hostParts = window.location.hostname.split(".")
+    for (let i = 1; i < hostParts.length - 1; i++) {
+      set(`path=/; domain=.${hostParts.slice(i).join(".")}`)
+    }
+  })
 }
 
 function formatTime(s: number) {
@@ -1021,7 +1043,11 @@ function WalkSlide({ step }: { step: number }) {
   )
 }
 
-function WelcomeScreen({ onDone }: { onDone: () => void }) {
+function WelcomeScreen({ onDone, onLogout, showLogout }: {
+  onDone: () => void
+  onLogout?: () => void
+  showLogout?: boolean
+}) {
   const [phase, setPhase] = useState<"splash" | "rules" | "steps">("splash")
   const [step, setStep] = useState(0)
   const [dir, setDir] = useState(1)
@@ -1063,6 +1089,16 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
             transition={{ duration: 0.4 }}
             className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 text-center"
           >
+            {showLogout && onLogout && (
+              <button
+                onClick={onLogout}
+                className="absolute top-4 right-4 inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.05] px-3 py-2 text-xs font-medium text-gray-300 transition-colors hover:border-amber-400/50 hover:text-amber-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/80"
+                aria-label="تسجيل الخروج"
+              >
+                <LogOut size={14} />
+                <span>تسجيل الخروج</span>
+              </button>
+            )}
             {/* Logo + pulsing rings */}
             <div className="relative mb-6 flex items-center justify-center">
               {[0, 1, 2].map(i => (
@@ -6042,6 +6078,23 @@ export default function Event3Page() {
   const [pendingGroupFeedbackRound, setPendingGroupFeedbackRound] = useState<1 | 2 | null>(null)
   const aiWelcomeSeenKey = token ? `e3_ai_welcome_seen_${token}` : null
 
+  const handleLogout = useCallback(() => {
+    if (typeof window === "undefined") return
+    const confirmed = window.confirm("هل أنت متأكد من تسجيل الخروج؟ سيتم حذف جميع بيانات الجلسة والرموز المحفوظة.")
+    if (!confirmed) return
+
+    clearBrowserSessionArtifacts()
+    setToken(null)
+    setTokenError(false)
+    setEnrolled(null)
+    setMyInfo(null)
+    setShowWelcome(true)
+    setShowAiWelcome(false)
+
+    window.history.replaceState({}, "", "/event3")
+    window.location.replace("/event3")
+  }, [])
+
   const fetchState = useCallback(async () => {
     if (!token) throw new Error("No token")
     const d = await call("e3-heartbeat", token)
@@ -6209,7 +6262,7 @@ export default function Event3Page() {
     </PageWrapper>
   )
 
-  if (showWelcome) return <WelcomeScreen onDone={handleWelcomeDone} />
+  if (showWelcome) return <WelcomeScreen onDone={handleWelcomeDone} onLogout={handleLogout} showLogout={!!token} />
   if (!token || tokenError) return <PhoneEntry onToken={t => { setToken(t); setTokenError(false) }} />
 
   if (stateLoading && !eventState) return (

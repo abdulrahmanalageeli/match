@@ -6637,9 +6637,14 @@ if (action === "cache-status-by-gender") {
     // This allows admins to see matches and send payment requests to both participants
     console.log(`ℹ️ Individual matching includes all participants regardless of payment status for admin visibility`)
 
+    const excludedCount = Math.max(
+      0,
+      Number(participants?.length || 0) - Number(eligibleParticipants?.length || 0)
+    )
+    const incompleteDataCount = Math.max(0, Number(allParticipants?.length || 0) - Number(participants?.length || 0))
     if (eligibleParticipants.length < 2) {
       return res.status(400).json({ 
-        error: `Not enough eligible participants for matching. Found ${eligibleParticipants.length} eligible out of ${allParticipants.length} total participants (${allParticipants.length - participants.length} incomplete data, ${(excludedCount || 0)} excluded). Need at least 2 for matching.` 
+        error: `Not enough eligible participants for matching. Found ${eligibleParticipants.length} eligible out of ${allParticipants.length} total participants (${incompleteDataCount} incomplete data, ${excludedCount} excluded). Need at least 2 for matching.` 
       })
     }
 

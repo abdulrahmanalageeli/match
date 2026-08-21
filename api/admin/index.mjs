@@ -1,6 +1,6 @@
 import OpenAI from "openai"
 import { createHmac, timingSafeEqual } from "node:crypto"
-import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkAgeCompatibility, checkIntentHardGate, fetchAllCachedPairs, calculateHumorOpennessScore, isCurrentVibeModel, getParticipantDeltaCacheReason, getDeltaCacheReasonCounts } from "./trigger-match.mjs"
+import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkAgeCompatibility, checkIntentHardGate, fetchAllCachedPairs, calculateHumorOpennessScore, isCurrentVibeModel, getParticipantDeltaCacheReason, getDeltaCacheReasonCounts, loadHistoricalMatchAnalyzer } from "./trigger-match.mjs"
 import { buildWelcomePrompt } from "./ai-welcome-prompt.mjs"
 import { assignPriorityTables } from "../../server/event3/table-priority.mjs"
 import { buildSixBySevenPlan, optimizeRound2ByAge } from "../../server/event3/round2-age-optimizer.mjs"
@@ -4169,6 +4169,50 @@ export default async function handler(req, res) {
       } catch (err) {
         console.error("Error getting match history:", err)
         return res.status(500).json({ error: "Failed to get match history" })
+      }
+    }
+
+    if (action === "get-pair-history-confidence") {
+      try {
+        const participantA = Number(req.body?.participant_a)
+        const participantB = Number(req.body?.participant_b)
+        if (
+          !Number.isInteger(participantA)
+          || !Number.isInteger(participantB)
+          || participantA <= 0
+          || participantB <= 0
+          || participantA === participantB
+          || participantA === 9999
+          || participantB === 9999
+        ) {
+          return res.status(400).json({ error: "Invalid participant pair" })
+        }
+
+        const currentEventId = await getCurrentAdminEventId()
+        const { data: pairProfiles, error: pairProfilesError } = await supabase
+          .from("participants")
+          .select("assigned_number,survey_data,mbti_personality_type,attachment_style,communication_style,humor_banter_style,early_openness_comfort")
+          .eq("match_id", STATIC_MATCH_ID)
+          .in("assigned_number", [participantA, participantB])
+        if (pairProfilesError) throw pairProfilesError
+        if ((pairProfiles || []).length !== 2) return res.status(404).json({ error: "Participant pair not found" })
+
+        const analyzer = await loadHistoricalMatchAnalyzer({
+          currentEventId,
+          profileMatchId: STATIC_MATCH_ID,
+          seedParticipants: pairProfiles || [],
+        })
+        const analysis = analyzer.analyzePair(participantA, participantB)
+        return res.status(200).json({
+          success: true,
+          current_event_id: currentEventId,
+          participant_a: participantA,
+          participant_b: participantB,
+          analysis,
+        })
+      } catch (error) {
+        console.error("Error getting pair history confidence:", error)
+        return res.status(500).json({ error: "Failed to load pair history confidence" })
       }
     }
 

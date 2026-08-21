@@ -53,6 +53,9 @@ test('mutual first-place history raises priority and is labelled', () => {
   assert.equal(result.mutual_interest, true)
   assert.equal(result.history_review_recommendation, 'lock')
   assert.ok(result.history_badges.some(badge => badge.code === 'mutual_interest'))
+  assert.equal(result.history_verdict.code, 'mutual')
+  assert.equal(result.history_timeline.length, 2)
+  assert.deepEqual(result.history_timeline.map(item => item.rank), [1, 1])
 })
 
 test('one-sided interest is exposed for organizer review without an automatic lock', () => {
@@ -240,6 +243,21 @@ test('untouched default feedback does not create historical evidence', () => {
   assert.equal(result.history_review_recommendation, null)
 })
 
+test('a direct encounter without submitted feedback remains visible in the timeline without affecting the score', () => {
+  const analyzer = createHistoricalMatchAnalyzer({
+    currentEventId: 25,
+    participants: [participant(1, warm), participant(2, warm)],
+    matchFeedbackRows: [{ event_id: 24, participant_number: 1, phase2_partner: 2, phase2_feedback: null }],
+  })
+  const result = analyzer.analyzePair(1, 2)
+  assert.equal(result.historical_outcome_score, null)
+  assert.equal(result.history_timeline.length, 1)
+  assert.equal(result.history_timeline[0].source, 'pair_feedback')
+  assert.equal(result.history_timeline[0].met, true)
+  assert.equal(result.history_timeline[0].feedback.submitted, false)
+  assert.equal(result.history_timeline[0].contributed_to_score, false)
+})
+
 test('survey-neighbour prediction works for a pair with no direct encounter', () => {
   const people = [
     participant(1, warm),
@@ -265,6 +283,24 @@ test('survey-neighbour prediction works for a pair with no direct encounter', ()
   assert.ok(result.predictive_confidence > 0)
   assert.ok(result.history_priority_adjustment > 0)
   assert.ok(result.historical_evidence.predictor_neighbors > 0)
+})
+
+test('indirect predictions are calibrated against raters who score everyone positively', () => {
+  const people = [1, 2, 10, 11, 20, 21, 22, 23].map(number => participant(number, warm))
+  const groupFeedbackRows = [10, 11].flatMap(reviewer => [20, 21, 22, 23].map(member => ({
+    event_id: 24,
+    reviewer_number: reviewer,
+    member_number: member,
+    experience: 'great',
+    tags: ['comfortable', 'respectful'],
+    is_test_mode: false,
+  })))
+  const analyzer = createHistoricalMatchAnalyzer({ currentEventId: 25, participants: people, groupFeedbackRows })
+  const result = analyzer.analyzePair(1, 2)
+  assert.ok(result.predictive_confidence > 0)
+  assert.ok(Math.abs(result.predictive_outcome_score - 50) < 0.1)
+  assert.equal(result.history_prediction_details.baseline_calibrated, true)
+  assert.ok(!result.history_badges.some(badge => badge.code === 'predicted_good'))
 })
 
 test('events 20 and below and future/current events are excluded', () => {

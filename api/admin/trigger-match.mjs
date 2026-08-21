@@ -1516,7 +1516,7 @@ async function fetchHistoricalRows(label, buildQuery, pageSize = 1000) {
   return all
 }
 
-async function loadHistoricalMatchAnalyzer({ currentEventId, profileMatchId, seedParticipants = [] }) {
+export async function loadHistoricalMatchAnalyzer({ currentEventId, profileMatchId, seedParticipants = [] }) {
   const eventId = Number(currentEventId)
   if (!Number.isFinite(eventId) || eventId < HISTORY_CONFIDENCE_MIN_EVENT_ID) {
     return createDisabledHistoricalMatchAnalyzer('event_before_history_model')
@@ -8372,6 +8372,9 @@ if (action === "cache-status-by-gender") {
       history_badges: pair.history_badges ?? [],
       history_explanations: pair.history_explanations ?? [],
       historical_evidence: pair.historical_evidence ?? null,
+      history_timeline: pair.history_timeline ?? [],
+      history_prediction_details: pair.history_prediction_details ?? null,
+      history_verdict: pair.history_verdict ?? null,
       history_direction_a_to_b: pair.history_direction_a_to_b ?? null,
       history_direction_b_to_a: pair.history_direction_b_to_a ?? null,
       mutual_interest: pair.mutual_interest === true,

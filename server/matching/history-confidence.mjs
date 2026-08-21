@@ -1,5 +1,5 @@
 export const HISTORY_CONFIDENCE_MIN_EVENT_ID = 21
-export const HISTORY_CONFIDENCE_MODEL_VERSION = '2026-08-21-v2-rater-reliability'
+export const HISTORY_CONFIDENCE_MODEL_VERSION = '2026-08-21-v3-evidence-timeline-calibrated'
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, Number(value) || 0))
 const clamp01 = value => clamp(value, 0, 1)
@@ -122,6 +122,7 @@ function addObservation(directionMap, observation) {
     weight,
     raterReliability: clamp01(observation.raterReliability ?? DEFAULT_RATER_RELIABILITY),
     flags: observation.flags || [],
+    details: observation.details || null,
   })
 }
 
@@ -162,6 +163,7 @@ function addRankingObservations(directionMap, rows, currentEventId, reliabilityM
         weight: recencyWeight(currentEventId, ballot.eventId) * raterReliability,
         raterReliability,
         flags: [firstPlace ? 'first_place' : null, lastPlace ? 'last_place' : null].filter(Boolean),
+        details: { rank: entry.rank, ballot_size: maxRank },
       })
     }
   }
@@ -200,6 +202,27 @@ function feedbackSignal(feedback) {
   }
 }
 
+function structuredFeedbackDetails(feedback) {
+  if (!feedback || typeof feedback !== 'object') return { submitted: false }
+  const numberInRange = (key, min, max) => {
+    const value = asNumber(feedback[key])
+    return value != null && value >= min && value <= max ? value : null
+  }
+  const compatibility = numberInRange('compatibilityRate', 0, 100)
+  return {
+    submitted: true,
+    want_connect: typeof feedback.wantConnect === 'boolean' ? feedback.wantConnect : null,
+    compatibility_rate: feedback.sliderMoved === false && compatibility === 50 ? null : compatibility,
+    conversation_quality: numberInRange('conversationQuality', 1, 5),
+    personal_connection: numberInRange('personalConnection', 1, 5),
+    shared_interests: numberInRange('sharedInterests', 1, 5),
+    comfort_level: numberInRange('comfortLevel', 1, 5),
+    communication_style: numberInRange('communicationStyle', 1, 5),
+    would_meet_again: numberInRange('wouldMeetAgain', 1, 5),
+    overall_experience: numberInRange('overallExperience', 1, 5),
+  }
+}
+
 function collectPairFeedbackSignals(rows, currentEventId) {
   const records = []
   for (const row of rows || []) {
@@ -208,9 +231,18 @@ function collectPairFeedbackSignals(rows, currentEventId) {
     if (eventId < HISTORY_CONFIDENCE_MIN_EVENT_ID || eventId >= currentEventId || !Number.isInteger(ranker)) continue
     for (const phase of [2, 3]) {
       const target = Number(row?.[`phase${phase}_partner`])
-      const signal = feedbackSignal(row?.[`phase${phase}_feedback`])
+      const feedback = row?.[`phase${phase}_feedback`]
+      const signal = feedbackSignal(feedback)
       if (!Number.isInteger(target) || target <= 0 || target === 9999) continue
-      records.push({ eventId, ranker, target, phase, signal, hasFeedback: !!row?.[`phase${phase}_feedback`] })
+      records.push({
+        eventId,
+        ranker,
+        target,
+        phase,
+        signal,
+        feedback: structuredFeedbackDetails(feedback),
+        hasFeedback: !!feedback && typeof feedback === 'object',
+      })
     }
   }
   return records
@@ -301,6 +333,7 @@ function addPairFeedbackObservations(directionMap, rows, currentEventId, reliabi
       weight: 1.4 * (0.65 + (0.35 * signal.completeness)) * recencyWeight(currentEventId, eventId) * raterReliability,
       raterReliability,
       flags: signal.flags,
+      details: { phase: record.phase, feedback: record.feedback },
     })
   }
 }
@@ -326,8 +359,96 @@ function addGroupFeedbackObservations(directionMap, rows, currentEventId, reliab
       weight: 0.8 * recencyWeight(currentEventId, eventId) * raterReliability,
       raterReliability,
       flags: [experience === 'uncomfortable' ? 'uncomfortable' : null, experience === 'great' ? 'great_group_experience' : null].filter(Boolean),
+      details: {
+        group_round: Number(row?.group_round) || null,
+        experience,
+        tags: tags.filter(tag => POSITIVE_GROUP_TAGS.has(tag) || NEGATIVE_GROUP_TAGS.has(tag)),
+      },
     })
   }
+}
+
+function buildPairHistoryTimelines({ currentEventId, rankingRows, matchFeedbackRows, groupFeedbackRows, reliabilityMap }) {
+  const timelines = new Map()
+  const add = entry => {
+    const from = Number(entry.from)
+    const to = Number(entry.to)
+    if (!Number.isInteger(from) || !Number.isInteger(to) || from <= 0 || to <= 0 || from === to) return
+    const pair = from < to ? `${from}-${to}` : `${to}-${from}`
+    if (!timelines.has(pair)) timelines.set(pair, [])
+    timelines.get(pair).push({ ...entry, from, to })
+  }
+
+  for (const ballot of collectRankingBallots(rankingRows, currentEventId).values()) {
+    const entries = [...ballot.entries.values()]
+    if (entries.length < 2) continue
+    const ballotSize = Math.max(...entries.map(entry => entry.rank))
+    if (ballotSize <= 1) continue
+    const reliability = reliabilityMap.get(ballot.ranker)?.score ?? DEFAULT_RATER_RELIABILITY
+    for (const entry of entries) {
+      add({
+        source: 'ranking',
+        event_id: ballot.eventId,
+        from: ballot.ranker,
+        to: entry.target,
+        rank: entry.rank,
+        ballot_size: ballotSize,
+        signal_score: round1(100 * (1 - ((entry.rank - 1) / (ballotSize - 1)))),
+        rater_reliability: round1(reliability * 100),
+      })
+    }
+  }
+
+  for (const record of collectPairFeedbackSignals(matchFeedbackRows, currentEventId)) {
+    const reliability = reliabilityMap.get(record.ranker)?.score ?? DEFAULT_RATER_RELIABILITY
+    add({
+      source: 'pair_feedback',
+      event_id: record.eventId,
+      from: record.ranker,
+      to: record.target,
+      phase: record.phase,
+      met: true,
+      feedback: record.feedback,
+      signal_score: record.signal ? round1(50 + (50 * record.signal.value)) : null,
+      contributed_to_score: !!record.signal,
+      rater_reliability: round1(reliability * 100),
+    })
+  }
+
+  for (const row of groupFeedbackRows || []) {
+    const eventId = Number(row?.event_id)
+    if (row?.is_test_mode || eventId < HISTORY_CONFIDENCE_MIN_EVENT_ID || eventId >= currentEventId) continue
+    const experience = String(row?.experience || '')
+    if (!Object.hasOwn(GROUP_EXPERIENCE_VALUE, experience)) continue
+    const tags = Array.isArray(row?.tags) ? row.tags : []
+    const positiveTags = tags.filter(tag => POSITIVE_GROUP_TAGS.has(tag)).length
+    const negativeTags = tags.filter(tag => NEGATIVE_GROUP_TAGS.has(tag)).length
+    const value = clamp(GROUP_EXPERIENCE_VALUE[experience] + (0.08 * positiveTags) - (0.08 * negativeTags), -1, 1)
+    const reviewer = Number(row?.reviewer_number)
+    const reliability = reliabilityMap.get(reviewer)?.score ?? DEFAULT_RATER_RELIABILITY
+    add({
+      source: 'group_feedback',
+      event_id: eventId,
+      from: reviewer,
+      to: Number(row?.member_number),
+      group_round: Number(row?.group_round) || null,
+      experience,
+      tags: tags.filter(tag => POSITIVE_GROUP_TAGS.has(tag) || NEGATIVE_GROUP_TAGS.has(tag)),
+      signal_score: round1(50 + (50 * value)),
+      rater_reliability: round1(reliability * 100),
+    })
+  }
+
+  const sourceOrder = { pair_feedback: 0, ranking: 1, group_feedback: 2 }
+  for (const timeline of timelines.values()) {
+    timeline.sort((left, right) => (
+      Number(right.event_id) - Number(left.event_id)
+      || (sourceOrder[left.source] ?? 9) - (sourceOrder[right.source] ?? 9)
+      || Number(left.phase || left.group_round || 0) - Number(right.phase || right.group_round || 0)
+      || Number(left.from) - Number(right.from)
+    ))
+  }
+  return timelines
 }
 
 function finalizeDirection(entry) {
@@ -396,7 +517,10 @@ function makeDisabledAnalyzer(reason = 'not_applicable') {
         history_priority_adjustment: 0,
         history_badges: [],
         history_explanations: [],
-        historical_evidence: { total: 0, ranking: 0, pair_feedback: 0, group_feedback: 0, events: 0, predictor_neighbors: 0 },
+        historical_evidence: { total: 0, ranking: 0, pair_feedback: 0, group_feedback: 0, events: 0, timeline_events: 0, encounters: 0, predictor_neighbors: 0 },
+        history_timeline: [],
+        history_prediction_details: null,
+        history_verdict: null,
         mutual_interest: false,
         one_sided_interest: false,
         conflicting_interest: false,
@@ -441,6 +565,36 @@ export function createHistoricalMatchAnalyzer({
     if (finalized) directions.set(key, finalized)
   }
   const directionList = [...directions.values()]
+  const timelineMap = buildPairHistoryTimelines({
+    currentEventId: eventId,
+    rankingRows,
+    matchFeedbackRows,
+    groupFeedbackRows,
+    reliabilityMap: raterReliability,
+  })
+
+  const rankerDirectionStats = new Map()
+  for (const direction of directionList) {
+    if (!rankerDirectionStats.has(direction.ranker)) rankerDirectionStats.set(direction.ranker, [])
+    rankerDirectionStats.get(direction.ranker).push(direction)
+  }
+  const weightedSignalMean = list => {
+    const weight = list.reduce((sum, direction) => sum + Math.max(0.05, direction.confidence), 0)
+    return weight > 0
+      ? list.reduce((sum, direction) => sum + (direction.signal * Math.max(0.05, direction.confidence)), 0) / weight
+      : 0
+  }
+  const globalDirectionBaseline = directionList.length >= 8 ? weightedSignalMean(directionList) : 0
+  const predictionSignalFor = direction => {
+    const personalDirections = rankerDirectionStats.get(direction.ranker) || []
+    const baseline = personalDirections.length >= 3
+      ? weightedSignalMean(personalDirections)
+      : globalDirectionBaseline
+    return {
+      signal: clamp(direction.signal - baseline, -1, 1),
+      baseline,
+    }
+  }
 
   const similarityCache = new Map()
   const similarity = (a, b) => {
@@ -466,8 +620,11 @@ export function createHistoricalMatchAnalyzer({
       if (direction.ranker === ranker && direction.target !== target) {
         const targetSimilarity = similarity(target, direction.target)
         if (targetSimilarity.score >= 0.5) {
+          const calibrated = predictionSignalFor(direction)
           personal.push({
-            signal: direction.signal,
+            signal: calibrated.signal,
+            rawSignal: direction.signal,
+            baseline: calibrated.baseline,
             weight: direction.confidence * Math.pow(targetSimilarity.score, 3),
             similarity: targetSimilarity.score,
             kind: 'personal_analogue',
@@ -480,8 +637,11 @@ export function createHistoricalMatchAnalyzer({
       if (rankerSimilarity.score < 0.55) continue
       const targetSimilarity = similarity(target, direction.target)
       if (targetSimilarity.score < 0.5) continue
+      const calibrated = predictionSignalFor(direction)
       collaborative.push({
-        signal: direction.signal,
+        signal: calibrated.signal,
+        rawSignal: direction.signal,
+        baseline: calibrated.baseline,
         weight: direction.confidence * Math.pow(rankerSimilarity.score, 2) * Math.pow(targetSimilarity.score, 2) * 0.65,
         similarity: (rankerSimilarity.score + targetSimilarity.score) / 2,
         kind: 'collaborative_neighbour',
@@ -495,9 +655,19 @@ export function createHistoricalMatchAnalyzer({
     const totalWeight = neighbours.reduce((sum, neighbour) => sum + neighbour.weight, 0)
     if (!neighbours.length || totalWeight < 0.08) return null
     const signal = neighbours.reduce((sum, neighbour) => sum + (neighbour.signal * neighbour.weight), 0) / totalWeight
+    const rawSignal = neighbours.reduce((sum, neighbour) => sum + (neighbour.rawSignal * neighbour.weight), 0) / totalWeight
+    const baseline = neighbours.reduce((sum, neighbour) => sum + (neighbour.baseline * neighbour.weight), 0) / totalWeight
     const personalCount = neighbours.filter(neighbour => neighbour.kind === 'personal_analogue').length
     const confidence = clamp01((1 - Math.exp(-totalWeight / 1.8)) * (personalCount ? 1 : 0.8))
-    return { signal, score: 50 + (50 * signal), confidence, neighbourCount: neighbours.length, personalCount }
+    return {
+      signal,
+      rawSignal,
+      baseline,
+      score: 50 + (50 * signal),
+      confidence,
+      neighbourCount: neighbours.length,
+      personalCount,
+    }
   }
 
   return {
@@ -597,15 +767,15 @@ export function createHistoricalMatchAnalyzer({
       const combinedConfidence = clamp01(1 - ((1 - directConfidence) * (1 - (0.75 * predictiveConfidence))))
 
       const badges = []
-      if (neverPair) badges.push({ code: 'never_pair', label_ar: 'لا تجمعهما', tone: 'danger' })
-      else if (conflictingInterest) badges.push({ code: 'conflicting_interest', label_ar: 'تقييمات متعارضة', tone: 'danger' })
-      else if (mutualInterest) badges.push({ code: 'mutual_interest', label_ar: 'اهتمام متبادل', tone: 'positive' })
-      else if (oneSidedInterest) badges.push({ code: 'one_sided_interest', label_ar: 'اهتمام من طرف واحد', tone: 'warning' })
-      if (anyLastPlace) badges.push({ code: 'least_ranked', label_ar: 'ترتيب أخير سابق', tone: 'warning' })
-      if (!neverPair && directSignal != null && directSignal >= 0.35 && directConfidence >= 0.2) badges.push({ code: 'positive_history', label_ar: 'سجل إيجابي', tone: 'positive' })
-      if (!neverPair && directSignal != null && directSignal <= -0.3 && directConfidence >= 0.2) badges.push({ code: 'negative_history', label_ar: 'سجل سلبي', tone: 'warning' })
-      if (predictionSignal != null && predictiveConfidence >= 0.12 && predictionSignal >= 0.3) badges.push({ code: 'predicted_good', label_ar: 'توقع ذكي إيجابي', tone: 'info' })
-      if (predictionSignal != null && predictiveConfidence >= 0.12 && predictionSignal <= -0.3) badges.push({ code: 'predicted_risk', label_ar: 'توقع ذكي حذر', tone: 'warning' })
+      if (neverPair) badges.push({ code: 'never_pair', label_ar: 'توصية: لا تجمعهما', tone: 'danger', description_ar: 'رفض متبادل أو إشارة سلبية مؤكدة من أكثر من نوع دليل. لا يتحول إلى استبعاد دائم دون موافقة المنظّم.' })
+      else if (conflictingInterest) badges.push({ code: 'conflicting_interest', label_ar: 'تحذير: إشارات متعارضة', tone: 'danger', description_ar: 'أحدهما أظهر اهتماماً واضحاً والآخر أعطى إشارة سلبية قوية.' })
+      else if (mutualInterest) badges.push({ code: 'mutual_interest', label_ar: 'اهتمام متبادل موثّق', tone: 'positive', description_ar: 'كلا الطرفين أعطى الآخر إشارة إيجابية مباشرة في لقاءات سابقة.' })
+      else if (oneSidedInterest) badges.push({ code: 'one_sided_interest', label_ar: 'اهتمام غير متبادل', tone: 'warning', description_ar: 'طرف واحد أظهر اهتماماً واضحاً ولا توجد إشارة مقابلة كافية من الطرف الآخر.' })
+      if (anyLastPlace) badges.push({ code: 'least_ranked', label_ar: 'وُضع أخيراً سابقاً', tone: 'warning', description_ar: 'أحد الطرفين وضع الآخر في آخر ترتيب داخل بطاقة سابقة؛ هذا يخفض الأولوية ولا يفرض حظراً وحده.' })
+      if (!neverPair && directSignal != null && directSignal >= 0.35 && directConfidence >= 0.2) badges.push({ code: 'positive_history', label_ar: 'سجل مباشر إيجابي', tone: 'positive', description_ar: 'التقييمات أو الترتيبات المباشرة بين الطرفين تميل بوضوح إلى الإيجابية.' })
+      if (!neverPair && directSignal != null && directSignal <= -0.3 && directConfidence >= 0.2) badges.push({ code: 'negative_history', label_ar: 'سجل مباشر سلبي', tone: 'warning', description_ar: 'التقييمات أو الترتيبات المباشرة بين الطرفين تميل إلى السلبية.' })
+      if (predictionSignal != null && predictiveConfidence >= 0.3 && predictionSignal >= 0.35) badges.push({ code: 'predicted_good', label_ar: 'توقع غير مباشر إيجابي', tone: 'info', description_ar: 'لا توجد إشارة مباشرة كافية؛ التوقع مبني على أنماط أشخاص واستبيانات متشابهة وبعد تصحيح انحياز المقيمين العام.' })
+      if (predictionSignal != null && predictiveConfidence >= 0.3 && predictionSignal <= -0.35) badges.push({ code: 'predicted_risk', label_ar: 'توقع غير مباشر حذر', tone: 'warning', description_ar: 'لا توجد إشارة مباشرة كافية؛ أنماط المشاركين المتشابهين تميل إلى نتيجة أقل من المعتاد.' })
 
       const explanations = []
       if (mutualInterest) explanations.push('سبق أن أظهر الطرفان اهتماماً إيجابياً متبادلاً.')
@@ -634,6 +804,31 @@ export function createHistoricalMatchAnalyzer({
       const averageRaterReliability = directReliabilityWeight
         ? directDirections.reduce((sum, direction) => sum + (direction.averageRaterReliability * direction.totalWeight), 0) / directReliabilityWeight
         : null
+      const pairTimelineKey = a < b ? `${a}-${b}` : `${b}-${a}`
+      const historyTimeline = timelineMap.get(pairTimelineKey) || []
+      const timelineEvents = new Set(historyTimeline.map(item => item.event_id))
+      const pairProfileSimilarity = similarity(a, b)
+      const confidenceLabel = confidence => confidence >= 65
+        ? 'ثقة قوية'
+        : confidence >= 40
+          ? 'ثقة متوسطة'
+          : confidence > 0
+            ? 'ثقة محدودة'
+            : 'لا توجد ثقة قابلة للقياس'
+      const verdict = neverPair
+        ? { code: 'exclude', label_ar: 'مراجعة للاستبعاد', tone: 'danger', confidence: round1(directConfidence * 100), basis_ar: 'دليل مباشر سلبي ومؤكد يحتاج قراراً بشرياً.' }
+        : conflictingInterest
+          ? { code: 'conflict', label_ar: 'إشارات مباشرة متعارضة', tone: 'danger', confidence: round1(directConfidence * 100), basis_ar: 'لا تختصر هذه الحالة في متوسط؛ اتجاه كل طرف مختلف.' }
+          : mutualInterest
+            ? { code: 'mutual', label_ar: 'اهتمام مباشر متبادل', tone: 'positive', confidence: round1(directConfidence * 100), basis_ar: 'النتيجة مبنية على إشارات صادرة من الطرفين لبعضهما.' }
+            : oneSidedInterest
+              ? { code: 'one_sided', label_ar: 'اهتمام مباشر من طرف واحد', tone: 'warning', confidence: round1(directConfidence * 100), basis_ar: 'يجب مراجعة اتجاه كل طرف قبل تثبيت الزوج.' }
+              : directSignal != null && directConfidence >= 0.2
+                ? { code: directSignal >= 0 ? 'direct_positive' : 'direct_negative', label_ar: directSignal >= 0 ? 'سجل مباشر يميل للإيجابية' : 'سجل مباشر يميل للسلبية', tone: directSignal >= 0 ? 'positive' : 'warning', confidence: round1(directConfidence * 100), basis_ar: 'يوجد تاريخ مباشر، لكنه لا يثبت اهتماماً متبادلاً بمفرده.' }
+                : predictionSignal != null && predictiveConfidence >= 0.3
+                  ? { code: predictionSignal >= 0.35 ? 'predicted_positive' : predictionSignal <= -0.35 ? 'predicted_risk' : 'predicted_neutral', label_ar: predictionSignal >= 0.35 ? 'توقع غير مباشر إيجابي' : predictionSignal <= -0.35 ? 'توقع غير مباشر حذر' : 'توقع غير مباشر غير حاسم', tone: predictionSignal <= -0.35 ? 'warning' : 'info', confidence: round1(predictiveConfidence * 100), basis_ar: 'مبني على حالات واستبيانات مشابهة، وليس على تقييم مباشر بينهما.' }
+                  : { code: 'limited', label_ar: 'الأدلة غير كافية للحكم', tone: 'info', confidence: round1(Math.max(directConfidence, predictiveConfidence) * 100), basis_ar: directDirections.length ? 'توجد إشارات مباشرة قليلة أو ضعيفة.' : predictedDirections.length ? 'يوجد توقع أولي منخفض الثقة فقط.' : 'لا توجد لقاءات أو تقييمات أو حالات مشابهة كافية.' }
+      verdict.confidence_label_ar = confidenceLabel(verdict.confidence)
 
       return {
         history_model_version: HISTORY_CONFIDENCE_MODEL_VERSION,
@@ -652,9 +847,36 @@ export function createHistoricalMatchAnalyzer({
           total: directDirections.reduce((sum, direction) => sum + direction.observationCount, 0),
           ...sourceCounts,
           events: directEvents.size,
+          timeline_events: timelineEvents.size,
+          encounters: historyTimeline.filter(item => item.source === 'pair_feedback').length,
           predictor_neighbors: predictorNeighbours,
           average_rater_reliability: averageRaterReliability == null ? null : round1(averageRaterReliability * 100),
         },
+        history_timeline: historyTimeline,
+        history_prediction_details: {
+          a_to_b: predictedA ? {
+            score: round1(predictedA.score),
+            confidence: round1(predictedA.confidence * 100),
+            neighbour_count: predictedA.neighbourCount,
+            personal_analogue_count: predictedA.personalCount,
+            raw_score_before_baseline: round1(50 + (50 * predictedA.rawSignal)),
+            rater_baseline: round1(50 + (50 * predictedA.baseline)),
+          } : null,
+          b_to_a: predictedB ? {
+            score: round1(predictedB.score),
+            confidence: round1(predictedB.confidence * 100),
+            neighbour_count: predictedB.neighbourCount,
+            personal_analogue_count: predictedB.personalCount,
+            raw_score_before_baseline: round1(50 + (50 * predictedB.rawSignal)),
+            rater_baseline: round1(50 + (50 * predictedB.baseline)),
+          } : null,
+          pair_profile_similarity: {
+            score: round1(pairProfileSimilarity.score * 100),
+            common_features: pairProfileSimilarity.common_features,
+          },
+          baseline_calibrated: true,
+        },
+        history_verdict: verdict,
         history_direction_a_to_b: directionSummary(aToB),
         history_direction_b_to_a: directionSummary(bToA),
         mutual_interest: mutualInterest,

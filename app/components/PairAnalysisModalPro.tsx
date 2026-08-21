@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/ui/dialog"
 import { BadgeCheck, Brain, Info, Shield, Sparkles, Zap, Copy, Users, MessageCircle, Home, Star, CheckCircle } from "lucide-react"
 import CircularProgressBar from "./CircularProgressBar"
+import { HistoryConfidencePanel } from "./HistoryConfidenceBadge"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../components/ui/tabs"
 
 interface PairAnalysisModalProps {
@@ -25,6 +26,7 @@ interface PairAnalysisModalProps {
     humor_clash_veto_applied?: boolean
     cap_applied?: number | null
     reason?: string
+    [key: string]: any
   } | null
   // Previous matches (like hover tooltips in Participant modal)
   historyA?: Array<{ partner_number: number; partner_name?: string; event_id?: number }>
@@ -849,6 +851,7 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
 
         {/* Body */}
         <div className="p-6 bg-[radial-gradient(ellipse_at_top,var(--tw-gradient-stops))] from-slate-950 via-slate-950 to-slate-900" dir="rtl">
+          <div className="mb-4"><HistoryConfidencePanel pair={pair} /></div>
           <Tabs defaultValue="summary" className="w-full">
             <TabsList className="bg-white/10 text-slate-200 border border-white/20">
               <TabsTrigger value="summary" className="text-slate-300 data-[state=active]:text-white data-[state=active]:bg-white/10">الملخص</TabsTrigger>

@@ -15,6 +15,11 @@ import {
   calculateFinalCompatibilityScore,
 } from "../../server/matching/compatibility-score.mjs"
 import {
+  createDisabledHistoricalMatchAnalyzer,
+  createHistoricalMatchAnalyzer,
+  HISTORY_CONFIDENCE_MIN_EVENT_ID,
+} from "../../server/matching/history-confidence.mjs"
+import {
   EVENT3_TEST_MATCH_ID,
   isReadOnlyMatchRequest,
   shouldBlockRealMatchGeneration,
@@ -1494,6 +1499,96 @@ function calculateShortMeetingInsightScores(participantA, participantB, vibeScor
   const contentSimilarity = Math.max(0, Math.min(1, ((Number(vibeScore || 0) / SCORE_MAX.vibe) + (currentFocusScore / 5)) / 2))
   const similarityPreferenceScore = calculateSimilarityPreferenceScore(participantA, participantB, contentSimilarity)
   return { disagreementScore, currentFocusScore, similarityPreferenceScore }
+}
+
+async function fetchHistoricalRows(label, buildQuery, pageSize = 1000) {
+  const all = []
+  let from = 0
+  for (let page = 0; page < 200; page++) {
+    const { data, error } = await buildQuery(from, from + pageSize - 1)
+    if (error) throw error
+    if (!data?.length) break
+    all.push(...data)
+    if (data.length < pageSize) break
+    from += pageSize
+  }
+  console.log(`🧠 Historical confidence: loaded ${all.length} ${label} rows`)
+  return all
+}
+
+async function loadHistoricalMatchAnalyzer({ currentEventId, profileMatchId, seedParticipants = [] }) {
+  const eventId = Number(currentEventId)
+  if (!Number.isFinite(eventId) || eventId < HISTORY_CONFIDENCE_MIN_EVENT_ID) {
+    return createDisabledHistoricalMatchAnalyzer('event_before_history_model')
+  }
+
+  const tasks = {
+    rankings: () => fetchHistoricalRows('ranking', (from, to) => supabase
+      .from('participant_rankings')
+      .select('id,event_id,ranker_number,ranked_number,rank,auto_saved')
+      .eq('match_id', EVENT3_TEST_MATCH_ID)
+      .gte('event_id', HISTORY_CONFIDENCE_MIN_EVENT_ID)
+      .lt('event_id', eventId)
+      .order('event_id', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, to)),
+    groupFeedback: () => fetchHistoricalRows('group-feedback', (from, to) => supabase
+      .from('event3_group_member_feedback')
+      .select('id,event_id,reviewer_number,member_number,experience,tags,group_round,is_test_mode')
+      .eq('match_id', EVENT3_TEST_MATCH_ID)
+      .eq('is_test_mode', false)
+      .gte('event_id', HISTORY_CONFIDENCE_MIN_EVENT_ID)
+      .lt('event_id', eventId)
+      .order('event_id', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, to)),
+    pairFeedback: () => fetchHistoricalRows('pair-feedback', (from, to) => supabase
+      .from('event3_matches')
+      .select('id,event_id,participant_number,phase2_partner,phase3_partner,phase2_feedback,phase3_feedback')
+      .eq('match_id', EVENT3_TEST_MATCH_ID)
+      .gte('event_id', HISTORY_CONFIDENCE_MIN_EVENT_ID)
+      .lt('event_id', eventId)
+      .order('event_id', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, to)),
+    profiles: () => fetchHistoricalRows('profile', (from, to) => supabase
+      .from('participants')
+      .select('assigned_number,survey_data,mbti_personality_type,attachment_style,communication_style,humor_banter_style,early_openness_comfort')
+      .eq('match_id', profileMatchId)
+      .neq('assigned_number', 9999)
+      .order('assigned_number', { ascending: true })
+      .range(from, to)),
+  }
+
+  const names = Object.keys(tasks)
+  const settled = await Promise.allSettled(names.map(name => tasks[name]()))
+  const data = Object.fromEntries(names.map((name, index) => [name, settled[index].status === 'fulfilled' ? settled[index].value : []]))
+  const sourceErrors = names.flatMap((name, index) => {
+    const result = settled[index]
+    if (result.status === 'fulfilled') return []
+    const message = result.reason?.message || String(result.reason || 'Unknown error')
+    console.warn(`⚠️ Historical confidence source ${name} unavailable: ${message}`)
+    return [{ source: name, message }]
+  })
+
+  const profiles = new Map()
+  for (const participant of [...(data.profiles || []), ...(seedParticipants || [])]) {
+    const number = Number(participant?.assigned_number)
+    if (Number.isInteger(number) && number > 0) profiles.set(number, participant)
+  }
+
+  if (!data.rankings.length && !data.groupFeedback.length && !data.pairFeedback.length && sourceErrors.length >= 3) {
+    return createDisabledHistoricalMatchAnalyzer('history_sources_unavailable')
+  }
+
+  return createHistoricalMatchAnalyzer({
+    currentEventId: eventId,
+    participants: [...profiles.values()],
+    rankingRows: data.rankings,
+    groupFeedbackRows: data.groupFeedback,
+    matchFeedbackRows: data.pairFeedback,
+    sourceErrors,
+  })
 }
 
 function buildPersistedMatchInsightFields(scores = {}, participantA = null, participantB = null, vibeScore = null) {
@@ -5685,6 +5780,21 @@ if (action === "cache-status-by-gender") {
       }
     }
 
+    // Event 21+ uses the Event3 ranking/review history as a separate,
+    // confidence-weighted priority layer. It never rewrites the visible survey
+    // compatibility percentage, and safely degrades to a no-op if a historical
+    // source is unavailable.
+    const historyAnalyzer = matchType === 'group'
+      ? createDisabledHistoricalMatchAnalyzer('group_matching_not_enabled')
+      : await loadHistoricalMatchAnalyzer({
+          currentEventId: eventId,
+          profileMatchId: match_id,
+          seedParticipants: allParticipants,
+        })
+    if (historyAnalyzer.enabled) {
+      console.log('🧠 Historical confidence model ready:', historyAnalyzer.stats)
+    }
+
     // Handle view all matches for a single participant
     if (viewAllMatches) {
       const participantNumber = parseInt(viewAllMatches.participantNumber)
@@ -5936,23 +6046,27 @@ if (action === "cache-status-by-gender") {
           }
           
           // Choose final score based on mode
-      const totalCompatibility = oppositesMode
-        ? computeOppositesFlippedScore({
-            synergyScore: Number(compatibilityResult.synergyScore ?? 0),
-            coreValuesScaled5: (
-              compatibilityResult.coreValuesScaled5 != null
-                ? Number(compatibilityResult.coreValuesScaled5)
-                : Math.max(0, Math.min(5, (Number(compatibilityResult.coreValuesScore || 0) / 20) * 5))
-            ),
-            communicationScore: Number(compatibilityResult.communicationScore ?? 0),
-            lifestyleScore: Number(compatibilityResult.lifestyleScore ?? 0),
-            vibeScore: Number(compatibilityResult.vibeScore ?? 0),
-            humorOpenScore: Number(compatibilityResult.humorOpenScore ?? 0),
-          })
-        : Math.round(compatibilityResult.totalScore)
-          const priorityCompatibility = oppositesMode
+          const totalCompatibility = oppositesMode
+            ? computeOppositesFlippedScore({
+                synergyScore: Number(compatibilityResult.synergyScore ?? 0),
+                coreValuesScaled5: (
+                  compatibilityResult.coreValuesScaled5 != null
+                    ? Number(compatibilityResult.coreValuesScaled5)
+                    : Math.max(0, Math.min(5, (Number(compatibilityResult.coreValuesScore || 0) / 20) * 5))
+                ),
+                communicationScore: Number(compatibilityResult.communicationScore ?? 0),
+                lifestyleScore: Number(compatibilityResult.lifestyleScore ?? 0),
+                vibeScore: Number(compatibilityResult.vibeScore ?? 0),
+                humorOpenScore: Number(compatibilityResult.humorOpenScore ?? 0),
+              })
+            : Math.round(compatibilityResult.totalScore)
+          const basePriorityCompatibility = oppositesMode
             ? totalCompatibility
             : Number(compatibilityResult.priorityScore ?? compatibilityResult.totalScore)
+          const historyConfidence = historyAnalyzer.analyzePair(targetParticipant, potentialMatch)
+          const priorityCompatibility = historyConfidence.never_pair_recommended
+            ? -1000
+            : basePriorityCompatibility + Number(historyConfidence.history_priority_adjustment || 0)
 
           const intentA = String((targetParticipant?.survey_data?.answers?.intent_goal ?? targetParticipant?.intent_goal ?? '')).toUpperCase()
           const intentB = String((potentialMatch?.survey_data?.answers?.intent_goal ?? potentialMatch?.intent_goal ?? '')).toUpperCase()
@@ -5969,6 +6083,9 @@ if (action === "cache-status-by-gender") {
             score_model_version: COMPATIBILITY_SCORE_VERSION,
             compatibility_score: totalCompatibility,
             priority_score: priorityCompatibility,
+            survey_priority_score: basePriorityCompatibility,
+            ...historyConfidence,
+            history_hard_blocked: historyConfidence.never_pair_recommended,
             base_compatibility_score: oppositesMode ? totalCompatibility : (compatibilityResult.baseCompatibilityScore ?? compatibilityResult.totalScore),
             composite_adjustment: oppositesMode ? 0 : (compatibilityResult.compositeAdjustment ?? 0),
             composite_rules: oppositesMode ? [] : (compatibilityResult.compositeRules ?? []),
@@ -6519,6 +6636,13 @@ if (action === "cache-status-by-gender") {
       const totalCompatibility = oppositesBreakdown
         ? oppositesBreakdown.percent
         : Math.round(compatibilityResult.totalScore)
+      const historyConfidence = historyAnalyzer.analyzePair(p1, p2)
+      const baseManualPriority = oppositesMode
+        ? totalCompatibility
+        : Number(compatibilityResult.priorityScore ?? totalCompatibility)
+      const manualPriority = historyConfidence.never_pair_recommended
+        ? -1000
+        : baseManualPriority + Number(historyConfidence.history_priority_adjustment || 0)
       
       if (compatibilityResult.cached) {
         console.log(`${manualMatch.testModeOnly ? '🧪 TEST MODE' : '🎯 Manual match'}: Used generated compatibility cache for #${p1.assigned_number}-#${p2.assigned_number}`)
@@ -6555,6 +6679,12 @@ if (action === "cache-status-by-gender") {
           (humorMultiplier > 1 ? ` × Humor/Openness ${humorMultiplier}` : '') +
           (!oppositesMode && Number(compatibilityResult.compositeAdjustment || 0) !== 0 ? ` ${Number(compatibilityResult.compositeAdjustment) > 0 ? '+' : ''}${compatibilityResult.compositeAdjustment} Feedback composite` : '') +
           (compatibilityResult.capApplied ? ` (capped @ ${compatibilityResult.capApplied}%)` : '')
+        if (historyConfidence.never_pair_recommended) {
+          reasonStr += ' — لا تجمعهما: سجل سلبي موثّق'
+        } else if (Number(historyConfidence.history_priority_adjustment || 0) !== 0) {
+          const historyAdjustment = Number(historyConfidence.history_priority_adjustment)
+          reasonStr += ` ${historyAdjustment > 0 ? '+' : ''}${historyAdjustment} أولوية السجل السابق`
+        }
         {
           const tol = getAgeTolerance(p1.assigned_number, p2.assigned_number)
           reasonStr += getAgeToleranceLabel(tol)
@@ -6621,7 +6751,10 @@ if (action === "cache-status-by-gender") {
         message: successMessage,
         count: manualMatch.testModeOnly ? 0 : 1,
         compatibility_score: totalCompatibility,
-        priority_score: oppositesMode ? totalCompatibility : Number(compatibilityResult.priorityScore ?? totalCompatibility),
+        priority_score: manualPriority,
+        survey_priority_score: baseManualPriority,
+        ...historyConfidence,
+        history_hard_blocked: historyConfidence.never_pair_recommended,
         base_compatibility_score: oppositesMode ? totalCompatibility : (compatibilityResult.baseCompatibilityScore ?? totalCompatibility),
         composite_adjustment: oppositesMode ? 0 : (compatibilityResult.compositeAdjustment ?? 0),
         composite_rules: oppositesMode ? [] : (compatibilityResult.compositeRules ?? []),
@@ -6638,7 +6771,10 @@ if (action === "cache-status-by-gender") {
           participant: p1.assigned_number,
           partner: p2.assigned_number,
           compatibility_score: totalCompatibility,
-          priorityScore: oppositesMode ? totalCompatibility : Number(compatibilityResult.priorityScore ?? totalCompatibility),
+          priorityScore: manualPriority,
+          surveyPriorityScore: baseManualPriority,
+          ...historyConfidence,
+          history_hard_blocked: historyConfidence.never_pair_recommended,
           baseCompatibilityScore: oppositesMode ? totalCompatibility : (compatibilityResult.baseCompatibilityScore ?? totalCompatibility),
           compositeAdjustment: oppositesMode ? 0 : (compatibilityResult.compositeAdjustment ?? 0),
           compositeRules: oppositesMode ? [] : (compatibilityResult.compositeRules ?? []),
@@ -7187,6 +7323,7 @@ if (action === "cache-status-by-gender") {
     let skippedInteractionStyle = 0
     let skippedPrevious = 0
     let skippedExcluded = 0
+    let blockedByHistory = 0
     
     // Log excluded pairs if any
     if (excludedPairs && excludedPairs.length > 0) {
@@ -7275,6 +7412,14 @@ if (action === "cache-status-by-gender") {
           skippedPrevious++
           continue
         }
+
+        const historyConfidence = historyAnalyzer.analyzePair(a, b)
+        // A manual lock is an explicit organizer override. Otherwise a
+        // corroborated do-not-pair signal remains visible in calculatedPairs
+        // but is removed from the optimizer's candidate pool below.
+        const historyHardBlocked = historyConfidence.never_pair_recommended
+          && !isPairLocked(a.assigned_number, b.assigned_number, lockedPairs)
+        if (historyHardBlocked) blockedByHistory++
         
         // Check in-memory cache first (bulk-fetched, O(1) lookup)
         const [smaller, larger] = [a.assigned_number, b.assigned_number].sort((x, y) => x - y)
@@ -7480,9 +7625,19 @@ if (action === "cache-status-by-gender") {
               humorOpenScore: Number(humorOpenScore ?? 0),
             })
           : Math.round(totalScore)
-        const priorityScore = oppositesMode
+        const surveyPriorityScore = oppositesMode
           ? finalScore
           : Number(compatibilityResult.priorityScore ?? totalScore)
+        const priorityScore = historyHardBlocked
+          ? -1000
+          : surveyPriorityScore + Number(historyConfidence.history_priority_adjustment || 0)
+
+        if (historyConfidence.never_pair_recommended) {
+          reason += ` — لا تجمعهما: سجل سلبي موثّق`
+        } else if (Number(historyConfidence.history_priority_adjustment || 0) !== 0) {
+          const historyAdjustment = Number(historyConfidence.history_priority_adjustment)
+          reason += ` ${historyAdjustment > 0 ? '+' : ''}${historyAdjustment} أولوية السجل السابق`
+        }
 
         compatibilityScores.push({
           a: a.assigned_number,
@@ -7491,6 +7646,9 @@ if (action === "cache-status-by-gender") {
           score_model_version: COMPATIBILITY_SCORE_VERSION,
           score: finalScore,
           priorityScore,
+          surveyPriorityScore,
+          ...historyConfidence,
+          historyHardBlocked,
           baseCompatibilityScore: oppositesMode ? finalScore : (compatibilityResult.baseCompatibilityScore ?? totalScore),
           compositeAdjustment: oppositesMode ? 0 : (compatibilityResult.compositeAdjustment ?? 0),
           compositeRules: oppositesMode ? [] : (compatibilityResult.compositeRules ?? []),
@@ -7556,6 +7714,7 @@ if (action === "cache-status-by-gender") {
     console.log(`   Skipped - Interaction style: ${skippedInteractionStyle}`)
     console.log(`   Skipped - Previous matches: ${skippedPrevious}`)
     console.log(`   Skipped - Excluded pairs: ${skippedExcluded}`)
+    console.log(`   Blocked - Corroborated negative history: ${blockedByHistory}`)
     console.log(`\n💾 Cache Performance:`)
     console.log(`   Cache hits: ${cacheHits}`)
     console.log(`   Reused AI vibe scores: ${reusedVibeScores}`)
@@ -7854,12 +8013,13 @@ if (action === "cache-status-by-gender") {
       }
       
       // STEP 2: Process remaining pairs using global optimization in preview, greedy otherwise
+      const historyEligiblePairs = compatibilityScores.filter(pair => !pair.historyHardBlocked)
       const candidatePairs = stableHostSet
-        ? compatibilityScores.filter(p => stableHostSet.has(p.a) !== stableHostSet.has(p.b))
-        : compatibilityScores
+        ? historyEligiblePairs.filter(p => stableHostSet.has(p.a) !== stableHostSet.has(p.b))
+        : historyEligiblePairs
 
       const sortedPairs = [...candidatePairs].sort((a, b) => getPairPriorityScore(b) - getPairPriorityScore(a))
-      console.log(`📊 Processing remaining ${sortedPairs.length} calculated pairs...`)
+      console.log(`📊 Processing remaining ${sortedPairs.length} eligible pairs (${blockedByHistory} blocked by corroborated history)...`)
 
       if (SKIP_DB_WRITES) {
         // Global optimizer (preview): maximize total score
@@ -8178,7 +8338,10 @@ if (action === "cache-status-by-gender") {
       cacheHitRate: parseFloat(cacheHitRate),
       aiCalls: aiCalls,
       totalCalculations: totalCalculations,
-      avgTimePerPair: totalCalculations > 0 ? Math.round(totalTime / totalCalculations) : 0
+      avgTimePerPair: totalCalculations > 0 ? Math.round(totalTime / totalCalculations) : 0,
+      historyConfidenceEnabled: historyAnalyzer.enabled,
+      historyBlockedPairs: blockedByHistory,
+      historyEvidenceDirections: historyAnalyzer.stats?.directions || 0,
     }
 
     const calculatedPairs = compatibilityScores.map(pair => ({
@@ -8195,6 +8358,24 @@ if (action === "cache-status-by-gender") {
       score_model_version: pair.score_model_version,
       compatibility_score: Math.round(pair.score),
       priority_score: pair.priorityScore ?? pair.score,
+      survey_priority_score: pair.surveyPriorityScore ?? pair.score,
+      history_model_version: pair.history_model_version,
+      history_confidence_enabled: pair.history_confidence_enabled === true,
+      history_confidence_status: pair.history_confidence_status,
+      historical_outcome_score: pair.historical_outcome_score ?? null,
+      historical_confidence: pair.historical_confidence ?? 0,
+      predictive_outcome_score: pair.predictive_outcome_score ?? null,
+      predictive_confidence: pair.predictive_confidence ?? 0,
+      combined_history_score: pair.combined_history_score ?? null,
+      combined_history_confidence: pair.combined_history_confidence ?? 0,
+      history_priority_adjustment: pair.history_priority_adjustment ?? 0,
+      history_badges: pair.history_badges ?? [],
+      history_explanations: pair.history_explanations ?? [],
+      historical_evidence: pair.historical_evidence ?? null,
+      history_direction_a_to_b: pair.history_direction_a_to_b ?? null,
+      history_direction_b_to_a: pair.history_direction_b_to_a ?? null,
+      never_pair_recommended: pair.never_pair_recommended === true,
+      history_hard_blocked: pair.historyHardBlocked === true,
       base_compatibility_score: pair.baseCompatibilityScore ?? pair.score,
       composite_adjustment: pair.compositeAdjustment ?? 0,
       composite_rules: pair.compositeRules ?? [],

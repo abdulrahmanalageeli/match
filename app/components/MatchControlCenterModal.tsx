@@ -39,6 +39,7 @@ import { toast } from "react-hot-toast"
 import ParticipantDetailModal from "./ParticipantDetailModal"
 import PairAnalysisModal from "./PairAnalysisModalPro"
 import WhatsappMessageModal from "./WhatsappMessageModal"
+import { HistoryConfidenceBadges, HistoryConfidencePanel } from "./HistoryConfidenceBadge"
 import {
   buildScoreLookup,
   buildSwapPlans,
@@ -324,9 +325,11 @@ export default function MatchControlCenterModal({
   }, [matchHistory])
 
   const selectedPair = useMemo(() => pairs.find(pair => pair.key === selectedKey) || null, [pairs, selectedKey])
-  const pairMeetsMatchingCriteria = useCallback((a: number, b: number) => (
-    getPairCriteriaIssues(people.get(a), people.get(b), selectedPair?.round || 1, { ignoreInteractionStyle: true }).length === 0
-  ), [people, selectedPair?.round])
+  const pairMeetsMatchingCriteria = useCallback((a: number, b: number) => {
+    const pairData = scoreLookup.get(pairKey(a, b))
+    if (pairData?.history_hard_blocked === true || pairData?.never_pair_recommended === true) return false
+    return getPairCriteriaIssues(people.get(a), people.get(b), selectedPair?.round || 1, { ignoreInteractionStyle: true }).length === 0
+  }, [people, scoreLookup, selectedPair?.round])
 
   const poolMatches = useCallback((person?: MatchControlPerson, mode: PoolMode = pool) => {
     if (mode === "all") return getSeatState(person) !== "declined"
@@ -422,6 +425,21 @@ export default function MatchControlCenterModal({
           is_actual_match: partnerMap.get(number) === other,
           is_repeated_match: pair.is_repeated_match,
           humor_early_openness_bonus: pair.humor_early_openness_bonus,
+          history_model_version: pair.history_model_version,
+          history_confidence_enabled: pair.history_confidence_enabled,
+          history_confidence_status: pair.history_confidence_status,
+          historical_outcome_score: pair.historical_outcome_score,
+          historical_confidence: pair.historical_confidence,
+          predictive_outcome_score: pair.predictive_outcome_score,
+          predictive_confidence: pair.predictive_confidence,
+          combined_history_score: pair.combined_history_score,
+          combined_history_confidence: pair.combined_history_confidence,
+          history_priority_adjustment: pair.history_priority_adjustment,
+          history_badges: pair.history_badges,
+          history_explanations: pair.history_explanations,
+          historical_evidence: pair.historical_evidence,
+          never_pair_recommended: pair.never_pair_recommended,
+          history_hard_blocked: pair.history_hard_blocked,
         }
       })
       .sort((a, b) => b.compatibility_score - a.compatibility_score)
@@ -602,7 +620,9 @@ export default function MatchControlCenterModal({
     if (chainEligibleNumbers && !chainEligibleNumbers.has(swapSource)) blockers.push(`المشارك الأساسي #${swapSource} خارج نطاق «${scopeLabel}»`)
     if (chainEligibleNumbers && !chainEligibleNumbers.has(swapTarget)) blockers.push(`المشارك المختار #${swapTarget} خارج نطاق «${scopeLabel}»`)
     blockers.push(...getPairCriteriaIssues(people.get(swapSource), people.get(swapTarget), selectedPair?.round || 1, { ignoreInteractionStyle: true }))
-    if (scoreLookup.get(pairKey(swapSource, swapTarget))?.is_repeated_match === true) blockers.push("هذا الزوج تقابل في فعالية سابقة")
+    const targetPairData = scoreLookup.get(pairKey(swapSource, swapTarget))
+    if (targetPairData?.is_repeated_match === true) blockers.push("هذا الزوج تقابل في فعالية سابقة")
+    if (targetPairData?.history_hard_blocked === true || targetPairData?.never_pair_recommended === true) blockers.push("لا تجمعهما: سجل سلبي موثّق من أكثر من مصدر")
     if (!blockers.length) blockers.push("لا يمكن إغلاق بقية السلسلة دون كسر تفضيل أو معيار لأحد الأزواج المتأثرين")
     return Array.from(new Set(blockers))
   }, [chainEligibleNumbers, chainPaymentScope, people, plans.length, scoreLookup, selectedPair?.round, swapSource, swapTarget])
@@ -861,6 +881,7 @@ export default function MatchControlCenterModal({
                         {category === "unmatched" && <span className="rounded-full bg-red-500/15 px-2 py-1 text-[9px] font-bold text-red-300">دون شريك</span>}
                         {category === "mixed" && <span className="rounded-full bg-amber-500/15 px-2 py-1 text-[9px] font-bold text-amber-300">دفع مختلط</span>}
                         {pair.b != null && <MatchInsightsCoverageBadge pair={scoreLookup.get(pairKey(pair.a, pair.b))} compact />}
+                        {pair.b != null && <HistoryConfidenceBadges pair={scoreLookup.get(pairKey(pair.a, pair.b))} compact />}
                         {protectedPair && <Lock className="h-3.5 w-3.5 text-blue-300" />}
                         {(isContacted(a) || isContacted(b)) && <MessageCircle className="h-3.5 w-3.5 text-blue-300" />}
                       </div>
@@ -918,7 +939,7 @@ export default function MatchControlCenterModal({
                             <div className="flex items-center gap-2">
                               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-800 text-[11px] font-black text-slate-200">#{candidate.number}</span>
                               <span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold text-white">{getPersonName(candidate.person, candidate.number)}</span><span className="mt-1 flex flex-wrap items-center gap-1"><SeatBadge person={candidate.person} compact />{candidate.currentPartner && <span className="text-[9px] text-slate-500">مع #{candidate.currentPartner}</span>}</span></span>
-                              <span className="flex flex-col items-end gap-1"><ScorePill score={candidate.score} /><HumorClashBadge pair={candidatePairData} compact /><span className={`inline-flex items-center gap-1 text-[9px] font-bold ${candidate.bestPlan?.verdict === "recommended" ? "text-emerald-300" : candidate.bestPlan?.verdict === "risky" ? "text-red-300" : "text-amber-300"}`}><Icon className="h-3 w-3" />{meta.label}</span></span>
+                              <span className="flex flex-col items-end gap-1"><ScorePill score={candidate.score} /><HistoryConfidenceBadges pair={candidatePairData} compact /><HumorClashBadge pair={candidatePairData} compact /><span className={`inline-flex items-center gap-1 text-[9px] font-bold ${candidate.bestPlan?.verdict === "recommended" ? "text-emerald-300" : candidate.bestPlan?.verdict === "risky" ? "text-red-300" : "text-amber-300"}`}><Icon className="h-3 w-3" />{meta.label}</span></span>
                             </div>
                           </button>
                         )
@@ -952,7 +973,7 @@ export default function MatchControlCenterModal({
                   <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.055] to-white/[0.015] p-3 sm:p-5">
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                       <div><p className="text-[10px] font-bold uppercase tracking-widest text-cyan-300">المطابقة الحالية</p><h3 className="mt-0.5 text-lg font-black text-white">عرض الزوج والنتائج الفردية</h3></div>
-                      <div className="flex flex-wrap items-center justify-end gap-2"><HumorClashBadge pair={selectedPairData} /><MatchInsightsCoverageBadge pair={selectedPairData} /><ScorePill score={selectedPair.score} />{selectedLocked && <span className="flex items-center gap-1 rounded-full border border-blue-400/25 bg-blue-500/10 px-2 py-1 text-[10px] font-bold text-blue-200"><Lock className="h-3 w-3" /> مثبت</span>}</div>
+                      <div className="flex flex-wrap items-center justify-end gap-2"><HistoryConfidenceBadges pair={selectedPairData} /><HumorClashBadge pair={selectedPairData} /><MatchInsightsCoverageBadge pair={selectedPairData} /><ScorePill score={selectedPair.score} />{selectedLocked && <span className="flex items-center gap-1 rounded-full border border-blue-400/25 bg-blue-500/10 px-2 py-1 text-[10px] font-bold text-blue-200"><Lock className="h-3 w-3" /> مثبت</span>}</div>
                     </div>
                     <div className="flex items-stretch gap-2 sm:gap-3">
                       <PersonButton number={selectedPair.a} person={selectedA} onClick={() => startSwap(selectedPair.a)} onIndividual={() => openIndividual(selectedPair.a)} />
@@ -1083,5 +1104,8 @@ function PairBreakdown({ pair, fallbackScore }: { pair: any; fallbackScore: numb
     ["التواصل", pair?.communication_compatibility_score, 3],
     ["الهدف", pair?.intent_score, 5],
   ] as const
-  return <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-3 sm:p-4"><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-purple-300" /><span className="text-xs font-black text-white">تفصيل نتيجة الزوج</span></div><div className="flex items-center gap-2"><MatchInsightsCoverageBadge pair={pair} /><ScorePill score={pair?.compatibility_score != null ? Math.round(Number(pair.compatibility_score)) : fallbackScore} /></div></div><div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">{metrics.map(([label, value, max]) => <div key={String(label)} className="rounded-xl bg-black/20 p-2 text-center"><div className="text-[9px] text-slate-500">{label}</div><div className="mt-1 text-sm font-black text-slate-200">{Number.isFinite(Number(value)) ? `${Number(value).toFixed(1)}/${max}` : "—"}</div></div>)}</div>{pair?.reason && <p className="mt-3 rounded-xl border border-white/5 bg-black/20 p-2 text-[10px] leading-5 text-slate-400">{pair.reason}</p>}</div>
+  return <div className="space-y-3">
+    <HistoryConfidencePanel pair={pair} />
+    <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-3 sm:p-4"><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-purple-300" /><span className="text-xs font-black text-white">تفصيل نتيجة الزوج</span></div><div className="flex items-center gap-2"><MatchInsightsCoverageBadge pair={pair} /><ScorePill score={pair?.compatibility_score != null ? Math.round(Number(pair.compatibility_score)) : fallbackScore} /></div></div><div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">{metrics.map(([label, value, max]) => <div key={String(label)} className="rounded-xl bg-black/20 p-2 text-center"><div className="text-[9px] text-slate-500">{label}</div><div className="mt-1 text-sm font-black text-slate-200">{Number.isFinite(Number(value)) ? `${Number(value).toFixed(1)}/${max}` : "—"}</div></div>)}</div>{pair?.reason && <p className="mt-3 rounded-xl border border-white/5 bg-black/20 p-2 text-[10px] leading-5 text-slate-400">{pair.reason}</p>}</div>
+  </div>
 }

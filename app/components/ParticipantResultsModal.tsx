@@ -7,6 +7,7 @@ import PairAnalysisModal from "./PairAnalysisModalPro"
 import * as Tooltip from "@radix-ui/react-tooltip"
 import * as Dialog from "@radix-ui/react-dialog"
 import ParticipantHoverCardContent from "./ParticipantHoverCard"
+import { HistoryConfidenceBadges } from "./HistoryConfidenceBadge"
 import { buildScoreLookup, getPairMatchInsightsCoverage, pairKey } from "../lib/matchControl"
 const shadowMetrics = [
   { id: "expression_language", label: "لغة", max: 5 },
@@ -858,7 +859,24 @@ export default function ParticipantResultsModal({
         reason: pair.reason,
         is_actual_match: pair.is_actual_match,
         is_repeated_match: pair.is_repeated_match,
-        humor_early_openness_bonus: pair.humor_early_openness_bonus
+        humor_early_openness_bonus: pair.humor_early_openness_bonus,
+        history_model_version: pair.history_model_version,
+        history_confidence_enabled: pair.history_confidence_enabled,
+        history_confidence_status: pair.history_confidence_status,
+        historical_outcome_score: pair.historical_outcome_score,
+        historical_confidence: pair.historical_confidence,
+        predictive_outcome_score: pair.predictive_outcome_score,
+        predictive_confidence: pair.predictive_confidence,
+        combined_history_score: pair.combined_history_score,
+        combined_history_confidence: pair.combined_history_confidence,
+        history_priority_adjustment: pair.history_priority_adjustment,
+        history_badges: pair.history_badges,
+        history_explanations: pair.history_explanations,
+        historical_evidence: pair.historical_evidence,
+        history_direction_a_to_b: pair.history_direction_a_to_b,
+        history_direction_b_to_a: pair.history_direction_b_to_a,
+        never_pair_recommended: pair.never_pair_recommended,
+        history_hard_blocked: pair.history_hard_blocked,
       }
     })
     
@@ -1714,6 +1732,7 @@ export default function ParticipantResultsModal({
                                 </div>
                               )}
                               <MatchInsightsCoverageBadge pair={getResultPairData(participant)} />
+                              <HistoryConfidenceBadges pair={getResultPairData(participant)} />
                               {(getResultPairData(participant)?.humor_clash_detected || getResultPairData(participant)?.humor_clash_veto_applied) && (
                                 <span title="اختلاف أسلوب الدعابة A↔D — الشخص ما زال ضمن النتائج" className="inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-500/15 px-2 py-1 text-[10px] font-black text-amber-200">
                                   <AlertTriangle className="h-3 w-3" /> A↔D

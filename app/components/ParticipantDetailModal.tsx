@@ -3,6 +3,7 @@ import { X, User, Users, Heart, Brain, MessageCircle, Home, Star, Zap, ArrowLeft
 import * as Tooltip from "@radix-ui/react-tooltip"
 import * as Popover from "@radix-ui/react-popover"
 import ParticipantHoverCardContent from "./ParticipantHoverCard"
+import { HistoryConfidenceBadges } from "./HistoryConfidenceBadge"
 import { getPairMatchInsightsCoverage } from "../lib/matchControl"
 
 const shadowMetrics = [
@@ -1013,6 +1014,7 @@ export default function ParticipantDetailModal({
                               )}
                               </div>
                               <MatchInsightsCoverageBadge match={match} />
+                              <HistoryConfidenceBadges pair={match} />
                             </div>
                           </td>
                           {swapMode && (

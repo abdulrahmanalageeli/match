@@ -65,6 +65,7 @@ import ParticipantProfileModal from "~/components/ParticipantProfileModal"
 import TwilioAdminPanel from "~/components/TwilioAdminPanel"
 import { surveyQuestions } from "~/components/SurveyComponent"
 import PairAnalysisModal from "~/components/PairAnalysisModalPro"
+import { HistoryConfidencePanel } from "~/components/HistoryConfidenceBadge"
 import { getParticipantMatchInsightsCompletion } from "~/lib/matchControl"
 import { matchesParticipantConfirmationFilter } from "~/lib/participant-confirmation-filter.mjs"
 
@@ -172,6 +173,8 @@ function ManualCompatibilityResultModal({ data, onClose }: { data: any; onClose:
                 </div>
               </div>
             </section>
+
+            <HistoryConfidencePanel pair={{ ...data, ...result }} />
 
             <section className={`rounded-3xl border p-4 sm:p-6 ${eligible ? 'border-emerald-300/20 bg-emerald-400/[0.04]' : 'border-red-300/20 bg-red-400/[0.04]'}`}>
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="flex items-center gap-2 text-lg font-black"><Shield className={`h-5 w-5 ${eligible ? 'text-emerald-300' : 'text-red-300'}`} /> Eligibility gate report</h3><p className={`mt-1 text-sm ${eligible ? 'text-emerald-200/80' : 'text-red-200/80'}`}>{gateReport.summary || 'Gate evaluation completed.'}</p></div><div className="flex flex-wrap gap-2 text-xs font-bold"><span className="rounded-lg bg-emerald-400/10 px-2.5 py-1.5 text-emerald-300">{gates.filter((gate: any) => gate.applicable !== false && gate.passed === true).length} passed</span><span className="rounded-lg bg-red-400/10 px-2.5 py-1.5 text-red-300">{blockers.length} blocked</span>{warnings.length > 0 && <span className="rounded-lg bg-amber-400/10 px-2.5 py-1.5 text-amber-300">{warnings.length} warning</span>}<span className="rounded-lg bg-white/5 px-2.5 py-1.5 text-slate-400">{gates.filter((gate: any) => gate.applicable === false).length} N/A</span></div></div>

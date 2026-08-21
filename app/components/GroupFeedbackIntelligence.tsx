@@ -90,6 +90,7 @@ type PersonInsight = {
   reviews: number
   scoreTotal: number
   average: number
+  adjustedAverage: number
   positive: number
   neutral: number
   negative: number
@@ -141,6 +142,18 @@ type GroupInsight = {
 }
 
 type ViewMode = "all" | "liked" | "negative" | "polarizing" | "groups" | "raw"
+type SortMode = "adjustedAverage" | "average" | "positiveRate" | "negativeRate" | "likedScore" | "dislikedScore" | "polarizingScore" | "reviews"
+
+const SORT_LABELS: Record<SortMode, string> = {
+  adjustedAverage: "المتوسط المعدّل بالثقة",
+  average: "المتوسط الخام",
+  positiveRate: "نسبة الإيجابي الفعلية",
+  negativeRate: "نسبة السلبي الفعلية",
+  likedScore: "درجة الإعجاب المعدّلة",
+  dislikedScore: "درجة الخطر المعدّلة",
+  polarizingScore: "درجة الانقسام",
+  reviews: "عدد التقييمات",
+}
 
 const EXPERIENCE_SCORE: Record<string, number> = {
   uncomfortable: 1,
@@ -440,6 +453,7 @@ function PersonDetailModal({ person, onClose }: { person: PersonInsight; onClose
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
               <div className="text-[10px] font-bold text-slate-500">المتوسط</div>
               <div className="mt-1 text-xl font-black text-white">{person.average.toFixed(2)} <span className="text-xs font-medium text-slate-600">/4</span></div>
+              <div className="text-[10px] text-slate-500">معدّل بالثقة {person.adjustedAverage.toFixed(2)}</div>
             </div>
             <div className="rounded-2xl border border-emerald-400/15 bg-emerald-400/5 p-3">
               <div className="text-[10px] font-bold text-emerald-300">إيجابي</div>
@@ -452,14 +466,14 @@ function PersonDetailModal({ person, onClose }: { person: PersonInsight; onClose
               <div className="text-[10px] text-slate-500">{person.negative}/{person.reviews}</div>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-              <div className="text-[10px] font-bold text-slate-500">الإعجاب الموزون</div>
+              <div className="text-[10px] font-bold text-slate-500">درجة الإعجاب المعدّلة</div>
               <div className="mt-1 text-xl font-black text-white">{Math.round(person.likedScore)}</div>
-              <div className="text-[10px] text-slate-500">من 100</div>
+              <div className="text-[10px] text-slate-500">من 100 · ليست نسبة فعلية</div>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-              <div className="text-[10px] font-bold text-slate-500">السلبية الموزونة</div>
+              <div className="text-[10px] font-bold text-slate-500">درجة الخطر المعدّلة</div>
               <div className="mt-1 text-xl font-black text-white">{Math.round(person.dislikedScore)}</div>
-              <div className="text-[10px] text-slate-500">من 100</div>
+              <div className="text-[10px] text-slate-500">من 100 · ليست نسبة فعلية</div>
             </div>
           </div>
 
@@ -567,6 +581,29 @@ function PersonDetailModal({ person, onClose }: { person: PersonInsight; onClose
             </div>
           ) : null}
 
+          {person.notes.length ? (
+            <div className="rounded-2xl border border-amber-400/20 bg-amber-400/5 p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-sm font-black text-amber-100">ملاحظات المنظم الخاصة</h4>
+                  <p className="mt-0.5 text-[11px] text-amber-200/50">{person.notes.length} ملاحظات مرتبطة بهذا المشارك.</p>
+                </div>
+                <MessageSquare className="h-4 w-4 text-amber-300" />
+              </div>
+              <div className="space-y-2">
+                {person.notes.map((entry, index) => (
+                  <div key={`${entry.reviewer_number}-${entry.group_round}-${index}`} className="rounded-xl border border-amber-400/15 bg-black/15 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-amber-200/50">
+                      <span>من {entry.reviewer_name || `#${entry.reviewer_number}`} #{entry.reviewer_number}</span>
+                      <span>الجولة {entry.group_round}</span>
+                    </div>
+                    <p className="mt-2 whitespace-pre-wrap text-xs leading-6 text-amber-50">{entry.organizer_note}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           <div className="rounded-2xl border border-white/10 bg-slate-900/45 p-4">
             <div className="mb-3 flex items-center justify-between">
               <div>
@@ -609,8 +646,10 @@ export default function GroupFeedbackIntelligence({
   eventId?: number | null
 }) {
   const [view, setView] = useState<ViewMode>("all")
+  const [sortMode, setSortMode] = useState<SortMode>("adjustedAverage")
   const [query, setQuery] = useState("")
   const [roundFilter, setRoundFilter] = useState<"all" | "1" | "2">("all")
+  const [rawNotesOnly, setRawNotesOnly] = useState(false)
   const [selectedPerson, setSelectedPerson] = useState<PersonInsight | null>(null)
   const [showScoringInfo, setShowScoringInfo] = useState(false)
 
@@ -760,6 +799,7 @@ export default function GroupFeedbackIntelligence({
       const adjustedNegative = stats.negativeRate * confidence + globalNegativeRate * (1 - confidence)
       const likedScore = clamp(adjustedPositive) * 100
       const dislikedScore = clamp(adjustedNegative) * 100
+      const adjustedAverage = stats.average * confidence + baselineScore * (1 - confidence)
       const polarizingScore = Math.min(stats.positiveRate, stats.negativeRate) * (stats.positiveRate + stats.negativeRate) * confidence * 100
 
       const tags = new Map<string, number>()
@@ -796,6 +836,7 @@ export default function GroupFeedbackIntelligence({
         reviews: stats.reviews,
         scoreTotal: stats.scoreTotal,
         average: stats.average,
+        adjustedAverage,
         positive: stats.positive,
         neutral: stats.neutral,
         negative: stats.negative,
@@ -858,22 +899,24 @@ export default function GroupFeedbackIntelligence({
   const filteredPeople = useMemo(() => {
     const needle = query.trim().toLowerCase()
     let rows = people.filter(person => !needle || person.name.toLowerCase().includes(needle) || String(person.number).includes(needle))
-    if (view === "liked") rows = rows.sort((a, b) => b.likedScore - a.likedScore || b.reviews - a.reviews)
-    else if (view === "negative") rows = rows.sort((a, b) => b.dislikedScore - a.dislikedScore || b.negative - a.negative || b.reviews - a.reviews)
-    else if (view === "polarizing") rows = rows.sort((a, b) => b.polarizingScore - a.polarizingScore || b.reviews - a.reviews)
-    else rows = rows.sort((a, b) => b.reviews - a.reviews || b.average - a.average)
-    return rows
-  }, [people, query, view])
+    if (view === "liked") rows = rows.filter(person => person.positive > 0)
+    else if (view === "negative") rows = rows.filter(person => person.negative > 0)
+    else if (view === "polarizing") rows = rows.filter(person => person.positive > 0 && person.negative > 0)
+
+    const value = (person: PersonInsight) => Number(person[sortMode]) || 0
+    return [...rows].sort((a, b) => value(b) - value(a) || b.reviews - a.reviews || b.average - a.average || a.number - b.number)
+  }, [people, query, view, sortMode])
 
   const filteredRaw = useMemo(() => {
     const needle = query.trim().toLowerCase()
     return normalizedSubmissions.filter(entry => {
       if (roundFilter !== "all" && String(entry.group_round) !== roundFilter) return false
+      if (rawNotesOnly && !entry.organizer_note) return false
       if (!needle) return true
       return [entry.reviewer_name, entry.member_name, entry.reviewer_number, entry.member_number, entry.organizer_note, ...(entry.tags || [])]
         .some(value => String(value || "").toLowerCase().includes(needle))
     })
-  }, [normalizedSubmissions, query, roundFilter])
+  }, [normalizedSubmissions, query, roundFilter, rawNotesOnly])
 
   const reviewerCount = Number(data?.reviewer_count) || new Set(normalizedSubmissions.map(entry => Number(entry.reviewer_number))).size
   const participantCount = Number(data?.participant_count) || Math.max(people.length, 0)
@@ -920,7 +963,7 @@ export default function GroupFeedbackIntelligence({
 
           {showScoringInfo ? (
             <div className="mt-4 grid gap-3 rounded-2xl border border-white/10 bg-black/20 p-4 text-xs leading-5 text-slate-400 md:grid-cols-3">
-              <div><strong className="block text-slate-200">الثقة قبل الترتيب</strong>نرجّع النسب نحو متوسط الفعالية عندما تكون العينة صغيرة. تقييم واحد لا يتفوق تلقائيًا على نمط من 8 تقييمات.</div>
+              <div><strong className="block text-slate-200">النسبة الفعلية مقابل الدرجة المعدّلة</strong>النسب الفعلية هي ما قاله المقيّمون مباشرة. الدرجات المعدّلة من 100 تستخدم خط الفعالية وحجم العينة للترتيب، وليست نسبًا فعلية.</div>
               <div><strong className="block text-slate-200">الانقسام ≠ المتوسط</strong>شخص حصل على 5 ممتازة و5 غير مريحة مختلف جذريًا عن شخص حصل على 10 تقييمات محايدة، حتى لو تقارب المتوسط.</div>
               <div><strong className="block text-slate-200">أثر الجو غير دائري</strong>نستبعد التقييمات الموجهة للشخص نفسه ونقيس كيف قيّم بقية أعضاء مجموعاته بعضهم بعضًا مقارنة بخط الفعالية.</div>
             </div>
@@ -931,7 +974,7 @@ export default function GroupFeedbackIntelligence({
           <div className="bg-slate-950/80 p-4"><div className="text-[10px] font-bold text-slate-500">مشاركون قيّموا</div><div className="mt-1 text-xl font-black text-white">{reviewerCount}<span className="text-xs font-medium text-slate-600">/{participantCount || "—"}</span></div><div className="text-[10px] text-slate-500">مشاركة {participantCount ? pct(responseRate) : "—"}</div></div>
           <div className="bg-slate-950/80 p-4"><div className="text-[10px] font-bold text-slate-500">إجمالي التقييمات</div><div className="mt-1 text-xl font-black text-white">{normalizedSubmissions.length}</div><div className="text-[10px] text-slate-500">متوسط {globalStats.average.toFixed(2)}/4</div></div>
           <div className="bg-slate-950/80 p-4"><div className="text-[10px] font-bold text-slate-500">نسبة الإيجابي</div><div className="mt-1 text-xl font-black text-emerald-300">{pct(globalStats.positiveRate)}</div><div className="text-[10px] text-slate-500">خط أساس الفعالية</div></div>
-          <div className="bg-slate-950/80 p-4"><div className="text-[10px] font-bold text-slate-500">ملاحظات خاصة</div><div className="mt-1 text-xl font-black text-white">{notesCount}</div><div className="text-[10px] text-slate-500">للمُنظم فقط</div></div>
+          <button type="button" onClick={() => { setView("raw"); setRawNotesOnly(true) }} className="bg-slate-950/80 p-4 text-right transition hover:bg-slate-900"><div className="text-[10px] font-bold text-slate-500">ملاحظات خاصة</div><div className="mt-1 text-xl font-black text-white">{notesCount}</div><div className="text-[10px] text-amber-300/70">اضغط لعرضها</div></button>
         </div>
       </section>
 
@@ -940,15 +983,15 @@ export default function GroupFeedbackIntelligence({
           icon={<Heart className="h-4 w-4" />}
           label="الأكثر إعجابًا"
           primary={mostLiked ? `${mostLiked.name} #${mostLiked.number}` : "—"}
-          secondary={mostLiked ? `${Math.round(mostLiked.likedScore)} / 100 موزون` : undefined}
+          secondary={mostLiked ? `إيجابي فعلي ${pct(mostLiked.positiveRate)} · درجة معدّلة ${Math.round(mostLiked.likedScore)}` : undefined}
           tertiary={mostLiked?.positiveTags.slice(0, 2).map(([tag]) => humanTag(tag)).join(" · ") || mostLiked?.summaryText}
           onClick={mostLiked ? () => setSelectedPerson(mostLiked) : undefined}
         />
         <MetricCard
           icon={<AlertTriangle className="h-4 w-4" />}
-          label="أعلى إشارة سلبية"
+          label="أعلى خطر معدّل"
           primary={mostNegative ? `${mostNegative.name} #${mostNegative.number}` : "لا توجد سلبية واضحة"}
-          secondary={mostNegative ? `${Math.round(mostNegative.dislikedScore)} / 100 موزون` : undefined}
+          secondary={mostNegative ? `سلبي فعلي ${pct(mostNegative.negativeRate)} · درجة معدّلة ${Math.round(mostNegative.dislikedScore)}` : undefined}
           tertiary={mostNegative?.negativeTags.slice(0, 2).map(([tag]) => humanTag(tag)).join(" · ") || mostNegative?.summaryText}
           onClick={mostNegative ? () => setSelectedPerson(mostNegative) : undefined}
         />
@@ -1010,16 +1053,35 @@ export default function GroupFeedbackIntelligence({
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex gap-2 overflow-x-auto pb-1">
               {viewTabs.map(tab => (
-                <button key={tab.id} type="button" onClick={() => setView(tab.id)} className={`whitespace-nowrap rounded-xl border px-3 py-2 text-xs font-bold transition ${view === tab.id ? "border-indigo-400/30 bg-indigo-400/15 text-indigo-100" : "border-white/10 bg-white/[0.03] text-slate-400 hover:bg-white/[0.06]"}`}>
+                <button key={tab.id} type="button" onClick={() => {
+                  setView(tab.id)
+                  if (tab.id === "all") setSortMode("adjustedAverage")
+                  else if (tab.id === "liked") setSortMode("likedScore")
+                  else if (tab.id === "negative") setSortMode("dislikedScore")
+                  else if (tab.id === "polarizing") setSortMode("polarizingScore")
+                }} className={`whitespace-nowrap rounded-xl border px-3 py-2 text-xs font-bold transition ${view === tab.id ? "border-indigo-400/30 bg-indigo-400/15 text-indigo-100" : "border-white/10 bg-white/[0.03] text-slate-400 hover:bg-white/[0.06]"}`}>
                   {tab.label}
                 </button>
               ))}
             </div>
-            <div className="relative min-w-0 xl:w-72">
-              <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
-              <input value={query} onChange={(event: any) => setQuery(event.target.value)} placeholder="ابحث بالاسم أو الرقم..." className="w-full rounded-xl border border-white/10 bg-black/20 py-2.5 pl-3 pr-9 text-sm text-white outline-none placeholder:text-slate-600 focus:border-indigo-400/30" />
+            <div className="flex min-w-0 flex-col gap-2 sm:flex-row xl:justify-end">
+              {view !== "groups" && view !== "raw" ? (
+                <label className="min-w-0 sm:w-56">
+                  <span className="sr-only">ترتيب المشاركين حسب</span>
+                  <select value={sortMode} onChange={(event: any) => setSortMode(event.target.value as SortMode)} className="w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-2.5 text-xs font-bold text-slate-200 outline-none focus:border-indigo-400/30">
+                    {(Object.entries(SORT_LABELS) as Array<[SortMode, string]>).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+                  </select>
+                </label>
+              ) : null}
+              {view !== "groups" ? (
+                <div className="relative min-w-0 sm:w-72">
+                  <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
+                  <input value={query} onChange={(event: any) => setQuery(event.target.value)} placeholder="ابحث بالاسم أو الرقم..." className="w-full rounded-xl border border-white/10 bg-black/20 py-2.5 pl-3 pr-9 text-sm text-white outline-none placeholder:text-slate-600 focus:border-indigo-400/30" />
+                </div>
+              ) : null}
             </div>
           </div>
+          {view !== "groups" && view !== "raw" ? <p className="mt-2 text-[10px] text-slate-600">رقم الترتيب أدناه مبني على: <strong className="text-slate-400">{SORT_LABELS[sortMode]}</strong> · من الأعلى إلى الأقل.</p> : null}
         </div>
 
         {view === "groups" ? (
@@ -1039,7 +1101,10 @@ export default function GroupFeedbackIntelligence({
                 <h3 className="text-base font-black text-white">التقييمات الخام</h3>
                 <p className="mt-1 text-xs text-slate-500">للتدقيق اليدوي؛ التحليلات فوق مبنية على نفس هذه السجلات.</p>
               </div>
-              <div className="flex gap-1.5">
+              <div className="flex flex-wrap gap-1.5">
+                <button type="button" onClick={() => setRawNotesOnly(value => !value)} className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-bold ${rawNotesOnly ? "border-amber-400/30 bg-amber-400/10 text-amber-200" : "border-white/10 bg-white/5 text-slate-500"}`}>
+                  ملاحظات المنظم فقط ({notesCount})
+                </button>
                 {(["all", "1", "2"] as const).map(round => <button key={round} type="button" onClick={() => setRoundFilter(round)} className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-bold ${roundFilter === round ? "border-indigo-400/30 bg-indigo-400/15 text-indigo-100" : "border-white/10 bg-white/5 text-slate-500"}`}>{round === "all" ? "كل الجولات" : `الجولة ${round}`}</button>)}
               </div>
             </div>
@@ -1054,6 +1119,7 @@ export default function GroupFeedbackIntelligence({
                   {entry.organizer_note ? <div className="mt-2 rounded-xl border border-amber-400/15 bg-amber-400/5 px-3 py-2 text-xs leading-5 text-amber-100">{entry.organizer_note}</div> : null}
                 </button>
               ))}
+              {!filteredRaw.length ? <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center text-xs text-slate-600">لا توجد تقييمات تطابق البحث أو الفلاتر الحالية.</div> : null}
             </div>
           </div>
         ) : (
@@ -1062,13 +1128,13 @@ export default function GroupFeedbackIntelligence({
               <table className="w-full min-w-[980px] border-separate border-spacing-y-2 text-right">
                 <thead>
                   <tr className="text-[10px] font-bold text-slate-500">
-                    <th className="px-3 py-2">#</th>
+                    <th className="px-3 py-2">الترتيب</th>
                     <th className="px-3 py-2">المشارك</th>
-                    <th className="px-3 py-2">الانطباع</th>
+                    <th className="px-3 py-2">الانطباع الفعلي</th>
                     <th className="px-3 py-2">المتوسط</th>
                     <th className="px-3 py-2">التقييمات</th>
-                    <th className="px-3 py-2">الإشارة الموزونة</th>
-                    <th className="px-3 py-2">السبب الرئيسي</th>
+                    <th className="px-3 py-2">الإشارات المعدّلة</th>
+                    <th className="px-3 py-2">السبب والملاحظات</th>
                     <th className="px-3 py-2">أثر الجو</th>
                   </tr>
                 </thead>
@@ -1079,12 +1145,12 @@ export default function GroupFeedbackIntelligence({
                     return (
                       <tr key={person.number} onClick={() => setSelectedPerson(person)} className="cursor-pointer bg-white/[0.025] text-sm transition hover:bg-white/[0.05]">
                         <td className="rounded-r-2xl px-3 py-3 font-black text-slate-600">{index + 1}</td>
-                        <td className="px-3 py-3"><div className="font-black text-white">{person.name}</div><div className="text-[10px] text-slate-600">#{person.number} · {person.confidenceLabel}</div></td>
-                        <td className="w-44 px-3 py-3"><SegmentedBar positive={person.positive} neutral={person.neutral} negative={person.negative} /><div className="mt-1 flex justify-between text-[9px] text-slate-600"><span>{pct(person.positiveRate)} +</span><span>{pct(person.neutralRate)} =</span><span>{pct(person.negativeRate)} −</span></div></td>
-                        <td className="px-3 py-3 font-black text-white">{person.average.toFixed(2)}<span className="text-[10px] font-medium text-slate-600">/4</span></td>
+                        <td className="px-3 py-3"><div className="font-black text-white">{person.name}</div><div className="text-[10px] text-slate-600">#{person.number} · {person.confidenceLabel}</div>{person.notes.length ? <div className="mt-1 inline-flex items-center gap-1 rounded-full border border-amber-400/15 bg-amber-400/5 px-2 py-0.5 text-[9px] font-bold text-amber-300"><MessageSquare className="h-2.5 w-2.5" /> {person.notes.length} ملاحظات</div> : null}</td>
+                        <td className="w-48 px-3 py-3"><SegmentedBar positive={person.positive} neutral={person.neutral} negative={person.negative} /><div className="mt-1 flex justify-between gap-2 text-[9px] font-bold"><span className="text-emerald-300">إيجابي {pct(person.positiveRate)}</span><span className="text-slate-500">محايد {pct(person.neutralRate)}</span><span className="text-rose-300">سلبي {pct(person.negativeRate)}</span></div></td>
+                        <td className="px-3 py-3"><div className="font-black text-white">{person.average.toFixed(2)}<span className="text-[10px] font-medium text-slate-600">/4</span></div><div className="text-[9px] text-slate-600">معدّل {person.adjustedAverage.toFixed(2)}</div></td>
                         <td className="px-3 py-3"><div className="font-bold text-slate-300">{person.reviews}</div><div className="text-[9px] text-slate-600">{person.reviewedRounds}/2 جولات</div></td>
-                        <td className="px-3 py-3"><div className="text-[11px] text-emerald-300">إعجاب {Math.round(person.likedScore)}</div><div className="text-[11px] text-rose-300">سلبية {Math.round(person.dislikedScore)}</div>{person.polarizingScore >= 15 ? <div className="text-[9px] font-bold text-amber-300">منقسم</div> : null}</td>
-                        <td className="max-w-[240px] px-3 py-3"><div className="flex flex-wrap gap-1">{mainPositive ? <TagPill tag={mainPositive[0]} count={mainPositive[1]} tone="positive" /> : null}{mainNegative ? <TagPill tag={mainNegative[0]} count={mainNegative[1]} tone="negative" /> : null}</div><div className="mt-1 line-clamp-2 text-[10px] leading-4 text-slate-600">{person.summaryText}</div></td>
+                        <td className="px-3 py-3"><div className="text-[10px] text-emerald-300">إعجاب معدّل {Math.round(person.likedScore)}</div><div className="text-[10px] text-rose-300">خطر معدّل {Math.round(person.dislikedScore)}</div><div className="text-[9px] text-slate-600">ليست نسبًا فعلية</div>{person.polarizingScore >= 15 ? <div className="text-[9px] font-bold text-amber-300">منقسم</div> : null}</td>
+                        <td className="max-w-[240px] px-3 py-3"><div className="flex flex-wrap gap-1">{mainPositive ? <TagPill tag={mainPositive[0]} count={mainPositive[1]} tone="positive" /> : null}{mainNegative ? <TagPill tag={mainNegative[0]} count={mainNegative[1]} tone="negative" /> : null}</div><div className="mt-1 line-clamp-2 text-[10px] leading-4 text-slate-600">{person.summaryText}</div>{person.notes.length ? <div className="mt-1 text-[9px] font-bold text-amber-300">اضغط لعرض {person.notes.length} ملاحظات خاصة</div> : null}</td>
                         <td className="rounded-l-2xl px-3 py-3">{person.impactDelta == null ? <span className="text-xs text-slate-700">—</span> : <span className={`text-xs font-black ${person.impactDelta > 0.08 ? "text-emerald-300" : person.impactDelta < -0.08 ? "text-rose-300" : "text-slate-400"}`}>{person.impactDelta > 0 ? "+" : ""}{person.impactDelta.toFixed(2)}</span>}</td>
                       </tr>
                     )
@@ -1097,11 +1163,11 @@ export default function GroupFeedbackIntelligence({
               {filteredPeople.map((person, index) => (
                 <button key={person.number} type="button" onClick={() => setSelectedPerson(person)} className="w-full p-4 text-right hover:bg-white/[0.03]">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0"><div className="flex items-center gap-2"><span className="text-xs font-black text-slate-600">{index + 1}</span><span className="truncate font-black text-white">{person.name}</span><span className="text-xs text-slate-600">#{person.number}</span></div><div className="mt-1 line-clamp-2 text-[11px] leading-5 text-slate-500">{person.summaryText}</div></div>
+                    <div className="min-w-0"><div className="flex items-center gap-2"><span className="text-xs font-black text-slate-600">{index + 1}</span><span className="truncate font-black text-white">{person.name}</span><span className="text-xs text-slate-600">#{person.number}</span></div><div className="mt-1 line-clamp-2 text-[11px] leading-5 text-slate-500">{person.summaryText}</div>{person.notes.length ? <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-amber-300"><MessageSquare className="h-3 w-3" /> {person.notes.length} ملاحظات خاصة</div> : null}</div>
                     <ConfidenceBadge reviews={person.reviews} />
                   </div>
                   <div className="mt-3"><SegmentedBar positive={person.positive} neutral={person.neutral} negative={person.negative} /></div>
-                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-bold"><span className="text-emerald-300">إيجابي {pct(person.positiveRate)}</span><span className="text-slate-500">محايد {pct(person.neutralRate)}</span><span className="text-rose-300">سلبي {pct(person.negativeRate)}</span><span className="text-slate-500">{person.reviews} تقييمات</span><span className="text-slate-300">{person.average.toFixed(2)}/4</span></div>
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-bold"><span className="text-emerald-300">إيجابي فعلي {pct(person.positiveRate)}</span><span className="text-slate-500">محايد {pct(person.neutralRate)}</span><span className="text-rose-300">سلبي فعلي {pct(person.negativeRate)}</span><span className="text-slate-500">{person.reviews} تقييمات</span><span className="text-slate-300">{person.average.toFixed(2)}/4</span></div>
                   {(person.positiveTags[0] || person.negativeTags[0]) ? <div className="mt-2 flex flex-wrap gap-1.5">{person.positiveTags[0] ? <TagPill tag={person.positiveTags[0][0]} count={person.positiveTags[0][1]} tone="positive" /> : null}{person.negativeTags[0] ? <TagPill tag={person.negativeTags[0][0]} count={person.negativeTags[0][1]} tone="negative" /> : null}</div> : null}
                 </button>
               ))}

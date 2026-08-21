@@ -40,6 +40,7 @@ import ParticipantDetailModal from "./ParticipantDetailModal"
 import PairAnalysisModal from "./PairAnalysisModalPro"
 import WhatsappMessageModal from "./WhatsappMessageModal"
 import { HistoryConfidenceBadges, HistoryConfidencePanel } from "./HistoryConfidenceBadge"
+import HistoryReviewQueue, { type HistoryReviewItem } from "./HistoryReviewQueue"
 import {
   buildScoreLookup,
   buildSwapPlans,
@@ -239,11 +240,54 @@ export default function MatchControlCenterModal({
   const [analysisOpen, setAnalysisOpen] = useState(false)
   const [analysisData, setAnalysisData] = useState<{ a: any; b: any; pair: any } | null>(null)
   const [busyAction, setBusyAction] = useState<string | null>(null)
+  const [reviewQueueOpen, setReviewQueueOpen] = useState(false)
+  const [reviewedHistoryIds, setReviewedHistoryIds] = useState<Set<string>>(new Set())
 
   const scoreLookup = useMemo(() => buildScoreLookup(calculatedPairs, results), [calculatedPairs, results])
   const pairs = useMemo(() => buildUniquePairs(results), [results])
   const isTestMode = useMemo(() => testMode || results.some(result => result.is_test_mode === true), [results, testMode])
   const lockedKeys = useMemo(() => new Set(lockedMatches.map(lock => pairKey(Number(lock.participant1_number), Number(lock.participant2_number)))), [lockedMatches])
+  const historyReviewAvailable = useMemo(() => calculatedPairs.some(pair => pair?.history_confidence_enabled === true), [calculatedPairs])
+  const historyReviewQueue = useMemo<HistoryReviewItem[]>(() => {
+    const currentPairs = new Map(pairs.filter(pair => pair.b != null).map(pair => [pairKey(pair.a, pair.b!), pair]))
+    const queued = new Map<string, HistoryReviewItem>()
+    for (const pairData of calculatedPairs) {
+      const type = pairData?.history_review_recommendation
+      if (type !== "lock" && type !== "review" && type !== "exclude") continue
+      const first = Number(pairData.participant_a)
+      const second = Number(pairData.participant_b)
+      if (!Number.isInteger(first) || !Number.isInteger(second) || first <= 0 || second <= 0 || first === second) continue
+      const a = Math.min(first, second)
+      const b = Math.max(first, second)
+      const key = pairKey(a, b)
+      const id = `${type}:${key}`
+      if (reviewedHistoryIds.has(id) || (type === "lock" && lockedKeys.has(key))) continue
+      const existing = currentPairs.get(key)
+      const pair: MatchControlPair = existing || {
+        key,
+        a,
+        b,
+        score: Number.isFinite(Number(pairData.compatibility_score)) ? Math.round(Number(pairData.compatibility_score)) : null,
+        round: Number(pairData.round || 1),
+        result: {
+          assigned_number: a,
+          partner_assigned_number: b,
+          compatibility_score: Math.round(Number(pairData.compatibility_score || 0)),
+          round: Number(pairData.round || 1),
+        },
+        organizerMatch: false,
+      }
+      const previous = queued.get(id)
+      if (!previous || Number(pairData.combined_history_confidence || 0) > Number(previous.pairData?.combined_history_confidence || 0)) {
+        queued.set(id, { id, type, pair, pairData })
+      }
+    }
+    const priority = { exclude: 0, review: 1, lock: 2 }
+    return [...queued.values()].sort((left, right) => (
+      priority[left.type] - priority[right.type]
+      || Number(right.pairData?.combined_history_confidence || 0) - Number(left.pairData?.combined_history_confidence || 0)
+    ))
+  }, [calculatedPairs, lockedKeys, pairs, reviewedHistoryIds])
   const partnerMap = useMemo(() => {
     const map = new Map<number, number>()
     pairs.forEach(pair => { if (pair.b != null) { map.set(pair.a, pair.b); map.set(pair.b, pair.a) } })
@@ -323,6 +367,11 @@ export default function MatchControlCenterModal({
   useEffect(() => {
     setLocalHistory(matchHistory)
   }, [matchHistory])
+
+  useEffect(() => {
+    setReviewedHistoryIds(new Set())
+    setReviewQueueOpen(false)
+  }, [currentEventId])
 
   const selectedPair = useMemo(() => pairs.find(pair => pair.key === selectedKey) || null, [pairs, selectedKey])
   const pairMeetsMatchingCriteria = useCallback((a: number, b: number) => {
@@ -438,6 +487,13 @@ export default function MatchControlCenterModal({
           history_badges: pair.history_badges,
           history_explanations: pair.history_explanations,
           historical_evidence: pair.historical_evidence,
+          history_direction_a_to_b: pair.history_direction_a_to_b,
+          history_direction_b_to_a: pair.history_direction_b_to_a,
+          mutual_interest: pair.mutual_interest,
+          one_sided_interest: pair.one_sided_interest,
+          conflicting_interest: pair.conflicting_interest,
+          history_review_recommendation: pair.history_review_recommendation,
+          history_review_reason: pair.history_review_reason,
           never_pair_recommended: pair.never_pair_recommended,
           history_hard_blocked: pair.history_hard_blocked,
         }
@@ -462,42 +518,64 @@ export default function MatchControlCenterModal({
     setWhatsappPerson(people.get(number) || { assigned_number: number, name: getPersonName(undefined, number) })
   }
 
-  const toggleLock = async (pair: MatchControlPair) => {
-    if (isTestMode) return toast.error("Test locks mirror admin3 and are read-only")
-    if (pair.b == null) return
+  const toggleLock = async (pair: MatchControlPair, reason = "Match Control Center") => {
+    if (isTestMode) { toast.error("Test locks mirror admin3 and are read-only"); return false }
+    if (pair.b == null) return false
     const key = pairKey(pair.a, pair.b)
     setBusyAction(`lock-${key}`)
     try {
       const existing = lockedMatches.find(lock => pairKey(Number(lock.participant1_number), Number(lock.participant2_number)) === key)
       const body = existing
         ? { action: "remove-locked-match", id: existing.id }
-        : { action: "add-locked-match", participant1: pair.a, participant2: pair.b, compatibilityScore: pair.score || 0, round: pair.round, reason: "Match Control Center" }
+        : { action: "add-locked-match", participant1: pair.a, participant2: pair.b, compatibilityScore: pair.score || 0, round: pair.round, reason }
       const response = await fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || "تعذر تحديث التثبيت")
       await fetchControlData()
       toast.success(existing ? "تم إلغاء تثبيت المطابقة" : "تم تثبيت المطابقة")
+      return true
     } catch (error: any) {
       toast.error(error.message || "تعذر تحديث التثبيت")
+      return false
     } finally {
       setBusyAction(null)
     }
   }
 
-  const excludePair = async (pair: MatchControlPair) => {
-    if (isTestMode) return toast.error("Test results cannot create permanent exclusions")
-    if (pair.b == null || !confirm(`استبعاد الزوج #${pair.a} ↔ #${pair.b} من المطابقات المستقبلية؟`)) return
+  const excludePair = async (pair: MatchControlPair, reason = "Match Control Center") => {
+    if (isTestMode) { toast.error("Test results cannot create permanent exclusions"); return false }
+    if (pair.b == null || !confirm(`استبعاد الزوج #${pair.a} ↔ #${pair.b} من المطابقات المستقبلية؟`)) return false
     setBusyAction(`exclude-${pair.key}`)
     try {
-      const response = await fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "add-excluded-pair", participant1: pair.a, participant2: pair.b }) })
+      const response = await fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "add-excluded-pair", participant1: pair.a, participant2: pair.b, reason }) })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || "فشل الاستبعاد")
       toast.success("تم استبعاد الزوج من المطابقات المستقبلية")
+      return true
     } catch (error: any) {
       toast.error(error.message || "فشل الاستبعاد")
+      return false
     } finally {
       setBusyAction(null)
     }
+  }
+
+  const markHistoryReviewed = (item: HistoryReviewItem) => {
+    setReviewedHistoryIds(current => new Set(current).add(item.id))
+  }
+
+  const openHistoryReviewAnalysis = (item: HistoryReviewItem) => {
+    setReviewQueueOpen(false)
+    openAnalysis(item.pair)
+  }
+
+  const confirmHistoryLock = async (item: HistoryReviewItem) => {
+    if (!confirm(`تثبيت الزوج #${item.pair.a} ↔ #${item.pair.b} بعد مراجعة الأدلة؟`)) return
+    if (await toggleLock(item.pair, "Historical confidence review: organizer confirmed suggested lock")) markHistoryReviewed(item)
+  }
+
+  const confirmHistoryExclusion = async (item: HistoryReviewItem) => {
+    if (await excludePair(item.pair, "Historical confidence review: organizer confirmed suggested exclusion")) markHistoryReviewed(item)
   }
 
   const excludePerson = async (number: number, permanent = false) => {
@@ -793,6 +871,12 @@ export default function MatchControlCenterModal({
               </div>
               <p className="mt-0.5 truncate text-[11px] text-slate-400 sm:text-xs">{pairs.length} زوج/حالة · {people.size} مشارك متاح · الفعالية #{currentEventId}</p>
             </div>
+            {historyReviewAvailable && (
+              <button onClick={() => setReviewQueueOpen(true)} className="hidden items-center gap-1.5 rounded-xl border border-cyan-400/25 bg-cyan-500/10 px-3 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-500/20 sm:flex">
+                <ShieldAlert className="h-4 w-4" /> مراجعة الثقة
+                <span className="rounded-full bg-cyan-400 px-1.5 py-0.5 text-[9px] text-slate-950">{historyReviewQueue.length}</span>
+              </button>
+            )}
             {lastUndo && !isTestMode && (
               <button onClick={undoLast} disabled={applying} className="hidden items-center gap-1.5 rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200 hover:bg-amber-500/20 disabled:opacity-50 sm:flex">
                 <Undo2 className="h-4 w-4" /> تراجع
@@ -813,6 +897,13 @@ export default function MatchControlCenterModal({
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               <span>محاكاة وضع الاختبار: هذه الأزواج المثبتة مؤقتة، لا تدخل في سجل المطابقات السابقة، وتُحذف عند إنهاء الاختبار. إجراءات التبديل والاستبعاد والمراسلة الدائمة معطلة هنا.</span>
             </div>
+          )}
+
+          {historyReviewAvailable && (
+            <button onClick={() => setReviewQueueOpen(true)} className="mt-3 flex w-full items-center justify-between rounded-2xl border border-cyan-400/20 bg-cyan-500/[0.07] px-3 py-2.5 text-right sm:hidden">
+              <span className="flex items-center gap-2 text-[11px] font-black text-cyan-100"><ShieldAlert className="h-4 w-4" />طابور مراجعة الثقة التاريخية</span>
+              <span className="rounded-full bg-cyan-400 px-2 py-0.5 text-[10px] font-black text-slate-950">{historyReviewQueue.length}</span>
+            </button>
           )}
 
           <div className="mt-3 grid grid-cols-4 gap-1.5 sm:gap-2">
@@ -1021,6 +1112,19 @@ export default function MatchControlCenterModal({
         </footer>
       </div>
 
+      {reviewQueueOpen && (
+        <HistoryReviewQueue
+          items={historyReviewQueue}
+          people={people}
+          isTestMode={isTestMode}
+          busyAction={busyAction}
+          onClose={() => setReviewQueueOpen(false)}
+          onOpenAnalysis={openHistoryReviewAnalysis}
+          onConfirmLock={confirmHistoryLock}
+          onConfirmExclude={confirmHistoryExclusion}
+          onDismiss={markHistoryReviewed}
+        />
+      )}
       <ParticipantDetailModal isOpen={detailParticipant != null} onClose={() => setDetailParticipant(null)} participant={detailParticipant} matches={detailMatches} matchType={matchType} swapMode={false} onSwapSelect={async () => {}} lockedMatches={lockedMatches} cohostTheme={cohostTheme} />
       <WhatsappMessageModal participant={whatsappPerson} isOpen={whatsappPerson != null} onClose={() => setWhatsappPerson(null)} cohostTheme={cohostTheme} allParticipants={Array.from(people.values())} />
       <PairAnalysisModal open={analysisOpen} onOpenChange={setAnalysisOpen} a={analysisData?.a} b={analysisData?.b} pair={analysisData?.pair} historyA={analysisData?.a?.assigned_number ? localHistory[analysisData.a.assigned_number] || [] : []} historyB={analysisData?.b?.assigned_number ? localHistory[analysisData.b.assigned_number] || [] : []} currentEventId={currentEventId} />

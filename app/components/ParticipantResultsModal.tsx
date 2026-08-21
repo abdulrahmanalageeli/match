@@ -875,6 +875,11 @@ export default function ParticipantResultsModal({
         historical_evidence: pair.historical_evidence,
         history_direction_a_to_b: pair.history_direction_a_to_b,
         history_direction_b_to_a: pair.history_direction_b_to_a,
+        mutual_interest: pair.mutual_interest,
+        one_sided_interest: pair.one_sided_interest,
+        conflicting_interest: pair.conflicting_interest,
+        history_review_recommendation: pair.history_review_recommendation,
+        history_review_reason: pair.history_review_reason,
         never_pair_recommended: pair.never_pair_recommended,
         history_hard_blocked: pair.history_hard_blocked,
       }

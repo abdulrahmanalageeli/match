@@ -20,8 +20,9 @@ function finite(value: unknown): number | null {
 
 function badgeIcon(code?: string) {
   if (code === "never_pair") return Ban
-  if (code === "mutual_like" || code === "positive_history") return Heart
-  if (code === "least_ranked" || code === "negative_history" || code === "predicted_risk") return AlertTriangle
+  if (code === "mutual_interest" || code === "mutual_like" || code === "positive_history") return Heart
+  if (code === "conflicting_interest") return ShieldAlert
+  if (code === "one_sided_interest" || code === "least_ranked" || code === "negative_history" || code === "predicted_risk") return AlertTriangle
   if (code === "predicted_good") return Brain
   return History
 }
@@ -34,7 +35,9 @@ export function HistoryConfidenceBadges({ pair, compact = false }: Props) {
   const predictedScore = finite(pair.predictive_outcome_score)
   const predictedConfidence = finite(pair.predictive_confidence) || 0
   const primary = badges.find((badge: any) => badge?.code === "never_pair")
-    || badges.find((badge: any) => badge?.code === "mutual_like")
+    || badges.find((badge: any) => badge?.code === "conflicting_interest")
+    || badges.find((badge: any) => badge?.code === "mutual_interest" || badge?.code === "mutual_like")
+    || badges.find((badge: any) => badge?.code === "one_sided_interest")
     || badges[0]
   const Icon = badgeIcon(primary?.code)
   const explanations = Array.isArray(pair.history_explanations) ? pair.history_explanations : []
@@ -69,6 +72,14 @@ export function HistoryConfidencePanel({ pair }: { pair?: any }) {
   const evidence = pair.historical_evidence || {}
   const badges = Array.isArray(pair.history_badges) ? pair.history_badges : []
   const explanations = Array.isArray(pair.history_explanations) ? pair.history_explanations : []
+  const averageRaterReliability = finite(evidence.average_rater_reliability)
+  const recommendation = pair.history_review_recommendation === "exclude"
+    ? { label: "اقتراح استبعاد · يحتاج موافقة", className: "border-red-400/30 bg-red-500/10 text-red-200" }
+    : pair.history_review_recommendation === "review"
+      ? { label: "مراجعة بشرية موصى بها", className: "border-amber-400/30 bg-amber-500/10 text-amber-200" }
+      : pair.history_review_recommendation === "lock"
+        ? { label: "اقتراح تثبيت · يحتاج موافقة", className: "border-emerald-400/30 bg-emerald-500/10 text-emerald-200" }
+        : null
   const hasSignal = directScore != null || predictedScore != null || badges.length > 0
   if (!hasSignal) return null
 
@@ -97,6 +108,13 @@ export function HistoryConfidencePanel({ pair }: { pair?: any }) {
         <Metric label="تعديل الأولوية" value={`${adjustment > 0 ? "+" : ""}${adjustment}`} detail={pair.history_hard_blocked ? "محظور من الاختيار" : "حد أقصى مضبوط"} />
       </div>
 
+      {recommendation && (
+        <div className={`mt-3 rounded-xl border px-3 py-2 text-[10px] font-bold leading-5 ${recommendation.className}`}>
+          <span className="font-black">{recommendation.label}</span>
+          {pair.history_review_reason && <span className="mr-1 opacity-80">— {pair.history_review_reason}</span>}
+        </div>
+      )}
+
       <div className="mt-3 grid gap-2 md:grid-cols-[1.35fr_.65fr]">
         <div className="rounded-xl border border-white/8 bg-black/20 p-2.5">
           <p className="flex items-center gap-1 text-[9px] font-black text-slate-300"><Sparkles className="h-3 w-3 text-cyan-300" /> لماذا؟</p>
@@ -109,6 +127,7 @@ export function HistoryConfidencePanel({ pair }: { pair?: any }) {
           <p>{Number(evidence.total || 0)} مباشر · {Number(evidence.events || 0)} فعاليات</p>
           <p>{Number(evidence.ranking || 0)} ترتيب · {Number(evidence.pair_feedback || 0)} تقييم ثنائي</p>
           <p>{Number(evidence.group_feedback || 0)} تقييم مجموعة · {Number(evidence.predictor_neighbors || 0)} جيران تنبؤ</p>
+          {averageRaterReliability != null && <p>متوسط موثوقية المقيمين: {Math.round(averageRaterReliability)}%</p>}
         </div>
       </div>
     </section>

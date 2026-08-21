@@ -1,5 +1,5 @@
 export const HISTORY_CONFIDENCE_MIN_EVENT_ID = 21
-export const HISTORY_CONFIDENCE_MODEL_VERSION = '2026-08-21-v1'
+export const HISTORY_CONFIDENCE_MODEL_VERSION = '2026-08-21-v2-rater-reliability'
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, Number(value) || 0))
 const clamp01 = value => clamp(value, 0, 1)
@@ -9,6 +9,7 @@ const POSITIVE_GROUP_TAGS = new Set(['fun', 'comfortable', 'good_listener', 'res
 const NEGATIVE_GROUP_TAGS = new Set(['hard_to_connect', 'interrupts', 'dominates', 'disrespectful'])
 const GROUP_EXPERIENCE_VALUE = Object.freeze({ great: 0.9, good: 0.45, neutral: 0, uncomfortable: -1 })
 const EXCLUDED_PROFILE_KEY = /(name|phone|email|contact|whatsapp|token|receipt|payment|timestamp|created|updated|organizer|note|feedback|photo|image|nationality|gender|age|description)/i
+const DEFAULT_RATER_RELIABILITY = 0.82
 
 function asNumber(value) {
   const number = Number(value)
@@ -119,11 +120,12 @@ function addObservation(directionMap, observation) {
     source: observation.source,
     value,
     weight,
+    raterReliability: clamp01(observation.raterReliability ?? DEFAULT_RATER_RELIABILITY),
     flags: observation.flags || [],
   })
 }
 
-function addRankingObservations(directionMap, rows, currentEventId) {
+function collectRankingBallots(rows, currentEventId) {
   const ballots = new Map()
   for (const row of rows || []) {
     const eventId = Number(row?.event_id)
@@ -133,15 +135,21 @@ function addRankingObservations(directionMap, rows, currentEventId) {
     if (row?.auto_saved || eventId < HISTORY_CONFIDENCE_MIN_EVENT_ID || eventId >= currentEventId) continue
     if (!Number.isInteger(ranker) || !Number.isInteger(target) || !Number.isFinite(rank) || rank < 1) continue
     const key = `${eventId}:${ranker}`
-    if (!ballots.has(key)) ballots.set(key, { eventId, ranker, entries: [] })
-    ballots.get(key).entries.push({ target, rank })
+    if (!ballots.has(key)) ballots.set(key, { eventId, ranker, entries: new Map() })
+    ballots.get(key).entries.set(target, { target, rank })
   }
+  return ballots
+}
 
+function addRankingObservations(directionMap, rows, currentEventId, reliabilityMap) {
+  const ballots = collectRankingBallots(rows, currentEventId)
   for (const ballot of ballots.values()) {
-    if (ballot.entries.length < 2) continue
-    const maxRank = Math.max(...ballot.entries.map(entry => entry.rank))
+    const entries = [...ballot.entries.values()]
+    if (entries.length < 2) continue
+    const maxRank = Math.max(...entries.map(entry => entry.rank))
     if (maxRank <= 1) continue
-    for (const entry of ballot.entries) {
+    const raterReliability = reliabilityMap.get(ballot.ranker)?.score ?? DEFAULT_RATER_RELIABILITY
+    for (const entry of entries) {
       const percentile = clamp01((entry.rank - 1) / (maxRank - 1))
       const firstPlace = entry.rank === 1
       const lastPlace = entry.rank === maxRank
@@ -151,7 +159,8 @@ function addRankingObservations(directionMap, rows, currentEventId) {
         eventId: ballot.eventId,
         source: 'ranking',
         value: 1 - (2 * percentile),
-        weight: recencyWeight(currentEventId, ballot.eventId),
+        weight: recencyWeight(currentEventId, ballot.eventId) * raterReliability,
+        raterReliability,
         flags: [firstPlace ? 'first_place' : null, lastPlace ? 'last_place' : null].filter(Boolean),
       })
     }
@@ -171,11 +180,11 @@ function feedbackSignal(feedback) {
   }
   for (const key of ['conversationQuality', 'personalConnection']) {
     const rating = asNumber(feedback[key])
-    if (rating != null && rating >= 1 && rating <= 5) parts.push({ value: (rating - 3) / 2, weight: 0.1 })
+    if (rating != null && rating >= 1 && rating <= 5 && rating !== 3) parts.push({ value: (rating - 3) / 2, weight: 0.1 })
   }
   for (const key of ['sharedInterests', 'comfortLevel', 'communicationStyle', 'wouldMeetAgain', 'overallExperience']) {
     const rating = asNumber(feedback[key])
-    if (rating != null && rating >= 1 && rating <= 5) parts.push({ value: (rating - 3) / 2, weight: 0.04 })
+    if (rating != null && rating >= 1 && rating <= 5 && rating !== 3) parts.push({ value: (rating - 3) / 2, weight: 0.04 })
   }
   if (!parts.length) return null
   const denominator = parts.reduce((sum, part) => sum + part.weight, 0)
@@ -191,7 +200,8 @@ function feedbackSignal(feedback) {
   }
 }
 
-function addPairFeedbackObservations(directionMap, rows, currentEventId) {
+function collectPairFeedbackSignals(rows, currentEventId) {
+  const records = []
   for (const row of rows || []) {
     const eventId = Number(row?.event_id)
     const ranker = Number(row?.participant_number)
@@ -199,21 +209,103 @@ function addPairFeedbackObservations(directionMap, rows, currentEventId) {
     for (const phase of [2, 3]) {
       const target = Number(row?.[`phase${phase}_partner`])
       const signal = feedbackSignal(row?.[`phase${phase}_feedback`])
-      if (!Number.isInteger(target) || target <= 0 || target === 9999 || !signal) continue
-      addObservation(directionMap, {
-        ranker,
-        target,
-        eventId,
-        source: 'pair_feedback',
-        value: signal.value,
-        weight: 1.4 * (0.65 + (0.35 * signal.completeness)) * recencyWeight(currentEventId, eventId),
-        flags: signal.flags,
-      })
+      if (!Number.isInteger(target) || target <= 0 || target === 9999) continue
+      records.push({ eventId, ranker, target, phase, signal, hasFeedback: !!row?.[`phase${phase}_feedback`] })
     }
+  }
+  return records
+}
+
+export function buildRaterReliabilityProfiles({ currentEventId, rankingRows = [], matchFeedbackRows = [] } = {}) {
+  const eventId = Number(currentEventId)
+  const ballots = collectRankingBallots(rankingRows, eventId)
+  const feedbackRecords = collectPairFeedbackSignals(matchFeedbackRows, eventId)
+  const expectedBallotSize = new Map()
+  const rankSignalByDirection = new Map()
+  const stats = new Map()
+  const ensure = ranker => {
+    if (!stats.has(ranker)) stats.set(ranker, { ballotCompleteness: [], feedbackCompleteness: [], consistency: [], feedbackSignals: [], feedbackObjects: 0 })
+    return stats.get(ranker)
+  }
+
+  for (const ballot of ballots.values()) {
+    expectedBallotSize.set(ballot.eventId, Math.max(expectedBallotSize.get(ballot.eventId) || 0, ballot.entries.size))
+  }
+  for (const ballot of ballots.values()) {
+    const entries = [...ballot.entries.values()]
+    const expected = expectedBallotSize.get(ballot.eventId) || entries.length
+    ensure(ballot.ranker).ballotCompleteness.push(clamp01(entries.length / Math.max(2, expected)))
+    const maxRank = Math.max(...entries.map(entry => entry.rank), 1)
+    if (entries.length < 2 || maxRank <= 1) continue
+    for (const entry of entries) {
+      rankSignalByDirection.set(`${ballot.eventId}:${ballot.ranker}>${entry.target}`, 1 - (2 * clamp01((entry.rank - 1) / (maxRank - 1))))
+    }
+  }
+
+  for (const record of feedbackRecords) {
+    const rater = ensure(record.ranker)
+    if (record.hasFeedback) rater.feedbackObjects += 1
+    if (!record.signal) continue
+    rater.feedbackCompleteness.push(record.signal.completeness)
+    rater.feedbackSignals.push(record.signal.value)
+    const rankingSignal = rankSignalByDirection.get(`${record.eventId}:${record.ranker}>${record.target}`)
+    if (rankingSignal != null) rater.consistency.push(clamp01(1 - (Math.abs(rankingSignal - record.signal.value) / 2)))
+  }
+
+  const average = (values, fallback) => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : fallback
+  const profiles = new Map()
+  for (const [ranker, rater] of stats.entries()) {
+    const ballotCompleteness = average(rater.ballotCompleteness, 0.75)
+    const feedbackCompleteness = average(rater.feedbackCompleteness, 0.75)
+    const rankingFeedbackConsistency = average(rater.consistency, 0.75)
+    const nonDefaultRate = rater.feedbackObjects ? clamp01(rater.feedbackSignals.length / rater.feedbackObjects) : 0.75
+    const extremeRate = rater.feedbackSignals.length
+      ? rater.feedbackSignals.filter(value => Math.abs(value) >= 0.8).length / rater.feedbackSignals.length
+      : 0
+    const extremePenalty = rater.feedbackSignals.length >= 4 && extremeRate > 0.75
+      ? 1 - Math.min(0.18, (extremeRate - 0.75) * 0.72)
+      : 1
+    const rawQuality = (
+      (0.3 * ballotCompleteness)
+      + (0.3 * rankingFeedbackConsistency)
+      + (0.25 * feedbackCompleteness)
+      + (0.15 * nonDefaultRate)
+    )
+    const score = clamp((0.55 + (0.45 * rawQuality)) * extremePenalty, 0.55, 1)
+    profiles.set(ranker, {
+      score,
+      ballot_completeness: ballotCompleteness,
+      ranking_feedback_consistency: rankingFeedbackConsistency,
+      feedback_completeness: feedbackCompleteness,
+      non_default_feedback_rate: nonDefaultRate,
+      extreme_rating_rate: extremeRate,
+      ballots: rater.ballotCompleteness.length,
+      feedbacks: rater.feedbackSignals.length,
+      consistency_samples: rater.consistency.length,
+    })
+  }
+  return profiles
+}
+
+function addPairFeedbackObservations(directionMap, rows, currentEventId, reliabilityMap) {
+  for (const record of collectPairFeedbackSignals(rows, currentEventId)) {
+    const { eventId, ranker, target, signal } = record
+    if (!signal) continue
+    const raterReliability = reliabilityMap.get(ranker)?.score ?? DEFAULT_RATER_RELIABILITY
+    addObservation(directionMap, {
+      ranker,
+      target,
+      eventId,
+      source: 'pair_feedback',
+      value: signal.value,
+      weight: 1.4 * (0.65 + (0.35 * signal.completeness)) * recencyWeight(currentEventId, eventId) * raterReliability,
+      raterReliability,
+      flags: signal.flags,
+    })
   }
 }
 
-function addGroupFeedbackObservations(directionMap, rows, currentEventId) {
+function addGroupFeedbackObservations(directionMap, rows, currentEventId, reliabilityMap) {
   for (const row of rows || []) {
     const eventId = Number(row?.event_id)
     if (row?.is_test_mode || eventId < HISTORY_CONFIDENCE_MIN_EVENT_ID || eventId >= currentEventId) continue
@@ -223,13 +315,16 @@ function addGroupFeedbackObservations(directionMap, rows, currentEventId) {
     const positiveTags = tags.filter(tag => POSITIVE_GROUP_TAGS.has(tag)).length
     const negativeTags = tags.filter(tag => NEGATIVE_GROUP_TAGS.has(tag)).length
     const value = clamp(GROUP_EXPERIENCE_VALUE[experience] + (0.08 * positiveTags) - (0.08 * negativeTags), -1, 1)
+    const ranker = Number(row?.reviewer_number)
+    const raterReliability = reliabilityMap.get(ranker)?.score ?? DEFAULT_RATER_RELIABILITY
     addObservation(directionMap, {
-      ranker: row?.reviewer_number,
+      ranker,
       target: row?.member_number,
       eventId,
       source: 'group_feedback',
       value,
-      weight: 0.8 * recencyWeight(currentEventId, eventId),
+      weight: 0.8 * recencyWeight(currentEventId, eventId) * raterReliability,
+      raterReliability,
       flags: [experience === 'uncomfortable' ? 'uncomfortable' : null, experience === 'great' ? 'great_group_experience' : null].filter(Boolean),
     })
   }
@@ -242,6 +337,7 @@ function finalizeDirection(entry) {
   const sources = new Set(entry.observations.map(observation => observation.source))
   const flags = new Set(entry.observations.flatMap(observation => observation.flags || []))
   const events = new Set(entry.observations.map(observation => observation.eventId))
+  const averageRaterReliability = entry.observations.reduce((sum, observation) => sum + (observation.raterReliability * observation.weight), 0) / totalWeight
   const confidence = clamp01((1 - Math.exp(-totalWeight / 2.4)) * (sources.size > 1 ? 1 : 0.85))
   const negativeKinds = new Set([
     flags.has('last_place') ? 'last_place' : null,
@@ -259,6 +355,7 @@ function finalizeDirection(entry) {
     sources,
     flags,
     events,
+    averageRaterReliability,
     corroboratedNegative: signal <= -0.35 && negativeKinds.size >= 2,
   }
 }
@@ -276,6 +373,7 @@ function directionSummary(direction) {
     wants_connection: direction.flags.has('want_connect'),
     rejected_connection: direction.flags.has('do_not_connect'),
     uncomfortable_group: direction.flags.has('uncomfortable'),
+    rater_reliability: round1(direction.averageRaterReliability * 100),
   }
 }
 
@@ -299,6 +397,11 @@ function makeDisabledAnalyzer(reason = 'not_applicable') {
         history_badges: [],
         history_explanations: [],
         historical_evidence: { total: 0, ranking: 0, pair_feedback: 0, group_feedback: 0, events: 0, predictor_neighbors: 0 },
+        mutual_interest: false,
+        one_sided_interest: false,
+        conflicting_interest: false,
+        history_review_recommendation: null,
+        history_review_reason: null,
         never_pair_recommended: false,
       }
     },
@@ -322,10 +425,15 @@ export function createHistoricalMatchAnalyzer({
     if (Number.isInteger(number) && number > 0) profileMap.set(number, extractSurveyProfile(participant))
   }
 
+  const raterReliability = buildRaterReliabilityProfiles({
+    currentEventId: eventId,
+    rankingRows,
+    matchFeedbackRows,
+  })
   const rawDirections = new Map()
-  addRankingObservations(rawDirections, rankingRows, eventId)
-  addPairFeedbackObservations(rawDirections, matchFeedbackRows, eventId)
-  addGroupFeedbackObservations(rawDirections, groupFeedbackRows, eventId)
+  addRankingObservations(rawDirections, rankingRows, eventId, raterReliability)
+  addPairFeedbackObservations(rawDirections, matchFeedbackRows, eventId, raterReliability)
+  addGroupFeedbackObservations(rawDirections, groupFeedbackRows, eventId, raterReliability)
 
   const directions = new Map()
   for (const [key, entry] of rawDirections.entries()) {
@@ -402,6 +510,10 @@ export function createHistoricalMatchAnalyzer({
       rankings: rankingRows.length,
       groupFeedback: groupFeedbackRows.length,
       pairFeedback: matchFeedbackRows.length,
+      raters: raterReliability.size,
+      averageRaterReliability: raterReliability.size
+        ? round1(([...raterReliability.values()].reduce((sum, profile) => sum + profile.score, 0) / raterReliability.size) * 100)
+        : round1(DEFAULT_RATER_RELIABILITY * 100),
       sourceErrors,
     },
     analyzePair(participantA, participantB) {
@@ -430,7 +542,16 @@ export function createHistoricalMatchAnalyzer({
         ? clamp01((1 - Math.exp(-predictionWeight / 1.15)) * (predictedDirections.length === 2 ? 1 : 0.78))
         : 0
 
-      const mutualLike = !!(aToB && bToA && aToB.signal >= 0.45 && bToA.signal >= 0.45 && aToB.confidence >= 0.2 && bToA.confidence >= 0.2)
+      const positiveA = !!(aToB && aToB.signal >= 0.35 && aToB.confidence >= 0.15)
+      const positiveB = !!(bToA && bToA.signal >= 0.35 && bToA.confidence >= 0.15)
+      const negativeA = !!(aToB && aToB.signal <= -0.35 && aToB.confidence >= 0.15)
+      const negativeB = !!(bToA && bToA.signal <= -0.35 && bToA.confidence >= 0.15)
+      const mutualInterest = positiveA && positiveB
+      const conflictingInterest = (positiveA && negativeB) || (positiveB && negativeA)
+      const oneSidedInterest = !conflictingInterest && !mutualInterest && (
+        (positiveA && (!bToA || Math.abs(bToA.signal) < 0.2))
+        || (positiveB && (!aToB || Math.abs(aToB.signal) < 0.2))
+      )
       const mutualNegative = !!(aToB && bToA && aToB.signal <= -0.5 && bToA.signal <= -0.5 && aToB.confidence >= 0.2 && bToA.confidence >= 0.2)
       // Old last-place flags must not permanently veto a pair after stronger,
       // newer positive evidence has moved both directional signals upward.
@@ -443,6 +564,22 @@ export function createHistoricalMatchAnalyzer({
       const corroboratedNegative = !!(aToB?.corroboratedNegative || bToA?.corroboratedNegative)
       const anyLastPlace = !!(aToB?.flags.has('last_place') || bToA?.flags.has('last_place'))
       const neverPair = mutualNegative || mutualLastPlace || corroboratedNegative
+      const reviewRecommendation = neverPair
+        ? 'exclude'
+        : conflictingInterest || oneSidedInterest
+          ? 'review'
+          : mutualInterest && directConfidence >= 0.25
+            ? 'lock'
+            : null
+      const reviewReason = reviewRecommendation === 'exclude'
+        ? 'إشارات سلبية موثّقة من أكثر من مصدر؛ راجع الأدلة قبل إنشاء استبعاد دائم.'
+        : reviewRecommendation === 'review'
+          ? conflictingInterest
+            ? 'الطرفان أعطيا إشارات متعارضة؛ يحتاج الزوج مراجعة بشرية.'
+            : 'ظهر اهتمام قوي من طرف واحد دون إشارة مقابلة كافية.'
+          : reviewRecommendation === 'lock'
+            ? 'اهتمام إيجابي قوي ومتبادل مع ثقة تاريخية كافية.'
+            : null
 
       const directAdjustment = directSignal == null ? 0 : directSignal * 12 * directConfidence
       const predictionAdjustment = predictionSignal == null
@@ -461,7 +598,9 @@ export function createHistoricalMatchAnalyzer({
 
       const badges = []
       if (neverPair) badges.push({ code: 'never_pair', label_ar: 'لا تجمعهما', tone: 'danger' })
-      else if (mutualLike) badges.push({ code: 'mutual_like', label_ar: 'إعجاب متبادل سابق', tone: 'positive' })
+      else if (conflictingInterest) badges.push({ code: 'conflicting_interest', label_ar: 'تقييمات متعارضة', tone: 'danger' })
+      else if (mutualInterest) badges.push({ code: 'mutual_interest', label_ar: 'اهتمام متبادل', tone: 'positive' })
+      else if (oneSidedInterest) badges.push({ code: 'one_sided_interest', label_ar: 'اهتمام من طرف واحد', tone: 'warning' })
       if (anyLastPlace) badges.push({ code: 'least_ranked', label_ar: 'ترتيب أخير سابق', tone: 'warning' })
       if (!neverPair && directSignal != null && directSignal >= 0.35 && directConfidence >= 0.2) badges.push({ code: 'positive_history', label_ar: 'سجل إيجابي', tone: 'positive' })
       if (!neverPair && directSignal != null && directSignal <= -0.3 && directConfidence >= 0.2) badges.push({ code: 'negative_history', label_ar: 'سجل سلبي', tone: 'warning' })
@@ -469,7 +608,9 @@ export function createHistoricalMatchAnalyzer({
       if (predictionSignal != null && predictiveConfidence >= 0.12 && predictionSignal <= -0.3) badges.push({ code: 'predicted_risk', label_ar: 'توقع ذكي حذر', tone: 'warning' })
 
       const explanations = []
-      if (mutualLike) explanations.push('سبق أن أظهر الطرفان تفضيلاً إيجابياً متبادلاً.')
+      if (mutualInterest) explanations.push('سبق أن أظهر الطرفان اهتماماً إيجابياً متبادلاً.')
+      if (conflictingInterest) explanations.push('أظهر طرف اهتماماً إيجابياً بينما أعطى الطرف الآخر إشارة سلبية قوية.')
+      else if (oneSidedInterest) explanations.push('أظهر طرف اهتماماً واضحاً دون وجود اهتمام مقابل موثّق حتى الآن.')
       if (mutualNegative) explanations.push('توجد إشارات سلبية قوية ومتبادلة من الطرفين.')
       else if (corroboratedNegative) explanations.push('تكرر رفض هذا الاقتران في مصدرين مستقلين على الأقل.')
       else if (anyLastPlace) explanations.push('وضع أحد الطرفين الآخر في آخر ترتيب سابق؛ خُفّضت الأولوية دون حظر تلقائي.')
@@ -489,6 +630,10 @@ export function createHistoricalMatchAnalyzer({
         }
       }
       const predictorNeighbours = predictedDirections.reduce((sum, prediction) => sum + prediction.neighbourCount, 0)
+      const directReliabilityWeight = directDirections.reduce((sum, direction) => sum + direction.totalWeight, 0)
+      const averageRaterReliability = directReliabilityWeight
+        ? directDirections.reduce((sum, direction) => sum + (direction.averageRaterReliability * direction.totalWeight), 0) / directReliabilityWeight
+        : null
 
       return {
         history_model_version: HISTORY_CONFIDENCE_MODEL_VERSION,
@@ -508,9 +653,15 @@ export function createHistoricalMatchAnalyzer({
           ...sourceCounts,
           events: directEvents.size,
           predictor_neighbors: predictorNeighbours,
+          average_rater_reliability: averageRaterReliability == null ? null : round1(averageRaterReliability * 100),
         },
         history_direction_a_to_b: directionSummary(aToB),
         history_direction_b_to_a: directionSummary(bToA),
+        mutual_interest: mutualInterest,
+        one_sided_interest: oneSidedInterest,
+        conflicting_interest: conflictingInterest,
+        history_review_recommendation: reviewRecommendation,
+        history_review_reason: reviewReason,
         never_pair_recommended: neverPair,
       }
     },

@@ -1,17 +1,13 @@
 import { useMemo, useState, type ReactNode } from "react"
 import {
-  AlertCircle,
   AlertTriangle,
   BarChart3,
   ChevronDown,
   Eye,
   Heart,
-  Layers,
   MessageSquare,
   Search,
   Sparkles,
-  Star,
-  Users,
   X,
 } from "lucide-react"
 
@@ -90,17 +86,13 @@ type PersonInsight = {
   reviews: number
   scoreTotal: number
   average: number
-  adjustedAverage: number
   positive: number
   neutral: number
   negative: number
   positiveRate: number
   neutralRate: number
   negativeRate: number
-  confidence: number
   confidenceLabel: string
-  likedScore: number
-  dislikedScore: number
   polarizingScore: number
   tagCounts: TagCount[]
   positiveTags: TagCount[]
@@ -112,8 +104,6 @@ type PersonInsight = {
   positiveRounds: number
   notes: GroupMemberFeedbackSubmission[]
   submissions: GroupMemberFeedbackSubmission[]
-  impactDelta: number | null
-  impactPeerReviews: number
   historyCurrent?: DislikeRankingEntry
   historyOverall?: DislikeRankingEntry
   summaryText: string
@@ -133,26 +123,18 @@ type GroupInsight = {
   positiveRate: number
   neutralRate: number
   negativeRate: number
-  confidence: number
-  adjustedAverage: number
   commonTags: TagCount[]
   commonPositiveTags: TagCount[]
   commonNegativeTags: TagCount[]
   dominantNegativeTarget: { number: number; name: string; count: number; share: number } | null
 }
 
-type ViewMode = "all" | "liked" | "negative" | "polarizing" | "groups" | "raw"
-type SortMode = "adjustedAverage" | "average" | "positiveRate" | "negativeRate" | "likedScore" | "dislikedScore" | "polarizingScore" | "reviews"
+type ViewMode = "all" | "negative" | "polarizing" | "groups" | "notes" | "raw"
 
-const SORT_LABELS: Record<SortMode, string> = {
-  adjustedAverage: "المتوسط المعدّل بالثقة",
-  average: "المتوسط الخام",
-  positiveRate: "نسبة الإيجابي الفعلية",
-  negativeRate: "نسبة السلبي الفعلية",
-  likedScore: "درجة الإعجاب المعدّلة",
-  dislikedScore: "درجة الخطر المعدّلة",
-  polarizingScore: "درجة الانقسام",
-  reviews: "عدد التقييمات",
+const RANKING_HELP: Partial<Record<ViewMode, string>> = {
+  all: "مرتب حسب المتوسط الفعلي من الأعلى إلى الأقل. عند التعادل تظهر العينة الأكبر أولًا.",
+  negative: "مرتب حسب المتوسط الفعلي من الأقل إلى الأعلى؛ فمثلًا 2.45 يظهر قبل 3.17.",
+  polarizing: "مرتب حسب وجود تقييمات إيجابية وسلبية للشخص نفسه، وليس حسب انخفاض المتوسط.",
 }
 
 const EXPERIENCE_SCORE: Record<string, number> = {
@@ -186,18 +168,34 @@ const POSITIVE_TAGS = new Set(["fun", "comfortable", "good_listener", "respectfu
 const NEGATIVE_TAGS = new Set(["hard_to_connect", "interrupts", "dominates", "disrespectful"])
 const NEUTRAL_TAGS = new Set(["quiet"])
 
-const clamp = (value: number, min = 0, max = 1) => Math.min(max, Math.max(min, value))
 const pct = (value: number) => `${Math.round(value * 100)}%`
 const round1 = (value: number) => Math.round(value * 10) / 10
 
-function confidenceForCount(count: number) {
-  return clamp(1 - Math.exp(-Math.max(0, count) / 4))
+function confidenceLabel(count: number) {
+  if (count >= 6) return "عينة جيدة"
+  if (count >= 3) return "عينة متوسطة"
+  return "عينة صغيرة"
 }
 
-function confidenceLabel(count: number) {
-  if (count >= 6) return "ثقة قوية"
-  if (count >= 3) return "ثقة متوسطة"
-  return "إشارة أولية"
+function averageLabel(value: number) {
+  if (value >= 3.5) return "مرتفع جدًا"
+  if (value >= 3) return "مرتفع"
+  if (value >= 2.5) return "متوسط"
+  if (value >= 2) return "منخفض"
+  return "منخفض جدًا"
+}
+
+function reviewCountLabel(count: number) {
+  if (count === 1) return "تقييم واحد"
+  if (count === 2) return "تقييمان"
+  if (count >= 3 && count <= 10) return `${count} تقييمات`
+  return `${count} تقييمًا`
+}
+
+function noteCountLabel(count: number) {
+  if (count === 1) return "ملاحظة واحدة"
+  if (count === 2) return "ملاحظتان"
+  return `${count} ملاحظات`
 }
 
 function scoreSubmission(entry: GroupMemberFeedbackSubmission) {
@@ -247,25 +245,24 @@ function makeSummaryText(person: Omit<PersonInsight, "summaryText">) {
   const pos = person.positiveTags.slice(0, 2).map(([tag]) => humanTag(tag))
   const neg = person.negativeTags.slice(0, 2).map(([tag]) => humanTag(tag))
 
-  let base = "لا توجد إشارة كافية بعد."
+  let base = "لا يظهر نمط واضح في التقييمات حتى الآن."
   if (person.polarizingScore >= 15 && person.positive > 0 && person.negative > 0) {
-    base = "الانطباعات عنه منقسمة بوضوح"
-    if (pos.length) base += `؛ إيجابيًا يتكرر: ${pos.join("، ")}`
-    if (neg.length) base += `، وسلبيًا: ${neg.join("، ")}`
+    base = "الآراء متباينة بوضوح"
+    if (pos.length) base += `؛ تكررت إيجابيًا: ${pos.join("، ")}`
+    if (neg.length) base += `، وتحتاج انتباهًا في: ${neg.join("، ")}`
     base += "."
-  } else if (person.negativeRate >= 0.4 && person.negative > 0) {
-    base = `تظهر إشارة سلبية متكررة${neg.length ? ` حول ${neg.join(" و")}` : " في تجربة المجموعة"}.`
-  } else if (person.positiveRate >= 0.7 && person.positive > 0) {
-    base = `الانطباع إيجابي بوضوح${pos.length ? `، خصوصًا في ${pos.join(" و")}` : ""}.`
-    if (neg.length) base += ` توجد ملاحظة أقل تكرارًا حول ${neg.join(" و")}.`
+  } else if (person.average < 2.5) {
+    base = `متوسطه منخفض (${person.average.toFixed(2)}/4)${neg.length ? `، وأكثر الأسباب تكرارًا: ${neg.join("، ")}` : ""}.`
+  } else if (person.average >= 3.25) {
+    base = `متوسطه مرتفع (${person.average.toFixed(2)}/4)${pos.length ? `، وأكثر الأسباب تكرارًا: ${pos.join("، ")}` : ""}.`
   } else {
     const parts: string[] = []
-    if (pos.length) parts.push(`إيجابي: ${pos.join("، ")}`)
-    if (neg.length) parts.push(`يحتاج انتباه: ${neg.join("، ")}`)
-    base = parts.length ? `${parts.join(". ")}.` : "الانطباع العام متوسط بدون نمط واضح حتى الآن."
+    if (pos.length) parts.push(`إيجابيًا: ${pos.join("، ")}`)
+    if (neg.length) parts.push(`ويحتاج انتباهًا في: ${neg.join("، ")}`)
+    base = parts.length ? `متوسطه ${person.average.toFixed(2)}/4؛ ${parts.join("، ")}.` : `متوسطه ${person.average.toFixed(2)}/4 بدون أسباب متكررة واضحة.`
   }
 
-  if (person.reviews < 3) base += " العينة صغيرة، فاعتبرها إشارة أولية فقط."
+  if (person.reviews < 3) base += " العينة صغيرة؛ لا تعتمد عليها وحدها."
   return base
 }
 
@@ -353,14 +350,11 @@ function GroupCard({ group, peopleByNumber, onPerson }: { group: GroupInsight; p
   const localSignals = Array.from(groupMemberNumbers).map(number => {
     const person = peopleByNumber.get(number)
     const stats = buildRoundStats(group.submissions.filter(entry => Number(entry.member_number) === number))
-    const confidence = confidenceForCount(stats.reviews)
-    const liked = (stats.positiveRate * confidence + group.positiveRate * (1 - confidence)) * 100
-    const disliked = (stats.negativeRate * confidence + group.negativeRate * (1 - confidence)) * 100
-    return { person, stats, liked, disliked }
-  }).filter(item => item.person && item.stats.reviews > 0) as Array<{ person: PersonInsight; stats: RoundStats; liked: number; disliked: number }>
-  const bestLocal = [...localSignals].sort((a, b) => b.liked - a.liked || b.stats.reviews - a.stats.reviews)[0]
-  const concernLocal = [...localSignals].filter(item => item.stats.negative > 0).sort((a, b) => b.disliked - a.disliked || b.stats.negative - a.stats.negative)[0]
-  const chemistry = group.average >= 3.5 ? "ممتاز" : group.average >= 3 ? "جيد" : group.average >= 2.4 ? "مختلط" : "يحتاج انتباه"
+    return { person, stats }
+  }).filter(item => item.person && item.stats.reviews > 0) as Array<{ person: PersonInsight; stats: RoundStats }>
+  const bestLocal = [...localSignals].sort((a, b) => b.stats.average - a.stats.average || b.stats.reviews - a.stats.reviews)[0]
+  const concernLocal = [...localSignals].sort((a, b) => a.stats.average - b.stats.average || b.stats.reviews - a.stats.reviews)[0]
+  const chemistry = averageLabel(group.average)
 
   return (
     <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4">
@@ -370,7 +364,7 @@ function GroupCard({ group, peopleByNumber, onPerson }: { group: GroupInsight; p
             <span className="rounded-lg border border-indigo-400/20 bg-indigo-400/10 px-2 py-1 text-[11px] font-black text-indigo-200">الجولة {group.round}</span>
             <span className="text-base font-black text-white">{group.table.startsWith("مجموعة ") ? group.table : `طاولة ${group.table}`}</span>
           </div>
-          <div className="mt-1 text-xs text-slate-500">{group.members.length} مشاركين · {group.reviews} تقييمات</div>
+          <div className="mt-1 text-xs text-slate-500">{group.members.length} مشاركين · {reviewCountLabel(group.reviews)}</div>
         </div>
         <div className="text-left">
           <div className="text-xl font-black text-white">{group.average ? group.average.toFixed(2) : "—"}<span className="text-xs font-medium text-slate-500"> / 4</span></div>
@@ -398,16 +392,16 @@ function GroupCard({ group, peopleByNumber, onPerson }: { group: GroupInsight; p
       <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
         {bestLocal ? (
           <button type="button" onClick={() => onPerson(bestLocal.person)} className="rounded-xl border border-emerald-400/15 bg-emerald-400/5 p-3 text-right hover:bg-emerald-400/10">
-            <div className="text-[10px] font-bold text-emerald-300">أقوى انطباع داخل هذه المجموعة</div>
+            <div className="text-[10px] font-bold text-emerald-300">الأعلى تقييمًا داخل المجموعة</div>
             <div className="mt-1 truncate text-sm font-black text-white">{bestLocal.person.name} <span className="font-medium text-slate-500">#{bestLocal.person.number}</span></div>
-            <div className="text-[11px] text-slate-400">إيجابي {pct(bestLocal.stats.positiveRate)} · {bestLocal.stats.reviews} تقييمات هنا</div>
+            <div className="text-[11px] text-slate-400">متوسط {bestLocal.stats.average.toFixed(2)}/4 · {reviewCountLabel(bestLocal.stats.reviews)} هنا</div>
           </button>
         ) : null}
         {concernLocal ? (
           <button type="button" onClick={() => onPerson(concernLocal.person)} className="rounded-xl border border-rose-400/15 bg-rose-400/5 p-3 text-right hover:bg-rose-400/10">
-            <div className="text-[10px] font-bold text-rose-300">أعلى إشارة سلبية داخل هذه المجموعة</div>
+            <div className="text-[10px] font-bold text-rose-300">الأقل تقييمًا داخل المجموعة</div>
             <div className="mt-1 truncate text-sm font-black text-white">{concernLocal.person.name} <span className="font-medium text-slate-500">#{concernLocal.person.number}</span></div>
-            <div className="text-[11px] text-slate-400">سلبي {pct(concernLocal.stats.negativeRate)} · {concernLocal.stats.reviews} تقييمات هنا</div>
+            <div className="text-[11px] text-slate-400">متوسط {concernLocal.stats.average.toFixed(2)}/4 · سلبي {pct(concernLocal.stats.negativeRate)}</div>
           </button>
         ) : null}
       </div>
@@ -451,14 +445,19 @@ function PersonDetailModal({ person, onClose }: { person: PersonInsight; onClose
         <div className="space-y-5 p-5">
           <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-              <div className="text-[10px] font-bold text-slate-500">المتوسط</div>
+              <div className="text-[10px] font-bold text-slate-500">المتوسط الفعلي</div>
               <div className="mt-1 text-xl font-black text-white">{person.average.toFixed(2)} <span className="text-xs font-medium text-slate-600">/4</span></div>
-              <div className="text-[10px] text-slate-500">معدّل بالثقة {person.adjustedAverage.toFixed(2)}</div>
+              <div className="text-[10px] text-slate-500">{averageLabel(person.average)}</div>
             </div>
             <div className="rounded-2xl border border-emerald-400/15 bg-emerald-400/5 p-3">
               <div className="text-[10px] font-bold text-emerald-300">إيجابي</div>
               <div className="mt-1 text-xl font-black text-white">{pct(person.positiveRate)}</div>
               <div className="text-[10px] text-slate-500">{person.positive}/{person.reviews}</div>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+              <div className="text-[10px] font-bold text-slate-400">محايد</div>
+              <div className="mt-1 text-xl font-black text-white">{pct(person.neutralRate)}</div>
+              <div className="text-[10px] text-slate-500">{person.neutral}/{person.reviews}</div>
             </div>
             <div className="rounded-2xl border border-rose-400/15 bg-rose-400/5 p-3">
               <div className="text-[10px] font-bold text-rose-300">سلبي</div>
@@ -466,24 +465,44 @@ function PersonDetailModal({ person, onClose }: { person: PersonInsight; onClose
               <div className="text-[10px] text-slate-500">{person.negative}/{person.reviews}</div>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-              <div className="text-[10px] font-bold text-slate-500">درجة الإعجاب المعدّلة</div>
-              <div className="mt-1 text-xl font-black text-white">{Math.round(person.likedScore)}</div>
-              <div className="text-[10px] text-slate-500">من 100 · ليست نسبة فعلية</div>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-              <div className="text-[10px] font-bold text-slate-500">درجة الخطر المعدّلة</div>
-              <div className="mt-1 text-xl font-black text-white">{Math.round(person.dislikedScore)}</div>
-              <div className="text-[10px] text-slate-500">من 100 · ليست نسبة فعلية</div>
+              <div className="text-[10px] font-bold text-slate-500">حجم العينة</div>
+              <div className="mt-1 text-xl font-black text-white">{person.reviews}</div>
+              <div className="text-[10px] text-slate-500">{person.confidenceLabel}</div>
             </div>
           </div>
+
+          {person.notes.length ? (
+            <div className="rounded-2xl border border-amber-400/25 bg-amber-400/[0.07] p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-sm font-black text-amber-100">ملاحظات المنظم</h4>
+                  <p className="mt-0.5 text-[11px] text-amber-200/55">ملاحظات خاصة مرتبطة بهذا المشارك، ظاهرة هنا قبل بقية التحليل.</p>
+                </div>
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/20 bg-amber-400/10 px-2.5 py-1 text-[10px] font-black text-amber-200"><MessageSquare className="h-3 w-3" /> {noteCountLabel(person.notes.length)}</span>
+              </div>
+              <div className="space-y-2">
+                {person.notes.map((entry, index) => (
+                  <div key={`${entry.reviewer_number}-${entry.group_round}-${index}`} className="rounded-xl border border-amber-400/15 bg-black/20 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-amber-200/55">
+                      <span>من {entry.reviewer_name || `#${entry.reviewer_number}`} · #{entry.reviewer_number}</span>
+                      <span>الجولة {entry.group_round}</span>
+                    </div>
+                    <p className="mt-2 whitespace-pre-wrap text-xs leading-6 text-amber-50">{entry.organizer_note}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-white/10 bg-white/[0.025] px-4 py-3 text-xs text-slate-500">لا توجد ملاحظات منظم خاصة لهذا المشارك.</div>
+          )}
 
           <div className="rounded-2xl border border-white/10 bg-slate-900/45 p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
-                <h4 className="text-sm font-black text-white">لماذا؟</h4>
-                <p className="mt-0.5 text-[11px] text-slate-500">الأسباب الأكثر تكرارًا من تقييمات أعضاء المجموعات</p>
+                <h4 className="text-sm font-black text-white">الأسباب الأكثر تكرارًا</h4>
+                <p className="mt-0.5 text-[11px] text-slate-500">الوسوم التي اختارها أعضاء المجموعات، مع عدد مرات تكرار كل وسم.</p>
               </div>
-              <span className="text-xs font-bold text-slate-500">{person.reviews} تقييمات</span>
+              <span className="text-xs font-bold text-slate-500">{reviewCountLabel(person.reviews)}</span>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div>
@@ -501,7 +520,7 @@ function PersonDetailModal({ person, onClose }: { person: PersonInsight; onClose
             </div>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4">
             <div className="rounded-2xl border border-white/10 bg-slate-900/45 p-4">
               <h4 className="text-sm font-black text-white">الثبات بين الجولات</h4>
               <p className="mt-1 text-[11px] text-slate-500">يفرق بين ليلة/مجموعة سيئة وبين نمط ظهر أكثر من مرة.</p>
@@ -515,7 +534,7 @@ function PersonDetailModal({ person, onClose }: { person: PersonInsight; onClose
                         <>
                           <div className="mt-1 text-lg font-black text-white">{stats.average.toFixed(2)} <span className="text-[10px] font-medium text-slate-600">/4</span></div>
                           <div className="mt-2"><SegmentedBar positive={stats.positive} neutral={stats.neutral} negative={stats.negative} /></div>
-                          <div className="mt-1 text-[10px] text-slate-500">{stats.reviews} تقييمات · سلبي {pct(stats.negativeRate)}</div>
+                          <div className="mt-1 text-[10px] text-slate-500">{reviewCountLabel(stats.reviews)} · سلبي {pct(stats.negativeRate)}</div>
                         </>
                       ) : (
                         <div className="mt-3 text-xs text-slate-600">لا توجد تقييمات</div>
@@ -526,31 +545,13 @@ function PersonDetailModal({ person, onClose }: { person: PersonInsight; onClose
               </div>
               <div className="mt-3 text-xs leading-5 text-slate-400">
                 {person.negativeRounds >= 2
-                  ? "⚠️ ظهرت السلبية في الجولتين، وهذا أقوى من ملاحظة محصورة في مجموعة واحدة."
+                  ? "⚠️ كان المتوسط أقل من 2.5 في الجولتين، لذلك الإشارة ليست محصورة في مجموعة واحدة."
                   : person.positiveRounds >= 2
-                    ? "✓ الانطباع الإيجابي ظهر في الجولتين، وليس محصورًا في مجموعة واحدة."
+                    ? "✓ كان المتوسط 3.0 أو أعلى في الجولتين، وليس محصورًا في مجموعة واحدة."
                     : "لا يوجد نمط ثابت عبر الجولتين حتى الآن."}
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-slate-900/45 p-4">
-              <h4 className="text-sm font-black text-white">أثره على جو المجموعة</h4>
-              <p className="mt-1 text-[11px] leading-5 text-slate-500">نقيس تقييم الآخرين لبعضهم داخل مجموعاته، ونستبعد التقييمات الموجهة له حتى لا نعيد احتساب شعبيته.</p>
-              {person.impactDelta == null ? (
-                <div className="mt-4 rounded-xl border border-white/10 bg-black/15 p-3 text-xs text-slate-500">لا توجد تقييمات كافية لحساب الأثر بشكل مفيد.</div>
-              ) : (
-                <div className="mt-4 flex items-end justify-between gap-4 rounded-xl border border-white/10 bg-black/15 p-3">
-                  <div>
-                    <div className="text-[10px] font-bold text-slate-500">فرق جو مجموعاته عن خط الفعالية</div>
-                    <div className={`mt-1 text-2xl font-black ${person.impactDelta > 0.08 ? "text-emerald-300" : person.impactDelta < -0.08 ? "text-rose-300" : "text-slate-200"}`}>
-                      {person.impactDelta > 0 ? "+" : ""}{person.impactDelta.toFixed(2)}
-                    </div>
-                  </div>
-                  <div className="text-left text-[10px] leading-4 text-slate-500">من {person.impactPeerReviews}<br />تقييمًا بين الآخرين</div>
-                </div>
-              )}
-              <p className="mt-2 text-[10px] leading-4 text-slate-600">هذا ارتباط تشغيلي وليس إثباتًا أن الشخص سبّب تحسن أو سوء المجموعة.</p>
-            </div>
           </div>
 
           {(historicCurrent || historicOverall) ? (
@@ -577,29 +578,6 @@ function PersonDetailModal({ person, onClose }: { person: PersonInsight; onClose
                     <div className="mt-1 text-[10px] text-slate-600">{historicOverall.events_count || 0} فعاليات · {historicOverall.received_rankings || 0} ترتيب</div>
                   </div>
                 ) : null}
-              </div>
-            </div>
-          ) : null}
-
-          {person.notes.length ? (
-            <div className="rounded-2xl border border-amber-400/20 bg-amber-400/5 p-4">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <h4 className="text-sm font-black text-amber-100">ملاحظات المنظم الخاصة</h4>
-                  <p className="mt-0.5 text-[11px] text-amber-200/50">{person.notes.length} ملاحظات مرتبطة بهذا المشارك.</p>
-                </div>
-                <MessageSquare className="h-4 w-4 text-amber-300" />
-              </div>
-              <div className="space-y-2">
-                {person.notes.map((entry, index) => (
-                  <div key={`${entry.reviewer_number}-${entry.group_round}-${index}`} className="rounded-xl border border-amber-400/15 bg-black/15 p-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-amber-200/50">
-                      <span>من {entry.reviewer_name || `#${entry.reviewer_number}`} #{entry.reviewer_number}</span>
-                      <span>الجولة {entry.group_round}</span>
-                    </div>
-                    <p className="mt-2 whitespace-pre-wrap text-xs leading-6 text-amber-50">{entry.organizer_note}</p>
-                  </div>
-                ))}
               </div>
             </div>
           ) : null}
@@ -646,10 +624,8 @@ export default function GroupFeedbackIntelligence({
   eventId?: number | null
 }) {
   const [view, setView] = useState<ViewMode>("all")
-  const [sortMode, setSortMode] = useState<SortMode>("adjustedAverage")
   const [query, setQuery] = useState("")
   const [roundFilter, setRoundFilter] = useState<"all" | "1" | "2">("all")
-  const [rawNotesOnly, setRawNotesOnly] = useState(false)
   const [selectedPerson, setSelectedPerson] = useState<PersonInsight | null>(null)
   const [showScoringInfo, setShowScoringInfo] = useState(false)
 
@@ -726,7 +702,6 @@ export default function GroupFeedbackIntelligence({
     }
     normalizedSubmissions.forEach((entry: any) => keys.add(entry.__groupKey))
 
-    const globalAverage = globalStats.average || 2.5
     return Array.from(keys)
       .map(key => {
         const [roundRaw, ...tableParts] = key.split(":")
@@ -735,7 +710,6 @@ export default function GroupFeedbackIntelligence({
         const members: SeatingMember[] = Array.isArray(seating?.[round]?.[table]) ? seating[round][table] : []
         const entries = normalizedSubmissions.filter((entry: any) => entry.__groupKey === key)
         const stats = buildRoundStats(entries)
-        const confidence = confidenceForCount(stats.reviews)
         const tags = new Map<string, number>()
         entries.forEach(entry => (entry.tags || []).forEach(tag => tags.set(tag, (tags.get(tag) || 0) + 1)))
         const commonTags = sortTags(tags)
@@ -766,8 +740,6 @@ export default function GroupFeedbackIntelligence({
           positiveRate: stats.positiveRate,
           neutralRate: stats.neutralRate,
           negativeRate: stats.negativeRate,
-          confidence,
-          adjustedAverage: stats.reviews ? stats.average * confidence + globalAverage * (1 - confidence) : globalAverage,
           commonTags,
           commonPositiveTags: commonTags.filter(([tag]) => POSITIVE_TAGS.has(tag)),
           commonNegativeTags: commonTags.filter(([tag]) => NEGATIVE_TAGS.has(tag)),
@@ -776,7 +748,7 @@ export default function GroupFeedbackIntelligence({
       })
       .filter(group => group.reviews > 0 || group.members.length > 0)
       .sort((a, b) => a.round - b.round || Number(a.table) - Number(b.table))
-  }, [normalizedSubmissions, seating, globalStats.average])
+  }, [normalizedSubmissions, seating])
 
   const people = useMemo<PersonInsight[]>(() => {
     const byNumber = new Map<number, GroupMemberFeedbackSubmission[]>()
@@ -786,21 +758,12 @@ export default function GroupFeedbackIntelligence({
       byNumber.get(number)!.push(entry)
     })
 
-    const globalPositiveRate = globalStats.reviews ? globalStats.positiveRate : 0.5
-    const globalNegativeRate = globalStats.reviews ? globalStats.negativeRate : 0.15
-    const baselineScore = globalStats.average || 2.5
     const rankingCurrent = new Map((dislikeRankings?.event || []).map(entry => [Number(entry.number), entry]))
     const rankingOverall = new Map((dislikeRankings?.overall || []).map(entry => [Number(entry.number), entry]))
 
     return Array.from(byNumber.entries()).map(([number, entries]) => {
       const stats = buildRoundStats(entries)
-      const confidence = confidenceForCount(stats.reviews)
-      const adjustedPositive = stats.positiveRate * confidence + globalPositiveRate * (1 - confidence)
-      const adjustedNegative = stats.negativeRate * confidence + globalNegativeRate * (1 - confidence)
-      const likedScore = clamp(adjustedPositive) * 100
-      const dislikedScore = clamp(adjustedNegative) * 100
-      const adjustedAverage = stats.average * confidence + baselineScore * (1 - confidence)
-      const polarizingScore = Math.min(stats.positiveRate, stats.negativeRate) * (stats.positiveRate + stats.negativeRate) * confidence * 100
+      const polarizingScore = Math.min(stats.positiveRate, stats.negativeRate) * (stats.positiveRate + stats.negativeRate) * 100
 
       const tags = new Map<string, number>()
       entries.forEach(entry => (entry.tags || []).forEach(tag => tags.set(tag, (tags.get(tag) || 0) + 1)))
@@ -814,21 +777,8 @@ export default function GroupFeedbackIntelligence({
         2: buildRoundStats(entries.filter(entry => Number(entry.group_round) === 2)),
       }
       const reviewedRounds = [1, 2].filter(round => roundBreakdown[round].reviews > 0).length
-      const negativeRounds = [1, 2].filter(round => roundBreakdown[round].reviews > 0 && roundBreakdown[round].negativeRate >= 0.34).length
-      const positiveRounds = [1, 2].filter(round => roundBreakdown[round].reviews > 0 && roundBreakdown[round].positiveRate >= 0.6).length
-
-      // "Impact" deliberately excludes reviews about this participant. It asks whether peers
-      // in groups containing the participant rate each other differently from the event baseline.
-      const participantGroupKeys = new Set<string>()
-      for (const round of [1, 2]) {
-        const table = tableByRoundAndPerson.get(`${round}:${number}`)
-        if (table) participantGroupKeys.add(`${round}:${table}`)
-      }
-      const peerEntries = normalizedSubmissions.filter((entry: any) => participantGroupKeys.has(entry.__groupKey) && Number(entry.member_number) !== number)
-      const baselineEntries = normalizedSubmissions.filter(entry => Number(entry.member_number) !== number)
-      const peerStats = buildRoundStats(peerEntries)
-      const cleanBaseline = buildRoundStats(baselineEntries)
-      const impactDelta = peerStats.reviews >= 3 ? peerStats.average - (cleanBaseline.average || baselineScore) : null
+      const negativeRounds = [1, 2].filter(round => roundBreakdown[round].reviews >= 2 && roundBreakdown[round].average < 2.5).length
+      const positiveRounds = [1, 2].filter(round => roundBreakdown[round].reviews >= 2 && roundBreakdown[round].average >= 3).length
 
       const base: Omit<PersonInsight, "summaryText"> = {
         number,
@@ -836,17 +786,13 @@ export default function GroupFeedbackIntelligence({
         reviews: stats.reviews,
         scoreTotal: stats.scoreTotal,
         average: stats.average,
-        adjustedAverage,
         positive: stats.positive,
         neutral: stats.neutral,
         negative: stats.negative,
         positiveRate: stats.positiveRate,
         neutralRate: stats.neutralRate,
         negativeRate: stats.negativeRate,
-        confidence,
         confidenceLabel: confidenceLabel(stats.reviews),
-        likedScore,
-        dislikedScore,
         polarizingScore,
         tagCounts,
         positiveTags,
@@ -858,69 +804,76 @@ export default function GroupFeedbackIntelligence({
         positiveRounds,
         notes: entries.filter(entry => Boolean(entry.organizer_note)),
         submissions: entries,
-        impactDelta,
-        impactPeerReviews: peerStats.reviews,
         historyCurrent: rankingCurrent.get(number),
         historyOverall: rankingOverall.get(number),
       }
       return { ...base, summaryText: makeSummaryText(base) }
     })
-  }, [normalizedSubmissions, globalStats, dislikeRankings, tableByRoundAndPerson])
+  }, [normalizedSubmissions, dislikeRankings])
 
   const peopleByNumber = useMemo(() => new Map(people.map(person => [person.number, person])), [people])
 
-  const mostLiked = useMemo(() => [...people].sort((a, b) => b.likedScore - a.likedScore || b.reviews - a.reviews || b.average - a.average)[0], [people])
-  const mostNegative = useMemo(() => [...people].filter(person => person.negative > 0).sort((a, b) => b.dislikedScore - a.dislikedScore || b.negative - a.negative || b.reviews - a.reviews)[0], [people])
+  const highestRated = useMemo(() => [...people].sort((a, b) => b.average - a.average || b.reviews - a.reviews || a.number - b.number)[0], [people])
+  const lowestRated = useMemo(() => [...people].sort((a, b) => a.average - b.average || b.reviews - a.reviews || b.negativeRate - a.negativeRate || a.number - b.number)[0], [people])
   const mostPolarizing = useMemo(() => [...people].filter(person => person.positive > 0 && person.negative > 0).sort((a, b) => b.polarizingScore - a.polarizingScore || b.reviews - a.reviews)[0], [people])
-  const rankedGroups = useMemo(() => groups.filter(group => group.reviews > 0), [groups])
-  const bestGroup = useMemo(() => [...rankedGroups].sort((a, b) => b.adjustedAverage - a.adjustedAverage || b.reviews - a.reviews)[0], [rankedGroups])
-  const worstGroup = useMemo(() => [...rankedGroups].sort((a, b) => a.adjustedAverage - b.adjustedAverage || b.reviews - a.reviews)[0], [rankedGroups])
   const biggestImprovement = useMemo(() => [...people]
-    .filter(person => person.roundBreakdown[1]?.reviews > 0 && person.roundBreakdown[2]?.reviews > 0)
+    .filter(person => person.roundBreakdown[1]?.reviews >= 2 && person.roundBreakdown[2]?.reviews >= 2)
     .map(person => ({ person, delta: person.roundBreakdown[2].average - person.roundBreakdown[1].average }))
     .filter(item => item.delta > 0.15)
     .sort((a, b) => b.delta - a.delta || b.person.reviews - a.person.reviews)[0], [people])
   const recurringConcern = useMemo(() => {
     const repeatedInsideEvent = [...people]
       .filter(person => person.negativeRounds >= 2)
-      .sort((a, b) => b.dislikedScore - a.dislikedScore || b.reviews - a.reviews)[0]
-    if (repeatedInsideEvent) return { person: repeatedInsideEvent, source: "ظهر في الجولتين" }
+      .sort((a, b) => a.average - b.average || b.reviews - a.reviews)[0]
+    if (repeatedInsideEvent) return { person: repeatedInsideEvent, source: "متوسط أقل من 2.5 في الجولتين" }
     const corroborated = [...people]
       .filter(person => person.negative > 0 && Number(person.historyOverall?.events_count || 0) >= 2)
       .map(person => ({ person, historyGap: Number(person.historyOverall?.dislike_score || 0) - Number(person.historyOverall?.like_score || 0) }))
       .filter(item => item.historyGap > 8)
-      .sort((a, b) => b.historyGap - a.historyGap || b.person.dislikedScore - a.person.dislikedScore)[0]
+      .sort((a, b) => b.historyGap - a.historyGap || a.person.average - b.person.average)[0]
     return corroborated ? { person: corroborated.person, source: `وتدعمه ترتيبات ${corroborated.person.historyOverall?.events_count || 0} فعاليات` } : null
   }, [people])
-  const roomElevator = useMemo(() => [...people]
-    .filter(person => person.impactDelta != null && person.impactPeerReviews >= 3)
-    .sort((a, b) => Number(b.impactDelta) - Number(a.impactDelta) || b.impactPeerReviews - a.impactPeerReviews)[0], [people])
 
   const filteredPeople = useMemo(() => {
     const needle = query.trim().toLowerCase()
     let rows = people.filter(person => !needle || person.name.toLowerCase().includes(needle) || String(person.number).includes(needle))
-    if (view === "liked") rows = rows.filter(person => person.positive > 0)
-    else if (view === "negative") rows = rows.filter(person => person.negative > 0)
-    else if (view === "polarizing") rows = rows.filter(person => person.positive > 0 && person.negative > 0)
+    if (view === "polarizing") rows = rows.filter(person => person.positive > 0 && person.negative > 0)
 
-    const value = (person: PersonInsight) => Number(person[sortMode]) || 0
-    return [...rows].sort((a, b) => value(b) - value(a) || b.reviews - a.reviews || b.average - a.average || a.number - b.number)
-  }, [people, query, view, sortMode])
+    if (view === "negative") return [...rows].sort((a, b) => a.average - b.average || b.reviews - a.reviews || b.negativeRate - a.negativeRate || a.number - b.number)
+    if (view === "polarizing") return [...rows].sort((a, b) => b.polarizingScore - a.polarizingScore || b.reviews - a.reviews || a.number - b.number)
+    return [...rows].sort((a, b) => b.average - a.average || b.reviews - a.reviews || a.number - b.number)
+  }, [people, query, view])
 
   const filteredRaw = useMemo(() => {
     const needle = query.trim().toLowerCase()
     return normalizedSubmissions.filter(entry => {
       if (roundFilter !== "all" && String(entry.group_round) !== roundFilter) return false
-      if (rawNotesOnly && !entry.organizer_note) return false
       if (!needle) return true
       return [entry.reviewer_name, entry.member_name, entry.reviewer_number, entry.member_number, entry.organizer_note, ...(entry.tags || [])]
         .some(value => String(value || "").toLowerCase().includes(needle))
     })
-  }, [normalizedSubmissions, query, roundFilter, rawNotesOnly])
+  }, [normalizedSubmissions, query, roundFilter])
+
+  const filteredNotePeople = useMemo(() => {
+    const needle = query.trim().toLowerCase()
+    return people
+      .map(person => {
+        const personMatches = !needle || person.name.toLowerCase().includes(needle) || String(person.number).includes(needle)
+        const notes = person.notes.filter(entry => {
+          if (roundFilter !== "all" && String(entry.group_round) !== roundFilter) return false
+          if (personMatches) return true
+          return [entry.reviewer_name, entry.reviewer_number, entry.organizer_note]
+            .some(value => String(value || "").toLowerCase().includes(needle))
+        })
+        return { person, notes }
+      })
+      .filter(item => item.notes.length > 0)
+      .sort((a, b) => b.notes.length - a.notes.length || a.person.average - b.person.average || a.person.number - b.person.number)
+  }, [people, query, roundFilter])
 
   const reviewerCount = Number(data?.reviewer_count) || new Set(normalizedSubmissions.map(entry => Number(entry.reviewer_number))).size
   const participantCount = Number(data?.participant_count) || Math.max(people.length, 0)
-  const responseRate = participantCount > 0 ? reviewerCount / participantCount : 0
+  const responseRate = participantCount > 0 ? Math.min(1, reviewerCount / participantCount) : 0
   const notesCount = normalizedSubmissions.filter(entry => Boolean(entry.organizer_note)).length
   const effectiveEventId = eventId ?? data?.event_id ?? null
 
@@ -929,18 +882,18 @@ export default function GroupFeedbackIntelligence({
       <div className="rounded-3xl border border-white/10 bg-slate-950/60 p-8 text-center">
         <MessageSquare className="mx-auto h-8 w-8 text-slate-600" />
         <h3 className="mt-3 text-lg font-black text-white">لا توجد تقييمات مجموعات بعد</h3>
-        <p className="mt-1 text-sm text-slate-500">عندما تصل التقييمات سيظهر هنا ترتيب الإعجاب والسلبية والانقسام وتحليل كل مجموعة.</p>
+        <p className="mt-1 text-sm text-slate-500">عندما تصل التقييمات سيظهر الترتيب بالمتوسط، وتوزيع الإجابات، والملاحظات، وتحليل كل مجموعة.</p>
       </div>
     )
   }
 
   const viewTabs: Array<{ id: ViewMode; label: string }> = [
-    { id: "all", label: "الكل" },
-    { id: "liked", label: "الأكثر إعجابًا" },
-    { id: "negative", label: "الأكثر سلبية" },
-    { id: "polarizing", label: "المثير للانقسام" },
-    { id: "groups", label: "حسب المجموعة" },
-    { id: "raw", label: "التقييمات الخام" },
+    { id: "all", label: "الترتيب العام" },
+    { id: "negative", label: "الأقل تقييمًا" },
+    { id: "polarizing", label: "تباين الآراء" },
+    { id: "groups", label: "المجموعات" },
+    { id: "notes", label: `ملاحظات المنظم (${notesCount})` },
+    { id: "raw", label: "سجل التقييمات" },
   ]
 
   return (
@@ -951,21 +904,21 @@ export default function GroupFeedbackIntelligence({
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded-xl border border-indigo-400/20 bg-indigo-400/10 p-2 text-indigo-200"><Sparkles className="h-4 w-4" /></span>
-                <h2 className="text-xl font-black text-white">ذكاء تقييمات المجموعات</h2>
+                <h2 className="text-xl font-black text-white">تحليل تقييمات المجموعات</h2>
                 {effectiveEventId != null ? <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold text-slate-400">فعالية #{effectiveEventId}</span> : null}
               </div>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">بدل متوسطات مبهمة: من ترك أفضل انطباع، من تكررت حوله السلبية، من قسم الآراء، أي المجموعات نجحت أو تعثرت، وما السبب الفعلي.</p>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">ترتيب واضح مبني على متوسط التقييم الفعلي من 4، مع عرض حجم العينة والأسباب والملاحظات دون خلطها بدرجات تقديرية.</p>
             </div>
             <button type="button" onClick={() => setShowScoringInfo(value => !value)} className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-white/10">
-              <Eye className="h-3.5 w-3.5" /> كيف نحسب الإشارات؟ <ChevronDown className={`h-3.5 w-3.5 transition ${showScoringInfo ? "rotate-180" : ""}`} />
+              <Eye className="h-3.5 w-3.5" /> كيف نقرأ النتائج؟ <ChevronDown className={`h-3.5 w-3.5 transition ${showScoringInfo ? "rotate-180" : ""}`} />
             </button>
           </div>
 
           {showScoringInfo ? (
             <div className="mt-4 grid gap-3 rounded-2xl border border-white/10 bg-black/20 p-4 text-xs leading-5 text-slate-400 md:grid-cols-3">
-              <div><strong className="block text-slate-200">النسبة الفعلية مقابل الدرجة المعدّلة</strong>النسب الفعلية هي ما قاله المقيّمون مباشرة. الدرجات المعدّلة من 100 تستخدم خط الفعالية وحجم العينة للترتيب، وليست نسبًا فعلية.</div>
-              <div><strong className="block text-slate-200">الانقسام ≠ المتوسط</strong>شخص حصل على 5 ممتازة و5 غير مريحة مختلف جذريًا عن شخص حصل على 10 تقييمات محايدة، حتى لو تقارب المتوسط.</div>
-              <div><strong className="block text-slate-200">أثر الجو غير دائري</strong>نستبعد التقييمات الموجهة للشخص نفسه ونقيس كيف قيّم بقية أعضاء مجموعاته بعضهم بعضًا مقارنة بخط الفعالية.</div>
+              <div><strong className="block text-slate-200">الترتيب بالمتوسط الفعلي</strong>ممتازة = 4، جيدة = 3، محايدة = 2، غير مريحة = 1. الأعلى تقييمًا يرتب تنازليًا، والأقل تقييمًا يرتب تصاعديًا.</div>
+              <div><strong className="block text-slate-200">النسب كما أُرسلت</strong>الإيجابي يجمع «ممتازة» و«جيدة»، والمحايد يبقى منفصلًا، والسلبي هو «غير مريحة» فقط.</div>
+              <div><strong className="block text-slate-200">حجم العينة للسياق</strong>عدد التقييمات لا يغير المتوسط أو ترتيب التبويب، لكنه يوضح إن كانت النتيجة مبنية على عينة صغيرة أم جيدة.</div>
             </div>
           ) : null}
         </div>
@@ -973,27 +926,27 @@ export default function GroupFeedbackIntelligence({
         <div className="grid grid-cols-2 gap-px bg-white/10 sm:grid-cols-4">
           <div className="bg-slate-950/80 p-4"><div className="text-[10px] font-bold text-slate-500">مشاركون قيّموا</div><div className="mt-1 text-xl font-black text-white">{reviewerCount}<span className="text-xs font-medium text-slate-600">/{participantCount || "—"}</span></div><div className="text-[10px] text-slate-500">مشاركة {participantCount ? pct(responseRate) : "—"}</div></div>
           <div className="bg-slate-950/80 p-4"><div className="text-[10px] font-bold text-slate-500">إجمالي التقييمات</div><div className="mt-1 text-xl font-black text-white">{normalizedSubmissions.length}</div><div className="text-[10px] text-slate-500">متوسط {globalStats.average.toFixed(2)}/4</div></div>
-          <div className="bg-slate-950/80 p-4"><div className="text-[10px] font-bold text-slate-500">نسبة الإيجابي</div><div className="mt-1 text-xl font-black text-emerald-300">{pct(globalStats.positiveRate)}</div><div className="text-[10px] text-slate-500">خط أساس الفعالية</div></div>
-          <button type="button" onClick={() => { setView("raw"); setRawNotesOnly(true) }} className="bg-slate-950/80 p-4 text-right transition hover:bg-slate-900"><div className="text-[10px] font-bold text-slate-500">ملاحظات خاصة</div><div className="mt-1 text-xl font-black text-white">{notesCount}</div><div className="text-[10px] text-amber-300/70">اضغط لعرضها</div></button>
+          <div className="bg-slate-950/80 p-4"><div className="text-[10px] font-bold text-slate-500">الإيجابي الفعلي</div><div className="mt-1 text-xl font-black text-emerald-300">{pct(globalStats.positiveRate)}</div><div className="text-[10px] text-slate-500">ممتازة أو جيدة</div></div>
+          <button type="button" onClick={() => setView("notes")} className="bg-slate-950/80 p-4 text-right transition hover:bg-slate-900"><div className="text-[10px] font-bold text-slate-500">ملاحظات المنظم</div><div className="mt-1 text-xl font-black text-white">{notesCount}</div><div className="text-[10px] text-amber-300/70">افتح تبويب الملاحظات</div></button>
         </div>
       </section>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <section className="grid gap-3 sm:grid-cols-3">
         <MetricCard
           icon={<Heart className="h-4 w-4" />}
-          label="الأكثر إعجابًا"
-          primary={mostLiked ? `${mostLiked.name} #${mostLiked.number}` : "—"}
-          secondary={mostLiked ? `إيجابي فعلي ${pct(mostLiked.positiveRate)} · درجة معدّلة ${Math.round(mostLiked.likedScore)}` : undefined}
-          tertiary={mostLiked?.positiveTags.slice(0, 2).map(([tag]) => humanTag(tag)).join(" · ") || mostLiked?.summaryText}
-          onClick={mostLiked ? () => setSelectedPerson(mostLiked) : undefined}
+          label="أعلى متوسط"
+          primary={highestRated ? `${highestRated.name} #${highestRated.number}` : "—"}
+          secondary={highestRated ? `${highestRated.average.toFixed(2)}/4 · ${reviewCountLabel(highestRated.reviews)}` : undefined}
+          tertiary={highestRated?.positiveTags.slice(0, 2).map(([tag]) => humanTag(tag)).join(" · ") || highestRated?.summaryText}
+          onClick={highestRated ? () => setSelectedPerson(highestRated) : undefined}
         />
         <MetricCard
           icon={<AlertTriangle className="h-4 w-4" />}
-          label="أعلى خطر معدّل"
-          primary={mostNegative ? `${mostNegative.name} #${mostNegative.number}` : "لا توجد سلبية واضحة"}
-          secondary={mostNegative ? `سلبي فعلي ${pct(mostNegative.negativeRate)} · درجة معدّلة ${Math.round(mostNegative.dislikedScore)}` : undefined}
-          tertiary={mostNegative?.negativeTags.slice(0, 2).map(([tag]) => humanTag(tag)).join(" · ") || mostNegative?.summaryText}
-          onClick={mostNegative ? () => setSelectedPerson(mostNegative) : undefined}
+          label="أقل متوسط"
+          primary={lowestRated ? `${lowestRated.name} #${lowestRated.number}` : "—"}
+          secondary={lowestRated ? `${lowestRated.average.toFixed(2)}/4 · سلبي ${pct(lowestRated.negativeRate)}` : undefined}
+          tertiary={lowestRated?.negativeTags.slice(0, 2).map(([tag]) => humanTag(tag)).join(" · ") || lowestRated?.summaryText}
+          onClick={lowestRated ? () => setSelectedPerson(lowestRated) : undefined}
         />
         <MetricCard
           icon={<BarChart3 className="h-4 w-4" />}
@@ -1003,48 +956,24 @@ export default function GroupFeedbackIntelligence({
           tertiary={mostPolarizing?.summaryText}
           onClick={mostPolarizing ? () => setSelectedPerson(mostPolarizing) : undefined}
         />
-        <MetricCard
-          icon={<Star className="h-4 w-4" />}
-          label="أفضل مجموعة"
-          primary={bestGroup ? `ج${bestGroup.round} · ${bestGroup.table.startsWith("مجموعة ") ? bestGroup.table : `طاولة ${bestGroup.table}`}` : "—"}
-          secondary={bestGroup ? `${bestGroup.average.toFixed(2)} / 4` : undefined}
-          tertiary={bestGroup ? `${bestGroup.reviews} تقييمات · إيجابي ${pct(bestGroup.positiveRate)}` : undefined}
-          onClick={() => setView("groups")}
-        />
-        <MetricCard
-          icon={<AlertCircle className="h-4 w-4" />}
-          label="مجموعة تحتاج انتباه"
-          primary={worstGroup ? `ج${worstGroup.round} · ${worstGroup.table.startsWith("مجموعة ") ? worstGroup.table : `طاولة ${worstGroup.table}`}` : "—"}
-          secondary={worstGroup ? `${worstGroup.average.toFixed(2)} / 4` : undefined}
-          tertiary={worstGroup?.dominantNegativeTarget ? `${Math.round(worstGroup.dominantNegativeTarget.share * 100)}% من السلبية مرتبطة بـ ${worstGroup.dominantNegativeTarget.name}` : worstGroup ? `سلبي ${pct(worstGroup.negativeRate)} · ${worstGroup.reviews} تقييمات` : undefined}
-          onClick={() => setView("groups")}
-        />
       </section>
 
-      <section className="grid gap-3 md:grid-cols-3">
+      <section className="grid gap-3 md:grid-cols-2">
         <MetricCard
           icon={<BarChart3 className="h-4 w-4" />}
           label="أكبر تحسن بين الجولتين"
           primary={biggestImprovement ? `${biggestImprovement.person.name} #${biggestImprovement.person.number}` : "لا يوجد تغير واضح"}
           secondary={biggestImprovement ? `+${biggestImprovement.delta.toFixed(2)} نقطة من الجولة 1 إلى 2` : undefined}
-          tertiary={biggestImprovement ? `${biggestImprovement.person.roundBreakdown[1].average.toFixed(2)} ← ${biggestImprovement.person.roundBreakdown[2].average.toFixed(2)}` : "نحتاج تقييمات في الجولتين لنقيس التحسن."}
+          tertiary={biggestImprovement ? `${biggestImprovement.person.roundBreakdown[1].average.toFixed(2)} ← ${biggestImprovement.person.roundBreakdown[2].average.toFixed(2)} · بتقييمين على الأقل في كل جولة` : "نحتاج تقييمين على الأقل في كل جولة لنقيس التحسن."}
           onClick={biggestImprovement ? () => setSelectedPerson(biggestImprovement.person) : undefined}
         />
         <MetricCard
           icon={<AlertTriangle className="h-4 w-4" />}
-          label="نمط سلبي متكرر"
+          label="متوسط منخفض متكرر"
           primary={recurringConcern ? `${recurringConcern.person.name} #${recurringConcern.person.number}` : "لا يوجد نمط متكرر"}
           secondary={recurringConcern?.source}
-          tertiary={recurringConcern?.person.summaryText || "هذا يفرق بين موقف واحد وبين إشارة تتكرر في أكثر من سياق."}
+          tertiary={recurringConcern?.person.summaryText || "يظهر فقط عندما يكون المتوسط منخفضًا في الجولتين أو تدعمه بيانات من فعاليات سابقة."}
           onClick={recurringConcern ? () => setSelectedPerson(recurringConcern.person) : undefined}
-        />
-        <MetricCard
-          icon={<Sparkles className="h-4 w-4" />}
-          label="الأكثر ارتباطًا بجو أفضل"
-          primary={roomElevator ? `${roomElevator.name} #${roomElevator.number}` : "لا توجد عينة كافية"}
-          secondary={roomElevator?.impactDelta != null ? `${roomElevator.impactDelta > 0 ? "+" : ""}${roomElevator.impactDelta.toFixed(2)} عن خط الفعالية` : undefined}
-          tertiary={roomElevator ? `مبني على ${roomElevator.impactPeerReviews} تقييمًا بين الآخرين، مع استبعاد التقييمات الموجهة له.` : "يظهر بعد توفر 3 تقييمات بين الأقران على الأقل."}
-          onClick={roomElevator ? () => setSelectedPerson(roomElevator) : undefined}
         />
       </section>
 
@@ -1053,26 +982,12 @@ export default function GroupFeedbackIntelligence({
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex gap-2 overflow-x-auto pb-1">
               {viewTabs.map(tab => (
-                <button key={tab.id} type="button" onClick={() => {
-                  setView(tab.id)
-                  if (tab.id === "all") setSortMode("adjustedAverage")
-                  else if (tab.id === "liked") setSortMode("likedScore")
-                  else if (tab.id === "negative") setSortMode("dislikedScore")
-                  else if (tab.id === "polarizing") setSortMode("polarizingScore")
-                }} className={`whitespace-nowrap rounded-xl border px-3 py-2 text-xs font-bold transition ${view === tab.id ? "border-indigo-400/30 bg-indigo-400/15 text-indigo-100" : "border-white/10 bg-white/[0.03] text-slate-400 hover:bg-white/[0.06]"}`}>
+                <button key={tab.id} type="button" onClick={() => setView(tab.id)} className={`whitespace-nowrap rounded-xl border px-3 py-2 text-xs font-bold transition ${view === tab.id ? "border-indigo-400/30 bg-indigo-400/15 text-indigo-100" : "border-white/10 bg-white/[0.03] text-slate-400 hover:bg-white/[0.06]"}`}>
                   {tab.label}
                 </button>
               ))}
             </div>
             <div className="flex min-w-0 flex-col gap-2 sm:flex-row xl:justify-end">
-              {view !== "groups" && view !== "raw" ? (
-                <label className="min-w-0 sm:w-56">
-                  <span className="sr-only">ترتيب المشاركين حسب</span>
-                  <select value={sortMode} onChange={(event: any) => setSortMode(event.target.value as SortMode)} className="w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-2.5 text-xs font-bold text-slate-200 outline-none focus:border-indigo-400/30">
-                    {(Object.entries(SORT_LABELS) as Array<[SortMode, string]>).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
-                  </select>
-                </label>
-              ) : null}
               {view !== "groups" ? (
                 <div className="relative min-w-0 sm:w-72">
                   <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
@@ -1081,30 +996,61 @@ export default function GroupFeedbackIntelligence({
               ) : null}
             </div>
           </div>
-          {view !== "groups" && view !== "raw" ? <p className="mt-2 text-[10px] text-slate-600">رقم الترتيب أدناه مبني على: <strong className="text-slate-400">{SORT_LABELS[sortMode]}</strong> · من الأعلى إلى الأقل.</p> : null}
+          {RANKING_HELP[view] ? <p className="mt-2 text-[11px] text-slate-500">{RANKING_HELP[view]}</p> : null}
         </div>
 
         {view === "groups" ? (
           <div className="p-4 sm:p-5">
             <div className="mb-4">
               <h3 className="text-base font-black text-white">تشخيص المجموعات</h3>
-              <p className="mt-1 text-xs leading-5 text-slate-500">المتوسط المعدل للترتيب يراعي حجم العينة؛ بطاقة المجموعة نفسها تعرض المتوسط الخام لتسهيل القراءة.</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">المجموعات مرتبة من الأقل متوسطًا إلى الأعلى حتى تظهر المجموعات التي تحتاج مراجعة أولًا.</p>
             </div>
             <div className="grid gap-3 xl:grid-cols-2">
-              {[...groups].sort((a, b) => a.adjustedAverage - b.adjustedAverage).map(group => <GroupCard key={group.key} group={group} peopleByNumber={peopleByNumber} onPerson={setSelectedPerson} />)}
+              {[...groups].sort((a, b) => a.average - b.average || b.reviews - a.reviews).map(group => <GroupCard key={group.key} group={group} peopleByNumber={peopleByNumber} onPerson={setSelectedPerson} />)}
+            </div>
+          </div>
+        ) : view === "notes" ? (
+          <div className="p-4 sm:p-5">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-black text-white">ملاحظات المنظم حسب المشارك</h3>
+                <p className="mt-1 text-xs leading-5 text-slate-500">كل ملاحظة تظهر هنا وداخل صفحة المشارك. اضغط على أي بطاقة لفتح تحليله الكامل.</p>
+              </div>
+              <div className="flex gap-1.5">
+                {(["all", "1", "2"] as const).map(round => <button key={round} type="button" onClick={() => setRoundFilter(round)} className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-bold ${roundFilter === round ? "border-amber-400/30 bg-amber-400/10 text-amber-100" : "border-white/10 bg-white/5 text-slate-500"}`}>{round === "all" ? "كل الجولات" : `الجولة ${round}`}</button>)}
+              </div>
+            </div>
+            <div className="space-y-3">
+              {filteredNotePeople.map(({ person, notes }) => (
+                <button key={person.number} type="button" onClick={() => setSelectedPerson(person)} className="w-full rounded-2xl border border-amber-400/15 bg-amber-400/[0.04] p-4 text-right transition hover:border-amber-400/25 hover:bg-amber-400/[0.07]">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2"><span className="font-black text-white">{person.name}</span><span className="text-xs text-slate-500">#{person.number}</span><span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-0.5 text-[10px] font-black text-amber-200">{noteCountLabel(notes.length)}</span></div>
+                      <div className="mt-1 text-[11px] text-slate-500">متوسط {person.average.toFixed(2)}/4 · {reviewCountLabel(person.reviews)}</div>
+                    </div>
+                    <span className="text-[10px] font-bold text-amber-300">فتح تفاصيل المشارك</span>
+                  </div>
+                  <div className="mt-3 grid gap-2 md:grid-cols-2">
+                    {notes.map((entry, index) => (
+                      <div key={`${entry.reviewer_number}-${entry.group_round}-${index}`} className="rounded-xl border border-amber-400/15 bg-black/20 p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-amber-200/55"><span>من {entry.reviewer_name || `#${entry.reviewer_number}`} · #{entry.reviewer_number}</span><span>الجولة {entry.group_round}</span></div>
+                        <p className="mt-2 whitespace-pre-wrap text-xs leading-6 text-amber-50">{entry.organizer_note}</p>
+                      </div>
+                    ))}
+                  </div>
+                </button>
+              ))}
+              {!filteredNotePeople.length ? <div className="rounded-2xl border border-dashed border-white/10 p-10 text-center text-xs text-slate-600">لا توجد ملاحظات تطابق البحث أو الجولة المختارة.</div> : null}
             </div>
           </div>
         ) : view === "raw" ? (
           <div className="p-4 sm:p-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h3 className="text-base font-black text-white">التقييمات الخام</h3>
-                <p className="mt-1 text-xs text-slate-500">للتدقيق اليدوي؛ التحليلات فوق مبنية على نفس هذه السجلات.</p>
+                <h3 className="text-base font-black text-white">سجل التقييمات</h3>
+                <p className="mt-1 text-xs text-slate-500">كل تقييم كما أُرسل، للتدقيق عند الحاجة.</p>
               </div>
               <div className="flex flex-wrap gap-1.5">
-                <button type="button" onClick={() => setRawNotesOnly(value => !value)} className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-bold ${rawNotesOnly ? "border-amber-400/30 bg-amber-400/10 text-amber-200" : "border-white/10 bg-white/5 text-slate-500"}`}>
-                  ملاحظات المنظم فقط ({notesCount})
-                </button>
                 {(["all", "1", "2"] as const).map(round => <button key={round} type="button" onClick={() => setRoundFilter(round)} className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-bold ${roundFilter === round ? "border-indigo-400/30 bg-indigo-400/15 text-indigo-100" : "border-white/10 bg-white/5 text-slate-500"}`}>{round === "all" ? "كل الجولات" : `الجولة ${round}`}</button>)}
               </div>
             </div>
@@ -1125,17 +1071,15 @@ export default function GroupFeedbackIntelligence({
         ) : (
           <div className="p-0 sm:p-4">
             <div className="hidden overflow-x-auto sm:block">
-              <table className="w-full min-w-[980px] border-separate border-spacing-y-2 text-right">
+              <table className="w-full min-w-[860px] border-separate border-spacing-y-2 text-right">
                 <thead>
                   <tr className="text-[10px] font-bold text-slate-500">
                     <th className="px-3 py-2">الترتيب</th>
                     <th className="px-3 py-2">المشارك</th>
-                    <th className="px-3 py-2">الانطباع الفعلي</th>
-                    <th className="px-3 py-2">المتوسط</th>
+                    <th className="px-3 py-2">المتوسط الفعلي</th>
+                    <th className="px-3 py-2">توزيع التقييمات</th>
                     <th className="px-3 py-2">التقييمات</th>
-                    <th className="px-3 py-2">الإشارات المعدّلة</th>
                     <th className="px-3 py-2">السبب والملاحظات</th>
-                    <th className="px-3 py-2">أثر الجو</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1145,13 +1089,11 @@ export default function GroupFeedbackIntelligence({
                     return (
                       <tr key={person.number} onClick={() => setSelectedPerson(person)} className="cursor-pointer bg-white/[0.025] text-sm transition hover:bg-white/[0.05]">
                         <td className="rounded-r-2xl px-3 py-3 font-black text-slate-600">{index + 1}</td>
-                        <td className="px-3 py-3"><div className="font-black text-white">{person.name}</div><div className="text-[10px] text-slate-600">#{person.number} · {person.confidenceLabel}</div>{person.notes.length ? <div className="mt-1 inline-flex items-center gap-1 rounded-full border border-amber-400/15 bg-amber-400/5 px-2 py-0.5 text-[9px] font-bold text-amber-300"><MessageSquare className="h-2.5 w-2.5" /> {person.notes.length} ملاحظات</div> : null}</td>
-                        <td className="w-48 px-3 py-3"><SegmentedBar positive={person.positive} neutral={person.neutral} negative={person.negative} /><div className="mt-1 flex justify-between gap-2 text-[9px] font-bold"><span className="text-emerald-300">إيجابي {pct(person.positiveRate)}</span><span className="text-slate-500">محايد {pct(person.neutralRate)}</span><span className="text-rose-300">سلبي {pct(person.negativeRate)}</span></div></td>
-                        <td className="px-3 py-3"><div className="font-black text-white">{person.average.toFixed(2)}<span className="text-[10px] font-medium text-slate-600">/4</span></div><div className="text-[9px] text-slate-600">معدّل {person.adjustedAverage.toFixed(2)}</div></td>
+                        <td className="px-3 py-3"><div className="font-black text-white">{person.name}</div><div className="text-[10px] text-slate-600">#{person.number} · {person.confidenceLabel}</div>{person.notes.length ? <div className="mt-1 inline-flex items-center gap-1 rounded-full border border-amber-400/15 bg-amber-400/5 px-2 py-0.5 text-[9px] font-bold text-amber-300"><MessageSquare className="h-2.5 w-2.5" /> {noteCountLabel(person.notes.length)}</div> : null}</td>
+                        <td className="px-3 py-3"><div className={`text-lg font-black ${person.average < 2.5 ? "text-rose-300" : person.average >= 3.25 ? "text-emerald-300" : "text-white"}`}>{person.average.toFixed(2)}<span className="text-[10px] font-medium text-slate-600">/4</span></div><div className="text-[9px] text-slate-500">{averageLabel(person.average)}</div></td>
+                        <td className="w-52 px-3 py-3"><SegmentedBar positive={person.positive} neutral={person.neutral} negative={person.negative} /><div className="mt-1 flex justify-between gap-2 text-[9px] font-bold"><span className="text-emerald-300">إيجابي {pct(person.positiveRate)}</span><span className="text-slate-500">محايد {pct(person.neutralRate)}</span><span className="text-rose-300">سلبي {pct(person.negativeRate)}</span></div></td>
                         <td className="px-3 py-3"><div className="font-bold text-slate-300">{person.reviews}</div><div className="text-[9px] text-slate-600">{person.reviewedRounds}/2 جولات</div></td>
-                        <td className="px-3 py-3"><div className="text-[10px] text-emerald-300">إعجاب معدّل {Math.round(person.likedScore)}</div><div className="text-[10px] text-rose-300">خطر معدّل {Math.round(person.dislikedScore)}</div><div className="text-[9px] text-slate-600">ليست نسبًا فعلية</div>{person.polarizingScore >= 15 ? <div className="text-[9px] font-bold text-amber-300">منقسم</div> : null}</td>
-                        <td className="max-w-[240px] px-3 py-3"><div className="flex flex-wrap gap-1">{mainPositive ? <TagPill tag={mainPositive[0]} count={mainPositive[1]} tone="positive" /> : null}{mainNegative ? <TagPill tag={mainNegative[0]} count={mainNegative[1]} tone="negative" /> : null}</div><div className="mt-1 line-clamp-2 text-[10px] leading-4 text-slate-600">{person.summaryText}</div>{person.notes.length ? <div className="mt-1 text-[9px] font-bold text-amber-300">اضغط لعرض {person.notes.length} ملاحظات خاصة</div> : null}</td>
-                        <td className="rounded-l-2xl px-3 py-3">{person.impactDelta == null ? <span className="text-xs text-slate-700">—</span> : <span className={`text-xs font-black ${person.impactDelta > 0.08 ? "text-emerald-300" : person.impactDelta < -0.08 ? "text-rose-300" : "text-slate-400"}`}>{person.impactDelta > 0 ? "+" : ""}{person.impactDelta.toFixed(2)}</span>}</td>
+                        <td className="max-w-[260px] rounded-l-2xl px-3 py-3"><div className="flex flex-wrap gap-1">{mainPositive ? <TagPill tag={mainPositive[0]} count={mainPositive[1]} tone="positive" /> : null}{mainNegative ? <TagPill tag={mainNegative[0]} count={mainNegative[1]} tone="negative" /> : null}</div><div className="mt-1 line-clamp-2 text-[10px] leading-4 text-slate-600">{person.summaryText}</div>{person.notes.length ? <div className="mt-1 text-[9px] font-bold text-amber-300">اضغط لعرض {noteCountLabel(person.notes.length)}</div> : null}</td>
                       </tr>
                     )
                   })}
@@ -1163,11 +1105,11 @@ export default function GroupFeedbackIntelligence({
               {filteredPeople.map((person, index) => (
                 <button key={person.number} type="button" onClick={() => setSelectedPerson(person)} className="w-full p-4 text-right hover:bg-white/[0.03]">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0"><div className="flex items-center gap-2"><span className="text-xs font-black text-slate-600">{index + 1}</span><span className="truncate font-black text-white">{person.name}</span><span className="text-xs text-slate-600">#{person.number}</span></div><div className="mt-1 line-clamp-2 text-[11px] leading-5 text-slate-500">{person.summaryText}</div>{person.notes.length ? <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-amber-300"><MessageSquare className="h-3 w-3" /> {person.notes.length} ملاحظات خاصة</div> : null}</div>
-                    <ConfidenceBadge reviews={person.reviews} />
+                    <div className="min-w-0"><div className="flex items-center gap-2"><span className="text-xs font-black text-slate-600">{index + 1}</span><span className="truncate font-black text-white">{person.name}</span><span className="text-xs text-slate-600">#{person.number}</span></div><div className="mt-1 line-clamp-2 text-[11px] leading-5 text-slate-500">{person.summaryText}</div>{person.notes.length ? <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-amber-300"><MessageSquare className="h-3 w-3" /> {noteCountLabel(person.notes.length)}</div> : null}</div>
+                    <div className="shrink-0 text-left"><div className={`text-lg font-black ${person.average < 2.5 ? "text-rose-300" : person.average >= 3.25 ? "text-emerald-300" : "text-white"}`}>{person.average.toFixed(2)}<span className="text-[10px] text-slate-600">/4</span></div><ConfidenceBadge reviews={person.reviews} /></div>
                   </div>
                   <div className="mt-3"><SegmentedBar positive={person.positive} neutral={person.neutral} negative={person.negative} /></div>
-                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-bold"><span className="text-emerald-300">إيجابي فعلي {pct(person.positiveRate)}</span><span className="text-slate-500">محايد {pct(person.neutralRate)}</span><span className="text-rose-300">سلبي فعلي {pct(person.negativeRate)}</span><span className="text-slate-500">{person.reviews} تقييمات</span><span className="text-slate-300">{person.average.toFixed(2)}/4</span></div>
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-bold"><span className="text-emerald-300">إيجابي {pct(person.positiveRate)}</span><span className="text-slate-500">محايد {pct(person.neutralRate)}</span><span className="text-rose-300">سلبي {pct(person.negativeRate)}</span><span className="text-slate-500">{reviewCountLabel(person.reviews)}</span></div>
                   {(person.positiveTags[0] || person.negativeTags[0]) ? <div className="mt-2 flex flex-wrap gap-1.5">{person.positiveTags[0] ? <TagPill tag={person.positiveTags[0][0]} count={person.positiveTags[0][1]} tone="positive" /> : null}{person.negativeTags[0] ? <TagPill tag={person.negativeTags[0][0]} count={person.negativeTags[0][1]} tone="negative" /> : null}</div> : null}
                 </button>
               ))}
@@ -1177,7 +1119,7 @@ export default function GroupFeedbackIntelligence({
       </section>
 
       <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4 text-[11px] leading-5 text-slate-500">
-        <strong className="text-slate-300">مهم:</strong> هذه لوحة دعم قرار وليست حكمًا على الأشخاص. اقرأ الملاحظات الخام قبل الاستبعاد أو التواصل، خصوصًا عندما تكون الثقة منخفضة أو السلبية محصورة في مجموعة واحدة.
+        <strong className="text-slate-300">مهم:</strong> المتوسط يلخص التقييمات ولا يفسرها وحده. راجع حجم العينة، الأسباب، وملاحظات المنظم داخل صفحة المشارك قبل اتخاذ أي قرار.
       </div>
 
       {selectedPerson ? <PersonDetailModal person={selectedPerson} onClose={() => setSelectedPerson(null)} /> : null}

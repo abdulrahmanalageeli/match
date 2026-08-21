@@ -4127,6 +4127,7 @@ export default function WelcomePage() {
       
       if (res.ok && data.success) {
         console.log('✅ Successfully polled participant data:', data.name, '#' + data.assigned_number);
+        applyMatchInsightsPrompt(data)
         
         // Update state
         if (data.name && !participantName) {
@@ -4324,7 +4325,8 @@ export default function WelcomePage() {
 
   // Handle returning user token input in new user popup
   const handleReturningUserToken = async () => {
-    if (!newUserTokenInput.trim()) {
+    const enteredToken = newUserTokenInput.trim()
+    if (!enteredToken) {
       toast.error("يرجى إدخال الرمز المميز");
       return;
     }
@@ -4336,7 +4338,7 @@ export default function WelcomePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           action: "resolve-token", 
-          secure_token: newUserTokenInput.trim() 
+          secure_token: enteredToken
         }),
       });
       
@@ -4344,8 +4346,8 @@ export default function WelcomePage() {
       
       if (res.ok && data.success) {
         // Save token and participant data to localStorage
-        localStorage.setItem('blindmatch_result_token', newUserTokenInput.trim());
-        localStorage.setItem('blindmatch_returning_token', newUserTokenInput.trim());
+        localStorage.setItem('blindmatch_result_token', enteredToken);
+        localStorage.setItem('blindmatch_returning_token', enteredToken);
         
         if (data.name) {
           localStorage.setItem('blindmatch_participant_name', data.name);
@@ -4363,8 +4365,13 @@ export default function WelcomePage() {
         }
         
         // Set token fields
-        setResultToken(newUserTokenInput.trim());
-        setReturningPlayerToken(newUserTokenInput.trim());
+        setResultToken(enteredToken);
+        setReturningPlayerToken(enteredToken);
+
+        // This route used to load the participant without running the survey
+        // update check, so people who had answered the earlier popup could miss
+        // the three questions added later.
+        applyMatchInsightsPrompt(data)
         
         // Close popup and show success
         setShowNewUserTypePopup(false);
@@ -4374,15 +4381,15 @@ export default function WelcomePage() {
         
         // Check for next event signup and incomplete survey
         setTimeout(() => {
-          checkNextEventSignup(newUserTokenInput.trim());
+          checkNextEventSignup(enteredToken);
         }, 1000);
         
         setTimeout(() => {
-          checkIncompleteSurvey(newUserTokenInput.trim());
+          checkIncompleteSurvey(enteredToken);
         }, 1500);
 
         setTimeout(() => {
-          checkSurveyRecovery(newUserTokenInput.trim())
+          checkSurveyRecovery(enteredToken)
         }, 1200);
         
       } else {
@@ -4670,7 +4677,7 @@ export default function WelcomePage() {
     const savedReturningToken = localStorage.getItem('blindmatch_returning_token');
     
     // Use the most recent token (either one works since they're the same)
-    const tokenToUse = savedResultToken || savedReturningToken;
+    const tokenToUse = token || savedResultToken || savedReturningToken;
     
     if (tokenToUse) {
       // Auto-fill token fields with saved token (no validation)
@@ -4681,7 +4688,10 @@ export default function WelcomePage() {
       // Returning participants normally land on /welcome without a token in
       // the URL. Check their saved account here so the short update dialog is
       // available on the main welcome page as intended.
-      void checkMatchInsightsForSavedParticipant(tokenToUse)
+      // A URL token has its own resolution flow. Avoid racing it against a
+      // different token left in localStorage, which could overwrite the prompt
+      // state with the wrong participant's completion status.
+      if (!token) void checkMatchInsightsForSavedParticipant(tokenToUse)
       
       // Check for next event signup on all steps EXCEPT survey (step 1)
       // Don't show popup when user is accessing a specific token URL
@@ -4726,7 +4736,7 @@ export default function WelcomePage() {
       
       setTokenValidationCompleted(true);
     }
-  }, [checkMatchInsightsForSavedParticipant]);
+  }, [token, checkMatchInsightsForSavedParticipant]);
 
   // Load saved participant data on page load
   useEffect(() => {

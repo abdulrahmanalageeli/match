@@ -4,26 +4,23 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../componen
 import { Checkbox } from "../../components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group"
 import { Textarea } from "../../components/ui/textarea"
+import {
+  getMissingSurveyUpdateIds,
+  isProfileDataCollectionId,
+  type SurveyUpdateAnswers as Answers,
+  type SurveyUpdateId as InsightId,
+} from "../lib/survey-update-questions.js"
 
-export const MATCH_INSIGHT_IDS = [
-  'age_flex_one_year',
-  'match_disagreement_style',
-  'match_similarity_preference',
-  'match_current_curiosity',
-  'match_current_focus',
-  'conversation_initiative_preference',
-] as const
+export {
+  MATCH_INSIGHT_IDS,
+  PROFILE_DATA_COLLECTION_IDS,
+  SURVEY_UPDATE_IDS,
+  getMissingSurveyUpdateIds,
+} from "../lib/survey-update-questions.js"
 
-export const PROFILE_DATA_COLLECTION_IDS = [
-  'expression_language',
-  'minimum_partner_religious_commitment',
-  'social_relationship_style',
-] as const
-
-export const SURVEY_UPDATE_IDS = [...MATCH_INSIGHT_IDS, ...PROFILE_DATA_COLLECTION_IDS] as const
-
-type InsightId = typeof SURVEY_UPDATE_IDS[number]
-type Answers = Record<string, string | string[]>
+// Keep the existing public name for callers while the helper now covers every
+// question added after the original survey, including the later profile trio.
+export const getMissingMatchInsightIds = getMissingSurveyUpdateIds
 
 const questions: Array<{
   id: InsightId
@@ -135,20 +132,6 @@ const questions: Array<{
   },
 ]
 
-export function getMissingMatchInsightIds(answers: Answers): InsightId[] {
-  return SURVEY_UPDATE_IDS.filter((id) => {
-    const value = answers[id]
-    if (id === 'age_flex_one_year') return !['accept', 'decline', 'not_applicable'].includes(String(value || '').toLowerCase())
-    if (id === 'match_current_focus') return !Array.isArray(value) || value.length !== 2
-    if (id === 'match_current_curiosity') return typeof value !== 'string' || value.trim().length < 20
-    if (id === 'expression_language') return !['1', '2', '3', '4', '5'].includes(String(value || ''))
-    if (id === 'minimum_partner_religious_commitment' || id === 'social_relationship_style') {
-      return !['1', '2', '3', '4'].includes(String(value || ''))
-    }
-    return !['A', 'B', 'C', 'D'].includes(String(value || '').toUpperCase())
-  })
-}
-
 interface Props {
   open: boolean
   missingIds: InsightId[]
@@ -162,6 +145,8 @@ export function MatchInsightsUpdateDialog({ open, missingIds, secureToken, onOpe
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const visibleQuestions = useMemo(() => questions.filter((question) => missingIds.includes(question.id)), [missingIds])
+  const newProfileQuestionCount = useMemo(() => missingIds.filter(isProfileDataCollectionId).length, [missingIds])
+  const onlyNewProfileQuestions = newProfileQuestionCount === missingIds.length
 
   useEffect(() => {
     if (open) {
@@ -231,9 +216,13 @@ export function MatchInsightsUpdateDialog({ open, missingIds, secureToken, onOpe
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <DialogTitle className="text-right text-xl font-black leading-8 text-slate-950 dark:text-white sm:text-2xl">خلّنا نعرفك أكثر</DialogTitle>
+            <DialogTitle className="text-right text-xl font-black leading-8 text-slate-950 dark:text-white sm:text-2xl">
+              {onlyNewProfileQuestions ? 'أضفنا أسئلة جديدة' : 'خلّنا نعرفك أكثر'}
+            </DialogTitle>
             <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-              عندنا {missingIds.length === 1 ? 'سؤال واحد جديد' : `${missingIds.length} أسئلة جديدة`} تساعدنا نفهمك بشكل أدق. جاوبها هنا بدون ما ترجع للاستبيان كامل.
+              {onlyNewProfileQuestions
+                ? `حتى لو جاوبت التحديث السابق، أضفنا ${newProfileQuestionCount === 1 ? 'سؤالًا واحدًا' : `${newProfileQuestionCount} أسئلة`} عن لغة التعبير والجانب الديني والأسلوب الاجتماعي. جاوبها هنا بدون ما ترجع للاستبيان كامل.`
+                : `عندنا ${missingIds.length === 1 ? 'سؤال واحد جديد' : `${missingIds.length} أسئلة جديدة`} تساعدنا نفهمك بشكل أدق. جاوبها هنا بدون ما ترجع للاستبيان كامل.`}
             </p>
           </DialogHeader>
         </div>
@@ -244,7 +233,12 @@ export function MatchInsightsUpdateDialog({ open, missingIds, secureToken, onOpe
               <div className="mb-3 flex items-start gap-3">
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cyan-600 text-xs font-black text-white">{index + 1}</span>
                 <div>
-                  <h3 className="text-sm font-bold leading-6 text-slate-900 dark:text-white sm:text-[15px]">{question.title}</h3>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-sm font-bold leading-6 text-slate-900 dark:text-white sm:text-[15px]">{question.title}</h3>
+                    {isProfileDataCollectionId(question.id) && (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-800 dark:bg-amber-400/15 dark:text-amber-200">جديد</span>
+                    )}
+                  </div>
                   {question.supportingText && <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{question.supportingText}</p>}
                 </div>
               </div>

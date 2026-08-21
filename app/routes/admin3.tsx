@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import toast, { Toaster } from "react-hot-toast"
 import { useVisibilityPoll } from "~/hooks/useVisibilityPoll"
 import { surveyQuestions } from "~/components/SurveyComponent"
+import GroupFeedbackIntelligence from "~/components/GroupFeedbackIntelligence"
 import {
   Users, Play, Square, ChevronRight, RotateCcw, CheckCircle,
   Circle, RefreshCw, Table2, Trophy, Clock, BarChart3, Shuffle,
@@ -935,7 +936,7 @@ export default function Admin3Page() {
     if (authenticated && activeTab === "ranking") fetchRankStatus()
     if (authenticated && activeTab === "participants") { fetchParticipants({ preserveSelection: true }); fetchSeating(); fetchRankStatus(); fetchMatches() }
     if (authenticated && activeTab === "overview") fetchOverview()
-    if (authenticated && activeTab === "feedback") { fetchFeedback(); fetchMoodChecks(); fetchNotifications() }
+    if (authenticated && activeTab === "feedback") { fetchFeedback(); fetchMoodChecks(); fetchNotifications(); fetchSeating(); fetchRankStatus() }
     if (authenticated && activeTab === "attendance") fetchAttendance()
     if (authenticated && activeTab === "aiwelcome") fetchAiWelcome()
     if (authenticated && activeTab === "control") { fetchExclusions(); fetchSeating() }
@@ -1904,7 +1905,7 @@ export default function Admin3Page() {
           ].map(tab => (
             <button
               key={tab.id}
-              onClick={() => { setActiveTab(tab.id as any); if (tab.id === "ranking" || tab.id === "overview") fetchRankStatus(); if (tab.id === "feedback") fetchFeedback() }}
+              onClick={() => { setActiveTab(tab.id as any); if (tab.id === "ranking" || tab.id === "overview") fetchRankStatus(); if (tab.id === "feedback") { fetchFeedback(); fetchSeating(); fetchRankStatus() } }}
               className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 border-b-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
                 activeTab === tab.id
                   ? "border-purple-500 text-purple-400"
@@ -5029,7 +5030,7 @@ export default function Admin3Page() {
 
           {/* Entries */}
           {feedbackPhase === "groups" ? (
-            <GroupMemberFeedbackPanel data={groupMemberFeedback} />
+            <GroupFeedbackIntelligence data={groupMemberFeedback} seating={seating} dislikeRankings={dislikeRankings} eventId={previewEventId ?? realCurrentEventId} />
           ) : !feedbackData ? (
             <div className="text-center py-16">
               {feedbackLoading

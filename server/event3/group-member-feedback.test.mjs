@@ -34,3 +34,47 @@ test('summarizes absolute experiences instead of repeating rank order', () => {
     [9, 2, 1, []],
   ])
 })
+
+test('confidence weighting prevents a single positive review from outranking a supported pattern', () => {
+  const rows = [
+    { member_number: 1, group_round: 1, experience: 'great', tags: ['fun'] },
+    ...Array.from({ length: 8 }, () => ({ member_number: 2, group_round: 1, experience: 'great', tags: ['respectful'] })),
+    ...Array.from({ length: 8 }, () => ({ member_number: 3, group_round: 1, experience: 'neutral', tags: [] })),
+  ]
+
+  const summary = buildGroupMemberFeedbackSummary(rows)
+  const singleReview = summary.find(item => item.number === 1)
+  const supportedPattern = summary.find(item => item.number === 2)
+
+  assert.ok(supportedPattern.liked_score > singleReview.liked_score)
+  assert.equal(singleReview.confidence_label, 'initial')
+  assert.equal(supportedPattern.confidence_label, 'strong')
+})
+
+test('exposes polarization, reason buckets, and repeated round signals', () => {
+  const rows = [
+    ...Array.from({ length: 4 }, (_, index) => ({
+      member_number: 7,
+      group_round: index < 2 ? 1 : 2,
+      experience: 'great',
+      tags: ['fun'],
+    })),
+    ...Array.from({ length: 4 }, (_, index) => ({
+      member_number: 7,
+      group_round: index < 2 ? 1 : 2,
+      experience: 'uncomfortable',
+      tags: ['interrupts'],
+    })),
+  ]
+
+  const [person] = buildGroupMemberFeedbackSummary(rows, { 7: 'Polarizing participant' })
+
+  assert.equal(person.positive_rate, 0.5)
+  assert.equal(person.negative_rate, 0.5)
+  assert.ok(person.polarizing_score > 40)
+  assert.deepEqual(person.positive_tags, [['fun', 4]])
+  assert.deepEqual(person.negative_tags, [['interrupts', 4]])
+  assert.equal(person.reviewed_rounds, 2)
+  assert.equal(person.negative_rounds, 2)
+  assert.equal(person.positive_rounds, 0)
+})

@@ -1260,6 +1260,38 @@ html:not(.dark) .round-bg-pattern::before {
   cursor: grab;
 }
 
+/* Event 3 is a touch-first, full-height experience. Keep its interaction
+   affordances consistent without changing the admin and survey surfaces. */
+.event3-shell {
+  min-width: 0;
+  background: #030712;
+  color: #fff;
+  font-family: "Tajawal", ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  overscroll-behavior-y: contain;
+}
+
+.event3-shell :where(button, a, input, textarea, select) {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.event3-shell :where(button, a, input, textarea, select):focus-visible {
+  outline: 2px solid rgba(216, 180, 254, 0.95);
+  outline-offset: 2px;
+}
+
+.event3-scroll {
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.event3-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 /* Respect the participant's operating-system motion preference across welcome and event flows. */
 @media (prefers-reduced-motion: reduce) {
   *,

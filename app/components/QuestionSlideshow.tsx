@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Zap, Flame, Compass, Sparkles, Handshake, ChevronLeft, ChevronRight,
@@ -55,7 +55,14 @@ const setDescription: Record<QuestionSet, string> = {
   set2: 'قصص وقرارات تكشف طريقة تفكيرك',
 }
 
-const arabicSetNumber = ['١', '٢', '٣', '٤', '٥']
+const setLabel: Record<QuestionSet, string> = {
+  rhythm: 'إيقاع الحياة',
+  partnership: 'الشراكة والثقة',
+  choice: 'ما يهمك',
+  special: 'زوايا جديدة',
+  set1: 'القيم والهوية',
+  set2: 'قصص وقرارات',
+}
 
 const setMap: Record<QuestionSet, QuestionItem[]> = {
   choice: choiceQuestions,
@@ -72,18 +79,30 @@ export function QuestionSlideshow({ defaultSet }: { defaultSet: QuestionSet }) {
   const [positions, setPositions] = useState<Partial<Record<QuestionSet, number>>>({})
   const [direction, setDirection] = useState(0)
   const [showQuestionList, setShowQuestionList] = useState(false)
+  const questionHeadingRef = useRef<HTMLHeadingElement>(null)
+  const questionListTriggerRef = useRef<HTMLButtonElement>(null)
+  const questionListDialogRef = useRef<HTMLDivElement>(null)
+  const questionListCloseRef = useRef<HTMLButtonElement>(null)
+  const questionListReturnFocusRef = useRef<HTMLElement | null>(null)
+  const restoreQuestionListFocusRef = useRef(true)
+  const focusQuestionAfterChangeRef = useRef(false)
+  const questionListTitleId = useId()
 
   const currentQs = setMap[activeSet]
   const qIdx = Math.min(positions[activeSet] ?? 0, currentQs.length - 1)
   const q = currentQs[qIdx]
   const lc = levelColor(q.level)
   const availableLevels = [...new Set(currentQs.map(item => item.level))].sort((a, b) => a - b)
-  const phaseSetLabel = (set: QuestionSet) => `المجموعة ${arabicSetNumber[availableSets.indexOf(set)] ?? availableSets.indexOf(set) + 1}`
+  const phaseSetLabel = (set: QuestionSet) => setLabel[set]
 
-  const moveTo = (index: number) => {
+  const moveTo = (index: number, focusQuestion = false) => {
     const safeIndex = Math.max(0, Math.min(index, currentQs.length - 1))
+    focusQuestionAfterChangeRef.current = focusQuestion
     setDirection(safeIndex === qIdx ? 0 : safeIndex > qIdx ? 1 : -1)
     setPositions(previous => ({ ...previous, [activeSet]: safeIndex }))
+    if (focusQuestion && safeIndex === qIdx) {
+      window.requestAnimationFrame(() => questionHeadingRef.current?.focus({ preventScroll: true }))
+    }
   }
   const pick = (set: QuestionSet) => {
     setDirection(0)
@@ -91,10 +110,77 @@ export function QuestionSlideshow({ defaultSet }: { defaultSet: QuestionSet }) {
   }
   const goPrev = () => moveTo(qIdx - 1)
   const goNext = () => moveTo(qIdx + 1)
-  const jumpToLevel = (level: number) => {
-    const firstQuestion = currentQs.findIndex(item => item.level === level)
-    if (firstQuestion >= 0) moveTo(firstQuestion)
+  const openQuestionList = () => {
+    questionListReturnFocusRef.current = questionListTriggerRef.current
+    restoreQuestionListFocusRef.current = true
+    setShowQuestionList(true)
   }
+
+  const closeQuestionList = (focusQuestion = false) => {
+    restoreQuestionListFocusRef.current = !focusQuestion
+    if (focusQuestion) focusQuestionAfterChangeRef.current = true
+    setShowQuestionList(false)
+  }
+
+  useEffect(() => {
+    if (!focusQuestionAfterChangeRef.current || showQuestionList) return
+    focusQuestionAfterChangeRef.current = false
+    // The question card uses AnimatePresence in wait mode, so its heading is not
+    // mounted until the outgoing card finishes. Focus after that short exit.
+    const timer = window.setTimeout(() => questionHeadingRef.current?.focus({ preventScroll: true }), 300)
+    return () => window.clearTimeout(timer)
+  }, [activeSet, qIdx, showQuestionList])
+
+  useEffect(() => {
+    if (!showQuestionList) return
+    const dialog = questionListDialogRef.current
+    if (!dialog) return
+
+    const previousBodyOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const frame = window.requestAnimationFrame(() => questionListCloseRef.current?.focus())
+    const focusable = () => Array.from(dialog.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    ))
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        restoreQuestionListFocusRef.current = true
+        setShowQuestionList(false)
+        return
+      }
+      if (event.key !== 'Tab') return
+      const items = focusable()
+      if (!items.length) {
+        event.preventDefault()
+        dialog.focus()
+        return
+      }
+      const first = items[0]
+      const last = items[items.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.cancelAnimationFrame(frame)
+      document.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = previousBodyOverflow
+      if (restoreQuestionListFocusRef.current) {
+        const returnTarget = questionListReturnFocusRef.current
+        window.requestAnimationFrame(() => {
+          if (returnTarget?.isConnected) returnTarget.focus({ preventScroll: true })
+        })
+      }
+      restoreQuestionListFocusRef.current = true
+    }
+  }, [showQuestionList])
 
   return (
     <section
@@ -102,6 +188,7 @@ export function QuestionSlideshow({ defaultSet }: { defaultSet: QuestionSet }) {
       aria-label="أسئلة الحوار"
       className={`relative overflow-hidden rounded-[1.75rem] border bg-gradient-to-br ${lc.bg} ${lc.border} p-3.5 sm:p-5 shadow-xl shadow-black/20`}
     >
+      <div inert={showQuestionList} aria-hidden={showQuestionList || undefined}>
       {/* Track header: meaningful name and one clear way to browse everything. */}
       <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-white/[0.07] bg-gray-950/55 p-3">
         <div className="min-w-0">
@@ -112,33 +199,26 @@ export function QuestionSlideshow({ defaultSet }: { defaultSet: QuestionSet }) {
           <p className="mt-0.5 line-clamp-1 text-[11px] text-gray-400">{setDescription[activeSet]}</p>
         </div>
         <button
-          onClick={() => setShowQuestionList(true)}
+          ref={questionListTriggerRef}
+          onClick={openQuestionList}
+          type="button"
           className="flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-3 text-xs font-bold text-gray-200 active:scale-95"
           aria-label="عرض مسارات وقائمة الأسئلة"
         >
-          <List className="h-4 w-4" /> القائمة
+          <List className="h-4 w-4" /> تغيير المسار
         </button>
       </div>
 
-      {/* Depth navigator: makes the progression visible and lets a pair choose comfort level. */}
-      <div className="mb-3 grid grid-cols-5 gap-1" aria-label="مستويات الحوار">
-        {availableLevels.map(level => {
-          const colors = levelColor(level)
-          const active = q.level === level
-          return (
-            <button
-              key={level}
-              onClick={() => jumpToLevel(level)}
-              aria-current={active ? 'step' : undefined}
-              className={`min-h-11 rounded-xl border px-1 py-1.5 text-[10px] font-bold transition-all ${
-                active ? `${colors.border} bg-white/10 ${colors.text}` : 'border-white/[0.05] bg-black/15 text-gray-500'
-              }`}
-            >
-              <span className={`mx-auto mb-1 block h-1.5 w-5 rounded-full ${active ? `bg-gradient-to-r ${colors.bar}` : 'bg-gray-700'}`} />
-              {levelShortLabel[level] ?? `مستوى ${level + 1}`}
-            </button>
-          )
-        })}
+      {/* Show the conversation getting deeper without asking the pair to make
+          five extra navigation decisions. Exact jumps remain in Change track. */}
+      <div className="mb-3 flex items-center gap-3 rounded-xl border border-white/[0.06] bg-black/15 px-3 py-2" aria-label={`عمق الحوار: ${levelShortLabel[q.level]}`}>
+        <span className="shrink-0 text-[10px] font-bold text-gray-400">عمق الحوار</span>
+        <div className="flex flex-1 items-center gap-1" aria-hidden="true">
+          {availableLevels.map(level => (
+            <span key={level} className={`h-1.5 flex-1 rounded-full ${level <= q.level ? `bg-gradient-to-r ${levelColor(level).bar}` : 'bg-gray-800'}`} />
+          ))}
+        </div>
+        <span className={`shrink-0 text-[10px] font-black ${lc.text}`}>{levelShortLabel[q.level]}</span>
       </div>
 
       {/* The question is the visual focus. Larger type and a stable height improve mobile use. */}
@@ -157,7 +237,7 @@ export function QuestionSlideshow({ defaultSet }: { defaultSet: QuestionSet }) {
             if (info.offset.x < -60 && qIdx < currentQs.length - 1) goNext()
             if (info.offset.x > 60 && qIdx > 0) goPrev()
           }}
-          className="flex min-h-[280px] flex-col rounded-3xl border border-white/[0.07] bg-gray-950/75 p-5 text-center shadow-inner sm:min-h-[300px] sm:p-7"
+          className="flex min-h-[250px] flex-col rounded-3xl border border-white/[0.07] bg-gray-950/75 p-5 text-center shadow-inner sm:min-h-[280px] sm:p-7"
         >
           <div className="flex items-center justify-between gap-3">
             <span className={`inline-flex items-center gap-2 text-xs font-bold ${lc.text}`}>
@@ -171,10 +251,10 @@ export function QuestionSlideshow({ defaultSet }: { defaultSet: QuestionSet }) {
 
           <div className="flex flex-1 flex-col items-center justify-center py-6">
             <p className={`mb-3 text-sm font-black ${lc.text}`}>{q.title}</p>
-            <h3 className="text-balance text-[1.35rem] font-black leading-[1.75] text-white sm:text-2xl">{q.question}</h3>
+            <h3 ref={questionHeadingRef} tabIndex={-1} className="text-balance text-[1.35rem] font-black leading-[1.75] text-white outline-none sm:text-2xl">{q.question}</h3>
           </div>
 
-          <p className="border-t border-white/[0.07] pt-3 text-xs font-medium leading-5 text-gray-400">خذوا وقتكم — يجاوب كل شخص، وبعدها ناقشوا الاختلاف والتشابه</p>
+          <p className="border-t border-white/[0.07] pt-3 text-xs font-medium leading-5 text-gray-400">يجيب كل منكما، ثم ناقشا التشابه والاختلاف قبل السؤال التالي</p>
         </motion.article>
       </AnimatePresence>
 
@@ -206,6 +286,10 @@ export function QuestionSlideshow({ defaultSet }: { defaultSet: QuestionSet }) {
           التالي <ChevronLeft className="h-5 w-5" />
         </button>
       </div>
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {`السؤال ${qIdx + 1} من ${currentQs.length}: ${q.question}`}
+      </p>
+      </div>
 
       {/* Mobile-first browser: switch tracks, scan titles, or jump directly. */}
       <AnimatePresence>
@@ -213,30 +297,33 @@ export function QuestionSlideshow({ defaultSet }: { defaultSet: QuestionSet }) {
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-[100] flex items-end bg-black/70 backdrop-blur-sm sm:items-center sm:justify-center sm:p-5"
-            onClick={event => { if (event.target === event.currentTarget) setShowQuestionList(false) }}
+            onClick={event => { if (event.target === event.currentTarget) closeQuestionList() }}
           >
             <motion.div
+              ref={questionListDialogRef}
               initial={{ y: 36 }} animate={{ y: 0 }} exit={{ y: 36 }}
               transition={{ type: 'spring', stiffness: 320, damping: 32 }}
               className="flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-[2rem] border border-white/10 bg-gray-950 text-white shadow-2xl sm:max-w-lg sm:rounded-[2rem]"
-              role="dialog" aria-modal="true" aria-label="قائمة أسئلة الحوار"
+              role="dialog" aria-modal="true" aria-labelledby={questionListTitleId} tabIndex={-1}
             >
               <header className="flex items-center justify-between border-b border-white/[0.07] px-5 py-4">
                 <div>
-                  <h2 className="font-black">اختاروا اتجاه الحوار</h2>
-                  <p className="mt-0.5 text-xs text-gray-500">غيّروا المسار أو انتقلوا لأي سؤال</p>
+                  <h2 id={questionListTitleId} className="font-black">اختاروا مسار الحوار</h2>
+                  <p className="mt-0.5 text-xs text-gray-500">مكان واحد لتغيير الموضوع أو القفز لسؤال محدد</p>
                 </div>
-                <button onClick={() => setShowQuestionList(false)} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.06] text-gray-300" aria-label="إغلاق">
+                <button ref={questionListCloseRef} type="button" onClick={() => closeQuestionList()} className="flex h-11 w-11 items-center justify-center rounded-full bg-white/[0.06] text-gray-300" aria-label="إغلاق">
                   <X className="h-5 w-5" />
                 </button>
               </header>
 
               <div className="border-b border-white/[0.07] p-4">
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2" role="group" aria-label="مسارات الحوار">
                   {availableSets.map(set => (
                     <button
                       key={set}
+                      type="button"
                       onClick={() => pick(set)}
+                      aria-pressed={activeSet === set}
                       className={`rounded-2xl border p-3 text-right transition-all ${activeSet === set ? 'border-purple-400/50 bg-purple-500/15' : 'border-white/[0.06] bg-white/[0.03]'}`}
                     >
                       <span className="flex items-center justify-between gap-2">
@@ -263,7 +350,9 @@ export function QuestionSlideshow({ defaultSet }: { defaultSet: QuestionSet }) {
                         {items.map(({ item, index }) => (
                           <button
                             key={`${activeSet}-${index}`}
-                            onClick={() => { moveTo(index); setShowQuestionList(false) }}
+                            type="button"
+                            onClick={() => { moveTo(index, true); closeQuestionList(true) }}
+                            aria-current={index === qIdx ? 'true' : undefined}
                             className={`flex min-h-12 w-full items-center gap-3 rounded-xl border px-3 py-2 text-right ${index === qIdx ? `${colors.border} bg-white/[0.07]` : 'border-white/[0.04] bg-white/[0.025]'}`}
                           >
                             <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[10px] font-black ${index === qIdx ? `${colors.icon} text-white` : 'bg-gray-900 text-gray-500'}`}>{index + 1}</span>

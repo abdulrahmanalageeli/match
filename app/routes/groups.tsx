@@ -1146,6 +1146,11 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
   const [eventCurrentRound, setEventCurrentRound] = useState<number | null>(null);
   const [joiningTransition, setJoiningTransition] = useState(false);
   const preGameRef = useRef<HTMLDivElement | null>(null);
+  const carouselHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const carouselDotRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const previousCarouselIndexRef = useRef(0);
+  const activityContentRef = useRef<HTMLDivElement | null>(null);
+  const activityFocusTargetRef = useRef<string | null>(null);
   
   
   // Shuffled questions state
@@ -1193,6 +1198,8 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
   // Hot Seat game state
   const [shuffledHotSeat, setShuffledHotSeat] = useState<string[]>([]);
   const [hotSeatParticipants, setHotSeatParticipants] = useState<string[]>([]);
+  const [hotSeatDraftParticipants, setHotSeatDraftParticipants] = useState<string[]>(["", "", "", "", ""]);
+  const [hotSeatError, setHotSeatError] = useState<string | null>(null);
   const [hotSeatIndex, setHotSeatIndex] = useState(0);
   const [hotSeatTimer, setHotSeatTimer] = useState(HOT_SEAT_DURATION_SECONDS);
   const [hotSeatTimerActive, setHotSeatTimerActive] = useState(false);
@@ -2286,6 +2293,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 
 
   const startGame = (gameId: string) => {
+    activityFocusTargetRef.current = null;
     // Discussion already has its own complete full-screen experience. Open it
     // directly from the activity picker instead of showing an intermediate
     // card with a second "choose discussion questions" button.
@@ -2298,6 +2306,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
       return;
     }
 
+    let shouldFocusActivity = disableOnboarding;
     setSelectedGameId(gameId);
     setGamePhase("playing");
     setCurrentPromptIndex(0);
@@ -2335,10 +2344,14 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
       setImposterError(null);
       try {
         const seen = localStorage.getItem(IMPOSTER_TUTORIAL_KEY);
-        if (!seen) setImposterShowTutorial(true);
+        if (!seen) {
+          setImposterShowTutorial(true);
+          shouldFocusActivity = false;
+        }
       } catch {}
     } else if (gameId === "hot-seat") {
       setShuffledHotSeat(shuffleArray(hotSeatQuestions));
+      setHotSeatError(null);
       setHotSeatIndex(0);
       setHotSeatTimer(HOT_SEAT_DURATION_SECONDS);
       setHotSeatTimerActive(false);
@@ -2348,7 +2361,9 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
         ? groupMembers
         : [];
       setHotSeatParticipants(names);
+      if (names.length === 0) setHotSeatDraftParticipants(["", "", "", "", ""]);
     }
+    if (shouldFocusActivity) activityFocusTargetRef.current = gameId;
   };
 
   const nextGame = () => {
@@ -2372,6 +2387,13 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 
   // Activity carousel index for embedded compact mode
   const [carouselIndex, setCarouselIndex] = useState(0);
+
+  useEffect(() => {
+    const indexChanged = previousCarouselIndexRef.current !== carouselIndex;
+    previousCarouselIndexRef.current = carouselIndex;
+    if (!indexChanged || !disableOnboarding || selectedGameId) return;
+    carouselDotRefs.current[carouselIndex]?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [carouselIndex, disableOnboarding, selectedGameId]);
 
   // Charades helper functions
   const getRandomCharadesWord = () => {
@@ -2459,8 +2481,13 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
           {/* Compact picker header */}
           <div className="relative z-20 flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
             <button
-              onClick={onClose}
-              className="flex h-10 items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-bold text-gray-300 transition-colors hover:bg-white/10 hover:text-white"
+              type="button"
+              onClick={() => {
+                activityFocusTargetRef.current = null;
+                onClose?.();
+              }}
+              aria-label="إغلاق الأنشطة الجماعية"
+              className="flex h-11 min-w-11 items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-bold text-gray-300 transition-colors hover:bg-white/10 hover:text-white"
             >
               <X className="w-4 h-4" />
               <span>إغلاق</span>
@@ -2477,6 +2504,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
             <div className="relative w-full max-w-sm">
               {/* Swipeable card container */}
               <motion.div
+                id="activity-carousel-slide"
                 key={`card-${carouselIndex}`}
                 initial={{ opacity: 0, scale: 0.97, x: 12 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -2488,6 +2516,10 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                   if (info.offset.x < -60) nextActivity();
                   else if (info.offset.x > 60) prevActivity();
                 }}
+                role="group"
+                aria-roledescription="شريحة"
+                aria-labelledby={`carousel-game-${currentGame.id}`}
+                aria-describedby={`carousel-game-description-${currentGame.id}`}
                 className="cursor-grab active:cursor-grabbing"
               >
                 <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-gray-900/85 shadow-[0_28px_90px_-35px_rgba(0,0,0,0.95)] ring-1 ring-white/[0.04]">
@@ -2527,6 +2559,9 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                     {/* Text */}
                     <div className="flex-1 py-5">
                       <motion.h2
+                        ref={carouselHeadingRef}
+                        id={`carousel-game-${currentGame.id}`}
+                        tabIndex={-1}
                         initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
                         className="text-2xl font-black tracking-tight text-white"
@@ -2534,6 +2569,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                         {currentGame.nameAr}
                       </motion.h2>
                       <motion.p
+                        id={`carousel-game-description-${currentGame.id}`}
                         initial={{ opacity: 0, y: 4 }}
                         animate={{ opacity: 1, y: 0 }}
                         className="mt-2 max-w-[28rem] text-sm leading-7 text-white/65"
@@ -2544,6 +2580,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 
                     {/* Start button */}
                     <motion.button
+                      type="button"
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.3 }}
@@ -2560,18 +2597,32 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 
               {/* Stable navigation controls, kept outside the card edges */}
               <div className="mt-4 grid grid-cols-[44px_1fr_44px] items-center gap-3">
-                <button onClick={prevActivity} aria-label="النشاط السابق" className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-gray-300 transition-all hover:bg-white/10 hover:text-white active:scale-90">
+                <button type="button" onClick={prevActivity} aria-label="النشاط السابق" className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-gray-300 transition-all hover:bg-white/10 hover:text-white active:scale-90">
                   <ChevronRight className="h-5 w-5" />
                 </button>
-                <div className="flex items-center justify-center gap-1.5">
+                <div className="flex items-center overflow-x-auto" role="group" aria-label="اختيار النشاط">
                   {games.map((g, i) => (
-                    <button key={g.id} onClick={() => setCarouselIndex(i)} aria-label={`النشاط ${i + 1}`} className={`h-1.5 rounded-full transition-all duration-300 ${i === carouselIndex ? `w-7 bg-gradient-to-r ${currentGame.color}` : "w-1.5 bg-white/20 hover:bg-white/40"}`} />
+                    <button
+                      key={g.id}
+                      ref={(node) => { carouselDotRefs.current[i] = node; }}
+                      type="button"
+                      onClick={() => setCarouselIndex(i)}
+                      aria-label={`النشاط ${i + 1}: ${g.nameAr}`}
+                      aria-current={i === carouselIndex ? "true" : undefined}
+                      aria-controls="activity-carousel-slide"
+                      className="group flex h-11 w-11 shrink-0 items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                    >
+                      <span aria-hidden="true" className={`h-1.5 rounded-full transition-all duration-300 ${i === carouselIndex ? `w-7 bg-gradient-to-r ${currentGame.color}` : "w-1.5 bg-white/20 group-hover:bg-white/40"}`} />
+                    </button>
                   ))}
                 </div>
-                <button onClick={nextActivity} aria-label="النشاط التالي" className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-gray-300 transition-all hover:bg-white/10 hover:text-white active:scale-90">
+                <button type="button" onClick={nextActivity} aria-label="النشاط التالي" className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-gray-300 transition-all hover:bg-white/10 hover:text-white active:scale-90">
                   <ChevronLeft className="h-5 w-5" />
                 </button>
               </div>
+              <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+                النشاط {carouselIndex + 1} من {games.length}: {currentGame.nameAr}
+              </p>
             </div>
           </div>
         </div>
@@ -3200,19 +3251,28 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {imposterPlayers.map((n, i) => (
                         <div key={`name-${i}`} className="flex items-center gap-2 min-w-0">
+                          <label htmlFor={`imposter-player-${i}`} className="sr-only">
+                            اسم اللاعب {i + 1}
+                          </label>
                           <input
+                            id={`imposter-player-${i}`}
+                            name={`imposter-player-${i + 1}`}
+                            type="text"
                             className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-slate-800/70 border border-white/10 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40"
                             placeholder={`اللاعب ${i+1}`}
                             value={n}
+                            aria-invalid={Boolean(imposterError && !n.trim())}
+                            aria-describedby={`imposter-player-help${imposterError ? " imposter-player-error" : ""}`}
                             onChange={e => {
                               const arr = [...imposterPlayers]; arr[i] = e.target.value; setImposterPlayers(arr); setImposterError(null);
                             }}
                           />
                           {imposterPlayers.length > 4 && (
                             <button
+                              type="button"
                               onClick={() => { setImposterPlayers(prev => prev.filter((_, idx) => idx !== i)); setImposterError(null); }}
-                              className="w-9 h-9 inline-flex items-center justify-center rounded-lg bg-rose-500/20 text-rose-200 border border-rose-400/30 hover:bg-rose-500/30"
-                              title="حذف"
+                              className="w-11 h-11 shrink-0 inline-flex items-center justify-center rounded-lg bg-rose-500/20 text-rose-200 border border-rose-400/30 hover:bg-rose-500/30"
+                              aria-label={`حذف ${n.trim() ? `اللاعب ${n.trim()}` : `اللاعب ${i + 1}`}`}
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -3222,6 +3282,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                     </div>
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-3">
                       <button
+                        type="button"
                         onClick={() => { if (imposterPlayers.length < 6) setImposterPlayers(prev => [...prev, ""]); setImposterError(null); }}
                         disabled={imposterPlayers.length >= 6}
                         className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-fuchsia-500/20 text-fuchsia-100 border border-fuchsia-400/30 hover:bg-fuchsia-500/30 disabled:opacity-50 w-full sm:w-auto"
@@ -3229,23 +3290,26 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                         <Plus className="w-4 h-4" />
                         أضف لاعباً
                       </button>
-                      <span className="text-slate-300 text-xs">الحد: 4–6 لاعبين</span>
+                      <span id="imposter-player-help" className="text-slate-300 text-xs">الحد: 4–6 لاعبين</span>
                     </div>
                   </div>
 
                   {/* Inline validation */}
                   {imposterError && (
-                    <div className="-mt-2 mb-2 text-sm text-rose-300 bg-rose-500/10 border border-rose-400/30 rounded-lg px-3 py-2">
+                    <div id="imposter-player-error" role="alert" className="-mt-2 mb-2 text-sm text-rose-300 bg-rose-500/10 border border-rose-400/30 rounded-lg px-3 py-2">
                       {imposterError}
                     </div>
                   )}
 
                   {/* Category */}
                   <div className={`${(gameThemes['imposter'] || gameThemes.default).instruction} space-y-4`}>
-                    <h4 className="text-white font-bold mb-3">الفئة</h4>
+                    <label htmlFor="imposter-category" className="block text-white font-bold mb-3">الفئة</label>
                     <div className="relative">
                       <ChevronDown className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fuchsia-300 pointer-events-none" />
                       <select
+                        id="imposter-category"
+                        name="imposter-category"
+                        aria-describedby="imposter-category-help"
                         className="w-full appearance-none pl-9 pr-3 py-2.5 rounded-xl bg-slate-800/70 border-2 border-fuchsia-400/30 text-white focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 focus:border-fuchsia-400/60 shadow-inner"
                         value={imposterSelectedCategory}
                         onChange={(e) => { setImposterSelectedCategory(e.target.value); setImposterError(null); }}
@@ -3255,7 +3319,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                         ))}
                       </select>
                     </div>
-                    <div className="text-xs text-slate-300">اختر فئة بكلمات يومية سهلة للتحدي الممتع</div>
+                    <div id="imposter-category-help" className="text-xs text-slate-300">اختر فئة بكلمات يومية سهلة للتحدي الممتع</div>
                   </div>
 
                   <div className="text-center">
@@ -3664,30 +3728,49 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                     </>
                   ) : (
                     <>
-                      <p className="text-slate-300 text-center text-sm">أدخل أسماء المشاركين على الطاولة:</p>
+                      <p id="hot-seat-participant-help" className="text-slate-300 text-center text-sm">أدخل أسماء المشاركين على الطاولة:</p>
                       <div className="space-y-2">
                         {[0, 1, 2, 3, 4].map((i) => (
-                          <input
-                            key={i}
-                            type="text"
-                            placeholder={`المشارك ${i + 1}`}
-                            onChange={(e) => {
-                              setHotSeatParticipants(prev => {
-                                const next = [...prev];
-                                while (next.length <= i) next.push("");
-                                next[i] = e.target.value;
-                                return next;
-                              });
-                            }}
-                            className="w-full bg-slate-800/60 border border-amber-600/30 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:border-amber-400/60 focus:outline-none transition-colors"
-                          />
+                          <div key={i}>
+                            <label htmlFor={`hot-seat-participant-${i}`} className="sr-only">
+                              اسم المشارك {i + 1}
+                            </label>
+                            <input
+                              id={`hot-seat-participant-${i}`}
+                              name={`hot-seat-participant-${i + 1}`}
+                              type="text"
+                              placeholder={`المشارك ${i + 1}`}
+                              value={hotSeatDraftParticipants[i] ?? ""}
+                              aria-invalid={Boolean(hotSeatError && !(hotSeatDraftParticipants[i] ?? "").trim())}
+                              aria-describedby={`hot-seat-participant-help${hotSeatError ? " hot-seat-participant-error" : ""}`}
+                              onChange={(e) => {
+                                setHotSeatDraftParticipants(prev => {
+                                  const next = [...prev];
+                                  while (next.length <= i) next.push("");
+                                  next[i] = e.target.value;
+                                  return next;
+                                });
+                                setHotSeatError(null);
+                              }}
+                              className="w-full bg-slate-800/60 border border-amber-600/30 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:border-amber-400/60 focus:outline-none transition-colors"
+                            />
+                          </div>
                         ))}
                       </div>
+                      {hotSeatError && (
+                        <p id="hot-seat-participant-error" role="alert" className="text-sm text-rose-300 bg-rose-500/10 border border-rose-400/30 rounded-lg px-3 py-2">
+                          {hotSeatError}
+                        </p>
+                      )}
                       <div className="text-center">
                         <Button
                           onClick={() => {
-                            const valid = hotSeatParticipants.filter(n => n.trim().length > 0);
-                            if (valid.length === 0) return;
+                            const valid = hotSeatDraftParticipants.map(n => n.trim()).filter(n => n.length > 0);
+                            if (valid.length === 0) {
+                              setHotSeatError("أدخل اسم مشارك واحد على الأقل");
+                              return;
+                            }
+                            setHotSeatError(null);
                             setHotSeatParticipants(valid);
                             setHotSeatIndex(0);
                           }}
@@ -4487,8 +4570,13 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
             <div className="sticky top-0 z-20 grid grid-cols-[1fr_auto_1fr] items-center px-4 py-2.5 bg-gray-950/80 backdrop-blur-xl border-b border-white/[0.06]">
               <div className="flex items-center">
                 <button
-                  onClick={() => { setSelectedGameId(null); setGamePhase('intro'); }}
-                  className="flex items-center gap-1.5 text-gray-400 hover:text-white text-sm font-medium transition-colors"
+                  type="button"
+                  onClick={() => {
+                    activityFocusTargetRef.current = 'selection';
+                    setSelectedGameId(null);
+                    setGamePhase('intro');
+                  }}
+                  className="flex min-h-11 items-center gap-1.5 text-gray-400 hover:text-white text-sm font-medium transition-colors"
                 >
                   ← رجوع
                 </button>
@@ -4502,8 +4590,13 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
               <div className="flex items-center justify-end">
                 {onClose && (
                   <button
-                    onClick={onClose}
-                    className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                    type="button"
+                    onClick={() => {
+                      activityFocusTargetRef.current = null;
+                      onClose();
+                    }}
+                    aria-label="إغلاق الأنشطة الجماعية"
+                    className="w-11 h-11 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -4514,11 +4607,30 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
           <div className="relative z-10">
           <AnimatePresence mode="wait">
             <motion.div
+              ref={activityContentRef}
               key={selectedGameId ?? 'selection'}
+              tabIndex={disableOnboarding ? -1 : undefined}
+              role={disableOnboarding ? "region" : undefined}
+              aria-label={disableOnboarding
+                ? selectedGameId
+                  ? `نشاط ${games.find(game => game.id === selectedGameId)?.nameAr ?? "جماعي"}`
+                  : "اختيار الأنشطة الجماعية"
+                : undefined}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.25 }}
+              onAnimationComplete={() => {
+                const viewKey = selectedGameId ?? 'selection';
+                if (activityFocusTargetRef.current !== viewKey) return;
+                if (viewKey === 'selection') {
+                  carouselHeadingRef.current?.focus({ preventScroll: true });
+                } else {
+                  activityContentRef.current?.focus({ preventScroll: true });
+                }
+                activityFocusTargetRef.current = null;
+              }}
+              className="focus:outline-none"
             >
               {renderGameContent()}
             </motion.div>

@@ -14,16 +14,14 @@ async function fireConfetti(opts: any) {
 import {
   Clock, MapPin, Brain, ExternalLink, ArrowLeft, KeyRound,
   CheckCircle, Send, RefreshCw, Sparkles, Home, Trophy, Lock, GripVertical,
-  MessageSquare, ChevronRight, Users, PenLine, Shuffle, BarChart3, GitMerge, X, Heart, LogOut,
+  MessageSquare, ChevronRight, Users, PenLine, Shuffle, BarChart3, X, Heart, LogOut,
   Frown, Meh, Smile, Layers, Zap,
-  Snowflake, Target, Star, Drama, AlertTriangle, Lightbulb, PartyPopper, LifeBuoy,
+  Snowflake, Target, Star, AlertTriangle, Lightbulb, PartyPopper, LifeBuoy,
   EyeOff, Smartphone, Handshake, Timer, Ban, ShieldCheck, Coffee, Bell, Info, Loader2,
   Crown, Medal, Award, Download,
 } from "lucide-react"
 
 import { QuestionSlideshow } from "~/components/QuestionSlideshow"
-
-const PromptTopicsModal = lazy(() => import("~/components/PromptTopicsModal"))
 
 // Create a shareable portrait card without relying on DOM screenshot libraries.
 // Drawing it directly keeps Arabic text sharp and makes saving reliable on mobile.
@@ -214,26 +212,29 @@ function clearAllArrived() {
   }
 }
 
+const EVENT3_ONBOARDING_KEY = "e3_onboarding_v4_1"
+
 function clearBrowserSessionArtifacts() {
   if (typeof window === "undefined") return
 
-  try { localStorage.clear() } catch {}
-  try { sessionStorage.clear() } catch {}
-
-  const cookies = document.cookie ? document.cookie.split(";") : []
-  cookies.forEach(cookie => {
-    const name = cookie.split("=")[0]?.trim()
-    if (!name) return
-    const set = (appendix: string) => {
-      document.cookie = `${name}=; Max-Age=0; ${appendix}`
+  // Keep logout scoped to Event 3. Clearing all origin storage/cookies can
+  // silently sign the participant out of unrelated parts of the product.
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i)
+      if (key === "blindmatch_result_token" || key?.startsWith("e3_")) {
+        localStorage.removeItem(key)
+      }
     }
-    set("path=/")
-    set(`path=/; domain=${window.location.hostname}`)
-    const hostParts = window.location.hostname.split(".")
-    for (let i = 1; i < hostParts.length - 1; i++) {
-      set(`path=/; domain=.${hostParts.slice(i).join(".")}`)
+  } catch {}
+  try {
+    for (let i = sessionStorage.length - 1; i >= 0; i--) {
+      const key = sessionStorage.key(i)
+      if (key?.startsWith("e3_") || key?.startsWith("sos_")) {
+        sessionStorage.removeItem(key)
+      }
     }
-  })
+  } catch {}
 }
 
 function formatTime(s: number) {
@@ -308,15 +309,21 @@ function useApiPoll<T>(
     stopWhen?: (data: T) => boolean
     enabled?: boolean
     onError?: (err: any) => void
+    resetKey?: string | number | null
   } = {}
 ) {
-  const { interval = 5000, maxInterval = 60000, stopWhen, enabled = true, onError } = options
+  const { interval = 5000, maxInterval = 60000, stopWhen, enabled = true, onError, resetKey = null } = options
   const [data, setData] = useState<T | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(enabled)
   const [error, setError] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
+  const [lastSuccessAt, setLastSuccessAt] = useState<number | null>(null)
+  const [activeResetKey, setActiveResetKey] = useState(resetKey)
   const currentInterval = useRef(interval)
   const stopped = useRef(false)
+  const requestSequenceRef = useRef(0)
+  const latestResetKeyRef = useRef(resetKey)
+  latestResetKeyRef.current = resetKey
 
   // Use refs for callback/option values that may change identity every render
   // (e.g. inline arrow functions) to avoid restarting the polling effect.
@@ -327,26 +334,50 @@ function useApiPoll<T>(
   enabledRef.current = enabled
   onErrorRef.current = onError
 
+  // Never expose data from a previous participant while a new token is being
+  // resolved. The synchronous return guard protects the first render after a
+  // key switch; the effect clears the retained state for following renders.
+  const resetKeyChanged = !Object.is(activeResetKey, resetKey)
+  useEffect(() => {
+    if (!resetKeyChanged) return
+    requestSequenceRef.current += 1
+    stopped.current = false
+    currentInterval.current = interval
+    setActiveResetKey(resetKey)
+    setData(null)
+    setError(null)
+    setRetryCount(0)
+    setLastSuccessAt(null)
+    setLoading(enabled)
+  }, [enabled, interval, resetKey, resetKeyChanged])
+
   const fetchOnce = useCallback(async (isRetry = false) => {
     if (!enabledRef.current) return
+    const requestSequence = ++requestSequenceRef.current
+    const requestResetKey = resetKey
+    const isLatestRequest = () => requestSequence === requestSequenceRef.current
+      && Object.is(requestResetKey, latestResetKeyRef.current)
     if (isRetry) setLoading(true)
     try {
       const d = await fetcher()
+      if (!isLatestRequest()) return
       setData(d)
       setError(null)
+      setLastSuccessAt(Date.now())
       currentInterval.current = interval
       if (stopWhenRef.current && stopWhenRef.current(d)) stopped.current = true
       setRetryCount(0)
     } catch (err: any) {
+      if (!isLatestRequest()) return
       const msg = err?.message || "فشل الاتصال"
       setError(msg)
       onErrorRef.current?.(err)
       currentInterval.current = Math.min(currentInterval.current * 1.5, maxInterval)
       setRetryCount(c => c + 1)
     } finally {
-      setLoading(false)
+      if (isLatestRequest()) setLoading(false)
     }
-  }, [fetcher, interval, maxInterval])
+  }, [fetcher, interval, maxInterval, resetKey])
 
   useEffect(() => {
     if (!enabled) return
@@ -354,11 +385,25 @@ function useApiPoll<T>(
     currentInterval.current = interval
     let timeout: ReturnType<typeof setTimeout> | null = null
     let active = true
+    let inFlight = false
+    let refreshAfterFlight = false
 
     const tick = async () => {
       if (!active || document.hidden || stopped.current) return
+      if (inFlight) {
+        refreshAfterFlight = true
+        return
+      }
+      inFlight = true
       await fetchOnce()
-      if (active && !stopped.current) timeout = setTimeout(tick, currentInterval.current)
+      inFlight = false
+      if (!active || stopped.current) return
+      if (refreshAfterFlight && !document.hidden) {
+        refreshAfterFlight = false
+        void tick()
+        return
+      }
+      timeout = setTimeout(tick, currentInterval.current)
     }
 
     // Let the first request finish before scheduling the next one. Starting a
@@ -369,7 +414,8 @@ function useApiPoll<T>(
     const onVisibility = () => {
       if (!document.hidden && !stopped.current) {
         if (timeout) clearTimeout(timeout)
-        tick()
+        timeout = null
+        void tick()
       }
     }
     document.addEventListener("visibilitychange", onVisibility)
@@ -388,7 +434,14 @@ function useApiPoll<T>(
     fetchOnce(true)
   }, [fetcher, interval, fetchOnce])
 
-  return { data, loading, error, retry, retryCount }
+  return {
+    data: resetKeyChanged ? null : data,
+    loading: resetKeyChanged ? enabled : loading,
+    error: resetKeyChanged ? null : error,
+    retry,
+    retryCount: resetKeyChanged ? 0 : retryCount,
+    lastSuccessAt: resetKeyChanged ? null : lastSuccessAt,
+  }
 }
 
 // ─── Shared Design Components ─────────────────────────────────────────────────
@@ -408,7 +461,7 @@ function InfoHint({ text, delay = 0.3, duration = 5 }: { text: string; delay?: n
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -6, scale: 0.96 }}
           transition={{ type: "spring", stiffness: 300, damping: 25 }}
-          className="text-gray-500 text-[10px] leading-relaxed text-center px-3 py-1 bg-gray-900/40 rounded-lg border border-gray-800/40"
+          className="text-gray-400 text-xs leading-relaxed text-center px-3 py-2 bg-gray-900/55 rounded-xl border border-gray-700/50"
         >
           {text}
         </motion.div>
@@ -417,16 +470,19 @@ function InfoHint({ text, delay = 0.3, duration = 5 }: { text: string; delay?: n
   )
 }
 
-function PageWrapper({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+function PageWrapper({ children, className = "", embedded = false, ...contentProps }: React.HTMLAttributes<HTMLDivElement> & { embedded?: boolean }) {
+  const heightClass = embedded ? "min-h-full" : "min-h-[100dvh]"
   return (
-    <div className={`min-h-screen h-full bg-gray-950 relative overflow-hidden ${className}`} dir="rtl">
+    <MotionConfig reducedMotion="user">
+    <div className={`event3-shell relative ${heightClass} overflow-x-hidden bg-gray-950`} dir="rtl" lang="ar">
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute -top-40 -right-20 w-[400px] h-[400px] bg-purple-600/20 rounded-full blur-[100px]" />
         <div className="absolute -bottom-24 -left-16 w-[360px] h-[360px] bg-pink-600/15 rounded-full blur-[90px]" />
         <div className="absolute top-1/2 left-1/2 w-[280px] h-[280px] bg-violet-500/10 rounded-full blur-[80px] -translate-x-1/2 -translate-y-1/2" />
       </div>
-      <div className={`relative z-10 min-h-screen ${className.includes("flex") ? "flex items-center justify-center" : ""}`}>{children}</div>
+      <div {...contentProps} className={`relative ${heightClass} ${className}`}>{children}</div>
     </div>
+    </MotionConfig>
   )
 }
 
@@ -435,6 +491,172 @@ function GlassCard({ children, className = "", glow = "" }: { children: React.Re
     <div className={`bg-gray-900/70 backdrop-blur-md border border-gray-800/60 rounded-2xl ${glow} ${className}`}>
       {children}
     </div>
+  )
+}
+
+type JourneyAccent = "blue" | "amber" | "pink" | "purple" | "emerald"
+
+const JOURNEY_ACCENTS: Record<JourneyAccent, {
+  border: string
+  wash: string
+  pill: string
+  text: string
+  dot: string
+  line: string
+}> = {
+  blue: {
+    border: "border-cyan-400/20",
+    wash: "from-cyan-500/[0.12] via-blue-500/[0.06] to-transparent",
+    pill: "border-cyan-400/25 bg-cyan-400/10 text-cyan-200",
+    text: "text-cyan-200",
+    dot: "bg-cyan-300",
+    line: "bg-cyan-400/35",
+  },
+  amber: {
+    border: "border-amber-400/20",
+    wash: "from-amber-500/[0.12] via-orange-500/[0.06] to-transparent",
+    pill: "border-amber-400/25 bg-amber-400/10 text-amber-200",
+    text: "text-amber-200",
+    dot: "bg-amber-300",
+    line: "bg-amber-400/35",
+  },
+  pink: {
+    border: "border-pink-400/20",
+    wash: "from-pink-500/[0.13] via-rose-500/[0.06] to-transparent",
+    pill: "border-pink-400/25 bg-pink-400/10 text-pink-200",
+    text: "text-pink-200",
+    dot: "bg-pink-300",
+    line: "bg-pink-400/35",
+  },
+  purple: {
+    border: "border-violet-400/20",
+    wash: "from-violet-500/[0.13] via-purple-500/[0.06] to-transparent",
+    pill: "border-violet-400/25 bg-violet-400/10 text-violet-200",
+    text: "text-violet-200",
+    dot: "bg-violet-300",
+    line: "bg-violet-400/35",
+  },
+  emerald: {
+    border: "border-emerald-400/20",
+    wash: "from-emerald-500/[0.12] via-teal-500/[0.06] to-transparent",
+    pill: "border-emerald-400/25 bg-emerald-400/10 text-emerald-200",
+    text: "text-emerald-200",
+    dot: "bg-emerald-300",
+    line: "bg-emerald-400/35",
+  },
+}
+
+/**
+ * A persistent answer to the attendee's two most important questions:
+ * "what do I do now?" and "what happens immediately after?". Critical live
+ * guidance belongs here rather than in a disappearing hint or a tutorial that
+ * has to be reopened from another screen.
+ */
+function JourneyCue({
+  eyebrow = "الآن",
+  title,
+  description,
+  steps,
+  currentStep = 0,
+  accent = "purple",
+  aside,
+  className = "",
+}: {
+  eyebrow?: string
+  title: string
+  description?: string
+  steps: string[]
+  currentStep?: number
+  accent?: JourneyAccent
+  aside?: React.ReactNode
+  className?: string
+}) {
+  const theme = JOURNEY_ACCENTS[accent]
+  return (
+    <section className={`relative overflow-hidden rounded-3xl border bg-gray-900/80 p-4 text-right shadow-xl shadow-black/20 ${theme.border} ${className}`} aria-label={`${eyebrow}: ${title}`}>
+      <div className={`pointer-events-none absolute inset-0 bg-gradient-to-bl ${theme.wash}`} />
+      <div className="relative">
+        <div className="flex items-center justify-between gap-3">
+          <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black ${theme.pill}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${theme.dot}`} />
+            {eyebrow}
+          </span>
+          {aside}
+        </div>
+        <h2 className="mt-3 text-lg font-black leading-snug text-white">{title}</h2>
+        {description && <p className="mt-1 text-xs leading-6 text-gray-300">{description}</p>}
+
+        <ol className="mt-4 grid grid-cols-3 gap-2" aria-label="خطوات هذه المرحلة">
+          {steps.map((step, index) => {
+            const done = index < currentStep
+            const active = index === currentStep
+            return (
+              <li key={step} className="relative min-w-0 text-center">
+                {index > 0 && <span aria-hidden="true" className={`absolute left-1/2 right-[-50%] top-3 h-px ${done || active ? theme.line : "bg-white/[0.08]"}`} />}
+                <span className={`relative z-10 mx-auto flex h-6 w-6 items-center justify-center rounded-full border text-[10px] font-black ${
+                  done ? `${theme.dot} border-transparent text-gray-950` : active ? `${theme.pill} ring-4 ring-black/20` : "border-white/10 bg-gray-950 text-gray-600"
+                }`}>
+                  {done ? <CheckCircle size={13} /> : index + 1}
+                </span>
+                <span className={`mt-1.5 block text-[10px] leading-4 ${active ? `${theme.text} font-black` : done ? "font-bold text-gray-300" : "text-gray-600"}`}>{step}</span>
+              </li>
+            )
+          })}
+        </ol>
+      </div>
+    </section>
+  )
+}
+
+function MeetingPass({
+  accent,
+  kind,
+  partnerName,
+  tableNumber,
+  partnerHidden = false,
+  badge,
+}: {
+  accent: "pink" | "purple"
+  kind: string
+  partnerName?: string | null
+  tableNumber?: number | string | null
+  partnerHidden?: boolean
+  badge?: string | null
+}) {
+  const pink = accent === "pink"
+  const border = pink ? "border-pink-400/25" : "border-violet-400/25"
+  const wash = pink ? "from-pink-500/20 via-rose-500/[0.07] to-transparent" : "from-violet-500/20 via-purple-500/[0.07] to-transparent"
+  const text = pink ? "text-pink-200" : "text-violet-200"
+  const square = pink ? "border-pink-400/25 bg-pink-400/10" : "border-violet-400/25 bg-violet-400/10"
+  const Icon = pink ? Heart : Brain
+
+  return (
+    <section className={`relative overflow-hidden rounded-[1.75rem] border bg-gray-900/85 p-5 text-right shadow-2xl shadow-black/25 ${border}`} aria-label={`بطاقة ${kind}`}>
+      <div className={`pointer-events-none absolute inset-0 bg-gradient-to-bl ${wash}`} />
+      <div className="relative">
+        <div className="flex items-center justify-between gap-3">
+          <span className={`inline-flex items-center gap-2 text-xs font-black ${text}`}><Icon size={14} /> بطاقة اللقاء</span>
+          {badge && <span className="rounded-full border border-amber-400/25 bg-amber-400/10 px-2.5 py-1 text-[10px] font-black text-amber-200">{badge}</span>}
+        </div>
+        <p className="mt-1 text-[11px] text-gray-400">{kind}</p>
+
+        <div className="mt-5 grid grid-cols-[1fr_auto] items-stretch gap-3">
+          <div className="flex min-w-0 flex-col justify-center rounded-2xl border border-white/[0.07] bg-black/20 px-4 py-3">
+            <span className="text-[10px] font-bold text-gray-500">شريك اللقاء</span>
+            {partnerHidden ? (
+              <span className="mt-1 text-base font-black text-gray-300">يظهر بعد وصولك</span>
+            ) : (
+              <span className="mt-1 truncate text-2xl font-black text-white">{partnerName || "جاري التجهيز"}</span>
+            )}
+          </div>
+          <div className={`flex min-w-[5.25rem] flex-col items-center justify-center rounded-2xl border px-3 py-3 ${square}`}>
+            <MapPin size={15} className={text} />
+            <span className={`mt-1 text-3xl font-black leading-none ${text}`}>{tableNumber ?? "—"}</span>
+            <span className="mt-1 text-[10px] font-bold text-gray-400">الطاولة</span>
+          </div>
+        </div>
+      </div>
+    </section>
   )
 }
 
@@ -448,12 +670,14 @@ function TimerWarningPopup({ seconds, label, sublabel, theme = "red", onDone }: 
     teal:   { bg: "from-teal-950/95 via-cyan-950/90 to-teal-950/80", border: "border-teal-500/30", glow: "rgba(20,184,166,0.2)", iconBg: "from-teal-500/30 to-cyan-600/20", iconBorder: "border-teal-400/30", iconColor: "text-teal-300", iconGlow: "rgba(20,184,166,0.4)", text: "text-teal-200", sub: "text-teal-400/50", bar: "from-teal-500 via-cyan-500 to-teal-400", barGlow: "rgba(20,184,166,0.6)" },
   }
   const t = themes[theme]
+  const [displaySeconds, setDisplaySeconds] = useState(seconds)
   const onDoneRef = useRef(onDone)
   onDoneRef.current = onDone
 
   useEffect(() => {
     const timer = setTimeout(() => onDoneRef.current?.(), 3000)
-    return () => clearTimeout(timer)
+    const countdown = setInterval(() => setDisplaySeconds(value => Math.max(0, value - 1)), 1000)
+    return () => { clearTimeout(timer); clearInterval(countdown) }
   }, [])
 
   const dismiss = () => onDoneRef.current?.()
@@ -462,19 +686,23 @@ function TimerWarningPopup({ seconds, label, sublabel, theme = "red", onDone }: 
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className="fixed inset-0 z-[200] flex items-center justify-center px-6"
-      style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
-      onClick={dismiss}
+      className="pointer-events-none fixed inset-x-0 top-[max(5rem,calc(env(safe-area-inset-top)+4rem))] z-[480] flex justify-center px-4"
     >
       <motion.div
         initial={{ scale: 0.7, y: 30, opacity: 0 }}
         animate={{ scale: 1, y: 0, opacity: 1 }}
         exit={{ scale: 0.8, y: 20, opacity: 0 }}
         transition={{ type: "spring", stiffness: 350, damping: 22 }}
-        className={`relative overflow-hidden w-full max-w-xs rounded-3xl bg-gradient-to-br ${t.bg} border ${t.border} backdrop-blur-xl px-6 py-8 flex flex-col items-center text-center`}
+        className={`pointer-events-auto relative flex w-full max-w-xs flex-col items-center overflow-hidden rounded-3xl border bg-gradient-to-br px-5 py-5 text-center ${t.bg} ${t.border} backdrop-blur-xl`}
         style={{ boxShadow: `0 0 40px ${t.glow}, inset 0 1px 0 rgba(255,255,255,0.06)` }}
-        onClick={e => e.stopPropagation()}
+        role="alert"
+        aria-live="assertive"
+        aria-atomic="true"
+        aria-label={`${label}، ${sublabel || ""}`}
       >
+        <button type="button" onClick={dismiss} aria-label="إخفاء التنبيه" className="absolute left-3 top-3 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-black/20 text-white/70 transition hover:bg-black/30 hover:text-white">
+          <X size={17} />
+        </button>
         {/* Animated rings behind icon */}
         <motion.div
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 rounded-full border-2"
@@ -507,7 +735,7 @@ function TimerWarningPopup({ seconds, label, sublabel, theme = "red", onDone }: 
           className={`text-5xl font-black font-mono tabular-nums ${t.text} mb-2`}
           style={{ textShadow: `0 0 30px ${t.glow}` }}
         >
-          {seconds > 60 ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}` : seconds}
+          {displaySeconds > 60 ? `${Math.floor(displaySeconds / 60)}:${String(displaySeconds % 60).padStart(2, "0")}` : displaySeconds}
         </motion.div>
 
         {/* Label */}
@@ -544,41 +772,174 @@ function TimerWarningPopup({ seconds, label, sublabel, theme = "red", onDone }: 
 }
 
 // Hook: manages timer warning popup state
-function useTimerWarnings(timerActive: boolean, timeLeft: number, timerDuration: number, enabled = true, context?: { oneMinSublabel?: string }) {
+function useTimerWarnings(
+  timerActive: boolean,
+  timeLeft: number,
+  timerDuration: number,
+  enabled = true,
+  context?: { oneMinSublabel?: string },
+  timerKey?: string | null,
+) {
   const [popup, setPopup] = useState<{ seconds: number; label: string; sublabel: string; theme: "red" | "amber" | "teal" } | null>(null)
   const firedRef = useRef<Set<number>>(new Set())
+  const hasObservedPositiveTimeRef = useRef(false)
+  const previousTimerKeyRef = useRef(timerKey)
 
   useEffect(() => {
+    if (!Object.is(previousTimerKeyRef.current, timerKey)) {
+      previousTimerKeyRef.current = timerKey
+      firedRef.current.clear()
+      hasObservedPositiveTimeRef.current = false
+      setPopup(null)
+    }
     if (!timerActive || !enabled) return
     const totalMin = Math.floor(timerDuration / 60)
 
-    if (timeLeft === 300 && totalMin > 5 && !firedRef.current.has(300)) {
-      firedRef.current.add(300)
+    if (timeLeft > 0) hasObservedPositiveTimeRef.current = true
+    if (!hasObservedPositiveTimeRef.current) return
+
+    let warning: 300 | 60 | 10 | null = null
+    if (timeLeft > 0 && timeLeft <= 10 && !firedRef.current.has(10)) warning = 10
+    else if (timeLeft > 10 && timeLeft <= 60 && !firedRef.current.has(60)) warning = 60
+    else if (timeLeft > 60 && timeLeft <= 300 && totalMin > 5 && !firedRef.current.has(300)) warning = 300
+
+    if (timeLeft <= 300 && totalMin > 5) firedRef.current.add(300)
+    if (timeLeft <= 60) firedRef.current.add(60)
+    if (timeLeft <= 10) firedRef.current.add(10)
+
+    if (warning === 300) {
       vibrate(150); playTimerWarningSound()
       setPopup({ seconds: 300, label: "5 دقائق متبقية", sublabel: "استمتع بالجلسة — الوقت يمر بسرعة", theme: "teal" })
-    }
-    if (timeLeft === 60 && !firedRef.current.has(60)) {
-      firedRef.current.add(60)
+    } else if (warning === 60) {
       vibrate([100, 50, 100]); playTimerWarningSound()
       setPopup({ seconds: 60, label: "دقيقة واحدة متبقية", sublabel: context?.oneMinSublabel ?? "ابدأ بتلخيص حديثك واستعد للنهاية", theme: "amber" })
-    }
-    if (timeLeft === 10 && !firedRef.current.has(10)) {
-      firedRef.current.add(10)
+    } else if (warning === 10) {
       vibrate(200)
       setPopup({ seconds: 10, label: "10 ثوانٍ فقط!", sublabel: "الوقت ينتهي الآن", theme: "red" })
     }
-    if (timeLeft === 0 && !firedRef.current.has(0)) {
+
+    if (timeLeft <= 0 && !firedRef.current.has(0)) {
       firedRef.current.add(0)
       vibrate([300, 100, 300]); playTimerUrgentSound()
     }
-  }, [timeLeft, timerActive, timerDuration, enabled])
+  }, [timeLeft, timerActive, timerDuration, enabled, context?.oneMinSublabel, timerKey])
 
   // Reset fired set when timer resets
   useEffect(() => {
-    if (!timerActive) firedRef.current.clear()
+    if (!timerActive) {
+      firedRef.current.clear()
+      hasObservedPositiveTimeRef.current = false
+      setPopup(null)
+    }
   }, [timerActive])
 
   return { popup, clearPopup: () => setPopup(null) }
+}
+
+function useScreenWakeLock(active: boolean) {
+  const wakeLockRef = useRef<any>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const requestWakeLock = async () => {
+      if (!active || document.visibilityState !== "visible" || wakeLockRef.current) return
+      try {
+        if ("wakeLock" in navigator) {
+          const sentinel = await (navigator as any).wakeLock.request("screen")
+          if (cancelled) {
+            try { await sentinel.release() } catch {}
+            return
+          }
+          wakeLockRef.current = sentinel
+          sentinel.addEventListener?.("release", () => { wakeLockRef.current = null })
+        }
+      } catch {}
+    }
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void requestWakeLock()
+    }
+    void requestWakeLock()
+    document.addEventListener("visibilitychange", onVisibilityChange)
+    return () => {
+      cancelled = true
+      document.removeEventListener("visibilitychange", onVisibilityChange)
+      const sentinel = wakeLockRef.current
+      wakeLockRef.current = null
+      if (sentinel) { try { void sentinel.release() } catch {} }
+    }
+  }, [active])
+}
+
+function useModalFocus({
+  open,
+  overlayRef,
+  dialogRef,
+  initialFocusRef,
+  onEscape,
+}: {
+  open: boolean
+  overlayRef: React.RefObject<HTMLElement | null>
+  dialogRef: React.RefObject<HTMLElement | null>
+  initialFocusRef?: React.RefObject<HTMLElement | null>
+  onEscape?: () => void
+}) {
+  const onEscapeRef = useRef(onEscape)
+  onEscapeRef.current = onEscape
+
+  useEffect(() => {
+    if (!open) return
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const previousOverflow = document.body.style.overflow
+    const overlay = overlayRef.current
+    const siblings = overlay?.parentElement
+      ? Array.from(overlay.parentElement.children).filter(node => node !== overlay) as HTMLElement[]
+      : []
+    const siblingState = siblings.map(node => ({ node, inert: node.inert, ariaHidden: node.getAttribute("aria-hidden") }))
+    siblings.forEach(node => { node.inert = true; node.setAttribute("aria-hidden", "true") })
+    document.body.style.overflow = "hidden"
+
+    const focusTimer = window.setTimeout(() => {
+      const firstControl = dialogRef.current?.querySelector<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+      ;(initialFocusRef?.current || firstControl || dialogRef.current)?.focus()
+    }, 60)
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && onEscapeRef.current) {
+        event.preventDefault()
+        onEscapeRef.current()
+        return
+      }
+      if (event.key !== "Tab") return
+      const dialog = dialogRef.current
+      const controls = Array.from(dialog?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      ) || [])
+      if (!dialog || !controls.length) {
+        event.preventDefault()
+        dialog?.focus()
+        return
+      }
+      const first = controls[0]
+      const last = controls[controls.length - 1]
+      if (!dialog.contains(document.activeElement)) { event.preventDefault(); first.focus() }
+      else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
+    }
+    document.addEventListener("keydown", onKeyDown)
+    return () => {
+      window.clearTimeout(focusTimer)
+      document.removeEventListener("keydown", onKeyDown)
+      document.body.style.overflow = previousOverflow
+      siblingState.forEach(({ node, inert, ariaHidden }) => {
+        node.inert = inert
+        if (ariaHidden == null) node.removeAttribute("aria-hidden")
+        else node.setAttribute("aria-hidden", ariaHidden)
+      })
+      if (opener?.isConnected) opener.focus()
+    }
+  }, [open, overlayRef, dialogRef, initialFocusRef])
 }
 
 function Brand() {
@@ -598,8 +959,8 @@ function Brand() {
 
 function Spinner({ size = 24, className = "" }: { size?: number; className?: string }) {
   return (
-    <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}>
-      <RefreshCw size={size} className={`text-purple-500 ${className}`} />
+    <motion.div role="status" aria-label="جاري التحميل" animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}>
+      <RefreshCw aria-hidden="true" size={size} className={`text-purple-500 ${className}`} />
     </motion.div>
   )
 }
@@ -754,12 +1115,10 @@ function CompatibilityBreakdown({ breakdown, accent = "purple", partnerName }: {
 // explains the whole event, so per-phase tutorials are reduced to one-popup
 // reminders. Designed to be quick to read, animated, attractive, and skippable.
 const WALK_SLIDES: { key: string; accent: keyof typeof WALK_ACCENTS; label: string }[] = [
-  { key: "overview", accent: "purple",  label: "الفكرة باختصار" },
-  { key: "groups",   accent: "blue",    label: "الجولات الجماعية" },
+  { key: "overview", accent: "purple",  label: "رحلتك الليلة" },
   { key: "ranking",  accent: "amber",   label: "الترتيب" },
   { key: "sessions", accent: "pink",    label: "الجلسات الفردية" },
-  { key: "feedback", accent: "emerald", label: "التقييم والتواصل" },
-  { key: "reveal",   accent: "violet",  label: "الكشف والتنويه" },
+  { key: "feedback", accent: "emerald", label: "التقييم والنهاية" },
 ]
 
 const WALK_ACCENTS = {
@@ -788,7 +1147,7 @@ function DemoButton({ children, className = "", pulse = false }: { children: Rea
 }
 
 // The animated per-stage content shown inside the "steps" phase of WelcomeScreen.
-function WalkSlide({ step }: { step: number }) {
+function WalkSlide({ step, headingRef }: { step: number; headingRef?: React.RefObject<HTMLHeadingElement | null> }) {
   const slide = WALK_SLIDES[step]
   const ac = WALK_ACCENTS[slide.accent]
   const reduceMotion = useReducedMotion()
@@ -834,8 +1193,8 @@ function WalkSlide({ step }: { step: number }) {
         {slide.key === "overview" && (
           <div className="space-y-4">
             <div className="text-center space-y-1">
-              <h2 className="text-white font-black text-xl">كيف تسير الفعالية؟</h2>
-              <p className="text-gray-400 text-xs leading-relaxed">اقرأ هذا الشرح مرة واحدة — سيغطّي كل شيء حتى لا تحتاج شرحاً لاحقاً</p>
+              <h2 ref={headingRef} tabIndex={-1} className="text-white font-black text-xl focus:outline-none">كيف تسير الفعالية؟</h2>
+              <p className="text-gray-400 text-xs leading-relaxed">أربع بطاقات مختصرة — وبعدها ستخبرك الشاشة بما تفعله الآن في كل مرحلة</p>
             </div>
             <div className="space-y-2">
               {[
@@ -864,7 +1223,7 @@ function WalkSlide({ step }: { step: number }) {
           <div className="space-y-4">
             <div className="text-center space-y-1">
               <Users size={34} className="text-blue-400 mx-auto" />
-              <h2 className="text-white font-black text-xl">الجولات الجماعية</h2>
+              <h2 ref={headingRef} tabIndex={-1} className="text-white font-black text-xl focus:outline-none">الجولات الجماعية</h2>
               <p className="text-gray-400 text-xs leading-relaxed">جولتان تجلس فيهما مع ٤–٦ أشخاص على طاولة للتعارف</p>
             </div>
             {/* Demo table card */}
@@ -893,7 +1252,7 @@ function WalkSlide({ step }: { step: number }) {
           <div className="space-y-3.5">
             <div className="text-center space-y-1">
               <BarChart3 size={32} className="text-amber-400 mx-auto" />
-              <h2 className="text-white font-black text-xl">رتّب من قابلت</h2>
+              <h2 ref={headingRef} tabIndex={-1} className="text-white font-black text-xl focus:outline-none">رتّب من قابلت</h2>
               <p className="text-gray-400 text-xs leading-relaxed">اسحب الأسماء لترتيبهم — الأعلى = أكثر من تريد جلسة معه</p>
             </div>
             {/* Animated reorder demo */}
@@ -929,7 +1288,7 @@ function WalkSlide({ step }: { step: number }) {
           <div className="space-y-3.5">
             <div className="text-center space-y-1">
               <Users size={32} className="text-pink-400 mx-auto" />
-              <h2 className="text-white font-black text-xl">جلستان فرديتان</h2>
+              <h2 ref={headingRef} tabIndex={-1} className="text-white font-black text-xl focus:outline-none">جلستان فرديتان</h2>
               <p className="text-gray-400 text-xs leading-relaxed">جلستان خاصتان 1:1 — واحدة باختيارك وواحدة باختيار النظام</p>
             </div>
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 }}
@@ -956,8 +1315,8 @@ function WalkSlide({ step }: { step: number }) {
           <div className="space-y-3.5">
             <div className="text-center space-y-1">
               <PenLine size={32} className="text-emerald-400 mx-auto" />
-              <h2 className="text-white font-black text-xl">التقييم والتواصل</h2>
-              <p className="text-gray-400 text-xs leading-relaxed">بعد كل جلسة تقيّم تجربتك — إجاباتك سرّية تماماً</p>
+              <h2 ref={headingRef} tabIndex={-1} className="text-white font-black text-xl focus:outline-none">قيّم ثم شاهد النتيجة</h2>
+              <p className="text-gray-400 text-xs leading-relaxed">بعد كل لقاء: تقييم قصير، ثم يظهر الكشف النهائي في النهاية</p>
             </div>
             {/* Demo rating */}
             <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3.5 text-center space-y-2">
@@ -979,6 +1338,10 @@ function WalkSlide({ step }: { step: number }) {
               <Heart size={15} className="text-emerald-400 shrink-0 mt-0.5" />
               <p className="text-emerald-100/80 text-xs leading-relaxed">إذا قال كلاكما <span className="text-emerald-300 font-bold">«نعم»</span> — تتبادلان معلومات التواصل في صفحة النتائج. لا أحد يعرف اختيارك إلا إذا وافق الطرف الآخر.</p>
             </div>
+            <div className="flex items-start gap-2 rounded-xl border border-violet-700/35 bg-violet-950/25 px-3 py-2.5">
+              <Trophy size={15} className="mt-0.5 shrink-0 text-violet-300" />
+              <p className="text-xs leading-relaxed text-gray-300">في الكشف النهائي تقارن بين <span className="font-bold text-pink-300">اختيارك</span> و<span className="font-bold text-violet-300">اختيار النظام</span>. النتيجة مؤشر يساعدك وليست ضماناً للكيمياء.</p>
+            </div>
           </div>
         )}
 
@@ -987,7 +1350,7 @@ function WalkSlide({ step }: { step: number }) {
           <div className="space-y-3.5">
             <div className="text-center space-y-1">
               <Trophy size={32} className="text-violet-400 mx-auto" />
-              <h2 className="text-white font-black text-xl">الكشف النهائي</h2>
+              <h2 ref={headingRef} tabIndex={-1} className="text-white font-black text-xl focus:outline-none">الكشف النهائي</h2>
               <p className="text-gray-400 text-xs leading-relaxed">في النهاية تكتشف نتائجك: اختيارك مقابل اختيار النظام والتوافق الكامل</p>
             </div>
             <div className="grid grid-cols-2 gap-2.5">
@@ -1015,7 +1378,7 @@ function WalkSlide({ step }: { step: number }) {
               {[
                 { q: "ماذا لو لم يعجبني أحد؟", a: "رتّب الجميع بأي ترتيب تريده — حتى لو لم يعجبك أحد، الترتيب إلزامي لإكمال المرحلة. النظام سيمنحك أفضل تطابق متاح." },
                 { q: "هل ترتيبي ظاهر للآخرين؟", a: "لا أبداً — ترتيبك وتقييماتك سرّية تماماً. لا أحد يرى اختياراتك إلا إذا حدث تطابق متبادل بـ«نعم» للتواصل." },
-                { q: "هل يمكنني تعديل ترتيبي بعد الإرسال؟", a: "لا، بمجرد الإرسال يُقفل الترتيب. خذ وقتك في التقييم قبل التأكيد." },
+                { q: "هل يمكنني تعديل ترتيبي بعد الإرسال؟", a: "يمكنك الرجوع للتعديل ما دام وقت الترتيب مفتوحاً. عند انتهاء الوقت يُحفظ ترتيبك الحالي ويُقفل." },
                 { q: "ماذا لو احتجت مساعدة خلال الجلسة؟", a: "زر «المنظم» في أسفل الشاشة متاح دائماً — اضغطه لأي مساعدة أو طارئ." },
               ].map((item, i) => (
                 <div key={i} className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
@@ -1052,6 +1415,17 @@ function WelcomeScreen({ onDone, onLogout, showLogout }: {
   const [step, setStep] = useState(0)
   const [dir, setDir] = useState(1)
   const reduceMotion = useReducedMotion()
+  const splashHeadingRef = useRef<HTMLHeadingElement>(null)
+  const rulesHeadingRef = useRef<HTMLHeadingElement>(null)
+  const walkHeadingRef = useRef<HTMLHeadingElement>(null)
+
+  useEffect(() => {
+    const focusTimer = window.setTimeout(() => {
+      const target = phase === "splash" ? splashHeadingRef.current : phase === "rules" ? rulesHeadingRef.current : walkHeadingRef.current
+      target?.focus({ preventScroll: true })
+    }, reduceMotion ? 0 : 420)
+    return () => window.clearTimeout(focusTimer)
+  }, [phase, step, reduceMotion])
 
   const goNext = () => {
     if (step < WALK_SLIDES.length - 1) {
@@ -1065,9 +1439,9 @@ function WelcomeScreen({ onDone, onLogout, showLogout }: {
 
   return (
     <MotionConfig reducedMotion="user">
-    <div className="h-[100dvh] bg-gray-950 relative overflow-hidden flex flex-col" dir="rtl">
+    <div className="event3-shell h-[100dvh] bg-gray-950 relative overflow-hidden flex flex-col" dir="rtl" lang="ar">
       {/* Ambient background */}
-      <div className="absolute inset-0 pointer-events-none">
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute -top-40 -right-20 w-[550px] h-[550px] bg-purple-600/20 rounded-full blur-[120px]" />
         <div className="absolute -bottom-32 -left-20 w-[500px] h-[500px] bg-pink-600/15 rounded-full blur-[100px]" />
         <motion.div
@@ -1087,12 +1461,13 @@ function WelcomeScreen({ onDone, onLogout, showLogout }: {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0, scale: 0.96 }}
             transition={{ duration: 0.4 }}
-            className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 text-center"
+            className={`event3-scroll relative z-10 flex min-h-0 flex-1 flex-col items-center overflow-y-auto overscroll-contain px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center ${showLogout ? "pt-[max(4.5rem,env(safe-area-inset-top))]" : "pt-[max(1.5rem,env(safe-area-inset-top))]"}`}
+            style={{ justifyContent: "safe center" }}
           >
             {showLogout && onLogout && (
               <button
                 onClick={onLogout}
-                className="absolute top-4 right-4 inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.05] px-3 py-2 text-xs font-medium text-gray-300 transition-colors hover:border-amber-400/50 hover:text-amber-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/80"
+                className="absolute right-4 top-[max(1rem,env(safe-area-inset-top))] inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 bg-white/[0.05] px-3 py-2 text-xs font-medium text-gray-300 transition-colors hover:border-amber-400/50 hover:text-amber-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/80"
                 aria-label="تسجيل الخروج"
               >
                 <LogOut size={14} />
@@ -1139,10 +1514,12 @@ function WelcomeScreen({ onDone, onLogout, showLogout }: {
                 <Sparkles size={12} className="text-pink-400" />
               </motion.div>
               <motion.h1
+                ref={splashHeadingRef}
+                tabIndex={-1}
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.65 }}
-                className="text-[2.2rem] font-black text-white leading-tight"
+                className="text-[2.2rem] font-black text-white leading-tight focus:outline-none"
               >
                 التوافق الأعمى<br />
                 <span className="bg-gradient-to-r from-purple-400 via-violet-400 to-indigo-400 bg-clip-text text-transparent">
@@ -1168,28 +1545,24 @@ function WelcomeScreen({ onDone, onLogout, showLogout }: {
               <motion.button
                 whileTap={{ scale: 0.97 }}
                 onClick={() => setPhase("rules")}
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-2xl py-3.5 font-black text-base shadow-2xl shadow-purple-600/30 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
+                className="group w-full rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-4 text-right text-white shadow-2xl shadow-purple-600/30 transition-all hover:from-purple-500 hover:to-pink-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
               >
-                كيف تسير الفعالية؟ ←
+                <span className="flex items-center justify-between gap-3">
+                  <span>
+                    <span className="block text-base font-black">جهّزني للفعالية</span>
+                    <span className="mt-0.5 block text-xs font-medium text-white/70">شرح مختصر — أقل من دقيقة</span>
+                  </span>
+                  <ArrowLeft size={20} className="text-white/80 transition-transform group-hover:-translate-x-0.5" />
+                </span>
               </motion.button>
               <motion.button
-                whileHover={{ y: -1 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={onDone}
-                className="group w-full rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-3.5 text-right text-gray-200 shadow-lg shadow-black/10 backdrop-blur-sm transition-all duration-200 hover:border-violet-400/40 hover:bg-violet-500/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
+                className="group mx-auto flex min-h-11 items-center gap-2 rounded-full px-4 py-2 text-xs font-bold text-gray-300 transition-colors hover:bg-white/[0.05] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
               >
-                <span className="flex items-center justify-between gap-3" dir="rtl">
-                  <span className="flex items-center gap-3">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-violet-400/20 bg-violet-500/15 text-violet-300 transition-colors group-hover:bg-violet-500/25 group-hover:text-violet-200">
-                      <KeyRound size={17} strokeWidth={2.25} />
-                    </span>
-                    <span className="flex flex-col gap-0.5">
-                      <span className="text-sm font-bold">جاهز؟ ادخل الفعالية</span>
-                      <span className="text-xs text-gray-400 group-hover:text-violet-200/70">قرأت الشرح؟ تقدر تبدأ الآن</span>
-                    </span>
-                  </span>
-                  <ArrowLeft size={18} className="text-gray-500 transition-all group-hover:-translate-x-0.5 group-hover:text-violet-300" />
-                </span>
+                <KeyRound size={14} className="text-violet-300" />
+                سبق لي الحضور — دخول مباشر
+                <ArrowLeft size={13} className="text-gray-500" />
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.02 }}
@@ -1202,7 +1575,7 @@ function WelcomeScreen({ onDone, onLogout, showLogout }: {
                     window.location.href = "/results"
                   }
                 }}
-                className="group mx-auto flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold text-gray-500 transition-all hover:bg-emerald-400/[0.08] hover:text-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70"
+                className="group mx-auto flex min-h-11 items-center gap-2 rounded-full px-4 py-2 text-[11px] font-semibold text-gray-500 transition-all hover:bg-emerald-400/[0.08] hover:text-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70"
               >
                 <Trophy size={14} className="text-emerald-500/70 transition-colors group-hover:text-emerald-300" />
                 <span>عرض صفحة النتائج</span>
@@ -1220,26 +1593,24 @@ function WelcomeScreen({ onDone, onLogout, showLogout }: {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -40 }}
             transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-            className="relative z-10 flex-1 flex flex-col overflow-hidden"
+            className="relative z-10 flex-1 min-h-0 flex flex-col overflow-hidden"
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4">
-              <button onClick={() => setPhase("splash")} aria-label="الرجوع إلى شاشة الترحيب" className="flex items-center gap-1 text-gray-400 text-sm hover:text-white transition-colors rounded-lg px-2 py-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
+            <div className="flex items-center justify-between px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-3">
+              <button type="button" onClick={() => setPhase("splash")} aria-label="الرجوع إلى شاشة الترحيب" className="flex min-h-11 items-center gap-1 rounded-lg px-2 py-1 text-sm text-gray-300 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
                 <ChevronRight size={15} className="rotate-180" /> رجوع
               </button>
-              <span className="text-xs font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent tracking-wide flex items-center gap-1"><Sparkles size={12} /> قواعد الجلسة</span>
+              <h1 ref={rulesHeadingRef} tabIndex={-1} className="flex items-center gap-1 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-sm font-bold tracking-wide text-transparent focus:outline-none"><Sparkles size={12} aria-hidden="true" /> قواعد الجلسة</h1>
             </div>
 
             {/* Rules list */}
-            <div className="flex-1 overflow-y-auto px-5 pb-2 space-y-2.5">
+            <ol className="event3-scroll flex-1 min-h-0 overflow-y-auto px-5 pb-3 space-y-2.5" aria-label="قواعد الجلسة">
               {[
-                { icon: <EyeOff size={20} className="text-purple-400" />, title: "حافظ على السرية", desc: "لا تكشف ترتيبك أو تقييماتك أو اختيارك — النتيجة تُكشف للجميع في النهاية" },
-                { icon: <Drama size={20} className="text-purple-400" />, title: "كن نفسك", desc: "الخوارزمية تعمل بناءً على شخصيتك الحقيقية — التمثيل يضر نتيجتك" },
-                { icon: <Smartphone size={20} className="text-purple-400" />, title: "التطبيق أداتك", desc: "استخدم التطبيق للتقييم والترتيب، لكن لا تُظهِر شاشتك للآخرين" },
-                { icon: <Handshake size={20} className="text-purple-400" />, title: "احترم الجلسة", desc: "تعامل بلطف، وتجنب الأسئلة الشخصية المحرجة أو أي تعليق يسبب إحراجاً" },
-                { icon: <Timer size={20} className="text-purple-400" />, title: "احترم الوقت", desc: "كل جلسة لها مؤقت — أنهِ المحادثة باحترام حين ينتهي الوقت" },
+                { icon: <EyeOff size={20} className="text-purple-400" />, title: "كن حقيقياً واحفظ السرية", desc: "شارك بطبيعتك، ولا تكشف ترتيبك أو تقييماتك أو شاشة اختياراتك للآخرين" },
+                { icon: <Handshake size={20} className="text-purple-400" />, title: "الراحة والاحترام أولاً", desc: "تحدث بلطف وتجاوز أي سؤال لا يناسبك — المشاركة دائماً اختيارية" },
+                { icon: <Smartphone size={20} className="text-purple-400" />, title: "اتبع خطوة الشاشة", desc: "سنخبرك بمكانك وما تفعله الآن. راقب الوقت واستخدم زر المنظم عند الحاجة" },
               ].map((rule, i) => (
-                <motion.div
+                <motion.li
                   key={i}
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -1251,19 +1622,19 @@ function WelcomeScreen({ onDone, onLogout, showLogout }: {
                     <p className="text-white font-bold text-sm">{rule.title}</p>
                     <p className="text-gray-400 text-xs mt-0.5 leading-relaxed">{rule.desc}</p>
                   </div>
-                </motion.div>
+                </motion.li>
               ))}
-            </div>
+            </ol>
 
             {/* CTA */}
-            <div className="px-5 pt-3 pb-5">
+            <div className="shrink-0 border-t border-white/[0.05] bg-gray-950/80 px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
               <motion.button
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={() => setPhase("steps")}
                 className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-2xl py-3.5 font-black text-base shadow-2xl shadow-purple-600/30 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
               >
-                فهمت — كيف تسير الفعالية؟ ←
+                فهمت — شاهد رحلتي ←
               </motion.button>
             </div>
           </motion.div>
@@ -1276,7 +1647,7 @@ function WelcomeScreen({ onDone, onLogout, showLogout }: {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="relative z-10 flex-1 flex flex-col overflow-hidden"
+            className="relative z-10 flex-1 min-h-0 flex flex-col overflow-hidden"
           >
             {/* Top progress bar */}
             <div className="w-full h-1 bg-gray-800/50" role="progressbar" aria-label="تقدم شرح الفعالية" aria-valuemin={1} aria-valuemax={WALK_SLIDES.length} aria-valuenow={step + 1}>
@@ -1286,13 +1657,14 @@ function WelcomeScreen({ onDone, onLogout, showLogout }: {
                 transition={{ duration: 0.45, ease: "easeInOut" }}
               />
             </div>
+            <p className="sr-only" aria-live="polite" aria-atomic="true">الخطوة {step + 1} من {WALK_SLIDES.length}: {WALK_SLIDES[step].label}</p>
 
             {/* Header nav */}
-            <div className="flex items-center justify-between px-5 py-4">
+            <div className="flex items-center justify-between px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-3">
               <button
                 onClick={() => step === 0 ? setPhase("rules") : goPrev()}
                 aria-label={step === 0 ? "الرجوع إلى قواعد الجلسة" : `الرجوع إلى الخطوة ${step}`}
-                className="flex items-center gap-1 text-gray-400 text-sm hover:text-white transition-colors rounded-lg px-2 py-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+                className="flex min-h-11 items-center gap-1 rounded-lg px-2 py-1 text-sm text-gray-300 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
               >
                 <ChevronRight size={15} className="rotate-180" />
                 {step === 0 ? "القواعد" : "السابق"}
@@ -1301,7 +1673,7 @@ function WelcomeScreen({ onDone, onLogout, showLogout }: {
             </div>
 
             {/* Step card */}
-            <div className="flex-1 flex flex-col items-center justify-start overflow-y-auto px-5 py-2">
+            <div className="event3-scroll flex-1 min-h-0 flex flex-col items-center justify-start overflow-y-auto px-5 py-2">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={step}
@@ -1316,13 +1688,13 @@ function WelcomeScreen({ onDone, onLogout, showLogout }: {
                   transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
                   className="w-full max-w-sm my-auto"
                 >
-                  <WalkSlide step={step} />
+                  <WalkSlide step={step} headingRef={walkHeadingRef} />
                 </motion.div>
               </AnimatePresence>
             </div>
 
             {/* Bottom navigation */}
-            <div className="px-5 pb-4 pt-2 space-y-3">
+            <div className="shrink-0 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2 space-y-2">
               {/* Dot indicators */}
               <div className="flex items-center justify-center gap-1.5">
                 {WALK_SLIDES.map((_, i) => (
@@ -1331,7 +1703,7 @@ function WelcomeScreen({ onDone, onLogout, showLogout }: {
                     onClick={() => { setDir(i > step ? 1 : -1); setStep(i) }}
                     aria-label={`الانتقال إلى خطوة ${i + 1}: ${WALK_SLIDES[i].label}`}
                     aria-current={i === step ? "step" : undefined}
-                    className="w-8 h-8 -mx-1 flex items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+                    className="-mx-1 flex h-11 w-11 items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
                   >
                     <span aria-hidden="true" className={`block rounded-full transition-all duration-300 ${
                       i === step ? "w-6 h-2 bg-white" : "w-2 h-2 bg-gray-700 hover:bg-gray-500"
@@ -1350,7 +1722,7 @@ function WelcomeScreen({ onDone, onLogout, showLogout }: {
               {step < WALK_SLIDES.length - 1 && (
                 <button
                   onClick={onDone}
-                  className="w-full flex items-center justify-center gap-1.5 text-gray-400 hover:text-white text-xs font-medium transition-colors py-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+                  className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg text-xs font-medium text-gray-300 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
                 >
                   <X size={12} />
                   تخطّي الشرح وابدأ
@@ -1371,6 +1743,7 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [shake, setShake] = useState(false)
+  const submitInFlightRef = useRef(false)
 
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPhone(e.target.value.replace(/[^\d+\s\-()]/g, ''))
@@ -1378,14 +1751,22 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
   }
 
   const submit = async () => {
+    if (submitInFlightRef.current) return
     const cleaned = phone.replace(/\D/g, '')
     if (cleaned.length < 7) { setError("أدخل رقم جوال صحيح"); setShake(true); setTimeout(() => setShake(false), 500); return }
+    submitInFlightRef.current = true
     setLoading(true); setError("")
-    const d = await call("e3-login-by-phone", null, { phone: cleaned })
-    setLoading(false)
-    if (d.error) { setError(d.error); setShake(true); setTimeout(() => setShake(false), 500); return }
-    localStorage.setItem("blindmatch_result_token", d.token)
-    onToken(d.token)
+    try {
+      const d = await call("e3-login-by-phone", null, { phone: cleaned })
+      if (d.error) { setError(d.error); setShake(true); setTimeout(() => setShake(false), 500); return }
+      localStorage.setItem("blindmatch_result_token", d.token)
+      onToken(d.token)
+    } catch {
+      setError("تعذّر تسجيل الدخول — تحقق من اتصالك وحاول مرة أخرى")
+    } finally {
+      submitInFlightRef.current = false
+      setLoading(false)
+    }
   }
 
   return (
@@ -1419,32 +1800,49 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
 
         {/* Input card */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
-          <GlassCard className="p-5 space-y-3 shadow-2xl shadow-black/30">
-            <motion.div animate={shake ? { x: [-8, 8, -6, 6, -3, 3, 0] } : { x: 0 }} transition={{ duration: 0.4 }}>
-              <input
-                type="tel" inputMode="numeric" dir="ltr"
-                placeholder="05XXXXXXXX"
-                value={phone} onChange={handleInput}
-                onKeyDown={e => e.key === "Enter" && submit()}
-                className={`w-full bg-gray-800/80 border text-white rounded-2xl px-5 py-4 text-center text-xl font-bold tracking-widest focus:outline-none transition-all placeholder:text-gray-700 placeholder:font-normal placeholder:tracking-normal
-                  ${error ? 'border-red-500/60 focus:border-red-400' : 'border-gray-700/60 focus:border-purple-500/70 focus:bg-gray-800/90'}`}
-              />
-            </motion.div>
-            <AnimatePresence>
-              {error && (
-                <motion.p initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                  className="text-red-400 text-sm text-center leading-snug">{error}</motion.p>
-              )}
-            </AnimatePresence>
-            <motion.button onClick={submit} disabled={loading} whileTap={{ scale: 0.97 }}
-              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-50 text-white rounded-2xl py-4 font-black text-lg shadow-lg shadow-purple-600/30 transition-all flex items-center justify-center gap-2">
-              {loading ? <><motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }} className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />جاري التحقق...</> : <span className="flex items-center justify-center gap-2">دخول <Sparkles size={16} /></span>}
-            </motion.button>
+          <GlassCard className="p-5 shadow-2xl shadow-black/30">
+            <form onSubmit={event => { event.preventDefault(); submit() }} className="space-y-3" noValidate>
+              <label htmlFor="event3-phone" className="mr-1 block text-right text-xs font-bold text-gray-300">
+                رقم الجوال
+              </label>
+              <motion.div animate={shake ? { x: [-8, 8, -6, 6, -3, 3, 0] } : { x: 0 }} transition={{ duration: 0.4 }}>
+                <input
+                  id="event3-phone"
+                  name="phone"
+                  type="tel"
+                  inputMode="numeric"
+                  autoComplete="tel"
+                  enterKeyHint="go"
+                  maxLength={24}
+                  dir="ltr"
+                  placeholder="05XXXXXXXX"
+                  value={phone}
+                  onChange={handleInput}
+                  aria-invalid={Boolean(error)}
+                  aria-describedby={error ? "event3-phone-error event3-phone-help" : "event3-phone-help"}
+                  className={`w-full bg-gray-800/80 border text-white rounded-2xl px-5 py-4 text-center text-xl font-bold tracking-widest focus:outline-none transition-all placeholder:text-gray-500 placeholder:font-normal placeholder:tracking-normal
+                    ${error ? 'border-red-500/70 focus:border-red-400' : 'border-gray-700/70 focus:border-purple-500/70 focus:bg-gray-800/90'}`}
+                />
+              </motion.div>
+              <p id="event3-phone-help" className="text-center text-xs leading-relaxed text-gray-400">
+                استخدم الرقم نفسه المسجّل لدى المنظم
+              </p>
+              <AnimatePresence>
+                {error && (
+                  <motion.p id="event3-phone-error" role="alert" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                    className="text-red-300 text-sm text-center font-bold leading-snug">{error}</motion.p>
+                )}
+              </AnimatePresence>
+              <motion.button type="submit" disabled={loading} aria-busy={loading} whileTap={{ scale: 0.97 }}
+                className="w-full min-h-14 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-50 text-white rounded-2xl px-4 py-4 font-black text-lg shadow-lg shadow-purple-600/30 transition-all flex items-center justify-center gap-2">
+                {loading ? <><motion.div aria-hidden="true" animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }} className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />جاري التحقق...</> : <span className="flex items-center justify-center gap-2">دخول <Sparkles size={16} /></span>}
+              </motion.button>
+            </form>
           </GlassCard>
         </motion.div>
 
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }}
-          className="text-gray-600 text-xs">تواصل مع المنظم إذا واجهت أي مشكلة في الدخول</motion.p>
+          className="text-gray-400 text-xs">تواصل مع المنظم إذا واجهت أي مشكلة في الدخول</motion.p>
       </motion.div>
     </PageWrapper>
   )
@@ -1454,17 +1852,16 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
 function SetupScreen({ token, myInfo, enrolledCount }: { token: string; myInfo: { number: number; name: string; gender: string | null } | null; enrolledCount: number | null }) {
 
   const timeline = [
-    { icon: <Users size={14} className="text-purple-400" />, label: "جلسة جماعية أولى", time: "35 دقيقة" },
-    { icon: <Shuffle size={14} className="text-purple-400" />, label: "جلسة جماعية ثانية", time: "25 دقيقة" },
-    { icon: <Trophy size={14} className="text-purple-400" />, label: "ترتيب المشاركين", time: "3 دقائق" },
-    { icon: <Coffee size={14} className="text-orange-400" />, label: "استراحة", time: "10 دقائق" },
-    { icon: <Star size={14} className="text-purple-400" />, label: "جلسة فردية (اختيارك)", time: "25 دقيقة" },
-    { icon: <Brain size={14} className="text-purple-400" />, label: "جلسة فردية (اختيار النظام)", time: "25 دقيقة" },
-    { icon: <Sparkles size={14} className="text-purple-400" />, label: "الكشف النهائي", time: "النتيجة" },
+    { icon: <Users size={14} className="text-cyan-400" />, label: "تعارف جماعي أول، ثم ترتيب سريع", time: "المحطة 1" },
+    { icon: <Shuffle size={14} className="text-indigo-400" />, label: "تعارف جماعي ثانٍ، ثم ترتيب نهائي", time: "المحطة 2" },
+    { icon: <Coffee size={14} className="text-orange-400" />, label: "استراحة واستعداد", time: "فاصل" },
+    { icon: <Heart size={14} className="text-pink-400" />, label: "لقاء اختيارك، ثم تقييم قصير", time: "المحطة 3" },
+    { icon: <Brain size={14} className="text-violet-400" />, label: "لقاء اختيار النظام، ثم تقييم", time: "المحطة 4" },
+    { icon: <Sparkles size={14} className="text-emerald-400" />, label: "الكشف النهائي والنتائج", time: "المحطة 5" },
   ]
 
   return (
-    <PageWrapper className="overflow-y-auto flex items-center justify-center p-6">
+    <PageWrapper embedded className="overflow-y-auto flex items-center justify-center p-6">
       <motion.div
         initial={{ opacity: 0, scale: 0.92 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -1510,7 +1907,9 @@ function SetupScreen({ token, myInfo, enrolledCount }: { token: string; myInfo: 
           </div>
           <h1 className="text-xl font-bold text-white">الفعالية ستبدأ قريباً</h1>
           <p className="text-gray-500 text-sm">انتظر توجيهات المنظم</p>
-          <InfoHint text="ستنتقل تلقائياً عند بدء الجولات · لو احتجت أي مساعدة، استخدم زر «المنظم» في الأسفل" delay={0.5} duration={6} />
+          <p className="rounded-xl border border-emerald-400/15 bg-emerald-400/[0.06] px-3 py-2 text-xs leading-5 text-emerald-100/80">
+            لا تحتاج أن تفعل شيئاً الآن — ستنتقل الشاشة تلقائياً عند بدء الجولة.
+          </p>
           {enrolledCount != null && enrolledCount > 0 && (
             <div className="flex items-center justify-center gap-2 pt-1">
               <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
@@ -1720,7 +2119,7 @@ function SessionTips({ onClose, accent = "pink" }: { onClose: () => void; accent
             <p className={`text-xs font-bold ${ac.text}`}>{t.title}</p>
             <p className="text-gray-400 text-[11px] leading-relaxed">{t.desc}</p>
           </div>
-          <button onClick={onClose} className="text-gray-600 hover:text-gray-400 transition-colors shrink-0">
+          <button type="button" onClick={onClose} aria-label="إغلاق النصائح" className="-m-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-white/5 hover:text-gray-300">
             <X size={14} />
           </button>
         </div>
@@ -1732,7 +2131,7 @@ function SessionTips({ onClose, accent = "pink" }: { onClose: () => void; accent
                 animate={i === tip ? { opacity: [1, 0.6, 1] } : {}} transition={{ duration: 1.5, repeat: Infinity }} />
             ))}
           </div>
-          <motion.button onClick={goNext} whileTap={{ scale: 0.95 }} className={`text-[11px] font-medium ${ac.text} hover:opacity-80 transition-opacity`}>
+          <motion.button type="button" onClick={goNext} whileTap={{ scale: 0.95 }} className={`min-h-11 rounded-xl px-3 text-xs font-bold ${ac.text} transition-opacity hover:bg-white/5 hover:opacity-80`}>
             {tip < tips.length - 1 ? "التالي ←" : "تم"}
           </motion.button>
         </div>
@@ -1774,8 +2173,8 @@ function seededShuffle<T>(arr: T[], seed: number): T[] {
   return s
 }
 
-function IceBreaker({ round, tableNumber = 0, myInfo, tablemates }: {
-  round: number; tableNumber?: number; myInfo: { number: number; name: string; gender: string | null } | null; tablemates: { number: number; first_name: string; gender: string | null }[]
+function IceBreaker({ round, tableNumber = 0, myInfo, tablemates, onDone }: {
+  round: number; tableNumber?: number; myInfo: { number: number; name: string; gender: string | null } | null; tablemates: { number: number; first_name: string; gender: string | null }[]; onDone?: () => void
 }) {
   const ib = ICE_BREAKERS[round]
   const [started, setStarted] = useState(false)
@@ -1800,6 +2199,7 @@ function IceBreaker({ round, tableNumber = 0, myInfo, tablemates }: {
       setCurrentIdx(i => i + 1)
     } else {
       setDone(true)
+      onDone?.()
     }
   }
 
@@ -1987,6 +2387,9 @@ function RockPaperScissors({ accent = "pink", autoDone = false, onDone }: { acce
         >
           <CheckCircle size={16} /> خلّصنا التحدي — ابدأوا الجلسة
         </motion.button>
+        <button type="button" onClick={() => setDone(true)} className="mx-auto flex min-h-11 items-center justify-center rounded-xl px-4 text-xs font-bold text-gray-400 transition-colors hover:bg-white/5 hover:text-gray-200">
+          تخطي التحدي والبدء بالأسئلة
+        </button>
       </GlassCard>
     </motion.div>
   )
@@ -2002,36 +2405,91 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   const [timeLeft, setTimeLeft] = useState(0)
   const [showGroups, setShowGroups] = useState(false)
   const [groupsHaveOpened, setGroupsHaveOpened] = useState(false)
+  const [groupActivityStage, setGroupActivityStage] = useState<"warmup" | "activities">("warmup")
   const [showGroupParticipationNudge, setShowGroupParticipationNudge] = useState(false)
+  const [participationNudgePending, setParticipationNudgePending] = useState(false)
   const participationNudgeTimerRef = useRef<string | null>(null)
-  useEffect(() => { onGroupsOpenChange?.(showGroups) }, [showGroups, onGroupsOpenChange])
+  const participationNudgeButtonRef = useRef<HTMLButtonElement>(null)
+  const participationNudgeTitleId = useId()
+  const groupsDialogRef = useRef<HTMLDivElement>(null)
+  const groupsOpenerRef = useRef<HTMLElement | null>(null)
   const openGroups = useCallback(() => {
+    groupsOpenerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
     setGroupsHaveOpened(true)
     setShowGroups(true)
   }, [])
   const closeGroups = useCallback(() => setShowGroups(false), [])
 
-  // Treat the activities panel like a native sheet: Escape closes it and the
-  // page behind it does not continue scrolling. Keeping it mounted after the
-  // first open also preserves the selected activity and its progress.
+  // Treat the activities panel like a native modal sheet while keeping it
+  // mounted off-screen so selected activities retain their progress.
   useEffect(() => {
     if (!showGroups) return
     const previousOverflow = document.body.style.overflow
+    const focusTimer = window.setTimeout(() => {
+      const firstControl = groupsDialogRef.current?.querySelector<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+      ;(firstControl || groupsDialogRef.current)?.focus()
+    }, 80)
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeGroups()
+      if (event.key === "Escape") {
+        event.preventDefault()
+        closeGroups()
+        return
+      }
+      if (event.key !== "Tab") return
+      const controls = Array.from(groupsDialogRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      ) || [])
+      if (!controls.length) {
+        event.preventDefault()
+        groupsDialogRef.current?.focus()
+        return
+      }
+      const first = controls[0]
+      const last = controls[controls.length - 1]
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
     }
     document.body.style.overflow = "hidden"
     window.addEventListener("keydown", onKeyDown)
     return () => {
+      window.clearTimeout(focusTimer)
       document.body.style.overflow = previousOverflow
       window.removeEventListener("keydown", onKeyDown)
+      groupsOpenerRef.current?.focus()
     }
   }, [showGroups, closeGroups])
-  const [showTutorial, setShowTutorial] = useState(round === 1 && (typeof window === "undefined" || sessionStorage.getItem(`e3_tut_round_${round}`) !== "1"))
-  const wakeLockRef = useRef<any>(null)
+  const [showTutorial, setShowTutorial] = useState(false)
+  useEffect(() => {
+    onGroupsOpenChange?.(showGroups || showTutorial || showGroupParticipationNudge)
+  }, [showGroups, showTutorial, showGroupParticipationNudge, onGroupsOpenChange])
+
+  useEffect(() => {
+    if (!showGroupParticipationNudge) return
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const previousOverflow = document.body.style.overflow
+    const focusTimer = window.setTimeout(() => participationNudgeButtonRef.current?.focus(), 50)
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowGroupParticipationNudge(false)
+      if (event.key === "Tab") {
+        event.preventDefault()
+        participationNudgeButtonRef.current?.focus()
+      }
+    }
+    document.body.style.overflow = "hidden"
+    window.addEventListener("keydown", onKeyDown)
+    return () => {
+      window.clearTimeout(focusTimer)
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener("keydown", onKeyDown)
+      opener?.focus()
+    }
+  }, [showGroupParticipationNudge])
+
   const { popup, clearPopup } = useTimerWarnings(timerActive, timeLeft, timerDuration, true, {
     oneMinSublabel: "خلصوا النشاط وتأكدوا من أسماء الجميع — الترتيب يبدأ بعد دقيقة ومحدد بوقت"
-  })
+  }, timerStart)
 
   const loadAssignment = useCallback(async () => {
     setAssignmentError("")
@@ -2059,6 +2517,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   useEffect(() => {
     if (!timerActive || !timerStart) {
       participationNudgeTimerRef.current = null
+      setParticipationNudgePending(false)
       setShowGroupParticipationNudge(false)
       return
     }
@@ -2067,25 +2526,21 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
     const elapsed = Math.floor((now - new Date(timerStart).getTime()) / 1000)
     if (elapsed >= 10 * 60 && participationNudgeTimerRef.current !== timerKey) {
       participationNudgeTimerRef.current = timerKey
-      setShowGroupParticipationNudge(true)
+      setParticipationNudgePending(true)
     }
   }, [timerActive, timerStart, timeLeft, round, correctedNow])
 
+  // Queue this gentle reminder until the current sheet/tutorial is closed.
+  // Only one Round overlay owns focus and the body scroll lock at a time.
+  useEffect(() => {
+    if (!participationNudgePending || showGroups || showTutorial || showGroupParticipationNudge) return
+    setParticipationNudgePending(false)
+    setShowGroupParticipationNudge(true)
+  }, [participationNudgePending, showGroups, showTutorial, showGroupParticipationNudge])
+
   // Wake lock: prevent screen sleep during active round
   const wakeLockActive = timerActive && timeLeft > 0
-  useEffect(() => {
-    const requestWakeLock = async () => {
-      try {
-        if ("wakeLock" in navigator) {
-          wakeLockRef.current = await (navigator as any).wakeLock.request("screen")
-        }
-      } catch {}
-    }
-    if (wakeLockActive) requestWakeLock()
-    return () => {
-      if (wakeLockRef.current) { try { wakeLockRef.current.release() } catch {} wakeLockRef.current = null }
-    }
-  }, [wakeLockActive])
+  useScreenWakeLock(wakeLockActive)
 
   // Vibrate when timer starts or when 10 seconds remain
   // (sound/vibration handled by useTimerWarnings hook above)
@@ -2096,8 +2551,6 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
     { badge: "bg-indigo-900/30 border-indigo-700/40 text-indigo-300", card: "border-indigo-800/40", num: "text-indigo-300", pill: "bg-indigo-900/40 text-indigo-300 border-indigo-800/40", bar: "from-indigo-500 to-purple-500" },
   ][round - 1] || { badge: "bg-purple-900/30 border-purple-700/40 text-purple-300", card: "border-purple-800/40", num: "text-purple-300", pill: "bg-purple-900/40 text-purple-300 border-purple-800/40", bar: "from-purple-500 to-pink-500" }
 
-  const timerBarH = timerActive && timeLeft > 0 ? "64px" : "0px"
-
   return (
     <div className="min-h-full bg-gray-950 relative overflow-hidden" dir="rtl">
       {/* Background orbs */}
@@ -2107,46 +2560,12 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
         <div className="absolute top-1/2 right-1/3 w-[260px] h-[260px] bg-blue-500/10 rounded-full blur-[70px] -translate-y-1/2" />
       </div>
 
-      {/* ── Sticky Timer Strip ─────────────────────────────────────── */}
-      <AnimatePresence>
-        {timerActive && timeLeft > 0 && (
-          <motion.div
-            initial={{ y: -64 }} animate={{ y: 0 }} exit={{ y: -64 }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="fixed top-0 inset-x-0 z-50 bg-gray-950/90 backdrop-blur-xl overflow-hidden"
-          >
-            <div className="flex items-center justify-between px-5 h-14 max-w-sm mx-auto relative">
-              <div className="flex items-center gap-2 min-w-0">
-                <Clock size={13} className="text-purple-400 flex-shrink-0" />
-                <span className="text-gray-500 text-xs hidden sm:inline">الوقت المتبقي</span>
-              </div>
-              {myInfo && (
-                <div className="absolute left-1/2 -translate-x-1/2 flex items-baseline gap-1 max-w-[120px] overflow-hidden">
-                  <span className="text-gray-400/70 text-[12px] font-medium leading-none truncate">{myInfo.name}</span>
-                  <span className={`text-[12px] font-mono font-bold leading-none flex-shrink-0 ${myInfo.gender === "female" ? "text-pink-400/60" : myInfo.gender === "male" ? "text-blue-400/60" : "text-purple-400/60"}`}>#{myInfo.number}</span>
-                </div>
-              )}
-              <div className={`text-xl sm:text-2xl font-mono font-black tabular-nums flex-shrink-0 ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>
-                {formatTime(timeLeft)}
-              </div>
-            </div>
-            <div className="h-[2px] bg-gray-800/60">
-              <motion.div
-                className={`h-full bg-gradient-to-r ${timeLeft < 60 ? "from-red-500 to-red-400" : RC.bar}`}
-                style={{ boxShadow: timeLeft < 60 ? "0 0 8px rgba(239,68,68,0.7)" : "0 0 8px rgba(139,92,246,0.7)" }}
-                animate={{ width: `${(timeLeft / timerDuration) * 100}%` }}
-                transition={{ duration: 1 }}
-              />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* ── Main Content ───────────────────────────────────────────── */}
       <motion.div
         initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
-        className="relative z-10 flex flex-col items-center justify-center p-6 h-full"
-        style={{ paddingTop: `calc(1rem + ${timerBarH})` }}
+        className="relative z-10 flex h-full flex-col items-center justify-center p-4 sm:p-6"
+        aria-hidden={showGroups || undefined}
+        inert={showGroups}
       >
         <div className="w-full max-w-sm space-y-5 text-center">
           <motion.div
@@ -2157,7 +2576,13 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
             <span className="font-bold text-sm">الجولة الجماعية {roundAr}</span>
             <span className="text-gray-600 text-xs">من 2</span>
           </motion.div>
-          <InfoHint text="اذهب إلى طاولتك · للطوارئ أو المساعدة، استخدم زر «المنظم» في الأسفل" delay={0.5} duration={5} />
+          <JourneyCue
+            accent={round === 1 ? "blue" : "purple"}
+            title={assignment ? `توجّه الآن إلى طاولة ${assignment.table}` : "نجهّز مكانك في الجولة"}
+            description="بعد الوصول ستبدأون بكسر جليد قصير، ثم تختارون نشاطاً واحداً للمجموعة."
+            steps={["الوصول", "كسر الجليد", "نشاط المجموعة"]}
+            currentStep={groupActivityStage === "activities" ? 2 : groupsHaveOpened ? 1 : 0}
+          />
 
           {assignment ? (
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
@@ -2251,13 +2676,9 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
             </GlassCard>
           )}
 
-          {/* Ice Breaker — appears before group activities */}
-          {assignment?.tablemates && (
-            <IceBreaker round={round} tableNumber={assignment.table} myInfo={myInfo} tablemates={assignment.tablemates} />
-          )}
-
-          {/* Groups button */}
+          {/* One linear entry point owns the warm-up and shared activity. */}
           <motion.button
+            type="button"
             onClick={openGroups}
             disabled={!assignment}
             initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
@@ -2267,8 +2688,10 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
               <Target size={19} />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-base font-black">{groupsHaveOpened ? "العودة إلى النشاط" : "اختيار نشاط للمجموعة"}</span>
-              <span className="mt-0.5 block text-[11px] font-medium text-white/70">ألعاب وأسئلة قصيرة يشارك فيها كل من على الطاولة</span>
+              <span className="block text-base font-black">{
+                !groupsHaveOpened ? "وصلت — ابدأوا معاً" : groupActivityStage === "warmup" ? "متابعة كسر الجليد" : "العودة إلى نشاط المجموعة"
+              }</span>
+              <span className="mt-0.5 block text-xs font-medium text-white/75">تعارف سريع، ثم ألعاب وأسئلة يشارك فيها الجميع</span>
             </span>
             <ArrowLeft size={18} className="shrink-0 text-white/70 transition-transform group-hover:-translate-x-0.5" />
           </motion.button>
@@ -2284,7 +2707,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
             </button>
           )}
 
-          {/* Replay tutorial button */}
+          {/* Contextual help is optional and never interrupts the live task. */}
           {round === 1 && (
             <motion.button
               onClick={() => setShowTutorial(true)}
@@ -2292,7 +2715,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
               className="text-gray-600 hover:text-gray-400 text-[11px] font-medium transition-colors flex items-center gap-1.5 mx-auto"
             >
               <RefreshCw size={11} />
-              إعادة الشرح
+              كيف تسير الجولة؟
             </motion.button>
           )}
 
@@ -2308,29 +2731,58 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
       <AnimatePresence>
         {groupsHaveOpened && (
           <motion.div
+            ref={groupsDialogRef}
             initial={{ opacity: 0, y: "100%" }}
             animate={{ opacity: showGroups ? 1 : 0, y: showGroups ? 0 : "100%" }}
             transition={{ type: "spring", stiffness: 280, damping: 32 }}
             aria-hidden={!showGroups}
-            className={`fixed inset-x-0 bottom-0 z-40 bg-gray-950 flex flex-col ${showGroups ? "pointer-events-auto" : "pointer-events-none"}`}
-            style={{ top: timerActive && timeLeft > 0 ? "58px" : "0px" }}
+            inert={!showGroups}
+            role="dialog"
+            aria-modal={showGroups ? "true" : undefined}
+            aria-label="أنشطة المجموعة"
+            tabIndex={-1}
+            className={`fixed inset-0 z-[210] flex flex-col bg-gray-950 ${showGroups ? "pointer-events-auto" : "pointer-events-none"}`}
           >
-            {/* Groups content rendered inline */}
-            <div className="flex-1 overflow-y-auto overscroll-contain relative z-10" tabIndex={-1}>
-              <GroupsPage disableOnboarding onClose={closeGroups} round={round} tableNumber={assignment?.table} />
-            </div>
+            {groupActivityStage === "warmup" && assignment?.tablemates ? (
+              <div className="event3-scroll relative z-10 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]" tabIndex={-1}>
+                <div className="mx-auto w-full max-w-sm space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-right">
+                      <p className="text-xs font-bold text-amber-300">الخطوة 1 من 2</p>
+                      <h2 className="mt-0.5 text-lg font-black text-white">ابدأوا بتعارف سريع</h2>
+                    </div>
+                    <button type="button" onClick={closeGroups} className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-gray-300" aria-label="إغلاق أنشطة المجموعة"><X size={18} /></button>
+                  </div>
+                  <JourneyCue accent="amber" eyebrow="قبل النشاط" title="خلّوا كل شخص يأخذ دوره" description="بعد آخر شخص سننقلكم مباشرة إلى قائمة الأنشطة — لا تحتاجون الرجوع لهذه الشاشة." steps={["تعارف", "اختيار نشاط", "مشاركة"]} currentStep={0} />
+                  <IceBreaker
+                    round={round}
+                    tableNumber={assignment.table}
+                    myInfo={myInfo}
+                    tablemates={assignment.tablemates}
+                    onDone={() => setGroupActivityStage("activities")}
+                  />
+                  <button type="button" onClick={() => setGroupActivityStage("activities")} className="mx-auto flex min-h-11 items-center justify-center rounded-xl px-4 text-xs font-bold text-gray-400 transition-colors hover:bg-white/5 hover:text-gray-200">
+                    تخطي كسر الجليد والذهاب للأنشطة
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="relative z-10 flex-1 overflow-y-auto overscroll-contain" tabIndex={-1}>
+                <GroupsPage disableOnboarding onClose={closeGroups} round={round} tableNumber={assignment?.table} />
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
 
       <AnimatePresence>
         {showGroupParticipationNudge && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] flex items-end bg-black/55 p-5 sm:items-center sm:justify-center" role="dialog" aria-modal="true">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[520] flex items-end bg-black/55 p-5 sm:items-center sm:justify-center" role="dialog" aria-modal="true" aria-labelledby={participationNudgeTitleId}>
             <motion.div initial={{ y: 20, scale: 0.98 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, scale: 0.98 }} className="w-full max-w-md rounded-3xl border border-amber-400/25 bg-gray-900 p-6 text-center shadow-2xl" dir="rtl">
               <Users className="mx-auto mb-3 h-8 w-8 text-amber-300" />
-              <h2 className="text-lg font-black text-white">خلّوا الجميع يأخذ فرصته</h2>
+              <h2 id={participationNudgeTitleId} className="text-lg font-black text-white">خلّوا الجميع يأخذ فرصته</h2>
               <p className="mt-2 text-sm leading-7 text-gray-300">إذا فيه شخص ما أخذ فرصته بالكلام، نحب نسمع منه — والمشاركة دائمًا اختيارية.</p>
-              <button onClick={() => setShowGroupParticipationNudge(false)} className="mt-5 min-h-12 w-full rounded-2xl bg-amber-500 font-bold text-gray-950">نكمل</button>
+              <button ref={participationNudgeButtonRef} type="button" onClick={() => setShowGroupParticipationNudge(false)} className="mt-5 min-h-12 w-full rounded-2xl bg-amber-500 font-bold text-gray-950">نكمل</button>
             </motion.div>
           </motion.div>
         )}
@@ -2338,7 +2790,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
 
       {/* ── Timer Warning Popup ─────────────────────────────────────── */}
       <AnimatePresence>
-        {popup && <TimerWarningPopup {...popup} onDone={clearPopup} />}
+        {popup && <TimerWarningPopup key={popup.seconds} {...popup} onDone={clearPopup} />}
       </AnimatePresence>
     </div>
   )
@@ -2387,6 +2839,7 @@ function RankingReorderCard({
     <Reorder.Item
       value={value}
       as="div"
+      role="listitem"
       className={className}
       drag={disabled ? false : true}
       dragListener={false}
@@ -2399,34 +2852,67 @@ function RankingReorderCard({
 }
 
 // ─── Ranking Screen ───────────────────────────────────────────────────────────
-function RankingScreen({ token, completedRounds, currentPhase, timerActive, timerStart, timerDuration, correctedNow, myInfo, onOpenGroupFeedback }: { token: string, completedRounds: number, currentPhase: string, timerActive: boolean, timerStart: string | null, timerDuration: number, correctedNow?: () => number, myInfo: { number: number; name: string; gender: string | null } | null, onOpenGroupFeedback: (round: 1 | 2) => void }) {
+function RankingScreen({ token, completedRounds, currentPhase, timerActive, timerStart, timerDuration, correctedNow, myInfo, onOpenGroupFeedback, onRankingResolved, onRankingDirty }: {
+  token: string
+  completedRounds: number
+  currentPhase: string
+  timerActive: boolean
+  timerStart: string | null
+  timerDuration: number
+  correctedNow?: () => number
+  myInfo: { number: number; name: string; gender: string | null } | null
+  onOpenGroupFeedback: (round: 1 | 2) => void
+  onRankingResolved: (round: number) => void
+  onRankingDirty: () => void
+}) {
   const [people, setPeople] = useState<any[]>([])
   const [order, setOrder] = useState<number[]>([])
   const [newNums, setNewNums] = useState<Set<number>>(new Set())
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [reloadKey, setReloadKey] = useState(0)
+  const [rankAnnouncement, setRankAnnouncement] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [notes, setNotes] = useState<Record<number, string>>({})
   const [openNote, setOpenNote] = useState<number | null>(null)
   const [savingNote, setSavingNote] = useState<number | null>(null)
+  const [noteSaveErrors, setNoteSaveErrors] = useState<Set<number>>(new Set())
   const [showConfirm, setShowConfirm] = useState(false)
   const [showPhaseWarning, setShowPhaseWarning] = useState(false)
-  const [showRankTutorial, setShowRankTutorial] = useState(typeof window === "undefined" || sessionStorage.getItem('e3_tut_ranking') !== "1")
+  const [showRankTutorial, setShowRankTutorial] = useState(false)
   const [timeLeft, setTimeLeft] = useState(300) // fallback, overwritten by server timer
   const [autoSaving, setAutoSaving] = useState(false)
-  const [isShuffling, setIsShuffling] = useState(false)
   const [showTimeWarning, setShowTimeWarning] = useState(false)
   const initialPhaseRef = useRef(currentPhase)
   const submittedRef = useRef(false)
   const orderRef = useRef<number[]>([])
   const autoSavedRef = useRef(false)
+  const rankingWarningsRef = useRef<Set<number>>(new Set())
+  const rankingConfirmOverlayRef = useRef<HTMLDivElement>(null)
+  const rankingConfirmDialogRef = useRef<HTMLDivElement>(null)
+  const rankingConfirmCancelRef = useRef<HTMLButtonElement>(null)
+
+  useModalFocus({
+    open: showConfirm && !autoSaving && !autoSavedRef.current && timeLeft > 0,
+    overlayRef: rankingConfirmOverlayRef,
+    dialogRef: rankingConfirmDialogRef,
+    initialFocusRef: rankingConfirmCancelRef,
+    onEscape: () => setShowConfirm(false),
+  })
 
   useEffect(() => {
     Promise.all([
       call("e3-get-participants-met", token, { completed_rounds: completedRounds }),
       call("e3-get-notes", token),
     ]).then(([d, nd]) => {
-      if (d.error) { toast.error(d.error); return }
+      if (d.error) {
+        setLoadError(d.error)
+        setLoading(false)
+        toast.error(d.error)
+        return
+      }
+      setLoadError(null)
       const allPeople: any[] = d.people || []
       const existingRankings: Record<number, number> = d.existing_rankings || {}
       setPeople(allPeople)
@@ -2445,16 +2931,25 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
       const newRound = completedRounds > 1 ? completedRounds : -1
       setNewNums(new Set(allPeople.filter(p => p.round === newRound).map(p => p.number)))
       setOrder([...ranked.map(p => p.number), ...fresh.map(p => p.number)])
-      if (d.already_submitted) setSubmitted(true)
+      if (d.already_submitted) {
+        setSubmitted(true)
+        onRankingResolved(completedRounds)
+      }
       setLoading(false)
 
       if (!nd.error && nd.notes) setNotes(nd.notes)
     })
-  }, [token, completedRounds])
+  }, [token, completedRounds, reloadKey, onRankingResolved])
 
   // Keep refs in sync
   useEffect(() => { submittedRef.current = submitted }, [submitted])
   useEffect(() => { orderRef.current = order }, [order])
+  useEffect(() => {
+    rankingWarningsRef.current.clear()
+    autoSavedRef.current = false
+    setShowTimeWarning(false)
+    setShowConfirm(false)
+  }, [timerStart, completedRounds])
 
   // Server-side timer — calculate remaining time from server start + duration
   useEffect(() => {
@@ -2464,13 +2959,15 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
       const elapsed = Math.floor((now - new Date(timerStart).getTime()) / 1000)
       const remaining = Math.max(0, timerDuration - elapsed)
       setTimeLeft(remaining)
-      if (remaining === 90 && !submittedRef.current) {
+      if (remaining > 0 && remaining <= 30 && !rankingWarningsRef.current.has(30) && !submittedRef.current) {
+        rankingWarningsRef.current.add(90)
+        rankingWarningsRef.current.add(30)
+        toast('باقي 30 ثانية — احفظ تصنيفك الآن!', { duration: 5000, icon: '⏰' })
+      } else if (remaining > 30 && remaining <= 90 && !rankingWarningsRef.current.has(90) && !submittedRef.current) {
+        rankingWarningsRef.current.add(90)
         vibrate([100, 50, 100])
         playTimerWarningSound()
         setShowTimeWarning(true)
-      }
-      if (remaining === 31) {
-        toast('باقي 30 ثانية — احفظ تصنيفك الآن!', { duration: 5000, icon: '⏰' })
       }
     }
     update()
@@ -2482,17 +2979,22 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   useEffect(() => {
     if (timeLeft > 0 || submittedRef.current || autoSavedRef.current || loading) return
     const doAutoSave = async () => {
+      setShowConfirm(false)
       setAutoSaving(true)
       autoSavedRef.current = true
       const d = await call('e3-submit-ranking', token, { ranked_list: orderRef.current, auto_saved: true })
       setAutoSaving(false)
       if (d.error) { toast.error(d.error); return }
-      onOpenGroupFeedback(completedRounds >= 2 ? 2 : 1)
       setSubmitted(true)
+      onRankingResolved(completedRounds)
       toast('انتهى الوقت — تم حفظ تصنيفك تلقائياً', { duration: 5000, icon: '⏰' })
     }
     doAutoSave()
-  }, [timeLeft, token, loading])
+  }, [timeLeft, token, loading, completedRounds, onRankingResolved])
+
+  useEffect(() => {
+    if (timeLeft <= 0 || submitted || autoSaving) setShowConfirm(false)
+  }, [timeLeft, submitted, autoSaving])
 
   // Detect phase change while user is on ranking screen
   useEffect(() => {
@@ -2504,44 +3006,48 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
 
   const saveNote = async (aboutNumber: number, text: string) => {
     setSavingNote(aboutNumber)
-    await call("e3-save-note", token, { about_number: aboutNumber, note: text })
+    const result = await call("e3-save-note", token, { about_number: aboutNumber, note: text })
     setSavingNote(null)
+    if (result.error) {
+      setNoteSaveErrors(current => new Set(current).add(aboutNumber))
+      toast.error('تعذّر حفظ الملاحظة — بقي النص لديك ويمكنك المحاولة مجدداً')
+      return
+    }
+    setNoteSaveErrors(current => {
+      const next = new Set(current)
+      next.delete(aboutNumber)
+      return next
+    })
   }
 
   const submit = async () => {
+    if (submitting || autoSaving || autoSavedRef.current || submittedRef.current || timeLeft <= 0) {
+      setShowConfirm(false)
+      return
+    }
     setSubmitting(true)
     const d = await call("e3-submit-ranking", token, { ranked_list: order })
     setSubmitting(false)
     if (d.error) { toast.error(d.error); return }
     setShowConfirm(false)
-    onOpenGroupFeedback(completedRounds >= 2 ? 2 : 1)
     setSubmitted(true)
+    onRankingResolved(completedRounds)
     toast.success(completedRounds >= 2 ? "تم حفظ تصنيفك النهائي!" : "تم حفظ تصنيفك!")
   }
 
-  const handleRandomize = () => {
-    if (submitted || isShuffling || order.length < 2) return
-    setIsShuffling(true)
-    let count = 0
-    const max = 9
-    const iv = setInterval(() => {
-      setOrder(prev => {
-        const shuffled = [...prev]
-        for (let i = shuffled.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1))
-          ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-        }
-        return shuffled
-      })
-      count++
-      if (count >= max) {
-        clearInterval(iv)
-        setIsShuffling(false)
-      }
-    }, 130)
-  }
-
   const personMap = Object.fromEntries(people.map(p => [p.number, p]))
+
+  const moveToRank = (number: number, nextIndex: number) => {
+    if (submitted) return
+    setOrder(current => {
+      const fromIndex = current.indexOf(number)
+      if (fromIndex < 0 || fromIndex === nextIndex) return current
+      const next = current.filter(value => value !== number)
+      next.splice(Math.max(0, Math.min(nextIndex, next.length)), 0, number)
+      return next
+    })
+    setRankAnnouncement(`تم نقل ${personMap[number]?.first_name || "المشارك"} إلى المركز ${nextIndex + 1}`)
+  }
 
   const avatarColors = [
     "from-amber-500 to-orange-600",
@@ -2576,10 +3082,25 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   }
 
   if (loading) return (
-    <PageWrapper className="flex items-center justify-center">
+    <PageWrapper embedded className="flex items-center justify-center">
       <div className="flex flex-col items-center gap-3">
         <Spinner size={28} />
         <p className="text-gray-500 text-xs">جاري تحميل الأشخاص...</p>
+      </div>
+    </PageWrapper>
+  )
+
+  if (loadError) return (
+    <PageWrapper embedded className="flex items-center justify-center p-5 text-center">
+      <div className="w-full max-w-sm rounded-3xl border border-red-500/20 bg-red-950/20 p-6 shadow-2xl">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-red-500/25 bg-red-500/10">
+          <AlertTriangle size={26} className="text-red-300" />
+        </div>
+        <h1 className="mt-4 text-lg font-black text-white">تعذّر تحميل قائمة الترتيب</h1>
+        <p className="mt-2 text-sm leading-relaxed text-gray-300">{loadError}</p>
+        <button type="button" onClick={() => { setLoading(true); setLoadError(null); setReloadKey(value => value + 1) }} className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-white/[0.08] px-4 text-sm font-black text-white">
+          <RefreshCw size={16} /> إعادة المحاولة
+        </button>
       </div>
     </PageWrapper>
   )
@@ -2589,7 +3110,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   const timerText = timeLeft <= 30 ? "text-red-400" : timeLeft <= 60 ? "text-amber-400" : "text-gray-300"
 
   return (
-    <PageWrapper className="overflow-y-auto bg-gray-950">
+    <PageWrapper embedded className="overflow-y-auto bg-gray-950">
       {/* ── Sticky header with integrated timer ── */}
       <div className="sticky top-0 z-20 bg-gray-950/95 backdrop-blur-xl border-b border-white/[0.04]">
         <div className="w-full max-w-md mx-auto px-3 sm:px-4 pt-2.5 pb-2">
@@ -2603,33 +3124,12 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                 <p className="text-gray-500 text-[10px] leading-tight mt-0.5">
                   {myInfo && <span className="font-bold text-amber-400/80">رقمك #{myInfo.number}</span>}
                   {myInfo && <span className="mx-1 text-gray-700">·</span>}
-                  {people.length} أشخاص · اسحب للترتيب
+                  {people.length} أشخاص · اسحب أو اضغط رقم المركز
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              {!submitted && order.length >= 2 && (
-                <motion.button
-                  onClick={handleRandomize}
-                  disabled={isShuffling}
-                  whileTap={{ scale: 0.85 }}
-                  whileHover={{ scale: 1.08 }}
-                  title="خلط عشوائي"
-                  className={`w-9 h-9 flex items-center justify-center rounded-xl border transition-all ${
-                    isShuffling
-                      ? 'bg-cyan-900/30 border-cyan-700/40 text-cyan-300 cursor-wait'
-                      : 'bg-white/[0.03] border-white/[0.06] text-gray-500 hover:border-cyan-600/40 hover:text-cyan-400'
-                  }`}
-                >
-                  <motion.span
-                    animate={isShuffling ? { rotate: 360 } : { rotate: 0 }}
-                    transition={isShuffling ? { duration: 0.5, repeat: Infinity, ease: 'linear' } : { duration: 0.2 }}
-                  >
-                    <Shuffle size={15} />
-                  </motion.span>
-                </motion.button>
-              )}
               {autoSaving ? (
                 <span className="flex items-center gap-1.5 text-amber-300 text-[11px] font-semibold">
                   <Spinner size={12} className="!text-amber-400" /> حفظ...
@@ -2698,17 +3198,34 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
 
       {/* ── Ranking list ── */}
       <div className="w-full max-w-md mx-auto pb-[calc(10rem+env(safe-area-inset-bottom))] px-3 sm:px-4 pt-2">
+        {!submitted && (
+          <JourneyCue
+            accent="amber"
+            eyebrow={completedRounds >= 2 ? "قرارك النهائي" : "قرار هذه الجولة"}
+            title="ضع الأكثر رغبة في اللقاء بالمركز الأول"
+            description="الترتيب الحالي نقطة بداية فقط؛ غيّره ليعكس اختيارك، ثم راجع أول ثلاثة قبل الحفظ."
+            steps={["رتّب", "راجع الأعلى", "احفظ"]}
+            currentStep={0}
+            className="mb-3"
+            aside={(
+              <button type="button" onClick={() => setShowRankTutorial(true)} className="min-h-9 rounded-xl border border-white/10 bg-white/[0.05] px-3 text-[11px] font-bold text-gray-300">
+                كيف تُحسم؟
+              </button>
+            )}
+          />
+        )}
         {order.length > 4 && (
           <motion.div
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-2 flex items-center justify-center gap-2 rounded-xl border border-cyan-800/25 bg-cyan-950/20 px-3 py-2 text-[10px] font-semibold text-cyan-300"
+            className="mb-2 flex items-center justify-center gap-2 rounded-xl border border-cyan-800/25 bg-cyan-950/20 px-3 py-2 text-xs font-semibold text-cyan-200"
           >
             <motion.span animate={{ y: [0, 3, 0] }} transition={{ duration: 1.4, repeat: Infinity }}>↓</motion.span>
-            مرّر لرؤية كل الأسماء · اسحب من المقبض لترتيبهم
+            مرّر لرؤية كل الأسماء · اسحب المقبض أو اضغط رقم المركز
           </motion.div>
         )}
-        <Reorder.Group axis="y" values={order} onReorder={setOrder} className="space-y-1.5" as="div">
+        <p className="sr-only" aria-live="polite">{rankAnnouncement}</p>
+        <Reorder.Group axis="y" values={order} onReorder={setOrder} className="space-y-1.5" as="div" role="list" aria-label="ترتيب المشاركين">
           {order.map((num, idx) => {
             const p = personMap[num]
             if (!p) return null
@@ -2718,14 +3235,8 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
               <RankingReorderCard
                 key={num}
                 value={num}
-                className={`rounded-xl border transition-colors ${accent} ${
-                  submitted
-                    ? 'opacity-40 cursor-not-allowed'
-                    : isShuffling
-                    ? 'border-cyan-800/20 cursor-default pointer-events-none'
-                    : 'hover:border-white/[0.1] select-none'
-                }`}
-                disabled={submitted || isShuffling}
+                className={`rounded-xl border transition-colors ${accent} ${submitted ? 'cursor-not-allowed opacity-40' : 'select-none hover:border-white/[0.1]'}`}
+                disabled={submitted}
                 whileDrag={submitted ? undefined : {
                   scale: 1.03,
                   boxShadow: '0 10px 30px rgba(0,0,0,0.45)',
@@ -2734,51 +3245,46 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                 }}
               >
                 {startDrag => <>
-                <div className="flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 touch-pan-y">
+                <div className="flex items-center justify-center gap-2 px-2 py-2.5 touch-pan-y sm:px-3">
                   {/* Rank badge with icon for top 3 */}
-                  <div className={`flex items-center justify-center flex-shrink-0 bg-gradient-to-br ${rb.bg} ${rb.text} shadow-sm ${rb.glow} ring-1 ${rb.ring} ${
-                    idx < 3 ? 'w-8 h-8 rounded-lg gap-0.5' : 'w-7 h-7 rounded-md'
-                  }`}>
-                    {idx === 0 ? (
-                      <><Crown size={11} /><span className="text-[11px] font-black">{idx + 1}</span></>
-                    ) : idx === 1 ? (
-                      <><Medal size={11} /><span className="text-[11px] font-black">{idx + 1}</span></>
-                    ) : idx === 2 ? (
-                      <><Award size={11} /><span className="text-[11px] font-black">{idx + 1}</span></>
-                    ) : (
-                      <span className="text-[11px] font-black">{idx + 1}</span>
-                    )}
+                  <div className={`relative flex h-11 w-11 flex-shrink-0 items-center justify-center gap-0.5 rounded-xl bg-gradient-to-br ${rb.bg} ${rb.text} shadow-sm ${rb.glow} ring-1 ${rb.ring}`}>
+                    <span aria-hidden="true" className="flex items-center gap-0.5">
+                      {idx === 0 ? <Crown size={12} /> : idx === 1 ? <Medal size={12} /> : idx === 2 ? <Award size={12} /> : null}
+                      <span className="text-xs font-black">{idx + 1}</span>
+                    </span>
+                    <select
+                      value={idx}
+                      onChange={event => moveToRank(num, Number(event.target.value))}
+                      disabled={submitted}
+                      aria-label={`غيّر مركز ${p.first_name}، المركز الحالي ${idx + 1}`}
+                      className="absolute inset-0 h-full w-full cursor-pointer appearance-none rounded-xl opacity-0 disabled:cursor-default"
+                    >
+                      {order.map((_, rankIndex) => <option key={rankIndex} value={rankIndex}>المركز {rankIndex + 1}</option>)}
+                    </select>
                   </div>
 
-                  {/* Name + number inline */}
-                  <div className="flex-1 min-w-0 text-center flex items-center justify-center gap-1.5 flex-wrap">
-                    <span className="font-bold text-white text-xs sm:text-sm leading-tight">{p.first_name}</span>
-                    <span className="text-gray-700 text-[9px] font-mono">#{p.number}</span>
+                  <button
+                    type="button"
+                    onClick={e => { e.stopPropagation(); setOpenNote(openNote === num ? null : num) }}
+                    aria-expanded={openNote === num}
+                    aria-label={`${notes[num] ? 'تعديل' : 'إضافة'} ملاحظة خاصة عن ${p.first_name}`}
+                    className="flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl px-2 text-center transition hover:bg-white/[0.04]"
+                  >
+                    <span className="truncate text-sm font-bold leading-tight text-white">{p.first_name}</span>
+                    <span className="text-[11px] font-mono text-gray-400">#{p.number}</span>
                     {newNums.has(num) && (
-                      <span className="text-[8px] bg-purple-900/50 text-purple-300 border border-purple-800/40 rounded-full px-1.5 py-0.5 font-semibold flex items-center gap-0.5 flex-shrink-0">
-                        <Sparkles size={6} /> جديد
+                      <span className="flex shrink-0 items-center gap-0.5 rounded-full border border-purple-800/50 bg-purple-900/50 px-1.5 py-0.5 text-[10px] font-semibold text-purple-200">
+                        <Sparkles size={8} /> جديد
                       </span>
                     )}
-                  </div>
-
-                  {/* Note button */}
-                  <button
-                    onClick={e => { e.stopPropagation(); setOpenNote(openNote === num ? null : num) }}
-                    className={`w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-md transition-all ${
-                      notes[num]
-                        ? 'bg-amber-500/10 border border-amber-700/30 text-amber-400'
-                        : 'text-gray-600 hover:text-gray-400 hover:bg-white/[0.04]'
-                    }`}
-                    title="ملاحظة خاصة"
-                  >
-                    <PenLine size={11} />
+                    <PenLine size={14} className={notes[num] ? 'shrink-0 text-amber-300' : 'shrink-0 text-gray-400'} />
                   </button>
 
                   {/* Drag handle — keeping drag here leaves the rest of the card free for page scrolling. */}
                   <button
                     type="button"
                     onPointerDown={startDrag}
-                    disabled={submitted || isShuffling}
+                    disabled={submitted}
                     aria-label={`اسحب لتغيير ترتيب ${p.first_name}`}
                     className="flex h-11 w-11 min-h-11 min-w-11 flex-shrink-0 touch-none cursor-grab items-center justify-center rounded-xl border border-amber-500/15 bg-amber-500/[0.06] text-amber-400/80 shadow-inner shadow-amber-950/20 transition-colors hover:border-amber-500/30 hover:bg-amber-500/10 hover:text-amber-300 active:cursor-grabbing active:bg-amber-500/15 disabled:cursor-default disabled:border-white/[0.04] disabled:bg-white/[0.02] disabled:text-gray-700"
                   >
@@ -2806,11 +3312,13 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                             onBlur={() => saveNote(num, notes[num] || '')}
                             placeholder="ملاحظة خاصة — لن يراها أحد غيرك..."
                             rows={2}
+                            maxLength={300}
+                            aria-label={`ملاحظة خاصة عن ${p.first_name}`}
                             dir="rtl"
-                            className="w-full bg-white/[0.03] border border-white/[0.06] focus:border-amber-600/40 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 resize-none outline-none transition-colors cursor-text"
+                            className="w-full cursor-text resize-none rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-base text-white outline-none transition-colors placeholder:text-gray-500 focus:border-amber-500/50 sm:text-sm"
                           />
-                          <p className="text-[9px] mt-1 text-right transition-colors" style={{ color: savingNote === num ? '#f59e0b' : '#374151' }}>
-                            {savingNote === num ? 'جاري الحفظ...' : notes[num]?.trim() ? '✓ محفوظة' : 'تُحفظ تلقائياً عند المغادرة'}
+                          <p className={`mt-1 text-right text-xs transition-colors ${noteSaveErrors.has(num) ? 'text-red-300' : 'text-gray-400'}`} aria-live="polite">
+                            {savingNote === num ? 'جاري الحفظ...' : noteSaveErrors.has(num) ? 'تعذّر الحفظ — المس الحقل ثم غادره للمحاولة مجدداً' : notes[num]?.trim() ? '✓ محفوظة' : 'تُحفظ تلقائياً عند المغادرة'}
                           </p>
                         </div>
                       </div>
@@ -2825,7 +3333,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
       </div>
 
       {/* ── Fixed submit bar ── */}
-      <div className="fixed bottom-0 inset-x-0 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent pt-4 pb-3 px-3 sm:px-4">
+      <div className="fixed bottom-0 inset-x-0 z-40 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent px-3 pt-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4">
         <div className="w-full max-w-md mx-auto">
           {submitted ? (
             <motion.div
@@ -2855,7 +3363,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
               </motion.button>
               <p className="text-gray-600 text-[10px]">انتظر المنظم للانتقال للمرحلة التالية</p>
               {!autoSavedRef.current && (
-                <button onClick={() => setSubmitted(false)} disabled={submitting}
+                <button onClick={() => { setSubmitted(false); onRankingDirty() }} disabled={submitting}
                   className="text-gray-500 hover:text-gray-300 text-[10px] underline transition-colors">
                   تعديل التصنيف
                 </button>
@@ -2864,8 +3372,8 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
           ) : (
             <>
               <motion.button
-                onClick={() => setShowConfirm(true)}
-                disabled={submitting}
+                onClick={() => { if (!autoSaving && !autoSavedRef.current && timeLeft > 0) setShowConfirm(true) }}
+                disabled={submitting || autoSaving || timeLeft <= 0}
                 whileTap={{ scale: 0.97 }}
                 className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:opacity-50 text-black rounded-xl py-3 font-black text-sm shadow-lg shadow-amber-500/20 transition-all"
               >
@@ -2910,25 +3418,33 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
 
       {/* Confirmation modal */}
       <AnimatePresence>
-        {showConfirm && (
+        {showConfirm && !autoSaving && !autoSavedRef.current && timeLeft > 0 && (
           <motion.div
+            ref={rankingConfirmOverlayRef}
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[500] bg-black/80 backdrop-blur-md flex items-center justify-center p-6"
+            className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md sm:p-6"
             onClick={() => setShowConfirm(false)}
           >
             <motion.div
+              ref={rankingConfirmDialogRef}
               initial={{ scale: 0.92, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.92, y: 20 }}
               transition={{ type: "spring", stiffness: 320, damping: 28 }}
               className="bg-gradient-to-br from-gray-900/95 to-gray-950/95 border border-amber-500/15 rounded-3xl p-6 max-w-xs w-full space-y-4 text-center ring-1 ring-amber-500/10"
               onClick={e => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="ranking-confirm-title"
             >
               <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-600/10 border border-amber-500/20 flex items-center justify-center">
                 <Send size={22} className="text-amber-400" />
               </div>
-              <h3 className="text-white font-black text-lg">تأكيد التصنيف</h3>
+              <h3 id="ranking-confirm-title" className="text-white font-black text-lg">تأكيد التصنيف</h3>
               <p className="text-gray-400 text-sm leading-relaxed">
                 حفظ ترتيبك لـ <span className="text-white font-bold">{order.length}</span> شخص.
                 {completedRounds >= 2 ? " تصنيفك النهائي — سيُستخدم للمطابقة." : " يمكنك التعديل في الجولة القادمة."}
+              </p>
+              <p className="rounded-xl border border-amber-500/15 bg-amber-500/[0.06] px-3 py-2 text-xs leading-relaxed text-amber-100/80">
+                تأكد أن القائمة تعبّر عن رغبتك، وليست مجرد الترتيب المبدئي.
               </p>
               {/* Top 3 podium preview */}
               <div className="bg-white/[0.03] border border-white/[0.05] rounded-2xl p-3.5 space-y-2">
@@ -2947,11 +3463,11 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                 {order.length > 3 && <p className="text-gray-600 text-[11px] pt-1 text-center">+ {order.length - 3} آخرون</p>}
               </div>
               <div className="flex gap-3 pt-1">
-                <button onClick={() => setShowConfirm(false)}
-                  className="flex-1 py-3 rounded-2xl bg-white/[0.04] border border-white/[0.06] text-gray-400 font-bold text-sm hover:bg-white/[0.06] transition-colors">
+                <button ref={rankingConfirmCancelRef} type="button" onClick={() => setShowConfirm(false)} disabled={autoSaving}
+                  className="flex-1 py-3 rounded-2xl bg-white/[0.04] border border-white/[0.06] text-gray-400 font-bold text-sm hover:bg-white/[0.06] transition-colors disabled:opacity-50">
                   إلغاء
                 </button>
-                <button onClick={submit} disabled={submitting}
+                <button type="button" onClick={submit} disabled={submitting || autoSaving || autoSavedRef.current || timeLeft <= 0}
                   className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-black font-black text-sm hover:from-amber-400 hover:to-orange-400 disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20">
                   {submitting ? <Spinner size={16} className="!text-black" /> : <CheckCircle size={16} />}
                   تأكيد
@@ -2980,6 +3496,65 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const titleId = useId()
+  const overlayRef = useRef<HTMLDivElement>(null)
+  const dialogRef = useRef<HTMLElement>(null)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const overlay = overlayRef.current
+    const siblings = overlay?.parentElement
+      ? Array.from(overlay.parentElement.children).filter(node => node !== overlay) as HTMLElement[]
+      : []
+    const siblingState = siblings.map(node => ({
+      node,
+      inert: node.inert,
+      ariaHidden: node.getAttribute('aria-hidden'),
+    }))
+    siblings.forEach(node => {
+      node.inert = true
+      node.setAttribute('aria-hidden', 'true')
+    })
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onCloseRef.current()
+        return
+      }
+      if (event.key !== 'Tab') return
+      const focusable = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      ) || []).filter(node => !node.hasAttribute('hidden'))
+      if (!focusable.length) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', onKeyDown)
+    const focusTimer = window.setTimeout(() => closeButtonRef.current?.focus(), 120)
+    return () => {
+      window.clearTimeout(focusTimer)
+      window.removeEventListener('keydown', onKeyDown)
+      document.body.style.overflow = previousOverflow
+      siblingState.forEach(({ node, inert, ariaHidden }) => {
+        node.inert = inert
+        if (ariaHidden == null) node.removeAttribute('aria-hidden')
+        else node.setAttribute('aria-hidden', ariaHidden)
+      })
+      opener?.focus()
+    }
+  }, [])
 
   useEffect(() => {
     if (previewPeople) {
@@ -3013,7 +3588,6 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
 
   const setExperience = (number: number, experience: string) => {
     setSaved(false)
-    setExpanded(number)
     setDrafts(current => ({
       ...current,
       [number]: { experience, tags: current[number]?.tags || [], organizer_note: current[number]?.organizer_note || '' },
@@ -3071,37 +3645,41 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
 
   return (
     <motion.div
+      ref={overlayRef}
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[550] bg-black/75 backdrop-blur-lg flex items-end sm:items-center justify-center"
-      onClick={onClose}
+      className="event3-shell fixed inset-0 z-[550] flex items-end justify-center bg-black/75 backdrop-blur-lg sm:items-center sm:p-4"
     >
       <motion.section
+        ref={dialogRef}
         initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }}
         transition={{ type: 'spring', stiffness: 340, damping: 34 }}
         onClick={event => event.stopPropagation()}
-        className="relative flex w-full max-h-[92dvh] flex-col overflow-hidden sm:max-w-md rounded-t-[2rem] sm:rounded-[2rem] border border-purple-400/15 bg-gradient-to-b from-[#171023] via-[#0d0a14] to-[#08070c] shadow-[0_-20px_80px_-20px_rgba(139,92,246,0.45)]"
-        style={{ height: 'min(92dvh, 760px)' }}
+        className="relative flex w-full max-h-[94dvh] flex-col overflow-hidden rounded-t-[2rem] border border-purple-400/15 bg-gradient-to-b from-[#171023] via-[#0d0a14] to-[#08070c] shadow-[0_-20px_80px_-20px_rgba(139,92,246,0.45)] sm:max-w-md sm:rounded-[2rem]"
+        style={{ height: 'min(94dvh, 800px)' }}
         dir="rtl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
       >
         <div className="absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.20),transparent_70%)] pointer-events-none" />
         <div className="sm:hidden w-10 h-1 rounded-full bg-white/15 mx-auto mt-2.5" />
-        <header className="relative flex shrink-0 items-start gap-3 px-5 pt-5 pb-4 border-b border-white/[0.06]">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-purple-500/25 to-fuchsia-500/10 border border-purple-400/20 flex items-center justify-center shrink-0">
+        <header className="relative flex shrink-0 items-start gap-2.5 border-b border-white/[0.06] px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))] sm:px-5 sm:pb-4">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-purple-400/20 bg-gradient-to-br from-purple-500/25 to-fuchsia-500/10">
             <Trophy size={20} className="text-purple-300" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-black text-white">كيف كانت تجربتك مع كل شخص؟</h2>
-              <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-2 py-0.5 text-[9px] font-bold text-gray-500">اختياري</span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <h2 id={titleId} className="text-base font-black leading-snug text-white sm:text-lg">كيف كانت تجربتك مع كل شخص؟</h2>
+              <span className="rounded-full border border-white/[0.1] bg-white/[0.06] px-2 py-0.5 text-[10px] font-bold text-gray-300">اختياري</span>
             </div>
-            <p className="mt-1 text-xs leading-relaxed text-gray-500">الجولة {groupRound} · قيّم شخصاً أو الجميع. خاص بالمنظم ولا يؤثر على تطابقك.</p>
+            <p className="mt-1 text-xs leading-relaxed text-gray-400">الجولة {groupRound} · قيّم شخصاً أو الجميع. خاص بالمنظم ولا يؤثر على تطابقك.</p>
           </div>
-          <button onClick={onClose} aria-label="إغلاق" className="w-9 h-9 rounded-full bg-white/[0.05] text-gray-500 flex items-center justify-center active:scale-90 transition">
+          <button ref={closeButtonRef} type="button" onClick={onClose} aria-label="إغلاق" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-gray-300 transition hover:bg-white/[0.1] hover:text-white active:scale-90">
             <X size={17} />
           </button>
         </header>
 
-        <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 space-y-4">
+        <div className="event3-scroll relative min-h-0 flex-1 overflow-y-auto px-3 py-3 space-y-3 sm:px-5 sm:py-4">
           {loading ? (
             <div className="h-64 flex items-center justify-center"><Spinner size={24} /></div>
           ) : people.length === 0 ? (
@@ -3112,9 +3690,9 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between rounded-2xl border border-white/[0.06] bg-white/[0.025] px-3.5 py-2.5">
-                <p className="text-[11px] text-gray-500">اضغط تقييماً سريعاً لكل شخص ترغب بمراجعته</p>
-                <span className="rounded-full bg-purple-500/12 px-2.5 py-1 text-[10px] font-black text-purple-300">{reviewedCount}/{people.length}</span>
+              <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.035] px-3.5 py-2.5">
+                <p className="text-xs leading-relaxed text-gray-300">اختر انطباعاً سريعاً لكل شخص ترغب بمراجعته</p>
+                <span aria-live="polite" className="shrink-0 rounded-full bg-purple-500/15 px-2.5 py-1 text-xs font-black text-purple-200">{reviewedCount}/{people.length}</span>
               </div>
 
               <div className="space-y-2">
@@ -3124,20 +3702,23 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
                   const hasPersonalDetails = Boolean(draft?.organizer_note.trim() || draft?.tags.length)
                   return (
                     <motion.div layout key={person.number} className={`overflow-hidden rounded-2xl border transition ${draft?.experience ? 'border-purple-400/25 bg-purple-500/[0.07]' : 'border-white/[0.06] bg-white/[0.025]'}`}>
-                      <div className="flex items-center gap-2.5 px-3 py-2.5">
-                        <button onClick={() => draft?.experience && setExpanded(isExpanded ? null : person.number)} aria-expanded={isExpanded} className="min-w-0 flex-1 text-right">
+                      <div className="px-3 py-3">
+                        <button type="button" disabled={!draft?.experience} onClick={() => draft?.experience && setExpanded(isExpanded ? null : person.number)} aria-expanded={isExpanded} className="flex min-h-10 w-full min-w-0 items-center justify-between gap-2 text-right disabled:cursor-default">
+                          <span className="min-w-0 flex-1">
                           <p className="truncate text-sm font-black text-white">{person.first_name}</p>
-                          <p className="mt-0.5 text-[9px] text-gray-600">{draft?.experience ? (isExpanded ? 'إخفاء التفاصيل' : 'يمكنك إضافة ملاحظة خاصة') : 'اختر تقييماً سريعاً'}</p>
+                          <p className="mt-0.5 text-[11px] text-gray-400">{draft?.experience ? (isExpanded ? 'إخفاء التفاصيل' : 'يمكنك إضافة ملاحظة خاصة') : 'اختر تقييماً سريعاً'}</p>
+                          </span>
+                          {draft?.experience && <ChevronRight aria-hidden="true" size={16} className={`shrink-0 text-purple-300 transition-transform ${isExpanded ? '-rotate-90' : 'rotate-90'}`} />}
                         </button>
-                        <div className="grid grid-cols-4 gap-1">
+                        <div className="mt-2 grid grid-cols-4 gap-1.5" role="group" aria-label={`تقييم تجربتك مع ${person.first_name}`}>
                           {experiences.map(option => {
                             const Icon = option.icon
                             const active = draft?.experience === option.value
                             return (
-                              <button key={option.value} onClick={() => setExperience(person.number, option.value)} title={option.label}
-                                className={`flex h-10 w-10 flex-col items-center justify-center rounded-xl border transition active:scale-90 ${active ? option.style : 'border-white/[0.05] bg-white/[0.025] text-gray-700'}`}>
-                                <Icon size={14} />
-                                <span className="mt-0.5 text-[7px] font-bold leading-none">{option.label}</span>
+                              <button type="button" key={option.value} onClick={() => setExperience(person.number, option.value)} aria-pressed={active} aria-label={`${option.label} — ${person.first_name}`}
+                                className={`flex min-h-14 min-w-0 flex-col items-center justify-center rounded-xl border px-1 transition active:scale-95 ${active ? option.style : 'border-white/[0.07] bg-white/[0.035] text-gray-400'}`}>
+                                <Icon size={16} />
+                                <span className="mt-1 text-[10px] font-bold leading-tight">{option.label}</span>
                               </button>
                             )
                           })}
@@ -3145,7 +3726,7 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
                       </div>
 
                       {draft?.experience && !isExpanded && (
-                        <button onClick={() => setExpanded(person.number)} className="flex w-full items-center justify-center gap-1.5 border-t border-purple-400/10 bg-purple-500/[0.04] px-3 py-2 text-[10px] font-bold text-purple-300 transition active:bg-purple-500/10">
+                        <button type="button" onClick={() => setExpanded(person.number)} className="flex min-h-11 w-full items-center justify-center gap-1.5 border-t border-purple-400/10 bg-purple-500/[0.04] px-3 py-2 text-xs font-bold text-purple-200 transition active:bg-purple-500/10">
                           <PenLine size={11} />
                           <span>{hasPersonalDetails ? `تعديل ملاحظتك والصفات الخاصة بـ ${person.first_name}` : `أضف ملاحظة خاصة عن ${person.first_name} أو صفات`}</span>
                         </button>
@@ -3155,16 +3736,16 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
                         {isExpanded && draft?.experience && (
                           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                             <div className="border-t border-white/[0.05] px-3 pb-3 pt-2.5">
-                              <p className="mb-2 text-[9px] font-bold text-gray-600">صفات اختيارية · حتى 3</p>
+                              <p className="mb-2 text-xs font-bold text-gray-400">صفات اختيارية · حتى 3</p>
                               <div className="flex flex-wrap gap-1.5">
                                 {tags.map(([value, label]) => {
                                   const active = draft.tags.includes(value)
-                                  return <button key={value} onClick={() => toggleTag(person.number, value)} className={`rounded-full border px-2.5 py-1.5 text-[10px] font-bold transition ${active ? 'border-purple-400/35 bg-purple-500/15 text-purple-200' : 'border-white/[0.06] bg-white/[0.025] text-gray-600'}`}>{label}</button>
+                                  return <button type="button" key={value} onClick={() => toggleTag(person.number, value)} aria-pressed={active} className={`min-h-9 rounded-full border px-3 py-1.5 text-xs font-bold transition ${active ? 'border-purple-400/35 bg-purple-500/15 text-purple-100' : 'border-white/[0.08] bg-white/[0.035] text-gray-300'}`}>{label}</button>
                                 })}
                               </div>
                               <div className="mt-3 rounded-xl border border-white/[0.05] bg-black/15 p-2.5">
-                                <div className="mb-1.5 flex items-center justify-between"><span className="text-[10px] font-bold text-gray-500">ملاحظة خاصة عن {person.first_name} للمنظم</span><span className="text-[8px] text-gray-700">{draft.organizer_note.length}/300</span></div>
-                                <textarea value={draft.organizer_note} rows={2} onChange={event => { const value = event.target.value.slice(0, 300); setSaved(false); setDrafts(current => ({ ...current, [person.number]: { ...current[person.number], organizer_note: value } })) }} placeholder={`اكتب ملاحظة عن ${person.first_name}...`} className="w-full resize-none bg-transparent text-xs leading-relaxed text-gray-200 placeholder:text-gray-700 focus:outline-none" />
+                                <div className="mb-1.5 flex items-center justify-between gap-3"><span className="text-xs font-bold text-gray-300">ملاحظة خاصة عن {person.first_name} للمنظم</span><span className="shrink-0 text-[10px] text-gray-500">{draft.organizer_note.length}/300</span></div>
+                                <textarea value={draft.organizer_note} rows={2} maxLength={300} aria-label={`ملاحظة خاصة عن ${person.first_name} للمنظم`} onChange={event => { const value = event.target.value; setSaved(false); setDrafts(current => ({ ...current, [person.number]: { ...current[person.number], organizer_note: value } })) }} placeholder={`اكتب ملاحظة عن ${person.first_name}...`} className="w-full resize-none bg-transparent text-base leading-relaxed text-gray-100 placeholder:text-gray-500 focus:outline-none sm:text-sm" />
                               </div>
                             </div>
                           </motion.div>
@@ -3174,46 +3755,70 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
                   )
                 })}
               </div>
-
-              <div className="sticky bottom-0 z-20 -mx-5 flex gap-2 border-t border-white/[0.07] bg-[#09070e]/95 px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
-                <button onClick={onClose} className="px-5 py-3.5 rounded-2xl border border-white/[0.07] bg-white/[0.035] text-sm font-bold text-gray-500 active:scale-95 transition">تخطي</button>
-                <motion.button whileTap={{ scale: 0.97 }} onClick={save} disabled={saving || saved}
-                  className="flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500 text-sm font-black text-white shadow-[0_10px_30px_-12px_rgba(168,85,247,0.9)] disabled:opacity-60 flex items-center justify-center gap-2">
-                  {saving ? <Spinner size={16} /> : saved ? <CheckCircle size={17} /> : <Send size={16} />}
-                  {saved ? 'تم الحفظ' : reviewedCount ? `حفظ ${reviewedCount} تقييم` : 'حفظ التقييمات'}
-                </motion.button>
-              </div>
             </>
           )}
         </div>
+        {!loading && people.length > 0 && (
+          <footer className="relative z-20 flex shrink-0 gap-2 border-t border-white/[0.08] bg-[#09070e]/95 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl sm:px-5">
+            <button type="button" onClick={onClose} className="min-h-12 rounded-2xl border border-white/[0.09] bg-white/[0.05] px-5 text-sm font-bold text-gray-300 transition active:scale-95">تخطي</button>
+            <motion.button type="button" whileTap={{ scale: 0.97 }} onClick={save} disabled={saving || saved || reviewedCount === 0} aria-busy={saving}
+              className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500 px-4 text-sm font-black text-white shadow-[0_10px_30px_-12px_rgba(168,85,247,0.9)] disabled:opacity-60">
+              {saving ? <Spinner size={16} /> : saved ? <CheckCircle size={17} /> : <Send size={16} />}
+              {saved ? 'تم الحفظ' : reviewedCount ? `حفظ ${reviewedCount} تقييم` : 'اختر تقييماً للبدء'}
+            </motion.button>
+          </footer>
+        )}
       </motion.section>
     </motion.div>
   )
 }
 
 // ─── Shared Feedback Flow ─────────────────────────────────────────────────────
-function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLastSession }: {
+function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLastSession, accent = "pink" }: {
   partnerName: string | null; word: string; done: boolean
   onDone: () => void; onBack: () => void; onSubmit: (fb: Record<string, any>) => Promise<boolean>
-  isLastSession?: boolean
+  isLastSession?: boolean; accent?: "pink" | "purple"
 }) {
   const [step, setStep] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [dir, setDir] = useState(1)
+  const feedbackTitleId = useId()
+  const stepHeadingRef = useRef<HTMLHeadingElement>(null)
+  const stepTransitionLockedRef = useRef(false)
+  const stepTransitionTimerRef = useRef<number | null>(null)
   const [fb, setFb] = useState({
     conversationQuality: 0, personalConnection: 0,
     wantConnect: null as boolean | null, organizerImpression: '',
     compatibilityRate: 50, sliderMoved: false, sharedInterests: 3, comfortLevel: 3,
     communicationStyle: 3, wouldMeetAgain: 3, overallExperience: 3, recommendations: '', participantMessage: ''
   })
-  const STEPS = 5
-  const goNext = (patch?: Partial<typeof fb>) => {
-    if (patch) setFb(p => ({ ...p, ...patch }))
-    setDir(1); setTimeout(() => setStep(s => Math.min(s + 1, STEPS - 1)), 150)
+  const STEPS = 3
+  useEffect(() => {
+    const focusTimer = window.setTimeout(() => stepHeadingRef.current?.focus({ preventScroll: true }), 220)
+    return () => window.clearTimeout(focusTimer)
+  }, [step])
+  useEffect(() => () => {
+    if (stepTransitionTimerRef.current != null) window.clearTimeout(stepTransitionTimerRef.current)
+  }, [])
+  const moveStep = (direction: 1 | -1) => {
+    if (stepTransitionLockedRef.current) return false
+    stepTransitionLockedRef.current = true
+    setDir(direction)
+    setStep(current => Math.max(0, Math.min(current + direction, STEPS - 1)))
+    stepTransitionTimerRef.current = window.setTimeout(() => {
+      stepTransitionLockedRef.current = false
+      stepTransitionTimerRef.current = null
+    }, 300)
+    return true
   }
-  const goBack = () => { setDir(-1); setStep(s => Math.max(s - 1, 0)) }
+  const goNext = (patch?: Partial<typeof fb>) => {
+    if (stepTransitionLockedRef.current) return
+    if (patch) setFb(p => ({ ...p, ...patch }))
+    moveStep(1)
+  }
+  const goBack = () => { moveStep(-1) }
   const handleSubmit = async () => {
-    if (!fb.sliderMoved || fb.compatibilityRate === 50) { toast.error('رجاءً خمّن درجة التوافق في الخطوة 1'); return }
+    if (!fb.sliderMoved) { toast.error('رجاءً خمّن درجة التوافق في الخطوة 1'); return }
     if (fb.wantConnect === null) { toast.error('رجوع للخطوة 4 واختر رد'); return }
     setSubmitting(true)
     const ok = await onSubmit({ ...fb, word })
@@ -3233,13 +3838,13 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
         const cfg = ratingConfigs[i]
         const selected = val === i + 1
         return (
-          <motion.button key={i} whileTap={{ scale: 0.88 }}
-            onClick={() => { setFb(p => ({ ...p, [field]: i + 1 })); setTimeout(() => goNext({ [field]: i + 1 }), 320) }}
+          <motion.button type="button" key={i} whileTap={{ scale: 0.88 }} aria-pressed={selected} aria-label={`${label}، ${i + 1} من 5`}
+            onClick={() => setFb(p => ({ ...p, [field]: i + 1 }))}
             className={`flex flex-col items-center gap-1.5 py-3 sm:py-4 rounded-2xl transition-all duration-200 ${selected ? 'bg-white/[0.06] ring-2 scale-105 ' + cfg.ring + ' ' + cfg.glow : 'bg-white/[0.03] ring-1 ring-white/[0.05] active:bg-white/8'}`}>
             <div className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-gradient-to-br ${cfg.gradient} flex items-center justify-center text-white transition-transform duration-200 ${selected ? 'scale-110' : 'scale-95 opacity-70'}`}>
               {cfg.icon}
             </div>
-            <span className={`text-[9px] sm:text-[10px] leading-tight text-center transition-colors duration-200 ${selected ? 'text-white font-semibold' : 'text-gray-600'}`}>{label}</span>
+            <span className={`text-[11px] leading-tight text-center transition-colors duration-200 ${selected ? 'text-white font-semibold' : 'text-gray-300'}`}>{label}</span>
           </motion.button>
         )
       })}
@@ -3247,13 +3852,13 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
   )
   if (done) return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-      className="fixed inset-0 z-50 bg-gray-950 flex flex-col items-center justify-center gap-6 p-8">
+      className="event3-shell fixed inset-0 z-[240] flex flex-col items-center justify-center gap-6 bg-gray-950 p-8" lang="ar" dir="rtl">
       <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200, delay: 0.1 }}
         className="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-500/25 to-teal-500/15 border border-emerald-500/30 flex items-center justify-center shadow-[0_0_60px_-8px_rgba(16,185,129,0.5)]">
         <CheckCircle size={40} className="text-emerald-400" />
       </motion.div>
       <div className="text-center space-y-2">
-        <p className="text-white font-black text-2xl">شكراً!</p>
+        <h2 className="text-white font-black text-2xl">شكراً!</h2>
         <p className="text-gray-400 text-sm">تم حفظ تقييمك — انتظر المرحلة التالية</p>
       </div>
       {isLastSession && (
@@ -3276,38 +3881,38 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
   return (
     <motion.div initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-      className="fixed inset-0 z-50 bg-gray-950 flex flex-col" dir="rtl">
+      className="event3-shell fixed inset-0 z-[240] flex h-[100dvh] flex-col overflow-hidden bg-gray-950" dir="rtl" lang="ar" role="dialog" aria-modal="true" aria-labelledby={feedbackTitleId}>
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute -top-32 -left-32 w-80 h-80 bg-pink-600/20 rounded-full blur-[100px]" />
         <div className="absolute -bottom-20 right-1/4 w-72 h-72 bg-purple-600/15 rounded-full blur-[90px]" />
       </div>
-      <div className="relative z-10 px-5 pt-5 pb-3 flex items-center gap-3">
-        <button onClick={step === 0 ? onBack : goBack}
-          className="w-9 h-9 rounded-full bg-white/[0.06] flex items-center justify-center text-gray-400 hover:text-white active:scale-90 transition-all">
+      <div className="relative z-10 flex shrink-0 items-center gap-3 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3 sm:px-5">
+        <button type="button" onClick={step === 0 ? onBack : goBack} aria-label={step === 0 ? "العودة إلى الجلسة" : "الخطوة السابقة"}
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-white/[0.07] text-gray-300 transition-all hover:bg-white/[0.1] hover:text-white active:scale-90">
           <ChevronRight size={18} />
         </button>
-        <div className="flex gap-1.5 flex-1 justify-center">
+        <div className="flex gap-1.5 flex-1 justify-center" role="progressbar" aria-label="تقدم تقييم الجلسة" aria-valuemin={1} aria-valuemax={STEPS} aria-valuenow={step + 1}>
           {Array.from({ length: STEPS }).map((_, i) => (
             <motion.div key={i} className="rounded-full h-2"
               animate={{ width: i === step ? 24 : 8, backgroundColor: i < step ? 'rgba(139,92,246,0.85)' : i === step ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.12)' }}
               transition={{ duration: 0.3 }} />
           ))}
         </div>
-        <span className="text-gray-600 text-xs font-mono w-9 text-left">{step + 1}/{STEPS}</span>
+        <span className="w-11 text-left font-mono text-xs text-gray-300">{step + 1}/{STEPS}</span>
       </div>
       {partnerName && (
         <div className="relative z-10 mx-5 mb-1">
-          <div className="inline-flex items-center gap-2 bg-pink-950/40 border border-pink-900/30 rounded-full px-3 py-1.5">
-            <Users size={10} className="text-pink-400" />
-            <span className="text-pink-300/80 text-xs font-medium">{partnerName}</span>
+          <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 ${accent === "purple" ? "border-violet-900/40 bg-violet-950/40" : "border-pink-900/30 bg-pink-950/40"}`}>
+            <Users size={10} className={accent === "purple" ? "text-violet-400" : "text-pink-400"} />
+            <span className={`text-xs font-medium ${accent === "purple" ? "text-violet-300/80" : "text-pink-300/80"}`}>{partnerName}</span>
           </div>
         </div>
       )}
-      <div className="relative z-10 flex-1 flex flex-col justify-center px-5 pb-10">
+      <div className="event3-scroll relative z-10 min-h-0 flex-1 overflow-y-auto px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 [scroll-padding-bottom:7rem] sm:px-5">
         <AnimatePresence mode="wait" custom={dir}>
           {step === 0 && (
             <motion.div key="s0" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
-              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="space-y-6">
+              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="flex min-h-full flex-col justify-center space-y-5 py-2">
               {/* Disclaimer banner — intellectual compatibility, not looks (only on this step) */}
               <div className="relative z-10">
                 <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
@@ -3320,7 +3925,7 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
                     </motion.div>
                     <div className="space-y-1">
                       <p className="text-amber-300 text-xs font-black">التوافق الفكري وليس الشكلي</p>
-                      <p className="text-amber-200/60 text-[10px] leading-relaxed">
+                      <p className="text-xs leading-relaxed text-amber-100/75">
                         خمّن درجة التوافق بناءً على <span className="font-bold text-amber-300">الشخصية والتفكير</span>، وليس المظهر. التركيز على الشكل فقط قد يضر بمطابقاتك المستقبلية لأن النظام يعتمد على التوافق الفكري في الاختيار.
                       </p>
                     </div>
@@ -3330,14 +3935,14 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
               <div className="text-center space-y-2">
                 <div className="inline-flex items-center gap-1.5 bg-purple-900/30 border border-purple-700/40 rounded-full px-3 py-1 mb-1">
                   <Brain size={11} className="text-purple-400" />
-                  <span className="text-purple-300 text-[10px] font-semibold">توافق فكري</span>
+                  <span className="text-xs font-semibold text-purple-200">توافق فكري</span>
                 </div>
-                <p className="text-2xl sm:text-3xl font-black text-white">خمّن درجة التوافق الفكري</p>
-                <p className="text-gray-500 text-sm">لو كنت تخمّن نسبة التوافق الفكري بينكم — كم تعطي؟</p>
+                <h2 id={feedbackTitleId} ref={stepHeadingRef} tabIndex={-1} className="text-2xl font-black text-white focus:outline-none sm:text-3xl">خمّن درجة التوافق الفكري</h2>
+                <p className="text-sm text-gray-300">لو كنت تخمّن نسبة التوافق الفكري بينكم — كم تعطي؟</p>
               </div>
               {/* Beautiful slider card */}
               <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-                className="relative overflow-hidden rounded-3xl border border-purple-700/30 bg-gradient-to-br from-purple-950/40 via-violet-950/30 to-purple-950/20 p-6 space-y-5 shadow-xl shadow-purple-900/20">
+                className="relative space-y-4 overflow-hidden rounded-3xl border border-purple-700/30 bg-gradient-to-br from-purple-950/40 via-violet-950/30 to-purple-950/20 p-4 shadow-xl shadow-purple-900/20 sm:space-y-5 sm:p-6">
                 <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-400/40 to-transparent" />
                 {/* Floating glow orbs */}
                 <motion.div className="absolute w-24 h-24 rounded-full bg-purple-500/10 blur-2xl"
@@ -3348,7 +3953,7 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
                     key={fb.compatibilityRate}
                     initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
                     transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                    className={`text-6xl font-black font-mono tabular-nums ${
+                    className={`text-5xl font-black font-mono tabular-nums sm:text-6xl ${
                       fb.compatibilityRate >= 80 ? 'text-emerald-400' :
                       fb.compatibilityRate >= 60 ? 'text-amber-400' :
                       fb.compatibilityRate >= 40 ? 'text-orange-400' : 'text-red-400'
@@ -3357,7 +3962,7 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
                   >
                     {fb.compatibilityRate}%
                   </motion.div>
-                  <p className="text-gray-500 text-[10px] mt-1">{fb.compatibilityRate >= 80 ? 'توافق عالي جداً!' : fb.compatibilityRate >= 60 ? 'توافق جيد' : fb.compatibilityRate >= 40 ? 'توافق متوسط' : 'توافق منخفض'}</p>
+                  <p className="mt-1 text-xs text-gray-300">{fb.compatibilityRate >= 80 ? 'توافق عالي جداً!' : fb.compatibilityRate >= 60 ? 'توافق جيد' : fb.compatibilityRate >= 40 ? 'توافق متوسط' : 'توافق منخفض'}</p>
                 </div>
                 {/* Slider */}
                 <div className="relative z-10">
@@ -3367,7 +3972,8 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
                       value={fb.compatibilityRate}
                       onChange={e => setFb(p => ({ ...p, compatibilityRate: parseInt(e.target.value), sliderMoved: true }))}
                       aria-label="درجة التوافق الفكري"
-                      className="w-full h-3 rounded-full appearance-none cursor-pointer focus:outline-none transition-all
+                      aria-valuetext={`${fb.compatibilityRate} بالمئة`}
+                      className="e3-feedback-range h-11 w-full cursor-pointer appearance-none rounded-full py-4 [background-clip:content-box] focus:outline-none transition-all
                         [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-7 [&::-webkit-slider-thumb]:h-7
                         [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white
                         [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:border-2
@@ -3384,15 +3990,15 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
                       }}
                     />
                     <style>{`
-                      input[type="range"]::-webkit-slider-thumb {
+                      .e3-feedback-range::-webkit-slider-thumb {
                         border-color: ${fb.compatibilityRate >= 80 ? '#10b981' : fb.compatibilityRate >= 60 ? '#f59e0b' : fb.compatibilityRate >= 40 ? '#f97316' : '#ef4444'} !important;
                       }
-                      input[type="range"]::-moz-range-thumb {
+                      .e3-feedback-range::-moz-range-thumb {
                         border-color: ${fb.compatibilityRate >= 80 ? '#10b981' : fb.compatibilityRate >= 60 ? '#f59e0b' : fb.compatibilityRate >= 40 ? '#f97316' : '#ef4444'} !important;
                       }
                     `}</style>
                   </div>
-                  <div className="flex justify-between text-[10px] mt-2 text-gray-600">
+                  <div className="mt-1 flex justify-between text-xs text-gray-400">
                     <span>0%</span>
                     <span>50%</span>
                     <span>100%</span>
@@ -3400,51 +4006,78 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
                 </div>
                 {/* Hint */}
                 {!fb.sliderMoved && (
-                  <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-                    className="relative z-10 text-center text-purple-300/60 text-[10px] flex items-center justify-center gap-1.5">
-                    <motion.span animate={{ x: [0, 4, 0] }} transition={{ duration: 1.5, repeat: Infinity }}>👈</motion.span>
-                    حرّك المؤشر لتخمين الدرجة
-                  </motion.p>
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="relative z-10 text-center">
+                    <p className="flex items-center justify-center gap-1.5 text-xs text-purple-200/80"><motion.span animate={{ x: [0, 4, 0] }} transition={{ duration: 1.5, repeat: Infinity }}>👈</motion.span>حرّك المؤشر، أو ثبّت الدرجة الحالية</p>
+                    <button type="button" onClick={() => setFb(p => ({ ...p, sliderMoved: true }))} className="mt-2 min-h-11 rounded-xl border border-purple-400/20 bg-purple-400/10 px-4 text-xs font-bold text-purple-200">50٪ يناسبني</button>
+                  </motion.div>
                 )}
               </motion.div>
               {/* Next button */}
-              <motion.button
-                onClick={() => { if (!fb.sliderMoved || fb.compatibilityRate === 50) { toast.error('حرّك المؤشر أولاً'); return } goNext() }}
+              <motion.button type="button"
+                onClick={() => { if (!fb.sliderMoved) { toast.error('حرّك المؤشر أولاً'); return } goNext() }}
                 whileTap={{ scale: 0.97 }}
-                disabled={!fb.sliderMoved || fb.compatibilityRate === 50}
+                disabled={!fb.sliderMoved}
                 className="w-full py-4 rounded-2xl font-bold text-sm bg-gradient-to-r from-purple-600 to-violet-600 text-white shadow-lg shadow-purple-600/20 disabled:opacity-30 disabled:shadow-none transition-all flex items-center justify-center gap-2">
                 متابعة <ChevronRight size={16} />
               </motion.button>
-              {fb.sliderMoved && fb.compatibilityRate === 50 && (
-                <p className="text-center text-amber-500/70 text-[10px]">لا يمكن أن تكون 50% بالضبط — اختر قيمة أعلى أو أدنى</p>
-              )}
             </motion.div>
           )}
           {step === 1 && (
             <motion.div key="s1" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
-              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="space-y-8">
+              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="flex min-h-full flex-col justify-center space-y-5 py-4">
               <div className="text-center space-y-2">
-                <p className="text-2xl sm:text-3xl font-black text-white">كيف كانت المحادثة؟</p>
-                <p className="text-gray-500 text-sm">اختر ما يناسب شعورك</p>
+                <h2 id={feedbackTitleId} ref={stepHeadingRef} tabIndex={-1} className="text-2xl font-black text-white focus:outline-none sm:text-3xl">كيف كان اللقاء؟</h2>
+                <p className="text-sm text-gray-400">سؤالان سريعا — اختر أول إحساس صادق</p>
               </div>
+              <p className="text-xs font-bold text-gray-300">جودة المحادثة</p>
               <RatingRow labels={["سيئة","ضعيفة","مقبولة","جيدة","ممتازة"]} field="conversationQuality" val={fb.conversationQuality} />
+              <p className="text-xs font-bold text-gray-300">الراحة والتفاهم</p>
+              <RatingRow labels={["لا شيء","ضعيف","مقبول","جيد","رائع"]} field="personalConnection" val={fb.personalConnection} />
+              <motion.button type="button" onClick={() => goNext()} disabled={!fb.conversationQuality || !fb.personalConnection} whileTap={{ scale: 0.97 }} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-violet-600 px-4 text-sm font-bold text-white shadow-lg shadow-purple-950/30 transition disabled:opacity-30">
+                متابعة <ChevronRight size={16} />
+              </motion.button>
             </motion.div>
           )}
           {step === 2 && (
             <motion.div key="s2" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
-              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="space-y-8">
+              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="flex min-h-full flex-col justify-center space-y-5 py-4">
               <div className="text-center space-y-2">
-                <p className="text-2xl sm:text-3xl font-black text-white">التواصل الشخصي؟</p>
-                <p className="text-gray-500 text-sm">مستوى الراحة والتفاهم</p>
+                <h2 id={feedbackTitleId} ref={stepHeadingRef} tabIndex={-1} className="text-2xl font-black text-white focus:outline-none sm:text-3xl">هل تريد التواصل لاحقاً؟</h2>
+                <p className="text-sm text-gray-400">اختيارك سري، ولا يظهر إلا عند الموافقة المتبادلة</p>
               </div>
-              <RatingRow labels={["لا شيء","ضعيف","مقبول","جيد","رائع"]} field="personalConnection" val={fb.personalConnection} />
+              <div className="rounded-2xl border border-emerald-400/25 bg-emerald-400/[0.07] px-4 py-3 text-right">
+                <p className="text-sm font-black text-emerald-200">موافقة متبادلة فقط</p>
+                <p className="mt-1 text-xs leading-6 text-emerald-100/70">إذا اخترتما «نعم» كلاكما، تظهر معلومات التواصل في النتائج. غير ذلك لا يعرف الطرف الآخر إجابتك.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="الرغبة في التواصل لاحقاً">
+                <button type="button" role="radio" aria-checked={fb.wantConnect === true} onClick={() => setFb(p => ({ ...p, wantConnect: true }))}
+                  className={`min-h-24 rounded-2xl border text-base font-black transition-all ${fb.wantConnect === true ? "border-emerald-400/55 bg-emerald-400/15 text-emerald-200 ring-2 ring-emerald-400/20" : "border-white/[0.08] bg-white/[0.035] text-gray-300"}`}>
+                  <CheckCircle size={24} className="mx-auto mb-2" />نعم
+                </button>
+                <button type="button" role="radio" aria-checked={fb.wantConnect === false} onClick={() => setFb(p => ({ ...p, wantConnect: false }))}
+                  className={`min-h-24 rounded-2xl border text-base font-black transition-all ${fb.wantConnect === false ? "border-slate-300/35 bg-slate-300/10 text-slate-100 ring-2 ring-slate-300/15" : "border-white/[0.08] bg-white/[0.035] text-gray-300"}`}>
+                  <X size={24} className="mx-auto mb-2" />لا
+                </button>
+              </div>
+              <details className="group rounded-2xl border border-white/[0.07] bg-white/[0.025] text-right">
+                <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 text-xs font-bold text-gray-400">
+                  إضافة ملاحظة خاصة للمنظم — اختياري
+                  <ChevronRight size={15} className="rotate-90 transition-transform group-open:-rotate-90" />
+                </summary>
+                <div className="border-t border-white/[0.06] p-3">
+                  <textarea value={fb.organizerImpression} onChange={e => setFb(p => ({ ...p, organizerImpression: e.target.value }))} placeholder="مثلاً: شعرت بالراحة، أو احتجت وقتاً أطول..." rows={3} maxLength={300} aria-label="ملاحظة اختيارية للمنظم" className="w-full resize-none rounded-xl border border-white/[0.09] bg-white/[0.04] px-3 py-3 text-base text-white outline-none placeholder:text-gray-600 sm:text-sm" />
+                </div>
+              </details>
+              <motion.button type="button" onClick={handleSubmit} disabled={submitting || fb.wantConnect === null} aria-busy={submitting} whileTap={{ scale: 0.97 }} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-500 via-violet-500 to-purple-600 px-4 text-base font-black text-white shadow-xl shadow-purple-950/30 transition disabled:opacity-30">
+                {submitting ? <><Spinner size={17} />جاري الإرسال...</> : <><Send size={17} />إرسال التقييم</>}
+              </motion.button>
             </motion.div>
           )}
           {step === 3 && (
             <motion.div key="s3" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
-              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="space-y-6">
+              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="flex min-h-full flex-col justify-center space-y-5 py-3">
               <div className="text-center space-y-2">
-                <p className="text-2xl sm:text-3xl font-black text-white">هل تريد التواصل لاحقاً؟</p>
+                <h2 id={feedbackTitleId} ref={stepHeadingRef} tabIndex={-1} className="text-2xl font-black text-white focus:outline-none sm:text-3xl">هل تريد التواصل لاحقاً؟</h2>
               </div>
               {/* Prominent info card — mutual match = contact exchange */}
               <motion.div
@@ -3461,7 +4094,7 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
                     <p className="text-gray-200 text-xs leading-relaxed">
                       إجابتك سرية تماماً. إذا أجاب كلاكما بـ«نعم» — ستحصلان على رقم تواصل ومعلومات بعضكم في صفحة النتائج النهائية بعد الفعالية.
                     </p>
-                    <p className="text-emerald-400/70 text-[10px] mt-1">لا أحد سيعرف باختيارك إلا إذا وافق الطرف الآخر أيضاً</p>
+                    <p className="mt-1 text-xs text-emerald-300/80">لا أحد سيعرف باختيارك إلا إذا وافق الطرف الآخر أيضاً</p>
                   </div>
                 </div>
               </motion.div>
@@ -3469,8 +4102,8 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
                 {[{ val: true, icon: <CheckCircle size={26} />, label: "نعم", cls: fb.wantConnect === true ? 'bg-emerald-500/15 ring-2 ring-emerald-500/50 shadow-[0_0_30px_-4px_rgba(16,185,129,0.4)]' : 'bg-white/[0.04] ring-1 ring-white/[0.06]', iconCls: fb.wantConnect === true ? 'from-emerald-500/80 to-teal-600/80 text-white' : 'from-gray-600/40 to-gray-700/40 text-gray-500', textCls: fb.wantConnect === true ? 'text-emerald-300' : 'text-gray-500' },
                    { val: false, icon: <X size={26} />, label: "لا", cls: fb.wantConnect === false ? 'bg-red-500/15 ring-2 ring-red-500/50 shadow-[0_0_30px_-4px_rgba(239,68,68,0.4)]' : 'bg-white/[0.04] ring-1 ring-white/[0.06]', iconCls: fb.wantConnect === false ? 'from-red-500/80 to-rose-600/80 text-white' : 'from-gray-600/40 to-gray-700/40 text-gray-500', textCls: fb.wantConnect === false ? 'text-red-300' : 'text-gray-500' }
                 ].map(opt => (
-                  <motion.button key={String(opt.val)} whileTap={{ scale: 0.93 }}
-                    onClick={() => { setFb(p => ({ ...p, wantConnect: opt.val })); setTimeout(() => goNext({ wantConnect: opt.val }), 350) }}
+                  <motion.button type="button" key={String(opt.val)} whileTap={{ scale: 0.93 }} aria-pressed={fb.wantConnect === opt.val}
+                    onClick={() => setFb(p => ({ ...p, wantConnect: opt.val }))}
                     className={`min-h-[120px] rounded-3xl flex flex-col items-center justify-center gap-3 font-black transition-all duration-200 ${opt.cls}`}>
                     <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${opt.iconCls} flex items-center justify-center transition-transform duration-200 ${fb.wantConnect === opt.val ? 'scale-110' : 'scale-95'}`}>
                       {opt.icon}
@@ -3479,28 +4112,36 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
                   </motion.button>
                 ))}
               </div>
+              <motion.button type="button" onClick={() => goNext()} disabled={fb.wantConnect === null} whileTap={{ scale: 0.97 }} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-violet-600 px-4 text-sm font-bold text-white shadow-lg shadow-purple-950/30 transition disabled:opacity-30">
+                متابعة <ChevronRight size={16} />
+              </motion.button>
             </motion.div>
           )}
           {step === 4 && (
             <motion.div key="s4" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
-              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="space-y-6">
+              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="flex min-h-full flex-col justify-center space-y-5 py-4">
               <div className="text-center space-y-2">
-                <p className="text-2xl font-black text-white">ملاحظة للمنظم</p>
-                <p className="text-gray-500 text-sm">اختياري — لن يراها الطرف الآخر</p>
+                <h2 id={feedbackTitleId} ref={stepHeadingRef} tabIndex={-1} className="text-2xl font-black text-white focus:outline-none">ملاحظة للمنظم</h2>
+                <p className="text-sm text-gray-400">اختياري — لن يراها الطرف الآخر</p>
               </div>
+              <div>
               <textarea value={fb.organizerImpression}
-                onChange={e => e.target.value.length <= 300 && setFb(p => ({ ...p, organizerImpression: e.target.value }))}
+                onChange={e => setFb(p => ({ ...p, organizerImpression: e.target.value }))}
                 placeholder="شعرت بالراحة... / الوقت كان قصيراً..."
                 rows={4}
-                className="w-full bg-white/[0.04] border border-white/[0.08] text-white/90 rounded-2xl px-4 py-4 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500/40 resize-none placeholder:text-gray-700 transition-all" />
-              <motion.button onClick={handleSubmit} disabled={submitting || fb.wantConnect === null} whileTap={{ scale: 0.97 }}
+                maxLength={300}
+                aria-label="ملاحظة اختيارية للمنظم"
+                className="w-full resize-none rounded-2xl border border-white/[0.1] bg-white/[0.05] px-4 py-4 text-base text-white/95 transition-all placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-purple-500/50 sm:text-sm" />
+                <p className="mt-1.5 text-left text-xs text-gray-400">{fb.organizerImpression.length}/300</p>
+              </div>
+              <motion.button type="button" onClick={handleSubmit} disabled={submitting || fb.wantConnect === null} aria-busy={submitting} whileTap={{ scale: 0.97 }}
                 className="w-full py-5 rounded-3xl font-black text-lg bg-gradient-to-r from-purple-500 via-violet-500 to-purple-600 text-white shadow-[0_8px_30px_-4px_rgba(139,92,246,0.6)] disabled:opacity-30 disabled:shadow-none transition-all flex items-center justify-center gap-2">
                 {submitting
                   ? <><motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }} className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />جاري الإرسال...</>
                   : <><Send size={18} /> إرسال التقييم</>}
               </motion.button>
               {fb.wantConnect === null && <p className="text-center text-amber-500/70 text-xs">ارجع للخطوة 4 وأجب على سؤال التواصل</p>}
-              {(!fb.sliderMoved || fb.compatibilityRate === 50) && <p className="text-center text-amber-500/70 text-xs">ارجع للخطوة 1 وحرّك مؤشر التوافق</p>}
+              {!fb.sliderMoved && <p className="text-center text-xs text-amber-300">ارجع للخطوة 1 وحرّك مؤشر التوافق</p>}
             </motion.div>
           )}
         </AnimatePresence>
@@ -3510,7 +4151,9 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
 }
 
 // ─── SOS / Organizer Chat Box ───────────────────────────────────────────────
-function SOSButton({ token, position = 'top', sosRequests }: { token: string; position?: 'top' | 'bottom'; sosRequests?: any[] }) {
+function SOSButton({ token, position = 'top', sosRequests, suppressed = false }: { token: string; position?: 'top' | 'bottom'; sosRequests?: any[]; suppressed?: boolean }) {
+  const panelId = useId()
+  const panelTitleId = useId()
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<{ id: string; text: string; from: 'user' | 'organizer'; status: string; timestamp?: string }[]>([])
   const [input, setInput] = useState("")
@@ -3518,6 +4161,7 @@ function SOSButton({ token, position = 'top', sosRequests }: { token: string; po
   const [showOptions, setShowOptions] = useState(true)
   const [hasUnread, setHasUnread] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
 
   const openRef = useRef(false)
   const lastReplyCountRef = useRef(parseInt(sessionStorage.getItem('sos_last_reply_count') || '0'))
@@ -3553,8 +4197,24 @@ function SOSButton({ token, position = 'top', sosRequests }: { token: string; po
   }, [sosRequests])
 
   useEffect(() => {
-    if (open) { setHasUnread(false); scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) }
+    if (open) {
+      setHasUnread(false)
+      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
+    }
   }, [open, messages])
+
+  useEffect(() => {
+    if (!open) return
+    const focusTimer = window.setTimeout(() => closeButtonRef.current?.focus(), 50)
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      window.clearTimeout(focusTimer)
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [open])
 
   const send = async (text: string, requestType?: string) => {
     const trimmed = text.trim()
@@ -3580,19 +4240,23 @@ function SOSButton({ token, position = 'top', sosRequests }: { token: string; po
   const buttonState = hasUnread ? 'unread' : pendingCount > 0 ? 'pending' : hasActive ? 'active' : 'idle'
 
   return (
-    <>
+    <div className={suppressed ? "hidden" : "contents"} aria-hidden={suppressed || undefined} inert={suppressed}>
       {/* Organizer button — centered with separator lines beside it */}
       <div className={`${position === 'bottom' ? 'relative' : 'fixed top-[68px]'} left-0 right-0 z-[190] flex items-center justify-center px-4 pb-5 pt-3 bg-gradient-to-t from-gray-950 via-gray-950/80 to-transparent flex-shrink-0`} dir="rtl">
         {/* Left separator */}
         <div className="flex-1 h-px bg-gradient-to-l from-gray-700/30 to-transparent max-w-[80px]" />
         {/* Button */}
         <motion.button
+          type="button"
           whileTap={{ scale: 0.95 }}
           whileHover={{ scale: 1.04 }}
           onClick={() => setOpen(o => !o)}
+          aria-expanded={open}
+          aria-controls={panelId}
+          aria-label={`${buttonLabel} — تواصل مع المنظم`}
           animate={buttonState === 'idle' ? { scale: [1, 1.03, 1] } : {}}
           transition={buttonState === 'idle' ? { duration: 3, repeat: Infinity, ease: 'easeInOut' } : {}}
-          className={`mx-3 flex items-center gap-2 px-5 py-2 rounded-full text-[12px] font-semibold transition-colors duration-300 ${
+          className={`mx-3 flex min-h-11 items-center gap-2 rounded-full px-5 py-2 text-xs font-semibold transition-colors duration-300 ${
             buttonState === 'unread' ? 'text-emerald-300 bg-emerald-950/60 border border-emerald-700/40 shadow-lg shadow-emerald-900/30'
             : buttonState === 'pending' ? 'text-orange-300 bg-orange-950/50 border border-orange-700/40'
             : buttonState === 'active' ? 'text-gray-300 bg-gray-800/60 border border-gray-700/40'
@@ -3638,6 +4302,7 @@ function SOSButton({ token, position = 'top', sosRequests }: { token: string; po
       <AnimatePresence>
         {open && (
           <motion.div
+            id={panelId}
             initial={{ opacity: 0, y: position === 'bottom' ? 20 : -20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: position === 'bottom' ? 20 : -20, scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
@@ -3645,6 +4310,9 @@ function SOSButton({ token, position = 'top', sosRequests }: { token: string; po
               position === 'bottom' ? 'bottom-20 left-1/2 -translate-x-1/2' : 'top-[88px] left-1/2 -translate-x-1/2'
             }`}
             style={{ maxHeight: '60vh' }}
+            role="dialog"
+            aria-modal="false"
+            aria-labelledby={panelTitleId}
             dir="rtl"
           >
             {/* Header */}
@@ -3652,12 +4320,12 @@ function SOSButton({ token, position = 'top', sosRequests }: { token: string; po
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-xs font-bold text-white">ع</div>
                 <div>
-                  <p className="text-white text-sm font-bold leading-tight">عبدالرحمن</p>
+                  <h2 id={panelTitleId} className="text-white text-sm font-bold leading-tight">عبدالرحمن</h2>
                   <p className="text-gray-500 text-[10px] leading-tight">المنظم — تواصل مباشر</p>
                 </div>
               </div>
-              <button onClick={() => setOpen(false)}
-                className="w-7 h-7 rounded-full bg-gray-800/80 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
+              <button ref={closeButtonRef} type="button" onClick={() => setOpen(false)} aria-label="إغلاق محادثة المنظم"
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-gray-800/80 text-gray-300 transition-colors hover:text-white">
                 <X size={13} />
               </button>
             </div>
@@ -3674,8 +4342,9 @@ function SOSButton({ token, position = 'top', sosRequests }: { token: string; po
                   </div>
                   <p className="text-center text-gray-600 text-xs mb-1">اختر نوع الطلب</p>
                   <button
+                    type="button"
                     onClick={() => { setShowOptions(false); setInput(''); send('طلب مساعدة - أحتاج المنظم إلى طاولتي', 'organizer_needed') }}
-                    className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-red-950/30 border border-red-800/40 hover:bg-red-950/50 transition-all text-right"
+                    className="flex min-h-12 w-full items-center gap-3 rounded-2xl border border-red-800/40 bg-red-950/30 px-4 py-3.5 text-right transition-all hover:bg-red-950/50"
                   >
                     <LifeBuoy size={18} className="text-red-400" />
                     <div>
@@ -3684,8 +4353,9 @@ function SOSButton({ token, position = 'top', sosRequests }: { token: string; po
                     </div>
                   </button>
                   <button
+                    type="button"
                     onClick={() => { setShowOptions(false); setInput('') }}
-                    className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-purple-950/30 border border-purple-800/40 hover:bg-purple-950/50 transition-all text-right"
+                    className="flex min-h-12 w-full items-center gap-3 rounded-2xl border border-purple-800/40 bg-purple-950/30 px-4 py-3.5 text-right transition-all hover:bg-purple-950/50"
                   >
                     <MessageSquare size={18} className="text-purple-400" />
                     <div>
@@ -3743,15 +4413,20 @@ function SOSButton({ token, position = 'top', sosRequests }: { token: string; po
                     onChange={e => e.target.value.length <= 200 && setInput(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input) } }}
                     placeholder="اكتب رسالة..."
+                    aria-label="رسالة خاصة إلى المنظم"
+                    maxLength={200}
                     rows={1}
-                    className="flex-1 bg-gray-900 border border-gray-700/50 text-white rounded-2xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500/40 resize-none placeholder:text-gray-700 transition-all max-h-20"
+                    className="max-h-20 flex-1 resize-none rounded-2xl border border-gray-700/50 bg-gray-900 px-3.5 py-2.5 text-base text-white transition-all placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-purple-500/40 sm:text-sm"
                     style={{ minHeight: '40px' }}
                   />
                   <motion.button
+                    type="button"
                     whileTap={{ scale: 0.9 }}
                     onClick={() => send(input)}
                     disabled={sending || !input.trim()}
-                    className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-white disabled:opacity-30 transition-all flex-shrink-0"
+                    aria-label="إرسال الرسالة"
+                    aria-busy={sending}
+                    className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-purple-600 to-pink-600 text-white transition-all disabled:opacity-30"
                   >
                     {sending
                       ? <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
@@ -3774,7 +4449,7 @@ function SOSButton({ token, position = 'top', sosRequests }: { token: string; po
           </motion.div>
         )}
       </AnimatePresence>
-    </>
+    </div>
   )
 }
 
@@ -3782,20 +4457,20 @@ function SOSButton({ token, position = 'top', sosRequests }: { token: string; po
 function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDuration, correctedNow }: {
   token: string; eventId?: number | string; timerActive: boolean; timerStart: string | null; timerDuration: number; correctedNow?: () => number
 }) {
+  const reduceMotion = useReducedMotion()
   const [revealed, setRevealed] = useState(false)
-  const [tableRevealed, setTableRevealed] = useState(false)
+  const [tableRevealed, setTableRevealed] = useState(true)
   const [timeLeft, setTimeLeft] = useState(0)
   const [word, setWord] = useState("")
   const [wordSubmitted, setWordSubmitted] = useState(false)
   const [view, setView] = useState<'partner' | 'session' | 'feedback'>('partner')
-  const [showPrompt, setShowPrompt] = useState(false)
   const [feedbackDone, setFeedbackDone] = useState(false)
-  const [showTutorial, setShowTutorial] = useState(typeof window === "undefined" || sessionStorage.getItem('e3_tut_phase2') !== "1")
+  const [showTutorial, setShowTutorial] = useState(false)
   const [showSessionTips, setShowSessionTips] = useState(false)
   const [rejoined, setRejoined] = useState(false)
   const [icebreakerDone, setIcebreakerDone] = useState(false)
   const [showTimeWarning, setShowTimeWarning] = useState(false)
-  const { popup, clearPopup } = useTimerWarnings(timerActive, timeLeft, timerDuration, view === 'session')
+  const { popup, clearPopup } = useTimerWarnings(timerActive, timeLeft, timerDuration, view === 'session', undefined, timerStart)
 
   const fetchReveal = useCallback(async () => {
     const d = await call("e3-get-phase2-reveal", token)
@@ -3805,7 +4480,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
 
   const { data, loading, error, retry } = useApiPoll(fetchReveal, {
     interval: 5000,
-    stopWhen: (d) => d.table_number != null
+    stopWhen: (d) => Boolean(d.partner_number && d.partner_first_name && d.table_number != null)
   })
 
   useEffect(() => {
@@ -3825,11 +4500,8 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
     return () => clearInterval(iv)
   }, [timerActive, timerStart, timerDuration, correctedNow])
 
-  // Timer warnings handled by useTimerWarnings hook (sound + vibration + popup)
-  // 60s banner still shown separately for persistent visual
-  useEffect(() => {
-    if (timerActive && view === 'session' && timeLeft === 60) setShowTimeWarning(true)
-  }, [timeLeft, timerActive, view])
+  // The shared timer warning is the single escalation surface. Keeping a
+  // second persistent banner here made the final minute feel alarm-heavy.
 
   // Auto-rejoin sync: if timer already running when component mounts, jump to correct view
   // Only auto-rejoin if the participant had already clicked "وصلت إلى الطاولة" before refresh
@@ -3850,30 +4522,9 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   }, [timeLeft, view, timerActive])
 
   // Auto-show tips on first entry to session view
-  const tipsShownRef = useRef(false)
-  useEffect(() => {
-    if (view === 'session' && !tipsShownRef.current) {
-      tipsShownRef.current = true
-      const t = setTimeout(() => setShowSessionTips(true), 600)
-      return () => clearTimeout(t)
-    }
-  }, [view])
-
-  // Wake lock: prevent screen sleep during 1:1 session
-  const p2WakeLockRef = useRef<any>(null)
-  useEffect(() => {
-    const requestWakeLock = async () => {
-      try {
-        if ("wakeLock" in navigator) {
-          p2WakeLockRef.current = await (navigator as any).wakeLock.request("screen")
-        }
-      } catch {}
-    }
-    if (view === 'session') requestWakeLock()
-    return () => {
-      if (p2WakeLockRef.current) { try { p2WakeLockRef.current.release() } catch {} p2WakeLockRef.current = null }
-    }
-  }, [view])
+  // Mobile browsers release wake locks when backgrounded; the shared hook
+  // reacquires it when the participant returns to the active session.
+  useScreenWakeLock(view === 'session')
 
   const canArrive = !timerActive || !timerStart || timeLeft <= timerDuration - 60
   const waitSeconds = Math.max(0, timeLeft - (timerDuration - 60))
@@ -3882,28 +4533,8 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
     if (!canArrive) return
     setArrived(eventId, "phase2")
     setRevealed(true)
-    fireConfetti({ particleCount: 55, spread: 65, origin: { y: 0.45 }, colors: ["#ec4899", "#f43f5e", "#fb7185", "#be185d"] })
+    if (!reduceMotion) fireConfetti({ particleCount: 55, spread: 65, origin: { y: 0.45 }, colors: ["#ec4899", "#f43f5e", "#fb7185", "#be185d"] })
   }
-
-  // Auto-advance: table animation → partner reveal (skip "I arrived" button)
-  useEffect(() => {
-    if (!tableRevealed || revealed) return
-    if (!canArrive) return
-    if (rejoined) return
-    const timer = setTimeout(() => {
-      setArrived(eventId, "phase2")
-      setRevealed(true)
-      fireConfetti({ particleCount: 55, spread: 65, origin: { y: 0.45 }, colors: ["#ec4899", "#f43f5e", "#fb7185", "#be185d"] })
-    }, 2800)
-    return () => clearTimeout(timer)
-  }, [tableRevealed, revealed, canArrive, eventId, rejoined])
-
-  // Auto-advance: partner reveal → session questions
-  useEffect(() => {
-    if (!revealed || view !== 'partner' || rejoined) return
-    const timer = setTimeout(() => setView('session'), 4500)
-    return () => clearTimeout(timer)
-  }, [revealed, view, rejoined])
 
   const submitWord = async () => {
     if (!word.trim()) return
@@ -3912,13 +4543,13 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   }
 
   if (loading && !data && !error) return (
-    <PageWrapper className="flex items-center justify-center">
+    <PageWrapper embedded className="flex items-center justify-center">
       <Spinner size={28} />
     </PageWrapper>
   )
 
   if (error && !data) return (
-    <PageWrapper className="flex flex-col items-center justify-center gap-4 p-6 text-center">
+    <PageWrapper embedded className="flex flex-col items-center justify-center gap-4 p-6 text-center">
       <div className="w-14 h-14 rounded-2xl bg-red-950/40 border border-red-800/40 flex items-center justify-center">
         <AlertTriangle className="text-red-400" size={28} />
       </div>
@@ -3934,15 +4565,14 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   )
 
   return (
-    <PageWrapper className="overflow-y-auto">
+    <PageWrapper embedded className="overflow-y-auto">
       <div className="max-w-sm mx-auto p-4 pb-6 space-y-3">
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="text-center pt-4 space-y-1">
           <div className="flex flex-col items-center gap-1.5">
             <div className="inline-flex items-center gap-2 bg-pink-900/30 border border-pink-700/40 text-pink-300 rounded-full px-4 py-1.5 text-sm font-semibold">
-              <Users size={13} /> جلسة فردية 1:1 · اختيارك أنت
+              <Users size={13} /> {data?.is_backup ? "جلسة فردية 1:1 · فرصة جديدة" : "جلسة فردية 1:1 · اختيارك أنت"}
             </div>
-            <p className="text-gray-600 text-xs">جلسة خاصة مع الشخص الذي اخترته من جولات التعارف</p>
-            <InfoHint text="اضغط لتأكيد وصولك للطاولة · لديك وقت محدد للمحادثة · يمكنك إرسال كلمة تصف تجربتك" delay={0.4} duration={5} />
+            <p className="text-gray-400 text-xs">{data?.is_backup ? "لقاء رتّبناه لك حتى يعيش الجميع التجربة كاملة" : "لقاء خاص مع أفضل اختيار متبادل متاح من ترتيبك"}</p>
           </div>
         </motion.div>
 
@@ -3971,65 +4601,24 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
             </motion.div>
           ) : !revealed ? (
             <motion.div key="table-anim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="space-y-4">
-              {/* Gorgeous table number animation */}
-              <div className="relative flex flex-col items-center justify-center py-10">
-                {/* Animated glow rings */}
-                <motion.div className="absolute w-52 h-52 rounded-full border-2 border-pink-500/20"
-                  animate={{ scale: [1, 1.35, 1], opacity: [0.5, 0, 0.5] }} transition={{ duration: 2, repeat: Infinity }} />
-                <motion.div className="absolute w-52 h-52 rounded-full border-2 border-pink-500/10"
-                  animate={{ scale: [1, 1.55, 1], opacity: [0.3, 0, 0.3] }} transition={{ duration: 2.5, repeat: Infinity, delay: 0.3 }} />
-                {/* Floating particles */}
-                <motion.div className="absolute w-3 h-3 rounded-full bg-pink-400/40"
-                  animate={{ y: [0, -20, 0], x: [0, 10, 0], opacity: [0, 1, 0] }} transition={{ duration: 3, repeat: Infinity, delay: 0.2 }} style={{ top: '20%', left: '30%' }} />
-                <motion.div className="absolute w-2 h-2 rounded-full bg-rose-400/40"
-                  animate={{ y: [0, 15, 0], x: [0, -12, 0], opacity: [0, 1, 0] }} transition={{ duration: 2.5, repeat: Infinity, delay: 0.8 }} style={{ top: '30%', right: '25%' }} />
-                <motion.div className="absolute w-2.5 h-2.5 rounded-full bg-fuchsia-400/30"
-                  animate={{ y: [0, -15, 0], x: [0, 8, 0], opacity: [0, 1, 0] }} transition={{ duration: 3.5, repeat: Infinity, delay: 1.2 }} style={{ bottom: '25%', left: '35%' }} />
+              <JourneyCue
+                accent="pink"
+                title={`اتجه الآن إلى طاولة ${data?.table_number ?? "—"}`}
+                description="اسم شريكك يظهر هنا بمجرد تأكيد وصولك — ولن تحتاج للرجوع بحثاً عن التفاصيل."
+                steps={["اتجه للطاولة", "قابل شريكك", "ابدأ الحوار"]}
+                currentStep={0}
+              />
+              <MeetingPass accent="pink" kind={data?.is_backup ? "لقاء رتّبناه لك" : "لقاء اختيارك"} tableNumber={data?.table_number} partnerHidden />
 
-                {/* Table number */}
-                <motion.div
-                  initial={{ scale: 0.3, opacity: 0, filter: "blur(20px)" }}
-                  animate={{ scale: 1, opacity: 1, filter: "blur(0px)" }}
-                  transition={{ type: "spring", stiffness: 200, damping: 18 }}
-                  className="relative z-10 text-center"
-                >
-                  <motion.div animate={{ y: [0, -3, 0] }} transition={{ duration: 2, repeat: Infinity }}>
-                    <MapPin size={28} className="text-pink-400 mx-auto mb-2" />
-                  </motion.div>
-                  <p className="text-gray-500 text-sm mb-1">توجّه إلى الطاولة رقم</p>
-                  <motion.div
-                    className="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-br from-pink-300 via-rose-400 to-pink-500"
-                    animate={{ scale: [1, 1.04, 1] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                    style={{ filter: "drop-shadow(0 0 20px rgba(236,72,153,0.3))" }}
-                  >
-                    {data?.table_number ?? "—"}
-                  </motion.div>
-                </motion.div>
-              </div>
-
-              {/* Auto-advance indicator, manual button for rejoined, or wait timer */}
-              {canArrive && rejoined ? (
-                <motion.button onClick={handleReveal} whileTap={{ scale: 0.97 }}
-                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-                  className="w-full bg-gradient-to-br from-pink-600 via-rose-600 to-pink-700 text-white rounded-2xl py-5 font-bold text-lg shadow-2xl shadow-pink-600/40 border border-pink-500/30">
+              {/* Arrival is an explicit confirmation so the reveal cannot disappear mid-read. */}
+              {canArrive ? (
+                <motion.button type="button" onClick={handleReveal} whileTap={{ scale: 0.97 }}
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }}
+                  className="min-h-14 w-full rounded-2xl border border-pink-500/30 bg-gradient-to-br from-pink-600 via-rose-600 to-pink-700 px-4 py-4 text-lg font-bold text-white shadow-2xl shadow-pink-600/40">
                   <span className="flex items-center justify-center gap-3">
-                    <MapPin size={22} /> اكشف شريكك
+                    <MapPin size={22} /> وصلت إلى الطاولة — اكشف شريكك
                   </span>
                 </motion.button>
-              ) : canArrive ? (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }} className="text-center space-y-2">
-                  <motion.div className="flex items-center justify-center gap-2 text-pink-400 text-sm font-medium"
-                    animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.5, repeat: Infinity }}>
-                    <Loader2 size={14} className="animate-spin" />
-                    <span>جاري الكشف عن شريكك...</span>
-                  </motion.div>
-                  {/* Progress bar */}
-                  <div className="h-0.5 bg-gray-800/60 rounded-full overflow-hidden max-w-[180px] mx-auto">
-                    <motion.div className="h-full bg-gradient-to-r from-pink-500 to-rose-400"
-                      initial={{ width: "0%" }} animate={{ width: "100%" }} transition={{ duration: 2.8, ease: "linear" }} />
-                  </div>
-                </motion.div>
               ) : (
                 <div className="text-center">
                   <p className="text-gray-600 text-xs">انتظر دقيقة من بدء المؤقت</p>
@@ -4053,27 +4642,14 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
             </motion.div>
           ) : (
             <motion.div key="post" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-              <motion.div initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 200, delay: 0.05 }}>
-                <div className="relative overflow-hidden rounded-3xl border border-pink-700/25 shadow-2xl shadow-pink-900/30">
-                  <div className="absolute inset-0 bg-gradient-to-br from-pink-950 via-rose-950/80 to-pink-900/60" />
-                  <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-pink-400/60 to-transparent" />
-                  <div className="absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-black/30 to-transparent" />
-                  {/* Floating glow orbs */}
-                  <motion.div className="absolute w-32 h-32 rounded-full bg-pink-500/10 blur-3xl"
-                    animate={{ x: [0, 20, 0], y: [0, -15, 0] }} transition={{ duration: 4, repeat: Infinity }} style={{ top: '10%', left: '5%' }} />
-                  <motion.div className="absolute w-24 h-24 rounded-full bg-rose-500/10 blur-3xl"
-                    animate={{ x: [0, -15, 0], y: [0, 10, 0] }} transition={{ duration: 3.5, repeat: Infinity, delay: 0.5 }} style={{ bottom: '10%', right: '5%' }} />
-                  <div className="relative z-10 px-6 pt-6 pb-7 text-center">
-                    <div className="inline-flex items-center gap-1.5 bg-pink-900/50 border border-pink-700/40 rounded-full px-3 py-1 mb-4">
-                      <Users size={10} className="text-pink-400" />
-                      <span className="text-pink-300 text-[11px] font-semibold tracking-wide">{data?.is_backup ? "جلسة احتياطي · إقتراح المنظم" : "جلسة فردية · اختيارك الشخصي"}</span>
-                    </div>
-                    <motion.p className="text-5xl font-black text-white mb-2 tracking-tight" style={{ textShadow: '0 2px 20px rgba(236,72,153,0.3)' }}
-                      initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.15 }}>{data?.partner_first_name || "..."}</motion.p>
-                    <motion.p className="text-pink-400/50 text-xs mt-1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>{data?.is_backup ? "شريكك في جلسة احتياطية" : "شريكك في جلسة الاختيار الشخصي"}</motion.p>
-                  </div>
-                </div>
-              </motion.div>
+              <MeetingPass
+                accent="pink"
+                kind={data?.is_backup ? "لقاء رتّبناه لك لضمان مشاركة الجميع" : "لقاء اختيارك"}
+                partnerName={data?.partner_first_name}
+                tableNumber={data?.table_number}
+                badge={data?.is_backup ? "لقاء جديد" : null}
+              />
+              <JourneyCue accent="pink" title={`ابدأ اللقاء مع ${data?.partner_first_name || "شريكك"}`} description="اسم الشريك والطاولة سيبقيان ظاهرين داخل مساحة الأسئلة." steps={["وصلت", "ابدأ الحوار", "قيّم اللقاء"]} currentStep={1} />
 
               {/* Backup pairing explanation banner */}
               {data?.is_backup && (
@@ -4085,65 +4661,34 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                       <Info size={16} className="text-amber-400" />
                     </div>
                     <div className="space-y-1.5">
-                      <p className="text-amber-300 text-sm font-bold">جلسة احتياطية</p>
+                      <p className="text-amber-300 text-sm font-bold">لقاء جديد</p>
                       <p className="text-amber-100/70 text-xs leading-relaxed">
-                        لم تختار هذا الشخص ولم يختارك في التصنيف — قد لا تكون قد جلست معه في جولات التعارف. هذا الاقتران جاء كحل احتياطي لضمان حصول الجميع على جلسة. استغل هذه الفرصة للتعرف على شخص جديد!
+                        رتّبنا لك هذا اللقاء لضمان مشاركة الجميع. قد يكون مع شخص لم تتعرف عليه جيداً بعد — خذه كفرصة جديدة بلا توقعات مسبقة.
                       </p>
                     </div>
                   </div>
                 </motion.div>
               )}
 
-              {/* Partner info card */}
-              {data && <PartnerInfoCard data={data} accent="pink" />}
-
-              {data?.table_number && (
-                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-                  <div className="relative overflow-hidden rounded-2xl border border-amber-700/50 bg-gradient-to-br from-amber-900/40 via-orange-900/25 to-amber-900/30 p-5 text-center shadow-lg shadow-amber-900/20">
-                    <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-amber-500/60 to-transparent" />
-                    <p className="text-amber-400/80 text-xs font-medium tracking-wider uppercase mb-3">توجّه الآن إلى</p>
-                    <div className="flex items-center justify-center gap-4 mb-3">
-                      <div className="text-center">
-                        <div className="w-16 h-16 rounded-2xl bg-amber-500/20 border-2 border-amber-500/40 flex flex-col items-center justify-center mx-auto mb-1.5">
-                          <span className="text-3xl font-black text-amber-300 leading-none">{data.table_number}</span>
-                        </div>
-                        <p className="text-amber-500/80 text-xs font-semibold">طاولة</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-center gap-1.5 text-amber-400/70 text-xs">
-                      <MapPin size={12} className="animate-bounce" />
-                      <span>ستجد {data?.partner_first_name || 'شريكك'} هناك — انتظر بدء الجلسة</span>
-                    </div>
-                  </div>
-                </motion.div>
+              {data && (
+                <details className="group rounded-2xl border border-white/[0.07] bg-white/[0.03] text-right">
+                  <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 text-xs font-bold text-gray-300">
+                    لمحة اختيارية قبل اللقاء
+                    <ChevronRight size={15} className="rotate-90 text-gray-500 transition-transform group-open:-rotate-90" />
+                  </summary>
+                  <div className="px-3 pb-3"><PartnerInfoCard data={data} accent="pink" /></div>
+                </details>
               )}
 
-              {/* Auto-advance to session indicator */}
-              {!rejoined && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="text-center space-y-2">
-                  <motion.div className="flex items-center justify-center gap-2 text-pink-400/80 text-sm font-medium"
-                    animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.5, repeat: Infinity }}>
-                    <Loader2 size={14} className="animate-spin" />
-                    <span>جاري التحضير للجلسة...</span>
-                  </motion.div>
-                  <div className="h-0.5 bg-gray-800/60 rounded-full overflow-hidden max-w-[200px] mx-auto">
-                    <motion.div className="h-full bg-gradient-to-r from-pink-500 to-rose-400"
-                      initial={{ width: "0%" }} animate={{ width: "100%" }} transition={{ duration: 4.5, ease: "linear" }} />
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Manual skip for rejoined users */}
-              {rejoined && (
-                <motion.button
-                  onClick={() => setView('session')}
-                  initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
-                  className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl border font-bold text-base transition-all bg-pink-900/30 border-pink-700/40 text-pink-300 hover:brightness-125 active:scale-95"
-                >
-                  انتقل إلى أسئلة الجلسة
-                  <ChevronRight size={16} />
-                </motion.button>
-              )}
+              <motion.button
+                type="button"
+                onClick={() => setView('session')}
+                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
+                className="flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-pink-600 to-rose-600 px-4 py-4 text-base font-black text-white shadow-xl shadow-pink-950/30 transition-all hover:brightness-110 active:scale-[0.98]"
+              >
+                وصلت — ابدأ اللقاء
+                <ArrowLeft size={17} />
+              </motion.button>
             </motion.div>
           )}
         </AnimatePresence>
@@ -4161,6 +4706,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
             onSubmit={async (fbData) => {
               const d = await call('e3-submit-phase2-feedback', token, { feedback: fbData })
               if (!d.error) { toast.success('تم الحفظ'); return true }
+              toast.error(d.error || 'تعذّر حفظ التقييم. تحقق من الاتصال وحاول مجددًا.')
               return false
             }}
           />
@@ -4173,7 +4719,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
           <motion.div
             initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="fixed inset-0 z-40 bg-gray-950 flex flex-col overflow-y-auto"
+            className="event3-shell fixed inset-0 z-[220] flex h-[100dvh] flex-col overflow-y-auto bg-gray-950"
           >
             <div className="pointer-events-none fixed inset-0 overflow-hidden">
               <div className="absolute -top-32 -left-24 w-96 h-96 bg-pink-500/20 rounded-full blur-[100px]" />
@@ -4181,18 +4727,19 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
               <div className="absolute -bottom-20 left-1/3 w-72 h-72 bg-fuchsia-500/15 rounded-full blur-[80px]" />
             </div>
             {/* Sticky header */}
-            <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 border-b border-white/[0.06] bg-gray-950/80 backdrop-blur-xl">
-              <button onClick={() => setView('partner')} className="flex items-center gap-1.5 text-gray-400 hover:text-white text-sm font-medium transition-colors">
-                ← رجوع
-              </button>
-              <span className="text-white font-bold text-sm">أسئلة الجلسة الأولى</span>
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/[0.06] bg-gray-950/80 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-xl">
+              <div className="min-w-0 text-right">
+                <p className="text-[10px] font-bold text-pink-300">لقاء اختيارك · طاولة {data?.table_number ?? "—"}</p>
+                <p className="mt-0.5 truncate text-sm font-black text-white">مع {data?.partner_first_name || "شريكك"}</p>
+              </div>
               <span className={`font-mono text-sm font-black tabular-nums ${timeLeft < 300 ? 'text-red-400' : 'text-pink-300'}`}>{formatTime(timeLeft)}</span>
             </div>
 
             {/* Ice breaker phase — full screen centered */}
             <AnimatePresence mode="wait">
               {!icebreakerDone ? (
-                <motion.div key="icebreaker" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="flex-1 flex flex-col items-center justify-center max-w-sm mx-auto w-full p-5">
+                <motion.div key="icebreaker" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-4 p-5">
+                  <JourneyCue accent="pink" eyebrow="بداية اللقاء" title="اختاروا بداية تناسبكم" description="التحدي اختياري؛ يمكنكم تخطيه والبدء مباشرة بأول سؤال." steps={["كسر جليد", "حوار", "تقييم"]} currentStep={0} />
                   <RockPaperScissors accent="pink" autoDone={rejoined} onDone={() => setIcebreakerDone(true)} />
                 </motion.div>
               ) : (
@@ -4226,21 +4773,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                     </div>
                   </motion.div>
 
-                  {/* Live timer strip */}
-                  {timerActive && timeLeft > 0 && (
-                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-                      className="rounded-xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
-                      <div className="flex items-center justify-between px-4 py-3">
-                        <span className="text-gray-500 text-xs flex items-center gap-1.5"><Clock size={10} className="text-pink-400" /> الوقت المتبقي</span>
-                        <span className={`font-mono font-black text-lg tabular-nums ${timeLeft < 60 ? 'text-red-400' : 'text-white'}`}>{formatTime(timeLeft)}</span>
-                      </div>
-                      <div className="h-[2px] bg-gray-800/60">
-                        <motion.div className={`h-full ${timeLeft < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-pink-500 to-rose-400"}`}
-                          style={{ boxShadow: timeLeft < 60 ? "0 0 6px rgba(239,68,68,0.6)" : "0 0 6px rgba(236,72,153,0.6)" }}
-                          animate={{ width: `${(timeLeft / timerDuration) * 100}%` }} transition={{ duration: 1 }} />
-                      </div>
-                    </motion.div>
-                  )}
+                  <JourneyCue accent="pink" eyebrow="مساحة اللقاء" title="ابدأوا بالسؤال الظاهر" description="يجيب كل منكما، ثم اضغطوا التالي. غيّروا المسار فقط إذا أردتم موضوعاً مختلفاً." steps={["بدأتم", "حوار", "تقييم"]} currentStep={1} />
 
                   {/* Time warning banner */}
                   <AnimatePresence>
@@ -4260,7 +4793,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                           <p className="text-red-200 text-xs font-bold tracking-wide">باقي {timeLeft} ثانية — استعد لإنهاء الجلسة</p>
                           <p className="text-red-400/50 text-[10px] mt-0.5">سيتم نقلك للتقييم تلقائياً عند انتهاء الوقت</p>
                         </div>
-                        <button onClick={() => setShowTimeWarning(false)} className="text-red-500/40 hover:text-red-300 transition-colors flex-shrink-0 p-1">
+                        <button type="button" onClick={() => setShowTimeWarning(false)} aria-label="إخفاء تنبيه الوقت" className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-red-400/70 transition-colors hover:bg-white/5 hover:text-red-200">
                           <X size={14} />
                         </button>
                         {/* Countdown progress bar */}
@@ -4284,43 +4817,31 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                     <QuestionSlideshow defaultSet="choice" />
                   </motion.div>
 
-                  {/* PromptTopicsModal */}
-                  <motion.button onClick={() => setShowPrompt(true)} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-                    className="flex items-center justify-center gap-2 w-full py-2.5 rounded-full text-sm font-medium bg-gradient-to-r from-purple-600/60 to-pink-600/60 hover:from-purple-600 hover:to-pink-600 text-white transition-all border border-purple-700/30">
-                    <MessageSquare size={14} /> أسئلة للنقاش
-                  </motion.button>
+                  <details className="group rounded-2xl border border-white/[0.07] bg-white/[0.025] text-right">
+                    <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 text-xs font-bold text-gray-400">
+                      تحتاجون مساعدة في إدارة الحوار؟
+                      <ChevronRight size={15} className="rotate-90 transition-transform group-open:-rotate-90" />
+                    </summary>
+                    <div className="grid grid-cols-2 gap-2 border-t border-white/[0.06] p-3">
+                      <button type="button" onClick={() => setShowSessionTips(true)} className="min-h-11 rounded-xl border border-white/[0.07] bg-white/[0.04] text-xs font-bold text-gray-300"><Sparkles size={13} className="ml-1 inline" />نصائح سريعة</button>
+                      <button type="button" onClick={() => setShowTutorial(true)} className="min-h-11 rounded-xl border border-white/[0.07] bg-white/[0.04] text-xs font-bold text-gray-300"><Info size={13} className="ml-1 inline" />طريقة اللقاء</button>
+                    </div>
+                  </details>
 
                   {/* Jump to feedback manually */}
                   <motion.button
                     onClick={() => setView('feedback')}
                     whileTap={{ scale: 0.97 }}
                     initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
-                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gradient-to-r from-pink-700/80 to-rose-700/80 hover:from-pink-600 hover:to-rose-600 text-white text-sm font-bold transition-all shadow-lg shadow-pink-900/30 border border-pink-600/30"
+                    className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border py-3.5 text-sm font-bold transition-all ${timeLeft > 120 ? "border-white/[0.08] bg-white/[0.035] text-gray-400" : "border-pink-500/30 bg-gradient-to-r from-pink-700/80 to-rose-700/80 text-white shadow-lg shadow-pink-900/30"}`}
                   >
                     <CheckCircle size={16} />
-                    انتهيت من الجلسة — انتقل للتقييم
+                    إنهاء اللقاء والبدء بالتقييم
                   </motion.button>
-
-                  {/* Replay tutorial + tips buttons */}
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="flex items-center justify-center gap-4">
-                    <button onClick={() => setShowTutorial(true)}
-                      className="text-gray-600 hover:text-gray-400 text-[11px] font-medium transition-colors flex items-center gap-1.5">
-                      <RefreshCw size={11} />
-                      إعادة الشرح
-                    </button>
-                    <button onClick={() => setShowSessionTips(true)}
-                      className="text-gray-600 hover:text-gray-400 text-[11px] font-medium transition-colors flex items-center gap-1.5">
-                      <Sparkles size={11} />
-                      نصائح سريعة
-                    </button>
-                  </motion.div>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            <Suspense fallback={null}>
-              {showPrompt && <PromptTopicsModal open={showPrompt} onClose={() => setShowPrompt(false)} />}
-            </Suspense>
           </motion.div>
         )}
       </AnimatePresence>
@@ -4332,7 +4853,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
 
       {/* ── Timer Warning Popup ─────────────────────────────────────── */}
       <AnimatePresence>
-        {popup && <TimerWarningPopup {...popup} onDone={clearPopup} />}
+        {popup && <TimerWarningPopup key={popup.seconds} {...popup} onDone={clearPopup} />}
       </AnimatePresence>
     </PageWrapper>
   )
@@ -4342,19 +4863,19 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
 function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDuration, correctedNow }: {
   token: string; eventId?: number | string; timerActive: boolean; timerStart: string | null; timerDuration: number; correctedNow?: () => number
 }) {
+  const reduceMotion = useReducedMotion()
   const [revealed, setRevealed] = useState(false)
-  const [tableRevealed, setTableRevealed] = useState(false)
+  const [tableRevealed, setTableRevealed] = useState(true)
   const [timeLeft, setTimeLeft] = useState(0)
   const [word, setWord] = useState("")
   const [wordSubmitted, setWordSubmitted] = useState(false)
   const [view, setView] = useState<'partner' | 'session' | 'feedback'>('partner')
-  const [showPrompt, setShowPrompt] = useState(false)
   const [feedbackDone, setFeedbackDone] = useState(false)
   const [showSessionTips, setShowSessionTips] = useState(false)
   const [rejoined, setRejoined] = useState(false)
   const [icebreakerDone, setIcebreakerDone] = useState(false)
   const [showTimeWarning, setShowTimeWarning] = useState(false)
-  const { popup, clearPopup } = useTimerWarnings(timerActive, timeLeft, timerDuration, view === 'session')
+  const { popup, clearPopup } = useTimerWarnings(timerActive, timeLeft, timerDuration, view === 'session', undefined, timerStart)
 
   const fetchReveal = useCallback(async () => {
     const d = await call("e3-get-phase3-reveal", token)
@@ -4364,7 +4885,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
 
   const { data, loading, error, retry } = useApiPoll(fetchReveal, {
     interval: 5000,
-    stopWhen: (d) => d.table_number != null
+    stopWhen: (d) => Boolean(d.partner_number && d.partner_first_name && d.table_number != null)
   })
 
   useEffect(() => {
@@ -4384,11 +4905,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
     return () => clearInterval(iv)
   }, [timerActive, timerStart, timerDuration, correctedNow])
 
-  // Timer warnings handled by useTimerWarnings hook (sound + vibration + popup)
-  // 60s banner still shown separately for persistent visual
-  useEffect(() => {
-    if (timerActive && view === 'session' && timeLeft === 60) setShowTimeWarning(true)
-  }, [timeLeft, timerActive, view])
+  // The shared timer warning is the single escalation surface.
 
   // Auto-rejoin sync: show the table number before the session when returning
   // Only auto-rejoin if the participant had already clicked "وصلت إلى الطاولة" before refresh
@@ -4398,7 +4915,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
     const elapsed = Math.floor((now - new Date(timerStart).getTime()) / 1000)
     const remaining = Math.max(0, timerDuration - elapsed)
     const arrived = hasArrived(eventId, "phase3")
-    if (arrived && elapsed > 60 && remaining > 0) { setTableRevealed(true); setRevealed(false); setView('partner'); setRejoined(true) }
+    if (arrived && elapsed > 60 && remaining > 0) { setTableRevealed(true); setRevealed(true); setView('session'); setRejoined(true) }
     else if (arrived && remaining <= 0) { setTableRevealed(true); setRevealed(true); setView('feedback') }
     else if (!arrived && remaining <= 0) { setTableRevealed(true); setRevealed(true); setView('feedback') }
   }, [data, timerActive, timerStart, timerDuration, eventId, correctedNow])
@@ -4409,30 +4926,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   }, [timeLeft, view, timerActive])
 
   // Auto-show tips on first entry to session view
-  const tipsShownRef = useRef(false)
-  useEffect(() => {
-    if (view === 'session' && !tipsShownRef.current) {
-      tipsShownRef.current = true
-      const t = setTimeout(() => setShowSessionTips(true), 600)
-      return () => clearTimeout(t)
-    }
-  }, [view])
-
-  // Wake lock: prevent screen sleep during 1:1 session
-  const p3WakeLockRef = useRef<any>(null)
-  useEffect(() => {
-    const requestWakeLock = async () => {
-      try {
-        if ("wakeLock" in navigator) {
-          p3WakeLockRef.current = await (navigator as any).wakeLock.request("screen")
-        }
-      } catch {}
-    }
-    if (view === 'session') requestWakeLock()
-    return () => {
-      if (p3WakeLockRef.current) { try { p3WakeLockRef.current.release() } catch {} p3WakeLockRef.current = null }
-    }
-  }, [view])
+  useScreenWakeLock(view === 'session')
 
   const canArrive = !timerActive || !timerStart || timeLeft <= timerDuration - 60
   const waitSeconds = Math.max(0, timeLeft - (timerDuration - 60))
@@ -4441,28 +4935,8 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
     if (!canArrive) return
     setArrived(eventId, "phase3")
     setRevealed(true)
-    fireConfetti({ particleCount: 65, spread: 70, origin: { y: 0.4 }, colors: ["#7c3aed", "#8b5cf6", "#a78bfa", "#c4b5fd"] })
+    if (!reduceMotion) fireConfetti({ particleCount: 65, spread: 70, origin: { y: 0.4 }, colors: ["#7c3aed", "#8b5cf6", "#a78bfa", "#c4b5fd"] })
   }
-
-  // Auto-advance: table animation → partner reveal (skip "I arrived" button)
-  useEffect(() => {
-    if (!tableRevealed || revealed) return
-    if (!canArrive) return
-    if (rejoined) return
-    const timer = setTimeout(() => {
-      setArrived(eventId, "phase3")
-      setRevealed(true)
-      fireConfetti({ particleCount: 65, spread: 70, origin: { y: 0.4 }, colors: ["#7c3aed", "#8b5cf6", "#a78bfa", "#c4b5fd"] })
-    }, 2800)
-    return () => clearTimeout(timer)
-  }, [tableRevealed, revealed, canArrive, eventId, rejoined])
-
-  // Auto-advance: partner reveal → session questions
-  useEffect(() => {
-    if (!revealed || view !== 'partner' || rejoined) return
-    const timer = setTimeout(() => setView('session'), 4500)
-    return () => clearTimeout(timer)
-  }, [revealed, view, rejoined])
 
   const submitWord = async () => {
     if (!word.trim()) return
@@ -4471,13 +4945,13 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   }
 
   if (loading && !data && !error) return (
-    <PageWrapper className="flex items-center justify-center">
+    <PageWrapper embedded className="flex items-center justify-center">
       <Spinner size={28} />
     </PageWrapper>
   )
 
   if (error && !data) return (
-    <PageWrapper className="flex flex-col items-center justify-center gap-4 p-6 text-center">
+    <PageWrapper embedded className="flex flex-col items-center justify-center gap-4 p-6 text-center">
       <div className="w-14 h-14 rounded-2xl bg-red-950/40 border border-red-800/40 flex items-center justify-center">
         <AlertTriangle className="text-red-400" size={28} />
       </div>
@@ -4493,15 +4967,14 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   )
 
   return (
-    <PageWrapper className="overflow-y-auto">
+    <PageWrapper embedded className="overflow-y-auto">
       <div className="max-w-sm mx-auto p-4 pb-6 space-y-3">
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="text-center pt-4 space-y-1">
           <div className="flex flex-col items-center gap-1.5">
             <div className="inline-flex items-center gap-2 bg-purple-900/30 border border-purple-700/40 text-purple-300 rounded-full px-4 py-1.5 text-sm font-semibold">
               <Brain size={13} /> جلسة فردية 1:1 · اختيارنا لك
             </div>
-            <p className="text-gray-600 text-xs">جلسة خاصة مع من رشّحه النظام بناءً على توافقكما</p>
-            <InfoHint text="الخوارزمية اختارت هذا الشخص بناءً على بياناتك وبياناتهم · اضغط لتأكيد وصولك · ستحصل على أسئلة للنقاش" delay={0.4} duration={5} />
+            <p className="text-gray-400 text-xs">لقاء مع من رشّحه النظام بناءً على توافقكما — اكتشفه بلا توقعات مسبقة</p>
           </div>
         </motion.div>
 
@@ -4530,65 +5003,24 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
             </motion.div>
           ) : !revealed ? (
             <motion.div key="table-anim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="space-y-4">
-              {/* Gorgeous table number animation */}
-              <div className="relative flex flex-col items-center justify-center py-10">
-                {/* Animated glow rings */}
-                <motion.div className="absolute w-52 h-52 rounded-full border-2 border-purple-500/20"
-                  animate={{ scale: [1, 1.35, 1], opacity: [0.5, 0, 0.5] }} transition={{ duration: 2, repeat: Infinity }} />
-                <motion.div className="absolute w-52 h-52 rounded-full border-2 border-purple-500/10"
-                  animate={{ scale: [1, 1.55, 1], opacity: [0.3, 0, 0.3] }} transition={{ duration: 2.5, repeat: Infinity, delay: 0.3 }} />
-                {/* Floating particles */}
-                <motion.div className="absolute w-3 h-3 rounded-full bg-purple-400/40"
-                  animate={{ y: [0, -20, 0], x: [0, 10, 0], opacity: [0, 1, 0] }} transition={{ duration: 3, repeat: Infinity, delay: 0.2 }} style={{ top: '20%', left: '30%' }} />
-                <motion.div className="absolute w-2 h-2 rounded-full bg-violet-400/40"
-                  animate={{ y: [0, 15, 0], x: [0, -12, 0], opacity: [0, 1, 0] }} transition={{ duration: 2.5, repeat: Infinity, delay: 0.8 }} style={{ top: '30%', right: '25%' }} />
-                <motion.div className="absolute w-2.5 h-2.5 rounded-full bg-indigo-400/30"
-                  animate={{ y: [0, -15, 0], x: [0, 8, 0], opacity: [0, 1, 0] }} transition={{ duration: 3.5, repeat: Infinity, delay: 1.2 }} style={{ bottom: '25%', left: '35%' }} />
+              <JourneyCue
+                accent="purple"
+                title={`اتجه الآن إلى طاولة ${data?.table_number ?? "—"}`}
+                description="اسم شريكك يظهر هنا بمجرد تأكيد وصولك — ولن تحتاج للرجوع بحثاً عن التفاصيل."
+                steps={["اتجه للطاولة", "قابل شريكك", "ابدأ الحوار"]}
+                currentStep={0}
+              />
+              <MeetingPass accent="purple" kind="لقاء اختيار النظام" tableNumber={data?.table_number} partnerHidden />
 
-                {/* Table number */}
-                <motion.div
-                  initial={{ scale: 0.3, opacity: 0, filter: "blur(20px)" }}
-                  animate={{ scale: 1, opacity: 1, filter: "blur(0px)" }}
-                  transition={{ type: "spring", stiffness: 200, damping: 18 }}
-                  className="relative z-10 text-center"
-                >
-                  <motion.div animate={{ y: [0, -3, 0] }} transition={{ duration: 2, repeat: Infinity }}>
-                    <MapPin size={28} className="text-purple-400 mx-auto mb-2" />
-                  </motion.div>
-                  <p className="text-gray-500 text-sm mb-1">توجّه إلى الطاولة رقم</p>
-                  <motion.div
-                    className="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-br from-purple-300 via-violet-400 to-purple-500"
-                    animate={{ scale: [1, 1.04, 1] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                    style={{ filter: "drop-shadow(0 0 20px rgba(139,92,246,0.3))" }}
-                  >
-                    {data?.table_number ?? "—"}
-                  </motion.div>
-                </motion.div>
-              </div>
-
-              {/* Auto-advance indicator, manual button for rejoined, or wait timer */}
-              {canArrive && rejoined ? (
-                <motion.button onClick={handleReveal} whileTap={{ scale: 0.97 }}
-                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-                  className="w-full bg-gradient-to-br from-purple-600 via-violet-600 to-purple-700 text-white rounded-2xl py-5 font-bold text-lg shadow-2xl shadow-purple-600/40 border border-purple-500/30">
+              {/* Arrival is an explicit confirmation so the reveal cannot disappear mid-read. */}
+              {canArrive ? (
+                <motion.button type="button" onClick={handleReveal} whileTap={{ scale: 0.97 }}
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }}
+                  className="min-h-14 w-full rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-600 via-violet-600 to-purple-700 px-4 py-4 text-lg font-bold text-white shadow-2xl shadow-purple-600/40">
                   <span className="flex items-center justify-center gap-3">
-                    <MapPin size={22} /> اكشف شريكك
+                    <MapPin size={22} /> وصلت إلى الطاولة — اكشف شريكك
                   </span>
                 </motion.button>
-              ) : canArrive ? (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }} className="text-center space-y-2">
-                  <motion.div className="flex items-center justify-center gap-2 text-purple-400 text-sm font-medium"
-                    animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.5, repeat: Infinity }}>
-                    <Loader2 size={14} className="animate-spin" />
-                    <span>جاري الكشف عن شريكك...</span>
-                  </motion.div>
-                  {/* Progress bar */}
-                  <div className="h-0.5 bg-gray-800/60 rounded-full overflow-hidden max-w-[180px] mx-auto">
-                    <motion.div className="h-full bg-gradient-to-r from-purple-500 to-violet-400"
-                      initial={{ width: "0%" }} animate={{ width: "100%" }} transition={{ duration: 2.8, ease: "linear" }} />
-                  </div>
-                </motion.div>
               ) : (
                 <div className="text-center">
                   <p className="text-gray-600 text-xs">انتظر دقيقة من بدء المؤقت</p>
@@ -4621,57 +5053,28 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                 </motion.div>
               )}
 
-              <motion.div initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 200, delay: 0.05 }}>
-                <div className="relative overflow-hidden rounded-3xl border border-purple-700/25 shadow-2xl shadow-purple-900/30">
-                  <div className="absolute inset-0 bg-gradient-to-br from-purple-950 via-violet-950/80 to-purple-900/60" />
-                  <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-purple-400/60 to-transparent" />
-                  <div className="absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-black/30 to-transparent" />
-                  {/* Floating glow orbs */}
-                  <motion.div className="absolute w-32 h-32 rounded-full bg-purple-500/10 blur-3xl"
-                    animate={{ x: [0, 20, 0], y: [0, -15, 0] }} transition={{ duration: 4, repeat: Infinity }} style={{ top: '10%', left: '5%' }} />
-                  <motion.div className="absolute w-24 h-24 rounded-full bg-violet-500/10 blur-3xl"
-                    animate={{ x: [0, -15, 0], y: [0, 10, 0] }} transition={{ duration: 3.5, repeat: Infinity, delay: 0.5 }} style={{ bottom: '10%', right: '5%' }} />
-                  <div className="relative z-10 px-6 pt-6 pb-7 text-center">
-                    <div className="inline-flex items-center gap-1.5 bg-purple-900/50 border border-purple-700/40 rounded-full px-3 py-1 mb-4">
-                      <Brain size={10} className="text-purple-400" />
-                      <span className="text-purple-300 text-[11px] font-semibold tracking-wide">جلسة فردية · اختيار النظام</span>
-                    </div>
-                    <motion.p className="text-5xl font-black text-white mb-2 tracking-tight" style={{ textShadow: '0 2px 20px rgba(139,92,246,0.3)' }}
-                      initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.15 }}>{data?.partner_first_name || "..."}</motion.p>
-                    <motion.p className="text-purple-400/50 text-xs mt-1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>شريكك في جلسة اختيار النظام</motion.p>
-                  </div>
-                </div>
-              </motion.div>
+              <MeetingPass accent="purple" kind="لقاء اختيار النظام" partnerName={data?.partner_first_name} tableNumber={data?.table_number} badge={data?.same_as_phase2 ? "تطابق مثالي" : null} />
+              <JourneyCue accent="purple" title={`ابدأ اللقاء مع ${data?.partner_first_name || "شريكك"}`} description="اسم الشريك والطاولة سيبقيان ظاهرين داخل مساحة الأسئلة." steps={["وصلت", "ابدأ الحوار", "قيّم اللقاء"]} currentStep={1} />
 
-              {/* Partner info card */}
-              {data && <PartnerInfoCard data={data} accent="purple" />}
-
-              {/* Auto-advance to session indicator */}
-              {!rejoined && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="text-center space-y-2">
-                  <motion.div className="flex items-center justify-center gap-2 text-purple-400/80 text-sm font-medium"
-                    animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.5, repeat: Infinity }}>
-                    <Loader2 size={14} className="animate-spin" />
-                    <span>جاري التحضير للجلسة...</span>
-                  </motion.div>
-                  <div className="h-0.5 bg-gray-800/60 rounded-full overflow-hidden max-w-[200px] mx-auto">
-                    <motion.div className="h-full bg-gradient-to-r from-purple-500 to-violet-400"
-                      initial={{ width: "0%" }} animate={{ width: "100%" }} transition={{ duration: 4.5, ease: "linear" }} />
-                  </div>
-                </motion.div>
+              {data && (
+                <details className="group rounded-2xl border border-white/[0.07] bg-white/[0.03] text-right">
+                  <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 text-xs font-bold text-gray-300">
+                    لمحة اختيارية قبل اللقاء
+                    <ChevronRight size={15} className="rotate-90 text-gray-500 transition-transform group-open:-rotate-90" />
+                  </summary>
+                  <div className="px-3 pb-3"><PartnerInfoCard data={data} accent="purple" /></div>
+                </details>
               )}
 
-              {/* Manual skip for rejoined users */}
-              {rejoined && (
-                <motion.button
-                  onClick={() => setView('session')}
-                  initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
-                  className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl border font-bold text-base transition-all bg-purple-900/30 border-purple-700/40 text-purple-300 hover:brightness-125 active:scale-95"
-                >
-                  انتقل إلى أسئلة الجلسة
-                  <ChevronRight size={16} />
-                </motion.button>
-              )}
+              <motion.button
+                type="button"
+                onClick={() => setView('session')}
+                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
+                className="flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-violet-600 to-purple-600 px-4 py-4 text-base font-black text-white shadow-xl shadow-purple-950/30 transition-all hover:brightness-110 active:scale-[0.98]"
+              >
+                وصلت — ابدأ اللقاء
+                <ArrowLeft size={17} />
+              </motion.button>
             </motion.div>
           )}
         </AnimatePresence>
@@ -4683,25 +5086,26 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
           <motion.div
             initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="fixed inset-0 z-40 bg-gray-950 flex flex-col overflow-y-auto"
+            className="event3-shell fixed inset-0 z-[220] flex h-[100dvh] flex-col overflow-y-auto bg-gray-950"
           >
             <div className="pointer-events-none fixed inset-0 overflow-hidden">
               <div className="absolute -top-32 -right-24 w-96 h-96 bg-purple-500/20 rounded-full blur-[100px]" />
               <div className="absolute top-1/2 -left-20 w-80 h-80 bg-violet-500/15 rounded-full blur-[90px]" />
               <div className="absolute -bottom-20 right-1/3 w-72 h-72 bg-indigo-500/15 rounded-full blur-[80px]" />
             </div>
-            <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 border-b border-white/[0.06] bg-gray-950/80 backdrop-blur-xl">
-              <button onClick={() => { setView('partner'); setRevealed(false); setTableRevealed(true) }} className="flex items-center gap-1.5 text-gray-400 hover:text-white text-sm font-medium transition-colors">
-                ← رجوع
-              </button>
-              <span className="text-white font-bold text-sm">أسئلة الجلسة الثانية</span>
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/[0.06] bg-gray-950/80 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-xl">
+              <div className="min-w-0 text-right">
+                <p className="text-[10px] font-bold text-violet-300">لقاء اختيار النظام · طاولة {data?.table_number ?? "—"}</p>
+                <p className="mt-0.5 truncate text-sm font-black text-white">مع {data?.partner_first_name || "شريكك"}</p>
+              </div>
               <span className={`font-mono text-sm font-black tabular-nums ${timeLeft < 300 ? 'text-red-400' : 'text-purple-300'}`}>{formatTime(timeLeft)}</span>
             </div>
 
             {/* Ice breaker phase — full screen centered */}
             <AnimatePresence mode="wait">
               {!icebreakerDone ? (
-                <motion.div key="icebreaker" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="flex-1 flex flex-col items-center justify-center max-w-sm mx-auto w-full p-5">
+                <motion.div key="icebreaker" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-4 p-5">
+                  <JourneyCue accent="purple" eyebrow="بداية اللقاء" title="اختاروا بداية تناسبكم" description="التحدي اختياري؛ يمكنكم تخطيه والبدء مباشرة بأول سؤال." steps={["كسر جليد", "حوار", "تقييم"]} currentStep={0} />
                   <RockPaperScissors accent="purple" autoDone={rejoined} onDone={() => setIcebreakerDone(true)} />
                 </motion.div>
               ) : (
@@ -4735,21 +5139,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                     </div>
                   </motion.div>
 
-                  {/* Live timer strip */}
-                  {timerActive && timeLeft > 0 && (
-                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-                      className="rounded-xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
-                      <div className="flex items-center justify-between px-4 py-3">
-                        <span className="text-gray-500 text-xs flex items-center gap-1.5"><Clock size={10} className="text-purple-400" /> الوقت المتبقي</span>
-                        <span className={`font-mono font-black text-lg tabular-nums ${timeLeft < 60 ? 'text-red-400' : 'text-white'}`}>{formatTime(timeLeft)}</span>
-                      </div>
-                      <div className="h-[2px] bg-gray-800/60">
-                        <motion.div className={`h-full ${timeLeft < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-purple-500 to-violet-400"}`}
-                          style={{ boxShadow: timeLeft < 60 ? "0 0 6px rgba(239,68,68,0.6)" : "0 0 6px rgba(139,92,246,0.6)" }}
-                          animate={{ width: `${(timeLeft / timerDuration) * 100}%` }} transition={{ duration: 1 }} />
-                      </div>
-                    </motion.div>
-                  )}
+                  <JourneyCue accent="purple" eyebrow="مساحة اللقاء" title="ابدأوا بالسؤال الظاهر" description="يجيب كل منكما، ثم اضغطوا التالي. غيّروا المسار فقط إذا أردتم موضوعاً مختلفاً." steps={["بدأتم", "حوار", "تقييم"]} currentStep={1} />
 
                   {/* Time warning banner */}
                   <AnimatePresence>
@@ -4769,7 +5159,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                           <p className="text-red-200 text-xs font-bold tracking-wide">باقي {timeLeft} ثانية — استعد لإنهاء الجلسة</p>
                           <p className="text-red-400/50 text-[10px] mt-0.5">سيتم نقلك للتقييم تلقائياً عند انتهاء الوقت</p>
                         </div>
-                        <button onClick={() => setShowTimeWarning(false)} className="text-red-500/40 hover:text-red-300 transition-colors flex-shrink-0 p-1">
+                        <button type="button" onClick={() => setShowTimeWarning(false)} aria-label="إخفاء تنبيه الوقت" className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-red-400/70 transition-colors hover:bg-white/5 hover:text-red-200">
                           <X size={14} />
                         </button>
                         {/* Countdown progress bar */}
@@ -4793,39 +5183,30 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                     <QuestionSlideshow defaultSet="set1" />
                   </motion.div>
 
-                  {/* PromptTopicsModal */}
-                  <motion.button onClick={() => setShowPrompt(true)} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-                    className="flex items-center justify-center gap-2 w-full py-2.5 rounded-full text-sm font-medium bg-gradient-to-r from-purple-600/60 to-pink-600/60 hover:from-purple-600 hover:to-pink-600 text-white transition-all border border-purple-700/30">
-                    <MessageSquare size={14} /> أسئلة للنقاش
-                  </motion.button>
+                  <details className="group rounded-2xl border border-white/[0.07] bg-white/[0.025] text-right">
+                    <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 text-xs font-bold text-gray-400">
+                      تحتاجون مساعدة في إدارة الحوار؟
+                      <ChevronRight size={15} className="rotate-90 transition-transform group-open:-rotate-90" />
+                    </summary>
+                    <div className="border-t border-white/[0.06] p-3">
+                      <button type="button" onClick={() => setShowSessionTips(true)} className="min-h-11 w-full rounded-xl border border-white/[0.07] bg-white/[0.04] text-xs font-bold text-gray-300"><Sparkles size={13} className="ml-1 inline" />طريقة استخدام الأسئلة</button>
+                    </div>
+                  </details>
 
                   {/* Jump to feedback */}
                   <motion.button
                     onClick={() => setView('feedback')}
                     whileTap={{ scale: 0.97 }}
                     initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
-                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gradient-to-r from-purple-700/80 to-violet-700/80 hover:from-purple-600 hover:to-violet-600 text-white text-sm font-bold transition-all shadow-lg shadow-purple-900/30 border border-purple-600/30"
+                    className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border py-3.5 text-sm font-bold transition-all ${timeLeft > 120 ? "border-white/[0.08] bg-white/[0.035] text-gray-400" : "border-violet-500/30 bg-gradient-to-r from-purple-700/80 to-violet-700/80 text-white shadow-lg shadow-purple-900/30"}`}
                   >
                     <CheckCircle size={16} />
-                    انتهيت من الجلسة — انتقل للتقييم
-                  </motion.button>
-
-                  {/* Quick tips button */}
-                  <motion.button
-                    onClick={() => setShowSessionTips(true)}
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
-                    className="text-gray-600 hover:text-gray-400 text-[11px] font-medium transition-colors flex items-center gap-1.5 mx-auto"
-                  >
-                    <Sparkles size={11} />
-                    نصائح سريعة
+                    إنهاء اللقاء والبدء بالتقييم
                   </motion.button>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            <Suspense fallback={null}>
-              {showPrompt && <PromptTopicsModal open={showPrompt} onClose={() => setShowPrompt(false)} />}
-            </Suspense>
           </motion.div>
         )}
       </AnimatePresence>
@@ -4840,9 +5221,11 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
             onDone={() => setFeedbackDone(true)}
             onBack={() => setView('session')}
             isLastSession
+            accent="purple"
             onSubmit={async (fbData) => {
               const d = await call('e3-submit-phase3-feedback', token, { feedback: fbData })
               if (!d.error) { toast.success('تم الحفظ'); return true }
+              toast.error(d.error || 'تعذّر حفظ التقييم. تحقق من الاتصال وحاول مجددًا.')
               return false
             }}
           />
@@ -4851,7 +5234,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
 
       {/* ── Timer Warning Popup ─────────────────────────────────────── */}
       <AnimatePresence>
-        {popup && <TimerWarningPopup {...popup} onDone={clearPopup} />}
+        {popup && <TimerWarningPopup key={popup.seconds} {...popup} onDone={clearPopup} />}
       </AnimatePresence>
     </PageWrapper>
   )
@@ -4861,7 +5244,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
 function ProcessingScreen({ phase }: { phase: string }) {
   const isPhase2 = phase === "phase2_processing"
   return (
-    <div className="flex flex-col items-center justify-center min-h-[100dvh] px-6 py-10" dir="rtl">
+    <div className="flex min-h-full flex-col items-center justify-center px-6 py-10" dir="rtl">
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -4874,19 +5257,21 @@ function ProcessingScreen({ phase }: { phase: string }) {
           className="w-20 h-20 mx-auto mb-6 rounded-full border-4 border-purple-500/20 border-t-purple-400"
         />
         <h1 className="text-2xl font-bold text-white mb-3">
-          {isPhase2 ? "جاري حساب نتائج اختيارك" : "جاري حساب نتائج الخوارزمية"}
+          {isPhase2 ? "ننسّق اختيارك" : "نجهّز ترشيح النظام"}
         </h1>
-        <p className="text-gray-400 text-sm mb-8 leading-relaxed">
-          {isPhase2
-            ? "نقوم بمطابقة اختيارات المشاركين وحساب التوافق. قد تستغرق هذه العملية لحظات..."
-            : "نقوم بتشغيل خوارزمية التوافق وحساب أفضل المطابقات. قد تستغرق هذه العملية لحظات..."}
+        <p className="text-gray-400 text-sm mb-6 leading-relaxed">
+          لا تحتاج إلى إجراء أي شيء الآن. ابقَ في هذه الشاشة وسننقلك تلقائيًا عند جاهزية اللقاء.
         </p>
-        <div className="bg-purple-950/20 border border-purple-800/30 rounded-2xl p-5">
-          <p className="text-purple-300/80 text-sm leading-relaxed flex items-center justify-center gap-2">
-            <Sparkles className="w-4 h-4" />
-            الرجاء الانتظار — ستظهر النتائج قريبًا
-          </p>
-        </div>
+        <JourneyCue
+          eyebrow="الآن"
+          title="استراحة قصيرة"
+          description={isPhase2
+            ? "التالي: سنعرض اسم الشخص الذي اختارك أيضاً ورقم طاولتك."
+            : "التالي: سنعرض ترشيح النظام ورقم طاولتك."}
+          steps={["انتظر هنا", "اعرف الشريك والطاولة", "ابدأ اللقاء"]}
+          activeStep={0}
+          accent={isPhase2 ? "pink" : "purple"}
+        />
       </motion.div>
     </div>
   )
@@ -4898,7 +5283,7 @@ function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow }: {
 }) {
   const [timeLeft, setTimeLeft] = useState(0)
   const [showBreakWarning, setShowBreakWarning] = useState(false)
-  const { popup, clearPopup } = useTimerWarnings(timerActive, timeLeft, timerDuration)
+  const { popup, clearPopup } = useTimerWarnings(timerActive, timeLeft, timerDuration, true, undefined, timerStart)
 
   useEffect(() => {
     if (!timerActive || !timerStart) { setTimeLeft(0); return }
@@ -4923,7 +5308,7 @@ function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow }: {
   const pct = timerDuration > 0 ? (timeLeft / timerDuration) * 100 : 0
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[100dvh] px-6 py-10" dir="rtl">
+    <div className="flex min-h-full flex-col items-center justify-center px-6 py-10" dir="rtl">
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -4977,7 +5362,7 @@ function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow }: {
                     <p className="text-amber-200 text-xs font-bold tracking-wide">باقي {timeLeft} ثانية — استعد للعودة</p>
                     <p className="text-amber-400/50 text-[10px] mt-0.5">المرحلة التالية ستبدأ قريباً</p>
                   </div>
-                  <button onClick={() => setShowBreakWarning(false)} className="text-amber-500/40 hover:text-amber-300 transition-colors flex-shrink-0 p-1">
+                  <button type="button" onClick={() => setShowBreakWarning(false)} aria-label="إخفاء تنبيه الوقت" className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-amber-400/70 transition-colors hover:bg-white/5 hover:text-amber-200">
                     <X size={14} />
                   </button>
                   {/* Countdown progress bar */}
@@ -5018,7 +5403,7 @@ function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow }: {
 
       {/* ── Timer Warning Popup ─────────────────────────────────────── */}
       <AnimatePresence>
-        {popup && <TimerWarningPopup {...popup} onDone={clearPopup} />}
+        {popup && <TimerWarningPopup key={popup.seconds} {...popup} onDone={clearPopup} />}
       </AnimatePresence>
     </div>
   )
@@ -5040,6 +5425,8 @@ function RevealCard({ icon, label, name, score, word, revealed, accent }: {
       >
         {/* Front — revealed content */}
         <div
+          aria-hidden={!revealed}
+          inert={!revealed}
           className={`relative overflow-hidden rounded-2xl border shadow-xl h-full flex flex-col items-center justify-center p-5 space-y-2.5 ${isPink ? "border-pink-800/40 shadow-pink-900/20 bg-gradient-to-br from-pink-950/40 to-rose-950/20" : "border-purple-800/40 shadow-purple-900/20 bg-gradient-to-br from-purple-950/40 to-violet-950/20"}`}
           style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
         >
@@ -5048,7 +5435,7 @@ function RevealCard({ icon, label, name, score, word, revealed, accent }: {
             <Icon size={18} className={isPink ? "text-pink-400" : "text-purple-400"} />
           </div>
           <p className={`text-[10px] font-semibold tracking-wide uppercase ${isPink ? "text-pink-400/70" : "text-purple-400/70"}`}>{label}</p>
-          <motion.p className="text-lg sm:text-xl font-black text-white leading-tight truncate w-full text-center" initial={{ scale: 0.5 }} animate={{ scale: revealed ? 1 : 0.5 }} transition={{ delay: 0.4, type: "spring", stiffness: 300 }}>{name}</motion.p>
+          <motion.p className="line-clamp-2 w-full break-words text-center text-lg font-black leading-tight text-white sm:text-xl" initial={{ scale: 0.5 }} animate={{ scale: revealed ? 1 : 0.5 }} transition={{ delay: 0.4, type: "spring", stiffness: 300 }}>{name}</motion.p>
           <div className="flex items-baseline gap-0.5">
             <span className={`font-black text-lg ${isPink ? "text-pink-300" : "text-purple-300"}`}>{score}</span>
             <span className={isPink ? "text-pink-400/50 text-xs" : "text-purple-400/50 text-xs"}>%</span>
@@ -5059,6 +5446,8 @@ function RevealCard({ icon, label, name, score, word, revealed, accent }: {
         </div>
         {/* Back — hidden */}
         <div
+          aria-hidden={revealed}
+          inert={revealed}
           className="absolute inset-0 rounded-2xl border border-gray-800 bg-gradient-to-br from-gray-900 to-gray-950 flex flex-col items-center justify-center p-5"
           style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
         >
@@ -5098,13 +5487,13 @@ function AiAnalysisCompact({ partnerNum, token, currentEventId, accent, title }:
   if (shown && analysis) {
     return (
       <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
-        className={`rounded-2xl overflow-hidden border ${isPink ? "border-pink-800/30" : "border-purple-800/30"} bg-gradient-to-br from-gray-900/80 to-gray-950/80`}>
+        role="status" aria-live="polite" className={`rounded-2xl overflow-hidden border ${isPink ? "border-pink-800/30" : "border-purple-800/30"} bg-gradient-to-br from-gray-900/80 to-gray-950/80`}>
         <div className={`px-4 py-3 border-b flex items-center justify-between ${isPink ? "border-pink-800/30" : "border-purple-800/30"}`}>
           <div className="flex items-center gap-2">
             <Sparkles size={14} className={isPink ? "text-pink-400" : "text-purple-400"} />
             <span className={`font-bold text-xs ${isPink ? "text-pink-300" : "text-purple-300"}`}>التحليل الذكي</span>
           </div>
-          <button onClick={() => setShown(false)} className="text-gray-600 hover:text-gray-400 transition-colors"><X size={14} /></button>
+          <button type="button" onClick={() => setShown(false)} aria-label="إغلاق التحليل الذكي" className="flex h-11 w-11 items-center justify-center rounded-full text-gray-300 transition-colors hover:bg-white/[0.06] hover:text-white"><X size={16} /></button>
         </div>
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
           className="text-gray-300 text-xs leading-relaxed whitespace-pre-wrap text-right p-4">{analysis}</motion.p>
@@ -5113,8 +5502,8 @@ function AiAnalysisCompact({ partnerNum, token, currentEventId, accent, title }:
   }
 
   return (
-    <motion.button onClick={generate} disabled={generating} whileTap={{ scale: 0.97 }}
-      className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-60 ${isPink ? "bg-pink-950/30 border border-pink-800/40 text-pink-300 hover:bg-pink-950/50" : "bg-purple-950/30 border border-purple-800/40 text-purple-300 hover:bg-purple-950/50"}`}>
+    <motion.button type="button" onClick={generate} disabled={generating} aria-busy={generating} whileTap={{ scale: 0.97 }}
+      className={`flex min-h-11 w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition-all disabled:opacity-60 ${isPink ? "bg-pink-950/30 border border-pink-800/40 text-pink-300 hover:bg-pink-950/50" : "bg-purple-950/30 border border-purple-800/40 text-purple-300 hover:bg-purple-950/50"}`}>
       {generating ? (
         <><span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> جاري التحليل…</>
       ) : (
@@ -5125,6 +5514,7 @@ function AiAnalysisCompact({ partnerNum, token, currentEventId, accent, title }:
 }
 
 function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; onQuestionViewerChange?: (open: boolean) => void }) {
+  const reduceMotion = useReducedMotion()
   const [revealed, setRevealed] = useState(false)
   const [matchPref, setMatchPref] = useState<string | null>(null)
   const [prefSubmitting, setPrefSubmitting] = useState(false)
@@ -5142,8 +5532,19 @@ function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; o
 
   const { data, loading, error, retry } = useApiPoll(fetchFinalReveal, {
     interval: 5000,
-    stopWhen: (d) => Boolean(d.phase2?.partner_number && d.phase3?.partner_number)
+    stopWhen: (d) => Boolean(
+      d.phase2?.partner_number
+      && d.phase2?.partner_first_name
+      && d.phase3?.partner_number
+      && d.phase3?.partner_first_name
+    )
   })
+  const finalResultsReady = Boolean(
+    data?.phase2?.partner_number
+    && data?.phase2?.partner_first_name
+    && data?.phase3?.partner_number
+    && data?.phase3?.partner_first_name
+  )
 
   useEffect(() => {
     onQuestionViewerChange?.(screenMode === "questions")
@@ -5155,14 +5556,15 @@ function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; o
     if (!data) return
     setMatchPref(data.match_preference || null)
     setCurrentEventId(data.current_event_id || 1)
+    if (!finalResultsReady) return
     if (revealStarted.current) return
     revealStarted.current = true
     const timer = setTimeout(() => {
       setRevealed(true)
-      fireConfetti({ particleCount: 60, spread: 65, origin: { y: 0.35 }, colors: ["#a855f7", "#ec4899", "#f43f5e", "#fbbf24"] })
+      if (!reduceMotion) fireConfetti({ particleCount: 60, spread: 65, origin: { y: 0.35 }, colors: ["#a855f7", "#ec4899", "#f43f5e", "#fbbf24"] })
     }, 500)
     return () => clearTimeout(timer)
-  }, [data])
+  }, [data, finalResultsReady, reduceMotion])
 
   const submitPref = async (pref: string) => {
     setPrefSubmitting(true)
@@ -5172,9 +5574,9 @@ function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; o
     else toast.error("حدث خطأ")
   }
 
-  if (loading) return <PageWrapper className="flex items-center justify-center"><Spinner size={28} /></PageWrapper>
+  if (loading) return <PageWrapper embedded className="flex items-center justify-center"><Spinner size={28} /></PageWrapper>
   if (error && !data) return (
-    <PageWrapper className="flex flex-col items-center justify-center gap-4 p-6 text-center">
+    <PageWrapper embedded className="flex flex-col items-center justify-center gap-4 p-6 text-center">
       <AlertTriangle className="text-amber-400" size={30} />
       <div className="space-y-1">
         <p className="text-white font-semibold">النتائج النهائية ليست جاهزة بعد</p>
@@ -5185,13 +5587,22 @@ function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; o
       </button>
     </PageWrapper>
   )
-  if (!data) return <PageWrapper className="flex items-center justify-center text-gray-500 text-sm">لا توجد نتائج بعد</PageWrapper>
+  if (!data) return <PageWrapper embedded className="flex items-center justify-center text-gray-500 text-sm">لا توجد نتائج بعد</PageWrapper>
+  if (!finalResultsReady) return (
+    <PageWrapper embedded className="flex flex-col items-center justify-center gap-4 p-6 text-center" role="status" aria-live="polite">
+      <Spinner size={28} />
+      <div>
+        <p className="font-bold text-white">نجهّز نتيجتك النهائية</p>
+        <p className="mt-1 text-sm text-gray-400">سنحدّث هذه الصفحة تلقائياً عند اكتمال النتيجتين.</p>
+      </div>
+    </PageWrapper>
+  )
 
   const p2 = data.phase2, p3 = data.phase3
 
   if (screenMode === "questions") {
     return (
-      <PageWrapper className="overflow-y-auto">
+      <PageWrapper embedded className="overflow-y-auto">
         <div className="mx-auto max-w-md px-3 pb-8 pt-4" dir="rtl">
           <div className="mb-4 rounded-2xl border border-white/[0.07] bg-gray-900/60 p-3">
             <div className="mb-3 text-center">
@@ -5199,14 +5610,20 @@ function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; o
               <h1 className="mt-1 text-xl font-black text-white">أسئلة الجلسات</h1>
               <p className="mt-1 text-xs text-gray-500">للعرض والنقاش فقط — لن يتم حفظ أي إجابات</p>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2" role="tablist" aria-label="مرحلة أسئلة الجلسة">
               <button
+                type="button"
+                role="tab"
+                aria-selected={questionPhase === "phase1"}
                 onClick={() => setQuestionPhase("phase1")}
                 className={`min-h-11 rounded-xl border text-sm font-bold transition-all ${questionPhase === "phase1" ? "border-pink-500/50 bg-pink-500/15 text-pink-200" : "border-white/[0.07] bg-white/[0.03] text-gray-500"}`}
               >
                 أسئلة المرحلة الأولى
               </button>
               <button
+                type="button"
+                role="tab"
+                aria-selected={questionPhase === "phase2"}
                 onClick={() => setQuestionPhase("phase2")}
                 className={`min-h-11 rounded-xl border text-sm font-bold transition-all ${questionPhase === "phase2" ? "border-purple-500/50 bg-purple-500/15 text-purple-200" : "border-white/[0.07] bg-white/[0.03] text-gray-500"}`}
               >
@@ -5215,7 +5632,9 @@ function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; o
             </div>
           </div>
 
-          <QuestionSlideshow key={`final-${questionPhase}`} defaultSet={questionPhase === "phase1" ? "choice" : "set1"} />
+          <div role="tabpanel" aria-label={questionPhase === "phase1" ? "أسئلة المرحلة الأولى" : "أسئلة المرحلة الثانية"}>
+            <QuestionSlideshow key={`final-${questionPhase}`} defaultSet={questionPhase === "phase1" ? "choice" : "set1"} />
+          </div>
 
           <nav className="sticky bottom-3 z-20 mt-4 grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-gray-950/90 p-2 shadow-2xl backdrop-blur-xl" aria-label="التنقل بعد الكشف النهائي">
             <a href="/welcome" className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl bg-white/[0.05] text-[11px] font-bold text-gray-300">
@@ -5234,7 +5653,7 @@ function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; o
   }
 
   return (
-    <PageWrapper className="overflow-y-auto">
+    <PageWrapper embedded className="overflow-y-auto">
       <div className="max-w-sm mx-auto p-4 pb-8 space-y-4 text-center" dir="rtl">
         {/* Animated title */}
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ type: "spring", stiffness: 200, damping: 20 }} className="pt-4">
@@ -5256,7 +5675,8 @@ function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; o
         )}
 
         {/* Reveal cards with flip animation */}
-        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+        <p className="sr-only" aria-live="polite" aria-atomic="true">{revealed ? `تم الكشف: اختيارك ${p2?.partner_first_name} بنسبة ${p2?.compatibility_score} بالمئة، واختيار النظام ${p3?.partner_first_name} بنسبة ${p3?.compatibility_score} بالمئة` : "جاري تجهيز الكشف النهائي"}</p>
+        <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2 sm:gap-3">
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 }}>
             <RevealCard icon="heart" label="اختيارك" name={p2?.partner_first_name} score={p2?.compatibility_score} word={p2?.word} revealed={revealed} accent="pink" />
           </motion.div>
@@ -5270,25 +5690,36 @@ function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; o
           {data.same_match ? "غريزتك والخوارزمية متوافقتان — نادر الحدوث!" : "رأيت بعينيك، ورأت الخوارزمية بالبيانات — أيهما أصح؟"}
         </motion.p>
 
+        <motion.a href={`/results?token=${encodeURIComponent(token)}`} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.65 }} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 px-4 text-base font-black text-white shadow-xl shadow-purple-950/30">
+          <Trophy size={18} /> فتح النتائج والتواصل
+        </motion.a>
+
+        <details className="group rounded-3xl border border-white/[0.08] bg-white/[0.025] text-right">
+          <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 text-sm font-black text-gray-200">
+            فهم النتيجة بالتفصيل
+            <ChevronRight size={17} className="rotate-90 text-gray-500 transition-transform group-open:-rotate-90" />
+          </summary>
+          <div className="space-y-3 border-t border-white/[0.06] p-3">
+
         {/* Tabbed compatibility breakdown */}
         {!data.same_match && (p2?.breakdown || p3?.breakdown) && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}>
-            <div className="flex gap-1.5 mb-3">
-              <button onClick={() => setActiveTab('choice')} className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all border ${activeTab === 'choice' ? 'bg-pink-950/50 border-pink-700/40 text-pink-300' : 'bg-gray-900/40 border-gray-800/40 text-gray-500'}`}>
+            <div className="mb-3 flex gap-1.5" role="tablist" aria-label="تفاصيل التوافق">
+              <button type="button" role="tab" aria-selected={activeTab === 'choice'} onClick={() => setActiveTab('choice')} className={`min-h-11 flex-1 rounded-xl border py-2 text-xs font-bold transition-all ${activeTab === 'choice' ? 'bg-pink-950/50 border-pink-700/40 text-pink-300' : 'bg-gray-900/40 border-gray-800/40 text-gray-400'}`}>
                 <Heart size={12} className="inline ml-1" /> اختيارك
               </button>
-              <button onClick={() => setActiveTab('algorithm')} className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all border ${activeTab === 'algorithm' ? 'bg-purple-950/50 border-purple-700/40 text-purple-300' : 'bg-gray-900/40 border-gray-800/40 text-gray-500'}`}>
+              <button type="button" role="tab" aria-selected={activeTab === 'algorithm'} onClick={() => setActiveTab('algorithm')} className={`min-h-11 flex-1 rounded-xl border py-2 text-xs font-bold transition-all ${activeTab === 'algorithm' ? 'bg-purple-950/50 border-purple-700/40 text-purple-300' : 'bg-gray-900/40 border-gray-800/40 text-gray-400'}`}>
                 <Brain size={12} className="inline ml-1" /> اختيار النظام
               </button>
             </div>
             <AnimatePresence mode="wait">
               {activeTab === 'choice' && p2?.breakdown && (
-                <motion.div key="choice" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }}>
+                <motion.div key="choice" role="tabpanel" aria-label="تفاصيل توافق اختيارك" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }}>
                   <CompatibilityBreakdown breakdown={p2.breakdown} accent="pink" partnerName={p2?.partner_first_name} />
                 </motion.div>
               )}
               {activeTab === 'algorithm' && p3?.breakdown && (
-                <motion.div key="algorithm" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2 }}>
+                <motion.div key="algorithm" role="tabpanel" aria-label="تفاصيل توافق اختيار النظام" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2 }}>
                   <CompatibilityBreakdown breakdown={p3.breakdown} accent="purple" partnerName={p3?.partner_first_name} />
                 </motion.div>
               )}
@@ -5312,38 +5743,48 @@ function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; o
             <AiAnalysisCompact partnerNum={p3.partner_number} token={token} currentEventId={currentEventId} accent="purple" title="لماذا اختارتك الخوارزمية؟" />
           )}
         </motion.div>
+          </div>
+        </details>
 
         {/* Match preference — simplified */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.9 }}
           className="rounded-2xl border border-gray-800/60 bg-gray-900/50 p-4 space-y-3">
-          <p className="text-gray-300 font-bold text-sm">من تفضّل؟</p>
-          <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => submitPref("choice")} disabled={prefSubmitting || matchPref === "choice"}
-              className={`py-2.5 rounded-xl text-xs font-bold transition-all border ${matchPref === "choice" ? "bg-pink-600/30 border-pink-500/50 text-pink-300" : "bg-pink-950/30 border-pink-800/40 text-pink-300 hover:bg-pink-950/50"}`}>
+          <div>
+            <p className="text-gray-300 font-bold text-sm">مَن كان أقرب لك؟ <span className="font-medium text-gray-600">— اختياري</span></p>
+            <p className="mt-1 text-[11px] leading-5 text-gray-500">نستخدم الإجابة لتحسين التجربة فقط، ولا يراها أي شريك.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="الشخص المفضّل">
+            <button type="button" role="radio" aria-checked={matchPref === "choice"} onClick={() => submitPref("choice")} disabled={prefSubmitting || matchPref === "choice"}
+              className={`min-h-11 rounded-xl border py-2.5 text-xs font-bold transition-all ${matchPref === "choice" ? "bg-pink-600/30 border-pink-500/50 text-pink-300" : "bg-pink-950/30 border-pink-800/40 text-pink-300 hover:bg-pink-950/50"}`}>
               {matchPref === "choice" ? "✓ " : ""}أفضّل اختياري
             </button>
-            <button onClick={() => submitPref("algorithm")} disabled={prefSubmitting || matchPref === "algorithm"}
-              className={`py-2.5 rounded-xl text-xs font-bold transition-all border ${matchPref === "algorithm" ? "bg-purple-600/30 border-purple-500/50 text-purple-300" : "bg-purple-950/30 border-purple-800/40 text-purple-300 hover:bg-purple-950/50"}`}>
+            <button type="button" role="radio" aria-checked={matchPref === "algorithm"} onClick={() => submitPref("algorithm")} disabled={prefSubmitting || matchPref === "algorithm"}
+              className={`min-h-11 rounded-xl border py-2.5 text-xs font-bold transition-all ${matchPref === "algorithm" ? "bg-purple-600/30 border-purple-500/50 text-purple-300" : "bg-purple-950/30 border-purple-800/40 text-purple-300 hover:bg-purple-950/50"}`}>
               {matchPref === "algorithm" ? "✓ " : ""}أفضّل الخوارزمية
             </button>
-            <button onClick={() => submitPref("both")} disabled={prefSubmitting || matchPref === "both"}
-              className={`py-2.5 rounded-xl text-xs font-bold transition-all border col-span-2 ${matchPref === "both" ? "bg-emerald-600/30 border-emerald-500/50 text-emerald-300" : "bg-gray-800/40 border-gray-700/40 text-gray-300 hover:bg-gray-800/60"}`}>
+            <button type="button" role="radio" aria-checked={matchPref === "both"} onClick={() => submitPref("both")} disabled={prefSubmitting || matchPref === "both"}
+              className={`col-span-2 min-h-11 rounded-xl border py-2.5 text-xs font-bold transition-all ${matchPref === "both" ? "bg-emerald-600/30 border-emerald-500/50 text-emerald-300" : "bg-gray-800/40 border-gray-700/40 text-gray-300 hover:bg-gray-800/60"}`}>
               {matchPref === "both" ? "✓ " : ""}كلاهما ممتاز
+            </button>
+            <button type="button" role="radio" aria-checked={matchPref === "neither"} onClick={() => submitPref("neither")} disabled={prefSubmitting || matchPref === "neither"}
+              className={`col-span-2 min-h-11 rounded-xl border py-2.5 text-xs font-bold transition-all ${matchPref === "neither" ? "border-slate-300/35 bg-slate-300/10 text-slate-100" : "border-gray-800/50 bg-transparent text-gray-500 hover:bg-gray-800/40"}`}>
+              {matchPref === "neither" ? "✓ " : ""}لا أفضل أحدهما الآن
             </button>
           </div>
         </motion.div>
 
         <motion.button
+          type="button"
           onClick={() => setScreenMode("questions")}
           initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.95 }}
           className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-purple-700/40 bg-purple-950/30 text-sm font-bold text-purple-200 transition-all hover:bg-purple-950/50 active:scale-[0.98]"
         >
-          <MessageSquare size={17} /> العودة ومتابعة أسئلة الجلسات
+          <MessageSquare size={17} /> مواصلة الحوار بأسئلة إضافية
         </motion.button>
 
         {/* Simple home link */}
         <motion.a href="/welcome" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }}
-          className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-300 text-xs transition-colors">
+          className="inline-flex min-h-11 items-center gap-2 text-xs text-gray-400 transition-colors hover:text-gray-200">
           <Home size={14} /> العودة للصفحة الرئيسية
         </motion.a>
       </div>
@@ -5353,6 +5794,7 @@ function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; o
 
 // ─── AI Welcome Popup ─────────────────────────────────────────────────────────
 function AiWelcomePopup({ token, onDone, previewMessage }: { token: string; onDone: () => void; previewMessage?: string }) {
+  const titleId = useId()
   const [message, setMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [typed, setTyped] = useState("")
@@ -5362,7 +5804,13 @@ function AiWelcomePopup({ token, onDone, previewMessage }: { token: string; onDo
   const [failed, setFailed] = useState(false)
   const [savingImage, setSavingImage] = useState(false)
   const typingRunRef = useRef(0)
+  const overlayRef = useRef<HTMLDivElement>(null)
+  const cardRef = useRef<HTMLDivElement>(null)
+  const dismissButtonRef = useRef<HTMLButtonElement>(null)
+  const onDoneRef = useRef(onDone)
+  const closingRef = useRef(false)
   const reduceMotion = useReducedMotion()
+  onDoneRef.current = onDone
 
   useEffect(() => {
     if (previewMessage) {
@@ -5437,7 +5885,7 @@ function AiWelcomePopup({ token, onDone, previewMessage }: { token: string; onDo
         setTyping(false)
         setDone(true)
         const compactScreen = window.matchMedia('(max-width: 639px)').matches
-        fireConfetti({ particleCount: compactScreen ? 36 : 80, spread: 70, origin: { y: 0.6 }, colors: ["#a855f7", "#ec4899", "#f0abfc", "#c084fc"] })
+        if (!reduceMotion) fireConfetti({ particleCount: compactScreen ? 36 : 80, spread: 70, origin: { y: 0.6 }, colors: ["#a855f7", "#ec4899", "#f0abfc", "#c084fc"] })
         return
       }
 
@@ -5455,10 +5903,50 @@ function AiWelcomePopup({ token, onDone, previewMessage }: { token: string; onDo
   }, [message, reduceMotion])
 
   const dismiss = () => {
-    if (closing) return
+    if (closingRef.current) return
+    closingRef.current = true
     setClosing(true)
-    setTimeout(() => onDone(), 400)
+    setTimeout(() => onDoneRef.current(), 400)
   }
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow
+    const overlay = overlayRef.current
+    const siblings = overlay?.parentElement
+      ? Array.from(overlay.parentElement.children).filter(node => node !== overlay) as HTMLElement[]
+      : []
+    const siblingState = siblings.map(node => ({ node, inert: node.inert, ariaHidden: node.getAttribute('aria-hidden') }))
+    siblings.forEach(node => { node.inert = true; node.setAttribute('aria-hidden', 'true') })
+    document.body.style.overflow = 'hidden'
+    const focusTimer = window.setTimeout(() => dismissButtonRef.current?.focus(), 80)
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        dismiss()
+        return
+      }
+      if (event.key !== 'Tab') return
+      const focusable = Array.from(cardRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      ) || [])
+      if (!focusable.length) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.clearTimeout(focusTimer)
+      document.removeEventListener('keydown', onKeyDown)
+      document.body.style.overflow = previousOverflow
+      siblingState.forEach(({ node, inert, ariaHidden }) => {
+        node.inert = inert
+        if (ariaHidden == null) node.removeAttribute('aria-hidden')
+        else node.setAttribute('aria-hidden', ariaHidden)
+      })
+    }
+  }, [])
 
   const saveImage = async () => {
     if (!message || savingImage) return
@@ -5494,12 +5982,17 @@ function AiWelcomePopup({ token, onDone, previewMessage }: { token: string; onDo
   return (
     <AnimatePresence>
       <motion.div
+        ref={overlayRef}
         initial={{ opacity: 0 }}
         animate={{ opacity: closing ? 0 : 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.4 }}
         className="fixed inset-0 z-[290] flex items-center justify-center overflow-hidden p-2 sm:p-4"
         onClick={() => done && dismiss()}
+        onKeyDown={event => { if (event.key === "Escape") dismiss() }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         dir="rtl"
       >
         {/* ─── Full-screen animated background ─── */}
@@ -5547,12 +6040,22 @@ function AiWelcomePopup({ token, onDone, previewMessage }: { token: string; onDo
 
         {/* ─── Main card ─── */}
         <motion.div
+          ref={cardRef}
           initial={{ scale: 0.85, y: 50, opacity: 0 }}
           animate={{ scale: closing ? 0.9 : 1, y: closing ? 30 : 0, opacity: closing ? 0 : 1 }}
           transition={{ type: "spring", stiffness: 240, damping: 24 }}
           onClick={e => e.stopPropagation()}
           className="relative z-10 flex max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col overflow-hidden rounded-[32px] border border-white/[0.08] shadow-2xl shadow-purple-900/50"
         >
+          <button
+            ref={dismissButtonRef}
+            type="button"
+            onClick={dismiss}
+            autoFocus
+            className="absolute left-3 top-3 z-30 flex min-h-11 items-center justify-center rounded-full border border-white/10 bg-black/25 px-4 text-xs font-bold text-gray-200 backdrop-blur-md transition-colors hover:bg-white/10"
+          >
+            {loading ? "الدخول الآن" : "المتابعة"}
+          </button>
           {/* Animated gradient border glow */}
           <motion.div
             className="absolute inset-0 rounded-[32px] pointer-events-none"
@@ -5599,7 +6102,7 @@ function AiWelcomePopup({ token, onDone, previewMessage }: { token: string; onDo
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
               >
-                <h1 className="text-xl font-black bg-gradient-to-r from-purple-300 via-pink-200 to-purple-300 bg-clip-text text-transparent tracking-tight">
+                <h1 id={titleId} className="text-xl font-black bg-gradient-to-r from-purple-300 via-pink-200 to-purple-300 bg-clip-text text-transparent tracking-tight">
                   التوافق الأعمى
                 </h1>
                 <motion.p
@@ -5806,7 +6309,7 @@ function AiWelcomePopup({ token, onDone, previewMessage }: { token: string; onDo
 }
 
 // ─── Not Enrolled Screen ──────────────────────────────────────────────────────
-function NotEnrolledScreen() {
+function NotEnrolledScreen({ onUseAnotherNumber }: { onUseAnotherNumber: () => void }) {
   return (
     <PageWrapper className="flex items-center justify-center p-6 text-center">
       <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="space-y-5 max-w-xs">
@@ -5815,10 +6318,15 @@ function NotEnrolledScreen() {
         </div>
         <h2 className="text-xl font-bold text-white">أنت لست مسجلاً</h2>
         <p className="text-gray-500 text-sm">رمزك صحيح، لكن لم يتم تسجيلك في هذه الفعالية.</p>
-        <p className="text-gray-600 text-xs">تواصل مع المنظم للمساعدة.</p>
-        <a href="/welcome" className="inline-flex items-center gap-2 text-purple-400 text-sm hover:text-purple-300 transition-colors">
-          <Home size={14} /> العودة للصفحة الرئيسية
-        </a>
+        <p className="text-gray-400 text-xs">تأكد من الرقم أو تواصل مع المنظم للمساعدة.</p>
+        <div className="flex flex-col gap-3">
+          <button type="button" onClick={onUseAnotherNumber} className="min-h-12 rounded-2xl bg-purple-600 px-5 text-sm font-bold text-white shadow-lg shadow-purple-950/40 transition-colors hover:bg-purple-500">
+            الدخول برقم آخر
+          </button>
+          <a href="/welcome" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl text-sm text-purple-300 transition-colors hover:text-purple-200">
+            <Home size={14} /> العودة للصفحة الرئيسية
+          </a>
+        </div>
       </motion.div>
     </PageWrapper>
   )
@@ -5827,6 +6335,10 @@ function NotEnrolledScreen() {
 
 // ─── Notification Modal ───────────────────────────────────────────────────────
 function NotificationModal({ token, notification }: { token: string; notification?: { pending: boolean; notif_id?: string; title?: string; body?: string | null; icon?: string; created_at?: string } }) {
+  const titleId = useId()
+  const overlayRef = useRef<HTMLDivElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const dismissButtonRef = useRef<HTMLButtonElement>(null)
   const [notif, setNotif] = useState<{ notif_id: string; title: string; body: string | null; icon: string; created_at: string } | null>(null)
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
   const [closing, setClosing] = useState(false)
@@ -5851,6 +6363,14 @@ function NotificationModal({ token, notification }: { token: string; notificatio
     }, 300)
   }
 
+  useModalFocus({
+    open: Boolean(notif),
+    overlayRef,
+    dialogRef,
+    initialFocusRef: dismissButtonRef,
+    onEscape: dismiss,
+  })
+
   if (!notif) return null
 
   const iconMap: Record<string, { icon: typeof Info; gradient: string; ring: string }> = {
@@ -5866,32 +6386,38 @@ function NotificationModal({ token, notification }: { token: string; notificatio
   return (
     <AnimatePresence>
       <motion.div
+        ref={overlayRef}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="fixed inset-0 z-[280] bg-black/40 backdrop-blur-md flex items-center justify-center p-5"
-        onClick={dismiss}
       >
         <motion.div
+          ref={dialogRef}
           initial={{ scale: 0.92, y: 16 }}
           animate={{ scale: closing ? 0.95 : 1, y: closing ? 8 : 0, opacity: closing ? 0.5 : 1 }}
           exit={{ scale: 0.92, y: 16 }}
           transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-          onClick={e => e.stopPropagation()}
           className="w-full max-w-sm rounded-3xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl p-7 text-center"
           dir="rtl"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={titleId}
+          tabIndex={-1}
         >
           <div className={`w-14 h-14 mx-auto rounded-full bg-gradient-to-br ${cfg.gradient} flex items-center justify-center mb-4 shadow-lg`}>
             <Icon size={24} className="text-white" />
           </div>
-          <p className="text-xl font-black text-white mb-2">{notif.title}</p>
+          <h2 id={titleId} className="mb-2 text-xl font-black text-white">{notif.title}</h2>
           {notif.body && (
             <p className="text-gray-400 text-sm leading-relaxed mb-5">{notif.body}</p>
           )}
           {!notif.body && <div className="mb-5" />}
           <button
+            ref={dismissButtonRef}
+            type="button"
             onClick={dismiss}
-            className="w-full py-3.5 rounded-2xl font-bold text-sm bg-white/[0.06] ring-1 ring-white/[0.08] text-gray-300 hover:bg-white/[0.1] hover:text-white transition-all active:scale-[0.98]"
+            className="min-h-12 w-full rounded-2xl bg-white/[0.06] py-3.5 text-sm font-bold text-gray-200 ring-1 ring-white/[0.08] transition-all hover:bg-white/[0.1] hover:text-white active:scale-[0.98]"
           >
             تم
           </button>
@@ -5903,6 +6429,10 @@ function NotificationModal({ token, notification }: { token: string; notificatio
 
 // ─── Mood Check Modal ─────────────────────────────────────────────────────────
 function MoodCheckModal({ token, name, moodCheck }: { token: string; name?: string | null; moodCheck?: { pending: boolean; check_id?: string; triggered_at?: string } }) {
+  const titleId = useId()
+  const overlayRef = useRef<HTMLDivElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const moodSubmitInFlightRef = useRef(false)
   const [pendingCheck, setPendingCheck] = useState<{ check_id: string; triggered_at: string } | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
@@ -5925,18 +6455,31 @@ function MoodCheckModal({ token, name, moodCheck }: { token: string; name?: stri
     }
   }, [moodCheck, dismissed, token])
 
-  const submit = async (mood: "happy" | "neutral" | "not_great") => {
-    if (!pendingCheck) return
-    setSelected(mood)
+  const submit = async (mood: "happy" | "neutral" | "not_great" | "expired") => {
+    if (!pendingCheck || moodSubmitInFlightRef.current) return
+    const checkId = pendingCheck.check_id
+    moodSubmitInFlightRef.current = true
+    setSelected(mood === "expired" ? null : mood)
     setSubmitting(true)
-    const d = await call("e3-submit-mood-check", token, { check_id: pendingCheck.check_id, mood })
-    setSubmitting(false)
-    if (d.error) { toast.error(d.error); setSelected(null); return }
-    setDismissed(prev => new Set(prev).add(pendingCheck.check_id))
-    setPendingCheck(null)
-    setSelected(null)
-    toast.success("شكراً لك")
+    try {
+      const d = await call("e3-submit-mood-check", token, { check_id: checkId, mood })
+      if (d.error) { toast.error(d.error); setSelected(null); return }
+      setDismissed(prev => new Set(prev).add(checkId))
+      setPendingCheck(null)
+      setSelected(null)
+      if (mood !== "expired") toast.success("شكراً لك")
+    } finally {
+      moodSubmitInFlightRef.current = false
+      setSubmitting(false)
+    }
   }
+
+  useModalFocus({
+    open: Boolean(pendingCheck),
+    overlayRef,
+    dialogRef,
+    onEscape: () => { if (!submitting) void submit("expired") },
+  })
 
   if (!pendingCheck) return null
 
@@ -5949,25 +6492,31 @@ function MoodCheckModal({ token, name, moodCheck }: { token: string; name?: stri
   return (
     <AnimatePresence>
       <motion.div
+        ref={overlayRef}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="fixed inset-0 z-[300] bg-black/40 backdrop-blur-md flex items-center justify-center p-5"
       >
         <motion.div
+          ref={dialogRef}
           initial={{ scale: 0.92, y: 16 }}
           animate={{ scale: 1, y: 0 }}
           exit={{ scale: 0.92, y: 16 }}
           transition={{ type: 'spring', stiffness: 350, damping: 30 }}
           className="w-full max-w-sm rounded-3xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl p-7 text-center"
           dir="rtl"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={titleId}
+          tabIndex={-1}
         >
           {/* Header */}
           <div className="space-y-2 mb-7">
             <div className="w-12 h-12 mx-auto rounded-full bg-gradient-to-br from-purple-500/30 to-pink-500/20 border border-purple-400/20 flex items-center justify-center mb-1">
               <Heart size={20} className="text-purple-300" />
             </div>
-            <p className="text-2xl font-black text-white">{name ? `هلا ${name}` : "شلونك الحين؟"}</p>
+            <h2 id={titleId} className="text-2xl font-black text-white">{name ? `هلا ${name}` : "شلونك الحين؟"}</h2>
             <p className="text-gray-500 text-sm">{name ? "شلونك الحين؟" : "كيف حاسّك هذي اللحظة"}</p>
           </div>
 
@@ -5976,8 +6525,11 @@ function MoodCheckModal({ token, name, moodCheck }: { token: string; name?: stri
             {options.map(opt => {
               const isSelected = selected === opt.mood
               return (
-                <motion.button key={opt.mood} whileTap={{ scale: 0.97 }}
+                <motion.button type="button" key={opt.mood} whileTap={{ scale: 0.97 }}
+                  autoFocus={opt.mood === "happy"}
                   disabled={submitting}
+                  aria-pressed={isSelected}
+                  aria-busy={submitting && isSelected}
                   onClick={() => submit(opt.mood)}
                   className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all duration-200 ${
                     isSelected
@@ -5995,6 +6547,10 @@ function MoodCheckModal({ token, name, moodCheck }: { token: string; name?: stri
             })}
           </div>
 
+          <button type="button" onClick={() => submit("expired")} disabled={submitting} className="mt-3 min-h-11 rounded-xl px-4 text-xs font-bold text-gray-400 transition-colors hover:bg-white/5 hover:text-gray-200 disabled:opacity-40">
+            ليس الآن
+          </button>
+
           <p className="text-gray-700 text-[10px] mt-6">سري · ما يطلع عليه أحد</p>
         </motion.div>
       </motion.div>
@@ -6004,8 +6560,36 @@ function MoodCheckModal({ token, name, moodCheck }: { token: string; name?: stri
 
 
 // ─── Root Component ───────────────────────────────────────────────────────────
-function EventStatusHeader({ eventState, isOffline, correctedNow, impersonating }: {
-  eventState: any; isOffline: boolean; correctedNow: () => number; impersonating?: boolean
+const EVENT_PHASE_LABELS: Record<string, string> = {
+  setup: "الاستعداد",
+  round1: "الجولة الأولى",
+  ranking1: "ترتيب الجولة الأولى",
+  round2: "الجولة الثانية",
+  ranking2: "الترتيب النهائي",
+  break: "استراحة",
+  phase2_processing: "تجهيز اختيارك",
+  phase2_reveal: "جلسة اختيارك",
+  phase3_processing: "تجهيز اختيارنا",
+  phase3_reveal: "جلسة اختيارنا",
+  final_reveal: "النتيجة النهائية",
+}
+
+const EVENT_PHASE_GUIDANCE: Record<string, string> = {
+  setup: "لا شيء مطلوب الآن — ستنتقل الشاشة تلقائياً",
+  round1: "اتجه إلى طاولتك، ثم ابدأوا معاً",
+  ranking1: "رتّب من قابلتهم، راجع الأولوية، ثم احفظ",
+  round2: "اتجه إلى طاولتك الجديدة، ثم ابدأوا معاً",
+  ranking2: "احسم ترتيبك النهائي، ثم أرسله",
+  break: "استرح وخلك قريباً — لقاؤك الفردي هو التالي",
+  phase2_processing: "نجهّز اسم شريكك ورقم طاولتك",
+  phase2_reveal: "اتجه إلى الطاولة، قابل اختيارك، ثم ابدأ الحوار",
+  phase3_processing: "نجهّز ترشيح النظام ورقم طاولتك",
+  phase3_reveal: "اتجه إلى الطاولة، قابل ترشيحنا، ثم ابدأ الحوار",
+  final_reveal: "شاهد النتيجة أولاً، ثم افتح التفاصيل إذا رغبت",
+}
+
+function EventStatusHeader({ eventState, isOffline, pollError, lastSuccessAt, correctedNow, impersonating }: {
+  eventState: any; isOffline: boolean; pollError?: string | null; lastSuccessAt?: number | null; correctedNow: () => number; impersonating?: boolean
 }) {
   const [now, setNow] = useState(() => correctedNow())
   useEffect(() => {
@@ -6016,17 +6600,10 @@ function EventStatusHeader({ eventState, isOffline, correctedNow, impersonating 
   }, [correctedNow])
 
   const phase = eventState?.phase || "setup"
-  const labels: Record<string, string> = {
-    setup: "الاستعداد", round1: "الجولة الأولى", ranking1: "ترتيب الجولة الأولى",
-    round2: "الجولة الثانية", ranking2: "الترتيب النهائي", break: "استراحة",
-    phase2_processing: "تجهيز اختيارك", phase2_reveal: "جلسة اختيارك",
-    phase3_processing: "تجهيز اختيارنا", phase3_reveal: "جلسة اختيارنا",
-    final_reveal: "النتيجة النهائية",
-  }
   const progress: Record<string, string> = {
-    round1: "1 من 4", ranking1: "1 من 4", round2: "2 من 4", ranking2: "2 من 4",
-    phase2_processing: "3 من 4", phase2_reveal: "3 من 4",
-    phase3_processing: "4 من 4", phase3_reveal: "4 من 4",
+    round1: "1 من 5", ranking1: "1 من 5", round2: "2 من 5", ranking2: "2 من 5",
+    phase2_processing: "3 من 5", phase2_reveal: "3 من 5",
+    phase3_processing: "4 من 5", phase3_reveal: "4 من 5", final_reveal: "5 من 5",
   }
   let remaining: number | null = null
   if (eventState?.timer_active && eventState?.timer_start) {
@@ -6034,22 +6611,32 @@ function EventStatusHeader({ eventState, isOffline, correctedNow, impersonating 
     remaining = Math.max(0, Number(eventState.timer_duration || 0) - elapsed)
   }
   const table = eventState?.my_assignment?.table
-  const topClass = impersonating ? "top-7" : "top-0"
+  const safeTopClass = impersonating ? "" : "pt-[env(safe-area-inset-top)]"
+  const secondsSinceSuccess = lastSuccessAt ? Math.max(0, Math.floor((Date.now() - lastSuccessAt) / 1000)) : 0
+  const connectionState = isOffline ? "offline" : (pollError || secondsSinceSuccess > 15) ? "unstable" : "online"
+  const connectionLabel = connectionState === "offline"
+    ? "غير متصل — نعرض آخر معلومات محفوظة"
+    : connectionState === "unstable"
+      ? `الاتصال غير مستقر${lastSuccessAt ? ` — آخر تحديث قبل ${Math.max(1, secondsSinceSuccess)}ث` : ""}`
+      : "متصل بالفعالية"
+  const phaseGuidance = EVENT_PHASE_GUIDANCE[phase] || "اتبع الخطوة الظاهرة في الشاشة"
 
   return (
-    <div className={`sticky ${topClass} z-[90] border-b border-white/[0.07] bg-gray-950/90 backdrop-blur-xl px-4 py-2.5`} dir="rtl">
+    <div className={`sticky top-0 z-[90] border-b border-white/[0.07] bg-gray-950/90 px-4 pb-2.5 pt-2.5 backdrop-blur-xl ${safeTopClass}`} dir="rtl">
       <div className="max-w-md mx-auto flex items-center gap-3">
-        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${isOffline ? "bg-orange-400 animate-pulse" : "bg-emerald-400"}`} title={isOffline ? "غير متصل" : "متصل"} />
+        <div aria-hidden="true" title={connectionLabel} className={`h-2.5 w-2.5 flex-shrink-0 rounded-full ${connectionState === "online" ? "bg-emerald-400" : connectionState === "unstable" ? "animate-pulse bg-amber-400" : "animate-pulse bg-orange-400"}`} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-white text-xs font-bold truncate">{labels[phase] || phase}</span>
-            {progress[phase] && <span className="text-[10px] text-purple-300 bg-purple-900/30 border border-purple-800/40 rounded-full px-2 py-0.5 whitespace-nowrap">{progress[phase]}</span>}
+            <span className="truncate text-[13px] font-bold text-white">{EVENT_PHASE_LABELS[phase] || phase}</span>
+            {progress[phase] && <span className="whitespace-nowrap rounded-full border border-purple-800/50 bg-purple-900/40 px-2 py-0.5 text-[11px] text-purple-200">{progress[phase]}</span>}
           </div>
-          <p className="text-[10px] text-gray-500 mt-0.5">{isOffline ? "غير متصل — نعرض آخر معلومات محفوظة" : "متصل بالفعالية"}</p>
+          <p className="mt-0.5 truncate text-[11px] font-medium text-gray-300"><span className="text-gray-500">الآن: </span>{phaseGuidance}</p>
+          {connectionState !== "online" && <p className="mt-0.5 text-[10px] text-amber-300">{connectionLabel}</p>}
+          <span className="sr-only" aria-live="polite">{connectionState === "online" ? "الاتصال مستقر" : connectionState === "unstable" ? "الاتصال غير مستقر" : "لا يوجد اتصال"}</span>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {table != null && <span className="text-xs font-black text-amber-200 bg-amber-900/25 border border-amber-800/40 rounded-lg px-2.5 py-1.5">طاولة {table}</span>}
-          {remaining != null && <span className={`font-mono text-sm font-black tabular-nums ${remaining <= 60 ? "text-red-400" : "text-cyan-300"}`}>{formatTime(remaining)}</span>}
+          {table != null && <span className="rounded-lg border border-amber-800/50 bg-amber-900/30 px-2.5 py-1.5 text-xs font-black text-amber-100">طاولة {table}</span>}
+          {remaining != null && <span aria-label={`الوقت المتبقي ${formatTime(remaining)}`} className={`font-mono text-sm font-black tabular-nums ${remaining <= 60 ? "text-red-300" : "text-cyan-200"}`}>{formatTime(remaining)}</span>}
         </div>
       </div>
     </div>
@@ -6066,7 +6653,10 @@ export default function Event3Page() {
     return (typeof window !== "undefined" ? localStorage.getItem("blindmatch_result_token") : null) || null
   })
 
+  // Keep the server and first client render identical, then resolve persisted
+  // onboarding state before showing either the welcome or participant screen.
   const [showWelcome, setShowWelcome] = useState(true)
+  const [storageReady, setStorageReady] = useState(false)
   const [showAiWelcome, setShowAiWelcome] = useState(false)
   const [enrolled, setEnrolled] = useState<boolean | null>(null)
   const [myInfo, setMyInfo] = useState<{ number: number; name: string; gender: string | null } | null>(null)
@@ -6076,11 +6666,35 @@ export default function Event3Page() {
   const [groupsOpen, setGroupsOpen] = useState(false)
   const [finalQuestionsOpen, setFinalQuestionsOpen] = useState(false)
   const [pendingGroupFeedbackRound, setPendingGroupFeedbackRound] = useState<1 | 2 | null>(null)
+  const [rankingDraftContext, setRankingDraftContext] = useState<{
+    round: number
+    timerActive: boolean
+    timerStart: string | null
+    timerDuration: number
+  } | null>(null)
+  const [resolvedRankingRound, setResolvedRankingRound] = useState<number | null>(null)
+  const eventContentRef = useRef<HTMLDivElement>(null)
+  const phaseAnnouncementRef = useRef<HTMLDivElement>(null)
   const aiWelcomeSeenKey = token ? `e3_ai_welcome_seen_${token}` : null
+
+  useEffect(() => {
+    if (isImpersonating) {
+      setStorageReady(true)
+      return
+    }
+    try {
+      const parameterToken = searchParams.get("token") || searchParams.get("t")
+      const hasToken = Boolean(parameterToken || localStorage.getItem("blindmatch_result_token"))
+      setShowWelcome(!(hasToken && localStorage.getItem(EVENT3_ONBOARDING_KEY) === "1"))
+    } catch {
+      setShowWelcome(true)
+    }
+    setStorageReady(true)
+  }, [isImpersonating, searchParams])
 
   const handleLogout = useCallback(() => {
     if (typeof window === "undefined") return
-    const confirmed = window.confirm("هل أنت متأكد من تسجيل الخروج؟ سيتم حذف جميع بيانات الجلسة والرموز المحفوظة.")
+    const confirmed = window.confirm("هل أنت متأكد من تسجيل الخروج من الفعالية؟")
     if (!confirmed) return
 
     clearBrowserSessionArtifacts()
@@ -6088,11 +6702,28 @@ export default function Event3Page() {
     setTokenError(false)
     setEnrolled(null)
     setMyInfo(null)
+    setRankingDraftContext(null)
+    setResolvedRankingRound(null)
     setShowWelcome(true)
     setShowAiWelcome(false)
 
     window.history.replaceState({}, "", "/event3")
     window.location.replace("/event3")
+  }, [])
+
+  const handleUseAnotherNumber = useCallback(() => {
+    if (typeof window === "undefined") return
+    try { localStorage.removeItem("blindmatch_result_token") } catch {}
+    clearAllArrived()
+    setToken(null)
+    setTokenError(false)
+    setEnrolled(null)
+    setMyInfo(null)
+    setRankingDraftContext(null)
+    setResolvedRankingRound(null)
+    setShowWelcome(false)
+    setShowAiWelcome(false)
+    window.history.replaceState({}, "", "/event3")
   }, [])
 
   const fetchState = useCallback(async () => {
@@ -6106,14 +6737,16 @@ export default function Event3Page() {
       }
       throw new Error(d.error)
     }
+    setTestModeBlocked(false)
     setEnrolled(d.enrolled !== false)
-    setMyInfo(prev => prev ?? (d.my_info || null))
+    setMyInfo(d.my_info || null)
     return d
-  }, [token])
+  }, [token, isImpersonating])
 
-  const { data: eventState, loading: stateLoading, error: stateError, retry: retryState } = useApiPoll(fetchState, {
+  const { data: eventState, loading: stateLoading, error: stateError, retry: retryState, lastSuccessAt } = useApiPoll(fetchState, {
     interval: 5000,
-    enabled: !!token && !tokenError
+    enabled: !!token && !tokenError,
+    resetKey: token,
   })
 
   // Clock skew correction: offset between server time and local Date.now()
@@ -6126,6 +6759,49 @@ export default function Event3Page() {
     }
   }, [eventState?.server_time])
   const correctedNow = useCallback(() => Date.now() + clockOffsetRef.current, [])
+
+  // Keep an unfinished ranking screen alive if the organizer advances. This
+  // gives backgrounded/slow phones a chance to submit instead of losing their
+  // local order when the heartbeat phase changes underneath them.
+  useEffect(() => {
+    const match = String(eventState?.phase || "").match(/^ranking([123])$/)
+    if (match) {
+      const round = Number(match[1])
+      if (resolvedRankingRound === round) return
+      setRankingDraftContext({
+        round,
+        timerActive: Boolean(eventState?.timer_active),
+        timerStart: eventState?.timer_start || null,
+        timerDuration: Number(eventState?.timer_duration || 0),
+      })
+    } else if (eventState?.phase === "setup") {
+      setRankingDraftContext(null)
+      setResolvedRankingRound(null)
+    }
+  }, [eventState?.phase, eventState?.timer_active, eventState?.timer_start, eventState?.timer_duration, resolvedRankingRound])
+
+  const handleRankingResolved = useCallback((round: number) => {
+    setResolvedRankingRound(round)
+    setRankingDraftContext(null)
+  }, [])
+  const handleRankingDirty = useCallback(() => {
+    const match = String(eventState?.phase || "").match(/^ranking([123])$/)
+    if (!match) return
+    setResolvedRankingRound(null)
+    setRankingDraftContext({
+      round: Number(match[1]),
+      timerActive: Boolean(eventState?.timer_active),
+      timerStart: eventState?.timer_start || null,
+      timerDuration: Number(eventState?.timer_duration || 0),
+    })
+  }, [eventState?.phase, eventState?.timer_active, eventState?.timer_start, eventState?.timer_duration])
+
+  useEffect(() => {
+    if (!eventState?.phase || showWelcome || showAiWelcome || pendingGroupFeedbackRound) return
+    eventContentRef.current?.scrollTo({ top: 0, behavior: "auto" })
+    const focusTimer = window.setTimeout(() => phaseAnnouncementRef.current?.focus(), 80)
+    return () => window.clearTimeout(focusTimer)
+  }, [eventState?.phase, showWelcome, showAiWelcome, pendingGroupFeedbackRound])
 
   // Phase change detection — play sound + vibrate when event starts (setup → round1)
   const prevPhaseRef = useRef<string | null>(null)
@@ -6175,11 +6851,18 @@ export default function Event3Page() {
   }, [])
 
   const handleWelcomeDone = useCallback(() => {
+    try { localStorage.setItem(EVENT3_ONBOARDING_KEY, "1") } catch {}
     setShowWelcome(false)
     // Only show AI welcome if not already seen for this token
     if (aiWelcomeSeenKey && localStorage.getItem(aiWelcomeSeenKey) === "1") return
     setShowAiWelcome(true)
   }, [aiWelcomeSeenKey])
+
+  useEffect(() => {
+    if (!showAiWelcome || !eventState?.phase || eventState.phase === "setup") return
+    if (aiWelcomeSeenKey) localStorage.setItem(aiWelcomeSeenKey, "1")
+    setShowAiWelcome(false)
+  }, [showAiWelcome, eventState?.phase, aiWelcomeSeenKey])
 
   // Lightweight, token-free visual QA for the two mobile question experiences.
   // This is intentionally read-only and does not touch event or participant data.
@@ -6222,6 +6905,42 @@ export default function Event3Page() {
       </main>
     )
   }
+  if (questionPreview === "journey") {
+    return (
+      <main className="event3-shell min-h-[100dvh] bg-gray-950 text-white" dir="rtl" lang="ar">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/[0.07] bg-gray-950/90 px-4 py-3 backdrop-blur-xl">
+          <div>
+            <p className="text-[10px] font-bold text-pink-300">لقاء اختيارك · طاولة 7</p>
+            <p className="mt-0.5 text-sm font-black">مع سارة</p>
+          </div>
+          <span className="font-mono text-sm font-black text-pink-200">21:42</span>
+        </div>
+        <div className="mx-auto max-w-sm space-y-4 p-4 pb-8">
+          <MeetingPass accent="pink" kind="لقاء اختيارك" partnerName="سارة" tableNumber={7} />
+          <JourneyCue accent="pink" title="ابدأ اللقاء مع سارة" description="اسم الشريك والطاولة يبقيان ظاهرين — ركّز الآن على الحوار." steps={["وصلت", "ابدأ الحوار", "قيّم اللقاء"]} currentStep={1} />
+          <QuestionSlideshow defaultSet="choice" />
+          <details className="group rounded-2xl border border-white/[0.07] bg-white/[0.025] text-right">
+            <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-xs font-bold text-gray-400">تحتاجون مساعدة في إدارة الحوار؟ <ChevronRight size={15} className="rotate-90" /></summary>
+          </details>
+          <button type="button" className="min-h-12 w-full rounded-2xl border border-white/[0.08] bg-white/[0.035] text-sm font-bold text-gray-400">إنهاء اللقاء والبدء بالتقييم</button>
+        </div>
+      </main>
+    )
+  }
+  if (questionPreview === "feedbackFlow") {
+    return (
+      <main className="event3-shell min-h-[100dvh] bg-gray-950 text-white" dir="rtl" lang="ar">
+        <FeedbackFlow
+          partnerName="سارة"
+          word="فضول"
+          done={false}
+          onDone={() => {}}
+          onBack={() => {}}
+          onSubmit={async () => true}
+        />
+      </main>
+    )
+  }
   if (questionPreview === "phase1" || questionPreview === "phase2") {
     const isPhaseOne = questionPreview === "phase1"
     return (
@@ -6244,6 +6963,12 @@ export default function Event3Page() {
       </main>
     )
   }
+
+  if (!storageReady) return (
+    <PageWrapper className="flex items-center justify-center" aria-label="جاري تجهيز تجربتك">
+      <Spinner size={28} />
+    </PageWrapper>
+  )
 
   if (testModeBlocked) return (
     <PageWrapper className="flex items-center justify-center p-6 text-center">
@@ -6272,7 +6997,7 @@ export default function Event3Page() {
   )
 
   if (stateError && !eventState) return (
-    <PageWrapper className="flex flex-col items-center justify-center gap-4 p-6 text-center">
+    <PageWrapper className="flex flex-col items-center justify-center gap-4 p-6 text-center" role="alert">
       <div className="w-14 h-14 rounded-2xl bg-red-950/40 border border-red-800/40 flex items-center justify-center">
         <AlertTriangle className="text-red-400" size={28} />
       </div>
@@ -6280,7 +7005,7 @@ export default function Event3Page() {
         <p className="text-white font-semibold">تعذّر تحميل بيانات الفعالية</p>
         <p className="text-gray-500 text-sm">{stateError}</p>
       </div>
-      <button onClick={retryState} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium transition-colors">
+      <button type="button" onClick={retryState} className="flex min-h-11 items-center gap-2 rounded-xl bg-gray-800 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-gray-700">
         <RefreshCw size={16} />
         إعادة المحاولة
       </button>
@@ -6290,70 +7015,109 @@ export default function Event3Page() {
   const { phase, timer_active, timer_start, timer_duration } = eventState
   const timerProps = { timerActive: timer_active, timerStart: timer_start, timerDuration: timer_duration, correctedNow }
 
-  if (enrolled === false) return <NotEnrolledScreen />
+  if (enrolled === false) return <NotEnrolledScreen onUseAnotherNumber={handleUseAnotherNumber} />
 
   const isRound = /^round[123]$/.test(phase)
   const rankingMatch = phase.match(/^ranking([123])$/)
   const completedRounds = rankingMatch ? parseInt(rankingMatch[1]) : null
+  const rankingRoundToRender = completedRounds ?? rankingDraftContext?.round ?? null
+  const holdingRankingDraft = Boolean(!completedRounds && rankingDraftContext)
+  const rankingTimerProps = completedRounds || !rankingDraftContext
+    ? timerProps
+    : {
+        timerActive: rankingDraftContext.timerActive,
+        timerStart: rankingDraftContext.timerStart,
+        timerDuration: rankingDraftContext.timerDuration,
+        correctedNow,
+      }
   const visibleGroupFeedbackRound = pendingGroupFeedbackRound
     && phase !== "setup"
     && !(completedRounds && completedRounds !== pendingGroupFeedbackRound)
     ? pendingGroupFeedbackRound
     : null
+  const hasPendingMoodCheck = Boolean(!finalQuestionsOpen && eventState?.mood_check?.pending)
+  const hasPendingNotification = Boolean(!finalQuestionsOpen && eventState?.notification?.pending)
+  const isSafePromptMoment = ["setup", "break", "phase2_processing", "phase3_processing"].includes(phase)
+  // Once a reflection sheet is open, keep it mounted until the participant
+  // finishes or closes it. Heartbeat-driven prompts queue behind it so locally
+  // drafted ratings and notes are never destroyed.
+  const activeGroupFeedbackRound = visibleGroupFeedbackRound
+  const canShowMoodCheck = hasPendingMoodCheck && isSafePromptMoment && !activeGroupFeedbackRound
+  const canShowNotification = hasPendingNotification && isSafePromptMoment && !activeGroupFeedbackRound && !hasPendingMoodCheck
+  const canShowAiWelcome = showAiWelcome
+    && phase === "setup"
+    && !finalQuestionsOpen
+    && !hasPendingMoodCheck
+    && !hasPendingNotification
+    && !activeGroupFeedbackRound
 
   return (
-    <div className="h-[100dvh] flex flex-col bg-gray-950 overflow-hidden" dir="rtl">
+    <MotionConfig reducedMotion="user">
+    <div className="event3-shell flex h-[100dvh] flex-col overflow-hidden bg-gray-950" dir="rtl" lang="ar">
       <Toaster position="top-center" toastOptions={{ style: { background: "#1f2937", color: "#f9fafb", border: "1px solid #374151", borderRadius: "12px" } }} />
 
       {/* Impersonation banner */}
       {isImpersonating && (
-        <div className="fixed top-0 left-0 right-0 z-[300] bg-amber-900/90 border-b border-amber-600/50 px-4 py-1.5 text-center">
+        <div className="relative z-[300] shrink-0 border-b border-amber-600/50 bg-amber-900/90 px-4 pb-1.5 pt-[max(0.375rem,env(safe-area-inset-top))] text-center">
           <span className="text-amber-200 text-xs font-medium">
             🎭 وضع تسجيل دخول مؤقت — أنت تتصرف كمشارك #{myInfo?.number ?? "?"} ({myInfo?.name ?? "..."})
           </span>
         </div>
       )}
 
-      {!finalQuestionsOpen && !rankingMatch && <EventStatusHeader eventState={eventState} isOffline={isOffline} correctedNow={correctedNow} impersonating={isImpersonating} />}
+      {!finalQuestionsOpen && !rankingRoundToRender && !groupsOpen && <EventStatusHeader eventState={eventState} isOffline={isOffline} pollError={stateError} lastSuccessAt={lastSuccessAt} correctedNow={correctedNow} impersonating={isImpersonating} />}
+
+      <div ref={phaseAnnouncementRef} tabIndex={-1} className="sr-only" aria-live="polite">
+        {`المرحلة الحالية: ${EVENT_PHASE_LABELS[phase] || phase}`}
+      </div>
 
       {/* Screen content fills available space */}
-      <div className="flex-1 overflow-y-auto relative z-10">
+      <div ref={eventContentRef} className="event3-scroll relative min-h-0 flex-1 overflow-y-auto">
         <AnimatePresence>
-          {phase === "setup" && <SetupScreen key="setup" token={token} myInfo={myInfo} enrolledCount={eventState?.participants_selected ?? null} />}
-          {isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} myInfo={myInfo} onGroupsOpenChange={setGroupsOpen} />}
-          {completedRounds && <RankingScreen key={phase} token={token} completedRounds={completedRounds} currentPhase={phase} {...timerProps} myInfo={myInfo} onOpenGroupFeedback={setPendingGroupFeedbackRound} />}
-          {phase === "phase2_reveal" && <Phase2RevealScreen key="p2r" token={token} eventId={eventState?.event_id} {...timerProps} />}
-          {phase === "phase3_reveal" && <Phase3RevealScreen key="p3r" token={token} eventId={eventState?.event_id} {...timerProps} />}
-          {(phase === "phase2_processing" || phase === "phase3_processing") && <ProcessingScreen key="processing" phase={phase} />}
-          {phase === "break" && <BreakScreen key="break" {...timerProps} />}
-          {phase === "final_reveal" && <FinalRevealScreen key="final" token={token} onQuestionViewerChange={setFinalQuestionsOpen} />}
+          {!holdingRankingDraft && phase === "setup" && <SetupScreen key="setup" token={token} myInfo={myInfo} enrolledCount={eventState?.participants_selected ?? null} />}
+          {!holdingRankingDraft && isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} myInfo={myInfo} onGroupsOpenChange={setGroupsOpen} />}
+          {rankingRoundToRender && <RankingScreen key={`ranking-${rankingRoundToRender}`} token={token} completedRounds={rankingRoundToRender} currentPhase={phase} {...rankingTimerProps} myInfo={myInfo} onOpenGroupFeedback={setPendingGroupFeedbackRound} onRankingResolved={handleRankingResolved} onRankingDirty={handleRankingDirty} />}
+          {!holdingRankingDraft && phase === "phase2_reveal" && <Phase2RevealScreen key="p2r" token={token} eventId={eventState?.event_id} {...timerProps} />}
+          {!holdingRankingDraft && phase === "phase3_reveal" && <Phase3RevealScreen key="p3r" token={token} eventId={eventState?.event_id} {...timerProps} />}
+          {!holdingRankingDraft && (phase === "phase2_processing" || phase === "phase3_processing") && <ProcessingScreen key="processing" phase={phase} />}
+          {!holdingRankingDraft && phase === "break" && <BreakScreen key="break" {...timerProps} />}
+          {!holdingRankingDraft && phase === "final_reveal" && <FinalRevealScreen key="final" token={token} onQuestionViewerChange={setFinalQuestionsOpen} />}
         </AnimatePresence>
       </div>
 
-      {/* SOS button — hidden on final reveal, break, ranking pages, and when groups overlay is open */}
-      {enrolled && !rankingMatch && phase !== "final_reveal" && phase !== "break" && !groupsOpen && <SOSButton token={token} position="bottom" sosRequests={eventState?.sos_requests} />}
+      {/* Keep help-chat state mounted while higher-priority overlays are visible,
+          so an unsent organizer message is restored instead of discarded. */}
+      {enrolled && (
+        <SOSButton
+          token={token}
+          position="bottom"
+          sosRequests={eventState?.sos_requests}
+          suppressed={Boolean(rankingRoundToRender) || phase === "final_reveal" || phase === "break" || groupsOpen || canShowMoodCheck || canShowNotification || Boolean(activeGroupFeedbackRound) || canShowAiWelcome}
+        />
+      )}
 
       {/* Mood check popup — receives mood check data from heartbeat */}
-      {enrolled && token && !finalQuestionsOpen && <MoodCheckModal token={token} name={myInfo?.name} moodCheck={eventState?.mood_check} />}
+      {enrolled && token && canShowMoodCheck && <MoodCheckModal token={token} name={myInfo?.name} moodCheck={eventState?.mood_check} />}
       {/* Notification popup — receives notification data from heartbeat */}
-      {enrolled && token && !finalQuestionsOpen && <NotificationModal token={token} notification={eventState?.notification} />}
+      {enrolled && token && canShowNotification && <NotificationModal token={token} notification={eventState?.notification} />}
 
       <AnimatePresence>
-        {visibleGroupFeedbackRound && (
+        {activeGroupFeedbackRound && (
           <GroupReflectionSheet
-            key={`group-feedback-${visibleGroupFeedbackRound}`}
+            key={`group-feedback-${activeGroupFeedbackRound}`}
             token={token}
-            groupRound={visibleGroupFeedbackRound}
+            groupRound={activeGroupFeedbackRound}
             onClose={() => setPendingGroupFeedbackRound(null)}
           />
         )}
       </AnimatePresence>
 
       {/* AI Welcome popup — shows once after welcome screen */}
-      {showAiWelcome && token && !finalQuestionsOpen && <AiWelcomePopup token={token} onDone={() => {
+      {canShowAiWelcome && token && <AiWelcomePopup token={token} onDone={() => {
         if (aiWelcomeSeenKey) localStorage.setItem(aiWelcomeSeenKey, "1")
         setShowAiWelcome(false)
       }} />}
     </div>
+    </MotionConfig>
   )
 }

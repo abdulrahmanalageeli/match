@@ -1028,6 +1028,41 @@ html:not(.dark) .ai-ink {
   }
 }
 
+@media print {
+  .the-room-page > header,
+  .the-room-page nav,
+  .the-room-page button,
+  .the-room-page > div > section:first-child,
+  .the-room-page .grid.grid-cols-2.gap-3.sm\:grid-cols-4 {
+    display: none !important;
+  }
+
+  .the-room-page {
+    background: #fff !important;
+    color: #111 !important;
+  }
+
+  .the-room-schedule-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .the-room-schedule-grid section {
+    break-inside: avoid;
+    border-color: #d6d3d1 !important;
+    background: #fff !important;
+    color: #111 !important;
+    box-shadow: none !important;
+  }
+
+  .the-room-schedule-grid button {
+    display: flex !important;
+    border-color: #d6d3d1 !important;
+    background: #fff !important;
+    color: #111 !important;
+  }
+}
+
 .welcome-topbar {
   display: flex;
   flex-wrap: nowrap;

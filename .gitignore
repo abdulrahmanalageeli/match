@@ -4,3 +4,6 @@
 # React Router
 /.react-router/
 /build/
+
+# Local environment overrides (may contain secrets)
+.env.local

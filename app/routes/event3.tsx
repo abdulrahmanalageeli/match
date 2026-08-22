@@ -1861,7 +1861,7 @@ function SetupScreen({ token, myInfo, enrolledCount }: { token: string; myInfo: 
   ]
 
   return (
-    <PageWrapper embedded className="overflow-y-auto flex items-center justify-center p-6">
+    <PageWrapper embedded className="flex items-center justify-center p-6">
       <motion.div
         initial={{ opacity: 0, scale: 0.92 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -3110,7 +3110,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   const timerText = timeLeft <= 30 ? "text-red-400" : timeLeft <= 60 ? "text-amber-400" : "text-gray-300"
 
   return (
-    <PageWrapper embedded className="overflow-y-auto bg-gray-950">
+    <PageWrapper embedded className="bg-gray-950">
       {/* ── Sticky header with integrated timer ── */}
       <div className="sticky top-0 z-20 bg-gray-950/95 backdrop-blur-xl border-b border-white/[0.04]">
         <div className="w-full max-w-md mx-auto px-3 sm:px-4 pt-2.5 pb-2">
@@ -4565,7 +4565,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   )
 
   return (
-    <PageWrapper embedded className="overflow-y-auto">
+    <PageWrapper embedded>
       <div className="max-w-sm mx-auto p-4 pb-6 space-y-3">
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="text-center pt-4 space-y-1">
           <div className="flex flex-col items-center gap-1.5">
@@ -4967,7 +4967,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   )
 
   return (
-    <PageWrapper embedded className="overflow-y-auto">
+    <PageWrapper embedded>
       <div className="max-w-sm mx-auto p-4 pb-6 space-y-3">
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="text-center pt-4 space-y-1">
           <div className="flex flex-col items-center gap-1.5">
@@ -5602,7 +5602,7 @@ function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; o
 
   if (screenMode === "questions") {
     return (
-      <PageWrapper embedded className="overflow-y-auto">
+      <PageWrapper embedded>
         <div className="mx-auto max-w-md px-3 pb-8 pt-4" dir="rtl">
           <div className="mb-4 rounded-2xl border border-white/[0.07] bg-gray-900/60 p-3">
             <div className="mb-3 text-center">
@@ -5653,7 +5653,7 @@ function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; o
   }
 
   return (
-    <PageWrapper embedded className="overflow-y-auto">
+    <PageWrapper embedded>
       <div className="max-w-sm mx-auto p-4 pb-8 space-y-4 text-center" dir="rtl">
         {/* Animated title */}
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ type: "spring", stiffness: 200, damping: 20 }} className="pt-4">
@@ -6907,22 +6907,24 @@ export default function Event3Page() {
   }
   if (questionPreview === "journey") {
     return (
-      <main className="event3-shell min-h-[100dvh] bg-gray-950 text-white" dir="rtl" lang="ar">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/[0.07] bg-gray-950/90 px-4 py-3 backdrop-blur-xl">
+      <main className="event3-shell flex h-[100dvh] flex-col overflow-hidden bg-gray-950 text-white" dir="rtl" lang="ar">
+        <div className="z-10 flex shrink-0 items-center justify-between border-b border-white/[0.07] bg-gray-950/90 px-4 py-3 backdrop-blur-xl">
           <div>
             <p className="text-[10px] font-bold text-pink-300">لقاء اختيارك · طاولة 7</p>
             <p className="mt-0.5 text-sm font-black">مع سارة</p>
           </div>
           <span className="font-mono text-sm font-black text-pink-200">21:42</span>
         </div>
-        <div className="mx-auto max-w-sm space-y-4 p-4 pb-8">
-          <MeetingPass accent="pink" kind="لقاء اختيارك" partnerName="سارة" tableNumber={7} />
-          <JourneyCue accent="pink" title="ابدأ اللقاء مع سارة" description="اسم الشريك والطاولة يبقيان ظاهرين — ركّز الآن على الحوار." steps={["وصلت", "ابدأ الحوار", "قيّم اللقاء"]} currentStep={1} />
-          <QuestionSlideshow defaultSet="choice" />
-          <details className="group rounded-2xl border border-white/[0.07] bg-white/[0.025] text-right">
-            <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-xs font-bold text-gray-400">تحتاجون مساعدة في إدارة الحوار؟ <ChevronRight size={15} className="rotate-90" /></summary>
-          </details>
-          <button type="button" className="min-h-12 w-full rounded-2xl border border-white/[0.08] bg-white/[0.035] text-sm font-bold text-gray-400">إنهاء اللقاء والبدء بالتقييم</button>
+        <div className="event3-scroll min-h-0 flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-sm space-y-4 p-4 pb-8">
+            <MeetingPass accent="pink" kind="لقاء اختيارك" partnerName="سارة" tableNumber={7} />
+            <JourneyCue accent="pink" title="ابدأ اللقاء مع سارة" description="اسم الشريك والطاولة يبقيان ظاهرين — ركّز الآن على الحوار." steps={["وصلت", "ابدأ الحوار", "قيّم اللقاء"]} currentStep={1} />
+            <QuestionSlideshow defaultSet="choice" />
+            <details className="group rounded-2xl border border-white/[0.07] bg-white/[0.025] text-right">
+              <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-xs font-bold text-gray-400">تحتاجون مساعدة في إدارة الحوار؟ <ChevronRight size={15} className="rotate-90" /></summary>
+            </details>
+            <button type="button" className="min-h-12 w-full rounded-2xl border border-white/[0.08] bg-white/[0.035] text-sm font-bold text-gray-400">إنهاء اللقاء والبدء بالتقييم</button>
+          </div>
         </div>
       </main>
     )

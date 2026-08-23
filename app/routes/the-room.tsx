@@ -302,33 +302,33 @@ function CheckInPanel({ attendees, busy, onNext, onAdd, onUndo }: { attendees: A
 function GuestBadgeFocus({ event, person, journey, activeRound, onClose, onShare }: { event: RoomEvent; person: Attendee; journey: Seat[]; activeRound: number; onClose: () => void; onShare: () => void }) {
   const style = genderStyle(person.gender)
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-40 overflow-y-auto bg-black/75 backdrop-blur-2xl">
-      <div className="mx-auto flex min-h-full w-full max-w-[430px] flex-col items-center px-4 py-4 sm:py-6">
-        <div className="mb-3 flex w-full justify-end">
-          <button onClick={onClose} className="flex h-11 items-center justify-center gap-2 rounded-full border border-white/10 bg-black/45 px-4 text-sm font-bold text-white backdrop-blur-xl"><X size={17} /> إغلاق</button>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} data-room-badge-overlay className="room-badge-overlay absolute inset-0 z-40 overflow-y-auto overscroll-contain bg-black/80 backdrop-blur-2xl">
+      <div className="room-badge-shell mx-auto flex min-h-full w-full max-w-[430px] flex-col items-center px-[clamp(.625rem,4vw,1rem)] pb-[max(.75rem,env(safe-area-inset-bottom))] pt-[max(.625rem,env(safe-area-inset-top))]">
+        <div className="room-badge-toolbar sticky top-0 z-30 mb-2 flex w-full shrink-0 justify-end py-1">
+          <button onClick={onClose} aria-label="إغلاق البطاقة" className="flex h-11 items-center justify-center gap-2 rounded-full border border-white/10 bg-black/65 px-4 text-sm font-bold text-white shadow-lg backdrop-blur-xl"><X size={17} /><span className="room-badge-close-label">إغلاق</span></button>
         </div>
-        <motion.article initial={{ y: 18, opacity: 0, scale: 0.97 }} animate={{ y: 0, opacity: 1, scale: 1 }} className={`relative w-full overflow-hidden rounded-[2.25rem] border bg-gradient-to-b p-5 shadow-[0_40px_120px_rgba(0,0,0,.75)] sm:p-6 ${style.surface}`}>
+        <motion.article initial={{ y: 18, opacity: 0, scale: 0.97 }} animate={{ y: 0, opacity: 1, scale: 1 }} data-room-badge className={`room-badge-card relative w-full shrink-0 overflow-hidden rounded-[clamp(1.5rem,8vw,2.25rem)] border bg-gradient-to-b p-[clamp(.875rem,4.5vw,1.5rem)] shadow-[0_40px_120px_rgba(0,0,0,.75)] ${style.surface}`}>
           <div className={`pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full blur-[75px] ${style.glow}`} />
-          <div className="pointer-events-none absolute inset-3 rounded-[1.7rem] border border-white/[0.07]" />
-          <div className="relative flex items-start justify-between">
-            <div><p className="text-2xl font-extrabold text-white">ذا روم</p><p className="mt-1 text-[10px] font-bold tracking-[.14em] text-stone-500">بطاقة مسار الضيف</p></div>
-            <span className="rounded-full border border-white/10 bg-white/[0.055] px-3 py-1.5 text-[11px] font-bold text-stone-300">فعالية {event.event_number}</span>
+          <div className="pointer-events-none absolute inset-[clamp(.5rem,3vw,.75rem)] rounded-[clamp(1.15rem,6vw,1.7rem)] border border-white/[0.07]" />
+          <div className="room-badge-header relative flex min-w-0 items-start justify-between gap-2">
+            <div className="min-w-0"><p className="text-[clamp(1.25rem,6vw,1.5rem)] font-extrabold leading-tight text-white">ذا روم</p><p className="room-badge-brand-subtitle mt-1 text-[10px] font-bold tracking-[.12em] text-stone-500">بطاقة مسار الضيف</p></div>
+            <span className="shrink-0 rounded-full border border-white/10 bg-white/[0.055] px-[clamp(.6rem,3vw,.75rem)] py-1.5 text-[clamp(.625rem,2.8vw,.6875rem)] font-bold text-stone-300">فعالية {event.event_number}</span>
           </div>
-          <div className="relative mt-5 text-center">
-            <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-current bg-white/[0.04] ${style.accent}`}><UserRound size={25} /></div>
-            <p className={`mt-2 text-xs font-extrabold ${style.accent}`}>{style.label}</p>
-            <p className="mt-0.5 text-5xl font-extrabold tracking-tight text-white">{person.gender === "female" ? "فتاة" : "ولد"} {guestNumber(person.attendee_number)}</p>
+          <div className="room-badge-identity relative mt-[clamp(.75rem,4vh,1.25rem)] text-center">
+            <div className={`room-badge-avatar mx-auto flex h-[clamp(2.5rem,12vw,3.5rem)] w-[clamp(2.5rem,12vw,3.5rem)] items-center justify-center rounded-full border border-current bg-white/[0.04] ${style.accent}`}><UserRound className="h-[45%] w-[45%]" /></div>
+            <p className={`mt-1.5 text-[clamp(.6875rem,3vw,.75rem)] font-extrabold ${style.accent}`}>{style.label}</p>
+            <p className="room-badge-number mt-0.5 break-words text-[clamp(2.25rem,12vw,3rem)] font-extrabold leading-none tracking-tight text-white">{person.gender === "female" ? "فتاة" : "ولد"} {guestNumber(person.attendee_number)}</p>
           </div>
-          <div className="relative my-4 h-px bg-gradient-to-l from-transparent via-white/15 to-transparent" />
-          <div className="relative space-y-2">
+          <div className="room-badge-divider relative my-[clamp(.65rem,3vh,1rem)] h-px bg-gradient-to-l from-transparent via-white/15 to-transparent" />
+          <div className="room-badge-journey relative grid gap-[clamp(.375rem,1.2vh,.5rem)]">
             {journey.map(seat => {
               const active = seat.round_number === activeRound
-              return <div key={seat.id} className={`flex min-h-12 items-center justify-between rounded-2xl border px-4 py-2.5 ${active ? "border-[#e5c780]/45 bg-[#d7ba7d]/12" : "border-white/[0.08] bg-white/[0.035]"}`}><div><p className={`text-[10px] font-bold ${active ? "text-[#e5c780]" : "text-stone-500"}`}>الجولة {seat.round_number}{active ? " · الآن" : ""}</p><p className="text-lg font-extrabold text-white">الطاولة {seat.table_number}</p></div><div className={`flex h-9 w-9 items-center justify-center rounded-xl ${active ? "bg-[#d7ba7d] text-[#17130c]" : "bg-white/[0.05] text-stone-500"}`}><Table2 size={17} /></div></div>
+              return <div key={seat.id} className={`room-badge-round flex min-h-11 items-center justify-between rounded-[clamp(.75rem,4vw,1rem)] border px-[clamp(.75rem,4vw,1rem)] py-[clamp(.4rem,1.4vh,.625rem)] ${active ? "border-[#e5c780]/45 bg-[#d7ba7d]/12" : "border-white/[0.08] bg-white/[0.035]"}`}><div><p className={`text-[clamp(.5625rem,2.6vw,.625rem)] font-bold ${active ? "text-[#e5c780]" : "text-stone-500"}`}>الجولة {seat.round_number}{active ? " · الآن" : ""}</p><p className="text-[clamp(.9375rem,4.5vw,1.125rem)] font-extrabold leading-tight text-white">الطاولة {seat.table_number}</p></div><div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${active ? "bg-[#d7ba7d] text-[#17130c]" : "bg-white/[0.05] text-stone-500"}`}><Table2 size={17} /></div></div>
             })}
           </div>
-          <p className="relative mt-4 text-center text-xs leading-5 text-stone-400">احتفظ بنفس رقمك، وانتقل إلى طاولتك في كل جولة.</p>
+          <p className="room-badge-guidance relative mt-[clamp(.65rem,2vh,1rem)] px-1 text-center text-[clamp(.6875rem,3vw,.75rem)] leading-5 text-stone-400">احتفظ بنفس رقمك، وانتقل إلى طاولتك في كل جولة.</p>
         </motion.article>
-        <button onClick={onShare} className="mt-3 flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#d7ba7d] px-6 font-extrabold text-[#17130c]"><Share2 size={17} /> مشاركة البطاقة</button>
+        <button onClick={onShare} className="mt-2 flex min-h-11 w-full shrink-0 items-center justify-center gap-2 rounded-2xl bg-[#d7ba7d] px-6 font-extrabold text-[#17130c]"><Share2 size={17} /> مشاركة البطاقة</button>
       </div>
     </motion.div>
   )

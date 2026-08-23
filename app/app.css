@@ -1028,6 +1028,60 @@ html:not(.dark) .ai-ink {
   }
 }
 
+.room-badge-overlay {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+}
+
+@media (max-height: 700px) {
+  .room-badge-shell {
+    padding-top: max(0.35rem, env(safe-area-inset-top));
+  }
+
+  .room-badge-toolbar {
+    margin-bottom: 0.25rem;
+  }
+
+  .room-badge-card {
+    padding: 0.75rem;
+  }
+
+  .room-badge-identity {
+    margin-top: 0.5rem;
+  }
+
+  .room-badge-avatar {
+    height: 2.35rem;
+    width: 2.35rem;
+  }
+
+  .room-badge-divider {
+    margin-block: 0.5rem;
+  }
+
+  .room-badge-round {
+    min-height: 2.5rem;
+    padding-block: 0.3rem;
+  }
+
+  .room-badge-guidance {
+    margin-top: 0.5rem;
+    line-height: 1rem;
+  }
+}
+
+@media (max-width: 340px) {
+  .room-badge-close-label,
+  .room-badge-brand-subtitle {
+    display: none;
+  }
+
+  .room-badge-toolbar button {
+    width: 2.75rem;
+    padding-inline: 0;
+  }
+}
+
 @media print {
   .the-room-page > header,
   .the-room-page nav,

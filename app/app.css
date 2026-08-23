@@ -1061,6 +1061,33 @@ html:not(.dark) .ai-ink {
     background: #fff !important;
     color: #111 !important;
   }
+
+  .the-room-page > div:first-of-type,
+  .the-room-page [data-room-setup],
+  .the-room-page [role="dialog"] > header,
+  .the-room-page [role="dialog"] > footer {
+    display: none !important;
+  }
+
+  .the-room-page .fixed,
+  .the-room-page [role="dialog"] {
+    position: static !important;
+    display: block !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border: 0 !important;
+    background: #fff !important;
+    box-shadow: none !important;
+  }
+
+  .the-room-page [role="dialog"] > div {
+    overflow: visible !important;
+  }
+
+  .the-room-page [data-room-results],
+  .the-room-page [data-room-results] * {
+    color: #111 !important;
+  }
 }
 
 .welcome-topbar {

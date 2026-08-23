@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../server/security/supabase-admin.mjs"
 import { generateTheRoomSchedule, TheRoomScheduleError } from "../server/the-room/scheduler.mjs"
+import { extendTheRoomSchedule, TheRoomExtensionError } from "../server/the-room/incremental-scheduler.mjs"
 import {
   buildNumberedRosterRows,
   rosterGenderCounts,
@@ -16,7 +17,7 @@ import {
 const supabase = supabaseAdmin
 const ALGORITHM_VERSION = "the-room-social-table-v1"
 const EVENT_FIELDS = "id,event_number,name,starts_at,venue,status,minimum_attendees,table_count,round_count,ticket_price,currency,notes,created_at,updated_at"
-const ATTENDEE_FIELDS = "id,event_id,attendee_number,full_name,gender,attendance_status,included_in_schedule,created_at,updated_at"
+const ATTENDEE_FIELDS = "id,event_id,attendee_number,full_name,gender,attendance_status,included_in_schedule,checked_in,created_at,updated_at"
 
 class TheRoomInputError extends Error {}
 
@@ -37,7 +38,7 @@ function sendDatabaseError(res, error) {
   return res.status(conflict ? 409 : 500).json({ error: message })
 }
 
-async function ensureMinimumRoster(event) {
+async function ensureMinimumRoster(event, { invalidate = true } = {}) {
   const { data: attendees, error } = await supabase
     .from("the_room_attendees")
     .select("attendee_number,gender,attendance_status,included_in_schedule")
@@ -50,7 +51,7 @@ async function ensureMinimumRoster(event) {
     attendee.included_in_schedule && ["registered", "confirmed"].includes(attendee.attendance_status)
   )
   const missing = Math.max(0, Number(event.minimum_attendees) - activeAttendees.length)
-  if (!missing) return false
+  if (!missing) return 0
 
   const lastNumber = allAttendees.reduce((maximum, attendee) => Math.max(maximum, Number(attendee.attendee_number) || 0), 0)
   const counts = rosterGenderCounts(activeAttendees)
@@ -63,8 +64,8 @@ async function ensureMinimumRoster(event) {
   })
   const { error: insertError } = await supabase.from("the_room_attendees").insert(rows)
   if (insertError) throw insertError
-  await invalidateSchedule(event.id)
-  return true
+  if (invalidate) await invalidateSchedule(event.id)
+  return missing
 }
 
 async function loadEventBundle({ eventId, eventNumber }) {
@@ -121,6 +122,101 @@ async function handleAction(req, res, action) {
     return bundle ? res.status(200).json(bundle) : res.status(404).json({ error: "The Room event was not found" })
   }
 
+  if (action === "reset-event") {
+    const eventId = req.body?.event_id
+    if (!eventId) return res.status(400).json({ error: "Event ID is required" })
+    await invalidateSchedule(eventId)
+    const { data, error } = await supabase
+      .from("the_room_events")
+      .update({ status: "draft", updated_at: new Date().toISOString() })
+      .eq("id", eventId)
+      .select("id")
+      .maybeSingle()
+    if (error) return sendDatabaseError(res, error)
+    if (!data) return res.status(404).json({ error: "The Room event was not found" })
+    return res.status(200).json({ ...(await loadEventBundle({ eventId })), schedule_change: "reset" })
+  }
+
+  if (action === "delete-event") {
+    const eventId = req.body?.event_id
+    if (!eventId) return res.status(400).json({ error: "Event ID is required" })
+    const { data, error } = await supabase
+      .from("the_room_events")
+      .delete()
+      .eq("id", eventId)
+      .select("id")
+      .maybeSingle()
+    if (error) return sendDatabaseError(res, error)
+    if (!data) return res.status(404).json({ error: "The Room event was not found" })
+    return res.status(200).json({ deleted: true, event_id: eventId })
+  }
+
+  if (action === "check-in-next") {
+    const eventId = req.body?.event_id
+    const gender = String(req.body?.gender || "")
+    if (!eventId || !ROSTER_GENDERS.has(gender)) {
+      return res.status(400).json({ error: "A valid event and guest gender are required" })
+    }
+
+    // The checked_in=false filter on the update is the final guard against two
+    // organizer devices handing out the same numbered badge at the same time.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const { data: nextAttendee, error: nextError } = await supabase
+        .from("the_room_attendees")
+        .select("id,attendee_number")
+        .eq("event_id", eventId)
+        .eq("gender", gender)
+        .eq("included_in_schedule", true)
+        .in("attendance_status", ["registered", "confirmed"])
+        .eq("checked_in", false)
+        .order("attendee_number", { ascending: true })
+        .limit(1)
+        .maybeSingle()
+      if (nextError) return sendDatabaseError(res, nextError)
+      if (!nextAttendee) {
+        return res.status(409).json({ error: "All badges for this group have already been assigned", code: "NO_BADGES_LEFT" })
+      }
+
+      const { data: claimed, error: claimError } = await supabase
+        .from("the_room_attendees")
+        .update({ checked_in: true, updated_at: new Date().toISOString() })
+        .eq("id", nextAttendee.id)
+        .eq("event_id", eventId)
+        .eq("checked_in", false)
+        .select("id,attendee_number,gender")
+        .maybeSingle()
+      if (claimError) return sendDatabaseError(res, claimError)
+      if (!claimed) continue
+
+      return res.status(200).json({
+        ...(await loadEventBundle({ eventId })),
+        assigned_attendee_number: claimed.attendee_number,
+        assigned_gender: claimed.gender,
+      })
+    }
+
+    return res.status(409).json({ error: "A badge was just assigned from another device. Try again.", code: "BADGE_ALREADY_ASSIGNED" })
+  }
+
+  if (action === "set-attendee-check-in") {
+    const eventId = req.body?.event_id
+    const attendeeId = req.body?.attendee_id
+    const checkedIn = req.body?.checked_in
+    if (!eventId || !attendeeId || typeof checkedIn !== "boolean") {
+      return res.status(400).json({ error: "A valid event, guest, and check-in state are required" })
+    }
+    const { data, error } = await supabase
+      .from("the_room_attendees")
+      .update({ checked_in: checkedIn, updated_at: new Date().toISOString() })
+      .eq("id", attendeeId)
+      .eq("event_id", eventId)
+      .select("id")
+      .maybeSingle()
+    if (error) return sendDatabaseError(res, error)
+    if (!data) return res.status(404).json({ error: "The Room guest was not found" })
+    return res.status(200).json(await loadEventBundle({ eventId }))
+  }
+
   if (action === "create-event") {
     const eventNumber = numberInRange(req.body?.event_number, 1, Number.MAX_SAFE_INTEGER)
     if (!Number.isInteger(eventNumber)) return res.status(400).json({ error: "A positive whole event number is required" })
@@ -136,7 +232,7 @@ async function handleAction(req, res, action) {
     const { data, error } = await supabase.from("the_room_events").insert(payload).select(EVENT_FIELDS).single()
     if (error) return sendDatabaseError(res, error)
     try {
-      await ensureMinimumRoster(data)
+      await ensureMinimumRoster(data, { invalidate: false })
       return res.status(201).json(await loadEventBundle({ eventId: data.id }))
     } catch (rosterError) {
       await supabase.from("the_room_events").delete().eq("id", data.id)
@@ -160,12 +256,75 @@ async function handleAction(req, res, action) {
       round_count: Math.round(numberInRange(req.body?.round_count, 1, 20, existingEvent.round_count)),
       updated_at: new Date().toISOString(),
     }
+    const dimensionsChanged = Number(existingEvent.table_count) !== Number(payload.table_count)
+      || Number(existingEvent.round_count) !== Number(payload.round_count)
+    const guestTargetIncreased = Number(payload.minimum_attendees) > Number(existingEvent.minimum_attendees)
+    let activeSchedule = null
+    let activeSeats = []
+    if (guestTargetIncreased && !dimensionsChanged) {
+      const { data, error } = await supabase.from("the_room_schedule_runs").select("*").eq("event_id", eventId).eq("is_active", true).maybeSingle()
+      if (error) return sendDatabaseError(res, error)
+      activeSchedule = data || null
+      if (activeSchedule?.id) {
+        const { data: seats, error: seatsError } = await supabase
+          .from("the_room_seats")
+          .select("round_number,table_number,seat_number,attendee_id")
+          .eq("schedule_run_id", activeSchedule.id)
+          .order("round_number")
+          .order("table_number")
+          .order("seat_number")
+        if (seatsError) return sendDatabaseError(res, seatsError)
+        activeSeats = seats || []
+      }
+    }
     const { error } = await supabase.from("the_room_events").update(payload).eq("id", eventId)
     if (error) return sendDatabaseError(res, error)
-    const scheduleShapeChanged = ["minimum_attendees", "table_count", "round_count"]
-      .some(key => Number(existingEvent[key]) !== Number(payload[key]))
-    if (scheduleShapeChanged) await invalidateSchedule(eventId)
-    return res.status(200).json(await loadEventBundle({ eventId }))
+    const updatedEvent = { ...existingEvent, ...payload }
+    const addedGuestCount = await ensureMinimumRoster(updatedEvent, { invalidate: false })
+
+    if (dimensionsChanged) {
+      await invalidateSchedule(eventId)
+      return res.status(200).json({ ...(await loadEventBundle({ eventId })), schedule_change: "reset", added_guest_count: addedGuestCount })
+    }
+
+    if (addedGuestCount > 0 && activeSchedule && activeSeats.length) {
+      const { data: attendees, error: attendeeError } = await supabase
+        .from("the_room_attendees")
+        .select(ATTENDEE_FIELDS)
+        .eq("event_id", eventId)
+        .eq("included_in_schedule", true)
+        .in("attendance_status", ["registered", "confirmed"])
+        .order("attendee_number")
+      if (attendeeError) return sendDatabaseError(res, attendeeError)
+      const seatedIds = new Set(activeSeats.map(seat => seat.attendee_id))
+      const newcomerIds = (attendees || []).filter(attendee => !seatedIds.has(attendee.id)).map(attendee => attendee.id)
+      try {
+        const extension = extendTheRoomSchedule({
+          participants: attendees || [],
+          existingSeats: activeSeats,
+          newAttendeeIds: newcomerIds,
+          tableCount: payload.table_count,
+          roundCount: payload.round_count,
+        })
+        const { error: replaceError } = await supabase.rpc("replace_the_room_schedule", {
+          p_event_id: eventId,
+          p_seed: `the-room-event-${existingEvent.event_number}-extended-${(attendees || []).length}`,
+          p_algorithm_version: `${ALGORITHM_VERSION}-incremental`,
+          p_metrics: extension.metrics,
+          p_rows: extension.rows,
+        })
+        if (replaceError) return sendDatabaseError(res, replaceError)
+        return res.status(200).json({ ...(await loadEventBundle({ eventId })), schedule_change: "extended", added_guest_count: newcomerIds.length })
+      } catch (extensionError) {
+        await invalidateSchedule(eventId)
+        if (extensionError instanceof TheRoomExtensionError) {
+          return res.status(422).json({ error: extensionError.message, code: extensionError.code, details: extensionError.details })
+        }
+        throw extensionError
+      }
+    }
+
+    return res.status(200).json({ ...(await loadEventBundle({ eventId })), schedule_change: "unchanged", added_guest_count: addedGuestCount })
   }
 
   if (action === "add-attendee") {

@@ -137,21 +137,21 @@ function guestNumber(value: number) {
 
 function genderStyle(gender: Gender) {
   if (gender === "female") return {
-    label: "ضيفة",
+    label: "فتاة",
     chip: "border-rose-300/25 bg-rose-300/[0.09] text-rose-100 hover:border-rose-300/50",
     accent: "text-rose-200",
     surface: "border-rose-300/30 from-rose-950/85 via-[#130d0d] to-[#0b0b09]",
     glow: "bg-rose-400/20",
   }
   if (gender === "male") return {
-    label: "ضيف",
+    label: "ولد",
     chip: "border-sky-300/25 bg-sky-300/[0.09] text-sky-100 hover:border-sky-300/50",
     accent: "text-sky-200",
     surface: "border-sky-300/30 from-sky-950/85 via-[#0c1115] to-[#0b0b09]",
     glow: "bg-sky-400/20",
   }
   return {
-    label: "ضيف",
+    label: "شخص",
     chip: "border-violet-300/25 bg-violet-300/[0.09] text-violet-100 hover:border-violet-300/50",
     accent: "text-violet-200",
     surface: "border-violet-300/30 from-violet-950/85 via-[#100d15] to-[#0b0b09]",
@@ -256,7 +256,7 @@ function CheckInPanel({ attendees, busy, onNext, onAdd, onUndo }: { attendees: A
       <button type="button" onClick={() => onNext(gender)} disabled={busy || !person} className={`relative min-h-32 overflow-hidden rounded-3xl border p-4 text-right transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45 ${woman ? "border-rose-300/25 bg-rose-300/[0.07]" : "border-sky-300/25 bg-sky-300/[0.07]"}`}>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className={`text-sm font-extrabold ${woman ? "text-rose-200" : "text-sky-200"}`}>{woman ? "وصلت ضيفة" : "وصل ضيف"}</p>
+            <p className={`text-sm font-extrabold ${woman ? "text-rose-200" : "text-sky-200"}`}>{woman ? "وصلت فتاة" : "وصل ولد"}</p>
             {person ? <p className="mt-1.5 text-xs text-stone-400">البطاقة التالية</p> : <p className="mt-1.5 text-xs text-stone-400">خلصت البطاقات</p>}
           </div>
           <BadgeCheck size={26} className={woman ? "text-rose-200" : "text-sky-200"} />
@@ -272,7 +272,7 @@ function CheckInPanel({ attendees, busy, onNext, onAdd, onUndo }: { attendees: A
   return (
     <div className="mt-5 space-y-4">
       <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-4 sm:p-5">
-        <div className="flex items-center justify-between gap-4"><div><p className="font-extrabold text-white">استقبال أول 20 ضيف</p><p className="mt-1 text-xs leading-5 text-stone-400">سلّم البطاقة بعد ما تظهر علامة «تم التسليم».</p></div><strong dir="ltr" className="shrink-0 text-2xl text-[#efd89e]">{checkedFirst} / {firstBadges.length}</strong></div>
+        <div className="flex items-center justify-between gap-4"><div><p className="font-extrabold text-white">استقبال أول 20 شخص</p><p className="mt-1 text-xs leading-5 text-stone-400">سلّم البطاقة بعد ما تظهر علامة «تم التسليم».</p></div><strong dir="ltr" className="shrink-0 text-2xl text-[#efd89e]">{checkedFirst} / {firstBadges.length}</strong></div>
         <div className="mt-4 h-2 overflow-hidden rounded-full bg-black/35"><div className="h-full rounded-full bg-[#d7ba7d] transition-all" style={{ width: `${progress}%` }} /></div>
       </section>
 
@@ -284,13 +284,13 @@ function CheckInPanel({ attendees, busy, onNext, onAdd, onUndo }: { attendees: A
       <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-4">
         <p className="mb-3 font-extrabold text-white">إضافة شخص جديد</p>
         <div className="grid grid-cols-2 gap-2">
-          <button type="button" onClick={() => onAdd("female")} disabled={busy} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-rose-300/25 bg-rose-300/[0.07] px-3 text-sm font-extrabold text-rose-100 disabled:opacity-40"><UserPlus size={17} /> إضافة ضيفة</button>
-          <button type="button" onClick={() => onAdd("male")} disabled={busy} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-sky-300/25 bg-sky-300/[0.07] px-3 text-sm font-extrabold text-sky-100 disabled:opacity-40"><UserPlus size={17} /> إضافة ضيف</button>
+          <button type="button" onClick={() => onAdd("female")} disabled={busy} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-rose-300/25 bg-rose-300/[0.07] px-3 text-sm font-extrabold text-rose-100 disabled:opacity-40"><UserPlus size={17} /> إضافة فتاة</button>
+          <button type="button" onClick={() => onAdd("male")} disabled={busy} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-sky-300/25 bg-sky-300/[0.07] px-3 text-sm font-extrabold text-sky-100 disabled:opacity-40"><UserPlus size={17} /> إضافة ولد</button>
         </div>
       </section>
 
       <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-4">
-        <div className="mb-3 flex items-center justify-between"><div><p className="font-extrabold text-white">حالة البطاقات</p><p className="mt-1 text-[11px] text-stone-500">وردي للضيفة · أزرق للضيف · أخضر تم تسليمه</p></div><span className="text-xs font-bold text-stone-500">01–20</span></div>
+        <div className="mb-3 flex items-center justify-between"><div><p className="font-extrabold text-white">حالة البطاقات</p><p className="mt-1 text-[11px] text-stone-500">وردي للفتاة · أزرق للولد · أخضر تم تسليمه</p></div><span className="text-xs font-bold text-stone-500">01–20</span></div>
         {badgeGrid(firstBadges)}
       </section>
 
@@ -317,7 +317,7 @@ function GuestBadgeFocus({ event, person, journey, activeRound, onClose, onShare
           <div className="relative mt-5 text-center">
             <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-current bg-white/[0.04] ${style.accent}`}><UserRound size={25} /></div>
             <p className={`mt-2 text-xs font-extrabold ${style.accent}`}>{style.label}</p>
-            <p className="mt-0.5 text-5xl font-extrabold tracking-tight text-white">{person.gender === "female" ? "ضيفة" : "ضيف"} {guestNumber(person.attendee_number)}</p>
+            <p className="mt-0.5 text-5xl font-extrabold tracking-tight text-white">{person.gender === "female" ? "فتاة" : "ولد"} {guestNumber(person.attendee_number)}</p>
           </div>
           <div className="relative my-4 h-px bg-gradient-to-l from-transparent via-white/15 to-transparent" />
           <div className="relative space-y-2">
@@ -576,7 +576,7 @@ export default function TheRoomPage() {
       setSelectedGuestId(addedPerson.id)
       setView("checkin")
       setBadgeOpen(true)
-      toast.success(`تمت إضافة ${gender === "female" ? "ضيفة" : "ضيف"} ${guestNumber(attendeeNumber)}`)
+      toast.success(`تمت إضافة ${gender === "female" ? "فتاة" : "ولد"} ${guestNumber(attendeeNumber)}`)
       return
     }
     try {
@@ -585,7 +585,7 @@ export default function TheRoomPage() {
       if (addedPerson) setSelectedGuestId(addedPerson.id)
       setView("checkin")
       setBadgeOpen(Boolean(addedPerson))
-      toast.success(`تمت إضافة ${gender === "female" ? "ضيفة" : "ضيف"} ${guestNumber(data.added_attendee_number)}`)
+      toast.success(`تمت إضافة ${gender === "female" ? "فتاة" : "ولد"} ${guestNumber(data.added_attendee_number)}`)
     } catch {}
   }
 
@@ -606,7 +606,7 @@ export default function TheRoomPage() {
 
   const shareGuest = async () => {
     if (!selectedGuest || !bundle) return
-    const text = `ذا روم — ${selectedGuest.gender === "female" ? "ضيفة" : "ضيف"} ${guestNumber(selectedGuest.attendee_number)}\n${journey.map(seat => `الجولة ${seat.round_number}: الطاولة ${seat.table_number}`).join("\n")}`
+    const text = `ذا روم — ${selectedGuest.gender === "female" ? "فتاة" : "ولد"} ${guestNumber(selectedGuest.attendee_number)}\n${journey.map(seat => `الجولة ${seat.round_number}: الطاولة ${seat.table_number}`).join("\n")}`
     try {
       if (navigator.share) await navigator.share({ title: "مسار الضيف في ذا روم", text })
       else { await navigator.clipboard.writeText(text); toast.success("تم نسخ مسار الضيف") }
@@ -672,7 +672,7 @@ export default function TheRoomPage() {
                       <Counter label="عدد الجولات" hint="كم مرة ينتقل الضيوف" value={draft.round_count} onChange={value => setDraft(current => ({ ...current, round_count: value }))} min={1} max={20} />
                     </div>
                     <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-[#d7ba7d]/15 bg-[#d7ba7d]/[0.055] p-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm"><span><strong className="text-rose-200">{projectedGenderCounts.women}</strong> نساء</span><span><strong className="text-sky-200">{projectedGenderCounts.men}</strong> رجال</span><span><strong className="text-[#efd89e]">{Math.floor(draft.minimum_attendees / draft.table_count)}–{Math.ceil(draft.minimum_attendees / draft.table_count)}</strong> لكل طاولة</span></div>
+                      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm"><span><strong className="text-rose-200">{projectedGenderCounts.women}</strong> فتيات</span><span><strong className="text-sky-200">{projectedGenderCounts.men}</strong> أولاد</span><span><strong className="text-[#efd89e]">{Math.floor(draft.minimum_attendees / draft.table_count)}–{Math.ceil(draft.minimum_attendees / draft.table_count)}</strong> لكل طاولة</span></div>
                       <button onClick={saveAndGenerate} disabled={busy || !validSetup || !setupChanged} className="flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-2xl bg-[#d7ba7d] px-6 font-extrabold text-[#17130c] disabled:cursor-not-allowed disabled:opacity-35">{busy ? <Loader2 className="animate-spin" size={18} /> : <WandSparkles size={18} />} {creating ? "أنشئ الفعالية والتوزيع" : dimensionsChanged ? "طبّق وأعد توزيع الطاولات" : guestsToAdd > 0 && bundle?.schedule ? `أضف ${guestsToAdd} ضيوف فقط` : bundle?.schedule ? "التوزيع محفوظ" : "جهّز توزيع الطاولات"}</button>
                     </div>
                     {!validSetup && <p className="mt-3 rounded-xl border border-amber-300/15 bg-amber-300/[0.06] px-3 py-2 text-xs text-amber-100/75">كل طاولة تحتاج ضيفين على الأقل.</p>}

@@ -87,3 +87,23 @@ test("spreads individually added guests of the same gender across every round", 
     rows = result.rows
   }
 })
+
+test("prefers gender balance even when the balanced table contains more prior meetings", () => {
+  const people = [
+    { id: "m1", gender: "male" }, { id: "m2", gender: "male" }, { id: "m3", gender: "male" },
+    { id: "f1", gender: "female" }, { id: "f2", gender: "female" }, { id: "f3", gender: "female" },
+    { id: "new", gender: "male" },
+  ]
+  const existingSeats = [
+    ...["m1", "m2", "m3"].map((id, index) => ({ attendee_id: id, round_number: 1, table_number: 1, seat_number: index + 1 })),
+    ...["f1", "f2", "f3"].map((id, index) => ({ attendee_id: id, round_number: 1, table_number: 2, seat_number: index + 1 })),
+    ...["m1", "m2", "f1"].map((id, index) => ({ attendee_id: id, round_number: 2, table_number: 1, seat_number: index + 1 })),
+    ...["m3", "f2", "f3"].map((id, index) => ({ attendee_id: id, round_number: 2, table_number: 2, seat_number: index + 1 })),
+  ]
+
+  const result = extendTheRoomSchedule({ participants: people, existingSeats, newAttendeeIds: ["new"], tableCount: 2, roundCount: 2 })
+  const secondRound = result.rows.find(row => row.attendee_id === "new" && row.round_number === 2)
+
+  assert.equal(secondRound.table_number, 2)
+  assert.equal(result.placements[0].reason, "gender_balance_first")
+})

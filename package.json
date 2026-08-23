@@ -45,6 +45,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.26.2",
+    "html-to-image": "1.11.13",
     "isbot": "^5.1.27",
     "lucide-react": "^0.525.0",
     "ml-matrix": "^6.12.1",

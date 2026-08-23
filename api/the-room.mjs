@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "../server/security/supabase-admin.mjs"
 import { generateTheRoomSchedule, TheRoomScheduleError } from "../server/the-room/scheduler.mjs"
 import { extendTheRoomSchedule, TheRoomExtensionError } from "../server/the-room/incremental-scheduler.mjs"
+import { analyzeTheRoomMove, TheRoomMoveError } from "../server/the-room/manual-move.mjs"
 import {
   buildNumberedRosterRows,
   rosterGenderCounts,
@@ -15,7 +16,7 @@ import {
 } from "../server/the-room/auth.mjs"
 
 const supabase = supabaseAdmin
-const ALGORITHM_VERSION = "the-room-social-table-v1"
+const ALGORITHM_VERSION = "the-room-social-table-v2"
 const EVENT_FIELDS = "id,event_number,name,starts_at,venue,status,minimum_attendees,table_count,round_count,ticket_price,currency,notes,created_at,updated_at"
 const ATTENDEE_FIELDS = "id,event_id,attendee_number,full_name,gender,attendance_status,included_in_schedule,checked_in,created_at,updated_at"
 
@@ -222,6 +223,18 @@ async function handleAction(req, res, action) {
     return res.status(200).json(await loadEventBundle({ eventId }))
   }
 
+  if (action === "reset-check-ins") {
+    const eventId = req.body?.event_id
+    if (!eventId) return res.status(400).json({ error: "Event ID is required" })
+    const { error } = await supabase
+      .from("the_room_attendees")
+      .update({ checked_in: false, updated_at: new Date().toISOString() })
+      .eq("event_id", eventId)
+      .eq("checked_in", true)
+    if (error) return sendDatabaseError(res, error)
+    return res.status(200).json(await loadEventBundle({ eventId }))
+  }
+
   if (action === "create-event") {
     const eventNumber = numberInRange(req.body?.event_number, 1, Number.MAX_SAFE_INTEGER)
     if (!Number.isInteger(eventNumber)) return res.status(400).json({ error: "A positive whole event number is required" })
@@ -417,6 +430,9 @@ async function handleAction(req, res, action) {
         added_attendee_number: addedAttendee.attendee_number,
         added_gender: addedAttendee.gender,
         schedule_change: "extended",
+        placement_reason: extension.placements?.[0]?.reason || "gender_balance_first",
+        placement_tables: extension.placements?.[0]?.tables || [],
+        placement_metrics: extension.metrics,
       })
     } catch (extensionError) {
       await supabase.from("the_room_attendees").delete().eq("id", addedAttendee.id).eq("event_id", eventId)
@@ -441,8 +457,75 @@ async function handleAction(req, res, action) {
       .maybeSingle()
     if (error) return sendDatabaseError(res, error)
     if (!data) return res.status(404).json({ error: "The Room guest was not found" })
-    await invalidateSchedule(eventId)
-    return res.status(200).json(await loadEventBundle({ eventId }))
+    return res.status(200).json({ ...(await loadEventBundle({ eventId })), schedule_change: "unchanged" })
+  }
+
+  if (action === "move-attendee") {
+    const eventId = req.body?.event_id
+    const attendeeId = req.body?.attendee_id
+    const roundNumber = Number(req.body?.round_number)
+    const targetTable = Number(req.body?.table_number)
+    const force = req.body?.force === true
+    if (!eventId || !attendeeId) return res.status(400).json({ error: "A valid event and guest are required" })
+
+    const [eventResult, scheduleResult, attendeeResult] = await Promise.all([
+      supabase.from("the_room_events").select(EVENT_FIELDS).eq("id", eventId).maybeSingle(),
+      supabase.from("the_room_schedule_runs").select("id").eq("event_id", eventId).eq("is_active", true).maybeSingle(),
+      supabase.from("the_room_attendees").select(ATTENDEE_FIELDS).eq("event_id", eventId).order("attendee_number"),
+    ])
+    if (eventResult.error) return sendDatabaseError(res, eventResult.error)
+    if (scheduleResult.error) return sendDatabaseError(res, scheduleResult.error)
+    if (attendeeResult.error) return sendDatabaseError(res, attendeeResult.error)
+    if (!eventResult.data || !scheduleResult.data) return res.status(404).json({ error: "The active schedule was not found" })
+
+    const { data: seats, error: seatsError } = await supabase
+      .from("the_room_seats")
+      .select("id,round_number,table_number,seat_number,attendee_id")
+      .eq("schedule_run_id", scheduleResult.data.id)
+      .order("round_number")
+      .order("table_number")
+      .order("seat_number")
+    if (seatsError) return sendDatabaseError(res, seatsError)
+
+    try {
+      const move = analyzeTheRoomMove({
+        seats: seats || [],
+        attendees: attendeeResult.data || [],
+        attendeeId,
+        roundNumber,
+        targetTable,
+        tableCount: eventResult.data.table_count,
+      })
+      if (move.repeatedWithIds.length && !force) {
+        return res.status(409).json({
+          error: "This move repeats a prior meeting",
+          code: "MOVE_REPEATS_MEETING",
+          details: { repeated_attendee_numbers: move.repeatedWithNumbers },
+        })
+      }
+      const { data: updatedSeat, error: updateError } = await supabase
+        .from("the_room_seats")
+        .update({ table_number: move.toTable, seat_number: move.nextSeatNumber })
+        .eq("id", move.seatId)
+        .eq("schedule_run_id", scheduleResult.data.id)
+        .select("id")
+        .maybeSingle()
+      if (updateError) return sendDatabaseError(res, updateError)
+      if (!updatedSeat) return res.status(404).json({ error: "The Room seat was not found" })
+      return res.status(200).json({
+        ...(await loadEventBundle({ eventId })),
+        moved_attendee_id: attendeeId,
+        moved_round_number: move.roundNumber,
+        moved_from_table: move.fromTable,
+        moved_to_table: move.toTable,
+        repeated_meeting_forced: move.repeatedWithIds.length > 0,
+      })
+    } catch (moveError) {
+      if (moveError instanceof TheRoomMoveError) {
+        return res.status(422).json({ error: moveError.message, code: moveError.code, details: moveError.details })
+      }
+      throw moveError
+    }
   }
 
   if (action === "generate-schedule") {

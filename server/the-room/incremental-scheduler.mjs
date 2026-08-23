@@ -26,6 +26,17 @@ function genderSpread(tables, gender, candidateTable) {
   return Math.max(...counts) - Math.min(...counts)
 }
 
+function tableGenderGap(table, candidateGender) {
+  const counts = table.members.reduce((result, person) => {
+    if (person.gender === "female") result.female += 1
+    if (person.gender === "male") result.male += 1
+    return result
+  }, { female: 0, male: 0 })
+  if (candidateGender === "female") counts.female += 1
+  if (candidateGender === "male") counts.male += 1
+  return Math.abs(counts.female - counts.male)
+}
+
 function scheduleMetrics(rows, participants, newAttendeeIds, tableCount, roundCount) {
   const people = new Map(participants.map(person => [String(person.id), person]))
   const newcomerIds = new Set(newAttendeeIds.map(String))
@@ -142,10 +153,13 @@ export function extendTheRoomSchedule({
         return {
           table,
           score: [
-            repeatedNewPairs,
-            newCompanions.length,
-            repeatedMeetings,
+            // Gender balance is intentionally the first priority. Within the
+            // best-balanced options we still avoid repeated introductions.
             genderSpread(roundTables, attendee.gender, table.tableNumber),
+            newCompanions.length,
+            repeatedNewPairs,
+            tableGenderGap(table, attendee.gender),
+            repeatedMeetings,
             table.members.length,
             rotatedTieBreak,
           ],
@@ -168,5 +182,13 @@ export function extendTheRoomSchedule({
   return {
     rows,
     metrics: scheduleMetrics(rows, participants, newcomerIds, tables, rounds),
+    placements: newcomerIds.map(attendeeId => ({
+      attendeeId,
+      reason: "gender_balance_first",
+      tables: rows
+        .filter(row => row.attendee_id === attendeeId)
+        .sort((left, right) => left.round_number - right.round_number)
+        .map(row => ({ roundNumber: row.round_number, tableNumber: row.table_number })),
+    })),
   }
 }

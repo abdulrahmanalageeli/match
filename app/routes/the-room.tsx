@@ -3,9 +3,10 @@ import { useSearchParams } from "react-router"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 import toast, { Toaster } from "react-hot-toast"
 import {
-  ArrowRight, BadgeCheck, CalendarPlus, CheckCircle2, ChevronDown, DoorOpen, Eye, EyeOff,
-  Loader2, LockKeyhole, LogOut, Minus, Plus, Printer, RefreshCw, RotateCcw, Settings2,
-  Share2, Sparkles, Table2, Trash2, Undo2, UserPlus, UserRound, UsersRound, WandSparkles, X,
+  AlertTriangle, ArrowLeftRight, ArrowRight, BadgeCheck, CalendarPlus, Camera, CheckCircle2,
+  ChevronDown, Clock3, DoorOpen, Download, Eye, EyeOff, Gauge, Loader2, LockKeyhole, LogOut,
+  Minus, Play, Plus, Printer, RefreshCw, RotateCcw, Settings2, Share2, ShieldCheck, Sparkles,
+  Table2, Trash2, Undo2, UserCog, UserPlus, UserRound, UsersRound, WandSparkles, X,
 } from "lucide-react"
 import "@fontsource/tajawal/400.css"
 import "@fontsource/tajawal/500.css"
@@ -40,6 +41,8 @@ type Attendee = {
   attendance_status: string
   included_in_schedule: boolean
   checked_in: boolean
+  created_at?: string
+  updated_at?: string
 }
 type ScheduleRun = {
   id: string
@@ -59,6 +62,7 @@ type Seat = {
 }
 type Bundle = { event: RoomEvent; attendees: Attendee[]; schedule: ScheduleRun | null; seats: Seat[] }
 type SetupValues = { event_number: number; minimum_attendees: number; table_count: number; round_count: number }
+type PlacementNotice = { attendeeNumber: number; gender: Gender; tables: { roundNumber: number; tableNumber: number }[] }
 
 const demoAttendees: Attendee[] = Array.from({ length: 20 }, (_, index) => ({
   id: `demo-${index + 1}`,
@@ -69,6 +73,8 @@ const demoAttendees: Attendee[] = Array.from({ length: 20 }, (_, index) => ({
   attendance_status: "confirmed",
   included_in_schedule: true,
   checked_in: false,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
 }))
 
 function demoSeats() {
@@ -128,6 +134,9 @@ function arabicError(error: any) {
   if (["TABLE_GEOMETRY_IMPOSSIBLE", "PAIR_CAPACITY_EXCEEDED"].includes(error?.code)) return "هذا التوزيع غير ممكن. قلّل الجولات أو الطاولات ثم حاول مرة أخرى."
   if (error?.code === "NO_BADGES_LEFT") return "تم تسليم جميع بطاقات هذا القسم."
   if (error?.code === "BADGE_ALREADY_ASSIGNED") return "تم تسليم هذه البطاقة للتو من جهاز آخر. حاول مرة أخرى."
+  if (error?.code === "SAME_TABLE") return "الشخص موجود على هذه الطاولة أصلًا."
+  if (error?.code === "INVALID_MOVE") return "تعذّر النقل. تأكد من الجولة والطاولة."
+  if (error?.code === "MOVE_REPEATS_MEETING") return "هذا النقل بيكرر لقاء سابق. اختر طاولة ثانية."
   return "تعذّر تنفيذ الطلب. تأكد من الأعداد وحاول مرة أخرى."
 }
 
@@ -157,6 +166,48 @@ function genderStyle(gender: Gender) {
     surface: "border-violet-300/30 from-violet-950/85 via-[#100d15] to-[#0b0b09]",
     glow: "bg-violet-400/20",
   }
+}
+
+function checkInTime(value?: string) {
+  if (!value) return "الآن"
+  return new Intl.DateTimeFormat("ar-SA", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Riyadh" }).format(new Date(value))
+}
+
+function balanceInfo(women: number, men: number) {
+  const difference = Math.abs(women - men)
+  if (difference <= 1) return { label: "التوازن ممتاز", tone: "border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-100", preferred: null }
+  if (difference <= 3) return { label: "التوازن جيد", tone: "border-[#d7ba7d]/20 bg-[#d7ba7d]/[0.07] text-[#efd89e]", preferred: women < men ? "فتاة" : "ولد" }
+  return { label: "يحتاج موازنة", tone: "border-amber-300/25 bg-amber-300/[0.08] text-amber-100", preferred: women < men ? "فتاة" : "ولد" }
+}
+
+function compareNumberScores(left: number[], right: number[]) {
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return left[index] - right[index]
+  }
+  return 0
+}
+
+function previewSeatNewGuest(bundle: Bundle, person: Attendee) {
+  const nextSeats: Seat[] = []
+  const pairKey = (left: string, right: string) => left < right ? `${left}|${right}` : `${right}|${left}`
+  const priorPairs = new Set<string>()
+  for (let roundNumber = 1; roundNumber <= bundle.event.round_count; roundNumber += 1) {
+    const candidates = Array.from({ length: bundle.event.table_count }, (_, index) => {
+      const tableNumber = index + 1
+      const tableSeats = [...bundle.seats, ...nextSeats].filter(seat => seat.round_number === roundNumber && seat.table_number === tableNumber)
+      const members = tableSeats.map(seat => bundle.attendees.find(attendee => attendee.id === seat.attendee_id)).filter(Boolean) as Attendee[]
+      const sameGender = members.filter(member => member.gender === person.gender).length
+      const women = members.filter(member => member.gender === "female").length + (person.gender === "female" ? 1 : 0)
+      const men = members.filter(member => member.gender === "male").length + (person.gender === "male" ? 1 : 0)
+      const repeats = members.reduce((count, member) => count + (priorPairs.has(pairKey(person.id, member.id)) ? 1 : 0), 0)
+      return { tableNumber, tableSeats, score: [sameGender, Math.abs(women - men), repeats, members.length, (tableNumber + roundNumber) % bundle.event.table_count] }
+    }).sort((left, right) => compareNumberScores(left.score, right.score))
+    const selected = candidates[0]
+    const id = Math.max(0, ...bundle.seats.map(seat => Number(seat.id)), ...nextSeats.map(seat => Number(seat.id))) + 1
+    nextSeats.push({ id, schedule_run_id: bundle.schedule!.id, event_id: bundle.event.id, round_number: roundNumber, table_number: selected.tableNumber, seat_number: selected.tableSeats.reduce((maximum, seat) => Math.max(maximum, seat.seat_number), 0) + 1, attendee_id: person.id })
+    selected.tableSeats.forEach(seat => priorPairs.add(pairKey(person.id, seat.attendee_id)))
+  }
+  return nextSeats
 }
 
 const inputClass = "h-12 w-full rounded-2xl border border-white/10 bg-black/25 px-4 text-center text-lg font-extrabold text-white outline-none transition focus:border-[#d7ba7d]/70 focus:ring-2 focus:ring-[#d7ba7d]/10"
@@ -221,24 +272,67 @@ function TableCard({ tableNumber, seats, attendees, onGuest }: { tableNumber: nu
   )
 }
 
-function CheckInPanel({ attendees, busy, onNext, onAdd, onUndo }: { attendees: Attendee[]; busy: boolean; onNext: (gender: "female" | "male") => void; onAdd: (gender: "female" | "male") => void; onUndo: (person: Attendee) => void }) {
+function OrganizerSummary({ event, attendees, seats, activeRound, onNextRound }: { event: RoomEvent; attendees: Attendee[]; seats: Seat[]; activeRound: number; onNextRound: () => void }) {
+  const checked = attendees.filter(person => person.checked_in).length
+  const women = attendees.filter(person => person.gender === "female").length
+  const men = attendees.filter(person => person.gender === "male").length
+  const roundTables = Array.from({ length: event.table_count }, (_, index) => {
+    const tableNumber = index + 1
+    const members = seats.filter(seat => seat.round_number === activeRound && seat.table_number === tableNumber)
+      .map(seat => attendees.find(person => person.id === seat.attendee_id)).filter(Boolean) as Attendee[]
+    return { tableNumber, members, women: members.filter(person => person.gender === "female").length, men: members.filter(person => person.gender === "male").length }
+  })
+  const idealSize = Math.ceil(attendees.length / Math.max(1, event.table_count))
+  const imbalanced = roundTables.filter(table => Math.abs(table.women - (women / event.table_count)) > 1 || Math.abs(table.men - (men / event.table_count)) > 1)
+  const crowded = roundTables.filter(table => table.members.length > idealSize)
+  const stats = [
+    { label: "حضروا", value: checked, tone: "text-emerald-200" },
+    { label: "بانتظارهم", value: attendees.length - checked, tone: "text-stone-200" },
+    { label: "فتيات", value: women, tone: "text-rose-200" },
+    { label: "أولاد", value: men, tone: "text-sky-200" },
+  ]
+  return (
+    <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-4 sm:p-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-bold text-[#c9a968]">ملخص المنظّم</p>
+          <p className="mt-1 text-xl font-extrabold text-white">الجولة {activeRound} من {event.round_count}</p>
+        </div>
+        <button type="button" onClick={onNextRound} disabled={activeRound >= event.round_count} className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-[#d7ba7d] px-5 text-sm font-extrabold text-[#17130c] disabled:opacity-35"><Play size={16} /> {activeRound >= event.round_count ? "هذه آخر جولة" : `ابدأ الجولة ${activeRound + 1}`}</button>
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {stats.map(({ label, value, tone }) => <div key={label} className="rounded-2xl border border-white/[0.07] bg-black/20 p-3 text-center"><p className={`text-2xl font-extrabold ${tone}`}>{value}</p><p className="mt-1 text-[11px] font-bold text-stone-500">{label}</p></div>)}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-bold">
+        <span className={`rounded-full border px-3 py-1.5 ${imbalanced.length ? "border-amber-300/20 bg-amber-300/[0.07] text-amber-100" : "border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-100"}`}>{imbalanced.length ? `${imbalanced.length} طاولات تحتاج موازنة` : "الطاولات متوازنة"}</span>
+        <span className={`rounded-full border px-3 py-1.5 ${crowded.length ? "border-amber-300/20 bg-amber-300/[0.07] text-amber-100" : "border-white/[0.08] bg-white/[0.035] text-stone-400"}`}>{crowded.length ? `${crowded.length} طاولات مزدحمة` : "ما فيه طاولات مزدحمة"}</span>
+      </div>
+    </section>
+  )
+}
+
+function CheckInPanel({ attendees, busy, placementNotice, onNext, onAdd, onUndo, onShow }: { attendees: Attendee[]; busy: boolean; placementNotice: PlacementNotice | null; onNext: (gender: "female" | "male") => void; onAdd: (gender: "female" | "male") => void; onUndo: (person: Attendee) => void; onShow: (id: string) => void }) {
   const firstBadges = attendees.slice(0, 20)
   const extraBadges = attendees.slice(20)
-  const checkedFirst = firstBadges.filter(person => person.checked_in).length
+  const checkedCount = attendees.filter(person => person.checked_in).length
   const nextWoman = attendees.find(person => person.gender === "female" && !person.checked_in)
   const nextMan = attendees.find(person => person.gender === "male" && !person.checked_in)
-  const progress = firstBadges.length ? Math.round((checkedFirst / firstBadges.length) * 100) : 0
+  const women = attendees.filter(person => person.gender === "female").length
+  const men = attendees.filter(person => person.gender === "male").length
+  const balance = balanceInfo(women, men)
+  const recent = attendees.filter(person => person.checked_in).sort((left, right) => new Date(right.updated_at || 0).getTime() - new Date(left.updated_at || 0).getTime()).slice(0, 3)
+  const progress = attendees.length ? Math.round((checkedCount / attendees.length) * 100) : 0
 
   const badgeGrid = (people: Attendee[]) => (
     <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-10">
       {people.map(person => {
         const style = genderStyle(person.gender)
         return person.checked_in ? (
-          <button type="button" key={person.id} onClick={() => onUndo(person)} disabled={busy} className="group relative flex min-h-20 flex-col items-center justify-center rounded-2xl border border-emerald-300/35 bg-emerald-300/[0.1] text-emerald-100 disabled:opacity-50" title="تراجع عن التسليم">
+          <button type="button" key={person.id} onClick={() => onShow(person.id)} disabled={busy} className="group relative flex min-h-20 flex-col items-center justify-center rounded-2xl border border-emerald-300/35 bg-emerald-300/[0.1] text-emerald-100 disabled:opacity-50" title="عرض البطاقة المسلّمة">
             <CheckCircle2 size={18} />
             <span className="mt-1 text-lg font-extrabold">{guestNumber(person.attendee_number)}</span>
-            <span className="text-[9px] font-bold">تم التسليم</span>
-            <Undo2 size={12} className="absolute left-1.5 top-1.5 opacity-45 group-hover:opacity-100" />
+            <span className="text-[9px] font-bold">مقفلة · تم التسليم</span>
+            <LockKeyhole size={12} className="absolute left-1.5 top-1.5 opacity-55" />
           </button>
         ) : (
           <div key={person.id} className={`flex min-h-20 flex-col items-center justify-center rounded-2xl border ${style.chip}`}>
@@ -272,8 +366,13 @@ function CheckInPanel({ attendees, busy, onNext, onAdd, onUndo }: { attendees: A
   return (
     <div className="mt-5 space-y-4">
       <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-4 sm:p-5">
-        <div className="flex items-center justify-between gap-4"><div><p className="font-extrabold text-white">استقبال أول 20 شخص</p><p className="mt-1 text-xs leading-5 text-stone-400">سلّم البطاقة بعد ما تظهر علامة «تم التسليم».</p></div><strong dir="ltr" className="shrink-0 text-2xl text-[#efd89e]">{checkedFirst} / {firstBadges.length}</strong></div>
+        <div className="flex items-center justify-between gap-4"><div><p className="font-extrabold text-white">استقبال الضيوف</p><p className="mt-1 text-xs leading-5 text-stone-400">اضغط حسب الشخص الواصل، وبطاقته بتظهر مباشرة.</p></div><strong dir="ltr" className="shrink-0 text-2xl text-[#efd89e]">{checkedCount} / {attendees.length}</strong></div>
         <div className="mt-4 h-2 overflow-hidden rounded-full bg-black/35"><div className="h-full rounded-full bg-[#d7ba7d] transition-all" style={{ width: `${progress}%` }} /></div>
+      </section>
+
+      <section className={`rounded-3xl border p-4 ${balance.tone}`}>
+        <div className="flex items-center justify-between gap-3"><div><p className="font-extrabold">{balance.label}</p><p className="mt-1 text-xs opacity-70">{women} فتيات · {men} أولاد</p></div><Gauge size={24} /></div>
+        {balance.preferred && <p className="mt-3 rounded-xl bg-black/15 px-3 py-2 text-xs font-bold">يفضّل تكون الإضافة الجاية: {balance.preferred}</p>}
       </section>
 
       <div className="grid grid-cols-2 gap-3">
@@ -281,13 +380,17 @@ function CheckInPanel({ attendees, busy, onNext, onAdd, onUndo }: { attendees: A
         {arrivalButton("male", nextMan)}
       </div>
 
+      {recent.length > 0 && <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-4"><p className="mb-3 font-extrabold text-white">آخر البطاقات المسلّمة</p><div className="space-y-2">{recent.map(person => <div key={person.id} className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-300/15 bg-emerald-300/[0.055] p-3"><button type="button" onClick={() => onShow(person.id)} className="flex min-w-0 flex-1 items-center gap-3 text-right"><CheckCircle2 size={18} className="shrink-0 text-emerald-300" /><div><p className="font-extrabold text-white">بطاقة {guestNumber(person.attendee_number)} · {genderStyle(person.gender).label}</p><p className="mt-0.5 flex items-center gap-1 text-[10px] text-stone-500"><Clock3 size={11} /> {checkInTime(person.updated_at)}</p></div></button><button type="button" onClick={() => onUndo(person)} disabled={busy} className="flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl border border-white/10 px-3 text-xs font-bold text-stone-300 disabled:opacity-40"><Undo2 size={14} /> تراجع</button></div>)}</div></section>}
+
       <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-4">
-        <p className="mb-3 font-extrabold text-white">إضافة شخص جديد</p>
+        <div className="mb-3"><p className="font-extrabold text-white">إضافة شخص وصل بدون بطاقة</p><p className="mt-1 text-xs text-stone-500">ينضاف حضوره وتظهر بطاقته مباشرة.</p></div>
         <div className="grid grid-cols-2 gap-2">
           <button type="button" onClick={() => onAdd("female")} disabled={busy} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-rose-300/25 bg-rose-300/[0.07] px-3 text-sm font-extrabold text-rose-100 disabled:opacity-40"><UserPlus size={17} /> إضافة فتاة</button>
           <button type="button" onClick={() => onAdd("male")} disabled={busy} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-sky-300/25 bg-sky-300/[0.07] px-3 text-sm font-extrabold text-sky-100 disabled:opacity-40"><UserPlus size={17} /> إضافة ولد</button>
         </div>
       </section>
+
+      {placementNotice && <section className="rounded-3xl border border-[#d7ba7d]/20 bg-[#d7ba7d]/[0.06] p-4"><div className="flex items-start gap-3"><ShieldCheck size={20} className="mt-0.5 shrink-0 text-[#e4ca91]" /><div><p className="font-extrabold text-white">آخر إضافة: {genderStyle(placementNotice.gender).label} {guestNumber(placementNotice.attendeeNumber)}</p><p className="mt-1 text-xs font-bold text-[#d9bb7c]">اختير أفضل توازن متاح</p><p className="mt-2 text-xs text-stone-400">{placementNotice.tables.map(item => `ج${item.roundNumber}: ط${item.tableNumber}`).join(" · ")}</p></div></div></section>}
 
       <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-4">
         <div className="mb-3 flex items-center justify-between"><div><p className="font-extrabold text-white">حالة البطاقات</p><p className="mt-1 text-[11px] text-stone-500">وردي للفتاة · أزرق للولد · أخضر تم تسليمه</p></div><span className="text-xs font-bold text-stone-500">01–20</span></div>
@@ -301,13 +404,35 @@ function CheckInPanel({ attendees, busy, onNext, onAdd, onUndo }: { attendees: A
 
 function GuestBadgeFocus({ event, person, journey, activeRound, onClose, onShare }: { event: RoomEvent; person: Attendee; journey: Seat[]; activeRound: number; onClose: () => void; onShare: () => void }) {
   const style = genderStyle(person.gender)
+  const badgeRef = useRef<HTMLElement>(null)
+  const [photoMode, setPhotoMode] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const saveImage = async () => {
+    if (!badgeRef.current || saving) return
+    setSaving(true)
+    try {
+      const { toPng } = await import("html-to-image")
+      const dataUrl = await toPng(badgeRef.current, { cacheBust: true, pixelRatio: 2, backgroundColor: "#0b0b09" })
+      const link = document.createElement("a")
+      link.download = `the-room-${person.gender === "female" ? "girl" : "boy"}-${guestNumber(person.attendee_number)}.png`
+      link.href = dataUrl
+      link.click()
+      toast.success("تم حفظ البطاقة كصورة")
+    } catch {
+      toast.error("تعذّر حفظ الصورة على هذا الجهاز")
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} data-room-badge-overlay className="room-badge-overlay absolute inset-0 z-40 overflow-y-auto overscroll-contain bg-black/80 backdrop-blur-2xl">
-      <div className="room-badge-shell mx-auto flex min-h-full w-full max-w-[430px] flex-col items-center px-[clamp(.625rem,4vw,1rem)] pb-[max(.75rem,env(safe-area-inset-bottom))] pt-[max(.625rem,env(safe-area-inset-top))]">
-        <div className="room-badge-toolbar sticky top-0 z-30 mb-2 flex w-full shrink-0 justify-end py-1">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} data-room-badge-overlay className={`room-badge-overlay absolute inset-0 z-40 overflow-y-auto overscroll-contain bg-black/80 backdrop-blur-2xl ${photoMode ? "room-badge-photo-mode" : ""}`}>
+      <div className={`room-badge-shell mx-auto flex min-h-full w-full max-w-[430px] flex-col items-center px-[clamp(.625rem,4vw,1rem)] pb-[max(.75rem,env(safe-area-inset-bottom))] pt-[max(.625rem,env(safe-area-inset-top))] ${photoMode ? "justify-center" : ""}`}>
+        {!photoMode && <div className="room-badge-toolbar sticky top-0 z-30 mb-2 flex w-full shrink-0 justify-end py-1">
           <button onClick={onClose} aria-label="إغلاق البطاقة" className="flex h-11 items-center justify-center gap-2 rounded-full border border-white/10 bg-black/65 px-4 text-sm font-bold text-white shadow-lg backdrop-blur-xl"><X size={17} /><span className="room-badge-close-label">إغلاق</span></button>
-        </div>
-        <motion.article initial={{ y: 18, opacity: 0, scale: 0.97 }} animate={{ y: 0, opacity: 1, scale: 1 }} data-room-badge className={`room-badge-card relative w-full shrink-0 overflow-hidden rounded-[clamp(1.5rem,8vw,2.25rem)] border bg-gradient-to-b p-[clamp(.875rem,4.5vw,1.5rem)] shadow-[0_40px_120px_rgba(0,0,0,.75)] ${style.surface}`}>
+        </div>}
+        <motion.article ref={badgeRef} onClick={() => photoMode && setPhotoMode(false)} aria-label={photoMode ? "اضغط للرجوع من وضع التصوير" : undefined} initial={{ y: 18, opacity: 0, scale: 0.97 }} animate={{ y: 0, opacity: 1, scale: 1 }} data-room-badge className={`room-badge-card relative w-full shrink-0 overflow-hidden rounded-[clamp(1.5rem,8vw,2.25rem)] border bg-gradient-to-b p-[clamp(.875rem,4.5vw,1.5rem)] shadow-[0_40px_120px_rgba(0,0,0,.75)] ${photoMode ? "cursor-pointer" : ""} ${style.surface}`}>
           <div className={`pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full blur-[75px] ${style.glow}`} />
           <div className="pointer-events-none absolute inset-[clamp(.5rem,3vw,.75rem)] rounded-[clamp(1.15rem,6vw,1.7rem)] border border-white/[0.07]" />
           <div className="room-badge-header relative flex min-w-0 items-start justify-between gap-2">
@@ -323,14 +448,39 @@ function GuestBadgeFocus({ event, person, journey, activeRound, onClose, onShare
           <div className="room-badge-journey relative grid gap-[clamp(.375rem,1.2vh,.5rem)]">
             {journey.map(seat => {
               const active = seat.round_number === activeRound
-              return <div key={seat.id} className={`room-badge-round flex min-h-11 items-center justify-between rounded-[clamp(.75rem,4vw,1rem)] border px-[clamp(.75rem,4vw,1rem)] py-[clamp(.4rem,1.4vh,.625rem)] ${active ? "border-[#e5c780]/45 bg-[#d7ba7d]/12" : "border-white/[0.08] bg-white/[0.035]"}`}><div><p className={`text-[clamp(.5625rem,2.6vw,.625rem)] font-bold ${active ? "text-[#e5c780]" : "text-stone-500"}`}>الجولة {seat.round_number}{active ? " · الآن" : ""}</p><p className="text-[clamp(.9375rem,4.5vw,1.125rem)] font-extrabold leading-tight text-white">الطاولة {seat.table_number}</p></div><div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${active ? "bg-[#d7ba7d] text-[#17130c]" : "bg-white/[0.05] text-stone-500"}`}><Table2 size={17} /></div></div>
+              return <div key={seat.id} className={`room-badge-round flex items-center justify-between rounded-[clamp(.75rem,4vw,1rem)] border px-[clamp(.75rem,4vw,1rem)] py-[clamp(.4rem,1.4vh,.625rem)] ${active ? "min-h-14 border-[#e5c780]/45 bg-[#d7ba7d]/12" : "min-h-11 border-white/[0.08] bg-white/[0.035]"}`}><div><p className={`text-[clamp(.5625rem,2.6vw,.625rem)] font-bold ${active ? "text-[#e5c780]" : "text-stone-500"}`}>الجولة {seat.round_number}{active ? " · الآن" : ""}</p><p className={`${active ? "text-[clamp(1.05rem,5vw,1.25rem)]" : "text-[clamp(.9375rem,4.5vw,1.125rem)]"} font-extrabold leading-tight text-white`}>الطاولة {seat.table_number}</p></div><div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${active ? "bg-[#d7ba7d] text-[#17130c]" : "bg-white/[0.05] text-stone-500"}`}><Table2 size={17} /></div></div>
             })}
           </div>
           <p className="room-badge-guidance relative mt-[clamp(.65rem,2vh,1rem)] px-1 text-center text-[clamp(.6875rem,3vw,.75rem)] leading-5 text-stone-400">احتفظ بنفس رقمك، وانتقل إلى طاولتك في كل جولة.</p>
         </motion.article>
-        <button onClick={onShare} className="mt-2 flex min-h-11 w-full shrink-0 items-center justify-center gap-2 rounded-2xl bg-[#d7ba7d] px-6 font-extrabold text-[#17130c]"><Share2 size={17} /> مشاركة البطاقة</button>
+        {!photoMode && <div className="mt-2 grid w-full shrink-0 grid-cols-3 gap-2">
+          <button onClick={() => { setPhotoMode(true); toast("اضغط على البطاقة للرجوع", { icon: "📷" }) }} className="flex min-h-11 items-center justify-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.05] px-2 text-[11px] font-extrabold text-white"><Camera size={16} /> تصوير</button>
+          <button onClick={saveImage} disabled={saving} className="flex min-h-11 items-center justify-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.05] px-2 text-[11px] font-extrabold text-white disabled:opacity-40">{saving ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />} حفظ صورة</button>
+          <button onClick={onShare} className="flex min-h-11 items-center justify-center gap-1.5 rounded-2xl bg-[#d7ba7d] px-2 text-[11px] font-extrabold text-[#17130c]"><Share2 size={16} /> مشاركة</button>
+        </div>}
       </div>
     </motion.div>
+  )
+}
+
+function EmergencyTools({ bundle, busy, onClose, onChangeGender, onReturnBadge, onMove, onResetCheckIns }: { bundle: Bundle; busy: boolean; onClose: () => void; onChangeGender: (person: Attendee, gender: "female" | "male") => void; onReturnBadge: (person: Attendee) => void; onMove: (person: Attendee, round: number, table: number) => void; onResetCheckIns: () => void }) {
+  const people = bundle.attendees.filter(person => person.included_in_schedule && ["registered", "confirmed"].includes(person.attendance_status))
+  const [attendeeId, setAttendeeId] = useState(people[0]?.id || "")
+  const [roundNumber, setRoundNumber] = useState(1)
+  const [tableNumber, setTableNumber] = useState(1)
+  const person = people.find(item => item.id === attendeeId) || people[0]
+  const currentTable = bundle.seats.find(seat => seat.attendee_id === person?.id && seat.round_number === roundNumber)?.table_number
+
+  return (
+    <section className="mb-5 rounded-[1.75rem] border border-amber-300/15 bg-amber-300/[0.035] p-4 sm:p-5">
+      <div className="flex items-start justify-between gap-3"><div><p className="flex items-center gap-2 font-extrabold text-white"><UserCog size={19} className="text-amber-200" /> أدوات سريعة</p><p className="mt-1 text-xs leading-5 text-stone-500">استخدمها فقط لو صار خطأ أثناء الاستقبال.</p></div><button type="button" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 text-stone-400" aria-label="إغلاق الأدوات"><X size={16} /></button></div>
+      <label className="mt-4 block"><span className="mb-2 block text-xs font-bold text-stone-400">اختر الشخص</span><select value={person?.id || ""} onChange={event => setAttendeeId(event.target.value)} className="h-12 w-full rounded-2xl border border-white/10 bg-[#171512] px-4 text-sm font-extrabold text-white outline-none">{people.map(item => <option key={item.id} value={item.id}>{genderStyle(item.gender).label} {guestNumber(item.attendee_number)} {item.checked_in ? "· تم التسليم" : "· بانتظار الحضور"}</option>)}</select></label>
+      {person && <div className="mt-3 grid gap-3 lg:grid-cols-2">
+        <div className="rounded-2xl border border-white/[0.08] bg-black/15 p-3"><p className="text-xs font-bold text-stone-400">تصحيح النوع أو البطاقة</p><div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={() => onChangeGender(person, "female")} disabled={busy || person.gender === "female"} className="min-h-11 rounded-xl border border-rose-300/20 bg-rose-300/[0.07] text-sm font-extrabold text-rose-100 disabled:opacity-35">فتاة</button><button type="button" onClick={() => onChangeGender(person, "male")} disabled={busy || person.gender === "male"} className="min-h-11 rounded-xl border border-sky-300/20 bg-sky-300/[0.07] text-sm font-extrabold text-sky-100 disabled:opacity-35">ولد</button></div>{person.checked_in && <button type="button" onClick={() => onReturnBadge(person)} disabled={busy} className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 text-sm font-bold text-stone-300 disabled:opacity-40"><Undo2 size={15} /> رجّع البطاقة</button>}</div>
+        <div className="rounded-2xl border border-white/[0.08] bg-black/15 p-3"><p className="text-xs font-bold text-stone-400">نقل داخل جولة</p><div className="mt-3 grid grid-cols-2 gap-2"><select value={roundNumber} onChange={event => setRoundNumber(Number(event.target.value))} className="h-11 rounded-xl border border-white/10 bg-[#171512] px-3 text-sm font-bold text-white">{Array.from({ length: bundle.event.round_count }, (_, index) => index + 1).map(value => <option key={value} value={value}>الجولة {value}</option>)}</select><select value={tableNumber} onChange={event => setTableNumber(Number(event.target.value))} className="h-11 rounded-xl border border-white/10 bg-[#171512] px-3 text-sm font-bold text-white">{Array.from({ length: bundle.event.table_count }, (_, index) => index + 1).map(value => <option key={value} value={value}>الطاولة {value}</option>)}</select></div><button type="button" onClick={() => onMove(person, roundNumber, tableNumber)} disabled={busy || !bundle.schedule || currentTable === tableNumber} className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#d7ba7d]/25 bg-[#d7ba7d]/10 text-sm font-extrabold text-[#efd89e] disabled:opacity-35"><ArrowLeftRight size={15} /> نقل من طاولة {currentTable || "—"}</button></div>
+      </div>}
+      <div className="mt-4 border-t border-white/[0.07] pt-4"><button type="button" onClick={onResetCheckIns} disabled={busy || !people.some(person => person.checked_in)} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-amber-300/20 bg-amber-300/[0.06] text-sm font-bold text-amber-100 disabled:opacity-35"><RotateCcw size={15} /> رجّع كل البطاقات إلى «متاحة»</button></div>
+    </section>
   )
 }
 
@@ -351,6 +501,8 @@ export default function TheRoomPage() {
   const [view, setView] = useState<"tables" | "checkin" | "guest">(preview ? "checkin" : "tables")
   const [selectedGuestId, setSelectedGuestId] = useState("")
   const [badgeOpen, setBadgeOpen] = useState(false)
+  const [emergencyOpen, setEmergencyOpen] = useState(false)
+  const [placementNotice, setPlacementNotice] = useState<PlacementNotice | null>(null)
   const [setupOpen, setSetupOpen] = useState(!preview)
   const [draft, setDraft] = useState<SetupValues>({ event_number: 1, minimum_attendees: 20, table_count: 5, round_count: 3 })
   const organizerScrollRef = useRef<HTMLDivElement>(null)
@@ -365,6 +517,7 @@ export default function TheRoomPage() {
     })
     setRound(value => Math.min(value, next.event.round_count))
     setBadgeOpen(false)
+    setPlacementNotice(null)
     setSetupOpen(false)
     setView(next.schedule ? "checkin" : "tables")
     setSelectedGuestId(current => next.attendees.some(person => person.id === current) ? current : next.attendees[0]?.id || "")
@@ -527,12 +680,17 @@ export default function TheRoomPage() {
     setBadgeOpen(true)
   }
 
+  const showBadge = (id: string) => {
+    setSelectedGuestId(id)
+    setBadgeOpen(true)
+  }
+
   const checkInNext = async (gender: "female" | "male") => {
     if (!bundle) return
     if (preview) {
       const nextPerson = included.find(person => person.gender === gender && !person.checked_in)
       if (!nextPerson) { toast.error("تم تسليم جميع بطاقات هذا القسم"); return }
-      installBundle({ ...bundle, attendees: bundle.attendees.map(person => person.id === nextPerson.id ? { ...person, checked_in: true } : person) })
+      installBundle({ ...bundle, attendees: bundle.attendees.map(person => person.id === nextPerson.id ? { ...person, checked_in: true, updated_at: new Date().toISOString() } : person) })
       setSelectedGuestId(nextPerson.id)
       setView("checkin")
       setBadgeOpen(true)
@@ -562,17 +720,12 @@ export default function TheRoomPage() {
         attendance_status: "confirmed",
         included_in_schedule: true,
         checked_in: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       }
-      const addedSeats = Array.from({ length: bundle.event.round_count }, (_, index) => ({
-        id: Math.max(0, ...bundle.seats.map(seat => seat.id)) + index + 1,
-        schedule_run_id: bundle.schedule!.id,
-        event_id: bundle.event.id,
-        round_number: index + 1,
-        table_number: ((attendeeNumber + index - 1) % bundle.event.table_count) + 1,
-        seat_number: Math.max(0, ...bundle.seats.filter(seat => seat.round_number === index + 1 && seat.table_number === ((attendeeNumber + index - 1) % bundle.event.table_count) + 1).map(seat => seat.seat_number)) + 1,
-        attendee_id: addedPerson.id,
-      }))
+      const addedSeats = previewSeatNewGuest(bundle, addedPerson)
       installBundle({ ...bundle, attendees: [...bundle.attendees, addedPerson], seats: [...bundle.seats, ...addedSeats] })
+      setPlacementNotice({ attendeeNumber, gender, tables: addedSeats.map(seat => ({ roundNumber: seat.round_number, tableNumber: seat.table_number })) })
       setSelectedGuestId(addedPerson.id)
       setView("checkin")
       setBadgeOpen(true)
@@ -583,6 +736,7 @@ export default function TheRoomPage() {
       const data = await act("add-attendee", { event_id: bundle.event.id, gender })
       const addedPerson = data.attendees?.find((person: Attendee) => person.id === data.added_attendee_id)
       if (addedPerson) setSelectedGuestId(addedPerson.id)
+      setPlacementNotice({ attendeeNumber: data.added_attendee_number, gender, tables: data.placement_tables || [] })
       setView("checkin")
       setBadgeOpen(Boolean(addedPerson))
       toast.success(`تمت إضافة ${gender === "female" ? "فتاة" : "ولد"} ${guestNumber(data.added_attendee_number)}`)
@@ -592,7 +746,7 @@ export default function TheRoomPage() {
   const undoCheckIn = async (person: Attendee) => {
     if (!bundle || !window.confirm(`إعادة البطاقة ${guestNumber(person.attendee_number)} إلى حالة «متاحة»؟`)) return
     if (preview) {
-      installBundle({ ...bundle, attendees: bundle.attendees.map(item => item.id === person.id ? { ...item, checked_in: false } : item) })
+      installBundle({ ...bundle, attendees: bundle.attendees.map(item => item.id === person.id ? { ...item, checked_in: false, updated_at: new Date().toISOString() } : item) })
       setView("checkin")
       toast.success(`أصبحت البطاقة ${guestNumber(person.attendee_number)} متاحة`)
       return
@@ -612,6 +766,70 @@ export default function TheRoomPage() {
       else { await navigator.clipboard.writeText(text); toast.success("تم نسخ مسار الضيف") }
     } catch (error: any) {
       if (error?.name !== "AbortError") toast.error("تعذّرت المشاركة")
+    }
+  }
+
+  const changeGuestGender = async (person: Attendee, gender: "female" | "male") => {
+    if (!bundle || person.gender === gender) return
+    if (preview) {
+      installBundle({ ...bundle, attendees: bundle.attendees.map(item => item.id === person.id ? { ...item, gender, updated_at: new Date().toISOString() } : item) })
+      setEmergencyOpen(true)
+      toast.success(`تم تصحيح بطاقة ${guestNumber(person.attendee_number)}`)
+      return
+    }
+    try {
+      await act("set-attendee-gender", { event_id: bundle.event.id, attendee_id: person.id, gender })
+      setEmergencyOpen(true)
+      toast.success(`تم تصحيح بطاقة ${guestNumber(person.attendee_number)}`)
+    } catch {}
+  }
+
+  const resetCheckIns = async () => {
+    if (!bundle || !window.confirm("ترجّع كل البطاقات إلى «متاحة» وتبدأ الاستقبال من جديد؟")) return
+    if (preview) {
+      installBundle({ ...bundle, attendees: bundle.attendees.map(person => ({ ...person, checked_in: false, updated_at: new Date().toISOString() })) })
+      setEmergencyOpen(true)
+      toast.success("رجعت كل البطاقات إلى متاحة")
+      return
+    }
+    try {
+      await act("reset-check-ins", { event_id: bundle.event.id })
+      setEmergencyOpen(true)
+      toast.success("رجعت كل البطاقات إلى متاحة")
+    } catch {}
+  }
+
+  const moveGuest = async (person: Attendee, roundNumber: number, tableNumber: number) => {
+    if (!bundle?.schedule) return
+    if (preview) {
+      const currentSeat = bundle.seats.find(seat => seat.attendee_id === person.id && seat.round_number === roundNumber)
+      if (!currentSeat || currentSeat.table_number === tableNumber) return
+      const nextSeat = Math.max(0, ...bundle.seats.filter(seat => seat.round_number === roundNumber && seat.table_number === tableNumber).map(seat => seat.seat_number)) + 1
+      installBundle({ ...bundle, seats: bundle.seats.map(seat => seat.id === currentSeat.id ? { ...seat, table_number: tableNumber, seat_number: nextSeat } : seat) })
+      setEmergencyOpen(true)
+      toast.success(`انتقلت بطاقة ${guestNumber(person.attendee_number)} إلى الطاولة ${tableNumber}`)
+      return
+    }
+    const sendMove = async (force: boolean) => roomApi("move-attendee", { event_id: bundle.event.id, attendee_id: person.id, round_number: roundNumber, table_number: tableNumber, force })
+    setBusy(true)
+    try {
+      let data
+      try {
+        data = await sendMove(false)
+      } catch (error: any) {
+        if (error.code !== "MOVE_REPEATS_MEETING") throw error
+        const numbers = error.details?.repeated_attendee_numbers?.map((value: number) => guestNumber(value)).join("، ") || "شخص سابق"
+        if (!window.confirm(`هذا النقل يخلي البطاقة ${guestNumber(person.attendee_number)} تقابل ${numbers} مرة ثانية. تنقلها رغم ذلك؟`)) return
+        data = await sendMove(true)
+      }
+      installBundle(data)
+      setEmergencyOpen(true)
+      toast.success(`انتقلت بطاقة ${guestNumber(person.attendee_number)} إلى الطاولة ${tableNumber}`)
+    } catch (error: any) {
+      if (error.status === 401) setAuthenticated(false)
+      toast.error(arabicError(error))
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -657,12 +875,13 @@ export default function TheRoomPage() {
                     <div className="flex flex-wrap gap-2">
                       {!creating && events.length > 0 && <div className="relative min-w-[9.5rem] flex-1 sm:min-w-44"><select value={bundle?.event.id || ""} onChange={async event => { const id = event.target.value; const next = preview ? DEMO_BUNDLE : await roomApi("get-event", { event_id: id }); installBundle(next); setCreating(false) }} className="h-12 w-full appearance-none rounded-2xl border border-white/10 bg-white/[0.04] px-4 pl-10 text-sm font-bold text-white outline-none"><option value="" disabled>اختر فعالية</option>{events.map(item => <option key={item.id} value={item.id}>فعالية {item.event_number}</option>)}</select><ChevronDown size={16} className="pointer-events-none absolute left-4 top-4 text-stone-500" /></div>}
                       {creating && bundle ? <button onClick={cancelCreate} className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm font-bold text-stone-300"><ArrowRight size={17} /> رجوع</button> : <button onClick={beginCreate} className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-[#d7ba7d]/25 bg-[#d7ba7d]/10 px-4 text-sm font-bold text-[#e4ca91]"><CalendarPlus size={17} /> فعالية جديدة</button>}
-                      {!creating && bundle && <details className="group relative"><summary className="flex h-12 cursor-pointer list-none items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.035] px-4 text-sm font-bold text-stone-400 [&::-webkit-details-marker]:hidden"><Settings2 size={17} /> خيارات</summary><div className="absolute right-0 top-14 z-30 w-52 space-y-2 rounded-2xl border border-white/10 bg-[#1b1916] p-2 shadow-2xl"><button onClick={resetEvent} disabled={!bundle.schedule || busy} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-right text-sm font-bold text-amber-200 hover:bg-white/[0.05] disabled:opacity-25" title="يبقي الضيوف ويمسح توزيع الطاولات"><RotateCcw size={16} /> مسح التوزيع</button><button onClick={deleteEvent} disabled={busy} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-right text-sm font-bold text-red-200 hover:bg-white/[0.05] disabled:opacity-25" title="حذف الفعالية نهائيًا"><Trash2 size={16} /> حذف الفعالية</button></div></details>}
+                      {!creating && bundle && <details className="group relative"><summary className="flex h-12 cursor-pointer list-none items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.035] px-4 text-sm font-bold text-stone-400 [&::-webkit-details-marker]:hidden"><Settings2 size={17} /> خيارات</summary><div className="absolute right-0 top-14 z-30 w-56 space-y-2 rounded-2xl border border-white/10 bg-[#1b1916] p-2 shadow-2xl"><button onClick={() => setEmergencyOpen(true)} disabled={busy} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-right text-sm font-bold text-stone-200 hover:bg-white/[0.05] disabled:opacity-25"><UserCog size={16} /> تصحيح أو نقل شخص</button><button onClick={resetEvent} disabled={!bundle.schedule || busy} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-right text-sm font-bold text-amber-200 hover:bg-white/[0.05] disabled:opacity-25" title="يبقي الضيوف ويمسح توزيع الطاولات"><RotateCcw size={16} /> مسح التوزيع</button><button onClick={deleteEvent} disabled={busy} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-right text-sm font-bold text-red-200 hover:bg-white/[0.05] disabled:opacity-25" title="حذف الفعالية نهائيًا"><Trash2 size={16} /> حذف الفعالية</button></div></details>}
                     </div>
                   </div>
                 </div>
 
                 <div className="p-4 sm:p-6">
+                  {!creating && bundle && emergencyOpen && <EmergencyTools key={bundle.event.id} bundle={bundle} busy={busy} onClose={() => setEmergencyOpen(false)} onChangeGender={changeGuestGender} onReturnBadge={undoCheckIn} onMove={moveGuest} onResetCheckIns={resetCheckIns} />}
                   {!creating && bundle?.schedule && view !== "checkin" && <button type="button" onClick={() => setSetupOpen(value => !value)} className="mb-4 flex min-h-11 items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.025] px-4 text-sm font-bold text-stone-400"><Settings2 size={16} /> {setupOpen ? "إخفاء الإعدادات" : "تعديل الأعداد"}</button>}
                   <section data-room-setup className={`${(view === "checkin" && bundle?.schedule && !creating) || (!setupOpen && bundle?.schedule && !creating) ? "hidden" : ""} rounded-[1.75rem] border border-white/[0.08] bg-black/15 p-4 sm:p-5`}>
                     {creating && <label className="mb-4 block"><span className="mb-2 block text-sm font-bold text-stone-300">رقم الفعالية</span><input className={`${inputClass} max-w-44`} type="number" min="1" value={draft.event_number} onChange={event => setDraft(current => ({ ...current, event_number: Math.max(1, Number(event.target.value)) }))} /></label>}
@@ -682,9 +901,9 @@ export default function TheRoomPage() {
                     <section data-room-results className={view === "checkin" ? "" : "mt-5"}>
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="grid grid-cols-3 rounded-2xl border border-white/[0.08] bg-black/20 p-1">
-                          <button onClick={() => setView("tables")} className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-2 text-[11px] font-extrabold sm:gap-2 sm:px-5 sm:text-sm ${view === "tables" ? "bg-[#d7ba7d] text-[#17130c]" : "text-stone-500"}`}><UsersRound size={16} /> توزيع الطاولات</button>
+                          <button onClick={() => setView("tables")} className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-2 text-[11px] font-extrabold sm:gap-2 sm:px-5 sm:text-sm ${view === "tables" ? "bg-[#d7ba7d] text-[#17130c]" : "text-stone-500"}`}><UsersRound size={16} /> الطاولات</button>
                           <button onClick={() => setView("checkin")} className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-2 text-[11px] font-extrabold sm:gap-2 sm:px-5 sm:text-sm ${view === "checkin" ? "bg-[#d7ba7d] text-[#17130c]" : "text-stone-500"}`}><BadgeCheck size={16} /> الاستقبال</button>
-                          <button onClick={() => setView("guest")} className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-2 text-[11px] font-extrabold sm:gap-2 sm:px-5 sm:text-sm ${view === "guest" ? "bg-[#d7ba7d] text-[#17130c]" : "text-stone-500"}`}><Share2 size={16} /> بطاقة الضيف</button>
+                          <button onClick={() => setView("guest")} className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-2 text-[11px] font-extrabold sm:gap-2 sm:px-5 sm:text-sm ${view === "guest" ? "bg-[#d7ba7d] text-[#17130c]" : "text-stone-500"}`}><Share2 size={16} /> البطاقات</button>
                         </div>
                         {view !== "checkin" && <div className="flex gap-2"><button onClick={() => window.print()} className="flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.035] px-4 text-sm font-bold text-stone-300"><Printer size={16} /> طباعة</button></div>}
                       </div>
@@ -695,7 +914,7 @@ export default function TheRoomPage() {
                           <AnimatePresence mode="wait"><motion.div key={round} initial={{ opacity: 0, x: reduceMotion ? 0 : -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="the-room-schedule-grid mt-3 grid gap-3 lg:grid-cols-2">{Array.from({ length: bundle.event.table_count }, (_, index) => index + 1).map(tableNumber => <TableCard key={tableNumber} tableNumber={tableNumber} seats={bundle.seats.filter(seat => seat.round_number === round && seat.table_number === tableNumber)} attendees={attendees} onGuest={showGuest} />)}</motion.div></AnimatePresence>
                         </div>
                       ) : view === "checkin" ? (
-                        <CheckInPanel attendees={included} busy={busy} onNext={checkInNext} onAdd={addGuest} onUndo={undoCheckIn} />
+                        <div className="mt-5 space-y-4"><OrganizerSummary event={bundle.event} attendees={included} seats={bundle.seats} activeRound={round} onNextRound={() => setRound(value => Math.min(bundle.event.round_count, value + 1))} /><CheckInPanel attendees={included} busy={busy} placementNotice={placementNotice} onNext={checkInNext} onAdd={addGuest} onUndo={undoCheckIn} onShow={showBadge} /></div>
                       ) : (
                         <div className="mt-5">
                           <div className="mb-4 flex flex-col gap-3 rounded-3xl border border-white/[0.08] bg-white/[0.03] p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-extrabold text-white">اختر البطاقة</p><p className="mt-1 text-xs text-stone-500">تفتح بشكل طولي وجاهزة للتصوير.</p></div>{selectedGuest && <button onClick={() => setBadgeOpen(true)} className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-[#d7ba7d] px-5 text-sm font-extrabold text-[#17130c]"><UserRound size={17} /> عرض بطاقة {guestNumber(selectedGuest.attendee_number)}</button>}</div>

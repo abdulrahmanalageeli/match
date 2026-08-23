@@ -140,6 +140,13 @@ async function handleAction(req, res, action) {
   if (action === "delete-event") {
     const eventId = req.body?.event_id
     if (!eventId) return res.status(400).json({ error: "Event ID is required" })
+    // Seats also reference attendees with ON DELETE RESTRICT, so remove them
+    // first before the event cascades through attendees and schedule runs.
+    const { error: seatsError } = await supabase
+      .from("the_room_seats")
+      .delete()
+      .eq("event_id", eventId)
+    if (seatsError) return sendDatabaseError(res, seatsError)
     const { data, error } = await supabase
       .from("the_room_events")
       .delete()

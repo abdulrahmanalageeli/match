@@ -5,7 +5,7 @@ import toast, { Toaster } from "react-hot-toast"
 import {
   ArrowRight, BadgeCheck, CalendarPlus, CheckCircle2, ChevronDown, DoorOpen, Eye, EyeOff,
   Loader2, LockKeyhole, LogOut, Minus, Plus, Printer, RefreshCw, RotateCcw, Settings2,
-  Share2, Sparkles, Table2, Trash2, Undo2, UserRound, UsersRound, WandSparkles, X,
+  Share2, Sparkles, Table2, Trash2, Undo2, UserPlus, UserRound, UsersRound, WandSparkles, X,
 } from "lucide-react"
 import "@fontsource/tajawal/400.css"
 import "@fontsource/tajawal/500.css"
@@ -221,7 +221,7 @@ function TableCard({ tableNumber, seats, attendees, onGuest }: { tableNumber: nu
   )
 }
 
-function CheckInPanel({ attendees, busy, onNext, onUndo }: { attendees: Attendee[]; busy: boolean; onNext: (gender: "female" | "male") => void; onUndo: (person: Attendee) => void }) {
+function CheckInPanel({ attendees, busy, onNext, onAdd, onUndo }: { attendees: Attendee[]; busy: boolean; onNext: (gender: "female" | "male") => void; onAdd: (gender: "female" | "male") => void; onUndo: (person: Attendee) => void }) {
   const firstBadges = attendees.slice(0, 20)
   const extraBadges = attendees.slice(20)
   const checkedFirst = firstBadges.filter(person => person.checked_in).length
@@ -282,11 +282,19 @@ function CheckInPanel({ attendees, busy, onNext, onUndo }: { attendees: Attendee
       </div>
 
       <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-4">
+        <p className="mb-3 font-extrabold text-white">إضافة شخص جديد</p>
+        <div className="grid grid-cols-2 gap-2">
+          <button type="button" onClick={() => onAdd("female")} disabled={busy} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-rose-300/25 bg-rose-300/[0.07] px-3 text-sm font-extrabold text-rose-100 disabled:opacity-40"><UserPlus size={17} /> إضافة ضيفة</button>
+          <button type="button" onClick={() => onAdd("male")} disabled={busy} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-sky-300/25 bg-sky-300/[0.07] px-3 text-sm font-extrabold text-sky-100 disabled:opacity-40"><UserPlus size={17} /> إضافة ضيف</button>
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-4">
         <div className="mb-3 flex items-center justify-between"><div><p className="font-extrabold text-white">حالة البطاقات</p><p className="mt-1 text-[11px] text-stone-500">وردي للضيفة · أزرق للضيف · أخضر تم تسليمه</p></div><span className="text-xs font-bold text-stone-500">01–20</span></div>
         {badgeGrid(firstBadges)}
       </section>
 
-      {extraBadges.length > 0 && <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-4"><div className="mb-3"><p className="font-extrabold text-white">البطاقات الإضافية</p><p className="mt-1 text-[11px] text-stone-500">تُسلّم بعد أول 20 ضيف بنفس الطريقة.</p></div>{badgeGrid(extraBadges)}</section>}
+      {extraBadges.length > 0 && <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-4"><p className="mb-3 font-extrabold text-white">البطاقات الإضافية</p>{badgeGrid(extraBadges)}</section>}
     </div>
   )
 }
@@ -480,7 +488,7 @@ export default function TheRoomPage() {
     return { women, men }
   }, [creating, draft.minimum_attendees, genderCounts, included.length])
   const minimumPeople = creating ? 2 : Math.max(2, included.length)
-  const validSetup = draft.minimum_attendees % 2 === 0 && draft.minimum_attendees >= draft.table_count * 2
+  const validSetup = draft.minimum_attendees >= draft.table_count * 2
   const dimensionsChanged = Boolean(bundle && (draft.table_count !== bundle.event.table_count || draft.round_count !== bundle.event.round_count))
   const guestsToAdd = creating ? draft.minimum_attendees : Math.max(0, draft.minimum_attendees - included.length)
   const setupChanged = Boolean(creating || !bundle?.schedule || dimensionsChanged || guestsToAdd > 0)
@@ -500,7 +508,7 @@ export default function TheRoomPage() {
         if (data?.schedule_change === "extended" && data?.schedule) {
           setRound(1)
           setView("checkin")
-          toast.success(`انضاف ${data.added_guest_count} ضيوف بدون تغيير أماكن السابقين`)
+          toast.success(`تم تحديث عدد الضيوف إلى ${data.attendees.length}`)
           return
         }
       }
@@ -538,6 +546,46 @@ export default function TheRoomPage() {
       setView("checkin")
       setBadgeOpen(Boolean(checkedInPerson))
       toast.success(`تم تسليم بطاقة ${guestNumber(data.assigned_attendee_number)}`)
+    } catch {}
+  }
+
+  const addGuest = async (gender: "female" | "male") => {
+    if (!bundle?.schedule) return
+    if (preview) {
+      const attendeeNumber = Math.max(0, ...bundle.attendees.map(person => person.attendee_number)) + 1
+      const addedPerson: Attendee = {
+        id: `demo-${attendeeNumber}`,
+        event_id: bundle.event.id,
+        attendee_number: attendeeNumber,
+        full_name: `Guest ${attendeeNumber}`,
+        gender,
+        attendance_status: "confirmed",
+        included_in_schedule: true,
+        checked_in: true,
+      }
+      const addedSeats = Array.from({ length: bundle.event.round_count }, (_, index) => ({
+        id: Math.max(0, ...bundle.seats.map(seat => seat.id)) + index + 1,
+        schedule_run_id: bundle.schedule!.id,
+        event_id: bundle.event.id,
+        round_number: index + 1,
+        table_number: ((attendeeNumber + index - 1) % bundle.event.table_count) + 1,
+        seat_number: Math.max(0, ...bundle.seats.filter(seat => seat.round_number === index + 1 && seat.table_number === ((attendeeNumber + index - 1) % bundle.event.table_count) + 1).map(seat => seat.seat_number)) + 1,
+        attendee_id: addedPerson.id,
+      }))
+      installBundle({ ...bundle, attendees: [...bundle.attendees, addedPerson], seats: [...bundle.seats, ...addedSeats] })
+      setSelectedGuestId(addedPerson.id)
+      setView("checkin")
+      setBadgeOpen(true)
+      toast.success(`تمت إضافة ${gender === "female" ? "ضيفة" : "ضيف"} ${guestNumber(attendeeNumber)}`)
+      return
+    }
+    try {
+      const data = await act("add-attendee", { event_id: bundle.event.id, gender })
+      const addedPerson = data.attendees?.find((person: Attendee) => person.id === data.added_attendee_id)
+      if (addedPerson) setSelectedGuestId(addedPerson.id)
+      setView("checkin")
+      setBadgeOpen(Boolean(addedPerson))
+      toast.success(`تمت إضافة ${gender === "female" ? "ضيفة" : "ضيف"} ${guestNumber(data.added_attendee_number)}`)
     } catch {}
   }
 
@@ -619,7 +667,7 @@ export default function TheRoomPage() {
                   <section data-room-setup className={`${(view === "checkin" && bundle?.schedule && !creating) || (!setupOpen && bundle?.schedule && !creating) ? "hidden" : ""} rounded-[1.75rem] border border-white/[0.08] bg-black/15 p-4 sm:p-5`}>
                     {creating && <label className="mb-4 block"><span className="mb-2 block text-sm font-bold text-stone-300">رقم الفعالية</span><input className={`${inputClass} max-w-44`} type="number" min="1" value={draft.event_number} onChange={event => setDraft(current => ({ ...current, event_number: Math.max(1, Number(event.target.value)) }))} /></label>}
                     <div className="grid gap-3 md:grid-cols-3">
-                      <Counter label="عدد الضيوف" hint={!creating && bundle?.schedule ? "الجدد ينضافون بدون تغيير السابقين" : "نقسمهم بالتساوي ضيوف وضيفات"} value={draft.minimum_attendees} onChange={value => setDraft(current => ({ ...current, minimum_attendees: value }))} min={minimumPeople} max={500} step={2} />
+                      {!creating && bundle?.schedule ? <div className="rounded-3xl border border-white/[0.08] bg-white/[0.035] p-3 text-center"><p className="text-sm font-bold text-stone-200">عدد الضيوف</p><p className="mt-3 text-3xl font-extrabold text-white">{included.length}</p><p className="mt-1 text-[11px] text-stone-500">الإضافة من شاشة الاستقبال</p></div> : <Counter label="عدد الضيوف" value={draft.minimum_attendees} onChange={value => setDraft(current => ({ ...current, minimum_attendees: value }))} min={minimumPeople} max={500} />}
                       <Counter label="عدد الطاولات" hint="طاولتان أو أكثر حسب المكان" value={draft.table_count} onChange={value => setDraft(current => ({ ...current, table_count: value }))} min={1} max={50} />
                       <Counter label="عدد الجولات" hint="كم مرة ينتقل الضيوف" value={draft.round_count} onChange={value => setDraft(current => ({ ...current, round_count: value }))} min={1} max={20} />
                     </div>
@@ -627,8 +675,7 @@ export default function TheRoomPage() {
                       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm"><span><strong className="text-rose-200">{projectedGenderCounts.women}</strong> نساء</span><span><strong className="text-sky-200">{projectedGenderCounts.men}</strong> رجال</span><span><strong className="text-[#efd89e]">{Math.floor(draft.minimum_attendees / draft.table_count)}–{Math.ceil(draft.minimum_attendees / draft.table_count)}</strong> لكل طاولة</span></div>
                       <button onClick={saveAndGenerate} disabled={busy || !validSetup || !setupChanged} className="flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-2xl bg-[#d7ba7d] px-6 font-extrabold text-[#17130c] disabled:cursor-not-allowed disabled:opacity-35">{busy ? <Loader2 className="animate-spin" size={18} /> : <WandSparkles size={18} />} {creating ? "أنشئ الفعالية والتوزيع" : dimensionsChanged ? "طبّق وأعد توزيع الطاولات" : guestsToAdd > 0 && bundle?.schedule ? `أضف ${guestsToAdd} ضيوف فقط` : bundle?.schedule ? "التوزيع محفوظ" : "جهّز توزيع الطاولات"}</button>
                     </div>
-                    {!validSetup && <p className="mt-3 rounded-xl border border-amber-300/15 bg-amber-300/[0.06] px-3 py-2 text-xs text-amber-100/75">كل طاولة تحتاج ضيفين على الأقل، وعدد الضيوف يجب أن يكون زوجيًا.</p>}
-                    {!creating && bundle?.schedule && guestsToAdd > 0 && !dimensionsChanged && <p className="mt-3 rounded-xl border border-emerald-300/15 bg-emerald-300/[0.06] px-3 py-2 text-xs leading-6 text-emerald-100/75">بنضيف الضيوف الجدد للتوزيع الحالي بدون ما تتغيّر طاولات السابقين، وبنفصل الجدد عن بعض قدر الإمكان.</p>}
+                    {!validSetup && <p className="mt-3 rounded-xl border border-amber-300/15 bg-amber-300/[0.06] px-3 py-2 text-xs text-amber-100/75">كل طاولة تحتاج ضيفين على الأقل.</p>}
                   </section>
 
                   {!creating && bundle?.schedule && (
@@ -648,7 +695,7 @@ export default function TheRoomPage() {
                           <AnimatePresence mode="wait"><motion.div key={round} initial={{ opacity: 0, x: reduceMotion ? 0 : -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="the-room-schedule-grid mt-3 grid gap-3 lg:grid-cols-2">{Array.from({ length: bundle.event.table_count }, (_, index) => index + 1).map(tableNumber => <TableCard key={tableNumber} tableNumber={tableNumber} seats={bundle.seats.filter(seat => seat.round_number === round && seat.table_number === tableNumber)} attendees={attendees} onGuest={showGuest} />)}</motion.div></AnimatePresence>
                         </div>
                       ) : view === "checkin" ? (
-                        <CheckInPanel attendees={included} busy={busy} onNext={checkInNext} onUndo={undoCheckIn} />
+                        <CheckInPanel attendees={included} busy={busy} onNext={checkInNext} onAdd={addGuest} onUndo={undoCheckIn} />
                       ) : (
                         <div className="mt-5">
                           <div className="mb-4 flex flex-col gap-3 rounded-3xl border border-white/[0.08] bg-white/[0.03] p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-extrabold text-white">اختر البطاقة</p><p className="mt-1 text-xs text-stone-500">تفتح بشكل طولي وجاهزة للتصوير.</p></div>{selectedGuest && <button onClick={() => setBadgeOpen(true)} className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-[#d7ba7d] px-5 text-sm font-extrabold text-[#17130c]"><UserRound size={17} /> عرض بطاقة {guestNumber(selectedGuest.attendee_number)}</button>}</div>

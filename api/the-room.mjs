@@ -26,10 +26,8 @@ function numberInRange(value, minimum, maximum, fallback = null) {
   return Number.isFinite(number) && number >= minimum && number <= maximum ? number : fallback
 }
 
-function evenMinimum(value, fallback = 20) {
-  const minimum = Math.round(numberInRange(value, 2, 500, fallback))
-  if (minimum % 2 !== 0) throw new TheRoomInputError("Minimum guests must be an even number so the starting roster is half men and half women")
-  return minimum
+function attendeeMinimum(value, fallback = 20) {
+  return Math.round(numberInRange(value, 2, 500, fallback))
 }
 
 function sendDatabaseError(res, error) {
@@ -227,7 +225,7 @@ async function handleAction(req, res, action) {
   if (action === "create-event") {
     const eventNumber = numberInRange(req.body?.event_number, 1, Number.MAX_SAFE_INTEGER)
     if (!Number.isInteger(eventNumber)) return res.status(400).json({ error: "A positive whole event number is required" })
-    const minimumAttendees = evenMinimum(req.body?.minimum_attendees)
+    const minimumAttendees = attendeeMinimum(req.body?.minimum_attendees)
     const payload = {
       event_number: eventNumber,
       name: "The Room",
@@ -258,7 +256,7 @@ async function handleAction(req, res, action) {
     if (existingEventError) return sendDatabaseError(res, existingEventError)
     if (!existingEvent) return res.status(404).json({ error: "The Room event was not found" })
     const payload = {
-      minimum_attendees: evenMinimum(req.body?.minimum_attendees, existingEvent.minimum_attendees),
+      minimum_attendees: attendeeMinimum(req.body?.minimum_attendees, existingEvent.minimum_attendees),
       table_count: Math.round(numberInRange(req.body?.table_count, 1, 50, existingEvent.table_count)),
       round_count: Math.round(numberInRange(req.body?.round_count, 1, 20, existingEvent.round_count)),
       updated_at: new Date().toISOString(),
@@ -339,27 +337,94 @@ async function handleAction(req, res, action) {
     if (!eventId) return res.status(400).json({ error: "Event ID is required" })
     const gender = String(req.body?.gender || "")
     if (!ROSTER_GENDERS.has(gender)) return res.status(400).json({ error: "Choose whether the new guest is a man or woman" })
-    const { data: last, error: lastError } = await supabase
-      .from("the_room_attendees")
-      .select("attendee_number")
-      .eq("event_id", eventId)
-      .order("attendee_number", { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    if (lastError) return sendDatabaseError(res, lastError)
+
+    const [eventResult, scheduleResult, lastResult] = await Promise.all([
+      supabase.from("the_room_events").select(EVENT_FIELDS).eq("id", eventId).maybeSingle(),
+      supabase.from("the_room_schedule_runs").select("*").eq("event_id", eventId).eq("is_active", true).maybeSingle(),
+      supabase.from("the_room_attendees").select("attendee_number").eq("event_id", eventId).order("attendee_number", { ascending: false }).limit(1).maybeSingle(),
+    ])
+    if (eventResult.error) return sendDatabaseError(res, eventResult.error)
+    if (!eventResult.data) return res.status(404).json({ error: "The Room event was not found" })
+    if (scheduleResult.error) return sendDatabaseError(res, scheduleResult.error)
+    if (lastResult.error) return sendDatabaseError(res, lastResult.error)
+
+    const activeSchedule = scheduleResult.data || null
+    let activeSeats = []
+    if (activeSchedule?.id) {
+      const { data, error } = await supabase
+        .from("the_room_seats")
+        .select("round_number,table_number,seat_number,attendee_id")
+        .eq("schedule_run_id", activeSchedule.id)
+        .order("round_number")
+        .order("table_number")
+        .order("seat_number")
+      if (error) return sendDatabaseError(res, error)
+      activeSeats = data || []
+      if (!activeSeats.length) return res.status(409).json({ error: "The active schedule has no seats", code: "INCOMPLETE_ACTIVE_SCHEDULE" })
+    }
+
+    const last = lastResult.data
     const attendeeNumber = Number(last?.attendee_number || 0) + 1
-    const { error } = await supabase.from("the_room_attendees").insert({
+    const { data: addedAttendee, error } = await supabase.from("the_room_attendees").insert({
       event_id: eventId,
       attendee_number: attendeeNumber,
       full_name: `Guest ${attendeeNumber}`,
       gender,
       attendance_status: "confirmed",
       included_in_schedule: true,
+      checked_in: true,
       amount_due: 0,
-    })
+    }).select(ATTENDEE_FIELDS).single()
     if (error) return sendDatabaseError(res, error)
-    await invalidateSchedule(eventId)
-    return res.status(200).json(await loadEventBundle({ eventId }))
+
+    if (!activeSchedule) {
+      return res.status(200).json({
+        ...(await loadEventBundle({ eventId })),
+        added_attendee_id: addedAttendee.id,
+        added_attendee_number: addedAttendee.attendee_number,
+        added_gender: addedAttendee.gender,
+        schedule_change: "unchanged",
+      })
+    }
+
+    try {
+      const { data: attendees, error: attendeeError } = await supabase
+        .from("the_room_attendees")
+        .select(ATTENDEE_FIELDS)
+        .eq("event_id", eventId)
+        .eq("included_in_schedule", true)
+        .in("attendance_status", ["registered", "confirmed"])
+        .order("attendee_number")
+      if (attendeeError) throw attendeeError
+      const extension = extendTheRoomSchedule({
+        participants: attendees || [],
+        existingSeats: activeSeats,
+        newAttendeeIds: [addedAttendee.id],
+        tableCount: eventResult.data.table_count,
+        roundCount: eventResult.data.round_count,
+      })
+      const { error: replaceError } = await supabase.rpc("replace_the_room_schedule", {
+        p_event_id: eventId,
+        p_seed: `the-room-event-${eventResult.data.event_number}-guest-${attendeeNumber}`,
+        p_algorithm_version: `${ALGORITHM_VERSION}-incremental`,
+        p_metrics: extension.metrics,
+        p_rows: extension.rows,
+      })
+      if (replaceError) throw replaceError
+      return res.status(200).json({
+        ...(await loadEventBundle({ eventId })),
+        added_attendee_id: addedAttendee.id,
+        added_attendee_number: addedAttendee.attendee_number,
+        added_gender: addedAttendee.gender,
+        schedule_change: "extended",
+      })
+    } catch (extensionError) {
+      await supabase.from("the_room_attendees").delete().eq("id", addedAttendee.id).eq("event_id", eventId)
+      if (extensionError instanceof TheRoomExtensionError) {
+        return res.status(422).json({ error: extensionError.message, code: extensionError.code, details: extensionError.details })
+      }
+      return sendDatabaseError(res, extensionError)
+    }
   }
 
   if (action === "set-attendee-gender") {

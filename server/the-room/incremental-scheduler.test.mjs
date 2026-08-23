@@ -65,3 +65,25 @@ test("avoids repeating newcomer pairs when separation is mathematically impossib
 
   assert.equal(result.metrics.newGuestRepeatPairCount, 0)
 })
+
+test("spreads individually added guests of the same gender across every round", () => {
+  let people = attendees(20)
+  const schedule = generateTheRoomSchedule({ participants: people, tableCount: 5, roundCount: 3, seed: "individual-imbalance" })
+  let rows = seatRows(schedule)
+
+  for (let index = 1; index <= 5; index += 1) {
+    const added = { id: `extra-man-${index}`, gender: "male" }
+    const before = rows.map(row => ({ ...row }))
+    people = [...people, added]
+    const result = extendTheRoomSchedule({
+      participants: people,
+      existingSeats: rows,
+      newAttendeeIds: [added.id],
+      tableCount: 5,
+      roundCount: 3,
+    })
+    assert.deepEqual(result.rows.slice(0, before.length), before)
+    assert.ok(result.metrics.genderSpreadMax <= 1)
+    rows = result.rows
+  }
+})

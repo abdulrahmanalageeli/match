@@ -10,6 +10,12 @@ test("creates an exactly even numbered roster for an even minimum", () => {
   assert.equal(rows[19].full_name, "Guest 20")
 })
 
+test("allows an odd starting roster and keeps the split as close as possible", () => {
+  const rows = buildNumberedRosterRows({ eventId: "event-odd", count: 21 })
+  assert.deepEqual(rows.map(row => row.attendee_number), Array.from({ length: 21 }, (_, index) => index + 1))
+  assert.deepEqual(rosterGenderCounts(rows), { male: 10, female: 11 })
+})
+
 test("new numbers continue from the last guest and correct an uneven split", () => {
   const rows = buildNumberedRosterRows({
     eventId: "event-2",

@@ -1,6 +1,11 @@
 import { supabaseAdmin } from "../server/security/supabase-admin.mjs"
 import { generateTheRoomSchedule, TheRoomScheduleError } from "../server/the-room/scheduler.mjs"
 import {
+  buildNumberedRosterRows,
+  rosterGenderCounts,
+  ROSTER_GENDERS,
+} from "../server/the-room/numbered-roster.mjs"
+import {
   enforceTheRoomRateLimit,
   hasTheRoomSession,
   loginTheRoom,
@@ -11,39 +16,55 @@ import {
 const supabase = supabaseAdmin
 const ALGORITHM_VERSION = "the-room-social-table-v1"
 const EVENT_FIELDS = "id,event_number,name,starts_at,venue,status,minimum_attendees,table_count,round_count,ticket_price,currency,notes,created_at,updated_at"
-const ATTENDEE_FIELDS = "id,event_id,attendee_number,full_name,phone_e164,gender,attendance_status,included_in_schedule,checked_in,payment_status,amount_due,amount_paid,paid_at,notes,created_at,updated_at"
+const ATTENDEE_FIELDS = "id,event_id,attendee_number,full_name,gender,attendance_status,included_in_schedule,created_at,updated_at"
 
 class TheRoomInputError extends Error {}
-
-function cleanText(value, maxLength, fallback = null) {
-  const text = String(value ?? "").trim()
-  return text ? text.slice(0, maxLength) : fallback
-}
 
 function numberInRange(value, minimum, maximum, fallback = null) {
   const number = Number(value)
   return Number.isFinite(number) && number >= minimum && number <= maximum ? number : fallback
 }
 
-function normalizeDate(value) {
-  if (!value) return null
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) throw new TheRoomInputError("Use a valid event date and time")
-  return date.toISOString()
-}
-
-function normalizePhone(value) {
-  const raw = String(value || "").replace(/[^\d+]/g, "")
-  if (!raw) return null
-  const normalized = raw.startsWith("05") ? `+966${raw.slice(1)}` : raw.startsWith("966") ? `+${raw}` : raw
-  if (!/^\+[1-9][0-9]{7,14}$/.test(normalized)) throw new TheRoomInputError("Use an international phone number, for example +9665XXXXXXXX")
-  return normalized
+function evenMinimum(value, fallback = 20) {
+  const minimum = Math.round(numberInRange(value, 2, 500, fallback))
+  if (minimum % 2 !== 0) throw new TheRoomInputError("Minimum guests must be an even number so the starting roster is half men and half women")
+  return minimum
 }
 
 function sendDatabaseError(res, error) {
   const conflict = error?.code === "23505"
-  const message = conflict ? "That event number, attendee number, or phone already exists in this event" : (error?.message || "Database request failed")
+  const message = conflict ? "That event number or guest number already exists" : (error?.message || "Database request failed")
   return res.status(conflict ? 409 : 500).json({ error: message })
+}
+
+async function ensureMinimumRoster(event) {
+  const { data: attendees, error } = await supabase
+    .from("the_room_attendees")
+    .select("attendee_number,gender,attendance_status,included_in_schedule")
+    .eq("event_id", event.id)
+    .order("attendee_number", { ascending: true })
+  if (error) throw error
+
+  const allAttendees = attendees || []
+  const activeAttendees = allAttendees.filter(attendee =>
+    attendee.included_in_schedule && ["registered", "confirmed"].includes(attendee.attendance_status)
+  )
+  const missing = Math.max(0, Number(event.minimum_attendees) - activeAttendees.length)
+  if (!missing) return false
+
+  const lastNumber = allAttendees.reduce((maximum, attendee) => Math.max(maximum, Number(attendee.attendee_number) || 0), 0)
+  const counts = rosterGenderCounts(activeAttendees)
+  const rows = buildNumberedRosterRows({
+    eventId: event.id,
+    count: missing,
+    startNumber: lastNumber + 1,
+    maleCount: counts.male,
+    femaleCount: counts.female,
+  })
+  const { error: insertError } = await supabase.from("the_room_attendees").insert(rows)
+  if (insertError) throw insertError
+  await invalidateSchedule(event.id)
+  return true
 }
 
 async function loadEventBundle({ eventId, eventNumber }) {
@@ -53,14 +74,14 @@ async function loadEventBundle({ eventId, eventNumber }) {
   if (eventError) throw eventError
   if (!event) return null
 
-  const [{ data: attendees, error: attendeesError }, { data: schedule, error: scheduleError }, { data: payments, error: paymentsError }] = await Promise.all([
+  await ensureMinimumRoster(event)
+
+  const [{ data: attendees, error: attendeesError }, { data: schedule, error: scheduleError }] = await Promise.all([
     supabase.from("the_room_attendees").select(ATTENDEE_FIELDS).eq("event_id", event.id).order("attendee_number", { ascending: true }),
     supabase.from("the_room_schedule_runs").select("*").eq("event_id", event.id).eq("is_active", true).maybeSingle(),
-    supabase.from("the_room_payment_ledger").select("id,event_id,attendee_id,payment_status,amount_paid,note,recorded_at").eq("event_id", event.id).order("recorded_at", { ascending: false }).limit(100),
   ])
   if (attendeesError) throw attendeesError
   if (scheduleError) throw scheduleError
-  if (paymentsError) throw paymentsError
 
   let seats = []
   if (schedule?.id) {
@@ -69,7 +90,7 @@ async function loadEventBundle({ eventId, eventNumber }) {
     seats = data || []
   }
 
-  return { event, attendees: attendees || [], schedule: schedule || null, seats, payments: payments || [] }
+  return { event, attendees: attendees || [], schedule: schedule || null, seats }
 }
 
 async function invalidateSchedule(eventId) {
@@ -103,21 +124,24 @@ async function handleAction(req, res, action) {
   if (action === "create-event") {
     const eventNumber = numberInRange(req.body?.event_number, 1, Number.MAX_SAFE_INTEGER)
     if (!Number.isInteger(eventNumber)) return res.status(400).json({ error: "A positive whole event number is required" })
+    const minimumAttendees = evenMinimum(req.body?.minimum_attendees)
     const payload = {
       event_number: eventNumber,
-      name: cleanText(req.body?.name, 120, "The Room"),
-      starts_at: normalizeDate(req.body?.starts_at),
-      venue: cleanText(req.body?.venue, 240),
-      minimum_attendees: Math.round(numberInRange(req.body?.minimum_attendees, 2, 500, 20)),
+      name: "The Room",
+      minimum_attendees: minimumAttendees,
       table_count: Math.round(numberInRange(req.body?.table_count, 1, 50, 5)),
       round_count: Math.round(numberInRange(req.body?.round_count, 1, 20, 3)),
-      ticket_price: numberInRange(req.body?.ticket_price, 0, 99999999, 0),
-      currency: cleanText(req.body?.currency, 3, "SAR")?.toUpperCase(),
       status: "draft",
     }
     const { data, error } = await supabase.from("the_room_events").insert(payload).select(EVENT_FIELDS).single()
     if (error) return sendDatabaseError(res, error)
-    return res.status(201).json(await loadEventBundle({ eventId: data.id }))
+    try {
+      await ensureMinimumRoster(data)
+      return res.status(201).json(await loadEventBundle({ eventId: data.id }))
+    } catch (rosterError) {
+      await supabase.from("the_room_events").delete().eq("id", data.id)
+      throw rosterError
+    }
   }
 
   if (action === "update-event") {
@@ -125,23 +149,15 @@ async function handleAction(req, res, action) {
     if (!eventId) return res.status(400).json({ error: "Event ID is required" })
     const { data: existingEvent, error: existingEventError } = await supabase
       .from("the_room_events")
-      .select("minimum_attendees,table_count,round_count")
+      .select(EVENT_FIELDS)
       .eq("id", eventId)
       .maybeSingle()
     if (existingEventError) return sendDatabaseError(res, existingEventError)
     if (!existingEvent) return res.status(404).json({ error: "The Room event was not found" })
-    const allowedStatuses = new Set(["draft", "registration", "ready", "live", "completed", "cancelled"])
     const payload = {
-      name: cleanText(req.body?.name, 120, "The Room"),
-      starts_at: normalizeDate(req.body?.starts_at),
-      venue: cleanText(req.body?.venue, 240),
-      minimum_attendees: Math.round(numberInRange(req.body?.minimum_attendees, 2, 500, 20)),
-      table_count: Math.round(numberInRange(req.body?.table_count, 1, 50, 5)),
-      round_count: Math.round(numberInRange(req.body?.round_count, 1, 20, 3)),
-      ticket_price: numberInRange(req.body?.ticket_price, 0, 99999999, 0),
-      currency: cleanText(req.body?.currency, 3, "SAR")?.toUpperCase(),
-      status: allowedStatuses.has(req.body?.status) ? req.body.status : "draft",
-      notes: cleanText(req.body?.notes, 4000),
+      minimum_attendees: evenMinimum(req.body?.minimum_attendees, existingEvent.minimum_attendees),
+      table_count: Math.round(numberInRange(req.body?.table_count, 1, 50, existingEvent.table_count)),
+      round_count: Math.round(numberInRange(req.body?.round_count, 1, 20, existingEvent.round_count)),
       updated_at: new Date().toISOString(),
     }
     const { error } = await supabase.from("the_room_events").update(payload).eq("id", eventId)
@@ -152,66 +168,49 @@ async function handleAction(req, res, action) {
     return res.status(200).json(await loadEventBundle({ eventId }))
   }
 
-  if (action === "save-attendee") {
+  if (action === "add-attendee") {
     const eventId = req.body?.event_id
     if (!eventId) return res.status(400).json({ error: "Event ID is required" })
-    const attendeeId = req.body?.attendee_id || null
-    const genders = new Set(["male", "female", "nonbinary", "unspecified"])
-    const attendanceStatuses = new Set(["registered", "confirmed", "waitlist", "cancelled"])
-    const payload = {
-      full_name: cleanText(req.body?.full_name, 160),
-      phone_e164: normalizePhone(req.body?.phone_e164),
-      gender: genders.has(req.body?.gender) ? req.body.gender : "unspecified",
-      attendance_status: attendanceStatuses.has(req.body?.attendance_status) ? req.body.attendance_status : "registered",
-      included_in_schedule: req.body?.included_in_schedule !== false,
-      checked_in: req.body?.checked_in === true,
-      amount_due: numberInRange(req.body?.amount_due, 0, 99999999, 0),
-      notes: cleanText(req.body?.notes, 2000),
-      updated_at: new Date().toISOString(),
-    }
-    if (!payload.full_name) return res.status(400).json({ error: "Guest name is required" })
-
-    let error
-    const isScheduled = attendee => attendee.included_in_schedule
-      && ["registered", "confirmed"].includes(attendee.attendance_status)
-    let scheduleMembershipChanged = !attendeeId && isScheduled(payload)
-    if (attendeeId) {
-      const { data: existingAttendee, error: existingAttendeeError } = await supabase
-        .from("the_room_attendees")
-        .select("gender,attendance_status,included_in_schedule")
-        .eq("id", attendeeId)
-        .eq("event_id", eventId)
-        .maybeSingle()
-      if (existingAttendeeError) return sendDatabaseError(res, existingAttendeeError)
-      if (!existingAttendee) return res.status(404).json({ error: "The Room guest was not found" })
-      const wasScheduled = isScheduled(existingAttendee)
-      const willBeScheduled = isScheduled(payload)
-      scheduleMembershipChanged = wasScheduled !== willBeScheduled
-        || (wasScheduled && willBeScheduled && existingAttendee.gender !== payload.gender)
-      ;({ error } = await supabase.from("the_room_attendees").update(payload).eq("id", attendeeId).eq("event_id", eventId))
-    } else {
-      const { data: last } = await supabase.from("the_room_attendees").select("attendee_number").eq("event_id", eventId).order("attendee_number", { ascending: false }).limit(1).maybeSingle()
-      ;({ error } = await supabase.from("the_room_attendees").insert({ ...payload, event_id: eventId, attendee_number: Number(last?.attendee_number || 0) + 1 }))
-    }
+    const gender = String(req.body?.gender || "")
+    if (!ROSTER_GENDERS.has(gender)) return res.status(400).json({ error: "Choose whether the new guest is a man or woman" })
+    const { data: last, error: lastError } = await supabase
+      .from("the_room_attendees")
+      .select("attendee_number")
+      .eq("event_id", eventId)
+      .order("attendee_number", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (lastError) return sendDatabaseError(res, lastError)
+    const attendeeNumber = Number(last?.attendee_number || 0) + 1
+    const { error } = await supabase.from("the_room_attendees").insert({
+      event_id: eventId,
+      attendee_number: attendeeNumber,
+      full_name: `Guest ${attendeeNumber}`,
+      gender,
+      attendance_status: "confirmed",
+      included_in_schedule: true,
+      amount_due: 0,
+    })
     if (error) return sendDatabaseError(res, error)
-    if (scheduleMembershipChanged) await invalidateSchedule(eventId)
+    await invalidateSchedule(eventId)
     return res.status(200).json(await loadEventBundle({ eventId }))
   }
 
-  if (action === "record-payment") {
+  if (action === "set-attendee-gender") {
     const eventId = req.body?.event_id
     const attendeeId = req.body?.attendee_id
-    const amount = numberInRange(req.body?.amount_paid, 0, 99999999, 0)
-    const statuses = new Set(["pending", "partial", "paid", "waived", "refunded"])
-    if (!eventId || !attendeeId || !statuses.has(req.body?.payment_status)) return res.status(400).json({ error: "A valid attendee and payment status are required" })
-    const { error } = await supabase.rpc("record_the_room_payment", {
-      p_event_id: eventId,
-      p_attendee_id: attendeeId,
-      p_payment_status: req.body.payment_status,
-      p_amount_paid: amount,
-      p_note: cleanText(req.body?.note, 1000),
-    })
+    const gender = String(req.body?.gender || "")
+    if (!eventId || !attendeeId || !ROSTER_GENDERS.has(gender)) return res.status(400).json({ error: "A valid guest and gender are required" })
+    const { data, error } = await supabase
+      .from("the_room_attendees")
+      .update({ gender, updated_at: new Date().toISOString() })
+      .eq("id", attendeeId)
+      .eq("event_id", eventId)
+      .select("id")
+      .maybeSingle()
     if (error) return sendDatabaseError(res, error)
+    if (!data) return res.status(404).json({ error: "The Room guest was not found" })
+    await invalidateSchedule(eventId)
     return res.status(200).json(await loadEventBundle({ eventId }))
   }
 

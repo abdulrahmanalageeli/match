@@ -3,10 +3,11 @@ import { useSearchParams } from "react-router"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 import toast, { Toaster } from "react-hot-toast"
 import {
-  AlertTriangle, ArrowLeftRight, ArrowRight, BadgeCheck, CalendarPlus, Camera, CheckCircle2,
-  ChevronDown, Clock3, DoorOpen, Download, Eye, EyeOff, Gauge, Loader2, LockKeyhole, LogOut,
-  Minus, Play, Plus, Printer, RefreshCw, RotateCcw, Settings2, Share2, ShieldCheck, Sparkles,
-  Table2, Trash2, Undo2, UserCog, UserPlus, UserRound, UsersRound, WandSparkles, X,
+  ArrowLeftRight, ArrowRight, BadgeCheck, CalendarPlus, Camera, CheckCircle2,
+  ChevronDown, ChevronLeft, ChevronRight, Clock3, DoorOpen, Download, Eye, EyeOff, Gauge,
+  Loader2, LockKeyhole, LogOut, Maximize2, Minus, Monitor, Play, Plus, Printer, RefreshCw,
+  RotateCcw, Settings2, Share2, ShieldCheck, SlidersHorizontal, Sparkles, Table2, Trash2,
+  Undo2, UserCog, UserPlus, UserRound, UsersRound, WandSparkles, X,
 } from "lucide-react"
 import "@fontsource/tajawal/400.css"
 import "@fontsource/tajawal/500.css"
@@ -61,7 +62,7 @@ type Seat = {
   attendee_id: string
 }
 type Bundle = { event: RoomEvent; attendees: Attendee[]; schedule: ScheduleRun | null; seats: Seat[] }
-type SetupValues = { event_number: number; minimum_attendees: number; table_count: number; round_count: number }
+type SetupValues = { event_number: number; minimum_attendees: number; female_attendees: number; male_attendees: number; table_count: number; round_count: number }
 type PlacementNotice = { attendeeNumber: number; gender: Gender; tables: { roundNumber: number; tableNumber: number }[] }
 
 const demoAttendees: Attendee[] = Array.from({ length: 20 }, (_, index) => ({
@@ -311,7 +312,76 @@ function OrganizerSummary({ event, attendees, seats, activeRound, onNextRound }:
   )
 }
 
-function CheckInPanel({ attendees, busy, placementNotice, onNext, onAdd, onUndo, onShow }: { attendees: Attendee[]; busy: boolean; placementNotice: PlacementNotice | null; onNext: (gender: "female" | "male") => void; onAdd: (gender: "female" | "male") => void; onUndo: (person: Attendee) => void; onShow: (id: string) => void }) {
+function SimpleEventBar({ event, attendees, activeRound, onProjector, onNextRound }: { event: RoomEvent; attendees: Attendee[]; activeRound: number; onProjector: () => void; onNextRound: () => void }) {
+  const checked = attendees.filter(person => person.checked_in).length
+  const finalRound = activeRound >= event.round_count
+  return (
+    <section className="overflow-hidden rounded-[1.75rem] border border-[#d7ba7d]/20 bg-[#d7ba7d]/[0.055]">
+      <div className="flex items-center justify-between gap-4 p-4 sm:p-5">
+        <div>
+          <p className="text-xs font-bold text-[#c9a968]">الآن</p>
+          <p className="mt-1 text-xl font-extrabold text-white">الجولة {activeRound} من {event.round_count}</p>
+          <p className="mt-1 text-xs text-stone-400">حضر {checked} من {attendees.length}</p>
+        </div>
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#d7ba7d] text-2xl font-extrabold text-[#17130c]">{activeRound}</div>
+      </div>
+      <div className="grid grid-cols-2 gap-2 border-t border-white/[0.07] p-3">
+        <button type="button" onClick={onProjector} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-white/[0.07] px-3 text-sm font-extrabold text-white"><Monitor size={18} /> عرض الجولة</button>
+        <button type="button" onClick={onNextRound} disabled={finalRound} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#d7ba7d] px-3 text-sm font-extrabold text-[#17130c] disabled:bg-white/[0.04] disabled:text-stone-500"><Play size={17} /> {finalRound ? "آخر جولة" : "الجولة التالية"}</button>
+      </div>
+    </section>
+  )
+}
+
+function ProjectorView({ bundle, attendees, activeRound, onRound, onClose }: { bundle: Bundle; attendees: Attendee[]; activeRound: number; onRound: (round: number) => void; onClose: () => void }) {
+  const tables = Array.from({ length: bundle.event.table_count }, (_, index) => index + 1)
+  const close = async () => {
+    if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined)
+    onClose()
+  }
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape" && !document.fullscreenElement) onClose() }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [onClose])
+  return (
+    <motion.div dir="rtl" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[120] flex flex-col overflow-hidden bg-[#070706] text-white">
+      <header className="flex shrink-0 items-center justify-between gap-4 border-b border-white/10 bg-[#11100e] px-4 py-3 sm:px-7 sm:py-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#d7ba7d] text-xl font-extrabold text-[#17130c]">{activeRound}</div>
+          <div><p className="text-xs font-bold text-[#c9a968]">ذا روم · فعالية {bundle.event.event_number}</p><h2 className="text-[clamp(1.25rem,3vw,2rem)] font-extrabold">الجولة {activeRound}</h2></div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => document.documentElement.requestFullscreen?.().catch(() => undefined)} className="flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-white/10 px-3 text-sm font-bold text-stone-300"><Maximize2 size={17} /><span className="hidden sm:inline">ملء الشاشة</span></button>
+          <button type="button" onClick={close} className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 text-stone-300" aria-label="إغلاق شاشة العرض"><X size={19} /></button>
+        </div>
+      </header>
+      <main className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-6">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(15rem,100%),1fr))] gap-3">
+          {tables.map(tableNumber => {
+            const people = bundle.seats.filter(seat => seat.round_number === activeRound && seat.table_number === tableNumber)
+              .map(seat => attendees.find(person => person.id === seat.attendee_id)).filter(Boolean) as Attendee[]
+            return <section key={tableNumber} className="overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/[0.04]">
+              <div className="flex items-center gap-3 border-b border-white/[0.07] p-3 sm:p-4"><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#d7ba7d] text-xl font-extrabold text-[#17130c]">{tableNumber}</div><div><p className="text-lg font-extrabold">الطاولة {tableNumber}</p><p className="text-xs text-stone-500">{people.length} أشخاص</p></div></div>
+              <div className="grid grid-cols-2 gap-2 p-3">
+                {people.map(person => { const style = genderStyle(person.gender); return <div key={person.id} className={`flex min-h-14 items-center justify-center rounded-2xl border px-2 text-[clamp(.9rem,2vw,1.15rem)] font-extrabold ${style.chip}`}><span>{style.label} {guestNumber(person.attendee_number)}</span></div> })}
+              </div>
+            </section>
+          })}
+        </div>
+      </main>
+      <footer className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 border-t border-white/10 bg-[#11100e] p-3 sm:px-7">
+        <button type="button" onClick={() => onRound(Math.max(1, activeRound - 1))} disabled={activeRound === 1} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 px-4 font-extrabold text-stone-200 disabled:opacity-25"><ChevronRight size={19} /> السابقة</button>
+        <p className="hidden text-center text-sm font-bold text-stone-500 sm:block">اعرض هذه الشاشة للضيوف</p>
+        <button type="button" onClick={() => onRound(Math.min(bundle.event.round_count, activeRound + 1))} disabled={activeRound === bundle.event.round_count} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#d7ba7d] px-4 font-extrabold text-[#17130c] disabled:opacity-30">التالية <ChevronLeft size={19} /></button>
+      </footer>
+    </motion.div>
+  )
+}
+
+function CheckInPanel({ attendees, busy, placementNotice, simple = false, onNext, onAdd, onUndo, onShow }: { attendees: Attendee[]; busy: boolean; placementNotice: PlacementNotice | null; simple?: boolean; onNext: (gender: "female" | "male") => void; onAdd: (gender: "female" | "male") => void; onUndo: (person: Attendee) => void; onShow: (id: string) => void }) {
+  const [addGuestOpen, setAddGuestOpen] = useState(false)
+  const [allBadgesOpen, setAllBadgesOpen] = useState(false)
   const firstBadges = attendees.slice(0, 20)
   const extraBadges = attendees.slice(20)
   const checkedCount = attendees.filter(person => person.checked_in).length
@@ -370,10 +440,10 @@ function CheckInPanel({ attendees, busy, placementNotice, onNext, onAdd, onUndo,
         <div className="mt-4 h-2 overflow-hidden rounded-full bg-black/35"><div className="h-full rounded-full bg-[#d7ba7d] transition-all" style={{ width: `${progress}%` }} /></div>
       </section>
 
-      <section className={`rounded-3xl border p-4 ${balance.tone}`}>
+      {(!simple || balance.preferred) && <section className={`rounded-3xl border p-4 ${balance.tone}`}>
         <div className="flex items-center justify-between gap-3"><div><p className="font-extrabold">{balance.label}</p><p className="mt-1 text-xs opacity-70">{women} فتيات · {men} أولاد</p></div><Gauge size={24} /></div>
         {balance.preferred && <p className="mt-3 rounded-xl bg-black/15 px-3 py-2 text-xs font-bold">يفضّل تكون الإضافة الجاية: {balance.preferred}</p>}
-      </section>
+      </section>}
 
       <div className="grid grid-cols-2 gap-3">
         {arrivalButton("female", nextWoman)}
@@ -382,30 +452,33 @@ function CheckInPanel({ attendees, busy, placementNotice, onNext, onAdd, onUndo,
 
       {recent.length > 0 && <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-4"><p className="mb-3 font-extrabold text-white">آخر البطاقات المسلّمة</p><div className="space-y-2">{recent.map(person => <div key={person.id} className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-300/15 bg-emerald-300/[0.055] p-3"><button type="button" onClick={() => onShow(person.id)} className="flex min-w-0 flex-1 items-center gap-3 text-right"><CheckCircle2 size={18} className="shrink-0 text-emerald-300" /><div><p className="font-extrabold text-white">بطاقة {guestNumber(person.attendee_number)} · {genderStyle(person.gender).label}</p><p className="mt-0.5 flex items-center gap-1 text-[10px] text-stone-500"><Clock3 size={11} /> {checkInTime(person.updated_at)}</p></div></button><button type="button" onClick={() => onUndo(person)} disabled={busy} className="flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl border border-white/10 px-3 text-xs font-bold text-stone-300 disabled:opacity-40"><Undo2 size={14} /> تراجع</button></div>)}</div></section>}
 
-      <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-4">
-        <div className="mb-3"><p className="font-extrabold text-white">إضافة شخص وصل بدون بطاقة</p><p className="mt-1 text-xs text-stone-500">ينضاف حضوره وتظهر بطاقته مباشرة.</p></div>
-        <div className="grid grid-cols-2 gap-2">
-          <button type="button" onClick={() => onAdd("female")} disabled={busy} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-rose-300/25 bg-rose-300/[0.07] px-3 text-sm font-extrabold text-rose-100 disabled:opacity-40"><UserPlus size={17} /> إضافة فتاة</button>
-          <button type="button" onClick={() => onAdd("male")} disabled={busy} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-sky-300/25 bg-sky-300/[0.07] px-3 text-sm font-extrabold text-sky-100 disabled:opacity-40"><UserPlus size={17} /> إضافة ولد</button>
-        </div>
+      <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-3 sm:p-4">
+        {simple && !addGuestOpen ? <button type="button" onClick={() => setAddGuestOpen(true)} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl text-sm font-bold text-stone-400"><UserPlus size={16} /> شخص جديد ما عنده بطاقة</button> : <>
+          <div className="mb-3 flex items-start justify-between gap-3"><div><p className="font-extrabold text-white">إضافة شخص جديد</p><p className="mt-1 text-xs text-stone-500">ينضاف حضوره وتظهر بطاقته مباشرة.</p></div>{simple && <button type="button" onClick={() => setAddGuestOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-stone-500" aria-label="إلغاء الإضافة"><X size={15} /></button>}</div>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => onAdd("female")} disabled={busy} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-rose-300/25 bg-rose-300/[0.07] px-3 text-sm font-extrabold text-rose-100 disabled:opacity-40"><UserPlus size={17} /> فتاة</button>
+            <button type="button" onClick={() => onAdd("male")} disabled={busy} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-sky-300/25 bg-sky-300/[0.07] px-3 text-sm font-extrabold text-sky-100 disabled:opacity-40"><UserPlus size={17} /> ولد</button>
+          </div>
+        </>}
       </section>
 
-      {placementNotice && <section className="rounded-3xl border border-[#d7ba7d]/20 bg-[#d7ba7d]/[0.06] p-4"><div className="flex items-start gap-3"><ShieldCheck size={20} className="mt-0.5 shrink-0 text-[#e4ca91]" /><div><p className="font-extrabold text-white">آخر إضافة: {genderStyle(placementNotice.gender).label} {guestNumber(placementNotice.attendeeNumber)}</p><p className="mt-1 text-xs font-bold text-[#d9bb7c]">اختير أفضل توازن متاح</p><p className="mt-2 text-xs text-stone-400">{placementNotice.tables.map(item => `ج${item.roundNumber}: ط${item.tableNumber}`).join(" · ")}</p></div></div></section>}
+      {!simple && placementNotice && <section className="rounded-3xl border border-[#d7ba7d]/20 bg-[#d7ba7d]/[0.06] p-4"><div className="flex items-start gap-3"><ShieldCheck size={20} className="mt-0.5 shrink-0 text-[#e4ca91]" /><div><p className="font-extrabold text-white">آخر إضافة: {genderStyle(placementNotice.gender).label} {guestNumber(placementNotice.attendeeNumber)}</p><p className="mt-1 text-xs font-bold text-[#d9bb7c]">اختير أفضل توازن متاح</p><p className="mt-2 text-xs text-stone-400">{placementNotice.tables.map(item => `ج${item.roundNumber}: ط${item.tableNumber}`).join(" · ")}</p></div></div></section>}
 
-      <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-4">
+      {simple && !allBadgesOpen ? <button type="button" onClick={() => setAllBadgesOpen(true)} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-white/[0.07] bg-white/[0.02] text-sm font-bold text-stone-500"><BadgeCheck size={16} /> عرض كل البطاقات</button> : <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-4">
         <div className="mb-3 flex items-center justify-between"><div><p className="font-extrabold text-white">حالة البطاقات</p><p className="mt-1 text-[11px] text-stone-500">وردي للفتاة · أزرق للولد · أخضر تم تسليمه</p></div><span className="text-xs font-bold text-stone-500">01–20</span></div>
         {badgeGrid(firstBadges)}
-      </section>
+        {simple && <button type="button" onClick={() => setAllBadgesOpen(false)} className="mt-3 min-h-10 w-full text-xs font-bold text-stone-500">إخفاء البطاقات</button>}
+      </section>}
 
-      {extraBadges.length > 0 && <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-4"><p className="mb-3 font-extrabold text-white">البطاقات الإضافية</p>{badgeGrid(extraBadges)}</section>}
+      {extraBadges.length > 0 && (!simple || allBadgesOpen) && <section className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-4"><p className="mb-3 font-extrabold text-white">البطاقات الإضافية</p>{badgeGrid(extraBadges)}</section>}
     </div>
   )
 }
 
-function GuestBadgeFocus({ event, person, journey, activeRound, onClose, onShare }: { event: RoomEvent; person: Attendee; journey: Seat[]; activeRound: number; onClose: () => void; onShare: () => void }) {
+function GuestBadgeFocus({ event, person, journey, activeRound, simple = false, onClose, onShare }: { event: RoomEvent; person: Attendee; journey: Seat[]; activeRound: number; simple?: boolean; onClose: () => void; onShare: () => void }) {
   const style = genderStyle(person.gender)
   const badgeRef = useRef<HTMLElement>(null)
-  const [photoMode, setPhotoMode] = useState(false)
+  const [photoMode, setPhotoMode] = useState(simple)
   const [saving, setSaving] = useState(false)
 
   const saveImage = async () => {
@@ -432,7 +505,7 @@ function GuestBadgeFocus({ event, person, journey, activeRound, onClose, onShare
         {!photoMode && <div className="room-badge-toolbar sticky top-0 z-30 mb-2 flex w-full shrink-0 justify-end py-1">
           <button onClick={onClose} aria-label="إغلاق البطاقة" className="flex h-11 items-center justify-center gap-2 rounded-full border border-white/10 bg-black/65 px-4 text-sm font-bold text-white shadow-lg backdrop-blur-xl"><X size={17} /><span className="room-badge-close-label">إغلاق</span></button>
         </div>}
-        <motion.article ref={badgeRef} onClick={() => photoMode && setPhotoMode(false)} aria-label={photoMode ? "اضغط للرجوع من وضع التصوير" : undefined} initial={{ y: 18, opacity: 0, scale: 0.97 }} animate={{ y: 0, opacity: 1, scale: 1 }} data-room-badge className={`room-badge-card relative w-full shrink-0 overflow-hidden rounded-[clamp(1.5rem,8vw,2.25rem)] border bg-gradient-to-b p-[clamp(.875rem,4.5vw,1.5rem)] shadow-[0_40px_120px_rgba(0,0,0,.75)] ${photoMode ? "cursor-pointer" : ""} ${style.surface}`}>
+        <motion.article ref={badgeRef} onClick={() => { if (!photoMode) return; if (simple) onClose(); else setPhotoMode(false) }} aria-label={photoMode ? "اضغط للرجوع" : undefined} initial={{ y: 18, opacity: 0, scale: 0.97 }} animate={{ y: 0, opacity: 1, scale: 1 }} data-room-badge className={`room-badge-card relative w-full shrink-0 overflow-hidden rounded-[clamp(1.5rem,8vw,2.25rem)] border bg-gradient-to-b p-[clamp(.875rem,4.5vw,1.5rem)] shadow-[0_40px_120px_rgba(0,0,0,.75)] ${photoMode ? "cursor-pointer" : ""} ${style.surface}`}>
           <div className={`pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full blur-[75px] ${style.glow}`} />
           <div className="pointer-events-none absolute inset-[clamp(.5rem,3vw,.75rem)] rounded-[clamp(1.15rem,6vw,1.7rem)] border border-white/[0.07]" />
           <div className="room-badge-header relative flex min-w-0 items-start justify-between gap-2">
@@ -498,24 +571,32 @@ export default function TheRoomPage() {
   const [organizerOpen, setOrganizerOpen] = useState(true)
   const [creating, setCreating] = useState(false)
   const [round, setRound] = useState(1)
+  const [tableRound, setTableRound] = useState(1)
   const [view, setView] = useState<"tables" | "checkin" | "guest">(preview ? "checkin" : "tables")
   const [selectedGuestId, setSelectedGuestId] = useState("")
   const [badgeOpen, setBadgeOpen] = useState(false)
   const [emergencyOpen, setEmergencyOpen] = useState(false)
   const [placementNotice, setPlacementNotice] = useState<PlacementNotice | null>(null)
   const [setupOpen, setSetupOpen] = useState(!preview)
-  const [draft, setDraft] = useState<SetupValues>({ event_number: 1, minimum_attendees: 20, table_count: 5, round_count: 3 })
+  const [advancedMode, setAdvancedMode] = useState(false)
+  const [projectorOpen, setProjectorOpen] = useState(false)
+  const [draft, setDraft] = useState<SetupValues>({ event_number: 1, minimum_attendees: 20, female_attendees: 10, male_attendees: 10, table_count: 5, round_count: 3 })
   const organizerScrollRef = useRef<HTMLDivElement>(null)
 
   const installBundle = (next: Bundle) => {
+    const nextWomen = next.attendees.filter(person => person.gender === "female" && person.included_in_schedule).length
+    const nextMen = next.attendees.filter(person => person.gender === "male" && person.included_in_schedule).length
     setBundle(next)
     setDraft({
       event_number: next.event.event_number,
       minimum_attendees: Math.max(next.event.minimum_attendees, next.attendees.length),
+      female_attendees: nextWomen,
+      male_attendees: nextMen,
       table_count: next.event.table_count,
       round_count: next.event.round_count,
     })
     setRound(value => Math.min(value, next.event.round_count))
+    setTableRound(value => Math.min(value, next.event.round_count))
     setBadgeOpen(false)
     setPlacementNotice(null)
     setSetupOpen(false)
@@ -579,7 +660,7 @@ export default function TheRoomPage() {
     setView("tables")
     setBadgeOpen(false)
     setSetupOpen(true)
-    setDraft({ event_number: Math.max(0, ...events.map(item => item.event_number)) + 1, minimum_attendees: 20, table_count: 5, round_count: 3 })
+    setDraft({ event_number: Math.max(0, ...events.map(item => item.event_number)) + 1, minimum_attendees: 20, female_attendees: 10, male_attendees: 10, table_count: 5, round_count: 3 })
   }
 
   const cancelCreate = () => {
@@ -593,6 +674,7 @@ export default function TheRoomPage() {
     try {
       await act("reset-event", { event_id: bundle.event.id })
       setRound(1)
+      setTableRound(1)
       setView("tables")
       toast.success("انمسح التوزيع، والضيوف محفوظين")
     } catch {}
@@ -613,7 +695,7 @@ export default function TheRoomPage() {
       } else {
         setBundle(null)
         setCreating(true)
-        setDraft({ event_number: bundle.event.event_number + 1, minimum_attendees: 20, table_count: 5, round_count: 3 })
+        setDraft({ event_number: bundle.event.event_number + 1, minimum_attendees: 20, female_attendees: 10, male_attendees: 10, table_count: 5, round_count: 3 })
       }
       toast.success("انحذفت الفعالية")
     } catch (error: any) {
@@ -631,35 +713,63 @@ export default function TheRoomPage() {
     return counts
   }, { women: 0, men: 0 }), [included])
   const projectedGenderCounts = useMemo(() => {
-    let women = creating ? 0 : genderCounts.women
-    let men = creating ? 0 : genderCounts.men
+    if (creating) return { women: draft.female_attendees, men: draft.male_attendees }
+    let women = genderCounts.women
+    let men = genderCounts.men
     const startingCount = creating ? 0 : included.length
     for (let index = startingCount; index < draft.minimum_attendees; index += 1) {
       if (women <= men) women += 1
       else men += 1
     }
     return { women, men }
-  }, [creating, draft.minimum_attendees, genderCounts, included.length])
+  }, [creating, draft.female_attendees, draft.male_attendees, draft.minimum_attendees, genderCounts, included.length])
   const minimumPeople = creating ? 2 : Math.max(2, included.length)
-  const validSetup = draft.minimum_attendees >= draft.table_count * 2
+  const draftGuestTotal = creating ? draft.female_attendees + draft.male_attendees : draft.minimum_attendees
+  const validSetup = draftGuestTotal >= draft.table_count * 2 && draftGuestTotal <= 500
   const dimensionsChanged = Boolean(bundle && (draft.table_count !== bundle.event.table_count || draft.round_count !== bundle.event.round_count))
   const guestsToAdd = creating ? draft.minimum_attendees : Math.max(0, draft.minimum_attendees - included.length)
   const setupChanged = Boolean(creating || !bundle?.schedule || dimensionsChanged || guestsToAdd > 0)
   const selectedGuest = attendees.find(person => person.id === selectedGuestId) || attendees[0]
   const journey = selectedGuest && bundle ? bundle.seats.filter(seat => seat.attendee_id === selectedGuest.id).sort((a, b) => a.round_number - b.round_number) : []
+  const activeView = advancedMode ? view : "checkin"
+
+  useEffect(() => {
+    if (!bundle?.schedule) return
+    const storedRound = Number(window.localStorage.getItem(`the-room-active-round-${bundle.event.id}`))
+    if (Number.isInteger(storedRound) && storedRound >= 1 && storedRound <= bundle.event.round_count) setRound(storedRound)
+  }, [bundle?.event.id, bundle?.event.round_count, bundle?.schedule?.id])
+
+  useEffect(() => {
+    if (!bundle?.schedule) return
+    window.localStorage.setItem(`the-room-active-round-${bundle.event.id}`, String(round))
+  }, [bundle?.event.id, bundle?.schedule, round])
+
+  const advanceRound = () => {
+    if (!bundle || round >= bundle.event.round_count) return
+    const waiting = included.filter(person => !person.checked_in).length
+    const message = waiting > 0
+      ? `باقي ${waiting} ما وصلوا. تبدأ الجولة ${round + 1}؟`
+      : `تبدأ الجولة ${round + 1}؟`
+    if (window.confirm(message)) setRound(value => Math.min(bundle.event.round_count, value + 1))
+  }
+
+  const openProjector = () => {
+    setProjectorOpen(true)
+  }
 
   const saveAndGenerate = async () => {
     if (!validSetup || !setupChanged) return
     try {
       let eventId = bundle?.event.id
       if (creating) {
-        const data = await act("create-event", draft)
+        const data = await act("create-event", { ...draft, minimum_attendees: draftGuestTotal })
         eventId = data?.event?.id
         setCreating(false)
       } else if (eventId) {
         const data = await act("update-event", { ...draft, event_id: eventId })
         if (data?.schedule_change === "extended" && data?.schedule) {
           setRound(1)
+          setTableRound(1)
           setView("checkin")
           toast.success(`تم تحديث عدد الضيوف إلى ${data.attendees.length}`)
           return
@@ -668,6 +778,7 @@ export default function TheRoomPage() {
       if (eventId) {
         await act("generate-schedule", { event_id: eventId })
         setRound(1)
+        setTableRound(1)
         setView("checkin")
         toast.success("تم تجهيز توزيع الجلسات")
       }
@@ -694,7 +805,7 @@ export default function TheRoomPage() {
       setSelectedGuestId(nextPerson.id)
       setView("checkin")
       setBadgeOpen(true)
-      toast.success(`تم تسليم بطاقة ${guestNumber(nextPerson.attendee_number)}`)
+      if (advancedMode) toast.success(`تم تسليم بطاقة ${guestNumber(nextPerson.attendee_number)}`)
       return
     }
     try {
@@ -703,7 +814,7 @@ export default function TheRoomPage() {
       if (checkedInPerson) setSelectedGuestId(checkedInPerson.id)
       setView("checkin")
       setBadgeOpen(Boolean(checkedInPerson))
-      toast.success(`تم تسليم بطاقة ${guestNumber(data.assigned_attendee_number)}`)
+      if (advancedMode) toast.success(`تم تسليم بطاقة ${guestNumber(data.assigned_attendee_number)}`)
     } catch {}
   }
 
@@ -729,7 +840,7 @@ export default function TheRoomPage() {
       setSelectedGuestId(addedPerson.id)
       setView("checkin")
       setBadgeOpen(true)
-      toast.success(`تمت إضافة ${gender === "female" ? "فتاة" : "ولد"} ${guestNumber(attendeeNumber)}`)
+      if (advancedMode) toast.success(`تمت إضافة ${gender === "female" ? "فتاة" : "ولد"} ${guestNumber(attendeeNumber)}`)
       return
     }
     try {
@@ -739,7 +850,7 @@ export default function TheRoomPage() {
       setPlacementNotice({ attendeeNumber: data.added_attendee_number, gender, tables: data.placement_tables || [] })
       setView("checkin")
       setBadgeOpen(Boolean(addedPerson))
-      toast.success(`تمت إضافة ${gender === "female" ? "فتاة" : "ولد"} ${guestNumber(data.added_attendee_number)}`)
+      if (advancedMode) toast.success(`تمت إضافة ${gender === "female" ? "فتاة" : "ولد"} ${guestNumber(data.added_attendee_number)}`)
     } catch {}
   }
 
@@ -839,6 +950,7 @@ export default function TheRoomPage() {
   return (
     <main dir="rtl" className="the-room-page relative min-h-[100dvh] overflow-hidden bg-[#080807] font-['Tajawal'] text-stone-100" style={{ backgroundImage: "radial-gradient(circle at 10% 0%, rgba(143,108,50,.16), transparent 30%), radial-gradient(circle at 92% 75%, rgba(39,89,72,.16), transparent 28%)" }}>
       <Toaster position="top-center" toastOptions={{ style: { direction: "rtl", fontFamily: "Tajawal", background: "#1b1915", color: "#f5f5f4", border: "1px solid rgba(255,255,255,.1)", borderRadius: 16 } }} />
+      <AnimatePresence>{projectorOpen && bundle?.schedule && <ProjectorView bundle={bundle} attendees={included} activeRound={round} onRound={setRound} onClose={() => setProjectorOpen(false)} />}</AnimatePresence>
       <div className="relative flex min-h-[100dvh] items-center justify-center px-5 py-10">
         <div className="max-w-xl text-center">
           <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[1.75rem] border border-[#d9bb7c]/30 bg-[#201c14] text-[#e4ca91]"><DoorOpen size={34} /></div>
@@ -853,15 +965,16 @@ export default function TheRoomPage() {
         {organizerOpen && (
           <motion.div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-md sm:items-center sm:p-5" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <motion.section role="dialog" aria-modal="true" aria-label="لوحة تنظيم ذا روم" initial={{ y: reduceMotion ? 0 : 30, opacity: 0, scale: reduceMotion ? 1 : 0.985 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 18, opacity: 0 }} className="relative flex max-h-[96dvh] w-full max-w-6xl flex-col overflow-hidden rounded-t-[2rem] border border-white/10 bg-[#11100f] shadow-2xl shadow-black/70 sm:max-h-[92dvh] sm:rounded-[2rem]">
-              <AnimatePresence>{badgeOpen && bundle && selectedGuest && <GuestBadgeFocus event={bundle.event} person={selectedGuest} journey={journey} activeRound={round} onClose={() => setBadgeOpen(false)} onShare={shareGuest} />}</AnimatePresence>
+              <AnimatePresence>{badgeOpen && bundle && selectedGuest && <GuestBadgeFocus event={bundle.event} person={selectedGuest} journey={journey} activeRound={round} simple={!advancedMode} onClose={() => setBadgeOpen(false)} onShare={shareGuest} />}</AnimatePresence>
               <header className="flex shrink-0 items-center justify-between gap-3 border-b border-white/[0.07] bg-[#15130f] px-4 py-3 sm:px-6">
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#d7ba7d]/10 text-[#e4ca91]"><DoorOpen size={21} /></div>
-                  <div className="min-w-0"><div className="flex items-center gap-2"><h2 className="truncate text-lg font-extrabold">لوحة التنظيم</h2>{preview && <span className="rounded-full bg-violet-400/10 px-2 py-1 text-[10px] font-bold text-violet-200">نسخة عرض</span>}</div><p className="text-xs text-stone-500">بسيطة وواضحة</p></div>
+                  <div className="min-w-0"><div className="flex items-center gap-2"><h2 className="truncate text-lg font-extrabold">تشغيل الفعالية</h2>{preview && <span className="rounded-full bg-violet-400/10 px-2 py-1 text-[10px] font-bold text-violet-200">نسخة عرض</span>}</div><p className="text-xs text-stone-500">الاستقبال والجولات من مكان واحد</p></div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button onClick={refresh} disabled={!bundle || refreshing || preview} className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-stone-400 disabled:opacity-30" aria-label="تحديث"><RefreshCw size={17} className={refreshing ? "animate-spin" : ""} /></button>
-                  <button onClick={() => setOrganizerOpen(false)} className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-stone-400" aria-label="إغلاق"><X size={18} /></button>
+                  <button onClick={() => { setAdvancedMode(value => !value); setView("checkin"); setEmergencyOpen(false) }} aria-label={advancedMode ? "إنهاء الوضع المتقدم" : "فتح المزيد من الخيارات"} aria-pressed={advancedMode} className={`flex min-h-11 items-center justify-center gap-2 rounded-2xl border px-3 text-xs font-bold ${advancedMode ? "border-[#d7ba7d]/30 bg-[#d7ba7d]/10 text-[#e4ca91]" : "border-white/10 bg-white/[0.04] text-stone-400"}`}><SlidersHorizontal size={16} /><span>{advancedMode ? "إنهاء" : "المزيد"}</span></button>
+                  {advancedMode && <button onClick={refresh} disabled={!bundle || refreshing || preview} className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-stone-400 disabled:opacity-30" aria-label="تحديث"><RefreshCw size={17} className={refreshing ? "animate-spin" : ""} /></button>}
+                  {advancedMode && <button onClick={() => setOrganizerOpen(false)} className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-stone-400" aria-label="إغلاق"><X size={18} /></button>}
                 </div>
               </header>
 
@@ -869,52 +982,60 @@ export default function TheRoomPage() {
                 <div className="border-b border-white/[0.07] px-4 py-4 sm:px-6">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="text-xs font-bold text-[#c9a968]">{creating ? "فعالية جديدة" : `فعالية رقم ${bundle?.event.event_number}`}</p>
-                      <h3 className="mt-1 text-2xl font-extrabold">{creating ? "فعالية جديدة" : view === "checkin" && bundle?.schedule ? "استقبال الضيوف" : bundle?.schedule ? "التوزيع جاهز" : "جهّز التوزيع"}</h3>
+                      <p className="text-xs font-bold text-[#c9a968]">{creating ? "تجهيز جديد" : `فعالية ${bundle?.event.event_number}`}</p>
+                      <h3 className="mt-1 text-2xl font-extrabold">{creating ? "جهّز الفعالية" : activeView === "checkin" && bundle?.schedule ? "الاستقبال" : bundle?.schedule ? "التوزيع" : "جهّز الفعالية"}</h3>
+                      {!advancedMode && <p className="mt-1 text-xs text-stone-500">{bundle?.schedule ? "اضغط حسب الشخص الواصل" : "حدّد الأعداد ثم اضغط جهّز"}</p>}
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    {advancedMode && <div className="flex flex-wrap gap-2">
                       {!creating && events.length > 0 && <div className="relative min-w-[9.5rem] flex-1 sm:min-w-44"><select value={bundle?.event.id || ""} onChange={async event => { const id = event.target.value; const next = preview ? DEMO_BUNDLE : await roomApi("get-event", { event_id: id }); installBundle(next); setCreating(false) }} className="h-12 w-full appearance-none rounded-2xl border border-white/10 bg-white/[0.04] px-4 pl-10 text-sm font-bold text-white outline-none"><option value="" disabled>اختر فعالية</option>{events.map(item => <option key={item.id} value={item.id}>فعالية {item.event_number}</option>)}</select><ChevronDown size={16} className="pointer-events-none absolute left-4 top-4 text-stone-500" /></div>}
                       {creating && bundle ? <button onClick={cancelCreate} className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm font-bold text-stone-300"><ArrowRight size={17} /> رجوع</button> : <button onClick={beginCreate} className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-[#d7ba7d]/25 bg-[#d7ba7d]/10 px-4 text-sm font-bold text-[#e4ca91]"><CalendarPlus size={17} /> فعالية جديدة</button>}
                       {!creating && bundle && <details className="group relative"><summary className="flex h-12 cursor-pointer list-none items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.035] px-4 text-sm font-bold text-stone-400 [&::-webkit-details-marker]:hidden"><Settings2 size={17} /> خيارات</summary><div className="absolute right-0 top-14 z-30 w-56 space-y-2 rounded-2xl border border-white/10 bg-[#1b1916] p-2 shadow-2xl"><button onClick={() => setEmergencyOpen(true)} disabled={busy} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-right text-sm font-bold text-stone-200 hover:bg-white/[0.05] disabled:opacity-25"><UserCog size={16} /> تصحيح أو نقل شخص</button><button onClick={resetEvent} disabled={!bundle.schedule || busy} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-right text-sm font-bold text-amber-200 hover:bg-white/[0.05] disabled:opacity-25" title="يبقي الضيوف ويمسح توزيع الطاولات"><RotateCcw size={16} /> مسح التوزيع</button><button onClick={deleteEvent} disabled={busy} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-right text-sm font-bold text-red-200 hover:bg-white/[0.05] disabled:opacity-25" title="حذف الفعالية نهائيًا"><Trash2 size={16} /> حذف الفعالية</button></div></details>}
-                    </div>
+                    </div>}
                   </div>
                 </div>
 
                 <div className="p-4 sm:p-6">
-                  {!creating && bundle && emergencyOpen && <EmergencyTools key={bundle.event.id} bundle={bundle} busy={busy} onClose={() => setEmergencyOpen(false)} onChangeGender={changeGuestGender} onReturnBadge={undoCheckIn} onMove={moveGuest} onResetCheckIns={resetCheckIns} />}
-                  {!creating && bundle?.schedule && view !== "checkin" && <button type="button" onClick={() => setSetupOpen(value => !value)} className="mb-4 flex min-h-11 items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.025] px-4 text-sm font-bold text-stone-400"><Settings2 size={16} /> {setupOpen ? "إخفاء الإعدادات" : "تعديل الأعداد"}</button>}
-                  <section data-room-setup className={`${(view === "checkin" && bundle?.schedule && !creating) || (!setupOpen && bundle?.schedule && !creating) ? "hidden" : ""} rounded-[1.75rem] border border-white/[0.08] bg-black/15 p-4 sm:p-5`}>
-                    {creating && <label className="mb-4 block"><span className="mb-2 block text-sm font-bold text-stone-300">رقم الفعالية</span><input className={`${inputClass} max-w-44`} type="number" min="1" value={draft.event_number} onChange={event => setDraft(current => ({ ...current, event_number: Math.max(1, Number(event.target.value)) }))} /></label>}
-                    <div className="grid gap-3 md:grid-cols-3">
-                      {!creating && bundle?.schedule ? <div className="rounded-3xl border border-white/[0.08] bg-white/[0.035] p-3 text-center"><p className="text-sm font-bold text-stone-200">عدد الضيوف</p><p className="mt-3 text-3xl font-extrabold text-white">{included.length}</p><p className="mt-1 text-[11px] text-stone-500">الإضافة من شاشة الاستقبال</p></div> : <Counter label="عدد الضيوف" value={draft.minimum_attendees} onChange={value => setDraft(current => ({ ...current, minimum_attendees: value }))} min={minimumPeople} max={500} />}
-                      <Counter label="عدد الطاولات" hint="طاولتان أو أكثر حسب المكان" value={draft.table_count} onChange={value => setDraft(current => ({ ...current, table_count: value }))} min={1} max={50} />
-                      <Counter label="عدد الجولات" hint="كم مرة ينتقل الضيوف" value={draft.round_count} onChange={value => setDraft(current => ({ ...current, round_count: value }))} min={1} max={20} />
+                  {advancedMode && !creating && bundle && emergencyOpen && <EmergencyTools key={bundle.event.id} bundle={bundle} busy={busy} onClose={() => setEmergencyOpen(false)} onChangeGender={changeGuestGender} onReturnBadge={undoCheckIn} onMove={moveGuest} onResetCheckIns={resetCheckIns} />}
+                  {advancedMode && !creating && bundle?.schedule && <button type="button" onClick={() => setSetupOpen(value => !value)} className="mb-4 flex min-h-11 items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.025] px-4 text-sm font-bold text-stone-400"><Settings2 size={16} /> {setupOpen ? "إخفاء تعديل الأعداد" : "تعديل الأعداد"}</button>}
+                  <section data-room-setup className={`${!creating && bundle?.schedule && (!advancedMode || !setupOpen) ? "hidden" : ""} rounded-[1.75rem] border border-white/[0.08] bg-black/15 p-4 sm:p-5`}>
+                    {creating && advancedMode && <label className="mb-4 block"><span className="mb-2 block text-sm font-bold text-stone-300">رقم الفعالية</span><input className={`${inputClass} max-w-44`} type="number" min="1" value={draft.event_number} onChange={event => setDraft(current => ({ ...current, event_number: Math.max(1, Number(event.target.value)) }))} /></label>}
+                    <div className={`grid gap-3 ${creating ? "sm:grid-cols-2 lg:grid-cols-4" : "md:grid-cols-3"}`}>
+                      {creating ? <>
+                        <Counter label="كم فتاة؟" value={draft.female_attendees} onChange={value => setDraft(current => ({ ...current, female_attendees: value, minimum_attendees: value + current.male_attendees }))} min={0} max={500 - draft.male_attendees} />
+                        <Counter label="كم ولد؟" value={draft.male_attendees} onChange={value => setDraft(current => ({ ...current, male_attendees: value, minimum_attendees: value + current.female_attendees }))} min={0} max={500 - draft.female_attendees} />
+                      </> : (!bundle?.schedule ? <Counter label="عدد الأشخاص" value={draft.minimum_attendees} onChange={value => setDraft(current => ({ ...current, minimum_attendees: value }))} min={minimumPeople} max={500} /> : <div className="rounded-3xl border border-white/[0.08] bg-white/[0.035] p-3 text-center"><p className="text-sm font-bold text-stone-200">عدد الأشخاص</p><p className="mt-3 text-3xl font-extrabold text-white">{included.length}</p><p className="mt-1 text-[11px] text-stone-500">الإضافة من الاستقبال</p></div>)}
+                      <Counter label="كم طاولة؟" value={draft.table_count} onChange={value => setDraft(current => ({ ...current, table_count: value }))} min={1} max={50} />
+                      <Counter label="كم جولة؟" value={draft.round_count} onChange={value => setDraft(current => ({ ...current, round_count: value }))} min={1} max={20} />
                     </div>
-                    <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-[#d7ba7d]/15 bg-[#d7ba7d]/[0.055] p-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm"><span><strong className="text-rose-200">{projectedGenderCounts.women}</strong> فتيات</span><span><strong className="text-sky-200">{projectedGenderCounts.men}</strong> أولاد</span><span><strong className="text-[#efd89e]">{Math.floor(draft.minimum_attendees / draft.table_count)}–{Math.ceil(draft.minimum_attendees / draft.table_count)}</strong> لكل طاولة</span></div>
-                      <button onClick={saveAndGenerate} disabled={busy || !validSetup || !setupChanged} className="flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-2xl bg-[#d7ba7d] px-6 font-extrabold text-[#17130c] disabled:cursor-not-allowed disabled:opacity-35">{busy ? <Loader2 className="animate-spin" size={18} /> : <WandSparkles size={18} />} {creating ? "أنشئ الفعالية والتوزيع" : dimensionsChanged ? "طبّق وأعد توزيع الطاولات" : guestsToAdd > 0 && bundle?.schedule ? `أضف ${guestsToAdd} ضيوف فقط` : bundle?.schedule ? "التوزيع محفوظ" : "جهّز توزيع الطاولات"}</button>
+                    <div className={`mt-4 flex flex-col gap-3 rounded-2xl border border-[#d7ba7d]/15 bg-[#d7ba7d]/[0.055] p-4 ${advancedMode ? "sm:flex-row sm:items-center sm:justify-between" : ""}`}>
+                      {advancedMode && <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm"><span><strong className="text-rose-200">{projectedGenderCounts.women}</strong> فتيات</span><span><strong className="text-sky-200">{projectedGenderCounts.men}</strong> أولاد</span><span><strong className="text-[#efd89e]">{Math.floor(draftGuestTotal / draft.table_count)}–{Math.ceil(draftGuestTotal / draft.table_count)}</strong> لكل طاولة</span></div>}
+                      <button onClick={saveAndGenerate} disabled={busy || !validSetup || !setupChanged} className="flex min-h-14 shrink-0 items-center justify-center gap-2 rounded-2xl bg-[#d7ba7d] px-6 text-base font-extrabold text-[#17130c] disabled:cursor-not-allowed disabled:opacity-35">{busy ? <Loader2 className="animate-spin" size={18} /> : <WandSparkles size={18} />} {creating ? "جهّز الفعالية" : dimensionsChanged ? "طبّق التعديل" : guestsToAdd > 0 && bundle?.schedule ? `أضف ${guestsToAdd}` : bundle?.schedule ? "التوزيع محفوظ" : "جهّز الفعالية"}</button>
                     </div>
                     {!validSetup && <p className="mt-3 rounded-xl border border-amber-300/15 bg-amber-300/[0.06] px-3 py-2 text-xs text-amber-100/75">كل طاولة تحتاج ضيفين على الأقل.</p>}
                   </section>
 
                   {!creating && bundle?.schedule && (
-                    <section data-room-results className={view === "checkin" ? "" : "mt-5"}>
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <section data-room-results className={activeView === "checkin" ? "" : "mt-5"}>
+                      {advancedMode && <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="grid grid-cols-3 rounded-2xl border border-white/[0.08] bg-black/20 p-1">
-                          <button onClick={() => setView("tables")} className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-2 text-[11px] font-extrabold sm:gap-2 sm:px-5 sm:text-sm ${view === "tables" ? "bg-[#d7ba7d] text-[#17130c]" : "text-stone-500"}`}><UsersRound size={16} /> الطاولات</button>
+                          <button onClick={() => { setTableRound(round); setView("tables") }} className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-2 text-[11px] font-extrabold sm:gap-2 sm:px-5 sm:text-sm ${view === "tables" ? "bg-[#d7ba7d] text-[#17130c]" : "text-stone-500"}`}><UsersRound size={16} /> الطاولات</button>
                           <button onClick={() => setView("checkin")} className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-2 text-[11px] font-extrabold sm:gap-2 sm:px-5 sm:text-sm ${view === "checkin" ? "bg-[#d7ba7d] text-[#17130c]" : "text-stone-500"}`}><BadgeCheck size={16} /> الاستقبال</button>
                           <button onClick={() => setView("guest")} className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-2 text-[11px] font-extrabold sm:gap-2 sm:px-5 sm:text-sm ${view === "guest" ? "bg-[#d7ba7d] text-[#17130c]" : "text-stone-500"}`}><Share2 size={16} /> البطاقات</button>
                         </div>
                         {view !== "checkin" && <div className="flex gap-2"><button onClick={() => window.print()} className="flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.035] px-4 text-sm font-bold text-stone-300"><Printer size={16} /> طباعة</button></div>}
-                      </div>
+                      </div>}
 
-                      {view === "tables" ? (
+                      {activeView === "tables" ? (
                         <div className="mt-5">
-                          <div className="flex gap-2 overflow-x-auto pb-2">{Array.from({ length: bundle.event.round_count }, (_, index) => index + 1).map(value => <button key={value} onClick={() => setRound(value)} className={`min-h-11 min-w-28 rounded-2xl border px-4 text-sm font-extrabold ${round === value ? "border-[#d7ba7d]/40 bg-[#d7ba7d]/12 text-[#efd89e]" : "border-white/[0.08] bg-white/[0.025] text-stone-500"}`}>الجولة {value}</button>)}</div>
-                          <AnimatePresence mode="wait"><motion.div key={round} initial={{ opacity: 0, x: reduceMotion ? 0 : -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="the-room-schedule-grid mt-3 grid gap-3 lg:grid-cols-2">{Array.from({ length: bundle.event.table_count }, (_, index) => index + 1).map(tableNumber => <TableCard key={tableNumber} tableNumber={tableNumber} seats={bundle.seats.filter(seat => seat.round_number === round && seat.table_number === tableNumber)} attendees={attendees} onGuest={showGuest} />)}</motion.div></AnimatePresence>
+                          <p className="mb-2 text-xs font-bold text-stone-500">للمراجعة فقط · الجولة الحالية تبقى {round}</p>
+                          <div className="flex gap-2 overflow-x-auto pb-2">{Array.from({ length: bundle.event.round_count }, (_, index) => index + 1).map(value => <button key={value} onClick={() => setTableRound(value)} className={`min-h-11 min-w-28 rounded-2xl border px-4 text-sm font-extrabold ${tableRound === value ? "border-[#d7ba7d]/40 bg-[#d7ba7d]/12 text-[#efd89e]" : "border-white/[0.08] bg-white/[0.025] text-stone-500"}`}>الجولة {value}</button>)}</div>
+                          <AnimatePresence mode="wait"><motion.div key={tableRound} initial={{ opacity: 0, x: reduceMotion ? 0 : -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="the-room-schedule-grid mt-3 grid gap-3 lg:grid-cols-2">{Array.from({ length: bundle.event.table_count }, (_, index) => index + 1).map(tableNumber => <TableCard key={tableNumber} tableNumber={tableNumber} seats={bundle.seats.filter(seat => seat.round_number === tableRound && seat.table_number === tableNumber)} attendees={attendees} onGuest={showGuest} />)}</motion.div></AnimatePresence>
                         </div>
-                      ) : view === "checkin" ? (
-                        <div className="mt-5 space-y-4"><OrganizerSummary event={bundle.event} attendees={included} seats={bundle.seats} activeRound={round} onNextRound={() => setRound(value => Math.min(bundle.event.round_count, value + 1))} /><CheckInPanel attendees={included} busy={busy} placementNotice={placementNotice} onNext={checkInNext} onAdd={addGuest} onUndo={undoCheckIn} onShow={showBadge} /></div>
+                      ) : activeView === "checkin" ? (
+                        <div className="mt-5 space-y-4">
+                          {advancedMode ? <OrganizerSummary event={bundle.event} attendees={included} seats={bundle.seats} activeRound={round} onNextRound={advanceRound} /> : <SimpleEventBar event={bundle.event} attendees={included} activeRound={round} onProjector={openProjector} onNextRound={advanceRound} />}
+                          <CheckInPanel attendees={included} busy={busy} placementNotice={placementNotice} simple={!advancedMode} onNext={checkInNext} onAdd={addGuest} onUndo={undoCheckIn} onShow={showBadge} />
+                        </div>
                       ) : (
                         <div className="mt-5">
                           <div className="mb-4 flex flex-col gap-3 rounded-3xl border border-white/[0.08] bg-white/[0.03] p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-extrabold text-white">اختر البطاقة</p><p className="mt-1 text-xs text-stone-500">تفتح بشكل طولي وجاهزة للتصوير.</p></div>{selectedGuest && <button onClick={() => setBadgeOpen(true)} className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-[#d7ba7d] px-5 text-sm font-extrabold text-[#17130c]"><UserRound size={17} /> عرض بطاقة {guestNumber(selectedGuest.attendee_number)}</button>}</div>
@@ -929,8 +1050,8 @@ export default function TheRoomPage() {
               </div>
 
               <footer className="flex shrink-0 items-center justify-between border-t border-white/[0.07] bg-[#15130f] px-4 py-3 text-xs text-stone-600 sm:px-6">
-                <span><CheckCircle2 size={14} className="ml-1 inline text-emerald-400" /> {view === "checkin" ? "تسليم البطاقات ينحفظ مباشرة" : "التغييرات تنحفظ عند تجهيز التوزيع"}</span>
-                <button onClick={async () => { if (!preview) await roomApi("logout"); setAuthenticated(false); setBundle(null) }} className="flex items-center gap-2 text-stone-500 hover:text-white"><LogOut size={14} /> خروج</button>
+                <span><CheckCircle2 size={14} className="ml-1 inline text-emerald-400" /> {activeView === "checkin" ? "كل ضغطة تنحفظ مباشرة" : "التغييرات محفوظة"}</span>
+                {advancedMode && <button onClick={async () => { if (!preview) await roomApi("logout"); setAuthenticated(false); setBundle(null) }} className="flex items-center gap-2 text-stone-500 hover:text-white"><LogOut size={14} /> خروج</button>}
               </footer>
             </motion.section>
           </motion.div>

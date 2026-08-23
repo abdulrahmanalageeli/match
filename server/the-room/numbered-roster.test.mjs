@@ -1,6 +1,6 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { buildNumberedRosterRows, rosterGenderCounts } from "./numbered-roster.mjs"
+import { buildNumberedRosterRows, buildRosterForGenderCounts, rosterGenderCounts } from "./numbered-roster.mjs"
 
 test("creates an exactly even numbered roster for an even minimum", () => {
   const rows = buildNumberedRosterRows({ eventId: "event-1", count: 20 })
@@ -26,4 +26,11 @@ test("new numbers continue from the last guest and correct an uneven split", () 
   })
   assert.deepEqual(rows.map(row => row.attendee_number), [21, 22, 23, 24])
   assert.ok(rows.every(row => row.gender === "male"))
+})
+
+test("creates the exact requested girl and boy counts", () => {
+  const rows = buildRosterForGenderCounts({ eventId: "event-3", femaleCount: 7, maleCount: 3 })
+  assert.deepEqual(rosterGenderCounts(rows), { male: 3, female: 7 })
+  assert.deepEqual(rows.map(row => row.attendee_number), Array.from({ length: 10 }, (_, index) => index + 1))
+  assert.deepEqual(rows.slice(0, 6).map(row => row.gender), ["female", "male", "female", "male", "female", "male"])
 })

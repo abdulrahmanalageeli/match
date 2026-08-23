@@ -4,6 +4,7 @@ import { extendTheRoomSchedule, TheRoomExtensionError } from "../server/the-room
 import { analyzeTheRoomMove, TheRoomMoveError } from "../server/the-room/manual-move.mjs"
 import {
   buildNumberedRosterRows,
+  buildRosterForGenderCounts,
   rosterGenderCounts,
   ROSTER_GENDERS,
 } from "../server/the-room/numbered-roster.mjs"
@@ -238,7 +239,14 @@ async function handleAction(req, res, action) {
   if (action === "create-event") {
     const eventNumber = numberInRange(req.body?.event_number, 1, Number.MAX_SAFE_INTEGER)
     if (!Number.isInteger(eventNumber)) return res.status(400).json({ error: "A positive whole event number is required" })
-    const minimumAttendees = attendeeMinimum(req.body?.minimum_attendees)
+    const requestedWomen = Number(req.body?.female_attendees)
+    const requestedMen = Number(req.body?.male_attendees)
+    const hasExplicitGenderCounts = Number.isInteger(requestedWomen) && requestedWomen >= 0 && Number.isInteger(requestedMen) && requestedMen >= 0
+    const explicitTotal = hasExplicitGenderCounts ? requestedWomen + requestedMen : 0
+    if (hasExplicitGenderCounts && (explicitTotal < 2 || explicitTotal > 500)) {
+      return res.status(400).json({ error: "The total guest count must be between 2 and 500" })
+    }
+    const minimumAttendees = hasExplicitGenderCounts ? explicitTotal : attendeeMinimum(req.body?.minimum_attendees)
     const payload = {
       event_number: eventNumber,
       name: "The Room",
@@ -250,7 +258,13 @@ async function handleAction(req, res, action) {
     const { data, error } = await supabase.from("the_room_events").insert(payload).select(EVENT_FIELDS).single()
     if (error) return sendDatabaseError(res, error)
     try {
-      await ensureMinimumRoster(data, { invalidate: false })
+      if (hasExplicitGenderCounts) {
+        const rows = buildRosterForGenderCounts({ eventId: data.id, femaleCount: requestedWomen, maleCount: requestedMen })
+        const { error: rosterError } = await supabase.from("the_room_attendees").insert(rows)
+        if (rosterError) throw rosterError
+      } else {
+        await ensureMinimumRoster(data, { invalidate: false })
+      }
       return res.status(201).json(await loadEventBundle({ eventId: data.id }))
     } catch (rosterError) {
       await supabase.from("the_room_events").delete().eq("id", data.id)

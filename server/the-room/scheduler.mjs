@@ -1,4 +1,17 @@
 const SUPPORTED_GENDERS = new Set(["male", "female", "nonbinary", "unspecified"])
+const GENDER_FAIRNESS_WORK_BUDGET = 250000
+
+// Certified 6-table social-golfer design for the common 30-person, 4-round
+// event. Template IDs 0-14 and 15-29 are the two equally sized gender pools.
+// It has no repeated pair, every table is split 2/3, and each pool's
+// opposite-gender exposure is the theoretical optimum: six people meet 9 and
+// nine people meet 10 across the four rounds.
+const BALANCED_THIRTY_PERSON_TEMPLATE = [
+  [[13, 4, 20, 19, 24], [3, 1, 17, 23, 26], [14, 7, 15, 16, 29], [11, 9, 8, 25, 22], [12, 6, 2, 18, 28], [0, 5, 10, 27, 21]],
+  [[8, 6, 17, 19, 27], [0, 7, 18, 20, 25], [9, 14, 28, 26, 21], [11, 10, 4, 16, 23], [5, 3, 12, 29, 24], [13, 1, 2, 22, 15]],
+  [[5, 2, 25, 19, 16], [9, 12, 23, 15, 27], [3, 10, 22, 20, 28], [0, 4, 6, 26, 29], [1, 8, 14, 18, 24], [13, 7, 11, 21, 17]],
+  [[4, 5, 18, 22, 17], [0, 11, 28, 15, 24], [8, 2, 29, 21, 23], [6, 9, 1, 16, 20], [13, 14, 3, 25, 27], [12, 10, 7, 19, 26]],
+]
 
 export class TheRoomScheduleError extends Error {
   constructor(message, code = "INVALID_SCHEDULE_INPUT", details = {}) {
@@ -120,6 +133,20 @@ function buildFirstRound(participants, capacities, targets, random) {
     }
   }
   return tables.map(table => shuffled(table, random))
+}
+
+function buildCertifiedGenderBalancedRounds(participants, tableCount, roundCount, seed) {
+  if (participants.length !== 30 || tableCount !== 6 || roundCount !== 4) return null
+  const pools = [...new Set(participants.map(person => person.gender))]
+    .sort()
+    .map(gender => participants.filter(person => person.gender === gender))
+  if (pools.length !== 2 || pools.some(pool => pool.length !== 15)) return null
+
+  const random = createRandom(`${seed}:certified-gender-balance`)
+  const templatePeople = [...shuffled(pools[0], random), ...shuffled(pools[1], random)]
+  return BALANCED_THIRTY_PERSON_TEMPLATE.map(round =>
+    round.map(table => table.map(templateId => templatePeople[templateId])),
+  )
 }
 
 function buildAffineRounds(participants, tableCount, roundCount, seed, maxAttempts = 2400) {
@@ -247,6 +274,162 @@ function addRoundPairs(tables, metPairs, meetingCounts) {
   }
 }
 
+function calculateGenderExposureMetrics(schedule) {
+  const people = new Map(schedule.participants.map(person => [person.id, person]))
+  const genders = [...new Set(schedule.participants.map(person => person.gender))].sort()
+  const exposure = new Map(schedule.participants.map(person => [
+    person.id,
+    Object.fromEntries(genders.map(gender => [gender, 0])),
+  ]))
+  let prefixSpreadMax = 0
+
+  const measure = () => {
+    let spreadMax = 0
+    let oppositeSpreadMax = 0
+    let deviationMax = 0
+    let squaredDeviation = 0
+    for (const attendeeGender of genders) {
+      const cohort = schedule.participants.filter(person => person.gender === attendeeGender)
+      if (!cohort.length) continue
+      for (const companionGender of genders) {
+        const values = cohort.map(person => exposure.get(person.id)?.[companionGender] || 0)
+        const average = values.reduce((sum, value) => sum + value, 0) / values.length
+        const spread = Math.max(...values) - Math.min(...values)
+        spreadMax = Math.max(spreadMax, spread)
+        if (attendeeGender !== companionGender) oppositeSpreadMax = Math.max(oppositeSpreadMax, spread)
+        for (const value of values) {
+          const deviation = Math.abs(value - average)
+          deviationMax = Math.max(deviationMax, deviation)
+          squaredDeviation += deviation ** 2
+        }
+      }
+    }
+    return { spreadMax, oppositeSpreadMax, deviationMax, squaredDeviation }
+  }
+
+  for (const round of schedule.rounds) {
+    for (const table of round.tables) {
+      for (const attendeeId of table.attendeeIds) {
+        const counts = exposure.get(attendeeId)
+        if (!counts) continue
+        for (const companionId of table.attendeeIds) {
+          if (companionId === attendeeId) continue
+          const companion = people.get(companionId)
+          if (companion) counts[companion.gender] = (counts[companion.gender] || 0) + 1
+        }
+      }
+    }
+    prefixSpreadMax = Math.max(prefixSpreadMax, measure().spreadMax)
+  }
+
+  const final = measure()
+  return {
+    genderExposureSpreadMax: final.spreadMax,
+    genderExposurePrefixSpreadMax: prefixSpreadMax,
+    oppositeGenderExposureSpreadMax: final.oppositeSpreadMax,
+    maxGenderExposureDeviation: Number(final.deviationMax.toFixed(2)),
+    genderExposureSquaredDeviation: Number(final.squaredDeviation.toFixed(2)),
+  }
+}
+
+function compareGenderExposureMetrics(left, right) {
+  const leftScore = [left.genderExposureSpreadMax, left.genderExposurePrefixSpreadMax, left.genderExposureSquaredDeviation]
+  const rightScore = [right.genderExposureSpreadMax, right.genderExposurePrefixSpreadMax, right.genderExposureSquaredDeviation]
+  for (let index = 0; index < leftScore.length; index += 1) {
+    if (leftScore[index] !== rightScore[index]) return leftScore[index] - rightScore[index]
+  }
+  return 0
+}
+
+function cloneSchedule(schedule) {
+  return {
+    ...schedule,
+    participants: schedule.participants.map(person => ({ ...person })),
+    rounds: schedule.rounds.map(round => ({
+      ...round,
+      tables: round.tables.map(table => ({
+        ...table,
+        attendeeIds: [...table.attendeeIds],
+        genderCounts: { ...table.genderCounts },
+      })),
+    })),
+  }
+}
+
+function improveGenderExposureWithSafeSwaps(schedule, { maxSwaps = 12, maxEvaluations = 4000 } = {}) {
+  const baselineMetrics = calculateGenderExposureMetrics(schedule)
+  const swapLimit = Math.max(0, Math.floor(Number(maxSwaps) || 0))
+  const requestedEvaluationLimit = Math.max(0, Math.floor(Number(maxEvaluations) || 0))
+  const scheduleSize = Math.max(1, schedule.participants.length * schedule.rounds.length)
+  const sizeAwareEvaluationLimit = Math.max(1, Math.floor(GENDER_FAIRNESS_WORK_BUDGET / scheduleSize))
+  const evaluationLimit = Math.min(requestedEvaluationLimit, sizeAwareEvaluationLimit)
+  if (baselineMetrics.genderExposureSpreadMax <= 1 || swapLimit === 0 || evaluationLimit === 0) {
+    return { schedule, metrics: baselineMetrics, swapCount: 0, evaluationCount: 0 }
+  }
+
+  const candidate = cloneSchedule(schedule)
+  const people = new Map(candidate.participants.map(person => [person.id, person]))
+  let currentMetrics = baselineMetrics
+  let swapCount = 0
+  let evaluationCount = 0
+
+  while (swapCount < swapLimit && evaluationCount < evaluationLimit) {
+    let bestMove = null
+    let bestMetrics = currentMetrics
+
+    search:
+    for (let roundIndex = 0; roundIndex < candidate.rounds.length; roundIndex += 1) {
+      const tables = candidate.rounds[roundIndex].tables
+      for (let leftTableIndex = 0; leftTableIndex < tables.length; leftTableIndex += 1) {
+        for (let rightTableIndex = leftTableIndex + 1; rightTableIndex < tables.length; rightTableIndex += 1) {
+          const leftTable = tables[leftTableIndex]
+          const rightTable = tables[rightTableIndex]
+          if (leftTable.attendeeIds.length !== rightTable.attendeeIds.length) continue
+          for (let leftSeatIndex = 0; leftSeatIndex < leftTable.attendeeIds.length; leftSeatIndex += 1) {
+            const leftId = leftTable.attendeeIds[leftSeatIndex]
+            for (let rightSeatIndex = 0; rightSeatIndex < rightTable.attendeeIds.length; rightSeatIndex += 1) {
+              const rightId = rightTable.attendeeIds[rightSeatIndex]
+              if (people.get(leftId)?.gender !== people.get(rightId)?.gender) continue
+              if (evaluationCount >= evaluationLimit) break search
+              evaluationCount += 1
+
+              leftTable.attendeeIds[leftSeatIndex] = rightId
+              rightTable.attendeeIds[rightSeatIndex] = leftId
+              const validation = validateTheRoomSchedule(candidate)
+              if (validation.valid) {
+                const metrics = calculateGenderExposureMetrics(candidate)
+                if (compareGenderExposureMetrics(metrics, bestMetrics) < 0) {
+                  bestMove = { roundIndex, leftTableIndex, rightTableIndex, leftSeatIndex, rightSeatIndex }
+                  bestMetrics = metrics
+                }
+              }
+              leftTable.attendeeIds[leftSeatIndex] = leftId
+              rightTable.attendeeIds[rightSeatIndex] = rightId
+            }
+          }
+        }
+      }
+    }
+
+    if (!bestMove) break
+    const leftTable = candidate.rounds[bestMove.roundIndex].tables[bestMove.leftTableIndex]
+    const rightTable = candidate.rounds[bestMove.roundIndex].tables[bestMove.rightTableIndex]
+    ;[leftTable.attendeeIds[bestMove.leftSeatIndex], rightTable.attendeeIds[bestMove.rightSeatIndex]] = [
+      rightTable.attendeeIds[bestMove.rightSeatIndex],
+      leftTable.attendeeIds[bestMove.leftSeatIndex],
+    ]
+    currentMetrics = bestMetrics
+    swapCount += 1
+    if (currentMetrics.genderExposureSpreadMax <= 1) break
+  }
+
+  const validation = validateTheRoomSchedule(candidate)
+  if (!validation.valid || compareGenderExposureMetrics(currentMetrics, baselineMetrics) >= 0) {
+    return { schedule, metrics: baselineMetrics, swapCount: 0, evaluationCount }
+  }
+  return { schedule: candidate, metrics: currentMetrics, swapCount, evaluationCount }
+}
+
 export function validateTheRoomSchedule(schedule) {
   const seenPairs = new Set()
   const repeatedPairs = []
@@ -289,6 +472,9 @@ export function generateTheRoomSchedule({
   seed = "the-room",
   maxAttemptsPerRound = 160,
   nodeLimit = 120000,
+  optimizeGenderExposure = true,
+  maxGenderFairnessSwaps = 12,
+  maxGenderFairnessEvaluations = 4000,
 }) {
   const normalizedParticipants = (participants || []).map((participant, index) => ({
     id: String(participant?.id ?? participant?.attendee_id ?? index + 1),
@@ -331,7 +517,10 @@ export function generateTheRoomSchedule({
   const metPairs = new Set()
   const meetingCounts = new Map(normalizedParticipants.map(person => [person.id, 0]))
   const generatedRounds = []
-  const affineRounds = buildAffineRounds(normalizedParticipants, tables, rounds, seed)
+  const certifiedGenderRounds = optimizeGenderExposure
+    ? buildCertifiedGenderBalancedRounds(normalizedParticipants, tables, rounds, seed)
+    : null
+  const affineRounds = certifiedGenderRounds || buildAffineRounds(normalizedParticipants, tables, rounds, seed)
 
   for (let roundIndex = 0; roundIndex < rounds; roundIndex += 1) {
     const capacities = tableCapacities(count, tables, roundIndex)
@@ -373,17 +562,30 @@ export function generateTheRoomSchedule({
     })
   }
 
-  const schedule = {
+  const baselineSchedule = {
     participants: normalizedParticipants.map(({ id, name, gender }) => ({ id, name, gender })),
     tableCount: tables,
     roundCount: rounds,
     rounds: generatedRounds,
   }
+  const improvement = optimizeGenderExposure
+    ? improveGenderExposureWithSafeSwaps(baselineSchedule, {
+        maxSwaps: maxGenderFairnessSwaps,
+        maxEvaluations: maxGenderFairnessEvaluations,
+      })
+    : {
+        schedule: baselineSchedule,
+        metrics: calculateGenderExposureMetrics(baselineSchedule),
+        swapCount: 0,
+        evaluationCount: 0,
+      }
+  const schedule = improvement.schedule
   const validation = validateTheRoomSchedule(schedule)
   if (!validation.valid) throw new TheRoomScheduleError("Generated schedule failed validation", "VALIDATION_FAILED", validation)
 
   const meetingValues = [...meetingCounts.values()]
-  const genderSpreads = generatedRounds.flatMap(round => {
+  const exposureMetrics = improvement.metrics
+  const genderSpreads = schedule.rounds.flatMap(round => {
     const genders = [...new Set(normalizedParticipants.map(person => person.gender))]
     return genders.map(gender => {
       const values = round.tables.map(table => table.genderCounts[gender] || 0)
@@ -400,6 +602,13 @@ export function generateTheRoomSchedule({
       minMeetingsPerAttendee: Math.min(...meetingValues),
       maxMeetingsPerAttendee: Math.max(...meetingValues),
       averageMeetingsPerAttendee: Number((meetingValues.reduce((sum, value) => sum + value, 0) / meetingValues.length).toFixed(2)),
+      ...exposureMetrics,
+      genderFairnessTargetMet: exposureMetrics.genderExposureSpreadMax <= 1 ? 1 : 0,
+      genderFairnessOptimizationApplied: (certifiedGenderRounds || improvement.swapCount > 0) ? 1 : 0,
+      genderFairnessFallbackUsed: optimizeGenderExposure && exposureMetrics.genderExposureSpreadMax > 1 ? 1 : 0,
+      genderFairnessOptimalityCertified: certifiedGenderRounds ? 1 : 0,
+      genderFairnessSafeSwapCount: improvement.swapCount,
+      genderFairnessEvaluationCount: improvement.evaluationCount,
     },
   }
 }

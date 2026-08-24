@@ -18,7 +18,8 @@ import {
 } from "../server/the-room/auth.mjs"
 
 const supabase = supabaseAdmin
-const ALGORITHM_VERSION = "the-room-social-table-v2"
+const FULL_SCHEDULE_ALGORITHM_VERSION = "the-room-social-table-v3-gender-fair"
+const INCREMENTAL_ALGORITHM_VERSION = "the-room-social-table-v2-incremental"
 const EVENT_FIELDS = "id,event_number,name,starts_at,venue,status,minimum_attendees,table_count,round_count,active_round,ticket_price,currency,notes,created_at,updated_at"
 const ATTENDEE_FIELDS = "id,event_id,attendee_number,full_name,gender,attendance_status,included_in_schedule,checked_in,created_at,updated_at"
 
@@ -391,7 +392,7 @@ async function handleAction(req, res, action) {
         const { error: replaceError } = await supabase.rpc("replace_the_room_schedule", {
           p_event_id: eventId,
           p_seed: `the-room-event-${existingEvent.event_number}-extended-${(attendees || []).length}`,
-          p_algorithm_version: `${ALGORITHM_VERSION}-incremental`,
+          p_algorithm_version: INCREMENTAL_ALGORITHM_VERSION,
           p_metrics: extension.metrics,
           p_rows: extension.rows,
         })
@@ -485,7 +486,7 @@ async function handleAction(req, res, action) {
           p_expected_schedule_run_id: activeSchedule.id,
           p_expected_active_round: eventResult.data.active_round,
           p_seed: `the-room-event-${eventResult.data.event_number}-walk-ins-${(attendeeResult.data || []).length}`,
-          p_algorithm_version: `${ALGORITHM_VERSION}-incremental`,
+          p_algorithm_version: INCREMENTAL_ALGORITHM_VERSION,
           p_metrics: extension.metrics,
           p_rows: extension.rows,
         })
@@ -635,7 +636,7 @@ async function handleAction(req, res, action) {
       const { error } = await supabase.rpc("replace_the_room_schedule", {
         p_event_id: eventId,
         p_seed: `the-room-event-${event.event_number}`,
-        p_algorithm_version: ALGORITHM_VERSION,
+        p_algorithm_version: FULL_SCHEDULE_ALGORITHM_VERSION,
         p_metrics: schedule.metrics,
         p_rows: rows,
       })

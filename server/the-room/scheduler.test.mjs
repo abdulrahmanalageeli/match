@@ -10,6 +10,24 @@ function attendees(count, femaleCount = Math.floor(count / 2)) {
   }))
 }
 
+function oppositeGenderExposure(schedule, attendeeGender, companionGender) {
+  const people = new Map(schedule.participants.map(person => [person.id, person]))
+  const exposure = new Map(schedule.participants
+    .filter(person => person.gender === attendeeGender)
+    .map(person => [person.id, 0]))
+  for (const round of schedule.rounds) {
+    for (const table of round.tables) {
+      for (const attendeeId of table.attendeeIds) {
+        if (!exposure.has(attendeeId)) continue
+        const companions = table.attendeeIds
+          .filter(companionId => companionId !== attendeeId && people.get(companionId)?.gender === companionGender)
+        exposure.set(attendeeId, exposure.get(attendeeId) + companions.length)
+      }
+    }
+  }
+  return [...exposure.values()].sort((left, right) => left - right)
+}
+
 test("creates repeat-free rounds with every attendee seated exactly once", () => {
   const schedule = generateTheRoomSchedule({
     participants: attendees(24),
@@ -99,4 +117,98 @@ test("uses a balanced finite-field layout for dense prime table plans", () => {
   assert.equal(validateTheRoomSchedule(schedule).valid, true)
   assert.equal(schedule.metrics.repeatPairCount, 0)
   assert.ok(schedule.metrics.genderSpreadMax <= 1)
+})
+
+test("uses the certified optimal gender-exposure plan for 30 balanced guests", () => {
+  const schedule = generateTheRoomSchedule({
+    participants: attendees(30, 15),
+    tableCount: 6,
+    roundCount: 4,
+    minimumAttendees: 30,
+    seed: "certified-thirty-person-room",
+  })
+
+  assert.equal(validateTheRoomSchedule(schedule).valid, true)
+  assert.equal(schedule.metrics.genderFairnessOptimizationApplied, 1)
+  assert.equal(schedule.metrics.genderFairnessOptimalityCertified, 1)
+  assert.equal(schedule.metrics.genderFairnessFallbackUsed, 0)
+  assert.equal(schedule.metrics.genderExposureSpreadMax, 1)
+  assert.equal(schedule.metrics.oppositeGenderExposureSpreadMax, 1)
+
+  const expectedExposure = [...Array(6).fill(9), ...Array(9).fill(10)]
+  assert.deepEqual(oppositeGenderExposure(schedule, "female", "male"), expectedExposure)
+  assert.deepEqual(oppositeGenderExposure(schedule, "male", "female"), expectedExposure)
+  for (const round of schedule.rounds) {
+    assert.deepEqual(round.tables.map(table => table.attendeeIds.length), Array(6).fill(5))
+    for (const gender of ["female", "male"]) {
+      assert.deepEqual(round.tables.map(table => table.genderCounts[gender]).sort(), [2, 2, 2, 3, 3, 3])
+    }
+  }
+})
+
+test("keeps the certified plan deterministic and supports a legacy kill switch", () => {
+  const input = {
+    participants: attendees(30, 15),
+    tableCount: 6,
+    roundCount: 4,
+    seed: "certified-plan-determinism",
+  }
+  const first = generateTheRoomSchedule(input)
+  const second = generateTheRoomSchedule(input)
+  const fallback = generateTheRoomSchedule({
+    participants: attendees(25, 13),
+    tableCount: 5,
+    roundCount: 4,
+    seed: "fast-legacy-kill-switch",
+    optimizeGenderExposure: false,
+  })
+
+  assert.deepEqual(first.rounds, second.rounds)
+  assert.equal(validateTheRoomSchedule(fallback).valid, true)
+  assert.equal(fallback.metrics.genderFairnessOptimizationApplied, 0)
+  assert.equal(fallback.metrics.genderFairnessOptimalityCertified, 0)
+})
+
+test("safely improves cumulative exposure on general schedules when a valid swap exists", () => {
+  const input = {
+    participants: attendees(20, 9),
+    tableCount: 5,
+    roundCount: 2,
+    seed: "probe-1",
+  }
+  const legacy = generateTheRoomSchedule({ ...input, optimizeGenderExposure: false })
+  const improved = generateTheRoomSchedule(input)
+  const boundedFallback = generateTheRoomSchedule({ ...input, maxGenderFairnessEvaluations: 0 })
+
+  assert.equal(validateTheRoomSchedule(improved).valid, true)
+  assert.equal(legacy.metrics.genderExposureSpreadMax, 2)
+  assert.equal(improved.metrics.genderExposureSpreadMax, 1)
+  assert.equal(improved.metrics.genderFairnessSafeSwapCount, 1)
+  assert.equal(improved.metrics.repeatPairCount, 0)
+  assert.deepEqual(boundedFallback.rounds, legacy.rounds)
+  assert.equal(boundedFallback.metrics.genderFairnessFallbackUsed, 1)
+  for (let roundIndex = 0; roundIndex < legacy.rounds.length; roundIndex += 1) {
+    assert.deepEqual(
+      improved.rounds[roundIndex].tables.map(table => table.attendeeIds.length),
+      legacy.rounds[roundIndex].tables.map(table => table.attendeeIds.length),
+    )
+    assert.deepEqual(
+      improved.rounds[roundIndex].tables.map(table => table.genderCounts),
+      legacy.rounds[roundIndex].tables.map(table => table.genderCounts),
+    )
+  }
+})
+
+test("reports finite exposure metrics for a single-gender fallback", () => {
+  const schedule = generateTheRoomSchedule({
+    participants: attendees(20, 0),
+    tableCount: 5,
+    roundCount: 2,
+    seed: "single-gender-fallback",
+  })
+
+  assert.equal(validateTheRoomSchedule(schedule).valid, true)
+  assert.equal(schedule.metrics.genderFairnessOptimizationApplied, 0)
+  assert.equal(schedule.metrics.genderExposureSpreadMax, 0)
+  assert.ok(Object.values(schedule.metrics).every(Number.isFinite))
 })

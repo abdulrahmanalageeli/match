@@ -107,3 +107,47 @@ test("prefers gender balance even when the balanced table contains more prior me
   assert.equal(secondRound.table_number, 2)
   assert.equal(result.placements[0].reason, "gender_balance_first")
 })
+
+test("does not invent past meetings for a guest who joins after round one", () => {
+  const originalPeople = attendees(20)
+  const schedule = generateTheRoomSchedule({ participants: originalPeople, tableCount: 5, roundCount: 3, seed: "late-round-two" })
+  const newcomer = { id: "late-guest", gender: "female" }
+  const result = extendTheRoomSchedule({
+    participants: [...originalPeople, newcomer],
+    existingSeats: seatRows(schedule),
+    newAttendeeIds: [newcomer.id],
+    tableCount: 5,
+    roundCount: 3,
+    activeRound: 2,
+  })
+
+  const newcomerSeats = result.rows.filter(row => row.attendee_id === newcomer.id)
+  assert.deepEqual(newcomerSeats.map(row => row.round_number), [2, 3])
+  assert.deepEqual(result.placements[0].tables.map(table => table.roundNumber), [2, 3])
+})
+
+test("can extend a later round when an earlier late arrival also has no past seat", () => {
+  const originalPeople = attendees(20)
+  const schedule = generateTheRoomSchedule({ participants: originalPeople, tableCount: 5, roundCount: 3, seed: "successive-late-guests" })
+  const firstLateGuest = { id: "late-round-two", gender: "female" }
+  const afterRoundTwoArrival = extendTheRoomSchedule({
+    participants: [...originalPeople, firstLateGuest],
+    existingSeats: seatRows(schedule),
+    newAttendeeIds: [firstLateGuest.id],
+    tableCount: 5,
+    roundCount: 3,
+    activeRound: 2,
+  })
+  const secondLateGuest = { id: "late-round-three", gender: "male" }
+  const afterRoundThreeArrival = extendTheRoomSchedule({
+    participants: [...originalPeople, firstLateGuest, secondLateGuest],
+    existingSeats: afterRoundTwoArrival.rows,
+    newAttendeeIds: [secondLateGuest.id],
+    tableCount: 5,
+    roundCount: 3,
+    activeRound: 3,
+  })
+
+  assert.equal(afterRoundThreeArrival.rows.some(row => row.attendee_id === firstLateGuest.id && row.round_number === 1), false)
+  assert.deepEqual(afterRoundThreeArrival.rows.filter(row => row.attendee_id === secondLateGuest.id).map(row => row.round_number), [3])
+})

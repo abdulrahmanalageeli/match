@@ -202,11 +202,11 @@ function compareNumberScores(left: number[], right: number[]) {
   return 0
 }
 
-function previewSeatNewGuest(bundle: Bundle, person: Attendee) {
+function previewSeatNewGuest(bundle: Bundle, person: Attendee, activeRound: number) {
   const nextSeats: Seat[] = []
   const pairKey = (left: string, right: string) => left < right ? `${left}|${right}` : `${right}|${left}`
   const priorPairs = new Set<string>()
-  for (let roundNumber = 1; roundNumber <= bundle.event.round_count; roundNumber += 1) {
+  for (let roundNumber = activeRound; roundNumber <= bundle.event.round_count; roundNumber += 1) {
     const candidates = Array.from({ length: bundle.event.table_count }, (_, index) => {
       const tableNumber = index + 1
       const tableSeats = [...bundle.seats, ...nextSeats].filter(seat => seat.round_number === roundNumber && seat.table_number === tableNumber)
@@ -1005,7 +1005,7 @@ export default function TheRoomPage() {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }
-      const addedSeats = previewSeatNewGuest(bundle, addedPerson)
+      const addedSeats = previewSeatNewGuest(bundle, addedPerson, round)
       installBundle({ ...bundle, attendees: [...bundle.attendees, addedPerson], seats: [...bundle.seats, ...addedSeats] })
       setPlacementNotice({ attendeeNumber, gender, tables: addedSeats.map(seat => ({ roundNumber: seat.round_number, tableNumber: seat.table_number })) })
       setSelectedGuestId(addedPerson.id)

@@ -373,6 +373,7 @@ async function handleAction(req, res, action) {
           newAttendeeIds: newcomerIds,
           tableCount: payload.table_count,
           roundCount: payload.round_count,
+          activeRound: payload.active_round,
         })
         const { error: replaceError } = await supabase.rpc("replace_the_room_schedule", {
           p_event_id: eventId,
@@ -465,6 +466,7 @@ async function handleAction(req, res, action) {
         newAttendeeIds: [addedAttendee.id],
         tableCount: eventResult.data.table_count,
         roundCount: eventResult.data.round_count,
+        activeRound: eventResult.data.active_round,
       })
       const { error: replaceError } = await supabase.rpc("replace_the_room_schedule", {
         p_event_id: eventId,

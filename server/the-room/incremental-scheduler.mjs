@@ -88,15 +88,20 @@ export function extendTheRoomSchedule({
   newAttendeeIds,
   tableCount,
   roundCount,
+  activeRound = 1,
 }) {
   const people = new Map((participants || []).map(person => [String(person.id), { ...person, id: String(person.id) }]))
   const newcomerIds = (newAttendeeIds || []).map(String)
   const newcomerSet = new Set(newcomerIds)
   const tables = Number(tableCount)
   const rounds = Number(roundCount)
+  const firstRound = Number(activeRound)
 
   if (!Number.isInteger(tables) || tables < 1 || !Number.isInteger(rounds) || rounds < 1) {
     throw new TheRoomExtensionError("Table and round counts must be positive integers", "INVALID_DIMENSIONS")
+  }
+  if (!Number.isInteger(firstRound) || firstRound < 1 || firstRound > rounds) {
+    throw new TheRoomExtensionError("The active round must be inside the event's round range", "INVALID_ACTIVE_ROUND")
   }
   if (!newcomerIds.length) {
     return { rows: existingSeats.map(seat => ({ attendee_id: String(seat.attendee_id), round_number: Number(seat.round_number), table_number: Number(seat.table_number), seat_number: Number(seat.seat_number) })), metrics: scheduleMetrics(existingSeats, participants, [], tables, rounds) }
@@ -112,7 +117,10 @@ export function extendTheRoomSchedule({
   const existingIds = new Set(rows.map(row => row.attendee_id))
   if (newcomerIds.some(id => existingIds.has(id))) throw new TheRoomExtensionError("A new attendee is already seated", "ATTENDEE_ALREADY_SEATED")
 
-  for (let round = 1; round <= rounds; round += 1) {
+  // Guests who arrived late legitimately have no seats in completed rounds.
+  // From the active round onward, however, every already-seated guest must
+  // still have a complete plan before another newcomer can be added.
+  for (let round = firstRound; round <= rounds; round += 1) {
     const seated = rows.filter(row => row.round_number === round)
     if (new Set(seated.map(row => row.attendee_id)).size !== existingIds.size) {
       throw new TheRoomExtensionError("The active schedule is incomplete", "INCOMPLETE_ACTIVE_SCHEDULE", { round })
@@ -120,7 +128,7 @@ export function extendTheRoomSchedule({
   }
 
   const pairCounts = new Map()
-  for (let round = 1; round <= rounds; round += 1) {
+  for (let round = firstRound; round <= rounds; round += 1) {
     for (let table = 1; table <= tables; table += 1) {
       const members = rows.filter(row => row.round_number === round && row.table_number === table).map(row => row.attendee_id)
       for (let left = 0; left < members.length; left += 1) {
@@ -132,7 +140,7 @@ export function extendTheRoomSchedule({
     }
   }
 
-  for (let round = 1; round <= rounds; round += 1) {
+  for (let round = firstRound; round <= rounds; round += 1) {
     const roundTables = Array.from({ length: tables }, (_, index) => {
       const tableNumber = index + 1
       const tableRows = rows.filter(row => row.round_number === round && row.table_number === tableNumber)
@@ -176,7 +184,7 @@ export function extendTheRoomSchedule({
     })
   }
 
-  const expectedCount = participants.length * rounds
+  const expectedCount = (existingSeats || []).length + newcomerIds.length * (rounds - firstRound + 1)
   if (rows.length !== expectedCount) throw new TheRoomExtensionError("Every attendee must be seated once per round", "INCOMPLETE_EXTENSION", { expectedCount, actualCount: rows.length })
 
   return {

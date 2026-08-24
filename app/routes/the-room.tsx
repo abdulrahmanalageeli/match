@@ -138,6 +138,8 @@ function arabicError(error: any) {
   if (["TABLE_GEOMETRY_IMPOSSIBLE", "PAIR_CAPACITY_EXCEEDED"].includes(error?.code)) return "هذا التوزيع غير ممكن. قلّل الجولات أو الطاولات ثم حاول مرة أخرى."
   if (error?.code === "NO_BADGES_LEFT") return "تم تسليم جميع بطاقات هذا القسم."
   if (error?.code === "BADGE_ALREADY_ASSIGNED") return "تم تسليم هذه البطاقة للتو من جهاز آخر. حاول مرة أخرى."
+  if (error?.code === "ROUND_STATE_CHANGED") return "بدأت الجولة التالية من جهاز آخر وتم تحديث الشاشة."
+  if (error?.code === "SCHEDULE_CHANGED_RETRY") return "تم حفظ الشخص. حدّث الشاشة مرة واحدة لإظهار طاولته."
   if (error?.code === "SAME_TABLE") return "الشخص موجود على هذه الطاولة أصلًا."
   if (error?.code === "INVALID_MOVE") return "تعذّر النقل. تأكد من الجولة والطاولة."
   if (error?.code === "MOVE_REPEATS_MEETING") return "هذا النقل بيكرر لقاء سابق. اختر طاولة ثانية."
@@ -897,7 +899,7 @@ export default function TheRoomPage() {
     const previousRound = round
     setRound(nextRound)
     try {
-      await act("set-active-round", { event_id: bundle.event.id, active_round: nextRound })
+      await act("set-active-round", { event_id: bundle.event.id, active_round: nextRound, expected_active_round: previousRound })
     } catch {
       setRound(previousRound)
     }

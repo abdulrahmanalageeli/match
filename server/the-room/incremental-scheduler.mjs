@@ -115,7 +115,14 @@ export function extendTheRoomSchedule({
     seat_number: Number(seat.seat_number),
   }))
   const existingIds = new Set(rows.map(row => row.attendee_id))
+  const newcomerIdSet = new Set(newcomerIds)
+  if (newcomerIdSet.size !== newcomerIds.length) throw new TheRoomExtensionError("Every newcomer must be listed once", "DUPLICATE_NEW_ATTENDEE")
+  if ([...existingIds].some(id => !people.has(id))) throw new TheRoomExtensionError("Every seated attendee must belong to the participant list", "UNKNOWN_SEATED_ATTENDEE")
   if (newcomerIds.some(id => existingIds.has(id))) throw new TheRoomExtensionError("A new attendee is already seated", "ATTENDEE_ALREADY_SEATED")
+  const omittedIds = [...people.keys()].filter(id => !existingIds.has(id) && !newcomerIdSet.has(id))
+  if (omittedIds.length) {
+    throw new TheRoomExtensionError("Every unseated participant must be included as a newcomer", "UNSEATED_PARTICIPANT", { attendeeIds: omittedIds })
+  }
 
   // Guests who arrived late legitimately have no seats in completed rounds.
   // From the active round onward, however, every already-seated guest must

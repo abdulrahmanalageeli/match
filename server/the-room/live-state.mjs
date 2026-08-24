@@ -22,3 +22,26 @@ export function normalizeTheRoomActiveRound(value, roundCount) {
   }
   return round
 }
+
+export function resolveTheRoomRoundAdvance({ expectedRound, requestedRound, currentRound, roundCount }) {
+  const expected = normalizeTheRoomActiveRound(expectedRound, roundCount)
+  const requested = normalizeTheRoomActiveRound(requestedRound, roundCount)
+  const current = normalizeTheRoomActiveRound(currentRound, roundCount)
+
+  if (requested !== expected + 1) {
+    throw new TheRoomLiveStateError(
+      "The active round can only advance by one round",
+      "INVALID_ROUND_TRANSITION",
+      { expectedRound: expected, requestedRound: requested },
+    )
+  }
+  if (current >= requested) return { activeRound: current, changed: false }
+  if (current !== expected) {
+    throw new TheRoomLiveStateError(
+      "The active round changed on another device",
+      "ROUND_STATE_CHANGED",
+      { expectedRound: expected, currentRound: current },
+    )
+  }
+  return { activeRound: requested, changed: true }
+}

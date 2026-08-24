@@ -151,3 +151,22 @@ test("can extend a later round when an earlier late arrival also has no past sea
   assert.equal(afterRoundThreeArrival.rows.some(row => row.attendee_id === firstLateGuest.id && row.round_number === 1), false)
   assert.deepEqual(afterRoundThreeArrival.rows.filter(row => row.attendee_id === secondLateGuest.id).map(row => row.round_number), [3])
 })
+
+test("rejects a stale extension that silently omits another concurrent walk-in", () => {
+  const originalPeople = attendees(20)
+  const schedule = generateTheRoomSchedule({ participants: originalPeople, tableCount: 5, roundCount: 3, seed: "concurrent-walk-ins" })
+  const firstWalkIn = { id: "walk-in-one", gender: "female" }
+  const secondWalkIn = { id: "walk-in-two", gender: "male" }
+
+  assert.throws(
+    () => extendTheRoomSchedule({
+      participants: [...originalPeople, firstWalkIn, secondWalkIn],
+      existingSeats: seatRows(schedule),
+      newAttendeeIds: [firstWalkIn.id],
+      tableCount: 5,
+      roundCount: 3,
+      activeRound: 2,
+    }),
+    error => error?.code === "UNSEATED_PARTICIPANT" && error?.details?.attendeeIds?.includes(secondWalkIn.id),
+  )
+})

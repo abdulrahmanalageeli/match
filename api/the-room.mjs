@@ -2,6 +2,7 @@ import { supabaseAdmin } from "../server/security/supabase-admin.mjs"
 import { generateTheRoomSchedule, TheRoomScheduleError } from "../server/the-room/scheduler.mjs"
 import { extendTheRoomSchedule, TheRoomExtensionError } from "../server/the-room/incremental-scheduler.mjs"
 import { analyzeTheRoomMove, TheRoomMoveError } from "../server/the-room/manual-move.mjs"
+import { normalizeTheRoomActiveRound, TheRoomLiveStateError } from "../server/the-room/live-state.mjs"
 import {
   buildNumberedRosterRows,
   buildRosterForGenderCounts,
@@ -18,7 +19,7 @@ import {
 
 const supabase = supabaseAdmin
 const ALGORITHM_VERSION = "the-room-social-table-v2"
-const EVENT_FIELDS = "id,event_number,name,starts_at,venue,status,minimum_attendees,table_count,round_count,ticket_price,currency,notes,created_at,updated_at"
+const EVENT_FIELDS = "id,event_number,name,starts_at,venue,status,minimum_attendees,table_count,round_count,active_round,ticket_price,currency,notes,created_at,updated_at"
 const ATTENDEE_FIELDS = "id,event_id,attendee_number,full_name,gender,attendance_status,included_in_schedule,checked_in,created_at,updated_at"
 
 class TheRoomInputError extends Error {}
@@ -122,13 +123,45 @@ async function handleAction(req, res, action) {
     return bundle ? res.status(200).json(bundle) : res.status(404).json({ error: "The Room event was not found" })
   }
 
+  if (action === "set-active-round") {
+    const eventId = req.body?.event_id
+    if (!eventId) return res.status(400).json({ error: "Event ID is required" })
+    const { data: event, error: eventError } = await supabase
+      .from("the_room_events")
+      .select("id,round_count,active_round")
+      .eq("id", eventId)
+      .maybeSingle()
+    if (eventError) return sendDatabaseError(res, eventError)
+    if (!event) return res.status(404).json({ error: "The Room event was not found" })
+
+    try {
+      const activeRound = normalizeTheRoomActiveRound(req.body?.active_round, event.round_count)
+      if (Number(event.active_round) !== activeRound) {
+        const { data: updated, error: updateError } = await supabase
+          .from("the_room_events")
+          .update({ active_round: activeRound, updated_at: new Date().toISOString() })
+          .eq("id", eventId)
+          .select("id")
+          .maybeSingle()
+        if (updateError) return sendDatabaseError(res, updateError)
+        if (!updated) return res.status(404).json({ error: "The Room event was not found" })
+      }
+      return res.status(200).json(await loadEventBundle({ eventId }))
+    } catch (roundError) {
+      if (roundError instanceof TheRoomLiveStateError) {
+        return res.status(422).json({ error: roundError.message, code: roundError.code, details: roundError.details })
+      }
+      throw roundError
+    }
+  }
+
   if (action === "reset-event") {
     const eventId = req.body?.event_id
     if (!eventId) return res.status(400).json({ error: "Event ID is required" })
     await invalidateSchedule(eventId)
     const { data, error } = await supabase
       .from("the_room_events")
-      .update({ status: "draft", updated_at: new Date().toISOString() })
+      .update({ status: "draft", active_round: 1, updated_at: new Date().toISOString() })
       .eq("id", eventId)
       .select("id")
       .maybeSingle()
@@ -290,6 +323,9 @@ async function handleAction(req, res, action) {
     }
     const dimensionsChanged = Number(existingEvent.table_count) !== Number(payload.table_count)
       || Number(existingEvent.round_count) !== Number(payload.round_count)
+    payload.active_round = dimensionsChanged
+      ? 1
+      : Math.min(Number(existingEvent.active_round) || 1, payload.round_count)
     const guestTargetIncreased = Number(payload.minimum_attendees) > Number(existingEvent.minimum_attendees)
     let activeSchedule = null
     let activeSeats = []
@@ -572,6 +608,11 @@ async function handleAction(req, res, action) {
         p_rows: rows,
       })
       if (error) return sendDatabaseError(res, error)
+      const { error: roundError } = await supabase
+        .from("the_room_events")
+        .update({ active_round: 1, updated_at: new Date().toISOString() })
+        .eq("id", eventId)
+      if (roundError) return sendDatabaseError(res, roundError)
       return res.status(200).json(await loadEventBundle({ eventId }))
     } catch (error) {
       if (error instanceof TheRoomScheduleError) return res.status(422).json({ error: error.message, code: error.code, details: error.details })
@@ -587,7 +628,12 @@ export default async function handler(req, res) {
   res.setHeader("X-Content-Type-Options", "nosniff")
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" })
   const action = String(req.body?.action || "")
-  if (!enforceTheRoomRateLimit(req, res)) return
+  const liveSyncRequest = action === "get-event"
+  if (!enforceTheRoomRateLimit(req, res, {
+    limit: liveSyncRequest ? 300 : 90,
+    windowMs: 60_000,
+    scope: liveSyncRequest ? "live-sync" : "api",
+  })) return
   if (action === "login" && !enforceTheRoomRateLimit(req, res, { limit: 8, windowMs: 15 * 60_000, scope: "login" })) return
   try {
     return await handleAction(req, res, action)

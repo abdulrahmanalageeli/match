@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "react-router"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 import toast, { Toaster } from "react-hot-toast"
+import { useVisibilityPoll } from "../hooks/useVisibilityPoll"
 import {
   ArrowLeftRight, ArrowRight, BadgeCheck, CalendarPlus, Camera, CheckCircle2,
   ChevronDown, ChevronLeft, ChevronRight, Clock3, DoorOpen, Download, Eye, EyeOff, Gauge,
@@ -30,6 +31,7 @@ type RoomEvent = {
   minimum_attendees: number
   table_count: number
   round_count: number
+  active_round: number
   created_at: string
   updated_at: string
 }
@@ -103,6 +105,7 @@ const DEMO_BUNDLE: Bundle = {
   event: {
     id: "demo-event", event_number: 12, name: "The Room", starts_at: null, venue: null,
     status: "ready", minimum_attendees: 20, table_count: 5, round_count: 3,
+    active_round: 1,
     created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
   },
   attendees: demoAttendees,
@@ -172,6 +175,17 @@ function genderStyle(gender: Gender) {
 function checkInTime(value?: string) {
   if (!value) return "الآن"
   return new Intl.DateTimeFormat("ar-SA", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Riyadh" }).format(new Date(value))
+}
+
+function bundleFingerprint(bundle: Bundle) {
+  return [
+    bundle.event.id,
+    bundle.event.updated_at,
+    bundle.event.active_round,
+    bundle.schedule?.id || "no-schedule",
+    ...bundle.attendees.map(person => `${person.id}:${person.updated_at || ""}:${person.checked_in}:${person.gender}`),
+    ...bundle.seats.map(seat => `${seat.id}:${seat.round_number}:${seat.table_number}:${seat.seat_number}:${seat.attendee_id}`),
+  ].join("|")
 }
 
 function balanceInfo(women: number, men: number) {
@@ -580,13 +594,22 @@ export default function TheRoomPage() {
   const [setupOpen, setSetupOpen] = useState(!preview)
   const [advancedMode, setAdvancedMode] = useState(false)
   const [projectorOpen, setProjectorOpen] = useState(false)
+  const [liveSyncFailed, setLiveSyncFailed] = useState(false)
+  const [lastLiveSyncAt, setLastLiveSyncAt] = useState<number | null>(preview ? Date.now() : null)
   const [draft, setDraft] = useState<SetupValues>({ event_number: 1, minimum_attendees: 20, female_attendees: 10, male_attendees: 10, table_count: 5, round_count: 3 })
   const organizerScrollRef = useRef<HTMLDivElement>(null)
+  const liveSyncInFlightRef = useRef(false)
+  const mutationEpochRef = useRef(0)
+  const bundleFingerprintRef = useRef(preview ? bundleFingerprint(DEMO_BUNDLE) : "")
 
   const installBundle = (next: Bundle) => {
     const nextWomen = next.attendees.filter(person => person.gender === "female" && person.included_in_schedule).length
     const nextMen = next.attendees.filter(person => person.gender === "male" && person.included_in_schedule).length
+    const nextRound = Math.min(next.event.round_count, Math.max(1, Number(next.event.active_round) || 1))
     setBundle(next)
+    bundleFingerprintRef.current = bundleFingerprint(next)
+    setLastLiveSyncAt(Date.now())
+    setLiveSyncFailed(false)
     setDraft({
       event_number: next.event.event_number,
       minimum_attendees: Math.max(next.event.minimum_attendees, next.attendees.length),
@@ -595,7 +618,7 @@ export default function TheRoomPage() {
       table_count: next.event.table_count,
       round_count: next.event.round_count,
     })
-    setRound(value => Math.min(value, next.event.round_count))
+    setRound(nextRound)
     setTableRound(value => Math.min(value, next.event.round_count))
     setBadgeOpen(false)
     setPlacementNotice(null)
@@ -628,6 +651,7 @@ export default function TheRoomPage() {
 
   const act = async (action: string, payload: Record<string, unknown> = {}) => {
     if (preview) { toast("هذه نسخة للعرض فقط", { icon: "✦" }); return DEMO_BUNDLE }
+    mutationEpochRef.current += 1
     setBusy(true)
     try {
       const data = await roomApi(action, payload)
@@ -649,6 +673,7 @@ export default function TheRoomPage() {
 
   const refresh = async () => {
     if (!bundle || preview) return
+    mutationEpochRef.current += 1
     setRefreshing(true)
     try { installBundle(await roomApi("get-event", { event_id: bundle.event.id })); toast.success("تم تحديث البيانات") }
     catch (error: any) { toast.error(arabicError(error)) }
@@ -683,6 +708,7 @@ export default function TheRoomPage() {
   const deleteEvent = async () => {
     if (!bundle || !window.confirm(`متأكد إنك تبغى تحذف فعالية ${bundle.event.event_number}؟ الحذف نهائي ويشمل الضيوف والتوزيع.`)) return
     if (preview) { toast("هذه نسخة للعرض فقط", { icon: "✦" }); return }
+    mutationEpochRef.current += 1
     setBusy(true)
     try {
       await roomApi("delete-event", { event_id: bundle.event.id })
@@ -733,16 +759,55 @@ export default function TheRoomPage() {
   const journey = selectedGuest && bundle ? bundle.seats.filter(seat => seat.attendee_id === selectedGuest.id).sort((a, b) => a.round_number - b.round_number) : []
   const activeView = advancedMode ? view : "checkin"
 
-  useEffect(() => {
-    if (!bundle?.schedule) return
-    const storedRound = Number(window.localStorage.getItem(`the-room-active-round-${bundle.event.id}`))
-    if (Number.isInteger(storedRound) && storedRound >= 1 && storedRound <= bundle.event.round_count) setRound(storedRound)
-  }, [bundle?.event.id, bundle?.event.round_count, bundle?.schedule?.id])
+  const syncLiveEvent = async () => {
+    if (!bundle || busy || preview || liveSyncInFlightRef.current) return
+    const eventId = bundle.event.id
+    const requestEpoch = mutationEpochRef.current
+    liveSyncInFlightRef.current = true
+    try {
+      const next = await roomApi("get-event", { event_id: eventId }) as Bundle
+      if (mutationEpochRef.current !== requestEpoch) return
+      if (next.event.id !== eventId) return
+      const nextFingerprint = bundleFingerprint(next)
+      if (nextFingerprint !== bundleFingerprintRef.current) {
+        bundleFingerprintRef.current = nextFingerprint
+        setBundle(current => current?.event.id === eventId ? next : current)
+        setEvents(current => current.map(event => event.id === eventId ? next.event : event))
+        setRound(Math.min(next.event.round_count, Math.max(1, Number(next.event.active_round) || 1)))
+        setSelectedGuestId(current => next.attendees.some(person => person.id === current) ? current : next.attendees[0]?.id || "")
+      }
+      setLastLiveSyncAt(Date.now())
+      setLiveSyncFailed(false)
+    } catch (error: any) {
+      if (error?.status === 401) {
+        setAuthenticated(false)
+        setBundle(null)
+      } else {
+        setLiveSyncFailed(true)
+      }
+    } finally {
+      liveSyncInFlightRef.current = false
+    }
+  }
 
-  useEffect(() => {
-    if (!bundle?.schedule) return
-    window.localStorage.setItem(`the-room-active-round-${bundle.event.id}`, String(round))
-  }, [bundle?.event.id, bundle?.schedule, round])
+  useVisibilityPoll(syncLiveEvent, 5_000, Boolean(authenticated && organizerOpen && bundle && !preview))
+
+  const changeActiveRound = async (nextValue: number) => {
+    if (!bundle || busy) return
+    const nextRound = Math.min(bundle.event.round_count, Math.max(1, Math.round(nextValue)))
+    if (nextRound === round) return
+    if (preview) {
+      setRound(nextRound)
+      return
+    }
+    const previousRound = round
+    setRound(nextRound)
+    try {
+      await act("set-active-round", { event_id: bundle.event.id, active_round: nextRound })
+    } catch {
+      setRound(previousRound)
+    }
+  }
 
   const advanceRound = () => {
     if (!bundle || round >= bundle.event.round_count) return
@@ -750,7 +815,7 @@ export default function TheRoomPage() {
     const message = waiting > 0
       ? `باقي ${waiting} ما وصلوا. تبدأ الجولة ${round + 1}؟`
       : `تبدأ الجولة ${round + 1}؟`
-    if (window.confirm(message)) setRound(value => Math.min(bundle.event.round_count, value + 1))
+    if (window.confirm(message)) void changeActiveRound(round + 1)
   }
 
   const openProjector = () => {
@@ -922,6 +987,7 @@ export default function TheRoomPage() {
       return
     }
     const sendMove = async (force: boolean) => roomApi("move-attendee", { event_id: bundle.event.id, attendee_id: person.id, round_number: roundNumber, table_number: tableNumber, force })
+    mutationEpochRef.current += 1
     setBusy(true)
     try {
       let data
@@ -950,7 +1016,7 @@ export default function TheRoomPage() {
   return (
     <main dir="rtl" className="the-room-page relative min-h-[100dvh] overflow-hidden bg-[#080807] font-['Tajawal'] text-stone-100" style={{ backgroundImage: "radial-gradient(circle at 10% 0%, rgba(143,108,50,.16), transparent 30%), radial-gradient(circle at 92% 75%, rgba(39,89,72,.16), transparent 28%)" }}>
       <Toaster position="top-center" toastOptions={{ style: { direction: "rtl", fontFamily: "Tajawal", background: "#1b1915", color: "#f5f5f4", border: "1px solid rgba(255,255,255,.1)", borderRadius: 16 } }} />
-      <AnimatePresence>{projectorOpen && bundle?.schedule && <ProjectorView bundle={bundle} attendees={included} activeRound={round} onRound={setRound} onClose={() => setProjectorOpen(false)} />}</AnimatePresence>
+      <AnimatePresence>{projectorOpen && bundle?.schedule && <ProjectorView bundle={bundle} attendees={included} activeRound={round} onRound={changeActiveRound} onClose={() => setProjectorOpen(false)} />}</AnimatePresence>
       <div className="relative flex min-h-[100dvh] items-center justify-center px-5 py-10">
         <div className="max-w-xl text-center">
           <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[1.75rem] border border-[#d9bb7c]/30 bg-[#201c14] text-[#e4ca91]"><DoorOpen size={34} /></div>
@@ -987,7 +1053,7 @@ export default function TheRoomPage() {
                       {!advancedMode && <p className="mt-1 text-xs text-stone-500">{bundle?.schedule ? "اضغط حسب الشخص الواصل" : "حدّد الأعداد ثم اضغط جهّز"}</p>}
                     </div>
                     {advancedMode && <div className="flex flex-wrap gap-2">
-                      {!creating && events.length > 0 && <div className="relative min-w-[9.5rem] flex-1 sm:min-w-44"><select value={bundle?.event.id || ""} onChange={async event => { const id = event.target.value; const next = preview ? DEMO_BUNDLE : await roomApi("get-event", { event_id: id }); installBundle(next); setCreating(false) }} className="h-12 w-full appearance-none rounded-2xl border border-white/10 bg-white/[0.04] px-4 pl-10 text-sm font-bold text-white outline-none"><option value="" disabled>اختر فعالية</option>{events.map(item => <option key={item.id} value={item.id}>فعالية {item.event_number}</option>)}</select><ChevronDown size={16} className="pointer-events-none absolute left-4 top-4 text-stone-500" /></div>}
+                      {!creating && events.length > 0 && <div className="relative min-w-[9.5rem] flex-1 sm:min-w-44"><select value={bundle?.event.id || ""} onChange={async event => { mutationEpochRef.current += 1; const id = event.target.value; const next = preview ? DEMO_BUNDLE : await roomApi("get-event", { event_id: id }); installBundle(next); setCreating(false) }} className="h-12 w-full appearance-none rounded-2xl border border-white/10 bg-white/[0.04] px-4 pl-10 text-sm font-bold text-white outline-none"><option value="" disabled>اختر فعالية</option>{events.map(item => <option key={item.id} value={item.id}>فعالية {item.event_number}</option>)}</select><ChevronDown size={16} className="pointer-events-none absolute left-4 top-4 text-stone-500" /></div>}
                       {creating && bundle ? <button onClick={cancelCreate} className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm font-bold text-stone-300"><ArrowRight size={17} /> رجوع</button> : <button onClick={beginCreate} className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-[#d7ba7d]/25 bg-[#d7ba7d]/10 px-4 text-sm font-bold text-[#e4ca91]"><CalendarPlus size={17} /> فعالية جديدة</button>}
                       {!creating && bundle && <details className="group relative"><summary className="flex h-12 cursor-pointer list-none items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.035] px-4 text-sm font-bold text-stone-400 [&::-webkit-details-marker]:hidden"><Settings2 size={17} /> خيارات</summary><div className="absolute right-0 top-14 z-30 w-56 space-y-2 rounded-2xl border border-white/10 bg-[#1b1916] p-2 shadow-2xl"><button onClick={() => setEmergencyOpen(true)} disabled={busy} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-right text-sm font-bold text-stone-200 hover:bg-white/[0.05] disabled:opacity-25"><UserCog size={16} /> تصحيح أو نقل شخص</button><button onClick={resetEvent} disabled={!bundle.schedule || busy} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-right text-sm font-bold text-amber-200 hover:bg-white/[0.05] disabled:opacity-25" title="يبقي الضيوف ويمسح توزيع الطاولات"><RotateCcw size={16} /> مسح التوزيع</button><button onClick={deleteEvent} disabled={busy} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-right text-sm font-bold text-red-200 hover:bg-white/[0.05] disabled:opacity-25" title="حذف الفعالية نهائيًا"><Trash2 size={16} /> حذف الفعالية</button></div></details>}
                     </div>}
@@ -1050,8 +1116,8 @@ export default function TheRoomPage() {
               </div>
 
               <footer className="flex shrink-0 items-center justify-between border-t border-white/[0.07] bg-[#15130f] px-4 py-3 text-xs text-stone-600 sm:px-6">
-                <span><CheckCircle2 size={14} className="ml-1 inline text-emerald-400" /> {activeView === "checkin" ? "كل ضغطة تنحفظ مباشرة" : "التغييرات محفوظة"}</span>
-                {advancedMode && <button onClick={async () => { if (!preview) await roomApi("logout"); setAuthenticated(false); setBundle(null) }} className="flex items-center gap-2 text-stone-500 hover:text-white"><LogOut size={14} /> خروج</button>}
+                <span aria-live="polite"><CheckCircle2 size={14} className={`ml-1 inline ${liveSyncFailed ? "text-amber-400" : "text-emerald-400"}`} /> {preview ? "نسخة عرض غير متصلة" : liveSyncFailed ? "تعذّر التحديث التلقائي · نحاول مجددًا" : lastLiveSyncAt ? "متزامن بين الأجهزة" : "جارٍ مزامنة الأجهزة"}</span>
+                {advancedMode && <button onClick={async () => { mutationEpochRef.current += 1; if (!preview) await roomApi("logout"); setAuthenticated(false); setBundle(null) }} className="flex items-center gap-2 text-stone-500 hover:text-white"><LogOut size={14} /> خروج</button>}
               </footer>
             </motion.section>
           </motion.div>

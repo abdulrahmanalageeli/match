@@ -28,18 +28,19 @@ export const links: Route.LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
-  const viewportContent = location.pathname === "/event3" || location.pathname.startsWith("/event3/")
+  const isTheRoom = location.pathname === "/the-room" || location.pathname.startsWith("/the-room/");
+  const viewportContent = location.pathname === "/event3" || location.pathname.startsWith("/event3/") || isTheRoom
     ? "width=device-width, initial-scale=1, viewport-fit=cover"
     : "width=device-width, initial-scale=1";
 
   return (
-    <html lang="en">
+    <html lang={isTheRoom ? "ar" : "en"} dir={isTheRoom ? "rtl" : undefined}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content={viewportContent} />
         <title>BlindMatch - لقاءات ذكية للتوافق</title>
         <meta name="description" content="نظام توافق شخصي متقدم لإيجاد أفضل التوافقات بناءً على الشخصية والاهتمامات" />
-        <meta name="theme-color" content="#0891b2" />
+        <meta name="theme-color" content={isTheRoom ? "#f3f0e9" : "#0891b2"} />
         <meta property="og:title" content="BlindMatch - لقاءات ذكية للتوافق" />
         <meta property="og:description" content="نظام توافق شخصي متقدم لإيجاد أفضل التوافقات" />
         <meta property="og:image" content="/Lg.png" />

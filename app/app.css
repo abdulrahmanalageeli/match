@@ -1033,6 +1033,16 @@ html:not(.dark) .ai-ink {
   scrollbar-gutter: stable;
 }
 
+.the-room-page :where(button, input, select, summary, [tabindex]):focus-visible {
+  outline: 3px solid #a77a3f !important;
+  outline-offset: 3px;
+}
+
+.the-room-page .text-\[\#817a6f\],
+.the-room-page .text-\[\#8a8378\] {
+  color: #6b6459;
+}
+
 @media (max-height: 700px) {
   .room-badge-shell {
     padding-top: max(0.35rem, env(safe-area-inset-top));
@@ -1083,17 +1093,20 @@ html:not(.dark) .ai-ink {
 }
 
 @media print {
-  .the-room-page > header,
-  .the-room-page nav,
-  .the-room-page button,
-  .the-room-page > div > section:first-child,
-  .the-room-page .grid.grid-cols-2.gap-3.sm\:grid-cols-4 {
+  .the-room-page [data-room-chrome],
+  .the-room-page button {
     display: none !important;
   }
 
   .the-room-page {
     background: #fff !important;
     color: #111 !important;
+    min-height: auto !important;
+  }
+
+  .the-room-page > div {
+    max-width: none !important;
+    padding: 0 !important;
   }
 
   .the-room-schedule-grid {
@@ -1116,29 +1129,12 @@ html:not(.dark) .ai-ink {
     color: #111 !important;
   }
 
-  .the-room-page > div:first-of-type,
-  .the-room-page [data-room-setup],
-  .the-room-page [role="dialog"] > header,
-  .the-room-page [role="dialog"] > footer {
-    display: none !important;
-  }
-
-  .the-room-page .fixed,
-  .the-room-page [role="dialog"] {
-    position: static !important;
-    display: block !important;
-    max-height: none !important;
-    overflow: visible !important;
+  .the-room-page [data-room-results] {
     border: 0 !important;
-    background: #fff !important;
     box-shadow: none !important;
+    padding: 0 !important;
   }
 
-  .the-room-page [role="dialog"] > div {
-    overflow: visible !important;
-  }
-
-  .the-room-page [data-room-results],
   .the-room-page [data-room-results] * {
     color: #111 !important;
   }

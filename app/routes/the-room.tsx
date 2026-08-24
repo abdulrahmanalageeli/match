@@ -136,7 +136,7 @@ function arabicError(error: any) {
   if (error?.code === "MINIMUM_NOT_MET") return "عدد الحضور أقل من العدد المطلوب."
   if (error?.code === "TOO_MANY_TABLES") return "عدد الطاولات كبير مقارنة بعدد الحضور."
   if (["TABLE_GEOMETRY_IMPOSSIBLE", "PAIR_CAPACITY_EXCEEDED"].includes(error?.code)) return "هذا التوزيع غير ممكن. قلّل الجولات أو الطاولات ثم حاول مرة أخرى."
-  if (error?.code === "NO_BADGES_LEFT") return "تم تسليم جميع بطاقات هذا القسم."
+  if (error?.code === "NO_BADGES_LEFT") return "تم تسليم جميع البطاقات المتاحة. أضف شخصًا جديدًا إذا حضر شخص إضافي."
   if (error?.code === "BADGE_ALREADY_ASSIGNED") return "تم تسليم هذه البطاقة للتو من جهاز آخر. حاول مرة أخرى."
   if (error?.code === "ROUND_STATE_CHANGED") return "بدأت الجولة التالية من جهاز آخر وتم تحديث الشاشة."
   if (error?.code === "SCHEDULE_CHANGED_RETRY") return "تم حفظ الشخص. حدّث الشاشة مرة واحدة لإظهار طاولته."
@@ -987,7 +987,9 @@ export default function TheRoomPage() {
       if (checkedInPerson) setSelectedGuestId(checkedInPerson.id)
       setView("checkin")
       setBadgeOpen(Boolean(checkedInPerson))
-      if (advancedMode) toast.success(`تم تسليم بطاقة ${guestNumber(data.assigned_attendee_number)}`)
+      if (advancedMode) toast.success(data.badge_gender_reassigned
+        ? `تم تعديل بطاقة متاحة وتسليم ${guestNumber(data.assigned_attendee_number)}`
+        : `تم تسليم بطاقة ${guestNumber(data.assigned_attendee_number)}`)
     } catch {}
   }
 

@@ -3,6 +3,7 @@ import { generateTheRoomSchedule, TheRoomScheduleError } from "../server/the-roo
 import { extendTheRoomSchedule, TheRoomExtensionError } from "../server/the-room/incremental-scheduler.mjs"
 import { analyzeTheRoomMove, TheRoomMoveError } from "../server/the-room/manual-move.mjs"
 import { normalizeTheRoomActiveRound, resolveTheRoomRoundAdvance, TheRoomLiveStateError } from "../server/the-room/live-state.mjs"
+import { chooseTheRoomBadgeCandidate } from "../server/the-room/badge-claim.mjs"
 import {
   buildNumberedRosterRows,
   buildRosterForGenderCounts,
@@ -214,29 +215,45 @@ async function handleAction(req, res, action) {
 
     // The checked_in=false filter on the update is the final guard against two
     // organizer devices handing out the same numbered badge at the same time.
+    // When the requested gender's prepared pool is empty, reuse the available
+    // badge whose existing journey is least disrupted instead of blocking the
+    // reception desk even though unused badges remain.
     for (let attempt = 0; attempt < 3; attempt += 1) {
-      const { data: nextAttendee, error: nextError } = await supabase
+      const { data: availableAttendees, error: nextError } = await supabase
         .from("the_room_attendees")
-        .select("id,attendee_number")
+        .select(ATTENDEE_FIELDS)
         .eq("event_id", eventId)
-        .eq("gender", gender)
         .eq("included_in_schedule", true)
         .in("attendance_status", ["registered", "confirmed"])
         .eq("checked_in", false)
         .order("attendee_number", { ascending: true })
-        .limit(1)
-        .maybeSingle()
       if (nextError) return sendDatabaseError(res, nextError)
-      if (!nextAttendee) {
+      if (!availableAttendees?.length) {
         return res.status(409).json({ error: "All badges for this group have already been assigned", code: "NO_BADGES_LEFT" })
+      }
+
+      const choiceBundle = availableAttendees.some(attendee => attendee.gender === gender)
+        ? null
+        : await loadEventBundle({ eventId })
+      const choice = chooseTheRoomBadgeCandidate({
+        attendees: choiceBundle?.attendees || availableAttendees,
+        seats: choiceBundle?.seats || [],
+        requestedGender: gender,
+        tableCount: choiceBundle?.event?.table_count || 1,
+        roundCount: choiceBundle?.event?.round_count || 1,
+        activeRound: choiceBundle?.event?.active_round || 1,
+      })
+      if (!choice) {
+        return res.status(409).json({ error: "All badges have already been assigned", code: "NO_BADGES_LEFT" })
       }
 
       const { data: claimed, error: claimError } = await supabase
         .from("the_room_attendees")
-        .update({ checked_in: true, updated_at: new Date().toISOString() })
-        .eq("id", nextAttendee.id)
+        .update({ checked_in: true, gender, updated_at: new Date().toISOString() })
+        .eq("id", choice.attendee.id)
         .eq("event_id", eventId)
         .eq("checked_in", false)
+        .eq("gender", choice.attendee.gender)
         .select("id,attendee_number,gender")
         .maybeSingle()
       if (claimError) return sendDatabaseError(res, claimError)
@@ -246,6 +263,7 @@ async function handleAction(req, res, action) {
         ...(await loadEventBundle({ eventId })),
         assigned_attendee_number: claimed.attendee_number,
         assigned_gender: claimed.gender,
+        badge_gender_reassigned: choice.reassigned,
       })
     }
 

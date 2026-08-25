@@ -1,3 +1,9 @@
+import {
+  isCurrentBalancedScoreRow,
+  isSupportedCurrentScoreRow,
+  parseScoreObject,
+} from "./compatibility-model"
+
 export type SeatState = "paid" | "waived" | "receipt" | "confirmed_pending" | "declined" | "contacted" | "unpaid"
 
 export type MatchControlPerson = {
@@ -144,6 +150,7 @@ export function getPersonName(person: MatchControlPerson | undefined, fallbackNu
 type ScoreMetric = "total_compatibility" | "compound_lifestyle"
 
 function numberOrNull(value: unknown) {
+  if (value === null || value === undefined || value === "") return null
   const score = Number(value)
   return Number.isFinite(score) ? score : null
 }
@@ -159,7 +166,7 @@ function lifestyleCompoundScore(pair?: any): number | null {
     numberOrNull(pair.lifestyle_compatibility_score) ?? numberOrNull(pair.lifestyle_score),
   ]
   if (components.every(value => value == null)) return null
-  return components.reduce((sum, value) => sum + (value ?? 0), 0)
+  return components.reduce<number>((sum, value) => sum + (value ?? 0), 0)
 }
 
 export function getSeatState(person?: MatchControlPerson): SeatState {
@@ -275,16 +282,68 @@ export function buildScoreLookup(calculatedPairs: any[], results: MatchControlRe
     const b = Number(result.partner_assigned_number)
     if (!Number.isFinite(b) || b === 9999) continue
     const key = pairKey(result.assigned_number, b)
-    const calculated = lookup.get(key) || {}
-    // The saved match result is authoritative for the score currently shown to
-    // participants. Preserve richer cached dimensions when the result lacks them.
+    const calculated = lookup.get(key)
+    const snapshot = parseScoreObject(result.score_snapshot ?? result.scoreSnapshot)
+    const resultHash = String(result.score_content_hash ?? result.scoreContentHash ?? "")
+    const calculatedHash = String(
+      calculated?.combined_content_hash
+      ?? calculated?.combinedContentHash
+      ?? calculated?.score_content_hash
+      ?? calculated?.scoreContentHash
+      ?? "",
+    )
+    const resultHasValidSnapshot = isSupportedCurrentScoreRow(result)
+    const resultHasExactBalancedSnapshot = isCurrentBalancedScoreRow(result)
+    const canMergeCalculatedScore = resultHasExactBalancedSnapshot
+      && isCurrentBalancedScoreRow(calculated)
+      && !!resultHash
+      && !!calculatedHash
+      && resultHash === calculatedHash
+
+    // A saved match total is authoritative. Cache dimensions may only accompany
+    // it when both rows describe the exact same participant-content identity.
+    // Otherwise start from the saved row so a legacy total can never inherit
+    // today's model label or breakdown through object spreading.
+    const compatibleCalculated = canMergeCalculatedScore ? calculated : {}
+    const snapshotBreakdown = parseScoreObject(snapshot?.scoreBreakdown)
+    const snapshotQuestionScores = parseScoreObject(snapshot?.questionScores)
+    const directCommunication = ["communication1", "communication2", "communication3", "communication4", "communication5"]
+      .map(key => Number(snapshotQuestionScores?.[key]))
+    const exactBalancedAliases = resultHasExactBalancedSnapshot ? {
+      synergy_score: Number(snapshotBreakdown?.interactionRhythm ?? 0),
+      mbti_compatibility_score: Number(snapshotBreakdown?.sharedContext ?? 0),
+      attachment_compatibility_score: Number(snapshotBreakdown?.attachmentComfort ?? 0),
+      communication_compatibility_score: directCommunication.every(Number.isFinite)
+        ? directCommunication.reduce((sum, value) => sum + value, 0)
+        : 0,
+      lifestyle_compatibility_score: Number(snapshotBreakdown?.lifestyleSustainability ?? 0),
+      core_values_compatibility_score: Number(
+        snapshotBreakdown?.valuesBoundariesLanguage
+        ?? (Number(snapshotBreakdown?.valuesBoundaries ?? 0) + Number(snapshotBreakdown?.language ?? 0)),
+      ),
+      vibe_compatibility_score: Number(snapshotBreakdown?.aiSemantic ?? 0),
+      humor_open_score: Number(snapshotBreakdown?.humorOpenness ?? 0),
+      intent_score: Number(snapshotBreakdown?.intent ?? 0),
+      disagreement_style_score: Number(snapshotQuestionScores?.disagreement ?? 0),
+      current_life_overlap_score: Number(snapshotQuestionScores?.currentFocus ?? 0),
+      similarity_preference_score: Number(snapshotQuestionScores?.similarityPreference ?? 0),
+      attachment_pace_score: Number(snapshotBreakdown?.attachmentComfort ?? 0),
+    } : {}
     lookup.set(key, {
-      ...calculated,
-      ...Object.fromEntries(Object.entries(result).filter(([, value]) => value !== undefined && value !== null)),
+      ...compatibleCalculated,
+      ...result,
+      ...exactBalancedAliases,
       participant_a: result.assigned_number,
       participant_b: b,
       compatibility_score: result.compatibility_score,
       is_actual_match: true,
+      score_model_version: resultHasValidSnapshot ? String(snapshot?.scoreModelVersion ?? "") : null,
+      score_content_hash: resultHasValidSnapshot ? resultHash : null,
+      score_snapshot: resultHasValidSnapshot ? snapshot : null,
+      score_breakdown: resultHasValidSnapshot ? (snapshot?.scoreBreakdown ?? null) : null,
+      question_scores: resultHasValidSnapshot ? (snapshot?.questionScores ?? null) : null,
+      vibe_axes: resultHasValidSnapshot ? (snapshot?.vibeAxes ?? null) : null,
+      score_provenance_valid: resultHasValidSnapshot,
     })
   }
   return lookup

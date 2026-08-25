@@ -78,6 +78,15 @@ import { Switch } from "../../components/ui/switch"
 import { Avatar as AvatarComponent } from "../../components/ui/avatar"
 import { AnimatedBlindMatchLogo } from "../components/AnimatedBlindMatchLogo"
 import { MatchInsightsUpdateDialog, getMissingMatchInsightIds } from "../components/MatchInsightsUpdateDialog"
+import {
+  CURRENT_BALANCED_SCORE_MODEL,
+  CURRENT_OPPOSITES_SCORE_MODEL,
+  isCurrentBalancedScoreRow,
+  isCurrentOppositesScoreRow,
+  isSupportedCurrentScoreRow,
+  parseScoreObject,
+  scoreModelVersionFor,
+} from "../lib/compatibility-model"
 import { ParticipantOtpModal } from "../components/ParticipantOtpModal"
 import "../../app/app.css"
 import MatchResult from "./MatchResult"
@@ -541,6 +550,9 @@ export default function WelcomePage() {
   const [countdown, setCountdown] = useState(30)
   const [matchResult, setMatchResult] = useState<string | null>(null)
   const [matchReason, setMatchReason] = useState<string>("")
+  const [matchBreakdown, setMatchBreakdown] = useState<any>(null)
+  const [matchScoreModelVersion, setMatchScoreModelVersion] = useState<string | null>(null)
+  const [matchScoreRow, setMatchScoreRow] = useState<any>(null)
   const [isRepeatMatch, setIsRepeatMatch] = useState<boolean>(false)
   const [phase, setPhase] = useState<"registration" | "form" | "waiting" | "round_1" | "waiting_2" | "round_2" | "group_phase" | /* "waiting_3" | "round_3" | "waiting_4" | "round_4" | "group_phase" | */ null>(null)
   const [tableNumber, setTableNumber] = useState<number | null>(null)
@@ -550,6 +562,7 @@ export default function WelcomePage() {
   
   // Helper function to calculate original score (before bonus)
   const getOriginalScore = (): number => {
+    if (isSupportedCurrentScoreRow(matchScoreRow)) return compatibilityScore ?? 0
     if (!compatibilityScore || humorBonus === 'none') return compatibilityScore || 0
     const multiplier = humorBonus === 'full' ? 1.15 : 1.05
     return Math.round(compatibilityScore / multiplier)
@@ -4988,6 +5001,11 @@ export default function WelcomePage() {
     is_repeat_match?: boolean
     mutual_match?: boolean
     humor_early_openness_bonus?: 'full' | 'partial' | 'none'
+    score_model_version?: string | null
+    score_content_hash?: string | null
+    score_snapshot?: any
+    breakdown?: any
+    score_provenance_valid?: boolean
   }
 
   type GroupMatchEntry = {
@@ -5032,8 +5050,11 @@ export default function WelcomePage() {
       if (currentRoundMatch) {
         setMatchResult(currentRoundMatch.with)
         setMatchReason(currentRoundMatch.reason)
+        setMatchBreakdown(currentRoundMatch.breakdown ?? currentRoundMatch.score_snapshot ?? null)
+        setMatchScoreModelVersion(currentRoundMatch.score_model_version ?? null)
+        setMatchScoreRow(currentRoundMatch)
         setCompatibilityScore(currentRoundMatch.score)
-        setHumorBonus(currentRoundMatch.humor_early_openness_bonus || 'none')
+        setHumorBonus(isSupportedCurrentScoreRow(currentRoundMatch) ? 'none' : (currentRoundMatch.humor_early_openness_bonus || 'none'))
         setTableNumber(currentRoundMatch.table_number)
         setIsRepeatMatch(currentRoundMatch.is_repeat_match || false)
         
@@ -5052,6 +5073,9 @@ export default function WelcomePage() {
         console.log(`ℹ️ No match found for round ${round} — clearing previous round state`)
         setMatchResult(null)
         setMatchReason("")
+        setMatchBreakdown(null)
+        setMatchScoreModelVersion(null)
+        setMatchScoreRow(null)
         setCompatibilityScore(null)
         setHumorBonus('none')
         setTableNumber(null)
@@ -5086,6 +5110,9 @@ export default function WelcomePage() {
         console.error("Failed to fetch group matches:", myMatches.status, myMatches.statusText)
         setMatchResult("؟")
         setMatchReason("فشل في جلب بيانات المجموعة")
+        setMatchBreakdown(null)
+        setMatchScoreModelVersion(null)
+        setMatchScoreRow(null)
         return
       }
       
@@ -5102,12 +5129,18 @@ export default function WelcomePage() {
         
         setMatchResult(allParticipants.join(" ، "))
         setMatchReason(match.reason || "مجموعة بتوافق عالي")
+        setMatchBreakdown(null)
+        setMatchScoreModelVersion(null)
+        setMatchScoreRow(null)
         setTableNumber(match.table_number)
         setCompatibilityScore(match.score)
       } else {
         console.warn("⚠️ No group matches found")
         setMatchResult("لم يتم العثور على مجموعة")
         setMatchReason("لم يتم تكوين المجموعات بعد")
+        setMatchBreakdown(null)
+        setMatchScoreModelVersion(null)
+        setMatchScoreRow(null)
         setTableNumber(null)
         setCompatibilityScore(null)
       }
@@ -5115,6 +5148,9 @@ export default function WelcomePage() {
       console.error("❌ Error fetching group matches:", err)
       setMatchResult("؟")
       setMatchReason("صار خطأ بالتوافق، حاول مره ثانية.")
+      setMatchBreakdown(null)
+      setMatchScoreModelVersion(null)
+      setMatchScoreRow(null)
     }
   }
   
@@ -5330,8 +5366,13 @@ export default function WelcomePage() {
         reason: matchReason,
         round: currentRound,
         table_number: tableNumber,
-        score: compatibilityScore || 0,
-        is_repeat_match: isRepeatMatch
+        score: compatibilityScore ?? 0,
+        is_repeat_match: isRepeatMatch,
+        score_model_version: matchScoreModelVersion,
+        score_content_hash: matchScoreRow?.score_content_hash ?? null,
+        score_snapshot: matchScoreRow?.score_snapshot ?? null,
+        score_provenance_valid: matchScoreRow?.score_provenance_valid ?? false,
+        breakdown: matchBreakdown,
       }
       
       setHistoryMatches(prev => {
@@ -5357,11 +5398,114 @@ export default function WelcomePage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
-  // Function to convert technical compatibility reason to natural Arabic description
-  // Enhanced to also expose structured metrics for the new model view
-  const formatCompatibilityReason = (reason: string): { components: Array<{ name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }>; originalReason: string; metrics: { newModel: boolean; synergyScore: number; synergyMax: number; synergyPercent: number; vibe: number; lifestyle: number; humorOpen: number; communication: number; intentValues: number } } => {
+  // Function to convert compatibility data to a participant-facing Arabic view.
+  // Current scores use the persisted event-time snapshot; reason parsing remains
+  // only for explicitly historical rows that predate versioned snapshots.
+  const formatCompatibilityReason = (reason: string, breakdownValue: any = null, explicitScoreModelVersion: string | null = null, scoreRow: any = null): { components: Array<{ name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }>; originalReason: string; metrics: { newModel: boolean; balanced?: boolean; opposites?: boolean; snapshotUnavailable?: boolean; modelVersion?: string | null; dimensions?: Array<{ key: string; label: string; value: number; max: number; bar: string }>; synergyScore: number; synergyMax: number; synergyPercent: number; vibe: number; lifestyle: number; humorOpen: number; communication: number; intentValues: number } } => {
     try {
-      if (!reason || typeof reason !== 'string') return { components: [], originalReason: "معلومات التوافق غير متوفرة", metrics: { newModel: false, synergyScore: 0, synergyMax: 35, synergyPercent: 0, vibe: 0, lifestyle: 0, humorOpen: 0, communication: 0, intentValues: 0 } }
+      const exactRow = scoreRow ?? {
+        score_model_version: explicitScoreModelVersion,
+        score_snapshot: breakdownValue,
+      }
+      const modelVersion = scoreModelVersionFor(exactRow) || String(explicitScoreModelVersion ?? '')
+      const isBalanced = isCurrentBalancedScoreRow(exactRow)
+      const isOpposites = isCurrentOppositesScoreRow(exactRow)
+      const claimsCurrentModel = modelVersion === CURRENT_BALANCED_SCORE_MODEL || modelVersion === CURRENT_OPPOSITES_SCORE_MODEL
+      const snapshot = parseScoreObject(exactRow?.score_snapshot ?? exactRow?.scoreSnapshot)
+      const structuredBreakdown = parseScoreObject(snapshot?.scoreBreakdown ?? snapshot?.score_breakdown)
+
+      if ((isBalanced || isOpposites) && structuredBreakdown) {
+        const finite = (value: any) => { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : 0 }
+        const valuesLanguage = finite(
+          structuredBreakdown.valuesBoundariesLanguage
+          ?? (finite(structuredBreakdown.valuesBoundaries) + finite(structuredBreakdown.language)),
+        )
+        const dimensions = isOpposites ? [
+          { key: 'interaction', label: 'إيقاع التفاعل', value: finite(structuredBreakdown.interactionSynergy), max: 20, bar: 'from-violet-500 to-purple-500' },
+          { key: 'values', label: 'توافق القيم', value: finite(structuredBreakdown.coreValuesAlignment), max: 17, bar: 'from-emerald-500 to-teal-500' },
+          { key: 'communication', label: 'توافق التواصل', value: finite(structuredBreakdown.communicationAlignment), max: 5, bar: 'from-indigo-500 to-sky-500' },
+          { key: 'lifestyle', label: 'اختلاف نمط الحياة', value: finite(structuredBreakdown.lifestyleDifference), max: 12, bar: 'from-cyan-500 to-blue-500' },
+          { key: 'vibe', label: 'اختلاف الطاقة', value: finite(structuredBreakdown.vibeDifference), max: 12, bar: 'from-purple-500 to-pink-500' },
+          { key: 'humorOpen', label: 'اختلاف الدعابة', value: finite(structuredBreakdown.humorDifference), max: 10, bar: 'from-amber-500 to-orange-500' },
+        ] : [
+          { key: 'commonGround', label: 'الأرضية المشتركة', value: finite(structuredBreakdown.semanticCommonGround), max: 18, bar: 'from-purple-500 to-pink-500' },
+          { key: 'interaction', label: 'إيقاع التفاعل', value: finite(structuredBreakdown.interactionRhythm), max: 20, bar: 'from-violet-500 to-purple-500' },
+          { key: 'humorOpen', label: 'الدعابة والانفتاح', value: finite(structuredBreakdown.humorOpenness), max: 10, bar: 'from-amber-500 to-orange-500' },
+          { key: 'attachment', label: 'الراحة ووتيرة التقارب', value: finite(structuredBreakdown.attachmentComfort), max: 8, bar: 'from-rose-500 to-pink-500' },
+          { key: 'lifestyle', label: 'استدامة نمط الحياة', value: finite(structuredBreakdown.lifestyleSustainability), max: 12, bar: 'from-cyan-500 to-blue-500' },
+          { key: 'values', label: 'القيم والحدود واللغة', value: valuesLanguage, max: 17, bar: 'from-emerald-500 to-teal-500' },
+          { key: 'communication', label: 'التواصل وإدارة الاختلاف', value: finite(structuredBreakdown.communicationDisagreement), max: 10, bar: 'from-indigo-500 to-sky-500' },
+          { key: 'intent', label: 'هدف اللقاء', value: finite(structuredBreakdown.intent), max: 5, bar: 'from-fuchsia-500 to-rose-500' },
+        ]
+        const getStrength = (value: number, maximum: number) => {
+          const ratio = maximum > 0 ? (value / maximum) * 100 : 0
+          if (ratio >= 80) return { level: 'ممتاز', color: 'text-emerald-400', bgColor: 'bg-emerald-500/20', borderColor: 'border-emerald-400/30' }
+          if (ratio >= 60) return { level: 'جيد', color: 'text-blue-400', bgColor: 'bg-blue-500/20', borderColor: 'border-blue-400/30' }
+          if (ratio >= 40) return { level: 'متوسط', color: 'text-yellow-400', bgColor: 'bg-yellow-500/20', borderColor: 'border-yellow-400/30' }
+          return { level: 'بحاجة لوقت', color: 'text-orange-400', bgColor: 'bg-orange-500/20', borderColor: 'border-orange-400/30' }
+        }
+        const components = dimensions.map(dimension => {
+          const strength = getStrength(dimension.value, dimension.max)
+          return {
+            name: dimension.label,
+            strength: strength.level,
+            color: strength.color,
+            bgColor: strength.bgColor,
+            borderColor: strength.borderColor,
+            description: isOpposites
+              ? (dimension.value / dimension.max >= 0.6
+                  ? 'هذا البعد يساهم بقوة في نتيجة وضع الأضداد وفق لقطة إجاباتكما وقت المطابقة.'
+                  : 'مساهمة هذا البعد أقل في نتيجة وضع الأضداد، وقد يكشف اللقاء كيف يظهر الاختلاف بينكما فعليًا.')
+              : (dimension.value / dimension.max >= 0.6
+                  ? 'هذا جانب داعم للانسجام بينكما وفق إجاباتكما وقت المطابقة.'
+                  : 'هذا جانب قد يستفيد من وقت أطول وأسئلة أوضح للتعرف على بعضكما.'),
+          }
+        })
+        const interaction = dimensions.find(dimension => dimension.key === 'interaction')!
+        return {
+          components,
+          originalReason: reason || 'تفصيل التوافق من لقطة النتيجة وقت المطابقة',
+          metrics: {
+            newModel: true,
+            balanced: isBalanced,
+            opposites: isOpposites,
+            modelVersion,
+            dimensions,
+            synergyScore: interaction.value,
+            synergyMax: interaction.max,
+            synergyPercent: Math.max(0, Math.min(100, Math.round((interaction.value / interaction.max) * 100))),
+            vibe: finite(isOpposites ? structuredBreakdown.vibeDifference : structuredBreakdown.aiSemantic),
+            lifestyle: finite(isOpposites ? structuredBreakdown.lifestyleDifference : structuredBreakdown.lifestyleSustainability),
+            humorOpen: finite(isOpposites ? structuredBreakdown.humorDifference : structuredBreakdown.humorOpenness),
+            communication: finite(isOpposites ? structuredBreakdown.communicationAlignment : structuredBreakdown.communicationDisagreement),
+            intentValues: finite(isOpposites ? structuredBreakdown.coreValuesAlignment : structuredBreakdown.intent),
+          },
+        }
+      }
+
+      if (claimsCurrentModel) {
+        return {
+          components: [],
+          originalReason: 'درجة التوافق الإجمالية محفوظة، لكن لا تتوفر لقطة مكونات مطابقة يمكن عرضها بأمان.',
+          metrics: {
+            newModel: false,
+            balanced: false,
+            opposites: false,
+            snapshotUnavailable: true,
+            modelVersion,
+            synergyScore: 0,
+            synergyMax: 1,
+            synergyPercent: 0,
+            vibe: 0,
+            lifestyle: 0,
+            humorOpen: 0,
+            communication: 0,
+            intentValues: 0,
+          },
+        }
+      }
+
+      if (!reason || typeof reason !== 'string') return { components: [], originalReason: "معلومات التوافق التاريخية غير متوفرة", metrics: { newModel: false, balanced: false, modelVersion: modelVersion || null, synergyScore: 0, synergyMax: 35, synergyPercent: 0, vibe: 0, lifestyle: 0, humorOpen: 0, communication: 0, intentValues: 0 } }
       
       // Extract scores (OLD model keys)
       const mbtiMatch = reason.match(/MBTI:.*?\((\d+)%\)/)
@@ -11817,10 +11961,10 @@ transition={{ type: "spring", stiffness: 500, damping: 30 }}
                           <div ref={compatibilityRef} data-anchor="compatibility-analysis" className="h-0" />
                           {/* Compatibility Analysis Section */}
                           {(() => {
-                            const formattedReason = formatCompatibilityReason(matchReason)
+                            const formattedReason = formatCompatibilityReason(matchReason, matchBreakdown, matchScoreModelVersion, matchScoreRow)
                             const m = formattedReason.metrics
                             const percent = (v: number, max: number) => Math.max(0, Math.min(100, Math.round((v / max) * 100)))
-                            const dims = [
+                            const dims = m.dimensions ?? [
                               { key: 'vibe', label: 'الطاقة والكيمياء', value: m.vibe, max: 25, bar: 'from-purple-500 to-pink-500' },
                               { key: 'lifestyle', label: 'نمط الحياة', value: m.lifestyle, max: 10, bar: 'from-cyan-500 to-blue-500' },
                               { key: 'humorOpen', label: 'الدعابة/الانفتاح', value: m.humorOpen, max: 15, bar: 'from-amber-500 to-orange-500' },
@@ -11852,6 +11996,9 @@ transition={{ type: "spring", stiffness: 500, damping: 30 }}
                                     </svg>
                                     تحليل التوافق
                                   </h4>
+                                  <div className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold ${m.balanced ? (dark ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-300' : 'border-emerald-300 bg-emerald-50 text-emerald-700') : m.opposites ? (dark ? 'border-violet-400/30 bg-violet-500/10 text-violet-300' : 'border-violet-300 bg-violet-50 text-violet-700') : (dark ? 'border-amber-400/30 bg-amber-500/10 text-amber-300' : 'border-amber-300 bg-amber-50 text-amber-700')}`}>
+                                    {m.balanced ? 'النموذج المتوازن · لقطة وقت المطابقة' : m.opposites ? 'وضع الأضداد الحالي · لقطة وقت المطابقة' : 'حسبة تاريخية موروثة'}
+                                  </div>
                                   <p className={`text-sm mt-1 ${dark ? 'text-slate-400' : 'text-gray-600'}`}>
                                     تفصيل دقيق لمستويات التوافق بينكما
                                   </p>
@@ -11862,7 +12009,7 @@ transition={{ type: "spring", stiffness: 500, damping: 30 }}
                                   <div className={`px-6 pt-5 ${dark ? '' : ''}`}>
                                     <div className={`rounded-xl p-4 ${dark ? 'bg-slate-900/30 border border-slate-700/40' : 'bg-white/70 border border-gray-200/70'} `}>
                                       <div className="flex items-center justify-between mb-2">
-                                        <span className={`text-sm font-bold ${dark ? 'text-slate-100' : 'text-gray-900'}`}>مؤشر الانسجام العام</span>
+                                        <span className={`text-sm font-bold ${dark ? 'text-slate-100' : 'text-gray-900'}`}>{m.balanced ? 'مؤشر إيقاع التفاعل' : m.opposites ? 'مؤشر إيقاع التفاعل في وضع الأضداد' : 'مؤشر الانسجام التاريخي'}</span>
                                         <span className={`text-sm font-extrabold ${m.synergyPercent >= 70 ? 'text-emerald-400' : m.synergyPercent >= 50 ? 'text-yellow-500' : 'text-orange-500'}`}>{m.synergyPercent}%</span>
                                       </div>
                                       <div className={`w-full h-2.5 rounded-full ${dark ? 'bg-slate-700/70' : 'bg-gray-200'}`}>
@@ -11897,7 +12044,7 @@ transition={{ type: "spring", stiffness: 500, damping: 30 }}
                                             <div className={`text-xs font-bold mb-1 ${dark ? 'text-emerald-300' : 'text-emerald-700'}`}>أبرز النقاط</div>
                                             <ul className={`text-xs leading-relaxed ${dark ? 'text-emerald-100' : 'text-emerald-800'} list-disc pr-4`}> 
                                               {topStrengths.map((d, idx) => (
-                                                <li key={idx}>{d.label}: جانب قويّ يساعد على سهولة الانسجام.</li>
+                                                  <li key={idx}>{d.label}: {m.opposites ? 'مساهمة قوية في نتيجة وضع الأضداد.' : 'جانب قويّ يساعد على سهولة الانسجام.'}</li>
                                               ))}
                                             </ul>
                                           </div>
@@ -11907,7 +12054,7 @@ transition={{ type: "spring", stiffness: 500, damping: 30 }}
                                             <div className={`text-xs font-bold mb-1 ${dark ? 'text-amber-300' : 'text-amber-700'}`}>نقاط تحتاج رعاية</div>
                                             <ul className={`text-xs leading-relaxed ${dark ? 'text-amber-100' : 'text-amber-800'} list-disc pr-4`}>
                                               {growth.map((d, idx) => (
-                                                <li key={idx}>{d.label}: خذا دقائق إضافية للتوضيح، وابدآ بأسئلة بسيطة وشفافة.</li>
+                                                  <li key={idx}>{d.label}: {m.opposites ? 'مساهمة أقل في نتيجة الأضداد؛ اللقاء هو الاختبار الحقيقي لهذا الاختلاف.' : 'خذا دقائق إضافية للتوضيح، وابدآ بأسئلة بسيطة وشفافة.'}</li>
                                               ))}
                                             </ul>
                                           </div>
@@ -12389,9 +12536,12 @@ transition={{ type: "spring", stiffness: 500, damping: 30 }}
                       )
                     }
                     
-                    const formattedReason = formatCompatibilityReason(selectedHistoryItem.reason)
+                    const formattedReason = formatCompatibilityReason(selectedHistoryItem.reason, selectedHistoryItem.breakdown ?? selectedHistoryItem.score_snapshot, selectedHistoryItem.score_model_version ?? null, selectedHistoryItem)
                     return (
                       <div className="space-y-3">
+                        <div className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold ${formattedReason.metrics.balanced ? (dark ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-300' : 'border-emerald-300 bg-emerald-50 text-emerald-700') : formattedReason.metrics.opposites ? (dark ? 'border-violet-400/30 bg-violet-500/10 text-violet-300' : 'border-violet-300 bg-violet-50 text-violet-700') : formattedReason.metrics.snapshotUnavailable ? (dark ? 'border-slate-400/30 bg-slate-500/10 text-slate-300' : 'border-slate-300 bg-slate-50 text-slate-700') : (dark ? 'border-amber-400/30 bg-amber-500/10 text-amber-300' : 'border-amber-300 bg-amber-50 text-amber-700')}`}>
+                          {formattedReason.metrics.balanced ? 'النموذج المتوازن · لقطة وقت المطابقة' : formattedReason.metrics.opposites ? 'وضع الأضداد الحالي · لقطة وقت المطابقة' : formattedReason.metrics.snapshotUnavailable ? 'الدرجة الإجمالية فقط · تفاصيل غير متاحة' : 'حسبة تاريخية موروثة'}
+                        </div>
                         <div className="grid grid-cols-1 gap-2">
                           {formattedReason.components && formattedReason.components.length > 0 ? (
                             formattedReason.components.map((component: { name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }, index: number) => (

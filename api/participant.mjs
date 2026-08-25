@@ -8,6 +8,17 @@ import {
   buildVibeDescription,
   validateMatchInsights,
 } from "../server/matching/match-insights.mjs"
+import {
+  BALANCED_COMPATIBILITY_VERSION,
+  OPPOSITES_COMPATIBILITY_VERSION,
+  BALANCED_VIBE_MAX,
+  BALANCED_VIBE_MODEL,
+  BALANCED_VIBE_VERSION,
+  BALANCED_VIBE_MODEL_TAG,
+  buildBalancedCacheIdentity,
+  getBalancedCacheBreakdown,
+  isCurrentOppositesScoreSnapshot,
+} from "../server/matching/balanced-compatibility.mjs"
 import { isEvent3SignedUp } from "../server/event3/enrollment.mjs"
 import { normalizeGroupMemberFeedback } from "../server/event3/group-member-feedback.mjs"
 import { getEvent3PhaseTimerSeconds } from "../server/event3/timing.mjs"
@@ -36,6 +47,204 @@ const logError = (context, error) => {
 
 const supabase = supabaseAdmin
 const STATIC_MATCH_ID = "00000000-0000-0000-0000-000000000000"
+
+function parseJsonObject(value) {
+  if (!value) return null
+  if (typeof value === "object" && !Array.isArray(value)) return value
+  if (typeof value !== "string") return null
+  try {
+    const parsed = JSON.parse(value)
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function withParticipantBreakdownAliases(cacheRow) {
+  const storedBreakdown = parseJsonObject(cacheRow?.score_breakdown)
+  const breakdown = storedBreakdown || getBalancedCacheBreakdown(cacheRow)
+  const total = Number(cacheRow?.total_compatibility_score ?? breakdown?.total ?? 0)
+  return {
+    ...breakdown,
+    total: Number.isFinite(total) ? total : 0,
+    scoreModelVersion: BALANCED_COMPATIBILITY_VERSION,
+    score_model_version: BALANCED_COMPATIBILITY_VERSION,
+    scoreMaximum: 100,
+    vibeMaximum: BALANCED_VIBE_MAX,
+    questionScores: parseJsonObject(cacheRow?.question_scores),
+    vibeAxes: parseJsonObject(cacheRow?.vibe_axes),
+    vibeModelVersion: cacheRow?.vibe_model_version ?? null,
+    // Retain the participant UI's established keys while exposing the balanced
+    // semantic component names returned by getBalancedCacheBreakdown.
+    synergy: Number(breakdown?.interactionRhythm ?? 0),
+    vibe: Number(breakdown?.aiSemantic ?? 0),
+    lifestyle: Number(breakdown?.lifestyleSustainability ?? 0),
+    humorOpen: Number(breakdown?.humorOpenness ?? 0),
+    communication: Number(breakdown?.communicationDisagreement ?? 0),
+    coreValues: Number(
+      breakdown?.valuesBoundariesLanguage
+      ?? ((breakdown?.valuesBoundaries ?? 0) + (breakdown?.language ?? 0)),
+    ),
+    intent: Number(breakdown?.intent ?? 0),
+  }
+}
+
+function participantBreakdownFromScoreSnapshot(snapshotValue, {
+  scoreModelVersion: persistedScoreModelVersion,
+  scoreContentHash: persistedScoreContentHash,
+  storedTotal,
+} = {}) {
+  const snapshot = parseJsonObject(snapshotValue)
+  if (!snapshot) return null
+
+  const scoreModelVersion = String(snapshot.scoreModelVersion ?? snapshot.score_model_version ?? "")
+  const snapshotContentHash = String(snapshot.combinedContentHash ?? snapshot.combined_content_hash ?? "")
+  const rowScoreModelVersion = String(persistedScoreModelVersion ?? "")
+  const rowScoreContentHash = String(persistedScoreContentHash ?? "")
+  const snapshotTotal = Number(snapshot.totalScore ?? snapshot.total_score)
+  const rowTotal = Number(storedTotal)
+  if (
+    !rowScoreModelVersion
+    || !rowScoreContentHash
+    || scoreModelVersion !== rowScoreModelVersion
+    || snapshotContentHash !== rowScoreContentHash
+    || !Number.isFinite(snapshotTotal)
+    || !Number.isFinite(rowTotal)
+    || snapshotTotal !== rowTotal
+  ) return null
+
+  const scoreBreakdown = parseJsonObject(snapshot.scoreBreakdown ?? snapshot.score_breakdown)
+  if (!scoreBreakdown) return null
+
+  const total = snapshotTotal
+  const isBalanced = scoreModelVersion === BALANCED_COMPATIBILITY_VERSION
+  if (!isBalanced) {
+    if (scoreModelVersion === OPPOSITES_COMPATIBILITY_VERSION && !isCurrentOppositesScoreSnapshot({
+      modelVersion: rowScoreModelVersion,
+      contentHash: rowScoreContentHash,
+      snapshot,
+      persistedTotal: storedTotal,
+    })) return null
+    // Historical snapshots from a different model remain explicitly versioned.
+    // Their raw keys are preserved instead of being relabelled as current-model
+    // components with today's maxima.
+    return {
+      ...scoreBreakdown,
+      total: Number.isFinite(total) ? total : null,
+      scoreModelVersion: scoreModelVersion || null,
+      score_model_version: scoreModelVersion || null,
+      scoreMaximum: Number(snapshot.scoreMaximum ?? snapshot.score_maximum ?? 100),
+      legacy: true,
+    }
+  }
+
+  const questionScores = parseJsonObject(snapshot.questionScores ?? snapshot.question_scores)
+  const vibeAxes = parseJsonObject(snapshot.vibeAxes ?? snapshot.vibe_axes)
+  if (
+    !questionScores
+    || !vibeAxes
+    || snapshot.vibeModel !== BALANCED_VIBE_MODEL
+    || snapshot.vibeModelVersion !== BALANCED_VIBE_VERSION
+    || snapshot.vibeModelTag !== BALANCED_VIBE_MODEL_TAG
+  ) return null
+
+  const valuesBoundariesLanguage = Number(
+    scoreBreakdown.valuesBoundariesLanguage
+    ?? ((scoreBreakdown.valuesBoundaries ?? 0) + (scoreBreakdown.language ?? 0)),
+  )
+  return {
+    ...scoreBreakdown,
+    total: Number.isFinite(total) ? total : 0,
+    scoreModelVersion,
+    score_model_version: scoreModelVersion,
+    scoreMaximum: Number(snapshot.scoreMaximum ?? snapshot.score_maximum ?? 100),
+    vibeMaximum: Number(snapshot.vibeMaximum ?? snapshot.vibe_maximum ?? BALANCED_VIBE_MAX),
+    vibeModelVersion: snapshot.vibeModelVersion ?? snapshot.vibe_model_version ?? null,
+    questionScores,
+    vibeAxes,
+    synergy: Number(scoreBreakdown.interactionRhythm ?? 0),
+    vibe: Number(scoreBreakdown.aiSemantic ?? 0),
+    lifestyle: Number(scoreBreakdown.lifestyleSustainability ?? 0),
+    humorOpen: Number(scoreBreakdown.humorOpenness ?? 0),
+    communication: Number(scoreBreakdown.communicationDisagreement ?? 0),
+    coreValues: valuesBoundariesLanguage,
+    valuesBoundariesLanguage,
+    intent: Number(scoreBreakdown.intent ?? 0),
+  }
+}
+
+function formatParticipantBreakdownReason(breakdown) {
+  if (!breakdown) return ""
+  if (breakdown.scoreModelVersion !== BALANCED_COMPATIBILITY_VERSION) {
+    return breakdown.scoreModelVersion
+      ? `Historical score model: ${breakdown.scoreModelVersion}`
+      : "Historical score model"
+  }
+  const value = key => Number(breakdown?.[key] ?? 0)
+  return [
+    `Common Ground: ${value("semanticCommonGround")}/18`,
+    `Interaction: ${value("interactionRhythm")}/20`,
+    `Humor/Openness: ${value("humorOpenness")}/10`,
+    `Attachment: ${value("attachmentComfort")}/8`,
+    `Lifestyle: ${value("lifestyleSustainability")}/12`,
+    `Values/Language: ${value("valuesBoundariesLanguage")}/17`,
+    `Communication/Disagreement: ${value("communicationDisagreement")}/10`,
+    `Intent: ${value("intent")}/5`,
+  ].join(" + ")
+}
+
+async function fetchParticipantBalancedCacheBreakdown(participantA, participantB) {
+  const [smaller, larger] = [Number(participantA), Number(participantB)].sort((a, b) => a - b)
+  if (!Number.isFinite(smaller) || !Number.isFinite(larger) || smaller === larger) return null
+
+  const { data: participantRows, error: participantError } = await supabase
+    .from("participants")
+    .select("*")
+    .eq("match_id", process.env.CURRENT_MATCH_ID || STATIC_MATCH_ID)
+    .in("assigned_number", [smaller, larger])
+
+  if (participantError || !Array.isArray(participantRows) || participantRows.length !== 2) {
+    if (participantError) console.error("Could not load participant profiles for compatibility cache identity:", participantError)
+    return null
+  }
+
+  const byNumber = new Map(participantRows.map(row => [Number(row.assigned_number), row]))
+  const smallerProfile = byNumber.get(smaller)
+  const largerProfile = byNumber.get(larger)
+  if (!smallerProfile || !largerProfile) return null
+  const identity = buildBalancedCacheIdentity(smallerProfile, largerProfile)
+
+  const { data: cacheRow, error } = await supabase
+    .from("compatibility_cache")
+    .select("*")
+    .eq("participant_a_number", smaller)
+    .eq("participant_b_number", larger)
+    .eq("combined_content_hash", identity.combinedContentHash)
+    .eq("vibe_content_hash", identity.vibeContentHash)
+    .eq("score_model_version", BALANCED_COMPATIBILITY_VERSION)
+    .like("model_used", `${BALANCED_VIBE_MODEL_TAG}%`)
+    .maybeSingle()
+
+  if (error) {
+    console.error("Could not load balanced compatibility breakdown:", error)
+    return null
+  }
+  if (
+    !cacheRow
+    || cacheRow.combined_content_hash !== identity.combinedContentHash
+    || cacheRow.vibe_content_hash !== identity.vibeContentHash
+    || cacheRow.score_model_version !== BALANCED_COMPATIBILITY_VERSION
+    || !(
+      String(cacheRow.model_used ?? "") === BALANCED_VIBE_MODEL_TAG
+      || String(cacheRow.model_used ?? "").startsWith(`${BALANCED_VIBE_MODEL_TAG}|`)
+    )
+  ) return null
+
+  const fallbackTag = String(cacheRow.model_used ?? "").split("|").find(part => part.startsWith("fallback="))
+  if (fallbackTag && fallbackTag !== "fallback=incomplete_vibe_profile") return null
+
+  return withParticipantBreakdownAliases(cacheRow)
+}
 
 async function findParticipantsByExactPhone(phoneNumber, columns = "id, assigned_number, name, phone_number, secure_token") {
   const normalizedPhone = normalizeParticipantPhone(phoneNumber)
@@ -651,6 +860,11 @@ export default async function handler(req, res) {
             const partnerInfo = isParticipantA ? match.participant_b : match.participant_a
             const wantsMatch = isParticipantA ? match.participant_a_wants_match : match.participant_b_wants_match
             const partnerWantsMatch = isParticipantA ? match.participant_b_wants_match : match.participant_a_wants_match
+            const scoreSnapshotBreakdown = participantBreakdownFromScoreSnapshot(match.score_snapshot, {
+              scoreModelVersion: match.score_model_version,
+              scoreContentHash: match.score_content_hash,
+              storedTotal: match.compatibility_score,
+            })
             
             return {
               with: partnerNumber,
@@ -659,14 +873,28 @@ export default async function handler(req, res) {
               partner_phone: partnerInfo?.phone_number || null,
               type: match.match_type || "غير محدد",
               reason: match.reason || "السبب غير متوفر",
-              round: match.round || 1,
+              round: match.round ?? 1,
               table_number: match.table_number,
-              score: match.compatibility_score || 0,
+              score: match.compatibility_score ?? scoreSnapshotBreakdown?.total ?? 0,
+              score_model_version: scoreSnapshotBreakdown ? (match.score_model_version ?? null) : null,
+              score_content_hash: scoreSnapshotBreakdown ? (match.score_content_hash ?? null) : null,
+              score_snapshot: scoreSnapshotBreakdown ? (match.score_snapshot ?? null) : null,
+              score_provenance_valid: !!scoreSnapshotBreakdown,
+              breakdown: scoreSnapshotBreakdown,
               is_repeat_match: match.is_repeat_match || false,
               mutual_match: match.mutual_match || false,
               wants_match: wantsMatch,
               partner_wants_match: partnerWantsMatch,
-              created_at: match.created_at
+              created_at: match.created_at,
+              // Persisted legacy fields remain available for old rows; they are
+              // never relabelled as balanced components without a snapshot.
+              synergy_score: match.synergy_score ?? null,
+              humor_open_score: match.humor_open_score ?? null,
+              intent_score: match.intent_score ?? null,
+              communication_compatibility_score: match.communication_compatibility_score ?? null,
+              lifestyle_compatibility_score: match.lifestyle_compatibility_score ?? null,
+              core_values_compatibility_score: match.core_values_compatibility_score ?? null,
+              vibe_compatibility_score: match.vibe_compatibility_score ?? null,
             }
           })
         }
@@ -695,7 +923,7 @@ export default async function handler(req, res) {
         try {
           const { data: e3data, error: e3error } = await supabase
             .from("event3_matches")
-            .select("event_id,phase2_partner,phase2_score,phase2_word,phase2_feedback,phase3_partner,phase3_score,phase3_word,phase3_feedback,match_preference")
+            .select("event_id,phase2_partner,phase2_score,phase2_score_model_version,phase2_score_content_hash,phase2_score_snapshot,phase2_word,phase2_feedback,phase3_partner,phase3_score,phase3_score_model_version,phase3_score_content_hash,phase3_score_snapshot,phase3_word,phase3_feedback,match_preference")
             .eq("match_id", E3_MATCH_ID)
             .eq("participant_number", data.assigned_number)
           e3Matches = e3data
@@ -736,30 +964,6 @@ export default async function handler(req, res) {
             }
           }
 
-          const getBreakdown = async (partnerNum) => {
-            if (!partnerNum) return null
-            const [pa, pb] = [data.assigned_number, partnerNum].sort((x, y) => x - y)
-            const { data: cacheRows } = await supabase
-              .from("compatibility_cache")
-              .select("*")
-              .eq("participant_a_number", pa)
-              .eq("participant_b_number", pb)
-              .order("last_used", { ascending: false })
-              .limit(1)
-            const cacheRow = Array.isArray(cacheRows) ? cacheRows[0] : null
-            if (!cacheRow) return null
-            return {
-              synergy: Math.round(parseFloat(cacheRow.interaction_synergy_score)),
-              vibe: Math.round(parseFloat(cacheRow.ai_vibe_score)),
-              lifestyle: Math.round(parseFloat(cacheRow.lifestyle_score)),
-              humorOpen: Math.max(0, Math.round(parseFloat(cacheRow.total_compatibility_score) - parseFloat(cacheRow.interaction_synergy_score) - parseFloat(cacheRow.ai_vibe_score) - parseFloat(cacheRow.lifestyle_score) - parseFloat(cacheRow.communication_score) - Math.round((parseFloat(cacheRow.core_values_score) / 20) * 5))),
-              communication: Math.round(parseFloat(cacheRow.communication_score)),
-              coreValues: Math.round((parseFloat(cacheRow.core_values_score) / 20) * 5),
-              intent: Math.round(parseFloat(cacheRow.intent_goal_score) || 0),
-              total: Math.round(parseFloat(cacheRow.total_compatibility_score)),
-            }
-          }
-
           for (const e3Match of e3Matches) {
             const evId = e3Match.event_id || 20
             let p2PartnerFb = null, p3PartnerFb = null
@@ -774,7 +978,11 @@ export default async function handler(req, res) {
 
             if (e3Match.phase2_partner) {
               const p2Partner = partnerMap[e3Match.phase2_partner]
-              const p2Breakdown = await getBreakdown(e3Match.phase2_partner)
+              const p2Breakdown = participantBreakdownFromScoreSnapshot(e3Match.phase2_score_snapshot, {
+                scoreModelVersion: e3Match.phase2_score_model_version,
+                scoreContentHash: e3Match.phase2_score_content_hash,
+                storedTotal: e3Match.phase2_score,
+              })
               const myFb2 = e3Match.phase2_feedback || null
               const myWant2 = myFb2?.wantConnect ?? null
               const partnerWant2 = p2PartnerFb?.wantConnect ?? null
@@ -786,10 +994,14 @@ export default async function handler(req, res) {
                 partner_phone: p2Partner?.phone || null,
                 partner_event_id: evId,
                 type: "choice",
-                reason: p2Breakdown ? `Synergy: ${p2Breakdown.synergy}% + Vibe: ${p2Breakdown.vibe}% + Lifestyle: ${p2Breakdown.lifestyle}% + Humor/Openness: ${p2Breakdown.humorOpen}% + Communication: ${p2Breakdown.communication}% + Intent: ${p2Breakdown.intent}%` : "",
+                reason: formatParticipantBreakdownReason(p2Breakdown),
                 round: 20,
                 table_number: null,
-                score: e3Match.phase2_score || 0,
+                score: e3Match.phase2_score ?? p2Breakdown?.total ?? 0,
+                score_model_version: p2Breakdown ? (e3Match.phase2_score_model_version ?? null) : null,
+                score_content_hash: p2Breakdown ? (e3Match.phase2_score_content_hash ?? null) : null,
+                score_snapshot: p2Breakdown ? (e3Match.phase2_score_snapshot ?? null) : null,
+                score_provenance_valid: !!p2Breakdown,
                 is_repeat_match: false,
                 mutual_match: mutual2,
                 wants_match: myWant2,
@@ -827,7 +1039,11 @@ export default async function handler(req, res) {
 
             if (e3Match.phase3_partner) {
               const p3Partner = partnerMap[e3Match.phase3_partner]
-              const p3Breakdown = await getBreakdown(e3Match.phase3_partner)
+              const p3Breakdown = participantBreakdownFromScoreSnapshot(e3Match.phase3_score_snapshot, {
+                scoreModelVersion: e3Match.phase3_score_model_version,
+                scoreContentHash: e3Match.phase3_score_content_hash,
+                storedTotal: e3Match.phase3_score,
+              })
               const myFb3 = e3Match.phase3_feedback || null
               const myWant3 = myFb3?.wantConnect ?? null
               const partnerWant3 = p3PartnerFb?.wantConnect ?? null
@@ -839,10 +1055,14 @@ export default async function handler(req, res) {
                 partner_phone: p3Partner?.phone || null,
                 partner_event_id: evId,
                 type: "algorithm",
-                reason: p3Breakdown ? `Synergy: ${p3Breakdown.synergy}% + Vibe: ${p3Breakdown.vibe}% + Lifestyle: ${p3Breakdown.lifestyle}% + Humor/Openness: ${p3Breakdown.humorOpen}% + Communication: ${p3Breakdown.communication}% + Intent: ${p3Breakdown.intent}%` : "",
+                reason: formatParticipantBreakdownReason(p3Breakdown),
                 round: 21,
                 table_number: null,
-                score: e3Match.phase3_score || 0,
+                score: e3Match.phase3_score ?? p3Breakdown?.total ?? 0,
+                score_model_version: p3Breakdown ? (e3Match.phase3_score_model_version ?? null) : null,
+                score_content_hash: p3Breakdown ? (e3Match.phase3_score_content_hash ?? null) : null,
+                score_snapshot: p3Breakdown ? (e3Match.phase3_score_snapshot ?? null) : null,
+                score_provenance_valid: !!p3Breakdown,
                 is_repeat_match: false,
                 mutual_match: mutual3,
                 wants_match: myWant3,
@@ -1655,6 +1875,11 @@ export default async function handler(req, res) {
         const partnerWantsMatch = isParticipantA ? match.participant_b_wants_match : match.participant_a_wants_match
         const effectiveRound = (match.round ?? 1)
         const effectiveEventId = (match.event_id ?? 1)
+        const scoreSnapshotBreakdown = participantBreakdownFromScoreSnapshot(match.score_snapshot, {
+          scoreModelVersion: match.score_model_version,
+          scoreContentHash: match.score_content_hash,
+          storedTotal: match.compatibility_score,
+        })
         
         // Fetch partner information from the same match_id
         let partnerInfo = null
@@ -1794,7 +2019,12 @@ export default async function handler(req, res) {
           reason: match.reason || "السبب غير متوفر",
           round: effectiveRound,
           table_number: match.table_number,
-          score: match.compatibility_score || 0,
+          score: match.compatibility_score ?? scoreSnapshotBreakdown?.total ?? 0,
+          score_model_version: scoreSnapshotBreakdown ? (match.score_model_version ?? null) : null,
+          score_content_hash: scoreSnapshotBreakdown ? (match.score_content_hash ?? null) : null,
+          score_snapshot: scoreSnapshotBreakdown ? (match.score_snapshot ?? null) : null,
+          score_provenance_valid: !!scoreSnapshotBreakdown,
+          breakdown: scoreSnapshotBreakdown,
           is_repeat_match: match.is_repeat_match || false,
           mutual_match: isMutualMatch,
           wants_match: wantsMatch,
@@ -1811,6 +2041,7 @@ export default async function handler(req, res) {
           intent_score: match.intent_score ?? null,
           communication_compatibility_score: match.communication_compatibility_score ?? null,
           lifestyle_compatibility_score: match.lifestyle_compatibility_score ?? null,
+          core_values_compatibility_score: match.core_values_compatibility_score ?? null,
           vibe_compatibility_score: match.vibe_compatibility_score ?? null
         }
       }));
@@ -1843,7 +2074,7 @@ export default async function handler(req, res) {
           try {
             const { data, error } = await supabase
               .from("event3_matches")
-              .select("event_id,phase2_partner,phase2_score,phase2_word,phase2_feedback,phase3_partner,phase3_score,phase3_word,phase3_feedback,match_preference")
+              .select("event_id,phase2_partner,phase2_score,phase2_score_model_version,phase2_score_content_hash,phase2_score_snapshot,phase2_word,phase2_feedback,phase3_partner,phase3_score,phase3_score_model_version,phase3_score_content_hash,phase3_score_snapshot,phase3_word,phase3_feedback,match_preference")
               .eq("match_id", E3_MATCH_ID)
               .eq("participant_number", participant.assigned_number)
             e3Matches = data
@@ -1888,31 +2119,6 @@ export default async function handler(req, res) {
             }
           }
 
-          // Helper to get compatibility breakdown from cache (event-independent)
-          const getBreakdown = async (partnerNum) => {
-            if (!partnerNum) return null
-            const [pa, pb] = [participant.assigned_number, partnerNum].sort((x, y) => x - y)
-            const { data: cacheRows } = await supabase
-              .from("compatibility_cache")
-              .select("*")
-              .eq("participant_a_number", pa)
-              .eq("participant_b_number", pb)
-              .order("last_used", { ascending: false })
-              .limit(1)
-            const cacheRow = Array.isArray(cacheRows) ? cacheRows[0] : null
-            if (!cacheRow) return null
-            return {
-              synergy: Math.round(parseFloat(cacheRow.interaction_synergy_score)),
-              vibe: Math.round(parseFloat(cacheRow.ai_vibe_score)),
-              lifestyle: Math.round(parseFloat(cacheRow.lifestyle_score)),
-              humorOpen: Math.max(0, Math.round(parseFloat(cacheRow.total_compatibility_score) - parseFloat(cacheRow.interaction_synergy_score) - parseFloat(cacheRow.ai_vibe_score) - parseFloat(cacheRow.lifestyle_score) - parseFloat(cacheRow.communication_score) - Math.round((parseFloat(cacheRow.core_values_score) / 20) * 5))),
-              communication: Math.round(parseFloat(cacheRow.communication_score)),
-              coreValues: Math.round((parseFloat(cacheRow.core_values_score) / 20) * 5),
-              intent: Math.round(parseFloat(cacheRow.intent_goal_score) || 0),
-              total: Math.round(parseFloat(cacheRow.total_compatibility_score)),
-            }
-          }
-
           // Build history entries for each event the participant took part in.
           for (const e3Match of e3Matches) {
             const evId = e3Match.event_id || 20
@@ -1931,7 +2137,11 @@ export default async function handler(req, res) {
             // Add Phase 2 (Choice) match
             if (e3Match.phase2_partner) {
               const p2Partner = partnerMap[e3Match.phase2_partner]
-              const p2Breakdown = await getBreakdown(e3Match.phase2_partner)
+              const p2Breakdown = participantBreakdownFromScoreSnapshot(e3Match.phase2_score_snapshot, {
+                scoreModelVersion: e3Match.phase2_score_model_version,
+                scoreContentHash: e3Match.phase2_score_content_hash,
+                storedTotal: e3Match.phase2_score,
+              })
               const myFb2 = e3Match.phase2_feedback || null
               const partnerFb2 = p2PartnerFb
               const myWant2 = myFb2?.wantConnect ?? null
@@ -1944,10 +2154,14 @@ export default async function handler(req, res) {
                 partner_phone: p2Partner?.phone || null,
                 partner_event_id: evId,
                 type: "choice",
-                reason: p2Breakdown ? `Synergy: ${p2Breakdown.synergy}% + Vibe: ${p2Breakdown.vibe}% + Lifestyle: ${p2Breakdown.lifestyle}% + Humor/Openness: ${p2Breakdown.humorOpen}% + Communication: ${p2Breakdown.communication}% + Intent: ${p2Breakdown.intent}%` : "",
+                reason: formatParticipantBreakdownReason(p2Breakdown),
                 round: 20,
                 table_number: null,
-                score: e3Match.phase2_score || 0,
+                score: e3Match.phase2_score ?? p2Breakdown?.total ?? 0,
+                score_model_version: p2Breakdown ? (e3Match.phase2_score_model_version ?? null) : null,
+                score_content_hash: p2Breakdown ? (e3Match.phase2_score_content_hash ?? null) : null,
+                score_snapshot: p2Breakdown ? (e3Match.phase2_score_snapshot ?? null) : null,
+                score_provenance_valid: !!p2Breakdown,
                 is_repeat_match: false,
                 mutual_match: mutual2,
                 wants_match: myWant2,
@@ -1998,7 +2212,11 @@ export default async function handler(req, res) {
             // Add Phase 3 (Algorithm) match
             if (e3Match.phase3_partner) {
               const p3Partner = partnerMap[e3Match.phase3_partner]
-              const p3Breakdown = await getBreakdown(e3Match.phase3_partner)
+              const p3Breakdown = participantBreakdownFromScoreSnapshot(e3Match.phase3_score_snapshot, {
+                scoreModelVersion: e3Match.phase3_score_model_version,
+                scoreContentHash: e3Match.phase3_score_content_hash,
+                storedTotal: e3Match.phase3_score,
+              })
               const myFb3 = e3Match.phase3_feedback || null
               const partnerFb3 = p3PartnerFb
               const myWant3 = myFb3?.wantConnect ?? null
@@ -2011,10 +2229,14 @@ export default async function handler(req, res) {
                 partner_phone: p3Partner?.phone || null,
                 partner_event_id: evId,
                 type: "algorithm",
-                reason: p3Breakdown ? `Synergy: ${p3Breakdown.synergy}% + Vibe: ${p3Breakdown.vibe}% + Lifestyle: ${p3Breakdown.lifestyle}% + Humor/Openness: ${p3Breakdown.humorOpen}% + Communication: ${p3Breakdown.communication}% + Intent: ${p3Breakdown.intent}%` : "",
+                reason: formatParticipantBreakdownReason(p3Breakdown),
                 round: 21,
                 table_number: null,
-                score: e3Match.phase3_score || 0,
+                score: e3Match.phase3_score ?? p3Breakdown?.total ?? 0,
+                score_model_version: p3Breakdown ? (e3Match.phase3_score_model_version ?? null) : null,
+                score_content_hash: p3Breakdown ? (e3Match.phase3_score_content_hash ?? null) : null,
+                score_snapshot: p3Breakdown ? (e3Match.phase3_score_snapshot ?? null) : null,
+                score_provenance_valid: !!p3Breakdown,
                 is_repeat_match: false,
                 mutual_match: mutual3,
                 wants_match: myWant3,
@@ -3621,7 +3843,7 @@ Please respond in JSON format:
 
       // e3-get-phase2-reveal
       if (action === "e3-get-phase2-reveal") {
-        const { data: matchRow } = await supabase.from("event3_matches").select("phase2_partner,phase2_word,phase2_score,phase2_feedback").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber).maybeSingle()
+        const { data: matchRow } = await supabase.from("event3_matches").select("phase2_partner,phase2_word,phase2_score,phase2_score_model_version,phase2_score_content_hash,phase2_score_snapshot,phase2_feedback").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber).maybeSingle()
         if (!matchRow || !matchRow.phase2_partner) return res.status(404).json({ error: "No Phase 2 match found yet" })
         const [{ data: partner }, { data: tableRow }, { data: myRankings }, { data: partnerRankedMe }] = await Promise.all([
           supabase.from("participants").select("assigned_number,name,survey_data,mbti_personality_type,age").eq("match_id", MAIN_MATCH).eq("assigned_number", matchRow.phase2_partner).single(),
@@ -3639,38 +3861,26 @@ Please respond in JSON format:
         const partnerAttachment = getF(partner, "attachment_style") || ""
         const partnerCommunication = getF(partner, "communication_style") || ""
         const partnerAge = parseInt(getF(partner, "age") || partner?.age) || null
-        // Use stored phase2_score (real compatibility), fallback to heuristic if missing
-        let phase2Score = matchRow.phase2_score || 0
-        if (!phase2Score) {
-          phase2Score = 50
-          const mA = (getF(participant, "mbti_type") || participant.mbti_personality_type || "").toUpperCase()
-          const mB = (getF(partner, "mbti_type") || partner?.mbti_personality_type || "").toUpperCase()
-          if (mA.length === 4 && mB.length === 4) { let s = 0; for (let i = 0; i < 4; i++) if (mA[i] === mB[i]) s++; phase2Score += s >= 3 ? 10 : s === 2 ? 5 : 0 }
-          const ageA = parseInt(getF(participant, "age") || participant.age) || 0, ageB = parseInt(getF(partner, "age") || partner?.age) || 0
-          if (ageA && ageB) { const d = Math.abs(ageA - ageB); phase2Score += d <= 2 ? 10 : d <= 5 ? 5 : d > 10 ? -10 : 0 }
-          const atA = (getF(participant, "attachment_style") || "").toLowerCase(), atB = (getF(partner, "attachment_style") || "").toLowerCase()
-          if (atA && atB) { if (atA === atB && atA === "secure") phase2Score += 10; else if (atA === "secure" || atB === "secure") phase2Score += 5 }
-          phase2Score = Math.min(99, Math.max(1, phase2Score))
+        // Use the score persisted when the match was made. If an older row is
+        // missing it, fall back to the current versioned cache—not a second,
+        // unrelated MBTI/age/attachment formula.
+        const hasStoredPhase2Score = matchRow.phase2_score !== null
+          && matchRow.phase2_score !== undefined
+          && Number.isFinite(Number(matchRow.phase2_score))
+        // A stored event-time snapshot always wins. If this legacy row has a
+        // stored total but no snapshot, do not attach today's components to it.
+        let breakdown = participantBreakdownFromScoreSnapshot(matchRow.phase2_score_snapshot, {
+          scoreModelVersion: matchRow.phase2_score_model_version,
+          scoreContentHash: matchRow.phase2_score_content_hash,
+          storedTotal: matchRow.phase2_score,
+        })
+        if (!breakdown && !hasStoredPhase2Score) {
+          breakdown = await fetchParticipantBalancedCacheBreakdown(myNumber, matchRow.phase2_partner)
         }
-        // Fetch compatibility breakdown from cache (same as Phase 3)
-        let breakdown = null
-        const [a, b] = [myNumber, matchRow.phase2_partner].sort((x, y) => x - y)
-        const { data: cacheRow } = await supabase.from("compatibility_cache").select("*").eq("participant_a_number", a).eq("participant_b_number", b).order("last_used", { ascending: false }).limit(1).single()
-        if (cacheRow) {
-          const coreScaled5 = Math.round((parseFloat(cacheRow.core_values_score) / 20) * 5)
-          const humorOpen = Math.max(0, Math.round(parseFloat(cacheRow.total_compatibility_score) - parseFloat(cacheRow.interaction_synergy_score) - parseFloat(cacheRow.ai_vibe_score) - parseFloat(cacheRow.lifestyle_score) - parseFloat(cacheRow.communication_score) - coreScaled5))
-          breakdown = {
-            synergy: Math.round(parseFloat(cacheRow.interaction_synergy_score)),
-            vibe: Math.round(parseFloat(cacheRow.ai_vibe_score)),
-            lifestyle: Math.round(parseFloat(cacheRow.lifestyle_score)),
-            humorOpen,
-            communication: Math.round(parseFloat(cacheRow.communication_score)),
-            coreValues: coreScaled5,
-            intent: Math.round(parseFloat(cacheRow.intent_goal_score) || 0),
-            total: Math.round(parseFloat(cacheRow.total_compatibility_score)),
-          }
-        }
-        return res.status(200).json({ partner_number: matchRow.phase2_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), table_number: tableRow?.table_number ?? null, word_submitted: !!matchRow.phase2_word, my_word: matchRow.phase2_word || null, feedback_submitted: !!matchRow.phase2_feedback, compatibility_score: breakdown?.total ?? phase2Score, partner_mbti: partnerMbti, partner_attachment: partnerAttachment, partner_communication: partnerCommunication, partner_age: partnerAge, breakdown, is_backup: isBackup, mutual_choice: iRankedPartner && partnerRankedMeBack })
+        const phase2Score = hasStoredPhase2Score
+          ? Number(matchRow.phase2_score)
+          : Number(breakdown?.total ?? 0)
+        return res.status(200).json({ partner_number: matchRow.phase2_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), table_number: tableRow?.table_number ?? null, word_submitted: !!matchRow.phase2_word, my_word: matchRow.phase2_word || null, feedback_submitted: !!matchRow.phase2_feedback, compatibility_score: phase2Score, score_model_version: breakdown?.scoreModelVersion ?? null, breakdown, partner_mbti: partnerMbti, partner_attachment: partnerAttachment, partner_communication: partnerCommunication, partner_age: partnerAge, is_backup: isBackup, mutual_choice: iRankedPartner && partnerRankedMeBack })
       }
 
       // e3-submit-phase2-word
@@ -3684,7 +3894,7 @@ Please respond in JSON format:
 
       // e3-get-phase3-reveal
       if (action === "e3-get-phase3-reveal") {
-        const { data: matchRow } = await supabase.from("event3_matches").select("phase3_partner,phase3_score,phase3_word,phase2_partner,phase3_feedback").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber).maybeSingle()
+        const { data: matchRow } = await supabase.from("event3_matches").select("phase3_partner,phase3_score,phase3_score_model_version,phase3_score_content_hash,phase3_score_snapshot,phase3_word,phase2_partner,phase3_feedback").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber).maybeSingle()
         if (!matchRow || !matchRow.phase3_partner) return res.status(404).json({ error: "No Phase 3 match found yet" })
         const { data: partner } = await supabase.from("participants").select("assigned_number,name,survey_data,mbti_personality_type,age").eq("match_id", MAIN_MATCH).eq("assigned_number", matchRow.phase3_partner).single()
         const sd = typeof partner?.survey_data === "string" ? JSON.parse(partner.survey_data || "{}") : (partner?.survey_data || {})
@@ -3693,27 +3903,20 @@ Please respond in JSON format:
         const partnerAttachment = getF(partner, "attachment_style") || ""
         const partnerCommunication = getF(partner, "communication_style") || ""
         const partnerAge = parseInt(getF(partner, "age") || partner?.age) || null
-        // Fetch compatibility breakdown from cache
-        let breakdown = null
-        const [a, b] = [myNumber, matchRow.phase3_partner].sort((x, y) => x - y)
-        const { data: cacheRow } = await supabase.from("compatibility_cache").select("*").eq("participant_a_number", a).eq("participant_b_number", b).order("last_used", { ascending: false }).limit(1).single()
-        if (cacheRow) {
-          const coreScaled5 = Math.round((parseFloat(cacheRow.core_values_score) / 20) * 5)
-          const humorOpen = Math.max(0, Math.round(parseFloat(cacheRow.total_compatibility_score) - parseFloat(cacheRow.interaction_synergy_score) - parseFloat(cacheRow.ai_vibe_score) - parseFloat(cacheRow.lifestyle_score) - parseFloat(cacheRow.communication_score) - coreScaled5))
-          breakdown = {
-            synergy: Math.round(parseFloat(cacheRow.interaction_synergy_score)),
-            vibe: Math.round(parseFloat(cacheRow.ai_vibe_score)),
-            lifestyle: Math.round(parseFloat(cacheRow.lifestyle_score)),
-            humorOpen,
-            communication: Math.round(parseFloat(cacheRow.communication_score)),
-            coreValues: coreScaled5,
-            intent: Math.round(parseFloat(cacheRow.intent_goal_score) || 0),
-            total: Math.round(parseFloat(cacheRow.total_compatibility_score)),
-          }
+        const hasStoredPhase3Score = matchRow.phase3_score !== null
+          && matchRow.phase3_score !== undefined
+          && Number.isFinite(Number(matchRow.phase3_score))
+        let breakdown = participantBreakdownFromScoreSnapshot(matchRow.phase3_score_snapshot, {
+          scoreModelVersion: matchRow.phase3_score_model_version,
+          scoreContentHash: matchRow.phase3_score_content_hash,
+          storedTotal: matchRow.phase3_score,
+        })
+        if (!breakdown && !hasStoredPhase3Score) {
+          breakdown = await fetchParticipantBalancedCacheBreakdown(myNumber, matchRow.phase3_partner)
         }
         // Fetch table number from round 30 session_assignments
         const { data: tableRow } = await supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("round", 30).eq("participant_id", myNumber).maybeSingle()
-        return res.status(200).json({ partner_number: matchRow.phase3_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), compatibility_score: breakdown?.total ?? matchRow.phase3_score ?? 0, same_as_phase2: matchRow.phase2_partner === matchRow.phase3_partner, word_submitted: !!matchRow.phase3_word, feedback_submitted: !!matchRow.phase3_feedback, partner_mbti: partnerMbti, partner_attachment: partnerAttachment, partner_communication: partnerCommunication, partner_age: partnerAge, breakdown, table_number: tableRow?.table_number ?? null })
+        return res.status(200).json({ partner_number: matchRow.phase3_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), compatibility_score: matchRow.phase3_score ?? breakdown?.total ?? 0, score_model_version: breakdown?.scoreModelVersion ?? null, same_as_phase2: matchRow.phase2_partner === matchRow.phase3_partner, word_submitted: !!matchRow.phase3_word, feedback_submitted: !!matchRow.phase3_feedback, partner_mbti: partnerMbti, partner_attachment: partnerAttachment, partner_communication: partnerCommunication, partner_age: partnerAge, breakdown, table_number: tableRow?.table_number ?? null })
       }
 
       // e3-submit-phase3-word
@@ -3767,40 +3970,38 @@ Please respond in JSON format:
 
       // e3-get-final-reveal
       if (action === "e3-get-final-reveal") {
-        const { data: matchRow } = await supabase.from("event3_matches").select("phase2_partner,phase3_partner,phase2_word,phase3_word,phase2_score,phase3_score,match_preference").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber).maybeSingle()
+        const { data: matchRow } = await supabase.from("event3_matches").select("phase2_partner,phase3_partner,phase2_word,phase3_word,phase2_score,phase2_score_model_version,phase2_score_content_hash,phase2_score_snapshot,phase3_score,phase3_score_model_version,phase3_score_content_hash,phase3_score_snapshot,match_preference").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber).maybeSingle()
         if (!matchRow) return res.status(404).json({ error: "No match data found" })
         const partnerNums = [matchRow.phase2_partner, matchRow.phase3_partner].filter(Boolean)
         const { data: partners } = await supabase.from("participants").select("assigned_number,name,survey_data").eq("match_id", MAIN_MATCH).in("assigned_number", partnerNums)
         const pMap = {}
         for (const p of partners || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); pMap[p.assigned_number] = firstName(p.name || sd?.answers?.name || sd?.name) }
-        // Helper to fetch breakdown from cache for a pair
-        const getBreakdown = async (partnerNum) => {
-          if (!partnerNum) return null
-          const [pa, pb] = [myNumber, partnerNum].sort((x, y) => x - y)
-          const { data: cacheRow } = await supabase.from("compatibility_cache").select("*").eq("participant_a_number", pa).eq("participant_b_number", pb).order("last_used", { ascending: false }).limit(1).single()
-          if (!cacheRow) return null
-          const coreScaled5 = Math.round((parseFloat(cacheRow.core_values_score) / 20) * 5)
-          const humorOpen = Math.max(0, Math.round(parseFloat(cacheRow.total_compatibility_score) - parseFloat(cacheRow.interaction_synergy_score) - parseFloat(cacheRow.ai_vibe_score) - parseFloat(cacheRow.lifestyle_score) - parseFloat(cacheRow.communication_score) - coreScaled5))
-          return {
-            synergy: Math.round(parseFloat(cacheRow.interaction_synergy_score)),
-            vibe: Math.round(parseFloat(cacheRow.ai_vibe_score)),
-            lifestyle: Math.round(parseFloat(cacheRow.lifestyle_score)),
-            humorOpen,
-            communication: Math.round(parseFloat(cacheRow.communication_score)),
-            coreValues: coreScaled5,
-            intent: Math.round(parseFloat(cacheRow.intent_goal_score) || 0),
-            total: Math.round(parseFloat(cacheRow.total_compatibility_score)),
-          }
-        }
-        // Fetch breakdowns and current_event_id in parallel
-        const [phase2Breakdown, phase3Breakdown, eventStateRow] = await Promise.all([
-          getBreakdown(matchRow.phase2_partner),
-          getBreakdown(matchRow.phase3_partner),
+        let phase2Breakdown = participantBreakdownFromScoreSnapshot(matchRow.phase2_score_snapshot, {
+          scoreModelVersion: matchRow.phase2_score_model_version,
+          scoreContentHash: matchRow.phase2_score_content_hash,
+          storedTotal: matchRow.phase2_score,
+        })
+        let phase3Breakdown = participantBreakdownFromScoreSnapshot(matchRow.phase3_score_snapshot, {
+          scoreModelVersion: matchRow.phase3_score_model_version,
+          scoreContentHash: matchRow.phase3_score_content_hash,
+          storedTotal: matchRow.phase3_score,
+        })
+        const phase2HasStoredScore = matchRow.phase2_score !== null && matchRow.phase2_score !== undefined && Number.isFinite(Number(matchRow.phase2_score))
+        const phase3HasStoredScore = matchRow.phase3_score !== null && matchRow.phase3_score !== undefined && Number.isFinite(Number(matchRow.phase3_score))
+        const [phase2Fallback, phase3Fallback, eventStateRow] = await Promise.all([
+          !phase2Breakdown && !phase2HasStoredScore && matchRow.phase2_partner
+            ? fetchParticipantBalancedCacheBreakdown(myNumber, matchRow.phase2_partner)
+            : Promise.resolve(null),
+          !phase3Breakdown && !phase3HasStoredScore && matchRow.phase3_partner
+            ? fetchParticipantBalancedCacheBreakdown(myNumber, matchRow.phase3_partner)
+            : Promise.resolve(null),
           supabase.from("event_state").select("current_event_id").eq("match_id", MAIN_MATCH).single().then(r => r.data),
         ])
+        phase2Breakdown = phase2Breakdown ?? phase2Fallback
+        phase3Breakdown = phase3Breakdown ?? phase3Fallback
         return res.status(200).json({
-          phase2: { partner_number: matchRow.phase2_partner, partner_first_name: pMap[matchRow.phase2_partner] || "—", word: matchRow.phase2_word || null, compatibility_score: phase2Breakdown?.total ?? matchRow.phase2_score ?? 0, breakdown: phase2Breakdown },
-          phase3: { partner_number: matchRow.phase3_partner, partner_first_name: pMap[matchRow.phase3_partner] || "—", compatibility_score: phase3Breakdown?.total ?? matchRow.phase3_score ?? 0, word: matchRow.phase3_word || null, breakdown: phase3Breakdown },
+          phase2: { partner_number: matchRow.phase2_partner, partner_first_name: pMap[matchRow.phase2_partner] || "—", word: matchRow.phase2_word || null, compatibility_score: matchRow.phase2_score ?? phase2Breakdown?.total ?? 0, score_model_version: phase2Breakdown?.scoreModelVersion ?? null, breakdown: phase2Breakdown },
+          phase3: { partner_number: matchRow.phase3_partner, partner_first_name: pMap[matchRow.phase3_partner] || "—", compatibility_score: matchRow.phase3_score ?? phase3Breakdown?.total ?? 0, score_model_version: phase3Breakdown?.scoreModelVersion ?? null, word: matchRow.phase3_word || null, breakdown: phase3Breakdown },
           same_match: matchRow.phase2_partner && matchRow.phase2_partner === matchRow.phase3_partner,
           match_preference: matchRow.match_preference || null,
           current_event_id: eventStateRow?.current_event_id || 1

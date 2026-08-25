@@ -48,15 +48,146 @@ CREATE TABLE IF NOT EXISTS public.event3_matches (
   phase2_feedback jsonb,              -- full feedback form after Phase 2 session
   phase3_feedback jsonb,              -- full feedback form after Phase 3 session
   match_preference text,              -- 'choice' | 'algorithm' | 'both' | 'neither'
+  phase2_score_model_version text,
+  phase2_score_snapshot jsonb,
+  phase2_score_content_hash text,
+  phase3_score_model_version text,
+  phase3_score_snapshot jsonb,
+  phase3_score_content_hash text,
   created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
   event_id integer DEFAULT 20,
   CONSTRAINT event3_matches_match_event_participant_unique UNIQUE (match_id, event_id, participant_number),
-  CONSTRAINT event3_matches_match_preference_check CHECK (match_preference IN ('choice', 'algorithm', 'both', 'neither'))
+  CONSTRAINT event3_matches_match_preference_check CHECK (match_preference IN ('choice', 'algorithm', 'both', 'neither')),
+  CONSTRAINT event3_matches_phase2_score_snapshot_object CHECK (
+    phase2_score_snapshot IS NULL OR jsonb_typeof(phase2_score_snapshot) = 'object'
+  ),
+  CONSTRAINT event3_matches_phase3_score_snapshot_object CHECK (
+    phase3_score_snapshot IS NULL OR jsonb_typeof(phase3_score_snapshot) = 'object'
+  ),
+  CONSTRAINT event3_matches_phase2_score_provenance_complete CHECK (
+    CASE
+      WHEN phase2_score_model_version IS NULL AND phase2_score_snapshot IS NULL AND phase2_score_content_hash IS NULL
+        THEN true
+      WHEN phase2_score_model_version IS NOT NULL AND phase2_score_snapshot IS NOT NULL AND phase2_score_content_hash IS NOT NULL
+        THEN coalesce(phase2_score_snapshot ->> 'scoreModelVersion' = phase2_score_model_version
+          AND phase2_score_snapshot ->> 'combinedContentHash' = phase2_score_content_hash
+          AND jsonb_typeof(phase2_score_snapshot -> 'scoreBreakdown') = 'object'
+          AND jsonb_typeof(phase2_score_snapshot -> 'questionScores') = 'object'
+          AND jsonb_typeof(phase2_score_snapshot -> 'vibeAxes') = 'object'
+          AND phase2_score_snapshot ->> 'vibeModel' = 'gpt-5.4-mini'
+          AND phase2_score_snapshot ->> 'vibeModelVersion' = 'balanced-vibe12-v1'
+          AND phase2_score_snapshot ->> 'vibeModelTag' = 'gpt-5.4-mini|balanced-vibe12-v1'
+          AND CASE
+            WHEN phase2_score IS NOT NULL AND jsonb_typeof(phase2_score_snapshot -> 'totalScore') = 'number'
+              THEN (phase2_score_snapshot ->> 'totalScore')::numeric = phase2_score::numeric
+            ELSE false
+          END, false)
+      ELSE false
+    END
+  ),
+  CONSTRAINT event3_matches_phase3_score_provenance_complete CHECK (
+    CASE
+      WHEN phase3_score_model_version IS NULL AND phase3_score_snapshot IS NULL AND phase3_score_content_hash IS NULL
+        THEN true
+      WHEN phase3_score_model_version IS NOT NULL AND phase3_score_snapshot IS NOT NULL AND phase3_score_content_hash IS NOT NULL
+        THEN coalesce(phase3_score_snapshot ->> 'scoreModelVersion' = phase3_score_model_version
+          AND phase3_score_snapshot ->> 'combinedContentHash' = phase3_score_content_hash
+          AND jsonb_typeof(phase3_score_snapshot -> 'scoreBreakdown') = 'object'
+          AND jsonb_typeof(phase3_score_snapshot -> 'questionScores') = 'object'
+          AND jsonb_typeof(phase3_score_snapshot -> 'vibeAxes') = 'object'
+          AND phase3_score_snapshot ->> 'vibeModel' = 'gpt-5.4-mini'
+          AND phase3_score_snapshot ->> 'vibeModelVersion' = 'balanced-vibe12-v1'
+          AND phase3_score_snapshot ->> 'vibeModelTag' = 'gpt-5.4-mini|balanced-vibe12-v1'
+          AND CASE
+            WHEN phase3_score IS NOT NULL AND jsonb_typeof(phase3_score_snapshot -> 'totalScore') = 'number'
+              THEN (phase3_score_snapshot ->> 'totalScore')::numeric = phase3_score::numeric
+            ELSE false
+          END, false)
+      ELSE false
+    END
+  )
 );
 
 CREATE INDEX IF NOT EXISTS idx_event3_matches_match ON public.event3_matches(match_id);
 CREATE INDEX IF NOT EXISTS idx_event3_matches_participant ON public.event3_matches(participant_number);
 CREATE INDEX IF NOT EXISTS idx_event3_matches_event ON public.event3_matches(match_id, event_id);
+
+-- =============================================================
+-- event3_test_match_results
+-- Isolated temporary Phase 3 results while organizer test mode is active
+-- =============================================================
+CREATE TABLE IF NOT EXISTS public.event3_test_match_results (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  match_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000003'::uuid,
+  event_id integer NOT NULL CHECK (event_id > 0),
+  participant_a_number integer NOT NULL CHECK (participant_a_number > 0),
+  participant_b_number integer NOT NULL CHECK (participant_b_number > 0),
+  compatibility_score numeric NOT NULL DEFAULT 0,
+  round smallint NOT NULL DEFAULT 30,
+  table_number integer,
+  match_type text NOT NULL DEFAULT 'individual',
+  reason text,
+  mbti_compatibility_score numeric NOT NULL DEFAULT 0,
+  attachment_compatibility_score numeric NOT NULL DEFAULT 0,
+  communication_compatibility_score numeric NOT NULL DEFAULT 0,
+  lifestyle_compatibility_score numeric NOT NULL DEFAULT 0,
+  core_values_compatibility_score numeric NOT NULL DEFAULT 0,
+  vibe_compatibility_score numeric NOT NULL DEFAULT 0,
+  synergy_score numeric NOT NULL DEFAULT 0,
+  humor_open_score numeric NOT NULL DEFAULT 0,
+  intent_score numeric NOT NULL DEFAULT 0,
+  humor_multiplier numeric NOT NULL DEFAULT 1,
+  attachment_penalty_applied boolean NOT NULL DEFAULT false,
+  intent_boost_applied boolean NOT NULL DEFAULT false,
+  dead_air_veto_applied boolean NOT NULL DEFAULT false,
+  humor_clash_veto_applied boolean NOT NULL DEFAULT false,
+  cap_applied numeric,
+  humor_early_openness_bonus text NOT NULL DEFAULT 'none',
+  score_model_version text,
+  score_snapshot jsonb,
+  score_content_hash text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT event3_test_match_results_canonical_pair CHECK (participant_a_number < participant_b_number),
+  CONSTRAINT event3_test_match_results_round CHECK (round = 30),
+  CONSTRAINT event3_test_match_results_match_type CHECK (match_type = 'individual'),
+  CONSTRAINT event3_test_match_results_score_snapshot_object CHECK (
+    score_snapshot IS NULL OR jsonb_typeof(score_snapshot) = 'object'
+  ),
+  CONSTRAINT event3_test_match_results_score_provenance_complete CHECK (
+    CASE
+      WHEN score_model_version IS NULL AND score_snapshot IS NULL AND score_content_hash IS NULL
+        THEN true
+      WHEN score_model_version IS NOT NULL AND score_snapshot IS NOT NULL AND score_content_hash IS NOT NULL
+        THEN coalesce(score_snapshot ->> 'scoreModelVersion' = score_model_version
+          AND score_snapshot ->> 'combinedContentHash' = score_content_hash
+          AND jsonb_typeof(score_snapshot -> 'scoreBreakdown') = 'object'
+          AND jsonb_typeof(score_snapshot -> 'questionScores') = 'object'
+          AND jsonb_typeof(score_snapshot -> 'vibeAxes') = 'object'
+          AND score_snapshot ->> 'vibeModel' = 'gpt-5.4-mini'
+          AND score_snapshot ->> 'vibeModelVersion' = 'balanced-vibe12-v1'
+          AND score_snapshot ->> 'vibeModelTag' = 'gpt-5.4-mini|balanced-vibe12-v1'
+          AND CASE
+            WHEN jsonb_typeof(score_snapshot -> 'totalScore') = 'number'
+              THEN (score_snapshot ->> 'totalScore')::numeric = compatibility_score
+            ELSE false
+          END, false)
+      ELSE false
+    END
+  ),
+  CONSTRAINT event3_test_match_results_unique_pair UNIQUE (
+    match_id, event_id, round, participant_a_number, participant_b_number
+  )
+);
+
+CREATE INDEX IF NOT EXISTS event3_test_match_results_event_a_idx
+  ON public.event3_test_match_results(match_id, event_id, participant_a_number);
+CREATE INDEX IF NOT EXISTS event3_test_match_results_event_b_idx
+  ON public.event3_test_match_results(match_id, event_id, participant_b_number);
+
+ALTER TABLE public.event3_test_match_results ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.event3_test_match_results FROM anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.event3_test_match_results TO service_role;
 
 -- =============================================================
 -- event3_participant_notes

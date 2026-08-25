@@ -1,7 +1,39 @@
 import { supabaseAdmin } from "../server/security/supabase-admin.mjs"
 import { enforceRateLimit, requireAdmin } from "../server/security/request-security.mjs"
+import { isSupportedCurrentScoreSnapshot } from "../server/matching/balanced-compatibility.mjs"
 
 const supabase = supabaseAdmin
+
+function parseScoreSnapshot(value) {
+  if (value && typeof value === "object") return value
+  if (typeof value !== "string") return null
+  try {
+    const parsed = JSON.parse(value)
+    return parsed && typeof parsed === "object" ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function persistedScorePayload(match) {
+  const snapshot = parseScoreSnapshot(match?.score_snapshot)
+  const rowVersion = String(match?.score_model_version ?? "")
+  const rowContentHash = String(match?.score_content_hash ?? "")
+  const validSnapshot = isSupportedCurrentScoreSnapshot({
+    modelVersion: rowVersion,
+    contentHash: rowContentHash,
+    snapshot,
+    persistedTotal: match?.compatibility_score,
+  })
+
+  return {
+    score_model_version: validSnapshot ? match.score_model_version : null,
+    score_content_hash: validSnapshot ? match.score_content_hash : null,
+    score_snapshot: validSnapshot ? match.score_snapshot : null,
+    breakdown: validSnapshot ? (snapshot.scoreBreakdown ?? snapshot.score_breakdown ?? null) : null,
+    score_provenance_valid: validSnapshot,
+  }
+}
 
 export default async function handler(req, res) {
   if (!enforceRateLimit(req, res, { key: "match-results", limit: 90, windowMs: 60_000 })) return
@@ -63,6 +95,7 @@ export default async function handler(req, res) {
               score: match.compatibility_score ?? 0,
               round: match.round ?? 1,
               table_number: match.table_number || null,
+              ...persistedScorePayload(match),
             })
             results.push({
               with: participantNumbers[1],
@@ -72,6 +105,7 @@ export default async function handler(req, res) {
               score: match.compatibility_score ?? 0,
               round: match.round ?? 1,
               table_number: match.table_number || null,
+              ...persistedScorePayload(match),
             })
           } else if (participantNumbers.length > 2) {
             // For group matches stored as individual, show all pairs
@@ -86,6 +120,7 @@ export default async function handler(req, res) {
                     score: match.compatibility_score ?? 0,
                     round: match.round ?? 1,
                     table_number: match.table_number || null,
+                    ...persistedScorePayload(match),
                   })
                 }
               }
@@ -197,6 +232,7 @@ export default async function handler(req, res) {
                 table_number: match.table_number || null,
                 is_repeat_match: match.is_repeat_match || false,
                 humor_early_openness_bonus: match.humor_early_openness_bonus || 'none',
+                ...persistedScorePayload(match),
               }
             }
           }
@@ -213,6 +249,7 @@ export default async function handler(req, res) {
             table_number: match.table_number || null,
             is_repeat_match: match.is_repeat_match || false,
             humor_early_openness_bonus: match.humor_early_openness_bonus || 'none',
+            ...persistedScorePayload(match),
           }
         })
 

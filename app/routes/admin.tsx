@@ -68,6 +68,12 @@ import PairAnalysisModal from "~/components/PairAnalysisModalPro"
 import { HistoryConfidencePanel } from "~/components/HistoryConfidenceBadge"
 import { getParticipantMatchInsightsCompletion } from "~/lib/matchControl"
 import { matchesParticipantConfirmationFilter } from "~/lib/participant-confirmation-filter.mjs"
+import {
+  CURRENT_BALANCED_SCORE_MODEL,
+  isCurrentBalancedScoreRow,
+  isCurrentOppositesScoreRow,
+  parseScoreObject,
+} from "~/lib/compatibility-model"
 
 type DeltaCacheRunStatus = 'running' | 'completed' | 'failed'
 
@@ -102,36 +108,47 @@ function ManualCompatibilityResultModal({ data, onClose }: { data: any; onClose:
 
   const result = data?.result || {}
   const gateReport = data?.gate_report || {}
-  const score = Math.max(0, Math.min(100, Number(data?.compatibility_score) || 0))
-  const round = (value: any) => Math.round((Number(value) || 0) * 100) / 100
-  const coreValues = result.coreValuesScaled5 != null
-    ? Number(result.coreValuesScaled5)
-    : Math.max(0, Math.min(5, ((Number(result.core_values_compatibility_score) || 0) / 20) * 5))
+  const rawScore = Number(data?.compatibility_score)
+  const score = Math.max(0, Math.min(100, Number.isFinite(rawScore) ? rawScore : 0))
+  const isBalancedModel = isCurrentBalancedScoreRow(data)
+  const isOppositesModel = isCurrentOppositesScoreRow(data)
+  const oppositesBreakdown = getOppositesBreakdownForDisplay(data, result)
+  const round = (value: any) => {
+    const parsed = Number(value)
+    return Math.round((Number.isFinite(parsed) ? parsed : 0) * 100) / 100
+  }
+  const coreValues = result.coreValuesScore != null
+    ? Number(result.coreValuesScore)
+    : Number(result.core_values_compatibility_score ?? 0)
   const gates = Array.isArray(gateReport.gates) ? gateReport.gates : []
   const blockers = gates.filter((gate: any) => gate.blocking && gate.applicable !== false && gate.passed !== true)
   const warnings = gates.filter((gate: any) => gate.blocking === false && gate.applicable !== false && gate.passed !== true)
   const eligible = gateReport.eligible === true
-  const categories = [
-    { label: 'Synergy', value: result.synergyScore, max: 30, icon: '⚡', color: '#22d3ee' },
-    { label: 'Core Values', value: coreValues, max: 5, icon: '🧩', color: '#a78bfa' },
-    { label: 'Lifestyle', value: result.lifestyleScore, max: 10, icon: '🏠', color: '#34d399' },
-    { label: 'Humor & Openness', value: result.humorOpenScore, max: 15, icon: '😄', color: '#fbbf24' },
-    { label: 'Communication', value: result.communicationScore, max: 3, icon: '💬', color: '#60a5fa' },
-    { label: 'AI Vibe', value: result.vibeScore, max: 25, icon: '✨', color: '#f472b6' },
-    { label: 'Disagreement Style', value: result.disagreementScore, max: 4, icon: '🧭', color: '#fb7185' },
-    { label: 'Current Focus', value: result.currentFocusScore, max: 5, icon: '🔎', color: '#2dd4bf' },
-    { label: 'Similarity Preference', value: result.similarityPreferenceScore, max: 5, icon: '🪞', color: '#c084fc' },
-    { label: 'Connection Pace', value: result.attachmentPaceScore, max: 3, icon: '🤝', color: '#4ade80' },
+  const balancedCategories = [
+    { label: 'Interaction Synergy', value: result.synergyScore, max: 20, icon: '⚡', color: '#22d3ee' },
+    { label: 'AI Vibe', value: result.vibeScore, max: 12, icon: '✨', color: '#f472b6' },
+    { label: 'Lifestyle', value: result.lifestyleScore, max: 12, icon: '🏠', color: '#34d399' },
+    { label: 'Humor & Openness', value: result.humorOpenScore, max: 10, icon: '😄', color: '#fbbf24' },
+    { label: 'Communication', value: result.communicationScore, max: 5, icon: '💬', color: '#60a5fa' },
+    { label: 'Disagreement Style', value: result.disagreementScore, max: 5, icon: '🧭', color: '#fb7185' },
+    { label: 'Core Values, Boundaries & Language', value: coreValues, max: 17, icon: '🧩', color: '#a78bfa' },
     { label: 'Meeting Goal', value: result.intentScore, max: 5, icon: '🎯', color: '#fb923c' },
+    { label: 'Current Focus', value: result.currentFocusScore, max: 4, icon: '🔎', color: '#2dd4bf' },
+    { label: 'Similarity Preference', value: result.similarityPreferenceScore, max: 2, icon: '🪞', color: '#c084fc' },
+    { label: 'Attachment & Connection Pace', value: result.attachmentPaceScore, max: 8, icon: '🤝', color: '#4ade80' },
   ].filter(item => item.value != null)
+  const oppositesCategories = [
+    { label: 'Interaction Synergy', value: oppositesBreakdown.synergy, max: 20, icon: '⚡', color: '#22d3ee' },
+    { label: 'Core Values, Boundaries & Language', value: oppositesBreakdown.coreValues, max: 17, icon: '🧩', color: '#a78bfa' },
+    { label: 'Communication Alignment', value: oppositesBreakdown.communication, max: 5, icon: '💬', color: '#60a5fa' },
+    { label: 'Lifestyle Difference', value: oppositesBreakdown.flippedLifestyle, max: 12, icon: '🏠', color: '#34d399' },
+    { label: 'Vibe Difference', value: oppositesBreakdown.flippedVibe, max: 12, icon: '✨', color: '#f472b6' },
+    { label: 'Humor & Openness Difference', value: oppositesBreakdown.flippedHumor, max: 10, icon: '😄', color: '#fbbf24' },
+  ]
+  const categories = isOppositesModel ? oppositesCategories : isBalancedModel ? balancedCategories : []
   const safety: string[] = []
-  if (Number(result.opennessPenalty) < 0) safety.push(`Openness penalty: ${result.opennessPenalty} (${result.opennessPenaltyType || 'rule'})`)
-  if (Number(result.humor_multiplier) > 1) safety.push(`Humor & openness multiplier: ×${result.humor_multiplier} (${result.humor_bonus || 'bonus'})`)
-  if (result.intentBoostApplied) safety.push('Strong intent alignment is included in the meeting-goal points')
-  if (result.deadAirVetoApplied) safety.push('Dead-Air interaction category marked as 0/3 before final aggregation')
-  if (result.humorClashDetected) safety.push('A↔D humor styles lowered the Humor & Openness component')
+  if (result.humorClashDetected) safety.push('A↔D humor styles are reflected directly in the Humor & Openness points')
   if (result.maxScoreCapApplied) safety.push('Final score capped at the model maximum of 100%')
-  if (result.capApplied && !result.deadAirVetoApplied && !result.humorClashVetoApplied) safety.push(`Final score capped by a safety rule at ${result.capApplied}%`)
   const participantLabel = (number: any, name?: string) => name ? `${name} · #${number}` : `Participant #${number}`
 
   return (
@@ -164,13 +181,13 @@ function ManualCompatibilityResultModal({ data, onClose }: { data: any; onClose:
               </div>
 
               <div className="rounded-3xl border border-white/10 bg-white/[0.025] p-4 sm:p-6">
-                <div className="mb-5 flex items-center justify-between gap-3"><div><h3 className="flex items-center gap-2 text-lg font-black"><BarChart3 className="h-5 w-5 text-cyan-300" /> Score architecture</h3><p className="mt-1 text-xs text-slate-500">Every scoring dimension used by the current model</p></div><span className="hidden rounded-xl border border-white/10 bg-black/20 px-3 py-2 font-mono text-xs text-slate-400 sm:block">{data.score_model_version || 'Model unavailable'}</span></div>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="mb-5 flex items-center justify-between gap-3"><div><h3 className="flex items-center gap-2 text-lg font-black"><BarChart3 className="h-5 w-5 text-cyan-300" /> Score architecture</h3><p className="mt-1 text-xs text-slate-500">{isOppositesModel ? `Six-dimensional Opposites score · ${round(oppositesBreakdown.rawTotal)}/${round(oppositesBreakdown.rawMaximum)} normalized to 100` : isBalancedModel ? 'Every scoring dimension used by the current balanced model' : 'Only the historical total can be shown safely for this scoring version'}</p></div><span className="hidden rounded-xl border border-white/10 bg-black/20 px-3 py-2 font-mono text-xs text-slate-400 sm:block">{data.score_model_version || 'Model unavailable'}</span></div>
+                {categories.length > 0 ? <div className="grid gap-3 sm:grid-cols-2">
                   {categories.map(category => {
                     const percentage = Math.max(0, Math.min(100, (Number(category.value) / category.max) * 100))
                     return <div key={category.label} className="rounded-2xl border border-white/10 bg-slate-900/70 p-3.5"><div className="mb-2.5 flex items-center justify-between gap-3"><span className="flex items-center gap-2 text-sm font-semibold"><span>{category.icon}</span>{category.label}</span><span className="font-mono text-sm font-black" style={{ color: category.color }}>{round(category.value)}<span className="text-slate-600">/{category.max}</span></span></div><div className="h-1.5 overflow-hidden rounded-full bg-white/5"><div className="h-full rounded-full transition-all duration-700" style={{ width: `${percentage}%`, backgroundColor: category.color, boxShadow: `0 0 14px ${category.color}66` }} /></div></div>
                   })}
-                </div>
+                </div> : <div className="rounded-2xl border border-amber-300/15 bg-amber-400/[0.04] p-4 text-sm text-amber-100/80">This result predates exact score provenance. Its saved total is preserved, but current component weights are not applied retroactively.</div>}
               </div>
             </section>
 
@@ -188,7 +205,7 @@ function ManualCompatibilityResultModal({ data, onClose }: { data: any; onClose:
               </div>
             </section>
 
-            {safety.length > 0 && <section className="rounded-3xl border border-amber-300/20 bg-amber-300/[0.045] p-4 sm:p-6"><h3 className="flex items-center gap-2 text-lg font-black text-amber-100"><AlertTriangle className="h-5 w-5 text-amber-300" /> Safety rules & score caps</h3><div className="mt-3 grid gap-2 sm:grid-cols-2">{safety.map(item => <div key={item} className="rounded-xl border border-amber-200/10 bg-black/15 px-3 py-2.5 text-sm text-amber-100/80">{item}</div>)}</div></section>}
+            {safety.length > 0 && <section className="rounded-3xl border border-amber-300/20 bg-amber-300/[0.045] p-4 sm:p-6"><h3 className="flex items-center gap-2 text-lg font-black text-amber-100"><AlertTriangle className="h-5 w-5 text-amber-300" /> Score notes</h3><div className="mt-3 grid gap-2 sm:grid-cols-2">{safety.map(item => <div key={item} className="rounded-xl border border-amber-200/10 bg-black/15 px-3 py-2.5 text-sm text-amber-100/80">{item}</div>)}</div></section>}
 
             <section className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4"><p className="text-[10px] font-bold uppercase tracking-widest text-slate-600">Calculation mode</p><p className="mt-1 font-semibold capitalize text-slate-200">{data.mode || 'individual'}</p></div>
@@ -204,40 +221,87 @@ function ManualCompatibilityResultModal({ data, onClose }: { data: any; onClose:
   )
 }
 
+const eventTimeScoreForPair = (pair: any) => {
+  const snapshot = pair?.score_snapshot
+  const breakdown = snapshot?.scoreBreakdown
+  const persistedTotal = Number(pair?.phase2_score ?? pair?.phase3_score ?? pair?.compatibility_score)
+  const snapshotTotal = Number(snapshot?.totalScore)
+  const provenanceMatches = isCurrentBalancedScoreRow(pair)
+    && Number.isFinite(persistedTotal)
+    && Number.isFinite(snapshotTotal)
+  if (!breakdown || !provenanceMatches) {
+    return { total: pair?.phase2_score ?? pair?.phase3_score ?? null, version: pair?.score_model_version || 'legacy-unsnapshotted' }
+  }
+  return {
+    total: snapshot.totalScore,
+    synergy: breakdown.interactionRhythm,
+    vibe: breakdown.aiSemantic,
+    lifestyle: breakdown.lifestyleSustainability,
+    humorOpen: breakdown.humorOpenness,
+    communication: breakdown.communicationDisagreement,
+    coreValues: Number(breakdown.valuesBoundaries ?? 0) + Number(breakdown.language ?? 0),
+    intent: breakdown.intent,
+    attachment: breakdown.attachmentComfort,
+    sharedContext: breakdown.sharedContext,
+    version: pair.score_model_version,
+  }
+}
+
+function getOppositesBreakdownForDisplay(data: any, result: any = data?.result || {}) {
+  const snapshot = parseScoreObject(data?.score_snapshot ?? data?.scoreSnapshot)
+  const snapshotBreakdown = parseScoreObject(snapshot?.scoreBreakdown) || {}
+  const responseBreakdown = data?.opposites_breakdown ?? data?.oppositesBreakdown
+    ?? result?.opposites_breakdown ?? result?.oppositesBreakdown ?? {}
+  return {
+    synergy: Number(responseBreakdown.synergy ?? snapshotBreakdown.interactionSynergy),
+    coreValues: Number(responseBreakdown.coreValues ?? snapshotBreakdown.coreValuesAlignment),
+    communication: Number(responseBreakdown.communication ?? snapshotBreakdown.communicationAlignment),
+    flippedLifestyle: Number(responseBreakdown.flippedLifestyle ?? snapshotBreakdown.lifestyleDifference),
+    flippedVibe: Number(responseBreakdown.flippedVibe ?? snapshotBreakdown.vibeDifference),
+    flippedHumor: Number(responseBreakdown.flippedHumor ?? snapshotBreakdown.humorDifference),
+    rawTotal: Number(responseBreakdown.rawTotal ?? snapshotBreakdown.rawTotal),
+    rawMaximum: Number(responseBreakdown.rawMaximum ?? snapshotBreakdown.rawMaximum ?? 76),
+    percent: Number(responseBreakdown.percent ?? snapshotBreakdown.normalizedTotal ?? data?.compatibility_score),
+  }
+}
+
 function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
   data: any
-  weights: { synergy: number; vibe: number; lifestyle: number; humorOpen: number; communication: number; coreValues: number; intent: number }
+  weights: { synergy: number; vibe: number; lifestyle: number; humorOpen: number; communication: number; coreValues: number; intent: number; attachment: number; sharedContext: number }
   setWeights: (w: any) => void
   onClose: () => void
 }) {
   const pairs = data.pairs || []
   const participants = data.participants || []
-  const cacheScores = data.cacheScores || {}
   const matchRows = data.matchRows || []
 
   const participantMap = new Map<number, any>()
   participants.forEach((p: any) => participantMap.set(p.assigned_number, p))
 
-  const matchRowMap = new Map<number, any>()
-  matchRows.forEach((mr: any) => matchRowMap.set(mr.participant_number, mr))
+  const matchRowMap = new Map<string, any>()
+  matchRows.forEach((mr: any) => matchRowMap.set(`${mr.event_id}:${mr.participant_number}`, mr))
 
   // Original max weights for scaling
-  const originalMax: Record<string, number> = { synergy: 30, vibe: 25, lifestyle: 10, humorOpen: 15, communication: 3, coreValues: 5, intent: 5 }
+  const originalMax: Record<string, number> = { synergy: 20, vibe: 12, lifestyle: 12, humorOpen: 10, communication: 10, coreValues: 17, intent: 5, attachment: 8, sharedContext: 6 }
 
-  const defaultWeights = { synergy: 30, vibe: 25, lifestyle: 10, humorOpen: 15, communication: 3, coreValues: 5, intent: 5 }
+  const defaultWeights = { synergy: 20, vibe: 12, lifestyle: 12, humorOpen: 10, communication: 10, coreValues: 17, intent: 5, attachment: 8, sharedContext: 6 }
 
   // Compute recalculated score for a pair given specific weights
   const recalcScore = (pair: any, w: typeof weights) => {
-    const cacheKey = `${Math.min(pair.a_number, pair.b_number)}-${Math.max(pair.a_number, pair.b_number)}`
-    const cached = cacheScores[cacheKey] || {}
+    const cached = eventTimeScoreForPair(pair)
+    if (!pair?.score_snapshot?.scoreBreakdown || cached.version !== CURRENT_BALANCED_SCORE_MODEL) {
+      const stored = Number(cached.total)
+      return Number.isFinite(stored) ? stored : 0
+    }
     const rawSynergy = cached.synergy ?? 0
     const rawVibe = cached.vibe ?? 0
     const rawLifestyle = cached.lifestyle ?? 0
     const rawHumorOpen = cached.humorOpen ?? 0
     const rawComm = cached.communication ?? 0
-    const rawCoreValues = cached.coreValues ?? 0 // raw 0-20
+    const rawCoreValues = cached.coreValues ?? 0 // immutable 0-17 values/language component
     const rawIntent = cached.intent ?? 0
-    const humorMult = cached.humorMultiplier ?? 1.0
+    const rawAttachment = cached.attachment ?? 0
+    const rawSharedContext = cached.sharedContext ?? 0
 
     // Scale each component from its original max to the new max
     const scale = (raw: number, key: string) => {
@@ -247,45 +311,12 @@ function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
       return (raw / origMax) * newMax
     }
 
-    // Core values: raw is 0-20, original scaled to 0-5
-    const coreScaled = scale(Math.min(5, (rawCoreValues / 20) * 5), 'coreValues')
-
     let total = scale(rawSynergy, 'synergy') + scale(rawVibe, 'vibe') + scale(rawLifestyle, 'lifestyle') +
-      scale(rawHumorOpen, 'humorOpen') + scale(rawComm, 'communication') + coreScaled
+      scale(rawHumorOpen, 'humorOpen') + scale(rawComm, 'communication') + scale(rawCoreValues, 'coreValues') +
+      scale(rawIntent, 'intent') + scale(rawAttachment, 'attachment') + scale(rawSharedContext, 'sharedContext')
 
-    // Apply penalties (same as original formula)
-    const pA = participantMap.get(pair.a_number)
-    const pB = participantMap.get(pair.b_number)
-    const aAttach = pA?.attachment_style || pA?.survey_data?.attachmentStyle
-    const bAttach = pB?.attachment_style || pB?.survey_data?.attachmentStyle
-    if ((aAttach === 'Anxious' && bAttach === 'Avoidant') || (aAttach === 'Avoidant' && bAttach === 'Anxious')) {
-      total -= 5
-    }
-
-    const openA = parseInt(pA?.early_openness_comfort ?? pA?.survey_data?.answers?.early_openness_comfort ?? '')
-    const openB = parseInt(pB?.early_openness_comfort ?? pB?.survey_data?.answers?.early_openness_comfort ?? '')
-    if (openA === 0 && openB === 0) total -= 5
-    else if ((openA === 0 && openB >= 2) || (openA >= 2 && openB === 0)) total -= 4
-
-    if (total < 0) total = 0
-
-    // Apply humor multiplier
-    total = total * humorMult
-
-    // Add intent after multiplier
-    total += scale(rawIntent, 'intent')
-
-    // Veto caps — scale proportionally to new max total
     const newMaxTotal = Object.values(w).reduce((a, b) => a + b, 0)
-    const vetoScale = newMaxTotal / 100
-    const getAns = (p: any, k: string) => (p?.survey_data?.answers?.[k] ?? p?.[k] ?? '').toString().toUpperCase()
-    const a35 = getAns(pA, 'conversational_role')
-    const b35 = getAns(pB, 'conversational_role')
-    const a41 = getAns(pA, 'silence_comfort')
-    const b41 = getAns(pB, 'silence_comfort')
-    if (a35 === 'C' && b35 === 'C' && a41 === 'B' && b41 === 'B' && total > 40 * vetoScale) total = 40 * vetoScale
-
-    // Cap at new max total
+    if (newMaxTotal <= 0) return 0
     if (total > newMaxTotal) total = newMaxTotal
 
     // Normalize to 100 for comparison
@@ -302,14 +333,16 @@ function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
     { key: 'communication', label: 'Communication', color: 'text-blue-400' },
     { key: 'coreValues', label: 'Core Values', color: 'text-purple-400' },
     { key: 'intent', label: 'Intent/Goal', color: 'text-orange-400' },
+    { key: 'attachment', label: 'Attachment', color: 'text-emerald-400' },
+    { key: 'sharedContext', label: 'Shared Context', color: 'text-sky-400' },
   ]
 
-  const resetWeights = () => setWeights({ synergy: 30, vibe: 25, lifestyle: 10, humorOpen: 15, communication: 3, coreValues: 5, intent: 5 })
+  const resetWeights = () => setWeights(defaultWeights)
 
   // Sort pairs by original score descending
   const sortedPairs = [...pairs].sort((a, b) => {
-    const aCache = cacheScores[`${Math.min(a.a_number, a.b_number)}-${Math.max(a.a_number, a.b_number)}`]
-    const bCache = cacheScores[`${Math.min(b.a_number, b.b_number)}-${Math.max(b.a_number, b.b_number)}`]
+    const aCache = eventTimeScoreForPair(a)
+    const bCache = eventTimeScoreForPair(b)
     return (bCache?.total ?? 0) - (aCache?.total ?? 0)
   })
 
@@ -323,8 +356,8 @@ function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
               <SlidersHorizontal className="w-5 h-5 text-indigo-400" />
             </div>
             <div>
-              <h2 className="font-bold text-white">Event 20 Match Analyzer</h2>
-              <p className="text-xs text-gray-400">{pairs.length} established pairs — adjust weights to test scoring scenarios</p>
+              <h2 className="font-bold text-white">Historical Match Analyzer</h2>
+              <p className="text-xs text-gray-400">{pairs.length} established pairs — each row uses its immutable event-time score snapshot</p>
             </div>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-white text-xl">✕</button>
@@ -340,7 +373,7 @@ function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
                 <button onClick={resetWeights} className="px-2 py-1 text-xs bg-white/5 hover:bg-white/10 text-gray-300 rounded-lg transition-colors">Reset</button>
               </div>
             </div>
-            <div className="grid grid-cols-7 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-9">
               {weightLabels.map(({ key, label, color }) => (
                 <div key={key} className="bg-white/[0.03] rounded-lg p-3 border border-white/5">
                   <div className={`text-xs font-bold ${color} mb-1`}>{label}</div>
@@ -365,7 +398,7 @@ function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
                 <tr className="text-left text-gray-400 border-b border-white/10">
                   <th className="py-2 pr-2">Pair</th>
                   <th className="py-2 pr-2">Phase</th>
-                  <th className="py-2 pr-2 text-right">Cached</th>
+                  <th className="py-2 pr-2 text-right">Stored</th>
                   <th className="py-2 pr-2 text-right">Base</th>
                   <th className="py-2 pr-2 text-right">New</th>
                   <th className="py-2 pr-2 text-right">Δ</th>
@@ -376,6 +409,8 @@ function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
                   <th className="py-2 pr-2">Comm</th>
                   <th className="py-2 pr-2">Values</th>
                   <th className="py-2 pr-2">Intent</th>
+                  <th className="py-2 pr-2">Attachment</th>
+                  <th className="py-2 pr-2">Context</th>
                   <th className="py-2 pr-2">Mutual?</th>
                   <th className="py-2 pr-2">A→B Feedback</th>
                   <th className="py-2 pr-2">B→A Feedback</th>
@@ -383,8 +418,7 @@ function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
               </thead>
               <tbody>
                 {sortedPairs.map((pair: any, i: number) => {
-                  const cacheKey = `${Math.min(pair.a_number, pair.b_number)}-${Math.max(pair.a_number, pair.b_number)}`
-                  const cached = cacheScores[cacheKey] || {}
+                  const cached = eventTimeScoreForPair(pair)
                   const cachedScore = Math.round(cached.total ?? 0)
                   const origScore = recalcScore(pair, defaultWeights)
                   const newScore = recalcScore(pair, weights)
@@ -397,8 +431,8 @@ function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
                   const bWant = pair.b_feedback?.wantConnect === true
                   const mutual = aWant && bWant
 
-                  const aMr = matchRowMap.get(pair.a_number)
-                  const bMr = matchRowMap.get(pair.b_number)
+                  const aMr = matchRowMap.get(`${pair.event_id}:${pair.a_number}`)
+                  const bMr = matchRowMap.get(`${pair.event_id}:${pair.b_number}`)
                   const aSame = aMr?.phase2_partner && aMr?.phase3_partner && aMr.phase2_partner === aMr.phase3_partner
                   const bSame = bMr?.phase2_partner && bMr?.phase3_partner && bMr.phase2_partner === bMr.phase3_partner
                   const sameBoth = !!(aSame || bSame)
@@ -425,6 +459,8 @@ function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
                       <td className="py-2 pr-2 text-right text-blue-400/70">{cached.communication ?? '-'}</td>
                       <td className="py-2 pr-2 text-right text-purple-400/70">{cached.coreValues ?? '-'}</td>
                       <td className="py-2 pr-2 text-right text-orange-400/70">{cached.intent ?? '-'}</td>
+                      <td className="py-2 pr-2 text-right text-emerald-400/70">{cached.attachment ?? '-'}</td>
+                      <td className="py-2 pr-2 text-right text-sky-400/70">{cached.sharedContext ?? '-'}</td>
                       <td className="py-2 pr-2">
                         {pair.a_feedback || pair.b_feedback ? (
                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${mutual ? 'bg-emerald-500/20 text-emerald-300' : 'bg-gray-500/20 text-gray-400'}`}>
@@ -452,8 +488,6 @@ function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
                 let totalOrig = 0, totalNew = 0, improved = 0, declined = 0, sameCount = 0
                 let mutualCount = 0, mutualImproved = 0
                 sortedPairs.forEach((pair: any) => {
-                  const cacheKey = `${Math.min(pair.a_number, pair.b_number)}-${Math.max(pair.a_number, pair.b_number)}`
-                  const cached = cacheScores[cacheKey] || {}
                   const orig = recalcScore(pair, defaultWeights)
                   const nw = recalcScore(pair, weights)
                   totalOrig += orig
@@ -840,13 +874,15 @@ export default function AdminPage() {
   const [analyzerData, setAnalyzerData] = useState<any>(null)
   const [analyzerLoading, setAnalyzerLoading] = useState(false)
   const [scoreWeights, setScoreWeights] = useState({
-    synergy: 30,
-    vibe: 25,
-    lifestyle: 10,
-    humorOpen: 15,
-    communication: 3,
-    coreValues: 5,
+    synergy: 20,
+    vibe: 12,
+    lifestyle: 12,
+    humorOpen: 10,
+    communication: 10,
+    coreValues: 17,
     intent: 5,
+    attachment: 8,
+    sharedContext: 6,
   })
 
   // WhatsApp message modal state
@@ -2559,7 +2595,6 @@ const fetchParticipants = async () => {
       const data = await res.json()
       const pairs = data.pairs || []
       const participants = data.participants || []
-      const cacheScores = data.cacheScores || {}
       const allMatchRows = data.matchRows || []
       const eventIds = data.event_ids || []
 
@@ -2651,24 +2686,21 @@ const fetchParticipants = async () => {
       // Scoring criteria reference
       const scoringCriteria = [
         ['Category', 'Max Score', 'Weight in Total', 'Scoring Logic'],
-        ['Synergy (Interaction)', '30', 'Major component', 'Based on Q35-Q41: conversational role, depth pref, social battery, humor subtype, curiosity style alignment'],
-        ['Vibe Compatibility', '25', 'Major component', 'AI-analyzed shared interests and conversational fit from the open-ended profile'],
-        ['Lifestyle', '15 raw (scaled to 10)', 'Moderate', 'Based on Q14-Q18: activity time, contact frequency, personal space, planning style, weekend pref. Raw total is proportionally scaled by 10/15'],
-        ['Humor/Openness', '15', 'Moderate', 'Based on Q4.25 (humor banter style) + Q4.75 (early openness comfort) alignment'],
-        ['Communication', '10 raw (scaled to 3)', 'Minor in total', 'Based on Q24-Q28: Assertive/Passive/Aggressive/Passive-Aggressive compatibility matrix'],
-        ['New matching signals', '17', 'Major component', 'Disagreement 4 + current-life overlap 5 + similarity preference 5 + attachment/connection pace 3'],
-        ['Core Values', '20 raw (scaled to 5)', 'Minor in total', 'Based on Q19-Q23: 5 value questions. Identical=4pts, adjacent=2pts, opposite=0pts. Raw 0-20 scaled to 0-5'],
-        ['Intent/Goal', '5', 'Minor', 'Based on Q40: same intent=5, compatible=3-4, mismatch=2'],
-        ['MBTI', '5', 'NOT in new total', 'Based on Q5-Q8: I/E complement + N/S,T/F,J/P matching. Historical only'],
-        ['Attachment', '5', 'NOT in new total', 'Based on Q9-Q13: Secure=full score. Historical only. Anxious+Avoidant=-5 penalty'],
-        ['Total Formula', '105 before bonuses', 'Final score capped at 100', 'All direct components total 105; bonuses and vetoes apply before the final 100 cap'],
-        ['Penalty: Anxious x Avoidant', '-5', 'Applied before caps', 'When one is Anxious and other is Avoidant'],
-        ['Penalty: Openness 0x0', '-5', 'Applied before multipliers', 'Both participants have early_openness_comfort=0'],
-        ['Penalty: Asymmetric Openness', '-4', 'Applied before multipliers', 'One has openness=0, other has openness>=2'],
-        ['Veto: Dead-Air', 'Communication 0/3', 'After multipliers', 'Both Q35=C (listener) AND Q41=B (comfortable with silence)'],
-        ['Penalty: A↔D Humor Clash', 'Lowest humor component', 'Inside Humor & Openness', 'The pair remains eligible and the overall score is not capped'],
-        ['Humor Multiplier', '1.0-1.15', 'Applied to total', 'Full humor match=1.15x, Partial=1.05x, No match=1.0x'],
-        ['Max Cap', '100', 'Final cap', 'Total cannot exceed 100'],
+        ['Model scope', 'Current balanced model', 'Reference only', 'Historical pair rows below retain the score produced by their own model period and must not be reinterpreted as this model'],
+        ['Interaction Synergy', '20', '20%', 'Q35 initiative 6 + Q36 conversation depth 3 + Q37 social battery 2 + Q38 humor subtype 3 + Q39 curiosity style 4 + Q41 silence comfort 2'],
+        ['AI Vibe', '12', '12%', 'Multidimensional semantic fit: current curiosity 5 + hobbies 3 + music 1 + friend description 3; a skipped or unavailable AI result is neutral rather than full credit'],
+        ['Lifestyle', '12', '12%', 'Q14-Q18 direct points: 2 + 3 + 3 + 2 + 2'],
+        ['Humor/Openness', '10', '10%', 'Q4.25 humor/banter 6 + Q4.75 early openness 4, scored directly'],
+        ['Communication', '5', '5%', 'Q24-Q28 direct compatibility points, 1 point maximum per question'],
+        ['Disagreement Style', '5', '5%', 'Direct compatibility matrix for match_disagreement_style; shown separately from communication'],
+        ['Core Values, Boundaries & Language', '17', '17%', 'Core scenarios 5 + minimum religious commitment 4 + social relationship style 4 + expression language 4'],
+        ['Intent/Goal', '5', '5%', 'Q40 direct compatibility points'],
+        ['Current Focus', '4', '4%', 'Direct overlap across the current-focus selections'],
+        ['Similarity Preference', '2', '2%', 'Directional fit between each participant’s stated similarity preference and observed pair similarity'],
+        ['Attachment & Connection Pace', '8', '8%', 'Q9 attachment response 2 + Q11 connection pace 3 + Q12 support-under-pressure 3'],
+        ['Total Formula', '100 direct points', '100%', 'The current balanced score is the additive sum of the components above'],
+        ['Eligibility gates', 'Unscored', 'Applied separately', 'Gender, nationality, age, intent, history, and other active hard gates control eligibility before score ranking'],
+        ['MBTI', '0', 'Profile context only', 'Q5-Q8 remain available for historical/profile interpretation but do not add points to the current balanced total'],
       ]
 
       // Build CSV content
@@ -2704,10 +2736,11 @@ const fetchParticipants = async () => {
         'B_Number', 'B_Label', 'B_Gender', 'B_Age', 'B_MBTI_Type', 'B_Attachment_Style', 'B_Communication_Style',
         'B_Humor_Banter_Style', 'B_Early_Openness', 'B_Conversational_Role', 'B_Silence_Comfort', 'B_Intent_Goal',
         'B_Preferred_Age_Min', 'B_Preferred_Age_Max',
-        // Cached compatibility scores
-        'Cached_Total_Score', 'Cached_Synergy_Score', 'Cached_Vibe_Score', 'Cached_Lifestyle_Score',
-        'Cached_Communication_Score', 'Cached_Core_Values_Score', 'Cached_Intent_Score',
-        'Cached_MBTI_Score', 'Cached_Attachment_Score', 'Cached_Humor_Multiplier', 'Cached_Humor_Bonus',
+        // Immutable event-time score snapshot (never today's global cache)
+        'Event_Time_Total_Score', 'Event_Time_Interaction_Score', 'Event_Time_AI_Vibe_Score', 'Event_Time_Lifestyle_Score',
+        'Event_Time_Humor_Openness_Score', 'Event_Time_Communication_Disagreement_Score', 'Event_Time_Values_Language_Score',
+        'Event_Time_Intent_Score', 'Event_Time_Shared_Context_Score', 'Event_Time_Attachment_Score',
+        'Score_Model_Version', 'Score_Content_Hash',
         // AI personality analysis
         'A_AI_Personality_Analysis', 'B_AI_Personality_Analysis',
         // Words
@@ -2749,9 +2782,9 @@ const fetchParticipants = async () => {
       }
 
       // Build matchRows lookup for same-partner-both-phases check
-      const matchRowMap = new Map<number, any>()
+      const matchRowMap = new Map<string, any>()
       allMatchRows.forEach((mr: any) => {
-        matchRowMap.set(mr.participant_number, mr)
+        matchRowMap.set(`${mr.event_id}:${mr.participant_number}`, mr)
       })
 
       // Collect label -> name/number mapping for organizer reference
@@ -2762,8 +2795,7 @@ const fetchParticipants = async () => {
       pairs.forEach((pair: any) => {
         const pA = participantMap.get(pair.a_number)
         const pB = participantMap.get(pair.b_number)
-        const cacheKey = `${Math.min(pair.a_number, pair.b_number)}-${Math.max(pair.a_number, pair.b_number)}`
-        const cached = cacheScores[cacheKey] || {}
+        const cached = eventTimeScoreForPair(pair)
 
         // Compute mutual yes (both said wantConnect = true)
         const aWant = pair.a_feedback?.wantConnect === true
@@ -2771,8 +2803,8 @@ const fetchParticipants = async () => {
         const mutualYes = aWant && bWant
 
         // Compute same partner both phases (check either participant's row)
-        const aMatchRow = matchRowMap.get(pair.a_number)
-        const bMatchRow = matchRowMap.get(pair.b_number)
+        const aMatchRow = matchRowMap.get(`${pair.event_id}:${pair.a_number}`)
+        const bMatchRow = matchRowMap.get(`${pair.event_id}:${pair.b_number}`)
         const aSame = aMatchRow && aMatchRow.phase2_partner && aMatchRow.phase3_partner && aMatchRow.phase2_partner === aMatchRow.phase3_partner
         const bSame = bMatchRow && bMatchRow.phase2_partner && bMatchRow.phase3_partner && bMatchRow.phase2_partner === bMatchRow.phase3_partner
         const sameBothPhases = !!(aSame || bSame)
@@ -2831,19 +2863,22 @@ const fetchParticipants = async () => {
           getField(pB, 'preferred_age_max'),
         )
 
-        // Cached compatibility scores
+        // Immutable event-time compatibility snapshot. Legacy rows without a
+        // snapshot retain only their stored total and are never backfilled
+        // from the current compatibility cache.
         row.push(
           esc(cached.total ?? ''),
           esc(cached.synergy ?? ''),
           esc(cached.vibe ?? ''),
           esc(cached.lifestyle ?? ''),
+          esc(cached.humorOpen ?? ''),
           esc(cached.communication ?? ''),
           esc(cached.coreValues ?? ''),
           esc(cached.intent ?? ''),
-          esc(cached.mbti ?? ''),
+          esc(cached.sharedContext ?? ''),
           esc(cached.attachment ?? ''),
-          esc(cached.humorMultiplier ?? ''),
-          esc(cached.humorBonus ?? ''),
+          esc(pair.score_model_version ?? cached.version ?? ''),
+          esc(pair.score_content_hash ?? ''),
         )
 
         // AI personality analysis + Words and preferences
@@ -3546,6 +3581,7 @@ const fetchParticipants = async () => {
                                `المشارك #${pair.participant_b}`
             
             return {
+              ...pair,
               id: `${pair.participant_a}-${pair.participant_b}`,
               assigned_number: pair.participant_a, // The target participant
               name: targetName,
@@ -3687,6 +3723,13 @@ const fetchParticipants = async () => {
             participant_a: participant1,
             participant_b: participant2,
             compatibility_score: data.compatibility_score,
+            score_model_version: data.score_model_version ?? result.scoreModelVersion ?? null,
+            score_snapshot: data.score_snapshot ?? result.score_snapshot ?? result.scoreSnapshot ?? null,
+            score_content_hash: data.score_content_hash ?? result.score_content_hash ?? result.scoreContentHash ?? null,
+            score_breakdown: data.score_snapshot?.scoreBreakdown ?? result.score_breakdown ?? result.scoreBreakdown ?? null,
+            question_scores: data.score_snapshot?.questionScores ?? result.question_scores ?? result.questionScores ?? null,
+            vibe_axes: data.score_snapshot?.vibeAxes ?? result.vibe_axes ?? result.vibeAxes ?? null,
+            opposites_breakdown: data.opposites_breakdown ?? result.opposites_breakdown ?? result.oppositesBreakdown ?? null,
             synergy_score: result.synergyScore,
             humor_open_score: result.humorOpenScore,
             intent_score: result.intentScore,
@@ -3741,56 +3784,51 @@ const fetchParticipants = async () => {
         }
         
         if (result) {
-          // Prefer new model fields if present
-          const hasNewModel = (
-            typeof result.synergyScore === 'number' ||
-            typeof result.lifestyleScore === 'number' ||
-            typeof result.humorOpenScore === 'number' ||
-            typeof result.communicationScore === 'number' ||
-            typeof result.vibeScore === 'number' ||
-            typeof result.intentScore === 'number'
-          )
-          if (hasNewModel) {
-            const round = (v:any) => Math.round((Number(v) || 0) * 100) / 100
-            detailedMessage += `⚡ Synergy: ${round(result.synergyScore)}/30\n`
-            // Core Values are part of new weights (scaled 0–5)
-            const core5 = (result.coreValuesScaled5 != null)
-              ? Number(result.coreValuesScaled5)
-              : Math.max(0, Math.min(5, ((Number(result.core_values_compatibility_score) || 0) / 20) * 5))
-            detailedMessage += `🧩 Core Values: ${round(core5)}/5\n`
-            detailedMessage += `🏠 Lifestyle: ${round(result.lifestyleScore)}/10\n`
-            detailedMessage += `😄 Humor & Openness: ${round(result.humorOpenScore)}/15\n`
-            detailedMessage += `💬 Communication: ${round(result.communicationScore)}/3\n`
-            detailedMessage += `✨ AI Vibe: ${round(result.vibeScore)}/25\n`
-            detailedMessage += `🧭 Disagreement Style: ${round(result.disagreementScore)}/4\n`
-            detailedMessage += `🔎 Current Focus: ${round(result.currentFocusScore)}/5\n`
-            detailedMessage += `🪞 Similarity Preference: ${round(result.similarityPreferenceScore)}/5\n`
-            detailedMessage += `🤝 Connection Pace: ${round(result.attachmentPaceScore)}/3\n`
+          const hasBalancedModel = isCurrentBalancedScoreRow(data)
+          const hasOppositesModel = isCurrentOppositesScoreRow(data)
+          if (hasOppositesModel) {
+            const round = (v:any) => {
+              const parsed = Number(v)
+              return Math.round((Number.isFinite(parsed) ? parsed : 0) * 100) / 100
+            }
+            const opposite = getOppositesBreakdownForDisplay(data, result)
+            detailedMessage += `🧲 Opposites formula (${round(opposite.rawTotal)}/${round(opposite.rawMaximum)} → ${round(opposite.percent)}%):\n`
+            detailedMessage += `• Interaction Synergy: ${round(opposite.synergy)}/20\n`
+            detailedMessage += `• Core Values, Boundaries & Language: ${round(opposite.coreValues)}/17\n`
+            detailedMessage += `• Communication Alignment: ${round(opposite.communication)}/5\n`
+            detailedMessage += `• Lifestyle Difference: ${round(opposite.flippedLifestyle)}/12\n`
+            detailedMessage += `• Vibe Difference: ${round(opposite.flippedVibe)}/12\n`
+            detailedMessage += `• Humor/Openness Difference: ${round(opposite.flippedHumor)}/10\n`
+            detailedMessage += `\n🧮 Mode: opposites\n`
+            detailedMessage += `💾 Cache: ${data.cache_status || 'unknown'}\n`
+            if (data.score_model_version) detailedMessage += `🧬 Model: ${data.score_model_version}\n`
+          } else if (hasBalancedModel) {
+            const round = (v:any) => {
+              const parsed = Number(v)
+              return Math.round((Number.isFinite(parsed) ? parsed : 0) * 100) / 100
+            }
+            const core17 = result.coreValuesScore != null
+              ? Number(result.coreValuesScore)
+              : Number(result.core_values_compatibility_score ?? 0)
+            detailedMessage += `⚡ Interaction Synergy: ${round(result.synergyScore)}/20\n`
+            detailedMessage += `✨ AI Vibe: ${round(result.vibeScore)}/12\n`
+            detailedMessage += `🏠 Lifestyle: ${round(result.lifestyleScore)}/12\n`
+            detailedMessage += `😄 Humor & Openness: ${round(result.humorOpenScore)}/10\n`
+            detailedMessage += `💬 Communication: ${round(result.communicationScore)}/5\n`
+            detailedMessage += `🧭 Disagreement Style: ${round(result.disagreementScore)}/5\n`
+            detailedMessage += `🧩 Core Values, Boundaries & Language: ${round(core17)}/17\n`
             detailedMessage += `🎯 Meeting Goal: ${round(result.intentScore)}/5\n`
+            detailedMessage += `🔎 Current Focus: ${round(result.currentFocusScore)}/4\n`
+            detailedMessage += `🪞 Similarity Preference: ${round(result.similarityPreferenceScore)}/2\n`
+            detailedMessage += `🤝 Attachment & Connection Pace: ${round(result.attachmentPaceScore)}/8\n`
             detailedMessage += `\n🧮 Mode: ${data.mode || manualMatchMode}\n`
             detailedMessage += `💾 Cache: ${data.cache_status || 'unknown'}\n`
             if (data.score_model_version) detailedMessage += `🧬 Model: ${data.score_model_version}\n`
-            if (result.oppositesBreakdown) {
-              const opposite = result.oppositesBreakdown
-              detailedMessage += `\n🧲 Opposites formula (${round(opposite.rawTotal)}/${opposite.rawMaximum}):\n`
-              detailedMessage += `• Synergy: ${round(opposite.synergy)}/30\n`
-              detailedMessage += `• Core Values: ${round(opposite.coreValues)}/5\n`
-              detailedMessage += `• Communication: ${round(opposite.communication)}/3\n`
-              detailedMessage += `• Flipped Lifestyle: ${round(opposite.flippedLifestyle)}/10\n`
-              detailedMessage += `• Flipped Vibe: ${round(opposite.flippedVibe)}/25\n`
-              detailedMessage += `• Flipped Humor/Openness: ${round(opposite.flippedHumor)}/15\n`
-            }
-            // Safety row (if flags present)
-            const safety: string[] = []
-            if (Number(result.opennessPenalty) < 0) safety.push(`Openness penalty: ${result.opennessPenalty} (${result.opennessPenaltyType})`)
-            if (Number(result.humor_multiplier) > 1) safety.push(`Humor/Openness multiplier: ×${result.humor_multiplier} (${result.humor_bonus})`)
-            if (result.intentBoostApplied) safety.push('Strong intent alignment included in the intent points')
-            if (result.deadAirVetoApplied) safety.push('Dead-Air: Communication category forced to 0/3')
-            if (result.humorClashDetected) safety.push('A↔D humor styles lowered the Humor & Openness component')
-            if (result.maxScoreCapApplied) safety.push('Capped at the maximum score (100%)')
-            if (result.capApplied && !result.deadAirVetoApplied && !result.humorClashVetoApplied) safety.push(`Capped by rule (${result.capApplied}%)`)
-            if (safety.length > 0) {
-              detailedMessage += `\n🛡️ Safety:\n- ${safety.join('\n- ')}\n`
+            const scoreNotes: string[] = []
+            if (result.humorClashDetected) scoreNotes.push('A↔D humor styles are reflected directly in the Humor & Openness points')
+            if (result.maxScoreCapApplied) scoreNotes.push('Final score limited to the 100-point model maximum')
+            if (scoreNotes.length > 0) {
+              detailedMessage += `\n📝 Score notes:\n- ${scoreNotes.join('\n- ')}\n`
             }
           } else {
             // Fallback to legacy fields
@@ -4372,6 +4410,40 @@ const fetchParticipants = async () => {
           }
           return null
         }
+
+        const scoreSnapshot = match.score_snapshot ?? match.scoreSnapshot ?? null
+        const snapshotBreakdown = scoreSnapshot?.scoreBreakdown ?? scoreSnapshot?.score_breakdown ?? null
+        const snapshotQuestionScores = scoreSnapshot?.questionScores ?? scoreSnapshot?.question_scores ?? null
+        const matchScoreFields = {
+          humor_open_score: match.humor_open_score ?? match.humorOpenScore ?? snapshotBreakdown?.humorOpenness ?? 0,
+          mbti_compatibility_score: match.mbti_compatibility_score ?? match.mbtiScore ?? snapshotBreakdown?.sharedContext ?? 0,
+          attachment_compatibility_score: match.attachment_compatibility_score ?? match.attachmentScore ?? snapshotBreakdown?.attachmentComfort ?? 0,
+          communication_compatibility_score: match.communication_compatibility_score ?? match.communicationScore ?? 0,
+          lifestyle_compatibility_score: match.lifestyle_compatibility_score ?? match.lifestyleScore ?? snapshotBreakdown?.lifestyleSustainability ?? 0,
+          core_values_compatibility_score: match.core_values_compatibility_score ?? match.coreValuesScore ?? snapshotBreakdown?.valuesBoundariesLanguage ?? 0,
+          vibe_compatibility_score: match.vibe_compatibility_score ?? match.vibeScore ?? snapshotBreakdown?.aiSemantic ?? 0,
+          synergy_score: match.synergy_score ?? match.synergyScore ?? snapshotBreakdown?.interactionRhythm ?? 0,
+          intent_score: match.intent_score ?? match.intentScore ?? snapshotBreakdown?.intent ?? 0,
+          disagreement_style_score: match.disagreement_style_score ?? match.disagreementScore ?? snapshotQuestionScores?.disagreement ?? 0,
+          current_life_overlap_score: match.current_life_overlap_score ?? match.currentFocusScore ?? snapshotQuestionScores?.currentFocus ?? 0,
+          similarity_preference_score: match.similarity_preference_score ?? match.similarityPreferenceScore ?? snapshotQuestionScores?.similarityPreference ?? 0,
+          attachment_pace_score: match.attachment_pace_score ?? match.attachmentPaceScore ?? snapshotBreakdown?.attachmentComfort ?? 0,
+          score_model_version: match.score_model_version ?? match.scoreModelVersion ?? null,
+          score_content_hash: match.score_content_hash ?? match.scoreContentHash ?? null,
+          score_snapshot: scoreSnapshot,
+          score_breakdown: match.score_breakdown ?? match.scoreBreakdown ?? snapshotBreakdown,
+          question_scores: match.question_scores ?? match.questionScores ?? snapshotQuestionScores,
+          vibe_axes: match.vibe_axes ?? match.vibeAxes ?? scoreSnapshot?.vibeAxes ?? null,
+          score_provenance_valid: match.score_provenance_valid ?? match.scoreProvenanceValid,
+          score_provenance_status: match.score_provenance_status ?? match.scoreProvenanceStatus,
+          reason: match.reason ?? null,
+          attachment_penalty_applied: match.attachment_penalty_applied ?? match.attachmentPenaltyApplied ?? false,
+          intent_boost_applied: match.intent_boost_applied ?? match.intentBoostApplied ?? false,
+          dead_air_veto_applied: match.dead_air_veto_applied ?? match.deadAirVetoApplied ?? false,
+          humor_clash_detected: match.humor_clash_detected ?? match.humorClashDetected ?? false,
+          humor_clash_veto_applied: match.humor_clash_veto_applied ?? match.humorClashVetoApplied ?? false,
+          cap_applied: match.cap_applied ?? match.capApplied ?? null,
+        }
         
         // Add participant A
         if (match.participant_a_number) {
@@ -4388,18 +4460,8 @@ const fetchParticipants = async () => {
               id: participantInfo?.id || `participant_${match.participant_a_number}`,
               assigned_number: match.participant_a_number,
               name: participantName,
-              compatibility_score: match.compatibility_score || 0,
-              humor_open_score: match.humor_open_score || 0,
-              mbti_compatibility_score: match.mbti_compatibility_score || 0,
-              attachment_compatibility_score: match.attachment_compatibility_score || 0,
-              communication_compatibility_score: match.communication_compatibility_score || 0,
-              lifestyle_compatibility_score: match.lifestyle_compatibility_score || 0,
-              core_values_compatibility_score: match.core_values_compatibility_score || 0,
-              vibe_compatibility_score: match.vibe_compatibility_score || 0,
-              disagreement_style_score: match.disagreement_style_score || 0,
-              current_life_overlap_score: match.current_life_overlap_score || 0,
-              similarity_preference_score: match.similarity_preference_score || 0,
-              attachment_pace_score: match.attachment_pace_score || 0,
+              compatibility_score: match.compatibility_score ?? match.score ?? 0,
+              ...matchScoreFields,
               partner_assigned_number: match.participant_b_number,
               partner_name: participantInfoMap.get(match.participant_b_number)?.name || `المشارك #${match.participant_b_number}`,
               is_organizer_match: match.participant_b_number === 9999,
@@ -4428,18 +4490,8 @@ const fetchParticipants = async () => {
               id: participantInfo?.id || `participant_${match.participant_b_number}`,
               assigned_number: match.participant_b_number,
               name: participantName,
-              compatibility_score: match.compatibility_score || 0,
-              humor_open_score: match.humor_open_score || 0,
-              mbti_compatibility_score: match.mbti_compatibility_score || 0,
-              attachment_compatibility_score: match.attachment_compatibility_score || 0,
-              communication_compatibility_score: match.communication_compatibility_score || 0,
-              lifestyle_compatibility_score: match.lifestyle_compatibility_score || 0,
-              core_values_compatibility_score: match.core_values_compatibility_score || 0,
-              vibe_compatibility_score: match.vibe_compatibility_score || 0,
-              disagreement_style_score: match.disagreement_style_score || 0,
-              current_life_overlap_score: match.current_life_overlap_score || 0,
-              similarity_preference_score: match.similarity_preference_score || 0,
-              attachment_pace_score: match.attachment_pace_score || 0,
+              compatibility_score: match.compatibility_score ?? match.score ?? 0,
+              ...matchScoreFields,
               partner_assigned_number: match.participant_a_number,
               partner_name: participantInfoMap.get(match.participant_a_number)?.name || `المشارك #${match.participant_a_number}`,
               is_organizer_match: match.participant_a_number === 9999,
@@ -6238,18 +6290,18 @@ Proceed?`
                     onClick={() => setShowBatchedCacheModal(true)}
                     disabled={loading}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 text-sm shadow-lg"
-                    title="Batched pre-cache for R1 (same-gender) and R2 (opposite-gender) — processes 5 participants at a time"
+                    title="Batched compatibility pre-cache for pairs allowed by the current standing preference gates — processes 5 participants at a time"
                   >
                     <Activity className="w-3.5 h-3.5" />
-                    Batched Cache (R1/R2)
+                    Batched Compatibility Cache
                   </button>
 
-                  {/* Fix vibe scores stuck at fallback=10 */}
+                  {/* Retry old or neutral 6/12 fallback vibe rows. */}
                   <button
                     onClick={() => setShowVibeFixModal(true)}
                     disabled={loading}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-700 to-pink-700 hover:from-purple-800 hover:to-pink-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 text-sm shadow-lg"
-                    title="Fix participants whose vibe score is stuck at 10 (OpenAI timeout fallback)"
+                    title="Retry old-model or neutral 6/12 fallback vibe rows and store only verified exact current-model replacements"
                   >
                     <Zap className="w-3.5 h-3.5" />
                     Fix Vibe Scores
@@ -7226,7 +7278,7 @@ Proceed?`
                 <>
                   <p>• Scores any selected pair, even when they are not eligible to be matched</p>
                   <p>• Shows every visibility and generation gate as PASS, BLOCK, or N/A with both participants' values</p>
-                  <p>• Uses the selected generation formula, percentages, bonuses, penalties, and caps</p>
+                  <p>• Uses the selected generation formula, current direct-point components, and active eligibility gates</p>
                   <p>• Reads the same compatibility cache as generation, without updating it</p>
                   <p>• Does not create, replace, or modify any matches or cache records</p>
                 </>
@@ -7515,7 +7567,7 @@ Proceed?`
 
                 <button
                   onClick={async () => {
-                    let confirmMessage = "Generate matches without AI vibe analysis? (All participants will get full vibe score)"
+                    let confirmMessage = "Generate matches without AI vibe analysis? (Uncached pairs will receive a neutral AI-vibe score, not full points)"
                     if (excludedParticipants.length > 0) {
                       confirmMessage += `\n\n🚫 ${excludedParticipants.length} participant(s) will be excluded from ALL matching:\n${excludedParticipants.map(p => `#${p.participant_number}`).join(', ')}`
                     }
@@ -9712,7 +9764,7 @@ Proceed?`
         eventId={currentEventId}
       />
 
-      {/* Vibe Fix Modal — recalculate stuck vibe=10 fallback scores */}
+      {/* Vibe Fix Modal — retry old or neutral 6/12 fallback scores. */}
       <VibeFixModal
         isOpen={showVibeFixModal}
         onClose={() => setShowVibeFixModal(false)}

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react"
 import { UserRound, Info, Gauge, Search, Star, Heart, Users, Trophy, Filter, RefreshCw, ChevronDown, ChevronUp, Trash2, AlertTriangle, MessageSquare, ThumbsUp, ThumbsDown, BarChart, X, Download } from "lucide-react"
 import FeedbackStatsModal from "~/components/FeedbackStatsModal"
 import FeedbackPairsModal from "~/components/FeedbackPairsModal"
+import { isCurrentBalancedScoreRow, isCurrentOppositesScoreRow } from "~/lib/compatibility-model"
 
 interface FeedbackData {
   participant_number: number
@@ -17,6 +18,27 @@ interface FeedbackData {
   participant_message?: string
   organizer_impression?: string
   submitted_at: string
+}
+
+interface BalancedScoreBreakdown {
+  semanticCommonGround?: number | null
+  aiSemantic?: number | null
+  sharedContext?: number | null
+  interactionRhythm?: number | null
+  humorOpenness?: number | null
+  attachmentComfort?: number | null
+  lifestyleSustainability?: number | null
+  valuesBoundaries?: number | null
+  valuesBoundariesLanguage?: number | null
+  language?: number | null
+  communicationDisagreement?: number | null
+  intent?: number | null
+  interactionSynergy?: number | null
+  coreValuesAlignment?: number | null
+  communicationAlignment?: number | null
+  lifestyleDifference?: number | null
+  vibeDifference?: number | null
+  humorDifference?: number | null
 }
 
 interface ParticipantMatch {
@@ -46,11 +68,23 @@ interface ParticipantMatch {
     lifestyle: number
     core_values: number
     vibe: number
-    // New model fields (100-pt system)
-    synergy?: number // 0..35
-    humor_open?: number // 0..15
+    // Intermediate and balanced 100-point model fields.
+    synergy?: number
+    humor_open?: number
     intent?: number // 0..5
+    shared_context?: number
+    attachment_comfort?: number
+    communication_disagreement?: number
+    values_boundaries_language?: number
   }
+  score_model_version?: string | null
+  score_breakdown?: BalancedScoreBreakdown | null
+  score_snapshot?: Record<string, unknown> | string | null
+  reason?: string | null
+  communication_disagreement_score?: number | null
+  values_boundaries_score?: number | null
+  language_score?: number | null
+  shared_context_score?: number | null
   bonus_type: 'none' | 'partial' | 'full'
   round: number
   table_number?: number
@@ -62,6 +96,25 @@ interface ParticipantMatch {
     participant_b: FeedbackData | null
     has_feedback: boolean
   }
+}
+
+const firstFiniteScore = (...values: unknown[]): number | null => {
+  for (const value of values) {
+    if (value === null || value === undefined || value === '') continue
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return null
+}
+
+const getReasonScore = (reason: string, ...labels: string[]): number | null => {
+  const escaped = labels.map(label => label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+  const result = reason.match(new RegExp(`(?:${escaped})\\s*[:：]\\s*(-?\\d+(?:\\.\\d+)?)\\s*(?:/\\s*\\d+(?:\\.\\d+)?|%)?`, 'i'))
+  return result ? firstFiniteScore(result[1]) : null
+}
+
+const isBalancedMatchRow = (match: ParticipantMatch) => {
+  return isCurrentBalancedScoreRow(match)
 }
 
 export default function MatrixPage() {
@@ -916,34 +969,132 @@ export default function MatrixPage() {
                               </summary>
                               <div className="mt-3 space-y-2">
                                 {(() => {
-                                  // Detect new model if synergy/humor_open/intent are present (0 is valid)
+                                  const balanced = isBalancedMatchRow(match)
+                                  const opposites = isCurrentOppositesScoreRow(match)
+                                  const breakdown = match.score_breakdown ?? {}
+                                  const reason = String(match.reason || '')
+                                  // Keep the prior 100-point presentation for historical rows.
                                   const hasNew = (
                                     typeof match.detailed_scores?.synergy === 'number' ||
                                     typeof match.detailed_scores?.humor_open === 'number' ||
                                     typeof match.detailed_scores?.intent === 'number'
                                   )
 
-                                  const items = hasNew
+                                  const aiVibe = firstFiniteScore(
+                                    breakdown.aiSemantic,
+                                    getReasonScore(reason, 'AI Semantic', 'AI Vibe', 'Vibe', 'التوافق الدلالي', 'الطاقة'),
+                                    match.detailed_scores.vibe,
+                                  ) ?? 0
+                                  const commonGround = firstFiniteScore(
+                                    breakdown.semanticCommonGround,
+                                    getReasonScore(reason, 'Common Ground', 'الأرضية المشتركة'),
+                                  )
+                                  const sharedContext = firstFiniteScore(
+                                    breakdown.sharedContext,
+                                    match.shared_context_score,
+                                    match.detailed_scores.shared_context,
+                                    getReasonScore(reason, 'Shared Context', 'السياق المشترك'),
+                                    commonGround == null ? null : Math.max(0, commonGround - aiVibe),
+                                  ) ?? 0
+                                  const interaction = firstFiniteScore(
+                                    breakdown.interactionRhythm,
+                                    getReasonScore(reason, 'Interaction Rhythm', 'Synergy', 'إيقاع التفاعل', 'التفاعل'),
+                                    match.detailed_scores.synergy,
+                                  ) ?? 0
+                                  const humorOpen = firstFiniteScore(
+                                    breakdown.humorOpenness,
+                                    getReasonScore(reason, 'Humor/Openness', 'الدعابة/الانفتاح'),
+                                    match.detailed_scores.humor_open,
+                                  ) ?? 0
+                                  const attachmentComfort = firstFiniteScore(
+                                    breakdown.attachmentComfort,
+                                    getReasonScore(reason, 'Attachment Comfort', 'راحة التقارب'),
+                                    match.detailed_scores.attachment_comfort,
+                                    match.detailed_scores.attachment,
+                                  ) ?? 0
+                                  const lifestyle = firstFiniteScore(
+                                    breakdown.lifestyleSustainability,
+                                    getReasonScore(reason, 'Lifestyle', 'نمط الحياة'),
+                                    match.detailed_scores.lifestyle,
+                                  ) ?? 0
+                                  const communication = firstFiniteScore(
+                                    breakdown.communicationDisagreement,
+                                    getReasonScore(reason, 'Communication/Disagreement', 'التواصل/الاختلاف'),
+                                    match.communication_disagreement_score,
+                                    match.detailed_scores.communication_disagreement,
+                                    match.detailed_scores.communication,
+                                  ) ?? 0
+                                  const valuesBoundaries = firstFiniteScore(
+                                    breakdown.valuesBoundaries,
+                                    match.values_boundaries_score,
+                                    getReasonScore(reason, 'Values/Boundaries', 'القيم/الحدود'),
+                                  )
+                                  const expressionLanguage = firstFiniteScore(
+                                    breakdown.language,
+                                    match.language_score,
+                                    getReasonScore(reason, 'Expression Language', 'لغة التعبير'),
+                                  )
+                                  const valuesLanguage = firstFiniteScore(
+                                    breakdown.valuesBoundariesLanguage,
+                                    match.detailed_scores.values_boundaries_language,
+                                    match.detailed_scores.core_values,
+                                    valuesBoundaries == null && expressionLanguage == null
+                                      ? null
+                                      : (valuesBoundaries ?? 0) + (expressionLanguage ?? 0),
+                                  ) ?? 0
+                                  const intent = firstFiniteScore(
+                                    breakdown.intent,
+                                    getReasonScore(reason, 'Intent', 'Goal', 'Goals', 'الهدف', 'الأهداف'),
+                                    match.detailed_scores.intent,
+                                  ) ?? 0
+
+                                  const items = balanced
                                     ? [
-                                        { name: "التفاعل", score: match.detailed_scores.synergy || 0, max: 30 },
-                                        { name: "الطاقة", score: match.detailed_scores.vibe || 0, max: 25 },
-                                        { name: "نمط الحياة", score: match.detailed_scores.lifestyle || 0, max: 10 },
-                                        { name: "الدعابة/الانفتاح", score: match.detailed_scores.humor_open || 0, max: 15 },
-                                        { name: "التواصل", score: match.detailed_scores.communication || 0, max: 3 },
-                                        { name: "الأهداف", score: match.detailed_scores.intent || 0, max: 5 }
+                                        { name: "السياق المشترك", score: sharedContext, max: 6 },
+                                        { name: "توافق AI", score: aiVibe, max: 12 },
+                                        { name: "التفاعل", score: interaction, max: 20 },
+                                        { name: "الدعابة/الانفتاح", score: humorOpen, max: 10 },
+                                        { name: "راحة التقارب", score: attachmentComfort, max: 8 },
+                                        { name: "نمط الحياة", score: lifestyle, max: 12 },
+                                        { name: "القيم/الحدود/اللغة", score: valuesLanguage, max: 17 },
+                                        { name: "التواصل/الاختلاف", score: communication, max: 10 },
+                                        { name: "الهدف", score: intent, max: 5 },
+                                      ]
+                                    : opposites
+                                    ? [
+                                        { name: "إيقاع التفاعل", score: Number(breakdown.interactionSynergy ?? 0), max: 20 },
+                                        { name: "توافق القيم", score: Number(breakdown.coreValuesAlignment ?? 0), max: 17 },
+                                        { name: "توافق التواصل", score: Number(breakdown.communicationAlignment ?? 0), max: 5 },
+                                        { name: "اختلاف نمط الحياة", score: Number(breakdown.lifestyleDifference ?? 0), max: 12 },
+                                        { name: "اختلاف الطاقة", score: Number(breakdown.vibeDifference ?? 0), max: 12 },
+                                        { name: "اختلاف الدعابة", score: Number(breakdown.humorDifference ?? 0), max: 10 },
+                                      ]
+                                    : hasNew
+                                    ? [
+                                        { name: "التفاعل", score: match.detailed_scores.synergy ?? 0, max: 30 },
+                                        { name: "الطاقة", score: match.detailed_scores.vibe ?? 0, max: 25 },
+                                        { name: "نمط الحياة", score: match.detailed_scores.lifestyle ?? 0, max: 10 },
+                                        { name: "الدعابة/الانفتاح", score: match.detailed_scores.humor_open ?? 0, max: 15 },
+                                        { name: "التواصل", score: match.detailed_scores.communication ?? 0, max: 3 },
+                                        { name: "الأهداف", score: match.detailed_scores.intent ?? 0, max: 5 }
                                       ]
                                     : [
-                                        { name: "MBTI", score: match.detailed_scores.mbti || 0, max: 10 },
-                                        { name: "التعلق", score: match.detailed_scores.attachment || 0, max: 15 },
-                                        { name: "التواصل", score: match.detailed_scores.communication || 0, max: 25 },
-                                        { name: "نمط الحياة", score: match.detailed_scores.lifestyle || 0, max: 15 },
-                                        { name: "القيم", score: match.detailed_scores.core_values || 0, max: 20 },
-                                        { name: "الطاقة", score: match.detailed_scores.vibe || 0, max: 15 }
+                                        { name: "MBTI", score: match.detailed_scores.mbti ?? 0, max: 10 },
+                                        { name: "التعلق", score: match.detailed_scores.attachment ?? 0, max: 15 },
+                                        { name: "التواصل", score: match.detailed_scores.communication ?? 0, max: 25 },
+                                        { name: "نمط الحياة", score: match.detailed_scores.lifestyle ?? 0, max: 15 },
+                                        { name: "القيم", score: match.detailed_scores.core_values ?? 0, max: 20 },
+                                        { name: "الطاقة", score: match.detailed_scores.vibe ?? 0, max: 15 }
                                       ]
 
-                                  return items.map(({ name, score, max }) => {
-                                    const safeMax = max || 1
+                                  return <>
+                                    <div className={`rounded-lg border px-2 py-1 text-[10px] font-bold ${balanced ? 'border-emerald-400/25 bg-emerald-500/10 text-emerald-300' : opposites ? 'border-violet-400/25 bg-violet-500/10 text-violet-300' : 'border-amber-400/25 bg-amber-500/10 text-amber-300'}`}>
+                                      {balanced ? 'النموذج المتوازن الحالي · 100 نقطة' : opposites ? 'وضع الأضداد الحالي · 76 نقطة خام محوّلة إلى 100' : `حسبة تاريخية موروثة${match.score_model_version ? ` · ${match.score_model_version}` : ''}`}
+                                    </div>
+                                    {items.map(({ name, score, max }) => {
+                                    const safeMax = max > 0 ? max : 1
                                     const percentage = Math.max(0, Math.min(100, Math.round((score / safeMax) * 100)))
+                                    const displayScore = balanced || opposites ? Number(score.toFixed(1)) : Math.round(score)
                                     const barColor = percentage >= 80 ? 'bg-emerald-400' : 
                                                     percentage >= 70 ? 'bg-green-400' : 
                                                     percentage >= 60 ? 'bg-yellow-400' : 
@@ -959,7 +1110,7 @@ export default function MatrixPage() {
                                             />
                                           </div>
                                           <span className="text-xs font-mono w-14 text-right text-white font-bold">
-                                            {Math.round(score)}/{safeMax}
+                                            {displayScore}/{safeMax}
                                           </span>
                                           <span className="text-xs text-cyan-300 w-10 text-right">
                                             {percentage}%
@@ -967,7 +1118,8 @@ export default function MatrixPage() {
                                         </div>
                                       </div>
                                     )
-                                  })
+                                  })}
+                                  </>
                                 })()}
                               </div>
                             </details>

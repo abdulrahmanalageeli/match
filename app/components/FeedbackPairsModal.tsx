@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { X, RefreshCw, MessageSquare, ThumbsUp, ThumbsDown, Star, Users, CalendarClock } from "lucide-react";
+import { isCurrentBalancedScoreRow, isCurrentOppositesScoreRow } from "../lib/compatibility-model";
 
 interface FeedbackEntry {
   participant_number: number
@@ -45,6 +46,9 @@ interface FeedbackPairRow {
   vibe_compatibility_score?: number | null
   lifestyle_compatibility_score?: number | null
   communication_compatibility_score?: number | null
+  score_model_version?: string | null
+  score_content_hash?: string | null
+  score_snapshot?: any
 }
 
 export default function FeedbackPairsModal({ eventId, onClose }: { eventId: number, onClose: () => void }) {
@@ -153,7 +157,7 @@ export default function FeedbackPairsModal({ eventId, onClose }: { eventId: numb
                   <th className="p-3 text-right">المشارك أ</th>
                   <th className="p-3 text-right">المشارك ب</th>
                   <th className="p-3 text-right">توافق النظام</th>
-                  <th className="p-3 text-right whitespace-nowrap">تفصيل 100</th>
+                  <th className="p-3 text-right whitespace-nowrap">تفصيل النموذج</th>
                   <th className="p-3 text-right">تقييم A</th>
                   <th className="p-3 text-right">تقييم B</th>
                   <th className="p-3 text-right">متوسط التقييم</th>
@@ -174,6 +178,56 @@ export default function FeedbackPairsModal({ eventId, onClose }: { eventId: numb
                   const wants = wishes.length > 0 ? (wishes.filter(Boolean).length >= Math.ceil(wishes.length/2)) : null
                   const anyMsg = aFb?.participant_message || bFb?.participant_message || ''
                   const sentAt = aFb?.submitted_at || bFb?.submitted_at || null
+                  const snapshot = (() => {
+                    if (row.score_snapshot && typeof row.score_snapshot === 'object') return row.score_snapshot
+                    if (typeof row.score_snapshot !== 'string') return null
+                    try { const parsed = JSON.parse(row.score_snapshot); return parsed && typeof parsed === 'object' ? parsed : null } catch { return null }
+                  })()
+                  const snapshotModelVersion = String(snapshot?.scoreModelVersion ?? snapshot?.score_model_version ?? '')
+                  const snapshotContentHash = String(snapshot?.combinedContentHash ?? snapshot?.combined_content_hash ?? '')
+                  const snapshotTotal = Number(snapshot?.totalScore ?? snapshot?.total_score)
+                  const storedTotal = Number(row.compatibility_score)
+                  const hasValidSnapshot = !!row.score_model_version
+                    && !!row.score_content_hash
+                    && snapshotModelVersion === row.score_model_version
+                    && snapshotContentHash === row.score_content_hash
+                    && Number.isFinite(snapshotTotal)
+                    && Number.isFinite(storedTotal)
+                    && snapshotTotal === storedTotal
+                  const isBalanced = hasValidSnapshot && isCurrentBalancedScoreRow(row)
+                  const isOpposites = hasValidSnapshot && isCurrentOppositesScoreRow(row)
+                  const balancedBreakdown = hasValidSnapshot
+                    ? (snapshot?.scoreBreakdown ?? snapshot?.score_breakdown ?? null)
+                    : null
+                  const finite = (value: any) => { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : 0 }
+                  const balancedValuesLanguage = finite(
+                    balancedBreakdown?.valuesBoundariesLanguage
+                    ?? (finite(balancedBreakdown?.valuesBoundaries) + finite(balancedBreakdown?.language)),
+                  )
+                  const compactDimensions = isBalanced && balancedBreakdown ? [
+                    { key: 'ground', label: 'الأرضية', value: finite(balancedBreakdown.semanticCommonGround), max: 18 },
+                    { key: 'interaction', label: 'التفاعل', value: finite(balancedBreakdown.interactionRhythm), max: 20 },
+                    { key: 'humor', label: 'الدعابة/الانفتاح', value: finite(balancedBreakdown.humorOpenness), max: 10 },
+                    { key: 'attachment', label: 'وتيرة التقارب', value: finite(balancedBreakdown.attachmentComfort), max: 8 },
+                    { key: 'lifestyle', label: 'الحياة', value: finite(balancedBreakdown.lifestyleSustainability), max: 12 },
+                    { key: 'values', label: 'القيم/اللغة', value: balancedValuesLanguage, max: 17 },
+                    { key: 'communication', label: 'التواصل/الاختلاف', value: finite(balancedBreakdown.communicationDisagreement), max: 10 },
+                    { key: 'intent', label: 'الهدف', value: finite(balancedBreakdown.intent), max: 5 },
+                  ] : isOpposites && balancedBreakdown ? [
+                    { key: 'interaction', label: 'إيقاع التفاعل', value: finite(balancedBreakdown.interactionSynergy), max: 20 },
+                    { key: 'values', label: 'توافق القيم', value: finite(balancedBreakdown.coreValuesAlignment), max: 17 },
+                    { key: 'communication', label: 'توافق التواصل', value: finite(balancedBreakdown.communicationAlignment), max: 5 },
+                    { key: 'lifestyle', label: 'اختلاف الحياة', value: finite(balancedBreakdown.lifestyleDifference), max: 12 },
+                    { key: 'vibe', label: 'اختلاف الطاقة', value: finite(balancedBreakdown.vibeDifference), max: 12 },
+                    { key: 'humor', label: 'اختلاف الدعابة', value: finite(balancedBreakdown.humorDifference), max: 10 },
+                  ] : [
+                    { key: 'interaction', label: 'التفاعل', value: finite(row.synergy_score), max: 30 },
+                    { key: 'vibe', label: 'الطاقة', value: finite(row.vibe_compatibility_score), max: 25 },
+                    { key: 'lifestyle', label: 'الحياة', value: finite(row.lifestyle_compatibility_score), max: 10 },
+                    { key: 'humor', label: 'الدعابة/الانفتاح', value: finite(row.humor_open_score), max: 15 },
+                    { key: 'communication', label: 'التواصل', value: finite(row.communication_compatibility_score), max: 3 },
+                    { key: 'intent', label: 'الأهداف', value: finite(row.intent_score), max: 5 },
+                  ]
 
                   // Helper to colorize by percent
                   const pctColor = (score: number, max: number) => {
@@ -205,6 +259,7 @@ export default function FeedbackPairsModal({ eventId, onClose }: { eventId: numb
                       {/* 100-pt breakdown (compact) */}
                       <td className="p-3 align-top">
                         {(
+                          balancedBreakdown != null ||
                           row.synergy_score != null ||
                           row.vibe_compatibility_score != null ||
                           row.lifestyle_compatibility_score != null ||
@@ -213,30 +268,15 @@ export default function FeedbackPairsModal({ eventId, onClose }: { eventId: numb
                           row.intent_score != null
                         ) ? (
                           <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
-                            <div>
-                              <span className="text-slate-400">التفاعل:</span>{' '}
-                              <span className={pctColor(row.synergy_score ?? 0, 30)}>{Math.round(row.synergy_score ?? 0)}/30</span>
+                            <div className={`col-span-2 mb-0.5 rounded px-1.5 py-0.5 text-[9px] font-bold ${isBalanced ? 'bg-emerald-500/10 text-emerald-300' : isOpposites ? 'bg-violet-500/10 text-violet-300' : 'bg-amber-500/10 text-amber-300'}`}>
+                              {isBalanced ? 'النموذج المتوازن' : isOpposites ? 'وضع الأضداد · 76→100' : 'حسبة تاريخية'}
                             </div>
-                            <div>
-                              <span className="text-slate-400">الطاقة:</span>{' '}
-                              <span className={pctColor(row.vibe_compatibility_score ?? 0, 25)}>{Math.round(row.vibe_compatibility_score ?? 0)}/25</span>
-                            </div>
-                            <div>
-                              <span className="text-slate-400">الحياة:</span>{' '}
-                              <span className={pctColor(row.lifestyle_compatibility_score ?? 0, 10)}>{Math.round(row.lifestyle_compatibility_score ?? 0)}/10</span>
-                            </div>
-                            <div>
-                              <span className="text-slate-400">الدعابة/الانفتاح:</span>{' '}
-                              <span className={pctColor(row.humor_open_score ?? 0, 15)}>{Math.round(row.humor_open_score ?? 0)}/15</span>
-                            </div>
-                            <div>
-                              <span className="text-slate-400">التواصل:</span>{' '}
-                              <span className={pctColor(row.communication_compatibility_score ?? 0, 3)}>{Math.round(row.communication_compatibility_score ?? 0)}/3</span>
-                            </div>
-                            <div>
-                              <span className="text-slate-400">الأهداف:</span>{' '}
-                              <span className={pctColor(row.intent_score ?? 0, 5)}>{Math.round(row.intent_score ?? 0)}/5</span>
-                            </div>
+                            {compactDimensions.map(dimension => (
+                              <div key={dimension.key}>
+                                <span className="text-slate-400">{dimension.label}:</span>{' '}
+                                <span className={pctColor(dimension.value, dimension.max)}>{Math.round(dimension.value)}/{dimension.max}</span>
+                              </div>
+                            ))}
                           </div>
                         ) : (
                           <span className="text-slate-500">—</span>

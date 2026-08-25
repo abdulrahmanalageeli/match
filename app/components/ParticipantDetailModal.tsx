@@ -5,12 +5,40 @@ import * as Popover from "@radix-ui/react-popover"
 import ParticipantHoverCardContent from "./ParticipantHoverCard"
 import { HistoryConfidenceBadges } from "./HistoryConfidenceBadge"
 import { getPairMatchInsightsCoverage } from "../lib/matchControl"
+import {
+  BALANCED_SCORE_MAXIMA,
+  LEGACY_SCORE_MAXIMA,
+  isCurrentOppositesScoreRow,
+  isCurrentBalancedScoreRow as isBalancedScoreRow,
+  isSupportedCurrentScoreRow,
+  parseScoreObject as scoreObject,
+} from "../lib/compatibility-model"
 
 const shadowMetrics = [
   { id: "expression_language", label: "لغة", max: 5 },
   { id: "social_relationship_style", label: "اجتماعي", max: 4 },
   { id: "minimum_partner_religious_commitment", label: "التزام", max: 4 },
 ] as const
+
+function scoreMaximaFor(row: any) {
+  return isBalancedScoreRow(row) ? BALANCED_SCORE_MAXIMA : LEGACY_SCORE_MAXIMA
+}
+
+function communicationScoreForDisplay(row: any): number | undefined {
+  const stored = Number(row?.communication_compatibility_score ?? row?.communication_score)
+  if (!isBalancedScoreRow(row)) return Number.isFinite(stored) ? stored : undefined
+
+  const questionScores = scoreObject(row?.question_scores ?? row?.questionScores)
+  const directScores = ["communication1", "communication2", "communication3", "communication4", "communication5"]
+    .map(key => Number(questionScores?.[key]))
+  if (directScores.every(Number.isFinite)) return directScores.reduce((total, score) => total + score, 0)
+
+  const breakdown = scoreObject(row?.score_breakdown ?? row?.scoreBreakdown)
+  const aggregate = Number(breakdown?.communicationDisagreement ?? breakdown?.communication_disagreement)
+  const disagreement = Number(row?.disagreement_style_score ?? questionScores?.disagreement)
+  if (Number.isFinite(aggregate) && Number.isFinite(disagreement)) return Math.max(0, aggregate - disagreement)
+  return Number.isFinite(stored) ? stored : undefined
+}
 
 function parseShadowAnswer(participant: any, metricId: string): number | null {
   // Check both survey_data.answers and direct participant columns
@@ -96,6 +124,10 @@ interface ParticipantMatch {
   reason?: string
   openness_zero_zero_penalty_applied?: boolean
   compound_lifestyle_score?: number
+  score_model_version?: string
+  score_breakdown?: Record<string, unknown> | null
+  question_scores?: Record<string, unknown> | null
+  score_snapshot?: Record<string, unknown> | string | null
 }
 
 type DetailSortKey =
@@ -435,7 +467,7 @@ export default function ParticipantDetailModal({
   }
 
   const matchStatusRank = (match: ParticipantMatch) => match.is_actual_match ? 3 : match.is_repeated_match ? 2 : 1
-  const matchFlagCount = (match: ParticipantMatch) => [
+  const matchFlagCount = (match: ParticipantMatch) => isSupportedCurrentScoreRow(match) ? 0 : [
     match.attachment_penalty_applied,
     match.intent_boost_applied,
     match.dead_air_veto_applied,
@@ -453,6 +485,7 @@ export default function ParticipantDetailModal({
       return data?.payment_waived === true ? 2 : data?.PAID_DONE === true ? 3 : 1
     }
     if (detailSortKey === "flags") return matchFlagCount(match)
+    if (detailSortKey === "communication_compatibility_score") return communicationScoreForDisplay(match) ?? null
     if (detailSortKey === "compound_lifestyle_score") {
       const vibe = match.vibe_compatibility_score ?? 0
       const disagreement = match.disagreement_style_score ?? 0
@@ -722,24 +755,25 @@ export default function ParticipantDetailModal({
                           <th className="text-center p-4 text-sm font-semibold text-slate-300">اختيار</th>
                         )}
                         {matchType !== "group" && (
-                          renderSortableHeader("القيود/المكافآت", "flags")
+                          renderSortableHeader("القيود/التفاصيل", "flags")
                         )}
                         {matchType !== "group" && (
                           <th className="text-center p-4 text-sm font-semibold text-slate-300">المؤشر الظلي</th>
                         )}
                         {matchType !== "group" && (
                           <>
-                            {renderSortableHeader("التفاعل /30", "synergy_score")}
-                            {renderSortableHeader("أسلوب الاختلاف /4", "disagreement_style_score")}
-                            {renderSortableHeader("المرحلة الحالية /5", "current_life_overlap_score")}
-                            {renderSortableHeader("تفضيل التشابه /5", "similarity_preference_score")}
-                            {renderSortableHeader("وتيرة التقارب /3", "attachment_pace_score")}
-                            {renderSortableHeader("نمط الحياة /10", "lifestyle_compatibility_score")}
-                            {renderSortableHeader("الدعابة/الانفتاح /15", "humor_open_score")}
-                            {renderSortableHeader("التواصل /3", "communication_compatibility_score")}
-                            {renderSortableHeader("الأهداف/القيم /5", "intent_score")}
+                            {renderSortableHeader("التفاعل", "synergy_score")}
+                            {renderSortableHeader("أسلوب الاختلاف", "disagreement_style_score")}
+                            {renderSortableHeader("المرحلة الحالية", "current_life_overlap_score")}
+                            {renderSortableHeader("تفضيل التشابه", "similarity_preference_score")}
+                            {renderSortableHeader("وتيرة التقارب", "attachment_pace_score")}
+                            {renderSortableHeader("نمط الحياة", "lifestyle_compatibility_score")}
+                            {renderSortableHeader("الدعابة/الانفتاح", "humor_open_score")}
+                            {renderSortableHeader("التواصل", "communication_compatibility_score")}
+                            {renderSortableHeader("القيم/الحدود/اللغة", "core_values_compatibility_score")}
+                            {renderSortableHeader("الهدف", "intent_score")}
                             {matchType === "ai" && (
-                              renderSortableHeader("الطاقة /25", "vibe_compatibility_score")
+                              renderSortableHeader("الطاقة", "vibe_compatibility_score")
                             )}
                             {renderSortableHeader("مجموع نمط الحياة", "compound_lifestyle_score")}
                           </>
@@ -852,6 +886,7 @@ export default function ParticipantDetailModal({
                               </Popover.Root>
                               {(() => {
                                 // Show openness 0×0 penalty icon next to potential partner name
+                                if (isSupportedCurrentScoreRow(match)) return null
                                 const pA = participantData.get(participant.assigned_number)
                                 const pB = participantData.get(match.participant_number)
                                 const ansA = pA?.survey_data?.answers || {}
@@ -936,7 +971,7 @@ export default function ParticipantDetailModal({
                                 محتملة
                               </span>
                             )}
-                            {(match.humor_clash_detected || match.humor_clash_veto_applied) && (
+                            {!isSupportedCurrentScoreRow(match) && (match.humor_clash_detected || match.humor_clash_veto_applied) && (
                               <span title="اختلاف أسلوب الدعابة A↔D — لم يعد يستبعد هذا الشخص" className="inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-500/15 px-2 py-1 text-[10px] font-black text-amber-200">
                                 <AlertTriangle className="h-3 w-3" /> A↔D دعابة
                               </span>
@@ -997,7 +1032,7 @@ export default function ParticipantDetailModal({
                                   )
                                 }
                               })()}
-                              {match.humor_early_openness_bonus && match.humor_early_openness_bonus !== 'none' && (
+                              {!isSupportedCurrentScoreRow(match) && match.humor_early_openness_bonus && match.humor_early_openness_bonus !== 'none' && (
                                 <Tooltip.Provider delayDuration={200}>
                                   <Tooltip.Root>
                                     <Tooltip.Trigger>
@@ -1031,7 +1066,8 @@ export default function ParticipantDetailModal({
                           {matchType !== "group" && (
                             <td className="p-4 text-center">
                               {(() => {
-                                const hasAny = (
+                                const legacy = !isSupportedCurrentScoreRow(match)
+                                const hasAny = legacy && (
                                   !!match.intent_boost_applied ||
                                   !!match.attachment_penalty_applied ||
                                   !!match.dead_air_veto_applied ||
@@ -1041,7 +1077,7 @@ export default function ParticipantDetailModal({
                                   (match.humor_early_openness_bonus && match.humor_early_openness_bonus !== 'none')
                                 )
                                 const tolerated = !!(match && typeof match.reason === 'string' && match.reason.includes('±1y'))
-                                const hasDeadAirPenalty = !!match.dead_air_veto_applied
+                                const hasDeadAirPenalty = legacy && !!match.dead_air_veto_applied
                                 return (
                                   <div className="inline-flex items-center gap-2 justify-center">
                                     {hasDeadAirPenalty && (
@@ -1213,20 +1249,30 @@ export default function ParticipantDetailModal({
                               </div>
                             </td>
                           )}
-                          {matchType !== "group" && (
-                            <>
-                              <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.synergy_score ?? 0).toFixed(1)}/30</span></td>
-                              <td className="p-4 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number.isFinite(Number(match.disagreement_style_score)) ? `${Number(match.disagreement_style_score).toFixed(1)}/4` : "—"}</span></td>
-                              <td className="p-4 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number.isFinite(Number(match.current_life_overlap_score)) ? `${Number(match.current_life_overlap_score).toFixed(1)}/5` : "—"}</span></td>
-                              <td className="p-4 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number.isFinite(Number(match.similarity_preference_score)) ? `${Number(match.similarity_preference_score).toFixed(1)}/5` : "—"}</span></td>
-                              <td className="p-4 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number.isFinite(Number(match.attachment_pace_score)) ? `${Number(match.attachment_pace_score).toFixed(1)}/3` : "—"}</span></td>
-                              <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.lifestyle_compatibility_score ?? 0).toFixed(1)}/10</span></td>
-                              <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.humor_open_score ?? 0).toFixed(1)}/15</span></td>
-                              <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.communication_compatibility_score ?? 0).toFixed(1)}/3</span></td>
-                              <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.intent_score ?? 0).toFixed(1)}/5</span></td>
-                              {matchType === "ai" && (
-                                <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.vibe_compatibility_score ?? 0).toFixed(1)}/25</span></td>
-                              )}
+                          {matchType !== "group" && (() => {
+                            if (isCurrentOppositesScoreRow(match)) {
+                              return (
+                                <td colSpan={matchType === "ai" ? 12 : 11} className="p-4 text-center text-xs text-violet-300">
+                                  وضع الأضداد · المجموع محفوظ بلقطة دقيقة — افتح تحليل الزوج لعرض مكونات 76→100
+                                </td>
+                              )
+                            }
+                            const maxima = scoreMaximaFor(match)
+                            return (
+                              <>
+                                <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.synergy_score ?? 0).toFixed(1)}/{maxima.synergy}</span></td>
+                                <td className="p-4 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number.isFinite(Number(match.disagreement_style_score)) ? `${Number(match.disagreement_style_score).toFixed(1)}/${maxima.disagreement}` : "—"}</span></td>
+                                <td className="p-4 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number.isFinite(Number(match.current_life_overlap_score)) ? `${Number(match.current_life_overlap_score).toFixed(1)}/${maxima.focus}` : "—"}</span></td>
+                                <td className="p-4 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number.isFinite(Number(match.similarity_preference_score)) ? `${Number(match.similarity_preference_score).toFixed(1)}/${maxima.similarity}` : "—"}</span></td>
+                                <td className="p-4 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number.isFinite(Number(match.attachment_pace_score)) ? `${Number(match.attachment_pace_score).toFixed(1)}/${maxima.attachment}` : "—"}</span></td>
+                                <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.lifestyle_compatibility_score ?? 0).toFixed(1)}/{maxima.lifestyle}</span></td>
+                                <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.humor_open_score ?? 0).toFixed(1)}/{maxima.humor}</span></td>
+                                <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(communicationScoreForDisplay(match) ?? 0).toFixed(1)}/{maxima.communication}</span></td>
+                                <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.core_values_compatibility_score ?? 0).toFixed(1)}/{maxima.core}</span></td>
+                                <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.intent_score ?? 0).toFixed(1)}/{maxima.intent}</span></td>
+                                {matchType === "ai" && (
+                                  <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.vibe_compatibility_score ?? 0).toFixed(1)}/{maxima.vibe}</span></td>
+                                )}
                               <td className="p-4 text-center"><span className="text-purple-200 text-sm font-bold">{(() => {
                                 const vibe = match.vibe_compatibility_score ?? 0
                                 const disagreement = match.disagreement_style_score ?? 0
@@ -1237,8 +1283,9 @@ export default function ParticipantDetailModal({
                                 const compound = vibe + disagreement + currentLife + similarity + attachment + lifestyle
                                 return Number.isFinite(compound) ? `${compound.toFixed(1)}` : "—"
                               })()}</span></td>
-                            </>
-                          )}
+                              </>
+                            )
+                          })()}
                         </tr>
                       ))}
                     </tbody>

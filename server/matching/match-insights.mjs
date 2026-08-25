@@ -1,4 +1,14 @@
-export const MATCH_INSIGHTS_VERSION = '2026-08-11-v5-weighted-humor-clash'
+import {
+  BALANCED_COMPATIBILITY_VERSION,
+  BALANCED_VIBE_MAX,
+  calculateBalancedAttachmentScore,
+  calculateBalancedCompatibility,
+  calculateBalancedCurrentFocusScore,
+  calculateBalancedDisagreementScore,
+  calculateBalancedSimilarityPreferenceScore,
+} from './balanced-compatibility.mjs'
+
+export const MATCH_INSIGHTS_VERSION = BALANCED_COMPATIBILITY_VERSION
 
 export const MATCH_INSIGHT_IDS = Object.freeze([
   'match_disagreement_style',
@@ -20,13 +30,6 @@ export const MATCH_FOCUS_VALUES = Object.freeze([
   'other',
 ])
 
-const DISAGREEMENT_MATRIX = Object.freeze({
-  A: { A: 4, B: 3, C: 2, D: 0 },
-  B: { A: 3, B: 4, C: 3, D: 3 },
-  C: { A: 2, B: 3, C: 4, D: 3 },
-  D: { A: 0, B: 3, C: 3, D: 4 },
-})
-
 const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value))
 
 export function getMatchAnswer(participant, key) {
@@ -34,9 +37,7 @@ export function getMatchAnswer(participant, key) {
 }
 
 export function calculateDisagreementStyleScore(participantA, participantB) {
-  const a = String(getMatchAnswer(participantA, 'match_disagreement_style') || '').toUpperCase()
-  const b = String(getMatchAnswer(participantB, 'match_disagreement_style') || '').toUpperCase()
-  return DISAGREEMENT_MATRIX[a]?.[b] ?? 2.5
+  return calculateBalancedDisagreementScore(participantA, participantB)
 }
 
 const normalizeFocus = (value) => {
@@ -45,126 +46,36 @@ const normalizeFocus = (value) => {
 }
 
 export function calculateCurrentFocusScore(participantA, participantB) {
-  const a = normalizeFocus(getMatchAnswer(participantA, 'match_current_focus'))
-  const b = normalizeFocus(getMatchAnswer(participantB, 'match_current_focus'))
-  if (a.length === 0 || b.length === 0) return 2.5
-  const overlap = a.filter((value) => b.includes(value)).length
-  if (overlap >= 2) return 5
-  if (overlap === 1) return 3
-  return 1
-}
-
-function preferenceSatisfaction(preference, similarity) {
-  switch (preference) {
-    case 'A': return similarity
-    case 'B': return 1 - similarity
-    case 'C': return clamp(1 - (Math.abs(similarity - 0.6) / 0.6), 0, 1)
-    case 'D': return 0.6
-    default: return 0.6
-  }
+  return calculateBalancedCurrentFocusScore(participantA, participantB)
 }
 
 export function calculateSimilarityPreferenceScore(participantA, participantB, contentSimilarity = 0.6) {
-  const similarity = clamp(Number.isFinite(Number(contentSimilarity)) ? Number(contentSimilarity) : 0.6, 0, 1)
-  const a = String(getMatchAnswer(participantA, 'match_similarity_preference') || '').toUpperCase()
-  const b = String(getMatchAnswer(participantB, 'match_similarity_preference') || '').toUpperCase()
-  return ((preferenceSatisfaction(a, similarity) + preferenceSatisfaction(b, similarity)) / 2) * 5
+  void contentSimilarity
+  return calculateBalancedSimilarityPreferenceScore(participantA, participantB)
 }
 
-export function calculatePersistedMatchInsightScores(participantA, participantB, vibeScore, vibeMaximum = 25) {
-  const disagreementStyleScore = calculateDisagreementStyleScore(participantA, participantB)
-  const currentLifeOverlapScore = calculateCurrentFocusScore(participantA, participantB)
-  const normalizedVibe = clamp(Number(vibeScore) || 0, 0, vibeMaximum) / vibeMaximum
-  const contentSimilarity = clamp((normalizedVibe + (currentLifeOverlapScore / 5)) / 2, 0, 1)
+export function calculatePersistedMatchInsightScores(participantA, participantB, vibeScore, vibeMaximum = BALANCED_VIBE_MAX) {
+  const sourceMaximum = Number(vibeMaximum) > 0 ? Number(vibeMaximum) : BALANCED_VIBE_MAX
+  const normalizedVibe = clamp(Number(vibeScore) || 0, 0, sourceMaximum) / sourceMaximum
+  const score = calculateBalancedCompatibility(participantA, participantB, {
+    vibeScore: normalizedVibe * BALANCED_VIBE_MAX,
+  })
 
   return {
-    disagreement_style_score: disagreementStyleScore,
-    current_life_overlap_score: currentLifeOverlapScore,
-    similarity_preference_score: calculateSimilarityPreferenceScore(participantA, participantB, contentSimilarity),
-    attachment_pace_score: calculateAttachmentPaceScore(participantA, participantB),
+    disagreement_style_score: score.disagreementScore,
+    current_life_overlap_score: score.currentFocusScore,
+    similarity_preference_score: score.similarityPreferenceScore,
+    attachment_pace_score: score.attachmentPaceScore,
   }
 }
 
-const attachmentNeed = {
-  attachment_1: { A: 2, B: 3, C: 0.5, D: 2.25 },
-  attachment_3: { A: 2, B: 3, C: 0, D: 1.5 },
-  attachment_4: { A: 2, B: 3, C: 0.5, D: 1.5 },
-}
-
-const answerLetter = (participant, key) => {
-  const raw = String(getMatchAnswer(participant, key) || '').trim().toUpperCase()
-  return ({ 'أ': 'A', 'ب': 'B', 'ج': 'C', 'د': 'D' })[raw] || raw
-}
-
-function depthOffering(participant) {
-  const depth = answerLetter(participant, 'conversation_depth_pref')
-  if (depth === 'A') return 3
-  if (depth === 'B') return 1.5
-  const legacyDepth = String(getMatchAnswer(participant, 'vibe_4') || '').trim().toLowerCase()
-  if (['نعم', 'yes', 'true'].includes(legacyDepth)) return 3
-  if (['لا', 'no', 'false'].includes(legacyDepth)) return 0.75
-  if (legacyDepth) return 1.75
-  return null
-}
-
-function opennessOffering(participant) {
-  const raw = getMatchAnswer(participant, 'early_openness_comfort')
-  const openness = Number(raw)
-  const depth = depthOffering(participant)
-  const hasOpenness = raw !== null && raw !== '' && Number.isFinite(openness)
-  if (!hasOpenness && depth === null) return null
-  if (!hasOpenness) return depth
-  if (depth === null) return clamp(openness, 0, 3)
-  return (clamp(openness, 0, 3) * 0.7) + (depth * 0.3)
-}
-
-function initiativeOffering(participant) {
-  const role = answerLetter(participant, 'conversational_role')
-  const curiosity = answerLetter(participant, 'curiosity_style')
-  const roleScore = ({ A: 3, B: 2.25, C: 1.25 })[role]
-  const curiosityScore = ({ A: 1.5, B: 3, C: 2 })[curiosity]
-  if (roleScore == null && curiosityScore == null) return null
-  if (roleScore == null) return curiosityScore
-  if (curiosityScore == null) return roleScore
-  return (roleScore * 0.65) + (curiosityScore * 0.35)
-}
-
-function listeningOffering(participant) {
-  const role = answerLetter(participant, 'conversational_role')
-  const curiosity = answerLetter(participant, 'curiosity_style')
-  const roleScore = ({ A: 1.5, B: 2.25, C: 3 })[role]
-  const curiosityScore = ({ A: 1.5, B: 3, C: 2 })[curiosity]
-  if (roleScore == null && curiosityScore == null) return null
-  if (roleScore == null) return curiosityScore
-  if (curiosityScore == null) return roleScore
-  return (roleScore * 0.65) + (curiosityScore * 0.35)
-}
-
-function directionalNeedFit(participantWithNeed, attachmentKey, partnerOffering) {
-  const answer = answerLetter(participantWithNeed, attachmentKey)
-  const need = attachmentNeed[attachmentKey]?.[answer]
-  if (need == null || partnerOffering == null) return 0.5
-  // Secure/balanced answers indicate flexibility rather than a narrow demand.
-  if (answer === 'A') return 0.85 + (0.15 * (1 - Math.min(1, Math.abs(partnerOffering - 2) / 2)))
-  return clamp(1 - (Math.abs(need - partnerOffering) / 3), 0, 1)
-}
-
 export function calculateAttachmentPaceScore(participantA, participantB) {
-  const symmetricFit = (key, offeringA, offeringB) => (
-    directionalNeedFit(participantA, key, offeringB) + directionalNeedFit(participantB, key, offeringA)
-  ) / 2
-
-  const closenessFit = symmetricFit('attachment_3', opennessOffering(participantA), opennessOffering(participantB))
-  const reassuranceFit = symmetricFit('attachment_1', initiativeOffering(participantA), initiativeOffering(participantB))
-  const supportFit = symmetricFit('attachment_4', listeningOffering(participantA), listeningOffering(participantB))
-  return clamp((closenessFit * 1.5) + reassuranceFit + (supportFit * 0.5), 0, 3)
+  return calculateBalancedAttachmentScore(participantA, participantB)
 }
 
 export function getAttachmentPaceCacheContent(participant) {
   return [
     'attachment_1', 'attachment_3', 'attachment_4',
-    'early_openness_comfort', 'conversation_depth_pref',
-    'conversational_role', 'curiosity_style',
   ].map((key) => `${key}:${String(getMatchAnswer(participant, key) ?? '')}`).join('|')
 }
 

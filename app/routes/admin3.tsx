@@ -3,6 +3,7 @@ import toast, { Toaster } from "react-hot-toast"
 import { useVisibilityPoll } from "~/hooks/useVisibilityPoll"
 import { surveyQuestions } from "~/components/SurveyComponent"
 import GroupFeedbackIntelligence from "~/components/GroupFeedbackIntelligence"
+import { CURRENT_BALANCED_SCORE_MODEL } from "~/lib/compatibility-model"
 import {
   Users, Play, Square, ChevronRight, RotateCcw, CheckCircle,
   Circle, RefreshCw, Table2, Trophy, Clock, BarChart3, Shuffle,
@@ -24,6 +25,14 @@ for (const q of surveyQuestions) {
 
 // Map event3 survey field keys to surveyQuestions IDs for label lookup
 const fieldToQuestionId: Record<string, string> = {
+  match_disagreement_style: "match_disagreement_style",
+  match_similarity_preference: "match_similarity_preference",
+  match_current_curiosity: "match_current_curiosity",
+  match_current_focus: "match_current_focus",
+  conversation_initiative_preference: "conversation_initiative_preference",
+  expression_language: "expression_language",
+  minimum_partner_religious_commitment: "minimum_partner_religious_commitment",
+  social_relationship_style: "social_relationship_style",
   conversational_role: "interaction_synergy_1",
   conversation_depth_pref: "interaction_synergy_2",
   social_battery: "interaction_style_1",
@@ -203,7 +212,8 @@ function mapEnumLabel3(fieldKey: string, rawValue: any): string {
   if (qId) {
     const m = surveyOptionMap3.get(qId)
     if (m) {
-      const label = m.get(String(rawValue).toUpperCase())
+      const raw = String(rawValue)
+      const label = m.get(raw) || m.get(raw.toUpperCase())
       if (label) return label
     }
   }
@@ -490,7 +500,7 @@ export default function Admin3Page() {
   const [participantPanelOpen, setParticipantPanelOpen] = useState(false)
   const [pairDetail, setPairDetail] = useState<any | null>(null)
   const [surveyModal, setSurveyModal] = useState<any | null>(null)
-  const [openSections, setOpenSections] = useState<Set<string>>(new Set(['personality', 'comm', 'energy', 'humor', 'values', 'intent']))
+  const [openSections, setOpenSections] = useState<Set<string>>(new Set(['common', 'rhythm', 'humor', 'attachment', 'lifestyle', 'boundaries', 'comm', 'intent']))
   const [overviewSearch, setOverviewSearch] = useState("")
   const [overviewFilter, setOverviewFilter] = useState("all")
   const [participantSort, setParticipantSort] = useState<"number" | "name" | "voted">("number")
@@ -4519,10 +4529,6 @@ export default function Admin3Page() {
           if (['ISFJ','ISTJ','ESFJ','ESTJ'].includes(t)) return { name: 'Guardian (SJ)', ar: 'حارس', note: 'استقرار، تقاليد، موثوقية', col: 'text-teal-300' }
           return { name: 'Artisan (SP)', ar: 'فنان', note: 'عفوية، حاضر، مغامرة', col: 'text-amber-300' }
         }
-        const firstLetter = s.mbti?.[0]?.toUpperCase()
-        const ieNote = firstLetter === 'I' ? { label: 'انطوائي', note: 'I+I = 0 نقاط، I+E = 2.5 نقاط', col: 'text-indigo-300' }
-          : firstLetter === 'E' ? { label: 'انبساطي', note: 'E+E = 2.5 نقاط، E+I = 2.5 نقاط', col: 'text-orange-300' } : null
-
         const lifestyle = s.lifestyle ? s.lifestyle.split(',') : []
         const coreVals = s.core_values ? s.core_values.split(',') : []
 
@@ -4632,6 +4638,12 @@ export default function Admin3Page() {
           FEARFUL: { label: 'خائف', cls: 'text-orange-300 bg-orange-900/30 border-orange-700/40' },
         })
         const openNum = s.early_openness !== null && s.early_openness !== undefined ? Number(s.early_openness) : null
+        const answerLabel = (field: string, value: any) => {
+          if (Array.isArray(value)) return value.map(item => mapEnumLabel3(field, item)).join('، ')
+          return mapEnumLabel3(field, value)
+        }
+        const attachmentAnswerCount = Array.isArray(s.attachment_answers) ? s.attachment_answers.length : 0
+        const communicationAnswerCount = Array.isArray(s.communication_answers) ? s.communication_answers.length : 0
 
         return (
           <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setSurveyModal(null)}>
@@ -4668,86 +4680,104 @@ export default function Admin3Page() {
 
               {/* Scrollable body */}
               <div className="overflow-y-auto flex-1">
+                <div className="mx-4 mt-3 rounded-xl border border-blue-800/35 bg-blue-950/20 px-3 py-2.5">
+                  <p className="text-[10px] leading-relaxed text-blue-200/80">
+                    الأوزان أدناه تخص نموذج التوافق المتوازن الحالي من 100 نقطة. بوابات الأهلية تُفحص بشكل مستقل قبل المفاضلة ولا تدخل ضمن هذه النقاط.
+                  </p>
+                </div>
 
-                {/* 1. Personality & Attachment */}
-                <Section id="personality" icon="🧠" title="الشخصية والتعلّق" pts="MBTI · تعلق" open={openSections.has('personality')} onToggle={toggleSection}>
+                {/* 1. Semantic common ground */}
+                <Section id="common" icon="✨" title="الأرضية المشتركة الدلالية" pts="18 نقطة" open={openSections.has('common')} onToggle={toggleSection}>
+                  <Row icon="💭" label="موضوع الفضول الحالي"
+                    value={s.current_curiosity || '—'}
+                    impact="جزء من تحليل الـAI الدلالي متعدد الأبعاد (12 نقطة إجمالاً مع الهوايات والموسيقى ووصف الأصدقاء)."
+                    impactColor="text-violet-400" />
+                  <Row icon="🧭" label="محور التركيز الحالي"
+                    value={answerLabel('match_current_focus', s.current_focus)}
+                    impact="تقارب المحاور الحالية: حتى 4 نقاط."
+                    impactColor="text-blue-400" />
+                  <Row icon="🧩" label="تفضيل التشابه أو التكامل"
+                    value={answerLabel('match_similarity_preference', s.similarity_preference)}
+                    impact="يقيس مدى ملاءمة نوع الشريك لتفضيل كل طرف: حتى نقطتين."
+                    impactColor="text-teal-400" />
                   <Row icon="🔠" label="نوع MBTI"
                     badge={s.mbti ? { label: s.mbti, cls: mbg ? `${mbg.col.replace('text-','text-')} bg-gray-800 border-gray-700` : 'text-gray-300 bg-gray-800 border-gray-700' } : null}
-                    impact={mbg ? `${mbg.ar} (${mbg.name}) — ${mbg.note}` : 'غير محدد'}
+                    impact={mbg ? `${mbg.ar} (${mbg.name}) — سياق وصفي فقط، ولا يضيف نقاطاً.` : 'سياق وصفي فقط، ولا يضيف نقاطاً.'}
                     impactColor={mbg?.col || 'text-gray-600'} />
-                  {ieNote && <Row icon="↔️" label="الطاقة الاجتماعية (I/E)"
-                    badge={{ label: ieNote.label, cls: `${ieNote.col} bg-gray-800 border-gray-700` }}
-                    impact={ieNote.note} impactColor={ieNote.col} />}
-                  <Row icon="🔗" label="أسلوب التعلّق"
-                    badge={attachBadge}
-                    impact={s.attachment === 'Secure' ? 'آمن: يمنح +5 نقاط مع أي شريك' : s.attachment === 'Anxious' ? 'قلق: إذا كلاهما قلق → عقوبة' : s.attachment === 'Avoidant' ? 'تجنّبي: إذا كلاهما تجنّبي → عقوبة' : 'قيمة افتراضية +2.5 نقطة'}
-                    impactColor={s.attachment === 'Secure' ? 'text-emerald-400' : 'text-yellow-500'} />
                 </Section>
 
-                {/* 2. Communication */}
-                <Section id="comm" icon="💬" title="أسلوب التواصل" pts="حتى 17 نقطة" open={openSections.has('comm')} onToggle={toggleSection}>
-                  <Row icon="🗣️" label="طريقة التعبير" badge={commBadge}
-                    impact={'Assertive+Assertive = 10 | Assertive+Passive = 8 | Passive+Passive = 5'}
-                    impactColor="text-gray-600" />
-                  <Row icon="🎙️" label="الدور في الحوار (Q35)" badge={roleBadge}
-                    impact={s.conversational_role?.toUpperCase() === 'A' ? 'مبادر: أفضل مع مستجيب/مستمع = 7 نقاط' : s.conversational_role?.toUpperCase() === 'B' ? 'مستجيب: يبني على ما يقوله الآخر = 4-7 نقاط' : s.conversational_role?.toUpperCase() === 'C' ? 'مستمع: اثنان مستمعَين = 0 نقاط' : 'غير محدد'}
-                    impactColor={s.conversational_role?.toUpperCase() === 'C' ? 'text-red-400' : 'text-gray-500'} />
-                  <Row icon="🌊" label="عمق المحادثة (Q36)" badge={depthBadge}
-                    impact="يجب أن يتطابق مع الشريك → +5 نقاط | اختلاف = 0 نقاط"
-                    impactColor="text-amber-500" />
-                </Section>
-
-                {/* 3. Energy & Openness */}
-                <Section id="energy" icon="⚡" title="الطاقة والانفتاح" pts="حتى 9 نقاط" open={openSections.has('energy')} onToggle={toggleSection}>
-                  <Row icon="😄" label="أسلوب الدعابة (humor_banter)" badge={humorBanterBadge}
-                    impact="يؤثر في مستوى الطاقة الكلية للمشارك (جزء من الحساب)"
+                {/* 2. Interaction rhythm */}
+                <Section id="rhythm" icon="🎙️" title="إيقاع التفاعل" pts="20 نقطة" open={openSections.has('rhythm')} onToggle={toggleSection}>
+                  <Row icon="▶️" label="تفضيل المبادرة الجديد"
+                    value={answerLabel('conversation_initiative_preference', s.initiative_preference)}
+                    impact={s.initiative_preference ? 'المؤشر الأساسي للمبادرة: حتى 6 نقاط.' : 'غير مكتمل؛ يستخدم النموذج سؤال الدور القديم كبديل محايد بحد أقصى 6 نقاط.'}
+                    impactColor={s.initiative_preference ? 'text-orange-400' : 'text-amber-500'} />
+                  <Row icon="🎙️" label="الدور القديم في الحوار (بديل فقط)" badge={roleBadge}
+                    impact="لا يُجمع فوق السؤال الجديد؛ يُستخدم فقط إذا كان تفضيل المبادرة الجديد مفقوداً."
                     impactColor="text-gray-500" />
+                  <Row icon="🌊" label="عمق المحادثة" badge={depthBadge}
+                    impact="حتى 3 نقاط."
+                    impactColor="text-violet-400" />
+                  <Row icon="🔋" label="البطارية الاجتماعية" badge={batteryBadge}
+                    impact="حتى نقطتين."
+                    impactColor="text-blue-400" />
+                  <Row icon="🎭" label="نوع الفكاهة" badge={humorSubBadge}
+                    impact="حتى 3 نقاط."
+                    impactColor="text-amber-400" />
+                  <Row icon="🔍" label="أسلوب الفضول" badge={curiosityBadge}
+                    impact="حتى 4 نقاط."
+                    impactColor="text-pink-400" />
+                  <Row icon="🤫" label="الراحة مع الصمت" badge={silenceBadge}
+                    impact="حتى نقطتين."
+                    impactColor="text-teal-400" />
+                </Section>
+
+                {/* 3. Humor and openness */}
+                <Section id="humor" icon="😄" title="الدعابة والانفتاح" pts="10 نقاط" open={openSections.has('humor')} onToggle={toggleSection}>
+                  <Row icon="😂" label="أسلوب الدعابة" badge={humorBanterBadge}
+                    impact="ملاءمة أسلوب الدعابة: حتى 6 نقاط."
+                    impactColor="text-yellow-400" />
                   <Row icon="🔓" label={`الانفتاح المبكر (0–3) · القيمة: ${openNum !== null ? openNum : '—'}`}
                     badge={openNum !== null ? {
-                      label: openNum === 0 ? '0 · منغلق' : openNum === 1 ? '1 · خجول' : openNum === 2 ? '2 · مرن' : '3 · منفتح جداً',
+                      label: openNum === 0 ? '0 · عام' : openNum === 1 ? '1 · خفيف' : openNum === 2 ? '2 · شخصي بالسياق' : '3 · شخصي من البداية',
                       cls: openNum === 0 ? 'text-red-300 bg-red-900/30 border-red-700/40' : openNum === 3 ? 'text-green-300 bg-green-900/30 border-green-700/40' : 'text-blue-300 bg-blue-900/30 border-blue-700/40'
                     } : null}
-                    impact={openNum === 0 ? '⚠ إذا كلاهما 0 → Dead Air Veto (استبعاد)' : 'يرفع مستوى الطاقة الكلية'}
-                    impactColor={openNum === 0 ? 'text-red-400' : 'text-gray-500'} />
-                  <Row icon="🔋" label="البطارية الاجتماعية (Q37)" badge={batteryBadge}
-                    impact="أي مزيج = +3-4 نقاط. لا عقوبة للاختلاف"
+                    impact="تقارب مستوى الانفتاح: حتى 4 نقاط؛ لا توجد مضاعفات أو عقوبات داخل نموذج الـ100 نقطة."
                     impactColor="text-gray-500" />
                 </Section>
 
-                {/* 4. Humor & Curiosity */}
-                <Section id="humor" icon="😂" title="الفكاهة والفضول والصمت" pts="حتى 14 نقطة" open={openSections.has('humor')} onToggle={toggleSection}>
-                  <Row icon="🎭" label="نوع الفكاهة (Q38)" badge={humorSubBadge}
-                    impact={`نفس النوع = 4 نقاط · A+C أو B+C = 3 نقاط · غيرها = 2 نقاط`}
+                {/* 4. Attachment */}
+                <Section id="attachment" icon="🔗" title="الراحة ووتيرة التقارب" pts="8 نقاط" open={openSections.has('attachment')} onToggle={toggleSection}>
+                  <Row icon="🔗" label="أسلوب التعلّق"
+                    badge={attachBadge}
+                    impact="ملخص وصفي مشتق، وليس مكافأة تلقائية أو عقوبة."
                     impactColor="text-gray-500" />
-                  <Row icon="🔍" label="أسلوب الفضول (Q39)" badge={curiosityBadge}
-                    impact={`A+B (فكري+عملي) = 5 نقاط · C+C (عاطفي+عاطفي) = 5 نقاط · A+A أو B+B = 0 نقاط`}
-                    impactColor={s.curiosity_style?.toUpperCase() === 'C' ? 'text-pink-400' : 'text-gray-500'} />
-                  <Row icon="🤫" label="الراحة مع الصمت (Q41)" badge={silenceBadge}
-                    impact={`A+B (مرتاح+غير مرتاح) = 5 نقاط تكاملية · A+A = 3 · B+B = 3`}
-                    impactColor={s.silence_comfort?.toUpperCase() === 'A' ? 'text-teal-400' : 'text-orange-400'} />
+                  <Row icon="🧷" label="إجابات سيناريوهات التعلّق"
+                    value={`${attachmentAnswerCount}/3 مكتملة`}
+                    impact="تُقارن السيناريوهات 1 و3 و4 بأوزان 2 + 3 + 3 = 8 نقاط."
+                    impactColor={attachmentAnswerCount === 3 ? 'text-emerald-400' : 'text-amber-500'} />
                 </Section>
 
-                {/* 5. Values & Lifestyle */}
-                <Section id="values" icon="🌟" title="القيم وأسلوب الحياة" pts="حتى 30 نقطة" open={openSections.has('values')} onToggle={toggleSection}>
-                  {coreVals.length === 5 ? (
-                    <div className="space-y-2 mb-3">
-                      <p className="text-[9px] text-gray-600 font-semibold uppercase tracking-wider mb-1">القيم الجوهرية (تطابق = 4 نقاط · مجاور = 2 · مقابل = 0)</p>
-                      {coreValLabels.map((cl, i) => {
-                        const v = coreVals[i]
-                        const label = cl.opts[v as keyof typeof cl.opts] || v
-                        return (
-                          <div key={i} className="flex items-center gap-2">
-                            <span className="text-[9px] text-gray-600 w-[70px] flex-shrink-0 truncate">{cl.q}</span>
-                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border flex-shrink-0 ${v === 'أ' ? 'text-blue-300 bg-blue-900/20 border-blue-800/40' : v === 'ب' ? 'text-violet-300 bg-violet-900/20 border-violet-800/40' : 'text-teal-300 bg-teal-900/20 border-teal-800/40'}`}>{v}</span>
-                            <span className="text-gray-400 text-[9px] truncate">{label}</span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  ) : <p className="text-[10px] text-gray-600 mb-2">القيم الجوهرية: غير مكتملة</p>}
+                {/* 5. Communication and disagreement */}
+                <Section id="comm" icon="💬" title="التواصل وإدارة الاختلاف" pts="10 نقاط" open={openSections.has('comm')} onToggle={toggleSection}>
+                  <Row icon="🗣️" label="طريقة التعبير" badge={commBadge}
+                    impact="ملخص وصفي مشتق؛ النقاط تأتي من إجابات سيناريوهات التواصل نفسها."
+                    impactColor="text-gray-600" />
+                  <Row icon="📝" label="سيناريوهات التواصل الخمسة"
+                    value={`${communicationAnswerCount}/5 مكتملة`}
+                    impact="كل سيناريو حتى نقطة واحدة: 5 نقاط إجمالاً."
+                    impactColor={communicationAnswerCount === 5 ? 'text-emerald-400' : 'text-amber-500'} />
+                  <Row icon="🤝" label="أسلوب التعامل مع الاختلاف"
+                    value={answerLabel('match_disagreement_style', s.disagreement_style)}
+                    impact="حتى 5 نقاط."
+                    impactColor="text-blue-400" />
+                </Section>
+
+                {/* 6. Lifestyle */}
+                <Section id="lifestyle" icon="🏡" title="استدامة نمط الحياة" pts="12 نقطة" open={openSections.has('lifestyle')} onToggle={toggleSection}>
                   {lifestyle.length === 5 ? (
                     <div className="space-y-2">
-                      <p className="text-[9px] text-gray-600 font-semibold uppercase tracking-wider mb-1">أسلوب الحياة (تطابق = 3 نقاط · متقارب = 1.5 · بعيد = 0)</p>
+                      <p className="text-[9px] text-gray-500 font-semibold mb-1">أوزان السيناريوهات: 2 + 3 + 3 + 2 + 2 = 12 نقطة</p>
                       {lifestyleLabels.map((ll, i) => {
                         const v = lifestyle[i]
                         const label = ll.opts[v as keyof typeof ll.opts] || v
@@ -4763,11 +4793,43 @@ export default function Admin3Page() {
                   ) : <p className="text-[10px] text-gray-600">أسلوب الحياة: غير مكتمل</p>}
                 </Section>
 
-                {/* 6. Intent */}
-                <Section id="intent" icon="🎯" title="الهدف من اللقاء" pts="حتى 5 نقاط" open={openSections.has('intent')} onToggle={toggleSection}>
-                  <Row icon="🧭" label="النية والهدف (Q40)" badge={intentBadge}
-                    impact={`نفس الهدف = 5 نقاط · A+B = 4 · بقية المزيج = 2-3 نقاط · B مع غير B ممنوع (veto)`}
-                    impactColor={s.intent_goal?.toUpperCase() === 'B' ? 'text-red-400' : 'text-gray-500'} />
+                {/* 7. Values, boundaries, and language */}
+                <Section id="boundaries" icon="🌟" title="القيم والحدود واللغة" pts="17 نقطة" open={openSections.has('boundaries')} onToggle={toggleSection}>
+                  {coreVals.length === 5 ? (
+                    <div className="space-y-2 mb-3">
+                      <p className="text-[9px] text-gray-500 font-semibold mb-1">القيم الجوهرية: 1 + 1 + 0 + 2 + 1 = 5 نقاط</p>
+                      {coreValLabels.map((cl, i) => {
+                        const v = coreVals[i]
+                        const label = cl.opts[v as keyof typeof cl.opts] || v
+                        return (
+                          <div key={i} className="flex items-center gap-2">
+                            <span className="text-[9px] text-gray-600 w-[70px] flex-shrink-0 truncate">{cl.q}</span>
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border flex-shrink-0 ${v === 'أ' ? 'text-blue-300 bg-blue-900/20 border-blue-800/40' : v === 'ب' ? 'text-violet-300 bg-violet-900/20 border-violet-800/40' : 'text-teal-300 bg-teal-900/20 border-teal-800/40'}`}>{v}</span>
+                            <span className="text-gray-400 text-[9px] truncate">{label}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : <p className="text-[10px] text-gray-600 mb-2">القيم الجوهرية: غير مكتملة</p>}
+                  <Row icon="🗨️" label="لغة التعبير"
+                    value={answerLabel('expression_language', s.expression_language)}
+                    impact="حتى 4 نقاط."
+                    impactColor="text-blue-400" />
+                  <Row icon="🌙" label="الجانب الديني"
+                    value={answerLabel('minimum_partner_religious_commitment', s.religious_commitment)}
+                    impact="حتى 4 نقاط."
+                    impactColor="text-violet-400" />
+                  <Row icon="👥" label="أسلوب العلاقات الاجتماعية"
+                    value={answerLabel('social_relationship_style', s.social_relationship_style)}
+                    impact="حتى 4 نقاط."
+                    impactColor="text-teal-400" />
+                </Section>
+
+                {/* 8. Intent */}
+                <Section id="intent" icon="🎯" title="هدف اللقاء" pts="5 نقاط" open={openSections.has('intent')} onToggle={toggleSection}>
+                  <Row icon="🧭" label="النية والهدف" badge={intentBadge}
+                    impact="ملاءمة الهدف بين الطرفين: حتى 5 نقاط. أي بوابة أهلية مرتبطة بالهدف تُفحص بشكل مستقل."
+                    impactColor="text-gray-500" />
                 </Section>
 
               </div>
@@ -4780,6 +4842,26 @@ export default function Admin3Page() {
       {pairDetail?.type === 'match' && (() => {
         const pd = pairDetail
         const c = pd.compat || {}
+        const breakdown = c.scoreBreakdown || {}
+        const isBalancedBreakdown = c.scoreModelVersion === CURRENT_BALANCED_SCORE_MODEL
+        const finiteScore = (value: unknown) => {
+          const parsed = Number(value)
+          return Number.isFinite(parsed) ? parsed : 0
+        }
+        const valuesLanguageScore = finiteScore(
+          breakdown.valuesBoundariesLanguage
+          ?? (finiteScore(breakdown.valuesBoundaries) + finiteScore(breakdown.language)),
+        )
+        const balancedDimensions = [
+          { label: 'الأرضية المشتركة', score: finiteScore(breakdown.semanticCommonGround), max: 18, color: 'pink' },
+          { label: 'إيقاع التفاعل', score: finiteScore(breakdown.interactionRhythm), max: 20, color: 'purple' },
+          { label: 'الدعابة والانفتاح', score: finiteScore(breakdown.humorOpenness), max: 10, color: 'amber' },
+          { label: 'الراحة ووتيرة التقارب', score: finiteScore(breakdown.attachmentComfort), max: 8, color: 'rose' },
+          { label: 'استدامة نمط الحياة', score: finiteScore(breakdown.lifestyleSustainability), max: 12, color: 'teal' },
+          { label: 'القيم والحدود واللغة', score: valuesLanguageScore, max: 17, color: 'emerald' },
+          { label: 'التواصل وإدارة الاختلاف', score: finiteScore(breakdown.communicationDisagreement), max: 10, color: 'blue' },
+          { label: 'هدف اللقاء', score: finiteScore(breakdown.intent), max: 5, color: 'green' },
+        ]
         const getAns = (survey: any, key: string) => {
           const sd = survey && typeof survey === 'string' ? JSON.parse(survey) : (survey || {})
           return (sd?.answers?.[key] ?? sd?.[key] ?? '')?.toString()?.toUpperCase() || '—'
@@ -4802,17 +4884,32 @@ export default function Admin3Page() {
           { label: 'أسلوب التعلق', a: mapEnumLabel3('attachment_style', sdA.attachmentStyle || ansA.attachment_style), b: mapEnumLabel3('attachment_style', sdB.attachmentStyle || ansB.attachment_style), tip: '' },
           { label: 'أسلوب التواصل', a: mapEnumLabel3('communication_style', sdA.communicationStyle || ansA.communication_style), b: mapEnumLabel3('communication_style', sdB.communicationStyle || ansB.communication_style), tip: '' },
         ]
-        const ScoreBar = ({ label, score, max, color = 'indigo' }: { label: string; score: number; max: number; color?: string }) => (
-          <div className="space-y-1">
-            <div className="flex justify-between text-[10px]">
-              <span className="text-gray-500">{label}</span>
-              <span className={`text-${color}-300 font-bold`}>{score}/{max}</span>
+        const ScoreBar = ({ label, score, max, color = 'indigo' }: { label: string; score: number; max: number; color?: string }) => {
+          const colorStyles: Record<string, { text: string; bar: string }> = {
+            pink: { text: 'text-pink-300', bar: 'bg-pink-500' },
+            purple: { text: 'text-purple-300', bar: 'bg-purple-500' },
+            amber: { text: 'text-amber-300', bar: 'bg-amber-500' },
+            rose: { text: 'text-rose-300', bar: 'bg-rose-500' },
+            teal: { text: 'text-teal-300', bar: 'bg-teal-500' },
+            emerald: { text: 'text-emerald-300', bar: 'bg-emerald-500' },
+            blue: { text: 'text-blue-300', bar: 'bg-blue-500' },
+            green: { text: 'text-green-300', bar: 'bg-green-500' },
+            indigo: { text: 'text-indigo-300', bar: 'bg-indigo-500' },
+          }
+          const style = colorStyles[color] || colorStyles.indigo
+          const width = max > 0 ? Math.max(0, Math.min(100, (score / max) * 100)) : 0
+          return (
+            <div className="space-y-1">
+              <div className="flex justify-between text-[10px]">
+                <span className="text-gray-500">{label}</span>
+                <span className={`${style.text} font-bold`}>{score}/{max}</span>
+              </div>
+              <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                <div className={`h-full ${style.bar} rounded-full transition-all`} style={{ width: `${width}%` }} />
+              </div>
             </div>
-            <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-              <div className={`h-full bg-${color}-500 rounded-full transition-all`} style={{ width: `${Math.min(100, (score / max) * 100)}%` }} />
-            </div>
-          </div>
-        )
+          )
+        }
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setPairDetail(null)}>
             <div className="bg-gray-950 border border-gray-800 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
@@ -4863,23 +4960,24 @@ export default function Admin3Page() {
                         {pd.compatScore}%
                       </div>
                     </div>
-                    <p className="text-[10px] text-amber-400/70 mb-2">⚠ نسبة الـ vibe (ذكاء اصطناعي) محسوبة افتراضياً بـ 15/25 بدون AI</p>
-                    <ScoreBar label="التناغم التفاعلي Synergy" score={c.synergyScore ?? 0} max={30} color="purple" />
-                    <ScoreBar label="الفكاهة + الانفتاح" score={c.humorOpenScore ?? 0} max={15} color="amber" />
-                    <ScoreBar label="أسلوب الحياة" score={c.lifestyleScore ?? 0} max={10} color="teal" />
-                    <ScoreBar label="التواصل" score={c.communicationScore ?? 0} max={3} color="blue" />
-                    <ScoreBar label="القيم الجوهرية (الخام)" score={c.coreValuesScore ?? 0} max={20} color="rose" />
-                    <ScoreBar label="القيم (مرجّح ×0.25)" score={+(c.coreValuesScaled5 ?? 0)} max={5} color="pink" />
-                    <ScoreBar label="الهدف / النية" score={c.intentScore ?? 0} max={5} color="green" />
-                    <ScoreBar label="Vibe (افتراضي)" score={c.vibeScore ?? 15} max={25} color="indigo" />
-                    {/* Flags */}
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {c.attachmentPenalty && <span className="text-[10px] bg-red-900/30 text-red-400 border border-red-800/40 px-2 py-0.5 rounded-full">⚠ عقوبة التعلق -5</span>}
-                      {c.opennessZeroZero && <span className="text-[10px] bg-orange-900/30 text-orange-400 border border-orange-800/40 px-2 py-0.5 rounded-full">⚠ انفتاح 0×0 -5</span>}
-                      {c.deadAirVeto && <span className="text-[10px] bg-red-900/30 text-red-400 border border-red-800/40 px-2 py-0.5 rounded-full">⛔ فئة التفاعل: 0/3</span>}
-                      {c.humorClashVeto && <span className="text-[10px] bg-red-900/30 text-red-400 border border-red-800/40 px-2 py-0.5 rounded-full">⛔ فيتو الفكاهة ≤50%</span>}
-                      {c.intentBoost && <span className="text-[10px] bg-green-900/30 text-green-400 border border-green-800/40 px-2 py-0.5 rounded-full">✅ دفعة الهدف</span>}
-                    </div>
+                    {isBalancedBreakdown ? (
+                      <>
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
+                          <span className="rounded-full border border-emerald-700/40 bg-emerald-950/40 px-2 py-1 text-[10px] font-bold text-emerald-300">النموذج المتوازن · 100 نقطة</span>
+                          <span className="font-mono text-[9px] text-gray-600">{c.scoreModelVersion}</span>
+                        </div>
+                        {balancedDimensions.map(dimension => (
+                          <ScoreBar key={dimension.label} label={dimension.label} score={dimension.score} max={dimension.max} color={dimension.color} />
+                        ))}
+                        {c.aiVibeFallbackReason && (
+                          <p className="rounded-lg border border-amber-800/30 bg-amber-950/20 px-2.5 py-2 text-[10px] text-amber-300">مصدر الطاقة الدلالية: {c.aiVibeFallbackReason}</p>
+                        )}
+                      </>
+                    ) : (
+                      <div className="rounded-xl border border-amber-800/30 bg-amber-950/20 p-3 text-xs leading-5 text-amber-200">
+                        هذه حسبة تاريخية بدون لقطة مكوّنات موثوقة. نعرض المجموع المحفوظ فقط ولا نعيد تفسيره بأوزان اليوم.
+                      </div>
+                    )}
                   </div>
                 )}
 

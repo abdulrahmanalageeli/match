@@ -21,15 +21,16 @@ The Delta Caching system provides **smart incremental caching** that only recalc
 
 ### 1. Run the SQL Migration
 
-Execute `database/delta_cache_metadata.sql` in your Supabase SQL editor:
+Apply the checked-in Supabase migrations in order. For a fresh schema reference,
+use `database/cache_metadata.sql` together with `database/compatibility_cache.sql`:
 
 ```sql
 -- This creates:
 -- • cache_metadata table
--- • Helper functions (get_last_precache_timestamp, record_cache_session)
--- • View v_cache_freshness
--- • Indexes on participants.survey_data_updated_at
--- • Additional columns in compatibility_cache table
+-- • Version-aware cache_metadata freshness rows
+-- • The record_cache_session helper
+-- • The service-only v_cache_freshness view
+-- • Exact model/content identity columns in compatibility_cache
 ```
 
 ### 2. Verify Schema
@@ -37,8 +38,8 @@ Execute `database/delta_cache_metadata.sql` in your Supabase SQL editor:
 Check that these exist:
 - ✅ `cache_metadata` table
 - ✅ `v_cache_freshness` view
-- ✅ `get_last_precache_timestamp()` function
 - ✅ `record_cache_session()` function
+- ✅ `cache_metadata.score_model_version` column
 - ✅ `compatibility_cache.participant_a_cached_at` column
 - ✅ `compatibility_cache.participant_b_cached_at` column
 
@@ -84,11 +85,12 @@ POST /api/admin/trigger-match
 ```
 
 **How It Works:**
-1. Gets last cache timestamp for the event
-2. Finds survey edits and dedicated event-enrollment timestamps after that timestamp
-3. **Deletes all existing cache entries** for updated participants (prevents orphaned entries)
-4. Caches only pairs involving updated participants
-5. Records session metadata for future delta runs
+1. Gets the last successful cache timestamp **and scorer version** for the event
+2. Treats a scorer-version rollout as a full invalidation even when no survey timestamp changed
+3. Finds survey edits and dedicated event-enrollment timestamps after that timestamp
+4. Preserves older rows as immutable calculation history; exact model/content/vibe hashes make them ineligible for reuse
+5. Caches only the missing exact rows involving affected participants
+6. Advances session metadata only after the eligible current-model coverage is verified without errors
 
 ---
 
@@ -257,9 +259,14 @@ POST /api/admin
 {
   "success": true,
   "participant_number": 1001,
-  "invalidated_entries": 49
+  "invalidated_entries": 0,
+  "stale_entries": 49,
+  "preserved_history": true
 }
 ```
+
+This action is now a read-only stale-row audit. It intentionally does not
+delete compatibility history.
 
 ---
 
@@ -276,7 +283,7 @@ POST /api/admin/trigger-match
   "eventId": 1
 }
 
-// Response: All 1225 pairs cached (50 participants)
+// Response: Every eligible pair receives an exact current-model row
 ```
 
 ### Subsequent Updates (Delta Mode)
@@ -335,7 +342,7 @@ POST /api/admin/trigger-match
 - ✅ Caches specified count of pairs
 - ✅ No tracking of what changed
 - ✅ Always recaches from scratch
-- ❌ Wastes API calls on unchanged participants
+- ❌ A full sweep is more expensive than a verified delta run
 - ❌ No session history
 
 ### Delta Pre-Cache
@@ -385,9 +392,10 @@ SELECT * FROM v_cache_freshness WHERE event_id = 1;
 ```
 
 ### Find Participants Needing Cache
-```sql
-SELECT * FROM get_participants_needing_cache(1);
-```
+
+Use the `get-participants-needing-cache` admin action above. It applies the
+same enrollment timestamp and scorer-version rules as the cache worker; there
+is intentionally no separate SQL function that could drift from those rules.
 
 ### View Cache History
 ```sql
@@ -417,13 +425,13 @@ WHERE
 
 1. **survey_data_updated_at is automatic**: Database triggers update this timestamp whenever survey_data changes
 
-2. **First run caches everything**: Delta mode detects no previous timestamp and caches all pairs
+2. **First run and model rollouts recalculate coverage**: No prior metadata—or a different scorer version—marks every eligible participant as needing the current model
 
 3. **Compatible with original pre-cache**: Both actions can coexist
 
-4. **Session metadata is optional**: Cache works even if metadata recording fails
+4. **Failed metadata is safe**: Exact cache rows remain usable, but global freshness is not advanced when recording or coverage verification fails
 
-5. **Content-based hashing still applies**: Even in delta mode, content hash prevents duplicate caching
+5. **Exact identity always applies**: Scorer version, combined content hash, vibe content hash, and exact vibe-model tag must all match before reuse
 
 ---
 
@@ -439,7 +447,7 @@ WHERE
    - Set up alerts for stale cache (>24 hours)
 
 3. **Use original pre-cache for**
-   - Full cache rebuild
+   - Full current-model coverage verification
    - Testing/development
    - Initial event setup
 
@@ -495,6 +503,6 @@ Create an admin dashboard showing:
 
 ---
 
-**Implemented**: 2025-11-12  
-**Version**: 1.0  
-**Status**: Production Ready
+**Updated**: 2026-08-25
+**Version**: balanced scorer v7
+**Status**: Requires the checked-in provenance migration before deployment

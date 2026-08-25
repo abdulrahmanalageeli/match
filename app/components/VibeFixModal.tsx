@@ -157,7 +157,7 @@ export default function VibeFixModal({ isOpen, onClose, eventId }: VibeFixModalP
           </button>
           <span className="text-xs text-gray-500">{paidOnly ? 'Only pairs where both participants paid for this event' : 'All preference-compatible eligible pairs'}</span>
           <div className="w-px h-4 bg-gray-700 mx-1" />
-          <label className="flex items-center gap-2 cursor-pointer select-none" title="Skip pairs already cached with gpt-5.4-mini">
+          <label className="flex items-center gap-2 cursor-pointer select-none" title="Skip pairs that already have the exact current score version, content hash, and balanced 12-point vibe model">
             <input
               type="checkbox"
               checked={skipNewModel}
@@ -165,7 +165,7 @@ export default function VibeFixModal({ isOpen, onClose, eventId }: VibeFixModalP
               disabled={running}
               className="w-3.5 h-3.5 accent-green-500"
             />
-            <span className="text-sm text-gray-300">Skip already on <span className="text-green-400 font-mono">5.4-mini</span></span>
+            <span className="text-sm text-gray-300">Skip exact <span className="text-green-400 font-mono">balanced-vibe12</span> hits</span>
           </label>
         </div>
 
@@ -177,7 +177,7 @@ export default function VibeFixModal({ isOpen, onClose, eventId }: VibeFixModalP
           <div className="w-px h-4 bg-gray-700" />
           <div className="text-sm">
             <span className={`font-bold ${totalBad > 0 ? 'text-red-400' : 'text-green-400'}`}>{totalBad}</span>
-            <span className="text-gray-400"> pairs with vibe≈10 (fallback)</span>
+            <span className="text-gray-400"> pairs with vibe≈6/12 (fallback)</span>
           </div>
           <div className="w-px h-4 bg-gray-700" />
           <div className="text-sm">
@@ -289,7 +289,7 @@ export default function VibeFixModal({ isOpen, onClose, eventId }: VibeFixModalP
                   </span>
                 )}
                 {p.avg_vibe != null && (
-                  <span className="text-gray-500 w-16 text-right">avg {p.avg_vibe}/25</span>
+                  <span className="text-gray-500 w-16 text-right">avg {p.avg_vibe}/12</span>
                 )}
                 {p.cached_pairs > 0 && (
                   <span className={`text-xs px-1.5 py-0.5 rounded font-mono ${
@@ -299,7 +299,7 @@ export default function VibeFixModal({ isOpen, onClose, eventId }: VibeFixModalP
                         ? 'bg-orange-900/50 border border-orange-500/40 text-orange-300'
                         : 'bg-green-900/50 border border-green-500/40 text-green-300'
                   }`}>
-                    {p.models.length === 0 ? 'no model' : p.has_old_model ? '⚠ old model' : '✓ 5.4-mini'}
+                    {p.models.length === 0 ? 'no model' : p.has_old_model ? '⚠ old model' : '✓ vibe12'}
                   </span>
                 )}
               </div>
@@ -323,7 +323,7 @@ export default function VibeFixModal({ isOpen, onClose, eventId }: VibeFixModalP
         </div>
 
         <p className="text-gray-600 text-xs flex-shrink-0 text-center">
-          Fix processes old-model or fallback-vibe pairs; Force recalculates every eligible pair. Requires active OpenAI credit.
+          Fix stores a verified exact replacement before reporting success and retains historical cache rows. Force retries every eligible pair. Requires active OpenAI credit.
         </p>
       </div>
     </div>

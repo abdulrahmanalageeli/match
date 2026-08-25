@@ -56,6 +56,13 @@ create table public.match_results (
   dead_air_veto_applied boolean not null default false,
   humor_clash_veto_applied boolean not null default false,
   cap_applied numeric(5, 2) null,
+  disagreement_style_score numeric(5, 2) null default 0,
+  current_life_overlap_score numeric(5, 2) null default 0,
+  similarity_preference_score numeric(5, 2) null default 0,
+  attachment_pace_score numeric(5, 2) null default 0,
+  score_model_version text null,
+  score_snapshot jsonb null,
+  score_content_hash text null,
   constraint match_results_pkey primary key (id),
   constraint fk_match_results_participant_a foreign KEY (participant_a_number, match_id) references participants (assigned_number, match_id) on update CASCADE on delete CASCADE,
   constraint fk_match_results_participant_b foreign KEY (participant_b_number, match_id) references participants (assigned_number, match_id) on update CASCADE on delete CASCADE,
@@ -150,6 +157,30 @@ create table public.match_results (
       or (participant_b_wants_match = true)
       or (participant_b_wants_match = false)
     )
+  ),
+  constraint match_results_score_snapshot_object check (
+    score_snapshot is null or jsonb_typeof(score_snapshot) = 'object'
+  ),
+  constraint match_results_score_provenance_complete check (
+    case
+      when score_model_version is null and score_snapshot is null and score_content_hash is null
+        then true
+      when score_model_version is not null and score_snapshot is not null and score_content_hash is not null
+        then coalesce(score_snapshot ->> 'scoreModelVersion' = score_model_version
+          and score_snapshot ->> 'combinedContentHash' = score_content_hash
+          and jsonb_typeof(score_snapshot -> 'scoreBreakdown') = 'object'
+          and jsonb_typeof(score_snapshot -> 'questionScores') = 'object'
+          and jsonb_typeof(score_snapshot -> 'vibeAxes') = 'object'
+          and score_snapshot ->> 'vibeModel' = 'gpt-5.4-mini'
+          and score_snapshot ->> 'vibeModelVersion' = 'balanced-vibe12-v1'
+          and score_snapshot ->> 'vibeModelTag' = 'gpt-5.4-mini|balanced-vibe12-v1'
+          and case
+            when compatibility_score is not null and jsonb_typeof(score_snapshot -> 'totalScore') = 'number'
+              then (score_snapshot ->> 'totalScore')::numeric = compatibility_score::numeric
+            else false
+          end, false)
+      else false
+    end
   )
 ) TABLESPACE pg_default;
 
@@ -235,6 +266,10 @@ where
 create index IF not exists idx_match_results_event_finished on public.match_results using btree (event_finished) TABLESPACE pg_default;
 
 create index IF not exists idx_match_results_event_id_finished on public.match_results using btree (event_id, event_finished) TABLESPACE pg_default;
+
+create index IF not exists idx_match_results_score_model_version on public.match_results using btree (score_model_version) TABLESPACE pg_default
+where
+  (score_model_version is not null);
 
 create trigger trigger_validate_participant_numbers BEFORE INSERT
 or

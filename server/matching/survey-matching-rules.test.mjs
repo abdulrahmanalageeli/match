@@ -13,29 +13,40 @@ const {
   calculateLifestyleCompatibility,
   buildManualPairGateReport,
   buildPersistedMatchInsightFields,
+  buildPersistedScoreProvenance,
+  computeOppositesBreakdown,
+  canAdvanceGlobalCacheMetadata,
   checkAgeRangeHardGate,
   checkGenderCompatibility,
   checkInteractionStyleCompatibility,
   getAgeTolerance,
   getDeltaCacheReasonCounts,
+  getCacheMetadataScope,
   getParticipantDeltaCacheReason,
   getOneYearAgeFlexDecision,
   hasHumorStyleClash,
   isParticipantComplete,
   isCurrentVibeModel,
+  isDurableCurrentBalancedCacheRow,
+  formatBalancedScoreReason,
 } = await import("../../api/admin/trigger-match.mjs")
+const {
+  BALANCED_COMPATIBILITY_VERSION,
+  BALANCED_VIBE_MODEL_TAG,
+  isCurrentOppositesScoreSnapshot,
+} = await import("./balanced-compatibility.mjs")
 
 test("generated match rows map all match-insight scores to persisted columns", () => {
   assert.deepEqual(buildPersistedMatchInsightFields({
-    disagreementScore: 3,
-    currentFocusScore: 5,
-    similarityPreferenceScore: 4.25,
-    attachmentPaceScore: 2.5,
+    disagreementScore: 5,
+    currentFocusScore: 4,
+    similarityPreferenceScore: 2,
+    attachmentPaceScore: 8,
   }), {
-    disagreement_style_score: 3,
-    current_life_overlap_score: 5,
-    similarity_preference_score: 4.25,
-    attachment_pace_score: 2.5,
+    disagreement_style_score: 5,
+    current_life_overlap_score: 4,
+    similarity_preference_score: 2,
+    attachment_pace_score: 8,
   })
 })
 
@@ -57,10 +68,10 @@ test("generated match rows recalculate insight scores when an old cache has zero
     similarityPreferenceScore: 0,
     attachmentPaceScore: 0,
   }, participantA, participantB, 25), {
-    disagreement_style_score: 4,
-    current_life_overlap_score: 5,
-    similarity_preference_score: 5,
-    attachment_pace_score: 1.5,
+    disagreement_style_score: 5,
+    current_life_overlap_score: 4,
+    similarity_preference_score: 1.5,
+    attachment_pace_score: 4,
   })
 })
 
@@ -82,10 +93,10 @@ test("generated match rows replace explicit nulls and give organizer rows safe d
     similarityPreferenceScore: null,
     attachmentPaceScore: null,
   }, participantA, participantB, 20)
-  assert.equal(generated.disagreement_style_score, 4)
+  assert.equal(generated.disagreement_style_score, 5)
   assert.equal(generated.current_life_overlap_score, 3)
-  assert.equal(generated.similarity_preference_score, 3)
-  assert.equal(generated.attachment_pace_score, 1.5)
+  assert.equal(generated.similarity_preference_score, 1)
+  assert.equal(generated.attachment_pace_score, 4)
   assert.deepEqual(buildPersistedMatchInsightFields(), {
     disagreement_style_score: 0,
     current_life_overlap_score: 0,
@@ -148,12 +159,52 @@ test("delta cache reports survey changes and enrollments separately", () => {
   ], baseline, 22), {
     survey_changes: 1,
     new_enrollments: 2,
+    score_model_changes: 0,
   })
 })
 
-test("vibe model detection accepts current score variants without accepting legacy models", () => {
-  assert.equal(isCurrentVibeModel("gpt-5.4-mini"), true)
-  assert.equal(isCurrentVibeModel("gpt-5.4-mini|vibe25"), true)
+test("delta cache invalidates every participant when the scorer version changes", () => {
+  const baseline = "2026-08-16T10:00:00.000Z"
+  const participants = [
+    { assigned_number: 1, survey_data_updated_at: "2026-08-16T09:00:00.000Z" },
+    { assigned_number: 2, survey_data_updated_at: "2026-08-16T09:00:00.000Z" },
+  ]
+  assert.equal(
+    getParticipantDeltaCacheReason(participants[0], baseline, 22, "legacy-model"),
+    "score_model_changed",
+  )
+  assert.equal(
+    getParticipantDeltaCacheReason(participants[0], baseline, 22, BALANCED_COMPATIBILITY_VERSION),
+    null,
+  )
+  assert.deepEqual(getDeltaCacheReasonCounts(participants, baseline, 22, "legacy-model"), {
+    survey_changes: 0,
+    new_enrollments: 0,
+    score_model_changes: 2,
+  })
+})
+
+test("only a standing mutual-preference cache sweep can advance global metadata", () => {
+  assert.equal(canAdvanceGlobalCacheMetadata(null), true)
+  assert.equal(canAdvanceGlobalCacheMetadata("individual"), true)
+  assert.equal(canAdvanceGlobalCacheMetadata(null, "preference"), true)
+  assert.equal(canAdvanceGlobalCacheMetadata("same_gender"), false)
+  assert.equal(canAdvanceGlobalCacheMetadata("opposite_gender"), false)
+  assert.equal(canAdvanceGlobalCacheMetadata(null, "same"), false)
+  assert.equal(canAdvanceGlobalCacheMetadata(null, "opposite"), false)
+  assert.equal(canAdvanceGlobalCacheMetadata("group", "preference"), false)
+
+  assert.equal(getCacheMetadataScope(null, "preference"), "standing_mutual_preferences")
+  assert.equal(getCacheMetadataScope("same_gender", "preference"), "forced_round_rows_only")
+  assert.equal(getCacheMetadataScope(null, "same"), "gender_specific_rows_only")
+  assert.equal(getCacheMetadataScope("group", "preference"), "non_individual_rows_only")
+})
+
+test("vibe model detection requires the exact balanced model tag and accepts its axis metadata", () => {
+  assert.equal(isCurrentVibeModel(BALANCED_VIBE_MODEL_TAG), true)
+  assert.equal(isCurrentVibeModel(`${BALANCED_VIBE_MODEL_TAG}|c=2.5,h=1.5,m=0.5,f=1.5`), true)
+  assert.equal(isCurrentVibeModel("gpt-5.4-mini"), false)
+  assert.equal(isCurrentVibeModel("gpt-5.4-mini|vibe25"), false)
   assert.equal(isCurrentVibeModel("gpt-4o-mini"), false)
   assert.equal(isCurrentVibeModel(null), false)
 })
@@ -220,14 +271,14 @@ function synergyParticipant(number, preference) {
   return participant(number, 30, answers)
 }
 
-test("conversation initiative scoring is symmetric and neutral when either answer is missing", () => {
+test("conversation initiative scoring is symmetric, capped at six, and falls back to Q35", () => {
   const wantsPartnerToLead = synergyParticipant(1, "A")
   const wantsToLead = synergyParticipant(2, "C")
   const missing = synergyParticipant(3)
 
-  assert.equal(calculateConversationInitiativePreferenceScore(wantsPartnerToLead, wantsToLead), 7)
-  assert.equal(calculateConversationInitiativePreferenceScore(wantsToLead, wantsPartnerToLead), 7)
-  assert.equal(calculateConversationInitiativePreferenceScore(wantsPartnerToLead, missing), null)
+  assert.equal(calculateConversationInitiativePreferenceScore(wantsPartnerToLead, wantsToLead), 6)
+  assert.equal(calculateConversationInitiativePreferenceScore(wantsToLead, wantsPartnerToLead), 6)
+  assert.equal(calculateConversationInitiativePreferenceScore(wantsPartnerToLead, missing), 4.5)
 })
 
 test("manual pair test mode reports every active gate when a pair is eligible", () => {
@@ -332,7 +383,7 @@ test("A-to-D humor lowers its component without capping the overall score", asyn
   assert.ok(clash.totalScore < aligned.totalScore)
 })
 
-test("fresh compatibility scoring applies feedback composites once and preserves veto caps", async () => {
+test("fresh balanced scoring does not apply feedback composites or dead-air overrides", async () => {
   const bonusA = synergyParticipant(44, "A")
   const bonusB = synergyParticipant(45, "A")
   bonusA.humor_banter_style = "B"
@@ -347,9 +398,9 @@ test("fresh compatibility scoring applies feedback composites once and preserves
     { reusedVibeScore: 18, reusedVibeSourceMax: 25 },
   )
 
-  assert.equal(bonus.compositeAdjustment, 8)
-  assert.equal(bonus.priorityScore, bonus.baseCompatibilityScore + 8)
-  assert.equal(bonus.totalScore, Math.min(100, bonus.priorityScore))
+  assert.equal(bonus.compositeAdjustment, 0)
+  assert.equal(bonus.priorityScore, bonus.baseCompatibilityScore)
+  assert.equal(bonus.totalScore, bonus.priorityScore)
 
   const vetoA = synergyParticipant(46, "A")
   const vetoB = synergyParticipant(47, "A")
@@ -369,11 +420,11 @@ test("fresh compatibility scoring applies feedback composites once and preserves
     { reusedVibeScore: 25, reusedVibeSourceMax: 25 },
   )
 
-  assert.equal(vetoed.compositeAdjustment, 8)
-  assert.equal(vetoed.deadAirVetoApplied, true)
-  assert.equal(vetoed.capApplied, 40)
-  assert.equal(vetoed.priorityScore, 40)
-  assert.equal(vetoed.totalScore, 40)
+  assert.equal(vetoed.compositeAdjustment, 0)
+  assert.equal(vetoed.deadAirVetoApplied, false)
+  assert.equal(vetoed.capApplied, null)
+  assert.equal(vetoed.priorityScore, vetoed.baseCompatibilityScore)
+  assert.equal(vetoed.totalScore, vetoed.priorityScore)
 })
 
 test("extreme early-openness mismatch remains a blocking interaction gate", () => {
@@ -386,7 +437,7 @@ test("extreme early-openness mismatch remains a blocking interaction gate", () =
   assert.equal(report.blockers.includes("humor_clash"), false)
 })
 
-test("a one-sided new answer preserves the legacy interaction score", () => {
+test("interaction stays in its balanced 20-point range and uses Q35 until both new answers exist", () => {
   const legacyA = synergyParticipant(1)
   const legacyB = synergyParticipant(2)
   const legacyScore = calculateInteractionSynergyScore(legacyA, legacyB)
@@ -396,18 +447,103 @@ test("a one-sided new answer preserves the legacy interaction score", () => {
 
   legacyB.survey_data.answers.conversation_initiative_preference = "C"
   const recalibratedScore = calculateInteractionSynergyScore(legacyA, legacyB)
-  assert.ok(Math.abs(recalibratedScore - (legacyScore + ((3 / 35) * 30))) < 1e-9)
+  assert.equal(legacyScore, 18.5)
+  assert.equal(recalibratedScore, 20)
+  assert.ok(recalibratedScore >= 0 && recalibratedScore <= 20)
 })
 
-test("lifestyle uses all five raw scores and proportionally scales 15 points to 10", () => {
+test("failed and transient balanced vibe rows are never treated as durable exact hits", () => {
+  const base = {
+    model_used: `${BALANCED_VIBE_MODEL_TAG}|c=2.5,h=1.5,m=0.5,f=1.5`,
+    score_model_version: BALANCED_COMPATIBILITY_VERSION,
+  }
+  assert.equal(isDurableCurrentBalancedCacheRow(base), true)
+  assert.equal(isDurableCurrentBalancedCacheRow({
+    ...base,
+    model_used: `${base.model_used}|fallback=incomplete_vibe_profile`,
+  }), true)
+  for (const reason of ["openai_connection_error", "openai_error", "invalid_openai_response", "skip_ai"]) {
+    assert.equal(isDurableCurrentBalancedCacheRow({
+      ...base,
+      model_used: `${base.model_used}|fallback=${reason}`,
+    }), false)
+  }
+})
+
+test("persisted score provenance keeps the model and snapshot total inseparable", async () => {
+  const a = synergyParticipant(71, "A")
+  const b = synergyParticipant(72, "C")
+  const score = await calculateFullCompatibilityWithCache(a, b, false, true, {
+    reusedVibeScore: 25,
+    reusedVibeSourceMax: 25,
+  })
+  const balanced = buildPersistedScoreProvenance(score, a, b, 73)
+  const transformed = computeOppositesBreakdown(score)
+  const opposites = buildPersistedScoreProvenance(score, a, b, transformed.percent, { oppositesMode: true })
+
+  assert.equal(balanced.score_model_version, BALANCED_COMPATIBILITY_VERSION)
+  assert.equal(balanced.score_snapshot.totalScore, 73)
+  assert.equal(balanced.score_snapshot.scoreModelVersion, balanced.score_model_version)
+  assert.match(balanced.score_content_hash, /^[a-f0-9]{64}$/)
+  assert.match(opposites.score_model_version, /opposites-flip-v1$/)
+  assert.equal(opposites.score_snapshot.totalScore, transformed.percent)
+  assert.equal(opposites.score_snapshot.sourceScoreModelVersion, BALANCED_COMPATIBILITY_VERSION)
+  assert.deepEqual(opposites.score_snapshot.scoreBreakdown, {
+    interactionSynergy: transformed.synergy,
+    coreValuesAlignment: transformed.coreValues,
+    communicationAlignment: transformed.communication,
+    lifestyleDifference: transformed.flippedLifestyle,
+    vibeDifference: transformed.flippedVibe,
+    humorDifference: transformed.flippedHumor,
+    rawTotal: transformed.rawTotal,
+    rawMaximum: transformed.rawMaximum,
+    normalizedTotal: transformed.percent,
+  })
+  assert.equal(opposites.score_snapshot.sourceScoreBreakdown.semanticCommonGround, score.scoreBreakdown.semanticCommonGround)
+  assert.equal(isCurrentOppositesScoreSnapshot({
+    modelVersion: opposites.score_model_version,
+    contentHash: opposites.score_content_hash,
+    snapshot: opposites.score_snapshot,
+    persistedTotal: transformed.percent,
+  }), true)
+  assert.equal(isCurrentOppositesScoreSnapshot({
+    modelVersion: opposites.score_model_version,
+    contentHash: opposites.score_content_hash,
+    snapshot: {
+      ...opposites.score_snapshot,
+      scoreBreakdown: { ...opposites.score_snapshot.scoreBreakdown, rawTotal: transformed.rawTotal + 1 },
+    },
+    persistedTotal: transformed.percent,
+  }), false)
+})
+
+test("locked/current reason formatting preserves valid zero components and balanced maxima", () => {
+  const reason = formatBalancedScoreReason({ scoreBreakdown: {
+    semanticCommonGround: 0,
+    interactionRhythm: 0,
+    humorOpenness: 0,
+    attachmentComfort: 0,
+    lifestyleSustainability: 0,
+    valuesBoundaries: 0,
+    communicationDisagreement: 0,
+    intent: 0,
+    language: 0,
+  } })
+  assert.match(reason, /Common Ground: 0\/18/)
+  assert.match(reason, /Attachment Comfort: 0\/8/)
+  assert.match(reason, /Expression Language: 0\/4/)
+  assert.doesNotMatch(reason, /\/25|\/30|15%/)
+})
+
+test("lifestyle uses all five weighted scenarios in its balanced 12-point range", () => {
   const perfect = calculateLifestyleCompatibility("أ,أ,أ,أ,أ", "أ,أ,أ,أ,أ")
   const fourOfFive = calculateLifestyleCompatibility("أ,أ,أ,أ,أ", "أ,أ,أ,أ,ج")
 
-  assert.equal(perfect, 10)
-  assert.equal(fourOfFive, 8)
+  assert.equal(perfect, 12)
+  assert.equal(fourOfFive, 10.5)
 })
 
-test("a model-version cache miss can reuse an unchanged AI vibe score", async () => {
+test("a model-version cache miss refuses an unversioned legacy 15-point vibe", async () => {
   const a = synergyParticipant(40, "A")
   const b = synergyParticipant(41, "C")
   a.survey_data.answers.match_current_focus = ["career", "creative"]
@@ -418,19 +554,20 @@ test("a model-version cache miss can reuse an unchanged AI vibe score", async ()
     b,
     false,
     true,
-    { reusedVibeScore: 12.75 },
+    { reusedVibeScore: 15, reusedVibeSourceMax: 15 },
   )
 
-  assert.equal(result.vibeScore, 21.25)
+  assert.equal(result.vibeScore, 6)
+  assert.equal(result.reusedCachedVibe, false)
   assert.equal(result.cached, false)
   assert.ok(Number.isFinite(result.totalScore))
-  assert.ok(result.disagreementScore >= 0 && result.disagreementScore <= 4)
-  assert.ok(result.currentFocusScore >= 0 && result.currentFocusScore <= 5)
-  assert.ok(result.similarityPreferenceScore >= 0 && result.similarityPreferenceScore <= 5)
-  assert.ok(result.attachmentPaceScore >= 0 && result.attachmentPaceScore <= 3)
+  assert.ok(result.disagreementScore >= 0 && result.disagreementScore <= 5)
+  assert.ok(result.currentFocusScore >= 0 && result.currentFocusScore <= 4)
+  assert.ok(result.similarityPreferenceScore >= 0 && result.similarityPreferenceScore <= 2)
+  assert.ok(result.attachmentPaceScore >= 0 && result.attachmentPaceScore <= 8)
 })
 
-test("a 25-point cached vibe score is not scaled a second time", async () => {
+test("a legacy 25-point cached vibe is not reused by the balanced scorer", async () => {
   const a = synergyParticipant(42, "A")
   const b = synergyParticipant(43, "C")
   const result = await calculateFullCompatibilityWithCache(
@@ -438,10 +575,11 @@ test("a 25-point cached vibe score is not scaled a second time", async () => {
     b,
     false,
     true,
-    { reusedVibeScore: 18.5, reusedVibeSourceMax: 25 },
+    { reusedVibeScore: 25, reusedVibeSourceMax: 25 },
   )
 
-  assert.equal(result.vibeScore, 18.5)
+  assert.equal(result.vibeScore, 6)
+  assert.equal(result.reusedCachedVibe, false)
 })
 
 test("a complete new survey does not require retired MBTI answers", () => {

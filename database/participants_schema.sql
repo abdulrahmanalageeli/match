@@ -21,6 +21,8 @@ create table public.participants (
   "PAID_DONE" boolean null default false,
   signup_for_next_event boolean null default false,
   next_event_signup_timestamp timestamp with time zone null,
+  event_enrolled_at timestamp with time zone null,
+  attendance_denied_at timestamp with time zone null,
   event_id integer not null default 1,
   ai_personality_analysis text null,
   any_gender_preference boolean not null default false,

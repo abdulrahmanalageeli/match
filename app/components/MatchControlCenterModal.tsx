@@ -60,6 +60,14 @@ import {
   type SeatState,
   type SwapPlan,
 } from "~/lib/matchControl"
+import {
+  BALANCED_SCORE_MAXIMA,
+  LEGACY_SCORE_MAXIMA,
+  isCurrentOppositesScoreRow,
+  isCurrentBalancedScoreRow as isBalancedScoreRow,
+  isSupportedCurrentScoreRow,
+  parseScoreObject as scoreObject,
+} from "~/lib/compatibility-model"
 
 type Props = {
   isOpen: boolean
@@ -101,6 +109,55 @@ const verdictMeta = {
   risky: { label: "عالي المخاطر", icon: ShieldAlert, className: "border-red-400/30 bg-red-500/12 text-red-200" },
 }
 
+function scoreMaximaFor(row: any) {
+  return isBalancedScoreRow(row) ? BALANCED_SCORE_MAXIMA : LEGACY_SCORE_MAXIMA
+}
+
+function communicationScoreForDisplay(row: any): number | undefined {
+  const stored = Number(row?.communication_compatibility_score ?? row?.communication_score)
+  if (!isBalancedScoreRow(row)) return Number.isFinite(stored) ? stored : undefined
+
+  const questionScores = scoreObject(row?.question_scores ?? row?.questionScores)
+  const directScores = ["communication1", "communication2", "communication3", "communication4", "communication5"]
+    .map(key => Number(questionScores?.[key]))
+  if (directScores.every(Number.isFinite)) return directScores.reduce((total, score) => total + score, 0)
+
+  const breakdown = scoreObject(row?.score_breakdown ?? row?.scoreBreakdown)
+  const aggregate = Number(breakdown?.communicationDisagreement ?? breakdown?.communication_disagreement)
+  const disagreement = Number(row?.disagreement_style_score ?? questionScores?.disagreement)
+  if (Number.isFinite(aggregate) && Number.isFinite(disagreement)) return Math.max(0, aggregate - disagreement)
+  return Number.isFinite(stored) ? stored : undefined
+}
+
+function scoreMetricsForDisplay(row: any) {
+  if (isCurrentOppositesScoreRow(row)) {
+    const snapshot = scoreObject(row?.score_snapshot ?? row?.scoreSnapshot)
+    const breakdown = scoreObject(row?.score_breakdown ?? row?.scoreBreakdown ?? snapshot?.scoreBreakdown)
+    return [
+      ["إيقاع التفاعل", breakdown?.interactionSynergy, 20],
+      ["توافق القيم", breakdown?.coreValuesAlignment, 17],
+      ["توافق التواصل", breakdown?.communicationAlignment, 5],
+      ["اختلاف نمط الحياة", breakdown?.lifestyleDifference, 12],
+      ["اختلاف الطاقة", breakdown?.vibeDifference, 12],
+      ["اختلاف الدعابة", breakdown?.humorDifference, 10],
+    ] as const
+  }
+  const maxima = scoreMaximaFor(row)
+  return [
+    ["التفاعل", row?.synergy_score, maxima.synergy],
+    ["الطاقة", row?.vibe_compatibility_score ?? row?.vibe_score, maxima.vibe],
+    ["الاختلاف", row?.disagreement_style_score, maxima.disagreement],
+    ["المرحلة الحالية", row?.current_life_overlap_score, maxima.focus],
+    ["تفضيل التشابه", row?.similarity_preference_score, maxima.similarity],
+    ["وتيرة التقارب", row?.attachment_pace_score, maxima.attachment],
+    ["نمط الحياة", row?.lifestyle_compatibility_score ?? row?.lifestyle_score, maxima.lifestyle],
+    ["الدعابة/الانفتاح", row?.humor_open_score ?? row?.humor_open_compatibility_score, maxima.humor],
+    ["التواصل", communicationScoreForDisplay(row), maxima.communication],
+    ["القيم/الحدود/اللغة", row?.core_values_compatibility_score, maxima.core],
+    ["الهدف", row?.intent_score, maxima.intent],
+  ] as const
+}
+
 function SeatBadge({ person, compact = false }: { person?: MatchControlPerson; compact?: boolean }) {
   const meta = seatMeta[getSeatState(person)]
   return (
@@ -131,7 +188,7 @@ function ScorePill({ score, previous }: { score: number | null; previous?: numbe
 }
 
 function HumorClashBadge({ pair, compact = false }: { pair?: any; compact?: boolean }) {
-  if (!pair?.humor_clash_detected && !pair?.humor_clash_veto_applied) return null
+  if (isSupportedCurrentScoreRow(pair) || (!pair?.humor_clash_detected && !pair?.humor_clash_veto_applied)) return null
   return (
     <span title="اختلاف واضح في أسلوب الدعابة A↔D — الزوج ما زال متاحاً" className={`inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-500/12 font-black text-amber-200 ${compact ? 'px-1.5 py-0.5 text-[9px]' : 'px-2 py-1 text-[10px]'}`}>
       <AlertTriangle className={compact ? 'h-2.5 w-2.5' : 'h-3 w-3'} /> A↔D
@@ -432,7 +489,7 @@ export default function MatchControlCenterModal({
 
   const openIndividual = (number: number) => {
     const participant = people.get(number)
-    const matches = calculatedPairs
+    const matches = Array.from(scoreLookup.values())
       .filter(pair => Number(pair.participant_a) === number || Number(pair.participant_b) === number)
       .map(pair => {
         const isA = Number(pair.participant_a) === number
@@ -499,6 +556,14 @@ export default function MatchControlCenterModal({
           history_review_reason: pair.history_review_reason,
           never_pair_recommended: pair.never_pair_recommended,
           history_hard_blocked: pair.history_hard_blocked,
+          score_model_version: pair.score_model_version ?? pair.scoreModelVersion,
+          score_breakdown: pair.score_breakdown ?? pair.scoreBreakdown,
+          question_scores: pair.question_scores ?? pair.questionScores,
+          score_snapshot: pair.score_snapshot ?? pair.scoreSnapshot,
+          score_content_hash: pair.score_content_hash ?? pair.scoreContentHash,
+          vibe_axes: pair.vibe_axes ?? pair.vibeAxes,
+          score_provenance_valid: pair.score_provenance_valid ?? pair.scoreProvenanceValid,
+          score_provenance_status: pair.score_provenance_status ?? pair.scoreProvenanceStatus,
         }
       })
       .sort((a, b) => b.compatibility_score - a.compatibility_score)
@@ -1164,16 +1229,10 @@ function PlanPairRow({ pair, people, pairData, old = false }: { pair: { a: numbe
 
 function PairScoreName({ number, other, people, pairData, fallbackScore, align }: { number: number; other: number; people: Map<number, MatchControlPerson>; pairData?: any; fallbackScore: number | null; align: "right" | "left" }) {
   const total = Number(pairData?.compatibility_score ?? pairData?.total_compatibility_score ?? fallbackScore)
-  const metrics = [
-    ["الطاقة", pairData?.vibe_compatibility_score ?? pairData?.vibe_score, 25],
-    ["الاختلاف", pairData?.disagreement_style_score, 4],
-    ["المرحلة الحالية", pairData?.current_life_overlap_score, 5],
-    ["تفضيل التشابه", pairData?.similarity_preference_score, 5],
-    ["وتيرة التقارب", pairData?.attachment_pace_score, 3],
-    ["نمط الحياة", pairData?.lifestyle_compatibility_score ?? pairData?.lifestyle_score, 10],
-    ["الدعابة/الانفتاح", pairData?.humor_open_score ?? pairData?.humor_open_compatibility_score, 15],
-  ] as const
-  const adjustments = [
+  const balanced = isBalancedScoreRow(pairData)
+  const opposites = isCurrentOppositesScoreRow(pairData)
+  const metrics = scoreMetricsForDisplay(pairData)
+  const adjustments = isSupportedCurrentScoreRow(pairData) ? [] : [
     pairData?.humor_early_openness_bonus === "full" ? "مكافأة دعابة/انفتاح كاملة" : pairData?.humor_early_openness_bonus === "partial" ? "مكافأة دعابة/انفتاح جزئية" : null,
     Number(pairData?.humor_multiplier) > 1 ? `مضاعف الدعابة ×${Number(pairData.humor_multiplier).toFixed(2)}` : null,
     pairData?.intent_boost_applied ? "مكافأة توافق الهدف مطبقة" : null,
@@ -1187,8 +1246,9 @@ function PairScoreName({ number, other, people, pairData, fallbackScore, align }
       <button type="button" className="block w-full truncate rounded px-1 text-right text-slate-200 underline decoration-dotted decoration-slate-600 underline-offset-2 outline-none hover:text-cyan-200 focus:text-cyan-200" aria-label={`عرض توافق ${getPersonName(people.get(number), number)} مع ${getPersonName(people.get(other), other)}`}>#{number} {getPersonName(people.get(number), number)}</button>
       <span role="tooltip" className={`pointer-events-none invisible absolute bottom-full z-40 mb-2 w-[min(280px,calc(100vw-3rem))] rounded-2xl border border-cyan-400/25 bg-[#07111f]/98 p-3 text-right opacity-0 shadow-2xl shadow-black/60 backdrop-blur-xl transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 ${align === "right" ? "right-0" : "left-0"}`}>
         <span className="flex items-start justify-between gap-3"><span><span className="block text-[10px] font-black text-white">{getPersonName(people.get(number), number)}</span><span className="mt-0.5 block text-[9px] text-slate-400">توافقه مع {getPersonName(people.get(other), other)} #{other}</span></span><span className="text-sm font-black text-cyan-200">{Number.isFinite(total) ? `${Math.round(total)}%` : "غير محسوب"}</span></span>
+        {opposites && <span className="mt-2 block text-[9px] font-bold text-violet-300">وضع الأضداد · 76 نقطة خام محوّلة إلى 100</span>}
         <span className="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-3">{metrics.map(([label, value, max]) => <span key={label} className="rounded-xl border border-white/8 bg-white/[0.04] p-2 text-center"><span className="block text-[8px] text-slate-400">{label}</span><span className="mt-1 block text-xs font-black text-white">{Number.isFinite(Number(value)) ? `${Number(value).toFixed(1)}/${max}` : "—"}</span></span>)}</span>
-        {adjustments.length ? <span className="mt-2 block rounded-xl border border-amber-400/15 bg-amber-500/[0.07] p-2"><span className="block text-[8px] font-black text-amber-200">المكافآت والتعديلات</span>{adjustments.map(item => <span key={item} className="mt-1 block text-[9px] leading-4 text-amber-100/80">• {item}</span>)}</span> : <span className="mt-2 block text-[9px] text-slate-500">لا توجد مكافآت أو خصومات مسجلة لهذا الزوج.</span>}
+        {!balanced && !opposites && (adjustments.length ? <span className="mt-2 block rounded-xl border border-amber-400/15 bg-amber-500/[0.07] p-2"><span className="block text-[8px] font-black text-amber-200">المكافآت والتعديلات</span>{adjustments.map(item => <span key={item} className="mt-1 block text-[9px] leading-4 text-amber-100/80">• {item}</span>)}</span> : <span className="mt-2 block text-[9px] text-slate-500">لا توجد مكافآت أو خصومات مسجلة لهذا الزوج.</span>)}
       </span>
     </span>
   )
@@ -1199,20 +1259,10 @@ function Metric({ label, before, after }: { label: string; before?: number | nul
 }
 
 function PairBreakdown({ pair, fallbackScore }: { pair: any; fallbackScore: number | null }) {
-  const metrics = [
-    ["التفاعل", pair?.synergy_score, 30],
-    ["الطاقة", pair?.vibe_compatibility_score, 25],
-    ["أسلوب الاختلاف", pair?.disagreement_style_score, 4],
-    ["المرحلة الحالية", pair?.current_life_overlap_score, 5],
-    ["تفضيل التشابه", pair?.similarity_preference_score, 5],
-    ["وتيرة التقارب", pair?.attachment_pace_score, 3],
-    ["نمط الحياة", pair?.lifestyle_compatibility_score, 10],
-    ["الدعابة/الانفتاح", pair?.humor_open_score, 15],
-    ["التواصل", pair?.communication_compatibility_score, 3],
-    ["الهدف", pair?.intent_score, 5],
-  ] as const
+  const metrics = scoreMetricsForDisplay(pair)
+  const opposites = isCurrentOppositesScoreRow(pair)
   return <div className="space-y-3">
     <HistoryConfidencePanel pair={pair} />
-    <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-3 sm:p-4"><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-purple-300" /><span className="text-xs font-black text-white">تفصيل نتيجة الزوج</span></div><div className="flex items-center gap-2"><MatchInsightsCoverageBadge pair={pair} /><ScorePill score={pair?.compatibility_score != null ? Math.round(Number(pair.compatibility_score)) : fallbackScore} /></div></div><div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">{metrics.map(([label, value, max]) => <div key={String(label)} className="rounded-xl bg-black/20 p-2 text-center"><div className="text-[9px] text-slate-500">{label}</div><div className="mt-1 text-sm font-black text-slate-200">{Number.isFinite(Number(value)) ? `${Number(value).toFixed(1)}/${max}` : "—"}</div></div>)}</div>{pair?.reason && <p className="mt-3 rounded-xl border border-white/5 bg-black/20 p-2 text-[10px] leading-5 text-slate-400">{pair.reason}</p>}</div>
+    <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-3 sm:p-4"><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-purple-300" /><span className="text-xs font-black text-white">تفصيل نتيجة الزوج</span></div><div className="flex items-center gap-2"><MatchInsightsCoverageBadge pair={pair} /><ScorePill score={pair?.compatibility_score != null ? Math.round(Number(pair.compatibility_score)) : fallbackScore} /></div></div>{opposites && <p className="mb-3 text-[10px] font-bold text-violet-300">وضع الأضداد · 76 نقطة خام محوّلة إلى 100</p>}<div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">{metrics.map(([label, value, max]) => <div key={String(label)} className="rounded-xl bg-black/20 p-2 text-center"><div className="text-[9px] text-slate-500">{label}</div><div className="mt-1 text-sm font-black text-slate-200">{Number.isFinite(Number(value)) ? `${Number(value).toFixed(1)}/${max}` : "—"}</div></div>)}</div>{pair?.reason && <p className="mt-3 rounded-xl border border-white/5 bg-black/20 p-2 text-[10px] leading-5 text-slate-400">{pair.reason}</p>}</div>
   </div>
 }

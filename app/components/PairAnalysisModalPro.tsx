@@ -4,6 +4,7 @@ import { BadgeCheck, Brain, Info, Shield, Sparkles, Zap, Copy, Users, MessageCir
 import CircularProgressBar from "./CircularProgressBar"
 import { HistoryConfidencePanel } from "./HistoryConfidenceBadge"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../components/ui/tabs"
+import { isCurrentBalancedScoreRow, isCurrentOppositesScoreRow, scoreModelVersionFor } from "../lib/compatibility-model"
 
 interface PairAnalysisModalProps {
   open: boolean
@@ -173,7 +174,6 @@ const CORE_VALUES_QUESTIONS: Record<string, { label: string, options: Record<str
 const getTierName = (p: number) => (p >= 85 ? 'ممتاز' : p >= 70 ? 'جيد جدًا' : p >= 55 ? 'جيد' : p >= 40 ? 'مقبول' : 'ضعيف')
 const getInitial = (s: string) => { const t = (s || '').replace(/^#/, '').trim(); return t ? t[0].toUpperCase() : '—' }
 const computeTopSynergyDrivers = (details: Array<{ label: string, scaled: number }>) => details.slice().sort((a,b)=> (b.scaled||0)-(a.scaled||0)).filter(d=> (d.scaled||0)>0).slice(0,2)
-
 function ScoreBar({ label, value, max, color, icon }: { label: string, value: number, max: number, color: string, icon?: React.ReactNode }) {
   const pct = Math.max(0, Math.min(100, (value / max) * 100))
   return (
@@ -198,6 +198,12 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
   const bSurvey = parseJSON(b?.survey_data)
   const aAns = aSurvey?.answers || {}
   const bAns = bSurvey?.answers || {}
+  const scoreSnapshot = parseJSON(pair?.score_snapshot ?? pair?.scoreSnapshot)
+  const scoreBreakdown = parseJSON(pair?.score_breakdown ?? pair?.scoreBreakdown ?? scoreSnapshot?.scoreBreakdown ?? scoreSnapshot?.score_breakdown)
+  const scoreModelVersion = scoreModelVersionFor(pair)
+  const isBalanced = isCurrentBalancedScoreRow(pair)
+  const isOpposites = isCurrentOppositesScoreRow(pair)
+  const isLegacy = !isBalanced && !isOpposites
 
   const normalize = (val: number | undefined, max: number): number => { if (typeof val !== 'number' || isNaN(val)) return 0; return val <= 1 ? val * max : val }
 
@@ -449,10 +455,15 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
   const bAgeLabel = bAgeNum !== null ? bAgeNum : (bAgeVal ?? null)
   const ageDiff = (aAgeNum !== null && bAgeNum !== null) ? Math.abs(aAgeNum - bAgeNum) : null
 
-  const overallPercent = (() => { const v = typeof pair?.compatibility_score === 'number' ? pair.compatibility_score : 0; return Math.round(v <= 1 ? v * 100 : v) })()
+  const overallPercent = (() => {
+    const raw = pair?.compatibility_score ?? scoreSnapshot?.totalScore ?? scoreSnapshot?.total_score ?? 0
+    const value = Number(raw)
+    if (!Number.isFinite(value)) return 0
+    return Math.round(value > 0 && value <= 1 ? value * 100 : value)
+  })()
   // Show unbonused percentage (divide out multipliers) if any multiplier applied
-  const intentApplied = !!pair?.intent_boost_applied
-  const humorApplied = !!(pair?.humor_early_openness_bonus && pair.humor_early_openness_bonus !== 'none')
+  const intentApplied = isLegacy && !!pair?.intent_boost_applied
+  const humorApplied = isLegacy && !!(pair?.humor_early_openness_bonus && pair.humor_early_openness_bonus !== 'none')
   const totalMultiplier = (intentApplied ? 1.05 : 1.0) * (humorApplied ? 1.05 : 1.0)
   const unbonusedPercent = totalMultiplier > 1.0 ? Math.round(overallPercent / totalMultiplier) : null
   const tierName = getTierName(overallPercent)
@@ -475,22 +486,74 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
   })()
 
   const scaledComputedSynergy = (computedSynergy / 35) * 30
-  const scores = {
+  const finiteScore = (value: any): number => {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+  const hasSplitValuesLanguage = (
+    scoreBreakdown?.valuesBoundaries !== null && scoreBreakdown?.valuesBoundaries !== undefined
+  ) || (
+    scoreBreakdown?.language !== null && scoreBreakdown?.language !== undefined
+  )
+  const balancedValuesLanguage = finiteScore(
+    scoreBreakdown?.valuesBoundariesLanguage
+    ?? (hasSplitValuesLanguage
+      ? finiteScore(scoreBreakdown?.valuesBoundaries) + finiteScore(scoreBreakdown?.language)
+      : pair?.core_values_compatibility_score),
+  )
+  const scores = isBalanced ? {
+    commonGround: finiteScore(scoreBreakdown?.semanticCommonGround),
+    synergy: finiteScore(scoreBreakdown?.interactionRhythm ?? pair?.synergy_score),
+    lifestyle: finiteScore(scoreBreakdown?.lifestyleSustainability ?? pair?.lifestyle_compatibility_score),
+    humor: finiteScore(scoreBreakdown?.humorOpenness ?? pair?.humor_open_score),
+    communication: finiteScore(scoreBreakdown?.communicationDisagreement ?? pair?.communication_disagreement_score ?? pair?.communication_compatibility_score),
+    coreValues: balancedValuesLanguage,
+    vibe: finiteScore(scoreBreakdown?.aiSemantic ?? pair?.vibe_compatibility_score),
+    attachment: finiteScore(scoreBreakdown?.attachmentComfort ?? pair?.attachment_pace_score),
+    intent: finiteScore(scoreBreakdown?.intent ?? pair?.intent_score),
+  } : {
+    commonGround: 0,
     synergy: pair?.synergy_score !== undefined && pair?.synergy_score !== null ? normalize(pair.synergy_score as number, 30) : normalize(scaledComputedSynergy, 30),
     lifestyle: normalize(pair?.lifestyle_compatibility_score as number, 10),
     humor: pair?.humor_open_score !== undefined && pair?.humor_open_score !== null ? normalize(pair.humor_open_score as number, 15) : normalize(hbForSummary.total, 15),
     communication: normalize(pair?.communication_compatibility_score as number, 3),
     coreValues: normalize(pair?.core_values_compatibility_score as number, 20),
     vibe: normalize(pair?.vibe_compatibility_score as number, 25),
+    attachment: normalize(pair?.attachment_compatibility_score as number, 5),
+    intent: finiteScore(pair?.intent_score ?? computedIntent),
   }
   const coreValues5 = Math.max(0, Math.min(5, (scores.coreValues / 20) * 5))
+  const summaryDimensions = isBalanced ? [
+    { key: 'commonGround', label: 'الأرضية المشتركة', value: scores.commonGround, max: 18, color: 'bg-fuchsia-500', icon: <Sparkles className="w-3.5 h-3.5 text-fuchsia-300" /> },
+    { key: 'synergy', label: 'إيقاع التفاعل', value: scores.synergy, max: 20, color: 'bg-cyan-500', icon: <Users className="w-3.5 h-3.5 text-cyan-400" /> },
+    { key: 'humor', label: 'الدعابة والانفتاح', value: scores.humor, max: 10, color: 'bg-amber-500', icon: <Sparkles className="w-3.5 h-3.5 text-amber-300" /> },
+    { key: 'attachment', label: 'الراحة ووتيرة التقارب', value: scores.attachment, max: 8, color: 'bg-rose-500', icon: <Shield className="w-3.5 h-3.5 text-rose-300" /> },
+    { key: 'lifestyle', label: 'استدامة نمط الحياة', value: scores.lifestyle, max: 12, color: 'bg-emerald-500', icon: <Home className="w-3.5 h-3.5 text-emerald-400" /> },
+    { key: 'values', label: 'القيم والحدود واللغة', value: scores.coreValues, max: 17, color: 'bg-pink-500', icon: <Star className="w-3.5 h-3.5 text-pink-300" /> },
+    { key: 'communication', label: 'التواصل وإدارة الاختلاف', value: scores.communication, max: 10, color: 'bg-indigo-500', icon: <MessageCircle className="w-3.5 h-3.5 text-indigo-300" /> },
+    { key: 'intent', label: 'هدف اللقاء', value: scores.intent, max: 5, color: 'bg-violet-500', icon: <CheckCircle className="w-3.5 h-3.5 text-violet-300" /> },
+  ] : isOpposites ? [
+    { key: 'oppositesSynergy', label: 'إيقاع التفاعل', value: finiteScore(scoreBreakdown?.interactionSynergy), max: 20, color: 'bg-cyan-500', icon: <Users className="w-3.5 h-3.5 text-cyan-400" /> },
+    { key: 'oppositesValues', label: 'توافق القيم', value: finiteScore(scoreBreakdown?.coreValuesAlignment), max: 17, color: 'bg-pink-500', icon: <Star className="w-3.5 h-3.5 text-pink-300" /> },
+    { key: 'oppositesCommunication', label: 'توافق التواصل', value: finiteScore(scoreBreakdown?.communicationAlignment), max: 5, color: 'bg-indigo-500', icon: <MessageCircle className="w-3.5 h-3.5 text-indigo-300" /> },
+    { key: 'oppositesLifestyle', label: 'اختلاف نمط الحياة', value: finiteScore(scoreBreakdown?.lifestyleDifference), max: 12, color: 'bg-emerald-500', icon: <Home className="w-3.5 h-3.5 text-emerald-400" /> },
+    { key: 'oppositesVibe', label: 'اختلاف الطاقة', value: finiteScore(scoreBreakdown?.vibeDifference), max: 12, color: 'bg-violet-500', icon: <Sparkles className="w-3.5 h-3.5 text-violet-400" /> },
+    { key: 'oppositesHumor', label: 'اختلاف الدعابة', value: finiteScore(scoreBreakdown?.humorDifference), max: 10, color: 'bg-amber-500', icon: <Sparkles className="w-3.5 h-3.5 text-amber-300" /> },
+  ] : [
+    { key: 'synergy', label: 'التفاعل', value: scores.synergy, max: 30, color: 'bg-cyan-500', icon: <Users className="w-3.5 h-3.5 text-cyan-400" /> },
+    { key: 'vibe', label: 'الطاقة', value: scores.vibe, max: 25, color: 'bg-violet-500', icon: <Sparkles className="w-3.5 h-3.5 text-violet-400" /> },
+    { key: 'lifestyle', label: 'نمط الحياة', value: scores.lifestyle, max: 10, color: 'bg-emerald-500', icon: <Home className="w-3.5 h-3.5 text-emerald-400" /> },
+    { key: 'humor', label: 'الدعابة/الانفتاح', value: scores.humor, max: 15, color: 'bg-amber-500', icon: <Sparkles className="w-3.5 h-3.5 text-amber-300" /> },
+    { key: 'communication', label: 'التواصل', value: scores.communication, max: 3, color: 'bg-indigo-500', icon: <MessageCircle className="w-3.5 h-3.5 text-indigo-300" /> },
+    { key: 'values', label: 'القيم/الأهداف', value: coreValues5, max: 5, color: 'bg-pink-500', icon: <Star className="w-3.5 h-3.5 text-pink-300" /> },
+  ]
 
   const humorMultiplier = useMemo(() => {
     const getAns = (p: any, key: string) => p?.survey_data?.answers?.[key] ?? p?.survey_data?.[key] ?? p?.[key] ?? undefined
     const hA = getAns(a, 'humor_banter_style'); const hB = getAns(b, 'humor_banter_style')
     const humorMatches = hA && hB && String(hA).toUpperCase() === String(hB).toUpperCase()
-    return humorMatches ? 1.05 : 1.0
-  }, [a, b])
+    return isLegacy ? (humorMatches ? 1.05 : 1.0) : 1
+  }, [a, b, isLegacy])
 
   const synergyDetails = useMemo(() => computeSynergyDetails(a, b), [a, b])
   const lifestyleDetails = useMemo(() => computeLifestyleDetails(lifestyleA, lifestyleB), [lifestyleA, lifestyleB])
@@ -730,7 +793,10 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
     const selfNum = who === 'A' ? aNumber : bNumber
     const { vec, feedback, comp } = findMatchVector(matches, selfNum, partnerNum, eventId ?? null)
     if (vec) {
-      const sim = computeSimilarityPct(currentVector, vec)
+      // Historical vectors may come from a different scoring model. Until both
+      // rows carry an identical versioned snapshot, do not present a numeric
+      // cross-model similarity as though the dimensions were comparable.
+      const sim = isLegacy ? computeSimilarityPct(currentVector, vec) : undefined
       if (who === 'A') setPrevMetaA(prev => ({ ...prev, [key]: { similarity: sim, feedback, compatibility: comp, vec } }))
       else setPrevMetaB(prev => ({ ...prev, [key]: { similarity: sim, feedback, compatibility: comp, vec } }))
     } else {
@@ -745,8 +811,13 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
     try {
       const agesLine = `الأعمار: ${aAgeLabel != null ? aAgeLabel : '—'} و ${bAgeLabel != null ? bAgeLabel : '—'}${ageDiff !== null ? ` (فارق ${ageDiff})` : ''}`
       const gendersLine = `النوع: ${mapGenderLabel(a)} و ${mapGenderLabel(b)}`
-      const main = `التفاعل: ${scores.synergy.toFixed(1)}/30، الطاقة: ${scores.vibe.toFixed(1)}/25، نمط الحياة: ${scores.lifestyle.toFixed(1)}/10، الدعابة/الانفتاح: ${scores.humor.toFixed(1)}/15، التواصل: ${scores.communication.toFixed(1)}/3، القيم: ${scores.coreValues.toFixed(1)}/20، الأهداف: ${coreValues5 .toFixed(1)}/5`
-      const text = `${agesLine}\n${gendersLine}\n${main}`
+      const modelLine = isBalanced
+        ? `النموذج: ${scoreModelVersion}`
+        : isOpposites
+          ? `النموذج: الأضداد (${scoreModelVersion})`
+          : `النموذج: تاريخي${scoreModelVersion ? ` (${scoreModelVersion})` : ''}`
+      const main = summaryDimensions.map(dimension => `${dimension.label}: ${dimension.value.toFixed(1)}/${dimension.max}`).join('، ')
+      const text = `${agesLine}\n${gendersLine}\n${modelLine}\n${main}`
       await navigator.clipboard.writeText(text)
       setCopied(true); setTimeout(() => setCopied(false), 1200)
     } catch {}
@@ -855,11 +926,13 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
           <Tabs defaultValue="summary" className="w-full">
             <TabsList className="bg-white/10 text-slate-200 border border-white/20">
               <TabsTrigger value="summary" className="text-slate-300 data-[state=active]:text-white data-[state=active]:bg-white/10">الملخص</TabsTrigger>
-              <TabsTrigger value="synergy" className="text-slate-300 data-[state=active]:text-white data-[state=active]:bg-white/10">التفاعل</TabsTrigger>
-              <TabsTrigger value="lifestyle" className="text-slate-300 data-[state=active]:text-white data-[state=active]:bg-white/10">نمط الحياة</TabsTrigger>
-              <TabsTrigger value="communication" className="text-slate-300 data-[state=active]:text-white data-[state=active]:bg-white/10">التواصل</TabsTrigger>
-              <TabsTrigger value="values" className="text-slate-300 data-[state=active]:text-white data-[state=active]:bg-white/10">القيم</TabsTrigger>
-              <TabsTrigger value="humor" className="text-slate-300 data-[state=active]:text-white data-[state=active]:bg-white/10">الدعابة/الانفتاح</TabsTrigger>
+              {isLegacy && <>
+                <TabsTrigger value="synergy" className="text-slate-300 data-[state=active]:text-white data-[state=active]:bg-white/10">التفاعل</TabsTrigger>
+                <TabsTrigger value="lifestyle" className="text-slate-300 data-[state=active]:text-white data-[state=active]:bg-white/10">نمط الحياة</TabsTrigger>
+                <TabsTrigger value="communication" className="text-slate-300 data-[state=active]:text-white data-[state=active]:bg-white/10">التواصل</TabsTrigger>
+                <TabsTrigger value="values" className="text-slate-300 data-[state=active]:text-white data-[state=active]:bg-white/10">القيم</TabsTrigger>
+                <TabsTrigger value="humor" className="text-slate-300 data-[state=active]:text-white data-[state=active]:bg-white/10">الدعابة/الانفتاح</TabsTrigger>
+              </>}
               <TabsTrigger value="mbti" className="text-slate-300 data-[state=active]:text-white data-[state=active]:bg-white/10">MBTI</TabsTrigger>
               {hasAi && (
                 <TabsTrigger value="ai" className="text-slate-300 data-[state=active]:text-white data-[state=active]:bg-white/10">تحليل AI</TabsTrigger>
@@ -883,13 +956,17 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
                   {unbonusedPercent !== null && (
                     <div className="mt-1 text-[11px] text-slate-400 text-center md:text-right">(بدون مكافآت: {unbonusedPercent}%)</div>
                   )}
+                  <div className={`mt-2 rounded-lg border px-2.5 py-2 text-[10px] font-semibold ${isBalanced ? 'border-emerald-400/25 bg-emerald-500/10 text-emerald-200' : isOpposites ? 'border-violet-400/25 bg-violet-500/10 text-violet-200' : 'border-amber-400/25 bg-amber-500/10 text-amber-200'}`}>
+                    {isBalanced
+                      ? 'النموذج المتوازن الحالي · 100 نقطة مباشرة'
+                      : isOpposites
+                        ? 'وضع الأضداد الحالي · 76 نقطة خام محوّلة إلى 100'
+                        : `عرض تاريخي موروث${scoreModelVersion ? ` · ${scoreModelVersion}` : ''}`}
+                  </div>
                   <div className="mt-4 space-y-3">
-                    <ScoreBar label="التفاعل" icon={<Users className="w-3.5 h-3.5 text-cyan-400" />} value={scores.synergy} max={35} color="bg-cyan-500" />
-                    <ScoreBar label="الطاقة" icon={<Sparkles className="w-3.5 h-3.5 text-violet-400" />} value={scores.vibe} max={20} color="bg-violet-500" />
-                    <ScoreBar label="نمط الحياة" icon={<Home className="w-3.5 h-3.5 text-emerald-400" />} value={scores.lifestyle} max={15} color="bg-emerald-500" />
-                    <ScoreBar label="الدعابة/الانفتاح" icon={<Sparkles className="w-3.5 h-3.5 text-amber-300" />} value={scores.humor} max={15} color="bg-amber-500" />
-                    <ScoreBar label="التواصل" icon={<MessageCircle className="w-3.5 h-3.5 text-indigo-300" />} value={scores.communication} max={10} color="bg-indigo-500" />
-                    <ScoreBar label="القيم/الأهداف" icon={<Star className="w-3.5 h-3.5 text-pink-300" />} value={coreValues5} max={5} color="bg-pink-500" />
+                    {summaryDimensions.map(dimension => (
+                      <ScoreBar key={dimension.key} label={dimension.label} icon={dimension.icon} value={dimension.value} max={dimension.max} color={dimension.color} />
+                    ))}
                   </div>
                 </div>
 
@@ -918,7 +995,7 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
                     </div>
                     <div className="mt-3">
                       <div className="text-slate-300 text-xs mb-2 flex items-center gap-2">
-                        <span>القيود والمكافآت</span>
+                        <span>{isBalanced ? 'ملاحظات النموذج' : isOpposites ? 'طريقة احتساب الأضداد' : 'القيود والمكافآت الموروثة'}</span>
                         {pair?.reason && String(pair.reason).includes('±1y') && (
                           <div className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-yellow-500/20 border border-yellow-400/30" title="تم قبول خارج تفضيل العمر ضمن تسامح ±1 سنة">
                             <span className="text-yellow-300 text-[10px] font-bold">±1</span>
@@ -926,37 +1003,47 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
                         )}
                       </div>
                       <div className="flex flex-wrap gap-2 text-xs md:text-sm">
-                        {pair?.humor_early_openness_bonus && pair.humor_early_openness_bonus !== 'none' && (
+                        {isBalanced && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-emerald-400/40 bg-emerald-500/10 text-emerald-200">
+                            <BadgeCheck className="w-4 h-4" /> المكونات نقاط مباشرة؛ بلا مضاعفات أو عقوبات موروثة
+                          </span>
+                        )}
+                        {isOpposites && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-violet-400/40 bg-violet-500/10 text-violet-200">
+                            التفاعل والقيم والتواصل تبقى إيجابية؛ نمط الحياة والطاقة والدعابة تُقلب لقياس الاختلاف
+                          </span>
+                        )}
+                        {isLegacy && pair?.humor_early_openness_bonus && pair.humor_early_openness_bonus !== 'none' && (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-amber-400/40 bg-amber-500/10 text-amber-200" title="تطابق أسلوب الدعابة يمنح مضاعفًا ×1.05 للنتيجة">
                             <Sparkles className="w-4 h-4" /> مكافأة أسلوب الدعابة ×1.05
                           </span>
                         )}
-                        {pair?.intent_boost_applied && (
+                        {isLegacy && pair?.intent_boost_applied && (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-emerald-400/40 bg-emerald-500/10 text-emerald-200" title="تطابق الأهداف يمنح مضاعفًا ×1.05">
                             <BadgeCheck className="w-4 h-4" /> مضاعف الأهداف ×1.05
                           </span>
                         )}
-                        {pair?.attachment_penalty_applied && (
+                        {isLegacy && pair?.attachment_penalty_applied && (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-red-400/40 bg-red-500/10 text-red-200" title="قلق × تجنّب ⇒ −5 قبل تطبيق القيود">
                             <Shield className="w-4 h-4" /> عقوبة التعلق −5
                           </span>
                         )}
-                        {pair?.dead_air_veto_applied && (
+                        {isLegacy && pair?.dead_air_veto_applied && (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-red-400/40 bg-red-500/10 text-red-200" title="كلاهما دور C وراحة الصمت B ⇒ فئة التفاعل = 0/3">
                             <Info className="w-4 h-4" /> قيد الصمت: فئة التفاعل 0/3
                           </span>
                         )}
-                        {pair?.humor_clash_veto_applied && (
+                        {isLegacy && pair?.humor_clash_veto_applied && (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-red-400/40 bg-red-500/10 text-red-200" title="تعارض قوي في الدعابة (A↔D) ⇒ سقف 50%">
                             <Info className="w-4 h-4" /> تعارض الدعابة: سقف 50%
                           </span>
                         )}
-                        {pair?.cap_applied != null && (
+                        {isLegacy && pair?.cap_applied != null && (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-yellow-400/40 bg-yellow-500/10 text-yellow-200" title="تم تطبيق سقف نهائي على النتيجة">
                             <Zap className="w-4 h-4" /> تقييد نهائي: {pair.cap_applied}%
                           </span>
                         )}
-                        {!pair?.intent_boost_applied && !pair?.attachment_penalty_applied && !pair?.dead_air_veto_applied && !pair?.humor_clash_veto_applied && !pair?.cap_applied && (!pair?.humor_early_openness_bonus || pair.humor_early_openness_bonus === 'none') && (
+                        {isLegacy && !pair?.intent_boost_applied && !pair?.attachment_penalty_applied && !pair?.dead_air_veto_applied && !pair?.humor_clash_veto_applied && !pair?.cap_applied && (!pair?.humor_early_openness_bonus || pair.humor_early_openness_bonus === 'none') && (
                           <span className="text-slate-300">لا توجد قيود/مكافآت خاصة</span>
                         )}
                       </div>
@@ -1381,22 +1468,17 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
               if (pair?.reason) lines.push(`السبب: ${pair.reason}`)
               lines.push(`الأعمار: ${aAgeLabel != null ? aAgeLabel : '—'} و ${bAgeLabel != null ? bAgeLabel : '—'}${ageDiff !== null ? ` (فارق ${ageDiff})` : ''}`)
               lines.push(`النوع: ${mapGenderLabel(a)} و ${mapGenderLabel(b)}`)
-              lines.push(`التفاعل: ${scores.synergy.toFixed(1)}/30`)
-              lines.push(`الطاقة: ${scores.vibe.toFixed(1)}/25`)
-              lines.push(`نمط الحياة: ${scores.lifestyle.toFixed(1)}/10`)
-              lines.push(`الدعابة/الانفتاح: ${scores.humor.toFixed(1)}/15 (×${humorMultiplier.toFixed(2)})`)
-              lines.push(`التواصل: ${scores.communication.toFixed(1)}/10`)
-              lines.push(`القيم: ${scores.coreValues.toFixed(1)}/20`)
-              lines.push(`الأهداف: ${coreValues5 .toFixed(1)}/5`)
-              const top = computeTopSynergyDrivers(synergyDetails)
-              if (top.length) lines.push(`أهم العوامل: ${top.map(t => `+${t.scaled.toFixed(2)} ${t.label}`).join('، ')}`)
+              lines.push(isBalanced ? `النموذج: ${scoreModelVersion}` : isOpposites ? `النموذج: الأضداد (${scoreModelVersion})` : `النموذج: تاريخي${scoreModelVersion ? ` (${scoreModelVersion})` : ''}`)
+              summaryDimensions.forEach(dimension => lines.push(`${dimension.label}: ${dimension.value.toFixed(1)}/${dimension.max}`))
+              const top = isLegacy ? computeTopSynergyDrivers(synergyDetails) : []
+              if (top.length) lines.push(`أهم العوامل الموروثة: ${top.map(t => `+${t.scaled.toFixed(2)} ${t.label}`).join('، ')}`)
               const flags: string[] = []
-              if (pair?.humor_early_openness_bonus && pair.humor_early_openness_bonus !== 'none') flags.push(`مكافأة الدعابة/الانفتاح: ${pair.humor_early_openness_bonus}`)
-              if (pair?.intent_boost_applied) flags.push('مضاعف الهدف')
-              if (pair?.attachment_penalty_applied) flags.push('عقوبة التعلق')
-              if (pair?.dead_air_veto_applied) flags.push('فشل فئة التفاعل: 0/3')
-              if (pair?.humor_clash_veto_applied) flags.push('تعارض الدعابة')
-              if (pair?.cap_applied != null) flags.push(`تقييد نهائي: ${pair?.cap_applied}%`)
+              if (isLegacy && pair?.humor_early_openness_bonus && pair.humor_early_openness_bonus !== 'none') flags.push(`مكافأة الدعابة/الانفتاح: ${pair.humor_early_openness_bonus}`)
+              if (isLegacy && pair?.intent_boost_applied) flags.push('مضاعف الهدف')
+              if (isLegacy && pair?.attachment_penalty_applied) flags.push('عقوبة التعلق')
+              if (isLegacy && pair?.dead_air_veto_applied) flags.push('فشل فئة التفاعل: 0/3')
+              if (isLegacy && pair?.humor_clash_veto_applied) flags.push('تعارض الدعابة')
+              if (isLegacy && pair?.cap_applied != null) flags.push(`تقييد نهائي: ${pair?.cap_applied}%`)
               if (flags.length) lines.push(`القيود/المكافآت: ${flags.join('، ')}`)
               await navigator.clipboard.writeText(lines.join('\n'))
             } catch {} }} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-cyan-600/20 hover:bg-cyan-600/30 border border-cyan-400/30 text-cyan-100 text-sm"><Copy className="w-4 h-4" /> نسخ التفصيل</button>

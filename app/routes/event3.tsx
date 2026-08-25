@@ -22,6 +22,7 @@ import {
 } from "lucide-react"
 
 import { QuestionSlideshow } from "~/components/QuestionSlideshow"
+import { CURRENT_BALANCED_SCORE_MODEL } from "~/lib/compatibility-model"
 
 // Create a shareable portrait card without relying on DOM screenshot libraries.
 // Drawing it directly keeps Arabic text sharp and makes saving reliable on mobile.
@@ -1014,25 +1015,37 @@ function CompatibilityBreakdown({ breakdown, accent = "purple", partnerName }: {
   if (!breakdown) return null
 
   const percent = (v: number, max: number) => Math.max(0, Math.min(100, Math.round((v / max) * 100)))
+  const numberValue = (value: unknown) => {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+  const scoreModelVersion = String(breakdown.scoreModelVersion ?? breakdown.score_model_version ?? "")
+  const isBalanced = scoreModelVersion === CURRENT_BALANCED_SCORE_MODEL
+  const valuesBoundariesLanguage = numberValue(
+    breakdown.valuesBoundariesLanguage
+    ?? (numberValue(breakdown.valuesBoundaries) + numberValue(breakdown.language)),
+  )
 
-  const dims = [
-    { key: "synergy", label: "الانسجام التفاعلي", value: breakdown.synergy || 0, max: 30, bar: "from-violet-500 to-purple-500" },
-    { key: "vibe", label: "الطاقة والكيمياء", value: breakdown.vibe || 0, max: 25, bar: "from-purple-500 to-pink-500" },
-    { key: "lifestyle", label: "نمط الحياة", value: breakdown.lifestyle || 0, max: 10, bar: "from-cyan-500 to-blue-500" },
-    { key: "humorOpen", label: "الدعابة/الانفتاح", value: breakdown.humorOpen || 0, max: 15, bar: "from-amber-500 to-orange-500" },
-    { key: "communication", label: "التواصل", value: breakdown.communication || 0, max: 3, bar: "from-indigo-500 to-sky-500" },
-    { key: "coreValues", label: "الأهداف/القيم", value: breakdown.coreValues || 0, max: 5, bar: "from-emerald-500 to-teal-500" },
-  ]
-
-  const intentDim = (breakdown.intent || 0) > 0
-    ? [{ key: "intent", label: "الأهداف والتوقعات", value: breakdown.intent || 0, max: 10, bar: "from-rose-500 to-pink-500" }]
+  const allDims = isBalanced
+    ? [
+        { key: "commonGround", label: "الأرضية المشتركة", value: numberValue(breakdown.semanticCommonGround), max: 18, bar: "from-purple-500 to-pink-500" },
+        { key: "interaction", label: "إيقاع التفاعل", value: numberValue(breakdown.interactionRhythm), max: 20, bar: "from-violet-500 to-purple-500" },
+        { key: "humorOpen", label: "الدعابة والانفتاح", value: numberValue(breakdown.humorOpenness), max: 10, bar: "from-amber-500 to-orange-500" },
+        { key: "attachment", label: "الراحة ووتيرة التقارب", value: numberValue(breakdown.attachmentComfort), max: 8, bar: "from-rose-500 to-pink-500" },
+        { key: "lifestyle", label: "استدامة نمط الحياة", value: numberValue(breakdown.lifestyleSustainability), max: 12, bar: "from-cyan-500 to-blue-500" },
+        { key: "values", label: "القيم والحدود واللغة", value: valuesBoundariesLanguage, max: 17, bar: "from-emerald-500 to-teal-500" },
+        { key: "communication", label: "التواصل وإدارة الاختلاف", value: numberValue(breakdown.communicationDisagreement), max: 10, bar: "from-indigo-500 to-sky-500" },
+        { key: "intent", label: "هدف اللقاء", value: numberValue(breakdown.intent), max: 5, bar: "from-fuchsia-500 to-rose-500" },
+      ]
     : []
-  const allDims = [...dims, ...intentDim]
 
   const sorted = [...allDims].sort((a, b) => percent(b.value, b.max) - percent(a.value, a.max))
   const topStrengths = sorted.filter(d => percent(d.value, d.max) >= 65).slice(0, 2)
   const growth = sorted.filter(d => percent(d.value, d.max) < 40).slice(0, 2)
-  const totalPct = breakdown.total ?? percent(breakdown.synergy || 0, 35)
+  const storedTotal = Number(breakdown.total)
+  const totalPct = Number.isFinite(storedTotal)
+    ? Math.max(0, Math.min(100, storedTotal))
+    : Math.max(0, Math.min(100, allDims.reduce((sum, dimension) => sum + dimension.value, 0)))
 
   const accentCl = accent === "pink" ? "text-pink-300" : "text-purple-300"
 
@@ -1044,9 +1057,20 @@ function CompatibilityBreakdown({ breakdown, accent = "purple", partnerName }: {
         <h4 className={`text-base font-bold flex items-center gap-2 ${accentCl}`}>
           <BarChart3 size={16} /> تحليل التوافق
         </h4>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${isBalanced ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-300" : "border-amber-400/25 bg-amber-500/10 text-amber-300"}`}>
+            {isBalanced ? "النموذج المتوازن · 100 نقطة" : "حسبة تاريخية موروثة"}
+          </span>
+          {scoreModelVersion && <span className="font-mono text-[9px] text-gray-600">{scoreModelVersion}</span>}
+        </div>
         <p className="text-gray-500 text-xs mt-0.5">
           هذا التحليل خاص بـ{partnerName ? ` ${partnerName}` : " هذا الشخص"} فقط — يعتمد على بيانات الاستبيان ولا يتأثر بالتقييمات
         </p>
+        {!isBalanced && (
+          <p className="mt-2 rounded-lg border border-amber-700/30 bg-amber-950/20 px-3 py-2 text-[11px] leading-relaxed text-amber-200/80">
+            نعرض المجموع التاريخي فقط لأن تفاصيل هذا السجل لم تُحفظ بهوية نموذج التقييم الحالي؛ لن نركّب عليه أوزان اليوم.
+          </p>
+        )}
       </div>
 
       {/* Synergy Overview */}
@@ -1063,47 +1087,51 @@ function CompatibilityBreakdown({ breakdown, accent = "purple", partnerName }: {
             />
           </div>
 
-          {/* Dimension mini-bars */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-3.5">
-            {allDims.map((d, i) => (
-              <div key={i} className="rounded-lg p-2.5 bg-gray-900/40 border border-gray-800/40">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[11px] font-semibold text-gray-300">{d.label}</span>
-                  <span className="text-[11px] font-bold text-gray-400">{percent(d.value, d.max)}%</span>
-                </div>
-                <div className="w-full h-1.5 rounded-full bg-gray-800/70">
-                  <motion.div
-                    className={`h-full rounded-full bg-gradient-to-r ${d.bar}`}
-                    initial={{ width: 0 }} animate={{ width: `${percent(d.value, d.max)}%` }} transition={{ duration: 0.6, delay: 0.5 + i * 0.08 }}
-                  />
-                </div>
+          {isBalanced && (
+            <>
+              {/* Dimension mini-bars */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-3.5">
+                {allDims.map((d, i) => (
+                  <div key={i} className="rounded-lg p-2.5 bg-gray-900/40 border border-gray-800/40">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] font-semibold text-gray-300">{d.label}</span>
+                      <span className="text-[11px] font-bold text-gray-400">{percent(d.value, d.max)}%</span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-gray-800/70">
+                      <motion.div
+                        className={`h-full rounded-full bg-gradient-to-r ${d.bar}`}
+                        initial={{ width: 0 }} animate={{ width: `${percent(d.value, d.max)}%` }} transition={{ duration: 0.6, delay: 0.5 + i * 0.08 }}
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
 
-          {/* Highlights & Growth */}
-          <div className="grid grid-cols-1 gap-2.5 mt-3.5">
-            {topStrengths.length > 0 && (
-              <div className="bg-emerald-500/10 border border-emerald-400/30 rounded-lg p-3">
-                <div className="text-[11px] font-bold mb-1 text-emerald-300">أبرز النقاط</div>
-                <ul className="text-[11px] leading-relaxed text-emerald-100/80 list-disc pr-4">
-                  {topStrengths.map((d, idx) => (
-                    <li key={idx}>{d.label}: جانب قويّ يساعد على سهولة الانسجام.</li>
-                  ))}
-                </ul>
+              {/* Highlights & Growth */}
+              <div className="grid grid-cols-1 gap-2.5 mt-3.5">
+                {topStrengths.length > 0 && (
+                  <div className="bg-emerald-500/10 border border-emerald-400/30 rounded-lg p-3">
+                    <div className="text-[11px] font-bold mb-1 text-emerald-300">أبرز النقاط</div>
+                    <ul className="text-[11px] leading-relaxed text-emerald-100/80 list-disc pr-4">
+                      {topStrengths.map((d, idx) => (
+                        <li key={idx}>{d.label}: جانب قويّ يساعد على سهولة الانسجام.</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {growth.length > 0 && (
+                  <div className="bg-orange-500/10 border border-orange-400/30 rounded-lg p-3">
+                    <div className="text-[11px] font-bold mb-1 text-orange-300">مساحات للنمو</div>
+                    <ul className="text-[11px] leading-relaxed text-orange-100/80 list-disc pr-4">
+                      {growth.map((d, idx) => (
+                        <li key={idx}>{d.label}: قد يحتاج وقتاً للتأقلم.</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
-            )}
-            {growth.length > 0 && (
-              <div className="bg-orange-500/10 border border-orange-400/30 rounded-lg p-3">
-                <div className="text-[11px] font-bold mb-1 text-orange-300">مساحات للنمو</div>
-                <ul className="text-[11px] leading-relaxed text-orange-100/80 list-disc pr-4">
-                  {growth.map((d, idx) => (
-                    <li key={idx}>{d.label}: قد يحتاج وقتاً للتأقلم.</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
+            </>
+          )}
         </div>
       </div>
     </motion.div>
@@ -5269,7 +5297,7 @@ function ProcessingScreen({ phase }: { phase: string }) {
             ? "التالي: سنعرض اسم الشخص الذي اختارك أيضاً ورقم طاولتك."
             : "التالي: سنعرض ترشيح النظام ورقم طاولتك."}
           steps={["انتظر هنا", "اعرف الشريك والطاولة", "ابدأ اللقاء"]}
-          activeStep={0}
+          currentStep={0}
           accent={isPhase2 ? "pink" : "purple"}
         />
       </motion.div>

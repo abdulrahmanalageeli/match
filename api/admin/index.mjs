@@ -1,6 +1,6 @@
 import OpenAI from "openai"
 import { createHmac, timingSafeEqual } from "node:crypto"
-import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkAgeCompatibility, checkIntentHardGate, fetchAllCachedPairs, calculateHumorOpennessScore, isCurrentVibeModel, getParticipantDeltaCacheReason, getDeltaCacheReasonCounts, loadHistoricalMatchAnalyzer } from "./trigger-match.mjs"
+import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkAgeCompatibility, checkIntentHardGate, fetchAllCachedPairs, isCurrentVibeModel, getParticipantDeltaCacheReason, getDeltaCacheReasonCounts, loadHistoricalMatchAnalyzer } from "./trigger-match.mjs"
 import { buildWelcomePrompt } from "./ai-welcome-prompt.mjs"
 import { assignPriorityTables } from "../../server/event3/table-priority.mjs"
 import { buildSixBySevenPlan, optimizeRound2ByAge } from "../../server/event3/round2-age-optimizer.mjs"
@@ -16,6 +16,17 @@ import {
 import { supabaseAdmin } from "../../server/security/supabase-admin.mjs"
 import { clearAdminSession, enforceRateLimit, requireAdmin } from "../../server/security/request-security.mjs"
 import { calculatePersistedMatchInsightScores } from "../../server/matching/match-insights.mjs"
+import {
+  BALANCED_COMPATIBILITY_VERSION,
+  BALANCED_VIBE_MODEL,
+  BALANCED_VIBE_MODEL_TAG,
+  BALANCED_VIBE_VERSION,
+  buildBalancedCacheIdentity,
+  buildBalancedScoreSnapshot,
+  getBalancedCacheBreakdown,
+  isCurrentBalancedScoreSnapshot,
+  isSupportedCurrentScoreSnapshot,
+} from "../../server/matching/balanced-compatibility.mjs"
 
 const supabase = supabaseAdmin
 
@@ -90,7 +101,10 @@ async function getCurrentAdminEventId() {
 
 function isMissingSwapRpc(error) {
   const message = `${error?.message || ""} ${error?.details || ""}`.toLowerCase()
-  return error?.code === "PGRST202" || message.includes("apply_match_swap_plan") || message.includes("undo_match_swap_plan")
+  return error?.code === "PGRST202"
+    || message.includes("apply_match_swap_plan_with_score_provenance")
+    || message.includes("apply_match_swap_plan")
+    || message.includes("undo_match_swap_plan")
 }
 
 async function getEvent3TestContext() {
@@ -131,6 +145,7 @@ function isMissingAdmin3SwapRpc(error) {
   return error?.code === "PGRST202"
     || message.includes("swap_event3_group_seats")
     || message.includes("swap_event3_table_numbers")
+    || message.includes("swap_event3_match_partner")
     || message.includes("replace_event3_participant")
 }
 
@@ -148,25 +163,38 @@ function normalizeSwapPairs(value) {
 }
 
 function swapReason(compatibility) {
-  const coreValuesScaled5 = compatibility.coreValuesScaled5 != null
-    ? Number(compatibility.coreValuesScaled5)
-    : Math.max(0, Math.min(5, (Number(compatibility.coreValuesScore || 0) / 20) * 5))
-  return `Synergy: ${Math.round(Number(compatibility.synergyScore || 0))}% + ` +
-    `Vibe: ${Math.round(Number(compatibility.vibeScore || 0))}% + ` +
-    `Lifestyle: ${Math.round(Number(compatibility.lifestyleScore || 0))}% + ` +
-    `Humor/Openness: ${Math.round(Number(compatibility.humorOpenScore || 0))}% + ` +
-    `Communication: ${Math.round(Number(compatibility.communicationScore || 0))}% + ` +
-    `Core Values: ${Math.round(coreValuesScaled5)}%` +
-    (compatibility.attachmentPenaltyApplied ? " - Penalty(Anx x Avoid)" : "") +
-    (compatibility.opennessZeroZeroPenaltyApplied ? " - Penalty(Opn 0 x 0)" : "") +
-    (compatibility.intentBoostApplied ? " x IntentBoost(1.05)" : "") +
-    (compatibility.capApplied ? ` (capped @ ${compatibility.capApplied}%)` : "")
+  const breakdown = compatibility?.scoreBreakdown || {}
+  return `Common Ground: ${Math.round(Number(breakdown.semanticCommonGround || 0))}/18 + ` +
+    `Interaction Rhythm: ${Math.round(Number(breakdown.interactionRhythm || 0))}/20 + ` +
+    `Humor/Openness: ${Math.round(Number(breakdown.humorOpenness || 0))}/10 + ` +
+    `Attachment Comfort: ${Math.round(Number(breakdown.attachmentComfort || 0))}/8 + ` +
+    `Lifestyle: ${Math.round(Number(breakdown.lifestyleSustainability || 0))}/12 + ` +
+    `Values/Boundaries: ${Math.round(Number(breakdown.valuesBoundaries || 0))}/13 + ` +
+    `Communication/Disagreement: ${Math.round(Number(breakdown.communicationDisagreement || 0))}/10 + ` +
+    `Intent: ${Math.round(Number(breakdown.intent || 0))}/5 + ` +
+    `Expression Language: ${Math.round(Number(breakdown.language || 0))}/4`
 }
 
 function compatibilityResultPayload(compatibility) {
-  const humorMultiplier = Number(compatibility.humorMultiplier || 1)
+  const rawCompatibilityScore = compatibility?.totalScore
+  const compatibilityScore = rawCompatibilityScore !== null
+    && rawCompatibilityScore !== undefined
+    && rawCompatibilityScore !== ""
+    && Number.isFinite(Number(rawCompatibilityScore))
+    ? Math.round(Number(rawCompatibilityScore))
+    : null
+  const rawSnapshot = compatibility?.scoreSnapshot
+  const scoreSnapshot = compatibilityScore !== null
+    && compatibility?.scoreModelVersion === BALANCED_COMPATIBILITY_VERSION
+    && rawSnapshot?.scoreModelVersion === compatibility.scoreModelVersion
+    && rawSnapshot.combinedContentHash
+    ? { ...rawSnapshot, totalScore: compatibilityScore }
+    : null
   return {
-    compatibility_score: Math.round(Number(compatibility.totalScore || 0)),
+    score_model_version: scoreSnapshot ? compatibility.scoreModelVersion : null,
+    score_snapshot: scoreSnapshot,
+    score_content_hash: scoreSnapshot?.combinedContentHash || null,
+    compatibility_score: compatibilityScore,
     reason: swapReason(compatibility),
     mbti_compatibility_score: Number(compatibility.mbtiScore || 0),
     attachment_compatibility_score: Number(compatibility.attachmentScore || 0),
@@ -181,13 +209,13 @@ function compatibilityResultPayload(compatibility) {
     current_life_overlap_score: Number(compatibility.currentFocusScore || 0),
     similarity_preference_score: Number(compatibility.similarityPreferenceScore || 0),
     attachment_pace_score: Number(compatibility.attachmentPaceScore || 0),
-    humor_multiplier: humorMultiplier,
+    humor_multiplier: 1,
     attachment_penalty_applied: !!compatibility.attachmentPenaltyApplied,
     intent_boost_applied: !!compatibility.intentBoostApplied,
     dead_air_veto_applied: !!compatibility.deadAirVetoApplied,
     humor_clash_veto_applied: !!compatibility.humorClashVetoApplied,
     cap_applied: compatibility.capApplied ?? null,
-    humor_early_openness_bonus: humorMultiplier === 1.15 ? "full" : humorMultiplier === 1.05 ? "partial" : "none",
+    humor_early_openness_bonus: "none",
   }
 }
 
@@ -590,6 +618,132 @@ function e3GreedyMutualMatching(rankings, participantMap = new Map(), exclusions
 // e3IsComplete and e3FullCalcCompat are now the real functions imported from trigger-match.mjs
 const e3IsComplete = isParticipantComplete
 
+const setPreferredCurrentVibeCacheRow = (cacheRowsByPair, cacheRow, participantMap) => {
+  if (!isCurrentVibeModel(cacheRow?.model_used)) return false
+  if (cacheRow?.score_model_version !== BALANCED_COMPATIBILITY_VERSION) return false
+  const fallbackTag = String(cacheRow?.model_used || '').split('|').find(part => part.startsWith('fallback='))
+  if (fallbackTag && fallbackTag !== 'fallback=incomplete_vibe_profile') return false
+
+  const participantA = Number(cacheRow.participant_a_number)
+  const participantB = Number(cacheRow.participant_b_number)
+  if (!Number.isFinite(participantA) || !Number.isFinite(participantB) || participantA === participantB) return false
+
+  const profileA = participantMap?.get(participantA)
+  const profileB = participantMap?.get(participantB)
+  if (!profileA || !profileB) return false
+  const identity = buildBalancedCacheIdentity(profileA, profileB)
+  if (cacheRow.vibe_content_hash !== identity.vibeContentHash) return false
+  if (cacheRow.combined_content_hash !== identity.combinedContentHash) return false
+
+  const key = `${Math.min(participantA, participantB)}-${Math.max(participantA, participantB)}`
+  const existing = cacheRowsByPair.get(key)
+  const rowTime = Date.parse(cacheRow.last_used || cacheRow.created_at || "") || 0
+  const existingTime = Date.parse(existing?.last_used || existing?.created_at || "") || 0
+  const rowIsNewer = rowTime > existingTime
+    || (rowTime === existingTime && String(cacheRow.id || "") > String(existing?.id || ""))
+
+  if (!existing || rowIsNewer) cacheRowsByPair.set(key, cacheRow)
+  return true
+}
+
+function buildEvent3ScoreProvenance(compatibility, participantA, participantB) {
+  const rawTotalScore = compatibility?.totalScore
+  const totalScore = Number(rawTotalScore)
+  if (!compatibility
+    || compatibility.scoreModelVersion !== BALANCED_COMPATIBILITY_VERSION
+    || rawTotalScore === null
+    || rawTotalScore === undefined
+    || rawTotalScore === ""
+    || !Number.isFinite(totalScore)
+    || !participantA
+    || !participantB) {
+    return { scoreModelVersion: null, scoreSnapshot: null, scoreContentHash: null, persistedScore: null }
+  }
+  const identity = buildBalancedCacheIdentity(participantA, participantB)
+  const persistedScore = Math.round(totalScore)
+  const scoreSnapshot = buildBalancedScoreSnapshot(
+    { ...compatibility, totalScore: persistedScore },
+    { combinedContentHash: identity.combinedContentHash },
+  )
+  return {
+    scoreModelVersion: BALANCED_COMPATIBILITY_VERSION,
+    scoreSnapshot,
+    scoreContentHash: identity.combinedContentHash,
+    persistedScore,
+  }
+}
+
+function event3PhaseScoreFields(phase, provenance) {
+  return {
+    [`${phase}_score_model_version`]: provenance?.scoreModelVersion || null,
+    [`${phase}_score_snapshot`]: provenance?.scoreSnapshot || null,
+    [`${phase}_score_content_hash`]: provenance?.scoreContentHash || null,
+  }
+}
+
+function isStoredBalancedScoreSnapshot({ modelVersion, contentHash, snapshot, persistedTotal }) {
+  return isCurrentBalancedScoreSnapshot({ modelVersion, contentHash, snapshot, persistedTotal })
+}
+
+function getValidatedScoreProvenance({ modelVersion, contentHash, snapshot, persistedTotal }) {
+  const valid = isSupportedCurrentScoreSnapshot({ modelVersion, contentHash, snapshot, persistedTotal })
+  const hasStoredProvenance = !!modelVersion || !!contentHash || !!snapshot
+  return {
+    score_model_version: valid ? modelVersion : null,
+    score_snapshot: valid ? snapshot : null,
+    score_content_hash: valid ? contentHash : null,
+    score_breakdown: valid ? snapshot.scoreBreakdown : null,
+    question_scores: valid ? snapshot.questionScores : null,
+    vibe_axes: valid ? snapshot.vibeAxes : null,
+    score_provenance_valid: valid,
+    score_provenance_status: valid ? "valid" : (hasStoredProvenance ? "invalid" : "legacy"),
+  }
+}
+
+function getStoredEvent3Breakdown(row, phase) {
+  const snapshot = row?.[`${phase}_score_snapshot`]
+  const modelVersion = row?.[`${phase}_score_model_version`]
+  const contentHash = row?.[`${phase}_score_content_hash`]
+  if (!isStoredBalancedScoreSnapshot({
+    modelVersion,
+    contentHash,
+    snapshot,
+    persistedTotal: row?.[`${phase}_score`],
+  })) return null
+  const scoreBreakdown = snapshot.scoreBreakdown || {}
+  return {
+    ...scoreBreakdown,
+    total: Number(snapshot.totalScore),
+    synergy: Number(scoreBreakdown.interactionRhythm || 0),
+    vibe: Number(scoreBreakdown.aiSemantic || 0),
+    lifestyle: Number(scoreBreakdown.lifestyleSustainability || 0),
+    communication: Number(scoreBreakdown.communicationDisagreement || 0),
+    coreValues: Number(scoreBreakdown.valuesBoundaries || 0) + Number(scoreBreakdown.language || 0),
+    intent: Number(scoreBreakdown.intent || 0),
+  }
+}
+
+function getStoredEvent3Compatibility(row, phase) {
+  const snapshot = row?.[`${phase}_score_snapshot`]
+  const modelVersion = row?.[`${phase}_score_model_version`]
+  const contentHash = row?.[`${phase}_score_content_hash`]
+  if (!isStoredBalancedScoreSnapshot({
+    modelVersion,
+    contentHash,
+    snapshot,
+    persistedTotal: row?.[`${phase}_score`],
+  })) return null
+  return {
+    scoreModelVersion: modelVersion,
+    scoreContentHash: contentHash,
+    totalScore: snapshot.totalScore,
+    scoreBreakdown: snapshot.scoreBreakdown || {},
+    questionScores: snapshot.questionScores || {},
+    vibeAxes: snapshot.vibeAxes || {},
+    aiVibeFallbackReason: snapshot.aiVibeFallbackReason || null,
+  }
+}
+
 // ── Random pairing for test mode ──────────────────────────────────────────
 // Pairs participants randomly (M-F), optionally avoiding pairs from a previous phase.
 // Returns a Map<number, number> (same shape as e3GreedyMutualMatching output).
@@ -635,32 +789,19 @@ function e3RandomPairMatching(participantNumbers, genderMap = {}, avoidPairs = n
   return { matches, pairs, used }
 }
 const e3FullCalcCompat = async (pA, pB) => {
-  const r = await getCachedCompatibility(pA, pB, { skipUsageUpdate: true })
+  let r = await getCachedCompatibility(pA, pB, { skipUsageUpdate: true })
+  if (!r) {
+    r = await calculateFullCompatibilityWithCache(pA, pB, false, false, { skipCacheLookup: true })
+  }
   if (!r) return null
   return {
+    ...r,
     totalScore: Math.round(r.totalScore),
-    mbtiScore: r.mbtiScore,
-    attachmentScore: r.attachmentScore,
-    synergyScore: r.synergyScore,
-    lifestyleScore: r.lifestyleScore,
-    communicationScore: r.communicationScore,
-    coreValuesScore: r.coreValuesScore,
-    coreValuesScaled5: r.coreValuesScaled5,
-    humorOpenScore: r.humorOpenScore,
-    intentScore: r.intentScore,
-    vibeScore: r.vibeScore,
     attachmentPenalty: r.attachmentPenaltyApplied,
-    attachmentPenaltyApplied: r.attachmentPenaltyApplied,
     opennessZeroZero: r.opennessZeroZeroPenaltyApplied,
-    opennessZeroZeroPenaltyApplied: r.opennessZeroZeroPenaltyApplied,
     deadAirVeto: r.deadAirVetoApplied,
-    deadAirVetoApplied: r.deadAirVetoApplied,
     humorClashVeto: r.humorClashVetoApplied,
-    humorClashVetoApplied: r.humorClashVetoApplied,
     intentBoost: r.intentBoostApplied,
-    intentBoostApplied: r.intentBoostApplied,
-    humorMultiplier: r.humorMultiplier,
-    capApplied: r.capApplied,
   }
 }
 
@@ -674,7 +815,7 @@ async function refreshEvent3TestMatchResults(eventId) {
     { data: existingRows, error: existingError },
   ] = await Promise.all([
     supabase.from("event3_matches")
-      .select("participant_number,phase3_partner,phase3_score")
+      .select("participant_number,phase3_partner,phase3_score,phase3_score_model_version,phase3_score_snapshot,phase3_score_content_hash")
       .eq("match_id", EVENT3_MATCH_ID)
       .eq("event_id", eventId)
       .not("phase3_partner", "is", null),
@@ -700,14 +841,23 @@ async function refreshEvent3TestMatchResults(eventId) {
     const key = swapPairKey(a, b)
     if (!Number.isInteger(a) || !Number.isInteger(b) || a <= 0 || b <= 0 || a === b || seen.has(key)) continue
     seen.add(key)
-    pairs.push({ a: Math.min(a, b), b: Math.max(a, b), storedScore: Number(row.phase3_score || 0) })
+    pairs.push({
+      a: Math.min(a, b),
+      b: Math.max(a, b),
+      storedScore: Number(row.phase3_score ?? 0),
+      storedProvenance: {
+        scoreModelVersion: row.phase3_score_model_version || null,
+        scoreSnapshot: row.phase3_score_snapshot || null,
+        scoreContentHash: row.phase3_score_content_hash || null,
+      },
+    })
   }
 
   const participantNumbers = [...new Set(pairs.flatMap(pair => [pair.a, pair.b]))]
   const profileMap = new Map()
   if (participantNumbers.length > 0) {
     const { data: profiles, error: profileError } = await supabase.from("participants")
-      .select("assigned_number,name,gender,age,survey_data,mbti_personality_type,attachment_style,communication_style,humor_banter_style,early_openness_comfort")
+      .select("*")
       .eq("match_id", STATIC_MATCH_ID)
       .in("assigned_number", participantNumbers)
     if (profileError) throw profileError
@@ -738,7 +888,19 @@ async function refreshEvent3TestMatchResults(eventId) {
         skipUsageUpdate: true,
       })
     }
-    const compatibilityScore = compatibility?.totalScore ?? pair.storedScore ?? 50
+    const computedProvenance = compatibility
+      ? buildEvent3ScoreProvenance(compatibility, profileA, profileB)
+      : null
+    const storedProvenanceIsValid = isStoredBalancedScoreSnapshot({
+      modelVersion: pair.storedProvenance?.scoreModelVersion,
+      contentHash: pair.storedProvenance?.scoreContentHash,
+      snapshot: pair.storedProvenance?.scoreSnapshot,
+      persistedTotal: pair.storedScore,
+    })
+    const provenance = computedProvenance || (storedProvenanceIsValid
+      ? pair.storedProvenance
+      : { scoreModelVersion: null, scoreSnapshot: null, scoreContentHash: null })
+    const compatibilityScore = computedProvenance?.persistedScore ?? pair.storedScore ?? 50
     testRows.push({
       ...(compatibility ? compatibilityResultPayload(compatibility) : {}),
       participant_a_number: pair.a,
@@ -746,6 +908,9 @@ async function refreshEvent3TestMatchResults(eventId) {
       compatibility_score: compatibilityScore,
       table_number: tableMap.get(pair.a) ?? tableMap.get(pair.b) ?? null,
       reason: compatibility ? swapReason(compatibility) : "Test mode simulated algorithm lock",
+      score_model_version: provenance?.scoreModelVersion || null,
+      score_snapshot: provenance?.scoreSnapshot || null,
+      score_content_hash: provenance?.scoreContentHash || null,
     })
   }
 
@@ -3655,6 +3820,10 @@ export default async function handler(req, res) {
             participant_e_number,
             participant_f_number,
             compatibility_score,
+            reason,
+            score_model_version,
+            score_snapshot,
+            score_content_hash,
             synergy_score,
             humor_open_score,
             intent_score,
@@ -3760,13 +3929,23 @@ export default async function handler(req, res) {
           const aFb = feedbackMap.get(pA)?.get(roundNo) || null
           const bFb = feedbackMap.get(pB)?.get(roundNo) || null
 
-          // Compute fallback 100-pt fields if DB has zeros/missing
-          const syn = Number(m.synergy_score ?? 0)
-          const hum = Number(m.humor_open_score ?? 0)
-          const inten = Number(m.intent_score ?? 0)
-          const synergyVal = syn > 0 ? syn : (aInfo && bInfo ? computeSynergyScore(aInfo, bInfo) : 0)
-          const humorOpenVal = hum > 0 ? hum : (aInfo && bInfo ? computeHumorOpenScore(aInfo, bInfo) : 0)
-          const intentVal = inten > 0 ? inten : (aInfo && bInfo ? computeIntentScore(aInfo, bInfo) : 0)
+          const snapshot = m.score_snapshot
+          const isBalancedSnapshot = isStoredBalancedScoreSnapshot({
+            modelVersion: m.score_model_version,
+            contentHash: m.score_content_hash,
+            snapshot,
+            persistedTotal: m.compatibility_score,
+          })
+          const validatedProvenance = getValidatedScoreProvenance({
+            modelVersion: m.score_model_version,
+            contentHash: m.score_content_hash,
+            snapshot,
+            persistedTotal: m.compatibility_score,
+          })
+          const breakdown = isBalancedSnapshot ? (snapshot.scoreBreakdown || {}) : null
+          const synergyVal = Number(breakdown?.interactionRhythm ?? m.synergy_score ?? 0)
+          const humorOpenVal = Number(breakdown?.humorOpenness ?? m.humor_open_score ?? 0)
+          const intentVal = Number(breakdown?.intent ?? m.intent_score ?? 0)
 
           rows.push({
             match_result_id: m.id,
@@ -3774,16 +3953,17 @@ export default async function handler(req, res) {
             round: roundNo,
             participant_a: aInfo || { number: pA },
             participant_b: bInfo || { number: pB },
-            compatibility_score: m.compatibility_score || 0,
+            compatibility_score: isBalancedSnapshot ? snapshot.totalScore : (m.compatibility_score ?? 0),
+            ...validatedProvenance,
             bonus_type: m.humor_early_openness_bonus || 'none',
             mutual_match: m.mutual_match || false,
             // New-model scoring fields for 100-pt breakdown
             synergy_score: synergyVal,
             humor_open_score: humorOpenVal,
             intent_score: intentVal,
-            vibe_compatibility_score: m.vibe_compatibility_score || 0,
-            lifestyle_compatibility_score: m.lifestyle_compatibility_score || 0,
-            communication_compatibility_score: m.communication_compatibility_score || 0,
+            vibe_compatibility_score: Number(breakdown?.aiSemantic ?? m.vibe_compatibility_score ?? 0),
+            lifestyle_compatibility_score: Number(breakdown?.lifestyleSustainability ?? m.lifestyle_compatibility_score ?? 0),
+            communication_compatibility_score: Number(breakdown?.communicationDisagreement ?? m.communication_compatibility_score ?? 0),
             feedback_a: aFb,
             feedback_b: bFb,
             avg_compatibility_rate: (() => {
@@ -4404,7 +4584,7 @@ export default async function handler(req, res) {
           // 2. Fetch event3_matches
           const { data: matchRows, error: matchError } = await supabase
             .from("event3_matches")
-            .select("participant_number, phase2_partner, phase2_score, phase3_partner, phase3_score, phase2_word, phase3_word, phase2_feedback, phase3_feedback, match_preference")
+            .select("participant_number, phase2_partner, phase2_score, phase2_score_model_version, phase2_score_snapshot, phase2_score_content_hash, phase3_partner, phase3_score, phase3_score_model_version, phase3_score_snapshot, phase3_score_content_hash, phase2_word, phase3_word, phase2_feedback, phase3_feedback, match_preference")
             .eq("match_id", EVENT3_MATCH_ID)
             .eq("event_id", eid)
             .in("participant_number", selectedNumbers)
@@ -4426,34 +4606,8 @@ export default async function handler(req, res) {
             continue
           }
 
-          // 4. Batch-fetch compatibility_cache scores
-          const { data: cachedPairs } = await fetchAllCachedPairs("compatibility_cache", selectedNumbers)
-          const _participantMap = new Map((participants || []).map(p => [p.assigned_number, p]))
-          for (const c of cachedPairs || []) {
-            const key = `${c.participant_a_number}-${c.participant_b_number}`
-            const pA = _participantMap.get(c.participant_a_number)
-            const pB = _participantMap.get(c.participant_b_number)
-            let humorOpen = 0
-            if (pA && pB) {
-              try { const { score } = calculateHumorOpennessScore(pA, pB); humorOpen = score } catch (_) {}
-            }
-            if (!allCacheScores[key]) {
-              allCacheScores[key] = {
-                total: parseFloat(c.total_compatibility_score),
-                mbti: parseFloat(c.mbti_score),
-                attachment: parseFloat(c.attachment_score),
-                communication: parseFloat(c.communication_score),
-                lifestyle: parseFloat(c.lifestyle_score),
-                coreValues: parseFloat(c.core_values_score),
-                vibe: parseFloat(c.ai_vibe_score),
-                synergy: parseFloat(c.interaction_synergy_score),
-                intent: parseFloat(c.intent_goal_score),
-                humorOpen,
-                humorMultiplier: parseFloat(c.humor_multiplier || 1.0),
-                humorBonus: c.humor_early_openness_bonus || 'none',
-              }
-            }
-          }
+          // Event-time score snapshots are the only valid historical
+          // breakdown. Never join an old event total to today's global cache.
 
           // Deduplicate participants
           for (const p of participants || []) {
@@ -4465,7 +4619,30 @@ export default async function handler(req, res) {
 
           // Tag match rows with event_id
           for (const mr of matchRows || []) {
-            allMatchRows.push({ ...mr, event_id: eid })
+            const phase2Provenance = getValidatedScoreProvenance({
+              modelVersion: mr.phase2_score_model_version,
+              contentHash: mr.phase2_score_content_hash,
+              snapshot: mr.phase2_score_snapshot,
+              persistedTotal: mr.phase2_score,
+            })
+            const phase3Provenance = getValidatedScoreProvenance({
+              modelVersion: mr.phase3_score_model_version,
+              contentHash: mr.phase3_score_content_hash,
+              snapshot: mr.phase3_score_snapshot,
+              persistedTotal: mr.phase3_score,
+            })
+            allMatchRows.push({
+              ...mr,
+              event_id: eid,
+              phase2_score_model_version: phase2Provenance.score_model_version,
+              phase2_score_snapshot: phase2Provenance.score_snapshot,
+              phase2_score_content_hash: phase2Provenance.score_content_hash,
+              phase2_score_provenance_status: phase2Provenance.score_provenance_status,
+              phase3_score_model_version: phase3Provenance.score_model_version,
+              phase3_score_snapshot: phase3Provenance.score_snapshot,
+              phase3_score_content_hash: phase3Provenance.score_content_hash,
+              phase3_score_provenance_status: phase3Provenance.score_provenance_status,
+            })
           }
 
           // 5. Build unique established pairs for this event
@@ -4480,11 +4657,18 @@ export default async function handler(req, res) {
                 pairSet.add(key)
                 const partnerRow = matchMap.get(row.phase2_partner)
                 const rowIsA = row.participant_number === a
+                const provenance = getValidatedScoreProvenance({
+                  modelVersion: row.phase2_score_model_version,
+                  contentHash: row.phase2_score_content_hash,
+                  snapshot: row.phase2_score_snapshot,
+                  persistedTotal: row.phase2_score,
+                })
                 allPairs.push({
                   a_number: a,
                   b_number: b,
                   phase: 'phase2',
                   phase2_score: row.phase2_score,
+                  ...provenance,
                   a_feedback: rowIsA ? row.phase2_feedback : (partnerRow?.phase2_feedback || null),
                   b_feedback: rowIsA ? (partnerRow?.phase2_feedback || null) : row.phase2_feedback,
                   a_word: rowIsA ? row.phase2_word : (partnerRow?.phase2_word || null),
@@ -4502,11 +4686,18 @@ export default async function handler(req, res) {
                 pairSet.add(key)
                 const partnerRow = matchMap.get(row.phase3_partner)
                 const rowIsA = row.participant_number === a
+                const provenance = getValidatedScoreProvenance({
+                  modelVersion: row.phase3_score_model_version,
+                  contentHash: row.phase3_score_content_hash,
+                  snapshot: row.phase3_score_snapshot,
+                  persistedTotal: row.phase3_score,
+                })
                 allPairs.push({
                   a_number: a,
                   b_number: b,
                   phase: 'phase3',
                   phase3_score: row.phase3_score,
+                  ...provenance,
                   a_feedback: rowIsA ? row.phase3_feedback : (partnerRow?.phase3_feedback || null),
                   b_feedback: rowIsA ? (partnerRow?.phase3_feedback || null) : row.phase3_feedback,
                   a_word: rowIsA ? row.phase3_word : (partnerRow?.phase3_word || null),
@@ -5118,35 +5309,25 @@ export default async function handler(req, res) {
             participantMap.get(pair.a), participantMap.get(pair.b), false, false,
           )
           const humorMultiplier = Number(compatibility.humorMultiplier || 1)
+          const persistedPayload = compatibilityResultPayload(compatibility)
+          if (!isStoredBalancedScoreSnapshot({
+            modelVersion: persistedPayload.score_model_version,
+            contentHash: persistedPayload.score_content_hash,
+            snapshot: persistedPayload.score_snapshot,
+            persistedTotal: persistedPayload.compatibility_score,
+          })) {
+            return res.status(502).json({ error: `No complete current-model score was produced for #${pair.a} × #${pair.b}; the swap plan was not applied. Retry safely.` })
+          }
           matchRows.push({
             a: pair.a,
             b: pair.b,
-            compatibility_score: Math.round(Number(compatibility.totalScore || 0)),
-            reason: swapReason(compatibility),
-            mbti_compatibility_score: Number(compatibility.mbtiScore || 0),
-            attachment_compatibility_score: Number(compatibility.attachmentScore || 0),
-            communication_compatibility_score: Number(compatibility.communicationScore || 0),
-            lifestyle_compatibility_score: Number(compatibility.lifestyleScore || 0),
-            core_values_compatibility_score: Number(compatibility.coreValuesScore || 0),
-            vibe_compatibility_score: Number(compatibility.vibeScore || 0),
-            synergy_score: Number(compatibility.synergyScore || 0),
-            humor_open_score: Number(compatibility.humorOpenScore || 0),
-            intent_score: Number(compatibility.intentScore || 0),
-            disagreement_style_score: Number(compatibility.disagreementScore || 0),
-            current_life_overlap_score: Number(compatibility.currentFocusScore || 0),
-            similarity_preference_score: Number(compatibility.similarityPreferenceScore || 0),
-            attachment_pace_score: Number(compatibility.attachmentPaceScore || 0),
+            ...persistedPayload,
             humor_multiplier: humorMultiplier,
-            attachment_penalty_applied: !!compatibility.attachmentPenaltyApplied,
-            intent_boost_applied: !!compatibility.intentBoostApplied,
-            dead_air_veto_applied: !!compatibility.deadAirVetoApplied,
-            humor_clash_veto_applied: !!compatibility.humorClashVetoApplied,
-            cap_applied: compatibility.capApplied ?? null,
             humor_early_openness_bonus: humorMultiplier === 1.15 ? "full" : humorMultiplier === 1.05 ? "partial" : "none",
           })
         }
 
-        const { data, error } = await supabase.rpc("apply_match_swap_plan", {
+        const { data, error } = await supabase.rpc("apply_match_swap_plan_with_score_provenance", {
           p_match_id: STATIC_MATCH_ID,
           p_event_id: eventId,
           p_round: round,
@@ -5874,13 +6055,14 @@ export default async function handler(req, res) {
         // Get last cache timestamp
         const { data: metaData } = await supabase
           .from('cache_metadata')
-          .select('last_precache_timestamp')
+          .select('last_precache_timestamp,score_model_version')
           .eq('event_id', event_id)
           .order('last_precache_timestamp', { ascending: false })
           .limit(1)
           .single()
         
         const lastCacheTimestamp = metaData?.last_precache_timestamp || '1970-01-01T00:00:00Z'
+        const cachedScoreModelVersion = metaData?.score_model_version
         const noCacheMetadata = !metaData?.last_precache_timestamp
         
         // If no cache metadata exists, delta cache count should be 0
@@ -5912,15 +6094,17 @@ export default async function handler(req, res) {
         })
         
         const needsCacheCount = eligibleParticipants.filter(p =>
-          !!getParticipantDeltaCacheReason(p, lastCacheTimestamp, event_id)
+          !!getParticipantDeltaCacheReason(p, lastCacheTimestamp, event_id, cachedScoreModelVersion)
         ).length
-        const reasonCounts = getDeltaCacheReasonCounts(eligibleParticipants, lastCacheTimestamp, event_id)
+        const reasonCounts = getDeltaCacheReasonCounts(eligibleParticipants, lastCacheTimestamp, event_id, cachedScoreModelVersion)
         
         return res.status(200).json({ 
           count: needsCacheCount,
           reasonCounts,
           totalEligible: eligibleParticipants.length,
-          lastCacheTimestamp
+          lastCacheTimestamp,
+          scoreModelVersion: cachedScoreModelVersion || null,
+          currentScoreModelVersion: BALANCED_COMPATIBILITY_VERSION,
         })
         
       } catch (error) {
@@ -5937,13 +6121,14 @@ export default async function handler(req, res) {
 
         const { data: rawParticipants } = await supabase
           .from("participants")
-          .select("assigned_number, name, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id")
+          .select("*")
           .eq("match_id", STATIC_MATCH_ID)
           .or(`signup_for_next_event.eq.true,event_id.eq.${event_id},auto_signup_next_event.eq.true`)
           .neq("assigned_number", 9999)
 
         const eligible = (rawParticipants || []).filter(p => isParticipantComplete(p))
         const allNums = eligible.map(p => p.assigned_number)
+        const eligibleProfileMap = new Map(eligible.map(p => [Number(p.assigned_number), p]))
 
         if (allNums.length === 0) return res.status(200).json({ participants: [] })
 
@@ -5965,22 +6150,13 @@ export default async function handler(req, res) {
         }
 
         const pairMap = new Map()
+        const oldModelPairKeys = new Set()
         for (const c of (cacheRows || [])) {
           const [a, b] = [c.participant_a_number, c.participant_b_number].sort((x, y) => x - y)
           const key = `${a}-${b}`
           if (!eligiblePairKeys.has(key)) continue
-          const previous = pairMap.get(key)
-          const rowTime = new Date(c.last_used || c.created_at || 0).getTime()
-          const previousTime = new Date(previous?.last_used || previous?.created_at || 0).getTime()
-          const rowIsNewer = rowTime > previousTime || (rowTime === previousTime && String(c.id || '') > String(previous?.id || ''))
-          if (!previous || rowIsNewer) {
-            pairMap.set(key, {
-              id: c.id,
-              vibe: parseFloat(c.ai_vibe_score),
-              model: c.model_used || null,
-              last_used: c.last_used,
-              created_at: c.created_at,
-            })
+          if (!setPreferredCurrentVibeCacheRow(pairMap, c, eligibleProfileMap)) {
+            oldModelPairKeys.add(key)
           }
         }
 
@@ -5990,10 +6166,14 @@ export default async function handler(req, res) {
             const [a, b] = k.split('-').map(Number)
             return a === n || b === n
           })
-          const vibes = myPairs.map(([, v]) => v.vibe)
-          const models = [...new Set(myPairs.map(([, v]) => v.model).filter(Boolean))]
-          const hasOldModel = myPairs.some(([, v]) => !isCurrentVibeModel(v.model))
-          const badVibes = vibes.filter(v => Math.abs(v - 10) <= 0.5).length
+          const vibes = myPairs.map(([, v]) => parseFloat(v.ai_vibe_score))
+          const models = [...new Set(myPairs.map(([, v]) => v.model_used).filter(Boolean))]
+          const hasOldModel = [...oldModelPairKeys].some(k => {
+            if (pairMap.has(k)) return false
+            const [a, b] = k.split('-').map(Number)
+            return a === n || b === n
+          })
+          const badVibes = myPairs.filter(([, row]) => String(row.model_used || '').includes('|fallback=')).length
           const avgVibe = vibes.length > 0
             ? Math.round((vibes.reduce((s, v) => s + v, 0) / vibes.length) * 10) / 10
             : null
@@ -6017,13 +6197,14 @@ export default async function handler(req, res) {
         // Get last cache timestamp
         const { data: metaData } = await supabase
           .from('cache_metadata')
-          .select('last_precache_timestamp')
+          .select('last_precache_timestamp,score_model_version')
           .eq('event_id', event_id)
           .order('last_precache_timestamp', { ascending: false })
           .limit(1)
           .single()
         
         const lastCacheTimestamp = metaData?.last_precache_timestamp || '1970-01-01T00:00:00Z'
+        const cachedScoreModelVersion = metaData?.score_model_version
         const noCacheMetadata = !metaData?.last_precache_timestamp
         
         // If no cache metadata exists, return empty list
@@ -6055,7 +6236,7 @@ export default async function handler(req, res) {
         
         const needsCacheParticipants = eligibleParticipants.map(p => ({
           participant: p,
-          delta_reason: getParticipantDeltaCacheReason(p, lastCacheTimestamp, event_id),
+          delta_reason: getParticipantDeltaCacheReason(p, lastCacheTimestamp, event_id, cachedScoreModelVersion),
         })).filter(item => !!item.delta_reason).map(({ participant: p, delta_reason }) => ({
           assigned_number: p.assigned_number,
           name: p.name || p.survey_data?.name || `#${p.assigned_number}`,
@@ -6074,9 +6255,11 @@ export default async function handler(req, res) {
         return res.status(200).json({ 
           participants: needsCacheParticipants,
           count: needsCacheParticipants.length,
-          reasonCounts: getDeltaCacheReasonCounts(eligibleParticipants, lastCacheTimestamp, event_id),
+          reasonCounts: getDeltaCacheReasonCounts(eligibleParticipants, lastCacheTimestamp, event_id, cachedScoreModelVersion),
           lastCacheTimestamp,
-          totalEligible: eligibleParticipants.length
+          totalEligible: eligibleParticipants.length,
+          scoreModelVersion: cachedScoreModelVersion || null,
+          currentScoreModelVersion: BALANCED_COMPATIBILITY_VERSION,
         })
         
       } catch (error) {
@@ -6292,6 +6475,10 @@ export default async function handler(req, res) {
             participant_e_number,
             participant_f_number,
             compatibility_score,
+            reason,
+            score_model_version,
+            score_snapshot,
+            score_content_hash,
             synergy_score,
             humor_open_score,
             intent_score,
@@ -6345,83 +6532,6 @@ export default async function handler(req, res) {
           })
         })
 
-        // Helpers to derive scores if missing/zero in DB
-        const getAnswer = (participant, key) => {
-          try {
-            let sd = participant?.survey_data
-            if (typeof sd === 'string') { try { sd = JSON.parse(sd) } catch { sd = {} } }
-            const ans = sd?.answers || {}
-            return ans[key] ?? sd?.[key] ?? participant?.[key] ?? ''
-          } catch {
-            return ''
-          }
-        }
-        const computeSynergyScore = (pa, pb) => {
-          const toU = (v) => String(v || '').toUpperCase()
-          const a35 = toU(getAnswer(pa, 'conversational_role'))
-          const b35 = toU(getAnswer(pb, 'conversational_role'))
-          const a36 = toU(getAnswer(pa, 'conversation_depth_pref'))
-          const b36 = toU(getAnswer(pb, 'conversation_depth_pref'))
-          const a37 = toU(getAnswer(pa, 'social_battery'))
-          const b37 = toU(getAnswer(pb, 'social_battery'))
-          const a38 = toU(getAnswer(pa, 'humor_subtype'))
-          const b38 = toU(getAnswer(pb, 'humor_subtype'))
-          const a39 = toU(getAnswer(pa, 'curiosity_style'))
-          const b39 = toU(getAnswer(pb, 'curiosity_style'))
-          const a41 = toU(getAnswer(pa, 'silence_comfort'))
-          const b41 = toU(getAnswer(pb, 'silence_comfort'))
-          let total = 0
-          if ((a35 === 'A' && (b35 === 'B' || b35 === 'C')) || (b35 === 'A' && (a35 === 'B' || a35 === 'C'))) total += 7
-          else if (a35 === 'B' && b35 === 'B') total += 4
-          else if (a35 === 'A' && b35 === 'A') total += 2
-          else if (a35 === 'C' && b35 === 'C') total += 0
-          else if (a35 && b35) total += 3
-          if (a36 && b36) total += (a36 === b36 ? 5 : 1)
-          if (a37 && b37) { if (a37 === 'A' && b37 === 'A') total += 4; else if (a37 === 'B' && b37 === 'B') total += 3; else total += 1 }
-          if (a38 && b38) total += (a38 === b38 ? 4 : 1)
-          if (a39 && b39) { if ((a39 === 'A' && b39 === 'B') || (a39 === 'B' && b39 === 'A')) total += 5; else if (a39 === 'C' && b39 === 'C') total += 5; else if ((a39 === 'A' && b39 === 'A') || (a39 === 'B' && b39 === 'B')) total += 0; else total += 3 }
-          if (a41 && b41) { if ((a41 === 'A' && b41 === 'B') || (a41 === 'B' && b41 === 'A')) total += 5; else if (a41 === 'A' && b41 === 'A') total += 3; else if (a41 === 'B' && b41 === 'B') total += 0 }
-          return Math.min(35, (total * (35 / 30)))
-        }
-        const computeHumorOpenScore = (pa, pb) => {
-          const toU = (v) => String(v || '').toUpperCase()
-          const hA = toU(getAnswer(pa, 'humor_banter_style'))
-          const hB = toU(getAnswer(pb, 'humor_banter_style'))
-          const oAraw = getAnswer(pa, 'early_openness_comfort')
-          const oBraw = getAnswer(pb, 'early_openness_comfort')
-          const oA = oAraw !== '' && oAraw !== undefined && oAraw !== null ? parseInt(oAraw) : undefined
-          const oB = oBraw !== '' && oBraw !== undefined && oBraw !== null ? parseInt(oBraw) : undefined
-          let humor = 0
-          if (hA && hB) {
-            if (hA === hB) humor = 10
-            else if ((hA === 'A' && hB === 'B') || (hA === 'B' && hB === 'A')) humor = 8
-            else if ((hA === 'B' && hB === 'C') || (hA === 'C' && hB === 'B') || (hA === 'C' && hB === 'D') || (hA === 'D' && hB === 'C')) humor = 5
-            else if ((hA === 'A' && hB === 'D') || (hA === 'D' && hB === 'A')) humor = 0
-            else humor = 5
-          }
-          let open = 0
-          if (oA !== undefined && oB !== undefined) {
-            const dist = Math.abs(oA - oB)
-            if (dist === 0) open = 5
-            else if (dist === 1) open = 3
-            else if (dist === 2) open = 1
-            else open = 0
-          }
-          return humor + open // 0..15
-        }
-        const computeIntentScore = (pa, pb) => {
-          const toU = (v) => String(v || '').toUpperCase()
-          const a40 = toU(getAnswer(pa, 'intent_goal'))
-          const b40 = toU(getAnswer(pb, 'intent_goal'))
-          if (!a40 || !b40) return 0
-          if ((a40 === 'A' && b40 === 'A') || (a40 === 'B' && b40 === 'B')) return 5
-          if (a40 === 'C' && b40 === 'C') return 3
-          if ((a40 === 'A' && b40 === 'B') || (a40 === 'B' && b40 === 'A')) return 1
-          if ((a40 === 'A' && b40 === 'C') || (a40 === 'C' && b40 === 'A')) return 3
-          if ((a40 === 'B' && b40 === 'C') || (a40 === 'C' && b40 === 'B')) return 1
-          return 0
-        }
-
         // Process match results into structured format - NO DUPLICATES
         const processedMatches = []
         const seenPairs = new Set() // Track processed pairs to avoid duplicates
@@ -6458,29 +6568,42 @@ export default async function handler(req, res) {
             if (participantA && participantB) {
               // Always put smaller number as participant_a for consistency
               const [firstParticipant, secondParticipant] = pA < pB ? [participantA, participantB] : [participantB, participantA]
-              const syn = Number(match.synergy_score ?? 0)
-              const hum = Number(match.humor_open_score ?? 0)
-              const inten = Number(match.intent_score ?? 0)
-              const synergyVal = syn > 0 ? syn : computeSynergyScore(firstParticipant, secondParticipant)
-              const humorOpenVal = hum > 0 ? hum : computeHumorOpenScore(firstParticipant, secondParticipant)
-              const intentVal = inten > 0 ? inten : computeIntentScore(firstParticipant, secondParticipant)
+              const snapshot = match.score_snapshot
+              const isBalancedStoredMatch = isStoredBalancedScoreSnapshot({
+                modelVersion: match.score_model_version,
+                contentHash: match.score_content_hash,
+                snapshot,
+                persistedTotal: match.compatibility_score,
+              })
+              const validatedProvenance = getValidatedScoreProvenance({
+                modelVersion: match.score_model_version,
+                contentHash: match.score_content_hash,
+                snapshot,
+                persistedTotal: match.compatibility_score,
+              })
+              const breakdown = isBalancedStoredMatch ? (snapshot.scoreBreakdown || {}) : null
+              const synergyVal = Number(breakdown?.interactionRhythm ?? match.synergy_score ?? 0)
+              const humorOpenVal = Number(breakdown?.humorOpenness ?? match.humor_open_score ?? 0)
+              const intentVal = Number(breakdown?.intent ?? match.intent_score ?? 0)
               
               processedMatches.push({
                 id: `${match.id}-individual`,
                 participant_a: firstParticipant,
                 participant_b: secondParticipant,
-                compatibility_score: match.compatibility_score || 0,
+                compatibility_score: isBalancedStoredMatch ? snapshot.totalScore : (match.compatibility_score ?? 0),
+                reason: match.reason || null,
+                ...validatedProvenance,
                 // Top-level access for UI
                 synergy_score: synergyVal,
                 humor_open_score: humorOpenVal,
                 intent_score: intentVal,
                 detailed_scores: {
-                  mbti: match.mbti_compatibility_score || 0,
-                  attachment: match.attachment_compatibility_score || 0,
-                  communication: match.communication_compatibility_score || 0,
-                  lifestyle: match.lifestyle_compatibility_score || 0,
-                  core_values: match.core_values_compatibility_score || 0,
-                  vibe: match.vibe_compatibility_score || 0,
+                  mbti: Number(breakdown?.sharedContext ?? match.mbti_compatibility_score ?? 0),
+                  attachment: Number(breakdown?.attachmentComfort ?? match.attachment_compatibility_score ?? 0),
+                  communication: Number(breakdown?.communicationDisagreement ?? match.communication_compatibility_score ?? 0),
+                  lifestyle: Number(breakdown?.lifestyleSustainability ?? match.lifestyle_compatibility_score ?? 0),
+                  core_values: Number(breakdown ? Number(breakdown.valuesBoundaries || 0) + Number(breakdown.language || 0) : (match.core_values_compatibility_score ?? 0)),
+                  vibe: Number(breakdown?.aiSemantic ?? match.vibe_compatibility_score ?? 0),
                   synergy: synergyVal,
                   humor_open: humorOpenVal,
                   intent: intentVal
@@ -6524,18 +6647,19 @@ export default async function handler(req, res) {
                 if (participantA && participantB) {
                   // Always put smaller number as participant_a for consistency
                   const [firstParticipant, secondParticipant] = pA < pB ? [participantA, participantB] : [participantB, participantA]
-                  const syn = Number(match.synergy_score ?? 0)
-                  const hum = Number(match.humor_open_score ?? 0)
-                  const inten = Number(match.intent_score ?? 0)
-                  const synergyVal = syn > 0 ? syn : computeSynergyScore(firstParticipant, secondParticipant)
-                  const humorOpenVal = hum > 0 ? hum : computeHumorOpenScore(firstParticipant, secondParticipant)
-                  const intentVal = inten > 0 ? inten : computeIntentScore(firstParticipant, secondParticipant)
+                  const synergyVal = Number(match.synergy_score ?? 0)
+                  const humorOpenVal = Number(match.humor_open_score ?? 0)
+                  const intentVal = Number(match.intent_score ?? 0)
                   
                   processedMatches.push({
                     id: `${match.id}-group-${pA}-${pB}`,
                     participant_a: firstParticipant,
                     participant_b: secondParticipant,
-                    compatibility_score: match.compatibility_score || 0,
+                    compatibility_score: match.compatibility_score ?? 0,
+                    reason: match.reason || null,
+                    score_model_version: null,
+                    score_snapshot: null,
+                    score_content_hash: null,
                     // Top-level access for UI
                     synergy_score: synergyVal,
                     humor_open_score: humorOpenVal,
@@ -7078,7 +7202,7 @@ export default async function handler(req, res) {
         // Get all participants to have their names and info
         const { data: participants, error: participantsError } = await supabase
           .from("participants")
-          .select("id, assigned_number, name, survey_data, PAID_DONE, payment_completed_event_id")
+          .select("*")
           .eq("match_id", STATIC_MATCH_ID)
         
         if (participantsError) {
@@ -7088,7 +7212,9 @@ export default async function handler(req, res) {
         
         // Create participant info map
         const participantInfoMap = new Map()
+        const participantProfileMap = new Map()
         participants.forEach(p => {
+          participantProfileMap.set(Number(p.assigned_number), p)
           participantInfoMap.set(p.assigned_number, {
             id: p.id,
             name: p.name || p.survey_data?.name || `المشارك #${p.assigned_number}`,
@@ -7106,42 +7232,44 @@ export default async function handler(req, res) {
         })
         
         // Questionnaire/model changes intentionally create multiple cache hashes
-        // for the same pair. Expose only the most recently used calculation so
-        // every admin view resolves the same score deterministically.
+        // for the same pair. Expose only the newest current-vibe calculation so
+        // legacy vibe rows cannot replace the balanced scorer in pair-only views.
         const latestCacheByPair = new Map()
         for (const cache of cacheData || []) {
-          const a = Math.min(Number(cache.participant_a_number), Number(cache.participant_b_number))
-          const b = Math.max(Number(cache.participant_a_number), Number(cache.participant_b_number))
-          const key = `${a}-${b}`
-          const existing = latestCacheByPair.get(key)
-          const cacheTime = Date.parse(cache.last_used || cache.created_at || "") || 0
-          const existingTime = Date.parse(existing?.last_used || existing?.created_at || "") || 0
-          if (!existing || cacheTime > existingTime) latestCacheByPair.set(key, cache)
+          setPreferredCurrentVibeCacheRow(latestCacheByPair, cache, participantProfileMap)
         }
 
         // Convert the canonical cache rows to calculated pairs format
         const calculatedPairs = Array.from(latestCacheByPair.values()).map(cache => {
           const key = `${cache.participant_a_number}-${cache.participant_b_number}`
           const matchResult = matchResultsMap.get(key)
-          const isActualMatch = !!matchResult
+          const isActualMatch = isStoredBalancedScoreSnapshot({
+            modelVersion: matchResult?.score_model_version,
+            contentHash: matchResult?.score_content_hash,
+            snapshot: matchResult?.score_snapshot,
+            persistedTotal: matchResult?.compatibility_score,
+          })
+            && matchResult?.score_content_hash === cache.combined_content_hash
+          const breakdown = getBalancedCacheBreakdown(cache)
           
           return {
             id: cache.id,
             participant_a: cache.participant_a_number,
             participant_b: cache.participant_b_number,
-            compatibility_score: Math.round(parseFloat(cache.total_compatibility_score)),
-            mbti_compatibility_score: parseFloat(cache.mbti_score),
-            attachment_compatibility_score: parseFloat(cache.attachment_score),
-            communication_compatibility_score: parseFloat(cache.communication_score),
-            lifestyle_compatibility_score: parseFloat(cache.lifestyle_score),
-            core_values_compatibility_score: parseFloat(cache.core_values_score),
-            vibe_compatibility_score: parseFloat(cache.ai_vibe_score),
-            humor_open_score: Number(cache.humor_open_score || 0),
-            disagreement_style_score: Number(cache.disagreement_style_score || 0),
-            current_life_overlap_score: Number(cache.current_life_overlap_score || 0),
-            similarity_preference_score: Number(cache.similarity_preference_score || 0),
-            attachment_pace_score: Number(cache.attachment_pace_score || 0),
-            reason: `MBTI: ${parseFloat(cache.mbti_score).toFixed(1)}% + Attachment: ${parseFloat(cache.attachment_score).toFixed(1)}% + Communication: ${parseFloat(cache.communication_score).toFixed(1)}% + Lifestyle: ${parseFloat(cache.lifestyle_score).toFixed(1)}% + Values: ${parseFloat(cache.core_values_score).toFixed(1)}% + Vibe: ${parseFloat(cache.ai_vibe_score).toFixed(1)}%`,
+            combined_content_hash: cache.combined_content_hash,
+            score_model_version: BALANCED_COMPATIBILITY_VERSION,
+            compatibility_score: Math.round(breakdown.total),
+            mbti_compatibility_score: breakdown.sharedContext,
+            attachment_compatibility_score: breakdown.attachmentComfort,
+            communication_compatibility_score: breakdown.communicationDisagreement,
+            lifestyle_compatibility_score: breakdown.lifestyleSustainability,
+            core_values_compatibility_score: breakdown.valuesBoundariesLanguage,
+            vibe_compatibility_score: breakdown.aiSemantic,
+            synergy_score: breakdown.interactionRhythm,
+            humor_open_score: breakdown.humorOpenness,
+            intent_score: breakdown.intent,
+            score_breakdown: breakdown,
+            reason: `Common Ground: ${breakdown.semanticCommonGround.toFixed(1)}/18 + Interaction Rhythm: ${breakdown.interactionRhythm.toFixed(1)}/20 + Humor/Openness: ${breakdown.humorOpenness.toFixed(1)}/10 + Attachment Comfort: ${breakdown.attachmentComfort.toFixed(1)}/8 + Lifestyle: ${breakdown.lifestyleSustainability.toFixed(1)}/12 + Values/Language: ${breakdown.valuesBoundariesLanguage.toFixed(1)}/17 + Communication/Disagreement: ${breakdown.communicationDisagreement.toFixed(1)}/10 + Intent: ${breakdown.intent.toFixed(1)}/5`,
             is_actual_match: isActualMatch,
             use_count: cache.use_count,
             last_used: cache.last_used,
@@ -7158,23 +7286,33 @@ export default async function handler(req, res) {
           if (match.participant_a_number && !processedParticipants.has(match.participant_a_number)) {
             const participantInfo = participantInfoMap.get(match.participant_a_number)
             const partnerInfo = participantInfoMap.get(match.participant_b_number)
+            const validatedProvenance = getValidatedScoreProvenance({
+              modelVersion: match.score_model_version,
+              contentHash: match.score_content_hash,
+              snapshot: match.score_snapshot,
+              persistedTotal: match.compatibility_score,
+            })
             
             participantResults.push({
               id: participantInfo?.id || `participant_${match.participant_a_number}`,
               assigned_number: match.participant_a_number,
               name: participantInfo?.name || `المشارك #${match.participant_a_number}`,
-              compatibility_score: match.compatibility_score || 0,
-              mbti_compatibility_score: match.mbti_compatibility_score || 0,
-              attachment_compatibility_score: match.attachment_compatibility_score || 0,
-              communication_compatibility_score: match.communication_compatibility_score || 0,
-              lifestyle_compatibility_score: match.lifestyle_compatibility_score || 0,
-              core_values_compatibility_score: match.core_values_compatibility_score || 0,
-              vibe_compatibility_score: match.vibe_compatibility_score || 0,
-              humor_open_score: match.humor_open_score || 0,
-              disagreement_style_score: match.disagreement_style_score || 0,
-              current_life_overlap_score: match.current_life_overlap_score || 0,
-              similarity_preference_score: match.similarity_preference_score || 0,
-              attachment_pace_score: match.attachment_pace_score || 0,
+              compatibility_score: match.compatibility_score ?? 0,
+              mbti_compatibility_score: match.mbti_compatibility_score ?? 0,
+              attachment_compatibility_score: match.attachment_compatibility_score ?? 0,
+              communication_compatibility_score: match.communication_compatibility_score ?? 0,
+              lifestyle_compatibility_score: match.lifestyle_compatibility_score ?? 0,
+              core_values_compatibility_score: match.core_values_compatibility_score ?? 0,
+              vibe_compatibility_score: match.vibe_compatibility_score ?? 0,
+              humor_open_score: match.humor_open_score ?? 0,
+              disagreement_style_score: match.disagreement_style_score ?? 0,
+              current_life_overlap_score: match.current_life_overlap_score ?? 0,
+              similarity_preference_score: match.similarity_preference_score ?? 0,
+              attachment_pace_score: match.attachment_pace_score ?? 0,
+              synergy_score: match.synergy_score ?? validatedProvenance.score_breakdown?.interactionRhythm ?? 0,
+              intent_score: match.intent_score ?? validatedProvenance.score_breakdown?.intent ?? 0,
+              reason: match.reason ?? null,
+              ...validatedProvenance,
               partner_assigned_number: match.participant_b_number,
               partner_name: partnerInfo?.name || `المشارك #${match.participant_b_number}`,
               is_organizer_match: match.participant_b_number === 9999,
@@ -7188,23 +7326,33 @@ export default async function handler(req, res) {
           if (match.participant_b_number && match.participant_b_number !== 9999 && !processedParticipants.has(match.participant_b_number)) {
             const participantInfo = participantInfoMap.get(match.participant_b_number)
             const partnerInfo = participantInfoMap.get(match.participant_a_number)
+            const validatedProvenance = getValidatedScoreProvenance({
+              modelVersion: match.score_model_version,
+              contentHash: match.score_content_hash,
+              snapshot: match.score_snapshot,
+              persistedTotal: match.compatibility_score,
+            })
             
             participantResults.push({
               id: participantInfo?.id || `participant_${match.participant_b_number}`,
               assigned_number: match.participant_b_number,
               name: participantInfo?.name || `المشارك #${match.participant_b_number}`,
-              compatibility_score: match.compatibility_score || 0,
-              mbti_compatibility_score: match.mbti_compatibility_score || 0,
-              attachment_compatibility_score: match.attachment_compatibility_score || 0,
-              communication_compatibility_score: match.communication_compatibility_score || 0,
-              lifestyle_compatibility_score: match.lifestyle_compatibility_score || 0,
-              core_values_compatibility_score: match.core_values_compatibility_score || 0,
-              vibe_compatibility_score: match.vibe_compatibility_score || 0,
-              humor_open_score: match.humor_open_score || 0,
-              disagreement_style_score: match.disagreement_style_score || 0,
-              current_life_overlap_score: match.current_life_overlap_score || 0,
-              similarity_preference_score: match.similarity_preference_score || 0,
-              attachment_pace_score: match.attachment_pace_score || 0,
+              compatibility_score: match.compatibility_score ?? 0,
+              mbti_compatibility_score: match.mbti_compatibility_score ?? 0,
+              attachment_compatibility_score: match.attachment_compatibility_score ?? 0,
+              communication_compatibility_score: match.communication_compatibility_score ?? 0,
+              lifestyle_compatibility_score: match.lifestyle_compatibility_score ?? 0,
+              core_values_compatibility_score: match.core_values_compatibility_score ?? 0,
+              vibe_compatibility_score: match.vibe_compatibility_score ?? 0,
+              humor_open_score: match.humor_open_score ?? 0,
+              disagreement_style_score: match.disagreement_style_score ?? 0,
+              current_life_overlap_score: match.current_life_overlap_score ?? 0,
+              similarity_preference_score: match.similarity_preference_score ?? 0,
+              attachment_pace_score: match.attachment_pace_score ?? 0,
+              synergy_score: match.synergy_score ?? validatedProvenance.score_breakdown?.interactionRhythm ?? 0,
+              intent_score: match.intent_score ?? validatedProvenance.score_breakdown?.intent ?? 0,
+              reason: match.reason ?? null,
+              ...validatedProvenance,
               partner_assigned_number: match.participant_a_number,
               partner_name: partnerInfo?.name || `المشارك #${match.participant_a_number}`,
               is_organizer_match: match.participant_a_number === 9999,
@@ -7541,6 +7689,14 @@ export default async function handler(req, res) {
             return res.status(500).json({ error: matchError.message })
           }
 
+          const { data: participants, error: participantsError } = await supabase
+            .from("participants")
+            .select("*")
+            .eq("match_id", STATIC_MATCH_ID)
+            .neq("assigned_number", 9999)
+          if (participantsError) console.warn("Could not fetch participant names:", participantsError)
+          const participantProfileMap = new Map((participants || []).map(p => [Number(p.assigned_number), p]))
+
           // Get compatibility cache data for calculated pairs
           const { data: cacheData, error: cacheError } = await supabase
             .from("compatibility_cache")
@@ -7551,39 +7707,41 @@ export default async function handler(req, res) {
             console.warn("Could not fetch cache data:", cacheError)
           }
           
-          // Convert cache data to calculated pairs format
-          const calculatedPairs = (cacheData || []).map(cache => ({
-            participant_a: cache.participant_a_number,
-            participant_b: cache.participant_b_number,
-            compatibility_score: Math.round(parseFloat(cache.total_compatibility_score)),
-            mbti_compatibility_score: parseFloat(cache.mbti_score),
-            attachment_compatibility_score: parseFloat(cache.attachment_score),
-            communication_compatibility_score: parseFloat(cache.communication_score),
-            lifestyle_compatibility_score: parseFloat(cache.lifestyle_score),
-            core_values_compatibility_score: parseFloat(cache.core_values_score),
-            vibe_compatibility_score: parseFloat(cache.ai_vibe_score),
-            humor_open_score: Number(cache.humor_open_score || 0),
-            disagreement_style_score: Number(cache.disagreement_style_score || 0),
-            current_life_overlap_score: Number(cache.current_life_overlap_score || 0),
-            similarity_preference_score: Number(cache.similarity_preference_score || 0),
-            attachment_pace_score: Number(cache.attachment_pace_score || 0),
-            reason: `MBTI: ${parseFloat(cache.mbti_score).toFixed(1)}% + Attachment: ${parseFloat(cache.attachment_score).toFixed(1)}% + Communication: ${parseFloat(cache.communication_score).toFixed(1)}% + Lifestyle: ${parseFloat(cache.lifestyle_score).toFixed(1)}% + Values: ${parseFloat(cache.core_values_score).toFixed(1)}% + Vibe: ${parseFloat(cache.ai_vibe_score).toFixed(1)}%`,
-            is_actual_match: matchResults?.some(match => 
-              (match.participant_a_number === cache.participant_a_number && match.participant_b_number === cache.participant_b_number) ||
-              (match.participant_a_number === cache.participant_b_number && match.participant_b_number === cache.participant_a_number)
-            ) || false
-          }))
-          
-          // Fetch participant names to include with results
-          const { data: participants, error: participantsError } = await supabase
-            .from("participants")
-            .select("assigned_number, name, survey_data")
-            .eq("match_id", STATIC_MATCH_ID)
-            .neq("assigned_number", 9999)
-          
-          if (participantsError) {
-            console.warn("Could not fetch participant names:", participantsError)
-          }
+          // Convert one current-vibe cache row per pair to calculated pairs format.
+          const latestCacheByPair = new Map()
+          for (const cache of cacheData || []) setPreferredCurrentVibeCacheRow(latestCacheByPair, cache, participantProfileMap)
+          const calculatedPairs = Array.from(latestCacheByPair.values()).map(cache => {
+            const breakdown = getBalancedCacheBreakdown(cache)
+            const matchResult = matchResults?.find(match => (
+              (match.participant_a_number === cache.participant_a_number && match.participant_b_number === cache.participant_b_number)
+              || (match.participant_a_number === cache.participant_b_number && match.participant_b_number === cache.participant_a_number)
+            ))
+            return {
+              participant_a: cache.participant_a_number,
+              participant_b: cache.participant_b_number,
+              combined_content_hash: cache.combined_content_hash,
+              score_model_version: BALANCED_COMPATIBILITY_VERSION,
+              compatibility_score: Math.round(breakdown.total),
+              mbti_compatibility_score: breakdown.sharedContext,
+              attachment_compatibility_score: breakdown.attachmentComfort,
+              communication_compatibility_score: breakdown.communicationDisagreement,
+              lifestyle_compatibility_score: breakdown.lifestyleSustainability,
+              core_values_compatibility_score: breakdown.valuesBoundariesLanguage,
+              vibe_compatibility_score: breakdown.aiSemantic,
+              synergy_score: breakdown.interactionRhythm,
+              humor_open_score: breakdown.humorOpenness,
+              intent_score: breakdown.intent,
+              score_breakdown: breakdown,
+              reason: `Common Ground: ${breakdown.semanticCommonGround.toFixed(1)}/18 + Interaction Rhythm: ${breakdown.interactionRhythm.toFixed(1)}/20 + Humor/Openness: ${breakdown.humorOpenness.toFixed(1)}/10 + Attachment Comfort: ${breakdown.attachmentComfort.toFixed(1)}/8 + Lifestyle: ${breakdown.lifestyleSustainability.toFixed(1)}/12 + Values/Language: ${breakdown.valuesBoundariesLanguage.toFixed(1)}/17 + Communication/Disagreement: ${breakdown.communicationDisagreement.toFixed(1)}/10 + Intent: ${breakdown.intent.toFixed(1)}/5`,
+              is_actual_match: isStoredBalancedScoreSnapshot({
+                modelVersion: matchResult?.score_model_version,
+                contentHash: matchResult?.score_content_hash,
+                snapshot: matchResult?.score_snapshot,
+                persistedTotal: matchResult?.compatibility_score,
+              })
+                && matchResult?.score_content_hash === cache.combined_content_hash,
+            }
+          })
           
           // Create participant name map
           const participantNameMap = new Map()
@@ -7595,11 +7753,20 @@ export default async function handler(req, res) {
           }
           
           // Enhance match results with participant names
-          const enhancedResults = (matchResults || []).map(match => ({
-            ...match,
-            participant_a_name: participantNameMap.get(match.participant_a_number) || `المشارك #${match.participant_a_number}`,
-            participant_b_name: participantNameMap.get(match.participant_b_number) || `المشارك #${match.participant_b_number}`
-          }))
+          const enhancedResults = (matchResults || []).map(match => {
+            const validatedProvenance = getValidatedScoreProvenance({
+              modelVersion: match.score_model_version,
+              contentHash: match.score_content_hash,
+              snapshot: match.score_snapshot,
+              persistedTotal: match.compatibility_score,
+            })
+            return {
+              ...match,
+              ...validatedProvenance,
+              participant_a_name: participantNameMap.get(match.participant_a_number) || `المشارك #${match.participant_a_number}`,
+              participant_b_name: participantNameMap.get(match.participant_b_number) || `المشارك #${match.participant_b_number}`,
+            }
+          })
           
           console.log(`✅ Loaded ${enhancedResults.length} fresh individual matches with ${calculatedPairs.length} calculated pairs and participant names`)
           return res.status(200).json({ 
@@ -8204,7 +8371,12 @@ export default async function handler(req, res) {
         console.log(`Getting last cache timestamp for event_id: ${event_id}`)
         
         const { data, error } = await supabase
-          .rpc('get_last_precache_timestamp', { p_event_id: event_id })
+          .from('cache_metadata')
+          .select('last_precache_timestamp,score_model_version')
+          .eq('event_id', event_id)
+          .order('last_precache_timestamp', { ascending: false })
+          .limit(1)
+          .maybeSingle()
         
         if (error) {
           console.error("Error getting last cache timestamp:", error)
@@ -8214,7 +8386,10 @@ export default async function handler(req, res) {
         return res.status(200).json({
           success: true,
           event_id,
-          last_cache_timestamp: data || '1970-01-01T00:00:00Z'
+          last_cache_timestamp: data?.last_precache_timestamp || '1970-01-01T00:00:00Z',
+          score_model_version: data?.score_model_version || null,
+          current_score_model_version: BALANCED_COMPATIBILITY_VERSION,
+          stale_model: !!data && data.score_model_version !== BALANCED_COMPATIBILITY_VERSION,
         })
       } catch (error) {
         console.error("Error in get-last-cache-timestamp:", error)
@@ -8225,11 +8400,19 @@ export default async function handler(req, res) {
     // 🔹 DELTA CACHE: Get participants needing recache
     if (action === "get-participants-needing-cache") {
       try {
-        const { event_id, last_cache_timestamp } = req.body
+        const { event_id } = req.body
         console.log(`Getting participants needing cache for event_id: ${event_id}`)
 
-        const baseline = last_cache_timestamp || (await supabase
-          .rpc('get_last_precache_timestamp', { p_event_id: event_id })).data
+        const { data: cacheMetadata, error: cacheMetadataError } = await supabase
+          .from('cache_metadata')
+          .select('last_precache_timestamp,score_model_version')
+          .eq('event_id', event_id)
+          .order('last_precache_timestamp', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (cacheMetadataError) return res.status(500).json({ error: cacheMetadataError.message })
+        const baseline = cacheMetadata?.last_precache_timestamp
+        const cachedScoreModelVersion = cacheMetadata?.score_model_version
         if (!baseline) {
           return res.status(200).json({
             success: true,
@@ -8237,7 +8420,9 @@ export default async function handler(req, res) {
             last_cache_timestamp: null,
             participants: [],
             count: 0,
-            reasonCounts: { survey_changes: 0, new_enrollments: 0 },
+            reasonCounts: { survey_changes: 0, new_enrollments: 0, score_model_changes: 0 },
+            score_model_version: null,
+            current_score_model_version: BALANCED_COMPATIBILITY_VERSION,
           })
         }
 
@@ -8259,9 +8444,9 @@ export default async function handler(req, res) {
         )
         const participants = eligibleParticipants.map(participant => ({
           ...participant,
-          delta_reason: getParticipantDeltaCacheReason(participant, baseline, event_id),
+          delta_reason: getParticipantDeltaCacheReason(participant, baseline, event_id, cachedScoreModelVersion),
         })).filter(participant => !!participant.delta_reason)
-        const reasonCounts = getDeltaCacheReasonCounts(eligibleParticipants, baseline, event_id)
+        const reasonCounts = getDeltaCacheReasonCounts(eligibleParticipants, baseline, event_id, cachedScoreModelVersion)
 
         console.log(`Found ${participants.length} participants needing cache`)
         
@@ -8272,6 +8457,8 @@ export default async function handler(req, res) {
           participants,
           count: participants.length,
           reasonCounts,
+          score_model_version: cachedScoreModelVersion || null,
+          current_score_model_version: BALANCED_COMPATIBILITY_VERSION,
         })
       } catch (error) {
         console.error("Error in get-participants-needing-cache:", error)
@@ -8281,46 +8468,11 @@ export default async function handler(req, res) {
 
     // 🔹 DELTA CACHE: Record cache session
     if (action === "record-cache-session") {
-      try {
-        const { 
-          event_id, 
-          participants_cached, 
-          pairs_cached, 
-          duration_ms, 
-          ai_calls, 
-          cache_hit_rate, 
-          notes 
-        } = req.body
-        
-        console.log(`Recording cache session for event_id: ${event_id}`)
-        
-        const { data, error } = await supabase
-          .rpc('record_cache_session', {
-            p_event_id: event_id,
-            p_participants_cached: participants_cached || 0,
-            p_pairs_cached: pairs_cached || 0,
-            p_duration_ms: duration_ms,
-            p_ai_calls: ai_calls || 0,
-            p_cache_hit_rate: cache_hit_rate,
-            p_notes: notes
-          })
-        
-        if (error) {
-          console.error("Error recording cache session:", error)
-          return res.status(500).json({ error: error.message })
-        }
-        
-        console.log(`✅ Cache session recorded with ID: ${data}`)
-        
-        return res.status(200).json({
-          success: true,
-          session_id: data,
-          message: `Cache session recorded: ${participants_cached} participants, ${pairs_cached} pairs cached`
-        })
-      } catch (error) {
-        console.error("Error in record-cache-session:", error)
-        return res.status(500).json({ error: "Failed to record cache session" })
-      }
+      return res.status(409).json({
+        error: "Cache freshness is recorded only by a completed server-side pre-cache run with confirmed writes.",
+        deprecated: true,
+        current_score_model_version: BALANCED_COMPATIBILITY_VERSION,
+      })
     }
 
     // 🔹 DELTA CACHE: Get cache freshness status
@@ -8339,6 +8491,15 @@ export default async function handler(req, res) {
           console.error("Error getting cache freshness:", error)
           return res.status(500).json({ error: error.message })
         }
+
+        const { data: latestMetadata, error: metadataError } = await supabase
+          .from('cache_metadata')
+          .select('last_precache_timestamp,score_model_version')
+          .eq('event_id', event_id)
+          .order('last_precache_timestamp', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (metadataError) return res.status(500).json({ error: metadataError.message })
         
         if (!data) {
           // No cache metadata exists yet for this event
@@ -8349,13 +8510,28 @@ export default async function handler(req, res) {
             participants_needing_recache: null,
             total_participants_in_event: null,
             last_cache_time: null,
-            hours_since_cache: null
+            hours_since_cache: null,
+            score_model_version: null,
+            current_score_model_version: BALANCED_COMPATIBILITY_VERSION,
+          })
+        }
+
+        const storedScoreModelVersion = data.score_model_version || latestMetadata?.score_model_version || null
+        if (storedScoreModelVersion !== BALANCED_COMPATIBILITY_VERSION) {
+          return res.status(200).json({
+            success: true,
+            ...data,
+            cache_status: 'STALE_MODEL',
+            score_model_version: storedScoreModelVersion,
+            current_score_model_version: BALANCED_COMPATIBILITY_VERSION,
           })
         }
         
         return res.status(200).json({
           success: true,
-          ...data
+          ...data,
+          score_model_version: storedScoreModelVersion,
+          current_score_model_version: BALANCED_COMPATIBILITY_VERSION,
         })
       } catch (error) {
         console.error("Error in get-cache-freshness:", error)
@@ -8393,11 +8569,11 @@ export default async function handler(req, res) {
       }
     }
 
-    // 🔹 DELTA CACHE: Invalidate stale cache entries
+    // 🔹 DELTA CACHE: Audit stale cache entries
     if (action === "invalidate-stale-cache") {
       try {
         const { participant_number } = req.body
-        console.log(`Invalidating stale cache for participant #${participant_number}`)
+        console.log(`Auditing stale cache for participant #${participant_number}`)
         
         // Get participant's current survey_data_updated_at
         const { data: participant, error: pError } = await supabase
@@ -8416,23 +8592,29 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: "Participant has no survey_data_updated_at timestamp" })
         }
         
-        // Delete cache entries where this participant's cached timestamp is older than current
-        const { error: deleteError, count } = await supabase
+        // Exact content/model hashes already make these rows ineligible for
+        // reuse. Keep them as immutable historical evidence instead of
+        // deleting a previously valid calculation.
+        const { error: staleRowsError, count } = await supabase
           .from("compatibility_cache")
-          .delete()
+          .select("id", { count: "exact", head: true })
           .or(`and(participant_a_number.eq.${participant_number},participant_a_cached_at.lt.${participant.survey_data_updated_at}),and(participant_b_number.eq.${participant_number},participant_b_cached_at.lt.${participant.survey_data_updated_at})`)
+          .like("model_used", `${BALANCED_VIBE_MODEL_TAG}%`)
         
-        if (deleteError) {
-          console.error("Error invalidating cache:", deleteError)
-          return res.status(500).json({ error: deleteError.message })
+        if (staleRowsError) {
+          console.error("Error auditing stale cache:", staleRowsError)
+          return res.status(500).json({ error: staleRowsError.message })
         }
         
-        console.log(`✅ Invalidated ${count || 0} stale cache entries for participant #${participant_number}`)
+        console.log(`✅ Found ${count || 0} historical stale cache entries for participant #${participant_number}; none deleted`)
         
         return res.status(200).json({
           success: true,
           participant_number,
-          invalidated_entries: count || 0
+          invalidated_entries: 0,
+          stale_entries: count || 0,
+          preserved_history: true,
+          message: "Stale rows are already excluded by exact hashes and were preserved for audit history."
         })
       } catch (error) {
         console.error("Error in invalidate-stale-cache:", error)
@@ -8881,7 +9063,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           }
 
           // 3. Required columns in event3_matches
-          const requiredCols = ["participant_number", "phase2_partner", "phase2_score", "phase3_partner", "phase3_score", "phase2_word", "phase3_word", "phase2_feedback", "phase3_feedback", "match_preference"]
+          const requiredCols = ["participant_number", "phase2_partner", "phase2_score", "phase2_score_model_version", "phase2_score_snapshot", "phase2_score_content_hash", "phase3_partner", "phase3_score", "phase3_score_model_version", "phase3_score_snapshot", "phase3_score_content_hash", "phase2_word", "phase3_word", "phase2_feedback", "phase3_feedback", "match_preference"]
           const { data: sampleMatch, error: sampleErr } = await supabase.from("event3_matches").select(requiredCols.join(",")).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).limit(1)
           if (sampleErr) {
             checks.push({ name: "event3_matches_schema", status: "fail", message: sampleErr.message })
@@ -9154,15 +9336,15 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           try {
             console.log(`e3-generate-seating: batch-fetching compat scores from DB for ${participantNumbers.length} participants`)
             const { data: pdata } = await supabase
-              .from("participants").select("assigned_number,name,gender,age,mbti_personality_type,attachment_style,communication_style,humor_banter_style,early_openness_comfort,survey_data")
+              .from("participants").select("*")
               .eq("match_id", STATIC_MATCH_ID).in("assigned_number", participantNumbers)
+            const seatingProfileMap = new Map((pdata || []).map(p => [Number(p.assigned_number), p]))
 
             // Batch-fetch all cached compatibility scores in ONE query
             const { data: allCached } = await fetchAllCachedPairs('compatibility_cache', participantNumbers)
             const dbCacheMap = new Map()
             for (const c of allCached || []) {
-              const key = `${c.participant_a_number}-${c.participant_b_number}`
-              dbCacheMap.set(key, c)
+              setPreferredCurrentVibeCacheRow(dbCacheMap, c, seatingProfileMap)
             }
             console.log(`e3-generate-seating: ${dbCacheMap.size} cached pairs found in DB`)
 
@@ -9442,8 +9624,19 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             if (exclusions.size > 0) console.log(`Phase 2: ${exclusions.size} conflict-of-interest exclusions loaded`)
             matches = e3GreedyMutualMatching(rankings, participantMap, exclusions)
           }
+          const phase2PairNumbers = [...new Set(Array.from(matches.entries()).flatMap(([a, b]) => [Number(a), Number(b)]))]
+          if (phase2PairNumbers.length > 0) {
+            const { data: phase2Profiles, error: phase2ProfileError } = await supabase
+              .from("participants")
+              .select("*")
+              .eq("match_id", STATIC_MATCH_ID)
+              .in("assigned_number", phase2PairNumbers)
+            if (phase2ProfileError) return res.status(500).json({ error: phase2ProfileError.message })
+            participantMap = new Map((phase2Profiles || []).map(profile => [Number(profile.assigned_number), profile]))
+          }
           // Fetch existing data to preserve phase3/words/feedback on re-run
-          const { data: existingRows } = await supabase.from("event3_matches").select("participant_number,phase3_partner,phase3_score,phase3_word,phase2_word,phase2_feedback,phase3_feedback,match_preference").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          const { data: existingRows, error: existingRowsError } = await supabase.from("event3_matches").select("participant_number,phase3_partner,phase3_score,phase3_score_model_version,phase3_score_snapshot,phase3_score_content_hash,phase3_word,phase2_word,phase2_feedback,phase3_feedback,match_preference").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          if (existingRowsError) return res.status(500).json({ error: existingRowsError.message })
           const existingMap = new Map((existingRows || []).map(r => [r.participant_number, r]))
           const rows = []
           const seen = new Set()
@@ -9451,30 +9644,51 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           for (const [p, partner] of matches) {
             if (seen.has(p) || seen.has(partner)) continue
             seen.add(p); seen.add(partner)
-            // Read compatibility score from cache (no recalculation)
             const pA = participantMap.get(p), pB = participantMap.get(partner)
             let score = 50
-            if (pA && pB) {
+            let compatibility = null
+            if (!pA || !pB) {
+              if (!isTestMode2) {
+                return res.status(422).json({ error: `Missing complete matching profile for #${!pA ? p : partner}; Phase 2 was not changed.` })
+              }
+            } else {
               try {
-                const compat = await e3FullCalcCompat(pA, pB)
-                if (compat) score = compat.totalScore
-                else console.warn(`Phase 2: no cached compat for #${p}×#${partner}, using default 50`)
-              } catch (e) { console.error(`Phase 2 compat error for #${p}×#${partner}:`, e.message) }
+                compatibility = await e3FullCalcCompat(pA, pB)
+              } catch (e) {
+                console.error(`Phase 2 compat error for #${p}×#${partner}:`, e.message)
+                if (!isTestMode2) {
+                  return res.status(502).json({ error: `Compatibility scoring failed for #${p} × #${partner}; Phase 2 was not changed. Retry safely.` })
+                }
+              }
             }
-            pairs.push({ a: p, b: partner, score })
+            const provenance = buildEvent3ScoreProvenance(compatibility, pA, pB)
+            if (compatibility && provenance.persistedScore != null) score = provenance.persistedScore
+            if (!isTestMode2 && (!compatibility || provenance.scoreModelVersion !== BALANCED_COMPATIBILITY_VERSION)) {
+              return res.status(502).json({ error: `No complete current-model score was produced for #${p} × #${partner}; Phase 2 was not changed. Retry safely.` })
+            }
+            pairs.push({ a: p, b: partner, score, provenance })
             const exP = existingMap.get(p) || {}
             const exPartner = existingMap.get(partner) || {}
-            rows.push({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, participant_number: p, phase2_partner: partner, phase2_score: score, phase3_partner: exP.phase3_partner || null, phase3_score: exP.phase3_score || null, phase3_word: exP.phase3_word || null, phase2_word: exP.phase2_word || null, phase2_feedback: exP.phase2_feedback || null, phase3_feedback: exP.phase3_feedback || null, match_preference: exP.match_preference || null })
-            rows.push({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, participant_number: partner, phase2_partner: p, phase2_score: score, phase3_partner: exPartner.phase3_partner || null, phase3_score: exPartner.phase3_score || null, phase3_word: exPartner.phase3_word || null, phase2_word: exPartner.phase2_word || null, phase2_feedback: exPartner.phase2_feedback || null, phase3_feedback: exPartner.phase3_feedback || null, match_preference: exPartner.match_preference || null })
+            rows.push({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, participant_number: p, phase2_partner: partner, phase2_score: score, ...event3PhaseScoreFields("phase2", provenance), phase3_partner: exP.phase3_partner || null, phase3_score: exP.phase3_score ?? null, phase3_score_model_version: exP.phase3_score_model_version || null, phase3_score_snapshot: exP.phase3_score_snapshot || null, phase3_score_content_hash: exP.phase3_score_content_hash || null, phase3_word: exP.phase3_word || null, phase2_word: exP.phase2_word || null, phase2_feedback: exP.phase2_feedback || null, phase3_feedback: exP.phase3_feedback || null, match_preference: exP.match_preference || null })
+            rows.push({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, participant_number: partner, phase2_partner: p, phase2_score: score, ...event3PhaseScoreFields("phase2", provenance), phase3_partner: exPartner.phase3_partner || null, phase3_score: exPartner.phase3_score ?? null, phase3_score_model_version: exPartner.phase3_score_model_version || null, phase3_score_snapshot: exPartner.phase3_score_snapshot || null, phase3_score_content_hash: exPartner.phase3_score_content_hash || null, phase3_word: exPartner.phase3_word || null, phase2_word: exPartner.phase2_word || null, phase2_feedback: exPartner.phase2_feedback || null, phase3_feedback: exPartner.phase3_feedback || null, match_preference: exPartner.match_preference || null })
           }
           if (pairs.length === 0) return res.status(400).json({ error: "No valid Phase 2 pairs could be created. Review attendance, rankings, and exclusions." })
+          if (!isTestMode2 && pairs.some(pair => !isStoredBalancedScoreSnapshot({
+            modelVersion: pair.provenance?.scoreModelVersion,
+            contentHash: pair.provenance?.scoreContentHash,
+            snapshot: pair.provenance?.scoreSnapshot,
+            persistedTotal: pair.score,
+          }))) {
+            return res.status(502).json({ error: "At least one Phase 2 pair is missing an internally consistent current-model score snapshot; Phase 2 was not changed. Retry safely." })
+          }
           const { error } = await supabase.from("event3_matches").upsert(rows, { onConflict: "match_id,event_id,participant_number" })
           if (error) return res.status(500).json({ error: error.message })
           // Null out phase2_partner/phase2_score for participants not in the new pairing
           const allNums = (e3p || []).map(r => r.participant_number)
           const unmatchedNums = allNums.filter(n => !seen.has(n))
           if (unmatchedNums.length > 0) {
-            await supabase.from("event3_matches").update({ phase2_partner: null, phase2_score: null }).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_number", unmatchedNums)
+            const { error: clearUnmatchedError } = await supabase.from("event3_matches").update({ phase2_partner: null, phase2_score: null, phase2_score_model_version: null, phase2_score_snapshot: null, phase2_score_content_hash: null }).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_number", unmatchedNums)
+            if (clearUnmatchedError) return res.status(500).json({ error: clearUnmatchedError.message })
           }
           // Assign physical tables with a gentle first-timer/age priority. The
           // requested preferred tables are used first; pairs where both people
@@ -9495,7 +9709,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             table_summary: { preferred_count: preferredCount, frequent_pairs_above_16: veteranOverflowCount },
           })
         }
-        // e3-trigger-phase3-matching (uses locked matches — no recalculation)
+        // e3-trigger-phase3-matching (locked topology with complete event-time scoring)
         if (action === "e3-trigger-phase3-matching") {
           const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           if (!ep || ep.length < 4) return res.status(400).json({ error: "No participants selected" })
@@ -9533,7 +9747,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             // Fetch participant profiles so the temporary result has the same
             // compatibility breakdown as an ordinary algorithm result.
             const { data: pRows3 } = await supabase.from("participants")
-              .select("assigned_number,name,gender,age,survey_data,mbti_personality_type,attachment_style,communication_style,humor_banter_style,early_openness_comfort")
+              .select("*")
               .eq("match_id", STATIC_MATCH_ID)
               .in("assigned_number", nums)
             const genderMap3 = {}
@@ -9563,13 +9777,15 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               } catch (error) {
                 console.error(`Phase 3 test compatibility error for #${a}×#${b}:`, error.message)
               }
-              const score = compatibility?.totalScore ?? 50
+              const provenance = buildEvent3ScoreProvenance(compatibility, pA, pB)
+              const score = provenance.persistedScore ?? 50
               matches.push({
                 a,
                 b,
                 score,
+                provenance,
                 testResult: compatibility
-                  ? compatibilityResultPayload(compatibility)
+                  ? { ...compatibilityResultPayload(compatibility), score_model_version: provenance.scoreModelVersion, score_snapshot: provenance.scoreSnapshot, score_content_hash: provenance.scoreContentHash }
                   : { compatibility_score: score, reason: "Test mode simulated algorithm lock" },
               })
             }
@@ -9578,11 +9794,12 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
 
           // Locked admin results are event-scoped. Historical locks must not
           // leak into this event after an operational participant replacement.
-          const { data: lockedMatches } = await supabase
+          const { data: lockedMatches, error: lockedMatchesError } = await supabase
             .from("locked_matches")
             .select("participant1_number,participant2_number,original_compatibility_score,event_id")
             .eq("match_id", STATIC_MATCH_ID)
             .eq("event_id", currentEventId)
+          if (lockedMatchesError) return res.status(500).json({ error: lockedMatchesError.message })
 
           console.log(`Phase 3 (locked): Found ${lockedMatches?.length || 0} locked matches for event ${currentEventId}`)
 
@@ -9598,30 +9815,38 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
 
           // Fetch participant data for compatibility calculation
           const lockedNums = [...new Set(lockedPairs.flatMap(l => [l.participant1_number, l.participant2_number]))]
-          const { data: lockedPData } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,attachment_style,communication_style,humor_banter_style,early_openness_comfort").eq("match_id", STATIC_MATCH_ID).in("assigned_number", lockedNums)
+          const { data: lockedPData, error: lockedProfilesError } = await supabase.from("participants").select("*").eq("match_id", STATIC_MATCH_ID).in("assigned_number", lockedNums)
+          if (lockedProfilesError) return res.status(500).json({ error: lockedProfilesError.message })
           const lockedPMap = new Map()
           for (const p of lockedPData || []) {
             try { p.survey_data = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}) } catch {}
             lockedPMap.set(p.assigned_number, p)
           }
 
-          // Build phase3 matches from locked pairs — compute score from cache for consistency
+          // Build phase3 matches from locked pairs. The topology stays locked,
+          // while every persisted pair requires a complete current-model score.
           for (const lock of lockedPairs) {
             const a = lock.participant1_number
             const b = lock.participant2_number
             if (used.has(a) || used.has(b)) continue
+            const pA = lockedPMap.get(a), pB = lockedPMap.get(b)
+            if (!pA || !pB) {
+              return res.status(422).json({ error: `Missing complete matching profile for #${!pA ? a : b}; Phase 3 was not changed.` })
+            }
+            let compatibility
+            try {
+              compatibility = await e3FullCalcCompat(pA, pB)
+            } catch (e) {
+              console.error(`Phase 3 compat error for #${a}×#${b}:`, e.message)
+              return res.status(502).json({ error: `Compatibility scoring failed for #${a} × #${b}; Phase 3 was not changed. Retry safely.` })
+            }
+            const provenance = buildEvent3ScoreProvenance(compatibility, pA, pB)
+            if (!compatibility || provenance.scoreModelVersion !== BALANCED_COMPATIBILITY_VERSION) {
+              return res.status(502).json({ error: `No complete current-model score was produced for #${a} × #${b}; Phase 3 was not changed. Retry safely.` })
+            }
             used.add(a)
             used.add(b)
-            // Compute score from compatibility_cache (same as phase2) for consistent breakdown
-            let score = lock.original_compatibility_score || 0
-            const pA = lockedPMap.get(a), pB = lockedPMap.get(b)
-            if (pA && pB) {
-              try {
-                const compat = await e3FullCalcCompat(pA, pB)
-                if (compat) score = compat.totalScore
-              } catch (e) { console.error(`Phase 3 compat error for #${a}×#${b}:`, e.message) }
-            }
-            matches.push({ a, b, score })
+            matches.push({ a, b, score: provenance.persistedScore, provenance })
           }
 
           console.log(`Phase 3 (locked): Created ${matches.length} pairs from locked matches. ${nums.length - used.size} participants unmatched.`)
@@ -9638,7 +9863,8 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               unmatchedRankings.set(row.ranker_number, sorted)
             }
             // Fetch participant data for gender compatibility
-            const { data: unmatchedPData } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,attachment_style,communication_style,humor_banter_style,early_openness_comfort,same_gender_preference,any_gender_preference,nationality,prefer_same_nationality,preferred_age_min,preferred_age_max,open_age_preference").eq("match_id", STATIC_MATCH_ID).in("assigned_number", unmatched)
+            const { data: unmatchedPData, error: unmatchedProfilesError } = await supabase.from("participants").select("*").eq("match_id", STATIC_MATCH_ID).in("assigned_number", unmatched)
+            if (unmatchedProfilesError) return res.status(500).json({ error: unmatchedProfilesError.message })
             const unmatchedPMap = new Map()
             for (const p of (unmatchedPData || [])) {
               try { p.survey_data = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}) } catch {}
@@ -9648,17 +9874,24 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             const fallbackMatches = e3GreedyMutualMatching(unmatchedRankings, unmatchedPMap, exclusions)
             for (const [p, partner] of fallbackMatches) {
               if (used.has(p) || used.has(partner)) continue
+              const pA = unmatchedPMap.get(p), pB = unmatchedPMap.get(partner)
+              if (!pA || !pB) {
+                return res.status(422).json({ error: `Missing complete matching profile for #${!pA ? p : partner}; Phase 3 was not changed.` })
+              }
+              let compatibility
+              try {
+                compatibility = await e3FullCalcCompat(pA, pB)
+              } catch (e) {
+                console.error(`Phase 3 fallback compat error for #${p}×#${partner}:`, e.message)
+                return res.status(502).json({ error: `Compatibility scoring failed for #${p} × #${partner}; Phase 3 was not changed. Retry safely.` })
+              }
+              const provenance = buildEvent3ScoreProvenance(compatibility, pA, pB)
+              if (!compatibility || provenance.scoreModelVersion !== BALANCED_COMPATIBILITY_VERSION) {
+                return res.status(502).json({ error: `No complete current-model score was produced for #${p} × #${partner}; Phase 3 was not changed. Retry safely.` })
+              }
               used.add(p)
               used.add(partner)
-              const pA = unmatchedPMap.get(p), pB = unmatchedPMap.get(partner)
-              let score = 50
-              if (pA && pB) {
-                try {
-                  const compat = await e3FullCalcCompat(pA, pB)
-                  if (compat) score = compat.totalScore
-                } catch (e) { console.error(`Phase 3 fallback compat error for #${p}×#${partner}:`, e.message) }
-              }
-              matches.push({ a: p, b: partner, score })
+              matches.push({ a: p, b: partner, score: provenance.persistedScore, provenance })
             }
             const stillUnmatched = nums.filter(n => !used.has(n))
             if (stillUnmatched.length === 1) {
@@ -9670,9 +9903,17 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           } // end normal mode
 
           if (matches.length === 0) return res.status(400).json({ error: "No valid Phase 3 pairs could be created. Review locked matches, rankings, and exclusions." })
+          if (!isTestMode3 && matches.some(pair => !isStoredBalancedScoreSnapshot({
+            modelVersion: pair.provenance?.scoreModelVersion,
+            contentHash: pair.provenance?.scoreContentHash,
+            snapshot: pair.provenance?.scoreSnapshot,
+            persistedTotal: pair.score,
+          }))) {
+            return res.status(502).json({ error: "At least one Phase 3 pair is missing an internally consistent current-model score snapshot; Phase 3 was not changed. Retry safely." })
+          }
 
           // Clear old phase3 data for all event3 participants
-          const { error: clearPhase3Error } = await supabase.from("event3_matches").update({ phase3_partner: null, phase3_score: null }).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_number", nums)
+          const { error: clearPhase3Error } = await supabase.from("event3_matches").update({ phase3_partner: null, phase3_score: null, phase3_score_model_version: null, phase3_score_snapshot: null, phase3_score_content_hash: null }).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_number", nums)
           if (clearPhase3Error) return res.status(500).json({ error: clearPhase3Error.message })
 
           // Store results — upsert phase3 partner for each matched pair
@@ -9683,6 +9924,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               participant_number: pair.a,
               phase3_partner: pair.b,
               phase3_score: pair.score,
+              ...event3PhaseScoreFields("phase3", pair.provenance),
             },
             {
               match_id: EVENT3_MATCH_ID,
@@ -9690,6 +9932,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               participant_number: pair.b,
               phase3_partner: pair.a,
               phase3_score: pair.score,
+              ...event3PhaseScoreFields("phase3", pair.provenance),
             },
           ])
           const { error: storePhase3Error } = await supabase.from("event3_matches").upsert(phase3Rows, { onConflict: "match_id,event_id,participant_number" })
@@ -9717,6 +9960,9 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               participant_a_number: Math.min(pair.a, pair.b),
               participant_b_number: Math.max(pair.a, pair.b),
               compatibility_score: pair.score,
+              score_model_version: pair.provenance?.scoreModelVersion || null,
+              score_snapshot: pair.provenance?.scoreSnapshot || null,
+              score_content_hash: pair.provenance?.scoreContentHash || null,
               table_number: tableByPair.get(swapPairKey(pair.a, pair.b)) || null,
               reason: pair.testResult?.reason || "Test mode simulated algorithm lock",
             }))
@@ -9989,7 +10235,8 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           const selected = (ep || []).map(r => r.participant_number)
           if (selected.length === 0) return res.status(200).json({ participants: [], matrix: {} })
-          const { data: pdata } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,attachment_style,communication_style,humor_banter_style,early_openness_comfort").eq("match_id", STATIC_MATCH_ID).in("assigned_number", selected)
+          const { data: pdata } = await supabase.from("participants").select("*").eq("match_id", STATIC_MATCH_ID).in("assigned_number", selected)
+          const overviewProfileMap = new Map((pdata || []).map(p => [Number(p.assigned_number), p]))
           const { data: assignments } = await supabase.from("session_assignments").select("participant_id,round,table_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           const { data: rankRows } = await supabase.from("participant_rankings").select("ranker_number,ranked_number,rank").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           const { data: matchRows } = await supabase.from("event3_matches").select("participant_number,phase2_partner").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
@@ -10030,6 +10277,16 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
                 mbti: p.mbti_personality_type || sd.mbtiType || ans.mbti || null,
                 attachment: p.attachment_style || sd.attachmentStyle || ans.attachment_style || null,
                 communication: p.communication_style || sd.communicationStyle || ans.communication_style || null,
+                attachment_answers: [ans.attachment_1, ans.attachment_3, ans.attachment_4].filter(value => value !== undefined && value !== null && value !== ""),
+                communication_answers: [ans.communication_1, ans.communication_2, ans.communication_3, ans.communication_4, ans.communication_5].filter(value => value !== undefined && value !== null && value !== ""),
+                disagreement_style: ans.match_disagreement_style || null,
+                similarity_preference: ans.match_similarity_preference || null,
+                current_curiosity: ans.match_current_curiosity || null,
+                current_focus: ans.match_current_focus || null,
+                initiative_preference: ans.conversation_initiative_preference || null,
+                expression_language: p.expression_language ?? ans.expression_language ?? null,
+                religious_commitment: p.minimum_partner_religious_commitment ?? ans.minimum_partner_religious_commitment ?? null,
+                social_relationship_style: p.social_relationship_style ?? ans.social_relationship_style ?? null,
                 humor_banter: p.humor_banter_style || sd.humor_banter_style || ans.humor_banter_style || null,
                 early_openness: p.early_openness_comfort !== undefined && p.early_openness_comfort !== null ? p.early_openness_comfort : (ans.early_openness_comfort !== undefined ? ans.early_openness_comfort : null),
                 lifestyle: sd.lifestylePreferences || null,
@@ -10050,8 +10307,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const { data: allCachedOverview } = await fetchAllCachedPairs('compatibility_cache', selected)
           const dbCacheOverviewMap = new Map()
           for (const c of allCachedOverview || []) {
-            const key = `${c.participant_a_number}-${c.participant_b_number}`
-            dbCacheOverviewMap.set(key, c)
+            setPreferredCurrentVibeCacheRow(dbCacheOverviewMap, c, overviewProfileMap)
           }
           console.log(`e3-get-overview: ${dbCacheOverviewMap.size} cached pairs found in DB`)
           const matrix = {}
@@ -10094,7 +10350,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           const selected = (ep || []).map(r => r.participant_number)
           if (selected.length === 0) return res.status(200).json({ pairs: [] })
-          const { data: matchRows } = await supabase.from("event3_matches").select("participant_number,phase2_partner,phase2_score,phase3_partner,phase3_score").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          const { data: matchRows } = await supabase.from("event3_matches").select("participant_number,phase2_partner,phase2_score,phase2_score_model_version,phase2_score_snapshot,phase2_score_content_hash,phase3_partner,phase3_score,phase3_score_model_version,phase3_score_snapshot,phase3_score_content_hash").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           if (!matchRows || matchRows.length === 0) return res.status(200).json({ pairs: [], phase3Pairs: [] })
           const nums = [...new Set([...matchRows.map(r => r.participant_number), ...matchRows.map(r => r.phase2_partner).filter(Boolean), ...matchRows.map(r => r.phase3_partner).filter(Boolean)])]
           const { data: pdata } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,attachment_style,communication_style,humor_banter_style,early_openness_comfort").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
@@ -10165,8 +10421,8 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               }
             }
             const bothComplete = !!(infoMap[a] && infoMap[b] && e3IsComplete(infoMap[a]) && e3IsComplete(infoMap[b]))
-            const compat = (infoMap[a] && infoMap[b]) ? await e3FullCalcCompat(infoMap[a], infoMap[b]) : null
-            const compatScore = compat ? compat.totalScore : null
+            const compat = getStoredEvent3Compatibility(row, "phase2")
+            const compatScore = compat?.totalScore ?? row.phase2_score ?? null
             const pairTable = pairTableMap[a] || pairTableMap[b] || null
             pairs.push({ a, aName: ai.name || `#${a}`, aGender: ai.gender, aSurvey: ai.survey_data, b, bName: bi.name || `#${b}`, bGender: bi.gender, bSurvey: bi.survey_data, rankBInA, rankAInB, matchType, skippedByA, skippedByB, compatScore, compat, bothComplete, table: pairTable })
           }
@@ -10200,9 +10456,9 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             const a = row.participant_number, b = row.phase3_partner
             const ai = infoMap[a] || {}, bi = infoMap[b] || {}
             const bothComplete3 = !!(infoMap[a] && infoMap[b] && e3IsComplete(infoMap[a]) && e3IsComplete(infoMap[b]))
-            const compat3 = (infoMap[a] && infoMap[b]) ? await e3FullCalcCompat(infoMap[a], infoMap[b]) : null
-            const compatScore3 = compat3 ? compat3.totalScore : null
-            const storedScore3 = row.phase3_score || null
+            const compat3 = getStoredEvent3Compatibility(row, "phase3")
+            const compatScore3 = compat3?.totalScore ?? row.phase3_score ?? null
+            const storedScore3 = row.phase3_score ?? null
             const lockedKey = `${Math.min(a, b)}-${Math.max(a, b)}`
             const pairTable3 = phase3TableMap[a] || phase3TableMap[b] || null
             phase3Pairs.push({ a, aName: ai.name || `#${a}`, aGender: ai.gender, b, bName: bi.name || `#${b}`, bGender: bi.gender, compatScore: compatScore3, storedScore: storedScore3, compat: compat3, bothComplete: bothComplete3, locked: lockedPairKeys.has(lockedKey), isTestMode: matchesAreTestMode, table: pairTable3 })
@@ -10408,7 +10664,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         if (action === "e3-get-feedback") {
           const { data: matchRows } = await supabase
             .from("event3_matches")
-            .select("participant_number, phase2_partner, phase3_partner, phase2_feedback, phase3_feedback, match_preference")
+            .select("participant_number, phase2_partner, phase2_score, phase2_score_model_version, phase2_score_snapshot, phase2_score_content_hash, phase3_partner, phase3_score, phase3_score_model_version, phase3_score_snapshot, phase3_score_content_hash, phase2_feedback, phase3_feedback, match_preference")
             .eq("match_id", EVENT3_MATCH_ID)
             .eq("event_id", currentEventId)
           if (!matchRows || matchRows.length === 0)
@@ -10420,16 +10676,9 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const getName = (num) => nameMap[num]?.name || `#${num}`
           const matchMap = {}
           for (const row of matchRows) matchMap[row.participant_number] = row
-          // Batch-fetch algorithmic compatibility scores for every pair involved, so we can
-          // show the criteria-based score alongside real feedback in the admin feed.
-          const { data: cachedPairsFb } = await fetchAllCachedPairs("compatibility_cache", allNums)
-          const compatMap = {}
-          for (const c of cachedPairsFb || []) {
-            compatMap[`${c.participant_a_number}-${c.participant_b_number}`] = Math.round(parseFloat(c.total_compatibility_score))
-          }
-          const getCompatScore = (numA, numB) => {
-            const [x, y] = [numA, numB].sort((p, q) => p - q)
-            return compatMap[`${x}-${y}`] ?? null
+          const getStoredScore = (row, phaseName) => {
+            const compatibility = getStoredEvent3Compatibility(row, phaseName)
+            return compatibility?.totalScore ?? row?.[`${phaseName}_score`] ?? null
           }
           const phase2 = [], phase3 = []
           for (const row of matchRows) {
@@ -10439,8 +10688,8 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               const myFb = row.phase2_feedback || null
               const mutualYes = !!(myFb?.wantConnect === true && partnerFb?.wantConnect === true)
               const partnerOtherNum = partnerRow?.phase3_partner || null
-              const partnerOtherCompat = partnerOtherNum ? getCompatScore(row.phase2_partner, partnerOtherNum) : null
-              const currentCompat = getCompatScore(row.participant_number, row.phase2_partner)
+              const partnerOtherCompat = partnerOtherNum ? getStoredScore(partnerRow, "phase3") : null
+              const currentCompat = getStoredScore(row, "phase2")
               phase2.push({ participant_number: row.participant_number, participant_name: getName(row.participant_number), partner_number: row.phase2_partner, partner_name: getName(row.phase2_partner), feedback: myFb, submitted: !!row.phase2_feedback, partner_submitted: !!partnerFb, partner_feedback: partnerFb, mutual_yes: mutualYes, match_preference: row.match_preference || null, compat_score: currentCompat, partner_other_phase: "phase3", partner_other_partner_number: partnerOtherNum, partner_other_partner_name: partnerOtherNum ? getName(partnerOtherNum) : null, partner_other_compat_score: partnerOtherCompat, compat_diff: (currentCompat != null && partnerOtherCompat != null) ? currentCompat - partnerOtherCompat : null })
             }
             if (row.phase3_partner) {
@@ -10449,8 +10698,8 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               const myFb = row.phase3_feedback || null
               const mutualYes = !!(myFb?.wantConnect === true && partnerFb?.wantConnect === true)
               const partnerOtherNum3 = partnerRow?.phase2_partner || null
-              const partnerOtherCompat3 = partnerOtherNum3 ? getCompatScore(row.phase3_partner, partnerOtherNum3) : null
-              const currentCompat3 = getCompatScore(row.participant_number, row.phase3_partner)
+              const partnerOtherCompat3 = partnerOtherNum3 ? getStoredScore(partnerRow, "phase2") : null
+              const currentCompat3 = getStoredScore(row, "phase3")
               phase3.push({ participant_number: row.participant_number, participant_name: getName(row.participant_number), partner_number: row.phase3_partner, partner_name: getName(row.phase3_partner), feedback: myFb, submitted: !!row.phase3_feedback, partner_submitted: !!partnerFb, partner_feedback: partnerFb, mutual_yes: mutualYes, match_preference: row.match_preference || null, compat_score: currentCompat3, partner_other_phase: "phase2", partner_other_partner_number: partnerOtherNum3, partner_other_partner_name: partnerOtherNum3 ? getName(partnerOtherNum3) : null, partner_other_compat_score: partnerOtherCompat3, compat_diff: (currentCompat3 != null && partnerOtherCompat3 != null) ? currentCompat3 - partnerOtherCompat3 : null })
             }
           }
@@ -10472,7 +10721,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           // Authoritative partner: read the actual partner stored in event3_matches for this event/phase.
           const { data: subjectMatchRow } = await supabase
             .from("event3_matches")
-            .select(`${partnerCol}, ${feedbackCol}`)
+            .select("*")
             .eq("match_id", EVENT3_MATCH_ID)
             .eq("event_id", currentEventId)
             .eq("participant_number", subjectNumber)
@@ -10502,21 +10751,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const subjectAnswers = parseSurvey(subject)?.answers || {}
           const partnerAnswers = parseSurvey(partner)?.answers || {}
 
-          const extractBreakdown = (row) => row ? {
-            total: Math.round(parseFloat(row.total_compatibility_score)),
-            synergy: Math.round(parseFloat(row.interaction_synergy_score)),
-            vibe: Math.round(parseFloat(row.ai_vibe_score)),
-            lifestyle: Math.round(parseFloat(row.lifestyle_score)),
-            communication: Math.round(parseFloat(row.communication_score)),
-            coreValues: Math.round((parseFloat(row.core_values_score) / 20) * 5),
-            intent: Math.round(parseFloat(row.intent_goal_score) || 0),
-          } : null
-
-          const [sortedA, sortedB] = [subjectNumber, resolvedPartnerNumber].sort((p, q) => p - q)
-          const { data: cacheRow } = await supabase.from("compatibility_cache").select("*")
-            .eq("participant_a_number", sortedA).eq("participant_b_number", sortedB)
-            .order("last_used", { ascending: false }).limit(1).maybeSingle()
-          const actualBreakdown = extractBreakdown(cacheRow)
+          const actualBreakdown = getStoredEvent3Breakdown(subjectMatchRow, phase)
 
           // The comparison partner is the participant's actual assigned partner in the OTHER phase
           // of the same event day (phase2 vs phase3), not the best global algorithmic candidate.
@@ -10524,7 +10759,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const otherFeedbackCol = phase === "phase2" ? "phase3_feedback" : "phase2_feedback"
           const { data: otherMatchRow } = await supabase
             .from("event3_matches")
-            .select(`${otherPhaseCol}, ${otherFeedbackCol}`)
+            .select("*")
             .eq("match_id", EVENT3_MATCH_ID)
             .eq("event_id", currentEventId)
             .eq("participant_number", subjectNumber)
@@ -10536,17 +10771,9 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             ? await supabase.from("participants").select("assigned_number, name, age, gender, survey_data, mbti_personality_type, attachment_style, communication_style, nationality").eq("match_id", STATIC_MATCH_ID).eq("assigned_number", alternativeNumber).maybeSingle()
             : { data: null }
 
-          // Fetch compatibility breakdown between subject and the other-phase partner.
-          const [sortedSubject, sortedOther] = [subjectNumber, alternativeNumber || 0].sort((p, q) => p - q)
-          const { data: otherCacheRow } = alternativeNumber
-            ? await supabase.from("compatibility_cache").select("*")
-                .eq("participant_a_number", sortedSubject)
-                .eq("participant_b_number", sortedOther)
-                .order("last_used", { ascending: false })
-                .limit(1)
-                .maybeSingle()
-            : { data: null }
-          const alternativeBreakdown = extractBreakdown(otherCacheRow)
+          const alternativeBreakdown = alternativeNumber
+            ? getStoredEvent3Breakdown(otherMatchRow, phase === "phase2" ? "phase3" : "phase2")
+            : null
           const alternativeAnswers = alternativeProfile ? (parseSurvey(alternativeProfile)?.answers || {}) : {}
 
           // ── Deterministic algorithmic diff ───────────────────────────────────────
@@ -10709,92 +10936,117 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
         }
         // e3-swap-match-partner — replace a missing participant with a replacement in phase2 or phase3 matches
         if (action === "e3-swap-match-partner") {
-          const { phase, missing_participant, replacement_participant } = req.body
+          const phase = req.body.phase
+          const missingParticipant = Number(req.body.missing_participant)
+          const replacementParticipant = Number(req.body.replacement_participant)
           if (!phase || (phase !== "phase2" && phase !== "phase3")) return res.status(400).json({ error: "phase must be 'phase2' or 'phase3'" })
-          if (!missing_participant || !replacement_participant) return res.status(400).json({ error: "missing_participant and replacement_participant required" })
-          if (missing_participant === replacement_participant) return res.status(400).json({ error: "Cannot swap with the same participant" })
+          if (!Number.isInteger(missingParticipant) || !Number.isInteger(replacementParticipant) || missingParticipant <= 0 || replacementParticipant <= 0) return res.status(400).json({ error: "missing_participant and replacement_participant must be positive integers" })
+          if (missingParticipant === replacementParticipant) return res.status(400).json({ error: "Cannot swap with the same participant" })
 
           const partnerField = phase === "phase2" ? "phase2_partner" : "phase3_partner"
-          const scoreField = phase === "phase2" ? "phase2_score" : "phase3_score"
 
-          // Fetch all match rows
-          const { data: matchRows } = await supabase.from("event3_matches").select("*").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          const { data: matchRows, error: matchRowsError } = await supabase.from("event3_matches").select("*").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          if (matchRowsError) return res.status(500).json({ error: matchRowsError.message })
           if (!matchRows || matchRows.length === 0) return res.status(404).json({ error: "No matches found" })
 
-          const missingRow = matchRows.find(r => r.participant_number === missing_participant)
-          const replacementRow = matchRows.find(r => r.participant_number === replacement_participant)
+          const missingRow = matchRows.find(r => Number(r.participant_number) === missingParticipant)
+          const replacementRow = matchRows.find(r => Number(r.participant_number) === replacementParticipant)
 
-          if (!missingRow) return res.status(404).json({ error: `Participant #${missing_participant} not found in matches` })
+          if (!missingRow) return res.status(404).json({ error: `Participant #${missingParticipant} not found in matches` })
 
-          const missingPartner = missingRow[partnerField]
-          if (!missingPartner) return res.status(400).json({ error: `Participant #${missing_participant} has no ${phase} match` })
+          const missingPartner = Number(missingRow[partnerField])
+          if (!Number.isInteger(missingPartner) || missingPartner <= 0) return res.status(400).json({ error: `Participant #${missingParticipant} has no ${phase} match` })
 
-          const replacementPartner = replacementRow?.[partnerField] || null
+          const rawReplacementPartner = replacementRow?.[partnerField]
+          const replacementPartner = rawReplacementPartner == null ? null : Number(rawReplacementPartner)
+          if (replacementPartner != null && (!Number.isInteger(replacementPartner) || replacementPartner <= 0)) {
+            return res.status(409).json({ error: `Participant #${replacementParticipant} has an invalid ${phase} partner. Repair the mirrored rows before swapping.` })
+          }
 
-          // Fetch participant data for score recalculation
-          const allNums = [missing_participant, replacement_participant, missingPartner, replacementPartner].filter(Boolean)
-          const { data: swapPdata } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,attachment_style,communication_style,humor_banter_style,early_openness_comfort,same_gender_preference,any_gender_preference,nationality,prefer_same_nationality,preferred_age_min,preferred_age_max,open_age_preference").eq("match_id", STATIC_MATCH_ID).in("assigned_number", allNums)
+          const allNums = [missingParticipant, replacementParticipant, missingPartner, replacementPartner].filter(number => number != null)
+          const { data: swapPdata, error: swapProfilesError } = await supabase.from("participants").select("*").eq("match_id", STATIC_MATCH_ID).in("assigned_number", allNums)
+          if (swapProfilesError) return res.status(500).json({ error: swapProfilesError.message })
           const swapPMap = {}
           for (const p of swapPdata || []) { swapPMap[p.assigned_number] = p }
 
-          // Calculate new scores
-          let newScore1 = 50 // replacement ↔ missingPartner
-          if (swapPMap[replacement_participant] && swapPMap[missingPartner]) {
+          const requiredProfiles = [replacementParticipant, missingPartner, ...(replacementPartner == null ? [] : [missingParticipant, replacementPartner])]
+          const missingProfile = requiredProfiles.find(number => !swapPMap[number])
+          if (missingProfile != null) {
+            return res.status(422).json({ error: `Missing complete matching profile for #${missingProfile}; no match or table was changed.` })
+          }
+
+          let newCompatibility1
+          try {
+            newCompatibility1 = await e3FullCalcCompat(swapPMap[replacementParticipant], swapPMap[missingPartner])
+          } catch (error) {
+            console.error(`Swap compat error for #${replacementParticipant}×#${missingPartner}:`, error.message)
+            return res.status(502).json({ error: `Compatibility scoring failed for #${replacementParticipant} × #${missingPartner}; no match or table was changed. Retry safely.` })
+          }
+          const newProvenance1 = buildEvent3ScoreProvenance(newCompatibility1, swapPMap[replacementParticipant], swapPMap[missingPartner])
+          if (!isStoredBalancedScoreSnapshot({
+            modelVersion: newProvenance1.scoreModelVersion,
+            contentHash: newProvenance1.scoreContentHash,
+            snapshot: newProvenance1.scoreSnapshot,
+            persistedTotal: newProvenance1.persistedScore,
+          })) {
+            return res.status(502).json({ error: `No complete current-model score was produced for #${replacementParticipant} × #${missingPartner}; no match or table was changed. Retry safely.` })
+          }
+
+          let newProvenance2 = null
+          if (replacementPartner != null) {
+            let newCompatibility2
             try {
-              const compat = await e3FullCalcCompat(swapPMap[replacement_participant], swapPMap[missingPartner])
-              if (compat) newScore1 = compat.totalScore
-            } catch (e) { console.error(`Swap compat error for #${replacement_participant}×#${missingPartner}:`, e.message) }
-          }
-
-          let newScore2 = null // missing ↔ replacementPartner (if replacement was matched)
-          if (replacementPartner) {
-            newScore2 = 50
-            if (swapPMap[missing_participant] && swapPMap[replacementPartner]) {
-              try {
-                const compat = await e3FullCalcCompat(swapPMap[missing_participant], swapPMap[replacementPartner])
-                if (compat) newScore2 = compat.totalScore
-              } catch (e) { console.error(`Swap compat error for #${missing_participant}×#${replacementPartner}:`, e.message) }
+              newCompatibility2 = await e3FullCalcCompat(swapPMap[missingParticipant], swapPMap[replacementPartner])
+            } catch (error) {
+              console.error(`Swap compat error for #${missingParticipant}×#${replacementPartner}:`, error.message)
+              return res.status(502).json({ error: `Compatibility scoring failed for #${missingParticipant} × #${replacementPartner}; no match or table was changed. Retry safely.` })
+            }
+            newProvenance2 = buildEvent3ScoreProvenance(newCompatibility2, swapPMap[missingParticipant], swapPMap[replacementPartner])
+            if (!isStoredBalancedScoreSnapshot({
+              modelVersion: newProvenance2.scoreModelVersion,
+              contentHash: newProvenance2.scoreContentHash,
+              snapshot: newProvenance2.scoreSnapshot,
+              persistedTotal: newProvenance2.persistedScore,
+            })) {
+              return res.status(502).json({ error: `No complete current-model score was produced for #${missingParticipant} × #${replacementPartner}; no match or table was changed. Retry safely.` })
             }
           }
 
-          // Update match rows
-          // 1. missing's row: partner = replacementPartner (or null if replacement was unmatched)
-          await supabase.from("event3_matches").update({ [partnerField]: replacementPartner, [scoreField]: newScore2 }).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", missing_participant)
-          // 2. missingPartner's row: partner = replacement
-          await supabase.from("event3_matches").update({ [partnerField]: replacement_participant, [scoreField]: newScore1 }).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", missingPartner)
-          // 3. replacement's row: partner = missingPartner
-          if (replacementRow) {
-            await supabase.from("event3_matches").update({ [partnerField]: missingPartner, [scoreField]: newScore1 }).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", replacement_participant)
-          } else {
-            // Replacement doesn't have a row — create one
-            await supabase.from("event3_matches").insert({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, participant_number: replacement_participant, [partnerField]: missingPartner, [scoreField]: newScore1 })
+          const firstScore = {
+            score: newProvenance1.persistedScore,
+            score_model_version: newProvenance1.scoreModelVersion,
+            score_snapshot: newProvenance1.scoreSnapshot,
+            score_content_hash: newProvenance1.scoreContentHash,
           }
-          // 4. replacementPartner's row (if exists): partner = missing
-          if (replacementPartner) {
-            await supabase.from("event3_matches").update({ [partnerField]: missing_participant, [scoreField]: newScore2 }).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", replacementPartner)
-          }
+          const secondScore = newProvenance2 ? {
+            score: newProvenance2.persistedScore,
+            score_model_version: newProvenance2.scoreModelVersion,
+            score_snapshot: newProvenance2.scoreSnapshot,
+            score_content_hash: newProvenance2.scoreContentHash,
+          } : null
 
-          // If phase2, also swap table assignments in round=20
-          {
-            const assignmentRound = phase === "phase2" ? 20 : 30
-            const { data: missingTable } = await supabase.from("session_assignments").select("id,table_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("round", assignmentRound).eq("participant_id", missing_participant).maybeSingle()
-            const { data: replacementTable } = await supabase.from("session_assignments").select("id,table_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("round", assignmentRound).eq("participant_id", replacement_participant).maybeSingle()
-
-            if (missingTable && replacementTable) {
-              await supabase.from("session_assignments").update({ table_number: replacementTable.table_number }).eq("id", missingTable.id)
-              await supabase.from("session_assignments").update({ table_number: missingTable.table_number }).eq("id", replacementTable.id)
-            } else if (missingTable && !replacementTable) {
-              await supabase.from("session_assignments").delete().eq("id", missingTable.id)
-              await supabase.from("session_assignments").insert({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, round: assignmentRound, table_number: missingTable.table_number, participant_id: replacement_participant })
-            } else if (!missingTable && replacementTable) {
-              await supabase.from("session_assignments").delete().eq("id", replacementTable.id)
-              await supabase.from("session_assignments").insert({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, round: assignmentRound, table_number: replacementTable.table_number, participant_id: missing_participant })
+          const { error: swapError } = await supabase.rpc("swap_event3_match_partner", {
+            p_match_id: EVENT3_MATCH_ID,
+            p_event_id: currentEventId,
+            p_phase: phase,
+            p_missing_participant: missingParticipant,
+            p_replacement_participant: replacementParticipant,
+            p_expected_missing_partner: missingPartner,
+            p_expected_replacement_partner: replacementPartner,
+            p_first_score: firstScore,
+            p_second_score: secondScore,
+          })
+          if (swapError) {
+            if (isMissingAdmin3SwapRpc(swapError)) {
+              return res.status(501).json({ error: "The atomic Event3 match-swap migration has not been applied yet", migration_required: true })
             }
+            const conflict = swapError.code === "P0001" || /changed|mirrored|duplicate|belong/i.test(swapError.message || "")
+            return res.status(conflict ? 409 : 500).json({ error: swapError.message })
           }
 
-          const msg = replacementPartner
-            ? `Swapped: #${replacement_participant} ↔ #${missingPartner} (score: ${newScore1}%), #${missing_participant} ↔ #${replacementPartner} (score: ${newScore2}%)`
-            : `Swapped: #${replacement_participant} replaced #${missing_participant} with #${missingPartner} (score: ${newScore1}%). #${missing_participant} is now unmatched.`
+          const msg = replacementPartner != null
+            ? `Swapped: #${replacementParticipant} ↔ #${missingPartner} (score: ${newProvenance1.persistedScore}%), #${missingParticipant} ↔ #${replacementPartner} (score: ${newProvenance2.persistedScore}%)`
+            : `Swapped: #${replacementParticipant} replaced #${missingParticipant} with #${missingPartner} (score: ${newProvenance1.persistedScore}%). #${missingParticipant} is now unmatched.`
 
           if (phase === "phase3") await refreshEvent3TestMatchResults(currentEventId)
           return res.status(200).json({ message: msg })
@@ -10846,7 +11098,22 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             const profileB = profileMap.get(pair.b)
             if (!profileA || !profileB) return res.status(422).json({ error: `Missing matching profile for #${!profileA ? pair.a : pair.b}` })
             const compatibility = await calculateFullCompatibilityWithCache(profileA, profileB, false, false)
-            eventScores.push({ phase: pair.phase, a: pair.a, b: pair.b, score: Math.round(Number(compatibility.totalScore || 0)) })
+            const provenance = buildEvent3ScoreProvenance(compatibility, profileA, profileB)
+            if (!isStoredBalancedScoreSnapshot({
+              modelVersion: provenance.scoreModelVersion,
+              contentHash: provenance.scoreContentHash,
+              snapshot: provenance.scoreSnapshot,
+              persistedTotal: provenance.persistedScore,
+            })) return res.status(502).json({ error: `No complete current-model score was produced for #${pair.a} × #${pair.b}; no participant data was changed.` })
+            eventScores.push({
+              phase: pair.phase,
+              a: pair.a,
+              b: pair.b,
+              score: provenance.persistedScore,
+              score_model_version: provenance.scoreModelVersion,
+              score_snapshot: provenance.scoreSnapshot,
+              score_content_hash: provenance.scoreContentHash,
+            })
           }
 
           const normalScores = []
@@ -10855,7 +11122,14 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             const profileB = profileMap.get(pair.b)
             if (!profileA || !profileB) return res.status(422).json({ error: `Missing matching profile for #${!profileA ? pair.a : pair.b}` })
             const compatibility = await calculateFullCompatibilityWithCache(profileA, profileB, false, false)
-            normalScores.push({ id: pair.id, a: pair.a, b: pair.b, ...compatibilityResultPayload(compatibility) })
+            const persistedPayload = compatibilityResultPayload(compatibility)
+            if (!isStoredBalancedScoreSnapshot({
+              modelVersion: persistedPayload.score_model_version,
+              contentHash: persistedPayload.score_content_hash,
+              snapshot: persistedPayload.score_snapshot,
+              persistedTotal: persistedPayload.compatibility_score,
+            })) return res.status(502).json({ error: `No complete current-model score was produced for #${pair.a} × #${pair.b}; no participant data was changed.` })
+            normalScores.push({ id: pair.id, a: pair.a, b: pair.b, ...persistedPayload })
           }
 
           const { data, error } = await supabase.rpc("replace_event3_participant", {
@@ -11305,7 +11579,7 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
         if (action === "e3-start-test-mode") {
           // 1. Fetch all participants with full data
           const { data: allP, error: allErr } = await supabase.from("participants")
-            .select("assigned_number,name,gender,age,phone_number,survey_data,mbti_personality_type,attachment_style,communication_style,humor_banter_style,early_openness_comfort,same_gender_preference,any_gender_preference,nationality,prefer_same_nationality,preferred_age_min,preferred_age_max,open_age_preference,secure_token")
+            .select("*")
             .eq("match_id", STATIC_MATCH_ID)
             .neq("assigned_number", 9999)
             .order("assigned_number", { ascending: true })
@@ -11333,14 +11607,19 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           //    cache hits; misses remain in-memory and are never persisted.
           const validNums = valid.map(p => p.assigned_number)
           const { data: allCachedPairs } = await supabase.from("compatibility_cache")
-            .select("participant_a_number,participant_b_number")
+            .select("*")
             .or(`participant_a_number.in.(${validNums.join(",")}),participant_b_number.in.(${validNums.join(",")})`)
           const validSet = new Set(validNums)
+          const validProfileMap = new Map(valid.map(profile => [Number(profile.assigned_number), profile]))
+          const exactCachedPairs = new Map()
+          for (const cacheRow of allCachedPairs || []) {
+            setPreferredCurrentVibeCacheRow(exactCachedPairs, cacheRow, validProfileMap)
+          }
 
           // Build adjacency of cached pairs among valid participants only.
           const adj = new Map() // num -> Set(cached neighbor nums)
           for (const num of validNums) adj.set(num, new Set())
-          for (const c of allCachedPairs || []) {
+          for (const c of exactCachedPairs.values()) {
             const a = c.participant_a_number, b = c.participant_b_number
             if (validSet.has(a) && validSet.has(b) && a !== b) {
               adj.get(a).add(b)
@@ -11407,7 +11686,7 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           // 4. Measure cache coverage without changing it. Test mode must leave
           // compatibility history and usage statistics exactly as it found them.
           const cachedSet = new Set()
-          for (const c of allCachedPairs || []) {
+          for (const c of exactCachedPairs.values()) {
             if (validSet.has(c.participant_a_number) && validSet.has(c.participant_b_number)) {
               const [a, b] = [c.participant_a_number, c.participant_b_number].sort((x, y) => x - y)
               cachedSet.add(`${a}-${b}`)

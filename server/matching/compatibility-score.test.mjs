@@ -7,111 +7,91 @@ import {
   calculateFinalCompatibilityScore,
 } from './compatibility-score.mjs'
 
-const participant = ({
-  humor,
-  openness,
-  humorSubtype,
-  intent,
-  nestedOnly = false,
-} = {}) => {
-  const answers = {
-    humor_banter_style: humor,
-    early_openness_comfort: openness,
-    humor_subtype: humorSubtype,
-    intent_goal: intent,
-  }
-  return nestedOnly
-    ? { survey_data: { answers } }
-    : {
-        humor_banter_style: humor,
-        early_openness_comfort: openness,
-        survey_data: { answers },
-      }
-}
+const participant = ({ humor, openness, humorSubtype, intent } = {}) => ({
+  survey_data: {
+    answers: {
+      humor_banter_style: humor,
+      early_openness_comfort: openness,
+      humor_subtype: humorSubtype,
+      intent_goal: intent,
+    },
+  },
+})
 
-test('the displayed final score directly includes multiplier and intent bonuses', () => {
+test('the final score is the additive 100-point component total with no duplicate adjustments', () => {
   const result = calculateFinalCompatibilityScore({
     componentTotal: 70,
     opennessPenalty: -5,
     humorMultiplier: 1.05,
     intentScore: 5,
+    deadAirVeto: true,
+    humorClashVeto: true,
   })
 
-  assert.equal(result.afterOpenness, 65)
-  assert.equal(result.afterBonuses, 73.25)
-  assert.equal(result.totalScore, 73.25)
+  assert.equal(result.afterOpenness, 70)
+  assert.equal(result.afterBonuses, 70)
+  assert.equal(result.totalScore, 70)
+  assert.equal(result.deadAirVetoApplied, false)
+  assert.equal(result.capApplied, null)
 })
 
-test('safety vetoes and the maximum cap are applied after bonuses', () => {
-  const deadAir = calculateFinalCompatibilityScore({
-    componentTotal: 80,
-    humorMultiplier: 1.05,
-    intentScore: 5,
-    deadAirVeto: true,
-  })
-  assert.equal(deadAir.totalScore, 40)
-  assert.equal(deadAir.deadAirVetoApplied, true)
-  assert.equal(deadAir.capApplied, 40)
-
-  const capped = calculateFinalCompatibilityScore({
-    componentTotal: 98,
-    humorMultiplier: 1.05,
-    intentScore: 5,
-  })
+test('the compatibility shim clamps only to the fixed zero-to-100 score range', () => {
+  const capped = calculateFinalCompatibilityScore({ componentTotal: 105 })
   assert.equal(capped.totalScore, 100)
   assert.equal(capped.maxScoreCapApplied, true)
+
+  const negative = calculateFinalCompatibilityScore({ componentTotal: -5 })
+  assert.equal(negative.totalScore, 0)
+  assert.equal(negative.maxScoreCapApplied, false)
+
+  const invalid = calculateFinalCompatibilityScore({ componentTotal: 'not-a-score' })
+  assert.equal(invalid.totalScore, 0)
 })
 
-test('feedback composite bonuses are deterministic, stackable, and symmetric', () => {
-  const aaOpenA = participant({ humor: 'a', openness: 2, intent: 'c' })
-  const aaOpenB = participant({ humor: 'A', openness: '2', intent: 'C', nestedOnly: true })
-  const aaResult = calculateFeedbackCompositeAdjustment(aaOpenA, aaOpenB)
-  assert.equal(aaResult.adjustment, 13)
-  assert.deepEqual(aaResult.appliedRules.map(rule => rule.id), ['humor_aa_open_22', 'intent_cc'])
+test('all legacy feedback composite patterns are disabled', () => {
+  const positiveA = participant({ humor: 'A', openness: 2, intent: 'C' })
+  const positiveB = participant({ humor: 'A', openness: 2, intent: 'C' })
+  const negativeA = participant({ humorSubtype: 'B', intent: 'A' })
+  const negativeB = participant({ humorSubtype: 'C', intent: 'C' })
 
-  const b = participant({ humor: 'B' })
-  const c = participant({ humor: 'C' })
-  assert.equal(calculateFeedbackCompositeAdjustment(b, c).adjustment, 8)
-  assert.equal(calculateFeedbackCompositeAdjustment(c, b).adjustment, 8)
+  assert.deepEqual(calculateFeedbackCompositeAdjustment(positiveA, positiveB), {
+    adjustment: 0,
+    appliedRules: [],
+  })
+  assert.deepEqual(calculateFeedbackCompositeAdjustment(negativeA, negativeB), {
+    adjustment: 0,
+    appliedRules: [],
+  })
 })
 
-test('feedback composite penalties only fire for their complete paired patterns', () => {
-  const subtypeBIntentA = participant({ humorSubtype: 'B', intent: 'A' })
-  const subtypeCIntentC = participant({ humorSubtype: 'C', intent: 'C' })
-  assert.equal(calculateFeedbackCompositeAdjustment(subtypeBIntentA, subtypeCIntentC).adjustment, -15)
-
-  const humorAIntentA = participant({ humor: 'A', intent: 'A' })
-  const humorCIntentB = participant({ humor: 'C', intent: 'B' })
-  assert.equal(calculateFeedbackCompositeAdjustment(humorAIntentA, humorCIntentB).adjustment, -12)
-
-  const incomplete = participant({ humorSubtype: 'C', intent: 'B' })
-  assert.equal(calculateFeedbackCompositeAdjustment(subtypeBIntentA, incomplete).adjustment, 0)
-})
-
-test('display scores stay capped while ranking retains bonus separation', () => {
-  const a = participant({ humor: 'B' })
-  const b = participant({ humor: 'C' })
-  const result = applyFeedbackCompositeAdjustment({ baseScore: 97, participantA: a, participantB: b })
+test('feedback composite compatibility shim preserves display and ranking scores exactly', () => {
+  const result = applyFeedbackCompositeAdjustment({
+    baseScore: 97,
+    participantA: participant({ humor: 'B' }),
+    participantB: participant({ humor: 'C' }),
+  })
 
   assert.equal(result.baseCompatibilityScore, 97)
-  assert.equal(result.compositeAdjustment, 8)
-  assert.equal(result.totalScore, 100)
-  assert.equal(result.priorityScore, 105)
-  assert.equal(result.compositeDisplayCapApplied, true)
+  assert.equal(result.compositeAdjustment, 0)
+  assert.deepEqual(result.compositeRules, [])
+  assert.equal(result.rawPriorityScore, 97)
+  assert.equal(result.priorityScore, 97)
+  assert.equal(result.totalScore, 97)
+  assert.equal(result.compositeDisplayCapApplied, false)
+  assert.equal(result.compositeHardCapApplied, false)
 })
 
-test('hard veto caps cannot be overridden by a composite bonus', () => {
-  const a = participant({ humor: 'B' })
-  const b = participant({ humor: 'C' })
+test('an explicit hard cap remains available without allowing any legacy bonus', () => {
   const result = applyFeedbackCompositeAdjustment({
-    baseScore: 38,
-    participantA: a,
-    participantB: b,
+    baseScore: 80,
+    participantA: participant({ humor: 'B' }),
+    participantB: participant({ humor: 'C' }),
     hardCap: 40,
   })
 
-  assert.equal(result.rawPriorityScore, 46)
+  assert.equal(result.rawPriorityScore, 40)
   assert.equal(result.priorityScore, 40)
   assert.equal(result.totalScore, 40)
+  assert.equal(result.compositeAdjustment, 0)
   assert.equal(result.compositeHardCapApplied, true)
 })

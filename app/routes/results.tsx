@@ -22,6 +22,71 @@ import {
   Trophy
 } from "lucide-react"
 import { Button } from "../../components/ui/button"
+import { isCurrentBalancedScoreRow, isCurrentOppositesScoreRow, parseScoreObject } from "~/lib/compatibility-model"
+
+interface BalancedScoreBreakdown {
+  semanticCommonGround?: number | null
+  aiSemantic?: number | null
+  sharedContext?: number | null
+  interactionRhythm?: number | null
+  humorOpenness?: number | null
+  attachmentComfort?: number | null
+  lifestyleSustainability?: number | null
+  valuesBoundaries?: number | null
+  valuesBoundariesLanguage?: number | null
+  language?: number | null
+  communicationDisagreement?: number | null
+  intent?: number | null
+  // Participant API aliases for balanced cache rows.
+  synergy?: number | null
+  vibe?: number | null
+  lifestyle?: number | null
+  humorOpen?: number | null
+  communication?: number | null
+  coreValues?: number | null
+  total?: number | null
+  interactionSynergy?: number | null
+  coreValuesAlignment?: number | null
+  communicationAlignment?: number | null
+  lifestyleDifference?: number | null
+  vibeDifference?: number | null
+  humorDifference?: number | null
+}
+
+interface CompatibilityMetrics {
+  newModel: boolean
+  balancedModel: boolean
+  synergyScore: number
+  synergyMax: number
+  synergyPercent: number
+  sharedContext: number
+  sharedContextMax: number
+  vibe: number
+  vibeMax: number
+  lifestyle: number
+  lifestyleMax: number
+  humorOpen: number
+  humorOpenMax: number
+  communication: number
+  communicationMax: number
+  attachment: number
+  attachmentMax: number
+  valuesLanguage: number
+  valuesLanguageMax: number
+  intentValues: number
+  intentMax: number
+  oppositesModel?: boolean
+  dimensions?: Array<{ label: string; value: number; max: number; bar: string }>
+}
+
+interface CompatibilityComponent {
+  name: string
+  strength: string
+  color: string
+  bgColor: string
+  borderColor: string
+  description: string
+}
 
 interface MatchResult {
   with: number | string
@@ -74,20 +139,19 @@ interface MatchResult {
   communication_compatibility_score?: number | null
   lifestyle_compatibility_score?: number | null
   vibe_compatibility_score?: number | null
+  core_values_compatibility_score?: number | null
+  communication_disagreement_score?: number | null
+  values_boundaries_score?: number | null
+  language_score?: number | null
+  shared_context_score?: number | null
+  score_model_version?: string | null
+  score_breakdown?: BalancedScoreBreakdown | null
+  score_snapshot?: Record<string, unknown> | string | null
   // Event 3+ fields (choice vs algorithm)
   match_type?: 'choice' | 'algorithm' | null
   match_label?: string | null
   match_word?: string | null
-  breakdown?: {
-    synergy: number
-    vibe: number
-    lifestyle: number
-    humorOpen: number
-    communication: number
-    coreValues: number
-    intent: number
-    total: number
-  } | null
+  breakdown?: BalancedScoreBreakdown | null
   match_preference?: string | null
 }
 
@@ -144,7 +208,7 @@ export default function ResultsPage() {
 
   // Function to convert technical compatibility reason to natural Arabic description
   // Enhanced to expose structured metrics for the new model (Synergy, Vibe, Lifestyle, Humor/Openness, Communication, Goals/Values)
-  const formatCompatibilityReason = (reason: string): { components: Array<{ name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }>; originalReason: string; metrics: { newModel: boolean; synergyScore: number; synergyMax: number; synergyPercent: number; vibe: number; lifestyle: number; humorOpen: number; communication: number; intentValues: number } } => {
+  const formatLegacyCompatibilityReason = (reason: string): { components: Array<{ name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }>; originalReason: string; metrics: { newModel: boolean; synergyScore: number; synergyMax: number; synergyPercent: number; vibe: number; lifestyle: number; humorOpen: number; communication: number; intentValues: number } } => {
     try {
       if (!reason || typeof reason !== 'string') return { components: [], originalReason: "معلومات التوافق غير متوفرة", metrics: { newModel: false, synergyScore: 0, synergyMax: 35, synergyPercent: 0, vibe: 0, lifestyle: 0, humorOpen: 0, communication: 0, intentValues: 0 } }
       
@@ -362,6 +426,270 @@ export default function ResultsPage() {
     } catch (error) {
       console.error("Error in formatCompatibilityReason:", error)
       return { components: [], originalReason: "معلومات التوافق غير متوفرة", metrics: { newModel: false, synergyScore: 0, synergyMax: 35, synergyPercent: 0, vibe: 0, lifestyle: 0, humorOpen: 0, communication: 0, intentValues: 0 } }
+    }
+  }
+
+  const formatCompatibilityReason = (match: MatchResult): { components: CompatibilityComponent[]; originalReason: string; metrics: CompatibilityMetrics } => {
+    const reason = typeof match.reason === 'string' ? match.reason : ''
+    const snapshot = parseScoreObject(match.score_snapshot)
+    const breakdown = match.score_breakdown
+      ?? match.breakdown
+      ?? parseScoreObject(snapshot?.scoreBreakdown ?? snapshot?.score_breakdown)
+    const isBalanced = isCurrentBalancedScoreRow(match)
+    const isOpposites = isCurrentOppositesScoreRow(match)
+
+    if (isOpposites) {
+      const dimensions = [
+        { label: 'إيقاع التفاعل', value: Number(breakdown?.interactionSynergy ?? 0), max: 20, bar: 'from-emerald-500 to-teal-500' },
+        { label: 'توافق القيم', value: Number(breakdown?.coreValuesAlignment ?? 0), max: 17, bar: 'from-violet-500 to-indigo-500' },
+        { label: 'توافق التواصل', value: Number(breakdown?.communicationAlignment ?? 0), max: 5, bar: 'from-indigo-500 to-sky-500' },
+        { label: 'اختلاف نمط الحياة', value: Number(breakdown?.lifestyleDifference ?? 0), max: 12, bar: 'from-cyan-500 to-blue-500' },
+        { label: 'اختلاف الطاقة', value: Number(breakdown?.vibeDifference ?? 0), max: 12, bar: 'from-purple-500 to-pink-500' },
+        { label: 'اختلاف الدعابة', value: Number(breakdown?.humorDifference ?? 0), max: 10, bar: 'from-amber-500 to-orange-500' },
+      ]
+      const components = dimensions.map(dimension => {
+        const ratio = dimension.max > 0 ? dimension.value / dimension.max : 0
+        return {
+          name: dimension.label,
+          strength: ratio >= 0.8 ? 'مرتفع' : ratio >= 0.6 ? 'جيد' : ratio >= 0.4 ? 'متوسط' : 'منخفض',
+          color: ratio >= 0.6 ? 'text-violet-300' : 'text-slate-300',
+          bgColor: 'bg-violet-500/10',
+          borderColor: 'border-violet-400/25',
+          description: dimension.label.startsWith('اختلاف')
+            ? 'نقاط أعلى تعني اختلافاً أكبر في هذا البعد ضمن وضع الأضداد.'
+            : 'هذا البعد يبقى توافقياً داخل صيغة الأضداد.',
+        }
+      })
+      return {
+        components,
+        originalReason: reason,
+        metrics: {
+          newModel: true,
+          balancedModel: false,
+          oppositesModel: true,
+          dimensions,
+          synergyScore: dimensions[0].value,
+          synergyMax: 20,
+          synergyPercent: Math.round((dimensions[0].value / 20) * 100),
+          sharedContext: 0,
+          sharedContextMax: 0,
+          vibe: dimensions[4].value,
+          vibeMax: 12,
+          lifestyle: dimensions[3].value,
+          lifestyleMax: 12,
+          humorOpen: dimensions[5].value,
+          humorOpenMax: 10,
+          communication: dimensions[2].value,
+          communicationMax: 5,
+          attachment: 0,
+          attachmentMax: 0,
+          valuesLanguage: dimensions[1].value,
+          valuesLanguageMax: 17,
+          intentValues: 0,
+          intentMax: 0,
+        },
+      }
+    }
+
+    if (!isBalanced) {
+      const legacy = formatLegacyCompatibilityReason(reason)
+      return {
+        ...legacy,
+        metrics: {
+          ...legacy.metrics,
+          balancedModel: false,
+          sharedContext: 0,
+          sharedContextMax: 6,
+          vibeMax: 25,
+          lifestyleMax: 10,
+          humorOpenMax: 15,
+          communicationMax: 10,
+          attachment: 0,
+          attachmentMax: 8,
+          valuesLanguage: 0,
+          valuesLanguageMax: 17,
+          intentMax: 5,
+        },
+      }
+    }
+
+    const finiteScore = (...values: unknown[]): number | null => {
+      for (const value of values) {
+        if (value === null || value === undefined || value === '') continue
+        const parsed = Number(value)
+        if (Number.isFinite(parsed)) return parsed
+      }
+      return null
+    }
+    const reasonScore = (...labels: string[]): number | null => {
+      const escaped = labels.map(label => label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+      const result = reason.match(new RegExp(`(?:${escaped})\\s*[:：]\\s*(-?\\d+(?:\\.\\d+)?)\\s*(?:/\\s*\\d+(?:\\.\\d+)?|%)?`, 'i'))
+      return result ? finiteScore(result[1]) : null
+    }
+
+    const interaction = finiteScore(
+      breakdown?.interactionRhythm,
+      breakdown?.synergy,
+      reasonScore('Interaction Rhythm', 'Synergy', 'إيقاع التفاعل', 'التفاعل'),
+      match.synergy_score,
+    ) ?? 0
+    const aiVibe = finiteScore(
+      breakdown?.aiSemantic,
+      breakdown?.vibe,
+      reasonScore('AI Semantic', 'AI Vibe', 'Vibe', 'التوافق الدلالي', 'الطاقة'),
+      match.vibe_compatibility_score,
+    ) ?? 0
+    const commonGround = finiteScore(
+      breakdown?.semanticCommonGround,
+      reasonScore('Common Ground', 'الأرضية المشتركة'),
+    )
+    const sharedContext = finiteScore(
+      breakdown?.sharedContext,
+      reasonScore('Shared Context', 'السياق المشترك'),
+      match.shared_context_score,
+      commonGround == null ? null : Math.max(0, commonGround - aiVibe),
+    ) ?? 0
+    const humorOpen = finiteScore(
+      breakdown?.humorOpenness,
+      breakdown?.humorOpen,
+      reasonScore('Humor/Openness', 'الدعابة/الانفتاح'),
+      match.humor_open_score,
+    ) ?? 0
+    const attachment = finiteScore(
+      breakdown?.attachmentComfort,
+      reasonScore('Attachment Comfort', 'راحة التقارب'),
+    ) ?? 0
+    const lifestyle = finiteScore(
+      breakdown?.lifestyleSustainability,
+      breakdown?.lifestyle,
+      reasonScore('Lifestyle', 'نمط الحياة'),
+      match.lifestyle_compatibility_score,
+    ) ?? 0
+    const communication = finiteScore(
+      breakdown?.communicationDisagreement,
+      breakdown?.communication,
+      reasonScore('Communication/Disagreement', 'التواصل/الاختلاف'),
+      match.communication_disagreement_score,
+      match.communication_compatibility_score,
+    ) ?? 0
+    const valuesBoundaries = finiteScore(
+      breakdown?.valuesBoundaries,
+      reasonScore('Values/Boundaries', 'القيم/الحدود'),
+      match.values_boundaries_score,
+    )
+    const expressionLanguage = finiteScore(
+      breakdown?.language,
+      reasonScore('Expression Language', 'لغة التعبير'),
+      match.language_score,
+    )
+    const valuesLanguage = finiteScore(
+      breakdown?.valuesBoundariesLanguage,
+      breakdown?.coreValues,
+      match.core_values_compatibility_score,
+      valuesBoundaries == null && expressionLanguage == null
+        ? null
+        : (valuesBoundaries ?? 0) + (expressionLanguage ?? 0),
+    ) ?? 0
+    const intent = finiteScore(
+      breakdown?.intent,
+      reasonScore('Intent', 'Goal', 'Goals', 'الهدف', 'الأهداف'),
+      match.intent_score,
+    ) ?? 0
+
+    const strength = (score: number, maximum: number) => {
+      const percentage = maximum > 0 ? (score / maximum) * 100 : 0
+      if (percentage >= 80) return { level: 'ممتاز', color: 'text-emerald-400', bgColor: 'bg-emerald-500/20', borderColor: 'border-emerald-400/30' }
+      if (percentage >= 60) return { level: 'جيد', color: 'text-blue-400', bgColor: 'bg-blue-500/20', borderColor: 'border-blue-400/30' }
+      if (percentage >= 40) return { level: 'متوسط', color: 'text-yellow-400', bgColor: 'bg-yellow-500/20', borderColor: 'border-yellow-400/30' }
+      if (percentage >= 20) return { level: 'ضعيف', color: 'text-orange-400', bgColor: 'bg-orange-500/20', borderColor: 'border-orange-400/30' }
+      return { level: 'منخفض', color: 'text-red-400', bgColor: 'bg-red-500/20', borderColor: 'border-red-400/30' }
+    }
+    const components: CompatibilityComponent[] = []
+    const addComponent = (name: string, score: number, maximum: number, descriptions: [string, string, string]) => {
+      const style = strength(score, maximum)
+      const ratio = maximum > 0 ? score / maximum : 0
+      components.push({
+        name,
+        strength: style.level,
+        color: style.color,
+        bgColor: style.bgColor,
+        borderColor: style.borderColor,
+        description: ratio >= 0.8 ? descriptions[0] : ratio >= 0.6 ? descriptions[1] : descriptions[2],
+      })
+    }
+
+    addComponent('السياق المشترك', sharedContext, 6, [
+      'تركيز واهتمامات حالية تمنحكما أرضية حديث قوية.',
+      'توجد نقاط مشتركة جيدة يمكن البناء عليها.',
+      'قد تحتاجان لاكتشاف موضوع مشترك أثناء اللقاء.',
+    ])
+    addComponent('التوافق الدلالي بالذكاء الاصطناعي', aiVibe, 12, [
+      'تقارب واضح في الاهتمامات والطاقة ووصف الشخصية.',
+      'تشابه جيد في الاهتمامات مع مساحة للاكتشاف.',
+      'اهتمامات مختلفة قد تصنع حواراً جديداً أو تحتاج وقتاً.',
+    ])
+    addComponent('الانسجام التفاعلي', interaction, 20, [
+      'انسجام عالٍ في المبادرة وعمق الحديث والراحة مع الصمت.',
+      'إيقاع تفاعل جيد مع فروقات بسيطة قابلة للتنسيق.',
+      'اختلافات ملحوظة في أسلوب التفاعل تحتاج وقتاً للتأقلم.',
+    ])
+    addComponent('الدعابة والانفتاح', humorOpen, 10, [
+      'حس فكاهي متقارب وارتياح جميل للانفتاح المبكر.',
+      'انسجام جيد في الدعابة ومستوى الانفتاح.',
+      'أساليب مزاح أو انفتاح مختلفة تحتاج حساسية متبادلة.',
+    ])
+    addComponent('راحة التقارب', attachment, 8, [
+      'احتياجات متقاربة للقرب والطمأنة والمساحة الشخصية.',
+      'إيقاع تقارب متوازن مع بعض الاختلافات البسيطة.',
+      'احتياجات مختلفة للتقارب تستفيد من الوضوح والصبر.',
+    ])
+    addComponent('نمط الحياة', lifestyle, 12, [
+      'روتين متقارب جداً في التوقيت والتخطيط والأنشطة.',
+      'تشابه جيد في الروتين مع اختلافات بسيطة.',
+      'إيقاعات يومية مختلفة قد تتطلب تنسيقاً.',
+    ])
+    addComponent('القيم والحدود ولغة التعبير', valuesLanguage, 17, [
+      'تقارب قوي في القيم والحدود وطريقة التعبير.',
+      'أساس قيمي جيد مع فروقات يمكن مناقشتها بوضوح.',
+      'اختلافات في الأولويات أو الحدود تحتاج فهماً مبكراً.',
+    ])
+    addComponent('التواصل وإدارة الاختلاف', communication, 10, [
+      'تفاهم سريع وأساليب متقاربة عند التواصل والاختلاف.',
+      'تواصل سهل إجمالاً مع حاجة أحياناً للتوضيح.',
+      'أساليب تواصل مختلفة قد تتطلب مرونة أكبر.',
+    ])
+    addComponent('هدف اللقاء', intent, 5, [
+      'اتجاهات متشابهة بوضوح في هدف اللقاء.',
+      'تقارب معقول في التوقعات والهدف.',
+      'توقعات مختلفة تستفيد من الوضوح المبكر.',
+    ])
+
+    return {
+      components,
+      originalReason: reason || 'تحليل النموذج المتوازن',
+      metrics: {
+        newModel: true,
+        balancedModel: true,
+        synergyScore: interaction,
+        synergyMax: 20,
+        synergyPercent: Math.max(0, Math.min(100, Math.round((interaction / 20) * 100))),
+        sharedContext,
+        sharedContextMax: 6,
+        vibe: aiVibe,
+        vibeMax: 12,
+        lifestyle,
+        lifestyleMax: 12,
+        humorOpen,
+        humorOpenMax: 10,
+        communication,
+        communicationMax: 10,
+        attachment,
+        attachmentMax: 8,
+        valuesLanguage,
+        valuesLanguageMax: 17,
+        intentValues: intent,
+        intentMax: 5,
+      },
     }
   }
 
@@ -851,7 +1179,7 @@ export default function ResultsPage() {
                           {/* Match Analysis */}
                           <div className="rounded-2xl border border-white/[0.07] bg-slate-950/25 p-3 sm:p-4">
                             {(() => {
-                              const formattedReason = formatCompatibilityReason(match.reason || '')
+                              const formattedReason = formatCompatibilityReason(match)
                               if (formattedReason.components.length === 0) {
                                 return (
                                   <div>
@@ -864,16 +1192,8 @@ export default function ResultsPage() {
                                   </div>
                                 )
                               }
-                              // Synergy overview for new model
+                              // Version-aware score overview. Historical rows keep their original budgets.
                               const m = formattedReason.metrics
-                              const percent = (v: number, max: number) => Math.max(0, Math.min(100, Math.round((v / max) * 100)))
-                              const dims = [
-                                { label: 'الطاقة والكيمياء', value: m.vibe, max: 25, bar: 'from-purple-500 to-pink-500' },
-                                { label: 'نمط الحياة', value: m.lifestyle, max: 10, bar: 'from-cyan-500 to-blue-500' },
-                                { label: 'الدعابة/الانفتاح', value: m.humorOpen, max: 15, bar: 'from-amber-500 to-orange-500' },
-                                { label: 'التواصل', value: m.communication, max: 10, bar: 'from-indigo-500 to-sky-500' },
-                                { label: 'الأهداف/القيم', value: m.intentValues, max: 5, bar: 'from-emerald-500 to-teal-500' },
-                              ]
                               return (
                                 <div className="space-y-3">
                                   {(() => {
@@ -888,35 +1208,53 @@ export default function ResultsPage() {
                                     if (!(m?.newModel || hasNumeric)) return null
                                     return (
                                     <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
+                                      <div className={`mb-2 rounded-lg border px-2 py-1 text-[10px] font-bold ${m.balancedModel ? 'border-emerald-400/25 bg-emerald-500/10 text-emerald-300' : m.oppositesModel ? 'border-violet-400/25 bg-violet-500/10 text-violet-300' : 'border-amber-400/25 bg-amber-500/10 text-amber-300'}`}>
+                                        {m.balancedModel ? 'النموذج المتوازن الحالي · لقطة وقت المطابقة' : m.oppositesModel ? 'وضع الأضداد الحالي · لقطة وقت المطابقة · 76→100' : `حسبة تاريخية موروثة${match.score_model_version ? ` · ${match.score_model_version}` : ''}`}
+                                      </div>
                                       {/* Matrix-like detailed criteria with value/max and % */}
                                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                         {(() => {
-                                          const synergyVal = (typeof m.synergyScore === 'number' && m.synergyScore > 0) ? m.synergyScore : (typeof match.synergy_score === 'number' ? match.synergy_score : 0)
-                                          const vibeVal = (typeof m.vibe === 'number' && m.vibe > 0) ? m.vibe : (typeof match.vibe_compatibility_score === 'number' ? match.vibe_compatibility_score : 0)
-                                          const lifestyleVal = (typeof m.lifestyle === 'number' && m.lifestyle > 0) ? m.lifestyle : (typeof match.lifestyle_compatibility_score === 'number' ? match.lifestyle_compatibility_score : 0)
-                                          const humorOpenVal = (typeof m.humorOpen === 'number' && m.humorOpen > 0) ? m.humorOpen : (typeof match.humor_open_score === 'number' ? match.humor_open_score : 0)
-                                          const communicationVal = (typeof m.communication === 'number' && m.communication > 0) ? m.communication : (typeof match.communication_compatibility_score === 'number' ? match.communication_compatibility_score : 0)
-                                          const intentVal = (typeof m.intentValues === 'number' && m.intentValues > 0) ? m.intentValues : (typeof match.intent_score === 'number' ? match.intent_score : 0)
-                                          const synergyMax = m.synergyMax || 35
-                                          const items = [
-                                            { label: 'التفاعل', value: synergyVal, max: synergyMax, bar: 'from-emerald-500 to-teal-500' },
-                                            { label: 'الطاقة', value: vibeVal, max: 25, bar: 'from-purple-500 to-pink-500' },
-                                            { label: 'نمط الحياة', value: lifestyleVal, max: 10, bar: 'from-cyan-500 to-blue-500' },
-                                            { label: 'الدعابة/الانفتاح', value: humorOpenVal, max: 15, bar: 'from-amber-500 to-orange-500' },
-                                            { label: 'التواصل', value: communicationVal, max: 10, bar: 'from-indigo-500 to-sky-500' },
-                                            { label: 'الأهداف', value: intentVal, max: 5, bar: 'from-emerald-500 to-teal-500' }
-                                          ]
+                                          const useParsedValues = m.newModel
+                                          const synergyVal = useParsedValues ? m.synergyScore : (typeof match.synergy_score === 'number' ? match.synergy_score : 0)
+                                          const vibeVal = useParsedValues ? m.vibe : (typeof match.vibe_compatibility_score === 'number' ? match.vibe_compatibility_score : 0)
+                                          const lifestyleVal = useParsedValues ? m.lifestyle : (typeof match.lifestyle_compatibility_score === 'number' ? match.lifestyle_compatibility_score : 0)
+                                          const humorOpenVal = useParsedValues ? m.humorOpen : (typeof match.humor_open_score === 'number' ? match.humor_open_score : 0)
+                                          const communicationVal = useParsedValues ? m.communication : (typeof match.communication_compatibility_score === 'number' ? match.communication_compatibility_score : 0)
+                                          const intentVal = useParsedValues ? m.intentValues : (typeof match.intent_score === 'number' ? match.intent_score : 0)
+                                          const items = m.oppositesModel && m.dimensions
+                                            ? m.dimensions
+                                            : m.balancedModel
+                                            ? [
+                                                { label: 'السياق المشترك', value: m.sharedContext, max: 6, bar: 'from-sky-500 to-cyan-500' },
+                                                { label: 'توافق AI', value: vibeVal, max: 12, bar: 'from-purple-500 to-pink-500' },
+                                                { label: 'التفاعل', value: synergyVal, max: 20, bar: 'from-emerald-500 to-teal-500' },
+                                                { label: 'الدعابة/الانفتاح', value: humorOpenVal, max: 10, bar: 'from-amber-500 to-orange-500' },
+                                                { label: 'راحة التقارب', value: m.attachment, max: 8, bar: 'from-rose-500 to-pink-500' },
+                                                { label: 'نمط الحياة', value: lifestyleVal, max: 12, bar: 'from-cyan-500 to-blue-500' },
+                                                { label: 'القيم/الحدود/اللغة', value: m.valuesLanguage, max: 17, bar: 'from-violet-500 to-indigo-500' },
+                                                { label: 'التواصل/الاختلاف', value: communicationVal, max: 10, bar: 'from-indigo-500 to-sky-500' },
+                                                { label: 'الهدف', value: intentVal, max: 5, bar: 'from-emerald-500 to-teal-500' },
+                                              ]
+                                            : [
+                                                { label: 'التفاعل', value: synergyVal, max: m.synergyMax ?? 35, bar: 'from-emerald-500 to-teal-500' },
+                                                { label: 'الطاقة', value: vibeVal, max: 25, bar: 'from-purple-500 to-pink-500' },
+                                                { label: 'نمط الحياة', value: lifestyleVal, max: 10, bar: 'from-cyan-500 to-blue-500' },
+                                                { label: 'الدعابة/الانفتاح', value: humorOpenVal, max: 15, bar: 'from-amber-500 to-orange-500' },
+                                                { label: 'التواصل', value: communicationVal, max: 10, bar: 'from-indigo-500 to-sky-500' },
+                                                { label: 'الأهداف', value: intentVal, max: 5, bar: 'from-emerald-500 to-teal-500' },
+                                              ]
                                           return items.map(({ label, value, max, bar }, i) => {
-                                            const safeMax = max || 1
+                                            const safeMax = max > 0 ? max : 1
                                             const raw = typeof value === 'number' ? value : 0
-                                            const score = Math.round(raw)
-                                            const pct = Math.max(0, Math.min(100, Math.round((score / safeMax) * 100)))
+                                            const displayScore = Number(raw.toFixed(1))
+                                            const pct = Math.max(0, Math.min(100, Math.round((raw / safeMax) * 100)))
                                             const pctColor = pct >= 80 ? 'text-emerald-400' : pct >= 70 ? 'text-green-400' : pct >= 60 ? 'text-yellow-400' : pct >= 40 ? 'text-orange-400' : 'text-red-400'
                                             return (
                                               <div key={i} className="rounded-lg border border-white/[0.055] bg-slate-950/35 p-2.5">
                                                 <div className="flex items-center justify-between mb-1">
                                                   <span className={`text-[11px] font-semibold ${dark ? 'text-slate-200' : 'text-gray-800'}`}>{label}</span>
                                                   <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] font-mono text-slate-400">{displayScore}/{safeMax}</span>
                                                     <span className={`text-[11px] font-bold ${pctColor}`}>{pct}%</span>
                                                   </div>
                                                 </div>

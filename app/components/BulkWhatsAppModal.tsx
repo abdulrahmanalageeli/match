@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react"
-import { X, Send, Loader2, Users, AlertCircle, CheckCircle2, XCircle, Zap } from "lucide-react"
+import { X, Send, Loader2, Users, AlertCircle, CheckCircle2, XCircle, Zap, RefreshCw } from "lucide-react"
 import { buildMatchTemplateVariables } from "~/utils/twilioTemplateVariables"
 import { getParticipantMatchInsightsCompletion } from "~/lib/matchControl"
 
@@ -9,6 +9,21 @@ interface BulkWhatsAppModalProps {
   selectedParticipants: Set<number>
   participants: any[]
 }
+
+type TemplateSendHistory = Record<string, {
+  count: number
+  lastSentAt: string | null
+  lastStatus: string | null
+}>
+
+type DeliveryStatus = {
+  status: string
+  updatedAt: string | null
+  errorCode: string | null
+  errorMessage: string | null
+}
+
+type DeliveryStatuses = Record<string, DeliveryStatus>
 
 type TemplateType = 'match' | 'reminder' | 'payment' | 'survey_update'
 
@@ -22,17 +37,92 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
   const [result, setResult] = useState<{ successCount: number; failCount: number; skippedCount: number; results: any[] } | null>(null)
   const [error, setError] = useState("")
   const [reviewing, setReviewing] = useState(false)
+  const [sendHistory, setSendHistory] = useState<TemplateSendHistory>({})
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyAvailable, setHistoryAvailable] = useState(false)
+  const [deliveryStatuses, setDeliveryStatuses] = useState<DeliveryStatuses>({})
+  const [deliveryLoading, setDeliveryLoading] = useState(false)
+  const [deliveryError, setDeliveryError] = useState("")
 
   const currentSid = envSids[templateType]
   const selectedList = participants.filter(p => selectedParticipants.has(p.assigned_number))
   const surveyComplete = templateType === 'survey_update'
     ? selectedList.filter(p => getParticipantMatchInsightsCompletion(p).complete)
     : []
-  const targetList = templateType === 'survey_update'
-    ? selectedList.filter(p => !getParticipantMatchInsightsCompletion(p).complete)
-    : selectedList
+  // Survey completion is informational only. Admins can intentionally resend
+  // the update template to any selected participant.
+  const targetList = selectedList
   const eligibleList = targetList.filter(p => p.phone_number)
   const withoutPhone = targetList.filter(p => !p.phone_number)
+  const sentBefore = eligibleList.filter(p => sendHistory[String(p.assigned_number)])
+  const notSentBefore = historyAvailable
+    ? eligibleList.filter(p => !sendHistory[String(p.assigned_number)])
+    : []
+
+  const submittedResults = (result?.results || []).filter((item: any) => item.success && !item.skipped && item.sid)
+  const submittedSids = submittedResults.map((item: any) => String(item.sid))
+  const deliveryStatusFor = (item: any) => deliveryStatuses[String(item.sid)]?.status || item.status || "queued"
+  const deliveredCount = submittedResults.filter((item: any) => ["delivered", "read"].includes(deliveryStatusFor(item))).length
+  const deliveryFailedCount = submittedResults.filter((item: any) => ["failed", "undelivered"].includes(deliveryStatusFor(item))).length
+  const deliveryPendingCount = Math.max(0, submittedResults.length - deliveredCount - deliveryFailedCount)
+
+  const refreshDeliveryStatuses = useCallback(async (messageSids: string[]) => {
+    if (messageSids.length === 0) return null
+    setDeliveryLoading(true)
+    setDeliveryError("")
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "get-twilio-delivery-statuses",
+          messageSids,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.success) throw new Error(data?.error || "Delivery status request failed")
+      setDeliveryStatuses(data.statuses || {})
+      return data.statuses || {}
+    } catch (statusError: any) {
+      console.error("Failed to load Twilio delivery statuses", statusError)
+      setDeliveryError(statusError?.message || "Delivery status unavailable")
+      return null
+    } finally {
+      setDeliveryLoading(false)
+    }
+  }, [])
+
+  const loadSendHistory = useCallback(async (templateSid: string | null) => {
+    if (!isOpen || !templateSid || selectedParticipants.size === 0) {
+      setSendHistory({})
+      setHistoryAvailable(false)
+      return
+    }
+    setHistoryLoading(true)
+    setHistoryAvailable(false)
+    setSendHistory({})
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "get-twilio-template-send-history",
+          templateSid,
+          participantNumbers: Array.from(selectedParticipants),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.success) throw new Error(data?.error || "Send history request failed")
+      setSendHistory(data.history || {})
+      setHistoryAvailable(true)
+    } catch (historyError) {
+      console.error("Failed to load template send history", historyError)
+      setSendHistory({})
+      setHistoryAvailable(false)
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [isOpen, selectedParticipants])
 
   const loadData = useCallback(async () => {
     if (!isOpen) return
@@ -71,6 +161,40 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
       loadData()
     }
   }, [isOpen, loadData])
+
+  useEffect(() => {
+    loadSendHistory(currentSid)
+  }, [currentSid, loadSendHistory])
+
+  useEffect(() => {
+    if (!isOpen || submittedSids.length === 0) {
+      setDeliveryStatuses({})
+      setDeliveryError("")
+      return
+    }
+
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | null = null
+    let attempts = 0
+    const poll = async () => {
+      attempts += 1
+      const statuses = await refreshDeliveryStatuses(submittedSids)
+      if (cancelled || !statuses) return
+      const terminal = new Set(["delivered", "read", "failed", "undelivered"])
+      const allTerminal = submittedSids.every(sid => terminal.has(String(statuses[sid]?.status || "queued").toLowerCase()))
+      // Poll for up to five minutes; late callbacks remain available through
+      // the manual Refresh button.
+      if (!allTerminal && attempts < 60) timer = setTimeout(poll, 5000)
+    }
+    poll()
+
+    return () => {
+      cancelled = true
+      if (timer) clearTimeout(timer)
+    }
+    // The SID list only changes when a new bulk result replaces the old one.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, result, refreshDeliveryStatuses])
 
   const buildVariables = (p: any) => {
     const name = p.name || p.survey_data?.name || `المشارك #${p.assigned_number}`
@@ -116,6 +240,8 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
     }
     setSending(true)
     setResult(null)
+    setDeliveryStatuses({})
+    setDeliveryError("")
     setError("")
     try {
       const variablesMap: Record<string, any> = {}
@@ -138,6 +264,7 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
       if (res.ok && data.success) {
         setResult({ successCount: data.successCount, failCount: data.failCount, skippedCount: data.skippedCount || 0, results: data.results })
         setReviewing(false)
+        await loadSendHistory(currentSid)
       } else {
         setError(data.error || "Bulk send failed")
       }
@@ -203,9 +330,14 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
 
               {surveyComplete.length > 0 && (
                 <div className="rounded-xl bg-blue-500/10 border border-blue-500/25 p-3 text-sm text-blue-300">
-                  {surveyComplete.length} participant{surveyComplete.length === 1 ? '' : 's'} already completed the survey update and will be skipped.
+                  {surveyComplete.length} participant{surveyComplete.length === 1 ? '' : 's'} already completed the survey update. They are still included and can receive it again.
                 </div>
               )}
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-xl bg-violet-500/10 border border-violet-500/25 p-3 text-center"><p className="text-xl font-black text-violet-300">{historyLoading ? '…' : historyAvailable ? sentBefore.length : '—'}</p><p className="text-[10px] text-violet-200/60">Sent this template before</p></div>
+                <div className="rounded-xl bg-slate-500/10 border border-slate-500/25 p-3 text-center"><p className="text-xl font-black text-slate-200">{historyLoading ? '…' : historyAvailable ? notSentBefore.length : '—'}</p><p className="text-[10px] text-slate-300/60">Not sent before</p></div>
+              </div>
 
               <div className="rounded-xl bg-white/5 border border-white/10 p-4 space-y-2">
                 <div className="flex justify-between gap-3 text-sm"><span className="text-white/45">Template</span><span className="text-white font-medium text-right">{templateName}</span></div>
@@ -222,9 +354,11 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
               <div>
                 <p className="text-xs font-semibold text-white/60 mb-2">Recipients</p>
                 <div className="max-h-32 overflow-y-auto rounded-xl border border-white/10 divide-y divide-white/5">
-                  {eligibleList.map(person => <div key={person.assigned_number} className="px-3 py-2 flex justify-between text-xs"><span className="text-white">{person.name || `#${person.assigned_number}`}</span><span className="text-white/40">#{person.assigned_number} · {person.phone_number}</span></div>)}
+                  {eligibleList.map(person => {
+                    const previous = sendHistory[String(person.assigned_number)]
+                    return <div key={person.assigned_number} className="px-3 py-2 flex items-center justify-between gap-3 text-xs"><span className="text-white">{person.name || `#${person.assigned_number}`}</span><span className="text-right"><span className="block text-white/40">#{person.assigned_number} · {person.phone_number}</span><span className={previous ? "text-violet-300" : "text-slate-500"}>{previous ? `Sent before${previous.count > 1 ? ` ×${previous.count}` : ''}${previous.lastStatus ? ` · ${previous.lastStatus}` : ''}${previous.lastSentAt ? ` · ${new Date(previous.lastSentAt).toLocaleString()}` : ''}` : historyAvailable ? 'Not sent before' : historyLoading ? 'Checking send history…' : 'Send history unavailable'}</span></span></div>
+                  })}
                   {withoutPhone.map(person => <div key={person.assigned_number} className="px-3 py-2 flex justify-between text-xs bg-amber-500/5"><span className="text-amber-300">{person.name || `#${person.assigned_number}`}</span><span className="text-amber-500">Skipped · no phone</span></div>)}
-                  {surveyComplete.map(person => <div key={person.assigned_number} className="px-3 py-2 flex justify-between text-xs bg-blue-500/5"><span className="text-blue-300">{person.name || `#${person.assigned_number}`}</span><span className="text-blue-400">Skipped · survey complete</span></div>)}
                 </div>
               </div>
 
@@ -311,9 +445,17 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
             {surveyComplete.length > 0 && (
               <div className="flex items-center justify-between text-sm">
                 <span className="text-white/60">Survey already complete:</span>
-                <span className="text-blue-400 font-medium">{surveyComplete.length} (skipped)</span>
+                <span className="text-blue-400 font-medium">{surveyComplete.length} (included)</span>
               </div>
             )}
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-white/60">Sent this template before:</span>
+              <span className="text-violet-300 font-medium">{historyLoading ? 'Checking…' : historyAvailable ? sentBefore.length : 'Unavailable'}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-white/60">Not sent before:</span>
+              <span className="text-slate-300 font-medium">{historyLoading ? 'Checking…' : historyAvailable ? notSentBefore.length : 'Unavailable'}</span>
+            </div>
           </div>
 
           {/* Error */}
@@ -331,7 +473,7 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
                 <div className="bg-green-900/20 border border-green-600/30 rounded-xl p-3 text-center">
                   <CheckCircle2 className="w-6 h-6 text-green-400 mx-auto mb-1" />
                   <div className="text-2xl font-bold text-green-400">{result.successCount}</div>
-                  <div className="text-xs text-green-300/70">Sent</div>
+                  <div className="text-xs text-green-300/70">Accepted by Twilio</div>
                 </div>
                 <div className="bg-red-900/20 border border-red-600/30 rounded-xl p-3 text-center">
                   <XCircle className="w-6 h-6 text-red-400 mx-auto mb-1" />
@@ -343,15 +485,56 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
                   <div className="text-xs text-amber-300/70">Skipped</div>
                 </div>
               </div>
+
+              {submittedResults.length > 0 && (
+                <div className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-white">Actual delivery status</p>
+                      <p className="text-[11px] text-white/45">Marketing delivery is only confirmed after a delivered/read callback. Pending results auto-refresh every 5 seconds.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => refreshDeliveryStatuses(submittedSids)}
+                      disabled={deliveryLoading}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-[11px] text-white/70 disabled:opacity-40"
+                    >
+                      <RefreshCw className={`h-3.5 w-3.5 ${deliveryLoading ? 'animate-spin' : ''}`} />
+                      Refresh
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/25 p-2 text-center"><p className="text-xl font-black text-emerald-300">{deliveredCount}</p><p className="text-[10px] text-emerald-200/60">Delivered/read</p></div>
+                    <div className="rounded-lg bg-red-500/10 border border-red-500/25 p-2 text-center"><p className="text-xl font-black text-red-300">{deliveryFailedCount + result.failCount}</p><p className="text-[10px] text-red-200/60">Failed</p></div>
+                    <div className="rounded-lg bg-amber-500/10 border border-amber-500/25 p-2 text-center"><p className="text-xl font-black text-amber-300">{deliveryPendingCount}</p><p className="text-[10px] text-amber-200/60">Pending</p></div>
+                  </div>
+
+                  <div className={`rounded-lg border px-3 py-2 text-xs ${deliveryPendingCount === 0 && deliveryFailedCount === 0 && result.failCount === 0 ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : deliveryFailedCount > 0 || result.failCount > 0 ? 'border-red-500/30 bg-red-500/10 text-red-200' : 'border-amber-500/30 bg-amber-500/10 text-amber-200'}`}>
+                    {deliveryPendingCount === 0 && deliveryFailedCount === 0 && result.failCount === 0
+                      ? `All ${submittedResults.length} messages are confirmed delivered.`
+                      : deliveryFailedCount > 0 || result.failCount > 0
+                        ? `${deliveredCount} delivered, ${deliveryFailedCount + result.failCount} failed, ${deliveryPendingCount} still pending.`
+                        : `${deliveryPendingCount} message${deliveryPendingCount === 1 ? ' is' : 's are'} still pending; Twilio acceptance does not guarantee delivery.`}
+                  </div>
+                  {deliveryError && <p className="text-xs text-red-300">{deliveryError}</p>}
+                </div>
+              )}
+
               {result.results.length > 0 && (
                 <div className="max-h-40 overflow-y-auto bg-slate-950/50 rounded-xl p-3 space-y-1">
-                  {result.results.map((r: any, i: number) => (
-                    <div key={i} className={`text-xs flex items-center gap-2 ${r.skipped ? 'text-amber-400' : r.success ? 'text-green-400' : 'text-red-400'}`}>
+                  {result.results.map((r: any, i: number) => {
+                    const delivery = r.sid ? deliveryStatuses[String(r.sid)] : null
+                    const status = String(delivery?.status || r.status || (r.success ? 'accepted' : 'failed')).toLowerCase()
+                    const confirmed = status === 'delivered' || status === 'read'
+                    const failed = status === 'failed' || status === 'undelivered' || !r.success
+                    return (
+                    <div key={i} className={`text-xs flex items-start gap-2 ${r.skipped ? 'text-amber-400' : confirmed ? 'text-green-400' : failed ? 'text-red-400' : 'text-amber-300'}`}>
                       <span>#{r.number}</span>
                       <span className="text-white/50">{r.name}</span>
-                      <span>{r.skipped ? `Skipped: ${r.reason}` : r.success ? '✅' : `❌ ${r.error}`}</span>
+                      <span>{r.skipped ? `Skipped: ${r.reason}` : confirmed ? `✅ ${status}` : failed ? `❌ ${delivery?.errorMessage || r.error || status}${delivery?.errorCode ? ` (${delivery.errorCode})` : ''}` : `⏳ ${status}`}</span>
                     </div>
-                  ))}
+                  )})}
                 </div>
               )}
             </div>

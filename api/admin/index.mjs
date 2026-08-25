@@ -2295,6 +2295,109 @@ export default async function handler(req, res) {
         })
       }
 
+      // Report previous outbound sends for a specific template without
+      // preventing another send. This is informational: admins may resend a
+      // survey update even when it was sent before or the survey is complete.
+      if (action === "get-twilio-template-send-history") {
+        try {
+          const templateSid = String(req.body.templateSid || "").trim()
+          const requestedNumbers = Array.isArray(req.body.participantNumbers)
+            ? req.body.participantNumbers
+            : []
+          const participantNumbers = [...new Set(requestedNumbers
+            .map(number => Number(number))
+            .filter(Number.isFinite))]
+
+          if (!templateSid) return res.status(400).json({ error: "Missing 'templateSid'" })
+          if (participantNumbers.length > 500) {
+            return res.status(400).json({ error: "Send history is limited to 500 participants" })
+          }
+          if (participantNumbers.length === 0) {
+            return res.status(200).json({ success: true, history: {} })
+          }
+
+          const { data: messages, error } = await supabase
+            .from("whatsapp_messages")
+            .select("assigned_number,status,created_at")
+            .eq("direction", "outbound")
+            .eq("template_sid", templateSid)
+            .in("assigned_number", participantNumbers)
+            .order("created_at", { ascending: false })
+            .limit(5000)
+
+          if (error) {
+            console.error("get-twilio-template-send-history error:", error)
+            return res.status(500).json({ error: error.message })
+          }
+
+          const history = {}
+          for (const message of messages || []) {
+            const key = String(message.assigned_number)
+            if (!history[key]) {
+              history[key] = {
+                count: 0,
+                lastSentAt: message.created_at || null,
+                lastStatus: message.status || null,
+              }
+            }
+            history[key].count += 1
+          }
+
+          return res.status(200).json({ success: true, history })
+        } catch (err) {
+          console.error("get-twilio-template-send-history exception:", err)
+          return res.status(500).json({ error: "Failed to fetch template send history" })
+        }
+      }
+
+      // Read the latest callback-backed delivery state for a just-submitted
+      // bulk send. An accepted Twilio API request is not treated as delivered;
+      // only delivered/read callbacks count as confirmed delivery.
+      if (action === "get-twilio-delivery-statuses") {
+        try {
+          const requestedSids = Array.isArray(req.body.messageSids) ? req.body.messageSids : []
+          const messageSids = [...new Set(requestedSids
+            .map(sid => String(sid || "").trim())
+            .filter(Boolean))]
+
+          if (messageSids.length > 500) {
+            return res.status(400).json({ error: "Delivery status lookup is limited to 500 messages" })
+          }
+          if (messageSids.length === 0) {
+            return res.status(200).json({ success: true, statuses: {} })
+          }
+
+          // Keep PostgREST URLs comfortably below proxy limits for a maximum
+          // 500-recipient bulk send.
+          const messages = []
+          for (let offset = 0; offset < messageSids.length; offset += 100) {
+            const { data, error } = await supabase
+              .from("whatsapp_messages")
+              .select("twilio_message_sid,status,status_updated_at,error_code,error_message")
+              .in("twilio_message_sid", messageSids.slice(offset, offset + 100))
+            if (error) {
+              console.error("get-twilio-delivery-statuses error:", error)
+              return res.status(500).json({ error: error.message })
+            }
+            messages.push(...(data || []))
+          }
+
+          const statuses = {}
+          for (const message of messages) {
+            statuses[message.twilio_message_sid] = {
+              status: message.status || "queued",
+              updatedAt: message.status_updated_at || null,
+              errorCode: message.error_code || null,
+              errorMessage: message.error_message || null,
+            }
+          }
+          return res.status(200).json({ success: true, statuses })
+        } catch (err) {
+          console.error("get-twilio-delivery-statuses exception:", err)
+          return res.status(500).json({ error: "Failed to fetch delivery statuses" })
+        }
+      }
+
       // Send WhatsApp message via Twilio API (free-form text or template)
       if (action === "send-twilio-whatsapp") {
         try {
@@ -2576,7 +2679,7 @@ export default async function handler(req, res) {
               const twilioData = await twilioRes.json()
 
               if (twilioRes.ok) {
-                results.push({ number: p.assigned_number, name: p.name, success: true, sid: twilioData.sid })
+                results.push({ number: p.assigned_number, name: p.name, success: true, sid: twilioData.sid, status: twilioData.status || "queued" })
                 successCount++
                 // Log bulk outgoing message
                 try {

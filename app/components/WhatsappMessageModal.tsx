@@ -5,7 +5,6 @@ import { Checkbox } from '../../components/ui/checkbox';
 import { Check, Copy, MessageSquare, X, Clock, Info, HelpCircle, Settings, FileText, Send, Zap, Users } from 'lucide-react';
 import { buildMatchTemplateVariables } from '~/utils/twilioTemplateVariables';
 import { formatRiyadhCutoffLabel } from '~/utils/formatRiyadhCutoffLabel';
-import { getParticipantMatchInsightsCompletion } from '~/lib/matchControl';
 
 interface WhatsappMessageModalProps {
   participant: any;
@@ -424,9 +423,7 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
       setTwilioResult({ success: false, msg: 'أدخل Template SID أولاً' });
       return;
     }
-    const eligible = allParticipants.filter(p => (
-      p.phone_number && (templateTypeTwilio !== 'survey_update' || !getParticipantMatchInsightsCompletion(p).complete)
-    ));
+    const eligible = allParticipants.filter(p => p.phone_number);
     if (eligible.length === 0) {
       setTwilioResult({ success: false, msg: 'لا يوجد مشاركون بأرقام هاتف' });
       return;
@@ -1064,7 +1061,7 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
                 {templateTypeTwilio === 'reminder' && '5 متغيرات — تأكيد/اعتذار'}
                 {templateTypeTwilio === 'payment' && '7 متغيرات — تأكيد/اعتذار'}
                 {templateTypeTwilio === 'match_cancellation' && 'متغير واحد — اسم المشارك، مع خياري الاسترداد أو الفعالية القادمة'}
-                {templateTypeTwilio === 'survey_update' && 'متغير واحد — اسم المشارك. الإرسال الجماعي يستهدف تلقائياً من لم يكملوا الأسئلة الجديدة.'}
+                {templateTypeTwilio === 'survey_update' && 'متغير واحد — اسم المشارك. يمكنك إعادة الإرسال حتى لو أكمل المشارك الأسئلة.'}
               </p>
             </div>
           )}
@@ -1076,7 +1073,7 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
                 className="bg-orange-600 hover:bg-orange-700 text-white text-sm disabled:opacity-50"
               >
                 {bulkSending ? <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2" /> : <Users className="w-4 h-4 mr-2" />}
-                {bulkSending ? 'جارٍ الإرسال الجماعي...' : `إرسال جماعي (${allParticipants.filter(p => p.phone_number && (templateTypeTwilio !== 'survey_update' || !getParticipantMatchInsightsCompletion(p).complete)).length})`}
+                {bulkSending ? 'جارٍ الإرسال الجماعي...' : `إرسال جماعي (${allParticipants.filter(p => p.phone_number).length})`}
               </Button>
             </div>
           )}

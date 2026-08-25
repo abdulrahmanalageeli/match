@@ -4667,7 +4667,7 @@ Proceed?`
       let totalAlreadyCached = 0
       let totalSkipped = 0
       let totalErrors = 0
-      let totalPairsProcessed = 0
+      let totalPairsScanned = 0
       let totalAiCalls = 0
       let totalReusedVibe = 0
       let totalDeltaPairs = 0
@@ -4706,7 +4706,7 @@ Proceed?`
                 resumeCursor,
                 maxDurationMs: 8000,
                 maxNewCachesPerRequest: forceNoAI ? 25 : 6,
-                maxPairsPerRequest: 250,
+                maxPairsPerRequest: 20000,
               }),
             })
           } finally {
@@ -4740,7 +4740,7 @@ Proceed?`
           totalAlreadyCached += data.already_cached || 0
           totalSkipped += data.skipped || 0
           totalErrors += data.errors || 0
-          totalPairsProcessed += data.pairs_processed || 0
+          totalPairsScanned += data.pairs_processed || 0
           totalAiCalls += data.ai_calls_made || 0
           totalReusedVibe += data.reused_vibe_count || 0
           participantsNeedingCache = data.participants_needing_cache || 0
@@ -4754,7 +4754,7 @@ Proceed?`
           }
 
           const completedPairs = totalDeltaPairs > 0
-            ? Math.min(totalPairsProcessed, totalDeltaPairs)
+            ? Math.min(totalPairsScanned, totalDeltaPairs)
             : 0
           const percent = totalDeltaPairs > 0
             ? Math.min(100, Math.round((completedPairs / totalDeltaPairs) * 100))
@@ -6470,7 +6470,7 @@ Proceed?`
 
                     <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-slate-300 sm:grid-cols-4 lg:grid-cols-8">
                       <span>Batch <strong className="text-white">{deltaCacheProgress.batch}</strong></span>
-                      <span>Pairs <strong className="text-white">{deltaCacheProgress.pairsCompleted}/{deltaCacheProgress.totalPairs}</strong></span>
+                      <span>Scanned <strong className="text-white">{deltaCacheProgress.pairsCompleted}/{deltaCacheProgress.totalPairs}</strong></span>
                       <span>Cached <strong className="text-emerald-300">{deltaCacheProgress.newlyCached}</strong></span>
                       <span>Exact hits <strong className="text-cyan-200">{deltaCacheProgress.cacheHits}</strong></span>
                       <span>Vibe reused <strong className="text-violet-300">{deltaCacheProgress.reusedVibe}</strong></span>

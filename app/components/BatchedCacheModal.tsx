@@ -120,7 +120,7 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
             batchSize: 10,
             resumeCursor,
             maxDurationMs: 3500,
-            maxPairsPerRequest: 2500,
+            maxPairsPerRequest: 20000,
           }),
         })
 
@@ -212,6 +212,7 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
             batchSize,
             resumeCursor,
             skipAI: false,
+            maxPairsPerRequest: 20000,
             priorErrors: cumulativeErrors,
           }),
         })
@@ -512,7 +513,7 @@ function SideCard({
           <Stat label="Cache Hits" value={state.runStats.already_cached} small />
           <Stat label="Skipped" value={state.runStats.skipped} small />
           <Stat label="Errors" value={state.runStats.errors} tone={state.runStats.errors > 0 ? "err" : undefined} small />
-          <Stat label="Pairs Processed" value={state.runStats.pairs_processed} small />
+          <Stat label="Pairs Scanned" value={state.runStats.pairs_processed} small />
           <Stat label="Elapsed" value={formatDuration(elapsed)} small />
         </div>
       )}

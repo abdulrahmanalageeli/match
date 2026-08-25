@@ -71,6 +71,34 @@ test('bulk cache usage RPC is atomic and restricted to the service role', async 
   assert.match(sql, /grant execute[^;]+to service_role/)
 })
 
+test('batched pre-cache scans up to 20k cheap pairs without consuming the new-cache budget', async () => {
+  const [source, modalSource, adminSource] = await Promise.all([
+    read('api/admin/trigger-match.mjs'),
+    read('app/components/BatchedCacheModal.tsx'),
+    read('app/routes/admin.tsx'),
+  ])
+  const full = between(source, 'if (action === "cache-pairs-batched")', '// CACHE STATUS BY GENDER MODE')
+  const delta = between(source, 'if (action === "delta-pre-cache-batched")', 'if (action === "recalc-vibe")')
+
+  for (const scope of [full, delta]) {
+    assert.match(scope, /const effectiveMaxPairsScanned[\s\S]+\|\| 20000[\s\S]+20000/)
+    assert.match(scope, /let pairsScanned = 0/)
+    assert.match(scope, /let cacheJobsStarted = 0/)
+    assert.match(scope, /pairsScanned >= effectiveMaxPairsScanned/)
+    assert.match(scope, /cacheJobsStarted >= effectiveMaxNewCaches/)
+    assert.match(scope, /pairs_processed: pairsScanned/)
+    assert.match(scope, /cache_jobs_started: cacheJobsStarted/)
+    assert.doesNotMatch(scope, /cacheUsageTouches|touchFullCacheHits|touchPrefetchedCacheRows/)
+  }
+
+  assert.match(full, /if \(exactCacheRow\) \{[\s\S]*alreadyCached\+\+[\s\S]*continue[\s\S]*\}/)
+  assert.match(delta, /if \(exactCacheRow\) \{[\s\S]*alreadyCached\+\+[\s\S]*continue[\s\S]*\}/)
+  assert.match(modalSource, /maxPairsPerRequest: 20000/)
+  assert.match(modalSource, /label="Pairs Scanned"/)
+  assert.match(adminSource, /action: "delta-pre-cache-batched"[\s\S]*maxPairsPerRequest: 20000/)
+  assert.match(adminSource, /<span>Scanned <strong/)
+})
+
 test('manual stale-cache audit cannot delete immutable compatibility history', async () => {
   const source = await read('api/admin/index.mjs')
   const block = between(source, 'if (action === "invalidate-stale-cache")', 'if (action === "get-participant-bonus-data")')

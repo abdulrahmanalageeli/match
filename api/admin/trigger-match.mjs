@@ -4062,10 +4062,13 @@ export default async function handler(req, res) {
         )
       )
 
-      const effectiveMaxPairs = Math.max(
+      // Scanning an already-cached or hard-gated pair is cheap. Keep that
+      // ceiling independent from the much smaller new-cache/OpenAI budget so a
+      // request can move quickly across dense cached regions.
+      const effectiveMaxPairsScanned = Math.max(
         25,
         Math.min(
-          parseInt(maxPairsPerRequest) || (skipAI ? 1500 : 250),
+          parseInt(maxPairsPerRequest) || 20000,
           20000
         )
       )
@@ -4104,12 +4107,11 @@ export default async function handler(req, res) {
       let alreadyCached = 0
       let skipped = 0
       let errors = 0
-      let pairsProcessed = 0
+      let pairsScanned = 0
       let cacheJobsStarted = 0
       let aiCallsMade = 0
       let reusedVibeCount = 0
       const failureDetails = []
-      const cacheUsageTouches = []
 
       const isValidCursor = (c) => c && Number.isInteger(c.i) && Number.isInteger(c.j)
       let cursorI = isValidCursor(resumeCursor) ? resumeCursor.i : safeStart
@@ -4155,26 +4157,6 @@ export default async function handler(req, res) {
         })
       }
 
-      const touchFullCacheHits = async () => {
-        const chunkSize = 20
-        for (let start = 0; start < cacheUsageTouches.length; start += chunkSize) {
-          const chunk = cacheUsageTouches.slice(start, start + chunkSize)
-          const results = await Promise.all(chunk.map(async cacheRow => {
-            const { error: touchError } = await supabase
-              .from('compatibility_cache')
-              .update({
-                last_used: new Date().toISOString(),
-                use_count: Number(cacheRow.use_count || 0) + 1,
-              })
-              .eq('id', cacheRow.id)
-            return touchError
-          }))
-          results.filter(Boolean).forEach(touchError => {
-            console.warn('Batched cache usage-stat update failed (non-fatal):', touchError?.message || touchError)
-          })
-        }
-      }
-
       // Outer loop: only the slice of participants assigned to this batch.
       // Inner loop: every j > i (entire remaining pool) — guarantees no
       // duplicate work across batches because each unique pair (i, j) with i<j
@@ -4185,11 +4167,11 @@ export default async function handler(req, res) {
         for (let j = jStart; j < totalParticipants; j++) {
           const p1 = participants[i]
           const p2 = participants[j]
-          if (pairsProcessed >= effectiveMaxPairs || (Date.now() - startTime) >= effectiveMaxDurationMs) {
+          if (pairsScanned >= effectiveMaxPairsScanned || (Date.now() - startTime) >= effectiveMaxDurationMs) {
             nextResumeCursor = { i, j }
             break outerLoop
           }
-          pairsProcessed++
+          pairsScanned++
 
           // Gender check (mode-aware)
           if (!checkGenderCompatibility(p1, p2, forcedGenderMode)) { skipped++; continue }
@@ -4205,7 +4187,6 @@ export default async function handler(req, res) {
             const exactCacheRow = exactCacheMap.get(`${smaller}-${larger}-${cacheKey.combinedHash}-${cacheKey.vibeHash}`)
             if (exactCacheRow) {
               alreadyCached++
-              cacheUsageTouches.push(exactCacheRow)
               continue
             }
 
@@ -4260,7 +4241,6 @@ export default async function handler(req, res) {
       }
 
       await flushFullCacheJobs()
-      await touchFullCacheHits()
 
       if (nextResumeCursor && nextResumeCursor.i >= endExclusive) {
         nextResumeCursor = null
@@ -4271,7 +4251,7 @@ export default async function handler(req, res) {
       const safePriorErrors = Math.max(0, Number.parseInt(priorErrors) || 0)
       const cumulativeErrors = safePriorErrors + errors
 
-      console.log(`💾 BATCH CACHE [${genderMode}] COMPLETE: processed=${pairsProcessed}, newly=${newlyCached}, already=${alreadyCached}, skipped=${skipped}, errors=${errors}`)
+      console.log(`💾 BATCH CACHE [${genderMode}] COMPLETE: scanned=${pairsScanned}, cacheJobs=${cacheJobsStarted}, newly=${newlyCached}, already=${alreadyCached}, skipped=${skipped}, errors=${errors}`)
 
       // IMPORTANT:
       // Batched caching can fully refresh the cache, but without updating cache_metadata
@@ -4296,7 +4276,7 @@ export default async function handler(req, res) {
             p_pairs_cached: coverageVerification.eligiblePairs,
             p_duration_ms: durationMs,
             p_ai_calls: aiCallsMade,
-            p_cache_hit_rate: pairsProcessed > 0 ? parseFloat(((alreadyCached / pairsProcessed) * 100).toFixed(2)) : 0,
+            p_cache_hit_rate: pairsScanned > 0 ? parseFloat(((alreadyCached / pairsScanned) * 100).toFixed(2)) : 0,
             p_notes: `Batched pre-cache (${genderMode}) complete: participants=${totalParticipants}`,
             p_score_model_version: COMPATIBILITY_SCORE_VERSION,
           })
@@ -4328,7 +4308,8 @@ export default async function handler(req, res) {
           skipped,
           errors,
           failures: failureDetails,
-          pairs_processed: pairsProcessed,
+          pairs_processed: pairsScanned,
+          cache_jobs_started: cacheJobsStarted,
           ai_calls_made: aiCallsMade,
           cache_rows_prefetched: prefetchedCacheRows?.length || 0,
           duration_ms: durationMs,
@@ -5010,20 +4991,21 @@ if (action === "cache-status-by-gender") {
 
       // Step 5: Batch processing with resumeCursor
       const effectiveMaxDurationMs = Math.max(1000, Math.min(parseInt(maxDurationMs) || 8000, 9000))
-      // This limit protects the slow external-AI path. Reused vibe scores are
-      // deterministic local work and do not consume an AI slot.
-      const effectiveMaxAiCalls = Math.max(1, Math.min(parseInt(maxNewCachesPerRequest) || (skipAI ? 25 : 16), skipAI ? 500 : 25))
-      const effectiveMaxPairs = Math.max(25, Math.min(parseInt(maxPairsPerRequest) || (skipAI ? 1500 : 250), 20000))
+      // Keep the cheap scan budget separate from the number of new rows this
+      // request may create. Cached and hard-gated pairs can therefore be skipped
+      // rapidly without consuming the slow-work budget.
+      const effectiveMaxNewCaches = Math.max(1, Math.min(parseInt(maxNewCachesPerRequest) || (skipAI ? 25 : 16), skipAI ? 500 : 25))
+      const effectiveMaxPairsScanned = Math.max(25, Math.min(parseInt(maxPairsPerRequest) || 20000, 20000))
 
       let newlyCached = 0
       let alreadyCached = 0
       let skipped = 0
       let errors = 0
-      let pairsProcessed = 0
+      let pairsScanned = 0
+      let cacheJobsStarted = 0
       let aiCallsMade = 0
       let reusedVibeCount = 0
       const failureDetails = []
-      const cacheUsageTouches = []
 
       let cursorI = isValidCursor(resumeCursor) ? resumeCursor.i : 0
       let cursorJ = isValidCursor(resumeCursor) ? resumeCursor.j : (cursorI + 1)
@@ -5070,26 +5052,6 @@ if (action === "cache-status-by-gender") {
         })
       }
 
-      const touchPrefetchedCacheRows = async () => {
-        const chunkSize = 20
-        for (let start = 0; start < cacheUsageTouches.length; start += chunkSize) {
-          const chunk = cacheUsageTouches.slice(start, start + chunkSize)
-          const results = await Promise.all(chunk.map(async cacheRow => {
-            const { error: touchError } = await supabase
-              .from('compatibility_cache')
-              .update({
-                last_used: new Date().toISOString(),
-                use_count: Number(cacheRow.use_count || 0) + 1,
-              })
-              .eq('id', cacheRow.id)
-            return touchError
-          }))
-          results.filter(Boolean).forEach(touchError => {
-            console.warn('Delta cache usage-stat update failed (non-fatal):', touchError?.message || touchError)
-          })
-        }
-      }
-
       outerLoop:
       for (let i = cursorI; i < totalParticipants; i++) {
         const jStart = (i === cursorI) ? Math.max(cursorJ, i + 1) : (i + 1)
@@ -5102,11 +5064,11 @@ if (action === "cache-status-by-gender") {
             continue
           }
 
-          if (pairsProcessed >= effectiveMaxPairs || (Date.now() - startTime) >= effectiveMaxDurationMs) {
+          if (pairsScanned >= effectiveMaxPairsScanned || (Date.now() - startTime) >= effectiveMaxDurationMs) {
             nextResumeCursor = { i, j }
             break outerLoop
           }
-          pairsProcessed++
+          pairsScanned++
 
           // Gender check
           if (!checkGenderCompatibility(p1, p2)) { skipped++; continue }
@@ -5122,8 +5084,12 @@ if (action === "cache-status-by-gender") {
             const exactCacheRow = exactCacheMap.get(`${smaller}-${larger}-${cacheKey.combinedHash}-${cacheKey.vibeHash}`)
             if (exactCacheRow) {
               alreadyCached++
-              cacheUsageTouches.push(exactCacheRow)
               continue
+            }
+
+            if (cacheJobsStarted >= effectiveMaxNewCaches) {
+              nextResumeCursor = { i, j }
+              break outerLoop
             }
 
             const reusableVibeRow = reusableVibeMap.get(`${smaller}-${larger}-${cacheKey.vibeHash}`)
@@ -5152,13 +5118,14 @@ if (action === "cache-status-by-gender") {
                 calculationOptions,
               ),
             })
+            cacheJobsStarted++
             if (usesAI) aiCallsMade++
 
-            if (pendingCacheJobs.length >= maxConcurrentCacheWrites || aiCallsMade >= effectiveMaxAiCalls) {
+            if (pendingCacheJobs.length >= maxConcurrentCacheWrites) {
               await flushPendingCacheJobs()
             }
 
-            if (aiCallsMade >= effectiveMaxAiCalls || (Date.now() - startTime) >= effectiveMaxDurationMs) {
+            if (cacheJobsStarted >= effectiveMaxNewCaches || (Date.now() - startTime) >= effectiveMaxDurationMs) {
               nextResumeCursor = makeNextCursor(i, j)
               break outerLoop
             }
@@ -5181,12 +5148,11 @@ if (action === "cache-status-by-gender") {
       }
 
       await flushPendingCacheJobs()
-      await touchPrefetchedCacheRows()
 
       const hasMore = !!nextResumeCursor
       const durationMs = Date.now() - startTime
 
-      console.log(`💾 DELTA BATCH CACHE: processed=${pairsProcessed}, newly=${newlyCached}, already=${alreadyCached}, skipped=${skipped}, errors=${errors}, hasMore=${hasMore}`)
+      console.log(`💾 DELTA BATCH CACHE: scanned=${pairsScanned}, cacheJobs=${cacheJobsStarted}, newly=${newlyCached}, already=${alreadyCached}, skipped=${skipped}, errors=${errors}, hasMore=${hasMore}`)
 
       // Only update cache_metadata when the entire delta run is complete
       let metadataUpdated = null
@@ -5205,7 +5171,7 @@ if (action === "cache-status-by-gender") {
             p_pairs_cached: coverageVerification.eligiblePairs,
             p_duration_ms: durationMs,
             p_ai_calls: aiCallsMade,
-            p_cache_hit_rate: pairsProcessed > 0 ? parseFloat(((alreadyCached / pairsProcessed) * 100).toFixed(2)) : 0,
+            p_cache_hit_rate: pairsScanned > 0 ? parseFloat(((alreadyCached / pairsScanned) * 100).toFixed(2)) : 0,
             p_notes: `Delta batched cache: ${participantsNeedingCache.length} participants updated since ${lastCacheTimestamp}`,
             p_score_model_version: COMPATIBILITY_SCORE_VERSION,
           })
@@ -5233,7 +5199,8 @@ if (action === "cache-status-by-gender") {
         participants_needing_cache: participantsNeedingCache.length,
         reason_counts: reasonCounts,
         total_eligible: totalParticipants,
-        pairs_processed: pairsProcessed,
+        pairs_processed: pairsScanned,
+        cache_jobs_started: cacheJobsStarted,
         ai_calls_made: aiCallsMade,
         cache_rows_prefetched: prefetchedCacheRows?.length || 0,
         metadata_updated: metadataUpdated,

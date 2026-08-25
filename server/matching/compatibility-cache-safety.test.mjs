@@ -43,6 +43,34 @@ test('every individual cache and vibe-retry scope excludes pairs blocked by the 
   }
 })
 
+test('match generation hydrates exact snapshots and bulk-touches cache usage once', async () => {
+  const source = await read('api/admin/trigger-match.mjs')
+  const block = between(source, '// Calculate MBTI-based compatibility for all pairs', '// Log completion summary')
+  const exactHit = between(block, 'if (cachedData) {', '} else if (reusableVibeData) {')
+  const participantView = between(source, '// Calculate compatibility with all hard-gate-compatible potential matches', '// Sort by uncapped priority')
+
+  assert.match(exactHit, /hydrateBalancedCompatibilityFromCacheRow\(cachedData\)/)
+  assert.match(exactHit, /cacheUsageIds\.add\(cachedData\.id\)/)
+  assert.doesNotMatch(exactHit, /\.update\s*\(/)
+  assert.match(block, /await touchCompatibilityCacheUsage\(cacheUsageIds\)/)
+  assert.match(participantView, /hydrateBalancedCompatibilityFromCacheRow\(cachedData\)/)
+  assert.match(participantView, /viewCacheUsageIds\.add\(cachedData\.id\)/)
+  assert.doesNotMatch(participantView, /\.update\s*\(/)
+  assert.match(participantView, /await touchCompatibilityCacheUsage\(viewCacheUsageIds\)/)
+})
+
+test('bulk cache usage RPC is atomic and restricted to the service role', async () => {
+  const sql = await read('supabase/migrations/20260825165932_bulk_touch_compatibility_cache_usage.sql')
+
+  assert.match(sql, /use_count = coalesce\(use_count, 0\) \+ 1/)
+  assert.match(sql, /where id = any\(/)
+  assert.match(sql, /security invoker/)
+  assert.match(sql, /revoke execute[^;]+from public/)
+  assert.match(sql, /revoke execute[^;]+from anon/)
+  assert.match(sql, /revoke execute[^;]+from authenticated/)
+  assert.match(sql, /grant execute[^;]+to service_role/)
+})
+
 test('manual stale-cache audit cannot delete immutable compatibility history', async () => {
   const source = await read('api/admin/index.mjs')
   const block = between(source, 'if (action === "invalidate-stale-cache")', 'if (action === "get-participant-bonus-data")')

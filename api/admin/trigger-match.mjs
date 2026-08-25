@@ -27,6 +27,7 @@ import {
   createNeutralVibeAxes,
   decodeBalancedVibeModelUsed,
   encodeBalancedVibeModelUsed,
+  hydrateBalancedCompatibilityFromCacheRow,
   isBalancedVibeModelUsed,
   isReusableBalancedVibeRow,
   normalizeBalancedVibeAxes,
@@ -544,6 +545,26 @@ function computeOppositesFlippedScore(components) {
 
 // Preview guard to skip ALL DB writes in non-mutating flows
 let SKIP_DB_WRITES = false
+
+async function touchCompatibilityCacheUsage(cacheIds) {
+  if (SKIP_DB_WRITES) return { touched: 0, skipped: true }
+  const ids = [...new Set(Array.from(cacheIds || []).filter(Boolean))]
+  if (ids.length === 0) return { touched: 0, skipped: true }
+
+  try {
+    const { data, error } = await supabase.rpc('touch_compatibility_cache_rows', {
+      p_ids: ids,
+    })
+    if (error) {
+      console.warn(`⚠️ Bulk cache usage touch failed for ${ids.length} rows (non-fatal): ${error.message || error.code}`)
+      return { touched: 0, error }
+    }
+    return { touched: Number(data) || 0, skipped: false }
+  } catch (error) {
+    console.warn(`⚠️ Bulk cache usage touch failed for ${ids.length} rows (non-fatal): ${error?.message || error}`)
+    return { touched: 0, error }
+  }
+}
 
 // Forced gender mode for round-based matching (overrides participant gender preferences)
 //   null              → respect participant preferences (legacy behavior)
@@ -1551,15 +1572,7 @@ async function getCachedCompatibility(participantA, participantB, options = {}) 
         return null
       }
 
-      if (!SKIP_DB_WRITES && !skipUsageUpdate) {
-        await supabase
-          .from('compatibility_cache')
-          .update({
-            last_used: new Date().toISOString(),
-            use_count: (data.use_count || 0) + 1,
-          })
-          .eq('id', data.id)
-      }
+      if (!skipUsageUpdate) await touchCompatibilityCacheUsage([data.id])
 
       console.log(`🎯 Cache HIT: #${smaller}-#${larger} (used ${(data.use_count || 0) + 1} times)`)
       const vibeScore = normalizeCachedVibeScore(
@@ -1568,8 +1581,9 @@ async function getCachedCompatibility(participantA, participantB, options = {}) 
       )
       const vibeAxes = getCachedBalancedVibeAxes(data)
       const fallbackReason = getCachedVibeFallbackReason(data)
+      const hydrated = hydrateBalancedCompatibilityFromCacheRow(data)
       const result = {
-        ...calculateBalancedCompatibility(participantA, participantB, { vibeScore, vibeAxes }),
+        ...(hydrated || calculateBalancedCompatibility(participantA, participantB, { vibeScore, vibeAxes })),
         bonusType: 'none',
         humorClashDetected: hasHumorStyleClash(participantA, participantB),
         aiVibeCacheable: true,
@@ -1577,6 +1591,7 @@ async function getCachedCompatibility(participantA, participantB, options = {}) 
         cacheModelUsed: data.model_used,
         scoreModelVersion: COMPATIBILITY_SCORE_VERSION,
         cached: true,
+        hydratedFromCacheSnapshot: !!hydrated,
       }
       result.scoreSnapshot = buildBalancedScoreSnapshot(result, {
         combinedContentHash: cacheKey.combinedHash,
@@ -5761,6 +5776,7 @@ if (action === "cache-status-by-gender") {
       let cacheHits = 0
       let cacheMisses = 0
       let aiCalls = 0
+      const viewCacheUsageIds = new Set()
       
       for (const potentialMatch of hardGateCompatibleMatches) {
         try {
@@ -5777,34 +5793,29 @@ if (action === "cache-status-by-gender") {
           if (cachedData) {
             // Cache HIT - use pre-loaded data
             cacheHits++
+            viewCacheUsageIds.add(cachedData.id)
             const cachedVibeScore = normalizeCachedVibeScore(
               cachedData.ai_vibe_score,
               getCachedVibeSourceMax(cachedData, targetParticipant, potentialMatch),
             )
+            const hydrated = hydrateBalancedCompatibilityFromCacheRow(cachedData)
             compatibilityResult = {
-              ...calculateBalancedCompatibility(targetParticipant, potentialMatch, {
-                vibeScore: cachedVibeScore,
-                vibeAxes: getCachedBalancedVibeAxes(cachedData),
-              }),
+              ...(hydrated || calculateBalancedCompatibility(targetParticipant, potentialMatch, {
+                  vibeScore: cachedVibeScore,
+                  vibeAxes: getCachedBalancedVibeAxes(cachedData),
+                })),
               bonusType: 'none',
               humorClashDetected: hasHumorStyleClash(targetParticipant, potentialMatch),
               aiVibeCacheable: true,
               aiVibeFallbackReason: getCachedVibeFallbackReason(cachedData),
               cacheModelUsed: cachedData.model_used,
               cached: true,
+              hydratedFromCacheSnapshot: !!hydrated,
             }
-            
-            // Update cache usage statistics in background (don't await) - skip in preview
-            if (!SKIP_DB_WRITES) {
-              supabase
-                .from('compatibility_cache')
-                .update({ 
-                  last_used: new Date().toISOString(),
-                  use_count: cachedData.use_count + 1 
-                })
-                .eq('id', cachedData.id)
+            if (!hydrated) {
+              storeCachedCompatibility(targetParticipant, potentialMatch, compatibilityResult)
                 .then(() => {})
-                .catch(err => console.error('Cache update error:', err))
+                .catch(err => console.error('Cache repair error:', err))
             }
           } else {
             // Cache MISS - calculate fresh
@@ -5921,6 +5932,8 @@ if (action === "cache-status-by-gender") {
           // Continue with other matches even if one fails
         }
       }
+
+      await touchCompatibilityCacheUsage(viewCacheUsageIds)
       
       // Sort by uncapped priority so two strong 100% display scores do not tie.
       calculatedPairs.sort((a, b) => b.priority_score - a.priority_score)
@@ -7092,6 +7105,7 @@ if (action === "cache-status-by-gender") {
     let cacheMisses = 0
     let reusedVibeScores = 0
     let aiCalls = 0
+    const cacheUsageIds = new Set()
     
     let processedPairs = 0
     let skippedGender = 0
@@ -7210,6 +7224,7 @@ if (action === "cache-status-by-gender") {
         if (cachedData) {
           // Cache HIT - use pre-loaded data
           cacheHits++
+          cacheUsageIds.add(cachedData.id)
           if (cacheHits % 10 === 0) {
             console.log(`💾 Cache hit #${cacheHits}: #${a.assigned_number}×#${b.assigned_number}`)
           }
@@ -7217,29 +7232,25 @@ if (action === "cache-status-by-gender") {
             cachedData.ai_vibe_score,
             getCachedVibeSourceMax(cachedData, a, b),
           )
+          const hydrated = hydrateBalancedCompatibilityFromCacheRow(cachedData)
           compatibilityResult = {
-            ...calculateBalancedCompatibility(a, b, {
-              vibeScore: cachedVibeScore,
-              vibeAxes: getCachedBalancedVibeAxes(cachedData),
-            }),
+            ...(hydrated || calculateBalancedCompatibility(a, b, {
+                vibeScore: cachedVibeScore,
+                vibeAxes: getCachedBalancedVibeAxes(cachedData),
+              })),
             bonusType: 'none',
             humorClashDetected: hasHumorStyleClash(a, b),
             aiVibeCacheable: true,
             aiVibeFallbackReason: getCachedVibeFallbackReason(cachedData),
             cacheModelUsed: cachedData.model_used,
             cached: true,
+            hydratedFromCacheSnapshot: !!hydrated,
           }
-          // Update cache usage statistics in background (don't await)
-          if (!SKIP_DB_WRITES) {
-            supabase
-              .from('compatibility_cache')
-              .update({ 
-                last_used: new Date().toISOString(),
-                use_count: cachedData.use_count + 1 
-              })
-              .eq('id', cachedData.id)
+          if (!hydrated) {
+            console.warn(`⚠️ Exact cache row #${a.assigned_number}×#${b.assigned_number} had an incomplete snapshot; recalculated locally`)
+            storeCachedCompatibility(a, b, compatibilityResult)
               .then(() => {})
-              .catch(err => console.error('Cache update error:', err))
+              .catch(err => console.error('Cache repair error:', err))
           }
         } else if (reusableVibeData) {
           // The participant's AI profile text is identical; only deterministic
@@ -7450,6 +7461,11 @@ if (action === "cache-status-by-gender") {
         // Continue with next pair instead of crashing
         continue
       }
+    }
+
+    const cacheUsageTouch = await touchCompatibilityCacheUsage(cacheUsageIds)
+    if (!cacheUsageTouch.skipped) {
+      console.log(`💾 Bulk-touched ${cacheUsageTouch.touched}/${cacheUsageIds.size} cache usage rows`)
     }
     
     // Log completion summary

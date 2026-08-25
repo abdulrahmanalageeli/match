@@ -590,6 +590,159 @@ export function buildBalancedScoreSnapshot(result, { combinedContentHash = null 
   return deepFreezeJson(snapshot)
 }
 
+const BALANCED_BREAKDOWN_QUESTION_GROUPS = Object.freeze({
+  sharedContext: Object.freeze(['currentFocus', 'similarityPreference']),
+  interactionRhythm: Object.freeze(['initiative', 'conversationDepth', 'socialBattery', 'humorSubtype', 'curiosityStyle', 'silence']),
+  humorOpenness: Object.freeze(['humorBanter', 'earlyOpenness']),
+  attachmentComfort: Object.freeze(['attachment1', 'attachment3', 'attachment4']),
+  lifestyleSustainability: Object.freeze(['lifestyle1', 'lifestyle2', 'lifestyle3', 'lifestyle4', 'lifestyle5']),
+  valuesBoundaries: Object.freeze(['core1', 'core2', 'core3', 'core4', 'core5', 'religion', 'socialStyle']),
+  communicationDisagreement: Object.freeze(['communication1', 'communication2', 'communication3', 'communication4', 'communication5', 'disagreement']),
+})
+
+function parseJsonObject(value) {
+  if (typeof value === 'string') {
+    try {
+      value = JSON.parse(value)
+    } catch {
+      return null
+    }
+  }
+  return isPlainJsonObject(value) ? value : null
+}
+
+function nearlyEqual(left, right, tolerance = 1e-6) {
+  return Number.isFinite(Number(left))
+    && Number.isFinite(Number(right))
+    && Math.abs(Number(left) - Number(right)) <= tolerance
+}
+
+/**
+ * Hydrate a complete balanced result from an exact, versioned cache row.
+ * Returns null when any persisted component is missing or inconsistent so the
+ * caller can safely recalculate and repair that row instead.
+ */
+export function hydrateBalancedCompatibilityFromCacheRow(cacheRow) {
+  if (cacheRow?.score_model_version !== BALANCED_COMPATIBILITY_VERSION) return null
+  if (cacheRow?.vibe_model_version !== BALANCED_VIBE_VERSION) return null
+  if (!isBalancedVibeModelUsed(cacheRow?.model_used)) return null
+
+  const questionScores = parseJsonObject(cacheRow?.question_scores)
+  const scoreBreakdown = parseJsonObject(cacheRow?.score_breakdown)
+  const vibeAxes = parseJsonObject(cacheRow?.vibe_axes)
+  if (!questionScores || !scoreBreakdown || !vibeAxes) return null
+
+  for (const [key, maximum] of Object.entries(BALANCED_WEIGHTS)) {
+    const value = Number(questionScores[key])
+    if (!Number.isFinite(value) || value < 0 || value > maximum) return null
+  }
+  for (const [key, definition] of Object.entries(BALANCED_VIBE_AXES)) {
+    const axis = vibeAxes[key]
+    const score = Number(axis?.score)
+    if (!isPlainJsonObject(axis) || !Number.isFinite(score) || score < 0 || score > definition.maximum) return null
+  }
+
+  const questionSum = keys => round(keys.reduce((total, key) => total + Number(questionScores[key]), 0))
+  const expectedBreakdown = {
+    aiSemantic: Number(questionScores.vibe),
+    sharedContext: questionSum(BALANCED_BREAKDOWN_QUESTION_GROUPS.sharedContext),
+    interactionRhythm: questionSum(BALANCED_BREAKDOWN_QUESTION_GROUPS.interactionRhythm),
+    humorOpenness: questionSum(BALANCED_BREAKDOWN_QUESTION_GROUPS.humorOpenness),
+    attachmentComfort: questionSum(BALANCED_BREAKDOWN_QUESTION_GROUPS.attachmentComfort),
+    lifestyleSustainability: questionSum(BALANCED_BREAKDOWN_QUESTION_GROUPS.lifestyleSustainability),
+    valuesBoundaries: questionSum(BALANCED_BREAKDOWN_QUESTION_GROUPS.valuesBoundaries),
+    language: Number(questionScores.expressionLanguage),
+    communicationDisagreement: questionSum(BALANCED_BREAKDOWN_QUESTION_GROUPS.communicationDisagreement),
+    intent: Number(questionScores.intent),
+  }
+  expectedBreakdown.semanticCommonGround = round(expectedBreakdown.aiSemantic + expectedBreakdown.sharedContext)
+
+  for (const [key, expected] of Object.entries(expectedBreakdown)) {
+    if (!nearlyEqual(scoreBreakdown[key], expected)) return null
+  }
+
+  const componentTotal = round([
+    expectedBreakdown.semanticCommonGround,
+    expectedBreakdown.interactionRhythm,
+    expectedBreakdown.humorOpenness,
+    expectedBreakdown.attachmentComfort,
+    expectedBreakdown.lifestyleSustainability,
+    expectedBreakdown.valuesBoundaries,
+    expectedBreakdown.communicationDisagreement,
+    expectedBreakdown.intent,
+    expectedBreakdown.language,
+  ].reduce((total, value) => total + value, 0))
+  const totalScore = round(clamp(componentTotal, 0, 100))
+
+  const persistedColumns = {
+    total_compatibility_score: totalScore,
+    ai_vibe_score: expectedBreakdown.aiSemantic,
+    mbti_score: expectedBreakdown.sharedContext,
+    attachment_score: expectedBreakdown.attachmentComfort,
+    communication_score: expectedBreakdown.communicationDisagreement,
+    lifestyle_score: expectedBreakdown.lifestyleSustainability,
+    core_values_score: round(expectedBreakdown.valuesBoundaries + expectedBreakdown.language),
+    interaction_synergy_score: expectedBreakdown.interactionRhythm,
+    intent_goal_score: expectedBreakdown.intent,
+  }
+  for (const [column, expected] of Object.entries(persistedColumns)) {
+    // The legacy numeric cache columns are numeric(5,2), while the canonical
+    // JSON snapshot retains up to six decimal places.
+    if (!nearlyEqual(cacheRow?.[column], expected, 0.005001)) return null
+  }
+
+  const communicationItemsScore = questionSum(['communication1', 'communication2', 'communication3', 'communication4', 'communication5'])
+  const coreValuesScore = round(expectedBreakdown.valuesBoundaries + expectedBreakdown.language)
+  return {
+    scoreModelVersion: BALANCED_COMPATIBILITY_VERSION,
+    scoreMaximum: 100,
+    componentTotal,
+    totalScore,
+    priorityScore: totalScore,
+    baseCompatibilityScore: totalScore,
+    questionScores: JSON.parse(JSON.stringify(questionScores)),
+    scoreBreakdown: JSON.parse(JSON.stringify(scoreBreakdown)),
+    similarityObserved: null,
+    initiativeSource: 'cached_snapshot',
+    vibeAxes: JSON.parse(JSON.stringify(vibeAxes)),
+    vibeMaximum: BALANCED_VIBE_MAX,
+    vibeModelVersion: BALANCED_VIBE_VERSION,
+    mbtiScore: 0,
+    attachmentScore: 0,
+    communicationScore: communicationItemsScore,
+    communicationDisagreementScore: expectedBreakdown.communicationDisagreement,
+    lifestyleScore: expectedBreakdown.lifestyleSustainability,
+    coreValuesScore,
+    coreValuesScaled5: coreValuesScore,
+    synergyScore: expectedBreakdown.interactionRhythm,
+    humorOpenScore: expectedBreakdown.humorOpenness,
+    intentScore: expectedBreakdown.intent,
+    vibeScore: expectedBreakdown.aiSemantic,
+    disagreementScore: Number(questionScores.disagreement),
+    currentFocusScore: Number(questionScores.currentFocus),
+    similarityPreferenceScore: Number(questionScores.similarityPreference),
+    attachmentPaceScore: expectedBreakdown.attachmentComfort,
+    languageScore: expectedBreakdown.language,
+    valuesBoundariesScore: expectedBreakdown.valuesBoundaries,
+    sharedContextScore: expectedBreakdown.sharedContext,
+    compositeAdjustment: 0,
+    compositeRules: [],
+    compositeDisplayCapApplied: false,
+    compositeHardCapApplied: false,
+    humorMultiplier: 1,
+    attachmentPenaltyApplied: false,
+    intentBoostApplied: false,
+    deadAirVetoApplied: false,
+    humorClashVetoApplied: false,
+    maxScoreCapApplied: false,
+    capApplied: null,
+    opennessZeroZeroPenaltyApplied: false,
+    opennessPenalty: 0,
+    opennessPenaltyType: null,
+    preVetoScore: totalScore,
+  }
+}
+
 function isPlainJsonObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }

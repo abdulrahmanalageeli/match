@@ -6,6 +6,7 @@ import {
   BALANCED_VIBE_MAX,
   BALANCED_VIBE_MODEL,
   BALANCED_VIBE_MODEL_TAG,
+  BALANCED_VIBE_VERSION,
   BALANCED_WEIGHTS,
   buildBalancedCacheIdentity,
   buildBalancedScoreSnapshot,
@@ -19,6 +20,7 @@ import {
   getBalancedAnswer,
   getBalancedCacheBreakdown,
   getBalancedCacheContent,
+  hydrateBalancedCompatibilityFromCacheRow,
   isBalancedVibeModelUsed,
   isReusableBalancedVibeRow,
   normalizeBalancedChoice,
@@ -354,6 +356,55 @@ test('score snapshots preserve the complete balanced event-time provenance and a
   assert.equal(Object.isFrozen(snapshot), true)
   assert.equal(Object.isFrozen(snapshot.scoreBreakdown), true)
   assert.throws(() => { snapshot.totalScore = 0 }, TypeError)
+})
+
+test('exact current cache rows hydrate without recalculating and reject inconsistent snapshots', () => {
+  const vibeAxes = createNeutralVibeAxes()
+  const result = calculateBalancedCompatibility(participant(), participant(), {
+    vibeScore: 8.123,
+    vibeAxes,
+  })
+  const dbNumeric = value => Number(Number(value).toFixed(2))
+  const row = {
+    model_used: encodeBalancedVibeModelUsed({ vibeAxes }),
+    score_model_version: BALANCED_COMPATIBILITY_VERSION,
+    vibe_model_version: BALANCED_VIBE_VERSION,
+    score_breakdown: result.scoreBreakdown,
+    question_scores: result.questionScores,
+    vibe_axes: result.vibeAxes,
+    total_compatibility_score: dbNumeric(result.totalScore),
+    ai_vibe_score: dbNumeric(result.vibeScore),
+    mbti_score: dbNumeric(result.sharedContextScore),
+    attachment_score: dbNumeric(result.attachmentPaceScore),
+    communication_score: dbNumeric(result.communicationDisagreementScore),
+    lifestyle_score: dbNumeric(result.lifestyleScore),
+    core_values_score: dbNumeric(result.coreValuesScore),
+    interaction_synergy_score: dbNumeric(result.synergyScore),
+    intent_goal_score: dbNumeric(result.intentScore),
+  }
+
+  const hydrated = hydrateBalancedCompatibilityFromCacheRow(row)
+  assert.ok(hydrated)
+  assert.equal(hydrated.totalScore, result.totalScore)
+  assert.deepEqual(hydrated.scoreBreakdown, result.scoreBreakdown)
+  assert.deepEqual(hydrated.questionScores, result.questionScores)
+  assert.deepEqual(hydrated.vibeAxes, result.vibeAxes)
+  assert.equal(hydrated.communicationScore, result.communicationScore)
+  assert.equal(hydrated.sharedContextScore, result.sharedContextScore)
+  assert.equal(hydrated.initiativeSource, 'cached_snapshot')
+
+  assert.equal(hydrateBalancedCompatibilityFromCacheRow({
+    ...row,
+    total_compatibility_score: Number(row.total_compatibility_score) + 1,
+  }), null)
+  assert.equal(hydrateBalancedCompatibilityFromCacheRow({
+    ...row,
+    question_scores: { ...row.question_scores, currentFocus: null },
+  }), null)
+  assert.equal(hydrateBalancedCompatibilityFromCacheRow({
+    ...row,
+    score_model_version: 'old-model',
+  }), null)
 })
 
 test('only complete current-model AI rows can be reused across deterministic score versions', () => {

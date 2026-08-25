@@ -1,6 +1,6 @@
 import OpenAI from "openai"
 import { createHmac, timingSafeEqual } from "node:crypto"
-import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkAgeCompatibility, checkIntentHardGate, fetchAllCachedPairs, isCurrentVibeModel, getParticipantDeltaCacheReason, getDeltaCacheReasonCounts, loadHistoricalMatchAnalyzer } from "./trigger-match.mjs"
+import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, isParticipantCacheEligible, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkAgeCompatibility, checkIntentHardGate, fetchAllCachedPairs, isCurrentVibeModel, getParticipantDeltaCacheReason, getDeltaCacheReasonCounts, loadHistoricalMatchAnalyzer } from "./trigger-match.mjs"
 import { buildWelcomePrompt } from "./ai-welcome-prompt.mjs"
 import { assignPriorityTables } from "../../server/event3/table-priority.mjs"
 import { buildSixBySevenPlan, optimizeRound2ByAge } from "../../server/event3/round2-age-optimizer.mjs"
@@ -6079,7 +6079,7 @@ export default async function handler(req, res) {
         // Fetch eligible participants (same logic as delta-pre-cache)
         const { data: allParticipants } = await supabase
           .from("participants")
-          .select("assigned_number, survey_data, survey_data_updated_at, signup_for_next_event, auto_signup_next_event, next_event_signup_timestamp, event_enrolled_at, created_at, event_id, signup_event_id")
+          .select("assigned_number, name, survey_data, survey_data_updated_at, signup_for_next_event, auto_signup_next_event, next_event_signup_timestamp, event_enrolled_at, created_at, event_id, signup_event_id")
           .eq("match_id", STATIC_MATCH_ID)
           .or(`signup_for_next_event.eq.true,event_id.eq.${event_id},auto_signup_next_event.eq.true`)
           .neq("assigned_number", 9999)
@@ -6088,10 +6088,7 @@ export default async function handler(req, res) {
           return res.status(200).json({ count: 0, lastCacheTimestamp })
         }
         
-        // Filter for complete participants
-        const eligibleParticipants = allParticipants.filter(p => {
-          return p.survey_data && typeof p.survey_data === 'object' && Object.keys(p.survey_data).length > 0
-        })
+        const eligibleParticipants = allParticipants.filter(p => isParticipantCacheEligible(p))
         
         const needsCacheCount = eligibleParticipants.filter(p =>
           !!getParticipantDeltaCacheReason(p, lastCacheTimestamp, event_id, cachedScoreModelVersion)
@@ -6229,10 +6226,7 @@ export default async function handler(req, res) {
           return res.status(200).json({ participants: [], count: 0, lastCacheTimestamp })
         }
         
-        // Filter for complete participants
-        const eligibleParticipants = allParticipants.filter(p => {
-          return p.survey_data && typeof p.survey_data === 'object' && Object.keys(p.survey_data).length > 0
-        })
+        const eligibleParticipants = allParticipants.filter(p => isParticipantCacheEligible(p))
         
         const needsCacheParticipants = eligibleParticipants.map(p => ({
           participant: p,

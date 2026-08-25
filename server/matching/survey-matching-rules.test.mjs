@@ -25,6 +25,7 @@ const {
   getParticipantDeltaCacheReason,
   getOneYearAgeFlexDecision,
   hasHumorStyleClash,
+  isParticipantCacheEligible,
   isParticipantComplete,
   isCurrentVibeModel,
   isDurableCurrentBalancedCacheRow,
@@ -35,6 +36,22 @@ const {
   BALANCED_VIBE_MODEL_TAG,
   isCurrentOppositesScoreSnapshot,
 } = await import("./balanced-compatibility.mjs")
+
+test("cache eligibility requires the submitted-survey name marker", () => {
+  assert.equal(isParticipantCacheEligible({
+    assigned_number: 1537,
+    survey_data: { answers: { gender_preference: "opposite_gender" } },
+  }), false)
+  assert.equal(isParticipantCacheEligible({
+    assigned_number: 100,
+    name: "Submitted participant",
+    survey_data: { answers: { gender_preference: "opposite_gender" } },
+  }), true)
+  assert.equal(isParticipantCacheEligible({
+    assigned_number: 101,
+    survey_data: JSON.stringify({ name: "Legacy submitted participant", answers: {} }),
+  }), true)
+})
 
 test("generated match rows map all match-insight scores to persisted columns", () => {
   assert.deepEqual(buildPersistedMatchInsightFields({

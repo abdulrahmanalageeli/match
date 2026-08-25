@@ -876,15 +876,21 @@ function calculateLifestyleCompatibility(preferences1, preferences2) {
   return calculateBalancedLifestyleScore(participant(preferences1), participant(preferences2))
 }
 
-// Cache coverage is intentionally more permissive than live-match generation.
-// Older or partially migrated surveys can still produce deterministic defaults,
-// and missing vibe answers are handled with low-confidence neutral axes.
+// Cache coverage is intentionally more permissive than live-match generation,
+// but a name is our durable marker that the survey was actually submitted.
+// This excludes signup/preference stubs whose survey JSON only contains defaults.
 function isParticipantCacheEligible(participant) {
-  const surveyData = participant?.survey_data
+  let surveyData = participant?.survey_data
+  if (typeof surveyData === 'string') {
+    try { surveyData = JSON.parse(surveyData) } catch { surveyData = null }
+  }
+  const submittedName = participant?.name ?? surveyData?.name ?? surveyData?.answers?.name
   return !!surveyData
     && typeof surveyData === 'object'
     && !Array.isArray(surveyData)
     && Object.keys(surveyData).length > 0
+    && typeof submittedName === 'string'
+    && submittedName.trim().length > 0
 }
 // Function to calculate core values compatibility score (up to 20% of total)
 function calculateCoreValuesCompatibility(values1, values2) {
@@ -3694,7 +3700,7 @@ function getLockedMatch(participantA, participantB, lockedPairs) {
   )
 }
 
-export { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkAgeCompatibility, checkIntentHardGate, checkInteractionStyleCompatibility, hasHumorStyleClash, fetchAllCachedPairs, calculateHumorOpennessScore, calculateInteractionSynergyScore, calculateLifestyleCompatibility, calculateConversationInitiativePreferenceScore, getOneYearAgeFlexDecision, getAgeTolerance, buildManualPairGateReport, isCurrentVibeModel, isDurableCurrentBalancedCacheRow, getParticipantDeltaCacheReason, getDeltaCacheReasonCounts, canAdvanceGlobalCacheMetadata, getCacheMetadataScope, buildPersistedMatchInsightFields, buildPersistedScoreProvenance, computeOppositesBreakdown, formatBalancedScoreReason }
+export { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, isParticipantCacheEligible, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkAgeCompatibility, checkIntentHardGate, checkInteractionStyleCompatibility, hasHumorStyleClash, fetchAllCachedPairs, calculateHumorOpennessScore, calculateInteractionSynergyScore, calculateLifestyleCompatibility, calculateConversationInitiativePreferenceScore, getOneYearAgeFlexDecision, getAgeTolerance, buildManualPairGateReport, isCurrentVibeModel, isDurableCurrentBalancedCacheRow, getParticipantDeltaCacheReason, getDeltaCacheReasonCounts, canAdvanceGlobalCacheMetadata, getCacheMetadataScope, buildPersistedMatchInsightFields, buildPersistedScoreProvenance, computeOppositesBreakdown, formatBalancedScoreReason }
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -3778,7 +3784,7 @@ export default async function handler(req, res) {
       // Fetch eligible participants
       const { data: allParticipants, error } = await supabase
         .from("participants")
-        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
+        .select("assigned_number, name, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
         .eq("match_id", match_id)
         .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
         .is("attendance_denied_at", null)
@@ -3997,7 +4003,7 @@ export default async function handler(req, res) {
       // Fetch eligible participants (same filter as pre-cache)
       const { data: allParticipants, error } = await supabase
         .from("participants")
-        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, survey_data_updated_at, next_event_signup_timestamp, created_at, updated_at, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
+        .select("assigned_number, name, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, survey_data_updated_at, next_event_signup_timestamp, created_at, updated_at, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
         .eq("match_id", match_id)
         .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
         .is("attendance_denied_at", null)
@@ -4360,7 +4366,7 @@ if (action === "cache-status-by-gender") {
   try {
     const { data: allParticipants, error } = await supabase
       .from("participants")
-      .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
+      .select("assigned_number, name, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
       .eq("match_id", match_id)
       .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
       .is("attendance_denied_at", null)
@@ -4456,7 +4462,7 @@ if (action === "cache-status-by-gender") {
     try {
       const { data: allParticipants, error } = await supabase
         .from("participants")
-        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
+        .select("assigned_number, name, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
         .eq("match_id", match_id)
         .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
         .is("attendance_denied_at", null)
@@ -4606,7 +4612,7 @@ if (action === "cache-status-by-gender") {
       // Step 2: Fetch all eligible participants
       const { data: allParticipants, error } = await supabase
         .from("participants")
-        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, survey_data_updated_at, next_event_signup_timestamp, event_enrolled_at, created_at, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
+        .select("assigned_number, name, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, survey_data_updated_at, next_event_signup_timestamp, event_enrolled_at, created_at, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
         .eq("match_id", match_id)
         .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
         .is("attendance_denied_at", null)
@@ -4905,7 +4911,7 @@ if (action === "cache-status-by-gender") {
       // Step 2: Fetch all eligible participants
       const { data: allParticipants, error } = await supabase
         .from("participants")
-        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, survey_data_updated_at, next_event_signup_timestamp, event_enrolled_at, created_at, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
+        .select("assigned_number, name, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, survey_data_updated_at, next_event_signup_timestamp, event_enrolled_at, created_at, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
         .eq("match_id", match_id)
         .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
         .is("attendance_denied_at", null)

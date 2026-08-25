@@ -426,7 +426,9 @@ async function sendAdminWhatsappMessage(participant, message) {
     twilio_payload: result || {},
     is_auto_reply: false,
   })
-  return response.ok ? { sent: true, error: null } : { sent: false, error: result?.message || `Twilio returned ${response.status}` }
+  return response.ok
+    ? { sent: true, error: null, message_sid: result?.sid || null, status: result?.status || "sent" }
+    : { sent: false, error: result?.message || `Twilio returned ${response.status}`, message_sid: result?.sid || null, status: result?.status || "failed" }
 }
 
 async function sendFinalConfirmation(participant, paymentWaived = false) {
@@ -444,6 +446,13 @@ const EVENT3_COHOST_ACTIONS = new Set([
   "e3-cohost-set-attendance",
   "e3-cohost-resolve-sos",
   "e3-cohost-reply-sos",
+  "e3-cohost-send-whatsapp",
+  "e3-get-group-member-feedback",
+  "e3-get-feedback",
+  "e3-get-mood-checks",
+  "e3-trigger-mood-check",
+  "e3-get-notifications",
+  "e3-send-notification",
 ])
 const E3_LATIN_SQUARE = [[0,1,2,3,4,5],[2,3,4,5,0,1],[4,5,0,1,2,3],[1,0,3,2,5,4],[3,2,5,4,1,0],[5,4,1,0,3,2]]
 
@@ -466,9 +475,11 @@ function signCohostToken() {
 
 function verifyCohostToken(token) {
   try {
+    const secret = cohostTokenSecret()
+    if (!secret) return false
     const [payload, signature, extra] = String(token || "").split(".")
     if (!payload || !signature || extra) return false
-    const expected = createHmac("sha256", cohostTokenSecret()).update(payload).digest("base64url")
+    const expected = createHmac("sha256", secret).update(payload).digest("base64url")
     if (!safeSecretEqual(signature, expected)) return false
     const claims = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"))
     return claims?.role === "event3_cohost" && Number(claims.exp) > Math.floor(Date.now() / 1000)
@@ -1012,6 +1023,7 @@ export default async function handler(req, res) {
   } else if (isPublicEventRead) {
     if (!enforceRateLimit(req, res, { key: "public-event-state", limit: 120, windowMs: 60_000 })) return
   } else if (hasCohostSession) {
+    if (!enforceRateLimit(req, res, { key: "cohost-api", limit: 180, windowMs: 60_000 })) return
     req.cohostAuth = true
   } else {
     if (!enforceRateLimit(req, res, { key: "admin-api", limit: 180, windowMs: 60_000 })) return
@@ -8947,37 +8959,69 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           return sr?.current_event_id || 20
         }
         const realEventId = await getE3CurrentEventId()
-        const currentEventId = (req.body.preview_event_id && typeof req.body.preview_event_id === "number") ? req.body.preview_event_id : realEventId
+        // Historical previews are an admin-only capability. A co-host token is
+        // deliberately pinned to the live event so every read and mutation is
+        // bounded to the roster they are currently helping.
+        const currentEventId = (hasAdminAccess && req.body.preview_event_id && typeof req.body.preview_event_id === "number")
+          ? req.body.preview_event_id
+          : realEventId
+        const isCohostRequest = hasCohostAccess && !hasAdminAccess
+        const getCohostRosterSet = async () => {
+          if (!isCohostRequest) return null
+          const { data, error } = await supabase
+            .from("event3_participants")
+            .select("participant_number")
+            .eq("match_id", EVENT3_MATCH_ID)
+            .eq("event_id", currentEventId)
+          if (error) throw error
+          return new Set((data || []).map(row => Number(row.participant_number)))
+        }
 
         if (action === "e3-cohost-dashboard") {
           const [{ data: stateRow, error: stateError }, { data: eventParticipants, error: eventParticipantsError }] = await Promise.all([
-            supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration,global_timer_round").eq("match_id", EVENT3_MATCH_ID).maybeSingle(),
+            supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration,global_timer_round,test_mode_active,current_event_id").eq("match_id", EVENT3_MATCH_ID).maybeSingle(),
             supabase.from("event3_participants").select("participant_number,position").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).order("position", { ascending: true }),
           ])
           if (stateError) return res.status(500).json({ error: stateError.message })
           if (eventParticipantsError) return res.status(500).json({ error: eventParticipantsError.message })
 
           const numbers = (eventParticipants || []).map(row => row.participant_number)
+          const numberSet = new Set(numbers)
+          const testModeActive = stateRow?.test_mode_active === true
+            && Number(stateRow?.current_event_id || currentEventId) === Number(currentEventId)
+          const dashboardState = {
+            ...(stateRow || { phase: "setup", global_timer_active: false }),
+            test_mode_active: testModeActive,
+          }
           if (numbers.length === 0) {
             return res.status(200).json({
               event_id: currentEventId,
-              state: stateRow || { phase: "setup", global_timer_active: false },
+              test_mode: testModeActive,
+              state: dashboardState,
               participants: [],
               sos_requests: [],
+              locked_phase3_pairs: [],
             })
           }
 
-          const [participantResult, assignmentResult, matchResult, rankingResult, attendanceResult, historyResult, legacyHistoryResult, sosResult] = await Promise.all([
-            supabase.from("participants").select("assigned_number,name,age").eq("match_id", STATIC_MATCH_ID).in("assigned_number", numbers),
-            supabase.from("session_assignments").select("participant_id,round,table_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("round", [1, 2, 20, 30]).in("participant_id", numbers),
+          const [participantResult, assignmentResult, matchResult, rankingResult, attendanceResult, historyResult, legacyHistoryResult, sosResult, lockedResult, testMatchResult] = await Promise.all([
+            supabase.from("participants").select("assigned_number,name,age,phone_number").eq("match_id", STATIC_MATCH_ID).in("assigned_number", numbers),
+            supabase.from("session_assignments").select("participant_id,round,table_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("round", [1, 2, 3, 20, 30]).in("participant_id", numbers),
             supabase.from("event3_matches").select("participant_number,phase2_partner,phase3_partner").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_number", numbers),
             supabase.from("participant_rankings").select("ranker_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("ranker_number", numbers),
             supabase.from("event_attendance").select("participant_number,attended").eq("match_id", STATIC_MATCH_ID).eq("event_id", currentEventId).in("participant_number", numbers),
             supabase.from("event_attendance").select("participant_number,event_id,attended").eq("match_id", STATIC_MATCH_ID).neq("event_id", currentEventId).in("participant_number", numbers),
             supabase.from("event3_participants").select("participant_number,event_id").eq("match_id", EVENT3_MATCH_ID).neq("event_id", currentEventId).in("participant_number", numbers),
             supabase.from("organizer_requests").select("id,event_id,participant_number,participant_name,table_info,message,organizer_reply,status,request_type,created_at,updated_at").or(`event_id.eq.${currentEventId},event_id.is.null`).neq("status", "resolved").order("updated_at", { ascending: false }).limit(100),
+            testModeActive
+              ? Promise.resolve({ data: [], error: null })
+              : supabase.from("locked_matches").select("participant1_number,participant2_number,original_compatibility_score,original_match_round,reason,created_at").eq("match_id", STATIC_MATCH_ID).eq("event_id", currentEventId).order("created_at", { ascending: false }),
+            testModeActive
+              ? supabase.from("event3_test_match_results").select("participant_a_number,participant_b_number,compatibility_score,table_number,reason,created_at").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).order("table_number", { ascending: true })
+              : Promise.resolve({ data: [], error: null }),
           ])
-          const firstError = [participantResult, assignmentResult, matchResult, rankingResult, attendanceResult, historyResult, legacyHistoryResult, sosResult].find(result => result.error)?.error
+          const activeLockResult = testModeActive ? testMatchResult : lockedResult
+          const firstError = [participantResult, assignmentResult, matchResult, rankingResult, attendanceResult, historyResult, legacyHistoryResult, sosResult, activeLockResult].find(result => result.error)?.error
           if (firstError) return res.status(500).json({ error: firstError.message })
 
           const infoMap = new Map((participantResult.data || []).map(participant => [participant.assigned_number, participant]))
@@ -8987,6 +9031,38 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             tableMap[assignment.participant_id][assignment.round] = assignment.table_number
           }
           const matchMap = new Map((matchResult.data || []).map(match => [match.participant_number, match]))
+          const fallbackPairRows = testModeActive
+            ? (testMatchResult.data || []).map(row => ({
+                a: Number(row.participant_a_number),
+                b: Number(row.participant_b_number),
+                compatibility_score: row.compatibility_score ?? null,
+                table_number: row.table_number ?? null,
+                reason: row.reason || "Test mode simulated algorithm lock",
+                created_at: row.created_at || null,
+                source: "test",
+              }))
+            : (lockedResult.data || []).map(row => ({
+                a: Number(row.participant1_number),
+                b: Number(row.participant2_number),
+                compatibility_score: row.original_compatibility_score ?? null,
+                table_number: null,
+                reason: row.reason || "Locked match",
+                created_at: row.created_at || null,
+                source: "locked",
+              }))
+          const fallbackPairs = []
+          const fallbackPairKeys = new Set()
+          const phase3FallbackMap = new Map()
+          for (const pair of fallbackPairRows) {
+            if (!Number.isInteger(pair.a) || !Number.isInteger(pair.b) || pair.a <= 0 || pair.b <= 0 || pair.a === pair.b) continue
+            if (!numberSet.has(pair.a) || !numberSet.has(pair.b)) continue
+            const key = swapPairKey(pair.a, pair.b)
+            if (fallbackPairKeys.has(key)) continue
+            fallbackPairKeys.add(key)
+            fallbackPairs.push(pair)
+            if (!phase3FallbackMap.has(pair.a)) phase3FallbackMap.set(pair.a, { ...pair, partner: pair.b })
+            if (!phase3FallbackMap.has(pair.b)) phase3FallbackMap.set(pair.b, { ...pair, partner: pair.a })
+          }
           const rankingSubmitted = new Set((rankingResult.data || []).map(row => row.ranker_number))
           const attendanceMap = new Map((attendanceResult.data || []).map(row => [row.participant_number, !!row.attended]))
           const priorEventSets = {}
@@ -9007,23 +9083,50 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const participants = numbers.map(number => {
             const info = infoMap.get(number) || {}
             const matches = matchMap.get(number) || {}
+            const fallbackMatch = phase3FallbackMap.get(number)
+            const storedPhase3Partner = Number(matches.phase3_partner) || null
+            const phase3Partner = storedPhase3Partner || fallbackMatch?.partner || null
+            const phase3PairKey = phase3Partner ? swapPairKey(number, phase3Partner) : null
+            const phase3Locked = phase3PairKey ? fallbackPairKeys.has(phase3PairKey) : false
             const previousEventCount = priorEventSets[number]?.size || 0
             return {
               number,
               name: info.name || `#${number}`,
               age: info.age || null,
+              whatsapp_available: Boolean(info.phone_number),
               attended: attendanceMap.get(number) || false,
               previous_event_count: previousEventCount,
               first_time: previousEventCount === 0,
               ranking_submitted: rankingSubmitted.has(number),
               tables: tableMap[number] || {},
               phase2_partner: matches.phase2_partner || null,
-              phase3_partner: matches.phase3_partner || null,
+              phase3_partner: phase3Partner,
+              phase3_locked: phase3Locked,
+              phase3_source: phase3Partner ? (phase3Locked ? (testModeActive ? "test" : "locked") : "generated") : null,
             }
           })
-          const numberSet = new Set(numbers)
+          const lockedPhase3Pairs = fallbackPairs.map(pair => ({
+            participant1_number: pair.a,
+            participant1_name: infoMap.get(pair.a)?.name || `#${pair.a}`,
+            participant2_number: pair.b,
+            participant2_name: infoMap.get(pair.b)?.name || `#${pair.b}`,
+            compatibility_score: pair.compatibility_score,
+            table_number: pair.table_number ?? tableMap[pair.a]?.[30] ?? tableMap[pair.b]?.[30] ?? null,
+            reason: pair.reason,
+            created_at: pair.created_at,
+            source: pair.source,
+            locked: true,
+            is_test_mode: testModeActive,
+          }))
           const sosRequests = (sosResult.data || []).filter(request => numberSet.has(request.participant_number))
-          return res.status(200).json({ event_id: currentEventId, state: stateRow || { phase: "setup", global_timer_active: false }, participants, sos_requests: sosRequests })
+          return res.status(200).json({
+            event_id: currentEventId,
+            test_mode: testModeActive,
+            state: dashboardState,
+            participants,
+            sos_requests: sosRequests,
+            locked_phase3_pairs: lockedPhase3Pairs,
+          })
         }
 
         if (action === "e3-cohost-set-attendance") {
@@ -9076,6 +9179,64 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           }).eq("id", id)
           if (error) return res.status(500).json({ error: error.message })
           return res.status(200).json({ success: true })
+        }
+
+        // Free-form WhatsApp is intentionally available only through this
+        // roster-scoped action. It cannot address a number outside the live
+        // Event3 participant list or mutate payment/attendance state.
+        if (action === "e3-cohost-send-whatsapp") {
+          if (isCohostRequest && !enforceRateLimit(req, res, { key: "cohost-whatsapp-send", limit: 30, windowMs: 60_000 })) return
+          const participantNumber = Number(req.body?.participant_number)
+          const message = String(req.body?.message || "").trim().slice(0, 1000)
+          if (!Number.isInteger(participantNumber) || participantNumber <= 0 || participantNumber === 9999) {
+            return res.status(400).json({ error: "Invalid participant_number" })
+          }
+          if (!message) return res.status(400).json({ error: "message required" })
+
+          if (isCohostRequest) {
+            const { data: modeState, error: modeStateError } = await supabase
+              .from("event_state")
+              .select("current_event_id,test_mode_active")
+              .eq("match_id", EVENT3_MATCH_ID)
+              .maybeSingle()
+            if (modeStateError) return res.status(500).json({ error: modeStateError.message })
+            const isLiveTestMode = modeState?.test_mode_active === true
+              && Number(modeState?.current_event_id) === Number(currentEventId)
+            if (isLiveTestMode && req.body?.confirm_test_send !== true) {
+              return res.status(409).json({
+                error: "Test mode uses real participant phone numbers. Confirm this WhatsApp send explicitly.",
+                requires_test_confirmation: true,
+              })
+            }
+          }
+
+          const { data: enrolled, error: enrolledError } = await supabase
+            .from("event3_participants")
+            .select("id")
+            .eq("match_id", EVENT3_MATCH_ID)
+            .eq("event_id", currentEventId)
+            .eq("participant_number", participantNumber)
+            .maybeSingle()
+          if (enrolledError) return res.status(500).json({ error: enrolledError.message })
+          if (!enrolled) return res.status(404).json({ error: "Participant is not enrolled in the current event" })
+
+          const { data: participant, error: participantError } = await supabase
+            .from("participants")
+            .select("id,assigned_number,name,phone_number")
+            .eq("match_id", STATIC_MATCH_ID)
+            .eq("assigned_number", participantNumber)
+            .maybeSingle()
+          if (participantError) return res.status(500).json({ error: participantError.message })
+          if (!participant) return res.status(404).json({ error: "Participant not found" })
+
+          const result = await sendAdminWhatsappMessage(participant, message)
+          return res.status(result.sent === true ? 200 : 502).json({
+            success: result.sent === true,
+            sent: result.sent === true,
+            error: result.error || null,
+            message_sid: result.message_sid || null,
+            status: result.status || null,
+          })
         }
 
         // e3-set-current-event — switch to a different event (e.g. 20 → 21)
@@ -9564,13 +9725,17 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         // e3-get-seating
         if (action === "e3-get-seating") {
           const { data: rows } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("round", [1, 2, 3, 20, 30]).order("round").order("table_number")
-          if (!rows || rows.length === 0) return res.status(200).json({ seating: null })
-          const nums = [...new Set(rows.map(r => r.participant_id))]
+          const cohostRosterSet = await getCohostRosterSet()
+          const visibleRows = cohostRosterSet
+            ? (rows || []).filter(row => cohostRosterSet.has(Number(row.participant_id)))
+            : (rows || [])
+          if (visibleRows.length === 0) return res.status(200).json({ seating: null })
+          const nums = [...new Set(visibleRows.map(r => r.participant_id))]
           const { data: pdata } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
           const nameMap = {}
           for (const p of pdata || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); nameMap[p.assigned_number] = { name: p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`, gender: p.gender || sd?.answers?.gender || sd?.gender || "?", age: p.age || sd?.answers?.age || sd?.age || null } }
           const seating = { 1: {}, 2: {}, 3: {}, 20: {}, 30: {} }
-          for (const row of rows) { if (!seating[row.round][row.table_number]) seating[row.round][row.table_number] = []; seating[row.round][row.table_number].push({ number: row.participant_id, ...nameMap[row.participant_id] }) }
+          for (const row of visibleRows) { if (!seating[row.round][row.table_number]) seating[row.round][row.table_number] = []; seating[row.round][row.table_number].push({ number: row.participant_id, ...nameMap[row.participant_id] }) }
           return res.status(200).json({ seating })
         }
         // e3-toggle-score-reveal
@@ -9633,9 +9798,11 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         if (action === "e3-get-rankings-status") {
           const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           const selected = (ep || []).map(r => r.participant_number)
+          const selectedSet = new Set(selected.map(Number))
           const { data: rankRows } = await supabase.from("participant_rankings").select("ranker_number,auto_saved").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
-          const submittedSet = new Set((rankRows || []).map(r => r.ranker_number))
-          const autoSavedSet = new Set((rankRows || []).filter(r => r.auto_saved).map(r => r.ranker_number))
+          const visibleRankRows = (rankRows || []).filter(row => selectedSet.has(Number(row.ranker_number)))
+          const submittedSet = new Set(visibleRankRows.map(r => r.ranker_number))
+          const autoSavedSet = new Set(visibleRankRows.filter(r => r.auto_saved).map(r => r.ranker_number))
           const { data: pdata } = await supabase.from("participants").select("assigned_number,name,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", selected)
           const nameMap = {}
           for (const p of pdata || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); nameMap[p.assigned_number] = p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}` }
@@ -10108,7 +10275,11 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           if (feedbackResult.error) return res.status(500).json({ error: feedbackResult.error.message })
           if (participantResult.error) return res.status(500).json({ error: participantResult.error.message })
 
-          const feedbackRows = feedbackResult.data || []
+          const feedbackRosterSet = new Set((participantResult.data || []).map(row => Number(row.participant_number)))
+          const feedbackRows = (feedbackResult.data || []).filter(row =>
+            feedbackRosterSet.has(Number(row.reviewer_number))
+            && feedbackRosterSet.has(Number(row.member_number))
+          )
           const knownNumbers = [...new Set(feedbackRows.flatMap(row => [row.reviewer_number, row.member_number]))]
           const { data: profiles, error: profileError } = knownNumbers.length > 0
             ? await supabase.from("participants").select("assigned_number,name,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", knownNumbers)
@@ -10446,10 +10617,11 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         if (action === "e3-get-matches") {
           const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           const selected = (ep || []).map(r => r.participant_number)
+          const selectedSet = new Set(selected.map(Number))
           if (selected.length === 0) return res.status(200).json({ pairs: [] })
-          const { data: matchRows } = await supabase.from("event3_matches").select("participant_number,phase2_partner,phase2_score,phase2_score_model_version,phase2_score_snapshot,phase2_score_content_hash,phase3_partner,phase3_score,phase3_score_model_version,phase3_score_snapshot,phase3_score_content_hash").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          const { data: matchRows } = await supabase.from("event3_matches").select("participant_number,phase2_partner,phase2_score,phase2_score_model_version,phase2_score_snapshot,phase2_score_content_hash,phase3_partner,phase3_score,phase3_score_model_version,phase3_score_snapshot,phase3_score_content_hash").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_number", selected)
           if (!matchRows || matchRows.length === 0) return res.status(200).json({ pairs: [], phase3Pairs: [] })
-          const nums = [...new Set([...matchRows.map(r => r.participant_number), ...matchRows.map(r => r.phase2_partner).filter(Boolean), ...matchRows.map(r => r.phase3_partner).filter(Boolean)])]
+          const nums = [...new Set([...matchRows.map(r => r.participant_number), ...matchRows.map(r => r.phase2_partner).filter(Boolean), ...matchRows.map(r => r.phase3_partner).filter(Boolean)].filter(number => selectedSet.has(Number(number))))]
           const { data: pdata } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,attachment_style,communication_style,humor_banter_style,early_openness_comfort").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
           const infoMap = {}
           for (const p of pdata || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); infoMap[p.assigned_number] = { name: p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`, gender: p.gender || sd?.answers?.gender || sd?.gender || "?", ...p } }
@@ -10463,7 +10635,8 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const phase3TableMap = {}
           for (const pt of phase3Tables || []) phase3TableMap[pt.participant_id] = pt.table_number
           // Fetch rankings for match-flow explanation
-          const { data: rankRows } = await supabase.from("participant_rankings").select("ranker_number,ranked_number,rank").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).order("rank", { ascending: true })
+          const { data: rankRowsRaw } = await supabase.from("participant_rankings").select("ranker_number,ranked_number,rank").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("ranker_number", selected).order("rank", { ascending: true })
+          const rankRows = (rankRowsRaw || []).filter(row => selectedSet.has(Number(row.ranked_number)))
           const rankMap = {}  // rankMap[a][b] = 1-based rank of b in a's list
           const listMap = {}  // listMap[a] = ordered array (0-indexed) of ranked numbers
           for (const row of rankRows || []) {
@@ -10478,7 +10651,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const seen = new Set()
           const pairs = []
           for (const row of matchRows) {
-            if (!row.phase2_partner) continue
+            if (!row.phase2_partner || !selectedSet.has(Number(row.phase2_partner))) continue
             const key = [row.participant_number, row.phase2_partner].sort((a,b)=>a-b).join("-")
             if (seen.has(key)) continue
             seen.add(key)
@@ -10525,12 +10698,10 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           }
           // Build phase3 pairs (algorithm matches — from locked matches, no recalculation)
           // Fetch locked matches for current event to flag pairs
-          const [{ data: stateRow2 }, { data: testStateRow }] = await Promise.all([
-            supabase.from("event_state").select("current_event_id").eq("match_id", STATIC_MATCH_ID).single(),
-            supabase.from("event_state").select("test_mode_active").eq("match_id", EVENT3_MATCH_ID).maybeSingle(),
-          ])
-          const currentEventId2 = stateRow2?.current_event_id || 1
+          const { data: testStateRow } = await supabase.from("event_state").select("current_event_id,test_mode_active").eq("match_id", EVENT3_MATCH_ID).maybeSingle()
+          const currentEventId2 = currentEventId
           const matchesAreTestMode = testStateRow?.test_mode_active === true
+            && Number(testStateRow?.current_event_id) === Number(currentEventId2)
           let lockedPairKeys
           if (matchesAreTestMode) {
             const testRows = await getEvent3TestMatchRows(currentEventId2)
@@ -10546,7 +10717,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const phase3Seen = new Set()
           const phase3Pairs = []
           for (const row of matchRows) {
-            if (!row.phase3_partner) continue
+            if (!row.phase3_partner || !selectedSet.has(Number(row.phase3_partner))) continue
             const key = [row.participant_number, row.phase3_partner].sort((a,b)=>a-b).join("-")
             if (phase3Seen.has(key)) continue
             phase3Seen.add(key)
@@ -10759,14 +10930,26 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         }
         // e3-get-feedback — live feedback feed for admin spectator
         if (action === "e3-get-feedback") {
+          const { data: feedbackParticipants, error: feedbackParticipantsError } = await supabase
+            .from("event3_participants")
+            .select("participant_number")
+            .eq("match_id", EVENT3_MATCH_ID)
+            .eq("event_id", currentEventId)
+          if (feedbackParticipantsError) return res.status(500).json({ error: feedbackParticipantsError.message })
+          const feedbackNumbers = (feedbackParticipants || []).map(row => Number(row.participant_number))
+          const feedbackNumberSet = new Set(feedbackNumbers)
+          if (feedbackNumbers.length === 0) {
+            return res.status(200).json({ phase2: [], phase3: [], phase2_submitted: 0, phase3_submitted: 0, total_participants: 0 })
+          }
           const { data: matchRows } = await supabase
             .from("event3_matches")
             .select("participant_number, phase2_partner, phase2_score, phase2_score_model_version, phase2_score_snapshot, phase2_score_content_hash, phase3_partner, phase3_score, phase3_score_model_version, phase3_score_snapshot, phase3_score_content_hash, phase2_feedback, phase3_feedback, match_preference")
             .eq("match_id", EVENT3_MATCH_ID)
             .eq("event_id", currentEventId)
+            .in("participant_number", feedbackNumbers)
           if (!matchRows || matchRows.length === 0)
-            return res.status(200).json({ phase2: [], phase3: [], phase2_submitted: 0, phase3_submitted: 0, total_participants: 0 })
-          const allNums = [...new Set(matchRows.flatMap(r => [r.participant_number, r.phase2_partner, r.phase3_partner].filter(Boolean)))]
+            return res.status(200).json({ phase2: [], phase3: [], phase2_submitted: 0, phase3_submitted: 0, total_participants: feedbackNumbers.length })
+          const allNums = [...new Set(matchRows.flatMap(r => [r.participant_number, r.phase2_partner, r.phase3_partner].filter(number => number && feedbackNumberSet.has(Number(number)))))]
           const { data: pdata } = await supabase.from("participants").select("assigned_number, name, gender").eq("match_id", STATIC_MATCH_ID).in("assigned_number", allNums)
           const nameMap = {}
           for (const p of pdata || []) nameMap[p.assigned_number] = { name: p.name || `#${p.assigned_number}`, gender: p.gender }
@@ -10779,7 +10962,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           }
           const phase2 = [], phase3 = []
           for (const row of matchRows) {
-            if (row.phase2_partner) {
+            if (row.phase2_partner && feedbackNumberSet.has(Number(row.phase2_partner))) {
               const partnerRow = matchMap[row.phase2_partner]
               const partnerFb = partnerRow?.phase2_feedback || null
               const myFb = row.phase2_feedback || null
@@ -10789,7 +10972,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               const currentCompat = getStoredScore(row, "phase2")
               phase2.push({ participant_number: row.participant_number, participant_name: getName(row.participant_number), partner_number: row.phase2_partner, partner_name: getName(row.phase2_partner), feedback: myFb, submitted: !!row.phase2_feedback, partner_submitted: !!partnerFb, partner_feedback: partnerFb, mutual_yes: mutualYes, match_preference: row.match_preference || null, compat_score: currentCompat, partner_other_phase: "phase3", partner_other_partner_number: partnerOtherNum, partner_other_partner_name: partnerOtherNum ? getName(partnerOtherNum) : null, partner_other_compat_score: partnerOtherCompat, compat_diff: (currentCompat != null && partnerOtherCompat != null) ? currentCompat - partnerOtherCompat : null })
             }
-            if (row.phase3_partner) {
+            if (row.phase3_partner && feedbackNumberSet.has(Number(row.phase3_partner))) {
               const partnerRow = matchMap[row.phase3_partner]
               const partnerFb = partnerRow?.phase3_feedback || null
               const myFb = row.phase3_feedback || null
@@ -10800,8 +10983,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               phase3.push({ participant_number: row.participant_number, participant_name: getName(row.participant_number), partner_number: row.phase3_partner, partner_name: getName(row.phase3_partner), feedback: myFb, submitted: !!row.phase3_feedback, partner_submitted: !!partnerFb, partner_feedback: partnerFb, mutual_yes: mutualYes, match_preference: row.match_preference || null, compat_score: currentCompat3, partner_other_phase: "phase2", partner_other_partner_number: partnerOtherNum3, partner_other_partner_name: partnerOtherNum3 ? getName(partnerOtherNum3) : null, partner_other_compat_score: partnerOtherCompat3, compat_diff: (currentCompat3 != null && partnerOtherCompat3 != null) ? currentCompat3 - partnerOtherCompat3 : null })
             }
           }
-          const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
-          return res.status(200).json({ phase2, phase3, phase2_submitted: phase2.filter(e => e.submitted).length, phase3_submitted: phase3.filter(e => e.submitted).length, total_participants: (ep || []).length })
+          return res.status(200).json({ phase2, phase3, phase2_submitted: phase2.filter(e => e.submitted).length, phase3_submitted: phase3.filter(e => e.submitted).length, total_participants: feedbackNumbers.length })
         }
         // e3-analyze-pair — algorithmic comparison + AI interpretation from ONE participant's perspective.
         // The clicked card's participant is the "subject"; we compare their actual event3 partner with
@@ -11488,12 +11670,26 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
         }
         // e3-trigger-mood-check
         if (action === "e3-trigger-mood-check") {
+          if (isCohostRequest && !enforceRateLimit(req, res, { key: "cohost-mood-send", limit: 6, windowMs: 60_000 })) return
           const { target_number } = req.body // if provided, send to one person; otherwise all
+          const hasTarget = target_number !== undefined && target_number !== null && String(target_number).trim() !== ""
+          const targetNumber = hasTarget ? Number(target_number) : null
+          if (hasTarget && (!Number.isInteger(targetNumber) || targetNumber <= 0 || targetNumber === 9999)) {
+            return res.status(400).json({ error: "Invalid target_number" })
+          }
+          if (!hasTarget && isCohostRequest && req.body?.confirm_all !== true) {
+            return res.status(400).json({ error: "confirm_all=true is required for a co-host broadcast" })
+          }
+          if (hasTarget && isCohostRequest) {
+            const { data: enrolled, error: enrolledError } = await supabase.from("event3_participants").select("id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", targetNumber).maybeSingle()
+            if (enrolledError) return res.status(500).json({ error: enrolledError.message })
+            if (!enrolled) return res.status(404).json({ error: "Participant is not enrolled in the current event" })
+          }
           const checkId = crypto.randomUUID()
-          if (target_number) {
+          if (hasTarget) {
             // Single participant
             const { error } = await supabase.from("event3_mood_checks").insert({
-              match_id: EVENT3_MATCH_ID, event_id: currentEventId, check_id: checkId, participant_number: parseInt(target_number)
+              match_id: EVENT3_MATCH_ID, event_id: currentEventId, check_id: checkId, participant_number: targetNumber
             })
             if (error) return res.status(500).json({ error: error.message })
             return res.status(200).json({ check_id: checkId, sent_to: 1 })
@@ -11514,14 +11710,18 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           if (check_id) query = query.eq("check_id", check_id)
           const { data, error } = await query.limit(200)
           if (error) return res.status(500).json({ error: error.message })
+          const cohostRosterSet = await getCohostRosterSet()
+          const visibleMoodRows = cohostRosterSet
+            ? (data || []).filter(row => cohostRosterSet.has(Number(row.participant_number)))
+            : (data || [])
           // Fetch participant names
-          const nums = [...new Set((data || []).map(r => r.participant_number))]
+          const nums = [...new Set(visibleMoodRows.map(r => r.participant_number))]
           const { data: pdata } = await supabase.from("participants").select("assigned_number,name").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
           const nameMap = {}
           for (const p of pdata || []) { nameMap[p.assigned_number] = (p.name || "").trim().split(/\s+/)[0] || `#${p.assigned_number}` }
           // Group by check_id
           const groups = {}
-          for (const r of data || []) {
+          for (const r of visibleMoodRows) {
             if (!groups[r.check_id]) groups[r.check_id] = { check_id: r.check_id, triggered_at: r.triggered_at, entries: [] }
             groups[r.check_id].entries.push({ participant_number: r.participant_number, participant_name: nameMap[r.participant_number] || `#${r.participant_number}`, mood: r.mood, answered_at: r.answered_at })
           }
@@ -11530,20 +11730,36 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
         }
         // e3-send-notification
         if (action === "e3-send-notification") {
+          if (isCohostRequest && !enforceRateLimit(req, res, { key: "cohost-notification-send", limit: 12, windowMs: 60_000 })) return
           const { target_number, title, body, icon } = req.body
-          if (!title) return res.status(400).json({ error: "title required" })
+          const titleText = String(title || "").trim().slice(0, 120)
+          const bodyText = String(body || "").trim().slice(0, 1000)
+          const hasTarget = target_number !== undefined && target_number !== null && String(target_number).trim() !== ""
+          const targetNumber = hasTarget ? Number(target_number) : null
+          if (!titleText) return res.status(400).json({ error: "title required" })
+          if (hasTarget && (!Number.isInteger(targetNumber) || targetNumber <= 0 || targetNumber === 9999)) {
+            return res.status(400).json({ error: "Invalid target_number" })
+          }
+          if (!hasTarget && isCohostRequest && req.body?.confirm_all !== true) {
+            return res.status(400).json({ error: "confirm_all=true is required for a co-host broadcast" })
+          }
+          if (hasTarget && isCohostRequest) {
+            const { data: enrolled, error: enrolledError } = await supabase.from("event3_participants").select("id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", targetNumber).maybeSingle()
+            if (enrolledError) return res.status(500).json({ error: enrolledError.message })
+            if (!enrolled) return res.status(404).json({ error: "Participant is not enrolled in the current event" })
+          }
           const notifId = crypto.randomUUID()
           const iconVal = icon || "info"
-          if (target_number) {
+          if (hasTarget) {
             const { error } = await supabase.from("event3_notifications").insert({
-              match_id: EVENT3_MATCH_ID, event_id: currentEventId, notif_id: notifId, participant_number: parseInt(target_number), title, body: body || null, icon: iconVal
+              match_id: EVENT3_MATCH_ID, event_id: currentEventId, notif_id: notifId, participant_number: targetNumber, title: titleText, body: bodyText || null, icon: iconVal
             })
             if (error) return res.status(500).json({ error: error.message })
             return res.status(200).json({ notif_id: notifId, sent_to: 1 })
           } else {
             const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
             if (!ep || ep.length === 0) return res.status(400).json({ error: "No participants selected" })
-            const rows = ep.map(r => ({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, notif_id: notifId, participant_number: r.participant_number, title, body: body || null, icon: iconVal }))
+            const rows = ep.map(r => ({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, notif_id: notifId, participant_number: r.participant_number, title: titleText, body: bodyText || null, icon: iconVal }))
             const { error } = await supabase.from("event3_notifications").insert(rows)
             if (error) return res.status(500).json({ error: error.message })
             return res.status(200).json({ notif_id: notifId, sent_to: ep.length })
@@ -11558,12 +11774,16 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             .order("created_at", { ascending: false })
             .limit(200)
           if (error) return res.status(500).json({ error: error.message })
-          const nums = [...new Set((data || []).map(r => r.participant_number))]
+          const cohostRosterSet = await getCohostRosterSet()
+          const visibleNotifications = cohostRosterSet
+            ? (data || []).filter(row => cohostRosterSet.has(Number(row.participant_number)))
+            : (data || [])
+          const nums = [...new Set(visibleNotifications.map(r => r.participant_number))]
           const { data: pdata } = await supabase.from("participants").select("assigned_number,name").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
           const nameMap = {}
           for (const p of pdata || []) { nameMap[p.assigned_number] = (p.name || "").trim().split(/\s+/)[0] || `#${p.assigned_number}` }
           const groups = {}
-          for (const r of data || []) {
+          for (const r of visibleNotifications) {
             if (!groups[r.notif_id]) groups[r.notif_id] = { notif_id: r.notif_id, title: r.title, body: r.body, icon: r.icon, created_at: r.created_at, entries: [] }
             groups[r.notif_id].entries.push({ participant_number: r.participant_number, participant_name: nameMap[r.participant_number] || `#${r.participant_number}`, seen_at: r.seen_at })
           }

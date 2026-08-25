@@ -875,6 +875,17 @@ function calculateLifestyleCompatibility(preferences1, preferences2) {
   const participant = preferences => ({ survey_data: { lifestylePreferences: preferences || '' } })
   return calculateBalancedLifestyleScore(participant(preferences1), participant(preferences2))
 }
+
+// Cache coverage is intentionally more permissive than live-match generation.
+// Older or partially migrated surveys can still produce deterministic defaults,
+// and missing vibe answers are handled with low-confidence neutral axes.
+function isParticipantCacheEligible(participant) {
+  const surveyData = participant?.survey_data
+  return !!surveyData
+    && typeof surveyData === 'object'
+    && !Array.isArray(surveyData)
+    && Object.keys(surveyData).length > 0
+}
 // Function to calculate core values compatibility score (up to 20% of total)
 function calculateCoreValuesCompatibility(values1, values2) {
   if (!values1 || !values2) {
@@ -1897,7 +1908,7 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
       ai_vibe_score: reusedVibe,
     })
     && options?.reusedVibeContentHash === cacheKey.vibeHash
-  const vibeMeta = { cacheable: true, fallbackReason: null, axes: null }
+  const vibeMeta = { cacheable: true, fallbackReason: null, validationError: null, axes: null }
 
   let vibeScore
   if (hasReusableVibe) {
@@ -1915,7 +1926,8 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   }
 
   if (!skipAI && vibeMeta.cacheable === false && options?.allowTransientVibeFallback !== true) {
-    const error = new Error(`Balanced AI vibe is not durable: ${vibeMeta.fallbackReason || 'unknown_error'}`)
+    const detail = vibeMeta.validationError ? ` (${vibeMeta.validationError})` : ''
+    const error = new Error(`Balanced AI vibe is not durable: ${vibeMeta.fallbackReason || 'unknown_error'}${detail}`)
     error.code = 'NON_CACHEABLE_VIBE_RESULT'
     error.retryable = true
     throw error
@@ -2014,6 +2026,33 @@ ${JSON.stringify({ participant_1: profileA, participant_2: profileB })}`
       ],
       max_completion_tokens: 500,
       temperature: 0,
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'balanced_vibe_axes',
+          strict: true,
+          schema: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['current_curiosity', 'hobbies', 'music', 'friend_description'],
+            properties: Object.fromEntries([
+              ['current_curiosity', 5],
+              ['hobbies', 3],
+              ['music', 1],
+              ['friend_description', 3],
+            ].map(([key, maximum]) => [key, {
+              type: 'object',
+              additionalProperties: false,
+              required: ['score', 'confidence', 'evidence'],
+              properties: {
+                score: { type: 'number', minimum: 0, maximum },
+                confidence: { type: 'number', minimum: 0, maximum: 1 },
+                evidence: { type: 'string' },
+              },
+            }])),
+          },
+        },
+      },
     }, {
       timeout: 6500,
     })
@@ -2035,11 +2074,21 @@ ${JSON.stringify({ participant_1: profileA, participant_2: profileB })}`
     console.log(`🎯 Balanced AI vibe: ${vibeScore.toFixed(2)}/${BALANCED_VIBE_MAX}`)
     return vibeScore
   } catch (error) {
+    const finishReason = completion?.choices?.[0]?.finish_reason || 'unknown'
+    const refusal = completion?.choices?.[0]?.message?.refusal
+    const validationError = refusal
+      ? 'model refusal'
+      : `${error?.message || error}; finish_reason=${finishReason}`
+    console.error('Invalid balanced vibe response:', {
+      validationError,
+      responseLength: rawResponse.length,
+    })
     if (vibeMeta) {
       vibeMeta.cacheable = false
       vibeMeta.fallbackReason = 'invalid_openai_response'
+      vibeMeta.validationError = validationError
     }
-    throw new Error(`Invalid balanced vibe response: ${error?.message || error}`)
+    throw new Error(`Invalid balanced vibe response: ${validationError}`)
   }
 }
 // Function to create groups of 3-4 (or 5) based on MBTI compatibility, avoiding matched pairs
@@ -3738,7 +3787,7 @@ export default async function handler(req, res) {
       if (error) throw error
       
       // Filter for complete participants
-      const participants = allParticipants.filter(p => isParticipantComplete(p))
+      const participants = allParticipants.filter(p => isParticipantCacheEligible(p))
       
       console.log(`📊 Found ${participants.length} eligible participants for pre-caching`)
       
@@ -3959,7 +4008,7 @@ export default async function handler(req, res) {
       console.log(`📊 Raw participants fetched: ${allParticipants?.length || 0}`)
 
       const participants = (allParticipants || [])
-        .filter(p => isParticipantComplete(p))
+        .filter(p => isParticipantCacheEligible(p))
         // Sort by assigned_number ascending for deterministic batching across calls
         .sort((a, b) => a.assigned_number - b.assigned_number)
 
@@ -4320,7 +4369,7 @@ if (action === "cache-status-by-gender") {
     if (error) throw error
  
     const participants = (allParticipants || [])
-      .filter(p => isParticipantComplete(p))
+      .filter(p => isParticipantCacheEligible(p))
       .sort((a, b) => a.assigned_number - b.assigned_number)
  
     const participantNumbers = participants.map(p => p.assigned_number)
@@ -4416,7 +4465,7 @@ if (action === "cache-status-by-gender") {
       if (error) throw error
 
       const participants = (allParticipants || [])
-        .filter(p => isParticipantComplete(p))
+        .filter(p => isParticipantCacheEligible(p))
         .sort((a, b) => a.assigned_number - b.assigned_number)
 
       const totalParticipants = participants.length
@@ -4566,7 +4615,7 @@ if (action === "cache-status-by-gender") {
       if (error) throw error
       
       // Filter for complete participants
-      const allEligibleParticipants = allParticipants.filter(p => isParticipantComplete(p))
+      const allEligibleParticipants = allParticipants.filter(p => isParticipantCacheEligible(p))
       
       console.log(`📊 Found ${allEligibleParticipants.length} total eligible participants`)
       
@@ -4865,7 +4914,7 @@ if (action === "cache-status-by-gender") {
       if (error) throw error
 
       const allEligibleParticipants = (allParticipants || [])
-        .filter(p => isParticipantComplete(p))
+        .filter(p => isParticipantCacheEligible(p))
         .sort((a, b) => a.assigned_number - b.assigned_number)
 
       const totalParticipants = allEligibleParticipants.length
@@ -5203,7 +5252,7 @@ if (action === "cache-status-by-gender") {
       .is("attendance_denied_at", null)
       .neq("assigned_number", 9999)
 
-    const allEligible = (allRaw || []).filter(p => isParticipantComplete(p))
+    const allEligible = (allRaw || []).filter(p => isParticipantCacheEligible(p))
     const candidatePool = paidOnly ? allEligible.filter(p => isPaidForEvent(p, eventId)) : allEligible
     const pMap = new Map(candidatePool.map(p => [p.assigned_number, p]))
 

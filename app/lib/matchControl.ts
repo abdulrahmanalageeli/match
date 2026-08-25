@@ -65,6 +65,9 @@ const MATCH_INSIGHT_IDS = [
   "match_current_curiosity",
   "match_current_focus",
   "conversation_initiative_preference",
+  "expression_language",
+  "minimum_partner_religious_commitment",
+  "social_relationship_style",
 ] as const
 
 const MATCH_FOCUS_VALUES = new Set([
@@ -76,6 +79,10 @@ export function getParticipantMatchInsightsCompletion(participant?: MatchControl
   const answers = participant?.survey_data?.answers || {}
   const value = (key: string) => answers[key] ?? participant?.survey_data?.[key] ?? participant?.[key]
   const validChoice = (key: string) => ["A", "B", "C", "D"].includes(String(value(key) || "").trim().toUpperCase())
+  const validNumberChoice = (key: string, maximum: number) => {
+    const answer = String(value(key) || "").trim()
+    return Array.from({ length: maximum }, (_, index) => String(index + 1)).includes(answer)
+  }
   const curiosity = String(value("match_current_curiosity") || "").replace(/\s+/g, " ").trim()
   const rawFocus = value("match_current_focus")
   const focus = (Array.isArray(rawFocus) ? rawFocus : typeof rawFocus === "string" ? rawFocus.split(",") : [])
@@ -87,6 +94,9 @@ export function getParticipantMatchInsightsCompletion(participant?: MatchControl
     curiosity.length >= 20 && curiosity.length <= 150,
     new Set(focus).size >= 2,
     validChoice("conversation_initiative_preference"),
+    validNumberChoice("expression_language", 5),
+    validNumberChoice("minimum_partner_religious_commitment", 4),
+    validNumberChoice("social_relationship_style", 4),
   ].filter(Boolean).length
 
   return { completed, total: MATCH_INSIGHT_IDS.length, complete: completed === MATCH_INSIGHT_IDS.length }

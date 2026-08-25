@@ -6,7 +6,7 @@ const root = new URL('../../', import.meta.url)
 const read = path => readFile(new URL(path, root), 'utf8')
 
 test('balanced compatibility migration persists every cache and match provenance field', async () => {
-  const sql = await read('supabase/migrations/20260825140000_persist_balanced_compatibility_provenance.sql')
+  const sql = await read('supabase/migrations/20260825010911_persist_balanced_compatibility_provenance.sql')
 
   for (const field of [
     'score_model_version',

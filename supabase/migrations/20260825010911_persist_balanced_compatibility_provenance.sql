@@ -1,3 +1,4 @@
+-- Supabase production migration version: 20260825010911.
 begin;
 
 -- Cache rows are reusable only when both the participant-content identity and

@@ -15,7 +15,9 @@ export function isParticipantEnrolledForEvent(participant, currentEventId) {
   if (!Number.isInteger(eventId) || eventId <= 0) return false
   if (Number(participant?.event_id) === eventId) return true
   if (participant?.auto_signup_next_event === true) return true
-  return participant?.signup_for_next_event === true && Number(participant?.signup_event_id) === eventId
+  // This flag is reset during event rollover, so a true value always refers
+  // to the upcoming/current event; signup_event_id may contain legacy data.
+  return participant?.signup_for_next_event === true
 }
 
 export function isParticipantContactedForEvent(participant, currentEventId) {

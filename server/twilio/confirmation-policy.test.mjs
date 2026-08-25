@@ -22,11 +22,12 @@ test("treats everyone without an organizer waiver normally", () => {
   assert.equal(confirmationPaymentState({}, 21), "payment_pending")
 })
 
-test("requires enrollment in the active event", () => {
+test("treats the reset-on-rollover next-event flag as enrollment", () => {
   assert.equal(isParticipantEnrolledForEvent({ event_id: 21 }, 21), true)
   assert.equal(isParticipantEnrolledForEvent({ signup_for_next_event: true, signup_event_id: 21 }, 21), true)
   assert.equal(isParticipantEnrolledForEvent({ auto_signup_next_event: true }, 21), true)
-  assert.equal(isParticipantEnrolledForEvent({ signup_for_next_event: true, signup_event_id: 20 }, 21), false)
+  assert.equal(isParticipantEnrolledForEvent({ signup_for_next_event: true, signup_event_id: 20 }, 21), true)
+  assert.equal(isParticipantEnrolledForEvent({ signup_for_next_event: true, signup_event_id: null }, 21), true)
   assert.equal(isParticipantEnrolledForEvent({ event_id: 20 }, 21), false)
 })
 
@@ -55,7 +56,7 @@ test("uses the same current-event contact marker for attendance declines", () =>
     signup_event_id: null,
     PAID: true,
     whatsapp_contacted_event_id: 23,
-  }, 24), "not_enrolled")
+  }, 24), "not_contacted")
 
   assert.equal(attendanceDeclineAccessState({
     signup_for_next_event: true,

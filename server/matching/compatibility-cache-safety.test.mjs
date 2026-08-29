@@ -77,11 +77,32 @@ test('cache storage bulk-upserts arrays in bounded chunks', async () => {
   assert.match(bulkStore, /Math\.min\(Number\(chunkSize\) \|\| 100, 500\)/)
 })
 
-test('bulk cache usage RPC is atomic and restricted to the service role', async () => {
-  const sql = await read('supabase/migrations/20260825165932_bulk_touch_compatibility_cache_usage.sql')
+test('bulk cache reads avoid wide-row sorts and Cartesian index probing', async () => {
+  const source = await read('api/admin/trigger-match.mjs')
+  const block = between(source, 'async function fetchAllCachedPairs', 'async function fetchCachedPairsForOuterParticipants')
 
-  assert.match(sql, /use_count = coalesce\(use_count, 0\) \+ 1/)
-  assert.match(sql, /where id = any\(/)
+  assert.match(source, /const MAX_SCOPED_CACHE_PARTICIPANTS = 200/)
+  assert.match(block, /scanWholeTable = normalizedParticipantNumbers\.length > MAX_SCOPED_CACHE_PARTICIPANTS/)
+  assert.match(block, /\.order\('id', \{ ascending: true \}\)/)
+  assert.match(block, /query = query\.gt\('id', cursor\)/)
+  assert.match(block, /participantSet\.has\(Number\(row\.participant_a_number\)\)/)
+  assert.doesNotMatch(block, /\.range\(/)
+  assert.doesNotMatch(block, /\.order\('combined_content_hash'/)
+})
+
+test('cache usage writes are bounded, throttled, and restricted to the service role', async () => {
+  const [source, sql] = await Promise.all([
+    read('api/admin/trigger-match.mjs'),
+    read('supabase/migrations/20260829225406_bound_compatibility_cache_usage_writes.sql'),
+  ])
+
+  assert.match(source, /const MAX_CACHE_USAGE_TOUCH_IDS = 200/)
+  assert.match(source, /ids\.length > MAX_CACHE_USAGE_TOUCH_IDS/)
+  assert.match(sql, /from unnest\(coalesce\(p_ids, array\[\]::uuid\[\]\)\)/)
+  assert.match(sql, /limit 200/)
+  assert.match(sql, /use_count = coalesce\(cache\.use_count, 0\) \+ 1/)
+  assert.match(sql, /last_used < now\(\) - interval '6 hours'/)
+  assert.match(sql, /drop index if exists public\.idx_cache_usage/)
   assert.match(sql, /security invoker/)
   assert.match(sql, /revoke execute[^;]+from public/)
   assert.match(sql, /revoke execute[^;]+from anon/)

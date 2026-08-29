@@ -77,8 +77,6 @@ create index IF not exists idx_cache_participants on public.compatibility_cache 
 
 create index IF not exists idx_cache_hash on public.compatibility_cache using btree (vibe_content_hash, mbti_hash) TABLESPACE pg_default;
 
-create index IF not exists idx_cache_usage on public.compatibility_cache using btree (last_used desc) TABLESPACE pg_default;
-
 create index IF not exists idx_cache_combined_hash on public.compatibility_cache using btree (combined_content_hash) TABLESPACE pg_default;
 
 create index IF not exists idx_compatibility_cache_exact_model_identity on public.compatibility_cache using btree (
@@ -94,12 +92,23 @@ language sql
 security invoker
 set search_path = ''
 as $$
-  with touched as (
-    update public.compatibility_cache
+  with requested as (
+    select distinct requested.id
+    from unnest(coalesce(p_ids, array[]::uuid[])) as requested(id)
+    where requested.id is not null
+    limit 200
+  ),
+  touched as (
+    update public.compatibility_cache as cache
     set
       last_used = now(),
-      use_count = coalesce(use_count, 0) + 1
-    where id = any(coalesce(p_ids, array[]::uuid[]))
+      use_count = coalesce(cache.use_count, 0) + 1
+    from requested
+    where cache.id = requested.id
+      and (
+        cache.last_used is null
+        or cache.last_used < now() - interval '6 hours'
+      )
     returning 1
   )
   select count(*)::integer
@@ -107,7 +116,7 @@ as $$
 $$;
 
 comment on function public.touch_compatibility_cache_rows(uuid[])
-is 'Atomically increments usage metadata for exact compatibility-cache hits in one database call.';
+is 'Updates usage metadata for at most 200 cache rows and no more than once per row every six hours.';
 
 revoke execute on function public.touch_compatibility_cache_rows(uuid[]) from public;
 revoke execute on function public.touch_compatibility_cache_rows(uuid[]) from anon;

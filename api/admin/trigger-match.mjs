@@ -256,22 +256,42 @@ if (LOG_LEVEL === "silent") {
   // eslint-disable-next-line no-console
   console.error = () => {}
 }
+const MAX_SCOPED_CACHE_PARTICIPANTS = 200
+
 async function fetchAllCachedPairs(table, participantNumbers, pageSize = 1000) {
+  const normalizedParticipantNumbers = [...new Set((participantNumbers || [])
+    .map(Number)
+    .filter(Number.isInteger))]
   const all = []
-  let from = 0
+  if (normalizedParticipantNumbers.length < 2) return { data: all, error: null }
+
+  const participantSet = new Set(normalizedParticipantNumbers)
+  const scanWholeTable = normalizedParticipantNumbers.length > MAX_SCOPED_CACHE_PARTICIPANTS
+  const effectivePageSize = Math.max(100, Math.min(Number(pageSize) || 1000, 1000))
+  let cursor = null
+
   // Safety cap: 200 pages × 1000 rows = 200k rows; way more than realistic.
   for (let page = 0; page < 200; page++) {
     let data, error
     try {
-      ;({ data, error } = await supabase
+      let query = supabase
         .from(table)
         .select('*')
-        .in('participant_a_number', participantNumbers)
-        .in('participant_b_number', participantNumbers)
-        .order('participant_a_number', { ascending: true })
-        .order('participant_b_number', { ascending: true })
-        .order('combined_content_hash', { ascending: true })
-        .range(from, from + pageSize - 1))
+        .order('id', { ascending: true })
+        .limit(effectivePageSize)
+
+      // Large participant lists cover most of this small global cache. Passing
+      // both lists to PostgREST makes Postgres probe their Cartesian product;
+      // scanning the primary key once and filtering locally is substantially
+      // cheaper. Smaller event-scoped reads keep the database filter.
+      if (!scanWholeTable) {
+        query = query
+          .in('participant_a_number', normalizedParticipantNumbers)
+          .in('participant_b_number', normalizedParticipantNumbers)
+      }
+      if (cursor) query = query.gt('id', cursor)
+
+      ;({ data, error } = await query)
     } catch (e) {
       console.error(`❌ fetchAllCachedPairs(${table}) page ${page} exception:`, e)
       return { data: all, error: e }
@@ -281,9 +301,18 @@ async function fetchAllCachedPairs(table, participantNumbers, pageSize = 1000) {
       return { data: all, error }
     }
     if (!data || data.length === 0) break
-    all.push(...data)
-    if (data.length < pageSize) break
-    from += pageSize
+    if (scanWholeTable) {
+      all.push(...data.filter(row => (
+        participantSet.has(Number(row.participant_a_number))
+        && participantSet.has(Number(row.participant_b_number))
+      )))
+    } else {
+      all.push(...data)
+    }
+
+    const nextCursor = data[data.length - 1]?.id
+    if (!nextCursor || nextCursor === cursor || data.length < effectivePageSize) break
+    cursor = nextCursor
   }
   return { data: all, error: null }
 }
@@ -643,10 +672,21 @@ function computeOppositesFlippedScore(components) {
 // Preview guard to skip ALL DB writes in non-mutating flows
 let SKIP_DB_WRITES = false
 
+// Cache usage is observability metadata, not matching state. Large match runs can
+// hit tens of thousands of immutable cache rows; rewriting all of them only to
+// increment a counter creates enough WAL and index churn to starve small
+// Postgres instances. Keep interactive touches small and let the database
+// throttle repeated updates further.
+const MAX_CACHE_USAGE_TOUCH_IDS = 200
+
 async function touchCompatibilityCacheUsage(cacheIds) {
   if (SKIP_DB_WRITES) return { touched: 0, skipped: true }
   const ids = [...new Set(Array.from(cacheIds || []).filter(Boolean))]
   if (ids.length === 0) return { touched: 0, skipped: true }
+  if (ids.length > MAX_CACHE_USAGE_TOUCH_IDS) {
+    console.warn(`⚠️ Skipping cache usage metadata for ${ids.length} rows; limit is ${MAX_CACHE_USAGE_TOUCH_IDS}`)
+    return { touched: 0, skipped: true, reason: 'bulk_usage_metadata_limit' }
+  }
 
   try {
     const { data, error } = await supabase.rpc('touch_compatibility_cache_rows', {

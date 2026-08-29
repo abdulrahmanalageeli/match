@@ -282,6 +282,9 @@ test('swap-chain API accepts only the exact reviewed participant set and never m
   assert.match(block, /const reviewedNumbers = new Set/)
   assert.match(block, /affected\.length !== reviewedNumbers\.size/)
   assert.match(block, /affected\.some\(number => !reviewedNumbers\.has\(number\)\)/)
-  assert.match(block, /apply_match_swap_plan_with_score_provenance/)
+  assert.match(block, /apply_match_swap_plan_with_score_provenance_v2/)
   assert.doesNotMatch(block, /await repairMissingSwapInsightScores/)
+
+  const undoBlock = between(source, 'if (action === "undo-match-swap-plan")', 'if (action === "get-excluded-pairs")')
+  assert.match(undoBlock, /undo_match_swap_plan_v2/)
 })

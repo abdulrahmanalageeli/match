@@ -6,6 +6,10 @@ const migrationUrl = new URL(
   '../../supabase/migrations/20260829141952_harden_match_swap_undo.sql',
   import.meta.url,
 )
+const versionedMigrationUrl = new URL(
+  '../../supabase/migrations/20260829153000_expose_hardened_match_swap_v2.sql',
+  import.meta.url,
+)
 
 test('swap undo compares and locks complete affected rows before restoring an audit', async () => {
   const sql = await readFile(migrationUrl, 'utf8')
@@ -42,4 +46,17 @@ test('provenance swap wrapper requires affected numbers to equal reviewed before
   assert.match(wrapperSql, /apply_match_swap_plan_provenance_unchecked/)
   assert.match(wrapperSql, /revoke all on function public\.apply_match_swap_plan_provenance_unchecked\([\s\S]*service_role/)
   assert.match(wrapperSql, /grant execute on function public\.apply_match_swap_plan_with_score_provenance\([\s\S]*to service_role/)
+})
+
+test('versioned RPCs require the hardening migration and remain service-role-only', async () => {
+  const sql = await readFile(versionedMigrationUrl, 'utf8')
+
+  assert.match(sql, /apply_match_swap_plan_provenance_unchecked/)
+  assert.match(sql, /raise exception 'The hardened match-swap migration must be applied before the v2 RPCs'/)
+  assert.match(sql, /create or replace function public\.apply_match_swap_plan_with_score_provenance_v2/)
+  assert.match(sql, /select public\.apply_match_swap_plan_with_score_provenance\(/)
+  assert.match(sql, /create or replace function public\.undo_match_swap_plan_v2/)
+  assert.match(sql, /select public\.undo_match_swap_plan\(p_audit_id\)/)
+  assert.match(sql, /revoke all on function public\.apply_match_swap_plan_with_score_provenance_v2\([\s\S]*service_role/)
+  assert.match(sql, /grant execute on function public\.undo_match_swap_plan_v2\(uuid\)[\s\S]*to service_role/)
 })

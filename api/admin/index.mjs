@@ -5384,7 +5384,7 @@ export default async function handler(req, res) {
           })
         }
 
-        const { data, error } = await supabase.rpc("apply_match_swap_plan_with_score_provenance", {
+        const { data, error } = await supabase.rpc("apply_match_swap_plan_with_score_provenance_v2", {
           p_match_id: STATIC_MATCH_ID,
           p_event_id: eventId,
           p_round: round,
@@ -5419,7 +5419,7 @@ export default async function handler(req, res) {
         if (!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(auditId)) {
           return res.status(400).json({ error: "A valid swap audit ID is required" })
         }
-        const { data, error } = await supabase.rpc("undo_match_swap_plan", { p_audit_id: auditId })
+        const { data, error } = await supabase.rpc("undo_match_swap_plan_v2", { p_audit_id: auditId })
         if (error) {
           if (isMissingSwapRpc(error)) {
             return res.status(501).json({ error: "The transactional swap migration has not been applied yet", migration_required: true })

@@ -3327,13 +3327,12 @@ export default function Admin3Page() {
                 </div>
               )}
 
-              <details className="group mt-3 rounded-xl border border-gray-800 bg-black/20">
-                <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs font-semibold text-gray-400 transition-colors hover:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500 [&::-webkit-details-marker]:hidden">
+              <section className="mt-3 rounded-xl border border-gray-800 bg-black/20" aria-labelledby="bulk-ranking-actions-title">
+                <div className="flex min-h-11 items-center gap-2 px-3 py-2 text-xs font-semibold text-gray-300">
                   <Shield size={14} className="text-amber-500" />
-                  <span className="flex-1">أدوات المشرف المتقدمة</span>
-                  <span className="text-[10px] font-normal text-gray-600">تغيّر البيانات</span>
-                  <ChevronDown size={14} className="transition-transform group-open:rotate-180" />
-                </summary>
+                  <span id="bulk-ranking-actions-title" className="flex-1">إجراءات التصنيفات الجماعية</span>
+                  <span className="rounded-full border border-amber-900/50 bg-amber-950/30 px-2 py-0.5 text-[9px] font-bold text-amber-400">Bulk actions</span>
+                </div>
                 <div className="border-t border-gray-800 p-3">
                   <div className="mb-3 rounded-lg border border-amber-900/40 bg-amber-950/20 px-3 py-2 text-[10px] leading-5 text-amber-200/70">
                     استخدم هذه الإجراءات عند تعذّر إرسال التصنيف فقط. الترتيب الافتراضي والعشوائي لا يمثلان اختيار المشارك.
@@ -3346,7 +3345,7 @@ export default function Admin3Page() {
                       className="min-h-14 rounded-xl border border-amber-800/40 bg-amber-950/30 px-3 py-2 text-right transition-colors hover:bg-amber-900/30 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <span className="flex items-center gap-1.5 text-xs font-bold text-amber-300">{loading === "force-save" ? <RefreshCw size={12} className="animate-spin" /> : <Clock size={12} />} إكمال غير المُرسلين</span>
-                      <span className="mt-1 block text-[9px] text-gray-500">ترتيب افتراضي · {pendingCount} بانتظار الإرسال</span>
+                      <span className="mt-1 block text-[9px] text-gray-500">Complete pending · {pendingCount} بانتظار الإرسال</span>
                     </button>
                     <button
                       type="button"
@@ -3354,8 +3353,8 @@ export default function Admin3Page() {
                       disabled={!!loading || !allRankings.length || previewEventId != null}
                       className="min-h-14 rounded-xl border border-violet-800/40 bg-violet-950/25 px-3 py-2 text-right transition-colors hover:bg-violet-900/30 disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      <span className="flex items-center gap-1.5 text-xs font-bold text-violet-300">{loading === "randomize" ? <RefreshCw size={12} className="animate-spin" /> : <FlaskConical size={12} />} عشوائية تجريبية للجميع</span>
-                      <span className="mt-1 block text-[9px] text-gray-500">تستبدل كل الاختيارات الحالية</span>
+                      <span className="flex items-center gap-1.5 text-xs font-bold text-violet-300">{loading === "randomize" ? <RefreshCw size={12} className="animate-spin" /> : <Shuffle size={12} />} عشوائي للجميع</span>
+                      <span className="mt-1 block text-[9px] text-gray-500">Randomize all · تستبدل كل الاختيارات الحالية</span>
                     </button>
                     <button
                       type="button"
@@ -3364,11 +3363,11 @@ export default function Admin3Page() {
                       className="min-h-14 rounded-xl border border-red-900/50 bg-red-950/20 px-3 py-2 text-right transition-colors hover:bg-red-900/30 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <span className="flex items-center gap-1.5 text-xs font-bold text-red-400">{loading === "clear-rank" ? <RefreshCw size={12} className="animate-spin" /> : <Trash2 size={12} />} حذف تصنيفات الفعالية</span>
-                      <span className="mt-1 block text-[9px] text-gray-500">حذف نهائي لكل الردود</span>
+                      <span className="mt-1 block text-[9px] text-gray-500">Clear all · حذف نهائي لكل الردود</span>
                     </button>
                   </div>
                 </div>
-              </details>
+              </section>
             </section>
 
             {rankStatus && (

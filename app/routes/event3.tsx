@@ -23,6 +23,7 @@ import {
 
 import { QuestionSlideshow } from "~/components/QuestionSlideshow"
 import { CURRENT_BALANCED_SCORE_MODEL } from "~/lib/compatibility-model"
+import { clearParticipantBrowserIdentity } from "~/lib/participant-browser-auth.mjs"
 
 // Create a shareable portrait card without relying on DOM screenshot libraries.
 // Drawing it directly keeps Arabic text sharp and makes saving reliable on mobile.
@@ -215,15 +216,22 @@ function clearAllArrived() {
 
 const EVENT3_ONBOARDING_KEY = "e3_onboarding_v4_1"
 
+function clearStoredParticipantIdentity() {
+  if (typeof window === "undefined") return
+  try { clearParticipantBrowserIdentity(window.localStorage) } catch {}
+}
+
 function clearBrowserSessionArtifacts() {
   if (typeof window === "undefined") return
 
-  // Keep logout scoped to Event 3. Clearing all origin storage/cookies can
-  // silently sign the participant out of unrelated parts of the product.
+  // Both participant token aliases are accepted by the welcome page, so an
+  // Event3 logout must clear the complete participant identity. Otherwise the
+  // supposedly logged-out account is restored as soon as /welcome opens.
   try {
+    clearStoredParticipantIdentity()
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const key = localStorage.key(i)
-      if (key === "blindmatch_result_token" || key?.startsWith("e3_")) {
+      if (key?.startsWith("e3_")) {
         localStorage.removeItem(key)
       }
     }
@@ -6742,7 +6750,7 @@ export default function Event3Page() {
 
   const handleUseAnotherNumber = useCallback(() => {
     if (typeof window === "undefined") return
-    try { localStorage.removeItem("blindmatch_result_token") } catch {}
+    clearStoredParticipantIdentity()
     clearAllArrived()
     setToken(null)
     setTokenError(false)
@@ -6762,7 +6770,7 @@ export default function Event3Page() {
       if (d.code === "EVENT3_TEST_MODE_LOCKED") setTestModeBlocked(true)
       if (d.error.includes("Invalid") || d.error.includes("token") || d.error.includes("expired") || d.error.includes("لم يتم العثور") || d.error.includes("غير مسجّل")) {
         setTokenError(true)
-        if (!isImpersonating) localStorage.removeItem("blindmatch_result_token")
+        if (!isImpersonating) clearStoredParticipantIdentity()
       }
       throw new Error(d.error)
     }

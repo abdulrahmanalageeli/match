@@ -375,10 +375,11 @@ const EVENT3_COHOST_PASSWORD = process.env.EVENT3_COHOST_PASSWORD || ""
 const EVENT3_COHOST_TOKEN_TTL_SECONDS = 8 * 60 * 60
 const EVENT3_COHOST_ACTIONS = new Set([
   "e3-cohost-dashboard",
+  "e3-cohost-rankings",
+  "e3-cohost-set-ranking",
   "e3-cohost-set-attendance",
   "e3-cohost-resolve-sos",
   "e3-cohost-reply-sos",
-  "e3-cohost-send-whatsapp",
   "e3-get-group-member-feedback",
   "e3-get-feedback",
   "e3-get-mood-checks",
@@ -386,6 +387,15 @@ const EVENT3_COHOST_ACTIONS = new Set([
   "e3-get-notifications",
   "e3-send-notification",
 ])
+
+function getEvent3ActiveTableRound(phase) {
+  if (phase === "round1") return 1
+  if (phase === "round2") return 2
+  if (phase === "phase2_reveal") return 20
+  if (phase === "phase3_reveal") return 30
+  return null
+}
+
 const E3_LATIN_SQUARE = [[0,1,2,3,4,5],[2,3,4,5,0,1],[4,5,0,1,2,3],[1,0,3,2,5,4],[3,2,5,4,1,0],[5,4,1,0,3,2]]
 
 function safeSecretEqual(received, expected) {
@@ -8955,7 +8965,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           }
 
           const [participantResult, assignmentResult, matchResult, rankingResult, attendanceResult, historyResult, legacyHistoryResult, sosResult, lockedResult, testMatchResult] = await Promise.all([
-            supabase.from("participants").select("assigned_number,name,age,phone_number").eq("match_id", STATIC_MATCH_ID).in("assigned_number", numbers),
+            supabase.from("participants").select("assigned_number,name,age").eq("match_id", STATIC_MATCH_ID).in("assigned_number", numbers),
             supabase.from("session_assignments").select("participant_id,round,table_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("round", [1, 2, 3, 20, 30]).in("participant_id", numbers),
             supabase.from("event3_matches").select("participant_number,phase2_partner,phase3_partner").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_number", numbers),
             supabase.from("participant_rankings").select("ranker_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("ranker_number", numbers),
@@ -9043,7 +9053,6 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               number,
               name: info.name || `#${number}`,
               age: info.age || null,
-              whatsapp_available: Boolean(info.phone_number),
               attended: attendanceMap.get(number) || false,
               previous_event_count: previousEventCount,
               first_time: previousEventCount === 0,
@@ -9077,6 +9086,98 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             sos_requests: sosRequests,
             locked_phase3_pairs: lockedPhase3Pairs,
           })
+        }
+
+        if (action === "e3-cohost-rankings") {
+          const [{ data: roster, error: rosterError }, { data: rankingRows, error: rankingError }] = await Promise.all([
+            supabase.from("event3_participants").select("participant_number,position").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).order("position", { ascending: true }),
+            supabase.from("participant_rankings").select("ranker_number,ranked_number,rank,auto_saved").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).order("ranker_number", { ascending: true }).order("rank", { ascending: true }),
+          ])
+          if (rosterError) return res.status(500).json({ error: rosterError.message })
+          if (rankingError) return res.status(500).json({ error: rankingError.message })
+
+          const numbers = (roster || []).map(row => Number(row.participant_number)).filter(Number.isInteger)
+          const rosterSet = new Set(numbers)
+          const scopedRows = (rankingRows || []).filter(row => rosterSet.has(Number(row.ranker_number)))
+          const knownNumbers = [...new Set([...numbers, ...scopedRows.map(row => Number(row.ranked_number))])]
+          const { data: profiles, error: profileError } = knownNumbers.length
+            ? await supabase.from("participants").select("assigned_number,name,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", knownNumbers)
+            : { data: [], error: null }
+          if (profileError) return res.status(500).json({ error: profileError.message })
+
+          const nameMap = new Map()
+          for (const profile of profiles || []) {
+            let surveyData = profile.survey_data || {}
+            if (typeof surveyData === "string") {
+              try { surveyData = JSON.parse(surveyData || "{}") } catch { surveyData = {} }
+            }
+            nameMap.set(Number(profile.assigned_number), profile.name || surveyData?.answers?.name || surveyData?.name || `#${profile.assigned_number}`)
+          }
+          const rowsByRanker = new Map()
+          for (const row of scopedRows) {
+            const rankerNumber = Number(row.ranker_number)
+            if (!rowsByRanker.has(rankerNumber)) rowsByRanker.set(rankerNumber, [])
+            rowsByRanker.get(rankerNumber).push(row)
+          }
+          const rankings = numbers.map(number => {
+            const rows = (rowsByRanker.get(number) || []).sort((left, right) => Number(left.rank) - Number(right.rank))
+            return {
+              number,
+              name: nameMap.get(number) || `#${number}`,
+              submitted: rows.length > 0,
+              auto_saved: rows.some(row => row.auto_saved === true),
+              count: rows.length,
+              ranked_list: rows.map(row => ({
+                number: Number(row.ranked_number),
+                name: nameMap.get(Number(row.ranked_number)) || `#${row.ranked_number}`,
+                rank: Number(row.rank),
+              })),
+            }
+          })
+          return res.status(200).json({ event_id: currentEventId, rankings })
+        }
+
+        if (action === "e3-cohost-set-ranking") {
+          const rankerNumber = Number(req.body?.ranker_number)
+          const requestedOrder = Array.isArray(req.body?.ranked_list) ? req.body.ranked_list.map(Number) : []
+          if (!Number.isInteger(rankerNumber) || rankerNumber <= 0 || requestedOrder.some(number => !Number.isInteger(number) || number <= 0)) {
+            return res.status(400).json({ error: "Invalid ranking" })
+          }
+          const { data: enrolled, error: enrolledError } = await supabase.from("event3_participants").select("id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", rankerNumber).maybeSingle()
+          if (enrolledError) return res.status(500).json({ error: enrolledError.message })
+          if (!enrolled) return res.status(404).json({ error: "Participant is not enrolled in the current event" })
+
+          const { data: existingRows, error: existingError } = await supabase.from("participant_rankings").select("ranked_number,rank,auto_saved").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("ranker_number", rankerNumber).order("rank", { ascending: true })
+          if (existingError) return res.status(500).json({ error: existingError.message })
+          if (!existingRows?.length) return res.status(409).json({ error: "This participant has not submitted a ranking yet" })
+
+          const existingNumbers = existingRows.map(row => Number(row.ranked_number))
+          const existingSet = new Set(existingNumbers)
+          const requestedSet = new Set(requestedOrder)
+          const isExactPermutation = requestedOrder.length === existingNumbers.length
+            && requestedSet.size === existingSet.size
+            && requestedOrder.every(number => existingSet.has(number))
+          if (!isExactPermutation) return res.status(400).json({ error: "The corrected order must contain the same ranked participants" })
+
+          const autoSavedByNumber = new Map(existingRows.map(row => [Number(row.ranked_number), row.auto_saved === true]))
+          const rows = requestedOrder.map((rankedNumber, index) => ({
+            match_id: EVENT3_MATCH_ID,
+            event_id: currentEventId,
+            ranker_number: rankerNumber,
+            ranked_number: rankedNumber,
+            rank: index + 1,
+            auto_saved: autoSavedByNumber.get(rankedNumber) || false,
+          }))
+          const { error: updateError } = await supabase.from("participant_rankings").upsert(rows, { onConflict: "match_id,event_id,ranker_number,ranked_number" })
+          if (updateError) return res.status(500).json({ error: updateError.message })
+          await recordSecurityEvent(req, {
+            actorType: "cohost",
+            action: "e3-cohost-set-ranking",
+            targetType: "participant",
+            targetId: String(rankerNumber),
+            metadata: { event_id: currentEventId, ranking_count: rows.length },
+          })
+          return res.status(200).json({ success: true, participant_number: rankerNumber, count: rows.length })
         }
 
         if (action === "e3-cohost-set-attendance") {
@@ -9129,64 +9230,6 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           }).eq("id", id)
           if (error) return res.status(500).json({ error: error.message })
           return res.status(200).json({ success: true })
-        }
-
-        // Free-form WhatsApp is intentionally available only through this
-        // roster-scoped action. It cannot address a number outside the live
-        // Event3 participant list or mutate payment/attendance state.
-        if (action === "e3-cohost-send-whatsapp") {
-          if (isCohostRequest && !enforceRateLimit(req, res, { key: "cohost-whatsapp-send", limit: 30, windowMs: 60_000 })) return
-          const participantNumber = Number(req.body?.participant_number)
-          const message = String(req.body?.message || "").trim().slice(0, 1000)
-          if (!Number.isInteger(participantNumber) || participantNumber <= 0 || participantNumber === 9999) {
-            return res.status(400).json({ error: "Invalid participant_number" })
-          }
-          if (!message) return res.status(400).json({ error: "message required" })
-
-          if (isCohostRequest) {
-            const { data: modeState, error: modeStateError } = await supabase
-              .from("event_state")
-              .select("current_event_id,test_mode_active")
-              .eq("match_id", EVENT3_MATCH_ID)
-              .maybeSingle()
-            if (modeStateError) return res.status(500).json({ error: modeStateError.message })
-            const isLiveTestMode = modeState?.test_mode_active === true
-              && Number(modeState?.current_event_id) === Number(currentEventId)
-            if (isLiveTestMode && req.body?.confirm_test_send !== true) {
-              return res.status(409).json({
-                error: "Test mode uses real participant phone numbers. Confirm this WhatsApp send explicitly.",
-                requires_test_confirmation: true,
-              })
-            }
-          }
-
-          const { data: enrolled, error: enrolledError } = await supabase
-            .from("event3_participants")
-            .select("id")
-            .eq("match_id", EVENT3_MATCH_ID)
-            .eq("event_id", currentEventId)
-            .eq("participant_number", participantNumber)
-            .maybeSingle()
-          if (enrolledError) return res.status(500).json({ error: enrolledError.message })
-          if (!enrolled) return res.status(404).json({ error: "Participant is not enrolled in the current event" })
-
-          const { data: participant, error: participantError } = await supabase
-            .from("participants")
-            .select("id,assigned_number,name,phone_number")
-            .eq("match_id", STATIC_MATCH_ID)
-            .eq("assigned_number", participantNumber)
-            .maybeSingle()
-          if (participantError) return res.status(500).json({ error: participantError.message })
-          if (!participant) return res.status(404).json({ error: "Participant not found" })
-
-          const result = await sendAdminWhatsappMessage(participant, message)
-          return res.status(result.sent === true ? 200 : 502).json({
-            success: result.sent === true,
-            sent: result.sent === true,
-            error: result.error || null,
-            message_sid: result.message_sid || null,
-            status: result.status || null,
-          })
         }
 
         // e3-set-current-event — switch to a different event (e.g. 20 → 21)
@@ -11759,37 +11802,93 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
         // e3-trigger-mood-check
         if (action === "e3-trigger-mood-check") {
           if (isCohostRequest && !enforceRateLimit(req, res, { key: "cohost-mood-send", limit: 6, windowMs: 60_000 })) return
-          const { target_number } = req.body // if provided, send to one person; otherwise all
+          const { target_number, target_round, target_table } = req.body
           const hasTarget = target_number !== undefined && target_number !== null && String(target_number).trim() !== ""
+          const hasRound = target_round !== undefined && target_round !== null && String(target_round).trim() !== ""
+          const hasTable = target_table !== undefined && target_table !== null && String(target_table).trim() !== ""
           const targetNumber = hasTarget ? Number(target_number) : null
+          const targetRound = hasRound ? Number(target_round) : null
+          const targetTable = hasTable ? Number(target_table) : null
           if (hasTarget && (!Number.isInteger(targetNumber) || targetNumber <= 0 || targetNumber === 9999)) {
             return res.status(400).json({ error: "Invalid target_number" })
           }
-          if (!hasTarget && isCohostRequest && req.body?.confirm_all !== true) {
-            return res.status(400).json({ error: "confirm_all=true is required for a co-host broadcast" })
+          if (hasRound && ![1, 2, 20, 30].includes(targetRound)) {
+            return res.status(400).json({ error: "Invalid target_round" })
           }
-          if (hasTarget && isCohostRequest) {
-            const { data: enrolled, error: enrolledError } = await supabase.from("event3_participants").select("id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", targetNumber).maybeSingle()
-            if (enrolledError) return res.status(500).json({ error: enrolledError.message })
-            if (!enrolled) return res.status(404).json({ error: "Participant is not enrolled in the current event" })
+          if (hasTable && (!hasRound || !Number.isInteger(targetTable) || targetTable <= 0)) {
+            return res.status(400).json({ error: "target_table requires a valid target_round" })
           }
-          const checkId = crypto.randomUUID()
+
+          if (isCohostRequest) {
+            if (!hasRound) return res.status(400).json({ error: "Co-host mood checks must target the active table round" })
+            const { data: activeState, error: activeStateError } = await supabase.from("event_state").select("phase").eq("match_id", EVENT3_MATCH_ID).maybeSingle()
+            if (activeStateError) return res.status(500).json({ error: activeStateError.message })
+            const activeRound = getEvent3ActiveTableRound(activeState?.phase)
+            if (activeRound == null) return res.status(409).json({ error: "There are no active tables in the current phase" })
+            if (targetRound !== activeRound) return res.status(409).json({ error: "The requested table round is no longer active", active_round: activeRound })
+            if (!hasTarget && req.body?.confirm_all !== true) {
+              return res.status(400).json({ error: "confirm_all=true is required for a co-host table broadcast" })
+            }
+          }
+
+          const { data: roster, error: rosterError } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          if (rosterError) return res.status(500).json({ error: rosterError.message })
+          const rosterNumbers = (roster || []).map(row => Number(row.participant_number)).filter(Number.isInteger)
+          const rosterSet = new Set(rosterNumbers)
+          if (!rosterNumbers.length) return res.status(400).json({ error: "No participants selected" })
+
+          let recipientNumbers = []
           if (hasTarget) {
-            // Single participant
-            const { error } = await supabase.from("event3_mood_checks").insert({
-              match_id: EVENT3_MATCH_ID, event_id: currentEventId, check_id: checkId, participant_number: targetNumber
-            })
-            if (error) return res.status(500).json({ error: error.message })
-            return res.status(200).json({ check_id: checkId, sent_to: 1 })
+            if (!rosterSet.has(targetNumber)) return res.status(404).json({ error: "Participant is not enrolled in the current event" })
+            if (hasRound) {
+              let assignmentQuery = supabase.from("session_assignments").select("participant_id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("round", targetRound).eq("participant_id", targetNumber)
+              if (hasTable) assignmentQuery = assignmentQuery.eq("table_number", targetTable)
+              const { data: assignment, error: assignmentError } = await assignmentQuery.limit(1).maybeSingle()
+              if (assignmentError) return res.status(500).json({ error: assignmentError.message })
+              if (!assignment) return res.status(409).json({ error: "Participant is not seated at the requested active table" })
+            }
+            recipientNumbers = [targetNumber]
+          } else if (hasRound) {
+            let assignmentQuery = supabase.from("session_assignments").select("participant_id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("round", targetRound)
+            if (hasTable) assignmentQuery = assignmentQuery.eq("table_number", targetTable)
+            const { data: assignments, error: assignmentError } = await assignmentQuery
+            if (assignmentError) return res.status(500).json({ error: assignmentError.message })
+            recipientNumbers = [...new Set((assignments || []).map(row => Number(row.participant_id)).filter(number => rosterSet.has(number)))]
+            if (!recipientNumbers.length) return res.status(400).json({ error: "No participants are seated at the requested active table scope" })
           } else {
-            // All selected participants
-            const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
-            if (!ep || ep.length === 0) return res.status(400).json({ error: "No participants selected" })
-            const rows = ep.map(r => ({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, check_id: checkId, participant_number: r.participant_number }))
-            const { error } = await supabase.from("event3_mood_checks").insert(rows)
-            if (error) return res.status(500).json({ error: error.message })
-            return res.status(200).json({ check_id: checkId, sent_to: ep.length })
+            // Full-admin legacy behavior remains available; co-host requests are
+            // constrained to an explicit active round above.
+            recipientNumbers = rosterNumbers
           }
+
+          const { data: pendingRows, error: pendingError } = await supabase.from("event3_mood_checks")
+            .select("participant_number")
+            .eq("match_id", EVENT3_MATCH_ID)
+            .eq("event_id", currentEventId)
+            .in("participant_number", recipientNumbers)
+            .is("mood", null)
+          if (pendingError) return res.status(500).json({ error: pendingError.message })
+          const pendingNumbers = new Set((pendingRows || []).map(row => Number(row.participant_number)))
+          const sendNumbers = recipientNumbers.filter(number => !pendingNumbers.has(number))
+          if (!sendNumbers.length) return res.status(409).json({ error: "Everyone in this target already has a pending mood check", sent_to: 0, skipped_pending: recipientNumbers.length })
+
+          const checkId = crypto.randomUUID()
+          const rows = sendNumbers.map(participantNumber => ({
+            match_id: EVENT3_MATCH_ID,
+            event_id: currentEventId,
+            check_id: checkId,
+            participant_number: participantNumber,
+          }))
+          const { error } = await supabase.from("event3_mood_checks").insert(rows)
+          if (error) return res.status(500).json({ error: error.message })
+          return res.status(200).json({
+            check_id: checkId,
+            sent_to: sendNumbers.length,
+            skipped_pending: recipientNumbers.length - sendNumbers.length,
+            target_round: targetRound,
+            target_table: targetTable,
+            scope: hasTarget ? "participant" : hasTable ? "table" : hasRound ? "active_round" : "event",
+          })
         }
         // e3-get-mood-checks
         if (action === "e3-get-mood-checks") {

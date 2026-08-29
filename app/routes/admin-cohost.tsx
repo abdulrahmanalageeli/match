@@ -3,11 +3,13 @@ import {
   AlertTriangle,
   Bell,
   CheckCircle2,
+  ClipboardCheck,
   Circle,
   Clock3,
   Heart,
   Headphones,
   LayoutDashboard,
+  ListOrdered,
   Loader2,
   Lock,
   LockKeyhole,
@@ -16,16 +18,19 @@ import {
   Megaphone,
   MessageCircle,
   RefreshCw,
+  Save,
   Search,
   Send,
   ShieldCheck,
-  Smartphone,
   Sparkles,
   Table2,
   TestTube2,
   UserCheck,
   Users,
   Wifi,
+  ChevronDown,
+  ChevronUp,
+  Pencil,
   X,
   type LucideIcon,
 } from "lucide-react"
@@ -33,8 +38,11 @@ import {
 const API = "/api/admin"
 const SESSION_KEY = "event3_cohost_token"
 
-type CohostTab = "home" | "people" | "tables" | "support" | "messages"
-type MessageChannel = "notification" | "whatsapp"
+type CohostTab = "home" | "people" | "rankings" | "tables" | "feedback" | "support" | "messages"
+type RankingFilter = "all" | "submitted" | "pending"
+type MoodAudience = "person" | "table" | "all_tables"
+type FeedbackKind = "group" | "individual"
+type FeedbackFilter = "missing" | "submitted" | "all"
 
 interface CohostParticipant {
   number: number
@@ -91,6 +99,26 @@ interface CohostDashboard {
   participants: CohostParticipant[]
   sos_requests: SosRequest[]
   locked_phase3_pairs?: LockedPair[]
+}
+
+interface CohostRankingItem {
+  number: number
+  name: string
+  rank: number
+}
+
+interface CohostRanking {
+  number: number
+  name: string
+  submitted: boolean
+  auto_saved: boolean
+  count: number
+  ranked_list: CohostRankingItem[]
+}
+
+interface CohostRankingsResponse {
+  event_id: number
+  rankings: CohostRanking[]
 }
 
 interface GroupFeedbackSubmission {
@@ -200,26 +228,19 @@ const ROUND_LABELS: Record<number, string> = {
   30: "لقاءات الخوارزمية",
 }
 
-const WHATSAPP_TEMPLATES = [
-  {
-    label: "اعتذار وتصحيح السداد",
-    text: "*تنبيه وتصحيح مهم* 🤍\n\nنعتذر عن الخطأ في الرسالة السابقة. آخر موعد للسداد هو *السبت الساعة ١ ظهرًا*، وليس الثلاثاء.\n\nإذا تم السداد بالفعل، فسيُحتسب أي مبلغ إضافي كخصم للفعاليات القادمة.\n\nشكرًا لتفهمك، ونعتذر مرة أخرى عن اللبس.",
-  },
-  {
-    label: "توجيه للطاولة",
-    text: "مرحبًا 🤍\n\nيرجى التوجه إلى طاولتك الموضحة في صفحة الفعالية. إذا احتجت أي مساعدة أرسل لنا مباشرة.",
-  },
-  {
-    label: "اعتذار عن التأخير",
-    text: "مرحبًا 🤍\n\nنعتذر عن التأخير البسيط. الفريق يعمل على تجهيز الخطوة التالية، وسنبلغك فور جاهزيتها. شكرًا لصبرك.",
-  },
-] as const
-
 function activeRound(phase?: string) {
   if (phase === "round1") return 1
   if (phase === "round2") return 2
   if (phase === "phase2_reveal") return 20
   if (phase === "phase3_reveal") return 30
+  return null
+}
+
+function rankingLocationRound(phase?: string) {
+  if (phase === "round1" || phase === "ranking1") return 1
+  if (phase === "round2" || phase === "ranking2") return 2
+  if (phase === "phase2_processing" || phase === "break" || phase === "phase2_reveal") return 20
+  if (phase === "phase3_processing" || phase === "phase3_reveal" || phase === "final_reveal") return 30
   return null
 }
 
@@ -241,18 +262,38 @@ function pairKey(a: number, b: number) {
   return `${Math.min(a, b)}-${Math.max(a, b)}`
 }
 
-function feedbackDescription(feedback: Record<string, unknown> | null) {
-  if (!feedback) return "لم يصل الرد بعد"
-  const connection = feedback.wantConnect === true
-    ? "يرغب بالتواصل"
-    : feedback.wantConnect === false
-      ? "لا يرغب بالتواصل"
-      : null
-  const rating = feedback.rating ?? feedback.overallRating ?? feedback.experience ?? feedback.vibe
-  const note = feedback.note ?? feedback.comment ?? feedback.comments
-  return [connection, rating != null ? `التقييم: ${String(rating)}` : null, typeof note === "string" ? note : null]
-    .filter(Boolean)
-    .join(" · ") || "تم إرسال الرد"
+const PHASE_ORDER = [
+  "setup",
+  "round1",
+  "ranking1",
+  "round2",
+  "ranking2",
+  "phase2_processing",
+  "break",
+  "phase2_reveal",
+  "phase3_processing",
+  "phase3_reveal",
+  "final_reveal",
+]
+
+function phaseReached(currentPhase: string | undefined, targetPhase: string) {
+  const currentIndex = PHASE_ORDER.indexOf(currentPhase || "")
+  const targetIndex = PHASE_ORDER.indexOf(targetPhase)
+  return currentIndex >= targetIndex && targetIndex >= 0
+}
+
+function experienceLabel(value?: string | null) {
+  return ({
+    great: "ممتاز",
+    good: "جيد",
+    neutral: "عادي",
+    uncomfortable: "غير مريح",
+  } as Record<string, string>)[value || ""] || value || "بدون وصف"
+}
+
+function feedbackMetric(feedback: Record<string, unknown> | null, key: string) {
+  const value = feedback?.[key]
+  return typeof value === "number" || typeof value === "string" ? String(value) : null
 }
 
 async function cohostApi<T>(action: string, token: string, extra: Record<string, unknown> = {}): Promise<T> {
@@ -307,12 +348,27 @@ export default function AdminCohostPage() {
   const [replyText, setReplyText] = useState<Record<string, string>>({})
   const [timerRemaining, setTimerRemaining] = useState(0)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
-  const [messageChannel, setMessageChannel] = useState<MessageChannel>("notification")
   const [messageTarget, setMessageTarget] = useState("")
   const [notificationTitle, setNotificationTitle] = useState("")
   const [messageBody, setMessageBody] = useState("")
   const [messageBusy, setMessageBusy] = useState(false)
+  const [moodAudience, setMoodAudience] = useState<MoodAudience>("table")
+  const [moodParticipant, setMoodParticipant] = useState("")
+  const [moodTable, setMoodTable] = useState("")
+  const [rankings, setRankings] = useState<CohostRanking[]>([])
+  const [rankingsLoading, setRankingsLoading] = useState(false)
+  const [rankingSearch, setRankingSearch] = useState("")
+  const [rankingFilter, setRankingFilter] = useState<RankingFilter>("all")
+  const [feedbackKind, setFeedbackKind] = useState<FeedbackKind>("group")
+  const [feedbackFilter, setFeedbackFilter] = useState<FeedbackFilter>("missing")
+  const [feedbackSearch, setFeedbackSearch] = useState("")
+  const [feedbackUpdated, setFeedbackUpdated] = useState<Date | null>(null)
+  const [editingRanker, setEditingRanker] = useState<number | null>(null)
+  const [rankingDraft, setRankingDraft] = useState<CohostRankingItem[]>([])
+  const [rankingSaving, setRankingSaving] = useState(false)
   const dashboardRequest = useRef(0)
+  const feedbackRequest = useRef(0)
+  const operationsRequest = useRef(0)
 
   useEffect(() => {
     setToken(sessionStorage.getItem(SESSION_KEY) || "")
@@ -325,6 +381,9 @@ export default function AdminCohostPage() {
     setToken("")
     setDashboard(null)
     setLiveData(EMPTY_LIVE_DATA)
+    setRankings([])
+    setEditingRanker(null)
+    setRankingDraft([])
     setError(message)
   }, [])
 
@@ -354,20 +413,61 @@ export default function AdminCohostPage() {
     }
   }, [handleRequestError, token])
 
-  const fetchLiveData = useCallback(async (quiet = false) => {
+  const fetchRankings = useCallback(async (quiet = false) => {
     if (!token) return
+    if (!quiet) setRankingsLoading(true)
+    try {
+      const data = await cohostApi<CohostRankingsResponse>("e3-cohost-rankings", token)
+      setRankings(data.rankings || [])
+      setError("")
+    } catch (requestError) {
+      if (!quiet) handleRequestError(requestError, "تعذر تحميل التصنيفات")
+    } finally {
+      if (!quiet) setRankingsLoading(false)
+    }
+  }, [handleRequestError, token])
+
+  const fetchFeedbackData = useCallback(async (quiet = false) => {
+    if (!token) return
+    const requestId = ++feedbackRequest.current
     if (!quiet) setLiveLoading(true)
     const results = await Promise.allSettled([
       cohostApi<GroupFeedbackResponse>("e3-get-group-member-feedback", token),
       cohostApi<MatchFeedbackResponse>("e3-get-feedback", token),
-      cohostApi<{ checks: MoodCheckGroup[] }>("e3-get-mood-checks", token),
-      cohostApi<{ notifications: NotificationGroup[] }>("e3-get-notifications", token),
     ])
+    if (requestId !== feedbackRequest.current) {
+      if (!quiet) setLiveLoading(false)
+      return
+    }
     setLiveData(previous => ({
       groupFeedback: results[0].status === "fulfilled" ? results[0].value : previous.groupFeedback,
       matchFeedback: results[1].status === "fulfilled" ? results[1].value : previous.matchFeedback,
-      moodChecks: results[2].status === "fulfilled" ? results[2].value.checks || [] : previous.moodChecks,
-      notifications: results[3].status === "fulfilled" ? results[3].value.notifications || [] : previous.notifications,
+      moodChecks: previous.moodChecks,
+      notifications: previous.notifications,
+    }))
+    if (results.some(result => result.status === "fulfilled")) setFeedbackUpdated(new Date())
+    const rejected = results.find(result => result.status === "rejected")
+    if (rejected?.status === "rejected" && !quiet) handleRequestError(rejected.reason, "تعذر تحميل التقييمات")
+    if (!quiet) setLiveLoading(false)
+  }, [handleRequestError, token])
+
+  const fetchOperationsData = useCallback(async (quiet = false) => {
+    if (!token) return
+    const requestId = ++operationsRequest.current
+    if (!quiet) setLiveLoading(true)
+    const results = await Promise.allSettled([
+      cohostApi<{ checks: MoodCheckGroup[] }>("e3-get-mood-checks", token),
+      cohostApi<{ notifications: NotificationGroup[] }>("e3-get-notifications", token),
+    ])
+    if (requestId !== operationsRequest.current) {
+      if (!quiet) setLiveLoading(false)
+      return
+    }
+    setLiveData(previous => ({
+      groupFeedback: previous.groupFeedback,
+      matchFeedback: previous.matchFeedback,
+      moodChecks: results[0].status === "fulfilled" ? results[0].value.checks || [] : previous.moodChecks,
+      notifications: results[1].status === "fulfilled" ? results[1].value.notifications || [] : previous.notifications,
     }))
     const rejected = results.find(result => result.status === "rejected")
     if (rejected?.status === "rejected" && !quiet) handleRequestError(rejected.reason, "تعذر تحميل المتابعة المباشرة")
@@ -380,17 +480,56 @@ export default function AdminCohostPage() {
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") fetchDashboard(true)
     }, 6000)
-    return () => window.clearInterval(interval)
+    const onVisible = () => {
+      if (document.visibilityState === "visible") fetchDashboard(true)
+    }
+    document.addEventListener("visibilitychange", onVisible)
+    return () => {
+      window.clearInterval(interval)
+      document.removeEventListener("visibilitychange", onVisible)
+    }
   }, [fetchDashboard, token])
 
   useEffect(() => {
-    if (!token || (tab !== "support" && tab !== "messages")) return
-    fetchLiveData()
+    if (!token || (tab !== "home" && tab !== "feedback")) return
+    fetchFeedbackData()
     const interval = window.setInterval(() => {
-      if (document.visibilityState === "visible") fetchLiveData(true)
+      if (document.visibilityState === "visible") fetchFeedbackData(true)
+    }, tab === "feedback" ? 8000 : 15000)
+    const onVisible = () => {
+      if (document.visibilityState === "visible") fetchFeedbackData(true)
+    }
+    document.addEventListener("visibilitychange", onVisible)
+    return () => {
+      window.clearInterval(interval)
+      document.removeEventListener("visibilitychange", onVisible)
+    }
+  }, [fetchFeedbackData, tab, token])
+
+  useEffect(() => {
+    if (!token || (tab !== "support" && tab !== "messages")) return
+    fetchOperationsData()
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") fetchOperationsData(true)
+    }, 10000)
+    const onVisible = () => {
+      if (document.visibilityState === "visible") fetchOperationsData(true)
+    }
+    document.addEventListener("visibilitychange", onVisible)
+    return () => {
+      window.clearInterval(interval)
+      document.removeEventListener("visibilitychange", onVisible)
+    }
+  }, [fetchOperationsData, tab, token])
+
+  useEffect(() => {
+    if (!token || tab !== "rankings" || editingRanker !== null) return
+    fetchRankings()
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") fetchRankings(true)
     }, 10000)
     return () => window.clearInterval(interval)
-  }, [fetchLiveData, tab, token])
+  }, [editingRanker, fetchRankings, tab, token])
 
   useEffect(() => {
     const state = dashboard?.state
@@ -443,6 +582,24 @@ export default function AdminCohostPage() {
   const testMode = dashboard?.test_mode === true || dashboard?.state.test_mode_active === true
   const attendedCount = participants.filter(participant => participant.attended).length
   const rankingCount = participants.filter(participant => participant.ranking_submitted).length
+  const submittedRankingsCount = rankings.filter(ranking => ranking.submitted).length
+  const pendingRankingsCount = rankings.length - submittedRankingsCount
+  const filteredRankings = useMemo(() => {
+    const query = rankingSearch.trim().toLowerCase()
+    return rankings
+      .filter(ranking => rankingFilter === "all" || (rankingFilter === "submitted" ? ranking.submitted : !ranking.submitted))
+      .filter(ranking => !query || ranking.name.toLowerCase().includes(query) || String(ranking.number).includes(query))
+      .sort((left, right) => Number(left.submitted) - Number(right.submitted) || left.number - right.number)
+  }, [rankingFilter, rankingSearch, rankings])
+  const rankingTableBadges = (participantNumber: number) => {
+    const tables = participantByNumber.get(Number(participantNumber))?.tables || {}
+    const liveRound = rankingLocationRound(dashboard?.state.phase)
+    const liveTable = liveRound != null ? tables[String(liveRound)] : null
+    if (liveTable != null) return [{ key: `live-${liveRound}`, label: `طاولة ${liveTable}`, live: true }]
+    return [1, 2]
+      .filter(tableRound => tables[String(tableRound)] != null)
+      .map(tableRound => ({ key: `group-${tableRound}`, label: `ج${tableRound} · طاولة ${tables[String(tableRound)]}`, live: false }))
+  }
   const filteredParticipants = useMemo(() => {
     const query = search.trim().toLowerCase()
     return participants
@@ -465,6 +622,131 @@ export default function AdminCohostPage() {
     }
     return result
   }, [participants])
+
+  const groupFeedbackRounds = useMemo(() => {
+    return ([1, 2] as const).map(groupRound => {
+      const started = phaseReached(dashboard?.state.phase, groupRound === 1 ? "ranking1" : "ranking2")
+      const groups = (tableGroups[groupRound] || []).map(group => {
+        const members = group.members.map(participant => {
+          const submissions = liveData.groupFeedback.submissions.filter(entry =>
+            Number(entry.group_round) === groupRound
+            && Number(entry.reviewer_number) === participant.number
+          )
+          const expectedCount = Math.max(0, group.members.length - 1)
+          const reviewedCount = new Set(submissions.map(entry => Number(entry.member_number))).size
+          const status = expectedCount === 0
+            ? "not_applicable"
+            : reviewedCount === 0
+              ? "missing"
+              : reviewedCount < expectedCount
+                ? "partial"
+                : "complete"
+          return { participant, submissions, expectedCount, reviewedCount, status }
+        })
+        return {
+          ...group,
+          members,
+          submittedCount: members.filter(member => member.status === "partial" || member.status === "complete").length,
+          missingCount: members.filter(member => member.status === "missing").length,
+        }
+      })
+      const members = groups.flatMap(group => group.members).filter(member => member.status !== "not_applicable")
+      return {
+        round: groupRound,
+        label: ROUND_LABELS[groupRound],
+        started,
+        groups,
+        expectedCount: members.length,
+        submittedCount: members.filter(member => member.status === "partial" || member.status === "complete").length,
+        completeCount: members.filter(member => member.status === "complete").length,
+        partialCount: members.filter(member => member.status === "partial").length,
+        missingCount: started ? members.filter(member => member.status === "missing").length : 0,
+      }
+    })
+  }, [dashboard?.state.phase, liveData.groupFeedback.submissions, tableGroups])
+
+  const individualFeedbackPhases = useMemo(() => {
+    return ([
+      { key: "phase2" as const, label: "لقاءات الاختيار", round: 20, targetPhase: "phase2_reveal", entries: liveData.matchFeedback.phase2 },
+      { key: "phase3" as const, label: "لقاءات الخوارزمية", round: 30, targetPhase: "phase3_reveal", entries: liveData.matchFeedback.phase3 },
+    ]).map(item => {
+      const entryByParticipant = new Map(item.entries.map(entry => [Number(entry.participant_number), entry]))
+      const seen = new Set<string>()
+      const pairs = participants.flatMap(participant => {
+        const partnerNumber = Number(item.key === "phase2" ? participant.phase2_partner : participant.phase3_partner)
+        if (!partnerNumber) return []
+        const partner = participantByNumber.get(partnerNumber)
+        if (!partner) return []
+        const key = pairKey(participant.number, partnerNumber)
+        if (seen.has(key)) return []
+        seen.add(key)
+        const members = [participant, partner].map(person => ({
+          participant: person,
+          entry: entryByParticipant.get(person.number) || null,
+          submitted: entryByParticipant.get(person.number)?.submitted === true,
+        }))
+        return [{
+          key,
+          table: Number(participant.tables?.[String(item.round)] || partner.tables?.[String(item.round)] || 0) || null,
+          members,
+          submittedCount: members.filter(member => member.submitted).length,
+          missingCount: members.filter(member => !member.submitted).length,
+        }]
+      })
+      const expectedCount = pairs.reduce((total, pair) => total + pair.members.length, 0)
+      const submittedCount = pairs.reduce((total, pair) => total + pair.submittedCount, 0)
+      const started = phaseReached(dashboard?.state.phase, item.targetPhase)
+      return {
+        ...item,
+        started,
+        pairs: pairs.sort((left, right) => (left.table || 999) - (right.table || 999)),
+        expectedCount,
+        submittedCount,
+        missingCount: started ? Math.max(0, expectedCount - submittedCount) : 0,
+      }
+    })
+  }, [dashboard?.state.phase, liveData.matchFeedback.phase2, liveData.matchFeedback.phase3, participantByNumber, participants])
+
+  const activeGroupFeedbackRounds = groupFeedbackRounds.filter(item => item.started)
+  const activeIndividualFeedbackPhases = individualFeedbackPhases.filter(item => item.started)
+  const groupFeedbackExpected = activeGroupFeedbackRounds.reduce((total, item) => total + item.expectedCount, 0)
+  const groupFeedbackSubmitted = activeGroupFeedbackRounds.reduce((total, item) => total + item.submittedCount, 0)
+  const groupFeedbackMissing = activeGroupFeedbackRounds.reduce((total, item) => total + item.missingCount, 0)
+  const groupFeedbackPartial = activeGroupFeedbackRounds.reduce((total, item) => total + item.partialCount, 0)
+  const individualFeedbackExpected = activeIndividualFeedbackPhases.reduce((total, item) => total + item.expectedCount, 0)
+  const individualFeedbackSubmitted = activeIndividualFeedbackPhases.reduce((total, item) => total + item.submittedCount, 0)
+  const individualFeedbackMissing = activeIndividualFeedbackPhases.reduce((total, item) => total + item.missingCount, 0)
+  const feedbackMissingTotal = groupFeedbackMissing + individualFeedbackMissing
+  const normalizedFeedbackSearch = feedbackSearch.trim().toLowerCase()
+  const feedbackPersonMatches = (number: number, name: string) => !normalizedFeedbackSearch
+    || name.toLowerCase().includes(normalizedFeedbackSearch)
+    || String(number).includes(normalizedFeedbackSearch)
+
+  const moodRound = activeRound(dashboard?.state.phase)
+  const activeMoodGroups = moodRound != null ? (tableGroups[moodRound] || []) : []
+  const activeMoodParticipants = useMemo(() => {
+    const seen = new Set<number>()
+    return activeMoodGroups.flatMap(group => group.members).filter(participant => {
+      if (seen.has(participant.number)) return false
+      seen.add(participant.number)
+      return true
+    }).sort((left, right) => left.number - right.number)
+  }, [activeMoodGroups])
+  const selectedMoodTable = activeMoodGroups.some(group => String(group.table) === moodTable)
+    ? moodTable
+    : String(activeMoodGroups[0]?.table || "")
+  const selectedMoodParticipant = activeMoodParticipants.some(participant => String(participant.number) === moodParticipant)
+    ? moodParticipant
+    : String(activeMoodParticipants[0]?.number || "")
+  const selectedMoodGroup = activeMoodGroups.find(group => String(group.table) === selectedMoodTable) || null
+  const activeMoodParticipantCount = activeMoodParticipants.length
+  const canSendMoodCheck = moodRound != null
+    && (moodAudience === "person" ? Boolean(selectedMoodParticipant) : moodAudience === "table" ? Boolean(selectedMoodTable) : activeMoodParticipantCount > 0)
+  const moodTargetLabel = moodAudience === "person"
+    ? `${participantByNumber.get(Number(selectedMoodParticipant))?.name || `#${selectedMoodParticipant}`} · طاولة ${participantByNumber.get(Number(selectedMoodParticipant))?.tables?.[String(moodRound)] || "—"}`
+    : moodAudience === "table"
+      ? `طاولة ${selectedMoodTable || "—"} (${selectedMoodGroup?.members.length || 0})`
+      : `كل الطاولات النشطة (${activeMoodGroups.length} طاولات · ${activeMoodParticipantCount} مشاركين)`
 
   const phase2Pairs = useMemo<PairView[]>(() => {
     const seen = new Set<string>()
@@ -516,6 +798,45 @@ export default function AdminCohostPage() {
     }
     return result
   }, [dashboard?.locked_phase3_pairs, participantByNumber, participants])
+
+  const startRankingEdit = (ranking: CohostRanking) => {
+    if (!ranking.submitted || !ranking.ranked_list.length) return
+    setEditingRanker(ranking.number)
+    setRankingDraft(ranking.ranked_list.map(item => ({ ...item })))
+  }
+
+  const moveRankingItem = (index: number, direction: -1 | 1) => {
+    const nextIndex = index + direction
+    if (nextIndex < 0 || nextIndex >= rankingDraft.length) return
+    setRankingDraft(previous => {
+      const next = [...previous]
+      ;[next[index], next[nextIndex]] = [next[nextIndex], next[index]]
+      return next.map((item, itemIndex) => ({ ...item, rank: itemIndex + 1 }))
+    })
+  }
+
+  const saveRankingEdit = async () => {
+    if (!token || editingRanker === null || rankingSaving) return
+    const ranking = rankings.find(item => item.number === editingRanker)
+    if (!ranking) return
+    if (!window.confirm(`حفظ ترتيب ${ranking.name} بعد التعديل؟`)) return
+    setRankingSaving(true)
+    setError("")
+    try {
+      await cohostApi("e3-cohost-set-ranking", token, {
+        ranker_number: editingRanker,
+        ranked_list: rankingDraft.map(item => item.number),
+      })
+      setNotice(`تم تحديث ترتيب ${ranking.name}`)
+      setEditingRanker(null)
+      setRankingDraft([])
+      await Promise.all([fetchRankings(true), fetchDashboard(true)])
+    } catch (requestError) {
+      handleRequestError(requestError, "تعذر حفظ التصنيف")
+    } finally {
+      setRankingSaving(false)
+    }
+  }
 
   const toggleAttendance = async (participant: CohostParticipant) => {
     if (!token || toggling[participant.number]) return
@@ -576,7 +897,7 @@ export default function AdminCohostPage() {
 
   const openParticipantMessage = (participant: CohostParticipant) => {
     setMessageTarget(String(participant.number))
-    setMessageChannel("whatsapp")
+    setNotificationTitle("رسالة من المنظم")
     setMessageBody(`مرحبًا ${firstName(participant.name)} 🤍\n\n`)
     setTab("messages")
   }
@@ -584,49 +905,31 @@ export default function AdminCohostPage() {
   const sendMessage = async () => {
     if (!token || messageBusy) return
     const targetNumber = messageTarget ? Number(messageTarget) : null
-    if (messageChannel === "whatsapp" && !targetNumber) {
-      setError("اختاري مشاركًا واحدًا لإرسال واتساب")
-      return
-    }
     if (!messageBody.trim()) {
       setError("اكتبي نص الرسالة أولًا")
       return
     }
-    if (messageChannel === "notification" && !notificationTitle.trim()) {
+    if (!notificationTitle.trim()) {
       setError("اكتبي عنوان التنبيه")
       return
     }
-    if (messageChannel === "notification" && !targetNumber) {
+    if (!targetNumber) {
       if (!window.confirm(`سيصل هذا التنبيه إلى جميع المشاركين (${participants.length}). هل أنتِ متأكدة؟`)) return
-    }
-    if (messageChannel === "whatsapp" && testMode) {
-      const participant = participantByNumber.get(targetNumber as number)
-      if (!window.confirm(`وضع الاختبار يعمل، لكن هذه رسالة واتساب حقيقية إلى ${participant?.name || `#${targetNumber}`}. هل تريدين إرسالها؟`)) return
     }
     setMessageBusy(true)
     setError("")
     try {
-      if (messageChannel === "whatsapp") {
-        const data = await cohostApi<{ sent: boolean; status?: string }>("e3-cohost-send-whatsapp", token, {
-          participant_number: targetNumber,
-          message: messageBody.trim(),
-          confirm_test_send: testMode,
-        })
-        if (!data.sent) throw new Error("لم يقبل واتساب الرسالة")
-        setNotice("تم تسليم الرسالة إلى Twilio للإرسال")
-      } else {
-        const data = await cohostApi<{ sent_to: number }>("e3-send-notification", token, {
-          target_number: targetNumber || undefined,
-          title: notificationTitle.trim(),
-          body: messageBody.trim(),
-          icon: "info",
-          confirm_all: !targetNumber,
-        })
-        setNotice(`تم إرسال التنبيه إلى ${data.sent_to} مشارك${data.sent_to === 1 ? "" : "ين"}`)
-      }
+      const data = await cohostApi<{ sent_to: number }>("e3-send-notification", token, {
+        target_number: targetNumber || undefined,
+        title: notificationTitle.trim(),
+        body: messageBody.trim(),
+        icon: "info",
+        confirm_all: !targetNumber,
+      })
+      setNotice(`تم إرسال التنبيه إلى ${data.sent_to} مشارك${data.sent_to === 1 ? "" : "ين"}`)
       setMessageBody("")
       setNotificationTitle("")
-      await fetchLiveData(true)
+      await fetchOperationsData(true)
     } catch (requestError) {
       handleRequestError(requestError, "تعذر إرسال الرسالة")
     } finally {
@@ -635,18 +938,21 @@ export default function AdminCohostPage() {
   }
 
   const sendMoodCheck = async () => {
-    if (!token || messageBusy) return
-    const targetNumber = messageTarget ? Number(messageTarget) : null
-    const targetName = targetNumber ? participantByNumber.get(targetNumber)?.name || `#${targetNumber}` : `كل المشاركين (${participants.length})`
-    if (!window.confirm(`إرسال سؤال الاطمئنان إلى ${targetName}؟`)) return
+    if (!token || messageBusy || !canSendMoodCheck || moodRound == null) return
+    const targetNumber = moodAudience === "person" ? Number(selectedMoodParticipant) : null
+    const targetTable = moodAudience === "table" ? Number(selectedMoodTable) : null
+    if (!window.confirm(`إرسال سؤال الاطمئنان إلى ${moodTargetLabel}؟`)) return
     setMessageBusy(true)
+    setError("")
     try {
-      const data = await cohostApi<{ sent_to: number }>("e3-trigger-mood-check", token, {
+      const data = await cohostApi<{ sent_to: number; skipped_pending?: number }>("e3-trigger-mood-check", token, {
         target_number: targetNumber || undefined,
-        confirm_all: !targetNumber,
+        target_round: moodRound,
+        target_table: targetTable || undefined,
+        confirm_all: moodAudience !== "person",
       })
-      setNotice(`تم إرسال سؤال الاطمئنان إلى ${data.sent_to}`)
-      await fetchLiveData(true)
+      setNotice(`تم إرسال سؤال الاطمئنان إلى ${data.sent_to} مشارك${data.sent_to === 1 ? "" : "ين"}${data.skipped_pending ? ` · تم تجاوز ${data.skipped_pending} لديهم سؤال بانتظار الرد` : ""}`)
+      await fetchOperationsData(true)
     } catch (requestError) {
       handleRequestError(requestError, "تعذر إرسال سؤال الاطمئنان")
     } finally {
@@ -698,12 +1004,13 @@ export default function AdminCohostPage() {
     )
   }
 
-  const tabs: Array<{ value: CohostTab; label: string; icon: LucideIcon; badge?: number }> = [
+  const tabs: Array<{ value: CohostTab; label: string; icon: LucideIcon; badge?: number; badgeTone?: "amber" | "red" }> = [
     { value: "home", label: "الرئيسية", icon: LayoutDashboard },
     { value: "people", label: "الحضور", icon: Users },
+    { value: "rankings", label: "التصنيفات", icon: ListOrdered, badge: Math.max(0, participants.length - rankingCount), badgeTone: "amber" },
     { value: "tables", label: "الجداول", icon: Table2 },
-    { value: "support", label: "المتابعة", icon: Headphones, badge: dashboard?.sos_requests.length || 0 },
-    { value: "messages", label: "الرسائل", icon: MessageCircle },
+    { value: "feedback", label: "التقييمات", icon: ClipboardCheck, badge: feedbackMissingTotal, badgeTone: "amber" },
+    { value: "support", label: "المتابعة", icon: Headphones, badge: dashboard?.sos_requests.length || 0, badgeTone: "red" },
   ]
 
   return (
@@ -733,7 +1040,10 @@ export default function AdminCohostPage() {
                   <Clock3 size={14} /> {formatTimer(timerRemaining)}
                 </div>
               ) : null}
-              <button onClick={() => fetchDashboard()} disabled={loading} aria-label="تحديث البيانات" className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-slate-300 disabled:opacity-50">
+              <button onClick={() => setTab("messages")} aria-label="التواصل والاطمئنان" className={`relative flex h-11 w-11 items-center justify-center rounded-xl border text-slate-200 ${tab === "messages" ? "border-teal-300/30 bg-teal-300/12" : "border-white/10 bg-white/[0.04]"}`}>
+                <MessageCircle size={17} />
+              </button>
+              <button onClick={() => fetchDashboard()} disabled={loading} aria-label="تحديث البيانات" className="hidden h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-slate-300 disabled:opacity-50 sm:flex">
                 <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
               </button>
               <button onClick={() => logout()} aria-label="تسجيل الخروج" className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-slate-400 hover:text-red-200">
@@ -748,7 +1058,7 @@ export default function AdminCohostPage() {
         {testMode ? (
           <div className="flex gap-3 rounded-2xl border border-amber-300/30 bg-amber-300/10 p-3 text-amber-100">
             <TestTube2 size={20} className="mt-0.5 shrink-0" />
-            <div><p className="text-xs font-black">وضع الاختبار يعمل الآن</p><p className="mt-1 text-[11px] leading-5 text-amber-100/75">النتائج المعروضة تجريبية. واتساب ما زال يصل إلى أرقام حقيقية، لذلك سيطلب منكِ تأكيدًا إضافيًا.</p></div>
+            <div><p className="text-xs font-black">وضع الاختبار يعمل الآن</p><p className="mt-1 text-[11px] leading-5 text-amber-100/75">النتائج والطاولات المعروضة تجريبية ومعزولة عن الفعالية الفعلية.</p></div>
           </div>
         ) : null}
 
@@ -779,6 +1089,20 @@ export default function AdminCohostPage() {
                   <p className="mt-1.5 text-[11px] font-semibold text-slate-400">{item.label}</p>
                 </div>
               ))}
+            </section>
+
+            <section className="grid gap-2 sm:grid-cols-2">
+              <button onClick={() => setTab("feedback")} className={`flex min-h-[5.25rem] items-center gap-3 rounded-2xl border p-3 text-right ${feedbackMissingTotal ? "border-amber-300/25 bg-amber-300/[0.07]" : "border-teal-300/20 bg-teal-300/[0.05]"}`}>
+                <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${feedbackMissingTotal ? "bg-amber-300/12 text-amber-200" : "bg-teal-300/12 text-teal-200"}`}><ClipboardCheck size={21} /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center justify-between gap-2"><span className="text-sm font-black">التقييمات المباشرة</span><span className={`rounded-full px-2 py-1 text-[10px] font-black ${feedbackMissingTotal ? "bg-amber-300/15 text-amber-100" : "bg-teal-300/15 text-teal-100"}`}>{feedbackMissingTotal ? `${feedbackMissingTotal} لم يرسلوا` : "مكتملة حتى الآن"}</span></span>
+                  <span className="mt-1.5 block text-[10px] leading-5 text-slate-400">جماعي: {groupFeedbackMissing} معلّق · فردي: {individualFeedbackMissing} معلّق{groupFeedbackPartial ? ` · ${groupFeedbackPartial} جزئي` : ""}</span>
+                </span>
+              </button>
+              <button onClick={() => setTab("messages")} className="flex min-h-[5.25rem] items-center gap-3 rounded-2xl border border-cyan-300/18 bg-cyan-300/[0.045] p-3 text-right">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-cyan-300/10 text-cyan-200"><MessageCircle size={21} /></span>
+                <span className="min-w-0 flex-1"><span className="block text-sm font-black">التواصل والاطمئنان</span><span className="mt-1.5 block text-[10px] leading-5 text-slate-400">رسالة لمشارك أو للجميع، أو سؤال مزاج لشخص أو طاولة.</span></span>
+              </button>
             </section>
 
             {dashboard?.sos_requests.length ? (
@@ -816,7 +1140,7 @@ export default function AdminCohostPage() {
           </>
         ) : tab === "people" ? (
           <section className="space-y-3">
-            <SectionTitle icon={Users} title={`الحضور والمشاركون · ${participants.length}`} detail="اضغطي زر الحضور فقط عند التأكد. الرسالة تفتح واتساب للمشارك المحدد." />
+            <SectionTitle icon={Users} title={`الحضور والمشاركون · ${participants.length}`} detail="اضغطي زر الحضور فقط عند التأكد. الرسالة ترسل تنبيهًا داخل صفحة الفعالية." />
             <div className="relative">
               <Search size={17} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" />
               <input value={search} onChange={event => setSearch(event.target.value)} aria-label="البحث عن مشارك" placeholder="ابحثي بالاسم أو الرقم" className="min-h-12 w-full rounded-xl border border-white/[0.08] bg-white/[0.035] py-2 pl-3 pr-10 text-sm outline-none placeholder:text-slate-600 focus:border-teal-300/40" />
@@ -838,13 +1162,90 @@ export default function AdminCohostPage() {
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-2">
                       <button onClick={() => toggleAttendance(participant)} disabled={toggling[participant.number]} aria-pressed={participant.attended} className={`flex min-h-11 items-center justify-center gap-2 rounded-xl text-xs font-black ${participant.attended ? "border border-teal-300/25 bg-teal-300/10 text-teal-100" : "border border-white/10 bg-white/[0.04] text-slate-200"}`}>{toggling[participant.number] ? <Loader2 size={15} className="animate-spin" /> : participant.attended ? <CheckCircle2 size={16} /> : <Circle size={16} />}{participant.attended ? "حاضرة/حاضر" : "تسجيل حضور"}</button>
-                      <button onClick={() => openParticipantMessage(participant)} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] text-xs font-black text-slate-200"><Smartphone size={15} /> رسالة</button>
+                      <button onClick={() => openParticipantMessage(participant)} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] text-xs font-black text-slate-200"><Megaphone size={15} /> تنبيه</button>
                     </div>
                   </article>
                 )
               })}
             </div>
             {!filteredParticipants.length ? <div className="py-16 text-center text-sm text-slate-400">لا يوجد مشارك يطابق البحث.</div> : null}
+          </section>
+        ) : tab === "rankings" ? (
+          <section className="space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <SectionTitle icon={ListOrdered} title="تصنيفات المشاركين" detail="ملخص مباشر للترتيبات الحالية. التعديل يعيد ترتيب نفس الأسماء فقط؛ المطابقات التي شُغّلت مسبقًا لا تتغير تلقائيًا." />
+              <button onClick={() => fetchRankings()} disabled={rankingsLoading || editingRanker !== null} aria-label="تحديث التصنيفات" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] disabled:opacity-40">
+                <RefreshCw size={15} className={rankingsLoading ? "animate-spin" : ""} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3 text-center"><p className="text-xl font-black">{rankings.length || participants.length}</p><p className="mt-1 text-[9px] text-slate-400">الإجمالي</p></div>
+              <div className="rounded-2xl border border-teal-300/15 bg-teal-300/[0.04] p-3 text-center"><p className="text-xl font-black text-teal-200">{submittedRankingsCount || (rankings.length ? 0 : rankingCount)}</p><p className="mt-1 text-[9px] text-teal-100/60">أرسلوا</p></div>
+              <div className="rounded-2xl border border-amber-300/15 bg-amber-300/[0.04] p-3 text-center"><p className="text-xl font-black text-amber-200">{rankings.length ? pendingRankingsCount : Math.max(0, participants.length - rankingCount)}</p><p className="mt-1 text-[9px] text-amber-100/60">لم يرسلوا</p></div>
+            </div>
+
+            <div className="space-y-2 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-2">
+              <div role="tablist" aria-label="تصفية التصنيفات" className="grid grid-cols-3 gap-1">
+                {([
+                  { value: "all", label: `الجميع ${rankings.length}` },
+                  { value: "submitted", label: `أرسلوا ${submittedRankingsCount}` },
+                  { value: "pending", label: `لم يرسلوا ${pendingRankingsCount}` },
+                ] as Array<{ value: RankingFilter; label: string }>).map(option => (
+                  <button key={option.value} role="tab" aria-selected={rankingFilter === option.value} onClick={() => setRankingFilter(option.value)} className={`min-h-10 rounded-xl text-[10px] font-black ${rankingFilter === option.value ? "bg-teal-400 text-slate-950" : "text-slate-400"}`}>{option.label}</button>
+                ))}
+              </div>
+              <div className="relative">
+                <Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                <input value={rankingSearch} onChange={event => setRankingSearch(event.target.value)} aria-label="البحث في التصنيفات" placeholder="ابحثي بالاسم أو الرقم" className="min-h-11 w-full rounded-xl border border-white/[0.08] bg-black/20 py-2 pl-3 pr-9 text-xs outline-none placeholder:text-slate-600 focus:border-teal-300/40" />
+              </div>
+            </div>
+
+            {rankingsLoading && !rankings.length ? <div className="flex min-h-48 items-center justify-center gap-2 text-xs text-slate-400"><Loader2 size={18} className="animate-spin text-teal-300" /> جاري تحميل التصنيفات…</div> : null}
+
+            <div className="grid gap-2 md:grid-cols-2">
+              {filteredRankings.map(ranking => {
+                const isEditing = editingRanker === ranking.number
+                const tableBadges = rankingTableBadges(ranking.number)
+                return (
+                  <article key={ranking.number} className={`rounded-2xl border p-3 ${ranking.submitted ? "border-white/[0.08] bg-white/[0.035]" : "border-amber-300/20 bg-amber-300/[0.04]"}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="truncate text-sm font-black">{ranking.name} <span className="text-[10px] font-normal text-slate-500">#{ranking.number}</span></h3>
+                        {tableBadges.length ? <div className="mt-1.5 flex flex-wrap gap-1">{tableBadges.map(table => <span key={table.key} className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[9px] font-black ${table.live ? "border-amber-300/25 bg-amber-300/[0.08] text-amber-100" : "border-white/[0.07] bg-black/15 text-slate-400"}`}><MapPin size={10} />{table.label}</span>)}</div> : null}
+                        <p className={`mt-1.5 text-[10px] font-bold ${ranking.submitted ? "text-teal-200" : "text-amber-200"}`}>{ranking.submitted ? `${ranking.count} أسماء مرتبة${ranking.auto_saved ? " · حفظ تلقائي" : ""}` : "لم يرسل التصنيف بعد"}</p>
+                      </div>
+                      {ranking.submitted && !isEditing ? <button onClick={() => startRankingEdit(ranking)} disabled={editingRanker !== null} className="flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-[10px] font-black text-slate-200 disabled:opacity-40"><Pencil size={13} /> تعديل</button> : null}
+                    </div>
+
+                    {ranking.submitted ? (
+                      isEditing ? (
+                        <div className="mt-3 space-y-2 border-t border-white/[0.07] pt-3">
+                          <p className="text-[10px] leading-5 text-amber-100/70">حرّكي الأسماء ثم احفظي. لا يمكن تغيير من هم داخل القائمة.</p>
+                          {rankingDraft.map((item, index) => (
+                            <div key={item.number} className="flex items-center gap-2 rounded-xl border border-white/[0.07] bg-black/20 p-2">
+                              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-300/10 text-xs font-black text-teal-200">{index + 1}</span>
+                              <span className="min-w-0 flex-1 truncate text-xs font-bold">{item.name} <span className="font-normal text-slate-500">#{item.number}</span></span>
+                              <button onClick={() => moveRankingItem(index, -1)} disabled={index === 0} aria-label={`رفع ${item.name}`} className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/[0.05] text-slate-300 disabled:opacity-20"><ChevronUp size={15} /></button>
+                              <button onClick={() => moveRankingItem(index, 1)} disabled={index === rankingDraft.length - 1} aria-label={`خفض ${item.name}`} className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/[0.05] text-slate-300 disabled:opacity-20"><ChevronDown size={15} /></button>
+                            </div>
+                          ))}
+                          <div className="grid grid-cols-2 gap-2 pt-1">
+                            <button onClick={saveRankingEdit} disabled={rankingSaving} className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-teal-400 text-xs font-black text-slate-950 disabled:opacity-40">{rankingSaving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} حفظ</button>
+                            <button onClick={() => { setEditingRanker(null); setRankingDraft([]) }} disabled={rankingSaving} className="min-h-11 rounded-xl border border-white/10 bg-white/[0.04] text-xs font-black text-slate-300 disabled:opacity-40">إلغاء</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <ol className="mt-3 space-y-1.5">
+                          {ranking.ranked_list.map(item => <li key={item.number} className="flex items-center gap-2 rounded-xl bg-black/15 px-2.5 py-2"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-teal-300/10 text-[10px] font-black text-teal-200">{item.rank}</span><span className="min-w-0 flex-1 truncate text-[11px] text-slate-200">{item.name} <span className="text-slate-500">#{item.number}</span></span></li>)}
+                        </ol>
+                      )
+                    ) : <p className="mt-3 rounded-xl border border-dashed border-amber-300/15 p-3 text-center text-[10px] leading-5 text-amber-100/60">سيظهر ترتيبه هنا فور الإرسال. لا يمكن إنشاء اختيار بالنيابة من لوحة المضيفة.</p>}
+                  </article>
+                )
+              })}
+            </div>
+            {!rankingsLoading && !filteredRankings.length ? <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center text-xs text-slate-400">لا توجد نتائج تطابق البحث أو التصفية.</div> : null}
           </section>
         ) : tab === "tables" ? (
           <section className="space-y-5">
@@ -871,9 +1272,130 @@ export default function AdminCohostPage() {
               {phase3Pairs.length ? <div className="grid gap-2 md:grid-cols-2">{phase3Pairs.map(pair => <div key={pairKey(pair.a, pair.b)} className="rounded-2xl border border-violet-300/15 bg-violet-300/[0.04] p-3"><p className="text-sm font-black">{pair.aName} <span className="px-1 text-violet-300">×</span> {pair.bName}</p><div className="mt-2 flex flex-wrap gap-2 text-[10px]"><span className="text-amber-100">{pair.table ? `طاولة ${pair.table}` : "مقفلة · بانتظار الطاولة"}</span>{pair.score != null ? <span className="text-slate-300">توافق {Math.round(Number(pair.score))}%</span> : null}<span className="text-violet-200">{pair.source === "test" ? "اختبار" : pair.source === "locked" ? "محفوظة قبل التشغيل" : "مُولّدة"}</span></div></div>)}</div> : <p className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs text-slate-400">لا توجد مطابقات خوارزمية مقفلة لهذه الفعالية.</p>}
             </div>
           </section>
+        ) : tab === "feedback" ? (
+          <section className="space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <SectionTitle icon={ClipboardCheck} title="التقييمات والمتابعة" detail={`تتحدث تلقائيًا كل ٨ ثوانٍ${feedbackUpdated ? ` · آخر تحديث ${formatTime(feedbackUpdated.toISOString())}` : ""}`} />
+              <button onClick={() => fetchFeedbackData()} disabled={liveLoading} aria-label="تحديث التقييمات" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] disabled:opacity-40"><RefreshCw size={15} className={liveLoading ? "animate-spin" : ""} /></button>
+            </div>
+
+            {testMode ? <div className="flex gap-2 rounded-2xl border border-amber-300/20 bg-amber-300/[0.06] p-3 text-[10px] leading-5 text-amber-100"><TestTube2 size={16} className="mt-0.5 shrink-0" /><p>المعروض الآن خاص بسياق الاختبار المتاح. لا تُخلط تقييمات المجموعة التجريبية مع الفعالية الفعلية.</p></div> : null}
+
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.04] p-3 text-center"><p className="text-lg font-black text-cyan-100">{groupFeedbackSubmitted}/{groupFeedbackExpected}</p><p className="mt-1 text-[9px] text-cyan-100/60">أرسلوا تقييم المجموعة</p>{groupFeedbackPartial ? <p className="mt-1 text-[8px] text-amber-200">{groupFeedbackPartial} قيّموا بعض المجموعة</p> : null}</div>
+              <div className="rounded-2xl border border-pink-300/15 bg-pink-300/[0.04] p-3 text-center"><p className="text-lg font-black text-pink-100">{individualFeedbackSubmitted}/{individualFeedbackExpected}</p><p className="mt-1 text-[9px] text-pink-100/60">أرسلوا تقييم اللقاء</p></div>
+              <div className={`rounded-2xl border p-3 text-center ${feedbackMissingTotal ? "border-amber-300/20 bg-amber-300/[0.06]" : "border-teal-300/20 bg-teal-300/[0.05]"}`}><p className={`text-lg font-black ${feedbackMissingTotal ? "text-amber-100" : "text-teal-100"}`}>{feedbackMissingTotal}</p><p className={`mt-1 text-[9px] ${feedbackMissingTotal ? "text-amber-100/60" : "text-teal-100/60"}`}>ردود لم تصل بعد</p></div>
+            </div>
+
+            <div className="space-y-2 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-2">
+              <div role="tablist" aria-label="نوع التقييم" className="grid grid-cols-2 gap-1">
+                {([
+                  { value: "group", label: `الجماعية · ${groupFeedbackMissing} معلّق` },
+                  { value: "individual", label: `الفردية · ${individualFeedbackMissing} معلّق` },
+                ] as Array<{ value: FeedbackKind; label: string }>).map(option => <button key={option.value} role="tab" aria-selected={feedbackKind === option.value} onClick={() => setFeedbackKind(option.value)} className={`min-h-11 rounded-xl px-2 text-[11px] font-black ${feedbackKind === option.value ? "bg-teal-300 text-slate-950" : "text-slate-400"}`}>{option.label}</button>)}
+              </div>
+              <div role="group" aria-label="حالة التقييم" className="grid grid-cols-3 gap-1">
+                {([
+                  { value: "missing", label: "لم يرسلوا" },
+                  { value: "submitted", label: "أرسلوا" },
+                  { value: "all", label: "الكل" },
+                ] as Array<{ value: FeedbackFilter; label: string }>).map(option => <button key={option.value} aria-pressed={feedbackFilter === option.value} onClick={() => setFeedbackFilter(option.value)} className={`min-h-10 rounded-lg px-1 text-[10px] font-bold ${feedbackFilter === option.value ? "bg-white/[0.1] text-white" : "text-slate-500"}`}>{option.label}</button>)}
+              </div>
+            </div>
+
+            <div className="relative">
+              <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input value={feedbackSearch} onChange={event => setFeedbackSearch(event.target.value)} aria-label="البحث في التقييمات" placeholder="ابحثي بالاسم أو الرقم" className="min-h-12 w-full rounded-xl border border-white/[0.08] bg-white/[0.035] py-2 pl-3 pr-10 text-sm outline-none placeholder:text-slate-600 focus:border-teal-300/40" />
+            </div>
+
+            {feedbackKind === "group" ? (
+              <div className="space-y-5">
+                {groupFeedbackRounds.map(roundInfo => {
+                  const visibleGroups = roundInfo.groups.map(group => ({
+                    ...group,
+                    members: group.members.filter(member => {
+                      const matchesStatus = feedbackFilter === "all"
+                        || (feedbackFilter === "missing" ? member.status === "missing" : member.status === "partial" || member.status === "complete")
+                      const matchesSearch = feedbackPersonMatches(member.participant.number, member.participant.name)
+                        || member.submissions.some(entry => feedbackPersonMatches(entry.member_number, entry.member_name))
+                      return matchesStatus && matchesSearch
+                    }),
+                  })).filter(group => group.members.length > 0)
+                  return (
+                    <div key={roundInfo.round} className="space-y-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <div><h3 className="text-xs font-black text-cyan-100">{roundInfo.label}</h3><p className="mt-1 text-[9px] text-slate-500">{roundInfo.started ? `${roundInfo.submittedCount} أرسلوا · ${roundInfo.missingCount} لم يرسلوا${roundInfo.partialCount ? ` · ${roundInfo.partialCount} جزئي` : ""}` : "لم يفتح التقييم لهذه الجولة بعد"}</p></div>
+                        <span className={`rounded-full px-2.5 py-1 text-[9px] font-black ${roundInfo.started ? roundInfo.missingCount ? "bg-amber-300/10 text-amber-100" : "bg-teal-300/10 text-teal-100" : "bg-white/[0.05] text-slate-400"}`}>{roundInfo.started ? `${roundInfo.submittedCount}/${roundInfo.expectedCount}` : "قريبًا"}</span>
+                      </div>
+                      {roundInfo.started && roundInfo.expectedCount ? <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]"><div className="h-full rounded-full bg-gradient-to-l from-teal-300 to-cyan-300 transition-all" style={{ width: `${Math.round((roundInfo.submittedCount / roundInfo.expectedCount) * 100)}%` }} /></div> : null}
+                      {!roundInfo.started ? <div className="rounded-2xl border border-dashed border-white/10 p-4 text-center text-[11px] text-slate-500">ستظهر حالة كل طاولة هنا عند وصول الفعالية إلى تقييم هذه الجولة.</div> : visibleGroups.length ? (
+                        <div className="grid gap-2 md:grid-cols-2">
+                          {visibleGroups.map(group => (
+                            <article key={group.table} className="overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.03]">
+                              <div className="flex items-center justify-between border-b border-white/[0.06] px-3 py-2.5"><div><p className="text-xs font-black text-amber-100">طاولة {group.table}</p><p className="mt-0.5 text-[9px] text-slate-500">{group.submittedCount}/{group.submittedCount + group.missingCount} أرسلوا</p></div><span className={`flex h-8 min-w-8 items-center justify-center rounded-xl text-[10px] font-black ${group.missingCount ? "bg-amber-300/10 text-amber-100" : "bg-teal-300/10 text-teal-100"}`}>{group.missingCount ? `${group.missingCount} ناقص` : "تم"}</span></div>
+                              <div className="divide-y divide-white/[0.05]">
+                                {group.members.map(member => {
+                                  const statusLabel = member.status === "complete" ? "قيّم الجميع" : member.status === "partial" ? `قيّم ${member.reviewedCount}/${member.expectedCount}` : member.status === "not_applicable" ? "لا يوجد أشخاص آخرون على الطاولة" : "لم يرسل"
+                                  const row = <div className="flex min-h-12 items-center gap-2 px-3 py-2.5"><span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${member.status === "missing" ? "bg-amber-300/10 text-amber-200" : member.status === "partial" ? "bg-cyan-300/10 text-cyan-200" : member.status === "not_applicable" ? "bg-white/[0.05] text-slate-500" : "bg-teal-300/10 text-teal-200"}`}>{member.status === "missing" ? <Clock3 size={14} /> : member.status === "not_applicable" ? <Circle size={14} /> : <CheckCircle2 size={14} />}</span><span className="min-w-0 flex-1"><span className="block truncate text-[11px] font-black">{member.participant.name} <span className="font-normal text-slate-500">#{member.participant.number}</span></span><span className={`mt-0.5 block text-[9px] ${member.status === "missing" ? "text-amber-200/70" : "text-slate-400"}`}>{statusLabel}</span></span>{member.submissions.length ? <ChevronDown size={14} className="shrink-0 text-slate-500" /> : null}</div>
+                                  return member.submissions.length ? (
+                                    <details key={member.participant.number} className="group">
+                                      <summary className="cursor-pointer list-none">{row}</summary>
+                                      <div className="space-y-2 bg-black/15 px-3 pb-3 pt-1">
+                                        {member.submissions.map((entry, index) => <div key={`${entry.member_number}-${index}`} className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-2.5"><div className="flex items-center justify-between gap-2"><p className="truncate text-[10px] font-black">عن {entry.member_name} <span className="font-normal text-slate-500">#{entry.member_number}</span></p><span className="shrink-0 text-[9px] text-cyan-200">{experienceLabel(entry.experience)}</span></div>{entry.tags?.length ? <div className="mt-2 flex flex-wrap gap-1">{entry.tags.map(tag => <span key={tag} className="rounded-full bg-cyan-300/10 px-2 py-0.5 text-[8px] text-cyan-100">{tag}</span>)}</div> : null}{entry.organizer_note ? <p className="mt-2 rounded-lg bg-amber-300/[0.06] px-2 py-1.5 text-[9px] leading-5 text-amber-100">ملاحظة: {entry.organizer_note}</p> : null}</div>)}
+                                      </div>
+                                    </details>
+                                  ) : <div key={member.participant.number}>{row}</div>
+                                })}
+                              </div>
+                            </article>
+                          ))}
+                        </div>
+                      ) : <div className="rounded-2xl border border-dashed border-white/10 p-5 text-center text-xs text-slate-400">لا توجد نتائج تطابق البحث أو التصفية في هذه الجولة.</div>}
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="space-y-5">
+                {individualFeedbackPhases.map(phaseInfo => {
+                  const visiblePairs = phaseInfo.pairs.filter(pair => {
+                    const matchesStatus = feedbackFilter === "all"
+                      || (feedbackFilter === "missing" ? pair.missingCount > 0 : pair.submittedCount > 0)
+                    const matchesSearch = pair.members.some(member => feedbackPersonMatches(member.participant.number, member.participant.name))
+                    return matchesStatus && matchesSearch
+                  })
+                  return (
+                    <div key={phaseInfo.key} className="space-y-2">
+                      <div className="flex items-center justify-between gap-3"><div><h3 className={`text-xs font-black ${phaseInfo.key === "phase2" ? "text-pink-100" : "text-violet-100"}`}>{phaseInfo.label}</h3><p className="mt-1 text-[9px] text-slate-500">{phaseInfo.started ? `${phaseInfo.submittedCount} أرسلوا · ${phaseInfo.missingCount} لم يرسلوا` : "لم يبدأ التقييم بعد"}</p></div><span className={`rounded-full px-2.5 py-1 text-[9px] font-black ${phaseInfo.started ? phaseInfo.missingCount ? "bg-amber-300/10 text-amber-100" : "bg-teal-300/10 text-teal-100" : "bg-white/[0.05] text-slate-400"}`}>{phaseInfo.started ? `${phaseInfo.submittedCount}/${phaseInfo.expectedCount}` : "قريبًا"}</span></div>
+                      {phaseInfo.started && phaseInfo.expectedCount ? <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]"><div className={`h-full rounded-full transition-all ${phaseInfo.key === "phase2" ? "bg-gradient-to-l from-pink-300 to-rose-300" : "bg-gradient-to-l from-violet-300 to-purple-300"}`} style={{ width: `${Math.round((phaseInfo.submittedCount / phaseInfo.expectedCount) * 100)}%` }} /></div> : null}
+                      {!phaseInfo.started ? <div className="rounded-2xl border border-dashed border-white/10 p-4 text-center text-[11px] text-slate-500">ستظهر حالة كل لقاء هنا فور بدء هذه المرحلة.</div> : visiblePairs.length ? (
+                        <div className="grid gap-2 md:grid-cols-2">
+                          {visiblePairs.map(pair => (
+                            <article key={pair.key} className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3">
+                              <div className="flex items-center justify-between gap-2"><div><p className="text-[10px] font-black text-amber-100">{pair.table ? `طاولة ${pair.table}` : "بدون طاولة"}</p><p className="mt-1 text-[9px] text-slate-500">وصل {pair.submittedCount} من 2</p></div><span className={`rounded-full px-2 py-1 text-[9px] font-black ${pair.missingCount ? "bg-amber-300/10 text-amber-100" : "bg-teal-300/10 text-teal-100"}`}>{pair.missingCount ? `${pair.missingCount} ناقص` : pair.members.some(member => member.entry?.mutual_yes) ? "رغبة متبادلة" : "مكتمل"}</span></div>
+                              <div className="mt-3 space-y-2">
+                                {pair.members.map(member => {
+                                  const feedback = member.entry?.feedback || null
+                                  const compatibility = feedbackMetric(feedback, "compatibilityRate")
+                                  const conversation = feedbackMetric(feedback, "conversationQuality")
+                                  const connection = feedbackMetric(feedback, "personalConnection")
+                                  const organizerNote = typeof feedback?.organizerImpression === "string" ? feedback.organizerImpression : ""
+                                  return <div key={member.participant.number} className={`rounded-xl border p-2.5 ${member.submitted ? "border-teal-300/15 bg-teal-300/[0.035]" : "border-amber-300/15 bg-amber-300/[0.035]"}`}><div className="flex items-center gap-2"><span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${member.submitted ? "bg-teal-300/10 text-teal-200" : "bg-amber-300/10 text-amber-200"}`}>{member.submitted ? <CheckCircle2 size={14} /> : <Clock3 size={14} />}</span><span className="min-w-0 flex-1 truncate text-[11px] font-black">{member.participant.name} <span className="font-normal text-slate-500">#{member.participant.number}</span></span><span className={`text-[9px] font-bold ${member.submitted ? "text-teal-200" : "text-amber-200"}`}>{member.submitted ? "أرسل" : "لم يرسل"}</span></div>{member.submitted ? <><div className="mt-2 grid grid-cols-4 gap-1 text-center"><div className="rounded-lg bg-black/20 p-1.5"><p className="text-[10px] font-black">{compatibility != null ? `${compatibility}%` : "—"}</p><p className="mt-0.5 text-[7px] text-slate-500">توافقه</p></div><div className="rounded-lg bg-black/20 p-1.5"><p className="text-[10px] font-black">{conversation || "—"}/5</p><p className="mt-0.5 text-[7px] text-slate-500">المحادثة</p></div><div className="rounded-lg bg-black/20 p-1.5"><p className="text-[10px] font-black">{connection || "—"}/5</p><p className="mt-0.5 text-[7px] text-slate-500">الراحة</p></div><div className="rounded-lg bg-black/20 p-1.5"><p className={`text-[10px] font-black ${feedback?.wantConnect === true ? "text-teal-200" : feedback?.wantConnect === false ? "text-slate-300" : ""}`}>{feedback?.wantConnect === true ? "نعم" : feedback?.wantConnect === false ? "لا" : "—"}</p><p className="mt-0.5 text-[7px] text-slate-500">تواصل</p></div></div>{organizerNote ? <p className="mt-2 rounded-lg bg-amber-300/[0.06] px-2 py-1.5 text-[9px] leading-5 text-amber-100">ملاحظة: {organizerNote}</p> : null}</> : <p className="mt-1.5 pr-10 text-[9px] text-amber-100/60">بانتظار تقييمه عن لقاء {member.entry?.partner_name || pair.members.find(other => other.participant.number !== member.participant.number)?.participant.name}</p>}</div>
+                                })}
+                              </div>
+                            </article>
+                          ))}
+                        </div>
+                      ) : <div className="rounded-2xl border border-dashed border-white/10 p-5 text-center text-xs text-slate-400">لا توجد لقاءات تطابق البحث أو التصفية في هذه المرحلة.</div>}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </section>
         ) : tab === "support" ? (
           <section className="space-y-5">
-            <div className="flex items-center justify-between gap-3"><SectionTitle icon={Headphones} title="المساعدة والمتابعة المباشرة" detail="تتحدث تلقائيًا كل ١٠ ثوانٍ." /><button onClick={() => fetchLiveData()} disabled={liveLoading} aria-label="تحديث المتابعة" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04]"><RefreshCw size={15} className={liveLoading ? "animate-spin" : ""} /></button></div>
+            <div className="flex items-center justify-between gap-3"><SectionTitle icon={Headphones} title="المساعدة والمتابعة المباشرة" detail="تتحدث تلقائيًا كل ١٠ ثوانٍ." /><button onClick={() => fetchOperationsData()} disabled={liveLoading} aria-label="تحديث المتابعة" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04]"><RefreshCw size={15} className={liveLoading ? "animate-spin" : ""} /></button></div>
 
             <div className="space-y-2">
               <h3 className="text-xs font-black text-red-200">طلبات المساعدة المفتوحة · {dashboard?.sos_requests.length || 0}</h3>
@@ -889,39 +1411,52 @@ export default function AdminCohostPage() {
               ))}
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3"><p className="text-[10px] text-slate-400">تقييمات المجموعة</p><p className="mt-1 text-xl font-black">{liveData.groupFeedback.submissions.length}</p></div>
-              <div className="rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3"><p className="text-[10px] text-slate-400">ردود اللقاءات</p><p className="mt-1 text-xl font-black">{liveData.matchFeedback.phase2_submitted + liveData.matchFeedback.phase3_submitted}</p></div>
-            </div>
-
-            <div className="space-y-2"><h3 className="text-xs font-black text-cyan-200">آخر ملاحظات المشاركين</h3>{liveData.groupFeedback.submissions.length ? liveData.groupFeedback.submissions.slice(0, 12).map((entry, index) => <div key={`${entry.reviewer_number}-${entry.member_number}-${entry.group_round}-${index}`} className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3"><div className="flex items-center justify-between gap-3"><p className="truncate text-xs font-black">{entry.reviewer_name} ← عن {entry.member_name}</p><span className="shrink-0 text-[9px] text-slate-500">جولة {entry.group_round}</span></div><p className="mt-2 text-[11px] leading-5 text-slate-300">{entry.experience || "بدون وصف"}{entry.organizer_note ? ` · ${entry.organizer_note}` : ""}</p>{entry.tags?.length ? <div className="mt-2 flex flex-wrap gap-1">{entry.tags.map(tag => <span key={tag} className="rounded-full bg-cyan-300/10 px-2 py-0.5 text-[9px] text-cyan-100">{tag}</span>)}</div> : null}</div>) : <p className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs text-slate-400">لم تصل ملاحظات جماعية بعد.</p>}</div>
-
-            <div className="space-y-2"><h3 className="text-xs font-black text-pink-200">ردود اللقاءات الفردية</h3>{[...liveData.matchFeedback.phase2, ...liveData.matchFeedback.phase3].filter(entry => entry.submitted).slice(0, 12).map((entry, index) => <div key={`${entry.participant_number}-${entry.partner_number}-${index}`} className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3"><div className="flex items-center justify-between gap-2"><p className="truncate text-xs font-black">{entry.participant_name} ← لقاء {entry.partner_name}</p>{entry.mutual_yes ? <span className="shrink-0 rounded-full bg-teal-300/10 px-2 py-0.5 text-[9px] text-teal-100">رغبة متبادلة</span> : null}</div><p className="mt-2 text-[11px] leading-5 text-slate-300">{feedbackDescription(entry.feedback)}</p></div>)}{![...liveData.matchFeedback.phase2, ...liveData.matchFeedback.phase3].some(entry => entry.submitted) ? <p className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs text-slate-400">لم تصل ردود اللقاءات بعد.</p> : null}</div>
-
-            {liveData.moodChecks[0] ? <div className="rounded-2xl border border-teal-300/15 bg-teal-300/[0.04] p-3"><div className="flex items-center justify-between"><p className="text-xs font-black text-teal-100">آخر سؤال اطمئنان</p><span className="text-[9px] text-slate-400">{formatTime(liveData.moodChecks[0].triggered_at)}</span></div><div className="mt-3 grid grid-cols-4 gap-1 text-center text-[10px]">{[{ key: "good", label: "بخير" }, { key: "neutral", label: "عادي" }, { key: "bad", label: "يحتاج مساعدة" }, { key: null, label: "لم يرد" }].map(item => { const count = liveData.moodChecks[0].entries.filter(entry => item.key ? [item.key, item.key === "good" ? "happy" : item.key === "bad" ? "sad" : item.key].includes(entry.mood || "") : !entry.mood).length; return <div key={item.label} className="rounded-lg bg-black/20 p-2"><p className="font-black text-white">{count}</p><p className="mt-1 text-slate-400">{item.label}</p></div> })}</div></div> : null}
+            {liveData.moodChecks[0] ? <div className="rounded-2xl border border-teal-300/15 bg-teal-300/[0.04] p-3"><div className="flex items-center justify-between"><p className="text-xs font-black text-teal-100">آخر سؤال اطمئنان</p><span className="text-[9px] text-slate-400">{formatTime(liveData.moodChecks[0].triggered_at)}</span></div><div className="mt-3 grid grid-cols-5 gap-1 text-center text-[9px]">{[{ key: "happy", label: "ممتاز" }, { key: "neutral", label: "عادي" }, { key: "not_great", label: "مو مره" }, { key: "expired", label: "انتهى" }, { key: null, label: "لم يرد" }].map(item => { const count = liveData.moodChecks[0].entries.filter(entry => item.key ? entry.mood === item.key : !entry.mood).length; return <div key={item.label} className="rounded-lg bg-black/20 p-2"><p className="font-black text-white">{count}</p><p className="mt-1 text-slate-400">{item.label}</p></div> })}</div></div> : null}
           </section>
         ) : (
           <section className="space-y-4">
-            <SectionTitle icon={MessageCircle} title="الرسائل والتنبيهات" detail="واتساب لمشارك واحد، أو تنبيه داخل الصفحة لفرد أو للجميع بعد التأكيد." />
-
-            <div role="tablist" aria-label="نوع الرسالة" className="grid grid-cols-2 rounded-2xl border border-white/[0.07] bg-white/[0.03] p-1">
-              <button role="tab" aria-selected={messageChannel === "notification"} onClick={() => setMessageChannel("notification")} className={`flex min-h-12 items-center justify-center gap-2 rounded-xl text-xs font-black ${messageChannel === "notification" ? "bg-teal-400 text-slate-950" : "text-slate-300"}`}><Megaphone size={16} /> تنبيه داخل الفعالية</button>
-              <button role="tab" aria-selected={messageChannel === "whatsapp"} onClick={() => setMessageChannel("whatsapp")} className={`flex min-h-12 items-center justify-center gap-2 rounded-xl text-xs font-black ${messageChannel === "whatsapp" ? "bg-emerald-400 text-slate-950" : "text-slate-300"}`}><Smartphone size={16} /> واتساب</button>
-            </div>
+            <SectionTitle icon={MessageCircle} title="الرسائل والتنبيهات" detail="تنبيهات آمنة داخل صفحة الفعالية لفرد أو للجميع بعد التأكيد." />
 
             <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4">
               <div className="space-y-3">
-                <div><label htmlFor="message-target" className="mb-1.5 block text-xs font-bold text-slate-300">المستلم</label><select id="message-target" value={messageTarget} onChange={event => setMessageTarget(event.target.value)} className="min-h-12 w-full rounded-xl border border-white/10 bg-[#0b1019] px-3 text-sm text-white outline-none focus:border-teal-300/40"><option value="">{messageChannel === "notification" ? `جميع المشاركين (${participants.length})` : "اختاري مشاركًا"}</option>{participants.map(participant => <option key={participant.number} value={participant.number}>#{participant.number} · {participant.name}</option>)}</select></div>
-                {messageChannel === "notification" ? <div><label htmlFor="notification-title" className="mb-1.5 block text-xs font-bold text-slate-300">عنوان التنبيه</label><input id="notification-title" value={notificationTitle} onChange={event => setNotificationTitle(event.target.value)} maxLength={120} placeholder="مثال: التوجه إلى الطاولات" className="min-h-12 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm outline-none placeholder:text-slate-600 focus:border-teal-300/40" /></div> : null}
-                {messageChannel === "whatsapp" ? <div><p className="mb-2 text-xs font-bold text-slate-300">قوالب سريعة</p><div className="flex gap-2 overflow-x-auto pb-1">{WHATSAPP_TEMPLATES.map(template => <button key={template.label} onClick={() => setMessageBody(template.text)} className="min-h-11 shrink-0 rounded-xl border border-emerald-300/20 bg-emerald-300/[0.06] px-3 text-[11px] font-bold text-emerald-100">{template.label}</button>)}</div></div> : null}
+                <div><label htmlFor="message-target" className="mb-1.5 block text-xs font-bold text-slate-300">المستلم</label><select id="message-target" value={messageTarget} onChange={event => setMessageTarget(event.target.value)} className="min-h-12 w-full rounded-xl border border-white/10 bg-[#0b1019] px-3 text-sm text-white outline-none focus:border-teal-300/40"><option value="">جميع المشاركين ({participants.length})</option>{participants.map(participant => <option key={participant.number} value={participant.number}>#{participant.number} · {participant.name}</option>)}</select></div>
+                <div><label htmlFor="notification-title" className="mb-1.5 block text-xs font-bold text-slate-300">عنوان التنبيه</label><input id="notification-title" value={notificationTitle} onChange={event => setNotificationTitle(event.target.value)} maxLength={120} placeholder="مثال: التوجه إلى الطاولات" className="min-h-12 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm outline-none placeholder:text-slate-600 focus:border-teal-300/40" /></div>
                 <div><label htmlFor="message-body" className="mb-1.5 block text-xs font-bold text-slate-300">نص الرسالة</label><textarea id="message-body" value={messageBody} onChange={event => setMessageBody(event.target.value)} maxLength={1000} rows={6} placeholder="اكتبي الرسالة بوضوح…" className="w-full resize-none rounded-xl border border-white/10 bg-black/20 p-3 text-sm leading-7 outline-none placeholder:text-slate-600 focus:border-teal-300/40" /><p className="mt-1 text-left text-[9px] text-slate-500">{messageBody.length}/1000</p></div>
-                {testMode && messageChannel === "whatsapp" ? <div className="flex gap-2 rounded-xl border border-amber-300/25 bg-amber-300/10 p-3 text-[11px] leading-5 text-amber-100"><AlertTriangle size={16} className="mt-0.5 shrink-0" /><p>رسالة واتساب حقيقية رغم وضع الاختبار. سيظهر تأكيد أخير قبل الإرسال.</p></div> : null}
-                {!messageTarget && messageChannel === "notification" ? <div className="flex gap-2 rounded-xl border border-amber-300/20 bg-amber-300/[0.07] p-3 text-[11px] leading-5 text-amber-100"><AlertTriangle size={16} className="mt-0.5 shrink-0" /><p>المستلم الآن: جميع المشاركين. سيظهر تأكيد قبل الإرسال الجماعي.</p></div> : null}
-                <button onClick={sendMessage} disabled={messageBusy || !messageBody.trim() || (messageChannel === "whatsapp" && !messageTarget)} className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-xl font-black text-slate-950 disabled:opacity-40 ${messageChannel === "whatsapp" ? "bg-emerald-400" : "bg-teal-400"}`}>{messageBusy ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} />} {messageChannel === "whatsapp" ? "إرسال واتساب" : "إرسال التنبيه"}</button>
+                {!messageTarget ? <div className="flex gap-2 rounded-xl border border-amber-300/20 bg-amber-300/[0.07] p-3 text-[11px] leading-5 text-amber-100"><AlertTriangle size={16} className="mt-0.5 shrink-0" /><p>المستلم الآن: جميع المشاركين. سيظهر تأكيد قبل الإرسال الجماعي.</p></div> : null}
+                <button onClick={sendMessage} disabled={messageBusy || !messageBody.trim() || !notificationTitle.trim()} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-teal-400 font-black text-slate-950 disabled:opacity-40">{messageBusy ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} />} إرسال التنبيه</button>
               </div>
             </div>
 
-            <button onClick={sendMoodCheck} disabled={messageBusy || participants.length === 0} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border border-cyan-300/20 bg-cyan-300/[0.06] text-xs font-black text-cyan-100 disabled:opacity-40"><Heart size={17} /> إرسال سؤال «كيف وضعك؟» إلى {messageTarget ? participantByNumber.get(Number(messageTarget))?.name || `#${messageTarget}` : "الجميع"}</button>
+            <div className="rounded-2xl border border-cyan-300/20 bg-cyan-300/[0.045] p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div><h3 className="flex items-center gap-2 text-sm font-black text-cyan-100"><Heart size={17} className="text-cyan-300" /> سؤال الاطمئنان</h3><p className="mt-1 text-[10px] leading-5 text-slate-400">اختاري شخصًا، طاولة واحدة، أو كل الطاولات النشطة. يشمل الجلسات الجماعية واللقاءات الفردية.</p></div>
+                {moodRound != null ? <span className="shrink-0 rounded-full border border-cyan-300/20 bg-cyan-300/[0.08] px-2 py-1 text-[9px] font-black text-cyan-100">{ROUND_LABELS[moodRound]}</span> : null}
+              </div>
+
+              {moodRound != null && activeMoodGroups.length ? (
+                <div className="mt-4 space-y-3">
+                  <div role="tablist" aria-label="نطاق سؤال الاطمئنان" className="grid grid-cols-3 gap-1 rounded-xl border border-white/[0.07] bg-black/20 p-1">
+                    {([
+                      { value: "person", label: "شخص واحد" },
+                      { value: "table", label: "طاولة واحدة" },
+                      { value: "all_tables", label: "كل الطاولات" },
+                    ] as Array<{ value: MoodAudience; label: string }>).map(option => <button key={option.value} role="tab" aria-selected={moodAudience === option.value} onClick={() => setMoodAudience(option.value)} className={`min-h-10 rounded-lg px-1 text-[10px] font-black ${moodAudience === option.value ? "bg-cyan-300 text-slate-950" : "text-slate-400"}`}>{option.label}</button>)}
+                  </div>
+
+                  {moodAudience === "person" ? (
+                    <div><label htmlFor="mood-person" className="mb-1.5 block text-xs font-bold text-slate-300">المشارك الموجود على طاولة نشطة</label><select id="mood-person" value={selectedMoodParticipant} onChange={event => setMoodParticipant(event.target.value)} className="min-h-12 w-full rounded-xl border border-white/10 bg-[#0b1019] px-3 text-sm text-white outline-none focus:border-cyan-300/40">{activeMoodParticipants.map(participant => <option key={participant.number} value={participant.number}>#{participant.number} · {participant.name} · طاولة {participant.tables?.[String(moodRound)]}</option>)}</select></div>
+                  ) : moodAudience === "table" ? (
+                    <div className="space-y-2"><label htmlFor="mood-table" className="block text-xs font-bold text-slate-300">الطاولة النشطة</label><select id="mood-table" value={selectedMoodTable} onChange={event => setMoodTable(event.target.value)} className="min-h-12 w-full rounded-xl border border-white/10 bg-[#0b1019] px-3 text-sm text-white outline-none focus:border-cyan-300/40">{activeMoodGroups.map(group => <option key={group.table} value={group.table}>طاولة {group.table} · {group.members.length} مشاركين</option>)}</select>{selectedMoodGroup ? <p className="rounded-xl bg-black/20 px-3 py-2 text-[10px] leading-5 text-slate-300">{selectedMoodGroup.members.map(member => firstName(member.name)).join("، ")}</p> : null}</div>
+                  ) : (
+                    <div className="rounded-xl border border-cyan-300/15 bg-cyan-300/[0.05] p-3 text-center"><p className="text-sm font-black text-cyan-100">{activeMoodGroups.length} طاولات · {activeMoodParticipantCount} مشاركين</p><p className="mt-1 text-[10px] text-cyan-100/60">سيصل السؤال فقط لمن لديهم طاولة في الجلسة النشطة.</p></div>
+                  )}
+
+                  <button onClick={sendMoodCheck} disabled={messageBusy || !canSendMoodCheck} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-cyan-300 px-3 text-xs font-black text-slate-950 disabled:opacity-40">{messageBusy ? <Loader2 size={17} className="animate-spin" /> : <Heart size={17} />} إرسال «كيف وضعك؟» إلى {moodTargetLabel}</button>
+                </div>
+              ) : (
+                <div className="mt-4 flex gap-2 rounded-xl border border-amber-300/20 bg-amber-300/[0.07] p-3 text-[11px] leading-5 text-amber-100"><AlertTriangle size={16} className="mt-0.5 shrink-0" /><p>لا توجد طاولات نشطة في المرحلة الحالية. عند بدء جلسة جماعية أو لقاء فردي ستظهر خيارات الإرسال هنا تلقائيًا.</p></div>
+              )}
+            </div>
 
             <div className="space-y-2"><h3 className="text-xs font-black text-slate-200">آخر التنبيهات</h3>{liveData.notifications.slice(0, 8).map(notification => { const seen = notification.entries.filter(entry => entry.seen_at).length; return <div key={notification.notif_id} className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-black">{notification.title}</p>{notification.body ? <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-slate-400">{notification.body}</p> : null}</div><span className="shrink-0 text-[9px] text-slate-500">{formatTime(notification.created_at)}</span></div><p className="mt-2 text-[9px] text-teal-200">شاهده {seen} من {notification.entries.length}</p></div> })}{!liveData.notifications.length ? <p className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs text-slate-400">لا توجد تنبيهات سابقة.</p> : null}</div>
           </section>
@@ -929,12 +1464,12 @@ export default function AdminCohostPage() {
       </main>
 
       <nav aria-label="أقسام لوحة رنيم" className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-[#080c13]/97 px-2 pt-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] backdrop-blur-xl">
-        <div role="tablist" className="mx-auto grid max-w-2xl grid-cols-5 gap-1">
+        <div role="tablist" className="mx-auto grid max-w-2xl grid-cols-6 gap-1">
           {tabs.map(item => (
             <button key={item.value} role="tab" aria-selected={tab === item.value} onClick={() => setTab(item.value)} className={`relative flex min-h-[3.4rem] flex-col items-center justify-center gap-1 rounded-xl text-[9px] font-bold transition ${tab === item.value ? "bg-teal-300/12 text-teal-200" : "text-slate-400"}`}>
               <item.icon size={19} />
               <span>{item.label}</span>
-              {item.badge ? <span className="absolute right-[calc(50%-18px)] top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[8px] font-black text-white">{item.badge}</span> : null}
+              {item.badge ? <span className={`absolute right-[calc(50%-18px)] top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[8px] font-black text-slate-950 ${item.badgeTone === "red" ? "bg-red-400 text-white" : "bg-amber-300"}`}>{item.badge > 99 ? "99+" : item.badge}</span> : null}
             </button>
           ))}
         </div>

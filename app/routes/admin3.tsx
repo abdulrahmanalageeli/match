@@ -11,7 +11,7 @@ import {
   Users, Play, Square, ChevronRight, RotateCcw, CheckCircle,
   Circle, RefreshCw, Table2, Trophy, Clock, BarChart3, Shuffle,
   Eye, EyeOff, ArrowRight, Sparkles, Brain, Shield, LogOut,
-  Grid3x3, Star, Check, AlertCircle, AlertTriangle, Loader2, Copy, Heart, Layers, ChevronDown, X, XCircle, MessageSquare, Send, Home, Trash2, GripVertical, Search, Crown, Medal, Coffee, Ban, ArrowLeft, Bell, Calendar, Download, FlaskConical, Phone, Pencil, Save,
+  Grid3x3, Star, Check, AlertCircle, AlertTriangle, Loader2, Copy, Heart, Layers, ChevronDown, X, XCircle, MessageSquare, Send, Home, Trash2, GripVertical, Search, Crown, Medal, Coffee, Ban, ArrowLeft, Bell, Calendar, Download, FlaskConical, Phone, Pencil, Save, MapPin,
 } from "lucide-react"
 
 // ─── Enum → Arabic label lookup maps (shared with admin.tsx approach) ────────────
@@ -244,6 +244,15 @@ const EVENT3_PHASE_SECONDS = {
 
 function getEvent3PhaseSeconds(phase: unknown) {
   return EVENT3_PHASE_SECONDS[String(phase || "") as keyof typeof EVENT3_PHASE_SECONDS] ?? 0
+}
+
+function rankingLocationRound(phase: unknown): number | null {
+  const value = String(phase || "")
+  if (value === "round1" || value === "ranking1") return 1
+  if (value === "round2" || value === "ranking2") return 2
+  if (value === "phase2_processing" || value === "break" || value === "phase2_reveal") return 20
+  if (value === "phase3_processing" || value === "phase3_reveal" || value === "final_reveal") return 30
+  return null
 }
 
 const PHASES = [
@@ -960,7 +969,7 @@ export default function Admin3Page() {
 
   useEffect(() => {
     if (authenticated && activeTab === "seating") { fetchSeating(); fetchRankStatus(); fetchAttendance() }
-    if (authenticated && activeTab === "ranking") fetchRankStatus()
+    if (authenticated && activeTab === "ranking") { fetchRankStatus(); fetchSeating() }
     if (authenticated && activeTab === "participants") { fetchParticipants({ preserveSelection: true }); fetchSeating(); fetchRankStatus(); fetchMatches() }
     if (authenticated && activeTab === "overview") fetchOverview()
     if (authenticated && activeTab === "feedback") { fetchFeedback(); fetchMoodChecks(); fetchNotifications(); fetchSeating(); fetchRankStatus() }
@@ -1413,6 +1422,33 @@ export default function Admin3Page() {
   }
 
   const currentPhaseIdx = PHASES.findIndex(p => p.id === state?.phase)
+
+  const tableLocationsByParticipant = useMemo(() => {
+    const locations = new Map<number, Record<number, number>>()
+    for (const tableRound of [1, 2, 20, 30]) {
+      const tables = seating?.[tableRound] || {}
+      for (const [tableNumber, members] of Object.entries(tables)) {
+        for (const member of (members as any[]) || []) {
+          const participantNumber = Number(member?.number)
+          if (!Number.isInteger(participantNumber)) continue
+          const existing = locations.get(participantNumber) || {}
+          existing[tableRound] = Number(tableNumber)
+          locations.set(participantNumber, existing)
+        }
+      }
+    }
+    return locations
+  }, [seating])
+
+  const rankingTableBadges = (participantNumber: number) => {
+    const tables = tableLocationsByParticipant.get(Number(participantNumber)) || {}
+    const liveRound = rankingLocationRound(state?.phase)
+    const liveTable = liveRound != null ? tables[liveRound] : null
+    if (liveTable != null) return [{ key: `live-${liveRound}`, label: `طاولة ${liveTable}`, live: true }]
+    return [1, 2]
+      .filter(tableRound => tables[tableRound] != null)
+      .map(tableRound => ({ key: `group-${tableRound}`, label: `ج${tableRound} · طاولة ${tables[tableRound]}`, live: false }))
+  }
 
   const filteredParticipants = participants.filter(p => {
     const matchSearch = !searchTerm || p.name.includes(searchTerm) || String(p.number).includes(searchTerm)
@@ -2023,7 +2059,7 @@ export default function Admin3Page() {
           ].map(tab => (
             <button
               key={tab.id}
-              onClick={() => { setActiveTab(tab.id as any); if (tab.id === "ranking" || tab.id === "overview") fetchRankStatus(); if (tab.id === "feedback") { fetchFeedback(); fetchSeating(); fetchRankStatus() } }}
+              onClick={() => { setActiveTab(tab.id as any); if (tab.id === "feedback") { fetchFeedback(); fetchSeating(); fetchRankStatus() } }}
               className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 border-b-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
                 activeTab === tab.id
                   ? "border-purple-500 text-purple-400"
@@ -3311,7 +3347,7 @@ export default function Admin3Page() {
                   </button>
                   <button
                     type="button"
-                    onClick={fetchRankStatus}
+                    onClick={() => { fetchRankStatus(); fetchSeating() }}
                     aria-label="تحديث بيانات التصنيفات"
                     title="تحديث البيانات"
                     className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-700 bg-gray-800 text-gray-400 transition-colors hover:border-gray-600 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
@@ -3449,6 +3485,11 @@ export default function Admin3Page() {
                           >
                             <span className="font-mono text-[10px] opacity-60">#{p.number}</span>
                             {p.name}
+                            {rankingTableBadges(p.number).map(table => (
+                              <span key={table.key} className={`mr-1 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] font-bold ${table.live ? "bg-amber-300/15 text-amber-100" : "bg-gray-950/35 text-amber-100/65"}`}>
+                                <MapPin size={9} /> {table.label}
+                              </span>
+                            ))}
                           </button>
                         ))}
                       </div>
@@ -3501,6 +3542,13 @@ export default function Admin3Page() {
                         <div className="flex-1 min-w-0">
                           <span className="text-sm font-medium text-gray-200 truncate">{r.name}</span>
                           <span className="text-gray-600 text-xs mr-2">#{r.number}</span>
+                          <span className="mt-1 flex flex-wrap gap-1">
+                            {rankingTableBadges(r.number).map(table => (
+                              <span key={table.key} className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-bold ${table.live ? "border-amber-700/50 bg-amber-900/30 text-amber-200" : "border-gray-700/60 bg-gray-800/70 text-gray-400"}`}>
+                                <MapPin size={9} /> {table.label}
+                              </span>
+                            ))}
+                          </span>
                         </div>
                         {r.submitted ? (
                           <>

@@ -7110,11 +7110,12 @@ export default function Event3Page() {
   const hasPendingMoodCheck = Boolean(!finalQuestionsOpen && eventState?.mood_check?.pending)
   const hasPendingNotification = Boolean(!finalQuestionsOpen && eventState?.notification?.pending)
   const isSafePromptMoment = ["setup", "break", "phase2_processing", "phase3_processing"].includes(phase)
+  const isActiveMoodMoment = ["round1", "round2", "phase2_reveal", "phase3_reveal"].includes(phase)
   // Once a reflection sheet is open, keep it mounted until the participant
   // finishes or closes it. Heartbeat-driven prompts queue behind it so locally
   // drafted ratings and notes are never destroyed.
   const activeGroupFeedbackRound = visibleGroupFeedbackRound
-  const canShowMoodCheck = hasPendingMoodCheck && isSafePromptMoment && !activeGroupFeedbackRound
+  const canShowMoodCheck = hasPendingMoodCheck && (isSafePromptMoment || isActiveMoodMoment) && !activeGroupFeedbackRound
   const canShowNotification = hasPendingNotification && isSafePromptMoment && !activeGroupFeedbackRound && !hasPendingMoodCheck
   const canShowAiWelcome = showAiWelcome
     && phase === "setup"

@@ -476,7 +476,7 @@ export default function Admin3Page() {
           lines.push(`   ${item.rank}. ${item.name} (#${item.number})`)
         }
       } else {
-        lines.push(`▌ ${r.name} (#${r.number}) — لم يصوّت`)
+        lines.push(`▌ ${r.name} (#${r.number}) — لم يرسل تصنيفاً`)
       }
       lines.push("")
     }
@@ -1025,6 +1025,12 @@ export default function Admin3Page() {
   }
   const stopTimer = () => { if (previewEventId != null) { toast.error("لا يمكن إيقاف المؤقت في وضع المعاينة"); return } run("timer-stop", () => api("e3-stop-timer")) }
   const adjustTimer = (delta: number) => { if (previewEventId != null) { toast.error("لا يمكن تعديل المؤقت في وضع المعاينة"); return } run(`timer-${delta}`, () => api("e3-adjust-timer", { delta_seconds: delta }).then(d => { if (!d.error) fetchState(); return d })) }
+  const setRankerDetails = (rankerNum: number, toggle = false) => {
+    const nextRanker = toggle && expandedRanker === rankerNum ? null : rankerNum
+    setExpandedRanker(nextRanker)
+    if (nextRanker !== editingRanker) { setEditingRanker(null); setEditedOrder([]) }
+    if (nextRanker !== simulatingRanker) { setSimulatingRanker(null); setSimOrder([]) }
+  }
   const saveRanking = (rankerNum: number) => {
     if (previewEventId != null) { toast.error("لا يمكن تعديل التصنيفات في وضع المعاينة"); return }
     run(`save-rank-${rankerNum}`, () => api("e3-set-ranking", { ranker_number: rankerNum, ranked_list: editedOrder.map(i => i.number) }).then(d => { if (!d.error) { setEditingRanker(null); fetchRankStatus() } return d }))
@@ -1045,6 +1051,25 @@ export default function Admin3Page() {
     run(`save-sim-${rankerNum}`, () => api("e3-set-ranking", { ranker_number: rankerNum, ranked_list: simOrder.map(i => i.number) }).then(d => { if (!d.error) { setSimulatingRanker(null); fetchRankStatus(); toast.success("تم حفظ التصنيف بالنيابة") } return d }))
   }
 
+  const randomizeRanking = (ranker: { number: number; name?: string; submitted?: boolean }) => {
+    if (previewEventId != null) { toast.error("لا يمكن تعديل التصنيفات في وضع المعاينة"); return }
+    const action = ranker.submitted ? "استبدال تصنيفه الحالي" : "إنشاء تصنيف له"
+    if (!confirm(`${action} بترتيب عشوائي؟\n${ranker.name || `#${ranker.number}`} لن يكون هو من اختار هذا الترتيب.`)) return
+    run(`rand-${ranker.number}`, () => api("e3-randomize-ranking-single", { participant_number: ranker.number }).then(d => {
+      if (!d.error) fetchRankStatus()
+      return d
+    }))
+  }
+
+  const randomizeAllRankings = () => {
+    if (previewEventId != null) { toast.error("لا يمكن تعديل التصنيفات في وضع المعاينة"); return }
+    if (!confirm("استبدال تصنيفات جميع المشاركين بترتيبات عشوائية؟\nهذا إجراء تجريبي يمحو اختياراتهم الحالية ولا يمكن التراجع عنه.")) return
+    run("randomize", () => api("e3-randomize-rankings").then(d => {
+      if (!d.error) fetchRankStatus()
+      return d
+    }))
+  }
+
   const doSwap = (numB: number) => {
     if (previewEventId != null) { toast.error("لا يمكن تعديل الجلسات في وضع المعاينة"); return }
     run(`swap-${swapA}-${numB}`, () => api("e3-swap-seating", { num_a: swapA, num_b: numB }).then(d => {
@@ -1063,10 +1088,22 @@ export default function Admin3Page() {
     const currentTableEntry = Object.entries(seating?.[mapRound] || {}).find(([, members]) =>
       (members as any[]).some(member => member.number === moveA)
     )
-    const tableMembers = (currentTableEntry?.[1] as any[] | undefined) || []
-    const participantNumbers = mapRound === 20 || mapRound === 30
-      ? tableMembers.map(member => member.number)
-      : [moveA]
+    const currentTable = Number(currentTableEntry?.[0])
+    if ((mapRound === 20 || mapRound === 30) && Number.isInteger(currentTable)) {
+      if (currentTable === targetTable) { setMoveA(null); return }
+      run(`swap-tables-${mapRound}-${currentTable}-${targetTable}`, () =>
+        api("e3-swap-table-numbers", { round: mapRound, table_a: currentTable, table_b: targetTable }).then(result => {
+          if (!result.error) {
+            setMoveA(null)
+            fetchSeating()
+            fetchMatches()
+          }
+          return result
+        })
+      )
+      return
+    }
+    const participantNumbers = [moveA]
     run(`move-${moveA}-to-${targetTable}`, () => Promise.all(
       participantNumbers.map(participantNumber => api("e3-move-table", { participant_number: participantNumber, round: mapRound, new_table: targetTable }))
     ).then(results => {
@@ -2263,7 +2300,7 @@ export default function Admin3Page() {
                       : 'bg-amber-950/30 border-amber-800/50'
                     : 'bg-emerald-950/30 border-emerald-800/50'
                 }`}>
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       {pending.length === 0
                         ? <CheckCircle size={18} className="text-emerald-400" />
@@ -2275,9 +2312,9 @@ export default function Admin3Page() {
                         pending.length === 0 ? 'text-emerald-300' : timerEnded ? 'text-red-300' : 'text-amber-300'
                       }`}>
                         {pending.length === 0
-                          ? 'الجميع صوّت ✓'
+                          ? 'الجميع أرسل التصنيف ✓'
                           : timerEnded
-                          ? `انتهى الوقت — ${pending.length} لم يصوّت!`
+                          ? `انتهى الوقت — ${pending.length} لم يرسل!`
                           : `بانتظار تصنيف ${pending.length} من ${totalCount}`
                         }
                       </h3>
@@ -2285,12 +2322,12 @@ export default function Admin3Page() {
                     <div className="flex items-center gap-2">
                       <div className="text-xs text-gray-400">
                         <span className="text-emerald-400 font-bold">{submittedCount}</span>
-                        <span className="text-gray-600">/{totalCount}</span> صوّت
+                        <span className="text-gray-600">/{totalCount}</span> أرسل
                         {autoSavedCount > 0 && (
                           <span className="text-amber-400 mr-1.5">· {autoSavedCount} تلقائي</span>
                         )}
                       </div>
-                      <button onClick={fetchRankStatus} className="p-1 rounded-lg hover:bg-gray-800 text-gray-400">
+                      <button type="button" onClick={fetchRankStatus} aria-label="تحديث حالة التصنيفات" className="p-1 rounded-lg hover:bg-gray-800 text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500">
                         <RefreshCw size={12} />
                       </button>
                     </div>
@@ -2321,24 +2358,26 @@ export default function Admin3Page() {
                       {/* Quick actions */}
                       <div className="flex flex-wrap gap-2">
                         <button
-                          onClick={() => run("nudge-ranking", () => api("e3-send-notification", {
-                            title: "⏰ تذكير: صوّت الآن!",
-                            body: "الوقت ينفد — يرجى تقديم تصنيفك فوراً",
+                          type="button"
+                          onClick={() => { if (confirm("إرسال تذكير إلى جميع مشاركي الفعالية، بمن فيهم من أرسلوا تصنيفهم؟")) run("nudge-ranking", () => api("e3-send-notification", {
+                            title: "⏰ تذكير: أرسل تصنيفك الآن",
+                            body: "الوقت ينفد — يرجى ترتيب الأشخاص الذين قابلتهم وإرسال التصنيف فوراً",
                             icon: "clock",
-                          }).then(d => { if (!d.error) toast.success("تم إرسال التذكير ✅"); return d }))}
-                          disabled={!!loading}
+                          }).then(d => { if (!d.error) toast.success("تم إرسال التذكير ✅"); return d })) }}
+                          disabled={!!loading || previewEventId != null}
                           className="flex items-center gap-1.5 bg-blue-900/50 hover:bg-blue-800 border border-blue-800/50 text-blue-300 rounded-lg px-3 py-1.5 text-xs disabled:opacity-40"
                         >
                           {loading === "nudge-ranking" ? <RefreshCw size={12} className="animate-spin" /> : <Bell size={12} />}
-                          إرسال تذكير للجميع
+                          تذكير كل المشاركين
                         </button>
                         <button
-                          onClick={() => { if (confirm("حفظ تصنيفات جميع المشاركين الذين لم يصوتوا تلقائياً؟")) run("force-save", () => api("e3-force-auto-save-rankings").then(d => { if (!d.error) { toast.success(d.message || "تم الحفظ التلقائي"); fetchRankStatus() } return d })) }}
-                          disabled={!!loading || pending.length === 0}
+                          type="button"
+                          onClick={() => { if (confirm(`إكمال تصنيفات ${pending.length} مشارك لم يرسلوا؟\nسيُستخدم ترتيب افتراضي لا يمثل اختيارهم.`)) run("force-save", () => api("e3-force-auto-save-rankings").then(d => { if (!d.error) fetchRankStatus(); return d })) }}
+                          disabled={!!loading || pending.length === 0 || previewEventId != null}
                           className="flex items-center gap-1.5 bg-amber-900/50 hover:bg-amber-800 border border-amber-700/50 text-amber-300 rounded-lg px-3 py-1.5 text-xs disabled:opacity-40"
                         >
                           {loading === "force-save" ? <RefreshCw size={12} className="animate-spin" /> : <Clock size={12} />}
-                          حفظ تلقائي للجميع
+                          إكمال غير المُرسلين
                         </button>
                       </div>
                     </>
@@ -2606,7 +2645,7 @@ export default function Admin3Page() {
                       <button onClick={() => setMapRound(20)}
                         className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${mapRound === 20 ? 'bg-emerald-600 text-white shadow' : 'text-gray-400 hover:text-gray-200'}`}
                       >
-                        1:1 جلسات
+                        لقاء الاختيار
                       </button>
                     )}
                     {phase3Pairs.length > 0 && (
@@ -2642,9 +2681,13 @@ export default function Admin3Page() {
               <div className="bg-indigo-900/30 border border-indigo-700/50 rounded-xl px-4 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <div className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse flex-shrink-0" />
-                  <span className="text-indigo-300 text-sm font-medium">
-                    نقل: <span className="text-white">{participants.find(p => p.number === moveA)?.name}</span>
-                    <span className="text-indigo-600 text-xs mr-2">← اضغط على أي طاولة لنقل الشخص إليها</span>
+                    <span className="text-indigo-300 text-sm font-medium">
+                      {mapRound === 20 || mapRound === 30 ? "تبديل طاولة الزوج:" : "نقل:"} <span className="text-white">{participants.find(p => p.number === moveA)?.name}</span>
+                      <span className="text-indigo-600 text-xs mr-2">
+                        {mapRound === 20 || mapRound === 30
+                          ? "← اضغط على طاولة أخرى لتبديل الرقم للزوجين معاً"
+                          : "← اضغط على أي طاولة لنقل الشخص إليها"}
+                      </span>
                   </span>
                 </div>
                 <button onClick={() => setMoveA(null)} className="text-indigo-600 hover:text-indigo-300 text-xs px-2 py-1 rounded-lg hover:bg-indigo-900/30 transition-colors">
@@ -2779,28 +2822,28 @@ export default function Admin3Page() {
                             {pair.rankAInB != null && <p className="text-[10px] text-gray-600 mt-0.5">رتّب الآخر #{pair.rankAInB}</p>}
                           </div>
                         </div>
-                        {/* Move table */}
-                        <div className="mt-2.5 flex items-center gap-2">
-                          <span className="text-[10px] text-gray-600">تعديل الطاولة:</span>
-                          <input
-                            type="number" min={1} max={99}
-                            defaultValue={pair.table || ''}
-                            onBlur={e => {
-                              const v = parseInt(e.target.value)
-                              if (!isNaN(v) && v !== pair.table) {
-                                run(`move-pair-${pair.a}`, () => Promise.all([
-                                  api("e3-move-table", { participant_number: pair.a, round: 20, new_table: v }),
-                                  api("e3-move-table", { participant_number: pair.b, round: 20, new_table: v }),
-                                ]).then(results => {
-                                  const failed = results.find(result => result?.error)
-                                  fetchMatches()
-                                  fetchSeating()
-                                  return failed ? { error: `تعذّر نقل الشريكين: ${failed.error}` } : { message: `Pair moved to table ${v}` }
-                                }))
+                        {/* Atomically exchange complete table labels. */}
+                        <div className="mt-2.5 flex items-center gap-2 rounded-xl border border-indigo-900/40 bg-indigo-950/20 px-2.5 py-2">
+                          <Shuffle size={12} className="text-indigo-400 flex-shrink-0" />
+                          <span className="text-[10px] text-indigo-300 whitespace-nowrap">بدّل مع:</span>
+                          <select
+                            value={pair.table || ''}
+                            disabled={!pair.table || previewEventId != null || !!loading}
+                            onChange={event => {
+                              const targetTable = Number(event.target.value)
+                              if (pair.table && Number.isInteger(targetTable) && targetTable !== pair.table) {
+                                renameTable(20, pair.table, targetTable)
                               }
                             }}
-                            className="w-16 bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2 py-1 text-center focus:outline-none focus:border-indigo-500"
-                          />
+                            className="min-w-0 flex-1 bg-gray-900 border border-indigo-800/60 text-white text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
+                            aria-label={`تبديل طاولة ${pair.table || ''} مع طاولة أخرى`}
+                          >
+                            <option value={pair.table || ''}>طاولة {pair.table || '—'} (الحالية)</option>
+                            {[...new Set(matchPairs.map((item: any) => Number(item.table)).filter((table: number) => Number.isInteger(table) && table > 0 && table !== pair.table))]
+                              .sort((a, b) => a - b)
+                              .map(table => <option key={table} value={table}>طاولة {table}</option>)}
+                          </select>
+                          <span className="hidden sm:inline text-[9px] text-gray-600 whitespace-nowrap">تبديل آمن للزوجين</span>
                         </div>
                       </div>
                     ))}
@@ -2866,17 +2909,32 @@ export default function Admin3Page() {
                           <div className="flex items-center gap-2.5">
                             {editingTableCard?.round === mapRound && editingTableCard?.table === table ? (
                               <div className="flex items-center gap-1.5">
-                                <input
-                                  autoFocus
-                                  type="number" min={1} max={99}
-                                  value={editingTableCard.value}
-                                  onChange={e => setEditingTableCard({ ...editingTableCard, value: e.target.value })}
-                                  onKeyDown={e => {
-                                    if (e.key === 'Enter') { const v = parseInt(editingTableCard.value); if (!isNaN(v) && v > 0) renameTable(mapRound as number, table, v) }
-                                    if (e.key === 'Escape') setEditingTableCard(null)
-                                  }}
-                                  className="w-14 h-9 bg-gray-700 border border-indigo-500 text-indigo-200 font-black text-base rounded-xl px-2 text-center focus:outline-none"
-                                />
+                                {mapRound === 30 ? (
+                                  <select
+                                    autoFocus
+                                    value={editingTableCard.value}
+                                    onChange={e => setEditingTableCard({ ...editingTableCard, value: e.target.value })}
+                                    onKeyDown={e => { if (e.key === 'Escape') setEditingTableCard(null) }}
+                                    className="h-9 bg-gray-700 border border-indigo-500 text-indigo-100 font-bold text-xs rounded-xl px-2 focus:outline-none"
+                                    aria-label={`تبديل طاولة الخوارزمية ${table}`}
+                                  >
+                                    <option value={table}>طاولة {table} (الحالية)</option>
+                                    {Object.keys(seating?.[30] || {}).map(Number).filter(candidate => candidate !== table).sort((a, b) => a - b)
+                                      .map(candidate => <option key={candidate} value={candidate}>طاولة {candidate}</option>)}
+                                  </select>
+                                ) : (
+                                  <input
+                                    autoFocus
+                                    type="number" min={1} max={99}
+                                    value={editingTableCard.value}
+                                    onChange={e => setEditingTableCard({ ...editingTableCard, value: e.target.value })}
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter') { const v = parseInt(editingTableCard.value); if (!isNaN(v) && v > 0) renameTable(mapRound as number, table, v) }
+                                      if (e.key === 'Escape') setEditingTableCard(null)
+                                    }}
+                                    className="w-14 h-9 bg-gray-700 border border-indigo-500 text-indigo-200 font-black text-base rounded-xl px-2 text-center focus:outline-none"
+                                  />
+                                )}
                                 <button onClick={() => { const v = parseInt(editingTableCard.value); if (!isNaN(v) && v > 0) renameTable(mapRound as number, table, v) }}
                                   className="text-xs text-green-400 bg-green-900/30 hover:bg-green-900/50 px-2 py-1.5 rounded-lg font-bold transition-colors">✓</button>
                                 <button onClick={() => setEditingTableCard(null)}
@@ -3157,17 +3215,20 @@ export default function Admin3Page() {
           const submittedCount = allRankings.filter((r: any) => r.submitted).length
           const pendingCount = allRankings.length - submittedCount
           const autoSavedCount = (rankStatus?.auto_saved_count as number) || 0
-          let mutualCount = 0
+          const mutualPairs = new Set<string>()
           const popularityMap: Record<number, number> = {}
           for (const r of allRankings) {
             if (r.ranked_list) {
               for (const item of r.ranked_list) {
                 popularityMap[item.number] = (popularityMap[item.number] || 0) + 1
                 const theyRankedMe = allRankings.find((x: any) => x.number === item.number)?.ranked_list?.find((y: any) => y.number === r.number)
-                if (theyRankedMe && theyRankedMe.rank <= 3 && item.rank <= 3) mutualCount++
+                if (theyRankedMe && theyRankedMe.rank <= 3 && item.rank <= 3) {
+                  mutualPairs.add([r.number, item.number].sort((a, b) => a - b).join("-"))
+                }
               }
             }
           }
+          const mutualCount = mutualPairs.size
           const topPopular = Object.entries(popularityMap).sort((a: any, b: any) => b[1] - a[1]).slice(0, 3)
           const rankBadge = (idx: number) => {
             if (idx === 0) return "bg-gradient-to-br from-yellow-500 to-amber-600 text-amber-950"
@@ -3205,14 +3266,14 @@ export default function Admin3Page() {
                 {sortedEntries.length === 0 ? (
                   <div className="p-6 text-center text-xs text-gray-600">لا توجد تصنيفات يدوية كافية للحساب</div>
                 ) : sortedEntries.map((person: any, index: number) => {
-                  const preferenceScore = isLikedSort ? person.like_score : person.dislike_score
+                  const preferenceScore = Number(isLikedSort ? person.like_score : person.dislike_score) || 0
                   return (
                   <div key={person.number} className="p-3 flex items-center gap-3 hover:bg-white/[0.025] transition-colors">
                     <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0 ${index < 3 ? accent.top : "bg-gray-900 text-gray-500"}`}>{index + 1}</span>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-xs font-semibold text-gray-200 truncate">{person.name} <span className="font-mono text-[10px] text-gray-600">#{person.number}</span></p>
-                        <span className={`text-xs font-black tabular-nums ${accent.score}`}>{preferenceScore}</span>
+                        <span title="درجة الاتجاه من 100" aria-label={`درجة الاتجاه ${preferenceScore} من 100`} className={`text-xs font-black tabular-nums ${accent.score}`}>{preferenceScore}<span className="text-[8px] font-normal opacity-60">/100</span></span>
                       </div>
                       <div className="h-1 bg-gray-800 rounded-full overflow-hidden my-1.5">
                         <div className={`h-full rounded-full ${accent.bar}`} style={{ width: `${Math.min(100, preferenceScore || 0)}%` }} />
@@ -3232,59 +3293,97 @@ export default function Admin3Page() {
           }
           return (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-gray-300">حالة التصنيفات</h3>
-              <div className="flex gap-2">
-                <button
-                  onClick={copyRankings}
-                  disabled={!allRankings.length}
-                  className="flex items-center gap-1.5 bg-sky-900/50 hover:bg-sky-800 border border-sky-700/50 text-sky-300 rounded-lg px-3 py-1.5 text-xs disabled:opacity-40"
-                >
-                  {copied ? <Check size={12} /> : <Copy size={12} />}
-                  {copied ? "تم النسخ ✓" : "نسخ"}
-                </button>
-                <button
-                  onClick={() => run("randomize", () => api("e3-randomize-rankings").then(d => { fetchRankStatus(); return d }))}
-                  disabled={!!loading}
-                  className="flex items-center gap-1.5 bg-violet-900/60 hover:bg-violet-800 border border-violet-700/50 text-violet-300 rounded-lg px-3 py-1.5 text-xs"
-                >
-                  {loading === "randomize" ? <RefreshCw size={12} className="animate-spin" /> : <Shuffle size={12} />}
-                  عشوائي
-                </button>
-                <button
-                  onClick={() => { if (confirm("حفظ تصنيفات جميع المشاركين الذين لم يصوتوا تلقائياً؟\nسيتم حفظ ترتيب الأشخاص الذين قابلوهم بالترتيب الافتراضي.")) run("force-save", () => api("e3-force-auto-save-rankings").then(d => { if (!d.error) { toast.success(d.message || "تم الحفظ التلقائي"); fetchRankStatus() } return d })) }}
-                  disabled={!!loading || pendingCount === 0}
-                  className="flex items-center gap-1.5 bg-amber-900/50 hover:bg-amber-800 border border-amber-700/50 text-amber-300 rounded-lg px-3 py-1.5 text-xs disabled:opacity-40"
-                >
-                  {loading === "force-save" ? <RefreshCw size={12} className="animate-spin" /> : <Clock size={12} />}
-                  حفظ تلقائي للجميع
-                </button>
-                <button
-                  onClick={() => { if (confirm("حذف جميع التصنيفات؟")) run("clear-rank", () => api("e3-clear-rankings").then(d => { fetchRankStatus(); return d })) }}
-                  disabled={!!loading}
-                  className="flex items-center gap-1.5 bg-red-900/40 hover:bg-red-900/70 border border-red-800/50 text-red-400 rounded-lg px-3 py-1.5 text-xs"
-                >
-                  <RotateCcw size={12} /> حذف الكل
-                </button>
-                <button onClick={fetchRankStatus} className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-400">
-                  <RefreshCw size={14} />
-                </button>
+            <section className="rounded-2xl border border-gray-800 bg-gray-900/70 p-3 sm:p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h3 className="font-bold text-gray-100">تصنيفات المشاركين</h3>
+                  <p className="mt-1 max-w-2xl text-[11px] leading-5 text-gray-500">تابع من أرسل اختياراته، راجع الترتيب، وتدخّل بالنيابة فقط لتصحيح مشكلة واضحة.</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={copyRankings}
+                    disabled={!allRankings.length}
+                    className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-sky-700/50 bg-sky-900/40 px-3 py-1.5 text-xs font-medium text-sky-300 transition-colors hover:bg-sky-800 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {copied ? <Check size={13} /> : <Copy size={13} />}
+                    {copied ? "تم النسخ" : "نسخ التقرير"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={fetchRankStatus}
+                    aria-label="تحديث بيانات التصنيفات"
+                    title="تحديث البيانات"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-700 bg-gray-800 text-gray-400 transition-colors hover:border-gray-600 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+                  >
+                    <RefreshCw size={14} />
+                  </button>
+                </div>
               </div>
-            </div>
+
+              {previewEventId != null && (
+                <div role="status" className="mt-3 flex items-center gap-2 rounded-xl border border-amber-800/40 bg-amber-950/30 px-3 py-2 text-[11px] text-amber-300">
+                  <Eye size={13} className="shrink-0" /> وضع المعاينة للقراءة فقط — أدوات التعديل معطلة.
+                </div>
+              )}
+
+              <details className="group mt-3 rounded-xl border border-gray-800 bg-black/20">
+                <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs font-semibold text-gray-400 transition-colors hover:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500 [&::-webkit-details-marker]:hidden">
+                  <Shield size={14} className="text-amber-500" />
+                  <span className="flex-1">أدوات المشرف المتقدمة</span>
+                  <span className="text-[10px] font-normal text-gray-600">تغيّر البيانات</span>
+                  <ChevronDown size={14} className="transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="border-t border-gray-800 p-3">
+                  <div className="mb-3 rounded-lg border border-amber-900/40 bg-amber-950/20 px-3 py-2 text-[10px] leading-5 text-amber-200/70">
+                    استخدم هذه الإجراءات عند تعذّر إرسال التصنيف فقط. الترتيب الافتراضي والعشوائي لا يمثلان اختيار المشارك.
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                    <button
+                      type="button"
+                      onClick={() => { if (confirm(`إكمال تصنيفات ${pendingCount} مشارك لم يرسلوا اختياراتهم؟\nسيُستخدم ترتيب الأشخاص الذين قابلوهم، وليس اختياراً منهم.`)) run("force-save", () => api("e3-force-auto-save-rankings").then(d => { if (!d.error) fetchRankStatus(); return d })) }}
+                      disabled={!!loading || pendingCount === 0 || previewEventId != null}
+                      className="min-h-14 rounded-xl border border-amber-800/40 bg-amber-950/30 px-3 py-2 text-right transition-colors hover:bg-amber-900/30 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <span className="flex items-center gap-1.5 text-xs font-bold text-amber-300">{loading === "force-save" ? <RefreshCw size={12} className="animate-spin" /> : <Clock size={12} />} إكمال غير المُرسلين</span>
+                      <span className="mt-1 block text-[9px] text-gray-500">ترتيب افتراضي · {pendingCount} بانتظار الإرسال</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={randomizeAllRankings}
+                      disabled={!!loading || !allRankings.length || previewEventId != null}
+                      className="min-h-14 rounded-xl border border-violet-800/40 bg-violet-950/25 px-3 py-2 text-right transition-colors hover:bg-violet-900/30 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <span className="flex items-center gap-1.5 text-xs font-bold text-violet-300">{loading === "randomize" ? <RefreshCw size={12} className="animate-spin" /> : <FlaskConical size={12} />} عشوائية تجريبية للجميع</span>
+                      <span className="mt-1 block text-[9px] text-gray-500">تستبدل كل الاختيارات الحالية</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { if (confirm("حذف جميع تصنيفات هذه الفعالية؟\nسيظهر الجميع كأنهم لم يرسلوا، ولا يمكن التراجع عن ذلك.")) run("clear-rank", () => api("e3-clear-rankings").then(d => { if (!d.error) fetchRankStatus(); return d })) }}
+                      disabled={!!loading || submittedCount === 0 || previewEventId != null}
+                      className="min-h-14 rounded-xl border border-red-900/50 bg-red-950/20 px-3 py-2 text-right transition-colors hover:bg-red-900/30 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <span className="flex items-center gap-1.5 text-xs font-bold text-red-400">{loading === "clear-rank" ? <RefreshCw size={12} className="animate-spin" /> : <Trash2 size={12} />} حذف تصنيفات الفعالية</span>
+                      <span className="mt-1 block text-[9px] text-gray-500">حذف نهائي لكل الردود</span>
+                    </button>
+                  </div>
+                </div>
+              </details>
+            </section>
 
             {rankStatus && (
               <>
                 {/* Progress + Stats Grid */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
-                    <p className="text-[10px] text-gray-500 mb-1">التقدم</p>
+                    <p className="text-[10px] text-gray-500 mb-1">أرسل التصنيف</p>
                     <p className="text-lg font-black text-white">{submittedCount}<span className="text-gray-600 text-sm font-normal">/{allRankings.length}</span></p>
                     <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden mt-1.5">
                       <div className="h-full bg-purple-600 transition-all duration-500" style={{ width: `${(submittedCount / (allRankings.length || 1)) * 100}%` }} />
                     </div>
                   </div>
                   <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
-                    <p className="text-[10px] text-gray-500 mb-1">لم يصوّت</p>
+                    <p className="text-[10px] text-gray-500 mb-1">لم يرسل</p>
                     <p className="text-lg font-black text-yellow-400">{pendingCount}</p>
                     <p className="text-[9px] text-gray-600 mt-1">بانتظار التصنيف</p>
                     {autoSavedCount > 0 && (
@@ -3294,16 +3393,16 @@ export default function Admin3Page() {
                     )}
                   </div>
                   <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
-                    <p className="text-[10px] text-gray-500 mb-1">تبادل متبادل</p>
+                    <p className="text-[10px] text-gray-500 mb-1">تفضيل متبادل</p>
                     <p className="text-lg font-black text-emerald-400">{mutualCount}</p>
-                    <p className="text-[9px] text-gray-600 mt-1">اختيارات متبادلة</p>
+                    <p className="text-[9px] text-gray-600 mt-1">أزواج ضمن أول 3 للطرفين</p>
                   </div>
                   <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
-                    <p className="text-[10px] text-gray-500 mb-1">الأكثر اختياراً</p>
+                    <p className="text-[10px] text-gray-500 mb-1">الأكثر وروداً</p>
                     {topPopular.length > 0 ? (
                       <p className="text-sm font-bold text-pink-400 truncate">{allRankings.find((x: any) => x.number === Number(topPopular[0][0]))?.name || `#${topPopular[0][0]}`}</p>
                     ) : <p className="text-sm text-gray-600">—</p>}
-                    <p className="text-[9px] text-gray-600 mt-1">{topPopular.length > 0 ? `${topPopular[0][1]} أصوات` : ''}</p>
+                    <p className="text-[9px] text-gray-600 mt-1">{topPopular.length > 0 ? `${topPopular[0][1]} ظهور في القوائم` : ''}</p>
                   </div>
                 </div>
 
@@ -3311,20 +3410,20 @@ export default function Admin3Page() {
                 <div className="space-y-2">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h4 className="text-sm font-semibold text-gray-200">ترتيب التفضيلات المتكررة</h4>
-                      <p className="text-[10px] text-gray-500 mt-0.5">درجة من 100 توحّد أحجام القوائم، تركّز على المراكز الأولى أو الأخيرة، وتزيد الثقة عند تكرار النتيجة. الحفظ التلقائي مستبعد.</p>
+                      <h4 className="text-sm font-semibold text-gray-200">اتجاهات التفضيل <span className="font-normal text-gray-600">· للمراجعة فقط</span></h4>
+                      <p className="text-[10px] leading-5 text-gray-500 mt-0.5">تلخّص مواضع الأشخاص في القوائم التي أرسلها المشاركون؛ تستبعد الحفظ التلقائي ولا ينبغي استخدامها وحدها للحكم على أي شخص.</p>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap justify-end">
                       <div className="flex rounded-lg bg-gray-900 border border-gray-800 p-0.5">
-                        <button onClick={() => setRankingSentiment("liked")} className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-colors ${isLikedSort ? "bg-emerald-800 text-emerald-100" : "text-gray-500 hover:text-gray-300"}`}>↑ الأكثر إعجاباً</button>
-                        <button onClick={() => setRankingSentiment("disliked")} className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-colors ${!isLikedSort ? "bg-rose-900 text-rose-100" : "text-gray-500 hover:text-gray-300"}`}>↓ الأقل تفضيلاً</button>
+                        <button type="button" aria-pressed={isLikedSort} onClick={() => setRankingSentiment("liked")} className={`min-h-8 px-2.5 py-1 rounded-md text-[10px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${isLikedSort ? "bg-emerald-800 text-emerald-100" : "text-gray-500 hover:text-gray-300"}`}>المراكز الأولى</button>
+                        <button type="button" aria-pressed={!isLikedSort} onClick={() => setRankingSentiment("disliked")} className={`min-h-8 px-2.5 py-1 rounded-md text-[10px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 ${!isLikedSort ? "bg-rose-900 text-rose-100" : "text-gray-500 hover:text-gray-300"}`}>المراكز الأخيرة</button>
                       </div>
                       {previewEventId != null && <span className="px-2 py-1 rounded-lg bg-amber-900/30 border border-amber-800/40 text-amber-300 text-[10px] whitespace-nowrap">متاح في المعاينة</span>}
                     </div>
                   </div>
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-                    {preferencePanel(`الفعالية ${dislikeRankings.event_id ?? (previewEventId ?? realCurrentEventId)}`, "نتائج هذه الفعالية فقط", dislikeRankings.event || [], "event")}
-                    {preferencePanel("الإجمالي عبر كل الفعاليات", "النمط المتكرر في جميع الفعاليات", dislikeRankings.overall || [], "overall")}
+                    {preferencePanel(`${isLikedSort ? "الأكثر في المراكز الأولى" : "الأكثر في المراكز الأخيرة"} · الفعالية ${dislikeRankings.event_id ?? (previewEventId ?? realCurrentEventId)}`, "من التصنيفات اليدوية لهذه الفعالية", dislikeRankings.event || [], "event")}
+                    {preferencePanel(`${isLikedSort ? "الأكثر في المراكز الأولى" : "الأكثر في المراكز الأخيرة"} · كل الفعاليات`, "اتجاه متكرر عبر التصنيفات اليدوية السابقة", dislikeRankings.overall || [], "overall")}
                   </div>
                 </div>
 
@@ -3333,36 +3432,21 @@ export default function Admin3Page() {
                   const pendingList = allRankings.filter((r: any) => !r.submitted)
                   return (
                     <div className="rounded-xl p-3 border bg-amber-950/30 border-amber-800/50">
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="mb-2">
                         <div className="flex items-center gap-2">
                           <AlertCircle size={14} className="text-amber-400" />
-                          <h4 className="text-amber-300 text-xs font-bold">لم يصنّف بعد ({pendingCount})</h4>
+                          <h4 className="text-amber-300 text-xs font-bold">بانتظار التصنيف ({pendingCount})</h4>
                         </div>
-                        <div className="flex gap-1.5">
-                          <button
-                            onClick={() => run("nudge-ranking", () => api("e3-send-notification", { title: "⏰ تذكير: صوّت الآن!", body: "الوقت ينفد — يرجى تقديم تصنيفك فوراً", icon: "clock" }).then(d => { if (!d.error) toast.success("تم إرسال التذكير ✅"); return d }))}
-                            disabled={!!loading}
-                            className="flex items-center gap-1 bg-blue-900/50 hover:bg-blue-800 border border-blue-800/50 text-blue-300 rounded-lg px-2 py-1 text-[10px] disabled:opacity-40"
-                          >
-                            {loading === "nudge-ranking" ? <RefreshCw size={10} className="animate-spin" /> : <Bell size={10} />}
-                            تذكير
-                          </button>
-                          <button
-                            onClick={() => { if (confirm("حفظ تصنيفات جميع المشاركين الذين لم يصوتوا تلقائياً؟")) run("force-save", () => api("e3-force-auto-save-rankings").then(d => { if (!d.error) { toast.success(d.message || "تم الحفظ التلقائي"); fetchRankStatus() } return d })) }}
-                            disabled={!!loading}
-                            className="flex items-center gap-1 bg-amber-900/50 hover:bg-amber-800 border border-amber-700/50 text-amber-300 rounded-lg px-2 py-1 text-[10px] disabled:opacity-40"
-                          >
-                            {loading === "force-save" ? <RefreshCw size={10} className="animate-spin" /> : <Clock size={10} />}
-                            حفظ تلقائي
-                          </button>
-                        </div>
+                        <p className="mr-5 mt-1 text-[10px] leading-5 text-amber-100/50">اختر اسماً لمراجعته أو لإدخال الترتيب بالنيابة عند وجود مشكلة.</p>
                       </div>
                       <div className="flex flex-wrap gap-1.5">
                         {pendingList.map((p: any) => (
                           <button
                             key={p.number}
-                            onClick={() => setExpandedRanker(p.number)}
-                            className="text-xs px-2.5 py-1 rounded-lg border bg-amber-900/30 border-amber-800/40 text-amber-300 hover:bg-amber-800/40 transition-colors flex items-center gap-1"
+                            type="button"
+                            onClick={() => { setRankSearch(""); setRankFilter("pending"); setRankerDetails(p.number) }}
+                            aria-label={`فتح ${p.name} رقم ${p.number}`}
+                            className="flex min-h-8 items-center gap-1 rounded-lg border border-amber-800/40 bg-amber-900/30 px-2.5 py-1 text-xs text-amber-300 transition-colors hover:bg-amber-800/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
                           >
                             <span className="font-mono text-[10px] opacity-60">#{p.number}</span>
                             {p.name}
@@ -3380,19 +3464,21 @@ export default function Admin3Page() {
                     <input
                       type="text"
                       placeholder="ابحث بالاسم أو الرقم..."
+                      aria-label="البحث في تصنيفات المشاركين"
                       value={rankSearch}
                       onChange={e => setRankSearch(e.target.value)}
                       className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg pr-8 pl-3 py-1.5 text-xs text-right focus:outline-none focus:border-purple-500"
                     />
                   </div>
                   <select
+                    aria-label="تصفية المشاركين حسب حالة التصنيف"
                     value={rankFilter}
                     onChange={e => setRankFilter(e.target.value as any)}
                     className="bg-gray-800 border border-gray-700 text-white rounded-lg px-2 py-1.5 text-xs"
                   >
                     <option value="all">الجميع ({allRankings.length})</option>
-                    <option value="submitted">صوّت ({submittedCount})</option>
-                    <option value="pending">لم يصوّت ({pendingCount})</option>
+                    <option value="submitted">أرسل ({submittedCount})</option>
+                    <option value="pending">بانتظار ({pendingCount})</option>
                   </select>
                 </div>
 
@@ -3403,8 +3489,11 @@ export default function Admin3Page() {
                       r.submitted ? "border-green-800/50" : "border-gray-800"
                     } ${expandedRanker === r.number ? "ring-1 ring-purple-500/30" : ""}`}>
                       <button
-                        onClick={() => setExpandedRanker(expandedRanker === r.number ? null : r.number)}
-                        className="w-full flex items-center gap-3 p-3 text-right hover:bg-gray-800/40 transition-colors"
+                        type="button"
+                        onClick={() => setRankerDetails(r.number, true)}
+                        aria-expanded={expandedRanker === r.number}
+                        aria-controls={`ranking-details-${r.number}`}
+                        className="flex w-full flex-wrap items-center gap-x-3 gap-y-2 p-3 text-right transition-colors hover:bg-gray-800/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500"
                       >
                         {r.submitted
                           ? <CheckCircle size={16} className="text-green-400 flex-shrink-0" />
@@ -3416,10 +3505,10 @@ export default function Admin3Page() {
                         </div>
                         {r.submitted ? (
                           <>
-                            <span className="text-green-400/70 text-[10px] flex-shrink-0 bg-green-900/20 px-2 py-0.5 rounded-full">{r.count} مرتّبين</span>
+                            <span className="text-green-400/70 text-[10px] flex-shrink-0 bg-green-900/20 px-2 py-0.5 rounded-full">{r.count} اختيارات</span>
                             {r.auto_saved && (
                               <span className="text-amber-400/80 text-[10px] flex-shrink-0 bg-amber-900/30 border border-amber-700/40 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                <Clock size={9} className="inline" /> حفظ تلقائي
+                                <Clock size={9} className="inline" /> أنشأه النظام
                               </span>
                             )}
                           </>
@@ -3431,12 +3520,12 @@ export default function Admin3Page() {
 
                       {/* Submitted + Expanded */}
                       {expandedRanker === r.number && r.submitted && (
-                        <div className="px-3 pb-3 border-t border-gray-800/60 pt-3 space-y-1.5">
+                        <div id={`ranking-details-${r.number}`} className="px-3 pb-3 border-t border-gray-800/60 pt-3 space-y-1.5">
                           {editingRanker === r.number ? (
                             <>
-                              <div className="flex items-center gap-1.5 mb-2">
-                                <span className="text-amber-400 text-[11px] font-medium">اسحب لإعادة الترتيب</span>
-                                <span className="text-gray-600 text-[10px]">أو استخدم الأسهم</span>
+                              <div role="note" className="mb-2 rounded-lg border border-amber-900/40 bg-amber-950/20 px-3 py-2">
+                                <span className="block text-amber-300 text-[11px] font-bold">{r.auto_saved ? "مراجعة ترتيب أنشأه النظام" : "تعديل رد المشارك"}</span>
+                                <span className="mt-0.5 block text-[10px] leading-5 text-gray-500">اسحب العناصر أو استخدم الأسهم. احفظ فقط لتصحيح خطأ واضح؛ سيصبح هذا هو ترتيبه الرسمي.</span>
                               </div>
                               {editedOrder.map((item: any, idx: number) => {
                                 const theyRankedMe = allRankings.find((x: any) => x.number === item.number)?.ranked_list?.find((y: any) => y.number === r.number)
@@ -3461,17 +3550,17 @@ export default function Admin3Page() {
                                     <span className="text-gray-200 flex-1 truncate">{item.name} <span className="text-gray-600">#{item.number}</span></span>
                                     {theyRankedMe && <span className="text-purple-400 text-[9px] bg-purple-900/30 px-1.5 py-0.5 rounded-full">رتّبك #{theyRankedMe.rank}</span>}
                                     <div className="flex gap-0.5">
-                                      <button onClick={() => setEditedOrder(o => moveItem(o, idx, idx - 1))} disabled={idx === 0} className="w-6 h-6 rounded-md bg-gray-700/60 hover:bg-gray-600 disabled:opacity-20 flex items-center justify-center text-gray-300 text-[10px]">▲</button>
-                                      <button onClick={() => setEditedOrder(o => moveItem(o, idx, idx + 1))} disabled={idx === editedOrder.length - 1} className="w-6 h-6 rounded-md bg-gray-700/60 hover:bg-gray-600 disabled:opacity-20 flex items-center justify-center text-gray-300 text-[10px]">▼</button>
+                                      <button type="button" aria-label={`رفع ${item.name} إلى المركز ${idx}`} onClick={() => setEditedOrder(o => moveItem(o, idx, idx - 1))} disabled={idx === 0} className="flex h-8 w-8 items-center justify-center rounded-md bg-gray-700/60 text-[10px] text-gray-300 hover:bg-gray-600 disabled:opacity-20">▲</button>
+                                      <button type="button" aria-label={`خفض ${item.name} إلى المركز ${idx + 2}`} onClick={() => setEditedOrder(o => moveItem(o, idx, idx + 1))} disabled={idx === editedOrder.length - 1} className="flex h-8 w-8 items-center justify-center rounded-md bg-gray-700/60 text-[10px] text-gray-300 hover:bg-gray-600 disabled:opacity-20">▼</button>
                                     </div>
                                   </div>
                                 )
                               })}
                               <div className="flex gap-2 pt-2">
-                                <button onClick={() => saveRanking(r.number)} disabled={!!loading} className="flex-1 py-2 rounded-lg bg-emerald-700/60 hover:bg-emerald-700 text-emerald-200 text-xs font-bold transition-colors">
+                                <button type="button" onClick={() => saveRanking(r.number)} disabled={!!loading || previewEventId != null} className="flex-1 py-2 rounded-lg bg-emerald-700/60 hover:bg-emerald-700 text-emerald-200 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40">
                                   {loading === `save-rank-${r.number}` ? <RefreshCw size={12} className="animate-spin mx-auto" /> : '✓ حفظ التغييرات'}
                                 </button>
-                                <button onClick={() => setEditingRanker(null)} className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-400 text-xs font-medium transition-colors">إلغاء</button>
+                                <button type="button" onClick={() => setEditingRanker(null)} className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-400 text-xs font-medium transition-colors">إلغاء</button>
                               </div>
                             </>
                           ) : (
@@ -3495,25 +3584,41 @@ export default function Admin3Page() {
                                   </div>
                                 )
                               })}
-                              <button onClick={() => { setEditingRanker(r.number); setEditedOrder([...r.ranked_list]) }} className="mt-2 w-full py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 text-xs font-medium transition-colors flex items-center justify-center gap-1.5">
-                                <span className="text-sm">✏️</span> تعديل الترتيب
-                              </button>
                               <button
-                                onClick={() => run(`rand-${r.number}`, () => api("e3-randomize-ranking-single", { participant_number: r.number }).then(d => { if (!d.error) { toast.success(d.message); fetchRankStatus() } return d }))}
-                                disabled={!!loading}
-                                className="mt-1.5 w-full py-2 rounded-lg bg-violet-900/40 hover:bg-violet-800 border border-violet-700/30 text-violet-300 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+                                type="button"
+                                onClick={() => { setEditingRanker(r.number); setEditedOrder([...r.ranked_list]) }}
+                                disabled={previewEventId != null}
+                                className="mt-2 flex min-h-10 w-full items-center justify-center gap-1.5 rounded-lg bg-gray-800 py-2 text-xs font-medium text-gray-300 transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
                               >
-                                {loading === `rand-${r.number}` ? <RefreshCw size={12} className="animate-spin" /> : <Shuffle size={12} />}
-                                عشوائي لهذا الشخص
+                                <Pencil size={12} /> {r.auto_saved ? "مراجعة الترتيب التلقائي" : "تعديل اختياراته"}
                               </button>
-                              <button
-                                onClick={() => { if (confirm(`حذف تصنيف ${r.name} (#${r.number})؟ سيصبح كأنه لم يصنّف.`)) run(`reset-${r.number}`, () => api("e3-reset-ranking", { participant_number: r.number }).then(d => { if (!d.error) { toast.success(d.message); fetchRankStatus() } return d })) }}
-                                disabled={!!loading}
-                                className="mt-1.5 w-full py-2 rounded-lg bg-red-900/30 hover:bg-red-900/50 border border-red-800/30 text-red-400 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
-                              >
-                                {loading === `reset-${r.number}` ? <RefreshCw size={12} className="animate-spin" /> : <RotateCcw size={12} />}
-                                إعادة تعيين التصنيف
-                              </button>
+                              <details className="group mt-2 rounded-lg border border-gray-800 bg-black/15">
+                                <summary className="flex min-h-9 cursor-pointer list-none items-center gap-2 px-3 text-[10px] text-gray-600 transition-colors hover:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500 [&::-webkit-details-marker]:hidden">
+                                  <Shield size={11} />
+                                  <span className="flex-1">إجراءات تصحيح البيانات</span>
+                                  <ChevronDown size={12} className="transition-transform group-open:rotate-180" />
+                                </summary>
+                                <div className="grid grid-cols-1 gap-2 border-t border-gray-800 p-2 sm:grid-cols-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => randomizeRanking(r)}
+                                    disabled={!!loading || previewEventId != null}
+                                    className="rounded-lg border border-violet-900/50 bg-violet-950/20 px-3 py-2 text-right text-[10px] text-violet-300 transition-colors hover:bg-violet-900/30 disabled:cursor-not-allowed disabled:opacity-40"
+                                  >
+                                    <span className="flex items-center gap-1.5 font-bold">{loading === `rand-${r.number}` ? <RefreshCw size={11} className="animate-spin" /> : <Shuffle size={11} />} استبدال بعشوائي</span>
+                                    <span className="mt-1 block text-[9px] text-gray-600">يمحو ترتيبه الحالي</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => { if (confirm(`اعتبار ${r.name} (#${r.number}) كأنه لم يرسل تصنيفاً؟\nسيُحذف ترتيبه الحالي بالكامل.`)) run(`reset-${r.number}`, () => api("e3-reset-ranking", { participant_number: r.number }).then(d => { if (!d.error) fetchRankStatus(); return d })) }}
+                                    disabled={!!loading || previewEventId != null}
+                                    className="rounded-lg border border-red-900/50 bg-red-950/20 px-3 py-2 text-right text-[10px] text-red-400 transition-colors hover:bg-red-900/30 disabled:cursor-not-allowed disabled:opacity-40"
+                                  >
+                                    <span className="flex items-center gap-1.5 font-bold">{loading === `reset-${r.number}` ? <RefreshCw size={11} className="animate-spin" /> : <RotateCcw size={11} />} اعتباره غير مُرسل</span>
+                                    <span className="mt-1 block text-[9px] text-gray-600">يحذف اختياراته الحالية</span>
+                                  </button>
+                                </div>
+                              </details>
                             </>
                           )}
                         </div>
@@ -3521,12 +3626,12 @@ export default function Admin3Page() {
 
                       {/* Not Submitted + Expanded */}
                       {expandedRanker === r.number && !r.submitted && (
-                        <div className="px-3 pb-3 border-t border-gray-800/60 pt-3 space-y-1.5">
+                        <div id={`ranking-details-${r.number}`} className="px-3 pb-3 border-t border-gray-800/60 pt-3 space-y-1.5">
                           {simulatingRanker === r.number ? (
                             <>
-                              <div className="flex items-center gap-1.5 mb-2">
-                                <span className="text-amber-400 text-[11px] font-medium">🛠️ تصنيف بالنيابة</span>
-                                <span className="text-gray-600 text-[10px]">— اسحب للترتيب</span>
+                              <div role="note" className="mb-2 rounded-lg border border-amber-900/40 bg-amber-950/20 px-3 py-2">
+                                <span className="block text-amber-300 text-[11px] font-bold">إدخال اختيارات بالنيابة عن {r.name}</span>
+                                <span className="mt-0.5 block text-[10px] leading-5 text-gray-500">رتّب الأشخاص الذين قابلهم بالسحب أو الأسهم. الحفظ يسجل القائمة كتصنيفه الرسمي.</span>
                               </div>
                               {simOrder.map((item: any, idx: number) => (
                                 <div
@@ -3549,44 +3654,51 @@ export default function Admin3Page() {
                                   <span className="text-gray-200 flex-1 truncate">{item.name} <span className="text-gray-600">#{item.number}</span></span>
                                   {item.round && <span className="text-gray-600 text-[9px] bg-gray-800 px-1.5 py-0.5 rounded-full">ج{item.round}</span>}
                                   <div className="flex gap-0.5">
-                                    <button onClick={() => setSimOrder(o => moveItem(o, idx, idx - 1))} disabled={idx === 0} className="w-6 h-6 rounded-md bg-gray-700/60 hover:bg-gray-600 disabled:opacity-20 flex items-center justify-center text-gray-300 text-[10px]">▲</button>
-                                    <button onClick={() => setSimOrder(o => moveItem(o, idx, idx + 1))} disabled={idx === simOrder.length - 1} className="w-6 h-6 rounded-md bg-gray-700/60 hover:bg-gray-600 disabled:opacity-20 flex items-center justify-center text-gray-300 text-[10px]">▼</button>
+                                    <button type="button" aria-label={`رفع ${item.name} إلى المركز ${idx}`} onClick={() => setSimOrder(o => moveItem(o, idx, idx - 1))} disabled={idx === 0} className="flex h-8 w-8 items-center justify-center rounded-md bg-gray-700/60 text-[10px] text-gray-300 hover:bg-gray-600 disabled:opacity-20">▲</button>
+                                    <button type="button" aria-label={`خفض ${item.name} إلى المركز ${idx + 2}`} onClick={() => setSimOrder(o => moveItem(o, idx, idx + 1))} disabled={idx === simOrder.length - 1} className="flex h-8 w-8 items-center justify-center rounded-md bg-gray-700/60 text-[10px] text-gray-300 hover:bg-gray-600 disabled:opacity-20">▼</button>
                                   </div>
                                 </div>
                               ))}
                               <div className="flex gap-2 pt-2">
-                                <button onClick={() => saveSimulate(r.number)} disabled={!!loading} className="flex-1 py-2 rounded-lg bg-emerald-700/60 hover:bg-emerald-700 text-emerald-200 text-xs font-bold transition-colors">
-                                  {loading === `save-sim-${r.number}` ? <RefreshCw size={12} className="animate-spin mx-auto" /> : '✓ حفظ التصنيف'}
+                                <button type="button" onClick={() => saveSimulate(r.number)} disabled={!!loading || previewEventId != null} className="flex-1 py-2 rounded-lg bg-emerald-700/60 hover:bg-emerald-700 text-emerald-200 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40">
+                                  {loading === `save-sim-${r.number}` ? <RefreshCw size={12} className="animate-spin mx-auto" /> : 'حفظ بالنيابة'}
                                 </button>
-                                <button onClick={() => setSimulatingRanker(null)} className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-400 text-xs font-medium transition-colors">إلغاء</button>
+                                <button type="button" onClick={() => setSimulatingRanker(null)} className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-400 text-xs font-medium transition-colors">إلغاء</button>
                               </div>
                             </>
                           ) : (
-                            <div className="text-center py-3">
-                              <p className="text-gray-500 text-xs mb-2">لم يقدّم تصنيفه بعد</p>
-                              <div className="flex gap-2 justify-center">
-                                <button onClick={() => startSimulate(r.number)} disabled={simLoading} className="px-4 py-2 rounded-lg bg-amber-900/40 border border-amber-700/30 hover:bg-amber-900/60 text-amber-300 text-xs font-bold transition-colors">
-                                  {simLoading ? <RefreshCw size={12} className="animate-spin" /> : '🛠️ تصنيف بالنيابة'}
-                                </button>
-                                <button
-                                  onClick={() => run(`rand-${r.number}`, () => api("e3-randomize-ranking-single", { participant_number: r.number }).then(d => { if (!d.error) { toast.success(d.message); fetchRankStatus() } return d }))}
-                                  disabled={!!loading}
-                                  className="px-4 py-2 rounded-lg bg-violet-900/40 border border-violet-700/30 hover:bg-violet-800 text-violet-300 text-xs font-bold transition-colors flex items-center gap-1.5"
-                                >
-                                  {loading === `rand-${r.number}` ? <RefreshCw size={12} className="animate-spin" /> : <Shuffle size={12} />}
-                                  عشوائي
-                                </button>
+                            <div className="py-3">
+                              <div className="mb-3 text-center">
+                                <p className="text-gray-300 text-xs font-semibold">لم يرسل اختياراته بعد</p>
+                                <p className="mt-1 text-[10px] leading-5 text-gray-600">يمكن للمشرف إدخالها معه عند تعذر الإرسال من جهازه.</p>
                               </div>
-                              {r.ranked_list && r.ranked_list.length > 0 && (
-                                <button
-                                  onClick={() => { if (confirm(`حذف تصنيف ${r.name} (#${r.number})؟ سيصبح كأنه لم يصنّف.`)) run(`reset-${r.number}`, () => api("e3-reset-ranking", { participant_number: r.number }).then(d => { if (!d.error) { toast.success(d.message); fetchRankStatus() } return d })) }}
-                                  disabled={!!loading}
-                                  className="mt-2 w-full py-2 rounded-lg bg-red-900/30 hover:bg-red-900/50 border border-red-800/30 text-red-400 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
-                                >
-                                  {loading === `reset-${r.number}` ? <RefreshCw size={12} className="animate-spin" /> : <RotateCcw size={12} />}
-                                  إعادة تعيين التصنيف
-                                </button>
-                              )}
+                              <button
+                                type="button"
+                                onClick={() => startSimulate(r.number)}
+                                disabled={simLoading || previewEventId != null}
+                                className="flex min-h-10 w-full items-center justify-center gap-1.5 rounded-lg border border-amber-700/30 bg-amber-900/40 px-4 py-2 text-xs font-bold text-amber-300 transition-colors hover:bg-amber-900/60 disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                {simLoading ? <RefreshCw size={12} className="animate-spin" /> : <Pencil size={12} />}
+                                إدخال اختياراته بالنيابة
+                              </button>
+                              <details className="group mt-2 rounded-lg border border-gray-800 bg-black/15">
+                                <summary className="flex min-h-9 cursor-pointer list-none items-center gap-2 px-3 text-[10px] text-gray-600 transition-colors hover:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500 [&::-webkit-details-marker]:hidden">
+                                  <FlaskConical size={11} />
+                                  <span className="flex-1">أداة تجريبية</span>
+                                  <ChevronDown size={12} className="transition-transform group-open:rotate-180" />
+                                </summary>
+                                <div className="border-t border-gray-800 p-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => randomizeRanking(r)}
+                                    disabled={!!loading || previewEventId != null}
+                                    className="w-full rounded-lg border border-violet-900/50 bg-violet-950/20 px-3 py-2 text-right text-[10px] text-violet-300 transition-colors hover:bg-violet-900/30 disabled:cursor-not-allowed disabled:opacity-40"
+                                  >
+                                    <span className="flex items-center gap-1.5 font-bold">{loading === `rand-${r.number}` ? <RefreshCw size={11} className="animate-spin" /> : <Shuffle size={11} />} إنشاء ترتيب عشوائي</span>
+                                    <span className="mt-1 block text-[9px] text-gray-600">لا يمثل اختيار المشارك</span>
+                                  </button>
+                                </div>
+                              </details>
                             </div>
                           )}
                         </div>

@@ -10716,14 +10716,15 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           for (const p of pdata || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); nameMap[p.assigned_number] = p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}` }
           return res.status(200).json({ people: metNumbers.map(m => ({ number: m.number, name: nameMap[m.number] || `#${m.number}`, round: m.round })) })
         }
-        // e3-move-table (reassign one participant to a different table in one round)
+        // e3-move-table (group rounds only). One-to-one tables must use the
+        // atomic whole-table swap below so partners cannot be split or merged.
         if (action === "e3-move-table") {
           const { participant_number, round, new_table } = req.body
           const participantNumber = Number(participant_number)
           const assignmentRound = Number(round)
           const tableNumber = Number(new_table)
           if (!Number.isInteger(participantNumber) || participantNumber <= 0 || participantNumber === 9999) return res.status(400).json({ error: "Invalid participant_number" })
-          if (![1, 2, 20, 30].includes(assignmentRound)) return res.status(400).json({ error: "Round must be 1, 2, 20, or 30" })
+          if (![1, 2].includes(assignmentRound)) return res.status(400).json({ error: "One-to-one rounds must use the atomic table swap" })
           if (!Number.isInteger(tableNumber) || tableNumber <= 0 || tableNumber > 99) return res.status(400).json({ error: "new_table must be between 1 and 99" })
           const { data: updatedRows, error } = await supabase.from("session_assignments")
             .update({ table_number: tableNumber })
@@ -10750,7 +10751,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             return res.status(400).json({ error: "Two different table numbers between 1 and 99 are required" })
           }
 
-          const { data, error } = await supabase.rpc("swap_event3_table_numbers", {
+          const { data, error } = await supabase.rpc("swap_event3_table_numbers_v2", {
             p_match_id: EVENT3_MATCH_ID,
             p_event_id: currentEventId,
             p_rounds: rounds,
@@ -10763,7 +10764,6 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             }
             return res.status(500).json({ error: error.message })
           }
-          if (rounds.includes(30)) await refreshEvent3TestMatchResults(currentEventId)
           const roundLabel = rounds.length === 2 ? "group rounds 1 and 2" : `round ${round}`
           return res.status(200).json({ ...data, message: `Swapped table ${tableA} ↔ ${tableB} in ${roundLabel}` })
         }

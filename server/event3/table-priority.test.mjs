@@ -1,6 +1,11 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { assignPriorityTables, PREFERRED_ONE_TO_ONE_TABLES } from "./table-priority.mjs"
+import {
+  assignPriorityTables,
+  EVENT3_PRIORITY_PARTICIPANT,
+  EVENT3_PRIORITY_TABLE,
+  PREFERRED_ONE_TO_ONE_TABLES,
+} from "./table-priority.mjs"
 
 test("puts two first-time attendees on a preferred table", () => {
   const pairs = [
@@ -38,12 +43,12 @@ test("reserves tables above 16 for pairs where both attended multiple events", (
     { a: 1, b: 2 },
     { a: 3, b: 4 },
     { a: 5, b: 6 },
-    { a: 7, b: 8 },
+    { a: 9, b: 10 },
   ]
-  const ages = Object.fromEntries(Array.from({ length: 8 }, (_, index) => [index + 1, { age: 30 + index }]))
-  const history = { 1: 0, 2: 0, 3: 1, 4: 1, 5: 1, 6: 2, 7: 3, 8: 4 }
+  const ages = Object.fromEntries(Array.from({ length: 10 }, (_, index) => [index + 1, { age: 30 + index }]))
+  const history = { 1: 0, 2: 0, 3: 1, 4: 1, 5: 1, 6: 2, 9: 3, 10: 4 }
   const assigned = assignPriorityTables(pairs, ages, history)
-  const frequentPair = assigned.find(pair => pair.a === 7)
+  const frequentPair = assigned.find(pair => pair.a === 9)
   assert.equal(frequentPair.priority.bothFrequent, true)
   assert.ok(frequentPair.table > 16)
 })
@@ -56,4 +61,37 @@ test("uses each physical table once and remains deterministic", () => {
   const second = assignPriorityTables(pairs, profiles, history)
   assert.equal(new Set(first.map(pair => pair.table)).size, pairs.length)
   assert.deepEqual(first, second)
+})
+
+test("gives participant 7 table 5 even when table 5 was not otherwise selected", () => {
+  const assigned = assignPriorityTables([
+    { a: EVENT3_PRIORITY_PARTICIPANT, b: 8 },
+    { a: 20, b: 21 },
+  ])
+
+  assert.equal(assigned.find(pair => pair.a === EVENT3_PRIORITY_PARTICIPANT)?.table, EVENT3_PRIORITY_TABLE)
+  assert.equal(new Set(assigned.map(pair => pair.table)).size, assigned.length)
+})
+
+test("exchanges table labels when participant 7 needs an occupied table 5", () => {
+  const pairs = [
+    { a: 20, b: 21 },
+    { a: 22, b: 23 },
+    { a: 24, b: 25 },
+    { a: EVENT3_PRIORITY_PARTICIPANT, b: 8 },
+    { a: 26, b: 27 },
+  ]
+  const profiles = {
+    7: { age: 20 }, 8: { age: 20 },
+    20: { age: 60 }, 21: { age: 60 },
+    22: { age: 50 }, 23: { age: 50 },
+    24: { age: 40 }, 25: { age: 40 },
+    26: { age: 30 }, 27: { age: 30 },
+  }
+  const history = Object.fromEntries(Object.keys(profiles).map(number => [number, 1]))
+  const assigned = assignPriorityTables(pairs, profiles, history)
+
+  assert.equal(assigned.find(pair => pair.a === EVENT3_PRIORITY_PARTICIPANT)?.table, EVENT3_PRIORITY_TABLE)
+  assert.equal(new Set(assigned.map(pair => pair.table)).size, assigned.length)
+  assert.equal(assigned.filter(pair => pair.table === EVENT3_PRIORITY_TABLE).length, 1)
 })

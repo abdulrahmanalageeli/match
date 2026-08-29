@@ -199,6 +199,18 @@ export function isContacted(person?: MatchControlPerson) {
   return person?.PAID === true || person?.PAID_DONE === true || person?.receipt_url != null
 }
 
+export function isFemalePerson(person?: MatchControlPerson) {
+  const answers = person?.survey_data?.answers || {}
+  const rawGender = person?.gender ?? answers.gender ?? person?.survey_data?.gender
+  const gender = String(rawGender || "").trim().toLowerCase()
+  return gender === "female" || gender === "f" || gender === "أنثى" || gender === "أُنثَى" || gender === "انثى"
+}
+
+export function isContactedUnpaidFemale(person?: MatchControlPerson) {
+  const state = getSeatState(person)
+  return isFemalePerson(person) && isContacted(person) && state !== "paid" && state !== "waived"
+}
+
 export function getPairCriteriaIssues(
   personA: MatchControlPerson | undefined,
   personB: MatchControlPerson | undefined,

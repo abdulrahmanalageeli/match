@@ -8,7 +8,7 @@ import * as Tooltip from "@radix-ui/react-tooltip"
 import * as Dialog from "@radix-ui/react-dialog"
 import ParticipantHoverCardContent from "./ParticipantHoverCard"
 import { HistoryConfidenceBadges } from "./HistoryConfidenceBadge"
-import { buildScoreLookup, getPairMatchInsightsCoverage, pairKey } from "../lib/matchControl"
+import { buildScoreLookup, getPairMatchInsightsCoverage, isContactedUnpaidFemale, pairKey } from "../lib/matchControl"
 import {
   compatibilityTotalForDisplay,
   currentBalancedDimensionsForDisplay,
@@ -227,6 +227,7 @@ export default function ParticipantResultsModal({
   const [showNewOnly, setShowNewOnly] = useState(false)
   const [showPaidOnly, setShowPaidOnly] = useState(false)
   const [showUnmessagedFemalesOnly, setShowUnmessagedFemalesOnly] = useState(false)
+  const [showContactedUnpaidFemalesOnly, setShowContactedUnpaidFemalesOnly] = useState(false)
   const [resultQuery, setResultQuery] = useState("")
   const [attendanceFilter, setAttendanceFilter] = useState<"all" | "confirmed" | "declined" | "pending" | "arrived">("all")
   const [resultSortKey, setResultSortKey] = useState<ResultSortKey>("compatibility_score")
@@ -659,11 +660,11 @@ export default function ParticipantResultsModal({
     }
 
     if (targets.length === 0) {
-      toast.success("لا توجد بنات غير مدفوعات للاستبعاد")
+      toast.success("لا توجد سيدات تم التواصل معهن ولم يدفعن للاستبعاد")
       return
     }
 
-    if (!confirm(`استبعاد مؤقت (-1) للبنات غير المدفوعات؟\n\nسيتم استبعاد: ${targets.length}\n\nملاحظة: لن يتم استبعاد البنات اللاتي لديهن شريك مدفوع.`)) {
+    if (!confirm(`استبعاد مؤقت (-1) للسيدات اللاتي تم التواصل معهن ولم يدفعن؟\n\nسيتم استبعاد: ${targets.length}\n\nملاحظة: لن يتم استبعاد من لديها شريك مدفوع.`)) {
       return
     }
 
@@ -812,6 +813,7 @@ export default function ParticipantResultsModal({
     if (showUnmessagedFemalesOnly) {
       if (!isFemaleParticipant(r.assigned_number) || isMessageSent(r.assigned_number)) return false
     }
+    if (showContactedUnpaidFemalesOnly && !isContactedUnpaidFemale(participantData.get(r.assigned_number))) return false
     return true
   })
 
@@ -1230,6 +1232,20 @@ export default function ParticipantResultsModal({
               <MessageCircle className="w-4 h-4" />
               <span>بنات لم يتم التواصل معهن فقط</span>
             </label>
+            <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border cursor-pointer transition-all duration-200 text-sm ${
+              showContactedUnpaidFemalesOnly
+                ? 'bg-orange-500/20 border-orange-400/40 text-orange-200'
+                : 'bg-white/5 border-white/15 text-slate-300 hover:bg-white/10'
+            }`}>
+              <input
+                type="checkbox"
+                checked={showContactedUnpaidFemalesOnly}
+                onChange={(e) => setShowContactedUnpaidFemalesOnly(e.target.checked)}
+                className="accent-orange-500 w-4 h-4"
+              />
+              <MessageCircle className="w-4 h-4" />
+              <span>متواصل معهن ولم يدفعن فقط</span>
+            </label>
             <button
               onClick={bulkExcludeUnpaidGirls}
               disabled={bulkExcludingUnpaidGirls}
@@ -1238,12 +1254,12 @@ export default function ParticipantResultsModal({
                   ? 'bg-orange-500/15 border-orange-400/30 text-orange-200 opacity-70'
                   : 'bg-orange-500/10 border-orange-400/25 text-orange-200 hover:bg-orange-500/15'
               }`}
-              title="استبعاد مؤقت (-1) للبنات غير المدفوعات (إلا إذا كانت مع شريك مدفوع)"
+              title="استبعاد مؤقت (-1) للسيدات اللاتي تم التواصل معهن ولم يدفعن (إلا إذا كانت مع شريك مدفوع)"
             >
               <UserX className={"w-4 h-4" + (bulkExcludingUnpaidGirls ? " animate-pulse" : "")} />
-              <span>استبعاد غير المدفوعات (بنات)</span>
+              <span>استبعاد المتواصل معهن ولم يدفعن</span>
             </button>
-            {(resultQuery || attendanceFilter !== "all" || hideMessaged || hidePaid || showNewOnly || showPaidOnly || showUnmessagedFemalesOnly) && (
+            {(resultQuery || attendanceFilter !== "all" || hideMessaged || hidePaid || showNewOnly || showPaidOnly || showUnmessagedFemalesOnly || showContactedUnpaidFemalesOnly) && (
               <span className="text-xs text-slate-400">
                 ({visibleResults.length} ظاهر من {sortedResults.length})
               </span>

@@ -50,6 +50,7 @@ import {
   getPersonName,
   getSeatState,
   isContacted,
+  isContactedUnpaidFemale,
   isSeatConfirmed,
   pairKey,
   pairRiskRank,
@@ -90,7 +91,7 @@ type Props = {
 }
 
 type PoolMode = "all" | "confirmed" | "paid" | "unpaid"
-type PairFilter = "all" | "attention" | "unmatched" | "mixed" | "protected" | "healthy"
+type PairFilter = "all" | "attention" | "unmatched" | "mixed" | "protected" | "healthy" | "contacted_unpaid_female"
 type MobileView = "pairs" | "details"
 type ChainPaymentScope = "any" | "paid" | "not_paid"
 
@@ -440,6 +441,7 @@ export default function MatchControlCenterModal({
           if (!haystack.includes(normalized)) return false
         }
         if (pool !== "all" && !poolMatches(a, pool) && !poolMatches(b, pool)) return false
+        if (pairFilter === "contacted_unpaid_female") return isContactedUnpaidFemale(a) || isContactedUnpaidFemale(b)
         const category = pairCategory(pair)
         if (pairFilter === "all") return true
         if (pairFilter === "attention") return category === "attention" || category === "unmatched" || category === "mixed"
@@ -631,6 +633,54 @@ export default function MatchControlCenterModal({
       toast.success(`تم ${label}`)
     } catch (error: any) {
       toast.error(error.message || `فشل ${label}`)
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  const bulkExcludeContactedUnpaidFemales = async () => {
+    if (isTestMode) return toast.error("Test results cannot change participant eligibility")
+    if (busyAction) return
+
+    const targets = Array.from(people.values()).filter(person => {
+      if (!isContactedUnpaidFemale(person)) return false
+      const partnerNumber = partnerMap.get(person.assigned_number)
+      const partnerState = partnerNumber ? getSeatState(people.get(partnerNumber)) : null
+      return partnerState !== "paid" && partnerState !== "waived"
+    })
+
+    if (!targets.length) return toast.success("لا توجد سيدات تم التواصل معهن ولم يدفعن للاستبعاد")
+    if (!confirm(`استبعاد مؤقت للسيدات اللاتي تم التواصل معهن ولم يدفعن؟\n\nسيتم استبعاد: ${targets.length}\n\nلن تُستبعد أي سيدة شريكها مدفوع أو معفى.`)) return
+
+    setBusyAction("bulk-exclude-contacted-unpaid-females")
+    let excluded = 0
+    let skipped = 0
+    let failed = 0
+    try {
+      for (const person of targets) {
+        try {
+          const response = await fetch("/api/admin", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "add-excluded-participant",
+              participantNumber: person.assigned_number,
+              banPermanently: false,
+              groupOnly: false,
+              reason: "TEMP - contacted unpaid female auto-exclude",
+            }),
+          })
+          const data = await response.json().catch(() => ({}))
+          if (response.ok) excluded++
+          else if (String(data?.error || "").toLowerCase().includes("already")) skipped++
+          else failed++
+        } catch {
+          failed++
+        }
+      }
+      toast.success(`تم الاستبعاد: ${excluded}${skipped ? ` | موجود مسبقاً: ${skipped}` : ""}${failed ? ` | فشل: ${failed}` : ""}`, { duration: 5000 })
+      if (onRefresh) await onRefresh()
+      else await fetchControlData()
     } finally {
       setBusyAction(null)
     }
@@ -941,10 +991,20 @@ export default function MatchControlCenterModal({
                 <Filter className="h-3.5 w-3.5 shrink-0 text-slate-500" />
                 {([[
                   "all", "الكل"
-                ], ["attention", "يحتاج انتباه"], ["unmatched", "دون شريك"], ["mixed", "دفع مختلط"], ["protected", "محمي"], ["healthy", "مستقر"]] as Array<[PairFilter, string]>).map(([value, label]) => (
+                ], ["attention", "يحتاج انتباه"], ["unmatched", "دون شريك"], ["mixed", "دفع مختلط"], ["protected", "محمي"], ["healthy", "مستقر"], ["contacted_unpaid_female", "متواصل معها ولم تدفع"]] as Array<[PairFilter, string]>).map(([value, label]) => (
                   <ToggleButton key={value} active={pairFilter === value} onClick={() => setPairFilter(value)}>{label}</ToggleButton>
                 ))}
               </div>
+              <button
+                type="button"
+                onClick={bulkExcludeContactedUnpaidFemales}
+                disabled={isTestMode || busyAction === "bulk-exclude-contacted-unpaid-females"}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-orange-400/25 bg-orange-500/10 px-3 py-2 text-[10px] font-black text-orange-200 transition hover:bg-orange-500/20 disabled:cursor-not-allowed disabled:opacity-45"
+                title="استبعاد مؤقت للسيدات اللاتي تم التواصل معهن ولم يدفعن، مع حماية من لديها شريك مدفوع أو معفى"
+              >
+                {busyAction === "bulk-exclude-contacted-unpaid-females" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserMinus className="h-3.5 w-3.5" />}
+                استبعاد المتواصل معهن ولم يدفعن
+              </button>
               <div className="flex items-center justify-between text-[10px] text-slate-500">
                 <span>{visiblePairs.length} ظاهر من {pairs.length}</span>
                 <select value={sortMode} onChange={event => setSortMode(event.target.value as any)} className="rounded-lg border border-white/10 bg-slate-900 px-2 py-1 text-slate-300 outline-none">

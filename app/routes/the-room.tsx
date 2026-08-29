@@ -152,14 +152,14 @@ function guestNumber(value: number) {
 
 function genderStyle(gender: Gender) {
   if (gender === "female") return {
-    label: "فتاة",
+    label: "سيدة",
     chip: "border-rose-300/25 bg-rose-300/[0.09] text-rose-100 hover:border-rose-300/50",
     accent: "text-rose-200",
     surface: "border-rose-300/30 from-rose-950/85 via-[#130d0d] to-[#0b0b09]",
     glow: "bg-rose-400/20",
   }
   if (gender === "male") return {
-    label: "ولد",
+    label: "رجل",
     chip: "border-sky-300/25 bg-sky-300/[0.09] text-sky-100 hover:border-sky-300/50",
     accent: "text-sky-200",
     surface: "border-sky-300/30 from-sky-950/85 via-[#0c1115] to-[#0b0b09]",
@@ -193,8 +193,8 @@ function bundleFingerprint(bundle: Bundle) {
 function balanceInfo(women: number, men: number) {
   const difference = Math.abs(women - men)
   if (difference <= 1) return { label: "التوازن ممتاز", tone: "border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-100", preferred: null }
-  if (difference <= 3) return { label: "التوازن جيد", tone: "border-[#d7ba7d]/20 bg-[#d7ba7d]/[0.07] text-[#efd89e]", preferred: women < men ? "فتاة" : "ولد" }
-  return { label: "يحتاج موازنة", tone: "border-amber-300/25 bg-amber-300/[0.08] text-amber-100", preferred: women < men ? "فتاة" : "ولد" }
+  if (difference <= 3) return { label: "التوازن جيد", tone: "border-[#d7ba7d]/20 bg-[#d7ba7d]/[0.07] text-[#efd89e]", preferred: women < men ? "سيدة" : "رجل" }
+  return { label: "يحتاج موازنة", tone: "border-amber-300/25 bg-amber-300/[0.08] text-amber-100", preferred: women < men ? "سيدة" : "رجل" }
 }
 
 function compareNumberScores(left: number[], right: number[]) {
@@ -435,7 +435,7 @@ function CheckInPanel({ attendees, busy, placementNotice, simple = false, onNext
         <div className={`pointer-events-none absolute -left-7 -top-7 h-24 w-24 rounded-full blur-2xl ${woman ? "bg-[#e9bbc3]/35" : "bg-[#b9d6e5]/40"}`} />
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-base font-extrabold">{woman ? "وصلت فتاة" : "وصل ولد"}</p>
+            <p className="text-base font-extrabold">{woman ? "وصلت سيدة" : "وصل رجل"}</p>
             {person ? <p className="mt-1 text-xs text-[#655e54]">سلّم البطاقة التالية</p> : <p className="mt-1 text-xs text-[#655e54]">تم تسليم الكل</p>}
           </div>
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/70"><BadgeCheck size={20} /></div>
@@ -469,8 +469,8 @@ function CheckInPanel({ attendees, busy, placementNotice, simple = false, onNext
           {simple && !addGuestOpen ? <button type="button" onClick={() => setAddGuestOpen(true)} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-white text-sm font-extrabold text-[#575147]"><UserPlus size={16} /> إضافة شخص حضر بدون تسجيل</button> : <section>
             <div className="mb-3 flex items-start justify-between gap-3"><div><p className="font-extrabold text-[#29261f]">إضافة شخص جديد</p><p className="mt-1 text-xs text-[#817a6f]">ينضاف للجدول وتظهر بطاقته مباشرة.</p></div>{simple && <button type="button" onClick={() => setAddGuestOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full border border-[#ddd7cd] bg-white text-[#777064]" aria-label="إلغاء الإضافة"><X size={15} /></button>}</div>
             <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => onAdd("female")} disabled={busy} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#ead1d5] bg-[#fbf2f3] px-3 text-sm font-extrabold text-[#6f3842] disabled:opacity-40"><UserPlus size={17} /> فتاة</button>
-              <button type="button" onClick={() => onAdd("male")} disabled={busy} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#cfdee6] bg-[#f1f6f9] px-3 text-sm font-extrabold text-[#365c70] disabled:opacity-40"><UserPlus size={17} /> ولد</button>
+              <button type="button" onClick={() => onAdd("female")} disabled={busy} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#ead1d5] bg-[#fbf2f3] px-3 text-sm font-extrabold text-[#6f3842] disabled:opacity-40"><UserPlus size={17} /> سيدة</button>
+              <button type="button" onClick={() => onAdd("male")} disabled={busy} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#cfdee6] bg-[#f1f6f9] px-3 text-sm font-extrabold text-[#365c70] disabled:opacity-40"><UserPlus size={17} /> رجل</button>
             </div>
           </section>}
 
@@ -573,7 +573,7 @@ function GuestBadgeFocus({ event, person, journey, activeRound, simple = false, 
           <div className="room-badge-identity relative mt-[clamp(.75rem,4vh,1.25rem)] text-center">
             <div className={`room-badge-avatar mx-auto flex h-[clamp(2.5rem,12vw,3.5rem)] w-[clamp(2.5rem,12vw,3.5rem)] items-center justify-center rounded-full border border-current bg-white/[0.04] ${style.accent}`}><UserRound className="h-[45%] w-[45%]" /></div>
             <p className={`mt-1.5 text-[clamp(.6875rem,3vw,.75rem)] font-extrabold ${style.accent}`}>{style.label}</p>
-            <p className="room-badge-number mt-0.5 break-words text-[clamp(2.25rem,12vw,3rem)] font-extrabold leading-none tracking-tight text-white">{person.gender === "female" ? "فتاة" : "ولد"} {guestNumber(person.attendee_number)}</p>
+            <p className="room-badge-number mt-0.5 break-words text-[clamp(2.25rem,12vw,3rem)] font-extrabold leading-none tracking-tight text-white">{person.gender === "female" ? "سيدة" : "رجل"} {guestNumber(person.attendee_number)}</p>
           </div>
           <div className="room-badge-divider relative my-[clamp(.65rem,3vh,1rem)] h-px bg-gradient-to-l from-transparent via-white/15 to-transparent" />
           <div id="room-badge-journey" className="room-badge-journey relative grid gap-[clamp(.375rem,1.2vh,.5rem)]">
@@ -610,7 +610,7 @@ function EmergencyTools({ bundle, busy, onClose, onChangeGender, onReturnBadge, 
       <div className="flex items-start justify-between gap-3"><div><p className="flex items-center gap-2 font-extrabold text-white"><UserCog size={19} className="text-amber-200" /> أدوات سريعة</p><p className="mt-1 text-xs leading-5 text-stone-500">استخدمها فقط لو صار خطأ أثناء الاستقبال.</p></div><button type="button" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 text-stone-400" aria-label="إغلاق الأدوات"><X size={16} /></button></div>
       <label className="mt-4 block"><span className="mb-2 block text-xs font-bold text-stone-400">اختر الشخص</span><select value={person?.id || ""} onChange={event => setAttendeeId(event.target.value)} className="h-12 w-full rounded-2xl border border-white/10 bg-[#171512] px-4 text-sm font-extrabold text-white outline-none">{people.map(item => <option key={item.id} value={item.id}>{genderStyle(item.gender).label} {guestNumber(item.attendee_number)} {item.checked_in ? "· تم التسليم" : "· بانتظار الحضور"}</option>)}</select></label>
       {person && <div className="mt-3 grid gap-3 lg:grid-cols-2">
-        <div className="rounded-2xl border border-white/[0.08] bg-black/15 p-3"><p className="text-xs font-bold text-stone-400">تصحيح النوع أو البطاقة</p><div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={() => onChangeGender(person, "female")} disabled={busy || person.gender === "female"} className="min-h-11 rounded-xl border border-rose-300/20 bg-rose-300/[0.07] text-sm font-extrabold text-rose-100 disabled:opacity-35">فتاة</button><button type="button" onClick={() => onChangeGender(person, "male")} disabled={busy || person.gender === "male"} className="min-h-11 rounded-xl border border-sky-300/20 bg-sky-300/[0.07] text-sm font-extrabold text-sky-100 disabled:opacity-35">ولد</button></div>{person.checked_in && <button type="button" onClick={() => onReturnBadge(person)} disabled={busy} className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 text-sm font-bold text-stone-300 disabled:opacity-40"><Undo2 size={15} /> رجّع البطاقة</button>}</div>
+        <div className="rounded-2xl border border-white/[0.08] bg-black/15 p-3"><p className="text-xs font-bold text-stone-400">تصحيح النوع أو البطاقة</p><div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={() => onChangeGender(person, "female")} disabled={busy || person.gender === "female"} className="min-h-11 rounded-xl border border-rose-300/20 bg-rose-300/[0.07] text-sm font-extrabold text-rose-100 disabled:opacity-35">سيدة</button><button type="button" onClick={() => onChangeGender(person, "male")} disabled={busy || person.gender === "male"} className="min-h-11 rounded-xl border border-sky-300/20 bg-sky-300/[0.07] text-sm font-extrabold text-sky-100 disabled:opacity-35">رجل</button></div>{person.checked_in && <button type="button" onClick={() => onReturnBadge(person)} disabled={busy} className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 text-sm font-bold text-stone-300 disabled:opacity-40"><Undo2 size={15} /> رجّع البطاقة</button>}</div>
         <div className="rounded-2xl border border-white/[0.08] bg-black/15 p-3"><p className="text-xs font-bold text-stone-400">نقل داخل جولة</p><div className="mt-3 grid grid-cols-2 gap-2"><select value={roundNumber} onChange={event => setRoundNumber(Number(event.target.value))} className="h-11 rounded-xl border border-white/10 bg-[#171512] px-3 text-sm font-bold text-white">{Array.from({ length: bundle.event.round_count }, (_, index) => index + 1).map(value => <option key={value} value={value}>الجولة {value}</option>)}</select><select value={tableNumber} onChange={event => setTableNumber(Number(event.target.value))} className="h-11 rounded-xl border border-white/10 bg-[#171512] px-3 text-sm font-bold text-white">{Array.from({ length: bundle.event.table_count }, (_, index) => index + 1).map(value => <option key={value} value={value}>الطاولة {value}</option>)}</select></div><button type="button" onClick={() => onMove(person, roundNumber, tableNumber)} disabled={busy || !bundle.schedule || currentTable === tableNumber} className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#d7ba7d]/25 bg-[#d7ba7d]/10 text-sm font-extrabold text-[#efd89e] disabled:opacity-35"><ArrowLeftRight size={15} /> نقل من طاولة {currentTable || "—"}</button></div>
       </div>}
       <div className="mt-4 border-t border-white/[0.07] pt-4"><button type="button" onClick={onResetCheckIns} disabled={busy || !people.some(person => person.checked_in)} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-amber-300/20 bg-amber-300/[0.06] text-sm font-bold text-amber-100 disabled:opacity-35"><RotateCcw size={15} /> رجّع كل البطاقات إلى «متاحة»</button></div>
@@ -1015,7 +1015,7 @@ export default function TheRoomPage() {
       setSelectedGuestId(addedPerson.id)
       setView("checkin")
       setBadgeOpen(true)
-      if (advancedMode) toast.success(`تمت إضافة ${gender === "female" ? "فتاة" : "ولد"} ${guestNumber(attendeeNumber)}`)
+      if (advancedMode) toast.success(`تمت إضافة ${gender === "female" ? "سيدة" : "رجل"} ${guestNumber(attendeeNumber)}`)
       return
     }
     try {
@@ -1025,7 +1025,7 @@ export default function TheRoomPage() {
       setPlacementNotice({ attendeeNumber: data.added_attendee_number, gender, tables: data.placement_tables || [] })
       setView("checkin")
       setBadgeOpen(Boolean(addedPerson))
-      if (advancedMode) toast.success(`تمت إضافة ${gender === "female" ? "فتاة" : "ولد"} ${guestNumber(data.added_attendee_number)}`)
+      if (advancedMode) toast.success(`تمت إضافة ${gender === "female" ? "سيدة" : "رجل"} ${guestNumber(data.added_attendee_number)}`)
     } catch {}
   }
 
@@ -1046,7 +1046,7 @@ export default function TheRoomPage() {
 
   const shareGuest = async () => {
     if (!selectedGuest || !bundle) return
-    const text = `ذا روم — ${selectedGuest.gender === "female" ? "فتاة" : "ولد"} ${guestNumber(selectedGuest.attendee_number)}\n${journey.map(seat => `الجولة ${seat.round_number}: الطاولة ${seat.table_number}`).join("\n")}`
+    const text = `ذا روم — ${selectedGuest.gender === "female" ? "سيدة" : "رجل"} ${guestNumber(selectedGuest.attendee_number)}\n${journey.map(seat => `الجولة ${seat.round_number}: الطاولة ${seat.table_number}`).join("\n")}`
     try {
       if (navigator.share) await navigator.share({ title: "مسار الضيف في ذا روم", text })
       else { await navigator.clipboard.writeText(text); toast.success("تم نسخ مسار الضيف") }

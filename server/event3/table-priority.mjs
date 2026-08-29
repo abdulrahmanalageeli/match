@@ -1,4 +1,6 @@
 export const PREFERRED_ONE_TO_ONE_TABLES = Object.freeze([1, 2, 4, 5, 8, 9, 10, 11, 12, 15, 16])
+export const EVENT3_PRIORITY_PARTICIPANT = 7
+export const EVENT3_PRIORITY_TABLE = 5
 
 const MIDDLE_TABLES = Object.freeze([3, 6, 7, 13, 14])
 
@@ -104,7 +106,7 @@ export function assignPriorityTables(
     }
   }
 
-  return rankedPairs.map((pair, index) => ({
+  const assigned = rankedPairs.map((pair, index) => ({
     a: pair.a,
     b: pair.b,
     score: pair.score,
@@ -112,4 +114,20 @@ export function assignPriorityTables(
     priority: pair.priority,
     originalIndex: pair.originalIndex,
   }))
+
+  // Keep the requested organizer/VIP placement as a table preference only: it
+  // never changes who is matched with whom. If table 5 is already occupied,
+  // exchange the two table labels so every pair still owns exactly one table.
+  const priorityPairIndex = assigned.findIndex(pair =>
+    Number(pair.a) === EVENT3_PRIORITY_PARTICIPANT
+      || Number(pair.b) === EVENT3_PRIORITY_PARTICIPANT
+  )
+  if (priorityPairIndex >= 0 && assigned[priorityPairIndex].table !== EVENT3_PRIORITY_TABLE) {
+    const previousTable = assigned[priorityPairIndex].table
+    const tableFivePairIndex = assigned.findIndex(pair => pair.table === EVENT3_PRIORITY_TABLE)
+    assigned[priorityPairIndex].table = EVENT3_PRIORITY_TABLE
+    if (tableFivePairIndex >= 0) assigned[tableFivePairIndex].table = previousTable
+  }
+
+  return assigned
 }

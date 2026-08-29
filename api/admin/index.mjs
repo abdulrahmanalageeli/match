@@ -800,10 +800,14 @@ function e3RandomPairMatching(participantNumbers, genderMap = {}, avoidPairs = n
 
   return { matches, pairs, used }
 }
-const e3FullCalcCompat = async (pA, pB) => {
+const e3FullCalcCompat = async (pA, pB, { skipCacheWrite = false } = {}) => {
   let r = await getCachedCompatibility(pA, pB, { skipUsageUpdate: true })
   if (!r) {
-    r = await calculateFullCompatibilityWithCache(pA, pB, false, false, { skipCacheLookup: true })
+    r = await calculateFullCompatibilityWithCache(pA, pB, false, false, {
+      skipCacheLookup: true,
+      skipCacheWrite,
+      skipUsageUpdate: true,
+    })
   }
   if (!r) return null
   return {
@@ -11256,6 +11260,8 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           const profileMap = new Map((profileRows || []).map(profile => [Number(profile.assigned_number), profile]))
           const missingProfileNumber = profileNumbers.find(number => !profileMap.has(number))
           if (missingProfileNumber != null) return res.status(422).json({ error: `Missing matching profile for #${missingProfileNumber}` })
+          const previewTestContext = await getEvent3TestContext()
+          const skipPreviewCacheWrite = previewTestContext.active && previewTestContext.eventId === Number(currentEventId)
 
           const summarizeProfile = number => {
             const profile = profileMap.get(number)
@@ -11280,7 +11286,11 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             }
           }
           const calculatePreviewPair = async (participantA, participantB) => {
-            const compatibility = await e3FullCalcCompat(profileMap.get(participantA), profileMap.get(participantB))
+            const compatibility = await e3FullCalcCompat(
+              profileMap.get(participantA),
+              profileMap.get(participantB),
+              { skipCacheWrite: skipPreviewCacheWrite },
+            )
             const provenance = buildEvent3ScoreProvenance(compatibility, profileMap.get(participantA), profileMap.get(participantB))
             return {
               a: summarizeProfile(participantA),
@@ -11352,10 +11362,16 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           if (missingProfile != null) {
             return res.status(422).json({ error: `Missing complete matching profile for #${missingProfile}; no match or table was changed.` })
           }
+          const swapTestContext = await getEvent3TestContext()
+          const isActiveTestSwap = swapTestContext.active && swapTestContext.eventId === Number(currentEventId)
 
           let newCompatibility1
           try {
-            newCompatibility1 = await e3FullCalcCompat(swapPMap[replacementParticipant], swapPMap[missingPartner])
+            newCompatibility1 = await e3FullCalcCompat(
+              swapPMap[replacementParticipant],
+              swapPMap[missingPartner],
+              { skipCacheWrite: isActiveTestSwap },
+            )
           } catch (error) {
             console.error(`Swap compat error for #${replacementParticipant}×#${missingPartner}:`, error.message)
             return res.status(502).json({ error: `Compatibility scoring failed for #${replacementParticipant} × #${missingPartner}; no match or table was changed. Retry safely.` })
@@ -11374,7 +11390,11 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           if (replacementPartner != null) {
             let newCompatibility2
             try {
-              newCompatibility2 = await e3FullCalcCompat(swapPMap[missingParticipant], swapPMap[replacementPartner])
+              newCompatibility2 = await e3FullCalcCompat(
+                swapPMap[missingParticipant],
+                swapPMap[replacementPartner],
+                { skipCacheWrite: isActiveTestSwap },
+              )
             } catch (error) {
               console.error(`Swap compat error for #${missingParticipant}×#${replacementPartner}:`, error.message)
               return res.status(502).json({ error: `Compatibility scoring failed for #${missingParticipant} × #${replacementPartner}; no match or table was changed. Retry safely.` })
@@ -11405,8 +11425,6 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             score_content_hash: newProvenance2.scoreContentHash,
           } : null
 
-          const swapTestContext = await getEvent3TestContext()
-          const isActiveTestSwap = swapTestContext.active && swapTestContext.eventId === Number(currentEventId)
           const swapRpc = phase === "phase3" ? "replace_event3_algorithm_match_partner" : "swap_event3_match_partner"
           const swapParams = phase === "phase3" ? {
               p_event3_match_id: EVENT3_MATCH_ID,

@@ -52,11 +52,12 @@ test("regular result planning swaps locked one-to-one partners but ignores group
   ])
 })
 
-test("admin3 algorithm replacement is searchable, gender-neutral, and previewed before the atomic swap", async () => {
-  const [adminApi, adminUi, migration] = await Promise.all([
+test("admin3 algorithm replacement is searchable, gender-neutral, previewed, and isolated in test mode", async () => {
+  const [adminApi, adminUi, migration, testIsolationMigration] = await Promise.all([
     readFile(new URL("../../api/admin/index.mjs", import.meta.url), "utf8"),
     readFile(new URL("../../app/routes/admin3.tsx", import.meta.url), "utf8"),
     readFile(new URL("../../supabase/migrations/20260827013912_clean_event3_algorithm_match_replacement.sql", import.meta.url), "utf8"),
+    readFile(new URL("../../supabase/migrations/20260813181110_event3_isolated_test_match_results.sql", import.meta.url), "utf8"),
   ])
   const previewApi = adminApi.slice(
     adminApi.indexOf('if (action === "e3-preview-match-partner-swap")'),
@@ -66,15 +67,26 @@ test("admin3 algorithm replacement is searchable, gender-neutral, and previewed 
     adminUi.indexOf('Immediate Algorithm Replacement Modal'),
     adminUi.indexOf('Swap Match Modal'),
   )
+  const swapApi = adminApi.slice(
+    adminApi.indexOf('if (action === "e3-swap-match-partner")'),
+    adminApi.indexOf('// e3-replace-participant'),
+  )
 
   assert.match(previewApi, /Both people must be selected for the current Event3 event/)
   assert.match(previewApi, /Promise\.all\(\[\s*calculatePreviewPair/)
   assert.match(previewApi, /before:[\s\S]*after:/)
+  assert.match(previewApi, /skipCacheWrite: skipPreviewCacheWrite/)
   assert.match(replacementModal, /immediateReplacementSearch/)
   assert.match(replacementModal, /String\(p\.name[\s\S]*String\(p\.number\)/)
   assert.match(replacementModal, /person\?\.mbti[\s\S]*person\?\.attachment[\s\S]*person\?\.communication/)
   assert.match(replacementModal, /previewReady/)
   assert.doesNotMatch(replacementModal, /restrictGender|normalizedGender/)
   assert.match(adminApi, /const swapRpc = phase === "phase3" \? "replace_event3_algorithm_match_partner"/)
+  assert.match(swapApi, /skipCacheWrite: isActiveTestSwap/)
+  assert.match(swapApi, /p_sync_locked_matches: !isActiveTestSwap/)
+  assert.match(swapApi, /if \(isActiveTestSwap\) await refreshEvent3TestMatchResults/)
   assert.match(migration, /create or replace function public\.replace_event3_algorithm_match_partner/)
+  assert.match(migration, /if coalesce\(p_sync_locked_matches, true\) then/)
+  assert.match(testIsolationMigration, /'event3_matches',[\s\S]*'session_assignments'/)
+  assert.match(testIsolationMigration, /insert into public\.event3_matches[\s\S]*v_snapshot -> 'event3_matches'/)
 })

@@ -3,11 +3,11 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
 const migrationUrl = new URL(
-  '../../supabase/migrations/20260829141952_harden_match_swap_undo.sql',
+  '../../supabase/migrations/20260829114020_harden_match_swap_undo.sql',
   import.meta.url,
 )
 const versionedMigrationUrl = new URL(
-  '../../supabase/migrations/20260829153000_expose_hardened_match_swap_v2.sql',
+  '../../supabase/migrations/20260829114031_expose_hardened_match_swap_v2.sql',
   import.meta.url,
 )
 

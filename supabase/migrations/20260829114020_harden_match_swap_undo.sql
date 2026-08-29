@@ -1,4 +1,4 @@
--- Prevent a swap undo from overwriting score/stat/provenance changes made after
+-- Prevent swap undo from overwriting score/stat/provenance changes made after
 -- the swap. Also make the affected participant list an exact, reviewed scope.
 
 -- Keep the already-deployed provenance implementation intact behind a private

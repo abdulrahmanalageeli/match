@@ -1,4 +1,4 @@
--- Give the overwrite-safe swap surface a versioned name. The application uses
+-- Give the overwrite-safe swap surface its versioned name. The application uses
 -- only these v2 RPCs, so an unapplied hardening migration fails closed instead
 -- of silently reaching the older topology-only undo implementation.
 

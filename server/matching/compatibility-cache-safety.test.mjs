@@ -53,10 +53,28 @@ test('match generation hydrates exact snapshots and bulk-touches cache usage onc
   assert.match(exactHit, /cacheUsageIds\.add\(cachedData\.id\)/)
   assert.doesNotMatch(exactHit, /\.update\s*\(/)
   assert.match(block, /await touchCompatibilityCacheUsage\(cacheUsageIds\)/)
+  assert.match(block, /const MATCH_CALCULATION_CONCURRENCY = 12/)
+  assert.match(block, /pairs\.slice\(batchStart, batchStart \+ MATCH_CALCULATION_CONCURRENCY\)/)
+  assert.match(block, /Promise\.all\(pairBatch\.map\(async/)
+  assert.match(block, /cacheRowsToStore\.push/)
+  assert.match(block, /await storeCachedCompatibilities\(cacheRowsToStore\)/)
+  assert.doesNotMatch(block, /storeCachedCompatibility\(a, b, compatibilityResult\)/)
   assert.match(participantView, /hydrateBalancedCompatibilityFromCacheRow\(cachedData\)/)
   assert.match(participantView, /viewCacheUsageIds\.add\(cachedData\.id\)/)
   assert.doesNotMatch(participantView, /\.update\s*\(/)
   assert.match(participantView, /await touchCompatibilityCacheUsage\(viewCacheUsageIds\)/)
+
+  const previousMatchQuery = between(source, 'const { data: allPreviousMatches', '// Build a Set of previously matched pairs')
+  assert.match(previousMatchQuery, /\.eq\("match_id", match_id\)/)
+})
+
+test('cache storage bulk-upserts arrays in bounded chunks', async () => {
+  const source = await read('api/admin/trigger-match.mjs')
+  const bulkStore = between(source, 'async function storeCachedCompatibilities', 'async function storeCachedCompatibility')
+
+  assert.match(bulkStore, /chunk\.map\(item => item\.row\)/)
+  assert.match(bulkStore, /\.upsert\([\s\S]*onConflict: 'participant_a_number,participant_b_number,combined_content_hash'/)
+  assert.match(bulkStore, /Math\.min\(Number\(chunkSize\) \|\| 100, 500\)/)
 })
 
 test('bulk cache usage RPC is atomic and restricted to the service role', async () => {
@@ -71,7 +89,7 @@ test('bulk cache usage RPC is atomic and restricted to the service role', async 
   assert.match(sql, /grant execute[^;]+to service_role/)
 })
 
-test('batched pre-cache scans up to 20k cheap pairs without consuming the new-cache budget', async () => {
+test('batched cache keeps cheap scans separate and delta reserves independent local and AI lanes', async () => {
   const [source, modalSource, adminSource] = await Promise.all([
     read('api/admin/trigger-match.mjs'),
     read('app/components/BatchedCacheModal.tsx'),
@@ -80,22 +98,38 @@ test('batched pre-cache scans up to 20k cheap pairs without consuming the new-ca
   const full = between(source, 'if (action === "cache-pairs-batched")', '// CACHE STATUS BY GENDER MODE')
   const delta = between(source, 'if (action === "delta-pre-cache-batched")', 'if (action === "recalc-vibe")')
 
+  assert.match(full, /const effectiveMaxPairsScanned[\s\S]+\|\| 20000[\s\S]+20000/)
+  assert.match(full, /let pairsScanned = 0/)
+  assert.match(full, /let cacheJobsStarted = 0/)
+  assert.match(full, /pairsScanned >= effectiveMaxPairsScanned/)
+  assert.match(full, /cacheJobsStarted >= effectiveMaxNewCaches/)
+  assert.match(full, /pairs_processed: pairsScanned/)
+  assert.match(full, /cache_jobs_started: cacheJobsStarted/)
+
+  assert.match(delta, /const effectivePairWindowSize = Math\.min\(effectiveMaxPairsScanned, 1000\)/)
+  assert.match(delta, /fetchCachedRowsForPairs\(cacheCandidatePairs\)/)
+  assert.doesNotMatch(delta, /fetchCachedPairsForOuterParticipants/)
+  assert.match(delta, /const effectiveMaxAICaches[\s\S]*12[\s\S]*16/)
+  assert.match(delta, /const effectiveMaxLocalCaches[\s\S]*160[\s\S]*500/)
+  assert.match(delta, /localJobs\.map\(executeJob\)/)
+  assert.match(delta, /aiJobs\.slice\(start, start \+ effectiveMaxAICaches\)\.map\(executeJob\)/)
+  assert.match(delta, /storeCachedCompatibilities\(completedJobs\.map/)
+  assert.match(delta, /local_cache_jobs_started: localCacheJobsStarted/)
+  assert.match(delta, /ai_cache_jobs_started: aiCallsMade/)
+
   for (const scope of [full, delta]) {
-    assert.match(scope, /const effectiveMaxPairsScanned[\s\S]+\|\| 20000[\s\S]+20000/)
     assert.match(scope, /let pairsScanned = 0/)
     assert.match(scope, /let cacheJobsStarted = 0/)
-    assert.match(scope, /pairsScanned >= effectiveMaxPairsScanned/)
-    assert.match(scope, /cacheJobsStarted >= effectiveMaxNewCaches/)
     assert.match(scope, /pairs_processed: pairsScanned/)
     assert.match(scope, /cache_jobs_started: cacheJobsStarted/)
     assert.doesNotMatch(scope, /cacheUsageTouches|touchFullCacheHits|touchPrefetchedCacheRows/)
   }
 
   assert.match(full, /if \(exactCacheRow\) \{[\s\S]*alreadyCached\+\+[\s\S]*continue[\s\S]*\}/)
-  assert.match(delta, /if \(exactCacheRow\) \{[\s\S]*alreadyCached\+\+[\s\S]*continue[\s\S]*\}/)
+  assert.match(delta, /if \(exactCacheMap\.has\([\s\S]*alreadyCached\+\+[\s\S]*continue/)
   assert.match(modalSource, /maxPairsPerRequest: 20000/)
   assert.match(modalSource, /label="Pairs Scanned"/)
-  assert.match(adminSource, /action: "delta-pre-cache-batched"[\s\S]*maxPairsPerRequest: 20000/)
+  assert.match(adminSource, /action: "delta-pre-cache-batched"[\s\S]*maxAICachesPerRequest: 12[\s\S]*maxLocalCachesPerRequest: 160[\s\S]*maxPairsPerRequest: 20000/)
   assert.match(adminSource, /<span>Scanned <strong/)
 })
 

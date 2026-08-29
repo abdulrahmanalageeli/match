@@ -1,5 +1,6 @@
 import test from "node:test"
 import assert from "node:assert/strict"
+import { readFile } from "node:fs/promises"
 import {
   collectEventSwapPairs,
   collectMatchResultSwapPairs,
@@ -49,4 +50,31 @@ test("regular result planning swaps locked one-to-one partners but ignores group
     { id: "a", a: 20, b: 30 },
     { id: "b", a: 10, b: 40 },
   ])
+})
+
+test("admin3 algorithm replacement is searchable, gender-neutral, and previewed before the atomic swap", async () => {
+  const [adminApi, adminUi, migration] = await Promise.all([
+    readFile(new URL("../../api/admin/index.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../../app/routes/admin3.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../supabase/migrations/20260827013912_clean_event3_algorithm_match_replacement.sql", import.meta.url), "utf8"),
+  ])
+  const previewApi = adminApi.slice(
+    adminApi.indexOf('if (action === "e3-preview-match-partner-swap")'),
+    adminApi.indexOf('// e3-swap-match-partner'),
+  )
+  const replacementModal = adminUi.slice(
+    adminUi.indexOf('Immediate Algorithm Replacement Modal'),
+    adminUi.indexOf('Swap Match Modal'),
+  )
+
+  assert.match(previewApi, /Both people must be selected for the current Event3 event/)
+  assert.match(previewApi, /Promise\.all\(\[\s*calculatePreviewPair/)
+  assert.match(previewApi, /before:[\s\S]*after:/)
+  assert.match(replacementModal, /immediateReplacementSearch/)
+  assert.match(replacementModal, /String\(p\.name[\s\S]*String\(p\.number\)/)
+  assert.match(replacementModal, /person\?\.mbti[\s\S]*person\?\.attachment[\s\S]*person\?\.communication/)
+  assert.match(replacementModal, /previewReady/)
+  assert.doesNotMatch(replacementModal, /restrictGender|normalizedGender/)
+  assert.match(adminApi, /const swapRpc = phase === "phase3" \? "replace_event3_algorithm_match_partner"/)
+  assert.match(migration, /create or replace function public\.replace_event3_algorithm_match_partner/)
 })

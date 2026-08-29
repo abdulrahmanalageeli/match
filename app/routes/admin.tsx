@@ -4705,7 +4705,8 @@ Proceed?`
                 skipAI: forceNoAI,
                 resumeCursor,
                 maxDurationMs: 8000,
-                maxNewCachesPerRequest: forceNoAI ? 25 : 6,
+                maxAICachesPerRequest: 12,
+                maxLocalCachesPerRequest: 160,
                 maxPairsPerRequest: 20000,
               }),
             })
@@ -4871,10 +4872,10 @@ Proceed?`
         if (totalAlreadyCached > 0) successMessage += `\n• Reused cached: ${totalAlreadyCached}`
         if (totalSkipped > 0) successMessage += `\n• Skipped (incompatible): ${totalSkipped}`
         if (totalErrors > 0) successMessage += `\n• Errors: ${totalErrors}`
-        successMessage += `\n• Pairs checked: ${totalPairsProcessed}`
+        successMessage += `\n• Pairs checked: ${totalPairsScanned}`
         successMessage += `\n• AI calls made: ${totalAiCalls}`
         successMessage += `\n• Batches: ${batchNum}`
-        const efficiency = totalPairsProcessed > 0 ? ((1 - (totalPairsProcessed / (totalEligible * (totalEligible - 1) / 2))) * 100).toFixed(0) : 0
+        const efficiency = totalPairsScanned > 0 ? ((1 - (totalPairsScanned / (totalEligible * (totalEligible - 1) / 2))) * 100).toFixed(0) : 0
         successMessage += `\n💰 Efficiency: ${efficiency}% reduction vs full cache`
         toast.success(successMessage, { duration: 8000 })
       }

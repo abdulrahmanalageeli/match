@@ -329,6 +329,57 @@ async function fetchCachedPairsForOuterParticipants(
   return { data: all, error: null }
 }
 
+async function fetchCachedRowsForPairs(
+  pairs,
+  selectColumns = 'participant_a_number, participant_b_number, combined_content_hash, vibe_content_hash, ai_vibe_score, model_used, score_model_version, vibe_axes, created_at, use_count',
+  { pairChunkSize = 30, pageSize = 1000 } = {},
+) {
+  const canonicalPairs = new Map()
+  for (const pair of pairs || []) {
+    const left = Number(pair?.a ?? pair?.[0]?.assigned_number ?? pair?.[0])
+    const right = Number(pair?.b ?? pair?.[1]?.assigned_number ?? pair?.[1])
+    if (!Number.isInteger(left) || !Number.isInteger(right) || left === right) continue
+    const [participantA, participantB] = [left, right].sort((a, b) => a - b)
+    canonicalPairs.set(`${participantA}-${participantB}`, { participantA, participantB })
+  }
+
+  const requestedPairs = [...canonicalPairs.values()]
+  const all = []
+  const effectivePairChunkSize = Math.max(1, Math.min(Number(pairChunkSize) || 30, 50))
+  const effectivePageSize = Math.max(100, Math.min(Number(pageSize) || 1000, 1000))
+
+  for (let chunkStart = 0; chunkStart < requestedPairs.length; chunkStart += effectivePairChunkSize) {
+    const chunk = requestedPairs.slice(chunkStart, chunkStart + effectivePairChunkSize)
+    const pairFilter = chunk
+      .map(pair => `and(participant_a_number.eq.${pair.participantA},participant_b_number.eq.${pair.participantB})`)
+      .join(',')
+
+    let from = 0
+    for (let page = 0; page < 50; page++) {
+      let data, error
+      try {
+        ;({ data, error } = await supabase
+          .from('compatibility_cache')
+          .select(selectColumns)
+          .or(pairFilter)
+          .order('participant_a_number', { ascending: true })
+          .order('participant_b_number', { ascending: true })
+          .order('created_at', { ascending: false })
+          .range(from, from + effectivePageSize - 1))
+      } catch (exception) {
+        return { data: all, error: exception }
+      }
+      if (error) return { data: all, error }
+      if (!data?.length) break
+      all.push(...data)
+      if (data.length < effectivePageSize) break
+      from += effectivePageSize
+    }
+  }
+
+  return { data: all, error: null }
+}
+
 async function getLatestCacheMetadata(eventId) {
   const { data, error } = await supabase
     .from('cache_metadata')
@@ -386,35 +437,28 @@ async function verifyCurrentBalancedCacheCoverage(participants) {
 // -----------------------------------------------------------------------------
 // REPLACE: storeCachedCompatibility   (around line 670)
 // -----------------------------------------------------------------------------
-async function storeCachedCompatibility(participantA, participantB, scores) {
-  try {
-    if (SKIP_DB_WRITES) {
-      console.log('🧪 Preview mode: skip cache store')
-      return { stored: false, reason: 'Database writes are disabled' }
-    }
+function buildCompatibilityCacheRow(participantA, participantB, scores, cachedAt = new Date().toISOString()) {
+  // Never turn a skipped, transient, or malformed AI response into a durable
+  // compatibility result. A later normal run must still be able to calculate
+  // the real 12-point semantic score.
+  if (scores?.aiVibeCacheable === false) {
+    return { row: null, key: null, reason: scores?.aiVibeFallbackReason || 'AI vibe result is not cacheable' }
+  }
 
-    // Never turn a skipped, transient, or malformed AI response into a durable
-    // compatibility result. A later normal run must still be able to calculate
-    // the real 12-point semantic score.
-    if (scores?.aiVibeCacheable === false) {
-      return { stored: false, reason: scores?.aiVibeFallbackReason || 'AI vibe result is not cacheable' }
-    }
+  const fallbackReason = String(scores?.aiVibeFallbackReason || '').trim()
+  if (fallbackReason) {
+    console.warn(`⚠️ Cache store with fallback score #${participantA.assigned_number}-#${participantB.assigned_number}: ${fallbackReason}`)
+  }
 
-    const fallbackReason = String(scores?.aiVibeFallbackReason || '').trim()
-    if (fallbackReason) {
-      console.warn(`⚠️ Cache store with fallback score #${participantA.assigned_number}-#${participantB.assigned_number}: ${fallbackReason}`)
-    }
+  const [smaller, larger] = [participantA.assigned_number, participantB.assigned_number].sort((a, b) => a - b)
+  const participantForA = participantA.assigned_number === smaller ? participantA : participantB
+  const participantForB = participantA.assigned_number === smaller ? participantB : participantA
+  const cacheKey = generateCacheKey(participantA, participantB)
+  const scoreSnapshot = buildBalancedScoreSnapshot(scores, {
+    combinedContentHash: cacheKey.combinedHash,
+  })
 
-    const [smaller, larger] = [participantA.assigned_number, participantB.assigned_number].sort((a, b) => a - b)
-    const participantForA = participantA.assigned_number === smaller ? participantA : participantB
-    const participantForB = participantA.assigned_number === smaller ? participantB : participantA
-    const cachedAt = new Date().toISOString()
-    const cacheKey = generateCacheKey(participantA, participantB)
-    const scoreSnapshot = buildBalancedScoreSnapshot(scores, {
-      combinedContentHash: cacheKey.combinedHash,
-    })
- 
-    const row = {
+  const row = {
       participant_a_number: smaller,
       participant_b_number: larger,
       combined_content_hash: cacheKey.combinedHash,
@@ -451,26 +495,79 @@ async function storeCachedCompatibility(participantA, participantB, scores) {
       participant_b_cached_at: participantForB.survey_data_updated_at || cachedAt,
       last_used: cachedAt,
       use_count: 1
+  }
+
+  return {
+    row,
+    key: `${smaller}-${larger}-${cacheKey.combinedHash}`,
+    reason: null,
+  }
+}
+
+async function storeCachedCompatibilities(entries, { chunkSize = 100 } = {}) {
+  if (SKIP_DB_WRITES) {
+    console.log('🧪 Preview mode: skip cache store')
+    return { stored: 0, storedKeys: new Set(), failures: [], skipped: true }
+  }
+
+  const failures = []
+  const uniqueRows = new Map()
+  const cachedAt = new Date().toISOString()
+
+  for (const entry of entries || []) {
+    try {
+      const built = buildCompatibilityCacheRow(entry.participantA, entry.participantB, entry.scores, cachedAt)
+      if (!built.row || !built.key) {
+        failures.push({ entry, reason: built.reason || 'Cache row is not durable' })
+        continue
+      }
+      uniqueRows.set(built.key, { ...built, entry })
+    } catch (error) {
+      failures.push({ entry, reason: error?.message || 'Cache row build failed' })
     }
- 
-    // onConflict matches the ACTUAL unique constraint:
-    // UNIQUE (participant_a_number, participant_b_number, combined_content_hash)
-    // When this exact tuple exists, we just touch last_used / use_count.
-    // When the hash differs, no conflict → a new row is inserted alongside.
-    const { error } = await supabase
-      .from('compatibility_cache')
-      .upsert(row, {
-        onConflict: 'participant_a_number,participant_b_number,combined_content_hash'
-      })
- 
-    if (!error) {
-      console.warn(`✅ Cache stored #${smaller}-#${larger} hash=${cacheKey.combinedHash.substring(0,10)} total=${Math.round(scores.totalScore)}%`)
-      return { stored: true, reason: null }
-    } else {
-      console.error(`❌ Cache store FAILED #${smaller}-#${larger} code=${error.code} msg=${error.message}`)
-      if (error.details) console.error(`   details: ${error.details}`)
-      if (error.hint) console.error(`   hint: ${error.hint}`)
-      return { stored: false, reason: error.message || error.code || 'Cache upsert failed' }
+  }
+
+  const rows = [...uniqueRows.values()]
+  const storedKeys = new Set()
+  const effectiveChunkSize = Math.max(1, Math.min(Number(chunkSize) || 100, 500))
+
+  for (let index = 0; index < rows.length; index += effectiveChunkSize) {
+    const chunk = rows.slice(index, index + effectiveChunkSize)
+    try {
+      // onConflict matches the canonical immutable identity. Passing an array
+      // makes every chunk one PostgREST request and one Postgres statement.
+      const { error } = await supabase
+        .from('compatibility_cache')
+        .upsert(chunk.map(item => item.row), {
+          onConflict: 'participant_a_number,participant_b_number,combined_content_hash'
+        })
+
+      if (error) {
+        const reason = error.message || error.code || 'Cache bulk upsert failed'
+        console.error(`❌ Cache bulk upsert FAILED rows=${chunk.length} code=${error.code} msg=${error.message}`)
+        for (const item of chunk) failures.push({ entry: item.entry, reason })
+        continue
+      }
+
+      for (const item of chunk) storedKeys.add(item.key)
+      console.warn(`✅ Cache bulk upsert stored ${chunk.length} row${chunk.length === 1 ? '' : 's'}`)
+    } catch (error) {
+      const reason = error?.message || 'Cache bulk upsert exception'
+      console.error(`❌ Cache bulk upsert EXCEPTION rows=${chunk.length}:`, reason)
+      for (const item of chunk) failures.push({ entry: item.entry, reason })
+    }
+  }
+
+  return { stored: storedKeys.size, storedKeys, failures, skipped: false }
+}
+
+async function storeCachedCompatibility(participantA, participantB, scores) {
+  try {
+    const result = await storeCachedCompatibilities([{ participantA, participantB, scores }], { chunkSize: 1 })
+    const built = buildCompatibilityCacheRow(participantA, participantB, scores)
+    return {
+      stored: !!built.key && result.storedKeys.has(built.key),
+      reason: result.failures[0]?.reason || (result.skipped ? 'Database writes are disabled' : null),
     }
   } catch (e) {
     console.error(`❌ Cache store EXCEPTION #${participantA.assigned_number}-#${participantB.assigned_number}:`, e?.message)
@@ -4881,6 +4978,8 @@ if (action === "cache-status-by-gender") {
       resumeCursor = null,
       maxPairsPerRequest = null,
       maxNewCachesPerRequest = null,
+      maxAICachesPerRequest = null,
+      maxLocalCachesPerRequest = null,
       maxDurationMs = null,
       finalizeDeltaCacheMetadata = true,
     } = req.body || {}
@@ -4933,8 +5032,6 @@ if (action === "cache-status-by-gender") {
         return !!reason
       })
       const reasonCounts = getDeltaCacheReasonCounts(allEligibleParticipants, lastCacheTimestamp, eventId, cachedScoreModelVersion)
-      const updatedParticipantNumbers = participantsNeedingCache.map(p => p.assigned_number)
-      const participantNumbers = allEligibleParticipants.map(p => p.assigned_number)
       const unchangedParticipants = totalParticipants - participantsNeedingCache.length
       const totalDeltaPairs = (totalParticipants * (totalParticipants - 1) / 2)
         - (unchangedParticipants * (unchangedParticipants - 1) / 2)
@@ -4962,40 +5059,21 @@ if (action === "cache-status-by-gender") {
       // new combined hash instead of deleting the prior model's evidence.
       const isValidCursor = (c) => c && Number.isInteger(c.i) && Number.isInteger(c.j)
 
-      // Fetch every relevant cache row in one paginated query for this request.
-      // Exact content hits and reusable AI-vibe hits are then O(1) Map lookups.
-      const { data: prefetchedCacheRows, error: prefetchError } = await fetchCachedPairsForOuterParticipants(
-        participantNumbers,
-        updatedParticipantNumbers,
-        1000,
-        'id, participant_a_number, participant_b_number, combined_content_hash, vibe_content_hash, ai_vibe_score, model_used, score_model_version, vibe_axes, created_at, use_count',
-      )
-      if (prefetchError) throw prefetchError
-
-      const exactCacheMap = new Map()
-      const reusableVibeMap = new Map()
-      ;(prefetchedCacheRows || []).forEach(cacheRow => {
-        const pairPrefix = `${cacheRow.participant_a_number}-${cacheRow.participant_b_number}`
-        if (isDurableCurrentBalancedCacheRow(cacheRow)) {
-          exactCacheMap.set(`${pairPrefix}-${cacheRow.combined_content_hash}-${cacheRow.vibe_content_hash}`, cacheRow)
-        }
-
-        if (isReusableBalancedVibeRow(cacheRow)) {
-          const vibeKey = `${pairPrefix}-${cacheRow.vibe_content_hash}`
-          const previous = reusableVibeMap.get(vibeKey)
-          if (!previous || new Date(cacheRow.created_at || 0).getTime() >= new Date(previous.created_at || 0).getTime()) {
-            reusableVibeMap.set(vibeKey, cacheRow)
-          }
-        }
-      })
-
       // Step 5: Batch processing with resumeCursor
       const effectiveMaxDurationMs = Math.max(1000, Math.min(parseInt(maxDurationMs) || 8000, 9000))
-      // Keep the cheap scan budget separate from the number of new rows this
-      // request may create. Cached and hard-gated pairs can therefore be skipped
-      // rapidly without consuming the slow-work budget.
-      const effectiveMaxNewCaches = Math.max(1, Math.min(parseInt(maxNewCachesPerRequest) || (skipAI ? 25 : 16), skipAI ? 500 : 25))
       const effectiveMaxPairsScanned = Math.max(25, Math.min(parseInt(maxPairsPerRequest) || 20000, 20000))
+      const legacyNewCacheLimit = parseInt(maxNewCachesPerRequest)
+      // Deterministic and reusable-vibe work is cheap and should not consume the
+      // scarce OpenAI budget. Fresh semantic scores get their own bounded lane.
+      const effectiveMaxAICaches = Math.max(1, Math.min(
+        parseInt(maxAICachesPerRequest) || (Number.isFinite(legacyNewCacheLimit) ? legacyNewCacheLimit : 12),
+        16,
+      ))
+      const effectiveMaxLocalCaches = Math.max(1, Math.min(
+        parseInt(maxLocalCachesPerRequest) || (skipAI && Number.isFinite(legacyNewCacheLimit) ? legacyNewCacheLimit : 160),
+        500,
+      ))
+      const effectivePairWindowSize = Math.min(effectiveMaxPairsScanned, 1000)
 
       let newlyCached = 0
       let alreadyCached = 0
@@ -5004,6 +5082,7 @@ if (action === "cache-status-by-gender") {
       let pairsScanned = 0
       let cacheJobsStarted = 0
       let aiCallsMade = 0
+      let localCacheJobsStarted = 0
       let reusedVibeCount = 0
       const failureDetails = []
 
@@ -5013,146 +5092,180 @@ if (action === "cache-status-by-gender") {
       if (cursorI < 0) cursorI = 0
       if (cursorI > totalParticipants) cursorI = totalParticipants
 
-      let nextResumeCursor = null
-      const maxConcurrentCacheWrites = 16
-      let pendingCacheJobs = []
-
-      const makeNextCursor = (i, j) => {
-        const nextJ = j + 1
-        if (nextJ < totalParticipants) return { i, j: nextJ }
-        const nextI = i + 1
-        return { i: nextI, j: nextI + 1 }
+      const normalizeCursor = (i, j) => {
+        let nextI = i
+        let nextJ = j
+        while (nextI < totalParticipants && nextJ >= totalParticipants) {
+          nextI++
+          nextJ = nextI + 1
+        }
+        return nextI < totalParticipants - 1 ? { i: nextI, j: nextJ } : null
       }
 
-      const flushPendingCacheJobs = async () => {
-        if (pendingCacheJobs.length === 0) return
-        const jobs = pendingCacheJobs
-        pendingCacheJobs = []
-        const results = await Promise.allSettled(jobs.map(job => job.promise))
-
-        results.forEach((result, index) => {
-          const { p1, p2, reusedVibe } = jobs[index]
-          if (result.status === 'fulfilled' && result.value?.cacheStored === true) {
-            newlyCached++
-            if (reusedVibe) reusedVibeCount++
-          } else {
-            const reason = result.status === 'rejected'
-              ? (result.reason?.message || 'Compatibility calculation failed')
-              : (result.value?.cacheStoreError || result.value?.aiVibeFallbackReason || 'Cache row was not stored')
-            console.error(`Delta batched cache error #${p1.assigned_number}x#${p2.assigned_number}:`, reason)
-            errors++
-            if (failureDetails.length < 10) {
-              failureDetails.push({
-                participant_a_number: p1.assigned_number,
-                participant_b_number: p2.assigned_number,
-                reason,
-              })
-            }
-          }
-        })
+      // Materialize only the current cursor window. The following cache query
+      // therefore scales with work in this HTTP request, not all history for
+      // every changed participant.
+      const pairWindow = []
+      let windowCursor = normalizeCursor(cursorI, Math.max(cursorJ, cursorI + 1))
+      while (windowCursor && pairWindow.length < effectivePairWindowSize) {
+        const { i, j } = windowCursor
+        const p1 = allEligibleParticipants[i]
+        const p2 = allEligibleParticipants[j]
+        const nextCursor = normalizeCursor(i, j + 1)
+        windowCursor = nextCursor
+        if (!updatedNumbers.has(p1.assigned_number) && !updatedNumbers.has(p2.assigned_number)) continue
+        const eligible = checkGenderCompatibility(p1, p2)
+          && checkNationalityHardGate(p1, p2)
+          && checkAgeRangeHardGate(p1, p2)
+          && checkAgeCompatibility(p1, p2)
+          && checkInteractionStyleCompatibility(p1, p2)
+        pairWindow.push({ i, j, p1, p2, eligible, nextCursor })
       }
 
-      outerLoop:
-      for (let i = cursorI; i < totalParticipants; i++) {
-        const jStart = (i === cursorI) ? Math.max(cursorJ, i + 1) : (i + 1)
-        for (let j = jStart; j < totalParticipants; j++) {
-          const p1 = allEligibleParticipants[i]
-          const p2 = allEligibleParticipants[j]
+      const cacheCandidatePairs = pairWindow
+        .filter(pair => pair.eligible)
+        .map(pair => ({ a: pair.p1.assigned_number, b: pair.p2.assigned_number }))
+      const { data: prefetchedCacheRows, error: prefetchError } = await fetchCachedRowsForPairs(cacheCandidatePairs)
+      if (prefetchError) throw prefetchError
 
-          // Delta filter: only process pairs where at least one participant changed or newly enrolled
-          if (!updatedNumbers.has(p1.assigned_number) && !updatedNumbers.has(p2.assigned_number)) {
-            continue
+      const exactCacheMap = new Map()
+      const reusableVibeMap = new Map()
+      ;(prefetchedCacheRows || []).forEach(cacheRow => {
+        const pairPrefix = `${cacheRow.participant_a_number}-${cacheRow.participant_b_number}`
+        if (isDurableCurrentBalancedCacheRow(cacheRow)) {
+          exactCacheMap.set(`${pairPrefix}-${cacheRow.combined_content_hash}-${cacheRow.vibe_content_hash}`, cacheRow)
+        }
+        if (isReusableBalancedVibeRow(cacheRow)) {
+          const vibeKey = `${pairPrefix}-${cacheRow.vibe_content_hash}`
+          const previous = reusableVibeMap.get(vibeKey)
+          if (!previous || new Date(cacheRow.created_at || 0).getTime() >= new Date(previous.created_at || 0).getTime()) {
+            reusableVibeMap.set(vibeKey, cacheRow)
           }
+        }
+      })
 
-          if (pairsScanned >= effectiveMaxPairsScanned || (Date.now() - startTime) >= effectiveMaxDurationMs) {
-            nextResumeCursor = { i, j }
-            break outerLoop
-          }
+      let nextResumeCursor = windowCursor === null
+        ? null
+        : (pairWindow[pairWindow.length - 1]?.nextCursor || windowCursor)
+      const localJobs = []
+      const aiJobs = []
+
+      for (const descriptor of pairWindow) {
+        const { i, j, p1, p2, eligible } = descriptor
+        if ((Date.now() - startTime) >= effectiveMaxDurationMs) {
+          nextResumeCursor = { i, j }
+          break
+        }
+        if (!eligible) {
+          skipped++
           pairsScanned++
+          continue
+        }
 
-          // Gender check
-          if (!checkGenderCompatibility(p1, p2)) { skipped++; continue }
-          // Other hard gates
-          if (!checkNationalityHardGate(p1, p2)) { skipped++; continue }
-          if (!checkAgeRangeHardGate(p1, p2)) { skipped++; continue }
-          if (!checkAgeCompatibility(p1, p2)) { skipped++; continue }
-          if (!checkInteractionStyleCompatibility(p1, p2)) { skipped++; continue }
+        const [smaller, larger] = [p1.assigned_number, p2.assigned_number].sort((a, b) => a - b)
+        const cacheKey = generateCacheKey(p1, p2)
+        if (exactCacheMap.has(`${smaller}-${larger}-${cacheKey.combinedHash}-${cacheKey.vibeHash}`)) {
+          alreadyCached++
+          pairsScanned++
+          continue
+        }
 
-          try {
-            const [smaller, larger] = [p1.assigned_number, p2.assigned_number].sort((a, b) => a - b)
-            const cacheKey = generateCacheKey(p1, p2)
-            const exactCacheRow = exactCacheMap.get(`${smaller}-${larger}-${cacheKey.combinedHash}-${cacheKey.vibeHash}`)
-            if (exactCacheRow) {
-              alreadyCached++
-              continue
-            }
+        const reusableVibeRow = reusableVibeMap.get(`${smaller}-${larger}-${cacheKey.vibeHash}`)
+        const usesAI = !skipAI && !reusableVibeRow
+        const targetJobs = usesAI ? aiJobs : localJobs
+        const targetLimit = usesAI ? effectiveMaxAICaches : effectiveMaxLocalCaches
+        if (targetJobs.length >= targetLimit) {
+          nextResumeCursor = { i, j }
+          break
+        }
 
-            if (cacheJobsStarted >= effectiveMaxNewCaches) {
-              nextResumeCursor = { i, j }
-              break outerLoop
-            }
+        const calculationOptions = { skipCacheLookup: true, skipCacheWrite: true }
+        if (reusableVibeRow) {
+          calculationOptions.reusedVibeScore = reusableVibeRow.ai_vibe_score
+          calculationOptions.reusedVibeSourceMax = getCachedVibeSourceMax(reusableVibeRow, p1, p2)
+          calculationOptions.reusedVibeModelUsed = reusableVibeRow.model_used
+          calculationOptions.reusedVibeContentHash = reusableVibeRow.vibe_content_hash
+          calculationOptions.reusedVibeAxes = getCachedBalancedVibeAxes(reusableVibeRow)
+        }
+        targetJobs.push({ p1, p2, reusedVibe: !!reusableVibeRow, usesAI, calculationOptions })
+        pairsScanned++
+        cacheJobsStarted++
+      }
 
-            const reusableVibeRow = reusableVibeMap.get(`${smaller}-${larger}-${cacheKey.vibeHash}`)
-            const usesAI = !skipAI && !reusableVibeRow
-            const calculationOptions = { skipCacheLookup: true }
-            if (reusableVibeRow) {
-              calculationOptions.reusedVibeScore = reusableVibeRow.ai_vibe_score
-              calculationOptions.reusedVibeSourceMax = getCachedVibeSourceMax(reusableVibeRow, p1, p2)
-              calculationOptions.reusedVibeModelUsed = reusableVibeRow.model_used
-              calculationOptions.reusedVibeContentHash = reusableVibeRow.vibe_content_hash
-              calculationOptions.reusedVibeAxes = getCachedBalancedVibeAxes(reusableVibeRow)
-            }
-
-            // Reused AI-vibe scores have an identical vibe-content hash, so all
-            // changed deterministic components can be recalculated locally.
-            pendingCacheJobs.push({
-              p1,
-              p2,
-              reusedVibe: !!reusableVibeRow,
-              usesAI,
-              promise: calculateFullCompatibilityWithCache(
-                p1,
-                p2,
-                reusableVibeRow ? true : !!skipAI,
-                false,
-                calculationOptions,
-              ),
-            })
-            cacheJobsStarted++
-            if (usesAI) aiCallsMade++
-
-            if (pendingCacheJobs.length >= maxConcurrentCacheWrites) {
-              await flushPendingCacheJobs()
-            }
-
-            if (cacheJobsStarted >= effectiveMaxNewCaches || (Date.now() - startTime) >= effectiveMaxDurationMs) {
-              nextResumeCursor = makeNextCursor(i, j)
-              break outerLoop
-            }
-          } catch (err) {
-            console.error(`   ❌ Delta batched cache error #${p1.assigned_number}×#${p2.assigned_number}:`, err?.message)
-            errors++
-            if (failureDetails.length < 10) {
-              failureDetails.push({
-                participant_a_number: p1.assigned_number,
-                participant_b_number: p2.assigned_number,
-                reason: err?.message || 'Delta cache processing failed',
-              })
-            }
-            if ((Date.now() - startTime) >= effectiveMaxDurationMs) {
-              nextResumeCursor = makeNextCursor(i, j)
-              break outerLoop
-            }
+      aiCallsMade = aiJobs.length
+      localCacheJobsStarted = localJobs.length
+      const completedJobs = []
+      const executeJob = async job => {
+        try {
+          return {
+            job,
+            scores: await calculateFullCompatibilityWithCache(
+              job.p1,
+              job.p2,
+              job.reusedVibe ? true : !!skipAI,
+              false,
+              job.calculationOptions,
+            ),
           }
+        } catch (error) {
+          return { job, error }
         }
       }
 
-      await flushPendingCacheJobs()
+      // Local recalculations are CPU-only and can complete as one large batch.
+      const localResults = await Promise.allSettled(localJobs.map(executeJob))
+      // Fresh AI work uses an independent, explicitly bounded 12-16-wide lane.
+      const aiResults = []
+      for (let start = 0; start < aiJobs.length; start += effectiveMaxAICaches) {
+        aiResults.push(...await Promise.allSettled(aiJobs.slice(start, start + effectiveMaxAICaches).map(executeJob)))
+      }
+
+      for (const result of [...localResults, ...aiResults]) {
+        if (result.status === 'fulfilled' && result.value?.scores?.aiVibeCacheable !== false) {
+          completedJobs.push(result.value)
+          continue
+        }
+        const job = result.status === 'fulfilled' ? result.value?.job : null
+        const reason = result.status === 'rejected'
+          ? (result.reason?.message || 'Compatibility calculation failed')
+          : (result.value?.error?.message || result.value?.scores?.aiVibeFallbackReason || 'Compatibility result is not cacheable')
+        errors++
+        if (failureDetails.length < 10) {
+          failureDetails.push({
+            participant_a_number: job?.p1?.assigned_number ?? null,
+            participant_b_number: job?.p2?.assigned_number ?? null,
+            reason,
+          })
+        }
+      }
+
+      const bulkStore = await storeCachedCompatibilities(completedJobs.map(({ job, scores }) => ({
+        participantA: job.p1,
+        participantB: job.p2,
+        scores,
+      })))
+      newlyCached = bulkStore.stored
+      for (const { job, scores } of completedJobs) {
+        const built = buildCompatibilityCacheRow(job.p1, job.p2, scores)
+        if (built.key && bulkStore.storedKeys.has(built.key) && job.reusedVibe) reusedVibeCount++
+      }
+      for (const failure of bulkStore.failures) {
+        errors++
+        const participantA = failure.entry?.participantA
+        const participantB = failure.entry?.participantB
+        if (failureDetails.length < 10) {
+          failureDetails.push({
+            participant_a_number: participantA?.assigned_number ?? null,
+            participant_b_number: participantB?.assigned_number ?? null,
+            reason: failure.reason,
+          })
+        }
+      }
 
       const hasMore = !!nextResumeCursor
       const durationMs = Date.now() - startTime
 
-      console.log(`💾 DELTA BATCH CACHE: scanned=${pairsScanned}, cacheJobs=${cacheJobsStarted}, newly=${newlyCached}, already=${alreadyCached}, skipped=${skipped}, errors=${errors}, hasMore=${hasMore}`)
+      console.log(`💾 DELTA BATCH CACHE: scanned=${pairsScanned}, localJobs=${localCacheJobsStarted}, aiJobs=${aiCallsMade}, newly=${newlyCached}, already=${alreadyCached}, skipped=${skipped}, errors=${errors}, hasMore=${hasMore}`)
 
       // Only update cache_metadata when the entire delta run is complete
       let metadataUpdated = null
@@ -5201,6 +5314,8 @@ if (action === "cache-status-by-gender") {
         total_eligible: totalParticipants,
         pairs_processed: pairsScanned,
         cache_jobs_started: cacheJobsStarted,
+        local_cache_jobs_started: localCacheJobsStarted,
+        ai_cache_jobs_started: aiCallsMade,
         ai_calls_made: aiCallsMade,
         cache_rows_prefetched: prefetchedCacheRows?.length || 0,
         metadata_updated: metadataUpdated,
@@ -7004,6 +7119,7 @@ if (action === "cache-status-by-gender") {
     const { data: allPreviousMatches, error: previousMatchError } = await supabase
       .from("match_results")
       .select("participant_a_number, participant_b_number, event_id")
+      .eq("match_id", match_id)
       .lt("event_id", eventId) // Only previous events
       .in("participant_a_number", allQueryNumbers)
       .in("participant_b_number", allQueryNumbers)
@@ -7082,6 +7198,8 @@ if (action === "cache-status-by-gender") {
     let skippedPrevious = 0
     let skippedExcluded = 0
     let blockedByHistory = 0
+    const cacheRowsToStore = []
+    const MATCH_CALCULATION_CONCURRENCY = 12
     
     // Log excluded pairs if any
     if (excludedPairs && excludedPairs.length > 0) {
@@ -7091,7 +7209,9 @@ if (action === "cache-status-by-gender") {
       })
     }
     
-    for (const [a, b] of pairs) {
+    for (let batchStart = 0; batchStart < pairs.length; batchStart += MATCH_CALCULATION_CONCURRENCY) {
+      const pairBatch = pairs.slice(batchStart, batchStart + MATCH_CALCULATION_CONCURRENCY)
+      const batchCompatibilityScores = await Promise.all(pairBatch.map(async ([a, b]) => {
       processedPairs++
       
       // Log progress every 10 pairs
@@ -7104,30 +7224,30 @@ if (action === "cache-status-by-gender") {
         if (isPairExcluded(a.assigned_number, b.assigned_number, excludedPairs)) {
           skippedExcluded++
           console.log(`🚫 Skipping excluded pair: #${a.assigned_number} ↔ #${b.assigned_number}`)
-          continue
+          return null
         }
 
         // Check gender compatibility first (opposite gender only)
         if (!checkGenderCompatibility(a, b)) {
           skippedGender++
-          continue
+          return null
         }
 
         // Hard gates: nationality, age range, and intent (mutual)
         if (!checkNationalityHardGate(a, b)) {
           skippedNationality++
-          continue
+          return null
         }
         if (!checkAgeRangeHardGate(a, b)) {
           skippedAge++
-          continue
+          return null
         }
         // Intent is no longer a hard gate; keep scoring-only preference
 
         // Check interaction style compatibility (matching determinants)
         if (!checkInteractionStyleCompatibility(a, b)) {
           skippedInteractionStyle++
-          continue
+          return null
         }
 
         // Check if this pair has been matched in previous events (O(1) Set lookup)
@@ -7135,7 +7255,7 @@ if (action === "cache-status-by-gender") {
         const pairKey = [a.assigned_number, b.assigned_number].sort().join('-')
         if (previousMatchPairs.has(pairKey)) {
           skippedPrevious++
-          continue
+          return null
         }
         // Check aliases: if A or B has duplicate phone accounts, check those pair combinations too
         const aAliases = aliasMap.get(a.assigned_number)
@@ -7168,7 +7288,7 @@ if (action === "cache-status-by-gender") {
         }
         if (hasPrevious) {
           skippedPrevious++
-          continue
+          return null
         }
 
         const historyConfidence = historyAnalyzer.analyzePair(a, b)
@@ -7215,9 +7335,7 @@ if (action === "cache-status-by-gender") {
           }
           if (!hydrated) {
             console.warn(`⚠️ Exact cache row #${a.assigned_number}×#${b.assigned_number} had an incomplete snapshot; recalculated locally`)
-            storeCachedCompatibility(a, b, compatibilityResult)
-              .then(() => {})
-              .catch(err => console.error('Cache repair error:', err))
+            cacheRowsToStore.push({ participantA: a, participantB: b, scores: compatibilityResult })
           }
         } else if (reusableVibeData) {
           // The participant's AI profile text is identical; only deterministic
@@ -7240,9 +7358,7 @@ if (action === "cache-status-by-gender") {
           )
           compatibilityResult.cached = true
           compatibilityResult.reusedCachedVibe = true
-          storeCachedCompatibility(a, b, compatibilityResult)
-            .then(() => {})
-            .catch(err => console.error('Cache store error:', err))
+          cacheRowsToStore.push({ participantA: a, participantB: b, scores: compatibilityResult })
         } else {
           // Cache MISS - calculate fresh
           cacheMisses++
@@ -7253,11 +7369,7 @@ if (action === "cache-status-by-gender") {
           
           // Calculate all scores
           compatibilityResult = await calculateFullCompatibilityWithCache(a, b, skipAI, true) // ignoreCache=true since we already checked
-          
-          // Store in database for future runs (don't await - do in background)
-          storeCachedCompatibility(a, b, compatibilityResult)
-            .then(() => {})
-            .catch(err => console.error('Cache store error:', err))
+          cacheRowsToStore.push({ participantA: a, participantB: b, scores: compatibilityResult })
         }
         
         const mbtiScore = compatibilityResult.mbtiScore
@@ -7356,7 +7468,7 @@ if (action === "cache-status-by-gender") {
           reason += ` ${historyAdjustment > 0 ? '+' : ''}${historyAdjustment} أولوية السجل السابق`
         }
 
-        compatibilityScores.push({
+        return {
           a: a.assigned_number,
           b: b.assigned_number,
           ...getPairMatchInsightsCoverage(a, b),
@@ -7421,13 +7533,20 @@ if (action === "cache-status-by-gender") {
           aVibeDescription: a.survey_data?.vibeDescription || '',
           bVibeDescription: b.survey_data?.vibeDescription || '',
           ageTolerance
-        })
+        }
       } catch (pairError) {
         console.error(`❌ ERROR processing pair #${a.assigned_number} × #${b.assigned_number}:`, pairError.message)
         console.error(`   Stack:`, pairError.stack)
         // Continue with next pair instead of crashing
-        continue
+        return null
       }
+      }))
+      compatibilityScores.push(...batchCompatibilityScores.filter(Boolean))
+    }
+
+    const cacheStoreResult = await storeCachedCompatibilities(cacheRowsToStore)
+    if (cacheStoreResult.failures.length > 0) {
+      console.error(`⚠️ ${cacheStoreResult.failures.length} compatibility cache row(s) failed to store during match creation`)
     }
 
     const cacheUsageTouch = await touchCompatibilityCacheUsage(cacheUsageIds)

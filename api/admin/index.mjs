@@ -146,6 +146,7 @@ function isMissingAdmin3SwapRpc(error) {
     || message.includes("swap_event3_group_seats")
     || message.includes("swap_event3_table_numbers")
     || message.includes("swap_event3_match_partner")
+    || message.includes("replace_event3_algorithm_match_partner")
     || message.includes("replace_event3_participant")
 }
 
@@ -9545,7 +9546,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         }
         // e3-get-participants
         if (action === "e3-get-participants") {
-          const { data, error } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,PAID_DONE,payment_completed_event_id").eq("match_id", STATIC_MATCH_ID).neq("assigned_number", 9999).order("assigned_number", { ascending: true })
+          const { data, error } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,attachment_style,communication_style,nationality,PAID_DONE,payment_completed_event_id").eq("match_id", STATIC_MATCH_ID).neq("assigned_number", 9999).order("assigned_number", { ascending: true })
           if (error) return res.status(500).json({ error: error.message })
           const { data: sel, error: selErr } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           if (selErr) console.error("[e3-get-participants] selected error:", selErr.message)
@@ -9555,7 +9556,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           if (e3pErr) console.error("[e3-get-participants] phase2_excluded error:", e3pErr.message)
           const phase2ExcludedMap = {}
           for (const r of e3p || []) { phase2ExcludedMap[r.participant_number] = !!r.phase2_excluded }
-          const participants = (data || []).map(p => { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); return { number: p.assigned_number, name: p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`, gender: p.gender || sd?.answers?.gender || sd?.gender || "?", age: p.age || sd?.answers?.age || sd?.age || "?", paid: p.PAID_DONE === true && Number(p.payment_completed_event_id) === Number(currentEventId), selected: selectedSet.has(p.assigned_number), phase2_excluded: !!phase2ExcludedMap[p.assigned_number] } })
+          const participants = (data || []).map(p => { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); return { number: p.assigned_number, name: p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`, gender: p.gender || sd?.answers?.gender || sd?.gender || "?", age: p.age || sd?.answers?.age || sd?.age || "?", mbti: p.mbti_personality_type || sd?.mbtiType || sd?.answers?.mbtiType || "?", attachment: p.attachment_style || sd?.attachmentStyle || sd?.answers?.attachmentStyle || "?", communication: p.communication_style || sd?.communicationStyle || sd?.answers?.communicationStyle || "?", nationality: p.nationality || sd?.nationality || sd?.answers?.nationality || "?", paid: p.PAID_DONE === true && Number(p.payment_completed_event_id) === Number(currentEventId), selected: selectedSet.has(p.assigned_number), phase2_excluded: !!phase2ExcludedMap[p.assigned_number] } })
           return res.status(200).json({ participants, selected_count: selectedSet.size })
         }
         // e3-set-participants
@@ -11213,6 +11214,104 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           if (error) return res.status(500).json({ error: error.message })
           return res.status(200).json({ message: "Feedback updated successfully" })
         }
+        // e3-preview-match-partner-swap — score both resulting phase3 pairs
+        // without changing match topology or table assignments.
+        if (action === "e3-preview-match-partner-swap") {
+          const missingParticipant = Number(req.body.missing_participant)
+          const replacementParticipant = Number(req.body.replacement_participant)
+          if (!Number.isInteger(missingParticipant) || !Number.isInteger(replacementParticipant) || missingParticipant <= 0 || replacementParticipant <= 0 || missingParticipant === replacementParticipant) {
+            return res.status(400).json({ error: "Two different positive participant numbers are required" })
+          }
+
+          const [matchesResult, selectedResult] = await Promise.all([
+            supabase.from("event3_matches").select("participant_number,phase3_partner,phase3_score,phase3_score_model_version,phase3_score_snapshot,phase3_score_content_hash").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
+            supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_number", [missingParticipant, replacementParticipant]),
+          ])
+          if (matchesResult.error) return res.status(500).json({ error: matchesResult.error.message })
+          if (selectedResult.error) return res.status(500).json({ error: selectedResult.error.message })
+          const selectedNumbers = new Set((selectedResult.data || []).map(row => Number(row.participant_number)))
+          if (!selectedNumbers.has(missingParticipant) || !selectedNumbers.has(replacementParticipant)) {
+            return res.status(409).json({ error: "Both people must be selected for the current Event3 event" })
+          }
+
+          const matchRows = matchesResult.data || []
+          const missingRow = matchRows.find(row => Number(row.participant_number) === missingParticipant)
+          const replacementRow = matchRows.find(row => Number(row.participant_number) === replacementParticipant)
+          const missingPartner = Number(missingRow?.phase3_partner)
+          if (!Number.isInteger(missingPartner) || missingPartner <= 0) {
+            return res.status(400).json({ error: `Participant #${missingParticipant} has no algorithm match` })
+          }
+          const rawReplacementPartner = replacementRow?.phase3_partner
+          const replacementPartner = rawReplacementPartner == null ? null : Number(rawReplacementPartner)
+          if (replacementPartner != null && (!Number.isInteger(replacementPartner) || replacementPartner <= 0)) {
+            return res.status(409).json({ error: `Participant #${replacementParticipant} has an invalid algorithm partner` })
+          }
+          if (replacementParticipant === missingPartner) {
+            return res.status(409).json({ error: "The selected replacement is already the missing participant's partner" })
+          }
+
+          const profileNumbers = [...new Set([missingParticipant, missingPartner, replacementParticipant, replacementPartner].filter(number => number != null))]
+          const { data: profileRows, error: profileError } = await supabase.from("participants").select("*").eq("match_id", STATIC_MATCH_ID).in("assigned_number", profileNumbers)
+          if (profileError) return res.status(500).json({ error: profileError.message })
+          const profileMap = new Map((profileRows || []).map(profile => [Number(profile.assigned_number), profile]))
+          const missingProfileNumber = profileNumbers.find(number => !profileMap.has(number))
+          if (missingProfileNumber != null) return res.status(422).json({ error: `Missing matching profile for #${missingProfileNumber}` })
+
+          const summarizeProfile = number => {
+            const profile = profileMap.get(number)
+            const survey = typeof profile?.survey_data === "string" ? JSON.parse(profile.survey_data || "{}") : (profile?.survey_data || {})
+            return {
+              number,
+              name: profile?.name || survey?.answers?.name || survey?.name || `#${number}`,
+              gender: profile?.gender || survey?.answers?.gender || survey?.gender || "?",
+              age: profile?.age || survey?.answers?.age || survey?.age || "?",
+              mbti: profile?.mbti_personality_type || survey?.mbtiType || survey?.answers?.mbtiType || "?",
+              attachment: profile?.attachment_style || survey?.attachmentStyle || survey?.answers?.attachmentStyle || "?",
+              communication: profile?.communication_style || survey?.communicationStyle || survey?.answers?.communicationStyle || "?",
+              nationality: profile?.nationality || survey?.nationality || survey?.answers?.nationality || "?",
+            }
+          }
+          const summarizeStoredScore = row => {
+            if (!row) return null
+            const stored = getStoredEvent3Compatibility(row, "phase3")
+            return {
+              score: stored?.totalScore ?? row.phase3_score ?? null,
+              scoreBreakdown: stored?.scoreBreakdown || row.phase3_score_snapshot?.scoreBreakdown || null,
+            }
+          }
+          const calculatePreviewPair = async (participantA, participantB) => {
+            const compatibility = await e3FullCalcCompat(profileMap.get(participantA), profileMap.get(participantB))
+            const provenance = buildEvent3ScoreProvenance(compatibility, profileMap.get(participantA), profileMap.get(participantB))
+            return {
+              a: summarizeProfile(participantA),
+              b: summarizeProfile(participantB),
+              score: provenance.persistedScore,
+              scoreBreakdown: provenance.scoreSnapshot?.scoreBreakdown || compatibility?.scoreBreakdown || null,
+              reusedCache: compatibility?.cached === true || compatibility?.reusedCachedVibe === true,
+            }
+          }
+
+          try {
+            const [firstAfter, secondAfter] = await Promise.all([
+              calculatePreviewPair(replacementParticipant, missingPartner),
+              replacementPartner == null ? Promise.resolve(null) : calculatePreviewPair(missingParticipant, replacementPartner),
+            ])
+            return res.status(200).json({
+              missing: summarizeProfile(missingParticipant),
+              missing_partner: summarizeProfile(missingPartner),
+              replacement: summarizeProfile(replacementParticipant),
+              replacement_partner: replacementPartner == null ? null : summarizeProfile(replacementPartner),
+              before: {
+                missing_pair: summarizeStoredScore(missingRow),
+                replacement_pair: summarizeStoredScore(replacementRow),
+              },
+              after: { first_pair: firstAfter, second_pair: secondAfter },
+            })
+          } catch (error) {
+            console.error("Event3 replacement preview scoring failed:", error?.message)
+            return res.status(502).json({ error: "Could not calculate the replacement preview. No match or table was changed." })
+          }
+        }
         // e3-swap-match-partner — replace a missing participant with a replacement in phase2 or phase3 matches
         if (action === "e3-swap-match-partner") {
           const phase = req.body.phase
@@ -11293,28 +11392,45 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
 
           const firstScore = {
             score: newProvenance1.persistedScore,
+            reason: newCompatibility1?.reason || "Algorithm match",
             score_model_version: newProvenance1.scoreModelVersion,
             score_snapshot: newProvenance1.scoreSnapshot,
             score_content_hash: newProvenance1.scoreContentHash,
           }
           const secondScore = newProvenance2 ? {
             score: newProvenance2.persistedScore,
+            reason: newCompatibility2?.reason || "Algorithm match",
             score_model_version: newProvenance2.scoreModelVersion,
             score_snapshot: newProvenance2.scoreSnapshot,
             score_content_hash: newProvenance2.scoreContentHash,
           } : null
 
-          const { error: swapError } = await supabase.rpc("swap_event3_match_partner", {
-            p_match_id: EVENT3_MATCH_ID,
-            p_event_id: currentEventId,
-            p_phase: phase,
-            p_missing_participant: missingParticipant,
-            p_replacement_participant: replacementParticipant,
-            p_expected_missing_partner: missingPartner,
-            p_expected_replacement_partner: replacementPartner,
-            p_first_score: firstScore,
-            p_second_score: secondScore,
-          })
+          const swapTestContext = await getEvent3TestContext()
+          const isActiveTestSwap = swapTestContext.active && swapTestContext.eventId === Number(currentEventId)
+          const swapRpc = phase === "phase3" ? "replace_event3_algorithm_match_partner" : "swap_event3_match_partner"
+          const swapParams = phase === "phase3" ? {
+              p_event3_match_id: EVENT3_MATCH_ID,
+              p_static_match_id: STATIC_MATCH_ID,
+              p_event_id: currentEventId,
+              p_missing_participant: missingParticipant,
+              p_replacement_participant: replacementParticipant,
+              p_expected_missing_partner: missingPartner,
+              p_expected_replacement_partner: replacementPartner,
+              p_first_score: firstScore,
+              p_second_score: secondScore,
+              p_sync_locked_matches: !isActiveTestSwap,
+            } : {
+              p_match_id: EVENT3_MATCH_ID,
+              p_event_id: currentEventId,
+              p_phase: phase,
+              p_missing_participant: missingParticipant,
+              p_replacement_participant: replacementParticipant,
+              p_expected_missing_partner: missingPartner,
+              p_expected_replacement_partner: replacementPartner,
+              p_first_score: firstScore,
+              p_second_score: secondScore,
+            }
+          const { error: swapError } = await supabase.rpc(swapRpc, swapParams)
           if (swapError) {
             if (isMissingAdmin3SwapRpc(swapError)) {
               return res.status(501).json({ error: "The atomic Event3 match-swap migration has not been applied yet", migration_required: true })
@@ -11327,8 +11443,8 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             ? `Swapped: #${replacementParticipant} ↔ #${missingPartner} (score: ${newProvenance1.persistedScore}%), #${missingParticipant} ↔ #${replacementPartner} (score: ${newProvenance2.persistedScore}%)`
             : `Swapped: #${replacementParticipant} replaced #${missingParticipant} with #${missingPartner} (score: ${newProvenance1.persistedScore}%). #${missingParticipant} is now unmatched.`
 
-          if (phase === "phase3") await refreshEvent3TestMatchResults(currentEventId)
-          return res.status(200).json({ message: msg })
+          if (isActiveTestSwap) await refreshEvent3TestMatchResults(currentEventId)
+          return res.status(200).json({ message: phase === "phase3" ? "تم تحديث مطابقة الخوارزمية والطاولات فوراً" : msg })
         }
         // e3-replace-participant — atomically transfer/swap every event identity,
         // feedback record, locked admin result, and generated table assignment.

@@ -4912,14 +4912,15 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   }, [token])
 
   const { data, loading, error, retry } = useApiPoll(fetchReveal, {
+    // Keep polling while this screen is mounted so an organizer's live
+    // algorithm-match replacement reaches every affected phone immediately.
     interval: 5000,
-    stopWhen: (d) => Boolean(d.partner_number && d.partner_first_name && d.table_number != null)
   })
 
   useEffect(() => {
-    if (data?.word_submitted) setWordSubmitted(true)
-    if (data?.feedback_submitted) setFeedbackDone(true)
-  }, [data])
+    setWordSubmitted(Boolean(data?.word_submitted))
+    setFeedbackDone(Boolean(data?.feedback_submitted))
+  }, [data?.partner_number, data?.word_submitted, data?.feedback_submitted])
 
   useEffect(() => {
     if (!timerActive || !timerStart) { setTimeLeft(0); return }

@@ -445,6 +445,20 @@ export default function Admin3Page() {
   const [expandedPhase3Pair, setExpandedPhase3Pair] = useState<number | null>(null)
   const [swapMatch, setSwapMatch] = useState<{ phase: "phase2" | "phase3"; missingNum: number; missingName: string } | null>(null)
   const [swapReplacement, setSwapReplacement] = useState<number | null>(null)
+  const [immediateAlgorithmReplacement, setImmediateAlgorithmReplacement] = useState<{
+    missingNum: number
+    missingName: string
+    missingGender: string
+    currentPartnerNum: number
+    currentPartnerName: string
+    currentScore: number | null
+  } | null>(null)
+  const [immediateAlgorithmReplacementWith, setImmediateAlgorithmReplacementWith] = useState<number | null>(null)
+  const [immediateReplacementSearch, setImmediateReplacementSearch] = useState("")
+  const [immediateReplacementPreview, setImmediateReplacementPreview] = useState<any | null>(null)
+  const [immediateReplacementPreviewLoading, setImmediateReplacementPreviewLoading] = useState<number | null>(null)
+  const [immediateReplacementPreviewError, setImmediateReplacementPreviewError] = useState<string | null>(null)
+  const immediateReplacementPreviewRequest = useRef(0)
   const [replaceParticipant, setReplaceParticipant] = useState<{ oldNum: number; oldName: string } | null>(null)
   const [replaceWith, setReplaceWith] = useState<number | null>(null)
 
@@ -1098,6 +1112,58 @@ export default function Admin3Page() {
         return d
       })
     )
+  }
+
+  const doImmediateAlgorithmReplacement = () => {
+    if (!immediateAlgorithmReplacement || !immediateAlgorithmReplacementWith) return
+    if (previewEventId != null) { toast.error("لا يمكن تعديل المطابقات في وضع المعاينة"); return }
+    run(`immediate-algorithm-replacement-${immediateAlgorithmReplacement.missingNum}-${immediateAlgorithmReplacementWith}`, () =>
+      api("e3-swap-match-partner", {
+        phase: "phase3",
+        missing_participant: immediateAlgorithmReplacement.missingNum,
+        replacement_participant: immediateAlgorithmReplacementWith,
+      }).then(d => {
+        if (!d.error) {
+          closeImmediateAlgorithmReplacement()
+          fetchMatches()
+          fetchSeating()
+          fetchFeedback()
+          fetchState()
+        }
+        return d
+      })
+    )
+  }
+
+  const closeImmediateAlgorithmReplacement = () => {
+    immediateReplacementPreviewRequest.current += 1
+    setImmediateAlgorithmReplacement(null)
+    setImmediateAlgorithmReplacementWith(null)
+    setImmediateReplacementSearch("")
+    setImmediateReplacementPreview(null)
+    setImmediateReplacementPreviewLoading(null)
+    setImmediateReplacementPreviewError(null)
+  }
+
+  const previewImmediateAlgorithmReplacement = async (replacementNumber: number) => {
+    if (!immediateAlgorithmReplacement) return
+    const requestId = immediateReplacementPreviewRequest.current + 1
+    immediateReplacementPreviewRequest.current = requestId
+    setImmediateAlgorithmReplacementWith(replacementNumber)
+    setImmediateReplacementPreview(null)
+    setImmediateReplacementPreviewError(null)
+    setImmediateReplacementPreviewLoading(replacementNumber)
+    const data = await api("e3-preview-match-partner-swap", {
+      missing_participant: immediateAlgorithmReplacement.missingNum,
+      replacement_participant: replacementNumber,
+    })
+    if (immediateReplacementPreviewRequest.current !== requestId) return
+    setImmediateReplacementPreviewLoading(null)
+    if (data.error) {
+      setImmediateReplacementPreviewError(data.error)
+      return
+    }
+    setImmediateReplacementPreview(data)
   }
 
   const doReplaceParticipant = () => {
@@ -3751,16 +3817,22 @@ export default function Admin3Page() {
                         <div className="border-t border-gray-800/40 px-3 py-3 space-y-3 bg-gray-950/50">
                           <div className="flex gap-2">
                             <button
-                              onClick={() => { setSwapMatch({ phase: "phase3", missingNum: pair.a, missingName: pair.aName }); setSwapReplacement(null) }}
-                              className="flex-1 py-1.5 rounded-lg bg-amber-900/30 hover:bg-amber-900/50 border border-amber-800/40 text-amber-300 text-[10px] font-bold transition-colors"
+                              onClick={() => {
+                                closeImmediateAlgorithmReplacement()
+                                setImmediateAlgorithmReplacement({ missingNum: pair.a, missingName: pair.aName, missingGender: pair.aGender, currentPartnerNum: pair.b, currentPartnerName: pair.bName, currentScore: pair.compatScore ?? null })
+                              }}
+                              className="flex-1 py-1.5 rounded-lg bg-red-900/30 hover:bg-red-900/50 border border-red-800/40 text-red-300 text-[10px] font-bold transition-colors"
                             >
-                              ⇄ استبدال {pair.aName}
+                              ⚡ استبدال فوري لـ {pair.aName}
                             </button>
                             <button
-                              onClick={() => { setSwapMatch({ phase: "phase3", missingNum: pair.b, missingName: pair.bName }); setSwapReplacement(null) }}
-                              className="flex-1 py-1.5 rounded-lg bg-amber-900/30 hover:bg-amber-900/50 border border-amber-800/40 text-amber-300 text-[10px] font-bold transition-colors"
+                              onClick={() => {
+                                closeImmediateAlgorithmReplacement()
+                                setImmediateAlgorithmReplacement({ missingNum: pair.b, missingName: pair.bName, missingGender: pair.bGender, currentPartnerNum: pair.a, currentPartnerName: pair.aName, currentScore: pair.compatScore ?? null })
+                              }}
+                              className="flex-1 py-1.5 rounded-lg bg-red-900/30 hover:bg-red-900/50 border border-red-800/40 text-red-300 text-[10px] font-bold transition-colors"
                             >
-                              ⇄ استبدال {pair.bName}
+                              ⚡ استبدال فوري لـ {pair.bName}
                             </button>
                           </div>
                         </div>
@@ -6072,6 +6144,176 @@ export default function Admin3Page() {
           </div>
         </div>
       )}
+
+      {/* ── Immediate Algorithm Replacement Modal ───────────────────── */}
+      {immediateAlgorithmReplacement && (() => {
+        const normalizedSearch = immediateReplacementSearch.trim().toLocaleLowerCase()
+        const availableParticipants = participants
+          .filter(p => p.selected && p.number !== immediateAlgorithmReplacement.missingNum && p.number !== immediateAlgorithmReplacement.currentPartnerNum)
+          .filter(p => !normalizedSearch || String(p.name || "").toLocaleLowerCase().includes(normalizedSearch) || String(p.number).includes(normalizedSearch))
+          .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "ar") || a.number - b.number)
+        const selectedPerson = participants.find(p => p.number === immediateAlgorithmReplacementWith)
+        const selectedPair = selectedPerson
+          ? phase3Pairs.find(pair => pair.a === selectedPerson.number || pair.b === selectedPerson.number)
+          : null
+        const selectedPersonPartner = selectedPair
+          ? (selectedPair.a === selectedPerson?.number
+            ? { number: selectedPair.b, name: selectedPair.bName }
+            : { number: selectedPair.a, name: selectedPair.aName })
+          : null
+        const selectedCurrentScore = selectedPair?.compatScore ?? null
+        const previewReady = immediateReplacementPreview?.replacement?.number === immediateAlgorithmReplacementWith
+        const profileStats = (person: any) => [
+          person?.gender && person.gender !== "?" ? person.gender : null,
+          person?.age && person.age !== "?" ? `${person.age} سنة` : null,
+          person?.mbti && person.mbti !== "?" ? person.mbti : null,
+          person?.attachment && person.attachment !== "?" ? person.attachment : null,
+          person?.communication && person.communication !== "?" ? person.communication : null,
+          person?.nationality && person.nationality !== "?" ? person.nationality : null,
+        ].filter(Boolean)
+        const scoreText = (score: any) => score == null ? "—" : `${Math.round(Number(score))}%`
+        return (
+          <>
+            <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={closeImmediateAlgorithmReplacement} />
+            <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[94vw] max-w-2xl bg-gray-900 border border-red-900/50 rounded-2xl shadow-2xl overflow-hidden" dir="rtl">
+              <div className="flex items-center justify-between p-4 border-b border-gray-800">
+                <div>
+                  <h3 className="font-bold text-white text-sm">استبدال فوري — مطابقة الخوارزمية</h3>
+                  <p className="text-[11px] text-gray-500 mt-0.5">استبدال {immediateAlgorithmReplacement.missingName} من هذه الجلسة الآن</p>
+                </div>
+                <button onClick={closeImmediateAlgorithmReplacement} className="p-2 rounded-xl hover:bg-gray-800 text-gray-500 hover:text-white transition-colors">✕</button>
+              </div>
+              <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
+                <div className="rounded-lg border border-red-800/40 bg-red-950/20 px-3 py-2 text-[11px] leading-relaxed text-red-200">
+                  التغيير يخص مطابقة الخوارزمية فقط. يمكنك اختيار أي مشارك محدد مهما كان جنسه. ستتحدث شاشات الشركاء والطاولات تلقائياً، بينما تبقى جولات المجموعات ومطابقة اختيار المشاركين كما هي.
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="rounded-xl border border-gray-700 bg-gray-800/50 p-3">
+                    <p className="text-gray-500 text-[10px] mb-1">المشارك الغائب</p>
+                    <p className="text-white font-bold truncate">{immediateAlgorithmReplacement.missingName} <span className="text-gray-500">#{immediateAlgorithmReplacement.missingNum}</span></p>
+                  </div>
+                  <div className="rounded-xl border border-gray-700 bg-gray-800/50 p-3">
+                    <p className="text-gray-500 text-[10px] mb-1">شريكه الحالي · {scoreText(immediateAlgorithmReplacement.currentScore)}</p>
+                    <p className="text-white font-bold truncate">{immediateAlgorithmReplacement.currentPartnerName} <span className="text-gray-500">#{immediateAlgorithmReplacement.currentPartnerNum}</span></p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs text-gray-400 mb-2 block">ابحث عن البديل بالاسم أو الرقم</label>
+                  <div className="relative">
+                    <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                    <input
+                      autoFocus
+                      value={immediateReplacementSearch}
+                      onChange={event => setImmediateReplacementSearch(event.target.value)}
+                      placeholder="مثال: سارة أو 142"
+                      className="w-full rounded-xl border border-gray-700 bg-gray-950 py-2.5 pr-9 pl-3 text-sm text-white placeholder:text-gray-600 focus:border-red-600 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5 max-h-56 overflow-y-auto pl-1">
+                  {availableParticipants.length === 0 ? (
+                    <p className="text-xs text-gray-600 text-center py-4">لا يوجد مشارك مطابق للبحث</p>
+                  ) : availableParticipants.map(p => {
+                    const candidatePair = phase3Pairs.find(pair => pair.a === p.number || pair.b === p.number)
+                    const candidatePartnerName = candidatePair
+                      ? (candidatePair.a === p.number ? candidatePair.bName : candidatePair.aName)
+                      : null
+                    return (
+                      <button
+                        key={p.number}
+                        onClick={() => previewImmediateAlgorithmReplacement(p.number)}
+                        className={`w-full px-3 py-2.5 rounded-xl transition-colors text-right ${
+                          immediateAlgorithmReplacementWith === p.number
+                            ? 'bg-red-900/40 border border-red-700/50'
+                            : 'bg-gray-800/50 border border-transparent hover:bg-gray-800'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${p.gender === 'female' ? 'bg-pink-400' : p.gender === 'male' ? 'bg-blue-400' : 'bg-violet-400'}`} />
+                          <span className="text-sm font-semibold text-white flex-1 truncate">{p.name}</span>
+                          {immediateReplacementPreviewLoading === p.number && <Loader2 size={13} className="animate-spin text-red-300" />}
+                          <span className="text-[10px] text-gray-500">#{p.number}</span>
+                        </div>
+                        <div className="mt-1 flex flex-wrap gap-1 pr-4 text-[9px] text-gray-500">
+                          <span>{candidatePartnerName ? `حالياً مع ${candidatePartnerName} · ${scoreText(candidatePair?.compatScore)}` : 'غير مطابق حالياً'}</span>
+                          {profileStats(p).slice(0, 4).map(stat => <span key={String(stat)} className="rounded bg-gray-900 px-1.5 py-0.5">{stat}</span>)}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {selectedPerson && (
+                  <div className="rounded-xl border border-gray-700 bg-gray-950/60 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-bold text-white">{selectedPerson.name} <span className="text-gray-500">#{selectedPerson.number}</span></p>
+                      <span className="text-[10px] text-gray-500">{selectedPersonPartner ? `مع ${selectedPersonPartner.name} · ${scoreText(selectedCurrentScore)}` : "غير مطابق حالياً"}</span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {profileStats(selectedPerson).map(stat => <span key={String(stat)} className="rounded-full border border-gray-700 bg-gray-800 px-2 py-1 text-[9px] text-gray-300">{stat}</span>)}
+                    </div>
+                  </div>
+                )}
+
+                {immediateReplacementPreviewLoading != null && (
+                  <div className="flex items-center justify-center gap-2 rounded-xl border border-indigo-800/40 bg-indigo-950/20 p-4 text-xs text-indigo-200">
+                    <Loader2 size={14} className="animate-spin" /> نحسب توافق الأزواج الجديدة ونجهز المعاينة…
+                  </div>
+                )}
+                {immediateReplacementPreviewError && (
+                  <div className="rounded-xl border border-red-800/50 bg-red-950/30 p-3 text-xs text-red-200">{immediateReplacementPreviewError}</div>
+                )}
+                {previewReady && (
+                  <div className="space-y-2 rounded-xl border border-emerald-800/40 bg-emerald-950/20 p-3 text-xs">
+                    <p className="font-bold text-emerald-300">قبل وبعد الاستبدال</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="rounded-lg bg-black/20 p-2.5">
+                        <p className="text-[9px] text-gray-500 mb-1">قبل · الزوج الغائب</p>
+                        <p className="text-gray-200 truncate">{immediateAlgorithmReplacement.missingName} ↔ {immediateAlgorithmReplacement.currentPartnerName}</p>
+                        <p className="mt-1 font-bold text-gray-400">{scoreText(immediateReplacementPreview.before?.missing_pair?.score)}</p>
+                      </div>
+                      <div className="rounded-lg bg-black/20 p-2.5">
+                        <p className="text-[9px] text-gray-500 mb-1">قبل · البديل</p>
+                        <p className="text-gray-200 truncate">{selectedPerson?.name} ↔ {selectedPersonPartner?.name || "بدون شريك"}</p>
+                        <p className="mt-1 font-bold text-gray-400">{scoreText(immediateReplacementPreview.before?.replacement_pair?.score)}</p>
+                      </div>
+                      <div className="rounded-lg border border-emerald-800/30 bg-emerald-950/30 p-2.5">
+                        <p className="text-[9px] text-emerald-500 mb-1">بعد · الزوج الجديد</p>
+                        <p className="text-white truncate">{immediateReplacementPreview.after?.first_pair?.a?.name} ↔ {immediateReplacementPreview.after?.first_pair?.b?.name}</p>
+                        <p className="mt-1 font-bold text-emerald-300">{scoreText(immediateReplacementPreview.after?.first_pair?.score)}</p>
+                      </div>
+                      <div className="rounded-lg border border-emerald-800/30 bg-emerald-950/30 p-2.5">
+                        <p className="text-[9px] text-emerald-500 mb-1">بعد · الزوج الآخر</p>
+                        <p className="text-white truncate">{immediateReplacementPreview.after?.second_pair ? `${immediateReplacementPreview.after.second_pair.a.name} ↔ ${immediateReplacementPreview.after.second_pair.b.name}` : `${immediateAlgorithmReplacement.missingName} · بدون شريك`}</p>
+                        <p className="mt-1 font-bold text-emerald-300">{scoreText(immediateReplacementPreview.after?.second_pair?.score)}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="p-4 border-t border-gray-800 flex gap-2">
+                <button
+                  onClick={closeImmediateAlgorithmReplacement}
+                  className="flex-1 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-bold transition-colors"
+                >
+                  إلغاء
+                </button>
+                <button
+                  onClick={doImmediateAlgorithmReplacement}
+                  disabled={!immediateAlgorithmReplacementWith || !previewReady || immediateReplacementPreviewLoading != null || !!immediateReplacementPreviewError || !!loading}
+                  className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                >
+                  {loading?.startsWith("immediate-algorithm-replacement") ? <RefreshCw size={14} className="animate-spin" /> : <Shuffle size={14} />}
+                  تنفيذ الآن
+                </button>
+              </div>
+            </div>
+          </>
+        )
+      })()}
 
       {/* ── Swap Match Modal ─────────────────────────────────────────── */}
       {swapMatch && (() => {

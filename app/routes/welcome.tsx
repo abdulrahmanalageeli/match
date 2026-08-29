@@ -59,6 +59,7 @@ import {
   Trophy,
   EyeOff,
   CalendarDays,
+  LogOut,
 } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Avatar, AvatarFallback } from "../../components/ui/avatar"
@@ -88,6 +89,7 @@ import {
   scoreModelVersionFor,
 } from "../lib/compatibility-model"
 import { ParticipantOtpModal } from "../components/ParticipantOtpModal"
+import { clearParticipantBrowserIdentity } from "../lib/participant-browser-auth.mjs"
 import "../../app/app.css"
 import MatchResult from "./MatchResult"
 import CircularProgressBar from "../components/CircularProgressBar"
@@ -3480,16 +3482,41 @@ export default function WelcomePage() {
     }
   }
 
+  const handleParticipantLogout = useCallback(() => {
+    if (typeof window === 'undefined') return
+    const confirmed = window.confirm('هل أنت متأكد من تسجيل الخروج واستخدام حساب آخر؟')
+    if (!confirmed) return
+
+    clearParticipantBrowserIdentity(window.localStorage)
+    window.history.replaceState({}, '', '/welcome')
+    window.location.replace('/welcome')
+  }, [])
+
+  const ParticipantLogoutControl = ({ floating = false }: { floating?: boolean }) => (
+    <div className={floating ? "fixed left-3 top-[max(0.75rem,env(safe-area-inset-top))] z-[110]" : "contents"}>
+      <button
+        type="button"
+        onClick={handleParticipantLogout}
+        aria-label="تسجيل الخروج"
+        title="تسجيل الخروج واستخدام حساب آخر"
+        className="welcome-topbar-control inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-rose-400/20 bg-rose-400/[0.08] px-3 font-bold text-rose-200 shadow-lg shadow-black/10 backdrop-blur-xl transition-colors hover:border-rose-300/40 hover:bg-rose-400/[0.14] hover:text-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/70"
+      >
+        <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
+        <span>خروج</span>
+      </button>
+    </div>
+  )
+
   // Unified Navigation Bar for saved users (similar to groups page)
   const NavigationBar = () => {
-    // Keep the survey focused and distraction-free. The bar returns as soon
-    // as the participant submits or leaves the survey.
-    if (step === 2 && showSurvey) return null;
-
     // Show for users with saved tokens or assigned numbers
     // Check localStorage safely (client-side only)
     const hasStoredResultToken = typeof window !== 'undefined' ? localStorage.getItem('blindmatch_result_token') : null;
     const hasStoredReturningToken = typeof window !== 'undefined' ? localStorage.getItem('blindmatch_returning_token') : null;
+    const hasParticipantSession = Boolean(assignedNumber || secureToken || resultToken || returningPlayerToken || hasStoredResultToken || hasStoredReturningToken)
+
+    // Keep the survey focused while still leaving a clear account-switch exit.
+    if (step === 2 && showSurvey) return hasParticipantSession ? <ParticipantLogoutControl floating /> : null;
     
     if ((!token && !showRegistrationContent) || (!assignedNumber && !resultToken && !returningPlayerToken && !hasStoredResultToken && !hasStoredReturningToken)) {
       return null;
@@ -3570,6 +3597,7 @@ export default function WelcomePage() {
                   <span>تواصل</span>
                 </button>
             )}
+            <ParticipantLogoutControl />
             </div>
           </nav>
           {showRegistrationContent && secureToken && (

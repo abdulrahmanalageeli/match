@@ -26,7 +26,7 @@ import {
   CURRENT_BALANCED_SCORE_MODEL,
   currentBalancedGroupedDimensionsForDisplay,
 } from "~/lib/compatibility-model"
-import { clearParticipantBrowserIdentity } from "~/lib/participant-browser-auth.mjs"
+import { clearParticipantBrowserIdentity, getParticipantBrowserToken } from "~/lib/participant-browser-auth.mjs"
 
 // Create a shareable portrait card without relying on DOM screenshot libraries.
 // Drawing it directly keeps Arabic text sharp and makes saving reliable on mobile.
@@ -495,6 +495,25 @@ function PageWrapper({ children, className = "", embedded = false, ...contentPro
       <div {...contentProps} className={`relative ${heightClass} ${className}`}>{children}</div>
     </div>
     </MotionConfig>
+  )
+}
+
+function ParticipantLogoutButton({ onLogout, compact = false, className = "" }: {
+  onLogout: () => void
+  compact?: boolean
+  className?: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onLogout}
+      aria-label="تسجيل الخروج"
+      title="تسجيل الخروج واستخدام حساب آخر"
+      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-rose-400/20 bg-rose-500/[0.08] px-3 py-2 text-xs font-bold text-rose-200 shadow-lg shadow-black/10 backdrop-blur-xl transition-colors hover:border-rose-300/40 hover:bg-rose-500/[0.14] hover:text-rose-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/80 ${className}`}
+    >
+      <LogOut size={15} aria-hidden="true" />
+      <span className={compact ? "hidden min-[390px]:inline" : ""}>تسجيل الخروج</span>
+    </button>
   )
 }
 
@@ -1505,14 +1524,10 @@ function WelcomeScreen({ onDone, onLogout, showLogout }: {
             style={{ justifyContent: "safe center" }}
           >
             {showLogout && onLogout && (
-              <button
-                onClick={onLogout}
-                className="absolute right-4 top-[max(1rem,env(safe-area-inset-top))] inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 bg-white/[0.05] px-3 py-2 text-xs font-medium text-gray-300 transition-colors hover:border-amber-400/50 hover:text-amber-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/80"
-                aria-label="تسجيل الخروج"
-              >
-                <LogOut size={14} />
-                <span>تسجيل الخروج</span>
-              </button>
+              <ParticipantLogoutButton
+                onLogout={onLogout}
+                className="absolute right-4 top-[max(1rem,env(safe-area-inset-top))]"
+              />
             )}
             {/* Logo + pulsing rings */}
             <div className="relative mb-6 flex items-center justify-center">
@@ -1800,6 +1815,7 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
       const d = await call("e3-login-by-phone", null, { phone: cleaned })
       if (d.error) { setError(d.error); setShake(true); setTimeout(() => setShake(false), 500); return }
       localStorage.setItem("blindmatch_result_token", d.token)
+      localStorage.setItem("blindmatch_returning_token", d.token)
       onToken(d.token)
     } catch {
       setError("تعذّر تسجيل الدخول — تحقق من اتصالك وحاول مرة أخرى")
@@ -6350,7 +6366,7 @@ function AiWelcomePopup({ token, onDone, previewMessage }: { token: string; onDo
 }
 
 // ─── Not Enrolled Screen ──────────────────────────────────────────────────────
-function NotEnrolledScreen({ onUseAnotherNumber }: { onUseAnotherNumber: () => void }) {
+function NotEnrolledScreen({ onUseAnotherNumber, onLogout }: { onUseAnotherNumber: () => void; onLogout: () => void }) {
   return (
     <PageWrapper className="flex items-center justify-center p-6 text-center">
       <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="space-y-5 max-w-xs">
@@ -6364,6 +6380,7 @@ function NotEnrolledScreen({ onUseAnotherNumber }: { onUseAnotherNumber: () => v
           <button type="button" onClick={onUseAnotherNumber} className="min-h-12 rounded-2xl bg-purple-600 px-5 text-sm font-bold text-white shadow-lg shadow-purple-950/40 transition-colors hover:bg-purple-500">
             الدخول برقم آخر
           </button>
+          <ParticipantLogoutButton onLogout={onLogout} />
           <a href="/welcome" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl text-sm text-purple-300 transition-colors hover:text-purple-200">
             <Home size={14} /> العودة للصفحة الرئيسية
           </a>
@@ -6629,8 +6646,8 @@ const EVENT_PHASE_GUIDANCE: Record<string, string> = {
   final_reveal: "شاهد النتيجة أولاً، ثم افتح التفاصيل إذا رغبت",
 }
 
-function EventStatusHeader({ eventState, isOffline, pollError, lastSuccessAt, correctedNow, impersonating }: {
-  eventState: any; isOffline: boolean; pollError?: string | null; lastSuccessAt?: number | null; correctedNow: () => number; impersonating?: boolean
+function EventStatusHeader({ eventState, isOffline, pollError, lastSuccessAt, correctedNow, impersonating, onLogout }: {
+  eventState: any; isOffline: boolean; pollError?: string | null; lastSuccessAt?: number | null; correctedNow: () => number; impersonating?: boolean; onLogout?: () => void
 }) {
   const [now, setNow] = useState(() => correctedNow())
   useEffect(() => {
@@ -6678,6 +6695,7 @@ function EventStatusHeader({ eventState, isOffline, pollError, lastSuccessAt, co
         <div className="flex items-center gap-2 flex-shrink-0">
           {table != null && <span className="rounded-lg border border-amber-800/50 bg-amber-900/30 px-2.5 py-1.5 text-xs font-black text-amber-100">طاولة {table}</span>}
           {remaining != null && <span aria-label={`الوقت المتبقي ${formatTime(remaining)}`} className={`font-mono text-sm font-black tabular-nums ${remaining <= 60 ? "text-red-300" : "text-cyan-200"}`}>{formatTime(remaining)}</span>}
+          {onLogout && <ParticipantLogoutButton onLogout={onLogout} compact={table != null || remaining != null} />}
         </div>
       </div>
     </div>
@@ -6691,7 +6709,7 @@ export default function Event3Page() {
     const p = searchParams.get("token") || searchParams.get("t")
     if (p) return p
     if (isImpersonating) return null
-    return (typeof window !== "undefined" ? localStorage.getItem("blindmatch_result_token") : null) || null
+    return typeof window !== "undefined" ? getParticipantBrowserToken(window.localStorage) : null
   })
 
   // Keep the server and first client render identical, then resolve persisted
@@ -6725,7 +6743,7 @@ export default function Event3Page() {
     }
     try {
       const parameterToken = searchParams.get("token") || searchParams.get("t")
-      const hasToken = Boolean(parameterToken || localStorage.getItem("blindmatch_result_token"))
+      const hasToken = Boolean(parameterToken || getParticipantBrowserToken(window.localStorage))
       setShowWelcome(!(hasToken && localStorage.getItem(EVENT3_ONBOARDING_KEY) === "1"))
     } catch {
       setShowWelcome(true)
@@ -6875,8 +6893,14 @@ export default function Event3Page() {
 
   useEffect(() => {
     const p = searchParams.get("token") || searchParams.get("t")
-    if (p) { setToken(p); if (!isImpersonating) localStorage.setItem("blindmatch_result_token", p) }
-  }, [searchParams])
+    if (p) {
+      setToken(p)
+      if (!isImpersonating) {
+        localStorage.setItem("blindmatch_result_token", p)
+        localStorage.setItem("blindmatch_returning_token", p)
+      }
+    }
+  }, [searchParams, isImpersonating])
 
   // Online/offline detection
   useEffect(() => {
@@ -7022,19 +7046,23 @@ export default function Event3Page() {
         <p className="mb-2 text-xs font-bold tracking-wide text-amber-300">وضع الاختبار</p>
         <h1 className="text-xl font-black text-white">نجهّز التجربة الآن</h1>
         <p className="mt-3 text-sm leading-7 text-gray-400">المنظم يجري اختباراً سريعاً للنظام. سيفتح دخول المشاركين تلقائياً بعد انتهاء الاختبار.</p>
-        <button onClick={() => { setTestModeBlocked(false); retryState() }} className="mt-6 inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-4 py-2.5 text-sm font-bold text-gray-200 transition-colors hover:bg-white/[0.08]">
-          <RefreshCw size={15} />
-          التحقق مجدداً
-        </button>
+        <div className="mt-6 flex flex-col items-stretch gap-3">
+          <button onClick={() => { setTestModeBlocked(false); retryState() }} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-4 py-2.5 text-sm font-bold text-gray-200 transition-colors hover:bg-white/[0.08]">
+            <RefreshCw size={15} />
+            التحقق مجدداً
+          </button>
+          {token && !isImpersonating && <ParticipantLogoutButton onLogout={handleLogout} />}
+        </div>
       </div>
     </PageWrapper>
   )
 
-  if (showWelcome) return <WelcomeScreen onDone={handleWelcomeDone} onLogout={handleLogout} showLogout={!!token} />
+  if (showWelcome) return <WelcomeScreen onDone={handleWelcomeDone} onLogout={handleLogout} showLogout={!!token && !isImpersonating} />
   if (!token || tokenError) return <PhoneEntry onToken={t => { setToken(t); setTokenError(false) }} />
 
   if (stateLoading && !eventState) return (
     <PageWrapper className="flex items-center justify-center">
+      {!isImpersonating && <ParticipantLogoutButton onLogout={handleLogout} className="absolute left-4 top-[max(1rem,env(safe-area-inset-top))]" />}
       <Spinner size={28} />
     </PageWrapper>
   )
@@ -7052,13 +7080,14 @@ export default function Event3Page() {
         <RefreshCw size={16} />
         إعادة المحاولة
       </button>
+      {!isImpersonating && <ParticipantLogoutButton onLogout={handleLogout} />}
     </PageWrapper>
   )
 
   const { phase, timer_active, timer_start, timer_duration } = eventState
   const timerProps = { timerActive: timer_active, timerStart: timer_start, timerDuration: timer_duration, correctedNow }
 
-  if (enrolled === false) return <NotEnrolledScreen onUseAnotherNumber={handleUseAnotherNumber} />
+  if (enrolled === false) return <NotEnrolledScreen onUseAnotherNumber={handleUseAnotherNumber} onLogout={handleLogout} />
 
   const isRound = /^round[123]$/.test(phase)
   const rankingMatch = phase.match(/^ranking([123])$/)
@@ -7093,6 +7122,7 @@ export default function Event3Page() {
     && !hasPendingMoodCheck
     && !hasPendingNotification
     && !activeGroupFeedbackRound
+  const showStatusHeader = !finalQuestionsOpen && !rankingRoundToRender && !groupsOpen
 
   return (
     <MotionConfig reducedMotion="user">
@@ -7108,7 +7138,14 @@ export default function Event3Page() {
         </div>
       )}
 
-      {!finalQuestionsOpen && !rankingRoundToRender && !groupsOpen && <EventStatusHeader eventState={eventState} isOffline={isOffline} pollError={stateError} lastSuccessAt={lastSuccessAt} correctedNow={correctedNow} impersonating={isImpersonating} />}
+      {showStatusHeader && <EventStatusHeader eventState={eventState} isOffline={isOffline} pollError={stateError} lastSuccessAt={lastSuccessAt} correctedNow={correctedNow} impersonating={isImpersonating} onLogout={!isImpersonating ? handleLogout : undefined} />}
+      {!showStatusHeader && !isImpersonating && (
+        <ParticipantLogoutButton
+          onLogout={handleLogout}
+          compact
+          className="fixed left-3 top-[max(0.75rem,env(safe-area-inset-top))] z-[180]"
+        />
+      )}
 
       <div ref={phaseAnnouncementRef} tabIndex={-1} className="sr-only" aria-live="polite">
         {`المرحلة الحالية: ${EVENT_PHASE_LABELS[phase] || phase}`}

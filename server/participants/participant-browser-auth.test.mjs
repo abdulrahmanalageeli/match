@@ -4,6 +4,7 @@ import test from 'node:test'
 import {
   PARTICIPANT_BROWSER_IDENTITY_KEYS,
   clearParticipantBrowserIdentity,
+  getParticipantBrowserToken,
 } from '../../app/lib/participant-browser-auth.mjs'
 
 function memoryStorage(initial = {}) {
@@ -38,4 +39,10 @@ test('participant logout clears every token alias and cached identity value', ()
 
 test('participant logout tolerates unavailable browser storage', () => {
   assert.doesNotThrow(() => clearParticipantBrowserIdentity(null))
+})
+
+test('participant session restoration accepts either saved token alias', () => {
+  assert.equal(getParticipantBrowserToken(memoryStorage({ blindmatch_result_token: 'result-token' })), 'result-token')
+  assert.equal(getParticipantBrowserToken(memoryStorage({ blindmatch_returning_token: 'returning-token' })), 'returning-token')
+  assert.equal(getParticipantBrowserToken(memoryStorage({})), null)
 })

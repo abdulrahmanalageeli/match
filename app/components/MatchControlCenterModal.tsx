@@ -61,12 +61,13 @@ import {
   type SwapPlan,
 } from "~/lib/matchControl"
 import {
-  BALANCED_SCORE_MAXIMA,
+  compatibilityTotalForDisplay,
+  currentBalancedDimensionsForDisplay,
+  currentOppositesDimensionsForDisplay,
   LEGACY_SCORE_MAXIMA,
   isCurrentOppositesScoreRow,
   isCurrentBalancedScoreRow as isBalancedScoreRow,
   isSupportedCurrentScoreRow,
-  parseScoreObject as scoreObject,
 } from "~/lib/compatibility-model"
 
 type Props = {
@@ -109,40 +110,12 @@ const verdictMeta = {
   risky: { label: "عالي المخاطر", icon: ShieldAlert, className: "border-red-400/30 bg-red-500/12 text-red-200" },
 }
 
-function scoreMaximaFor(row: any) {
-  return isBalancedScoreRow(row) ? BALANCED_SCORE_MAXIMA : LEGACY_SCORE_MAXIMA
-}
-
-function communicationScoreForDisplay(row: any): number | undefined {
-  const stored = Number(row?.communication_compatibility_score ?? row?.communication_score)
-  if (!isBalancedScoreRow(row)) return Number.isFinite(stored) ? stored : undefined
-
-  const questionScores = scoreObject(row?.question_scores ?? row?.questionScores)
-  const directScores = ["communication1", "communication2", "communication3", "communication4", "communication5"]
-    .map(key => Number(questionScores?.[key]))
-  if (directScores.every(Number.isFinite)) return directScores.reduce((total, score) => total + score, 0)
-
-  const breakdown = scoreObject(row?.score_breakdown ?? row?.scoreBreakdown)
-  const aggregate = Number(breakdown?.communicationDisagreement ?? breakdown?.communication_disagreement)
-  const disagreement = Number(row?.disagreement_style_score ?? questionScores?.disagreement)
-  if (Number.isFinite(aggregate) && Number.isFinite(disagreement)) return Math.max(0, aggregate - disagreement)
-  return Number.isFinite(stored) ? stored : undefined
-}
-
 function scoreMetricsForDisplay(row: any) {
-  if (isCurrentOppositesScoreRow(row)) {
-    const snapshot = scoreObject(row?.score_snapshot ?? row?.scoreSnapshot)
-    const breakdown = scoreObject(row?.score_breakdown ?? row?.scoreBreakdown ?? snapshot?.scoreBreakdown)
-    return [
-      ["إيقاع التفاعل", breakdown?.interactionSynergy, 20],
-      ["توافق القيم", breakdown?.coreValuesAlignment, 17],
-      ["توافق التواصل", breakdown?.communicationAlignment, 5],
-      ["اختلاف نمط الحياة", breakdown?.lifestyleDifference, 12],
-      ["اختلاف الطاقة", breakdown?.vibeDifference, 12],
-      ["اختلاف الدعابة", breakdown?.humorDifference, 10],
-    ] as const
-  }
-  const maxima = scoreMaximaFor(row)
+  const current = currentBalancedDimensionsForDisplay(row)
+  if (current) return current.map(dimension => [dimension.label, dimension.value, dimension.max] as const)
+  const opposites = currentOppositesDimensionsForDisplay(row)
+  if (opposites) return opposites.map(dimension => [dimension.label, dimension.value, dimension.max] as const)
+  const maxima = LEGACY_SCORE_MAXIMA
   return [
     ["التفاعل", row?.synergy_score, maxima.synergy],
     ["الطاقة", row?.vibe_compatibility_score ?? row?.vibe_score, maxima.vibe],
@@ -152,7 +125,7 @@ function scoreMetricsForDisplay(row: any) {
     ["وتيرة التقارب", row?.attachment_pace_score, maxima.attachment],
     ["نمط الحياة", row?.lifestyle_compatibility_score ?? row?.lifestyle_score, maxima.lifestyle],
     ["الدعابة/الانفتاح", row?.humor_open_score ?? row?.humor_open_compatibility_score, maxima.humor],
-    ["التواصل", communicationScoreForDisplay(row), maxima.communication],
+    ["التواصل", row?.communication_compatibility_score ?? row?.communication_score, maxima.communication],
     ["القيم/الحدود/اللغة", row?.core_values_compatibility_score, maxima.core],
     ["الهدف", row?.intent_score, maxima.intent],
   ] as const
@@ -178,7 +151,7 @@ function ScorePill({ score, previous }: { score: number | null; previous?: numbe
         : "border-red-400/30 bg-red-500/15 text-red-200"
   const delta = score != null && previous != null ? score - previous : null
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs font-black tabular-nums ${tone}`}>
+    <span title={score == null ? "التوافق الإجمالي غير محسوب" : `التوافق الإجمالي: ${score}%`} className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs font-black tabular-nums ${tone}`}>
       {score == null ? "غير محسوب" : `${score}%`}
       {delta != null && delta !== 0 && (
         <span className={delta > 0 ? "text-emerald-300" : "text-red-300"}>{delta > 0 ? `+${delta}` : delta}</span>
@@ -699,12 +672,12 @@ export default function MatchControlCenterModal({
           maxDepth: chainPaymentScope === "any" ? 1 : 2,
           eligibleNumbers: chainEligibleNumbers,
           isPairEligible: pairMeetsMatchingCriteria,
-          scoreMetric: "compound_lifestyle",
+          scoreMetric: "total_compatibility",
         })
         return {
           person,
           number,
-          score: scoreFor(scoreLookup, swapSource, number, "compound_lifestyle"),
+          score: scoreFor(scoreLookup, swapSource, number, "total_compatibility"),
           currentPartner: partnerMap.get(number),
           bestPlan: plans[0] || null,
         }
@@ -755,7 +728,7 @@ export default function MatchControlCenterModal({
       maxDepth: 2,
       eligibleNumbers: chainEligibleNumbers,
       isPairEligible: pairMeetsMatchingCriteria,
-      scoreMetric: "compound_lifestyle",
+      scoreMetric: "total_compatibility",
     })
     : [], [chainEligibleNumbers, lockedKeys, pairMeetsMatchingCriteria, pairs, people, scoreLookup, swapSource, swapTarget])
 
@@ -776,36 +749,6 @@ export default function MatchControlCenterModal({
   useEffect(() => {
     setChosenPlan(plans[0] || null)
   }, [plans])
-
-  const applyPairs = async (newPairs: Array<{ a: number; b: number }>, round: number, force = true) => {
-    for (const pair of newPairs) {
-      const response = await fetch("/api/admin/trigger-match", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          eventId: currentEventId,
-          manualMatch: { participant1: pair.a, participant2: pair.b, round, bypassEligibility: false, testModeOnly: false, forceSwap: force },
-        }),
-      })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.error || `فشل إنشاء المطابقة #${pair.a} ↔ #${pair.b}`)
-    }
-  }
-
-  const preflightPlan = async (plan: SwapPlan, round: number) => {
-    for (const pair of plan.afterPairs) {
-      const response = await fetch("/api/admin/trigger-match", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          eventId: currentEventId,
-          manualMatch: { participant1: pair.a, participant2: pair.b, round, bypassEligibility: false, testModeOnly: true },
-        }),
-      })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.error || `المطابقة #${pair.a} ↔ #${pair.b} غير مؤهلة`)
-    }
-  }
 
   const postAdminAction = async (body: Record<string, unknown>) => {
     const response = await fetch("/api/admin", {
@@ -862,18 +805,7 @@ export default function MatchControlCenterModal({
       if (response.ok) {
         auditId = data.audit_id
       } else if (response.status === 501 && data.migration_required) {
-        // Compatibility fallback for deployments where the new migration has
-        // not reached the database yet. The UI remains usable while retaining
-        // the existing preflight and best-effort rollback behavior.
-        await preflightPlan(chosenPlan, selectedPair.round)
-        try {
-          await applyPairs(chosenPlan.afterPairs.map(pair => ({ a: pair.a, b: pair.b })), selectedPair.round)
-        } catch (applyError) {
-          if (undoPairs.length) {
-            try { await applyPairs(undoPairs, selectedPair.round) } catch (rollbackError) { console.error("Swap rollback failed", rollbackError) }
-          }
-          throw applyError
-        }
+        throw new Error("تحديث قاعدة البيانات الخاص بالتبديل الذري غير مطبق. أوقفت العملية بدون تغيير أي زوج.")
       } else {
         throw new Error(data.error || "تعذر تطبيق خطة التبديل")
       }
@@ -898,12 +830,9 @@ export default function MatchControlCenterModal({
     try {
       if (lastUndo.auditId) {
         const { response, data } = await postAdminAction({ action: "undo-match-swap-plan", audit_id: lastUndo.auditId })
-        if (!response.ok) {
-          if (response.status === 501 && data.migration_required) await applyPairs(lastUndo.pairs, lastUndo.round)
-          else throw new Error(data.error || "تعذر التراجع عن التبديل")
-        }
+        if (!response.ok) throw new Error(data.error || "تعذر التراجع عن التبديل ذرياً؛ لم يتم تغيير أي زوج")
       } else {
-        await applyPairs(lastUndo.pairs, lastUndo.round)
+        throw new Error("لا يوجد سجل ذري صالح للتراجع؛ لم يتم تغيير أي زوج")
       }
       setLastUndo(null)
       toast.success("تمت إعادة الأزواج السابقة")
@@ -1228,7 +1157,7 @@ function PlanPairRow({ pair, people, pairData, old = false }: { pair: { a: numbe
 }
 
 function PairScoreName({ number, other, people, pairData, fallbackScore, align }: { number: number; other: number; people: Map<number, MatchControlPerson>; pairData?: any; fallbackScore: number | null; align: "right" | "left" }) {
-  const total = Number(pairData?.compatibility_score ?? pairData?.total_compatibility_score ?? fallbackScore)
+  const total = compatibilityTotalForDisplay(pairData, fallbackScore)
   const balanced = isBalancedScoreRow(pairData)
   const opposites = isCurrentOppositesScoreRow(pairData)
   const metrics = scoreMetricsForDisplay(pairData)
@@ -1245,7 +1174,7 @@ function PairScoreName({ number, other, people, pairData, fallbackScore, align }
     <span className="group relative min-w-0 flex-1">
       <button type="button" className="block w-full truncate rounded px-1 text-right text-slate-200 underline decoration-dotted decoration-slate-600 underline-offset-2 outline-none hover:text-cyan-200 focus:text-cyan-200" aria-label={`عرض توافق ${getPersonName(people.get(number), number)} مع ${getPersonName(people.get(other), other)}`}>#{number} {getPersonName(people.get(number), number)}</button>
       <span role="tooltip" className={`pointer-events-none invisible absolute bottom-full z-40 mb-2 w-[min(280px,calc(100vw-3rem))] rounded-2xl border border-cyan-400/25 bg-[#07111f]/98 p-3 text-right opacity-0 shadow-2xl shadow-black/60 backdrop-blur-xl transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 ${align === "right" ? "right-0" : "left-0"}`}>
-        <span className="flex items-start justify-between gap-3"><span><span className="block text-[10px] font-black text-white">{getPersonName(people.get(number), number)}</span><span className="mt-0.5 block text-[9px] text-slate-400">توافقه مع {getPersonName(people.get(other), other)} #{other}</span></span><span className="text-sm font-black text-cyan-200">{Number.isFinite(total) ? `${Math.round(total)}%` : "غير محسوب"}</span></span>
+        <span className="flex items-start justify-between gap-3"><span><span className="block text-[10px] font-black text-white">{getPersonName(people.get(number), number)}</span><span className="mt-0.5 block text-[9px] text-slate-400">التوافق الإجمالي مع {getPersonName(people.get(other), other)} #{other}</span></span><span className="rounded-full border border-cyan-400/25 bg-cyan-500/10 px-2 py-1 text-sm font-black text-cyan-100">{total !== null ? `${Math.round(total)}%` : "غير محسوب"}</span></span>
         {opposites && <span className="mt-2 block text-[9px] font-bold text-violet-300">وضع الأضداد · 76 نقطة خام محوّلة إلى 100</span>}
         <span className="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-3">{metrics.map(([label, value, max]) => <span key={label} className="rounded-xl border border-white/8 bg-white/[0.04] p-2 text-center"><span className="block text-[8px] text-slate-400">{label}</span><span className="mt-1 block text-xs font-black text-white">{Number.isFinite(Number(value)) ? `${Number(value).toFixed(1)}/${max}` : "—"}</span></span>)}</span>
         {!balanced && !opposites && (adjustments.length ? <span className="mt-2 block rounded-xl border border-amber-400/15 bg-amber-500/[0.07] p-2"><span className="block text-[8px] font-black text-amber-200">المكافآت والتعديلات</span>{adjustments.map(item => <span key={item} className="mt-1 block text-[9px] leading-4 text-amber-100/80">• {item}</span>)}</span> : <span className="mt-2 block text-[9px] text-slate-500">لا توجد مكافآت أو خصومات مسجلة لهذا الزوج.</span>)}
@@ -1261,8 +1190,9 @@ function Metric({ label, before, after }: { label: string; before?: number | nul
 function PairBreakdown({ pair, fallbackScore }: { pair: any; fallbackScore: number | null }) {
   const metrics = scoreMetricsForDisplay(pair)
   const opposites = isCurrentOppositesScoreRow(pair)
+  const total = compatibilityTotalForDisplay(pair, fallbackScore)
   return <div className="space-y-3">
     <HistoryConfidencePanel pair={pair} />
-    <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-3 sm:p-4"><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-purple-300" /><span className="text-xs font-black text-white">تفصيل نتيجة الزوج</span></div><div className="flex items-center gap-2"><MatchInsightsCoverageBadge pair={pair} /><ScorePill score={pair?.compatibility_score != null ? Math.round(Number(pair.compatibility_score)) : fallbackScore} /></div></div>{opposites && <p className="mb-3 text-[10px] font-bold text-violet-300">وضع الأضداد · 76 نقطة خام محوّلة إلى 100</p>}<div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">{metrics.map(([label, value, max]) => <div key={String(label)} className="rounded-xl bg-black/20 p-2 text-center"><div className="text-[9px] text-slate-500">{label}</div><div className="mt-1 text-sm font-black text-slate-200">{Number.isFinite(Number(value)) ? `${Number(value).toFixed(1)}/${max}` : "—"}</div></div>)}</div>{pair?.reason && <p className="mt-3 rounded-xl border border-white/5 bg-black/20 p-2 text-[10px] leading-5 text-slate-400">{pair.reason}</p>}</div>
+    <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-3 sm:p-4"><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-purple-300" /><span className="text-xs font-black text-white">تفصيل نتيجة الزوج</span></div><div className="flex items-center gap-2"><MatchInsightsCoverageBadge pair={pair} /><ScorePill score={total !== null ? Math.round(total) : null} /></div></div>{opposites && <p className="mb-3 text-[10px] font-bold text-violet-300">وضع الأضداد · 76 نقطة خام محوّلة إلى 100</p>}<div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">{metrics.map(([label, value, max]) => <div key={String(label)} className="rounded-xl bg-black/20 p-2 text-center"><div className="text-[9px] text-slate-500">{label}</div><div className="mt-1 text-sm font-black text-slate-200">{Number.isFinite(Number(value)) ? `${Number(value).toFixed(1)}/${max}` : "—"}</div></div>)}</div>{pair?.reason && <p className="mt-3 rounded-xl border border-white/5 bg-black/20 p-2 text-[10px] leading-5 text-slate-400">{pair.reason}</p>}</div>
   </div>
 }

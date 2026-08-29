@@ -249,18 +249,6 @@ export function getPairCriteriaIssues(
   }
   if (!ageRangePasses(personA, answersA, ageB) || !ageRangePasses(personB, answersB, ageA)) issues.push("نطاق العمر المفضل غير متوافق")
 
-  const intentA = String(personA.intent_goal || answersA.intent_goal || "").toUpperCase()
-  const intentB = String(personB.intent_goal || answersB.intent_goal || "").toUpperCase()
-  const acceptsIntentMismatch = (person: MatchControlPerson, answers: any) => {
-    const raw = person.open_intent_goal_mismatch ?? answers.open_intent_goal_mismatch
-    return raw === true || String(raw).toLowerCase() === "true"
-  }
-  if (intentA && intentB && intentA !== intentB) {
-    const blockedByA = intentA === "B" && !acceptsIntentMismatch(personA, answersA)
-    const blockedByB = intentB === "B" && !acceptsIntentMismatch(personB, answersB)
-    if (blockedByA || blockedByB) issues.push("هدف المشاركة غير متوافق")
-  }
-
   if (!options.ignoreInteractionStyle) {
     const humorA = String(personA.humor_banter_style || answersA.humor_banter_style || "").toUpperCase()
     const humorB = String(personB.humor_banter_style || answersB.humor_banter_style || "").toUpperCase()

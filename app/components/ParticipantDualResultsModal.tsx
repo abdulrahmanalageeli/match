@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from "react"
 import { X, Users, AlertTriangle, CheckCircle, XCircle, Search, ChevronDown, ChevronUp, DollarSign, Lock, Unlock } from "lucide-react"
+import {
+  compatibilityTotalForDisplay,
+  currentBalancedGroupedDimensionsForDisplay,
+  currentOppositesDimensionsForDisplay,
+} from "../lib/compatibility-model"
 
 interface PartnerMatch {
   partner_assigned_number: number
@@ -12,6 +17,15 @@ interface PartnerMatch {
   lifestyle_compatibility_score?: number
   core_values_compatibility_score?: number
   vibe_compatibility_score?: number
+  synergy_score?: number
+  humor_open_score?: number
+  intent_score?: number
+  score_model_version?: string | null
+  score_content_hash?: string | null
+  score_snapshot?: Record<string, unknown> | string | null
+  score_breakdown?: Record<string, unknown> | null
+  question_scores?: Record<string, unknown> | null
+  score_provenance_valid?: boolean
   humor_early_openness_bonus?: 'full' | 'partial' | 'none'
   humor_clash_detected?: boolean
   humor_clash_veto_applied?: boolean
@@ -82,6 +96,9 @@ function MatchSide({
 
   const isOrganizer = match.is_organizer_match
   const canLock = !isOrganizer && match.partner_assigned_number && match.partner_assigned_number !== 9999
+  const total = compatibilityTotalForDisplay(match) ?? match.compatibility_score
+  const currentDimensions = currentBalancedGroupedDimensionsForDisplay(match)
+    ?? currentOppositesDimensionsForDisplay(match)
 
   return (
     <div className={`flex-1 p-3 rounded-lg border bg-gradient-to-br ${accent} flex flex-col gap-1`}>
@@ -112,8 +129,8 @@ function MatchSide({
         )}
       </div>
       <div className="flex items-center justify-between text-xs">
-        <span className={`font-bold ${scoreColor(match.compatibility_score)}`}>
-          {Math.round(match.compatibility_score)}%
+        <span title={`التوافق الإجمالي: ${Math.round(total)}%`} className={`rounded-full border border-white/10 bg-black/20 px-2 py-0.5 font-bold ${scoreColor(total)}`}>
+          {Math.round(total)}%
         </span>
         {match.table_number != null && (
           <span className="text-white/60">طاولة {match.table_number}</span>
@@ -124,7 +141,16 @@ function MatchSide({
           <AlertTriangle className="h-3 w-3" /> A↔D دعابة
         </span>
       )}
-      {(match.mbti_compatibility_score != null || match.vibe_compatibility_score != null) && (
+      {currentDimensions ? (
+        <div className="mt-1 grid grid-cols-2 gap-1 text-[10px] text-white/75">
+          {currentDimensions.map(dimension => (
+            <span key={dimension.key} title={`${dimension.label}: ${dimension.value ?? "—"}/${dimension.max}`} className="rounded border border-white/10 bg-black/15 px-1.5 py-1">
+              <span className="text-white/45">{dimension.shortLabel}</span>{" "}
+              <b className="text-white/90">{dimension.value !== null ? dimension.value.toFixed(1) : "—"}/{dimension.max}</b>
+            </span>
+          ))}
+        </div>
+      ) : (match.mbti_compatibility_score != null || match.vibe_compatibility_score != null) && (
         <div className="grid grid-cols-3 gap-1 text-[10px] text-white/70 mt-1">
           {match.mbti_compatibility_score != null && (
             <span title="MBTI">M:{Math.round(match.mbti_compatibility_score)}</span>
@@ -240,7 +266,7 @@ export default function ParticipantDualResultsModal({
           action: "add-locked-match",
           participant1: selfNumber,
           participant2: match.partner_assigned_number,
-          compatibilityScore: match.compatibility_score,
+          compatibilityScore: compatibilityTotalForDisplay(match) ?? match.compatibility_score,
           round,
           reason: `Admin locked from dual modal (${side === 'same' ? 'R1 same-gender' : 'R2 opposite-gender'})`,
         }),
@@ -303,10 +329,10 @@ export default function ParticipantDualResultsModal({
       if (sortBy === 'number') { va = a.assigned_number; vb = b.assigned_number }
       else if (sortBy === 'name') { va = a.name; vb = b.name }
       else {
-        const aSame = a.sameMatch?.compatibility_score ?? 0
-        const aOpp = a.oppositeMatch?.compatibility_score ?? 0
-        const bSame = b.sameMatch?.compatibility_score ?? 0
-        const bOpp = b.oppositeMatch?.compatibility_score ?? 0
+        const aSame = a.sameMatch ? compatibilityTotalForDisplay(a.sameMatch) ?? a.sameMatch.compatibility_score : 0
+        const aOpp = a.oppositeMatch ? compatibilityTotalForDisplay(a.oppositeMatch) ?? a.oppositeMatch.compatibility_score : 0
+        const bSame = b.sameMatch ? compatibilityTotalForDisplay(b.sameMatch) ?? b.sameMatch.compatibility_score : 0
+        const bOpp = b.oppositeMatch ? compatibilityTotalForDisplay(b.oppositeMatch) ?? b.oppositeMatch.compatibility_score : 0
         va = (aSame + aOpp) / 2
         vb = (bSame + bOpp) / 2
       }

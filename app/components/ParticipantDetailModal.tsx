@@ -7,6 +7,8 @@ import { HistoryConfidenceBadges } from "./HistoryConfidenceBadge"
 import { getPairMatchInsightsCoverage } from "../lib/matchControl"
 import {
   BALANCED_SCORE_MAXIMA,
+  compatibilityTotalForDisplay,
+  currentBalancedDimensionsForDisplay,
   LEGACY_SCORE_MAXIMA,
   isCurrentOppositesScoreRow,
   isCurrentBalancedScoreRow as isBalancedScoreRow,
@@ -25,6 +27,8 @@ function scoreMaximaFor(row: any) {
 }
 
 function communicationScoreForDisplay(row: any): number | undefined {
+  const current = currentBalancedDimensionsForDisplay(row)?.find(dimension => dimension.key === "communication")?.value
+  if (current !== null && current !== undefined) return current
   const stored = Number(row?.communication_compatibility_score ?? row?.communication_score)
   if (!isBalancedScoreRow(row)) return Number.isFinite(stored) ? stored : undefined
 
@@ -125,9 +129,11 @@ interface ParticipantMatch {
   openness_zero_zero_penalty_applied?: boolean
   compound_lifestyle_score?: number
   score_model_version?: string
+  score_content_hash?: string | null
   score_breakdown?: Record<string, unknown> | null
   question_scores?: Record<string, unknown> | null
   score_snapshot?: Record<string, unknown> | string | null
+  score_provenance_valid?: boolean
 }
 
 type DetailSortKey =
@@ -457,6 +463,26 @@ export default function ParticipantDetailModal({
 
   if (!isOpen || !participant) return null
 
+  // One provenance parse per row per render. Sorting and the wide component
+  // table reuse this cache instead of repeatedly decoding score snapshots.
+  const currentDimensionCache = new WeakMap<object, ReturnType<typeof currentBalancedDimensionsForDisplay>>()
+  const totalScoreCache = new WeakMap<object, number | null>()
+  const currentDimensions = (match: ParticipantMatch) => {
+    if (currentDimensionCache.has(match)) return currentDimensionCache.get(match) ?? null
+    const dimensions = currentBalancedDimensionsForDisplay(match)
+    currentDimensionCache.set(match, dimensions)
+    return dimensions
+  }
+  const currentDimensionValue = (match: ParticipantMatch, key: string) => (
+    currentDimensions(match)?.find(dimension => dimension.key === key)?.value ?? null
+  )
+  const displayedTotal = (match: ParticipantMatch) => {
+    if (totalScoreCache.has(match)) return totalScoreCache.get(match) ?? null
+    const total = compatibilityTotalForDisplay(match)
+    totalScoreCache.set(match, total)
+    return total
+  }
+
   const changeDetailSort = (key: DetailSortKey) => {
     if (detailSortKey === key) {
       setDetailSortDirection(direction => direction === "asc" ? "desc" : "asc")
@@ -485,16 +511,39 @@ export default function ParticipantDetailModal({
       return data?.payment_waived === true ? 2 : data?.PAID_DONE === true ? 3 : 1
     }
     if (detailSortKey === "flags") return matchFlagCount(match)
-    if (detailSortKey === "communication_compatibility_score") return communicationScoreForDisplay(match) ?? null
+    if (detailSortKey === "communication_compatibility_score") return currentDimensionValue(match, "communication") ?? communicationScoreForDisplay(match) ?? null
     if (detailSortKey === "compound_lifestyle_score") {
-      const vibe = match.vibe_compatibility_score ?? 0
-      const disagreement = match.disagreement_style_score ?? 0
-      const currentLife = match.current_life_overlap_score ?? 0
-      const similarity = match.similarity_preference_score ?? 0
-      const attachment = match.attachment_pace_score ?? 0
-      const lifestyle = match.lifestyle_compatibility_score ?? 0
-      return vibe + disagreement + currentLife + similarity + attachment + lifestyle
+      const keys = ["vibe", "disagreement", "focus", "similarity", "attachment", "lifestyle"]
+      const values = keys.map(key => currentDimensionValue(match, key))
+      if (values.every(value => value !== null)) return values.reduce<number>((sum, value) => sum + (value ?? 0), 0)
+      const legacy = [
+        match.vibe_compatibility_score,
+        match.disagreement_style_score,
+        match.current_life_overlap_score,
+        match.similarity_preference_score,
+        match.attachment_pace_score,
+        match.lifestyle_compatibility_score,
+      ].map(value => Number(value ?? 0))
+      return legacy.reduce((sum, value) => sum + value, 0)
     }
+    const dimensionKeyBySort: Partial<Record<DetailSortKey, string>> = {
+      synergy_score: "synergy",
+      disagreement_style_score: "disagreement",
+      current_life_overlap_score: "focus",
+      similarity_preference_score: "similarity",
+      attachment_pace_score: "attachment",
+      lifestyle_compatibility_score: "lifestyle",
+      humor_open_score: "humor",
+      core_values_compatibility_score: "values",
+      intent_score: "intent",
+      vibe_compatibility_score: "vibe",
+    }
+    const dimensionKey = dimensionKeyBySort[detailSortKey]
+    if (dimensionKey) {
+      const value = currentDimensionValue(match, dimensionKey)
+      if (value !== null) return value
+    }
+    if (detailSortKey === "compatibility_score") return displayedTotal(match)
     const value = match[detailSortKey]
     return typeof value === "number" || typeof value === "string" ? value : null
   }
@@ -762,20 +811,20 @@ export default function ParticipantDetailModal({
                         )}
                         {matchType !== "group" && (
                           <>
-                            {renderSortableHeader("التفاعل", "synergy_score")}
-                            {renderSortableHeader("أسلوب الاختلاف", "disagreement_style_score")}
+                            {renderSortableHeader("إيقاع التفاعل", "synergy_score")}
+                            {renderSortableHeader("إدارة الاختلاف", "disagreement_style_score")}
                             {renderSortableHeader("المرحلة الحالية", "current_life_overlap_score")}
                             {renderSortableHeader("تفضيل التشابه", "similarity_preference_score")}
                             {renderSortableHeader("وتيرة التقارب", "attachment_pace_score")}
-                            {renderSortableHeader("نمط الحياة", "lifestyle_compatibility_score")}
+                            {renderSortableHeader("استدامة نمط الحياة", "lifestyle_compatibility_score")}
                             {renderSortableHeader("الدعابة/الانفتاح", "humor_open_score")}
                             {renderSortableHeader("التواصل", "communication_compatibility_score")}
                             {renderSortableHeader("القيم/الحدود/اللغة", "core_values_compatibility_score")}
                             {renderSortableHeader("الهدف", "intent_score")}
                             {matchType === "ai" && (
-                              renderSortableHeader("الطاقة", "vibe_compatibility_score")
+                              renderSortableHeader("التوافق الدلالي", "vibe_compatibility_score")
                             )}
-                            {renderSortableHeader("مجموع نمط الحياة", "compound_lifestyle_score")}
+                            {renderSortableHeader("السياق والتقارب والحياة", "compound_lifestyle_score")}
                           </>
                         )}
                       </tr>
@@ -980,14 +1029,14 @@ export default function ParticipantDetailModal({
                           </td>
                           <td className="p-4 text-center">
                             <div className="flex flex-col items-center gap-1.5">
-                              <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${getScoreBg(match.compatibility_score)}`}>
-                                <span className={`font-bold ${getScoreColor(match.compatibility_score)}`}>
-                                  {match.compatibility_score}%
+                              <div title={`التوافق الإجمالي: ${displayedTotal(match) ?? "غير محسوب"}%`} className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${getScoreBg(displayedTotal(match) ?? 0)}`}>
+                                <span className={`font-bold ${getScoreColor(displayedTotal(match) ?? 0)}`}>
+                                  {displayedTotal(match) ?? "—"}%
                                 </span>
                               {(() => {
                                 const locked = lockedByParticipant.get(match.participant_number)
                                 if (!locked) return null
-                                const delta = match.compatibility_score - locked.score
+                                const delta = (displayedTotal(match) ?? match.compatibility_score) - locked.score
                                 if (delta > 0) {
                                   return (
                                     <Tooltip.Provider delayDuration={150}>
@@ -1255,6 +1304,35 @@ export default function ParticipantDetailModal({
                                 <td colSpan={matchType === "ai" ? 12 : 11} className="p-4 text-center text-xs text-violet-300">
                                   وضع الأضداد · المجموع محفوظ بلقطة دقيقة — افتح تحليل الزوج لعرض مكونات 76→100
                                 </td>
+                              )
+                            }
+                            const balancedDimensions = currentDimensions(match)
+                            if (balancedDimensions) {
+                              const dimension = (key: string) => balancedDimensions.find(item => item.key === key)
+                              const subtotalKeys = ["vibe", "disagreement", "focus", "similarity", "attachment", "lifestyle"]
+                              const subtotalValues = subtotalKeys.map(key => dimension(key)?.value ?? null)
+                              const contextLifeSubtotal = subtotalValues.every(value => value !== null)
+                                ? subtotalValues.reduce<number>((sum, value) => sum + (value ?? 0), 0)
+                                : null
+                              const cell = (key: string, tone = "text-slate-300") => {
+                                const item = dimension(key)
+                                return <td className="p-4 text-center"><span className={`${tone} text-sm`}>{item?.value !== null && item?.value !== undefined ? `${item.value.toFixed(1)}/${item.max}` : "—"}</span></td>
+                              }
+                              return (
+                                <>
+                                  {cell("synergy")}
+                                  {cell("disagreement", "text-cyan-200 font-semibold")}
+                                  {cell("focus", "text-cyan-200 font-semibold")}
+                                  {cell("similarity", "text-cyan-200 font-semibold")}
+                                  {cell("attachment", "text-cyan-200 font-semibold")}
+                                  {cell("lifestyle")}
+                                  {cell("humor")}
+                                  {cell("communication")}
+                                  {cell("values")}
+                                  {cell("intent")}
+                                  {matchType === "ai" && cell("vibe")}
+                                  <td className="p-4 text-center"><span className="text-purple-200 text-sm font-bold">{contextLifeSubtotal !== null ? `${contextLifeSubtotal.toFixed(1)}/43` : "—"}</span></td>
+                                </>
                               )
                             }
                             const maxima = scoreMaximaFor(match)

@@ -832,6 +832,7 @@ export default function AdminPage() {
   const [testModeOnly, setTestModeOnly] = useState(false)
   const [manualMatchMode, setManualMatchMode] = useState<'standard' | 'opposites'>('standard')
   const [showAllMatches, setShowAllMatches] = useState(false)
+  const [possibleMatchesScope, setPossibleMatchesScope] = useState<'event' | 'all'>('event')
   const [debugPair, setDebugPair] = useState(false)
   const [analyzeManualPair, setAnalyzeManualPair] = useState(false)
   const [showManualPairAnalysis, setShowManualPairAnalysis] = useState(false)
@@ -3543,7 +3544,7 @@ const fetchParticipants = async () => {
             eventId: currentEventId,
             viewAllMatches: {
               participantNumber: participant1,
-              bypassEligibility: bypassEligibility
+              scope: possibleMatchesScope,
             }
           }),
         })
@@ -3570,12 +3571,14 @@ const fetchParticipants = async () => {
             const targetParticipant = participants.find(p => p.assigned_number === pair.participant_a)
             const partnerParticipant = participants.find(p => p.assigned_number === pair.participant_b)
             
-            const targetName = targetParticipant?.name || 
+            const targetName = pair.participant_a_name ||
+                              targetParticipant?.name ||
                               targetParticipant?.survey_data?.name || 
                               targetParticipant?.survey_data?.answers?.name ||
                               `المشارك #${pair.participant_a}`
             
-            const partnerName = partnerParticipant?.name || 
+            const partnerName = pair.participant_b_name ||
+                               partnerParticipant?.name ||
                                partnerParticipant?.survey_data?.name || 
                                partnerParticipant?.survey_data?.answers?.name ||
                                `المشارك #${pair.participant_b}`
@@ -3594,6 +3597,13 @@ const fetchParticipants = async () => {
               lifestyle_compatibility_score: pair.lifestyle_compatibility_score,
               core_values_compatibility_score: pair.core_values_compatibility_score,
               vibe_compatibility_score: pair.vibe_compatibility_score,
+              hard_gate_report: pair.hard_gate_report,
+              gate_report: pair.gate_report,
+              failed_hard_gates: pair.failed_hard_gates || [],
+              passes_all_hard_gates: pair.passes_all_hard_gates === true,
+              included_despite_hard_gates: pair.included_despite_hard_gates === true,
+              possible_matches_scope: pair.possible_matches_scope || data.scope || possibleMatchesScope,
+              incompatibility_reason: (pair.failed_hard_gates || []).map((gate: any) => gate.label).join(', '),
               humor_early_openness_bonus: pair.bonusType || 'none',
               is_organizer_match: false,
               paid_done: targetParticipant?.PAID_DONE === true,
@@ -3608,7 +3618,7 @@ const fetchParticipants = async () => {
           setTotalMatches(data.calculatedPairs.length)
           setShowResultsModal(true)
           setNewManualMatch({participant1: '', participant2: ''})
-          toast.success(`Found ${data.calculatedPairs.length} gender-compatible matches for participant #${participant1}`)
+          toast.success(`Found ${data.calculatedPairs.length} completed-survey candidates (${data.scope === 'all' ? 'all history' : `event ${currentEventId}`}) for participant #${participant1}`)
         } else {
           throw new Error(data.error || "No calculated pairs returned from server")
         }
@@ -4222,6 +4232,15 @@ const fetchParticipants = async () => {
           lifestyle_compatibility_score: match.lifestyle_compatibility_score || 0,
           core_values_compatibility_score: match.core_values_compatibility_score || 0,
           vibe_compatibility_score: match.vibe_compatibility_score || 0,
+          synergy_score: match.synergy_score ?? 0,
+          humor_open_score: match.humor_open_score ?? 0,
+          intent_score: match.intent_score ?? 0,
+          score_model_version: match.score_model_version ?? null,
+          score_content_hash: match.score_content_hash ?? null,
+          score_snapshot: match.score_snapshot ?? null,
+          score_breakdown: match.score_breakdown ?? null,
+          question_scores: match.question_scores ?? null,
+          score_provenance_valid: match.score_provenance_valid,
           humor_early_openness_bonus: match.humor_early_openness_bonus || 'none',
           humor_clash_detected: (
             (humorMap.get(selfNumber) === 'A' && humorMap.get(partnerNum) === 'D') ||
@@ -7173,13 +7192,14 @@ Proceed?`
                 <input
                   type="checkbox"
                   checked={bypassEligibility}
+                  disabled={showAllMatches}
                   onChange={(e) => setBypassEligibility(e.target.checked)}
-                  className="w-4 h-4 text-orange-500 bg-white/10 border-white/20 rounded focus:ring-orange-400/50 focus:ring-2"
+                  className="w-4 h-4 text-orange-500 bg-white/10 border-white/20 rounded focus:ring-orange-400/50 focus:ring-2 disabled:opacity-40"
                 />
                 <span className={`text-sm font-medium transition-colors ${
                   bypassEligibility ? 'text-orange-300' : 'text-slate-400'
                 }`}>
-                  ⚠️ Bypass Eligibility Checks
+                  {showAllMatches ? 'Hard gates are shown, not filtered' : '⚠️ Bypass Eligibility Checks'}
                 </span>
               </label>
             </div>
@@ -7207,7 +7227,10 @@ Proceed?`
                 <input
                   type="checkbox"
                   checked={showAllMatches}
-                  onChange={(e) => setShowAllMatches(e.target.checked)}
+                  onChange={(e) => {
+                    setShowAllMatches(e.target.checked)
+                    if (e.target.checked) setBypassEligibility(false)
+                  }}
                   className="w-4 h-4 text-purple-500 bg-white/10 border-white/20 rounded focus:ring-purple-400/50 focus:ring-2"
                 />
                 <span className={`text-sm font-medium transition-colors ${
@@ -7217,6 +7240,27 @@ Proceed?`
                 </span>
               </label>
             </div>
+            {showAllMatches && (
+              <div className="ml-6 mt-2 flex flex-wrap items-center gap-2 rounded-xl border border-purple-400/20 bg-purple-500/[0.06] p-2.5">
+                <span className="text-xs font-semibold text-purple-200">Candidate pool</span>
+                <div className="inline-flex overflow-hidden rounded-lg border border-white/10 bg-slate-950/60 p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setPossibleMatchesScope('event')}
+                    className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${possibleMatchesScope === 'event' ? 'bg-purple-500 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    Event {currentEventId}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPossibleMatchesScope('all')}
+                    className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${possibleMatchesScope === 'all' ? 'bg-purple-500 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    All submitted surveys
+                  </button>
+                </div>
+              </div>
+            )}
             {/* Debug Pair Checkbox */}
             <div className="flex items-center gap-3 mt-2">
               <label className="flex items-center gap-2 cursor-pointer">
@@ -7269,11 +7313,11 @@ Proceed?`
             <div className="text-slate-400 text-xs space-y-1">
               {showAllMatches ? (
                 <>
-                  <p>• View all possible matches for a single participant</p>
-                  <p>• Shows compatibility scores with gender-compatible participants only</p>
-                  <p>• Respects gender preferences (opposite/same/any gender)</p>
-                  <p>• Results sorted by compatibility (just like clicking عرض in results modal)</p>
-                  <p>• Respects eligibility bypass setting if enabled</p>
+                  <p>• Uses the current balanced 100-point compatibility model</p>
+                  <p>• Includes only genuinely submitted, score-complete surveys</p>
+                  <p>• {possibleMatchesScope === 'event' ? `Event ${currentEventId} pool only` : 'All submitted surveys, independent of event signup'}</p>
+                  <p>• Gender preference, nationality, age, interaction, exclusions, repeat, locks, attendance, and history gates are not filtered; every failed gate is named</p>
+                  <p>• Results are sorted by total compatibility</p>
                 </>
               ) : testModeOnly ? (
                 <>
@@ -7294,7 +7338,7 @@ Proceed?`
               {showAllMatches && (
                 <p className="text-purple-300 font-medium">👁️ View mode enabled - will display ALL possible matches without creating any matches</p>
               )}
-              {bypassEligibility && (
+              {bypassEligibility && !showAllMatches && (
                 <p className="text-orange-300 font-medium">⚠️ Eligibility bypass enabled - will {showAllMatches ? 'search' : 'match'} ANY participants regardless of survey completion, exclusions, or payment status</p>
               )}
               {testModeOnly && !showAllMatches && (

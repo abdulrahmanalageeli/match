@@ -32,6 +32,179 @@ export const LEGACY_SCORE_MAXIMA = {
   intent: 5,
 } as const
 
+export type CompatibilityDimension = {
+  key: string
+  label: string
+  shortLabel: string
+  value: number | null
+  max: number
+}
+
+export const CURRENT_BALANCED_DIMENSION_MAXIMA = {
+  semantic: 12,
+  interaction: 20,
+  disagreement: 5,
+  focus: 4,
+  similarity: 2,
+  attachment: 8,
+  lifestyle: 12,
+  humor: 10,
+  communication: 5,
+  values: 17,
+  intent: 5,
+} as const
+
+const finiteOrNull = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === "") return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+const firstFinite = (...values: unknown[]): number | null => {
+  for (const value of values) {
+    const parsed = finiteOrNull(value)
+    if (parsed !== null) return parsed
+  }
+  return null
+}
+
+function scorePayloadForDisplay(row: any) {
+  const snapshot = parseScoreObject(row?.score_snapshot ?? row?.scoreSnapshot)
+  const parsedBreakdown = parseScoreObject(
+    snapshot?.scoreBreakdown
+    ?? snapshot?.score_breakdown
+    ?? row?.score_breakdown
+    ?? row?.scoreBreakdown,
+  )
+  // Participant result payloads expose the score breakdown directly, while
+  // admin/database rows nest it under score_snapshot/score_breakdown.
+  const breakdown = parsedBreakdown ?? (
+    row && typeof row === "object" && (
+      "semanticCommonGround" in row
+      || "interactionRhythm" in row
+      || "interactionSynergy" in row
+    ) ? row : null
+  )
+  const questions = parseScoreObject(
+    snapshot?.questionScores
+    ?? snapshot?.question_scores
+    ?? row?.question_scores
+    ?? row?.questionScores,
+  )
+  return { snapshot, breakdown, questions }
+}
+
+/**
+ * Returns the authoritative displayed total. For a verified current-model row,
+ * the immutable event-time snapshot wins over mutable compatibility aliases.
+ */
+export function compatibilityTotalForDisplay(row: any, fallback: number | null = null): number | null {
+  const { snapshot } = scorePayloadForDisplay(row)
+  if (isSupportedCurrentScoreRow(row)) {
+    const snapshotted = firstFinite(snapshot?.totalScore, snapshot?.total_score)
+    if (snapshotted !== null) return snapshotted
+  }
+  return firstFinite(
+    row?.compatibility_score,
+    row?.total_compatibility_score,
+    row?.phase2_score,
+    row?.phase3_score,
+    row?.score,
+    row?.totalScore,
+    fallback,
+  )
+}
+
+/** Exact 11-part balanced-100 presentation sourced from the saved score payload. */
+export function currentBalancedDimensionsForDisplay(row: any): CompatibilityDimension[] | null {
+  if (!isCurrentBalancedScoreRow(row)) return null
+  const { breakdown, questions } = scorePayloadForDisplay(row)
+  const communicationItems = ["communication1", "communication2", "communication3", "communication4", "communication5"]
+    .map(key => finiteOrNull(questions?.[key]))
+  const directCommunication = communicationItems.every(value => value !== null)
+    ? communicationItems.reduce<number>((sum, value) => sum + (value ?? 0), 0)
+    : null
+  const disagreement = firstFinite(questions?.disagreement, row?.disagreement_style_score)
+  const communicationAggregate = firstFinite(
+    breakdown?.communicationDisagreement,
+    breakdown?.communication_disagreement,
+  )
+  const communication = firstFinite(
+    directCommunication,
+    communicationAggregate !== null && disagreement !== null
+      ? Math.max(0, communicationAggregate - disagreement)
+      : null,
+    row?.communication_compatibility_score,
+    row?.communication_score,
+  )
+  const valuesBoundaries = firstFinite(breakdown?.valuesBoundaries, breakdown?.values_boundaries)
+  const language = firstFinite(breakdown?.language)
+  const combinedValues = firstFinite(
+    breakdown?.valuesBoundariesLanguage,
+    breakdown?.values_boundaries_language,
+    valuesBoundaries !== null || language !== null
+      ? (valuesBoundaries ?? 0) + (language ?? 0)
+      : null,
+    row?.core_values_compatibility_score,
+    row?.core_values_score,
+  )
+
+  return [
+    { key: "synergy", label: "إيقاع التفاعل", shortLabel: "التفاعل", value: firstFinite(breakdown?.interactionRhythm, breakdown?.interaction_rhythm, row?.synergy_score), max: CURRENT_BALANCED_DIMENSION_MAXIMA.interaction },
+    { key: "vibe", label: "التوافق الدلالي", shortLabel: "الدلالي", value: firstFinite(breakdown?.aiSemantic, breakdown?.ai_semantic, questions?.vibe, row?.vibe_compatibility_score, row?.vibe_score), max: CURRENT_BALANCED_DIMENSION_MAXIMA.semantic },
+    { key: "disagreement", label: "إدارة الاختلاف", shortLabel: "الاختلاف", value: disagreement, max: CURRENT_BALANCED_DIMENSION_MAXIMA.disagreement },
+    { key: "focus", label: "المرحلة الحالية", shortLabel: "المرحلة", value: firstFinite(questions?.currentFocus, questions?.current_focus, row?.current_life_overlap_score), max: CURRENT_BALANCED_DIMENSION_MAXIMA.focus },
+    { key: "similarity", label: "تفضيل التشابه", shortLabel: "التشابه", value: firstFinite(questions?.similarityPreference, questions?.similarity_preference, row?.similarity_preference_score), max: CURRENT_BALANCED_DIMENSION_MAXIMA.similarity },
+    { key: "attachment", label: "الراحة ووتيرة التقارب", shortLabel: "التقارب", value: firstFinite(breakdown?.attachmentComfort, breakdown?.attachment_comfort, row?.attachment_pace_score, row?.attachment_compatibility_score), max: CURRENT_BALANCED_DIMENSION_MAXIMA.attachment },
+    { key: "lifestyle", label: "استدامة نمط الحياة", shortLabel: "نمط الحياة", value: firstFinite(breakdown?.lifestyleSustainability, breakdown?.lifestyle_sustainability, row?.lifestyle_compatibility_score, row?.lifestyle_score), max: CURRENT_BALANCED_DIMENSION_MAXIMA.lifestyle },
+    { key: "humor", label: "الدعابة والانفتاح", shortLabel: "الدعابة", value: firstFinite(breakdown?.humorOpenness, breakdown?.humor_openness, row?.humor_open_score, row?.humor_open_compatibility_score), max: CURRENT_BALANCED_DIMENSION_MAXIMA.humor },
+    { key: "communication", label: "التواصل", shortLabel: "التواصل", value: communication, max: CURRENT_BALANCED_DIMENSION_MAXIMA.communication },
+    { key: "values", label: "القيم والحدود واللغة", shortLabel: "القيم/اللغة", value: combinedValues, max: CURRENT_BALANCED_DIMENSION_MAXIMA.values },
+    { key: "intent", label: "هدف اللقاء", shortLabel: "الهدف", value: firstFinite(breakdown?.intent, questions?.intent, row?.intent_score), max: CURRENT_BALANCED_DIMENSION_MAXIMA.intent },
+  ]
+}
+
+/** Exact grouped balanced-100 presentation (maxima sum to 100). */
+export function currentBalancedGroupedDimensionsForDisplay(row: any): CompatibilityDimension[] | null {
+  if (!isCurrentBalancedScoreRow(row)) return null
+  const { breakdown } = scorePayloadForDisplay(row)
+  const detailed = currentBalancedDimensionsForDisplay(row) || []
+  const value = (key: string) => detailed.find(dimension => dimension.key === key)?.value ?? null
+  const sum = (...keys: string[]) => {
+    const values = keys.map(value)
+    return values.every(item => item !== null)
+      ? values.reduce<number>((total, item) => total + (item ?? 0), 0)
+      : null
+  }
+  return [
+    { key: "commonGround", label: "الأرضية المشتركة", shortLabel: "الأرضية", value: firstFinite(breakdown?.semanticCommonGround, breakdown?.semantic_common_ground, sum("vibe", "focus", "similarity")), max: 18 },
+    { key: "interaction", label: "إيقاع التفاعل", shortLabel: "التفاعل", value: value("synergy"), max: 20 },
+    { key: "humor", label: "الدعابة والانفتاح", shortLabel: "الدعابة", value: value("humor"), max: 10 },
+    { key: "attachment", label: "الراحة ووتيرة التقارب", shortLabel: "التقارب", value: value("attachment"), max: 8 },
+    { key: "lifestyle", label: "استدامة نمط الحياة", shortLabel: "الحياة", value: value("lifestyle"), max: 12 },
+    { key: "values", label: "القيم والحدود واللغة", shortLabel: "القيم/اللغة", value: value("values"), max: 17 },
+    { key: "communication", label: "التواصل وإدارة الاختلاف", shortLabel: "التواصل/الاختلاف", value: sum("communication", "disagreement"), max: 10 },
+    { key: "intent", label: "هدف اللقاء", shortLabel: "الهدف", value: value("intent"), max: 5 },
+  ]
+}
+
+export function currentOppositesDimensionsForDisplay(row: any): CompatibilityDimension[] | null {
+  if (!isCurrentOppositesScoreRow(row)) return null
+  const { breakdown } = scorePayloadForDisplay(row)
+  return [
+    { key: "interactionSynergy", label: "إيقاع التفاعل", shortLabel: "التفاعل", value: firstFinite(breakdown?.interactionSynergy), max: 20 },
+    { key: "coreValuesAlignment", label: "توافق القيم", shortLabel: "القيم", value: firstFinite(breakdown?.coreValuesAlignment), max: 17 },
+    { key: "communicationAlignment", label: "توافق التواصل", shortLabel: "التواصل", value: firstFinite(breakdown?.communicationAlignment), max: 5 },
+    { key: "lifestyleDifference", label: "اختلاف نمط الحياة", shortLabel: "اختلاف الحياة", value: firstFinite(breakdown?.lifestyleDifference), max: 12 },
+    { key: "vibeDifference", label: "اختلاف الطاقة", shortLabel: "اختلاف الطاقة", value: firstFinite(breakdown?.vibeDifference), max: 12 },
+    { key: "humorDifference", label: "اختلاف الدعابة", shortLabel: "اختلاف الدعابة", value: firstFinite(breakdown?.humorDifference), max: 10 },
+  ]
+}
+
+export function currentBalancedDimensionValue(row: any, key: string): number | null {
+  return currentBalancedDimensionsForDisplay(row)?.find(dimension => dimension.key === key)?.value ?? null
+}
+
 export function parseScoreObject(value: unknown): Record<string, any> | null {
   if (value && typeof value === "object") return value as Record<string, any>
   if (typeof value !== "string") return null
@@ -78,6 +251,7 @@ export function isCurrentBalancedScoreRow(row: any): boolean {
   const snapshotTotal = Number(snapshot?.totalScore ?? snapshot?.total_score)
   const storedTotalValue = [
     row?.compatibility_score,
+    row?.total_compatibility_score,
     row?.phase2_score,
     row?.phase3_score,
     row?.score,
@@ -109,6 +283,7 @@ export function isCurrentOppositesScoreRow(row: any): boolean {
   const snapshotTotal = Number(snapshot?.totalScore ?? snapshot?.total_score)
   const storedTotalValue = [
     row?.compatibility_score,
+    row?.total_compatibility_score,
     row?.phase2_score,
     row?.phase3_score,
     row?.score,

@@ -22,7 +22,10 @@ import {
 } from "lucide-react"
 
 import { QuestionSlideshow } from "~/components/QuestionSlideshow"
-import { CURRENT_BALANCED_SCORE_MODEL } from "~/lib/compatibility-model"
+import {
+  CURRENT_BALANCED_SCORE_MODEL,
+  currentBalancedGroupedDimensionsForDisplay,
+} from "~/lib/compatibility-model"
 import { clearParticipantBrowserIdentity } from "~/lib/participant-browser-auth.mjs"
 
 // Create a shareable portrait card without relying on DOM screenshot libraries.
@@ -1019,32 +1022,33 @@ function PartnerInfoCard({ data, accent = "pink" }: { data: any; accent?: "pink"
 }
 
 // ─── Compatibility Breakdown ──────────────────────────────────────────────────
-function CompatibilityBreakdown({ breakdown, accent = "purple", partnerName }: { breakdown: any; accent?: "pink" | "purple"; partnerName?: string }) {
+function CompatibilityBreakdown({ breakdown, scoreRow, accent = "purple", partnerName }: { breakdown: any; scoreRow?: any; accent?: "pink" | "purple"; partnerName?: string }) {
   if (!breakdown) return null
 
   const percent = (v: number, max: number) => Math.max(0, Math.min(100, Math.round((v / max) * 100)))
-  const numberValue = (value: unknown) => {
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : 0
-  }
   const scoreModelVersion = String(breakdown.scoreModelVersion ?? breakdown.score_model_version ?? "")
   const isBalanced = scoreModelVersion === CURRENT_BALANCED_SCORE_MODEL
-  const valuesBoundariesLanguage = numberValue(
-    breakdown.valuesBoundariesLanguage
-    ?? (numberValue(breakdown.valuesBoundaries) + numberValue(breakdown.language)),
-  )
-
+  const dimensionSource = scoreRow
+    ? { ...scoreRow, score_model_version: scoreModelVersion, score_breakdown: breakdown }
+    : breakdown
+  const dimensionBars: Record<string, string> = {
+    commonGround: "from-purple-500 to-pink-500",
+    interaction: "from-violet-500 to-purple-500",
+    humor: "from-amber-500 to-orange-500",
+    attachment: "from-rose-500 to-pink-500",
+    lifestyle: "from-cyan-500 to-blue-500",
+    values: "from-emerald-500 to-teal-500",
+    communication: "from-indigo-500 to-sky-500",
+    intent: "from-fuchsia-500 to-rose-500",
+  }
   const allDims = isBalanced
-    ? [
-        { key: "commonGround", label: "الأرضية المشتركة", value: numberValue(breakdown.semanticCommonGround), max: 18, bar: "from-purple-500 to-pink-500" },
-        { key: "interaction", label: "إيقاع التفاعل", value: numberValue(breakdown.interactionRhythm), max: 20, bar: "from-violet-500 to-purple-500" },
-        { key: "humorOpen", label: "الدعابة والانفتاح", value: numberValue(breakdown.humorOpenness), max: 10, bar: "from-amber-500 to-orange-500" },
-        { key: "attachment", label: "الراحة ووتيرة التقارب", value: numberValue(breakdown.attachmentComfort), max: 8, bar: "from-rose-500 to-pink-500" },
-        { key: "lifestyle", label: "استدامة نمط الحياة", value: numberValue(breakdown.lifestyleSustainability), max: 12, bar: "from-cyan-500 to-blue-500" },
-        { key: "values", label: "القيم والحدود واللغة", value: valuesBoundariesLanguage, max: 17, bar: "from-emerald-500 to-teal-500" },
-        { key: "communication", label: "التواصل وإدارة الاختلاف", value: numberValue(breakdown.communicationDisagreement), max: 10, bar: "from-indigo-500 to-sky-500" },
-        { key: "intent", label: "هدف اللقاء", value: numberValue(breakdown.intent), max: 5, bar: "from-fuchsia-500 to-rose-500" },
-      ]
+    ? (currentBalancedGroupedDimensionsForDisplay(dimensionSource)
+        ?? currentBalancedGroupedDimensionsForDisplay(breakdown)
+        ?? []).map(dimension => ({
+        ...dimension,
+        value: dimension.value ?? 0,
+        bar: dimensionBars[dimension.key] ?? "from-purple-500 to-pink-500",
+      }))
     : []
 
   const sorted = [...allDims].sort((a, b) => percent(b.value, b.max) - percent(a.value, a.max))
@@ -5752,12 +5756,12 @@ function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; o
             <AnimatePresence mode="wait">
               {activeTab === 'choice' && p2?.breakdown && (
                 <motion.div key="choice" role="tabpanel" aria-label="تفاصيل توافق اختيارك" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }}>
-                  <CompatibilityBreakdown breakdown={p2.breakdown} accent="pink" partnerName={p2?.partner_first_name} />
+                  <CompatibilityBreakdown breakdown={p2.breakdown} scoreRow={p2} accent="pink" partnerName={p2?.partner_first_name} />
                 </motion.div>
               )}
               {activeTab === 'algorithm' && p3?.breakdown && (
                 <motion.div key="algorithm" role="tabpanel" aria-label="تفاصيل توافق اختيار النظام" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2 }}>
-                  <CompatibilityBreakdown breakdown={p3.breakdown} accent="purple" partnerName={p3?.partner_first_name} />
+                  <CompatibilityBreakdown breakdown={p3.breakdown} scoreRow={p3} accent="purple" partnerName={p3?.partner_first_name} />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -5767,7 +5771,7 @@ function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; o
         {/* If same match, just show one breakdown */}
         {data.same_match && p2?.breakdown && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}>
-            <CompatibilityBreakdown breakdown={p2.breakdown} accent="pink" partnerName={p2?.partner_first_name} />
+            <CompatibilityBreakdown breakdown={p2.breakdown} scoreRow={p2} accent="pink" partnerName={p2?.partner_first_name} />
           </motion.div>
         )}
 

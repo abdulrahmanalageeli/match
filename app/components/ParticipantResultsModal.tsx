@@ -10,12 +10,11 @@ import ParticipantHoverCardContent from "./ParticipantHoverCard"
 import { HistoryConfidenceBadges } from "./HistoryConfidenceBadge"
 import { buildScoreLookup, getPairMatchInsightsCoverage, pairKey } from "../lib/matchControl"
 import {
-  BALANCED_SCORE_MAXIMA,
-  LEGACY_SCORE_MAXIMA,
-  isCurrentBalancedScoreRow as isBalancedScoreRow,
+  compatibilityTotalForDisplay,
+  currentBalancedDimensionsForDisplay,
+  currentOppositesDimensionsForDisplay,
   isCurrentOppositesScoreRow,
   isSupportedCurrentScoreRow,
-  parseScoreObject as scoreObject,
 } from "../lib/compatibility-model"
 const shadowMetrics = [
   { id: "expression_language", label: "لغة", max: 5 },
@@ -23,45 +22,11 @@ const shadowMetrics = [
   { id: "minimum_partner_religious_commitment", label: "التزام", max: 4 },
 ] as const
 
-function scoreMaximaFor(row: any) {
-  return isBalancedScoreRow(row) ? BALANCED_SCORE_MAXIMA : LEGACY_SCORE_MAXIMA
-}
-
 function communicationScoreForDisplay(row: any): number | undefined {
+  const current = currentBalancedDimensionsForDisplay(row)?.find(dimension => dimension.key === "communication")?.value
+  if (current !== null && current !== undefined) return current
   const stored = Number(row?.communication_compatibility_score ?? row?.communication_score)
-  if (!isBalancedScoreRow(row)) return Number.isFinite(stored) ? stored : undefined
-
-  const snapshot = scoreObject(row?.score_snapshot ?? row?.scoreSnapshot)
-  const questionScores = scoreObject(row?.question_scores ?? row?.questionScores ?? snapshot?.questionScores ?? snapshot?.question_scores)
-  const directScores = ["communication1", "communication2", "communication3", "communication4", "communication5"]
-    .map(key => Number(questionScores?.[key]))
-  if (directScores.every(Number.isFinite)) return directScores.reduce((total, score) => total + score, 0)
-
-  const breakdown = scoreObject(row?.score_breakdown ?? row?.scoreBreakdown ?? snapshot?.scoreBreakdown ?? snapshot?.score_breakdown)
-  const aggregate = Number(breakdown?.communicationDisagreement ?? breakdown?.communication_disagreement)
-  const disagreement = Number(row?.disagreement_style_score ?? questionScores?.disagreement)
-  if (Number.isFinite(aggregate) && Number.isFinite(disagreement)) return Math.max(0, aggregate - disagreement)
   return Number.isFinite(stored) ? stored : undefined
-}
-
-const OPPOSITES_SCORE_DIMENSIONS = [
-  { key: "interactionSynergy", label: "إيقاع التفاعل", max: 20 },
-  { key: "coreValuesAlignment", label: "توافق القيم", max: 17 },
-  { key: "communicationAlignment", label: "توافق التواصل", max: 5 },
-  { key: "lifestyleDifference", label: "اختلاف نمط الحياة", max: 12 },
-  { key: "vibeDifference", label: "اختلاف الطاقة", max: 12 },
-  { key: "humorDifference", label: "اختلاف الدعابة", max: 10 },
-] as const
-
-function oppositesDimensionsForDisplay(row: any) {
-  if (!isCurrentOppositesScoreRow(row)) return null
-  const snapshot = scoreObject(row?.score_snapshot ?? row?.scoreSnapshot)
-  const breakdown = scoreObject(snapshot?.scoreBreakdown ?? snapshot?.score_breakdown)
-  if (!breakdown) return null
-  return OPPOSITES_SCORE_DIMENSIONS.map(dimension => ({
-    ...dimension,
-    value: Number(breakdown[dimension.key]),
-  }))
 }
 
 interface ParticipantResult {
@@ -94,6 +59,9 @@ interface ParticipantResult {
   partner_name?: string
   is_organizer_match?: boolean
   incompatibility_reason?: string
+  failed_hard_gates?: Array<{ key?: string; label?: string; detail?: string }>
+  included_despite_hard_gates?: boolean
+  passes_all_hard_gates?: boolean
   paid_done?: boolean
   partner_paid_done?: boolean
   humor_early_openness_bonus?: 'full' | 'partial' | 'none'
@@ -443,7 +411,7 @@ export default function ParticipantResultsModal({
           action: "add-locked-match",
           participant1: participant.assigned_number,
           participant2: participant.partner_assigned_number,
-          compatibilityScore: participant.compatibility_score,
+          compatibilityScore: resultTotalForDisplay(participant),
           round: participant.round ?? 1,
           reason: "Admin locked from results modal"
         })
@@ -596,10 +564,40 @@ export default function ParticipantResultsModal({
     }
   }
 
-  const pairScoreLookup = useMemo(
-    () => buildScoreLookup(calculatedPairs, results),
-    [calculatedPairs, results],
-  )
+  const pairScoreLookup = useMemo(() => {
+    const lookup = buildScoreLookup(calculatedPairs, results)
+    // Normalize once per payload, rather than cloning the same pair repeatedly
+    // during sorting, table rendering, badges, and hover construction.
+    for (const [key, pair] of lookup) {
+      const normalizedDeadAir = !!(pair?.dead_air_veto_applied || pair?.deadAirVetoApplied || pair?.deadAirVeto)
+      if (pair && pair.dead_air_veto_applied !== normalizedDeadAir) {
+        lookup.set(key, { ...pair, dead_air_veto_applied: normalizedDeadAir })
+      }
+    }
+    return lookup
+  }, [calculatedPairs, results])
+
+  const getResultPairData = useCallback((participant: ParticipantResult) => {
+    const partner = Number(participant.partner_assigned_number)
+    if (!Number.isFinite(partner) || partner <= 0 || partner === 9999) return undefined
+    return pairScoreLookup.get(pairKey(participant.assigned_number, partner))
+  }, [pairScoreLookup])
+
+  const pairTotalLookup = useMemo(() => {
+    const totals = new Map<string, number | null>()
+    for (const [key, pair] of pairScoreLookup) totals.set(key, compatibilityTotalForDisplay(pair))
+    return totals
+  }, [pairScoreLookup])
+
+  const resultTotalForDisplay = useCallback((participant: ParticipantResult) => {
+    const partner = Number(participant.partner_assigned_number)
+    const total = Number.isFinite(partner) && partner > 0 && partner !== 9999
+      ? pairTotalLookup.get(pairKey(participant.assigned_number, partner)) ?? null
+      : compatibilityTotalForDisplay(participant)
+    if (total !== null) return total
+    const direct = Number(participant.compatibility_score)
+    return Number.isFinite(direct) ? direct : 0
+  }, [pairTotalLookup])
 
   if (!isOpen) return null
 
@@ -612,7 +610,7 @@ export default function ParticipantResultsModal({
     
     results.forEach(result => {
       const existing = participantMap.get(result.assigned_number)
-      if (!existing || result.compatibility_score > existing.compatibility_score) {
+      if (!existing || resultTotalForDisplay(result) > resultTotalForDisplay(existing)) {
         participantMap.set(result.assigned_number, result)
       }
     })
@@ -706,19 +704,6 @@ export default function ParticipantResultsModal({
   // Resolve persisted match rows and calculated cache rows once through the
   // provenance-aware merge. Every table, sort, tooltip, and detail view must
   // consume this catalog so historical totals cannot inherit today's parts.
-  const normalizePairForDisplay = (pair: any) => {
-    if (!pair) return pair
-    return {
-      ...pair,
-      dead_air_veto_applied: !!(pair.dead_air_veto_applied || pair.deadAirVetoApplied || pair.deadAirVeto),
-    }
-  }
-  const getResultPairData = (participant: ParticipantResult) => {
-    const partner = Number(participant.partner_assigned_number)
-    if (!Number.isFinite(partner) || partner <= 0 || partner === 9999) return undefined
-    return normalizePairForDisplay(pairScoreLookup.get(pairKey(participant.assigned_number, partner)))
-  }
-
   const changeResultSort = (key: ResultSortKey) => {
     if (resultSortKey === key) {
       setResultSortDirection(direction => direction === "asc" ? "desc" : "asc")
@@ -735,17 +720,36 @@ export default function ParticipantResultsModal({
       if (!result.partner_assigned_number) return null
       const pair = getResultPairData(result)
       if (!pair) return null
-      const vibe = pair.vibe_compatibility_score ?? 0
-      const disagreement = pair.disagreement_style_score ?? 0
-      const currentLife = pair.current_life_overlap_score ?? 0
-      const similarity = pair.similarity_preference_score ?? 0
-      const attachment = pair.attachment_pace_score ?? 0
-      const lifestyle = pair.lifestyle_compatibility_score ?? 0
-      return vibe + disagreement + currentLife + similarity + attachment + lifestyle
+      const dimensions = currentBalancedDimensionsForDisplay(pair)
+      if (!dimensions) return null
+      const keys = new Set(["vibe", "disagreement", "focus", "similarity", "attachment", "lifestyle"])
+      const values = dimensions.filter(dimension => keys.has(dimension.key)).map(dimension => dimension.value)
+      return values.every(value => value !== null) ? values.reduce<number>((sum, value) => sum + (value ?? 0), 0) : null
     }
     if (resultSortKey === "communication_compatibility_score") {
       const pair = result.partner_assigned_number ? getResultPairData(result) : undefined
       return communicationScoreForDisplay(pair ?? result) ?? null
+    }
+    const dimensionKeyBySort: Partial<Record<ResultSortKey, string>> = {
+      synergy_score: "synergy",
+      disagreement_style_score: "disagreement",
+      current_life_overlap_score: "focus",
+      similarity_preference_score: "similarity",
+      attachment_pace_score: "attachment",
+      lifestyle_compatibility_score: "lifestyle",
+      humor_open_score: "humor",
+      core_values_compatibility_score: "values",
+      intent_score: "intent",
+      vibe_compatibility_score: "vibe",
+    }
+    const dimensionKey = dimensionKeyBySort[resultSortKey]
+    if (dimensionKey && result.partner_assigned_number) {
+      const pair = getResultPairData(result)
+      const currentValue = currentBalancedDimensionsForDisplay(pair)?.find(dimension => dimension.key === dimensionKey)?.value
+      if (currentValue !== null && currentValue !== undefined) return currentValue
+    }
+    if (resultSortKey === "compatibility_score" && result.partner_assigned_number) {
+      return compatibilityTotalForDisplay(getResultPairData(result) ?? result)
     }
     let value = result[resultSortKey]
     if (value == null && result.partner_assigned_number) {
@@ -857,7 +861,7 @@ export default function ParticipantResultsModal({
     
     // Convert to the format expected by ParticipantDetailModal
     const matches = participantPairs.map(pair => {
-      const normalizedPair = normalizePairForDisplay(pair)
+      const normalizedPair = pair
       const otherParticipantNumber = Number(pair.participant_a) === participantNumber ? Number(pair.participant_b) : Number(pair.participant_a)
       
       // Try to find name from multiple sources
@@ -1267,12 +1271,12 @@ export default function ParticipantResultsModal({
                 <div className="bg-white/5 border border-white/20 rounded-lg px-3 py-2 flex items-center gap-2">
                   <Heart className="w-4 h-4 text-pink-400" />
                   <span className="text-slate-300">متوسط:</span>
-                  <span className="font-bold text-white">{sortedResults.length > 0 ? Math.round(sortedResults.reduce((sum, r) => sum + r.compatibility_score, 0) / sortedResults.length) : 0}%</span>
+                  <span className="font-bold text-white">{sortedResults.length > 0 ? Math.round(sortedResults.reduce((sum, result) => sum + resultTotalForDisplay(result), 0) / sortedResults.length) : 0}%</span>
                 </div>
                 <div className="bg-white/5 border border-white/20 rounded-lg px-3 py-2 flex items-center gap-2">
                   <Star className="w-4 h-4 text-yellow-400" />
                   <span className="text-slate-300">أعلى:</span>
-                  <span className="font-bold text-white">{sortedResults.length > 0 ? Math.max(...sortedResults.map(r => r.compatibility_score)) : 0}%</span>
+                  <span className="font-bold text-white">{sortedResults.length > 0 ? Math.max(...sortedResults.map(resultTotalForDisplay)) : 0}%</span>
                 </div>
                 <div className="bg-white/5 border border-white/20 rounded-lg px-3 py-2 flex items-center gap-2">
                   <Zap className="w-4 h-4 text-green-400" />
@@ -1342,20 +1346,20 @@ export default function ParticipantResultsModal({
                         )}
                         {matchType !== "group" && (
                           <>
-                            {renderSortableHeader("التفاعل", "synergy_score")}
-                            {renderSortableHeader("أسلوب الاختلاف", "disagreement_style_score")}
+                            {renderSortableHeader("إيقاع التفاعل", "synergy_score")}
+                            {renderSortableHeader("إدارة الاختلاف", "disagreement_style_score")}
                             {renderSortableHeader("المرحلة الحالية", "current_life_overlap_score")}
                             {renderSortableHeader("تفضيل التشابه", "similarity_preference_score")}
                             {renderSortableHeader("وتيرة التقارب", "attachment_pace_score")}
-                            {renderSortableHeader("نمط الحياة", "lifestyle_compatibility_score")}
+                            {renderSortableHeader("استدامة نمط الحياة", "lifestyle_compatibility_score")}
                             {renderSortableHeader("الدعابة/الانفتاح", "humor_open_score")}
                             {renderSortableHeader("التواصل", "communication_compatibility_score")}
                             {renderSortableHeader("القيم/الحدود/اللغة", "core_values_compatibility_score")}
                             {renderSortableHeader("الهدف", "intent_score")}
                             {matchType === "ai" && (
-                              renderSortableHeader("الطاقة", "vibe_compatibility_score")
+                              renderSortableHeader("التوافق الدلالي", "vibe_compatibility_score")
                             )}
-                            {renderSortableHeader("مجموع نمط الحياة", "compound_lifestyle_score")}
+                            {renderSortableHeader("السياق والتقارب والحياة", "compound_lifestyle_score")}
                           </>
                         )}
                       </tr>
@@ -1575,6 +1579,33 @@ export default function ParticipantResultsModal({
                               >
                                 <Ban className="w-3.5 h-3.5" />
                               </button>
+                              {Array.isArray(participant.failed_hard_gates) && participant.failed_hard_gates.length > 0 && (
+                                <Tooltip.Provider delayDuration={150}>
+                                  <Tooltip.Root>
+                                    <Tooltip.Trigger asChild>
+                                      <span className="inline-flex cursor-help items-center gap-1 rounded-full border border-amber-400/35 bg-amber-500/12 px-2 py-1 text-[9px] font-black text-amber-200">
+                                        <AlertTriangle className="h-3 w-3" />
+                                        بوابات متجاهلة: {participant.failed_hard_gates.length}
+                                      </span>
+                                    </Tooltip.Trigger>
+                                    <Tooltip.Portal>
+                                      <Tooltip.Content sideOffset={6} className="z-[120] w-80 rounded-2xl border border-amber-400/25 bg-slate-950/98 p-3 text-right shadow-2xl shadow-black/60" dir="rtl">
+                                        <div className="text-xs font-black text-amber-200">أُدرج هذا الاحتمال للمقارنة رغم البوابات الصارمة</div>
+                                        <div className="mt-1 text-[10px] leading-5 text-slate-400">الدرجة معروضة كما حسبها نموذج التوافق؛ هذه القيود لم تُخفِ الصف.</div>
+                                        <ul className="mt-2 space-y-1.5">
+                                          {participant.failed_hard_gates.map((gate, gateIndex) => (
+                                            <li key={`${gate.key ?? gate.label ?? "gate"}-${gateIndex}`} className="rounded-lg border border-white/8 bg-white/[0.035] px-2 py-1.5 text-[10px] text-slate-200">
+                                              <b className="text-amber-100">{gate.label || gate.key || "بوابة"}</b>
+                                              {gate.detail ? <span className="mt-0.5 block text-slate-400">{gate.detail}</span> : null}
+                                            </li>
+                                          ))}
+                                        </ul>
+                                        <Tooltip.Arrow className="fill-amber-400/25" />
+                                      </Tooltip.Content>
+                                    </Tooltip.Portal>
+                                  </Tooltip.Root>
+                                </Tooltip.Provider>
+                              )}
                               {participant.is_organizer_match && participant.incompatibility_reason && (
                                 <div className="group relative">
                                   <Info className="w-4 h-4 text-yellow-400 cursor-help" />
@@ -1747,9 +1778,9 @@ export default function ParticipantResultsModal({
                                 <Tooltip.Provider delayDuration={300}>
                                   <Tooltip.Root>
                                     <Tooltip.Trigger asChild>
-                                      <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${getScoreBg(participant.compatibility_score)} cursor-help`}>
-                                        <span className={`font-bold ${getScoreColor(participant.compatibility_score)}`}>
-                                          {participant.compatibility_score}%
+                                      <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${getScoreBg(resultTotalForDisplay(participant))} cursor-help`}>
+                                        <span className={`font-bold ${getScoreColor(resultTotalForDisplay(participant))}`}>
+                                          {resultTotalForDisplay(participant)}%
                                         </span>
                                       </div>
                                     </Tooltip.Trigger>
@@ -1763,10 +1794,10 @@ export default function ParticipantResultsModal({
                                             النتيجة الأصلية (قبل المكافأة):
                                           </div>
                                           <div className="text-white text-lg font-bold">
-                                            {Math.round(participant.compatibility_score / (participant.humor_early_openness_bonus === 'full' ? 1.15 : 1.05))}%
+                                            {Math.round(resultTotalForDisplay(participant) / (participant.humor_early_openness_bonus === 'full' ? 1.15 : 1.05))}%
                                           </div>
                                           <div className="text-slate-400 text-xs border-t border-slate-700 pt-2">
-                                            النتيجة بعد المكافأة: {participant.compatibility_score}%
+                                            النتيجة بعد المكافأة: {resultTotalForDisplay(participant)}%
                                           </div>
                                         </div>
                                         <Tooltip.Arrow className="fill-cyan-400/30" />
@@ -1775,9 +1806,9 @@ export default function ParticipantResultsModal({
                                   </Tooltip.Root>
                                 </Tooltip.Provider>
                               ) : (
-                                <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${getScoreBg(participant.compatibility_score)}`}>
-                                  <span className={`font-bold ${getScoreColor(participant.compatibility_score)}`}>
-                                    {participant.compatibility_score}%
+                                <div title={`التوافق الإجمالي: ${resultTotalForDisplay(participant)}%`} className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${getScoreBg(resultTotalForDisplay(participant))}`}>
+                                  <span className={`font-bold ${getScoreColor(resultTotalForDisplay(participant))}`}>
+                                    {resultTotalForDisplay(participant)}%
                                   </span>
                                 </div>
                               )}
@@ -2096,7 +2127,7 @@ export default function ParticipantResultsModal({
                                 </td>
                               )
                             }
-                            const oppositesDimensions = oppositesDimensionsForDisplay(pairForDisplay)
+                            const oppositesDimensions = currentOppositesDimensionsForDisplay(pairForDisplay)
                             if (oppositesDimensions) {
                               return (
                                 <td colSpan={matchType === "ai" ? 12 : 11} className="p-2">
@@ -2109,7 +2140,7 @@ export default function ParticipantResultsModal({
                                       {oppositesDimensions.map(dimension => (
                                         <div key={dimension.key} className="rounded-md border border-white/10 bg-slate-950/30 px-2 py-1.5 text-center">
                                           <div className="truncate text-[9px] text-slate-400" title={dimension.label}>{dimension.label}</div>
-                                          <div className="mt-0.5 text-xs font-bold text-slate-100">{dimension.value.toFixed(1)}/{dimension.max}</div>
+                                          <div className="mt-0.5 text-xs font-bold text-slate-100">{dimension.value !== null ? dimension.value.toFixed(1) : "—"}/{dimension.max}</div>
                                         </div>
                                       ))}
                                     </div>
@@ -2117,35 +2148,33 @@ export default function ParticipantResultsModal({
                                 </td>
                               )
                             }
-                            const maxima = scoreMaximaFor(pairForDisplay)
-                            const synergy = pairForDisplay?.synergy_score ?? 0
-                            const life = pairForDisplay?.lifestyle_compatibility_score ?? 0
-                            const humorOpen = pairForDisplay?.humor_open_score ?? 0
-                            const comm = communicationScoreForDisplay(pairForDisplay) ?? 0
-                            const intent = pairForDisplay?.intent_score ?? 0
-                            const vibe = pairForDisplay?.vibe_compatibility_score ?? 0
-                            const disagreement = pairForDisplay?.disagreement_style_score ?? 0
-                            const currentLife = pairForDisplay?.current_life_overlap_score ?? 0
-                            const similarityPreference = pairForDisplay?.similarity_preference_score ?? 0
-                            const attachmentPace = pairForDisplay?.attachment_pace_score ?? 0
-                            const coreValues = pairForDisplay?.core_values_compatibility_score ?? 0
-                            const compoundLifestyle = vibe + disagreement + currentLife + similarityPreference + attachmentPace + life
+                            const dimensions = currentBalancedDimensionsForDisplay(pairForDisplay) || []
+                            const dimension = (key: string) => dimensions.find(item => item.key === key)
+                            const subtotalKeys = ["vibe", "disagreement", "focus", "similarity", "attachment", "lifestyle"]
+                            const subtotalValues = subtotalKeys.map(key => dimension(key)?.value ?? null)
+                            const contextLifeSubtotal = subtotalValues.every(value => value !== null)
+                              ? subtotalValues.reduce<number>((sum, value) => sum + (value ?? 0), 0)
+                              : null
+                            const cell = (key: string, tone = "text-slate-300") => {
+                              const item = dimension(key)
+                              return <td className="p-2 text-center"><span className={`${tone} text-sm`}>{item?.value !== null && item?.value !== undefined ? `${item.value.toFixed(1)}/${item.max}` : "—"}</span></td>
+                            }
                             return (
                               <>
-                                <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(synergy).toFixed(1)}/{maxima.synergy}</span></td>
-                                <td className="p-2 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number.isFinite(Number(disagreement)) ? `${Number(disagreement).toFixed(1)}/${maxima.disagreement}` : "—"}</span></td>
-                                <td className="p-2 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number.isFinite(Number(currentLife)) ? `${Number(currentLife).toFixed(1)}/${maxima.focus}` : "—"}</span></td>
-                                <td className="p-2 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number.isFinite(Number(similarityPreference)) ? `${Number(similarityPreference).toFixed(1)}/${maxima.similarity}` : "—"}</span></td>
-                                <td className="p-2 text-center"><span className="text-cyan-200 text-sm font-semibold">{Number.isFinite(Number(attachmentPace)) ? `${Number(attachmentPace).toFixed(1)}/${maxima.attachment}` : "—"}</span></td>
-                                <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(life).toFixed(1)}/{maxima.lifestyle}</span></td>
-                                <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(humorOpen).toFixed(1)}/{maxima.humor}</span></td>
-                                <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(comm).toFixed(1)}/{maxima.communication}</span></td>
-                                <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(coreValues).toFixed(1)}/{maxima.core}</span></td>
-                                <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(intent).toFixed(1)}/{maxima.intent}</span></td>
+                                {cell("synergy")}
+                                {cell("disagreement", "text-cyan-200 font-semibold")}
+                                {cell("focus", "text-cyan-200 font-semibold")}
+                                {cell("similarity", "text-cyan-200 font-semibold")}
+                                {cell("attachment", "text-cyan-200 font-semibold")}
+                                {cell("lifestyle")}
+                                {cell("humor")}
+                                {cell("communication")}
+                                {cell("values")}
+                                {cell("intent")}
                                 {matchType === "ai" && (
-                                  <td className="p-2 text-center"><span className="text-slate-300 text-sm">{Number(vibe).toFixed(1)}/{maxima.vibe}</span></td>
+                                  cell("vibe")
                                 )}
-                                <td className="p-2 text-center"><span className="text-purple-200 text-sm font-bold">{Number.isFinite(Number(compoundLifestyle)) ? `${Number(compoundLifestyle).toFixed(1)}` : "—"}</span></td>
+                                <td className="p-2 text-center"><span className="text-purple-200 text-sm font-bold">{contextLifeSubtotal !== null ? `${contextLifeSubtotal.toFixed(1)}/43` : "—"}</span></td>
                               </>
                             )
                           })()}

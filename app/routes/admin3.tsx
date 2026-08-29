@@ -3,7 +3,10 @@ import toast, { Toaster } from "react-hot-toast"
 import { useVisibilityPoll } from "~/hooks/useVisibilityPoll"
 import { surveyQuestions } from "~/components/SurveyComponent"
 import GroupFeedbackIntelligence from "~/components/GroupFeedbackIntelligence"
-import { CURRENT_BALANCED_SCORE_MODEL } from "~/lib/compatibility-model"
+import {
+  CURRENT_BALANCED_SCORE_MODEL,
+  currentBalancedGroupedDimensionsForDisplay,
+} from "~/lib/compatibility-model"
 import {
   Users, Play, Square, ChevronRight, RotateCcw, CheckCircle,
   Circle, RefreshCw, Table2, Trophy, Clock, BarChart3, Shuffle,
@@ -1115,13 +1118,15 @@ export default function Admin3Page() {
   }
 
   const doImmediateAlgorithmReplacement = () => {
-    if (!immediateAlgorithmReplacement || !immediateAlgorithmReplacementWith) return
+    if (!immediateAlgorithmReplacement || !immediateAlgorithmReplacementWith || !immediateReplacementPreview) return
     if (previewEventId != null) { toast.error("لا يمكن تعديل المطابقات في وضع المعاينة"); return }
     run(`immediate-algorithm-replacement-${immediateAlgorithmReplacement.missingNum}-${immediateAlgorithmReplacementWith}`, () =>
       api("e3-swap-match-partner", {
         phase: "phase3",
         missing_participant: immediateAlgorithmReplacement.missingNum,
         replacement_participant: immediateAlgorithmReplacementWith,
+        expected_missing_partner: immediateReplacementPreview.missing_partner?.number,
+        expected_replacement_partner: immediateReplacementPreview.replacement_partner?.number ?? null,
       }).then(d => {
         if (!d.error) {
           closeImmediateAlgorithmReplacement()
@@ -4920,20 +4925,24 @@ export default function Admin3Page() {
           const parsed = Number(value)
           return Number.isFinite(parsed) ? parsed : 0
         }
-        const valuesLanguageScore = finiteScore(
-          breakdown.valuesBoundariesLanguage
-          ?? (finiteScore(breakdown.valuesBoundaries) + finiteScore(breakdown.language)),
-        )
-        const balancedDimensions = [
+        const fallbackBalancedDimensions = [
           { label: 'الأرضية المشتركة', score: finiteScore(breakdown.semanticCommonGround), max: 18, color: 'pink' },
           { label: 'إيقاع التفاعل', score: finiteScore(breakdown.interactionRhythm), max: 20, color: 'purple' },
           { label: 'الدعابة والانفتاح', score: finiteScore(breakdown.humorOpenness), max: 10, color: 'amber' },
           { label: 'الراحة ووتيرة التقارب', score: finiteScore(breakdown.attachmentComfort), max: 8, color: 'rose' },
           { label: 'استدامة نمط الحياة', score: finiteScore(breakdown.lifestyleSustainability), max: 12, color: 'teal' },
-          { label: 'القيم والحدود واللغة', score: valuesLanguageScore, max: 17, color: 'emerald' },
+          { label: 'القيم والحدود واللغة', score: finiteScore(breakdown.valuesBoundariesLanguage ?? (finiteScore(breakdown.valuesBoundaries) + finiteScore(breakdown.language))), max: 17, color: 'emerald' },
           { label: 'التواصل وإدارة الاختلاف', score: finiteScore(breakdown.communicationDisagreement), max: 10, color: 'blue' },
           { label: 'هدف اللقاء', score: finiteScore(breakdown.intent), max: 5, color: 'green' },
         ]
+        const dimensionColors: Record<string, string> = { commonGround: 'pink', interaction: 'purple', humor: 'amber', attachment: 'rose', lifestyle: 'teal', values: 'emerald', communication: 'blue', intent: 'green' }
+        const balancedDimensions = (currentBalancedGroupedDimensionsForDisplay({ ...c, score_breakdown: breakdown }) ?? []).map(dimension => ({
+          label: dimension.label,
+          score: dimension.value ?? 0,
+          max: dimension.max,
+          color: dimensionColors[dimension.key] || 'indigo',
+        }))
+        if (!balancedDimensions.length) balancedDimensions.push(...fallbackBalancedDimensions)
         const getAns = (survey: any, key: string) => {
           const sd = survey && typeof survey === 'string' ? JSON.parse(survey) : (survey || {})
           return (sd?.answers?.[key] ?? sd?.[key] ?? '')?.toString()?.toUpperCase() || '—'

@@ -4,7 +4,14 @@ import { BadgeCheck, Brain, Info, Shield, Sparkles, Zap, Copy, Users, MessageCir
 import CircularProgressBar from "./CircularProgressBar"
 import { HistoryConfidencePanel } from "./HistoryConfidenceBadge"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../components/ui/tabs"
-import { isCurrentBalancedScoreRow, isCurrentOppositesScoreRow, scoreModelVersionFor } from "../lib/compatibility-model"
+import {
+  compatibilityTotalForDisplay,
+  currentBalancedGroupedDimensionsForDisplay,
+  currentOppositesDimensionsForDisplay,
+  isCurrentBalancedScoreRow,
+  isCurrentOppositesScoreRow,
+  scoreModelVersionFor,
+} from "../lib/compatibility-model"
 
 interface PairAnalysisModalProps {
   open: boolean
@@ -456,7 +463,7 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
   const ageDiff = (aAgeNum !== null && bAgeNum !== null) ? Math.abs(aAgeNum - bAgeNum) : null
 
   const overallPercent = (() => {
-    const raw = pair?.compatibility_score ?? scoreSnapshot?.totalScore ?? scoreSnapshot?.total_score ?? 0
+    const raw = compatibilityTotalForDisplay(pair) ?? 0
     const value = Number(raw)
     if (!Number.isFinite(value)) return 0
     return Math.round(value > 0 && value <= 1 ? value * 100 : value)
@@ -523,23 +530,22 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
     intent: finiteScore(pair?.intent_score ?? computedIntent),
   }
   const coreValues5 = Math.max(0, Math.min(5, (scores.coreValues / 20) * 5))
-  const summaryDimensions = isBalanced ? [
-    { key: 'commonGround', label: 'الأرضية المشتركة', value: scores.commonGround, max: 18, color: 'bg-fuchsia-500', icon: <Sparkles className="w-3.5 h-3.5 text-fuchsia-300" /> },
-    { key: 'synergy', label: 'إيقاع التفاعل', value: scores.synergy, max: 20, color: 'bg-cyan-500', icon: <Users className="w-3.5 h-3.5 text-cyan-400" /> },
-    { key: 'humor', label: 'الدعابة والانفتاح', value: scores.humor, max: 10, color: 'bg-amber-500', icon: <Sparkles className="w-3.5 h-3.5 text-amber-300" /> },
-    { key: 'attachment', label: 'الراحة ووتيرة التقارب', value: scores.attachment, max: 8, color: 'bg-rose-500', icon: <Shield className="w-3.5 h-3.5 text-rose-300" /> },
-    { key: 'lifestyle', label: 'استدامة نمط الحياة', value: scores.lifestyle, max: 12, color: 'bg-emerald-500', icon: <Home className="w-3.5 h-3.5 text-emerald-400" /> },
-    { key: 'values', label: 'القيم والحدود واللغة', value: scores.coreValues, max: 17, color: 'bg-pink-500', icon: <Star className="w-3.5 h-3.5 text-pink-300" /> },
-    { key: 'communication', label: 'التواصل وإدارة الاختلاف', value: scores.communication, max: 10, color: 'bg-indigo-500', icon: <MessageCircle className="w-3.5 h-3.5 text-indigo-300" /> },
-    { key: 'intent', label: 'هدف اللقاء', value: scores.intent, max: 5, color: 'bg-violet-500', icon: <CheckCircle className="w-3.5 h-3.5 text-violet-300" /> },
-  ] : isOpposites ? [
-    { key: 'oppositesSynergy', label: 'إيقاع التفاعل', value: finiteScore(scoreBreakdown?.interactionSynergy), max: 20, color: 'bg-cyan-500', icon: <Users className="w-3.5 h-3.5 text-cyan-400" /> },
-    { key: 'oppositesValues', label: 'توافق القيم', value: finiteScore(scoreBreakdown?.coreValuesAlignment), max: 17, color: 'bg-pink-500', icon: <Star className="w-3.5 h-3.5 text-pink-300" /> },
-    { key: 'oppositesCommunication', label: 'توافق التواصل', value: finiteScore(scoreBreakdown?.communicationAlignment), max: 5, color: 'bg-indigo-500', icon: <MessageCircle className="w-3.5 h-3.5 text-indigo-300" /> },
-    { key: 'oppositesLifestyle', label: 'اختلاف نمط الحياة', value: finiteScore(scoreBreakdown?.lifestyleDifference), max: 12, color: 'bg-emerald-500', icon: <Home className="w-3.5 h-3.5 text-emerald-400" /> },
-    { key: 'oppositesVibe', label: 'اختلاف الطاقة', value: finiteScore(scoreBreakdown?.vibeDifference), max: 12, color: 'bg-violet-500', icon: <Sparkles className="w-3.5 h-3.5 text-violet-400" /> },
-    { key: 'oppositesHumor', label: 'اختلاف الدعابة', value: finiteScore(scoreBreakdown?.humorDifference), max: 10, color: 'bg-amber-500', icon: <Sparkles className="w-3.5 h-3.5 text-amber-300" /> },
-  ] : [
+  const currentSummaryDimensions = currentBalancedGroupedDimensionsForDisplay(pair)
+    ?? currentOppositesDimensionsForDisplay(pair)
+  const dimensionVisual = (key: string) => {
+    if (key.toLowerCase().includes('interaction')) return { color: 'bg-cyan-500', icon: <Users className="w-3.5 h-3.5 text-cyan-400" /> }
+    if (key.toLowerCase().includes('value')) return { color: 'bg-pink-500', icon: <Star className="w-3.5 h-3.5 text-pink-300" /> }
+    if (key.toLowerCase().includes('communication')) return { color: 'bg-indigo-500', icon: <MessageCircle className="w-3.5 h-3.5 text-indigo-300" /> }
+    if (key.toLowerCase().includes('lifestyle')) return { color: 'bg-emerald-500', icon: <Home className="w-3.5 h-3.5 text-emerald-400" /> }
+    if (key.toLowerCase().includes('attachment')) return { color: 'bg-rose-500', icon: <Shield className="w-3.5 h-3.5 text-rose-300" /> }
+    if (key.toLowerCase().includes('intent')) return { color: 'bg-violet-500', icon: <CheckCircle className="w-3.5 h-3.5 text-violet-300" /> }
+    return { color: 'bg-fuchsia-500', icon: <Sparkles className="w-3.5 h-3.5 text-fuchsia-300" /> }
+  }
+  const summaryDimensions = currentSummaryDimensions ? currentSummaryDimensions.map(dimension => ({
+    ...dimension,
+    value: dimension.value ?? 0,
+    ...dimensionVisual(dimension.key),
+  })) : [
     { key: 'synergy', label: 'التفاعل', value: scores.synergy, max: 30, color: 'bg-cyan-500', icon: <Users className="w-3.5 h-3.5 text-cyan-400" /> },
     { key: 'vibe', label: 'الطاقة', value: scores.vibe, max: 25, color: 'bg-violet-500', icon: <Sparkles className="w-3.5 h-3.5 text-violet-400" /> },
     { key: 'lifestyle', label: 'نمط الحياة', value: scores.lifestyle, max: 10, color: 'bg-emerald-500', icon: <Home className="w-3.5 h-3.5 text-emerald-400" /> },

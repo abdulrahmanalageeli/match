@@ -204,13 +204,21 @@ test('UI model detection requires exact persisted provenance and Event3 never ap
     read('app/routes/event3.tsx'),
   ])
   const breakdownBlock = between(event3Source, 'function CompatibilityBreakdown', 'function DemoButton')
+  const groupedDimensionsBlock = between(
+    modelSource,
+    'export function currentBalancedGroupedDimensionsForDisplay',
+    'export function currentOppositesDimensionsForDisplay',
+  )
 
   assert.match(modelSource, /snapshot\.combinedContentHash === contentHash/)
   assert.match(modelSource, /snapshot\.vibeModelTag === CURRENT_BALANCED_VIBE_TAG/)
   assert.match(modelSource, /snapshotTotal === storedTotal/)
   assert.doesNotMatch(breakdownBlock, /max:\s*(?:30|25|15)\b/)
+  assert.match(breakdownBlock, /currentBalancedGroupedDimensionsForDisplay\(dimensionSource\)/)
+  assert.match(event3Source, /breakdown=\{p2\.breakdown\} scoreRow=\{p2\}/)
+  assert.match(event3Source, /breakdown=\{p3\.breakdown\} scoreRow=\{p3\}/)
   for (const maximum of [18, 20, 10, 8, 12, 17, 10, 5]) {
-    assert.match(breakdownBlock, new RegExp(`max: ${maximum}\\b`))
+    assert.match(groupedDimensionsBlock, new RegExp(`max: ${maximum}\\b`))
   }
   assert.match(breakdownBlock, /نعرض المجموع التاريخي فقط/)
 })
@@ -229,4 +237,51 @@ test('organizer result views never merge a historical total with a current cache
   assert.match(resultViewSource, /const pair = getResultPairData\(participant\)/)
   assert.match(pairAnalysisSource, /const isBalanced = isCurrentBalancedScoreRow\(pair\)/)
   assert.match(pairAnalysisSource, /const isOpposites = isCurrentOppositesScoreRow\(pair\)/)
+})
+
+test('shared score presentation and swap planning use immutable balanced totals consistently', async () => {
+  const [modelSource, controlSource, resultSource, feedbackSource, dualSource] = await Promise.all([
+    read('app/lib/compatibility-model.ts'),
+    read('app/components/MatchControlCenterModal.tsx'),
+    read('app/components/ParticipantResultsModal.tsx'),
+    read('app/components/FeedbackPairsModal.tsx'),
+    read('app/components/ParticipantDualResultsModal.tsx'),
+  ])
+  const payloadBlock = between(modelSource, 'function scorePayloadForDisplay', '/**')
+
+  assert.ok(payloadBlock.indexOf('snapshot?.scoreBreakdown') < payloadBlock.indexOf('row?.score_breakdown'))
+  assert.ok(payloadBlock.indexOf('snapshot?.questionScores') < payloadBlock.indexOf('row?.question_scores'))
+  assert.match(controlSource, /scoreMetric: "total_compatibility"/)
+  assert.doesNotMatch(controlSource, /scoreMetric: "compound_lifestyle"/)
+  assert.doesNotMatch(controlSource, /const applyPairs|await applyPairs/)
+  assert.match(resultSource, /بوابات متجاهلة/)
+  assert.match(resultSource, /currentBalancedDimensionsForDisplay/)
+  assert.match(feedbackSource, /currentBalancedGroupedDimensionsForDisplay/)
+  assert.match(dualSource, /currentBalancedGroupedDimensionsForDisplay/)
+})
+
+test('result modal APIs fetch only cache rows for participants in the requested event results', async () => {
+  const source = await read('api/admin/index.mjs')
+  const cachedResults = between(source, 'if (action === "get-cached-results")', '// SAVE ADMIN RESULTS ACTION')
+  const freshResults = between(source, 'if (action === "get-fresh-results")', '// 🔹 CLEAN SLATE')
+
+  for (const block of [cachedResults, freshResults]) {
+    assert.match(block, /eventParticipantNumbers/)
+    assert.match(block, /fetchAllCachedPairs\("compatibility_cache",/)
+    assert.doesNotMatch(block, /from\("compatibility_cache"\)\s*\.select\("\*"\)/)
+  }
+  assert.match(freshResults, /const matchResultByPair = new Map/)
+  assert.doesNotMatch(freshResults, /matchResults\?\.find/)
+  assert.doesNotMatch(source, /repairMissingSwapInsightScores/)
+})
+
+test('swap-chain API accepts only the exact reviewed participant set and never mutates stats after the transaction', async () => {
+  const source = await read('api/admin/index.mjs')
+  const block = between(source, 'if (action === "apply-match-swap-plan")', 'if (action === "undo-match-swap-plan")')
+
+  assert.match(block, /const reviewedNumbers = new Set/)
+  assert.match(block, /affected\.length !== reviewedNumbers\.size/)
+  assert.match(block, /affected\.some\(number => !reviewedNumbers\.has\(number\)\)/)
+  assert.match(block, /apply_match_swap_plan_with_score_provenance/)
+  assert.doesNotMatch(block, /await repairMissingSwapInsightScores/)
 })

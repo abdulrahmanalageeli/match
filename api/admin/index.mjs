@@ -1,6 +1,6 @@
 import OpenAI from "openai"
 import { createHmac, timingSafeEqual } from "node:crypto"
-import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, isParticipantCacheEligible, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkAgeCompatibility, checkIntentHardGate, fetchAllCachedPairs, isCurrentVibeModel, getParticipantDeltaCacheReason, getDeltaCacheReasonCounts, loadHistoricalMatchAnalyzer } from "./trigger-match.mjs"
+import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, isParticipantCacheEligible, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkAgeCompatibility, fetchAllCachedPairs, isCurrentVibeModel, getParticipantDeltaCacheReason, getDeltaCacheReasonCounts, loadHistoricalMatchAnalyzer } from "./trigger-match.mjs"
 import { buildWelcomePrompt } from "./ai-welcome-prompt.mjs"
 import { assignPriorityTables } from "../../server/event3/table-priority.mjs"
 import { buildSixBySevenPlan, optimizeRound2ByAge } from "../../server/event3/round2-age-optimizer.mjs"
@@ -15,7 +15,6 @@ import {
 } from "../../server/event3/timing.mjs"
 import { supabaseAdmin } from "../../server/security/supabase-admin.mjs"
 import { clearAdminSession, enforceRateLimit, requireAdmin } from "../../server/security/request-security.mjs"
-import { calculatePersistedMatchInsightScores } from "../../server/matching/match-insights.mjs"
 import {
   BALANCED_COMPATIBILITY_VERSION,
   BALANCED_VIBE_MODEL,
@@ -227,74 +226,6 @@ function swapPairKey(a, b) {
 function isSwapParticipantPaid(participant, eventId) {
   return participant?.PAID_DONE === true
     && Number(participant?.payment_completed_event_id) === Number(eventId)
-}
-
-async function repairMissingSwapInsightScores(eventId, requestedPairs = null) {
-  const numericEventId = Number(eventId)
-  if (!Number.isInteger(numericEventId) || numericEventId <= 0) return 0
-
-  try {
-    const requestedPairKeys = Array.isArray(requestedPairs) && requestedPairs.length > 0
-      ? new Set(requestedPairs.map(pair => swapPairKey(pair.a, pair.b)))
-      : null
-
-    const { data: matchRows, error: matchError } = await supabase
-      .from("match_results")
-      .select("id,participant_a_number,participant_b_number,vibe_compatibility_score,current_life_overlap_score")
-      .eq("match_id", STATIC_MATCH_ID)
-      .eq("event_id", numericEventId)
-
-    if (matchError) throw matchError
-    const brokenRows = (matchRows || []).filter(row => (
-      (!requestedPairKeys || requestedPairKeys.has(swapPairKey(row.participant_a_number, row.participant_b_number)))
-      // Current-focus scoring always has a positive fallback, so zero/null is
-      // an unambiguous corruption marker. This also covers the old manual
-      // fallback path, which did not create a swap audit row.
-      && Number(row.participant_a_number) !== 9999
-      && Number(row.participant_b_number) !== 9999
-      && !(Number(row.current_life_overlap_score) > 0)
-    ))
-    if (brokenRows.length === 0) return 0
-
-    const participantNumbers = Array.from(new Set(brokenRows.flatMap(row => [
-      Number(row.participant_a_number),
-      Number(row.participant_b_number),
-    ])))
-    const { data: participants, error: participantError } = await supabase
-      .from("participants")
-      .select("*")
-      .eq("match_id", STATIC_MATCH_ID)
-      .in("assigned_number", participantNumbers)
-
-    if (participantError) throw participantError
-    const participantMap = new Map((participants || []).map(participant => [Number(participant.assigned_number), participant]))
-    let repaired = 0
-
-    for (const row of brokenRows) {
-      const participantA = participantMap.get(Number(row.participant_a_number))
-      const participantB = participantMap.get(Number(row.participant_b_number))
-      if (!participantA || !participantB) continue
-
-      const scoreFields = calculatePersistedMatchInsightScores(
-        participantA,
-        participantB,
-        Number(row.vibe_compatibility_score || 0),
-      )
-      const { error: updateError } = await supabase
-        .from("match_results")
-        .update(scoreFields)
-        .eq("id", row.id)
-
-      if (updateError) throw updateError
-      repaired += 1
-    }
-
-    if (repaired > 0) console.log(`✅ Repaired match-insight scores for ${repaired} swapped match row(s) in event ${numericEventId}`)
-    return repaired
-  } catch (error) {
-    console.error("Failed to repair swapped match-insight scores:", error)
-    return 0
-  }
 }
 
 async function attachEventReceipts(participants, eventId) {
@@ -5339,8 +5270,14 @@ export default async function handler(req, res) {
         }
 
         const resultingNumbers = new Set(pairs.flatMap(pair => [pair.a, pair.b]))
-        if ([...resultingNumbers].some(number => !affected.includes(number))) {
-          return res.status(400).json({ error: "Every resulting participant must be included in the affected list" })
+        const reviewedNumbers = new Set([
+          ...resultingNumbers,
+          ...expectedPairs.flatMap(pair => [pair.a, pair.b]),
+        ])
+        if (affected.length !== reviewedNumbers.size || affected.some(number => !reviewedNumbers.has(number))) {
+          return res.status(400).json({
+            error: "The affected participant list must exactly match the reviewed before/after pairs",
+          })
         }
 
         const { data: participants, error: participantsError } = await supabase
@@ -5410,9 +5347,9 @@ export default async function handler(req, res) {
           if (!checkGenderCompatibility(participantA, participantB, "preference")) failures.push("gender preference")
           if (!checkNationalityHardGate(participantA, participantB)) failures.push("nationality preference")
           if (!checkAgeRangeHardGate(participantA, participantB)) failures.push("preferred age range")
-          if (!checkIntentHardGate(participantA, participantB)) failures.push("intent goal")
           // Swap chains are an explicit organizer override: retain interaction-style
-          // penalties in the calculated score, but do not reject a chain leg for them.
+          // and intent differences in the calculated score, but do not reject a
+          // chain leg for either. Intent is a weighted dimension in the current model.
           if (previousPairKeys.has(swapPairKey(pair.a, pair.b))) failures.push("previous-event repeat")
           if (failures.length) criteriaFailures.push({ pair: `#${pair.a} ↔ #${pair.b}`, failures })
         }
@@ -5466,11 +5403,10 @@ export default async function handler(req, res) {
           }
           throw error
         }
-        // The first deployed swap RPC predated the four match-insight columns.
-        // Repair the rows immediately even if that stale database function is
-        // still installed; the forward-compatible RPC simply results in zero repairs.
-        const repairedInsightRows = await repairMissingSwapInsightScores(eventId, pairs)
-        return res.status(200).json({ ...(data || { success: true }), repaired_insight_rows: repairedInsightRows })
+        // The provenance RPC persists the complete score/stat snapshot in the
+        // same transaction. Never follow it with a separate row mutation that
+        // could diverge from the undo audit snapshot.
+        return res.status(200).json({ ...(data || { success: true }), repaired_insight_rows: 0 })
       } catch (error) {
         console.error("Error applying match swap plan:", error)
         return res.status(500).json({ error: error.message || "Failed to apply the match swap plan" })
@@ -7284,23 +7220,6 @@ export default async function handler(req, res) {
         
         console.log(`🔍 Fetching cached results for event ${event_id}`)
 
-        // Self-heal swap rows created before the RPC persisted these columns.
-        // This also repairs already-affected pairs such as an existing chain
-        // without requiring the organizer to perform another swap.
-        await repairMissingSwapInsightScores(event_id)
-        
-        // Get all compatibility cache entries and match results for the event
-        const { data: cacheData, error: cacheError } = await supabase
-          .from("compatibility_cache")
-          .select("*")
-          .order("last_used", { ascending: false, nullsFirst: false })
-          .order("created_at", { ascending: false })
-        
-        if (cacheError) {
-          console.error("Error fetching cache data:", cacheError)
-          return res.status(500).json({ error: cacheError.message })
-        }
-        
         // Get match results for the event to identify actual matches
         const { data: matchResults, error: matchError } = await supabase
           .from("match_results")
@@ -7312,16 +7231,32 @@ export default async function handler(req, res) {
           console.error("Error fetching match results:", matchError)
           return res.status(500).json({ error: matchError.message })
         }
-        
-        // Get all participants to have their names and info
-        const { data: participants, error: participantsError } = await supabase
-          .from("participants")
-          .select("*")
-          .eq("match_id", STATIC_MATCH_ID)
+
+        // The compatibility cache is global and accumulates rows across every
+        // event/model revision. Loading all of it made this modal progressively
+        // slower. The current event results identify the exact people whose pair
+        // matrix can be displayed, including unmatched organizer rows.
+        const eventParticipantNumbers = Array.from(new Set((matchResults || [])
+          .flatMap(match => [Number(match.participant_a_number), Number(match.participant_b_number)])
+          .filter(number => Number.isInteger(number) && number > 0)))
+        const cacheParticipantNumbers = eventParticipantNumbers.filter(number => number !== 9999)
+        const participantsPromise = eventParticipantNumbers.length
+          ? supabase.from("participants").select("*").eq("match_id", STATIC_MATCH_ID).in("assigned_number", eventParticipantNumbers)
+          : Promise.resolve({ data: [], error: null })
+        const cachePromise = cacheParticipantNumbers.length > 1
+          ? fetchAllCachedPairs("compatibility_cache", cacheParticipantNumbers)
+          : Promise.resolve({ data: [], error: null })
+        const [participantsResult, cacheResult] = await Promise.all([participantsPromise, cachePromise])
+        const { data: participants, error: participantsError } = participantsResult
+        const { data: cacheData, error: cacheError } = cacheResult
         
         if (participantsError) {
           console.error("Error fetching participants:", participantsError)
           return res.status(500).json({ error: participantsError.message })
+        }
+        if (cacheError) {
+          console.error("Error fetching event-scoped cache data:", cacheError)
+          return res.status(500).json({ error: cacheError.message })
         }
         
         // Create participant info map
@@ -7786,7 +7721,6 @@ export default async function handler(req, res) {
           if (testSession) {
             matchResults = testSession.match_results
           } else {
-            await repairMissingSwapInsightScores(event_id)
             const result = await supabase
               .from("match_results")
               .select("*")
@@ -7803,33 +7737,36 @@ export default async function handler(req, res) {
             return res.status(500).json({ error: matchError.message })
           }
 
-          const { data: participants, error: participantsError } = await supabase
-            .from("participants")
-            .select("*")
-            .eq("match_id", STATIC_MATCH_ID)
-            .neq("assigned_number", 9999)
+          const eventParticipantNumbers = Array.from(new Set((matchResults || [])
+            .flatMap(match => [Number(match.participant_a_number), Number(match.participant_b_number)])
+            .filter(number => Number.isInteger(number) && number > 0 && number !== 9999)))
+          const participantsPromise = eventParticipantNumbers.length
+            ? supabase.from("participants").select("*").eq("match_id", STATIC_MATCH_ID).in("assigned_number", eventParticipantNumbers)
+            : Promise.resolve({ data: [], error: null })
+          const cachePromise = eventParticipantNumbers.length > 1
+            ? fetchAllCachedPairs("compatibility_cache", eventParticipantNumbers)
+            : Promise.resolve({ data: [], error: null })
+          const [participantsResult, cacheResult] = await Promise.all([participantsPromise, cachePromise])
+          const { data: participants, error: participantsError } = participantsResult
+          const { data: cacheData, error: cacheError } = cacheResult
           if (participantsError) console.warn("Could not fetch participant names:", participantsError)
           const participantProfileMap = new Map((participants || []).map(p => [Number(p.assigned_number), p]))
 
-          // Get compatibility cache data for calculated pairs
-          const { data: cacheData, error: cacheError } = await supabase
-            .from("compatibility_cache")
-            .select("*")
-            .order("total_compatibility_score", { ascending: false })
-          
           if (cacheError) {
-            console.warn("Could not fetch cache data:", cacheError)
+            console.warn("Could not fetch event-scoped cache data:", cacheError)
           }
+
+          const matchResultByPair = new Map((matchResults || []).map(match => [
+            swapPairKey(match.participant_a_number, match.participant_b_number),
+            match,
+          ]))
           
           // Convert one current-vibe cache row per pair to calculated pairs format.
           const latestCacheByPair = new Map()
           for (const cache of cacheData || []) setPreferredCurrentVibeCacheRow(latestCacheByPair, cache, participantProfileMap)
           const calculatedPairs = Array.from(latestCacheByPair.values()).map(cache => {
             const breakdown = getBalancedCacheBreakdown(cache)
-            const matchResult = matchResults?.find(match => (
-              (match.participant_a_number === cache.participant_a_number && match.participant_b_number === cache.participant_b_number)
-              || (match.participant_a_number === cache.participant_b_number && match.participant_b_number === cache.participant_a_number)
-            ))
+            const matchResult = matchResultByPair.get(swapPairKey(cache.participant_a_number, cache.participant_b_number))
             return {
               participant_a: cache.participant_a_number,
               participant_b: cache.participant_b_number,
@@ -11327,9 +11264,15 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           const phase = req.body.phase
           const missingParticipant = Number(req.body.missing_participant)
           const replacementParticipant = Number(req.body.replacement_participant)
+          const expectedMissingPartner = Number(req.body.expected_missing_partner)
+          const rawExpectedReplacementPartner = req.body.expected_replacement_partner
+          const expectedReplacementPartner = rawExpectedReplacementPartner == null ? null : Number(rawExpectedReplacementPartner)
           if (!phase || (phase !== "phase2" && phase !== "phase3")) return res.status(400).json({ error: "phase must be 'phase2' or 'phase3'" })
           if (!Number.isInteger(missingParticipant) || !Number.isInteger(replacementParticipant) || missingParticipant <= 0 || replacementParticipant <= 0) return res.status(400).json({ error: "missing_participant and replacement_participant must be positive integers" })
           if (missingParticipant === replacementParticipant) return res.status(400).json({ error: "Cannot swap with the same participant" })
+          if (!Number.isInteger(expectedMissingPartner) || expectedMissingPartner <= 0 || (expectedReplacementPartner != null && (!Number.isInteger(expectedReplacementPartner) || expectedReplacementPartner <= 0))) {
+            return res.status(400).json({ error: "A valid reviewed partner topology is required before applying this swap" })
+          }
 
           const partnerField = phase === "phase2" ? "phase2_partner" : "phase3_partner"
 
@@ -11349,6 +11292,9 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           const replacementPartner = rawReplacementPartner == null ? null : Number(rawReplacementPartner)
           if (replacementPartner != null && (!Number.isInteger(replacementPartner) || replacementPartner <= 0)) {
             return res.status(409).json({ error: `Participant #${replacementParticipant} has an invalid ${phase} partner. Repair the mirrored rows before swapping.` })
+          }
+          if (missingPartner !== expectedMissingPartner || replacementPartner !== expectedReplacementPartner) {
+            return res.status(409).json({ error: "The algorithm matches changed after this preview. Review the replacement again before applying it." })
           }
 
           const allNums = [missingParticipant, replacementParticipant, missingPartner, replacementPartner].filter(number => number != null)

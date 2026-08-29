@@ -16,5 +16,13 @@ test("trigger-match excludes declined attendees without excluding active attende
   ) || []
 
   assert.equal(invertedAttendanceFilters.length, 0)
-  assert.equal(activeAttendanceFilters.length, 9)
+  assert.equal(activeAttendanceFilters.length, 8)
+
+  const possibleMatchesStart = triggerMatchSource.indexOf("if (viewAllMatches) {")
+  const possibleMatchesEnd = triggerMatchSource.indexOf("// Handle manual match creation", possibleMatchesStart)
+  assert.notEqual(possibleMatchesStart, -1)
+  assert.notEqual(possibleMatchesEnd, -1)
+  const possibleMatchesBlock = triggerMatchSource.slice(possibleMatchesStart, possibleMatchesEnd)
+  assert.doesNotMatch(possibleMatchesBlock, /\.is\(["']attendance_denied_at["'],\s*null\)/)
+  assert.match(possibleMatchesBlock, /attendanceAllowedB:\s*!potentialMatch\.attendance_denied_at/)
 })

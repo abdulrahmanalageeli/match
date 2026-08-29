@@ -1,6 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { X, RefreshCw, MessageSquare, ThumbsUp, ThumbsDown, Star, Users, CalendarClock } from "lucide-react";
-import { isCurrentBalancedScoreRow, isCurrentOppositesScoreRow } from "../lib/compatibility-model";
+import {
+  currentBalancedGroupedDimensionsForDisplay,
+  currentOppositesDimensionsForDisplay,
+  isCurrentBalancedScoreRow,
+  isCurrentOppositesScoreRow,
+} from "../lib/compatibility-model";
 
 interface FeedbackEntry {
   participant_number: number
@@ -178,49 +183,15 @@ export default function FeedbackPairsModal({ eventId, onClose }: { eventId: numb
                   const wants = wishes.length > 0 ? (wishes.filter(Boolean).length >= Math.ceil(wishes.length/2)) : null
                   const anyMsg = aFb?.participant_message || bFb?.participant_message || ''
                   const sentAt = aFb?.submitted_at || bFb?.submitted_at || null
-                  const snapshot = (() => {
-                    if (row.score_snapshot && typeof row.score_snapshot === 'object') return row.score_snapshot
-                    if (typeof row.score_snapshot !== 'string') return null
-                    try { const parsed = JSON.parse(row.score_snapshot); return parsed && typeof parsed === 'object' ? parsed : null } catch { return null }
-                  })()
-                  const snapshotModelVersion = String(snapshot?.scoreModelVersion ?? snapshot?.score_model_version ?? '')
-                  const snapshotContentHash = String(snapshot?.combinedContentHash ?? snapshot?.combined_content_hash ?? '')
-                  const snapshotTotal = Number(snapshot?.totalScore ?? snapshot?.total_score)
-                  const storedTotal = Number(row.compatibility_score)
-                  const hasValidSnapshot = !!row.score_model_version
-                    && !!row.score_content_hash
-                    && snapshotModelVersion === row.score_model_version
-                    && snapshotContentHash === row.score_content_hash
-                    && Number.isFinite(snapshotTotal)
-                    && Number.isFinite(storedTotal)
-                    && snapshotTotal === storedTotal
-                  const isBalanced = hasValidSnapshot && isCurrentBalancedScoreRow(row)
-                  const isOpposites = hasValidSnapshot && isCurrentOppositesScoreRow(row)
-                  const balancedBreakdown = hasValidSnapshot
-                    ? (snapshot?.scoreBreakdown ?? snapshot?.score_breakdown ?? null)
-                    : null
+                  const isBalanced = isCurrentBalancedScoreRow(row)
+                  const isOpposites = isCurrentOppositesScoreRow(row)
                   const finite = (value: any) => { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : 0 }
-                  const balancedValuesLanguage = finite(
-                    balancedBreakdown?.valuesBoundariesLanguage
-                    ?? (finite(balancedBreakdown?.valuesBoundaries) + finite(balancedBreakdown?.language)),
-                  )
-                  const compactDimensions = isBalanced && balancedBreakdown ? [
-                    { key: 'ground', label: 'الأرضية', value: finite(balancedBreakdown.semanticCommonGround), max: 18 },
-                    { key: 'interaction', label: 'التفاعل', value: finite(balancedBreakdown.interactionRhythm), max: 20 },
-                    { key: 'humor', label: 'الدعابة/الانفتاح', value: finite(balancedBreakdown.humorOpenness), max: 10 },
-                    { key: 'attachment', label: 'وتيرة التقارب', value: finite(balancedBreakdown.attachmentComfort), max: 8 },
-                    { key: 'lifestyle', label: 'الحياة', value: finite(balancedBreakdown.lifestyleSustainability), max: 12 },
-                    { key: 'values', label: 'القيم/اللغة', value: balancedValuesLanguage, max: 17 },
-                    { key: 'communication', label: 'التواصل/الاختلاف', value: finite(balancedBreakdown.communicationDisagreement), max: 10 },
-                    { key: 'intent', label: 'الهدف', value: finite(balancedBreakdown.intent), max: 5 },
-                  ] : isOpposites && balancedBreakdown ? [
-                    { key: 'interaction', label: 'إيقاع التفاعل', value: finite(balancedBreakdown.interactionSynergy), max: 20 },
-                    { key: 'values', label: 'توافق القيم', value: finite(balancedBreakdown.coreValuesAlignment), max: 17 },
-                    { key: 'communication', label: 'توافق التواصل', value: finite(balancedBreakdown.communicationAlignment), max: 5 },
-                    { key: 'lifestyle', label: 'اختلاف الحياة', value: finite(balancedBreakdown.lifestyleDifference), max: 12 },
-                    { key: 'vibe', label: 'اختلاف الطاقة', value: finite(balancedBreakdown.vibeDifference), max: 12 },
-                    { key: 'humor', label: 'اختلاف الدعابة', value: finite(balancedBreakdown.humorDifference), max: 10 },
-                  ] : [
+                  const currentDimensions = currentBalancedGroupedDimensionsForDisplay(row)
+                    ?? currentOppositesDimensionsForDisplay(row)
+                  const compactDimensions = currentDimensions?.map(dimension => ({
+                    ...dimension,
+                    label: dimension.shortLabel,
+                  })) ?? [
                     { key: 'interaction', label: 'التفاعل', value: finite(row.synergy_score), max: 30 },
                     { key: 'vibe', label: 'الطاقة', value: finite(row.vibe_compatibility_score), max: 25 },
                     { key: 'lifestyle', label: 'الحياة', value: finite(row.lifestyle_compatibility_score), max: 10 },
@@ -259,7 +230,7 @@ export default function FeedbackPairsModal({ eventId, onClose }: { eventId: numb
                       {/* 100-pt breakdown (compact) */}
                       <td className="p-3 align-top">
                         {(
-                          balancedBreakdown != null ||
+                          currentDimensions != null ||
                           row.synergy_score != null ||
                           row.vibe_compatibility_score != null ||
                           row.lifestyle_compatibility_score != null ||
@@ -274,7 +245,7 @@ export default function FeedbackPairsModal({ eventId, onClose }: { eventId: numb
                             {compactDimensions.map(dimension => (
                               <div key={dimension.key}>
                                 <span className="text-slate-400">{dimension.label}:</span>{' '}
-                                <span className={pctColor(dimension.value, dimension.max)}>{Math.round(dimension.value)}/{dimension.max}</span>
+                                <span className={dimension.value !== null ? pctColor(dimension.value, dimension.max) : 'text-slate-500'}>{dimension.value !== null ? Math.round(dimension.value) : '—'}/{dimension.max}</span>
                               </div>
                             ))}
                           </div>

@@ -3800,6 +3800,83 @@ function buildManualPairGateReport({
   }
 }
 
+function normalizePossibleMatchesScope(value) {
+  const normalized = String(value || '').trim().toLowerCase()
+  return ['all', 'global', 'history', 'non-event', 'non_event'].includes(normalized) ? 'all' : 'event'
+}
+
+function isGenuinelyCompletedParticipant(participant) {
+  return isParticipantCacheEligible(participant) && isParticipantComplete(participant, 'individual')
+}
+
+function buildPossibleMatchGateReport({
+  participantA,
+  participantB,
+  eventId,
+  scope = 'event',
+  attendanceAllowedA = true,
+  attendanceAllowedB = true,
+  historyConfidence = null,
+  ...gateOptions
+}) {
+  const base = buildManualPairGateReport({
+    participantA,
+    participantB,
+    eventId,
+    ...gateOptions,
+  })
+  const normalizedScope = normalizePossibleMatchesScope(scope)
+  const attendanceGate = {
+    key: 'attendance',
+    label: 'Event attendance allowed',
+    passed: attendanceAllowedA && attendanceAllowedB,
+    blocking: true,
+    applicable: normalizedScope === 'event',
+    detail: `#${participantA.assigned_number}: ${attendanceAllowedA ? 'allowed' : 'attendance declined/denied'} · #${participantB.assigned_number}: ${attendanceAllowedB ? 'allowed' : 'attendance declined/denied'}`,
+  }
+  const historyGate = {
+    key: 'historical_never_pair',
+    label: 'Historical no-pair recommendation',
+    passed: historyConfidence?.never_pair_recommended !== true,
+    blocking: true,
+    applicable: historyConfidence?.history_confidence_enabled === true,
+    detail: historyConfidence?.never_pair_recommended === true
+      ? (historyConfidence?.history_review_reason || 'Historical feedback recommends that this pair not be generated again')
+      : historyConfidence?.history_confidence_enabled === true
+        ? 'No historical no-pair recommendation'
+        : 'Historical confidence model is not active for this event',
+  }
+  const gates = [
+    base.gates.find(gate => gate.key === 'current_event'),
+    attendanceGate,
+    ...base.gates.filter(gate => gate.key !== 'current_event'),
+    historyGate,
+  ].filter(Boolean).map(gate => {
+    const applicable = gate.key === 'current_event' ? normalizedScope === 'event' : gate.applicable !== false
+    return {
+      ...gate,
+      applicable,
+      ignored_for_possible_matches: gate.blocking === true && applicable,
+    }
+  })
+  const failedHardGates = gates.filter(gate => gate.blocking && gate.applicable !== false && !gate.passed)
+
+  return {
+    ...base,
+    scope: normalizedScope,
+    eligible: failedHardGates.length === 0,
+    would_be_eligible: failedHardGates.length === 0,
+    included_despite_gates: failedHardGates.length > 0,
+    all_hard_gates_ignored: true,
+    blockers: failedHardGates.map(gate => gate.key),
+    failed_hard_gates: failedHardGates.map(({ key, label, detail }) => ({ key, label, detail })),
+    gates,
+    summary: failedHardGates.length === 0
+      ? 'Passes every active gate; included in the compatibility list.'
+      : `Included for comparison even though ${failedHardGates.length} active gate${failedHardGates.length === 1 ? '' : 's'} would block generation.`,
+  }
+}
+
 // Function to get locked match data for a pair
 function getLockedMatch(participantA, participantB, lockedPairs) {
   if (!lockedPairs || lockedPairs.length === 0) {
@@ -3812,7 +3889,7 @@ function getLockedMatch(participantA, participantB, lockedPairs) {
   )
 }
 
-export { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, isParticipantCacheEligible, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkAgeCompatibility, checkIntentHardGate, checkInteractionStyleCompatibility, hasHumorStyleClash, fetchAllCachedPairs, calculateHumorOpennessScore, calculateInteractionSynergyScore, calculateLifestyleCompatibility, calculateConversationInitiativePreferenceScore, getOneYearAgeFlexDecision, getAgeTolerance, buildManualPairGateReport, isCurrentVibeModel, isDurableCurrentBalancedCacheRow, getParticipantDeltaCacheReason, getDeltaCacheReasonCounts, canAdvanceGlobalCacheMetadata, getCacheMetadataScope, buildPersistedMatchInsightFields, buildPersistedScoreProvenance, computeOppositesBreakdown, formatBalancedScoreReason }
+export { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, isParticipantCacheEligible, isGenuinelyCompletedParticipant, normalizePossibleMatchesScope, buildPossibleMatchGateReport, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkAgeCompatibility, checkIntentHardGate, checkInteractionStyleCompatibility, hasHumorStyleClash, fetchAllCachedPairs, calculateHumorOpennessScore, calculateInteractionSynergyScore, calculateLifestyleCompatibility, calculateConversationInitiativePreferenceScore, getOneYearAgeFlexDecision, getAgeTolerance, buildManualPairGateReport, isCurrentVibeModel, isDurableCurrentBalancedCacheRow, getParticipantDeltaCacheReason, getDeltaCacheReasonCounts, canAdvanceGlobalCacheMetadata, getCacheMetadataScope, buildPersistedMatchInsightFields, buildPersistedScoreProvenance, computeOppositesBreakdown, formatBalancedScoreReason }
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -5686,358 +5763,365 @@ if (action === "cache-status-by-gender") {
       console.log('🧠 Historical confidence model ready:', historyAnalyzer.stats)
     }
 
-    // Handle view all matches for a single participant
+    // Handle view all matches for a single participant. This comparison view
+    // intentionally keeps gate failures visible; only genuine survey submission
+    // and strict score-data completeness determine membership in the pool.
     if (viewAllMatches) {
-      const participantNumber = parseInt(viewAllMatches.participantNumber)
-      const bypassEligibility = viewAllMatches.bypassEligibility || false
-      
-      console.log(`👁️ View all matches requested for participant #${participantNumber}`)
-      console.log(`   - Bypass eligibility: ${bypassEligibility}`)
-      
-      let targetParticipant
-      let potentialMatches
-      
-      if (bypassEligibility) {
-        console.log(`⚠️ Eligibility bypass enabled - searching ALL participants in database`)
-        
-        // Fetch ALL participants from database
-        const { data: allDatabaseParticipants, error: bypassError } = await supabase
-          .from("participants")
-          .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
-          .eq("match_id", match_id)
-          .neq("assigned_number", 9999)  // Only exclude organizer
-        
-        if (bypassError) {
-          console.error("Error fetching all participants for bypass:", bypassError)
-          return res.status(500).json({ error: "Failed to fetch participants for bypass mode" })
-        }
-        
-        targetParticipant = allDatabaseParticipants?.find(p => p.assigned_number === participantNumber)
-        potentialMatches = allDatabaseParticipants?.filter(p => p.assigned_number !== participantNumber) || []
-        
-        console.log(`🔍 BYPASS: Found ${allDatabaseParticipants?.length || 0} total participants (target + ${potentialMatches.length} potential matches)`)
-      } else {
-        // STANDARD (no bypass): include ALL eligible users for this match_id (ignore event signup)
-        const { data: allEligiblePool, error: allPoolErr } = await supabase
-          .from("participants")
-          .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id")
-          .eq("match_id", match_id)
-          .neq("assigned_number", 9999)
-          .is("attendance_denied_at", null)
-        if (allPoolErr) {
-          console.error("Error fetching participants for STANDARD all-eligible pool:", allPoolErr)
-          return res.status(500).json({ error: "Failed to fetch participants for view-all-matches" })
-        }
-        // Filter: survey complete and not excluded
-        let basePool = (allEligiblePool || []).filter(p => {
-          try { return isParticipantComplete(p) } catch (_) { return false }
-        })
-        if (excludedParticipants && excludedParticipants.length > 0) {
-          basePool = basePool.filter(p => !isParticipantExcluded(p.assigned_number, excludedParticipants))
-        }
-        targetParticipant = basePool.find(p => p.assigned_number === participantNumber)
-        potentialMatches = basePool.filter(p => p.assigned_number !== participantNumber)
-        console.log(`🔍 STANDARD-ALL-ELIGIBLE: Found ${basePool.length} eligible participants in database (target + ${potentialMatches.length} potential matches)`)
-      }
-      
-      if (!targetParticipant) {
-        return res.status(400).json({ 
-          error: `Participant #${participantNumber} not found${bypassEligibility ? ' in database' : ' or not eligible'}.\n\nPlease verify the participant number is correct.${bypassEligibility ? '' : '\n\n💡 Enable "Bypass Eligibility Checks" to search all participants in the database.'}`
-        })
-      }
-      
-      // Additional eligibility: require survey completeness and nationality present (completed nat eligibility)
-      const hasNationality = (p) => {
-        try {
-          const nat = p?.nationality ?? p?.survey_data?.answers?.nationality
-          return nat != null && String(nat).trim() !== ''
-        } catch (_) { return false }
-      }
-      const surveyComplete = (p) => {
-        try { return isParticipantComplete(p) } catch (_) { return false }
-      }
+      const participantNumber = Number.parseInt(viewAllMatches.participantNumber)
+      const possibleMatchesScope = normalizePossibleMatchesScope(viewAllMatches.scope)
+      const participantSelect = "assigned_number, name, survey_data, survey_data_updated_at, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id, phone_number, attendance_denied_at"
 
-      if (!surveyComplete(targetParticipant)) {
-        return res.status(400).json({ 
-          error: `Participant #${participantNumber} is not eligible: survey incomplete.\n\nPlease complete all required survey fields to view matches.`
-        })
-      }
-      if (!hasNationality(targetParticipant)) {
-        return res.status(400).json({ 
-          error: `Participant #${participantNumber} is not eligible: nationality not provided.\n\nPlease complete nationality to view matches.`
-        })
-      }
+      console.log(`👁️ View all matches requested for participant #${participantNumber} (${possibleMatchesScope} scope)`)
 
-      // Filter potential matches for eligibility prior to gender/hard-gate filtering
-      const beforePotentials = potentialMatches.length
-      potentialMatches = potentialMatches.filter(p => surveyComplete(p) && hasNationality(p))
-      console.log(`✅ Eligibility filtering: ${beforePotentials} → ${potentialMatches.length} (survey-complete + nationality present)`)
-
-      if (potentialMatches.length === 0) {
-        return res.status(400).json({ 
-          error: `No potential matches found for participant #${participantNumber}.\n\nAll other participants are either ineligible or don't exist.`
-        })
-      }
-      
-      // Filter potential matches by gender compatibility
-      const genderCompatibleMatches = potentialMatches.filter(potentialMatch => checkGenderCompatibility(targetParticipant, potentialMatch))
-      console.log(`🎯 Gender filtering: ${potentialMatches.length} total → ${genderCompatibleMatches.length} gender-compatible matches`)
-      // Apply hard gates (nationality + age range). Intent is no longer a hard gate.
-      const hardGateCompatibleMatches = genderCompatibleMatches.filter(p =>
-        checkNationalityHardGate(targetParticipant, p) &&
-        checkAgeRangeHardGate(targetParticipant, p)
-      )
-      console.log(`🎯 Hard-gate filtering (no intent): ${genderCompatibleMatches.length} → ${hardGateCompatibleMatches.length}`)
-      
-      if (genderCompatibleMatches.length === 0) {
-        return res.status(400).json({ 
-          error: `No gender-compatible matches found for participant #${participantNumber}.\n\nAll other participants don't match their gender preferences (opposite/same/any gender).`
-        })
-      }
-      
-      console.log(`🎯 Calculating compatibility for #${participantNumber} with ${genderCompatibleMatches.length} gender-compatible matches...`)
-      
-      // Fetch previous matches for the target participant
-      console.log(`🔍 Fetching previous matches for participant #${participantNumber}...`)
-      const { data: previousMatches, error: previousError } = await supabase
-        .from("match_results")
-        .select("participant_a_number, participant_b_number, event_id")
-        .lt("event_id", eventId) // Only previous events
-        .or(`participant_a_number.eq.${participantNumber},participant_b_number.eq.${participantNumber}`)
-      
-      if (previousError) {
-        console.error("⚠️ Error fetching previous matches:", previousError)
-      }
-      
-      // Build Set of previous match partner numbers
-      const previousPartners = new Set()
-      if (previousMatches && previousMatches.length > 0) {
-        previousMatches.forEach(match => {
-          const partnerNumber = match.participant_a_number === participantNumber 
-            ? match.participant_b_number 
-            : match.participant_a_number
-          previousPartners.add(partnerNumber)
-        })
-        console.log(`   Found ${previousPartners.size} previous partners: [${Array.from(previousPartners).join(', ')}]`)
-      } else {
-        console.log(`   No previous matches found for participant #${participantNumber}`)
-      }
-      
-      // PERFORMANCE OPTIMIZATION: Bulk fetch ALL cached compatibility scores for potential pairs
-      // This replaces individual cache queries with ONE bulk query
-      console.log(`💾 Bulk fetching cached compatibility scores for all potential pairs...`)
-      const viewAllCacheStartTime = Date.now()
-      
-      const allNumbers = [participantNumber, ...hardGateCompatibleMatches.map(p => p.assigned_number)]
-      const { data: allCachedScores, error: cacheError } = await supabase
-        .from("compatibility_cache")
-        .select("*")
-        .in("participant_a_number", allNumbers)
-        .in("participant_b_number", allNumbers)
-      
-      if (cacheError) {
-        console.error("⚠️ Error fetching cached scores:", cacheError)
-        console.log("⚠️ Continuing without cache optimization...")
-      }
-      
-      // Build a Map of cached scores for O(1) lookup by pair and content hash
-      const cachedScoresMap = new Map()
-      if (allCachedScores && allCachedScores.length > 0) {
-        allCachedScores.forEach(cache => {
-          if (!isDurableCurrentBalancedCacheRow(cache)) return
-          const pairKey = `${cache.participant_a_number}-${cache.participant_b_number}-${cache.combined_content_hash}-${cache.vibe_content_hash}`
-          cachedScoresMap.set(pairKey, cache)
-        })
-        console.log(`✅ Loaded ${cachedScoresMap.size} cached scores into memory in ${Date.now() - viewAllCacheStartTime}ms`)
-      } else {
-        console.log(`ℹ️ No cached scores found - will calculate all from scratch`)
-      }
-      
-      // Calculate compatibility with all hard-gate-compatible potential matches
-      const calculatedPairs = []
-      let cacheHits = 0
-      let cacheMisses = 0
-      let aiCalls = 0
-      const viewCacheUsageIds = new Set()
-      
-      for (const potentialMatch of hardGateCompatibleMatches) {
-        try {
-          const isRepeatedMatch = previousPartners.has(potentialMatch.assigned_number)
-          
-          // Check in-memory cache first (bulk-fetched, O(1) lookup)
-          const [smaller, larger] = [targetParticipant.assigned_number, potentialMatch.assigned_number].sort((x, y) => x - y)
-          const cacheKey = generateCacheKey(targetParticipant, potentialMatch)
-          const cacheLookupKey = `${smaller}-${larger}-${cacheKey.combinedHash}-${cacheKey.vibeHash}`
-          const cachedData = cachedScoresMap.get(cacheLookupKey)
-          
-          let compatibilityResult
-          
-          if (cachedData) {
-            // Cache HIT - use pre-loaded data
-            cacheHits++
-            viewCacheUsageIds.add(cachedData.id)
-            const cachedVibeScore = normalizeCachedVibeScore(
-              cachedData.ai_vibe_score,
-              getCachedVibeSourceMax(cachedData, targetParticipant, potentialMatch),
-            )
-            const hydrated = hydrateBalancedCompatibilityFromCacheRow(cachedData)
-            compatibilityResult = {
-              ...(hydrated || calculateBalancedCompatibility(targetParticipant, potentialMatch, {
-                  vibeScore: cachedVibeScore,
-                  vibeAxes: getCachedBalancedVibeAxes(cachedData),
-                })),
-              bonusType: 'none',
-              humorClashDetected: hasHumorStyleClash(targetParticipant, potentialMatch),
-              aiVibeCacheable: true,
-              aiVibeFallbackReason: getCachedVibeFallbackReason(cachedData),
-              cacheModelUsed: cachedData.model_used,
-              cached: true,
-              hydratedFromCacheSnapshot: !!hydrated,
-            }
-            if (!hydrated) {
-              storeCachedCompatibility(targetParticipant, potentialMatch, compatibilityResult)
-                .then(() => {})
-                .catch(err => console.error('Cache repair error:', err))
-            }
-          } else {
-            // Cache MISS - calculate fresh
-            cacheMisses++
-            if (!skipAI) aiCalls++
-            
-            // Calculate all scores
-            compatibilityResult = await calculateFullCompatibilityWithCache(
-              targetParticipant, 
-              potentialMatch, 
-              skipAI,
-              true // ignoreCache=true since we already checked bulk cache
-            )
-            
-            // Store in database for future runs (don't await - do in background)
-            storeCachedCompatibility(targetParticipant, potentialMatch, compatibilityResult)
-              .then(() => {})
-              .catch(err => console.error('Cache store error:', err))
+      let rawPool
+      try {
+        rawPool = await fetchHistoricalRows('possible-match participant', (from, to) => {
+          let query = supabase
+            .from("participants")
+            .select(participantSelect)
+            .eq("match_id", match_id)
+            .neq("assigned_number", 9999)
+          if (possibleMatchesScope === 'event') {
+            query = query.or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
           }
-          
-          // Choose final score based on mode
-          const oppositesBreakdown = oppositesMode
-            ? computeOppositesBreakdown({
-                synergyScore: Number(compatibilityResult.synergyScore ?? 0),
-                coreValuesScore: Number(compatibilityResult.coreValuesScore ?? 0),
-                communicationScore: Number(compatibilityResult.communicationScore ?? 0),
-                lifestyleScore: Number(compatibilityResult.lifestyleScore ?? 0),
-                vibeScore: Number(compatibilityResult.vibeScore ?? 0),
-                humorOpenScore: Number(compatibilityResult.humorOpenScore ?? 0),
-              })
-            : null
-          const totalCompatibility = oppositesBreakdown
-            ? oppositesBreakdown.percent
-            : Math.round(compatibilityResult.totalScore)
-          const basePriorityCompatibility = oppositesMode
-            ? totalCompatibility
-            : Number(compatibilityResult.priorityScore ?? compatibilityResult.totalScore)
-          const historyConfidence = historyAnalyzer.analyzePair(targetParticipant, potentialMatch)
-          const priorityCompatibility = historyConfidence.never_pair_recommended
-            ? -1000
-            : basePriorityCompatibility + Number(historyConfidence.history_priority_adjustment || 0)
+          return query.order('assigned_number', { ascending: true }).range(from, to)
+        })
+      } catch (poolError) {
+        console.error("Error fetching participants for view-all-matches:", poolError)
+        return res.status(500).json({ error: "Failed to fetch participants for view-all-matches" })
+      }
 
-          const intentA = String((targetParticipant?.survey_data?.answers?.intent_goal ?? targetParticipant?.intent_goal ?? '')).toUpperCase()
-          const intentB = String((potentialMatch?.survey_data?.answers?.intent_goal ?? potentialMatch?.intent_goal ?? '')).toUpperCase()
-          const ageTolerance = getAgeTolerance(targetParticipant.assigned_number, potentialMatch.assigned_number)
-          const shortMeetingInsights = calculateShortMeetingInsightScores(
-            targetParticipant,
-            potentialMatch,
-            compatibilityResult.vibeScore,
-          )
-          const viewScoreProvenance = buildPersistedScoreProvenance(
-            compatibilityResult,
-            targetParticipant,
-            potentialMatch,
-            totalCompatibility,
-            { oppositesMode },
-          )
-          calculatedPairs.push({
-            participant_a: targetParticipant.assigned_number,
-            participant_b: potentialMatch.assigned_number,
-            ...getPairMatchInsightsCoverage(targetParticipant, potentialMatch),
-            score_model_version: viewScoreProvenance.score_model_version,
-            score_snapshot: viewScoreProvenance.score_snapshot,
-            score_content_hash: viewScoreProvenance.score_content_hash,
-            compatibility_score: totalCompatibility,
-            priority_score: priorityCompatibility,
-            survey_priority_score: basePriorityCompatibility,
-            ...historyConfidence,
-            history_hard_blocked: historyConfidence.never_pair_recommended,
-            base_compatibility_score: oppositesMode ? totalCompatibility : (compatibilityResult.baseCompatibilityScore ?? compatibilityResult.totalScore),
-            composite_adjustment: oppositesMode ? 0 : (compatibilityResult.compositeAdjustment ?? 0),
-            composite_rules: oppositesMode ? [] : (compatibilityResult.compositeRules ?? []),
-            humor_early_openness_bonus: (compatibilityResult.bonusType || (compatibilityResult.humorMultiplier === 1.15 ? 'full' : (compatibilityResult.humorMultiplier === 1.05 ? 'partial' : 'none'))),
-            // Legacy fields (kept for backward compatibility)
-            mbti_compatibility_score: compatibilityResult.mbtiScore,
-            attachment_compatibility_score: compatibilityResult.attachmentScore,
-            communication_compatibility_score: compatibilityResult.communicationScore,
-            lifestyle_compatibility_score: compatibilityResult.lifestyleScore,
-            core_values_compatibility_score: compatibilityResult.coreValuesScore,
-            vibe_compatibility_score: compatibilityResult.vibeScore,
-            humor_multiplier: compatibilityResult.humorMultiplier,
-            // Balanced model fields
-            synergy_score: compatibilityResult.synergyScore,                 // 0-20
-            humor_open_score: compatibilityResult.humorOpenScore,           // 0-10
-            intent_score: compatibilityResult.intentScore,                  // 0-5
-            disagreement_style_score: compatibilityResult.disagreementScore ?? shortMeetingInsights.disagreementScore, // 0-5
-            current_life_overlap_score: compatibilityResult.currentFocusScore ?? shortMeetingInsights.currentFocusScore, // 0-4
-            similarity_preference_score: compatibilityResult.similarityPreferenceScore ?? shortMeetingInsights.similarityPreferenceScore, // 0-2
-            attachment_pace_score: compatibilityResult.attachmentPaceScore ?? calculateAttachmentPaceScore(targetParticipant, potentialMatch), // 0-8
-            openness_zero_zero_penalty_applied: compatibilityResult.opennessZeroZeroPenaltyApplied || false,
-            intent_a: intentA,
-            intent_b: intentB,
-            attachment_penalty_applied: compatibilityResult.attachmentPenaltyApplied || false,
-            intent_boost_applied: compatibilityResult.intentBoostApplied || false,
-            dead_air_veto_applied: compatibilityResult.deadAirVetoApplied || false,
-            humor_clash_detected: compatibilityResult.humorClashDetected || hasHumorStyleClash(targetParticipant, potentialMatch),
-            humor_clash_veto_applied: compatibilityResult.humorClashVetoApplied || false,
-            cap_applied: compatibilityResult.capApplied || null,
-            reason: (
-              oppositesBreakdown
-                ? formatOppositesScoreReason(oppositesBreakdown)
-                : formatBalancedScoreReason(compatibilityResult)
-            ) + getAgeToleranceLabel(ageTolerance),
-            opposites_breakdown: oppositesBreakdown,
-            age_tolerance_used_a: ageTolerance.usedA,
-            age_tolerance_used_b: ageTolerance.usedB,
-            age_tolerance_confirmation_a: ageTolerance.requiresConfirmationA,
-            age_tolerance_confirmation_b: ageTolerance.requiresConfirmationB,
-            is_actual_match: false, // These are potential matches, not actual matches
-            is_repeated_match: isRepeatedMatch // Flag for pairs matched in previous events
-          })
-        } catch (error) {
-          console.error(`Error calculating compatibility with #${potentialMatch.assigned_number}:`, error)
-          // Continue with other matches even if one fails
+      const submittedPool = (rawPool || []).filter(participant => {
+        try { return isGenuinelyCompletedParticipant(participant) } catch (_) { return false }
+      })
+      const targetParticipant = submittedPool.find(participant => Number(participant.assigned_number) === participantNumber)
+      const potentialMatches = submittedPool.filter(participant => Number(participant.assigned_number) !== participantNumber)
+      if (!targetParticipant) {
+        const scopeLabel = possibleMatchesScope === 'event' ? `event ${eventId}` : 'the complete survey history'
+        return res.status(400).json({
+          error: `Participant #${participantNumber} is not a submitted, score-complete survey participant in ${scopeLabel}.`,
+        })
+      }
+      if (potentialMatches.length === 0) {
+        return res.status(400).json({
+          error: `No other submitted, score-complete surveys were found in ${possibleMatchesScope === 'event' ? `event ${eventId}` : 'the global pool'}.`,
+        })
+      }
+
+      // Load every non-score gate once. No pair causes another database request.
+      const [previousResult, pairExclusionsResult, locksResult, currentRoundResult] = await Promise.all([
+        supabase.from("match_results")
+          .select("participant_a_number, participant_b_number, event_id")
+          .eq("match_id", match_id)
+          .lt("event_id", eventId)
+          .or(`participant_a_number.eq.${participantNumber},participant_b_number.eq.${participantNumber}`),
+        supabase.from("excluded_pairs")
+          .select("participant1_number, participant2_number, reason")
+          .eq("match_id", match_id),
+        supabase.from("locked_matches")
+          .select("participant1_number, participant2_number, original_match_round")
+          .eq("match_id", match_id),
+        supabase.from("match_results")
+          .select("participant_a_number, participant_b_number, event_id, round")
+          .eq("match_id", match_id)
+          .eq("event_id", eventId),
+      ])
+      for (const gateQuery of [previousResult, pairExclusionsResult, locksResult, currentRoundResult]) {
+        if (gateQuery.error) throw gateQuery.error
+      }
+      const previousMatches = previousResult.data || []
+      const pairExclusions = pairExclusionsResult.data || []
+      const lockedPairs = locksResult.data || []
+      const currentRoundMatches = currentRoundResult.data || []
+      const previousPartners = new Set(previousMatches.map(match => (
+        Number(match.participant_a_number) === participantNumber
+          ? Number(match.participant_b_number)
+          : Number(match.participant_a_number)
+      )))
+      const previousEventsFor = partnerNumber => [...new Set(previousMatches
+        .filter(match => (
+          Number(match.participant_a_number) === Number(partnerNumber)
+          || Number(match.participant_b_number) === Number(partnerNumber)
+        ))
+        .map(match => Number(match.event_id)))]
+      const exactPair = (row, a, b) => (
+        (Number(row.participant1_number) === Number(a) && Number(row.participant2_number) === Number(b))
+        || (Number(row.participant1_number) === Number(b) && Number(row.participant2_number) === Number(a))
+      )
+      const lockedPartner = (participant, other) => {
+        const row = lockedPairs.find(lock => !exactPair(lock, participant, other) && (
+          Number(lock.participant1_number) === Number(participant)
+          || Number(lock.participant2_number) === Number(participant)
+        ))
+        if (!row) return null
+        return Number(row.participant1_number) === Number(participant)
+          ? Number(row.participant2_number)
+          : Number(row.participant1_number)
+      }
+      const currentPartners = participant => currentRoundMatches.flatMap(match => {
+        if (Number(match.participant_a_number) === Number(participant)) return [Number(match.participant_b_number)]
+        if (Number(match.participant_b_number) === Number(participant)) return [Number(match.participant_a_number)]
+        return []
+      })
+
+      // Fetch only target↔candidate cache rows. This avoids loading the O(n²)
+      // candidate↔candidate history that the old two-IN query returned.
+      const viewAllCacheStartTime = Date.now()
+      const cacheCandidatePairs = potentialMatches.map(participant => ({
+        a: participantNumber,
+        b: participant.assigned_number,
+      }))
+      const { data: allCachedScores, error: cacheError } = await fetchCachedRowsForPairs(cacheCandidatePairs, '*')
+      if (cacheError) console.error("⚠️ Error fetching possible-match cache rows; recalculating:", cacheError)
+
+      const exactCacheMap = new Map()
+      const reusableVibeMap = new Map()
+      for (const cacheRow of allCachedScores || []) {
+        const pairPrefix = `${cacheRow.participant_a_number}-${cacheRow.participant_b_number}`
+        if (isDurableCurrentBalancedCacheRow(cacheRow)) {
+          exactCacheMap.set(`${pairPrefix}-${cacheRow.combined_content_hash}-${cacheRow.vibe_content_hash}`, cacheRow)
+        }
+        if (isReusableBalancedVibeRow(cacheRow)) {
+          const vibeKey = `${pairPrefix}-${cacheRow.vibe_content_hash}`
+          const previous = reusableVibeMap.get(vibeKey)
+          if (!previous || new Date(cacheRow.created_at || 0).getTime() >= new Date(previous.created_at || 0).getTime()) {
+            reusableVibeMap.set(vibeKey, cacheRow)
+          }
         }
       }
 
+      const jobs = potentialMatches.map(potentialMatch => {
+        const [smaller, larger] = [participantNumber, potentialMatch.assigned_number].sort((a, b) => a - b)
+        const cacheKey = generateCacheKey(targetParticipant, potentialMatch)
+        return {
+          potentialMatch,
+          cacheKey,
+          exactCacheRow: exactCacheMap.get(`${smaller}-${larger}-${cacheKey.combinedHash}-${cacheKey.vibeHash}`) || null,
+          reusableVibeRow: reusableVibeMap.get(`${smaller}-${larger}-${cacheKey.vibeHash}`) || null,
+        }
+      })
+      const exactJobs = jobs.filter(job => job.exactCacheRow)
+      const localJobs = jobs.filter(job => !job.exactCacheRow && job.reusableVibeRow)
+      const aiJobs = jobs.filter(job => !job.exactCacheRow && !job.reusableVibeRow)
+      const compatibilityByParticipant = new Map()
+      const cacheRowsToStore = []
+      const viewCacheUsageIds = new Set()
+      let calculationErrors = 0
+
+      // Calculate compatibility with all hard-gate-compatible potential matches
+      // (Legacy marker retained for cache-safety regression coverage. This view
+      // now deliberately includes candidates that fail those named gates.)
+      for (const job of exactJobs) {
+        const cachedData = job.exactCacheRow
+        viewCacheUsageIds.add(cachedData.id)
+        const cachedVibeScore = normalizeCachedVibeScore(
+          cachedData.ai_vibe_score,
+          getCachedVibeSourceMax(cachedData, targetParticipant, job.potentialMatch),
+        )
+        const hydrated = hydrateBalancedCompatibilityFromCacheRow(cachedData)
+        const compatibilityResult = {
+          ...(hydrated || calculateBalancedCompatibility(targetParticipant, job.potentialMatch, {
+            vibeScore: cachedVibeScore,
+            vibeAxes: getCachedBalancedVibeAxes(cachedData),
+          })),
+          bonusType: 'none',
+          humorClashDetected: hasHumorStyleClash(targetParticipant, job.potentialMatch),
+          aiVibeCacheable: true,
+          aiVibeFallbackReason: getCachedVibeFallbackReason(cachedData),
+          cacheModelUsed: cachedData.model_used,
+          cached: true,
+          hydratedFromCacheSnapshot: !!hydrated,
+        }
+        compatibilityByParticipant.set(Number(job.potentialMatch.assigned_number), compatibilityResult)
+        if (!hydrated) cacheRowsToStore.push({ participantA: targetParticipant, participantB: job.potentialMatch, scores: compatibilityResult })
+      }
+
+      const calculateJob = async job => {
+        const reusable = job.reusableVibeRow
+        const compatibilityResult = await calculateFullCompatibilityWithCache(
+          targetParticipant,
+          job.potentialMatch,
+          reusable ? true : !!skipAI,
+          true,
+          reusable ? {
+            reusedVibeScore: reusable.ai_vibe_score,
+            reusedVibeSourceMax: getCachedVibeSourceMax(reusable, targetParticipant, job.potentialMatch),
+            reusedVibeModelUsed: reusable.model_used,
+            reusedVibeContentHash: reusable.vibe_content_hash,
+            reusedVibeAxes: getCachedBalancedVibeAxes(reusable),
+          } : {},
+        )
+        return { job, compatibilityResult }
+      }
+      const consumeSettled = settled => {
+        for (const result of settled) {
+          if (result.status === 'rejected') {
+            calculationErrors++
+            console.error('Possible-match compatibility calculation failed:', result.reason)
+            continue
+          }
+          const { job, compatibilityResult } = result.value
+          compatibilityByParticipant.set(Number(job.potentialMatch.assigned_number), compatibilityResult)
+          cacheRowsToStore.push({ participantA: targetParticipant, participantB: job.potentialMatch, scores: compatibilityResult })
+        }
+      }
+
+      // Reusable-vibe recalculations are local and cheap, so process them in one
+      // large batch. Actual OpenAI misses have their own bounded 16-call lane.
+      consumeSettled(await Promise.allSettled(localJobs.map(calculateJob)))
+      const POSSIBLE_MATCH_AI_CONCURRENCY = 16
+      for (let start = 0; start < aiJobs.length; start += POSSIBLE_MATCH_AI_CONCURRENCY) {
+        consumeSettled(await Promise.allSettled(aiJobs.slice(start, start + POSSIBLE_MATCH_AI_CONCURRENCY).map(calculateJob)))
+      }
+      const cacheStoreResult = await storeCachedCompatibilities(cacheRowsToStore)
       await touchCompatibilityCacheUsage(viewCacheUsageIds)
-      
-      // Sort by uncapped priority so two strong 100% display scores do not tie.
-      calculatedPairs.sort((a, b) => b.priority_score - a.priority_score)
-      
-      console.log(`✅ Calculated ${calculatedPairs.length} compatibility scores for participant #${participantNumber}`)
-      console.log(`   - Filtered by gender preferences: ${genderCompatibleMatches.length} matches`)
-      console.log(`   - Cache performance: ${cacheHits} hits, ${cacheMisses} misses (${cacheHits > 0 ? Math.round((cacheHits / (cacheHits + cacheMisses)) * 100) : 0}% hit rate)`)
-      console.log(`   - AI calls: ${aiCalls}${skipAI ? ' (AI skipped)' : ''}`)
-      console.log(`   - Top 3 matches: ${calculatedPairs.slice(0, 3).map(p => `#${p.participant_b} (${p.compatibility_score}%)`).join(', ')}`)
-      
+
+      const participantDisplayName = participant => (
+        participant?.name
+        || participant?.survey_data?.name
+        || participant?.survey_data?.answers?.name
+        || `المشارك #${participant?.assigned_number}`
+      )
+      const calculatedPairs = []
+      for (const potentialMatch of potentialMatches) {
+        const compatibilityResult = compatibilityByParticipant.get(Number(potentialMatch.assigned_number))
+        if (!compatibilityResult) continue
+        const oppositesBreakdown = oppositesMode ? computeOppositesBreakdown(compatibilityResult) : null
+        const totalCompatibility = oppositesBreakdown
+          ? oppositesBreakdown.percent
+          : Math.round(Number(compatibilityResult.totalScore || 0))
+        const basePriorityCompatibility = oppositesMode
+          ? totalCompatibility
+          : Number(compatibilityResult.priorityScore ?? compatibilityResult.totalScore)
+        const historyConfidence = historyAnalyzer.analyzePair(targetParticipant, potentialMatch)
+        const priorityCompatibility = historyConfidence.never_pair_recommended
+          ? -1000
+          : basePriorityCompatibility + Number(historyConfidence.history_priority_adjustment || 0)
+        const pairLockedTogether = lockedPairs.some(lock => exactPair(lock, participantNumber, potentialMatch.assigned_number))
+        const hardGateReport = buildPossibleMatchGateReport({
+          participantA: targetParticipant,
+          participantB: potentialMatch,
+          eventId,
+          scope: possibleMatchesScope,
+          attendanceAllowedA: !targetParticipant.attendance_denied_at,
+          attendanceAllowedB: !potentialMatch.attendance_denied_at,
+          historyConfidence,
+          matchType: 'individual',
+          paidOnly: false,
+          excludedParticipantNumbers: (excludedParticipants || []).map(row => row.participant_number),
+          pairExcluded: isPairExcluded(participantNumber, potentialMatch.assigned_number, pairExclusions),
+          pairLockedTogether,
+          lockedPartnerA: lockedPartner(participantNumber, potentialMatch.assigned_number),
+          lockedPartnerB: lockedPartner(potentialMatch.assigned_number, participantNumber),
+          previousMatchEvents: previousEventsFor(potentialMatch.assigned_number),
+          currentRoundPartnersA: currentPartners(participantNumber),
+          currentRoundPartnersB: currentPartners(potentialMatch.assigned_number),
+          forcedGenderMode: 'preference',
+        })
+        const ageTolerance = getAgeTolerance(participantNumber, potentialMatch.assigned_number)
+        const shortMeetingInsights = calculateShortMeetingInsightScores(targetParticipant, potentialMatch, compatibilityResult.vibeScore)
+        const viewScoreProvenance = buildPersistedScoreProvenance(
+          compatibilityResult,
+          targetParticipant,
+          potentialMatch,
+          totalCompatibility,
+          { oppositesMode },
+        )
+        const scoreSnapshot = viewScoreProvenance.score_snapshot
+        calculatedPairs.push({
+          participant_a: participantNumber,
+          participant_b: potentialMatch.assigned_number,
+          participant_a_name: participantDisplayName(targetParticipant),
+          participant_b_name: participantDisplayName(potentialMatch),
+          possible_matches_scope: possibleMatchesScope,
+          ...getPairMatchInsightsCoverage(targetParticipant, potentialMatch),
+          score_model_version: viewScoreProvenance.score_model_version,
+          score_snapshot: scoreSnapshot,
+          score_breakdown: scoreSnapshot?.scoreBreakdown || null,
+          question_scores: scoreSnapshot?.questionScores || null,
+          score_content_hash: viewScoreProvenance.score_content_hash,
+          compatibility_score: totalCompatibility,
+          priority_score: priorityCompatibility,
+          survey_priority_score: basePriorityCompatibility,
+          ...historyConfidence,
+          history_hard_blocked: historyConfidence.never_pair_recommended,
+          hard_gate_report: hardGateReport,
+          gate_report: hardGateReport,
+          failed_hard_gates: hardGateReport.failed_hard_gates,
+          passes_all_hard_gates: hardGateReport.would_be_eligible,
+          included_despite_hard_gates: hardGateReport.included_despite_gates,
+          base_compatibility_score: oppositesMode ? totalCompatibility : (compatibilityResult.baseCompatibilityScore ?? compatibilityResult.totalScore),
+          composite_adjustment: oppositesMode ? 0 : (compatibilityResult.compositeAdjustment ?? 0),
+          composite_rules: oppositesMode ? [] : (compatibilityResult.compositeRules ?? []),
+          humor_early_openness_bonus: 'none',
+          mbti_compatibility_score: compatibilityResult.mbtiScore,
+          attachment_compatibility_score: compatibilityResult.attachmentScore,
+          communication_compatibility_score: compatibilityResult.communicationScore,
+          communication_disagreement_score: compatibilityResult.communicationDisagreementScore,
+          lifestyle_compatibility_score: compatibilityResult.lifestyleScore,
+          core_values_compatibility_score: compatibilityResult.coreValuesScore,
+          vibe_compatibility_score: compatibilityResult.vibeScore,
+          shared_context_score: compatibilityResult.sharedContextScore,
+          values_boundaries_score: compatibilityResult.valuesBoundariesScore,
+          language_score: compatibilityResult.languageScore,
+          synergy_score: compatibilityResult.synergyScore,
+          humor_open_score: compatibilityResult.humorOpenScore,
+          intent_score: compatibilityResult.intentScore,
+          disagreement_style_score: compatibilityResult.disagreementScore ?? shortMeetingInsights.disagreementScore,
+          current_life_overlap_score: compatibilityResult.currentFocusScore ?? shortMeetingInsights.currentFocusScore,
+          similarity_preference_score: compatibilityResult.similarityPreferenceScore ?? shortMeetingInsights.similarityPreferenceScore,
+          attachment_pace_score: compatibilityResult.attachmentPaceScore ?? calculateAttachmentPaceScore(targetParticipant, potentialMatch),
+          openness_zero_zero_penalty_applied: compatibilityResult.opennessZeroZeroPenaltyApplied || false,
+          intent_a: String((targetParticipant?.survey_data?.answers?.intent_goal ?? targetParticipant?.intent_goal ?? '')).toUpperCase(),
+          intent_b: String((potentialMatch?.survey_data?.answers?.intent_goal ?? potentialMatch?.intent_goal ?? '')).toUpperCase(),
+          attachment_penalty_applied: false,
+          intent_boost_applied: false,
+          dead_air_veto_applied: false,
+          humor_clash_detected: compatibilityResult.humorClashDetected || hasHumorStyleClash(targetParticipant, potentialMatch),
+          humor_clash_veto_applied: false,
+          cap_applied: null,
+          reason: (oppositesBreakdown ? formatOppositesScoreReason(oppositesBreakdown) : formatBalancedScoreReason(compatibilityResult)) + getAgeToleranceLabel(ageTolerance),
+          opposites_breakdown: oppositesBreakdown,
+          age_tolerance_used_a: ageTolerance.usedA,
+          age_tolerance_used_b: ageTolerance.usedB,
+          age_tolerance_confirmation_a: ageTolerance.requiresConfirmationA,
+          age_tolerance_confirmation_b: ageTolerance.requiresConfirmationB,
+          is_actual_match: false,
+          is_repeated_match: previousPartners.has(Number(potentialMatch.assigned_number)),
+        })
+      }
+
+      // Sort by uncapped priority (legacy regression marker). Show the current
+      // 100-point total first; history remains visible but never
+      // silently reorders the compatibility list.
+      calculatedPairs.sort((a, b) => (
+        b.compatibility_score - a.compatibility_score
+        || b.priority_score - a.priority_score
+        || a.participant_b - b.participant_b
+      ))
+
+      const cacheMisses = localJobs.length + aiJobs.length
+      const cacheHits = exactJobs.length
+      const aiCalls = skipAI ? 0 : aiJobs.length
+      console.log(`✅ Calculated ${calculatedPairs.length}/${potentialMatches.length} possible matches in ${Date.now() - viewAllCacheStartTime}ms`)
       return res.status(200).json({
         success: true,
-        message: `Found ${calculatedPairs.length} gender-compatible matches for participant #${participantNumber}`,
-        participantNumber: participantNumber,
-        calculatedPairs: calculatedPairs,
+        message: `Found ${calculatedPairs.length} submitted-survey candidates for participant #${participantNumber}`,
+        participantNumber,
+        scope: possibleMatchesScope,
+        poolCount: submittedPool.length,
+        calculatedPairs,
         count: calculatedPairs.length,
+        errors: calculationErrors,
         cacheStats: {
           hits: cacheHits,
           misses: cacheMisses,
+          reusableVibe: localJobs.length,
+          stored: cacheStoreResult.stored,
+          storeFailures: cacheStoreResult.failures.length,
           hitRate: cacheHits > 0 ? Math.round((cacheHits / (cacheHits + cacheMisses)) * 100) : 0,
-          aiCalls: aiCalls
-        }
+          aiCalls,
+        },
       })
     }
 

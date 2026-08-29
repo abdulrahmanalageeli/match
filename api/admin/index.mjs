@@ -395,11 +395,15 @@ function safeSecretEqual(received, expected) {
 }
 
 function cohostTokenSecret() {
-  return process.env.EVENT3_COHOST_TOKEN_SECRET || ""
+  // Co-host tokens have their own role claim, so the existing server session
+  // key can sign them without requiring another deployment secret.
+  return process.env.ADMIN_SESSION_SECRET
+    || process.env.SUPABASE_SERVICE_ROLE_KEY
+    || ""
 }
 
 function signCohostToken() {
-  if (!cohostTokenSecret()) throw new Error("EVENT3_COHOST_TOKEN_SECRET is not configured")
+  if (!cohostTokenSecret()) throw new Error("A server session secret is not configured")
   const payload = Buffer.from(JSON.stringify({ role: "event3_cohost", exp: Math.floor(Date.now() / 1000) + EVENT3_COHOST_TOKEN_TTL_SECONDS })).toString("base64url")
   const signature = createHmac("sha256", cohostTokenSecret()).update(payload).digest("base64url")
   return `${payload}.${signature}`
@@ -8876,7 +8880,11 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
     // The returned short-lived signed token is limited to the explicit action
     // allow-list below; it can never invoke matching, phase, survey, or payment APIs.
     if (action === "e3-cohost-login") {
-      if (!EVENT3_COHOST_PASSWORD || !cohostTokenSecret() || !safeSecretEqual(req.body?.password, EVENT3_COHOST_PASSWORD)) {
+      if (!EVENT3_COHOST_PASSWORD || !cohostTokenSecret()) {
+        console.error("Co-host login is not configured in this deployment")
+        return res.status(503).json({ error: "Co-host login is not configured", code: "COHOST_NOT_CONFIGURED" })
+      }
+      if (!safeSecretEqual(req.body?.password, EVENT3_COHOST_PASSWORD)) {
         return res.status(403).json({ error: "Unauthorized" })
       }
       return res.status(200).json({

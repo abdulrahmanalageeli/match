@@ -2824,7 +2824,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
               </div>
             ) : (
               <div className="relative z-10 flex-1 overflow-y-auto overscroll-contain" tabIndex={-1}>
-                <GroupsPage disableOnboarding onClose={closeGroups} round={round} tableNumber={assignment?.table} />
+                <GroupsPage disableOnboarding onClose={closeGroups} round={round} tableNumber={assignment?.table} participantSeed={token} />
               </div>
             )}
           </motion.div>

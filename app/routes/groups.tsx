@@ -135,7 +135,7 @@ const games: Game[] = [
   }
 ];
 
-// Append Imposter game as the 7th option
+// Keep Imposter available as the final option after participant-specific shuffling.
 games.push({
   id: "imposter",
   name: "Imposter",
@@ -146,6 +146,37 @@ games.push({
   icon: <Ghost className="w-6 h-6" />,
   color: "from-fuchsia-600 to-purple-700"
 })
+
+const hashActivitySeed = (value: string): number => {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+};
+
+const createSeededRandom = (seedValue: string) => {
+  let seed = hashActivitySeed(seedValue);
+  return () => {
+    seed += 0x6d2b79f5;
+    let value = seed;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
+const shuffleActivitiesForParticipant = (seedValue: string): Game[] => {
+  const random = createSeededRandom(seedValue);
+  const shuffled = games.filter(game => game.id !== "imposter");
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  const imposter = games.find(game => game.id === "imposter");
+  return imposter ? [...shuffled, imposter] : shuffled;
+};
 
 // Premium visual themes per game for selection cards + gameplay surfaces
 const gameThemes: Record<string, {
@@ -1119,11 +1150,12 @@ const fiveSecondRuleCategories = [
   "أشياء حمراء", "أشياء دائرية", "أشياء في الثلاجة", "أسماء بنات", "أسماء أولاد", "ألوان"
 ];
 
-export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tableNumber: activityTableNumber }: {
+export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tableNumber: activityTableNumber, participantSeed }: {
   disableOnboarding?: boolean;
   onClose?: () => void;
   round?: number;
   tableNumber?: number;
+  participantSeed?: string | number | null;
 } = {}) {
   const SESSION_TOTAL_DURATION = 45 * 60; // 45 minutes in seconds
   const IMPOSTER_TUTORIAL_KEY = "imposter_tutorial_seen";
@@ -1142,6 +1174,26 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [savedAuthToken, setSavedAuthToken] = useState<string | null>(null);
+  const [localActivitySeed] = useState(() => {
+    if (participantSeed !== undefined && participantSeed !== null) return String(participantSeed);
+    if (typeof window === "undefined") return "participant";
+    try {
+      const token = localStorage.getItem("blindmatch_result_token") || localStorage.getItem("blindmatch_returning_token");
+      if (token) return token;
+      const semiLogin = sessionStorage.getItem("groups_semi_login");
+      if (semiLogin) {
+        const assignedNumber = JSON.parse(semiLogin)?.assigned_number;
+        if (assignedNumber !== undefined && assignedNumber !== null) return String(assignedNumber);
+      }
+      const existingSeed = sessionStorage.getItem("blindmatch_activity_order_seed");
+      if (existingSeed) return existingSeed;
+      const generatedSeed = `${Date.now()}-${Math.random()}`;
+      sessionStorage.setItem("blindmatch_activity_order_seed", generatedSeed);
+      return generatedSeed;
+    } catch {
+      return "participant";
+    }
+  });
   const [eventPhase, setEventPhase] = useState<string | null>(null);
   const [eventCurrentRound, setEventCurrentRound] = useState<number | null>(null);
   const [joiningTransition, setJoiningTransition] = useState(false);
@@ -1249,6 +1301,10 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
   const [showExplanation, setShowExplanation] = useState(false);
 
   const currentGame = games[currentGameIndex];
+  const activityGames = useMemo(
+    () => shuffleActivitiesForParticipant(String(participantSeed ?? localActivitySeed)),
+    [participantSeed, localActivitySeed]
+  );
 
   // Shuffle array function
   const shuffleArray = <T,>(array: T[]): T[] => {
@@ -2459,9 +2515,9 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
   const renderGameSelection = () => {
     if (disableOnboarding) {
       // Interactive carousel — swipeable, colorful, exciting
-      const currentGame = games[carouselIndex];
-      const nextActivity = () => setCarouselIndex(prev => (prev + 1) % games.length);
-      const prevActivity = () => setCarouselIndex(prev => (prev - 1 + games.length) % games.length);
+      const currentGame = activityGames[carouselIndex];
+      const nextActivity = () => setCarouselIndex(prev => (prev + 1) % activityGames.length);
+      const prevActivity = () => setCarouselIndex(prev => (prev - 1 + activityGames.length) % activityGames.length);
 
       return (
         <div className="relative min-h-full flex flex-col">
@@ -2537,7 +2593,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                   <div className="relative z-10 flex min-h-[310px] flex-col p-6 text-right">
                     <div className="flex items-center justify-between">
                       <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[10px] font-bold text-white/65">
-                        {carouselIndex + 1} من {games.length}
+                        {carouselIndex + 1} من {activityGames.length}
                       </span>
                       <div className="flex items-center gap-2 text-[10px] font-bold text-white/60">
                         <span>{currentGame.duration} دقائق</span>
@@ -2601,7 +2657,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                   <ChevronRight className="h-5 w-5" />
                 </button>
                 <div className="flex items-center overflow-x-auto" role="group" aria-label="اختيار النشاط">
-                  {games.map((g, i) => (
+                  {activityGames.map((g, i) => (
                     <button
                       key={g.id}
                       ref={(node) => { carouselDotRefs.current[i] = node; }}
@@ -2621,7 +2677,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 </button>
               </div>
               <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-                النشاط {carouselIndex + 1} من {games.length}: {currentGame.nameAr}
+                النشاط {carouselIndex + 1} من {activityGames.length}: {currentGame.nameAr}
               </p>
             </div>
           </div>
@@ -2635,7 +2691,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
         <div className="text-center space-y-3 py-4">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 mb-2 animate-in zoom-in duration-300">
             <Sparkles className="w-4 h-4 text-cyan-400" />
-            <span className="text-cyan-400 text-sm font-bold">{games.length} ألعاب تفاعلية</span>
+            <span className="text-cyan-400 text-sm font-bold">{activityGames.length} ألعاب تفاعلية</span>
           </div>
           <h2 className="text-3xl font-bold text-white leading-tight animate-in slide-in-from-top duration-300">
             اختر لعبتك المفضلة
@@ -2647,7 +2703,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 
         {/* Premium, themed game cards with stagger animation */}
         <div className="grid grid-cols-1 gap-4">
-          {games.map((game, index) => {
+          {activityGames.map((game, index) => {
             const theme = gameThemes[game.id] || gameThemes.default;
             return (
               <motion.div 
@@ -4072,8 +4128,10 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
     );
   };
 
-  // If groups page is locked, show a friendly locked page for everyone
-  if (groupsLocked) {
+  // Event3 already owns authentication and phase access for the embedded panel.
+  // Keep the standalone groups route protected without asking an authenticated
+  // Event3 participant (including test impersonation) to sign in a second time.
+  if (!disableOnboarding && groupsLocked) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center px-4" dir="rtl">
         <div className="max-w-md w-full bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl text-center">
@@ -4122,7 +4180,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
   }
 
   // If user isn't confirmed (no token and no restored semi-login), show phone login screen
-  if (dataLoaded && !isConfirmed) {
+  if (!disableOnboarding && dataLoaded && !isConfirmed) {
     return (
       <PhoneEntry onSubmit={submitPhoneDigits} loading={phoneLoading} error={phoneError} />
     );
@@ -4155,7 +4213,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
           participantNumbers={groupParticipantNumbers.length ? groupParticipantNumbers : participantNumbersList}
           participantGenders={groupParticipantGenders}
           selfParticipantNumber={participantNumber ?? undefined as any}
-          games={games.map(g => ({ id: g.id, nameAr: g.nameAr, color: g.color, icon: g.icon }))}
+          games={activityGames.map(g => ({ id: g.id, nameAr: g.nameAr, color: g.color, icon: g.icon }))}
         />
       )}
 
@@ -4359,10 +4417,10 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                   <Sparkles className="w-6 h-6 text-purple-400" />
                   الألعاب المتاحة
                 </h2>
-                <p className="text-center text-slate-300 text-xs mt-2">7 ألعاب متنوعة ومبتكرة</p>
+                <p className="text-center text-slate-300 text-xs mt-2">{activityGames.length} ألعاب متنوعة ومبتكرة</p>
               </div>
               <div className="p-5 grid grid-cols-2 gap-4">
-                {games.map((game, index) => (
+                {activityGames.map((game, index) => (
                   <motion.div 
                     key={game.id} 
                     initial={{ opacity: 0, y: 10 }}

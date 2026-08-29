@@ -421,7 +421,12 @@ export default function AdminCohostPage() {
       const contentType = response.headers.get("content-type") || ""
       if (!contentType.includes("application/json")) throw new Error("تعذر الوصول إلى خدمة الفعالية")
       const data = await response.json().catch(() => ({}))
-      if (!response.ok || !data.token) throw new Error(data.error || "كلمة المرور غير صحيحة")
+      if (!response.ok || !data.token) {
+        if (data.code === "COHOST_NOT_CONFIGURED") {
+          throw new Error("إعداد دخول المضيفة غير مكتمل في النسخة المنشورة. تأكد من متغير Vercel ثم أعد النشر.")
+        }
+        throw new Error(data.error || "كلمة المرور غير صحيحة")
+      }
       sessionStorage.setItem(SESSION_KEY, data.token)
       setToken(data.token)
       setPassword("")

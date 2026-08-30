@@ -944,13 +944,15 @@ export default function Admin3Page() {
 
   const checkTestMode = useCallback(async () => {
     const data = await api("e3-get-test-mode")
+    if (data.error) return
     if (data.test_mode) {
       setTestMode(true)
-      if (!testModeData) setTestModeData(data)
+      setTestModeData((previous: any) => ({ ...previous, ...data }))
     } else {
       setTestMode(false)
+      setTestModeData(null)
     }
-  }, [testModeData])
+  }, [])
 
   // Initial load on auth
   useEffect(() => {
@@ -1017,6 +1019,25 @@ export default function Admin3Page() {
     } finally {
       setLoading(null)
     }
+  }
+
+  const setCohostLock = async (locked: boolean) => {
+    if (loading || testModeLoading || previewEventId != null || typeof state?.cohost_locked !== "boolean") return
+    if (locked && !window.confirm("قفل لوحة المضيفة مؤقتاً؟ سيتوقف وصول المضيفة فقط حتى تعيد فتحه من هنا. لن تتأثر صفحات المشاركين أو المرحلة أو المؤقت.")) return
+    await run("cohost-lock", async () => {
+      const data = await api("e3-set-cohost-lock", { locked })
+      if (data.error) return data
+      if (typeof data.cohost_locked !== "boolean") return { error: "تعذر التأكد من حالة لوحة المضيفة. حدّث الصفحة وحاول مرة أخرى." }
+      setState((previous: any) => previous ? {
+        ...previous,
+        cohost_locked: data.cohost_locked,
+        cohost_lock_updated_at: data.cohost_lock_updated_at ?? null,
+      } : previous)
+      return {
+        ...data,
+        message: data.cohost_locked ? "تم قفل لوحة المضيفة مؤقتاً" : "تم إلغاء القفل وإعادة فتح لوحة المضيفة",
+      }
+    })
   }
 
   const setPhase = (phase: string) => { if (previewEventId != null) { toast.error("لا يمكن تغيير المرحلة في وضع المعاينة"); return } run(`phase-${phase}`, () => api("e3-set-phase", { phase })) }
@@ -1362,8 +1383,10 @@ export default function Admin3Page() {
   }
 
   const clearTestData = () => {
+    if (loading || testModeLoading) return
     if (previewEventId != null) { toast.error("لا يمكن حذف البيانات في وضع المعاينة"); return }
-    if (!confirm("حذف التصنيفات والكلمات والفيدبك فقط؟ سيتم الاحتفاظ بالمشاركين والجلسات والمطابقة.")) return
+    if (!testMode) { toast.error("مسح بيانات الاختبار متاح فقط أثناء وضع اختبار نشط للفعالية الحالية"); return }
+    if (!confirm("مسح بيانات التفاعل للاختبار الحالي؟ سيتم الاحتفاظ بالمشاركين والجلسات والمطابقات المثبتة مسبقاً.")) return
     run("clear-test", async () => {
       const d = await api("e3-clear-test-data")
       if (!d.error) { fetchState(); fetchRankStatus(); fetchMatches() }
@@ -1387,6 +1410,15 @@ export default function Admin3Page() {
     } finally {
       setTestModeLoading(false)
     }
+  }
+
+  const prepareTestAlgorithm = async () => {
+    if (loading || testModeLoading || previewEventId != null || !testMode || testModeData?.prepared_algorithm_pairs !== 0) return
+    await run("prepare-test-algorithm", async () => {
+      const data = await api("e3-prepare-test-algorithm")
+      if (!data.error) await Promise.all([checkTestMode(), fetchMatches()])
+      return data
+    })
   }
 
   const endTestMode = async () => {
@@ -1516,6 +1548,9 @@ export default function Admin3Page() {
   const effectiveTimerDuration = state
     ? (state.timer_duration ?? getEvent3PhaseSeconds(state.phase))
     : 0
+  const cohostLockKnown = typeof state?.cohost_locked === "boolean"
+  const cohostLocked = state?.cohost_locked === true
+  const cohostLockUpdatedAt = Date.parse(String(state?.cohost_lock_updated_at || ""))
 
   return (
     <div className="min-h-screen bg-gray-950 text-white" dir="rtl">
@@ -1738,6 +1773,23 @@ export default function Admin3Page() {
               <div className="bg-amber-950/40 border border-amber-800/40 rounded-lg p-2.5 text-xs text-amber-300/80">
                 <p>⚠️ أنت في وضع الاختبار. جميع البيانات مؤقتة وسيتم حذفها عند الإنهاء.</p>
               </div>
+
+              {testModeData.prepared_algorithm_pairs === 0 ? (
+                <div className="rounded-xl border border-violet-500/30 bg-violet-950/25 p-3 sm:p-4">
+                  <p id="prepare-test-algorithm-description" className="text-xs leading-6 text-violet-200/80">يمكن تجهيز أزواج الخوارزمية لهذا الاختبار مسبقاً لتظهر للمضيفة، بدون تغيير المرحلة أو بيانات الفعالية الحقيقية.</p>
+                  <button
+                    type="button"
+                    onClick={prepareTestAlgorithm}
+                    disabled={testModeLoading || !!loading || previewEventId != null}
+                    aria-describedby="prepare-test-algorithm-description"
+                    aria-busy={loading === "prepare-test-algorithm"}
+                    className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-violet-400/30 bg-violet-500/15 px-4 py-3 text-xs font-bold text-violet-100 transition-colors hover:bg-violet-500/25 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                  >
+                    {loading === "prepare-test-algorithm" ? <Loader2 size={16} className="animate-spin" /> : <Brain size={16} />}
+                    تثبيت مطابقات الاختبار مسبقًا
+                  </button>
+                </div>
+              ) : null}
 
               {/* Cache coverage */}
               {testModeData.cache_coverage && (
@@ -2082,6 +2134,33 @@ export default function Admin3Page() {
                 <span className="text-sm text-amber-300 font-medium">أنت في وضع المعاينة للفعالية {previewEventId} — جميع إجراءات التحكم معطّلة</span>
               </div>
             )}
+
+            <section aria-labelledby="cohost-access-title" className={`rounded-xl border p-3 sm:p-5 ${cohostLocked ? "border-amber-700/50 bg-amber-950/25" : "border-gray-800 bg-gray-900"}`}>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 id="cohost-access-title" className="flex items-center gap-2 text-sm font-semibold sm:text-base"><Shield size={17} className="shrink-0 text-purple-400" /> وصول المضيفة المساعدة</h3>
+                    <span role="status" className={`rounded-full border px-2 py-1 text-[10px] font-bold ${!cohostLockKnown ? "border-gray-700 bg-gray-800 text-gray-400" : cohostLocked ? "border-amber-600/40 bg-amber-500/10 text-amber-200" : "border-emerald-700/40 bg-emerald-500/10 text-emerald-200"}`}>
+                      {!cohostLockKnown ? "بانتظار حالة الوصول" : cohostLocked ? "مقفلة مؤقتاً" : "مفتوحة"}
+                    </span>
+                  </div>
+                  <p id="cohost-lock-description" className="mt-2 text-xs leading-6 text-gray-400">هذا القفل يخص لوحة المضيفة فقط. لا يغيّر صفحات المشاركين أو مرحلة الفعالية أو المؤقت.</p>
+                  <p className="mt-1 text-[11px] leading-5 text-gray-500">يبقى القفل حتى تضغط «إلغاء القفل» من هنا، ويمكن فتح اللوحة مجدداً في أي وقت.</p>
+                  {Number.isFinite(cohostLockUpdatedAt) ? <p className="mt-1 text-[10px] text-gray-500">آخر تغيير: {new Date(cohostLockUpdatedAt).toLocaleString("ar-SA", { dateStyle: "short", timeStyle: "short" })}</p> : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCohostLock(!cohostLocked)}
+                  disabled={!!loading || testModeLoading || previewEventId != null || !cohostLockKnown}
+                  aria-describedby="cohost-lock-description"
+                  aria-busy={loading === "cohost-lock"}
+                  className={`flex min-h-12 w-full shrink-0 items-center justify-center gap-2 rounded-xl border px-4 py-3 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-52 ${cohostLocked ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-100 hover:bg-emerald-500/25" : "border-amber-500/40 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20"}`}
+                >
+                  {loading === "cohost-lock" ? <Loader2 size={16} className="animate-spin" /> : cohostLocked ? <CheckCircle size={16} /> : <Ban size={16} />}
+                  {cohostLocked ? "إلغاء القفل وفتح لوحة المضيفة" : "قفل لوحة المضيفة مؤقتاً"}
+                </button>
+              </div>
+            </section>
 
             {/* Participant Selection */}
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 sm:p-5">
@@ -2615,13 +2694,16 @@ export default function Admin3Page() {
                 <AlertCircle size={16} /> منطقة الخطر
               </h3>
               <div className="flex gap-2 flex-wrap">
-                <button
-                  onClick={clearTestData}
-                  disabled={!!loading}
-                  className="bg-amber-900/50 hover:bg-amber-900 border border-amber-700/50 text-amber-300 rounded-lg px-4 py-2 text-sm flex items-center gap-2"
-                >
-                  <Trash2 size={14} /> مسح بيانات الاختبار (تصنيفات + فيدبك)
-                </button>
+                {testMode ? (
+                  <button
+                    type="button"
+                    onClick={clearTestData}
+                    disabled={!!loading || testModeLoading || previewEventId != null}
+                    className="flex min-h-12 items-center justify-center gap-2 rounded-lg border border-amber-700/50 bg-amber-900/50 px-4 py-2 text-sm text-amber-300 hover:bg-amber-900 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Trash2 size={14} /> مسح بيانات الاختبار (تصنيفات + فيدبك)
+                  </button>
+                ) : null}
                 <button
                   onClick={async () => {
                     if (!confirm("حذف جميع فحوصات المزاج؟")) return

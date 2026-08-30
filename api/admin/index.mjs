@@ -6,15 +6,17 @@ import { assignPriorityTables } from "../../server/event3/table-priority.mjs"
 import { buildSixBySevenPlan, optimizeRound2ByAge } from "../../server/event3/round2-age-optimizer.mjs"
 import { collectEventSwapPairs, collectMatchResultSwapPairs, getTableSwapRounds } from "../../server/event3/participant-swap.mjs"
 import { buildTestAdminSession, testMatchToLockedMatch } from "../../server/event3/test-match-results.mjs"
+import { choosePreparedTestPairs, validatePreparedTestAlgorithmRows } from "../../server/event3/prepared-test-algorithm.mjs"
 import { buildDislikeLeaderboard } from "../../server/event3/dislike-ranking.mjs"
 import { buildGroupMemberFeedbackSummary } from "../../server/event3/group-member-feedback.mjs"
+import { buildReciprocalRankingLookup, getCohostNoteContext, normalizeCohostNoteScope, selectCohostLockedScoreSource } from "../../server/event3/cohost-operations.mjs"
 import {
   EVENT3_PHASE_TIMER_SECONDS,
   EVENT3_TIMER_ROUND_SECONDS,
   getEvent3PhaseTimerSeconds,
 } from "../../server/event3/timing.mjs"
 import { supabaseAdmin } from "../../server/security/supabase-admin.mjs"
-import { clearAdminSession, enforceRateLimit, requireAdmin } from "../../server/security/request-security.mjs"
+import { clearAdminSession, enforceRateLimit, recordSecurityEvent, requireAdmin } from "../../server/security/request-security.mjs"
 import {
   BALANCED_COMPATIBILITY_VERSION,
   BALANCED_VIBE_MODEL,
@@ -378,6 +380,7 @@ const EVENT3_COHOST_ACTIONS = new Set([
   "e3-cohost-rankings",
   "e3-cohost-set-ranking",
   "e3-cohost-set-attendance",
+  "e3-cohost-save-note",
   "e3-cohost-resolve-sos",
   "e3-cohost-reply-sos",
   "e3-get-group-member-feedback",
@@ -657,6 +660,20 @@ function getValidatedScoreProvenance({ modelVersion, contentHash, snapshot, pers
   }
 }
 
+function getCohostScorePayload(row, phase = null) {
+  const total = phase ? row?.[`${phase}_score`] : row?.compatibility_score
+  const score = total !== null && total !== undefined && total !== "" && Number.isFinite(Number(total)) ? Number(total) : null
+  return {
+    compatibility_score: score,
+    ...getValidatedScoreProvenance({
+      modelVersion: phase ? row?.[`${phase}_score_model_version`] : row?.score_model_version,
+      contentHash: phase ? row?.[`${phase}_score_content_hash`] : row?.score_content_hash,
+      snapshot: phase ? row?.[`${phase}_score_snapshot`] : row?.score_snapshot,
+      persistedTotal: score,
+    }),
+  }
+}
+
 function getStoredEvent3Breakdown(row, phase) {
   const snapshot = row?.[`${phase}_score_snapshot`]
   const modelVersion = row?.[`${phase}_score_model_version`]
@@ -766,6 +783,43 @@ const e3FullCalcCompat = async (pA, pB, { skipCacheWrite = false } = {}) => {
   }
 }
 
+async function buildPreparedEvent3TestAlgorithmRows(eventId, profiles, exclusions = new Set()) {
+  const pairs = choosePreparedTestPairs(profiles, exclusions)
+  const profileMap = new Map(profiles.map(profile => [Number(profile.assigned_number), profile]))
+  const rows = []
+  // Keep external scoring outside the activation transaction, with bounded
+  // concurrency and no persistent cache writes or cache-usage updates.
+  for (let offset = 0; offset < pairs.length; offset += 3) {
+    rows.push(...await Promise.all(pairs.slice(offset, offset + 3).map(async ({ a, b }) => {
+      const profileA = profileMap.get(a)
+      const profileB = profileMap.get(b)
+      const compatibility = await calculateFullCompatibilityWithCache(profileA, profileB, false, false, {
+        skipCacheWrite: true,
+        skipUsageUpdate: true,
+      })
+      if (!compatibility) throw new Error(`No complete compatibility score was produced for test pair #${a} × #${b}`)
+      const provenance = buildEvent3ScoreProvenance(compatibility, profileA, profileB)
+      return {
+        ...compatibilityResultPayload(compatibility),
+        match_id: EVENT3_MATCH_ID,
+        event_id: Number(eventId),
+        participant_a_number: a,
+        participant_b_number: b,
+        round: 30,
+        match_type: "individual",
+        table_number: null,
+        compatibility_score: provenance.persistedScore,
+        score_model_version: provenance.scoreModelVersion,
+        score_snapshot: provenance.scoreSnapshot,
+        score_content_hash: provenance.scoreContentHash,
+        reason: "Prepared test-mode algorithm lock",
+      }
+    })))
+  }
+  validatePreparedTestAlgorithmRows(rows, { eventId, participantNumbers: profiles.map(profile => profile.assigned_number), exclusions })
+  return rows
+}
+
 async function refreshEvent3TestMatchResults(eventId) {
   const context = await getEvent3TestContext()
   if (!context.active || context.eventId !== Number(eventId)) return 0
@@ -793,6 +847,10 @@ async function refreshEvent3TestMatchResults(eventId) {
   if (matchError) throw matchError
   if (tableError) throw tableError
   if (existingError) throw existingError
+
+  // Preparation is independent of phase-3 runtime. A table refresh before
+  // phase 3 must never delete the already locked test algorithm plan.
+  if (!matchRows?.length) return existingRows?.length || 0
 
   const seen = new Set()
   const pairs = []
@@ -961,13 +1019,13 @@ export default async function handler(req, res) {
   const action = req.query.action || req.body?.action
 
   const bearerToken = String(req.headers?.authorization || "").replace(/^Bearer\s+/i, "")
-  const isCohostLogin = action === "e3-cohost-login"
-  const isPublicEventRead = action === "get-event-state"
+  const isCohostLogin = method === "POST" && action === "e3-cohost-login"
+  const isPublicEventRead = method === "POST" && (action === "get-event-state"
     || action === "get-upcoming-event-summary"
     || action === "get-current-event-id"
     || action === "get-results-visibility"
-    || action === "get-group-matches"
-  const hasCohostSession = EVENT3_COHOST_ACTIONS.has(action) && verifyCohostToken(bearerToken || req.body?.cohost_token)
+    || action === "get-group-matches")
+  const hasCohostSession = method === "POST" && EVENT3_COHOST_ACTIONS.has(action) && verifyCohostToken(bearerToken || req.body?.cohost_token)
   if (isCohostLogin) {
     if (!enforceRateLimit(req, res, { key: "cohost-login", limit: 5, windowMs: 15 * 60_000 })) return
   } else if (isPublicEventRead) {
@@ -8897,6 +8955,13 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
       if (!safeSecretEqual(req.body?.password, EVENT3_COHOST_PASSWORD)) {
         return res.status(403).json({ error: "Unauthorized" })
       }
+      const { data: accessState, error: accessError } = await supabase.from("event_state").select("cohost_locked").eq("match_id", EVENT3_MATCH_ID).maybeSingle()
+      if (accessError || !accessState) {
+        return res.status(503).json({ error: "Co-host access is temporarily unavailable", code: "COHOST_ACCESS_UNAVAILABLE" })
+      }
+      if (accessState.cohost_locked === true) {
+        return res.status(423).json({ error: "The host has temporarily locked the co-host panel", code: "COHOST_LOCKED" })
+      }
       return res.status(200).json({
         token: signCohostToken(),
         expires_in: EVENT3_COHOST_TOKEN_TTL_SECONDS,
@@ -8910,6 +8975,14 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
       const hasAdminAccess = Boolean(req.adminAuth)
       if (!hasAdminAccess && !hasCohostAccess) return res.status(403).json({ error: "Unauthorized" })
       try {
+        const isCohostRequest = hasCohostAccess && !hasAdminAccess
+        let cohostAccessState = null
+        if (isCohostRequest) {
+          const { data, error } = await supabase.from("event_state").select("cohost_locked,test_mode_active,current_event_id,test_session_started_at:test_mode_snapshot->>started_at").eq("match_id", EVENT3_MATCH_ID).maybeSingle()
+          if (error || !data) return res.status(503).json({ error: "Co-host access is temporarily unavailable", code: "COHOST_ACCESS_UNAVAILABLE" })
+          if (data.cohost_locked === true) return res.status(423).json({ error: "The host has temporarily locked the co-host panel", code: "COHOST_LOCKED" })
+          cohostAccessState = data
+        }
         // Helper: fetch current event_id from event_state — prefer STATIC_MATCH_ID (main admin)
         // so event3 stays in sync with the main event system, fall back to EVENT3_MATCH_ID
         const getE3CurrentEventId = async () => {
@@ -8925,7 +8998,6 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         const currentEventId = (hasAdminAccess && req.body.preview_event_id && typeof req.body.preview_event_id === "number")
           ? req.body.preview_event_id
           : realEventId
-        const isCohostRequest = hasCohostAccess && !hasAdminAccess
         const getCohostRosterSet = async () => {
           if (!isCohostRequest) return null
           const { data, error } = await supabase
@@ -8937,9 +9009,96 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           return new Set((data || []).map(row => Number(row.participant_number)))
         }
 
+        if (action === "e3-set-cohost-lock") {
+          if (!hasAdminAccess) return res.status(403).json({ error: "Unauthorized" })
+          if (currentEventId !== realEventId) return res.status(409).json({ error: "Co-host access can only be changed for the live event" })
+          if (typeof req.body?.locked !== "boolean") return res.status(400).json({ error: "locked must be a boolean" })
+          const locked = req.body.locked
+          const updatedAt = new Date().toISOString()
+          const { data, error } = await supabase.from("event_state").update({
+            cohost_locked: locked,
+            cohost_lock_updated_at: updatedAt,
+            cohost_lock_updated_by: "admin3",
+          }).eq("match_id", EVENT3_MATCH_ID).select("cohost_locked,cohost_lock_updated_at").single()
+          if (error) return res.status(500).json({ error: error.message })
+          await recordSecurityEvent(req, {
+            actorType: "admin",
+            action: "e3-set-cohost-lock",
+            targetType: "event",
+            targetId: String(currentEventId),
+            metadata: { event_id: currentEventId, locked },
+          })
+          return res.status(200).json({ success: true, ...data, message: locked ? "تم إيقاف لوحة المضيفة مؤقتًا" : "تم فتح لوحة المضيفة" })
+        }
+
+        if (action === "e3-cohost-save-note") {
+          let scope
+          try { scope = normalizeCohostNoteScope(req.body) } catch (error) {
+            return res.status(400).json({ error: error.message })
+          }
+          if (typeof req.body?.note !== "string" || req.body.note.length > 2000) return res.status(400).json({ error: "Notes must be at most 2000 characters" })
+          const noteText = req.body.note.trim()
+          const { data: noteState, error: noteStateError } = cohostAccessState
+            ? { data: cohostAccessState, error: null }
+            : await supabase.from("event_state").select("test_mode_active,current_event_id,test_session_started_at:test_mode_snapshot->>started_at").eq("match_id", EVENT3_MATCH_ID).maybeSingle()
+          if (noteStateError || !noteState) return res.status(503).json({ error: "Event context is temporarily unavailable" })
+          const { testMode: noteTestMode, testSessionKey: noteTestSessionKey } = getCohostNoteContext(noteState, currentEventId)
+          if (Number(req.body.expected_event_id) !== Number(currentEventId) || req.body.expected_test_mode !== noteTestMode || req.body.expected_test_session_key !== noteTestSessionKey) {
+            return res.status(409).json({ error: "The event context changed. Refresh before saving this note.", code: "NOTE_CONTEXT_CHANGED" })
+          }
+          if (scope.participant_number != null) {
+            const requiredNumbers = [scope.participant_number, scope.participant2_number].filter(number => number != null)
+            const { data: roster, error: rosterError } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_number", requiredNumbers)
+            if (rosterError) return res.status(503).json({ error: "The event roster is temporarily unavailable" })
+            if (roster?.length !== requiredNumbers.length) return res.status(404).json({ error: "The note target is not enrolled in this event" })
+          }
+          if (scope.scope_type === "table") {
+            const { data: tableRows, error: tableError } = await supabase.from("session_assignments").select("id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("round", scope.round).eq("table_number", scope.table_number).limit(1)
+            if (tableError) return res.status(503).json({ error: "The table list is temporarily unavailable" })
+            if (!tableRows?.length) return res.status(404).json({ error: "This table does not exist in the current event" })
+          }
+          const noteQuery = () => supabase.from("event3_cohost_notes").select("*").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("test_mode", noteTestMode).eq("test_session_key", noteTestSessionKey).eq("scope_key", scope.scope_key)
+          const { data: existingNote, error: existingNoteError } = await noteQuery().maybeSingle()
+          if (existingNoteError) return res.status(500).json({ error: existingNoteError.message })
+          if ((req.body.expected_updated_at || null) !== (existingNote?.updated_at || null)) {
+            return res.status(409).json({ error: "This note was updated elsewhere. Refresh it before saving.", code: "NOTE_CONFLICT" })
+          }
+          let savedNote = null
+          if (existingNote && !noteText) {
+            const { data, error } = await supabase.from("event3_cohost_notes").delete().eq("id", existingNote.id).eq("updated_at", existingNote.updated_at).select("id").maybeSingle()
+            if (error) return res.status(500).json({ error: error.message })
+            if (!data) return res.status(409).json({ error: "This note was updated elsewhere. Refresh it before saving.", code: "NOTE_CONFLICT" })
+          } else if (noteText) {
+            const values = {
+              match_id: EVENT3_MATCH_ID,
+              event_id: currentEventId,
+              test_mode: noteTestMode,
+              test_session_key: noteTestSessionKey,
+              ...scope,
+              note: noteText,
+              updated_by: isCohostRequest ? "event3-cohost" : "admin3",
+              updated_at: new Date().toISOString(),
+            }
+            const { data, error } = existingNote
+              ? await supabase.from("event3_cohost_notes").update(values).eq("id", existingNote.id).eq("updated_at", existingNote.updated_at).select("*").maybeSingle()
+              : await supabase.from("event3_cohost_notes").insert(values).select("*").single()
+            if (error?.code === "23505" || (!error && !data)) return res.status(409).json({ error: "This note was updated elsewhere. Refresh it before saving.", code: "NOTE_CONFLICT" })
+            if (error) return res.status(500).json({ error: error.message })
+            savedNote = data
+          }
+          await recordSecurityEvent(req, {
+            actorType: isCohostRequest ? "cohost" : "admin",
+            action: "e3-cohost-save-note",
+            targetType: "event-note",
+            targetId: scope.scope_key,
+            metadata: { event_id: currentEventId, test_mode: noteTestMode, scope_type: scope.scope_type, length: noteText.length, deleted: !noteText },
+          })
+          return res.status(200).json({ success: true, note: savedNote, scope_key: scope.scope_key })
+        }
+
         if (action === "e3-cohost-dashboard") {
           const [{ data: stateRow, error: stateError }, { data: eventParticipants, error: eventParticipantsError }] = await Promise.all([
-            supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration,global_timer_round,test_mode_active,current_event_id").eq("match_id", EVENT3_MATCH_ID).maybeSingle(),
+            supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration,global_timer_round,test_mode_active,current_event_id,test_session_started_at:test_mode_snapshot->>started_at").eq("match_id", EVENT3_MATCH_ID).maybeSingle(),
             supabase.from("event3_participants").select("participant_number,position").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).order("position", { ascending: true }),
           ])
           if (stateError) return res.status(500).json({ error: stateError.message })
@@ -8947,27 +9106,33 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
 
           const numbers = (eventParticipants || []).map(row => row.participant_number)
           const numberSet = new Set(numbers)
-          const testModeActive = stateRow?.test_mode_active === true
-            && Number(stateRow?.current_event_id || currentEventId) === Number(currentEventId)
+          const { testMode: testModeActive, testSessionKey } = getCohostNoteContext(stateRow, currentEventId)
+          const { test_session_started_at: _sessionStartedAt, ...publicState } = stateRow || { phase: "setup", global_timer_active: false }
           const dashboardState = {
-            ...(stateRow || { phase: "setup", global_timer_active: false }),
+            ...publicState,
             test_mode_active: testModeActive,
           }
           if (numbers.length === 0) {
+            const { data: emptyRosterNotes, error: emptyRosterNotesError } = await supabase.from("event3_cohost_notes").select("id,scope_type,scope_key,round,table_number,participant_number,participant2_number,note,updated_at,updated_by,test_mode").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("test_mode", testModeActive).eq("test_session_key", testSessionKey).order("updated_at", { ascending: false })
+            if (emptyRosterNotesError) return res.status(500).json({ error: emptyRosterNotesError.message })
             return res.status(200).json({
               event_id: currentEventId,
               test_mode: testModeActive,
+              test_session_key: testSessionKey,
               state: dashboardState,
               participants: [],
               sos_requests: [],
               locked_phase3_pairs: [],
+              choice_pairs: [],
+              algorithm_pairs: [],
+              notes: emptyRosterNotes || [],
             })
           }
 
-          const [participantResult, assignmentResult, matchResult, rankingResult, attendanceResult, historyResult, legacyHistoryResult, sosResult, lockedResult, testMatchResult] = await Promise.all([
+          const [participantResult, assignmentResult, matchResult, rankingResult, attendanceResult, historyResult, legacyHistoryResult, sosResult, lockedResult, testMatchResult, realScoreResult, exclusionResult, notesResult] = await Promise.all([
             supabase.from("participants").select("assigned_number,name,age").eq("match_id", STATIC_MATCH_ID).in("assigned_number", numbers),
             supabase.from("session_assignments").select("participant_id,round,table_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("round", [1, 2, 3, 20, 30]).in("participant_id", numbers),
-            supabase.from("event3_matches").select("participant_number,phase2_partner,phase3_partner").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_number", numbers),
+            supabase.from("event3_matches").select("participant_number,phase2_partner,phase2_score,phase2_score_model_version,phase2_score_snapshot,phase2_score_content_hash,phase3_partner,phase3_score,phase3_score_model_version,phase3_score_snapshot,phase3_score_content_hash").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_number", numbers),
             supabase.from("participant_rankings").select("ranker_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("ranker_number", numbers),
             supabase.from("event_attendance").select("participant_number,attended").eq("match_id", STATIC_MATCH_ID).eq("event_id", currentEventId).in("participant_number", numbers),
             supabase.from("event_attendance").select("participant_number,event_id,attended").eq("match_id", STATIC_MATCH_ID).neq("event_id", currentEventId).in("participant_number", numbers),
@@ -8977,11 +9142,16 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               ? Promise.resolve({ data: [], error: null })
               : supabase.from("locked_matches").select("participant1_number,participant2_number,original_compatibility_score,original_match_round,reason,created_at").eq("match_id", STATIC_MATCH_ID).eq("event_id", currentEventId).order("created_at", { ascending: false }),
             testModeActive
-              ? supabase.from("event3_test_match_results").select("participant_a_number,participant_b_number,compatibility_score,table_number,reason,created_at").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).order("table_number", { ascending: true })
+              ? supabase.from("event3_test_match_results").select("participant_a_number,participant_b_number,compatibility_score,score_model_version,score_snapshot,score_content_hash,table_number,reason,created_at").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).order("table_number", { ascending: true })
               : Promise.resolve({ data: [], error: null }),
+            testModeActive
+              ? Promise.resolve({ data: [], error: null })
+              : supabase.from("match_results").select("participant_a_number,participant_b_number,round,compatibility_score,score_model_version,score_snapshot,score_content_hash,created_at").eq("match_id", STATIC_MATCH_ID).eq("event_id", currentEventId).order("created_at", { ascending: false }),
+            supabase.from("event3_exclusions").select("participant_a_number,participant_b_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
+            supabase.from("event3_cohost_notes").select("id,scope_type,scope_key,round,table_number,participant_number,participant2_number,note,updated_at,updated_by,test_mode").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("test_mode", testModeActive).eq("test_session_key", testSessionKey).order("updated_at", { ascending: false }),
           ])
           const activeLockResult = testModeActive ? testMatchResult : lockedResult
-          const firstError = [participantResult, assignmentResult, matchResult, rankingResult, attendanceResult, historyResult, legacyHistoryResult, sosResult, activeLockResult].find(result => result.error)?.error
+          const firstError = [participantResult, assignmentResult, matchResult, rankingResult, attendanceResult, historyResult, legacyHistoryResult, sosResult, activeLockResult, realScoreResult, exclusionResult, notesResult].find(result => result.error)?.error
           if (firstError) return res.status(500).json({ error: firstError.message })
 
           const infoMap = new Map((participantResult.data || []).map(participant => [participant.assigned_number, participant]))
@@ -8991,6 +9161,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             tableMap[assignment.participant_id][assignment.round] = assignment.table_number
           }
           const matchMap = new Map((matchResult.data || []).map(match => [match.participant_number, match]))
+          const excludedPairKeys = new Set((exclusionResult.data || []).map(row => swapPairKey(row.participant_a_number, row.participant_b_number)))
           const fallbackPairRows = testModeActive
             ? (testMatchResult.data || []).map(row => ({
                 a: Number(row.participant_a_number),
@@ -9000,6 +9171,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
                 reason: row.reason || "Test mode simulated algorithm lock",
                 created_at: row.created_at || null,
                 source: "test",
+                score_row: row,
               }))
             : (lockedResult.data || []).map(row => ({
                 a: Number(row.participant1_number),
@@ -9009,16 +9181,25 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
                 reason: row.reason || "Locked match",
                 created_at: row.created_at || null,
                 source: "locked",
+                original_match_round: row.original_match_round,
               }))
           const fallbackPairs = []
           const fallbackPairKeys = new Set()
+          const fallbackUsedNumbers = new Set()
+          let conflictingLocks = 0
           const phase3FallbackMap = new Map()
           for (const pair of fallbackPairRows) {
             if (!Number.isInteger(pair.a) || !Number.isInteger(pair.b) || pair.a <= 0 || pair.b <= 0 || pair.a === pair.b) continue
             if (!numberSet.has(pair.a) || !numberSet.has(pair.b)) continue
             const key = swapPairKey(pair.a, pair.b)
-            if (fallbackPairKeys.has(key)) continue
+            if (fallbackPairKeys.has(key) || excludedPairKeys.has(key)) continue
+            const storedA = Number(matchMap.get(pair.a)?.phase3_partner) || null
+            const storedB = Number(matchMap.get(pair.b)?.phase3_partner) || null
+            if ((storedA && storedA !== pair.b) || (storedB && storedB !== pair.a)) continue
+            if (fallbackUsedNumbers.has(pair.a) || fallbackUsedNumbers.has(pair.b)) { conflictingLocks++; continue }
             fallbackPairKeys.add(key)
+            fallbackUsedNumbers.add(pair.a)
+            fallbackUsedNumbers.add(pair.b)
             fallbackPairs.push(pair)
             if (!phase3FallbackMap.has(pair.a)) phase3FallbackMap.set(pair.a, { ...pair, partner: pair.b })
             if (!phase3FallbackMap.has(pair.b)) phase3FallbackMap.set(pair.b, { ...pair, partner: pair.a })
@@ -9077,14 +9258,73 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             locked: true,
             is_test_mode: testModeActive,
           }))
+          const savedScoreRows = (realScoreResult.data || []).filter(row => getCohostScorePayload(row).score_provenance_valid)
+          const pairRecord = (a, b, tableRound, scorePayload, source, locked = false) => ({
+            participant1_number: a,
+            participant1_name: infoMap.get(a)?.name || `#${a}`,
+            participant2_number: b,
+            participant2_name: infoMap.get(b)?.name || `#${b}`,
+            table_number: tableMap[a]?.[tableRound] ?? tableMap[b]?.[tableRound] ?? null,
+            ...scorePayload,
+            source,
+            locked,
+            is_test_mode: testModeActive,
+          })
+          const choicePairs = []
+          const choicePairKeys = new Set()
+          for (const row of matchResult.data || []) {
+            const a = Number(row.participant_number)
+            const b = Number(row.phase2_partner)
+            if (!numberSet.has(a) || !numberSet.has(b) || a === b) continue
+            const key = swapPairKey(a, b)
+            if (choicePairKeys.has(key)) continue
+            choicePairKeys.add(key)
+            choicePairs.push(pairRecord(a, b, 20, getCohostScorePayload(row, "phase2"), "choice"))
+          }
+          const algorithmPairs = []
+          const algorithmPairKeys = new Set()
+          for (const pair of fallbackPairs) {
+            const key = swapPairKey(pair.a, pair.b)
+            const runtimeRow = Number(matchMap.get(pair.a)?.phase3_partner) === pair.b
+              ? matchMap.get(pair.a)
+              : Number(matchMap.get(pair.b)?.phase3_partner) === pair.a ? matchMap.get(pair.b) : null
+            const runtimeScore = runtimeRow ? getCohostScorePayload(runtimeRow, "phase3") : null
+            const savedRow = testModeActive ? pair.score_row : selectCohostLockedScoreSource(pair, savedScoreRows)
+            const savedScore = savedRow ? getCohostScorePayload(savedRow) : null
+            const scorePayload = runtimeScore?.score_provenance_valid
+              ? runtimeScore
+              : savedScore?.score_provenance_valid
+                ? savedScore
+                : getCohostScorePayload({ compatibility_score: runtimeScore?.compatibility_score ?? pair.compatibility_score })
+            algorithmPairKeys.add(key)
+            algorithmPairs.push({
+              ...pairRecord(pair.a, pair.b, 30, scorePayload, pair.source, true),
+              table_number: tableMap[pair.a]?.[30] ?? tableMap[pair.b]?.[30] ?? pair.table_number ?? null,
+              score_source: runtimeScore?.score_provenance_valid ? "event3" : savedScore?.score_provenance_valid ? (testModeActive ? "test_result" : "locked_result") : "legacy",
+            })
+          }
+          for (const row of matchResult.data || []) {
+            const a = Number(row.participant_number)
+            const b = Number(row.phase3_partner)
+            if (!numberSet.has(a) || !numberSet.has(b) || a === b) continue
+            const key = swapPairKey(a, b)
+            if (algorithmPairKeys.has(key)) continue
+            algorithmPairKeys.add(key)
+            algorithmPairs.push(pairRecord(a, b, 30, getCohostScorePayload(row, "phase3"), testModeActive ? "test" : "generated"))
+          }
           const sosRequests = (sosResult.data || []).filter(request => numberSet.has(request.participant_number))
           return res.status(200).json({
             event_id: currentEventId,
             test_mode: testModeActive,
+            test_session_key: testSessionKey,
             state: dashboardState,
             participants,
             sos_requests: sosRequests,
             locked_phase3_pairs: lockedPhase3Pairs,
+            choice_pairs: choicePairs,
+            algorithm_pairs: algorithmPairs,
+            algorithm_conflicting_locks: conflictingLocks,
+            notes: notesResult.data || [],
           })
         }
 
@@ -9098,7 +9338,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
 
           const numbers = (roster || []).map(row => Number(row.participant_number)).filter(Number.isInteger)
           const rosterSet = new Set(numbers)
-          const scopedRows = (rankingRows || []).filter(row => rosterSet.has(Number(row.ranker_number)))
+          const scopedRows = (rankingRows || []).filter(row => rosterSet.has(Number(row.ranker_number)) && rosterSet.has(Number(row.ranked_number)))
           const knownNumbers = [...new Set([...numbers, ...scopedRows.map(row => Number(row.ranked_number))])]
           const { data: profiles, error: profileError } = knownNumbers.length
             ? await supabase.from("participants").select("assigned_number,name,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", knownNumbers)
@@ -9119,6 +9359,8 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             if (!rowsByRanker.has(rankerNumber)) rowsByRanker.set(rankerNumber, [])
             rowsByRanker.get(rankerNumber).push(row)
           }
+          const reciprocalRank = buildReciprocalRankingLookup(scopedRows)
+          const rowByDirection = new Map(scopedRows.map(row => [`${Number(row.ranker_number)}:${Number(row.ranked_number)}`, row]))
           const rankings = numbers.map(number => {
             const rows = (rowsByRanker.get(number) || []).sort((left, right) => Number(left.rank) - Number(right.rank))
             return {
@@ -9131,6 +9373,9 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
                 number: Number(row.ranked_number),
                 name: nameMap.get(Number(row.ranked_number)) || `#${row.ranked_number}`,
                 rank: Number(row.rank),
+                reciprocal_rank: reciprocalRank(number, row.ranked_number),
+                reciprocal_submitted: rowsByRanker.has(Number(row.ranked_number)),
+                reciprocal_auto_saved: rowByDirection.get(`${Number(row.ranked_number)}:${number}`)?.auto_saved === true,
               })),
             }
           })
@@ -9255,6 +9500,9 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             global_timer_round: null,
             phase2_score_revealed: false,
             phase3_score_revealed: false,
+            cohost_locked: false,
+            cohost_lock_updated_at: new Date().toISOString(),
+            cohost_lock_updated_by: "event-switch",
           }).eq("match_id", EVENT3_MATCH_ID)
           if (error) return res.status(500).json({ error: error.message })
           // Also sync STATIC_MATCH_ID so main admin and event3 share the same current event
@@ -9521,7 +9769,8 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
 
         // e3-get-state
         if (action === "e3-get-state") {
-          const { data: stateRow } = await supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration,global_timer_round,phase2_score_revealed,phase3_score_revealed,current_event_id").eq("match_id", EVENT3_MATCH_ID).single()
+          const { data: stateRow, error: stateError } = await supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration,global_timer_round,phase2_score_revealed,phase3_score_revealed,current_event_id,cohost_locked,cohost_lock_updated_at").eq("match_id", EVENT3_MATCH_ID).single()
+          if (stateError) return res.status(503).json({ error: "Event state is temporarily unavailable" })
           const { count: pc, error: pcErr } = await supabase.from("event3_participants").select("id", { count: "exact", head: true }).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           if (pcErr) console.error("[e3-get-state] participants count error:", pcErr.message)
           const { count: sc, error: scErr } = await supabase.from("session_assignments").select("id", { count: "exact", head: true }).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
@@ -9534,7 +9783,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           if (rankErr) console.error("[e3-get-state] rankings error:", rankErr.message)
           const uniqueRankers = new Set((rankRows || []).map(r => r.ranker_number)).size
           const phase = stateRow?.phase || "setup"
-          return res.status(200).json({ phase, timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration ?? getEvent3PhaseTimerSeconds(phase), timer_round: stateRow?.global_timer_round ?? null, participants_selected: pc || 0, seating_generated: (sc || 0) > 0, rankings_submitted: uniqueRankers, phase2_matches_done: (mc || 0) > 0, phase3_matches_done: (mc3 || 0) > 0, phase2_score_revealed: stateRow?.phase2_score_revealed || false, phase3_score_revealed: stateRow?.phase3_score_revealed || false, current_event_id: currentEventId, _debug: { realEventId, currentEventId, errors: { participants: pcErr?.message || null, seating: scErr?.message || null, matches: mcErr?.message || null, phase3: mc3Err?.message || null, rankings: rankErr?.message || null } } })
+          return res.status(200).json({ phase, timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration ?? getEvent3PhaseTimerSeconds(phase), timer_round: stateRow?.global_timer_round ?? null, participants_selected: pc || 0, seating_generated: (sc || 0) > 0, rankings_submitted: uniqueRankers, phase2_matches_done: (mc || 0) > 0, phase3_matches_done: (mc3 || 0) > 0, phase2_score_revealed: stateRow?.phase2_score_revealed || false, phase3_score_revealed: stateRow?.phase3_score_revealed || false, cohost_locked: stateRow?.cohost_locked === true, cohost_lock_updated_at: stateRow?.cohost_lock_updated_at || null, current_event_id: currentEventId, _debug: { realEventId, currentEventId, errors: { participants: pcErr?.message || null, seating: scErr?.message || null, matches: mcErr?.message || null, phase3: mc3Err?.message || null, rankings: rankErr?.message || null } } })
         }
         // e3-get-participants
         if (action === "e3-get-participants") {
@@ -9968,17 +10217,20 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         }
         // e3-trigger-phase3-matching (locked topology with complete event-time scoring)
         if (action === "e3-trigger-phase3-matching") {
-          const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          const { data: ep, error: phase3RosterError } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          if (phase3RosterError) return res.status(500).json({ error: phase3RosterError.message })
           if (!ep || ep.length < 4) return res.status(400).json({ error: "No participants selected" })
           const nums = ep.map(r => r.participant_number)
           const numSet = new Set(nums)
 
           // Check test mode
-          const { data: tmState3 } = await supabase.from("event_state").select("test_mode_active").eq("match_id", EVENT3_MATCH_ID).maybeSingle()
+          const { data: tmState3, error: phase3StateError } = await supabase.from("event_state").select("test_mode_active,current_event_id,test_mode_snapshot").eq("match_id", EVENT3_MATCH_ID).maybeSingle()
+          if (phase3StateError) return res.status(500).json({ error: phase3StateError.message })
           const isTestMode3 = !!tmState3?.test_mode_active
 
           // Fetch conflict-of-interest exclusions
-          const { data: exRows } = await supabase.from("event3_exclusions").select("participant_a_number,participant_b_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          const { data: exRows, error: phase3ExclusionError } = await supabase.from("event3_exclusions").select("participant_a_number,participant_b_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          if (phase3ExclusionError) return res.status(500).json({ error: phase3ExclusionError.message })
           const exclusions = new Set((exRows || []).map(e => { const [a, b] = [e.participant_a_number, e.participant_b_number].sort((x, y) => x - y); return `${a}-${b}` }))
           const isExcluded = (a, b) => { const [x, y] = [a, b].sort((p, q) => p - q); return exclusions.has(`${x}-${y}`) }
           if (exclusions.size > 0) console.log(`Phase 3: ${exclusions.size} conflict-of-interest exclusions loaded`)
@@ -9987,65 +10239,31 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const matches = []
 
           if (isTestMode3) {
-            // ── Test mode: random pairing avoiding phase 2 pairs ───────────────
-            console.log(`Phase 3: TEST MODE — skipping locked matches, using random pairing (avoiding phase 2 pairs)`)
-
-            // Build set of phase 2 pairs to avoid
-            const avoidPairs = new Set()
-            const { data: phase2Rows } = await supabase.from("event3_matches").select("participant_number,phase2_partner").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).not("phase2_partner", "is", null)
-            for (const r of phase2Rows || []) {
-              if (r.phase2_partner) {
-                const [a, b] = [r.participant_number, r.phase2_partner].sort((x, y) => x - y)
-                avoidPairs.add(`${a}-${b}`)
-              }
+            if (Number(currentEventId) !== Number(realEventId) || Number(tmState3.current_event_id) !== Number(currentEventId)) {
+              return res.status(409).json({ error: "Test phase 3 can only run for the active current event" })
             }
-            console.log(`Phase 3 (test): avoiding ${avoidPairs.size / 2} phase 2 pairs`)
-
-            // Fetch participant profiles so the temporary result has the same
-            // compatibility breakdown as an ordinary algorithm result.
-            const { data: pRows3 } = await supabase.from("participants")
-              .select("*")
-              .eq("match_id", STATIC_MATCH_ID)
-              .in("assigned_number", nums)
-            const genderMap3 = {}
-            const testProfileMap = new Map()
-            for (const p of pRows3 || []) {
-              try { p.survey_data = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}) } catch {}
-              genderMap3[p.assigned_number] = p.gender || ''
-              testProfileMap.set(p.assigned_number, p)
+            let preparedMatches
+            try {
+              const preparedRows = await getEvent3TestMatchRows(currentEventId)
+              preparedMatches = validatePreparedTestAlgorithmRows(preparedRows, { eventId: currentEventId, participantNumbers: nums, exclusions })
+            } catch (error) {
+              return res.status(409).json({ error: error.message, preparation_required: true })
             }
-
-            // Also add exclusions to avoidPairs
-            for (const ex of exclusions) avoidPairs.add(ex)
-
-            const result = e3RandomPairMatching(nums, genderMap3, avoidPairs)
-            for (const { a, b } of result.pairs) {
-              used.add(a); used.add(b)
-              const pA = testProfileMap.get(a)
-              const pB = testProfileMap.get(b)
-              let compatibility = null
-              try {
-                if (pA && pB) {
-                  compatibility = await calculateFullCompatibilityWithCache(pA, pB, false, false, {
-                    skipCacheWrite: true,
-                    skipUsageUpdate: true,
-                  })
-                }
-              } catch (error) {
-                console.error(`Phase 3 test compatibility error for #${a}×#${b}:`, error.message)
-              }
-              const provenance = buildEvent3ScoreProvenance(compatibility, pA, pB)
-              const score = provenance.persistedScore ?? 50
-              matches.push({
-                a,
-                b,
-                score,
-                provenance,
-                testResult: compatibility
-                  ? { ...compatibilityResultPayload(compatibility), score_model_version: provenance.scoreModelVersion, score_snapshot: provenance.scoreSnapshot, score_content_hash: provenance.scoreContentHash }
-                  : { compatibility_score: score, reason: "Test mode simulated algorithm lock" },
-              })
-            }
+            const preparedTables = await e3BuildPriorityTablePlan(preparedMatches, currentEventId)
+            // This RPC revalidates the session/roster and writes runtime rows
+            // atomically under the same lock as test start/end. It never scores.
+            const { data: activated, error: activationError } = await supabase.rpc("activate_event3_prepared_test_algorithm", {
+              p_event_id: Number(currentEventId),
+              p_expected_started_at: tmState3.test_mode_snapshot?.started_at || null,
+              p_participant_numbers: nums,
+              p_table_plan: preparedTables.map(({ a, b, table }) => ({ a, b, table })),
+            })
+            if (activationError) return res.status(activationError.code === "PGRST202" ? 501 : 409).json({ error: activationError.message })
+            return res.status(200).json({
+              message: `Phase 3 matching complete. Reused ${activated?.prepared_algorithm_pairs || preparedMatches.length} prepared test pairs and their saved compatibility scores.`,
+              test_mode: true,
+              prepared_algorithm_pairs: activated?.prepared_algorithm_pairs || preparedMatches.length,
+            })
           } else {
             // ── Normal mode: locked matches ─────────────────────────────────────
 
@@ -10208,30 +10426,6 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             const { error: insertTablesError } = await supabase.from("session_assignments").insert(tableRows)
             if (insertTablesError) return res.status(500).json({ error: `Matches were created, but table assignment failed: ${insertTablesError.message}` })
             console.log(`Phase 3 (locked): Created ${matches.length} prioritized table assignments for round 30`)
-          }
-
-          if (isTestMode3) {
-            const tableByPair = new Map(tablePlan.map(item => [swapPairKey(item.a, item.b), item.table]))
-            const testRows = matches.map(pair => ({
-              ...(pair.testResult || {}),
-              participant_a_number: Math.min(pair.a, pair.b),
-              participant_b_number: Math.max(pair.a, pair.b),
-              compatibility_score: pair.score,
-              score_model_version: pair.provenance?.scoreModelVersion || null,
-              score_snapshot: pair.provenance?.scoreSnapshot || null,
-              score_content_hash: pair.provenance?.scoreContentHash || null,
-              table_number: tableByPair.get(swapPairKey(pair.a, pair.b)) || null,
-              reason: pair.testResult?.reason || "Test mode simulated algorithm lock",
-            }))
-            const { data: storedTestCount, error: storeTestError } = await supabase.rpc("replace_event3_test_match_results", {
-              p_event_id: currentEventId,
-              p_rows: testRows,
-            })
-            if (storeTestError) {
-              console.error("Failed to store isolated Event3 test results:", storeTestError)
-              return res.status(500).json({ error: `Test matches were generated, but temporary locked results could not be stored. Apply the latest Supabase migration and retry. ${storeTestError.message}` })
-            }
-            console.log(`Phase 3 (test): Stored ${storedTestCount || testRows.length} isolated temporary locked results`)
           }
 
           const stillUnmatchedCount = nums.filter(n => !used.has(n)).length
@@ -12078,6 +12272,64 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           }
         }
 
+        // Explicit admin-only backfill for an already active legacy session.
+        // Reads/dashboard requests must never create or replace algorithm pairs.
+        if (action === "e3-prepare-test-algorithm") {
+          if (!hasAdminAccess) return res.status(403).json({ error: "Admin access required" })
+          if (Number(currentEventId) !== Number(realEventId)) return res.status(409).json({ error: "Test preparation requires the current event" })
+          const { data: preparationState, error: preparationStateError } = await supabase.from("event_state")
+            .select("current_event_id,test_mode_active,test_mode_snapshot").eq("match_id", EVENT3_MATCH_ID).single()
+          if (preparationStateError) return res.status(500).json({ error: preparationStateError.message })
+          if (!preparationState.test_mode_active || Number(preparationState.current_event_id) !== Number(currentEventId)) {
+            return res.status(409).json({ error: "Test mode is not active for the current event" })
+          }
+          const [rosterResult, exclusionResult, existingRows] = await Promise.all([
+            supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
+            supabase.from("event3_exclusions").select("participant_a_number,participant_b_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
+            getEvent3TestMatchRows(currentEventId),
+          ])
+          if (rosterResult.error || exclusionResult.error) return res.status(500).json({ error: (rosterResult.error || exclusionResult.error).message })
+          const participantNumbers = (rosterResult.data || []).map(row => Number(row.participant_number))
+          const exclusions = new Set((exclusionResult.data || []).map(row => swapPairKey(row.participant_a_number, row.participant_b_number)))
+          let preparedRows = existingRows
+          try {
+            if (existingRows.length) {
+              validatePreparedTestAlgorithmRows(existingRows, { eventId: currentEventId, participantNumbers, exclusions })
+            } else {
+              const { data: runtimeRows, error: runtimeError } = await supabase.from("event3_matches").select("participant_number")
+                .eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).not("phase3_partner", "is", null).limit(1)
+              if (runtimeError) throw runtimeError
+              if (runtimeRows?.length) return res.status(409).json({ error: "Phase 3 already has matches but no prepared plan. End and restart test mode to prepare a fresh isolated session." })
+              if (!participantNumbers.length) return res.status(409).json({ error: "The test roster is empty" })
+              const { data: profiles, error: profileError } = await supabase.from("participants").select("*")
+                .eq("match_id", STATIC_MATCH_ID).in("assigned_number", participantNumbers)
+              if (profileError) throw profileError
+              for (const profile of profiles || []) {
+                if (typeof profile.survey_data === "string") profile.survey_data = JSON.parse(profile.survey_data || "{}")
+              }
+              if (profiles?.length !== participantNumbers.length || profiles.some(profile => !isParticipantComplete(profile))) {
+                return res.status(422).json({ error: "Every test participant needs a complete matching profile" })
+              }
+              preparedRows = await buildPreparedEvent3TestAlgorithmRows(currentEventId, profiles, exclusions)
+            }
+          } catch (error) {
+            return res.status(existingRows.length ? 409 : 502).json({ error: `Test algorithm preparation was not changed. ${error.message}` })
+          }
+          const { data: preparationResult, error: preparationError } = await supabase.rpc("prepare_event3_test_algorithm_if_empty", {
+            p_event_id: Number(currentEventId),
+            p_expected_started_at: preparationState.test_mode_snapshot?.started_at || null,
+            p_participant_numbers: participantNumbers,
+            p_rows: preparedRows,
+          })
+          if (preparationError) return res.status(preparationError.code === "PGRST202" ? 501 : 409).json({ error: preparationError.message })
+          return res.status(200).json({
+            test_mode: true,
+            prepared_algorithm_pairs: preparationResult.prepared_algorithm_pairs,
+            reused: preparationResult.reused,
+            message: `${preparationResult.prepared_algorithm_pairs} test algorithm pairs are prepared; phase 3 will reuse these exact pairs and scores.`,
+          })
+        }
+
         // e3-start-test-mode — select 18M+18F valid participants, maximize cached pairs,
         // keep cache misses read-only, and restore the pre-test runtime on exit
         if (action === "e3-start-test-mode") {
@@ -12246,16 +12498,24 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             if (syncEventError) return res.status(500).json({ error: `Event3 event sync failed: ${syncEventError.message}` })
           }
 
+          let preparedTestRows
+          try {
+            preparedTestRows = await buildPreparedEvent3TestAlgorithmRows(currentEventId, selected)
+          } catch (error) {
+            return res.status(502).json({ error: `Test mode was not activated because algorithm preparation failed. ${error.message}` })
+          }
+
           // 5. Atomically snapshot the current Event3 runtime, replace it with
           // the selected test roster, and activate test mode. If anything
           // fails, Postgres rolls back the entire transition.
-          const { data: testStartResult, error: testStartError } = await supabase.rpc("begin_event3_test_mode_with_group_feedback", {
+          const { data: testStartResult, error: testStartError } = await supabase.rpc("begin_event3_test_mode_with_prepared_algorithm", {
             p_event_id: Number(currentEventId),
             p_participant_numbers: selectedNums,
+            p_rows: preparedTestRows,
           })
           if (testStartError) {
             const message = `${testStartError.message || ""} ${testStartError.details || ""}`
-            const migrationRequired = testStartError.code === "PGRST202" || message.includes("begin_event3_test_mode_with_group_feedback")
+            const migrationRequired = testStartError.code === "PGRST202" || message.includes("begin_event3_test_mode_with_prepared_algorithm")
             return res.status(migrationRequired ? 501 : 500).json({
               error: migrationRequired
                 ? `The isolated test-results migration must be applied before starting test mode. ${testStartError.message}`
@@ -12304,6 +12564,7 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           return res.status(200).json({
             test_mode: true,
             selected_count: selectedNums.length,
+            prepared_algorithm_pairs: preparedTestRows.length,
             runtime_snapshot: testStartResult,
             cache_coverage: { hits: cacheHits, total: totalPairs, percent: cachePct, misses: cacheMisses, pre_computed: 0, pre_compute_errors: 0 },
             checks,
@@ -12343,13 +12604,17 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
 
         // e3-get-test-mode — check if test mode is active
         if (action === "e3-get-test-mode") {
-          const { data: stateRow } = await supabase.from("event_state").select("test_mode_active,test_mode_snapshot,current_event_id").eq("match_id", EVENT3_MATCH_ID).single()
+          const { data: stateRow, error: testModeStateError } = await supabase.from("event_state").select("test_mode_active,test_mode_snapshot,current_event_id").eq("match_id", EVENT3_MATCH_ID).single()
+          if (testModeStateError) return res.status(500).json({ error: testModeStateError.message })
           if (!stateRow?.test_mode_active) {
-            return res.status(200).json({ test_mode: false })
+            return res.status(200).json({ test_mode: false, prepared_algorithm_pairs: 0 })
           }
 
           // Return test users from current event3_participants so panel survives refresh
           const eventId = stateRow?.current_event_id || currentEventId
+          const { count: preparedAlgorithmCount, error: preparedAlgorithmError } = await supabase.from("event3_test_match_results")
+            .select("id", { count: "exact", head: true }).eq("match_id", EVENT3_MATCH_ID).eq("event_id", eventId)
+          if (preparedAlgorithmError) return res.status(500).json({ error: preparedAlgorithmError.message })
           const { data: ep } = await supabase.from("event3_participants")
             .select("participant_number,position")
             .eq("match_id", EVENT3_MATCH_ID).eq("event_id", eventId)
@@ -12370,6 +12635,7 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
           return res.status(200).json({
             test_mode: true,
             started_at: stateRow?.test_mode_snapshot?.started_at || null,
+            prepared_algorithm_pairs: preparedAlgorithmCount || 0,
             test_users: testUsers,
           })
         }

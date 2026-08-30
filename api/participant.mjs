@@ -3467,22 +3467,91 @@ Please respond in JSON format:
     const MAIN_MATCH = "00000000-0000-0000-0000-000000000000"
     const firstName = (n) => n ? n.trim().split(/\s+/)[0] : "—"
 
-    // Resolve token to participant (cached to reduce DB load on polling actions)
+    // Resolve token to participant (cached to reduce DB load on polling actions).
+    // A successful "no row" response is a confirmed invalid token and may be
+    // cached. Supabase/PostgREST failures are never cached as missing users.
     const resolveE3Token = async (tok) => {
-      if (!tok) return null
+      if (!tok) return { status: "missing", participant: null, error: null }
       const cached = _e3TokenCache.get(tok)
-      if (cached && cached.expiresAt > Date.now()) return cached.participant
-      const { data } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,event_id,signup_for_next_event,auto_signup_next_event").eq("secure_token", tok).eq("match_id", MAIN_MATCH).single()
-      const participant = data || null
-      _e3TokenCache.set(tok, { participant, expiresAt: Date.now() + E3_TOKEN_CACHE_TTL_MS })
-      return participant
+      if (cached && cached.expiresAt > Date.now()) {
+        return {
+          status: cached.participant ? "valid" : "invalid",
+          participant: cached.participant,
+          error: null,
+        }
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("participants")
+          .select("assigned_number,name,gender,age,survey_data,event_id,signup_for_next_event,auto_signup_next_event")
+          .eq("secure_token", tok)
+          .eq("match_id", MAIN_MATCH)
+          .maybeSingle()
+
+        if (error) {
+          logError("Event3 participant token lookup", error)
+          return { status: "unavailable", participant: null, error }
+        }
+
+        const participant = data || null
+        _e3TokenCache.set(tok, { participant, expiresAt: Date.now() + E3_TOKEN_CACHE_TTL_MS })
+        return {
+          status: participant ? "valid" : "invalid",
+          participant,
+          error: null,
+        }
+      } catch (error) {
+        logError("Event3 participant token lookup", error)
+        return { status: "unavailable", participant: null, error }
+      }
     }
 
-    const token = req.body.token || null
-    const participant = token ? await resolveE3Token(token) : null
+    const token = typeof req.body.token === "string" ? req.body.token.trim() || null : null
+    const tokenResolution = await resolveE3Token(token)
+    if (tokenResolution.status === "unavailable") {
+      return res.status(503).json({
+        error: "تعذّر التحقق من جلسة الفعالية مؤقتاً. سنحاول مرة أخرى تلقائياً.",
+        code: "EVENT3_AUTH_UNAVAILABLE",
+        retryable: true,
+      })
+    }
+    const participant = tokenResolution.participant
     const myNumber = participant?.assigned_number
-    const { data: mainEventState } = await supabase.from("event_state").select("current_event_id").eq("match_id", MAIN_MATCH).maybeSingle()
-    const { data: e3EventState } = await supabase.from("event_state").select("current_event_id,test_mode_active").eq("match_id", E3_MATCH_ID).maybeSingle()
+    if (action === "e3-heartbeat" && !participant) {
+      return res.status(401).json({
+        error: "جلسة المشارك غير صالحة. سجّل الدخول مرة أخرى.",
+        code: "PARTICIPANT_TOKEN_INVALID",
+        retryable: false,
+      })
+    }
+
+    let mainEventState = null
+    let e3EventState = null
+    try {
+      const [mainStateResult, e3StateResult] = await Promise.all([
+        supabase.from("event_state").select("current_event_id").eq("match_id", MAIN_MATCH).maybeSingle(),
+        supabase.from("event_state").select("current_event_id,test_mode_active").eq("match_id", E3_MATCH_ID).maybeSingle(),
+      ])
+      if (mainStateResult.error || e3StateResult.error) {
+        if (mainStateResult.error) logError("Event3 main event-state lookup", mainStateResult.error)
+        if (e3StateResult.error) logError("Event3 state lookup", e3StateResult.error)
+        return res.status(503).json({
+          error: "تعذّر تحميل حالة الفعالية مؤقتاً. سنحاول مرة أخرى تلقائياً.",
+          code: "EVENT3_STATE_UNAVAILABLE",
+          retryable: true,
+        })
+      }
+      mainEventState = mainStateResult.data
+      e3EventState = e3StateResult.data
+    } catch (error) {
+      logError("Event3 state lookup", error)
+      return res.status(503).json({
+        error: "تعذّر تحميل حالة الفعالية مؤقتاً. سنحاول مرة أخرى تلقائياً.",
+        code: "EVENT3_STATE_UNAVAILABLE",
+        retryable: true,
+      })
+    }
     const currentEventId = mainEventState?.current_event_id || e3EventState?.current_event_id || 20
 
     // Test mode uses real participant records, so prevent ordinary participant
@@ -3502,10 +3571,26 @@ Please respond in JSON format:
     try {
       // e3-get-state (no auth required) / e3-heartbeat (combines state + sos + mood + notification)
       if (action === "e3-get-state" || action === "e3-heartbeat") {
-        const { data: stateRow } = await supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration,global_timer_round,phase2_score_revealed,phase3_score_revealed,current_event_id").eq("match_id", E3_MATCH_ID).single()
+        const { data: stateRow, error: stateError } = await supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration,global_timer_round,phase2_score_revealed,phase3_score_revealed,current_event_id").eq("match_id", E3_MATCH_ID).single()
+        if (stateError) {
+          logError("Event3 heartbeat state lookup", stateError)
+          return res.status(503).json({
+            error: "تعذّر تحديث حالة الفعالية مؤقتاً. نعرض آخر حالة محفوظة وسنحاول تلقائياً.",
+            code: "EVENT3_STATE_UNAVAILABLE",
+            retryable: true,
+          })
+        }
         const phase = stateRow?.phase || "setup"
         const activeEventId = currentEventId || stateRow?.current_event_id || 20
-        const { count: participantsSelected } = await supabase.from("event3_participants").select("id", { count: "exact", head: true }).eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId)
+        const { count: participantsSelected, error: participantCountError } = await supabase.from("event3_participants").select("id", { count: "exact", head: true }).eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId)
+        if (participantCountError) {
+          logError("Event3 heartbeat participant count", participantCountError)
+          return res.status(503).json({
+            error: "تعذّر تحديث حالة الفعالية مؤقتاً. نعرض آخر حالة محفوظة وسنحاول تلقائياً.",
+            code: "EVENT3_STATE_UNAVAILABLE",
+            retryable: true,
+          })
+        }
 
         // Server-side auto-save: if ranking phase and timer expired, auto-save for this participant
         if (participant && (phase === "ranking1" || phase === "ranking2") && stateRow?.global_timer_active && stateRow?.global_timer_start_time) {
@@ -3542,10 +3627,19 @@ Please respond in JSON format:
 
         let myAssignment = null
         if (participant) {
-          const [{ data: ep }, { data: currentSignup }] = await Promise.all([
+          const [{ data: ep, error: rosterError }, { data: currentSignup, error: signupError }] = await Promise.all([
             supabase.from("event3_participants").select("position").eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId).eq("participant_number", myNumber).maybeSingle(),
             supabase.from("participants").select("event_id,signup_for_next_event,auto_signup_next_event").eq("match_id", MAIN_MATCH).eq("assigned_number", myNumber).maybeSingle(),
           ])
+          if (rosterError || signupError) {
+            if (rosterError) logError("Event3 heartbeat roster lookup", rosterError)
+            if (signupError) logError("Event3 heartbeat signup lookup", signupError)
+            return res.status(503).json({
+              error: "تعذّر تأكيد التسجيل مؤقتاً. ستبقى في شاشتك الحالية وسنحاول تلقائياً.",
+              code: "EVENT3_ENROLLMENT_UNAVAILABLE",
+              retryable: true,
+            })
+          }
           const signedUp = isEvent3SignedUp(currentSignup || participant, activeEventId)
           // event3_participants is the authoritative live roster. Test mode and
           // mid-event replacements intentionally add people here without changing
@@ -3585,7 +3679,15 @@ Please respond in JSON format:
             : phase === "phase3_reveal" ? 30
             : null
           if (ep && currentRound) {
-            const { data: sa } = await supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId).eq("round", currentRound).eq("participant_id", myNumber).maybeSingle()
+            const { data: sa, error: assignmentError } = await supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId).eq("round", currentRound).eq("participant_id", myNumber).maybeSingle()
+            if (assignmentError) {
+              logError("Event3 heartbeat assignment lookup", assignmentError)
+              return res.status(503).json({
+                error: "تعذّر تحديث رقم الطاولة مؤقتاً. ستبقى في شاشتك الحالية وسنحاول تلقائياً.",
+                code: "EVENT3_ASSIGNMENT_UNAVAILABLE",
+                retryable: true,
+              })
+            }
             myAssignment = sa ? { round: currentRound, table: sa.table_number, enrolled: true } : { enrolled: enrolledInActiveRoster || signedUp }
           } else {
             myAssignment = { enrolled: enrolledInActiveRoster || signedUp }

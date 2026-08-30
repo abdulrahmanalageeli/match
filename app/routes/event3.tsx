@@ -174,21 +174,40 @@ async function call(action: string, token: string | null, extra: Record<string, 
     })
     const contentType = response.headers.get("content-type") || ""
     if (!contentType.includes("application/json")) {
-      return { error: "تعذّر الاتصال بخدمة الفعالية. حاول مرة أخرى." }
+      return {
+        error: "تعذّر الاتصال بخدمة الفعالية. حاول مرة أخرى.",
+        code: "EVENT3_SERVICE_UNAVAILABLE",
+        http_status: response.status,
+        retryable: true,
+      }
     }
     const data = await response.json().catch(() => null)
     if (!data || typeof data !== "object") {
-      return { error: "وصل رد غير متوقع. حاول مرة أخرى." }
+      return {
+        error: "وصل رد غير متوقع. حاول مرة أخرى.",
+        code: "EVENT3_SERVICE_UNAVAILABLE",
+        http_status: response.status,
+        retryable: true,
+      }
     }
     if (!response.ok && !data.error) {
-      return { ...data, error: "تعذّر إكمال الطلب. حاول مرة أخرى." }
+      return {
+        ...data,
+        error: "تعذّر إكمال الطلب. حاول مرة أخرى.",
+        code: data.code || "EVENT3_SERVICE_UNAVAILABLE",
+        http_status: response.status,
+        retryable: data.retryable !== false,
+      }
     }
-    return data
+    return { ...data, http_status: response.status }
   } catch (error: any) {
     return {
       error: error?.name === "AbortError"
         ? "استغرق الاتصال وقتاً طويلاً. تحقق من الشبكة وحاول مرة أخرى."
-        : "تعذّر الاتصال. تحقق من الشبكة وحاول مرة أخرى."
+        : "تعذّر الاتصال. تحقق من الشبكة وحاول مرة أخرى.",
+      code: error?.name === "AbortError" ? "EVENT3_REQUEST_TIMEOUT" : "EVENT3_NETWORK_UNAVAILABLE",
+      http_status: 0,
+      retryable: true,
     }
   } finally {
     clearTimeout(timeout)
@@ -6790,15 +6809,25 @@ export default function Event3Page() {
     const d = await call("e3-heartbeat", token)
     if (d.error) {
       if (d.code === "EVENT3_TEST_MODE_LOCKED") setTestModeBlocked(true)
-      if (d.error.includes("Invalid") || d.error.includes("token") || d.error.includes("expired") || d.error.includes("لم يتم العثور") || d.error.includes("غير مسجّل")) {
+      // Only a structured, non-retriable authentication response proves the
+      // token is invalid. Network, timeout, database, and malformed responses
+      // keep the participant identity and the last successful event state.
+      if (d.code === "PARTICIPANT_TOKEN_INVALID" && d.retryable === false) {
         setTokenError(true)
         if (!isImpersonating) clearStoredParticipantIdentity()
       }
-      throw new Error(d.error)
+      const heartbeatError = new Error(d.error)
+      Object.assign(heartbeatError, {
+        code: d.code,
+        retryable: d.retryable,
+        httpStatus: d.http_status,
+      })
+      throw heartbeatError
     }
     setTestModeBlocked(false)
-    setEnrolled(d.enrolled !== false)
-    setMyInfo(d.my_info || null)
+    setTokenError(false)
+    if (typeof d.enrolled === "boolean") setEnrolled(d.enrolled)
+    if (d.my_info && typeof d.my_info === "object") setMyInfo(d.my_info)
     return d
   }, [token, isImpersonating])
 

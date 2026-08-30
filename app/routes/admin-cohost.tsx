@@ -6,6 +6,7 @@ import {
   ClipboardCheck,
   Circle,
   Clock3,
+  Copy,
   Heart,
   Headphones,
   LayoutDashboard,
@@ -17,6 +18,7 @@ import {
   MapPin,
   Megaphone,
   MessageCircle,
+  NotebookPen,
   RefreshCw,
   Save,
   Search,
@@ -34,6 +36,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react"
+import { compatibilityTotalForDisplay, currentBalancedGroupedDimensionsForDisplay, currentOppositesDimensionsForDisplay } from "~/lib/compatibility-model"
 
 const API = "/api/admin"
 const SESSION_KEY = "event3_cohost_token"
@@ -85,9 +88,54 @@ interface LockedPair {
   is_test_mode: boolean
 }
 
+interface CohostScorePayload {
+  compatibility_score: number | null
+  score_model_version?: string | null
+  score_snapshot?: Record<string, unknown> | null
+  score_content_hash?: string | null
+  score_provenance_valid?: boolean
+}
+
+interface CohostPairResult extends CohostScorePayload {
+  participant1_number: number
+  participant1_name: string
+  participant2_number: number
+  participant2_name: string
+  table_number: number | null
+  source: "choice" | "test" | "locked" | "generated"
+  locked: boolean
+}
+
+interface CohostNoteScope {
+  scope_type: "event" | "table" | "participant" | "pair"
+  scope_key: string
+  round?: number | null
+  table_number?: number | null
+  participant_number?: number | null
+  participant2_number?: number | null
+}
+
+interface CohostNote extends CohostNoteScope {
+  id: string
+  note: string
+  updated_at: string
+  updated_by: string
+  test_mode: boolean
+}
+
+interface CohostNoteEditorContext extends CohostNoteScope {
+  title: string
+  event_id: number
+  test_mode: boolean
+  test_session_key: string
+}
+
+type CohostApiError = Error & { status?: number; code?: string }
+
 interface CohostDashboard {
   event_id: number
   test_mode?: boolean
+  test_session_key?: string
   state: {
     phase: string
     global_timer_active: boolean
@@ -99,12 +147,19 @@ interface CohostDashboard {
   participants: CohostParticipant[]
   sos_requests: SosRequest[]
   locked_phase3_pairs?: LockedPair[]
+  choice_pairs?: CohostPairResult[]
+  algorithm_pairs?: CohostPairResult[]
+  algorithm_conflicting_locks?: number
+  notes?: CohostNote[]
 }
 
 interface CohostRankingItem {
   number: number
   name: string
   rank: number
+  reciprocal_rank?: number | null
+  reciprocal_submitted?: boolean
+  reciprocal_auto_saved?: boolean
 }
 
 interface CohostRanking {
@@ -197,7 +252,8 @@ interface PairView {
   bName: string
   table: number | null
   score?: number | null
-  source?: "test" | "locked" | "generated" | null
+  source?: "choice" | "test" | "locked" | "generated" | null
+  compatibility?: CohostScorePayload
 }
 
 const EMPTY_LIVE_DATA: LiveData = {
@@ -206,6 +262,8 @@ const EMPTY_LIVE_DATA: LiveData = {
   moodChecks: [],
   notifications: [],
 }
+const EMPTY_PARTICIPANTS: CohostParticipant[] = []
+const EMPTY_NOTES: CohostNote[] = []
 
 const PHASE_LABELS: Record<string, string> = {
   setup: "التجهيز",
@@ -262,6 +320,26 @@ function pairKey(a: number, b: number) {
   return `${Math.min(a, b)}-${Math.max(a, b)}`
 }
 
+function cohostPairView(pair: CohostPairResult): PairView {
+  return {
+    a: pair.participant1_number,
+    aName: pair.participant1_name,
+    b: pair.participant2_number,
+    bName: pair.participant2_name,
+    table: pair.table_number,
+    score: pair.compatibility_score,
+    source: pair.source,
+    compatibility: pair,
+  }
+}
+
+function reciprocalRankingLabel(item: CohostRankingItem) {
+  if (item.reciprocal_rank != null) return `رتّبك #${item.reciprocal_rank}`
+  if (item.reciprocal_submitted === true) return "لم يرتّبك"
+  if (item.reciprocal_submitted === false) return "لم يرسل بعد"
+  return "الترتيب المقابل غير متاح"
+}
+
 const PHASE_ORDER = [
   "setup",
   "round1",
@@ -309,8 +387,9 @@ async function cohostApi<T>(action: string, token: string, extra: Record<string,
   if (!contentType.includes("application/json")) throw new Error("تعذر الوصول إلى خدمة الفعالية")
   const data = await response.json().catch(() => ({}))
   if (!response.ok || data?.success === false) {
-    const error = new Error(data?.error || "تعذر تنفيذ الطلب") as Error & { status?: number }
+    const error = new Error(data?.error || "تعذر تنفيذ الطلب") as CohostApiError
     error.status = response.status
+    error.code = data?.code
     throw error
   }
   return data as T
@@ -327,6 +406,72 @@ function SectionTitle({ icon: Icon, title, detail }: { icon: LucideIcon; title: 
         </div>
       </div>
     </div>
+  )
+}
+
+function CohostPairCard({ pair, onNote, hasNote = false }: { pair: PairView; onNote: () => void; hasNote?: boolean }) {
+  const choice = pair.source === "choice"
+  const total = compatibilityTotalForDisplay(pair.compatibility, pair.score ?? null)
+  const dimensions = currentBalancedGroupedDimensionsForDisplay(pair.compatibility) ?? currentOppositesDimensionsForDisplay(pair.compatibility)
+  return (
+    <article className={`min-w-0 rounded-2xl border p-3 ${choice ? "border-pink-300/15 bg-pink-300/[0.04]" : "border-violet-300/15 bg-violet-300/[0.04]"}`}>
+      <div className="flex min-w-0 items-start gap-2 text-sm font-black">
+        <span className="min-w-0 flex-1 break-words">{pair.aName}<span className="mt-0.5 block text-[10px] font-normal text-slate-500">#{pair.a}</span></span>
+        <Heart size={15} className={`mt-1 shrink-0 ${choice ? "text-pink-300" : "text-violet-300"}`} />
+        <span className="min-w-0 flex-1 break-words">{pair.bName}<span className="mt-0.5 block text-[10px] font-normal text-slate-500">#{pair.b}</span></span>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] font-bold">
+        <span className="text-amber-100">{pair.table ? `طاولة ${pair.table}` : "بانتظار توزيع الطاولة"}</span>
+        <span className={choice ? "text-pink-200" : "text-violet-200"}>{choice ? "اختيار المشاركين" : pair.source === "test" ? "اختبار · مقفلة مسبقًا" : pair.source === "locked" ? "مقفلة قبل التشغيل" : "مطابقة الخوارزمية"}</span>
+      </div>
+      <details className="mt-3 rounded-xl border border-white/[0.07] bg-black/15">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-xs font-black [&::-webkit-details-marker]:hidden">
+          <span className="flex items-center gap-1.5"><Sparkles size={14} className={choice ? "text-pink-200" : "text-violet-200"} /> تفاصيل التوافق</span>
+          <span className="flex items-center gap-2"><span className="text-base tabular-nums text-white">{total == null ? "—" : `${Math.round(total)}%`}</span><ChevronDown size={13} className="text-slate-500" /></span>
+        </summary>
+        <div className="space-y-3 border-t border-white/[0.06] p-3">
+          {dimensions?.length ? <>
+            <p className="text-[10px] leading-5 text-slate-400">نِسَب كل جانب من الدرجة المحفوظة، دون إعادة حساب. تظهر نقاط كل جانب ووزنه أسفل النسبة.</p>
+            {dimensions.map(dimension => {
+              const percentage = dimension.value == null ? null : Math.max(0, Math.min(100, Math.round(dimension.value / dimension.max * 100)))
+              return <div key={dimension.key}><div className="flex items-start justify-between gap-3 text-[11px]"><span className="min-w-0 text-slate-200">{dimension.label}</span><span className="shrink-0 font-black tabular-nums text-white">{percentage == null ? "غير متاح" : `${percentage}%`}</span></div><div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/[0.07]"><div className={`h-full rounded-full ${choice ? "bg-pink-300" : "bg-violet-300"}`} style={{ width: `${percentage ?? 0}%` }} /></div><p className="mt-1 text-left text-[9px] tabular-nums text-slate-500">{dimension.value == null ? "—" : Number(dimension.value.toFixed(2))} / {dimension.max} نقطة</p></div>
+            })}
+          </> : <p className="text-[11px] leading-6 text-slate-400">تفاصيل الدرجة المحفوظة غير متاحة لهذا الزوج. لا نعرض قيمًا تقديرية أو نعيد حساب المطابقة أثناء الفعالية.</p>}
+        </div>
+      </details>
+      <button onClick={onNote} className={`mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border text-[11px] font-bold ${hasNote ? "border-amber-300/20 bg-amber-300/[0.06] text-amber-100" : "border-white/[0.07] bg-white/[0.025] text-slate-300"}`}><NotebookPen size={14} />{hasNote ? "عرض ملاحظة اللقاء" : "ملاحظة خاصة عن اللقاء"}</button>
+    </article>
+  )
+}
+
+function CohostNoteEditor({ context, draft, original, updatedAt, saving, error, onChange, onSave, onClose, onReload }: {
+  context: CohostNoteEditorContext
+  draft: string
+  original: string
+  updatedAt: string | null
+  saving: boolean
+  error: string
+  onChange: (value: string) => void
+  onSave: () => void
+  onClose: () => void
+  onReload: () => void
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (dialog && !dialog.open) dialog.showModal()
+    return () => { if (dialog?.open) dialog.close() }
+  }, [])
+  return (
+    <dialog ref={dialogRef} onCancel={event => { event.preventDefault(); onClose() }} aria-labelledby="cohost-note-title" className="fixed inset-x-0 bottom-0 top-auto m-0 max-h-[90dvh] w-full max-w-none overflow-y-auto rounded-t-3xl border border-white/10 bg-[#0b1019] p-4 pb-[max(env(safe-area-inset-bottom),1rem)] text-white shadow-2xl backdrop:bg-black/75 sm:inset-0 sm:m-auto sm:max-h-[85dvh] sm:w-[calc(100%_-_2rem)] sm:max-w-xl sm:rounded-3xl sm:p-5" dir="rtl">
+      <div className="flex items-start justify-between gap-3"><div><h2 id="cohost-note-title" className="text-base font-black">{context.title}</h2><p className="mt-1 text-[11px] leading-5 text-slate-400">خاصة بالمنظمين · فعالية {context.event_id}{context.test_mode ? " · اختبار" : ""} · لا تظهر للمشاركين</p></div><button onClick={onClose} disabled={saving} aria-label="إغلاق محرر الملاحظة" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] disabled:opacity-40"><X size={18} /></button></div>
+      <label htmlFor="cohost-note-draft" className="mt-4 block text-xs font-bold text-slate-300">الملاحظة</label>
+      <textarea id="cohost-note-draft" autoFocus value={draft} onChange={event => onChange(event.target.value)} maxLength={2000} rows={7} placeholder="اكتبي ما يفيد المتابعة الآن أو بعد الفعالية…" className="mt-2 min-h-40 w-full resize-y rounded-2xl border border-white/10 bg-black/25 p-3 text-base leading-7 outline-none focus:border-amber-300/40" />
+      <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-[10px] text-slate-500"><span>{updatedAt ? `آخر حفظ: ${formatTime(updatedAt)}` : "لم تُحفظ بعد"}</span><span className="tabular-nums">{draft.length}/2000</span></div>
+      {error ? <p role="alert" className="mt-3 rounded-xl border border-red-300/20 bg-red-950/35 p-3 text-xs leading-6 text-red-100">{error}</p> : null}
+      <div className="mt-4 grid grid-cols-2 gap-2"><button onClick={onSave} disabled={saving || draft.trim() === original.trim()} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-amber-300 text-sm font-black text-slate-950 disabled:opacity-40">{saving ? <Loader2 size={17} className="animate-spin" /> : <Save size={17} />}{draft.trim() ? "حفظ الملاحظة" : "مسح الملاحظة"}</button><button onClick={onClose} disabled={saving} className="min-h-12 rounded-xl border border-white/10 bg-white/[0.04] text-sm font-bold text-slate-300 disabled:opacity-40">إغلاق</button></div>
+      {error ? <button onClick={onReload} disabled={saving} className="mt-2 min-h-11 w-full rounded-xl text-xs font-bold text-amber-100 disabled:opacity-40">تحميل النسخة المحفوظة من جديد</button> : null}
+    </dialog>
   )
 }
 
@@ -366,9 +511,19 @@ export default function AdminCohostPage() {
   const [editingRanker, setEditingRanker] = useState<number | null>(null)
   const [rankingDraft, setRankingDraft] = useState<CohostRankingItem[]>([])
   const [rankingSaving, setRankingSaving] = useState(false)
+  const [panelLocked, setPanelLocked] = useState(false)
+  const [connectionIssue, setConnectionIssue] = useState(false)
+  const [notesSearch, setNotesSearch] = useState("")
+  const [editingNote, setEditingNote] = useState<CohostNoteEditorContext | null>(null)
+  const [noteDraft, setNoteDraft] = useState("")
+  const [noteOriginal, setNoteOriginal] = useState("")
+  const [noteUpdatedAt, setNoteUpdatedAt] = useState<string | null>(null)
+  const [noteSaving, setNoteSaving] = useState(false)
+  const [noteError, setNoteError] = useState("")
   const dashboardRequest = useRef(0)
   const feedbackRequest = useRef(0)
   const operationsRequest = useRef(0)
+  const rankingsRequest = useRef(0)
 
   useEffect(() => {
     setToken(sessionStorage.getItem(SESSION_KEY) || "")
@@ -376,6 +531,10 @@ export default function AdminCohostPage() {
   }, [])
 
   const logout = useCallback((message = "") => {
+    dashboardRequest.current++
+    feedbackRequest.current++
+    operationsRequest.current++
+    rankingsRequest.current++
     sessionStorage.removeItem(SESSION_KEY)
     localStorage.removeItem("cohost_auth")
     setToken("")
@@ -384,11 +543,18 @@ export default function AdminCohostPage() {
     setRankings([])
     setEditingRanker(null)
     setRankingDraft([])
+    setPanelLocked(false)
+    setEditingNote(null)
     setError(message)
   }, [])
 
   const handleRequestError = useCallback((requestError: unknown, fallback: string) => {
-    const status = (requestError as Error & { status?: number })?.status
+    const status = (requestError as CohostApiError)?.status
+    if (status === 423 && (requestError as CohostApiError)?.code === "COHOST_LOCKED") {
+      setPanelLocked(true)
+      setError("")
+      return
+    }
     if (status === 401 || status === 403) {
       logout("انتهت جلسة رنيم. سجّلي الدخول مرة أخرى.")
       return
@@ -404,10 +570,16 @@ export default function AdminCohostPage() {
       const data = await cohostApi<CohostDashboard>("e3-cohost-dashboard", token)
       if (requestId !== dashboardRequest.current) return
       setDashboard(data)
+      setPanelLocked(false)
+      setConnectionIssue(false)
       setLastUpdated(new Date())
       setError("")
+      return data
     } catch (requestError) {
-      if (requestId === dashboardRequest.current) handleRequestError(requestError, "تعذر تحميل الفعالية")
+      if (requestId === dashboardRequest.current) {
+        setConnectionIssue(true)
+        handleRequestError(requestError, "تعذر تحميل الفعالية")
+      }
     } finally {
       if (!quiet && requestId === dashboardRequest.current) setLoading(false)
     }
@@ -415,13 +587,15 @@ export default function AdminCohostPage() {
 
   const fetchRankings = useCallback(async (quiet = false) => {
     if (!token) return
+    const requestId = ++rankingsRequest.current
     if (!quiet) setRankingsLoading(true)
     try {
       const data = await cohostApi<CohostRankingsResponse>("e3-cohost-rankings", token)
+      if (requestId !== rankingsRequest.current) return
       setRankings(data.rankings || [])
       setError("")
     } catch (requestError) {
-      if (!quiet) handleRequestError(requestError, "تعذر تحميل التصنيفات")
+      if (requestId === rankingsRequest.current && (!quiet || [401, 403, 423].includes((requestError as CohostApiError)?.status || 0))) handleRequestError(requestError, "تعذر تحميل التصنيفات")
     } finally {
       if (!quiet) setRankingsLoading(false)
     }
@@ -447,7 +621,7 @@ export default function AdminCohostPage() {
     }))
     if (results.some(result => result.status === "fulfilled")) setFeedbackUpdated(new Date())
     const rejected = results.find(result => result.status === "rejected")
-    if (rejected?.status === "rejected" && !quiet) handleRequestError(rejected.reason, "تعذر تحميل التقييمات")
+    if (rejected?.status === "rejected" && (!quiet || [401, 403, 423].includes((rejected.reason as CohostApiError)?.status || 0))) handleRequestError(rejected.reason, "تعذر تحميل التقييمات")
     if (!quiet) setLiveLoading(false)
   }, [handleRequestError, token])
 
@@ -470,7 +644,7 @@ export default function AdminCohostPage() {
       notifications: results[1].status === "fulfilled" ? results[1].value.notifications || [] : previous.notifications,
     }))
     const rejected = results.find(result => result.status === "rejected")
-    if (rejected?.status === "rejected" && !quiet) handleRequestError(rejected.reason, "تعذر تحميل المتابعة المباشرة")
+    if (rejected?.status === "rejected" && (!quiet || [401, 403, 423].includes((rejected.reason as CohostApiError)?.status || 0))) handleRequestError(rejected.reason, "تعذر تحميل المتابعة المباشرة")
     if (!quiet) setLiveLoading(false)
   }, [handleRequestError, token])
 
@@ -491,7 +665,7 @@ export default function AdminCohostPage() {
   }, [fetchDashboard, token])
 
   useEffect(() => {
-    if (!token || (tab !== "home" && tab !== "feedback")) return
+    if (!token || panelLocked || (tab !== "home" && tab !== "feedback")) return
     fetchFeedbackData()
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") fetchFeedbackData(true)
@@ -504,10 +678,10 @@ export default function AdminCohostPage() {
       window.clearInterval(interval)
       document.removeEventListener("visibilitychange", onVisible)
     }
-  }, [fetchFeedbackData, tab, token])
+  }, [fetchFeedbackData, panelLocked, tab, token])
 
   useEffect(() => {
-    if (!token || (tab !== "support" && tab !== "messages")) return
+    if (!token || panelLocked || (tab !== "support" && tab !== "messages")) return
     fetchOperationsData()
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") fetchOperationsData(true)
@@ -520,16 +694,16 @@ export default function AdminCohostPage() {
       window.clearInterval(interval)
       document.removeEventListener("visibilitychange", onVisible)
     }
-  }, [fetchOperationsData, tab, token])
+  }, [fetchOperationsData, panelLocked, tab, token])
 
   useEffect(() => {
-    if (!token || tab !== "rankings" || editingRanker !== null) return
+    if (!token || panelLocked || tab !== "rankings" || editingRanker !== null) return
     fetchRankings()
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") fetchRankings(true)
     }, 10000)
     return () => window.clearInterval(interval)
-  }, [editingRanker, fetchRankings, tab, token])
+  }, [editingRanker, fetchRankings, panelLocked, tab, token])
 
   useEffect(() => {
     const state = dashboard?.state
@@ -564,10 +738,12 @@ export default function AdminCohostPage() {
         if (data.code === "COHOST_NOT_CONFIGURED") {
           throw new Error("إعداد دخول المضيفة غير مكتمل في النسخة المنشورة. تأكد من متغير Vercel ثم أعد النشر.")
         }
+        if (data.code === "COHOST_LOCKED") throw new Error("أوقف المضيف لوحة المضيفة مؤقتًا. يمكن الدخول بعد إعادة فتحها من Admin3.")
         throw new Error(data.error || "كلمة المرور غير صحيحة")
       }
       sessionStorage.setItem(SESSION_KEY, data.token)
       setToken(data.token)
+      setPanelLocked(false)
       setPassword("")
     } catch (loginError) {
       setError(loginError instanceof Error && loginError.message !== "Unauthorized" ? loginError.message : "كلمة المرور غير صحيحة")
@@ -576,10 +752,24 @@ export default function AdminCohostPage() {
     }
   }
 
-  const participants = dashboard?.participants || []
+  const participants = dashboard?.participants || EMPTY_PARTICIPANTS
   const participantByNumber = useMemo(() => new Map(participants.map(participant => [Number(participant.number), participant])), [participants])
   const round = activeRound(dashboard?.state.phase)
   const testMode = dashboard?.test_mode === true || dashboard?.state.test_mode_active === true
+  const notes = dashboard?.notes || EMPTY_NOTES
+  const notesByKey = useMemo(() => new Map(notes.map(note => [note.scope_key, note])), [notes])
+  const noteLabel = (note: CohostNoteScope) => {
+    if (note.scope_type === "event") return "ملاحظة عامة للفعالية"
+    if (note.scope_type === "table") return `${ROUND_LABELS[Number(note.round)] || "جولة"} · طاولة ${note.table_number}`
+    const first = participantByNumber.get(Number(note.participant_number))?.name || `#${note.participant_number}`
+    if (note.scope_type === "participant") return `ملاحظة عن ${first}`
+    const second = participantByNumber.get(Number(note.participant2_number))?.name || `#${note.participant2_number}`
+    return `${Number(note.round) === 20 ? "لقاء الاختيار" : "لقاء الخوارزمية"} · ${first} × ${second}`
+  }
+  const filteredNotes = notes.filter(note => {
+    const query = notesSearch.trim().toLowerCase()
+    return !query || note.note.toLowerCase().includes(query) || noteLabel(note).toLowerCase().includes(query)
+  })
   const attendedCount = participants.filter(participant => participant.attended).length
   const rankingCount = participants.filter(participant => participant.ranking_submitted).length
   const submittedRankingsCount = rankings.filter(ranking => ranking.submitted).length
@@ -749,6 +939,7 @@ export default function AdminCohostPage() {
       : `كل الطاولات النشطة (${activeMoodGroups.length} طاولات · ${activeMoodParticipantCount} مشاركين)`
 
   const phase2Pairs = useMemo<PairView[]>(() => {
+    if (dashboard?.choice_pairs) return dashboard.choice_pairs.map(cohostPairView).sort((left, right) => (left.table ?? 999) - (right.table ?? 999) || left.a - right.a)
     const seen = new Set<string>()
     const result: PairView[] = []
     for (const participant of participants) {
@@ -758,12 +949,13 @@ export default function AdminCohostPage() {
       const key = pairKey(participant.number, partnerNumber)
       if (seen.has(key)) continue
       seen.add(key)
-      result.push({ a: participant.number, aName: participant.name, b: partner.number, bName: partner.name, table: participant.tables?.["20"] || partner.tables?.["20"] || null })
+      result.push({ a: participant.number, aName: participant.name, b: partner.number, bName: partner.name, table: participant.tables?.["20"] || partner.tables?.["20"] || null, source: "choice" })
     }
     return result
-  }, [participantByNumber, participants])
+  }, [dashboard?.choice_pairs, participantByNumber, participants])
 
   const phase3Pairs = useMemo<PairView[]>(() => {
+    if (dashboard?.algorithm_pairs) return dashboard.algorithm_pairs.map(cohostPairView).sort((left, right) => (left.table ?? 999) - (right.table ?? 999) || left.a - right.a)
     const seen = new Set<string>()
     const result: PairView[] = []
     for (const pair of dashboard?.locked_phase3_pairs || []) {
@@ -797,7 +989,99 @@ export default function AdminCohostPage() {
       })
     }
     return result
-  }, [dashboard?.locked_phase3_pairs, participantByNumber, participants])
+  }, [dashboard?.algorithm_pairs, dashboard?.locked_phase3_pairs, participantByNumber, participants])
+
+  const openNote = (scope: CohostNoteScope, title = noteLabel(scope)) => {
+    if (!dashboard || panelLocked) return
+    const saved = notesByKey.get(scope.scope_key)
+    setEditingNote({ ...scope, title, event_id: dashboard.event_id, test_mode: testMode, test_session_key: dashboard.test_session_key || "" })
+    setNoteDraft(saved?.note || "")
+    setNoteOriginal(saved?.note || "")
+    setNoteUpdatedAt(saved?.updated_at || null)
+    setNoteError("")
+  }
+
+  const openPairNote = (pair: PairView, tableRound: 20 | 30) => openNote({
+    scope_type: "pair",
+    scope_key: `pair:${tableRound}:${pairKey(pair.a, pair.b)}`,
+    round: tableRound,
+    participant_number: Math.min(pair.a, pair.b),
+    participant2_number: Math.max(pair.a, pair.b),
+  })
+
+  const closeNote = () => {
+    if (noteSaving) return
+    if (noteDraft.trim() !== noteOriginal.trim() && !window.confirm("إغلاق الملاحظة دون حفظ التغييرات؟")) return
+    setEditingNote(null)
+  }
+
+  const reloadNote = async () => {
+    if (!editingNote || noteSaving) return
+    if (noteDraft.trim() !== noteOriginal.trim() && !window.confirm("استبدال المسودة بالنسخة المحفوظة؟")) return
+    const data = await fetchDashboard(true)
+    if (!data) return
+    const currentTestMode = data.test_mode === true || data.state.test_mode_active === true
+    if (data.event_id !== editingNote.event_id || currentTestMode !== editingNote.test_mode || (data.test_session_key || "") !== editingNote.test_session_key) {
+      setNoteError("تغيّر سياق الفعالية. احتفظي بنص المسودة ثم أغلقي المحرر وافتحي الملاحظة في الفعالية الحالية.")
+      return
+    }
+    const saved = data.notes?.find(note => note.scope_key === editingNote.scope_key)
+    setNoteDraft(saved?.note || "")
+    setNoteOriginal(saved?.note || "")
+    setNoteUpdatedAt(saved?.updated_at || null)
+    setNoteError("")
+  }
+
+  const saveNote = async () => {
+    if (!token || !editingNote || noteSaving || panelLocked) return
+    if (!noteDraft.trim() && noteOriginal && !window.confirm("مسح الملاحظة المحفوظة لهذا الموضع؟")) return
+    setNoteSaving(true)
+    setNoteError("")
+    try {
+      const data = await cohostApi<{ note: CohostNote | null; scope_key: string }>("e3-cohost-save-note", token, {
+        ...editingNote,
+        note: noteDraft,
+        expected_event_id: editingNote.event_id,
+        expected_test_mode: editingNote.test_mode,
+        expected_test_session_key: editingNote.test_session_key,
+        expected_updated_at: noteUpdatedAt,
+      })
+      setDashboard(previous => previous && previous.event_id === editingNote.event_id && (previous.test_session_key || "") === editingNote.test_session_key && (previous.test_mode === true || previous.state.test_mode_active === true) === editingNote.test_mode ? {
+        ...previous,
+        notes: [...(data.note ? [data.note] : []), ...(previous.notes || []).filter(note => note.scope_key !== data.scope_key)],
+      } : previous)
+      setNotice(data.note ? "تم حفظ الملاحظة الخاصة" : "تم مسح الملاحظة")
+      setEditingNote(null)
+    } catch (requestError) {
+      const code = (requestError as CohostApiError)?.code
+      setNoteError(code === "NOTE_CONFLICT"
+        ? "تم تعديل هذه الملاحظة من جهاز آخر. المسودة هنا محفوظة كما هي؛ حمّلي النسخة المحفوظة قبل إعادة التعديل."
+        : code === "NOTE_CONTEXT_CHANGED"
+          ? "تغيّرت الفعالية أو وضع الاختبار. لم تُحفظ الملاحظة في السياق الجديد، ومسودتك ما زالت هنا."
+          : "تعذر حفظ الملاحظة الآن. المسودة ما زالت هنا، حاولي مرة أخرى.")
+      if ([401, 403, 423].includes((requestError as CohostApiError)?.status || 0)) handleRequestError(requestError, "تعذر حفظ الملاحظة")
+    } finally {
+      setNoteSaving(false)
+    }
+  }
+
+  const copyNotes = async () => {
+    if (!dashboard || !notes.length) return
+    const summary = [`ملاحظات المنظمين — فعالية ${dashboard.event_id}${testMode ? " (اختبار)" : ""}`, ...notes.map(note => `\n${noteLabel(note)}\n${note.note}\nآخر حفظ: ${new Date(note.updated_at).toLocaleString("ar-SA")}`)].join("\n")
+    try {
+      await navigator.clipboard.writeText(summary)
+      setNotice("تم نسخ الملاحظات الخاصة للمتابعة لاحقًا")
+    } catch {
+      setError("تعذر النسخ من هذا المتصفح. يمكن فتح كل ملاحظة ونسخ نصها يدويًا.")
+    }
+  }
+
+  useEffect(() => {
+    if (!editingNote || noteDraft.trim() === noteOriginal.trim()) return
+    const warnBeforeLeave = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = "" }
+    window.addEventListener("beforeunload", warnBeforeLeave)
+    return () => window.removeEventListener("beforeunload", warnBeforeLeave)
+  }, [editingNote, noteDraft, noteOriginal])
 
   const startRankingEdit = (ranking: CohostRanking) => {
     if (!ranking.submitted || !ranking.ranked_list.length) return
@@ -841,6 +1125,7 @@ export default function AdminCohostPage() {
   const toggleAttendance = async (participant: CohostParticipant) => {
     if (!token || toggling[participant.number]) return
     const nextValue = !participant.attended
+    if (!nextValue && !window.confirm(`إلغاء تسجيل حضور ${participant.name}؟`)) return
     setToggling(previous => ({ ...previous, [participant.number]: true }))
     setDashboard(previous => previous ? {
       ...previous,
@@ -1004,6 +1289,10 @@ export default function AdminCohostPage() {
     )
   }
 
+  if (panelLocked) {
+    return <div className="flex min-h-[100dvh] items-center justify-center bg-[#06090f] p-5 text-white" dir="rtl"><div className="w-full max-w-sm rounded-3xl border border-amber-300/20 bg-[#0b1019] p-6 text-center"><LockKeyhole size={36} className="mx-auto text-amber-200" /><h1 className="mt-4 text-xl font-black">لوحة المضيفة متوقفة مؤقتًا</h1><p className="mt-3 text-sm leading-7 text-slate-300">أوقف المضيف الوصول من Admin3. الفعالية مستمرة للمشاركين، وستعود اللوحة تلقائيًا عند إعادة فتحها.</p>{editingNote ? <p className="mt-3 text-xs leading-6 text-amber-100">مسودة الملاحظة ما زالت محفوظة في هذه الصفحة. أبقيها مفتوحة حتى يُعاد الوصول.</p> : null}<button onClick={() => fetchDashboard()} disabled={loading} className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-amber-300 text-sm font-black text-slate-950 disabled:opacity-40"><RefreshCw size={17} className={loading ? "animate-spin" : ""} /> تحقق من إعادة الفتح</button><button onClick={() => logout()} className="mt-2 min-h-11 w-full rounded-xl text-xs font-bold text-slate-400">تسجيل الخروج</button></div></div>
+  }
+
   const tabs: Array<{ value: CohostTab; label: string; icon: LucideIcon; badge?: number; badgeTone?: "amber" | "red" }> = [
     { value: "home", label: "الرئيسية", icon: LayoutDashboard },
     { value: "people", label: "الحضور", icon: Users },
@@ -1017,8 +1306,8 @@ export default function AdminCohostPage() {
     <div className="min-h-screen bg-[#06090f] text-white" dir="rtl">
       <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-[#06090f]/95 backdrop-blur-xl">
         <div className="mx-auto max-w-5xl px-4 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-teal-300/20 bg-teal-300/10">
                 <ShieldCheck size={20} className="text-teal-300" />
               </div>
@@ -1027,23 +1316,23 @@ export default function AdminCohostPage() {
                   <h1 className="truncate text-sm font-black">لوحة رنيم · فعالية {dashboard?.event_id ?? "—"}</h1>
                   {testMode ? <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-0.5 text-[9px] font-black text-amber-200">اختبار</span> : null}
                 </div>
-                <div className="mt-0.5 flex items-center gap-1.5 text-[10px] font-bold text-teal-300">
+                <div className={`mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] font-bold ${connectionIssue ? "text-amber-200" : "text-teal-300"}`}>
                   <Wifi size={11} />
-                  <span>{PHASE_LABELS[dashboard?.state.phase || ""] || dashboard?.state.phase || "جاري الاتصال"}</span>
+                  <span>{connectionIssue ? "الاتصال متعثر · نعرض آخر بيانات محفوظة" : PHASE_LABELS[dashboard?.state.phase || ""] || dashboard?.state.phase || "جاري الاتصال"}</span>
                   {lastUpdated ? <span className="font-normal text-slate-500">· تحديث {formatTime(lastUpdated.toISOString())}</span> : null}
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
               {dashboard?.state.global_timer_active ? (
-                <div className={`flex min-h-11 items-center gap-1.5 rounded-xl border px-2.5 font-mono text-xs font-black ${timerRemaining <= 60 ? "border-red-400/30 bg-red-950/40 text-red-200" : "border-white/10 bg-white/[0.04] text-slate-100"}`} title="عرض المؤقت فقط">
+                <div className={`me-auto flex min-h-11 items-center gap-1.5 rounded-xl border px-2.5 font-mono text-xs font-black sm:me-0 ${timerRemaining <= 60 ? "border-red-400/30 bg-red-950/40 text-red-200" : "border-white/10 bg-white/[0.04] text-slate-100"}`} title="عرض المؤقت فقط">
                   <Clock3 size={14} /> {formatTimer(timerRemaining)}
                 </div>
               ) : null}
               <button onClick={() => setTab("messages")} aria-label="التواصل والاطمئنان" className={`relative flex h-11 w-11 items-center justify-center rounded-xl border text-slate-200 ${tab === "messages" ? "border-teal-300/30 bg-teal-300/12" : "border-white/10 bg-white/[0.04]"}`}>
                 <MessageCircle size={17} />
               </button>
-              <button onClick={() => fetchDashboard()} disabled={loading} aria-label="تحديث البيانات" className="hidden h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-slate-300 disabled:opacity-50 sm:flex">
+              <button onClick={() => fetchDashboard()} disabled={loading} aria-label="تحديث البيانات" className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-slate-300 disabled:opacity-50">
                 <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
               </button>
               <button onClick={() => logout()} aria-label="تسجيل الخروج" className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-slate-400 hover:text-red-200">
@@ -1061,6 +1350,8 @@ export default function AdminCohostPage() {
             <div><p className="text-xs font-black">وضع الاختبار يعمل الآن</p><p className="mt-1 text-[11px] leading-5 text-amber-100/75">النتائج والطاولات المعروضة تجريبية ومعزولة عن الفعالية الفعلية.</p></div>
           </div>
         ) : null}
+
+        {dashboard?.algorithm_conflicting_locks ? <div role="alert" className="rounded-2xl border border-amber-300/25 bg-amber-300/[0.06] p-3 text-xs leading-6 text-amber-100">توجد {dashboard.algorithm_conflicting_locks} مطابقة مقفلة متعارضة تشترك في مشارك. أخفينا الأزواج المتداخلة؛ راجعي المضيف قبل توجيه هؤلاء المشاركين.</div> : null}
 
         {error ? (
           <div role="alert" className="flex items-start gap-3 rounded-2xl border border-red-400/25 bg-red-950/40 p-3 text-xs leading-5 text-red-100">
@@ -1117,10 +1408,7 @@ export default function AdminCohostPage() {
               {phase3Pairs.length ? (
                 <div className="grid gap-2 md:grid-cols-2">
                   {phase3Pairs.slice(0, 6).map(pair => (
-                    <div key={pairKey(pair.a, pair.b)} className="rounded-2xl border border-violet-300/15 bg-violet-400/[0.05] p-3">
-                      <div className="flex items-center gap-2 text-sm font-black"><span className="truncate">{pair.aName}</span><Heart size={14} className="shrink-0 text-violet-300" /><span className="truncate">{pair.bName}</span></div>
-                      <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] font-bold"><span className="rounded-full bg-violet-300/10 px-2 py-1 text-violet-200">{pair.source === "test" ? "نتيجة اختبار" : pair.source === "locked" ? "مقفلة قبل التشغيل" : "مطابقة الخوارزمية"}</span><span className="text-amber-200">{pair.table ? `طاولة ${pair.table}` : "بانتظار توزيع الطاولة"}</span>{pair.score != null ? <span className="text-slate-300">توافق {Math.round(Number(pair.score))}%</span> : null}</div>
-                    </div>
+                    <CohostPairCard key={pairKey(pair.a, pair.b)} pair={pair} onNote={() => openPairNote(pair, 30)} hasNote={notesByKey.has(`pair:30:${pairKey(pair.a, pair.b)}`)} />
                   ))}
                 </div>
               ) : <div className="rounded-2xl border border-dashed border-white/10 p-5 text-center text-xs leading-6 text-slate-400">لا توجد مطابقة خوارزمية مقفلة لهذه الفعالية حتى الآن.</div>}
@@ -1130,11 +1418,13 @@ export default function AdminCohostPage() {
             <section className="space-y-3">
               <SectionTitle icon={Table2} title={round ? `الطاولات الآن · ${ROUND_LABELS[round]}` : "نظرة سريعة على الطاولات"} detail="هذه المعلومات للعرض والتوجيه فقط." />
               {round && tableGroups[round]?.length ? (
-                <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
-                  {tableGroups[round].map(group => <div key={group.table} className="rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3"><p className="text-xs font-black text-amber-200">طاولة {group.table}</p><p className="mt-2 text-[11px] leading-5 text-slate-300">{group.members.map(member => firstName(member.name)).join("، ")}</p></div>)}
+                <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
+                  {tableGroups[round].map(group => <div key={group.table} className="rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3"><p className="text-xs font-black text-amber-200">طاولة {group.table}</p><p className="mt-2 text-[11px] leading-5 text-slate-300">{group.members.map(member => firstName(member.name)).join("، ")}</p><button onClick={() => openNote({ scope_type: "table", scope_key: `table:${round}:${group.table}`, round, table_number: group.table })} className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/[0.07] text-[11px] font-bold text-amber-100"><NotebookPen size={14} />{notesByKey.has(`table:${round}:${group.table}`) ? "عرض ملاحظة الطاولة" : "ملاحظة للطاولة"}</button></div>)}
                 </div>
               ) : <div className="rounded-2xl border border-dashed border-white/10 p-5 text-center text-xs text-slate-400">لا توجد جلسة بطاولات نشطة الآن. كل التوزيعات محفوظة في تبويب الجداول.</div>}
             </section>
+
+            <button onClick={() => openNote({ scope_type: "event", scope_key: "event" })} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/20 bg-amber-300/[0.04] text-xs font-black text-amber-100"><NotebookPen size={17} />{notesByKey.has("event") ? "عرض الملاحظة العامة للفعالية" : "إضافة ملاحظة عامة للفعالية"}<span className="text-[10px] font-normal text-slate-400">· خاصة بالمنظمين</span></button>
 
             <div className="flex gap-3 rounded-2xl border border-teal-300/15 bg-teal-300/[0.04] p-3 text-[11px] leading-5 text-slate-300"><LockKeyhole size={17} className="mt-0.5 shrink-0 text-teal-300" /><p><span className="font-black text-white">منطقة تشغيل آمنة:</span> لا يمكن من هذه الصفحة تغيير الوقت أو المرحلة أو إعادة المطابقة أو حذف بيانات الفعالية.</p></div>
           </>
@@ -1164,6 +1454,7 @@ export default function AdminCohostPage() {
                       <button onClick={() => toggleAttendance(participant)} disabled={toggling[participant.number]} aria-pressed={participant.attended} className={`flex min-h-11 items-center justify-center gap-2 rounded-xl text-xs font-black ${participant.attended ? "border border-teal-300/25 bg-teal-300/10 text-teal-100" : "border border-white/10 bg-white/[0.04] text-slate-200"}`}>{toggling[participant.number] ? <Loader2 size={15} className="animate-spin" /> : participant.attended ? <CheckCircle2 size={16} /> : <Circle size={16} />}{participant.attended ? "حاضرة/حاضر" : "تسجيل حضور"}</button>
                       <button onClick={() => openParticipantMessage(participant)} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] text-xs font-black text-slate-200"><Megaphone size={15} /> تنبيه</button>
                     </div>
+                    <button onClick={() => openNote({ scope_type: "participant", scope_key: `participant:${participant.number}`, participant_number: participant.number })} className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/[0.07] text-[11px] font-bold text-amber-100"><NotebookPen size={14} />{notesByKey.has(`participant:${participant.number}`) ? "عرض الملاحظة الخاصة" : "ملاحظة خاصة عن المشارك"}</button>
                   </article>
                 )
               })}
@@ -1225,9 +1516,9 @@ export default function AdminCohostPage() {
                           {rankingDraft.map((item, index) => (
                             <div key={item.number} className="flex items-center gap-2 rounded-xl border border-white/[0.07] bg-black/20 p-2">
                               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-300/10 text-xs font-black text-teal-200">{index + 1}</span>
-                              <span className="min-w-0 flex-1 truncate text-xs font-bold">{item.name} <span className="font-normal text-slate-500">#{item.number}</span></span>
-                              <button onClick={() => moveRankingItem(index, -1)} disabled={index === 0} aria-label={`رفع ${item.name}`} className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/[0.05] text-slate-300 disabled:opacity-20"><ChevronUp size={15} /></button>
-                              <button onClick={() => moveRankingItem(index, 1)} disabled={index === rankingDraft.length - 1} aria-label={`خفض ${item.name}`} className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/[0.05] text-slate-300 disabled:opacity-20"><ChevronDown size={15} /></button>
+                              <span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold">{item.name} <span className="font-normal text-slate-500">#{item.number}</span></span><span className="mt-1 block text-[9px] text-amber-100/70">{reciprocalRankingLabel(item)}{item.reciprocal_auto_saved ? " · حفظ تلقائي" : ""}</span></span>
+                              <button onClick={() => moveRankingItem(index, -1)} disabled={index === 0} aria-label={`رفع ${item.name}`} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] text-slate-300 disabled:opacity-20"><ChevronUp size={15} /></button>
+                              <button onClick={() => moveRankingItem(index, 1)} disabled={index === rankingDraft.length - 1} aria-label={`خفض ${item.name}`} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] text-slate-300 disabled:opacity-20"><ChevronDown size={15} /></button>
                             </div>
                           ))}
                           <div className="grid grid-cols-2 gap-2 pt-1">
@@ -1237,7 +1528,7 @@ export default function AdminCohostPage() {
                         </div>
                       ) : (
                         <ol className="mt-3 space-y-1.5">
-                          {ranking.ranked_list.map(item => <li key={item.number} className="flex items-center gap-2 rounded-xl bg-black/15 px-2.5 py-2"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-teal-300/10 text-[10px] font-black text-teal-200">{item.rank}</span><span className="min-w-0 flex-1 truncate text-[11px] text-slate-200">{item.name} <span className="text-slate-500">#{item.number}</span></span></li>)}
+                          {ranking.ranked_list.map(item => <li key={item.number} className="flex items-center gap-2 rounded-xl bg-black/15 px-2.5 py-2"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-300/10 text-[10px] font-black text-teal-200">{item.rank}</span><span className="min-w-0 flex-1"><span className="block truncate text-[11px] text-slate-200">{item.name} <span className="text-slate-500">#{item.number}</span></span><span className={`mt-1 block text-[10px] ${item.reciprocal_rank != null ? "text-amber-100" : "text-slate-500"}`}>{reciprocalRankingLabel(item)}{item.reciprocal_auto_saved ? " · حفظ تلقائي" : ""}</span></span></li>)}
                         </ol>
                       )
                     ) : <p className="mt-3 rounded-xl border border-dashed border-amber-300/15 p-3 text-center text-[10px] leading-5 text-amber-100/60">سيظهر ترتيبه هنا فور الإرسال. لا يمكن إنشاء اختيار بالنيابة من لوحة المضيفة.</p>}
@@ -1250,26 +1541,27 @@ export default function AdminCohostPage() {
         ) : tab === "tables" ? (
           <section className="space-y-5">
             <SectionTitle icon={Table2} title="كل الجداول والمطابقات" detail="توزيعات الفعالية كاملة، مع المطابقات المقفلة قبل تعيين الطاولات." />
-            {[1, 2, 3, 20, 30].map(tableRound => tableGroups[tableRound]?.length ? (
+            <div className="grid grid-cols-2 gap-2"><a href="#cohost-choice-pairs" className="flex min-h-11 items-center justify-center rounded-xl border border-pink-300/20 text-[11px] font-black text-pink-100">الاختيار · {phase2Pairs.length}</a><a href="#cohost-algorithm-pairs" className="flex min-h-11 items-center justify-center rounded-xl border border-violet-300/20 text-[11px] font-black text-violet-100">الخوارزمية · {phase3Pairs.length}</a></div>
+            {[1, 2, 3, 20, 30].sort((left, right) => Number(right === round) - Number(left === round)).map(tableRound => tableGroups[tableRound]?.length ? (
               <div key={tableRound} className="space-y-2">
-                <h3 className="text-xs font-black text-amber-200">{ROUND_LABELS[tableRound]}</h3>
-                <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+                <h3 className="text-xs font-black text-amber-200">{ROUND_LABELS[tableRound]}{tableRound === round ? " · الآن" : ""}</h3>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {tableGroups[tableRound].map(group => (
-                    <div key={group.table} className="rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3"><div className="flex items-center justify-between"><span className="text-xs font-black">طاولة {group.table}</span><span className="text-[9px] text-slate-400">{group.members.length} مشاركين</span></div><div className="mt-2 space-y-1">{group.members.map(member => <p key={member.number} className="truncate text-[11px] text-slate-300"><span className="ml-1 text-slate-500">#{member.number}</span>{member.name}</p>)}</div></div>
+                    <div key={group.table} className={`rounded-2xl border p-3 ${tableRound === round ? "border-amber-300/20 bg-amber-300/[0.035]" : "border-white/[0.07] bg-white/[0.035]"}`}><div className="flex items-center justify-between gap-2"><span className="text-xs font-black">طاولة {group.table}</span><span className="text-[9px] text-slate-400">{group.members.length} مشاركين</span></div><div className="mt-2 space-y-1">{group.members.map(member => <p key={member.number} className="break-words text-[11px] text-slate-300"><span className="ml-1 text-slate-500">#{member.number}</span>{member.name}</p>)}</div><button onClick={() => openNote({ scope_type: "table", scope_key: `table:${tableRound}:${group.table}`, round: tableRound, table_number: group.table })} className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/[0.07] bg-black/10 text-[11px] font-bold text-amber-100"><NotebookPen size={14} />{notesByKey.has(`table:${tableRound}:${group.table}`) ? "عرض ملاحظة الطاولة" : tableRound < 20 ? "ملاحظة عن المجموعة" : "ملاحظة للطاولة"}</button></div>
                   ))}
                 </div>
               </div>
             ) : null)}
             {!Object.values(tableGroups).some(groups => groups.length) ? <div className="rounded-2xl border border-dashed border-white/10 p-6 text-center text-xs text-slate-400">لم يتم تعيين أي طاولة بعد.</div> : null}
 
-            <div className="space-y-2">
+            <div id="cohost-choice-pairs" className="scroll-mt-40 space-y-2">
               <h3 className="flex items-center gap-2 text-xs font-black text-pink-200"><Heart size={15} /> مطابقات اختيار المشاركين · {phase2Pairs.length}</h3>
-              {phase2Pairs.length ? <div className="grid gap-2 md:grid-cols-2">{phase2Pairs.map(pair => <div key={pairKey(pair.a, pair.b)} className="rounded-2xl border border-pink-300/15 bg-pink-300/[0.04] p-3"><p className="text-sm font-black">{pair.aName} <span className="px-1 text-pink-300">×</span> {pair.bName}</p><p className="mt-1 text-[10px] text-amber-100">{pair.table ? `طاولة ${pair.table}` : "بانتظار الطاولة"}</p></div>)}</div> : <p className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs text-slate-400">لم تظهر مطابقات الاختيار بعد.</p>}
+              {phase2Pairs.length ? <div className="grid gap-2 md:grid-cols-2">{phase2Pairs.map(pair => <CohostPairCard key={pairKey(pair.a, pair.b)} pair={pair} onNote={() => openPairNote(pair, 20)} hasNote={notesByKey.has(`pair:20:${pairKey(pair.a, pair.b)}`)} />)}</div> : <p className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs text-slate-400">لم تظهر مطابقات الاختيار بعد. ستظهر هنا فور اعتماد اختيار المشاركين.</p>}
             </div>
 
-            <div className="space-y-2">
+            <div id="cohost-algorithm-pairs" className="scroll-mt-40 space-y-2">
               <h3 className="flex items-center gap-2 text-xs font-black text-violet-200"><Sparkles size={15} /> مطابقات الخوارزمية · {phase3Pairs.length}</h3>
-              {phase3Pairs.length ? <div className="grid gap-2 md:grid-cols-2">{phase3Pairs.map(pair => <div key={pairKey(pair.a, pair.b)} className="rounded-2xl border border-violet-300/15 bg-violet-300/[0.04] p-3"><p className="text-sm font-black">{pair.aName} <span className="px-1 text-violet-300">×</span> {pair.bName}</p><div className="mt-2 flex flex-wrap gap-2 text-[10px]"><span className="text-amber-100">{pair.table ? `طاولة ${pair.table}` : "مقفلة · بانتظار الطاولة"}</span>{pair.score != null ? <span className="text-slate-300">توافق {Math.round(Number(pair.score))}%</span> : null}<span className="text-violet-200">{pair.source === "test" ? "اختبار" : pair.source === "locked" ? "محفوظة قبل التشغيل" : "مُولّدة"}</span></div></div>)}</div> : <p className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs text-slate-400">لا توجد مطابقات خوارزمية مقفلة لهذه الفعالية.</p>}
+              {phase3Pairs.length ? <div className="grid gap-2 md:grid-cols-2">{phase3Pairs.map(pair => <CohostPairCard key={pairKey(pair.a, pair.b)} pair={pair} onNote={() => openPairNote(pair, 30)} hasNote={notesByKey.has(`pair:30:${pairKey(pair.a, pair.b)}`)} />)}</div> : <p className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs leading-6 text-slate-400">{testMode ? "لم تُثبّت مطابقات جلسة الاختبار القديمة بعد. يستطيع المضيف تثبيتها من Admin3 دون تغيير المرحلة." : "لا توجد مطابقات خوارزمية مقفلة لهذه الفعالية."}</p>}
             </div>
           </section>
         ) : tab === "feedback" ? (
@@ -1412,6 +1704,13 @@ export default function AdminCohostPage() {
             </div>
 
             {liveData.moodChecks[0] ? <div className="rounded-2xl border border-teal-300/15 bg-teal-300/[0.04] p-3"><div className="flex items-center justify-between"><p className="text-xs font-black text-teal-100">آخر سؤال اطمئنان</p><span className="text-[9px] text-slate-400">{formatTime(liveData.moodChecks[0].triggered_at)}</span></div><div className="mt-3 grid grid-cols-5 gap-1 text-center text-[9px]">{[{ key: "happy", label: "ممتاز" }, { key: "neutral", label: "عادي" }, { key: "not_great", label: "مو مره" }, { key: "expired", label: "انتهى" }, { key: null, label: "لم يرد" }].map(item => { const count = liveData.moodChecks[0].entries.filter(entry => item.key ? entry.mood === item.key : !entry.mood).length; return <div key={item.label} className="rounded-lg bg-black/20 p-2"><p className="font-black text-white">{count}</p><p className="mt-1 text-slate-400">{item.label}</p></div> })}</div></div> : null}
+            <div className="space-y-3 border-t border-white/[0.07] pt-5">
+              <div className="flex flex-wrap items-center justify-between gap-3"><SectionTitle icon={NotebookPen} title={`ملاحظات المنظمين · ${notes.length}`} detail="محفوظة لهذه الفعالية فقط؛ لا تظهر للمشاركين. ملاحظات الاختبار معزولة." /><button onClick={copyNotes} disabled={!notes.length} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 px-3 text-[11px] font-bold text-slate-300 disabled:opacity-40"><Copy size={14} /> نسخ للمتابعة</button></div>
+              <button onClick={() => openNote({ scope_type: "event", scope_key: "event" })} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-amber-300/20 bg-amber-300/[0.05] text-xs font-bold text-amber-100"><NotebookPen size={15} />{notesByKey.has("event") ? "تعديل الملاحظة العامة" : "إضافة ملاحظة عامة"}</button>
+              <div className="relative"><Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" /><input value={notesSearch} onChange={event => setNotesSearch(event.target.value)} aria-label="البحث في ملاحظات المنظمين" placeholder="ابحثي بالطاولة أو الشخص أو نص الملاحظة" className="min-h-12 w-full rounded-xl border border-white/10 bg-black/20 py-2 pl-3 pr-9 text-base outline-none placeholder:text-sm placeholder:text-slate-600 focus:border-amber-300/40" /></div>
+              <div className="grid gap-2 md:grid-cols-2">{filteredNotes.map(note => <button key={note.id} onClick={() => openNote(note)} className="min-w-0 rounded-2xl border border-amber-300/15 bg-amber-300/[0.035] p-3 text-right"><span className="block break-words text-xs font-black text-amber-100">{noteLabel(note)}</span><span className="mt-2 block whitespace-pre-wrap break-words text-sm leading-6 text-slate-200">{note.note}</span><span className="mt-2 flex items-center justify-between gap-2 text-[10px] text-slate-500"><span>آخر حفظ {formatTime(note.updated_at)}</span><Pencil size={13} /></span></button>)}</div>
+              {!filteredNotes.length ? <p className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs leading-6 text-slate-500">{notes.length ? "لا توجد ملاحظات تطابق البحث." : "أضيفي الملاحظات من بطاقات الجداول أو اللقاءات أو المشاركين، وستجتمع هنا للمتابعة لاحقًا."}</p> : null}
+            </div>
           </section>
         ) : (
           <section className="space-y-4">
@@ -1474,6 +1773,7 @@ export default function AdminCohostPage() {
           ))}
         </div>
       </nav>
+      {editingNote ? <CohostNoteEditor context={editingNote} draft={noteDraft} original={noteOriginal} updatedAt={noteUpdatedAt} saving={noteSaving} error={noteError} onChange={setNoteDraft} onSave={saveNote} onClose={closeNote} onReload={reloadNote} /> : null}
     </div>
   )
 }

@@ -11,6 +11,7 @@ import { buildDislikeLeaderboard } from "../../server/event3/dislike-ranking.mjs
 import { buildRankingCompletion, loadRankingCompletion, rankingRoundsForPhase } from "../../server/event3/ranking-completion.mjs"
 import { buildGroupMemberFeedbackSummary } from "../../server/event3/group-member-feedback.mjs"
 import { buildReciprocalRankingLookup, getCohostNoteContext, normalizeCohostNoteScope, selectCohostLockedScoreSource } from "../../server/event3/cohost-operations.mjs"
+import { loadCohostAttendeeHistory } from "../../server/event3/cohost-attendee-history.mjs"
 import {
   EVENT3_PHASE_TIMER_SECONDS,
   EVENT3_TIMER_ROUND_SECONDS,
@@ -378,6 +379,7 @@ const EVENT3_COHOST_PASSWORD = process.env.EVENT3_COHOST_PASSWORD || ""
 const EVENT3_COHOST_TOKEN_TTL_SECONDS = 8 * 60 * 60
 const EVENT3_COHOST_ACTIONS = new Set([
   "e3-cohost-dashboard",
+  "e3-cohost-attendee-details",
   "e3-cohost-rankings",
   "e3-cohost-set-ranking",
   "e3-cohost-set-attendance",
@@ -9126,6 +9128,22 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             metadata: { event_id: currentEventId, test_mode: noteTestMode, scope_type: scope.scope_type, length: noteText.length, deleted: !noteText },
           })
           return res.status(200).json({ success: true, note: savedNote, scope_key: scope.scope_key })
+        }
+
+        if (action === "e3-cohost-attendee-details") {
+          res.setHeader("Cache-Control", "private, no-store")
+          try {
+            const result = await loadCohostAttendeeHistory({
+              supabase, target: req.body?.participant_number, currentEventId: realEventId,
+              beforeEventId: req.body?.before_event_id,
+              event3MatchId: EVENT3_MATCH_ID, profileMatchId: STATIC_MATCH_ID,
+            })
+            if (result.error) return res.status(result.status || 400).json({ error: result.error })
+            return res.status(200).json(result.data)
+          } catch (error) {
+            console.error("[cohost-attendee-details] History read failed:", error?.message)
+            return res.status(503).json({ error: "Attendee history is temporarily unavailable" })
+          }
         }
 
         if (action === "e3-cohost-dashboard") {

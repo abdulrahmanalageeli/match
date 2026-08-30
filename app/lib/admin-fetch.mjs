@@ -1,4 +1,4 @@
-const reads = /^(participants$|get-|e3-get-|e3-cohost-(dashboard|rankings)$|e3-check-)/
+const reads = /^(participants$|get-|e3-get-|e3-cohost-(dashboard|rankings|attendee-details)$|e3-check-)/
 
 export function adminReadAction(input, init = {}) {
   const url = new URL(typeof input === 'string' || input instanceof URL ? String(input) : input.url, 'http://local.invalid')

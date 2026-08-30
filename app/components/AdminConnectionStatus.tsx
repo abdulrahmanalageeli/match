@@ -11,7 +11,7 @@ const labels: Record<string, string> = {
   "get-survey-change-counts": "تغييرات الاستبيان", "get-delta-cache-count": "حالة تحديث التوافق",
   "get-excluded-pairs": "الأزواج المستبعدة", "get-excluded-participants": "المشاركون المستبعدون",
   "get-group-excluded-participants": "المستبعدون من المجموعات", "get-receipt-review-queue": "مراجعة الإيصالات",
-  "e3-cohost-dashboard": "الحضور والطاولات والمساعدة", "e3-cohost-rankings": "الترتيبات",
+  "e3-cohost-dashboard": "الحضور والطاولات والمساعدة", "e3-cohost-rankings": "الترتيبات", "e3-cohost-attendee-details": "ملف المشارك",
   "e3-get-feedback": "تقييم اللقاءات", "e3-get-group-member-feedback": "تقييم المجموعات",
   "e3-get-notifications": "التنبيهات", "e3-get-mood-checks": "الاطمئنان",
   "get-whatsapp-inbox": "صندوق واتساب", "get-attendance-requests": "طلبات الحضور",

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react"
 import { adminFetch as fetch } from "~/lib/admin-fetch.mjs"
 import AdminConnectionStatus from "~/components/AdminConnectionStatus"
+import CohostAttendeeDetails, { type AttendeeDetailsResponse } from "~/components/CohostAttendeeDetails"
 import {
   AlertTriangle,
   Bell,
@@ -39,6 +40,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { compatibilityTotalForDisplay, currentBalancedGroupedDimensionsForDisplay, currentOppositesDimensionsForDisplay } from "~/lib/compatibility-model"
+import { cohostDashboardView, isCohostDetailVisible } from "~/lib/cohost-visibility"
 
 const API = "/api/admin"
 const SESSION_KEY = "event3_cohost_token"
@@ -486,13 +488,16 @@ export default function AdminCohostPage() {
   const [token, setToken] = useState("")
   const [password, setPassword] = useState("")
   const [loginLoading, setLoginLoading] = useState(false)
-  const [dashboard, setDashboard] = useState<CohostDashboard | null>(null)
+  const [rawDashboard, setDashboard] = useState<CohostDashboard | null>(null)
+  const dashboard = useMemo(() => rawDashboard ? cohostDashboardView(rawDashboard) : null, [rawDashboard])
   const [liveData, setLiveData] = useState<LiveData>(EMPTY_LIVE_DATA)
   const [loading, setLoading] = useState(false)
   const [liveLoading, setLiveLoading] = useState(false)
   const [error, setError] = useState("")
   const [notice, setNotice] = useState("")
   const [search, setSearch] = useState("")
+  const [peopleFilter, setPeopleFilter] = useState<"all" | "attended" | "pending">("all")
+  const [viewingParticipant, setViewingParticipant] = useState<number | null>(null)
   const [tab, setTab] = useState<CohostTab>("home")
   const [toggling, setToggling] = useState<Record<number, boolean>>({})
   const [sosBusy, setSosBusy] = useState<Record<string, boolean>>({})
@@ -553,6 +558,7 @@ export default function AdminCohostPage() {
     setRankingDraft([])
     setPanelLocked(false)
     setEditingNote(null)
+    setViewingParticipant(null)
     setError(message)
   }, [])
 
@@ -594,6 +600,21 @@ export default function AdminCohostPage() {
     } finally {
       pendingReads.current.delete(key)
       if (!quiet && requestId === dashboardRequest.current) setLoading(false)
+    }
+  }, [handleRequestError, token])
+
+  const loadAttendeeDetails = useCallback(async (participantNumber: number, beforeEventId?: number) => {
+    try {
+      return await cohostApi<AttendeeDetailsResponse>("e3-cohost-attendee-details", token, {
+        participant_number: participantNumber,
+        ...(beforeEventId ? { before_event_id: beforeEventId } : {}),
+      })
+    } catch (requestError) {
+      if ([401, 403, 423].includes((requestError as CohostApiError)?.status || 0)) {
+        setViewingParticipant(null)
+        handleRequestError(requestError, "تعذر تحميل ملف المشارك")
+      }
+      throw requestError
     }
   }, [handleRequestError, token])
 
@@ -778,6 +799,7 @@ export default function AdminCohostPage() {
   }
 
   const participants = dashboard?.participants || EMPTY_PARTICIPANTS
+  const selectedAttendee = participants.find(participant => participant.number === viewingParticipant)
   const participantByNumber = useMemo(() => new Map(participants.map(participant => [Number(participant.number), participant])), [participants])
   const round = activeRound(dashboard?.state.phase)
   const testMode = dashboard?.test_mode === true || dashboard?.state.test_mode_active === true
@@ -818,9 +840,10 @@ export default function AdminCohostPage() {
   const filteredParticipants = useMemo(() => {
     const query = search.trim().toLowerCase()
     return participants
+      .filter(participant => peopleFilter === "all" || (peopleFilter === "attended" ? participant.attended : !participant.attended))
       .filter(participant => !query || participant.name.toLowerCase().includes(query) || String(participant.number).includes(query))
       .sort((left, right) => Number(left.attended) - Number(right.attended) || left.number - right.number)
-  }, [participants, search])
+  }, [participants, search, peopleFilter])
 
   const tableGroups = useMemo(() => {
     const result: Record<number, Array<{ table: number; members: CohostParticipant[] }>> = {}
@@ -842,12 +865,14 @@ export default function AdminCohostPage() {
     return ([1, 2] as const).map(groupRound => {
       const started = phaseReached(dashboard?.state.phase, groupRound === 1 ? "ranking1" : "ranking2")
       const groups = (tableGroups[groupRound] || []).map(group => {
-        const members = group.members.map(participant => {
+        const visibleMembers = group.members.filter(participant => isCohostDetailVisible(participant.number))
+        const members = visibleMembers.map(participant => {
           const submissions = liveData.groupFeedback.submissions.filter(entry =>
             Number(entry.group_round) === groupRound
             && Number(entry.reviewer_number) === participant.number
+            && isCohostDetailVisible(entry.reviewer_number, entry.member_number)
           )
-          const expectedCount = Math.max(0, group.members.length - 1)
+          const expectedCount = Math.max(0, visibleMembers.length - 1)
           const reviewedCount = new Set(submissions.map(entry => Number(entry.member_number))).size
           const status = expectedCount === 0
             ? "not_applicable"
@@ -885,7 +910,7 @@ export default function AdminCohostPage() {
       { key: "phase2" as const, label: "لقاءات الاختيار", round: 20, targetPhase: "phase2_reveal", entries: liveData.matchFeedback.phase2 },
       { key: "phase3" as const, label: "لقاءات الخوارزمية", round: 30, targetPhase: "phase3_reveal", entries: liveData.matchFeedback.phase3 },
     ]).map(item => {
-      const entryByParticipant = new Map(item.entries.map(entry => [Number(entry.participant_number), entry]))
+      const entryByParticipant = new Map(item.entries.filter(entry => isCohostDetailVisible(entry.participant_number, entry.partner_number)).map(entry => [Number(entry.participant_number), entry]))
       const seen = new Set<string>()
       const pairs = participants.flatMap(participant => {
         const partnerNumber = Number(item.key === "phase2" ? participant.phase2_partner : participant.phase3_partner)
@@ -1453,6 +1478,9 @@ export default function AdminCohostPage() {
         ) : tab === "people" ? (
           <section className="space-y-3">
             <SectionTitle icon={Users} title={`الحضور والمشاركون · ${participants.length}`} detail="اضغطي زر الحضور فقط عند التأكد. الرسالة ترسل تنبيهًا داخل صفحة الفعالية." />
+            <div className="grid grid-cols-3 gap-2" aria-label="تصفية الحضور">
+              {([{ value: "all", label: "الجميع", count: participants.length }, { value: "attended", label: "الحاضرون", count: attendedCount }, { value: "pending", label: "لم يصلوا", count: participants.length - attendedCount }] as const).map(filter => <button key={filter.value} type="button" aria-pressed={peopleFilter === filter.value} onClick={() => setPeopleFilter(filter.value)} className={`min-h-12 rounded-xl border px-2 py-2 text-xs font-bold ${peopleFilter === filter.value ? "border-teal-300/25 bg-teal-300/10 text-teal-100" : "border-white/10 text-slate-400"}`}>{filter.label} · {filter.count}</button>)}
+            </div>
             <div className="relative">
               <Search size={17} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" />
               <input value={search} onChange={event => setSearch(event.target.value)} aria-label="البحث عن مشارك" placeholder="ابحثي بالاسم أو الرقم" className="min-h-12 w-full rounded-xl border border-white/[0.08] bg-white/[0.035] py-2 pl-3 pr-10 text-sm outline-none placeholder:text-slate-600 focus:border-teal-300/40" />
@@ -1463,15 +1491,17 @@ export default function AdminCohostPage() {
                 const phase3Partner = participant.phase3_partner ? participantByNumber.get(Number(participant.phase3_partner)) : null
                 return (
                   <article key={participant.number} className={`rounded-2xl border p-3 ${participant.attended ? "border-teal-300/20 bg-teal-950/20" : "border-white/[0.07] bg-white/[0.03]"}`}>
-                    <div className="flex items-start gap-3">
+                    <button type="button" onClick={() => setViewingParticipant(participant.number)} aria-label={`عرض ملف ${participant.name}`} className="flex min-h-14 w-full items-start gap-3 rounded-xl text-right focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-300">
                       <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border text-sm font-black ${participant.attended ? "border-teal-300/25 bg-teal-300/10 text-teal-200" : "border-white/10 bg-black/20 text-slate-400"}`}>#{participant.number}</div>
                       <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="truncate text-sm font-black">{participant.name}</h3>{participant.first_time ? <span className="rounded-full bg-cyan-300/10 px-2 py-0.5 text-[9px] font-bold text-cyan-200">أول فعالية</span> : null}</div><p className="mt-1 text-[10px] text-slate-400">{participant.age ? `${participant.age} سنة` : "العمر غير ظاهر"} · {participant.ranking_submitted ? "الترتيب وصل" : "بانتظار الترتيب"}</p></div>
-                    </div>
+                      <ChevronDown size={18} className="mt-3 shrink-0 -rotate-90 text-teal-200" />
+                    </button>
                     <div className="mt-3 flex flex-wrap gap-1.5 text-[10px]">
                       {Object.entries(participant.tables || {}).sort(([a], [b]) => Number(a) - Number(b)).map(([tableRound, table]) => <span key={tableRound} className="rounded-lg bg-amber-300/10 px-2 py-1 text-amber-100">{ROUND_LABELS[Number(tableRound)] || `جولة ${tableRound}`}: {table}</span>)}
                       {phase2Partner ? <span className="rounded-lg bg-pink-300/10 px-2 py-1 text-pink-100">اختيار: {firstName(phase2Partner.name)}</span> : null}
                       {phase3Partner ? <span className="rounded-lg bg-violet-300/10 px-2 py-1 text-violet-100">خوارزمية: {firstName(phase3Partner.name)}</span> : null}
                     </div>
+                    <button type="button" onClick={() => setViewingParticipant(participant.number)} className="mt-3 min-h-11 w-full rounded-xl border border-teal-300/15 bg-teal-300/[0.04] text-xs font-bold text-teal-100">الملف والسجل السابق</button>
                     <div className="mt-3 grid grid-cols-2 gap-2">
                       <button onClick={() => toggleAttendance(participant)} disabled={toggling[participant.number]} aria-pressed={participant.attended} className={`flex min-h-11 items-center justify-center gap-2 rounded-xl text-xs font-black ${participant.attended ? "border border-teal-300/25 bg-teal-300/10 text-teal-100" : "border border-white/10 bg-white/[0.04] text-slate-200"}`}>{toggling[participant.number] ? <Loader2 size={15} className="animate-spin" /> : participant.attended ? <CheckCircle2 size={16} /> : <Circle size={16} />}{participant.attended ? "حاضرة/حاضر" : "تسجيل حضور"}</button>
                       <button onClick={() => openParticipantMessage(participant)} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] text-xs font-black text-slate-200"><Megaphone size={15} /> تنبيه</button>
@@ -1801,6 +1831,7 @@ export default function AdminCohostPage() {
         </div>
       </nav>
       {editingNote ? <CohostNoteEditor context={editingNote} draft={noteDraft} original={noteOriginal} updatedAt={noteUpdatedAt} saving={noteSaving} error={noteError} onChange={setNoteDraft} onSave={saveNote} onClose={closeNote} onReload={reloadNote} /> : null}
+      {selectedAttendee && dashboard ? <CohostAttendeeDetails key={`${dashboard.event_id}:${dashboard.test_session_key || "live"}:${selectedAttendee.number}`} participant={selectedAttendee} eventId={dashboard.event_id} loadDetails={loadAttendeeDetails} onClose={() => setViewingParticipant(null)} /> : null}
     </div>
   )
 }

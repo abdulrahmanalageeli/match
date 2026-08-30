@@ -13,10 +13,14 @@ export function useVisibilityPoll(
 ) {
   const savedCallback = useRef(callback)
   savedCallback.current = callback
+  const inFlight = useRef(false)
 
   const tick = useCallback(async () => {
-    if (document.hidden) return
-    await savedCallback.current()
+    if (document.hidden || inFlight.current) return
+    inFlight.current = true
+    try { await savedCallback.current() }
+    catch { /* The request owner displays its error; keep polling recoverable. */ }
+    finally { inFlight.current = false }
   }, [])
 
   useEffect(() => {

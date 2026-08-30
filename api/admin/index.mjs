@@ -1005,6 +1005,15 @@ async function e3BuildPriorityTablePlan(pairs, currentEventId) {
 }
 
 export default async function handler(req, res) {
+  const requestStartedAt = Date.now()
+  res.once?.("finish", () => {
+    const durationMs = Date.now() - requestStartedAt
+    if (durationMs >= 5000 || res.statusCode >= 500) console.warn(JSON.stringify({
+      event: "admin_request_slow_or_failed",
+      action: String(req.query?.action || req.body?.action || "participants").replace(/[^a-z0-9-]/gi, "").slice(0, 80),
+      status: res.statusCode, duration_ms: durationMs,
+    }))
+  })
   // Add error logging for debugging
   if (!process.env.SUPABASE_URL && !process.env.VITE_SUPABASE_URL) {
     console.error("Missing SUPABASE_URL environment variable");
@@ -9138,7 +9147,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             supabase.from("event_attendance").select("participant_number,attended").eq("match_id", STATIC_MATCH_ID).eq("event_id", currentEventId).in("participant_number", numbers),
             supabase.from("event_attendance").select("participant_number,event_id,attended").eq("match_id", STATIC_MATCH_ID).neq("event_id", currentEventId).in("participant_number", numbers),
             supabase.from("event3_participants").select("participant_number,event_id").eq("match_id", EVENT3_MATCH_ID).neq("event_id", currentEventId).in("participant_number", numbers),
-            supabase.from("organizer_requests").select("id,event_id,participant_number,participant_name,table_info,message,organizer_reply,status,request_type,created_at,updated_at").or(`event_id.eq.${currentEventId},event_id.is.null`).neq("status", "resolved").order("updated_at", { ascending: false }).limit(100),
+            supabase.from("organizer_requests").select("id,event_id,participant_number,participant_name,table_info,message,organizer_reply,status,request_type,created_at,updated_at,chat_history").or(`event_id.eq.${currentEventId},event_id.is.null`).neq("status", "resolved").order("updated_at", { ascending: false }).limit(100),
             testModeActive
               ? Promise.resolve({ data: [], error: null })
               : supabase.from("locked_matches").select("participant1_number,participant2_number,original_compatibility_score,original_match_round,reason,created_at").eq("match_id", STATIC_MATCH_ID).eq("event_id", currentEventId).order("created_at", { ascending: false }),
@@ -9314,7 +9323,17 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             algorithmPairKeys.add(key)
             algorithmPairs.push(pairRecord(a, b, 30, getCohostScorePayload(row, "phase3"), testModeActive ? "test" : "generated"))
           }
-          const sosRequests = (sosResult.data || []).filter(request => numberSet.has(request.participant_number))
+          const supportRound = getEvent3ActiveTableRound(stateRow?.phase)
+          const sosRequests = (sosResult.data || []).filter(request => numberSet.has(request.participant_number)).map(request => {
+            const member = participants.find(person => person.number === request.participant_number)
+            const table = supportRound ? member?.tables?.[supportRound] : null
+            const partnerNumber = supportRound === 20 ? member?.phase2_partner : supportRound === 30 ? member?.phase3_partner : null
+            return { ...request,
+              table_info: table ? `${supportRound === 20 ? "لقاء الاختيار" : supportRound === 30 ? "لقاء الخوارزمية" : "جلسة جماعية"} · طاولة ${table}` : request.table_info,
+              partner_number: partnerNumber,
+              partner_name: partnerNumber ? participants.find(person => person.number === partnerNumber)?.name || null : null,
+            }
+          })
           return res.status(200).json({
             event_id: currentEventId,
             test_mode: testModeActive,
@@ -9468,15 +9487,10 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
 
           const reply = String(req.body?.reply || "").trim().slice(0, 1000)
           if (!reply) return res.status(400).json({ error: "reply required" })
-          const now = new Date().toISOString()
-          const chatHistory = Array.isArray(requestRow.chat_history) ? requestRow.chat_history : []
-          const { error } = await supabase.from("organizer_requests").update({
-            organizer_reply: reply,
-            status: "replied",
-            chat_history: [...chatHistory, { from: "organizer", text: reply, timestamp: now }],
-            updated_at: now,
-          }).eq("id", id)
-          if (error) return res.status(500).json({ error: error.message })
+          const { error } = await supabase.rpc("append_event3_support_message", {
+            p_request_id: id, p_event_id: Number(currentEventId), p_message: reply, p_actor: "cohost",
+          })
+          if (error) return res.status(error.code === "P0002" ? 409 : 503).json({ error: error.message })
           return res.status(200).json({ success: true })
         }
 
@@ -11088,22 +11102,16 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         if (action === "e3-sos-reply") {
           const { id, reply, status: newStatus } = req.body
           if (!id) return res.status(400).json({ error: "id required" })
-          if (newStatus === 'resolved') {
-            const { error } = await supabase.from("organizer_requests").update({ status: "resolved", updated_at: new Date().toISOString() }).eq("id", id).or(`event_id.eq.${currentEventId},event_id.is.null`)
+          if (newStatus === "resolved" || !String(reply || "").trim()) {
+            const status = newStatus === "resolved" ? "resolved" : "seen"
+            const { error } = await supabase.from("organizer_requests").update({ status, updated_at: new Date().toISOString() }).eq("id", id).or(`event_id.eq.${currentEventId},event_id.is.null`)
             if (error) return res.status(500).json({ error: error.message })
-            return res.status(200).json({ message: "تم الحذف" })
+          } else {
+            const { error } = await supabase.rpc("append_event3_support_message", {
+              p_request_id: String(id), p_event_id: Number(currentEventId), p_message: String(reply).trim().slice(0, 2000), p_actor: "host",
+            })
+            if (error) return res.status(error.code === "P0002" ? 409 : 503).json({ error: error.message })
           }
-          const now = new Date().toISOString()
-          const update = { status: newStatus || "replied", updated_at: now }
-          if (reply !== undefined && reply !== null && reply !== '') {
-            update.organizer_reply = reply
-            // Append to chat_history
-            const { data: req_row } = await supabase.from("organizer_requests").select("chat_history").eq("id", id).single()
-            const existingChat = Array.isArray(req_row?.chat_history) ? req_row.chat_history : []
-            update.chat_history = [...existingChat, { from: 'organizer', text: reply, timestamp: now }]
-          }
-          const { error } = await supabase.from("organizer_requests").update(update).eq("id", id)
-          if (error) return res.status(500).json({ error: error.message })
           return res.status(200).json({ message: "تم التحديث" })
         }
         // e3-sos-mark-seen — mark all pending requests as seen
@@ -12133,7 +12141,7 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             if (!enrolled) return res.status(404).json({ error: "Participant is not enrolled in the current event" })
           }
           const notifId = crypto.randomUUID()
-          const iconVal = icon || "info"
+          const iconVal = ["info", "heart", "clock", "star", "alert"].includes(icon) ? icon : "info"
           if (hasTarget) {
             const { error } = await supabase.from("event3_notifications").insert({
               match_id: EVENT3_MATCH_ID, event_id: currentEventId, notif_id: notifId, participant_number: targetNumber, title: titleText, body: bodyText || null, icon: iconVal

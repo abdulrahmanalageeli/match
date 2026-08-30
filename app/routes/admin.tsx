@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from "react"
 import { useLocation } from "react-router"
+import { adminFetch as fetch } from "~/lib/admin-fetch.mjs"
+import AdminConnectionStatus from "~/components/AdminConnectionStatus"
 import toast, { Toaster } from 'react-hot-toast'
 import { useDebounce } from "~/hooks/useDebounce"
 import {
@@ -1951,7 +1953,10 @@ const fetchDeltaCacheParticipants = async () => {
   }
 };
 
+const fetchingParticipantsRef = useRef(false)
 const fetchParticipants = async () => {
+  if (fetchingParticipantsRef.current) return
+  fetchingParticipantsRef.current = true
   setLoading(true)
   try {
     const res = await fetch("/api/admin", {
@@ -2017,6 +2022,7 @@ const fetchParticipants = async () => {
     
     // STEP 6: Update React state
     setParticipants(fetchedParticipants)
+    setLoading(false)
     // Fetch survey change counts in background (non-blocking)
     fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "get-survey-change-counts" }) })
       .then(r => r.json()).then(d => { if (d.counts) setSurveyChangeCounts(d.counts) }).catch(() => {})
@@ -2167,6 +2173,7 @@ const fetchParticipants = async () => {
     } catch (err) {
       console.error("Fetch error:", err)
     } finally {
+      fetchingParticipantsRef.current = false
       setLoading(false)
     }
   }
@@ -3125,6 +3132,7 @@ const fetchParticipants = async () => {
     fetchGroupExcludedParticipants()
 
     const pollWaInbox = async () => {
+      if (document.hidden) return
       try {
         const res = await fetch('/api/admin', {
           method: 'POST',
@@ -3151,6 +3159,7 @@ const fetchParticipants = async () => {
     }
 
     const pollAttendanceReqs = async () => {
+      if (document.hidden) return
       try {
         const res = await fetch('/api/admin', {
           method: 'POST',
@@ -3170,7 +3179,7 @@ const fetchParticipants = async () => {
     fetchReceiptReviewQueue()
     const waInterval = setInterval(pollWaInbox, 15000)
     const attInterval = setInterval(pollAttendanceReqs, 15000)
-    const receiptInterval = setInterval(fetchReceiptReviewQueue, 15000)
+    const receiptInterval = setInterval(() => { if (!document.hidden) fetchReceiptReviewQueue() }, 15000)
     return () => {
       clearInterval(waInterval)
       clearInterval(attInterval)
@@ -5215,6 +5224,7 @@ Proceed?`
     if (showWaInboxModal && !waSelectedNumber) {
       if (waInboxPollRef.current) clearInterval(waInboxPollRef.current)
       const poll = () => {
+        if (document.hidden) return
         fetch('/api/admin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -5438,6 +5448,7 @@ Proceed?`
 
   return (
     <div className={`min-h-screen bg-gradient-to-br ${isCohost ? 'from-slate-950 via-rose-950 to-slate-950' : 'from-slate-900 via-slate-800 to-slate-900'} text-white relative overflow-hidden`}>
+      <AdminConnectionStatus />
       {/* Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className={`absolute -top-40 -right-40 w-80 h-80 ${isCohost ? 'bg-rose-400/10' : 'bg-slate-500/10'} rounded-full blur-3xl animate-pulse`}></div>

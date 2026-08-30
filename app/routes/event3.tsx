@@ -4637,10 +4637,17 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   // The shared timer warning is the single escalation surface. Keeping a
   // second persistent banner here made the final minute feel alarm-heavy.
 
+  const rejoinContext = useRef<string | null>(null)
+  // Initialize once per meeting; timer edits and polling must not close feedback.
   // Auto-rejoin sync: if timer already running when component mounts, jump to correct view
   // Only auto-rejoin if the participant had already clicked "وصلت إلى الطاولة" before refresh
   useEffect(() => {
     if (!data || !timerActive || !timerStart) return
+    const meetingKey = `${eventId}:phase2:${data.partner_number}`
+    if (rejoinContext.current === meetingKey) return
+    const firstSync = rejoinContext.current === null
+    rejoinContext.current = meetingKey
+    if (firstSync && view === 'feedback') return
     const now = correctedNow ? correctedNow() : Date.now()
     const elapsed = Math.floor((now - new Date(timerStart).getTime()) / 1000)
     const remaining = Math.max(0, timerDuration - elapsed)
@@ -5042,10 +5049,16 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
 
   // The shared timer warning is the single escalation surface.
 
+  const rejoinContext = useRef<string | null>(null)
   // Auto-rejoin sync: show the table number before the session when returning
   // Only auto-rejoin if the participant had already clicked "وصلت إلى الطاولة" before refresh
   useEffect(() => {
     if (!data || !timerActive || !timerStart) return
+    const meetingKey = `${eventId}:phase3:${data.partner_number}`
+    if (rejoinContext.current === meetingKey) return
+    const firstSync = rejoinContext.current === null
+    rejoinContext.current = meetingKey
+    if (firstSync && view === 'feedback') return
     const now = correctedNow ? correctedNow() : Date.now()
     const elapsed = Math.floor((now - new Date(timerStart).getTime()) / 1000)
     const remaining = Math.max(0, timerDuration - elapsed)
@@ -6487,11 +6500,16 @@ function NotificationModal({ token, notification }: { token: string; notificatio
     }
   }, [notification, dismissed])
 
-  const dismiss = () => {
-    if (!notif) return
+  const dismiss = async () => {
+    if (!notif || closing) return
     const nid = notif.notif_id
     setClosing(true)
-    call("e3-dismiss-notification", token, { notif_id: nid })
+    const result = await call("e3-dismiss-notification", token, { notif_id: nid })
+    if (result.error) {
+      setClosing(false)
+      toast.error("تعذّر تأكيد الاستلام. حاول مجددًا.")
+      return
+    }
     setTimeout(() => {
       setDismissed(prev => new Set(prev).add(nid))
       setNotif(null)
@@ -6504,7 +6522,7 @@ function NotificationModal({ token, notification }: { token: string; notificatio
     overlayRef,
     dialogRef,
     initialFocusRef: dismissButtonRef,
-    onEscape: dismiss,
+    onEscape: () => { if (notif?.icon !== 'alert') void dismiss() },
   })
 
   if (!notif) return null
@@ -6526,7 +6544,7 @@ function NotificationModal({ token, notification }: { token: string; notificatio
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[280] bg-black/40 backdrop-blur-md flex items-center justify-center p-5"
+        className="fixed inset-0 z-[600] bg-black/40 backdrop-blur-md flex items-center justify-center p-5"
       >
         <motion.div
           ref={dialogRef}
@@ -6552,10 +6570,11 @@ function NotificationModal({ token, notification }: { token: string; notificatio
           <button
             ref={dismissButtonRef}
             type="button"
+            disabled={closing}
             onClick={dismiss}
             className="min-h-12 w-full rounded-2xl bg-white/[0.06] py-3.5 text-sm font-bold text-gray-200 ring-1 ring-white/[0.08] transition-all hover:bg-white/[0.1] hover:text-white active:scale-[0.98]"
           >
-            تم
+            {closing ? "جارٍ التأكيد…" : notif.icon === 'alert' ? "استلمت التنبيه" : "تم"}
           </button>
         </motion.div>
       </motion.div>
@@ -7196,15 +7215,17 @@ export default function Event3Page() {
     ? pendingGroupFeedbackRound
     : null
   const hasPendingMoodCheck = Boolean(!finalQuestionsOpen && eventState?.mood_check?.pending)
-  const hasPendingNotification = Boolean(!finalQuestionsOpen && eventState?.notification?.pending)
+  const hasPendingNotification = Boolean(eventState?.notification?.pending)
+  const hasUrgentNotification = hasPendingNotification && eventState?.notification?.icon === "alert"
   const isSafePromptMoment = ["setup", "break", "phase2_processing", "phase3_processing"].includes(phase)
   const isActiveMoodMoment = ["round1", "round2", "phase2_reveal", "phase3_reveal"].includes(phase)
   // Once a reflection sheet is open, keep it mounted until the participant
   // finishes or closes it. Heartbeat-driven prompts queue behind it so locally
   // drafted ratings and notes are never destroyed.
   const activeGroupFeedbackRound = visibleGroupFeedbackRound
-  const canShowMoodCheck = hasPendingMoodCheck && (isSafePromptMoment || isActiveMoodMoment) && !activeGroupFeedbackRound
-  const canShowNotification = hasPendingNotification && isSafePromptMoment && !activeGroupFeedbackRound && !hasPendingMoodCheck
+  const canShowMoodCheck = !hasUrgentNotification && hasPendingMoodCheck && (isSafePromptMoment || isActiveMoodMoment) && !activeGroupFeedbackRound
+  // Urgent alerts overlay the current screen without unmounting its draft.
+  const canShowNotification = hasPendingNotification && (hasUrgentNotification || (!finalQuestionsOpen && isSafePromptMoment && !activeGroupFeedbackRound && !hasPendingMoodCheck))
   const canShowAiWelcome = showAiWelcome
     && phase === "setup"
     && !finalQuestionsOpen

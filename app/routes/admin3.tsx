@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import toast, { Toaster } from "react-hot-toast"
 import { useVisibilityPoll } from "~/hooks/useVisibilityPoll"
+import { adminFetch as fetch } from "~/lib/admin-fetch.mjs"
+import AdminConnectionStatus from "~/components/AdminConnectionStatus"
 import { surveyQuestions } from "~/components/SurveyComponent"
 import GroupFeedbackIntelligence from "~/components/GroupFeedbackIntelligence"
 import {
@@ -1554,6 +1556,7 @@ export default function Admin3Page() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white" dir="rtl">
+      <AdminConnectionStatus />
       <Toaster position="top-center" />
 
       {/* Header */}
@@ -2647,7 +2650,7 @@ export default function Admin3Page() {
                     <option value="heart">❤️ تنبيه</option>
                     <option value="clock">⏰ وقت</option>
                     <option value="star">⭐ مميز</option>
-                    <option value="alert">⚠️ هام</option>
+                    <option value="alert">عاجل — يظهر أثناء اللقاء ويحتاج تأكيدًا · ⚠️ هام</option>
                   </select>
                   <input
                     type="text"

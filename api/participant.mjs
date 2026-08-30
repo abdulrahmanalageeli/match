@@ -3,6 +3,7 @@ import { canAccessEvent3DuringTest } from "../server/event3/test-access.mjs"
 import { buildWelcomePrompt } from "./admin/ai-welcome-prompt.mjs"
 import { supabaseAdmin } from "../server/security/supabase-admin.mjs"
 import { enforceRateLimit } from "../server/security/request-security.mjs"
+import { protectPartnerPrivacy } from "../server/participants/result-privacy.mjs"
 import {
   MATCH_INSIGHTS_VERSION,
   buildVibeDescription,
@@ -302,11 +303,15 @@ export default async function handler(req, res) {
   }
   const contentLength = Number(req.headers?.["content-length"] || 0)
   if (contentLength > 1_000_000) return res.status(413).json({ error: "Request body too large" })
-  if (!enforceRateLimit(req, res, { key: "participant-api", limit: 120, windowMs: 60_000 })) return
+  // A venue can put dozens of legitimate participants behind one public IP.
+  // Keep a coarse flood limit here; authenticated Event3 traffic is limited by
+  // the verified participant identity below, never a client-provided token alone.
+  if (!enforceRateLimit(req, res, { key: "participant-ip-flood", limit: 6000, windowMs: 60_000 })) return
 
   if (!req.body?.action) return res.status(400).json({ error: 'Missing action' })
 
   const { action } = req.body
+  if (!String(action).startsWith("e3-") && !enforceRateLimit(req, res, { key: "participant-api", limit: 120, windowMs: 60_000 })) return
 
   // TOKEN HANDLER ACTIONS
   if (action === "create-token") {
@@ -1133,7 +1138,7 @@ export default async function handler(req, res) {
       expression_language: data.expression_language ?? null,
       minimum_partner_religious_commitment: data.minimum_partner_religious_commitment ?? null,
       social_relationship_style: data.social_relationship_style ?? null,
-      history: history
+      history: history.map(protectPartnerPrivacy)
     })
   }
 
@@ -2295,7 +2300,7 @@ export default async function handler(req, res) {
         success: true,
         assigned_number: participant.assigned_number,
         event_id: participant.event_id,
-        history: history
+        history: history.map(protectPartnerPrivacy)
       });
 
     } catch (error) {
@@ -3518,6 +3523,9 @@ Please respond in JSON format:
     }
     const participant = tokenResolution.participant
     const myNumber = participant?.assigned_number
+    if (!enforceRateLimit(req, res, participant
+      ? { key: "event3-participant", identity: String(myNumber), limit: 120, windowMs: 60_000 }
+      : { key: "event3-public", limit: 120, windowMs: 60_000 })) return
     if (action === "e3-heartbeat" && !participant) {
       return res.status(401).json({
         error: "جلسة المشارك غير صالحة. سجّل الدخول مرة أخرى.",
@@ -3688,7 +3696,7 @@ Please respond in JSON format:
           const [sosRes, moodRes, notifRes] = await Promise.all([
             supabase.from("organizer_requests").select("id,status,message,organizer_reply,created_at,chat_history,request_type,table_info").eq("participant_token", token).or(`event_id.eq.${activeEventId},event_id.is.null`).order("created_at", { ascending: true }),
             supabase.from("event3_mood_checks").select("check_id,triggered_at").eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId).eq("participant_number", myNumber).is("mood", null).order("triggered_at", { ascending: false }).limit(1).maybeSingle(),
-            supabase.from("event3_notifications").select("notif_id,title,body,icon,created_at").eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId).eq("participant_number", myNumber).is("seen_at", null).order("created_at", { ascending: false }).limit(1).maybeSingle()
+            supabase.from("event3_notifications").select("notif_id,title,body,icon,created_at").eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId).eq("participant_number", myNumber).is("seen_at", null).order("icon", { ascending: true }).order("created_at", { ascending: true }).limit(1).maybeSingle()
           ])
           baseResponse.sos_requests = sosRes.data || []
           baseResponse.mood_check = moodRes.data ? { pending: true, check_id: moodRes.data.check_id, triggered_at: moodRes.data.triggered_at } : { pending: false }
@@ -4163,45 +4171,20 @@ Please respond in JSON format:
         if (roundMatch) {
           const { data: sa } = await supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("round", parseInt(roundMatch[1])).eq("participant_id", myNumber).maybeSingle()
           if (sa) tableInfo = `الجولة ${roundMatch[1]} · طاولة ${sa.table_number}`
-        } else if (phase === "phase2_reveal") { tableInfo = "كشف المرحلة 2" }
-        else if (phase === "phase3_reveal") { tableInfo = "كشف المرحلة 3" }
-
-        const reqType = request_type || 'chat'
-        const now = new Date().toISOString()
-        const chatEntry = { from: 'user', text: message || '', timestamp: now }
-
-        // Check for existing active (non-resolved) request from this participant
-        const { data: existing } = await supabase.from("organizer_requests")
-          .select("id,chat_history")
-          .eq("participant_token", token)
-          .or(`event_id.eq.${currentEventId},event_id.is.null`)
-          .neq("status", "resolved")
-          .order("created_at", { ascending: false })
-          .limit(1)
-
-        if (existing && existing.length > 0) {
-          // Append to existing conversation
-          const existingChat = Array.isArray(existing[0].chat_history) ? existing[0].chat_history : []
-          const updatedChat = [...existingChat, chatEntry]
-          const { error: updErr } = await supabase.from("organizer_requests").update({
-            message: message || null,
-            status: "pending",
-            table_info: tableInfo,
-            chat_history: updatedChat,
-            updated_at: now
-          }).eq("id", existing[0].id)
-          if (updErr) return res.status(500).json({ error: updErr.message })
-          return res.status(200).json({ id: existing[0].id, status: "pending" })
+        } else if (phase === "phase2_reveal" || phase === "phase3_reveal") {
+          const round = phase === "phase2_reveal" ? 20 : 30
+          const { data: seat, error: seatError } = await supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("round", round).eq("participant_id", myNumber).maybeSingle()
+          if (seatError) return res.status(503).json({ error: "تعذّر تحديد الطاولة. حاول مجددًا." })
+          tableInfo = (round === 20 ? "لقاء الاختيار" : "لقاء الخوارزمية") + (seat ? ` · طاولة ${seat.table_number}` : " · لم تُحدد الطاولة")
         }
 
-        // Create new request
-        const { data: inserted, error: insErr } = await supabase.from("organizer_requests").insert({
-          event_id: currentEventId, participant_token: token, participant_number: myNumber, participant_name: pName,
-          table_info: tableInfo, message: message || null, status: "pending",
-          request_type: reqType, chat_history: [chatEntry]
-        }).select("id").single()
-        if (insErr) return res.status(500).json({ error: insErr.message })
-        return res.status(200).json({ id: inserted.id, status: "pending" })
+        const { data: savedRequest, error: supportError } = await supabase.rpc("send_event3_support_message", {
+          p_event_id: Number(currentEventId), p_participant_number: myNumber,
+          p_participant_token: token, p_participant_name: pName, p_table_info: tableInfo,
+          p_message: String(message || "").trim().slice(0, 2000), p_request_type: request_type || "chat",
+        })
+        if (supportError) return res.status(503).json({ error: "تعذّر إرسال طلب المساعدة. حاول مجددًا.", code: supportError.code })
+        return res.status(200).json(savedRequest)
       }
 
       // e3-sos-check — poll all SOS requests for this user (chat history)
@@ -4252,7 +4235,8 @@ Please respond in JSON format:
           .eq("event_id", currentEventId)
           .eq("participant_number", myNumber)
           .is("seen_at", null)
-          .order("created_at", { ascending: false })
+          .order("icon", { ascending: true })
+          .order("created_at", { ascending: true })
           .limit(1)
           .maybeSingle()
         if (!pending) return res.status(200).json({ pending: false })

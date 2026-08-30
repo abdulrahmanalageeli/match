@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react"
+import { adminFetch as fetch } from "~/lib/admin-fetch.mjs"
+import AdminConnectionStatus from "~/components/AdminConnectionStatus"
 import {
   AlertTriangle,
   Bell,
@@ -63,6 +65,9 @@ interface CohostParticipant {
 }
 
 interface SosRequest {
+  chat_history?: Array<{ from: string; text: string; timestamp?: string; organizer_role?: string }>
+  partner_number?: number | null
+  partner_name?: string | null
   id: string
   participant_number: number
   participant_name: string | null
@@ -387,7 +392,7 @@ async function cohostApi<T>(action: string, token: string, extra: Record<string,
   const contentType = response.headers.get("content-type") || ""
   if (!contentType.includes("application/json")) throw new Error("تعذر الوصول إلى خدمة الفعالية")
   const data = await response.json().catch(() => ({}))
-  if (!response.ok || data?.success === false) {
+  if (!response.ok || data?.success === false || data?.error) {
     const error = new Error(data?.error || "تعذر تنفيذ الطلب") as CohostApiError
     error.status = response.status
     error.code = data?.code
@@ -496,6 +501,7 @@ export default function AdminCohostPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [messageTarget, setMessageTarget] = useState("")
   const [notificationTitle, setNotificationTitle] = useState("")
+  const [notificationUrgent, setNotificationUrgent] = useState(false)
   const [messageBody, setMessageBody] = useState("")
   const [messageBusy, setMessageBusy] = useState(false)
   const [moodAudience, setMoodAudience] = useState<MoodAudience>("table")
@@ -525,6 +531,7 @@ export default function AdminCohostPage() {
   const feedbackRequest = useRef(0)
   const operationsRequest = useRef(0)
   const rankingsRequest = useRef(0)
+  const pendingReads = useRef(new Set<string>())
 
   useEffect(() => {
     setToken(sessionStorage.getItem(SESSION_KEY) || "")
@@ -565,6 +572,9 @@ export default function AdminCohostPage() {
 
   const fetchDashboard = useCallback(async (quiet = false) => {
     if (!token) return
+    const key = `${token}:dashboard`
+    if (pendingReads.current.has(key)) return
+    pendingReads.current.add(key)
     const requestId = ++dashboardRequest.current
     if (!quiet) setLoading(true)
     try {
@@ -582,12 +592,16 @@ export default function AdminCohostPage() {
         handleRequestError(requestError, "تعذر تحميل الفعالية")
       }
     } finally {
+      pendingReads.current.delete(key)
       if (!quiet && requestId === dashboardRequest.current) setLoading(false)
     }
   }, [handleRequestError, token])
 
   const fetchRankings = useCallback(async (quiet = false) => {
     if (!token) return
+    const key = `${token}:rankings`
+    if (pendingReads.current.has(key)) return
+    pendingReads.current.add(key)
     const requestId = ++rankingsRequest.current
     if (!quiet) setRankingsLoading(true)
     try {
@@ -598,18 +612,23 @@ export default function AdminCohostPage() {
     } catch (requestError) {
       if (requestId === rankingsRequest.current && (!quiet || [401, 403, 423].includes((requestError as CohostApiError)?.status || 0))) handleRequestError(requestError, "تعذر تحميل التصنيفات")
     } finally {
+      pendingReads.current.delete(key)
       if (!quiet) setRankingsLoading(false)
     }
   }, [handleRequestError, token])
 
   const fetchFeedbackData = useCallback(async (quiet = false) => {
     if (!token) return
+    const key = `${token}:feedback`
+    if (pendingReads.current.has(key)) return
+    pendingReads.current.add(key)
     const requestId = ++feedbackRequest.current
     if (!quiet) setLiveLoading(true)
     const results = await Promise.allSettled([
       cohostApi<GroupFeedbackResponse>("e3-get-group-member-feedback", token),
       cohostApi<MatchFeedbackResponse>("e3-get-feedback", token),
     ])
+    pendingReads.current.delete(key)
     if (requestId !== feedbackRequest.current) {
       if (!quiet) setLiveLoading(false)
       return
@@ -620,7 +639,8 @@ export default function AdminCohostPage() {
       moodChecks: previous.moodChecks,
       notifications: previous.notifications,
     }))
-    if (results.some(result => result.status === "fulfilled")) setFeedbackUpdated(new Date())
+    // This timestamp represents both sections; partial success must not refresh it.
+    if (results.every(result => result.status === "fulfilled")) setFeedbackUpdated(new Date())
     const rejected = results.find(result => result.status === "rejected")
     if (rejected?.status === "rejected" && (!quiet || [401, 403, 423].includes((rejected.reason as CohostApiError)?.status || 0))) handleRequestError(rejected.reason, "تعذر تحميل التقييمات")
     if (!quiet) setLiveLoading(false)
@@ -628,12 +648,16 @@ export default function AdminCohostPage() {
 
   const fetchOperationsData = useCallback(async (quiet = false) => {
     if (!token) return
+    const key = `${token}:operations`
+    if (pendingReads.current.has(key)) return
+    pendingReads.current.add(key)
     const requestId = ++operationsRequest.current
     if (!quiet) setLiveLoading(true)
     const results = await Promise.allSettled([
       cohostApi<{ checks: MoodCheckGroup[] }>("e3-get-mood-checks", token),
       cohostApi<{ notifications: NotificationGroup[] }>("e3-get-notifications", token),
     ])
+    pendingReads.current.delete(key)
     if (requestId !== operationsRequest.current) {
       if (!quiet) setLiveLoading(false)
       return
@@ -1209,12 +1233,13 @@ export default function AdminCohostPage() {
         target_number: targetNumber || undefined,
         title: notificationTitle.trim(),
         body: messageBody.trim(),
-        icon: "info",
+        icon: notificationUrgent ? "alert" : "info",
         confirm_all: !targetNumber,
       })
       setNotice(`تم إرسال التنبيه إلى ${data.sent_to} مشارك${data.sent_to === 1 ? "" : "ين"}`)
       setMessageBody("")
       setNotificationTitle("")
+      setNotificationUrgent(false)
       await fetchOperationsData(true)
     } catch (requestError) {
       handleRequestError(requestError, "تعذر إرسال الرسالة")
@@ -1305,6 +1330,7 @@ export default function AdminCohostPage() {
 
   return (
     <div className="min-h-screen bg-[#06090f] text-white" dir="rtl">
+      <AdminConnectionStatus />
       <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-[#06090f]/95 backdrop-blur-xl">
         <div className="mx-auto max-w-5xl px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1695,8 +1721,11 @@ export default function AdminCohostPage() {
               {!dashboard?.sos_requests.length ? <div className="rounded-2xl border border-teal-300/15 bg-teal-300/[0.04] p-5 text-center"><CheckCircle2 size={25} className="mx-auto text-teal-300" /><p className="mt-2 text-xs font-bold text-teal-100">لا توجد طلبات مفتوحة الآن</p></div> : dashboard.sos_requests.map(request => (
                 <article key={request.id} className="rounded-2xl border border-red-300/20 bg-red-950/25 p-4">
                   <div className="flex items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><h4 className="text-sm font-black">{request.participant_name || `#${request.participant_number}`}</h4><span className="text-[10px] text-slate-400">#{request.participant_number}</span></div>{request.table_info ? <p className="mt-1 flex items-center gap-1 text-[10px] font-bold text-amber-200"><MapPin size={11} />{request.table_info}</p> : null}</div><span className="text-[9px] text-slate-400">{formatTime(request.updated_at || request.created_at)}</span></div>
-                  {request.message ? <p className="mt-3 rounded-xl border border-white/[0.06] bg-black/20 p-3 text-sm leading-6 text-slate-100">{request.message}</p> : null}
-                  {request.organizer_reply ? <p className="mt-2 text-[11px] text-teal-200">آخر رد: {request.organizer_reply}</p> : null}
+                  {request.partner_number ? <p className="mt-2 text-xs text-slate-300">الشريك: {request.partner_name || `#${request.partner_number}`}</p> : null}
+                  {request.chat_history?.length ? <ol aria-label="المحادثة الكاملة" className="mt-3 max-h-64 space-y-2 overflow-y-auto rounded-xl bg-black/20 p-3">{request.chat_history.map((message, index) => <li key={index} className={message.from === "user" ? "text-slate-100" : "text-teal-200"}><p className="text-[10px] font-bold">{message.from === "user" ? "المشارك" : message.organizer_role === "cohost" ? "المضيفة" : "المنظم"}{message.timestamp ? ` · ${formatTime(message.timestamp)}` : ""}</p><p className="whitespace-pre-wrap break-words text-sm leading-6">{message.text}</p></li>)}</ol> : <>
+                    {request.message ? <p className="mt-3 rounded-xl bg-black/20 p-3 text-sm">{request.message}</p> : null}
+                    {request.organizer_reply ? <p className="mt-2 text-xs text-teal-200">آخر رد: {request.organizer_reply}</p> : null}
+                  </>}
                   <label htmlFor={`reply-${request.id}`} className="sr-only">الرد على {request.participant_name || request.participant_number}</label>
                   <div className="mt-3 flex gap-2"><input id={`reply-${request.id}`} value={replyText[request.id] || ""} onChange={event => setReplyText(previous => ({ ...previous, [request.id]: event.target.value }))} onKeyDown={event => { if (event.key === "Enter") replySos(request) }} placeholder="اكتبي ردًا واضحًا…" className="min-h-12 min-w-0 flex-1 rounded-xl border border-white/[0.08] bg-black/20 px-3 text-sm outline-none placeholder:text-slate-600 focus:border-teal-300/40" /><button onClick={() => replySos(request)} disabled={!replyText[request.id]?.trim() || sosBusy[request.id]} aria-label="إرسال الرد" className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-400 text-slate-950 disabled:opacity-40">{sosBusy[request.id] ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}</button></div>
                   <button onClick={() => resolveSos(request)} disabled={sosBusy[request.id]} className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] text-xs font-bold text-slate-200 disabled:opacity-40"><CheckCircle2 size={15} /> تم الحل — إغلاق الطلب</button>
@@ -1722,6 +1751,8 @@ export default function AdminCohostPage() {
                 <div><label htmlFor="message-target" className="mb-1.5 block text-xs font-bold text-slate-300">المستلم</label><select id="message-target" value={messageTarget} onChange={event => setMessageTarget(event.target.value)} className="min-h-12 w-full rounded-xl border border-white/10 bg-[#0b1019] px-3 text-sm text-white outline-none focus:border-teal-300/40"><option value="">جميع المشاركين ({participants.length})</option>{participants.map(participant => <option key={participant.number} value={participant.number}>#{participant.number} · {participant.name}</option>)}</select></div>
                 <div><label htmlFor="notification-title" className="mb-1.5 block text-xs font-bold text-slate-300">عنوان التنبيه</label><input id="notification-title" value={notificationTitle} onChange={event => setNotificationTitle(event.target.value)} maxLength={120} placeholder="مثال: التوجه إلى الطاولات" className="min-h-12 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm outline-none placeholder:text-slate-600 focus:border-teal-300/40" /></div>
                 <div><label htmlFor="message-body" className="mb-1.5 block text-xs font-bold text-slate-300">نص الرسالة</label><textarea id="message-body" value={messageBody} onChange={event => setMessageBody(event.target.value)} maxLength={1000} rows={6} placeholder="اكتبي الرسالة بوضوح…" className="w-full resize-none rounded-xl border border-white/10 bg-black/20 p-3 text-sm leading-7 outline-none placeholder:text-slate-600 focus:border-teal-300/40" /><p className="mt-1 text-left text-[9px] text-slate-500">{messageBody.length}/1000</p></div>
+                <label className="flex min-h-12 items-center gap-3 rounded-xl border border-red-400/20 p-3 text-sm"><input type="checkbox" checked={notificationUrgent} onChange={event => setNotificationUrgent(event.target.checked)} />عاجل — يظهر أثناء اللقاء ويحتاج تأكيد الاستلام</label>
+                <p className="text-xs text-slate-400">{notificationUrgent ? "يظهر عند التحديث التالي دون إغلاق ترتيب أو تقييم المشارك." : "التنبيه العادي ينتظر التجهيز أو الاستراحة؛ لا يُستخدم للتوجيه العاجل."}</p>
                 {!messageTarget ? <div className="flex gap-2 rounded-xl border border-amber-300/20 bg-amber-300/[0.07] p-3 text-[11px] leading-5 text-amber-100"><AlertTriangle size={16} className="mt-0.5 shrink-0" /><p>المستلم الآن: جميع المشاركين. سيظهر تأكيد قبل الإرسال الجماعي.</p></div> : null}
                 <button onClick={sendMessage} disabled={messageBusy || !messageBody.trim() || !notificationTitle.trim()} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-teal-400 font-black text-slate-950 disabled:opacity-40">{messageBusy ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} />} إرسال التنبيه</button>
               </div>
@@ -1758,7 +1789,7 @@ export default function AdminCohostPage() {
               )}
             </div>
 
-            <div className="space-y-2"><h3 className="text-xs font-black text-slate-200">آخر التنبيهات</h3>{liveData.notifications.slice(0, 8).map(notification => { const seen = notification.entries.filter(entry => entry.seen_at).length; return <div key={notification.notif_id} className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-black">{notification.title}</p>{notification.body ? <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-slate-400">{notification.body}</p> : null}</div><span className="shrink-0 text-[9px] text-slate-500">{formatTime(notification.created_at)}</span></div><p className="mt-2 text-[9px] text-teal-200">شاهده {seen} من {notification.entries.length}</p></div> })}{!liveData.notifications.length ? <p className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs text-slate-400">لا توجد تنبيهات سابقة.</p> : null}</div>
+            <div className="space-y-2"><h3 className="text-xs font-black text-slate-200">آخر التنبيهات</h3>{liveData.notifications.slice(0, 8).map(notification => { const seen = notification.entries.filter(entry => entry.seen_at).length; return <div key={notification.notif_id} className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-black">{notification.title}</p>{notification.body ? <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-slate-400">{notification.body}</p> : null}</div><span className="shrink-0 text-[9px] text-slate-500">{formatTime(notification.created_at)}</span></div><p className="mt-2 text-[9px] text-teal-200">{notification.icon === "alert" ? "أكد الاستلام" : "فتح التنبيه وأغلقه"} {seen} من {notification.entries.length}</p></div> })}{!liveData.notifications.length ? <p className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs text-slate-400">لا توجد تنبيهات سابقة.</p> : null}</div>
           </section>
         )}
       </main>

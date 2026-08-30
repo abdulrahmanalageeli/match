@@ -86,9 +86,10 @@ export function getClientIp(req) {
   return null
 }
 
-export function enforceRateLimit(req, res, { key = "request", limit = 30, windowMs = 60_000 } = {}) {
+export function enforceRateLimit(req, res, { key = "request", identity, limit = 30, windowMs = 60_000 } = {}) {
   const ip = getClientIp(req) || "unknown"
-  const bucketKey = `${key}:${ip}`
+  // identity must come from a verified server-side lookup, not request claims.
+  const bucketKey = identity == null ? `${key}:ip:${ip}` : `${key}:identity:${identity}`
   const now = Date.now()
   const current = buckets.get(bucketKey)
   const entry = !current || current.resetAt <= now ? { count: 0, resetAt: now + windowMs } : current

@@ -5,6 +5,7 @@ import { adminFetch as fetch } from "~/lib/admin-fetch.mjs"
 import AdminConnectionStatus from "~/components/AdminConnectionStatus"
 import { surveyQuestions } from "~/components/SurveyComponent"
 import GroupFeedbackIntelligence from "~/components/GroupFeedbackIntelligence"
+import SeatingAlternatives from "~/components/SeatingAlternatives"
 import {
   CURRENT_BALANCED_SCORE_MODEL,
   currentBalancedGroupedDimensionsForDisplay,
@@ -269,7 +270,7 @@ const PHASES = [
   { id: "final_reveal",   label: "الكشف النهائي",        icon: "✨", color: "amber" },
 ]
 
-async function api(action: string, extra: Record<string, any> = {}) {
+async function api(action: string, extra: Record<string, any> = {}, options: { signal?: AbortSignal } = {}) {
   const body: Record<string, any> = { action, ...extra }
   if (_adminPassword && !("password" in body)) body.password = _adminPassword
   if (_previewEventId != null && !('preview_event_id' in body) && action.startsWith('e3-') && action !== 'e3-set-current-event' && action !== 'e3-get-current-event' && action !== 'e3-get-event-list') {
@@ -281,6 +282,7 @@ async function api(action: string, extra: Record<string, any> = {}) {
       headers: { "Content-Type": "application/json" },
       credentials: "same-origin",
       body: JSON.stringify(body),
+      signal: options.signal,
     })
     const contentType = response.headers.get("content-type") || ""
     if (!contentType.includes("application/json")) {
@@ -2780,6 +2782,16 @@ export default function Admin3Page() {
                 )}
               </div>
             </div>
+
+            <SeatingAlternatives
+              key={`${realCurrentEventId}:${previewEventId}:${testMode}:${testModeData?.started_at || "live"}`}
+              eventId={Number(realCurrentEventId)}
+              testMode={testMode}
+              request={api}
+              disabled={!realCurrentEventId || previewEventId != null || !seating?.[1] || !seating?.[2] || state?.phase !== "setup" || !!state?.timer_active || !!loading || testModeLoading}
+              disabledReason={previewEventId != null ? "ارجع إلى الفعالية الحالية لعرض البدائل" : !seating?.[1] || !seating?.[2] ? "ولّد جلستي المجموعات أولاً" : state?.phase !== "setup" || state?.timer_active ? "تغيير الجولتين متاح قبل بدء جلسات المجموعات" : "انتظر اكتمال العملية الحالية"}
+              onApplied={async () => { setSwapA(null); setMoveA(null); await Promise.all([fetchSeating(), fetchState()]) }}
+            />
 
             {/* Swap mode banner */}
             {swapA !== null && (

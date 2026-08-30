@@ -4,6 +4,7 @@ import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticip
 import { buildWelcomePrompt } from "./ai-welcome-prompt.mjs"
 import { assignPriorityTables } from "../../server/event3/table-priority.mjs"
 import { buildSixBySevenPlan, optimizeRound2ByAge } from "../../server/event3/round2-age-optimizer.mjs"
+import { handleSeatingAlternatives } from "../../server/event3/seating-alternatives.mjs"
 import { collectEventSwapPairs, collectMatchResultSwapPairs, getTableSwapRounds } from "../../server/event3/participant-swap.mjs"
 import { buildTestAdminSession, testMatchToLockedMatch } from "../../server/event3/test-match-results.mjs"
 import { choosePreparedTestPairs, validatePreparedTestAlgorithmRows } from "../../server/event3/prepared-test-algorithm.mjs"
@@ -9912,6 +9913,27 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const { error } = await supabase.from("event3_participants").insert(rows)
           if (error) return res.status(500).json({ error: error.message })
           return res.status(200).json({ message: "Participants selected successfully" })
+        }
+        if (action === "e3-get-seating-alternatives" || action === "e3-apply-seating-alternative") {
+          if (!hasAdminAccess) return res.status(403).json({ error: "Unauthorized" })
+          res.setHeader("Cache-Control", "private, no-store")
+          try {
+            const result = await handleSeatingAlternatives({
+              db: supabase, action, body: req.body, eventId: Number(realEventId), secret: cohostTokenSecret(),
+              loadScores: async profiles => {
+                const profileMap = new Map(profiles.map(p => [Number(p.assigned_number), p]))
+                const { data, error } = await fetchAllCachedPairs("compatibility_cache", [...profileMap.keys()])
+                if (error) throw Object.assign(new Error("تعذّر تحميل درجات التوافق؛ حاول مجدداً"), { status: 503 })
+                const cache = new Map()
+                for (const row of data || []) setPreferredCurrentVibeCacheRow(cache, row, profileMap)
+                return new Map([...cache].filter(([, row]) => row.total_compatibility_score != null && Number.isFinite(Number(row.total_compatibility_score)))
+                  .map(([key, row]) => [key, Number(row.total_compatibility_score)]))
+              },
+            })
+            return res.status(200).json(result)
+          } catch (error) {
+            return res.status(error.status || 500).json({ error: error.status ? error.message : "تعذّر تجهيز بدائل الجلسات؛ حاول مجدداً" })
+          }
         }
         // e3-generate-seating
         if (action === "e3-generate-seating") {

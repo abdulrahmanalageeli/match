@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import { adminFetch as fetch } from "~/lib/admin-fetch.mjs"
 import AdminConnectionStatus from "~/components/AdminConnectionStatus"
 import CohostAttendeeDetails, { type AttendeeDetailsResponse } from "~/components/CohostAttendeeDetails"
+import CohostConfidentialityGate from "~/components/CohostConfidentialityGate"
 import {
   AlertTriangle,
   Bell,
@@ -486,6 +487,8 @@ function CohostNoteEditor({ context, draft, original, updatedAt, saving, error, 
 export default function AdminCohostPage() {
   const [initialized, setInitialized] = useState(false)
   const [token, setToken] = useState("")
+  const [approvedToken, setApprovedToken] = useState("")
+  const agreementAccepted = Boolean(token && approvedToken === token)
   const [password, setPassword] = useState("")
   const [loginLoading, setLoginLoading] = useState(false)
   const [rawDashboard, setDashboard] = useState<CohostDashboard | null>(null)
@@ -551,6 +554,7 @@ export default function AdminCohostPage() {
     sessionStorage.removeItem(SESSION_KEY)
     localStorage.removeItem("cohost_auth")
     setToken("")
+    setApprovedToken("")
     setDashboard(null)
     setLiveData(EMPTY_LIVE_DATA)
     setRankings([])
@@ -562,8 +566,30 @@ export default function AdminCohostPage() {
     setError(message)
   }, [])
 
+  const acceptAgreement = useCallback((acceptedToken: string) => {
+    sessionStorage.setItem(SESSION_KEY, acceptedToken)
+    setToken(acceptedToken)
+    setApprovedToken(acceptedToken)
+    setError("")
+  }, [])
+
   const handleRequestError = useCallback((requestError: unknown, fallback: string) => {
     const status = (requestError as CohostApiError)?.status
+    if ((requestError as CohostApiError)?.code === "COHOST_AGREEMENT_REQUIRED") {
+      dashboardRequest.current++
+      feedbackRequest.current++
+      operationsRequest.current++
+      rankingsRequest.current++
+      setApprovedToken("")
+      setDashboard(null)
+      setLiveData(EMPTY_LIVE_DATA)
+      setRankings([])
+      setEditingRanker(null)
+      setEditingNote(null)
+      setViewingParticipant(null)
+      setError("")
+      return
+    }
     if (status === 423 && (requestError as CohostApiError)?.code === "COHOST_LOCKED") {
       setPanelLocked(true)
       setError("")
@@ -577,7 +603,7 @@ export default function AdminCohostPage() {
   }, [logout])
 
   const fetchDashboard = useCallback(async (quiet = false) => {
-    if (!token) return
+    if (!agreementAccepted) return
     const key = `${token}:dashboard`
     if (pendingReads.current.has(key)) return
     pendingReads.current.add(key)
@@ -601,7 +627,7 @@ export default function AdminCohostPage() {
       pendingReads.current.delete(key)
       if (!quiet && requestId === dashboardRequest.current) setLoading(false)
     }
-  }, [handleRequestError, token])
+  }, [agreementAccepted, handleRequestError, token])
 
   const loadAttendeeDetails = useCallback(async (participantNumber: number, beforeEventId?: number) => {
     try {
@@ -619,7 +645,7 @@ export default function AdminCohostPage() {
   }, [handleRequestError, token])
 
   const fetchRankings = useCallback(async (quiet = false) => {
-    if (!token) return
+    if (!agreementAccepted) return
     const key = `${token}:rankings`
     if (pendingReads.current.has(key)) return
     pendingReads.current.add(key)
@@ -636,10 +662,10 @@ export default function AdminCohostPage() {
       pendingReads.current.delete(key)
       if (!quiet) setRankingsLoading(false)
     }
-  }, [handleRequestError, token])
+  }, [agreementAccepted, handleRequestError, token])
 
   const fetchFeedbackData = useCallback(async (quiet = false) => {
-    if (!token) return
+    if (!agreementAccepted) return
     const key = `${token}:feedback`
     if (pendingReads.current.has(key)) return
     pendingReads.current.add(key)
@@ -665,10 +691,10 @@ export default function AdminCohostPage() {
     const rejected = results.find(result => result.status === "rejected")
     if (rejected?.status === "rejected" && (!quiet || [401, 403, 423].includes((rejected.reason as CohostApiError)?.status || 0))) handleRequestError(rejected.reason, "تعذر تحميل التقييمات")
     if (!quiet) setLiveLoading(false)
-  }, [handleRequestError, token])
+  }, [agreementAccepted, handleRequestError, token])
 
   const fetchOperationsData = useCallback(async (quiet = false) => {
-    if (!token) return
+    if (!agreementAccepted) return
     const key = `${token}:operations`
     if (pendingReads.current.has(key)) return
     pendingReads.current.add(key)
@@ -692,10 +718,10 @@ export default function AdminCohostPage() {
     const rejected = results.find(result => result.status === "rejected")
     if (rejected?.status === "rejected" && (!quiet || [401, 403, 423].includes((rejected.reason as CohostApiError)?.status || 0))) handleRequestError(rejected.reason, "تعذر تحميل المتابعة المباشرة")
     if (!quiet) setLiveLoading(false)
-  }, [handleRequestError, token])
+  }, [agreementAccepted, handleRequestError, token])
 
   useEffect(() => {
-    if (!token) return
+    if (!agreementAccepted) return
     fetchDashboard()
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") fetchDashboard(true)
@@ -708,10 +734,10 @@ export default function AdminCohostPage() {
       window.clearInterval(interval)
       document.removeEventListener("visibilitychange", onVisible)
     }
-  }, [fetchDashboard, token])
+  }, [agreementAccepted, fetchDashboard])
 
   useEffect(() => {
-    if (!token || panelLocked || (tab !== "home" && tab !== "feedback")) return
+    if (!agreementAccepted || panelLocked || (tab !== "home" && tab !== "feedback")) return
     fetchFeedbackData()
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") fetchFeedbackData(true)
@@ -724,10 +750,10 @@ export default function AdminCohostPage() {
       window.clearInterval(interval)
       document.removeEventListener("visibilitychange", onVisible)
     }
-  }, [fetchFeedbackData, panelLocked, tab, token])
+  }, [agreementAccepted, fetchFeedbackData, panelLocked, tab])
 
   useEffect(() => {
-    if (!token || panelLocked || (tab !== "support" && tab !== "messages")) return
+    if (!agreementAccepted || panelLocked || (tab !== "support" && tab !== "messages")) return
     fetchOperationsData()
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") fetchOperationsData(true)
@@ -740,16 +766,16 @@ export default function AdminCohostPage() {
       window.clearInterval(interval)
       document.removeEventListener("visibilitychange", onVisible)
     }
-  }, [fetchOperationsData, panelLocked, tab, token])
+  }, [agreementAccepted, fetchOperationsData, panelLocked, tab])
 
   useEffect(() => {
-    if (!token || panelLocked || tab !== "rankings" || editingRanker !== null) return
+    if (!agreementAccepted || panelLocked || tab !== "rankings" || editingRanker !== null) return
     fetchRankings()
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") fetchRankings(true)
     }, 10000)
     return () => window.clearInterval(interval)
-  }, [editingRanker, fetchRankings, panelLocked, tab, token])
+  }, [agreementAccepted, editingRanker, fetchRankings, panelLocked, tab])
 
   useEffect(() => {
     const state = dashboard?.state
@@ -1334,6 +1360,10 @@ export default function AdminCohostPage() {
         </div>
       </div>
     )
+  }
+
+  if (!agreementAccepted) {
+    return <CohostConfidentialityGate key={token} token={token} onAccepted={acceptAgreement} onLogout={logout} />
   }
 
   if (panelLocked) {

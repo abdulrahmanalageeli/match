@@ -1,5 +1,5 @@
 import OpenAI from "openai"
-import { createHmac, timingSafeEqual } from "node:crypto"
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto"
 import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, isParticipantCacheEligible, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkAgeCompatibility, fetchAllCachedPairs, isCurrentVibeModel, getParticipantDeltaCacheReason, getDeltaCacheReasonCounts, loadHistoricalMatchAnalyzer } from "./trigger-match.mjs"
 import { buildWelcomePrompt } from "./ai-welcome-prompt.mjs"
 import { assignPriorityTables } from "../../server/event3/table-priority.mjs"
@@ -12,6 +12,8 @@ import { buildRankingCompletion, loadRankingCompletion, rankingRoundsForPhase } 
 import { buildGroupMemberFeedbackSummary } from "../../server/event3/group-member-feedback.mjs"
 import { buildReciprocalRankingLookup, getCohostNoteContext, normalizeCohostNoteScope, selectCohostLockedScoreSource } from "../../server/event3/cohost-operations.mjs"
 import { loadCohostAttendeeHistory } from "../../server/event3/cohost-attendee-history.mjs"
+import { COHOST_AGREEMENT } from "../../app/lib/cohost-agreement.mjs"
+import { acceptCohostAgreement, COHOST_AGREEMENT_ACTIONS, COHOST_AGREEMENT_HASH, hasCurrentCohostAgreement } from "../../server/event3/cohost-agreement.mjs"
 import {
   EVENT3_PHASE_TIMER_SECONDS,
   EVENT3_TIMER_ROUND_SECONDS,
@@ -378,6 +380,8 @@ const EVENT3_PASSWORD = process.env.EVENT3_PASSWORD || ""
 const EVENT3_COHOST_PASSWORD = process.env.EVENT3_COHOST_PASSWORD || ""
 const EVENT3_COHOST_TOKEN_TTL_SECONDS = 8 * 60 * 60
 const EVENT3_COHOST_ACTIONS = new Set([
+  "e3-cohost-agreement",
+  "e3-cohost-accept-agreement",
   "e3-cohost-dashboard",
   "e3-cohost-attendee-details",
   "e3-cohost-rankings",
@@ -418,14 +422,24 @@ function cohostTokenSecret() {
     || ""
 }
 
-function signCohostToken() {
+function signCohostToken(agreement = null, session = null) {
   if (!cohostTokenSecret()) throw new Error("A server session secret is not configured")
-  const payload = Buffer.from(JSON.stringify({ role: "event3_cohost", exp: Math.floor(Date.now() / 1000) + EVENT3_COHOST_TOKEN_TTL_SECONDS })).toString("base64url")
+  const payload = Buffer.from(JSON.stringify({
+    role: "event3_cohost",
+    sid: session?.sid || randomUUID(),
+    exp: session?.exp || Math.floor(Date.now() / 1000) + EVENT3_COHOST_TOKEN_TTL_SECONDS,
+    ...(agreement ? {
+      agreement_id: agreement.id,
+      agreement_version: agreement.agreement_version,
+      agreement_hash: agreement.agreement_hash,
+      agreement_accepted_at: agreement.accepted_at,
+    } : {}),
+  })).toString("base64url")
   const signature = createHmac("sha256", cohostTokenSecret()).update(payload).digest("base64url")
   return `${payload}.${signature}`
 }
 
-function verifyCohostToken(token) {
+function readCohostToken(token) {
   try {
     const secret = cohostTokenSecret()
     if (!secret) return false
@@ -434,10 +448,14 @@ function verifyCohostToken(token) {
     const expected = createHmac("sha256", secret).update(payload).digest("base64url")
     if (!safeSecretEqual(signature, expected)) return false
     const claims = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"))
-    return claims?.role === "event3_cohost" && Number(claims.exp) > Math.floor(Date.now() / 1000)
+    return claims?.role === "event3_cohost" && Number.isFinite(claims.exp) && claims.exp > Math.floor(Date.now() / 1000) ? claims : null
   } catch {
     return false
   }
+}
+
+function verifyCohostToken(token) {
+  return Boolean(readCohostToken(token))
 }
 
 function e3GenerateSeatingPlan(participantNumbers, genderMap = {}, lockedPairsSet = new Set(), ageMap = {}) {
@@ -8982,6 +9000,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
     // The returned short-lived signed token is limited to the explicit action
     // allow-list below; it can never invoke matching, phase, survey, or payment APIs.
     if (action === "e3-cohost-login") {
+      res.setHeader("Cache-Control", "private, no-store")
       if (!EVENT3_COHOST_PASSWORD || !cohostTokenSecret()) {
         console.error("Co-host login is not configured in this deployment")
         return res.status(503).json({ error: "Co-host login is not configured", code: "COHOST_NOT_CONFIGURED" })
@@ -9012,10 +9031,35 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         const isCohostRequest = hasCohostAccess && !hasAdminAccess
         let cohostAccessState = null
         if (isCohostRequest) {
+          res.setHeader("Cache-Control", "private, no-store")
           const { data, error } = await supabase.from("event_state").select("cohost_locked,test_mode_active,current_event_id,test_session_started_at:test_mode_snapshot->>started_at").eq("match_id", EVENT3_MATCH_ID).maybeSingle()
           if (error || !data) return res.status(503).json({ error: "Co-host access is temporarily unavailable", code: "COHOST_ACCESS_UNAVAILABLE" })
           if (data.cohost_locked === true) return res.status(423).json({ error: "The host has temporarily locked the co-host panel", code: "COHOST_LOCKED" })
           cohostAccessState = data
+        }
+        const cohostSessionToken = bearerToken || req.body?.cohost_token
+        const cohostSession = hasCohostAccess ? readCohostToken(cohostSessionToken) : null
+        if (isCohostRequest && !COHOST_AGREEMENT_ACTIONS.has(action) && !hasCurrentCohostAgreement(cohostSession)) {
+          return res.status(403).json({ error: "يلزم قبول تعهد السرية قبل الوصول إلى بيانات المشاركين", code: "COHOST_AGREEMENT_REQUIRED" })
+        }
+        if (action === "e3-cohost-agreement") {
+          if (!isCohostRequest) return res.status(403).json({ error: "A co-host session is required" })
+          return res.status(200).json({
+            agreement: COHOST_AGREEMENT,
+            agreement_hash: COHOST_AGREEMENT_HASH,
+            accepted: hasCurrentCohostAgreement(cohostSession),
+            accepted_at: hasCurrentCohostAgreement(cohostSession) ? cohostSession.agreement_accepted_at : null,
+          })
+        }
+        if (action === "e3-cohost-accept-agreement") {
+          if (!isCohostRequest) return res.status(403).json({ error: "A co-host session is required" })
+          if (!enforceRateLimit(req, res, { key: "cohost-agreement", limit: 12, windowMs: 60_000 })) return
+          try {
+            const receipt = await acceptCohostAgreement(supabase, cohostSessionToken, req.body)
+            return res.status(200).json({ token: signCohostToken(receipt, cohostSession), receipt })
+          } catch (error) {
+            return res.status(error.status || 503).json({ error: error.status ? error.message : "تعذر حفظ الموافقة. حاولي مجدداً", code: error.code || "AGREEMENT_RECORD_UNAVAILABLE" })
+          }
         }
         // Helper: fetch current event_id from event_state — prefer STATIC_MATCH_ID (main admin)
         // so event3 stays in sync with the main event system, fall back to EVENT3_MATCH_ID

@@ -2911,7 +2911,7 @@ function RankingReorderCard({
       as="div"
       role="listitem"
       className={className}
-      drag={disabled ? false : true}
+      drag={disabled ? false : "y"}
       dragListener={false}
       dragControls={dragControls}
       whileDrag={disabled ? undefined : whileDrag}
@@ -3384,7 +3384,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                     <select
                       value={idx}
                       onChange={event => moveToRank(num, Number(event.target.value))}
-                      disabled={submitted}
+                      disabled={submitted || submitting || autoSaving || rankingClosed || rankingExpired}
                       aria-label={`غيّر مركز ${p.first_name}، المركز الحالي ${idx + 1}`}
                       className="absolute inset-0 h-full w-full cursor-pointer appearance-none rounded-xl opacity-0 disabled:cursor-default"
                     >
@@ -3413,7 +3413,9 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                   <button
                     type="button"
                     onPointerDown={startDrag}
-                    disabled={submitted}
+                    disabled={submitted || submitting || autoSaving || rankingClosed || rankingExpired}
+                    // Inline touch-action must beat the shell's unlayered button rule.
+                    style={{ touchAction: "none" }}
                     aria-label={`اسحب لتغيير ترتيب ${p.first_name}`}
                     className="flex h-11 w-11 min-h-11 min-w-11 flex-shrink-0 touch-none cursor-grab items-center justify-center rounded-xl border border-amber-500/15 bg-amber-500/[0.06] text-amber-400/80 shadow-inner shadow-amber-950/20 transition-colors hover:border-amber-500/30 hover:bg-amber-500/10 hover:text-amber-300 active:cursor-grabbing active:bg-amber-500/15 disabled:cursor-default disabled:border-white/[0.04] disabled:bg-white/[0.02] disabled:text-gray-700"
                   >

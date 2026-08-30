@@ -1008,7 +1008,7 @@ export default async function handler(req, res) {
   const requestStartedAt = Date.now()
   res.once?.("finish", () => {
     const durationMs = Date.now() - requestStartedAt
-    if (durationMs >= 5000 || res.statusCode >= 500) console.warn(JSON.stringify({
+    if (durationMs >= 5000 || res.statusCode >= 400) console.warn(JSON.stringify({
       event: "admin_request_slow_or_failed",
       action: String(req.query?.action || req.body?.action || "participants").replace(/[^a-z0-9-]/gi, "").slice(0, 80),
       status: res.statusCode, duration_ms: durationMs,
@@ -3867,6 +3867,28 @@ export default async function handler(req, res) {
         console.error("Error setting current event ID:", err)
         return res.status(500).json({ error: "Failed to set current event ID" })
       }
+    }
+
+    if (action === "get-max-event-id") {
+      // Include a newly selected event even before it has participants/results.
+      // Bound each history read to one non-null ID and keep all reads scoped.
+      const results = await Promise.all([
+        ...["participants", "match_results", "group_matches"].map(table => supabase
+          .from(table)
+          .select("event_id")
+          .eq("match_id", STATIC_MATCH_ID)
+          .order("event_id", { ascending: false, nullsFirst: false })
+          .limit(1)
+          .maybeSingle()),
+        supabase.from("event_state").select("current_event_id").eq("match_id", STATIC_MATCH_ID).maybeSingle(),
+      ])
+      const error = results.find(result => result.error)?.error
+      if (error) {
+        console.error("get-max-event-id error:", error)
+        return res.status(503).json({ error: "Failed to get maximum event ID" })
+      }
+      const eventIds = results.map(result => Number(result.data?.event_id ?? result.data?.current_event_id))
+      return res.status(200).json({ max_event_id: Math.max(1, ...eventIds.filter(id => Number.isInteger(id) && id > 0)) })
     }
 
     if (action === "get-current-event-id") {

@@ -1965,7 +1965,10 @@ const fetchParticipants = async () => {
       body: JSON.stringify({ action: "participants" }),
     })
     const data = await res.json()
-    const fetchedParticipants = (data.participants || []).map((p: any) => ({
+    if (!res.ok || !Array.isArray(data.participants)) {
+      throw new Error(data.error || "Failed to refresh participants")
+    }
+    const fetchedParticipants = data.participants.map((p: any) => ({
       ...p,
       survey_data: typeof p.survey_data === "string" ? (() => { try { return JSON.parse(p.survey_data) } catch { return {} } })() : (p.survey_data || {})
     }))

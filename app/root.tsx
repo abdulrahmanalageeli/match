@@ -7,8 +7,10 @@ import {
   ScrollRestoration,
   useLocation,
 } from "react-router";
+import { Analytics } from "@vercel/analytics/react";
 
 import type { Route } from "./+types/root";
+import { redactAnalyticsUrl } from "./lib/analytics";
 import "./app.css";
 
 export const links: Route.LinksFunction = () => [
@@ -56,6 +58,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {children}
         <ScrollRestoration />
         <Scripts />
+        <Analytics beforeSend={redactAnalyticsUrl} />
       </body>
     </html>
   );

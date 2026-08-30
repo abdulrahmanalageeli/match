@@ -1116,11 +1116,6 @@ function CompatibilityBreakdown({ breakdown, scoreRow, accent = "purple", partne
         <p className="text-gray-500 text-xs mt-0.5">
           هذا التحليل خاص بـ{partnerName ? ` ${partnerName}` : " هذا الشخص"} فقط — يعتمد على بيانات الاستبيان ولا يتأثر بالتقييمات
         </p>
-        {!isBalanced && (
-          <p className="mt-2 rounded-lg border border-amber-700/30 bg-amber-950/20 px-3 py-2 text-[11px] leading-relaxed text-amber-200/80">
-            نعرض المجموع التاريخي فقط لأن تفاصيل هذا السجل لم تُحفظ بهوية نموذج التقييم الحالي؛ لن نركّب عليه أوزان اليوم.
-          </p>
-        )}
       </div>
 
       {/* Synergy Overview */}
@@ -3752,7 +3747,7 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
       toast.error('قيّم شخصاً واحداً على الأقل، أو اضغط تخطي')
       return
     }
-    if (!token) { toast.success('معاينة فقط — التصميم جاهز'); return }
+    if (!token) return
     setSaving(true)
     const data = await call('e3-submit-group-reflection', token, {
       group_round: groupRound,

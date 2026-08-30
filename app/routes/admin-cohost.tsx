@@ -442,7 +442,7 @@ function CohostPairCard({ pair, onNote, hasNote = false }: { pair: PairView; onN
               const percentage = dimension.value == null ? null : Math.max(0, Math.min(100, Math.round(dimension.value / dimension.max * 100)))
               return <div key={dimension.key}><div className="flex items-start justify-between gap-3 text-[11px]"><span className="min-w-0 text-slate-200">{dimension.label}</span><span className="shrink-0 font-black tabular-nums text-white">{percentage == null ? "غير متاح" : `${percentage}%`}</span></div><div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/[0.07]"><div className={`h-full rounded-full ${choice ? "bg-pink-300" : "bg-violet-300"}`} style={{ width: `${percentage ?? 0}%` }} /></div><p className="mt-1 text-left text-[9px] tabular-nums text-slate-500">{dimension.value == null ? "—" : Number(dimension.value.toFixed(2))} / {dimension.max} نقطة</p></div>
             })}
-          </> : <p className="text-[11px] leading-6 text-slate-400">تفاصيل الدرجة المحفوظة غير متاحة لهذا الزوج. لا نعرض قيمًا تقديرية أو نعيد حساب المطابقة أثناء الفعالية.</p>}
+          </> : <p className="text-[11px] leading-6 text-slate-400">تفاصيل الدرجة غير متاحة.</p>}
         </div>
       </details>
       <button onClick={onNote} className={`mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border text-[11px] font-bold ${hasNote ? "border-amber-300/20 bg-amber-300/[0.06] text-amber-100" : "border-white/[0.07] bg-white/[0.025] text-slate-300"}`}><NotebookPen size={14} />{hasNote ? "عرض ملاحظة اللقاء" : "ملاحظة خاصة عن اللقاء"}</button>
@@ -1306,10 +1306,6 @@ export default function AdminCohostPage() {
               دخول آمن
             </button>
           </form>
-          <div className="mt-5 flex gap-2 rounded-xl border border-white/[0.06] bg-white/[0.03] p-3 text-[11px] leading-5 text-slate-400">
-            <LockKeyhole size={16} className="mt-0.5 shrink-0 text-teal-300" />
-            <p>لن تجدي هنا أي زر لتغيير المرحلة أو المؤقت أو تشغيل المطابقة. هذه الصلاحيات تبقى عند المضيف الأساسي.</p>
-          </div>
         </div>
       </div>
     )
@@ -1453,7 +1449,6 @@ export default function AdminCohostPage() {
 
             <button onClick={() => openNote({ scope_type: "event", scope_key: "event" })} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/20 bg-amber-300/[0.04] text-xs font-black text-amber-100"><NotebookPen size={17} />{notesByKey.has("event") ? "عرض الملاحظة العامة للفعالية" : "إضافة ملاحظة عامة للفعالية"}<span className="text-[10px] font-normal text-slate-400">· خاصة بالمنظمين</span></button>
 
-            <div className="flex gap-3 rounded-2xl border border-teal-300/15 bg-teal-300/[0.04] p-3 text-[11px] leading-5 text-slate-300"><LockKeyhole size={17} className="mt-0.5 shrink-0 text-teal-300" /><p><span className="font-black text-white">منطقة تشغيل آمنة:</span> لا يمكن من هذه الصفحة تغيير الوقت أو المرحلة أو إعادة المطابقة أو حذف بيانات الفعالية.</p></div>
           </>
         ) : tab === "people" ? (
           <section className="space-y-3">

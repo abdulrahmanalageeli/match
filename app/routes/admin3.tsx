@@ -1328,7 +1328,7 @@ export default function Admin3Page() {
     if (ph === "round1") return { label: "⬅ التصنيف بعد الجولة 1 (3 دقائق)", action: () => setPhaseWithTimer("ranking1", EVENT3_PHASE_SECONDS.ranking1, 0), ready: true }
     if (ph === "ranking1") return { label: "⬅ بدء الجولة الثانية (25 دقيقة)", action: () => setPhaseWithTimer("round2", EVENT3_PHASE_SECONDS.round2, 2), ready: true }
     if (ph === "round2") return { label: "⬅ التصنيف النهائي (3 دقائق)", action: () => setPhaseWithTimer("ranking2", EVENT3_PHASE_SECONDS.ranking2, 0), ready: true }
-    if (ph === "ranking2" && !hasMatches) return { label: "⬅ تشغيل مطابقة اختيار المشاركين", action: () => setPhaseStopTimer("phase2_processing").then(d => d?.error ? d : run("phase2", () => api("e3-trigger-phase2-matching").then(result => { fetchMatches(); fetchState(); return result }))), ready: ranked > 0 }
+    if (ph === "ranking2" && !hasMatches) return { label: "⬅ حفظ التصنيفات وتشغيل المطابقة", action: () => setPhaseStopTimer("phase2_processing").then(d => d?.error ? d : run("phase2", () => api("e3-trigger-phase2-matching").then(result => { fetchMatches(); fetchState(); return result }))), ready: sel > 0 }
     if (ph === "phase2_processing" && hasMatches) return { label: "⬅ استراحة (10 دقائق)", action: () => setPhaseWithTimer("break", EVENT3_PHASE_SECONDS.break, 3), ready: true }
     if (ph === "phase2_processing") return { label: "⏳ جاري المطابقة...", action: () => {}, ready: false }
     if (ph === "ranking2" && hasMatches) return { label: "⬅ استراحة (10 دقائق)", action: () => setPhaseWithTimer("break", EVENT3_PHASE_SECONDS.break, 3), ready: true }
@@ -2319,7 +2319,7 @@ export default function Admin3Page() {
                     action: triggerPhase2,
                     icon: Shuffle,
                     color: "pink",
-                    enabled: testMode || (state?.rankings_submitted || 0) > 0,
+                    enabled: testMode || (state?.phase === "ranking2" && (state?.participants_selected || 0) > 0) || (state?.rankings_submitted || 0) > 0,
                     loadKey: "phase2",
                   },
                   {
@@ -2487,12 +2487,12 @@ export default function Admin3Page() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => { if (confirm(`إكمال تصنيفات ${pending.length} مشارك لم يرسلوا؟\nسيُستخدم ترتيب افتراضي لا يمثل اختيارهم.`)) run("force-save", () => api("e3-force-auto-save-rankings").then(d => { if (!d.error) fetchRankStatus(); return d })) }}
+                          onClick={() => { if (confirm(`إكمال تصنيفات ${pending.length} مشارك؟\nسيُحفظ آخر ترتيب متزامن، أو تبقى اختياراته المحفوظة مع إضافة الأسماء الناقصة في النهاية.`)) run("force-save", () => api("e3-force-auto-save-rankings").then(d => { if (!d.error) fetchRankStatus(); return d })) }}
                           disabled={!!loading || pending.length === 0 || previewEventId != null}
                           className="flex items-center gap-1.5 bg-amber-900/50 hover:bg-amber-800 border border-amber-700/50 text-amber-300 rounded-lg px-3 py-1.5 text-xs disabled:opacity-40"
                         >
                           {loading === "force-save" ? <RefreshCw size={12} className="animate-spin" /> : <Clock size={12} />}
-                          إكمال غير المُرسلين
+                          إكمال التصنيفات الناقصة
                         </button>
                       </div>
                     </>
@@ -3458,11 +3458,11 @@ export default function Admin3Page() {
                   <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
                     <button
                       type="button"
-                      onClick={() => { if (confirm(`إكمال تصنيفات ${pendingCount} مشارك لم يرسلوا اختياراتهم؟\nسيُستخدم ترتيب الأشخاص الذين قابلوهم، وليس اختياراً منهم.`)) run("force-save", () => api("e3-force-auto-save-rankings").then(d => { if (!d.error) fetchRankStatus(); return d })) }}
+                      onClick={() => { if (confirm(`إكمال تصنيفات ${pendingCount} مشارك؟\nسيُحفظ آخر ترتيب متزامن، أو تبقى اختياراته المحفوظة مع إضافة الأسماء الناقصة في النهاية.`)) run("force-save", () => api("e3-force-auto-save-rankings").then(d => { if (!d.error) fetchRankStatus(); return d })) }}
                       disabled={!!loading || pendingCount === 0 || previewEventId != null}
                       className="min-h-14 rounded-xl border border-amber-800/40 bg-amber-950/30 px-3 py-2 text-right transition-colors hover:bg-amber-900/30 disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      <span className="flex items-center gap-1.5 text-xs font-bold text-amber-300">{loading === "force-save" ? <RefreshCw size={12} className="animate-spin" /> : <Clock size={12} />} إكمال غير المُرسلين</span>
+                      <span className="flex items-center gap-1.5 text-xs font-bold text-amber-300">{loading === "force-save" ? <RefreshCw size={12} className="animate-spin" /> : <Clock size={12} />} إكمال التصنيفات الناقصة</span>
                       <span className="mt-1 block text-[9px] text-gray-500">Complete pending · {pendingCount} بانتظار الإرسال</span>
                     </button>
                     <button
@@ -3642,13 +3642,13 @@ export default function Admin3Page() {
                             )}
                           </>
                         ) : (
-                          <span className="text-yellow-400/70 text-[10px] flex-shrink-0 bg-yellow-900/20 px-2 py-0.5 rounded-full">بانتظار</span>
+                          <span className="text-yellow-400/70 text-[10px] flex-shrink-0 bg-yellow-900/20 px-2 py-0.5 rounded-full">{r.count > 0 ? `${r.count} / ${r.expected_count} · غير مكتمل` : "بانتظار"}</span>
                         )}
                         <ChevronRight size={14} className={`text-gray-600 transition-transform flex-shrink-0 ${expandedRanker === r.number ? "rotate-90" : ""}`} />
                       </button>
 
                       {/* Submitted + Expanded */}
-                      {expandedRanker === r.number && r.submitted && (
+                      {expandedRanker === r.number && r.count > 0 && (
                         <div id={`ranking-details-${r.number}`} className="px-3 pb-3 border-t border-gray-800/60 pt-3 space-y-1.5">
                           {editingRanker === r.number ? (
                             <>
@@ -3754,7 +3754,7 @@ export default function Admin3Page() {
                       )}
 
                       {/* Not Submitted + Expanded */}
-                      {expandedRanker === r.number && !r.submitted && (
+                      {expandedRanker === r.number && !r.count && (
                         <div id={`ranking-details-${r.number}`} className="px-3 pb-3 border-t border-gray-800/60 pt-3 space-y-1.5">
                           {simulatingRanker === r.number ? (
                             <>

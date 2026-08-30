@@ -2958,8 +2958,11 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   const [showRankTutorial, setShowRankTutorial] = useState(false)
   const [timeLeft, setTimeLeft] = useState(300) // fallback, overwritten by server timer
   const [autoSaving, setAutoSaving] = useState(false)
+  const [draftSync, setDraftSync] = useState<"saving" | "saved" | "error">("saving")
   const [showTimeWarning, setShowTimeWarning] = useState(false)
-  const initialPhaseRef = useRef(currentPhase)
+  const rankingEventRef = useRef<number | null>(null)
+  const revisionRef = useRef(0)
+  const savingRef = useRef(false)
   const submittedRef = useRef(false)
   const orderRef = useRef<number[]>([])
   const autoSavedRef = useRef(false)
@@ -3005,7 +3008,9 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
       // "new" badge only for people from the latest round (and only when completedRounds > 1)
       const newRound = completedRounds > 1 ? completedRounds : -1
       setNewNums(new Set(allPeople.filter(p => p.round === newRound).map(p => p.number)))
-      setOrder([...ranked.map(p => p.number), ...fresh.map(p => p.number)])
+      rankingEventRef.current = d.event_id
+      revisionRef.current = Math.max(Date.now(), Number(d.draft_revision || 0) + 1)
+      setOrder(d.draft_order || [...ranked.map(p => p.number), ...fresh.map(p => p.number)])
       if (d.already_submitted) {
         setSubmitted(true)
         onRankingResolved(completedRounds)
@@ -3050,22 +3055,70 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
     return () => clearInterval(iv)
   }, [timerActive, timerStart, timerDuration, correctedNow])
 
-  // Auto-save when timer hits 0 and not manually submitted
+  const rankingClosed = currentPhase !== `ranking${completedRounds}`
+  const rankingExpired = timeLeft <= 0
+
+  // Sync unfinished orders so phase advancement can finalize even sleeping phones.
   useEffect(() => {
-    if (timeLeft > 0 || submittedRef.current || autoSavedRef.current || loading) return
+    if (loading || loadError || submitted || !order.length || rankingClosed || rankingExpired) return
+    let cancelled = false
+    let retry: ReturnType<typeof setTimeout>
+    const revision = revisionRef.current = Math.max(Date.now(), revisionRef.current + 1)
+    setDraftSync("saving")
+    const sync = async () => {
+      const d = await call("e3-save-ranking-draft", token, {
+        ranked_list: order, completed_rounds: completedRounds, event_id: rankingEventRef.current, revision,
+      })
+      if (cancelled) return
+      if (d.error) {
+        setDraftSync("error")
+        retry = setTimeout(sync, 3000)
+        return
+      }
+      setDraftSync("saved")
+      if (d.complete) {
+        submittedRef.current = true
+        setSubmitted(true)
+        onRankingResolved(completedRounds)
+      }
+    }
+    retry = setTimeout(sync, 150)
+    return () => { cancelled = true; clearTimeout(retry) }
+  }, [token, completedRounds, order, loading, loadError, submitted, rankingClosed, rankingExpired, onRankingResolved])
+
+  // Timer expiry and host advancement both resolve the ranking. Failed saves retry.
+  useEffect(() => {
+    if ((!rankingExpired && !rankingClosed) || submitted || autoSavedRef.current || loading || loadError || !order.length || submitting) return
+    let cancelled = false
+    let retry: ReturnType<typeof setTimeout>
     const doAutoSave = async () => {
+      if (savingRef.current) { retry = setTimeout(doAutoSave, 1000); return }
+      savingRef.current = true
       setShowConfirm(false)
       setAutoSaving(true)
-      autoSavedRef.current = true
-      const d = await call('e3-submit-ranking', token, { ranked_list: orderRef.current, auto_saved: true })
+      const revision = revisionRef.current = Math.max(Date.now(), revisionRef.current + 1)
+      const d = await call('e3-submit-ranking', token, {
+        ranked_list: orderRef.current, auto_saved: true,
+        completed_rounds: completedRounds, event_id: rankingEventRef.current, revision,
+      })
+      savingRef.current = false
+      if (cancelled) return
       setAutoSaving(false)
-      if (d.error) { toast.error(d.error); return }
+      if (d.error) {
+        setDraftSync("error")
+        toast.error(d.error, { id: "ranking-autosave-error" })
+        retry = setTimeout(doAutoSave, 3000)
+        return
+      }
+      autoSavedRef.current = true
+      submittedRef.current = true
       setSubmitted(true)
       onRankingResolved(completedRounds)
-      toast('انتهى الوقت — تم حفظ تصنيفك تلقائياً', { duration: 5000, icon: '⏰' })
+      toast('تم حفظ تصنيفك تلقائياً', { duration: 5000, icon: '⏰' })
     }
     doAutoSave()
-  }, [timeLeft, token, loading, completedRounds, onRankingResolved])
+    return () => { cancelled = true; clearTimeout(retry) }
+  }, [rankingExpired, rankingClosed, token, loading, loadError, order.length, submitted, submitting, completedRounds, onRankingResolved])
 
   useEffect(() => {
     if (timeLeft <= 0 || submitted || autoSaving) setShowConfirm(false)
@@ -3073,11 +3126,10 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
 
   // Detect phase change while user is on ranking screen
   useEffect(() => {
-    if (currentPhase !== initialPhaseRef.current && !submitted) {
+    if (rankingClosed && !submitted) {
       setShowPhaseWarning(true)
-      toast('المنظم انتقل للمرحلة التالية — ارتب اختياراتك وأرسلها بسرعة!', { duration: 6000 })
     }
-  }, [currentPhase, submitted])
+  }, [rankingClosed, submitted])
 
   const saveNote = async (aboutNumber: number, text: string) => {
     setSavingNote(aboutNumber)
@@ -3096,15 +3148,19 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   }
 
   const submit = async () => {
-    if (submitting || autoSaving || autoSavedRef.current || submittedRef.current || timeLeft <= 0) {
+    if (savingRef.current || submitting || autoSaving || autoSavedRef.current || submittedRef.current || rankingClosed || timeLeft <= 0) {
       setShowConfirm(false)
       return
     }
     setSubmitting(true)
-    const d = await call("e3-submit-ranking", token, { ranked_list: order })
+    savingRef.current = true
+    const revision = revisionRef.current = Math.max(Date.now(), revisionRef.current + 1)
+    const d = await call("e3-submit-ranking", token, { ranked_list: order, completed_rounds: completedRounds, event_id: rankingEventRef.current, revision })
+    savingRef.current = false
     setSubmitting(false)
     if (d.error) { toast.error(d.error); return }
     setShowConfirm(false)
+    submittedRef.current = true
     setSubmitted(true)
     onRankingResolved(completedRounds)
     toast.success(completedRounds >= 2 ? "تم حفظ تصنيفك النهائي!" : "تم حفظ تصنيفك!")
@@ -3113,7 +3169,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   const personMap = Object.fromEntries(people.map(p => [p.number, p]))
 
   const moveToRank = (number: number, nextIndex: number) => {
-    if (submitted) return
+    if (submitted || submitting || autoSaving || rankingClosed || rankingExpired) return
     setOrder(current => {
       const fromIndex = current.indexOf(number)
       if (fromIndex < 0 || fromIndex === nextIndex) return current
@@ -3255,7 +3311,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                   className="text-amber-300 text-[10px] bg-amber-900/30 border border-amber-700/30 rounded-full px-2.5 py-0.5 font-medium inline-flex items-center gap-1 cursor-pointer"
                   onClick={() => setShowPhaseWarning(false)}
                 >
-                  <Clock size={10} /> عجّل — المنظم انتقل
+                  <Clock size={10} /> انتقل المنظم — جارٍ تأكيد الحفظ التلقائي
                 </motion.span>
               )}
               {timeLeft <= 30 && timeLeft > 0 && (
@@ -3300,7 +3356,10 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
           </motion.div>
         )}
         <p className="sr-only" aria-live="polite">{rankAnnouncement}</p>
-        <Reorder.Group axis="y" values={order} onReorder={setOrder} className="space-y-1.5" as="div" role="list" aria-label="ترتيب المشاركين">
+        {!submitted && <p role="status" className={`mb-2 text-center text-[11px] ${draftSync === "error" ? "text-amber-300" : "text-gray-400"}`}>
+          {draftSync === "error" ? "تعذّرت مزامنة الترتيب — نحاول مجدداً، أبقِ الصفحة مفتوحة" : draftSync === "saving" ? "جارٍ مزامنة ترتيبك..." : "تمت مزامنة ترتيبك — يُحفظ تلقائياً عند انتهاء المرحلة"}
+        </p>}
+        <Reorder.Group axis="y" values={order} onReorder={next => { if (!submitted && !submitting && !autoSaving && !rankingClosed && !rankingExpired) setOrder(next) }} className="space-y-1.5" as="div" role="list" aria-label="ترتيب المشاركين">
           {order.map((num, idx) => {
             const p = personMap[num]
             if (!p) return null
@@ -3311,7 +3370,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                 key={num}
                 value={num}
                 className={`rounded-xl border transition-colors ${accent} ${submitted ? 'cursor-not-allowed opacity-40' : 'select-none hover:border-white/[0.1]'}`}
-                disabled={submitted}
+                disabled={submitted || submitting || autoSaving || rankingClosed || rankingExpired}
                 whileDrag={submitted ? undefined : {
                   scale: 1.03,
                   boxShadow: '0 10px 30px rgba(0,0,0,0.45)',
@@ -3438,7 +3497,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
               </motion.button>
               <p className="text-gray-600 text-[10px]">انتظر المنظم للانتقال للمرحلة التالية</p>
               {!autoSavedRef.current && (
-                <button onClick={() => { setSubmitted(false); onRankingDirty() }} disabled={submitting}
+                <button onClick={() => { submittedRef.current = false; setSubmitted(false); onRankingDirty() }} disabled={submitting || rankingClosed || rankingExpired}
                   className="text-gray-500 hover:text-gray-300 text-[10px] underline transition-colors">
                   تعديل التصنيف
                 </button>

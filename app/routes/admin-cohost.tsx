@@ -168,6 +168,7 @@ interface CohostRanking {
   submitted: boolean
   auto_saved: boolean
   count: number
+  expected_count: number
   ranked_list: CohostRankingItem[]
 }
 
@@ -1504,12 +1505,12 @@ export default function AdminCohostPage() {
                       <div className="min-w-0">
                         <h3 className="truncate text-sm font-black">{ranking.name} <span className="text-[10px] font-normal text-slate-500">#{ranking.number}</span></h3>
                         {tableBadges.length ? <div className="mt-1.5 flex flex-wrap gap-1">{tableBadges.map(table => <span key={table.key} className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[9px] font-black ${table.live ? "border-amber-300/25 bg-amber-300/[0.08] text-amber-100" : "border-white/[0.07] bg-black/15 text-slate-400"}`}><MapPin size={10} />{table.label}</span>)}</div> : null}
-                        <p className={`mt-1.5 text-[10px] font-bold ${ranking.submitted ? "text-teal-200" : "text-amber-200"}`}>{ranking.submitted ? `${ranking.count} أسماء مرتبة${ranking.auto_saved ? " · حفظ تلقائي" : ""}` : "لم يرسل التصنيف بعد"}</p>
+                        <p className={`mt-1.5 text-[10px] font-bold ${ranking.submitted ? "text-teal-200" : "text-amber-200"}`}>{ranking.submitted ? `${ranking.count} أسماء مرتبة${ranking.auto_saved ? " · حفظ تلقائي" : ""}` : ranking.count > 0 ? `${ranking.count} / ${ranking.expected_count} · غير مكتمل` : "لم يرسل التصنيف بعد"}</p>
                       </div>
                       {ranking.submitted && !isEditing ? <button onClick={() => startRankingEdit(ranking)} disabled={editingRanker !== null} className="flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-[10px] font-black text-slate-200 disabled:opacity-40"><Pencil size={13} /> تعديل</button> : null}
                     </div>
 
-                    {ranking.submitted ? (
+                    {ranking.count > 0 ? (
                       isEditing ? (
                         <div className="mt-3 space-y-2 border-t border-white/[0.07] pt-3">
                           <p className="text-[10px] leading-5 text-amber-100/70">حرّكي الأسماء ثم احفظي. لا يمكن تغيير من هم داخل القائمة.</p>

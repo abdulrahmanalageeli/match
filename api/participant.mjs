@@ -3597,31 +3597,11 @@ Please respond in JSON format:
           const elapsed = Math.floor((Date.now() - new Date(stateRow.global_timer_start_time).getTime()) / 1000)
           const remaining = Math.max(0, (stateRow.global_timer_duration ?? getEvent3PhaseTimerSeconds(phase)) - elapsed)
           if (remaining === 0) {
-            // Check if participant already has rankings
-            const { data: existingRanks } = await supabase.from("participant_rankings").select("id").eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId).eq("ranker_number", myNumber).limit(1)
-            if (!existingRanks || existingRanks.length === 0) {
-              // Determine max round based on ranking phase (ranking1=round 1, ranking2=rounds 1-2)
-              const maxRound = phase === "ranking1" ? 1 : 2
-              // Auto-save default rankings based on meeting order (only rounds 1..maxRound)
-              const { data: allAssignments } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId).lte("round", maxRound)
-              if (allAssignments && allAssignments.length > 0) {
-                const myRounds = allAssignments.filter(a => a.participant_id === myNumber)
-                if (myRounds.length > 0) {
-                  const seenMates = new Set()
-                  const mates = []
-                  for (const row of myRounds.sort((a, b) => a.round - b.round)) {
-                    const tableMates = allAssignments.filter(a => a.round === row.round && a.table_number === row.table_number && a.participant_id !== myNumber)
-                    for (const m of tableMates) { if (!seenMates.has(m.participant_id)) { seenMates.add(m.participant_id); mates.push(m.participant_id) } }
-                  }
-                  if (mates.length > 0) {
-                    const rows = mates.map((num, idx) => ({ match_id: E3_MATCH_ID, event_id: activeEventId, ranker_number: myNumber, ranked_number: num, rank: idx + 1, auto_saved: true }))
-                    await supabase.from("participant_rankings").delete().eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId).eq("ranker_number", myNumber)
-                    await supabase.from("participant_rankings").insert(rows)
-                    console.log(`[auto-save] Server auto-saved rankings for #${myNumber} (${rows.length} entries, rounds 1-${maxRound}) — ranking timer expired`)
-                  }
-                }
-              }
-            }
+            const { error: completionError } = await supabase.rpc("complete_event3_rankings", {
+              p_match_id: E3_MATCH_ID, p_event_id: activeEventId,
+              p_completed_rounds: phase === "ranking1" ? 1 : 2, p_ranker_number: myNumber,
+            })
+            if (completionError) logError("Event3 ranking timer completion", completionError)
           }
         }
 
@@ -3824,7 +3804,7 @@ Please respond in JSON format:
 
       // e3-get-participants-met
       if (action === "e3-get-participants-met") {
-        const completedRounds = Math.min(parseInt(req.body.completed_rounds || "3") || 3, 3)
+        const completedRounds = Math.min(Math.max(parseInt(req.body.completed_rounds || "2") || 2, 1), 2)
         const { data: allRounds } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_id", myNumber).lte("round", completedRounds)
         if (!allRounds || allRounds.length === 0) return res.status(404).json({ error: "No session assignments found" })
         const metNumbers = []
@@ -3846,10 +3826,22 @@ Please respond in JSON format:
         // Build table_number map from session_assignments
         const tableMap = {}
         for (const row of allRounds) { const { data: mates } = await supabase.from("session_assignments").select("participant_id").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("round", row.round).eq("table_number", row.table_number).neq("participant_id", myNumber); for (const m of mates || []) { if (!tableMap[m.participant_id]) tableMap[m.participant_id] = row.table_number } }
-        const { data: existingRankings } = await supabase.from("participant_rankings").select("ranked_number,rank").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("ranker_number", myNumber)
+        const { data: existingRankings, error: rankingsError } = await supabase.from("participant_rankings").select("ranked_number,rank").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("ranker_number", myNumber)
+        if (rankingsError) throw rankingsError
+        const { data: rankingState, error: rankingStateError } = await supabase.from("event_state").select("phase,test_mode_active,test_mode_snapshot").eq("match_id", E3_MATCH_ID).single()
+        if (rankingStateError) throw rankingStateError
+        const sessionKey = rankingState.test_mode_active ? (rankingState.test_mode_snapshot?.started_at || "legacy-test") : "live"
+        const { data: draft, error: draftError } = await supabase.from("event3_ranking_drafts").select("ranked_numbers,revision,submitted")
+          .eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("ranker_number", myNumber)
+          .eq("completed_rounds", completedRounds).eq("session_key", sessionKey).maybeSingle()
+        if (draftError) throw draftError
         const rankingMap = {}
         for (const r of existingRankings || []) rankingMap[r.ranked_number] = r.rank
-        return res.status(200).json({ people: metNumbers.map(m => ({ number: m.number, first_name: firstName(nameMap[m.number]), round: m.round, table_number: tableMap[m.number] || null })), existing_rankings: rankingMap, already_submitted: (existingRankings || []).length > 0 && (existingRankings || []).length >= metNumbers.length })
+        const pendingDraft = rankingState.phase === `ranking${completedRounds}` && draft && !draft.submitted
+          && draft.ranked_numbers.length === nums.length && nums.every(n => draft.ranked_numbers.includes(n))
+        return res.status(200).json({ people: metNumbers.map(m => ({ number: m.number, first_name: firstName(nameMap[m.number]), round: m.round, table_number: tableMap[m.number] || null })), existing_rankings: rankingMap,
+          event_id: currentEventId, draft_order: pendingDraft ? draft.ranked_numbers : null, draft_revision: draft?.revision || 0,
+          already_submitted: !pendingDraft && nums.every(n => rankingMap[n] !== undefined) })
       }
 
       // Optional absolute feedback about individual tablemates. This is
@@ -3898,49 +3890,35 @@ Please respond in JSON format:
         return res.status(200).json({ message: "Group member feedback saved", saved_count: savedCount || normalized.value.entries.length })
       }
 
-      // e3-submit-ranking
-      if (action === "e3-submit-ranking") {
+      // Drafts and final submissions share the event lock with phase advancement.
+      if (action === "e3-submit-ranking" || action === "e3-save-ranking-draft") {
         const { ranked_list, auto_saved } = req.body
         if (!Array.isArray(ranked_list) || ranked_list.length === 0) return res.status(400).json({ error: "Ranking list cannot be empty" })
         const normalizedRanking = ranked_list.map(Number)
         if (normalizedRanking.some(num => !Number.isInteger(num) || num <= 0 || num === myNumber) || new Set(normalizedRanking).size !== normalizedRanking.length) {
           return res.status(400).json({ error: "Ranking list contains an invalid or duplicate participant" })
         }
-
-        const { data: phaseState } = await supabase.from("event_state").select("phase").eq("match_id", E3_MATCH_ID).maybeSingle()
-        const maxRound = phaseState?.phase === "ranking1" ? 1 : 2
-        const { data: assignments, error: assignmentsError } = await supabase.from("session_assignments")
-          .select("round,table_number,participant_id")
-          .eq("match_id", E3_MATCH_ID)
-          .eq("event_id", currentEventId)
-          .in("round", maxRound === 1 ? [1] : [1, 2])
-        if (assignmentsError) return res.status(500).json({ error: assignmentsError.message })
-        const myAssignments = (assignments || []).filter(row => row.participant_id === myNumber)
-        const allowedNumbers = new Set()
-        for (const myAssignment of myAssignments) {
-          for (const row of assignments || []) {
-            if (row.round === myAssignment.round && row.table_number === myAssignment.table_number && row.participant_id !== myNumber) {
-              allowedNumbers.add(row.participant_id)
-            }
-          }
+        const { data: phaseState, error: phaseError } = await supabase.from("event_state").select("phase").eq("match_id", E3_MATCH_ID).single()
+        if (phaseError) throw phaseError
+        // Explicit scope keeps a late first-round request from being validated as round two.
+        // The fallback supports phones still running the previous client.
+        const completedRounds = Number(req.body.completed_rounds ?? (phaseState.phase === "ranking1" ? 1 : 2))
+        const revision = Number(req.body.revision ?? Date.now())
+        if (![1, 2].includes(completedRounds) || !Number.isSafeInteger(revision) || revision < 0) {
+          return res.status(400).json({ error: "Invalid ranking round or revision" })
         }
-        if (allowedNumbers.size === 0) return res.status(400).json({ error: "No met participants are available to rank" })
-        if (normalizedRanking.length !== allowedNumbers.size || normalizedRanking.some(num => !allowedNumbers.has(num))) {
-          return res.status(400).json({ error: "Ranking must include each participant you met exactly once" })
+        if (req.body.event_id != null && Number(req.body.event_id) !== currentEventId) {
+          return res.status(409).json({ error: "Event has changed; refresh before saving" })
         }
-
-        const { data: previousRows } = await supabase.from("participant_rankings").select("ranked_number,rank,auto_saved").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("ranker_number", myNumber)
-        const { error: deleteError } = await supabase.from("participant_rankings").delete().eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("ranker_number", myNumber)
-        if (deleteError) return res.status(500).json({ error: deleteError.message })
-        const newRows = normalizedRanking.map((num, idx) => ({ match_id: E3_MATCH_ID, event_id: currentEventId, ranker_number: myNumber, ranked_number: num, rank: idx + 1, auto_saved: !!auto_saved }))
-        const { error } = await supabase.from("participant_rankings").insert(newRows)
-        if (error) {
-          if (previousRows?.length) {
-            await supabase.from("participant_rankings").insert(previousRows.map(row => ({ ...row, match_id: E3_MATCH_ID, event_id: currentEventId, ranker_number: myNumber })))
-          }
-          return res.status(500).json({ error: error.message })
-        }
-        return res.status(200).json({ message: "Rankings submitted successfully" })
+        const { data, error } = await supabase.rpc("save_event3_ranking", {
+          p_match_id: E3_MATCH_ID, p_event_id: currentEventId, p_ranker_number: myNumber,
+          p_completed_rounds: completedRounds, p_ranked_numbers: normalizedRanking,
+          p_revision: revision, p_draft_only: action === "e3-save-ranking-draft", p_auto_saved: !!auto_saved,
+        })
+        if (error) return res.status(error.code === "22023" ? 400 : 503).json({ error: error.message, retryable: error.code !== "22023" })
+        if (data.closed && !data.complete) return res.status(409).json({ error: "The ranking phase has closed. Please contact the organizer.", code: "RANKING_CLOSED" })
+        if (data.stale && !data.complete) return res.status(409).json({ error: "A newer ranking was saved. Refresh to load it.", code: "RANKING_STALE" })
+        return res.status(200).json({ ...data, message: "Ranking saved", event_id: currentEventId })
       }
 
       // e3-get-phase2-reveal

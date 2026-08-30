@@ -8,6 +8,7 @@ import { collectEventSwapPairs, collectMatchResultSwapPairs, getTableSwapRounds 
 import { buildTestAdminSession, testMatchToLockedMatch } from "../../server/event3/test-match-results.mjs"
 import { choosePreparedTestPairs, validatePreparedTestAlgorithmRows } from "../../server/event3/prepared-test-algorithm.mjs"
 import { buildDislikeLeaderboard } from "../../server/event3/dislike-ranking.mjs"
+import { buildRankingCompletion, loadRankingCompletion, rankingRoundsForPhase } from "../../server/event3/ranking-completion.mjs"
 import { buildGroupMemberFeedbackSummary } from "../../server/event3/group-member-feedback.mjs"
 import { buildReciprocalRankingLookup, getCohostNoteContext, normalizeCohostNoteScope, selectCohostLockedScoreSource } from "../../server/event3/cohost-operations.mjs"
 import {
@@ -9133,7 +9134,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             supabase.from("participants").select("assigned_number,name,age").eq("match_id", STATIC_MATCH_ID).in("assigned_number", numbers),
             supabase.from("session_assignments").select("participant_id,round,table_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("round", [1, 2, 3, 20, 30]).in("participant_id", numbers),
             supabase.from("event3_matches").select("participant_number,phase2_partner,phase2_score,phase2_score_model_version,phase2_score_snapshot,phase2_score_content_hash,phase3_partner,phase3_score,phase3_score_model_version,phase3_score_snapshot,phase3_score_content_hash").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_number", numbers),
-            supabase.from("participant_rankings").select("ranker_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("ranker_number", numbers),
+            supabase.from("participant_rankings").select("ranker_number,ranked_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("ranker_number", numbers),
             supabase.from("event_attendance").select("participant_number,attended").eq("match_id", STATIC_MATCH_ID).eq("event_id", currentEventId).in("participant_number", numbers),
             supabase.from("event_attendance").select("participant_number,event_id,attended").eq("match_id", STATIC_MATCH_ID).neq("event_id", currentEventId).in("participant_number", numbers),
             supabase.from("event3_participants").select("participant_number,event_id").eq("match_id", EVENT3_MATCH_ID).neq("event_id", currentEventId).in("participant_number", numbers),
@@ -9204,7 +9205,8 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             if (!phase3FallbackMap.has(pair.a)) phase3FallbackMap.set(pair.a, { ...pair, partner: pair.b })
             if (!phase3FallbackMap.has(pair.b)) phase3FallbackMap.set(pair.b, { ...pair, partner: pair.a })
           }
-          const rankingSubmitted = new Set((rankingResult.data || []).map(row => row.ranker_number))
+          const rankingCompletion = buildRankingCompletion(assignmentResult.data || [], rankingResult.data || [], rankingRoundsForPhase(stateRow?.phase))
+          const rankingSubmitted = new Set(numbers.filter(number => rankingCompletion(number).submitted))
           const attendanceMap = new Map((attendanceResult.data || []).map(row => [row.participant_number, !!row.attended]))
           const priorEventSets = {}
           const knownAttendanceKeys = new Set()
@@ -9360,13 +9362,14 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             rowsByRanker.get(rankerNumber).push(row)
           }
           const reciprocalRank = buildReciprocalRankingLookup(scopedRows)
+          const completion = await loadRankingCompletion(supabase, EVENT3_MATCH_ID, currentEventId, scopedRows)
           const rowByDirection = new Map(scopedRows.map(row => [`${Number(row.ranker_number)}:${Number(row.ranked_number)}`, row]))
           const rankings = numbers.map(number => {
             const rows = (rowsByRanker.get(number) || []).sort((left, right) => Number(left.rank) - Number(right.rank))
             return {
               number,
               name: nameMap.get(number) || `#${number}`,
-              submitted: rows.length > 0,
+              ...completion(number),
               auto_saved: rows.some(row => row.auto_saved === true),
               count: rows.length,
               ranked_list: rows.map(row => ({
@@ -9779,9 +9782,11 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           if (mcErr) console.error("[e3-get-state] matches count error:", mcErr.message)
           const { count: mc3, error: mc3Err } = await supabase.from("event3_matches").select("id", { count: "exact", head: true }).eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).not("phase3_partner", "is", null)
           if (mc3Err) console.error("[e3-get-state] phase3 matches count error:", mc3Err.message)
-          const { data: rankRows, error: rankErr } = await supabase.from("participant_rankings").select("ranker_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          const { data: rankRows, error: rankErr } = await supabase.from("participant_rankings").select("ranker_number,ranked_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           if (rankErr) console.error("[e3-get-state] rankings error:", rankErr.message)
-          const uniqueRankers = new Set((rankRows || []).map(r => r.ranker_number)).size
+          if (rankErr) throw rankErr
+          const completion = await loadRankingCompletion(supabase, EVENT3_MATCH_ID, currentEventId, rankRows || [])
+          const uniqueRankers = [...new Set((rankRows || []).map(r => r.ranker_number))].filter(n => completion(n).submitted).length
           const phase = stateRow?.phase || "setup"
           return res.status(200).json({ phase, timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration ?? getEvent3PhaseTimerSeconds(phase), timer_round: stateRow?.global_timer_round ?? null, participants_selected: pc || 0, seating_generated: (sc || 0) > 0, rankings_submitted: uniqueRankers, phase2_matches_done: (mc || 0) > 0, phase3_matches_done: (mc3 || 0) > 0, phase2_score_revealed: stateRow?.phase2_score_revealed || false, phase3_score_revealed: stateRow?.phase3_score_revealed || false, cohost_locked: stateRow?.cohost_locked === true, cohost_lock_updated_at: stateRow?.cohost_lock_updated_at || null, current_event_id: currentEventId, _debug: { realEventId, currentEventId, errors: { participants: pcErr?.message || null, seating: scErr?.message || null, matches: mcErr?.message || null, phase3: mc3Err?.message || null, rankings: rankErr?.message || null } } })
         }
@@ -10041,14 +10046,16 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           const selected = (ep || []).map(r => r.participant_number)
           const selectedSet = new Set(selected.map(Number))
-          const { data: rankRows } = await supabase.from("participant_rankings").select("ranker_number,auto_saved").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          const { data: rankRows, error: ranksError } = await supabase.from("participant_rankings").select("ranker_number,ranked_number,auto_saved").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
+          if (ranksError) throw ranksError
           const visibleRankRows = (rankRows || []).filter(row => selectedSet.has(Number(row.ranker_number)))
-          const submittedSet = new Set(visibleRankRows.map(r => r.ranker_number))
+          const completion = await loadRankingCompletion(supabase, EVENT3_MATCH_ID, currentEventId, visibleRankRows)
+          const submittedSet = new Set(selected.filter(n => completion(n).submitted))
           const autoSavedSet = new Set(visibleRankRows.filter(r => r.auto_saved).map(r => r.ranker_number))
           const { data: pdata } = await supabase.from("participants").select("assigned_number,name,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", selected)
           const nameMap = {}
           for (const p of pdata || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); nameMap[p.assigned_number] = p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}` }
-          return res.status(200).json({ total: selected.length, submitted: submittedSet.size, auto_saved_count: autoSavedSet.size, status: selected.map(n => ({ number: n, submitted: submittedSet.has(n), auto_saved: autoSavedSet.has(n), name: nameMap[n] || `#${n}` })) })
+          return res.status(200).json({ total: selected.length, submitted: submittedSet.size, auto_saved_count: autoSavedSet.size, status: selected.map(n => ({ number: n, ...completion(n), auto_saved: autoSavedSet.has(n), name: nameMap[n] || `#${n}` })) })
         }
         // e3-toggle-phase2-exclusion
         if (action === "e3-toggle-phase2-exclusion") {
@@ -10064,7 +10071,20 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         // e3-trigger-phase2-matching
         if (action === "e3-trigger-phase2-matching") {
           // Check test mode
-          const { data: tmState2 } = await supabase.from("event_state").select("test_mode_active").eq("match_id", EVENT3_MATCH_ID).maybeSingle()
+          const { data: tmState2, error: tmStateError } = await supabase.from("event_state").select("test_mode_active,phase,current_event_id").eq("match_id", EVENT3_MATCH_ID).single()
+          if (tmStateError) throw tmStateError
+          if (Number(tmState2.current_event_id) !== Number(currentEventId)) return res.status(409).json({ error: "Cannot match a historical event" })
+          if (["setup", "round1", "ranking1", "round2"].includes(tmState2.phase)) return res.status(409).json({ error: "Finish both group rounds before matching" })
+          if (tmState2.phase === "ranking2") {
+            // The database trigger completes every ballot atomically before this returns.
+            const { error } = await supabase.from("event_state").update({ phase: "phase2_processing", global_timer_active: false })
+              .eq("match_id", EVENT3_MATCH_ID).eq("current_event_id", currentEventId).eq("phase", "ranking2")
+            if (error) return res.status(503).json({ error: error.message })
+          }
+          const { error: completionError } = await supabase.rpc("complete_event3_rankings", {
+            p_match_id: EVENT3_MATCH_ID, p_event_id: currentEventId, p_completed_rounds: 2,
+          })
+          if (completionError) return res.status(503).json({ error: completionError.message })
           const isTestMode2 = !!tmState2?.test_mode_active
 
           // Fetch phase2_excluded participants
@@ -10547,6 +10567,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             .order("updated_at", { ascending: false })
           if (groupFeedbackError) return res.status(500).json({ error: groupFeedbackError.message })
           const currentRanks = allEventRanks.filter(row => Number(row.event_id) === Number(currentEventId))
+          const completion = await loadRankingCompletion(supabase, EVENT3_MATCH_ID, currentEventId, currentRanks)
           const knownNumbers = [...new Set([
             ...selected,
             ...allEventRanks.flatMap(row => [row.ranker_number, row.ranked_number]),
@@ -10568,7 +10589,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const result = selected.map(n => ({
             number: n,
             name: nameMap[n] || `#${n}`,
-            submitted: !!byRanker[n],
+            ...completion(n),
             auto_saved: !!autoSavedByRanker[n],
             count: (byRanker[n] || []).length,
             ranked_list: (byRanker[n] || []).sort((a, b) => a.rank - b.rank),
@@ -10599,35 +10620,15 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             },
           })
         }
-        // e3-force-auto-save-rankings — save last-known state for all unsubmitted participants
+        // Complete partial first-round ballots as well as entirely missing ballots.
         if (action === "e3-force-auto-save-rankings") {
-          const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
-          const selected = (ep || []).map(r => r.participant_number)
-          if (selected.length === 0) return res.status(400).json({ error: "No participants selected" })
-          const { data: existingRanks } = await supabase.from("participant_rankings").select("ranker_number,ranked_number,rank").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).order("rank", { ascending: true })
-          const hasRanking = new Set((existingRanks || []).map(r => r.ranker_number))
-          const missing = selected.filter(n => !hasRanking.has(n))
-          if (missing.length === 0) return res.status(200).json({ message: "All participants already have rankings", saved: 0 })
-          // Load every selected attendee at the relevant tables. Filtering this
-          // query to only the missing rankers drops tablemates who already
-          // submitted, producing incomplete auto-saved rankings.
-          const { data: allAssignments } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_id", selected).in("round", [1, 2])
-          if (!allAssignments || allAssignments.length === 0) return res.status(400).json({ error: "No session assignments found for missing participants" })
-          const rows = []
-          for (const myNum of missing) {
-            const myRounds = allAssignments.filter(a => a.participant_id === myNum)
-            const seenMates = new Set()
-            const mates = []
-            for (const row of myRounds.sort((a, b) => a.round - b.round)) {
-              const tableMates = allAssignments.filter(a => a.round === row.round && a.table_number === row.table_number && a.participant_id !== myNum)
-              for (const m of tableMates) { if (!seenMates.has(m.participant_id)) { seenMates.add(m.participant_id); mates.push(m.participant_id) } }
-            }
-            if (mates.length === 0) continue
-            for (let i = 0; i < mates.length; i++) rows.push({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, ranker_number: myNum, ranked_number: mates[i], rank: i + 1, auto_saved: true })
-          }
-          if (rows.length > 0) { const { error } = await supabase.from("participant_rankings").insert(rows); if (error) return res.status(500).json({ error: error.message }) }
-          const savedCount = new Set(rows.map(row => row.ranker_number)).size
-          return res.status(200).json({ message: `Auto-saved rankings for ${savedCount} participants (${rows.length} entries)`, saved: savedCount })
+          const { data: state, error: stateError } = await supabase.from("event_state").select("phase").eq("match_id", EVENT3_MATCH_ID).single()
+          if (stateError) throw stateError
+          const { data, error } = await supabase.rpc("complete_event3_rankings", {
+            p_match_id: EVENT3_MATCH_ID, p_event_id: currentEventId, p_completed_rounds: rankingRoundsForPhase(state.phase),
+          })
+          if (error) return res.status(503).json({ error: error.message })
+          return res.status(200).json({ ...data, message: `Completed rankings for ${data.saved} participants; existing choices preserved` })
         }
         // e3-reset-ranking — delete all rankings for one participant (reset to unranked)
         if (action === "e3-reset-ranking") {
@@ -10695,7 +10696,9 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const { data: assignments } = await supabase.from("session_assignments").select("participant_id,round,table_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           const { data: rankRows } = await supabase.from("participant_rankings").select("ranker_number,ranked_number,rank").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           const { data: matchRows } = await supabase.from("event3_matches").select("participant_number,phase2_partner").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
-          const { data: overviewState } = await supabase.from("event_state").select("test_mode_active").eq("match_id", EVENT3_MATCH_ID).maybeSingle()
+          const { data: overviewState } = await supabase.from("event_state").select("test_mode_active,phase,current_event_id").eq("match_id", EVENT3_MATCH_ID).maybeSingle()
+          const overviewCompletion = buildRankingCompletion(assignments || [], rankRows || [],
+            Number(overviewState?.current_event_id) === Number(currentEventId) ? rankingRoundsForPhase(overviewState?.phase) : 2)
           const overviewIsTestMode = overviewState?.test_mode_active === true
           // Build assignment maps: assignMap[num][round] = table
           const assignMap = {}
@@ -10726,7 +10729,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               r2Table: assignMap[p.assigned_number]?.[2] ?? null,
               r20Table: assignMap[p.assigned_number]?.[20] ?? null,
               rankingCount: rankerMap[p.assigned_number] ?? 0,
-              rankingSubmitted: (rankerMap[p.assigned_number] ?? 0) > 0,
+              rankingSubmitted: overviewCompletion(p.assigned_number).submitted,
               matchPartner: matchMap[p.assigned_number] ?? null,
               surveyAnswers: {
                 mbti: p.mbti_personality_type || sd.mbtiType || ans.mbti || null,

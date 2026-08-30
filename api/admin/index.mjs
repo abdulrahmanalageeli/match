@@ -11628,9 +11628,9 @@ ${alternativeProfile ? `بيانات استبيان شريك الجولة الأ
             return res.status(502).json({ error: `No complete current-model score was produced for #${replacementParticipant} × #${missingPartner}; no match or table was changed. Retry safely.` })
           }
 
+          let newCompatibility2
           let newProvenance2 = null
           if (replacementPartner != null) {
-            let newCompatibility2
             try {
               newCompatibility2 = await e3FullCalcCompat(
                 swapPMap[missingParticipant],

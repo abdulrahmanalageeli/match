@@ -1,6 +1,7 @@
 import test from "node:test"
 import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
+import { runInNewContext } from "node:vm"
 import {
   collectEventSwapPairs,
   collectMatchResultSwapPairs,
@@ -50,6 +51,79 @@ test("regular result planning swaps locked one-to-one partners but ignores group
     { id: "a", a: 20, b: 30 },
     { id: "b", a: 10, b: 40 },
   ])
+})
+
+test("match swaps submit both pair scores in live and test mode", async t => {
+  const source = await readFile(new URL("../../api/admin/index.mjs", import.meta.url), "utf8")
+  const handler = source.slice(
+    source.indexOf('if (action === "e3-swap-match-partner")'),
+    source.indexOf('// e3-replace-participant'),
+  )
+
+  for (const testMode of [false, true]) {
+    for (const phase of ["phase2", "phase3"]) {
+      for (const replacementPartner of [40, null]) {
+        await t.test(`${testMode ? "test" : "live"} ${phase}, replacement ${replacementPartner == null ? "unpaired" : "paired"}`, async () => {
+          const scoringCalls = [], writes = [], refreshes = []
+          const partnerField = `${phase}_partner`
+          const rows = [
+            { participant_number: 10, [partnerField]: 30 },
+            { participant_number: 30, [partnerField]: 10 },
+            { participant_number: 20, [partnerField]: replacementPartner },
+            ...(replacementPartner == null ? [] : [{ participant_number: 40, [partnerField]: 20 }]),
+          ]
+          const profiles = [10, 20, 30, 40].map(assigned_number => ({ assigned_number }))
+          const res = { statusCode: null, body: null, status(code) { this.statusCode = code; return this }, json(body) { this.body = body; return this } }
+          await runInNewContext(`(async () => { ${handler} })()`, {
+            action: "e3-swap-match-partner",
+            req: { body: { phase, missing_participant: 10, replacement_participant: 20, expected_missing_partner: 30, expected_replacement_partner: replacementPartner } },
+            res,
+            EVENT3_MATCH_ID: "event3-fixture",
+            STATIC_MATCH_ID: "main-fixture",
+            currentEventId: 26,
+            supabase: {
+              from(table) {
+                assert.ok(["event3_matches", "participants"].includes(table))
+                return {
+                  select() { return this }, eq() { return this }, in() { return this },
+                  then(resolve) { resolve({ data: table === "event3_matches" ? rows : profiles, error: null }) },
+                }
+              },
+              async rpc(name, params) { writes.push({ name, params }); return { error: null } },
+            },
+            getEvent3TestContext: async () => ({ active: testMode, eventId: 26 }),
+            e3FullCalcCompat: async (a, b, options) => {
+              scoringCalls.push({ a: a.assigned_number, b: b.assigned_number, skipCacheWrite: options.skipCacheWrite })
+              return { total: a.assigned_number + b.assigned_number, reason: `Pair ${a.assigned_number}-${b.assigned_number}` }
+            },
+            buildEvent3ScoreProvenance: score => ({ persistedScore: score.total, scoreModelVersion: "fixture", scoreContentHash: "fixture-hash", scoreSnapshot: { total: score.total } }),
+            isStoredBalancedScoreSnapshot: () => true,
+            refreshEvent3TestMatchResults: async eventId => { refreshes.push(eventId) },
+          })
+
+          assert.equal(res.statusCode, 200)
+          assert.equal(writes.length, 1)
+          assert.equal(writes[0].name, phase === "phase3" ? "replace_event3_algorithm_match_partner" : "swap_event3_match_partner")
+          const { params } = writes[0]
+          assert.equal(params.p_event_id, 26)
+          assert.equal(params.p_first_score.reason, "Pair 20-30")
+          assert.equal(params.p_first_score.score, 50)
+          if (replacementPartner == null) {
+            assert.equal(params.p_second_score, null)
+          } else {
+            assert.equal(params.p_second_score.reason, "Pair 10-40")
+            assert.equal(params.p_second_score.score, 50)
+          }
+          assert.deepEqual(scoringCalls, [
+            { a: 20, b: 30, skipCacheWrite: testMode },
+            ...(replacementPartner == null ? [] : [{ a: 10, b: 40, skipCacheWrite: testMode }]),
+          ])
+          if (phase === "phase3") assert.equal(params.p_sync_locked_matches, !testMode)
+          assert.deepEqual(refreshes, testMode ? [26] : [])
+        })
+      }
+    }
+  }
 })
 
 test("admin3 algorithm replacement is searchable, gender-neutral, previewed, and isolated in test mode", async () => {

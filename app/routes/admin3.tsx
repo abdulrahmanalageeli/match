@@ -2787,6 +2787,7 @@ export default function Admin3Page() {
               key={`${realCurrentEventId}:${previewEventId}:${testMode}:${testModeData?.started_at || "live"}`}
               eventId={Number(realCurrentEventId)}
               testMode={testMode}
+              focusNumber={participants.some(p => p.number === 7 && p.selected) ? 7 : null}
               request={api}
               disabled={!realCurrentEventId || previewEventId != null || !seating?.[1] || !seating?.[2] || state?.phase !== "setup" || !!state?.timer_active || !!loading || testModeLoading}
               disabledReason={previewEventId != null ? "ارجع إلى الفعالية الحالية لعرض البدائل" : !seating?.[1] || !seating?.[2] ? "ولّد جلستي المجموعات أولاً" : state?.phase !== "setup" || state?.timer_active ? "تغيير الجولتين متاح قبل بدء جلسات المجموعات" : "انتظر اكتمال العملية الحالية"}

@@ -38,6 +38,39 @@ function pairCounts(rows) {
   return counts
 }
 
+function companionsByRound(rows, number) {
+  return [1, 2].map(round => {
+    const table = rows.find(row => row.round === round && row.participant_id === number)?.table_number
+    return rows.filter(row => row.round === round && row.table_number === table && row.participant_id !== number)
+      .map(row => row.participant_id).sort((a, b) => a - b)
+  })
+}
+
+function focusDetails(rows, number, participants, scores, baseline) {
+  const people = new Map(participants.map(p => [p.number, p]))
+  const focus = people.get(number)
+  const rounds = companionsByRound(rows, number)
+  const before = companionsByRound(baseline, number)
+  let scoreSum = 0, scoredPairs = 0, mixedPairs = 0, ageSum = 0, agePairs = 0
+  for (const companions of rounds) for (const other of companions) {
+    const person = people.get(other)
+    if (focus.age && person.age) { ageSum += Math.abs(focus.age - person.age); agePairs++ }
+    if (focus.gender !== "unknown" && person.gender !== "unknown" && person.gender !== focus.gender) {
+      mixedPairs++
+      const score = scores.get(pairKey(number, other))
+      if (Number.isFinite(score)) { scoreSum += score; scoredPairs++ }
+    }
+  }
+  return {
+    number, companions: rounds,
+    new_companions: rounds.map((companions, i) => companions.filter(other => !before[i].includes(other))),
+    repeated_partners: rounds[0].filter(other => rounds[1].includes(other)).length,
+    compatibility: scoredPairs ? scoreSum / scoredPairs : null,
+    average_age_gap: agePairs ? ageSum / agePairs : null,
+    scored_pairs: scoredPairs, mixed_pairs: mixedPairs,
+  }
+}
+
 export function seatingMetrics(rows, participants, scores = new Map(), baseline = rows) {
   const people = new Map(participants.map(p => [p.number, p]))
   const original = new Map(baseline.map(r => [`${r.round}:${r.participant_id}`, r.table_number]))
@@ -76,7 +109,7 @@ export function seatingMetrics(rows, participants, scores = new Map(), baseline 
 
 // Swap identities in both rounds together: capacities, gender composition, and
 // the repeat graph are preserved. Never run the mutating seating generator here.
-export function buildSeatingAlternatives({ assignments, participants, scores = new Map(), protectedPairs = [], random = Math.random, attempts = 800 }) {
+export function buildSeatingAlternatives({ assignments, participants, scores = new Map(), protectedPairs = [], focusNumber = null, random = Math.random, attempts = 800 }) {
   const baseline = canonicalSeating(assignments)
   const numbers = new Set(participants.map(p => p.number))
   if (numbers.size < 4 || numbers.size !== participants.length || baseline.length !== numbers.size * 2) {
@@ -91,12 +124,18 @@ export function buildSeatingAlternatives({ assignments, participants, scores = n
     seen.add(key)
   }
   const baseMetrics = seatingMetrics(baseline, participants, scores)
+  if (focusNumber != null && (!Number.isInteger(focusNumber) || !numbers.has(focusNumber))) throw fail("المشارك المحدد غير موجود في الجلسات الحالية")
+  const baseFocus = focusNumber != null ? focusDetails(baseline, focusNumber, participants, scores, baseline) : null
+  const focusGender = participants.find(p => p.number === focusNumber)?.gender
+  const otherGender = new Set(participants.filter(p => p.gender !== "unknown" && p.gender !== focusGender).map(p => p.number))
   const basePairs = pairCounts(baseline)
   const protectedKeys = [...new Set(protectedPairs.map(([a, b]) => pairKey(a, b)))]
   const tableOf = new Map(baseline.map(r => [`${r.round}:${r.participant_id}`, r.table_number]))
   const eligible = []
   for (let i = 0; i < participants.length; i++) for (let j = i + 1; j < participants.length; j++) {
     const a = participants[i], b = participants[j]
+    // Keep the focus attendee's own seats. Change their tablemates, not unrelated tables.
+    if (baseFocus && (a.number === focusNumber || b.number === focusNumber || !baseFocus.companions.some(group => group.includes(a.number) !== group.includes(b.number)))) continue
     if (a.gender === "unknown" || a.gender !== b.gender) continue
     if (a.age && b.age && Math.abs(a.age - b.age) > 8) continue
     if ([1, 2].every(round => tableOf.get(`${round}:${a.number}`) === tableOf.get(`${round}:${b.number}`))) continue
@@ -106,11 +145,16 @@ export function buildSeatingAlternatives({ assignments, participants, scores = n
   const baselineKey = JSON.stringify(baseline)
   for (let attempt = 0; attempt < attempts && eligible.length; attempt++) {
     const mapping = new Map(), used = new Set()
-    const target = 1 + Math.floor(random() * Math.min(5, Math.floor(participants.length / 2)))
+    const swap = ([a, b]) => { mapping.set(a, b); mapping.set(b, a); used.add(a); used.add(b) }
+    const target = baseFocus ? 2 + Math.floor(random() * Math.min(3, Math.floor(participants.length / 2) - 1)) : 1 + Math.floor(random() * Math.min(5, Math.floor(participants.length / 2)))
+    if (baseFocus) for (const group of baseFocus.companions) {
+      const choices = eligible.filter(([a, b]) => !used.has(a) && !used.has(b) && group.includes(a) !== group.includes(b))
+      if (choices.length) swap(choices[Math.floor(random() * choices.length)])
+    }
     for (let pick = 0; pick < target * 12 && mapping.size < target * 2; pick++) {
       const [a, b] = eligible[Math.floor(random() * eligible.length)]
       if (used.has(a) || used.has(b)) continue
-      mapping.set(a, b); mapping.set(b, a); used.add(a); used.add(b)
+      swap([a, b])
     }
     const plan = canonicalSeating(baseline.map(row => ({ ...row, participant_id: mapping.get(row.participant_id) || row.participant_id })))
     const key = JSON.stringify(plan)
@@ -120,22 +164,30 @@ export function buildSeatingAlternatives({ assignments, participants, scores = n
     if (protectedKeys.some(pair => (pairs.get(pair) || 0) > (basePairs.get(pair) || 0))) continue
     if ([...pairs].every(([pair, count]) => basePairs.get(pair) === count)) continue
     const metrics = seatingMetrics(plan, participants, scores, baseline)
+    const focus = baseFocus ? focusDetails(plan, focusNumber, participants, scores, baseline) : null
+    if (focus && (focus.new_companions.some(group => !group.length)
+      || focus.new_companions.some((group, i) => baseFocus.companions[i].some(number => otherGender.has(number)) && !group.some(number => otherGender.has(number)))
+      || focus.repeated_partners > baseFocus.repeated_partners)) continue
     // Keep age clustering close; compare cached scores only with similar coverage.
     if (metrics.rms_age_gap != null && metrics.rms_age_gap > baseMetrics.rms_age_gap + 0.5) continue
     if (metrics.scored_pairs < baseMetrics.scored_pairs * 0.975) continue
     if (metrics.compatibility != null && baseMetrics.compatibility != null && metrics.compatibility < baseMetrics.compatibility - 2) continue
-    const cost = (metrics.rms_age_gap || 0) - (metrics.compatibility || 0) / 10
-    candidates.set(key, { assignments: plan, metrics, cost })
+    if (focus && (focus.scored_pairs < baseFocus.scored_pairs || (focus.compatibility != null && baseFocus.compatibility != null && focus.compatibility < baseFocus.compatibility - 2))) continue
+    const cost = focus
+      ? (focus.average_age_gap || 0) - (focus.compatibility || 0) / 10 + (metrics.rms_age_gap || 0) / 4
+      : (metrics.rms_age_gap || 0) - (metrics.compatibility || 0) / 10
+    candidates.set(key, { assignments: plan, metrics, ...(focus ? { focus } : {}), cost })
   }
   const sorted = [...candidates.values()].sort((a, b) => a.cost - b.cost)
   const chosen = []
   // Prefer genuinely different options, not three nearly identical swaps.
   for (const candidate of sorted) {
+    if (baseFocus && chosen.some(other => candidate.focus.companions.some((group, i) => JSON.stringify(group) === JSON.stringify(other.focus.companions[i])))) continue
     if (chosen.some(other => candidate.assignments.filter((row, i) => row.table_number !== other.assignments[i].table_number).length < 4)) continue
     chosen.push(candidate)
     if (chosen.length === 3) break
   }
-  return { current: { assignments: baseline, metrics: baseMetrics }, alternatives: chosen.map(({ cost, ...plan }) => plan) }
+  return { current: { assignments: baseline, metrics: baseMetrics, ...(baseFocus ? { focus: baseFocus } : {}) }, alternatives: chosen.map(({ cost, ...plan }) => plan) }
 }
 
 export function signSeatingPreview(payload, secret, now = Date.now()) {
@@ -212,9 +264,10 @@ export async function handleSeatingAlternatives({ db, action, body, eventId, sec
     return { ...data, message: "تم تطبيق البديل على الجولتين" }
   }
   const scores = await loadScores(context.profiles)
-  const result = buildSeatingAlternatives({ ...context, scores })
+  const focusNumber = body.focus_number == null ? null : Number(body.focus_number)
+  const result = buildSeatingAlternatives({ ...context, scores, focusNumber })
   return {
-    current: result.current, participants: context.participants, expires_at: Date.now() + TTL,
+    current: result.current, participants: context.participants, focus_number: focusNumber, expires_at: Date.now() + TTL,
     alternatives: result.alternatives.map(plan => ({ ...plan, token: signSeatingPreview({
       event_id: eventId, test_mode: context.testMode, session_key: context.sessionKey, context_hash: context.contextHash,
       baseline: context.assignments, assignments: plan.assignments,

@@ -7,28 +7,35 @@ type Person = { number: number; name: string; gender: "male" | "female" | "unkno
 type Plan = {
   assignments: Assignment[]
   token?: string
+  focus?: {
+    number: number; new_companions: number[][]; repeated_partners: number
+    compatibility: number | null; scored_pairs: number; mixed_pairs: number
+  }
   metrics: {
     repeated_pairs: number; max_repeats_per_person: number; moved_people: number
     average_age_gap: number | null; compatibility: number | null; scored_pairs: number; mixed_pairs: number
   }
 }
-type Preview = { current: Plan; alternatives: Plan[]; participants: Person[]; expires_at: number }
+type Preview = { current: Plan; alternatives: Plan[]; participants: Person[]; expires_at: number; focus_number: number | null }
 type Props = {
   eventId: number
   testMode: boolean
+  focusNumber: number | null
   disabled: boolean
   disabledReason: string
   request: (action: string, body?: Record<string, unknown>, options?: { signal?: AbortSignal }) => Promise<any>
   onApplied: () => Promise<void>
 }
 
-export default function SeatingAlternatives({ eventId, testMode, disabled, disabledReason, request, onApplied }: Props) {
+export default function SeatingAlternatives({ eventId, testMode, focusNumber, disabled, disabledReason, request, onApplied }: Props) {
   const panelId = useId()
   const [open, setOpen] = useState(false)
   const [preview, setPreview] = useState<Preview | null>(null)
   const [selected, setSelected] = useState(0)
   const [busy, setBusy] = useState<"preview" | "apply" | null>(null)
   const [error, setError] = useState("")
+  const [focusEnabled, setFocusEnabled] = useState(true)
+  const [showAllTables, setShowAllTables] = useState(false)
   const pending = useRef<AbortController | null>(null)
   const generation = useRef(0)
   useEffect(() => () => { generation.current++; pending.current?.abort() }, [])
@@ -40,7 +47,7 @@ export default function SeatingAlternatives({ eventId, testMode, disabled, disab
     setBusy(null); setOpen(false); setPreview(null); setError("")
   }
 
-  async function load() {
+  async function load(useFocus = focusEnabled) {
     if (disabled || pending.current) return
     const controller = new AbortController()
     pending.current = controller
@@ -48,7 +55,7 @@ export default function SeatingAlternatives({ eventId, testMode, disabled, disab
     setOpen(true); setBusy("preview"); setError(""); setPreview(null)
     const timer = setTimeout(() => controller.abort(), 25_000)
     try {
-      const data = await request("e3-get-seating-alternatives", { expected_event_id: eventId, expected_test_mode: testMode }, { signal: controller.signal })
+      const data = await request("e3-get-seating-alternatives", { expected_event_id: eventId, expected_test_mode: testMode, focus_number: useFocus ? focusNumber : null }, { signal: controller.signal })
       if (generation.current !== version) return
       if (controller.signal.aborted) throw new Error("استغرق تحميل البدائل وقتاً طويلاً؛ حاول مجدداً")
       if (data.error) throw new Error(data.error)
@@ -93,13 +100,14 @@ export default function SeatingAlternatives({ eventId, testMode, disabled, disab
 
   const plans = preview ? [preview.current, ...preview.alternatives] : []
   const plan = plans[selected]
+  const previewFocus = preview?.focus_number ?? null
   const people = new Map(preview?.participants.map(person => [person.number, person]) || [])
   const original = new Map(preview?.current.assignments.map(row => [`${row.round}:${row.participant_id}`, row.table_number]) || [])
   const buttonClass = "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-purple-400"
 
   return (
     <section dir="rtl" className="space-y-3">
-      <button type="button" onClick={open ? close : load} disabled={disabled || busy === "apply"}
+      <button type="button" onClick={() => open ? close() : load()} disabled={disabled || busy === "apply"}
         aria-expanded={open} aria-controls={panelId} title={disabled ? disabledReason : undefined}
         className={`${buttonClass} border border-purple-700/60 bg-purple-950/40 text-purple-200 hover:bg-purple-900/50`}>
         <Shuffle size={16} /> {open ? "إغلاق البدائل" : "عرض بدائل الجلسات"}
@@ -116,6 +124,11 @@ export default function SeatingAlternatives({ eventId, testMode, disabled, disab
           </div>
           {error && <p role="alert" className="rounded-lg bg-red-950/40 p-3 text-sm text-red-200">{error}</p>}
           {disabled && <p role="status" className="text-sm text-amber-200">{disabledReason}</p>}
+          {focusNumber != null && <label className="flex min-h-10 items-center gap-2 text-sm text-purple-200">
+            <input type="checkbox" checked={focusEnabled} disabled={disabled || busy !== null}
+              onChange={event => { setFocusEnabled(event.target.checked); setShowAllTables(false); void load(event.target.checked) }} className="h-4 w-4 accent-purple-500" />
+            تركيز البدائل على لوكا (#{focusNumber})
+          </label>}
           <div className="flex flex-wrap items-center gap-2">
             {plans.map((_, index) => (
               <button key={index} type="button" aria-pressed={selected === index} disabled={busy !== null}
@@ -123,12 +136,18 @@ export default function SeatingAlternatives({ eventId, testMode, disabled, disab
                 {index === 0 ? "الحالية" : `البديل ${index}`}
               </button>
             ))}
-            <button type="button" disabled={disabled || busy !== null} onClick={load} className={`${buttonClass} border border-gray-700 text-gray-300 hover:bg-gray-800`}>
+            <button type="button" disabled={disabled || busy !== null} onClick={() => load()} className={`${buttonClass} border border-gray-700 text-gray-300 hover:bg-gray-800`}>
               {busy === "preview" ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />} {busy === "preview" ? "جارٍ تجهيز البدائل…" : "بدائل أخرى"}
             </button>
           </div>
           {preview?.alternatives.length === 0 && <p role="status" className="text-sm text-amber-200">لم نجد بديلاً مناسباً ضمن القيود الحالية. لم تتغيّر الجلسات.</p>}
           {plan && <>
+            {plan.focus && <div className="rounded-xl border border-purple-700/50 bg-purple-950/30 p-3 space-y-2">
+              <p className="text-sm font-semibold text-purple-100">طاولتا {people.get(plan.focus.number)?.name || "لوكا"} · #{plan.focus.number}</p>
+              <p className="text-xs leading-6 text-gray-300">وجوه مختلفة عن التوزيع الحالي: {plan.focus.new_companions[0].length} في الجولة الأولى · {plan.focus.new_companions[1].length} في الثانية · أشخاص يتكرر لقاؤهم: {plan.focus.repeated_partners}</p>
+              <p className="text-xs text-gray-400">توافقه المحفوظ بين الجنسين: {plan.focus.compatibility?.toFixed(1) ?? "—"} / 100 · متاح لـ {plan.focus.scored_pairs} من {plan.focus.mixed_pairs} لقاء</p>
+              <label className="flex min-h-10 items-center gap-2 text-xs text-purple-200"><input type="checkbox" checked={showAllTables} onChange={event => setShowAllTables(event.target.checked)} className="h-4 w-4 accent-purple-500" />عرض كل الطاولات</label>
+            </div>}
             <dl className="grid grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
               <div className="rounded-lg bg-gray-900 p-3"><dt className="text-gray-400">أزواج تتكرر بين الجولتين</dt><dd className="mt-1 text-lg text-white">{plan.metrics.repeated_pairs}</dd></div>
               <div className="rounded-lg bg-gray-900 p-3"><dt className="text-gray-400">أشخاص تغيّرت طاولاتهم</dt><dd className="mt-1 text-lg text-amber-200">{plan.metrics.moved_people}</dd></div>
@@ -140,18 +159,22 @@ export default function SeatingAlternatives({ eventId, testMode, disabled, disab
               {[1, 2].map(round => (
                 <div key={round} className="min-w-0 space-y-3">
                   <h5 className="text-sm font-semibold text-gray-200">{round === 1 ? "الجولة الأولى" : "الجولة الثانية"}</h5>
-                  <div className="grid sm:grid-cols-2 gap-3">
-                    {[...new Set(plan.assignments.filter(row => row.round === round).map(row => row.table_number))].sort((a, b) => a - b).map(table => {
+                  <div className={`grid ${previewFocus != null && !showAllTables ? "" : "sm:grid-cols-2"} gap-3`}>
+                    {[...new Set(plan.assignments.filter(row => row.round === round && (previewFocus == null || showAllTables || row.participant_id === previewFocus)).map(row => row.table_number))].sort((a, b) => {
+                      const focusedTable = plan.assignments.find(row => row.round === round && row.participant_id === previewFocus)?.table_number
+                      return Number(b === focusedTable) - Number(a === focusedTable) || a - b
+                    }).map(table => {
                       const members = plan.assignments.filter(row => row.round === round && row.table_number === table).map(row => people.get(row.participant_id)!)
+                      const focusedTable = members.some(person => person.number === previewFocus)
                       const women = members.filter(person => person.gender === "female").length
                       const men = members.filter(person => person.gender === "male").length
-                      return <div key={table} className="min-w-0 rounded-xl border border-gray-800 bg-gray-900/70 p-3">
-                        <div className="flex flex-wrap justify-between gap-2 text-xs mb-2"><span className="font-bold text-white">طاولة {table} <span className="text-gray-500">· {members.length}</span></span><span className="text-gray-400">{women} نساء · {men} رجال{members.length > women + men ? ` · ${members.length - women - men} غير محدد` : ""}</span></div>
+                      return <div key={table} className={`min-w-0 rounded-xl border ${focusedTable ? "border-purple-500/60 bg-purple-950/20" : "border-gray-800 bg-gray-900/70"} p-3`}>
+                        <div className="flex flex-wrap justify-between gap-2 text-xs mb-2"><span className="font-bold text-white">طاولة {table} {focusedTable && <span className="text-purple-300">· لوكا</span>} <span className="text-gray-500">· {members.length}</span></span><span className="text-gray-400">{women} نساء · {men} رجال{members.length > women + men ? ` · ${members.length - women - men} غير محدد` : ""}</span></div>
                         <ul className="space-y-1">
                           {members.map(person => {
                             const from = original.get(`${round}:${person.number}`)
                             const moved = from !== table
-                            return <li key={person.number} className={`rounded-md px-2 py-1.5 text-xs ${moved ? "bg-amber-900/25 text-amber-100" : "text-gray-300"}`}>
+                            return <li key={person.number} className={`rounded-md px-2 py-1.5 text-xs ${person.number === previewFocus ? "bg-purple-800/40 font-bold text-purple-100" : moved ? "bg-amber-900/25 text-amber-100" : "text-gray-300"}`}>
                               <div className="flex items-start justify-between gap-2"><span className="min-w-0 break-words">{person.name}</span><span className="shrink-0 text-gray-500" dir="ltr">#{person.number}</span></div>
                               {moved && <span className="block mt-1 text-[10px] text-amber-400">من طاولة {from}</span>}
                             </li>

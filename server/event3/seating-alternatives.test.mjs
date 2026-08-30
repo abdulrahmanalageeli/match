@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 import { buildSeatingAlternatives, canonicalSeating, handleSeatingAlternatives, readSeatingPreview, seatingMetrics, signSeatingPreview } from "./seating-alternatives.mjs"
+import { buildSixBySevenPlan } from "./round2-age-optimizer.mjs"
 
 function fixture() {
   const participants = Array.from({ length: 24 }, (_, i) => ({ number: i + 1, name: `P${i + 1}`, gender: i < 12 ? "female" : "male", age: 24 + i % 8 }))
@@ -98,4 +99,42 @@ test("missing roster seats are rejected, and unknown scores are not presented as
   assert.equal(metrics.compatibility, null)
   assert.equal(metrics.scored_pairs, 0)
   assert.ok(metrics.mixed_pairs > 0)
+})
+
+test("focus on user 7 keeps his seats and offers different tablemates in both rounds", () => {
+  const participants = Array.from({ length: 42 }, (_, i) => ({ number: i + 1, name: `P${i + 1}`, gender: i % 2 ? "female" : "male", age: 26 + i % 6 }))
+  const generated = buildSixBySevenPlan(participants.map(p => p.number), Object.fromEntries(participants.map(p => [p.number, p.gender])))
+  const assignments = [generated.round1, generated.round2].flatMap((groups, i) => groups.flatMap((group, table) => group.map(participant_id => ({ round: i + 1, table_number: table + 1, participant_id }))))
+  const original = structuredClone(assignments)
+  const scores = new Map(participants.flatMap(a => participants.filter(b => b.number > a.number).map(b => [`${a.number}-${b.number}`, 70])))
+  for (const seed of [7, 41, 109]) {
+    const result = buildSeatingAlternatives({ assignments, participants, scores, focusNumber: 7, random: seeded(seed) })
+    assert.equal(result.alternatives.length, 3)
+    for (const plan of result.alternatives) {
+      assert.deepEqual(plan.assignments.filter(row => row.participant_id === 7), canonicalSeating(assignments.filter(row => row.participant_id === 7)))
+      assert.deepEqual(tableCounts(plan.assignments), tableCounts(assignments))
+      assert.deepEqual(tableGenders(plan.assignments, participants), tableGenders(assignments, participants))
+      assert.equal(plan.metrics.repeated_pairs, result.current.metrics.repeated_pairs)
+      assert.equal(plan.focus.repeated_partners, result.current.focus.repeated_partners)
+      assert.equal(plan.focus.compatibility, 70)
+      assert.ok(plan.focus.new_companions.every(group => group.length && group.some(number => participants[number - 1].gender === "female")))
+    }
+    for (const round of [0, 1]) assert.equal(new Set(result.alternatives.map(plan => JSON.stringify(plan.focus.companions[round]))).size, 3)
+  }
+  assert.deepEqual(assignments, original)
+  assert.throws(() => buildSeatingAlternatives({ assignments, participants, focusNumber: 99999 }), /غير موجود/)
+})
+
+test("the preview request uses the selected focus while general alternatives remain available", async () => {
+  const { participants, assignments } = fixture()
+  const tables = { event_state: { current_event_id: 26, phase: "setup", test_mode_active: false }, event3_participants: participants.map(p => ({ participant_number: p.number })), session_assignments: assignments, locked_matches: [], event3_exclusions: [], participants: participants.map(p => ({ assigned_number: p.number, ...p })) }
+  const db = { from(table) { const q = { select: () => q, eq: () => q, in: () => q, order: () => q, single: () => q, then: resolve => resolve({ data: tables[table] }) }; return q } }
+  const request = { db, action: "e3-get-seating-alternatives", body: { expected_event_id: 26, expected_test_mode: false, focus_number: 7 }, eventId: 26, secret: "test-secret", loadScores: async () => new Map() }
+  const focused = await handleSeatingAlternatives(request)
+  assert.equal(focused.focus_number, 7)
+  assert.equal(focused.current.focus.number, 7)
+  assert.ok(focused.alternatives.length > 0)
+  const general = await handleSeatingAlternatives({ ...request, body: { ...request.body, focus_number: null } })
+  assert.equal(general.focus_number, null)
+  assert.equal(general.current.focus, undefined)
 })

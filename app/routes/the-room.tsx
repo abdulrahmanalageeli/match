@@ -11,8 +11,8 @@ import {
   ArrowLeftRight, ArrowRight, BadgeCheck, CalendarPlus, Camera, CheckCircle2,
   ChevronDown, ChevronLeft, ChevronRight, Clock3, DoorOpen, Download, Eye, EyeOff, Gauge,
   Loader2, LockKeyhole, LogOut, Maximize2, Minus, Monitor, Play, Plus, Printer, RefreshCw,
-  RotateCcw, Settings2, Share2, ShieldCheck, SlidersHorizontal, Sparkles, Table2, Trash2,
-  Undo2, UserCog, UserPlus, UserRound, UsersRound, WandSparkles, X,
+  RotateCcw, Settings2, Share2, ShieldCheck, SlidersHorizontal, Table2, Trash2,
+  Undo2, UserCog, UserPlus, UserRound, UsersRound, X,
 } from "lucide-react"
 import "@fontsource/tajawal/400.css"
 import "@fontsource/tajawal/500.css"
@@ -21,7 +21,7 @@ import "@fontsource/tajawal/800.css"
 
 export const meta = () => [
   { title: "ذا روم — تنظيم الجلسات" },
-  { name: "description", content: "لوحة عربية بسيطة لتنظيم ضيوف وطاولات ذا روم." },
+  { name: "description", content: "استقبال الضيوف وتوزيع الطاولات في ذا روم." },
 ]
 
 type Gender = "male" | "female" | "nonbinary" | "unspecified"
@@ -115,24 +115,24 @@ async function roomApi(action: string, payload: Record<string, unknown> = {}) {
 }
 
 function arabicError(error: any) {
-  if (error?.status === 401) return "انتهت الجلسة. سجّل الدخول مرة أخرى."
-  if (error?.code === "MINIMUM_NOT_MET") return "عدد الحضور أقل من العدد المطلوب."
-  if (error?.code === "TOO_MANY_TABLES") return "عدد الطاولات كبير مقارنة بعدد الحضور."
-  if (["TABLE_GEOMETRY_IMPOSSIBLE", "PAIR_CAPACITY_EXCEEDED"].includes(error?.code)) return "هذا التوزيع غير ممكن. قلّل الجولات أو الطاولات ثم حاول مرة أخرى."
-  if (error?.code === "NO_BADGES_LEFT") return "تم تسليم جميع البطاقات المتاحة. أضف شخصًا جديدًا إذا حضر شخص إضافي."
-  if (error?.code === "BADGE_ALREADY_ASSIGNED") return "تم تسليم هذه البطاقة للتو من جهاز آخر. حاول مرة أخرى."
-  if (error?.code === "ROUND_STATE_CHANGED") return "بدأت الجولة التالية من جهاز آخر وتم تحديث الشاشة."
-  if (error?.code === "EVENT_CHANGED_RETRY") return "تغيّرت الفعالية من جهاز آخر. حدّث الشاشة ثم حاول مرة أخرى."
-  if (error?.code === "INVALID_TIMER_CONTROL") return "تعذّر تغيير المؤقت. أوقفه قبل تغيير المدة، أو أعده بعد انتهاء الوقت."
-  if (error?.code === "FIXED_ROUTES_LOCKED") return "المسارات المسلّمة ثابتة. لا يمكن تغيير الطاولات أو الجولات بعد إصدار أول بطاقة."
-  if (error?.code === "REQUEST_ID_CONFLICT") return "طلب الوصول السابق محفوظ ببيانات مختلفة. حدّث الشاشة لاسترجاعه."
-  if (error?.code === "FIXED_ROUTE_CONSTRAINT") return "تعذّر تثبيت مسار الضيف. حدّث الشاشة وأعد محاولة نفس الطلب."
-  if (error?.code === "EVENT_NOT_OPEN") return "هذه الفعالية غير مفتوحة لاستقبال الضيوف."
-  if (error?.code === "SCHEDULE_CHANGED_RETRY") return "تم حفظ الشخص. حدّث الشاشة مرة واحدة لإظهار طاولته."
-  if (error?.code === "SAME_TABLE") return "الشخص موجود على هذه الطاولة أصلًا."
-  if (error?.code === "INVALID_MOVE") return "تعذّر النقل. تأكد من الجولة والطاولة."
-  if (error?.code === "MOVE_REPEATS_MEETING") return "هذا النقل بيكرر لقاء سابق. اختر طاولة ثانية."
-  return "تعذّر تنفيذ الطلب. تأكد من الأعداد وحاول مرة أخرى."
+  if (error?.status === 401) return "انتهى تسجيل الدخول. ادخل من جديد."
+  if (error?.code === "MINIMUM_NOT_MET") return "الحضور أقل من العدد المطلوب."
+  if (error?.code === "TOO_MANY_TABLES") return "الطاولات أكثر من اللي يحتاجه عدد الحضور."
+  if (["TABLE_GEOMETRY_IMPOSSIBLE", "PAIR_CAPACITY_EXCEEDED"].includes(error?.code)) return "ما ضبط التوزيع. قلّل الجولات أو الطاولات وجرّب مرة ثانية."
+  if (error?.code === "NO_BADGES_LEFT") return "كل البطاقات انسلّمت. إذا وصل أحد زيادة، أضفه كضيف جديد."
+  if (error?.code === "BADGE_ALREADY_ASSIGNED") return "البطاقة انسلّمت من جهاز ثاني. جرّب مرة ثانية."
+  if (error?.code === "ROUND_STATE_CHANGED") return "بدأت الجولة التالية من جهاز ثاني. حدّثنا الصفحة."
+  if (error?.code === "EVENT_CHANGED_RETRY") return "صار تعديل من جهاز ثاني. حدّث الصفحة وجرّب مرة ثانية."
+  if (error?.code === "INVALID_TIMER_CONTROL") return "ما قدرنا نعدّل الوقت. وقّف المؤقت قبل تغيير المدة، أو أعده إذا خلص."
+  if (error?.code === "FIXED_ROUTES_LOCKED") return "ما تقدر تغيّر الطاولات والجولات بعد تسليم البطاقات."
+  if (error?.code === "REQUEST_ID_CONFLICT") return "بيانات الضيف تغيّرت. حدّث الصفحة عشان تظهر بطاقته."
+  if (error?.code === "FIXED_ROUTE_CONSTRAINT") return "ما قدرنا نجهّز البطاقة. حدّث الصفحة واضغط إعادة المحاولة."
+  if (error?.code === "EVENT_NOT_OPEN") return "الاستقبال مقفل لهذي الفعالية."
+  if (error?.code === "SCHEDULE_CHANGED_RETRY") return "الضيف مسجّل. حدّث الصفحة عشان تظهر طاولته."
+  if (error?.code === "SAME_TABLE") return "الضيف على نفس الطاولة."
+  if (error?.code === "INVALID_MOVE") return "ما قدرنا ننقل الضيف. تأكد من الجولة والطاولة."
+  if (error?.code === "MOVE_REPEATS_MEETING") return "الضيف بيجلس مع شخص جلس معه قبل. اختر طاولة ثانية."
+  return "ما ضبط الطلب. تأكد من البيانات وجرّب مرة ثانية."
 }
 
 function guestNumber(value: number) {
@@ -150,14 +150,14 @@ function guestRepeatCount(seats: Seat[], attendeeId: string) {
 
 function genderStyle(gender: Gender) {
   if (gender === "female") return {
-    label: "سيدة",
+    label: "بنت",
     chip: "border-rose-300/25 bg-rose-300/[0.09] text-rose-100 hover:border-rose-300/50",
     accent: "text-rose-200",
     surface: "border-rose-300/30 from-rose-950/85 via-[#130d0d] to-[#0b0b09]",
     glow: "bg-rose-400/20",
   }
   if (gender === "male") return {
-    label: "رجل",
+    label: "شاب",
     chip: "border-sky-300/25 bg-sky-300/[0.09] text-sky-100 hover:border-sky-300/50",
     accent: "text-sky-200",
     surface: "border-sky-300/30 from-sky-950/85 via-[#0c1115] to-[#0b0b09]",
@@ -196,9 +196,9 @@ function bundleFingerprint(bundle: Bundle) {
 
 function balanceInfo(women: number, men: number) {
   const difference = Math.abs(women - men)
-  if (difference <= 1) return { label: "التوازن ممتاز", tone: "border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-100", preferred: null }
-  if (difference <= 3) return { label: "التوازن جيد", tone: "border-[#d7ba7d]/20 bg-[#d7ba7d]/[0.07] text-[#efd89e]", preferred: women < men ? "سيدة" : "رجل" }
-  return { label: "يحتاج موازنة", tone: "border-amber-300/25 bg-amber-300/[0.08] text-amber-100", preferred: women < men ? "سيدة" : "رجل" }
+  if (difference <= 1) return { label: "الأعداد متقاربة", tone: "border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-100", preferred: null }
+  if (difference <= 3) return { label: "فرق بسيط بالأعداد", tone: "border-[#d7ba7d]/20 bg-[#d7ba7d]/[0.07] text-[#efd89e]", preferred: women < men ? "بنت" : "شاب" }
+  return { label: "فرق كبير بالأعداد", tone: "border-amber-300/25 bg-amber-300/[0.08] text-amber-100", preferred: women < men ? "بنت" : "شاب" }
 }
 
 function compareNumberScores(left: number[], right: number[]) {
@@ -260,16 +260,16 @@ function LoginScreen({ onLogin, checking, configured }: { onLogin: (key: string)
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[1.35rem] bg-[#211f1a] text-[#e6c58c] shadow-[0_18px_45px_rgba(33,31,26,.18)]"><DoorOpen size={28} /></div>
           <p className="mt-5 text-xs font-extrabold tracking-wide text-[#9a733e]">لوحة المنظّم</p>
           <h1 className="mt-1 text-4xl font-extrabold tracking-tight">ذا روم</h1>
-          <p className="mt-2 text-sm leading-6 text-[#777064]">دخول هادئ وسريع، وبعدها كل شيء قدامك.</p>
+          <p className="mt-2 text-sm leading-6 text-[#777064]">ادخل الرمز عشان تفتح الاستقبال.</p>
         </div>
         <form onSubmit={async event => { event.preventDefault(); setSubmitting(true); try { await onLogin(key) } finally { setSubmitting(false) } }} className="rounded-[2rem] border border-[#e4ded3] bg-white/90 p-5 shadow-[0_25px_80px_rgba(61,50,34,.09)] backdrop-blur-xl">
           <label htmlFor="room-access-key" className="mb-2 block text-sm font-extrabold text-[#4e493f]">رمز الدخول</label>
           <div className="relative">
-            <input id="room-access-key" type={showKey ? "text" : "password"} value={key} onChange={event => setKey(event.target.value)} autoComplete="current-password" className="h-14 w-full rounded-2xl border border-[#ded8ce] bg-[#f8f6f1] px-4 pl-12 text-right text-base font-bold text-[#211f1a] outline-none transition placeholder:text-[#aaa397] focus:border-[#b58a4e] focus:ring-4 focus:ring-[#b58a4e]/10" placeholder="أدخل الرمز الخاص" />
+            <input id="room-access-key" type={showKey ? "text" : "password"} value={key} onChange={event => setKey(event.target.value)} autoComplete="current-password" className="h-14 w-full rounded-2xl border border-[#ded8ce] bg-[#f8f6f1] px-4 pl-12 text-right text-base font-bold text-[#211f1a] outline-none transition placeholder:text-[#aaa397] focus:border-[#b58a4e] focus:ring-4 focus:ring-[#b58a4e]/10" placeholder="رمز الدخول" />
             <button type="button" onClick={() => setShowKey(value => !value)} className="absolute left-1.5 top-1.5 flex h-11 w-11 items-center justify-center rounded-xl text-[#80796e]" aria-label={showKey ? "إخفاء الرمز" : "إظهار الرمز"}>{showKey ? <EyeOff size={17} /> : <Eye size={17} />}</button>
           </div>
           <button type="submit" disabled={!key || submitting || checking || !configured} className="mt-4 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#211f1a] px-5 font-extrabold text-white shadow-lg shadow-[#211f1a]/10 transition active:scale-[.99] disabled:opacity-35">{submitting || checking ? <Loader2 className="animate-spin" size={18} /> : <LockKeyhole size={18} />} دخول</button>
-          {!checking && !configured && <p className="mt-3 rounded-xl border border-amber-700/10 bg-amber-50 px-3 py-2 text-xs text-amber-900/70">إعداد الدخول غير مكتمل. تواصل مع المسؤول التقني مرة واحدة لتفعيله.</p>}
+          {!checking && !configured && <p className="mt-3 rounded-xl border border-amber-700/10 bg-amber-50 px-3 py-2 text-xs text-amber-900/70">الدخول مو مفعّل. تواصل مع المنظّم.</p>}
         </form>
       </motion.div>
     </main>
@@ -281,12 +281,12 @@ function TableCard({ tableNumber, seats, attendees, fixedRoutes = false, onGuest
   return (
     <section className="overflow-hidden rounded-3xl border border-[#e4ded4] bg-[#fbfaf7]">
       <header className="flex items-center justify-between border-b border-[#e9e4dc] px-4 py-3">
-        <div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#211f1a] font-extrabold text-[#e6c58c]">{tableNumber}</div><div><p className="font-extrabold text-[#29261f]">الطاولة {tableNumber}</p><p className="text-xs text-[#6f685d]">{fixedRoutes ? `${people.filter(person => person.gender === "male").length} رجال · ${people.filter(person => person.gender === "female").length} سيدات` : `${people.length} ضيوف`}</p></div></div>
+        <div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#211f1a] font-extrabold text-[#e6c58c]">{tableNumber}</div><div><p className="font-extrabold text-[#29261f]">الطاولة {tableNumber}</p><p className="text-xs text-[#6f685d]">{fixedRoutes ? `شباب: ${people.filter(person => person.gender === "male").length} · بنات: ${people.filter(person => person.gender === "female").length}` : `${people.length} ضيوف`}</p></div></div>
         <Table2 size={20} className="text-[#9a733e]" />
       </header>
       <div className="grid grid-cols-2 gap-2 p-3 sm:grid-cols-3">
         {people.map(person => { const style = genderStyle(person.gender); const woman = person.gender === "female"; return <button type="button" key={person.id} onClick={() => onGuest(person.id)} className={`flex min-h-14 flex-col items-center justify-center rounded-2xl border text-base font-extrabold transition active:scale-[.98] ${woman ? "border-[#ead1d5] bg-[#fbf2f3] text-[#6f3842]" : "border-[#cfdee6] bg-[#f1f6f9] text-[#365c70]"}`}><span>رقم {guestNumber(person.attendee_number)}</span><span className="mt-0.5 text-[10px] font-bold">{style.label}</span></button> })}
-        {!people.length && <p className="col-span-full py-3 text-center text-xs text-[#817a6f]">{fixedRoutes ? "متاحة لاستقبال الضيوف" : "لا يوجد ضيوف"}</p>}
+        {!people.length && <p className="col-span-full py-3 text-center text-xs text-[#817a6f]">{fixedRoutes ? "فاضية" : "ما فيها أحد"}</p>}
       </div>
     </section>
   )
@@ -302,13 +302,13 @@ function SimpleEventBar({ event, attendees, activeRound, onProjector, onNextRoun
         <div>
           <p className="text-[11px] font-bold text-[#d6b77f]">الفعالية الآن</p>
           <p className="mt-1 text-xl font-extrabold">الجولة {activeRound} من {event.round_count}</p>
-          <p className="mt-1 text-xs text-white/55">{event.seating_mode === "fixed_routes" ? `${attendees.length} ضيف بمسار ثابت · ${event.table_count} طاولات متاحة` : `استقبلنا ${checked} من ${attendees.length}`}</p>
+          <p className="mt-1 text-xs text-white/55">{event.seating_mode === "fixed_routes" ? `${attendees.length} ضيف · ${event.table_count} طاولات` : `استقبلنا ${checked} من ${attendees.length}`}</p>
         </div>
         <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-2xl font-extrabold text-[#e6c58c]">{activeRound}</div>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2">
         <button type="button" onClick={onProjector} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-white/[0.08] px-3 text-sm font-extrabold text-white transition active:scale-[.98]"><Monitor size={18} /> عرض الجولة</button>
-        <button type="button" onClick={onNextRound} disabled={finalRound} className={`flex min-h-12 items-center justify-center gap-2 rounded-2xl px-3 text-sm font-extrabold transition active:scale-[.98] disabled:bg-white/[0.05] disabled:text-white/35 ${readyForNextRound ? "bg-[#e1bd7c] text-[#211f1a]" : "border border-white/10 bg-white/[0.05] text-white/65"}`}><Play size={17} /> {finalRound ? "الجولة الأخيرة" : readyForNextRound ? "الجولة التالية" : "بدء الجولة التالية"}</button>
+        <button type="button" onClick={onNextRound} disabled={finalRound} className={`flex min-h-12 items-center justify-center gap-2 rounded-2xl px-3 text-sm font-extrabold transition active:scale-[.98] disabled:bg-white/[0.05] disabled:text-white/35 ${readyForNextRound ? "bg-[#e1bd7c] text-[#211f1a]" : "border border-white/10 bg-white/[0.05] text-white/65"}`}><Play size={17} /> {finalRound ? "الجولة الأخيرة" : "الجولة التالية"}</button>
       </div>
     </section>
   )
@@ -375,14 +375,14 @@ function ProjectorView({ bundle, attendees, activeRound, clockOffsetMs, stale, o
           <button ref={closeButtonRef} type="button" onClick={close} className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 text-stone-300" aria-label="إغلاق شاشة العرض"><X size={19} /></button>
         </div>
       </header>
-      {previewRound === null ? <RoomRoundTimer event={bundle.event} clockOffsetMs={clockOffsetMs} stale={stale} projector /> : <div className="flex shrink-0 items-center justify-center gap-3 border-b border-amber-300/20 bg-amber-300/10 px-3 py-2 text-sm text-amber-100"><span>استعراض الجولة {displayRound} · الجولة الحالية {activeRound}</span><button type="button" onClick={() => setPreviewRound(null)} className="min-h-11 rounded-xl bg-[#d7ba7d] px-3 font-bold text-[#17130c]">العودة للمباشر</button></div>}
+      {previewRound === null ? <RoomRoundTimer event={bundle.event} clockOffsetMs={clockOffsetMs} stale={stale} projector /> : <div className="flex shrink-0 items-center justify-center gap-3 border-b border-amber-300/20 bg-amber-300/10 px-3 py-2 text-sm text-amber-100"><span>استعراض الجولة {displayRound} · الجولة الحالية {activeRound}</span><button type="button" onClick={() => setPreviewRound(null)} className="min-h-11 rounded-xl bg-[#d7ba7d] px-3 font-bold text-[#17130c]">رجوع للجولة الحالية</button></div>}
       <main className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-6">
         <div className="grid grid-cols-[repeat(auto-fit,minmax(min(15rem,100%),1fr))] gap-3">
           {tables.map(tableNumber => {
             const people = bundle.seats.filter(seat => seat.round_number === displayRound && seat.table_number === tableNumber)
               .map(seat => attendees.find(person => person.id === seat.attendee_id)).filter(Boolean) as Attendee[]
             return <section key={tableNumber} className="overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/[0.04]">
-              <div className="flex items-center gap-3 border-b border-white/[0.07] p-3 sm:p-4"><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#d7ba7d] text-xl font-extrabold text-[#17130c]">{tableNumber}</div><div><p className="text-lg font-extrabold">الطاولة {tableNumber}</p><p className="text-xs text-stone-400">{bundle.event.seating_mode === "fixed_routes" ? `${people.filter(person => person.gender === "male").length} رجال · ${people.filter(person => person.gender === "female").length} سيدات` : `${people.length} أشخاص`}</p></div></div>
+              <div className="flex items-center gap-3 border-b border-white/[0.07] p-3 sm:p-4"><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#d7ba7d] text-xl font-extrabold text-[#17130c]">{tableNumber}</div><div><p className="text-lg font-extrabold">الطاولة {tableNumber}</p><p className="text-xs text-stone-400">{bundle.event.seating_mode === "fixed_routes" ? `شباب: ${people.filter(person => person.gender === "male").length} · بنات: ${people.filter(person => person.gender === "female").length}` : `${people.length} أشخاص`}</p></div></div>
               <div className="grid grid-cols-2 gap-2 p-3">
                 {people.map(person => { const style = genderStyle(person.gender); return <div key={person.id} className={`flex min-h-14 items-center justify-center rounded-2xl border px-2 text-[clamp(.9rem,2vw,1.15rem)] font-extrabold ${style.chip}`}><span>{style.label} {guestNumber(person.attendee_number)}</span></div> })}
               </div>
@@ -392,7 +392,7 @@ function ProjectorView({ bundle, attendees, activeRound, clockOffsetMs, stale, o
       </main>
       <footer className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 border-t border-white/10 bg-[#11100e] px-3 pb-[max(.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-7">
         <button type="button" onClick={() => setPreviewRound(Math.max(1, displayRound - 1))} disabled={displayRound === 1} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 px-4 font-extrabold text-stone-200 disabled:opacity-25"><ChevronRight size={19} /> السابقة</button>
-        <p className="hidden text-center text-sm font-bold text-stone-500 sm:block">تصفّح الجولات · لا يغيّر الجولة الحالية</p>
+        <p className="hidden text-center text-sm font-bold text-stone-500 sm:block">عرض فقط · الجولة الحالية ما تتغيّر</p>
         <button type="button" onClick={() => setPreviewRound(Math.min(bundle.event.round_count, displayRound + 1))} disabled={displayRound === bundle.event.round_count} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#d7ba7d] px-4 font-extrabold text-[#17130c] disabled:opacity-30">التالية <ChevronLeft size={19} /></button>
       </footer>
     </motion.div>
@@ -442,7 +442,7 @@ function CheckInPanel({ attendees, busy, placementNotice, simple = false, onNext
         <div className={`pointer-events-none absolute -left-7 -top-7 h-24 w-24 rounded-full blur-2xl ${woman ? "bg-[#e9bbc3]/35" : "bg-[#b9d6e5]/40"}`} />
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-base font-extrabold">{woman ? "وصلت سيدة" : "وصل رجل"}</p>
+            <p className="text-base font-extrabold">{woman ? "وصلت بنت" : "وصل شاب"}</p>
             {person ? <p className="mt-1 text-xs text-[#655e54]">سلّم البطاقة التالية</p> : <p className="mt-1 text-xs text-[#655e54]">تم تسليم الكل</p>}
           </div>
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/70"><BadgeCheck size={20} /></div>
@@ -458,7 +458,7 @@ function CheckInPanel({ attendees, busy, placementNotice, simple = false, onNext
   return (
     <div className="px-4 pb-5 pt-5 sm:px-6 sm:pb-6">
       <div className="flex items-end justify-between gap-4">
-        <div><p className="text-[11px] font-extrabold text-[#9a733e]">الخطوة الحالية</p><h2 className="mt-1 text-2xl font-extrabold tracking-tight text-[#211f1a]">من وصل الآن؟</h2><p className="mt-1 text-sm text-[#777064]">اختَر فقط، والبطاقة بتظهر لحالها.</p></div>
+        <div><p className="text-[11px] font-extrabold text-[#9a733e]">الاستقبال</p><h2 className="mt-1 text-2xl font-extrabold tracking-tight text-[#211f1a]">مين وصل؟</h2><p className="mt-1 text-sm text-[#777064]">اختَر، وبتطلع البطاقة.</p></div>
         <strong dir="ltr" className="shrink-0 text-xl font-extrabold tabular-nums text-[#554f45]">{checkedCount} / {attendees.length}</strong>
       </div>
       <div role="progressbar" aria-label="تقدم استقبال الضيوف" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} className="mt-4 h-1.5 overflow-hidden rounded-full bg-[#ece7de]"><motion.div className="h-full rounded-full bg-[#ad8650]" initial={false} animate={{ width: `${progress}%` }} /></div>
@@ -466,24 +466,24 @@ function CheckInPanel({ attendees, busy, placementNotice, simple = false, onNext
         {arrivalButton("female", nextWoman)}
         {arrivalButton("male", nextMan)}
       </div>
-      {balance.preferred && <div className="mt-3 flex items-center gap-2 rounded-2xl bg-[#fbf5e9] px-3 py-2.5 text-xs font-bold text-[#7a5a2d]"><Gauge size={16} className="shrink-0" /> للتوازن الأفضل، يفضّل يكون الشخص الإضافي القادم: {balance.preferred}</div>}
+      {balance.preferred && <div className="mt-3 flex items-center gap-2 rounded-2xl bg-[#fbf5e9] px-3 py-2.5 text-xs font-bold text-[#7a5a2d]"><Gauge size={16} className="shrink-0" /> عشان تتقارب الأعداد، الأفضل تضيف: {balance.preferred}</div>}
 
-      {visibleRecent.length > 0 && <div className="mt-5 border-t border-[#ece7de] pt-4"><p className="mb-2 text-xs font-extrabold text-[#817a6f]">آخر بطاقة مسلّمة</p><div className="space-y-2">{visibleRecent.map(person => <div key={person.id} className="flex items-center justify-between gap-3 rounded-2xl bg-[#f5f7f3] p-3"><button type="button" onClick={() => onShow(person.id)} className="flex min-w-0 flex-1 items-center gap-3 text-right"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#dcecdf] text-[#356247]"><CheckCircle2 size={17} /></div><div><p className="font-extrabold text-[#29261f]">بطاقة {guestNumber(person.attendee_number)} · {genderStyle(person.gender).label}</p><p className="mt-0.5 flex items-center gap-1 text-[11px] text-[#8a8378]"><Clock3 size={11} /> {checkInTime(person.updated_at)}</p></div></button><button type="button" onClick={() => onUndo(person)} disabled={busy} className="flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl border border-[#ddd7cd] bg-white px-3 text-xs font-bold text-[#625c52] disabled:opacity-40"><Undo2 size={14} /> تراجع</button></div>)}</div></div>}
+      {visibleRecent.length > 0 && <div className="mt-5 border-t border-[#ece7de] pt-4"><p className="mb-2 text-xs font-extrabold text-[#817a6f]">آخر بطاقة</p><div className="space-y-2">{visibleRecent.map(person => <div key={person.id} className="flex items-center justify-between gap-3 rounded-2xl bg-[#f5f7f3] p-3"><button type="button" onClick={() => onShow(person.id)} className="flex min-w-0 flex-1 items-center gap-3 text-right"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#dcecdf] text-[#356247]"><CheckCircle2 size={17} /></div><div><p className="font-extrabold text-[#29261f]">بطاقة {guestNumber(person.attendee_number)} · {genderStyle(person.gender).label}</p><p className="mt-0.5 flex items-center gap-1 text-[11px] text-[#8a8378]"><Clock3 size={11} /> {checkInTime(person.updated_at)}</p></div></button><button type="button" onClick={() => onUndo(person)} disabled={busy} className="flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl border border-[#ddd7cd] bg-white px-3 text-xs font-bold text-[#625c52] disabled:opacity-40"><Undo2 size={14} /> تراجع</button></div>)}</div></div>}
 
       <details open={!simple} className="group mt-4 border-t border-[#ece7de] pt-2">
         <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between rounded-2xl px-2 text-sm font-extrabold text-[#6f685d] [&::-webkit-details-marker]:hidden"><span className="flex items-center gap-2"><UserPlus size={16} /> خيارات الاستقبال</span><ChevronDown size={17} className="transition group-open:rotate-180" /></summary>
         <div className="mt-2 space-y-3 rounded-[1.5rem] bg-[#f7f4ee] p-3">
-          {simple && !addGuestOpen ? <button type="button" onClick={() => setAddGuestOpen(true)} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-white text-sm font-extrabold text-[#575147]"><UserPlus size={16} /> إضافة شخص حضر بدون تسجيل</button> : <section>
-            <div className="mb-3 flex items-start justify-between gap-3"><div><p className="font-extrabold text-[#29261f]">إضافة شخص جديد</p><p className="mt-1 text-xs text-[#817a6f]">ينضاف للجدول وتظهر بطاقته مباشرة.</p></div>{simple && <button type="button" onClick={() => setAddGuestOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full border border-[#ddd7cd] bg-white text-[#777064]" aria-label="إلغاء الإضافة"><X size={15} /></button>}</div>
+          {simple && !addGuestOpen ? <button type="button" onClick={() => setAddGuestOpen(true)} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-white text-sm font-extrabold text-[#575147]"><UserPlus size={16} /> ضيف بدون تسجيل</button> : <section>
+            <div className="mb-3 flex items-start justify-between gap-3"><div><p className="font-extrabold text-[#29261f]">إضافة ضيف</p><p className="mt-1 text-xs text-[#817a6f]">ينضاف وتطلع بطاقته.</p></div>{simple && <button type="button" onClick={() => setAddGuestOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full border border-[#ddd7cd] bg-white text-[#777064]" aria-label="إلغاء الإضافة"><X size={15} /></button>}</div>
             <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => onAdd("female")} disabled={busy} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#ead1d5] bg-[#fbf2f3] px-3 text-sm font-extrabold text-[#6f3842] disabled:opacity-40"><UserPlus size={17} /> سيدة</button>
-              <button type="button" onClick={() => onAdd("male")} disabled={busy} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#cfdee6] bg-[#f1f6f9] px-3 text-sm font-extrabold text-[#365c70] disabled:opacity-40"><UserPlus size={17} /> رجل</button>
+              <button type="button" onClick={() => onAdd("female")} disabled={busy} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#ead1d5] bg-[#fbf2f3] px-3 text-sm font-extrabold text-[#6f3842] disabled:opacity-40"><UserPlus size={17} /> بنت</button>
+              <button type="button" onClick={() => onAdd("male")} disabled={busy} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#cfdee6] bg-[#f1f6f9] px-3 text-sm font-extrabold text-[#365c70] disabled:opacity-40"><UserPlus size={17} /> شاب</button>
             </div>
           </section>}
 
           {placementNotice && <div className="rounded-2xl border border-[#e7d7ba] bg-[#fffaf0] p-3"><div className="flex items-start gap-2"><ShieldCheck size={18} className="mt-0.5 shrink-0 text-[#9b7238]" /><div><p className="text-sm font-extrabold text-[#4f3c22]">تمت إضافة {genderStyle(placementNotice.gender).label} {guestNumber(placementNotice.attendeeNumber)}</p><p className="mt-1 text-xs text-[#817057]">{placementNotice.tables.map(item => `ج${item.roundNumber}: ط${item.tableNumber}`).join(" · ")}</p></div></div></div>}
 
-          {!allBadgesOpen ? <button type="button" onClick={() => setAllBadgesOpen(true)} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-white text-sm font-extrabold text-[#575147]"><BadgeCheck size={16} /> عرض حالة كل البطاقات</button> : <section className="rounded-2xl bg-white p-3">
+          {!allBadgesOpen ? <button type="button" onClick={() => setAllBadgesOpen(true)} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-white text-sm font-extrabold text-[#575147]"><BadgeCheck size={16} /> عرض البطاقات</button> : <section className="rounded-2xl bg-white p-3">
             <div className="mb-3 flex items-center justify-between"><div><p className="font-extrabold text-[#29261f]">حالة البطاقات</p><p className="mt-1 text-[11px] text-[#817a6f]">الأخضر يعني تم التسليم</p></div><button type="button" onClick={() => setAllBadgesOpen(false)} className="min-h-9 px-2 text-xs font-bold text-[#817a6f]">إخفاء</button></div>
             {badgeGrid(firstBadges)}
             {extraBadges.length > 0 && <div className="mt-4"><p className="mb-2 text-xs font-extrabold text-[#817a6f]">البطاقات الإضافية</p>{badgeGrid(extraBadges)}</div>}
@@ -502,17 +502,17 @@ function FixedRouteCheckInPanel({ bundle, busy, pendingArrival, placementNotice,
   const admitted = bundle.attendees.filter(person => admittedIds.has(person.id))
 
   return <div className="px-4 pb-5 pt-5 sm:px-6 sm:pb-6">
-    <div className="flex items-start justify-between gap-3"><div><p className="text-[11px] font-extrabold text-[#9a733e]">استقبال مستمر · من صفر ضيوف</p><h2 className="mt-1 text-2xl font-extrabold text-[#211f1a]">من وصل الآن؟</h2><p className="mt-1 text-sm leading-6 text-[#777064]">نحجز مساره للجولات المتبقية، ثم تظهر بطاقته للتصوير.</p></div><span className="shrink-0 rounded-2xl bg-[#f2eee7] px-3 py-2 text-center"><strong className="block text-xl font-extrabold">{admitted.length}</strong><span className="text-[10px] font-bold text-[#6b6459]">تم تسكينهم</span></span></div>
+    <div className="flex items-start justify-between gap-3"><div><p className="text-[11px] font-extrabold text-[#9a733e]">الاستقبال</p><h2 className="mt-1 text-2xl font-extrabold text-[#211f1a]">مين وصل؟</h2><p className="mt-1 text-sm leading-6 text-[#777064]">اختَر، وبتطلع البطاقة.</p></div><span className="shrink-0 rounded-2xl bg-[#f2eee7] px-3 py-2 text-center"><strong className="block text-xl font-extrabold">{admitted.length}</strong><span className="text-[10px] font-bold text-[#6b6459]">حضروا</span></span></div>
     <div className="mt-4 grid grid-cols-2 gap-3">
       {(["female", "male"] as const).map(gender => {
         const woman = gender === "female"
-        return <button key={gender} type="button" onClick={() => onAdd(gender)} disabled={busy || Boolean(pendingArrival)} className={`min-h-36 rounded-[1.5rem] border p-4 text-right transition active:scale-[.98] disabled:opacity-45 ${woman ? "border-[#ead1d5] bg-[#fbf2f3] text-[#6f3842]" : "border-[#cfdee6] bg-[#f1f6f9] text-[#365c70]"}`}><div className="flex items-center justify-between gap-2"><span className="text-base font-extrabold">{woman ? "وصلت سيدة" : "وصل رجل"}</span><UserPlus size={22} /></div><p className="mt-4 text-sm font-extrabold">إضافة مباشرة</p><p className="mt-1 text-[11px] leading-5 opacity-80">أضف الضيف واحجز مساره دون حدّ تقديري للعدد</p></button>
+        return <button key={gender} type="button" onClick={() => onAdd(gender)} disabled={busy || Boolean(pendingArrival)} className={`min-h-24 rounded-[1.5rem] border p-4 text-right transition active:scale-[.98] disabled:opacity-45 ${woman ? "border-[#ead1d5] bg-[#fbf2f3] text-[#6f3842]" : "border-[#cfdee6] bg-[#f1f6f9] text-[#365c70]"}`}><div className="flex items-center justify-between gap-2"><span className="text-base font-extrabold">{woman ? "وصلت بنت" : "وصل شاب"}</span><UserPlus size={22} /></div></button>
       })}
     </div>
-    {pendingArrival && <div role="status" className="mt-3 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-[#795723]"><p className="text-sm font-extrabold">{busy ? "جارٍ تأكيد الوصول…" : "لم نتأكد من نتيجة آخر وصول"}</p><p className="mt-1 text-xs leading-5">{genderStyle(pendingArrival.gender).label} · إعادة المحاولة تسترجع نفس الطلب دون إضافة ضيف آخر.</p><button type="button" onClick={onRetryArrival} disabled={busy} className="mt-2 min-h-11 rounded-xl bg-[#211f1a] px-4 text-sm font-extrabold text-white disabled:opacity-40"><RefreshCw size={15} className="ml-2 inline" />تحقق وأعد المحاولة</button></div>}
-    <p className="mt-3 flex items-start gap-2 rounded-2xl bg-[#f7f3eb] p-3 text-xs leading-5 text-[#6d655a]"><LockKeyhole size={16} className="mt-0.5 shrink-0" /><span>نستقبل كل ضيف. نفضّل أربعة أشخاص وتوازن الرجال والسيدات، ونزيد عدد الجالسين عند الحاجة. نقلّل التكرار قدر الإمكان، وتبقى الطاولات والبطاقات الصادرة ثابتة.</span></p>
-    {placementNotice && <div role="status" className="mt-3 rounded-2xl border border-[#b9d1bf] bg-[#eef6f0] p-3 text-[#285d3c]"><p className="text-sm font-extrabold">{genderStyle(placementNotice.gender).label} {guestNumber(placementNotice.attendeeNumber)} · تم حجز المسار</p><p className="mt-1 text-xs leading-5">{placementNotice.tables.map(item => `ج${item.roundNumber}: ط${item.tableNumber}`).join(" · ")}</p>{Boolean(placementNotice.repeatPairCount) && <p className="mt-2 text-xs font-bold">تم تسكين الضيف مع {placementNotice.repeatPairCount} لقاءات متكررة. التكرار مسموح ولا يمنع إصدار البطاقة.</p>}</div>}
-    {admitted.length > 0 && <details className="group mt-4 border-t border-[#ece7de] pt-2"><summary className="flex min-h-12 cursor-pointer list-none items-center justify-between text-sm font-extrabold text-[#625b50] [&::-webkit-details-marker]:hidden"><span>البطاقات الصادرة · {admitted.length}</span><ChevronDown size={17} className="transition group-open:rotate-180" /></summary><div className="grid grid-cols-3 gap-2 sm:grid-cols-4">{admitted.map(person => <button type="button" key={person.id} onClick={() => onShow(person.id)} className={`min-h-16 rounded-2xl border px-2 text-sm font-extrabold ${person.gender === "female" ? "border-[#ead1d5] bg-[#fbf2f3] text-[#6f3842]" : "border-[#cfdee6] bg-[#f1f6f9] text-[#365c70]"}`}>{genderStyle(person.gender).label} {guestNumber(person.attendee_number)}</button>)}</div></details>}
+    {pendingArrival && <div role="status" className="mt-3 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-[#795723]"><p className="text-sm font-extrabold">{busy ? "نتأكد من تسجيل الضيف…" : "ما تأكدنا من تسجيل آخر ضيف"}</p><p className="mt-1 text-xs leading-5">{genderStyle(pendingArrival.gender).label} · اضغط إعادة المحاولة، ما راح ينضاف مرتين.</p><button type="button" onClick={onRetryArrival} disabled={busy} className="mt-2 min-h-11 rounded-xl bg-[#211f1a] px-4 text-sm font-extrabold text-white disabled:opacity-40"><RefreshCw size={15} className="ml-2 inline" />إعادة المحاولة</button></div>}
+
+    {placementNotice && <div role="status" className="mt-3 rounded-2xl border border-[#b9d1bf] bg-[#eef6f0] p-3 text-[#285d3c]"><p className="text-sm font-extrabold">{genderStyle(placementNotice.gender).label} {guestNumber(placementNotice.attendeeNumber)} · البطاقة جاهزة</p><p className="mt-1 text-xs leading-5">{placementNotice.tables.map(item => `ج${item.roundNumber}: ط${item.tableNumber}`).join(" · ")}</p></div>}
+    {admitted.length > 0 && <details className="group mt-4 border-t border-[#ece7de] pt-2"><summary className="flex min-h-12 cursor-pointer list-none items-center justify-between text-sm font-extrabold text-[#625b50] [&::-webkit-details-marker]:hidden"><span>البطاقات · {admitted.length}</span><ChevronDown size={17} className="transition group-open:rotate-180" /></summary><div className="grid grid-cols-3 gap-2 sm:grid-cols-4">{admitted.map(person => <button type="button" key={person.id} onClick={() => onShow(person.id)} className={`min-h-16 rounded-2xl border px-2 text-sm font-extrabold ${person.gender === "female" ? "border-[#ead1d5] bg-[#fbf2f3] text-[#6f3842]" : "border-[#cfdee6] bg-[#f1f6f9] text-[#365c70]"}`}>{genderStyle(person.gender).label} {guestNumber(person.attendee_number)}</button>)}</div></details>}
   </div>
 }
 
@@ -578,9 +578,9 @@ function GuestBadgeFocus({ event, person, journey, activeRound, repeatPairCount 
       link.download = `the-room-${person.gender === "female" ? "girl" : "boy"}-${guestNumber(person.attendee_number)}.png`
       link.href = dataUrl
       link.click()
-      toast.success("تم حفظ البطاقة كصورة")
+      toast.success("انحفظت صورة البطاقة")
     } catch {
-      toast.error("تعذّر حفظ الصورة على هذا الجهاز")
+      toast.error("ما قدرنا نحفظ الصورة. تقدر تصوّر الشاشة.")
     } finally {
       setSaving(false)
     }
@@ -596,13 +596,13 @@ function GuestBadgeFocus({ event, person, journey, activeRound, repeatPairCount 
           <div className={`pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full blur-[75px] ${style.glow}`} />
           <div className="pointer-events-none absolute inset-[clamp(.5rem,3vw,.75rem)] rounded-[clamp(1.15rem,6vw,1.7rem)] border border-white/[0.07]" />
           <div className="room-badge-header relative flex min-w-0 items-start justify-between gap-2">
-            <div className="min-w-0"><p id="room-badge-title" className="text-[clamp(1.25rem,6vw,1.5rem)] font-extrabold leading-tight text-white">ذا روم <span className="sr-only">— بطاقة {style.label} {guestNumber(person.attendee_number)}</span></p><p className="room-badge-brand-subtitle mt-1 text-[10px] font-bold tracking-[.12em] text-stone-500">بطاقة مسار الضيف</p></div>
+            <div className="min-w-0"><p id="room-badge-title" className="text-[clamp(1.25rem,6vw,1.5rem)] font-extrabold leading-tight text-white">ذا روم <span className="sr-only">— بطاقة {style.label} {guestNumber(person.attendee_number)}</span></p><p className="room-badge-brand-subtitle mt-1 text-[10px] font-bold tracking-[.12em] text-stone-500">بطاقة الضيف</p></div>
             <span className="shrink-0 rounded-full border border-white/10 bg-white/[0.055] px-[clamp(.6rem,3vw,.75rem)] py-1.5 text-[clamp(.625rem,2.8vw,.6875rem)] font-bold text-stone-300">فعالية {event.event_number}</span>
           </div>
           <div className="room-badge-identity relative mt-[clamp(.75rem,4vh,1.25rem)] text-center">
             <div className={`room-badge-avatar mx-auto flex h-[clamp(2.5rem,12vw,3.5rem)] w-[clamp(2.5rem,12vw,3.5rem)] items-center justify-center rounded-full border border-current bg-white/[0.04] ${style.accent}`}><UserRound className="h-[45%] w-[45%]" /></div>
-            <p className={`mt-1.5 text-[clamp(.6875rem,3vw,.75rem)] font-extrabold ${style.accent}`}>{style.label}</p>
-            <p className="room-badge-number mt-0.5 break-words text-[clamp(2.25rem,12vw,3rem)] font-extrabold leading-none tracking-tight text-white">{person.gender === "female" ? "سيدة" : "رجل"} {guestNumber(person.attendee_number)}</p>
+
+            <p className="room-badge-number mt-0.5 break-words text-[clamp(2.25rem,12vw,3rem)] font-extrabold leading-none tracking-tight text-white">{person.gender === "female" ? "بنت" : "شاب"} {guestNumber(person.attendee_number)}</p>
           </div>
           <div className="room-badge-divider relative my-[clamp(.65rem,3vh,1rem)] h-px bg-gradient-to-l from-transparent via-white/15 to-transparent" />
           <div id="room-badge-journey" className="room-badge-journey relative grid gap-[clamp(.375rem,1.2vh,.5rem)]">
@@ -611,12 +611,12 @@ function GuestBadgeFocus({ event, person, journey, activeRound, repeatPairCount 
               return <div key={seat.id} className={`room-badge-round flex items-center justify-between rounded-[clamp(.75rem,4vw,1rem)] border px-[clamp(.75rem,4vw,1rem)] py-[clamp(.4rem,1.4vh,.625rem)] ${active ? "min-h-14 border-[#e5c780]/45 bg-[#d7ba7d]/12" : "min-h-11 border-white/[0.08] bg-white/[0.035]"}`}><div><p className={`text-[clamp(.5625rem,2.6vw,.625rem)] font-bold ${active ? "text-[#e5c780]" : "text-stone-500"}`}>الجولة {seat.round_number}{active ? " · الآن" : ""}</p><p className={`${active ? "text-[clamp(1.05rem,5vw,1.25rem)]" : "text-[clamp(.9375rem,4.5vw,1.125rem)]"} font-extrabold leading-tight text-white`}>الطاولة {seat.table_number}</p></div><div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${active ? "bg-[#d7ba7d] text-[#17130c]" : "bg-white/[0.05] text-stone-500"}`}><Table2 size={17} /></div></div>
             })}
           </div>
-          <p className="room-badge-guidance relative mt-[clamp(.65rem,2vh,1rem)] px-1 text-center text-[clamp(.6875rem,3vw,.75rem)] leading-5 text-stone-400">{event.seating_mode === "fixed_routes" ? "صوّر بطاقتك؛ مسارك ثابت للجولات الموضحة." : "احتفظ بنفس رقمك، وانتقل إلى طاولتك في كل جولة."}</p>
-          {repeatPairCount > 0 && <p className="relative mt-2 text-center text-xs text-amber-200">قد تتكرر بعض اللقاءات في هذا المسار.</p>}
-        </motion.article>
+          <p className="room-badge-guidance relative mt-[clamp(.65rem,2vh,1rem)] px-1 text-center text-[clamp(.6875rem,3vw,.75rem)] leading-5 text-stone-400">{event.seating_mode === "fixed_routes" ? "صوّر بطاقتك عشان تعرف طاولتك بكل جولة." : "رقمك ثابت، وغيّر طاولتك حسب الجولة."}</p>
+
+        </motion.article>{!simple && !photoMode && repeatPairCount > 0 && <p className="mt-2 text-center text-xs text-stone-400">تكرار الجلسات: {repeatPairCount}</p>}
         {!photoMode && (simple ? <div className="mt-3 w-full shrink-0">
-          <button ref={doneButtonRef} onClick={onClose} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#e1bd7c] px-4 text-base font-extrabold text-[#17130c] shadow-lg shadow-black/20"><CheckCircle2 size={19} /> تم — استقبل التالي</button>
-          <p className="mt-2 text-center text-[11px] font-bold text-white/45">اضغط بعد ما تسلّم الضيف بطاقته</p>
+          <button ref={doneButtonRef} onClick={onClose} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#e1bd7c] px-4 text-base font-extrabold text-[#17130c] shadow-lg shadow-black/20"><CheckCircle2 size={19} /> تم، الضيف اللي بعده</button>
+
         </div> : <div className="mt-2 grid w-full shrink-0 grid-cols-3 gap-2">
           <button onClick={() => { setPhotoMode(true); toast("اضغط على البطاقة للرجوع", { icon: "📷" }) }} className="flex min-h-11 items-center justify-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.05] px-2 text-[11px] font-extrabold text-white"><Camera size={16} /> تصوير</button>
           <button onClick={saveImage} disabled={saving} className="flex min-h-11 items-center justify-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.05] px-2 text-[11px] font-extrabold text-white disabled:opacity-40">{saving ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />} حفظ صورة</button>
@@ -638,10 +638,10 @@ function EmergencyTools({ bundle, busy, onClose, onChangeGender, onReturnBadge, 
   return (
     <section className="mb-5 rounded-[1.75rem] border border-amber-300/15 bg-amber-300/[0.035] p-4 sm:p-5">
       <div className="flex items-start justify-between gap-3"><div><p className="flex items-center gap-2 font-extrabold text-white"><UserCog size={19} className="text-amber-200" /> أدوات سريعة</p><p className="mt-1 text-xs leading-5 text-stone-500">استخدمها فقط لو صار خطأ أثناء الاستقبال.</p></div><button type="button" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 text-stone-400" aria-label="إغلاق الأدوات"><X size={16} /></button></div>
-      <label className="mt-4 block"><span className="mb-2 block text-xs font-bold text-stone-400">اختر الشخص</span><select value={person?.id || ""} onChange={event => setAttendeeId(event.target.value)} className="h-12 w-full rounded-2xl border border-white/10 bg-[#171512] px-4 text-sm font-extrabold text-white outline-none">{people.map(item => <option key={item.id} value={item.id}>{genderStyle(item.gender).label} {guestNumber(item.attendee_number)} {item.checked_in ? "· تم التسليم" : "· بانتظار الحضور"}</option>)}</select></label>
+      <label className="mt-4 block"><span className="mb-2 block text-xs font-bold text-stone-400">اختر الضيف</span><select value={person?.id || ""} onChange={event => setAttendeeId(event.target.value)} className="h-12 w-full rounded-2xl border border-white/10 bg-[#171512] px-4 text-sm font-extrabold text-white outline-none">{people.map(item => <option key={item.id} value={item.id}>{genderStyle(item.gender).label} {guestNumber(item.attendee_number)} {item.checked_in ? "· تم التسليم" : "· ما وصل"}</option>)}</select></label>
       {person && <div className="mt-3 grid gap-3 lg:grid-cols-2">
-        <div className="rounded-2xl border border-white/[0.08] bg-black/15 p-3"><p className="text-xs font-bold text-stone-400">تصحيح النوع أو البطاقة</p><div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={() => onChangeGender(person, "female")} disabled={busy || person.gender === "female"} className="min-h-11 rounded-xl border border-rose-300/20 bg-rose-300/[0.07] text-sm font-extrabold text-rose-100 disabled:opacity-35">سيدة</button><button type="button" onClick={() => onChangeGender(person, "male")} disabled={busy || person.gender === "male"} className="min-h-11 rounded-xl border border-sky-300/20 bg-sky-300/[0.07] text-sm font-extrabold text-sky-100 disabled:opacity-35">رجل</button></div>{person.checked_in && <button type="button" onClick={() => onReturnBadge(person)} disabled={busy} className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 text-sm font-bold text-stone-300 disabled:opacity-40"><Undo2 size={15} /> رجّع البطاقة</button>}</div>
-        <div className="rounded-2xl border border-white/[0.08] bg-black/15 p-3"><p className="text-xs font-bold text-stone-400">نقل داخل جولة</p><div className="mt-3 grid grid-cols-2 gap-2"><select value={roundNumber} onChange={event => setRoundNumber(Number(event.target.value))} className="h-11 rounded-xl border border-white/10 bg-[#171512] px-3 text-sm font-bold text-white">{Array.from({ length: bundle.event.round_count }, (_, index) => index + 1).map(value => <option key={value} value={value}>الجولة {value}</option>)}</select><select value={tableNumber} onChange={event => setTableNumber(Number(event.target.value))} className="h-11 rounded-xl border border-white/10 bg-[#171512] px-3 text-sm font-bold text-white">{Array.from({ length: bundle.event.table_count }, (_, index) => index + 1).map(value => <option key={value} value={value}>الطاولة {value}</option>)}</select></div><button type="button" onClick={() => onMove(person, roundNumber, tableNumber)} disabled={busy || !bundle.schedule || currentTable === tableNumber} className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#d7ba7d]/25 bg-[#d7ba7d]/10 text-sm font-extrabold text-[#efd89e] disabled:opacity-35"><ArrowLeftRight size={15} /> نقل من طاولة {currentTable || "—"}</button></div>
+        <div className="rounded-2xl border border-white/[0.08] bg-black/15 p-3"><p className="text-xs font-bold text-stone-400">تعديل بيانات الضيف</p><div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={() => onChangeGender(person, "female")} disabled={busy || person.gender === "female"} className="min-h-11 rounded-xl border border-rose-300/20 bg-rose-300/[0.07] text-sm font-extrabold text-rose-100 disabled:opacity-35">بنت</button><button type="button" onClick={() => onChangeGender(person, "male")} disabled={busy || person.gender === "male"} className="min-h-11 rounded-xl border border-sky-300/20 bg-sky-300/[0.07] text-sm font-extrabold text-sky-100 disabled:opacity-35">شاب</button></div>{person.checked_in && <button type="button" onClick={() => onReturnBadge(person)} disabled={busy} className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 text-sm font-bold text-stone-300 disabled:opacity-40"><Undo2 size={15} /> رجّع البطاقة</button>}</div>
+        <div className="rounded-2xl border border-white/[0.08] bg-black/15 p-3"><p className="text-xs font-bold text-stone-400">تغيير الطاولة</p><div className="mt-3 grid grid-cols-2 gap-2"><select value={roundNumber} onChange={event => setRoundNumber(Number(event.target.value))} className="h-11 rounded-xl border border-white/10 bg-[#171512] px-3 text-sm font-bold text-white">{Array.from({ length: bundle.event.round_count }, (_, index) => index + 1).map(value => <option key={value} value={value}>الجولة {value}</option>)}</select><select value={tableNumber} onChange={event => setTableNumber(Number(event.target.value))} className="h-11 rounded-xl border border-white/10 bg-[#171512] px-3 text-sm font-bold text-white">{Array.from({ length: bundle.event.table_count }, (_, index) => index + 1).map(value => <option key={value} value={value}>الطاولة {value}</option>)}</select></div><button type="button" onClick={() => onMove(person, roundNumber, tableNumber)} disabled={busy || !bundle.schedule || currentTable === tableNumber} className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#d7ba7d]/25 bg-[#d7ba7d]/10 text-sm font-extrabold text-[#efd89e] disabled:opacity-35"><ArrowLeftRight size={15} /> نقل من طاولة {currentTable || "—"}</button></div>
       </div>}
       <div className="mt-4 border-t border-white/[0.07] pt-4"><button type="button" onClick={onResetCheckIns} disabled={busy || !people.some(person => person.checked_in)} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-amber-300/20 bg-amber-300/[0.06] text-sm font-bold text-amber-100 disabled:opacity-35"><RotateCcw size={15} /> رجّع كل البطاقات إلى «متاحة»</button></div>
     </section>
@@ -763,7 +763,7 @@ export default function TheRoomPage() {
   }, [view, reduceMotion])
 
   const act = async (action: string, payload: Record<string, unknown> = {}) => {
-    if (preview) { toast("هذه نسخة للعرض فقط", { icon: "✦" }); return DEMO_BUNDLE }
+    if (preview) { toast("وضع التجربة، التغييرات ما تنحفظ"); return DEMO_BUNDLE }
     mutationEpochRef.current += 1
     setBusy(true)
     try {
@@ -780,7 +780,7 @@ export default function TheRoomPage() {
   }
 
   const login = async (key: string) => {
-    try { await roomApi("login", { key }); setAuthenticated(true); await loadEvents(); toast.success("أهلًا بك") }
+    try { await roomApi("login", { key }); setAuthenticated(true); await loadEvents(); toast.success("حيّاك") }
     catch (error: any) { toast.error(arabicError(error)); throw error }
   }
 
@@ -788,7 +788,7 @@ export default function TheRoomPage() {
     if (!bundle || preview) return
     mutationEpochRef.current += 1
     setRefreshing(true)
-    try { installBundle(await roomApi("get-event", { event_id: bundle.event.id })); toast.success("تم تحديث البيانات") }
+    try { installBundle(await roomApi("get-event", { event_id: bundle.event.id })); toast.success("تحدّثت البيانات") }
     catch (error: any) { toast.error(arabicError(error)) }
     finally { setRefreshing(false) }
   }
@@ -852,7 +852,7 @@ export default function TheRoomPage() {
 
   const deleteEvent = async () => {
     if (!bundle || !window.confirm(`متأكد إنك تبغى تحذف فعالية ${bundle.event.event_number}؟ الحذف نهائي ويشمل الضيوف والتوزيع.`)) return
-    if (preview) { toast("هذه نسخة للعرض فقط", { icon: "✦" }); return }
+    if (preview) { toast("وضع التجربة، التغييرات ما تنحفظ"); return }
     mutationEpochRef.current += 1
     setBusy(true)
     try {
@@ -977,7 +977,7 @@ export default function TheRoomPage() {
   const controlTimer = async (command: RoomTimerCommand, durationSeconds?: number) => {
     if (!bundle?.schedule || busy || switchingEvent || savingSetup || refreshing) return
     if (command === "reset" && roomTimerRemaining(bundle.event, Date.now() + clockOffsetMs) > 0
-      && !window.confirm("إعادة مؤقت الجولة إلى المدة الكاملة؟")) return
+      && !window.confirm("ترجّع وقت الجولة من البداية؟")) return
     const eventId = bundle.event.id
     const apply = (next: Bundle) => {
       if (activeEventIdRef.current !== eventId) return
@@ -1064,7 +1064,7 @@ export default function TheRoomPage() {
           setAdvancedMode(false)
           setTableRound(data.event.active_round)
           setView("checkin")
-          toast.success("الاستقبال جاهز من صفر ضيوف")
+          toast.success("الاستقبال جاهز")
           return
         }
       } else if (eventId) {
@@ -1083,7 +1083,7 @@ export default function TheRoomPage() {
           setView("checkin")
           toast.success(data.schedule_change === "extended"
             ? `تم تحديث عدد الضيوف إلى ${data.attendees.length}`
-            : "تم تجهيز توزيع الجلسات")
+            : "التوزيع جاهز")
           return
         }
       }
@@ -1093,7 +1093,7 @@ export default function TheRoomPage() {
         if (wasCreating) setAdvancedMode(false)
         setTableRound(1)
         setView("checkin")
-        toast.success("تم تجهيز توزيع الجلسات")
+        toast.success("التوزيع جاهز")
       }
     } catch {
       if (createdEvent) {
@@ -1122,7 +1122,7 @@ export default function TheRoomPage() {
     if (!bundle) return
     if (preview) {
       const nextPerson = included.find(person => person.gender === gender && !person.checked_in)
-      if (!nextPerson) { toast.error("تم تسليم جميع بطاقات هذا القسم"); return }
+      if (!nextPerson) { toast.error("كل البطاقات انسلّمت"); return }
       installBundle({ ...bundle, attendees: bundle.attendees.map(person => person.id === nextPerson.id ? { ...person, checked_in: true, updated_at: new Date().toISOString() } : person) })
       setSelectedGuestId(nextPerson.id)
       setView("checkin")
@@ -1239,7 +1239,7 @@ export default function TheRoomPage() {
       setSelectedGuestId(addedPerson.id)
       setView("checkin")
       setBadgeOpen(true)
-      if (advancedMode) toast.success(`تمت إضافة ${gender === "female" ? "سيدة" : "رجل"} ${guestNumber(attendeeNumber)}`)
+      if (advancedMode) toast.success(`تمت إضافة ${gender === "female" ? "بنت" : "شاب"} ${guestNumber(attendeeNumber)}`)
       return
     }
     try {
@@ -1249,7 +1249,7 @@ export default function TheRoomPage() {
       setPlacementNotice({ attendeeNumber: data.added_attendee_number, gender, tables: data.placement_tables || [] })
       setView("checkin")
       setBadgeOpen(Boolean(addedPerson))
-      if (advancedMode) toast.success(`تمت إضافة ${gender === "female" ? "سيدة" : "رجل"} ${guestNumber(data.added_attendee_number)}`)
+      if (advancedMode) toast.success(`تمت إضافة ${gender === "female" ? "بنت" : "شاب"} ${guestNumber(data.added_attendee_number)}`)
     } catch {}
   }
 
@@ -1270,12 +1270,12 @@ export default function TheRoomPage() {
 
   const shareGuest = async () => {
     if (!selectedGuest || !bundle) return
-    const text = `ذا روم — ${selectedGuest.gender === "female" ? "سيدة" : "رجل"} ${guestNumber(selectedGuest.attendee_number)}\n${journey.map(seat => `الجولة ${seat.round_number}: الطاولة ${seat.table_number}`).join("\n")}`
+    const text = `ذا روم — ${selectedGuest.gender === "female" ? "بنت" : "شاب"} ${guestNumber(selectedGuest.attendee_number)}\n${journey.map(seat => `الجولة ${seat.round_number}: الطاولة ${seat.table_number}`).join("\n")}`
     try {
-      if (navigator.share) await navigator.share({ title: "مسار الضيف في ذا روم", text })
-      else { await navigator.clipboard.writeText(text); toast.success("تم نسخ مسار الضيف") }
+      if (navigator.share) await navigator.share({ title: "بطاقة ذا روم", text })
+      else { await navigator.clipboard.writeText(text); toast.success("اننسخ جدول الضيف") }
     } catch (error: any) {
-      if (error?.name !== "AbortError") toast.error("تعذّرت المشاركة")
+      if (error?.name !== "AbortError") toast.error("ما قدرنا نشارك البطاقة")
     }
   }
 
@@ -1329,8 +1329,8 @@ export default function TheRoomPage() {
         data = await sendMove(false)
       } catch (error: any) {
         if (error.code !== "MOVE_REPEATS_MEETING") throw error
-        const numbers = error.details?.repeated_attendee_numbers?.map((value: number) => guestNumber(value)).join("، ") || "شخص سابق"
-        if (!window.confirm(`هذا النقل يخلي البطاقة ${guestNumber(person.attendee_number)} تقابل ${numbers} مرة ثانية. تنقلها رغم ذلك؟`)) return
+        const numbers = error.details?.repeated_attendee_numbers?.map((value: number) => guestNumber(value)).join("، ") || "ضيف جلس معه قبل"
+        if (!window.confirm(`هذا النقل يخلي البطاقة ${guestNumber(person.attendee_number)} تقابل ${numbers} مرة ثانية. تبي تكمل النقل؟`)) return
         data = await sendMove(true)
       }
       installBundle(data)
@@ -1357,7 +1357,7 @@ export default function TheRoomPage() {
         <div className="mx-auto flex w-full max-w-4xl items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <motion.div layoutId="room-mark" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#211f1a] text-[#e6c58c] shadow-sm"><DoorOpen size={20} /></motion.div>
-            <div className="min-w-0"><div className="flex items-center gap-2"><p className="truncate text-base font-extrabold">ذا روم</p>{preview && <span className="rounded-full bg-[#e9e0f5] px-2 py-0.5 text-[9px] font-extrabold text-[#694f85]">عرض</span>}</div><p className="truncate text-[11px] font-bold text-[#817a6f]">{creating ? `تجهيز فعالية ${draft.event_number}` : bundle ? `فعالية ${bundle.event.event_number}` : "تجهيز أول فعالية"}</p></div>
+            <div className="min-w-0"><div className="flex items-center gap-2"><p className="truncate text-base font-extrabold">ذا روم</p>{preview && <span className="rounded-full bg-[#e9e0f5] px-2 py-0.5 text-[9px] font-extrabold text-[#694f85]">تجربة</span>}</div><p className="truncate text-[11px] font-bold text-[#817a6f]">{creating ? `تجهيز فعالية ${draft.event_number}` : bundle ? `فعالية ${bundle.event.event_number}` : "تجهيز أول فعالية"}</p></div>
           </div>
           {creating && bundle ? <button onClick={cancelCreate} disabled={busy || savingSetup} className="flex min-h-11 shrink-0 items-center gap-2 rounded-2xl border border-[#ddd7cd] bg-white/70 px-3 text-xs font-extrabold text-[#5f594f] disabled:opacity-35"><ArrowRight size={16} /> إلغاء</button> : bundle ? <button onClick={() => { setAdvancedMode(value => !value); setView(advancedMode ? "checkin" : "tables"); setEmergencyOpen(false) }} aria-pressed={advancedMode} className={`flex min-h-11 shrink-0 items-center gap-2 rounded-2xl px-3 text-xs font-extrabold transition ${advancedMode ? "bg-[#211f1a] text-white" : "border border-[#ddd7cd] bg-white/70 text-[#5f594f]"}`}>{advancedMode ? <ArrowRight size={16} /> : <Settings2 size={16} />} {advancedMode ? "رجوع" : "إدارة"}</button> : null}
         </div>
@@ -1367,20 +1367,20 @@ export default function TheRoomPage() {
         <AnimatePresence mode="wait" initial={false}>
           {scene === "setup" ? <motion.section key="setup" initial={{ opacity: 0, x: reduceMotion ? 0 : 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: reduceMotion ? 0 : -12 }} transition={{ duration: reduceMotion ? 0 : .24 }} className="mx-auto max-w-xl">
             <div className="mb-5 px-1 text-center sm:mb-7">
-              <motion.div layoutId="room-stage-orb" className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#e6dbc7] text-[#835f2f]"><Sparkles size={20} /></motion.div>
-              <p className="mt-4 text-[11px] font-extrabold text-[#9a733e]">خطوة واحدة قبل الاستقبال</p>
-              <h1 className="mt-1 text-3xl font-extrabold tracking-tight sm:text-4xl">خلّنا نجهّز الفعالية</h1>
-              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#777064]">{fixedSetup ? "ابدأ بصفر ضيوف. حدّد الطاولات الموجودة والجولات، وأضف الضيوف وقت وصولهم." : "حدّد الأعداد بهدوء. الباقي نرتّبه لك تلقائيًا."}</p>
+              <motion.div layoutId="room-stage-orb" className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#e6dbc7] text-[#835f2f]"><CalendarPlus size={20} /></motion.div>
+
+              <h1 className="mt-1 text-3xl font-extrabold tracking-tight sm:text-4xl">تجهيز الفعالية</h1>
+              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#777064]">{fixedSetup ? "حدّد الطاولات والجولات، والضيوف تضيفهم وقت ما يوصلون." : "حدّد عدد الضيوف والطاولات والجولات."}</p>
             </div>
             <section data-room-setup className="rounded-[2rem] border border-[#e3ddd3] bg-white/95 p-4 shadow-[0_24px_80px_rgba(61,50,34,.08)] sm:p-6">
               {creating && advancedMode && <label htmlFor="room-event-number" className="mb-2 flex min-h-[4.5rem] items-center justify-between gap-4 border-b border-[#ebe6dd] px-1 py-3"><span><span className="block text-[15px] font-extrabold text-[#29261f]">رقم الفعالية</span><span className="mt-0.5 block text-xs text-[#6f685d]">للتنظيم الداخلي</span></span><input id="room-event-number" type="number" min={1} value={draft.event_number} onChange={event => updateDraft(current => ({ ...current, event_number: Math.max(1, Number(event.target.value) || 1) }))} className="h-11 w-24 rounded-xl border border-[#ded7cc] bg-[#f8f6f1] px-3 text-center text-lg font-extrabold text-[#211f1a] outline-none" /></label>}
               <div className="divide-y divide-[#ebe6dd]">
                 {!fixedSetup && <Counter label="عدد الأشخاص" hint="العدد المتوقع في الفعالية" value={draft.minimum_attendees} onChange={value => updateDraft(current => ({ ...current, minimum_attendees: value }))} min={minimumPeople} max={500} />}
-                <Counter label="عدد الطاولات" hint={fixedSetup ? "الطاولات الموجودة فعليًا · تبقى أرقامها ثابتة" : undefined} value={draft.table_count} onChange={value => updateDraft(current => ({ ...current, table_count: value }))} min={1} max={50} />
+                <Counter label="عدد الطاولات" hint={fixedSetup ? "الطاولات الموجودة بالمكان" : undefined} value={draft.table_count} onChange={value => updateDraft(current => ({ ...current, table_count: value }))} min={1} max={50} />
                 <Counter label="عدد الجولات" value={draft.round_count} onChange={value => updateDraft(current => ({ ...current, round_count: value }))} min={1} max={20} />
               </div>
               <div className="mt-4 rounded-[1.5rem] bg-[#f7f3eb] p-4">
-                {fixedSetup ? <><p className="text-center text-sm font-bold leading-6 text-[#6d655a]">صفر ضيوف مسجّلين · <strong className="text-[#211f1a]">{draft.table_count} طاولات ثابتة</strong> · دون حدّ تقديري للضيوف</p><p className="mt-2 text-center text-xs leading-6 text-[#777064]">نفضّل أربعة أشخاص وتوازن الرجال والسيدات، ونزيد عدد الجالسين عند الحاجة · الجولة {DEFAULT_ROOM_ROUND_SECONDS / 60} دقيقة افتراضيًا.<br />كل ضيف يحصل على مسار ثابت عند وصوله دون قائمة انتظار.</p></> : <p className="text-center text-sm font-bold leading-6 text-[#6d655a]"><strong className="text-[#211f1a]">{draftGuestTotal}</strong> ضيف · قرابة <strong className="text-[#211f1a]">{Math.floor(draftGuestTotal / Math.max(1, draft.table_count))}–{Math.ceil(draftGuestTotal / Math.max(1, draft.table_count))}</strong> لكل طاولة · <strong className="text-[#211f1a]">{draft.round_count}</strong> جولات</p>}
+                {fixedSetup ? <p className="text-center text-sm font-bold leading-6 text-[#6d655a]">مدة الجولة {DEFAULT_ROOM_ROUND_SECONDS / 60} دقيقة، وتقدر تغيّرها.</p> : <p className="text-center text-sm font-bold leading-6 text-[#6d655a]"><strong className="text-[#211f1a]">{draftGuestTotal}</strong> ضيف · قرابة <strong className="text-[#211f1a]">{Math.floor(draftGuestTotal / Math.max(1, draft.table_count))}–{Math.ceil(draftGuestTotal / Math.max(1, draft.table_count))}</strong> لكل طاولة · <strong className="text-[#211f1a]">{draft.round_count}</strong> جولات</p>}
               </div>
               {!validSetup && <p className="mt-3 rounded-xl bg-[#fff4dc] px-3 py-2 text-center text-xs font-bold text-[#805d27]">{fixedSetup ? "اختر من 1 إلى 50 طاولة ومن 1 إلى 20 جولة." : "كل طاولة تحتاج ضيفين على الأقل."}</p>}
             </section>
@@ -1391,7 +1391,7 @@ export default function TheRoomPage() {
               {fixedRoutes ? <FixedRouteCheckInPanel bundle={bundle} activeRound={round} busy={busy || refreshing || switchingEvent || savingSetup} pendingArrival={pendingArrival?.eventId === bundle.event.id ? pendingArrival : null} placementNotice={placementNotice} onAdd={addGuest} onRetryArrival={() => { if (pendingArrival) void addFixedGuest(pendingArrival.gender, true) }} onShow={showBadge} /> : <CheckInPanel attendees={included} busy={busy} placementNotice={placementNotice} simple onNext={checkInNext} onAdd={addGuest} onUndo={undoCheckIn} onShow={showBadge} />}
             </motion.div>
           </motion.section> : bundle ? <motion.section key="manage" initial={{ opacity: 0, x: reduceMotion ? 0 : -18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: reduceMotion ? 0 : 12 }} transition={{ duration: reduceMotion ? 0 : .24 }}>
-            <div data-room-chrome className="mb-5 px-1"><p className="text-[11px] font-extrabold text-[#9a733e]">بعيدًا عن شاشة الاستقبال</p><h1 className="mt-1 text-3xl font-extrabold tracking-tight">إدارة الفعالية</h1><p className="mt-1 text-sm text-[#777064]">المراجعة والتصحيح هنا فقط. ارجع للاستقبال وقت ما تخلص.</p></div>
+            <div data-room-chrome className="mb-5 px-1"><h1 className="mt-1 text-3xl font-extrabold tracking-tight">إدارة الفعالية</h1></div>
 
             <section data-room-chrome className="rounded-[1.75rem] border border-[#e1dbd1] bg-white/90 p-3 shadow-sm sm:p-4">
               <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
@@ -1409,24 +1409,24 @@ export default function TheRoomPage() {
             {bundle.schedule && <div className="mt-4" data-room-chrome><RoomRoundTimer event={bundle.event} clockOffsetMs={clockOffsetMs} disabled={busy || switchingEvent || savingSetup || refreshing} stale={liveSyncFailed} onCommand={controlTimer} /></div>}
             {bundle.schedule ? <section data-room-results className="mt-4 rounded-[2rem] border border-[#e1dbd1] bg-white/95 p-4 shadow-[0_20px_70px_rgba(61,50,34,.06)] sm:p-5">
               {activeView === "tables" ? <div>
-                <div className="flex items-center justify-between gap-3"><div><p className="font-extrabold">توزيع الطاولات</p><p className="mt-1 text-xs text-[#817a6f]">للمراجعة فقط · الجولة الحالية تبقى {round}</p></div><button onClick={() => window.print()} className="flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[#ded8ce] px-4 text-sm font-extrabold text-[#5f594f]"><Printer size={16} /> طباعة</button></div>
+                <div className="flex items-center justify-between gap-3"><div><p className="font-extrabold">توزيع الطاولات</p><p className="mt-1 text-xs text-[#817a6f]">الجولة الحالية: {round}</p></div><button onClick={() => window.print()} className="flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[#ded8ce] px-4 text-sm font-extrabold text-[#5f594f]"><Printer size={16} /> طباعة</button></div>
                 <div className="mt-4 flex gap-2 overflow-x-auto pb-2">{Array.from({ length: bundle.event.round_count }, (_, index) => index + 1).map(value => <button key={value} onClick={() => setTableRound(value)} className={`min-h-11 min-w-28 rounded-2xl border px-4 text-sm font-extrabold ${tableRound === value ? "border-[#211f1a] bg-[#211f1a] text-white" : "border-[#ded8ce] bg-white text-[#6f685d]"}`}>الجولة {value}</button>)}</div>
-                {fixedRoutes && <p className="mt-3 rounded-xl bg-[#f7f3eb] px-3 py-2 text-xs leading-5 text-[#6d655a]">أرقام الطاولات والمسارات الصادرة ثابتة. استقبال ضيف جديد لا يغيّر بطاقات الآخرين.</p>}
+
                 <AnimatePresence mode="wait"><motion.div key={tableRound} initial={{ opacity: 0, x: reduceMotion ? 0 : -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="the-room-schedule-grid mt-3 grid gap-3 lg:grid-cols-2">{Array.from({ length: bundle.event.table_count }, (_, index) => index + 1).map(tableNumber => <TableCard key={tableNumber} tableNumber={tableNumber} fixedRoutes={fixedRoutes} seats={bundle.seats.filter(seat => seat.round_number === tableRound && seat.table_number === tableNumber)} attendees={attendees} onGuest={showGuest} />)}</motion.div></AnimatePresence>
               </div> : activeView === "checkin" ? <div>
                 <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {[{ label: fixedRoutes ? "تم تسكينهم" : "حضروا", value: checkedInCount }, { label: fixedRoutes ? "الطاولات" : "بانتظارهم", value: fixedRoutes ? bundle.event.table_count : included.length - checkedInCount }, { label: "سيدات", value: womenCount }, { label: "رجال", value: menCount }].map(item => <div key={item.label} className="rounded-2xl bg-[#f5f1ea] p-3 text-center"><p className="text-2xl font-extrabold">{item.value}</p><p className="mt-1 text-[11px] font-bold text-[#6b6459]">{item.label}</p></div>)}
+                  {[{ label: "حضروا", value: checkedInCount }, { label: fixedRoutes ? "الطاولات" : "بانتظارهم", value: fixedRoutes ? bundle.event.table_count : included.length - checkedInCount }, { label: "بنات", value: womenCount }, { label: "شباب", value: menCount }].map(item => <div key={item.label} className="rounded-2xl bg-[#f5f1ea] p-3 text-center"><p className="text-2xl font-extrabold">{item.value}</p><p className="mt-1 text-[11px] font-bold text-[#6b6459]">{item.label}</p></div>)}
                 </div>
                 {!fixedRoutes && <div className="mb-3 flex flex-wrap gap-2 text-xs font-bold"><span className={`rounded-full px-3 py-2 ${imbalancedTableCount ? "bg-[#fff4dc] text-[#805d27]" : "bg-[#eef6f0] text-[#356247]"}`}>{imbalancedTableCount ? `${imbalancedTableCount} طاولات تحتاج موازنة` : "الطاولات متوازنة"}</span><span className={`rounded-full px-3 py-2 ${crowdedTableCount ? "bg-[#fff4dc] text-[#805d27]" : "bg-[#f2eee7] text-[#655e54]"}`}>{crowdedTableCount ? `${crowdedTableCount} طاولات مزدحمة` : "لا توجد طاولات مزدحمة"}</span></div>}
                 <div className="overflow-hidden rounded-[1.75rem] border border-[#e6e0d7]">{fixedRoutes ? <FixedRouteCheckInPanel bundle={bundle} activeRound={round} busy={busy || refreshing || switchingEvent || savingSetup} pendingArrival={pendingArrival?.eventId === bundle.event.id ? pendingArrival : null} placementNotice={placementNotice} onAdd={addGuest} onRetryArrival={() => { if (pendingArrival) void addFixedGuest(pendingArrival.gender, true) }} onShow={showBadge} /> : <CheckInPanel attendees={included} busy={busy} placementNotice={placementNotice} onNext={checkInNext} onAdd={addGuest} onUndo={undoCheckIn} onShow={showBadge} />}</div>
               </div> : <div>
-                <div className="mb-4"><p className="font-extrabold">كل البطاقات</p><p className="mt-1 text-xs text-[#817a6f]">اختر أي بطاقة للمراجعة أو المشاركة.</p></div>
+                <div className="mb-4"><p className="font-extrabold">كل البطاقات</p><p className="mt-1 text-xs text-[#817a6f]">اضغط البطاقة عشان تشوفها أو تشاركها.</p></div>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">{attendees.filter(person => bundle.seats.some(seat => seat.attendee_id === person.id)).map(person => { const woman = person.gender === "female"; return <button key={person.id} onClick={() => { setSelectedGuestId(person.id); setBadgeOpen(true) }} className={`flex min-h-20 flex-col items-center justify-center rounded-2xl border font-extrabold transition ${woman ? "border-[#ead1d5] bg-[#fbf2f3] text-[#6f3842]" : "border-[#cfdee6] bg-[#f1f6f9] text-[#365c70]"}`}><span className="text-lg">بطاقة {guestNumber(person.attendee_number)}</span><span className="mt-1 text-[10px] opacity-60">{genderStyle(person.gender).label}</span></button> })}</div>
               </div>}
             </section> : <section data-room-chrome className="mt-4 rounded-[2rem] border border-[#e1dbd1] bg-white/95 p-5 text-center shadow-sm sm:p-7">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#f0e8da] text-[#8b6736]"><WandSparkles size={20} /></div>
-              <h2 className="mt-4 text-xl font-extrabold">هذه الفعالية تحتاج توزيعًا</h2>
-              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#6f685d]">تقدر تبدّل الفعالية أو تحذفها من هنا، أو ترجع للإعداد وتجهّز التوزيع.</p>
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#f0e8da] text-[#8b6736]"><Table2 size={20} /></div>
+              <h2 className="mt-4 text-xl font-extrabold">التوزيع مو جاهز</h2>
+              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#6f685d]">ارجع للإعداد عشان تجهّز الطاولات.</p>
               <button onClick={() => setAdvancedMode(false)} className="mt-4 min-h-12 rounded-2xl bg-[#211f1a] px-6 font-extrabold text-white"><ArrowRight size={17} className="ml-2 inline" /> رجوع للإعداد</button>
             </section>}
 
@@ -1434,21 +1434,21 @@ export default function TheRoomPage() {
               <details className="group rounded-[1.75rem] border border-[#e1dbd1] bg-white/90 p-3">
                 <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between rounded-2xl px-2 font-extrabold [&::-webkit-details-marker]:hidden"><span className="flex items-center gap-2"><Settings2 size={17} /> {fixedRoutes ? "الطاولات والجولات" : "تعديل الأعداد والجولات"}</span><ChevronDown size={17} className="transition group-open:rotate-180" /></summary>
                 <div data-room-setup className="mt-2 border-t border-[#ebe6dd] px-1 pt-2">
-                  {fixedRoutes && <p className="mb-2 rounded-xl bg-[#f7f3eb] p-3 text-xs leading-6 text-[#6d655a]">{fixedSettingsLocked ? "الطاولات والجولات مقفلة بعد إصدار البطاقات أو الانتقال للجولة التالية، لحماية المسارات والصور المسلّمة." : "يمكن تعديل الطاولات والجولات قبل أول بطاقة أو الانتقال للجولة التالية. أضف الضيوف من شاشة الاستقبال فقط."}</p>}
+                  {fixedRoutes && <p className="mb-2 rounded-xl bg-[#f7f3eb] p-3 text-xs leading-6 text-[#6d655a]">{fixedSettingsLocked ? "ما تقدر تغيّر الطاولات والجولات بعد تسليم البطاقات أو بدء الجولة الثانية." : "عدّلها قبل تسليم أول بطاقة وبدء الجولة الثانية."}</p>}
                   <fieldset disabled={fixedSettingsLocked || busy || savingSetup} className="min-w-0 disabled:opacity-50">
-                  {!fixedRoutes && <Counter label="عدد الأشخاص" hint="يمكنك إضافة أشخاص فقط" value={draft.minimum_attendees} onChange={value => updateDraft(current => ({ ...current, minimum_attendees: value }))} min={minimumPeople} max={500} />}
+                  {!fixedRoutes && <Counter label="عدد الأشخاص" hint="تقدر تزيد العدد بس" value={draft.minimum_attendees} onChange={value => updateDraft(current => ({ ...current, minimum_attendees: value }))} min={minimumPeople} max={500} />}
                   <Counter label="عدد الطاولات" value={draft.table_count} onChange={value => updateDraft(current => ({ ...current, table_count: value }))} min={1} max={50} />
                   <Counter label="عدد الجولات" value={draft.round_count} onChange={value => updateDraft(current => ({ ...current, round_count: value }))} min={1} max={20} />
-                  <button onClick={saveAndGenerate} disabled={busy || savingSetup || !validSetup || !setupChanged} className="mt-3 flex min-h-13 w-full items-center justify-center gap-2 rounded-2xl bg-[#211f1a] px-5 font-extrabold text-white disabled:opacity-35">{savingSetup ? <Loader2 className="animate-spin" size={17} /> : fixedSettingsLocked ? <LockKeyhole size={17} /> : <WandSparkles size={17} />} {fixedSettingsLocked ? "الإعدادات مقفلة" : fixedRoutes ? dimensionsChanged ? "احفظ الإعدادات" : "لا توجد تغييرات" : !bundle.schedule ? "جهّز التوزيع" : dimensionsChanged ? "طبّق وأعد التوزيع" : guestsToAdd > 0 ? `أضف ${guestsToAdd} أشخاص` : "لا توجد تغييرات"}</button>
+                  <button onClick={saveAndGenerate} disabled={busy || savingSetup || !validSetup || !setupChanged} className="mt-3 flex min-h-13 w-full items-center justify-center gap-2 rounded-2xl bg-[#211f1a] px-5 font-extrabold text-white disabled:opacity-35">{savingSetup ? <Loader2 className="animate-spin" size={17} /> : fixedSettingsLocked ? <LockKeyhole size={17} /> : <CheckCircle2 size={17} />} {fixedSettingsLocked ? "الإعدادات مقفلة" : fixedRoutes ? dimensionsChanged ? "احفظ الإعدادات" : "ما فيه تعديل" : !bundle.schedule ? "جهّز التوزيع" : dimensionsChanged ? "طبّق وأعد التوزيع" : guestsToAdd > 0 ? `أضف ${guestsToAdd} أشخاص` : "ما فيه تعديل"}</button>
                   </fieldset>
                   {!validSetup && <p className="mt-2 text-center text-xs font-bold text-[#805d27]">{fixedRoutes ? "اختر عددًا صحيحًا للطاولات والجولات." : "كل طاولة تحتاج ضيفين على الأقل."}</p>}
                 </div>
               </details>
 
               <details className="group rounded-[1.75rem] border border-[#e1dbd1] bg-white/90 p-3">
-                <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between rounded-2xl px-2 font-extrabold [&::-webkit-details-marker]:hidden"><span className="flex items-center gap-2"><SlidersHorizontal size={17} /> التصحيح والإجراءات</span><ChevronDown size={17} className="transition group-open:rotate-180" /></summary>
+                <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between rounded-2xl px-2 font-extrabold [&::-webkit-details-marker]:hidden"><span className="flex items-center gap-2"><SlidersHorizontal size={17} /> إجراءات الفعالية</span><ChevronDown size={17} className="transition group-open:rotate-180" /></summary>
                 <div className="mt-2 grid gap-2 border-t border-[#ebe6dd] pt-3">
-                  {fixedRoutes ? <p className="rounded-2xl bg-[#f7f3eb] p-3 text-xs leading-6 text-[#6d655a]">لا يمكن نقل الضيوف أو إرجاع بطاقاتهم أو تغيير النوع أو مسح المسارات في هذا النظام، حتى تبقى الصور صالحة.</p> : <><button onClick={() => setEmergencyOpen(value => !value)} disabled={busy} className="flex min-h-12 items-center gap-3 rounded-2xl bg-[#f5f1ea] px-4 text-sm font-extrabold text-[#4e493f] disabled:opacity-35"><UserCog size={17} /> تصحيح أو نقل شخص</button>
+                  {fixedRoutes ? <p className="rounded-2xl bg-[#f7f3eb] p-3 text-xs leading-6 text-[#6d655a]">البطاقات اللي انسلّمت ما تتغيّر.</p> : <><button onClick={() => setEmergencyOpen(value => !value)} disabled={busy} className="flex min-h-12 items-center gap-3 rounded-2xl bg-[#f5f1ea] px-4 text-sm font-extrabold text-[#4e493f] disabled:opacity-35"><UserCog size={17} /> تعديل بيانات ضيف أو طاولته</button>
                   <button onClick={resetEvent} disabled={!bundle.schedule || busy} className="flex min-h-12 items-center gap-3 rounded-2xl bg-[#fff6e7] px-4 text-sm font-extrabold text-[#7b5928] disabled:opacity-35"><RotateCcw size={17} /> مسح توزيع الطاولات</button></>}
                   <button onClick={deleteEvent} disabled={busy} className="flex min-h-12 items-center gap-3 rounded-2xl bg-[#fff0ef] px-4 text-sm font-extrabold text-[#8a403b] disabled:opacity-35"><Trash2 size={17} /> حذف الفعالية</button>
                 </div>
@@ -1461,11 +1461,11 @@ export default function TheRoomPage() {
       </div>
 
       {scene === "setup" && <div inert={overlayOpen ? true : undefined} aria-hidden={overlayOpen ? true : undefined} data-room-chrome className="fixed inset-x-0 bottom-0 z-30 border-t border-[#ddd7cd]/80 bg-[#f3f0e9]/90 px-4 pb-[max(.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
-        <div className="mx-auto max-w-xl"><button onClick={saveAndGenerate} disabled={busy || savingSetup || !validSetup || !setupChanged} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#211f1a] px-6 text-base font-extrabold text-white shadow-lg shadow-[#211f1a]/10 transition active:scale-[.99] disabled:cursor-not-allowed disabled:opacity-35">{savingSetup ? <Loader2 className="animate-spin" size={18} /> : <WandSparkles size={18} />} {creating ? "افتح الاستقبال من صفر" : dimensionsChanged ? "طبّق التعديل" : guestsToAdd > 0 && bundle?.schedule ? `أضف ${guestsToAdd}` : bundle?.schedule ? "التوزيع محفوظ" : "جهّز الفعالية"}</button></div>
+        <div className="mx-auto max-w-xl"><button onClick={saveAndGenerate} disabled={busy || savingSetup || !validSetup || !setupChanged} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#211f1a] px-6 text-base font-extrabold text-white shadow-lg shadow-[#211f1a]/10 transition active:scale-[.99] disabled:cursor-not-allowed disabled:opacity-35">{savingSetup ? <Loader2 className="animate-spin" size={18} /> : <CalendarPlus size={18} />} {creating ? "افتح الاستقبال" : dimensionsChanged ? "طبّق التعديل" : guestsToAdd > 0 && bundle?.schedule ? `أضف ${guestsToAdd}` : bundle?.schedule ? "التوزيع محفوظ" : "جهّز الفعالية"}</button></div>
       </div>}
 
       <footer inert={overlayOpen ? true : undefined} aria-hidden={overlayOpen ? true : undefined} data-room-chrome className="mx-auto flex w-full max-w-4xl items-center justify-between gap-3 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-1 text-[11px] font-bold text-[#8a8378] sm:px-6">
-        <span aria-live="polite"><CheckCircle2 size={13} className={`ml-1 inline ${liveSyncFailed ? "text-amber-600" : "text-emerald-600"}`} /> {preview ? "نسخة عرض غير متصلة" : liveSyncFailed ? "تعذّر التحديث التلقائي · نحاول مجددًا" : lastLiveSyncAt ? "متزامن بين الأجهزة" : "جارٍ مزامنة الأجهزة"}</span>
+        <span aria-live="polite"><CheckCircle2 size={13} className={`ml-1 inline ${liveSyncFailed ? "text-amber-600" : "text-emerald-600"}`} /> {preview ? "وضع التجربة · التغييرات ما تنحفظ" : liveSyncFailed ? "الاتصال انقطع، نحاول نرجعه" : lastLiveSyncAt ? "متصل" : "جاري الاتصال"}</span>
         {advancedMode && <button onClick={async () => { mutationEpochRef.current += 1; if (!preview) await roomApi("logout"); setAuthenticated(false); setBundle(null) }} className="flex min-h-10 items-center gap-2 px-2 text-[#746d62]"><LogOut size={14} /> خروج</button>}
       </footer>
     </main>

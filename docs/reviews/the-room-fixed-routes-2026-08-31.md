@@ -1,6 +1,6 @@
 # The Room: arrival-based fixed routes
 
-New events start with zero attendees and no estimated guest limit. Organizers choose the actual physical table count (default five) and round count (default three). Four people per table and two per gender are preferences, not admission limits. Tables grow as people arrive. The existing 30-minute timer can run before the first arrival and is unaffected by check-in.
+New events start with zero attendees and no estimated guest limit. Organizers choose the actual physical table count (default five) and round count (default three). Four people per table and two per gender are preferences, not admission limits. Tables grow as people arrive. The timer defaults to 50 minutes, can run before the first arrival, and is unaffected by check-in. Existing running or explicitly configured timers retain their saved duration.
 
 ## Reception behavior
 

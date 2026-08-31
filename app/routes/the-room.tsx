@@ -5,7 +5,7 @@ import toast, { Toaster } from "react-hot-toast"
 import { useVisibilityPoll } from "../hooks/useVisibilityPoll"
 import { RoomRoundTimer } from "../components/RoomRoundTimer"
 import type { RoomTimerCommand } from "../components/RoomRoundTimer"
-import { roomTimerRemaining } from "../lib/the-room-timer.mjs"
+import { DEFAULT_ROOM_ROUND_SECONDS, roomTimerRemaining } from "../lib/the-room-timer.mjs"
 import { planFixedRoute } from "../lib/the-room-fixed-routes.mjs"
 import {
   ArrowLeftRight, ArrowRight, BadgeCheck, CalendarPlus, Camera, CheckCircle2,
@@ -83,7 +83,7 @@ const DEMO_BUNDLE: Bundle = {
     id: "demo-event", event_number: 12, name: "The Room", starts_at: null, venue: null,
     status: "ready", minimum_attendees: 0, table_count: 5, round_count: 3,
     active_round: 1, seating_mode: "fixed_routes", route_revision: 0,
-    timer_duration_seconds: 1800, timer_remaining_seconds: 1800, timer_ends_at: null, timer_revision: 0,
+    timer_duration_seconds: DEFAULT_ROOM_ROUND_SECONDS, timer_remaining_seconds: DEFAULT_ROOM_ROUND_SECONDS, timer_ends_at: null, timer_revision: 0,
     created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
   },
   attendees: [],
@@ -1380,7 +1380,7 @@ export default function TheRoomPage() {
                 <Counter label="عدد الجولات" value={draft.round_count} onChange={value => updateDraft(current => ({ ...current, round_count: value }))} min={1} max={20} />
               </div>
               <div className="mt-4 rounded-[1.5rem] bg-[#f7f3eb] p-4">
-                {fixedSetup ? <><p className="text-center text-sm font-bold leading-6 text-[#6d655a]">صفر ضيوف مسجّلين · سعة <strong className="text-[#211f1a]">{draft.table_count * 2} رجال و{draft.table_count * 2} سيدات</strong></p><p className="mt-2 text-center text-xs leading-6 text-[#777064]">رجلان وسيدتان لكل طاولة · الجولة 30 دقيقة افتراضيًا.<br />كل ضيف يحصل على مسار ثابت عند وصوله. عند اكتمال الأماكن، يُسجّل في قائمة الانتظار.</p></> : <p className="text-center text-sm font-bold leading-6 text-[#6d655a]"><strong className="text-[#211f1a]">{draftGuestTotal}</strong> ضيف · قرابة <strong className="text-[#211f1a]">{Math.floor(draftGuestTotal / Math.max(1, draft.table_count))}–{Math.ceil(draftGuestTotal / Math.max(1, draft.table_count))}</strong> لكل طاولة · <strong className="text-[#211f1a]">{draft.round_count}</strong> جولات</p>}
+                {fixedSetup ? <><p className="text-center text-sm font-bold leading-6 text-[#6d655a]">صفر ضيوف مسجّلين · <strong className="text-[#211f1a]">{draft.table_count} طاولات ثابتة</strong> · دون حدّ تقديري للضيوف</p><p className="mt-2 text-center text-xs leading-6 text-[#777064]">نفضّل أربعة أشخاص وتوازن الرجال والسيدات، ونزيد عدد الجالسين عند الحاجة · الجولة {DEFAULT_ROOM_ROUND_SECONDS / 60} دقيقة افتراضيًا.<br />كل ضيف يحصل على مسار ثابت عند وصوله دون قائمة انتظار.</p></> : <p className="text-center text-sm font-bold leading-6 text-[#6d655a]"><strong className="text-[#211f1a]">{draftGuestTotal}</strong> ضيف · قرابة <strong className="text-[#211f1a]">{Math.floor(draftGuestTotal / Math.max(1, draft.table_count))}–{Math.ceil(draftGuestTotal / Math.max(1, draft.table_count))}</strong> لكل طاولة · <strong className="text-[#211f1a]">{draft.round_count}</strong> جولات</p>}
               </div>
               {!validSetup && <p className="mt-3 rounded-xl bg-[#fff4dc] px-3 py-2 text-center text-xs font-bold text-[#805d27]">{fixedSetup ? "اختر من 1 إلى 50 طاولة ومن 1 إلى 20 جولة." : "كل طاولة تحتاج ضيفين على الأقل."}</p>}
             </section>

@@ -22,6 +22,8 @@ const migrations = [
   "20260831123042_the_room_atomic_setup.sql",
   "20260831124115_the_room_round_timer.sql",
   "20260831131002_the_room_fixed_routes.sql",
+  "20260831141044_the_room_unlimited_arrivals.sql",
+  "20260831144043_the_room_fifty_minute_default.sql",
 ]
 
 const identifier = name => {
@@ -130,6 +132,7 @@ const timerRequest = (f, state, command, duration_seconds) => f.request("control
 })
 
 test("countdown uses the saved deadline, survives missed ticks, and never becomes negative", () => {
+  assert.equal(formatRoomTimer(roomTimerRemaining({})), "50:00")
   const deadline = "2026-08-31T12:10:00.000Z"
   const running = { timer_ends_at: deadline, timer_remaining_seconds: 600 }
   assert.equal(roomTimerRemaining(running, Date.parse(deadline) - 90500), 91)
@@ -144,7 +147,7 @@ test("countdown uses the saved deadline, survives missed ticks, and never become
 test("round timer is shared across reads and supports duration, pause, resume and reset", async t => {
   const f = await fixture(t)
   const initial = await f.bundle()
-  assert.equal(initial.event.timer_duration_seconds, 1800)
+  assert.equal(initial.event.timer_duration_seconds, 3000)
   const configured = await timerRequest(f, initial, "set-duration", 120)
   assert.equal(configured.status, 200)
   const started = await timerRequest(f, configured.body, "start")
@@ -175,7 +178,7 @@ test("stale timer commands cannot overwrite another organizer or affect the next
   assert.equal((await f.bundle()).event.timer_ends_at, started.body.event.timer_ends_at)
   const advanced = await f.request("set-active-round", { active_round: 2, expected_active_round: 1 })
   assert.equal(advanced.body.event.timer_ends_at, null)
-  assert.equal(advanced.body.event.timer_remaining_seconds, 1800)
+  assert.equal(advanced.body.event.timer_remaining_seconds, 3000)
   assert.equal((await timerRequest(f, started.body, "pause")).status, 409)
   assert.equal((await timerRequest(f, advanced.body, "start")).status, 200)
 })
@@ -191,7 +194,7 @@ test("expiry stops at zero without advancing rounds; reset is required to start 
   const paused = await timerRequest(f, expired, "pause")
   assert.equal(paused.body.event.timer_remaining_seconds, 0)
   const reset = await timerRequest(f, paused.body, "reset")
-  assert.equal(reset.body.event.timer_remaining_seconds, 1800)
+  assert.equal(reset.body.event.timer_remaining_seconds, 3000)
 })
 
 test("seating changes preserve the timer while full regeneration resets it even in round one", async t => {
@@ -209,7 +212,7 @@ test("seating changes preserve the timer while full regeneration resets it even 
   assert.equal(rebuilt.status, 200)
   assert.equal(rebuilt.body.event.active_round, 1)
   assert.equal(rebuilt.body.event.timer_ends_at, null)
-  assert.equal(rebuilt.body.event.timer_remaining_seconds, 1800)
+  assert.equal(rebuilt.body.event.timer_remaining_seconds, 3000)
   assert.ok(rebuilt.body.event.timer_revision > started.body.event.timer_revision)
 })
 

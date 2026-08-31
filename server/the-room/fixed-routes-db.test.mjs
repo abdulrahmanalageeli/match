@@ -13,14 +13,16 @@ const migrations = [
   "20260831124115_the_room_round_timer.sql",
   "20260831131002_the_room_fixed_routes.sql",
   "20260831141044_the_room_unlimited_arrivals.sql",
+  "20260831144043_the_room_fifty_minute_default.sql",
 ]
 const migrationSql = Promise.all(migrations.map(name => readFile(new URL(`../../supabase/migrations/${name}`, import.meta.url), "utf8")))
 
-async function fixture(t, tableCount = 2, roundCount = 3) {
+async function fixture(t, tableCount = 2, roundCount = 3, includeFiftyMinuteDefault = true) {
   const db = new PGlite()
   t.after(() => db.close())
   await db.exec("create role anon; create role authenticated; create role service_role;")
-  for (const sql of await migrationSql) await db.exec(sql)
+  const scripts = await migrationSql
+  for (const sql of includeFiftyMinuteDefault ? scripts : scripts.slice(0, -1)) await db.exec(sql)
   const event = (await db.query("select create_fixed_the_room_event(1,$1,$2) as event", [tableCount, roundCount])).rows[0].event
   const snapshot = async () => ({
     event: (await db.query("select to_jsonb(e) as value from the_room_events e where id=$1", [event.id])).rows[0]?.value,
@@ -45,14 +47,37 @@ function route(id, tables, seat = 1, firstRound = 1) {
 }
 const code = expected => error => error.code === expected
 
-test("fixed-route events start empty, with an active schedule and a 30-minute timer", async t => {
+test("fifty-minute default upgrades untouched timers without changing running, paused, configured or closed events", async t => {
+  const f = await fixture(t, 2, 3, false)
+  await f.db.exec(`insert into the_room_events(event_number,status,timer_duration_seconds,timer_remaining_seconds,timer_ends_at,timer_revision) values
+    (2,'ready',1800,1800,clock_timestamp()+interval '25 minutes',1),
+    (3,'ready',1800,900,null,2),
+    (4,'ready',2400,2400,null,1),
+    (5,'ready',1800,1800,null,1),
+    (6,'completed',1800,1800,null,0)`)
+  const protectedEvents = async () => (await f.db.query("select to_jsonb(e) as value from the_room_events e where event_number between 2 and 6 order by event_number")).rows
+  const before = await protectedEvents()
+  await f.db.exec((await migrationSql).at(-1))
+  const changed = (await f.snapshot()).event
+  assert.equal(changed.timer_duration_seconds, 3000)
+  assert.equal(changed.timer_remaining_seconds, 3000)
+  assert.equal(changed.timer_revision, 1)
+  assert.deepEqual(await protectedEvents(), before)
+  await assert.rejects(f.db.query("select control_the_room_timer($1,1,0,'start')", [f.event.id]), code("40001"))
+  const created = (await f.db.query("select create_fixed_the_room_event(7,2,3) as event")).rows[0].event
+  assert.equal(created.timer_duration_seconds, 3000)
+  assert.equal(created.timer_remaining_seconds, 3000)
+  assert.equal(created.timer_revision, 0)
+})
+
+test("fixed-route events start empty, with an active schedule and a 50-minute timer", async t => {
   const f = await fixture(t)
   const initial = await f.snapshot()
   assert.equal(initial.event.seating_mode, "fixed_routes")
   assert.equal(initial.event.minimum_attendees, 0)
   assert.equal(initial.event.route_revision, 0)
   assert.equal(initial.event.status, "ready")
-  assert.equal(initial.event.timer_remaining_seconds, 1800)
+  assert.equal(initial.event.timer_remaining_seconds, 3000)
   assert.equal(initial.runs.length, 1)
   assert.equal(initial.runs[0].is_active, true)
   assert.equal(initial.runs[0].participant_count, 0)
@@ -98,7 +123,7 @@ test("arrivals append complete routes without moving issued seats or resetting t
   await f.arrive("male", route(lateId, [1, 2], 3, 2))
   const late = await f.snapshot()
   assert.equal(late.event.active_round, 2)
-  assert.equal(late.event.timer_remaining_seconds, 1800)
+  assert.equal(late.event.timer_remaining_seconds, 3000)
   assert.equal(late.seats.filter(row => row.attendee_id === lateId).length, 2)
   assert.equal(late.seats.some(row => row.attendee_id === lateId && row.round_number === 1), false)
 })

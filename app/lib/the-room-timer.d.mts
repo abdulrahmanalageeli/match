@@ -1,3 +1,5 @@
+export const DEFAULT_ROOM_ROUND_SECONDS: number
+
 export type RoomTimerState = {
   timer_duration_seconds: number
   timer_remaining_seconds: number

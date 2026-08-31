@@ -28,7 +28,7 @@ test("new events start empty, accept a timer and round advance before any guests
   const f = await fixture(t)
   assert.equal(f.initial.event.seating_mode, "fixed_routes")
   assert.equal(f.initial.event.minimum_attendees, 0)
-  assert.equal(f.initial.event.timer_duration_seconds, 1800)
+  assert.equal(f.initial.event.timer_duration_seconds, 3000)
   assert.equal(f.initial.attendees.length, 0)
   assert.equal(f.initial.schedule.participant_count, 0)
   assert.equal(f.initial.seats.length, 0)
@@ -41,7 +41,7 @@ test("new events start empty, accept a timer and round advance before any guests
   assert.equal(arrival.status, 200)
   assert.deepEqual(Array.from(arrival.body.placement_tables, row => row.roundNumber), [2, 3])
   assert.equal(arrival.body.event.active_round, 2)
-  assert.equal(arrival.body.event.timer_remaining_seconds, 1800)
+  assert.equal(arrival.body.event.timer_remaining_seconds, 3000)
 })
 
 test("arrivals follow the requested table sequence and never change photographed routes or timer", async t => {

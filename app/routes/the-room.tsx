@@ -126,7 +126,7 @@ function arabicError(error: any) {
   if (error?.code === "INVALID_TIMER_CONTROL") return "تعذّر تغيير المؤقت. أوقفه قبل تغيير المدة، أو أعده بعد انتهاء الوقت."
   if (error?.code === "FIXED_ROUTES_LOCKED") return "المسارات المسلّمة ثابتة. لا يمكن تغيير الطاولات أو الجولات بعد إصدار أول بطاقة."
   if (error?.code === "REQUEST_ID_CONFLICT") return "طلب الوصول السابق محفوظ ببيانات مختلفة. حدّث الشاشة لاسترجاعه."
-  if (error?.code === "FIXED_ROUTE_CONSTRAINT") return "تعذّر حجز مسار ضمن حدود الطاولات. حدّث الشاشة وحاول مرة أخرى."
+  if (error?.code === "FIXED_ROUTE_CONSTRAINT") return "تعذّر تثبيت مسار الضيف. حدّث الشاشة وأعد محاولة نفس الطلب."
   if (error?.code === "EVENT_NOT_OPEN") return "هذه الفعالية غير مفتوحة لاستقبال الضيوف."
   if (error?.code === "SCHEDULE_CHANGED_RETRY") return "تم حفظ الشخص. حدّث الشاشة مرة واحدة لإظهار طاولته."
   if (error?.code === "SAME_TABLE") return "الشخص موجود على هذه الطاولة أصلًا."
@@ -281,12 +281,12 @@ function TableCard({ tableNumber, seats, attendees, fixedRoutes = false, onGuest
   return (
     <section className="overflow-hidden rounded-3xl border border-[#e4ded4] bg-[#fbfaf7]">
       <header className="flex items-center justify-between border-b border-[#e9e4dc] px-4 py-3">
-        <div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#211f1a] font-extrabold text-[#e6c58c]">{tableNumber}</div><div><p className="font-extrabold text-[#29261f]">الطاولة {tableNumber}</p><p className="text-xs text-[#6f685d]">{fixedRoutes ? `${people.filter(person => person.gender === "male").length}/2 رجال · ${people.filter(person => person.gender === "female").length}/2 سيدات` : `${people.length} ضيوف`}</p></div></div>
+        <div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#211f1a] font-extrabold text-[#e6c58c]">{tableNumber}</div><div><p className="font-extrabold text-[#29261f]">الطاولة {tableNumber}</p><p className="text-xs text-[#6f685d]">{fixedRoutes ? `${people.filter(person => person.gender === "male").length} رجال · ${people.filter(person => person.gender === "female").length} سيدات` : `${people.length} ضيوف`}</p></div></div>
         <Table2 size={20} className="text-[#9a733e]" />
       </header>
       <div className="grid grid-cols-2 gap-2 p-3 sm:grid-cols-3">
         {people.map(person => { const style = genderStyle(person.gender); const woman = person.gender === "female"; return <button type="button" key={person.id} onClick={() => onGuest(person.id)} className={`flex min-h-14 flex-col items-center justify-center rounded-2xl border text-base font-extrabold transition active:scale-[.98] ${woman ? "border-[#ead1d5] bg-[#fbf2f3] text-[#6f3842]" : "border-[#cfdee6] bg-[#f1f6f9] text-[#365c70]"}`}><span>رقم {guestNumber(person.attendee_number)}</span><span className="mt-0.5 text-[10px] font-bold">{style.label}</span></button> })}
-        {!people.length && <p className="col-span-full py-3 text-center text-xs text-[#817a6f]">{fixedRoutes ? "متاحة · مكانان للرجال ومكانان للسيدات" : "لا يوجد ضيوف"}</p>}
+        {!people.length && <p className="col-span-full py-3 text-center text-xs text-[#817a6f]">{fixedRoutes ? "متاحة لاستقبال الضيوف" : "لا يوجد ضيوف"}</p>}
       </div>
     </section>
   )
@@ -382,7 +382,7 @@ function ProjectorView({ bundle, attendees, activeRound, clockOffsetMs, stale, o
             const people = bundle.seats.filter(seat => seat.round_number === displayRound && seat.table_number === tableNumber)
               .map(seat => attendees.find(person => person.id === seat.attendee_id)).filter(Boolean) as Attendee[]
             return <section key={tableNumber} className="overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/[0.04]">
-              <div className="flex items-center gap-3 border-b border-white/[0.07] p-3 sm:p-4"><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#d7ba7d] text-xl font-extrabold text-[#17130c]">{tableNumber}</div><div><p className="text-lg font-extrabold">الطاولة {tableNumber}</p><p className="text-xs text-stone-400">{bundle.event.seating_mode === "fixed_routes" ? `${people.filter(person => person.gender === "male").length}/2 رجال · ${people.filter(person => person.gender === "female").length}/2 سيدات` : `${people.length} أشخاص`}</p></div></div>
+              <div className="flex items-center gap-3 border-b border-white/[0.07] p-3 sm:p-4"><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#d7ba7d] text-xl font-extrabold text-[#17130c]">{tableNumber}</div><div><p className="text-lg font-extrabold">الطاولة {tableNumber}</p><p className="text-xs text-stone-400">{bundle.event.seating_mode === "fixed_routes" ? `${people.filter(person => person.gender === "male").length} رجال · ${people.filter(person => person.gender === "female").length} سيدات` : `${people.length} أشخاص`}</p></div></div>
               <div className="grid grid-cols-2 gap-2 p-3">
                 {people.map(person => { const style = genderStyle(person.gender); return <div key={person.id} className={`flex min-h-14 items-center justify-center rounded-2xl border px-2 text-[clamp(.9rem,2vw,1.15rem)] font-extrabold ${style.chip}`}><span>{style.label} {guestNumber(person.attendee_number)}</span></div> })}
               </div>
@@ -494,32 +494,24 @@ function CheckInPanel({ attendees, busy, placementNotice, simple = false, onNext
   )
 }
 
-function FixedRouteCheckInPanel({ bundle, activeRound, busy, pendingArrival, placementNotice, onAdd, onRetryArrival, onSeatWaiting, onShow }: {
+function FixedRouteCheckInPanel({ bundle, busy, pendingArrival, placementNotice, onAdd, onRetryArrival, onShow }: {
   bundle: Bundle; activeRound: number; busy: boolean; pendingArrival: PendingArrival | null; placementNotice: PlacementNotice | null
-  onAdd: (gender: "female" | "male") => void; onRetryArrival: () => void; onSeatWaiting: (person: Attendee) => void; onShow: (id: string) => void
+  onAdd: (gender: "female" | "male") => void; onRetryArrival: () => void; onShow: (id: string) => void
 }) {
   const admittedIds = new Set(bundle.seats.map(seat => seat.attendee_id))
   const admitted = bundle.attendees.filter(person => admittedIds.has(person.id))
-  const waiting = bundle.attendees.filter(person => person.attendance_status === "waitlist")
-  const byId = new Map(bundle.attendees.map(person => [person.id, person]))
-  const availablePlaces = (gender: "female" | "male") => Math.max(0, Math.min(...Array.from({ length: bundle.event.round_count - activeRound + 1 }, (_, index) => {
-    const occupied = bundle.seats.filter(seat => seat.round_number === activeRound + index && byId.get(seat.attendee_id)?.gender === gender).length
-    return bundle.event.table_count * 2 - occupied
-  })))
 
   return <div className="px-4 pb-5 pt-5 sm:px-6 sm:pb-6">
     <div className="flex items-start justify-between gap-3"><div><p className="text-[11px] font-extrabold text-[#9a733e]">استقبال مستمر · من صفر ضيوف</p><h2 className="mt-1 text-2xl font-extrabold text-[#211f1a]">من وصل الآن؟</h2><p className="mt-1 text-sm leading-6 text-[#777064]">نحجز مساره للجولات المتبقية، ثم تظهر بطاقته للتصوير.</p></div><span className="shrink-0 rounded-2xl bg-[#f2eee7] px-3 py-2 text-center"><strong className="block text-xl font-extrabold">{admitted.length}</strong><span className="text-[10px] font-bold text-[#6b6459]">تم تسكينهم</span></span></div>
     <div className="mt-4 grid grid-cols-2 gap-3">
       {(["female", "male"] as const).map(gender => {
         const woman = gender === "female"
-        const free = availablePlaces(gender)
-        return <button key={gender} type="button" onClick={() => onAdd(gender)} disabled={busy || Boolean(pendingArrival)} className={`min-h-36 rounded-[1.5rem] border p-4 text-right transition active:scale-[.98] disabled:opacity-45 ${woman ? "border-[#ead1d5] bg-[#fbf2f3] text-[#6f3842]" : "border-[#cfdee6] bg-[#f1f6f9] text-[#365c70]"}`}><div className="flex items-center justify-between gap-2"><span className="text-base font-extrabold">{woman ? "وصلت سيدة" : "وصل رجل"}</span><UserPlus size={22} /></div><p className="mt-4 text-sm font-extrabold">{free > 0 ? `${free} أماكن متاحة` : "الأماكن مكتملة"}</p><p className="mt-1 text-[11px] leading-5 opacity-80">{free > 0 ? "أضف الضيف واحجز مساره" : "سجّل الوصول في قائمة الانتظار"}</p></button>
+        return <button key={gender} type="button" onClick={() => onAdd(gender)} disabled={busy || Boolean(pendingArrival)} className={`min-h-36 rounded-[1.5rem] border p-4 text-right transition active:scale-[.98] disabled:opacity-45 ${woman ? "border-[#ead1d5] bg-[#fbf2f3] text-[#6f3842]" : "border-[#cfdee6] bg-[#f1f6f9] text-[#365c70]"}`}><div className="flex items-center justify-between gap-2"><span className="text-base font-extrabold">{woman ? "وصلت سيدة" : "وصل رجل"}</span><UserPlus size={22} /></div><p className="mt-4 text-sm font-extrabold">إضافة مباشرة</p><p className="mt-1 text-[11px] leading-5 opacity-80">أضف الضيف واحجز مساره دون حدّ تقديري للعدد</p></button>
       })}
     </div>
     {pendingArrival && <div role="status" className="mt-3 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-[#795723]"><p className="text-sm font-extrabold">{busy ? "جارٍ تأكيد الوصول…" : "لم نتأكد من نتيجة آخر وصول"}</p><p className="mt-1 text-xs leading-5">{genderStyle(pendingArrival.gender).label} · إعادة المحاولة تسترجع نفس الطلب دون إضافة ضيف آخر.</p><button type="button" onClick={onRetryArrival} disabled={busy} className="mt-2 min-h-11 rounded-xl bg-[#211f1a] px-4 text-sm font-extrabold text-white disabled:opacity-40"><RefreshCw size={15} className="ml-2 inline" />تحقق وأعد المحاولة</button></div>}
-    <p className="mt-3 flex items-start gap-2 rounded-2xl bg-[#f7f3eb] p-3 text-xs leading-5 text-[#6d655a]"><LockKeyhole size={16} className="mt-0.5 shrink-0" /><span>كل طاولة: رجلان وسيدتان كحد أقصى. المسارات ثابتة؛ نقلّل تكرار اللقاءات قدر الإمكان، ونسمح به عند الحاجة لإتمام التسكين.</span></p>
-    {placementNotice && <div role="status" className={`mt-3 rounded-2xl border p-3 ${placementNotice.waitlisted ? "border-amber-200 bg-amber-50 text-[#795723]" : "border-[#b9d1bf] bg-[#eef6f0] text-[#285d3c]"}`}><p className="text-sm font-extrabold">{genderStyle(placementNotice.gender).label} {guestNumber(placementNotice.attendeeNumber)} · {placementNotice.waitlisted ? "في قائمة الانتظار" : "تم حجز المسار"}</p><p className="mt-1 text-xs leading-5">{placementNotice.waitlisted ? "اكتملت الأماكن المناسبة في إحدى الجولات المتبقية. التكرار مسموح، لكن حدّ السعة يبقى ثابتًا. لم تصدر بطاقة." : placementNotice.tables.map(item => `ج${item.roundNumber}: ط${item.tableNumber}`).join(" · ")}</p>{!placementNotice.waitlisted && Boolean(placementNotice.repeatPairCount) && <p className="mt-2 text-xs font-bold">تم تسكين الضيف مع {placementNotice.repeatPairCount} لقاءات متكررة. التكرار مسموح ولا يمنع إصدار البطاقة.</p>}</div>}
-    <section className="mt-5 border-t border-[#ece7de] pt-4"><div className="flex items-center justify-between"><h3 className="text-sm font-extrabold text-[#625b50]">قائمة الانتظار</h3><span className="text-sm font-extrabold tabular-nums">{waiting.length}</span></div>{waiting.length ? <div className="mt-3 space-y-2">{waiting.map(person => <div key={person.id} className="flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-3"><div><p className="text-sm font-extrabold text-[#795723]">{genderStyle(person.gender).label} {guestNumber(person.attendee_number)}</p><p className="mt-1 text-[11px] text-[#817057]">لم تصدر له بطاقة</p></div><button type="button" onClick={() => onSeatWaiting(person)} disabled={busy || Boolean(pendingArrival)} className="min-h-11 rounded-xl border border-[#ddd0b9] bg-white px-3 text-xs font-extrabold text-[#795723] disabled:opacity-40">حاول تسكينه</button></div>)}</div> : <p className="mt-2 text-xs leading-5 text-[#817a6f]">لا يوجد ضيوف في الانتظار.</p>}</section>
+    <p className="mt-3 flex items-start gap-2 rounded-2xl bg-[#f7f3eb] p-3 text-xs leading-5 text-[#6d655a]"><LockKeyhole size={16} className="mt-0.5 shrink-0" /><span>نستقبل كل ضيف. نفضّل أربعة أشخاص وتوازن الرجال والسيدات، ونزيد عدد الجالسين عند الحاجة. نقلّل التكرار قدر الإمكان، وتبقى الطاولات والبطاقات الصادرة ثابتة.</span></p>
+    {placementNotice && <div role="status" className="mt-3 rounded-2xl border border-[#b9d1bf] bg-[#eef6f0] p-3 text-[#285d3c]"><p className="text-sm font-extrabold">{genderStyle(placementNotice.gender).label} {guestNumber(placementNotice.attendeeNumber)} · تم حجز المسار</p><p className="mt-1 text-xs leading-5">{placementNotice.tables.map(item => `ج${item.roundNumber}: ط${item.tableNumber}`).join(" · ")}</p>{Boolean(placementNotice.repeatPairCount) && <p className="mt-2 text-xs font-bold">تم تسكين الضيف مع {placementNotice.repeatPairCount} لقاءات متكررة. التكرار مسموح ولا يمنع إصدار البطاقة.</p>}</div>}
     {admitted.length > 0 && <details className="group mt-4 border-t border-[#ece7de] pt-2"><summary className="flex min-h-12 cursor-pointer list-none items-center justify-between text-sm font-extrabold text-[#625b50] [&::-webkit-details-marker]:hidden"><span>البطاقات الصادرة · {admitted.length}</span><ChevronDown size={17} className="transition group-open:rotate-180" /></summary><div className="grid grid-cols-3 gap-2 sm:grid-cols-4">{admitted.map(person => <button type="button" key={person.id} onClick={() => onShow(person.id)} className={`min-h-16 rounded-2xl border px-2 text-sm font-extrabold ${person.gender === "female" ? "border-[#ead1d5] bg-[#fbf2f3] text-[#6f3842]" : "border-[#cfdee6] bg-[#f1f6f9] text-[#365c70]"}`}>{genderStyle(person.gender).label} {guestNumber(person.attendee_number)}</button>)}</div></details>}
   </div>
 }
@@ -1157,8 +1149,8 @@ export default function TheRoomPage() {
       tableCount: bundle.event.table_count, roundCount: bundle.event.round_count, activeRound: bundle.event.active_round,
     })
     const firstSeatId = Math.max(0, ...bundle.seats.map(seat => seat.id)) + 1
-    const addedSeats: Seat[] = (plan?.rows || []).map((row, index) => ({ ...row, id: firstSeatId + index, event_id: bundle.event.id, schedule_run_id: bundle.schedule!.id }))
-    const updatedPerson = { ...person, attendance_status: plan ? "confirmed" : "waitlist", included_in_schedule: Boolean(plan), checked_in: true, updated_at: new Date().toISOString() }
+    const addedSeats: Seat[] = plan.rows.map((row, index) => ({ ...row, id: firstSeatId + index, event_id: bundle.event.id, schedule_run_id: bundle.schedule!.id }))
+    const updatedPerson = { ...person, attendance_status: "confirmed", included_in_schedule: true, checked_in: true, updated_at: new Date().toISOString() }
     const nextAttendees = [...bundle.attendees.filter(item => item.id !== person.id), updatedPerson].sort((left, right) => left.attendee_number - right.attendee_number)
     return {
       ...bundle,
@@ -1170,20 +1162,20 @@ export default function TheRoomPage() {
       added_attendee_number: person.attendee_number,
       added_attendee_gender: person.gender,
       placement_tables: addedSeats.map(seat => ({ roundNumber: seat.round_number, tableNumber: seat.table_number })),
-      repeat_pair_count: plan?.repeatPairCount || 0,
-      waitlisted: !plan,
+      repeat_pair_count: plan.repeatPairCount,
+      waitlisted: false,
     }
   }
 
   const showFixedPlacement = (data: Bundle & { added_attendee_id: string; added_attendee_number: number; added_attendee_gender?: Gender; placement_tables?: PlacementNotice["tables"]; repeat_pair_count?: number; waitlisted?: boolean }, gender: Gender) => {
-    installBundle(data)
     const person = data.attendees.find(item => item.id === data.added_attendee_id)
     const hasRoute = data.seats.some(seat => seat.attendee_id === data.added_attendee_id)
-    setPlacementNotice({ attendeeNumber: data.added_attendee_number, gender: person?.gender || gender, tables: data.placement_tables || [], waitlisted: data.waitlisted || !hasRoute, repeatPairCount: data.repeat_pair_count || 0 })
+    if (!person || !hasRoute || data.waitlisted) throw new Error("invalid-arrival-response")
+    installBundle(data)
+    setPlacementNotice({ attendeeNumber: data.added_attendee_number, gender: person.gender || gender, tables: data.placement_tables || [], repeatPairCount: data.repeat_pair_count || 0 })
     if (person) setSelectedGuestId(person.id)
     setView("checkin")
-    setBadgeOpen(Boolean(person && hasRoute && !data.waitlisted))
-    if (data.waitlisted) toast("تم تسجيل الوصول في قائمة الانتظار", { icon: "⏳" })
+    setBadgeOpen(true)
   }
 
   const addFixedGuest = async (gender: "female" | "male", retry = false) => {
@@ -1212,23 +1204,6 @@ export default function TheRoomPage() {
       if (error.status === 401) { setAuthenticated(false); setBundle(null) }
       if (!error.status || error.status >= 500) setLiveSyncFailed(true)
       if ((error.status === 400 && error.code !== "REQUEST_ID_CONFLICT") || error.status === 422 || error.code === "EVENT_NOT_OPEN") rememberArrival(null, eventId)
-      toast.error(arabicError(error))
-    } finally {
-      arrivalInFlightRef.current = false
-      setBusy(false)
-    }
-  }
-
-  const seatWaitingGuest = async (person: Attendee) => {
-    if (!bundle?.schedule || !fixedRoutes || busy || refreshing || switchingEvent || savingSetup || arrivalInFlightRef.current || pendingArrivalRef.current?.eventId === bundle.event.id) return
-    arrivalInFlightRef.current = true
-    mutationEpochRef.current += 1
-    setBusy(true)
-    try {
-      const data = preview ? previewFixedPlacement(person) : await roomApi("seat-waiting-attendee", { event_id: bundle.event.id, attendee_id: person.id })
-      if (data) showFixedPlacement(data, person.gender)
-    } catch (error: any) {
-      if (error.status === 401) { setAuthenticated(false); setBundle(null) }
       toast.error(arabicError(error))
     } finally {
       arrivalInFlightRef.current = false
@@ -1413,7 +1388,7 @@ export default function TheRoomPage() {
             <motion.div layoutId="room-workspace" className="overflow-hidden rounded-[2.15rem] border border-[#dfd9cf] bg-white shadow-[0_25px_90px_rgba(61,50,34,.1)]">
               <SimpleEventBar event={bundle.event} attendees={included} activeRound={round} onProjector={openProjector} onNextRound={advanceRound} />
               <div className="bg-[#211f1a] px-3 pb-3 sm:px-5"><RoomRoundTimer event={bundle.event} clockOffsetMs={clockOffsetMs} disabled={busy || switchingEvent || savingSetup || refreshing} stale={liveSyncFailed} onCommand={controlTimer} /></div>
-              {fixedRoutes ? <FixedRouteCheckInPanel bundle={bundle} activeRound={round} busy={busy || refreshing || switchingEvent || savingSetup} pendingArrival={pendingArrival?.eventId === bundle.event.id ? pendingArrival : null} placementNotice={placementNotice} onAdd={addGuest} onRetryArrival={() => { if (pendingArrival) void addFixedGuest(pendingArrival.gender, true) }} onSeatWaiting={seatWaitingGuest} onShow={showBadge} /> : <CheckInPanel attendees={included} busy={busy} placementNotice={placementNotice} simple onNext={checkInNext} onAdd={addGuest} onUndo={undoCheckIn} onShow={showBadge} />}
+              {fixedRoutes ? <FixedRouteCheckInPanel bundle={bundle} activeRound={round} busy={busy || refreshing || switchingEvent || savingSetup} pendingArrival={pendingArrival?.eventId === bundle.event.id ? pendingArrival : null} placementNotice={placementNotice} onAdd={addGuest} onRetryArrival={() => { if (pendingArrival) void addFixedGuest(pendingArrival.gender, true) }} onShow={showBadge} /> : <CheckInPanel attendees={included} busy={busy} placementNotice={placementNotice} simple onNext={checkInNext} onAdd={addGuest} onUndo={undoCheckIn} onShow={showBadge} />}
             </motion.div>
           </motion.section> : bundle ? <motion.section key="manage" initial={{ opacity: 0, x: reduceMotion ? 0 : -18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: reduceMotion ? 0 : 12 }} transition={{ duration: reduceMotion ? 0 : .24 }}>
             <div data-room-chrome className="mb-5 px-1"><p className="text-[11px] font-extrabold text-[#9a733e]">بعيدًا عن شاشة الاستقبال</p><h1 className="mt-1 text-3xl font-extrabold tracking-tight">إدارة الفعالية</h1><p className="mt-1 text-sm text-[#777064]">المراجعة والتصحيح هنا فقط. ارجع للاستقبال وقت ما تخلص.</p></div>
@@ -1440,10 +1415,10 @@ export default function TheRoomPage() {
                 <AnimatePresence mode="wait"><motion.div key={tableRound} initial={{ opacity: 0, x: reduceMotion ? 0 : -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="the-room-schedule-grid mt-3 grid gap-3 lg:grid-cols-2">{Array.from({ length: bundle.event.table_count }, (_, index) => index + 1).map(tableNumber => <TableCard key={tableNumber} tableNumber={tableNumber} fixedRoutes={fixedRoutes} seats={bundle.seats.filter(seat => seat.round_number === tableRound && seat.table_number === tableNumber)} attendees={attendees} onGuest={showGuest} />)}</motion.div></AnimatePresence>
               </div> : activeView === "checkin" ? <div>
                 <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {[{ label: fixedRoutes ? "تم تسكينهم" : "حضروا", value: checkedInCount }, { label: fixedRoutes ? "قائمة الانتظار" : "بانتظارهم", value: fixedRoutes ? attendees.filter(person => person.attendance_status === "waitlist").length : included.length - checkedInCount }, { label: "سيدات", value: womenCount }, { label: "رجال", value: menCount }].map(item => <div key={item.label} className="rounded-2xl bg-[#f5f1ea] p-3 text-center"><p className="text-2xl font-extrabold">{item.value}</p><p className="mt-1 text-[11px] font-bold text-[#6b6459]">{item.label}</p></div>)}
+                  {[{ label: fixedRoutes ? "تم تسكينهم" : "حضروا", value: checkedInCount }, { label: fixedRoutes ? "الطاولات" : "بانتظارهم", value: fixedRoutes ? bundle.event.table_count : included.length - checkedInCount }, { label: "سيدات", value: womenCount }, { label: "رجال", value: menCount }].map(item => <div key={item.label} className="rounded-2xl bg-[#f5f1ea] p-3 text-center"><p className="text-2xl font-extrabold">{item.value}</p><p className="mt-1 text-[11px] font-bold text-[#6b6459]">{item.label}</p></div>)}
                 </div>
                 {!fixedRoutes && <div className="mb-3 flex flex-wrap gap-2 text-xs font-bold"><span className={`rounded-full px-3 py-2 ${imbalancedTableCount ? "bg-[#fff4dc] text-[#805d27]" : "bg-[#eef6f0] text-[#356247]"}`}>{imbalancedTableCount ? `${imbalancedTableCount} طاولات تحتاج موازنة` : "الطاولات متوازنة"}</span><span className={`rounded-full px-3 py-2 ${crowdedTableCount ? "bg-[#fff4dc] text-[#805d27]" : "bg-[#f2eee7] text-[#655e54]"}`}>{crowdedTableCount ? `${crowdedTableCount} طاولات مزدحمة` : "لا توجد طاولات مزدحمة"}</span></div>}
-                <div className="overflow-hidden rounded-[1.75rem] border border-[#e6e0d7]">{fixedRoutes ? <FixedRouteCheckInPanel bundle={bundle} activeRound={round} busy={busy || refreshing || switchingEvent || savingSetup} pendingArrival={pendingArrival?.eventId === bundle.event.id ? pendingArrival : null} placementNotice={placementNotice} onAdd={addGuest} onRetryArrival={() => { if (pendingArrival) void addFixedGuest(pendingArrival.gender, true) }} onSeatWaiting={seatWaitingGuest} onShow={showBadge} /> : <CheckInPanel attendees={included} busy={busy} placementNotice={placementNotice} onNext={checkInNext} onAdd={addGuest} onUndo={undoCheckIn} onShow={showBadge} />}</div>
+                <div className="overflow-hidden rounded-[1.75rem] border border-[#e6e0d7]">{fixedRoutes ? <FixedRouteCheckInPanel bundle={bundle} activeRound={round} busy={busy || refreshing || switchingEvent || savingSetup} pendingArrival={pendingArrival?.eventId === bundle.event.id ? pendingArrival : null} placementNotice={placementNotice} onAdd={addGuest} onRetryArrival={() => { if (pendingArrival) void addFixedGuest(pendingArrival.gender, true) }} onShow={showBadge} /> : <CheckInPanel attendees={included} busy={busy} placementNotice={placementNotice} onNext={checkInNext} onAdd={addGuest} onUndo={undoCheckIn} onShow={showBadge} />}</div>
               </div> : <div>
                 <div className="mb-4"><p className="font-extrabold">كل البطاقات</p><p className="mt-1 text-xs text-[#817a6f]">اختر أي بطاقة للمراجعة أو المشاركة.</p></div>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">{attendees.filter(person => bundle.seats.some(seat => seat.attendee_id === person.id)).map(person => { const woman = person.gender === "female"; return <button key={person.id} onClick={() => { setSelectedGuestId(person.id); setBadgeOpen(true) }} className={`flex min-h-20 flex-col items-center justify-center rounded-2xl border font-extrabold transition ${woman ? "border-[#ead1d5] bg-[#fbf2f3] text-[#6f3842]" : "border-[#cfdee6] bg-[#f1f6f9] text-[#365c70]"}`}><span className="text-lg">بطاقة {guestNumber(person.attendee_number)}</span><span className="mt-1 text-[10px] opacity-60">{genderStyle(person.gender).label}</span></button> })}</div>

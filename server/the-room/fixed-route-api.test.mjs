@@ -63,35 +63,36 @@ test("arrivals follow the requested table sequence and never change photographed
   }
 })
 
-test("full gender capacity saves a waiting guest without a partial route; request retry is idempotent", async t => {
+test("every arrival is seated beyond gender and table targets; retries keep the same guest", async t => {
   const f = await fixture(t, { table_count: 1 })
   assert.equal((await f.add("male")).body.waitlisted, false)
   assert.equal((await f.add("male")).body.waitlisted, false)
   const token = randomUUID()
-  const waiting = await f.add("male", token)
-  assert.equal(waiting.status, 200)
-  assert.equal(waiting.body.waitlisted, true)
-  assert.equal(waiting.body.placement_tables.length, 0)
-  const guest = waiting.body.attendees.find(person => person.id === token)
-  assert.equal(guest.attendance_status, "waitlist")
+  const arrival = await f.add("male", token)
+  assert.equal(arrival.status, 200)
+  assert.equal(arrival.body.waitlisted, false)
+  assert.equal(arrival.body.placement_tables.length, 3)
+  const guest = arrival.body.attendees.find(person => person.id === token)
+  assert.equal(guest.attendance_status, "confirmed")
   assert.equal(guest.checked_in, true)
-  assert.equal(guest.included_in_schedule, false)
+  assert.equal(guest.included_in_schedule, true)
   const repeated = await f.add("male", token)
   assert.equal(repeated.status, 200)
-  assert.equal(repeated.body.added_attendee_number, waiting.body.added_attendee_number)
+  assert.equal(repeated.body.added_attendee_number, arrival.body.added_attendee_number)
   assert.equal(repeated.body.attendees.length, 3)
   const retrySeat = await f.request("seat-waiting-attendee", { attendee_id: token })
   assert.equal(retrySeat.status, 200)
-  assert.equal(retrySeat.body.waitlisted, true)
+  assert.equal(retrySeat.body.waitlisted, false)
   assert.equal(retrySeat.body.attendees.length, 3)
   assert.equal((await f.add("female")).body.waitlisted, false)
   assert.equal((await f.add("female")).body.waitlisted, false)
-  assert.equal((await f.add("female")).body.waitlisted, true)
+  assert.equal((await f.add("female")).body.waitlisted, false)
   const final = await f.bundle()
-  for (let round = 1; round <= 3; round++) assert.equal(final.seats.filter(seat => seat.round_number === round).length, 4)
+  for (let round = 1; round <= 3; round++) assert.equal(final.seats.filter(seat => seat.round_number === round).length, 6)
+  assert.ok(final.attendees.every(person => person.attendance_status === "confirmed"))
 })
 
-test("concurrent reception check-ins retry instead of exceeding gender capacity", async t => {
+test("concurrent reception check-ins retry and seat both guests without duplicate seats", async t => {
   const f = await fixture(t, { table_count: 1 })
   await f.add("male")
   const originalRpc = f.client.rpc.bind(f.client)
@@ -108,11 +109,51 @@ test("concurrent reception check-ins retry instead of exceeding gender capacity"
   const arrival = await f.add("male")
   assert.equal(arrival.status, 200)
   assert.equal(other.body.waitlisted, false)
-  assert.equal(arrival.body.waitlisted, true)
+  assert.equal(arrival.body.waitlisted, false)
   const final = await f.bundle()
   assert.equal(final.attendees.length, 3)
-  assert.equal(final.schedule.participant_count, 2)
-  assert.equal(final.seats.length, 6)
+  assert.equal(final.schedule.participant_count, 3)
+  assert.equal(final.seats.length, 9)
+  assert.equal(new Set(final.seats.map(row => `${row.round_number}:${row.table_number}:${row.seat_number}`)).size, 9)
+})
+
+test("five physical tables keep admitting arrivals beyond the old twenty-person estimate", async t => {
+  const f = await fixture(t)
+  let firstTwenty = []
+  for (let index = 0; index < 30; index++) {
+    const result = await f.add(index % 2 ? "female" : "male")
+    assert.equal(result.status, 200, JSON.stringify(result.body))
+    assert.equal(result.body.waitlisted, false)
+    assert.equal(result.body.placement_tables.length, 3)
+    assert.equal(result.body.schedule.participant_count, index + 1)
+    if (index === 19) firstTwenty = result.body.seats
+  }
+  const final = await f.bundle()
+  assert.equal(final.attendees.length, 30)
+  assert.equal(final.seats.length, 90)
+  for (const row of firstTwenty) assert.deepEqual(final.seats.find(seat => seat.id === row.id), row)
+  for (let round = 1; round <= 3; round++) {
+    const sizes = Array.from({ length: 5 }, (_, index) => final.seats.filter(row => row.round_number === round && row.table_number === index + 1).length)
+    assert.deepEqual(sizes, [6, 6, 6, 6, 6])
+  }
+})
+
+test("retrying an arrival from the old waitlist issues a route with the original guest identity", async t => {
+  const f = await fixture(t, { table_count: 1 })
+  await f.add("male")
+  await f.add("male")
+  const token = randomUUID()
+  await f.db.query("insert into the_room_attendees(id,event_id,attendee_number,full_name,gender,attendance_status,included_in_schedule,checked_in) values($1,$2,3,'Existing arrival','male','waitlist',false,true)", [token, f.eventId])
+  const promoted = await f.add("male", token)
+  assert.equal(promoted.status, 200, JSON.stringify(promoted.body))
+  assert.equal(promoted.body.waitlisted, false)
+  assert.equal(promoted.body.added_attendee_id, token)
+  assert.equal(promoted.body.added_attendee_number, 3)
+  assert.equal(promoted.body.attendees.length, 3)
+  assert.equal(promoted.body.placement_tables.length, 3)
+  const retry = await f.add("male", token)
+  assert.deepEqual(retry.body.seats, promoted.body.seats)
+  assert.equal(retry.body.attendees.length, 3)
 })
 
 test("a round advancing during check-in produces only a route for remaining rounds", async t => {
@@ -179,7 +220,7 @@ test("arrival request identity is validated and authenticated before any writes"
   assert.equal((await f.bundle()).attendees.length, 1)
 })
 
-test("repeat fallback admits four guests for twenty rounds without confirmation and waits only at capacity", async t => {
+test("repeat fallback keeps admitting guests for twenty rounds beyond the preferred table size", async t => {
   const f = await fixture(t, { table_count: 1, round_count: 20 })
   const genders = ["male", "female", "male", "female"]
   let issued = []
@@ -207,12 +248,12 @@ test("repeat fallback admits four guests for twenty rounds without confirmation 
 
   const fifth = await f.add("male")
   assert.equal(fifth.status, 200)
-  assert.equal(fifth.body.waitlisted, true)
-  assert.equal(fifth.body.placement_tables.length, 0)
+  assert.equal(fifth.body.waitlisted, false)
+  assert.equal(fifth.body.placement_tables.length, 20)
   assert.equal(fifth.body.attendees.length, 5)
-  assert.equal(fifth.body.schedule.participant_count, 4)
-  assert.equal(fifth.body.schedule.metrics.repeatPairCount, 114)
-  assert.deepEqual(fifth.body.seats, issued)
+  assert.equal(fifth.body.schedule.participant_count, 5)
+  assert.equal(fifth.body.schedule.metrics.repeatPairCount, 190)
+  for (const row of issued) assert.deepEqual(fifth.body.seats.find(seat => seat.id === row.id), row)
 })
 
 test("a late arrival with unavoidable repeats is admitted without inventing past seating", async t => {

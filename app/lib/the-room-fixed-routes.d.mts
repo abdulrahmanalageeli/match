@@ -31,5 +31,5 @@ export class TheRoomFixedRouteError extends Error {
   constructor(message: string)
 }
 
-/** Repeats are allowed automatically. Returns null only if remaining-round capacity prevents a complete route. */
-export function planFixedRoute(input: FixedRouteInput): FixedRouteResult | null
+/** Every valid arrival gets a route. Table size, gender balance, and repeats are soft preferences. */
+export function planFixedRoute(input: FixedRouteInput): FixedRouteResult

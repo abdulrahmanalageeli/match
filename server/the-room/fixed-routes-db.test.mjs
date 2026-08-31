@@ -12,6 +12,7 @@ const migrations = [
   "20260831123042_the_room_atomic_setup.sql",
   "20260831124115_the_room_round_timer.sql",
   "20260831131002_the_room_fixed_routes.sql",
+  "20260831141044_the_room_unlimited_arrivals.sql",
 ]
 const migrationSql = Promise.all(migrations.map(name => readFile(new URL(`../../supabase/migrations/${name}`, import.meta.url), "utf8")))
 
@@ -63,20 +64,19 @@ test("fixed-route events start empty, with an active schedule and a 30-minute ti
   assert.deepEqual(legacy, { seating_mode: "planned", minimum_attendees: 20 })
 })
 
-test("empty fixed events can change dimensions atomically, including with a waiting guest", async t => {
+test("empty fixed events can change dimensions atomically before any arrivals", async t => {
   const f = await fixture(t)
-  const waiting = await f.arrive("female", [])
-  await f.db.query("select configure_the_room_fixed_event($1,4,5,1)", [f.event.id])
+  await f.db.query("select configure_the_room_fixed_event($1,4,5,0)", [f.event.id])
   const changed = await f.snapshot()
   assert.equal(changed.event.table_count, 4)
   assert.equal(changed.event.round_count, 5)
-  assert.equal(changed.event.route_revision, 2)
+  assert.equal(changed.event.route_revision, 1)
   assert.equal(changed.runs[0].table_count, 4)
   assert.equal(changed.runs[0].round_count, 5)
-  assert.equal(changed.attendees[0].id, waiting.attendee.id)
-  await assert.rejects(f.db.query("select configure_the_room_fixed_event($1,1,1,1)", [f.event.id]), code("40001"))
+  assert.equal(changed.attendees.length, 0)
+  await assert.rejects(f.db.query("select configure_the_room_fixed_event($1,1,1,0)", [f.event.id]), code("40001"))
   assert.deepEqual(await f.snapshot(), changed)
-  await assert.rejects(f.db.query("select configure_the_room_fixed_event($1,0,1,2)", [f.event.id]), code("22023"))
+  await assert.rejects(f.db.query("select configure_the_room_fixed_event($1,0,1,1)", [f.event.id]), code("22023"))
   assert.deepEqual(await f.snapshot(), changed)
 })
 
@@ -122,29 +122,46 @@ test("stable arrival identities are idempotent and stale route or round writes r
   assert.equal((await f.arrive("male", rows, { revision: 0, round: 1 })).idempotent, true)
 })
 
-test("capacity is validated in every remaining round and a failure leaves no partial guest or route", async t => {
+test("larger tables accept every gender while duplicate seats still roll back atomically", async t => {
   const f = await fixture(t)
   await f.arrive("male", route(randomUUID(), [1, 1, 1]))
   await f.arrive("male", route(randomUUID(), [2, 1, 2], 2))
   const before = await f.snapshot()
-  await assert.rejects(f.arrive("male", route(randomUUID(), [2, 1, 2], 3)), code("22023"))
-  assert.deepEqual(await f.snapshot(), before)
-  const female = await f.arrive("female", route(randomUUID(), [1, 1, 1], 3))
+  await f.arrive("male", route(randomUUID(), [2, 1, 2], 3))
+  const female = await f.arrive("female", route(randomUUID(), [1, 1, 1], 4))
   assert.equal(female.status, "confirmed")
-  await f.arrive("female", route(randomUUID(), [1, 1, 1], 4))
+  await f.arrive("female", route(randomUUID(), [1, 1, 1], 5))
   const full = await f.snapshot()
-  await assert.rejects(f.arrive("female", route(randomUUID(), [1, 1, 1], 2)), code("22023"))
+  await assert.rejects(f.arrive("female", route(randomUUID(), [1, 1, 1], 1)), code("23505"))
   assert.deepEqual(await f.snapshot(), full)
-  const waiting = await f.arrive("male", [])
-  assert.equal(waiting.status, "waitlist")
-  assert.equal(waiting.attendee.checked_in, true)
-  assert.equal(waiting.attendee.included_in_schedule, false)
-  assert.equal((await f.snapshot()).runs[0].participant_count, 4)
+  for (const seat of before.seats) assert.deepEqual(full.seats.find(row => row.id === seat.id), seat)
+  const extra = await f.arrive("male", [])
+  assert.equal(extra.status, "confirmed")
+  assert.equal(extra.attendee.checked_in, true)
+  assert.equal(extra.attendee.included_in_schedule, true)
+  assert.equal((await f.snapshot()).runs[0].participant_count, 6)
+})
+
+test("legacy empty-route requests automatically admit guests beyond the old limits", async t => {
+  const f = await fixture(t, 1)
+  let issued = []
+  for (let index = 0; index < 7; index++) {
+    const result = await f.arrive("male", [])
+    assert.equal(result.status, "confirmed")
+    assert.equal(result.attendee.included_in_schedule, true)
+    const saved = await f.snapshot()
+    assert.equal(saved.seats.length, (index + 1) * 3)
+    for (const row of issued) assert.deepEqual(saved.seats.find(seat => seat.id === row.id), row)
+    issued = saved.seats
+  }
+  assert.ok(issued.some(row => row.seat_number === 7))
 })
 
 test("waiting guests promote with the same number and only receive remaining-round assignments", async t => {
   const f = await fixture(t)
-  const waiting = await f.arrive("female", [])
+  const id = randomUUID()
+  await f.db.query("insert into the_room_attendees(id,event_id,attendee_number,full_name,gender,attendance_status,included_in_schedule,checked_in) values($1,$2,1,'Existing arrival','female','waitlist',false,true)", [id, f.event.id])
+  const waiting = { attendee: (await f.snapshot()).attendees[0] }
   await f.db.query("update the_room_events set active_round=2 where id=$1", [f.event.id])
   const promoted = await f.arrive("female", route(waiting.attendee.id, [1, 2], 1, 2))
   assert.equal(promoted.attendee.id, waiting.attendee.id)
@@ -158,7 +175,7 @@ test("waiting guests promote with the same number and only receive remaining-rou
 test("invalid routes, legacy walk-ins, and attempts to change issued routes are rejected", async t => {
   const f = await fixture(t)
   const id = randomUUID(), rows = route(id, [1, 2, 1])
-  for (const invalid of [rows.slice(1), [...rows.slice(0, 2), rows[1]], route(id, [1, 3, 1]), route(id, [1, 1, 1], 5), route(randomUUID(), [1, 1, 1])]) {
+  for (const invalid of [rows.slice(1), [...rows.slice(0, 2), rows[1]], route(id, [1, 3, 1]), route(id, [1, 1, 1], 0), route(randomUUID(), [1, 1, 1])]) {
     await assert.rejects(f.arrive("male", invalid, { id }), code("22023"))
   }
   await assert.rejects(f.db.query("select create_the_room_walk_in($1,'male')", [f.event.id]), code("22023"))

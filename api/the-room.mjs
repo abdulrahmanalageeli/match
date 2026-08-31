@@ -168,9 +168,9 @@ async function admitFixedArrival(req, res, { retryWaiting = false } = {}) {
     if (existing && !retryWaiting && existing.gender !== requestedGender) {
       return res.status(409).json({ error: "This request ID was already used for another guest", code: "REQUEST_ID_CONFLICT" })
     }
-    // Retrying a lost response must never register another person or silently
-    // promote a waiting guest. Promotion has its own explicit action.
-    if (existing && (!retryWaiting || existing.attendance_status === "confirmed")) {
+    // Retries reuse the same identity. Guests left waiting by the old limit
+    // receive their route instead of remaining stuck on the waiting list.
+    if (existing?.attendance_status === "confirmed") {
       return res.status(200).json(fixedArrivalResponse(bundle, existing))
     }
     if (!["ready", "live", "registration"].includes(bundle.event.status)) {
@@ -186,16 +186,15 @@ async function admitFixedArrival(req, res, { retryWaiting = false } = {}) {
       roundCount: bundle.event.round_count,
       activeRound: bundle.event.active_round,
     })
-    // A complete route with repeats is admitted automatically. Only a null
-    // capacity result creates a waiting-list entry; no repeat override is needed.
+    // Table size, gender balance, and repeats never reject an arrival.
     const { data, error } = await supabase.rpc("commit_the_room_fixed_arrival", {
       p_event_id: eventId,
       p_attendee_id: attendeeId,
       p_gender: gender,
       p_expected_revision: bundle.event.route_revision,
       p_expected_active_round: bundle.event.active_round,
-      p_rows: plan?.rows || [],
-      p_repeat_pair_count: plan?.repeatPairCount || 0,
+      p_rows: plan.rows,
+      p_repeat_pair_count: plan.repeatPairCount,
     })
     if (error?.code === "40001") continue
     if (error) return sendDatabaseError(res, error)

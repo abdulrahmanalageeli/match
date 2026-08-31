@@ -37,9 +37,11 @@ test("follows the agreed M,M,M,W,M,M,W arrival rule", () => {
   assert.deepEqual(results.map(result => result.rows[0].table_number), [1, 1, 2, 1, 2, 3, 2])
 })
 
-test("enforces two places per gender while allowing the other gender to fill reserved places", () => {
+test("prefers two per gender but admits an additional guest when that target is exhausted", () => {
   const { participants, existingSeats } = addArrivals(["male", "male", "male", "male"], 2)
-  assert.equal(planFixedRoute(emptyInput({ participants, existingSeats, tableCount: 2 })), null)
+  const extraMan = planFixedRoute(emptyInput({ participants, existingSeats, tableCount: 2 }))
+  assert.equal(extraMan.rows.length, 3)
+  assert.ok(extraMan.rows.every(row => row.seat_number === 3))
   const woman = person("woman", "female")
   const result = planFixedRoute(emptyInput({ attendee: woman, participants, existingSeats, tableCount: 2 }))
   assert.ok(result)
@@ -51,10 +53,11 @@ test("enforces two places per gender while allowing the other gender to fill res
   }
 })
 
-test("a full event never creates an extra table or overfills an existing one", () => {
+test("a fifth guest joins an existing table without adding physical tables or changing routes", () => {
   const { participants, existingSeats } = addArrivals(["male", "male", "female", "female"], 1)
   for (const gender of ["male", "female"]) {
-    assert.equal(planFixedRoute(emptyInput({ attendee: person("new", gender), participants, existingSeats, tableCount: 1 })), null)
+    const result = planFixedRoute(emptyInput({ attendee: person("new", gender), participants, existingSeats, tableCount: 1 }))
+    assert.deepEqual(result.rows, [seat("new", 1, 1, 5), seat("new", 2, 1, 5), seat("new", 3, 1, 5)])
   }
   assert.deepEqual([...new Set(existingSeats.map(row => row.table_number))], [1])
 })
@@ -124,11 +127,13 @@ test("reports each extra encounter when repeats cannot be avoided", () => {
   assert.deepEqual(result.rows.map(row => row.table_number), [1, 1, 1])
 })
 
-test("capacity in a later round blocks the entire route before issuing current seating", () => {
+test("a crowded later round still produces a complete route without changing past reservations", () => {
   const participants = [person("a"), person("b"), person("c"), person("d")]
   const existingSeats = [seat("a", 3, 1), seat("b", 3, 1, 2), seat("c", 3, 2), seat("d", 3, 2, 2)]
   const before = structuredClone(existingSeats)
-  assert.equal(planFixedRoute(emptyInput({ participants, existingSeats, tableCount: 2 })), null)
+  const result = planFixedRoute(emptyInput({ participants, existingSeats, tableCount: 2 }))
+  assert.deepEqual(result.rows.map(row => row.round_number), [1, 2, 3])
+  assert.equal(result.rows[2].seat_number, 3)
   assert.deepEqual(existingSeats, before)
 })
 
@@ -150,10 +155,10 @@ test("rejects malformed dimensions, genders, participant IDs, and existing seats
     { attendee: person("new", "unspecified") }, { attendee: person(123) }, { participants: [a, a] },
     { participants: [person("new", "female")] },
     { existingSeats: [seat("unknown", 1, 1)] }, { existingSeats: [seat("a", 0, 1)] },
-    { existingSeats: [seat("a", 1, 6)] }, { existingSeats: [seat("a", 1, 1, 5)] },
+    { existingSeats: [seat("a", 1, 6)] }, { existingSeats: [seat("a", 1, 1, 0)] },
+    { existingSeats: [seat("a", 1, 1, 1.5)] }, { existingSeats: [seat("a", 1, 1, 2147483648)] },
     { existingSeats: [seat("a", 1, 1), seat("a", 1, 2)] },
     { existingSeats: [seat("a", 1, 1), seat("b", 1, 1)] },
-    { existingSeats: [seat("a", 1, 1), seat("b", 1, 1, 2), seat("c", 1, 1, 3)] },
     { participants: [person("new")], existingSeats: [seat("new", 1, 1)] },
   ]
   for (const overrides of invalid) {
@@ -163,7 +168,31 @@ test("rejects malformed dimensions, genders, participant IDs, and existing seats
   }
 })
 
-test("plans the maximum supported fifty-table, twenty-round event within a bounded runtime", () => {
+test("grows beyond twenty attendees and balances additional guests across the fixed tables", () => {
+  const genders = Array.from({ length: 35 }, (_, index) => index % 2 ? "female" : "male")
+  const { existingSeats, results } = addArrivals(genders)
+  assert.equal(results.length, 35)
+  for (let round = 1; round <= 3; round++) {
+    const rows = existingSeats.filter(row => row.round_number === round)
+    assert.equal(rows.length, 35)
+    assert.equal(new Set(rows.map(row => row.attendee_id)).size, 35)
+    const sizes = Array.from({ length: 5 }, (_, i) => rows.filter(row => row.table_number === i + 1).length)
+    assert.deepEqual(sizes, [7, 7, 7, 7, 7])
+    assert.equal(new Set(rows.map(row => `${row.table_number}:${row.seat_number}`)).size, 35)
+  }
+})
+
+test("gender imbalance never becomes a guest limit", () => {
+  const { existingSeats, results } = addArrivals(Array(31).fill("male"))
+  assert.equal(results.length, 31)
+  for (let round = 1; round <= 3; round++) {
+    const sizes = Array.from({ length: 5 }, (_, i) => existingSeats.filter(row => row.round_number === round && row.table_number === i + 1).length)
+    assert.equal(sizes.reduce((sum, size) => sum + size, 0), 31)
+    assert.ok(Math.max(...sizes) - Math.min(...sizes) <= 1)
+  }
+})
+
+test("plans fifty tables and twenty rounds within a bounded runtime", () => {
   const participants = Array.from({ length: 150 }, (_, index) => person(`guest-${index}`, index % 3 === 2 ? "female" : "male"))
   const existingSeats = Array.from({ length: 20 }, (_, roundIndex) => participants.map((participant, index) =>
     seat(participant.id, roundIndex + 1, ((Math.floor(index / 3) + roundIndex * (index % 3 + 1)) % 50) + 1, index % 3 + 1),

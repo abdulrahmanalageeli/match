@@ -22,6 +22,8 @@ function validInteger(value, minimum, maximum) {
 }
 
 function compareRoutes(left, right) {
+  if (left.crowding !== right.crowding) return left.crowding - right.crowding
+  if (left.genderOverflow !== right.genderOverflow) return left.genderOverflow - right.genderOverflow
   if (left.repeatPairCount !== right.repeatPairCount) return left.repeatPairCount - right.repeatPairCount
   if (left.emptyTables !== right.emptyTables) return left.emptyTables - right.emptyTables
   if (left.sameGenderCount !== right.sameGenderCount) return left.sameGenderCount - right.sameGenderCount
@@ -40,6 +42,8 @@ function appendTable(state, table) {
   }
   return {
     met: state.met | table.memberMask,
+    crowding: state.crowding + table.crowding,
+    genderOverflow: state.genderOverflow + table.genderOverflow,
     repeatPairCount: state.repeatPairCount + repeatedMeetings,
     emptyTables: state.emptyTables + Number(table.companionBits.length === 0),
     sameGenderCount: state.sameGenderCount + table.sameGenderCount,
@@ -49,10 +53,11 @@ function appendTable(state, table) {
 
 /**
  * Reserve a newcomer's complete remaining route without changing issued seats.
- * Capacity is strict. Repeat avoidance uses a bounded, deterministic beam search;
+ * Table size and gender balance are preferences, never admission limits.
+ * Repeat avoidance uses a bounded, deterministic beam search;
  * a result with repeats is not proof that a repeat-free route is impossible.
  * Repeats never disqualify a route: return the best complete route found even
- * when it repeats companions. Only insufficient table/gender capacity returns null.
+ * when it repeats companions or grows a table beyond its preferred size.
  */
 export function planFixedRoute({ attendee, participants, existingSeats, tableCount, roundCount, activeRound } = {}) {
   requireInput(validInteger(tableCount, 1, 50), "Table count must be an integer from 1 to 50.")
@@ -83,13 +88,12 @@ export function planFixedRoute({ attendee, participants, existingSeats, tableCou
     requireInput(row.attendee_id !== attendee.id, "The newcomer already has an issued route.")
     requireInput(validInteger(row.round_number, 1, roundCount), "An existing seat has an invalid round.")
     requireInput(validInteger(row.table_number, 1, tableCount), "An existing seat has an invalid table.")
-    requireInput(validInteger(row.seat_number, 1, 4), "Seat numbers must be between 1 and 4.")
+    requireInput(validInteger(row.seat_number, 1, 2147483647), "Seat numbers must be positive database integers.")
     const person = people.get(row.attendee_id)
     const table = rounds[row.round_number - 1][row.table_number - 1]
     const previousRounds = seatedRounds.get(row.attendee_id) ?? new Set()
     requireInput(!previousRounds.has(row.round_number), "A participant cannot have two seats in a round.")
     requireInput(!table.seats.has(row.seat_number), "An existing seat is assigned to more than one participant.")
-    requireInput(table.genders[person.gender] < 2, "An existing table exceeds the two-per-gender limit.")
     previousRounds.add(row.round_number)
     seatedRounds.set(row.attendee_id, previousRounds)
     table.seats.add(row.seat_number)
@@ -98,24 +102,27 @@ export function planFixedRoute({ attendee, participants, existingSeats, tableCou
     table.memberMask |= person.bit
   }
 
-  const options = rounds.slice(activeRound - 1).map(tables => tables
-    .filter(table => table.genders[attendee.gender] < 2 && table.seats.size < 4)
-    .map(table => ({
+  const options = rounds.slice(activeRound - 1).map(tables => tables.map(table => {
+    let seatNumber = 1
+    while (table.seats.has(seatNumber)) seatNumber += 1
+    return {
       ...table,
       sameGenderCount: table.genders[attendee.gender],
-      seatNumber: [1, 2, 3, 4].find(seatNumber => !table.seats.has(seatNumber)),
-    })))
-  // This is the only admission failure for valid input. Repeat encounters are
-  // a scoring preference, never an eligibility filter or a reason to waitlist.
-  if (options.some(tables => tables.length === 0)) return null
+      crowding: Math.max(0, table.seats.size + 1 - 4),
+      genderOverflow: Math.max(0, table.genders[attendee.gender] + 1 - 2),
+      seatNumber,
+    }
+  }))
 
   // The arrival rule is predictable even when future rounds have different seats.
   const firstTable = [...options[0]].sort((left, right) =>
-    Number(left.companionBits.length === 0) - Number(right.companionBits.length === 0)
+    left.crowding - right.crowding
+    || left.genderOverflow - right.genderOverflow
+    || Number(left.companionBits.length === 0) - Number(right.companionBits.length === 0)
     || left.sameGenderCount - right.sameGenderCount
     || left.tableNumber - right.tableNumber,
   )[0]
-  let beam = [appendTable({ met: 0n, repeatPairCount: 0, emptyTables: 0, sameGenderCount: 0, route: [] }, firstTable)]
+  let beam = [appendTable({ met: 0n, crowding: 0, genderOverflow: 0, repeatPairCount: 0, emptyTables: 0, sameGenderCount: 0, route: [] }, firstTable)]
 
   for (const tables of options.slice(1)) {
     const byMetGuests = new Map()

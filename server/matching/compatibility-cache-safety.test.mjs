@@ -150,7 +150,10 @@ test('batched cache keeps cheap scans separate and delta reserves independent lo
   assert.match(delta, /if \(exactCacheMap\.has\([\s\S]*alreadyCached\+\+[\s\S]*continue/)
   assert.match(modalSource, /maxPairsPerRequest: 20000/)
   assert.match(modalSource, /label="Pairs Scanned"/)
-  assert.match(adminSource, /action: "delta-pre-cache-batched"[\s\S]*maxAICachesPerRequest: 12[\s\S]*maxLocalCachesPerRequest: 160[\s\S]*maxPairsPerRequest: 20000/)
+  assert.match(adminSource, /let aiCachesPerRequest = 12/)
+  assert.match(adminSource, /action: "delta-pre-cache-batched"[\s\S]*skipAI: false[\s\S]*maxAICachesPerRequest: aiCachesPerRequest[\s\S]*maxLocalCachesPerRequest: 160[\s\S]*maxPairsPerRequest: 20000/)
+  assert.match(adminSource, /timeoutHint && aiCachesPerRequest > 1[\s\S]*Math\.max\(1, Math\.floor\(aiCachesPerRequest \/ 3\)\)/)
+  assert.doesNotMatch(adminSource, /forceNoAI|Retrying remaining batches without AI/)
   assert.match(adminSource, /<span>Scanned <strong/)
 })
 

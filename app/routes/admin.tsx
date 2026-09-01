@@ -4741,17 +4741,16 @@ Proceed?`
       let lastCacheTimestamp: string | null = null
       let isFresh = false
       let batchNum = 0
-      let forceNoAI = false
+      let aiCachesPerRequest = 12
 
       while (true) {
         try {
           batchNum++
-          const attemptMode = forceNoAI ? "skipAI" : "ai"
           setDeltaCacheProgress(previous => previous ? {
             ...previous,
             status: 'running',
             batch: batchNum,
-            message: `Running batch ${batchNum}${attemptMode === 'skipAI' ? ' (no-AI retry)' : ''}…`,
+            message: `Running batch ${batchNum} (up to ${aiCachesPerRequest} AI score${aiCachesPerRequest === 1 ? '' : 's'})…`,
           } : previous)
           const batchController = new AbortController()
           const batchTimeout = window.setTimeout(() => batchController.abort(), 45_000)
@@ -4764,10 +4763,13 @@ Proceed?`
               body: JSON.stringify({
                 action: "delta-pre-cache-batched",
                 eventId: currentEventId,
-                skipAI: forceNoAI,
+                // A skip-AI result is intentionally non-durable and cannot
+                // satisfy delta-cache coverage. Timeout recovery must keep AI
+                // enabled and reduce the amount of AI work in each request.
+                skipAI: false,
                 resumeCursor,
                 maxDurationMs: 8000,
-                maxAICachesPerRequest: 12,
+                maxAICachesPerRequest: aiCachesPerRequest,
                 maxLocalCachesPerRequest: 160,
                 maxPairsPerRequest: 20000,
               }),
@@ -4885,12 +4887,12 @@ Proceed?`
             ? 'Delta cache batch timed out after 45 seconds'
             : (error?.message || 'Error running delta pre-cache')
           const timeoutHint = error?.name === 'AbortError' || /timed out|timeout/i.test(errorMessage)
-          if (timeoutHint && !forceNoAI) {
-            forceNoAI = true
+          if (timeoutHint && aiCachesPerRequest > 1) {
+            aiCachesPerRequest = Math.max(1, Math.floor(aiCachesPerRequest / 3))
             setDeltaCacheProgress(previous => previous ? {
               ...previous,
               status: 'running',
-              message: `Timeout while using AI. Retrying remaining batches without AI…`,
+              message: `AI batch timed out. Retrying the same work with up to ${aiCachesPerRequest} AI score${aiCachesPerRequest === 1 ? '' : 's'} per request…`,
             } : previous)
             await new Promise(r => setTimeout(r, 250))
             continue

@@ -11,8 +11,30 @@
 -- =============================================================
 
 -- =============================================================
+-- event3_event_settings
+-- Per-edition flow switch. Missing rows are interpreted as classic by the API.
+-- =============================================================
+CREATE TABLE IF NOT EXISTS public.event3_event_settings (
+  match_id uuid NOT NULL,
+  event_id integer NOT NULL,
+  event_format text NOT NULL DEFAULT 'classic',
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (match_id, event_id),
+  CONSTRAINT event3_event_settings_format CHECK (
+    event_format IN ('classic', 'choice_only_three_groups')
+  )
+);
+
+ALTER TABLE public.event3_event_settings ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.event3_event_settings FROM public, anon, authenticated;
+GRANT ALL ON public.event3_event_settings TO service_role;
+CREATE POLICY event3_event_settings_service_only ON public.event3_event_settings
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+-- =============================================================
 -- event3_participants
--- Stores the 36 selected participants and their grid positions
+-- Stores selected participants and their grid positions (36 classic, 42 choice-only)
 -- =============================================================
 CREATE TABLE IF NOT EXISTS public.event3_participants (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -33,7 +55,8 @@ CREATE INDEX IF NOT EXISTS idx_event3_participants_event ON public.event3_partic
 
 -- =============================================================
 -- event3_matches
--- Stores Phase 2 (ranking-based) and Phase 3 (algorithm-based) match results
+-- Stores two one-to-one match slots. Classic uses choice + algorithm;
+-- choice_only_three_groups uses first choice + second choice.
 -- =============================================================
 CREATE TABLE IF NOT EXISTS public.event3_matches (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

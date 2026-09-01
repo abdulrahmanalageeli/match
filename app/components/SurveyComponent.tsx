@@ -2486,9 +2486,10 @@ const SurveyComponent = memo(function SurveyComponent({
                     <span className="min-w-0 flex-1">
                       <span className="flex flex-wrap items-center gap-2">
                         <a href="/terms" target="_blank" rel="noreferrer" className="text-xs font-bold text-blue-700 underline decoration-blue-300 underline-offset-2 dark:text-blue-300">الشروط والأحكام</a>
+                        <a href="/about" target="_blank" rel="noreferrer" className="text-xs font-bold text-blue-700 underline decoration-blue-300 underline-offset-2 dark:text-blue-300">وصف الفعالية</a>
                         <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">مطلوب</span>
                       </span>
-                      <span className="mt-1 block text-xs leading-5 text-slate-700 dark:text-slate-200">قرأت الشروط وأوافق عليها صراحةً.</span>
+                      <span className="mt-1 block text-xs leading-5 text-slate-700 dark:text-slate-200">قرأت وصف الفعالية والشروط وأوافق عليها صراحةً.</span>
                     </span>
                   </label>
 

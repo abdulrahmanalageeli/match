@@ -157,10 +157,33 @@ async function createAiWelcomeImage(message: string): Promise<Blob> {
 
 const API = "/api/participant"
 
+type Event3Format = "classic" | "choice_only_three_groups"
+type Event3GroupRound = 1 | 2 | 3
+
+const CHOICE_ONLY_EVENT3_FORMAT: Event3Format = "choice_only_three_groups"
+
+function normalizeEvent3Format(...values: unknown[]): Event3Format {
+  const firstDefinedFormat = values.find(value => value === "classic" || value === CHOICE_ONLY_EVENT3_FORMAT)
+  return firstDefinedFormat === CHOICE_ONLY_EVENT3_FORMAT
+    ? CHOICE_ONLY_EVENT3_FORMAT
+    : "classic"
+}
+
+function isChoiceOnlyEvent3(format: Event3Format) {
+  return format === CHOICE_ONLY_EVENT3_FORMAT
+}
+
+function event3GroupRoundCount(format: Event3Format) {
+  return isChoiceOnlyEvent3(format) ? 3 : 2
+}
+
 async function call(action: string, token: string | null, extra: Record<string, any> = {}) {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 15000)
   try {
+    const expectedSessionKey = typeof window !== "undefined"
+      ? window.sessionStorage.getItem("event3_runtime_session_key")
+      : null
     const response = await fetch(API, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -168,6 +191,7 @@ async function call(action: string, token: string | null, extra: Record<string, 
         action,
         token,
         impersonate: typeof window !== "undefined" && new URLSearchParams(window.location.search).get("impersonate") === "1",
+        ...(expectedSessionKey ? { expected_event3_session_key: expectedSessionKey } : {}),
         ...extra,
       }),
       signal: controller.signal,
@@ -198,6 +222,9 @@ async function call(action: string, token: string | null, extra: Record<string, 
         http_status: response.status,
         retryable: data.retryable !== false,
       }
+    }
+    if (typeof window !== "undefined" && typeof data.event3_session_key === "string" && data.event3_session_key) {
+      window.sessionStorage.setItem("event3_runtime_session_key", data.event3_session_key)
     }
     return { ...data, http_status: response.status }
   } catch (error: any) {
@@ -1116,6 +1143,11 @@ function CompatibilityBreakdown({ breakdown, scoreRow, accent = "purple", partne
         <p className="text-gray-500 text-xs mt-0.5">
           هذا التحليل خاص بـ{partnerName ? ` ${partnerName}` : " هذا الشخص"} فقط — يعتمد على بيانات الاستبيان ولا يتأثر بالتقييمات
         </p>
+        {!isBalanced && (
+          <p className="mt-1 text-[11px] leading-5 text-amber-300/80">
+            نعرض المجموع التاريخي فقط لأن تفاصيل الأبعاد لا تتوافق مع النموذج الحالي.
+          </p>
+        )}
       </div>
 
       {/* Synergy Overview */}
@@ -1220,10 +1252,11 @@ function DemoButton({ children, className = "", pulse = false }: { children: Rea
 }
 
 // The animated per-stage content shown inside the "steps" phase of WelcomeScreen.
-function WalkSlide({ step, headingRef }: { step: number; headingRef?: React.RefObject<HTMLHeadingElement | null> }) {
+function WalkSlide({ step, headingRef, eventFormat }: { step: number; headingRef?: React.RefObject<HTMLHeadingElement | null>; eventFormat: Event3Format }) {
   const slide = WALK_SLIDES[step]
   const ac = WALK_ACCENTS[slide.accent]
   const reduceMotion = useReducedMotion()
+  const choiceOnly = isChoiceOnlyEvent3(eventFormat)
 
   // Ranking demo — cycle the order so people SEE the drag-to-rank behaviour.
   const [rankOrder, setRankOrder] = useState([0, 1, 2, 3])
@@ -1271,10 +1304,10 @@ function WalkSlide({ step, headingRef }: { step: number; headingRef?: React.RefO
             </div>
             <div className="space-y-2">
               {[
-                { Icon: Users, c: "text-blue-400 bg-blue-500/15 border-blue-500/25", t: "جولتان جماعيتان", d: "تجلس مع مجموعات صغيرة وتتعرّف على الجميع" },
+                { Icon: Users, c: "text-blue-400 bg-blue-500/15 border-blue-500/25", t: choiceOnly ? "ثلاث جولات جماعية" : "جولتان جماعيتان", d: choiceOnly ? "في كل جولة تجلس مع مجموعة من ٧ أشخاص وتتعرّف على وجوه جديدة" : "تجلس مع مجموعات صغيرة وتتعرّف على الجميع" },
                 { Icon: BarChart3, c: "text-amber-400 bg-amber-500/15 border-amber-500/25", t: "ترتيب من قابلت", d: "ترتّب من تفضّل جلسة فردية معه" },
-                { Icon: Heart, c: "text-pink-400 bg-pink-500/15 border-pink-500/25", t: "جلسة اختيارك", d: "جلسة فردية مع أفضل تطابق متبادل من ترتيبك" },
-                { Icon: Brain, c: "text-purple-400 bg-purple-500/15 border-purple-500/25", t: "جلسة التوافق الذكي", d: "جلسة فردية مع من يرشّحه النظام لك" },
+                { Icon: Heart, c: "text-pink-400 bg-pink-500/15 border-pink-500/25", t: choiceOnly ? "لقاء الاختيار الأول" : "جلسة اختيارك", d: "جلسة فردية مع أفضل تطابق متبادل من ترتيبك" },
+                { Icon: choiceOnly ? Heart : Brain, c: "text-purple-400 bg-purple-500/15 border-purple-500/25", t: choiceOnly ? "لقاء الاختيار الثاني" : "جلسة التوافق الذكي", d: choiceOnly ? "أقوى تطابق متبادل متبقٍ مع شخص جديد" : "جلسة فردية مع من يرشّحه النظام لك" },
                 { Icon: Trophy, c: "text-violet-400 bg-violet-500/15 border-violet-500/25", t: "الكشف النهائي", d: "تكتشف نتائجك ومن تريد التواصل معه" },
               ].map((r, i) => (
                 <motion.div key={i} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.09 }}
@@ -1297,7 +1330,7 @@ function WalkSlide({ step, headingRef }: { step: number; headingRef?: React.RefO
             <div className="text-center space-y-1">
               <Users size={34} className="text-blue-400 mx-auto" />
               <h2 ref={headingRef} tabIndex={-1} className="text-white font-black text-xl focus:outline-none">الجولات الجماعية</h2>
-              <p className="text-gray-400 text-xs leading-relaxed">جولتان تجلس فيهما مع ٤–٦ أشخاص على طاولة للتعارف</p>
+              <p className="text-gray-400 text-xs leading-relaxed">{choiceOnly ? "ثلاث جولات، في كل جولة مجموعة من ٧ أشخاص على طاولة للتعارف" : "جولتان تجلس فيهما مع ٤–٦ أشخاص على طاولة للتعارف"}</p>
             </div>
             {/* Demo table card */}
             <div className="rounded-2xl border border-blue-800/40 bg-blue-950/30 p-4 text-center space-y-2">
@@ -1315,7 +1348,7 @@ function WalkSlide({ step, headingRef }: { step: number; headingRef?: React.RefO
             </DemoButton>
             <div className="flex items-start gap-2 bg-white/[0.03] border border-white/[0.06] rounded-xl px-3 py-2.5">
               <Shuffle size={15} className="text-cyan-400 shrink-0 mt-0.5" />
-              <p className="text-gray-300 text-xs leading-relaxed">اختاروا معاً لعبة أو أسئلة نقاش تناسب المجموعة. وفي الجولة الثانية ستنتقل غالباً إلى <span className="text-cyan-300 font-bold">مجموعة جديدة</span>، وقد يتكرر شخص فقط عند الحاجة لتوازن التقسيم.</p>
+              <p className="text-gray-300 text-xs leading-relaxed">اختاروا معاً لعبة أو أسئلة نقاش تناسب المجموعة. وفي {choiceOnly ? "الجولتين التاليتين" : "الجولة الثانية"} ستنتقل غالباً إلى <span className="text-cyan-300 font-bold">مجموعة جديدة</span>، وقد يتكرر شخص فقط عند الحاجة لتوازن التقسيم.</p>
             </div>
           </div>
         )}
@@ -1362,17 +1395,17 @@ function WalkSlide({ step, headingRef }: { step: number; headingRef?: React.RefO
             <div className="text-center space-y-1">
               <Users size={32} className="text-pink-400 mx-auto" />
               <h2 ref={headingRef} tabIndex={-1} className="text-white font-black text-xl focus:outline-none">جلستان فرديتان</h2>
-              <p className="text-gray-400 text-xs leading-relaxed">جلستان خاصتان 1:1 — واحدة باختيارك وواحدة باختيار النظام</p>
+              <p className="text-gray-400 text-xs leading-relaxed">{choiceOnly ? "جلستان خاصتان 1:1 — كلتاهما من أقوى اختياراتك المتبادلة ومع شخصين مختلفين" : "جلستان خاصتان 1:1 — واحدة باختيارك وواحدة باختيار النظام"}</p>
             </div>
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 }}
               className="rounded-2xl border border-pink-700/40 bg-pink-950/30 p-3.5 flex items-center gap-3">
               <Heart size={22} className="text-pink-400 shrink-0" />
-              <div><p className="text-white font-bold text-sm">جلسة اختيارك</p><p className="text-pink-200/80 text-xs">أفضل تطابق متبادل من ترتيبك</p></div>
+              <div><p className="text-white font-bold text-sm">{choiceOnly ? "لقاء الاختيار الأول" : "جلسة اختيارك"}</p><p className="text-pink-200/80 text-xs">أفضل تطابق متبادل من ترتيبك</p></div>
             </motion.div>
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.18 }}
               className="rounded-2xl border border-purple-700/40 bg-purple-950/30 p-3.5 flex items-center gap-3">
-              <Brain size={22} className="text-purple-400 shrink-0" />
-              <div><p className="text-white font-bold text-sm">جلسة التوافق الذكي</p><p className="text-purple-200/80 text-xs">النظام يرشّح لك بناءً على بياناتكما</p></div>
+              {choiceOnly ? <Heart size={22} className="text-purple-400 shrink-0" /> : <Brain size={22} className="text-purple-400 shrink-0" />}
+              <div><p className="text-white font-bold text-sm">{choiceOnly ? "لقاء الاختيار الثاني" : "جلسة التوافق الذكي"}</p><p className="text-purple-200/80 text-xs">{choiceOnly ? "أقوى تطابق متبادل متبقٍ بعد استبعاد شريك اللقاء الأول" : "النظام يرشّح لك بناءً على بياناتكما"}</p></div>
             </motion.div>
             {/* Demo: how you see the table + partner */}
             <div className="rounded-2xl border border-amber-700/40 bg-amber-950/25 p-3 text-center space-y-1">
@@ -1413,7 +1446,7 @@ function WalkSlide({ step, headingRef }: { step: number; headingRef?: React.RefO
             </div>
             <div className="flex items-start gap-2 rounded-xl border border-violet-700/35 bg-violet-950/25 px-3 py-2.5">
               <Trophy size={15} className="mt-0.5 shrink-0 text-violet-300" />
-              <p className="text-xs leading-relaxed text-gray-300">في الكشف النهائي تقارن بين <span className="font-bold text-pink-300">اختيارك</span> و<span className="font-bold text-violet-300">اختيار النظام</span>. النتيجة مؤشر يساعدك وليست ضماناً للكيمياء.</p>
+              <p className="text-xs leading-relaxed text-gray-300">في الكشف النهائي تقارن بين <span className="font-bold text-pink-300">{choiceOnly ? "اختيارك الأول" : "اختيارك"}</span> و<span className="font-bold text-violet-300">{choiceOnly ? "اختيارك الثاني" : "اختيار النظام"}</span>. النتيجة مؤشر يساعدك وليست ضماناً للكيمياء.</p>
             </div>
           </div>
         )}
@@ -1424,14 +1457,14 @@ function WalkSlide({ step, headingRef }: { step: number; headingRef?: React.RefO
             <div className="text-center space-y-1">
               <Trophy size={32} className="text-violet-400 mx-auto" />
               <h2 ref={headingRef} tabIndex={-1} className="text-white font-black text-xl focus:outline-none">الكشف النهائي</h2>
-              <p className="text-gray-400 text-xs leading-relaxed">في النهاية تكتشف نتائجك: اختيارك مقابل اختيار النظام والتوافق الكامل</p>
+              <p className="text-gray-400 text-xs leading-relaxed">في النهاية تكتشف نتائجك: {choiceOnly ? "اختيارك الأول مقابل اختيارك الثاني" : "اختيارك مقابل اختيار النظام"} والتوافق الكامل</p>
             </div>
             <div className="grid grid-cols-2 gap-2.5">
               <div className="rounded-2xl border border-pink-700/40 bg-pink-950/30 p-3 text-center space-y-1">
                 <Heart size={18} className="text-pink-400 mx-auto" /><p className="text-white font-bold text-[12px]">اختيارك</p>
               </div>
               <div className="rounded-2xl border border-purple-700/40 bg-purple-950/30 p-3 text-center space-y-1">
-                <Brain size={18} className="text-purple-400 mx-auto" /><p className="text-white font-bold text-[12px]">اختيار النظام</p>
+                {choiceOnly ? <Heart size={18} className="text-purple-400 mx-auto" /> : <Brain size={18} className="text-purple-400 mx-auto" />}<p className="text-white font-bold text-[12px]">{choiceOnly ? "الاختيار الثاني" : "اختيار النظام"}</p>
               </div>
             </div>
             {/* The compatibility disclaimer */}
@@ -1479,10 +1512,11 @@ function WalkSlide({ step, headingRef }: { step: number; headingRef?: React.RefO
   )
 }
 
-function WelcomeScreen({ onDone, onLogout, showLogout }: {
+function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
   onDone: () => void
   onLogout?: () => void
   showLogout?: boolean
+  eventFormat: Event3Format
 }) {
   const [phase, setPhase] = useState<"splash" | "rules" | "steps">("splash")
   const [step, setStep] = useState(0)
@@ -1757,7 +1791,7 @@ function WelcomeScreen({ onDone, onLogout, showLogout }: {
                   transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
                   className="w-full max-w-sm my-auto"
                 >
-                  <WalkSlide step={step} headingRef={walkHeadingRef} />
+                  <WalkSlide step={step} headingRef={walkHeadingRef} eventFormat={eventFormat} />
                 </motion.div>
               </AnimatePresence>
             </div>
@@ -1919,9 +1953,19 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
 }
 
 // ─── Waiting / Setup Screen ───────────────────────────────────────────────────
-function SetupScreen({ token, myInfo, enrolledCount }: { token: string; myInfo: { number: number; name: string; gender: string | null } | null; enrolledCount: number | null }) {
+function SetupScreen({ token, myInfo, enrolledCount, eventFormat }: { token: string; myInfo: { number: number; name: string; gender: string | null } | null; enrolledCount: number | null; eventFormat: Event3Format }) {
 
-  const timeline = [
+  const choiceOnly = isChoiceOnlyEvent3(eventFormat)
+
+  const timeline = choiceOnly ? [
+    { icon: <Users size={14} className="text-cyan-400" />, label: "تعارف جماعي أول ضمن مجموعة من ٧، ثم ترتيب", time: "المحطة 1" },
+    { icon: <Shuffle size={14} className="text-indigo-400" />, label: "تعارف جماعي ثانٍ ضمن مجموعة من ٧، ثم ترتيب", time: "المحطة 2" },
+    { icon: <Shuffle size={14} className="text-violet-400" />, label: "تعارف جماعي ثالث ضمن مجموعة من ٧، ثم ترتيب نهائي", time: "المحطة 3" },
+    { icon: <Coffee size={14} className="text-orange-400" />, label: "استراحة واستعداد", time: "فاصل" },
+    { icon: <Heart size={14} className="text-pink-400" />, label: "لقاء الاختيار الأول، ثم تقييم قصير", time: "المحطة 4" },
+    { icon: <Heart size={14} className="text-violet-400" />, label: "لقاء الاختيار الثاني مع شخص جديد، ثم تقييم", time: "المحطة 5" },
+    { icon: <Sparkles size={14} className="text-emerald-400" />, label: "الكشف النهائي والنتائج", time: "المحطة 6" },
+  ] : [
     { icon: <Users size={14} className="text-cyan-400" />, label: "تعارف جماعي أول، ثم ترتيب سريع", time: "المحطة 1" },
     { icon: <Shuffle size={14} className="text-indigo-400" />, label: "تعارف جماعي ثانٍ، ثم ترتيب نهائي", time: "المحطة 2" },
     { icon: <Coffee size={14} className="text-orange-400" />, label: "استراحة واستعداد", time: "فاصل" },
@@ -2230,6 +2274,15 @@ const ICE_BREAKERS: Record<number, { title: string; prompt: string; subPrompts?:
       "شيء تتمنى تجربه أو تتعلمه.",
     ],
   },
+  3: {
+    title: "بداية الجولة الثالثة",
+    prompt: "اسمك، ثم اختر سؤالاً واحداً يفتح حواراً جديداً:",
+    subPrompts: [
+      "ما تجربة بسيطة غيّرت رأيك في شيء مهم؟",
+      "ما الشيء الذي يعطيك طاقة هذه الفترة؟",
+      "ما عادة أو قيمة تحب أن يعرفها الناس عنك؟",
+    ],
+  },
 }
 
 function seededShuffle<T>(arr: T[], seed: number): T[] {
@@ -2466,10 +2519,12 @@ function RockPaperScissors({ accent = "pink", autoDone = false, onDone }: { acce
 }
 
 // ─── Round Screen ─────────────────────────────────────────────────────────────
-function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, correctedNow, myInfo, onGroupsOpenChange }: {
-  token: string; phase: string; timerActive: boolean; timerStart: string | null; timerDuration: number; correctedNow?: () => number; myInfo: { number: number; name: string; gender: string | null } | null; onGroupsOpenChange?: (open: boolean) => void
+function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, correctedNow, myInfo, onGroupsOpenChange, eventFormat }: {
+  token: string; phase: string; timerActive: boolean; timerStart: string | null; timerDuration: number; correctedNow?: () => number; myInfo: { number: number; name: string; gender: string | null } | null; onGroupsOpenChange?: (open: boolean) => void; eventFormat: Event3Format
 }) {
   const round = parseInt(phase.replace("round", "")) || 1
+  const groupRoundCount = event3GroupRoundCount(eventFormat)
+  const choiceOnly = isChoiceOnlyEvent3(eventFormat)
   const [assignment, setAssignment] = useState<any>(null)
   const [assignmentError, setAssignmentError] = useState("")
   const [timeLeft, setTimeLeft] = useState(0)
@@ -2615,7 +2670,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   // Vibrate when timer starts or when 10 seconds remain
   // (sound/vibration handled by useTimerWarnings hook above)
 
-  const roundAr = ["الأولى", "الثانية"][round - 1] || round
+  const roundAr = ["الأولى", "الثانية", "الثالثة"][round - 1] || round
   const RC = [
     { badge: "bg-blue-900/30 border-blue-700/40 text-blue-300", card: "border-blue-800/40", num: "text-blue-300", pill: "bg-blue-900/40 text-blue-300 border-blue-800/40", bar: "from-blue-500 to-cyan-500" },
     { badge: "bg-indigo-900/30 border-indigo-700/40 text-indigo-300", card: "border-indigo-800/40", num: "text-indigo-300", pill: "bg-indigo-900/40 text-indigo-300 border-indigo-800/40", bar: "from-indigo-500 to-purple-500" },
@@ -2644,7 +2699,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
           >
             <Users size={13} />
             <span className="font-bold text-sm">الجولة الجماعية {roundAr}</span>
-            <span className="text-gray-600 text-xs">من 2</span>
+            <span className="text-gray-600 text-xs">من {groupRoundCount}</span>
           </motion.div>
           <JourneyCue
             accent={round === 1 ? "blue" : "purple"}
@@ -2768,7 +2823,8 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
 
           <p className="text-gray-600 text-xs">
             {round === 1 && "تعارف جماعي على طاولتك — ستختار بعدها من تريد جلسة فردية معه"}
-            {round === 2 && "آخر جولة جماعية — بعدها ستُرتّب الأولويات لتحديد جلستك الفردية"}
+            {round === 2 && (choiceOnly ? "بعد هذه الجولة ستحدّث ترتيبك، ثم تنتقل إلى مجموعة ثالثة" : "آخر جولة جماعية — بعدها ستُرتّب الأولويات لتحديد جلستك الفردية")}
+            {round === 3 && "آخر جولة جماعية — بعدها ستحسم ترتيبك النهائي للقاءي الاختيار"}
           </p>
 
           {typeof window !== "undefined" && new URLSearchParams(window.location.search).has("discussionPreview") && (
@@ -2867,7 +2923,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
 }
 
 // ─── Ranking Tutorial Overlay ────────────────────────────────────────────────
-function RankingTutorial({ onClose }: { onClose: () => void }) {
+function RankingTutorial({ onClose, choiceOnly }: { onClose: () => void; choiceOnly: boolean }) {
   return (
     <OnePopup
       onClose={onClose}
@@ -2879,9 +2935,11 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
       points={[
         { icon: <Trophy size={14} className="text-amber-400" />, text: <>اسحب البطاقات لترتيب من <span className="text-white font-bold">الأعلى اهتماماً</span> للأقل — الأول هو أولويتك القصوى</> },
         { icon: <Heart size={14} className="text-emerald-400" />, text: <>إذا رتّبت شخصًا <span className="text-white font-bold">#1</span> ورتّبك هو أيضًا <span className="text-white font-bold">#1</span> ← تطابق مثالي وجلسة فردية!</> },
-        { icon: <Sparkles size={14} className="text-cyan-400" />, text: <>مو لازم تكونوا بنفس المركز: ممكن ترتبه أول وهو يرتبك ثالث، ويختار النظام أعلى تطابق متاح للطرفين</> },
+        { icon: <Sparkles size={14} className="text-cyan-400" />, text: <>مو لازم تكونوا بنفس المركز: ممكن ترتبه أول وهو يرتبك ثالث، ونبحث عن أقوى ترتيب متبادل متاح للطرفين</> },
         { icon: <Handshake size={14} className="text-purple-400" />, text: <>التطابق يجب أن يكون <span className="text-white font-bold">متبادلاً</span> — ترتيبك وحده لا يكفي، الطرفان يجب أن يتقاربا</> },
-        { icon: <Users size={14} className="text-pink-400" />, text: <>نتيجتك: <span className="text-white font-bold">جلستان فرديتان</span> — واحدة من اختيارك وواحدة يختارها النظام بناءً على التوافق</> },
+        { icon: <Users size={14} className="text-pink-400" />, text: choiceOnly
+          ? <>نتيجتك: <span className="text-white font-bold">جلستان فرديتان</span> من أقوى اختياراتك المتبادلة، والثانية مع شخص مختلف عن الأولى</>
+          : <>نتيجتك: <span className="text-white font-bold">جلستان فرديتان</span> — واحدة من اختيارك وواحدة يختارها النظام بناءً على التوافق</> },
       ]}
     />
   )
@@ -2922,7 +2980,7 @@ function RankingReorderCard({
 }
 
 // ─── Ranking Screen ───────────────────────────────────────────────────────────
-function RankingScreen({ token, completedRounds, currentPhase, timerActive, timerStart, timerDuration, correctedNow, myInfo, onOpenGroupFeedback, onRankingResolved, onRankingDirty }: {
+function RankingScreen({ token, completedRounds, currentPhase, timerActive, timerStart, timerDuration, correctedNow, myInfo, onOpenGroupFeedback, onRankingResolved, onRankingDirty, eventFormat }: {
   token: string
   completedRounds: number
   currentPhase: string
@@ -2931,10 +2989,14 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   timerDuration: number
   correctedNow?: () => number
   myInfo: { number: number; name: string; gender: string | null } | null
-  onOpenGroupFeedback: (round: 1 | 2) => void
+  onOpenGroupFeedback: (round: Event3GroupRound) => void
   onRankingResolved: (round: number) => void
   onRankingDirty: () => void
+  eventFormat: Event3Format
 }) {
+  const finalGroupRound = event3GroupRoundCount(eventFormat)
+  const isFinalRanking = completedRounds >= finalGroupRound
+  const choiceOnly = isChoiceOnlyEvent3(eventFormat)
   const [people, setPeople] = useState<any[]>([])
   const [order, setOrder] = useState<number[]>([])
   const [newNums, setNewNums] = useState<Set<number>>(new Set())
@@ -3158,7 +3220,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
     submittedRef.current = true
     setSubmitted(true)
     onRankingResolved(completedRounds)
-    toast.success(completedRounds >= 2 ? "تم حفظ تصنيفك النهائي!" : "تم حفظ تصنيفك!")
+    toast.success(isFinalRanking ? "تم حفظ تصنيفك النهائي!" : "تم حفظ تصنيفك!")
   }
 
   const personMap = Object.fromEntries(people.map(p => [p.number, p]))
@@ -3327,7 +3389,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
         {!submitted && (
           <JourneyCue
             accent="amber"
-            eyebrow={completedRounds >= 2 ? "قرارك النهائي" : "قرار هذه الجولة"}
+            eyebrow={isFinalRanking ? "قرارك النهائي" : "قرار هذه الجولة"}
             title="ضع الأكثر رغبة في اللقاء بالمركز الأول"
             description="الترتيب الحالي نقطة بداية فقط؛ غيّره ليعكس اختيارك، ثم راجع أول ثلاثة قبل الحفظ."
             steps={["رتّب", "راجع الأعلى", "احفظ"]}
@@ -3486,7 +3548,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
               </div>
               <motion.button
                 initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                onClick={() => onOpenGroupFeedback(completedRounds >= 2 ? 2 : 1)} whileTap={{ scale: 0.97 }}
+                onClick={() => onOpenGroupFeedback(completedRounds as Event3GroupRound)} whileTap={{ scale: 0.97 }}
                 className="flex w-full items-center justify-center gap-2 rounded-xl border border-purple-400/20 bg-purple-500/10 py-3 text-xs font-black text-purple-200"
               >
                 <Trophy size={14} />
@@ -3509,11 +3571,11 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                 className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:opacity-50 text-black rounded-xl py-3 font-black text-sm shadow-lg shadow-amber-500/20 transition-all"
               >
                 {submitting ? <Spinner size={16} className="!text-black" /> : <Send size={16} />}
-                {completedRounds >= 2 ? 'إرسال التصنيف النهائي' : 'حفظ التصنيف'}
+                {isFinalRanking ? 'إرسال التصنيف النهائي' : 'حفظ التصنيف'}
               </motion.button>
               <div className="flex items-center justify-center gap-1.5 mt-2">
                 <p className="text-gray-600 text-[10px]">
-                  النظام سيختار توافقك الأمثل من تصنيفاتك
+                  {choiceOnly ? "سنبحث عن أقوى تطابقين متبادلين مع شخصين مختلفين" : "النظام سيختار توافقك الأمثل من تصنيفاتك"}
                 </p>
                 {timeLeft > 0 && timeLeft <= 60 && (
                   <>
@@ -3531,7 +3593,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
 
       {/* Ranking Tutorial Overlay */}
       <AnimatePresence>
-        {showRankTutorial && <RankingTutorial onClose={() => { setShowRankTutorial(false); try { sessionStorage.setItem('e3_tut_ranking', "1") } catch {} }} />}
+        {showRankTutorial && <RankingTutorial choiceOnly={choiceOnly} onClose={() => { setShowRankTutorial(false); try { sessionStorage.setItem('e3_tut_ranking', "1") } catch {} }} />}
       </AnimatePresence>
 
       {/* 90-second auto-lock warning popup */}
@@ -3572,7 +3634,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
               <h3 id="ranking-confirm-title" className="text-white font-black text-lg">تأكيد التصنيف</h3>
               <p className="text-gray-400 text-sm leading-relaxed">
                 حفظ ترتيبك لـ <span className="text-white font-bold">{order.length}</span> شخص.
-                {completedRounds >= 2 ? " تصنيفك النهائي — سيُستخدم للمطابقة." : " يمكنك التعديل في الجولة القادمة."}
+                {isFinalRanking ? " تصنيفك النهائي — سيُستخدم للمطابقة." : " يمكنك التعديل في الجولة القادمة."}
               </p>
               <p className="rounded-xl border border-amber-500/15 bg-amber-500/[0.06] px-3 py-2 text-xs leading-relaxed text-amber-100/80">
                 تأكد أن القائمة تعبّر عن رغبتك، وليست مجرد الترتيب المبدئي.
@@ -3617,7 +3679,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
 // ─── Optional Group Reflection ────────────────────────────────────────────────
 function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
   token: string | null
-  groupRound: 1 | 2
+  groupRound: Event3GroupRound
   onClose: () => void
   previewPeople?: { number: number; first_name: string; rounds: number[] }[]
 }) {
@@ -3905,10 +3967,10 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
 }
 
 // ─── Shared Feedback Flow ─────────────────────────────────────────────────────
-function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLastSession, accent = "pink" }: {
+function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLastSession, accent = "pink", choiceOnly = false }: {
   partnerName: string | null; word: string; done: boolean
   onDone: () => void; onBack: () => void; onSubmit: (fb: Record<string, any>) => Promise<boolean>
-  isLastSession?: boolean; accent?: "pink" | "purple"
+  isLastSession?: boolean; accent?: "pink" | "purple"; choiceOnly?: boolean
 }) {
   const [step, setStep] = useState(0)
   const [submitting, setSubmitting] = useState(false)
@@ -4002,7 +4064,7 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
           </div>
           <p className="text-gray-400 text-xs leading-relaxed">
             بعد أن يكمل جميع المشاركين تقييمهم، ستظهر لك صفحة النتائج النهائية مع تفاصيل التوافق الكاملة،
-            مقارنة بين اختيارك واختيار الخوارزمية، وتحليل ذكي للكيمياء بينك وبين شريكك.
+            {choiceOnly ? "مقارنة بين لقاء الاختيار الأول ولقاء الاختيار الثاني" : "مقارنة بين اختيارك واختيار الخوارزمية"}، وتحليل ذكي للكيمياء بينك وبين شريكك.
             ابقَ معنا — لا تغادر!
           </p>
         </motion.div>
@@ -4467,7 +4529,7 @@ function SOSButton({ token, position = 'top', sosRequests, suppressed = false }:
                 <div className="space-y-2.5 py-2">
                   <div className="bg-amber-950/30 border border-amber-800/30 rounded-xl p-3 text-[10px] leading-relaxed text-amber-200/80 space-y-1.5">
                     <p className="font-bold text-amber-300 text-[11px]">قبل أن تطلب المساعدة:</p>
-                    <p>عدم الإعجاب بالشخص أو المجموعة ليس سبباً صحيحاً لطلب المساعدة — كل جولة تُحدّث وبناءً على تقييمك ستتحسن الخوارزمية.</p>
+                    <p>عدم الإعجاب بالشخص أو المجموعة ليس سبباً صحيحاً لطلب المساعدة — كل جولة جديدة فرصة مختلفة، وتقييمك يساعدنا على تحسين التجربة.</p>
                     <p>استخدم هذا الزر فقط إذا: خالف أحدهم القواعد، أو لديك طارئ، أو لديك استفسار عام.</p>
                     <p className="text-amber-400/60">يمكنك استئناف المحادثات مع أي شخص بعد الفعالية إذا رغب الطرفان.</p>
                   </div>
@@ -4585,8 +4647,8 @@ function SOSButton({ token, position = 'top', sosRequests, suppressed = false }:
 }
 
 // ─── Phase 2 Reveal Screen ────────────────────────────────────────────────────
-function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDuration, correctedNow }: {
-  token: string; eventId?: number | string; timerActive: boolean; timerStart: string | null; timerDuration: number; correctedNow?: () => number
+function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDuration, correctedNow, eventFormat }: {
+  token: string; eventId?: number | string; timerActive: boolean; timerStart: string | null; timerDuration: number; correctedNow?: () => number; eventFormat: Event3Format
 }) {
   const reduceMotion = useReducedMotion()
   const [revealed, setRevealed] = useState(false)
@@ -4613,6 +4675,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
     interval: 5000,
     stopWhen: (d) => Boolean(d.partner_number && d.partner_first_name && d.table_number != null)
   })
+  const choiceOnly = isChoiceOnlyEvent3(normalizeEvent3Format(data?.event_format, eventFormat))
 
   useEffect(() => {
     if (data?.my_word) { setWord(data.my_word); setWordSubmitted(true) }
@@ -4708,9 +4771,9 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="text-center pt-4 space-y-1">
           <div className="flex flex-col items-center gap-1.5">
             <div className="inline-flex items-center gap-2 bg-pink-900/30 border border-pink-700/40 text-pink-300 rounded-full px-4 py-1.5 text-sm font-semibold">
-              <Users size={13} /> {data?.is_backup ? "جلسة فردية 1:1 · فرصة جديدة" : "جلسة فردية 1:1 · اختيارك أنت"}
+              <Users size={13} /> {data?.is_backup ? "جلسة فردية 1:1 · فرصة جديدة" : choiceOnly ? "جلسة فردية 1:1 · الاختيار الأول" : "جلسة فردية 1:1 · اختيارك أنت"}
             </div>
-            <p className="text-gray-400 text-xs">{data?.is_backup ? "لقاء رتّبناه لك حتى يعيش الجميع التجربة كاملة" : "لقاء خاص مع أفضل اختيار متبادل متاح من ترتيبك"}</p>
+            <p className="text-gray-400 text-xs">{data?.is_backup ? "لقاء رتّبناه لك حتى يعيش الجميع التجربة كاملة" : choiceOnly ? "أقوى اختيار متبادل متاح من ترتيبكما" : "لقاء خاص مع أفضل اختيار متبادل متاح من ترتيبك"}</p>
           </div>
         </motion.div>
 
@@ -4746,7 +4809,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                 steps={["اتجه للطاولة", "قابل شريكك", "ابدأ الحوار"]}
                 currentStep={0}
               />
-              <MeetingPass accent="pink" kind={data?.is_backup ? "لقاء رتّبناه لك" : "لقاء اختيارك"} tableNumber={data?.table_number} partnerHidden />
+              <MeetingPass accent="pink" kind={data?.is_backup ? "لقاء رتّبناه لك" : choiceOnly ? "لقاء الاختيار الأول" : "لقاء اختيارك"} tableNumber={data?.table_number} partnerHidden />
 
               {/* Arrival is an explicit confirmation so the reveal cannot disappear mid-read. */}
               {canArrive ? (
@@ -4782,7 +4845,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
             <motion.div key="post" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
               <MeetingPass
                 accent="pink"
-                kind={data?.is_backup ? "لقاء رتّبناه لك لضمان مشاركة الجميع" : "لقاء اختيارك"}
+                kind={data?.is_backup ? "لقاء رتّبناه لك لضمان مشاركة الجميع" : choiceOnly ? "لقاء الاختيار الأول" : "لقاء اختيارك"}
                 partnerName={data?.partner_first_name}
                 tableNumber={data?.table_number}
                 badge={data?.is_backup ? "لقاء جديد" : null}
@@ -4867,7 +4930,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
             {/* Sticky header */}
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/[0.06] bg-gray-950/80 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-xl">
               <div className="min-w-0 text-right">
-                <p className="text-[10px] font-bold text-pink-300">لقاء اختيارك · طاولة {data?.table_number ?? "—"}</p>
+                <p className="text-[10px] font-bold text-pink-300">{choiceOnly ? "لقاء الاختيار الأول" : "لقاء اختيارك"} · طاولة {data?.table_number ?? "—"}</p>
                 <p className="mt-0.5 truncate text-sm font-black text-white">مع {data?.partner_first_name || "شريكك"}</p>
               </div>
               <span className={`font-mono text-sm font-black tabular-nums ${timeLeft < 300 ? 'text-red-400' : 'text-pink-300'}`}>{formatTime(timeLeft)}</span>
@@ -4998,8 +5061,8 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
 }
 
 // ─── Phase 3 Reveal Screen ────────────────────────────────────────────────────
-function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDuration, correctedNow }: {
-  token: string; eventId?: number | string; timerActive: boolean; timerStart: string | null; timerDuration: number; correctedNow?: () => number
+function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDuration, correctedNow, eventFormat }: {
+  token: string; eventId?: number | string; timerActive: boolean; timerStart: string | null; timerDuration: number; correctedNow?: () => number; eventFormat: Event3Format
 }) {
   const reduceMotion = useReducedMotion()
   const [revealed, setRevealed] = useState(false)
@@ -5026,6 +5089,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
     // algorithm-match replacement reaches every affected phone immediately.
     interval: 5000,
   })
+  const choiceOnly = isChoiceOnlyEvent3(normalizeEvent3Format(data?.event_format, eventFormat))
 
   useEffect(() => {
     setWordSubmitted(Boolean(data?.word_submitted))
@@ -5117,9 +5181,9 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="text-center pt-4 space-y-1">
           <div className="flex flex-col items-center gap-1.5">
             <div className="inline-flex items-center gap-2 bg-purple-900/30 border border-purple-700/40 text-purple-300 rounded-full px-4 py-1.5 text-sm font-semibold">
-              <Brain size={13} /> جلسة فردية 1:1 · اختيارنا لك
+              {choiceOnly ? <Heart size={13} /> : <Brain size={13} />} جلسة فردية 1:1 · {choiceOnly ? "الاختيار الثاني" : "اختيارنا لك"}
             </div>
-            <p className="text-gray-400 text-xs">لقاء مع من رشّحه النظام بناءً على توافقكما — اكتشفه بلا توقعات مسبقة</p>
+            <p className="text-gray-400 text-xs">{choiceOnly ? "أقوى اختيار متبادل متبقٍ بعد استبعاد شريك اللقاء الأول" : "لقاء مع من رشّحه النظام بناءً على توافقكما — اكتشفه بلا توقعات مسبقة"}</p>
           </div>
         </motion.div>
 
@@ -5155,7 +5219,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                 steps={["اتجه للطاولة", "قابل شريكك", "ابدأ الحوار"]}
                 currentStep={0}
               />
-              <MeetingPass accent="purple" kind="لقاء اختيار النظام" tableNumber={data?.table_number} partnerHidden />
+              <MeetingPass accent="purple" kind={choiceOnly ? "لقاء الاختيار الثاني" : "لقاء اختيار النظام"} tableNumber={data?.table_number} partnerHidden />
 
               {/* Arrival is an explicit confirmation so the reveal cannot disappear mid-read. */}
               {canArrive ? (
@@ -5189,7 +5253,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
             </motion.div>
           ) : (
             <motion.div key="post" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-              {data?.same_as_phase2 && (
+              {!choiceOnly && data?.same_as_phase2 && (
                 <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
                   className="bg-gradient-to-r from-amber-900/40 to-yellow-900/30 border border-amber-700/50 rounded-2xl p-4 text-center">
                   <div className="flex items-center justify-center gap-2 mb-2"><Trophy size={22} className="text-amber-400" /></div>
@@ -5198,7 +5262,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                 </motion.div>
               )}
 
-              <MeetingPass accent="purple" kind="لقاء اختيار النظام" partnerName={data?.partner_first_name} tableNumber={data?.table_number} badge={data?.same_as_phase2 ? "تطابق مثالي" : null} />
+              <MeetingPass accent="purple" kind={choiceOnly ? "لقاء الاختيار الثاني" : "لقاء اختيار النظام"} partnerName={data?.partner_first_name} tableNumber={data?.table_number} badge={!choiceOnly && data?.same_as_phase2 ? "تطابق مثالي" : null} />
               <JourneyCue accent="purple" title={`ابدأ اللقاء مع ${data?.partner_first_name || "شريكك"}`} description="اسم الشريك والطاولة سيبقيان ظاهرين داخل مساحة الأسئلة." steps={["وصلت", "ابدأ الحوار", "قيّم اللقاء"]} currentStep={1} />
 
               {data && (
@@ -5240,7 +5304,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
             </div>
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/[0.06] bg-gray-950/80 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-xl">
               <div className="min-w-0 text-right">
-                <p className="text-[10px] font-bold text-violet-300">لقاء اختيار النظام · طاولة {data?.table_number ?? "—"}</p>
+                <p className="text-[10px] font-bold text-violet-300">{choiceOnly ? "لقاء الاختيار الثاني" : "لقاء اختيار النظام"} · طاولة {data?.table_number ?? "—"}</p>
                 <p className="mt-0.5 truncate text-sm font-black text-white">مع {data?.partner_first_name || "شريكك"}</p>
               </div>
               <span className={`font-mono text-sm font-black tabular-nums ${timeLeft < 300 ? 'text-red-400' : 'text-purple-300'}`}>{formatTime(timeLeft)}</span>
@@ -5264,7 +5328,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                       <div className="flex items-center gap-2">
                         <motion.div className="w-9 h-9 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center"
                           animate={{ scale: [1, 1.05, 1] }} transition={{ duration: 2, repeat: Infinity }}>
-                          <Brain size={15} className="text-purple-400" />
+                          {choiceOnly ? <Heart size={15} className="text-purple-400" /> : <Brain size={15} className="text-purple-400" />}
                         </motion.div>
                         <div>
                           <p className="text-gray-500 text-[10px] leading-none mb-0.5">شريكك</p>
@@ -5274,7 +5338,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                       {data?.table_number && (
                         <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.2 }}
                           className="flex items-center gap-2">
-                          {data?.same_as_phase2 && <span className="text-amber-400 text-[10px] font-medium bg-amber-500/10 border border-amber-600/30 rounded-full px-2 py-0.5">مطابقة</span>}
+                          {!choiceOnly && data?.same_as_phase2 && <span className="text-amber-400 text-[10px] font-medium bg-amber-500/10 border border-amber-600/30 rounded-full px-2 py-0.5">مطابقة</span>}
                           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-600/30">
                             <MapPin size={12} className="text-amber-400" />
                             <span className="text-amber-300 text-xs font-bold">طاولة {data.table_number}</span>
@@ -5367,6 +5431,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
             onBack={() => setView('session')}
             isLastSession
             accent="purple"
+            choiceOnly={choiceOnly}
             onSubmit={async (fbData) => {
               const d = await call('e3-submit-phase3-feedback', token, { feedback: fbData })
               if (!d.error) { toast.success('تم الحفظ'); return true }
@@ -5386,8 +5451,9 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
 }
 
 // ─── Processing Screen (phase2_processing / phase3_processing) ────────────────
-function ProcessingScreen({ phase }: { phase: string }) {
+function ProcessingScreen({ phase, eventFormat }: { phase: string; eventFormat: Event3Format }) {
   const isPhase2 = phase === "phase2_processing"
+  const choiceOnly = isChoiceOnlyEvent3(eventFormat)
   return (
     <div className="flex min-h-full flex-col items-center justify-center px-6 py-10" dir="rtl">
       <motion.div
@@ -5402,7 +5468,7 @@ function ProcessingScreen({ phase }: { phase: string }) {
           className="w-20 h-20 mx-auto mb-6 rounded-full border-4 border-purple-500/20 border-t-purple-400"
         />
         <h1 className="text-2xl font-bold text-white mb-3">
-          {isPhase2 ? "ننسّق اختيارك" : "نجهّز ترشيح النظام"}
+          {isPhase2 ? (choiceOnly ? "ننسّق لقاء الاختيار الأول" : "ننسّق اختيارك") : (choiceOnly ? "ننسّق لقاء الاختيار الثاني" : "نجهّز ترشيح النظام")}
         </h1>
         <p className="text-gray-400 text-sm mb-6 leading-relaxed">
           لا تحتاج إلى إجراء أي شيء الآن. ابقَ في هذه الشاشة وسننقلك تلقائيًا عند جاهزية اللقاء.
@@ -5411,8 +5477,8 @@ function ProcessingScreen({ phase }: { phase: string }) {
           eyebrow="الآن"
           title="استراحة قصيرة"
           description={isPhase2
-            ? "التالي: سنعرض اسم الشخص الذي اختارك أيضاً ورقم طاولتك."
-            : "التالي: سنعرض ترشيح النظام ورقم طاولتك."}
+            ? `التالي: سنعرض ${choiceOnly ? "أقوى اختيار متبادل متاح" : "اسم الشخص الذي اختارك أيضاً"} ورقم طاولتك.`
+            : `التالي: سنعرض ${choiceOnly ? "أقوى اختيار متبادل متبقٍ مع شخص جديد" : "ترشيح النظام"} ورقم طاولتك.`}
           steps={["انتظر هنا", "اعرف الشريك والطاولة", "ابدأ اللقاء"]}
           currentStep={0}
           accent={isPhase2 ? "pink" : "purple"}
@@ -5423,9 +5489,10 @@ function ProcessingScreen({ phase }: { phase: string }) {
 }
 
 // ─── Break Screen ─────────────────────────────────────────────────────────────
-function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow }: {
-  timerActive: boolean; timerStart: string | null; timerDuration: number; correctedNow?: () => number
+function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow, eventFormat }: {
+  timerActive: boolean; timerStart: string | null; timerDuration: number; correctedNow?: () => number; eventFormat: Event3Format
 }) {
+  const choiceOnly = isChoiceOnlyEvent3(eventFormat)
   const [timeLeft, setTimeLeft] = useState(0)
   const [showBreakWarning, setShowBreakWarning] = useState(false)
   const { popup, clearPopup } = useTimerWarnings(timerActive, timeLeft, timerDuration, true, undefined, timerStart)
@@ -5532,11 +5599,11 @@ function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow }: {
           <div className="space-y-3 text-gray-300 text-sm leading-relaxed">
             <div className="flex items-start gap-2">
               <span className="text-teal-400 mt-0.5 shrink-0">١.</span>
-              <span>ستعرف طاولتك وتتوجه إليها، ثم ستجلس <b className="text-pink-300">لقاء واحد لواحد مع اختيارك</b> لمدة 25 دقيقة. بعدها ستشاركنا انطباعك عن اللقاء.</span>
+              <span>ستعرف طاولتك وتتوجه إليها، ثم ستجلس <b className="text-pink-300">{choiceOnly ? "لقاء واحد لواحد مع اختيارك الأول" : "لقاء واحد لواحد مع اختيارك"}</b> لمدة 25 دقيقة. بعدها ستشاركنا انطباعك عن اللقاء.</span>
             </div>
             <div className="flex items-start gap-2">
               <span className="text-teal-400 mt-0.5 shrink-0">٢.</span>
-              <span>ثم ستنتقل إلى طاولة جديدة وستجلس <b className="text-purple-300">لقاء واحد لواحد مع اختيارنا</b> لمدة 25 دقيقة. بعدها ستشاركنا انطباعك عن هذا اللقاء أيضًا.</span>
+              <span>ثم ستنتقل إلى طاولة جديدة وستجلس <b className="text-purple-300">{choiceOnly ? "لقاء واحد لواحد مع اختيارك الثاني" : "لقاء واحد لواحد مع اختيارنا"}</b> لمدة 25 دقيقة. {choiceOnly ? "سيكون مع شخص مختلف عن اللقاء الأول،" : ""} بعدها ستشاركنا انطباعك عن هذا اللقاء أيضًا.</span>
             </div>
             <div className="flex items-start gap-2">
               <span className="text-teal-400 mt-0.5 shrink-0">٣.</span>
@@ -5556,7 +5623,7 @@ function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow }: {
 
 // ─── Final Reveal Screen ──────────────────────────────────────────────────────
 function RevealCard({ icon, label, name, score, word, revealed, accent }: {
-  icon: "heart" | "brain"; label: string; name: string; score: number; word: string | null; revealed: boolean; accent: "pink" | "purple"
+  icon: "heart" | "brain"; label: string; name: string; score: number | null | undefined; word: string | null; revealed: boolean; accent: "pink" | "purple"
 }) {
   const Icon = icon === "heart" ? Heart : Brain
   const isPink = accent === "pink"
@@ -5581,10 +5648,12 @@ function RevealCard({ icon, label, name, score, word, revealed, accent }: {
           </div>
           <p className={`text-[10px] font-semibold tracking-wide uppercase ${isPink ? "text-pink-400/70" : "text-purple-400/70"}`}>{label}</p>
           <motion.p className="line-clamp-2 w-full break-words text-center text-lg font-black leading-tight text-white sm:text-xl" initial={{ scale: 0.5 }} animate={{ scale: revealed ? 1 : 0.5 }} transition={{ delay: 0.4, type: "spring", stiffness: 300 }}>{name}</motion.p>
-          <div className="flex items-baseline gap-0.5">
-            <span className={`font-black text-lg ${isPink ? "text-pink-300" : "text-purple-300"}`}>{score}</span>
-            <span className={isPink ? "text-pink-400/50 text-xs" : "text-purple-400/50 text-xs"}>%</span>
-          </div>
+          {typeof score === "number" && Number.isFinite(score) && (
+            <div className="flex items-baseline gap-0.5">
+              <span className={`font-black text-lg ${isPink ? "text-pink-300" : "text-purple-300"}`}>{score}</span>
+              <span className={isPink ? "text-pink-400/50 text-xs" : "text-purple-400/50 text-xs"}>%</span>
+            </div>
+          )}
           {word && (
             <span className={`text-xs rounded-full px-2.5 py-0.5 ${isPink ? "bg-pink-900/40 text-pink-300 border border-pink-800/40" : "bg-purple-900/40 text-purple-300 border border-purple-800/40"}`}>"{word}"</span>
           )}
@@ -5658,7 +5727,7 @@ function AiAnalysisCompact({ partnerNum, token, currentEventId, accent, title }:
   )
 }
 
-function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; onQuestionViewerChange?: (open: boolean) => void }) {
+function FinalRevealScreen({ token, onQuestionViewerChange, eventFormat }: { token: string; onQuestionViewerChange?: (open: boolean) => void; eventFormat: Event3Format }) {
   const reduceMotion = useReducedMotion()
   const [revealed, setRevealed] = useState(false)
   const [matchPref, setMatchPref] = useState<string | null>(null)
@@ -5690,6 +5759,8 @@ function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; o
     && data?.phase3?.partner_number
     && data?.phase3?.partner_first_name
   )
+  const choiceOnly = isChoiceOnlyEvent3(normalizeEvent3Format(data?.event_format, eventFormat))
+  const sameMatch = !choiceOnly && Boolean(data?.same_match)
 
   useEffect(() => {
     onQuestionViewerChange?.(screenMode === "questions")
@@ -5763,7 +5834,7 @@ function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; o
                 onClick={() => setQuestionPhase("phase1")}
                 className={`min-h-11 rounded-xl border text-sm font-bold transition-all ${questionPhase === "phase1" ? "border-pink-500/50 bg-pink-500/15 text-pink-200" : "border-white/[0.07] bg-white/[0.03] text-gray-500"}`}
               >
-                أسئلة المرحلة الأولى
+                {choiceOnly ? "أسئلة اللقاء الأول" : "أسئلة المرحلة الأولى"}
               </button>
               <button
                 type="button"
@@ -5772,7 +5843,7 @@ function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; o
                 onClick={() => setQuestionPhase("phase2")}
                 className={`min-h-11 rounded-xl border text-sm font-bold transition-all ${questionPhase === "phase2" ? "border-purple-500/50 bg-purple-500/15 text-purple-200" : "border-white/[0.07] bg-white/[0.03] text-gray-500"}`}
               >
-                أسئلة المرحلة الثانية
+                {choiceOnly ? "أسئلة اللقاء الثاني" : "أسئلة المرحلة الثانية"}
               </button>
             </div>
           </div>
@@ -5810,7 +5881,7 @@ function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; o
         </motion.div>
 
         {/* Same match banner */}
-        {data.same_match && (
+        {sameMatch && (
           <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.4, type: "spring" }}
             className="bg-gradient-to-r from-amber-900/40 via-yellow-900/30 to-amber-900/40 border border-amber-600/50 rounded-2xl p-4">
             <Trophy size={24} className="text-amber-400 mx-auto mb-1" />
@@ -5820,19 +5891,23 @@ function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; o
         )}
 
         {/* Reveal cards with flip animation */}
-        <p className="sr-only" aria-live="polite" aria-atomic="true">{revealed ? `تم الكشف: اختيارك ${p2?.partner_first_name} بنسبة ${p2?.compatibility_score} بالمئة، واختيار النظام ${p3?.partner_first_name} بنسبة ${p3?.compatibility_score} بالمئة` : "جاري تجهيز الكشف النهائي"}</p>
+        <p className="sr-only" aria-live="polite" aria-atomic="true">{revealed
+          ? choiceOnly
+            ? `تم الكشف: اختيارك الأول ${p2?.partner_first_name}، واختيارك الثاني ${p3?.partner_first_name}`
+            : `تم الكشف: اختيارك ${p2?.partner_first_name} بنسبة ${p2?.compatibility_score} بالمئة، واختيار النظام ${p3?.partner_first_name} بنسبة ${p3?.compatibility_score} بالمئة`
+          : "جاري تجهيز الكشف النهائي"}</p>
         <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2 sm:gap-3">
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 }}>
-            <RevealCard icon="heart" label="اختيارك" name={p2?.partner_first_name} score={p2?.compatibility_score} word={p2?.word} revealed={revealed} accent="pink" />
+            <RevealCard icon="heart" label={choiceOnly ? "الاختيار الأول" : "اختيارك"} name={p2?.partner_first_name} score={choiceOnly ? null : p2?.compatibility_score} word={p2?.word} revealed={revealed} accent="pink" />
           </motion.div>
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.35 }}>
-            <RevealCard icon="brain" label="اختيار النظام" name={p3?.partner_first_name} score={p3?.compatibility_score} word={p3?.word} revealed={revealed} accent="purple" />
+            <RevealCard icon={choiceOnly ? "heart" : "brain"} label={choiceOnly ? "الاختيار الثاني" : "اختيار النظام"} name={p3?.partner_first_name} score={choiceOnly ? null : p3?.compatibility_score} word={p3?.word} revealed={revealed} accent="purple" />
           </motion.div>
         </div>
 
         {/* Comparison text */}
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="text-gray-500 text-xs leading-relaxed">
-          {data.same_match ? "غريزتك والخوارزمية متوافقتان — نادر الحدوث!" : "رأيت بعينيك، ورأت الخوارزمية بالبيانات — أيهما أصح؟"}
+          {choiceOnly ? "لقاءان من أقوى اختياراتك المتبادلة — أيهما كان أقرب لك؟" : sameMatch ? "غريزتك والخوارزمية متوافقتان — نادر الحدوث!" : "رأيت بعينيك، ورأت الخوارزمية بالبيانات — أيهما أصح؟"}
         </motion.p>
 
         <motion.a href={`/results?token=${encodeURIComponent(token)}`} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.65 }} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 px-4 text-base font-black text-white shadow-xl shadow-purple-950/30">
@@ -5847,24 +5922,24 @@ function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; o
           <div className="space-y-3 border-t border-white/[0.06] p-3">
 
         {/* Tabbed compatibility breakdown */}
-        {!data.same_match && (p2?.breakdown || p3?.breakdown) && (
+        {!sameMatch && (p2?.breakdown || p3?.breakdown) && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}>
             <div className="mb-3 flex gap-1.5" role="tablist" aria-label="تفاصيل التوافق">
               <button type="button" role="tab" aria-selected={activeTab === 'choice'} onClick={() => setActiveTab('choice')} className={`min-h-11 flex-1 rounded-xl border py-2 text-xs font-bold transition-all ${activeTab === 'choice' ? 'bg-pink-950/50 border-pink-700/40 text-pink-300' : 'bg-gray-900/40 border-gray-800/40 text-gray-400'}`}>
-                <Heart size={12} className="inline ml-1" /> اختيارك
+                <Heart size={12} className="inline ml-1" /> {choiceOnly ? "الاختيار الأول" : "اختيارك"}
               </button>
               <button type="button" role="tab" aria-selected={activeTab === 'algorithm'} onClick={() => setActiveTab('algorithm')} className={`min-h-11 flex-1 rounded-xl border py-2 text-xs font-bold transition-all ${activeTab === 'algorithm' ? 'bg-purple-950/50 border-purple-700/40 text-purple-300' : 'bg-gray-900/40 border-gray-800/40 text-gray-400'}`}>
-                <Brain size={12} className="inline ml-1" /> اختيار النظام
+                {choiceOnly ? <Heart size={12} className="inline ml-1" /> : <Brain size={12} className="inline ml-1" />} {choiceOnly ? "الاختيار الثاني" : "اختيار النظام"}
               </button>
             </div>
             <AnimatePresence mode="wait">
               {activeTab === 'choice' && p2?.breakdown && (
-                <motion.div key="choice" role="tabpanel" aria-label="تفاصيل توافق اختيارك" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }}>
+                <motion.div key="choice" role="tabpanel" aria-label={choiceOnly ? "تفاصيل توافق الاختيار الأول" : "تفاصيل توافق اختيارك"} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }}>
                   <CompatibilityBreakdown breakdown={p2.breakdown} scoreRow={p2} accent="pink" partnerName={p2?.partner_first_name} />
                 </motion.div>
               )}
               {activeTab === 'algorithm' && p3?.breakdown && (
-                <motion.div key="algorithm" role="tabpanel" aria-label="تفاصيل توافق اختيار النظام" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2 }}>
+                <motion.div key="algorithm" role="tabpanel" aria-label={choiceOnly ? "تفاصيل توافق الاختيار الثاني" : "تفاصيل توافق اختيار النظام"} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2 }}>
                   <CompatibilityBreakdown breakdown={p3.breakdown} scoreRow={p3} accent="purple" partnerName={p3?.partner_first_name} />
                 </motion.div>
               )}
@@ -5873,7 +5948,7 @@ function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; o
         )}
 
         {/* If same match, just show one breakdown */}
-        {data.same_match && p2?.breakdown && (
+        {sameMatch && p2?.breakdown && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}>
             <CompatibilityBreakdown breakdown={p2.breakdown} scoreRow={p2} accent="pink" partnerName={p2?.partner_first_name} />
           </motion.div>
@@ -5884,8 +5959,8 @@ function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; o
           {p2?.partner_number && (
             <AiAnalysisCompact partnerNum={p2.partner_number} token={token} currentEventId={currentEventId} accent="pink" title="لماذا توافقتما؟" />
           )}
-          {p3?.partner_number && !data.same_match && (
-            <AiAnalysisCompact partnerNum={p3.partner_number} token={token} currentEventId={currentEventId} accent="purple" title="لماذا اختارتك الخوارزمية؟" />
+          {p3?.partner_number && !sameMatch && (
+            <AiAnalysisCompact partnerNum={p3.partner_number} token={token} currentEventId={currentEventId} accent="purple" title={choiceOnly ? "لماذا توافقتما؟" : "لماذا اختارتك الخوارزمية؟"} />
           )}
         </motion.div>
           </div>
@@ -5901,11 +5976,11 @@ function FinalRevealScreen({ token, onQuestionViewerChange }: { token: string; o
           <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="الشخص المفضّل">
             <button type="button" role="radio" aria-checked={matchPref === "choice"} onClick={() => submitPref("choice")} disabled={prefSubmitting || matchPref === "choice"}
               className={`min-h-11 rounded-xl border py-2.5 text-xs font-bold transition-all ${matchPref === "choice" ? "bg-pink-600/30 border-pink-500/50 text-pink-300" : "bg-pink-950/30 border-pink-800/40 text-pink-300 hover:bg-pink-950/50"}`}>
-              {matchPref === "choice" ? "✓ " : ""}أفضّل اختياري
+              {matchPref === "choice" ? "✓ " : ""}{choiceOnly ? "أفضّل الاختيار الأول" : "أفضّل اختياري"}
             </button>
             <button type="button" role="radio" aria-checked={matchPref === "algorithm"} onClick={() => submitPref("algorithm")} disabled={prefSubmitting || matchPref === "algorithm"}
               className={`min-h-11 rounded-xl border py-2.5 text-xs font-bold transition-all ${matchPref === "algorithm" ? "bg-purple-600/30 border-purple-500/50 text-purple-300" : "bg-purple-950/30 border-purple-800/40 text-purple-300 hover:bg-purple-950/50"}`}>
-              {matchPref === "algorithm" ? "✓ " : ""}أفضّل الخوارزمية
+              {matchPref === "algorithm" ? "✓ " : ""}{choiceOnly ? "أفضّل الاختيار الثاني" : "أفضّل الخوارزمية"}
             </button>
             <button type="button" role="radio" aria-checked={matchPref === "both"} onClick={() => submitPref("both")} disabled={prefSubmitting || matchPref === "both"}
               className={`col-span-2 min-h-11 rounded-xl border py-2.5 text-xs font-bold transition-all ${matchPref === "both" ? "bg-emerald-600/30 border-emerald-500/50 text-emerald-300" : "bg-gray-800/40 border-gray-700/40 text-gray-300 hover:bg-gray-800/60"}`}>
@@ -6718,6 +6793,8 @@ const EVENT_PHASE_LABELS: Record<string, string> = {
   ranking1: "ترتيب الجولة الأولى",
   round2: "الجولة الثانية",
   ranking2: "الترتيب النهائي",
+  round3: "الجولة الثالثة",
+  ranking3: "الترتيب النهائي",
   break: "استراحة",
   phase2_processing: "تجهيز اختيارك",
   phase2_reveal: "جلسة اختيارك",
@@ -6732,12 +6809,42 @@ const EVENT_PHASE_GUIDANCE: Record<string, string> = {
   ranking1: "رتّب من قابلتهم، راجع الأولوية، ثم احفظ",
   round2: "اتجه إلى طاولتك الجديدة، ثم ابدأوا معاً",
   ranking2: "احسم ترتيبك النهائي، ثم أرسله",
+  round3: "اتجه إلى طاولتك الثالثة، ثم ابدأوا معاً",
+  ranking3: "احسم ترتيبك النهائي للقاءي الاختيار، ثم أرسله",
   break: "استرح وخلك قريباً — لقاؤك الفردي هو التالي",
   phase2_processing: "نجهّز اسم شريكك ورقم طاولتك",
   phase2_reveal: "اتجه إلى الطاولة، قابل اختيارك، ثم ابدأ الحوار",
   phase3_processing: "نجهّز ترشيح النظام ورقم طاولتك",
   phase3_reveal: "اتجه إلى الطاولة، قابل ترشيحنا، ثم ابدأ الحوار",
   final_reveal: "شاهد النتيجة أولاً، ثم افتح التفاصيل إذا رغبت",
+}
+
+function event3PhaseLabel(phase: string, eventFormat: Event3Format) {
+  if (isChoiceOnlyEvent3(eventFormat)) {
+    const choiceOnlyLabels: Record<string, string> = {
+      ranking2: "ترتيب الجولة الثانية",
+      phase2_processing: "تجهيز الاختيار الأول",
+      phase2_reveal: "لقاء الاختيار الأول",
+      phase3_processing: "تجهيز الاختيار الثاني",
+      phase3_reveal: "لقاء الاختيار الثاني",
+    }
+    if (choiceOnlyLabels[phase]) return choiceOnlyLabels[phase]
+  }
+  return EVENT_PHASE_LABELS[phase] || phase
+}
+
+function event3PhaseGuidance(phase: string, eventFormat: Event3Format) {
+  if (isChoiceOnlyEvent3(eventFormat)) {
+    const choiceOnlyGuidance: Record<string, string> = {
+      ranking2: "حدّث ترتيبك بعد المجموعة الثانية، ثم احفظ",
+      phase2_processing: "نجهّز أقوى اختيار متبادل متاح ورقم طاولتك",
+      phase2_reveal: "اتجه إلى الطاولة، قابل اختيارك الأول، ثم ابدأ الحوار",
+      phase3_processing: "نجهّز أقوى اختيار متبادل متبقٍ مع شخص جديد",
+      phase3_reveal: "اتجه إلى الطاولة، قابل اختيارك الثاني، ثم ابدأ الحوار",
+    }
+    if (choiceOnlyGuidance[phase]) return choiceOnlyGuidance[phase]
+  }
+  return EVENT_PHASE_GUIDANCE[phase] || "اتبع الخطوة الظاهرة في الشاشة"
 }
 
 function EventStatusHeader({ eventState, isOffline, pollError, lastSuccessAt, correctedNow, impersonating, onLogout }: {
@@ -6752,7 +6859,13 @@ function EventStatusHeader({ eventState, isOffline, pollError, lastSuccessAt, co
   }, [correctedNow])
 
   const phase = eventState?.phase || "setup"
-  const progress: Record<string, string> = {
+  const eventFormat = normalizeEvent3Format(eventState?.event_format)
+  const choiceOnly = isChoiceOnlyEvent3(eventFormat)
+  const progress: Record<string, string> = choiceOnly ? {
+    round1: "1 من 6", ranking1: "1 من 6", round2: "2 من 6", ranking2: "2 من 6", round3: "3 من 6", ranking3: "3 من 6",
+    phase2_processing: "4 من 6", phase2_reveal: "4 من 6",
+    phase3_processing: "5 من 6", phase3_reveal: "5 من 6", final_reveal: "6 من 6",
+  } : {
     round1: "1 من 5", ranking1: "1 من 5", round2: "2 من 5", ranking2: "2 من 5",
     phase2_processing: "3 من 5", phase2_reveal: "3 من 5",
     phase3_processing: "4 من 5", phase3_reveal: "4 من 5", final_reveal: "5 من 5",
@@ -6771,7 +6884,7 @@ function EventStatusHeader({ eventState, isOffline, pollError, lastSuccessAt, co
     : connectionState === "unstable"
       ? `الاتصال غير مستقر${lastSuccessAt ? ` — آخر تحديث قبل ${Math.max(1, secondsSinceSuccess)}ث` : ""}`
       : "متصل بالفعالية"
-  const phaseGuidance = EVENT_PHASE_GUIDANCE[phase] || "اتبع الخطوة الظاهرة في الشاشة"
+  const phaseGuidance = event3PhaseGuidance(phase, eventFormat)
 
   return (
     <div className={`sticky top-0 z-[90] border-b border-white/[0.07] bg-gray-950/90 px-4 pb-2.5 pt-2.5 backdrop-blur-xl ${safeTopClass}`} dir="rtl">
@@ -6779,7 +6892,7 @@ function EventStatusHeader({ eventState, isOffline, pollError, lastSuccessAt, co
         <div aria-hidden="true" title={connectionLabel} className={`h-2.5 w-2.5 flex-shrink-0 rounded-full ${connectionState === "online" ? "bg-emerald-400" : connectionState === "unstable" ? "animate-pulse bg-amber-400" : "animate-pulse bg-orange-400"}`} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="truncate text-[13px] font-bold text-white">{EVENT_PHASE_LABELS[phase] || phase}</span>
+            <span className="truncate text-[13px] font-bold text-white">{event3PhaseLabel(phase, eventFormat)}</span>
             {progress[phase] && <span className="whitespace-nowrap rounded-full border border-purple-800/50 bg-purple-900/40 px-2 py-0.5 text-[11px] text-purple-200">{progress[phase]}</span>}
           </div>
           <p className="mt-0.5 truncate text-[11px] font-medium text-gray-300"><span className="text-gray-500">الآن: </span>{phaseGuidance}</p>
@@ -6818,7 +6931,7 @@ export default function Event3Page() {
   const [testModeBlocked, setTestModeBlocked] = useState(false)
   const [groupsOpen, setGroupsOpen] = useState(false)
   const [finalQuestionsOpen, setFinalQuestionsOpen] = useState(false)
-  const [pendingGroupFeedbackRound, setPendingGroupFeedbackRound] = useState<1 | 2 | null>(null)
+  const [pendingGroupFeedbackRound, setPendingGroupFeedbackRound] = useState<Event3GroupRound | null>(null)
   const [rankingDraftContext, setRankingDraftContext] = useState<{
     round: number
     timerActive: boolean
@@ -6912,6 +7025,18 @@ export default function Event3Page() {
     resetKey: token,
   })
 
+  const fetchPublicFormat = useCallback(async () => {
+    const d = await call("e3-get-public-format", null)
+    if (d.error) throw new Error(d.error)
+    return d as { event_format?: unknown; group_round_count?: number }
+  }, [])
+  const { data: publicFormatState, loading: publicFormatLoading } = useApiPoll(fetchPublicFormat, {
+    stopWhen: () => true,
+  })
+  const eventFormat = normalizeEvent3Format(
+    eventState?.event_format ?? publicFormatState?.event_format,
+  )
+
   // Clock skew correction: offset between server time and local Date.now()
   const clockOffsetRef = useRef(0)
   useEffect(() => {
@@ -6989,7 +7114,7 @@ export default function Event3Page() {
   useEffect(() => {
     if (!pendingGroupFeedbackRound) return
     const phase = String(eventState?.phase || "")
-    const nextRanking = phase.match(/^ranking([12])$/)
+    const nextRanking = phase.match(/^ranking([123])$/)
     if (phase === "setup" || (nextRanking && Number(nextRanking[1]) !== pendingGroupFeedbackRound)) {
       setPendingGroupFeedbackRound(null)
     }
@@ -7161,7 +7286,13 @@ export default function Event3Page() {
     </PageWrapper>
   )
 
-  if (showWelcome) return <WelcomeScreen onDone={handleWelcomeDone} onLogout={handleLogout} showLogout={!!token && !isImpersonating} />
+  if (showWelcome && publicFormatLoading && !publicFormatState && !eventState) return (
+    <PageWrapper className="flex items-center justify-center" aria-label="جاري تحميل تفاصيل الفعالية">
+      <Spinner size={28} />
+    </PageWrapper>
+  )
+
+  if (showWelcome) return <WelcomeScreen onDone={handleWelcomeDone} onLogout={handleLogout} showLogout={!!token && !isImpersonating} eventFormat={eventFormat} />
   if (!token || tokenError) return <PhoneEntry onToken={t => { setToken(t); setTokenError(false) }} />
 
   if (stateLoading && !eventState) return (
@@ -7215,7 +7346,7 @@ export default function Event3Page() {
   const hasPendingNotification = Boolean(eventState?.notification?.pending)
   const hasUrgentNotification = hasPendingNotification && eventState?.notification?.icon === "alert"
   const isSafePromptMoment = ["setup", "break", "phase2_processing", "phase3_processing"].includes(phase)
-  const isActiveMoodMoment = ["round1", "round2", "phase2_reveal", "phase3_reveal"].includes(phase)
+  const isActiveMoodMoment = ["round1", "round2", "round3", "phase2_reveal", "phase3_reveal"].includes(phase)
   // Once a reflection sheet is open, keep it mounted until the participant
   // finishes or closes it. Heartbeat-driven prompts queue behind it so locally
   // drafted ratings and notes are never destroyed.
@@ -7255,20 +7386,20 @@ export default function Event3Page() {
       )}
 
       <div ref={phaseAnnouncementRef} tabIndex={-1} className="sr-only" aria-live="polite">
-        {`المرحلة الحالية: ${EVENT_PHASE_LABELS[phase] || phase}`}
+        {`المرحلة الحالية: ${event3PhaseLabel(phase, eventFormat)}`}
       </div>
 
       {/* Screen content fills available space */}
       <div ref={eventContentRef} className="event3-scroll relative min-h-0 flex-1 overflow-y-auto">
         <AnimatePresence>
-          {!holdingRankingDraft && phase === "setup" && <SetupScreen key="setup" token={token} myInfo={myInfo} enrolledCount={eventState?.participants_selected ?? null} />}
-          {!holdingRankingDraft && isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} myInfo={myInfo} onGroupsOpenChange={setGroupsOpen} />}
-          {rankingRoundToRender && <RankingScreen key={`ranking-${rankingRoundToRender}`} token={token} completedRounds={rankingRoundToRender} currentPhase={phase} {...rankingTimerProps} myInfo={myInfo} onOpenGroupFeedback={setPendingGroupFeedbackRound} onRankingResolved={handleRankingResolved} onRankingDirty={handleRankingDirty} />}
-          {!holdingRankingDraft && phase === "phase2_reveal" && <Phase2RevealScreen key="p2r" token={token} eventId={eventState?.event_id} {...timerProps} />}
-          {!holdingRankingDraft && phase === "phase3_reveal" && <Phase3RevealScreen key="p3r" token={token} eventId={eventState?.event_id} {...timerProps} />}
-          {!holdingRankingDraft && (phase === "phase2_processing" || phase === "phase3_processing") && <ProcessingScreen key="processing" phase={phase} />}
-          {!holdingRankingDraft && phase === "break" && <BreakScreen key="break" {...timerProps} />}
-          {!holdingRankingDraft && phase === "final_reveal" && <FinalRevealScreen key="final" token={token} onQuestionViewerChange={setFinalQuestionsOpen} />}
+          {!holdingRankingDraft && phase === "setup" && <SetupScreen key="setup" token={token} myInfo={myInfo} enrolledCount={eventState?.participants_selected ?? null} eventFormat={eventFormat} />}
+          {!holdingRankingDraft && isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} myInfo={myInfo} onGroupsOpenChange={setGroupsOpen} eventFormat={eventFormat} />}
+          {rankingRoundToRender && <RankingScreen key={`ranking-${rankingRoundToRender}`} token={token} completedRounds={rankingRoundToRender} currentPhase={phase} {...rankingTimerProps} myInfo={myInfo} onOpenGroupFeedback={setPendingGroupFeedbackRound} onRankingResolved={handleRankingResolved} onRankingDirty={handleRankingDirty} eventFormat={eventFormat} />}
+          {!holdingRankingDraft && phase === "phase2_reveal" && <Phase2RevealScreen key="p2r" token={token} eventId={eventState?.event_id} {...timerProps} eventFormat={eventFormat} />}
+          {!holdingRankingDraft && phase === "phase3_reveal" && <Phase3RevealScreen key="p3r" token={token} eventId={eventState?.event_id} {...timerProps} eventFormat={eventFormat} />}
+          {!holdingRankingDraft && (phase === "phase2_processing" || phase === "phase3_processing") && <ProcessingScreen key="processing" phase={phase} eventFormat={eventFormat} />}
+          {!holdingRankingDraft && phase === "break" && <BreakScreen key="break" {...timerProps} eventFormat={eventFormat} />}
+          {!holdingRankingDraft && phase === "final_reveal" && <FinalRevealScreen key="final" token={token} onQuestionViewerChange={setFinalQuestionsOpen} eventFormat={eventFormat} />}
         </AnimatePresence>
       </div>
 

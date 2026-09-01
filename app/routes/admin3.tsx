@@ -87,9 +87,14 @@ type GroupMemberFeedbackData = {
   test_mode?: boolean
 }
 
-function GroupMemberFeedbackPanel({ data }: { data: GroupMemberFeedbackData }) {
+type Event3Format = "classic" | "choice_only_three_groups"
+
+function GroupMemberFeedbackPanel({ data, groupRoundCount = 2 }: { data: GroupMemberFeedbackData; groupRoundCount?: 2 | 3 }) {
   const [search, setSearch] = useState("")
-  const [roundFilter, setRoundFilter] = useState<"all" | "1" | "2">("all")
+  const [roundFilter, setRoundFilter] = useState<"all" | "1" | "2" | "3">("all")
+  useEffect(() => {
+    if (groupRoundCount === 2 && roundFilter === "3") setRoundFilter("all")
+  }, [groupRoundCount, roundFilter])
   const submissions = data.submissions || []
   const searchText = search.toLowerCase().trim()
   const searchNumber = search.replace(/[^0-9]/g, "")
@@ -119,7 +124,7 @@ function GroupMemberFeedbackPanel({ data }: { data: GroupMemberFeedbackData }) {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-violet-700/40 bg-violet-900/40"><Users size={17} className="text-violet-300" /></div>
             <div>
               <h4 className="text-sm font-bold text-gray-100">تقييم أفراد المجموعات</h4>
-              <p className="mt-0.5 text-[10px] text-gray-500">تقييمات وملاحظات خاصة بكل شخص بعد جولتي المجموعات</p>
+              <p className="mt-0.5 text-[10px] text-gray-500">تقييمات وملاحظات خاصة بكل شخص بعد {groupRoundCount === 3 ? "جولات المجموعات الثلاث" : "جولتي المجموعات"}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -174,7 +179,7 @@ function GroupMemberFeedbackPanel({ data }: { data: GroupMemberFeedbackData }) {
                   <input value={search} onChange={event => setSearch(event.target.value)} placeholder="ابحث بالمقيّم أو الشخص..." className="w-full rounded-lg border border-gray-800 bg-gray-900 py-1.5 pl-3 pr-9 text-xs text-white placeholder:text-gray-700 focus:border-violet-700 focus:outline-none" />
                 </div>
                 <div className="flex gap-1">
-                  {([['all', 'الكل'], ['1', 'الجولة 1'], ['2', 'الجولة 2']] as const).map(([value, label]) => (
+                  {([['all', 'الكل'], ['1', 'الجولة 1'], ['2', 'الجولة 2'], ...(groupRoundCount === 3 ? [['3', 'الجولة 3']] : [])] as Array<["all" | "1" | "2" | "3", string]>).map(([value, label]) => (
                     <button key={value} onClick={() => setRoundFilter(value)} className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-bold ${roundFilter === value ? 'border-violet-700/50 bg-violet-900/40 text-violet-300' : 'border-gray-800 bg-gray-900 text-gray-600'}`}>{label}</button>
                   ))}
                 </div>
@@ -240,6 +245,8 @@ const EVENT3_PHASE_SECONDS = {
   ranking1: 3 * 60,
   round2: 25 * 60,
   ranking2: 3 * 60,
+  round3: 25 * 60,
+  ranking3: 3 * 60,
   break: 10 * 60,
   phase2_reveal: 26 * 60,
   phase3_reveal: 26 * 60,
@@ -253,12 +260,13 @@ function rankingLocationRound(phase: unknown): number | null {
   const value = String(phase || "")
   if (value === "round1" || value === "ranking1") return 1
   if (value === "round2" || value === "ranking2") return 2
+  if (value === "round3" || value === "ranking3") return 3
   if (value === "phase2_processing" || value === "break" || value === "phase2_reveal") return 20
   if (value === "phase3_processing" || value === "phase3_reveal" || value === "final_reveal") return 30
   return null
 }
 
-const PHASES = [
+const CLASSIC_PHASES = [
   { id: "setup",          label: "إعداد الفعالية",       icon: "⚙️", color: "gray" },
   { id: "round1",         label: "الجولة الأولى",        icon: "1️⃣", color: "blue" },
   { id: "ranking1",       label: "التصنيف — جولة 1",    icon: "🏆", color: "yellow" },
@@ -267,6 +275,20 @@ const PHASES = [
   { id: "break",          label: "استراحة",              icon: "☕", color: "orange" },
   { id: "phase2_reveal",  label: "الكشف الأول",          icon: "💘", color: "pink" },
   { id: "phase3_reveal",  label: "الكشف الثاني",         icon: "🧠", color: "purple" },
+  { id: "final_reveal",   label: "الكشف النهائي",        icon: "✨", color: "amber" },
+]
+
+const CHOICE_ONLY_PHASES = [
+  { id: "setup",          label: "إعداد الفعالية",       icon: "⚙️", color: "gray" },
+  { id: "round1",         label: "الجولة الأولى",        icon: "1️⃣", color: "blue" },
+  { id: "ranking1",       label: "التصنيف — جولة 1",    icon: "🏆", color: "yellow" },
+  { id: "round2",         label: "الجولة الثانية",       icon: "2️⃣", color: "indigo" },
+  { id: "ranking2",       label: "التصنيف — جولة 2",    icon: "🏆", color: "yellow" },
+  { id: "round3",         label: "الجولة الثالثة",       icon: "3️⃣", color: "violet" },
+  { id: "ranking3",       label: "التصنيف النهائي",      icon: "🏆", color: "yellow" },
+  { id: "break",          label: "استراحة",              icon: "☕", color: "orange" },
+  { id: "phase2_reveal",  label: "كشف الاختيار الأول",   icon: "💘", color: "pink" },
+  { id: "phase3_reveal",  label: "كشف الاختيار الثاني",  icon: "💞", color: "purple" },
   { id: "final_reveal",   label: "الكشف النهائي",        icon: "✨", color: "amber" },
 ]
 
@@ -303,8 +325,8 @@ function getPreviewEventId() { return _previewEventId }
 
 // These are the ONLY fields participants actually fill out in FeedbackFlow (event3.tsx).
 // The edit modal must mirror this exactly — no invented fields.
-function FeedbackEditModal({ entry, phase, onClose, onSave }: {
-  entry: any; phase: string; onClose: () => void; onSave: (fb: any) => Promise<void>
+function FeedbackEditModal({ entry, phase, choiceOnly, onClose, onSave }: {
+  entry: any; phase: string; choiceOnly: boolean; onClose: () => void; onSave: (fb: any) => Promise<void>
 }) {
   // Same default shape as FeedbackFlow's initial state in event3.tsx, so admin edits
   // produce an object identical in structure to what participants actually submit.
@@ -358,7 +380,7 @@ function FeedbackEditModal({ entry, phase, onClose, onSave }: {
               {entry.participant_name} #{entry.participant_number}
               <span className="text-gray-600"> عن </span>
               {entry.partner_name} #{entry.partner_number}
-              <span className="text-gray-600"> · {phase === "phase2" ? "اختيارك" : "الخوارزمية"}</span>
+              <span className="text-gray-600"> · {phase === "phase2" ? (choiceOnly ? "الاختيار الأول" : "اختيارك") : (choiceOnly ? "الاختيار الثاني" : "الخوارزمية")}</span>
             </p>
           </div>
           <button onClick={onClose} className="text-gray-500 hover:text-white"><X size={18} /></button>
@@ -434,6 +456,15 @@ export default function Admin3Page() {
   const [password, setPassword] = useState("")
 
   const [state, setState] = useState<any>(null)
+  const eventFormat: Event3Format = state?.event_format === "choice_only_three_groups" ? "choice_only_three_groups" : "classic"
+  const choiceOnly = eventFormat === "choice_only_three_groups"
+  const phases = choiceOnly ? CHOICE_ONLY_PHASES : CLASSIC_PHASES
+  const groupRounds: Array<1 | 2 | 3> = choiceOnly ? [1, 2, 3] : [1, 2]
+  const firstMatchLabel = choiceOnly ? "الاختيار الأول" : "اختيار المشاركين"
+  const secondMatchLabel = choiceOnly ? "الاختيار الثاني" : "الخوارزمية"
+  const breakTimerRound = choiceOnly ? 4 : 3
+  const firstMatchTimerRound = choiceOnly ? 5 : 4
+  const secondMatchTimerRound = choiceOnly ? 6 : 5
   const [previewEventId, setPreviewEventIdState] = useState<number | null>(null)
   const [eventList, setEventList] = useState<number[]>([])
   const [realCurrentEventId, setRealCurrentEventId] = useState<number>(20)
@@ -523,7 +554,10 @@ export default function Admin3Page() {
   const [simLoading, setSimLoading] = useState(false)
   const [swapA, setSwapA] = useState<number | null>(null)
   const [moveA, setMoveA] = useState<number | null>(null)
-  const [mapRound, setMapRound] = useState<1 | 2 | 20 | 30>(1)
+  const [mapRound, setMapRound] = useState<1 | 2 | 3 | 20 | 30>(1)
+  useEffect(() => {
+    if (!choiceOnly && mapRound === 3) setMapRound(1)
+  }, [choiceOnly, mapRound])
   const [editingTable, setEditingTable] = useState<{ num: number; round: number; value: string } | null>(null)
   const [editingTableCard, setEditingTableCard] = useState<{ round: number; table: number; value: string } | null>(null)
   const [selectedParticipantNum, setSelectedParticipantNum] = useState<number | null>(null)
@@ -991,7 +1025,7 @@ export default function Admin3Page() {
   useVisibilityPoll(fetchAttendance, 10000, (activeTab === "attendance" || activeTab === "seating") && authenticated)
 
   // Rank status polling during ranking phases (5s, any tab)
-  const isRankingPhase = state?.phase === "ranking1" || state?.phase === "ranking2"
+  const isRankingPhase = previewEventId == null && (state?.phase === "ranking1" || state?.phase === "ranking2" || state?.phase === "ranking3")
   useVisibilityPoll(fetchRankStatus, 5000, authenticated && isRankingPhase)
 
   // Timer countdown
@@ -1023,6 +1057,25 @@ export default function Admin3Page() {
     } finally {
       setLoading(null)
     }
+  }
+
+  const setEventFormat = (nextFormat: Event3Format) => {
+    if (nextFormat === eventFormat) return
+    if (previewEventId != null) { toast.error("لا يمكن تغيير نظام فعالية محفوظة في وضع المعاينة"); return }
+    if (state?.phase !== "setup" || state?.seating_generated) {
+      toast.error("يمكن تغيير نظام الفعالية أثناء الإعداد وقبل توليد الجلسات فقط")
+      return
+    }
+    if (testMode) { toast.error("أنهِ وضع الاختبار قبل تغيير نظام الفعالية"); return }
+    run("event-format", async () => {
+      const data = await api("e3-set-event-format", { event_format: nextFormat })
+      if (!data.error) {
+        setState((previous: any) => previous ? { ...previous, event_format: data.event_format || nextFormat } : previous)
+        setMapRound(1)
+        await fetchState()
+      }
+      return data
+    })
   }
 
   const setCohostLock = async (locked: boolean) => {
@@ -1119,6 +1172,11 @@ export default function Admin3Page() {
   const doMove = (targetTable: number) => {
     if (!moveA || !mapRound) return
     if (previewEventId != null) { toast.error("لا يمكن تعديل الجلسات في وضع المعاينة"); return }
+    if (choiceOnly && mapRound !== 20 && mapRound !== 30) {
+      setMoveA(null)
+      toast.error("في نظام الاختيارات فقط يجب أن تبقى كل مجموعة من 7 أشخاص. استخدم تبديل شخصين بدلاً من نقل شخص واحد.")
+      return
+    }
     const currentTableEntry = Object.entries(seating?.[mapRound] || {}).find(([, members]) =>
       (members as any[]).some(member => member.number === moveA)
     )
@@ -1191,6 +1249,11 @@ export default function Admin3Page() {
   const doImmediateAlgorithmReplacement = () => {
     if (!immediateAlgorithmReplacement || !immediateAlgorithmReplacementWith || !immediateReplacementPreview) return
     if (previewEventId != null) { toast.error("لا يمكن تعديل المطابقات في وضع المعاينة"); return }
+    if (choiceOnly) {
+      closeImmediateAlgorithmReplacement()
+      toast.error("الاستبدال الفوري الخاص بمطابقة الخوارزمية غير متاح في نظام الاختيارات فقط")
+      return
+    }
     run(`immediate-algorithm-replacement-${immediateAlgorithmReplacement.missingNum}-${immediateAlgorithmReplacementWith}`, () =>
       api("e3-swap-match-partner", {
         phase: "phase3",
@@ -1223,6 +1286,11 @@ export default function Admin3Page() {
 
   const previewImmediateAlgorithmReplacement = async (replacementNumber: number) => {
     if (!immediateAlgorithmReplacement) return
+    if (choiceOnly) {
+      closeImmediateAlgorithmReplacement()
+      toast.error("الاستبدال الفوري الخاص بمطابقة الخوارزمية غير متاح في نظام الاختيارات فقط")
+      return
+    }
     const requestId = immediateReplacementPreviewRequest.current + 1
     immediateReplacementPreviewRequest.current = requestId
     setImmediateAlgorithmReplacementWith(replacementNumber)
@@ -1288,8 +1356,14 @@ export default function Admin3Page() {
     }
   }
 
-  const moveTable = (num: number, round: number, newTable: number) =>
-    run(`move-table-${num}-r${round}`, () => api("e3-move-table", { participant_number: num, round, new_table: newTable }).then(d => { if (!d.error) { setEditingTable(null); fetchSeating() } return d }))
+  const moveTable = (num: number, round: number, newTable: number) => {
+    if (choiceOnly && [1, 2, 3].includes(round)) {
+      setEditingTable(null)
+      toast.error("في نظام الاختيارات فقط يجب أن تبقى كل مجموعة من 7 أشخاص. استخدم تبديل شخصين بدلاً من نقل شخص واحد.")
+      return
+    }
+    return run(`move-table-${num}-r${round}`, () => api("e3-move-table", { participant_number: num, round, new_table: newTable }).then(d => { if (!d.error) { setEditingTable(null); fetchSeating() } return d }))
+  }
 
   const renameTable = (round: number, oldTable: number, newTable: number) => {
     const members: any[] = seating?.[round]?.[oldTable] || []
@@ -1310,7 +1384,7 @@ export default function Admin3Page() {
   const getParticipantTables = (num: number): Record<number, number> => {
     if (!seating) return {}
     const result: Record<number, number> = {}
-    for (const r of [1, 2] as const) {
+    for (const r of groupRounds) {
       for (const [table, members] of Object.entries(seating[r] || {})) {
         if ((members as any[]).some((m: any) => m.number === num)) {
           result[r] = Number(table)
@@ -1327,41 +1401,62 @@ export default function Admin3Page() {
     const ranked = state.rankings_submitted || 0
     const hasMatches = state.phase2_matches_done
     const sel = state.participants_selected || 0
-    if (ph === "setup" && !hasSeating) return { label: "توليد خطة الجلسات", action: generateSeating, ready: sel >= 6 }
+    const finalRankingPhase = choiceOnly ? "ranking3" : "ranking2"
+    if (ph === "setup" && !hasSeating) return { label: choiceOnly ? "توليد خطة 3 جولات · 7 أشخاص لكل مجموعة" : "توليد خطة الجلسات", action: generateSeating, ready: choiceOnly ? sel === 42 : sel >= 6 }
     if (ph === "setup" && hasSeating) return { label: "⬅ بدء الجولة الأولى (35 دقيقة)", action: () => setPhaseWithTimer("round1", EVENT3_PHASE_SECONDS.round1, 1), ready: true }
     if (ph === "round1") return { label: "⬅ التصنيف بعد الجولة 1 (3 دقائق)", action: () => setPhaseWithTimer("ranking1", EVENT3_PHASE_SECONDS.ranking1, 0), ready: true }
     if (ph === "ranking1") return { label: "⬅ بدء الجولة الثانية (25 دقيقة)", action: () => setPhaseWithTimer("round2", EVENT3_PHASE_SECONDS.round2, 2), ready: true }
-    if (ph === "round2") return { label: "⬅ التصنيف النهائي (3 دقائق)", action: () => setPhaseWithTimer("ranking2", EVENT3_PHASE_SECONDS.ranking2, 0), ready: true }
-    if (ph === "ranking2" && !hasMatches) return { label: "⬅ حفظ التصنيفات وتشغيل المطابقة", action: () => setPhaseStopTimer("phase2_processing").then(d => d?.error ? d : run("phase2", () => api("e3-trigger-phase2-matching").then(result => { fetchMatches(); fetchState(); return result }))), ready: sel > 0 }
-    if (ph === "phase2_processing" && hasMatches) return { label: "⬅ استراحة (10 دقائق)", action: () => setPhaseWithTimer("break", EVENT3_PHASE_SECONDS.break, 3), ready: true }
-    if (ph === "phase2_processing") return { label: "⏳ جاري المطابقة...", action: () => {}, ready: false }
-    if (ph === "ranking2" && hasMatches) return { label: "⬅ استراحة (10 دقائق)", action: () => setPhaseWithTimer("break", EVENT3_PHASE_SECONDS.break, 3), ready: true }
-    if (ph === "break") return { label: "⬅ بدء كشف المرحلة 2 (26 دقيقة)", action: () => setPhaseWithTimer("phase2_reveal", EVENT3_PHASE_SECONDS.phase2_reveal, 4), ready: true }
-    if (ph === "phase2_reveal" && !state.phase3_matches_done) return { label: "⬅ تشغيل مطابقة الخوارزمية", action: triggerPhase3, ready: ranked > 0 }
-    if (ph === "phase2_reveal" && state.phase3_matches_done) return { label: "⬅ كشف المرحلة 3 (26 دقيقة)", action: () => setPhaseWithTimer("phase3_reveal", EVENT3_PHASE_SECONDS.phase3_reveal, 5), ready: true }
+    if (ph === "round2") return { label: choiceOnly ? "⬅ التصنيف بعد الجولة 2 (3 دقائق)" : "⬅ التصنيف النهائي (3 دقائق)", action: () => setPhaseWithTimer("ranking2", EVENT3_PHASE_SECONDS.ranking2, 0), ready: true }
+    if (choiceOnly && ph === "ranking2") return { label: "⬅ بدء الجولة الثالثة (25 دقيقة)", action: () => setPhaseWithTimer("round3", EVENT3_PHASE_SECONDS.round3, 3), ready: true }
+    if (choiceOnly && ph === "round3") return { label: "⬅ التصنيف النهائي بعد الجولة 3 (3 دقائق)", action: () => setPhaseWithTimer("ranking3", EVENT3_PHASE_SECONDS.ranking3, 0), ready: true }
+    if (ph === finalRankingPhase && !hasMatches) return { label: choiceOnly ? "⬅ حفظ التصنيفات وتشغيل الاختيار الأول" : "⬅ حفظ التصنيفات وتشغيل المطابقة", action: triggerPhase2, ready: choiceOnly ? sel === 42 : sel > 0 }
+    if (ph === "phase2_processing" && hasMatches) return { label: "⬅ استراحة (10 دقائق)", action: () => setPhaseWithTimer("break", EVENT3_PHASE_SECONDS.break, breakTimerRound), ready: true }
+    if (ph === "phase2_processing") return choiceOnly
+      ? { label: "↻ إعادة محاولة الاختيار الأول", action: triggerPhase2, ready: true }
+      : { label: "⏳ جاري المطابقة...", action: () => {}, ready: false }
+    if (ph === finalRankingPhase && hasMatches) return { label: "⬅ استراحة (10 دقائق)", action: () => setPhaseWithTimer("break", EVENT3_PHASE_SECONDS.break, breakTimerRound), ready: true }
+    if (ph === "break") return { label: choiceOnly ? "⬅ بدء كشف الاختيار الأول (26 دقيقة)" : "⬅ بدء كشف المرحلة 2 (26 دقيقة)", action: () => setPhaseWithTimer("phase2_reveal", EVENT3_PHASE_SECONDS.phase2_reveal, firstMatchTimerRound), ready: true }
+    if (ph === "phase2_reveal" && !state.phase3_matches_done) return { label: choiceOnly ? "⬅ تشغيل الاختيار الثاني (مع استبعاد الشريك الأول)" : "⬅ تشغيل مطابقة الخوارزمية", action: triggerPhase3, ready: choiceOnly ? state.phase2_matches_done === true : ranked > 0 }
+    if (ph === "phase2_reveal" && state.phase3_matches_done) return { label: choiceOnly ? "⬅ كشف الاختيار الثاني (26 دقيقة)" : "⬅ كشف المرحلة 3 (26 دقيقة)", action: () => setPhaseWithTimer("phase3_reveal", EVENT3_PHASE_SECONDS.phase3_reveal, secondMatchTimerRound), ready: true }
     if (ph === "phase3_reveal") return { label: "⬅ الكشف النهائي ✨", action: () => setPhase("final_reveal"), ready: true }
     return null
   }
 
-  const generateSeating = () => { if (previewEventId != null) { toast.error("لا يمكن توليد الجلسات في وضع المعاينة"); return } run("seating", async () => {
+  const generateSeating = () => {
+    if (previewEventId != null) { toast.error("لا يمكن توليد الجلسات في وضع المعاينة"); return }
+    if (choiceOnly && state?.participants_selected !== 42) { toast.error("يجب حفظ 42 مشاركاً بالضبط قبل توليد الجلسات"); return }
+    run("seating", async () => {
     const data = await api("e3-generate-seating")
     if (!data.error) { fetchSeating(); fetchParticipants() }
     return data
-  }) }
+    })
+  }
 
   const saveParticipants = () => { if (previewEventId != null) { toast.error("لا يمكن تعديل المشاركين في وضع المعاينة"); return } run("save-participants", async () => {
-    if (selectedNumbers.size < 4)
-      return { error: `يجب اختيار 4 مشاركين على الأقل (تم اختيار ${selectedNumbers.size})` }
+    const minimumParticipants = 4
+    if (choiceOnly && selectedNumbers.size !== 42)
+      return { error: `يجب اختيار 42 مشاركاً بالضبط (تم اختيار ${selectedNumbers.size})` }
+    if (!choiceOnly && selectedNumbers.size < minimumParticipants)
+      return { error: `يجب اختيار ${minimumParticipants} مشاركين على الأقل (تم اختيار ${selectedNumbers.size})` }
     const data = await api("e3-set-participants", { participant_numbers: Array.from(selectedNumbers) })
     if (!data.error) fetchParticipants()
     return data
   }) }
 
-  const triggerPhase2 = () => { if (previewEventId != null) { toast.error("لا يمكن تشغيل المطابقة في وضع المعاينة"); return } setPhaseStopTimer("phase2_processing").then(d => d?.error ? d : run("phase2", () => api("e3-trigger-phase2-matching").then(result => { fetchMatches(); fetchState(); return result }))) }
+  const triggerPhase2 = () => {
+    if (previewEventId != null) { toast.error("لا يمكن تشغيل المطابقة في وضع المعاينة"); return }
+    const runMatching = () => run("phase2", () => api("e3-trigger-phase2-matching").then(result => { fetchMatches(); fetchState(); return result }))
+    if (choiceOnly) return runMatching()
+    return setPhaseStopTimer("phase2_processing").then(d => d?.error ? d : runMatching())
+  }
   const triggerPhase3 = () => {
     if (previewEventId != null) { toast.error("لا يمكن تشغيل المطابقة في وضع المعاينة"); return }
+    if (choiceOnly && (state?.phase !== "phase2_reveal" || !state?.phase2_matches_done)) {
+      toast.error("لا يمكن تشغيل الاختيار الثاني إلا أثناء كشف الاختيار الأول وبعد اكتمال الاختيار الأول للجميع")
+      return
+    }
     run("phase3", async () => {
-      const tid = toast.loading("جاري حساب توافق المشاركين...")
+      const tid = toast.loading(choiceOnly ? "جاري حساب أقوى الاختيارات المتبادلة المتبقية..." : "جاري حساب توافق المشاركين...")
       try {
         const data = await api("e3-trigger-phase3-matching")
         if (!data.error) { await Promise.all([fetchMatches(), fetchState()]) }
@@ -1374,6 +1469,7 @@ export default function Admin3Page() {
 
   const togglePhase2Exclusion = (num: number) => {
     if (previewEventId != null) { toast.error("لا يمكن تعديل الاستبعادات في وضع المعاينة"); return }
+    if (choiceOnly) { toast.error("الاستبعاد الفردي غير مستخدم في نظام الاختيارات فقط"); return }
     run(`phase2-exclude-${num}`, () => api("e3-toggle-phase2-exclusion", { participant_number: num }).then(d => { if (!d.error) fetchParticipants(); return d }))
   }
   const resetEvent = () => {
@@ -1390,7 +1486,7 @@ export default function Admin3Page() {
     if (loading || testModeLoading) return
     if (previewEventId != null) { toast.error("لا يمكن حذف البيانات في وضع المعاينة"); return }
     if (!testMode) { toast.error("مسح بيانات الاختبار متاح فقط أثناء وضع اختبار نشط للفعالية الحالية"); return }
-    if (!confirm("مسح بيانات التفاعل للاختبار الحالي؟ سيتم الاحتفاظ بالمشاركين والجلسات والمطابقات المثبتة مسبقاً.")) return
+    if (!confirm(`مسح بيانات التفاعل للاختبار الحالي؟ سيتم الاحتفاظ بالمشاركين والجلسات و${choiceOnly ? "مطابقات الاختيارين الحالية" : "المطابقات المثبتة مسبقاً"}.`)) return
     run("clear-test", async () => {
       const d = await api("e3-clear-test-data")
       if (!d.error) { fetchState(); fetchRankStatus(); fetchMatches() }
@@ -1400,7 +1496,10 @@ export default function Admin3Page() {
 
   const startTestMode = async () => {
     if (previewEventId != null) { toast.error("لا يمكن بدء وضع الاختبار في وضع المعاينة"); return }
-    if (!confirm("بدء وضع الاختبار؟ سيتم اختيار 36 مشارك (18 ذكر + 18 أنثى) وتحقيق 100% تغطية كاش — قد يستغرق حساب الأزواج الناقصة بعض الوقت. يمكنك الاستعادة عند الانتهاء.")) return
+    const testModePrompt = choiceOnly
+      ? "بدء وضع الاختبار؟ سيتم اختيار 42 مشاركاً لتكوين 6 مجموعات من 7 أشخاص عبر 3 جولات. يمكنك استعادة البيانات عند الانتهاء."
+      : "بدء وضع الاختبار؟ سيتم اختيار 36 مشارك (18 ذكر + 18 أنثى) وتحقيق 100% تغطية كاش — قد يستغرق حساب الأزواج الناقصة بعض الوقت. يمكنك الاستعادة عند الانتهاء."
+    if (!confirm(testModePrompt)) return
     setTestModeLoading(true)
     try {
       const data = await api("e3-start-test-mode")
@@ -1426,6 +1525,7 @@ export default function Admin3Page() {
   }
 
   const endTestMode = async () => {
+    if (previewEventId != null) { toast.error("لا يمكن إنهاء وضع الاختبار أثناء معاينة فعالية محفوظة"); return }
     if (!confirm("إنهاء وضع الاختبار؟ سيتم استعادة جميع البيانات الأصلية وحذف أي تغييرات في وضع الاختبار.")) return
     setTestModeLoading(true)
     try {
@@ -1457,11 +1557,11 @@ export default function Admin3Page() {
     return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`
   }
 
-  const currentPhaseIdx = PHASES.findIndex(p => p.id === state?.phase)
+  const currentPhaseIdx = phases.findIndex(p => p.id === state?.phase)
 
   const tableLocationsByParticipant = useMemo(() => {
     const locations = new Map<number, Record<number, number>>()
-    for (const tableRound of [1, 2, 20, 30]) {
+    for (const tableRound of [...groupRounds, 20, 30]) {
       const tables = seating?.[tableRound] || {}
       for (const [tableNumber, members] of Object.entries(tables)) {
         for (const member of (members as any[]) || []) {
@@ -1474,14 +1574,14 @@ export default function Admin3Page() {
       }
     }
     return locations
-  }, [seating])
+  }, [seating, choiceOnly])
 
   const rankingTableBadges = (participantNumber: number) => {
     const tables = tableLocationsByParticipant.get(Number(participantNumber)) || {}
-    const liveRound = rankingLocationRound(state?.phase)
+    const liveRound = previewEventId == null ? rankingLocationRound(state?.phase) : null
     const liveTable = liveRound != null ? tables[liveRound] : null
     if (liveTable != null) return [{ key: `live-${liveRound}`, label: `طاولة ${liveTable}`, live: true }]
-    return [1, 2]
+    return groupRounds
       .filter(tableRound => tables[tableRound] != null)
       .map(tableRound => ({ key: `group-${tableRound}`, label: `ج${tableRound} · طاولة ${tables[tableRound]}`, live: false }))
   }
@@ -1555,6 +1655,7 @@ export default function Admin3Page() {
   const cohostLockKnown = typeof state?.cohost_locked === "boolean"
   const cohostLocked = state?.cohost_locked === true
   const cohostLockUpdatedAt = Date.parse(String(state?.cohost_lock_updated_at || ""))
+  const canEditEventFormat = state?.phase === "setup" && !state?.seating_generated && previewEventId == null && !testMode && !loading
 
   return (
     <div className="min-h-screen bg-gray-950 text-white" dir="rtl">
@@ -1571,11 +1672,11 @@ export default function Admin3Page() {
           </div>
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
-          {state && (
+          {state && previewEventId == null && (
             <div className="hidden sm:flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-1.5">
               <div className={`w-2 h-2 rounded-full ${state.phase !== "setup" ? "bg-green-400 animate-pulse" : "bg-gray-500"}`} />
               <span className="text-sm text-gray-300">
-                {PHASES.find(p => p.id === state?.phase)?.label || "—"}
+                {phases.find(p => p.id === state?.phase)?.label || "—"}
               </span>
             </div>
           )}
@@ -1654,7 +1755,7 @@ export default function Admin3Page() {
               ))}
             </select>
           </div>
-          {testMode && (
+          {testMode && previewEventId == null && (
             <span className="text-xs bg-amber-500/20 border border-amber-600/40 text-amber-300 px-2.5 py-1 rounded-full font-medium flex items-center gap-1">
               <FlaskConical size={12} /> وضع الاختبار
             </span>
@@ -1685,37 +1786,94 @@ export default function Admin3Page() {
           )}
         </div>
 
-        {/* Phase Progress */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 sm:p-4">
-          <h2 className="text-xs sm:text-sm font-medium text-gray-400 mb-2 sm:mb-3">مراحل الفعالية</h2>
-          <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-thin">
-            {PHASES.map((phase, idx) => (
-              <div key={phase.id} className="flex items-center gap-1 flex-shrink-0">
-                <div className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition-all ${
-                  idx === currentPhaseIdx
-                    ? "bg-purple-600 text-white shadow-lg shadow-purple-500/30"
-                    : idx < currentPhaseIdx
-                    ? "bg-gray-700 text-green-400"
-                    : "bg-gray-800 text-gray-500"
-                }`}>
-                  <span className="ml-1">{phase.icon}</span>{phase.label}
-                  {idx < currentPhaseIdx && <Check size={10} className="inline mr-1" />}
-                </div>
-                {idx < PHASES.length - 1 && <ArrowRight size={12} className="text-gray-700 flex-shrink-0" />}
-              </div>
-            ))}
+        {previewEventId != null && (
+          <div className="flex items-start gap-2 rounded-xl border border-amber-700/50 bg-amber-950/30 px-4 py-3 text-xs leading-6 text-amber-200">
+            <Eye size={16} className="mt-1 flex-shrink-0 text-amber-400" />
+            <div>
+              <p className="font-bold">معاينة تاريخية للقراءة فقط</p>
+              <p className="text-amber-300/70">تُعرض بيانات الفعالية المحفوظة، أما المرحلة والمؤقت فمخفيان لأن حالتهما المتاحة تخص الفعالية النشطة وليست هذه النسخة التاريخية.</p>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Event format — stored per edition and locked once seating exists. */}
+        {state && (
+          <div className="rounded-xl border border-gray-800 bg-gray-900 p-3 sm:p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Layers size={16} className="text-purple-400" />
+                  <h2 className="text-sm font-semibold text-gray-200">نظام هذه الفعالية</h2>
+                  <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${choiceOnly ? "border-pink-700/50 bg-pink-950/40 text-pink-300" : "border-gray-700 bg-gray-800 text-gray-400"}`}>
+                    {choiceOnly ? "اختيارات فقط" : "كلاسيكي"}
+                  </span>
+                </div>
+                <p className="mt-1 text-[10px] leading-5 text-gray-500">
+                  {choiceOnly
+                    ? "3 جولات مجموعات، 7 أشخاص في كل مجموعة، ثم اختيار أول واختيار ثانٍ مختلف عنه."
+                    : "جولتا مجموعات، ثم اختيار المشاركين، ثم مطابقة الخوارزمية."}
+                </p>
+              </div>
+              <div className="flex rounded-xl border border-gray-700 bg-gray-950/60 p-1">
+                {([
+                  { id: "classic", label: "النظام الكلاسيكي" },
+                  { id: "choice_only_three_groups", label: "3 مجموعات · اختياران" },
+                ] as Array<{ id: Event3Format; label: string }>).map(option => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setEventFormat(option.id)}
+                    disabled={!canEditEventFormat || option.id === eventFormat}
+                    aria-pressed={option.id === eventFormat}
+                    className={`rounded-lg px-3 py-2 text-[11px] font-bold transition-colors disabled:cursor-not-allowed ${option.id === eventFormat ? "bg-purple-600 text-white" : "text-gray-500 hover:bg-gray-800 hover:text-gray-200 disabled:opacity-40"}`}
+                  >
+                    {loading === "event-format" && option.id !== eventFormat ? <Loader2 size={11} className="ml-1 inline animate-spin" /> : null}
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {!canEditEventFormat && (
+              <p className="mt-2 text-[9px] text-amber-500/70">
+                {previewEventId != null ? "المعاينة للقراءة فقط." : testMode ? "أنهِ وضع الاختبار لتغيير النظام." : "يمكن تغيير النظام أثناء الإعداد وقبل توليد خطة الجلسات فقط."}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Phase Progress — the API only has a live phase/timer snapshot. */}
+        {previewEventId == null && (
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 sm:p-4">
+            <h2 className="text-xs sm:text-sm font-medium text-gray-400 mb-2 sm:mb-3">مراحل الفعالية</h2>
+            <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-thin">
+              {phases.map((phase, idx) => (
+                <div key={phase.id} className="flex items-center gap-1 flex-shrink-0">
+                  <div className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition-all ${
+                    idx === currentPhaseIdx
+                      ? "bg-purple-600 text-white shadow-lg shadow-purple-500/30"
+                      : idx < currentPhaseIdx
+                      ? "bg-gray-700 text-green-400"
+                      : "bg-gray-800 text-gray-500"
+                  }`}>
+                    <span className="ml-1">{phase.icon}</span>{phase.label}
+                    {idx < currentPhaseIdx && <Check size={10} className="inline mr-1" />}
+                  </div>
+                  {idx < phases.length - 1 && <ArrowRight size={12} className="text-gray-700 flex-shrink-0" />}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Stats Row */}
         {state && (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3">
             {[
-              { label: "المشاركون المختارون", value: `${state.participants_selected}`, icon: Users, ok: (state.participants_selected || 0) >= 6 },
+              { label: "المشاركون المختارون", value: choiceOnly ? `${state.participants_selected}/42` : `${state.participants_selected}`, icon: Users, ok: choiceOnly ? state.participants_selected === 42 : (state.participants_selected || 0) >= 6 },
               { label: "خطة الجلسات", value: state.seating_generated ? "جاهزة ✓" : "لم تُولَّد", icon: Grid3x3, ok: state.seating_generated },
               { label: "التصنيفات المقدمة", value: `${state.rankings_submitted}/${state.participants_selected || 0}`, icon: BarChart3, ok: state.rankings_submitted > 0 && state.rankings_submitted >= (state.participants_selected || 1) },
-              { label: "مطابقات المرحلة 2", value: state.phase2_matches_done ? "جاهزة ✓" : "—", icon: Trophy, ok: state.phase2_matches_done },
-              { label: "مطابقات الخوارزمية", value: state.phase3_matches_done ? "جاهزة ✓" : "—", icon: Brain, ok: state.phase3_matches_done },
+              { label: choiceOnly ? "مطابقات الاختيار الأول" : "مطابقات المرحلة 2", value: state.phase2_matches_done ? "جاهزة ✓" : "—", icon: Trophy, ok: state.phase2_matches_done },
+              { label: choiceOnly ? "مطابقات الاختيار الثاني" : "مطابقات الخوارزمية", value: state.phase3_matches_done ? "جاهزة ✓" : "—", icon: choiceOnly ? Heart : Brain, ok: state.phase3_matches_done },
             ].map(stat => (
               <div key={stat.label} className={`bg-gray-900 border rounded-xl p-3 sm:p-4 ${stat.ok ? "border-green-800" : "border-gray-800"}`}>
                 <div className="flex items-center justify-between mb-1">
@@ -1733,8 +1891,8 @@ export default function Admin3Page() {
           <div className="bg-red-950/40 border border-red-800/50 rounded-xl p-3 sm:p-4 flex items-start gap-3">
             <AlertTriangle className="text-red-400 flex-shrink-0 mt-0.5" size={18} />
             <div className="flex-1">
-              <p className="text-red-300 font-semibold text-sm">{phase3MissingCount} مشارك مختار ليس له طاولة في المرحلة 3</p>
-              <p className="text-red-400/70 text-xs mt-0.5">المطابقات تم إنشاؤها لكن بعض المشاركين غير مسندين إلى طاولة. أعد تشغيل مطابقة المرحلة 3 أو راجع الأزواج المثبتة.</p>
+              <p className="text-red-300 font-semibold text-sm">{phase3MissingCount} مشارك مختار ليس له طاولة في {choiceOnly ? "الاختيار الثاني" : "المرحلة 3"}</p>
+              <p className="text-red-400/70 text-xs mt-0.5">المطابقات تم إنشاؤها لكن بعض المشاركين غير مسندين إلى طاولة. أعد تشغيل {choiceOnly ? "مطابقة الاختيار الثاني" : "مطابقة المرحلة 3"}{choiceOnly ? "." : " أو راجع الأزواج المثبتة."}</p>
             </div>
           </div>
         )}
@@ -1753,7 +1911,7 @@ export default function Admin3Page() {
               {!testMode ? (
                 <button
                   onClick={startTestMode}
-                  disabled={testModeLoading || !!loading}
+                  disabled={testModeLoading || !!loading || previewEventId != null}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 text-xs font-medium transition-colors disabled:opacity-50"
                 >
                   {testModeLoading ? <Loader2 size={14} className="animate-spin" /> : <FlaskConical size={14} />}
@@ -1762,7 +1920,7 @@ export default function Admin3Page() {
               ) : (
                 <button
                   onClick={endTestMode}
-                  disabled={testModeLoading || !!loading}
+                  disabled={testModeLoading || !!loading || previewEventId != null}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-300 text-xs font-medium transition-colors disabled:opacity-50"
                 >
                   {testModeLoading ? <Loader2 size={14} className="animate-spin" /> : <Square size={14} />}
@@ -1772,14 +1930,14 @@ export default function Admin3Page() {
             </div>
           </div>
 
-          {testMode && testModeData && (
+          {testMode && testModeData && previewEventId == null && (
             <div className="space-y-3">
               {/* Test mode info banner */}
               <div className="bg-amber-950/40 border border-amber-800/40 rounded-lg p-2.5 text-xs text-amber-300/80">
                 <p>⚠️ أنت في وضع الاختبار. جميع البيانات مؤقتة وسيتم حذفها عند الإنهاء.</p>
               </div>
 
-              {testModeData.prepared_algorithm_pairs === 0 ? (
+              {!choiceOnly && testModeData.prepared_algorithm_pairs === 0 ? (
                 <div className="rounded-xl border border-violet-500/30 bg-violet-950/25 p-3 sm:p-4">
                   <p id="prepare-test-algorithm-description" className="text-xs leading-6 text-violet-200/80">يمكن تجهيز أزواج الخوارزمية لهذا الاختبار مسبقاً لتظهر للمضيفة، بدون تغيير المرحلة أو بيانات الفعالية الحقيقية.</p>
                   <button
@@ -1877,7 +2035,9 @@ export default function Admin3Page() {
 
           {!testMode && (
             <p className="text-xs text-gray-500">
-              يختار 20 ذكر و 20 أنثى عشوائياً من المشاركين الذين أكملوا الاستبيان. يحذف جميع بيانات الاختبار عند الإنهاء.
+              {choiceOnly
+                ? "يختار 42 مشاركاً لتكوين 6 مجموعات من 7 أشخاص عبر 3 جولات. يحذف جميع بيانات الاختبار عند الإنهاء."
+                : "يختار 18 ذكراً و18 أنثى عشوائياً من المشاركين الذين أكملوا الاستبيان. يحذف جميع بيانات الاختبار عند الإنهاء."}
             </p>
           )}
         </div>
@@ -1917,7 +2077,7 @@ export default function Admin3Page() {
         </div>
 
         {/* Post-event report */}
-        {state?.phase === "final_reveal" && (
+        {previewEventId == null && state?.phase === "final_reveal" && (
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 sm:p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
@@ -1955,11 +2115,11 @@ export default function Admin3Page() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <div className="bg-gray-800/50 rounded-lg p-2.5 text-center">
                     <div className="text-lg font-bold text-white">{report.match_summary?.phase2_pairs ?? 0}</div>
-                    <div className="text-[10px] text-gray-500">أزواج المرحلة 2</div>
+                    <div className="text-[10px] text-gray-500">{choiceOnly ? "أزواج الاختيار الأول" : "أزواج المرحلة 2"}</div>
                   </div>
                   <div className="bg-gray-800/50 rounded-lg p-2.5 text-center">
                     <div className="text-lg font-bold text-white">{report.match_summary?.phase3_pairs ?? 0}</div>
-                    <div className="text-[10px] text-gray-500">أزواج المرحلة 3</div>
+                    <div className="text-[10px] text-gray-500">{choiceOnly ? "أزواج الاختيار الثاني" : "أزواج المرحلة 3"}</div>
                   </div>
                   <div className="bg-gray-800/50 rounded-lg p-2.5 text-center">
                     <div className="text-lg font-bold text-green-400">{report.match_summary?.mutual_choice_pairs ?? 0}</div>
@@ -2060,7 +2220,7 @@ export default function Admin3Page() {
         </div>
 
         {/* Timer */}
-        {state?.timer_active && (
+        {previewEventId == null && state?.timer_active && (
           <div className="bg-blue-900/30 border border-blue-700/50 rounded-xl overflow-hidden">
             <div className="p-3 sm:p-4 flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2 sm:gap-3">
@@ -2174,8 +2334,8 @@ export default function Admin3Page() {
                   <Users size={16} className="text-purple-400" /> اختيار المشاركين
                 </h3>
                 <div className="flex items-center gap-2">
-                  <span className={`text-sm px-2 py-0.5 rounded-full ${selectedNumbers.size >= 6 ? "bg-green-900 text-green-300" : "bg-gray-800 text-gray-400"}`}>
-                    {selectedNumbers.size} مختار
+                  <span className={`text-sm px-2 py-0.5 rounded-full ${(choiceOnly ? selectedNumbers.size === 42 : selectedNumbers.size >= 6) ? "bg-green-900 text-green-300" : "bg-gray-800 text-gray-400"}`}>
+                    {selectedNumbers.size}{choiceOnly ? "/42" : ""} مختار
                   </span>
                   {selectedNumbers.size > 0 && (() => {
                     const sel = participants.filter(p => selectedNumbers.has(p.number))
@@ -2193,7 +2353,7 @@ export default function Admin3Page() {
                   })()}
                   <button
                     onClick={saveParticipants}
-                    disabled={selectedNumbers.size < 6 || !!loading}
+                    disabled={(choiceOnly ? selectedNumbers.size !== 42 : selectedNumbers.size < 6) || !!loading || previewEventId != null}
                     className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg px-3 py-1.5 text-sm flex items-center gap-1"
                   >
                     {loading === "save-participants" ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
@@ -2230,7 +2390,8 @@ export default function Admin3Page() {
                 </select>
                 <button
                   onClick={selectAllPaid}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-3 py-2 text-sm flex items-center gap-1.5 whitespace-nowrap"
+                  disabled={previewEventId != null}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-3 py-2 text-sm flex items-center gap-1.5 whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <CheckCircle size={14} />
                   اختيار كل المدفوعين
@@ -2242,7 +2403,8 @@ export default function Admin3Page() {
                   <button
                     key={p.number}
                     onClick={() => toggleParticipant(p.number)}
-                    className={`flex items-center gap-2 p-2 rounded-lg border text-right text-xs transition-all ${
+                    disabled={previewEventId != null}
+                    className={`flex items-center gap-2 p-2 rounded-lg border text-right text-xs transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
                       selectedNumbers.has(p.number)
                         ? "border-purple-500 bg-purple-900/30 text-white"
                         : "border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600"
@@ -2275,11 +2437,11 @@ export default function Admin3Page() {
                 {[
                   {
                     label: "توليد خطة الجلسات",
-                    desc: `يتطلب ${state?.participants_selected || 0} مشاركاً محدداً`,
+                    desc: choiceOnly ? `3 جولات · 7 أشخاص لكل مجموعة · المحددون: ${state?.participants_selected || 0}` : `يتطلب ${state?.participants_selected || 0} مشاركاً محدداً`,
                     action: generateSeating,
                     icon: Grid3x3,
                     color: "blue",
-                    enabled: (state?.participants_selected || 0) >= 6,
+                    enabled: choiceOnly ? state?.participants_selected === 42 : (state?.participants_selected || 0) >= 6,
                     loadKey: "seating",
                   },
                   {
@@ -2318,54 +2480,76 @@ export default function Admin3Page() {
                     enabled: true,
                     loadKey: "phase-ranking2",
                   },
+                  ...(choiceOnly ? [
+                    {
+                      label: "بدء الجولة الثالثة",
+                      desc: "25 دقيقة · 7 أشخاص",
+                      action: () => setPhaseWithTimer("round3", EVENT3_PHASE_SECONDS.round3, 3),
+                      icon: Play,
+                      color: "green",
+                      enabled: true,
+                      loadKey: "phase-round3",
+                    },
+                    {
+                      label: "التصنيف النهائي بعد الجولة 3",
+                      desc: "3 دقائق",
+                      action: () => setPhaseWithTimer("ranking3", EVENT3_PHASE_SECONDS.ranking3, 0),
+                      icon: BarChart3,
+                      color: "yellow",
+                      enabled: true,
+                      loadKey: "phase-ranking3",
+                    },
+                  ] : []),
                   {
-                    label: "تشغيل مطابقة المرحلة 2",
+                    label: choiceOnly ? "تشغيل الاختيار الأول" : "تشغيل مطابقة المرحلة 2",
                     desc: "بناءً على التصنيفات النهائية",
                     action: triggerPhase2,
                     icon: Shuffle,
                     color: "pink",
-                    enabled: testMode || (state?.phase === "ranking2" && (state?.participants_selected || 0) > 0) || (state?.rankings_submitted || 0) > 0,
+                    enabled: choiceOnly
+                      ? state?.phase === "ranking3" && state?.participants_selected === 42
+                      : testMode || (state?.phase === "ranking2" && (state?.participants_selected || 0) > 0) || (state?.rankings_submitted || 0) > 0,
                     loadKey: "phase2",
                   },
                   {
                     label: "استراحة",
                     desc: "10 دقائق",
-                    action: () => setPhaseWithTimer("break", EVENT3_PHASE_SECONDS.break, 3),
+                    action: () => setPhaseWithTimer("break", EVENT3_PHASE_SECONDS.break, breakTimerRound),
                     icon: Coffee,
                     color: "orange",
                     enabled: state?.phase2_matches_done,
                     loadKey: "phase-break",
                   },
                   {
-                    label: "كشف المرحلة 2",
+                    label: choiceOnly ? "كشف الاختيار الأول" : "كشف المرحلة 2",
                     desc: "26 دقيقة",
-                    action: () => setPhaseWithTimer("phase2_reveal", EVENT3_PHASE_SECONDS.phase2_reveal, 4),
+                    action: () => setPhaseWithTimer("phase2_reveal", EVENT3_PHASE_SECONDS.phase2_reveal, firstMatchTimerRound),
                     icon: Eye,
                     color: "pink",
                     enabled: state?.phase2_matches_done,
                     loadKey: "phase-phase2_reveal",
                   },
                   {
-                    label: "تشغيل مطابقة المرحلة 3",
-                    desc: "الخوارزمية",
+                    label: choiceOnly ? "تشغيل الاختيار الثاني" : "تشغيل مطابقة المرحلة 3",
+                    desc: choiceOnly ? "أقوى اختيار متبادل متبقٍ · يستبعد الشريك الأول" : "الخوارزمية",
                     action: triggerPhase3,
-                    icon: Brain,
+                    icon: choiceOnly ? Heart : Brain,
                     color: "purple",
-                    enabled: true,
+                    enabled: choiceOnly ? state?.phase === "phase2_reveal" && state?.phase2_matches_done === true : true,
                     loadKey: "phase3",
                   },
                   {
-                    label: "كشف المرحلة 3",
+                    label: choiceOnly ? "كشف الاختيار الثاني" : "كشف المرحلة 3",
                     desc: "26 دقيقة",
-                    action: () => setPhaseWithTimer("phase3_reveal", EVENT3_PHASE_SECONDS.phase3_reveal, 5),
+                    action: () => setPhaseWithTimer("phase3_reveal", EVENT3_PHASE_SECONDS.phase3_reveal, secondMatchTimerRound),
                     icon: Sparkles,
                     color: "purple",
-                    enabled: true,
+                    enabled: choiceOnly ? state?.phase3_matches_done === true : true,
                     loadKey: "phase-phase3_reveal",
                   },
                   {
                     label: "الكشف النهائي",
-                    desc: "المقارنة الأخيرة",
+                    desc: choiceOnly ? "بعد الاختيارين" : "المقارنة الأخيرة",
                     action: () => setPhase("final_reveal"),
                     icon: Star,
                     color: "amber",
@@ -2385,16 +2569,16 @@ export default function Admin3Page() {
                   <button
                     key={btn.loadKey}
                     onClick={btn.action}
-                    disabled={!btn.enabled || !!loading}
+                    disabled={!btn.enabled || !!loading || previewEventId != null}
                     className={`flex items-center gap-3 p-3 rounded-lg border text-right transition-all ${
-                      btn.enabled
+                      btn.enabled && previewEventId == null
                         ? "border-gray-700 bg-gray-800 hover:bg-gray-750 hover:border-purple-700 text-white"
                         : "border-gray-800 bg-gray-850 text-gray-600 cursor-not-allowed"
                     }`}
                   >
                     {loading === btn.loadKey
                       ? <Loader2 size={16} className="animate-spin text-purple-400 flex-shrink-0" />
-                      : <btn.icon size={16} className={btn.enabled ? "text-purple-400" : "text-gray-700"} />
+                      : <btn.icon size={16} className={btn.enabled && previewEventId == null ? "text-purple-400" : "text-gray-700"} />
                     }
                     <div>
                       <div className="text-sm font-medium">{btn.label}</div>
@@ -2507,11 +2691,11 @@ export default function Admin3Page() {
             })()}
 
             {/* Quick Phase Advance (test mode only) */}
-            {testMode && (
+            {testMode && previewEventId == null && (
               <div className="bg-amber-950/30 border border-amber-700/40 rounded-xl p-3">
                 <p className="text-amber-400/70 text-xs mb-2 font-medium flex items-center gap-1.5"><FlaskConical size={12} /> انتقال سريع للمراحل (وضع الاختبار)</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {PHASES.map((phase, idx) => {
+                  {phases.map((phase, idx) => {
                     const isCurrent = (state?.phase || "setup") === phase.id
                     const isPast = idx < currentPhaseIdx
                     return (
@@ -2521,13 +2705,15 @@ export default function Admin3Page() {
                           if (phase.id === "phase2_processing" || phase.id === "phase3_processing") return
                           if (phase.id === "setup") setPhase("setup")
                           else if (phase.id === "final_reveal") setPhase("final_reveal")
-                          else if (phase.id === "break") setPhaseWithTimer("break", EVENT3_PHASE_SECONDS.break, 3)
+                          else if (phase.id === "break") setPhaseWithTimer("break", EVENT3_PHASE_SECONDS.break, breakTimerRound)
                           else if (phase.id === "round1") setPhaseWithTimer("round1", EVENT3_PHASE_SECONDS.round1, 1)
                           else if (phase.id === "ranking1") setPhaseWithTimer("ranking1", EVENT3_PHASE_SECONDS.ranking1, 0)
                           else if (phase.id === "round2") setPhaseWithTimer("round2", EVENT3_PHASE_SECONDS.round2, 2)
                           else if (phase.id === "ranking2") setPhaseWithTimer("ranking2", EVENT3_PHASE_SECONDS.ranking2, 0)
-                          else if (phase.id === "phase2_reveal") setPhaseWithTimer("phase2_reveal", EVENT3_PHASE_SECONDS.phase2_reveal, 4)
-                          else if (phase.id === "phase3_reveal") setPhaseWithTimer("phase3_reveal", EVENT3_PHASE_SECONDS.phase3_reveal, 5)
+                          else if (phase.id === "round3") setPhaseWithTimer("round3", EVENT3_PHASE_SECONDS.round3, 3)
+                          else if (phase.id === "ranking3") setPhaseWithTimer("ranking3", EVENT3_PHASE_SECONDS.ranking3, 0)
+                          else if (phase.id === "phase2_reveal") setPhaseWithTimer("phase2_reveal", EVENT3_PHASE_SECONDS.phase2_reveal, firstMatchTimerRound)
+                          else if (phase.id === "phase3_reveal") setPhaseWithTimer("phase3_reveal", EVENT3_PHASE_SECONDS.phase3_reveal, secondMatchTimerRound)
                           else setPhase(phase.id)
                         }}
                         disabled={!!loading || isCurrent}
@@ -2548,14 +2734,14 @@ export default function Admin3Page() {
                     disabled={!!loading}
                     className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-purple-900/50 hover:bg-purple-900/70 text-purple-300 transition-all disabled:opacity-40"
                   >
-                    ⚡ مطابقة المرحلة 2
+                    ⚡ {choiceOnly ? "الاختيار الأول" : "مطابقة المرحلة 2"}
                   </button>
                   <button
                     onClick={triggerPhase3}
-                    disabled={!!loading}
+                    disabled={!!loading || (choiceOnly && (state?.phase !== "phase2_reveal" || state?.phase2_matches_done !== true))}
                     className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-purple-900/50 hover:bg-purple-900/70 text-purple-300 transition-all disabled:opacity-40"
                   >
-                    ⚡ مطابقة الخوارزمية
+                    ⚡ {choiceOnly ? "الاختيار الثاني" : "مطابقة الخوارزمية"}
                   </button>
                   <button
                     onClick={() => { if (previewEventId != null) { toast.error("لا يمكن إيقاف المؤقت في وضع المعاينة"); return } run("timer-stop", () => api("e3-stop-timer")) }}
@@ -2569,7 +2755,7 @@ export default function Admin3Page() {
             )}
 
             {/* Next Step */}
-            {getNextStep() && (() => { const ns = getNextStep()!; return (
+            {previewEventId == null && getNextStep() && (() => { const ns = getNextStep()!; return (
               <div className="bg-gradient-to-r from-emerald-900/40 to-teal-900/30 border border-emerald-700/50 rounded-xl p-4">
                 <p className="text-emerald-400/70 text-xs mb-2 font-medium">الخطوة التالية الموصى بها</p>
                 <button
@@ -2757,25 +2943,25 @@ export default function Admin3Page() {
                 </button>
                 {seating && (
                   <div className="flex bg-gray-800 rounded-lg p-0.5">
-                    {([1, 2] as const).map(r => (
+                    {groupRounds.map(r => (
                       <button key={r} onClick={() => setMapRound(r)}
                         className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${mapRound === r ? 'bg-purple-600 text-white shadow' : 'text-gray-400 hover:text-gray-200'}`}
                       >
-                        {r === 1 ? 'الجولة الأولى' : 'الجولة الثانية'}
+                        {r === 1 ? 'الجولة الأولى' : r === 2 ? 'الجولة الثانية' : 'الجولة الثالثة'}
                       </button>
                     ))}
                     {matchPairs.length > 0 && (
                       <button onClick={() => setMapRound(20)}
                         className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${mapRound === 20 ? 'bg-emerald-600 text-white shadow' : 'text-gray-400 hover:text-gray-200'}`}
                       >
-                        لقاء الاختيار
+                        {choiceOnly ? "الاختيار الأول" : "لقاء الاختيار"}
                       </button>
                     )}
                     {phase3Pairs.length > 0 && (
                       <button onClick={() => setMapRound(30)}
                         className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${mapRound === 30 ? 'bg-purple-600 text-white shadow' : 'text-gray-400 hover:text-gray-200'}`}
                       >
-                        الخوارزمية
+                        {choiceOnly ? "الاختيار الثاني" : "الخوارزمية"}
                       </button>
                     )}
                   </div>
@@ -2783,16 +2969,22 @@ export default function Admin3Page() {
               </div>
             </div>
 
-            <SeatingAlternatives
-              key={`${realCurrentEventId}:${previewEventId}:${testMode}:${testModeData?.started_at || "live"}`}
-              eventId={Number(realCurrentEventId)}
-              testMode={testMode}
-              focusNumber={participants.some(p => p.number === 7 && p.selected) ? 7 : null}
-              request={api}
-              disabled={!realCurrentEventId || previewEventId != null || !seating?.[1] || !seating?.[2] || state?.phase !== "setup" || !!state?.timer_active || !!loading || testModeLoading}
-              disabledReason={previewEventId != null ? "ارجع إلى الفعالية الحالية لعرض البدائل" : !seating?.[1] || !seating?.[2] ? "ولّد جلستي المجموعات أولاً" : state?.phase !== "setup" || state?.timer_active ? "تغيير الجولتين متاح قبل بدء جلسات المجموعات" : "انتظر اكتمال العملية الحالية"}
-              onApplied={async () => { setSwapA(null); setMoveA(null); await Promise.all([fetchSeating(), fetchState()]) }}
-            />
+            {choiceOnly ? (
+              <div className="rounded-xl border border-violet-800/30 bg-violet-950/15 px-4 py-3 text-[11px] leading-5 text-violet-200/70">
+                خطة الجولات الثلاث تُولَّد كوحدة واحدة لضمان 7 أشخاص في كل مجموعة وتقليل تكرار اللقاءات. بدائل الجولتين الكلاسيكية غير مستخدمة في هذا النظام.
+              </div>
+            ) : (
+              <SeatingAlternatives
+                key={`${realCurrentEventId}:${previewEventId}:${testMode}:${testModeData?.started_at || "live"}`}
+                eventId={Number(realCurrentEventId)}
+                testMode={testMode}
+                focusNumber={participants.some(p => p.number === 7 && p.selected) ? 7 : null}
+                request={api}
+                disabled={!realCurrentEventId || previewEventId != null || !seating?.[1] || !seating?.[2] || state?.phase !== "setup" || !!state?.timer_active || !!loading || testModeLoading}
+                disabledReason={previewEventId != null ? "ارجع إلى الفعالية الحالية لعرض البدائل" : !seating?.[1] || !seating?.[2] ? "ولّد جلستي المجموعات أولاً" : state?.phase !== "setup" || state?.timer_active ? "تغيير الجولتين متاح قبل بدء جلسات المجموعات" : "انتظر اكتمال العملية الحالية"}
+                onApplied={async () => { setSwapA(null); setMoveA(null); await Promise.all([fetchSeating(), fetchState()]) }}
+              />
+            )}
 
             {/* Swap mode banner */}
             {swapA !== null && (
@@ -2839,45 +3031,47 @@ export default function Admin3Page() {
             ) : mapRound === 20 ? (
               /* ── 1:1 Pairs View ─────────────────── */
               <>
-                {/* Phase 2 Exclusion Controls */}
-                <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-3">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-semibold text-gray-300 text-sm flex items-center gap-2">
-                      <Shield size={14} className="text-amber-400" />
-                      استبعاد من جولة الاختيار
-                    </h4>
-                    <p className="text-[10px] text-gray-600">استبعد مشاركاً من المطابقة الاختيارية مع إبقائه في باقي الفعالية</p>
+                {/* Classic-only per-participant choice exclusions. */}
+                {!choiceOnly && (
+                  <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-3">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-semibold text-gray-300 text-sm flex items-center gap-2">
+                        <Shield size={14} className="text-amber-400" />
+                        استبعاد من جولة الاختيار
+                      </h4>
+                      <p className="text-[10px] text-gray-600">استبعد مشاركاً من المطابقة الاختيارية مع إبقائه في باقي الفعالية</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {participants.filter(p => p.selected).map((p: any) => (
+                        <button
+                          key={p.number}
+                          onClick={() => togglePhase2Exclusion(p.number)}
+                          disabled={!!loading && loading !== `phase2-exclude-${p.number}`}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all flex items-center gap-1.5 disabled:opacity-40 ${
+                            p.phase2_excluded
+                              ? 'bg-red-900/40 border-red-700/50 text-red-300'
+                              : 'bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700'
+                          }`}
+                        >
+                          {loading === `phase2-exclude-${p.number}` ? (
+                            <RefreshCw size={10} className="animate-spin" />
+                          ) : p.phase2_excluded ? (
+                            <Ban size={10} />
+                          ) : (
+                            <Check size={10} className="text-green-400" />
+                          )}
+                          <span>{p.name}</span>
+                          <span className="text-[9px] opacity-60">#{p.number}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {participants.filter(p => p.selected).map((p: any) => (
-                      <button
-                        key={p.number}
-                        onClick={() => togglePhase2Exclusion(p.number)}
-                        disabled={!!loading && loading !== `phase2-exclude-${p.number}`}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all flex items-center gap-1.5 disabled:opacity-40 ${
-                          p.phase2_excluded
-                            ? 'bg-red-900/40 border-red-700/50 text-red-300'
-                            : 'bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700'
-                        }`}
-                      >
-                        {loading === `phase2-exclude-${p.number}` ? (
-                          <RefreshCw size={10} className="animate-spin" />
-                        ) : p.phase2_excluded ? (
-                          <Ban size={10} />
-                        ) : (
-                          <Check size={10} className="text-green-400" />
-                        )}
-                        <span>{p.name}</span>
-                        <span className="text-[9px] opacity-60">#{p.number}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                )}
 
                 {matchPairs.length === 0 ? (
                   <div className="text-center py-12 text-gray-600">
                     <Heart size={32} className="mx-auto mb-3 opacity-30" />
-                    <p>لم تُجرَ مطابقة الاختيار بعد</p>
+                    <p>لم تُجرَ مطابقة {choiceOnly ? "الاختيار الأول" : "الاختيار"} بعد</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2926,6 +3120,10 @@ export default function Admin3Page() {
                               }`}>
                                 <p className="text-lg font-black leading-none">{pair.compatScore}%</p>
                                 <p className="text-[9px] opacity-60 mt-0.5">توافق</p>
+                              </div>
+                            ) : choiceOnly ? (
+                              <div className="rounded-xl border border-pink-700/40 bg-pink-900/25 px-2.5 py-1.5 text-center text-[9px] font-bold text-pink-300">
+                                اختيار<br/>متبادل
                               </div>
                             ) : (
                               <div className="text-center px-2 py-1.5 rounded-xl bg-red-950/30 border border-red-800/30">
@@ -3003,9 +3201,7 @@ export default function Admin3Page() {
                       return match && Number(match[1]) === table
                     })
 
-                    // Compute repeat encounters across rounds 1 and 2 for this table's members
-                    const round1Seating = seating?.[1] || {}
-                    const round2Seating = seating?.[2] || {}
+                    // Compute repeat encounters across every group round in this edition.
                     const getMates = (roundSeating: any, pNum: number) => {
                       const result: number[] = []
                       for (const t of Object.keys(roundSeating).map(Number)) {
@@ -3017,11 +3213,15 @@ export default function Admin3Page() {
                       return result
                     }
                     const repeatMap: Record<number, number[]> = {}
-                    if (mapRound === 1 || mapRound === 2) {
+                    if (groupRounds.includes(mapRound as 1 | 2 | 3)) {
                       for (const m of members) {
-                        const r1Mates = new Set(getMates(round1Seating, m.number))
-                        const r2Mates = new Set(getMates(round2Seating, m.number))
-                        const repeats = [...r2Mates].filter(n => r1Mates.has(n))
+                        const currentMates = new Set(getMates(seating?.[mapRound] || {}, m.number))
+                        const otherRoundMates = new Set<number>()
+                        for (const groupRound of groupRounds) {
+                          if (groupRound === mapRound) continue
+                          for (const mate of getMates(seating?.[groupRound] || {}, m.number)) otherRoundMates.add(mate)
+                        }
+                        const repeats = [...currentMates].filter(mate => otherRoundMates.has(mate))
                         if (repeats.length > 0) repeatMap[m.number] = repeats
                       }
                     }
@@ -3050,7 +3250,7 @@ export default function Admin3Page() {
                                     onChange={e => setEditingTableCard({ ...editingTableCard, value: e.target.value })}
                                     onKeyDown={e => { if (e.key === 'Escape') setEditingTableCard(null) }}
                                     className="h-9 bg-gray-700 border border-indigo-500 text-indigo-100 font-bold text-xs rounded-xl px-2 focus:outline-none"
-                                    aria-label={`تبديل طاولة الخوارزمية ${table}`}
+                                    aria-label={`تبديل طاولة ${choiceOnly ? "الاختيار الثاني" : "الخوارزمية"} ${table}`}
                                   >
                                     <option value={table}>طاولة {table} (الحالية)</option>
                                     {Object.keys(seating?.[30] || {}).map(Number).filter(candidate => candidate !== table).sort((a, b) => a - b)
@@ -3165,11 +3365,11 @@ export default function Admin3Page() {
                                   <span className="text-[10px] text-gray-600 font-mono flex-shrink-0">#{m.number}{m.age ? ` · ${m.age}` : ""}</span>
                                   <span className={`w-2 h-2 rounded-full flex-shrink-0 ${rankData?.submitted ? 'bg-green-500' : 'bg-gray-700'}`} title={rankData?.submitted ? 'صوّت' : 'لم يصوّت'} />
                                 </button>
-                                {!swapA && !moveA && (
+                                {!swapA && !moveA && (!choiceOnly || mapRound === 30) && (
                                   <button
                                     onClick={(e) => { e.stopPropagation(); setMoveA(m.number) }}
                                     className="p-1.5 rounded-lg hover:bg-indigo-900/30 text-indigo-500 hover:text-indigo-300 transition-colors flex-shrink-0"
-                                    title="نقل إلى طاولة أخرى"
+                                    title={mapRound === 30 ? "تبديل رقم طاولة الزوجين" : "نقل إلى طاولة أخرى"}
                                   >
                                     <ArrowLeft size={12} />
                                   </button>
@@ -3177,7 +3377,7 @@ export default function Admin3Page() {
                                 </div>
                               {repeatMap[m.number] && !swapA && !moveA && (
                                 <div className="mr-9 mb-1.5 px-2 py-1 rounded-lg bg-orange-900/20 border border-orange-800/30 text-[10px] text-orange-300 leading-relaxed">
-                                  ⚠ يلتقي بـ {repeatMap[m.number].length} {repeatMap[m.number].length === 1 ? 'شخص' : 'أشخاص'} من الجولة الأولى: {repeatMap[m.number].map(n => {
+                                  ⚠ يلتقي بـ {repeatMap[m.number].length} {repeatMap[m.number].length === 1 ? 'شخص سبق أن قابله في جولة أخرى' : 'أشخاص سبق أن قابلهم في جولات أخرى'}: {repeatMap[m.number].map(n => {
                                     const name = members.find((mm: any) => mm.number === n)?.name || `#${n}`
                                     return name
                                   }).join('، ')}
@@ -3308,9 +3508,9 @@ export default function Admin3Page() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        {([1, 2] as const).map(r => tables[r] ? (
+                        {groupRounds.map(r => tables[r] ? (
                           <span key={r} className={`text-[10px] px-2 py-0.5 rounded-lg border ${
-                            r === 1 ? 'bg-blue-900/20 border-blue-800/30 text-blue-400' : 'bg-indigo-900/20 border-indigo-800/30 text-indigo-400'
+                            r === 1 ? 'bg-blue-900/20 border-blue-800/30 text-blue-400' : r === 2 ? 'bg-indigo-900/20 border-indigo-800/30 text-indigo-400' : 'bg-violet-900/20 border-violet-800/30 text-violet-400'
                           }`}>
                             ج{r}: طاولة {tables[r]}
                           </span>
@@ -3322,7 +3522,7 @@ export default function Admin3Page() {
                             {matchType === 'mutual' ? '🔁 ' : '⚡ '}{matchName}
                           </span>
                         )}
-                        {!tables[1] && !tables[2] && !match && (
+                        {!groupRounds.some(r => tables[r]) && !match && (
                           <span className="text-[10px] text-gray-700">بدون طاولة محددة</span>
                         )}
                       </div>
@@ -3860,11 +4060,13 @@ export default function Admin3Page() {
             {/* ── Match Results ──────────────────────────────────────────── */}
             <div className="space-y-3 pt-2 border-t border-gray-800/60">
               <div className="flex items-center justify-between">
-                <h4 className="font-semibold text-gray-300 text-sm">نتائج المطابقة (اختيارك)</h4>
+                <h4 className="font-semibold text-gray-300 text-sm">نتائج المطابقة ({choiceOnly ? "الاختيار الأول" : "اختيارك"})</h4>
                 <div className="flex gap-2">
                   <button
                     onClick={triggerPhase2}
-                    disabled={!!loading || (rankStatus?.submitted || 0) === 0}
+                    disabled={!!loading || (choiceOnly
+                      ? state?.participants_selected !== 42 || !["ranking3", "phase2_processing"].includes(String(state?.phase || ""))
+                      : (rankStatus?.submitted || 0) === 0)}
                     className="flex items-center gap-1.5 bg-pink-900/40 hover:bg-pink-900/70 border border-pink-800/50 text-pink-300 rounded-lg px-3 py-1.5 text-xs disabled:opacity-40"
                   >
                     {loading === "phase2" ? <RefreshCw size={12} className="animate-spin" /> : <Sparkles size={12} />}
@@ -3983,21 +4185,23 @@ export default function Admin3Page() {
                             <p className="text-amber-500/70 text-[10px] text-center py-1">⚡ {pair.bName} لم يُدرج {pair.aName} في قائمته — تعيين من جانب واحد</p>
                           )}
 
-                          {/* Swap buttons */}
-                          <div className="flex gap-2 pt-2 border-t border-gray-800/30">
-                            <button
-                              onClick={() => { setSwapMatch({ phase: "phase2", missingNum: pair.a, missingName: pair.aName }); setSwapReplacement(null) }}
-                              className="flex-1 py-1.5 rounded-lg bg-amber-900/30 hover:bg-amber-900/50 border border-amber-800/40 text-amber-300 text-[10px] font-bold transition-colors"
-                            >
-                              ⇄ استبدال {pair.aName}
-                            </button>
-                            <button
-                              onClick={() => { setSwapMatch({ phase: "phase2", missingNum: pair.b, missingName: pair.bName }); setSwapReplacement(null) }}
-                              className="flex-1 py-1.5 rounded-lg bg-amber-900/30 hover:bg-amber-900/50 border border-amber-800/40 text-amber-300 text-[10px] font-bold transition-colors"
-                            >
-                              ⇄ استبدال {pair.bName}
-                            </button>
-                          </div>
+                          {/* Manual pair replacement belongs to the classic flow. */}
+                          {!choiceOnly && (
+                            <div className="flex gap-2 pt-2 border-t border-gray-800/30">
+                              <button
+                                onClick={() => { setSwapMatch({ phase: "phase2", missingNum: pair.a, missingName: pair.aName }); setSwapReplacement(null) }}
+                                className="flex-1 py-1.5 rounded-lg bg-amber-900/30 hover:bg-amber-900/50 border border-amber-800/40 text-amber-300 text-[10px] font-bold transition-colors"
+                              >
+                                ⇄ استبدال {pair.aName}
+                              </button>
+                              <button
+                                onClick={() => { setSwapMatch({ phase: "phase2", missingNum: pair.b, missingName: pair.bName }); setSwapReplacement(null) }}
+                                className="flex-1 py-1.5 rounded-lg bg-amber-900/30 hover:bg-amber-900/50 border border-amber-800/40 text-amber-300 text-[10px] font-bold transition-colors"
+                              >
+                                ⇄ استبدال {pair.bName}
+                              </button>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -4006,17 +4210,17 @@ export default function Admin3Page() {
               )}
             </div>
 
-            {/* ── Phase 3 (Algorithm) Match Results ─────────────────────── */}
+            {/* ── Second match results (algorithm in classic, choice in the alternative format). ── */}
             <div className="space-y-3 pt-2 border-t border-gray-800/60">
               <div className="flex items-center justify-between">
-                <h4 className="font-semibold text-gray-300 text-sm">نتائج مطابقة الخوارزمية</h4>
+                <h4 className="font-semibold text-gray-300 text-sm">نتائج مطابقة {secondMatchLabel}</h4>
                 <div className="flex gap-2">
                   <button
                     onClick={triggerPhase3}
-                    disabled={!!loading}
+                    disabled={!!loading || (choiceOnly && (state?.phase !== "phase2_reveal" || state?.phase2_matches_done !== true))}
                     className="flex items-center gap-1.5 bg-purple-900/40 hover:bg-purple-900/70 border border-purple-800/50 text-purple-300 rounded-lg px-3 py-1.5 text-xs disabled:opacity-40"
                   >
-                    {loading === "phase3" ? <RefreshCw size={12} className="animate-spin" /> : <Brain size={12} />}
+                    {loading === "phase3" ? <RefreshCw size={12} className="animate-spin" /> : choiceOnly ? <Heart size={12} /> : <Brain size={12} />}
                     تشغيل المطابقة
                   </button>
                   <button onClick={fetchMatches} className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-400">
@@ -4027,9 +4231,11 @@ export default function Admin3Page() {
               <div className="bg-purple-950/20 border border-purple-800/30 rounded-lg px-3 py-2">
                 <p className="text-[10px] text-purple-300/70 flex items-center gap-1.5">
                   <Shield size={10} className="flex-shrink-0" />
-                  {testMode
-                    ? "وضع الاختبار ينشئ أزواج خوارزمية مثبتة مؤقتاً — تظهر في لوحة التحكم ولا تدخل في السجل السابق وتُحذف عند إنهاء الاختبار"
-                    : "المطابقة تستخدم الأزواج المثبتة (locked matches) من لوحة التحكم — لا يتم إعادة الحساب"}
+                  {choiceOnly
+                    ? "الاختيار الثاني يفضّل أقوى اختيار متبادل متبقٍ لكل مشارك ويستبعد الشخص الذي قابله في الاختيار الأول."
+                    : testMode
+                      ? "وضع الاختبار ينشئ أزواج خوارزمية مثبتة مؤقتاً — تظهر في لوحة التحكم ولا تدخل في السجل السابق وتُحذف عند إنهاء الاختبار"
+                      : "المطابقة تستخدم الأزواج المثبتة (locked matches) من لوحة التحكم — لا يتم إعادة الحساب"}
                 </p>
               </div>
 
@@ -4061,7 +4267,7 @@ export default function Admin3Page() {
                         >
                           ط {pair.table ?? '—'}
                         </span>
-                        {pair.locked && (
+                        {!choiceOnly && pair.locked && (
                           <span className="text-[9px] text-amber-400 bg-amber-900/30 border border-amber-700/40 px-1.5 py-0.5 rounded-full flex-shrink-0 flex items-center gap-1">
                             <Shield size={8} /> {pair.isTestMode ? "مثبت مؤقت" : "مثبت"}
                           </span>
@@ -4075,7 +4281,7 @@ export default function Admin3Page() {
                         </div>
                         <ChevronRight size={12} className={`text-gray-600 flex-shrink-0 transition-transform ${expandedPhase3Pair === idx ? 'rotate-90' : ''}`} />
                       </button>
-                      {expandedPhase3Pair === idx && (
+                      {!choiceOnly && expandedPhase3Pair === idx && (
                         <div className="border-t border-gray-800/40 px-3 py-3 space-y-3 bg-gray-950/50">
                           <div className="flex gap-2">
                             <button
@@ -4189,11 +4395,11 @@ export default function Admin3Page() {
                   <h4 className="text-[11px] text-gray-500 font-semibold uppercase tracking-wider flex items-center gap-1.5">
                     <Table2 size={11} /> توزيع الطاولات
                   </h4>
-                  {([1, 2] as const).map(r => {
-                    const isEditingThis = editingTable?.num === p.number && editingTable?.round === r
+                  {groupRounds.map(r => {
+                    const isEditingThis = !choiceOnly && editingTable?.num === p.number && editingTable?.round === r
                     return (
                       <div key={r} className="flex items-center justify-between gap-2">
-                        <span className="text-xs text-gray-400 flex-shrink-0">الجولة {r === 1 ? 'الأولى' : 'الثانية'}</span>
+                        <span className="text-xs text-gray-400 flex-shrink-0">الجولة {r === 1 ? 'الأولى' : r === 2 ? 'الثانية' : 'الثالثة'}</span>
                         <div className="flex items-center gap-1.5 flex-shrink-0">
                           {isEditingThis ? (
                             <>
@@ -4216,7 +4422,11 @@ export default function Admin3Page() {
                             </>
                           ) : (
                             <>
-                              {tables[r] ? (
+                              {tables[r] ? choiceOnly ? (
+                                <span className="text-xs font-bold text-indigo-300 bg-indigo-900/30 px-2.5 py-1 rounded-lg border border-indigo-800/40" title="استخدم زر التبديل للحفاظ على 7 أشخاص في كل مجموعة">
+                                  طاولة {tables[r]}
+                                </span>
+                              ) : (
                                 <button
                                   onClick={() => setEditingTable({ num: p.number, round: r, value: String(tables[r]) })}
                                   className="text-xs font-bold text-indigo-300 bg-indigo-900/30 hover:bg-indigo-900/60 px-2.5 py-1 rounded-lg border border-indigo-800/40 hover:border-indigo-600/60 transition-all"
@@ -4224,6 +4434,8 @@ export default function Admin3Page() {
                                 >
                                   طاولة {tables[r]} ✏
                                 </button>
+                              ) : choiceOnly ? (
+                                <span className="text-xs text-gray-600">غير معيّنة</span>
                               ) : (
                                 <button
                                   onClick={() => setEditingTable({ num: p.number, round: r, value: '' })}
@@ -4424,7 +4636,7 @@ export default function Admin3Page() {
         const matchedCount = pts.filter(p => p.matchPartner).length
         const avgScores = pts.filter(p => p.matchCompatScore != null).map(p => p.matchCompatScore)
         const avgCompat = avgScores.length ? Math.round(avgScores.reduce((a: number, b: number) => a + b, 0) / avgScores.length) : null
-        const currentPhaseIdx = PHASES.findIndex(p => p.id === state?.phase)
+        const currentPhaseIdx = phases.findIndex(p => p.id === state?.phase)
         const allMales = pts.filter(p => p.gender === 'male')
         const allFemales = pts.filter(p => p.gender === 'female')
         const totalForBalance = allMales.length + allFemales.length
@@ -4456,10 +4668,10 @@ export default function Admin3Page() {
             </div>
 
             {/* ── Progress Timeline ── */}
-            {state && (
+            {state && previewEventId == null && (
               <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
                 <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-thin">
-                  {PHASES.map((phase, idx) => (
+                  {phases.map((phase, idx) => (
                     <div key={phase.id} className="flex items-center gap-1 flex-shrink-0">
                       <div className={`px-2 py-1 rounded-lg text-[9px] sm:text-[10px] font-medium transition-all ${
                         idx === currentPhaseIdx
@@ -4471,7 +4683,7 @@ export default function Admin3Page() {
                         {phase.icon} {phase.label}
                         {idx < currentPhaseIdx && <Check size={8} className="inline mr-1" />}
                       </div>
-                      {idx < PHASES.length - 1 && <span className="text-gray-700 text-[8px]">→</span>}
+                      {idx < phases.length - 1 && <span className="text-gray-700 text-[8px]">→</span>}
                     </div>
                   ))}
                 </div>
@@ -4550,6 +4762,7 @@ export default function Admin3Page() {
                       <th className="text-center px-2 py-2 text-gray-500 font-semibold">تعلّق</th>
                       <th className="text-center px-2 py-2 text-gray-500 font-semibold">ج١</th>
                       <th className="text-center px-2 py-2 text-gray-500 font-semibold">ج٢</th>
+                      {choiceOnly && <th className="text-center px-2 py-2 text-gray-500 font-semibold">ج٣</th>}
                       <th className="text-center px-2 py-2 text-gray-500 font-semibold">صوّت</th>
                       <th className="text-center px-2 py-2 text-gray-500 font-semibold">متوسط</th>
                       <th className="text-center px-2 py-2 text-gray-500 font-semibold">اختياره</th>
@@ -4569,14 +4782,14 @@ export default function Admin3Page() {
                         <>
                           {isFirstFemale && (
                             <tr key="divider-f" className="border-t-2 border-pink-900/40">
-                              <td colSpan={10} className="px-3 py-1 bg-pink-950/10">
+                              <td colSpan={choiceOnly ? 11 : 10} className="px-3 py-1 bg-pink-950/10">
                                 <span className="text-[9px] text-pink-600 font-semibold tracking-wider uppercase">إناث</span>
                               </td>
                             </tr>
                           )}
                           {i === 0 && p.gender === 'male' && (
                             <tr key="divider-m">
-                              <td colSpan={10} className="px-3 py-1 bg-blue-950/10">
+                              <td colSpan={choiceOnly ? 11 : 10} className="px-3 py-1 bg-blue-950/10">
                                 <span className="text-[9px] text-blue-600 font-semibold tracking-wider uppercase">ذكور</span>
                               </td>
                             </tr>
@@ -4607,6 +4820,11 @@ export default function Admin3Page() {
                             <td className="text-center px-2 py-2">
                               {p.r2Table != null ? <span className="text-indigo-300 font-bold">{p.r2Table}</span> : <span className="text-gray-700">—</span>}
                             </td>
+                            {choiceOnly && (
+                              <td className="text-center px-2 py-2">
+                                {p.r3Table != null ? <span className="text-violet-300 font-bold">{p.r3Table}</span> : <span className="text-gray-700">—</span>}
+                              </td>
+                            )}
                             <td className="text-center px-2 py-2">
                               {p.rankingSubmitted
                                 ? <span className="text-emerald-400 font-bold text-xs">✓{p.rankingCount}</span>
@@ -4684,6 +4902,7 @@ export default function Admin3Page() {
                         )}
                         {p.r1Table != null && <span className="text-indigo-300">ج١: {p.r1Table}</span>}
                         {p.r2Table != null && <span className="text-indigo-300">ج٢: {p.r2Table}</span>}
+                        {choiceOnly && p.r3Table != null && <span className="text-violet-300">ج٣: {p.r3Table}</span>}
                         {p.rankingSubmitted
                           ? <span className="text-emerald-400">✓ صوّت ({p.rankingCount})</span>
                           : <span className="text-gray-600">✗ لم يصوّت</span>}
@@ -5415,8 +5634,8 @@ export default function Admin3Page() {
             {feedbackData && (
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 {([
-                  {id:"phase2",label:"💘 اختيارك",submitted:feedbackData.phase2_submitted,total:feedbackData.phase2?.length??0,color:"pink"},
-                  {id:"phase3",label:"🧠 الخوارزمية",submitted:feedbackData.phase3_submitted,total:feedbackData.phase3?.length??0,color:"purple"},
+                  {id:"phase2",label:choiceOnly ? "💘 الاختيار الأول" : "💘 اختيارك",submitted:feedbackData.phase2_submitted,total:feedbackData.phase2?.length??0,color:"pink"},
+                  {id:"phase3",label:choiceOnly ? "💞 الاختيار الثاني" : "🧠 الخوارزمية",submitted:feedbackData.phase3_submitted,total:feedbackData.phase3?.length??0,color:"purple"},
                   {id:"groups",label:"👥 أفراد المجموعات",submitted:groupMemberFeedback.submissions.length,total:null,color:"violet",reviewers:groupMemberFeedback.reviewer_count??0},
                 ] as any[]).map(ph => (
                   <button key={ph.id} onClick={() => setFeedbackPhase(ph.id)}
@@ -5466,7 +5685,9 @@ export default function Admin3Page() {
 
           {/* Entries */}
           {feedbackPhase === "groups" ? (
-            <GroupFeedbackIntelligence data={groupMemberFeedback} seating={seating} dislikeRankings={dislikeRankings} eventId={previewEventId ?? realCurrentEventId} />
+            choiceOnly
+              ? <GroupMemberFeedbackPanel data={groupMemberFeedback} groupRoundCount={3} />
+              : <GroupFeedbackIntelligence data={groupMemberFeedback} seating={seating} dislikeRankings={dislikeRankings} eventId={previewEventId ?? realCurrentEventId} />
           ) : !feedbackData ? (
             <div className="text-center py-16">
               {feedbackLoading
@@ -5520,7 +5741,7 @@ export default function Admin3Page() {
                 <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-xs font-bold text-gray-300">تحليل المطابقة المتبادلة</span>
-                    <span className="text-[10px] text-gray-600">({feedbackPhase === "phase2" ? "اختيارك" : "الخوارزمية"})</span>
+                    <span className="text-[10px] text-gray-600">({feedbackPhase === "phase2" ? (choiceOnly ? "الاختيار الأول" : "اختيارك") : secondMatchLabel})</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div className="bg-gray-950/60 rounded-lg p-2 text-center">
@@ -5647,8 +5868,8 @@ export default function Admin3Page() {
                       {submitted.map((entry: any) => {
                         const fb = entry.feedback || {}
                         const mutualYes = entry.mutual_yes === true || (fb.wantConnect === true && entry.partner_feedback?.wantConnect === true)
-                        const prefLabel = entry.match_preference === 'choice' ? 'اختيار شخصي'
-                          : entry.match_preference === 'algorithm' ? 'الخوارزمية'
+                        const prefLabel = entry.match_preference === 'choice' ? (choiceOnly ? 'الاختيار الأول' : 'اختيار شخصي')
+                          : entry.match_preference === 'algorithm' ? (choiceOnly ? 'الاختيار الثاني' : 'الخوارزمية')
                           : entry.match_preference === 'both' ? 'كلاهما' : null
                         const pfbTop = entry.partner_feedback || {}
                         return (
@@ -5855,6 +6076,7 @@ export default function Admin3Page() {
             <FeedbackEditModal
               entry={editingFeedback.entry}
               phase={editingFeedback.phase}
+              choiceOnly={choiceOnly}
               onClose={() => setEditingFeedback(null)}
               onSave={async (newFb) => {
                 const ok = await handleEditFeedbackRef.current(editingFeedback.entry.participant_number, editingFeedback.phase, newFb)
@@ -5878,7 +6100,7 @@ export default function Admin3Page() {
                     <p className="text-[11px] text-gray-500 mt-0.5">
                       مقارنة مع {pairAnalysisResult?.partner?.name || analyzingPair.entry.partner_name} #{pairAnalysisResult?.partner?.number || analyzingPair.entry.partner_number}
                       {pairAnalysisResult?.alternative && (
-                        <span> مقابل شريك {pairAnalysisResult.alternative.phase === "phase3" ? "الخوارزمية" : "اختيار المشاركين"}: {pairAnalysisResult.alternative.name} #{pairAnalysisResult.alternative.number}</span>
+                        <span> مقابل شريك {pairAnalysisResult.alternative.phase === "phase3" ? secondMatchLabel : firstMatchLabel}: {pairAnalysisResult.alternative.name} #{pairAnalysisResult.alternative.number}</span>
                       )}
                     </p>
                   </div>
@@ -5904,7 +6126,7 @@ export default function Admin3Page() {
                       </div>
                       {pairAnalysisResult.alternative && (
                         <div className="mt-2 text-[11px] text-gray-400">
-                          مقارنةً بشريك {pairAnalysisResult.alternative.phase === "phase3" ? "الخوارزمية" : "اختيار المشاركين"}: <span className="text-amber-300 font-semibold">{pairAnalysisResult.alternative.name} #{pairAnalysisResult.alternative.number}</span>
+                          مقارنةً بشريك {pairAnalysisResult.alternative.phase === "phase3" ? secondMatchLabel : firstMatchLabel}: <span className="text-amber-300 font-semibold">{pairAnalysisResult.alternative.name} #{pairAnalysisResult.alternative.number}</span>
                         </div>
                       )}
                     </div>
@@ -6412,7 +6634,7 @@ export default function Admin3Page() {
       )}
 
       {/* ── Immediate Algorithm Replacement Modal ───────────────────── */}
-      {immediateAlgorithmReplacement && (() => {
+      {!choiceOnly && immediateAlgorithmReplacement && (() => {
         const normalizedSearch = immediateReplacementSearch.trim().toLocaleLowerCase()
         const availableParticipants = participants
           .filter(p => p.selected && p.number !== immediateAlgorithmReplacement.missingNum && p.number !== immediateAlgorithmReplacement.currentPartnerNum)
@@ -6444,14 +6666,16 @@ export default function Admin3Page() {
             <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[94vw] max-w-2xl bg-gray-900 border border-red-900/50 rounded-2xl shadow-2xl overflow-hidden" dir="rtl">
               <div className="flex items-center justify-between p-4 border-b border-gray-800">
                 <div>
-                  <h3 className="font-bold text-white text-sm">استبدال فوري — مطابقة الخوارزمية</h3>
+                  <h3 className="font-bold text-white text-sm">استبدال فوري — مطابقة {secondMatchLabel}</h3>
                   <p className="text-[11px] text-gray-500 mt-0.5">استبدال {immediateAlgorithmReplacement.missingName} من هذه الجلسة الآن</p>
                 </div>
                 <button onClick={closeImmediateAlgorithmReplacement} className="p-2 rounded-xl hover:bg-gray-800 text-gray-500 hover:text-white transition-colors">✕</button>
               </div>
               <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
                 <div className="rounded-lg border border-red-800/40 bg-red-950/20 px-3 py-2 text-[11px] leading-relaxed text-red-200">
-                  التغيير يخص مطابقة الخوارزمية فقط. يمكنك اختيار أي مشارك محدد مهما كان جنسه. ستتحدث شاشات الشركاء والطاولات تلقائياً، بينما تبقى جولات المجموعات ومطابقة اختيار المشاركين كما هي.
+                  {choiceOnly
+                    ? "التغيير يخص الاختيار الثاني فقط. ستتحدث شاشات الشركاء والطاولات تلقائياً، بينما تبقى جولات المجموعات والاختيار الأول كما هي."
+                    : "التغيير يخص مطابقة الخوارزمية فقط. يمكنك اختيار أي مشارك محدد مهما كان جنسه. ستتحدث شاشات الشركاء والطاولات تلقائياً، بينما تبقى جولات المجموعات ومطابقة اختيار المشاركين كما هي."}
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs">
@@ -6583,7 +6807,7 @@ export default function Admin3Page() {
 
       {/* ── Swap Match Modal ─────────────────────────────────────────── */}
       {swapMatch && (() => {
-        const phaseLabel = swapMatch.phase === "phase2" ? "اختيارك" : "الخوارزمية"
+        const phaseLabel = swapMatch.phase === "phase2" ? (choiceOnly ? "الاختيار الأول" : "اختيارك") : secondMatchLabel
         const currentPairs = swapMatch.phase === "phase2" ? matchPairs : phase3Pairs
         const availableParticipants = participants.filter(p =>
           p.number !== swapMatch.missingNum &&
@@ -6602,7 +6826,7 @@ export default function Admin3Page() {
               </div>
               <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
                 <div className="rounded-lg border border-amber-800/40 bg-amber-950/20 px-3 py-2 text-[11px] leading-relaxed text-amber-300">
-                  البديل سيأخذ مكان المشارك الغائب في جميع الطاولات والمراحل والمطابقات المقفلة والتقييمات، وليس في هذه الجلسة فقط.
+                  البديل سيأخذ مكان المشارك الغائب في جميع الطاولات والمراحل و{choiceOnly ? "مطابقات الاختيارين" : "المطابقات المقفلة"} والتقييمات، وليس في هذه الجلسة فقط.
                 </div>
                 <p className="text-xs text-gray-400">اختر المشارك البديل:</p>
                 <div className="space-y-1.5">
@@ -6663,7 +6887,7 @@ export default function Admin3Page() {
               <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
                 <div className="bg-red-900/20 border border-red-800/30 rounded-lg px-3 py-2.5">
                   <p className="text-[11px] text-red-300 leading-relaxed">
-                    سيتم التبديل دفعة واحدة في كل الجولات الحالية والقادمة، المطابقات المقفلة في لوحة النتائج، التصنيفات، التقييمات، الملاحظات والإشعارات. ستُعاد درجات الأزواج المتأثرة تلقائياً، ولن يظهر أي تغيير جزئي إذا تعذّر التنفيذ.
+                    سيتم التبديل دفعة واحدة في كل الجولات الحالية والقادمة، {choiceOnly ? "مطابقات الاختيارين" : "المطابقات المقفلة"} في لوحة النتائج، التصنيفات، التقييمات، الملاحظات والإشعارات. ستُعاد درجات الأزواج المتأثرة تلقائياً، ولن يظهر أي تغيير جزئي إذا تعذّر التنفيذ.
                   </p>
                 </div>
                 <p className="text-xs text-gray-400">اختر المشارك الذي سيأخذ مكانه فوراً:</p>

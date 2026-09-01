@@ -1,6 +1,6 @@
 # Event3 ranking completion
 
-Leaving `ranking1` or `ranking2` finalizes every enrolled participant's ballot in
+Leaving `ranking1`, `ranking2`, or the choice-only edition's `ranking3` finalizes every enrolled participant's ballot in
 the same database transaction as the phase update. It uses the latest synced
 unfinished order for that round. Without a valid draft, it preserves saved
 choices and appends missing tablemates in first-meeting round / participant-number
@@ -21,8 +21,10 @@ people. The screen displays whether its draft has synced.
 ## Rollout
 
 1. Apply `supabase/migrations/20260830085709_complete_event3_rankings_on_phase_exit.sql`.
-2. Deploy the updated participant and admin APIs and screens together.
-3. Verify a test event with first-round-only ballots, then advance from the
+2. Apply `supabase/migrations/20260901104855_add_event3_choice_only_three_groups.sql`
+   before enabling the three-round event format.
+3. Deploy the updated participant and admin APIs and screens together.
+4. Verify a test event with first-round-only ballots, then advance from the
    final ranking screen before its timer ends. Confirm every ballot includes
    the participant's actual tablemates.
 

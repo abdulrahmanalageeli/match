@@ -35,6 +35,16 @@ test('summarizes absolute experiences instead of repeating rank order', () => {
   ])
 })
 
+test('accepts third-round feedback for the choice-only edition', () => {
+  const result = normalizeGroupMemberFeedback({
+    groupRound: 3,
+    reviewerNumber: 7,
+    allowedNumbers: new Set([8]),
+    entries: [{ member_number: 8, experience: 'good', tags: ['comfortable'] }],
+  })
+  assert.equal(result.value.groupRound, 3)
+})
+
 test('confidence weighting prevents a single positive review from outranking a supported pattern', () => {
   const rows = [
     { member_number: 1, group_round: 1, experience: 'great', tags: ['fun'] },

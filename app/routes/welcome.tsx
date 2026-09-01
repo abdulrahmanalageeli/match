@@ -98,6 +98,16 @@ import { motion, AnimatePresence } from "framer-motion"
 import confetti from "canvas-confetti"
 // Use layout effect only on client to avoid SSR warnings
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
+const CHOICE_ONLY_EVENT_FORMAT = 'choice_only_three_groups'
+
+function isChoiceOnlyEventPayload(value: any) {
+  return value?.event_format === CHOICE_ONLY_EVENT_FORMAT
+}
+
+function pendingFeedbackPhaseLabel(value: any) {
+  if (isChoiceOnlyEventPayload(value)) return value?.phase === 'phase2' ? 'الاختيار الأول' : 'الاختيار الثاني'
+  return value?.phase === 'phase2' ? 'اختيارك' : 'اختيارنا'
+}
 
 // Applies consistent keyboard and focus behavior to the route's legacy custom overlays.
 // Radix dialogs already provide this behavior and are intentionally excluded.
@@ -8154,7 +8164,7 @@ export default function WelcomePage() {
                                       ? "bg-pink-500/15 text-pink-300 border border-pink-500/20"
                                       : "bg-purple-500/15 text-purple-300 border border-purple-500/20"
                                   }`}>
-                                    {pf.phase === "phase2" ? "اختيارك" : "اختيارنا"}
+                                    {pendingFeedbackPhaseLabel(pf)}
                                   </span>
                                   <span className="text-gray-400 text-xs">فعالية #{pf.event_id}</span>
                                   <span className="text-gray-500 text-xs">·</span>
@@ -13028,6 +13038,7 @@ function RemoteFeedbackModal({ pending, index, token, onClose, onSubmitted }: {
   const STEPS = 5
   const current = pending[index]
   const isPhase2 = current?.phase === "phase2"
+  const choiceOnly = isChoiceOnlyEventPayload(current)
   const partnerName = current?.partner_name || "—"
 
   const goNext = (patch?: Partial<typeof fb>) => {
@@ -13138,7 +13149,7 @@ function RemoteFeedbackModal({ pending, index, token, onClose, onSubmitted }: {
           <span className={`text-[10px] font-bold rounded-full px-2.5 py-1 ${
             isPhase2 ? "bg-pink-500/15 text-pink-300 border border-pink-500/20" : "bg-purple-500/15 text-purple-300 border border-purple-500/20"
           }`}>
-            {isPhase2 ? "اختيارك" : "اختيارنا"}
+            {choiceOnly ? (isPhase2 ? "الاختيار الأول" : "الاختيار الثاني") : (isPhase2 ? "اختيارك" : "اختيارنا")}
           </span>
           <span className="text-gray-500 text-xs">فعالية #{current?.event_id}</span>
         </div>

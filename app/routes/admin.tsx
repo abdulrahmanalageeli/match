@@ -70,6 +70,7 @@ import PairAnalysisModal from "~/components/PairAnalysisModalPro"
 import { HistoryConfidencePanel } from "~/components/HistoryConfidenceBadge"
 import { getParticipantMatchInsightsCompletion } from "~/lib/matchControl"
 import { matchesParticipantConfirmationFilter } from "~/lib/participant-confirmation-filter.mjs"
+import { LEGAL_DOCUMENT_VERSION } from "~/lib/legal"
 import {
   CURRENT_BALANCED_SCORE_MODEL,
   isCurrentBalancedScoreRow,
@@ -247,6 +248,18 @@ const eventTimeScoreForPair = (pair: any) => {
     sharedContext: breakdown.sharedContext,
     version: pair.score_model_version,
   }
+}
+
+function hasParticipantHistory(participant: any) {
+  return Boolean(participant?.survey_data)
+    && typeof participant.survey_data === "object"
+    && Object.keys(participant.survey_data).length > 0
+}
+
+function hasAcceptedCurrentLegalVersion(participant: any) {
+  return participant?.terms_version === LEGAL_DOCUMENT_VERSION
+    && participant?.privacy_notice_version === LEGAL_DOCUMENT_VERSION
+    && Boolean(participant?.consented_at)
 }
 
 function getOppositesBreakdownForDisplay(data: any, result: any = data?.result || {}) {
@@ -752,6 +765,7 @@ export default function AdminPage() {
   const [whatsappFilter, setWhatsappFilter] = useState(() => isCohost ? "not_sent" : "all") // "all", "sent", "not_sent"
   const [matchInsightsFilter, setMatchInsightsFilter] = useState("all") // "all", "complete", "incomplete"
   const [signupFilter, setSignupFilter] = useState("all") // "all", "manual", "auto"
+  const [legalAcceptanceFilter, setLegalAcceptanceFilter] = useState("all") // "all", "accepted", "pending"
   const [showDuplicatePhones, setShowDuplicatePhones] = useState(false)
   const [surveyChangeCounts, setSurveyChangeCounts] = useState<Record<number, { count: number; hasSuspicious: boolean }>>({})
   const [surveyHistoryModal, setSurveyHistoryModal] = useState<{ participant: any; history: any[]; loading: boolean } | null>(null)
@@ -3928,6 +3942,16 @@ const fetchParticipants = async () => {
     return dupes
   }, [participants])
 
+  const legalAcceptanceStats = useMemo(() => {
+    const returningParticipants = participants.filter(hasParticipantHistory)
+    const accepted = returningParticipants.filter(hasAcceptedCurrentLegalVersion).length
+    return {
+      total: returningParticipants.length,
+      accepted,
+      pending: returningParticipants.length - accepted,
+    }
+  }, [participants])
+
   // Performance: Use useMemo to cache filtered participants (only recalculate when dependencies change)
   const filteredParticipants = useMemo(() => {
     // Reset visible count when filters change to show first batch
@@ -4027,6 +4051,13 @@ const fetchParticipants = async () => {
       const matchesMatchInsights = matchInsightsFilter === "all" || (
         matchInsightsFilter === "complete" ? insightsCompletion.complete : !insightsCompletion.complete
       )
+
+      const acceptedCurrentLegalVersion = hasAcceptedCurrentLegalVersion(p)
+      const matchesLegalAcceptance = legalAcceptanceFilter === "all" || (
+        legalAcceptanceFilter === "accepted"
+          ? acceptedCurrentLegalVersion
+          : hasParticipantHistory(p) && !acceptedCurrentLegalVersion
+      )
       
       // Signup type filter
       let matchesSignup = true
@@ -4039,7 +4070,7 @@ const fetchParticipants = async () => {
       // Duplicate phone filter
       const matchesDuplicatePhone = !showDuplicatePhones || duplicatePhoneNumbers.has((p.phone_number || "").replace(/\D/g, ""))
       
-      return matchesSearch && isEligible && matchesEligibleSub && matchesGender && matchesPayment && matchesConfirmation && matchesWhatsapp && matchesMatchInsights && matchesSignup && matchesDuplicatePhone
+      return matchesSearch && isEligible && matchesEligibleSub && matchesGender && matchesPayment && matchesConfirmation && matchesWhatsapp && matchesMatchInsights && matchesLegalAcceptance && matchesSignup && matchesDuplicatePhone
     })
 
     // Sort the filtered results
@@ -4068,7 +4099,7 @@ const fetchParticipants = async () => {
       }
       return 0
     })
-  }, [participants, debouncedSearch, searchByPhone, showEligibleOnly, eligibleSubFilter, genderFilter, paymentFilter, confirmationFilter, whatsappFilter, matchInsightsFilter, signupFilter, sortBy, currentEventId, excludedParticipants, showDuplicatePhones, duplicatePhoneNumbers])
+  }, [participants, debouncedSearch, searchByPhone, showEligibleOnly, eligibleSubFilter, genderFilter, paymentFilter, confirmationFilter, whatsappFilter, matchInsightsFilter, legalAcceptanceFilter, signupFilter, sortBy, currentEventId, excludedParticipants, showDuplicatePhones, duplicatePhoneNumbers])
   
   // Virtualized participants - only show a subset for performance
   const visibleParticipants = useMemo(() => {
@@ -8103,6 +8134,25 @@ Proceed?`
               <ChevronRight className="absolute right-2 top-1/2 -translate-y-1/2 rotate-90 w-4 h-4 text-slate-400 pointer-events-none" />
             </div>
 
+            {/* Legal acceptance filter */}
+            <div className="relative">
+              <select
+                value={legalAcceptanceFilter}
+                onChange={(e) => setLegalAcceptanceFilter(e.target.value)}
+                title={`Legal update ${LEGAL_DOCUMENT_VERSION}: ${legalAcceptanceStats.accepted} accepted, ${legalAcceptanceStats.pending} pending`}
+                className={`appearance-none rounded-xl border px-4 py-2 pr-8 text-sm focus:outline-none focus:ring-2 transition-all duration-300 ${
+                  legalAcceptanceFilter !== "all"
+                    ? "bg-cyan-500/20 border-cyan-400/50 text-cyan-200 focus:ring-cyan-400/50"
+                    : "bg-white/10 border-white/20 text-slate-300 focus:ring-slate-400/50"
+                }`}
+              >
+                <option value="all" className="bg-slate-800 text-white">Legal {legalAcceptanceStats.accepted}/{legalAcceptanceStats.total}</option>
+                <option value="accepted" className="bg-slate-800 text-white">Legal Accepted ({legalAcceptanceStats.accepted})</option>
+                <option value="pending" className="bg-slate-800 text-white">Legal Pending ({legalAcceptanceStats.pending})</option>
+              </select>
+              <ChevronRight className={`absolute right-2 top-1/2 -translate-y-1/2 rotate-90 h-4 w-4 pointer-events-none ${legalAcceptanceFilter !== "all" ? "text-cyan-300" : "text-slate-400"}`} />
+            </div>
+
             {/* Signup Type Filter */}
             <div className="relative">
               <select
@@ -8167,7 +8217,7 @@ Proceed?`
               </button>
             )}
 
-            {(showEligibleOnly || eligibleSubFilter !== "none" || genderFilter !== "all" || paymentFilter !== "all" || confirmationFilter !== "all" || whatsappFilter !== "all" || matchInsightsFilter !== "all" || signupFilter !== "all" || showDuplicatePhones) && (
+            {(showEligibleOnly || eligibleSubFilter !== "none" || genderFilter !== "all" || paymentFilter !== "all" || confirmationFilter !== "all" || whatsappFilter !== "all" || matchInsightsFilter !== "all" || legalAcceptanceFilter !== "all" || signupFilter !== "all" || showDuplicatePhones) && (
               <div className="bg-green-500/20 backdrop-blur-sm border border-green-400/30 rounded-xl px-3 py-2">
                 <span className="text-green-300 text-sm">Filtered: </span>
                 <span className="font-bold text-green-200">{filteredParticipants.length}</span>
@@ -8337,6 +8387,8 @@ Proceed?`
               const isUnpaid = p.attendance_confirmed === true && p.PAID === true && !isPaid;
               const isCurrentEvent = p.event_id === currentEventId;
               const isNextEvent = p.signup_for_next_event === true || p.auto_signup_next_event === true;
+              const acceptedCurrentLegalVersion = hasAcceptedCurrentLegalVersion(p);
+              const needsLegalAcceptance = hasParticipantHistory(p) && !acceptedCurrentLegalVersion;
               
               let borderColor = 'border-white/20'; // Default
               let borderGlow = '';
@@ -8575,6 +8627,23 @@ Proceed?`
                         </div>
                       )
                     })()}
+
+                    {(acceptedCurrentLegalVersion || needsLegalAcceptance) && (
+                      <div className="mb-3 flex justify-center">
+                        <span
+                          className={`rounded-full border px-2 py-1 text-[10px] font-bold ${
+                            acceptedCurrentLegalVersion
+                              ? "border-cyan-400/25 bg-cyan-500/10 text-cyan-200"
+                              : "border-amber-400/30 bg-amber-500/10 text-amber-200"
+                          }`}
+                          title={acceptedCurrentLegalVersion
+                            ? `Accepted terms and privacy ${LEGAL_DOCUMENT_VERSION} at ${p.consented_at}`
+                            : `Updated terms and privacy ${LEGAL_DOCUMENT_VERSION} still pending`}
+                        >
+                          {acceptedCurrentLegalVersion ? `Legal ${LEGAL_DOCUMENT_VERSION} ✓` : "Legal update pending"}
+                        </span>
+                      </div>
+                    )}
 
                     {/* Co-host Mobile: status pill under name */}
                     {isCohost && (

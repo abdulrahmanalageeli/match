@@ -1,6 +1,8 @@
 // A ballot is complete only when it includes every distinct group tablemate.
 export function rankingRoundsForPhase(phase) {
-  return ["setup", "round1", "ranking1", "round2"].includes(phase) ? 1 : 2
+  if (["setup", "round1", "ranking1", "round2"].includes(phase)) return 1
+  if (["ranking2", "round3"].includes(phase)) return 2
+  return 3
 }
 
 export function buildRankingCompletion(assignments, rankings, completedRounds) {
@@ -35,10 +37,13 @@ export function buildRankingCompletion(assignments, rankings, completedRounds) {
 export async function loadRankingCompletion(supabase, matchId, eventId, rankings) {
   const [state, assignments] = await Promise.all([
     supabase.from("event_state").select("phase,current_event_id").eq("match_id", matchId).single(),
-    supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", matchId).eq("event_id", eventId).in("round", [1, 2]),
+    supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", matchId).eq("event_id", eventId).in("round", [1, 2, 3]),
   ])
   if (state.error) throw state.error
   if (assignments.error) throw assignments.error
-  const rounds = Number(state.data.current_event_id) === Number(eventId) ? rankingRoundsForPhase(state.data.phase) : 2
+  const configuredRounds = assignments.data?.some(row => Number(row.round) === 3) ? 3 : 2
+  const rounds = Number(state.data.current_event_id) === Number(eventId)
+    ? Math.min(configuredRounds, rankingRoundsForPhase(state.data.phase))
+    : configuredRounds
   return buildRankingCompletion(assignments.data || [], rankings, rounds)
 }

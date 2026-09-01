@@ -10,6 +10,8 @@ import {
 import { Analytics } from "@vercel/analytics/react";
 
 import type { Route } from "./+types/root";
+import { LegalAcceptanceGate } from "./components/LegalAcceptanceGate";
+import { LegalFooter } from "./components/LegalFooter";
 import { redactAnalyticsUrl } from "./lib/analytics";
 import "./app.css";
 
@@ -34,7 +36,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const isEvent3 = location.pathname === "/event3" || location.pathname.startsWith("/event3/");
   const isCohost = location.pathname === "/admin-cohost" || location.pathname.startsWith("/admin-cohost/");
   const isMobileViewport = isEvent3 || isCohost || isTheRoom;
-  const isArabicLayout = isCohost || isTheRoom;
+  const publicArabicRoutes = ["/welcome", "/terms", "/privacy", "/privacy-request", "/about"];
+  const isArabicLayout = isCohost || isTheRoom || publicArabicRoutes.includes(location.pathname);
+  const showLegalFooter = publicArabicRoutes.includes(location.pathname);
   const viewportContent = isMobileViewport
     ? "width=device-width, initial-scale=1, viewport-fit=cover"
     : "width=device-width, initial-scale=1";
@@ -56,6 +60,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
+        <LegalAcceptanceGate />
+        {showLegalFooter ? <LegalFooter /> : null}
         <ScrollRestoration />
         <Scripts />
         <Analytics beforeSend={redactAnalyticsUrl} />

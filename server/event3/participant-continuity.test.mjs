@@ -60,3 +60,32 @@ test("Event3 transport failures are structured as retriable and polling retains 
   assert.match(call, /http_status: 0,[\s\S]*retryable: true/)
   assert.doesNotMatch(pollCatch, /setData\(/, "transient polling failures must not erase the last successful heartbeat")
 })
+
+test("Event3 tokenless walkthrough loads only the public format contract before rendering", async () => {
+  const api = await read("api/participant.mjs")
+  const route = await read("app/routes/event3.tsx")
+  const publicAction = between(
+    api,
+    "if (action === \"e3-get-public-format\")",
+    "// Test mode uses real participant records",
+  )
+
+  assert.match(publicAction, /return res\.status\(200\)\.json\(\{\s*event_format: eventFormat,\s*group_round_count: groupRoundCount,\s*\}\)/)
+  assert.doesNotMatch(publicAction, /\b(?:phase|event_id|participant|test_mode)\s*:/)
+  assert.match(route, /call\("e3-get-public-format", null\)/)
+  assert.match(route, /eventState\?\.event_format \?\? publicFormatState\?\.event_format/)
+  assert.match(route, /if \(showWelcome && publicFormatLoading && !publicFormatState && !eventState\)/)
+})
+
+test("Event3 results and cohost keep edition-aware top-level fallbacks", async () => {
+  const api = await read("api/participant.mjs")
+  const resultsRoute = await read("app/routes/results.tsx")
+  const cohostRoute = await read("app/routes/admin-cohost.tsx")
+  const resultsAction = between(api, "// GET MATCH RESULTS BY TOKEN ACTION", "// CHECK FEEDBACK SUBMITTED ACTION")
+  const resultsSetter = between(resultsRoute, "setResultsData({", "setError(null)")
+  const classicPhaseLabels = between(cohostRoute, "const PHASE_LABELS", "function phaseLabel")
+
+  assert.match(resultsAction, /const resultsEventFormat = await loadEvent3Format\([\s\S]*event_format: resultsEventFormat/)
+  assert.match(resultsSetter, /event_format: data\.event_format \?\? null/)
+  assert.match(classicPhaseLabels, /phase3_processing: "تجهيز ترشيح النظام"/)
+})

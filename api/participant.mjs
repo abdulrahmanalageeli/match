@@ -1,5 +1,8 @@
 import OpenAI from "openai"
-import { canAccessEvent3DuringTest } from "../server/event3/test-access.mjs"
+import {
+  canAccessEvent3DuringTest,
+  isEvent3TestImpersonation,
+} from "../server/event3/test-access.mjs"
 import { buildWelcomePrompt } from "./admin/ai-welcome-prompt.mjs"
 import { supabaseAdmin } from "../server/security/supabase-admin.mjs"
 import { enforceRateLimit } from "../server/security/request-security.mjs"
@@ -24,16 +27,41 @@ import { isEvent3SignedUp } from "../server/event3/enrollment.mjs"
 import { normalizeGroupMemberFeedback } from "../server/event3/group-member-feedback.mjs"
 import { getEvent3PhaseTimerSeconds } from "../server/event3/timing.mjs"
 import {
+  event3GroupRoundCount,
+  isChoiceOnlyEvent3,
+  loadEvent3Format,
+} from "../server/event3/event-format.mjs"
+import {
   isPlausibleParticipantPhone,
   normalizeParticipantPhone,
   participantPhoneToE164,
   shouldCheckParticipantPhoneOwnership,
 } from "../server/participants/phone-normalization.mjs"
 import { validateProfileDataCollection } from "../server/participants/profile-data-collection.mjs"
+import {
+  LEGAL_DOCUMENT_VERSION,
+  LEGAL_PRIVACY_NOTICE_VERSION,
+  LEGAL_TERMS_VERSION,
+  buildLegalAcceptanceRow,
+  hasCurrentLegalAcceptance,
+  shouldRequireLegalAcceptance,
+} from "../server/participants/legal-acceptance.mjs"
 
 // In-memory cache for e3 token resolution (5 min TTL) to reduce Supabase API load
 const _e3TokenCache = new Map() // token -> { participant, expiresAt }
 const E3_TOKEN_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
+
+const EVENT3_POST_GROUP_PHASES = new Set([
+  "phase2_processing", "break", "phase2_reveal", "phase3_processing", "phase3_reveal", "final",
+])
+const EVENT3_FIRST_MATCH_REVEAL_PHASES = new Set(["phase2_reveal", "phase3_processing", "phase3_reveal", "final"])
+const EVENT3_SECOND_MATCH_REVEAL_PHASES = new Set(["phase3_reveal", "final"])
+
+function event3ReachedGroupRounds(phase, maximumRounds) {
+  const phaseRound = Number(String(phase || "").match(/^(?:round|ranking)([123])$/)?.[1] || 0)
+  if (phaseRound > 0) return Math.min(phaseRound, maximumRounds)
+  return EVENT3_POST_GROUP_PHASES.has(String(phase || "")) ? maximumRounds : 0
+}
 
 // Add better error logging
 const logError = (context, error) => {
@@ -312,6 +340,99 @@ export default async function handler(req, res) {
 
   const { action } = req.body
   if (!String(action).startsWith("e3-") && !enforceRateLimit(req, res, { key: "participant-api", limit: 120, windowMs: 60_000 })) return
+
+  if (action === "legal-acceptance-status" || action === "accept-legal-update") {
+    const secureToken = String(req.body?.secure_token || "").trim()
+    if (!secureToken) return res.status(401).json({ error: "A participant token is required" })
+    if (!enforceRateLimit(req, res, { key: `legal-acceptance-${action}`, limit: 20, windowMs: 60 * 60_000 })) return
+
+    const { data: participant, error: participantError } = await supabase
+      .from("participants")
+      .select("id,assigned_number,survey_data,terms_version,privacy_notice_version,consented_at,event_id")
+      .eq("match_id", process.env.CURRENT_MATCH_ID || STATIC_MATCH_ID)
+      .eq("secure_token", secureToken)
+      .maybeSingle()
+
+    if (participantError) {
+      logError("Legal acceptance participant lookup", participantError)
+      return res.status(503).json({ error: "Could not verify participant identity", retryable: true })
+    }
+    if (!participant) return res.status(404).json({ error: "Participant not found" })
+
+    const { data: acceptance, error: acceptanceError } = await supabase
+      .from("participant_legal_acceptances")
+      .select("document_bundle_version,terms_version,privacy_notice_version,accepted_at,acceptance_source")
+      .eq("participant_id", participant.id)
+      .eq("document_bundle_version", LEGAL_DOCUMENT_VERSION)
+      .maybeSingle()
+
+    const migrationRequired = Boolean(acceptanceError && (
+      ["42P01", "PGRST202", "PGRST205"].includes(acceptanceError.code)
+      || String(acceptanceError.message || "").includes("participant_legal_acceptances")
+    ))
+    if (acceptanceError && !migrationRequired) {
+      logError("Legal acceptance lookup", acceptanceError)
+      return res.status(503).json({ error: "Could not verify legal acceptance", retryable: true })
+    }
+
+    if (action === "legal-acceptance-status") {
+      return res.status(200).json({
+        document_bundle_version: LEGAL_DOCUMENT_VERSION,
+        terms_version: LEGAL_TERMS_VERSION,
+        privacy_notice_version: LEGAL_PRIVACY_NOTICE_VERSION,
+        accepted: hasCurrentLegalAcceptance(participant, acceptance),
+        requires_acceptance: shouldRequireLegalAcceptance(participant, acceptance),
+        accepted_at: acceptance?.accepted_at || (
+          participant.terms_version === LEGAL_TERMS_VERSION
+          && participant.privacy_notice_version === LEGAL_PRIVACY_NOTICE_VERSION
+            ? participant.consented_at
+            : null
+        ),
+        migration_required: migrationRequired,
+      })
+    }
+
+    if (req.body?.terms_accepted !== true || req.body?.privacy_acknowledged !== true) {
+      return res.status(400).json({ error: "Explicit acceptance of both documents is required" })
+    }
+    if (migrationRequired) {
+      return res.status(501).json({ error: "Legal acceptance storage is not deployed", migration_required: true })
+    }
+
+    const acceptedAt = new Date().toISOString()
+    const row = buildLegalAcceptanceRow(participant, {
+      eventId: participant.event_id,
+      acceptedAt,
+      source: "participant_popup",
+    })
+    const { data: saved, error: saveError } = await supabase.rpc("record_participant_legal_acceptance", {
+      p_participant_id: row.participant_id,
+      p_assigned_number: row.assigned_number,
+      p_document_bundle_version: row.document_bundle_version,
+      p_terms_version: row.terms_version,
+      p_privacy_notice_version: row.privacy_notice_version,
+      p_acceptance_source: row.acceptance_source,
+      p_event_id: row.event_id,
+      p_accepted_at: row.accepted_at,
+      p_document_urls: row.document_urls,
+    })
+    if (saveError) {
+      const rpcMissing = saveError.code === "PGRST202"
+        || String(saveError.message || "").includes("record_participant_legal_acceptance")
+      logError("Recording legal acceptance", saveError)
+      return res.status(rpcMissing ? 501 : 503).json({
+        error: rpcMissing ? "Legal acceptance migration is required" : "Could not record acceptance",
+        migration_required: rpcMissing,
+        retryable: !rpcMissing,
+      })
+    }
+
+    return res.status(200).json({
+      accepted: true,
+      accepted_at: saved?.accepted_at || acceptedAt,
+      document_bundle_version: LEGAL_DOCUMENT_VERSION,
+    })
+  }
 
   // TOKEN HANDLER ACTIONS
   if (action === "create-token") {
@@ -971,6 +1092,8 @@ export default async function handler(req, res) {
 
           for (const e3Match of e3Matches) {
             const evId = e3Match.event_id || 20
+            const historicalEventFormat = await loadEvent3Format(supabase, E3_MATCH_ID, evId)
+            const isChoiceOnlyHistory = historicalEventFormat === "choice_only_three_groups"
             let p2PartnerFb = null, p3PartnerFb = null
             if (e3Match.phase2_partner) {
               const { data: p2Row } = await supabase.from("event3_matches").select("phase2_feedback").eq("match_id", E3_MATCH_ID).eq("event_id", evId).eq("participant_number", e3Match.phase2_partner).maybeSingle()
@@ -1014,9 +1137,10 @@ export default async function handler(req, res) {
                 created_at: null,
                 ai_personality_analysis: null,
                 event_id: evId,
+                event_format: historicalEventFormat,
                 partner_message: null,
                 match_type: "choice",
-                match_label: "اختيارك الشخصي",
+                match_label: isChoiceOnlyHistory ? "اختيارك الأول" : "اختيارك الشخصي",
                 match_word: e3Match.phase2_word || null,
                 breakdown: p2Breakdown,
                 match_preference: e3Match.match_preference || null,
@@ -1075,9 +1199,10 @@ export default async function handler(req, res) {
                 created_at: null,
                 ai_personality_analysis: null,
                 event_id: evId,
+                event_format: historicalEventFormat,
                 partner_message: null,
                 match_type: "algorithm",
-                match_label: "اختيار الخوارزمية",
+                match_label: isChoiceOnlyHistory ? "اختيارك الثاني" : "اختيار الخوارزمية",
                 match_word: e3Match.phase3_word || null,
                 breakdown: p3Breakdown,
                 match_preference: e3Match.match_preference || null,
@@ -1444,8 +1569,8 @@ export default async function handler(req, res) {
             redLines,
           },
         }
-        updateFields.terms_version = "2026-08-06"
-        updateFields.privacy_notice_version = "2026-08-06"
+        updateFields.terms_version = LEGAL_TERMS_VERSION
+        updateFields.privacy_notice_version = LEGAL_PRIVACY_NOTICE_VERSION
         updateFields.consented_at = new Date().toISOString()
         updateFields.marketing_consent = survey_data.marketingConsent === true
 
@@ -1767,6 +1892,41 @@ export default async function handler(req, res) {
         }
       }
 
+      if (survey_data && updateFields.consented_at) {
+        const { data: acceptedParticipant, error: acceptedParticipantError } = await supabase
+          .from("participants")
+          .select("id,assigned_number,event_id")
+          .eq("match_id", match_id)
+          .eq("assigned_number", assigned_number)
+          .maybeSingle()
+        if (acceptedParticipantError) {
+          logError("Survey legal acceptance participant lookup", acceptedParticipantError)
+        } else if (acceptedParticipant) {
+          const acceptanceRow = buildLegalAcceptanceRow(acceptedParticipant, {
+            source: "survey_registration",
+            eventId: acceptedParticipant.event_id,
+            acceptedAt: updateFields.consented_at,
+          })
+          const { error: acceptanceError } = await supabase.rpc("record_participant_legal_acceptance", {
+            p_participant_id: acceptanceRow.participant_id,
+            p_assigned_number: acceptanceRow.assigned_number,
+            p_document_bundle_version: acceptanceRow.document_bundle_version,
+            p_terms_version: acceptanceRow.terms_version,
+            p_privacy_notice_version: acceptanceRow.privacy_notice_version,
+            p_acceptance_source: acceptanceRow.acceptance_source,
+            p_event_id: acceptanceRow.event_id,
+            p_accepted_at: acceptanceRow.accepted_at,
+            p_document_urls: acceptanceRow.document_urls,
+          })
+          if (acceptanceError) {
+            console.warn("Survey acceptance ledger write was unavailable", {
+              code: acceptanceError.code,
+              migrationRequired: acceptanceError.code === "PGRST202",
+            })
+          }
+        }
+      }
+
       // Log survey change history if participant re-submitted with changed answers
       try {
         const prevExisting = existing?.[0] || existingByNumber?.[0]
@@ -1846,6 +2006,12 @@ export default async function handler(req, res) {
           error: 'المشارك غير موجود أو الرمز غير صحيح' 
         });
       }
+
+      const resultsEventFormat = await loadEvent3Format(
+        supabase,
+        "00000000-0000-0000-0000-000000000003",
+        participant.event_id,
+      )
 
       // Fetch match results for this participant number across ALL events - only show results for finished events
       console.log(`[API] Fetching match results for participant #${participant.assigned_number} across all finished events`);
@@ -2127,6 +2293,8 @@ export default async function handler(req, res) {
           // Build history entries for each event the participant took part in.
           for (const e3Match of e3Matches) {
             const evId = e3Match.event_id || 20
+            const historicalEventFormat = await loadEvent3Format(supabase, E3_MATCH_ID, evId)
+            const isChoiceOnlyHistory = historicalEventFormat === "choice_only_three_groups"
 
             // Fetch partner feedback (scoped to same event) for mutual-match computation
             let p2PartnerFb = null, p3PartnerFb = null
@@ -2174,9 +2342,10 @@ export default async function handler(req, res) {
                 created_at: null,
                 ai_personality_analysis: null,
                 event_id: evId,
+                event_format: historicalEventFormat,
                 partner_message: null,
                 match_type: "choice",
-                match_label: "اختيارك الشخصي",
+                match_label: isChoiceOnlyHistory ? "اختيارك الأول" : "اختيارك الشخصي",
                 match_word: e3Match.phase2_word || null,
                 breakdown: p2Breakdown,
                 match_preference: e3Match.match_preference || null,
@@ -2249,9 +2418,10 @@ export default async function handler(req, res) {
                 created_at: null,
                 ai_personality_analysis: null,
                 event_id: evId,
+                event_format: historicalEventFormat,
                 partner_message: null,
                 match_type: "algorithm",
-                match_label: "اختيار الخوارزمية",
+                match_label: isChoiceOnlyHistory ? "اختيارك الثاني" : "اختيار الخوارزمية",
                 match_word: e3Match.phase3_word || null,
                 breakdown: p3Breakdown,
                 match_preference: e3Match.match_preference || null,
@@ -2300,6 +2470,7 @@ export default async function handler(req, res) {
         success: true,
         assigned_number: participant.assigned_number,
         event_id: participant.event_id,
+        event_format: resultsEventFormat,
         history: history.map(protectPartnerPrivacy)
       });
 
@@ -3539,7 +3710,7 @@ Please respond in JSON format:
     try {
       const [mainStateResult, e3StateResult] = await Promise.all([
         supabase.from("event_state").select("current_event_id").eq("match_id", MAIN_MATCH).maybeSingle(),
-        supabase.from("event_state").select("current_event_id,test_mode_active").eq("match_id", E3_MATCH_ID).maybeSingle(),
+        supabase.from("event_state").select("current_event_id,phase,test_mode_active,test_mode_snapshot").eq("match_id", E3_MATCH_ID).maybeSingle(),
       ])
       if (mainStateResult.error || e3StateResult.error) {
         if (mainStateResult.error) logError("Event3 main event-state lookup", mainStateResult.error)
@@ -3561,6 +3732,27 @@ Please respond in JSON format:
       })
     }
     const currentEventId = mainEventState?.current_event_id || e3EventState?.current_event_id || 20
+    let eventFormat
+    try {
+      eventFormat = await loadEvent3Format(supabase, E3_MATCH_ID, currentEventId)
+    } catch (error) {
+      logError("Event3 format lookup", error)
+      return res.status(503).json({
+        error: "تعذّر تحميل إعدادات الفعالية مؤقتاً. سنحاول مرة أخرى تلقائياً.",
+        code: "EVENT3_STATE_UNAVAILABLE",
+        retryable: true,
+      })
+    }
+    const groupRoundCount = event3GroupRoundCount(eventFormat)
+
+    // The tokenless walkthrough only needs to know which public script to show.
+    // Keep this response deliberately narrower than the live state endpoint.
+    if (action === "e3-get-public-format") {
+      return res.status(200).json({
+        event_format: eventFormat,
+        group_round_count: groupRoundCount,
+      })
+    }
 
     // Test mode uses real participant records, so prevent ordinary participant
     // links from entering its temporary phases. Admin test links explicitly add
@@ -3574,6 +3766,65 @@ Please respond in JSON format:
         code: "EVENT3_TEST_MODE_LOCKED",
         test_mode: true,
       })
+    }
+    const requestTestMode = isEvent3TestImpersonation(req.body?.impersonate)
+    const activeTestMode = e3EventState?.test_mode_active === true
+    const currentEvent3SessionKey = activeTestMode
+      ? (e3EventState?.test_mode_snapshot?.started_at || "legacy-test")
+      : "live"
+    const expectedEvent3SessionKey = req.body?.expected_event3_session_key
+    if ((requestTestMode && !activeTestMode)
+      || (expectedEvent3SessionKey != null && String(expectedEvent3SessionKey) !== String(currentEvent3SessionKey))) {
+      return res.status(409).json({
+        error: "تغيّرت جلسة الفعالية. حدّث الصفحة قبل المتابعة.",
+        code: "EVENT3_SESSION_CHANGED",
+        retryable: true,
+      })
+    }
+    const activeEvent3Phase = String(e3EventState?.phase || "setup")
+    const reachedGroupRounds = event3ReachedGroupRounds(activeEvent3Phase, groupRoundCount)
+    const saveEvent3MatchInteraction = async ({ slot, partner, operation, payload }) => {
+      const rpcResult = await supabase.rpc("save_event3_match_interaction_v2", {
+        p_match_id: E3_MATCH_ID,
+        p_event_id: currentEventId,
+        p_participant_number: myNumber,
+        p_slot: slot,
+        p_expected_partner: partner,
+        p_expected_test_mode: requestTestMode,
+        p_expected_started_at: requestTestMode ? (expectedEvent3SessionKey || null) : null,
+        p_operation: operation,
+        p_payload: payload,
+      })
+      const rpcMessage = String(rpcResult.error?.message || "")
+      const migrationMissing = rpcResult.error?.code === "PGRST202"
+        || rpcResult.error?.code === "42883"
+        || rpcMessage.includes("save_event3_match_interaction_v2")
+      if (migrationMissing && !isChoiceOnlyEvent3(eventFormat)) {
+        // Keep classic editions available during a rolling API/database deploy.
+        return { fallback: true, data: null, response: null }
+      }
+      if (!rpcResult.error) return { fallback: false, data: rpcResult.data || {}, response: null }
+
+      const invalid = rpcResult.error.code === "22023"
+      const conflict = rpcResult.error.code === "55000"
+      const migrationRequired = migrationMissing && isChoiceOnlyEvent3(eventFormat)
+      const code = rpcMessage.includes("partner changed")
+        ? "EVENT3_PARTNER_CHANGED"
+        : rpcMessage.includes("current phase")
+          ? "EVENT3_INTERACTION_CLOSED"
+          : conflict
+            ? "EVENT3_SESSION_CHANGED"
+            : undefined
+      return {
+        fallback: false,
+        data: null,
+        response: res.status(migrationRequired ? 501 : invalid ? 400 : conflict ? 409 : 500).json({
+          error: rpcResult.error.message,
+          code,
+          retryable: conflict,
+          migration_required: migrationRequired,
+        }),
+      }
     }
 
     try {
@@ -3601,13 +3852,13 @@ Please respond in JSON format:
         }
 
         // Server-side auto-save: if ranking phase and timer expired, auto-save for this participant
-        if (participant && (phase === "ranking1" || phase === "ranking2") && stateRow?.global_timer_active && stateRow?.global_timer_start_time) {
+        if (participant && /^ranking[123]$/.test(phase) && stateRow?.global_timer_active && stateRow?.global_timer_start_time) {
           const elapsed = Math.floor((Date.now() - new Date(stateRow.global_timer_start_time).getTime()) / 1000)
           const remaining = Math.max(0, (stateRow.global_timer_duration ?? getEvent3PhaseTimerSeconds(phase)) - elapsed)
           if (remaining === 0) {
             const { error: completionError } = await supabase.rpc("complete_event3_rankings", {
               p_match_id: E3_MATCH_ID, p_event_id: activeEventId,
-              p_completed_rounds: phase === "ranking1" ? 1 : 2, p_ranker_number: myNumber,
+              p_completed_rounds: Number(phase.slice(-1)), p_ranker_number: myNumber,
             })
             if (completionError) logError("Event3 ranking timer completion", completionError)
           }
@@ -3689,7 +3940,7 @@ Please respond in JSON format:
           myInfo = { number: myNumber, name: firstName, gender: participant.gender || sd?.answers?.gender || sd?.gender || null }
         }
         const fallbackTimerDuration = getEvent3PhaseTimerSeconds(phase)
-        const baseResponse = { phase, event_id: activeEventId, timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration ?? fallbackTimerDuration, timer_round: stateRow?.global_timer_round || null, my_assignment: myAssignment, enrolled: myAssignment?.enrolled || false, my_info: myInfo, participants_selected: participantsSelected || 0, phase2_score_revealed: stateRow?.phase2_score_revealed || false, phase3_score_revealed: stateRow?.phase3_score_revealed || false, server_time: new Date().toISOString() }
+        const baseResponse = { phase, event_id: activeEventId, event_format: eventFormat, group_round_count: groupRoundCount, event3_session_key: currentEvent3SessionKey, timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration ?? fallbackTimerDuration, timer_round: stateRow?.global_timer_round || null, my_assignment: myAssignment, enrolled: myAssignment?.enrolled || false, my_info: myInfo, participants_selected: participantsSelected || 0, phase2_score_revealed: stateRow?.phase2_score_revealed || false, phase3_score_revealed: stateRow?.phase3_score_revealed || false, server_time: new Date().toISOString() }
 
         // Heartbeat: also fetch SOS, mood check, and notification data in one round-trip
         if (action === "e3-heartbeat" && participant) {
@@ -3748,7 +3999,7 @@ Please respond in JSON format:
       // flow so clients cannot submit rankings for arbitrary participants.
       const getE3GroupPeople = async (groupRound) => {
         const round = Number(groupRound)
-        if (![1, 2].includes(round)) throw new Error("Group round must be 1 or 2")
+        if (!Number.isInteger(round) || round < 1 || round > groupRoundCount) throw new Error(`Group round must be between 1 and ${groupRoundCount}`)
         const { data: assignments, error: assignmentsError } = await supabase
           .from("session_assignments")
           .select("round,table_number,participant_id")
@@ -3801,18 +4052,34 @@ Please respond in JSON format:
       // e3-get-assignment
       if (action === "e3-get-assignment") {
         const { round } = req.body
-        const { data: sa } = await supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("round", round).eq("participant_id", myNumber).maybeSingle()
+        const requestedRound = Number(round)
+        if (!Number.isInteger(requestedRound)) return res.status(400).json({ error: "Invalid assignment round" })
+        if (requestedRound >= 1 && requestedRound <= groupRoundCount) {
+          if (requestedRound > reachedGroupRounds) return res.status(409).json({ error: "This group round has not started yet", code: "EVENT3_ROUND_NOT_REACHED" })
+        } else if (requestedRound === 20) {
+          if (!EVENT3_FIRST_MATCH_REVEAL_PHASES.has(activeEvent3Phase)) return res.status(409).json({ error: "The first match has not been revealed yet", code: "EVENT3_MATCH_NOT_REVEALED" })
+        } else if (requestedRound === 30) {
+          if (!EVENT3_SECOND_MATCH_REVEAL_PHASES.has(activeEvent3Phase)) return res.status(409).json({ error: "The second match has not been revealed yet", code: "EVENT3_MATCH_NOT_REVEALED" })
+        } else {
+          return res.status(400).json({ error: "Invalid assignment round" })
+        }
+        const { data: sa } = await supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("round", requestedRound).eq("participant_id", myNumber).maybeSingle()
         if (!sa) return res.status(404).json({ error: "No assignment found" })
-        const { data: mates } = await supabase.from("session_assignments").select("participant_id").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("round", round).eq("table_number", sa.table_number).neq("participant_id", myNumber)
+        const { data: mates } = await supabase.from("session_assignments").select("participant_id").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("round", requestedRound).eq("table_number", sa.table_number).neq("participant_id", myNumber)
         const mateNums = (mates || []).map(t => t.participant_id)
         const { data: mateData } = await supabase.from("participants").select("assigned_number,name,survey_data,gender").eq("match_id", MAIN_MATCH).in("assigned_number", mateNums)
         const tablemates = (mateData || []).map(p => { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); return { number: p.assigned_number, first_name: firstName(p.name || sd?.answers?.name || sd?.name), gender: p.gender || sd?.answers?.gender || sd?.gender || null } })
-        return res.status(200).json({ round, table: sa.table_number, tablemates })
+        return res.status(200).json({ round: requestedRound, table: sa.table_number, tablemates })
       }
 
       // e3-get-participants-met
       if (action === "e3-get-participants-met") {
-        const completedRounds = Math.min(Math.max(parseInt(req.body.completed_rounds || "2") || 2, 1), 2)
+        if (reachedGroupRounds < 1) return res.status(409).json({ error: "No group round has started yet", code: "EVENT3_ROUND_NOT_REACHED" })
+        const requestedCompletedRounds = Number(req.body.completed_rounds ?? reachedGroupRounds)
+        if (!Number.isInteger(requestedCompletedRounds) || requestedCompletedRounds < 1 || requestedCompletedRounds > reachedGroupRounds) {
+          return res.status(409).json({ error: "That group round has not been reached yet", code: "EVENT3_ROUND_NOT_REACHED" })
+        }
+        const completedRounds = requestedCompletedRounds
         const { data: allRounds } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_id", myNumber).lte("round", completedRounds)
         if (!allRounds || allRounds.length === 0) return res.status(404).json({ error: "No session assignments found" })
         const metNumbers = []
@@ -3857,7 +4124,8 @@ Please respond in JSON format:
       // live matching.
       if (action === "e3-get-group-reflection") {
         const groupRound = Number(req.body.group_round)
-        if (![1, 2].includes(groupRound)) return res.status(400).json({ error: "group_round must be 1 or 2" })
+        if (!Number.isInteger(groupRound) || groupRound < 1 || groupRound > groupRoundCount) return res.status(400).json({ error: `group_round must be between 1 and ${groupRoundCount}` })
+        if (groupRound > reachedGroupRounds) return res.status(409).json({ error: "That group round has not been reached yet", code: "EVENT3_ROUND_NOT_REACHED" })
         const [people, feedbackResult] = await Promise.all([
           getE3GroupPeople(groupRound),
           supabase.from("event3_group_member_feedback")
@@ -3866,7 +4134,7 @@ Please respond in JSON format:
             .eq("event_id", currentEventId)
             .eq("group_round", groupRound)
             .eq("reviewer_number", myNumber)
-            .eq("is_test_mode", e3EventState?.test_mode_active === true)
+            .eq("is_test_mode", requestTestMode)
             .order("member_number", { ascending: true }),
         ])
         if (feedbackResult.error) return res.status(500).json({ error: feedbackResult.error.message })
@@ -3875,7 +4143,8 @@ Please respond in JSON format:
 
       if (action === "e3-submit-group-reflection") {
         const groupRound = Number(req.body.group_round)
-        if (![1, 2].includes(groupRound)) return res.status(400).json({ error: "group_round must be 1 or 2" })
+        if (!Number.isInteger(groupRound) || groupRound < 1 || groupRound > groupRoundCount) return res.status(400).json({ error: `group_round must be between 1 and ${groupRoundCount}` })
+        if (groupRound > reachedGroupRounds) return res.status(409).json({ error: "That group round has not been reached yet", code: "EVENT3_ROUND_NOT_REACHED" })
         const people = await getE3GroupPeople(groupRound)
         const allowedNumbers = new Set(people.map(person => person.number))
         const normalized = normalizeGroupMemberFeedback({
@@ -3885,16 +4154,42 @@ Please respond in JSON format:
           allowedNumbers,
         })
         if (normalized.error) return res.status(400).json({ error: normalized.error })
-        const { data: savedCount, error } = await supabase.rpc("replace_event3_group_member_feedback", {
+        let feedbackSave = await supabase.rpc("replace_event3_group_member_feedback_v2", {
           p_match_id: E3_MATCH_ID,
           p_event_id: currentEventId,
           p_group_round: groupRound,
           p_reviewer_number: myNumber,
-          p_is_test_mode: e3EventState?.test_mode_active === true,
+          p_is_test_mode: requestTestMode,
+          p_expected_started_at: requestTestMode ? (expectedEvent3SessionKey || null) : null,
           p_rows: normalized.value.entries,
         })
+        const hardenedFeedbackMissing = feedbackSave.error?.code === "PGRST202"
+          || String(feedbackSave.error?.message || "").includes("replace_event3_group_member_feedback_v2")
+        if (hardenedFeedbackMissing && !isChoiceOnlyEvent3(eventFormat)) {
+          // Rolling deployments may briefly run the new API before the new RPC.
+          // Classic editions retain their established six-argument path during
+          // that window; choice-only editions require the hardened migration.
+          feedbackSave = await supabase.rpc("replace_event3_group_member_feedback", {
+            p_match_id: E3_MATCH_ID,
+            p_event_id: currentEventId,
+            p_group_round: groupRound,
+            p_reviewer_number: myNumber,
+            p_is_test_mode: requestTestMode,
+            p_rows: normalized.value.entries,
+          })
+        }
+        const { data: savedCount, error } = feedbackSave
 
-        if (error) return res.status(500).json({ error: error.message })
+        if (error) {
+          const sessionChanged = error.code === "55000"
+          const migrationRequired = hardenedFeedbackMissing && isChoiceOnlyEvent3(eventFormat)
+          return res.status(migrationRequired ? 501 : sessionChanged ? 409 : 500).json({
+            error: error.message,
+            code: sessionChanged ? "EVENT3_SESSION_CHANGED" : undefined,
+            retryable: sessionChanged,
+            migration_required: migrationRequired,
+          })
+        }
         return res.status(200).json({ message: "Group member feedback saved", saved_count: savedCount || normalized.value.entries.length })
       }
 
@@ -3910,9 +4205,10 @@ Please respond in JSON format:
         if (phaseError) throw phaseError
         // Explicit scope keeps a late first-round request from being validated as round two.
         // The fallback supports phones still running the previous client.
-        const completedRounds = Number(req.body.completed_rounds ?? (phaseState.phase === "ranking1" ? 1 : 2))
+        const phaseRankingRound = Number(String(phaseState.phase || "").match(/^ranking([123])$/)?.[1] || groupRoundCount)
+        const completedRounds = Number(req.body.completed_rounds ?? phaseRankingRound)
         const revision = Number(req.body.revision ?? Date.now())
-        if (![1, 2].includes(completedRounds) || !Number.isSafeInteger(revision) || revision < 0) {
+        if (!Number.isInteger(completedRounds) || completedRounds < 1 || completedRounds > reachedGroupRounds || !Number.isSafeInteger(revision) || revision < 0) {
           return res.status(400).json({ error: "Invalid ranking round or revision" })
         }
         if (req.body.event_id != null && Number(req.body.event_id) !== currentEventId) {
@@ -3931,6 +4227,9 @@ Please respond in JSON format:
 
       // e3-get-phase2-reveal
       if (action === "e3-get-phase2-reveal") {
+        if (isChoiceOnlyEvent3(eventFormat) && !EVENT3_FIRST_MATCH_REVEAL_PHASES.has(activeEvent3Phase)) {
+          return res.status(409).json({ error: "The first choice match has not been revealed yet", code: "EVENT3_MATCH_NOT_REVEALED" })
+        }
         const { data: matchRow } = await supabase.from("event3_matches").select("phase2_partner,phase2_word,phase2_score,phase2_score_model_version,phase2_score_content_hash,phase2_score_snapshot,phase2_feedback").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber).maybeSingle()
         if (!matchRow || !matchRow.phase2_partner) return res.status(404).json({ error: "No Phase 2 match found yet" })
         const [{ data: partner }, { data: tableRow }, { data: myRankings }, { data: partnerRankedMe }] = await Promise.all([
@@ -3962,26 +4261,42 @@ Please respond in JSON format:
           scoreContentHash: matchRow.phase2_score_content_hash,
           storedTotal: matchRow.phase2_score,
         })
-        if (!breakdown && !hasStoredPhase2Score) {
+        if (!isChoiceOnlyEvent3(eventFormat) && !breakdown && !hasStoredPhase2Score) {
           breakdown = await fetchParticipantBalancedCacheBreakdown(myNumber, matchRow.phase2_partner)
         }
-        const phase2Score = hasStoredPhase2Score
+        const phase2Score = isChoiceOnlyEvent3(eventFormat)
+          ? null
+          : hasStoredPhase2Score
           ? Number(matchRow.phase2_score)
           : Number(breakdown?.total ?? 0)
-        return res.status(200).json({ partner_number: matchRow.phase2_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), table_number: tableRow?.table_number ?? null, word_submitted: !!matchRow.phase2_word, my_word: matchRow.phase2_word || null, feedback_submitted: !!matchRow.phase2_feedback, compatibility_score: phase2Score, score_model_version: breakdown?.scoreModelVersion ?? null, breakdown, partner_mbti: partnerMbti, partner_attachment: partnerAttachment, partner_communication: partnerCommunication, partner_age: partnerAge, is_backup: isBackup, mutual_choice: iRankedPartner && partnerRankedMeBack })
+        return res.status(200).json({ event_format: eventFormat, partner_number: matchRow.phase2_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), table_number: tableRow?.table_number ?? null, word_submitted: !!matchRow.phase2_word, my_word: matchRow.phase2_word || null, feedback_submitted: !!matchRow.phase2_feedback, compatibility_score: phase2Score, score_model_version: isChoiceOnlyEvent3(eventFormat) ? null : breakdown?.scoreModelVersion ?? null, breakdown: isChoiceOnlyEvent3(eventFormat) ? null : breakdown, partner_mbti: partnerMbti, partner_attachment: partnerAttachment, partner_communication: partnerCommunication, partner_age: partnerAge, is_backup: isBackup, mutual_choice: iRankedPartner && partnerRankedMeBack })
       }
 
       // e3-submit-phase2-word
       if (action === "e3-submit-phase2-word") {
         const word = (req.body.word || "").trim().split(/\s+/)[0]
         if (!word) return res.status(400).json({ error: "Word is required" })
-        const { error } = await supabase.from("event3_matches").update({ phase2_word: word }).eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber)
-        if (error) return res.status(500).json({ error: error.message })
+        const { data: currentMatch, error: matchError } = await supabase.from("event3_matches")
+          .select("phase2_partner").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId)
+          .eq("participant_number", myNumber).maybeSingle()
+        if (matchError) return res.status(500).json({ error: matchError.message })
+        if (!currentMatch?.phase2_partner) return res.status(404).json({ error: "No Phase 2 match found yet" })
+        const saved = await saveEvent3MatchInteraction({
+          slot: 1, partner: currentMatch.phase2_partner, operation: "word", payload: { word },
+        })
+        if (saved.response) return saved.response
+        if (saved.fallback) {
+          const { error } = await supabase.from("event3_matches").update({ phase2_word: word }).eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber)
+          if (error) return res.status(500).json({ error: error.message })
+        }
         return res.status(200).json({ message: "Word saved" })
       }
 
       // e3-get-phase3-reveal
       if (action === "e3-get-phase3-reveal") {
+        if (isChoiceOnlyEvent3(eventFormat) && !EVENT3_SECOND_MATCH_REVEAL_PHASES.has(activeEvent3Phase)) {
+          return res.status(409).json({ error: "The second choice match has not been revealed yet", code: "EVENT3_MATCH_NOT_REVEALED" })
+        }
         const { data: matchRow } = await supabase.from("event3_matches").select("phase3_partner,phase3_score,phase3_score_model_version,phase3_score_content_hash,phase3_score_snapshot,phase3_word,phase2_partner,phase3_feedback").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber).maybeSingle()
         if (!matchRow || !matchRow.phase3_partner) return res.status(404).json({ error: "No Phase 3 match found yet" })
         const { data: partner } = await supabase.from("participants").select("assigned_number,name,survey_data,mbti_personality_type,age").eq("match_id", MAIN_MATCH).eq("assigned_number", matchRow.phase3_partner).single()
@@ -3999,41 +4314,74 @@ Please respond in JSON format:
           scoreContentHash: matchRow.phase3_score_content_hash,
           storedTotal: matchRow.phase3_score,
         })
-        if (!breakdown && !hasStoredPhase3Score) {
+        if (!isChoiceOnlyEvent3(eventFormat) && !breakdown && !hasStoredPhase3Score) {
           breakdown = await fetchParticipantBalancedCacheBreakdown(myNumber, matchRow.phase3_partner)
         }
         // Fetch table number from round 30 session_assignments
         const { data: tableRow } = await supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("round", 30).eq("participant_id", myNumber).maybeSingle()
-        return res.status(200).json({ partner_number: matchRow.phase3_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), compatibility_score: matchRow.phase3_score ?? breakdown?.total ?? 0, score_model_version: breakdown?.scoreModelVersion ?? null, same_as_phase2: matchRow.phase2_partner === matchRow.phase3_partner, word_submitted: !!matchRow.phase3_word, feedback_submitted: !!matchRow.phase3_feedback, partner_mbti: partnerMbti, partner_attachment: partnerAttachment, partner_communication: partnerCommunication, partner_age: partnerAge, breakdown, table_number: tableRow?.table_number ?? null })
+        return res.status(200).json({ event_format: eventFormat, partner_number: matchRow.phase3_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), compatibility_score: isChoiceOnlyEvent3(eventFormat) ? null : matchRow.phase3_score ?? breakdown?.total ?? 0, score_model_version: isChoiceOnlyEvent3(eventFormat) ? null : breakdown?.scoreModelVersion ?? null, same_as_phase2: matchRow.phase2_partner === matchRow.phase3_partner, word_submitted: !!matchRow.phase3_word, feedback_submitted: !!matchRow.phase3_feedback, partner_mbti: partnerMbti, partner_attachment: partnerAttachment, partner_communication: partnerCommunication, partner_age: partnerAge, breakdown: isChoiceOnlyEvent3(eventFormat) ? null : breakdown, table_number: tableRow?.table_number ?? null })
       }
 
       // e3-submit-phase3-word
       if (action === "e3-submit-phase3-word") {
         const word = (req.body.word || "").trim().split(/\s+/)[0]
         if (!word) return res.status(400).json({ error: "Word is required" })
-        const { error } = await supabase.from("event3_matches").update({ phase3_word: word }).eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber)
-        if (error) return res.status(500).json({ error: error.message })
+        const { data: currentMatch, error: matchError } = await supabase.from("event3_matches")
+          .select("phase3_partner").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId)
+          .eq("participant_number", myNumber).maybeSingle()
+        if (matchError) return res.status(500).json({ error: matchError.message })
+        if (!currentMatch?.phase3_partner) return res.status(404).json({ error: "No Phase 3 match found yet" })
+        const saved = await saveEvent3MatchInteraction({
+          slot: 2, partner: currentMatch.phase3_partner, operation: "word", payload: { word },
+        })
+        if (saved.response) return saved.response
+        if (saved.fallback) {
+          const { error } = await supabase.from("event3_matches").update({ phase3_word: word }).eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber)
+          if (error) return res.status(500).json({ error: error.message })
+        }
         return res.status(200).json({ message: "Word saved" })
       }
 
       // e3-submit-phase2-feedback (first-write-wins)
       if (action === "e3-submit-phase2-feedback") {
         const fb = req.body.feedback || {}
-        const { data: existing } = await supabase.from("event3_matches").select("phase2_feedback").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber).maybeSingle()
-        if (existing?.phase2_feedback) return res.status(200).json({ message: "Feedback already submitted" })
-        const { error } = await supabase.from("event3_matches").update({ phase2_feedback: fb }).eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber)
-        if (error) return res.status(500).json({ error: error.message })
+        const { data: currentMatch, error: matchError } = await supabase.from("event3_matches")
+          .select("phase2_partner,phase2_feedback").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId)
+          .eq("participant_number", myNumber).maybeSingle()
+        if (matchError) return res.status(500).json({ error: matchError.message })
+        if (!currentMatch?.phase2_partner) return res.status(404).json({ error: "No Phase 2 match found yet" })
+        const saved = await saveEvent3MatchInteraction({
+          slot: 1, partner: currentMatch.phase2_partner, operation: "feedback", payload: fb,
+        })
+        if (saved.response) return saved.response
+        if (saved.data?.already_saved) return res.status(200).json({ message: "Feedback already submitted" })
+        if (saved.fallback) {
+          if (currentMatch.phase2_feedback) return res.status(200).json({ message: "Feedback already submitted" })
+          const { error } = await supabase.from("event3_matches").update({ phase2_feedback: fb }).eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber)
+          if (error) return res.status(500).json({ error: error.message })
+        }
         return res.status(200).json({ message: "Feedback saved" })
       }
       // e3-submit-phase3-feedback (first-write-wins)
       if (action === "e3-submit-phase3-feedback") {
         const fb = req.body.feedback || {}
-        const { data: existingRow } = await supabase.from("event3_matches").select("phase3_feedback").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber).maybeSingle()
-        if (existingRow?.phase3_feedback) return res.status(200).json({ message: "Feedback already submitted" })
-        const existingPref = existingRow?.phase3_feedback?.match_preference
-        const mergedFb = existingPref && fb.match_preference === undefined ? { ...fb, match_preference: existingPref } : fb
-        const { error } = await supabase.from("event3_matches").update({ phase3_feedback: mergedFb }).eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber)
-        if (error) return res.status(500).json({ error: error.message })
+        const { data: currentMatch, error: matchError } = await supabase.from("event3_matches")
+          .select("phase3_partner,phase3_feedback").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId)
+          .eq("participant_number", myNumber).maybeSingle()
+        if (matchError) return res.status(500).json({ error: matchError.message })
+        if (!currentMatch?.phase3_partner) return res.status(404).json({ error: "No Phase 3 match found yet" })
+        const saved = await saveEvent3MatchInteraction({
+          slot: 2, partner: currentMatch.phase3_partner, operation: "feedback", payload: fb,
+        })
+        if (saved.response) return saved.response
+        if (saved.data?.already_saved) return res.status(200).json({ message: "Feedback already submitted" })
+        if (saved.fallback) {
+          if (currentMatch.phase3_feedback) return res.status(200).json({ message: "Feedback already submitted" })
+          const existingPref = currentMatch.phase3_feedback?.match_preference
+          const mergedFb = existingPref && fb.match_preference === undefined ? { ...fb, match_preference: existingPref } : fb
+          const { error } = await supabase.from("event3_matches").update({ phase3_feedback: mergedFb }).eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber)
+          if (error) return res.status(500).json({ error: error.message })
+        }
         return res.status(200).json({ message: "Feedback saved" })
       }
 
@@ -4043,13 +4391,22 @@ Please respond in JSON format:
         if (!preference || !["choice", "algorithm", "both", "neither"].includes(preference)) {
           return res.status(400).json({ error: "Invalid preference" })
         }
-        const { error } = await supabase.from("event3_matches").update({ match_preference: preference }).eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber)
-        if (error) {
+        const { data: currentMatch, error: matchError } = await supabase.from("event3_matches")
+          .select("phase3_partner,phase3_feedback").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId)
+          .eq("participant_number", myNumber).maybeSingle()
+        if (matchError) return res.status(500).json({ error: matchError.message })
+        if (!currentMatch?.phase3_partner) return res.status(404).json({ error: "No Phase 3 match found yet" })
+        const saved = await saveEvent3MatchInteraction({
+          slot: 2, partner: currentMatch.phase3_partner, operation: "preference", payload: { preference },
+        })
+        if (saved.response) return saved.response
+        if (saved.fallback) {
+          const { error } = await supabase.from("event3_matches").update({ match_preference: preference }).eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber)
+          if (!error) return res.status(200).json({ message: "Preference saved", preference })
           // Column might not exist yet — fall back to storing inside phase3_feedback,
           // but MERGE with existing feedback instead of overwriting it, so we never
           // destroy already-submitted wantConnect/conversationQuality/etc.
-          const { data: rowData } = await supabase.from("event3_matches").select("phase3_feedback").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber).maybeSingle()
-          const mergedFeedback = { ...(rowData?.phase3_feedback || {}), match_preference: preference }
+          const mergedFeedback = { ...(currentMatch.phase3_feedback || {}), match_preference: preference }
           const { error: err2 } = await supabase.from("event3_matches").update({ phase3_feedback: mergedFeedback }).eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber)
           if (err2) return res.status(500).json({ error: err2.message })
         }
@@ -4058,6 +4415,9 @@ Please respond in JSON format:
 
       // e3-get-final-reveal
       if (action === "e3-get-final-reveal") {
+        if (isChoiceOnlyEvent3(eventFormat) && activeEvent3Phase !== "final") {
+          return res.status(409).json({ error: "The final comparison has not been revealed yet", code: "EVENT3_MATCH_NOT_REVEALED" })
+        }
         const { data: matchRow } = await supabase.from("event3_matches").select("phase2_partner,phase3_partner,phase2_word,phase3_word,phase2_score,phase2_score_model_version,phase2_score_content_hash,phase2_score_snapshot,phase3_score,phase3_score_model_version,phase3_score_content_hash,phase3_score_snapshot,match_preference").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("participant_number", myNumber).maybeSingle()
         if (!matchRow) return res.status(404).json({ error: "No match data found" })
         const partnerNums = [matchRow.phase2_partner, matchRow.phase3_partner].filter(Boolean)
@@ -4077,10 +4437,10 @@ Please respond in JSON format:
         const phase2HasStoredScore = matchRow.phase2_score !== null && matchRow.phase2_score !== undefined && Number.isFinite(Number(matchRow.phase2_score))
         const phase3HasStoredScore = matchRow.phase3_score !== null && matchRow.phase3_score !== undefined && Number.isFinite(Number(matchRow.phase3_score))
         const [phase2Fallback, phase3Fallback, eventStateRow] = await Promise.all([
-          !phase2Breakdown && !phase2HasStoredScore && matchRow.phase2_partner
+          !isChoiceOnlyEvent3(eventFormat) && !phase2Breakdown && !phase2HasStoredScore && matchRow.phase2_partner
             ? fetchParticipantBalancedCacheBreakdown(myNumber, matchRow.phase2_partner)
             : Promise.resolve(null),
-          !phase3Breakdown && !phase3HasStoredScore && matchRow.phase3_partner
+          !isChoiceOnlyEvent3(eventFormat) && !phase3Breakdown && !phase3HasStoredScore && matchRow.phase3_partner
             ? fetchParticipantBalancedCacheBreakdown(myNumber, matchRow.phase3_partner)
             : Promise.resolve(null),
           supabase.from("event_state").select("current_event_id").eq("match_id", MAIN_MATCH).single().then(r => r.data),
@@ -4088,9 +4448,10 @@ Please respond in JSON format:
         phase2Breakdown = phase2Breakdown ?? phase2Fallback
         phase3Breakdown = phase3Breakdown ?? phase3Fallback
         return res.status(200).json({
-          phase2: { partner_number: matchRow.phase2_partner, partner_first_name: pMap[matchRow.phase2_partner] || "—", word: matchRow.phase2_word || null, compatibility_score: matchRow.phase2_score ?? phase2Breakdown?.total ?? 0, score_model_version: phase2Breakdown?.scoreModelVersion ?? null, breakdown: phase2Breakdown },
-          phase3: { partner_number: matchRow.phase3_partner, partner_first_name: pMap[matchRow.phase3_partner] || "—", compatibility_score: matchRow.phase3_score ?? phase3Breakdown?.total ?? 0, score_model_version: phase3Breakdown?.scoreModelVersion ?? null, word: matchRow.phase3_word || null, breakdown: phase3Breakdown },
+          phase2: { partner_number: matchRow.phase2_partner, partner_first_name: pMap[matchRow.phase2_partner] || "—", word: matchRow.phase2_word || null, compatibility_score: isChoiceOnlyEvent3(eventFormat) ? null : matchRow.phase2_score ?? phase2Breakdown?.total ?? 0, score_model_version: isChoiceOnlyEvent3(eventFormat) ? null : phase2Breakdown?.scoreModelVersion ?? null, breakdown: isChoiceOnlyEvent3(eventFormat) ? null : phase2Breakdown },
+          phase3: { partner_number: matchRow.phase3_partner, partner_first_name: pMap[matchRow.phase3_partner] || "—", compatibility_score: isChoiceOnlyEvent3(eventFormat) ? null : matchRow.phase3_score ?? phase3Breakdown?.total ?? 0, score_model_version: isChoiceOnlyEvent3(eventFormat) ? null : phase3Breakdown?.scoreModelVersion ?? null, word: matchRow.phase3_word || null, breakdown: isChoiceOnlyEvent3(eventFormat) ? null : phase3Breakdown },
           same_match: matchRow.phase2_partner && matchRow.phase2_partner === matchRow.phase3_partner,
+          event_format: eventFormat,
           match_preference: matchRow.match_preference || null,
           current_event_id: eventStateRow?.current_event_id || 1
         })
@@ -4175,7 +4536,10 @@ Please respond in JSON format:
           const round = phase === "phase2_reveal" ? 20 : 30
           const { data: seat, error: seatError } = await supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId).eq("round", round).eq("participant_id", myNumber).maybeSingle()
           if (seatError) return res.status(503).json({ error: "تعذّر تحديد الطاولة. حاول مجددًا." })
-          tableInfo = (round === 20 ? "لقاء الاختيار" : "لقاء الخوارزمية") + (seat ? ` · طاولة ${seat.table_number}` : " · لم تُحدد الطاولة")
+          tableInfo = (round === 20
+            ? (isChoiceOnlyEvent3(eventFormat) ? "لقاء الاختيار الأول" : "لقاء الاختيار")
+            : (isChoiceOnlyEvent3(eventFormat) ? "لقاء الاختيار الثاني" : "لقاء الخوارزمية"))
+            + (seat ? ` · طاولة ${seat.table_number}` : " · لم تُحدد الطاولة")
         }
 
         const { data: savedRequest, error: supportError } = await supabase.rpc("send_event3_support_message", {
@@ -4375,12 +4739,17 @@ Please respond in JSON format:
         if (mErr) console.error("[pending-feedbacks] event3_matches error:", mErr.message)
         console.log(`[pending-feedbacks] Found ${allMatches?.length || 0} match rows for participant #${myNumber}`)
         const pending = []
+        const formatEntries = await Promise.all([...new Set((allMatches || []).map(match => Number(match.event_id)))].map(async eventId => [
+          eventId,
+          await loadEvent3Format(supabase, E3_MATCH_ID, eventId),
+        ]))
+        const pendingFormatByEvent = new Map(formatEntries)
         for (const m of allMatches || []) {
           if (m.phase2_partner && !m.phase2_feedback) {
-            pending.push({ event_id: m.event_id, phase: "phase2", partner_number: m.phase2_partner })
+            pending.push({ event_id: m.event_id, event_format: pendingFormatByEvent.get(Number(m.event_id)) || "classic", phase: "phase2", partner_number: m.phase2_partner })
           }
           if (m.phase3_partner && !m.phase3_feedback) {
-            pending.push({ event_id: m.event_id, phase: "phase3", partner_number: m.phase3_partner })
+            pending.push({ event_id: m.event_id, event_format: pendingFormatByEvent.get(Number(m.event_id)) || "classic", phase: "phase3", partner_number: m.phase3_partner })
           }
         }
         console.log(`[pending-feedbacks] Found ${pending.length} pending feedbacks for participant #${myNumber}`)
@@ -4398,6 +4767,7 @@ Please respond in JSON format:
         }
         const result = pending.map(p => ({
           event_id: p.event_id,
+          event_format: p.event_format,
           phase: p.phase,
           partner_number: p.partner_number,
           partner_name: firstName(nameMap[p.partner_number] || `#${p.partner_number}`),

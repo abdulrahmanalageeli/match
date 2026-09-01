@@ -149,6 +149,7 @@ interface MatchResult {
   score_snapshot?: Record<string, unknown> | string | null
   // Event 3+ fields (choice vs algorithm)
   match_type?: 'choice' | 'algorithm' | null
+  event_format?: 'classic' | 'choice_only_three_groups' | string | null
   match_label?: string | null
   match_word?: string | null
   breakdown?: BalancedScoreBreakdown | null
@@ -158,7 +159,24 @@ interface MatchResult {
 interface ResultsData {
   assigned_number: number
   event_id: number
+  event_format?: 'classic' | 'choice_only_three_groups' | string | null
   history: MatchResult[]
+}
+
+const CHOICE_ONLY_EVENT_FORMAT = 'choice_only_three_groups'
+
+function isChoiceOnlyEventMatch(match: MatchResult | null | undefined) {
+  return match?.event_format === CHOICE_ONLY_EVENT_FORMAT
+}
+
+function eventUsesChoiceOnlyFormat(items: Array<{ match: MatchResult }>) {
+  return items.some(item => isChoiceOnlyEventMatch(item.match))
+}
+
+function event3MatchLabel(match: MatchResult, choiceOnly = isChoiceOnlyEventMatch(match)) {
+  if (choiceOnly) return match.match_type === 'choice' ? 'الاختيار الأول' : 'الاختيار الثاني'
+  if (match.match_label) return match.match_label
+  return match.match_type === 'choice' ? 'اختيارك الشخصي' : 'اختيار الخوارزمية'
 }
 
 export default function ResultsPage() {
@@ -186,6 +204,10 @@ export default function ResultsPage() {
     const eventIds = [...new Set(history.filter(m => isEvent3Match(m)).map(m => m.event_id as number))]
     for (const eid of eventIds) {
       const items = history.filter(m => m.event_id === eid && (m.match_type === 'choice' || m.match_type === 'algorithm'))
+      if (items.some(isChoiceOnlyEventMatch) || (eid === resultsData?.event_id && resultsData?.event_format === CHOICE_ONLY_EVENT_FORMAT)) {
+        map[eid] = false
+        continue
+      }
       const choice = items.find(m => m.match_type === 'choice')
       const algorithm = items.find(m => m.match_type === 'algorithm')
       map[eid] = !!(choice && algorithm && choice.with === algorithm.with)
@@ -738,6 +760,7 @@ export default function ResultsPage() {
           setResultsData({
             assigned_number: data.assigned_number,
             event_id: data.event_id || 1,
+            event_format: data.event_format ?? null,
             history: filteredHistory
           })
           setError(null)
@@ -930,6 +953,8 @@ export default function ResultsPage() {
             <div className="space-y-3">
               {eventGroups.map(({ event_id, items }) => {
                 const isEventExpanded = expandedEvents[event_id]
+                const choiceOnlyEvent = eventUsesChoiceOnlyFormat(items)
+                  || (event_id === resultsData?.event_id && resultsData?.event_format === CHOICE_ONLY_EVENT_FORMAT)
                 
                 return (
                   <div key={event_id} className={`overflow-hidden rounded-2xl border transition-all duration-300 ${
@@ -962,14 +987,14 @@ export default function ResultsPage() {
                                 ? 'text-white'
                                 : (dark ? 'text-slate-200' : 'text-gray-800')
                             }`}>
-                              {groupIsEvent3(items) ? 'التوافق الأعمى 4.0 — اختيارك واختيارنا' : `فعالية رقم ${event_id}`}
+                              {groupIsEvent3(items) ? (choiceOnlyEvent ? 'التوافق الأعمى 4.0 — اختياران متبادلان' : 'التوافق الأعمى 4.0 — اختيارك واختيارنا') : `فعالية رقم ${event_id}`}
                             </div>
                             <div className={`text-xs ${
                               groupIsEvent3(items)
                                 ? 'text-cyan-200/60'
                                 : (dark ? 'text-slate-400' : 'text-gray-600')
                             }`}>
-                              {groupIsEvent3(items) ? '✨ الجولة النهائية — اختيارك والخوارزمية' : formatSessionCount(items.length)}
+                              {groupIsEvent3(items) ? (choiceOnlyEvent ? '✨ لقاء الاختيار الأول ولقاء الاختيار الثاني' : '✨ الجولة النهائية — اختيارك والخوارزمية') : formatSessionCount(items.length)}
                             </div>
                           </div>
                         </div>
@@ -989,6 +1014,7 @@ export default function ResultsPage() {
                             const status = getMatchStatusText(match)
                             const StatusIcon = status.icon
                             const isExpanded = expandedMatches[matchIndex]
+                            const choiceOnlyMatch = isChoiceOnlyEventMatch(match) || choiceOnlyEvent
                             
                             return (
                               <div key={matchIndex} className="overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.035] shadow-[inset_0_1px_0_rgba(255,255,255,.025)] transition duration-200 hover:border-cyan-300/15 hover:bg-white/[0.05]">
@@ -1014,12 +1040,12 @@ export default function ResultsPage() {
                                           {match.match_type === 'choice' ? (
                                             <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0 flex items-center gap-1 bg-pink-500/20 text-pink-300 border border-pink-500/30">
                                               <Heart className="w-3 h-3" />
-                                              اختيارك الشخصي
+                                              {event3MatchLabel(match, choiceOnlyMatch)}
                                             </span>
                                           ) : match.match_type === 'algorithm' ? (
                                             <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0 flex items-center gap-1 bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                                              <Brain className="w-3 h-3" />
-                                              اختيار الخوارزمية
+                                              {choiceOnlyMatch ? <Heart className="w-3 h-3" /> : <Brain className="w-3 h-3" />}
+                                              {event3MatchLabel(match, choiceOnlyMatch)}
                                             </span>
                                           ) : (
                                             <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${
@@ -1039,7 +1065,7 @@ export default function ResultsPage() {
                                         
                                         <div className="flex items-center gap-2 flex-wrap">
                                           {/* Same match badge for event3 */}
-                                          {e3SameMatchByEvent[match.event_id ?? 0] && match.match_type === 'choice' && (
+                                          {!choiceOnlyMatch && e3SameMatchByEvent[match.event_id ?? 0] && match.match_type === 'choice' && (
                                             <span className="text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 bg-gradient-to-r from-amber-500 to-yellow-500 text-white font-bold">
                                               <Trophy className="w-3.5 h-3.5" />
                                               مطابقة مثالية!
@@ -1111,7 +1137,9 @@ export default function ResultsPage() {
                                 : 'bg-purple-500/10 border-purple-500/20'
                             }`}>
                               <p className={`text-xs mb-1 ${match.match_type === 'choice' ? 'text-pink-400' : 'text-purple-400'}`}>
-                                {match.match_type === 'choice' ? 'الكلمة التي اخترتها' : 'الكلمة التي اختارتها الخوارزمية'}
+                                {choiceOnlyMatch
+                                  ? (match.match_type === 'choice' ? 'كلمتك عن لقاء الاختيار الأول' : 'كلمتك عن لقاء الاختيار الثاني')
+                                  : (match.match_type === 'choice' ? 'الكلمة التي اخترتها' : 'الكلمة التي اختارتها الخوارزمية')}
                               </p>
                               <p className={`text-lg font-bold ${dark ? 'text-white' : 'text-gray-800'}`}>
                                 "{match.match_word}"
@@ -1133,16 +1161,21 @@ export default function ResultsPage() {
                                 'text-gray-400'
                               }`}>
                                 تفضيلك: {
-                                  match.match_preference === 'choice' ? 'اخترت اختيارك الشخصي' :
-                                  match.match_preference === 'algorithm' ? 'اخترت اختيار الخوارزمية' :
+                                  match.match_preference === 'choice' ? (choiceOnlyMatch ? 'فضّلت الاختيار الأول' : 'اخترت اختيارك الشخصي') :
+                                  match.match_preference === 'algorithm' ? (choiceOnlyMatch ? 'فضّلت الاختيار الثاني' : 'اخترت اختيار الخوارزمية') :
                                   match.match_preference === 'both' ? 'كلاهما ممتاز' :
                                   'لم تفضّل أيهما'
                                 }
                               </span>
                             </div>
                           )}
+                          {choiceOnlyMatch && (
+                            <div className="rounded-2xl border border-pink-400/15 bg-pink-500/[0.07] p-4 text-sm leading-6 text-pink-100/80">
+                              هذا اللقاء جاء من ترتيبكما المتبادل فقط. درجات التوافق والخوارزمية لم تدخل في اختيار الشريك.
+                            </div>
+                          )}
                           {/* Compatibility Score */}
-                          <div className="rounded-2xl border border-white/[0.08] bg-slate-950/35 p-4 sm:p-5">
+                          <div className={`${choiceOnlyMatch ? 'hidden' : ''} rounded-2xl border border-white/[0.08] bg-slate-950/35 p-4 sm:p-5`}>
                             <div className="flex justify-between items-center mb-3">
                               <div className="flex items-center gap-2">
                                 <Award className={`w-5 h-5 ${
@@ -1177,7 +1210,7 @@ export default function ResultsPage() {
                           </div>
 
                           {/* Match Analysis */}
-                          <div className="rounded-2xl border border-white/[0.07] bg-slate-950/25 p-3 sm:p-4">
+                          <div className={`${choiceOnlyMatch ? 'hidden' : ''} rounded-2xl border border-white/[0.07] bg-slate-950/25 p-3 sm:p-4`}>
                             {(() => {
                               const formattedReason = formatCompatibilityReason(match)
                               if (formattedReason.components.length === 0) {

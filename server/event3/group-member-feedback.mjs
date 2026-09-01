@@ -21,7 +21,7 @@ export function normalizeGroupMemberFeedback({ entries, groupRound, reviewerNumb
   const reviewer = Number(reviewerNumber)
   const allowed = allowedNumbers instanceof Set ? allowedNumbers : new Set(allowedNumbers || [])
 
-  if (![1, 2].includes(round)) return { error: 'Group round must be 1 or 2' }
+  if (![1, 2, 3].includes(round)) return { error: 'Group round must be 1, 2, or 3' }
   if (!Array.isArray(entries) || entries.length === 0) return { error: 'Review at least one group member before saving' }
   if (entries.length > allowed.size) return { error: 'Feedback contains too many group members' }
 
@@ -80,6 +80,7 @@ export function buildGroupMemberFeedbackSummary(rows = [], nameMap = {}) {
       round_counts: {
         1: { reviews: 0, score_total: 0, positive: 0, neutral: 0, negative: 0 },
         2: { reviews: 0, score_total: 0, positive: 0, neutral: 0, negative: 0 },
+        3: { reviews: 0, score_total: 0, positive: 0, neutral: 0, negative: 0 },
       },
     }
 
@@ -95,7 +96,7 @@ export function buildGroupMemberFeedbackSummary(rows = [], nameMap = {}) {
       if (NEGATIVE_TAG_SET.has(tag)) current.negative_tag_counts[tag] = (current.negative_tag_counts[tag] || 0) + 1
     }
 
-    if ((round === 1 || round === 2) && current.round_counts[round]) {
+    if ([1, 2, 3].includes(round) && current.round_counts[round]) {
       const bucket = current.round_counts[round]
       bucket.reviews += 1
       bucket.score_total += score
@@ -131,7 +132,7 @@ export function buildGroupMemberFeedbackSummary(rows = [], nameMap = {}) {
       * confidence
       * 100
 
-    const roundBreakdown = Object.fromEntries([1, 2].map(round => {
+    const roundBreakdown = Object.fromEntries([1, 2, 3].map(round => {
       const bucket = item.round_counts[round]
       return [round, {
         reviews: bucket.reviews,
@@ -145,9 +146,9 @@ export function buildGroupMemberFeedbackSummary(rows = [], nameMap = {}) {
       }]
     }))
 
-    const reviewedRounds = [1, 2].filter(round => roundBreakdown[round].reviews > 0).length
-    const negativeRounds = [1, 2].filter(round => roundBreakdown[round].reviews > 0 && roundBreakdown[round].negative_rate >= 0.34).length
-    const positiveRounds = [1, 2].filter(round => roundBreakdown[round].reviews > 0 && roundBreakdown[round].positive_rate >= 0.6).length
+    const reviewedRounds = [1, 2, 3].filter(round => roundBreakdown[round].reviews > 0).length
+    const negativeRounds = [1, 2, 3].filter(round => roundBreakdown[round].reviews > 0 && roundBreakdown[round].negative_rate >= 0.34).length
+    const positiveRounds = [1, 2, 3].filter(round => roundBreakdown[round].reviews > 0 && roundBreakdown[round].positive_rate >= 0.6).length
 
     return {
       ...item,

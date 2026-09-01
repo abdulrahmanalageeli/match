@@ -17,11 +17,12 @@ test("swapNumber supports a full swap and a one-way replacement", () => {
 })
 
 test("one-to-one table numbers swap only in their own phase", () => {
-  assert.deepEqual(getTableSwapRounds(1), [1, 2])
-  assert.deepEqual(getTableSwapRounds(2), [1, 2])
+  assert.deepEqual(getTableSwapRounds(1), [1, 2, 3])
+  assert.deepEqual(getTableSwapRounds(2), [1, 2, 3])
+  assert.deepEqual(getTableSwapRounds(3), [1, 2, 3])
   assert.deepEqual(getTableSwapRounds(20), [20])
   assert.deepEqual(getTableSwapRounds(30), [30])
-  assert.equal(getTableSwapRounds(3), null)
+  assert.equal(getTableSwapRounds(4), null)
 })
 
 test("event pair planning keeps reciprocal pairs unique and maps both identities", () => {
@@ -81,6 +82,8 @@ test("match swaps submit both pair scores in live and test mode", async t => {
             EVENT3_MATCH_ID: "event3-fixture",
             STATIC_MATCH_ID: "main-fixture",
             currentEventId: 26,
+            loadEvent3Format: async () => "classic",
+            isChoiceOnlyEvent3: () => false,
             supabase: {
               from(table) {
                 assert.ok(["event3_matches", "participants"].includes(table))

@@ -19,7 +19,7 @@ test("one-to-one table controls use the atomic v2 swap and keep test results syn
   )
 
   assert.match(adminApi, /rpc\("swap_event3_table_numbers_v2"/)
-  assert.match(moveApi, /if \(!\[1, 2\]\.includes\(assignmentRound\)\)/)
+  assert.match(moveApi, /if \(!\[1, 2, 3\]\.includes\(assignmentRound\)\)/)
   assert.match(moveApi, /One-to-one rounds must use the atomic table swap/)
   assert.match(choiceTableUi, /renameTable\(20, pair\.table, targetTable\)/)
   assert.doesNotMatch(choiceTableUi, /api\("e3-move-table"/)

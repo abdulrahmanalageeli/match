@@ -194,4 +194,6 @@ test("organizer completion uses distinct actual tablemates, not six rows or a fi
   assert.equal(buildRankingCompletion(assignments, [...rows, ...Array(5).fill({ ranker_number: 1, ranked_number: 999 })], 2)(1).submitted, false)
   assert.equal(rankingRoundsForPhase("round2"), 1)
   assert.equal(rankingRoundsForPhase("ranking2"), 2)
+  assert.equal(rankingRoundsForPhase("round3"), 2)
+  assert.equal(rankingRoundsForPhase("ranking3"), 3)
 })

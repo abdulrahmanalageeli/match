@@ -1,4 +1,4 @@
-const VALID_TABLE_ROUNDS = new Set([1, 2, 20, 30])
+const VALID_TABLE_ROUNDS = new Set([1, 2, 3, 20, 30])
 
 export function swapNumber(value, oldParticipant, newParticipant, swapBoth = true) {
   const number = Number(value)
@@ -11,7 +11,7 @@ export function swapNumber(value, oldParticipant, newParticipant, swapBoth = tru
 export function getTableSwapRounds(round) {
   const normalizedRound = Number(round)
   if (!VALID_TABLE_ROUNDS.has(normalizedRound)) return null
-  return normalizedRound === 1 || normalizedRound === 2 ? [1, 2] : [normalizedRound]
+  return [1, 2, 3].includes(normalizedRound) ? [1, 2, 3] : [normalizedRound]
 }
 
 export function collectEventSwapPairs(matchRows, oldParticipant, newParticipant, swapBoth) {

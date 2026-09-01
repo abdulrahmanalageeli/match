@@ -13,5 +13,6 @@ export default [
   route("the-room", "routes/the-room.tsx"), // Standalone The Room event operations
   route("privacy", "routes/privacy.tsx"),
   route("terms", "routes/terms.tsx"),
+  route("about", "routes/about.tsx"),
   route("privacy-request", "routes/privacy-request.tsx"),
 ] satisfies RouteConfig;

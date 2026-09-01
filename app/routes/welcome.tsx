@@ -782,6 +782,8 @@ export default function WelcomePage() {
   const [upcomingEventLoading, setUpcomingEventLoading] = useState(true)
   const [publicEventFormat, setPublicEventFormat] = useState<'classic' | typeof CHOICE_ONLY_EVENT_FORMAT>('classic')
   const publicChoiceOnly = publicEventFormat === CHOICE_ONLY_EVENT_FORMAT
+  const [tutorialEdition, setTutorialEdition] = useState<'classic' | typeof CHOICE_ONLY_EVENT_FORMAT>(CHOICE_ONLY_EVENT_FORMAT)
+  const tutorialChoiceOnly = tutorialEdition === CHOICE_ONLY_EVENT_FORMAT
   // const [secureToken, setSecureToken] = useState<string>("")
   const [conversationStarters, setConversationStarters] = useState<string[]>([])
   const [showConversationStarters, setShowConversationStarters] = useState(false)
@@ -7818,7 +7820,11 @@ export default function WelcomePage() {
                                   </span>
                                   الموعد القادم
                                 </div>
-                                <h2 className="mt-0.5 truncate text-sm font-black text-white sm:text-base">فعالية التوافق الأعمى</h2>
+                                <h2 className="mt-0.5 truncate text-sm font-black text-white sm:text-base">التوافق الأعمى 5.0</h2>
+                                <div className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-fuchsia-300/20 bg-fuchsia-300/[0.08] px-2 py-0.5 text-[9px] font-black text-fuchsia-100 sm:text-[10px]">
+                                  <Sparkles className="h-3 w-3" />
+                                  النسخة الجديدة · اختيارات فقط
+                                </div>
                               </div>
                             </div>
                             <span className="shrink-0 rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold text-slate-400">
@@ -7886,13 +7892,56 @@ export default function WelcomePage() {
                 <div className="welcome-process-panel relative mx-3 mb-4 max-w-5xl overflow-hidden rounded-3xl border border-white/[0.09] bg-slate-950/55 shadow-[0_22px_70px_-42px_rgba(34,211,238,0.42)] backdrop-blur-xl sm:mx-auto">
                   <div className="pointer-events-none absolute -right-28 -top-32 h-72 w-72 rounded-full bg-cyan-400/[0.07] blur-3xl" aria-hidden="true" />
                   <div className="relative z-[1] py-3 text-center sm:py-4">
+                  <div className="mx-auto mb-3 max-w-3xl px-3 sm:px-5">
+                    <div className="mb-2 flex items-end justify-between gap-3 px-1 text-right">
+                      <div>
+                        <p className="text-[10px] font-black tracking-[0.12em] text-cyan-300/75">دليل التجربة</p>
+                        <h2 className="mt-0.5 text-sm font-black text-white sm:text-base">اختر النسخة التي تريد شرحها</h2>
+                      </div>
+                      <span className="hidden text-[10px] font-medium text-slate-500 sm:block">النسخة الجديدة محددة تلقائياً</span>
+                    </div>
+                    <div role="tablist" aria-label="نسخ شرح فعالية التوافق الأعمى" className="grid grid-cols-2 gap-1.5 rounded-2xl border border-white/[0.08] bg-black/20 p-1.5">
+                      <button
+                        id="choice-only-tutorial-tab"
+                        type="button"
+                        role="tab"
+                        aria-selected={tutorialChoiceOnly}
+                        aria-controls="blindmatch-how-it-works"
+                        tabIndex={tutorialChoiceOnly ? 0 : -1}
+                        onClick={() => setTutorialEdition(CHOICE_ONLY_EVENT_FORMAT)}
+                        className={`relative min-h-12 rounded-xl px-3 py-2 text-right transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-300 ${tutorialChoiceOnly
+                          ? 'bg-gradient-to-l from-fuchsia-400/20 via-violet-400/15 to-cyan-300/10 text-white shadow-[0_10px_30px_-18px_rgba(217,70,239,0.9)] ring-1 ring-fuchsia-300/25'
+                          : 'text-slate-500 hover:bg-white/[0.04] hover:text-slate-300'
+                        }`}
+                      >
+                        <span className="flex items-center gap-1.5 text-xs font-black sm:text-sm"><Sparkles className="h-3.5 w-3.5" /> اختيارات فقط</span>
+                        <span className="mt-0.5 block text-[9px] font-medium opacity-70 sm:text-[10px]">النسخة الجديدة · 3 لقاءات</span>
+                      </button>
+                      <button
+                        id="classic-tutorial-tab"
+                        type="button"
+                        role="tab"
+                        aria-selected={!tutorialChoiceOnly}
+                        aria-controls="blindmatch-how-it-works"
+                        tabIndex={!tutorialChoiceOnly ? 0 : -1}
+                        onClick={() => setTutorialEdition('classic')}
+                        className={`min-h-12 rounded-xl px-3 py-2 text-right transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 ${!tutorialChoiceOnly
+                          ? 'bg-gradient-to-l from-blue-400/20 to-cyan-300/10 text-white shadow-[0_10px_30px_-18px_rgba(34,211,238,0.8)] ring-1 ring-cyan-300/25'
+                          : 'text-slate-500 hover:bg-white/[0.04] hover:text-slate-300'
+                        }`}
+                      >
+                        <span className="flex items-center gap-1.5 text-xs font-black sm:text-sm"><Brain className="h-3.5 w-3.5" /> الفعالية العادية</span>
+                        <span className="mt-0.5 block text-[9px] font-medium opacity-70 sm:text-[10px]">اختيارك × ترشيحنا</span>
+                      </button>
+                    </div>
+                  </div>
                   <div className="mx-auto mb-1 max-w-3xl px-3 sm:px-5">
                     <div className="flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.03] px-3 py-2.5 text-right text-slate-200 sm:px-4">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-cyan-300/10 text-cyan-200 ring-1 ring-cyan-300/15">
                         <Sparkles className="h-4 w-4" />
                       </div>
                       <span className="text-xs font-medium leading-5 sm:text-sm">
-                        {publicChoiceOnly
+                        {tutorialChoiceOnly
                           ? 'نقاشات جماعية وثلاثة لقاءات فردية تبنيها اختياراتكم المتبادلة.'
                           : 'نقاشات جماعية ولقاءات فردية تقارن اختيارك بترشيحنا للتوافق.'}
                       </span>
@@ -7902,7 +7951,7 @@ export default function WelcomePage() {
                     <div className="flex items-center gap-2 px-3 py-2 text-right text-amber-100/70">
                       <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-300/75" />
                       <span className="text-[11px] font-medium leading-5 sm:text-xs">
-                        {publicChoiceOnly
+                        {tutorialChoiceOnly
                           ? 'ترتيبك سري، وكل لقاء يعتمد على أقوى اختيار متبادل متاح.'
                           : 'النتائج مؤشرات تقديرية وليست ضماناً.'}
                       </span>
@@ -7928,7 +7977,7 @@ export default function WelcomePage() {
                       <ChevronLeft className="blindmatch-explainer-chevron mt-2 h-4 w-4 shrink-0 text-slate-400 sm:mt-0" />
                     </button>
 
-                    <div id="blindmatch-how-it-works" aria-hidden={!isHowItWorksOpen} className="blindmatch-explainer-content">
+                    <div id="blindmatch-how-it-works" role="tabpanel" aria-labelledby={tutorialChoiceOnly ? 'choice-only-tutorial-tab' : 'classic-tutorial-tab'} aria-hidden={!isHowItWorksOpen} className="blindmatch-explainer-content">
                       <div className="blindmatch-explainer-content-inner">
                       <div className="px-3 pb-5 pt-5 sm:px-6 sm:pb-7">
                         <div className="blindmatch-explainer-hero relative overflow-hidden rounded-[1.5rem] border border-white/[0.08] bg-gradient-to-br from-violet-500/[0.09] via-transparent to-cyan-400/[0.08] p-4 sm:p-6">
@@ -7936,18 +7985,18 @@ export default function WelcomePage() {
                           <div className="relative text-right">
                             <span className="text-[10px] font-black tracking-[0.12em] text-violet-300">التوافق الأعمى</span>
                             <h3 className="mt-2 text-lg font-black leading-7 text-white sm:text-2xl">
-                              {publicChoiceOnly ? 'تتعرّف، ترتّب، ثم تقابل ثلاثة اختيارات متبادلة' : 'تتعرّف، تختار، ثم تقارن اختيارك باختيارنا'}
+                              {tutorialChoiceOnly ? 'تتعرّف، ترتّب، ثم تقابل ثلاثة اختيارات متبادلة' : 'تتعرّف، تختار، ثم تقارن اختيارك باختيارنا'}
                             </h3>
                             <p className="mt-2 max-w-3xl text-xs leading-6 text-slate-400 sm:text-sm">
-                              {publicChoiceOnly
+                              {tutorialChoiceOnly
                                 ? 'تقابل ثلاث مجموعات مختلفة من سبعة أشخاص، وترتّب من قابلتهم سراً. بعدها تعيش ثلاثة لقاءات فردية مع ثلاثة أشخاص مختلفين، وكل لقاء هو أقوى اختيار متبادل متبقٍ.'
                                 : 'التجربة لا تبدأ بمطابقة مباشرة. أولاً تقابل أشخاصاً حقيقيين داخل مجموعتين، ثم ترتّب تجربتك بنفسك، وبعدها تعيش جلستين فرديتين مختلفتين قبل الكشف النهائي.'}
                             </p>
                           </div>
                           <div className="relative mt-5 grid grid-cols-3 gap-1.5 sm:gap-2">
                             {[
-                              { value: publicChoiceOnly ? "3" : "2", label: "جولات جماعية", color: "text-blue-200" },
-                              { value: publicChoiceOnly ? "3" : "2", label: "جلسات 1:1", color: "text-pink-200" },
+                              { value: tutorialChoiceOnly ? "3" : "2", label: "جولات جماعية", color: "text-blue-200" },
+                              { value: tutorialChoiceOnly ? "3" : "2", label: "جلسات 1:1", color: "text-pink-200" },
                               { value: "1", label: "كشف نهائي", color: "text-violet-200" },
                             ].map((stat) => (
                               <div key={stat.label} className="rounded-2xl border border-white/[0.07] bg-black/15 px-1 py-3 text-center sm:px-2">
@@ -7959,7 +8008,7 @@ export default function WelcomePage() {
                         </div>
 
                         <div className="blindmatch-explainer-timeline relative mt-6 space-y-3 before:absolute before:bottom-7 before:right-[15px] before:top-7 before:w-px before:bg-gradient-to-b before:from-blue-400/40 before:via-pink-400/30 before:to-violet-400/40 sm:before:right-[19px]">
-                          {(publicChoiceOnly ? [
+                          {(tutorialChoiceOnly ? [
                             {
                               number: "01", Icon: Users, tone: "text-blue-200 bg-blue-400/10 ring-blue-300/20", title: "ثلاث جولات جماعية — ثلاث مجموعات مختلفة", meta: "7 أشخاص في كل مجموعة", body: "تذهب إلى رقم طاولتك في كل جولة وتتعرف على مجموعة مختلفة. الهدف أن تقابل عدداً أكبر من المشاركين قبل أي لقاء فردي.",
                             },
@@ -8020,7 +8069,7 @@ export default function WelcomePage() {
                         </div>
 
                         <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                          {publicChoiceOnly ? (
+                          {tutorialChoiceOnly ? (
                           <div className="rounded-[1.35rem] border border-pink-400/15 bg-pink-400/[0.045] p-3 text-right sm:col-span-2 sm:p-4">
                             <div className="flex items-center gap-2 text-pink-200">
                               <Heart className="h-4 w-4" />

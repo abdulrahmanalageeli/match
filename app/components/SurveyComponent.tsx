@@ -29,6 +29,27 @@ interface SurveyData {
   phoneNumber?: string
 }
 
+const CHOICE_BASED_PREFERENCE_LABELS: Record<string, string> = {
+  preferred_age_range: "العمر",
+  nationality_preference: "الجنسية",
+  gender_preference: "الجنس",
+}
+
+function ChoiceBasedPreferenceNotice({ questionId }: { questionId: string }) {
+  const preferenceLabel = CHOICE_BASED_PREFERENCE_LABELS[questionId]
+  if (!preferenceLabel) return null
+
+  return (
+    <div className="flex items-start gap-2.5 rounded-xl border border-violet-200 bg-violet-50/70 px-3 py-2.5 text-right dark:border-violet-400/25 dark:bg-violet-400/[0.07]">
+      <Info aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-violet-600 dark:text-violet-300" />
+      <p className="text-[11px] font-medium leading-5 text-violet-950 dark:text-violet-100 sm:text-xs">
+        <span className="font-extrabold">تنبيه لنسخ الاختيارات:</span>{" "}
+        في نسخة «اختيارات فقط» وأي لقاء فردي مبني على اختيارات المشاركين، لا يُطبّق تفضيل {preferenceLabel} عند تكوين اللقاء؛ تعتمد النتيجة على الاختيارات المتبادلة فقط. يبقى اختيارك محفوظًا للنسخ العادية.
+      </p>
+    </div>
+  )
+}
+
 export const surveyQuestions = [
   // Personal Information Questions
   {
@@ -2396,6 +2417,7 @@ const SurveyComponent = memo(function SurveyComponent({
                       )}
                       <div className="space-y-3">
                         {renderQuestion(question)}
+                        <ChoiceBasedPreferenceNotice questionId={question.id} />
                         {validationAttemptedPages.has(currentPage) && getQuestionValidationMessage(question) && (
                           <p className="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-right text-xs font-semibold text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">
                             {getQuestionValidationMessage(question)}
@@ -2438,6 +2460,13 @@ const SurveyComponent = memo(function SurveyComponent({
                     <h3 className="text-sm font-bold text-slate-950 dark:text-white">راجع تفضيلات المطابقة</h3>
                     <p className="mt-0.5 text-[11px] leading-5 text-slate-600 dark:text-slate-300">تأكد منها قبل الإرسال — يمكنك تعديل أي اختيار مباشرة.</p>
                   </div>
+                </div>
+
+                <div className="flex items-start gap-2.5 border-b border-violet-100 bg-violet-50/70 px-4 py-3 dark:border-violet-400/15 dark:bg-violet-400/[0.06]">
+                  <Info aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-violet-600 dark:text-violet-300" />
+                  <p className="text-[11px] font-medium leading-5 text-violet-950 dark:text-violet-100">
+                    في نسخة «اختيارات فقط» واللقاءات الفردية المبنية على الاختيارات، لا تُطبّق تفضيلات الجنس أو العمر أو الجنسية؛ تُحسم اللقاءات بالاختيارات المتبادلة فقط.
+                  </p>
                 </div>
 
                 <div className="divide-y divide-slate-100 px-3 dark:divide-slate-800">

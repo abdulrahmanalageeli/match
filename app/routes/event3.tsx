@@ -1251,6 +1251,94 @@ function DemoButton({ children, className = "", pulse = false }: { children: Rea
   )
 }
 
+const EVENT3_TUTORIAL_FORMATS: Array<{
+  value: Event3Format
+  label: string
+  description: string
+}> = [
+  {
+    value: CHOICE_ONLY_EVENT3_FORMAT,
+    label: "نسخة الاختيارات فقط",
+    description: "٣ لقاءات من اختيارات متبادلة",
+  },
+  {
+    value: "classic",
+    label: "النسخة العادية",
+    description: "اختيارك + التوافق الذكي",
+  },
+]
+
+function Event3TutorialTabs({
+  value,
+  onChange,
+}: {
+  value: Event3Format
+  onChange: (format: Event3Format) => void
+}) {
+  return (
+    <div
+      role="tablist"
+      aria-label="اختر نسخة شرح الفعالية"
+      className="grid grid-cols-2 gap-1 rounded-2xl border border-white/[0.09] bg-black/25 p-1"
+    >
+      {EVENT3_TUTORIAL_FORMATS.map((format) => {
+        const selected = format.value === value
+        const tabId = `event3-${format.value}-tutorial-tab`
+        const selectAdjacentTab = (direction: -1 | 1) => {
+          const currentIndex = EVENT3_TUTORIAL_FORMATS.findIndex((item) => item.value === format.value)
+          const nextIndex = (currentIndex + direction + EVENT3_TUTORIAL_FORMATS.length) % EVENT3_TUTORIAL_FORMATS.length
+          const nextFormat = EVENT3_TUTORIAL_FORMATS[nextIndex]
+          onChange(nextFormat.value)
+          window.requestAnimationFrame(() => {
+            document.getElementById(`event3-${nextFormat.value}-tutorial-tab`)?.focus()
+          })
+        }
+
+        return (
+          <button
+            key={format.value}
+            id={tabId}
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            aria-controls="event3-tutorial-format-panel"
+            tabIndex={selected ? 0 : -1}
+            onClick={() => onChange(format.value)}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowRight") {
+                event.preventDefault()
+                selectAdjacentTab(-1)
+              } else if (event.key === "ArrowLeft") {
+                event.preventDefault()
+                selectAdjacentTab(1)
+              } else if (event.key === "Home" || event.key === "End") {
+                event.preventDefault()
+                const targetFormat = event.key === "Home"
+                  ? EVENT3_TUTORIAL_FORMATS[0]
+                  : EVENT3_TUTORIAL_FORMATS[EVENT3_TUTORIAL_FORMATS.length - 1]
+                onChange(targetFormat.value)
+                window.requestAnimationFrame(() => {
+                  document.getElementById(`event3-${targetFormat.value}-tutorial-tab`)?.focus()
+                })
+              }
+            }}
+            className={`min-h-[4.5rem] rounded-xl px-2 py-2 text-right transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 ${
+              selected
+                ? "bg-gradient-to-br from-purple-600 to-violet-700 text-white shadow-lg shadow-purple-950/40"
+                : "text-gray-400 hover:bg-white/[0.05] hover:text-gray-100"
+            }`}
+          >
+            <span className="block text-xs font-black leading-5">{format.label}</span>
+            <span className={`mt-0.5 block text-[9px] font-medium leading-4 ${selected ? "text-white/75" : "text-gray-500"}`}>
+              {format.description}
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 // The animated per-stage content shown inside the "steps" phase of WelcomeScreen.
 function WalkSlide({ step, headingRef, eventFormat }: { step: number; headingRef?: React.RefObject<HTMLHeadingElement | null>; eventFormat: Event3Format }) {
   const slide = WALK_SLIDES[step]
@@ -1386,6 +1474,12 @@ function WalkSlide({ step, headingRef, eventFormat }: { step: number; headingRef
               <p className="text-gray-300 text-xs leading-relaxed">
                 لا نضمن أن تجلس مع خياراتك الأولى — إذا لم يخترك أحد من أعلى قائمتك، سيمنحك النظام أفضل تطابق متبادل متاح لك.
               </p>
+              {choiceOnly && (
+                <p className="flex items-start gap-1.5 border-t border-amber-700/30 pt-2 text-xs leading-relaxed text-amber-100/80">
+                  <Info aria-hidden="true" size={13} className="mt-0.5 shrink-0 text-amber-300" />
+                  <span>في هذه النسخة، لا تدخل تفضيلات الجنس أو العمر أو الجنسية في اختيار اللقاءات الفردية؛ ترتيب المشاركين والتطابق المتبادل وحدهما يحددانها.</span>
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -1533,15 +1627,15 @@ function WalkSlide({ step, headingRef, eventFormat }: { step: number; headingRef
   )
 }
 
-function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
+function WelcomeScreen({ onDone, onLogout, showLogout }: {
   onDone: () => void
   onLogout?: () => void
   showLogout?: boolean
-  eventFormat: Event3Format
 }) {
   const [phase, setPhase] = useState<"splash" | "rules" | "steps">("splash")
   const [step, setStep] = useState(0)
   const [dir, setDir] = useState(1)
+  const [tutorialFormat, setTutorialFormat] = useState<Event3Format>(CHOICE_ONLY_EVENT3_FORMAT)
   const reduceMotion = useReducedMotion()
   const splashHeadingRef = useRef<HTMLHeadingElement>(null)
   const rulesHeadingRef = useRef<HTMLHeadingElement>(null)
@@ -1633,7 +1727,7 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
               >
                 <Sparkles size={12} className="text-purple-400" />
                 <span className="text-xs font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent tracking-[0.14em] uppercase">
-                  التوافق الأعمى — الجيل الرابع
+                  التوافق الأعمى 5.0
                 </span>
                 <Sparkles size={12} className="text-pink-400" />
               </motion.div>
@@ -1647,7 +1741,7 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
               >
                 التوافق الأعمى<br />
                 <span className="bg-gradient-to-r from-purple-400 via-violet-400 to-indigo-400 bg-clip-text text-transparent">
-                  الجيل الرابع
+                  5.0
                 </span>
               </motion.h1>
               <motion.p
@@ -1656,7 +1750,7 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
                 transition={{ delay: 0.8 }}
                 className="text-gray-400 text-sm max-w-[250px] mx-auto leading-relaxed"
               >
-                منهجية مبتكرة لاكتشاف مستوى التوافق بين الأشخاص بشكل موضوعي
+                اختر دليل النسخة التي تريد فهمها قبل بدء رحلتك
               </motion.p>
             </motion.div>
 
@@ -1666,6 +1760,22 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
               transition={{ delay: 0.95 }}
               className="w-full max-w-xs space-y-3"
             >
+              <Event3TutorialTabs
+                value={tutorialFormat}
+                onChange={setTutorialFormat}
+              />
+              <div
+                id="event3-tutorial-format-panel"
+                role="tabpanel"
+                aria-labelledby={`event3-${tutorialFormat}-tutorial-tab`}
+                className="rounded-xl border border-white/[0.07] bg-white/[0.035] px-3 py-2 text-right"
+              >
+                <p className="text-[11px] font-medium leading-5 text-gray-300">
+                  {isChoiceOnlyEvent3(tutorialFormat)
+                    ? "النسخة الجديدة: ثلاث جولات جماعية ثم ثلاثة لقاءات فردية مختلفة تُحسم بالاختيارات المتبادلة فقط."
+                    : "النسخة العادية: جولتان جماعيتان ثم لقاء باختيارك ولقاء آخر يرشحه نظام التوافق."}
+                </p>
+              </div>
               <motion.button
                 whileTap={{ scale: 0.97 }}
                 onClick={() => setPhase("rules")}
@@ -1812,7 +1922,7 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
                   transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
                   className="w-full max-w-sm my-auto"
                 >
-                  <WalkSlide step={step} headingRef={walkHeadingRef} eventFormat={eventFormat} />
+                  <WalkSlide step={step} headingRef={walkHeadingRef} eventFormat={tutorialFormat} />
                 </motion.div>
               </AnimatePresence>
             </div>
@@ -7381,7 +7491,7 @@ export default function Event3Page() {
     </PageWrapper>
   )
 
-  if (showWelcome) return <WelcomeScreen onDone={handleWelcomeDone} onLogout={handleLogout} showLogout={!!token && !isImpersonating} eventFormat={eventFormat} />
+  if (showWelcome) return <WelcomeScreen onDone={handleWelcomeDone} onLogout={handleLogout} showLogout={!!token && !isImpersonating} />
   if (!token || tokenError) return <PhoneEntry onToken={t => { setToken(t); setTokenError(false) }} />
 
   if (stateLoading && !eventState) return (

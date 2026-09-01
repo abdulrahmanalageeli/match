@@ -5099,6 +5099,7 @@ if (action === "cache-status-by-gender") {
       maxLocalCachesPerRequest = null,
       maxDurationMs = null,
       finalizeDeltaCacheMetadata = true,
+      coverageRepairPairs = null,
     } = req.body || {}
 
     const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
@@ -5153,7 +5154,32 @@ if (action === "cache-status-by-gender") {
       const totalDeltaPairs = (totalParticipants * (totalParticipants - 1) / 2)
         - (unchangedParticipants * (unchangedParticipants - 1) / 2)
 
-      if (participantsNeedingCache.length === 0) {
+      const hasCoverageRepairRequest = Array.isArray(coverageRepairPairs) && coverageRepairPairs.length > 0
+      if (participantsNeedingCache.length === 0 && !hasCoverageRepairRequest) {
+        const freshCoverageVerification = await verifyCurrentBalancedCacheCoverage(allEligibleParticipants)
+        const freshCoverageRepairPairs = freshCoverageVerification.missingPairs || []
+        if (freshCoverageVerification.missingCount > 0 && freshCoverageRepairPairs.length > 0) {
+          return res.status(200).json({
+            success: true,
+            cached_count: 0,
+            already_cached: 0,
+            skipped: 0,
+            errors: 0,
+            participants_needing_cache: 0,
+            reason_counts: reasonCounts,
+            total_eligible: totalParticipants,
+            last_cache_timestamp: lastCacheTimestamp,
+            coverage_verification: freshCoverageVerification,
+            message: `Cache timestamps are fresh, but ${freshCoverageVerification.missingCount} coverage gap(s) need repair.`,
+            progress: {
+              has_more: true,
+              resume_cursor: null,
+              coverage_repair_pairs: freshCoverageRepairPairs,
+              participants_total: totalParticipants,
+              total_pairs: 0,
+            },
+          })
+        }
         return res.status(200).json({
           success: true,
           cached_count: 0,
@@ -5166,6 +5192,8 @@ if (action === "cache-status-by-gender") {
           message: 'Cache is fresh - no surveys changed and no participants enrolled.',
           progress: {
             has_more: false,
+            resume_cursor: null,
+            coverage_repair_pairs: [],
             participants_total: totalParticipants,
             total_pairs: 0,
           },
@@ -5219,24 +5247,58 @@ if (action === "cache-status-by-gender") {
         return nextI < totalParticipants - 1 ? { i: nextI, j: nextJ } : null
       }
 
+      // Final coverage verification can expose an older global gap between two
+      // otherwise unchanged participants. A normal delta scan will never visit
+      // that pair, so accept a bounded targeted repair request from the client.
+      const participantIndexByNumber = new Map(
+        allEligibleParticipants.map((participant, index) => [Number(participant.assigned_number), index]),
+      )
+      const requestedCoverageRepair = (Array.isArray(coverageRepairPairs) ? coverageRepairPairs : [])
+        .map(pair => Array.isArray(pair) ? pair.map(Number) : [])
+        .filter(pair => (
+          pair.length === 2
+          && Number.isInteger(pair[0])
+          && Number.isInteger(pair[1])
+          && pair[0] !== pair[1]
+          && participantIndexByNumber.has(pair[0])
+          && participantIndexByNumber.has(pair[1])
+        ))
+        .slice(0, 1)
+      const isCoverageRepairRequest = requestedCoverageRepair.length > 0
+
       // Materialize only the current cursor window. The following cache query
       // therefore scales with work in this HTTP request, not all history for
       // every changed participant.
       const pairWindow = []
-      let windowCursor = normalizeCursor(cursorI, Math.max(cursorJ, cursorI + 1))
-      while (windowCursor && pairWindow.length < effectivePairWindowSize) {
-        const { i, j } = windowCursor
+      let windowCursor = isCoverageRepairRequest
+        ? null
+        : normalizeCursor(cursorI, Math.max(cursorJ, cursorI + 1))
+      const appendPairDescriptor = (i, j, nextCursor = null) => {
         const p1 = allEligibleParticipants[i]
         const p2 = allEligibleParticipants[j]
-        const nextCursor = normalizeCursor(i, j + 1)
-        windowCursor = nextCursor
-        if (!updatedNumbers.has(p1.assigned_number) && !updatedNumbers.has(p2.assigned_number)) continue
         const eligible = checkGenderCompatibility(p1, p2)
           && checkNationalityHardGate(p1, p2)
           && checkAgeRangeHardGate(p1, p2)
           && checkAgeCompatibility(p1, p2)
           && checkInteractionStyleCompatibility(p1, p2)
         pairWindow.push({ i, j, p1, p2, eligible, nextCursor })
+      }
+      if (isCoverageRepairRequest) {
+        const [left, right] = requestedCoverageRepair[0]
+        const i = participantIndexByNumber.get(left)
+        const j = participantIndexByNumber.get(right)
+        appendPairDescriptor(Math.min(i, j), Math.max(i, j))
+        console.log(`🩹 DELTA COVERAGE REPAIR: targeting #${left}×#${right}`)
+      } else {
+        while (windowCursor && pairWindow.length < effectivePairWindowSize) {
+          const { i, j } = windowCursor
+          const p1 = allEligibleParticipants[i]
+          const p2 = allEligibleParticipants[j]
+          const nextCursor = normalizeCursor(i, j + 1)
+          windowCursor = nextCursor
+          if (!updatedNumbers.has(p1.assigned_number) && !updatedNumbers.has(p2.assigned_number)) continue
+          appendPairDescriptor(i, j, nextCursor)
+        }
       }
 
       const cacheCandidatePairs = pairWindow
@@ -5261,7 +5323,7 @@ if (action === "cache-status-by-gender") {
         }
       })
 
-      let nextResumeCursor = windowCursor === null
+      let nextResumeCursor = isCoverageRepairRequest || windowCursor === null
         ? null
         : (pairWindow[pairWindow.length - 1]?.nextCursor || windowCursor)
       const localJobs = []
@@ -5269,7 +5331,7 @@ if (action === "cache-status-by-gender") {
 
       for (const descriptor of pairWindow) {
         const { i, j, p1, p2, eligible } = descriptor
-        if ((Date.now() - startTime) >= effectiveMaxDurationMs) {
+        if (!isCoverageRepairRequest && (Date.now() - startTime) >= effectiveMaxDurationMs) {
           nextResumeCursor = { i, j }
           break
         }
@@ -5379,7 +5441,7 @@ if (action === "cache-status-by-gender") {
         }
       }
 
-      const hasMore = !!nextResumeCursor
+      let hasMore = !!nextResumeCursor
       const durationMs = Date.now() - startTime
 
       console.log(`💾 DELTA BATCH CACHE: scanned=${pairsScanned}, localJobs=${localCacheJobsStarted}, aiJobs=${aiCallsMade}, newly=${newlyCached}, already=${alreadyCached}, skipped=${skipped}, errors=${errors}, hasMore=${hasMore}`)
@@ -5388,26 +5450,31 @@ if (action === "cache-status-by-gender") {
       let metadataUpdated = null
       let metadataUpdateError = null
       let coverageVerification = null
+      let nextCoverageRepairPairs = []
       const metadataScope = getCacheMetadataScope(matchType)
       if (!hasMore && finalizeDeltaCacheMetadata && errors === 0 && canAdvanceGlobalCacheMetadata(matchType)) {
         try {
           coverageVerification = await verifyCurrentBalancedCacheCoverage(allEligibleParticipants)
           if (coverageVerification.missingCount > 0) {
-            throw new Error(`Cache coverage is incomplete: ${coverageVerification.missingCount} eligible pair(s) are missing an exact current-model row`)
+            nextCoverageRepairPairs = coverageVerification.missingPairs
+            hasMore = nextCoverageRepairPairs.length > 0
+            metadataUpdated = null
+            console.warn(`🩹 Delta coverage verification queued ${nextCoverageRepairPairs.length} targeted repair pair(s)`)
+          } else {
+            const { error: metadataError } = await supabase.rpc('record_cache_session', {
+              p_event_id: eventId,
+              p_participants_cached: totalParticipants,
+              p_pairs_cached: coverageVerification.eligiblePairs,
+              p_duration_ms: durationMs,
+              p_ai_calls: aiCallsMade,
+              p_cache_hit_rate: pairsScanned > 0 ? parseFloat(((alreadyCached / pairsScanned) * 100).toFixed(2)) : 0,
+              p_notes: `Delta batched cache: ${participantsNeedingCache.length} participants updated since ${lastCacheTimestamp}`,
+              p_score_model_version: COMPATIBILITY_SCORE_VERSION,
+            })
+            if (metadataError) throw metadataError
+            metadataUpdated = true
+            console.log(`✅ Delta batched cache completed: cache_metadata updated`)
           }
-          const { error: metadataError } = await supabase.rpc('record_cache_session', {
-            p_event_id: eventId,
-            p_participants_cached: totalParticipants,
-            p_pairs_cached: coverageVerification.eligiblePairs,
-            p_duration_ms: durationMs,
-            p_ai_calls: aiCallsMade,
-            p_cache_hit_rate: pairsScanned > 0 ? parseFloat(((alreadyCached / pairsScanned) * 100).toFixed(2)) : 0,
-            p_notes: `Delta batched cache: ${participantsNeedingCache.length} participants updated since ${lastCacheTimestamp}`,
-            p_score_model_version: COMPATIBILITY_SCORE_VERSION,
-          })
-          if (metadataError) throw metadataError
-          metadataUpdated = true
-          console.log(`✅ Delta batched cache completed: cache_metadata updated`)
         } catch (metaError) {
           metadataUpdated = false
           metadataUpdateError = metaError?.message || 'Failed to update cache metadata'
@@ -5445,6 +5512,7 @@ if (action === "cache-status-by-gender") {
         progress: {
           has_more: hasMore,
           resume_cursor: nextResumeCursor,
+          coverage_repair_pairs: nextCoverageRepairPairs,
           participants_total: totalParticipants,
           total_pairs: totalDeltaPairs,
         },

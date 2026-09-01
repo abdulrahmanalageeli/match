@@ -4742,6 +4742,8 @@ Proceed?`
       let isFresh = false
       let batchNum = 0
       let aiCachesPerRequest = 12
+      let coverageRepairPairs: number[][] | null = null
+      let coverageRepairAttempts = 0
 
       while (true) {
         try {
@@ -4768,6 +4770,7 @@ Proceed?`
                 // enabled and reduce the amount of AI work in each request.
                 skipAI: false,
                 resumeCursor,
+                coverageRepairPairs,
                 maxDurationMs: 8000,
                 maxAICachesPerRequest: aiCachesPerRequest,
                 maxLocalCachesPerRequest: 160,
@@ -4859,7 +4862,7 @@ Proceed?`
             return
           }
 
-          if (participantsNeedingCache === 0) {
+          if (participantsNeedingCache === 0 && !data.progress?.has_more) {
             isFresh = true
             break
           }
@@ -4877,6 +4880,25 @@ Proceed?`
 
           if (!data.progress?.has_more) break
 
+          const requestedCoverageRepairs = Array.isArray(data.progress?.coverage_repair_pairs)
+            ? data.progress.coverage_repair_pairs
+            : []
+          if (requestedCoverageRepairs.length > 0) {
+            coverageRepairAttempts++
+            if (coverageRepairAttempts > 5) {
+              throw new Error('Delta cache could not close the remaining coverage gap after 5 targeted repair attempts')
+            }
+            coverageRepairPairs = [requestedCoverageRepairs[0]]
+            resumeCursor = null
+            setDeltaCacheProgress(previous => previous ? {
+              ...previous,
+              message: `Repairing missing cache pair #${requestedCoverageRepairs[0][0]} × #${requestedCoverageRepairs[0][1]}…`,
+            } : previous)
+            await new Promise(r => setTimeout(r, 100))
+            continue
+          }
+
+          coverageRepairPairs = null
           resumeCursor = data.progress.resume_cursor
           if (!resumeCursor) break
 

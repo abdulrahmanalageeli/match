@@ -137,6 +137,11 @@ test('batched cache keeps cheap scans separate and delta reserves independent lo
   assert.match(delta, /storeCachedCompatibilities\(completedJobs\.map/)
   assert.match(delta, /local_cache_jobs_started: localCacheJobsStarted/)
   assert.match(delta, /ai_cache_jobs_started: aiCallsMade/)
+  assert.match(delta, /coverageRepairPairs = null/)
+  assert.match(delta, /isCoverageRepairRequest/)
+  assert.match(delta, /DELTA COVERAGE REPAIR/)
+  assert.match(delta, /coverage_repair_pairs: nextCoverageRepairPairs/)
+  assert.doesNotMatch(delta, /Cache coverage is incomplete:/)
 
   for (const scope of [full, delta]) {
     assert.match(scope, /let pairsScanned = 0/)
@@ -153,6 +158,7 @@ test('batched cache keeps cheap scans separate and delta reserves independent lo
   assert.match(adminSource, /let aiCachesPerRequest = 12/)
   assert.match(adminSource, /action: "delta-pre-cache-batched"[\s\S]*skipAI: false[\s\S]*maxAICachesPerRequest: aiCachesPerRequest[\s\S]*maxLocalCachesPerRequest: 160[\s\S]*maxPairsPerRequest: 20000/)
   assert.match(adminSource, /timeoutHint && aiCachesPerRequest > 1[\s\S]*Math\.max\(1, Math\.floor\(aiCachesPerRequest \/ 3\)\)/)
+  assert.match(adminSource, /coverageRepairPairs[\s\S]*coverageRepairAttempts[\s\S]*coverage_repair_pairs/)
   assert.doesNotMatch(adminSource, /forceNoAI|Retrying remaining batches without AI/)
   assert.match(adminSource, /<span>Scanned <strong/)
 })

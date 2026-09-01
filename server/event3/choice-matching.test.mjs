@@ -4,6 +4,8 @@ import test from "node:test"
 import {
   buildChoiceMatches,
   buildMutualChoiceRound,
+  buildMutualChoiceRounds,
+  buildThreeMutualChoiceRounds,
   buildTwoMutualChoiceRounds,
   maximumCardinalityMatching,
 } from "./choice-matching.mjs"
@@ -57,7 +59,26 @@ test("round two excludes every round-one partner and finds the next strongest re
   assert.equal(pairKeys(result.round2).some(key => pairKeys(result.round1).includes(key)), false)
 })
 
-test("the real 42-person three-group plan yields two complete reciprocal choice rounds", () => {
+test("the generic round builder excludes partners from every earlier round", () => {
+  const result = buildMutualChoiceRounds({
+    participantNumbers: [1, 2, 3, 4],
+    rankings: rows({
+      1: [2, 3, 4],
+      2: [1, 4, 3],
+      3: [4, 1, 2],
+      4: [3, 2, 1],
+    }),
+    roundCount: 3,
+  })
+
+  assert.deepEqual(result.rounds.map(pairKeys), [
+    ["1-2", "3-4"],
+    ["1-3", "2-4"],
+    ["1-4", "2-3"],
+  ])
+})
+
+test("the real 42-person three-group plan yields three complete reciprocal choice rounds", () => {
   const participantNumbers = Array.from({ length: 42 }, (_, index) => index + 1)
   const seating = buildChoiceOnlySeatingPlan(participantNumbers)
   assert.equal(seating.error, undefined)
@@ -77,26 +98,27 @@ test("the real 42-person three-group plan yields two complete reciprocal choice 
     participant,
     [...met].sort((a, b) => a - b),
   ]))
-  const result = buildTwoMutualChoiceRounds({ participantNumbers, rankings })
+  const result = buildThreeMutualChoiceRounds({ participantNumbers, rankings })
 
   assert.equal(result.round1.pairs.length, 21)
   assert.equal(result.round2.pairs.length, 21)
+  assert.equal(result.round3.pairs.length, 21)
   assert.deepEqual(result.round1.unmatched, [])
   assert.deepEqual(result.round2.unmatched, [])
+  assert.deepEqual(result.round3.unmatched, [])
 
-  const firstPartners = new Map()
-  for (const pair of result.round1.pairs) {
-    assert.ok(tablemates.get(pair.a).has(pair.b))
-    assert.ok(tablemates.get(pair.b).has(pair.a))
-    firstPartners.set(pair.a, pair.b)
-    firstPartners.set(pair.b, pair.a)
+  const previousPartners = new Map(participantNumbers.map(number => [number, new Set()]))
+  for (const round of [result.round1, result.round2, result.round3]) {
+    for (const pair of round.pairs) {
+      assert.ok(tablemates.get(pair.a).has(pair.b))
+      assert.ok(tablemates.get(pair.b).has(pair.a))
+      assert.equal(previousPartners.get(pair.a).has(pair.b), false)
+      assert.equal(previousPartners.get(pair.b).has(pair.a), false)
+      previousPartners.get(pair.a).add(pair.b)
+      previousPartners.get(pair.b).add(pair.a)
+    }
   }
-  for (const pair of result.round2.pairs) {
-    assert.ok(tablemates.get(pair.a).has(pair.b))
-    assert.ok(tablemates.get(pair.b).has(pair.a))
-    assert.notEqual(firstPartners.get(pair.a), pair.b)
-    assert.notEqual(firstPartners.get(pair.b), pair.a)
-  }
+  for (const partners of previousPartners.values()) assert.equal(partners.size, 3)
 })
 
 test("API wrapper returns the symmetric Map shape used by Event3", () => {

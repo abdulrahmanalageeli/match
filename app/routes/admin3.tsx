@@ -250,19 +250,21 @@ const EVENT3_PHASE_SECONDS = {
   break: 10 * 60,
   phase2_reveal: 26 * 60,
   phase3_reveal: 26 * 60,
+  phase4_reveal: 26 * 60,
 } as const
 
 function getEvent3PhaseSeconds(phase: unknown) {
   return EVENT3_PHASE_SECONDS[String(phase || "") as keyof typeof EVENT3_PHASE_SECONDS] ?? 0
 }
 
-function rankingLocationRound(phase: unknown): number | null {
+function rankingLocationRound(phase: unknown, choiceOnly = false): number | null {
   const value = String(phase || "")
   if (value === "round1" || value === "ranking1") return 1
   if (value === "round2" || value === "ranking2") return 2
   if (value === "round3" || value === "ranking3") return 3
   if (value === "phase2_processing" || value === "break" || value === "phase2_reveal") return 20
-  if (value === "phase3_processing" || value === "phase3_reveal" || value === "final_reveal") return 30
+  if (value === "phase3_processing" || value === "phase3_reveal" || (!choiceOnly && value === "final_reveal")) return 30
+  if (value === "phase4_processing" || value === "phase4_reveal" || (choiceOnly && value === "final_reveal")) return 40
   return null
 }
 
@@ -289,6 +291,8 @@ const CHOICE_ONLY_PHASES = [
   { id: "break",          label: "استراحة",              icon: "☕", color: "orange" },
   { id: "phase2_reveal",  label: "كشف الاختيار الأول",   icon: "💘", color: "pink" },
   { id: "phase3_reveal",  label: "كشف الاختيار الثاني",  icon: "💞", color: "purple" },
+  { id: "phase4_processing", label: "تجهيز الاختيار الثالث", icon: "⏳", color: "violet" },
+  { id: "phase4_reveal",  label: "كشف الاختيار الثالث",  icon: "💜", color: "violet" },
   { id: "final_reveal",   label: "الكشف النهائي",        icon: "✨", color: "amber" },
 ]
 
@@ -380,7 +384,7 @@ function FeedbackEditModal({ entry, phase, choiceOnly, onClose, onSave }: {
               {entry.participant_name} #{entry.participant_number}
               <span className="text-gray-600"> عن </span>
               {entry.partner_name} #{entry.partner_number}
-              <span className="text-gray-600"> · {phase === "phase2" ? (choiceOnly ? "الاختيار الأول" : "اختيارك") : (choiceOnly ? "الاختيار الثاني" : "الخوارزمية")}</span>
+              <span className="text-gray-600"> · {phase === "phase2" ? (choiceOnly ? "الاختيار الأول" : "اختيارك") : phase === "phase4" ? "الاختيار الثالث" : (choiceOnly ? "الاختيار الثاني" : "الخوارزمية")}</span>
             </p>
           </div>
           <button onClick={onClose} className="text-gray-500 hover:text-white"><X size={18} /></button>
@@ -462,9 +466,11 @@ export default function Admin3Page() {
   const groupRounds: Array<1 | 2 | 3> = choiceOnly ? [1, 2, 3] : [1, 2]
   const firstMatchLabel = choiceOnly ? "الاختيار الأول" : "اختيار المشاركين"
   const secondMatchLabel = choiceOnly ? "الاختيار الثاني" : "الخوارزمية"
+  const thirdMatchLabel = "الاختيار الثالث"
   const breakTimerRound = choiceOnly ? 4 : 3
   const firstMatchTimerRound = choiceOnly ? 5 : 4
   const secondMatchTimerRound = choiceOnly ? 6 : 5
+  const thirdMatchTimerRound = 7
   const [previewEventId, setPreviewEventIdState] = useState<number | null>(null)
   const [eventList, setEventList] = useState<number[]>([])
   const [realCurrentEventId, setRealCurrentEventId] = useState<number>(20)
@@ -488,8 +494,10 @@ export default function Admin3Page() {
   const [copied, setCopied] = useState(false)
   const [matchPairs, setMatchPairs] = useState<any[]>([])
   const [phase3Pairs, setPhase3Pairs] = useState<any[]>([])
+  const [phase4Pairs, setPhase4Pairs] = useState<any[]>([])
   const [expandedPair, setExpandedPair] = useState<number | null>(null)
   const [expandedPhase3Pair, setExpandedPhase3Pair] = useState<number | null>(null)
+  const [expandedPhase4Pair, setExpandedPhase4Pair] = useState<number | null>(null)
   const [swapMatch, setSwapMatch] = useState<{ phase: "phase2" | "phase3"; missingNum: number; missingName: string } | null>(null)
   const [swapReplacement, setSwapReplacement] = useState<number | null>(null)
   const [immediateAlgorithmReplacement, setImmediateAlgorithmReplacement] = useState<{
@@ -547,6 +555,15 @@ export default function Admin3Page() {
     return participants.filter(p => p.selected && !assignedIds.has(p.number)).length
   }, [state?.phase3_matches_done, seating, participants])
 
+  const phase4MissingCount = useMemo(() => {
+    if (!choiceOnly || !state?.phase4_matches_done || !seating || !participants.length) return 0
+    const assignedIds = new Set<number>()
+    for (const members of Object.values(seating[40] || {})) {
+      for (const m of (members as any[])) if (m?.number) assignedIds.add(m.number)
+    }
+    return participants.filter(p => p.selected && !assignedIds.has(p.number)).length
+  }, [choiceOnly, state?.phase4_matches_done, seating, participants])
+
   const [editingRanker, setEditingRanker] = useState<number | null>(null)
   const [editedOrder, setEditedOrder] = useState<any[]>([])
   const [simulatingRanker, setSimulatingRanker] = useState<number | null>(null)
@@ -554,9 +571,9 @@ export default function Admin3Page() {
   const [simLoading, setSimLoading] = useState(false)
   const [swapA, setSwapA] = useState<number | null>(null)
   const [moveA, setMoveA] = useState<number | null>(null)
-  const [mapRound, setMapRound] = useState<1 | 2 | 3 | 20 | 30>(1)
+  const [mapRound, setMapRound] = useState<1 | 2 | 3 | 20 | 30 | 40>(1)
   useEffect(() => {
-    if (!choiceOnly && mapRound === 3) setMapRound(1)
+    if (!choiceOnly && (mapRound === 3 || mapRound === 40)) setMapRound(1)
   }, [choiceOnly, mapRound])
   const [editingTable, setEditingTable] = useState<{ num: number; round: number; value: string } | null>(null)
   const [editingTableCard, setEditingTableCard] = useState<{ round: number; table: number; value: string } | null>(null)
@@ -571,7 +588,7 @@ export default function Admin3Page() {
   const [feedbackData, setFeedbackData] = useState<any>(null)
   const [feedbackLoading, setFeedbackLoading] = useState(false)
   const [feedbackPolling, setFeedbackPolling] = useState(false)
-  const [feedbackPhase, setFeedbackPhase] = useState<"phase2" | "phase3" | "groups">("phase2")
+  const [feedbackPhase, setFeedbackPhase] = useState<"phase2" | "phase3" | "phase4" | "groups">("phase2")
   const [editingFeedback, setEditingFeedback] = useState<any>(null)
   const [analyzingPair, setAnalyzingPair] = useState<{ entry: any; phase: string } | null>(null)
   const [pairAnalysisResult, setPairAnalysisResult] = useState<{
@@ -757,6 +774,7 @@ export default function Admin3Page() {
     const data = await api("e3-get-matches")
     setMatchPairs(data.pairs || [])
     setPhase3Pairs(data.phase3Pairs || [])
+    setPhase4Pairs(data.phase4Pairs || [])
   }, [])
 
   const fetchOverview = useCallback(async () => {
@@ -1159,6 +1177,11 @@ export default function Admin3Page() {
 
   const doSwap = (numB: number) => {
     if (previewEventId != null) { toast.error("لا يمكن تعديل الجلسات في وضع المعاينة"); return }
+    if (choiceOnly && [20, 30, 40].includes(mapRound)) {
+      setSwapA(null)
+      toast.error("جلسات الاختيارات الفردية للقراءة فقط ولا تدعم التبديل اليدوي")
+      return
+    }
     run(`swap-${swapA}-${numB}`, () => api("e3-swap-seating", { num_a: swapA, num_b: numB }).then(d => {
       if (!d.error) {
         setSwapA(null)
@@ -1172,7 +1195,12 @@ export default function Admin3Page() {
   const doMove = (targetTable: number) => {
     if (!moveA || !mapRound) return
     if (previewEventId != null) { toast.error("لا يمكن تعديل الجلسات في وضع المعاينة"); return }
-    if (choiceOnly && mapRound !== 20 && mapRound !== 30) {
+    if (choiceOnly && [20, 30, 40].includes(mapRound)) {
+      setMoveA(null)
+      toast.error("جلسات الاختيارات الفردية للقراءة فقط ولا تدعم تبديل الطاولات يدوياً")
+      return
+    }
+    if (choiceOnly) {
       setMoveA(null)
       toast.error("في نظام الاختيارات فقط يجب أن تبقى كل مجموعة من 7 أشخاص. استخدم تبديل شخصين بدلاً من نقل شخص واحد.")
       return
@@ -1369,6 +1397,11 @@ export default function Admin3Page() {
     const members: any[] = seating?.[round]?.[oldTable] || []
     if (!members.length || newTable === oldTable) { setEditingTableCard(null); return }
     if (previewEventId != null) { toast.error("لا يمكن تعديل أرقام الطاولات في وضع المعاينة"); return }
+    if (choiceOnly && [20, 30, 40].includes(round)) {
+      setEditingTableCard(null)
+      toast.error("جلسات الاختيارات الفردية للقراءة فقط ولا تدعم تبديل الطاولات يدوياً")
+      return
+    }
     run(`swap-tables-${round}-${oldTable}-${newTable}`, () =>
       api("e3-swap-table-numbers", { round, table_a: oldTable, table_b: newTable }).then(d => {
         if (!d.error) {
@@ -1384,7 +1417,8 @@ export default function Admin3Page() {
   const getParticipantTables = (num: number): Record<number, number> => {
     if (!seating) return {}
     const result: Record<number, number> = {}
-    for (const r of groupRounds) {
+    const rounds = choiceOnly ? [...groupRounds, 20, 30, 40] : groupRounds
+    for (const r of rounds) {
       for (const [table, members] of Object.entries(seating[r] || {})) {
         if ((members as any[]).some((m: any) => m.number === num)) {
           result[r] = Number(table)
@@ -1418,7 +1452,12 @@ export default function Admin3Page() {
     if (ph === "break") return { label: choiceOnly ? "⬅ بدء كشف الاختيار الأول (26 دقيقة)" : "⬅ بدء كشف المرحلة 2 (26 دقيقة)", action: () => setPhaseWithTimer("phase2_reveal", EVENT3_PHASE_SECONDS.phase2_reveal, firstMatchTimerRound), ready: true }
     if (ph === "phase2_reveal" && !state.phase3_matches_done) return { label: choiceOnly ? "⬅ تشغيل الاختيار الثاني (مع استبعاد الشريك الأول)" : "⬅ تشغيل مطابقة الخوارزمية", action: triggerPhase3, ready: choiceOnly ? state.phase2_matches_done === true : ranked > 0 }
     if (ph === "phase2_reveal" && state.phase3_matches_done) return { label: choiceOnly ? "⬅ كشف الاختيار الثاني (26 دقيقة)" : "⬅ كشف المرحلة 3 (26 دقيقة)", action: () => setPhaseWithTimer("phase3_reveal", EVENT3_PHASE_SECONDS.phase3_reveal, secondMatchTimerRound), ready: true }
-    if (ph === "phase3_reveal") return { label: "⬅ الكشف النهائي ✨", action: () => setPhase("final_reveal"), ready: true }
+    if (choiceOnly && ph === "phase3_reveal" && !state.phase4_matches_done) return { label: "⬅ تشغيل الاختيار الثالث (مع استبعاد الشريكين السابقين)", action: triggerPhase4, ready: state.phase3_matches_done === true }
+    if (choiceOnly && ph === "phase3_reveal" && state.phase4_matches_done) return { label: "⬅ كشف الاختيار الثالث (26 دقيقة)", action: () => setPhaseWithTimer("phase4_reveal", EVENT3_PHASE_SECONDS.phase4_reveal, thirdMatchTimerRound), ready: true }
+    if (choiceOnly && ph === "phase4_processing" && state.phase4_matches_done) return { label: "⬅ كشف الاختيار الثالث (26 دقيقة)", action: () => setPhaseWithTimer("phase4_reveal", EVENT3_PHASE_SECONDS.phase4_reveal, thirdMatchTimerRound), ready: true }
+    if (choiceOnly && ph === "phase4_processing") return { label: "⏳ جاري تجهيز الاختيار الثالث...", action: () => {}, ready: false }
+    if (choiceOnly && ph === "phase4_reveal") return { label: "⬅ الكشف النهائي ✨", action: () => setPhase("final_reveal"), ready: true }
+    if (!choiceOnly && ph === "phase3_reveal") return { label: "⬅ الكشف النهائي ✨", action: () => setPhase("final_reveal"), ready: true }
     return null
   }
 
@@ -1467,6 +1506,27 @@ export default function Admin3Page() {
     })
   }
 
+  const triggerPhase4 = () => {
+    if (previewEventId != null) { toast.error("لا يمكن تشغيل المطابقة في وضع المعاينة"); return }
+    if (!choiceOnly) { toast.error("الاختيار الثالث متاح فقط في نظام الاختيارات الثلاثة"); return }
+    if (state?.phase !== "phase3_reveal" || !state?.phase3_matches_done) {
+      toast.error("لا يمكن تشغيل الاختيار الثالث إلا أثناء كشف الاختيار الثاني وبعد اكتماله للجميع")
+      return
+    }
+    run("phase4", async () => {
+      const tid = toast.loading("جاري حساب أقوى اختيار متبادل ثالث بعد استبعاد الشريكين السابقين...")
+      try {
+        const data = await api("e3-trigger-phase4-matching")
+        if (data.error) return data
+        const phaseData = await api("e3-set-phase", { phase: "phase4_processing", start_timer: false })
+        await Promise.all([fetchMatches(), fetchSeating(), fetchState()])
+        return phaseData.error ? phaseData : data
+      } finally {
+        toast.dismiss(tid)
+      }
+    })
+  }
+
   const togglePhase2Exclusion = (num: number) => {
     if (previewEventId != null) { toast.error("لا يمكن تعديل الاستبعادات في وضع المعاينة"); return }
     if (choiceOnly) { toast.error("الاستبعاد الفردي غير مستخدم في نظام الاختيارات فقط"); return }
@@ -1486,7 +1546,7 @@ export default function Admin3Page() {
     if (loading || testModeLoading) return
     if (previewEventId != null) { toast.error("لا يمكن حذف البيانات في وضع المعاينة"); return }
     if (!testMode) { toast.error("مسح بيانات الاختبار متاح فقط أثناء وضع اختبار نشط للفعالية الحالية"); return }
-    if (!confirm(`مسح بيانات التفاعل للاختبار الحالي؟ سيتم الاحتفاظ بالمشاركين والجلسات و${choiceOnly ? "مطابقات الاختيارين الحالية" : "المطابقات المثبتة مسبقاً"}.`)) return
+    if (!confirm(`مسح بيانات التفاعل للاختبار الحالي؟ سيتم الاحتفاظ بالمشاركين والجلسات و${choiceOnly ? "مطابقات الاختيارات الثلاث الحالية" : "المطابقات المثبتة مسبقاً"}.`)) return
     run("clear-test", async () => {
       const d = await api("e3-clear-test-data")
       if (!d.error) { fetchState(); fetchRankStatus(); fetchMatches() }
@@ -1561,7 +1621,7 @@ export default function Admin3Page() {
 
   const tableLocationsByParticipant = useMemo(() => {
     const locations = new Map<number, Record<number, number>>()
-    for (const tableRound of [...groupRounds, 20, 30]) {
+    for (const tableRound of [...groupRounds, 20, 30, ...(choiceOnly ? [40] : [])]) {
       const tables = seating?.[tableRound] || {}
       for (const [tableNumber, members] of Object.entries(tables)) {
         for (const member of (members as any[]) || []) {
@@ -1578,7 +1638,7 @@ export default function Admin3Page() {
 
   const rankingTableBadges = (participantNumber: number) => {
     const tables = tableLocationsByParticipant.get(Number(participantNumber)) || {}
-    const liveRound = previewEventId == null ? rankingLocationRound(state?.phase) : null
+    const liveRound = previewEventId == null ? rankingLocationRound(state?.phase, choiceOnly) : null
     const liveTable = liveRound != null ? tables[liveRound] : null
     if (liveTable != null) return [{ key: `live-${liveRound}`, label: `طاولة ${liveTable}`, live: true }]
     return groupRounds
@@ -1627,7 +1687,7 @@ export default function Admin3Page() {
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 w-full max-w-sm">
           <div className="text-center mb-6">
             <div className="text-4xl mb-2">✨</div>
-            <h1 className="text-xl font-bold text-white">التوافق الأعمى 4.0</h1>
+            <h1 className="text-xl font-bold text-white">التوافق الأعمى 5.0</h1>
             <p className="text-gray-400 text-sm mt-1">لوحة التحكم</p>
           </div>
           <input
@@ -1667,7 +1727,7 @@ export default function Admin3Page() {
         <div className="flex items-center gap-2 sm:gap-3">
           <span className="text-xl sm:text-2xl">✨</span>
           <div>
-            <h1 className="text-sm sm:text-lg font-bold">التوافق الأعمى 4.0</h1>
+            <h1 className="text-sm sm:text-lg font-bold">التوافق الأعمى 5.0</h1>
             <p className="text-[10px] sm:text-xs text-gray-400">لوحة التحكم</p>
           </div>
         </div>
@@ -1740,6 +1800,7 @@ export default function Admin3Page() {
                 fetchParticipants()
                 fetchSeating()
                 fetchRankStatus()
+                fetchMatches()
                 if (activeTab === "overview") fetchOverview()
                 if (activeTab === "feedback") { fetchFeedback(); fetchMoodChecks(); fetchNotifications() }
                 if (activeTab === "attendance") fetchAttendance()
@@ -1773,6 +1834,7 @@ export default function Admin3Page() {
                   fetchParticipants()
                   fetchSeating()
                   fetchRankStatus()
+                  fetchMatches()
                   if (activeTab === "overview") fetchOverview()
                   if (activeTab === "feedback") { fetchFeedback(); fetchMoodChecks(); fetchNotifications() }
                   if (activeTab === "attendance") fetchAttendance()
@@ -1810,14 +1872,14 @@ export default function Admin3Page() {
                 </div>
                 <p className="mt-1 text-[10px] leading-5 text-gray-500">
                   {choiceOnly
-                    ? "3 جولات مجموعات، 7 أشخاص في كل مجموعة، ثم اختيار أول واختيار ثانٍ مختلف عنه."
+                    ? "3 جولات مجموعات، 7 أشخاص في كل مجموعة، ثم 3 لقاءات اختيار فردية متبادلة مع شريك مختلف في كل مرة."
                     : "جولتا مجموعات، ثم اختيار المشاركين، ثم مطابقة الخوارزمية."}
                 </p>
               </div>
               <div className="flex rounded-xl border border-gray-700 bg-gray-950/60 p-1">
                 {([
                   { id: "classic", label: "النظام الكلاسيكي" },
-                  { id: "choice_only_three_groups", label: "3 مجموعات · اختياران" },
+                  { id: "choice_only_three_groups", label: "3 مجموعات · 3 اختيارات فردية" },
                 ] as Array<{ id: Event3Format; label: string }>).map(option => (
                   <button
                     key={option.id}
@@ -1867,13 +1929,14 @@ export default function Admin3Page() {
 
         {/* Stats Row */}
         {state && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3">
+          <div className={`grid grid-cols-2 sm:grid-cols-3 ${choiceOnly ? "md:grid-cols-6" : "md:grid-cols-5"} gap-2 sm:gap-3`}>
             {[
               { label: "المشاركون المختارون", value: choiceOnly ? `${state.participants_selected}/42` : `${state.participants_selected}`, icon: Users, ok: choiceOnly ? state.participants_selected === 42 : (state.participants_selected || 0) >= 6 },
               { label: "خطة الجلسات", value: state.seating_generated ? "جاهزة ✓" : "لم تُولَّد", icon: Grid3x3, ok: state.seating_generated },
               { label: "التصنيفات المقدمة", value: `${state.rankings_submitted}/${state.participants_selected || 0}`, icon: BarChart3, ok: state.rankings_submitted > 0 && state.rankings_submitted >= (state.participants_selected || 1) },
               { label: choiceOnly ? "مطابقات الاختيار الأول" : "مطابقات المرحلة 2", value: state.phase2_matches_done ? "جاهزة ✓" : "—", icon: Trophy, ok: state.phase2_matches_done },
               { label: choiceOnly ? "مطابقات الاختيار الثاني" : "مطابقات الخوارزمية", value: state.phase3_matches_done ? "جاهزة ✓" : "—", icon: choiceOnly ? Heart : Brain, ok: state.phase3_matches_done },
+              ...(choiceOnly ? [{ label: "مطابقات الاختيار الثالث", value: state.phase4_matches_done ? "جاهزة ✓" : "—", icon: Sparkles, ok: state.phase4_matches_done }] : []),
             ].map(stat => (
               <div key={stat.label} className={`bg-gray-900 border rounded-xl p-3 sm:p-4 ${stat.ok ? "border-green-800" : "border-gray-800"}`}>
                 <div className="flex items-center justify-between mb-1">
@@ -1893,6 +1956,17 @@ export default function Admin3Page() {
             <div className="flex-1">
               <p className="text-red-300 font-semibold text-sm">{phase3MissingCount} مشارك مختار ليس له طاولة في {choiceOnly ? "الاختيار الثاني" : "المرحلة 3"}</p>
               <p className="text-red-400/70 text-xs mt-0.5">المطابقات تم إنشاؤها لكن بعض المشاركين غير مسندين إلى طاولة. أعد تشغيل {choiceOnly ? "مطابقة الاختيار الثاني" : "مطابقة المرحلة 3"}{choiceOnly ? "." : " أو راجع الأزواج المثبتة."}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Third choice assignment mismatch warning */}
+        {phase4MissingCount > 0 && (
+          <div className="bg-red-950/40 border border-red-800/50 rounded-xl p-3 sm:p-4 flex items-start gap-3">
+            <AlertTriangle className="text-red-400 flex-shrink-0 mt-0.5" size={18} />
+            <div className="flex-1">
+              <p className="text-red-300 font-semibold text-sm">{phase4MissingCount} مشارك مختار ليس له طاولة في الاختيار الثالث</p>
+              <p className="text-red-400/70 text-xs mt-0.5">المطابقات تم إنشاؤها لكن بعض المشاركين غير مسندين إلى طاولة الجولة 40. أعد تشغيل مطابقة الاختيار الثالث.</p>
             </div>
           </div>
         )}
@@ -1928,6 +2002,7 @@ export default function Admin3Page() {
                 </button>
               )}
             </div>
+
           </div>
 
           {testMode && testModeData && previewEventId == null && (
@@ -2121,14 +2196,22 @@ export default function Admin3Page() {
                     <div className="text-lg font-bold text-white">{report.match_summary?.phase3_pairs ?? 0}</div>
                     <div className="text-[10px] text-gray-500">{choiceOnly ? "أزواج الاختيار الثاني" : "أزواج المرحلة 3"}</div>
                   </div>
+                  {choiceOnly && (
+                    <div className="bg-gray-800/50 rounded-lg p-2.5 text-center">
+                      <div className="text-lg font-bold text-white">{report.match_summary?.phase4_pairs ?? 0}</div>
+                      <div className="text-[10px] text-gray-500">أزواج الاختيار الثالث</div>
+                    </div>
+                  )}
                   <div className="bg-gray-800/50 rounded-lg p-2.5 text-center">
                     <div className="text-lg font-bold text-green-400">{report.match_summary?.mutual_choice_pairs ?? 0}</div>
                     <div className="text-[10px] text-gray-500">اختيار متبادل</div>
                   </div>
-                  <div className="bg-gray-800/50 rounded-lg p-2.5 text-center">
-                    <div className="text-lg font-bold text-pink-400">{report.match_summary?.avg_phase3_score ?? 0}</div>
-                    <div className="text-[10px] text-gray-500">متوسط التوافق</div>
-                  </div>
+                  {!choiceOnly && (
+                    <div className="bg-gray-800/50 rounded-lg p-2.5 text-center">
+                      <div className="text-lg font-bold text-pink-400">{report.match_summary?.avg_phase3_score ?? 0}</div>
+                      <div className="text-[10px] text-gray-500">متوسط التوافق</div>
+                    </div>
+                  )}
                 </div>
                 {(report.most_ranked?.length > 0 || report.least_ranked?.length > 0) && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -2547,13 +2630,33 @@ export default function Admin3Page() {
                     enabled: choiceOnly ? state?.phase3_matches_done === true : true,
                     loadKey: "phase-phase3_reveal",
                   },
+                  ...(choiceOnly ? [
+                    {
+                      label: "تشغيل الاختيار الثالث",
+                      desc: "أقوى اختيار متبادل متبقٍ · يستبعد الشريكين السابقين",
+                      action: triggerPhase4,
+                      icon: Heart,
+                      color: "violet",
+                      enabled: state?.phase === "phase3_reveal" && state?.phase3_matches_done === true && state?.phase4_matches_done !== true,
+                      loadKey: "phase4",
+                    },
+                    {
+                      label: "كشف الاختيار الثالث",
+                      desc: "26 دقيقة",
+                      action: () => setPhaseWithTimer("phase4_reveal", EVENT3_PHASE_SECONDS.phase4_reveal, thirdMatchTimerRound),
+                      icon: Sparkles,
+                      color: "violet",
+                      enabled: state?.phase4_matches_done === true,
+                      loadKey: "phase-phase4_reveal",
+                    },
+                  ] : []),
                   {
                     label: "الكشف النهائي",
-                    desc: choiceOnly ? "بعد الاختيارين" : "المقارنة الأخيرة",
+                    desc: choiceOnly ? "بعد الاختيارات الثلاثة" : "المقارنة الأخيرة",
                     action: () => setPhase("final_reveal"),
                     icon: Star,
                     color: "amber",
-                    enabled: true,
+                    enabled: choiceOnly ? state?.phase4_matches_done === true : true,
                     loadKey: "phase-final_reveal",
                   },
                   {
@@ -2702,7 +2805,7 @@ export default function Admin3Page() {
                       <button
                         key={phase.id}
                         onClick={() => {
-                          if (phase.id === "phase2_processing" || phase.id === "phase3_processing") return
+                          if (phase.id === "phase2_processing" || phase.id === "phase3_processing" || phase.id === "phase4_processing") return
                           if (phase.id === "setup") setPhase("setup")
                           else if (phase.id === "final_reveal") setPhase("final_reveal")
                           else if (phase.id === "break") setPhaseWithTimer("break", EVENT3_PHASE_SECONDS.break, breakTimerRound)
@@ -2714,9 +2817,10 @@ export default function Admin3Page() {
                           else if (phase.id === "ranking3") setPhaseWithTimer("ranking3", EVENT3_PHASE_SECONDS.ranking3, 0)
                           else if (phase.id === "phase2_reveal") setPhaseWithTimer("phase2_reveal", EVENT3_PHASE_SECONDS.phase2_reveal, firstMatchTimerRound)
                           else if (phase.id === "phase3_reveal") setPhaseWithTimer("phase3_reveal", EVENT3_PHASE_SECONDS.phase3_reveal, secondMatchTimerRound)
+                          else if (phase.id === "phase4_reveal") setPhaseWithTimer("phase4_reveal", EVENT3_PHASE_SECONDS.phase4_reveal, thirdMatchTimerRound)
                           else setPhase(phase.id)
                         }}
-                        disabled={!!loading || isCurrent}
+                        disabled={!!loading || isCurrent || phase.id.endsWith("_processing")}
                         className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all disabled:opacity-30 ${
                           isCurrent ? "bg-amber-600 text-white" :
                           isPast ? "bg-gray-700 text-green-400 hover:bg-gray-600" :
@@ -2743,6 +2847,15 @@ export default function Admin3Page() {
                   >
                     ⚡ {choiceOnly ? "الاختيار الثاني" : "مطابقة الخوارزمية"}
                   </button>
+                  {choiceOnly && (
+                    <button
+                      onClick={triggerPhase4}
+                      disabled={!!loading || state?.phase !== "phase3_reveal" || state?.phase3_matches_done !== true || state?.phase4_matches_done === true}
+                      className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-violet-900/50 hover:bg-violet-900/70 text-violet-300 transition-all disabled:opacity-40"
+                    >
+                      ⚡ الاختيار الثالث
+                    </button>
+                  )}
                   <button
                     onClick={() => { if (previewEventId != null) { toast.error("لا يمكن إيقاف المؤقت في وضع المعاينة"); return } run("timer-stop", () => api("e3-stop-timer")) }}
                     disabled={!!loading}
@@ -2951,17 +3064,24 @@ export default function Admin3Page() {
                       </button>
                     ))}
                     {matchPairs.length > 0 && (
-                      <button onClick={() => setMapRound(20)}
+                      <button onClick={() => { setMapRound(20); if (choiceOnly) { setSwapA(null); setMoveA(null); setEditingTableCard(null) } }}
                         className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${mapRound === 20 ? 'bg-emerald-600 text-white shadow' : 'text-gray-400 hover:text-gray-200'}`}
                       >
                         {choiceOnly ? "الاختيار الأول" : "لقاء الاختيار"}
                       </button>
                     )}
                     {phase3Pairs.length > 0 && (
-                      <button onClick={() => setMapRound(30)}
+                      <button onClick={() => { setMapRound(30); if (choiceOnly) { setSwapA(null); setMoveA(null); setEditingTableCard(null) } }}
                         className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${mapRound === 30 ? 'bg-purple-600 text-white shadow' : 'text-gray-400 hover:text-gray-200'}`}
                       >
                         {choiceOnly ? "الاختيار الثاني" : "الخوارزمية"}
+                      </button>
+                    )}
+                    {choiceOnly && phase4Pairs.length > 0 && (
+                      <button onClick={() => { setMapRound(40); setSwapA(null); setMoveA(null); setEditingTableCard(null) }}
+                        className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${mapRound === 40 ? 'bg-violet-600 text-white shadow' : 'text-gray-400 hover:text-gray-200'}`}
+                      >
+                        الاختيار الثالث
                       </button>
                     )}
                   </div>
@@ -3008,9 +3128,9 @@ export default function Admin3Page() {
                 <div className="flex items-center gap-2.5">
                   <div className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse flex-shrink-0" />
                     <span className="text-indigo-300 text-sm font-medium">
-                      {mapRound === 20 || mapRound === 30 ? "تبديل طاولة الزوج:" : "نقل:"} <span className="text-white">{participants.find(p => p.number === moveA)?.name}</span>
+                      {mapRound === 20 || mapRound === 30 || mapRound === 40 ? "تبديل طاولة الزوج:" : "نقل:"} <span className="text-white">{participants.find(p => p.number === moveA)?.name}</span>
                       <span className="text-indigo-600 text-xs mr-2">
-                        {mapRound === 20 || mapRound === 30
+                        {mapRound === 20 || mapRound === 30 || mapRound === 40
                           ? "← اضغط على طاولة أخرى لتبديل الرقم للزوجين معاً"
                           : "← اضغط على أي طاولة لنقل الشخص إليها"}
                       </span>
@@ -3154,29 +3274,31 @@ export default function Admin3Page() {
                             {pair.rankAInB != null && <p className="text-[10px] text-gray-600 mt-0.5">رتّب الآخر #{pair.rankAInB}</p>}
                           </div>
                         </div>
-                        {/* Atomically exchange complete table labels. */}
-                        <div className="mt-2.5 flex items-center gap-2 rounded-xl border border-indigo-900/40 bg-indigo-950/20 px-2.5 py-2">
-                          <Shuffle size={12} className="text-indigo-400 flex-shrink-0" />
-                          <span className="text-[10px] text-indigo-300 whitespace-nowrap">بدّل مع:</span>
-                          <select
-                            value={pair.table || ''}
-                            disabled={!pair.table || previewEventId != null || !!loading}
-                            onChange={event => {
-                              const targetTable = Number(event.target.value)
-                              if (pair.table && Number.isInteger(targetTable) && targetTable !== pair.table) {
-                                renameTable(20, pair.table, targetTable)
-                              }
-                            }}
-                            className="min-w-0 flex-1 bg-gray-900 border border-indigo-800/60 text-white text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
-                            aria-label={`تبديل طاولة ${pair.table || ''} مع طاولة أخرى`}
-                          >
-                            <option value={pair.table || ''}>طاولة {pair.table || '—'} (الحالية)</option>
-                            {[...new Set(matchPairs.map((item: any) => Number(item.table)).filter((table: number) => Number.isInteger(table) && table > 0 && table !== pair.table))]
-                              .sort((a, b) => a - b)
-                              .map(table => <option key={table} value={table}>طاولة {table}</option>)}
-                          </select>
-                          <span className="hidden sm:inline text-[9px] text-gray-600 whitespace-nowrap">تبديل آمن للزوجين</span>
-                        </div>
+                        {/* Classic keeps its operational table exchange; choice matches are generated read-only. */}
+                        {!choiceOnly && (
+                          <div className="mt-2.5 flex items-center gap-2 rounded-xl border border-indigo-900/40 bg-indigo-950/20 px-2.5 py-2">
+                            <Shuffle size={12} className="text-indigo-400 flex-shrink-0" />
+                            <span className="text-[10px] text-indigo-300 whitespace-nowrap">بدّل مع:</span>
+                            <select
+                              value={pair.table || ''}
+                              disabled={!pair.table || previewEventId != null || !!loading}
+                              onChange={event => {
+                                const targetTable = Number(event.target.value)
+                                if (pair.table && Number.isInteger(targetTable) && targetTable !== pair.table) {
+                                  renameTable(20, pair.table, targetTable)
+                                }
+                              }}
+                              className="min-w-0 flex-1 bg-gray-900 border border-indigo-800/60 text-white text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
+                              aria-label={`تبديل طاولة ${pair.table || ''} مع طاولة أخرى`}
+                            >
+                              <option value={pair.table || ''}>طاولة {pair.table || '—'} (الحالية)</option>
+                              {[...new Set(matchPairs.map((item: any) => Number(item.table)).filter((table: number) => Number.isInteger(table) && table > 0 && table !== pair.table))]
+                                .sort((a, b) => a - b)
+                                .map(table => <option key={table} value={table}>طاولة {table}</option>)}
+                            </select>
+                            <span className="hidden sm:inline text-[9px] text-gray-600 whitespace-nowrap">تبديل آمن للزوجين</span>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -3241,7 +3363,11 @@ export default function Admin3Page() {
                         {/* Table header */}
                         <div className="flex items-center justify-between mb-3.5">
                           <div className="flex items-center gap-2.5">
-                            {editingTableCard?.round === mapRound && editingTableCard?.table === table ? (
+                            {choiceOnly && (mapRound === 30 || mapRound === 40) ? (
+                              <div className="w-10 h-10 rounded-xl bg-indigo-900/40 border border-indigo-800/50 flex items-center justify-center flex-shrink-0">
+                                <span className="text-indigo-300 font-black text-lg leading-none">{table}</span>
+                              </div>
+                            ) : editingTableCard?.round === mapRound && editingTableCard?.table === table ? (
                               <div className="flex items-center gap-1.5">
                                 {mapRound === 30 ? (
                                   <select
@@ -3365,7 +3491,7 @@ export default function Admin3Page() {
                                   <span className="text-[10px] text-gray-600 font-mono flex-shrink-0">#{m.number}{m.age ? ` · ${m.age}` : ""}</span>
                                   <span className={`w-2 h-2 rounded-full flex-shrink-0 ${rankData?.submitted ? 'bg-green-500' : 'bg-gray-700'}`} title={rankData?.submitted ? 'صوّت' : 'لم يصوّت'} />
                                 </button>
-                                {!swapA && !moveA && (!choiceOnly || mapRound === 30) && (
+                                {!swapA && !moveA && !choiceOnly && (
                                   <button
                                     onClick={(e) => { e.stopPropagation(); setMoveA(m.number) }}
                                     className="p-1.5 rounded-lg hover:bg-indigo-900/30 text-indigo-500 hover:text-indigo-300 transition-colors flex-shrink-0"
@@ -3398,7 +3524,7 @@ export default function Admin3Page() {
                   <div className="flex items-center gap-1.5 text-[10px] text-gray-600"><span className="w-2 h-2 rounded-full bg-gray-700" /> لم يصوّت</div>
                   <div className="flex items-center gap-1.5 text-[10px] text-gray-600"><span className="w-2.5 h-2.5 rounded-full bg-blue-400" /> ذكر</div>
                   <div className="flex items-center gap-1.5 text-[10px] text-gray-600"><span className="w-2.5 h-2.5 rounded-full bg-pink-400" /> أنثى</div>
-                  <p className="text-[10px] text-gray-700">· اضغط على اسم لعرض التفاصيل · اضغط مرتين (مشارك ثم آخر) للتبديل</p>
+                  <p className="text-[10px] text-gray-700">{choiceOnly && (mapRound === 30 || mapRound === 40) ? "· جلسة اختيار فردية للقراءة فقط · اضغط على الاسم لعرض التفاصيل" : "· اضغط على اسم لعرض التفاصيل · اضغط مرتين (مشارك ثم آخر) للتبديل"}</p>
                 </div>
               </>
             )}
@@ -3408,7 +3534,8 @@ export default function Admin3Page() {
         {/* TAB: PARTICIPANTS ───────────────────────────────────────────────── */}
         {activeTab === "participants" && (() => {
           const selected = participants.filter(p => p.selected)
-          const getMatchFor = (num: number) => matchPairs.find((mp: any) => mp.a === num || mp.b === num)
+          const getPairFor = (pairs: any[], num: number) => pairs.find((mp: any) => mp.a === num || mp.b === num)
+          const getMatchFor = (num: number) => getPairFor(matchPairs, num)
           const getPopularity = (num: number) => {
             let count = 0
             for (const r of allRankings) {
@@ -3464,6 +3591,10 @@ export default function Admin3Page() {
                   const matchName = match ? (match.a === p.number ? match.bName : match.aName) : null
                   const matchScore = match?.compatScore
                   const matchType = match?.matchType
+                  const secondChoiceMatch = choiceOnly ? getPairFor(phase3Pairs, p.number) : null
+                  const thirdChoiceMatch = choiceOnly ? getPairFor(phase4Pairs, p.number) : null
+                  const secondChoiceName = secondChoiceMatch ? (secondChoiceMatch.a === p.number ? secondChoiceMatch.bName : secondChoiceMatch.aName) : null
+                  const thirdChoiceName = thirdChoiceMatch ? (thirdChoiceMatch.a === p.number ? thirdChoiceMatch.bName : thirdChoiceMatch.aName) : null
                   const popularity = getPopularity(p.number)
                   return (
                     <button key={p.number}
@@ -3498,7 +3629,7 @@ export default function Admin3Page() {
                             ? <span className="text-[10px] bg-green-900/30 text-green-400 px-2 py-0.5 rounded-full border border-green-800/30">✓ صوّت</span>
                             : <span className="text-[10px] text-gray-700">—</span>
                           }
-                          {match && (
+                          {match && matchScore != null && (
                             <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-lg border ${
                               matchScore >= 80 ? 'text-emerald-300 bg-emerald-900/30 border-emerald-800/40' :
                               matchScore >= 68 ? 'text-indigo-300 bg-indigo-900/30 border-indigo-800/40' :
@@ -3519,10 +3650,20 @@ export default function Admin3Page() {
                           <span className={`text-[10px] px-2 py-0.5 rounded-lg border ${
                             matchType === 'mutual' ? 'bg-emerald-900/20 border-emerald-800/30 text-emerald-400' : 'bg-amber-900/20 border-amber-800/30 text-amber-400'
                           }`}>
-                            {matchType === 'mutual' ? '🔁 ' : '⚡ '}{matchName}
+                            {choiceOnly ? '١ · ' : matchType === 'mutual' ? '🔁 ' : '⚡ '}{matchName}{choiceOnly && match.table ? ` · ط${match.table}` : ''}
                           </span>
                         )}
-                        {!groupRounds.some(r => tables[r]) && !match && (
+                        {choiceOnly && secondChoiceMatch && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-lg border bg-purple-900/20 border-purple-800/30 text-purple-400">
+                            ٢ · {secondChoiceName}{secondChoiceMatch.table ? ` · ط${secondChoiceMatch.table}` : ''}
+                          </span>
+                        )}
+                        {choiceOnly && thirdChoiceMatch && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-lg border bg-violet-900/20 border-violet-800/30 text-violet-400">
+                            ٣ · {thirdChoiceName}{thirdChoiceMatch.table ? ` · ط${thirdChoiceMatch.table}` : ''}
+                          </span>
+                        )}
+                        {!groupRounds.some(r => tables[r]) && !match && !secondChoiceMatch && !thirdChoiceMatch && (
                           <span className="text-[10px] text-gray-700">بدون طاولة محددة</span>
                         )}
                       </div>
@@ -4310,6 +4451,70 @@ export default function Admin3Page() {
                 </div>
               )}
             </div>
+
+            {/* ── Third reciprocal choice results (choice-only format). ── */}
+            {choiceOnly && (
+              <div className="space-y-3 pt-2 border-t border-gray-800/60">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold text-gray-300 text-sm">نتائج مطابقة {thirdMatchLabel}</h4>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={triggerPhase4}
+                      disabled={!!loading || state?.phase !== "phase3_reveal" || state?.phase3_matches_done !== true || state?.phase4_matches_done === true}
+                      className="flex items-center gap-1.5 bg-violet-900/40 hover:bg-violet-900/70 border border-violet-800/50 text-violet-300 rounded-lg px-3 py-1.5 text-xs disabled:opacity-40"
+                    >
+                      {loading === "phase4" ? <RefreshCw size={12} className="animate-spin" /> : <Heart size={12} />}
+                      تشغيل المطابقة
+                    </button>
+                    <button onClick={fetchMatches} className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-400">
+                      <RefreshCw size={14} />
+                    </button>
+                  </div>
+                </div>
+                <div className="bg-violet-950/20 border border-violet-800/30 rounded-lg px-3 py-2">
+                  <p className="text-[10px] text-violet-300/70 flex items-center gap-1.5">
+                    <Shield size={10} className="flex-shrink-0" />
+                    الاختيار الثالث يختار أقوى مطابقة متبادلة كاملة متبقية بعد استبعاد شريكي الاختيارين الأول والثاني لكل مشارك. النتائج للقراءة فقط.
+                  </p>
+                </div>
+
+                {phase4Pairs.length === 0 ? (
+                  <p className="text-gray-600 text-xs text-center py-4">لا توجد نتائج بعد — شغّل المطابقة أثناء كشف الاختيار الثاني</p>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-gray-500 text-xs">{phase4Pairs.length} زوج</p>
+                    {phase4Pairs.map((pair: any, idx: number) => (
+                      <div key={idx} className="border border-violet-800/40 bg-violet-950/10 rounded-xl overflow-hidden">
+                        <button
+                          onClick={() => setExpandedPhase4Pair(expandedPhase4Pair === idx ? null : idx)}
+                          className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-white/5 transition-colors text-right"
+                        >
+                          <span className="text-gray-600 text-[10px] font-mono w-4 flex-shrink-0">{idx + 1}</span>
+                          <div className="flex-1 flex items-center gap-1.5 min-w-0">
+                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${pair.aGender === 'female' ? 'bg-pink-400' : 'bg-blue-400'}`} />
+                            <span className="text-sm font-semibold text-white truncate">{pair.aName}</span>
+                          </div>
+                          <span className="text-[9px] font-black px-2 py-1 rounded-lg border flex-shrink-0 text-violet-300 bg-violet-950/30 border-violet-800/40">
+                            ط {pair.table ?? '—'}
+                          </span>
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-emerald-900/40 text-emerald-300">🔁 متبادل</span>
+                          <div className="flex-1 flex items-center gap-1.5 min-w-0 justify-end">
+                            <span className="text-sm font-semibold text-white truncate">{pair.bName}</span>
+                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${pair.bGender === 'female' ? 'bg-pink-400' : 'bg-blue-400'}`} />
+                          </div>
+                          <ChevronRight size={12} className={`text-gray-600 flex-shrink-0 transition-transform ${expandedPhase4Pair === idx ? 'rotate-90' : ''}`} />
+                        </button>
+                        {expandedPhase4Pair === idx && (
+                          <div className="border-t border-violet-900/30 px-3 py-3 bg-gray-950/50 text-[10px] leading-5 text-violet-200/70">
+                            شريكان مختلفان عن اللقاءين السابقين · طاولة الجولة 40: {pair.table ?? 'غير معيّنة'} · لا تتوفر تعديلات يدوية لهذه المطابقة.
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )
       })()}
@@ -4325,6 +4530,13 @@ export default function Admin3Page() {
         const matchName = match ? (match.a === selectedParticipantNum ? match.bName : match.aName) : null
         const matchScore = match?.compatScore
         const matchType = match?.matchType
+        const phase3Match = choiceOnly ? phase3Pairs.find((mp: any) => mp.a === selectedParticipantNum || mp.b === selectedParticipantNum) : null
+        const phase4Match = choiceOnly ? phase4Pairs.find((mp: any) => mp.a === selectedParticipantNum || mp.b === selectedParticipantNum) : null
+        const choiceMatchDetails = [
+          { label: firstMatchLabel, pair: match, partnerName: matchName, round: 20, color: "emerald" },
+          { label: secondMatchLabel, pair: phase3Match, partnerName: phase3Match ? (phase3Match.a === selectedParticipantNum ? phase3Match.bName : phase3Match.aName) : null, round: 30, color: "purple" },
+          { label: thirdMatchLabel, pair: phase4Match, partnerName: phase4Match ? (phase4Match.a === selectedParticipantNum ? phase4Match.bName : phase4Match.aName) : null, round: 40, color: "violet" },
+        ]
         const whoRankedMe = allRankings
           .filter((r: any) => r.number !== selectedParticipantNum && r.submitted)
           .map((r: any) => {
@@ -4371,7 +4583,25 @@ export default function Admin3Page() {
                 )}
 
                 {/* Match Info */}
-                {match && (
+                {choiceOnly ? (
+                  <div className="space-y-2">
+                    {choiceMatchDetails.map((item, index) => item.pair ? (
+                      <div key={item.round} className={`rounded-xl p-3.5 border ${
+                        item.color === "emerald" ? "bg-emerald-950/20 border-emerald-800/40" :
+                        item.color === "purple" ? "bg-purple-950/20 border-purple-800/40" :
+                        "bg-violet-950/20 border-violet-800/40"
+                      }`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <h4 className="text-[10px] text-gray-500 font-semibold mb-1">{index + 1} · {item.label}</h4>
+                            <span className="text-sm font-semibold text-white">{item.partnerName}</span>
+                          </div>
+                          <span className="text-[10px] rounded-lg border border-gray-700 bg-gray-900/60 px-2 py-1 text-gray-400">طاولة {item.pair.table ?? tables[item.round] ?? '—'}</span>
+                        </div>
+                      </div>
+                    ) : null)}
+                  </div>
+                ) : match && (
                   <div className={`rounded-xl p-3.5 space-y-2 ${matchType === 'mutual' ? 'bg-emerald-950/20 border border-emerald-800/40' : 'bg-amber-950/15 border border-amber-800/30'}`}>
                     <h4 className="text-[11px] text-gray-500 font-semibold uppercase tracking-wider flex items-center gap-1.5">
                       <Heart size={11} /> المطابقة
@@ -4457,6 +4687,14 @@ export default function Admin3Page() {
                       </div>
                     )
                   })}
+                  {choiceOnly && choiceMatchDetails.map(item => (
+                    <div key={`choice-table-${item.round}`} className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-gray-400 flex-shrink-0">{item.label}</span>
+                      <span className="text-xs font-bold text-violet-300 bg-violet-900/30 px-2.5 py-1 rounded-lg border border-violet-800/40">
+                        {tables[item.round] ? `طاولة ${tables[item.round]}` : "غير معيّنة"}
+                      </span>
+                    </div>
+                  ))}
                 </div>
 
                 {/* Ranking — who they ranked */}
@@ -4634,6 +4872,9 @@ export default function Admin3Page() {
         const completeCount = pts.filter(p => p.complete).length
         const votedCount = pts.filter(p => p.rankingSubmitted).length
         const matchedCount = pts.filter(p => p.matchPartner).length
+        const phase3MatchedCount = pts.filter(p => p.phase3Partner).length
+        const phase4MatchedCount = pts.filter(p => p.phase4Partner).length
+        const allChoiceMatchesCount = pts.filter(p => p.matchPartner && p.phase3Partner && p.phase4Partner).length
         const avgScores = pts.filter(p => p.matchCompatScore != null).map(p => p.matchCompatScore)
         const avgCompat = avgScores.length ? Math.round(avgScores.reduce((a: number, b: number) => a + b, 0) / avgScores.length) : null
         const currentPhaseIdx = phases.findIndex(p => p.id === state?.phase)
@@ -4696,8 +4937,10 @@ export default function Admin3Page() {
                 { label: 'المشاركون', value: pts.length, color: 'text-white', bg: 'bg-gray-800/80 border-gray-700/50' },
                 { label: 'الاستبيان', value: `${completeCount}/${pts.length}`, color: completeCount === pts.length ? 'text-emerald-400' : 'text-yellow-400', bg: 'bg-gray-800/80 border-gray-700/50' },
                 { label: 'التصويت', value: `${votedCount}/${pts.length}`, color: votedCount === pts.length ? 'text-emerald-400' : 'text-yellow-400', bg: 'bg-gray-800/80 border-gray-700/50' },
-                { label: 'المطابقات', value: `${matchedCount / 2 | 0}`, color: matchedCount > 0 ? 'text-pink-400' : 'text-gray-600', bg: 'bg-gray-800/80 border-gray-700/50' },
-                { label: 'متوسط التوافق', value: avgCompat != null ? `${avgCompat}%` : '—', color: avgCompat != null && avgCompat >= 68 ? 'text-emerald-400' : avgCompat != null ? 'text-blue-400' : 'text-gray-600', bg: 'bg-gray-800/80 border-gray-700/50' },
+                { label: choiceOnly ? 'أزواج ١ / ٢ / ٣' : 'المطابقات', value: choiceOnly ? `${matchedCount / 2 | 0}/${phase3MatchedCount / 2 | 0}/${phase4MatchedCount / 2 | 0}` : `${matchedCount / 2 | 0}`, color: matchedCount > 0 ? 'text-pink-400' : 'text-gray-600', bg: 'bg-gray-800/80 border-gray-700/50' },
+                choiceOnly
+                  ? { label: 'أكملوا الاختيارات الثلاثة', value: `${allChoiceMatchesCount}/${pts.length}`, color: allChoiceMatchesCount === pts.length && pts.length > 0 ? 'text-emerald-400' : 'text-violet-400', bg: 'bg-gray-800/80 border-gray-700/50' }
+                  : { label: 'متوسط التوافق', value: avgCompat != null ? `${avgCompat}%` : '—', color: avgCompat != null && avgCompat >= 68 ? 'text-emerald-400' : avgCompat != null ? 'text-blue-400' : 'text-gray-600', bg: 'bg-gray-800/80 border-gray-700/50' },
               ].map(s => (
                 <div key={s.label} className={`rounded-xl border px-2 py-2 text-center ${s.bg}`}>
                   <p className={`text-sm font-black leading-none ${s.color}`}>{s.value}</p>
@@ -4767,7 +5010,7 @@ export default function Admin3Page() {
                       <th className="text-center px-2 py-2 text-gray-500 font-semibold">متوسط</th>
                       <th className="text-center px-2 py-2 text-gray-500 font-semibold">اختياره</th>
                       <th className="text-center px-2 py-2 text-gray-500 font-semibold">تبادل</th>
-                      <th className="text-right px-2 py-2 text-gray-500 font-semibold">المطابقة</th>
+                      <th className="text-right px-2 py-2 text-gray-500 font-semibold">{choiceOnly ? "الاختيارات الثلاثة" : "المطابقة"}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -4846,7 +5089,13 @@ export default function Admin3Page() {
                               ) : <span className="text-gray-700">—</span>}
                             </td>
                             <td className="px-2 py-2 text-right">
-                              {p.matchPartner ? (
+                              {choiceOnly ? (
+                                <div className="space-y-0.5 text-[10px]">
+                                  <div className="text-emerald-300">١ · {p.matchPartnerName || (p.matchPartner ? `#${p.matchPartner}` : '—')}{p.r20Table != null ? ` · ط${p.r20Table}` : ''}</div>
+                                  <div className="text-purple-300">٢ · {p.phase3PartnerName || (p.phase3Partner ? `#${p.phase3Partner}` : '—')}{p.r30Table != null ? ` · ط${p.r30Table}` : ''}</div>
+                                  <div className="text-violet-300">٣ · {p.phase4PartnerName || (p.phase4Partner ? `#${p.phase4Partner}` : '—')}{p.r40Table != null ? ` · ط${p.r40Table}` : ''}</div>
+                                </div>
+                              ) : p.matchPartner ? (
                                 <div className="flex items-center justify-end gap-1.5">
                                   <span className="text-gray-300 truncate max-w-[70px] text-[11px]">{p.matchPartnerName || `#${p.matchPartner}`}</span>
                                   {p.matchCompatScore != null && (
@@ -4884,7 +5133,7 @@ export default function Admin3Page() {
                           <span className="text-gray-700 text-[10px]">#{p.number}</span>
                           {!p.complete && <span className="text-red-500 text-[9px]">⚠</span>}
                         </button>
-                        {p.matchPartner && (
+                        {!choiceOnly && p.matchPartner && p.matchCompatScore != null && (
                           <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-lg border ${
                             p.matchCompatScore >= 80 ? 'text-emerald-300 bg-emerald-900/30 border-emerald-800/40' :
                             p.matchCompatScore >= 68 ? 'text-indigo-300 bg-indigo-900/30 border-indigo-800/40' :
@@ -4909,7 +5158,13 @@ export default function Admin3Page() {
                         {avgC != null && <span className={avgC >= 68 ? 'text-emerald-400' : 'text-gray-500'}>متوسط: {avgC}%</span>}
                         {topPick && <span className="text-gray-500">اختياره: {topPick.name}</span>}
                         {mutualCount > 0 && <span className="text-pink-400">🔁 تبادل {mutualCount}</span>}
-                        {p.matchPartner && <span className="text-gray-400">المطابقة: {p.matchPartnerName || `#${p.matchPartner}`}</span>}
+                        {choiceOnly ? (
+                          <>
+                            <span className="text-emerald-300">١: {p.matchPartnerName || (p.matchPartner ? `#${p.matchPartner}` : '—')}{p.r20Table != null ? ` · ط${p.r20Table}` : ''}</span>
+                            <span className="text-purple-300">٢: {p.phase3PartnerName || (p.phase3Partner ? `#${p.phase3Partner}` : '—')}{p.r30Table != null ? ` · ط${p.r30Table}` : ''}</span>
+                            <span className="text-violet-300">٣: {p.phase4PartnerName || (p.phase4Partner ? `#${p.phase4Partner}` : '—')}{p.r40Table != null ? ` · ط${p.r40Table}` : ''}</span>
+                          </>
+                        ) : p.matchPartner && <span className="text-gray-400">المطابقة: {p.matchPartnerName || `#${p.matchPartner}`}</span>}
                       </div>
                     </div>
                   )
@@ -5632,10 +5887,11 @@ export default function Admin3Page() {
               </div>
             </div>
             {feedbackData && (
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <div className={`grid grid-cols-1 gap-2 ${choiceOnly ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
                 {([
                   {id:"phase2",label:choiceOnly ? "💘 الاختيار الأول" : "💘 اختيارك",submitted:feedbackData.phase2_submitted,total:feedbackData.phase2?.length??0,color:"pink"},
                   {id:"phase3",label:choiceOnly ? "💞 الاختيار الثاني" : "🧠 الخوارزمية",submitted:feedbackData.phase3_submitted,total:feedbackData.phase3?.length??0,color:"purple"},
+                  ...(choiceOnly ? [{id:"phase4",label:"💜 الاختيار الثالث",submitted:feedbackData.phase4_submitted,total:feedbackData.phase4?.length??0,color:"violet"}] : []),
                   {id:"groups",label:"👥 أفراد المجموعات",submitted:groupMemberFeedback.submissions.length,total:null,color:"violet",reviewers:groupMemberFeedback.reviewer_count??0},
                 ] as any[]).map(ph => (
                   <button key={ph.id} onClick={() => setFeedbackPhase(ph.id)}
@@ -5650,7 +5906,7 @@ export default function Admin3Page() {
                     <div className="text-[10px] text-gray-400 mt-0.5">{ph.label}</div>
                     {ph.total != null ? (
                       <div className="h-1 bg-gray-700 rounded-full mt-2 overflow-hidden">
-                        <div className={`h-full ${ph.color === "pink" ? "bg-pink-500" : "bg-purple-500"} rounded-full transition-all duration-500`}
+                        <div className={`h-full ${ph.color === "pink" ? "bg-pink-500" : ph.color === "purple" ? "bg-purple-500" : "bg-violet-500"} rounded-full transition-all duration-500`}
                           style={{ width: `${ph.total > 0 ? (ph.submitted / ph.total) * 100 : 0}%` }} />
                       </div>
                     ) : <p className="mt-1.5 text-[9px] text-gray-600">من {ph.reviewers} مشاركين</p>}
@@ -5695,7 +5951,16 @@ export default function Admin3Page() {
                 : <p className="text-sm text-gray-500">اضغط تحديث لتحميل التقييمات</p>}
             </div>
           ) : (() => {
-            const allEntries: any[] = feedbackPhase === "phase2" ? (feedbackData.phase2 || []) : (feedbackData.phase3 || [])
+            const allEntries: any[] = feedbackPhase === "phase2"
+              ? (feedbackData.phase2 || [])
+              : feedbackPhase === "phase3"
+                ? (feedbackData.phase3 || [])
+                : (feedbackData.phase4 || [])
+            const feedbackMatchLabel = feedbackPhase === "phase2"
+              ? (choiceOnly ? "الاختيار الأول" : "اختيارك")
+              : feedbackPhase === "phase4"
+                ? thirdMatchLabel
+                : secondMatchLabel
             const stars = (n: number) => Array.from({ length: 5 }, (_, i) => (
               <span key={i} className={i < n ? "text-yellow-400" : "text-gray-700"}>★</span>
             ))
@@ -5741,7 +6006,7 @@ export default function Admin3Page() {
                 <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-xs font-bold text-gray-300">تحليل المطابقة المتبادلة</span>
-                    <span className="text-[10px] text-gray-600">({feedbackPhase === "phase2" ? (choiceOnly ? "الاختيار الأول" : "اختيارك") : secondMatchLabel})</span>
+                    <span className="text-[10px] text-gray-600">({feedbackMatchLabel})</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div className="bg-gray-950/60 rounded-lg p-2 text-center">
@@ -5887,7 +6152,7 @@ export default function Admin3Page() {
                             {/* Header row */}
                             <div className="flex items-center justify-between px-4 py-2.5 bg-gray-800/40 border-b border-gray-800">
                               <div className="flex items-center gap-2 min-w-0">
-                                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${feedbackPhase === "phase2" ? "bg-pink-500" : "bg-purple-500"}`} />
+                                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${feedbackPhase === "phase2" ? "bg-pink-500" : feedbackPhase === "phase4" ? "bg-violet-500" : "bg-purple-500"}`} />
                                 <span className="font-semibold text-white text-sm truncate">{entry.participant_name}</span>
                                 <span className="text-gray-600 text-[10px] flex-shrink-0">#{entry.participant_number}</span>
                                 <ArrowLeft size={11} className="text-gray-600 flex-shrink-0" />
@@ -5902,12 +6167,14 @@ export default function Admin3Page() {
                                     "bg-gray-800 text-gray-400"
                                   }`}>توافق: {entry.compat_score}%</span>
                                 )}
-                                <button
-                                  onClick={() => openPairAnalysis(entry, feedbackPhase)}
-                                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-gray-500 hover:text-amber-300 hover:bg-gray-800 transition-colors"
-                                >
-                                  <Sparkles size={10} /> تحليل
-                                </button>
+                                {feedbackPhase !== "phase4" && (
+                                  <button
+                                    onClick={() => openPairAnalysis(entry, feedbackPhase)}
+                                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-gray-500 hover:text-amber-300 hover:bg-gray-800 transition-colors"
+                                  >
+                                    <Sparkles size={10} /> تحليل
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => setEditingFeedback({ entry, phase: feedbackPhase })}
                                   className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-gray-500 hover:text-purple-300 hover:bg-gray-800 transition-colors"
@@ -6674,7 +6941,7 @@ export default function Admin3Page() {
               <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
                 <div className="rounded-lg border border-red-800/40 bg-red-950/20 px-3 py-2 text-[11px] leading-relaxed text-red-200">
                   {choiceOnly
-                    ? "التغيير يخص الاختيار الثاني فقط. ستتحدث شاشات الشركاء والطاولات تلقائياً، بينما تبقى جولات المجموعات والاختيار الأول كما هي."
+                    ? "هذا الاستبدال اليدوي غير متاح في نظام الاختيارات الفردية الثلاثة."
                     : "التغيير يخص مطابقة الخوارزمية فقط. يمكنك اختيار أي مشارك محدد مهما كان جنسه. ستتحدث شاشات الشركاء والطاولات تلقائياً، بينما تبقى جولات المجموعات ومطابقة اختيار المشاركين كما هي."}
                 </div>
 
@@ -6826,7 +7093,7 @@ export default function Admin3Page() {
               </div>
               <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
                 <div className="rounded-lg border border-amber-800/40 bg-amber-950/20 px-3 py-2 text-[11px] leading-relaxed text-amber-300">
-                  البديل سيأخذ مكان المشارك الغائب في جميع الطاولات والمراحل و{choiceOnly ? "مطابقات الاختيارين" : "المطابقات المقفلة"} والتقييمات، وليس في هذه الجلسة فقط.
+                  البديل سيأخذ مكان المشارك الغائب في جميع الطاولات والمراحل و{choiceOnly ? "مطابقات الاختيارات الثلاثة" : "المطابقات المقفلة"} والتقييمات، وليس في هذه الجلسة فقط.
                 </div>
                 <p className="text-xs text-gray-400">اختر المشارك البديل:</p>
                 <div className="space-y-1.5">
@@ -6887,7 +7154,7 @@ export default function Admin3Page() {
               <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
                 <div className="bg-red-900/20 border border-red-800/30 rounded-lg px-3 py-2.5">
                   <p className="text-[11px] text-red-300 leading-relaxed">
-                    سيتم التبديل دفعة واحدة في كل الجولات الحالية والقادمة، {choiceOnly ? "مطابقات الاختيارين" : "المطابقات المقفلة"} في لوحة النتائج، التصنيفات، التقييمات، الملاحظات والإشعارات. ستُعاد درجات الأزواج المتأثرة تلقائياً، ولن يظهر أي تغيير جزئي إذا تعذّر التنفيذ.
+                    سيتم التبديل دفعة واحدة في كل الجولات الحالية والقادمة، {choiceOnly ? "مطابقات الاختيارات الثلاثة" : "المطابقات المقفلة"} في لوحة النتائج، التصنيفات، التقييمات، الملاحظات والإشعارات. ستُعاد درجات الأزواج المتأثرة تلقائياً، ولن يظهر أي تغيير جزئي إذا تعذّر التنفيذ.
                   </p>
                 </div>
                 <p className="text-xs text-gray-400">اختر المشارك الذي سيأخذ مكانه فوراً:</p>

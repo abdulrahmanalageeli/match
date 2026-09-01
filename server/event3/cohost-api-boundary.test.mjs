@@ -56,6 +56,13 @@ test("the co-host cannot change its own access lock", () => {
   assert.match(lockAction, /await recordSecurityEvent\(req,/)
 })
 
+test("round-40 note validation uses the server-resolved event format", () => {
+  const noteAction = between(adminSource, 'if (action === "e3-cohost-save-note")', 'if (action === "e3-cohost-dashboard")')
+  assert.match(noteAction, /const noteEventFormat = await loadEvent3Format\(supabase, EVENT3_MATCH_ID, currentEventId\)/)
+  assert.match(noteAction, /normalizeCohostNoteScope\(req\.body, noteEventFormat\)/)
+  assert.doesNotMatch(noteAction, /normalizeCohostNoteScope\(req\.body\)/)
+})
+
 test("a locked co-host cannot log in or reach any allowlisted Event3 action", () => {
   const login = between(adminSource, 'if (action === "e3-cohost-login") {', 'if (action && action.startsWith("e3-"))')
   assert.match(login, /if \(accessState\.cohost_locked === true\) \{\s*return res\.status\(423\)\.json\(\{[^}]*code: "COHOST_LOCKED"/)

@@ -70,6 +70,13 @@ interface CohostParticipant {
   tables: Record<string, number>
   phase2_partner: number | null
   phase3_partner: number | null
+  phase4_partner?: number | null
+  phase4_partner_id?: number | null
+  phase4_partner_name?: string | null
+  phase4_partner_phone?: string | null
+  phase4_word?: string | null
+  phase4_feedback?: Record<string, unknown> | null
+  phase4_score?: number | null
   phase3_locked?: boolean
   phase3_source?: "test" | "locked" | "generated" | null
 }
@@ -166,6 +173,7 @@ interface CohostDashboard {
   locked_phase3_pairs?: LockedPair[]
   choice_pairs?: CohostPairResult[]
   algorithm_pairs?: CohostPairResult[]
+  third_choice_pairs?: CohostPairResult[]
   algorithm_conflicting_locks?: number
   notes?: CohostNote[]
 }
@@ -227,8 +235,10 @@ interface MatchFeedbackEntry {
 interface MatchFeedbackResponse {
   phase2: MatchFeedbackEntry[]
   phase3: MatchFeedbackEntry[]
+  phase4?: MatchFeedbackEntry[]
   phase2_submitted: number
   phase3_submitted: number
+  phase4_submitted?: number
   total_participants: number
 }
 
@@ -272,16 +282,65 @@ interface PairView {
   score?: number | null
   source?: "choice" | "test" | "locked" | "generated" | null
   compatibility?: CohostScorePayload
+  choiceSlot?: 1 | 2 | 3
 }
 
 const EMPTY_LIVE_DATA: LiveData = {
   groupFeedback: { reviewer_count: 0, submissions: [] },
-  matchFeedback: { phase2: [], phase3: [], phase2_submitted: 0, phase3_submitted: 0, total_participants: 0 },
+  matchFeedback: { phase2: [], phase3: [], phase4: [], phase2_submitted: 0, phase3_submitted: 0, phase4_submitted: 0, total_participants: 0 },
   moodChecks: [],
   notifications: [],
 }
 const EMPTY_PARTICIPANTS: CohostParticipant[] = []
 const EMPTY_NOTES: CohostNote[] = []
+
+function cohostPhase4VisibilityView(data: CohostDashboard): CohostDashboard {
+  if (normalizeEventFormat(data.event_format, data.state.event_format) !== CHOICE_ONLY_EVENT_FORMAT) return data
+
+  const hiddenMembers = new Set<number>()
+  const hiddenTables = new Set<number>()
+  for (const participant of data.participants) {
+    const partner = Number(participant.phase4_partner ?? participant.phase4_partner_id ?? 0)
+    if (!isCohostDetailVisible(participant.number, partner || null)) {
+      hiddenMembers.add(Number(participant.number))
+      if (partner) hiddenMembers.add(partner)
+    }
+  }
+  for (const pair of data.third_choice_pairs || []) {
+    if (!isCohostDetailVisible(pair.participant1_number, pair.participant2_number)) {
+      hiddenMembers.add(Number(pair.participant1_number))
+      hiddenMembers.add(Number(pair.participant2_number))
+      if (pair.table_number) hiddenTables.add(Number(pair.table_number))
+    }
+  }
+  for (const participant of data.participants) {
+    const table = Number(participant.tables?.["40"] || 0)
+    if (hiddenMembers.has(Number(participant.number)) && table) hiddenTables.add(table)
+  }
+
+  return {
+    ...data,
+    participants: data.participants.map(participant => {
+      const table = Number(participant.tables?.["40"] || 0)
+      if (!hiddenMembers.has(Number(participant.number)) && !hiddenTables.has(table)) return participant
+      const tables = { ...participant.tables }
+      delete tables["40"]
+      return {
+        ...participant,
+        tables,
+        phase4_partner: null,
+        phase4_partner_id: null,
+        phase4_partner_name: null,
+        phase4_partner_phone: null,
+        phase4_word: null,
+        phase4_feedback: null,
+        phase4_score: null,
+      }
+    }),
+    third_choice_pairs: data.third_choice_pairs?.filter(pair => isCohostDetailVisible(pair.participant1_number, pair.participant2_number)),
+    notes: data.notes?.filter(note => note.scope_type !== "table" || Number(note.round) !== 40 || !hiddenTables.has(Number(note.table_number))),
+  }
+}
 
 const PHASE_LABELS: Record<string, string> = {
   setup: "التجهيز",
@@ -293,9 +352,11 @@ const PHASE_LABELS: Record<string, string> = {
   ranking3: "الترتيب النهائي",
   phase2_processing: "تجهيز اختيارات المشاركين",
   phase3_processing: "تجهيز ترشيح النظام",
+  phase4_processing: "تجهيز اللقاء الثالث",
   break: "استراحة",
   phase2_reveal: "لقاء الاختيار",
   phase3_reveal: "لقاء الخوارزمية",
+  phase4_reveal: "لقاء الاختيار الثالث",
   final_reveal: "النتائج النهائية",
 }
 
@@ -307,6 +368,8 @@ function phaseLabel(phase: string | undefined, choiceOnly: boolean) {
       phase2_reveal: "لقاء الاختيار الأول",
       phase3_processing: "تجهيز الاختيار الثاني",
       phase3_reveal: "لقاء الاختيار الثاني",
+      phase4_processing: "تجهيز الاختيار الثالث",
+      phase4_reveal: "لقاء الاختيار الثالث",
     }
     if (labels[phase || ""]) return labels[phase || ""]
   }
@@ -319,11 +382,13 @@ const ROUND_LABELS: Record<number, string> = {
   3: "الجلسة الجماعية ٣",
   20: "لقاءات الاختيار",
   30: "لقاءات الخوارزمية",
+  40: "لقاءات الاختيار الثالث",
 }
 
 function roundLabel(round: number, choiceOnly: boolean) {
   if (choiceOnly && round === 20) return "لقاءات الاختيار الأول"
   if (choiceOnly && round === 30) return "لقاءات الاختيار الثاني"
+  if (choiceOnly && round === 40) return "لقاءات الاختيار الثالث"
   return ROUND_LABELS[round] || `جولة ${round}`
 }
 
@@ -333,15 +398,18 @@ function activeRound(phase?: string) {
   if (phase === "round3") return 3
   if (phase === "phase2_reveal") return 20
   if (phase === "phase3_reveal") return 30
+  if (phase === "phase4_reveal") return 40
   return null
 }
 
-function rankingLocationRound(phase?: string) {
+function rankingLocationRound(phase: string | undefined, choiceOnly: boolean) {
   if (phase === "round1" || phase === "ranking1") return 1
   if (phase === "round2" || phase === "ranking2") return 2
   if (phase === "round3" || phase === "ranking3") return 3
   if (phase === "phase2_processing" || phase === "break" || phase === "phase2_reveal") return 20
-  if (phase === "phase3_processing" || phase === "phase3_reveal" || phase === "final_reveal") return 30
+  if (phase === "phase3_processing" || phase === "phase3_reveal") return 30
+  if (phase === "phase4_processing" || phase === "phase4_reveal") return 40
+  if (phase === "final_reveal") return choiceOnly ? 40 : 30
   return null
 }
 
@@ -363,7 +431,7 @@ function pairKey(a: number, b: number) {
   return `${Math.min(a, b)}-${Math.max(a, b)}`
 }
 
-function cohostPairView(pair: CohostPairResult): PairView {
+function cohostPairView(pair: CohostPairResult, choiceSlot?: 1 | 2 | 3): PairView {
   return {
     a: pair.participant1_number,
     aName: pair.participant1_name,
@@ -373,6 +441,7 @@ function cohostPairView(pair: CohostPairResult): PairView {
     score: pair.compatibility_score,
     source: pair.source,
     compatibility: pair,
+    choiceSlot,
   }
 }
 
@@ -396,6 +465,8 @@ const PHASE_ORDER = [
   "phase2_reveal",
   "phase3_processing",
   "phase3_reveal",
+  "phase4_processing",
+  "phase4_reveal",
   "final_reveal",
 ]
 
@@ -454,9 +525,18 @@ function SectionTitle({ icon: Icon, title, detail }: { icon: LucideIcon; title: 
   )
 }
 
-function CohostPairCard({ pair, onNote, hasNote = false, choiceOnly = false }: { pair: PairView; onNote: () => void; hasNote?: boolean; choiceOnly?: boolean }) {
+function CohostPairCard({ pair, onNote, hasNote = false, choiceOnly = false }: { pair: PairView; onNote?: () => void; hasNote?: boolean; choiceOnly?: boolean }) {
   const choice = pair.source === "choice"
   const choiceMatch = choice || choiceOnly
+  const matchLabel = choiceOnly
+    ? `الاختيار ${pair.choiceSlot === 3 ? "الثالث" : pair.choiceSlot === 2 ? "الثاني" : "الأول"}`
+    : choice
+      ? "اختيار المشاركين"
+      : pair.source === "test"
+        ? "اختبار · مقفلة مسبقًا"
+        : pair.source === "locked"
+          ? "مقفلة قبل التشغيل"
+          : "مطابقة الخوارزمية"
   const total = compatibilityTotalForDisplay(pair.compatibility, pair.score ?? null)
   const dimensions = currentBalancedGroupedDimensionsForDisplay(pair.compatibility) ?? currentOppositesDimensionsForDisplay(pair.compatibility)
   return (
@@ -468,7 +548,7 @@ function CohostPairCard({ pair, onNote, hasNote = false, choiceOnly = false }: {
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] font-bold">
         <span className="text-amber-100">{pair.table ? `طاولة ${pair.table}` : "بانتظار توزيع الطاولة"}</span>
-        <span className={choice ? "text-pink-200" : "text-violet-200"}>{choice ? (choiceOnly ? "الاختيار الأول" : "اختيار المشاركين") : choiceOnly ? "الاختيار الثاني" : pair.source === "test" ? "اختبار · مقفلة مسبقًا" : pair.source === "locked" ? "مقفلة قبل التشغيل" : "مطابقة الخوارزمية"}</span>
+        <span className={choice ? "text-pink-200" : "text-violet-200"}>{matchLabel}</span>
       </div>
       <details className="mt-3 rounded-xl border border-white/[0.07] bg-black/15">
         <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-xs font-black [&::-webkit-details-marker]:hidden">
@@ -485,7 +565,7 @@ function CohostPairCard({ pair, onNote, hasNote = false, choiceOnly = false }: {
           </> : <p className="text-[11px] leading-6 text-slate-400">تفاصيل الدرجة غير متاحة.</p>}
         </div>
       </details>
-      <button onClick={onNote} className={`mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border text-[11px] font-bold ${hasNote ? "border-amber-300/20 bg-amber-300/[0.06] text-amber-100" : "border-white/[0.07] bg-white/[0.025] text-slate-300"}`}><NotebookPen size={14} />{hasNote ? "عرض ملاحظة اللقاء" : "ملاحظة خاصة عن اللقاء"}</button>
+      {onNote ? <button onClick={onNote} className={`mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border text-[11px] font-bold ${hasNote ? "border-amber-300/20 bg-amber-300/[0.06] text-amber-100" : "border-white/[0.07] bg-white/[0.025] text-slate-300"}`}><NotebookPen size={14} />{hasNote ? "عرض ملاحظة اللقاء" : "ملاحظة خاصة عن اللقاء"}</button> : null}
     </article>
   )
 }
@@ -529,7 +609,7 @@ export default function AdminCohostPage() {
   const [password, setPassword] = useState("")
   const [loginLoading, setLoginLoading] = useState(false)
   const [rawDashboard, setDashboard] = useState<CohostDashboard | null>(null)
-  const dashboard = useMemo(() => rawDashboard ? cohostDashboardView(rawDashboard) : null, [rawDashboard])
+  const dashboard = useMemo(() => rawDashboard ? cohostPhase4VisibilityView(cohostDashboardView(rawDashboard)) : null, [rawDashboard])
   const [liveData, setLiveData] = useState<LiveData>(EMPTY_LIVE_DATA)
   const [loading, setLoading] = useState(false)
   const [liveLoading, setLiveLoading] = useState(false)
@@ -876,7 +956,13 @@ export default function AdminCohostPage() {
     const first = participantByNumber.get(Number(note.participant_number))?.name || `#${note.participant_number}`
     if (note.scope_type === "participant") return `ملاحظة عن ${first}`
     const second = participantByNumber.get(Number(note.participant2_number))?.name || `#${note.participant2_number}`
-    return `${Number(note.round) === 20 ? (choiceOnly ? "لقاء الاختيار الأول" : "لقاء الاختيار") : (choiceOnly ? "لقاء الاختيار الثاني" : "لقاء الخوارزمية")} · ${first} × ${second}`
+    const pairRound = Number(note.round)
+    const pairRoundLabel = pairRound === 20
+      ? (choiceOnly ? "لقاء الاختيار الأول" : "لقاء الاختيار")
+      : pairRound === 40
+        ? "لقاء الاختيار الثالث"
+        : (choiceOnly ? "لقاء الاختيار الثاني" : "لقاء الخوارزمية")
+    return `${pairRoundLabel} · ${first} × ${second}`
   }
   const filteredNotes = notes.filter(note => {
     const query = notesSearch.trim().toLowerCase()
@@ -895,7 +981,7 @@ export default function AdminCohostPage() {
   }, [rankingFilter, rankingSearch, rankings])
   const rankingTableBadges = (participantNumber: number) => {
     const tables = participantByNumber.get(Number(participantNumber))?.tables || {}
-    const liveRound = rankingLocationRound(dashboard?.state.phase)
+    const liveRound = rankingLocationRound(dashboard?.state.phase, choiceOnly)
     const liveTable = liveRound != null ? tables[String(liveRound)] : null
     if (liveTable != null) return [{ key: `live-${liveRound}`, label: `طاولة ${liveTable}`, live: true }]
     return (choiceOnly ? [1, 2, 3] : [1, 2])
@@ -912,7 +998,7 @@ export default function AdminCohostPage() {
 
   const tableGroups = useMemo(() => {
     const result: Record<number, Array<{ table: number; members: CohostParticipant[] }>> = {}
-    for (const tableRound of [1, 2, 3, 20, 30]) {
+    for (const tableRound of [1, 2, 3, 20, 30, 40]) {
       const tables = new Map<number, CohostParticipant[]>()
       for (const participant of participants) {
         const table = Number(participant.tables?.[String(tableRound)] || 0)
@@ -972,14 +1058,20 @@ export default function AdminCohostPage() {
   }, [choiceOnly, dashboard?.state.phase, liveData.groupFeedback.submissions, tableGroups])
 
   const individualFeedbackPhases = useMemo(() => {
-    return ([
+    const phases = [
       { key: "phase2" as const, label: choiceOnly ? "لقاءات الاختيار الأول" : "لقاءات الاختيار", round: 20, targetPhase: "phase2_reveal", entries: liveData.matchFeedback.phase2 },
       { key: "phase3" as const, label: choiceOnly ? "لقاءات الاختيار الثاني" : "لقاءات الخوارزمية", round: 30, targetPhase: "phase3_reveal", entries: liveData.matchFeedback.phase3 },
-    ]).map(item => {
+      ...(choiceOnly ? [{ key: "phase4" as const, label: "لقاءات الاختيار الثالث", round: 40, targetPhase: "phase4_reveal", entries: liveData.matchFeedback.phase4 || [] }] : []),
+    ]
+    return phases.map(item => {
       const entryByParticipant = new Map(item.entries.filter(entry => isCohostDetailVisible(entry.participant_number, entry.partner_number)).map(entry => [Number(entry.participant_number), entry]))
       const seen = new Set<string>()
       const pairs = participants.flatMap(participant => {
-        const partnerNumber = Number(item.key === "phase2" ? participant.phase2_partner : participant.phase3_partner)
+        const partnerNumber = Number(item.key === "phase2"
+          ? participant.phase2_partner
+          : item.key === "phase3"
+            ? participant.phase3_partner
+            : participant.phase4_partner ?? participant.phase4_partner_id)
         if (!partnerNumber) return []
         const partner = participantByNumber.get(partnerNumber)
         if (!partner) return []
@@ -1011,7 +1103,7 @@ export default function AdminCohostPage() {
         missingCount: started ? Math.max(0, expectedCount - submittedCount) : 0,
       }
     })
-  }, [choiceOnly, dashboard?.state.phase, liveData.matchFeedback.phase2, liveData.matchFeedback.phase3, participantByNumber, participants])
+  }, [choiceOnly, dashboard?.state.phase, liveData.matchFeedback.phase2, liveData.matchFeedback.phase3, liveData.matchFeedback.phase4, participantByNumber, participants])
 
   const activeGroupFeedbackRounds = groupFeedbackRounds.filter(item => item.started)
   const activeIndividualFeedbackPhases = individualFeedbackPhases.filter(item => item.started)
@@ -1055,7 +1147,7 @@ export default function AdminCohostPage() {
       : `كل الطاولات النشطة (${activeMoodGroups.length} طاولات · ${activeMoodParticipantCount} مشاركين)`
 
   const phase2Pairs = useMemo<PairView[]>(() => {
-    if (dashboard?.choice_pairs) return dashboard.choice_pairs.map(cohostPairView).sort((left, right) => (left.table ?? 999) - (right.table ?? 999) || left.a - right.a)
+    if (dashboard?.choice_pairs) return dashboard.choice_pairs.map(pair => cohostPairView(pair, choiceOnly ? 1 : undefined)).sort((left, right) => (left.table ?? 999) - (right.table ?? 999) || left.a - right.a)
     const seen = new Set<string>()
     const result: PairView[] = []
     for (const participant of participants) {
@@ -1065,13 +1157,13 @@ export default function AdminCohostPage() {
       const key = pairKey(participant.number, partnerNumber)
       if (seen.has(key)) continue
       seen.add(key)
-      result.push({ a: participant.number, aName: participant.name, b: partner.number, bName: partner.name, table: participant.tables?.["20"] || partner.tables?.["20"] || null, source: "choice" })
+      result.push({ a: participant.number, aName: participant.name, b: partner.number, bName: partner.name, table: participant.tables?.["20"] || partner.tables?.["20"] || null, source: "choice", choiceSlot: choiceOnly ? 1 : undefined })
     }
     return result
-  }, [dashboard?.choice_pairs, participantByNumber, participants])
+  }, [choiceOnly, dashboard?.choice_pairs, participantByNumber, participants])
 
   const phase3Pairs = useMemo<PairView[]>(() => {
-    if (dashboard?.algorithm_pairs) return dashboard.algorithm_pairs.map(cohostPairView).sort((left, right) => (left.table ?? 999) - (right.table ?? 999) || left.a - right.a)
+    if (dashboard?.algorithm_pairs) return dashboard.algorithm_pairs.map(pair => cohostPairView(pair, choiceOnly ? 2 : undefined)).sort((left, right) => (left.table ?? 999) - (right.table ?? 999) || left.a - right.a)
     const seen = new Set<string>()
     const result: PairView[] = []
     for (const pair of dashboard?.locked_phase3_pairs || []) {
@@ -1086,6 +1178,7 @@ export default function AdminCohostPage() {
         table: pair.table_number,
         score: pair.compatibility_score,
         source: pair.source,
+        choiceSlot: choiceOnly ? 2 : undefined,
       })
     }
     for (const participant of participants) {
@@ -1102,10 +1195,39 @@ export default function AdminCohostPage() {
         bName: partner.name,
         table: participant.tables?.["30"] || partner.tables?.["30"] || null,
         source: participant.phase3_source || partner.phase3_source,
+        choiceSlot: choiceOnly ? 2 : undefined,
       })
     }
     return result
-  }, [dashboard?.algorithm_pairs, dashboard?.locked_phase3_pairs, participantByNumber, participants])
+  }, [choiceOnly, dashboard?.algorithm_pairs, dashboard?.locked_phase3_pairs, participantByNumber, participants])
+
+  const phase4Pairs = useMemo<PairView[]>(() => {
+    if (!choiceOnly) return []
+    if (dashboard?.third_choice_pairs) return dashboard.third_choice_pairs
+      .map(pair => cohostPairView(pair, 3))
+      .sort((left, right) => (left.table ?? 999) - (right.table ?? 999) || left.a - right.a)
+    const seen = new Set<string>()
+    const result: PairView[] = []
+    for (const participant of participants) {
+      const partnerNumber = Number(participant.phase4_partner ?? participant.phase4_partner_id ?? 0)
+      const partner = participantByNumber.get(partnerNumber)
+      if (!partner) continue
+      const key = pairKey(participant.number, partnerNumber)
+      if (seen.has(key)) continue
+      seen.add(key)
+      result.push({
+        a: participant.number,
+        aName: participant.name,
+        b: partner.number,
+        bName: partner.name,
+        table: participant.tables?.["40"] || partner.tables?.["40"] || null,
+        score: participant.phase4_score ?? partner.phase4_score ?? null,
+        source: "choice",
+        choiceSlot: 3,
+      })
+    }
+    return result.sort((left, right) => (left.table ?? 999) - (right.table ?? 999) || left.a - right.a)
+  }, [choiceOnly, dashboard?.third_choice_pairs, participantByNumber, participants])
 
   const openNote = (scope: CohostNoteScope, title = noteLabel(scope)) => {
     if (!dashboard || panelLocked) return
@@ -1117,7 +1239,7 @@ export default function AdminCohostPage() {
     setNoteError("")
   }
 
-  const openPairNote = (pair: PairView, tableRound: 20 | 30) => openNote({
+  const openPairNote = (pair: PairView, tableRound: 20 | 30 | 40) => openNote({
     scope_type: "pair",
     scope_key: `pair:${tableRound}:${pairKey(pair.a, pair.b)}`,
     round: tableRound,
@@ -1486,12 +1608,13 @@ export default function AdminCohostPage() {
           <div className="flex min-h-[55vh] flex-col items-center justify-center gap-3 text-slate-400"><Loader2 size={28} className="animate-spin text-teal-300" /><p className="text-sm">جاري تجهيز لوحة رنيم…</p></div>
         ) : tab === "home" ? (
           <>
-            <section className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <section className={`grid grid-cols-2 gap-2 ${choiceOnly ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
               {[
                 { label: "الحاضرين", value: `${attendedCount}/${participants.length}`, icon: UserCheck, color: "text-teal-300" },
                 { label: "أرسلوا الترتيب", value: `${rankingCount}/${participants.length}`, icon: CheckCircle2, color: "text-amber-300" },
                 { label: "طلبات المساعدة", value: dashboard?.sos_requests.length || 0, icon: Bell, color: dashboard?.sos_requests.length ? "text-red-300" : "text-slate-300" },
                 { label: choiceOnly ? "مطابقات الاختيار الثاني" : "مطابقات الخوارزمية", value: phase3Pairs.length, icon: choiceOnly ? Heart : Sparkles, color: "text-violet-300" },
+                ...(choiceOnly ? [{ label: "مطابقات الاختيار الثالث", value: phase4Pairs.length, icon: Heart, color: "text-cyan-300" }] : []),
               ].map(item => (
                 <div key={item.label} className="rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3">
                   <div className="flex items-center justify-between"><item.icon size={17} className={item.color} /><span className="text-xl font-black tabular-nums">{item.value}</span></div>
@@ -1533,6 +1656,20 @@ export default function AdminCohostPage() {
               {phase3Pairs.length > 6 ? <button onClick={() => setTab("tables")} className="min-h-11 w-full rounded-xl border border-white/10 text-xs font-bold text-teal-200">عرض كل المطابقات</button> : null}
             </section>
 
+            {choiceOnly ? (
+              <section className="space-y-3">
+                <SectionTitle icon={Heart} title="مطابقات الاختيار الثالث جاهزة" detail="تظهر هنا أقوى الاختيارات المتبادلة المتبقية بعد استبعاد شريكي اللقاءين الأول والثاني." />
+                {phase4Pairs.length ? (
+                  <div className="grid gap-2 md:grid-cols-2">
+                    {phase4Pairs.slice(0, 6).map(pair => (
+                      <CohostPairCard key={pairKey(pair.a, pair.b)} pair={pair} onNote={() => openPairNote(pair, 40)} hasNote={notesByKey.has(`pair:40:${pairKey(pair.a, pair.b)}`)} choiceOnly />
+                    ))}
+                  </div>
+                ) : <div className="rounded-2xl border border-dashed border-white/10 p-5 text-center text-xs leading-6 text-slate-400">لم تظهر مطابقات الاختيار الثالث لهذه الفعالية حتى الآن.</div>}
+                {phase4Pairs.length > 6 ? <button onClick={() => setTab("tables")} className="min-h-11 w-full rounded-xl border border-white/10 text-xs font-bold text-teal-200">عرض كل مطابقات الاختيار الثالث</button> : null}
+              </section>
+            ) : null}
+
             <section className="space-y-3">
               <SectionTitle icon={Table2} title={round ? `الطاولات الآن · ${roundLabel(round, choiceOnly)}` : "نظرة سريعة على الطاولات"} detail="هذه المعلومات للعرض والتوجيه فقط." />
               {round && tableGroups[round]?.length ? (
@@ -1559,6 +1696,9 @@ export default function AdminCohostPage() {
               {filteredParticipants.map(participant => {
                 const phase2Partner = participant.phase2_partner ? participantByNumber.get(Number(participant.phase2_partner)) : null
                 const phase3Partner = participant.phase3_partner ? participantByNumber.get(Number(participant.phase3_partner)) : null
+                const phase4PartnerNumber = Number(participant.phase4_partner ?? participant.phase4_partner_id ?? 0)
+                const phase4Partner = phase4PartnerNumber ? participantByNumber.get(phase4PartnerNumber) : null
+                const phase4PartnerLabel = phase4Partner?.name || participant.phase4_partner_name || (phase4PartnerNumber ? `#${phase4PartnerNumber}` : "")
                 return (
                   <article key={participant.number} className={`rounded-2xl border p-3 ${participant.attended ? "border-teal-300/20 bg-teal-950/20" : "border-white/[0.07] bg-white/[0.03]"}`}>
                     <button type="button" onClick={() => setViewingParticipant(participant.number)} aria-label={`عرض ملف ${participant.name}`} className="flex min-h-14 w-full items-start gap-3 rounded-xl text-right focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-300">
@@ -1570,6 +1710,7 @@ export default function AdminCohostPage() {
                       {Object.entries(participant.tables || {}).sort(([a], [b]) => Number(a) - Number(b)).map(([tableRound, table]) => <span key={tableRound} className="rounded-lg bg-amber-300/10 px-2 py-1 text-amber-100">{roundLabel(Number(tableRound), choiceOnly)}: {table}</span>)}
                       {phase2Partner ? <span className="rounded-lg bg-pink-300/10 px-2 py-1 text-pink-100">{choiceOnly ? "الاختيار الأول" : "اختيار"}: {firstName(phase2Partner.name)}</span> : null}
                       {phase3Partner ? <span className="rounded-lg bg-violet-300/10 px-2 py-1 text-violet-100">{choiceOnly ? "الاختيار الثاني" : "خوارزمية"}: {firstName(phase3Partner.name)}</span> : null}
+                      {choiceOnly && phase4PartnerLabel ? <span className="rounded-lg bg-cyan-300/10 px-2 py-1 text-cyan-100">الاختيار الثالث: {firstName(phase4PartnerLabel)}</span> : null}
                     </div>
                     <button type="button" onClick={() => setViewingParticipant(participant.number)} className="mt-3 min-h-11 w-full rounded-xl border border-teal-300/15 bg-teal-300/[0.04] text-xs font-bold text-teal-100">الملف والسجل السابق</button>
                     <div className="mt-3 grid grid-cols-2 gap-2">
@@ -1662,14 +1803,18 @@ export default function AdminCohostPage() {
           </section>
         ) : tab === "tables" ? (
           <section className="space-y-5">
-            <SectionTitle icon={Table2} title="كل الجداول والمطابقات" detail={choiceOnly ? "توزيعات الجولات الثلاث ولقاءي الاختيار." : "توزيعات الفعالية كاملة، مع المطابقات المقفلة قبل تعيين الطاولات."} />
-            <div className="grid grid-cols-2 gap-2"><a href="#cohost-choice-pairs" className="flex min-h-11 items-center justify-center rounded-xl border border-pink-300/20 text-[11px] font-black text-pink-100">{choiceOnly ? "الاختيار الأول" : "الاختيار"} · {phase2Pairs.length}</a><a href="#cohost-algorithm-pairs" className="flex min-h-11 items-center justify-center rounded-xl border border-violet-300/20 text-[11px] font-black text-violet-100">{choiceOnly ? "الاختيار الثاني" : "الخوارزمية"} · {phase3Pairs.length}</a></div>
-            {[1, 2, 3, 20, 30].sort((left, right) => Number(right === round) - Number(left === round)).map(tableRound => tableGroups[tableRound]?.length ? (
+            <SectionTitle icon={Table2} title="كل الجداول والمطابقات" detail={choiceOnly ? "توزيعات الجولات الثلاث ولقاءات الاختيار الثلاثة." : "توزيعات الفعالية كاملة، مع المطابقات المقفلة قبل تعيين الطاولات."} />
+            <div className={`grid gap-2 ${choiceOnly ? "grid-cols-3" : "grid-cols-2"}`}><a href="#cohost-choice-pairs" className="flex min-h-11 items-center justify-center rounded-xl border border-pink-300/20 text-[11px] font-black text-pink-100">{choiceOnly ? "الاختيار الأول" : "الاختيار"} · {phase2Pairs.length}</a><a href="#cohost-algorithm-pairs" className="flex min-h-11 items-center justify-center rounded-xl border border-violet-300/20 text-[11px] font-black text-violet-100">{choiceOnly ? "الاختيار الثاني" : "الخوارزمية"} · {phase3Pairs.length}</a>{choiceOnly ? <a href="#cohost-third-choice-pairs" className="flex min-h-11 items-center justify-center rounded-xl border border-cyan-300/20 text-[11px] font-black text-cyan-100">الاختيار الثالث · {phase4Pairs.length}</a> : null}</div>
+            {(choiceOnly ? [1, 2, 3, 20, 30, 40] : [1, 2, 3, 20, 30]).sort((left, right) => Number(right === round) - Number(left === round)).map(tableRound => tableGroups[tableRound]?.length ? (
               <div key={tableRound} className="space-y-2">
                 <h3 className="text-xs font-black text-amber-200">{roundLabel(tableRound, choiceOnly)}{tableRound === round ? " · الآن" : ""}</h3>
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {tableGroups[tableRound].map(group => (
-                    <div key={group.table} className={`rounded-2xl border p-3 ${tableRound === round ? "border-amber-300/20 bg-amber-300/[0.035]" : "border-white/[0.07] bg-white/[0.035]"}`}><div className="flex items-center justify-between gap-2"><span className="text-xs font-black">طاولة {group.table}</span><span className="text-[9px] text-slate-400">{group.members.length} مشاركين</span></div><div className="mt-2 space-y-1">{group.members.map(member => <p key={member.number} className="break-words text-[11px] text-slate-300"><span className="ml-1 text-slate-500">#{member.number}</span>{member.name}</p>)}</div><button onClick={() => openNote({ scope_type: "table", scope_key: `table:${tableRound}:${group.table}`, round: tableRound, table_number: group.table })} className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/[0.07] bg-black/10 text-[11px] font-bold text-amber-100"><NotebookPen size={14} />{notesByKey.has(`table:${tableRound}:${group.table}`) ? "عرض ملاحظة الطاولة" : tableRound < 20 ? "ملاحظة عن المجموعة" : "ملاحظة للطاولة"}</button></div>
+                    <div key={group.table} className={`rounded-2xl border p-3 ${tableRound === round ? "border-amber-300/20 bg-amber-300/[0.035]" : "border-white/[0.07] bg-white/[0.035]"}`}>
+                      <div className="flex items-center justify-between gap-2"><span className="text-xs font-black">طاولة {group.table}</span><span className="text-[9px] text-slate-400">{group.members.length} مشاركين</span></div>
+                      <div className="mt-2 space-y-1">{group.members.map(member => <p key={member.number} className="break-words text-[11px] text-slate-300"><span className="ml-1 text-slate-500">#{member.number}</span>{member.name}</p>)}</div>
+                      <button onClick={() => openNote({ scope_type: "table", scope_key: `table:${tableRound}:${group.table}`, round: tableRound, table_number: group.table })} className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/[0.07] bg-black/10 text-[11px] font-bold text-amber-100"><NotebookPen size={14} />{notesByKey.has(`table:${tableRound}:${group.table}`) ? "عرض ملاحظة الطاولة" : tableRound < 20 ? "ملاحظة عن المجموعة" : "ملاحظة للطاولة"}</button>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -1685,6 +1830,10 @@ export default function AdminCohostPage() {
               <h3 className="flex items-center gap-2 text-xs font-black text-violet-200">{choiceOnly ? <Heart size={15} /> : <Sparkles size={15} />} {choiceOnly ? "مطابقات الاختيار الثاني" : "مطابقات الخوارزمية"} · {phase3Pairs.length}</h3>
               {phase3Pairs.length ? <div className="grid gap-2 md:grid-cols-2">{phase3Pairs.map(pair => <CohostPairCard key={pairKey(pair.a, pair.b)} pair={pair} onNote={() => openPairNote(pair, 30)} hasNote={notesByKey.has(`pair:30:${pairKey(pair.a, pair.b)}`)} choiceOnly={choiceOnly} />)}</div> : <p className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs leading-6 text-slate-400">{choiceOnly ? "لم تظهر مطابقات الاختيار الثاني بعد." : testMode ? "لم تُثبّت مطابقات جلسة الاختبار القديمة بعد. يستطيع المضيف تثبيتها من Admin3 دون تغيير المرحلة." : "لا توجد مطابقات خوارزمية مقفلة لهذه الفعالية."}</p>}
             </div>
+            {choiceOnly ? <div id="cohost-third-choice-pairs" className="scroll-mt-40 space-y-2">
+              <h3 className="flex items-center gap-2 text-xs font-black text-cyan-200"><Heart size={15} /> مطابقات الاختيار الثالث · {phase4Pairs.length}</h3>
+              {phase4Pairs.length ? <div className="grid gap-2 md:grid-cols-2">{phase4Pairs.map(pair => <CohostPairCard key={pairKey(pair.a, pair.b)} pair={pair} onNote={() => openPairNote(pair, 40)} hasNote={notesByKey.has(`pair:40:${pairKey(pair.a, pair.b)}`)} choiceOnly />)}</div> : <p className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs leading-6 text-slate-400">لم تظهر مطابقات الاختيار الثالث بعد.</p>}
+            </div> : null}
           </section>
         ) : tab === "feedback" ? (
           <section className="space-y-4">
@@ -1778,10 +1927,12 @@ export default function AdminCohostPage() {
                     const matchesSearch = pair.members.some(member => feedbackPersonMatches(member.participant.number, member.participant.name))
                     return matchesStatus && matchesSearch
                   })
+                  const phaseTitleClass = phaseInfo.key === "phase2" ? "text-pink-100" : phaseInfo.key === "phase4" ? "text-cyan-100" : "text-violet-100"
+                  const phaseProgressClass = phaseInfo.key === "phase2" ? "bg-gradient-to-l from-pink-300 to-rose-300" : phaseInfo.key === "phase4" ? "bg-gradient-to-l from-cyan-300 to-teal-300" : "bg-gradient-to-l from-violet-300 to-purple-300"
                   return (
                     <div key={phaseInfo.key} className="space-y-2">
-                      <div className="flex items-center justify-between gap-3"><div><h3 className={`text-xs font-black ${phaseInfo.key === "phase2" ? "text-pink-100" : "text-violet-100"}`}>{phaseInfo.label}</h3><p className="mt-1 text-[9px] text-slate-500">{phaseInfo.started ? `${phaseInfo.submittedCount} أرسلوا · ${phaseInfo.missingCount} لم يرسلوا` : "لم يبدأ التقييم بعد"}</p></div><span className={`rounded-full px-2.5 py-1 text-[9px] font-black ${phaseInfo.started ? phaseInfo.missingCount ? "bg-amber-300/10 text-amber-100" : "bg-teal-300/10 text-teal-100" : "bg-white/[0.05] text-slate-400"}`}>{phaseInfo.started ? `${phaseInfo.submittedCount}/${phaseInfo.expectedCount}` : "قريبًا"}</span></div>
-                      {phaseInfo.started && phaseInfo.expectedCount ? <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]"><div className={`h-full rounded-full transition-all ${phaseInfo.key === "phase2" ? "bg-gradient-to-l from-pink-300 to-rose-300" : "bg-gradient-to-l from-violet-300 to-purple-300"}`} style={{ width: `${Math.round((phaseInfo.submittedCount / phaseInfo.expectedCount) * 100)}%` }} /></div> : null}
+                      <div className="flex items-center justify-between gap-3"><div><h3 className={`text-xs font-black ${phaseTitleClass}`}>{phaseInfo.label}</h3><p className="mt-1 text-[9px] text-slate-500">{phaseInfo.started ? `${phaseInfo.submittedCount} أرسلوا · ${phaseInfo.missingCount} لم يرسلوا` : "لم يبدأ التقييم بعد"}</p></div><span className={`rounded-full px-2.5 py-1 text-[9px] font-black ${phaseInfo.started ? phaseInfo.missingCount ? "bg-amber-300/10 text-amber-100" : "bg-teal-300/10 text-teal-100" : "bg-white/[0.05] text-slate-400"}`}>{phaseInfo.started ? `${phaseInfo.submittedCount}/${phaseInfo.expectedCount}` : "قريبًا"}</span></div>
+                      {phaseInfo.started && phaseInfo.expectedCount ? <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]"><div className={`h-full rounded-full transition-all ${phaseProgressClass}`} style={{ width: `${Math.round((phaseInfo.submittedCount / phaseInfo.expectedCount) * 100)}%` }} /></div> : null}
                       {!phaseInfo.started ? <div className="rounded-2xl border border-dashed border-white/10 p-4 text-center text-[11px] text-slate-500">ستظهر حالة كل لقاء هنا فور بدء هذه المرحلة.</div> : visiblePairs.length ? (
                         <div className="grid gap-2 md:grid-cols-2">
                           {visiblePairs.map(pair => (

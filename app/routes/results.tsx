@@ -98,7 +98,7 @@ interface MatchResult {
   reason: string
   round: number
   table_number?: number | null
-  score: number
+  score: number | null
   is_repeat_match?: boolean
   mutual_match?: boolean
   wants_match?: boolean | null
@@ -148,7 +148,7 @@ interface MatchResult {
   score_breakdown?: BalancedScoreBreakdown | null
   score_snapshot?: Record<string, unknown> | string | null
   // Event 3+ fields (choice vs algorithm)
-  match_type?: 'choice' | 'algorithm' | null
+  match_type?: 'choice' | 'algorithm' | 'third_choice' | null
   event_format?: 'classic' | 'choice_only_three_groups' | string | null
   match_label?: string | null
   match_word?: string | null
@@ -174,9 +174,35 @@ function eventUsesChoiceOnlyFormat(items: Array<{ match: MatchResult }>) {
 }
 
 function event3MatchLabel(match: MatchResult, choiceOnly = isChoiceOnlyEventMatch(match)) {
-  if (choiceOnly) return match.match_type === 'choice' ? 'الاختيار الأول' : 'الاختيار الثاني'
+  if (choiceOnly) {
+    if (match.match_type === 'choice') return 'الاختيار الأول'
+    if (match.match_type === 'algorithm') return 'الاختيار الثاني'
+    return 'الاختيار الثالث'
+  }
   if (match.match_label) return match.match_label
   return match.match_type === 'choice' ? 'اختيارك الشخصي' : 'اختيار الخوارزمية'
+}
+
+function matchPreferenceStyle(preference: string | null | undefined) {
+  if (preference === 'choice' || preference === 'first') return { box: 'bg-pink-500/10 border-pink-500/20', text: 'text-pink-300' }
+  if (preference === 'algorithm' || preference === 'second') return { box: 'bg-purple-500/10 border-purple-500/20', text: 'text-purple-300' }
+  if (preference === 'third') return { box: 'bg-violet-500/10 border-violet-500/20', text: 'text-violet-300' }
+  if (preference === 'both' || preference === 'multiple') return { box: 'bg-emerald-500/10 border-emerald-500/20', text: 'text-emerald-300' }
+  return { box: 'bg-gray-500/10 border-gray-500/20', text: 'text-gray-400' }
+}
+
+function matchPreferenceLabel(preference: string, choiceOnly: boolean) {
+  if (choiceOnly) {
+    if (preference === 'choice' || preference === 'first') return 'فضّلت الاختيار الأول'
+    if (preference === 'algorithm' || preference === 'second') return 'فضّلت الاختيار الثاني'
+    if (preference === 'third') return 'فضّلت الاختيار الثالث'
+    if (preference === 'both' || preference === 'multiple') return 'فضّلت أكثر من لقاء'
+    return 'لم تفضّل أي لقاء'
+  }
+  if (preference === 'choice') return 'اخترت اختيارك الشخصي'
+  if (preference === 'algorithm') return 'اخترت اختيار الخوارزمية'
+  if (preference === 'both') return 'كلاهما ممتاز'
+  return 'لم تفضّل أيهما'
 }
 
 export default function ResultsPage() {
@@ -191,10 +217,10 @@ export default function ResultsPage() {
   const [expandedMatches, setExpandedMatches] = useState<{[key: number]: boolean}>({})
   const [expandedEvents, setExpandedEvents] = useState<{[key: number]: boolean}>({})
 
-  // Any event with id >= 20 is a BlindMatch 4.0 (event3) event
+  // Any event with id >= 20 is a BlindMatch 5.0 (event3) event
   // Also check match_type since event3 events can have any event_id
   const isEvent3 = (eventId: number) => eventId >= 20
-  const isEvent3Match = (m: MatchResult) => (m.event_id ?? 0) >= 20 || m.match_type === 'choice' || m.match_type === 'algorithm'
+  const isEvent3Match = (m: MatchResult) => (m.event_id ?? 0) >= 20 || m.match_type === 'choice' || m.match_type === 'algorithm' || m.match_type === 'third_choice'
   const groupIsEvent3 = (items: Array<{ match: MatchResult; matchIndex: number }>) => items.some(i => isEvent3Match(i.match))
 
   // Check if event3 choice and algorithm matched the same person — computed per event
@@ -225,7 +251,8 @@ export default function ResultsPage() {
   
   // Helper: show the final score exactly as stored (matches matrix)
   const getOriginalScore = (match: MatchResult): number => {
-    return Math.round(match.score)
+    const score = Number(match.score)
+    return Number.isFinite(score) ? Math.round(score) : 0
   }
 
   // Function to convert technical compatibility reason to natural Arabic description
@@ -831,10 +858,10 @@ export default function ResultsPage() {
             return tb - ta
           })
       }))
-      .filter(group => group.event_id >= 20 || group.items.some(i => i.match.match_type === 'choice' || i.match.match_type === 'algorithm'))
+      .filter(group => group.event_id >= 20 || group.items.some(i => i.match.match_type === 'choice' || i.match.match_type === 'algorithm' || i.match.match_type === 'third_choice'))
       .sort((a, b) => {
-        const aE3 = a.event_id >= 20 || a.items.some(i => i.match.match_type === 'choice' || i.match.match_type === 'algorithm')
-        const bE3 = b.event_id >= 20 || b.items.some(i => i.match.match_type === 'choice' || i.match.match_type === 'algorithm')
+        const aE3 = a.event_id >= 20 || a.items.some(i => i.match.match_type === 'choice' || i.match.match_type === 'algorithm' || i.match.match_type === 'third_choice')
+        const bE3 = b.event_id >= 20 || b.items.some(i => i.match.match_type === 'choice' || i.match.match_type === 'algorithm' || i.match.match_type === 'third_choice')
         if (aE3 !== bE3) return aE3 ? -1 : 1
         return b.event_id - a.event_id
       })
@@ -987,14 +1014,14 @@ export default function ResultsPage() {
                                 ? 'text-white'
                                 : (dark ? 'text-slate-200' : 'text-gray-800')
                             }`}>
-                              {groupIsEvent3(items) ? (choiceOnlyEvent ? 'التوافق الأعمى 4.0 — اختياران متبادلان' : 'التوافق الأعمى 4.0 — اختيارك واختيارنا') : `فعالية رقم ${event_id}`}
+                              {groupIsEvent3(items) ? (choiceOnlyEvent ? 'التوافق الأعمى 5.0 — ثلاثة اختيارات متبادلة' : 'التوافق الأعمى 5.0 — اختيارك واختيارنا') : `فعالية رقم ${event_id}`}
                             </div>
                             <div className={`text-xs ${
                               groupIsEvent3(items)
                                 ? 'text-cyan-200/60'
                                 : (dark ? 'text-slate-400' : 'text-gray-600')
                             }`}>
-                              {groupIsEvent3(items) ? (choiceOnlyEvent ? '✨ لقاء الاختيار الأول ولقاء الاختيار الثاني' : '✨ الجولة النهائية — اختيارك والخوارزمية') : formatSessionCount(items.length)}
+                              {groupIsEvent3(items) ? (choiceOnlyEvent ? '✨ لقاءات الاختيار الأول والثاني والثالث' : '✨ الجولة النهائية — اختيارك والخوارزمية') : formatSessionCount(items.length)}
                             </div>
                           </div>
                         </div>
@@ -1047,6 +1074,11 @@ export default function ResultsPage() {
                                               {choiceOnlyMatch ? <Heart className="w-3 h-3" /> : <Brain className="w-3 h-3" />}
                                               {event3MatchLabel(match, choiceOnlyMatch)}
                                             </span>
+                                          ) : match.match_type === 'third_choice' ? (
+                                            <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0 flex items-center gap-1 bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                                              <Heart className="w-3 h-3" />
+                                              {event3MatchLabel(match, choiceOnlyMatch)}
+                                            </span>
                                           ) : (
                                             <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${
                                               dark ? 'bg-slate-600/70 text-slate-200' : 'bg-gray-200/70 text-gray-700'
@@ -1090,24 +1122,26 @@ export default function ResultsPage() {
                                           )}
                                           
                                           {/* Score Badge */}
-                                          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${
-                                            getOriginalScore(match) >= 70 ? 'bg-green-500/10 border border-green-500/30' :
-                                            getOriginalScore(match) >= 50 ? 'bg-yellow-500/10 border border-yellow-500/30' :
-                                            'bg-red-500/10 border border-red-500/30'
-                                          }`}>
-                                            <Award className={`w-3.5 h-3.5 ${
-                                              getOriginalScore(match) >= 70 ? 'text-green-500' :
-                                              getOriginalScore(match) >= 50 ? 'text-yellow-500' :
-                                              'text-red-500'
-                                            }`} />
-                                            <span className={`text-sm font-bold ${
-                                              getOriginalScore(match) >= 70 ? 'text-green-500' :
-                                              getOriginalScore(match) >= 50 ? 'text-yellow-500' :
-                                              'text-red-500'
+                                          {!choiceOnlyMatch && (
+                                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${
+                                              getOriginalScore(match) >= 70 ? 'bg-green-500/10 border border-green-500/30' :
+                                              getOriginalScore(match) >= 50 ? 'bg-yellow-500/10 border border-yellow-500/30' :
+                                              'bg-red-500/10 border border-red-500/30'
                                             }`}>
-                                              {getOriginalScore(match)}%
-                                            </span>
-                                          </div>
+                                              <Award className={`w-3.5 h-3.5 ${
+                                                getOriginalScore(match) >= 70 ? 'text-green-500' :
+                                                getOriginalScore(match) >= 50 ? 'text-yellow-500' :
+                                                'text-red-500'
+                                              }`} />
+                                              <span className={`text-sm font-bold ${
+                                                getOriginalScore(match) >= 70 ? 'text-green-500' :
+                                                getOriginalScore(match) >= 50 ? 'text-yellow-500' :
+                                                'text-red-500'
+                                              }`}>
+                                                {getOriginalScore(match)}%
+                                              </span>
+                                            </div>
+                                          )}
                                         </div>
                                       </div>
                                     </div>
@@ -1134,11 +1168,13 @@ export default function ResultsPage() {
                             <div className={`p-3 rounded-xl border text-center ${
                               match.match_type === 'choice'
                                 ? 'bg-pink-500/10 border-pink-500/20'
-                                : 'bg-purple-500/10 border-purple-500/20'
+                                : match.match_type === 'third_choice'
+                                  ? 'bg-violet-500/10 border-violet-500/20'
+                                  : 'bg-purple-500/10 border-purple-500/20'
                             }`}>
-                              <p className={`text-xs mb-1 ${match.match_type === 'choice' ? 'text-pink-400' : 'text-purple-400'}`}>
+                              <p className={`text-xs mb-1 ${match.match_type === 'choice' ? 'text-pink-400' : match.match_type === 'third_choice' ? 'text-violet-400' : 'text-purple-400'}`}>
                                 {choiceOnlyMatch
-                                  ? (match.match_type === 'choice' ? 'كلمتك عن لقاء الاختيار الأول' : 'كلمتك عن لقاء الاختيار الثاني')
+                                  ? (match.match_type === 'choice' ? 'كلمتك عن لقاء الاختيار الأول' : match.match_type === 'third_choice' ? 'كلمتك عن لقاء الاختيار الثالث' : 'كلمتك عن لقاء الاختيار الثاني')
                                   : (match.match_type === 'choice' ? 'الكلمة التي اخترتها' : 'الكلمة التي اختارتها الخوارزمية')}
                               </p>
                               <p className={`text-lg font-bold ${dark ? 'text-white' : 'text-gray-800'}`}>
@@ -1148,24 +1184,9 @@ export default function ResultsPage() {
                           )}
                           {/* Event 3: Match preference indicator */}
                           {match.match_preference && match.match_type === 'choice' && (
-                            <div className={`p-3 rounded-xl border flex items-center gap-2 ${
-                              match.match_preference === 'choice' ? 'bg-pink-500/10 border-pink-500/20' :
-                              match.match_preference === 'algorithm' ? 'bg-purple-500/10 border-purple-500/20' :
-                              match.match_preference === 'both' ? 'bg-emerald-500/10 border-emerald-500/20' :
-                              'bg-gray-500/10 border-gray-500/20'
-                            }`}>
-                              <span className={`text-xs font-medium ${
-                                match.match_preference === 'choice' ? 'text-pink-300' :
-                                match.match_preference === 'algorithm' ? 'text-purple-300' :
-                                match.match_preference === 'both' ? 'text-emerald-300' :
-                                'text-gray-400'
-                              }`}>
-                                تفضيلك: {
-                                  match.match_preference === 'choice' ? (choiceOnlyMatch ? 'فضّلت الاختيار الأول' : 'اخترت اختيارك الشخصي') :
-                                  match.match_preference === 'algorithm' ? (choiceOnlyMatch ? 'فضّلت الاختيار الثاني' : 'اخترت اختيار الخوارزمية') :
-                                  match.match_preference === 'both' ? 'كلاهما ممتاز' :
-                                  'لم تفضّل أيهما'
-                                }
+                            <div className={`p-3 rounded-xl border flex items-center gap-2 ${matchPreferenceStyle(match.match_preference).box}`}>
+                              <span className={`text-xs font-medium ${matchPreferenceStyle(match.match_preference).text}`}>
+                                تفضيلك: {matchPreferenceLabel(match.match_preference, choiceOnlyMatch)}
                               </span>
                             </div>
                           )}
@@ -1175,7 +1196,8 @@ export default function ResultsPage() {
                             </div>
                           )}
                           {/* Compatibility Score */}
-                          <div className={`${choiceOnlyMatch ? 'hidden' : ''} rounded-2xl border border-white/[0.08] bg-slate-950/35 p-4 sm:p-5`}>
+                          {!choiceOnlyMatch && (
+                          <div className="rounded-2xl border border-white/[0.08] bg-slate-950/35 p-4 sm:p-5">
                             <div className="flex justify-between items-center mb-3">
                               <div className="flex items-center gap-2">
                                 <Award className={`w-5 h-5 ${
@@ -1208,9 +1230,11 @@ export default function ResultsPage() {
                               ></div>
                             </div>
                           </div>
+                          )}
 
                           {/* Match Analysis */}
-                          <div className={`${choiceOnlyMatch ? 'hidden' : ''} rounded-2xl border border-white/[0.07] bg-slate-950/25 p-3 sm:p-4`}>
+                          {!choiceOnlyMatch && (
+                          <div className="rounded-2xl border border-white/[0.07] bg-slate-950/25 p-3 sm:p-4">
                             {(() => {
                               const formattedReason = formatCompatibilityReason(match)
                               if (formattedReason.components.length === 0) {
@@ -1327,9 +1351,10 @@ export default function ResultsPage() {
                               )
                             })()}
                           </div>
+                          )}
 
                           {/* AI Vibe Analysis Button (if exists) */}
-                          {match.ai_personality_analysis && (
+                          {!choiceOnlyMatch && match.ai_personality_analysis && (
                             <div>
                               <Button
                                 onClick={() => setShowAiAnalysis(prev => ({ ...prev, [matchIndex]: !prev[matchIndex] }))}

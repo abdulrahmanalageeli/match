@@ -105,7 +105,9 @@ function isChoiceOnlyEventPayload(value: any) {
 }
 
 function pendingFeedbackPhaseLabel(value: any) {
-  if (isChoiceOnlyEventPayload(value)) return value?.phase === 'phase2' ? 'الاختيار الأول' : 'الاختيار الثاني'
+  if (isChoiceOnlyEventPayload(value)) {
+    return value?.phase === 'phase2' ? 'الاختيار الأول' : value?.phase === 'phase3' ? 'الاختيار الثاني' : 'الاختيار الثالث'
+  }
   return value?.phase === 'phase2' ? 'اختيارك' : 'اختيارنا'
 }
 
@@ -778,6 +780,8 @@ export default function WelcomePage() {
   const [showRegistrationContent, setShowRegistrationContent] = useState(false)
   const [upcomingEvent, setUpcomingEvent] = useState<UpcomingEventSummary | null>(null)
   const [upcomingEventLoading, setUpcomingEventLoading] = useState(true)
+  const [publicEventFormat, setPublicEventFormat] = useState<'classic' | typeof CHOICE_ONLY_EVENT_FORMAT>('classic')
+  const publicChoiceOnly = publicEventFormat === CHOICE_ONLY_EVENT_FORMAT
   // const [secureToken, setSecureToken] = useState<string>("")
   const [conversationStarters, setConversationStarters] = useState<string[]>([])
   const [showConversationStarters, setShowConversationStarters] = useState(false)
@@ -885,6 +889,21 @@ export default function WelcomePage() {
     }
   }, [])
 
+  const loadPublicEventFormat = useCallback(async () => {
+    try {
+      const response = await fetch('/api/participant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'e3-get-public-format' }),
+      })
+      if (!response.ok) return
+      const data = await response.json()
+      setPublicEventFormat(data?.event_format === CHOICE_ONLY_EVENT_FORMAT ? CHOICE_ONLY_EVENT_FORMAT : 'classic')
+    } catch (error) {
+      console.error('Failed to load the public Event3 format:', error)
+    }
+  }, [])
+
   useEffect(() => {
     void loadUpcomingEvent()
     const interval = window.setInterval(loadUpcomingEvent, 60_000)
@@ -894,6 +913,12 @@ export default function WelcomePage() {
       window.removeEventListener('focus', loadUpcomingEvent)
     }
   }, [loadUpcomingEvent])
+
+  useEffect(() => {
+    void loadPublicEventFormat()
+    window.addEventListener('focus', loadPublicEventFormat)
+    return () => window.removeEventListener('focus', loadPublicEventFormat)
+  }, [loadPublicEventFormat])
 
   useEffect(() => {
     if (modalStep !== 'feedback') { setKeyboardOffset(0); return }
@@ -7867,7 +7892,9 @@ export default function WelcomePage() {
                         <Sparkles className="h-4 w-4" />
                       </div>
                       <span className="text-xs font-medium leading-5 sm:text-sm">
-                        نقاشات جماعية ولقاءات فردية تقارن اختيارك بترشيحنا للتوافق.
+                        {publicChoiceOnly
+                          ? 'نقاشات جماعية وثلاثة لقاءات فردية تبنيها اختياراتكم المتبادلة.'
+                          : 'نقاشات جماعية ولقاءات فردية تقارن اختيارك بترشيحنا للتوافق.'}
                       </span>
                     </div>
                   </div>
@@ -7875,7 +7902,9 @@ export default function WelcomePage() {
                     <div className="flex items-center gap-2 px-3 py-2 text-right text-amber-100/70">
                       <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-300/75" />
                       <span className="text-[11px] font-medium leading-5 sm:text-xs">
-                        النتائج مؤشرات تقديرية وليست ضماناً.
+                        {publicChoiceOnly
+                          ? 'ترتيبك سري، وكل لقاء يعتمد على أقوى اختيار متبادل متاح.'
+                          : 'النتائج مؤشرات تقديرية وليست ضماناً.'}
                       </span>
                     </div>
                   </div>
@@ -7906,13 +7935,19 @@ export default function WelcomePage() {
                           <div className="pointer-events-none absolute -left-12 -top-16 h-40 w-40 rounded-full bg-violet-400/10 blur-3xl" />
                           <div className="relative text-right">
                             <span className="text-[10px] font-black tracking-[0.12em] text-violet-300">التوافق الأعمى</span>
-                            <h3 className="mt-2 text-lg font-black leading-7 text-white sm:text-2xl">تتعرّف، تختار، ثم تقارن اختيارك باختيارنا</h3>
-                            <p className="mt-2 max-w-3xl text-xs leading-6 text-slate-400 sm:text-sm">التجربة لا تبدأ بمطابقة مباشرة. أولاً تقابل أشخاصاً حقيقيين داخل مجموعتين، ثم ترتّب تجربتك بنفسك، وبعدها تعيش جلستين فرديتين مختلفتين قبل الكشف النهائي.</p>
+                            <h3 className="mt-2 text-lg font-black leading-7 text-white sm:text-2xl">
+                              {publicChoiceOnly ? 'تتعرّف، ترتّب، ثم تقابل ثلاثة اختيارات متبادلة' : 'تتعرّف، تختار، ثم تقارن اختيارك باختيارنا'}
+                            </h3>
+                            <p className="mt-2 max-w-3xl text-xs leading-6 text-slate-400 sm:text-sm">
+                              {publicChoiceOnly
+                                ? 'تقابل ثلاث مجموعات مختلفة من سبعة أشخاص، وترتّب من قابلتهم سراً. بعدها تعيش ثلاثة لقاءات فردية مع ثلاثة أشخاص مختلفين، وكل لقاء هو أقوى اختيار متبادل متبقٍ.'
+                                : 'التجربة لا تبدأ بمطابقة مباشرة. أولاً تقابل أشخاصاً حقيقيين داخل مجموعتين، ثم ترتّب تجربتك بنفسك، وبعدها تعيش جلستين فرديتين مختلفتين قبل الكشف النهائي.'}
+                            </p>
                           </div>
                           <div className="relative mt-5 grid grid-cols-3 gap-1.5 sm:gap-2">
                             {[
-                              { value: "2", label: "جولات جماعية", color: "text-blue-200" },
-                              { value: "2", label: "جلسات 1:1", color: "text-pink-200" },
+                              { value: publicChoiceOnly ? "3" : "2", label: "جولات جماعية", color: "text-blue-200" },
+                              { value: publicChoiceOnly ? "3" : "2", label: "جلسات 1:1", color: "text-pink-200" },
                               { value: "1", label: "كشف نهائي", color: "text-violet-200" },
                             ].map((stat) => (
                               <div key={stat.label} className="rounded-2xl border border-white/[0.07] bg-black/15 px-1 py-3 text-center sm:px-2">
@@ -7924,7 +7959,29 @@ export default function WelcomePage() {
                         </div>
 
                         <div className="blindmatch-explainer-timeline relative mt-6 space-y-3 before:absolute before:bottom-7 before:right-[15px] before:top-7 before:w-px before:bg-gradient-to-b before:from-blue-400/40 before:via-pink-400/30 before:to-violet-400/40 sm:before:right-[19px]">
-                          {[
+                          {(publicChoiceOnly ? [
+                            {
+                              number: "01", Icon: Users, tone: "text-blue-200 bg-blue-400/10 ring-blue-300/20", title: "ثلاث جولات جماعية — ثلاث مجموعات مختلفة", meta: "7 أشخاص في كل مجموعة", body: "تذهب إلى رقم طاولتك في كل جولة وتتعرف على مجموعة مختلفة. الهدف أن تقابل عدداً أكبر من المشاركين قبل أي لقاء فردي.",
+                            },
+                            {
+                              number: "02", Icon: GripVertical, tone: "text-amber-200 bg-amber-400/10 ring-amber-300/20", title: "ترتيب سري بعد كل جولة", meta: "ترتيبان أوليان · ثم نهائي", body: "ترتّب من قابلتهم بحسب رغبتك في جلسة فردية معهم. تستطيع تعديل اختياراتك حتى ترسل الترتيب النهائي، ولا يرى أي مشارك ترتيبك.",
+                            },
+                            {
+                              number: "03", Icon: Coffee, tone: "text-orange-200 bg-orange-400/10 ring-orange-300/20", title: "استراحة وحساب الاختيار الأول", meta: "أقوى اختيار متبادل", body: "يبحث النظام في الترتيبات النهائية عن أقوى اختيار متبادل متاح للجميع. لا تدخل درجات الاستبيان أو خوارزمية التوافق في اختيار الشريك.",
+                            },
+                            {
+                              number: "04", Icon: Heart, tone: "text-pink-200 bg-pink-400/10 ring-pink-300/20", title: "اللقاء الفردي الأول", meta: "الاختيار الأول", body: "تقابل أول اختيار متبادل، ثم تسجّل كلمتك وتقييمك وقرار التواصل سراً.",
+                            },
+                            {
+                              number: "05", Icon: Heart, tone: "text-purple-200 bg-purple-400/10 ring-purple-300/20", title: "اللقاء الفردي الثاني", meta: "الاختيار الثاني", body: "يختار النظام أقوى اختيار متبادل متبقٍ لكل شخص بعد استبعاد شريك اللقاء الأول، ثم تسجّل تقييم اللقاء بالطريقة نفسها.",
+                            },
+                            {
+                              number: "06", Icon: Heart, tone: "text-violet-200 bg-violet-400/10 ring-violet-300/20", title: "اللقاء الفردي الثالث", meta: "الاختيار الثالث", body: "يأتي من أقوى اختيار متبادل متبقٍ بعد استبعاد شريكي اللقاءين السابقين، لذلك تقابل شخصاً ثالثاً مختلفاً.",
+                            },
+                            {
+                              number: "07", Icon: Trophy, tone: "text-emerald-200 bg-emerald-400/10 ring-emerald-300/20", title: "الكشف النهائي", meta: "مقارنة اللقاءات الثلاثة", body: "ترى أسماء اللقاءات الثلاثة وكلماتها وتختار الأقرب لك. لا يُكشف قرار التواصل إلا عندما يوافق الطرفان.",
+                            },
+                          ] : [
                             {
                               number: "01", Icon: Users, tone: "text-blue-200 bg-blue-400/10 ring-blue-300/20", title: "جولتان جماعيتان — مجموعتان مختلفتان", meta: "30 دقيقة · ثم 25 دقيقة", body: "تذهب إلى رقم طاولتك، تتعرّف على 4–6 مشاركين وتختارون معاً نشاطاً أو أسئلة للنقاش. في الجولة الثانية تنتقل غالباً إلى مجموعة جديدة؛ وقد يتكرر شخص فقط عند الحاجة لتوازن التقسيم.",
                             },
@@ -7943,7 +8000,7 @@ export default function WelcomePage() {
                             {
                               number: "06", Icon: Trophy, tone: "text-violet-200 bg-violet-400/10 ring-violet-300/20", title: "الكشف النهائي", meta: "اختيارك × اختيارنا", body: "تكتشف نتيجة الجلستين، مؤشرات التوافق، والكلمة التي وصف بها كل طرف الآخر، وتعرف إن كان قرار التواصل متبادلاً من دون كشف أي اختيار أحادي.",
                             },
-                          ].map(({ number, Icon, tone, title, meta, body }) => (
+                          ]).map(({ number, Icon, tone, title, meta, body }) => (
                             <div key={number} className="blindmatch-explainer-step relative pr-10 text-right sm:pr-12">
                               <div className={`absolute right-0 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-xl ring-1 backdrop-blur-sm sm:h-10 sm:w-10 sm:rounded-2xl ${tone}`}>
                                 <Icon className="h-4 w-4" />
@@ -7963,6 +8020,16 @@ export default function WelcomePage() {
                         </div>
 
                         <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                          {publicChoiceOnly ? (
+                          <div className="rounded-[1.35rem] border border-pink-400/15 bg-pink-400/[0.045] p-3 text-right sm:col-span-2 sm:p-4">
+                            <div className="flex items-center gap-2 text-pink-200">
+                              <Heart className="h-4 w-4" />
+                              <h4 className="text-sm font-black">كيف تُبنى الاختيارات الثلاثة؟</h4>
+                            </div>
+                            <p className="mt-2 text-xs leading-6 text-slate-400">كل لقاء هو أقوى تطابق متبادل متبقٍ في ترتيب المشاركين. بعد كل لقاء يُستبعد شريكه من اللقاءات التالية، لذلك تحصل على ثلاثة شركاء مختلفين من دون استخدام درجات التوافق.</p>
+                          </div>
+                          ) : (
+                          <>
                           <div className="rounded-[1.35rem] border border-pink-400/15 bg-pink-400/[0.045] p-3 text-right sm:p-4">
                             <div className="flex items-center gap-2 text-pink-200">
                               <Heart className="h-4 w-4" />
@@ -7977,6 +8044,8 @@ export default function WelcomePage() {
                             </div>
                             <p className="mt-2 text-xs leading-6 text-slate-400">بيانات الاستبيان ومؤشرات التوافق بينكما. النتيجة ترشيح تقديري للمقارنة مع اختيارك الواقعي، وليست ضماناً للكيمياء.</p>
                           </div>
+                          </>
+                          )}
                         </div>
 
                         <div className="mt-3 flex items-start gap-3 rounded-[1.35rem] border border-emerald-400/15 bg-emerald-400/[0.045] p-3 text-right sm:p-4">
@@ -8152,7 +8221,7 @@ export default function WelcomePage() {
                             </span>
                           </div>
                           <p className="text-gray-300 text-xs leading-relaxed">
-                            لديك {pendingFeedbacks.length} تقييم غير مكتمل من فعاليات سابقة. أكملها الآن لتحسين مطابقاتك المستقبلية.
+                            لديك {pendingFeedbacks.length} تقييم غير مكتمل من لقاءاتك. أكملها الآن لتحسين تجربتك المستقبلية.
                           </p>
                           {/* List of pending feedbacks */}
                           <div className="space-y-1.5 mt-2">
@@ -8390,7 +8459,7 @@ export default function WelcomePage() {
                         >
                           
                           <Users className="h-5 w-5 text-pink-200" />
-                          <h4 className="text-sm font-bold text-white sm:text-base">اختيارك واختيارنا</h4>
+                          <h4 className="text-sm font-bold text-white sm:text-base">{publicChoiceOnly ? 'اختياراتك الثلاثة' : 'اختيارك واختيارنا'}</h4>
                           <p className="text-[10px] text-slate-500 sm:text-xs">افتح تجربة التوافق الأعمى</p>
                         </button>
                       </div>
@@ -13149,7 +13218,7 @@ function RemoteFeedbackModal({ pending, index, token, onClose, onSubmitted }: {
           <span className={`text-[10px] font-bold rounded-full px-2.5 py-1 ${
             isPhase2 ? "bg-pink-500/15 text-pink-300 border border-pink-500/20" : "bg-purple-500/15 text-purple-300 border border-purple-500/20"
           }`}>
-            {choiceOnly ? (isPhase2 ? "الاختيار الأول" : "الاختيار الثاني") : (isPhase2 ? "اختيارك" : "اختيارنا")}
+            {pendingFeedbackPhaseLabel(current)}
           </span>
           <span className="text-gray-500 text-xs">فعالية #{current?.event_id}</span>
         </div>

@@ -1,4 +1,4 @@
--- Event-scoped opt-in flow for editions that use three groups and two
+-- Event-scoped opt-in flow for editions that use three groups and three
 -- ranking-only matches. Missing settings rows deliberately retain legacy mode.
 create table if not exists public.event3_event_settings (
   match_id uuid not null,
@@ -19,6 +19,96 @@ grant all on public.event3_event_settings to service_role;
 drop policy if exists event3_event_settings_service_only on public.event3_event_settings;
 create policy event3_event_settings_service_only on public.event3_event_settings
   for all to service_role using (true) with check (true);
+
+alter table public.event3_matches
+  add column if not exists phase4_partner integer,
+  add column if not exists phase4_score integer,
+  add column if not exists phase4_score_model_version text,
+  add column if not exists phase4_score_snapshot jsonb,
+  add column if not exists phase4_score_content_hash text,
+  add column if not exists phase4_word text,
+  add column if not exists phase4_feedback jsonb;
+
+alter table public.event3_cohost_notes
+  drop constraint if exists event3_cohost_notes_round_check,
+  drop constraint if exists event3_cohost_notes_scope_shape;
+alter table public.event3_cohost_notes
+  add constraint event3_cohost_notes_round_check
+    check (round in (1, 2, 3, 20, 30, 40)),
+  add constraint event3_cohost_notes_scope_shape check (
+    (
+      scope_type = 'event'
+      and round is null
+      and table_number is null
+      and participant_number is null
+      and participant2_number is null
+    )
+    or (
+      scope_type = 'table'
+      and round is not null
+      and table_number is not null
+      and participant_number is null
+      and participant2_number is null
+    )
+    or (
+      scope_type = 'participant'
+      and round is null
+      and table_number is null
+      and participant_number is not null
+      and participant2_number is null
+    )
+    or (
+      scope_type = 'pair'
+      and round in (20, 30, 40)
+      and table_number is null
+      and participant_number is not null
+      and participant2_number is not null
+      and participant_number < participant2_number
+    )
+  );
+
+alter table public.event3_matches
+  drop constraint if exists event3_matches_match_preference_check,
+  drop constraint if exists event3_matches_phase4_score_snapshot_object,
+  drop constraint if exists event3_matches_phase4_score_provenance_complete;
+alter table public.event3_matches
+  add constraint event3_matches_match_preference_check check (
+    match_preference in (
+      'choice', 'algorithm', 'both', 'neither',
+      'first', 'second', 'third', 'multiple', 'none'
+    )
+  ),
+  add constraint event3_matches_phase4_score_snapshot_object check (
+    phase4_score_snapshot is null or pg_catalog.jsonb_typeof(phase4_score_snapshot) = 'object'
+  ),
+  add constraint event3_matches_phase4_score_provenance_complete check (
+    case
+      when phase4_score_model_version is null
+        and phase4_score_snapshot is null
+        and phase4_score_content_hash is null then true
+      when phase4_score_model_version is not null
+        and phase4_score_snapshot is not null
+        and phase4_score_content_hash is not null then
+        coalesce(
+          phase4_score_snapshot ->> 'scoreModelVersion' = phase4_score_model_version
+          and phase4_score_snapshot ->> 'combinedContentHash' = phase4_score_content_hash
+          and pg_catalog.jsonb_typeof(phase4_score_snapshot -> 'scoreBreakdown') = 'object'
+          and pg_catalog.jsonb_typeof(phase4_score_snapshot -> 'questionScores') = 'object'
+          and pg_catalog.jsonb_typeof(phase4_score_snapshot -> 'vibeAxes') = 'object'
+          and phase4_score_snapshot ->> 'vibeModel' = 'gpt-5.4-mini'
+          and phase4_score_snapshot ->> 'vibeModelVersion' = 'balanced-vibe12-v1'
+          and phase4_score_snapshot ->> 'vibeModelTag' = 'gpt-5.4-mini|balanced-vibe12-v1'
+          and case
+            when phase4_score is not null
+              and pg_catalog.jsonb_typeof(phase4_score_snapshot -> 'totalScore') = 'number'
+              then (phase4_score_snapshot ->> 'totalScore')::numeric = phase4_score::numeric
+            else false
+          end,
+          false
+        )
+      else false
+    end
+  );
 
 alter table public.event3_ranking_drafts
   drop constraint if exists event3_ranking_drafts_completed_rounds_check;
@@ -560,9 +650,9 @@ begin
      or exists (
        select 1
        from pg_catalog.unnest(p_rounds) as requested(round_number)
-       where requested.round_number not in (1, 2, 3, 20, 30)
+       where requested.round_number not in (1, 2, 3, 20, 30, 40)
      ) then
-    raise exception 'Rounds must contain only 1, 2, 3, 20, or 30';
+    raise exception 'Rounds must contain only 1, 2, 3, 20, 30, or 40';
   end if;
   if p_table_a is null or p_table_b is null
      or p_table_a <= 0 or p_table_b <= 0
@@ -1056,7 +1146,7 @@ begin
   lock table public.event3_exclusions in share row exclusive mode;
   if exists (select 1 from public.event3_matches
       where match_id = p_match_id and event_id = p_event_id
-        and (phase2_partner is not null or phase3_partner is not null)) then
+        and (phase2_partner is not null or phase3_partner is not null or phase4_partner is not null)) then
     raise exception 'Choice exclusions cannot change after matching exists' using errcode = '55000';
   end if;
 
@@ -1316,13 +1406,13 @@ as $$
 declare
   v_state public.event_state%rowtype;
   v_match public.event3_matches%rowtype;
+  v_event_format text;
   v_partner integer;
   v_word text;
   v_preference text;
 begin
-  if p_slot is null or p_slot not in (1, 2)
+  if p_slot is null or p_slot not in (1, 2, 3)
      or p_operation is null or p_operation not in ('word', 'feedback', 'preference')
-     or (p_operation = 'preference' and p_slot <> 2)
      or pg_catalog.jsonb_typeof(coalesce(p_payload, '{}'::jsonb)) <> 'object' then
     raise exception 'Invalid Event3 interaction request' using errcode = '22023';
   end if;
@@ -1340,9 +1430,29 @@ begin
        coalesce(v_state.test_mode_snapshot ->> 'started_at', '') is distinct from coalesce(p_expected_started_at, '')) then
     raise exception 'The Event3 live/test session changed before the match interaction was saved' using errcode = '55000';
   end if;
-  if (p_slot = 1 and v_state.phase not in ('phase2_reveal', 'phase3_processing', 'phase3_reveal', 'final'))
-     or (p_slot = 2 and v_state.phase not in ('phase3_reveal', 'final'))
-     or (p_operation = 'preference' and v_state.phase <> 'final') then
+
+  select coalesce(settings.event_format, 'classic') into v_event_format
+  from (select 1) singleton
+  left join public.event3_event_settings settings
+    on settings.match_id = p_match_id and settings.event_id = p_event_id;
+  if p_slot = 3 and v_event_format <> 'choice_only_three_groups' then
+    raise exception 'The third match slot is only available for choice-only events' using errcode = '22023';
+  end if;
+  if p_operation = 'preference' and (
+       v_state.phase not in ('final_reveal', 'final')
+       or (v_event_format = 'choice_only_three_groups' and p_slot <> 3)
+       or (v_event_format <> 'choice_only_three_groups' and p_slot <> 2)
+     ) then
+    raise exception 'Final preference must use the active event format''s final match slot' using errcode = '55000';
+  end if;
+  if (p_slot = 1 and v_state.phase not in (
+        'phase2_reveal', 'phase3_processing', 'phase3_reveal',
+        'phase4_processing', 'phase4_reveal', 'final_reveal', 'final'
+      ))
+     or (p_slot = 2 and v_state.phase not in (
+        'phase3_reveal', 'phase4_processing', 'phase4_reveal', 'final_reveal', 'final'
+      ))
+     or (p_slot = 3 and v_state.phase not in ('phase4_reveal', 'final_reveal', 'final')) then
     raise exception 'This match interaction is not open in the current phase' using errcode = '55000';
   end if;
 
@@ -1354,13 +1464,21 @@ begin
   if not found then
     raise exception 'No current match row exists for this participant' using errcode = '55000';
   end if;
-  v_partner := case when p_slot = 1 then v_match.phase2_partner else v_match.phase3_partner end;
+  v_partner := case p_slot
+    when 1 then v_match.phase2_partner
+    when 2 then v_match.phase3_partner
+    else v_match.phase4_partner
+  end;
   if v_partner is null or v_partner is distinct from p_expected_partner
      or not exists (
        select 1 from public.event3_matches reciprocal
        where reciprocal.match_id = p_match_id and reciprocal.event_id = p_event_id
          and reciprocal.participant_number = v_partner
-         and (case when p_slot = 1 then reciprocal.phase2_partner else reciprocal.phase3_partner end) = p_participant_number
+         and (case p_slot
+           when 1 then reciprocal.phase2_partner
+           when 2 then reciprocal.phase3_partner
+           else reciprocal.phase4_partner
+         end) = p_participant_number
      ) then
     raise exception 'The displayed Event3 partner changed before this interaction was saved' using errcode = '55000';
   end if;
@@ -1373,8 +1491,11 @@ begin
     if p_slot = 1 then
       update public.event3_matches set phase2_word = v_word, updated_at = pg_catalog.now()
         where id = v_match.id;
-    else
+    elsif p_slot = 2 then
       update public.event3_matches set phase3_word = v_word, updated_at = pg_catalog.now()
+        where id = v_match.id;
+    else
+      update public.event3_matches set phase4_word = v_word, updated_at = pg_catalog.now()
         where id = v_match.id;
     end if;
   elsif p_operation = 'feedback' then
@@ -1382,17 +1503,26 @@ begin
       return pg_catalog.jsonb_build_object('success', true, 'already_saved', true, 'partner', v_partner);
     elsif p_slot = 2 and v_match.phase3_feedback is not null then
       return pg_catalog.jsonb_build_object('success', true, 'already_saved', true, 'partner', v_partner);
+    elsif p_slot = 3 and v_match.phase4_feedback is not null then
+      return pg_catalog.jsonb_build_object('success', true, 'already_saved', true, 'partner', v_partner);
     end if;
     if p_slot = 1 then
       update public.event3_matches set phase2_feedback = p_payload, updated_at = pg_catalog.now()
         where id = v_match.id;
-    else
+    elsif p_slot = 2 then
       update public.event3_matches set phase3_feedback = p_payload, updated_at = pg_catalog.now()
+        where id = v_match.id;
+    else
+      update public.event3_matches set phase4_feedback = p_payload, updated_at = pg_catalog.now()
         where id = v_match.id;
     end if;
   else
     v_preference := p_payload ->> 'preference';
-    if v_preference is null or v_preference not in ('choice', 'algorithm', 'both', 'neither') then
+    if v_preference is null
+       or (v_event_format = 'choice_only_three_groups'
+         and v_preference not in ('first', 'second', 'third', 'multiple', 'none'))
+       or (v_event_format <> 'choice_only_three_groups'
+         and v_preference not in ('choice', 'algorithm', 'both', 'neither')) then
       raise exception 'Invalid match preference' using errcode = '22023';
     end if;
     update public.event3_matches set match_preference = v_preference, updated_at = pg_catalog.now()
@@ -1430,8 +1560,8 @@ declare
   v_row_count integer;
   v_table_count integer;
 begin
-  if p_slot not in (1, 2) then
-    raise exception 'Choice match slot must be 1 or 2' using errcode = '22023';
+  if p_slot is null or p_slot not in (1, 2, 3) then
+    raise exception 'Choice match slot must be 1, 2, or 3' using errcode = '22023';
   end if;
   if pg_catalog.jsonb_typeof(coalesce(p_rows, '[]'::jsonb)) <> 'array'
      or pg_catalog.jsonb_typeof(coalesce(p_tables, '[]'::jsonb)) <> 'array'
@@ -1456,7 +1586,8 @@ begin
     raise exception 'The Event3 live/test session changed while choice matching was calculated' using errcode = '55000';
   end if;
   if (p_slot = 1 and v_state.phase is distinct from 'phase2_processing')
-     or (p_slot = 2 and v_state.phase is distinct from 'phase2_reveal') then
+     or (p_slot = 2 and v_state.phase is distinct from 'phase2_reveal')
+     or (p_slot = 3 and v_state.phase is distinct from 'phase3_reveal') then
     raise exception 'The event phase changed before choice matching could be saved' using errcode = '55000';
   end if;
   if coalesce((select event_format from public.event3_event_settings
@@ -1554,9 +1685,16 @@ begin
 
   if p_slot = 1 and exists (
     select 1 from public.event3_matches
-    where match_id = p_match_id and event_id = p_event_id and phase3_partner is not null
+    where match_id = p_match_id and event_id = p_event_id
+      and (phase3_partner is not null or phase4_partner is not null)
   ) then
     raise exception 'The first choice match cannot be replaced after the second match exists' using errcode = '22023';
+  end if;
+  if p_slot = 2 and exists (
+    select 1 from public.event3_matches
+    where match_id = p_match_id and event_id = p_event_id and phase4_partner is not null
+  ) then
+    raise exception 'The second choice match cannot be replaced after the third match exists' using errcode = '22023';
   end if;
   if p_slot = 2 and (
     (select count(*)
@@ -1596,6 +1734,58 @@ begin
        or current_match.phase2_partner = row_data.partner_number
   ) then
     raise exception 'Every second choice must exist and differ from the first choice' using errcode = '22023';
+  end if;
+  if p_slot = 3 and (
+    (select count(*)
+     from public.event3_matches current_match
+     join public.event3_participants roster
+       on roster.match_id = current_match.match_id and roster.event_id = current_match.event_id
+      and roster.participant_number = current_match.participant_number
+     where current_match.match_id = p_match_id and current_match.event_id = p_event_id
+       and current_match.phase2_partner is not null
+       and current_match.phase3_partner is not null) <> 42
+    or exists (
+      select 1
+      from public.event3_participants roster
+      left join public.event3_matches current_match
+        on current_match.match_id = roster.match_id and current_match.event_id = roster.event_id
+       and current_match.participant_number = roster.participant_number
+      where roster.match_id = p_match_id and roster.event_id = p_event_id
+        and (current_match.phase2_partner is null
+          or current_match.phase3_partner is null
+          or current_match.phase2_partner = roster.participant_number
+          or current_match.phase3_partner = roster.participant_number
+          or current_match.phase2_partner = current_match.phase3_partner
+          or not exists (select 1 from public.event3_participants first_partner
+            where first_partner.match_id = p_match_id and first_partner.event_id = p_event_id
+              and first_partner.participant_number = current_match.phase2_partner)
+          or not exists (select 1 from public.event3_participants second_partner
+            where second_partner.match_id = p_match_id and second_partner.event_id = p_event_id
+              and second_partner.participant_number = current_match.phase3_partner)
+          or not exists (select 1 from public.event3_matches first_reciprocal
+            where first_reciprocal.match_id = p_match_id and first_reciprocal.event_id = p_event_id
+              and first_reciprocal.participant_number = current_match.phase2_partner
+              and first_reciprocal.phase2_partner = roster.participant_number)
+          or not exists (select 1 from public.event3_matches second_reciprocal
+            where second_reciprocal.match_id = p_match_id and second_reciprocal.event_id = p_event_id
+              and second_reciprocal.participant_number = current_match.phase3_partner
+              and second_reciprocal.phase3_partner = roster.participant_number))
+    )
+  ) then
+    raise exception 'The persisted first and second choices must be complete reciprocal roster matchings' using errcode = '55000';
+  end if;
+  if p_slot = 3 and exists (
+    select 1
+    from pg_catalog.jsonb_to_recordset(p_rows) as row_data(participant_number integer, partner_number integer)
+    left join public.event3_matches current_match
+      on current_match.match_id = p_match_id and current_match.event_id = p_event_id
+      and current_match.participant_number = row_data.participant_number
+    where current_match.phase2_partner is null
+       or current_match.phase3_partner is null
+       or current_match.phase2_partner = row_data.partner_number
+       or current_match.phase3_partner = row_data.partner_number
+  ) then
+    raise exception 'Every third choice must exist and differ from both earlier choices' using errcode = '22023';
   end if;
 
   if exists (
@@ -1644,7 +1834,7 @@ begin
       phase2_score_content_hash = excluded.phase2_score_content_hash,
       updated_at = pg_catalog.now();
     v_assignment_round := 20;
-  else
+  elsif p_slot = 2 then
     insert into public.event3_matches (
       match_id, event_id, participant_number, phase3_partner, phase3_score,
       phase3_score_model_version, phase3_score_snapshot, phase3_score_content_hash
@@ -1666,6 +1856,28 @@ begin
       phase3_score_content_hash = excluded.phase3_score_content_hash,
       updated_at = pg_catalog.now();
     v_assignment_round := 30;
+  else
+    insert into public.event3_matches (
+      match_id, event_id, participant_number, phase4_partner, phase4_score,
+      phase4_score_model_version, phase4_score_snapshot, phase4_score_content_hash
+    )
+    select p_match_id, p_event_id, row_data.participant_number, row_data.partner_number,
+      row_data.score, row_data.score_model_version, row_data.score_snapshot, row_data.score_content_hash
+    from pg_catalog.jsonb_to_recordset(p_rows) as row_data(
+      participant_number integer, partner_number integer, score integer,
+      score_model_version text, score_snapshot jsonb, score_content_hash text
+    )
+    on conflict (match_id, event_id, participant_number) do update set
+      phase4_word = case when event3_matches.phase4_partner is not distinct from excluded.phase4_partner then event3_matches.phase4_word else null end,
+      phase4_feedback = case when event3_matches.phase4_partner is not distinct from excluded.phase4_partner then event3_matches.phase4_feedback else null end,
+      match_preference = case when event3_matches.phase4_partner is not distinct from excluded.phase4_partner then event3_matches.match_preference else null end,
+      phase4_partner = excluded.phase4_partner,
+      phase4_score = excluded.phase4_score,
+      phase4_score_model_version = excluded.phase4_score_model_version,
+      phase4_score_snapshot = excluded.phase4_score_snapshot,
+      phase4_score_content_hash = excluded.phase4_score_content_hash,
+      updated_at = pg_catalog.now();
+    v_assignment_round := 40;
   end if;
 
   delete from public.session_assignments

@@ -304,18 +304,49 @@ export function buildMutualChoiceRound({ participantNumbers, rankings, excludedP
 }
 
 /**
- * Freeze round one, then recompute the strongest maximum-cardinality matching
- * with every round-one pair added to round two's hard exclusions.
+ * Build consecutive choice rounds. Each completed pair becomes a hard
+ * exclusion for every later round, so nobody can meet the same partner twice.
  */
+export function buildMutualChoiceRounds({ participantNumbers, rankings, excludedPairs = [], roundCount }) {
+  const normalizedRoundCount = Number(roundCount)
+  if (!Number.isInteger(normalizedRoundCount) || normalizedRoundCount <= 0) {
+    throw new TypeError("roundCount must be a positive integer")
+  }
+
+  const cumulativeExclusions = normalizeExcludedPairs(excludedPairs)
+  const rounds = []
+  for (let roundIndex = 0; roundIndex < normalizedRoundCount; roundIndex++) {
+    const round = buildMutualChoiceRound({
+      participantNumbers,
+      rankings,
+      excludedPairs: cumulativeExclusions,
+    })
+    rounds.push(round)
+    for (const pair of round.pairs) cumulativeExclusions.add(pairKey(pair.a, pair.b))
+  }
+  return { rounds }
+}
+
+/** Preserve the original two-round result shape for existing callers. */
 export function buildTwoMutualChoiceRounds({ participantNumbers, rankings, excludedPairs = [] }) {
-  const round1 = buildMutualChoiceRound({ participantNumbers, rankings, excludedPairs })
-  const round1PairKeys = round1.pairs.map(pair => pairKey(pair.a, pair.b))
-  const round2 = buildMutualChoiceRound({
+  const { rounds: [round1, round2] } = buildMutualChoiceRounds({
     participantNumbers,
     rankings,
-    excludedPairs: [...(excludedPairs instanceof Set ? excludedPairs : excludedPairs || []), ...round1PairKeys],
+    excludedPairs,
+    roundCount: 2,
   })
   return { round1, round2 }
+}
+
+/** Build all three one-to-one reciprocal choice matches for this edition. */
+export function buildThreeMutualChoiceRounds({ participantNumbers, rankings, excludedPairs = [] }) {
+  const { rounds: [round1, round2, round3] } = buildMutualChoiceRounds({
+    participantNumbers,
+    rankings,
+    excludedPairs,
+    roundCount: 3,
+  })
+  return { round1, round2, round3 }
 }
 
 /**

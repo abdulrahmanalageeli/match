@@ -11,6 +11,8 @@ export const EVENT3_PHASE_TIMER_SECONDS = Object.freeze({
   phase2_reveal: 26 * 60,
   phase3_processing: 0,
   phase3_reveal: 26 * 60,
+  phase4_processing: 0,
+  phase4_reveal: 26 * 60,
   final_reveal: 0,
 })
 
@@ -20,6 +22,7 @@ export const EVENT3_TIMER_ROUND_SECONDS = Object.freeze({
   2: EVENT3_PHASE_TIMER_SECONDS.round2,
   // Choice-only timeline shifts its second one-to-one reveal to slot 6.
   6: EVENT3_PHASE_TIMER_SECONDS.phase3_reveal,
+  7: EVENT3_PHASE_TIMER_SECONDS.phase4_reveal,
   3: EVENT3_PHASE_TIMER_SECONDS.break,
   4: EVENT3_PHASE_TIMER_SECONDS.phase2_reveal,
   5: EVENT3_PHASE_TIMER_SECONDS.phase3_reveal,

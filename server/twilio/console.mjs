@@ -157,7 +157,7 @@ async function whatsappConfig() {
     matchExperienceText: "تجربة اجتماعية منظمة مبنية على التوافق.",
     discountPrice: 50,
     discountDeadline: "نهاية اليوم",
-    eventName: "التوافق الأعمى 4.0",
+    eventName: "التوافق الأعمى 5.0",
     ...(data?.whatsapp_config || {}),
   }
   return { ...config, latePriceSwitchLabel: formatRiyadhCutoffLabel(config.paymentCutoffLocal) || config.latePriceSwitchLabel }

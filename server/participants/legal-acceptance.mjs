@@ -1,4 +1,4 @@
-export const LEGAL_DOCUMENT_VERSION = "2026-09-01"
+export const LEGAL_DOCUMENT_VERSION = "2026-09-01.1"
 export const LEGAL_TERMS_VERSION = LEGAL_DOCUMENT_VERSION
 export const LEGAL_PRIVACY_NOTICE_VERSION = LEGAL_DOCUMENT_VERSION
 
@@ -53,4 +53,3 @@ export function buildLegalAcceptanceRow(participant, {
     updated_at: acceptedAt,
   }
 }
-

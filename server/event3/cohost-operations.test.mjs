@@ -38,6 +38,32 @@ test("co-host note scopes are canonical and pair ordering is stable", () => {
     participant_number: 412,
     participant2_number: 1760,
   })
+
+  assert.deepEqual(normalizeCohostNoteScope({
+    scope_type: "table",
+    round: 40,
+    table_number: 9,
+  }, "choice_only_three_groups"), {
+    scope_type: "table",
+    scope_key: "table:40:9",
+    round: 40,
+    table_number: 9,
+    participant_number: null,
+    participant2_number: null,
+  })
+  assert.deepEqual(normalizeCohostNoteScope({
+    scope_type: "pair",
+    round: 40,
+    participant_number: 1760,
+    participant2_number: 412,
+  }, "choice_only_three_groups"), {
+    scope_type: "pair",
+    scope_key: "pair:40:412-1760",
+    round: 40,
+    table_number: null,
+    participant_number: 412,
+    participant2_number: 1760,
+  })
 })
 
 test("co-host note scopes reject malformed or unsafe targets", () => {
@@ -45,6 +71,12 @@ test("co-host note scopes reject malformed or unsafe targets", () => {
   assert.throws(() => normalizeCohostNoteScope({ scope_type: "participant", participant_number: "abc" }))
   assert.throws(() => normalizeCohostNoteScope({ scope_type: "pair", round: 1, participant_number: 1, participant2_number: 2 }))
   assert.throws(() => normalizeCohostNoteScope({ scope_type: "pair", round: 30, participant_number: 1, participant2_number: 1 }))
+  assert.throws(() => normalizeCohostNoteScope({ scope_type: "table", round: 40, table_number: 1 }), /round is not supported/)
+  assert.throws(() => normalizeCohostNoteScope({ scope_type: "table", event_format: "choice_only_three_groups", round: 40, table_number: 1 }), /round is not supported/)
+  assert.throws(() => normalizeCohostNoteScope({ scope_type: "table", round: 40, table_number: 1 }, "classic"), /round is not supported/)
+  assert.throws(() => normalizeCohostNoteScope({ scope_type: "pair", round: 40, participant_number: 1, participant2_number: 2 }), /round 20 or 30/)
+  assert.throws(() => normalizeCohostNoteScope({ scope_type: "pair", round: 40, participant_number: 1, participant2_number: 2 }, "classic"), /round 20 or 30/)
+  assert.throws(() => normalizeCohostNoteScope({ scope_type: "pair", round: 99, participant_number: 1, participant2_number: 2 }, "choice_only_three_groups"), /round 20, 30, or 40/)
 })
 
 test("reciprocal ranking lookup reports how the other person ranked the ranker", () => {

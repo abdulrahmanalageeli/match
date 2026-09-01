@@ -1,4 +1,7 @@
 const NOTE_ROUNDS = new Set([1, 2, 3, 20, 30])
+const CHOICE_ONLY_NOTE_ROUNDS = new Set([...NOTE_ROUNDS, 40])
+const CHOICE_ONLY_PAIR_NOTE_ROUNDS = new Set([20, 30, 40])
+const CHOICE_ONLY_EVENT_FORMAT = "choice_only_three_groups"
 
 export function getCohostNoteContext(state, eventId) {
   const testMode = state?.test_mode_active === true
@@ -17,8 +20,9 @@ function positiveInteger(value, field) {
   return parsed
 }
 
-export function normalizeCohostNoteScope(input = {}) {
+export function normalizeCohostNoteScope(input = {}, eventFormat = "classic") {
   const scopeType = String(input.scope_type || "").trim()
+  const choiceOnly = eventFormat === CHOICE_ONLY_EVENT_FORMAT
   if (scopeType === "event") {
     return {
       scope_type: "event",
@@ -33,7 +37,7 @@ export function normalizeCohostNoteScope(input = {}) {
   if (scopeType === "table") {
     const round = positiveInteger(input.round, "round")
     const tableNumber = positiveInteger(input.table_number, "table_number")
-    if (!NOTE_ROUNDS.has(round)) throw new TypeError("round is not supported")
+    if (!(choiceOnly ? CHOICE_ONLY_NOTE_ROUNDS : NOTE_ROUNDS).has(round)) throw new TypeError("round is not supported")
     return {
       scope_type: "table",
       scope_key: `table:${round}:${tableNumber}`,
@@ -58,7 +62,9 @@ export function normalizeCohostNoteScope(input = {}) {
 
   if (scopeType === "pair") {
     const round = positiveInteger(input.round, "round")
-    if (round !== 20 && round !== 30) throw new TypeError("pair notes require round 20 or 30")
+    if (!(choiceOnly ? CHOICE_ONLY_PAIR_NOTE_ROUNDS.has(round) : round === 20 || round === 30)) {
+      throw new TypeError(choiceOnly ? "pair notes require round 20, 30, or 40" : "pair notes require round 20 or 30")
+    }
     const first = positiveInteger(input.participant_number, "participant_number")
     const second = positiveInteger(input.participant2_number, "participant2_number")
     if (first === second) throw new TypeError("pair participants must be different")

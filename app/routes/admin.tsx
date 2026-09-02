@@ -3927,6 +3927,68 @@ const fetchParticipants = async () => {
     return { paidUsers, completedPairs, incompletePairs }
   }, [participants, matchPairs])
 
+  const paidGenderBalance = useMemo(() => {
+    const paidParticipants = participants.filter(participant => (
+      participant.PAID_DONE === true
+      && Number(participant.payment_completed_event_id) === Number(currentEventId)
+    ))
+    let men = 0
+    let women = 0
+    let menAgeTotal = 0
+    let menWithAge = 0
+    let womenAgeTotal = 0
+    let womenWithAge = 0
+
+    for (const participant of paidParticipants) {
+      let surveyData = participant.survey_data
+      if (typeof surveyData === "string") {
+        try { surveyData = JSON.parse(surveyData) } catch { surveyData = {} }
+      }
+      const gender = String(participant.gender || surveyData?.answers?.gender || surveyData?.gender || "").toLowerCase()
+      const age = Number(participant.age || surveyData?.answers?.age || surveyData?.age)
+      const hasValidAge = Number.isFinite(age) && age >= 18 && age <= 100
+      if (gender === "male") {
+        men++
+        if (hasValidAge) {
+          menAgeTotal += age
+          menWithAge++
+        }
+      }
+      if (gender === "female") {
+        women++
+        if (hasValidAge) {
+          womenAgeTotal += age
+          womenWithAge++
+        }
+      }
+    }
+
+    const known = men + women
+    const unknown = paidParticipants.length - known
+    const menPercent = known > 0 ? (men / known) * 100 : 0
+    const womenPercent = known > 0 ? (women / known) * 100 : 0
+    const balanceScore = known > 0 ? Math.round((1 - Math.abs(men - women) / known) * 100) : 0
+    const difference = Math.abs(men - women)
+    const balanceLabel = known === 0
+      ? "Awaiting paid participants"
+      : difference === 0
+        ? "Perfectly balanced"
+        : `${difference} more ${men > women ? "men" : "women"}`
+
+    return {
+      total: paidParticipants.length,
+      men,
+      women,
+      unknown,
+      menPercent,
+      womenPercent,
+      menAverageAge: menWithAge > 0 ? menAgeTotal / menWithAge : null,
+      womenAverageAge: womenWithAge > 0 ? womenAgeTotal / womenWithAge : null,
+      balanceScore,
+      balanceLabel,
+    }
+  }, [participants, currentEventId])
+
   // Compute set of phone numbers that appear more than once across participants
   const duplicatePhoneNumbers = useMemo(() => {
     const phoneMap = new Map<string, number>()
@@ -5674,6 +5736,100 @@ Proceed?`
       )}
 
       <div className={adminWorkspace === 'twilio' ? 'hidden' : ''}>
+
+      <section className="relative z-20 mx-auto w-full max-w-[1500px] px-3 pt-3 sm:px-5 sm:pt-5 lg:px-6" aria-label="Paid participant gender balance">
+        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-950/55 p-4 shadow-[0_18px_60px_rgba(2,6,23,0.28)] backdrop-blur-xl sm:p-5">
+          <div className="pointer-events-none absolute -left-12 top-0 h-28 w-40 rounded-full bg-cyan-400/10 blur-3xl" />
+          <div className="pointer-events-none absolute -right-12 bottom-0 h-28 w-40 rounded-full bg-fuchsia-400/10 blur-3xl" />
+
+          <div className="relative flex flex-col gap-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/[0.06] shadow-inner">
+                  <BarChart3 className="h-5 w-5 text-cyan-200" aria-hidden="true" />
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-sm font-bold tracking-wide text-white sm:text-base">Paid gender balance</h2>
+                    <span className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                      Event {currentEventId}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-400">{paidGenderBalance.balanceLabel}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 text-right">
+                <div>
+                  <p className="text-xl font-black tabular-nums text-white">{paidGenderBalance.total}</p>
+                  <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-500">Paid total</p>
+                </div>
+                <div className={`rounded-xl border px-3 py-2 ${
+                  paidGenderBalance.total === 0
+                    ? "border-slate-400/20 bg-slate-400/10 text-slate-300"
+                    : paidGenderBalance.balanceScore >= 90
+                    ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-200"
+                    : paidGenderBalance.balanceScore >= 70
+                      ? "border-amber-400/25 bg-amber-400/10 text-amber-200"
+                      : "border-rose-400/25 bg-rose-400/10 text-rose-200"
+                }`}>
+                  <span className="text-sm font-black tabular-nums">{paidGenderBalance.balanceScore}%</span>
+                  <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide opacity-70">balance</span>
+                </div>
+              </div>
+            </div>
+
+            <div
+              className="relative h-4 overflow-hidden rounded-full border border-white/10 bg-white/[0.05] shadow-inner"
+              role="img"
+              aria-label={`${paidGenderBalance.men} paid men and ${paidGenderBalance.women} paid women`}
+            >
+              {paidGenderBalance.men + paidGenderBalance.women > 0 ? (
+                <div className="flex h-full w-full">
+                  <div
+                    className="h-full bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-400 transition-[width] duration-700"
+                    style={{ width: `${paidGenderBalance.menPercent}%` }}
+                  />
+                  <div
+                    className="h-full bg-gradient-to-r from-fuchsia-400 via-pink-500 to-rose-500 transition-[width] duration-700"
+                    style={{ width: `${paidGenderBalance.womenPercent}%` }}
+                  />
+                </div>
+              ) : (
+                <div className="h-full w-full bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800" />
+              )}
+              <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-white/60 shadow-[0_0_8px_rgba(255,255,255,0.7)]" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
+              <div className="flex items-center justify-between gap-4 rounded-xl border border-blue-400/15 bg-blue-400/[0.07] px-3 py-2 sm:min-w-44">
+                <span className="flex items-center gap-2 text-xs font-semibold text-blue-200"><span className="h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_9px_rgba(34,211,238,0.8)]" />Men</span>
+                <span className="text-right">
+                  <span className="block font-black tabular-nums text-white">{paidGenderBalance.men}</span>
+                  <span className="block text-[10px] font-semibold tabular-nums text-blue-200/65">
+                    Avg age {paidGenderBalance.menAverageAge == null ? "—" : paidGenderBalance.menAverageAge.toFixed(1)}
+                  </span>
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-4 rounded-xl border border-pink-400/15 bg-pink-400/[0.07] px-3 py-2 sm:min-w-44">
+                <span className="flex items-center gap-2 text-xs font-semibold text-pink-200"><span className="h-2 w-2 rounded-full bg-pink-400 shadow-[0_0_9px_rgba(244,114,182,0.8)]" />Women</span>
+                <span className="text-right">
+                  <span className="block font-black tabular-nums text-white">{paidGenderBalance.women}</span>
+                  <span className="block text-[10px] font-semibold tabular-nums text-pink-200/65">
+                    Avg age {paidGenderBalance.womenAverageAge == null ? "—" : paidGenderBalance.womenAverageAge.toFixed(1)}
+                  </span>
+                </span>
+              </div>
+              {paidGenderBalance.unknown > 0 && (
+                <div className="col-span-2 flex items-center justify-between gap-3 rounded-xl border border-slate-400/15 bg-slate-400/[0.07] px-3 py-2 sm:min-w-36">
+                  <span className="flex items-center gap-2 text-xs font-semibold text-slate-300"><span className="h-2 w-2 rounded-full bg-slate-400" />Unknown</span>
+                  <span className="font-black tabular-nums text-white">{paidGenderBalance.unknown}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
 
       {isCohost && (
         <div className="relative z-10 bg-white/5 backdrop-blur-xl border-b border-white/10 p-4">

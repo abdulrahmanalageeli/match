@@ -34,6 +34,75 @@ interface BatchProgress {
   resume_cursor?: { i: number; j: number } | null
 }
 
+const MAX_BATCH_ATTEMPTS = 5
+const MAX_AI_CACHES_PER_REQUEST = 8
+const BATCH_REQUEST_TIMEOUT_MS = 45_000
+
+class RetryableBatchError extends Error {}
+class CacheCheckpointResetError extends Error {}
+
+interface FullCacheCheckpoint {
+  version: 1
+  eventId: number
+  mode: GenderMode
+  checkpointId: string | null
+  nextStart: number
+  resumeCursor: { i: number; j: number } | null
+  runStats: RunStats
+  progress: BatchProgress | null
+  coverageRepairAttempts: number
+  metadataRetryAttempts: number
+  startedAt: number
+}
+
+const emptyRunStats = (): RunStats => ({
+  newly_cached: 0,
+  already_cached: 0,
+  skipped: 0,
+  errors: 0,
+  pairs_processed: 0,
+})
+
+const fullCacheCheckpointKey = (eventId: number, mode: GenderMode) => `admin-cache-progress:v1:full:${eventId}:${mode}`
+
+function readFullCacheCheckpoint(eventId: number, mode: GenderMode): FullCacheCheckpoint | null {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(fullCacheCheckpointKey(eventId, mode)) || "null")
+    return parsed?.version === 1 && parsed?.eventId === eventId && parsed?.mode === mode ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function writeFullCacheCheckpoint(checkpoint: FullCacheCheckpoint) {
+  try {
+    window.localStorage.setItem(fullCacheCheckpointKey(checkpoint.eventId, checkpoint.mode), JSON.stringify(checkpoint))
+  } catch {}
+}
+
+function clearFullCacheCheckpoint(eventId: number, mode: GenderMode) {
+  try {
+    window.localStorage.removeItem(fullCacheCheckpointKey(eventId, mode))
+  } catch {}
+}
+
+const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms))
+
+function batchRetryDelayMs(attempt: number) {
+  return Math.min(12_000, 1_500 * (2 ** Math.max(0, attempt - 1)))
+}
+
+function isRetryableHttpStatus(status: number) {
+  return [408, 409, 425, 429].includes(status) || status >= 500
+}
+
+function isRetryableBatchError(error: unknown) {
+  if (error instanceof RetryableBatchError) return true
+  if (error instanceof DOMException && error.name === "AbortError") return true
+  const message = error instanceof Error ? error.message : String(error || "")
+  return /abort|network|fetch failed|timed? out|temporar|rate.?limit|connection|HTTP 5\d\d/i.test(message)
+}
+
 async function readJsonResponse(res: Response) {
   const raw = await res.text()
   try {
@@ -56,6 +125,7 @@ interface SideState {
   progress: BatchProgress | null
   startedAt: number | null
   lastError: string | null
+  retryMessage: string | null
   finished: boolean
 }
 
@@ -67,10 +137,11 @@ const initialSide = (): SideState => ({
   cancelRequested: false,
   batchSize: 5,
   cursor: 0,
-  runStats: { newly_cached: 0, already_cached: 0, skipped: 0, errors: 0, pairs_processed: 0 },
+  runStats: emptyRunStats(),
   progress: null,
   startedAt: null,
   lastError: null,
+  retryMessage: null,
   finished: false,
 })
 
@@ -173,6 +244,9 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
   // Sequential batch driver for a single side. Reads cancel/pause flags from refs.
   const runBatches = async (mode: GenderMode) => {
     const getRef = () => preferenceRef.current
+    const savedCheckpoint = readFullCacheCheckpoint(eventId, mode)
+    let runStatsTotals = savedCheckpoint?.runStats || emptyRunStats()
+    const runStartedAt = savedCheckpoint?.startedAt || Date.now()
 
     setSide(mode, (p) => ({
       ...p,
@@ -180,15 +254,21 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
       paused: false,
       cancelRequested: false,
       finished: false,
-      startedAt: Date.now(),
+      startedAt: runStartedAt,
       lastError: null,
-      runStats: { newly_cached: 0, already_cached: 0, skipped: 0, errors: 0, pairs_processed: 0 },
-      cursor: 0,
+      retryMessage: savedCheckpoint ? "Resuming from the last acknowledged cache checkpoint…" : null,
+      runStats: runStatsTotals,
+      progress: savedCheckpoint?.progress || null,
+      cursor: savedCheckpoint?.nextStart || 0,
     }))
 
-    let nextStart = 0
-    let resumeCursor: { i: number; j: number } | null = null
+    let nextStart = savedCheckpoint?.nextStart || 0
+    let resumeCursor: { i: number; j: number } | null = savedCheckpoint?.resumeCursor || null
+    let checkpointId = savedCheckpoint?.checkpointId || null
     let cumulativeErrors = 0
+    let coverageRepairAttempts = savedCheckpoint?.coverageRepairAttempts || 0
+    let metadataRetryAttempts = savedCheckpoint?.metadataRetryAttempts || 0
+    let lastAcknowledgedProgress = savedCheckpoint?.progress || null
     let runError: string | null = null
     while (true) {
       const cur = getRef()
@@ -201,46 +281,151 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
 
       const batchSize = Math.max(1, Math.min(cur.batchSize || 5, 50))
       try {
-        const res = await fetch("/api/admin/trigger-match", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "cache-pairs-batched",
-            eventId,
-            genderMode: mode,
-            batchStart: nextStart,
-            batchSize,
-            resumeCursor,
-            skipAI: false,
-            maxPairsPerRequest: 20000,
-            priorErrors: cumulativeErrors,
-          }),
+        // A timed-out response may still have committed some upserts. Retrying
+        // the exact same cursor is safe: cache rows use an immutable unique key,
+        // so completed pairs become hits and only the missing pair work repeats.
+        const requestStart = nextStart
+        const requestResumeCursor = resumeCursor ? { ...resumeCursor } : null
+        const runStatsBeforeRequest = { ...runStatsTotals }
+        let data: any = null
+        let recoveredNewlyCached = 0
+
+        // Persist the request boundary before starting network work. Refreshing
+        // during an in-flight request resumes at this exact boundary; any rows
+        // already committed by the server are then exact hits, not recalculated.
+        writeFullCacheCheckpoint({
+          version: 1,
+          eventId,
+          mode,
+          checkpointId,
+          nextStart: requestStart,
+          resumeCursor: requestResumeCursor,
+          runStats: runStatsBeforeRequest,
+          progress: lastAcknowledgedProgress,
+          coverageRepairAttempts,
+          metadataRetryAttempts,
+          startedAt: runStartedAt,
         })
-        const data = await readJsonResponse(res)
-        if (!res.ok || !data?.success) {
-          throw new Error(data?.error || `Batch failed at start=${nextStart}`)
+
+        for (let attempt = 1; attempt <= MAX_BATCH_ATTEMPTS; attempt++) {
+          const batchController = new AbortController()
+          const batchTimeout = window.setTimeout(() => batchController.abort(), BATCH_REQUEST_TIMEOUT_MS)
+          try {
+            const res = await fetch("/api/admin/trigger-match", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              signal: batchController.signal,
+              body: JSON.stringify({
+                action: "cache-pairs-batched",
+                eventId,
+                genderMode: mode,
+                batchStart: requestStart,
+                batchSize,
+                resumeCursor: requestResumeCursor,
+                skipAI: false,
+                maxNewCachesPerRequest: MAX_AI_CACHES_PER_REQUEST,
+                maxPairsPerRequest: 20000,
+                priorErrors: cumulativeErrors,
+                checkpointId,
+              }),
+            })
+            let attemptData: any
+            try {
+              attemptData = await readJsonResponse(res)
+            } catch (error) {
+              if (isRetryableHttpStatus(res.status)) {
+                throw new RetryableBatchError(error instanceof Error ? error.message : String(error))
+              }
+              throw error
+            }
+            if (attemptData?.reset_checkpoint === true || attemptData?.code === "CACHE_CHECKPOINT_STALE") {
+              throw new CacheCheckpointResetError(attemptData?.error || "Cache checkpoint is stale")
+            }
+            if (!res.ok || !attemptData?.success) {
+              const message = attemptData?.error || `Batch failed with HTTP ${res.status} at start=${requestStart}`
+              if (isRetryableHttpStatus(res.status)) throw new RetryableBatchError(message)
+              throw new Error(message)
+            }
+
+            const attemptErrors = Number(attemptData?.stats?.errors) || 0
+            if (attemptErrors === 0 || attempt === MAX_BATCH_ATTEMPTS) {
+              data = attemptData
+              break
+            }
+
+            recoveredNewlyCached += Number(attemptData?.stats?.newly_cached) || 0
+            const firstFailure = Array.isArray(attemptData?.stats?.failures)
+              ? attemptData.stats.failures[0]
+              : null
+            const pairLabel = firstFailure?.participant_a_number != null && firstFailure?.participant_b_number != null
+              ? ` for pair #${firstFailure.participant_a_number} × #${firstFailure.participant_b_number}`
+              : ""
+            const delay = batchRetryDelayMs(attempt)
+            setSide(mode, (p) => ({
+              ...p,
+              lastError: null,
+              retryMessage: `A pair failed${pairLabel}. Retrying the same checkpoint (${attempt}/${MAX_BATCH_ATTEMPTS - 1}) in ${Math.ceil(delay / 1000)}s…`,
+            }))
+            await wait(delay)
+          } catch (error) {
+            if (!isRetryableBatchError(error) || attempt === MAX_BATCH_ATTEMPTS) throw error
+            const delay = batchRetryDelayMs(attempt)
+            setSide(mode, (p) => ({
+              ...p,
+              lastError: null,
+              retryMessage: `Temporary batch failure. Retrying the same checkpoint (${attempt}/${MAX_BATCH_ATTEMPTS - 1}) in ${Math.ceil(delay / 1000)}s…`,
+            }))
+            await wait(delay)
+          } finally {
+            window.clearTimeout(batchTimeout)
+          }
         }
 
-        const stats: RunStats = data.stats
+        if (!data) throw new Error(`Batch failed at start=${requestStart}`)
+
+        const responseStats: RunStats = data.stats
+        const stats: RunStats = {
+          ...responseStats,
+          // Successful rows from an earlier failed attempt appear as hits when
+          // the same window is retried. Keep the displayed counters truthful.
+          newly_cached: responseStats.newly_cached + recoveredNewlyCached,
+          already_cached: Math.max(0, responseStats.already_cached - recoveredNewlyCached),
+        }
         const progress: BatchProgress = data.progress
+        checkpointId = data.checkpoint_id || checkpointId
         cumulativeErrors += stats.errors || 0
+        runStatsTotals = {
+          newly_cached: runStatsTotals.newly_cached + stats.newly_cached,
+          already_cached: runStatsTotals.already_cached + stats.already_cached,
+          skipped: runStatsTotals.skipped + stats.skipped,
+          errors: runStatsTotals.errors + stats.errors,
+          pairs_processed: runStatsTotals.pairs_processed + stats.pairs_processed,
+        }
 
         setSide(mode, (p) => ({
           ...p,
+          retryMessage: null,
           progress,
           cursor: progress.next_batch_start ?? progress.participants_total,
-          runStats: {
-            newly_cached: p.runStats.newly_cached + stats.newly_cached,
-            already_cached: p.runStats.already_cached + stats.already_cached,
-            skipped: p.runStats.skipped + stats.skipped,
-            errors: p.runStats.errors + stats.errors,
-            pairs_processed: p.runStats.pairs_processed + stats.pairs_processed,
-          },
+          runStats: runStatsTotals,
         }))
 
         resumeCursor = progress.resume_cursor ?? null
 
         if (stats.errors > 0) {
+          writeFullCacheCheckpoint({
+            version: 1,
+            eventId,
+            mode,
+            checkpointId,
+            nextStart: requestStart,
+            resumeCursor: requestResumeCursor,
+            runStats: runStatsBeforeRequest,
+            progress: lastAcknowledgedProgress,
+            coverageRepairAttempts,
+            metadataRetryAttempts,
+            startedAt: runStartedAt,
+          })
           const firstFailure = Array.isArray(stats.failures) ? stats.failures[0] : null
           const pairLabel = firstFailure?.participant_a_number != null && firstFailure?.participant_b_number != null
             ? ` Pair #${firstFailure.participant_a_number} × #${firstFailure.participant_b_number}: ${firstFailure.reason || "unknown error"}.`
@@ -250,24 +435,94 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
           break
         }
 
+        lastAcknowledgedProgress = progress
+
+        const missingCoverage = Number(data?.coverage_verification?.missingCount) || 0
+        if (!progress.has_more && data.metadata_updated === false && missingCoverage > 0 && coverageRepairAttempts < 3) {
+          coverageRepairAttempts++
+          nextStart = 0
+          resumeCursor = null
+          writeFullCacheCheckpoint({
+            version: 1, eventId, mode, checkpointId, nextStart, resumeCursor,
+            runStats: runStatsTotals,
+            progress: { ...progress, has_more: true, next_batch_start: 0, resume_cursor: null },
+            coverageRepairAttempts, metadataRetryAttempts,
+            startedAt: runStartedAt,
+          })
+          setSide(mode, (p) => ({
+            ...p,
+            retryMessage: `Final check found ${missingCoverage} missing cache pair${missingCoverage === 1 ? "" : "s"}. Running repair pass ${coverageRepairAttempts}/3…`,
+          }))
+          await wait(500)
+          continue
+        }
+
+        if (!progress.has_more && data.metadata_updated === false && missingCoverage === 0 && metadataRetryAttempts < 3) {
+          metadataRetryAttempts++
+          nextStart = requestStart
+          resumeCursor = requestResumeCursor
+          writeFullCacheCheckpoint({
+            version: 1, eventId, mode, checkpointId, nextStart, resumeCursor,
+            runStats: runStatsTotals,
+            progress: { ...progress, has_more: true, next_batch_start: requestStart, resume_cursor: requestResumeCursor },
+            coverageRepairAttempts, metadataRetryAttempts,
+            startedAt: runStartedAt,
+          })
+          setSide(mode, (p) => ({
+            ...p,
+            retryMessage: `Cache rows are complete; retrying freshness metadata ${metadataRetryAttempts}/3…`,
+          }))
+          await wait(batchRetryDelayMs(metadataRetryAttempts))
+          continue
+        }
+
         if (!progress.has_more && data.metadata_updated === false) {
           runError = data.metadata_error || "Caching finished, but cache freshness metadata could not be updated."
           setSide(mode, (p) => ({ ...p, lastError: runError }))
           break
         }
 
-        if (!progress.has_more || progress.next_batch_start == null) break
+        if (!progress.has_more || progress.next_batch_start == null) {
+          clearFullCacheCheckpoint(eventId, mode)
+          break
+        }
 
         if (progress.next_batch_start !== nextStart) {
           nextStart = progress.next_batch_start
           resumeCursor = null
         }
 
+        writeFullCacheCheckpoint({
+          version: 1, eventId, mode, checkpointId, nextStart, resumeCursor,
+          runStats: runStatsTotals, progress, coverageRepairAttempts, metadataRetryAttempts,
+          startedAt: runStartedAt,
+        })
+
         // Small breather between batches so the system isn't slammed
         await new Promise((r) => setTimeout(r, 150))
       } catch (err: any) {
+        if (err instanceof CacheCheckpointResetError) {
+          clearFullCacheCheckpoint(eventId, mode)
+          nextStart = 0
+          resumeCursor = null
+          checkpointId = null
+          cumulativeErrors = 0
+          coverageRepairAttempts = 0
+          metadataRetryAttempts = 0
+          lastAcknowledgedProgress = null
+          runStatsTotals = emptyRunStats()
+          setSide(mode, (p) => ({
+            ...p,
+            progress: null,
+            cursor: 0,
+            runStats: runStatsTotals,
+            lastError: null,
+            retryMessage: "Roster or score inputs changed; restarting safely from the beginning…",
+          }))
+          continue
+        }
         runError = err?.message || String(err)
-        setSide(mode, (p) => ({ ...p, lastError: runError }))
+        setSide(mode, (p) => ({ ...p, retryMessage: null, lastError: runError }))
         break
       }
     }
@@ -297,6 +552,18 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
   // Auto-fetch status when modal opens or event changes
   useEffect(() => {
     if (!isOpen || !eventId) return
+    const checkpoint = readFullCacheCheckpoint(eventId, "preference")
+    if (checkpoint) {
+      setPreference((previous) => ({
+        ...previous,
+        cursor: checkpoint.nextStart,
+        runStats: checkpoint.runStats,
+        progress: checkpoint.progress,
+        startedAt: checkpoint.startedAt,
+        finished: false,
+        retryMessage: "Saved progressive checkpoint found. Start to resume without rescanning acknowledged pairs.",
+      }))
+    }
     fetchStatus("preference")
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, eventId])
@@ -453,7 +720,7 @@ function SideCard({
             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-emerald-500/20 border border-emerald-400/30 text-emerald-200 hover:bg-emerald-500/30 text-xs disabled:opacity-50"
           >
             <Play className="w-3.5 h-3.5" />
-            {state.finished ? "Run Again" : "Start"}
+            {state.finished ? "Run Again" : state.progress?.has_more ? "Resume" : "Start"}
           </button>
         )}
 
@@ -528,6 +795,12 @@ function SideCard({
         <div className="inline-flex items-start gap-1 text-xs text-rose-300">
           <AlertTriangle className="w-3.5 h-3.5 mt-0.5" />
           <span className="break-all">{state.lastError}</span>
+        </div>
+      )}
+      {state.retryMessage && (
+        <div className="inline-flex items-start gap-1 text-xs text-amber-200">
+          <RefreshCw className="w-3.5 h-3.5 mt-0.5 animate-spin" />
+          <span>{state.retryMessage}</span>
         </div>
       )}
       {state.running && (

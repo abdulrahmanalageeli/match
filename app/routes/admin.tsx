@@ -78,7 +78,7 @@ import {
   parseScoreObject,
 } from "~/lib/compatibility-model"
 
-type DeltaCacheRunStatus = 'running' | 'completed' | 'failed'
+type DeltaCacheRunStatus = 'running' | 'paused' | 'completed' | 'failed'
 
 interface DeltaCacheRunProgress {
   status: DeltaCacheRunStatus
@@ -101,6 +101,65 @@ interface DeltaCacheRunProgress {
   }>
 }
 
+interface DeltaCacheCheckpoint {
+  version: 1
+  eventId: number
+  checkpointId: string | null
+  resumeCursor: { i: number; j: number } | null
+  coverageRepairPairs: number[][] | null
+  coverageRepairAttempts: number
+  aiCachesPerRequest: number
+  batchNum: number
+  totalNewlyCached: number
+  totalAlreadyCached: number
+  totalSkipped: number
+  totalPairsScanned: number
+  totalAiCalls: number
+  totalReusedVibe: number
+  totalDeltaPairs: number
+  prefetchedRows: number
+  participantsNeedingCache: number
+  deltaReasonCounts: { survey_changes: number; new_enrollments: number }
+  totalEligible: number
+  lastCacheTimestamp: string | null
+  progress: DeltaCacheRunProgress
+}
+
+class AdminCacheCheckpointResetError extends Error {}
+
+const deltaCacheCheckpointKey = (eventId: number) => `admin-cache-progress:v1:delta:${eventId}`
+
+function readDeltaCacheCheckpoint(eventId: number): DeltaCacheCheckpoint | null {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(deltaCacheCheckpointKey(eventId)) || 'null')
+    return parsed?.version === 1 && parsed?.eventId === eventId ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function writeDeltaCacheCheckpoint(checkpoint: DeltaCacheCheckpoint) {
+  try {
+    window.localStorage.setItem(deltaCacheCheckpointKey(checkpoint.eventId), JSON.stringify(checkpoint))
+  } catch {}
+}
+
+function clearDeltaCacheCheckpoint(eventId: number) {
+  try {
+    window.localStorage.removeItem(deltaCacheCheckpointKey(eventId))
+  } catch {}
+}
+
+function deltaCacheRetryDelayMs(attempt: number) {
+  return Math.min(12_000, 1_500 * (2 ** Math.max(0, attempt - 1)))
+}
+
+function isTransientDeltaCacheError(error: unknown) {
+  if (error instanceof DOMException && error.name === 'AbortError') return true
+  const message = error instanceof Error ? error.message : String(error || '')
+  return /abort|network|fetch failed|timed? out|temporar|rate.?limit|connection|HTTP 5\d\d/i.test(message)
+}
+
 // ─── Match Analyzer Modal ───────────────────────────────────────────────────
 function ManualCompatibilityResultModal({ data, onClose }: { data: any; onClose: () => void }) {
   useEffect(() => {
@@ -113,6 +172,9 @@ function ManualCompatibilityResultModal({ data, onClose }: { data: any; onClose:
   const gateReport = data?.gate_report || {}
   const rawScore = Number(data?.compatibility_score)
   const score = Math.max(0, Math.min(100, Number.isFinite(rawScore) ? rawScore : 0))
+  const cacheStatusLabel = data?.cache_status === 'bypassed'
+    ? 'Bypassed · fresh calculation'
+    : (data?.cache_status || 'unknown')
   const isBalancedModel = isCurrentBalancedScoreRow(data)
   const isOppositesModel = isCurrentOppositesScoreRow(data)
   const oppositesBreakdown = getOppositesBreakdownForDisplay(data, result)
@@ -163,7 +225,7 @@ function ManualCompatibilityResultModal({ data, onClose }: { data: any; onClose:
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="mb-2 flex flex-wrap items-center gap-2">
-                  <span className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.2em] text-cyan-200">Test mode · Read only</span>
+                  <span className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.2em] text-cyan-200">Test mode · Fresh · Read only</span>
                   <span className={`rounded-full border px-3 py-1 text-[11px] font-bold ${eligible ? 'border-emerald-300/25 bg-emerald-400/10 text-emerald-200' : 'border-red-300/25 bg-red-400/10 text-red-200'}`}>{eligible ? 'All eligibility gates passed' : `${blockers.length} blocking gate${blockers.length === 1 ? '' : 's'}`}</span>
                 </div>
                 <h2 className="text-2xl font-black tracking-tight sm:text-4xl">Compatibility Intelligence Report</h2>
@@ -212,12 +274,12 @@ function ManualCompatibilityResultModal({ data, onClose }: { data: any; onClose:
 
             <section className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4"><p className="text-[10px] font-bold uppercase tracking-widest text-slate-600">Calculation mode</p><p className="mt-1 font-semibold capitalize text-slate-200">{data.mode || 'individual'}</p></div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4"><p className="text-[10px] font-bold uppercase tracking-widest text-slate-600">Cache</p><p className="mt-1 font-semibold capitalize text-slate-200">{data.cache_status || 'unknown'}</p></div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4"><p className="text-[10px] font-bold uppercase tracking-widest text-slate-600">Cache</p><p className="mt-1 font-semibold text-slate-200">{cacheStatusLabel}</p></div>
               <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4"><p className="text-[10px] font-bold uppercase tracking-widest text-slate-600">Model</p><p className="mt-1 break-all font-mono text-xs text-slate-300">{data.score_model_version || 'unknown'}</p></div>
             </section>
             <details className="rounded-2xl border border-white/10 bg-black/20 p-4 text-xs text-slate-400"><summary className="cursor-pointer select-none font-bold text-slate-300">Raw diagnostic payload</summary><pre className="mt-4 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-black/30 p-4 font-mono text-[10px] leading-5 text-slate-500">{JSON.stringify(data.raw_payload || data, null, 2)}</pre></details>
           </main>
-          <footer className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-white/10 bg-slate-950/90 px-5 py-4 backdrop-blur-xl sm:px-8"><p className="hidden text-xs text-slate-600 sm:block">No match was created and no participant data was changed.</p><button onClick={onClose} className="ml-auto rounded-xl bg-cyan-300 px-5 py-2.5 text-sm font-black text-slate-950 transition hover:bg-cyan-200">Close report</button></footer>
+          <footer className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-white/10 bg-slate-950/90 px-5 py-4 backdrop-blur-xl sm:px-8"><p className="hidden text-xs text-slate-600 sm:block">Calculated fresh. No cache row or match was created, and no participant data was changed.</p><button onClick={onClose} className="ml-auto rounded-xl bg-cyan-300 px-5 py-2.5 text-sm font-black text-slate-950 transition hover:bg-cyan-200">Close report</button></footer>
         </div>
       </div>
     </div>
@@ -962,6 +1024,16 @@ export default function AdminPage() {
   // Delta pre-cache state
   const [deltaCaching, setDeltaCaching] = useState(false);
   const [deltaCacheProgress, setDeltaCacheProgress] = useState<DeltaCacheRunProgress | null>(null);
+  useEffect(() => {
+    if (deltaCaching) return
+    const checkpoint = readDeltaCacheCheckpoint(currentEventId)
+    if (!checkpoint) return
+    setDeltaCacheProgress({
+      ...checkpoint.progress,
+      status: 'paused',
+      message: 'Saved progressive cache checkpoint found. Run Delta Cache to resume without rescanning acknowledged pairs.',
+    })
+  }, [currentEventId, deltaCaching])
   
   // Group debug state
   const [showGroupDebugModal, setShowGroupDebugModal] = useState(false);
@@ -4756,13 +4828,21 @@ Proceed?`
   
   // Delta Pre-Cache Function - Smart incremental caching (survey changes + new enrollments) - BATCHED
   const deltaCacheMatches = async () => {
-    const confirmMessage = `🔄 Smart Delta Pre-Cache for Event ${currentEventId}?
+    const savedCheckpoint = readDeltaCacheCheckpoint(currentEventId)
+    const confirmMessage = savedCheckpoint
+      ? `▶️ Resume Delta Pre-Cache for Event ${currentEventId} from ${savedCheckpoint.progress.percent}%?
+
+Completed cache rows are already stored. The run will continue from its last acknowledged pair without rescanning them.
+
+Proceed?`
+      : `🔄 Smart Delta Pre-Cache for Event ${currentEventId}?
 
 This will:
 • Detect participants who updated surveys since last cache
 • Only cache pairs involving changed or newly enrolled participants
 • Process in batches to avoid timeouts
 • Reuse existing cache for unchanged participants
+• Persist progress so a browser refresh can resume
 • Save time and API costs!
 
 Proceed?`
@@ -4770,7 +4850,11 @@ Proceed?`
     if (!confirm(confirmMessage)) return
     
     setDeltaCaching(true)
-    setDeltaCacheProgress({
+    const initialProgress: DeltaCacheRunProgress = savedCheckpoint ? {
+      ...savedCheckpoint.progress,
+      status: 'running',
+      message: 'Resuming from the last acknowledged delta-cache checkpoint…',
+    } : {
       status: 'running',
       percent: 0,
       batch: 0,
@@ -4785,30 +4869,86 @@ Proceed?`
       prefetchedRows: 0,
       message: 'Preparing delta cache…',
       failures: [],
-    })
+    }
+    setDeltaCacheProgress(initialProgress)
     try {
-      let resumeCursor: { i: number; j: number } | null = null
-      let totalNewlyCached = 0
-      let totalAlreadyCached = 0
-      let totalSkipped = 0
+      let checkpointId = savedCheckpoint?.checkpointId || null
+      let resumeCursor: { i: number; j: number } | null = savedCheckpoint?.resumeCursor || null
+      let totalNewlyCached = savedCheckpoint?.totalNewlyCached || 0
+      let totalAlreadyCached = savedCheckpoint?.totalAlreadyCached || 0
+      let totalSkipped = savedCheckpoint?.totalSkipped || 0
       let totalErrors = 0
-      let totalPairsScanned = 0
-      let totalAiCalls = 0
-      let totalReusedVibe = 0
-      let totalDeltaPairs = 0
-      let prefetchedRows = 0
+      let totalPairsScanned = savedCheckpoint?.totalPairsScanned || 0
+      let totalAiCalls = savedCheckpoint?.totalAiCalls || 0
+      let totalReusedVibe = savedCheckpoint?.totalReusedVibe || 0
+      let totalDeltaPairs = savedCheckpoint?.totalDeltaPairs || 0
+      let prefetchedRows = savedCheckpoint?.prefetchedRows || 0
       let failureDetails: DeltaCacheRunProgress['failures'] = []
-      let participantsNeedingCache = 0
-      let deltaReasonCounts = { survey_changes: 0, new_enrollments: 0 }
-      let totalEligible = 0
-      let lastCacheTimestamp: string | null = null
+      let participantsNeedingCache = savedCheckpoint?.participantsNeedingCache || 0
+      let deltaReasonCounts = savedCheckpoint?.deltaReasonCounts || { survey_changes: 0, new_enrollments: 0 }
+      let totalEligible = savedCheckpoint?.totalEligible || 0
+      let lastCacheTimestamp: string | null = savedCheckpoint?.lastCacheTimestamp || null
       let isFresh = false
-      let batchNum = 0
-      let aiCachesPerRequest = 12
-      let coverageRepairPairs: number[][] | null = null
-      let coverageRepairAttempts = 0
+      let batchNum = savedCheckpoint?.batchNum || 0
+      let aiCachesPerRequest = savedCheckpoint?.aiCachesPerRequest || 12
+      let coverageRepairPairs: number[][] | null = savedCheckpoint?.coverageRepairPairs || null
+      let coverageRepairAttempts = savedCheckpoint?.coverageRepairAttempts || 0
+      let requestRetryAttempts = 0
+      let recoveredNewlyCached = 0
+      let lastAcknowledgedProgress = initialProgress
+
+      const persistDeltaCheckpoint = (
+        progress: DeltaCacheRunProgress,
+        nextCursor: { i: number; j: number } | null,
+        nextCoverageRepairPairs: number[][] | null,
+        acknowledged: Partial<DeltaCacheCheckpoint> = {},
+      ) => {
+        writeDeltaCacheCheckpoint({
+          version: 1,
+          eventId: currentEventId,
+          checkpointId,
+          resumeCursor: nextCursor,
+          coverageRepairPairs: nextCoverageRepairPairs,
+          coverageRepairAttempts,
+          aiCachesPerRequest,
+          batchNum,
+          totalNewlyCached,
+          totalAlreadyCached,
+          totalSkipped,
+          totalPairsScanned,
+          totalAiCalls,
+          totalReusedVibe,
+          totalDeltaPairs,
+          prefetchedRows,
+          participantsNeedingCache,
+          deltaReasonCounts,
+          totalEligible,
+          lastCacheTimestamp,
+          ...acknowledged,
+          progress: { ...progress, status: 'paused', errors: 0, failures: [] },
+        })
+      }
 
       while (true) {
+        const requestResumeCursor = resumeCursor ? { ...resumeCursor } : null
+        const requestCoverageRepairPairs = coverageRepairPairs
+          ? coverageRepairPairs.map(pair => [...pair])
+          : null
+        const acknowledgedBeforeRequest: Partial<DeltaCacheCheckpoint> = {
+          batchNum,
+          totalNewlyCached,
+          totalAlreadyCached,
+          totalSkipped,
+          totalPairsScanned,
+          totalAiCalls,
+          totalReusedVibe,
+          totalDeltaPairs,
+          prefetchedRows,
+          participantsNeedingCache,
+          deltaReasonCounts,
+          totalEligible,
+          lastCacheTimestamp,
+        }
         try {
           batchNum++
           setDeltaCacheProgress(previous => previous ? {
@@ -4832,12 +4972,13 @@ Proceed?`
                 // satisfy delta-cache coverage. Timeout recovery must keep AI
                 // enabled and reduce the amount of AI work in each request.
                 skipAI: false,
-                resumeCursor,
-                coverageRepairPairs,
+                resumeCursor: requestResumeCursor,
+                coverageRepairPairs: requestCoverageRepairPairs,
                 maxDurationMs: 8000,
                 maxAICachesPerRequest: aiCachesPerRequest,
-                maxLocalCachesPerRequest: 160,
+                maxLocalCachesPerRequest: 500,
                 maxPairsPerRequest: 20000,
+                checkpointId,
               }),
             })
           } finally {
@@ -4852,8 +4993,15 @@ Proceed?`
             throw new Error(rawResponse?.trim() || `Delta cache returned HTTP ${res.status}`)
           }
 
+          if (data?.reset_checkpoint === true || data?.code === 'CACHE_CHECKPOINT_STALE') {
+            throw new AdminCacheCheckpointResetError(data?.error || 'Delta cache checkpoint is stale')
+          }
+
           if (!res.ok || !data?.success) {
             const errorMessage = data?.message || data?.error || `Delta cache failed with HTTP ${res.status}`
+            if ([408, 409, 425, 429].includes(res.status) || res.status >= 500) {
+              throw new Error(`${errorMessage} (HTTP ${res.status})`)
+            }
             setDeltaCacheProgress(previous => previous ? {
               ...previous,
               status: 'failed',
@@ -4867,10 +5015,33 @@ Proceed?`
             return
           }
 
-          totalNewlyCached += data.cached_count || 0
-          totalAlreadyCached += data.already_cached || 0
+          checkpointId = data.checkpoint_id || checkpointId
+          const batchErrors = Number(data.errors) || 0
+          if (batchErrors > 0 && requestRetryAttempts < 4) {
+            requestRetryAttempts++
+            recoveredNewlyCached += Number(data.cached_count) || 0
+            const failedPair = Array.isArray(data.failures) ? data.failures[0] : null
+            const pairLabel = failedPair?.participant_a_number != null && failedPair?.participant_b_number != null
+              ? ` #${failedPair.participant_a_number} × #${failedPair.participant_b_number}`
+              : ''
+            const delay = deltaCacheRetryDelayMs(requestRetryAttempts)
+            setDeltaCacheProgress(previous => previous ? {
+              ...previous,
+              status: 'running',
+              message: `Pair${pairLabel} failed temporarily. Retrying the same checkpoint ${requestRetryAttempts}/4 in ${Math.ceil(delay / 1000)}s…`,
+            } : previous)
+            await new Promise(resolve => window.setTimeout(resolve, delay))
+            continue
+          }
+
+          const batchNewlyCached = (Number(data.cached_count) || 0) + recoveredNewlyCached
+          const batchAlreadyCached = Math.max(0, (Number(data.already_cached) || 0) - recoveredNewlyCached)
+          requestRetryAttempts = 0
+          recoveredNewlyCached = 0
+          totalNewlyCached += batchNewlyCached
+          totalAlreadyCached += batchAlreadyCached
           totalSkipped += data.skipped || 0
-          totalErrors += data.errors || 0
+          totalErrors += batchErrors
           totalPairsScanned += data.pairs_processed || 0
           totalAiCalls += data.ai_calls_made || 0
           totalReusedVibe += data.reused_vibe_count || 0
@@ -4891,7 +5062,7 @@ Proceed?`
             ? Math.min(100, Math.round((completedPairs / totalDeltaPairs) * 100))
             : (data.progress?.has_more ? 0 : 100)
 
-          setDeltaCacheProgress({
+          const currentProgress: DeltaCacheRunProgress = {
             status: 'running',
             percent,
             batch: batchNum,
@@ -4908,9 +5079,16 @@ Proceed?`
               ? `Batch ${batchNum} complete. Starting the next batch…`
               : 'Finalizing delta cache…',
             failures: failureDetails,
-          })
+          }
+          setDeltaCacheProgress(currentProgress)
 
           if (totalErrors > 0) {
+            persistDeltaCheckpoint(
+              { ...lastAcknowledgedProgress, message: 'The last window will be retried from its saved checkpoint.' },
+              requestResumeCursor,
+              requestCoverageRepairPairs,
+              acknowledgedBeforeRequest,
+            )
             const failedPair = failureDetails[0]
             const pairLabel = failedPair?.participant_a_number != null && failedPair?.participant_b_number != null
               ? ` Pair #${failedPair.participant_a_number} × #${failedPair.participant_b_number}: ${failedPair.reason || 'unknown error'}.`
@@ -4925,12 +5103,20 @@ Proceed?`
             return
           }
 
+          lastAcknowledgedProgress = currentProgress
+
           if (participantsNeedingCache === 0 && !data.progress?.has_more) {
             isFresh = true
+            clearDeltaCacheCheckpoint(currentEventId)
             break
           }
 
           if (!data.progress?.has_more && data.metadata_updated === false) {
+            persistDeltaCheckpoint(
+              { ...currentProgress, message: 'Cache rows are complete; freshness metadata still needs to be finalized.' },
+              requestResumeCursor,
+              requestCoverageRepairPairs,
+            )
             const metadataMessage = data.metadata_error || 'Delta cache finished, but cache freshness metadata could not be updated.'
             setDeltaCacheProgress(previous => previous ? {
               ...previous,
@@ -4941,7 +5127,10 @@ Proceed?`
             return
           }
 
-          if (!data.progress?.has_more) break
+          if (!data.progress?.has_more) {
+            clearDeltaCacheCheckpoint(currentEventId)
+            break
+          }
 
           const requestedCoverageRepairs = Array.isArray(data.progress?.coverage_repair_pairs)
             ? data.progress.coverage_repair_pairs
@@ -4953,6 +5142,7 @@ Proceed?`
             }
             coverageRepairPairs = [requestedCoverageRepairs[0]]
             resumeCursor = null
+            persistDeltaCheckpoint(currentProgress, resumeCursor, coverageRepairPairs)
             setDeltaCacheProgress(previous => previous ? {
               ...previous,
               message: `Repairing missing cache pair #${requestedCoverageRepairs[0][0]} × #${requestedCoverageRepairs[0][1]}…`,
@@ -4965,21 +5155,69 @@ Proceed?`
           resumeCursor = data.progress.resume_cursor
           if (!resumeCursor) break
 
+          persistDeltaCheckpoint(currentProgress, resumeCursor, coverageRepairPairs)
+
           await new Promise(r => setTimeout(r, 100))
         } catch (error: any) {
           console.error("Error delta caching:", error)
+          if (error instanceof AdminCacheCheckpointResetError) {
+            clearDeltaCacheCheckpoint(currentEventId)
+            checkpointId = null
+            resumeCursor = null
+            coverageRepairPairs = null
+            coverageRepairAttempts = 0
+            aiCachesPerRequest = 12
+            batchNum = 0
+            totalNewlyCached = 0
+            totalAlreadyCached = 0
+            totalSkipped = 0
+            totalErrors = 0
+            totalPairsScanned = 0
+            totalAiCalls = 0
+            totalReusedVibe = 0
+            totalDeltaPairs = 0
+            prefetchedRows = 0
+            participantsNeedingCache = 0
+            deltaReasonCounts = { survey_changes: 0, new_enrollments: 0 }
+            totalEligible = 0
+            lastCacheTimestamp = null
+            failureDetails = []
+            requestRetryAttempts = 0
+            recoveredNewlyCached = 0
+            lastAcknowledgedProgress = {
+              status: 'running', percent: 0, batch: 0, pairsCompleted: 0, totalPairs: 0,
+              newlyCached: 0, cacheHits: 0, reusedVibe: 0, aiCalls: 0, skipped: 0,
+              errors: 0, prefetchedRows: 0,
+              message: 'Roster, scores, or baseline changed; restarting safely from the beginning…',
+              failures: [],
+            }
+            setDeltaCacheProgress(lastAcknowledgedProgress)
+            continue
+          }
           const errorMessage = error?.name === 'AbortError'
             ? 'Delta cache batch timed out after 45 seconds'
             : (error?.message || 'Error running delta pre-cache')
           const timeoutHint = error?.name === 'AbortError' || /timed out|timeout/i.test(errorMessage)
           if (timeoutHint && aiCachesPerRequest > 1) {
             aiCachesPerRequest = Math.max(1, Math.floor(aiCachesPerRequest / 3))
+            requestRetryAttempts++
             setDeltaCacheProgress(previous => previous ? {
               ...previous,
               status: 'running',
               message: `AI batch timed out. Retrying the same work with up to ${aiCachesPerRequest} AI score${aiCachesPerRequest === 1 ? '' : 's'} per request…`,
             } : previous)
             await new Promise(r => setTimeout(r, 250))
+            continue
+          }
+          if (isTransientDeltaCacheError(error) && requestRetryAttempts < 4) {
+            requestRetryAttempts++
+            const delay = deltaCacheRetryDelayMs(requestRetryAttempts)
+            setDeltaCacheProgress(previous => previous ? {
+              ...previous,
+              status: 'running',
+              message: `Temporary delta-cache failure. Retrying the same checkpoint ${requestRetryAttempts}/4 in ${Math.ceil(delay / 1000)}s…`,
+            } : previous)
+            await new Promise(resolve => window.setTimeout(resolve, delay))
             continue
           }
           setDeltaCacheProgress(previous => previous ? {
@@ -6500,7 +6738,7 @@ Proceed?`
                     ) : (
                       <Zap className="w-3.5 h-3.5" />
                     )}
-                    Delta Cache
+                    {deltaCacheProgress?.status === 'paused' ? 'Resume Delta Cache' : 'Delta Cache'}
                   </button>
 
                   {/* Batched Pre-Cache by mutual gender preference */}
@@ -6633,6 +6871,8 @@ Proceed?`
                       <div className="flex items-start gap-2">
                         {deltaCacheProgress.status === 'running' ? (
                           <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-cyan-300" />
+                        ) : deltaCacheProgress.status === 'paused' ? (
+                          <Clock className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300" />
                         ) : deltaCacheProgress.status === 'completed' ? (
                           <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
                         ) : (
@@ -6642,6 +6882,8 @@ Proceed?`
                           <div className="text-sm font-semibold text-white">
                             Delta Cache {deltaCacheProgress.status === 'running'
                               ? 'Running'
+                              : deltaCacheProgress.status === 'paused'
+                                ? 'Ready to Resume'
                               : deltaCacheProgress.status === 'completed'
                                 ? 'Complete'
                                 : 'Failed'}
@@ -7414,7 +7656,7 @@ Proceed?`
                 <span className={`text-sm font-medium transition-colors ${
                   testModeOnly ? 'text-cyan-300' : 'text-slate-400'
                 }`}>
-                  🧪 Test Mode Only
+                  🧪 Test Mode Only (fresh, no cache)
                 </span>
               </label>
             </div>

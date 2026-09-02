@@ -347,12 +347,12 @@ export default async function handler(req, res) {
   if (!req.body?.action) return res.status(400).json({ error: 'Missing action' })
 
   const { action } = req.body
-  if (!String(action).startsWith("e3-") && !enforceRateLimit(req, res, { key: "participant-api", limit: 120, windowMs: 60_000 })) return
+  const isLegalAcceptanceAction = action === "legal-acceptance-status" || action === "accept-legal-update"
+  if (!String(action).startsWith("e3-") && !isLegalAcceptanceAction && !enforceRateLimit(req, res, { key: "participant-api", limit: 120, windowMs: 60_000 })) return
 
-  if (action === "legal-acceptance-status" || action === "accept-legal-update") {
+  if (isLegalAcceptanceAction) {
     const secureToken = String(req.body?.secure_token || "").trim()
     if (!secureToken) return res.status(401).json({ error: "A participant token is required" })
-    if (!enforceRateLimit(req, res, { key: `legal-acceptance-${action}`, limit: 20, windowMs: 60 * 60_000 })) return
 
     const { data: participant, error: participantError } = await supabase
       .from("participants")
@@ -366,6 +366,12 @@ export default async function handler(req, res) {
       return res.status(503).json({ error: "Could not verify participant identity", retryable: true })
     }
     if (!participant) return res.status(404).json({ error: "Participant not found" })
+    if (!enforceRateLimit(req, res, {
+      key: `legal-acceptance-${action}`,
+      identity: participant.id,
+      limit: action === "legal-acceptance-status" ? 120 : 10,
+      windowMs: 60 * 60_000,
+    })) return
 
     const { data: acceptanceRows, error: acceptanceError } = await supabase
       .from("participant_legal_acceptances")

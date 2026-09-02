@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { CheckCircle2, FileCheck2, ShieldCheck, Sparkles } from "lucide-react"
+import { Check, CheckCircle2, FileCheck2, ShieldCheck, Sparkles } from "lucide-react"
 import { useLocation } from "react-router"
 import { LEGAL_DOCUMENT_VERSION } from "../lib/legal"
 
@@ -107,7 +107,7 @@ export function LegalAcceptanceGate() {
   }
 
   return (
-    <div className="fixed inset-0 z-[500] flex items-end justify-center bg-slate-950/80 p-0 backdrop-blur-md sm:items-center sm:p-5" dir="rtl">
+    <div className="fixed inset-0 z-[1000] isolate flex items-end justify-center bg-slate-950/80 p-0 backdrop-blur-md sm:items-center sm:p-5" dir="rtl">
       <section
         ref={dialogRef}
         role="dialog"
@@ -142,28 +142,54 @@ export function LegalAcceptanceGate() {
           </div>
 
           <div className="space-y-3">
-            <label className="flex cursor-pointer gap-3 rounded-2xl border border-white/10 bg-white/[0.035] p-4 transition hover:border-cyan-300/30 hover:bg-white/[0.055]">
-              <input
-                type="checkbox"
-                checked={termsAccepted}
-                onChange={event => setTermsAccepted(event.target.checked)}
-                className="mt-1 h-5 w-5 shrink-0 accent-cyan-400"
-              />
+            <div
+              className="flex cursor-pointer gap-3 rounded-2xl border border-white/10 bg-white/[0.035] p-4 transition hover:border-cyan-300/30 hover:bg-white/[0.055]"
+              onClick={event => {
+                if ((event.target as HTMLElement).closest("a")) return
+                setTermsAccepted(current => !current)
+              }}
+            >
+              <button
+                type="button"
+                role="checkbox"
+                aria-checked={termsAccepted}
+                aria-label="أوافق على الشروط والأحكام المحدثة"
+                onClick={event => {
+                  event.stopPropagation()
+                  setTermsAccepted(current => !current)
+                }}
+                className={`mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 ${termsAccepted ? "border-cyan-300 bg-cyan-300 text-slate-950" : "border-slate-500 bg-slate-900 text-transparent"}`}
+              >
+                <Check className="h-4 w-4" strokeWidth={3} aria-hidden="true" />
+              </button>
               <span className="text-sm leading-6 text-slate-200">
                 قرأت وأوافق على <a className="font-black text-cyan-300 underline underline-offset-4" href="/terms" target="_blank" rel="noreferrer">الشروط والأحكام المحدثة</a>، بما فيها سياسات القبول والحظر وأنواع الفعاليات والاسترداد.
               </span>
-            </label>
-            <label className="flex cursor-pointer gap-3 rounded-2xl border border-white/10 bg-white/[0.035] p-4 transition hover:border-cyan-300/30 hover:bg-white/[0.055]">
-              <input
-                type="checkbox"
-                checked={privacyAccepted}
-                onChange={event => setPrivacyAccepted(event.target.checked)}
-                className="mt-1 h-5 w-5 shrink-0 accent-cyan-400"
-              />
+            </div>
+            <div
+              className="flex cursor-pointer gap-3 rounded-2xl border border-white/10 bg-white/[0.035] p-4 transition hover:border-cyan-300/30 hover:bg-white/[0.055]"
+              onClick={event => {
+                if ((event.target as HTMLElement).closest("a")) return
+                setPrivacyAccepted(current => !current)
+              }}
+            >
+              <button
+                type="button"
+                role="checkbox"
+                aria-checked={privacyAccepted}
+                aria-label="أقر بإشعار الخصوصية المحدث"
+                onClick={event => {
+                  event.stopPropagation()
+                  setPrivacyAccepted(current => !current)
+                }}
+                className={`mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 ${privacyAccepted ? "border-cyan-300 bg-cyan-300 text-slate-950" : "border-slate-500 bg-slate-900 text-transparent"}`}
+              >
+                <Check className="h-4 w-4" strokeWidth={3} aria-hidden="true" />
+              </button>
               <span className="text-sm leading-6 text-slate-200">
                 قرأت <a className="font-black text-cyan-300 underline underline-offset-4" href="/privacy" target="_blank" rel="noreferrer">إشعار الخصوصية المحدث</a> وأقر بمعرفتي بكيفية معالجة البيانات. ويمكنني أيضًا قراءة <a className="font-black text-cyan-300 underline underline-offset-4" href="/about" target="_blank" rel="noreferrer">وصف الفعالية</a>.
               </span>
-            </label>
+            </div>
           </div>
 
           {error ? <p role="alert" className="rounded-xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-center text-sm text-rose-200">{error}</p> : null}

@@ -4,7 +4,8 @@ import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticip
 import { buildWelcomePrompt } from "./ai-welcome-prompt.mjs"
 import { assignPriorityTables } from "../../server/event3/table-priority.mjs"
 import { buildSixBySevenPlan, optimizeRound2ByAge } from "../../server/event3/round2-age-optimizer.mjs"
-import { buildChoiceOnlySeatingPlan } from "../../server/event3/choice-only-seating.mjs"
+import { buildChoiceOnlySeatingCandidates, buildChoiceOnlySeatingPlan } from "../../server/event3/choice-only-seating.mjs"
+import { handleChoiceSeatingPreview } from "../../server/event3/choice-seating-preview.mjs"
 import { buildChoiceMatches, event3ChoicePairKey } from "../../server/event3/choice-matching.mjs"
 import { handleSeatingAlternatives } from "../../server/event3/seating-alternatives.mjs"
 import { collectEventSwapPairs, collectMatchResultSwapPairs, getTableSwapRounds } from "../../server/event3/participant-swap.mjs"
@@ -10263,6 +10264,38 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           if (error) return res.status(500).json({ error: error.message })
           return res.status(200).json({ message: "Participants selected successfully" })
         }
+        if (["e3-preview-choice-seating", "e3-apply-choice-seating-preview", "e3-get-choice-seating-report"].includes(action)) {
+          if (!hasAdminAccess) return res.status(403).json({ error: "Unauthorized" })
+          const historicalReportEventId = action === "e3-get-choice-seating-report"
+            && Number.isInteger(req.body?.preview_event_id)
+            && Number(req.body.preview_event_id) > 0
+            ? Number(req.body.preview_event_id)
+            : null
+          const choicePreviewEventId = historicalReportEventId ?? Number(realEventId)
+          const previewFormat = await loadEvent3Format(supabase, EVENT3_MATCH_ID, choicePreviewEventId)
+          if (!isChoiceOnlyEvent3(previewFormat)) {
+            return res.status(409).json({ error: "Three-option seating previews are only available for the choice-only three-round format" })
+          }
+          res.setHeader("Cache-Control", "private, no-store")
+          try {
+            const result = await handleChoiceSeatingPreview({
+              db: supabase,
+              action,
+              body: req.body,
+              eventId: choicePreviewEventId,
+              secret: cohostTokenSecret(),
+              buildCandidates: buildChoiceOnlySeatingCandidates,
+            })
+            return res.status(200).json(result)
+          } catch (error) {
+            if (!error.status) console.error(`[${action}]`, error)
+            return res.status(error.status || 500).json({
+              error: error.status ? error.message : "Failed to prepare choice seating options; try again",
+              ...(error.missing_survey_fields ? { missing_survey_fields: error.missing_survey_fields } : {}),
+              ...(error.migration_required ? { migration_required: true } : {}),
+            })
+          }
+        }
         if (action === "e3-get-seating-alternatives" || action === "e3-apply-seating-alternative") {
           if (!hasAdminAccess) return res.status(403).json({ error: "Unauthorized" })
           const alternativesFormat = await loadEvent3Format(supabase, EVENT3_MATCH_ID, currentEventId)
@@ -10298,6 +10331,12 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const choiceOnlySeating = isChoiceOnlyEvent3(seatingFormat)
           if (choiceOnlySeating && participantNumbers.length !== 42) {
             return res.status(400).json({ error: "The three-group choice-only format requires exactly 42 participants (6 groups of 7)" })
+          }
+          if (choiceOnlySeating) {
+            return res.status(409).json({
+              error: "Choice-only seating now requires previewing and approving one of the three ranked options",
+              preview_action: "e3-preview-choice-seating",
+            })
           }
 
           // Classic test mode skips fresh compatibility work. Choice-only mode
@@ -12018,16 +12057,35 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           return res.status(200).json({ message: `Moved #${participantNumber} to table ${tableNumber} in round ${assignmentRound}` })
         }
         // e3-swap-table-numbers (atomically exchange two complete tables).
-        // Group-round table labels stay linked across rounds 1 and 2. The two
-        // one-to-one phases (20/30) are exchanged independently.
+        // Group-round table labels stay linked across every group round in the
+        // edition format. The two one-to-one phases (20/30) are independent.
         if (action === "e3-swap-table-numbers") {
           const round = Number(req.body.round)
           const tableA = Number(req.body.table_a)
           const tableB = Number(req.body.table_b)
-          const rounds = getTableSwapRounds(round)
-          if (!rounds) return res.status(400).json({ error: "Round must be 1, 2, 20, or 30" })
+          const tableSwapFormat = await loadEvent3Format(supabase, EVENT3_MATCH_ID, currentEventId)
+          const choiceOnlyTableSwap = isChoiceOnlyEvent3(tableSwapFormat)
+          const rounds = getTableSwapRounds(round, { choiceOnly: choiceOnlyTableSwap })
+          if (!rounds) {
+            return res.status(400).json({
+              error: choiceOnlyTableSwap
+                ? "Round must be 1, 2, 3, 20, or 30 (round 40 table labels are read-only)"
+                : "Round must be 1, 2, 20, or 30",
+            })
+          }
           if (!Number.isInteger(tableA) || !Number.isInteger(tableB) || tableA <= 0 || tableB <= 0 || tableA > 99 || tableB > 99 || tableA === tableB) {
             return res.status(400).json({ error: "Two different table numbers between 1 and 99 are required" })
+          }
+
+          const { data: tableSwapState, error: tableSwapStateError } = await supabase.from("event_state")
+            .select("current_event_id,test_mode_active,test_mode_snapshot")
+            .eq("match_id", EVENT3_MATCH_ID)
+            .maybeSingle()
+          if (tableSwapStateError || !tableSwapState) {
+            return res.status(503).json({ error: tableSwapStateError?.message || "Event context is temporarily unavailable" })
+          }
+          if (Number(tableSwapState.current_event_id) !== Number(currentEventId)) {
+            return res.status(409).json({ error: "Table numbers can only be changed for the active current event" })
           }
 
           const { data, error } = await supabase.rpc("swap_event3_table_numbers_v2", {
@@ -12036,44 +12094,53 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             p_rounds: rounds,
             p_table_a: tableA,
             p_table_b: tableB,
+            p_expected_test_mode: tableSwapState.test_mode_active === true,
+            p_expected_started_at: tableSwapState.test_mode_snapshot?.started_at || null,
           })
           if (error) {
             if (isMissingAdmin3SwapRpc(error)) {
               return res.status(501).json({ error: "The atomic admin3 swap migration has not been applied yet", migration_required: true })
             }
-            return res.status(500).json({ error: error.message })
+            const status = error.code === "22023" ? 400 : ["55000", "P0001"].includes(error.code) ? 409 : 500
+            return res.status(status).json({ error: error.message })
           }
-          const roundLabel = rounds.length === 2 ? "group rounds 1 and 2" : `round ${round}`
+          const roundLabel = rounds.length > 1 ? `group rounds ${rounds.join(", ")}` : `round ${round}`
           return res.status(200).json({ ...data, message: `Swapped table ${tableA} ↔ ${tableB} in ${roundLabel}` })
         }
-        // e3-swap-seating (swap two participants across the two group rounds).
+        // e3-swap-seating (swap two participants across every edition group round).
         // One-to-one rounds are deliberately excluded because moving seats there
         // without changing reciprocal match rows would separate partners.
         if (action === "e3-swap-seating") {
           const numA = Number(req.body.num_a)
           const numB = Number(req.body.num_b)
           if (!Number.isInteger(numA) || !Number.isInteger(numB) || numA <= 0 || numB <= 0 || numA === numB || numA === 9999 || numB === 9999) return res.status(400).json({ error: "Two different participant numbers required" })
-          const seatingSwapFormat = await loadEvent3Format(supabase, EVENT3_MATCH_ID, currentEventId)
-          if (isChoiceOnlyEvent3(seatingSwapFormat)) {
-            const { data: seatingSwapState, error: seatingSwapStateError } = await supabase.from("event_state").select("phase,current_event_id").eq("match_id", EVENT3_MATCH_ID).single()
-            if (seatingSwapStateError) return res.status(503).json({ error: seatingSwapStateError.message })
-            if (seatingSwapState.phase !== "setup" || Number(seatingSwapState.current_event_id) !== Number(currentEventId)) {
-              return res.status(409).json({ error: "Choice-only group seats can only be swapped during setup" })
-            }
+          const { data: seatingSwapState, error: seatingSwapStateError } = await supabase.from("event_state")
+            .select("current_event_id,test_mode_active,test_mode_snapshot")
+            .eq("match_id", EVENT3_MATCH_ID)
+            .maybeSingle()
+          if (seatingSwapStateError || !seatingSwapState) {
+            return res.status(503).json({ error: seatingSwapStateError?.message || "Event context is temporarily unavailable" })
           }
-          const { data, error } = await supabase.rpc("swap_event3_group_seats", {
+          if (Number(seatingSwapState.current_event_id) !== Number(currentEventId)) {
+            return res.status(409).json({ error: "Group seats can only be swapped for the active current event" })
+          }
+          const { data, error } = await supabase.rpc("swap_event3_group_seats_v2", {
             p_match_id: EVENT3_MATCH_ID,
             p_event_id: currentEventId,
             p_participant_a: numA,
             p_participant_b: numB,
+            p_expected_test_mode: seatingSwapState.test_mode_active === true,
+            p_expected_started_at: seatingSwapState.test_mode_snapshot?.started_at || null,
           })
           if (error) {
             if (isMissingAdmin3SwapRpc(error)) {
               return res.status(501).json({ error: "The atomic admin3 swap migration has not been applied yet", migration_required: true })
             }
-            return res.status(500).json({ error: error.message })
+            const status = error.code === "22023" ? 400 : ["55000", "P0001"].includes(error.code) ? 409 : 500
+            return res.status(status).json({ error: error.message })
           }
-          return res.status(200).json({ ...data, message: `Swapped #${numA} ↔ #${numB} in group rounds 1 and 2` })
+          const seatingSwapRounds = data?.event_format === "choice_only_three_groups" ? "group rounds 1, 2, and 3" : "group rounds 1 and 2"
+          return res.status(200).json({ ...data, message: `Swapped #${numA} ↔ #${numB} in ${seatingSwapRounds}` })
         }
         // e3-clear-rankings
         if (action === "e3-clear-rankings") {

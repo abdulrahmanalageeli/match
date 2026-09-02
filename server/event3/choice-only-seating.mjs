@@ -6,6 +6,23 @@ const TABLE_COUNT = 6
 const GROUP_SIZE = 7
 const PARTICIPANT_COUNT = TABLE_COUNT * GROUP_SIZE
 
+export const CHOICE_ONLY_SEATING_OBJECTIVE_VERSION = "spark-depth-rhythm-v1"
+
+// Preview alternatives must feel like different complete plans, not the same
+// tables with different numbers. Replacing half of the 126 companion
+// relationships in every round means every accepted option changes at least
+// three of an average participant's six tablemates. Requiring 36 affected
+// participants also prevents those changes from being concentrated in one
+// corner.
+const CANDIDATE_DIVERSITY_POLICY = Object.freeze({
+  minimumPairMembershipChangesPerRound: 126,
+  minimumParticipantsWithChangedCompanionsPerRound: 36,
+  // Retain the original response keys for persisted previews created while
+  // this feature was in development.
+  minimumPairMembershipChangesPerLensRound: 126,
+  minimumParticipantsWithChangedCompanionsPerLensRound: 36,
+})
+
 const modulo = value => ((value % TABLE_COUNT) + TABLE_COUNT) % TABLE_COUNT
 
 function duplicateColumnPair(values) {
@@ -145,6 +162,93 @@ function pairSet(groups) {
   return result
 }
 
+function popcount32(value) {
+  value -= (value >>> 1) & 0x55555555
+  value = (value & 0x33333333) + ((value >>> 2) & 0x33333333)
+  return (((value + (value >>> 4)) & 0x0f0f0f0f) * 0x01010101) >>> 24
+}
+
+function buildPairSignature(groups, participantIndex) {
+  const pairBits = new Uint32Array(Math.ceil((PARTICIPANT_COUNT ** 2) / 32))
+  const companionBits = new Uint32Array(PARTICIPANT_COUNT * 2)
+  for (const group of groups) {
+    for (let left = 0; left < group.length; left++) {
+      for (let right = left + 1; right < group.length; right++) {
+        const leftIndex = participantIndex.get(group[left])
+        const rightIndex = participantIndex.get(group[right])
+        const a = Math.min(leftIndex, rightIndex)
+        const b = Math.max(leftIndex, rightIndex)
+        const pairIndex = (a * PARTICIPANT_COUNT) + b
+        pairBits[pairIndex >>> 5] |= 1 << (pairIndex & 31)
+        companionBits[(a * 2) + (b >>> 5)] |= 1 << (b & 31)
+        companionBits[(b * 2) + (a >>> 5)] |= 1 << (a & 31)
+      }
+    }
+  }
+  return { pairBits, companionBits }
+}
+
+function pairDifference(left, right) {
+  let changedPairMemberships = 0
+  for (let index = 0; index < left.pairBits.length; index++) {
+    changedPairMemberships += popcount32(left.pairBits[index] ^ right.pairBits[index])
+  }
+  let participantsWithChangedCompanions = 0
+  for (let index = 0; index < PARTICIPANT_COUNT; index++) {
+    if (left.companionBits[index * 2] !== right.companionBits[index * 2]
+      || left.companionBits[(index * 2) + 1] !== right.companionBits[(index * 2) + 1]) {
+      participantsWithChangedCompanions++
+    }
+  }
+  return {
+    changedPairMemberships,
+    replacedPairs: changedPairMemberships / 2,
+    participantsWithChangedCompanions,
+    averageTablematesReplaced: changedPairMemberships / PARTICIPANT_COUNT,
+    averageCompanionMembershipChanges: (changedPairMemberships * 2) / PARTICIPANT_COUNT,
+  }
+}
+
+function diversityBetweenPlans(left, right) {
+  const round1 = pairDifference(left.round1.pairSignature, right.round1.pairSignature)
+  const round2 = pairDifference(left.round2.pairSignature, right.round2.pairSignature)
+  const round3 = pairDifference(left.round3.pairSignature, right.round3.pairSignature)
+  let participantsWithAnyChangedCompanions = 0
+  for (let index = 0; index < PARTICIPANT_COUNT; index++) {
+    const round1Changed = left.round1.pairSignature.companionBits[index * 2]
+      !== right.round1.pairSignature.companionBits[index * 2]
+      || left.round1.pairSignature.companionBits[(index * 2) + 1]
+        !== right.round1.pairSignature.companionBits[(index * 2) + 1]
+    const round2Changed = left.round2.pairSignature.companionBits[index * 2]
+      !== right.round2.pairSignature.companionBits[index * 2]
+      || left.round2.pairSignature.companionBits[(index * 2) + 1]
+        !== right.round2.pairSignature.companionBits[(index * 2) + 1]
+    const round3Changed = left.round3.pairSignature.companionBits[index * 2]
+      !== right.round3.pairSignature.companionBits[index * 2]
+      || left.round3.pairSignature.companionBits[(index * 2) + 1]
+        !== right.round3.pairSignature.companionBits[(index * 2) + 1]
+    if (round1Changed || round2Changed || round3Changed) participantsWithAnyChangedCompanions++
+  }
+  return {
+    round1,
+    round2,
+    round3,
+    totalChangedPairMemberships: round1.changedPairMemberships
+      + round2.changedPairMemberships
+      + round3.changedPairMemberships,
+    participantsWithAnyChangedCompanions,
+  }
+}
+
+function isMateriallyDifferent(candidate, selected, roundNumbers = [1, 2, 3]) {
+  const diversity = diversityBetweenPlans(candidate, selected)
+  return roundNumbers.map(round => diversity[`round${round}`]).every(round => (
+    round.changedPairMemberships >= CANDIDATE_DIVERSITY_POLICY.minimumPairMembershipChangesPerRound
+    && round.participantsWithChangedCompanions
+      >= CANDIDATE_DIVERSITY_POLICY.minimumParticipantsWithChangedCompanionsPerRound
+  ))
+}
+
 function intersection(left, right) {
   return [...left].filter(value => right.has(value))
 }
@@ -272,52 +376,78 @@ function summarizeRhythm(groupScores) {
   }
 }
 
-function compareShiftVectors(left, right) {
-  for (let index = 0; index < left.length; index++) {
-    if (left[index] !== right[index]) return left[index] - right[index]
+function compareNumberVectors(left, right) {
+  const length = Math.max(left.length, right.length)
+  for (let index = 0; index < length; index++) {
+    const difference = (left[index] ?? 0) - (right[index] ?? 0)
+    if (Math.abs(difference) > 1e-9) return difference
   }
   return 0
 }
 
-function compareJointPlans(left, right) {
-  const leftWorstGenderSpread = Math.max(left.round2.gender.maximumSpread, left.round3.gender.maximumSpread)
-  const rightWorstGenderSpread = Math.max(right.round2.gender.maximumSpread, right.round3.gender.maximumSpread)
-  const leftWorstGenderDeviation = Math.max(left.round2.gender.squaredDeviation, left.round3.gender.squaredDeviation)
-  const rightWorstGenderDeviation = Math.max(right.round2.gender.squaredDeviation, right.round3.gender.squaredDeviation)
-  const leftLockedPairs = left.round2.depth.lockedPairs + left.round3.rhythm.lockedPairs
-  const rightLockedPairs = right.round2.depth.lockedPairs + right.round3.rhythm.lockedPairs
-  const numeric = [
-    leftWorstGenderSpread - rightWorstGenderSpread,
-    (left.round2.gender.maximumSpread + left.round3.gender.maximumSpread)
-      - (right.round2.gender.maximumSpread + right.round3.gender.maximumSpread),
-    (left.round2.gender.squaredDeviation + left.round3.gender.squaredDeviation)
-      - (right.round2.gender.squaredDeviation + right.round3.gender.squaredDeviation),
-    leftWorstGenderDeviation - rightWorstGenderDeviation,
-    leftLockedPairs - rightLockedPairs,
-    left.round2.depth.lockedPairs - right.round2.depth.lockedPairs,
-    left.round2.depth.incompleteDepthCoverage - right.round2.depth.incompleteDepthCoverage,
-    left.round2.depth.incompleteRoleCoverage - right.round2.depth.incompleteRoleCoverage,
-    left.round2.depth.incompleteCuriosityCoverage - right.round2.depth.incompleteCuriosityCoverage,
-    left.round2.depth.depthMismatches - right.round2.depth.depthMismatches,
-    left.round2.depth.missingInitiators - right.round2.depth.missingInitiators,
-    left.round2.depth.missingCuriosityMixes - right.round2.depth.missingCuriosityMixes,
-    left.round3.rhythm.incompleteRoleCoverage - right.round3.rhythm.incompleteRoleCoverage,
-    left.round3.rhythm.incompleteCuriosityCoverage - right.round3.rhythm.incompleteCuriosityCoverage,
-    left.round3.rhythm.missingInitiators - right.round3.rhythm.missingInitiators,
-    left.round3.rhythm.missingRoleTrios - right.round3.rhythm.missingRoleTrios,
-    left.round3.rhythm.missingCuriosityFlows - right.round3.rhythm.missingCuriosityFlows,
-    left.round3.rhythm.humorClashes - right.round3.rhythm.humorClashes,
-    right.minimumLensQuality - left.minimumLensQuality,
-    right.quality - left.quality,
-    right.anchorMinimum - left.anchorMinimum,
-    right.round2.quality - left.round2.quality,
-    right.round3.quality - left.round3.quality,
-    left.ageCost - right.ageCost,
-    left.round3.ageCost - right.round3.ageCost,
+function canonicalRound1MembershipVector(groups) {
+  return groups
+    .map(group => [...group].sort((left, right) => left - right))
+    .sort(compareNumberVectors)
+    .flat()
+}
+
+function round1ObjectiveVector(candidate) {
+  const fitness = candidate.spark?.metrics?.after || {}
+  return [
+    // The established unconstrained winner remains rank one for backwards
+    // compatibility. Every alternative is then ranked by exactly the old
+    // Spark priorities before the later-lens objective.
+    candidate.round1?.establishedBest === true ? 0 : 1,
+    Number(fitness.lockedPairs || 0),
+    Number(fitness.depthMismatches || 0),
+    Number(fitness.missingInitiators || 0),
+    Number(fitness.ageRangeViolations || 0),
+    -Number(fitness.score || 0),
+    ...canonicalRound1MembershipVector(candidate.round1?.groups || []),
   ]
-  for (const difference of numeric) if (Math.abs(difference) > 1e-9) return difference
-  return compareShiftVectors(left.round2.shifts, right.round2.shifts)
-    || compareShiftVectors(left.round3.shifts, right.round3.shifts)
+}
+
+function jointPlanObjectiveVector(candidate) {
+  const worstGenderSpread = Math.max(candidate.round2.gender.maximumSpread, candidate.round3.gender.maximumSpread)
+  const worstGenderDeviation = Math.max(candidate.round2.gender.squaredDeviation, candidate.round3.gender.squaredDeviation)
+  const lockedPairs = candidate.round2.depth.lockedPairs + candidate.round3.rhythm.lockedPairs
+  return [
+    ...round1ObjectiveVector(candidate),
+    worstGenderSpread,
+    candidate.round2.gender.maximumSpread + candidate.round3.gender.maximumSpread,
+    candidate.round2.gender.squaredDeviation + candidate.round3.gender.squaredDeviation,
+    worstGenderDeviation,
+    lockedPairs,
+    candidate.round2.depth.lockedPairs,
+    candidate.round2.depth.incompleteDepthCoverage,
+    candidate.round2.depth.incompleteRoleCoverage,
+    candidate.round2.depth.incompleteCuriosityCoverage,
+    candidate.round2.depth.depthMismatches,
+    candidate.round2.depth.missingInitiators,
+    candidate.round2.depth.missingCuriosityMixes,
+    candidate.round3.rhythm.incompleteRoleCoverage,
+    candidate.round3.rhythm.incompleteCuriosityCoverage,
+    candidate.round3.rhythm.missingInitiators,
+    candidate.round3.rhythm.missingRoleTrios,
+    candidate.round3.rhythm.missingCuriosityFlows,
+    candidate.round3.rhythm.humorClashes,
+    -candidate.minimumLensQuality,
+    -candidate.quality,
+    -candidate.anchorMinimum,
+    -candidate.round2.quality,
+    -candidate.round3.quality,
+    candidate.ageCost,
+    candidate.round3.ageCost,
+    ...candidate.round2.shifts,
+    ...candidate.round3.shifts,
+  ]
+}
+
+function compareJointPlans(left, right) {
+  const leftObjective = jointPlanObjectiveVector(left)
+  const rightObjective = jointPlanObjectiveVector(right)
+  return compareNumberVectors(leftObjective, rightObjective)
 }
 
 function normalizedParticipants(values) {
@@ -341,12 +471,16 @@ function normalizedParticipants(values) {
  * layouts for Depth/Common Ground and strong Spark anchors. Round three keeps
  * the same repeat lower bound while optimizing Rhythm/Discovery.
  */
-export function buildChoiceOnlySeatingPlan(values, {
+function buildChoiceOnlySeatingSearch(values, {
   genderMap = {},
   ageMap = {},
   profileMap = new Map(),
   lockedPairsSet = new Set(),
   requireCompleteLensProfiles = false,
+} = {}, candidateCount = 1, {
+  round1Source = null,
+  excludedCandidates = [],
+  diversityRoundNumbers = [1, 2, 3],
 } = {}) {
   const normalized = normalizedParticipants(values)
   if (normalized.error) return normalized
@@ -364,17 +498,34 @@ export function buildChoiceOnlySeatingPlan(values, {
     }
   }
 
-  const genderObject = genderMap instanceof Map ? Object.fromEntries(genderMap) : genderMap
-  const balanced = buildSixBySevenPlan(participants, genderObject)
-  const baselineRound1 = balanced?.round1 || Array.from({ length: TABLE_COUNT }, (_, table) =>
-    participants.slice(table * GROUP_SIZE, (table + 1) * GROUP_SIZE))
-  const spark = optimizeRound1SparkGroups(baselineRound1, {
-    genderMap,
-    ageMap,
-    profileMap,
-    lockedPairsSet,
-  })
+  const participantIndex = new Map(participants.map((number, index) => [number, index]))
+  let spark
+  if (round1Source) {
+    spark = {
+      groups: round1Source.spark.groups.map(group => [...group]),
+      metrics: round1Source.spark.metrics,
+    }
+  } else {
+    const genderObject = genderMap instanceof Map ? Object.fromEntries(genderMap) : genderMap
+    const balanced = buildSixBySevenPlan(participants, genderObject)
+    const baselineRound1 = balanced?.round1 || Array.from({ length: TABLE_COUNT }, (_, table) =>
+      participants.slice(table * GROUP_SIZE, (table + 1) * GROUP_SIZE))
+    spark = optimizeRound1SparkGroups(baselineRound1, {
+      genderMap,
+      ageMap,
+      profileMap,
+      lockedPairsSet,
+    })
+  }
   const round1 = spark.groups
+  const round1Layout = {
+    groups: round1,
+    pairSignature: buildPairSignature(round1, participantIndex),
+    gender: genderScore(round1, genderMap),
+    ageCost: ageCost(round1, ageMap),
+    establishedBest: !round1Source,
+    variantKey: round1Source?.variantKey || "primary",
+  }
   const lenses = createRoundLensScorer({ profileMap, lockedPairsSet })
 
   const layoutCache = new Map()
@@ -384,6 +535,7 @@ export function buildChoiceOnlySeatingPlan(values, {
     const layout = {
       shifts,
       groups,
+      pairSignature: buildPairSignature(groups, participantIndex),
       gender: genderScore(groups, genderMap),
       ageCost: ageCost(groups, ageMap),
     }
@@ -422,42 +574,69 @@ export function buildChoiceOnlySeatingPlan(values, {
     return candidate
   }
 
-  let best = null
-  for (const [round2Shifts, round3Shifts] of getFeasibleShiftPairs()) {
-    const round2Candidate = round2For(round2Shifts)
-    // Selecting the rounds together prevents a locally attractive Depth round
-    // from stranding Rhythm without a gender-balanced, burden-one solution.
-    const round3Base = round3BaseFor(round3Shifts)
-    const sparkAnchors = round3Base.sparkAnchors
-    const depthAnchors = anchorStats(
-      repeatedBetweenShiftPairKeys(round1, round2Shifts, round3Shifts),
-      lenses.depthPairScore,
-    )
-    const allAnchorMinimum = Math.min(sparkAnchors.minimum, depthAnchors.minimum)
-    const round3Candidate = {
-      ...round3Base,
-      anchors: {
-        round1Spark: sparkAnchors,
-        round2Depth: depthAnchors,
-        minimum: allAnchorMinimum,
-      },
-      quality: (round3Base.rhythm.qualityScore * 0.75)
-        + (sparkAnchors.average * 0.10)
-        + (depthAnchors.average * 0.10)
-        + (allAnchorMinimum * 0.05),
+  const bestCandidates = []
+  for (let rank = 0; rank < candidateCount; rank++) {
+    let best = null
+    for (const [round2Shifts, round3Shifts] of getFeasibleShiftPairs()) {
+      const round2Candidate = round2For(round2Shifts)
+      // Selecting the rounds together prevents a locally attractive Depth round
+      // from stranding Rhythm without a gender-balanced, burden-one solution.
+      const round3Base = round3BaseFor(round3Shifts)
+      const diversityProbe = {
+        round1: round1Layout,
+        spark,
+        round2: round2Candidate,
+        round3: round3Base,
+      }
+      if ([...excludedCandidates, ...bestCandidates]
+        .some(selected => !isMateriallyDifferent(diversityProbe, selected, diversityRoundNumbers))) continue
+
+      const sparkAnchors = round3Base.sparkAnchors
+      const depthAnchors = anchorStats(
+        repeatedBetweenShiftPairKeys(round1, round2Shifts, round3Shifts),
+        lenses.depthPairScore,
+      )
+      const allAnchorMinimum = Math.min(sparkAnchors.minimum, depthAnchors.minimum)
+      const round3Candidate = {
+        ...round3Base,
+        anchors: {
+          round1Spark: sparkAnchors,
+          round2Depth: depthAnchors,
+          minimum: allAnchorMinimum,
+        },
+        quality: (round3Base.rhythm.qualityScore * 0.75)
+          + (sparkAnchors.average * 0.10)
+          + (depthAnchors.average * 0.10)
+          + (allAnchorMinimum * 0.05),
+      }
+      const candidate = {
+        round1: round1Layout,
+        spark,
+        round2: round2Candidate,
+        round3: round3Candidate,
+        quality: round2Candidate.quality + round3Candidate.quality,
+        minimumLensQuality: Math.min(round2Candidate.quality, round3Candidate.quality),
+        anchorMinimum: Math.min(round2Candidate.anchors.minimum, round3Candidate.anchors.minimum),
+        ageCost: round2Candidate.ageCost + round3Candidate.ageCost,
+      }
+      if (!best || compareJointPlans(candidate, best) < 0) best = candidate
     }
-    const candidate = {
-      round2: round2Candidate,
-      round3: round3Candidate,
-      quality: round2Candidate.quality + round3Candidate.quality,
-      minimumLensQuality: Math.min(round2Candidate.quality, round3Candidate.quality),
-      anchorMinimum: Math.min(round2Candidate.anchors.minimum, round3Candidate.anchors.minimum),
-      ageCost: round2Candidate.ageCost + round3Candidate.ageCost,
+    if (!best) {
+      return {
+        error: candidateCount === 1
+          ? "Could not construct joint minimum-repeat Depth and Rhythm rounds"
+          : `Could not construct ${candidateCount} materially different minimum-repeat seating candidates`,
+      }
     }
-    if (!best || compareJointPlans(candidate, best) < 0) best = candidate
+    bestCandidates.push(best)
   }
 
-  if (!best) return { error: "Could not construct joint minimum-repeat Depth and Rhythm rounds" }
+  return { participants, bestCandidates }
+}
+
+function serializeChoiceOnlyPlan({ participants }, best) {
+  const round1 = best.round1.groups
+  const spark = best.spark
   const round2 = best.round2.groups
   const round3 = best.round3.groups
   const repeatMetrics = choiceOnlySeatingMetrics(round1, round2, round3)
@@ -488,4 +667,148 @@ export function buildChoiceOnlySeatingPlan(values, {
       repeatMetrics,
     },
   }
+}
+
+function candidateIdentifier(candidate) {
+  const round1Prefix = candidate.round1.establishedBest ? "" : `r1-${candidate.round1.variantKey}-`
+  return `${round1Prefix}r2-${candidate.round2.shifts.join("")}-r3-${candidate.round3.shifts.join("")}`
+}
+
+function canonicalObjective(candidate) {
+  const sparkFitness = candidate.spark?.metrics?.after || {}
+  return {
+    version: CHOICE_ONLY_SEATING_OBJECTIVE_VERSION,
+    sortKey: jointPlanObjectiveVector(candidate),
+    establishedBest: candidate.round1.establishedBest === true,
+    round1SparkScore: sparkFitness.score ?? null,
+    quality: candidate.quality,
+    minimumLensQuality: candidate.minimumLensQuality,
+    anchorMinimum: candidate.anchorMinimum,
+    ageCost: candidate.ageCost,
+  }
+}
+
+function round1MembershipKey(groups) {
+  return canonicalRound1MembershipVector(groups).join(".")
+}
+
+function round1VariantKey(groups) {
+  let hash = 14695981039346656037n
+  for (const number of canonicalRound1MembershipVector(groups)) {
+    hash ^= BigInt(number)
+    hash = BigInt.asUintN(64, hash * 1099511628211n)
+  }
+  return hash.toString(36)
+}
+
+function rawSparkResult(groups, scored) {
+  return {
+    groups: groups.map(group => [...group]),
+    metrics: {
+      before: scored.metrics.before,
+      after: scored.metrics.before,
+      swaps: 0,
+    },
+  }
+}
+
+function alternativeRound1Sources(seedCandidates, options) {
+  const sources = []
+  const add = spark => sources.push({
+    spark,
+    variantKey: round1VariantKey(spark.groups),
+  })
+
+  // The three already-ranked Depth layouts are pairwise diverse and retain
+  // the structural gender guarantees. Re-optimizing each one with the legacy
+  // Spark scorer produces high-quality alternative first rounds; the raw
+  // layout remains as a deterministic fallback if local optimization converges
+  // back toward an earlier arrangement.
+  for (const candidate of seedCandidates) {
+    const seed = candidate.round2.groups.map(group => [...group])
+    const optimized = optimizeRound1SparkGroups(seed, options)
+    add(optimized)
+    add(rawSparkResult(seed, optimized))
+  }
+  const unique = new Map()
+  for (const source of sources) {
+    const key = round1MembershipKey(source.spark.groups)
+    if (!unique.has(key)) unique.set(key, source)
+  }
+  return [...unique.values()].sort((left, right) => compareNumberVectors(
+    round1ObjectiveVector({
+      round1: { groups: left.spark.groups, establishedBest: false },
+      spark: left.spark,
+    }),
+    round1ObjectiveVector({
+      round1: { groups: right.spark.groups, establishedBest: false },
+      spark: right.spark,
+    }),
+  ))
+}
+
+/**
+ * Return three deterministic, canonically ranked preview choices. Rank two is
+ * the best plan materially different from rank one; rank three is the best
+ * plan materially different from both earlier choices. All three use the same
+ * objective and preserve the exact structural repeat guarantees while applying
+ * the same gender, protected-pair, lens-quality, and age priorities.
+ *
+ * Rank one intentionally remains the established best Spark arrangement for
+ * backwards compatibility. Ranks two and three use separately Spark-scored
+ * first rounds, then rebuild both later rounds from those grids. Material
+ * diversity is enforced independently in all three rounds.
+ */
+export function buildChoiceOnlySeatingCandidates(values, options = {}) {
+  const primarySearch = buildChoiceOnlySeatingSearch(values, options, 3, {
+    // These two extra fixed-Spark results only seed alternative Round 1 grids.
+    diversityRoundNumbers: [2, 3],
+  })
+  if (primarySearch.error) return primarySearch
+
+  const bestCandidates = [primarySearch.bestCandidates[0]]
+  const sources = alternativeRound1Sources(primarySearch.bestCandidates, options)
+  for (const round1Source of sources) {
+    if (bestCandidates.length === 3) break
+    const search = buildChoiceOnlySeatingSearch(values, options, 1, {
+      round1Source,
+      excludedCandidates: bestCandidates,
+    })
+    if (!search.error) bestCandidates.push(search.bestCandidates[0])
+  }
+  if (bestCandidates.length !== 3) {
+    return { error: "Could not construct three materially different complete seating candidates" }
+  }
+
+  const resultContext = { participants: primarySearch.participants }
+  const ids = bestCandidates.map(candidateIdentifier)
+  const candidates = bestCandidates.map((candidate, index) => {
+    const comparisons = bestCandidates.slice(0, index).map((earlier, earlierIndex) => ({
+      candidateId: ids[earlierIndex],
+      rank: earlierIndex + 1,
+      ...diversityBetweenPlans(candidate, earlier),
+    }))
+    return {
+      id: ids[index],
+      rank: index + 1,
+      plan: serializeChoiceOnlyPlan(resultContext, candidate),
+      canonicalObjective: canonicalObjective(candidate),
+      diversity: {
+        round1Fixed: false,
+        fromBest: comparisons[0] || null,
+        comparedWithEarlier: comparisons,
+      },
+    }
+  })
+  return {
+    objectiveVersion: CHOICE_ONLY_SEATING_OBJECTIVE_VERSION,
+    diversityPolicy: { ...CANDIDATE_DIVERSITY_POLICY },
+    candidates,
+  }
+}
+
+export function buildChoiceOnlySeatingPlan(values, options = {}) {
+  const search = buildChoiceOnlySeatingSearch(values, options, 1)
+  if (search.error) return search
+  return serializeChoiceOnlyPlan(search, search.bestCandidates[0])
 }

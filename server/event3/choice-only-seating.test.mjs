@@ -1,7 +1,12 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import { buildChoiceOnlySeatingPlan, choiceOnlySeatingMetrics } from "./choice-only-seating.mjs"
+import {
+  buildChoiceOnlySeatingCandidates,
+  buildChoiceOnlySeatingPlan,
+  CHOICE_ONLY_SEATING_OBJECTIVE_VERSION,
+  choiceOnlySeatingMetrics,
+} from "./choice-only-seating.mjs"
 import { createRoundLensScorer } from "./round23-lenses.mjs"
 
 const participants = Array.from({ length: 42 }, (_, index) => index + 1)
@@ -52,6 +57,21 @@ function repeatBurden(round1, round2, round3) {
   return burden
 }
 
+function compareSortKeys(left, right) {
+  for (let index = 0; index < left.length; index++) {
+    const difference = left[index] - right[index]
+    if (Math.abs(difference) > 1e-9) return difference
+  }
+  return 0
+}
+
+function changedPairMemberships(left, right) {
+  const leftPairs = pairSet(left)
+  const rightPairs = pairSet(right)
+  return [...leftPairs].filter(key => !rightPairs.has(key)).length
+    + [...rightPairs].filter(key => !leftPairs.has(key)).length
+}
+
 function richProfile(number, gender) {
   const style = ["A", "B", "C", "B"][number % 4]
   const role = ["A", "B", "C"][number % 3]
@@ -93,6 +113,12 @@ function richProfile(number, gender) {
   }
 }
 
+let cachedPreview = null
+function basePreview() {
+  cachedPreview ||= buildChoiceOnlySeatingCandidates(participants)
+  return cachedPreview
+}
+
 test("creates three complete rounds of six groups of exactly seven", () => {
   const plan = buildChoiceOnlySeatingPlan(participants)
   assert.equal(plan.error, undefined)
@@ -103,6 +129,108 @@ test("creates three complete rounds of six groups of exactly seven", () => {
   assert.equal(Object.keys(plan.positionMap).length, 42)
   for (let index = 0; index < participants.length; index++) {
     assert.equal(plan.positionMap[plan.round1.flat()[index]], index)
+  }
+})
+
+test("returns three deterministic preview candidates without changing the established best plan", () => {
+  const preview = basePreview()
+  const repeated = buildChoiceOnlySeatingCandidates([...participants])
+  assert.equal(preview.error, undefined)
+  assert.equal(preview.objectiveVersion, CHOICE_ONLY_SEATING_OBJECTIVE_VERSION)
+  assert.deepEqual(repeated, preview)
+  assert.deepEqual(preview.candidates.map(candidate => candidate.rank), [1, 2, 3])
+  assert.equal(new Set(preview.candidates.map(candidate => candidate.id)).size, 3)
+  assert.deepEqual(preview.candidates[0].plan, buildChoiceOnlySeatingPlan(participants))
+})
+
+test("orders every preview by the same canonical objective", () => {
+  const { candidates } = basePreview()
+  assert.ok(compareSortKeys(
+    candidates[0].canonicalObjective.sortKey,
+    candidates[1].canonicalObjective.sortKey,
+  ) < 0)
+  assert.ok(compareSortKeys(
+    candidates[1].canonicalObjective.sortKey,
+    candidates[2].canonicalObjective.sortKey,
+  ) < 0)
+  for (const [index, candidate] of candidates.entries()) {
+    assert.equal(candidate.canonicalObjective.version, CHOICE_ONLY_SEATING_OBJECTIVE_VERSION)
+    assert.equal(candidate.canonicalObjective.establishedBest, index === 0)
+    assert.equal(
+      candidate.canonicalObjective.round1SparkScore,
+      candidate.plan.round1Spark.after.score,
+    )
+  }
+})
+
+test("makes all three rounds materially different from every earlier preview", () => {
+  const preview = basePreview()
+  const minimumChanges = preview.diversityPolicy.minimumPairMembershipChangesPerRound
+  const minimumParticipants = preview.diversityPolicy.minimumParticipantsWithChangedCompanionsPerRound
+
+  assert.equal(preview.candidates[0].diversity.fromBest, null)
+  assert.ok(preview.candidates.every(candidate => candidate.diversity.round1Fixed === false))
+  for (let index = 1; index < preview.candidates.length; index++) {
+    const candidate = preview.candidates[index]
+    assert.equal(candidate.diversity.comparedWithEarlier.length, index)
+    for (let earlierIndex = 0; earlierIndex < index; earlierIndex++) {
+      const earlier = preview.candidates[earlierIndex]
+      const comparison = candidate.diversity.comparedWithEarlier[earlierIndex]
+      assert.equal(comparison.candidateId, earlier.id)
+      assert.equal(comparison.rank, earlier.rank)
+      assert.equal(comparison.round1.changedPairMemberships, changedPairMemberships(
+        candidate.plan.round1,
+        earlier.plan.round1,
+      ))
+      assert.equal(comparison.round2.changedPairMemberships, changedPairMemberships(
+        candidate.plan.round2,
+        earlier.plan.round2,
+      ))
+      assert.equal(comparison.round3.changedPairMemberships, changedPairMemberships(
+        candidate.plan.round3,
+        earlier.plan.round3,
+      ))
+      for (const round of [comparison.round1, comparison.round2, comparison.round3]) {
+        assert.ok(round.changedPairMemberships >= minimumChanges)
+        assert.ok(round.participantsWithChangedCompanions >= minimumParticipants)
+        assert.ok(round.averageTablematesReplaced >= 3)
+      }
+    }
+  }
+})
+
+test("preserves repeat, gender, and protected-pair invariants in all three previews", () => {
+  const genderMap = Object.fromEntries(participants.map(number => [number, number <= 21 ? "female" : "male"]))
+  const lockedPairsSet = new Set(["1-2", "3-4", "5-6"])
+  const preview = buildChoiceOnlySeatingCandidates(participants, { genderMap, lockedPairsSet })
+  assert.equal(preview.error, undefined)
+
+  for (const { plan } of preview.candidates) {
+    for (const round of [plan.round1, plan.round2, plan.round3]) {
+      assertRound(round)
+      assert.ok(round.every(group => {
+        const femaleCount = group.filter(number => genderMap[number] === "female").length
+        return femaleCount === 3 || femaleCount === 4
+      }))
+      for (const group of round) {
+        const keys = new Set(groupPairKeys(group))
+        for (const locked of lockedPairsSet) assert.equal(keys.has(locked), false)
+      }
+    }
+    const metrics = choiceOnlySeatingMetrics(plan.round1, plan.round2, plan.round3)
+    assert.deepEqual({
+      round1Round2: metrics.round1Round2,
+      round1Round3: metrics.round1Round3,
+      round2Round3: metrics.round2Round3,
+      repeatedInAllThree: metrics.repeatedInAllThree,
+      maximumParticipantRepeatBurden: metrics.maximumParticipantRepeatBurden,
+    }, {
+      round1Round2: 6,
+      round1Round3: 6,
+      round2Round3: 6,
+      repeatedInAllThree: 0,
+      maximumParticipantRepeatBurden: 1,
+    })
   }
 })
 

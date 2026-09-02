@@ -16,12 +16,16 @@ test("swapNumber supports a full swap and a one-way replacement", () => {
   assert.equal(swapNumber(30, 10, 20, true), 30)
 })
 
-test("one-to-one table numbers swap only in their own phase", () => {
-  assert.deepEqual(getTableSwapRounds(1), [1, 2, 3])
-  assert.deepEqual(getTableSwapRounds(2), [1, 2, 3])
-  assert.deepEqual(getTableSwapRounds(3), [1, 2, 3])
+test("table swaps preserve classic groups and include the third choice-only group", () => {
+  assert.deepEqual(getTableSwapRounds(1), [1, 2])
+  assert.deepEqual(getTableSwapRounds(2), [1, 2])
+  assert.equal(getTableSwapRounds(3), null)
+  assert.deepEqual(getTableSwapRounds(1, { choiceOnly: true }), [1, 2, 3])
+  assert.deepEqual(getTableSwapRounds(2, { choiceOnly: true }), [1, 2, 3])
+  assert.deepEqual(getTableSwapRounds(3, { choiceOnly: true }), [1, 2, 3])
   assert.deepEqual(getTableSwapRounds(20), [20])
   assert.deepEqual(getTableSwapRounds(30), [30])
+  assert.equal(getTableSwapRounds(40), null)
   assert.equal(getTableSwapRounds(4), null)
 })
 

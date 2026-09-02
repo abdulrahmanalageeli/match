@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react"
+import { memo, useState, useEffect, useCallback, useRef, useMemo } from "react"
 import toast, { Toaster } from "react-hot-toast"
 import { useVisibilityPoll } from "~/hooks/useVisibilityPoll"
 import { adminFetch as fetch } from "~/lib/admin-fetch.mjs"
@@ -88,6 +88,613 @@ type GroupMemberFeedbackData = {
 }
 
 type Event3Format = "classic" | "choice_only_three_groups"
+
+type ChoiceSeatingTableReport = {
+  table_number: number
+  participant_numbers: number[]
+  score: number
+  gender?: { female?: number; male?: number; unknown?: number; balanced?: boolean }
+  protected_pair_violations?: Array<{ participant_a: number; participant_b: number }>
+  warnings?: string[]
+  metrics?: Record<string, unknown>
+  weakest?: boolean
+}
+
+type ChoiceSeatingRoundReport = {
+  round: number
+  lens: "spark" | "depth" | "rhythm" | string
+  score: number
+  tables: ChoiceSeatingTableReport[]
+}
+
+type ChoiceSeatingReport = {
+  schema_version?: string
+  generated_at?: string
+  candidate?: {
+    id?: string
+    rank?: number
+    label?: string
+    objective?: unknown
+    diversity?: unknown
+  }
+  summary?: {
+    overall_score?: number
+    lens_scores?: { spark?: number; depth?: number; rhythm?: number }
+    weakest_tables?: Array<{ round: number; lens: string; table_number: number; score: number; warnings?: string[] }>
+    all_gender_balanced?: boolean
+    protected_pair_violations?: number
+    missing_survey_field_count?: number
+  }
+  rounds?: ChoiceSeatingRoundReport[]
+  repeats?: {
+    round1_round2?: number
+    round1_round3?: number
+    round2_round3?: number
+    total_repeated_pair_occurrences?: number
+    repeated_in_all_three?: number
+    maximum_participant_repeat_burden?: number
+    unique_partners?: {
+      minimum?: number
+      maximum?: number
+      average?: number
+      distribution?: Record<string, number>
+      by_participant?: Array<{ participant_number: number; count: number }>
+    }
+  }
+  gender_balance?: {
+    all_tables_balanced?: boolean
+    tables?: Array<{ round: number; table_number: number; female: number; male: number; unknown: number; balanced: boolean }>
+  }
+  protected_pairs?: {
+    total_violations?: number
+    violations?: Array<{ round: number; table_number: number; participant_a: number; participant_b: number }>
+  }
+  missing_survey_fields?: Array<{ participant_number: number; fields: string[] }>
+  decision_context?: {
+    objective_version?: string
+    diversity_policy?: unknown
+    selected?: { candidate_id?: string; rank?: number }
+    alternatives_summary?: Array<{
+      candidate_id: string
+      rank: number
+      label?: string
+      objective?: unknown
+      diversity?: any
+      overall_score?: number
+      lens_scores?: { spark?: number; depth?: number; rhythm?: number }
+      weakest_tables?: Array<{ round?: number; lens?: string; table_number?: number; score?: number; warnings?: string[] }>
+      protected_pair_violations?: number
+      all_gender_balanced?: boolean
+      repeats?: {
+        round1_round2?: number
+        round1_round3?: number
+        round2_round3?: number
+        repeated_in_all_three?: number
+        maximum_participant_repeat_burden?: number
+        unique_partner_minimum?: number
+        unique_partner_maximum?: number
+      }
+    }>
+  }
+}
+
+type ChoiceSeatingCandidate = {
+  candidate_id: string
+  rank: 1 | 2 | 3 | number
+  label?: string
+  token: string
+  round1: number[][]
+  round2: number[][]
+  round3: number[][]
+  report: ChoiceSeatingReport
+}
+
+type ChoiceSeatingPreviewResponse = {
+  event_format?: string
+  expires_at?: string | number
+  candidates: ChoiceSeatingCandidate[]
+}
+
+type PersistedChoiceSeatingReport = {
+  id?: number | string
+  candidate_rank?: number
+  generator_version?: string
+  context_hash?: string
+  report: ChoiceSeatingReport
+  assignments?: { round1?: number[][]; round2?: number[][]; round3?: number[][] }
+  created_at?: string
+  matches_current_seating?: boolean
+  current_assignment_count?: number
+}
+
+const choiceCandidateLabels: Record<number, { english: string; arabic: string; style: string }> = {
+  1: { english: "Best", arabic: "الأفضل", style: "border-emerald-500/60 bg-emerald-950/35 text-emerald-200" },
+  2: { english: "Second-best", arabic: "الثاني", style: "border-cyan-500/50 bg-cyan-950/30 text-cyan-200" },
+  3: { english: "Third-best", arabic: "الثالث", style: "border-violet-500/50 bg-violet-950/30 text-violet-200" },
+}
+
+const choiceLensLabels: Record<string, { arabic: string; english: string; color: string }> = {
+  spark: { arabic: "شرارة", english: "Spark", color: "text-amber-300" },
+  depth: { arabic: "عمق", english: "Depth", color: "text-cyan-300" },
+  rhythm: { arabic: "إيقاع", english: "Rhythm", color: "text-violet-300" },
+}
+
+const seatingWarningLabels: Record<string, string> = {
+  locked_pair: "زوج محمي في الطاولة",
+  locked_pairs: "أزواج محمية في الطاولة",
+  protected_pair: "زوج محمي في الطاولة",
+  depth_coverage_incomplete: "تغطية العمق غير مكتملة",
+  incomplete_depth_coverage: "تغطية العمق غير مكتملة",
+  role_coverage_incomplete: "تنوع الأدوار غير مكتمل",
+  incomplete_role_coverage: "تنوع الأدوار غير مكتمل",
+  curiosity_coverage_incomplete: "تنوع الفضول غير مكتمل",
+  incomplete_curiosity_coverage: "تنوع الفضول غير مكتمل",
+  depth_mismatch: "فجوة في تفضيل عمق الحوار",
+  initiator_missing: "لا يوجد مبادر واضح",
+  missing_initiator: "لا يوجد مبادر واضح",
+  curiosity_mix_missing: "مزيج الفضول ضعيف",
+  missing_curiosity_mix: "مزيج الفضول ضعيف",
+  role_trio_missing: "ثلاثية الأدوار غير مكتملة",
+  missing_role_trio: "ثلاثية الأدوار غير مكتملة",
+  curiosity_flow_missing: "تدفق الفضول غير مكتمل",
+  missing_curiosity_flow: "تدفق الفضول غير مكتمل",
+  humor_clash: "تعارض ملحوظ في أسلوب المزاح",
+  age_spread: "فارق أعمار واسع",
+  wide_age_range: "فارق أعمار واسع",
+}
+
+function normalizedSeatingWarning(value: unknown) {
+  const raw = String(value || "").trim()
+  if (!raw) return "ملاحظة غير محددة"
+  const key = raw.toLowerCase().replace(/[\s-]+/g, "_")
+  return seatingWarningLabels[key] || raw
+}
+
+function scoreText(value: unknown) {
+  const score = Number(value)
+  return Number.isFinite(score) ? score.toFixed(1).replace(/\.0$/, "") : "—"
+}
+
+function choiceSeatingTimestamp(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value
+  const numeric = Number(value)
+  if (String(value || "").trim() && Number.isFinite(numeric) && numeric > 1_000_000_000_000) return numeric
+  return Date.parse(String(value || ""))
+}
+
+function choiceSeatingGender(value: unknown) {
+  const gender = String(value || "").trim().toLowerCase()
+  if (["female", "f", "أنثى", "انثى"].includes(gender)) return "female"
+  if (["male", "m", "ذكر"].includes(gender)) return "male"
+  return "unknown"
+}
+
+function choiceRoundGroups(candidate: ChoiceSeatingCandidate, round: number): number[][] {
+  const direct = candidate[`round${round}` as "round1" | "round2" | "round3"]
+  if (Array.isArray(direct) && direct.length) return direct
+  const reportRound = candidate.report?.rounds?.find(item => Number(item.round) === round)
+  return (reportRound?.tables || [])
+    .slice()
+    .sort((left, right) => Number(left.table_number) - Number(right.table_number))
+    .map(table => table.participant_numbers || [])
+}
+
+function pairKeysForGroups(groups: number[][]) {
+  const pairs = new Set<string>()
+  for (const group of groups || []) {
+    for (let left = 0; left < group.length; left++) {
+      for (let right = left + 1; right < group.length; right++) {
+        const a = Math.min(Number(group[left]), Number(group[right]))
+        const b = Math.max(Number(group[left]), Number(group[right]))
+        if (Number.isInteger(a) && Number.isInteger(b)) pairs.add(`${a}-${b}`)
+      }
+    }
+  }
+  return pairs
+}
+
+function companionSetsForGroups(groups: number[][]) {
+  const companions = new Map<number, Set<number>>()
+  for (const group of groups || []) {
+    for (const participant of group) {
+      const number = Number(participant)
+      if (!companions.has(number)) companions.set(number, new Set())
+      for (const companion of group) if (Number(companion) !== number) companions.get(number)!.add(Number(companion))
+    }
+  }
+  return companions
+}
+
+function compareChoiceCandidates(candidate: ChoiceSeatingCandidate, best: ChoiceSeatingCandidate | undefined) {
+  const byRound = [1, 2, 3].map(round => {
+    const candidateGroups = choiceRoundGroups(candidate, round)
+    const bestGroups = best ? choiceRoundGroups(best, round) : []
+    const candidatePairs = pairKeysForGroups(candidateGroups)
+    const bestPairs = pairKeysForGroups(bestGroups)
+    const changedPairs = [...bestPairs].filter(pair => !candidatePairs.has(pair)).length
+    const candidateCompanions = companionSetsForGroups(candidateGroups)
+    const bestCompanions = companionSetsForGroups(bestGroups)
+    let changedParticipants = 0
+    for (const [number, companions] of bestCompanions) {
+      const next = candidateCompanions.get(number) || new Set<number>()
+      if (companions.size !== next.size || [...companions].some(person => !next.has(person))) changedParticipants++
+    }
+    return { round, changedPairs, totalPairs: bestPairs.size, changedParticipants, totalParticipants: bestCompanions.size }
+  })
+  return {
+    byRound,
+    changedPairs: byRound.reduce((sum, item) => sum + item.changedPairs, 0),
+    totalPairs: byRound.reduce((sum, item) => sum + item.totalPairs, 0),
+    changedParticipantRounds: byRound.reduce((sum, item) => sum + item.changedParticipants, 0),
+  }
+}
+
+function deriveChoiceSeatingCoverage(candidate: ChoiceSeatingCandidate) {
+  const roundPairs = [1, 2, 3].map(round => pairKeysForGroups(choiceRoundGroups(candidate, round)))
+  const intersectCount = (left: Set<string>, right: Set<string>) => [...left].filter(pair => right.has(pair)).length
+  const companions = new Map<number, Set<number>>()
+  for (let round = 1; round <= 3; round++) {
+    for (const group of choiceRoundGroups(candidate, round)) {
+      for (const participant of group) {
+        const number = Number(participant)
+        if (!companions.has(number)) companions.set(number, new Set())
+        for (const companion of group) if (Number(companion) !== number) companions.get(number)!.add(Number(companion))
+      }
+    }
+  }
+  const uniqueCounts = [...companions.values()].map(values => values.size)
+  return {
+    repeat12: intersectCount(roundPairs[0], roundPairs[1]),
+    repeat13: intersectCount(roundPairs[0], roundPairs[2]),
+    repeat23: intersectCount(roundPairs[1], roundPairs[2]),
+    uniqueMinimum: uniqueCounts.length ? Math.min(...uniqueCounts) : 0,
+    uniqueMaximum: uniqueCounts.length ? Math.max(...uniqueCounts) : 0,
+  }
+}
+
+function candidateFromPersistedReport(value: PersistedChoiceSeatingReport): ChoiceSeatingCandidate {
+  const reportRounds = value.report?.rounds || []
+  const round = (number: number) => value.assignments?.[`round${number}` as "round1" | "round2" | "round3"]
+    || reportRounds.find(item => Number(item.round) === number)?.tables
+      ?.slice()
+      .sort((left, right) => left.table_number - right.table_number)
+      .map(table => table.participant_numbers)
+    || []
+  const rank = Number(value.candidate_rank || value.report?.candidate?.rank || 1)
+  return {
+    candidate_id: String(value.report?.candidate?.id || value.id || "approved"),
+    rank,
+    label: value.report?.candidate?.label,
+    token: "",
+    round1: round(1),
+    round2: round(2),
+    round3: round(3),
+    report: value.report,
+  }
+}
+
+const ChoiceSeatingReportDetails = memo(function ChoiceSeatingReportDetails({
+  candidate,
+  participants,
+  best,
+  showDifference = true,
+}: {
+  candidate: ChoiceSeatingCandidate
+  participants: any[]
+  best?: ChoiceSeatingCandidate
+  showDifference?: boolean
+}) {
+  const report = candidate.report || {}
+  const summary = report.summary || {}
+  const repeats = report.repeats || {}
+  const derived = deriveChoiceSeatingCoverage(candidate)
+  const comparison = compareChoiceCandidates(candidate, best)
+  const participantMap = new Map<number, any>(participants.map(participant => [Number(participant.number), participant]))
+  const repeat12 = Number(repeats.round1_round2 ?? derived.repeat12)
+  const repeat13 = Number(repeats.round1_round3 ?? derived.repeat13)
+  const repeat23 = Number(repeats.round2_round3 ?? derived.repeat23)
+  const uniqueMinimum = Number(repeats.unique_partners?.minimum ?? derived.uniqueMinimum)
+  const uniqueMaximum = Number(repeats.unique_partners?.maximum ?? derived.uniqueMaximum)
+  const uniqueDistribution = repeats.unique_partners?.distribution || {}
+  const protectedViolations = Number(report.protected_pairs?.total_violations ?? summary.protected_pair_violations ?? 0)
+  const missingSurveyFields = report.missing_survey_fields || []
+  const missingSurveyCount = Number(summary.missing_survey_field_count ?? missingSurveyFields.reduce((sum, item) => sum + (item.fields?.length || 0), 0))
+  const allGenderBalanced = report.gender_balance?.all_tables_balanced ?? summary.all_gender_balanced
+  const rounds: ChoiceSeatingRoundReport[] = [1, 2, 3].map(roundNumber => {
+    const existing = report.rounds?.find(item => Number(item.round) === roundNumber)
+    if (existing) return existing
+    const lens = roundNumber === 1 ? "spark" : roundNumber === 2 ? "depth" : "rhythm"
+    return {
+      round: roundNumber,
+      lens,
+      score: Number(summary.lens_scores?.[lens as "spark" | "depth" | "rhythm"] || 0),
+      tables: choiceRoundGroups(candidate, roundNumber).map((participantNumbers, index) => ({
+        table_number: index + 1,
+        participant_numbers: participantNumbers,
+        score: 0,
+      })),
+    }
+  })
+  const weakestTables = summary.weakest_tables || rounds.flatMap(round => round.tables
+    .filter(table => table.weakest)
+    .map(table => ({ round: round.round, lens: round.lens, table_number: table.table_number, score: table.score, warnings: table.warnings || [] })))
+
+  return (
+    <div className="space-y-4">
+      {showDifference && best && candidate.rank !== best.rank && (
+        <div className={`rounded-xl border p-3 ${comparison.changedPairs > 0 ? "border-cyan-700/40 bg-cyan-950/20" : "border-red-700/50 bg-red-950/25"}`}>
+          <div className="flex items-start gap-2">
+            {comparison.changedPairs > 0 ? <Shuffle size={15} className="mt-0.5 shrink-0 text-cyan-300" /> : <AlertTriangle size={15} className="mt-0.5 shrink-0 text-red-300" />}
+            <div className="min-w-0 flex-1">
+              <p className={`text-xs font-bold ${comparison.changedPairs > 0 ? "text-cyan-200" : "text-red-200"}`}>الاختلاف العضوي عن Best — لا يعتمد على ترقيم الطاولات</p>
+              <p className="mt-1 text-[10px] leading-5 text-gray-400">تغيّرت {comparison.changedPairs} من علاقات الطاولة مقارنة بالأفضل، عبر {comparison.changedParticipantRounds} موضع مشارك/جولة.</p>
+              <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+                {comparison.byRound.map(item => {
+                  const lensKey = item.round === 1 ? "spark" : item.round === 2 ? "depth" : "rhythm"
+                  const lens = choiceLensLabels[lensKey]
+                  return (
+                    <div key={item.round} className="rounded-lg border border-white/5 bg-black/20 px-2.5 py-2 text-[9px] text-gray-400">
+                      <span className={`font-bold ${lens.color}`}>{lens.arabic}</span>
+                      <span> · {item.changedParticipants}/{item.totalParticipants || 42} تغيّرت مجموعتهم · {item.changedPairs}/{item.totalPairs || 126} علاقات مختلفة</span>
+                    </div>
+                  )
+                })}
+              </div>
+              {comparison.byRound[0]?.changedPairs === 0 && <p className="mt-2 text-[9px] text-red-300/80">هذا الخيار لا يغيّر جولة Spark بما يكفي، لذلك لا ينبغي اعتماده كخيار مستقل.</p>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
+        <div className="rounded-xl border border-white/5 bg-black/20 p-2.5 text-center">
+          <p className="text-lg font-black text-white">{scoreText(summary.overall_score)}</p>
+          <p className="text-[9px] text-gray-500">متوسط العرض</p>
+        </div>
+        {(["spark", "depth", "rhythm"] as const).map(lensKey => (
+          <div key={lensKey} className="rounded-xl border border-white/5 bg-black/20 p-2.5 text-center">
+            <p className={`text-lg font-black ${choiceLensLabels[lensKey].color}`}>{scoreText(summary.lens_scores?.[lensKey] ?? report.rounds?.find(round => round.lens === lensKey)?.score)}</p>
+            <p className="text-[9px] text-gray-500">{choiceLensLabels[lensKey].english} · {choiceLensLabels[lensKey].arabic}</p>
+          </div>
+        ))}
+        <div className={`rounded-xl border p-2.5 text-center ${repeat12 === 6 && repeat13 === 6 && repeat23 === 6 ? "border-emerald-800/40 bg-emerald-950/25" : "border-amber-800/40 bg-amber-950/20"}`}>
+          <p className="text-lg font-black text-emerald-300">{repeat12}/{repeat13}/{repeat23}</p>
+          <p className="text-[9px] text-gray-500">تكرار 1–2 / 1–3 / 2–3</p>
+        </div>
+        <div className={`rounded-xl border p-2.5 text-center ${uniqueMinimum >= 17 && uniqueMaximum >= 18 ? "border-emerald-800/40 bg-emerald-950/25" : "border-amber-800/40 bg-amber-950/20"}`}>
+          <p className="text-lg font-black text-emerald-300">{uniqueMinimum}–{uniqueMaximum}</p>
+          <p className="text-[9px] text-gray-500">أشخاص فريدون لكل مشارك</p>
+          {(uniqueDistribution["17"] != null || uniqueDistribution["18"] != null) && <p className="mt-0.5 text-[8px] text-emerald-400/70">17 شخصاً: {uniqueDistribution["17"] || 0} · 18 شخصاً: {uniqueDistribution["18"] || 0}</p>}
+        </div>
+        <div className={`rounded-xl border p-2.5 text-center ${protectedViolations === 0 && missingSurveyCount === 0 && allGenderBalanced !== false ? "border-emerald-800/40 bg-emerald-950/25" : "border-red-800/40 bg-red-950/20"}`}>
+          <p className={`text-lg font-black ${protectedViolations === 0 && missingSurveyCount === 0 ? "text-emerald-300" : "text-red-300"}`}>{protectedViolations}/{missingSurveyCount}</p>
+          <p className="text-[9px] text-gray-500">أزواج محمية / حقول ناقصة</p>
+        </div>
+      </div>
+
+      <p className="rounded-lg border border-white/5 bg-black/15 px-3 py-2 text-[9px] leading-5 text-gray-500">ترتيب Best ثم Second-best ثم Third-best يأتي من هدف الخوارزمية الكامل وقيود الحماية والتوازن وجودة أضعف طاولة؛ «متوسط العرض» وحده ليس سبب الترتيب.</p>
+
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs ${allGenderBalanced === false ? "border-red-800/40 bg-red-950/20 text-red-300" : "border-emerald-800/40 bg-emerald-950/20 text-emerald-300"}`}>
+          {allGenderBalanced === false ? <AlertTriangle size={14} /> : <CheckCircle size={14} />}
+          {allGenderBalanced === false ? "توجد طاولات غير متوازنة جندرياً" : "كل الطاولات متوازنة جندرياً"}
+        </div>
+        <div className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs ${protectedViolations > 0 ? "border-red-800/40 bg-red-950/20 text-red-300" : "border-emerald-800/40 bg-emerald-950/20 text-emerald-300"}`}>
+          {protectedViolations > 0 ? <Shield size={14} /> : <CheckCircle size={14} />}
+          {protectedViolations > 0 ? `${protectedViolations} مخالفة لأزواج محمية` : "لا توجد مخالفة لأزواج محمية"}
+        </div>
+        <div className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs ${missingSurveyCount > 0 ? "border-red-800/40 bg-red-950/20 text-red-300" : "border-emerald-800/40 bg-emerald-950/20 text-emerald-300"}`}>
+          {missingSurveyCount > 0 ? <AlertCircle size={14} /> : <CheckCircle size={14} />}
+          {missingSurveyCount > 0 ? `${missingSurveyCount} حقلاً مطلوباً ناقصاً` : "بيانات الاستبيان مكتملة"}
+        </div>
+      </div>
+
+      {weakestTables.length > 0 && (
+        <div className="rounded-xl border border-amber-700/35 bg-amber-950/15 p-3">
+          <p className="flex items-center gap-2 text-xs font-bold text-amber-200"><AlertTriangle size={14} /> أضعف الطاولات التي تحتاج انتباهاً</p>
+          <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
+            {weakestTables.map((table, index) => {
+              const lens = choiceLensLabels[table.lens] || choiceLensLabels[table.round === 2 ? "depth" : table.round === 3 ? "rhythm" : "spark"]
+              return (
+                <div key={`${table.round}-${table.table_number}-${index}`} className="rounded-lg border border-amber-800/25 bg-black/20 p-2.5 text-[10px]">
+                  <div className="flex items-center justify-between gap-2"><span className={`font-bold ${lens.color}`}>{lens.arabic} · طاولة {table.table_number}</span><span className="font-mono text-amber-300">{scoreText(table.score)}</span></div>
+                  <p className="mt-1 leading-5 text-gray-500">{table.warnings?.length ? table.warnings.map(normalizedSeatingWarning).join(" · ") : "الأضعف نسبياً ضمن هذا الخيار، من دون مخالفة صريحة"}</p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {missingSurveyFields.length > 0 && (
+        <div className="rounded-xl border border-red-700/40 bg-red-950/20 p-3">
+          <p className="text-xs font-bold text-red-200">حقول الاستبيان الناقصة</p>
+          <div className="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2">
+            {missingSurveyFields.map(item => (
+              <p key={item.participant_number} className="rounded-lg bg-black/20 px-2.5 py-2 text-[10px] text-red-300">#{item.participant_number} · {item.fields.join("، ")}</p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
+        {rounds.map(round => {
+          const lens = choiceLensLabels[round.lens] || choiceLensLabels[round.round === 1 ? "spark" : round.round === 2 ? "depth" : "rhythm"]
+          return (
+            <section key={round.round} className="overflow-hidden rounded-2xl border border-gray-800 bg-gray-950/45">
+              <div className="flex items-center justify-between border-b border-white/5 bg-white/[0.025] px-3 py-2.5">
+                <div><p className={`text-xs font-black ${lens.color}`}>الجولة {round.round} · {lens.english} — {lens.arabic}</p><p className="mt-0.5 text-[9px] text-gray-600">6 طاولات · 7 أشخاص</p></div>
+                <span className={`rounded-lg bg-black/25 px-2 py-1 font-mono text-sm font-black ${lens.color}`}>{scoreText(round.score)}</span>
+              </div>
+              <div className="space-y-2 p-2.5">
+                {(round.tables || []).slice().sort((left, right) => left.table_number - right.table_number).map(table => (
+                  <div key={table.table_number} className={`rounded-xl border p-2.5 ${table.weakest || table.warnings?.length ? "border-amber-800/35 bg-amber-950/10" : "border-white/5 bg-black/20"}`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5"><Table2 size={12} className="text-gray-500" /><span className="text-[10px] font-bold text-gray-300">طاولة {table.table_number}</span>{table.weakest && <span className="rounded-full bg-amber-900/40 px-1.5 py-0.5 text-[8px] font-bold text-amber-300">الأضعف</span>}</div>
+                      <div className="flex items-center gap-1.5 text-[9px]">
+                        {table.gender && <span className={table.gender.balanced === false ? "text-red-300" : "text-emerald-400"}>{table.gender.female ?? 0}♀ · {table.gender.male ?? 0}♂{table.gender.unknown ? ` · ${table.gender.unknown}?` : ""}</span>}
+                        <span className={`font-mono font-bold ${lens.color}`}>{scoreText(table.score)}</span>
+                      </div>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {(table.participant_numbers || []).map(number => {
+                        const participant = participantMap.get(Number(number))
+                        const gender = choiceSeatingGender(participant?.gender)
+                        const female = gender === "female"
+                        const male = gender === "male"
+                        return <span key={number} title={participant?.name || `#${number}`} className={`rounded-md border px-1.5 py-1 text-[9px] ${female ? "border-pink-800/30 bg-pink-950/20 text-pink-200" : male ? "border-blue-800/30 bg-blue-950/20 text-blue-200" : "border-gray-800 bg-gray-900 text-gray-300"}`}>#{number}{participant?.name ? ` ${participant.name}` : ""}</span>
+                      })}
+                    </div>
+                    {table.warnings?.length ? <p className="mt-2 text-[9px] leading-5 text-amber-300/75">{table.warnings.map(normalizedSeatingWarning).join(" · ")}</p> : null}
+                    {table.protected_pair_violations?.length ? <p className="mt-1 text-[9px] text-red-300">{table.protected_pair_violations.map(pair => `#${pair.participant_a} ↔ #${pair.participant_b}`).join(" · ")}</p> : null}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )
+        })}
+      </div>
+    </div>
+  )
+})
+
+function ChoiceSeatingPreviewPanel({
+  preview,
+  selectedId,
+  participants,
+  applying,
+  regenerating,
+  onSelect,
+  onApply,
+  onRegenerate,
+  onCancel,
+}: {
+  preview: ChoiceSeatingPreviewResponse
+  selectedId: string
+  participants: any[]
+  applying: boolean
+  regenerating: boolean
+  onSelect: (candidateId: string) => void
+  onApply: () => void
+  onRegenerate: () => void
+  onCancel: () => void
+}) {
+  const candidates = [...(preview.candidates || [])].sort((left, right) => Number(left.rank) - Number(right.rank))
+  const best = candidates[0]
+  const selected = candidates.find(candidate => candidate.candidate_id === selectedId) || best
+  const expiresAt = choiceSeatingTimestamp(preview.expires_at)
+  const [expiryClock, setExpiryClock] = useState(() => Date.now())
+  useEffect(() => {
+    if (!Number.isFinite(expiresAt)) return
+    const remaining = Math.max(0, expiresAt - Date.now())
+    const timeout = window.setTimeout(() => setExpiryClock(Date.now()), remaining + 50)
+    return () => window.clearTimeout(timeout)
+  }, [expiresAt])
+  const expired = Number.isFinite(expiresAt) && expiresAt <= expiryClock
+  if (!selected) return null
+
+  return (
+    <section id="choice-seating-preview" aria-labelledby="choice-seating-preview-title" className="overflow-hidden rounded-2xl border border-cyan-700/40 bg-gradient-to-br from-cyan-950/25 via-gray-900 to-violet-950/20 shadow-2xl shadow-cyan-950/20">
+      <div className="border-b border-white/5 p-4 sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Layers size={18} className="text-cyan-300" />
+              <h3 id="choice-seating-preview-title" className="text-base font-black text-white">معاينة خطة الجلسات قبل الاعتماد</h3>
+              <span className="rounded-full border border-cyan-700/40 bg-cyan-950/35 px-2 py-0.5 text-[9px] font-bold text-cyan-200">لم تُطبّق بعد</span>
+            </div>
+            <p className="mt-1 text-[10px] leading-5 text-gray-400">ثلاثة خيارات مرتبة وفق الهدف نفسه. اختر خياراً واحداً ثم استخدم زر الاعتماد الوحيد في الأسفل؛ لا تُرسل الطاولات من المتصفح إلى الخادم.</p>
+          </div>
+          {Number.isFinite(expiresAt) && <div className={`rounded-lg border px-2.5 py-1.5 text-[10px] ${expired ? "border-red-700/40 bg-red-950/30 text-red-300" : "border-gray-700 bg-gray-950/50 text-gray-400"}`}>{expired ? "انتهت صلاحية المعاينة — أعد التوليد" : `صالحة حتى ${new Date(expiresAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}`}</div>}
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-2 lg:grid-cols-3" role="radiogroup" aria-label="خيارات خطة الجلسات">
+          {candidates.map(candidate => {
+            const label = choiceCandidateLabels[Number(candidate.rank)] || choiceCandidateLabels[3]
+            const comparison = compareChoiceCandidates(candidate, best)
+            const depthScore = candidate.report?.summary?.lens_scores?.depth
+            const rhythmScore = candidate.report?.summary?.lens_scores?.rhythm
+            const active = candidate.candidate_id === selected.candidate_id
+            return (
+              <button key={candidate.candidate_id} type="button" role="radio" aria-checked={active} onClick={() => onSelect(candidate.candidate_id)} className={`rounded-xl border p-3 text-right transition-all ${active ? `${label.style} ring-2 ring-white/10` : "border-gray-800 bg-gray-950/50 text-gray-400 hover:border-gray-700"}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2"><span className="flex h-6 w-6 items-center justify-center rounded-lg bg-black/25 text-[10px] font-black">#{candidate.rank}</span><div><p className="text-xs font-black" dir="ltr">{label.english}</p><p className="text-[9px] opacity-70">{label.arabic}</p></div></div>
+                  {active ? <CheckCircle size={16} /> : <Circle size={16} />}
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-1.5 text-center">
+                  <div className="rounded-lg bg-black/20 px-2 py-1.5"><p className="font-mono text-sm font-bold text-cyan-200">{scoreText(depthScore)}</p><p className="text-[8px] opacity-60">Depth</p></div>
+                  <div className="rounded-lg bg-black/20 px-2 py-1.5"><p className="font-mono text-sm font-bold text-violet-200">{scoreText(rhythmScore)}</p><p className="text-[8px] opacity-60">Rhythm</p></div>
+                </div>
+                {candidate.rank === best.rank ? <p className="mt-2 text-[9px] font-bold text-emerald-300">الخيار المرجعي الأعلى ترتيباً</p> : <p className={`mt-2 text-[9px] leading-4 ${comparison.changedPairs > 0 ? "text-cyan-300/80" : "text-red-300"}`}>{comparison.changedPairs} علاقة طاولة مختلفة · {comparison.changedParticipantRounds} موضع مشارك/جولة تغير عن Best</p>}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="p-4 sm:p-5">
+        <ChoiceSeatingReportDetails candidate={selected} participants={participants} best={best} />
+      </div>
+
+      <div className="sticky bottom-0 z-10 flex flex-col-reverse gap-2 border-t border-white/10 bg-gray-950/95 p-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex gap-2">
+          <button type="button" onClick={onCancel} disabled={applying || regenerating} className="rounded-xl border border-gray-700 bg-gray-900 px-4 py-2.5 text-xs font-bold text-gray-400 hover:text-white disabled:opacity-40">إلغاء المعاينة</button>
+          <button type="button" onClick={onRegenerate} disabled={applying || regenerating} className="flex items-center gap-1.5 rounded-xl border border-cyan-700/40 bg-cyan-950/30 px-4 py-2.5 text-xs font-bold text-cyan-200 hover:bg-cyan-900/35 disabled:opacity-40">{regenerating ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} إعادة بناء الخيارات من البيانات الحالية</button>
+        </div>
+        <button type="button" onClick={onApply} disabled={applying || regenerating || expired || !selected.token} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-l from-emerald-600 to-teal-600 px-6 py-3 text-sm font-black text-white shadow-lg shadow-emerald-950/40 hover:from-emerald-500 hover:to-teal-500 disabled:cursor-not-allowed disabled:opacity-40">{applying ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />} اعتماد وتطبيق {choiceCandidateLabels[Number(selected.rank)]?.english || `#${selected.rank}`}</button>
+      </div>
+    </section>
+  )
+}
+
+const ChoiceSeatingDecisionAudit = memo(function ChoiceSeatingDecisionAudit({ report }: { report: ChoiceSeatingReport }) {
+  const context = report.decision_context
+  const alternatives = [...(context?.alternatives_summary || [])].sort((left, right) => Number(left.rank) - Number(right.rank))
+  if (!alternatives.length) return null
+  const selectedId = String(context?.selected?.candidate_id || report.candidate?.id || "")
+  const selectedRank = Number(context?.selected?.rank || report.candidate?.rank || 0)
+
+  return (
+    <div className="border-t border-emerald-800/20 bg-black/10 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="flex items-center gap-2 text-xs font-black text-gray-200"><BarChart3 size={14} className="text-cyan-300" /> مقارنة الخيارات وقت الاعتماد</p>
+          <p className="mt-1 text-[9px] leading-5 text-gray-500">ملخص القرار المحفوظ للخيارات الثلاثة؛ لا تُخزّن طاولات الخيارات المرفوضة.</p>
+        </div>
+        {context?.objective_version && <span className="rounded-lg border border-gray-800 bg-gray-950/60 px-2 py-1 font-mono text-[8px] text-gray-500">{context.objective_version}</span>}
+      </div>
+      <div className="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-3">
+        {alternatives.map(option => {
+          const label = choiceCandidateLabels[Number(option.rank)] || choiceCandidateLabels[3]
+          const selected = String(option.candidate_id) === selectedId || Number(option.rank) === selectedRank
+          const weakestCount = option.weakest_tables?.length || 0
+          const warningCount = (option.weakest_tables || []).reduce((sum, table) => sum + (table.warnings?.length || 0), 0)
+          const previousComparison = option.diversity?.comparedWithEarlier?.find((comparison: any) => Number(comparison.rank) === Number(option.rank) - 1)
+          return (
+            <div key={option.candidate_id || option.rank} className={`rounded-xl border p-3 ${selected ? "border-emerald-500/60 bg-emerald-950/30 ring-1 ring-emerald-400/15" : "border-gray-800 bg-gray-950/55"}`}>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2"><span className={`flex h-7 w-7 items-center justify-center rounded-lg text-[10px] font-black ${selected ? "bg-emerald-500/20 text-emerald-200" : "bg-gray-900 text-gray-500"}`}>#{option.rank}</span><div><p className={`text-xs font-black ${selected ? "text-emerald-200" : "text-gray-300"}`} dir="ltr">{label.english}</p><p className="text-[8px] text-gray-600">{label.arabic}</p></div></div>
+                <span className={`rounded-full border px-2 py-0.5 text-[8px] font-bold ${selected ? "border-emerald-600/45 bg-emerald-500/15 text-emerald-200" : "border-gray-800 bg-gray-900 text-gray-600"}`}>{selected ? "تم اعتماده" : "لم يُعتمد"}</span>
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-1 text-center">
+                <div className="rounded-lg bg-black/20 px-1.5 py-1.5"><p className="font-mono text-sm font-bold text-white">{scoreText(option.overall_score)}</p><p className="text-[7px] text-gray-600">Overall</p></div>
+                <div className="rounded-lg bg-black/20 px-1.5 py-1.5"><p className="font-mono text-sm font-bold text-cyan-200">{scoreText(option.lens_scores?.depth)}</p><p className="text-[7px] text-gray-600">Depth</p></div>
+                <div className="rounded-lg bg-black/20 px-1.5 py-1.5"><p className="font-mono text-sm font-bold text-violet-200">{scoreText(option.lens_scores?.rhythm)}</p><p className="text-[7px] text-gray-600">Rhythm</p></div>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1 text-[8px]">
+                <span className={`rounded-md px-1.5 py-1 ${option.all_gender_balanced === false ? "bg-red-950/50 text-red-300" : "bg-emerald-950/45 text-emerald-300"}`}>{option.all_gender_balanced === false ? "توازن غير مكتمل" : "الجندر متوازن"}</span>
+                <span className={`rounded-md px-1.5 py-1 ${(option.protected_pair_violations || 0) > 0 ? "bg-red-950/50 text-red-300" : "bg-emerald-950/45 text-emerald-300"}`}>{option.protected_pair_violations || 0} محمية</span>
+                <span className="rounded-md bg-amber-950/35 px-1.5 py-1 text-amber-300">{weakestCount} أضعف · {warningCount} تنبيه</span>
+                {option.repeats && <span className="rounded-md bg-gray-900 px-1.5 py-1 text-gray-400">{option.repeats.round1_round2 ?? "—"}/{option.repeats.round1_round3 ?? "—"}/{option.repeats.round2_round3 ?? "—"} تكرار · {option.repeats.unique_partner_minimum ?? "—"}–{option.repeats.unique_partner_maximum ?? "—"} فريد</span>}
+              </div>
+              {previousComparison && <p className="mt-2 text-[8px] leading-4 text-cyan-300/65">مقابل #{option.rank - 1}: تغيّر متوسط {scoreText(previousComparison.round1?.averageTablematesReplaced)} من 6 رفاق في Spark، و{scoreText(previousComparison.round2?.averageTablematesReplaced)} في Depth، و{scoreText(previousComparison.round3?.averageTablematesReplaced)} في Rhythm.</p>}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+})
 
 function GroupMemberFeedbackPanel({ data, groupRoundCount = 2 }: { data: GroupMemberFeedbackData; groupRoundCount?: 2 | 3 }) {
   const [search, setSearch] = useState("")
@@ -486,6 +1093,14 @@ export default function Admin3Page() {
   const [participants, setParticipants] = useState<any[]>([])
   const [selectedNumbers, setSelectedNumbers] = useState<Set<number>>(new Set())
   const [seating, setSeating] = useState<any>(null)
+  const [choiceSeatingPreview, setChoiceSeatingPreview] = useState<ChoiceSeatingPreviewResponse | null>(null)
+  const [selectedChoiceSeatingCandidateId, setSelectedChoiceSeatingCandidateId] = useState("")
+  const [choiceSeatingPreviewIssue, setChoiceSeatingPreviewIssue] = useState<{ message: string; missingSurveyFields: Array<{ participant_number: number; fields: string[] }> } | null>(null)
+  const [approvedChoiceSeatingReport, setApprovedChoiceSeatingReport] = useState<PersistedChoiceSeatingReport | null>(null)
+  const [approvedChoiceSeatingReportExpanded, setApprovedChoiceSeatingReportExpanded] = useState(false)
+  const approvedChoiceSeatingCandidate = useMemo(() => approvedChoiceSeatingReport?.report
+    ? candidateFromPersistedReport(approvedChoiceSeatingReport)
+    : null, [approvedChoiceSeatingReport])
   const [rankStatus, setRankStatus] = useState<any>(null)
   const [allRankings, setAllRankings] = useState<any[]>([])
   const [groupMemberFeedback, setGroupMemberFeedback] = useState<GroupMemberFeedbackData>({ submissions: [], summary: [] })
@@ -633,6 +1248,13 @@ export default function Admin3Page() {
   const [testMode, setTestMode] = useState(false)
   const [testModeLoading, setTestModeLoading] = useState(false)
   const [testModeData, setTestModeData] = useState<any>(null)
+  const choiceReportRequestGeneration = useRef(0)
+  const choicePreviewRequestGeneration = useRef(0)
+  const choiceApplyRequestGeneration = useRef(0)
+  const choiceUiEventId = Number(previewEventId ?? state?.current_event_id ?? state?.event_id ?? realCurrentEventId)
+  const choiceUiContextKey = `${eventFormat}|${choiceUiEventId}|${previewEventId != null ? "historical" : testMode ? "test" : "live"}`
+  const choiceUiContextKeyRef = useRef(choiceUiContextKey)
+  choiceUiContextKeyRef.current = choiceUiContextKey
   const [testUsersFilter, setTestUsersFilter] = useState("")
   const [confirmModal, setConfirmModal] = useState<{ type: "mood" | "notif"; target: string; onConfirm: () => void } | null>(null)
   const [replyingId, setReplyingId] = useState<string | null>(null)
@@ -769,6 +1391,40 @@ export default function Admin3Page() {
     const data = await api("e3-get-seating")
     setSeating(data.seating)
   }, [])
+
+  const fetchApprovedChoiceSeatingReport = useCallback(async () => {
+    const requestId = ++choiceReportRequestGeneration.current
+    const expectedEventId = Number(previewEventId ?? state?.current_event_id ?? state?.event_id ?? realCurrentEventId)
+    const expectedTestMode = previewEventId == null ? Boolean(testMode) : false
+    const requestContext = `${eventFormat}|${expectedEventId}|${previewEventId != null ? "historical" : expectedTestMode ? "test" : "live"}`
+    if (!Number.isInteger(expectedEventId) || !choiceOnly) {
+      setApprovedChoiceSeatingReport(null)
+      return
+    }
+    // Clear first so a failed historical request can never leave the active
+    // event's audit report visible under a different edition selector.
+    setApprovedChoiceSeatingReport(null)
+    const data = await api("e3-get-choice-seating-report", {
+      expected_event_id: expectedEventId,
+      expected_test_mode: expectedTestMode,
+      ...(previewEventId != null ? { preview_event_id: expectedEventId } : {}),
+    })
+    const globalPreviewEventId = getPreviewEventId()
+    const globalContextMatches = previewEventId != null
+      ? Number(globalPreviewEventId) === expectedEventId
+      : globalPreviewEventId == null
+    if (requestId !== choiceReportRequestGeneration.current || choiceUiContextKeyRef.current !== requestContext || !globalContextMatches) return
+    if (data.error) {
+      setApprovedChoiceSeatingReport(null)
+      return
+    }
+    const persisted = data.report ? {
+      ...data.report,
+      matches_current_seating: data.report.matches_current_seating ?? data.matches_current_seating,
+      current_assignment_count: data.report.current_assignment_count ?? data.current_assignment_count,
+    } : null
+    setApprovedChoiceSeatingReport(persisted)
+  }, [choiceOnly, eventFormat, previewEventId, realCurrentEventId, state?.current_event_id, state?.event_id, testMode])
 
   const fetchMatches = useCallback(async () => {
     const data = await api("e3-get-matches")
@@ -1033,8 +1689,24 @@ export default function Admin3Page() {
     if (authenticated && activeTab === "feedback") { fetchFeedback(); fetchMoodChecks(); fetchNotifications(); fetchSeating(); fetchRankStatus() }
     if (authenticated && activeTab === "attendance") fetchAttendance()
     if (authenticated && activeTab === "aiwelcome") fetchAiWelcome()
-    if (authenticated && activeTab === "control") { fetchExclusions(); fetchSeating() }
-  }, [activeTab, authenticated, fetchSeating, fetchRankStatus, fetchParticipants, fetchMatches, fetchOverview, fetchFeedback, fetchMoodChecks, fetchNotifications, fetchAttendance, fetchAiWelcome, fetchExclusions])
+    if (authenticated && activeTab === "control") { fetchExclusions(); fetchSeating(); fetchApprovedChoiceSeatingReport() }
+  }, [activeTab, authenticated, fetchSeating, fetchRankStatus, fetchParticipants, fetchMatches, fetchOverview, fetchFeedback, fetchMoodChecks, fetchNotifications, fetchAttendance, fetchAiWelcome, fetchExclusions, fetchApprovedChoiceSeatingReport])
+
+  useEffect(() => {
+    if (!authenticated || !state || !choiceOnly) {
+      setApprovedChoiceSeatingReport(null)
+      return
+    }
+    if (state.seating_generated) fetchApprovedChoiceSeatingReport()
+  }, [authenticated, choiceOnly, state?.seating_generated, fetchApprovedChoiceSeatingReport])
+
+  useEffect(() => {
+    setChoiceSeatingPreview(null)
+    setSelectedChoiceSeatingCandidateId("")
+    setChoiceSeatingPreviewIssue(null)
+    setApprovedChoiceSeatingReport(null)
+    setLoading(current => current === "seating" || current === "apply-seating-preview" ? null : current)
+  }, [choiceUiContextKey])
 
   // Feedback polling (visibility-aware)
   useVisibilityPoll(fetchFeedback, 5000, feedbackPolling && activeTab === "feedback")
@@ -1090,6 +1762,10 @@ export default function Admin3Page() {
       if (!data.error) {
         setState((previous: any) => previous ? { ...previous, event_format: data.event_format || nextFormat } : previous)
         setMapRound(1)
+        setChoiceSeatingPreview(null)
+        setSelectedChoiceSeatingCandidateId("")
+        setChoiceSeatingPreviewIssue(null)
+        setApprovedChoiceSeatingReport(null)
         await fetchState()
       }
       return data
@@ -1177,9 +1853,9 @@ export default function Admin3Page() {
 
   const doSwap = (numB: number) => {
     if (previewEventId != null) { toast.error("لا يمكن تعديل الجلسات في وضع المعاينة"); return }
-    if (choiceOnly && [20, 30, 40].includes(mapRound)) {
+    if ([20, 30, 40].includes(mapRound)) {
       setSwapA(null)
-      toast.error("جلسات الاختيارات الفردية للقراءة فقط ولا تدعم التبديل اليدوي")
+      toast.error("تبديل المشاركين متاح فقط من تبويبات الجولات الجماعية")
       return
     }
     run(`swap-${swapA}-${numB}`, () => api("e3-swap-seating", { num_a: swapA, num_b: numB }).then(d => {
@@ -1436,7 +2112,7 @@ export default function Admin3Page() {
     const hasMatches = state.phase2_matches_done
     const sel = state.participants_selected || 0
     const finalRankingPhase = choiceOnly ? "ranking3" : "ranking2"
-    if (ph === "setup" && !hasSeating) return { label: choiceOnly ? "توليد خطة 3 جولات · 7 أشخاص لكل مجموعة" : "توليد خطة الجلسات", action: generateSeating, ready: choiceOnly ? sel === 42 : sel >= 6 }
+    if (ph === "setup" && !hasSeating) return { label: choiceOnly ? (choiceSeatingPreview ? "مراجعة واعتماد أحد الخيارات الثلاثة" : "إنشاء Best وSecond-best وThird-best للمعاينة") : "توليد خطة الجلسات", action: choiceOnly && choiceSeatingPreview ? () => document.getElementById("choice-seating-preview")?.scrollIntoView({ behavior: "smooth", block: "start" }) : generateSeating, ready: choiceOnly ? sel === 42 : sel >= 6 }
     if (ph === "setup" && hasSeating) return { label: "⬅ بدء الجولة الأولى (35 دقيقة)", action: () => setPhaseWithTimer("round1", EVENT3_PHASE_SECONDS.round1, 1), ready: true }
     if (ph === "round1") return { label: "⬅ التصنيف بعد الجولة 1 (3 دقائق)", action: () => setPhaseWithTimer("ranking1", EVENT3_PHASE_SECONDS.ranking1, 0), ready: true }
     if (ph === "ranking1") return { label: "⬅ بدء الجولة الثانية (25 دقيقة)", action: () => setPhaseWithTimer("round2", EVENT3_PHASE_SECONDS.round2, 2), ready: true }
@@ -1461,13 +2137,158 @@ export default function Admin3Page() {
     return null
   }
 
+  const choiceSeatingExpectedContext = () => ({
+    expected_event_id: Number(state?.current_event_id ?? state?.event_id ?? realCurrentEventId),
+    expected_test_mode: Boolean(testMode),
+  })
+
+  const generateChoiceSeatingPreview = async () => {
+    if (previewEventId != null) { toast.error("لا يمكن توليد الجلسات في وضع المعاينة التاريخية"); return }
+    if (state?.participants_selected !== 42) { toast.error("يجب حفظ 42 مشاركاً بالضبط قبل إنشاء خيارات الجلسات"); return }
+    const requestId = ++choicePreviewRequestGeneration.current
+    const requestContext = choiceUiContextKeyRef.current
+    const expectedContext = choiceSeatingExpectedContext()
+    const requestIsCurrent = () => requestId === choicePreviewRequestGeneration.current
+      && choiceUiContextKeyRef.current === requestContext
+      && getPreviewEventId() == null
+    setLoading("seating")
+    setChoiceSeatingPreview(null)
+    setSelectedChoiceSeatingCandidateId("")
+    setChoiceSeatingPreviewIssue(null)
+    try {
+      const data = await api("e3-preview-choice-seating", expectedContext)
+      if (!requestIsCurrent()) return
+      const missingSurveyFields = Array.isArray(data.missing_survey_fields) ? data.missing_survey_fields : []
+      if (data.error) {
+        setChoiceSeatingPreviewIssue({ message: String(data.error), missingSurveyFields })
+        toast.error(data.error)
+        return
+      }
+      const candidates = Array.isArray(data.candidates)
+        ? data.candidates
+          .filter((candidate: any) => candidate && candidate.token && (candidate.candidate_id || candidate.id))
+          .map((candidate: any, index: number): ChoiceSeatingCandidate => ({
+            ...candidate,
+            candidate_id: String(candidate.candidate_id || candidate.id),
+            rank: Number(candidate.rank || index + 1),
+            round1: candidate.round1 || candidate.plan?.round1 || [],
+            round2: candidate.round2 || candidate.plan?.round2 || [],
+            round3: candidate.round3 || candidate.plan?.round3 || [],
+            report: candidate.report || candidate.plan?.report || candidate.plan || {},
+          }))
+          .sort((left: ChoiceSeatingCandidate, right: ChoiceSeatingCandidate) => Number(left.rank) - Number(right.rank))
+        : []
+      if (candidates.length !== 3 || new Set(candidates.map((candidate: ChoiceSeatingCandidate) => candidate.candidate_id)).size !== 3) {
+        const message = "لم يُرجع الخادم ثلاثة خيارات جلسات مستقلة. لم يتم تطبيق أي خطة."
+        setChoiceSeatingPreviewIssue({ message, missingSurveyFields: [] })
+        toast.error(message)
+        return
+      }
+      const bestCandidate = candidates[0]
+      const insufficientVariation = candidates.slice(1).some((candidate: ChoiceSeatingCandidate, candidateIndex: number) =>
+        candidates.slice(0, candidateIndex + 1).some((earlier: ChoiceSeatingCandidate) => {
+          const comparison = compareChoiceCandidates(candidate, earlier)
+          return comparison.byRound.some(round => round.changedParticipants < 36 || round.changedPairs < 63)
+        }))
+      if (insufficientVariation) {
+        const message = "الخياران الثاني والثالث ليسا مختلفين مادياً عن Best في الجولات الثلاث. لم يتم تطبيق أي خطة."
+        setChoiceSeatingPreviewIssue({ message, missingSurveyFields: [] })
+        toast.error(message)
+        return
+      }
+      const nextPreview: ChoiceSeatingPreviewResponse = {
+        event_format: data.event_format,
+        expires_at: data.expires_at,
+        candidates,
+      }
+      setChoiceSeatingPreview(nextPreview)
+      setSelectedChoiceSeatingCandidateId(candidates[0].candidate_id)
+      toast.success("تم إنشاء Best وSecond-best وThird-best للمعاينة — لم تُطبّق أي خطة بعد")
+      window.setTimeout(() => {
+        if (requestIsCurrent()) document.getElementById("choice-seating-preview")?.scrollIntoView({ behavior: "smooth", block: "start" })
+      }, 50)
+    } catch (error: any) {
+      if (!requestIsCurrent()) return
+      const message = error?.message || "تعذّر إنشاء معاينة خطط الجلسات"
+      setChoiceSeatingPreviewIssue({ message, missingSurveyFields: [] })
+      toast.error(message)
+    } finally {
+      if (requestIsCurrent()) setLoading(null)
+    }
+  }
+
+  const cancelChoiceSeatingPreview = () => {
+    if (loading === "apply-seating-preview") return
+    setChoiceSeatingPreview(null)
+    setSelectedChoiceSeatingCandidateId("")
+    setChoiceSeatingPreviewIssue(null)
+  }
+
+  const applyChoiceSeatingPreview = async () => {
+    if (!choiceSeatingPreview) return
+    if (previewEventId != null) { toast.error("لا يمكن تطبيق خطة في وضع المعاينة التاريخية"); return }
+    const selected = choiceSeatingPreview.candidates.find(candidate => candidate.candidate_id === selectedChoiceSeatingCandidateId)
+    if (!selected?.token) { toast.error("اختر أحد الخيارات الثلاثة أولاً"); return }
+    const label = choiceCandidateLabels[Number(selected.rank)]?.english || `#${selected.rank}`
+    if (!window.confirm(`اعتماد وتطبيق ${label}؟\nسيتم الآن فقط حفظ طاولات الجولات الثلاث وإغلاق المعاينة.`)) return
+    const requestId = ++choiceApplyRequestGeneration.current
+    const requestContext = choiceUiContextKeyRef.current
+    const expectedContext = choiceSeatingExpectedContext()
+    const requestIsCurrent = () => requestId === choiceApplyRequestGeneration.current
+      && choiceUiContextKeyRef.current === requestContext
+      && getPreviewEventId() == null
+    setLoading("apply-seating-preview")
+    try {
+      const data = await api("e3-apply-choice-seating-preview", {
+        ...expectedContext,
+        token: selected.token,
+      })
+      if (!requestIsCurrent()) return
+      if (data.error) {
+        const missingSurveyFields = Array.isArray(data.missing_survey_fields) ? data.missing_survey_fields : []
+        setChoiceSeatingPreviewIssue({ message: String(data.error), missingSurveyFields })
+        setChoiceSeatingPreview(null)
+        setSelectedChoiceSeatingCandidateId("")
+        toast.error(data.error)
+        return
+      }
+      if (data.report) {
+        setApprovedChoiceSeatingReport({
+          id: data.report_id,
+          candidate_rank: Number(data.candidate_rank || selected.rank),
+          report: data.report,
+          assignments: { round1: selected.round1, round2: selected.round2, round3: selected.round3 },
+          created_at: data.report.generated_at,
+          matches_current_seating: true,
+          current_assignment_count: 126,
+        })
+      }
+      setChoiceSeatingPreview(null)
+      setSelectedChoiceSeatingCandidateId("")
+      setChoiceSeatingPreviewIssue(null)
+      await Promise.all([fetchSeating(), fetchParticipants(), fetchState()])
+      if (!requestIsCurrent()) return
+      await fetchApprovedChoiceSeatingReport()
+      if (!requestIsCurrent()) return
+      toast.success(data.message || `تم اعتماد ${label} وحفظ تقرير القرار`)
+    } catch (error: any) {
+      if (!requestIsCurrent()) return
+      toast.error(error?.message || "تعذّر تطبيق خطة الجلسات")
+    } finally {
+      if (requestIsCurrent()) setLoading(null)
+    }
+  }
+
   const generateSeating = () => {
     if (previewEventId != null) { toast.error("لا يمكن توليد الجلسات في وضع المعاينة"); return }
-    if (choiceOnly && state?.participants_selected !== 42) { toast.error("يجب حفظ 42 مشاركاً بالضبط قبل توليد الجلسات"); return }
+    if (choiceOnly) {
+      generateChoiceSeatingPreview()
+      return
+    }
     run("seating", async () => {
-    const data = await api("e3-generate-seating")
-    if (!data.error) { fetchSeating(); fetchParticipants() }
-    return data
+      const data = await api("e3-generate-seating")
+      if (!data.error) { fetchSeating(); fetchParticipants() }
+      return data
     })
   }
 
@@ -1478,7 +2299,11 @@ export default function Admin3Page() {
     if (!choiceOnly && selectedNumbers.size < minimumParticipants)
       return { error: `يجب اختيار ${minimumParticipants} مشاركين على الأقل (تم اختيار ${selectedNumbers.size})` }
     const data = await api("e3-set-participants", { participant_numbers: Array.from(selectedNumbers) })
-    if (!data.error) fetchParticipants()
+    if (!data.error) {
+      cancelChoiceSeatingPreview()
+      setApprovedChoiceSeatingReport(null)
+      fetchParticipants()
+    }
     return data
   }) }
 
@@ -1537,7 +2362,10 @@ export default function Admin3Page() {
     if (!confirm("هل أنت متأكد من إعادة تعيين الفعالية؟ سيتم حذف جميع البيانات.")) return
     run("reset", async () => {
       const d = await api("e3-reset-event")
-      if (!d.error) { fetchState(); fetchParticipants(); setSeating(null); setRankStatus(null) }
+      if (!d.error) {
+        fetchState(); fetchParticipants(); setSeating(null); setRankStatus(null)
+        setChoiceSeatingPreview(null); setSelectedChoiceSeatingCandidateId(""); setChoiceSeatingPreviewIssue(null); setApprovedChoiceSeatingReport(null)
+      }
       return d
     })
   }
@@ -2510,6 +3338,88 @@ export default function Admin3Page() {
               </div>
             </div>
 
+            {choiceOnly && choiceSeatingPreviewIssue && (
+              <section className="rounded-2xl border border-red-700/45 bg-red-950/25 p-4" aria-live="polite">
+                <div className="flex items-start gap-2.5">
+                  <AlertTriangle size={18} className="mt-0.5 shrink-0 text-red-300" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-black text-red-200">لم يتم تطبيق أي خطة جلسات</p>
+                    <p className="mt-1 text-xs leading-6 text-red-300/80">{choiceSeatingPreviewIssue.message}</p>
+                    {choiceSeatingPreviewIssue.missingSurveyFields.length > 0 && (
+                      <div className="mt-3 grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+                        {choiceSeatingPreviewIssue.missingSurveyFields.map(item => {
+                          const participant = participants.find(person => Number(person.number) === Number(item.participant_number))
+                          return <div key={item.participant_number} className="rounded-lg border border-red-800/30 bg-black/20 px-2.5 py-2 text-[10px] text-red-200"><span className="font-bold">#{item.participant_number}{participant?.name ? ` ${participant.name}` : ""}</span><p className="mt-1 text-red-300/65">{item.fields.join("، ")}</p></div>
+                        })}
+                      </div>
+                    )}
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button type="button" onClick={generateChoiceSeatingPreview} disabled={!!loading || previewEventId != null} className="flex items-center gap-1.5 rounded-lg bg-red-700/30 px-3 py-2 text-[10px] font-bold text-red-100 hover:bg-red-700/45 disabled:opacity-40">{loading === "seating" ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />} إعادة المحاولة بعد إصلاح البيانات</button>
+                      <button type="button" onClick={() => setChoiceSeatingPreviewIssue(null)} className="rounded-lg border border-red-800/30 px-3 py-2 text-[10px] font-bold text-red-300/70 hover:text-red-100">إخفاء التنبيه</button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {choiceOnly && choiceSeatingPreview && (
+              <ChoiceSeatingPreviewPanel
+                preview={choiceSeatingPreview}
+                selectedId={selectedChoiceSeatingCandidateId}
+                participants={participants}
+                applying={loading === "apply-seating-preview"}
+                regenerating={loading === "seating"}
+                onSelect={setSelectedChoiceSeatingCandidateId}
+                onApply={applyChoiceSeatingPreview}
+                onRegenerate={generateChoiceSeatingPreview}
+                onCancel={cancelChoiceSeatingPreview}
+              />
+            )}
+
+            {choiceOnly && !choiceSeatingPreview && approvedChoiceSeatingReport?.report && approvedChoiceSeatingCandidate && (() => {
+              const approvedLabel = choiceCandidateLabels[Number(approvedChoiceSeatingCandidate.rank)] || choiceCandidateLabels[1]
+              const approvedSummary = approvedChoiceSeatingReport.report.summary || {}
+              const createdAt = Date.parse(String(approvedChoiceSeatingReport.created_at || approvedChoiceSeatingReport.report.generated_at || ""))
+              const seatingMatchKnown = typeof approvedChoiceSeatingReport.matches_current_seating === "boolean"
+              const seatingMatchesApproval = approvedChoiceSeatingReport.matches_current_seating === true
+              const seatingChangedAfterApproval = approvedChoiceSeatingReport.matches_current_seating === false
+              return (
+                <section className={`overflow-hidden rounded-2xl border ${seatingChangedAfterApproval ? "border-amber-700/50 bg-amber-950/15" : "border-emerald-800/40 bg-emerald-950/15"}`}>
+                  <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {seatingChangedAfterApproval ? <AlertTriangle size={17} className="text-amber-300" /> : <CheckCircle size={17} className="text-emerald-300" />}
+                        <h3 className={`text-sm font-black ${seatingChangedAfterApproval ? "text-amber-100" : "text-emerald-100"}`}>تقرير خطة الجلسات المعتمدة</h3>
+                        <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${approvedLabel.style}`} dir="ltr">{approvedLabel.english}</span>
+                        <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${seatingChangedAfterApproval ? "border-amber-600/50 bg-amber-500/15 text-amber-200" : seatingMatchesApproval ? "border-emerald-600/45 bg-emerald-500/15 text-emerald-200" : "border-gray-700 bg-gray-900 text-gray-400"}`}>
+                          {seatingChangedAfterApproval ? "لقطة الاعتماد — تغيّرت الجلسات بعدها" : seatingMatchesApproval ? "تطابق الجلسات الحالية" : "تقرير اعتماد محفوظ"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[10px] leading-5 text-gray-400">حُفظ سبب الاختيار ومقاييسه مع الخطة{approvedChoiceSeatingReport.generator_version ? ` · المولّد ${approvedChoiceSeatingReport.generator_version}` : ""}{Number.isFinite(createdAt) ? ` · ${new Date(createdAt).toLocaleString("ar-SA", { dateStyle: "short", timeStyle: "short" })}` : ""}</p>
+                      {seatingChangedAfterApproval && <p className="mt-1 text-[10px] font-bold leading-5 text-amber-300">الطاولات أدناه هي النسخة غير القابلة للتغيير وقت الاعتماد وليست خريطة الجلسات الحالية{approvedChoiceSeatingReport.current_assignment_count != null ? ` · المسند حالياً ${approvedChoiceSeatingReport.current_assignment_count}/126 مقعداً` : ""}.</p>}
+                      {!seatingMatchKnown && <p className="mt-1 text-[9px] text-gray-600">لم تتوفر مقارنة تلقائية مع الجلسات الحالية لهذا التقرير القديم.</p>}
+                      <div className="mt-2 flex flex-wrap gap-1.5 text-[9px]">
+                        <span className="rounded-lg bg-black/20 px-2 py-1 text-amber-200">Spark {scoreText(approvedSummary.lens_scores?.spark)}</span>
+                        <span className="rounded-lg bg-black/20 px-2 py-1 text-cyan-200">Depth {scoreText(approvedSummary.lens_scores?.depth)}</span>
+                        <span className="rounded-lg bg-black/20 px-2 py-1 text-violet-200">Rhythm {scoreText(approvedSummary.lens_scores?.rhythm)}</span>
+                        <span className={`rounded-lg px-2 py-1 ${approvedSummary.all_gender_balanced === false ? "bg-red-950/50 text-red-300" : "bg-emerald-950/50 text-emerald-300"}`}>{approvedSummary.all_gender_balanced === false ? "توازن جندري غير مكتمل" : "توازن جندري كامل"}</span>
+                        <span className={`rounded-lg px-2 py-1 ${(approvedSummary.protected_pair_violations || 0) > 0 ? "bg-red-950/50 text-red-300" : "bg-emerald-950/50 text-emerald-300"}`}>{approvedSummary.protected_pair_violations || 0} مخالفة محمية</span>
+                      </div>
+                    </div>
+                    <button type="button" onClick={() => setApprovedChoiceSeatingReportExpanded(value => !value)} aria-expanded={approvedChoiceSeatingReportExpanded} className={`flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl border px-4 py-2.5 text-xs font-bold ${seatingChangedAfterApproval ? "border-amber-700/40 bg-amber-950/30 text-amber-200 hover:bg-amber-900/35" : "border-emerald-700/35 bg-emerald-950/30 text-emerald-200 hover:bg-emerald-900/35"}`}>
+                      <ChevronDown size={14} className={`transition-transform ${approvedChoiceSeatingReportExpanded ? "rotate-180" : ""}`} />
+                      {approvedChoiceSeatingReportExpanded ? "إخفاء التقرير الكامل" : "عرض التقرير الكامل والطاولات"}
+                    </button>
+                  </div>
+                  <ChoiceSeatingDecisionAudit report={approvedChoiceSeatingReport.report} />
+                  {approvedChoiceSeatingReportExpanded && <div className={`border-t p-4 ${seatingChangedAfterApproval ? "border-amber-800/30" : "border-emerald-800/25"}`}>
+                    {seatingChangedAfterApproval && <div className="mb-3 flex items-start gap-2 rounded-xl border border-amber-700/40 bg-amber-950/30 p-3 text-[10px] font-bold leading-5 text-amber-200"><AlertTriangle size={14} className="mt-0.5 shrink-0" /> لقطة تاريخية وقت الاعتماد فقط. افتح «خريطة الجلسات» لرؤية الترتيب الحالي بعد التعديلات.</div>}
+                    <ChoiceSeatingReportDetails candidate={approvedChoiceSeatingCandidate} participants={participants} showDifference={false} />
+                  </div>}
+                </section>
+              )
+            })()}
+
             {/* Phase & Timer Controls */}
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 sm:p-5">
               <h3 className="font-semibold flex items-center gap-2 mb-3 sm:mb-4 text-sm sm:text-base">
@@ -2519,9 +3429,9 @@ export default function Admin3Page() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[
                   {
-                    label: "توليد خطة الجلسات",
-                    desc: choiceOnly ? `3 جولات · 7 أشخاص لكل مجموعة · المحددون: ${state?.participants_selected || 0}` : `يتطلب ${state?.participants_selected || 0} مشاركاً محدداً`,
-                    action: generateSeating,
+                    label: choiceOnly ? (choiceSeatingPreview ? "مراجعة الخيارات الثلاثة" : "إنشاء 3 خيارات للمعاينة") : "توليد خطة الجلسات",
+                    desc: choiceOnly ? `Best · Second-best · Third-best · لم تُطبّق تلقائياً · المحددون: ${state?.participants_selected || 0}` : `يتطلب ${state?.participants_selected || 0} مشاركاً محدداً`,
+                    action: choiceOnly && choiceSeatingPreview ? () => document.getElementById("choice-seating-preview")?.scrollIntoView({ behavior: "smooth", block: "start" }) : generateSeating,
                     icon: Grid3x3,
                     color: "blue",
                     enabled: choiceOnly ? state?.participants_selected === 42 : (state?.participants_selected || 0) >= 6,
@@ -3064,14 +3974,14 @@ export default function Admin3Page() {
                       </button>
                     ))}
                     {matchPairs.length > 0 && (
-                      <button onClick={() => { setMapRound(20); if (choiceOnly) { setSwapA(null); setMoveA(null); setEditingTableCard(null) } }}
+                      <button onClick={() => { setMapRound(20); setSwapA(null); setMoveA(null); setEditingTableCard(null) }}
                         className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${mapRound === 20 ? 'bg-emerald-600 text-white shadow' : 'text-gray-400 hover:text-gray-200'}`}
                       >
                         {choiceOnly ? "الاختيار الأول" : "لقاء الاختيار"}
                       </button>
                     )}
                     {phase3Pairs.length > 0 && (
-                      <button onClick={() => { setMapRound(30); if (choiceOnly) { setSwapA(null); setMoveA(null); setEditingTableCard(null) } }}
+                      <button onClick={() => { setMapRound(30); setSwapA(null); setMoveA(null); setEditingTableCard(null) }}
                         className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${mapRound === 30 ? 'bg-purple-600 text-white shadow' : 'text-gray-400 hover:text-gray-200'}`}
                       >
                         {choiceOnly ? "الاختيار الثاني" : "الخوارزمية"}

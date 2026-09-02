@@ -1,4 +1,5 @@
-const VALID_TABLE_ROUNDS = new Set([1, 2, 3, 20, 30])
+const CLASSIC_TABLE_ROUNDS = new Set([1, 2, 20, 30])
+const CHOICE_ONLY_TABLE_ROUNDS = new Set([1, 2, 3, 20, 30])
 
 export function swapNumber(value, oldParticipant, newParticipant, swapBoth = true) {
   const number = Number(value)
@@ -8,10 +9,12 @@ export function swapNumber(value, oldParticipant, newParticipant, swapBoth = tru
   return number
 }
 
-export function getTableSwapRounds(round) {
+export function getTableSwapRounds(round, { choiceOnly = false } = {}) {
   const normalizedRound = Number(round)
-  if (!VALID_TABLE_ROUNDS.has(normalizedRound)) return null
-  return [1, 2, 3].includes(normalizedRound) ? [1, 2, 3] : [normalizedRound]
+  const validRounds = choiceOnly ? CHOICE_ONLY_TABLE_ROUNDS : CLASSIC_TABLE_ROUNDS
+  if (!validRounds.has(normalizedRound)) return null
+  if (![1, 2, 3].includes(normalizedRound)) return [normalizedRound]
+  return choiceOnly ? [1, 2, 3] : [1, 2]
 }
 
 export function collectEventSwapPairs(matchRows, oldParticipant, newParticipant, swapBoth) {

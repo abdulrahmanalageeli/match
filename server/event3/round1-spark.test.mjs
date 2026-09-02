@@ -189,10 +189,13 @@ test("Spark-optimized Round 1 preserves all three-round structural guarantees", 
   assert.equal(metrics.repeatedInAllThree, 0)
 })
 
-test("choice-only live and test seating both use the survey-only Spark path", async () => {
+test("choice-only live and test seating both use the survey-only three-lens path", async () => {
   const source = await readFile(new URL("../../api/admin/index.mjs", import.meta.url), "utf8")
-  assert.match(source, /if \(choiceOnlySeating\) \{[\s\S]*?using deterministic survey-only Spark rules for Round 1[\s\S]*?\} else if \(isTestMode\)/)
+  assert.match(source, /if \(choiceOnlySeating\) \{[\s\S]*?using deterministic survey-only Spark\/Depth\/Rhythm rules[\s\S]*?\} else if \(isTestMode\)/)
   assert.match(source, /buildChoiceOnlySeatingPlan\(orderedNumbers, \{[\s\S]*?profileMap: seatingProfileMap,[\s\S]*?lockedPairsSet/)
+  assert.match(source, /round2_depth: choiceOnlySeating \? plan\.round2Depth : null/)
+  assert.match(source, /round3_rhythm: choiceOnlySeating \? plan\.round3Rhythm : null/)
+  assert.match(source, /requireCompleteLensProfiles:\s*true/)
   assert.doesNotMatch(source, /calculateRound1SparkPairScore/)
   assert.doesNotMatch(source, /pairScoreMap: seatingPairScoreMap/)
 })

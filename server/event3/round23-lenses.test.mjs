@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import { calculateBalancedCompatibility } from "../matching/balanced-compatibility.mjs"
+import { BALANCED_WEIGHTS, calculateBalancedCompatibility } from "../matching/balanced-compatibility.mjs"
 import {
   calculateRound2CoreValuesScore,
   calculateRound2DepthPairBreakdown,
@@ -83,11 +83,26 @@ test("Round 2 uses the announced 30/25/20/15/10 survey-only Depth formula", () =
   })
   const balanced = calculateBalancedCompatibility(left, right, { vibeScore: 6 })
   const coreValues = calculateRound2CoreValuesScore(left, right)
-  const expected = ((balanced.questionScores.currentFocus + balanced.questionScores.intent) * (30 / 9))
+  const expected = ((balanced.questionScores.currentFocus + balanced.questionScores.intent) * (30 / (
+      BALANCED_WEIGHTS.currentFocus + BALANCED_WEIGHTS.intent
+    )))
     + (coreValues * (25 / 10))
-    + (balanced.questionScores.conversationDepth * (20 / 3))
-    + (balanced.scoreBreakdown.communicationDisagreement * (15 / 10))
-    + (balanced.scoreBreakdown.lifestyleSustainability * (10 / 12))
+    + (balanced.questionScores.conversationDepth * (20 / BALANCED_WEIGHTS.conversationDepth))
+    + (balanced.scoreBreakdown.communicationDisagreement * (15 / (
+      BALANCED_WEIGHTS.disagreement
+      + BALANCED_WEIGHTS.communication1
+      + BALANCED_WEIGHTS.communication2
+      + BALANCED_WEIGHTS.communication3
+      + BALANCED_WEIGHTS.communication4
+      + BALANCED_WEIGHTS.communication5
+    )))
+    + (balanced.scoreBreakdown.lifestyleSustainability * (10 / (
+      BALANCED_WEIGHTS.lifestyle1
+      + BALANCED_WEIGHTS.lifestyle2
+      + BALANCED_WEIGHTS.lifestyle3
+      + BALANCED_WEIGHTS.lifestyle4
+      + BALANCED_WEIGHTS.lifestyle5
+    )))
 
   const result = calculateRound2DepthPairBreakdown(left, right)
   assert.ok(Math.abs(result.score - expected) < 1e-9)
@@ -112,11 +127,13 @@ test("Round 3 uses the distinct 30/25/20/15/10 Rhythm formula", () => {
   const left = profile(1, { conversational_role: "A", curiosity_style: "A", social_battery: "A", silence_comfort: "A" })
   const right = profile(2, { conversational_role: "C", curiosity_style: "B", social_battery: "A", silence_comfort: "A" })
   const balanced = calculateBalancedCompatibility(left, right, { vibeScore: 6 })
-  const expected = (balanced.questionScores.initiative * (30 / 6))
-    + (balanced.questionScores.curiosityStyle * (25 / 4))
-    + (balanced.questionScores.socialBattery * (20 / 2))
-    + ((balanced.questionScores.humorBanter + balanced.questionScores.earlyOpenness) * (15 / 10))
-    + (balanced.questionScores.silence * (10 / 2))
+  const expected = (balanced.questionScores.initiative * (30 / BALANCED_WEIGHTS.initiative))
+    + (balanced.questionScores.curiosityStyle * (25 / BALANCED_WEIGHTS.curiosityStyle))
+    + (balanced.questionScores.socialBattery * (20 / BALANCED_WEIGHTS.socialBattery))
+    + ((balanced.questionScores.humorBanter + balanced.questionScores.earlyOpenness) * (15 / (
+      BALANCED_WEIGHTS.humorBanter + BALANCED_WEIGHTS.earlyOpenness
+    )))
+    + (balanced.questionScores.silence * (10 / BALANCED_WEIGHTS.silence))
 
   const result = calculateRound3RhythmPairBreakdown(left, right)
   assert.deepEqual(result.weighted, {

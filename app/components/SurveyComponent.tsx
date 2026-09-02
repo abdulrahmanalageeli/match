@@ -278,8 +278,8 @@ export const surveyQuestions = [
     required: true,
     category: "match_update"
   },
-  // New profile context — collected for future analysis only. These answers
-  // are intentionally not part of the matching score or vibe description.
+  // Profile alignment context. These answers contribute to matching as
+  // language, religious-expectation, and social-orientation alignment signals.
   {
     id: "expression_language",
     question: "سؤال جديد",

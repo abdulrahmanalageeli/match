@@ -124,11 +124,11 @@ function isPaidForEvent(participant, eventId) {
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, maxRetries: 0 })
 
 const SCORE_MAX = Object.freeze({
-  synergy: 20,
+  synergy: 25,
   vibe: BALANCED_VIBE_MAX,
   lifestyle: 12,
-  humorOpen: 10,
-  communication: 5,
+  humorOpen: 7,
+  communication: 4,
   coreValues: 17,
 })
 
@@ -1096,7 +1096,7 @@ function calculateConversationInitiativePreferenceScore(participantA, participan
   return calculateBalancedCompatibility(participantA, participantB, { vibeScore: BALANCED_VIBE_MAX / 2 })
     .questionScores.initiative
 }
-// Interaction rhythm is the balanced model's 20-point aggregate.
+// Interaction rhythm is the balanced model's 25-point aggregate.
 function calculateInteractionSynergyScore(participantA, participantB) {
   return calculateBalancedInteractionScore(participantA, participantB).score
 }
@@ -1803,8 +1803,8 @@ async function getCachedCompatibility(participantA, participantB, options = {}) 
         const communicationScore = calculateCommunicationCompatibility(aCommunication, bCommunication)
         const lifestyleScore = calculateLifestyleCompatibility(aLifestyle, bLifestyle)
         const coreValuesScore = calculateCoreValuesCompatibility(aCoreValues, bCoreValues) // raw 0–20
-        const synergyScore = calculateInteractionSynergyScore(participantA, participantB) // 0–20
-        const { score: humorOpenScore } = calculateHumorOpennessScore(participantA, participantB) // 0–10 (not stored directly)
+        const synergyScore = calculateInteractionSynergyScore(participantA, participantB) // 0–25
+        const { score: humorOpenScore } = calculateHumorOpennessScore(participantA, participantB) // 0–7 (not stored directly)
         const intentScore = calculateIntentGoalScore(participantA, participantB) // 0–5
         const groupVibeMeta = { cacheable: true, fallbackReason: null, axes: null }
         const vibeScore = await calculateVibeCompatibility(participantA, participantB, groupVibeMeta) // 0–12
@@ -1816,8 +1816,8 @@ async function getCachedCompatibility(participantA, participantB, options = {}) 
         const W_HUMOR = 27 / SCORE_MAX.humorOpen
         const W_VIBE = 12 / SCORE_MAX.vibe
         const W_LIFESTYLE = 3 / SCORE_MAX.lifestyle
-        const W_INSIGHTS = 14 / 11
-        const W_ATTACHMENT = 3 / 8
+        const W_INSIGHTS = 14 / 9
+        const W_ATTACHMENT = 3 / 9
         const W_VALUES = 4 / 10
         const coreValuesScaled10 = Math.max(0, Math.min(10, (coreValuesScore / 20) * 10))
         const regularTotal = (Math.max(0, Math.min(SCORE_MAX.synergy, synergyScore)) * W_SYNERGY)
@@ -1950,15 +1950,15 @@ async function storeGroupCachedCompatibility(participantA, participantB, payload
 function formatBalancedScoreReason(result) {
   const breakdown = result?.scoreBreakdown || {}
   return [
-    `Common Ground: ${Math.round(Number(breakdown.semanticCommonGround ?? 0))}/18`,
-    `Interaction Rhythm: ${Math.round(Number(breakdown.interactionRhythm ?? 0))}/20`,
-    `Humor/Openness: ${Math.round(Number(breakdown.humorOpenness ?? 0))}/10`,
-    `Attachment Comfort: ${Math.round(Number(breakdown.attachmentComfort ?? 0))}/8`,
+    `Common Ground: ${Math.round(Number(breakdown.semanticCommonGround ?? 0))}/17`,
+    `Interaction Rhythm: ${Math.round(Number(breakdown.interactionRhythm ?? 0))}/25`,
+    `Humor/Openness: ${Math.round(Number(breakdown.humorOpenness ?? 0))}/7`,
+    `Attachment Comfort: ${Math.round(Number(breakdown.attachmentComfort ?? 0))}/9`,
     `Lifestyle: ${Math.round(Number(breakdown.lifestyleSustainability ?? 0))}/12`,
-    `Values/Boundaries: ${Math.round(Number(breakdown.valuesBoundaries ?? 0))}/13`,
-    `Communication/Disagreement: ${Math.round(Number(breakdown.communicationDisagreement ?? 0))}/10`,
+    `Values/Boundaries/Language: ${Math.round(Number(breakdown.valuesBoundaries ?? 0) + Number(breakdown.language ?? 0))}/17`,
+    `Communication/Disagreement: ${Math.round(Number(breakdown.communicationDisagreement ?? 0))}/8`,
     `Intent: ${Math.round(Number(breakdown.intent ?? 0))}/5`,
-    `Expression Language: ${Math.round(Number(breakdown.language ?? 0))}/4`,
+    `Evidence score: ${Math.round(Number(result?.totalScore ?? 0))}/100 (raw ${Math.round(Number(breakdown.rawTotal ?? result?.componentTotal ?? 0))}/100)`,
   ].join(' + ')
 }
 
@@ -1967,13 +1967,13 @@ function formatOppositesScoreReason(resultOrBreakdown) {
     ? resultOrBreakdown
     : computeOppositesBreakdown(resultOrBreakdown || {})
   return [
-    `Opposites — Interaction Synergy: ${Math.round(Number(breakdown.synergy ?? 0))}/20`,
+    `Opposites — Interaction Synergy: ${Math.round(Number(breakdown.synergy ?? 0))}/25`,
     `Core Values/Boundaries/Language: ${Math.round(Number(breakdown.coreValues ?? 0))}/17`,
-    `Communication Alignment: ${Math.round(Number(breakdown.communication ?? 0))}/5`,
+    `Communication Alignment: ${Math.round(Number(breakdown.communication ?? 0))}/4`,
     `Lifestyle Difference: ${Math.round(Number(breakdown.flippedLifestyle ?? 0))}/12`,
     `Vibe Difference: ${Math.round(Number(breakdown.flippedVibe ?? 0))}/12`,
-    `Humor/Openness Difference: ${Math.round(Number(breakdown.flippedHumor ?? 0))}/10`,
-    `Raw Opposites Total: ${Math.round(Number(breakdown.rawTotal ?? 0))}/${Math.round(Number(breakdown.rawMaximum ?? 76))}`,
+    `Humor/Openness Difference: ${Math.round(Number(breakdown.flippedHumor ?? 0))}/7`,
+    `Raw Opposites Total: ${Math.round(Number(breakdown.rawTotal ?? 0))}/${Math.round(Number(breakdown.rawMaximum ?? 77))}`,
     `Normalized: ${Math.round(Number(breakdown.percent ?? 0))}%`,
   ].join(' + ')
 }
@@ -2396,7 +2396,7 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
       
       // Add Interaction Synergy (Q35..41) and Humor & Openness into group pair score
       // Mimic individual regular mode weights:
-      //   Synergy 0–20, Humor/Openness 0–10.
+      //   Synergy 0–25, Humor/Openness 0–7.
       const synergyRaw = calculateInteractionSynergyScore(a, b)
       const { score: humorOpenRaw } = calculateHumorOpennessScore(a, b)
       const synergyScore = Math.max(0, Math.min(SCORE_MAX.synergy, synergyRaw))
@@ -2425,8 +2425,8 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
       const W_HUMOR = 27 / SCORE_MAX.humorOpen
       const W_VIBE = 12 / SCORE_MAX.vibe
       const W_LIFESTYLE = 3 / SCORE_MAX.lifestyle
-      const W_INSIGHTS = 14 / 11
-      const W_ATTACHMENT = 3 / 8
+      const W_INSIGHTS = 14 / 9
+      const W_ATTACHMENT = 3 / 9
       const W_VALUES = 4 / 10
 
       const regularTotal =
@@ -2499,7 +2499,7 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
   
   console.log(`\n📊 Top compatibility pairs for groups (0–100% Spark-Only):`)
   pairScores.slice(0, 10).forEach(pair => {
-    console.log(`  ${pair.participants[0]} × ${pair.participants[1]}: ${Math.round(pair.score)}% (Interact: ${Math.round(pair.synergyScore)} /20, Humor/Open: ${Math.round(pair.humorOpenScore)} /10, Vibe: ${Math.round(pair.vibeScore)} /12, Life: ${Math.round(pair.lifestyleScore)} /12, Values: ${Math.round(pair.coreValuesScore)} /10)`)
+    console.log(`  ${pair.participants[0]} × ${pair.participants[1]}: ${Math.round(pair.score)}% (Interact: ${Math.round(pair.synergyScore)} /25, Humor/Open: ${Math.round(pair.humorOpenScore)} /7, Vibe: ${Math.round(pair.vibeScore)} /12, Life: ${Math.round(pair.lifestyleScore)} /12, Group values: ${Math.round(pair.coreValuesScore)} /10)`)
   })
 
   // Enhanced group formation algorithm with fallback support
@@ -6845,10 +6845,10 @@ if (action === "cache-status-by-gender") {
           core_values_compatibility_score: coreValuesScore,
           vibe_compatibility_score: vibeScore,
           // New-model fields for current weights breakdown
-          synergyScore: Number(compatibilityResult.synergyScore ?? 0),           // 0-20
-          humorOpenScore: Number(compatibilityResult.humorOpenScore ?? 0),       // 0-10
+          synergyScore: Number(compatibilityResult.synergyScore ?? 0),           // 0-25
+          humorOpenScore: Number(compatibilityResult.humorOpenScore ?? 0),       // 0-7
           intentScore: Number(compatibilityResult.intentScore ?? 0),             // 0-5
-          communicationScore: Number(compatibilityResult.communicationScore ?? 0), // 0-5 direct items
+          communicationScore: Number(compatibilityResult.communicationScore ?? 0), // 0-4 direct items
           lifestyleScore: Number(compatibilityResult.lifestyleScore ?? 0),       // 0-12
           coreValuesScore: Number(compatibilityResult.coreValuesScore ?? coreValuesScore ?? 0), // 0-17 values/boundaries/language
           coreValuesScaled5: (
@@ -6857,10 +6857,10 @@ if (action === "cache-status-by-gender") {
               : Number(compatibilityResult.coreValuesScore ?? coreValuesScore ?? 0)
           ),
           vibeScore: Number(compatibilityResult.vibeScore ?? vibeScore ?? 0),    // 0-12
-          disagreementScore: Number(compatibilityResult.disagreementScore ?? 0), // 0-5
+          disagreementScore: Number(compatibilityResult.disagreementScore ?? 0), // 0-4
           currentFocusScore: Number(compatibilityResult.currentFocusScore ?? 0), // 0-4
-          similarityPreferenceScore: Number(compatibilityResult.similarityPreferenceScore ?? 0), // 0-2
-          attachmentPaceScore: Number(compatibilityResult.attachmentPaceScore ?? 0), // 0-8
+          similarityPreferenceScore: Number(compatibilityResult.similarityPreferenceScore ?? 0), // 0-1
+          attachmentPaceScore: Number(compatibilityResult.attachmentPaceScore ?? 0), // 0-9
           // Safety/cap flags
           attachmentPenaltyApplied: !!compatibilityResult.attachmentPenaltyApplied,
           intentBoostApplied:       !!compatibilityResult.intentBoostApplied,
@@ -7029,8 +7029,8 @@ if (action === "cache-status-by-gender") {
           const W_HUMOR = 27 / SCORE_MAX.humorOpen
           const W_VIBE = 12 / SCORE_MAX.vibe
           const W_LIFESTYLE = 3 / SCORE_MAX.lifestyle
-          const W_INSIGHTS = 14 / 11
-          const W_ATTACHMENT = 3 / 8
+          const W_INSIGHTS = 14 / 9
+          const W_ATTACHMENT = 3 / 9
           const W_VALUES = 4 / 10
 
           const pairs = []
@@ -7617,7 +7617,7 @@ if (action === "cache-status-by-gender") {
         
         // One-to-one balanced category explanation. There are no hidden
         // multipliers, duplicate bonuses, or post-hoc survey penalties.
-        let reason = `الأرضية المشتركة: ${Math.round(scoreBreakdown.semanticCommonGround ?? (vibeScore + currentFocusScore + similarityPreferenceScore))}/18 + إيقاع التفاعل: ${Math.round(scoreBreakdown.interactionRhythm ?? synergyScore)}/20 + الدعابة/الانفتاح: ${Math.round(scoreBreakdown.humorOpenness ?? humorOpenScore)}/10 + راحة التقارب: ${Math.round(scoreBreakdown.attachmentComfort ?? attachmentPaceScore)}/8 + نمط الحياة: ${Math.round(scoreBreakdown.lifestyleSustainability ?? lifestyleScore)}/12 + القيم/الحدود: ${Math.round(scoreBreakdown.valuesBoundaries ?? 0)}/13 + التواصل/الاختلاف: ${Math.round(scoreBreakdown.communicationDisagreement ?? (communicationScore + disagreementScore))}/10 + الهدف: ${Math.round(scoreBreakdown.intent ?? intentScore)}/5 + لغة التعبير: ${Math.round(scoreBreakdown.language ?? 0)}/4`
+        let reason = `الأرضية المشتركة: ${Math.round(scoreBreakdown.semanticCommonGround ?? (vibeScore + currentFocusScore + similarityPreferenceScore))}/17 + إيقاع التفاعل: ${Math.round(scoreBreakdown.interactionRhythm ?? synergyScore)}/25 + الدعابة/الانفتاح: ${Math.round(scoreBreakdown.humorOpenness ?? humorOpenScore)}/7 + راحة التقارب: ${Math.round(scoreBreakdown.attachmentComfort ?? attachmentPaceScore)}/9 + نمط الحياة: ${Math.round(scoreBreakdown.lifestyleSustainability ?? lifestyleScore)}/12 + القيم/الحدود/اللغة: ${Math.round((scoreBreakdown.valuesBoundaries ?? 0) + (scoreBreakdown.language ?? 0))}/17 + التواصل/الاختلاف: ${Math.round(scoreBreakdown.communicationDisagreement ?? (communicationScore + disagreementScore))}/8 + الهدف: ${Math.round(scoreBreakdown.intent ?? intentScore)}/5 + دليل التوافق: ${Math.round(totalScore)}/100`
 
         // Append age tolerance indicator if used
         const ageTolerance = getAgeTolerance(a.assigned_number, b.assigned_number)

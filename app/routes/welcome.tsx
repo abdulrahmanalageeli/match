@@ -5486,20 +5486,20 @@ export default function WelcomePage() {
           ?? (finite(structuredBreakdown.valuesBoundaries) + finite(structuredBreakdown.language)),
         )
         const dimensions = isOpposites ? [
-          { key: 'interaction', label: 'إيقاع التفاعل', value: finite(structuredBreakdown.interactionSynergy), max: 20, bar: 'from-violet-500 to-purple-500' },
+          { key: 'interaction', label: 'إيقاع التفاعل', value: finite(structuredBreakdown.interactionSynergy), max: 25, bar: 'from-violet-500 to-purple-500' },
           { key: 'values', label: 'توافق القيم', value: finite(structuredBreakdown.coreValuesAlignment), max: 17, bar: 'from-emerald-500 to-teal-500' },
-          { key: 'communication', label: 'توافق التواصل', value: finite(structuredBreakdown.communicationAlignment), max: 5, bar: 'from-indigo-500 to-sky-500' },
+          { key: 'communication', label: 'توافق التواصل', value: finite(structuredBreakdown.communicationAlignment), max: 4, bar: 'from-indigo-500 to-sky-500' },
           { key: 'lifestyle', label: 'اختلاف نمط الحياة', value: finite(structuredBreakdown.lifestyleDifference), max: 12, bar: 'from-cyan-500 to-blue-500' },
           { key: 'vibe', label: 'اختلاف الطاقة', value: finite(structuredBreakdown.vibeDifference), max: 12, bar: 'from-purple-500 to-pink-500' },
-          { key: 'humorOpen', label: 'اختلاف الدعابة', value: finite(structuredBreakdown.humorDifference), max: 10, bar: 'from-amber-500 to-orange-500' },
+          { key: 'humorOpen', label: 'اختلاف الدعابة', value: finite(structuredBreakdown.humorDifference), max: 7, bar: 'from-amber-500 to-orange-500' },
         ] : [
-          { key: 'commonGround', label: 'الأرضية المشتركة', value: finite(structuredBreakdown.semanticCommonGround), max: 18, bar: 'from-purple-500 to-pink-500' },
-          { key: 'interaction', label: 'إيقاع التفاعل', value: finite(structuredBreakdown.interactionRhythm), max: 20, bar: 'from-violet-500 to-purple-500' },
-          { key: 'humorOpen', label: 'الدعابة والانفتاح', value: finite(structuredBreakdown.humorOpenness), max: 10, bar: 'from-amber-500 to-orange-500' },
-          { key: 'attachment', label: 'الراحة ووتيرة التقارب', value: finite(structuredBreakdown.attachmentComfort), max: 8, bar: 'from-rose-500 to-pink-500' },
+          { key: 'commonGround', label: 'الأرضية المشتركة', value: finite(structuredBreakdown.semanticCommonGround), max: 17, bar: 'from-purple-500 to-pink-500' },
+          { key: 'interaction', label: 'إيقاع التفاعل', value: finite(structuredBreakdown.interactionRhythm), max: 25, bar: 'from-violet-500 to-purple-500' },
+          { key: 'humorOpen', label: 'الدعابة والانفتاح', value: finite(structuredBreakdown.humorOpenness), max: 7, bar: 'from-amber-500 to-orange-500' },
+          { key: 'attachment', label: 'الراحة ووتيرة التقارب', value: finite(structuredBreakdown.attachmentComfort), max: 9, bar: 'from-rose-500 to-pink-500' },
           { key: 'lifestyle', label: 'استدامة نمط الحياة', value: finite(structuredBreakdown.lifestyleSustainability), max: 12, bar: 'from-cyan-500 to-blue-500' },
           { key: 'values', label: 'القيم والحدود واللغة', value: valuesLanguage, max: 17, bar: 'from-emerald-500 to-teal-500' },
-          { key: 'communication', label: 'التواصل وإدارة الاختلاف', value: finite(structuredBreakdown.communicationDisagreement), max: 10, bar: 'from-indigo-500 to-sky-500' },
+          { key: 'communication', label: 'التواصل وإدارة الاختلاف', value: finite(structuredBreakdown.communicationDisagreement), max: 8, bar: 'from-indigo-500 to-sky-500' },
           { key: 'intent', label: 'هدف اللقاء', value: finite(structuredBreakdown.intent), max: 5, bar: 'from-fuchsia-500 to-rose-500' },
         ]
         const getStrength = (value: number, maximum: number) => {

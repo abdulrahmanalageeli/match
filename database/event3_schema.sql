@@ -163,6 +163,78 @@ CREATE TABLE IF NOT EXISTS public.event3_matches (
           END, false)
       ELSE false
     END
+  ),
+  CONSTRAINT event3_matches_phase2_v9_evidence_consistent CHECK (
+    CASE
+      WHEN phase2_score_model_version = '2026-09-02-v9-feedback-evidence-100' THEN coalesce(
+        CASE
+          WHEN jsonb_typeof(phase2_score_snapshot -> 'scoreBreakdown' -> 'rawTotal') = 'number'
+            AND jsonb_typeof(phase2_score_snapshot -> 'scoreBreakdown' -> 'neutralBaseline') = 'number'
+            AND jsonb_typeof(phase2_score_snapshot -> 'scoreBreakdown' -> 'evidenceTotal') = 'number'
+            AND jsonb_typeof(phase2_score_snapshot -> 'totalScore') = 'number'
+          THEN (phase2_score_snapshot -> 'scoreBreakdown' ->> 'neutralBaseline')::numeric = 50
+            AND (phase2_score_snapshot -> 'scoreBreakdown' ->> 'rawTotal')::numeric BETWEEN 0 AND 100
+            AND round(greatest(0::numeric, least(100::numeric, ((phase2_score_snapshot -> 'scoreBreakdown' ->> 'rawTotal')::numeric - 50) * 2)), 6)
+              = (phase2_score_snapshot -> 'scoreBreakdown' ->> 'evidenceTotal')::numeric
+            AND (phase2_score_snapshot ->> 'totalScore')::numeric IN (
+              (phase2_score_snapshot -> 'scoreBreakdown' ->> 'evidenceTotal')::numeric,
+              round((phase2_score_snapshot -> 'scoreBreakdown' ->> 'evidenceTotal')::numeric, 2),
+              round((phase2_score_snapshot -> 'scoreBreakdown' ->> 'evidenceTotal')::numeric, 0)
+            )
+          ELSE false
+        END,
+        false
+      )
+      ELSE true
+    END
+  ),
+  CONSTRAINT event3_matches_phase3_v9_evidence_consistent CHECK (
+    CASE
+      WHEN phase3_score_model_version = '2026-09-02-v9-feedback-evidence-100' THEN coalesce(
+        CASE
+          WHEN jsonb_typeof(phase3_score_snapshot -> 'scoreBreakdown' -> 'rawTotal') = 'number'
+            AND jsonb_typeof(phase3_score_snapshot -> 'scoreBreakdown' -> 'neutralBaseline') = 'number'
+            AND jsonb_typeof(phase3_score_snapshot -> 'scoreBreakdown' -> 'evidenceTotal') = 'number'
+            AND jsonb_typeof(phase3_score_snapshot -> 'totalScore') = 'number'
+          THEN (phase3_score_snapshot -> 'scoreBreakdown' ->> 'neutralBaseline')::numeric = 50
+            AND (phase3_score_snapshot -> 'scoreBreakdown' ->> 'rawTotal')::numeric BETWEEN 0 AND 100
+            AND round(greatest(0::numeric, least(100::numeric, ((phase3_score_snapshot -> 'scoreBreakdown' ->> 'rawTotal')::numeric - 50) * 2)), 6)
+              = (phase3_score_snapshot -> 'scoreBreakdown' ->> 'evidenceTotal')::numeric
+            AND (phase3_score_snapshot ->> 'totalScore')::numeric IN (
+              (phase3_score_snapshot -> 'scoreBreakdown' ->> 'evidenceTotal')::numeric,
+              round((phase3_score_snapshot -> 'scoreBreakdown' ->> 'evidenceTotal')::numeric, 2),
+              round((phase3_score_snapshot -> 'scoreBreakdown' ->> 'evidenceTotal')::numeric, 0)
+            )
+          ELSE false
+        END,
+        false
+      )
+      ELSE true
+    END
+  ),
+  CONSTRAINT event3_matches_phase4_v9_evidence_consistent CHECK (
+    CASE
+      WHEN phase4_score_model_version = '2026-09-02-v9-feedback-evidence-100' THEN coalesce(
+        CASE
+          WHEN jsonb_typeof(phase4_score_snapshot -> 'scoreBreakdown' -> 'rawTotal') = 'number'
+            AND jsonb_typeof(phase4_score_snapshot -> 'scoreBreakdown' -> 'neutralBaseline') = 'number'
+            AND jsonb_typeof(phase4_score_snapshot -> 'scoreBreakdown' -> 'evidenceTotal') = 'number'
+            AND jsonb_typeof(phase4_score_snapshot -> 'totalScore') = 'number'
+          THEN (phase4_score_snapshot -> 'scoreBreakdown' ->> 'neutralBaseline')::numeric = 50
+            AND (phase4_score_snapshot -> 'scoreBreakdown' ->> 'rawTotal')::numeric BETWEEN 0 AND 100
+            AND round(greatest(0::numeric, least(100::numeric, ((phase4_score_snapshot -> 'scoreBreakdown' ->> 'rawTotal')::numeric - 50) * 2)), 6)
+              = (phase4_score_snapshot -> 'scoreBreakdown' ->> 'evidenceTotal')::numeric
+            AND (phase4_score_snapshot ->> 'totalScore')::numeric IN (
+              (phase4_score_snapshot -> 'scoreBreakdown' ->> 'evidenceTotal')::numeric,
+              round((phase4_score_snapshot -> 'scoreBreakdown' ->> 'evidenceTotal')::numeric, 2),
+              round((phase4_score_snapshot -> 'scoreBreakdown' ->> 'evidenceTotal')::numeric, 0)
+            )
+          ELSE false
+        END,
+        false
+      )
+      ELSE true
+    END
   )
 );
 
@@ -230,6 +302,30 @@ CREATE TABLE IF NOT EXISTS public.event3_test_match_results (
             ELSE false
           END, false)
       ELSE false
+    END
+  ),
+  CONSTRAINT event3_test_match_results_v9_evidence_consistent CHECK (
+    CASE
+      WHEN score_model_version = '2026-09-02-v9-feedback-evidence-100' THEN coalesce(
+        CASE
+          WHEN jsonb_typeof(score_snapshot -> 'scoreBreakdown' -> 'rawTotal') = 'number'
+            AND jsonb_typeof(score_snapshot -> 'scoreBreakdown' -> 'neutralBaseline') = 'number'
+            AND jsonb_typeof(score_snapshot -> 'scoreBreakdown' -> 'evidenceTotal') = 'number'
+            AND jsonb_typeof(score_snapshot -> 'totalScore') = 'number'
+          THEN (score_snapshot -> 'scoreBreakdown' ->> 'neutralBaseline')::numeric = 50
+            AND (score_snapshot -> 'scoreBreakdown' ->> 'rawTotal')::numeric BETWEEN 0 AND 100
+            AND round(greatest(0::numeric, least(100::numeric, ((score_snapshot -> 'scoreBreakdown' ->> 'rawTotal')::numeric - 50) * 2)), 6)
+              = (score_snapshot -> 'scoreBreakdown' ->> 'evidenceTotal')::numeric
+            AND (score_snapshot ->> 'totalScore')::numeric IN (
+              (score_snapshot -> 'scoreBreakdown' ->> 'evidenceTotal')::numeric,
+              round((score_snapshot -> 'scoreBreakdown' ->> 'evidenceTotal')::numeric, 2),
+              round((score_snapshot -> 'scoreBreakdown' ->> 'evidenceTotal')::numeric, 0)
+            )
+          ELSE false
+        END,
+        false
+      )
+      ELSE true
     END
   ),
   CONSTRAINT event3_test_match_results_unique_pair UNIQUE (

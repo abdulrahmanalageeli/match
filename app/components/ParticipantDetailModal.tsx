@@ -807,7 +807,7 @@ export default function ParticipantDetailModal({
                           renderSortableHeader("القيود/التفاصيل", "flags")
                         )}
                         {matchType !== "group" && (
-                          <th className="text-center p-4 text-sm font-semibold text-slate-300">المؤشر الظلي</th>
+                          <th className="text-center p-4 text-sm font-semibold text-slate-300">محاذاة الملف</th>
                         )}
                         {matchType !== "group" && (
                           <>
@@ -1285,7 +1285,7 @@ export default function ParticipantDetailModal({
                                           })}
                                           <span
                                             className={`flex min-w-0 flex-1 items-center justify-center gap-0.5 rounded-sm border px-1 py-0.5 text-center text-[8px] font-bold leading-none ${shadow.overall == null ? "border-slate-500/30 bg-slate-500/10 text-slate-400" : "border-purple-400/30 bg-purple-500/15 text-purple-200"}`}
-                                            title={`متوسط الظل: ${shadow.overall == null ? "غير مكتمل" : `${shadow.overall}%`}`}
+                                            title={`متوسط محاذاة اللغة والدين والأسلوب الاجتماعي: ${shadow.overall == null ? "غير مكتمل" : `${shadow.overall}%`}`}
                                           >
                                             <span>المتوسط:</span>
                                             <span>{shadow.overall == null ? "—" : `${shadow.overall}%`}</span>
@@ -1302,7 +1302,7 @@ export default function ParticipantDetailModal({
                             if (isCurrentOppositesScoreRow(match)) {
                               return (
                                 <td colSpan={matchType === "ai" ? 12 : 11} className="p-4 text-center text-xs text-violet-300">
-                                  وضع الأضداد · المجموع محفوظ بلقطة دقيقة — افتح تحليل الزوج لعرض مكونات 76→100
+                                  وضع الأضداد · المجموع محفوظ بلقطة دقيقة — افتح تحليل الزوج لعرض مكونات 77→100
                                 </td>
                               )
                             }

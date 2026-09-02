@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
 import test from "node:test"
 
-import { calculateBalancedCompatibility } from "../matching/balanced-compatibility.mjs"
+import { BALANCED_WEIGHTS, calculateBalancedCompatibility } from "../matching/balanced-compatibility.mjs"
 import { buildChoiceOnlySeatingPlan, choiceOnlySeatingMetrics } from "./choice-only-seating.mjs"
 import {
   calculateRound1SparkPairBreakdown,
@@ -71,12 +71,29 @@ test("reweights the pure survey scorer with the historical Spark weights and neu
   const right = cohortProfile(2)
   const balanced = calculateBalancedCompatibility(left, right, { vibeScore: 6 })
   const questions = balanced.questionScores
-  const expected = balanced.scoreBreakdown.interactionRhythm * (37 / 20)
-    + balanced.scoreBreakdown.humorOpenness * (27 / 10)
+  const expected = balanced.scoreBreakdown.interactionRhythm * (37 / (
+      BALANCED_WEIGHTS.initiative
+      + BALANCED_WEIGHTS.conversationDepth
+      + BALANCED_WEIGHTS.socialBattery
+      + BALANCED_WEIGHTS.humorSubtype
+      + BALANCED_WEIGHTS.curiosityStyle
+      + BALANCED_WEIGHTS.silence
+    ))
+    + balanced.scoreBreakdown.humorOpenness * (27 / (BALANCED_WEIGHTS.humorBanter + BALANCED_WEIGHTS.earlyOpenness))
     + 6
-    + (questions.disagreement + questions.currentFocus + questions.similarityPreference) * (14 / 11)
-    + balanced.scoreBreakdown.attachmentComfort * (3 / 8)
-    + balanced.scoreBreakdown.lifestyleSustainability * (3 / 12)
+    + (questions.disagreement + questions.currentFocus + questions.similarityPreference) * (14 / (
+      BALANCED_WEIGHTS.disagreement + BALANCED_WEIGHTS.currentFocus + BALANCED_WEIGHTS.similarityPreference
+    ))
+    + balanced.scoreBreakdown.attachmentComfort * (3 / (
+      BALANCED_WEIGHTS.attachment1 + BALANCED_WEIGHTS.attachment3 + BALANCED_WEIGHTS.attachment4
+    ))
+    + balanced.scoreBreakdown.lifestyleSustainability * (3 / (
+      BALANCED_WEIGHTS.lifestyle1
+      + BALANCED_WEIGHTS.lifestyle2
+      + BALANCED_WEIGHTS.lifestyle3
+      + BALANCED_WEIGHTS.lifestyle4
+      + BALANCED_WEIGHTS.lifestyle5
+    ))
     + 10 * (4 / 10)
 
   const result = calculateRound1SparkPairBreakdown(left, right)

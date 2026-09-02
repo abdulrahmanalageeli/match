@@ -964,9 +964,9 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
                   )}
                   <div className={`mt-2 rounded-lg border px-2.5 py-2 text-[10px] font-semibold ${isBalanced ? 'border-emerald-400/25 bg-emerald-500/10 text-emerald-200' : isOpposites ? 'border-violet-400/25 bg-violet-500/10 text-violet-200' : 'border-amber-400/25 bg-amber-500/10 text-amber-200'}`}>
                     {isBalanced
-                      ? 'النموذج المتوازن الحالي · 100 نقطة مباشرة'
+                      ? 'نموذج دليل التوافق الحالي · الدليل فوق الحياد'
                       : isOpposites
-                        ? 'وضع الأضداد الحالي · 76 نقطة خام محوّلة إلى 100'
+                        ? 'وضع الأضداد الحالي · 77 نقطة خام محوّلة إلى 100'
                         : `عرض تاريخي موروث${scoreModelVersion ? ` · ${scoreModelVersion}` : ''}`}
                   </div>
                   <div className="mt-4 space-y-3">

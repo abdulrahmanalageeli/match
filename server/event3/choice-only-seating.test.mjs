@@ -320,14 +320,19 @@ test("reports survey-lens and intentional-anchor metrics from the selected layou
     average: scores.reduce((sum, value) => sum + value, 0) / scores.length,
     minimum: Math.min(...scores),
   })
+  const assertStatsClose = (actual, expected) => {
+    assert.equal(actual.count, expected.count)
+    assert.ok(Math.abs(actual.average - expected.average) < 1e-12)
+    assert.ok(Math.abs(actual.minimum - expected.minimum) < 1e-12)
+  }
 
   const depthAverage = plan.round2.map(scorer.depthGroup).reduce((sum, group) => sum + group.score, 0) / 6
   const rhythmAverage = plan.round3.map(scorer.rhythmGroup).reduce((sum, group) => sum + group.score, 0) / 6
   assert.equal(plan.round2Depth.score, depthAverage)
   assert.equal(plan.round3Rhythm.score, rhythmAverage)
-  assert.deepEqual(plan.round2Depth.anchors, stats(scoresFor(intersection(round1Pairs, round2Pairs), scorer.sparkPairScore)))
-  assert.deepEqual(plan.round3Rhythm.anchors.round1Spark, stats(scoresFor(intersection(round1Pairs, round3Pairs), scorer.sparkPairScore)))
-  assert.deepEqual(plan.round3Rhythm.anchors.round2Depth, stats(scoresFor(intersection(round2Pairs, round3Pairs), scorer.depthPairScore)))
+  assertStatsClose(plan.round2Depth.anchors, stats(scoresFor(intersection(round1Pairs, round2Pairs), scorer.sparkPairScore)))
+  assertStatsClose(plan.round3Rhythm.anchors.round1Spark, stats(scoresFor(intersection(round1Pairs, round3Pairs), scorer.sparkPairScore)))
+  assertStatsClose(plan.round3Rhythm.anchors.round2Depth, stats(scoresFor(intersection(round2Pairs, round3Pairs), scorer.depthPairScore)))
   const metrics = choiceOnlySeatingMetrics(plan.round1, plan.round2, plan.round3)
   assert.equal(metrics.totalRepeatedPairOccurrences, 18)
   assert.equal(metrics.maximumParticipantRepeatBurden, 1)

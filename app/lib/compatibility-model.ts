@@ -1,19 +1,20 @@
-export const CURRENT_BALANCED_SCORE_MODEL = "2026-08-25-v7-balanced-100" as const
+export const CURRENT_BALANCED_SCORE_MODEL = "2026-09-02-v9-feedback-evidence-100" as const
 export const CURRENT_OPPOSITES_SCORE_MODEL = `${CURRENT_BALANCED_SCORE_MODEL}|opposites-flip-v1` as const
 export const CURRENT_BALANCED_VIBE_MODEL = "gpt-5.4-mini" as const
 export const CURRENT_BALANCED_VIBE_VERSION = "balanced-vibe12-v1" as const
 export const CURRENT_BALANCED_VIBE_TAG = `${CURRENT_BALANCED_VIBE_MODEL}|${CURRENT_BALANCED_VIBE_VERSION}` as const
+export const CURRENT_BALANCED_NEUTRAL_BASELINE = 50 as const
 
 export const BALANCED_SCORE_MAXIMA = {
-  synergy: 20,
+  synergy: 25,
   vibe: 12,
   lifestyle: 12,
-  humor: 10,
-  disagreement: 5,
+  humor: 7,
+  disagreement: 4,
   focus: 4,
-  similarity: 2,
-  attachment: 8,
-  communication: 5,
+  similarity: 1,
+  attachment: 9,
+  communication: 4,
   core: 17,
   intent: 5,
 } as const
@@ -42,14 +43,14 @@ export type CompatibilityDimension = {
 
 export const CURRENT_BALANCED_DIMENSION_MAXIMA = {
   semantic: 12,
-  interaction: 20,
-  disagreement: 5,
+  interaction: 25,
+  disagreement: 4,
   focus: 4,
-  similarity: 2,
-  attachment: 8,
+  similarity: 1,
+  attachment: 9,
   lifestyle: 12,
-  humor: 10,
-  communication: 5,
+  humor: 7,
+  communication: 4,
   values: 17,
   intent: 5,
 } as const
@@ -109,13 +110,14 @@ export function compatibilityTotalForDisplay(row: any, fallback: number | null =
     row?.total_compatibility_score,
     row?.phase2_score,
     row?.phase3_score,
+    row?.phase4_score,
     row?.score,
     row?.totalScore,
     fallback,
   )
 }
 
-/** Exact 11-part balanced-100 presentation sourced from the saved score payload. */
+/** Raw weighted evidence contributions sourced from the saved score payload. */
 export function currentBalancedDimensionsForDisplay(row: any): CompatibilityDimension[] | null {
   if (!isCurrentBalancedScoreRow(row)) return null
   const { breakdown, questions } = scorePayloadForDisplay(row)
@@ -164,7 +166,7 @@ export function currentBalancedDimensionsForDisplay(row: any): CompatibilityDime
   ]
 }
 
-/** Exact grouped balanced-100 presentation (maxima sum to 100). */
+/** Grouped raw evidence contributions (maxima sum to 100 before neutral centering). */
 export function currentBalancedGroupedDimensionsForDisplay(row: any): CompatibilityDimension[] | null {
   if (!isCurrentBalancedScoreRow(row)) return null
   const { breakdown } = scorePayloadForDisplay(row)
@@ -177,13 +179,13 @@ export function currentBalancedGroupedDimensionsForDisplay(row: any): Compatibil
       : null
   }
   return [
-    { key: "commonGround", label: "الأرضية المشتركة", shortLabel: "الأرضية", value: firstFinite(breakdown?.semanticCommonGround, breakdown?.semantic_common_ground, sum("vibe", "focus", "similarity")), max: 18 },
-    { key: "interaction", label: "إيقاع التفاعل", shortLabel: "التفاعل", value: value("synergy"), max: 20 },
-    { key: "humor", label: "الدعابة والانفتاح", shortLabel: "الدعابة", value: value("humor"), max: 10 },
-    { key: "attachment", label: "الراحة ووتيرة التقارب", shortLabel: "التقارب", value: value("attachment"), max: 8 },
+    { key: "commonGround", label: "الأرضية المشتركة", shortLabel: "الأرضية", value: firstFinite(breakdown?.semanticCommonGround, breakdown?.semantic_common_ground, sum("vibe", "focus", "similarity")), max: 17 },
+    { key: "interaction", label: "إيقاع التفاعل", shortLabel: "التفاعل", value: value("synergy"), max: 25 },
+    { key: "humor", label: "الدعابة والانفتاح", shortLabel: "الدعابة", value: value("humor"), max: 7 },
+    { key: "attachment", label: "الراحة ووتيرة التقارب", shortLabel: "التقارب", value: value("attachment"), max: 9 },
     { key: "lifestyle", label: "استدامة نمط الحياة", shortLabel: "الحياة", value: value("lifestyle"), max: 12 },
     { key: "values", label: "القيم والحدود واللغة", shortLabel: "القيم/اللغة", value: value("values"), max: 17 },
-    { key: "communication", label: "التواصل وإدارة الاختلاف", shortLabel: "التواصل/الاختلاف", value: sum("communication", "disagreement"), max: 10 },
+    { key: "communication", label: "التواصل وإدارة الاختلاف", shortLabel: "التواصل/الاختلاف", value: sum("communication", "disagreement"), max: 8 },
     { key: "intent", label: "هدف اللقاء", shortLabel: "الهدف", value: value("intent"), max: 5 },
   ]
 }
@@ -192,12 +194,12 @@ export function currentOppositesDimensionsForDisplay(row: any): CompatibilityDim
   if (!isCurrentOppositesScoreRow(row)) return null
   const { breakdown } = scorePayloadForDisplay(row)
   return [
-    { key: "interactionSynergy", label: "إيقاع التفاعل", shortLabel: "التفاعل", value: firstFinite(breakdown?.interactionSynergy), max: 20 },
-    { key: "coreValuesAlignment", label: "توافق القيم", shortLabel: "القيم", value: firstFinite(breakdown?.coreValuesAlignment), max: 17 },
-    { key: "communicationAlignment", label: "توافق التواصل", shortLabel: "التواصل", value: firstFinite(breakdown?.communicationAlignment), max: 5 },
+    { key: "interactionSynergy", label: "إيقاع التفاعل", shortLabel: "التفاعل", value: firstFinite(breakdown?.interactionSynergy), max: 25 },
+    { key: "coreValuesAlignment", label: "توافق القيم والحدود واللغة", shortLabel: "القيم/اللغة", value: firstFinite(breakdown?.coreValuesAlignment), max: 17 },
+    { key: "communicationAlignment", label: "توافق التواصل", shortLabel: "التواصل", value: firstFinite(breakdown?.communicationAlignment), max: 4 },
     { key: "lifestyleDifference", label: "اختلاف نمط الحياة", shortLabel: "اختلاف الحياة", value: firstFinite(breakdown?.lifestyleDifference), max: 12 },
     { key: "vibeDifference", label: "اختلاف الطاقة", shortLabel: "اختلاف الطاقة", value: firstFinite(breakdown?.vibeDifference), max: 12 },
-    { key: "humorDifference", label: "اختلاف الدعابة", shortLabel: "اختلاف الدعابة", value: firstFinite(breakdown?.humorDifference), max: 10 },
+    { key: "humorDifference", label: "اختلاف الدعابة", shortLabel: "اختلاف الدعابة", value: firstFinite(breakdown?.humorDifference), max: 7 },
   ]
 }
 
@@ -254,17 +256,31 @@ export function isCurrentBalancedScoreRow(row: any): boolean {
     row?.total_compatibility_score,
     row?.phase2_score,
     row?.phase3_score,
+    row?.phase4_score,
     row?.score,
     row?.totalScore,
   ].find(value => value !== null && value !== undefined && value !== "")
   const storedTotal = Number(storedTotalValue)
   const isPlainObject = (value: unknown) => value !== null && typeof value === "object" && !Array.isArray(value)
+  const scoreBreakdown = parseScoreObject(snapshot?.scoreBreakdown)
+  const rawTotal = scoreBreakdown?.rawTotal
+  const neutralBaseline = scoreBreakdown?.neutralBaseline
+  const evidenceTotal = scoreBreakdown?.evidenceTotal
+  const expectedEvidence = typeof rawTotal === "number" && Number.isFinite(rawTotal)
+    ? Math.round(Math.max(0, Math.min(100, (rawTotal - CURRENT_BALANCED_NEUTRAL_BASELINE) * 2)) * 1_000_000) / 1_000_000
+    : Number.NaN
+  const evidenceMatchesPersistedTotal = Number.isFinite(expectedEvidence)
+    && (
+      Math.abs(snapshotTotal - expectedEvidence) <= 1e-6
+      || Math.abs(snapshotTotal - Math.round(expectedEvidence * 100) / 100) <= 1e-6
+      || snapshotTotal === Math.round(expectedEvidence)
+    )
 
   return !!snapshot
     && !!contentHash
     && snapshot.scoreModelVersion === CURRENT_BALANCED_SCORE_MODEL
     && snapshot.combinedContentHash === contentHash
-    && isPlainObject(snapshot.scoreBreakdown)
+    && isPlainObject(scoreBreakdown)
     && isPlainObject(snapshot.questionScores)
     && isPlainObject(snapshot.vibeAxes)
     && snapshot.vibeModel === CURRENT_BALANCED_VIBE_MODEL
@@ -273,6 +289,15 @@ export function isCurrentBalancedScoreRow(row: any): boolean {
     && Number.isFinite(snapshotTotal)
     && Number.isFinite(storedTotal)
     && snapshotTotal === storedTotal
+    && typeof rawTotal === "number"
+    && rawTotal >= 0
+    && rawTotal <= 100
+    && neutralBaseline === CURRENT_BALANCED_NEUTRAL_BASELINE
+    && typeof evidenceTotal === "number"
+    && evidenceTotal >= 0
+    && evidenceTotal <= 100
+    && Math.abs(evidenceTotal - expectedEvidence) <= 1e-6
+    && evidenceMatchesPersistedTotal
 }
 
 export function isCurrentOppositesScoreRow(row: any): boolean {
@@ -286,6 +311,7 @@ export function isCurrentOppositesScoreRow(row: any): boolean {
     row?.total_compatibility_score,
     row?.phase2_score,
     row?.phase3_score,
+    row?.phase4_score,
     row?.score,
     row?.totalScore,
   ].find(value => value !== null && value !== undefined && value !== "")
@@ -323,7 +349,7 @@ export function isCurrentOppositesScoreRow(row: any): boolean {
     && values.every(Number.isFinite)
     && components.every((key, index) => Number(questionScores?.[key]) === values[index])
     && Number.isFinite(rawTotal)
-    && rawMaximum === 76
+    && rawMaximum === 77
     && Math.abs(values.reduce((sum, value) => sum + value, 0) - rawTotal) < 1e-6
     && Number.isFinite(snapshotTotal)
     && Number.isFinite(storedTotal)

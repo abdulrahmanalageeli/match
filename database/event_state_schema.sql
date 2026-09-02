@@ -66,8 +66,34 @@ create table public.compatibility_cache (
       and jsonb_typeof(vibe_axes) = 'object'
       and vibe_model_version is not null
     )
+  ),
+  constraint compatibility_cache_v9_evidence_consistent check (
+    case
+      when score_model_version = '2026-09-02-v9-feedback-evidence-100' then
+        coalesce(
+          case
+            when jsonb_typeof(score_breakdown -> 'rawTotal') = 'number'
+              and jsonb_typeof(score_breakdown -> 'neutralBaseline') = 'number'
+              and jsonb_typeof(score_breakdown -> 'evidenceTotal') = 'number'
+            then (score_breakdown ->> 'neutralBaseline')::numeric = 50
+              and (score_breakdown ->> 'rawTotal')::numeric between 0 and 100
+              and (score_breakdown ->> 'evidenceTotal')::numeric between 0 and 100
+              and round((score_breakdown ->> 'evidenceTotal')::numeric, 2) = total_compatibility_score
+              and round(
+                greatest(0::numeric, least(100::numeric, ((score_breakdown ->> 'rawTotal')::numeric - 50) * 2)),
+                6
+              ) = (score_breakdown ->> 'evidenceTotal')::numeric
+            else false
+          end,
+          false
+        )
+      else true
+    end
   )
 ) TABLESPACE pg_default;
+
+comment on column public.compatibility_cache.total_compatibility_score is
+  'Final displayed/priority score. For v9 this is evidence above the neutral baseline; the auditable raw weighted total is score_breakdown.rawTotal.';
 
 create index IF not exists idx_cache_participants on public.compatibility_cache using btree (participant_a_number, participant_b_number) TABLESPACE pg_default;
 

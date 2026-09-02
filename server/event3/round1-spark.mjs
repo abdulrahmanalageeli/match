@@ -1,4 +1,5 @@
 import {
+  BALANCED_WEIGHTS,
   BALANCED_VIBE_MAX,
   calculateBalancedCompatibility,
   getBalancedAnswer,
@@ -13,12 +14,21 @@ const NEUTRAL_VIBE_SCORE = BALANCED_VIBE_MAX / 2
 const INTERNAL_PAIR_SCORE_CACHE = Symbol("round1SparkPairScoreCache")
 
 const SPARK_MAXIMA = Object.freeze({
-  interaction: 20,
-  humorOpenness: 10,
+  interaction: BALANCED_WEIGHTS.initiative
+    + BALANCED_WEIGHTS.conversationDepth
+    + BALANCED_WEIGHTS.socialBattery
+    + BALANCED_WEIGHTS.humorSubtype
+    + BALANCED_WEIGHTS.curiosityStyle
+    + BALANCED_WEIGHTS.silence,
+  humorOpenness: BALANCED_WEIGHTS.humorBanter + BALANCED_WEIGHTS.earlyOpenness,
   vibe: 12,
-  structured: 11,
-  attachment: 8,
-  lifestyle: 12,
+  structured: BALANCED_WEIGHTS.disagreement + BALANCED_WEIGHTS.currentFocus + BALANCED_WEIGHTS.similarityPreference,
+  attachment: BALANCED_WEIGHTS.attachment1 + BALANCED_WEIGHTS.attachment3 + BALANCED_WEIGHTS.attachment4,
+  lifestyle: BALANCED_WEIGHTS.lifestyle1
+    + BALANCED_WEIGHTS.lifestyle2
+    + BALANCED_WEIGHTS.lifestyle3
+    + BALANCED_WEIGHTS.lifestyle4
+    + BALANCED_WEIGHTS.lifestyle5,
   coreValues: 10,
 })
 

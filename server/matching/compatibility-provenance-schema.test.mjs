@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
+import { PGlite } from '@electric-sql/pglite'
 
 const root = new URL('../../', import.meta.url)
 const read = path => readFile(new URL(path, root), 'utf8')
@@ -78,7 +79,12 @@ test('canonical checked-in schemas describe the runtime provenance contract', as
   assert.match(cache, /score_model_version text null/)
   assert.match(cache, /question_scores jsonb null/)
   assert.match(cache, /compatibility_cache_versioned_payload_complete/)
+  assert.match(cache, /compatibility_cache_v9_evidence_consistent/)
+  assert.match(cache, /score_breakdown -> 'rawTotal'/)
+  assert.match(cache, /score_breakdown -> 'neutralBaseline'/)
+  assert.match(cache, /score_breakdown -> 'evidenceTotal'/)
   assert.match(duplicatedEventStateSchema, /compatibility_cache_versioned_payload_complete/)
+  assert.match(duplicatedEventStateSchema, /compatibility_cache_v9_evidence_consistent/)
   assert.match(metadata, /p_score_model_version text default null/)
   assert.match(metadata, /create or replace view public\.v_cache_freshness/)
   assert.match(metadata, /scope\.score_model_version/)
@@ -89,13 +95,94 @@ test('canonical checked-in schemas describe the runtime provenance contract', as
   assert.match(matches, /score_snapshot jsonb null/)
   assert.match(matches, /score_content_hash text null/)
   assert.match(matches, /match_results_score_provenance_complete/)
+  assert.match(matches, /match_results_v9_evidence_consistent/)
   assert.match(event3, /phase2_score_snapshot jsonb/)
   assert.match(event3, /phase3_score_snapshot jsonb/)
   assert.match(event3, /event3_matches_phase2_score_provenance_complete/)
   assert.match(event3, /event3_matches_phase3_score_provenance_complete/)
   assert.match(event3, /event3_test_match_results_score_provenance_complete/)
+  assert.match(event3, /event3_matches_phase2_v9_evidence_consistent/)
+  assert.match(event3, /event3_matches_phase3_v9_evidence_consistent/)
+  assert.match(event3, /event3_matches_phase4_v9_evidence_consistent/)
+  assert.match(event3, /event3_test_match_results_v9_evidence_consistent/)
   for (const snapshotField of ['scoreBreakdown', 'questionScores', 'vibeAxes', 'vibeModel', 'vibeModelVersion', 'vibeModelTag']) {
     assert.match(matches, new RegExp(`'${snapshotField}'`), `match schema must validate ${snapshotField}`)
     assert.match(event3, new RegExp(`'${snapshotField}'`), `Event3 schema must validate ${snapshotField}`)
   }
+})
+
+test('feedback-evidence model migration advances database provenance guards without rewriting historical scores', async () => {
+  const sql = await read('supabase/migrations/20260902160000_advance_algorithm_feedback_score_model.sql')
+  assert.match(sql, /2026-09-02-v9-feedback-evidence-100/)
+  assert.match(sql, /compatibility_cache_v9_evidence_consistent/)
+  assert.match(sql, /match_results_v9_evidence_consistent/)
+  assert.match(sql, /event3_matches_phase2_v9_evidence_consistent/)
+  assert.match(sql, /event3_matches_phase3_v9_evidence_consistent/)
+  assert.match(sql, /event3_matches_phase4_v9_evidence_consistent/)
+  assert.match(sql, /event3_test_match_results_v9_evidence_consistent/)
+  assert.match(sql, /round\(\(score_breakdown ->> 'evidenceTotal'\)::numeric, 2\) = total_compatibility_score/)
+  assert.match(sql, /pg_get_functiondef/)
+  assert.match(sql, /create or replace view public\.v_cache_freshness/)
+  assert.match(sql, /alter view public\.v_cache_freshness set \(security_invoker = true\)/)
+  assert.match(sql, /revoke all on table public\.v_cache_freshness from public, anon, authenticated/)
+  assert.doesNotMatch(sql, /update\s+(?:public\.)?(?:compatibility_cache|match_results|event3_matches)/i)
+})
+
+test('feedback-evidence migration executes and rejects inconsistent cache and match columns', async t => {
+  const db = new PGlite()
+  t.after(() => db.close())
+  await db.exec(`
+    create table public.compatibility_cache (
+      score_model_version text,
+      score_breakdown jsonb,
+      total_compatibility_score numeric
+    );
+    create table public.match_results (
+      score_model_version text,
+      score_snapshot jsonb
+    );
+    create table public.event3_matches (
+      phase2_score_model_version text, phase2_score_snapshot jsonb,
+      phase3_score_model_version text, phase3_score_snapshot jsonb,
+      phase4_score_model_version text, phase4_score_snapshot jsonb
+    );
+    create table public.event3_test_match_results (
+      score_model_version text,
+      score_snapshot jsonb
+    );
+  `)
+  await db.exec(await read('supabase/migrations/20260902160000_advance_algorithm_feedback_score_model.sql'))
+
+  const version = '2026-09-02-v9-feedback-evidence-100'
+  const rawTotal = 75.123456
+  const evidenceTotal = 50.246912
+  const scoreBreakdown = { rawTotal, neutralBaseline: 50, evidenceTotal }
+  const wholeNumberSnapshot = { totalScore: 50, scoreBreakdown }
+  const invalidSnapshot = { totalScore: 50, scoreBreakdown: { ...scoreBreakdown, evidenceTotal: 51.246912 } }
+
+  await db.query(
+    'insert into public.compatibility_cache values ($1, $2::jsonb, $3)',
+    [version, JSON.stringify(scoreBreakdown), 50.25],
+  )
+  await assert.rejects(() => db.query(
+    'insert into public.compatibility_cache values ($1, $2::jsonb, $3)',
+    [version, JSON.stringify({ ...scoreBreakdown, neutralBaseline: 40 }), 50.25],
+  ))
+
+  await db.query('insert into public.match_results values ($1, $2::jsonb)', [version, JSON.stringify(wholeNumberSnapshot)])
+  await assert.rejects(() => db.query('insert into public.match_results values ($1, $2::jsonb)', [version, JSON.stringify(invalidSnapshot)]))
+
+  for (const phase of ['phase2', 'phase3', 'phase4']) {
+    await db.query(
+      `insert into public.event3_matches (${phase}_score_model_version, ${phase}_score_snapshot) values ($1, $2::jsonb)`,
+      [version, JSON.stringify(wholeNumberSnapshot)],
+    )
+    await assert.rejects(() => db.query(
+      `insert into public.event3_matches (${phase}_score_model_version, ${phase}_score_snapshot) values ($1, $2::jsonb)`,
+      [version, JSON.stringify(invalidSnapshot)],
+    ))
+  }
+
+  await db.query('insert into public.event3_test_match_results values ($1, $2::jsonb)', [version, JSON.stringify(wholeNumberSnapshot)])
+  await assert.rejects(() => db.query('insert into public.event3_test_match_results values ($1, $2::jsonb)', [version, JSON.stringify(invalidSnapshot)]))
 })

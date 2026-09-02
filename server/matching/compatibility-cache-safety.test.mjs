@@ -70,8 +70,14 @@ test('match generation hydrates exact snapshots and bulk-touches cache usage onc
 
 test('cache storage bulk-upserts arrays in bounded chunks', async () => {
   const source = await read('api/admin/trigger-match.mjs')
+  const rowBuilder = between(source, 'function buildCompatibilityCacheRow', 'async function storeCachedCompatibilities')
   const bulkStore = between(source, 'async function storeCachedCompatibilities', 'async function storeCachedCompatibility')
 
+  assert.match(rowBuilder, /score_model_version: cacheKey\.scoreModelVersion/)
+  assert.match(rowBuilder, /total_compatibility_score: scores\.totalScore/)
+  assert.match(rowBuilder, /score_breakdown: scoreSnapshot\.scoreBreakdown/)
+  assert.match(rowBuilder, /question_scores: scoreSnapshot\.questionScores/)
+  assert.match(rowBuilder, /vibe_axes: scoreSnapshot\.vibeAxes/)
   assert.match(bulkStore, /chunk\.map\(item => item\.row\)/)
   assert.match(bulkStore, /\.upsert\([\s\S]*onConflict: 'participant_a_number,participant_b_number,combined_content_hash'/)
   assert.match(bulkStore, /Math\.min\(Number\(chunkSize\) \|\| 100, 500\)/)
@@ -243,11 +249,13 @@ test('UI model detection requires exact persisted provenance and Event3 never ap
   assert.match(modelSource, /snapshot\.combinedContentHash === contentHash/)
   assert.match(modelSource, /snapshot\.vibeModelTag === CURRENT_BALANCED_VIBE_TAG/)
   assert.match(modelSource, /snapshotTotal === storedTotal/)
+  assert.match(modelSource, /neutralBaseline === CURRENT_BALANCED_NEUTRAL_BASELINE/)
+  assert.match(modelSource, /Math\.abs\(evidenceTotal - expectedEvidence\) <= 1e-6/)
   assert.doesNotMatch(breakdownBlock, /max:\s*(?:30|25|15)\b/)
   assert.match(breakdownBlock, /currentBalancedGroupedDimensionsForDisplay\(dimensionSource\)/)
   assert.match(event3Source, /breakdown=\{p2\.breakdown\} scoreRow=\{p2\}/)
   assert.match(event3Source, /breakdown=\{p3\.breakdown\} scoreRow=\{p3\}/)
-  for (const maximum of [18, 20, 10, 8, 12, 17, 10, 5]) {
+  for (const maximum of [17, 25, 7, 9, 12, 17, 8, 5]) {
     assert.match(groupedDimensionsBlock, new RegExp(`max: ${maximum}\\b`))
   }
   assert.match(breakdownBlock, /نعرض المجموع التاريخي فقط/)

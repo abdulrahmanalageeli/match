@@ -181,6 +181,33 @@ create table public.match_results (
           end, false)
       else false
     end
+  ),
+  constraint match_results_v9_evidence_consistent check (
+    case
+      when score_model_version = '2026-09-02-v9-feedback-evidence-100' then coalesce(
+        case
+          when jsonb_typeof(score_snapshot -> 'scoreBreakdown' -> 'rawTotal') = 'number'
+            and jsonb_typeof(score_snapshot -> 'scoreBreakdown' -> 'neutralBaseline') = 'number'
+            and jsonb_typeof(score_snapshot -> 'scoreBreakdown' -> 'evidenceTotal') = 'number'
+            and jsonb_typeof(score_snapshot -> 'totalScore') = 'number'
+          then (score_snapshot -> 'scoreBreakdown' ->> 'neutralBaseline')::numeric = 50
+            and (score_snapshot -> 'scoreBreakdown' ->> 'rawTotal')::numeric between 0 and 100
+            and (score_snapshot -> 'scoreBreakdown' ->> 'evidenceTotal')::numeric between 0 and 100
+            and round(
+              greatest(0::numeric, least(100::numeric, ((score_snapshot -> 'scoreBreakdown' ->> 'rawTotal')::numeric - 50) * 2)),
+              6
+            ) = (score_snapshot -> 'scoreBreakdown' ->> 'evidenceTotal')::numeric
+            and (score_snapshot ->> 'totalScore')::numeric in (
+              (score_snapshot -> 'scoreBreakdown' ->> 'evidenceTotal')::numeric,
+              round((score_snapshot -> 'scoreBreakdown' ->> 'evidenceTotal')::numeric, 2),
+              round((score_snapshot -> 'scoreBreakdown' ->> 'evidenceTotal')::numeric, 0)
+            )
+          else false
+        end,
+        false
+      )
+      else true
+    end
   )
 ) TABLESPACE pg_default;
 

@@ -1105,16 +1105,16 @@ export default function ParticipantResultsModal({
         {matchType !== "group" && (
           <div className="mx-6 mt-3 mb-1 text-xs text-slate-300/80">
             <div className="inline-flex flex-wrap items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2">
-              <span className="font-semibold text-slate-200">النموذج المتوازن الحالي · 100 نقطة مباشرة:</span>
-              <span>الأرضية المشتركة 18</span>
-              <span>إيقاع التفاعل 20</span>
-              <span>الدعابة/الانفتاح 10</span>
-              <span>وتيرة التقارب 8</span>
+              <span className="font-semibold text-slate-200">نموذج دليل التوافق الحالي · ميزانية خام 100:</span>
+              <span>الأرضية المشتركة 17</span>
+              <span>إيقاع التفاعل 25</span>
+              <span>الدعابة/الانفتاح 7</span>
+              <span>وتيرة التقارب 9</span>
               <span>نمط الحياة 12</span>
               <span>القيم/الحدود/اللغة 17</span>
-              <span>التواصل/الاختلاف 10</span>
+              <span>التواصل/الاختلاف 8</span>
               <span>الهدف 5</span>
-              <span className="text-slate-500">الصفوف التاريخية تعرض المجموع فقط عند غياب لقطة دقيقة؛ وضع الأضداد يُعرض بصيغة 76→100.</span>
+              <span className="text-slate-500">النتيجة النهائية تقيس الدليل فوق خط الحياد 50؛ الصفوف التاريخية تعرض مجموعها الأصلي، ووضع الأضداد يُعرض بصيغة 77→100.</span>
             </div>
           </div>
         )}
@@ -1302,7 +1302,7 @@ export default function ParticipantResultsModal({
                 <div className="bg-white/5 border border-white/20 rounded-lg px-3 py-2">
                   <div className="flex items-center gap-2">
                     <Brain className="w-4 h-4 text-purple-400" />
-                    <span className="text-slate-300 text-sm">متوسط الظل:</span>
+                    <span className="text-slate-300 text-sm">متوسط محاذاة الملف:</span>
                   </div>
                   <span className="font-bold text-white mt-1 inline-flex items-center gap-1">
                     {shadowAggregate.overall == null ? "—" : `${shadowAggregate.overall}%`}
@@ -1340,7 +1340,7 @@ export default function ParticipantResultsModal({
                         {renderSortableHeader("الشريك", "partner", "right")}
                         {renderSortableHeader("التوافق الإجمالي", "compatibility_score")}
                         {matchType !== "group" && (
-                          <th className="text-center p-2 text-sm font-semibold text-slate-300">المؤشر الظلي</th>
+                          <th className="text-center p-2 text-sm font-semibold text-slate-300">محاذاة الملف</th>
                         )}
                         {matchType !== "group" && (
                           <th className="text-center p-2 text-sm font-semibold text-slate-300">استبعاد</th>
@@ -1776,7 +1776,7 @@ export default function ParticipantResultsModal({
                                    )})}
                                     <span
                                       className={`flex min-w-0 flex-1 items-center justify-center gap-0.5 rounded-sm border px-1 py-0.5 text-center text-[8px] font-bold leading-none ${shadow.overall == null ? "border-slate-500/30 bg-slate-500/10 text-slate-400" : "border-purple-400/30 bg-purple-500/15 text-purple-200"}`}
-                                      title={`متوسط الظل: ${shadow.overall == null ? "غير مكتمل" : `${shadow.overall}%`}`}
+                                      title={`متوسط محاذاة اللغة والدين والأسلوب الاجتماعي: ${shadow.overall == null ? "غير مكتمل" : `${shadow.overall}%`}`}
                                     >
                                       <span>المتوسط:</span>
                                       <span>{shadow.overall == null ? "—" : `${shadow.overall}%`}</span>
@@ -2150,7 +2150,7 @@ export default function ParticipantResultsModal({
                                   <div className="min-w-[680px] rounded-lg border border-violet-400/20 bg-violet-500/5 px-2.5 py-2">
                                     <div className="mb-2 flex items-center justify-between gap-3 text-[10px] font-bold text-violet-200">
                                       <span>وضع الأضداد الحالي · لقطة وقت المطابقة</span>
-                                      <span className="text-violet-300/80">76 نقطة خام ← 100</span>
+                                      <span className="text-violet-300/80">77 نقطة خام ← 100</span>
                                     </div>
                                     <div className="grid grid-cols-6 gap-1.5">
                                       {oppositesDimensions.map(dimension => (

@@ -128,25 +128,25 @@ function ManualCompatibilityResultModal({ data, onClose }: { data: any; onClose:
   const warnings = gates.filter((gate: any) => gate.blocking === false && gate.applicable !== false && gate.passed !== true)
   const eligible = gateReport.eligible === true
   const balancedCategories = [
-    { label: 'Interaction Synergy', value: result.synergyScore, max: 20, icon: '⚡', color: '#22d3ee' },
+    { label: 'Interaction Synergy', value: result.synergyScore, max: 25, icon: '⚡', color: '#22d3ee' },
     { label: 'AI Vibe', value: result.vibeScore, max: 12, icon: '✨', color: '#f472b6' },
     { label: 'Lifestyle', value: result.lifestyleScore, max: 12, icon: '🏠', color: '#34d399' },
-    { label: 'Humor & Openness', value: result.humorOpenScore, max: 10, icon: '😄', color: '#fbbf24' },
-    { label: 'Communication', value: result.communicationScore, max: 5, icon: '💬', color: '#60a5fa' },
-    { label: 'Disagreement Style', value: result.disagreementScore, max: 5, icon: '🧭', color: '#fb7185' },
+    { label: 'Humor & Openness', value: result.humorOpenScore, max: 7, icon: '😄', color: '#fbbf24' },
+    { label: 'Communication', value: result.communicationScore, max: 4, icon: '💬', color: '#60a5fa' },
+    { label: 'Disagreement Style', value: result.disagreementScore, max: 4, icon: '🧭', color: '#fb7185' },
     { label: 'Core Values, Boundaries & Language', value: coreValues, max: 17, icon: '🧩', color: '#a78bfa' },
     { label: 'Meeting Goal', value: result.intentScore, max: 5, icon: '🎯', color: '#fb923c' },
     { label: 'Current Focus', value: result.currentFocusScore, max: 4, icon: '🔎', color: '#2dd4bf' },
-    { label: 'Similarity Preference', value: result.similarityPreferenceScore, max: 2, icon: '🪞', color: '#c084fc' },
-    { label: 'Attachment & Connection Pace', value: result.attachmentPaceScore, max: 8, icon: '🤝', color: '#4ade80' },
+    { label: 'Similarity Preference', value: result.similarityPreferenceScore, max: 1, icon: '🪞', color: '#c084fc' },
+    { label: 'Attachment & Connection Pace', value: result.attachmentPaceScore, max: 9, icon: '🤝', color: '#4ade80' },
   ].filter(item => item.value != null)
   const oppositesCategories = [
-    { label: 'Interaction Synergy', value: oppositesBreakdown.synergy, max: 20, icon: '⚡', color: '#22d3ee' },
+    { label: 'Interaction Synergy', value: oppositesBreakdown.synergy, max: 25, icon: '⚡', color: '#22d3ee' },
     { label: 'Core Values, Boundaries & Language', value: oppositesBreakdown.coreValues, max: 17, icon: '🧩', color: '#a78bfa' },
-    { label: 'Communication Alignment', value: oppositesBreakdown.communication, max: 5, icon: '💬', color: '#60a5fa' },
+    { label: 'Communication Alignment', value: oppositesBreakdown.communication, max: 4, icon: '💬', color: '#60a5fa' },
     { label: 'Lifestyle Difference', value: oppositesBreakdown.flippedLifestyle, max: 12, icon: '🏠', color: '#34d399' },
     { label: 'Vibe Difference', value: oppositesBreakdown.flippedVibe, max: 12, icon: '✨', color: '#f472b6' },
-    { label: 'Humor & Openness Difference', value: oppositesBreakdown.flippedHumor, max: 10, icon: '😄', color: '#fbbf24' },
+    { label: 'Humor & Openness Difference', value: oppositesBreakdown.flippedHumor, max: 7, icon: '😄', color: '#fbbf24' },
   ]
   const categories = isOppositesModel ? oppositesCategories : isBalancedModel ? balancedCategories : []
   const safety: string[] = []
@@ -177,7 +177,7 @@ function ManualCompatibilityResultModal({ data, onClose }: { data: any; onClose:
             <section className="grid gap-4 lg:grid-cols-[280px_1fr]">
               <div className="flex flex-col items-center justify-center rounded-3xl border border-white/10 bg-white/[0.035] p-6">
                 <div className="relative grid h-44 w-44 place-items-center rounded-full" style={{ background: `conic-gradient(${eligible ? '#34d399' : '#22d3ee'} ${score * 3.6}deg, rgba(148,163,184,0.12) 0deg)` }}>
-                  <div className="grid h-36 w-36 place-items-center rounded-full border border-white/10 bg-slate-950 shadow-inner"><div className="text-center"><div className="text-5xl font-black tracking-tighter">{round(score)}<span className="text-2xl text-slate-500">%</span></div><div className="mt-1 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">Final score</div></div></div>
+                  <div className="grid h-36 w-36 place-items-center rounded-full border border-white/10 bg-slate-950 shadow-inner"><div className="text-center"><div className="text-5xl font-black tracking-tighter">{round(score)}<span className="text-2xl text-slate-500">%</span></div><div className="mt-1 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">Evidence score</div></div></div>
                 </div>
                 <div className={`mt-5 flex items-center gap-2 text-sm font-bold ${eligible ? 'text-emerald-300' : 'text-red-300'}`}>{eligible ? <CheckCircle className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}{eligible ? 'Eligible to appear together' : 'Not eligible for automatic matching'}</div>
                 <p className="mt-2 text-center text-xs leading-5 text-slate-500">{eligible ? 'The pair passes every active gate. Final selection can still depend on global optimization and stronger allocations.' : 'This is their theoretical compatibility score. Blocking gates always take priority over the score.'}</p>
@@ -227,13 +227,13 @@ function ManualCompatibilityResultModal({ data, onClose }: { data: any; onClose:
 const eventTimeScoreForPair = (pair: any) => {
   const snapshot = pair?.score_snapshot
   const breakdown = snapshot?.scoreBreakdown
-  const persistedTotal = Number(pair?.phase2_score ?? pair?.phase3_score ?? pair?.compatibility_score)
+  const persistedTotal = Number(pair?.phase2_score ?? pair?.phase3_score ?? pair?.phase4_score ?? pair?.compatibility_score)
   const snapshotTotal = Number(snapshot?.totalScore)
   const provenanceMatches = isCurrentBalancedScoreRow(pair)
     && Number.isFinite(persistedTotal)
     && Number.isFinite(snapshotTotal)
   if (!breakdown || !provenanceMatches) {
-    return { total: pair?.phase2_score ?? pair?.phase3_score ?? null, version: pair?.score_model_version || 'legacy-unsnapshotted' }
+    return { total: pair?.phase2_score ?? pair?.phase3_score ?? pair?.phase4_score ?? null, version: pair?.score_model_version || 'legacy-unsnapshotted' }
   }
   return {
     total: snapshot.totalScore,
@@ -274,7 +274,7 @@ function getOppositesBreakdownForDisplay(data: any, result: any = data?.result |
     flippedVibe: Number(responseBreakdown.flippedVibe ?? snapshotBreakdown.vibeDifference),
     flippedHumor: Number(responseBreakdown.flippedHumor ?? snapshotBreakdown.humorDifference),
     rawTotal: Number(responseBreakdown.rawTotal ?? snapshotBreakdown.rawTotal),
-    rawMaximum: Number(responseBreakdown.rawMaximum ?? snapshotBreakdown.rawMaximum ?? 76),
+    rawMaximum: Number(responseBreakdown.rawMaximum ?? snapshotBreakdown.rawMaximum ?? 77),
     percent: Number(responseBreakdown.percent ?? snapshotBreakdown.normalizedTotal ?? data?.compatibility_score),
   }
 }
@@ -296,9 +296,9 @@ function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
   matchRows.forEach((mr: any) => matchRowMap.set(`${mr.event_id}:${mr.participant_number}`, mr))
 
   // Original max weights for scaling
-  const originalMax: Record<string, number> = { synergy: 20, vibe: 12, lifestyle: 12, humorOpen: 10, communication: 10, coreValues: 17, intent: 5, attachment: 8, sharedContext: 6 }
+  const originalMax: Record<string, number> = { synergy: 25, vibe: 12, lifestyle: 12, humorOpen: 7, communication: 8, coreValues: 17, intent: 5, attachment: 9, sharedContext: 5 }
 
-  const defaultWeights = { synergy: 20, vibe: 12, lifestyle: 12, humorOpen: 10, communication: 10, coreValues: 17, intent: 5, attachment: 8, sharedContext: 6 }
+  const defaultWeights = { synergy: 25, vibe: 12, lifestyle: 12, humorOpen: 7, communication: 8, coreValues: 17, intent: 5, attachment: 9, sharedContext: 5 }
 
   // Compute recalculated score for a pair given specific weights
   const recalcScore = (pair: any, w: typeof weights) => {
@@ -333,8 +333,10 @@ function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
     if (newMaxTotal <= 0) return 0
     if (total > newMaxTotal) total = newMaxTotal
 
-    // Normalize to 100 for comparison
-    return Math.round((total / newMaxTotal) * 100)
+    // Normalize the custom raw budget, then apply the same evidence-above-neutral
+    // presentation used by the production scorer.
+    const rawPercent = (total / newMaxTotal) * 100
+    return Math.round(Math.max(0, Math.min(100, (rawPercent - 50) * 2)))
   }
 
   const newMaxTotal = Object.values(weights).reduce((a, b) => a + b, 0)
@@ -890,15 +892,15 @@ export default function AdminPage() {
   const [analyzerData, setAnalyzerData] = useState<any>(null)
   const [analyzerLoading, setAnalyzerLoading] = useState(false)
   const [scoreWeights, setScoreWeights] = useState({
-    synergy: 20,
+    synergy: 25,
     vibe: 12,
     lifestyle: 12,
-    humorOpen: 10,
-    communication: 10,
+    humorOpen: 7,
+    communication: 8,
     coreValues: 17,
     intent: 5,
-    attachment: 8,
-    sharedContext: 6,
+    attachment: 9,
+    sharedContext: 5,
   })
 
   // WhatsApp message modal state
@@ -2711,18 +2713,18 @@ const fetchParticipants = async () => {
       const scoringCriteria = [
         ['Category', 'Max Score', 'Weight in Total', 'Scoring Logic'],
         ['Model scope', 'Current balanced model', 'Reference only', 'Historical pair rows below retain the score produced by their own model period and must not be reinterpreted as this model'],
-        ['Interaction Synergy', '20', '20%', 'Q35 initiative 6 + Q36 conversation depth 3 + Q37 social battery 2 + Q38 humor subtype 3 + Q39 curiosity style 4 + Q41 silence comfort 2'],
+        ['Interaction Synergy', '25', '25%', 'Initiative 4 + conversation depth 2 + social battery 4 + humor subtype 4 + curiosity style 8 + silence comfort 3'],
         ['AI Vibe', '12', '12%', 'Multidimensional semantic fit: current curiosity 5 + hobbies 3 + music 1 + friend description 3; a skipped or unavailable AI result is neutral rather than full credit'],
-        ['Lifestyle', '12', '12%', 'Q14-Q18 direct points: 2 + 3 + 3 + 2 + 2'],
-        ['Humor/Openness', '10', '10%', 'Q4.25 humor/banter 6 + Q4.75 early openness 4, scored directly'],
-        ['Communication', '5', '5%', 'Q24-Q28 direct compatibility points, 1 point maximum per question'],
-        ['Disagreement Style', '5', '5%', 'Direct compatibility matrix for match_disagreement_style; shown separately from communication'],
-        ['Core Values, Boundaries & Language', '17', '17%', 'Core scenarios 5 + minimum religious commitment 4 + social relationship style 4 + expression language 4'],
+        ['Lifestyle', '12', '12%', 'Q14-Q18 direct points: 2 + 3 + 2 + 4 + 1'],
+        ['Humor/Openness', '7', '7%', 'Humor/banter 4 + early openness 3, scored directly'],
+        ['Communication', '4', '4%', 'Q24-Q28 direct compatibility points: 1 + 1 + 0.5 + 1 + 0.5'],
+        ['Disagreement Style', '4', '4%', 'Direct compatibility matrix for match_disagreement_style; shown separately from communication'],
+        ['Core Values, Boundaries & Language', '17', '17%', 'Core scenarios 5 + minimum religious expectation 5 + social relationship style 3 + expression language 4'],
         ['Intent/Goal', '5', '5%', 'Q40 direct compatibility points'],
         ['Current Focus', '4', '4%', 'Direct overlap across the current-focus selections'],
-        ['Similarity Preference', '2', '2%', 'Directional fit between each participant’s stated similarity preference and observed pair similarity'],
-        ['Attachment & Connection Pace', '8', '8%', 'Q9 attachment response 2 + Q11 connection pace 3 + Q12 support-under-pressure 3'],
-        ['Total Formula', '100 direct points', '100%', 'The current balanced score is the additive sum of the components above'],
+        ['Similarity Preference', '1', '1%', 'Directional fit between each participant’s stated similarity preference and observed pair similarity'],
+        ['Attachment & Connection Pace', '9', '9%', 'Q9 attachment response 4 + Q11 connection pace 3 + Q12 support-under-pressure 2'],
+        ['Total Formula', '100 raw points', 'Evidence score', 'Raw components total 100; final score = clamp((raw total - 50) × 2, 0, 100), so neutral or missing evidence does not create a 50% match'],
         ['Eligibility gates', 'Unscored', 'Applied separately', 'Gender, nationality, age, intent, history, and other active hard gates control eligibility before score ranking'],
         ['MBTI', '0', 'Profile context only', 'Q5-Q8 remain available for historical/profile interpretation but do not add points to the current balanced total'],
       ]
@@ -2840,7 +2842,7 @@ const fetchParticipants = async () => {
           esc(pair.event_id ?? ''),
           esc(pair.phase),
           esc(pair.phase === 'phase2' ? 'Choice' : 'Algorithm'),
-          esc(pair.phase2_score ?? pair.phase3_score ?? ''),
+          esc(pair.phase2_score ?? pair.phase3_score ?? pair.phase4_score ?? ''),
           esc(mutualYes ? 'YES' : 'NO'),
           esc(sameBothPhases ? 'YES' : 'NO'),
         )
@@ -3828,12 +3830,12 @@ const fetchParticipants = async () => {
             }
             const opposite = getOppositesBreakdownForDisplay(data, result)
             detailedMessage += `🧲 Opposites formula (${round(opposite.rawTotal)}/${round(opposite.rawMaximum)} → ${round(opposite.percent)}%):\n`
-            detailedMessage += `• Interaction Synergy: ${round(opposite.synergy)}/20\n`
+            detailedMessage += `• Interaction Synergy: ${round(opposite.synergy)}/25\n`
             detailedMessage += `• Core Values, Boundaries & Language: ${round(opposite.coreValues)}/17\n`
-            detailedMessage += `• Communication Alignment: ${round(opposite.communication)}/5\n`
+            detailedMessage += `• Communication Alignment: ${round(opposite.communication)}/4\n`
             detailedMessage += `• Lifestyle Difference: ${round(opposite.flippedLifestyle)}/12\n`
             detailedMessage += `• Vibe Difference: ${round(opposite.flippedVibe)}/12\n`
-            detailedMessage += `• Humor/Openness Difference: ${round(opposite.flippedHumor)}/10\n`
+            detailedMessage += `• Humor/Openness Difference: ${round(opposite.flippedHumor)}/7\n`
             detailedMessage += `\n🧮 Mode: opposites\n`
             detailedMessage += `💾 Cache: ${data.cache_status || 'unknown'}\n`
             if (data.score_model_version) detailedMessage += `🧬 Model: ${data.score_model_version}\n`
@@ -3845,17 +3847,17 @@ const fetchParticipants = async () => {
             const core17 = result.coreValuesScore != null
               ? Number(result.coreValuesScore)
               : Number(result.core_values_compatibility_score ?? 0)
-            detailedMessage += `⚡ Interaction Synergy: ${round(result.synergyScore)}/20\n`
+            detailedMessage += `⚡ Interaction Synergy: ${round(result.synergyScore)}/25\n`
             detailedMessage += `✨ AI Vibe: ${round(result.vibeScore)}/12\n`
             detailedMessage += `🏠 Lifestyle: ${round(result.lifestyleScore)}/12\n`
-            detailedMessage += `😄 Humor & Openness: ${round(result.humorOpenScore)}/10\n`
-            detailedMessage += `💬 Communication: ${round(result.communicationScore)}/5\n`
-            detailedMessage += `🧭 Disagreement Style: ${round(result.disagreementScore)}/5\n`
+            detailedMessage += `😄 Humor & Openness: ${round(result.humorOpenScore)}/7\n`
+            detailedMessage += `💬 Communication: ${round(result.communicationScore)}/4\n`
+            detailedMessage += `🧭 Disagreement Style: ${round(result.disagreementScore)}/4\n`
             detailedMessage += `🧩 Core Values, Boundaries & Language: ${round(core17)}/17\n`
             detailedMessage += `🎯 Meeting Goal: ${round(result.intentScore)}/5\n`
             detailedMessage += `🔎 Current Focus: ${round(result.currentFocusScore)}/4\n`
-            detailedMessage += `🪞 Similarity Preference: ${round(result.similarityPreferenceScore)}/2\n`
-            detailedMessage += `🤝 Attachment & Connection Pace: ${round(result.attachmentPaceScore)}/8\n`
+            detailedMessage += `🪞 Similarity Preference: ${round(result.similarityPreferenceScore)}/1\n`
+            detailedMessage += `🤝 Attachment & Connection Pace: ${round(result.attachmentPaceScore)}/9\n`
             detailedMessage += `\n🧮 Mode: ${data.mode || manualMatchMode}\n`
             detailedMessage += `💾 Cache: ${data.cache_status || 'unknown'}\n`
             if (data.score_model_version) detailedMessage += `🧬 Model: ${data.score_model_version}\n`
@@ -5737,96 +5739,68 @@ Proceed?`
 
       <div className={adminWorkspace === 'twilio' ? 'hidden' : ''}>
 
-      <section className="relative z-20 mx-auto w-full max-w-[1500px] px-3 pt-3 sm:px-5 sm:pt-5 lg:px-6" aria-label="Paid participant gender balance">
-        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-950/55 p-4 shadow-[0_18px_60px_rgba(2,6,23,0.28)] backdrop-blur-xl sm:p-5">
-          <div className="pointer-events-none absolute -left-12 top-0 h-28 w-40 rounded-full bg-cyan-400/10 blur-3xl" />
-          <div className="pointer-events-none absolute -right-12 bottom-0 h-28 w-40 rounded-full bg-fuchsia-400/10 blur-3xl" />
-
-          <div className="relative flex flex-col gap-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/[0.06] shadow-inner">
-                  <BarChart3 className="h-5 w-5 text-cyan-200" aria-hidden="true" />
-                </div>
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-sm font-bold tracking-wide text-white sm:text-base">Paid gender balance</h2>
-                    <span className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                      Event {currentEventId}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-xs text-slate-400">{paidGenderBalance.balanceLabel}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 text-right">
-                <div>
-                  <p className="text-xl font-black tabular-nums text-white">{paidGenderBalance.total}</p>
-                  <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-500">Paid total</p>
-                </div>
-                <div className={`rounded-xl border px-3 py-2 ${
-                  paidGenderBalance.total === 0
-                    ? "border-slate-400/20 bg-slate-400/10 text-slate-300"
-                    : paidGenderBalance.balanceScore >= 90
-                    ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-200"
-                    : paidGenderBalance.balanceScore >= 70
-                      ? "border-amber-400/25 bg-amber-400/10 text-amber-200"
-                      : "border-rose-400/25 bg-rose-400/10 text-rose-200"
-                }`}>
-                  <span className="text-sm font-black tabular-nums">{paidGenderBalance.balanceScore}%</span>
-                  <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide opacity-70">balance</span>
-                </div>
+      <section className="relative z-20 mx-auto w-full max-w-[1500px] px-3 pt-3 sm:px-5 lg:px-6" aria-label="Paid participant gender balance">
+        <div className="grid gap-2 rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2.5 shadow-lg shadow-slate-950/20 backdrop-blur-xl sm:grid-cols-[auto_minmax(280px,1fr)_auto] sm:items-center sm:gap-3">
+          <div className="flex min-w-0 items-center justify-between gap-3 sm:justify-start">
+            <div className="flex min-w-0 items-center gap-2">
+              <BarChart3 className="h-4 w-4 shrink-0 text-cyan-300" aria-hidden="true" />
+              <div className="min-w-0 leading-tight">
+                <h2 className="truncate text-xs font-bold text-white">Paid gender balance</h2>
+                <p className="truncate text-[10px] text-slate-500">Event {currentEventId} · {paidGenderBalance.total} paid</p>
               </div>
             </div>
+            {paidGenderBalance.unknown > 0 && (
+              <span className="shrink-0 rounded-md border border-white/10 bg-white/5 px-1.5 py-1 text-[9px] font-semibold text-slate-400">
+                {paidGenderBalance.unknown} unknown
+              </span>
+            )}
+          </div>
 
-            <div
-              className="relative h-4 overflow-hidden rounded-full border border-white/10 bg-white/[0.05] shadow-inner"
-              role="img"
-              aria-label={`${paidGenderBalance.men} paid men and ${paidGenderBalance.women} paid women`}
-            >
-              {paidGenderBalance.men + paidGenderBalance.women > 0 ? (
-                <div className="flex h-full w-full">
-                  <div
-                    className="h-full bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-400 transition-[width] duration-700"
-                    style={{ width: `${paidGenderBalance.menPercent}%` }}
-                  />
-                  <div
-                    className="h-full bg-gradient-to-r from-fuchsia-400 via-pink-500 to-rose-500 transition-[width] duration-700"
-                    style={{ width: `${paidGenderBalance.womenPercent}%` }}
-                  />
-                </div>
-              ) : (
-                <div className="h-full w-full bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800" />
-              )}
-              <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-white/60 shadow-[0_0_8px_rgba(255,255,255,0.7)]" />
+          <div
+            className="relative h-9 overflow-hidden rounded-lg border border-white/10 bg-slate-800 shadow-inner"
+            role="img"
+            aria-label={`${paidGenderBalance.men} paid men, average age ${paidGenderBalance.menAverageAge?.toFixed(1) || "unknown"}; ${paidGenderBalance.women} paid women, average age ${paidGenderBalance.womenAverageAge?.toFixed(1) || "unknown"}`}
+          >
+            {paidGenderBalance.men + paidGenderBalance.women > 0 ? (
+              <div className="absolute inset-0 flex">
+                <div
+                  className="h-full bg-gradient-to-r from-blue-700 to-cyan-500 transition-[width] duration-700"
+                  style={{ width: `${paidGenderBalance.menPercent}%` }}
+                />
+                <div
+                  className="h-full bg-gradient-to-r from-fuchsia-500 to-rose-600 transition-[width] duration-700"
+                  style={{ width: `${paidGenderBalance.womenPercent}%` }}
+                />
+              </div>
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800" />
+            )}
+            <div className="relative z-10 flex h-full items-center justify-between gap-2 px-2.5 text-[10px] font-bold text-white drop-shadow-md sm:px-3 sm:text-xs">
+              <span className="whitespace-nowrap">
+                Men {paidGenderBalance.men}
+                <span className="ml-1 font-medium text-blue-50/80">· avg {paidGenderBalance.menAverageAge == null ? "—" : paidGenderBalance.menAverageAge.toFixed(1)}</span>
+              </span>
+              <span className="whitespace-nowrap text-right">
+                <span className="mr-1 font-medium text-pink-50/80">avg {paidGenderBalance.womenAverageAge == null ? "—" : paidGenderBalance.womenAverageAge.toFixed(1)} ·</span>
+                Women {paidGenderBalance.women}
+              </span>
             </div>
+            <div className="pointer-events-none absolute inset-y-0 left-1/2 z-20 w-px bg-white/60" />
+          </div>
 
-            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
-              <div className="flex items-center justify-between gap-4 rounded-xl border border-blue-400/15 bg-blue-400/[0.07] px-3 py-2 sm:min-w-44">
-                <span className="flex items-center gap-2 text-xs font-semibold text-blue-200"><span className="h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_9px_rgba(34,211,238,0.8)]" />Men</span>
-                <span className="text-right">
-                  <span className="block font-black tabular-nums text-white">{paidGenderBalance.men}</span>
-                  <span className="block text-[10px] font-semibold tabular-nums text-blue-200/65">
-                    Avg age {paidGenderBalance.menAverageAge == null ? "—" : paidGenderBalance.menAverageAge.toFixed(1)}
-                  </span>
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-4 rounded-xl border border-pink-400/15 bg-pink-400/[0.07] px-3 py-2 sm:min-w-44">
-                <span className="flex items-center gap-2 text-xs font-semibold text-pink-200"><span className="h-2 w-2 rounded-full bg-pink-400 shadow-[0_0_9px_rgba(244,114,182,0.8)]" />Women</span>
-                <span className="text-right">
-                  <span className="block font-black tabular-nums text-white">{paidGenderBalance.women}</span>
-                  <span className="block text-[10px] font-semibold tabular-nums text-pink-200/65">
-                    Avg age {paidGenderBalance.womenAverageAge == null ? "—" : paidGenderBalance.womenAverageAge.toFixed(1)}
-                  </span>
-                </span>
-              </div>
-              {paidGenderBalance.unknown > 0 && (
-                <div className="col-span-2 flex items-center justify-between gap-3 rounded-xl border border-slate-400/15 bg-slate-400/[0.07] px-3 py-2 sm:min-w-36">
-                  <span className="flex items-center gap-2 text-xs font-semibold text-slate-300"><span className="h-2 w-2 rounded-full bg-slate-400" />Unknown</span>
-                  <span className="font-black tabular-nums text-white">{paidGenderBalance.unknown}</span>
-                </div>
-              )}
-            </div>
+          <div className="flex items-center justify-between gap-2 sm:justify-end">
+            <span className="truncate text-[10px] font-medium text-slate-400 sm:max-w-28">{paidGenderBalance.balanceLabel}</span>
+            <span className={`shrink-0 rounded-lg border px-2 py-1 text-xs font-black tabular-nums ${
+              paidGenderBalance.total === 0
+                ? "border-slate-400/20 bg-slate-400/10 text-slate-300"
+                : paidGenderBalance.balanceScore >= 90
+                  ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-200"
+                  : paidGenderBalance.balanceScore >= 70
+                    ? "border-amber-400/25 bg-amber-400/10 text-amber-200"
+                    : "border-rose-400/25 bg-rose-400/10 text-rose-200"
+            }`}>
+              {paidGenderBalance.balanceScore}%
+            </span>
           </div>
         </div>
       </section>
@@ -7537,7 +7511,7 @@ Proceed?`
             <div className="text-slate-400 text-xs space-y-1">
               {showAllMatches ? (
                 <>
-                  <p>• Uses the current balanced 100-point compatibility model</p>
+                  <p>• Uses the current evidence-above-neutral compatibility model</p>
                   <p>• Includes only genuinely submitted, score-complete surveys</p>
                   <p>• {possibleMatchesScope === 'event' ? `Event ${currentEventId} pool only` : 'All submitted surveys, independent of event signup'}</p>
                   <p>• Gender preference, nationality, age, interaction, exclusions, repeat, locks, attendance, and history gates are not filtered; every failed gate is named</p>
@@ -7547,7 +7521,7 @@ Proceed?`
                 <>
                   <p>• Scores any selected pair, even when they are not eligible to be matched</p>
                   <p>• Shows every visibility and generation gate as PASS, BLOCK, or N/A with both participants' values</p>
-                  <p>• Uses the selected generation formula, current direct-point components, and active eligibility gates</p>
+                  <p>• Uses the selected generation formula, current raw evidence components, and active eligibility gates</p>
                   <p>• Reads the same compatibility cache as generation, without updating it</p>
                   <p>• Does not create, replace, or modify any matches or cache records</p>
                 </>

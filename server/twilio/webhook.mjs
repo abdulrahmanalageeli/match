@@ -6,6 +6,8 @@ import { supabaseAdmin } from "../security/supabase-admin.mjs"
 const supabase = supabaseAdmin
 
 const STATIC_MATCH_ID = "00000000-0000-0000-0000-000000000000"
+const EVENT3_MATCH_ID = "00000000-0000-0000-0000-000000000003"
+const CHOICE_ONLY_EVENT_FORMAT = "choice_only_three_groups"
 
 // Twilio credentials for sending replies
 const accountSid = process.env.TWILIO_ACCOUNT_SID
@@ -28,8 +30,11 @@ function formatRiyadhCutoffLabel(value) {
 
 const DEFAULT_RESPONSES = {
   attendance_payment_pending: "✅ تم تسجيل رغبتك بالحضور للمشارك رقم {participant_number}.\n\nلإكمال تأكيد المقعد، يرجى تحويل الرسوم المطلوبة وقدرها *{price} ريال* ({price_label}) ثم إرسال صورة الإيصال أو ملف PDF هنا.\n\n🏦 طرق الدفع:\n• STC Pay: {stc_pay}\n• {bank_name}\n• IBAN: {iban}\n\nيصبح المقعد مؤكداً نهائياً بعد مراجعة الإيصال.",
+  attendance_payment_pending_choice_only: "🎉 *باقي خطوة واحدة لتأكيد مقعدك!*\n\n✨ *نسخة الاختيارات فقط*\nهذا الحجز يخص *التوافق الأعمى 5.0 — نسخة الاختيارات فقط*، وليس تجربة «اختيارك واختيارنا» المعتادة.\n\nستشارك في *3 جولات جماعية*، ثم تختار من ترغب بمقابلتهم. بعد ذلك تُرتب لك *3 لقاءات فردية* مع ثلاثة أشخاص مختلفين وفق أقوى الاختيارات المتبادلة. لا تستخدم هذه النسخة ترشيح الخوارزمية للقاءات الفردية.\n\n*بإتمام التحويل وإرسال الإيصال، فأنت تؤكد حجزك في هذه النسخة تحديداً.*\n\nرقم مشاركتك: *{participant_number}*\nالسعر المستحق الآن: *{price} ريال* ({price_label})\n\n💡 *السعر المبكر:* {early_price} ريال — {early_time}\n⏰ *السعر المتأخر:* {late_price} ريال — {late_time}\n\n💳 *بيانات التحويل*\n• STC Pay: {stc_pay}\n• {bank_name}\n• IBAN: {iban}\n\n*يُحجز مقعدك فقط بعد الدفع وإرسال الإيصال.* ادفع الآن لتأكيد مقعدك قبل اكتمال المقاعد، ثم أرسل الإيصال هنا كصورة واضحة أو PDF.",
   attendance_paid: "✅ تم تسجيل حضورك، ومقعدك مؤكد لأن دفعتك معتمدة.",
+  attendance_paid_choice_only: "🎉 *مقعدك مؤكد في نسخة الاختيارات فقط!*\n\nتم اعتماد دفعتك وتأكيد حضورك في *التوافق الأعمى 5.0 — نسخة الاختيارات فقط*.\n\nتذكير: ستشارك في *3 جولات جماعية*، ثم *3 لقاءات فردية* تُحسم وفق أقوى الاختيارات المتبادلة، من دون ترشيح الخوارزمية للقاءات الفردية. ستجد أدناه المكان والوقت ورابط شرح التجربة قبل الحضور.",
   attendance_waived: "✅ تم تسجيل حضورك، ومقعدك مؤكد بإعفاء من الدفع من المنظم.",
+  attendance_waived_choice_only: "🎉 *مقعدك مؤكد في نسخة الاختيارات فقط!*\n\nتم تأكيد حضورك مع إعفاء الدفع في *التوافق الأعمى 5.0 — نسخة الاختيارات فقط*.\n\nتذكير: ستشارك في *3 جولات جماعية*، ثم *3 لقاءات فردية* تُحسم وفق أقوى الاختيارات المتبادلة، من دون ترشيح الخوارزمية للقاءات الفردية. ستجد أدناه المكان والوقت ورابط شرح التجربة قبل الحضور.",
   attendance_denied: "تم تسجيل اعتذاركم مباشرة 🙏 شكراً لكم، ونرحب بكم في فعاليات قادمة!",
   attendance_confirmation_pending: "✅ استلمنا طلب تأكيد حضورك. الطلب الآن بانتظار اعتماد المنظم، ولن تتغير حالة حضورك حتى تتم مراجعته.",
   current_event_signup_required: "أهلاً بك 👋\n\nلا يظهر لدينا تسجيلك في الفعالية الحالية بعد. إذا رغبت بالانضمام إلى قائمة المرشحين، أرسل كلمة *انضمام*.\n\nبعد التسجيل سنراجع التوافق، وسنتواصل معك مباشرة عند توفر توافق مناسب. لا يلزم أي دفع قبل وصول رسالة تأكيد منا.",
@@ -60,6 +65,7 @@ const DEFAULT_RESPONSES = {
   receipt_store_failed: "⚠️ لم نتمكن من حفظ الإيصال، لذلك لم يُسجّل بعد. يرجى إرساله مرة أخرى كصورة واضحة أو PDF. إذا تكرر الخطأ تواصل معنا على 0560899666.",
   unknown_message: "مرحباً 👋\n\n• أرسل «تأكيد» لتسجيل رغبتك بالحضور\n• أرسل «اعتذار» إذا لن تتمكن من الحضور\n• أرسل الإيصال كصورة أو PDF ليُراجع ويُعتمد\n• أرسل «إيقاف» لإلغاء الاشتراك التلقائي\n\nتأكيد المقعد النهائي يصلك برسالة منفصلة بعد اعتماد الإيصال.",
   event_information: "✨ *وش فكرة التوافق الأعمى؟*\n\nتجربة اجتماعية منظّمة تمر فيها بجولات تعارف قصيرة، ثم تسجّل انطباعك بسرية لنساعدك في اكتشاف أفضل توافق.\n\n📘 *شرح التجربة وخطوات يوم الفعالية:*\n{tutorial_url}\n\nخذ دقيقتين لقراءة الشرح قبل وصولك، وبتكون الصورة كاملة وواضحة 🤍",
+  event_information_choice_only: "✨ *التوافق الأعمى 5.0 | هذه المرة، أنتم تختارون*\n\nتبدأ التجربة بـ *3 جولات جماعية*، وفي كل جولة تتعرّف على مجموعة مختلفة.\n\nبعد الجولات سترتّب بسرية المشاركين الذين ترغب بمقابلتهم، ثم ننظّم لك *3 لقاءات فردية* مع ثلاثة أشخاص مختلفين وفق أقوى الاختيارات المتبادلة.\n\nلا تعيّن الخوارزمية شريكاً مسبقاً في هذه النسخة؛ اختياراتكم هي التي تحدد اللقاءات.\n\n📘 *شرح التجربة وخطوات يوم الفعالية:*\n{tutorial_url}\n\nخذ دقيقتين لقراءة الشرح قبل وصولك 🤍",
   receipt_unknown_phone: "لم نتمكن من ربط هذا الرقم بتسجيل مشارك. يرجى إرسال الإيصال من الرقم المسجل أو التواصل معنا على 0560899666.",
   auto_signup_already_stopped: "الاشتراك التلقائي متوقف لديك بالفعل، ولم نغيّر أي شيء.",
   final_event_details: "📘 *شرح الفعالية قبل الحضور:*\n{tutorial_url}\n\n📍 *المكان:* {location}\n🗺️ {map_url}\n📅 *التاريخ:* {event_date}\n🕰️ *الوقت:* {event_time}{arrival_suffix}\n\nيرجى قراءة الشرح قبل الوصول. نراك هناك! 🤍",
@@ -249,6 +255,20 @@ async function getCurrentEventId() {
   return Number(data?.current_event_id || 1)
 }
 
+async function getCurrentEventFormat(eventId) {
+  const { data, error } = await supabase
+    .from("event3_event_settings")
+    .select("event_format")
+    .eq("match_id", EVENT3_MATCH_ID)
+    .eq("event_id", eventId)
+    .maybeSingle()
+  if (error) {
+    console.error("Failed to load current event format:", error)
+    return "classic"
+  }
+  return data?.event_format || "classic"
+}
+
 function riyadhLocalToTimestamp(value) {
   const local = String(value || "").trim()
   if (!local) return null
@@ -354,10 +374,15 @@ async function confirmAttendance(participant, from) {
   const paymentState = confirmationPaymentState(participant, eventId)
   if (paymentState !== "payment_pending") {
     const config = await getWhatsappConfig()
-    const intro = await responseText(paymentState === "waived" ? "attendance_waived" : "attendance_paid")
+    const eventFormat = await getCurrentEventFormat(eventId)
+    const baseResponseKey = paymentState === "waived" ? "attendance_waived" : "attendance_paid"
+    const responseKey = eventFormat === CHOICE_ONLY_EVENT_FORMAT
+      ? `${baseResponseKey}_choice_only`
+      : baseResponseKey
+    const intro = await responseText(responseKey)
     await sendTwilioReply(from, await finalConfirmationMessage(participant, config, intro), participant)
   } else {
-    await sendTwilioReply(from, await paymentReply(participant), participant)
+    await sendTwilioReply(from, await paymentReply(participant, eventId), participant)
   }
   return "confirmed"
 }
@@ -366,7 +391,7 @@ async function sendPaymentAccessReply(participant, from) {
   const eventId = await getCurrentEventId()
   const accessState = paymentAccessState(participant, eventId)
   if (accessState === "eligible") {
-    await sendTwilioReply(from, await paymentReply(participant), participant)
+    await sendTwilioReply(from, await paymentReply(participant, eventId), participant)
   } else {
     await recordBlockedAccess(participant, eventId, "payment_request", accessState)
     const responseKey = accessState === "not_enrolled" ? "current_event_signup_required" : "current_event_not_contacted"
@@ -395,10 +420,15 @@ async function joinCurrentEvent(participant, from) {
   return "joined"
 }
 
-async function paymentReply(participant) {
+async function paymentReply(participant, eventId = null) {
   const config = await getWhatsappConfig()
+  const resolvedEventId = eventId || await getCurrentEventId()
+  const eventFormat = await getCurrentEventFormat(resolvedEventId)
+  const responseKey = eventFormat === CHOICE_ONLY_EVENT_FORMAT
+    ? "attendance_payment_pending_choice_only"
+    : "attendance_payment_pending"
   const { price, isEarly } = paymentDetailsFor(participant, config)
-  return responseText("attendance_payment_pending", {
+  return responseText(responseKey, {
     participant_number: participant.assigned_number,
     price,
     price_label: isEarly ? "السعر المبكر" : "السعر المتأخر",
@@ -631,9 +661,14 @@ export default async function handler(req, res) {
 
         case "event3_information": {
           const config = await getWhatsappConfig()
+          const eventId = await getCurrentEventId()
+          const eventFormat = await getCurrentEventFormat(eventId)
           const tutorialBase = String(config.tutorialUrl || "https://blindmatch.app/event3").trim()
           const tutorialUrl = `${tutorialBase}${tutorialBase.includes("?") ? "&" : "?"}token=${encodeURIComponent(participant.secure_token || "")}`
-          const infoMessage = await responseText("event_information", { tutorial_url: tutorialUrl })
+          const responseKey = eventFormat === CHOICE_ONLY_EVENT_FORMAT
+            ? "event_information_choice_only"
+            : "event_information"
+          const infoMessage = await responseText(responseKey, { tutorial_url: tutorialUrl })
           await sendTwilioReply(from, infoMessage, participant)
           return res.status(200).json({ status: "info_sent" })
         }

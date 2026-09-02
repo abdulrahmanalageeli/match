@@ -1,4 +1,5 @@
 import { buildSixBySevenPlan, normalizedGender } from "./round2-age-optimizer.mjs"
+import { optimizeRound1SparkGroups } from "./round1-spark.mjs"
 
 const TABLE_COUNT = 6
 const GROUP_SIZE = 7
@@ -166,21 +167,37 @@ function normalizedParticipants(values) {
 }
 
 /**
- * Build six groups of seven for three rounds. The first two rounds use the
- * established gender-balanced Event3 construction when its preconditions are
- * met. Round three is selected from every cyclic construction that reaches the
- * mathematical repeat lower bound against both previous rounds.
+ * Build six groups of seven for three rounds. Round one starts from the
+ * established gender-balanced Event3 grid, then improves its survey-only Spark
+ * fit without changing any gender slot. The later cyclic rounds are rebuilt
+ * from that grid so their repeat guarantees stay valid.
  */
-export function buildChoiceOnlySeatingPlan(values, { genderMap = {}, ageMap = {} } = {}) {
+export function buildChoiceOnlySeatingPlan(values, {
+  genderMap = {},
+  ageMap = {},
+  profileMap = new Map(),
+  lockedPairsSet = new Set(),
+} = {}) {
   const normalized = normalizedParticipants(values)
   if (normalized.error) return normalized
   const participants = normalized.participants
 
   const genderObject = genderMap instanceof Map ? Object.fromEntries(genderMap) : genderMap
   const balanced = buildSixBySevenPlan(participants, genderObject)
-  const round1 = balanced?.round1 || Array.from({ length: TABLE_COUNT }, (_, table) =>
+  const baselineRound1 = balanced?.round1 || Array.from({ length: TABLE_COUNT }, (_, table) =>
     participants.slice(table * GROUP_SIZE, (table + 1) * GROUP_SIZE))
-  const round2 = balanced?.round2 || applyColumnShifts(round1, ROUND2_SHIFTS)
+  const spark = optimizeRound1SparkGroups(baselineRound1, {
+    genderMap,
+    ageMap,
+    profileMap,
+    lockedPairsSet,
+  })
+  const round1 = spark.groups
+
+  // buildSixBySevenPlan derives Round 2 from its original Round 1. Rebuild it
+  // after Spark swaps so the cyclic no-repeat construction uses the optimized
+  // Round-1 grid rather than stale participant positions.
+  const derivedRound2 = applyColumnShifts(round1, ROUND2_SHIFTS)
 
   let best = null
   for (const shifts of VALID_ROUND3_SHIFTS) {
@@ -189,7 +206,7 @@ export function buildChoiceOnlySeatingPlan(values, { genderMap = {}, ageMap = {}
       shifts,
       round3,
       gender: genderScore(round3, genderMap),
-      metrics: choiceOnlySeatingMetrics(round1, round2, round3),
+      metrics: choiceOnlySeatingMetrics(round1, derivedRound2, round3),
       ageCost: ageCost(round3, ageMap),
     }
     if (!best || compareShiftPlans(candidate, best) < 0) best = candidate
@@ -200,11 +217,12 @@ export function buildChoiceOnlySeatingPlan(values, { genderMap = {}, ageMap = {}
   round1.flat().forEach((number, index) => { positionMap[number] = index })
   return {
     round1,
-    round2,
+    round2: derivedRound2,
     round3: best.round3,
     T: TABLE_COUNT,
     G: GROUP_SIZE,
     R: 0,
     positionMap,
+    round1Spark: spark.metrics,
   }
 }

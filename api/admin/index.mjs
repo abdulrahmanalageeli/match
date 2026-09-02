@@ -10300,10 +10300,8 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             return res.status(400).json({ error: "The three-group choice-only format requires exactly 42 participants (6 groups of 7)" })
           }
 
-          // In test mode, skip fresh AI compatibility computation for uncached pairs — this is
-          // the main cause of slow seating generation. Test participants are already selected
-          // for high mutual-cache coverage, so any residual misses just fall back to a neutral
-          // score for ordering purposes (real matching still computes accurately later).
+          // Classic test mode skips fresh compatibility work. Choice-only mode
+          // uses the same deterministic survey-only Spark path in test and live.
           const { data: tmState, error: seatingStateError } = await supabase.from("event_state")
             .select("current_event_id,phase,test_mode_active,test_mode_snapshot")
             .eq("match_id", EVENT3_MATCH_ID).maybeSingle()
@@ -10311,23 +10309,25 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const isTestMode = !!tmState?.test_mode_active
           const skipFreshCompute = isTestMode
 
-          // ── Test mode: random shuffle (no compatibility computation) ──────────
+          // Choice-only Round 1 uses the deterministic survey-only Spark scorer.
+          // Classic test mode still skips compatibility work and shuffles.
           let orderedNumbers = participantNumbers
           const ageMap = {}
+          let seatingProfileMap = new Map()
           let usedCompat = false
           if (choiceOnlySeating) {
-            console.log("e3-generate-seating: choice-only mode — grouping without compatibility-based ordering")
+            console.log(`e3-generate-seating: ${isTestMode ? "TEST MODE — " : ""}using deterministic survey-only Spark rules for Round 1`)
           } else if (isTestMode) {
             console.log(`e3-generate-seating: TEST MODE — skipping compatibility, using random shuffle`)
             const shuffle = (arr) => { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]] } return arr }
             orderedNumbers = shuffle([...participantNumbers])
           } else
           try {
-            console.log(`e3-generate-seating: batch-fetching compat scores from DB for ${participantNumbers.length} participants`)
+            console.log(`e3-generate-seating: batch-fetching compatibility scores from DB for ${participantNumbers.length} participants`)
             const { data: pdata } = await supabase
               .from("participants").select("*")
               .eq("match_id", STATIC_MATCH_ID).in("assigned_number", participantNumbers)
-            const seatingProfileMap = new Map((pdata || []).map(p => [Number(p.assigned_number), p]))
+            seatingProfileMap = new Map((pdata || []).map(p => [Number(p.assigned_number), p]))
 
             // Batch-fetch all cached compatibility scores in ONE query
             const { data: allCached } = await fetchAllCachedPairs('compatibility_cache', participantNumbers)
@@ -10405,14 +10405,19 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           // ─────────────────────────────────────────────────────────────────────────
 
           // Fetch gender info for all participants
-          const { data: genderRows } = await supabase
-            .from("participants").select("assigned_number,gender,age,survey_data")
+          const { data: genderRows, error: genderRowsError } = await supabase
+            .from("participants").select(choiceOnlySeating ? "*" : "assigned_number,gender,age,survey_data")
             .eq("match_id", STATIC_MATCH_ID).in("assigned_number", participantNumbers)
+          if (genderRowsError) {
+            console.error("e3-generate-seating: participant profile fetch failed", genderRowsError)
+            return res.status(500).json({ error: "Failed to load participant profiles for seating generation" })
+          }
           const genderMap = {}
           for (const p of genderRows || []) {
             const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {})
             genderMap[p.assigned_number] = p.gender || sd?.answers?.gender || sd?.gender || "?"
             if (!ageMap[p.assigned_number]) ageMap[p.assigned_number] = p.age || sd?.answers?.age || sd?.age || null
+            if (!seatingProfileMap.has(Number(p.assigned_number))) seatingProfileMap.set(Number(p.assigned_number), p)
           }
 
           // Fetch locked matches for current event to avoid seating pairs together
@@ -10433,7 +10438,12 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           console.log(`e3-generate-seating: ${lockedPairsSet.size} locked pairs to separate in groups`)
 
           const plan = choiceOnlySeating
-            ? buildChoiceOnlySeatingPlan(orderedNumbers, { genderMap, ageMap })
+            ? buildChoiceOnlySeatingPlan(orderedNumbers, {
+                genderMap,
+                ageMap,
+                profileMap: seatingProfileMap,
+                lockedPairsSet,
+              })
             : e3GenerateSeatingPlan(orderedNumbers, genderMap, lockedPairsSet, ageMap)
           if (plan.error) return res.status(400).json({ error: plan.error })
           const { round1, round2, round3 = null, T, G, R, positionMap } = plan
@@ -10474,7 +10484,10 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           }
           const groupSizes = R > 0 ? `${T - R}×${G} + ${R}×${G + 1}` : `${T}×${G}`
           const groupRoundLabel = round3 ? "ثلاث جولات" : "جولتان"
-          return res.status(200).json({ message: `تم توليد خطة الجلسات — ${T} مجموعات (${groupSizes})، ${groupRoundLabel}${usedCompat ? ' (مُحسَّنة بالتوافق)' : ''} | توازن: ${balanceInfo.join(' · ')}`, event_format: seatingFormat, round1, round2, round3, groups: T, groupSize: G })
+          const optimizationLabel = choiceOnlySeating
+            ? ' (الجولة الأولى مُحسَّنة بمعايير Spark)'
+            : usedCompat ? ' (مُحسَّنة بالتوافق)' : ''
+          return res.status(200).json({ message: `تم توليد خطة الجلسات — ${T} مجموعات (${groupSizes})، ${groupRoundLabel}${optimizationLabel} | توازن: ${balanceInfo.join(' · ')}`, event_format: seatingFormat, round1, round2, round3, groups: T, groupSize: G, round1_spark: choiceOnlySeating ? plan.round1Spark : null })
         }
         // e3-get-seating
         if (action === "e3-get-seating") {

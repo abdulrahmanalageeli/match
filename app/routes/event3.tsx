@@ -3558,7 +3558,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
               <RankingReorderCard
                 key={num}
                 value={num}
-                className={`rounded-xl border transition-colors ${accent} ${submitted ? 'cursor-not-allowed opacity-40' : 'select-none hover:border-white/[0.1]'}`}
+                className={`relative rounded-xl border transition-colors ${accent} ${submitted ? 'cursor-not-allowed opacity-40' : 'select-none hover:border-white/[0.1]'}`}
                 disabled={submitted || submitting || autoSaving || rankingClosed || rankingExpired}
                 whileDrag={submitted ? undefined : {
                   scale: 1.03,
@@ -7589,7 +7589,7 @@ export default function Event3Page() {
       </div>
 
       {/* Screen content fills available space */}
-      <div ref={eventContentRef} className="event3-scroll relative min-h-0 flex-1 overflow-y-auto">
+      <motion.div ref={eventContentRef} layoutScroll className="event3-scroll relative min-h-0 flex-1 overflow-y-auto">
         <AnimatePresence>
           {!holdingRankingDraft && phase === "setup" && <SetupScreen key="setup" token={token} myInfo={myInfo} enrolledCount={eventState?.participants_selected ?? null} eventFormat={eventFormat} />}
           {!holdingRankingDraft && isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} myInfo={myInfo} onGroupsOpenChange={setGroupsOpen} eventFormat={eventFormat} />}
@@ -7601,7 +7601,7 @@ export default function Event3Page() {
           {!holdingRankingDraft && phase === "break" && <BreakScreen key="break" {...timerProps} eventFormat={eventFormat} />}
           {!holdingRankingDraft && phase === "final_reveal" && <FinalRevealScreen key="final" token={token} onQuestionViewerChange={setFinalQuestionsOpen} eventFormat={eventFormat} />}
         </AnimatePresence>
-      </div>
+      </motion.div>
 
       {/* Keep help-chat state mounted while higher-priority overlays are visible,
           so an unsent organizer message is restored instead of discarded. */}

@@ -39,11 +39,13 @@ import {
 } from "../server/participants/phone-normalization.mjs"
 import { validateProfileDataCollection } from "../server/participants/profile-data-collection.mjs"
 import {
+  LEGAL_ACCEPTED_DOCUMENT_VERSIONS,
   LEGAL_DOCUMENT_VERSION,
   LEGAL_PRIVACY_NOTICE_VERSION,
   LEGAL_TERMS_VERSION,
   buildLegalAcceptanceRow,
   hasCurrentLegalAcceptance,
+  isAcceptedLegalBundle,
   shouldRequireLegalAcceptance,
 } from "../server/participants/legal-acceptance.mjs"
 
@@ -365,12 +367,14 @@ export default async function handler(req, res) {
     }
     if (!participant) return res.status(404).json({ error: "Participant not found" })
 
-    const { data: acceptance, error: acceptanceError } = await supabase
+    const { data: acceptanceRows, error: acceptanceError } = await supabase
       .from("participant_legal_acceptances")
       .select("document_bundle_version,terms_version,privacy_notice_version,accepted_at,acceptance_source")
       .eq("participant_id", participant.id)
-      .eq("document_bundle_version", LEGAL_DOCUMENT_VERSION)
-      .maybeSingle()
+      .in("document_bundle_version", LEGAL_ACCEPTED_DOCUMENT_VERSIONS)
+      .order("accepted_at", { ascending: false })
+
+    const acceptance = (acceptanceRows || []).find(isAcceptedLegalBundle) || null
 
     const migrationRequired = Boolean(acceptanceError && (
       ["42P01", "PGRST202", "PGRST205"].includes(acceptanceError.code)
@@ -389,10 +393,7 @@ export default async function handler(req, res) {
         accepted: hasCurrentLegalAcceptance(participant, acceptance),
         requires_acceptance: shouldRequireLegalAcceptance(participant, acceptance),
         accepted_at: acceptance?.accepted_at || (
-          participant.terms_version === LEGAL_TERMS_VERSION
-          && participant.privacy_notice_version === LEGAL_PRIVACY_NOTICE_VERSION
-            ? participant.consented_at
-            : null
+          hasCurrentLegalAcceptance(participant, null) ? participant.consented_at : null
         ),
         migration_required: migrationRequired,
       })

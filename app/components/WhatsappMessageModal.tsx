@@ -1085,7 +1085,7 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
                 }}
                 className="bg-slate-800 border border-slate-600 text-white text-sm rounded px-3 py-2"
               >
-                <option value="match">match_notification_v4 (إشعار التوافق 5.0)</option>
+                <option value="match">التوافق الأعمى 5.0 — نسخة الاختيارات</option>
                 <option value="reminder">event_reminder (تذكير الفعالية)</option>
                 <option value="payment">payment_reminder (تذكير الدفع)</option>
                 <option value="match_cancellation">match_cancelled_refund_or_next_event (إلغاء الشريك)</option>
@@ -1102,7 +1102,7 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
                 </div>
               )}
               <p className="text-xs text-slate-500">
-                {templateTypeTwilio === 'match' && '7 متغيرات — تأكيد/اعتذار/اشتراك تلقائي/معلومات الفعالية'}
+                {templateTypeTwilio === 'match' && '7 متغيرات — نفس أزرار التأكيد/الاعتذار/الاشتراك التلقائي/معلومات الفعالية'}
                 {templateTypeTwilio === 'reminder' && '5 متغيرات — تأكيد/اعتذار'}
                 {templateTypeTwilio === 'payment' && '7 متغيرات — تأكيد/اعتذار'}
                 {templateTypeTwilio === 'match_cancellation' && 'متغير واحد — اسم المشارك، مع خياري الاسترداد أو الفعالية القادمة'}

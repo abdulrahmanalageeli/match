@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "../security/supabase-admin.mjs"
+import { buildMatchTemplateVariables } from "../../app/utils/matchTemplateVariables.mjs"
 import { enforceRateLimit, requireAdmin } from "../security/request-security.mjs"
 import { getMatchInsightsCompletion } from "../matching/match-insights.mjs"
 
@@ -39,7 +40,7 @@ function normalizeWhatsapp(value) {
 
 function templateEnvSid(key) {
   const envMap = {
-    match: process.env.TWILIO_MATCH_TEMPLATE_SID || "HX6d318d6310d7cce0c37b1ef5e0b7a17e",
+    match: process.env.TWILIO_MATCH_TEMPLATE_SID || "HX7c190833f357e2f6f2ed0c9e906b6517",
     reminder: process.env.TWILIO_REMINDER_TEMPLATE_SID,
     payment: process.env.TWILIO_PAYMENT_TEMPLATE_SID,
     gender_preference: process.env.TWILIO_GENDER_TEMPLATE_SID,
@@ -180,16 +181,7 @@ async function buildVariables(templateKey, participant, overrides = {}) {
   const minAge = participant.preferred_age_min ?? participant.survey_data?.answers?.preferred_age_min ?? "غير محدد"
   const maxAge = participant.preferred_age_max ?? participant.survey_data?.answers?.preferred_age_max ?? "غير محدد"
   let values = {}
-  if (templateKey === "match") values = {
-    // {{1}} and {{2}} are used by the template's actions; the message body begins at {{3}}.
-    1: participant.assigned_number,
-    2: participant.secure_token,
-    3: config.eventDateText || "TBD",
-    4: config.eventTimeText || "TBD",
-    5: config.arrivalTimeText || "TBD",
-    6: config.locationName || "TBD",
-    7: config.mapUrl || "https://maps.google.com",
-  }
+  if (templateKey === "match") values = buildMatchTemplateVariables(participant, config)
   if (templateKey === "reminder") values = { 1: name, 2: config.eventDateText, 3: config.eventTimeText, 4: config.locationName, 5: config.mapUrl }
   if (templateKey === "payment") values = {
     1: name, 2: config.earlyPrice, 3: config.latePriceSwitchLabel, 4: config.latePrice,

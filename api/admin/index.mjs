@@ -32,7 +32,12 @@ import {
 } from "../../server/event3/timing.mjs"
 import { supabaseAdmin } from "../../server/security/supabase-admin.mjs"
 import { clearAdminSession, enforceRateLimit, recordSecurityEvent, requireAdmin } from "../../server/security/request-security.mjs"
-import { LEGAL_DOCUMENT_VERSION } from "../../server/participants/legal-acceptance.mjs"
+import {
+  LEGAL_ACCEPTED_DOCUMENT_VERSIONS,
+  LEGAL_DOCUMENT_VERSION,
+  hasCurrentLegalAcceptance,
+  isAcceptedLegalBundle,
+} from "../../server/participants/legal-acceptance.mjs"
 import {
   BALANCED_COMPATIBILITY_VERSION,
   BALANCED_VIBE_MODEL,
@@ -50,7 +55,7 @@ const supabase = supabaseAdmin
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 const STATIC_MATCH_ID = "00000000-0000-0000-0000-000000000000"
-const TWILIO_MATCH_NOTIFICATION_V2_SID = "HX6d318d6310d7cce0c37b1ef5e0b7a17e"
+const TWILIO_MATCH_NOTIFICATION_V5_SID = "HX7c190833f357e2f6f2ed0c9e906b6517"
 const TWILIO_MATCH_CANCELLATION_SID = "HX466c880e6809cefe45123a5c02d49a61"
 const TWILIO_SURVEY_UPDATE_SID = "HX29303de3e62bac314552ee3056578c4f"
 const TWILIO_STATUS_CALLBACK_URL = process.env.TWILIO_STATUS_CALLBACK_URL || "https://blindmatch.app/api/twilio-status"
@@ -1880,8 +1885,9 @@ export default async function handler(req, res) {
             .order("assigned_number", { ascending: true }),
           supabase
             .from("participant_legal_acceptances")
-            .select("participant_id,document_bundle_version,accepted_at,acceptance_source")
-            .eq("document_bundle_version", LEGAL_DOCUMENT_VERSION),
+            .select("participant_id,document_bundle_version,terms_version,privacy_notice_version,accepted_at,acceptance_source")
+            .in("document_bundle_version", LEGAL_ACCEPTED_DOCUMENT_VERSIONS)
+            .order("accepted_at", { ascending: false }),
         ])
         if (participantError) return res.status(500).json({ error: participantError.message })
         if (acceptanceError) {
@@ -1890,28 +1896,32 @@ export default async function handler(req, res) {
           return res.status(migrationRequired ? 501 : 500).json({ error: acceptanceError.message, migration_required: migrationRequired })
         }
 
-        const acceptedByParticipant = new Map((acceptanceRows || []).map(row => [row.participant_id, row]))
+        const acceptedByParticipant = new Map()
+        for (const acceptance of acceptanceRows || []) {
+          if (isAcceptedLegalBundle(acceptance) && !acceptedByParticipant.has(acceptance.participant_id)) {
+            acceptedByParticipant.set(acceptance.participant_id, acceptance)
+          }
+        }
         const participants = (participantRows || []).filter(row => (
           row.survey_data
           && typeof row.survey_data === "object"
           && Object.keys(row.survey_data).length > 0
         )).map(row => {
           const acceptance = acceptedByParticipant.get(row.id)
-          const accepted = Boolean(acceptance)
-            || (row.terms_version === LEGAL_DOCUMENT_VERSION
-              && row.privacy_notice_version === LEGAL_DOCUMENT_VERSION
-              && row.consented_at)
+          const accepted = hasCurrentLegalAcceptance(row, acceptance)
           return {
             assigned_number: row.assigned_number,
             name: row.name || `#${row.assigned_number}`,
             accepted: Boolean(accepted),
             accepted_at: acceptance?.accepted_at || (accepted ? row.consented_at : null),
             acceptance_source: acceptance?.acceptance_source || (accepted ? "survey_registration" : null),
+            accepted_version: acceptance?.document_bundle_version || (accepted ? row.terms_version : null),
           }
         })
         const acceptedCount = participants.filter(row => row.accepted).length
         return res.status(200).json({
           document_bundle_version: LEGAL_DOCUMENT_VERSION,
+          accepted_document_bundle_versions: LEGAL_ACCEPTED_DOCUMENT_VERSIONS,
           total: participants.length,
           accepted: acceptedCount,
           pending: participants.length - acceptedCount,
@@ -2485,7 +2495,7 @@ export default async function handler(req, res) {
         return res.status(200).json({
           success: true,
           templateSids: {
-            match: configured.match?.content_sid || process.env.TWILIO_MATCH_TEMPLATE_SID || TWILIO_MATCH_NOTIFICATION_V2_SID,
+            match: configured.match?.content_sid || process.env.TWILIO_MATCH_TEMPLATE_SID || TWILIO_MATCH_NOTIFICATION_V5_SID,
             reminder: configured.reminder?.content_sid || process.env.TWILIO_REMINDER_TEMPLATE_SID || null,
             payment: configured.payment?.content_sid || process.env.TWILIO_PAYMENT_TEMPLATE_SID || null,
             match_cancellation: configured.match_cancellation?.content_sid || process.env.TWILIO_MATCH_CANCELLATION_TEMPLATE_SID || TWILIO_MATCH_CANCELLATION_SID,

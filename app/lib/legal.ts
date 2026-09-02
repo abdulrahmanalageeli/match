@@ -1,4 +1,11 @@
-export const LEGAL_DOCUMENT_VERSION = "2026-09-01.2"
+export {
+  LEGAL_ACCEPTED_DOCUMENT_VERSIONS,
+  LEGAL_DOCUMENT_VERSION,
+  LEGAL_PRIVACY_NOTICE_VERSION,
+  LEGAL_TERMS_VERSION,
+  isAcceptedLegalBundle,
+  isAcceptedLegalVersion,
+} from "./legal-version.mjs"
 export const LEGAL_EFFECTIVE_DATE_AR = "1 سبتمبر 2026"
 
 export const LEGAL_ENTITY_NAME = import.meta.env.VITE_LEGAL_ENTITY_NAME || "BlindMatch Establishment"

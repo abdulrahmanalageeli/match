@@ -70,7 +70,7 @@ import PairAnalysisModal from "~/components/PairAnalysisModalPro"
 import { HistoryConfidencePanel } from "~/components/HistoryConfidenceBadge"
 import { getParticipantMatchInsightsCompletion } from "~/lib/matchControl"
 import { matchesParticipantConfirmationFilter } from "~/lib/participant-confirmation-filter.mjs"
-import { LEGAL_DOCUMENT_VERSION } from "~/lib/legal"
+import { LEGAL_DOCUMENT_VERSION, isAcceptedLegalBundle } from "~/lib/legal"
 import {
   CURRENT_BALANCED_SCORE_MODEL,
   isCurrentBalancedScoreRow,
@@ -256,9 +256,8 @@ function hasParticipantHistory(participant: any) {
     && Object.keys(participant.survey_data).length > 0
 }
 
-function hasAcceptedCurrentLegalVersion(participant: any) {
-  return participant?.terms_version === LEGAL_DOCUMENT_VERSION
-    && participant?.privacy_notice_version === LEGAL_DOCUMENT_VERSION
+function hasAcceptedRecognizedLegalVersion(participant: any) {
+  return isAcceptedLegalBundle(participant)
     && Boolean(participant?.consented_at)
 }
 
@@ -3944,7 +3943,7 @@ const fetchParticipants = async () => {
 
   const legalAcceptanceStats = useMemo(() => {
     const returningParticipants = participants.filter(hasParticipantHistory)
-    const accepted = returningParticipants.filter(hasAcceptedCurrentLegalVersion).length
+    const accepted = returningParticipants.filter(hasAcceptedRecognizedLegalVersion).length
     return {
       total: returningParticipants.length,
       accepted,
@@ -4052,7 +4051,7 @@ const fetchParticipants = async () => {
         matchInsightsFilter === "complete" ? insightsCompletion.complete : !insightsCompletion.complete
       )
 
-      const acceptedCurrentLegalVersion = hasAcceptedCurrentLegalVersion(p)
+      const acceptedCurrentLegalVersion = hasAcceptedRecognizedLegalVersion(p)
       const matchesLegalAcceptance = legalAcceptanceFilter === "all" || (
         legalAcceptanceFilter === "accepted"
           ? acceptedCurrentLegalVersion
@@ -8411,7 +8410,7 @@ Proceed?`
               const isUnpaid = p.attendance_confirmed === true && p.PAID === true && !isPaid;
               const isCurrentEvent = p.event_id === currentEventId;
               const isNextEvent = p.signup_for_next_event === true || p.auto_signup_next_event === true;
-              const acceptedCurrentLegalVersion = hasAcceptedCurrentLegalVersion(p);
+              const acceptedCurrentLegalVersion = hasAcceptedRecognizedLegalVersion(p);
               const needsLegalAcceptance = hasParticipantHistory(p) && !acceptedCurrentLegalVersion;
               
               let borderColor = 'border-white/20'; // Default
@@ -8661,10 +8660,10 @@ Proceed?`
                               : "border-amber-400/30 bg-amber-500/10 text-amber-200"
                           }`}
                           title={acceptedCurrentLegalVersion
-                            ? `Accepted terms and privacy ${LEGAL_DOCUMENT_VERSION} at ${p.consented_at}`
+                            ? `Accepted terms and privacy ${p.terms_version} at ${p.consented_at}. Current version: ${LEGAL_DOCUMENT_VERSION}`
                             : `Updated terms and privacy ${LEGAL_DOCUMENT_VERSION} still pending`}
                         >
-                          {acceptedCurrentLegalVersion ? `Legal ${LEGAL_DOCUMENT_VERSION} ✓` : "Legal update pending"}
+                          {acceptedCurrentLegalVersion ? `Legal ${p.terms_version} ✓` : "Legal update pending"}
                         </span>
                       </div>
                     )}

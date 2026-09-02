@@ -1,6 +1,18 @@
-export const LEGAL_DOCUMENT_VERSION = "2026-09-01.1"
-export const LEGAL_TERMS_VERSION = LEGAL_DOCUMENT_VERSION
-export const LEGAL_PRIVACY_NOTICE_VERSION = LEGAL_DOCUMENT_VERSION
+import {
+  LEGAL_ACCEPTED_DOCUMENT_VERSIONS,
+  LEGAL_DOCUMENT_VERSION,
+  LEGAL_PRIVACY_NOTICE_VERSION,
+  LEGAL_TERMS_VERSION,
+  isAcceptedLegalBundle,
+} from "../../app/lib/legal-version.mjs"
+
+export {
+  LEGAL_ACCEPTED_DOCUMENT_VERSIONS,
+  LEGAL_DOCUMENT_VERSION,
+  LEGAL_PRIVACY_NOTICE_VERSION,
+  LEGAL_TERMS_VERSION,
+  isAcceptedLegalBundle,
+}
 
 function parseSurveyData(value) {
   if (!value) return null
@@ -16,11 +28,8 @@ function parseSurveyData(value) {
 
 export function hasCurrentLegalAcceptance(participant, acceptance) {
   if (!participant) return false
-  const ledgerIsCurrent = acceptance?.document_bundle_version === LEGAL_DOCUMENT_VERSION
-    && acceptance?.terms_version === LEGAL_TERMS_VERSION
-    && acceptance?.privacy_notice_version === LEGAL_PRIVACY_NOTICE_VERSION
-  const participantIsCurrent = participant.terms_version === LEGAL_TERMS_VERSION
-    && participant.privacy_notice_version === LEGAL_PRIVACY_NOTICE_VERSION
+  const ledgerIsCurrent = isAcceptedLegalBundle(acceptance)
+  const participantIsCurrent = isAcceptedLegalBundle(participant)
     && Boolean(participant.consented_at)
   return ledgerIsCurrent || participantIsCurrent
 }

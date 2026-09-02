@@ -107,7 +107,11 @@ export function LegalAcceptanceGate() {
   }
 
   return (
-    <div className="fixed inset-0 z-[1000] isolate flex items-end justify-center bg-slate-950/80 p-0 backdrop-blur-md sm:items-center sm:p-5" dir="rtl">
+    <div
+      className="pointer-events-auto fixed inset-0 z-[1000] isolate flex touch-manipulation items-end justify-center bg-slate-950/80 p-0 backdrop-blur-md sm:items-center sm:p-5"
+      style={{ pointerEvents: "auto" }}
+      dir="rtl"
+    >
       <section
         ref={dialogRef}
         role="dialog"

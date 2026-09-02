@@ -15,7 +15,7 @@ interface WhatsappMessageModalProps {
 }
 
 type TwilioTemplateType = 'match' | 'reminder' | 'payment' | 'match_cancellation' | 'survey_update';
-type MessageTemplateType = 'match' | 'early-match' | 'early-reminder' | 'event-info' | 'faq-payment' | 'faq-location' | 'faq-timing' | 'reminder' | 'payment-reminder' | 'match-cancellation' | 'partner-info' | 'gender-confirmation' | 'preference-flexibility' | 'discount-offer' | 'survey-completion' | 'time-change';
+type MessageTemplateType = 'nomination-confirmation' | 'match' | 'early-match' | 'early-reminder' | 'event-info' | 'faq-payment' | 'faq-location' | 'faq-timing' | 'reminder' | 'payment-reminder' | 'match-cancellation' | 'partner-info' | 'gender-confirmation' | 'preference-flexibility' | 'discount-offer' | 'survey-completion' | 'time-change';
 
 export default function WhatsappMessageModal({ participant, isOpen, onClose, cohostTheme = false, allParticipants = [] }: WhatsappMessageModalProps) {
   const [copied, setCopied] = useState(false);
@@ -218,6 +218,37 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose, coh
     // Generate message based on template type via a builder function
     const build = () => {
       switch (templateType) {
+      case 'nomination-confirmation':
+        return `${e('✨ ')}${bold('التوافق الأعمى 5.0 | هذه المرة، أنتم تختارون')}
+
+أهلاً وسهلاً ${bold(name)} ${e('🤍')}
+
+بعد معالجة طلبك رقم ${bold(String(assignedNumber))}، تم تأكيد ترشيحك لهذه الفعالية.
+
+سيكون ترتيب مشاركتك كالتالي:
+
+${e('👥 ')}${bold('3 جولات جماعية')}
+سيتم توزيعك على مجموعة مختلفة في كل جولة.
+
+${e('📝 ')}${bold('بعد الجولات')}
+سيُطلب منك تحديد المشاركين الذين ترغب بمقابلتهم بشكل فردي.
+
+${e('🤝 ')}${bold('3 لقاءات فردية')}
+سيتم ترتيب اللقاءات وفق اختيارات المشاركين وتقاطعها.
+
+${e('📍 ')}${bold('تفاصيل اللقاء')}
+${e('🗓️ ')}${d.eventDateText}
+${e('🕰️ ')}البداية: ${d.eventTimeText}
+${e('⏱️ ')}الحضور: ${d.arrivalTimeText}
+${e('🏠 ')}${d.locationName}
+${e('🗺️ ')}${bold('رابط الموقع')}
+${d.mapUrl}
+
+أكد حضورك أو أخبرنا باعتذارك من الخيارات أدناه.
+سيُسجّل قرارك مباشرة، ويمكنك تغييره لاحقاً.
+
+— ${bold('فريق التوافق الأعمى')}`;
+
       case 'match':
         if (urgencyLevel === 'urgent') {
           const deadlineMin = d.urgentDeadlineMin;
@@ -740,6 +771,20 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
           <div className="bg-slate-800 border border-slate-600 rounded-lg p-4">
             <label className="text-sm font-medium text-slate-300 mb-3 block">نوع الرسالة</label>
             <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => {
+                  setTemplateType('nomination-confirmation');
+                  setTemplateMode(false);
+                }}
+                className={`p-3 rounded-lg text-sm font-medium transition-colors ${
+                  templateType === 'nomination-confirmation'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                }`}
+              >
+                <Check className="w-4 h-4 mx-auto mb-1" />
+                ترشيح 5.0
+              </button>
               <button
                 onClick={() => setTemplateType('match')}
                 className={`p-3 rounded-lg text-sm font-medium transition-colors ${

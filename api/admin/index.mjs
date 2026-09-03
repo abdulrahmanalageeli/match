@@ -69,6 +69,7 @@ import {
 } from "../../server/matching/balanced-compatibility.mjs"
 import {
   buildDeltaReviewParticipants,
+  getExactDeltaActivityTimestamp,
   getDeltaReviewReasonCounts,
 } from "../../server/matching/delta-review.mjs"
 import { buildSurveyChangeSummaries } from "../../server/participants/survey-change-summary.mjs"
@@ -6601,8 +6602,8 @@ export default async function handler(req, res) {
     if (action === "approve-delta-cache-participant") {
       try {
         const assignedNumber = Number(req.body?.assigned_number)
-        const observedActivityAt = Date.parse(String(req.body?.activity_at || ''))
-        if (!Number.isInteger(assignedNumber) || !Number.isFinite(observedActivityAt)) {
+        const activityAt = getExactDeltaActivityTimestamp(req.body?.activity_at)
+        if (!Number.isInteger(assignedNumber) || !activityAt) {
           return res.status(400).json({ error: "assigned_number and activity_at are required" })
         }
 
@@ -6616,7 +6617,6 @@ export default async function handler(req, res) {
           return res.status(404).json({ error: "Participant not found" })
         }
 
-        const activityAt = new Date(observedActivityAt).toISOString()
         const { data: acknowledgedRows, error: acknowledgementError } = await supabase
           .from('delta_review_items')
           .update({ acknowledged_at: new Date().toISOString() })

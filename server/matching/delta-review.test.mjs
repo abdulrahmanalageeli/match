@@ -2,10 +2,18 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   buildDeltaReviewParticipants,
+  getExactDeltaActivityTimestamp,
   getDeltaReviewReasonCounts,
   getParticipantDeltaReviewActivity,
   getRiyadhDayBounds,
 } from './delta-review.mjs'
+
+test('approval timestamps retain PostgreSQL microsecond precision', () => {
+  const timestamp = '2026-09-03T14:22:19.123456+00:00'
+
+  assert.equal(getExactDeltaActivityTimestamp(timestamp), timestamp)
+  assert.equal(getExactDeltaActivityTimestamp('not-a-timestamp'), null)
+})
 
 test('Riyadh review day uses local midnight rather than UTC midnight', () => {
   const bounds = getRiyadhDayBounds(new Date('2026-09-03T20:00:00.000Z'))

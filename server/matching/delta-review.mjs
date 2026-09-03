@@ -7,6 +7,12 @@ function parseTimestamp(value) {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+export function getExactDeltaActivityTimestamp(value) {
+  if (typeof value !== 'string') return null
+  const timestamp = value.trim()
+  return parseTimestamp(timestamp) == null ? null : timestamp
+}
+
 function maxTimestamp(values) {
   const valid = values.filter(Number.isFinite)
   return valid.length > 0 ? Math.max(...valid) : null

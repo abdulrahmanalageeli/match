@@ -2068,8 +2068,13 @@ const approveDeltaCacheParticipant = async (participant: any) => {
       }),
     })
     const data = await res.json()
+    if (data.refresh_required) {
+      await fetchDeltaCacheParticipants()
+      toast.info('This profile changed again. Delta review refreshed.')
+      return
+    }
     if (!res.ok || !data.success) throw new Error(data.error || 'Failed to approve delta review')
-    toast.success(`#${participant.assigned_number} removed from delta review`)
+    toast.success(`${participant.name} removed from delta review`)
     await fetchDeltaCacheParticipants()
   } catch (error: any) {
     toast.error(error?.message || 'Failed to approve delta review')

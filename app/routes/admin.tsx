@@ -195,7 +195,7 @@ function ManualCompatibilityResultModal({ data, onClose }: { data: any; onClose:
   const eligible = gateReport.eligible === true
   const balancedCategories = [
     { label: 'Interaction Synergy', value: result.synergyScore, max: 20, icon: '⚡', color: '#22d3ee' },
-    { label: 'AI Vibe', value: result.vibeScore, max: 12, icon: '✨', color: '#f472b6' },
+    { label: 'AI Semantic Diagnostic', value: result.vibeScore, max: 12, icon: '✨', color: '#f472b6' },
     { label: 'Lifestyle', value: result.lifestyleScore, max: 12, icon: '🏠', color: '#34d399' },
     { label: 'Humor & Openness', value: result.humorOpenScore, max: 10, icon: '😄', color: '#fbbf24' },
     { label: 'Communication', value: result.communicationScore, max: 5, icon: '💬', color: '#60a5fa' },
@@ -250,7 +250,7 @@ function ManualCompatibilityResultModal({ data, onClose }: { data: any; onClose:
               </div>
 
               <div className="rounded-3xl border border-white/10 bg-white/[0.025] p-4 sm:p-6">
-                <div className="mb-5 flex items-center justify-between gap-3"><div><h3 className="flex items-center gap-2 text-lg font-black"><BarChart3 className="h-5 w-5 text-cyan-300" /> Score architecture</h3><p className="mt-1 text-xs text-slate-500">{isOppositesModel ? `Six-dimensional Opposites score · ${round(oppositesBreakdown.rawTotal)}/${round(oppositesBreakdown.rawMaximum)} normalized to 100` : isBalancedModel ? 'Every scoring dimension used by the current balanced model' : 'Only the historical total can be shown safely for this scoring version'}</p></div><span className="hidden rounded-xl border border-white/10 bg-black/20 px-3 py-2 font-mono text-xs text-slate-400 sm:block">{data.score_model_version || 'Model unavailable'}</span></div>
+                <div className="mb-5 flex items-center justify-between gap-3"><div><h3 className="flex items-center gap-2 text-lg font-black"><BarChart3 className="h-5 w-5 text-cyan-300" /> Score architecture</h3><p className="mt-1 text-xs text-slate-500">{isOppositesModel ? `Six-dimensional Opposites score · ${round(oppositesBreakdown.rawTotal)}/${round(oppositesBreakdown.rawMaximum)} normalized to 100` : isBalancedModel ? 'The v12 formula is shown first; component cards below are diagnostics rather than additive weights' : 'Only the historical total can be shown safely for this scoring version'}</p></div><span className="hidden rounded-xl border border-white/10 bg-black/20 px-3 py-2 font-mono text-xs text-slate-400 sm:block">{data.score_model_version || 'Model unavailable'}</span></div>
                 {isBalancedModel && aiChemistry && <div className="mb-4 grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-2 rounded-2xl border border-fuchsia-300/15 bg-fuchsia-400/[0.04] p-3 text-center"><div><p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Archetype base</p><p className="font-mono text-lg font-black text-cyan-200">{round(aiChemistry.baseScore)}%</p></div><span className="text-slate-600">+</span><div><p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">AI chemistry</p><p className={`font-mono text-lg font-black ${aiChemistry.adjustment > 0 ? 'text-emerald-300' : aiChemistry.adjustment < 0 ? 'text-rose-300' : 'text-slate-300'}`}>{aiChemistry.ready ? `${aiChemistry.adjustment >= 0 ? '+' : ''}${aiChemistry.adjustment}` : 'Pending'}</p></div><span className="text-slate-600">=</span><div><p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Final</p><p className="font-mono text-lg font-black text-white">{round(aiChemistry.finalScore)}%</p></div></div>}
                 {categories.length > 0 ? <div className="grid gap-3 sm:grid-cols-2">
                   {categories.map(category => {
@@ -2786,22 +2786,15 @@ const fetchParticipants = async () => {
 
       // Scoring criteria reference
       const scoringCriteria = [
-        ['Category', 'Max Score', 'Weight in Total', 'Scoring Logic'],
-        ['Model scope', 'Current balanced model', 'Reference only', 'Historical pair rows below retain the score produced by their own model period and must not be reinterpreted as this model'],
-        ['Interaction Synergy', '20', '20%', 'Q35 initiative 6 + Q36 conversation depth 3 + Q37 social battery 2 + Q38 humor subtype 3 + Q39 curiosity style 4 + Q41 silence comfort 2'],
-        ['AI Vibe', '12', '12%', 'Multidimensional semantic fit: current curiosity 5 + hobbies 3 + music 1 + friend description 3; a skipped or unavailable AI result is neutral rather than full credit'],
-        ['Lifestyle', '12', '12%', 'Q14-Q18 direct points: 2 + 3 + 3 + 2 + 2'],
-        ['Humor/Openness', '10', '10%', 'Q4.25 humor/banter 6 + Q4.75 early openness 4, scored directly'],
-        ['Communication', '5', '5%', 'Q24-Q28 direct compatibility points, 1 point maximum per question'],
-        ['Disagreement Style', '5', '5%', 'Direct compatibility matrix for match_disagreement_style; shown separately from communication'],
-        ['Core Values, Boundaries & Language', '17', '17%', 'Core scenarios 5 + minimum religious commitment 4 + social relationship style 4 + expression language 4'],
-        ['Intent/Goal', '5', '5%', 'Q40 direct compatibility points'],
-        ['Current Focus', '4', '4%', 'Direct overlap across the current-focus selections'],
-        ['Similarity Preference', '2', '2%', 'Directional fit between each participant’s stated similarity preference and observed pair similarity'],
-        ['Attachment & Connection Pace', '8', '8%', 'Q9 attachment response 2 + Q11 connection pace 3 + Q12 support-under-pressure 3'],
-        ['Total Formula', '100 direct points', '100%', 'The current balanced score is the additive sum of the components above'],
+        ['Stage', 'Range', 'Role in v12', 'Scoring Logic'],
+        ['Model scope', 'v12', 'Current model', 'Historical pair rows retain the score and provenance produced by their own model period'],
+        ['Directional archetype predictions', '0–100 each', 'Questionnaire model', 'Each participant receives a personalized prediction using their assigned archetype and the pair’s individual survey-answer features'],
+        ['Archetype base', '0–100', 'Base score', 'Geometric mean of A→B and B→A directional predictions'],
+        ['AI chemistry', '-8, 0, or +12', 'Required correction', '50% current-curiosity semantic fit + 50% hobbies fit; below 55% = -8, 55–74.99% = 0, at least 75% = +12'],
+        ['Final formula', '0–100', 'Displayed and ranked score', 'Clamp(archetype base + AI chemistry correction, 0, 100)'],
+        ['Music and friend-description AI axes', 'Diagnostic', 'No direct correction', 'Preserved for explanations and future validation; they do not change the v12 final percentage'],
+        ['Component cards', 'Diagnostic', 'No additive weights', 'Interaction, lifestyle, humor, communication, values, attachment and related cards explain pair traits but are not summed into the v12 total'],
         ['Eligibility gates', 'Unscored', 'Applied separately', 'Gender, nationality, age, intent, history, and other active hard gates control eligibility before score ranking'],
-        ['MBTI', '0', 'Profile context only', 'Q5-Q8 remain available for historical/profile interpretation but do not add points to the current balanced total'],
       ]
 
       // Build CSV content
@@ -8067,7 +8060,7 @@ Proceed?`
 
                 <button
                   onClick={async () => {
-                    let confirmMessage = "Generate matches without AI vibe analysis? (Uncached pairs will receive a neutral AI-vibe score, not full points)"
+                    let confirmMessage = "Generate matches using complete v12 archetype + AI chemistry scores?"
                     if (excludedParticipants.length > 0) {
                       confirmMessage += `\n\n🚫 ${excludedParticipants.length} participant(s) will be excluded from ALL matching:\n${excludedParticipants.map(p => `#${p.participant_number}`).join(', ')}`
                     }
@@ -8076,7 +8069,7 @@ Proceed?`
                     const res = await fetch("/api/admin/trigger-match", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ skipAI: true }),
+                      body: JSON.stringify({ skipAI: false }),
                     })
                     const data = await res.json()
                     if (res.ok) {
@@ -8087,7 +8080,7 @@ Proceed?`
                         successMessage += `\n\n⚡ Performance Metrics:`
                         successMessage += `\nTotal time: ${data.performance.totalTimeSeconds}s`
                         successMessage += `\nCache hits: ${data.performance.cacheHits} (${data.performance.cacheHitRate}%)`
-                        successMessage += `\nAI calls: ${data.performance.aiCalls} (skipped)`
+                        successMessage += `\nAI calls: ${data.performance.aiCalls}`
                         successMessage += `\nAvg time per pair: ${data.performance.avgTimePerPair}ms`
                         
                         if (data.performance.cacheHitRate > 0) {

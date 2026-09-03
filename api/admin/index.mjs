@@ -7658,7 +7658,7 @@ export default async function handler(req, res) {
             humor_open_score: breakdown.humorOpenness,
             intent_score: breakdown.intent,
             score_breakdown: breakdown,
-            reason: `Common Ground: ${breakdown.semanticCommonGround.toFixed(1)}/18 + Interaction Rhythm: ${breakdown.interactionRhythm.toFixed(1)}/20 + Humor/Openness: ${breakdown.humorOpenness.toFixed(1)}/10 + Attachment Comfort: ${breakdown.attachmentComfort.toFixed(1)}/8 + Lifestyle: ${breakdown.lifestyleSustainability.toFixed(1)}/12 + Values/Language: ${breakdown.valuesBoundariesLanguage.toFixed(1)}/17 + Communication/Disagreement: ${breakdown.communicationDisagreement.toFixed(1)}/10 + Intent: ${breakdown.intent.toFixed(1)}/5`,
+            reason: swapReason({ totalScore: breakdown.total, scoreBreakdown: breakdown }),
             is_actual_match: isActualMatch,
             use_count: cache.use_count,
             last_used: cache.last_used,
@@ -8123,7 +8123,7 @@ export default async function handler(req, res) {
               humor_open_score: breakdown.humorOpenness,
               intent_score: breakdown.intent,
               score_breakdown: breakdown,
-              reason: `Common Ground: ${breakdown.semanticCommonGround.toFixed(1)}/18 + Interaction Rhythm: ${breakdown.interactionRhythm.toFixed(1)}/20 + Humor/Openness: ${breakdown.humorOpenness.toFixed(1)}/10 + Attachment Comfort: ${breakdown.attachmentComfort.toFixed(1)}/8 + Lifestyle: ${breakdown.lifestyleSustainability.toFixed(1)}/12 + Values/Language: ${breakdown.valuesBoundariesLanguage.toFixed(1)}/17 + Communication/Disagreement: ${breakdown.communicationDisagreement.toFixed(1)}/10 + Intent: ${breakdown.intent.toFixed(1)}/5`,
+              reason: swapReason({ totalScore: breakdown.total, scoreBreakdown: breakdown }),
               is_actual_match: isStoredBalancedScoreSnapshot({
                 modelVersion: matchResult?.score_model_version,
                 contentHash: matchResult?.score_content_hash,
@@ -11859,7 +11859,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
                 ovHits++
               } else {
                 try {
-                  const r = await calculateFullCompatibilityWithCache(a, b, true, false, {
+                  const r = await calculateFullCompatibilityWithCache(a, b, false, false, {
                     skipCacheWrite: overviewIsTestMode,
                     skipUsageUpdate: overviewIsTestMode,
                   })

@@ -218,7 +218,14 @@ function formatParticipantBreakdownReason(breakdown) {
       : "Historical score model"
   }
   const value = key => Number(breakdown?.[key] ?? 0)
-  return [
+  const personalized = breakdown.personalized || {}
+  const base = Number(personalized.totalScore ?? breakdown.personalizedBase ?? 0)
+  const adjustment = Number(breakdown.aiChemistryAdjustment ?? 0)
+  const finalScore = Number(breakdown.finalScore ?? breakdown.total ?? 0)
+  const chemistry = breakdown.aiChemistryReady === true
+    ? `${adjustment >= 0 ? "+" : ""}${adjustment}`
+    : "pending"
+  const diagnostics = [
     `Common Ground: ${value("semanticCommonGround")}/18`,
     `Interaction: ${value("interactionRhythm")}/20`,
     `Humor/Openness: ${value("humorOpenness")}/10`,
@@ -228,6 +235,7 @@ function formatParticipantBreakdownReason(breakdown) {
     `Communication/Disagreement: ${value("communicationDisagreement")}/10`,
     `Intent: ${value("intent")}/5`,
   ].join(" + ")
+  return `Archetype base: ${base}% + AI chemistry: ${chemistry} = ${finalScore}% | Diagnostics: ${diagnostics}`
 }
 
 async function fetchParticipantBalancedCacheBreakdown(participantA, participantB) {

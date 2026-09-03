@@ -42,6 +42,12 @@ test('manual pair test mode calculates fresh without reading or writing compatib
   assert.match(adminSource, /Test Mode Only \(fresh, no cache\)/)
 })
 
+test('individual match generation cannot bypass required v12 AI chemistry', async () => {
+  const source = await read('api/admin/trigger-match.mjs')
+  assert.match(source, /if \(skipAI && matchType !== "group"\)/)
+  assert.match(source, /v12 individual matching requires AI chemistry/)
+})
+
 test('every individual cache and vibe-retry scope excludes pairs blocked by the existing interaction gate', async () => {
   const source = await read('api/admin/trigger-match.mjs')
   const scopes = [

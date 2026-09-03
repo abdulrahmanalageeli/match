@@ -6263,6 +6263,11 @@ if (action === "cache-status-by-gender") {
   if (!eventId) {
     return res.status(400).json({ error: "eventId is required" })
   }
+  if (skipAI && matchType !== "group") {
+    return res.status(400).json({
+      error: "v12 individual matching requires AI chemistry; run or resume batch pre-cache instead of bypassing AI",
+    })
+  }
   const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
   
   console.log(`🎯 MATCH GENERATION START: eventId received = ${eventId}, matchType = ${matchType}`)

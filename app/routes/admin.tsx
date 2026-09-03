@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from "react"
+import { createPortal } from "react-dom"
 import { useLocation } from "react-router"
 import { adminFetch as fetch } from "~/lib/admin-fetch.mjs"
 import AdminConnectionStatus from "~/components/AdminConnectionStatus"
@@ -6259,70 +6260,100 @@ Proceed?`
               )}
               
               {/* Click-toggled dropdown (appears below) */}
-              {showDeltaCacheTooltip && deltaCacheCount > 0 && (
-                <div className="absolute top-full left-0 mt-2 bg-gray-900/95 backdrop-blur-sm border border-cyan-400/30 rounded-xl p-4 shadow-2xl min-w-80 max-w-md" style={{ zIndex: 999999 }}>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <Zap className="w-4 h-4 text-cyan-400" />
-                      <h3 className="text-cyan-300 font-semibold text-sm">Survey & Signup Review</h3>
+              {showDeltaCacheTooltip && deltaCacheCount > 0 && typeof document !== 'undefined' && createPortal(
+                <>
+                  <button
+                    type="button"
+                    aria-label="Close survey and signup review"
+                    className="fixed inset-0 z-[1090] cursor-default bg-slate-950/75 backdrop-blur-[2px]"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      setShowDeltaCacheTooltip(false)
+                    }}
+                  />
+                  <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="delta-review-title"
+                    onClick={(event) => event.stopPropagation()}
+                    className="fixed inset-x-3 top-16 z-[1100] mx-auto flex max-h-[calc(100dvh-5rem)] w-auto max-w-xl flex-col overflow-hidden rounded-2xl border border-cyan-400/30 bg-slate-950 shadow-2xl shadow-cyan-950/60 sm:top-20"
+                  >
+                    <div className="flex shrink-0 items-start justify-between gap-3 border-b border-cyan-400/20 bg-cyan-950/40 px-4 py-3">
+                      <div className="flex min-w-0 items-start gap-2.5">
+                        <div className="mt-0.5 rounded-lg bg-cyan-400/10 p-2">
+                          <Zap className="h-4 w-4 text-cyan-300" />
+                        </div>
+                        <div className="min-w-0">
+                          <h3 id="delta-review-title" className="font-semibold text-cyan-100">Survey & Signup Review</h3>
+                          <p className="mt-0.5 text-xs text-slate-400">{deltaCacheCount} participant{deltaCacheCount === 1 ? '' : 's'} waiting for review</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        aria-label="Close"
+                        onClick={(event) => { event.stopPropagation(); setShowDeltaCacheTooltip(false) }}
+                        className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-white/10 text-slate-400 transition hover:bg-white/10 hover:text-white"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
                     </div>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); setShowDeltaCacheTooltip(false); }}
-                      className="p-1 rounded hover:bg-white/10 text-cyan-300/60 hover:text-cyan-200 transition"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
 
-                  <div className="mb-3 grid grid-cols-2 gap-2">
-                    <div className="rounded-lg border border-violet-400/25 bg-violet-500/10 px-2.5 py-2">
-                      <div className="text-[10px] uppercase tracking-wide text-violet-300/70">Survey changes</div>
-                      <div className="text-sm font-bold text-violet-200">{deltaCacheReasonCounts.survey_changes}</div>
+                    <div className="grid shrink-0 grid-cols-2 gap-2 px-4 py-3">
+                      <div className="rounded-xl border border-violet-400/25 bg-violet-500/10 px-3 py-2.5">
+                        <div className="text-[10px] font-medium uppercase tracking-wide text-violet-300/70">Survey changes</div>
+                        <div className="mt-0.5 text-lg font-bold text-violet-100">{deltaCacheReasonCounts.survey_changes}</div>
+                      </div>
+                      <div className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-3 py-2.5">
+                        <div className="text-[10px] font-medium uppercase tracking-wide text-emerald-300/70">New enrollments</div>
+                        <div className="mt-0.5 text-lg font-bold text-emerald-100">{deltaCacheReasonCounts.new_enrollments}</div>
+                      </div>
                     </div>
-                    <div className="rounded-lg border border-emerald-400/25 bg-emerald-500/10 px-2.5 py-2">
-                      <div className="text-[10px] uppercase tracking-wide text-emerald-300/70">New enrollments</div>
-                      <div className="text-sm font-bold text-emerald-200">{deltaCacheReasonCounts.new_enrollments}</div>
-                    </div>
-                  </div>
-                  
-                  {loadingDeltaCacheParticipants ? (
-                    <div className="flex items-center gap-2 text-cyan-300/70 text-xs">
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                      Loading participants...
-                    </div>
-                  ) : deltaCacheParticipants.length > 0 ? (
-                    <div className="space-y-1.5 max-h-72 overflow-y-auto">
-                      {deltaCacheParticipants.map((participant, index) => (
-                        <div key={`${participant.assigned_number || index}-${participant.delta_changed_at || index}`} className="flex items-center justify-between gap-2 p-2 bg-cyan-500/10 rounded-lg border border-cyan-500/20">
-                          <div className="min-w-0 flex items-center gap-2">
-                            <UserRound className="w-3 h-3 text-cyan-400" />
-                            <span className="text-cyan-200 text-xs font-medium">
-                              #{participant.assigned_number}
-                            </span>
-                            <span className="truncate text-cyan-300/80 text-xs">
-                              {participant.name}
-                            </span>
-                          </div>
-                          <div className="shrink-0 flex flex-wrap items-center justify-end gap-1.5">
-                            {(participant.activity_reasons || [participant.delta_reason]).includes('survey_updated') && (
-                              <span className="border text-[10px] px-1.5 py-0.5 rounded bg-violet-500/15 border-violet-500/30 text-violet-300">
-                                Survey
-                              </span>
-                            )}
-                            {(participant.activity_reasons || [participant.delta_reason]).includes('newly_enrolled') && (
-                              <span className="border text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 border-emerald-500/30 text-emerald-300">
-                                Signup
-                              </span>
-                            )}
-                            <span className="bg-cyan-500/15 border border-cyan-500/30 text-cyan-400/80 text-[10px] px-1.5 py-0.5 rounded">
-                              {participant.eligibility_reason}
-                            </span>
-                            <span className="text-cyan-500/60 text-[10px]">
-                              {participant.delta_changed_at ?
-                                new Date(participant.delta_changed_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) :
-                                'Recently'
-                              }
-                            </span>
+
+                    {loadingDeltaCacheParticipants ? (
+                      <div className="flex min-h-32 items-center justify-center gap-2 px-4 text-sm text-cyan-200/70">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading participants...
+                      </div>
+                    ) : deltaCacheParticipants.length > 0 ? (
+                      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overflow-x-hidden px-4 pb-4 [scrollbar-gutter:stable]">
+                        {deltaCacheParticipants.map((participant, index) => (
+                          <div
+                            key={`${participant.assigned_number || index}-${participant.delta_changed_at || index}`}
+                            className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-white/10 bg-slate-900 px-3 py-3 shadow-sm"
+                          >
+                            <div className="min-w-0">
+                              <div className="flex min-w-0 items-center gap-2">
+                                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-cyan-400/20 bg-cyan-500/10">
+                                  <UserRound className="h-3.5 w-3.5 text-cyan-300" />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex min-w-0 items-baseline gap-1.5">
+                                    <span className="shrink-0 text-sm font-bold text-cyan-100">#{participant.assigned_number}</span>
+                                    <span className="truncate text-xs text-slate-300">{participant.name}</span>
+                                  </div>
+                                  <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
+                                    {(participant.activity_reasons || [participant.delta_reason]).includes('survey_updated') && (
+                                      <span className="rounded-md border border-violet-400/25 bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-200">
+                                        Survey
+                                      </span>
+                                    )}
+                                    {(participant.activity_reasons || [participant.delta_reason]).includes('newly_enrolled') && (
+                                      <span className="rounded-md border border-emerald-400/25 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-200">
+                                        Signup
+                                      </span>
+                                    )}
+                                    <span className="rounded-md border border-cyan-400/20 bg-cyan-500/10 px-1.5 py-0.5 text-[10px] text-cyan-200/80">
+                                      {participant.eligibility_reason}
+                                    </span>
+                                    <span className="whitespace-nowrap text-[10px] text-slate-500">
+                                      {participant.delta_changed_at
+                                        ? new Date(participant.delta_changed_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                                        : 'Recently'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
                             <button
                               type="button"
                               disabled={approvingDeltaParticipant === participant.assigned_number}
@@ -6330,29 +6361,30 @@ Proceed?`
                                 event.stopPropagation()
                                 approveDeltaCacheParticipant(participant)
                               }}
-                              className="inline-flex items-center gap-1 rounded border border-emerald-400/35 bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-200 transition hover:bg-emerald-500/25 disabled:cursor-wait disabled:opacity-60"
+                              className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-emerald-400/35 bg-emerald-500/15 px-3 text-xs font-semibold text-emerald-100 transition hover:bg-emerald-500/25 disabled:cursor-wait disabled:opacity-60"
                             >
                               {approvingDeltaParticipant === participant.assigned_number
-                                ? <Loader2 className="h-3 w-3 animate-spin" />
-                                : <CheckCircle className="h-3 w-3" />}
-                              Approve
+                                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                : <CheckCircle className="h-3.5 w-3.5" />}
+                              <span className="hidden min-[390px]:inline">Approve</span>
                             </button>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex min-h-32 items-center justify-center px-4 text-sm text-cyan-200/70">
+                        Everyone has been reviewed.
+                      </div>
+                    )}
+
+                    <div className="shrink-0 border-t border-white/10 bg-slate-900/80 px-4 py-3">
+                      <p className="text-[11px] leading-relaxed text-slate-400">
+                        Updates stay here until you approve them, even after automatic caching or when someone is not signed up for the current event.
+                      </p>
                     </div>
-                  ) : (
-                    <div className="text-cyan-300/70 text-xs">
-                      Everyone has been reviewed.
-                    </div>
-                  )}
-                  
-                  <div className="mt-3 pt-2 border-t border-cyan-500/20">
-                    <p className="text-cyan-400/60 text-xs">
-                      Survey updates and signups stay here until approved, even after automatic caching and even when the participant is not signed up for the current event. A later change will appear again.
-                    </p>
                   </div>
-                </div>
+                </>,
+                document.body,
               )}
             </div>
           </div>

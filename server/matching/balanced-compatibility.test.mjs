@@ -11,6 +11,7 @@ import {
   buildBalancedCacheIdentity,
   buildBalancedScoreSnapshot,
   buildBalancedVibeProfile,
+  calculateAiChemistryAdjustment,
   calculateBalancedCompatibility,
   calculateBalancedVibeScore,
   canonicalBalancedVibePair,
@@ -87,7 +88,7 @@ test('balanced weights are immutable, explicit, and total exactly 100', () => {
   assert.equal(BALANCED_WEIGHTS.curiosityStyle, 4)
 })
 
-test('a fully aligned complementary pair retains a 100-point diagnostic budget while v11 supplies the learned total', () => {
+test('a fully aligned complementary pair retains a 100-point diagnostic budget while v12 supplies the learned total', () => {
   const a = participant({ conversation_initiative_preference: 'A', curiosity_style: 'A' })
   const b = participant({ conversation_initiative_preference: 'C', curiosity_style: 'B' })
   const result = calculateBalancedCompatibility(a, b, { vibeScore: 12 })
@@ -97,7 +98,17 @@ test('a fully aligned complementary pair retains a 100-point diagnostic budget w
   assert.equal(result.totalScore, result.scoreBreakdown.personalized.totalScore)
   assert.equal(result.priorityScore, result.totalScore)
   assert.ok(result.totalScore >= 0 && result.totalScore <= 100)
-  assert.deepEqual({ ...result.scoreBreakdown, personalized: undefined }, {
+  const {
+    personalized,
+    personalizedBase,
+    aiChemistryScore,
+    aiChemistryAdjustment,
+    aiChemistryBand,
+    aiChemistryReady,
+    finalScore,
+    ...diagnostics
+  } = result.scoreBreakdown
+  assert.deepEqual(diagnostics, {
     semanticCommonGround: 18,
     aiSemantic: 12,
     sharedContext: 6,
@@ -109,8 +120,13 @@ test('a fully aligned complementary pair retains a 100-point diagnostic budget w
     language: 4,
     communicationDisagreement: 10,
     intent: 5,
-    personalized: undefined,
   })
+  assert.equal(personalizedBase, personalized.totalScore)
+  assert.equal(aiChemistryScore, null)
+  assert.equal(aiChemistryAdjustment, 0)
+  assert.equal(aiChemistryBand, 'pending')
+  assert.equal(aiChemistryReady, false)
+  assert.equal(finalScore, result.totalScore)
   assert.deepEqual(result.compositeRules, [])
   assert.equal(result.compositeAdjustment, 0)
 })
@@ -240,7 +256,7 @@ test('legacy conversational role is used only as a deterministic initiative fall
   assert.equal(explicit.questionScores.initiative, 6)
 })
 
-test('v11 can learn from formerly zero-weight answers while ignoring derived legacy fields', () => {
+test('the learned archetype base can use formerly zero-weight answers while ignoring derived legacy fields', () => {
   const a = participant({ core_values_3: 'A', communication_style: 'direct' })
   const b = participant({ core_values_3: 'A', communication_style: 'direct' })
   const changedA = participant({ core_values_3: 'D', communication_style: 'avoidant' })
@@ -302,6 +318,36 @@ test('AI vibe normalization confidence-shrinks every axis toward neutral and rej
     music: { score: 1, confidence: 1 },
     friend_description: { score: 1, confidence: 1 },
   }), /Invalid current_curiosity score/)
+})
+
+test('v12 applies only the validated AI chemistry bands to the archetype base', () => {
+  const high = normalizeBalancedVibeAxes({
+    current_curiosity: { score: 5, confidence: 1, evidence: 'shared curiosity' },
+    hobbies: { score: 3, confidence: 1, evidence: 'shared hobbies' },
+    music: { score: 0, confidence: 1, evidence: '' },
+    friend_description: { score: 0, confidence: 1, evidence: '' },
+  })
+  const low = normalizeBalancedVibeAxes({
+    current_curiosity: { score: 0, confidence: 1, evidence: 'different curiosity' },
+    hobbies: { score: 0, confidence: 1, evidence: 'different hobbies' },
+    music: { score: 1, confidence: 1, evidence: '' },
+    friend_description: { score: 3, confidence: 1, evidence: '' },
+  })
+  assert.deepEqual(calculateAiChemistryAdjustment(high), { ready: true, score: 1, adjustment: 12, band: 'high' })
+  assert.deepEqual(calculateAiChemistryAdjustment(low), { ready: true, score: 0, adjustment: -8, band: 'low' })
+  assert.deepEqual(calculateAiChemistryAdjustment(createNeutralVibeAxes('deferred_ai')), {
+    ready: false, score: null, adjustment: 0, band: 'pending',
+  })
+
+  const base = calculateBalancedCompatibility(participant(), participant())
+  const boosted = calculateBalancedCompatibility(participant(), participant(), {
+    vibeScore: calculateBalancedVibeScore(high), vibeAxes: high,
+  })
+  const penalized = calculateBalancedCompatibility(participant(), participant(), {
+    vibeScore: calculateBalancedVibeScore(low), vibeAxes: low,
+  })
+  assert.equal(boosted.totalScore, Math.min(100, base.totalScore + 12))
+  assert.equal(penalized.totalScore, Math.max(0, base.totalScore - 8))
 })
 
 test('vibe metadata round-trips axis scores and identifies only the current balanced model', () => {

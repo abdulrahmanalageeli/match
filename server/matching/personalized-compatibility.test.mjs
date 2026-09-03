@@ -9,6 +9,7 @@ import {
   calculatePersonalizedCompatibility,
   inferPersonalizedArchetype,
   isPersonalizedCompatibilityPayload,
+  preparePersonalizedParticipants,
 } from './personalized-compatibility.mjs'
 
 const answers = {
@@ -88,6 +89,22 @@ test('missing questionnaires remain bounded and report their coverage', () => {
   assert.ok(direction.score >= 0 && direction.score <= 100)
   assert.equal(direction.questionnaireCoverage, 0)
   assert.equal(Number.isFinite(direction.rawUtility), true)
+})
+
+test('request-level participant preparation reuses one archetype without changing scores', () => {
+  const preparedA = participant({}, { assigned_number: 101 })
+  const preparedB = participant({ humor_subtype: 'D' }, { assigned_number: 102 })
+  const expected = calculatePersonalizedCompatibility(
+    structuredClone(preparedA),
+    structuredClone(preparedB),
+  )
+
+  preparePersonalizedParticipants([preparedA, preparedB])
+  const firstArchetype = inferPersonalizedArchetype(preparedA)
+  const secondArchetype = inferPersonalizedArchetype(preparedA)
+
+  assert.strictEqual(firstArchetype, secondArchetype)
+  assert.deepEqual(calculatePersonalizedCompatibility(preparedA, preparedB), expected)
 })
 
 test('checked-in model artifact records leakage-safe gains and broad participant impact', () => {

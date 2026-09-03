@@ -5,17 +5,22 @@ import {
   isPersonalizedCompatibilityPayload,
 } from './personalized-compatibility.mjs'
 
-// v11 uses Event 26 ranking evidence to score each direction through the
-// chooser's inferred taste archetype. The legacy 100-point components remain
-// in the payload as explainable diagnostics, not as the final percentage.
+// v12 starts with the Event 26 archetype-personalized mutual percentile, then
+// applies the validated AI semantic-chemistry correction. The legacy 100-point
+// components remain in the payload as explainable diagnostics.
 export const BALANCED_COMPATIBILITY_VERSION = PERSONALIZED_COMPATIBILITY_VERSION
 export const OPPOSITES_COMPATIBILITY_VERSION = `${BALANCED_COMPATIBILITY_VERSION}|opposites-flip-v1`
 export const BALANCED_VIBE_VERSION = 'balanced-vibe12-v1'
 export const BALANCED_VIBE_MODEL = 'gpt-5.4-mini'
 export const BALANCED_VIBE_MODEL_TAG = `${BALANCED_VIBE_MODEL}|${BALANCED_VIBE_VERSION}`
 export const BALANCED_VIBE_MAX = 12
+export const AI_CHEMISTRY_HIGH_THRESHOLD = 0.75
+export const AI_CHEMISTRY_LOW_THRESHOLD = 0.55
+export const AI_CHEMISTRY_BOOST = 12
+export const AI_CHEMISTRY_PENALTY = 8
 
 const sha256 = value => createHash('sha256').update(String(value ?? ''), 'utf8').digest('hex')
+const PREPARED_BALANCED_PARTICIPANTS = new WeakMap()
 
 function deepFreezeJson(value) {
   if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value
@@ -82,7 +87,7 @@ const round = (value, places = 6) => {
   return Math.round((finite(value) + Number.EPSILON) * multiplier) / multiplier
 }
 
-function parseSurveyData(participant) {
+function parseSurveyDataUncached(participant) {
   const source = participant?.survey_data
   if (!source) return {}
   if (typeof source !== 'string') return source
@@ -92,6 +97,19 @@ function parseSurveyData(participant) {
   } catch {
     return {}
   }
+}
+
+function getPreparedBalancedParticipant(participant) {
+  return (participant && typeof participant === 'object' && PREPARED_BALANCED_PARTICIPANTS.get(participant)) || {
+    survey: parseSurveyDataUncached(participant),
+    answers: new Map(),
+    vibeProfile: null,
+    cacheContent: null,
+  }
+}
+
+function parseSurveyData(participant) {
+  return getPreparedBalancedParticipant(participant).survey
 }
 
 function hasValue(value) {
@@ -111,14 +129,18 @@ function legacySequenceAnswer(surveyData, key) {
 }
 
 export function getBalancedAnswer(participant, key) {
-  const surveyData = parseSurveyData(participant)
+  const prepared = getPreparedBalancedParticipant(participant)
+  if (prepared.answers.has(key)) return prepared.answers.get(key)
+  const surveyData = prepared.survey
   const candidates = [
     surveyData?.answers?.[key],
     surveyData?.[key],
     participant?.[key],
     legacySequenceAnswer(surveyData, key),
   ]
-  return candidates.find(hasValue) ?? null
+  const value = candidates.find(hasValue) ?? null
+  prepared.answers.set(key, value)
+  return value
 }
 
 const ARABIC_TO_LATIN = Object.freeze({
@@ -403,17 +425,20 @@ function normalizedText(value) {
 }
 
 export function buildBalancedVibeProfile(participant) {
+  const prepared = getPreparedBalancedParticipant(participant)
+  if (prepared.vibeProfile) return prepared.vibeProfile
   const legacy = labeledLegacyVibe(participant)
   const value = (key, fallbackLabel) => {
     const direct = normalizedText(getBalancedAnswer(participant, key))
     return direct || normalizedText(legacy[fallbackLabel])
   }
-  return Object.freeze({
+  prepared.vibeProfile = Object.freeze({
     current_curiosity: value('match_current_curiosity', 'current curiosity'),
     hobbies: value('vibe_2', 'hobbies'),
     music: value('vibe_3', 'music'),
     friend_description: value('vibe_5', 'friends describe me'),
   })
+  return prepared.vibeProfile
 }
 
 export function canonicalBalancedVibePair(participantA, participantB) {
@@ -472,6 +497,36 @@ export function calculateBalancedVibeScore(vibeAxes) {
   }, 0), 3)
 }
 
+/**
+ * Convert the two semantic axes that improved reciprocal Event 26 validation
+ * into a bounded correction of the archetype-personalized base score.
+ * Missing/deferred AI is deliberately neutral so provisional cache rows can be
+ * stored without pretending that AI evidence was evaluated.
+ */
+export function calculateAiChemistryAdjustment(vibeAxes) {
+  const curiosity = vibeAxes?.current_curiosity
+  const hobbies = vibeAxes?.hobbies
+  const hasFallback = [curiosity, hobbies].some(axis => String(axis?.reason || '').trim())
+  const confidence = finite(curiosity?.confidence) + finite(hobbies?.confidence)
+  const ready = !!curiosity && !!hobbies && !hasFallback && confidence > 0
+  if (!ready) {
+    return Object.freeze({ ready: false, score: null, adjustment: 0, band: 'pending' })
+  }
+
+  const score = round(
+    0.5 * (clamp(finite(curiosity.score, BALANCED_VIBE_AXES.current_curiosity.neutral), 0, 5) / 5)
+    + 0.5 * (clamp(finite(hobbies.score, BALANCED_VIBE_AXES.hobbies.neutral), 0, 3) / 3),
+    6,
+  )
+  if (score >= AI_CHEMISTRY_HIGH_THRESHOLD) {
+    return Object.freeze({ ready: true, score, adjustment: AI_CHEMISTRY_BOOST, band: 'high' })
+  }
+  if (score < AI_CHEMISTRY_LOW_THRESHOLD) {
+    return Object.freeze({ ready: true, score, adjustment: -AI_CHEMISTRY_PENALTY, band: 'low' })
+  }
+  return Object.freeze({ ready: true, score, adjustment: 0, band: 'neutral' })
+}
+
 export function encodeBalancedVibeModelUsed({ vibeAxes = null, fallbackReason = null } = {}) {
   const axes = vibeAxes || createNeutralVibeAxes(fallbackReason)
   const axisCode = [
@@ -523,6 +578,8 @@ const BALANCED_CACHE_KEYS = Object.freeze([
 ])
 
 export function getBalancedCacheContent(participant) {
+  const prepared = getPreparedBalancedParticipant(participant)
+  if (prepared.cacheContent) return prepared.cacheContent
   const answers = BALANCED_CACHE_KEYS.map(key => {
     const value = getBalancedAnswer(participant, key)
     const canonical = Array.isArray(value)
@@ -530,7 +587,26 @@ export function getBalancedCacheContent(participant) {
       : normalizedText(value)
     return `${key}:${canonical}`
   })
-  return [...answers, `vibe:${JSON.stringify(buildBalancedVibeProfile(participant))}`].join('|')
+  prepared.cacheContent = [...answers, `vibe:${JSON.stringify(buildBalancedVibeProfile(participant))}`].join('|')
+  return prepared.cacheContent
+}
+
+/** Prime normalized score inputs and immutable content identities once per roster. */
+export function prepareBalancedParticipants(participants) {
+  for (const participant of participants || []) {
+    if (participant && typeof participant === 'object' && !PREPARED_BALANCED_PARTICIPANTS.has(participant)) {
+      PREPARED_BALANCED_PARTICIPANTS.set(participant, {
+        survey: parseSurveyDataUncached(participant),
+        answers: new Map(),
+        vibeProfile: null,
+        cacheContent: null,
+      })
+    }
+    for (const key of BALANCED_CACHE_KEYS) getBalancedAnswer(participant, key)
+    buildBalancedVibeProfile(participant)
+    getBalancedCacheContent(participant)
+  }
+  return participants
 }
 
 /**
@@ -682,7 +758,17 @@ export function hydrateBalancedCompatibilityFromCacheRow(cacheRow) {
   ].reduce((total, value) => total + value, 0))
   const personalized = parseJsonObject(scoreBreakdown.personalized)
   if (!isPersonalizedCompatibilityPayload(personalized)) return null
-  const totalScore = Number(personalized.totalScore)
+  const personalizedBaseScore = Number(personalized.totalScore)
+  const aiChemistry = calculateAiChemistryAdjustment(vibeAxes)
+  const totalScore = round(clamp(personalizedBaseScore + aiChemistry.adjustment, 0, 100))
+  if (!nearlyEqual(scoreBreakdown.personalizedBase, personalizedBaseScore)) return null
+  if (!nearlyEqual(scoreBreakdown.aiChemistryAdjustment, aiChemistry.adjustment)) return null
+  if (scoreBreakdown.aiChemistryReady !== aiChemistry.ready) return null
+  if (scoreBreakdown.aiChemistryBand !== aiChemistry.band) return null
+  if (aiChemistry.score === null) {
+    if (scoreBreakdown.aiChemistryScore !== null) return null
+  } else if (!nearlyEqual(scoreBreakdown.aiChemistryScore, aiChemistry.score)) return null
+  if (!nearlyEqual(scoreBreakdown.finalScore, totalScore)) return null
 
   const persistedColumns = {
     total_compatibility_score: totalScore,
@@ -710,7 +796,12 @@ export function hydrateBalancedCompatibilityFromCacheRow(cacheRow) {
     diagnosticComponentTotal,
     totalScore,
     priorityScore: totalScore,
-    baseCompatibilityScore: totalScore,
+    baseCompatibilityScore: personalizedBaseScore,
+    personalizedBaseScore,
+    aiChemistryScore: aiChemistry.score,
+    aiChemistryAdjustment: aiChemistry.adjustment,
+    aiChemistryBand: aiChemistry.band,
+    aiChemistryReady: aiChemistry.ready,
     questionScores: JSON.parse(JSON.stringify(questionScores)),
     scoreBreakdown: JSON.parse(JSON.stringify(scoreBreakdown)),
     personalizedCompatibility: JSON.parse(JSON.stringify(personalized)),
@@ -737,8 +828,12 @@ export function hydrateBalancedCompatibilityFromCacheRow(cacheRow) {
     languageScore: expectedBreakdown.language,
     valuesBoundariesScore: expectedBreakdown.valuesBoundaries,
     sharedContextScore: expectedBreakdown.sharedContext,
-    compositeAdjustment: 0,
-    compositeRules: [],
+    compositeAdjustment: aiChemistry.adjustment,
+    compositeRules: aiChemistry.adjustment > 0
+      ? ['ai_semantic_chemistry_boost']
+      : aiChemistry.adjustment < 0
+        ? ['ai_semantic_chemistry_penalty']
+        : [],
     compositeDisplayCapApplied: false,
     compositeHardCapApplied: false,
     humorMultiplier: 1,
@@ -751,7 +846,7 @@ export function hydrateBalancedCompatibilityFromCacheRow(cacheRow) {
     opennessZeroZeroPenaltyApplied: false,
     opennessPenalty: 0,
     opennessPenaltyType: null,
-    preVetoScore: totalScore,
+    preVetoScore: personalizedBaseScore,
   }
 }
 
@@ -779,9 +874,26 @@ function hasExactSnapshotEnvelope({ modelVersion, contentHash, snapshot, persist
 
 /** Validate a persisted event-time snapshot without consulting today's cache. */
 export function isCurrentBalancedScoreSnapshot(payload) {
-  return payload?.modelVersion === BALANCED_COMPATIBILITY_VERSION
-    && hasExactSnapshotEnvelope(payload)
-    && isPersonalizedCompatibilityPayload(payload.snapshot.scoreBreakdown?.personalized)
+  if (payload?.modelVersion !== BALANCED_COMPATIBILITY_VERSION || !hasExactSnapshotEnvelope(payload)) return false
+  const breakdown = payload.snapshot.scoreBreakdown
+  const personalized = breakdown?.personalized
+  if (!isPersonalizedCompatibilityPayload(personalized)) return false
+  const chemistry = calculateAiChemistryAdjustment(payload.snapshot.vibeAxes)
+  const base = Number(personalized.totalScore)
+  const finalScore = round(clamp(base + chemistry.adjustment, 0, 100))
+  const persistedTotal = Number(payload.persistedTotal)
+  const persistedMatches = nearlyEqual(persistedTotal, finalScore)
+    || nearlyEqual(persistedTotal, round(finalScore, 2))
+    || nearlyEqual(persistedTotal, Math.round(finalScore))
+  return nearlyEqual(breakdown.personalizedBase, base)
+    && nearlyEqual(breakdown.aiChemistryAdjustment, chemistry.adjustment)
+    && breakdown.aiChemistryReady === chemistry.ready
+    && breakdown.aiChemistryBand === chemistry.band
+    && (chemistry.score === null
+      ? breakdown.aiChemistryScore === null
+      : nearlyEqual(breakdown.aiChemistryScore, chemistry.score))
+    && nearlyEqual(breakdown.finalScore, finalScore)
+    && persistedMatches
 }
 
 /**
@@ -960,7 +1072,9 @@ export function calculateBalancedCompatibility(participantA, participantB, { vib
     + languageScore
   )
   const personalized = calculatePersonalizedCompatibility(participantA, participantB)
-  const totalScore = personalized.totalScore
+  const personalizedBaseScore = personalized.totalScore
+  const aiChemistry = calculateAiChemistryAdjustment(vibeAxes)
+  const totalScore = round(clamp(personalizedBaseScore + aiChemistry.adjustment, 0, 100))
 
   return {
     scoreModelVersion: BALANCED_COMPATIBILITY_VERSION,
@@ -969,7 +1083,12 @@ export function calculateBalancedCompatibility(participantA, participantB, { vib
     diagnosticComponentTotal,
     totalScore,
     priorityScore: totalScore,
-    baseCompatibilityScore: totalScore,
+    baseCompatibilityScore: personalizedBaseScore,
+    personalizedBaseScore,
+    aiChemistryScore: aiChemistry.score,
+    aiChemistryAdjustment: aiChemistry.adjustment,
+    aiChemistryBand: aiChemistry.band,
+    aiChemistryReady: aiChemistry.ready,
     questionScores,
     scoreBreakdown: {
       semanticCommonGround: semanticCommonGroundScore,
@@ -983,6 +1102,12 @@ export function calculateBalancedCompatibility(participantA, participantB, { vib
       language: languageScore,
       communicationDisagreement: communicationDisagreementScore,
       intent: questionScores.intent,
+      personalizedBase: personalizedBaseScore,
+      aiChemistryScore: aiChemistry.score,
+      aiChemistryAdjustment: aiChemistry.adjustment,
+      aiChemistryBand: aiChemistry.band,
+      aiChemistryReady: aiChemistry.ready,
+      finalScore: totalScore,
       personalized,
     },
     personalizedCompatibility: personalized,
@@ -1012,8 +1137,12 @@ export function calculateBalancedCompatibility(participantA, participantB, { vib
     valuesBoundariesScore,
     sharedContextScore,
 
-    compositeAdjustment: 0,
-    compositeRules: [],
+    compositeAdjustment: aiChemistry.adjustment,
+    compositeRules: aiChemistry.adjustment > 0
+      ? ['ai_semantic_chemistry_boost']
+      : aiChemistry.adjustment < 0
+        ? ['ai_semantic_chemistry_penalty']
+        : [],
     compositeDisplayCapApplied: false,
     compositeHardCapApplied: false,
     humorMultiplier: 1,
@@ -1026,7 +1155,7 @@ export function calculateBalancedCompatibility(participantA, participantB, { vib
     opennessZeroZeroPenaltyApplied: false,
     opennessPenalty: 0,
     opennessPenaltyType: null,
-    preVetoScore: totalScore,
+    preVetoScore: personalizedBaseScore,
   }
 }
 

@@ -188,8 +188,14 @@ function normalizeSwapPairs(value) {
 function swapReason(compatibility) {
   const breakdown = compatibility?.scoreBreakdown || {}
   const personalized = breakdown.personalized || compatibility?.personalizedCompatibility || {}
-  return `Personalized mutual: ${Math.round(Number(personalized.totalScore ?? compatibility?.totalScore ?? 0))}% ` +
+  const chemistryScoreValue = breakdown.aiChemistryScore ?? compatibility?.aiChemistryScore
+  const chemistryLabel = chemistryScoreValue === null || chemistryScoreValue === undefined
+    ? 'pending'
+    : `${Math.round(Number(chemistryScoreValue) * 100)}%`
+  const chemistryAdjustment = Number(breakdown.aiChemistryAdjustment ?? compatibility?.aiChemistryAdjustment ?? 0)
+  return `Archetype base: ${Math.round(Number(personalized.totalScore ?? compatibility?.baseCompatibilityScore ?? 0))}% ` +
     `(A→B ${Math.round(Number(personalized.aToB?.score ?? 0))}%, B→A ${Math.round(Number(personalized.bToA?.score ?? 0))}%) — Diagnostics: ` +
+    `AI chemistry ${chemistryLabel} (${chemistryAdjustment >= 0 ? '+' : ''}${chemistryAdjustment}) → final ${Math.round(Number(compatibility?.totalScore ?? breakdown.finalScore ?? 0))}% + ` +
     `Common Ground: ${Math.round(Number(breakdown.semanticCommonGround || 0))}/18 + ` +
     `Interaction Rhythm: ${Math.round(Number(breakdown.interactionRhythm || 0))}/20 + ` +
     `Humor/Openness: ${Math.round(Number(breakdown.humorOpenness || 0))}/10 + ` +

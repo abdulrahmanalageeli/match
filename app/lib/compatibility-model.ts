@@ -1,8 +1,12 @@
-export const CURRENT_BALANCED_SCORE_MODEL = "2026-09-03-v11-event26-archetype-personalized-100" as const
+export const CURRENT_BALANCED_SCORE_MODEL = "2026-09-03-v12-event26-archetype-ai-chemistry-100" as const
 export const CURRENT_OPPOSITES_SCORE_MODEL = `${CURRENT_BALANCED_SCORE_MODEL}|opposites-flip-v1` as const
 export const CURRENT_BALANCED_VIBE_MODEL = "gpt-5.4-mini" as const
 export const CURRENT_BALANCED_VIBE_VERSION = "balanced-vibe12-v1" as const
 export const CURRENT_BALANCED_VIBE_TAG = `${CURRENT_BALANCED_VIBE_MODEL}|${CURRENT_BALANCED_VIBE_VERSION}` as const
+export const AI_CHEMISTRY_HIGH_THRESHOLD = 0.75
+export const AI_CHEMISTRY_LOW_THRESHOLD = 0.55
+export const AI_CHEMISTRY_BOOST = 12
+export const AI_CHEMISTRY_PENALTY = 8
 export const BALANCED_SCORE_MAXIMA = {
   synergy: 20,
   vibe: 12,
@@ -55,6 +59,15 @@ export type PersonalizedCompatibility = {
   mutualFormula?: string
   aToB: PersonalizedDirection
   bToA: PersonalizedDirection
+}
+
+export type AiChemistryDisplay = {
+  ready: boolean
+  score: number | null
+  adjustment: number
+  band: "high" | "neutral" | "low" | "pending"
+  baseScore: number
+  finalScore: number
 }
 
 export const CURRENT_BALANCED_DIMENSION_MAXIMA = {
@@ -124,7 +137,7 @@ function isPersonalizedPayload(value: any): value is PersonalizedCompatibility {
     && Math.abs(total - Math.round(Math.sqrt(aToB * bToA) * 1e6) / 1e6) <= 1e-6
 }
 
-/** Directional, archetype-aware evidence behind a current v11 percentage. */
+/** Directional, archetype-aware evidence behind the current base percentage. */
 export function personalizedCompatibilityForDisplay(row: any): PersonalizedCompatibility | null {
   const { breakdown, snapshot } = scorePayloadForDisplay(row)
   const direct = parseScoreObject(
@@ -134,6 +147,47 @@ export function personalizedCompatibilityForDisplay(row: any): PersonalizedCompa
     ?? snapshot?.personalizedCompatibility,
   )
   return isPersonalizedPayload(direct) ? direct : null
+}
+
+export function aiChemistryForDisplay(row: any): AiChemistryDisplay | null {
+  const { breakdown, snapshot } = scorePayloadForDisplay(row)
+  const personalized = personalizedCompatibilityForDisplay(row)
+  if (!breakdown || !personalized) return null
+  const axes = parseScoreObject(snapshot?.vibeAxes ?? row?.vibeAxes ?? row?.vibe_axes)
+  const curiosity = axes?.current_curiosity
+  const hobbies = axes?.hobbies
+  const hasFallback = [curiosity, hobbies].some(axis => String(axis?.reason || "").trim())
+  const confidence = Number(curiosity?.confidence || 0) + Number(hobbies?.confidence || 0)
+  const ready = !!curiosity && !!hobbies && !hasFallback && confidence > 0
+  const score = ready
+    ? Math.round((0.5 * (Math.max(0, Math.min(5, Number(curiosity.score))) / 5)
+      + 0.5 * (Math.max(0, Math.min(3, Number(hobbies.score))) / 3)) * 1e6) / 1e6
+    : null
+  const adjustment = score === null
+    ? 0
+    : score >= AI_CHEMISTRY_HIGH_THRESHOLD
+      ? AI_CHEMISTRY_BOOST
+      : score < AI_CHEMISTRY_LOW_THRESHOLD
+        ? -AI_CHEMISTRY_PENALTY
+        : 0
+  const band: AiChemistryDisplay["band"] = score === null
+    ? "pending"
+    : adjustment > 0
+      ? "high"
+      : adjustment < 0
+        ? "low"
+        : "neutral"
+  const baseScore = personalized.totalScore
+  const finalScore = Math.round(Math.max(0, Math.min(100, baseScore + adjustment)) * 1e6) / 1e6
+  const almostEqual = (left: unknown, right: number) => Number.isFinite(Number(left))
+    && Math.abs(Number(left) - right) <= 1e-6
+  if (!almostEqual(breakdown.personalizedBase, baseScore)
+    || !almostEqual(breakdown.aiChemistryAdjustment, adjustment)
+    || breakdown.aiChemistryReady !== ready
+    || breakdown.aiChemistryBand !== band
+    || (score === null ? breakdown.aiChemistryScore !== null : !almostEqual(breakdown.aiChemistryScore, score))
+    || !almostEqual(breakdown.finalScore, finalScore)) return null
+  return { ready, score, adjustment, band, baseScore, finalScore }
 }
 
 /**
@@ -158,7 +212,7 @@ export function compatibilityTotalForDisplay(row: any, fallback: number | null =
   )
 }
 
-/** Legacy expert diagnostics retained alongside the learned v11 percentage. */
+/** Legacy expert diagnostics retained alongside the learned percentage. */
 export function currentBalancedDimensionsForDisplay(row: any): CompatibilityDimension[] | null {
   if (!isCurrentBalancedScoreRow(row)) return null
   const { breakdown, questions } = scorePayloadForDisplay(row)
@@ -207,7 +261,7 @@ export function currentBalancedDimensionsForDisplay(row: any): CompatibilityDime
   ]
 }
 
-/** Grouped expert diagnostics; these no longer add up to the learned v11 total. */
+/** Grouped expert diagnostics; these do not add up to the learned final total. */
 export function currentBalancedGroupedDimensionsForDisplay(row: any): CompatibilityDimension[] | null {
   if (!isCurrentBalancedScoreRow(row)) return null
   const { breakdown } = scorePayloadForDisplay(row)
@@ -287,7 +341,11 @@ export function isCurrentBalancedScoreRow(row: any): boolean {
   // Fresh in-memory calculations are versioned before they have a database
   // snapshot. Rows claiming persisted provenance must satisfy the full exact
   // event-time contract; a matching model label alone is not enough.
-  if (!hasPersistedProvenance) return personalizedCompatibilityForDisplay(row) !== null
+  if (!hasPersistedProvenance) {
+    const chemistry = aiChemistryForDisplay(row)
+    const total = firstFinite(row?.totalScore, row?.total_compatibility_score, row?.compatibility_score)
+    return chemistry !== null && total !== null && Math.abs(total - chemistry.finalScore) <= 1e-6
+  }
 
   const snapshot = parseScoreObject(row?.score_snapshot ?? row?.scoreSnapshot)
   const contentHash = String(row?.score_content_hash ?? row?.scoreContentHash ?? "")
@@ -305,12 +363,19 @@ export function isCurrentBalancedScoreRow(row: any): boolean {
   const isPlainObject = (value: unknown) => value !== null && typeof value === "object" && !Array.isArray(value)
   const scoreBreakdown = parseScoreObject(snapshot?.scoreBreakdown)
 
+  const chemistry = aiChemistryForDisplay(row)
+  const finalMatchesPersisted = chemistry !== null && (
+    Math.abs(snapshotTotal - chemistry.finalScore) <= 1e-6
+    || Math.abs(snapshotTotal - Math.round(chemistry.finalScore * 100) / 100) <= 1e-6
+    || Math.abs(snapshotTotal - Math.round(chemistry.finalScore)) <= 1e-6
+  )
   return !!snapshot
     && !!contentHash
     && snapshot.scoreModelVersion === CURRENT_BALANCED_SCORE_MODEL
     && snapshot.combinedContentHash === contentHash
     && isPlainObject(scoreBreakdown)
     && isPersonalizedPayload(scoreBreakdown?.personalized)
+    && chemistry !== null
     && isPlainObject(snapshot.questionScores)
     && isPlainObject(snapshot.vibeAxes)
     && snapshot.vibeModel === CURRENT_BALANCED_VIBE_MODEL
@@ -319,6 +384,7 @@ export function isCurrentBalancedScoreRow(row: any): boolean {
     && Number.isFinite(snapshotTotal)
     && Number.isFinite(storedTotal)
     && snapshotTotal === storedTotal
+    && finalMatchesPersisted
 }
 
 export function isCurrentOppositesScoreRow(row: any): boolean {

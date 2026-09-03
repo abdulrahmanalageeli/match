@@ -8,6 +8,7 @@ export const PERSONALIZED_ARCHETYPES = Object.freeze(
 const QUESTION_SET = new Set(modelConfig.schema.questions)
 const EXPERT_QUESTION_SET = new Set(modelConfig.schema.expertQuestions)
 const ARABIC_TO_LATIN = Object.freeze({ 'أ': 'A', 'ا': 'A', 'ب': 'B', 'ج': 'C', 'د': 'D' })
+const PREPARED_PARTICIPANTS = new WeakMap()
 
 const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value))
 const round = (value, places = 6) => {
@@ -15,7 +16,7 @@ const round = (value, places = 6) => {
   return Math.round((Number(value) + Number.EPSILON) * multiplier) / multiplier
 }
 
-function parseSurveyData(participant) {
+function parseSurveyDataUncached(participant) {
   const source = participant?.survey_data
   if (!source) return {}
   if (typeof source !== 'string') return source
@@ -25,6 +26,21 @@ function parseSurveyData(participant) {
   } catch {
     return {}
   }
+}
+
+function getPreparedParticipant(participant) {
+  return (participant && typeof participant === 'object' && PREPARED_PARTICIPANTS.get(participant)) || {
+    survey: parseSurveyDataUncached(participant),
+    rawAnswers: new Map(),
+    answers: new Map(),
+    focus: null,
+    profileFeatures: null,
+    archetype: null,
+  }
+}
+
+function parseSurveyData(participant) {
+  return getPreparedParticipant(participant).survey
 }
 
 function hasValue(value) {
@@ -44,7 +60,9 @@ function legacySequenceAnswer(surveyData, key) {
 }
 
 function rawAnswer(participant, key) {
-  const survey = parseSurveyData(participant)
+  const prepared = getPreparedParticipant(participant)
+  if (prepared.rawAnswers.has(key)) return prepared.rawAnswers.get(key)
+  const survey = prepared.survey
   const candidates = [
     survey?.answers?.[key],
     survey?.[key],
@@ -52,7 +70,9 @@ function rawAnswer(participant, key) {
     participant?.[key],
     legacySequenceAnswer(survey, key),
   ]
-  return candidates.find(hasValue) ?? null
+  const value = candidates.find(hasValue) ?? null
+  prepared.rawAnswers.set(key, value)
+  return value
 }
 
 export function normalizePersonalizedAnswer(value) {
@@ -63,23 +83,57 @@ export function normalizePersonalizedAnswer(value) {
 }
 
 function answer(participant, key) {
-  return normalizePersonalizedAnswer(rawAnswer(participant, key))
+  const prepared = getPreparedParticipant(participant)
+  if (!prepared.answers.has(key)) {
+    prepared.answers.set(key, normalizePersonalizedAnswer(rawAnswer(participant, key)))
+  }
+  return prepared.answers.get(key)
 }
 
 function focusValues(participant) {
+  const prepared = getPreparedParticipant(participant)
+  if (prepared.focus) return prepared.focus
   let value = rawAnswer(participant, modelConfig.schema.focusKey)
   if (typeof value === 'string') value = value.split(',').map(item => item.trim()).filter(Boolean)
-  if (!Array.isArray(value)) return new Set()
-  return new Set(value.map(normalizePersonalizedAnswer))
+  prepared.focus = new Set(Array.isArray(value) ? value.map(normalizePersonalizedAnswer) : [])
+  return prepared.focus
 }
 
 function profileFeatures(participant) {
+  const prepared = getPreparedParticipant(participant)
+  if (prepared.profileFeatures) return prepared.profileFeatures
   const features = {}
   for (const key of modelConfig.schema.archetypeQuestions) {
     features[`${key}=${answer(participant, key)}`] = 1
   }
   for (const value of focusValues(participant)) features[`focus=${value}`] = 1
-  return features
+  prepared.profileFeatures = Object.freeze(features)
+  return prepared.profileFeatures
+}
+
+/** Prime all normalized answers, focus values, features, and archetype once. */
+export function preparePersonalizedParticipant(participant) {
+  if (participant && typeof participant === 'object' && !PREPARED_PARTICIPANTS.has(participant)) {
+    PREPARED_PARTICIPANTS.set(participant, {
+      survey: parseSurveyDataUncached(participant),
+      rawAnswers: new Map(),
+      answers: new Map(),
+      focus: null,
+      profileFeatures: null,
+      archetype: null,
+    })
+  }
+  for (const key of QUESTION_SET) answer(participant, key)
+  for (const key of modelConfig.schema.archetypeQuestions) answer(participant, key)
+  focusValues(participant)
+  profileFeatures(participant)
+  inferPersonalizedArchetype(participant)
+  return participant
+}
+
+export function preparePersonalizedParticipants(participants) {
+  for (const participant of participants || []) preparePersonalizedParticipant(participant)
+  return participants
 }
 
 function dot(coefficients, features) {
@@ -101,6 +155,8 @@ function sigmoid(value) {
 }
 
 export function inferPersonalizedArchetype(participant) {
+  const prepared = getPreparedParticipant(participant)
+  if (prepared.archetype) return prepared.archetype
   const features = profileFeatures(participant)
   const classes = modelConfig.gate.classes
   let probabilities
@@ -130,10 +186,11 @@ export function inferPersonalizedArchetype(participant) {
     current.probability > best.probability ? current : best
   ), memberships[0])
 
-  return Object.freeze({
+  prepared.archetype = Object.freeze({
     primary: Object.freeze({ ...primary }),
     memberships: Object.freeze(memberships.map(item => Object.freeze(item))),
   })
+  return prepared.archetype
 }
 
 function basePairFeatures(participantA, participantB) {

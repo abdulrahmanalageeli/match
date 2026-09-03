@@ -29,12 +29,17 @@ const {
   isParticipantComplete,
   isCurrentVibeModel,
   isDurableCurrentBalancedCacheRow,
+  isPendingCurrentAiCacheRow,
   formatBalancedScoreReason,
 } = await import("../../api/admin/trigger-match.mjs")
 const {
   BALANCED_COMPATIBILITY_VERSION,
   BALANCED_VIBE_MODEL_TAG,
+  calculateBalancedCompatibility,
+  calculateBalancedVibeScore,
+  createNeutralVibeAxes,
   isCurrentOppositesScoreSnapshot,
+  isReusableBalancedVibeRow,
 } = await import("./balanced-compatibility.mjs")
 
 test("cache eligibility requires the submitted-survey name marker", () => {
@@ -469,7 +474,7 @@ test("interaction stays in its balanced 20-point range and uses Q35 until both n
   assert.ok(recalibratedScore >= 0 && recalibratedScore <= 20)
 })
 
-test("failed and transient balanced vibe rows are never treated as durable exact hits", () => {
+test("v12 completeness requires AI enrichment except for a genuinely incomplete text profile", () => {
   const base = {
     model_used: `${BALANCED_VIBE_MODEL_TAG}|c=2.5,h=1.5,m=0.5,f=1.5`,
     score_model_version: BALANCED_COMPATIBILITY_VERSION,
@@ -480,11 +485,46 @@ test("failed and transient balanced vibe rows are never treated as durable exact
     model_used: `${base.model_used}|fallback=incomplete_vibe_profile`,
   }), true)
   for (const reason of ["openai_connection_error", "openai_error", "invalid_openai_response", "skip_ai"]) {
-    assert.equal(isDurableCurrentBalancedCacheRow({
+    const row = {
       ...base,
       model_used: `${base.model_used}|fallback=${reason}`,
-    }), false)
+      vibe_content_hash: 'vibe-hash',
+      ai_vibe_score: 6,
+    }
+    assert.equal(isDurableCurrentBalancedCacheRow(row), false)
+    assert.equal(isPendingCurrentAiCacheRow(row), false)
+    assert.equal(isReusableBalancedVibeRow(row), false)
   }
+  const pending = {
+    ...base,
+    model_used: `${base.model_used}|fallback=deferred_ai`,
+    vibe_content_hash: 'vibe-hash',
+    ai_vibe_score: 6,
+  }
+  assert.equal(isDurableCurrentBalancedCacheRow(pending), false)
+  assert.equal(isPendingCurrentAiCacheRow(pending), true)
+})
+
+test("v12 final percentage applies the validated AI chemistry correction", () => {
+  const a = synergyParticipant(61, "A")
+  const b = synergyParticipant(62, "C")
+  const highAxes = {
+    current_curiosity: { rawScore: 5, confidence: 1, score: 5, evidence: '' },
+    hobbies: { rawScore: 3, confidence: 1, score: 3, evidence: '' },
+    music: { rawScore: 0.5, confidence: 1, score: 0.5, evidence: '' },
+    friend_description: { rawScore: 1.5, confidence: 1, score: 1.5, evidence: '' },
+  }
+  const pendingAxes = createNeutralVibeAxes('deferred_ai')
+  const pending = calculateBalancedCompatibility(a, b, {
+    vibeScore: calculateBalancedVibeScore(pendingAxes), vibeAxes: pendingAxes,
+  })
+  const enriched = calculateBalancedCompatibility(a, b, {
+    vibeScore: calculateBalancedVibeScore(highAxes), vibeAxes: highAxes,
+  })
+
+  assert.equal(pending.aiChemistryAdjustment, 0)
+  assert.equal(enriched.aiChemistryAdjustment, 12)
+  assert.equal(enriched.totalScore, Math.min(100, pending.totalScore + 12))
 })
 
 test("persisted score provenance keeps the model and snapshot total inseparable", async () => {
@@ -494,12 +534,13 @@ test("persisted score provenance keeps the model and snapshot total inseparable"
     reusedVibeScore: 25,
     reusedVibeSourceMax: 25,
   })
-  const balanced = buildPersistedScoreProvenance(score, a, b, 73)
+  const persistedBalancedTotal = Math.round(score.totalScore)
+  const balanced = buildPersistedScoreProvenance(score, a, b, persistedBalancedTotal)
   const transformed = computeOppositesBreakdown(score)
   const opposites = buildPersistedScoreProvenance(score, a, b, transformed.percent, { oppositesMode: true })
 
   assert.equal(balanced.score_model_version, BALANCED_COMPATIBILITY_VERSION)
-  assert.equal(balanced.score_snapshot.totalScore, 73)
+  assert.equal(balanced.score_snapshot.totalScore, persistedBalancedTotal)
   assert.equal(balanced.score_snapshot.scoreModelVersion, balanced.score_model_version)
   assert.match(balanced.score_content_hash, /^[a-f0-9]{64}$/)
   assert.match(opposites.score_model_version, /opposites-flip-v1$/)

@@ -1,4 +1,4 @@
-# Personalized compatibility v11
+# Personalized compatibility v12
 
 ## What the score means
 
@@ -6,7 +6,17 @@ The score is a prediction of how highly two people would rank one another, condi
 
 `mutual = sqrt(A→B × B→A)`
 
-This makes a one-sided prediction visibly weaker than two strong directions. The percentage is calibrated against observed Event 26 ranking utilities within the chooser's archetype; it is not the sum of the legacy question bars.
+This makes a one-sided prediction visibly weaker than two strong directions. That archetype-relative percentile is the base—not a literal probability of liking someone. v12 then applies the leakage-tested AI semantic-chemistry correction:
+
+`chemistry = 0.5 × current-curiosity fit + 0.5 × hobbies fit`
+
+- Chemistry at least 0.75: `+12`
+- Chemistry from 0.55 to below 0.75: `0`
+- Chemistry below 0.55: `-8`
+
+`final = clamp(archetype base + correction, 0, 100)`
+
+Music and friend-description axes remain visible diagnostics but do not change the final percentage in v12.
 
 ## Training evidence
 
@@ -21,7 +31,7 @@ This makes a one-sided prediction visibly weaker than two strong directions. The
 
 Six-fold grouped cross-validation holds out entire rankers, so a person's own ranking rows cannot appear in both training and validation.
 
-| Metric | Previous direct model | v11 personalized |
+| Metric | Previous direct model | v11 personalized base |
 |---|---:|---:|
 | Pairwise ordering | 0.465 | 0.612 |
 | Mean Spearman | -0.103 | 0.311 |
@@ -33,11 +43,13 @@ NDCG@3 improves for 30 of 42 Event 26 participants by at least three points; the
 
 ## Runtime and cache contract
 
-The current model version is `2026-09-03-v11-event26-archetype-personalized-100`. The trained artifact lives in `server/matching/personalized-model-config.json`; runtime scoring lives in `server/matching/personalized-compatibility.mjs`.
+The current model version is `2026-09-03-v12-event26-archetype-ai-chemistry-100`. The trained archetype artifact lives in `server/matching/personalized-model-config.json`; the final runtime formula lives in `server/matching/balanced-compatibility.mjs`.
 
-Changing the model version invalidates older cache rows. Batch and delta cache jobs progressively write exact v11 snapshots, and refreshes resume from already completed v11 rows. Manual pair test mode bypasses cache and calculates both directions immediately.
+Changing the model version invalidates older cache rows. Batch and delta cache jobs first write progressive base-score checkpoints, queue required AI work durably, and count a pair as complete only after the AI correction is present. A minute-level background worker processes 12 AI jobs at a time and advances cache metadata automatically once coverage is genuinely complete. Refreshes skip both completed rows and already-queued checkpoints. Manual pair test mode bypasses cache and calculates the full v12 score immediately.
 
-The old 100-point question components remain in snapshots and organizer views as diagnostics. They do not determine the final v11 percentage.
+The old 100-point question components remain in snapshots and organizer views as diagnostics. Organizer views show the authoritative `base + AI adjustment = final` calculation explicitly.
+
+An old v11 score could reach 100 without AI because the base is a percentile inside each inferred archetype: reaching the calibrated top boundary in both directions yields `sqrt(100 × 100) = 100`. In v12, the final score is still capped at 100, so a high base plus a `+12` correction may also display 100; the stored breakdown preserves the uncapped explanation (for example, `90.9 + 12 → 100`).
 
 ## Known limitation
 

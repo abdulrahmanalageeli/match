@@ -16,7 +16,7 @@ test("trigger-match excludes declined attendees without excluding active attende
   ) || []
 
   assert.equal(invertedAttendanceFilters.length, 0)
-  assert.equal(activeAttendanceFilters.length, 8)
+  assert.equal(activeAttendanceFilters.length, 9)
 
   const possibleMatchesStart = triggerMatchSource.indexOf("if (viewAllMatches) {")
   const possibleMatchesEnd = triggerMatchSource.indexOf("// Handle manual match creation", possibleMatchesStart)

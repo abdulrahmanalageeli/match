@@ -73,6 +73,7 @@ import { matchesParticipantConfirmationFilter } from "~/lib/participant-confirma
 import { LEGAL_DOCUMENT_VERSION, isAcceptedLegalBundle } from "~/lib/legal"
 import {
   CURRENT_BALANCED_SCORE_MODEL,
+  aiChemistryForDisplay,
   isCurrentBalancedScoreRow,
   isCurrentOppositesScoreRow,
   parseScoreObject,
@@ -90,6 +91,7 @@ interface DeltaCacheRunProgress {
   cacheHits: number
   reusedVibe: number
   aiCalls: number
+  queuedAI: number
   skipped: number
   errors: number
   prefetchedRows: number
@@ -115,6 +117,7 @@ interface DeltaCacheCheckpoint {
   totalSkipped: number
   totalPairsScanned: number
   totalAiCalls: number
+  totalQueuedAI: number
   totalReusedVibe: number
   totalDeltaPairs: number
   prefetchedRows: number
@@ -178,6 +181,7 @@ function ManualCompatibilityResultModal({ data, onClose }: { data: any; onClose:
   const isBalancedModel = isCurrentBalancedScoreRow(data)
   const isOppositesModel = isCurrentOppositesScoreRow(data)
   const oppositesBreakdown = getOppositesBreakdownForDisplay(data, result)
+  const aiChemistry = aiChemistryForDisplay(result) || aiChemistryForDisplay(data)
   const round = (value: any) => {
     const parsed = Number(value)
     return Math.round((Number.isFinite(parsed) ? parsed : 0) * 100) / 100
@@ -247,6 +251,7 @@ function ManualCompatibilityResultModal({ data, onClose }: { data: any; onClose:
 
               <div className="rounded-3xl border border-white/10 bg-white/[0.025] p-4 sm:p-6">
                 <div className="mb-5 flex items-center justify-between gap-3"><div><h3 className="flex items-center gap-2 text-lg font-black"><BarChart3 className="h-5 w-5 text-cyan-300" /> Score architecture</h3><p className="mt-1 text-xs text-slate-500">{isOppositesModel ? `Six-dimensional Opposites score · ${round(oppositesBreakdown.rawTotal)}/${round(oppositesBreakdown.rawMaximum)} normalized to 100` : isBalancedModel ? 'Every scoring dimension used by the current balanced model' : 'Only the historical total can be shown safely for this scoring version'}</p></div><span className="hidden rounded-xl border border-white/10 bg-black/20 px-3 py-2 font-mono text-xs text-slate-400 sm:block">{data.score_model_version || 'Model unavailable'}</span></div>
+                {isBalancedModel && aiChemistry && <div className="mb-4 grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-2 rounded-2xl border border-fuchsia-300/15 bg-fuchsia-400/[0.04] p-3 text-center"><div><p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Archetype base</p><p className="font-mono text-lg font-black text-cyan-200">{round(aiChemistry.baseScore)}%</p></div><span className="text-slate-600">+</span><div><p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">AI chemistry</p><p className={`font-mono text-lg font-black ${aiChemistry.adjustment > 0 ? 'text-emerald-300' : aiChemistry.adjustment < 0 ? 'text-rose-300' : 'text-slate-300'}`}>{aiChemistry.ready ? `${aiChemistry.adjustment >= 0 ? '+' : ''}${aiChemistry.adjustment}` : 'Pending'}</p></div><span className="text-slate-600">=</span><div><p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Final</p><p className="font-mono text-lg font-black text-white">{round(aiChemistry.finalScore)}%</p></div></div>}
                 {categories.length > 0 ? <div className="grid gap-3 sm:grid-cols-2">
                   {categories.map(category => {
                     const percentage = Math.max(0, Math.min(100, (Number(category.value) / category.max) * 100))
@@ -3917,6 +3922,10 @@ const fetchParticipants = async () => {
             const core17 = result.coreValuesScore != null
               ? Number(result.coreValuesScore)
               : Number(result.core_values_compatibility_score ?? 0)
+            const chemistry = aiChemistryForDisplay(result) || aiChemistryForDisplay(data)
+            if (chemistry) {
+              detailedMessage += `🧠 Archetype base: ${round(chemistry.baseScore)}% + AI chemistry ${chemistry.ready ? `${chemistry.adjustment >= 0 ? '+' : ''}${chemistry.adjustment}` : 'pending'} = ${round(chemistry.finalScore)}%\n\n`
+            }
             detailedMessage += `⚡ Interaction Synergy: ${round(result.synergyScore)}/25\n`
             detailedMessage += `✨ AI Vibe: ${round(result.vibeScore)}/12\n`
             detailedMessage += `🏠 Lifestyle: ${round(result.lifestyleScore)}/12\n`
@@ -4862,6 +4871,7 @@ Proceed?`
       cacheHits: 0,
       reusedVibe: 0,
       aiCalls: 0,
+      queuedAI: 0,
       skipped: 0,
       errors: 0,
       prefetchedRows: 0,
@@ -4878,6 +4888,7 @@ Proceed?`
       let totalErrors = 0
       let totalPairsScanned = savedCheckpoint?.totalPairsScanned || 0
       let totalAiCalls = savedCheckpoint?.totalAiCalls || 0
+      let totalQueuedAI = savedCheckpoint?.totalQueuedAI || 0
       let totalReusedVibe = savedCheckpoint?.totalReusedVibe || 0
       let totalDeltaPairs = savedCheckpoint?.totalDeltaPairs || 0
       let prefetchedRows = savedCheckpoint?.prefetchedRows || 0
@@ -4887,6 +4898,7 @@ Proceed?`
       let totalEligible = savedCheckpoint?.totalEligible || 0
       let lastCacheTimestamp: string | null = savedCheckpoint?.lastCacheTimestamp || null
       let isFresh = false
+      let pendingAiFinalization = 0
       let batchNum = savedCheckpoint?.batchNum || 0
       let aiCachesPerRequest = savedCheckpoint?.aiCachesPerRequest || 12
       let coverageRepairPairs: number[][] | null = savedCheckpoint?.coverageRepairPairs || null
@@ -4915,6 +4927,7 @@ Proceed?`
           totalSkipped,
           totalPairsScanned,
           totalAiCalls,
+          totalQueuedAI,
           totalReusedVibe,
           totalDeltaPairs,
           prefetchedRows,
@@ -4939,6 +4952,7 @@ Proceed?`
           totalSkipped,
           totalPairsScanned,
           totalAiCalls,
+          totalQueuedAI,
           totalReusedVibe,
           totalDeltaPairs,
           prefetchedRows,
@@ -4953,7 +4967,7 @@ Proceed?`
             ...previous,
             status: 'running',
             batch: batchNum,
-            message: `Running batch ${batchNum} (up to ${aiCachesPerRequest} AI score${aiCachesPerRequest === 1 ? '' : 's'})…`,
+            message: `Running batch ${batchNum} (up to 500 local scores; required AI chemistry is queued)…`,
           } : previous)
           const batchController = new AbortController()
           const batchTimeout = window.setTimeout(() => batchController.abort(), 45_000)
@@ -4966,10 +4980,8 @@ Proceed?`
               body: JSON.stringify({
                 action: "delta-pre-cache-batched",
                 eventId: currentEventId,
-                // A skip-AI result is intentionally non-durable and cannot
-                // satisfy delta-cache coverage. Timeout recovery must keep AI
-                // enabled and reduce the amount of AI work in each request.
                 skipAI: false,
+                deferAIEnrichment: true,
                 resumeCursor: requestResumeCursor,
                 coverageRepairPairs: requestCoverageRepairPairs,
                 maxDurationMs: 8000,
@@ -5042,6 +5054,7 @@ Proceed?`
           totalErrors += batchErrors
           totalPairsScanned += data.pairs_processed || 0
           totalAiCalls += data.ai_calls_made || 0
+          totalQueuedAI += data.queued_ai_count || 0
           totalReusedVibe += data.reused_vibe_count || 0
           participantsNeedingCache = data.participants_needing_cache || 0
           if (data.reason_counts) deltaReasonCounts = data.reason_counts
@@ -5070,6 +5083,7 @@ Proceed?`
             cacheHits: totalAlreadyCached,
             reusedVibe: totalReusedVibe,
             aiCalls: totalAiCalls,
+            queuedAI: totalQueuedAI,
             skipped: totalSkipped,
             errors: totalErrors,
             prefetchedRows,
@@ -5105,6 +5119,12 @@ Proceed?`
 
           if (participantsNeedingCache === 0 && !data.progress?.has_more) {
             isFresh = true
+            clearDeltaCacheCheckpoint(currentEventId)
+            break
+          }
+
+          pendingAiFinalization = Number(data.coverage_verification?.pendingAiCount) || 0
+          if (!data.progress?.has_more && pendingAiFinalization > 0) {
             clearDeltaCacheCheckpoint(currentEventId)
             break
           }
@@ -5172,6 +5192,7 @@ Proceed?`
             totalErrors = 0
             totalPairsScanned = 0
             totalAiCalls = 0
+            totalQueuedAI = 0
             totalReusedVibe = 0
             totalDeltaPairs = 0
             prefetchedRows = 0
@@ -5184,7 +5205,7 @@ Proceed?`
             recoveredNewlyCached = 0
             lastAcknowledgedProgress = {
               status: 'running', percent: 0, batch: 0, pairsCompleted: 0, totalPairs: 0,
-              newlyCached: 0, cacheHits: 0, reusedVibe: 0, aiCalls: 0, skipped: 0,
+              newlyCached: 0, cacheHits: 0, reusedVibe: 0, aiCalls: 0, queuedAI: 0, skipped: 0,
               errors: 0, prefetchedRows: 0,
               message: 'Roster, scores, or baseline changed; restarting safely from the beginning…',
               failures: [],
@@ -5195,18 +5216,6 @@ Proceed?`
           const errorMessage = error?.name === 'AbortError'
             ? 'Delta cache batch timed out after 45 seconds'
             : (error?.message || 'Error running delta pre-cache')
-          const timeoutHint = error?.name === 'AbortError' || /timed out|timeout/i.test(errorMessage)
-          if (timeoutHint && aiCachesPerRequest > 1) {
-            aiCachesPerRequest = Math.max(1, Math.floor(aiCachesPerRequest / 3))
-            requestRetryAttempts++
-            setDeltaCacheProgress(previous => previous ? {
-              ...previous,
-              status: 'running',
-              message: `AI batch timed out. Retrying the same work with up to ${aiCachesPerRequest} AI score${aiCachesPerRequest === 1 ? '' : 's'} per request…`,
-            } : previous)
-            await new Promise(r => setTimeout(r, 250))
-            continue
-          }
           if (isTransientDeltaCacheError(error) && requestRetryAttempts < 4) {
             requestRetryAttempts++
             const delay = deltaCacheRetryDelayMs(requestRetryAttempts)
@@ -5238,10 +5247,15 @@ Proceed?`
         cacheHits: totalAlreadyCached,
         reusedVibe: totalReusedVibe,
         aiCalls: totalAiCalls,
+        queuedAI: totalQueuedAI,
         skipped: totalSkipped,
         errors: totalErrors,
         prefetchedRows,
-        message: isFresh ? 'Cache is already fresh.' : 'Delta cache completed successfully.',
+        message: isFresh
+          ? 'Cache is already fresh.'
+          : pendingAiFinalization > 0
+            ? `Local delta pass complete; ${pendingAiFinalization} required AI chemistry scores are finalizing in the background.`
+            : 'Delta cache completed successfully.',
         failures: failureDetails,
       })
 
@@ -5254,6 +5268,8 @@ Proceed?`
         successMessage += `\n• New enrollments: ${deltaReasonCounts.new_enrollments}`
         successMessage += `\n• New pairs cached: ${totalNewlyCached}`
         if (totalReusedVibe > 0) successMessage += `\n• AI vibe scores reused: ${totalReusedVibe}`
+        if (totalQueuedAI > 0) successMessage += `\n• Required AI chemistry scores queued: ${totalQueuedAI}`
+        if (pendingAiFinalization > 0) successMessage += `\n• Still finalizing in background: ${pendingAiFinalization}`
         if (totalAlreadyCached > 0) successMessage += `\n• Reused cached: ${totalAlreadyCached}`
         if (totalSkipped > 0) successMessage += `\n• Skipped (incompatible): ${totalSkipped}`
         if (totalErrors > 0) successMessage += `\n• Errors: ${totalErrors}`
@@ -6933,6 +6949,7 @@ Proceed?`
                       <span>Exact hits <strong className="text-cyan-200">{deltaCacheProgress.cacheHits}</strong></span>
                       <span>Vibe reused <strong className="text-violet-300">{deltaCacheProgress.reusedVibe}</strong></span>
                       <span>AI calls <strong className="text-amber-200">{deltaCacheProgress.aiCalls}</strong></span>
+                      <span>AI queued <strong className="text-amber-200">{deltaCacheProgress.queuedAI}</strong></span>
                       <span>Skipped <strong className="text-slate-100">{deltaCacheProgress.skipped}</strong></span>
                       <span>Errors <strong className={deltaCacheProgress.errors > 0 ? 'text-rose-300' : 'text-white'}>{deltaCacheProgress.errors}</strong></span>
                     </div>

@@ -32,7 +32,11 @@ import {
   isBalancedVibeModelUsed,
   isReusableBalancedVibeRow,
   normalizeBalancedVibeAxes,
+  prepareBalancedParticipants,
 } from "../../server/matching/balanced-compatibility.mjs"
+import {
+  preparePersonalizedParticipants,
+} from "../../server/matching/personalized-compatibility.mjs"
 import {
   createDisabledHistoricalMatchAnalyzer,
   createHistoricalMatchAnalyzer,
@@ -173,6 +177,13 @@ const getPairPriorityScore = (pair) => {
 const LEGACY_VIBE_MAX = 15
 const PREVIOUS_VIBE_MAX = 25
 const CACHE_MODEL_USED = BALANCED_VIBE_MODEL_TAG
+const DEFERRED_AI_VIBE_REASON = 'deferred_ai'
+
+function prepareCompatibilityParticipants(participants) {
+  prepareBalancedParticipants(participants)
+  preparePersonalizedParticipants(participants)
+  return participants
+}
 
 function isCurrentVibeModel(modelUsed) {
   return isBalancedVibeModelUsed(modelUsed)
@@ -460,12 +471,16 @@ async function verifyCurrentBalancedCacheCoverage(participants) {
   const { data: rows, error } = await fetchAllCachedPairs('compatibility_cache', participantNumbers)
   if (error) throw error
   const exactRows = new Set()
+  const pendingRows = new Set()
   for (const row of rows || []) {
-    if (!isDurableCurrentBalancedCacheRow(row)) continue
-    exactRows.add(`${row.participant_a_number}-${row.participant_b_number}-${row.combined_content_hash}-${row.vibe_content_hash}`)
+    const identity = `${row.participant_a_number}-${row.participant_b_number}-${row.combined_content_hash}-${row.vibe_content_hash}`
+    if (isDurableCurrentBalancedCacheRow(row)) exactRows.add(identity)
+    else if (isPendingCurrentAiCacheRow(row)) pendingRows.add(identity)
   }
 
   let eligiblePairs = 0
+  let completedCount = 0
+  let pendingAiCount = 0
   let missingCount = 0
   const missingPairs = []
   for (let i = 0; i < participants.length; i++) {
@@ -483,7 +498,12 @@ async function verifyCurrentBalancedCacheCoverage(participants) {
       eligiblePairs++
       const [smaller, larger] = [participantA.assigned_number, participantB.assigned_number].sort((a, b) => a - b)
       const cacheKey = generateCacheKey(participantA, participantB)
-      if (!exactRows.has(`${smaller}-${larger}-${cacheKey.combinedHash}-${cacheKey.vibeHash}`)) {
+      const identity = `${smaller}-${larger}-${cacheKey.combinedHash}-${cacheKey.vibeHash}`
+      if (exactRows.has(identity)) {
+        completedCount++
+      } else if (pendingRows.has(identity)) {
+        pendingAiCount++
+      } else {
         missingCount++
         if (missingPairs.length < 20) missingPairs.push([smaller, larger])
       }
@@ -491,6 +511,8 @@ async function verifyCurrentBalancedCacheCoverage(participants) {
   }
   return {
     eligiblePairs,
+    completedCount,
+    pendingAiCount,
     missingCount,
     missingPairs,
   }
@@ -501,15 +523,8 @@ async function verifyCurrentBalancedCacheCoverage(participants) {
 // REPLACE: storeCachedCompatibility   (around line 670)
 // -----------------------------------------------------------------------------
 function buildCompatibilityCacheRow(participantA, participantB, scores, cachedAt = new Date().toISOString()) {
-  // Never turn a skipped, transient, or malformed AI response into a durable
-  // compatibility result. A later normal run must still be able to calculate
-  // the real 12-point semantic score.
-  if (scores?.aiVibeCacheable === false) {
-    return { row: null, key: null, reason: scores?.aiVibeFallbackReason || 'AI vibe result is not cacheable' }
-  }
-
   const fallbackReason = String(scores?.aiVibeFallbackReason || '').trim()
-  if (fallbackReason) {
+  if (fallbackReason && fallbackReason !== DEFERRED_AI_VIBE_REASON) {
     console.warn(`⚠️ Cache store with fallback score #${participantA.assigned_number}-#${participantB.assigned_number}: ${fallbackReason}`)
   }
 
@@ -560,6 +575,13 @@ function buildCompatibilityCacheRow(participantA, participantB, scores, cachedAt
       use_count: 1
   }
 
+  // v12 may persist a provisional base-only row while durable AI enrichment is
+  // queued. Hydration validates its internal formula; durability is decided
+  // separately so provisional rows never count as complete cache hits.
+  if (!hydrateBalancedCompatibilityFromCacheRow(row)) {
+    return { row: null, key: null, reason: 'Compatibility payload is not a complete current v12 score' }
+  }
+
   return {
     row,
     key: `${smaller}-${larger}-${cacheKey.combinedHash}`,
@@ -567,10 +589,46 @@ function buildCompatibilityCacheRow(participantA, participantB, scores, cachedAt
   }
 }
 
-async function storeCachedCompatibilities(entries, { chunkSize = 100 } = {}) {
+async function storeDeferredVibeRowsAndJobs(items, { eventId, matchId }) {
+  if (!items.length) return { stored: 0, queued: 0, error: null }
+  if (!Number.isInteger(Number(eventId)) || !matchId) {
+    return {
+      stored: 0,
+      queued: 0,
+      error: new Error('eventId and matchId are required to store deferred AI vibe work'),
+    }
+  }
+
+  const jobs = items.map(item => ({
+    event_id: Number(eventId),
+    match_id: matchId,
+    participant_a_number: item.row.participant_a_number,
+    participant_b_number: item.row.participant_b_number,
+    combined_content_hash: item.row.combined_content_hash,
+    vibe_content_hash: item.row.vibe_content_hash,
+    score_model_version: item.row.score_model_version,
+  }))
+  const { error } = await cacheUpsertRetry('Deferred v12 cache and AI queue atomic bulk store', () => supabase
+    .rpc('store_deferred_v11_compatibility_cache', {
+      p_cache_rows: items.map(item => item.row),
+      p_jobs: jobs,
+    }))
+  return {
+    stored: error ? 0 : items.length,
+    queued: error ? 0 : jobs.length,
+    error: error || null,
+  }
+}
+
+async function storeCachedCompatibilities(entries, {
+  chunkSize = 250,
+  queueDeferredAI = false,
+  eventId = null,
+  matchId = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000",
+} = {}) {
   if (SKIP_DB_WRITES) {
     console.log('🧪 Preview mode: skip cache store')
-    return { stored: 0, storedKeys: new Set(), failures: [], skipped: true }
+    return { stored: 0, queued: 0, storedKeys: new Set(), failures: [], skipped: true }
   }
 
   const failures = []
@@ -592,10 +650,30 @@ async function storeCachedCompatibilities(entries, { chunkSize = 100 } = {}) {
 
   const rows = [...uniqueRows.values()]
   const storedKeys = new Set()
+  let queued = 0
   const effectiveChunkSize = Math.max(1, Math.min(Number(chunkSize) || 100, 500))
 
   for (let index = 0; index < rows.length; index += effectiveChunkSize) {
     const chunk = rows.slice(index, index + effectiveChunkSize)
+    let storableChunk = chunk
+    if (queueDeferredAI) {
+      const deferredItems = chunk.filter(item => item.entry?.scores?.aiVibeFallbackReason === DEFERRED_AI_VIBE_REASON)
+      if (deferredItems.length > 0) {
+        const deferredSet = new Set(deferredItems)
+        storableChunk = chunk.filter(item => !deferredSet.has(item))
+        const deferredResult = await storeDeferredVibeRowsAndJobs(deferredItems, { eventId, matchId })
+        if (deferredResult.error) {
+          const reason = deferredResult.error.message || deferredResult.error.code || 'Deferred cache and AI queue store failed'
+          console.error(`❌ Deferred cache and AI queue atomic store FAILED rows=${deferredItems.length}: ${reason}`)
+          for (const item of deferredItems) failures.push({ entry: item.entry, reason })
+        } else {
+          queued += deferredResult.queued
+          for (const item of deferredItems) storedKeys.add(item.key)
+          console.warn(`✅ Deferred cache + AI queue stored ${deferredResult.stored} row${deferredResult.stored === 1 ? '' : 's'} atomically`)
+        }
+      }
+    }
+    if (storableChunk.length === 0) continue
     try {
       // onConflict matches the canonical immutable identity. Passing an array
       // makes every chunk one PostgREST request and one Postgres statement.
@@ -604,27 +682,27 @@ async function storeCachedCompatibilities(entries, { chunkSize = 100 } = {}) {
       // without creating duplicate rows or changing pair identity.
       const { error } = await cacheUpsertRetry('Compatibility cache bulk upsert', () => supabase
         .from('compatibility_cache')
-        .upsert(chunk.map(item => item.row), {
+        .upsert(storableChunk.map(item => item.row), {
           onConflict: 'participant_a_number,participant_b_number,combined_content_hash'
         }))
 
       if (error) {
         const reason = error.message || error.code || 'Cache bulk upsert failed'
-        console.error(`❌ Cache bulk upsert FAILED rows=${chunk.length} code=${error.code} msg=${error.message}`)
-        for (const item of chunk) failures.push({ entry: item.entry, reason })
+        console.error(`❌ Cache bulk upsert FAILED rows=${storableChunk.length} code=${error.code} msg=${error.message}`)
+        for (const item of storableChunk) failures.push({ entry: item.entry, reason })
         continue
       }
 
-      for (const item of chunk) storedKeys.add(item.key)
-      console.warn(`✅ Cache bulk upsert stored ${chunk.length} row${chunk.length === 1 ? '' : 's'}`)
+      for (const item of storableChunk) storedKeys.add(item.key)
+      console.warn(`✅ Cache bulk upsert stored ${storableChunk.length} row${storableChunk.length === 1 ? '' : 's'}`)
     } catch (error) {
       const reason = error?.message || 'Cache bulk upsert exception'
-      console.error(`❌ Cache bulk upsert EXCEPTION rows=${chunk.length}:`, reason)
-      for (const item of chunk) failures.push({ entry: item.entry, reason })
+      console.error(`❌ Cache bulk upsert EXCEPTION rows=${storableChunk.length}:`, reason)
+      for (const item of storableChunk) failures.push({ entry: item.entry, reason })
     }
   }
 
-  return { stored: storedKeys.size, storedKeys, failures, skipped: false }
+  return { stored: storedKeys.size, queued, storedKeys, failures, skipped: false }
 }
 
 async function storeCachedCompatibility(participantA, participantB, scores) {
@@ -1587,12 +1665,27 @@ function getCachedVibeFallbackReason(cacheRow) {
 }
 
 function isDurableCurrentBalancedCacheRow(cacheRow) {
-  if (!isCurrentVibeModel(cacheRow?.model_used)) return false
   if (cacheRow?.score_model_version !== COMPATIBILITY_SCORE_VERSION) return false
+  if (!isCurrentVibeModel(cacheRow?.model_used)) return false
   const fallbackReason = getCachedVibeFallbackReason(cacheRow)
-  // Missing profile text is a deterministic score tied to the exact content
-  // hash. API failures and explicit skip-AI rows must always be retried.
-  return !fallbackReason || fallbackReason === 'incomplete_vibe_profile'
+  // A deferred/transient fallback is only a progressive checkpoint. The one
+  // durable fallback is a genuinely incomplete text profile, where no AI
+  // comparison is possible and the documented neutral correction is final.
+  if (fallbackReason && fallbackReason !== 'incomplete_vibe_profile') return false
+  const hasFullPayload = Object.hasOwn(cacheRow || {}, 'score_breakdown')
+    && Object.hasOwn(cacheRow || {}, 'question_scores')
+    && Object.hasOwn(cacheRow || {}, 'total_compatibility_score')
+  return !hasFullPayload || hydrateBalancedCompatibilityFromCacheRow(cacheRow) !== null
+}
+
+function isPendingCurrentAiCacheRow(cacheRow) {
+  if (cacheRow?.score_model_version !== COMPATIBILITY_SCORE_VERSION) return false
+  if (!isCurrentVibeModel(cacheRow?.model_used)) return false
+  if (getCachedVibeFallbackReason(cacheRow) !== DEFERRED_AI_VIBE_REASON) return false
+  const hasFullPayload = Object.hasOwn(cacheRow || {}, 'score_breakdown')
+    && Object.hasOwn(cacheRow || {}, 'question_scores')
+    && Object.hasOwn(cacheRow || {}, 'total_compatibility_score')
+  return !hasFullPayload || hydrateBalancedCompatibilityFromCacheRow(cacheRow) !== null
 }
 
 // Compatibility names retained for older admin/reporting paths. They all route
@@ -1794,7 +1887,9 @@ async function getCachedCompatibility(participantA, participantB, options = {}) 
         ...(hydrated || calculateBalancedCompatibility(participantA, participantB, { vibeScore, vibeAxes })),
         bonusType: 'none',
         humorClashDetected: hasHumorStyleClash(participantA, participantB),
-        aiVibeCacheable: true,
+        aiVibeCacheable: isReusableBalancedVibeRow(data),
+        aiVibePending: fallbackReason === DEFERRED_AI_VIBE_REASON,
+        aiVibeDiagnosticStatus: fallbackReason === DEFERRED_AI_VIBE_REASON ? 'pending' : 'ready',
         aiVibeFallbackReason: fallbackReason,
         cacheModelUsed: data.model_used,
         scoreModelVersion: COMPATIBILITY_SCORE_VERSION,
@@ -2021,10 +2116,17 @@ async function storeGroupCachedCompatibility(participantA, participantB, payload
 function formatBalancedScoreReason(result) {
   const breakdown = result?.scoreBreakdown || {}
   const personalized = breakdown.personalized || result?.personalizedCompatibility || {}
+  const chemistryAdjustment = Number(breakdown.aiChemistryAdjustment ?? result?.aiChemistryAdjustment ?? 0)
+  const chemistryScoreValue = breakdown.aiChemistryScore ?? result?.aiChemistryScore
+  const chemistryScore = chemistryScoreValue === null || chemistryScoreValue === undefined
+    ? Number.NaN
+    : Number(chemistryScoreValue)
   return [
-    `Personalized mutual: ${Math.round(Number(personalized.totalScore ?? result?.totalScore ?? 0))}%`,
+    `Archetype base: ${Math.round(Number(personalized.totalScore ?? result?.baseCompatibilityScore ?? 0))}%`,
     `A→B: ${Math.round(Number(personalized.aToB?.score ?? 0))}%`,
     `B→A: ${Math.round(Number(personalized.bToA?.score ?? 0))}%`,
+    `AI chemistry: ${Number.isFinite(chemistryScore) ? `${Math.round(chemistryScore * 100)}%` : 'pending'} (${chemistryAdjustment >= 0 ? '+' : ''}${chemistryAdjustment})`,
+    `Final: ${Math.round(Number(result?.totalScore ?? breakdown.finalScore ?? 0))}%`,
     'Diagnostic components',
     `Common Ground: ${Math.round(Number(breakdown.semanticCommonGround ?? 0))}/18`,
     `Interaction Rhythm: ${Math.round(Number(breakdown.interactionRhythm ?? 0))}/20`,
@@ -2063,6 +2165,17 @@ function buildPersistedScoreProvenance(result, participantA, participantB, persi
     }
   }
   const identity = buildBalancedCacheIdentity(participantA, participantB)
+  const canonicalBalancedTotal = Number(result.totalScore)
+  const balancedTotalMatches = Number(persistedTotal) === canonicalBalancedTotal
+    || Number(persistedTotal) === Number(canonicalBalancedTotal.toFixed(2))
+    || Number(persistedTotal) === Math.round(canonicalBalancedTotal)
+  if (!oppositesMode && !balancedTotalMatches) {
+    return {
+      score_model_version: null,
+      score_snapshot: null,
+      score_content_hash: null,
+    }
+  }
   const balancedSnapshot = buildBalancedScoreSnapshot(result, {
     combinedContentHash: identity.combinedContentHash,
   })
@@ -2152,9 +2265,10 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
       || null
   } else if (skipAI) {
     vibeScore = BALANCED_VIBE_MAX / 2
-    vibeMeta.axes = createNeutralVibeAxes('skip_ai')
+    const fallbackReason = options?.deferAIEnrichment === true ? DEFERRED_AI_VIBE_REASON : 'skip_ai'
+    vibeMeta.axes = createNeutralVibeAxes(fallbackReason)
     vibeMeta.cacheable = false
-    vibeMeta.fallbackReason = 'skip_ai'
+    vibeMeta.fallbackReason = fallbackReason
   } else {
     vibeScore = await calculateVibeCompatibility(participantA, participantB, vibeMeta)
   }
@@ -2179,6 +2293,14 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
     reusedCachedVibe: hasReusableVibe,
     scoreModelVersion: COMPATIBILITY_SCORE_VERSION,
     cached: false,
+  }
+  result.aiVibePending = vibeMeta.fallbackReason === DEFERRED_AI_VIBE_REASON
+  result.aiVibeDiagnosticStatus = result.aiVibePending
+    ? 'pending'
+    : (vibeMeta.cacheable === false || vibeMeta.fallbackReason ? 'unavailable' : 'ready')
+  result.scoreBreakdown = {
+    ...result.scoreBreakdown,
+    aiVibeStatus: result.aiVibeDiagnosticStatus,
   }
   result.scoreSnapshot = buildBalancedScoreSnapshot(result, {
     combinedContentHash: cacheKey.combinedHash,
@@ -4005,7 +4127,213 @@ function getLockedMatch(participantA, participantB, lockedPairs) {
   )
 }
 
-export { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, isParticipantCacheEligible, isGenuinelyCompletedParticipant, normalizePossibleMatchesScope, buildPossibleMatchGateReport, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkAgeCompatibility, checkIntentHardGate, checkInteractionStyleCompatibility, hasHumorStyleClash, fetchAllCachedPairs, calculateHumorOpennessScore, calculateInteractionSynergyScore, calculateLifestyleCompatibility, calculateConversationInitiativePreferenceScore, getOneYearAgeFlexDecision, getAgeTolerance, buildManualPairGateReport, isCurrentVibeModel, isDurableCurrentBalancedCacheRow, getParticipantDeltaCacheReason, getDeltaCacheReasonCounts, canAdvanceGlobalCacheMetadata, getCacheMetadataScope, buildPersistedMatchInsightFields, buildPersistedScoreProvenance, computeOppositesBreakdown, formatBalancedScoreReason }
+const VIBE_ENRICHMENT_PARTICIPANT_SELECT = 'match_id, assigned_number, name, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, survey_data_updated_at, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id'
+
+function vibeEnrichmentRetrySeconds(attemptCount) {
+  return Math.min(3600, 30 * (2 ** Math.max(0, Number(attemptCount || 1) - 1)))
+}
+
+async function verifyCompatibilityVibeWorkerRequest({ timestamp, nonce, signature }) {
+  const parsedTimestamp = Number(timestamp)
+  if (!Number.isInteger(parsedTimestamp)
+    || !/^[a-f0-9-]{36}$/i.test(String(nonce || ''))
+    || !/^[a-f0-9]{64}$/i.test(String(signature || ''))) return false
+  const { data, error } = await supabase.rpc(
+    'verify_compatibility_vibe_worker_request',
+    {
+      p_timestamp: parsedTimestamp,
+      p_nonce: nonce,
+      p_signature: signature,
+    },
+  )
+  if (error) {
+    console.error('Durable AI vibe worker request verification failed:', error.message || error)
+    return false
+  }
+  return data === true
+}
+
+async function finalizeCompatibilityCacheMetadataAfterAi({ eventId, matchId }) {
+  const { count: outstanding, error: outstandingError } = await supabase
+    .from('compatibility_vibe_enrichment_jobs')
+    .select('id', { count: 'exact', head: true })
+    .eq('event_id', Number(eventId))
+    .eq('match_id', matchId)
+    .eq('score_model_version', COMPATIBILITY_SCORE_VERSION)
+    .in('status', ['pending', 'processing'])
+  if (outstandingError) throw outstandingError
+  if ((outstanding || 0) > 0) return { finalized: false, outstanding: outstanding || 0 }
+
+  const { data: allParticipants, error: participantError } = await supabase
+    .from('participants')
+    .select('assigned_number, name, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, signup_for_next_event, auto_signup_next_event, survey_data_updated_at, next_event_signup_timestamp, created_at, updated_at, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference, age_flex_years, age_flex_event_id, event_id, signup_event_id')
+    .eq('match_id', matchId)
+    .or(`signup_for_next_event.eq.true,event_id.eq.${Number(eventId)},auto_signup_next_event.eq.true`)
+    .is('attendance_denied_at', null)
+    .neq('assigned_number', 9999)
+  if (participantError) throw participantError
+  const participants = (allParticipants || [])
+    .filter(isParticipantCacheEligible)
+    .sort((a, b) => a.assigned_number - b.assigned_number)
+  prepareCompatibilityParticipants(participants)
+  const coverage = await verifyCurrentBalancedCacheCoverage(participants)
+  if (coverage.missingCount > 0 || coverage.pendingAiCount > 0) {
+    return { finalized: false, outstanding: 0, coverage }
+  }
+
+  const { error: metadataError } = await supabase.rpc('record_cache_session', {
+    p_event_id: Number(eventId),
+    p_participants_cached: participants.length,
+    p_pairs_cached: coverage.eligiblePairs,
+    p_duration_ms: 0,
+    p_ai_calls: 0,
+    p_cache_hit_rate: 100,
+    p_notes: 'v12 durable AI chemistry enrichment complete',
+    p_score_model_version: COMPATIBILITY_SCORE_VERSION,
+  })
+  if (metadataError) throw metadataError
+  return { finalized: true, outstanding: 0, coverage }
+}
+
+/** Drain one atomic 12-job AI lane. Safe for overlapping cron invocations. */
+async function processCompatibilityVibeEnrichmentBatch({ limit = 12 } = {}) {
+  const effectiveLimit = Math.max(1, Math.min(Number(limit) || 12, 12))
+  const { data: claimedJobs, error: claimError } = await supabase.rpc(
+    'claim_compatibility_vibe_enrichment_jobs',
+    { p_limit: effectiveLimit },
+  )
+  if (claimError) throw claimError
+  const jobs = claimedJobs || []
+  if (jobs.length === 0) {
+    return { claimed: 0, completed: 0, retried: 0, failed: 0, obsolete: 0, hasMore: false }
+  }
+
+  const participantNumbers = [...new Set(jobs.flatMap(job => [
+    Number(job.participant_a_number),
+    Number(job.participant_b_number),
+  ]).filter(Number.isInteger))]
+  const matchIds = [...new Set(jobs.map(job => String(job.match_id || '')).filter(Boolean))]
+  let participantQuery = supabase
+    .from('participants')
+    .select(VIBE_ENRICHMENT_PARTICIPANT_SELECT)
+    .in('assigned_number', participantNumbers)
+  if (matchIds.length === 1) participantQuery = participantQuery.eq('match_id', matchIds[0])
+  else participantQuery = participantQuery.in('match_id', matchIds)
+  const { data: participantRows, error: participantError } = await participantQuery
+  if (participantError) throw participantError
+  prepareCompatibilityParticipants(participantRows || [])
+  const participantsByMatchAndNumber = new Map((participantRows || []).map(participant => [
+    `${participant.match_id || matchIds[0]}:${participant.assigned_number}`,
+    participant,
+  ]))
+
+  const { data: existingRows, error: existingError } = await fetchCachedRowsForPairs(
+    jobs.map(job => ({ a: job.participant_a_number, b: job.participant_b_number })),
+  )
+  if (existingError) throw existingError
+  const existingByIdentity = new Map((existingRows || []).map(row => [
+    `${row.participant_a_number}-${row.participant_b_number}-${row.combined_content_hash}-${row.vibe_content_hash}`,
+    row,
+  ]))
+
+  const finishResults = []
+  const calculationJobs = []
+  for (const job of jobs) {
+    const participantA = participantsByMatchAndNumber.get(`${job.match_id}:${job.participant_a_number}`)
+    const participantB = participantsByMatchAndNumber.get(`${job.match_id}:${job.participant_b_number}`)
+    if (!participantA || !participantB) {
+      finishResults.push({ id: job.id, status: 'obsolete', error: 'Participant no longer exists in this match' })
+      continue
+    }
+    const cacheKey = generateCacheKey(participantA, participantB)
+    if (cacheKey.combinedHash !== job.combined_content_hash || cacheKey.vibeHash !== job.vibe_content_hash) {
+      finishResults.push({ id: job.id, status: 'obsolete', error: 'Participant score inputs changed after this job was queued' })
+      continue
+    }
+    const identity = `${job.participant_a_number}-${job.participant_b_number}-${job.combined_content_hash}-${job.vibe_content_hash}`
+    if (isReusableBalancedVibeRow(existingByIdentity.get(identity))) {
+      finishResults.push({ id: job.id, status: 'completed', error: '' })
+      continue
+    }
+    calculationJobs.push({ job, participantA, participantB })
+  }
+
+  const settled = await Promise.allSettled(calculationJobs.map(async item => ({
+    ...item,
+    scores: await calculateFullCompatibilityWithCache(
+      item.participantA,
+      item.participantB,
+      false,
+      true,
+      { skipCacheLookup: true, skipCacheWrite: true },
+    ),
+  })))
+  const successful = []
+  for (let index = 0; index < settled.length; index++) {
+    const result = settled[index]
+    const item = calculationJobs[index]
+    if (result.status === 'fulfilled') {
+      successful.push(result.value)
+      continue
+    }
+    const terminal = Number(item.job.attempt_count || 0) >= 8
+    finishResults.push({
+      id: item.job.id,
+      status: terminal ? 'failed' : 'pending',
+      error: result.reason?.message || 'AI vibe enrichment failed',
+      retry_after_seconds: terminal ? 0 : vibeEnrichmentRetrySeconds(item.job.attempt_count),
+    })
+  }
+
+  if (successful.length > 0) {
+    const storeResult = await storeCachedCompatibilities(successful.map(item => ({
+      participantA: item.participantA,
+      participantB: item.participantB,
+      scores: item.scores,
+    })), { chunkSize: 12 })
+    for (const item of successful) {
+      const built = buildCompatibilityCacheRow(item.participantA, item.participantB, item.scores)
+      const stored = built.key && storeResult.storedKeys.has(built.key)
+      const terminal = Number(item.job.attempt_count || 0) >= 8
+      finishResults.push({
+        id: item.job.id,
+        status: stored ? 'completed' : (terminal ? 'failed' : 'pending'),
+        error: stored ? '' : (storeResult.failures.find(failure => failure.entry?.participantA === item.participantA)?.reason || built.reason || 'Enriched cache row was not stored'),
+        retry_after_seconds: stored || terminal ? 0 : vibeEnrichmentRetrySeconds(item.job.attempt_count),
+      })
+    }
+  }
+
+  const { error: finishError } = await supabase.rpc(
+    'finish_compatibility_vibe_enrichment_jobs',
+    { p_results: finishResults },
+  )
+  if (finishError) throw finishError
+  const count = status => finishResults.filter(result => result.status === status).length
+  const scopes = [...new Map(jobs.map(job => [
+    `${job.event_id}:${job.match_id}`,
+    { eventId: Number(job.event_id), matchId: job.match_id },
+  ])).values()]
+  const metadataFinalization = await Promise.all(scopes.map(async scope => {
+    try {
+      return { ...scope, ...(await finalizeCompatibilityCacheMetadataAfterAi(scope)) }
+    } catch (error) {
+      console.warn(`⚠️ AI cache metadata finalization deferred for event ${scope.eventId}:`, error?.message || error)
+      return { ...scope, finalized: false, error: error?.message || String(error) }
+    }
+  }))
+  return {
+    claimed: jobs.length,
+    completed: count('completed'),
+    retried: count('pending'),
+    failed: count('failed'),
+    obsolete: count('obsolete'),
+    hasMore: jobs.length === effectiveLimit,
+    metadataFinalization,
+  }
+}
+
+export { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, isParticipantCacheEligible, isGenuinelyCompletedParticipant, normalizePossibleMatchesScope, buildPossibleMatchGateReport, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkAgeCompatibility, checkIntentHardGate, checkInteractionStyleCompatibility, hasHumorStyleClash, fetchAllCachedPairs, calculateHumorOpennessScore, calculateInteractionSynergyScore, calculateLifestyleCompatibility, calculateConversationInitiativePreferenceScore, getOneYearAgeFlexDecision, getAgeTolerance, buildManualPairGateReport, isCurrentVibeModel, isDurableCurrentBalancedCacheRow, isPendingCurrentAiCacheRow, getParticipantDeltaCacheReason, getDeltaCacheReasonCounts, canAdvanceGlobalCacheMetadata, getCacheMetadataScope, buildPersistedMatchInsightFields, buildPersistedScoreProvenance, computeOppositesBreakdown, formatBalancedScoreReason, processCompatibilityVibeEnrichmentBatch, verifyCompatibilityVibeWorkerRequest }
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -4286,7 +4614,10 @@ export default async function handler(req, res) {
       resumeCursor = null,
       maxPairsPerRequest = null,
       maxNewCachesPerRequest = null,
+      maxAICachesPerRequest = null,
+      maxLocalCachesPerRequest = null,
       maxDurationMs = null,
+      deferAIEnrichment = false,
       finalizeDeltaCacheMetadata = true,
       priorErrors = 0,
       checkpointId = null,
@@ -4324,6 +4655,7 @@ export default async function handler(req, res) {
         .filter(p => isParticipantCacheEligible(p))
         // Sort by assigned_number ascending for deterministic batching across calls
         .sort((a, b) => a.assigned_number - b.assigned_number)
+      prepareCompatibilityParticipants(participants)
 
       const totalParticipants = participants.length
       console.log(`📊 After isParticipantComplete filter: ${totalParticipants} participants`)
@@ -4344,15 +4676,18 @@ export default async function handler(req, res) {
         Math.min(parseInt(maxDurationMs) || 8000, 9000)
       )
 
-      // Bounds to keep the function well under serverless timeout.
-      // If AI is enabled, each cache miss may trigger an OpenAI call.
-      const effectiveMaxNewCaches = Math.max(
-        1,
-        Math.min(
-          parseInt(maxNewCachesPerRequest) || (skipAI ? 25 : 16),
-          skipAI ? 500 : 25
-        )
-      )
+      const legacyNewCacheLimit = parseInt(maxNewCachesPerRequest)
+      // Full cache now has the same independent lanes as delta: deterministic
+      // or reusable-vibe work can fill a 500-row lane without consuming the
+      // separately bounded 12-call fresh-AI lane.
+      const effectiveMaxAICaches = Math.max(1, Math.min(
+        parseInt(maxAICachesPerRequest) || (Number.isFinite(legacyNewCacheLimit) ? legacyNewCacheLimit : 12),
+        12,
+      ))
+      const effectiveMaxLocalCaches = Math.max(1, Math.min(
+        parseInt(maxLocalCachesPerRequest) || (skipAI && Number.isFinite(legacyNewCacheLimit) ? legacyNewCacheLimit : 500),
+        500,
+      ))
 
       // Scanning an already-cached or hard-gated pair is cheap. Keep that
       // ceiling independent from the much smaller new-cache/OpenAI budget so a
@@ -4380,11 +4715,15 @@ export default async function handler(req, res) {
       if (prefetchError) throw prefetchError
 
       const exactCacheMap = new Map()
+      const pendingAiCacheMap = new Map()
       const reusableVibeMap = new Map()
       ;(prefetchedCacheRows || []).forEach(cacheRow => {
         const pairPrefix = `${cacheRow.participant_a_number}-${cacheRow.participant_b_number}`
+        const exactIdentity = `${pairPrefix}-${cacheRow.combined_content_hash}-${cacheRow.vibe_content_hash}`
         if (isDurableCurrentBalancedCacheRow(cacheRow)) {
-          exactCacheMap.set(`${pairPrefix}-${cacheRow.combined_content_hash}-${cacheRow.vibe_content_hash}`, cacheRow)
+          exactCacheMap.set(exactIdentity, cacheRow)
+        } else if (isPendingCurrentAiCacheRow(cacheRow)) {
+          pendingAiCacheMap.set(exactIdentity, cacheRow)
         }
         if (isReusableBalancedVibeRow(cacheRow)) {
           const vibeKey = `${pairPrefix}-${cacheRow.vibe_content_hash}`
@@ -4402,7 +4741,10 @@ export default async function handler(req, res) {
       let pairsScanned = 0
       let cacheJobsStarted = 0
       let aiCallsMade = 0
+      let localCacheJobsStarted = 0
       let reusedVibeCount = 0
+      let queuedAiCount = 0
+      let pendingAiAlreadyQueued = 0
       const failureDetails = []
 
       const isValidCursor = (c) => c && Number.isInteger(c.i) && Number.isInteger(c.j)
@@ -4413,8 +4755,8 @@ export default async function handler(req, res) {
       if (cursorI > endExclusive) cursorI = endExclusive
 
       let nextResumeCursor = null
-      const maxConcurrentCacheJobs = 8
-      let pendingCacheJobs = []
+      const localJobs = []
+      const aiJobs = []
 
       const makeNextCursor = (i, j) => {
         const nextJ = j + 1
@@ -4423,11 +4765,24 @@ export default async function handler(req, res) {
         return { i: nextI, j: nextI + 1 }
       }
 
-      const flushFullCacheJobs = async () => {
-        if (pendingCacheJobs.length === 0) return
-        const jobs = pendingCacheJobs
-        pendingCacheJobs = []
-        const results = await Promise.allSettled(jobs.map(job => job.promise))
+      const executeFullCacheJob = async job => {
+        try {
+          return {
+            job,
+            scores: await calculateFullCompatibilityWithCache(
+              job.p1,
+              job.p2,
+              job.reusedVibe || job.deferredAI ? true : !!skipAI,
+              false,
+              job.calculationOptions,
+            ),
+          }
+        } catch (error) {
+          return { job, error }
+        }
+      }
+
+      const storeCompletedFullWave = async results => {
         const durableJobs = []
 
         const recordFailure = (job, reason) => {
@@ -4441,22 +4796,31 @@ export default async function handler(req, res) {
           }
         }
 
-        results.forEach((result, index) => {
-          const job = jobs[index]
-          if (result.status === 'fulfilled') {
-            const entry = { participantA: job.p1, participantB: job.p2, scores: result.value }
+        results.forEach(result => {
+          const value = result.status === 'fulfilled' ? result.value : null
+          const job = value?.job
+          if (value?.scores) {
+            const entry = { participantA: job.p1, participantB: job.p2, scores: value.scores }
             durableJobs.push({ ...job, entry })
             return
           }
-          recordFailure(job, result.reason?.message || 'Compatibility calculation failed')
+          recordFailure(job || { p1: {}, p2: {} }, result.status === 'rejected'
+            ? (result.reason?.message || 'Compatibility calculation failed')
+            : (value?.error?.message || 'Compatibility calculation failed'))
         })
 
         if (durableJobs.length === 0) return
 
         const storeResult = await storeCachedCompatibilities(
           durableJobs.map(job => job.entry),
-          { chunkSize: maxConcurrentCacheJobs },
+          {
+            chunkSize: 250,
+            queueDeferredAI: true,
+            eventId,
+            matchId: match_id,
+          },
         )
+        queuedAiCount += storeResult.queued || 0
         const failureByEntry = new Map(
           (storeResult.failures || []).map(failure => [failure.entry, failure.reason]),
         )
@@ -4522,15 +4886,21 @@ export default async function handler(req, res) {
               alreadyCached++
               continue
             }
-
-            if (cacheJobsStarted >= effectiveMaxNewCaches) {
-              nextResumeCursor = { i, j }
-              break outerLoop
+            if (pendingAiCacheMap.has(`${smaller}-${larger}-${cacheKey.combinedHash}-${cacheKey.vibeHash}`)) {
+              pendingAiAlreadyQueued++
+              continue
             }
 
             const reusableVibeRow = reusableVibeMap.get(`${smaller}-${larger}-${cacheKey.vibeHash}`)
-            const usesAI = !skipAI && !reusableVibeRow
+            const usesAI = !deferAIEnrichment && !skipAI && !reusableVibeRow
+            const targetJobs = usesAI ? aiJobs : localJobs
+            const targetLimit = usesAI ? effectiveMaxAICaches : effectiveMaxLocalCaches
+            if (targetJobs.length >= targetLimit) {
+              nextResumeCursor = { i, j }
+              break outerLoop
+            }
             const calculationOptions = { skipCacheLookup: true, skipCacheWrite: true }
+            if (deferAIEnrichment && !reusableVibeRow) calculationOptions.deferAIEnrichment = true
             if (reusableVibeRow) {
               calculationOptions.reusedVibeScore = reusableVibeRow.ai_vibe_score
               calculationOptions.reusedVibeSourceMax = getCachedVibeSourceMax(reusableVibeRow, p1, p2)
@@ -4539,26 +4909,18 @@ export default async function handler(req, res) {
               calculationOptions.reusedVibeAxes = getCachedBalancedVibeAxes(reusableVibeRow)
             }
 
-            pendingCacheJobs.push({
+            targetJobs.push({
               p1,
               p2,
               reusedVibe: !!reusableVibeRow,
-              promise: calculateFullCompatibilityWithCache(
-                p1,
-                p2,
-                reusableVibeRow ? true : !!skipAI,
-                false,
-                calculationOptions,
-              ),
+              deferredAI: !!deferAIEnrichment && !reusableVibeRow,
+              calculationOptions,
             })
             cacheJobsStarted++
             if (usesAI) aiCallsMade++
+            else localCacheJobsStarted++
 
-            if (pendingCacheJobs.length >= maxConcurrentCacheJobs) {
-              await flushFullCacheJobs()
-            }
-
-            if (cacheJobsStarted >= effectiveMaxNewCaches || (Date.now() - startTime) >= effectiveMaxDurationMs) {
+            if (targetJobs.length >= targetLimit || (Date.now() - startTime) >= effectiveMaxDurationMs) {
               nextResumeCursor = makeNextCursor(i, j)
               break outerLoop
             }
@@ -4573,7 +4935,22 @@ export default async function handler(req, res) {
         }
       }
 
-      await flushFullCacheJobs()
+      // Large deterministic waves are written in 250-row PostgREST upserts.
+      // Fresh AI retains a separate 12-call lane for explicit foreground use;
+      // normal admin sweeps defer those calls to the durable queue.
+      const progressiveLocalWaveSize = 250
+      for (let start = 0; start < localJobs.length; start += progressiveLocalWaveSize) {
+        const results = await Promise.allSettled(
+          localJobs.slice(start, start + progressiveLocalWaveSize).map(executeFullCacheJob),
+        )
+        await storeCompletedFullWave(results)
+      }
+      for (let start = 0; start < aiJobs.length; start += effectiveMaxAICaches) {
+        const results = await Promise.allSettled(
+          aiJobs.slice(start, start + effectiveMaxAICaches).map(executeFullCacheJob),
+        )
+        await storeCompletedFullWave(results)
+      }
 
       if (nextResumeCursor && nextResumeCursor.i >= endExclusive) {
         nextResumeCursor = null
@@ -4584,7 +4961,7 @@ export default async function handler(req, res) {
       const safePriorErrors = Math.max(0, Number.parseInt(priorErrors) || 0)
       const cumulativeErrors = safePriorErrors + errors
 
-      console.log(`💾 BATCH CACHE [${genderMode}] COMPLETE: scanned=${pairsScanned}, cacheJobs=${cacheJobsStarted}, newly=${newlyCached}, already=${alreadyCached}, skipped=${skipped}, errors=${errors}`)
+      console.log(`💾 BATCH CACHE [${genderMode}] COMPLETE: scanned=${pairsScanned}, localJobs=${localCacheJobsStarted}, aiJobs=${aiCallsMade}, queuedAI=${queuedAiCount}, newly=${newlyCached}, already=${alreadyCached}, skipped=${skipped}, errors=${errors}`)
 
       // IMPORTANT:
       // Batched caching can fully refresh the cache, but without updating cache_metadata
@@ -4603,19 +4980,25 @@ export default async function handler(req, res) {
           if (coverageVerification.missingCount > 0) {
             throw new Error(`Cache coverage is incomplete: ${coverageVerification.missingCount} eligible pair(s) are missing an exact current-model row`)
           }
-          const { error: metadataError } = await supabase.rpc('record_cache_session', {
-            p_event_id: eventId,
-            p_participants_cached: totalParticipants,
-            p_pairs_cached: coverageVerification.eligiblePairs,
-            p_duration_ms: durationMs,
-            p_ai_calls: aiCallsMade,
-            p_cache_hit_rate: pairsScanned > 0 ? parseFloat(((alreadyCached / pairsScanned) * 100).toFixed(2)) : 0,
-            p_notes: `Batched pre-cache (${genderMode}) complete: participants=${totalParticipants}`,
-            p_score_model_version: COMPATIBILITY_SCORE_VERSION,
-          })
-          if (metadataError) throw metadataError
-          metadataUpdated = true
-          console.log(`✅ Batched cache completed: cache_metadata updated (delta cache will be fresh)`)
+          if (coverageVerification.pendingAiCount > 0) {
+            metadataUpdated = false
+            metadataUpdateError = `${coverageVerification.pendingAiCount} pair(s) are safely queued for required AI chemistry enrichment`
+            console.log(`🧠 Batched local pass complete; ${coverageVerification.pendingAiCount} AI enrichment job(s) remain`)
+          } else {
+            const { error: metadataError } = await supabase.rpc('record_cache_session', {
+              p_event_id: eventId,
+              p_participants_cached: totalParticipants,
+              p_pairs_cached: coverageVerification.eligiblePairs,
+              p_duration_ms: durationMs,
+              p_ai_calls: aiCallsMade,
+              p_cache_hit_rate: pairsScanned > 0 ? parseFloat(((alreadyCached / pairsScanned) * 100).toFixed(2)) : 0,
+              p_notes: `Batched pre-cache (${genderMode}) complete: participants=${totalParticipants}`,
+              p_score_model_version: COMPATIBILITY_SCORE_VERSION,
+            })
+            if (metadataError) throw metadataError
+            metadataUpdated = true
+            console.log(`✅ Batched cache completed: cache_metadata updated (delta cache will be fresh)`)
+          }
         } catch (metaError) {
           metadataUpdated = false
           metadataUpdateError = metaError?.message || 'Failed to update cache metadata'
@@ -4644,7 +5027,11 @@ export default async function handler(req, res) {
           failures: failureDetails,
           pairs_processed: pairsScanned,
           cache_jobs_started: cacheJobsStarted,
+          local_cache_jobs_started: localCacheJobsStarted,
+          ai_cache_jobs_started: aiCallsMade,
           ai_calls_made: aiCallsMade,
+          queued_ai_count: queuedAiCount,
+          pending_ai_already_queued: pendingAiAlreadyQueued,
           cache_rows_prefetched: prefetchedCacheRows?.length || 0,
           duration_ms: durationMs,
         },
@@ -4726,12 +5113,15 @@ if (action === "cache-status-by-gender") {
     // PAGINATED — was previously capped at 1000 rows by PostgREST.
     const { data: cachedEntries } = await fetchAllCachedPairs('compatibility_cache', participantNumbers)
     const cachedScoresMap = new Map()
+    const pendingAiScoresMap = new Map()
     ;(cachedEntries || []).forEach(c => {
-      if (!isDurableCurrentBalancedCacheRow(c)) return
-      cachedScoresMap.set(`${c.participant_a_number}-${c.participant_b_number}-${c.combined_content_hash}-${c.vibe_content_hash}`, c)
+      const identity = `${c.participant_a_number}-${c.participant_b_number}-${c.combined_content_hash}-${c.vibe_content_hash}`
+      if (isDurableCurrentBalancedCacheRow(c)) cachedScoresMap.set(identity, c)
+      else if (isPendingCurrentAiCacheRow(c)) pendingAiScoresMap.set(identity, c)
     })
  
     let alreadyCached = 0
+    let pendingAi = 0
     for (let i = 0; i < participants.length; i++) {
       for (let j = i + 1; j < participants.length; j++) {
         const p1 = participants[i]; const p2 = participants[j]
@@ -4743,7 +5133,9 @@ if (action === "cache-status-by-gender") {
  
         const [smaller, larger] = [p1.assigned_number, p2.assigned_number].sort((x, y) => x - y)
         const cacheKey = generateCacheKey(p1, p2)
-        if (cachedScoresMap.has(`${smaller}-${larger}-${cacheKey.combinedHash}-${cacheKey.vibeHash}`)) alreadyCached++
+        const identity = `${smaller}-${larger}-${cacheKey.combinedHash}-${cacheKey.vibeHash}`
+        if (cachedScoresMap.has(identity)) alreadyCached++
+        else if (pendingAiScoresMap.has(identity)) pendingAi++
       }
     }
  
@@ -4756,6 +5148,7 @@ if (action === "cache-status-by-gender") {
       participants_total: participants.length,
       eligible_pairs: eligiblePairs,
       already_cached: alreadyCached,
+      pending_ai: pendingAi,
       to_cache: toCache,
       coverage_percent: eligiblePairs > 0 ? Math.round((alreadyCached / eligiblePairs) * 100) : 100,
     })
@@ -4824,13 +5217,16 @@ if (action === "cache-status-by-gender") {
       if (cachedErr) throw cachedErr
 
       const cachedScoresMap = new Map()
+      const pendingAiScoresMap = new Map()
       ;(cachedEntries || []).forEach(c => {
-        if (!isDurableCurrentBalancedCacheRow(c)) return
-        cachedScoresMap.set(`${c.participant_a_number}-${c.participant_b_number}-${c.combined_content_hash}-${c.vibe_content_hash}`, true)
+        const identity = `${c.participant_a_number}-${c.participant_b_number}-${c.combined_content_hash}-${c.vibe_content_hash}`
+        if (isDurableCurrentBalancedCacheRow(c)) cachedScoresMap.set(identity, true)
+        else if (isPendingCurrentAiCacheRow(c)) pendingAiScoresMap.set(identity, true)
       })
 
       let eligiblePairs = 0
       let alreadyCached = 0
+      let pendingAi = 0
       let skipped = 0
       let pairsProcessed = 0
 
@@ -4866,7 +5262,9 @@ if (action === "cache-status-by-gender") {
 
           const [smaller, larger] = [p1.assigned_number, p2.assigned_number].sort((x, y) => x - y)
           const cacheKey = generateCacheKey(p1, p2)
-          if (cachedScoresMap.has(`${smaller}-${larger}-${cacheKey.combinedHash}-${cacheKey.vibeHash}`)) alreadyCached++
+          const identity = `${smaller}-${larger}-${cacheKey.combinedHash}-${cacheKey.vibeHash}`
+          if (cachedScoresMap.has(identity)) alreadyCached++
+          else if (pendingAiScoresMap.has(identity)) pendingAi++
         }
       }
 
@@ -4888,6 +5286,7 @@ if (action === "cache-status-by-gender") {
         stats: {
           eligible_pairs: eligiblePairs,
           already_cached: alreadyCached,
+          pending_ai: pendingAi,
           skipped,
           pairs_processed: pairsProcessed,
           duration_ms: durationMs,
@@ -5218,6 +5617,7 @@ if (action === "cache-status-by-gender") {
       maxAICachesPerRequest = null,
       maxLocalCachesPerRequest = null,
       maxDurationMs = null,
+      deferAIEnrichment = false,
       finalizeDeltaCacheMetadata = true,
       coverageRepairPairs = null,
       checkpointId = null,
@@ -5256,6 +5656,7 @@ if (action === "cache-status-by-gender") {
       const allEligibleParticipants = (allParticipants || [])
         .filter(p => isParticipantCacheEligible(p))
         .sort((a, b) => a.assigned_number - b.assigned_number)
+      prepareCompatibilityParticipants(allEligibleParticipants)
 
       const totalParticipants = allEligibleParticipants.length
 
@@ -5350,10 +5751,10 @@ if (action === "cache-status-by-gender") {
       // scarce OpenAI budget. Fresh semantic scores get their own bounded lane.
       const effectiveMaxAICaches = Math.max(1, Math.min(
         parseInt(maxAICachesPerRequest) || (Number.isFinite(legacyNewCacheLimit) ? legacyNewCacheLimit : 12),
-        16,
+        12,
       ))
       const effectiveMaxLocalCaches = Math.max(1, Math.min(
-        parseInt(maxLocalCachesPerRequest) || (skipAI && Number.isFinite(legacyNewCacheLimit) ? legacyNewCacheLimit : 160),
+        parseInt(maxLocalCachesPerRequest) || (skipAI && Number.isFinite(legacyNewCacheLimit) ? legacyNewCacheLimit : 500),
         500,
       ))
       const effectivePairWindowSize = Math.min(effectiveMaxPairsScanned, 1000)
@@ -5367,6 +5768,7 @@ if (action === "cache-status-by-gender") {
       let aiCallsMade = 0
       let localCacheJobsStarted = 0
       let reusedVibeCount = 0
+      let queuedAiCount = 0
       const failureDetails = []
 
       let cursorI = isValidCursor(resumeCursor) ? resumeCursor.i : 0
@@ -5446,11 +5848,15 @@ if (action === "cache-status-by-gender") {
       if (prefetchError) throw prefetchError
 
       const exactCacheMap = new Map()
+      const pendingAiCacheMap = new Map()
       const reusableVibeMap = new Map()
       ;(prefetchedCacheRows || []).forEach(cacheRow => {
         const pairPrefix = `${cacheRow.participant_a_number}-${cacheRow.participant_b_number}`
+        const identity = `${pairPrefix}-${cacheRow.combined_content_hash}-${cacheRow.vibe_content_hash}`
         if (isDurableCurrentBalancedCacheRow(cacheRow)) {
-          exactCacheMap.set(`${pairPrefix}-${cacheRow.combined_content_hash}-${cacheRow.vibe_content_hash}`, cacheRow)
+          exactCacheMap.set(identity, cacheRow)
+        } else if (isPendingCurrentAiCacheRow(cacheRow)) {
+          pendingAiCacheMap.set(identity, cacheRow)
         }
         if (isReusableBalancedVibeRow(cacheRow)) {
           const vibeKey = `${pairPrefix}-${cacheRow.vibe_content_hash}`
@@ -5486,9 +5892,14 @@ if (action === "cache-status-by-gender") {
           pairsScanned++
           continue
         }
+        if (pendingAiCacheMap.has(`${smaller}-${larger}-${cacheKey.combinedHash}-${cacheKey.vibeHash}`)) {
+          alreadyCached++
+          pairsScanned++
+          continue
+        }
 
         const reusableVibeRow = reusableVibeMap.get(`${smaller}-${larger}-${cacheKey.vibeHash}`)
-        const usesAI = !skipAI && !reusableVibeRow
+        const usesAI = !deferAIEnrichment && !skipAI && !reusableVibeRow
         const targetJobs = usesAI ? aiJobs : localJobs
         const targetLimit = usesAI ? effectiveMaxAICaches : effectiveMaxLocalCaches
         if (targetJobs.length >= targetLimit) {
@@ -5497,6 +5908,7 @@ if (action === "cache-status-by-gender") {
         }
 
         const calculationOptions = { skipCacheLookup: true, skipCacheWrite: true }
+        if (deferAIEnrichment && !reusableVibeRow) calculationOptions.deferAIEnrichment = true
         if (reusableVibeRow) {
           calculationOptions.reusedVibeScore = reusableVibeRow.ai_vibe_score
           calculationOptions.reusedVibeSourceMax = getCachedVibeSourceMax(reusableVibeRow, p1, p2)
@@ -5504,7 +5916,14 @@ if (action === "cache-status-by-gender") {
           calculationOptions.reusedVibeContentHash = reusableVibeRow.vibe_content_hash
           calculationOptions.reusedVibeAxes = getCachedBalancedVibeAxes(reusableVibeRow)
         }
-        targetJobs.push({ p1, p2, reusedVibe: !!reusableVibeRow, usesAI, calculationOptions })
+        targetJobs.push({
+          p1,
+          p2,
+          reusedVibe: !!reusableVibeRow,
+          deferredAI: !!deferAIEnrichment && !reusableVibeRow,
+          usesAI,
+          calculationOptions,
+        })
         pairsScanned++
         cacheJobsStarted++
       }
@@ -5518,7 +5937,7 @@ if (action === "cache-status-by-gender") {
             scores: await calculateFullCompatibilityWithCache(
               job.p1,
               job.p2,
-              job.reusedVibe ? true : !!skipAI,
+              job.reusedVibe || job.deferredAI ? true : !!skipAI,
               false,
               job.calculationOptions,
             ),
@@ -5531,7 +5950,7 @@ if (action === "cache-status-by-gender") {
       const storeCompletedDeltaWave = async results => {
         const waveCompletedJobs = []
         for (const result of results) {
-          if (result.status === 'fulfilled' && result.value?.scores?.aiVibeCacheable !== false) {
+          if (result.status === 'fulfilled' && result.value?.scores) {
             waveCompletedJobs.push(result.value)
             continue
           }
@@ -5558,8 +5977,14 @@ if (action === "cache-status-by-gender") {
         // Commit every completed wave immediately. Local work is stored first;
         // each AI wave follows independently. If the browser or function dies
         // later, a resumed request sees these exact rows as cache hits.
-        const bulkStore = await storeCachedCompatibilities(cacheEntries, { chunkSize: 100 })
+        const bulkStore = await storeCachedCompatibilities(cacheEntries, {
+          chunkSize: 250,
+          queueDeferredAI: true,
+          eventId,
+          matchId: match_id,
+        })
         newlyCached += bulkStore.stored
+        queuedAiCount += bulkStore.queued || 0
         for (let index = 0; index < waveCompletedJobs.length; index++) {
           const { job, scores } = waveCompletedJobs[index]
           const built = buildCompatibilityCacheRow(job.p1, job.p2, scores)
@@ -5580,10 +6005,10 @@ if (action === "cache-status-by-gender") {
       }
 
       // CPU/reused-vibe work is calculated and committed in progressive
-      // 100-pair waves before any fresh AI call can delay the request.
+      // 250-pair waves before any fresh AI call can delay the request.
       // A function interruption can therefore lose at most the active wave;
       // previously acknowledged waves become exact cache hits on retry.
-      const progressiveLocalWaveSize = 100
+      const progressiveLocalWaveSize = 250
       for (let start = 0; start < localJobs.length; start += progressiveLocalWaveSize) {
         const localWaveResults = await Promise.allSettled(
           localJobs.slice(start, start + progressiveLocalWaveSize).map(executeJob),
@@ -5602,7 +6027,7 @@ if (action === "cache-status-by-gender") {
       let hasMore = !!nextResumeCursor
       const durationMs = Date.now() - startTime
 
-      console.log(`💾 DELTA BATCH CACHE: scanned=${pairsScanned}, localJobs=${localCacheJobsStarted}, aiJobs=${aiCallsMade}, newly=${newlyCached}, already=${alreadyCached}, skipped=${skipped}, errors=${errors}, hasMore=${hasMore}`)
+      console.log(`💾 DELTA BATCH CACHE: scanned=${pairsScanned}, localJobs=${localCacheJobsStarted}, aiJobs=${aiCallsMade}, queuedAI=${queuedAiCount}, newly=${newlyCached}, already=${alreadyCached}, skipped=${skipped}, errors=${errors}, hasMore=${hasMore}`)
 
       // Only update cache_metadata when the entire delta run is complete
       let metadataUpdated = null
@@ -5618,6 +6043,9 @@ if (action === "cache-status-by-gender") {
             hasMore = nextCoverageRepairPairs.length > 0
             metadataUpdated = null
             console.warn(`🩹 Delta coverage verification queued ${nextCoverageRepairPairs.length} targeted repair pair(s)`)
+          } else if (coverageVerification.pendingAiCount > 0) {
+            metadataUpdated = false
+            metadataUpdateError = `${coverageVerification.pendingAiCount} pair(s) are safely queued for required AI chemistry enrichment`
           } else {
             const { error: metadataError } = await supabase.rpc('record_cache_session', {
               p_event_id: eventId,
@@ -5660,6 +6088,7 @@ if (action === "cache-status-by-gender") {
         local_cache_jobs_started: localCacheJobsStarted,
         ai_cache_jobs_started: aiCallsMade,
         ai_calls_made: aiCallsMade,
+        queued_ai_count: queuedAiCount,
         cache_rows_prefetched: prefetchedCacheRows?.length || 0,
         metadata_updated: metadataUpdated,
         metadata_error: metadataUpdateError,
@@ -7784,10 +8213,12 @@ if (action === "cache-status-by-gender") {
             [b.survey_data.answers.core_values_1, b.survey_data.answers.core_values_2, b.survey_data.answers.core_values_3, b.survey_data.answers.core_values_4, b.survey_data.answers.core_values_5].join(',') : 
             null)
         
-        // The final v11 score is mutual and personalized. The old categories
-        // remain as diagnostics so organizers can inspect the questionnaire.
+        // v12 combines the mutual archetype base with the validated AI
+        // chemistry correction. The old categories remain diagnostics.
         const personalized = scoreBreakdown.personalized || compatibilityResult.personalizedCompatibility || {}
-        let reason = `التوافق الشخصي المتبادل: ${Math.round(Number(personalized.totalScore ?? totalScore))}% (${Math.round(Number(personalized.aToB?.score ?? 0))}% →، ${Math.round(Number(personalized.bToA?.score ?? 0))}% ←) — تشخيص الأسئلة: الأرضية المشتركة ${Math.round(scoreBreakdown.semanticCommonGround ?? (vibeScore + currentFocusScore + similarityPreferenceScore))}/18 + إيقاع التفاعل ${Math.round(scoreBreakdown.interactionRhythm ?? synergyScore)}/20 + الدعابة/الانفتاح ${Math.round(scoreBreakdown.humorOpenness ?? humorOpenScore)}/10 + راحة التقارب ${Math.round(scoreBreakdown.attachmentComfort ?? attachmentPaceScore)}/8 + نمط الحياة ${Math.round(scoreBreakdown.lifestyleSustainability ?? lifestyleScore)}/12 + القيم/الحدود ${Math.round(scoreBreakdown.valuesBoundaries ?? 0)}/13 + التواصل/الاختلاف ${Math.round(scoreBreakdown.communicationDisagreement ?? (communicationScore + disagreementScore))}/10 + الهدف ${Math.round(scoreBreakdown.intent ?? intentScore)}/5 + لغة التعبير ${Math.round(scoreBreakdown.language ?? 0)}/4`
+        const chemistryAdjustment = Number(scoreBreakdown.aiChemistryAdjustment ?? compatibilityResult.aiChemistryAdjustment ?? 0)
+        const chemistryScore = scoreBreakdown.aiChemistryScore
+        let reason = `الأساس الشخصي: ${Math.round(Number(personalized.totalScore ?? compatibilityResult.baseCompatibilityScore ?? totalScore))}% (${Math.round(Number(personalized.aToB?.score ?? 0))}% →، ${Math.round(Number(personalized.bToA?.score ?? 0))}% ←) + كيمياء الذكاء الاصطناعي: ${chemistryScore == null ? 'قيد الانتظار' : `${Math.round(Number(chemistryScore) * 100)}%`} (${chemistryAdjustment >= 0 ? '+' : ''}${chemistryAdjustment}) = ${Math.round(totalScore)}% — تشخيص الأسئلة: الأرضية المشتركة ${Math.round(scoreBreakdown.semanticCommonGround ?? (vibeScore + currentFocusScore + similarityPreferenceScore))}/18 + إيقاع التفاعل ${Math.round(scoreBreakdown.interactionRhythm ?? synergyScore)}/20 + الدعابة/الانفتاح ${Math.round(scoreBreakdown.humorOpenness ?? humorOpenScore)}/10 + راحة التقارب ${Math.round(scoreBreakdown.attachmentComfort ?? attachmentPaceScore)}/8 + نمط الحياة ${Math.round(scoreBreakdown.lifestyleSustainability ?? lifestyleScore)}/12 + القيم/الحدود ${Math.round(scoreBreakdown.valuesBoundaries ?? 0)}/13 + التواصل/الاختلاف ${Math.round(scoreBreakdown.communicationDisagreement ?? (communicationScore + disagreementScore))}/10 + الهدف ${Math.round(scoreBreakdown.intent ?? intentScore)}/5 + لغة التعبير ${Math.round(scoreBreakdown.language ?? 0)}/4`
 
         // Append age tolerance indicator if used
         const ageTolerance = getAgeTolerance(a.assigned_number, b.assigned_number)

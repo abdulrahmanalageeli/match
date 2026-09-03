@@ -13,6 +13,7 @@ interface CacheStatus {
   participants_total: number
   eligible_pairs: number
   already_cached: number
+  pending_ai: number
   to_cache: number
   coverage_percent: number
 }
@@ -23,6 +24,7 @@ interface RunStats {
   skipped: number
   errors: number
   pairs_processed: number
+  queued_ai_count?: number
   failures?: Array<{ participant_a_number?: number; participant_b_number?: number; reason?: string }>
 }
 
@@ -35,7 +37,8 @@ interface BatchProgress {
 }
 
 const MAX_BATCH_ATTEMPTS = 5
-const MAX_AI_CACHES_PER_REQUEST = 8
+const MAX_AI_CACHES_PER_REQUEST = 12
+const MAX_LOCAL_CACHES_PER_REQUEST = 500
 const BATCH_REQUEST_TIMEOUT_MS = 45_000
 
 class RetryableBatchError extends Error {}
@@ -61,6 +64,7 @@ const emptyRunStats = (): RunStats => ({
   skipped: 0,
   errors: 0,
   pairs_processed: 0,
+  queued_ai_count: 0,
 })
 
 const fullCacheCheckpointKey = (eventId: number, mode: GenderMode) => `admin-cache-progress:v1:full:${eventId}:${mode}`
@@ -178,6 +182,7 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
       let participantsTotal: number | null = null
       let eligiblePairsTotal = 0
       let alreadyCachedTotal = 0
+      let pendingAiTotal = 0
 
       while (true) {
         const res = await fetch("/api/admin/trigger-match", {
@@ -200,12 +205,13 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
           throw new Error(data?.error || "Failed to fetch status")
         }
 
-        const stats = data.stats as { eligible_pairs: number; already_cached: number }
+        const stats = data.stats as { eligible_pairs: number; already_cached: number; pending_ai?: number }
         const progress = data.progress as BatchProgress
 
         if (participantsTotal == null) participantsTotal = progress.participants_total
         eligiblePairsTotal += stats.eligible_pairs || 0
         alreadyCachedTotal += stats.already_cached || 0
+        pendingAiTotal += stats.pending_ai || 0
 
         resumeCursor = progress.resume_cursor ?? null
 
@@ -232,6 +238,7 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
           participants_total,
           eligible_pairs,
           already_cached,
+          pending_ai: pendingAiTotal,
           to_cache,
           coverage_percent,
         },
@@ -323,7 +330,9 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
                 batchSize,
                 resumeCursor: requestResumeCursor,
                 skipAI: false,
-                maxNewCachesPerRequest: MAX_AI_CACHES_PER_REQUEST,
+                deferAIEnrichment: true,
+                maxAICachesPerRequest: MAX_AI_CACHES_PER_REQUEST,
+                maxLocalCachesPerRequest: MAX_LOCAL_CACHES_PER_REQUEST,
                 maxPairsPerRequest: 20000,
                 priorErrors: cumulativeErrors,
                 checkpointId,
@@ -400,6 +409,7 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
           skipped: runStatsTotals.skipped + stats.skipped,
           errors: runStatsTotals.errors + stats.errors,
           pairs_processed: runStatsTotals.pairs_processed + stats.pairs_processed,
+          queued_ai_count: (runStatsTotals.queued_ai_count || 0) + (stats.queued_ai_count || 0),
         }
 
         setSide(mode, (p) => ({
@@ -438,6 +448,7 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
         lastAcknowledgedProgress = progress
 
         const missingCoverage = Number(data?.coverage_verification?.missingCount) || 0
+        const pendingAiCoverage = Number(data?.coverage_verification?.pendingAiCount) || 0
         if (!progress.has_more && data.metadata_updated === false && missingCoverage > 0 && coverageRepairAttempts < 3) {
           coverageRepairAttempts++
           nextStart = 0
@@ -455,6 +466,15 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
           }))
           await wait(500)
           continue
+        }
+
+        if (!progress.has_more && missingCoverage === 0 && pendingAiCoverage > 0) {
+          clearFullCacheCheckpoint(eventId, mode)
+          setSide(mode, (p) => ({
+            ...p,
+            retryMessage: `Local scoring is complete. ${pendingAiCoverage} pair${pendingAiCoverage === 1 ? " is" : "s are"} queued for required AI chemistry; background workers will finalize them without rescanning completed pairs.`,
+          }))
+          break
         }
 
         if (!progress.has_more && data.metadata_updated === false && missingCoverage === 0 && metadataRetryAttempts < 3) {
@@ -582,7 +602,7 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
             <div>
               <h2 className="text-lg font-bold text-white">Batched Pre-Cache</h2>
               <p className="text-xs text-white/60">
-                Cache only pairs allowed by both participants' gender preferences.
+                Fast v12 cache for mutual preferences; required AI chemistry finalizes in the background.
               </p>
             </div>
           </div>
@@ -614,9 +634,8 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
 
         {/* Footer */}
         <div className="flex-shrink-0 p-3 border-t border-white/10 bg-white/5 text-xs text-white/60">
-          Each batch processes a slice of participants (default 5) and all of their cross-pairs against the
-          rest of the pool. Pairs are deduplicated across batches by index. Click <b>Refresh</b> to re-check
-          coverage after running.
+          Only the global mutual-preference sweep runs. Each request can persist 500 deterministic rows in
+          250-row writes; required AI chemistry is queued separately in durable 12-job background lanes.
         </div>
       </div>
     </div>
@@ -679,6 +698,7 @@ function SideCard({
         <Stat label="Eligible Pairs" value={state.status?.eligible_pairs ?? "—"} />
         <Stat label="Already Cached" value={state.status?.already_cached ?? "—"} tone="ok" />
         <Stat label="To Cache" value={state.status?.to_cache ?? "—"} tone="warn" />
+        <Stat label="Awaiting AI" value={state.status?.pending_ai ?? "—"} tone="warn" />
       </div>
 
       {/* Coverage bar */}
@@ -781,6 +801,7 @@ function SideCard({
           <Stat label="Skipped" value={state.runStats.skipped} small />
           <Stat label="Errors" value={state.runStats.errors} tone={state.runStats.errors > 0 ? "err" : undefined} small />
           <Stat label="Pairs Scanned" value={state.runStats.pairs_processed} small />
+          <Stat label="AI Queued" value={state.runStats.queued_ai_count || 0} small />
           <Stat label="Elapsed" value={formatDuration(elapsed)} small />
         </div>
       )}
@@ -788,7 +809,7 @@ function SideCard({
       {/* Status badges */}
       {state.finished && !state.lastError && (
         <div className="inline-flex items-center gap-1 text-xs text-emerald-300">
-          <CheckCircle2 className="w-3.5 h-3.5" /> Completed
+          <CheckCircle2 className="w-3.5 h-3.5" /> {state.status?.pending_ai ? "Local pass complete; AI pending" : "Completed"}
         </div>
       )}
       {state.lastError && (

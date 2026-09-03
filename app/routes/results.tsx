@@ -93,6 +93,8 @@ interface MatchResult {
   partner_name?: string
   partner_age?: number | null
   partner_phone?: string | null
+  partner_contact_method?: 'phone' | 'message' | null
+  partner_contact_message?: string | null
   partner_event_id?: number | null
   type: string
   reason: string
@@ -1385,7 +1387,7 @@ export default function ResultsPage() {
                           )}
 
                           {/* Partner Contact Info (if mutual match) */}
-                          {match.mutual_match && (match.partner_name || match.partner_phone) && (
+                          {match.mutual_match && (match.partner_name || match.partner_phone || match.partner_contact_message) && (
                             <div className="relative overflow-hidden rounded-2xl border border-emerald-300/25 bg-gradient-to-br from-emerald-400/[0.15] via-cyan-400/[0.08] to-transparent p-4 shadow-[0_20px_50px_-30px_rgba(52,211,153,.8)] sm:p-5">
                               <div className="pointer-events-none absolute -left-8 -top-10 h-28 w-28 rounded-full bg-emerald-300/15 blur-3xl" />
                               <div className="relative mb-3 flex items-center gap-2">
@@ -1412,8 +1414,22 @@ export default function ResultsPage() {
                                 {match.partner_phone && (
                                   <div className="flex items-center gap-2 rounded-xl border border-white/[0.07] bg-slate-950/25 px-3 py-2.5 text-slate-100" dir="ltr">
                                     <Phone className="w-3 h-3" />
-                                    <span>الهاتف: </span>
+                                    <span>رقم الجوال: </span>
                                     <span className="font-bold">{match.partner_phone}</span>
+                                  </div>
+                                )}
+                                {match.partner_contact_method === 'message' && match.partner_contact_message && (
+                                  <div className="flex items-start gap-3 rounded-xl border border-cyan-300/20 bg-cyan-300/[0.08] px-3 py-3 text-slate-100 sm:col-span-3">
+                                    <Mail className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" />
+                                    <div className="min-w-0 text-right">
+                                      <p className="mb-1 text-xs font-bold text-cyan-100">
+                                        وسيلة التواصل التي شاركها {match.partner_name || 'الطرف الآخر'}
+                                      </p>
+                                      <p dir="auto" className="whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-white">
+                                        {match.partner_contact_message}
+                                      </p>
+                                      <p className="mt-1 text-[10px] leading-5 text-cyan-100/60">تم عرض الرسالة كما كتبها الطرف الآخر، من دون مشاركة رقم جواله.</p>
+                                    </div>
                                   </div>
                                 )}
                               </div>

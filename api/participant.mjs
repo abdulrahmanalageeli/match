@@ -32,6 +32,10 @@ import {
   loadEvent3Format,
 } from "../server/event3/event-format.mjs"
 import {
+  buildEvent3MutualContactShare,
+  normalizeEvent3FeedbackPayload,
+} from "../app/lib/event3-contact-sharing.mjs"
+import {
   isPlausibleParticipantPhone,
   normalizeParticipantPhone,
   participantPhoneToE164,
@@ -1139,12 +1143,16 @@ export default async function handler(req, res) {
               const myFb2 = e3Match.phase2_feedback || null
               const myWant2 = myFb2?.wantConnect ?? null
               const partnerWant2 = p2PartnerFb?.wantConnect ?? null
-              const mutual2 = myWant2 === true && partnerWant2 === true
+              const contact2 = buildEvent3MutualContactShare({
+                myFeedback: myFb2,
+                partnerFeedback: p2PartnerFb,
+                partnerPhone: p2Partner?.phone,
+              })
               history.push({
                 with: e3Match.phase2_partner,
                 partner_name: p2Partner?.name || `لاعب رقم ${e3Match.phase2_partner}`,
                 partner_age: p2Partner?.age || null,
-                partner_phone: p2Partner?.phone || null,
+                ...contact2,
                 partner_event_id: evId,
                 type: "choice",
                 reason: isChoiceOnlyHistory ? "أقوى اختيار متبادل في ترتيبكما" : formatParticipantBreakdownReason(p2Breakdown),
@@ -1156,7 +1164,6 @@ export default async function handler(req, res) {
                 score_snapshot: p2Breakdown ? (e3Match.phase2_score_snapshot ?? null) : null,
                 score_provenance_valid: !!p2Breakdown,
                 is_repeat_match: false,
-                mutual_match: mutual2,
                 wants_match: myWant2,
                 partner_wants_match: partnerWant2 ?? null,
                 created_at: null,
@@ -1201,12 +1208,16 @@ export default async function handler(req, res) {
               const myFb3 = e3Match.phase3_feedback || null
               const myWant3 = myFb3?.wantConnect ?? null
               const partnerWant3 = p3PartnerFb?.wantConnect ?? null
-              const mutual3 = myWant3 === true && partnerWant3 === true
+              const contact3 = buildEvent3MutualContactShare({
+                myFeedback: myFb3,
+                partnerFeedback: p3PartnerFb,
+                partnerPhone: p3Partner?.phone,
+              })
               history.push({
                 with: e3Match.phase3_partner,
                 partner_name: p3Partner?.name || `لاعب رقم ${e3Match.phase3_partner}`,
                 partner_age: p3Partner?.age || null,
-                partner_phone: p3Partner?.phone || null,
+                ...contact3,
                 partner_event_id: evId,
                 type: "algorithm",
                 reason: isChoiceOnlyHistory ? "أقوى اختيار متبادل متبقٍ بعد استبعاد شريك اللقاء الأول" : formatParticipantBreakdownReason(p3Breakdown),
@@ -1218,7 +1229,6 @@ export default async function handler(req, res) {
                 score_snapshot: p3Breakdown ? (e3Match.phase3_score_snapshot ?? null) : null,
                 score_provenance_valid: !!p3Breakdown,
                 is_repeat_match: false,
-                mutual_match: mutual3,
                 wants_match: myWant3,
                 partner_wants_match: partnerWant3 ?? null,
                 created_at: null,
@@ -1258,11 +1268,16 @@ export default async function handler(req, res) {
               const myFb4 = e3Match.phase4_feedback || null
               const myWant4 = myFb4?.wantConnect ?? null
               const partnerWant4 = p4PartnerFb?.wantConnect ?? null
+              const contact4 = buildEvent3MutualContactShare({
+                myFeedback: myFb4,
+                partnerFeedback: p4PartnerFb,
+                partnerPhone: p4Partner?.phone,
+              })
               history.push({
                 with: e3Match.phase4_partner,
                 partner_name: p4Partner?.name || `لاعب رقم ${e3Match.phase4_partner}`,
                 partner_age: p4Partner?.age || null,
-                partner_phone: p4Partner?.phone || null,
+                ...contact4,
                 partner_event_id: evId,
                 type: "third_choice",
                 reason: "أقوى اختيار متبادل متبقٍ بعد استبعاد شريكي اللقاءين السابقين",
@@ -1274,7 +1289,6 @@ export default async function handler(req, res) {
                 score_snapshot: null,
                 score_provenance_valid: false,
                 is_repeat_match: false,
-                mutual_match: myWant4 === true && partnerWant4 === true,
                 wants_match: myWant4,
                 partner_wants_match: partnerWant4 ?? null,
                 created_at: null,
@@ -2404,12 +2418,16 @@ export default async function handler(req, res) {
               const partnerFb2 = p2PartnerFb
               const myWant2 = myFb2?.wantConnect ?? null
               const partnerWant2 = partnerFb2?.wantConnect ?? null
-              const mutual2 = myWant2 === true && partnerWant2 === true
+              const contact2 = buildEvent3MutualContactShare({
+                myFeedback: myFb2,
+                partnerFeedback: partnerFb2,
+                partnerPhone: p2Partner?.phone,
+              })
               history.push({
                 with: e3Match.phase2_partner,
                 partner_name: p2Partner?.name || `لاعب رقم ${e3Match.phase2_partner}`,
                 partner_age: p2Partner?.age || null,
-                partner_phone: p2Partner?.phone || null,
+                ...contact2,
                 partner_event_id: evId,
                 type: "choice",
                 reason: isChoiceOnlyHistory ? "أقوى اختيار متبادل في ترتيبكما" : formatParticipantBreakdownReason(p2Breakdown),
@@ -2421,7 +2439,6 @@ export default async function handler(req, res) {
                 score_snapshot: p2Breakdown ? (e3Match.phase2_score_snapshot ?? null) : null,
                 score_provenance_valid: !!p2Breakdown,
                 is_repeat_match: false,
-                mutual_match: mutual2,
                 wants_match: myWant2,
                 partner_wants_match: partnerWant2 ?? null,
                 created_at: null,
@@ -2480,12 +2497,16 @@ export default async function handler(req, res) {
               const partnerFb3 = p3PartnerFb
               const myWant3 = myFb3?.wantConnect ?? null
               const partnerWant3 = partnerFb3?.wantConnect ?? null
-              const mutual3 = myWant3 === true && partnerWant3 === true
+              const contact3 = buildEvent3MutualContactShare({
+                myFeedback: myFb3,
+                partnerFeedback: partnerFb3,
+                partnerPhone: p3Partner?.phone,
+              })
               history.push({
                 with: e3Match.phase3_partner,
                 partner_name: p3Partner?.name || `لاعب رقم ${e3Match.phase3_partner}`,
                 partner_age: p3Partner?.age || null,
-                partner_phone: p3Partner?.phone || null,
+                ...contact3,
                 partner_event_id: evId,
                 type: "algorithm",
                 reason: isChoiceOnlyHistory ? "أقوى اختيار متبادل متبقٍ بعد استبعاد شريك اللقاء الأول" : formatParticipantBreakdownReason(p3Breakdown),
@@ -2497,7 +2518,6 @@ export default async function handler(req, res) {
                 score_snapshot: p3Breakdown ? (e3Match.phase3_score_snapshot ?? null) : null,
                 score_provenance_valid: !!p3Breakdown,
                 is_repeat_match: false,
-                mutual_match: mutual3,
                 wants_match: myWant3,
                 partner_wants_match: partnerWant3 ?? null,
                 created_at: null,
@@ -2550,11 +2570,16 @@ export default async function handler(req, res) {
               const partnerFb4 = p4PartnerFb
               const myWant4 = myFb4?.wantConnect ?? null
               const partnerWant4 = partnerFb4?.wantConnect ?? null
+              const contact4 = buildEvent3MutualContactShare({
+                myFeedback: myFb4,
+                partnerFeedback: partnerFb4,
+                partnerPhone: p4Partner?.phone,
+              })
               history.push({
                 with: e3Match.phase4_partner,
                 partner_name: p4Partner?.name || `لاعب رقم ${e3Match.phase4_partner}`,
                 partner_age: p4Partner?.age || null,
-                partner_phone: p4Partner?.phone || null,
+                ...contact4,
                 partner_event_id: evId,
                 type: "third_choice",
                 reason: "أقوى اختيار متبادل متبقٍ بعد استبعاد شريكي اللقاءين السابقين",
@@ -2566,7 +2591,6 @@ export default async function handler(req, res) {
                 score_snapshot: null,
                 score_provenance_valid: false,
                 is_repeat_match: false,
-                mutual_match: myWant4 === true && partnerWant4 === true,
                 wants_match: myWant4,
                 partner_wants_match: partnerWant4 ?? null,
                 created_at: null,
@@ -4569,7 +4593,9 @@ Please respond in JSON format:
 
       // e3-submit-phase2-feedback (first-write-wins)
       if (action === "e3-submit-phase2-feedback") {
-        const fb = req.body.feedback || {}
+        const normalizedFeedback = normalizeEvent3FeedbackPayload(req.body.feedback)
+        if (normalizedFeedback.error) return res.status(400).json({ error: normalizedFeedback.error })
+        const fb = normalizedFeedback.value
         const { data: currentMatch, error: matchError } = await supabase.from("event3_matches")
           .select("phase2_partner,phase2_feedback").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId)
           .eq("participant_number", myNumber).maybeSingle()
@@ -4589,7 +4615,9 @@ Please respond in JSON format:
       }
       // e3-submit-phase3-feedback (first-write-wins)
       if (action === "e3-submit-phase3-feedback") {
-        const fb = req.body.feedback || {}
+        const normalizedFeedback = normalizeEvent3FeedbackPayload(req.body.feedback)
+        if (normalizedFeedback.error) return res.status(400).json({ error: normalizedFeedback.error })
+        const fb = normalizedFeedback.value
         const { data: currentMatch, error: matchError } = await supabase.from("event3_matches")
           .select("phase3_partner,phase3_feedback").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId)
           .eq("participant_number", myNumber).maybeSingle()
@@ -4612,7 +4640,9 @@ Please respond in JSON format:
 
       if (action === "e3-submit-phase4-feedback") {
         if (!isChoiceOnlyEvent3(eventFormat)) return res.status(404).json({ error: "This edition has no third choice match" })
-        const fb = req.body.feedback || {}
+        const normalizedFeedback = normalizeEvent3FeedbackPayload(req.body.feedback)
+        if (normalizedFeedback.error) return res.status(400).json({ error: normalizedFeedback.error })
+        const fb = normalizedFeedback.value
         const { data: currentMatch, error: matchError } = await supabase.from("event3_matches")
           .select("phase4_partner").eq("match_id", E3_MATCH_ID).eq("event_id", currentEventId)
           .eq("participant_number", myNumber).maybeSingle()

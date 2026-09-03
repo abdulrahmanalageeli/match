@@ -27,6 +27,7 @@ import {
   currentBalancedGroupedDimensionsForDisplay,
 } from "~/lib/compatibility-model"
 import { clearParticipantBrowserIdentity, getParticipantBrowserToken } from "~/lib/participant-browser-auth.mjs"
+import { EVENT3_CONTACT_MESSAGE_MAX_LENGTH } from "~/lib/event3-contact-sharing.mjs"
 
 // Create a shareable portrait card without relying on DOM screenshot libraries.
 // Drawing it directly keeps Arabic text sharp and makes saving reliable on mobile.
@@ -4113,7 +4114,10 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
   const stepTransitionTimerRef = useRef<number | null>(null)
   const [fb, setFb] = useState({
     conversationQuality: 0, personalConnection: 0,
-    wantConnect: null as boolean | null, organizerImpression: '',
+    wantConnect: null as boolean | null,
+    contactMethod: null as 'phone' | 'message' | null,
+    contactMessage: '',
+    organizerImpression: '',
     compatibilityRate: 50, sliderMoved: false, sharedInterests: 3, comfortLevel: 3,
     communicationStyle: 3, wouldMeetAgain: 3, overallExperience: 3, recommendations: '', participantMessage: ''
   })
@@ -4144,7 +4148,12 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
   const goBack = () => { moveStep(-1) }
   const handleSubmit = async () => {
     if (!fb.sliderMoved) { toast.error('رجاءً خمّن درجة التوافق في الخطوة 1'); return }
-    if (fb.wantConnect === null) { toast.error('رجوع للخطوة 4 واختر رد'); return }
+    if (fb.wantConnect === null) { toast.error('اختر ما إذا كنت تريد التواصل لاحقاً'); return }
+    if (fb.wantConnect && !fb.contactMethod) { toast.error('اختر طريقة مشاركة معلومات التواصل'); return }
+    if (fb.wantConnect && fb.contactMethod === 'message' && !fb.contactMessage.trim()) {
+      toast.error('اكتب وسيلة التواصل التي تريد مشاركتها')
+      return
+    }
     setSubmitting(true)
     const ok = await onSubmit({ ...fb, word })
     setSubmitting(false)
@@ -4380,11 +4389,78 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
                   className={`min-h-24 rounded-2xl border text-base font-black transition-all ${fb.wantConnect === true ? "border-emerald-400/55 bg-emerald-400/15 text-emerald-200 ring-2 ring-emerald-400/20" : "border-white/[0.08] bg-white/[0.035] text-gray-300"}`}>
                   <CheckCircle size={24} className="mx-auto mb-2" />نعم
                 </button>
-                <button type="button" role="radio" aria-checked={fb.wantConnect === false} onClick={() => setFb(p => ({ ...p, wantConnect: false }))}
+                <button type="button" role="radio" aria-checked={fb.wantConnect === false} onClick={() => setFb(p => ({ ...p, wantConnect: false, contactMethod: null, contactMessage: '' }))}
                   className={`min-h-24 rounded-2xl border text-base font-black transition-all ${fb.wantConnect === false ? "border-slate-300/35 bg-slate-300/10 text-slate-100 ring-2 ring-slate-300/15" : "border-white/[0.08] bg-white/[0.035] text-gray-300"}`}>
                   <X size={24} className="mx-auto mb-2" />لا
                 </button>
               </div>
+              <AnimatePresence initial={false}>
+                {fb.wantConnect === true && (
+                  <motion.div
+                    key="contact-sharing-method"
+                    initial={{ opacity: 0, height: 0, y: -8 }}
+                    animate={{ opacity: 1, height: 'auto', y: 0 }}
+                    exit={{ opacity: 0, height: 0, y: -8 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="space-y-3 rounded-2xl border border-cyan-400/20 bg-cyan-400/[0.06] p-3.5 text-right">
+                      <div>
+                        <p className="text-sm font-black text-cyan-100">كيف تريد أن يتواصل معك؟</p>
+                        <p className="mt-1 text-xs leading-5 text-cyan-100/60">لن نشارك إلا الخيار الذي تحدده، وفقط عند الموافقة المتبادلة.</p>
+                      </div>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" role="radiogroup" aria-label="طريقة مشاركة معلومات التواصل">
+                        <button
+                          type="button"
+                          role="radio"
+                          aria-checked={fb.contactMethod === 'phone'}
+                          onClick={() => setFb(p => ({ ...p, contactMethod: 'phone', contactMessage: '' }))}
+                          className={`flex min-h-14 items-center gap-3 rounded-xl border px-3 text-right transition ${fb.contactMethod === 'phone' ? 'border-emerald-400/50 bg-emerald-400/15 text-emerald-100 ring-1 ring-emerald-400/20' : 'border-white/[0.08] bg-white/[0.035] text-gray-300'}`}
+                        >
+                          <Smartphone size={19} className="shrink-0" />
+                          <span>
+                            <span className="block text-sm font-black">مشاركة رقم جوالي</span>
+                            <span className="block text-[10px] font-medium opacity-65">يظهر رقمك المسجل للطرف الآخر</span>
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          role="radio"
+                          aria-checked={fb.contactMethod === 'message'}
+                          onClick={() => setFb(p => ({ ...p, contactMethod: 'message' }))}
+                          className={`flex min-h-14 items-center gap-3 rounded-xl border px-3 text-right transition ${fb.contactMethod === 'message' ? 'border-cyan-400/50 bg-cyan-400/15 text-cyan-100 ring-1 ring-cyan-400/20' : 'border-white/[0.08] bg-white/[0.035] text-gray-300'}`}
+                        >
+                          <MessageSquare size={19} className="shrink-0" />
+                          <span>
+                            <span className="block text-sm font-black">مشاركة وسيلة أخرى</span>
+                            <span className="block text-[10px] font-medium opacity-65">بدون إظهار رقم جوالك</span>
+                          </span>
+                        </button>
+                      </div>
+                      <AnimatePresence initial={false}>
+                        {fb.contactMethod === 'message' && (
+                          <motion.div key="custom-contact-message" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}>
+                            <label htmlFor="event3-contact-message" className="mb-1.5 block text-xs font-bold text-cyan-100">اكتب وسيلة التواصل كما تريد أن تظهر</label>
+                            <textarea
+                              id="event3-contact-message"
+                              value={fb.contactMessage}
+                              onChange={event => setFb(p => ({ ...p, contactMessage: event.target.value }))}
+                              placeholder="مثال: Instagram: @username أو Telegram: @username"
+                              rows={3}
+                              maxLength={EVENT3_CONTACT_MESSAGE_MAX_LENGTH}
+                              dir="auto"
+                              className="w-full resize-none rounded-xl border border-cyan-300/20 bg-slate-950/45 px-3 py-3 text-base text-white outline-none placeholder:text-gray-600 focus:border-cyan-300/45 focus:ring-2 focus:ring-cyan-400/10 sm:text-sm"
+                            />
+                            <div className="mt-1.5 flex items-start justify-between gap-3 text-[10px] leading-5 text-cyan-100/55">
+                              <p>ستظهر هذه الرسالة للطرف الآخر كما كتبتها، ولن يظهر رقم جوالك.</p>
+                              <span className="shrink-0 tabular-nums">{Array.from(fb.contactMessage).length}/{EVENT3_CONTACT_MESSAGE_MAX_LENGTH}</span>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
               <details className="group rounded-2xl border border-white/[0.07] bg-white/[0.025] text-right">
                 <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 text-xs font-bold text-gray-400">
                   إضافة ملاحظة خاصة للمنظم — اختياري
@@ -4394,7 +4470,7 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
                   <textarea value={fb.organizerImpression} onChange={e => setFb(p => ({ ...p, organizerImpression: e.target.value }))} placeholder="مثلاً: شعرت بالراحة، أو احتجت وقتاً أطول..." rows={3} maxLength={300} aria-label="ملاحظة اختيارية للمنظم" className="w-full resize-none rounded-xl border border-white/[0.09] bg-white/[0.04] px-3 py-3 text-base text-white outline-none placeholder:text-gray-600 sm:text-sm" />
                 </div>
               </details>
-              <motion.button type="button" onClick={handleSubmit} disabled={submitting || fb.wantConnect === null} aria-busy={submitting} whileTap={{ scale: 0.97 }} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-500 via-violet-500 to-purple-600 px-4 text-base font-black text-white shadow-xl shadow-purple-950/30 transition disabled:opacity-30">
+              <motion.button type="button" onClick={handleSubmit} disabled={submitting || fb.wantConnect === null || (fb.wantConnect === true && (!fb.contactMethod || (fb.contactMethod === 'message' && !fb.contactMessage.trim())))} aria-busy={submitting} whileTap={{ scale: 0.97 }} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-500 via-violet-500 to-purple-600 px-4 text-base font-black text-white shadow-xl shadow-purple-950/30 transition disabled:opacity-30">
                 {submitting ? <><Spinner size={17} />جاري الإرسال...</> : <><Send size={17} />إرسال التقييم</>}
               </motion.button>
             </motion.div>

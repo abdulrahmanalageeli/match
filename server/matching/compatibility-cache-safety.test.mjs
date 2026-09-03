@@ -127,6 +127,8 @@ test('required AI chemistry uses a protected durable queue with atomic 12-job cl
   assert.match(migration, /grant execute[^;]+claim_compatibility_vibe_enrichment_jobs[^;]+to service_role/i)
   assert.match(schedulerMigration, /create extension if not exists pg_net/i)
   assert.match(schedulerMigration, /extensions\.hmac/i)
+  assert.match(schedulerMigration, /floor\(extract\(epoch from now\(\)\)\)/i)
+  assert.doesNotMatch(schedulerMigration, /pg_catalog\.extract/i)
   assert.match(schedulerMigration, /compatibility_vibe_worker_nonces/i)
   assert.match(schedulerMigration, /interval '2 minutes'/i)
   assert.match(schedulerMigration, /on conflict \(nonce\) do nothing/i)

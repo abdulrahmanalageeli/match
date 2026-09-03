@@ -61,12 +61,13 @@ begin
     return false;
   end if;
 
-  select secret.decrypted_secret
-  into signing_key
-  from vault.decrypted_secrets as secret
-  where secret.name = 'compatibility_vibe_worker_signing_key'
-  order by secret.created_at desc
-  limit 1;
+  signing_key := (
+    select secret.decrypted_secret
+    from vault.decrypted_secrets as secret
+    where secret.name = 'compatibility_vibe_worker_signing_key'
+    order by secret.created_at desc
+    limit 1
+  );
   if signing_key is null then return false; end if;
 
   expected_signature := pg_catalog.encode(
@@ -106,17 +107,18 @@ declare
   request_signature text;
   request_id bigint;
 begin
-  select secret.decrypted_secret
-  into signing_key
-  from vault.decrypted_secrets as secret
-  where secret.name = 'compatibility_vibe_worker_signing_key'
-  order by secret.created_at desc
-  limit 1;
+  signing_key := (
+    select secret.decrypted_secret
+    from vault.decrypted_secrets as secret
+    where secret.name = 'compatibility_vibe_worker_signing_key'
+    order by secret.created_at desc
+    limit 1
+  );
   if signing_key is null then
     raise exception 'Compatibility vibe worker signing key is missing';
   end if;
 
-  request_timestamp := pg_catalog.floor(pg_catalog.extract(epoch from now()))::bigint;
+  request_timestamp := pg_catalog.floor(extract(epoch from now()))::bigint;
   request_nonce := extensions.gen_random_uuid();
   request_signature := pg_catalog.encode(
     extensions.hmac(request_timestamp::text || '.' || request_nonce::text, signing_key, 'sha256'),

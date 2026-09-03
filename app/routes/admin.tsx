@@ -6327,10 +6327,7 @@ Proceed?`
                                   <UserRound className="h-3.5 w-3.5 text-cyan-300" />
                                 </div>
                                 <div className="min-w-0">
-                                  <div className="flex min-w-0 items-baseline gap-1.5">
-                                    <span className="shrink-0 text-sm font-bold text-cyan-100">#{participant.assigned_number}</span>
-                                    <span className="truncate text-xs text-slate-300">{participant.name}</span>
-                                  </div>
+                                  <p className="truncate text-sm font-semibold text-cyan-100">{participant.name}</p>
                                   <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
                                     {(participant.activity_reasons || [participant.delta_reason]).includes('survey_updated') && (
                                       <span className="rounded-md border border-violet-400/25 bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-200">

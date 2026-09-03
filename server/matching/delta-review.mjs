@@ -67,6 +67,31 @@ export function getDeltaReviewReasonCounts(items) {
   }, { survey_changes: 0, new_enrollments: 0 })
 }
 
+function getSubmittedParticipantName(participant, surveyData) {
+  const assignedNumber = String(participant?.assigned_number ?? '').trim()
+  const candidates = [
+    participant?.name,
+    surveyData?.name,
+    surveyData?.answers?.name,
+  ]
+
+  for (const value of candidates) {
+    if (typeof value !== 'string') continue
+    const name = value.trim()
+    if (!name) continue
+
+    // Registration-only rows sometimes use the assigned number as a temporary
+    // name. They are not submitted profiles and should never enter Delta.
+    const numberOnlyName = name.replace(/^#\s*/, '')
+    if (/^\d+$/.test(numberOnlyName)) continue
+    if (assignedNumber && numberOnlyName === assignedNumber) continue
+
+    return name
+  }
+
+  return null
+}
+
 export function buildDeltaReviewParticipants(reviewRows, participantRows, eventId) {
   const participantsById = new Map(
     (participantRows || []).map(participant => [participant.id, participant]),
@@ -86,6 +111,13 @@ export function buildDeltaReviewParticipants(reviewRows, participantRows, eventI
         }
       }
 
+      const hasSubmittedSurvey = surveyData
+        && typeof surveyData === 'object'
+        && !Array.isArray(surveyData)
+        && Object.keys(surveyData).length > 0
+      const submittedName = getSubmittedParticipantName(participant, surveyData)
+      if (!hasSubmittedSurvey || !submittedName) return null
+
       const currentEvent = Number(participant.event_id) === Number(eventId)
       const signedUp = participant.signup_for_next_event === true || participant.auto_signup_next_event === true
       const activityReasons = [
@@ -95,7 +127,7 @@ export function buildDeltaReviewParticipants(reviewRows, participantRows, eventI
 
       return {
         assigned_number: participant.assigned_number,
-        name: participant.name || surveyData.name || surveyData.answers?.name || `#${participant.assigned_number}`,
+        name: submittedName,
         survey_data_updated_at: participant.survey_data_updated_at,
         next_event_signup_timestamp: participant.next_event_signup_timestamp,
         event_enrolled_at: participant.event_enrolled_at,

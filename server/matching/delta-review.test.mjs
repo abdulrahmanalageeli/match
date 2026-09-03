@@ -80,6 +80,7 @@ test('review rows join to participants without relying on a PostgREST relationsh
       id: 'participant-1',
       assigned_number: 101,
       name: 'Current',
+      survey_data: { answers: { name: 'Current' } },
       event_id: 3,
     },
     {
@@ -99,5 +100,26 @@ test('review rows join to participants without relying on a PostgREST relationsh
   })), [
     { number: 202, name: 'Signed up', reason: 'survey_updated', eligibility: 'Signed Up' },
     { number: 101, name: 'Current', reason: 'newly_enrolled', eligibility: 'Current Event' },
+  ])
+})
+
+test('review excludes registration-only rows and number placeholders', () => {
+  const reviewRows = [
+    { participant_id: 'empty-survey', activity_at: '2026-09-03T12:00:00.000Z', newly_enrolled: true },
+    { participant_id: 'number-name', activity_at: '2026-09-03T11:00:00.000Z', newly_enrolled: true },
+    { participant_id: 'hash-number-name', activity_at: '2026-09-03T10:00:00.000Z', newly_enrolled: true },
+    { participant_id: 'submitted', activity_at: '2026-09-03T09:00:00.000Z', survey_updated: true },
+  ]
+  const participants = [
+    { id: 'empty-survey', assigned_number: 1871, name: 'Signup only', survey_data: null },
+    { id: 'number-name', assigned_number: 1872, name: '1872', survey_data: { answers: { age: 25 } } },
+    { id: 'hash-number-name', assigned_number: 1873, name: '#1873', survey_data: { answers: { age: 26 } } },
+    { id: 'submitted', assigned_number: 1874, survey_data: { answers: { name: 'Real Name' } } },
+  ]
+
+  const rows = buildDeltaReviewParticipants(reviewRows, participants, 3)
+
+  assert.deepEqual(rows.map(item => ({ number: item.assigned_number, name: item.name })), [
+    { number: 1874, name: 'Real Name' },
   ])
 })

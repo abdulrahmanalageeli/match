@@ -131,6 +131,8 @@ test('feedback-evidence model migration advances database provenance guards with
 
 test('personalized model activation advances cache provenance without rewriting historical rows', async () => {
   const sql = await read('supabase/migrations/20260903090000_activate_event26_personalized_matching_model.sql')
+  const followUpSql = await read('supabase/migrations/20260903100000_complete_event26_personalized_model_provenance.sql')
+  assert.match(sql, /2026-08-25-v7-balanced-100/)
   assert.match(sql, /2026-09-02-v9-feedback-evidence-100/)
   assert.match(sql, /2026-09-03-v11-event26-archetype-personalized-100/)
   assert.match(sql, /v11_personalized_score_valid/)
@@ -145,6 +147,36 @@ test('personalized model activation advances cache provenance without rewriting 
   assert.match(sql, /alter view public\.v_cache_freshness set \(security_invoker = true\)/)
   assert.match(sql, /revoke all on table public\.v_cache_freshness from public, anon, authenticated/)
   assert.doesNotMatch(sql, /update\s+(?:public\.)?(?:compatibility_cache|match_results|event3_matches)/i)
+  assert.match(followUpSql, /2026-08-25-v7-balanced-100/)
+  assert.match(followUpSql, /2026-09-03-v11-event26-archetype-personalized-100/)
+  assert.match(followUpSql, /Cache freshness view did not advance to v11/)
+  assert.doesNotMatch(followUpSql, /update\s+(?:public\.)?(?:compatibility_cache|match_results|event3_matches)/i)
+})
+
+test('personalized provenance follow-up upgrades legacy v7 routines and freshness idempotently', async t => {
+  const db = new PGlite()
+  t.after(() => db.close())
+  await db.exec(`
+    create role anon;
+    create role authenticated;
+    create role service_role;
+    create function public.current_score_model()
+      returns text
+      language sql
+      immutable
+      as $$ select '2026-08-25-v7-balanced-100'::text $$;
+    create view public.v_cache_freshness with (security_invoker = true) as
+      select '2026-08-25-v7-balanced-100'::text as score_model_version;
+  `)
+
+  const sql = await read('supabase/migrations/20260903100000_complete_event26_personalized_model_provenance.sql')
+  await db.exec(sql)
+  await db.exec(sql)
+
+  const routine = await db.query('select public.current_score_model() as score_model_version')
+  const freshness = await db.query('select score_model_version from public.v_cache_freshness')
+  assert.equal(routine.rows[0].score_model_version, '2026-09-03-v11-event26-archetype-personalized-100')
+  assert.equal(freshness.rows[0].score_model_version, '2026-09-03-v11-event26-archetype-personalized-100')
 })
 
 test('personalized model migration executes and advances routines and cache freshness', async t => {
@@ -158,6 +190,14 @@ test('personalized model migration executes and advances routines and cache fres
       score_model_version text,
       score_breakdown jsonb,
       total_compatibility_score numeric
+    );
+    create table public.event3_matches (
+      phase2_score numeric,
+      phase2_score_model_version text,
+      phase2_score_snapshot jsonb,
+      phase3_score numeric,
+      phase3_score_model_version text,
+      phase3_score_snapshot jsonb
     );
     create function public.current_score_model()
       returns text
@@ -180,6 +220,18 @@ test('personalized model migration executes and advances routines and cache fres
   assert.equal(routine.rows[0].score_model_version, '2026-09-03-v11-event26-archetype-personalized-100')
   assert.equal(freshness.rows[0].score_model_version, '2026-09-03-v11-event26-archetype-personalized-100')
   assert.deepEqual(options.rows[0].reloptions, ['security_invoker=true'])
+
+  const event3Constraints = await db.query(`
+    select conname
+    from pg_catalog.pg_constraint
+    where conrelid = 'public.event3_matches'::regclass
+      and conname like 'event3_matches_phase%_v11_personalized_consistent'
+    order by conname
+  `)
+  assert.deepEqual(event3Constraints.rows.map(row => row.conname), [
+    'event3_matches_phase2_v11_personalized_consistent',
+    'event3_matches_phase3_v11_personalized_consistent',
+  ])
 
   const validPersonalized = {
     scoreModelVersion: '2026-09-03-v11-event26-archetype-personalized-100',

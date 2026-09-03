@@ -75,13 +75,39 @@ alter table if exists public.event3_matches
   check (
     phase3_score_model_version is distinct from '2026-09-03-v11-event26-archetype-personalized-100'
     or public.v11_personalized_score_valid(phase3_score_snapshot -> 'scoreBreakdown' -> 'personalized', phase3_score)
-  ) not valid,
-  drop constraint if exists event3_matches_phase4_v11_personalized_consistent,
-  add constraint event3_matches_phase4_v11_personalized_consistent
-  check (
-    phase4_score_model_version is distinct from '2026-09-03-v11-event26-archetype-personalized-100'
-    or public.v11_personalized_score_valid(phase4_score_snapshot -> 'scoreBreakdown' -> 'personalized', phase4_score)
   ) not valid;
+
+-- Phase 4 provenance is optional and has not been deployed to every database.
+-- Add its guard only when all three phase-4 columns are present.
+do $phase4$
+begin
+  if pg_catalog.to_regclass('public.event3_matches') is not null
+    and exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public' and table_name = 'event3_matches'
+        and column_name = 'phase4_score_model_version'
+    )
+    and exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public' and table_name = 'event3_matches'
+        and column_name = 'phase4_score_snapshot'
+    )
+    and exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public' and table_name = 'event3_matches'
+        and column_name = 'phase4_score'
+    )
+  then
+    alter table public.event3_matches
+      drop constraint if exists event3_matches_phase4_v11_personalized_consistent,
+      add constraint event3_matches_phase4_v11_personalized_consistent
+      check (
+        phase4_score_model_version is distinct from '2026-09-03-v11-event26-archetype-personalized-100'
+        or public.v11_personalized_score_valid(phase4_score_snapshot -> 'scoreBreakdown' -> 'personalized', phase4_score)
+      ) not valid;
+  end if;
+end
+$phase4$;
 
 alter table if exists public.event3_test_match_results
   drop constraint if exists event3_test_match_results_v11_personalized_consistent,
@@ -103,12 +129,18 @@ begin
     where namespace.nspname = 'public'
       and procedure.prokind in ('f', 'p')
       and (
-        pg_catalog.pg_get_functiondef(procedure.oid) like '%2026-09-02-v9-feedback-evidence-100%'
+        pg_catalog.pg_get_functiondef(procedure.oid) like '%2026-08-25-v7-balanced-100%'
+        or pg_catalog.pg_get_functiondef(procedure.oid) like '%2026-09-02-v9-feedback-evidence-100%'
         or pg_catalog.pg_get_functiondef(procedure.oid) like '%2026-09-03-v10-v7-restored-100%'
       )
   loop
     definition := pg_catalog.replace(
       pg_catalog.pg_get_functiondef(routine.oid),
+      '2026-08-25-v7-balanced-100',
+      '2026-09-03-v11-event26-archetype-personalized-100'
+    );
+    definition := pg_catalog.replace(
+      definition,
       '2026-09-02-v9-feedback-evidence-100',
       '2026-09-03-v11-event26-archetype-personalized-100'
     );
@@ -123,6 +155,11 @@ begin
   if pg_catalog.to_regclass('public.v_cache_freshness') is not null then
     definition := pg_catalog.replace(
       pg_catalog.pg_get_viewdef('public.v_cache_freshness'::pg_catalog.regclass, true),
+      '2026-08-25-v7-balanced-100',
+      '2026-09-03-v11-event26-archetype-personalized-100'
+    );
+    definition := pg_catalog.replace(
+      definition,
       '2026-09-02-v9-feedback-evidence-100',
       '2026-09-03-v11-event26-archetype-personalized-100'
     );
@@ -144,7 +181,8 @@ begin
     where namespace.nspname = 'public'
       and procedure.prokind in ('f', 'p')
       and (
-        pg_catalog.pg_get_functiondef(procedure.oid) like '%2026-09-02-v9-feedback-evidence-100%'
+        pg_catalog.pg_get_functiondef(procedure.oid) like '%2026-08-25-v7-balanced-100%'
+        or pg_catalog.pg_get_functiondef(procedure.oid) like '%2026-09-02-v9-feedback-evidence-100%'
         or pg_catalog.pg_get_functiondef(procedure.oid) like '%2026-09-03-v10-v7-restored-100%'
       )
   ) then

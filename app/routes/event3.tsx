@@ -3353,6 +3353,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
     submittedRef.current = true
     setSubmitted(true)
     onRankingResolved(completedRounds)
+    onOpenGroupFeedback(completedRounds as Event3GroupRound)
     toast.success(isFinalRanking ? "تم حفظ تصنيفك النهائي!" : "تم حفظ تصنيفك!")
   }
 

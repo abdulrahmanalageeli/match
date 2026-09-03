@@ -102,14 +102,30 @@ export default async function handler(req, res) {
 
     // Preferred age min/max normalization (numbers 18..65)
     if (field === 'preferred_age_min' || field === 'preferred_age_max') {
-      const intVal = parseInt(value, 10)
-      if (!Number.isFinite(intVal)) {
-        return res.status(400).json({ error: `${field} must be a number` })
+      if (value === '' || value == null) {
+        normalizedValue = null
+      } else {
+        const intVal = parseInt(value, 10)
+        if (!Number.isFinite(intVal)) {
+          return res.status(400).json({ error: `${field} must be a number` })
+        }
+        if (intVal < 18 || intVal > 65) {
+          return res.status(400).json({ error: `${field} must be between 18 and 65` })
+        }
+        normalizedValue = intVal
       }
-      if (intVal < 18 || intVal > 65) {
-        return res.status(400).json({ error: `${field} must be between 18 and 65` })
+    }
+
+    const profileDataChoices = {
+      expression_language: ['1', '2', '3', '4', '5'],
+      minimum_partner_religious_commitment: ['1', '2', '3', '4'],
+      social_relationship_style: ['1', '2', '3', '4'],
+    }
+    if (profileDataChoices[field]) {
+      normalizedValue = String(value ?? '').trim()
+      if (!profileDataChoices[field].includes(normalizedValue)) {
+        return res.status(400).json({ error: `${field} has an invalid choice` })
       }
-      normalizedValue = intVal
     }
 
     // Boolean coercion for open flags
@@ -150,7 +166,7 @@ export default async function handler(req, res) {
     // Get current participant data
     const { data: currentData, error: fetchError } = await supabase
       .from("participants")
-      .select("survey_data, name, phone_number, age, gender, nationality, prefer_same_nationality, same_gender_preference, any_gender_preference, preferred_age_min, preferred_age_max, open_age_preference, open_intent_goal_mismatch, intent_goal, humor_banter_style, early_openness_comfort, age_flex_one_year, conversational_role, conversation_depth_pref, social_battery, humor_subtype, curiosity_style, silence_comfort")
+      .select("survey_data, name, phone_number, age, gender, nationality, prefer_same_nationality, same_gender_preference, any_gender_preference, preferred_age_min, preferred_age_max, open_age_preference, open_intent_goal_mismatch, intent_goal, humor_banter_style, early_openness_comfort, age_flex_one_year, conversational_role, conversation_depth_pref, social_battery, humor_subtype, curiosity_style, silence_comfort, expression_language, minimum_partner_religious_commitment, social_relationship_style")
       .eq("match_id", STATIC_MATCH_ID)
       .eq("assigned_number", participantNumber)
       .single()
@@ -193,11 +209,14 @@ export default async function handler(req, res) {
       'social_battery',
       'humor_subtype',
       'curiosity_style',
-      'silence_comfort'
+      'silence_comfort',
+      'expression_language',
+      'minimum_partner_religious_commitment',
+      'social_relationship_style'
     ]
     
     if (directFields.includes(field)) {
-      updateData[field] = normalizedValue
+      updateData[field] = profileDataChoices[field] ? Number(normalizedValue) : normalizedValue
     }
 
     // Survey data fields - update in the JSON

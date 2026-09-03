@@ -832,10 +832,18 @@ export default function AdminPage() {
   const [matchInsightsFilter, setMatchInsightsFilter] = useState("all") // "all", "complete", "incomplete"
   const [signupFilter, setSignupFilter] = useState("all") // "all", "manual", "auto"
   const [legalAcceptanceFilter, setLegalAcceptanceFilter] = useState("all") // "all", "accepted", "pending"
+  const [editedProfilesFilter, setEditedProfilesFilter] = useState("all") // "all", "edited", "never_edited"
   const [showDuplicatePhones, setShowDuplicatePhones] = useState(false)
-  const [surveyChangeCounts, setSurveyChangeCounts] = useState<Record<number, { count: number; hasSuspicious: boolean }>>({})
+  const [surveyChangeCounts, setSurveyChangeCounts] = useState<Record<number, {
+    count: number
+    hasSuspicious: boolean
+    maxPercentage: number
+    latestPercentage: number
+    totalFieldsChanged: number
+    lastChangedAt: string | null
+  }>>({})
   const [surveyHistoryModal, setSurveyHistoryModal] = useState<{ participant: any; history: any[]; loading: boolean } | null>(null)
-  const [sortBy, setSortBy] = useState("number") // "number", "name", "updated", "survey_updated", "signup_time"
+  const [sortBy, setSortBy] = useState("number") // includes edit percentage ascending/descending
   const [copied, setCopied] = useState(false)
   const [selectedParticipants, setSelectedParticipants] = useState<Set<number>>(new Set())
   const [announcement, setAnnouncement] = useState("")
@@ -1066,6 +1074,7 @@ export default function AdminPage() {
   const [deltaCacheParticipants, setDeltaCacheParticipants] = useState<any[]>([]);
   const [showDeltaCacheTooltip, setShowDeltaCacheTooltip] = useState(false);
   const [loadingDeltaCacheParticipants, setLoadingDeltaCacheParticipants] = useState(false);
+  const [approvingDeltaParticipant, setApprovingDeltaParticipant] = useState<number | null>(null);
 
   // Prev event unmatched/organizer-matched -> signup next event
   const [showPrevUnmatchedModal, setShowPrevUnmatchedModal] = useState(false);
@@ -2029,8 +2038,9 @@ const fetchDeltaCacheParticipants = async () => {
     
     if (res.ok && data.participants) {
       setDeltaCacheParticipants(data.participants);
+      setDeltaCacheCount(data.count ?? data.participants.length);
       if (data.reasonCounts) setDeltaCacheReasonCounts(data.reasonCounts);
-      console.log(`📋 Loaded ${data.participants.length} participants needing delta cache update`);
+      console.log(`📋 Loaded ${data.participants.length} participants awaiting delta review`);
     } else {
       console.error("Error fetching delta cache participants:", data.error);
       setDeltaCacheParticipants([]);
@@ -2043,7 +2053,45 @@ const fetchDeltaCacheParticipants = async () => {
   }
 };
 
+const approveDeltaCacheParticipant = async (participant: any) => {
+  if (!participant?.assigned_number || !participant?.delta_changed_at) return
+  setApprovingDeltaParticipant(participant.assigned_number)
+  try {
+    const res = await fetch('/api/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'approve-delta-cache-participant',
+        assigned_number: participant.assigned_number,
+        activity_at: participant.delta_changed_at,
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok || !data.success) throw new Error(data.error || 'Failed to approve delta review')
+    toast.success(`#${participant.assigned_number} removed from delta review`)
+    await fetchDeltaCacheParticipants()
+  } catch (error: any) {
+    toast.error(error?.message || 'Failed to approve delta review')
+  } finally {
+    setApprovingDeltaParticipant(null)
+  }
+}
+
 const fetchingParticipantsRef = useRef(false)
+const fetchSurveyChangeCounts = useCallback(async () => {
+  try {
+    const response = await fetch("/api/admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "get-survey-change-counts" }),
+    })
+    const data = await response.json()
+    if (response.ok && data.counts) setSurveyChangeCounts(data.counts)
+  } catch {
+    // History metadata is supplementary; the next participant refresh retries it.
+  }
+}, [])
+
 const fetchParticipants = async () => {
   if (fetchingParticipantsRef.current) return
   fetchingParticipantsRef.current = true
@@ -2117,8 +2165,7 @@ const fetchParticipants = async () => {
     setParticipants(fetchedParticipants)
     setLoading(false)
     // Fetch survey change counts in background (non-blocking)
-    fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "get-survey-change-counts" }) })
-      .then(r => r.json()).then(d => { if (d.counts) setSurveyChangeCounts(d.counts) }).catch(() => {})
+    void fetchSurveyChangeCounts()
       
       // Also fetch current event state
       const stateRes = await fetch("/api/admin", {
@@ -4193,6 +4240,12 @@ const fetchParticipants = async () => {
           ? acceptedCurrentLegalVersion
           : hasParticipantHistory(p) && !acceptedCurrentLegalVersion
       )
+
+      const editHistory = surveyChangeCounts[p.assigned_number]
+      const hasProfileEdits = (editHistory?.count ?? 0) > 0
+      const matchesEditedProfiles = editedProfilesFilter === "all" || (
+        editedProfilesFilter === "edited" ? hasProfileEdits : !hasProfileEdits
+      )
       
       // Signup type filter
       let matchesSignup = true
@@ -4205,7 +4258,7 @@ const fetchParticipants = async () => {
       // Duplicate phone filter
       const matchesDuplicatePhone = !showDuplicatePhones || duplicatePhoneNumbers.has((p.phone_number || "").replace(/\D/g, ""))
       
-      return matchesSearch && isEligible && matchesEligibleSub && matchesGender && matchesPayment && matchesConfirmation && matchesWhatsapp && matchesMatchInsights && matchesLegalAcceptance && matchesSignup && matchesDuplicatePhone
+      return matchesSearch && isEligible && matchesEligibleSub && matchesGender && matchesPayment && matchesConfirmation && matchesWhatsapp && matchesMatchInsights && matchesLegalAcceptance && matchesEditedProfiles && matchesSignup && matchesDuplicatePhone
     })
 
     // Sort the filtered results
@@ -4231,10 +4284,20 @@ const fetchParticipants = async () => {
         const dateA = a.next_event_signup_timestamp ? new Date(a.next_event_signup_timestamp).getTime() : 0
         const dateB = b.next_event_signup_timestamp ? new Date(b.next_event_signup_timestamp).getTime() : 0
         return dateB - dateA
+      } else if (sortBy === "edit_percentage_desc" || sortBy === "edit_percentage_asc") {
+        const percentageA = surveyChangeCounts[a.assigned_number]?.maxPercentage ?? 0
+        const percentageB = surveyChangeCounts[b.assigned_number]?.maxPercentage ?? 0
+        const percentageDifference = sortBy === "edit_percentage_desc"
+          ? percentageB - percentageA
+          : percentageA - percentageB
+        if (percentageDifference !== 0) return percentageDifference
+        const latestA = Date.parse(surveyChangeCounts[a.assigned_number]?.lastChangedAt || '') || 0
+        const latestB = Date.parse(surveyChangeCounts[b.assigned_number]?.lastChangedAt || '') || 0
+        return latestB - latestA || a.assigned_number - b.assigned_number
       }
       return 0
     })
-  }, [participants, debouncedSearch, searchByPhone, showEligibleOnly, eligibleSubFilter, genderFilter, paymentFilter, confirmationFilter, whatsappFilter, matchInsightsFilter, legalAcceptanceFilter, signupFilter, sortBy, currentEventId, excludedParticipants, showDuplicatePhones, duplicatePhoneNumbers])
+  }, [participants, debouncedSearch, searchByPhone, showEligibleOnly, eligibleSubFilter, genderFilter, paymentFilter, confirmationFilter, whatsappFilter, matchInsightsFilter, legalAcceptanceFilter, editedProfilesFilter, signupFilter, sortBy, currentEventId, excludedParticipants, showDuplicatePhones, duplicatePhoneNumbers, surveyChangeCounts])
   
   // Virtualized participants - only show a subset for performance
   const visibleParticipants = useMemo(() => {
@@ -6178,8 +6241,8 @@ Proceed?`
                 }
               }}
               title={deltaCacheCount === 0 
-                ? "Delta cache follows matching data only: survey changes and new event enrollments."
-                : `${deltaCacheReasonCounts.survey_changes} survey changes, ${deltaCacheReasonCounts.new_enrollments} new enrollments`}
+                ? "No unreviewed survey updates or signups."
+                : `${deltaCacheReasonCounts.survey_changes} survey changes, ${deltaCacheReasonCounts.new_enrollments} signups awaiting review`}
             >
               <span className="text-cyan-300 text-sm">Delta Cache: </span>
               <span className="font-bold text-cyan-200">{deltaCacheCount}</span>
@@ -6191,7 +6254,7 @@ Proceed?`
               {deltaCacheCount > 0 && (
                 <span className="ml-2 inline-flex items-center gap-1 bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 text-xs font-semibold px-2 py-0.5 rounded-full">
                   <Zap className="w-3 h-3" />
-                  needs update
+                  needs review
                 </span>
               )}
               
@@ -6201,7 +6264,7 @@ Proceed?`
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <Zap className="w-4 h-4 text-cyan-400" />
-                      <h3 className="text-cyan-300 font-semibold text-sm">Participants Needing Delta Cache Update</h3>
+                      <h3 className="text-cyan-300 font-semibold text-sm">Survey & Signup Review</h3>
                     </div>
                     <button 
                       onClick={(e) => { e.stopPropagation(); setShowDeltaCacheTooltip(false); }}
@@ -6230,46 +6293,63 @@ Proceed?`
                   ) : deltaCacheParticipants.length > 0 ? (
                     <div className="space-y-1.5 max-h-72 overflow-y-auto">
                       {deltaCacheParticipants.map((participant, index) => (
-                        <div key={participant.assigned_number || index} className="flex items-center justify-between p-2 bg-cyan-500/10 rounded-lg border border-cyan-500/20">
-                          <div className="flex items-center gap-2">
+                        <div key={`${participant.assigned_number || index}-${participant.delta_changed_at || index}`} className="flex items-center justify-between gap-2 p-2 bg-cyan-500/10 rounded-lg border border-cyan-500/20">
+                          <div className="min-w-0 flex items-center gap-2">
                             <UserRound className="w-3 h-3 text-cyan-400" />
                             <span className="text-cyan-200 text-xs font-medium">
                               #{participant.assigned_number}
                             </span>
-                            <span className="text-cyan-300/80 text-xs">
+                            <span className="truncate text-cyan-300/80 text-xs">
                               {participant.name}
                             </span>
                           </div>
-                          <div className="flex items-center gap-1.5">
-                            <span className={`border text-[10px] px-1.5 py-0.5 rounded ${participant.delta_reason === 'survey_updated'
-                              ? 'bg-violet-500/15 border-violet-500/30 text-violet-300'
-                              : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
-                            }`}>
-                              {participant.delta_reason === 'survey_updated' ? 'Survey' : 'Enrolled'}
-                            </span>
+                          <div className="shrink-0 flex flex-wrap items-center justify-end gap-1.5">
+                            {(participant.activity_reasons || [participant.delta_reason]).includes('survey_updated') && (
+                              <span className="border text-[10px] px-1.5 py-0.5 rounded bg-violet-500/15 border-violet-500/30 text-violet-300">
+                                Survey
+                              </span>
+                            )}
+                            {(participant.activity_reasons || [participant.delta_reason]).includes('newly_enrolled') && (
+                              <span className="border text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 border-emerald-500/30 text-emerald-300">
+                                Signup
+                              </span>
+                            )}
                             <span className="bg-cyan-500/15 border border-cyan-500/30 text-cyan-400/80 text-[10px] px-1.5 py-0.5 rounded">
                               {participant.eligibility_reason}
                             </span>
                             <span className="text-cyan-500/60 text-[10px]">
                               {participant.delta_changed_at ?
-                                new Date(participant.delta_changed_at).toLocaleDateString() :
+                                new Date(participant.delta_changed_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) :
                                 'Recently'
                               }
                             </span>
+                            <button
+                              type="button"
+                              disabled={approvingDeltaParticipant === participant.assigned_number}
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                approveDeltaCacheParticipant(participant)
+                              }}
+                              className="inline-flex items-center gap-1 rounded border border-emerald-400/35 bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-200 transition hover:bg-emerald-500/25 disabled:cursor-wait disabled:opacity-60"
+                            >
+                              {approvingDeltaParticipant === participant.assigned_number
+                                ? <Loader2 className="h-3 w-3 animate-spin" />
+                                : <CheckCircle className="h-3 w-3" />}
+                              Approve
+                            </button>
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : (
                     <div className="text-cyan-300/70 text-xs">
-                      No participants found needing updates.
+                      Everyone has been reviewed.
                     </div>
                   )}
                   
                   <div className="mt-3 pt-2 border-t border-cyan-500/20">
                     <p className="text-cyan-400/60 text-xs">
-                      Only matching-relevant survey changes and event enrollments appear here.
-                      Twilio, payment, receipt, and attendance updates do not invalidate the cache.
+                      Survey updates and signups stay here until approved, even after automatic caching and even when the participant is not signed up for the current event. A later change will appear again.
                     </p>
                   </div>
                 </div>
@@ -8420,6 +8500,33 @@ Proceed?`
                 <ChevronRight className="absolute right-2 top-1/2 -translate-y-1/2 rotate-90 w-4 h-4 text-slate-400 pointer-events-none" />
               </div>
             </div>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <div className="relative">
+                <select
+                  value={editedProfilesFilter}
+                  onChange={(event) => setEditedProfilesFilter(event.target.value)}
+                  className="w-full appearance-none rounded-xl border border-white/20 bg-white/10 px-3 py-2 pr-8 text-sm text-white focus:outline-none"
+                >
+                  <option value="all" className="bg-slate-800 text-white">All Profiles</option>
+                  <option value="edited" className="bg-slate-800 text-white">Edited Profiles</option>
+                  <option value="never_edited" className="bg-slate-800 text-white">Never Edited</option>
+                </select>
+                <ChevronRight className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90 text-slate-400" />
+              </div>
+              <div className="relative">
+                <select
+                  value={sortBy}
+                  onChange={(event) => setSortBy(event.target.value)}
+                  className="w-full appearance-none rounded-xl border border-blue-400/30 bg-blue-500/10 px-3 py-2 pr-8 text-sm text-blue-200 focus:outline-none"
+                >
+                  <option value="number" className="bg-slate-800 text-white">Number</option>
+                  <option value="edit_percentage_desc" className="bg-slate-800 text-white">Edit %: Most</option>
+                  <option value="edit_percentage_asc" className="bg-slate-800 text-white">Edit %: Least</option>
+                  <option value="survey_updated" className="bg-slate-800 text-white">Latest Survey Edit</option>
+                </select>
+                <ChevronRight className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90 text-blue-300" />
+              </div>
+            </div>
           </div>
         )}
 
@@ -8556,6 +8663,24 @@ Proceed?`
               <ChevronRight className={`absolute right-2 top-1/2 -translate-y-1/2 rotate-90 h-4 w-4 pointer-events-none ${legalAcceptanceFilter !== "all" ? "text-cyan-300" : "text-slate-400"}`} />
             </div>
 
+            {/* Survey edit history filter */}
+            <div className="relative">
+              <select
+                value={editedProfilesFilter}
+                onChange={(event) => setEditedProfilesFilter(event.target.value)}
+                className={`appearance-none rounded-xl border px-4 py-2 pr-8 text-sm focus:outline-none focus:ring-2 transition-all duration-300 ${
+                  editedProfilesFilter !== "all"
+                    ? "bg-amber-500/20 border-amber-400/50 text-amber-200 focus:ring-amber-400/50"
+                    : "bg-white/10 border-white/20 text-slate-300 focus:ring-slate-400/50"
+                }`}
+              >
+                <option value="all" className="bg-slate-800 text-white">All Edit History</option>
+                <option value="edited" className="bg-slate-800 text-white">Edited Profiles Only</option>
+                <option value="never_edited" className="bg-slate-800 text-white">Never Edited</option>
+              </select>
+              <ChevronRight className={`pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90 ${editedProfilesFilter !== "all" ? "text-amber-300" : "text-slate-400"}`} />
+            </div>
+
             {/* Signup Type Filter */}
             <div className="relative">
               <select
@@ -8589,6 +8714,8 @@ Proceed?`
                 <option value="updated" className="bg-slate-800 text-white">Sort by Last Update</option>
                 <option value="survey_updated" className="bg-slate-800 text-white">Sort by Survey Update</option>
                 <option value="signup_time" className="bg-slate-800 text-white">Sort by Signup Time</option>
+                <option value="edit_percentage_desc" className="bg-slate-800 text-white">Edit %: Most Changed</option>
+                <option value="edit_percentage_asc" className="bg-slate-800 text-white">Edit %: Least Changed</option>
               </select>
               <ChevronRight className="absolute right-2 top-1/2 transform -translate-y-1/2 rotate-90 w-4 h-4 text-blue-400 pointer-events-none" />
             </div>
@@ -8620,7 +8747,7 @@ Proceed?`
               </button>
             )}
 
-            {(showEligibleOnly || eligibleSubFilter !== "none" || genderFilter !== "all" || paymentFilter !== "all" || confirmationFilter !== "all" || whatsappFilter !== "all" || matchInsightsFilter !== "all" || legalAcceptanceFilter !== "all" || signupFilter !== "all" || showDuplicatePhones) && (
+            {(showEligibleOnly || eligibleSubFilter !== "none" || genderFilter !== "all" || paymentFilter !== "all" || confirmationFilter !== "all" || whatsappFilter !== "all" || matchInsightsFilter !== "all" || legalAcceptanceFilter !== "all" || editedProfilesFilter !== "all" || signupFilter !== "all" || showDuplicatePhones) && (
               <div className="bg-green-500/20 backdrop-blur-sm border border-green-400/30 rounded-xl px-3 py-2">
                 <span className="text-green-300 text-sm">Filtered: </span>
                 <span className="font-bold text-green-200">{filteredParticipants.length}</span>
@@ -9262,7 +9389,9 @@ Proceed?`
                       >
                         {surveyChangeCounts[p.assigned_number]?.hasSuspicious && <AlertTriangle className="w-3 h-3" />}
                         <History className="w-3 h-3" />
-                        <span>{surveyChangeCounts[p.assigned_number].count} edit{surveyChangeCounts[p.assigned_number].count > 1 ? 's' : ''}</span>
+                        <span>
+                          {surveyChangeCounts[p.assigned_number].maxPercentage ?? 0}% max · {surveyChangeCounts[p.assigned_number].count} edit{surveyChangeCounts[p.assigned_number].count > 1 ? 's' : ''}
+                        </span>
                       </button>
                     )}
 
@@ -10646,6 +10775,7 @@ Proceed?`
           setProfileModalParticipant(null);
         }}
         onUpdate={updateParticipantLocally}
+        onSurveyHistoryChange={fetchSurveyChangeCounts}
         cohostTheme={isCohost}
       />
 

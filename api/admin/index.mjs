@@ -67,6 +67,10 @@ import {
   isCurrentBalancedScoreSnapshot,
   isSupportedCurrentScoreSnapshot,
 } from "../../server/matching/balanced-compatibility.mjs"
+import {
+  getDeltaReviewReasonCounts,
+} from "../../server/matching/delta-review.mjs"
+import { buildSurveyChangeSummaries } from "../../server/participants/survey-change-summary.mjs"
 
 const supabase = supabaseAdmin
 
@@ -77,6 +81,74 @@ const TWILIO_MATCH_NOTIFICATION_V5_SID = "HX7c190833f357e2f6f2ed0c9e906b6517"
 const TWILIO_MATCH_CANCELLATION_SID = "HX466c880e6809cefe45123a5c02d49a61"
 const TWILIO_SURVEY_UPDATE_SID = "HX29303de3e62bac314552ee3056578c4f"
 const TWILIO_STATUS_CALLBACK_URL = process.env.TWILIO_STATUS_CALLBACK_URL || "https://blindmatch.app/api/twilio-status"
+
+async function loadDeltaReviewParticipants(eventId) {
+  const { data: reviewRows, error: reviewError } = await supabase
+    .from('delta_review_items')
+    .select(`
+      participant_id,
+      activity_at,
+      survey_updated,
+      newly_enrolled,
+      participant:participants!inner(
+        id,
+        assigned_number,
+        name,
+        survey_data,
+        event_id,
+        signup_for_next_event,
+        auto_signup_next_event,
+        survey_data_updated_at,
+        next_event_signup_timestamp,
+        event_enrolled_at
+      )
+    `)
+    .is('acknowledged_at', null)
+    .eq('participant.match_id', STATIC_MATCH_ID)
+    .neq('participant.assigned_number', 9999)
+    .order('activity_at', { ascending: false })
+  if (reviewError) throw reviewError
+
+  const participants = (reviewRows || [])
+    .map(item => {
+      const participant = item.participant
+      let surveyData = participant.survey_data || {}
+      if (typeof surveyData === 'string') {
+        try {
+          surveyData = JSON.parse(surveyData)
+        } catch {
+          surveyData = {}
+        }
+      }
+      const currentEvent = Number(participant.event_id) === Number(eventId)
+      const signedUp = participant.signup_for_next_event === true || participant.auto_signup_next_event === true
+      const activityReasons = [
+        ...(item.survey_updated ? ['survey_updated'] : []),
+        ...(item.newly_enrolled ? ['newly_enrolled'] : []),
+      ]
+      return {
+        assigned_number: participant.assigned_number,
+        name: participant.name || surveyData.name || surveyData.answers?.name || `#${participant.assigned_number}`,
+        survey_data_updated_at: participant.survey_data_updated_at,
+        next_event_signup_timestamp: participant.next_event_signup_timestamp,
+        event_enrolled_at: participant.event_enrolled_at,
+        delta_changed_at: item.activity_at,
+        delta_reason: item.survey_updated ? 'survey_updated' : 'newly_enrolled',
+        activity_reasons: activityReasons,
+        eligibility_reason: currentEvent
+          ? 'Current Event'
+          : signedUp
+            ? 'Signed Up'
+            : 'Not Signed Up',
+      }
+    })
+    .sort((left, right) => Date.parse(right.delta_changed_at) - Date.parse(left.delta_changed_at))
+
+  return {
+    participants,
+    reasonCounts: getDeltaReviewReasonCounts(participants),
+  }
+}
 
 const ARABIC_WEEKDAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"]
 const ARABIC_MONTHS = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
@@ -3787,18 +3859,20 @@ export default async function handler(req, res) {
       }
 
       if (action === "get-survey-change-counts") {
-        const { data, error } = await supabase
-          .from("survey_change_history")
-          .select("participant_number, suspicious_flags")
-          .eq("match_id", STATIC_MATCH_ID)
-        if (error) return res.status(500).json({ error: error.message })
-        const counts = {}
-        for (const row of (data || [])) {
-          const n = row.participant_number
-          if (!counts[n]) counts[n] = { count: 0, hasSuspicious: false }
-          counts[n].count++
-          if (Array.isArray(row.suspicious_flags) && row.suspicious_flags.length > 0) counts[n].hasSuspicious = true
+        const historyRows = []
+        const pageSize = 1000
+        for (let offset = 0; ; offset += pageSize) {
+          const { data, error } = await supabase
+            .from("survey_change_history")
+            .select("participant_number, suspicious_flags, change_percentage, changed_fields, changed_at")
+            .eq("match_id", STATIC_MATCH_ID)
+            .order("changed_at", { ascending: false })
+            .range(offset, offset + pageSize - 1)
+          if (error) return res.status(500).json({ error: error.message })
+          historyRows.push(...(data || []))
+          if (!data || data.length < pageSize) break
         }
+        const counts = buildSurveyChangeSummaries(historyRows)
         return res.status(200).json({ counts })
       }
 
@@ -6443,63 +6517,15 @@ export default async function handler(req, res) {
       }
     }
 
-    // 🔹 GET DELTA CACHE COUNT
+    // 🔹 GET UNACKNOWLEDGED DELTA REVIEW COUNT
     if (action === "get-delta-cache-count") {
       try {
         const { event_id = 1 } = req.body
-        
-        // Get last cache timestamp
-        const { data: metaData } = await supabase
-          .from('cache_metadata')
-          .select('last_precache_timestamp,score_model_version')
-          .eq('event_id', event_id)
-          .order('last_precache_timestamp', { ascending: false })
-          .limit(1)
-          .single()
-        
-        const lastCacheTimestamp = metaData?.last_precache_timestamp || '1970-01-01T00:00:00Z'
-        const cachedScoreModelVersion = metaData?.score_model_version
-        const noCacheMetadata = !metaData?.last_precache_timestamp
-        
-        // If no cache metadata exists, delta cache count should be 0
-        // (use regular pre-cache for first-time caching)
-        if (noCacheMetadata) {
-          return res.status(200).json({ 
-            count: 0,
-            totalEligible: 0,
-            lastCacheTimestamp: null,
-            message: 'No cache metadata - use Pre-Cache first'
-          })
-        }
-        
-        // Fetch eligible participants (same logic as delta-pre-cache)
-        const { data: allParticipants } = await supabase
-          .from("participants")
-          .select("assigned_number, name, survey_data, survey_data_updated_at, signup_for_next_event, auto_signup_next_event, next_event_signup_timestamp, event_enrolled_at, created_at, event_id, signup_event_id")
-          .eq("match_id", STATIC_MATCH_ID)
-          .or(`signup_for_next_event.eq.true,event_id.eq.${event_id},auto_signup_next_event.eq.true`)
-          .neq("assigned_number", 9999)
-        
-        if (!allParticipants) {
-          return res.status(200).json({ count: 0, lastCacheTimestamp })
-        }
-        
-        const eligibleParticipants = allParticipants.filter(p => isParticipantCacheEligible(p))
-        
-        const needsCacheCount = eligibleParticipants.filter(p =>
-          !!getParticipantDeltaCacheReason(p, lastCacheTimestamp, event_id, cachedScoreModelVersion)
-        ).length
-        const reasonCounts = getDeltaCacheReasonCounts(eligibleParticipants, lastCacheTimestamp, event_id, cachedScoreModelVersion)
-        
-        return res.status(200).json({ 
-          count: needsCacheCount,
-          reasonCounts,
-          totalEligible: eligibleParticipants.length,
-          lastCacheTimestamp,
-          scoreModelVersion: cachedScoreModelVersion || null,
-          currentScoreModelVersion: BALANCED_COMPATIBILITY_VERSION,
+        const review = await loadDeltaReviewParticipants(event_id)
+        return res.status(200).json({
+          count: review.participants.length,
+          reasonCounts: review.reasonCounts,
         })
-        
       } catch (error) {
         console.error("Error in get-delta-cache-count:", error)
         return res.status(500).json({ error: "Failed to get delta cache count" })
@@ -6582,79 +6608,65 @@ export default async function handler(req, res) {
       }
     }
 
-    // 🔹 GET DELTA CACHE PARTICIPANTS LIST
+    // 🔹 GET UNACKNOWLEDGED DELTA REVIEW PARTICIPANTS
     if (action === "get-delta-cache-participants") {
       try {
         const { event_id = 1 } = req.body
-        
-        // Get last cache timestamp
-        const { data: metaData } = await supabase
-          .from('cache_metadata')
-          .select('last_precache_timestamp,score_model_version')
-          .eq('event_id', event_id)
-          .order('last_precache_timestamp', { ascending: false })
-          .limit(1)
-          .single()
-        
-        const lastCacheTimestamp = metaData?.last_precache_timestamp || '1970-01-01T00:00:00Z'
-        const cachedScoreModelVersion = metaData?.score_model_version
-        const noCacheMetadata = !metaData?.last_precache_timestamp
-        
-        // If no cache metadata exists, return empty list
-        if (noCacheMetadata) {
-          return res.status(200).json({ 
-            participants: [],
-            count: 0,
-            lastCacheTimestamp: null,
-            message: 'No cache metadata - use Pre-Cache first'
-          })
-        }
-        
-        // Fetch eligible participants with full details
-        const { data: allParticipants } = await supabase
-          .from("participants")
-          .select("assigned_number, name, survey_data, survey_data_updated_at, signup_for_next_event, auto_signup_next_event, next_event_signup_timestamp, event_enrolled_at, created_at, event_id, signup_event_id")
-          .eq("match_id", STATIC_MATCH_ID)
-          .or(`signup_for_next_event.eq.true,event_id.eq.${event_id},auto_signup_next_event.eq.true`)
-          .neq("assigned_number", 9999)
-        
-        if (!allParticipants) {
-          return res.status(200).json({ participants: [], count: 0, lastCacheTimestamp })
-        }
-        
-        const eligibleParticipants = allParticipants.filter(p => isParticipantCacheEligible(p))
-        
-        const needsCacheParticipants = eligibleParticipants.map(p => ({
-          participant: p,
-          delta_reason: getParticipantDeltaCacheReason(p, lastCacheTimestamp, event_id, cachedScoreModelVersion),
-        })).filter(item => !!item.delta_reason).map(({ participant: p, delta_reason }) => ({
-          assigned_number: p.assigned_number,
-          name: p.name || p.survey_data?.name || `#${p.assigned_number}`,
-          survey_data_updated_at: p.survey_data_updated_at,
-          next_event_signup_timestamp: p.next_event_signup_timestamp,
-          event_enrolled_at: p.event_enrolled_at,
-          delta_changed_at: delta_reason === 'survey_updated'
-            ? p.survey_data_updated_at
-            : (p.next_event_signup_timestamp || p.event_enrolled_at || p.created_at),
-          delta_reason,
-          eligibility_reason: p.event_id === event_id ? 'Current Event' : 
-                             p.signup_for_next_event ? 'Next Event Signup' : 
-                             p.auto_signup_next_event ? 'Auto Signup' : 'Unknown'
-        }))
-        
-        return res.status(200).json({ 
-          participants: needsCacheParticipants,
-          count: needsCacheParticipants.length,
-          reasonCounts: getDeltaCacheReasonCounts(eligibleParticipants, lastCacheTimestamp, event_id, cachedScoreModelVersion),
-          lastCacheTimestamp,
-          totalEligible: eligibleParticipants.length,
-          scoreModelVersion: cachedScoreModelVersion || null,
-          currentScoreModelVersion: BALANCED_COMPATIBILITY_VERSION,
+        const review = await loadDeltaReviewParticipants(event_id)
+        return res.status(200).json({
+          participants: review.participants,
+          count: review.participants.length,
+          reasonCounts: review.reasonCounts,
         })
-        
       } catch (error) {
         console.error("Error in get-delta-cache-participants:", error)
         return res.status(500).json({ error: "Failed to get delta cache participants" })
+      }
+    }
+
+    // 🔹 ACKNOWLEDGE ONE EXACT DELTA REVIEW ACTIVITY
+    if (action === "approve-delta-cache-participant") {
+      try {
+        const assignedNumber = Number(req.body?.assigned_number)
+        const observedActivityAt = Date.parse(String(req.body?.activity_at || ''))
+        if (!Number.isInteger(assignedNumber) || !Number.isFinite(observedActivityAt)) {
+          return res.status(400).json({ error: "assigned_number and activity_at are required" })
+        }
+
+        const { data: participant, error: participantError } = await supabase
+          .from('participants')
+          .select('id, assigned_number')
+          .eq('match_id', STATIC_MATCH_ID)
+          .eq('assigned_number', assignedNumber)
+          .single()
+        if (participantError || !participant) {
+          return res.status(404).json({ error: "Participant not found" })
+        }
+
+        const activityAt = new Date(observedActivityAt).toISOString()
+        const { data: acknowledgedRows, error: acknowledgementError } = await supabase
+          .from('delta_review_items')
+          .update({ acknowledged_at: new Date().toISOString() })
+          .eq('participant_id', participant.id)
+          .eq('activity_at', activityAt)
+          .is('acknowledged_at', null)
+          .select('activity_at')
+        if (acknowledgementError) throw acknowledgementError
+        if (!acknowledgedRows || acknowledgedRows.length === 0) {
+          return res.status(409).json({
+            error: "This participant changed again or was already approved. Refresh the delta review.",
+            refresh_required: true,
+          })
+        }
+
+        return res.status(200).json({
+          success: true,
+          assigned_number: assignedNumber,
+          acknowledged_activity_at: activityAt,
+        })
+      } catch (error) {
+        console.error("Error approving delta cache participant:", error)
+        return res.status(500).json({ error: "Failed to approve delta review participant" })
       }
     }
 

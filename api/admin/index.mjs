@@ -1,6 +1,22 @@
 import OpenAI from "openai"
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto"
-import { calculateFullCompatibilityWithCache, getCachedCompatibility, isParticipantComplete, isParticipantCacheEligible, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkAgeCompatibility, fetchAllCachedPairs, isCurrentVibeModel, getParticipantDeltaCacheReason, getDeltaCacheReasonCounts, loadHistoricalMatchAnalyzer } from "./trigger-match.mjs"
+import {
+  calculateFullCompatibilityWithCache,
+  getCachedCompatibility,
+  isParticipantComplete,
+  isParticipantCacheEligible,
+  checkGenderCompatibility,
+  checkNationalityHardGate,
+  checkAgeRangeHardGate,
+  checkAgeCompatibility,
+  fetchAllCachedPairs,
+  isCurrentVibeModel,
+  getParticipantDeltaCacheReason,
+  getDeltaCacheReasonCounts,
+  loadHistoricalMatchAnalyzer,
+  processCompatibilityVibeEnrichmentBatch,
+  verifyCompatibilityVibeWorkerRequest,
+} from "./trigger-match.mjs"
 import { buildWelcomePrompt } from "./ai-welcome-prompt.mjs"
 import { assignPriorityTables } from "../../server/event3/table-priority.mjs"
 import { buildSixBySevenPlan, optimizeRound2ByAge } from "../../server/event3/round2-age-optimizer.mjs"
@@ -12,6 +28,8 @@ import { collectEventSwapPairs, collectMatchResultSwapPairs, getTableSwapRounds 
 import { buildTestAdminSession, testMatchToLockedMatch } from "../../server/event3/test-match-results.mjs"
 import { choosePreparedTestPairs, validatePreparedTestAlgorithmRows } from "../../server/event3/prepared-test-algorithm.mjs"
 import { buildDislikeLeaderboard } from "../../server/event3/dislike-ranking.mjs"
+
+export const config = { maxDuration: 60 }
 import { buildRankingCompletion, loadRankingCompletion, rankingRoundsForPhase } from "../../server/event3/ranking-completion.mjs"
 import { buildGroupMemberFeedbackSummary } from "../../server/event3/group-member-feedback.mjs"
 import {
@@ -1163,6 +1181,34 @@ export default async function handler(req, res) {
 
   const method = req.method
   const action = req.query.action || req.body?.action
+
+  // Reuse the existing admin serverless function for the durable worker. This
+  // keeps the production deployment within Vercel Hobby's 12-function limit,
+  // while the one-time HMAC remains the only accepted worker credential.
+  if (action === "cache-vibe-worker") {
+    if (!["GET", "POST"].includes(method)) {
+      res.setHeader("Allow", "GET, POST")
+      return res.status(405).json({ error: "Only GET or POST allowed" })
+    }
+    const authorized = await verifyCompatibilityVibeWorkerRequest({
+      timestamp: req.headers["x-vibe-worker-timestamp"],
+      nonce: req.headers["x-vibe-worker-nonce"],
+      signature: req.headers["x-vibe-worker-signature"],
+    })
+    if (!authorized) return res.status(401).json({ error: "Unauthorized" })
+
+    res.setHeader("Cache-Control", "no-store")
+    try {
+      const result = await processCompatibilityVibeEnrichmentBatch({ limit: 12 })
+      return res.status(200).json({ success: true, ...result })
+    } catch (error) {
+      console.error("Durable AI vibe worker failed:", error)
+      return res.status(500).json({
+        success: false,
+        error: error?.message || "Durable AI vibe worker failed",
+      })
+    }
+  }
 
   const bearerToken = String(req.headers?.authorization || "").replace(/^Bearer\s+/i, "")
   const isCohostLogin = method === "POST" && action === "e3-cohost-login"

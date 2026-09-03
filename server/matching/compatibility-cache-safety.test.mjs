@@ -105,7 +105,7 @@ test('required AI chemistry uses a protected durable queue with atomic 12-job cl
     read('api/admin/trigger-match.mjs'),
     read('supabase/migrations/20260903133000_add_durable_vibe_enrichment_queue.sql'),
     read('supabase/migrations/20260903143000_schedule_vibe_enrichment_worker.sql'),
-    read('api/admin/cache-vibe-worker.mjs'),
+    read('api/admin/index.mjs'),
     read('vercel.json'),
   ])
   const atomicStore = between(source, 'async function storeDeferredVibeRowsAndJobs', 'async function storeCachedCompatibilities')
@@ -131,12 +131,14 @@ test('required AI chemistry uses a protected durable queue with atomic 12-job cl
   assert.match(schedulerMigration, /interval '2 minutes'/i)
   assert.match(schedulerMigration, /on conflict \(nonce\) do nothing/i)
   assert.match(schedulerMigration, /cron\.schedule\([\s\S]*'\* \* \* \* \*'/i)
+  assert.match(schedulerMigration, /\/api\/admin\?action=cache-vibe-worker/i)
   assert.doesNotMatch(schedulerMigration, /Authorization|Bearer/i)
   assert.match(worker, /verifyCompatibilityVibeWorkerRequest/)
   assert.match(worker, /x-vibe-worker-timestamp/)
   assert.match(worker, /x-vibe-worker-nonce/)
   assert.match(worker, /x-vibe-worker-signature/)
   assert.match(worker, /processCompatibilityVibeEnrichmentBatch\(\{ limit: 12 \}\)/)
+  assert.match(worker, /action === "cache-vibe-worker"/)
   assert.doesNotMatch(vercel, /"crons"/)
 })
 

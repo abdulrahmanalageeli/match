@@ -124,7 +124,7 @@ begin
   );
 
   select net.http_post(
-    url := 'https://blindmatch.app/api/admin/cache-vibe-worker',
+    url := 'https://blindmatch.app/api/admin?action=cache-vibe-worker',
     headers := pg_catalog.jsonb_build_object(
       'Content-Type', 'application/json',
       'X-Vibe-Worker-Timestamp', request_timestamp::text,

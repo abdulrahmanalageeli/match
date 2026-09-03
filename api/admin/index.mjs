@@ -68,6 +68,7 @@ import {
   isSupportedCurrentScoreSnapshot,
 } from "../../server/matching/balanced-compatibility.mjs"
 import {
+  buildDeltaReviewParticipants,
   getDeltaReviewReasonCounts,
 } from "../../server/matching/delta-review.mjs"
 import { buildSurveyChangeSummaries } from "../../server/participants/survey-change-summary.mjs"
@@ -85,12 +86,17 @@ const TWILIO_STATUS_CALLBACK_URL = process.env.TWILIO_STATUS_CALLBACK_URL || "ht
 async function loadDeltaReviewParticipants(eventId) {
   const { data: reviewRows, error: reviewError } = await supabase
     .from('delta_review_items')
-    .select(`
-      participant_id,
-      activity_at,
-      survey_updated,
-      newly_enrolled,
-      participant:participants!inner(
+    .select('participant_id, activity_at, survey_updated, newly_enrolled')
+    .is('acknowledged_at', null)
+    .order('activity_at', { ascending: false })
+  if (reviewError) throw reviewError
+
+  const participantIds = [...new Set((reviewRows || []).map(item => item.participant_id).filter(Boolean))]
+  const participantRows = []
+  for (let offset = 0; offset < participantIds.length; offset += 500) {
+    const { data, error } = await supabase
+      .from('participants')
+      .select(`
         id,
         assigned_number,
         name,
@@ -101,48 +107,15 @@ async function loadDeltaReviewParticipants(eventId) {
         survey_data_updated_at,
         next_event_signup_timestamp,
         event_enrolled_at
-      )
-    `)
-    .is('acknowledged_at', null)
-    .eq('participant.match_id', STATIC_MATCH_ID)
-    .neq('participant.assigned_number', 9999)
-    .order('activity_at', { ascending: false })
-  if (reviewError) throw reviewError
+      `)
+      .eq('match_id', STATIC_MATCH_ID)
+      .neq('assigned_number', 9999)
+      .in('id', participantIds.slice(offset, offset + 500))
+    if (error) throw error
+    participantRows.push(...(data || []))
+  }
 
-  const participants = (reviewRows || [])
-    .map(item => {
-      const participant = item.participant
-      let surveyData = participant.survey_data || {}
-      if (typeof surveyData === 'string') {
-        try {
-          surveyData = JSON.parse(surveyData)
-        } catch {
-          surveyData = {}
-        }
-      }
-      const currentEvent = Number(participant.event_id) === Number(eventId)
-      const signedUp = participant.signup_for_next_event === true || participant.auto_signup_next_event === true
-      const activityReasons = [
-        ...(item.survey_updated ? ['survey_updated'] : []),
-        ...(item.newly_enrolled ? ['newly_enrolled'] : []),
-      ]
-      return {
-        assigned_number: participant.assigned_number,
-        name: participant.name || surveyData.name || surveyData.answers?.name || `#${participant.assigned_number}`,
-        survey_data_updated_at: participant.survey_data_updated_at,
-        next_event_signup_timestamp: participant.next_event_signup_timestamp,
-        event_enrolled_at: participant.event_enrolled_at,
-        delta_changed_at: item.activity_at,
-        delta_reason: item.survey_updated ? 'survey_updated' : 'newly_enrolled',
-        activity_reasons: activityReasons,
-        eligibility_reason: currentEvent
-          ? 'Current Event'
-          : signedUp
-            ? 'Signed Up'
-            : 'Not Signed Up',
-      }
-    })
-    .sort((left, right) => Date.parse(right.delta_changed_at) - Date.parse(left.delta_changed_at))
+  const participants = buildDeltaReviewParticipants(reviewRows, participantRows, eventId)
 
   return {
     participants,

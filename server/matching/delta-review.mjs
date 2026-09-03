@@ -66,3 +66,49 @@ export function getDeltaReviewReasonCounts(items) {
     return counts
   }, { survey_changes: 0, new_enrollments: 0 })
 }
+
+export function buildDeltaReviewParticipants(reviewRows, participantRows, eventId) {
+  const participantsById = new Map(
+    (participantRows || []).map(participant => [participant.id, participant]),
+  )
+
+  return (reviewRows || [])
+    .map(item => {
+      const participant = participantsById.get(item.participant_id)
+      if (!participant) return null
+
+      let surveyData = participant.survey_data || {}
+      if (typeof surveyData === 'string') {
+        try {
+          surveyData = JSON.parse(surveyData)
+        } catch {
+          surveyData = {}
+        }
+      }
+
+      const currentEvent = Number(participant.event_id) === Number(eventId)
+      const signedUp = participant.signup_for_next_event === true || participant.auto_signup_next_event === true
+      const activityReasons = [
+        ...(item.survey_updated ? ['survey_updated'] : []),
+        ...(item.newly_enrolled ? ['newly_enrolled'] : []),
+      ]
+
+      return {
+        assigned_number: participant.assigned_number,
+        name: participant.name || surveyData.name || surveyData.answers?.name || `#${participant.assigned_number}`,
+        survey_data_updated_at: participant.survey_data_updated_at,
+        next_event_signup_timestamp: participant.next_event_signup_timestamp,
+        event_enrolled_at: participant.event_enrolled_at,
+        delta_changed_at: item.activity_at,
+        delta_reason: item.survey_updated ? 'survey_updated' : 'newly_enrolled',
+        activity_reasons: activityReasons,
+        eligibility_reason: currentEvent
+          ? 'Current Event'
+          : signedUp
+            ? 'Signed Up'
+            : 'Not Signed Up',
+      }
+    })
+    .filter(Boolean)
+    .sort((left, right) => Date.parse(right.delta_changed_at) - Date.parse(left.delta_changed_at))
+}

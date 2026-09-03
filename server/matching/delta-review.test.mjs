@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  buildDeltaReviewParticipants,
   getDeltaReviewReasonCounts,
   getParticipantDeltaReviewActivity,
   getRiyadhDayBounds,
@@ -52,4 +53,51 @@ test('reason counts can include both reasons for one participant', () => {
     { activity_reasons: ['survey_updated'] },
     { activity_reasons: ['survey_updated', 'newly_enrolled'] },
   ]), { survey_changes: 2, new_enrollments: 1 })
+})
+
+test('review rows join to participants without relying on a PostgREST relationship', () => {
+  const rows = buildDeltaReviewParticipants([
+    {
+      participant_id: 'participant-2',
+      activity_at: '2026-09-03T11:00:00.000Z',
+      survey_updated: true,
+      newly_enrolled: false,
+    },
+    {
+      participant_id: 'missing-participant',
+      activity_at: '2026-09-03T12:00:00.000Z',
+      survey_updated: true,
+      newly_enrolled: false,
+    },
+    {
+      participant_id: 'participant-1',
+      activity_at: '2026-09-03T10:00:00.000Z',
+      survey_updated: false,
+      newly_enrolled: true,
+    },
+  ], [
+    {
+      id: 'participant-1',
+      assigned_number: 101,
+      name: 'Current',
+      event_id: 3,
+    },
+    {
+      id: 'participant-2',
+      assigned_number: 202,
+      survey_data: JSON.stringify({ answers: { name: 'Signed up' } }),
+      event_id: 2,
+      signup_for_next_event: true,
+    },
+  ], 3)
+
+  assert.deepEqual(rows.map(item => ({
+    number: item.assigned_number,
+    name: item.name,
+    reason: item.delta_reason,
+    eligibility: item.eligibility_reason,
+  })), [
+    { number: 202, name: 'Signed up', reason: 'survey_updated', eligibility: 'Signed Up' },
+    { number: 101, name: 'Current', reason: 'newly_enrolled', eligibility: 'Current Event' },
+  ])
 })

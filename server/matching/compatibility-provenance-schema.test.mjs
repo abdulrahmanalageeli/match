@@ -90,6 +90,7 @@ test('canonical checked-in schemas describe the runtime provenance contract', as
   assert.match(metadata, /scope\.score_model_version/)
   assert.match(metadata, /event_enrolled_at/)
   assert.match(metadata, /next_event_signup_timestamp/)
+  assert.match(metadata, /2026-09-03-v11-event26-archetype-personalized-100/)
   assert.match(metadata, /drop function if exists public\.record_cache_session\([\s\S]*numeric, text[\s\S]*\);/)
   assert.match(metadata, /then 'STALE_MODEL'/)
   assert.match(matches, /score_snapshot jsonb null/)
@@ -126,6 +127,74 @@ test('feedback-evidence model migration advances database provenance guards with
   assert.match(sql, /alter view public\.v_cache_freshness set \(security_invoker = true\)/)
   assert.match(sql, /revoke all on table public\.v_cache_freshness from public, anon, authenticated/)
   assert.doesNotMatch(sql, /update\s+(?:public\.)?(?:compatibility_cache|match_results|event3_matches)/i)
+})
+
+test('personalized model activation advances cache provenance without rewriting historical rows', async () => {
+  const sql = await read('supabase/migrations/20260903090000_activate_event26_personalized_matching_model.sql')
+  assert.match(sql, /2026-09-02-v9-feedback-evidence-100/)
+  assert.match(sql, /2026-09-03-v11-event26-archetype-personalized-100/)
+  assert.match(sql, /v11_personalized_score_valid/)
+  assert.match(sql, /compatibility_cache_v11_personalized_consistent/)
+  assert.match(sql, /match_results_v11_personalized_consistent/)
+  assert.match(sql, /event3_matches_phase2_v11_personalized_consistent/)
+  assert.match(sql, /event3_matches_phase3_v11_personalized_consistent/)
+  assert.match(sql, /event3_matches_phase4_v11_personalized_consistent/)
+  assert.match(sql, /event3_test_match_results_v11_personalized_consistent/)
+  assert.match(sql, /pg_get_functiondef/)
+  assert.match(sql, /create or replace view public\.v_cache_freshness/)
+  assert.match(sql, /alter view public\.v_cache_freshness set \(security_invoker = true\)/)
+  assert.match(sql, /revoke all on table public\.v_cache_freshness from public, anon, authenticated/)
+  assert.doesNotMatch(sql, /update\s+(?:public\.)?(?:compatibility_cache|match_results|event3_matches)/i)
+})
+
+test('personalized model migration executes and advances routines and cache freshness', async t => {
+  const db = new PGlite()
+  t.after(() => db.close())
+  await db.exec(`
+    create role anon;
+    create role authenticated;
+    create role service_role;
+    create table public.compatibility_cache (
+      score_model_version text,
+      score_breakdown jsonb,
+      total_compatibility_score numeric
+    );
+    create function public.current_score_model()
+      returns text
+      language sql
+      immutable
+      as $$ select '2026-09-02-v9-feedback-evidence-100'::text $$;
+    create view public.v_cache_freshness with (security_invoker = true) as
+      select '2026-09-02-v9-feedback-evidence-100'::text as score_model_version;
+  `)
+
+  await db.exec(await read('supabase/migrations/20260903090000_activate_event26_personalized_matching_model.sql'))
+
+  const routine = await db.query('select public.current_score_model() as score_model_version')
+  const freshness = await db.query('select score_model_version from public.v_cache_freshness')
+  const options = await db.query(`
+    select reloptions
+    from pg_catalog.pg_class
+    where oid = 'public.v_cache_freshness'::regclass
+  `)
+  assert.equal(routine.rows[0].score_model_version, '2026-09-03-v11-event26-archetype-personalized-100')
+  assert.equal(freshness.rows[0].score_model_version, '2026-09-03-v11-event26-archetype-personalized-100')
+  assert.deepEqual(options.rows[0].reloptions, ['security_invoker=true'])
+
+  const validPersonalized = {
+    scoreModelVersion: '2026-09-03-v11-event26-archetype-personalized-100',
+    totalScore: 80,
+    aToB: { score: 80 },
+    bToA: { score: 80 },
+  }
+  await db.query(`
+    insert into public.compatibility_cache (score_model_version, score_breakdown, total_compatibility_score)
+    values ($1, $2::jsonb, 80)
+  `, [routine.rows[0].score_model_version, JSON.stringify({ personalized: validPersonalized })])
+  await assert.rejects(() => db.query(`
+    insert into public.compatibility_cache (score_model_version, score_breakdown, total_compatibility_score)
+    values ($1, $2::jsonb, 80)
+  `, [routine.rows[0].score_model_version, JSON.stringify({ personalized: { ...validPersonalized, bToA: { score: 20 } } })]))
 })
 
 test('feedback-evidence migration executes and rejects inconsistent cache and match columns', async t => {

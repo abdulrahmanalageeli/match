@@ -20,15 +20,15 @@ import {
 
 const participant = (answers = {}) => ({ survey_data: { answers } })
 
-test('disagreement scoring uses the balanced four-point matrix symmetrically', () => {
+test('disagreement scoring uses the balanced five-point matrix symmetrically', () => {
   const debate = participant({ match_disagreement_style: 'A' })
   const redirect = participant({ match_disagreement_style: 'D' })
   const understand = participant({ match_disagreement_style: 'B' })
 
   assert.equal(calculateDisagreementStyleScore(debate, redirect), 0)
   assert.equal(calculateDisagreementStyleScore(redirect, debate), 0)
-  assert.equal(calculateDisagreementStyleScore(debate, understand), 3)
-  assert.equal(calculateDisagreementStyleScore(debate, participant()), 2)
+  assert.equal(calculateDisagreementStyleScore(debate, understand), 3.75)
+  assert.equal(calculateDisagreementStyleScore(debate, participant()), 2.5)
 })
 
 test('current focus uses the balanced four-point overlap budget and neutral fallback', () => {
@@ -54,13 +54,13 @@ test('similarity preference is derived from structured context and ignores the l
   const noveltyA = participant({ ...similarA.survey_data.answers, match_similarity_preference: 'B' })
   const noveltyB = participant({ ...similarB.survey_data.answers, match_similarity_preference: 'B' })
 
-  assert.equal(calculateSimilarityPreferenceScore(similarA, similarB, 0), 1)
+  assert.equal(calculateSimilarityPreferenceScore(similarA, similarB, 0), 2)
   assert.equal(calculateSimilarityPreferenceScore(noveltyA, noveltyB, 1), 0)
   assert.equal(
     calculateSimilarityPreferenceScore(similarA, noveltyB, 0.1),
     calculateSimilarityPreferenceScore(noveltyB, similarA, 0.9),
   )
-  assert.equal(calculateSimilarityPreferenceScore(participant(), participant(), 0.2), 0.5)
+  assert.equal(calculateSimilarityPreferenceScore(participant(), participant(), 0.2), 1)
 })
 
 test('attachment pace is based only on the three attachment scenarios, not duplicate behavioral proxies', () => {
@@ -79,13 +79,13 @@ test('attachment pace is based only on the three attachment scenarios, not dupli
 
   const responsiveScore = calculateAttachmentPaceScore(reassuranceSeeking, responsivePartner)
   const lowPressureScore = calculateAttachmentPaceScore(reassuranceSeeking, lowPressurePartner)
-  assert.equal(responsiveScore, 7.65)
-  assert.equal(lowPressureScore, 7.65)
+  assert.equal(responsiveScore, 6.8)
+  assert.equal(lowPressureScore, 6.8)
   assert.equal(responsiveScore, calculateAttachmentPaceScore(responsivePartner, reassuranceSeeking))
 })
 
 test('attachment pace is neutral when the relevant answers are unavailable', () => {
-  assert.equal(calculateAttachmentPaceScore(participant(), participant()), 4.5)
+  assert.equal(calculateAttachmentPaceScore(participant(), participant()), 4)
 })
 
 test('attachment pace supports legacy flat survey records without duplicate behavior scoring', () => {
@@ -95,7 +95,7 @@ test('attachment pace supports legacy flat survey records without duplicate beha
       early_openness_comfort: '3', conversation_depth_pref: 'A', conversational_role: 'A', curiosity_style: 'B',
     },
   }
-  assert.equal(calculateAttachmentPaceScore(flat, flat), 5.85)
+  assert.equal(calculateAttachmentPaceScore(flat, flat), 5.2)
 })
 
 test('persisted scores rebuild balanced match-insight columns from participant data', () => {
@@ -115,10 +115,10 @@ test('persisted scores rebuild balanced match-insight columns from participant d
   })
 
   const scores = calculatePersistedMatchInsightScores(a, b, 12, 12)
-  assert.equal(scores.disagreement_style_score, 3)
+  assert.equal(scores.disagreement_style_score, 3.75)
   assert.equal(scores.current_life_overlap_score, 3)
-  assert.ok(scores.similarity_preference_score >= 0 && scores.similarity_preference_score <= 1)
-  assert.equal(scores.attachment_pace_score, 8.1)
+  assert.ok(scores.similarity_preference_score >= 0 && scores.similarity_preference_score <= 2)
+  assert.equal(scores.attachment_pace_score, 7.25)
 })
 
 test('popup payload validation accepts the five match insights and age flexibility', () => {

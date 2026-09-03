@@ -1120,10 +1120,9 @@ function CompatibilityBreakdown({ breakdown, scoreRow, accent = "purple", partne
   const topStrengths = sorted.filter(d => percent(d.value, d.max) >= 65).slice(0, 2)
   const growth = sorted.filter(d => percent(d.value, d.max) < 40).slice(0, 2)
   const storedTotal = Number(breakdown.total)
-  const rawDimensionTotal = allDims.reduce((sum, dimension) => sum + dimension.value, 0)
   const totalPct = Number.isFinite(storedTotal)
     ? Math.max(0, Math.min(100, storedTotal))
-    : Math.max(0, Math.min(100, (rawDimensionTotal - 50) * 2))
+    : Math.max(0, Math.min(100, allDims.reduce((sum, dimension) => sum + dimension.value, 0)))
 
   const accentCl = accent === "pink" ? "text-pink-300" : "text-purple-300"
 
@@ -1137,7 +1136,7 @@ function CompatibilityBreakdown({ breakdown, scoreRow, accent = "purple", partne
         </h4>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${isBalanced ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-300" : "border-amber-400/25 bg-amber-500/10 text-amber-300"}`}>
-            {isBalanced ? "نموذج دليل التوافق · الدليل فوق الحياد" : "حسبة تاريخية موروثة"}
+            {isBalanced ? "النموذج المتوازن · 100 نقطة" : "حسبة تاريخية موروثة"}
           </span>
           {scoreModelVersion && <span className="font-mono text-[9px] text-gray-600">{scoreModelVersion}</span>}
         </div>

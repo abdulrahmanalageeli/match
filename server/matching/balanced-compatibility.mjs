@@ -1,6 +1,14 @@
 import { createHash } from 'node:crypto'
+import {
+  PERSONALIZED_COMPATIBILITY_VERSION,
+  calculatePersonalizedCompatibility,
+  isPersonalizedCompatibilityPayload,
+} from './personalized-compatibility.mjs'
 
-export const BALANCED_COMPATIBILITY_VERSION = '2026-09-02-v9-feedback-evidence-100'
+// v11 uses Event 26 ranking evidence to score each direction through the
+// chooser's inferred taste archetype. The legacy 100-point components remain
+// in the payload as explainable diagnostics, not as the final percentage.
+export const BALANCED_COMPATIBILITY_VERSION = PERSONALIZED_COMPATIBILITY_VERSION
 export const OPPOSITES_COMPATIBILITY_VERSION = `${BALANCED_COMPATIBILITY_VERSION}|opposites-flip-v1`
 export const BALANCED_VIBE_VERSION = 'balanced-vibe12-v1'
 export const BALANCED_VIBE_MODEL = 'gpt-5.4-mini'
@@ -16,23 +24,23 @@ function deepFreezeJson(value) {
 }
 
 export const BALANCED_WEIGHTS = Object.freeze({
-  disagreement: 4,
-  similarityPreference: 1,
+  disagreement: 5,
+  similarityPreference: 2,
   currentFocus: 4,
-  humorBanter: 4,
-  earlyOpenness: 3,
-  initiative: 4,
+  humorBanter: 6,
+  earlyOpenness: 4,
+  initiative: 6,
   expressionLanguage: 4,
-  religion: 5,
-  socialStyle: 3,
-  attachment1: 4,
+  religion: 4,
+  socialStyle: 4,
+  attachment1: 2,
   attachment3: 3,
-  attachment4: 2,
+  attachment4: 3,
   lifestyle1: 2,
   lifestyle2: 3,
-  lifestyle3: 2,
-  lifestyle4: 4,
-  lifestyle5: 1,
+  lifestyle3: 3,
+  lifestyle4: 2,
+  lifestyle5: 2,
   core1: 1,
   core2: 1,
   core3: 0,
@@ -40,15 +48,15 @@ export const BALANCED_WEIGHTS = Object.freeze({
   core5: 1,
   communication1: 1,
   communication2: 1,
-  communication3: 0.5,
+  communication3: 1,
   communication4: 1,
-  communication5: 0.5,
-  conversationDepth: 2,
-  socialBattery: 4,
-  humorSubtype: 4,
-  curiosityStyle: 8,
+  communication5: 1,
+  conversationDepth: 3,
+  socialBattery: 2,
+  humorSubtype: 3,
+  curiosityStyle: 4,
   intent: 5,
-  silence: 3,
+  silence: 2,
   vibe: BALANCED_VIBE_MAX,
 })
 
@@ -65,10 +73,6 @@ if (WEIGHT_TOTAL !== 100) {
 }
 
 const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value))
-export const BALANCED_NEUTRAL_BASELINE = 50
-export function normalizeBalancedEvidenceScore(rawScore) {
-  return round(clamp((finite(rawScore, BALANCED_NEUTRAL_BASELINE) - BALANCED_NEUTRAL_BASELINE) * 2, 0, 100))
-}
 const finite = (value, fallback = 0) => {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : fallback
@@ -512,7 +516,7 @@ const BALANCED_CACHE_KEYS = Object.freeze([
   'social_relationship_style',
   'attachment_1', 'attachment_3', 'attachment_4',
   'lifestyle_1', 'lifestyle_2', 'lifestyle_3', 'lifestyle_4', 'lifestyle_5',
-  'core_values_1', 'core_values_2', 'core_values_4', 'core_values_5',
+  'core_values_1', 'core_values_2', 'core_values_3', 'core_values_4', 'core_values_5',
   'communication_1', 'communication_2', 'communication_3', 'communication_4', 'communication_5',
   'conversational_role', 'conversation_depth_pref', 'vibe_4', 'social_battery',
   'humor_subtype', 'curiosity_style', 'intent_goal', 'silence_comfort',
@@ -665,7 +669,7 @@ export function hydrateBalancedCompatibilityFromCacheRow(cacheRow) {
     if (!nearlyEqual(scoreBreakdown[key], expected)) return null
   }
 
-  const componentTotal = round([
+  const diagnosticComponentTotal = round([
     expectedBreakdown.semanticCommonGround,
     expectedBreakdown.interactionRhythm,
     expectedBreakdown.humorOpenness,
@@ -676,10 +680,9 @@ export function hydrateBalancedCompatibilityFromCacheRow(cacheRow) {
     expectedBreakdown.intent,
     expectedBreakdown.language,
   ].reduce((total, value) => total + value, 0))
-  const totalScore = normalizeBalancedEvidenceScore(componentTotal)
-  if (!nearlyEqual(scoreBreakdown.rawTotal, componentTotal)
-    || !nearlyEqual(scoreBreakdown.neutralBaseline, BALANCED_NEUTRAL_BASELINE)
-    || !nearlyEqual(scoreBreakdown.evidenceTotal, totalScore)) return null
+  const personalized = parseJsonObject(scoreBreakdown.personalized)
+  if (!isPersonalizedCompatibilityPayload(personalized)) return null
+  const totalScore = Number(personalized.totalScore)
 
   const persistedColumns = {
     total_compatibility_score: totalScore,
@@ -703,13 +706,14 @@ export function hydrateBalancedCompatibilityFromCacheRow(cacheRow) {
   return {
     scoreModelVersion: BALANCED_COMPATIBILITY_VERSION,
     scoreMaximum: 100,
-    componentTotal,
-    rawCompatibilityScore: componentTotal,
+    componentTotal: diagnosticComponentTotal,
+    diagnosticComponentTotal,
     totalScore,
     priorityScore: totalScore,
     baseCompatibilityScore: totalScore,
     questionScores: JSON.parse(JSON.stringify(questionScores)),
     scoreBreakdown: JSON.parse(JSON.stringify(scoreBreakdown)),
+    personalizedCompatibility: JSON.parse(JSON.stringify(personalized)),
     similarityObserved: null,
     initiativeSource: 'cached_snapshot',
     vibeAxes: JSON.parse(JSON.stringify(vibeAxes)),
@@ -773,37 +777,11 @@ function hasExactSnapshotEnvelope({ modelVersion, contentHash, snapshot, persist
     && snapshotTotal === rowTotal
 }
 
-function hasCurrentBalancedEvidence(snapshot) {
-  const breakdown = snapshot?.scoreBreakdown
-  const rawTotal = Number(breakdown?.rawTotal)
-  const neutralBaseline = Number(breakdown?.neutralBaseline)
-  const evidenceTotal = Number(breakdown?.evidenceTotal)
-  const snapshotTotal = Number(snapshot?.totalScore)
-  if (!Number.isFinite(rawTotal)
-    || !Number.isFinite(neutralBaseline)
-    || !Number.isFinite(evidenceTotal)
-    || !Number.isFinite(snapshotTotal)
-    || rawTotal < 0
-    || rawTotal > 100
-    || evidenceTotal < 0
-    || evidenceTotal > 100
-    || !nearlyEqual(neutralBaseline, BALANCED_NEUTRAL_BASELINE)) return false
-
-  const expectedEvidence = normalizeBalancedEvidenceScore(rawTotal)
-  if (!nearlyEqual(evidenceTotal, expectedEvidence)) return false
-
-  // Cache rows retain six-decimal evidence, while event result columns are
-  // intentionally stored as whole percentages (and some numeric columns as 2dp).
-  return nearlyEqual(snapshotTotal, expectedEvidence)
-    || nearlyEqual(snapshotTotal, round(expectedEvidence, 2))
-    || nearlyEqual(snapshotTotal, Math.round(expectedEvidence))
-}
-
 /** Validate a persisted event-time snapshot without consulting today's cache. */
 export function isCurrentBalancedScoreSnapshot(payload) {
   return payload?.modelVersion === BALANCED_COMPATIBILITY_VERSION
     && hasExactSnapshotEnvelope(payload)
-    && hasCurrentBalancedEvidence(payload.snapshot)
+    && isPersonalizedCompatibilityPayload(payload.snapshot.scoreBreakdown?.personalized)
 }
 
 /**
@@ -836,7 +814,7 @@ export function isCurrentOppositesScoreSnapshot(payload) {
     && components.every((key, index) => Number(questionScores[key]) === values[index])
     && Number.isFinite(rawTotal)
     && Number.isFinite(rawMaximum)
-    && rawMaximum === 77
+    && rawMaximum === 76
     && Math.abs(values.reduce((sum, value) => sum + value, 0) - rawTotal) < 1e-6
     && normalizedTotal === Number(payload.persistedTotal)
     && Math.round((rawTotal / rawMaximum) * 100) === normalizedTotal
@@ -970,7 +948,7 @@ export function calculateBalancedCompatibility(participantA, participantB, { vib
   const communicationItemsScore = sum(['communication1', 'communication2', 'communication3', 'communication4', 'communication5'])
   const communicationDisagreementScore = round(communicationItemsScore + questionScores.disagreement)
   const semanticCommonGroundScore = round(safeVibeScore + sharedContextScore)
-  const componentTotal = round(
+  const diagnosticComponentTotal = round(
     semanticCommonGroundScore
     + interactionScore
     + humorOpenScore
@@ -981,13 +959,14 @@ export function calculateBalancedCompatibility(participantA, participantB, { vib
     + questionScores.intent
     + languageScore
   )
-  const totalScore = normalizeBalancedEvidenceScore(componentTotal)
+  const personalized = calculatePersonalizedCompatibility(participantA, participantB)
+  const totalScore = personalized.totalScore
 
   return {
     scoreModelVersion: BALANCED_COMPATIBILITY_VERSION,
     scoreMaximum: 100,
-    componentTotal,
-    rawCompatibilityScore: componentTotal,
+    componentTotal: diagnosticComponentTotal,
+    diagnosticComponentTotal,
     totalScore,
     priorityScore: totalScore,
     baseCompatibilityScore: totalScore,
@@ -1004,10 +983,9 @@ export function calculateBalancedCompatibility(participantA, participantB, { vib
       language: languageScore,
       communicationDisagreement: communicationDisagreementScore,
       intent: questionScores.intent,
-      rawTotal: componentTotal,
-      neutralBaseline: BALANCED_NEUTRAL_BASELINE,
-      evidenceTotal: totalScore,
+      personalized,
     },
+    personalizedCompatibility: personalized,
     similarityObserved: similarity.observed,
     initiativeSource: initiative.source,
     vibeAxes: vibeAxes || null,
@@ -1068,6 +1046,9 @@ export function getBalancedCacheBreakdown(cacheRow) {
     const language = finite(stored.language)
     return {
       total: finite(cacheRow?.total_compatibility_score),
+      personalized: isPersonalizedCompatibilityPayload(stored.personalized)
+        ? JSON.parse(JSON.stringify(stored.personalized))
+        : null,
       semanticCommonGround: finite(stored.semanticCommonGround, aiSemantic + sharedContext),
       aiSemantic,
       sharedContext,

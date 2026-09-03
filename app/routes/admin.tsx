@@ -190,25 +190,25 @@ function ManualCompatibilityResultModal({ data, onClose }: { data: any; onClose:
   const warnings = gates.filter((gate: any) => gate.blocking === false && gate.applicable !== false && gate.passed !== true)
   const eligible = gateReport.eligible === true
   const balancedCategories = [
-    { label: 'Interaction Synergy', value: result.synergyScore, max: 25, icon: '⚡', color: '#22d3ee' },
+    { label: 'Interaction Synergy', value: result.synergyScore, max: 20, icon: '⚡', color: '#22d3ee' },
     { label: 'AI Vibe', value: result.vibeScore, max: 12, icon: '✨', color: '#f472b6' },
     { label: 'Lifestyle', value: result.lifestyleScore, max: 12, icon: '🏠', color: '#34d399' },
-    { label: 'Humor & Openness', value: result.humorOpenScore, max: 7, icon: '😄', color: '#fbbf24' },
-    { label: 'Communication', value: result.communicationScore, max: 4, icon: '💬', color: '#60a5fa' },
-    { label: 'Disagreement Style', value: result.disagreementScore, max: 4, icon: '🧭', color: '#fb7185' },
+    { label: 'Humor & Openness', value: result.humorOpenScore, max: 10, icon: '😄', color: '#fbbf24' },
+    { label: 'Communication', value: result.communicationScore, max: 5, icon: '💬', color: '#60a5fa' },
+    { label: 'Disagreement Style', value: result.disagreementScore, max: 5, icon: '🧭', color: '#fb7185' },
     { label: 'Core Values, Boundaries & Language', value: coreValues, max: 17, icon: '🧩', color: '#a78bfa' },
     { label: 'Meeting Goal', value: result.intentScore, max: 5, icon: '🎯', color: '#fb923c' },
     { label: 'Current Focus', value: result.currentFocusScore, max: 4, icon: '🔎', color: '#2dd4bf' },
-    { label: 'Similarity Preference', value: result.similarityPreferenceScore, max: 1, icon: '🪞', color: '#c084fc' },
-    { label: 'Attachment & Connection Pace', value: result.attachmentPaceScore, max: 9, icon: '🤝', color: '#4ade80' },
+    { label: 'Similarity Preference', value: result.similarityPreferenceScore, max: 2, icon: '🪞', color: '#c084fc' },
+    { label: 'Attachment & Connection Pace', value: result.attachmentPaceScore, max: 8, icon: '🤝', color: '#4ade80' },
   ].filter(item => item.value != null)
   const oppositesCategories = [
-    { label: 'Interaction Synergy', value: oppositesBreakdown.synergy, max: 25, icon: '⚡', color: '#22d3ee' },
+    { label: 'Interaction Synergy', value: oppositesBreakdown.synergy, max: 20, icon: '⚡', color: '#22d3ee' },
     { label: 'Core Values, Boundaries & Language', value: oppositesBreakdown.coreValues, max: 17, icon: '🧩', color: '#a78bfa' },
-    { label: 'Communication Alignment', value: oppositesBreakdown.communication, max: 4, icon: '💬', color: '#60a5fa' },
+    { label: 'Communication Alignment', value: oppositesBreakdown.communication, max: 5, icon: '💬', color: '#60a5fa' },
     { label: 'Lifestyle Difference', value: oppositesBreakdown.flippedLifestyle, max: 12, icon: '🏠', color: '#34d399' },
     { label: 'Vibe Difference', value: oppositesBreakdown.flippedVibe, max: 12, icon: '✨', color: '#f472b6' },
-    { label: 'Humor & Openness Difference', value: oppositesBreakdown.flippedHumor, max: 7, icon: '😄', color: '#fbbf24' },
+    { label: 'Humor & Openness Difference', value: oppositesBreakdown.flippedHumor, max: 10, icon: '😄', color: '#fbbf24' },
   ]
   const categories = isOppositesModel ? oppositesCategories : isBalancedModel ? balancedCategories : []
   const safety: string[] = []
@@ -239,7 +239,7 @@ function ManualCompatibilityResultModal({ data, onClose }: { data: any; onClose:
             <section className="grid gap-4 lg:grid-cols-[280px_1fr]">
               <div className="flex flex-col items-center justify-center rounded-3xl border border-white/10 bg-white/[0.035] p-6">
                 <div className="relative grid h-44 w-44 place-items-center rounded-full" style={{ background: `conic-gradient(${eligible ? '#34d399' : '#22d3ee'} ${score * 3.6}deg, rgba(148,163,184,0.12) 0deg)` }}>
-                  <div className="grid h-36 w-36 place-items-center rounded-full border border-white/10 bg-slate-950 shadow-inner"><div className="text-center"><div className="text-5xl font-black tracking-tighter">{round(score)}<span className="text-2xl text-slate-500">%</span></div><div className="mt-1 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">Evidence score</div></div></div>
+                  <div className="grid h-36 w-36 place-items-center rounded-full border border-white/10 bg-slate-950 shadow-inner"><div className="text-center"><div className="text-5xl font-black tracking-tighter">{round(score)}<span className="text-2xl text-slate-500">%</span></div><div className="mt-1 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">Final score</div></div></div>
                 </div>
                 <div className={`mt-5 flex items-center gap-2 text-sm font-bold ${eligible ? 'text-emerald-300' : 'text-red-300'}`}>{eligible ? <CheckCircle className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}{eligible ? 'Eligible to appear together' : 'Not eligible for automatic matching'}</div>
                 <p className="mt-2 text-center text-xs leading-5 text-slate-500">{eligible ? 'The pair passes every active gate. Final selection can still depend on global optimization and stronger allocations.' : 'This is their theoretical compatibility score. Blocking gates always take priority over the score.'}</p>
@@ -336,7 +336,7 @@ function getOppositesBreakdownForDisplay(data: any, result: any = data?.result |
     flippedVibe: Number(responseBreakdown.flippedVibe ?? snapshotBreakdown.vibeDifference),
     flippedHumor: Number(responseBreakdown.flippedHumor ?? snapshotBreakdown.humorDifference),
     rawTotal: Number(responseBreakdown.rawTotal ?? snapshotBreakdown.rawTotal),
-    rawMaximum: Number(responseBreakdown.rawMaximum ?? snapshotBreakdown.rawMaximum ?? 77),
+    rawMaximum: Number(responseBreakdown.rawMaximum ?? snapshotBreakdown.rawMaximum ?? 76),
     percent: Number(responseBreakdown.percent ?? snapshotBreakdown.normalizedTotal ?? data?.compatibility_score),
   }
 }
@@ -358,9 +358,9 @@ function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
   matchRows.forEach((mr: any) => matchRowMap.set(`${mr.event_id}:${mr.participant_number}`, mr))
 
   // Original max weights for scaling
-  const originalMax: Record<string, number> = { synergy: 25, vibe: 12, lifestyle: 12, humorOpen: 7, communication: 8, coreValues: 17, intent: 5, attachment: 9, sharedContext: 5 }
+  const originalMax: Record<string, number> = { synergy: 20, vibe: 12, lifestyle: 12, humorOpen: 10, communication: 10, coreValues: 17, intent: 5, attachment: 8, sharedContext: 6 }
 
-  const defaultWeights = { synergy: 25, vibe: 12, lifestyle: 12, humorOpen: 7, communication: 8, coreValues: 17, intent: 5, attachment: 9, sharedContext: 5 }
+  const defaultWeights = { synergy: 20, vibe: 12, lifestyle: 12, humorOpen: 10, communication: 10, coreValues: 17, intent: 5, attachment: 8, sharedContext: 6 }
 
   // Compute recalculated score for a pair given specific weights
   const recalcScore = (pair: any, w: typeof weights) => {
@@ -395,10 +395,8 @@ function MatchAnalyzerModal({ data, weights, setWeights, onClose }: {
     if (newMaxTotal <= 0) return 0
     if (total > newMaxTotal) total = newMaxTotal
 
-    // Normalize the custom raw budget, then apply the same evidence-above-neutral
-    // presentation used by the production scorer.
-    const rawPercent = (total / newMaxTotal) * 100
-    return Math.round(Math.max(0, Math.min(100, (rawPercent - 50) * 2)))
+    // Normalize the custom budget to 100 for comparison.
+    return Math.round((total / newMaxTotal) * 100)
   }
 
   const newMaxTotal = Object.values(weights).reduce((a, b) => a + b, 0)
@@ -954,15 +952,15 @@ export default function AdminPage() {
   const [analyzerData, setAnalyzerData] = useState<any>(null)
   const [analyzerLoading, setAnalyzerLoading] = useState(false)
   const [scoreWeights, setScoreWeights] = useState({
-    synergy: 25,
+    synergy: 20,
     vibe: 12,
     lifestyle: 12,
-    humorOpen: 7,
-    communication: 8,
+    humorOpen: 10,
+    communication: 10,
     coreValues: 17,
     intent: 5,
-    attachment: 9,
-    sharedContext: 5,
+    attachment: 8,
+    sharedContext: 6,
   })
 
   // WhatsApp message modal state
@@ -2785,18 +2783,18 @@ const fetchParticipants = async () => {
       const scoringCriteria = [
         ['Category', 'Max Score', 'Weight in Total', 'Scoring Logic'],
         ['Model scope', 'Current balanced model', 'Reference only', 'Historical pair rows below retain the score produced by their own model period and must not be reinterpreted as this model'],
-        ['Interaction Synergy', '25', '25%', 'Initiative 4 + conversation depth 2 + social battery 4 + humor subtype 4 + curiosity style 8 + silence comfort 3'],
+        ['Interaction Synergy', '20', '20%', 'Q35 initiative 6 + Q36 conversation depth 3 + Q37 social battery 2 + Q38 humor subtype 3 + Q39 curiosity style 4 + Q41 silence comfort 2'],
         ['AI Vibe', '12', '12%', 'Multidimensional semantic fit: current curiosity 5 + hobbies 3 + music 1 + friend description 3; a skipped or unavailable AI result is neutral rather than full credit'],
-        ['Lifestyle', '12', '12%', 'Q14-Q18 direct points: 2 + 3 + 2 + 4 + 1'],
-        ['Humor/Openness', '7', '7%', 'Humor/banter 4 + early openness 3, scored directly'],
-        ['Communication', '4', '4%', 'Q24-Q28 direct compatibility points: 1 + 1 + 0.5 + 1 + 0.5'],
-        ['Disagreement Style', '4', '4%', 'Direct compatibility matrix for match_disagreement_style; shown separately from communication'],
-        ['Core Values, Boundaries & Language', '17', '17%', 'Core scenarios 5 + minimum religious expectation 5 + social relationship style 3 + expression language 4'],
+        ['Lifestyle', '12', '12%', 'Q14-Q18 direct points: 2 + 3 + 3 + 2 + 2'],
+        ['Humor/Openness', '10', '10%', 'Q4.25 humor/banter 6 + Q4.75 early openness 4, scored directly'],
+        ['Communication', '5', '5%', 'Q24-Q28 direct compatibility points, 1 point maximum per question'],
+        ['Disagreement Style', '5', '5%', 'Direct compatibility matrix for match_disagreement_style; shown separately from communication'],
+        ['Core Values, Boundaries & Language', '17', '17%', 'Core scenarios 5 + minimum religious commitment 4 + social relationship style 4 + expression language 4'],
         ['Intent/Goal', '5', '5%', 'Q40 direct compatibility points'],
         ['Current Focus', '4', '4%', 'Direct overlap across the current-focus selections'],
-        ['Similarity Preference', '1', '1%', 'Directional fit between each participant’s stated similarity preference and observed pair similarity'],
-        ['Attachment & Connection Pace', '9', '9%', 'Q9 attachment response 4 + Q11 connection pace 3 + Q12 support-under-pressure 2'],
-        ['Total Formula', '100 raw points', 'Evidence score', 'Raw components total 100; final score = clamp((raw total - 50) × 2, 0, 100), so neutral or missing evidence does not create a 50% match'],
+        ['Similarity Preference', '2', '2%', 'Directional fit between each participant’s stated similarity preference and observed pair similarity'],
+        ['Attachment & Connection Pace', '8', '8%', 'Q9 attachment response 2 + Q11 connection pace 3 + Q12 support-under-pressure 3'],
+        ['Total Formula', '100 direct points', '100%', 'The current balanced score is the additive sum of the components above'],
         ['Eligibility gates', 'Unscored', 'Applied separately', 'Gender, nationality, age, intent, history, and other active hard gates control eligibility before score ranking'],
         ['MBTI', '0', 'Profile context only', 'Q5-Q8 remain available for historical/profile interpretation but do not add points to the current balanced total'],
       ]
@@ -7753,7 +7751,7 @@ Proceed?`
             <div className="text-slate-400 text-xs space-y-1">
               {showAllMatches ? (
                 <>
-                  <p>• Uses the current evidence-above-neutral compatibility model</p>
+                  <p>• Uses the current direct 100-point compatibility model</p>
                   <p>• Includes only genuinely submitted, score-complete surveys</p>
                   <p>• {possibleMatchesScope === 'event' ? `Event ${currentEventId} pool only` : 'All submitted surveys, independent of event signup'}</p>
                   <p>• Gender preference, nationality, age, interaction, exclusions, repeat, locks, attendance, and history gates are not filtered; every failed gate is named</p>
@@ -7763,7 +7761,7 @@ Proceed?`
                 <>
                   <p>• Scores any selected pair, even when they are not eligible to be matched</p>
                   <p>• Shows every visibility and generation gate as PASS, BLOCK, or N/A with both participants' values</p>
-                  <p>• Uses the selected generation formula, current raw evidence components, and active eligibility gates</p>
+                  <p>• Uses the selected generation formula, current score components, and active eligibility gates</p>
                   <p>• Reads the same compatibility cache as generation, without updating it</p>
                   <p>• Does not create, replace, or modify any matches or cache records</p>
                 </>

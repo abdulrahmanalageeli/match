@@ -219,13 +219,13 @@ function formatParticipantBreakdownReason(breakdown) {
   }
   const value = key => Number(breakdown?.[key] ?? 0)
   return [
-    `Common Ground: ${value("semanticCommonGround")}/17`,
-    `Interaction: ${value("interactionRhythm")}/25`,
-    `Humor/Openness: ${value("humorOpenness")}/7`,
-    `Attachment: ${value("attachmentComfort")}/9`,
+    `Common Ground: ${value("semanticCommonGround")}/18`,
+    `Interaction: ${value("interactionRhythm")}/20`,
+    `Humor/Openness: ${value("humorOpenness")}/10`,
+    `Attachment: ${value("attachmentComfort")}/8`,
     `Lifestyle: ${value("lifestyleSustainability")}/12`,
     `Values/Language: ${value("valuesBoundariesLanguage")}/17`,
-    `Communication/Disagreement: ${value("communicationDisagreement")}/8`,
+    `Communication/Disagreement: ${value("communicationDisagreement")}/10`,
     `Intent: ${value("intent")}/5`,
   ].join(" + ")
 }

@@ -489,12 +489,12 @@ export default function ResultsPage() {
 
     if (isOpposites) {
       const dimensions = [
-        { label: 'إيقاع التفاعل', value: Number(breakdown?.interactionSynergy ?? 0), max: 25, bar: 'from-emerald-500 to-teal-500' },
+        { label: 'إيقاع التفاعل', value: Number(breakdown?.interactionSynergy ?? 0), max: 20, bar: 'from-emerald-500 to-teal-500' },
         { label: 'توافق القيم', value: Number(breakdown?.coreValuesAlignment ?? 0), max: 17, bar: 'from-violet-500 to-indigo-500' },
-        { label: 'توافق التواصل', value: Number(breakdown?.communicationAlignment ?? 0), max: 4, bar: 'from-indigo-500 to-sky-500' },
+        { label: 'توافق التواصل', value: Number(breakdown?.communicationAlignment ?? 0), max: 5, bar: 'from-indigo-500 to-sky-500' },
         { label: 'اختلاف نمط الحياة', value: Number(breakdown?.lifestyleDifference ?? 0), max: 12, bar: 'from-cyan-500 to-blue-500' },
         { label: 'اختلاف الطاقة', value: Number(breakdown?.vibeDifference ?? 0), max: 12, bar: 'from-purple-500 to-pink-500' },
-        { label: 'اختلاف الدعابة', value: Number(breakdown?.humorDifference ?? 0), max: 7, bar: 'from-amber-500 to-orange-500' },
+        { label: 'اختلاف الدعابة', value: Number(breakdown?.humorDifference ?? 0), max: 10, bar: 'from-amber-500 to-orange-500' },
       ]
       const components = dimensions.map(dimension => {
         const ratio = dimension.max > 0 ? dimension.value / dimension.max : 0
@@ -518,8 +518,8 @@ export default function ResultsPage() {
           oppositesModel: true,
           dimensions,
           synergyScore: dimensions[0].value,
-          synergyMax: 25,
-          synergyPercent: Math.round((dimensions[0].value / 25) * 100),
+          synergyMax: 20,
+          synergyPercent: Math.round((dimensions[0].value / 20) * 100),
           sharedContext: 0,
           sharedContextMax: 0,
           vibe: dimensions[4].value,
@@ -527,9 +527,9 @@ export default function ResultsPage() {
           lifestyle: dimensions[3].value,
           lifestyleMax: 12,
           humorOpen: dimensions[5].value,
-          humorOpenMax: 7,
+          humorOpenMax: 10,
           communication: dimensions[2].value,
-          communicationMax: 4,
+          communicationMax: 5,
           attachment: 0,
           attachmentMax: 0,
           valuesLanguage: dimensions[1].value,
@@ -667,7 +667,7 @@ export default function ResultsPage() {
       })
     }
 
-    addComponent('السياق المشترك', sharedContext, 5, [
+    addComponent('السياق المشترك', sharedContext, 6, [
       'تركيز واهتمامات حالية تمنحكما أرضية حديث قوية.',
       'توجد نقاط مشتركة جيدة يمكن البناء عليها.',
       'قد تحتاجان لاكتشاف موضوع مشترك أثناء اللقاء.',
@@ -677,17 +677,17 @@ export default function ResultsPage() {
       'تشابه جيد في الاهتمامات مع مساحة للاكتشاف.',
       'اهتمامات مختلفة قد تصنع حواراً جديداً أو تحتاج وقتاً.',
     ])
-    addComponent('الانسجام التفاعلي', interaction, 25, [
+    addComponent('الانسجام التفاعلي', interaction, 20, [
       'انسجام عالٍ في المبادرة وعمق الحديث والراحة مع الصمت.',
       'إيقاع تفاعل جيد مع فروقات بسيطة قابلة للتنسيق.',
       'اختلافات ملحوظة في أسلوب التفاعل تحتاج وقتاً للتأقلم.',
     ])
-    addComponent('الدعابة والانفتاح', humorOpen, 7, [
+    addComponent('الدعابة والانفتاح', humorOpen, 10, [
       'حس فكاهي متقارب وارتياح جميل للانفتاح المبكر.',
       'انسجام جيد في الدعابة ومستوى الانفتاح.',
       'أساليب مزاح أو انفتاح مختلفة تحتاج حساسية متبادلة.',
     ])
-    addComponent('راحة التقارب', attachment, 9, [
+    addComponent('راحة التقارب', attachment, 8, [
       'احتياجات متقاربة للقرب والطمأنة والمساحة الشخصية.',
       'إيقاع تقارب متوازن مع بعض الاختلافات البسيطة.',
       'احتياجات مختلفة للتقارب تستفيد من الوضوح والصبر.',
@@ -702,7 +702,7 @@ export default function ResultsPage() {
       'أساس قيمي جيد مع فروقات يمكن مناقشتها بوضوح.',
       'اختلافات في الأولويات أو الحدود تحتاج فهماً مبكراً.',
     ])
-    addComponent('التواصل وإدارة الاختلاف', communication, 8, [
+    addComponent('التواصل وإدارة الاختلاف', communication, 10, [
       'تفاهم سريع وأساليب متقاربة عند التواصل والاختلاف.',
       'تواصل سهل إجمالاً مع حاجة أحياناً للتوضيح.',
       'أساليب تواصل مختلفة قد تتطلب مرونة أكبر.',
@@ -720,20 +720,20 @@ export default function ResultsPage() {
         newModel: true,
         balancedModel: true,
         synergyScore: interaction,
-        synergyMax: 25,
-        synergyPercent: Math.max(0, Math.min(100, Math.round((interaction / 25) * 100))),
+        synergyMax: 20,
+        synergyPercent: Math.max(0, Math.min(100, Math.round((interaction / 20) * 100))),
         sharedContext,
-        sharedContextMax: 5,
+        sharedContextMax: 6,
         vibe: aiVibe,
         vibeMax: 12,
         lifestyle,
         lifestyleMax: 12,
         humorOpen,
-        humorOpenMax: 7,
+        humorOpenMax: 10,
         communication,
-        communicationMax: 8,
+        communicationMax: 10,
         attachment,
-        attachmentMax: 9,
+        attachmentMax: 8,
         valuesLanguage,
         valuesLanguageMax: 17,
         intentValues: intent,
@@ -1266,7 +1266,7 @@ export default function ResultsPage() {
                                     return (
                                     <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
                                       <div className={`mb-2 rounded-lg border px-2 py-1 text-[10px] font-bold ${m.balancedModel ? 'border-emerald-400/25 bg-emerald-500/10 text-emerald-300' : m.oppositesModel ? 'border-violet-400/25 bg-violet-500/10 text-violet-300' : 'border-amber-400/25 bg-amber-500/10 text-amber-300'}`}>
-                                        {m.balancedModel ? 'نموذج دليل التوافق الحالي · لقطة وقت المطابقة' : m.oppositesModel ? 'وضع الأضداد الحالي · لقطة وقت المطابقة · 77→100' : `حسبة تاريخية موروثة${match.score_model_version ? ` · ${match.score_model_version}` : ''}`}
+                                        {m.balancedModel ? 'النموذج الشخصي الحالي · لقطة وقت المطابقة · الأبعاد تشخيصية' : m.oppositesModel ? 'وضع الأضداد الحالي · لقطة وقت المطابقة · 76→100' : `حسبة تاريخية موروثة${match.score_model_version ? ` · ${match.score_model_version}` : ''}`}
                                       </div>
                                       {/* Matrix-like detailed criteria with value/max and % */}
                                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1282,14 +1282,14 @@ export default function ResultsPage() {
                                             ? m.dimensions
                                             : m.balancedModel
                                             ? [
-                                                { label: 'السياق المشترك', value: m.sharedContext, max: 5, bar: 'from-sky-500 to-cyan-500' },
+                                                { label: 'السياق المشترك', value: m.sharedContext, max: 6, bar: 'from-sky-500 to-cyan-500' },
                                                 { label: 'توافق AI', value: vibeVal, max: 12, bar: 'from-purple-500 to-pink-500' },
-                                                { label: 'التفاعل', value: synergyVal, max: 25, bar: 'from-emerald-500 to-teal-500' },
-                                                { label: 'الدعابة/الانفتاح', value: humorOpenVal, max: 7, bar: 'from-amber-500 to-orange-500' },
-                                                { label: 'راحة التقارب', value: m.attachment, max: 9, bar: 'from-rose-500 to-pink-500' },
+                                                { label: 'التفاعل', value: synergyVal, max: 20, bar: 'from-emerald-500 to-teal-500' },
+                                                { label: 'الدعابة/الانفتاح', value: humorOpenVal, max: 10, bar: 'from-amber-500 to-orange-500' },
+                                                { label: 'راحة التقارب', value: m.attachment, max: 8, bar: 'from-rose-500 to-pink-500' },
                                                 { label: 'نمط الحياة', value: lifestyleVal, max: 12, bar: 'from-cyan-500 to-blue-500' },
                                                 { label: 'القيم/الحدود/اللغة', value: m.valuesLanguage, max: 17, bar: 'from-violet-500 to-indigo-500' },
-                                                { label: 'التواصل/الاختلاف', value: communicationVal, max: 8, bar: 'from-indigo-500 to-sky-500' },
+                                                { label: 'التواصل/الاختلاف', value: communicationVal, max: 10, bar: 'from-indigo-500 to-sky-500' },
                                                 { label: 'الهدف', value: intentVal, max: 5, bar: 'from-emerald-500 to-teal-500' },
                                               ]
                                             : [

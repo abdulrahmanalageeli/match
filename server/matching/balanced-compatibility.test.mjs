@@ -82,34 +82,34 @@ test('balanced weights are immutable, explicit, and total exactly 100', () => {
   assert.equal(BALANCED_WEIGHTS.vibe, 12)
   assert.equal(BALANCED_WEIGHTS.core3, 0)
   assert.equal(BALANCED_WEIGHTS.expressionLanguage, 4)
-  assert.equal(BALANCED_WEIGHTS.religion, 5)
-  assert.equal(BALANCED_WEIGHTS.socialStyle, 3)
-  assert.equal(BALANCED_WEIGHTS.curiosityStyle, 8)
+  assert.equal(BALANCED_WEIGHTS.religion, 4)
+  assert.equal(BALANCED_WEIGHTS.socialStyle, 4)
+  assert.equal(BALANCED_WEIGHTS.curiosityStyle, 4)
 })
 
-test('a fully aligned complementary pair reaches 100 with the expected category budget', () => {
+test('a fully aligned complementary pair retains a 100-point diagnostic budget while v11 supplies the learned total', () => {
   const a = participant({ conversation_initiative_preference: 'A', curiosity_style: 'A' })
   const b = participant({ conversation_initiative_preference: 'C', curiosity_style: 'B' })
   const result = calculateBalancedCompatibility(a, b, { vibeScore: 12 })
 
   assert.equal(result.componentTotal, 100)
-  assert.equal(result.totalScore, 100)
-  assert.equal(result.priorityScore, 100)
-  assert.deepEqual(result.scoreBreakdown, {
-    semanticCommonGround: 17,
+  assert.equal(result.diagnosticComponentTotal, 100)
+  assert.equal(result.totalScore, result.scoreBreakdown.personalized.totalScore)
+  assert.equal(result.priorityScore, result.totalScore)
+  assert.ok(result.totalScore >= 0 && result.totalScore <= 100)
+  assert.deepEqual({ ...result.scoreBreakdown, personalized: undefined }, {
+    semanticCommonGround: 18,
     aiSemantic: 12,
-    sharedContext: 5,
-    interactionRhythm: 25,
-    humorOpenness: 7,
-    attachmentComfort: 9,
+    sharedContext: 6,
+    interactionRhythm: 20,
+    humorOpenness: 10,
+    attachmentComfort: 8,
     lifestyleSustainability: 12,
     valuesBoundaries: 13,
     language: 4,
-    communicationDisagreement: 8,
+    communicationDisagreement: 10,
     intent: 5,
-    rawTotal: 100,
-    neutralBaseline: 50,
-    evidenceTotal: 100,
+    personalized: undefined,
   })
   assert.deepEqual(result.compositeRules, [])
   assert.equal(result.compositeAdjustment, 0)
@@ -118,9 +118,10 @@ test('a fully aligned complementary pair reaches 100 with the expected category 
 test('missing answers fall back neutrally without invoking legacy bonuses, penalties, or vetoes', () => {
   const result = calculateBalancedCompatibility({}, {}, { vibeScore: 6 })
 
-  assert.equal(result.totalScore, 0)
+  assert.ok(result.totalScore >= 0 && result.totalScore <= 100)
   assert.equal(result.componentTotal, 50)
-  assert.equal(result.rawCompatibilityScore, 50)
+  assert.equal(result.personalizedCompatibility.aToB.questionnaireCoverage, 0)
+  assert.equal(result.personalizedCompatibility.bToA.questionnaireCoverage, 0)
   assert.equal(result.humorMultiplier, 1)
   assert.equal(result.opennessPenalty, 0)
   assert.equal(result.deadAirVetoApplied, false)
@@ -158,20 +159,20 @@ test('the score is symmetric and exposes deliberately low-fit matrix cells', () 
   const ba = calculateBalancedCompatibility(b, a, { vibeScore: 6 })
   assert.equal(ab.totalScore, ba.totalScore)
   assert.deepEqual(ab.questionScores, ba.questionScores)
-  assert.equal(ab.questionScores.humorBanter, 1)
-  assert.equal(ab.questionScores.earlyOpenness, 0.45)
+  assert.equal(ab.questionScores.humorBanter, 1.5)
+  assert.equal(ab.questionScores.earlyOpenness, 0.6)
   assert.equal(ab.questionScores.expressionLanguage, 0)
-  assert.equal(ab.questionScores.religion, 0.5)
-  assert.equal(ab.questionScores.socialStyle, 0.3)
-  assert.equal(ab.scoreBreakdown.attachmentComfort, 1.8)
-  assert.equal(ab.scoreBreakdown.lifestyleSustainability, 2.05)
-  assert.equal(ab.questionScores.conversationDepth, 0.7)
-  assert.equal(ab.questionScores.socialBattery, 3)
-  assert.equal(ab.questionScores.humorSubtype, 3)
-  assert.equal(ab.questionScores.curiosityStyle, 8)
+  assert.equal(ab.questionScores.religion, 0.4)
+  assert.equal(ab.questionScores.socialStyle, 0.4)
+  assert.equal(ab.scoreBreakdown.attachmentComfort, 1.6)
+  assert.equal(ab.scoreBreakdown.lifestyleSustainability, 2.15)
+  assert.equal(ab.questionScores.conversationDepth, 1.05)
+  assert.equal(ab.questionScores.socialBattery, 1.5)
+  assert.equal(ab.questionScores.humorSubtype, 2.25)
+  assert.equal(ab.questionScores.curiosityStyle, 4)
   assert.equal(ab.questionScores.intent, 2.25)
-  assert.equal(ab.questionScores.silence, 1.8)
-  assert.equal(ab.scoreBreakdown.communicationDisagreement, 4.4)
+  assert.equal(ab.questionScores.silence, 1.2)
+  assert.equal(ab.scoreBreakdown.communicationDisagreement, 5.5)
 })
 
 test('an unmatched custom focus option is not treated as shared context', () => {
@@ -216,12 +217,12 @@ test('replacement questions prevent duplicate initiative, depth, and attachment 
 
   const original = calculateBalancedCompatibility(a, b)
   const changed = calculateBalancedCompatibility(changedDuplicatesA, changedDuplicatesB)
-  assert.equal(original.questionScores.initiative, 4)
-  assert.equal(changed.questionScores.initiative, 4)
-  assert.equal(original.questionScores.conversationDepth, 2)
-  assert.equal(changed.questionScores.conversationDepth, 2)
-  assert.equal(original.scoreBreakdown.attachmentComfort, 1.8)
-  assert.equal(changed.scoreBreakdown.attachmentComfort, 1.8)
+  assert.equal(original.questionScores.initiative, 6)
+  assert.equal(changed.questionScores.initiative, 6)
+  assert.equal(original.questionScores.conversationDepth, 3)
+  assert.equal(changed.questionScores.conversationDepth, 3)
+  assert.equal(original.scoreBreakdown.attachmentComfort, 1.6)
+  assert.equal(changed.scoreBreakdown.attachmentComfort, 1.6)
 })
 
 test('legacy conversational role is used only as a deterministic initiative fallback', () => {
@@ -234,18 +235,28 @@ test('legacy conversational role is used only as a deterministic initiative fall
   )
 
   assert.equal(fallback.initiativeSource, 'conversational_role_fallback')
-  assert.equal(fallback.questionScores.initiative, 4)
+  assert.equal(fallback.questionScores.initiative, 6)
   assert.equal(explicit.initiativeSource, 'conversation_initiative_preference')
-  assert.equal(explicit.questionScores.initiative, 4)
+  assert.equal(explicit.questionScores.initiative, 6)
 })
 
-test('zero-weight and derived legacy answers cannot alter the score', () => {
+test('v11 can learn from formerly zero-weight answers while ignoring derived legacy fields', () => {
   const a = participant({ core_values_3: 'A', communication_style: 'direct' })
   const b = participant({ core_values_3: 'A', communication_style: 'direct' })
   const changedA = participant({ core_values_3: 'D', communication_style: 'avoidant' })
   const changedB = participant({ core_values_3: 'B', communication_style: 'emotional' })
 
-  assert.equal(calculateBalancedCompatibility(a, b).totalScore, calculateBalancedCompatibility(changedA, changedB).totalScore)
+  const original = calculateBalancedCompatibility(a, b)
+  const changed = calculateBalancedCompatibility(changedA, changedB)
+  assert.equal(original.componentTotal, changed.componentTotal)
+  assert.notEqual(original.totalScore, changed.totalScore)
+  assert.equal(
+    original.totalScore,
+    calculateBalancedCompatibility(
+      participant({ core_values_3: 'A', communication_style: 'avoidant' }),
+      participant({ core_values_3: 'A', communication_style: 'emotional' }),
+    ).totalScore,
+  )
 })
 
 test('AI vibe profiles use exactly the four non-duplicative semantic fields', () => {
@@ -312,7 +323,7 @@ test('vibe metadata round-trips axis scores and identifies only the current bala
   assert.equal(decoded.friend_description.score, 2.5)
 })
 
-test('balanced cache content includes every scored input and excludes zero-weight and derived fields', () => {
+test('balanced cache content preserves the restored v7 identity and excludes derived style', () => {
   const source = participant({ communication_style: 'direct' })
   const cache = getBalancedCacheContent(source)
 
@@ -324,7 +335,7 @@ test('balanced cache content includes every scored input and excludes zero-weigh
   assert.match(cache, /social_relationship_style:2/)
   assert.match(cache, /vibe:/)
   assert.doesNotMatch(cache, /communication_style/)
-  assert.doesNotMatch(cache, /core_values_3/)
+  assert.match(cache, /core_values_3:A/)
   assert.equal(cache, getBalancedCacheContent(participant({ communication_style: 'avoidant' })))
   assert.notEqual(cache, getBalancedCacheContent(participant({
     expression_language: '5',
@@ -354,7 +365,7 @@ test('balanced cache identity is canonical, SHA-256, and version/content sensiti
   )
 })
 
-test('profile alignment questions materially change compatibility', () => {
+test('profile questions remain visible diagnostics and materially affect the learned scorer', () => {
   const a = participant()
   const b = participant()
   const changedA = participant({
@@ -370,10 +381,11 @@ test('profile alignment questions materially change compatibility', () => {
 
   const aligned = calculateBalancedCompatibility(a, b)
   const mismatched = calculateBalancedCompatibility(changedA, changedB)
-  assert.ok(aligned.totalScore - mismatched.totalScore >= 20)
+  assert.ok(aligned.componentTotal - mismatched.componentTotal >= 11)
+  assert.notEqual(aligned.totalScore, mismatched.totalScore)
   assert.equal(mismatched.questionScores.expressionLanguage, 0)
-  assert.equal(mismatched.questionScores.religion, 0.5)
-  assert.equal(mismatched.questionScores.socialStyle, 0.3)
+  assert.equal(mismatched.questionScores.religion, 0.4)
+  assert.equal(mismatched.questionScores.socialStyle, 0.4)
 })
 
 test('score snapshots preserve the complete balanced event-time provenance and are immutable', () => {
@@ -397,7 +409,7 @@ test('score snapshots preserve the complete balanced event-time provenance and a
   assert.throws(() => { snapshot.totalScore = 0 }, TypeError)
 })
 
-test('current balanced snapshots require internally consistent v9 evidence and allow persisted whole percentages', () => {
+test('current balanced snapshots use the mutual personalized total and require an exact envelope', () => {
   const result = calculateBalancedCompatibility(participant(), participant(), {
     vibeScore: 8.123,
     vibeAxes: createNeutralVibeAxes(),
@@ -411,18 +423,12 @@ test('current balanced snapshots require internally consistent v9 evidence and a
   }
   assert.equal(isCurrentBalancedScoreSnapshot(payload), true)
 
-  const roundedTotal = Math.round(exact.totalScore)
-  const rounded = { ...exact, totalScore: roundedTotal }
-  assert.equal(isCurrentBalancedScoreSnapshot({ ...payload, snapshot: rounded, persistedTotal: roundedTotal }), true)
-
-  for (const scoreBreakdown of [
-    { ...exact.scoreBreakdown, neutralBaseline: 40 },
-    { ...exact.scoreBreakdown, rawTotal: 101 },
-    { ...exact.scoreBreakdown, evidenceTotal: exact.scoreBreakdown.evidenceTotal + 1 },
-  ]) {
-    const tampered = { ...exact, scoreBreakdown }
-    assert.equal(isCurrentBalancedScoreSnapshot({ ...payload, snapshot: tampered }), false)
-  }
+  assert.equal(exact.totalScore, result.personalizedCompatibility.totalScore)
+  assert.notEqual(exact.totalScore, result.componentTotal)
+  assert.equal(Object.hasOwn(exact.scoreBreakdown, 'neutralBaseline'), false)
+  assert.equal(Object.hasOwn(exact.scoreBreakdown, 'evidenceTotal'), false)
+  assert.equal(isCurrentBalancedScoreSnapshot({ ...payload, persistedTotal: exact.totalScore + 1 }), false)
+  assert.equal(isCurrentBalancedScoreSnapshot({ ...payload, contentHash: 'wrong-hash' }), false)
 })
 
 test('exact current cache rows hydrate without recalculating and reject inconsistent snapshots', () => {

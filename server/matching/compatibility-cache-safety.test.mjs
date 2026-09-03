@@ -291,13 +291,13 @@ test('UI model detection requires exact persisted provenance and Event3 never ap
   assert.match(modelSource, /snapshot\.combinedContentHash === contentHash/)
   assert.match(modelSource, /snapshot\.vibeModelTag === CURRENT_BALANCED_VIBE_TAG/)
   assert.match(modelSource, /snapshotTotal === storedTotal/)
-  assert.match(modelSource, /neutralBaseline === CURRENT_BALANCED_NEUTRAL_BASELINE/)
-  assert.match(modelSource, /Math\.abs\(evidenceTotal - expectedEvidence\) <= 1e-6/)
+  assert.match(modelSource, /2026-09-03-v11-event26-archetype-personalized-100/)
+  assert.doesNotMatch(modelSource, /CURRENT_BALANCED_NEUTRAL_BASELINE|expectedEvidence/)
   assert.doesNotMatch(breakdownBlock, /max:\s*(?:30|25|15)\b/)
   assert.match(breakdownBlock, /currentBalancedGroupedDimensionsForDisplay\(dimensionSource\)/)
   assert.match(event3Source, /breakdown=\{p2\.breakdown\} scoreRow=\{p2\}/)
   assert.match(event3Source, /breakdown=\{p3\.breakdown\} scoreRow=\{p3\}/)
-  for (const maximum of [17, 25, 7, 9, 12, 17, 8, 5]) {
+  for (const maximum of [18, 20, 10, 8, 12, 17, 10, 5]) {
     assert.match(groupedDimensionsBlock, new RegExp(`max: ${maximum}\\b`))
   }
   assert.match(breakdownBlock, /نعرض المجموع التاريخي فقط/)

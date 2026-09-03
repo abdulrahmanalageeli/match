@@ -85,10 +85,10 @@ test("generated match rows recalculate insight scores when an old cache has zero
     similarityPreferenceScore: 0,
     attachmentPaceScore: 0,
   }, participantA, participantB, 25), {
-    disagreement_style_score: 4,
+    disagreement_style_score: 5,
     current_life_overlap_score: 4,
-    similarity_preference_score: 0.75,
-    attachment_pace_score: 4.5,
+    similarity_preference_score: 1.5,
+    attachment_pace_score: 4,
   })
 })
 
@@ -110,10 +110,10 @@ test("generated match rows replace explicit nulls and give organizer rows safe d
     similarityPreferenceScore: null,
     attachmentPaceScore: null,
   }, participantA, participantB, 20)
-  assert.equal(generated.disagreement_style_score, 4)
+  assert.equal(generated.disagreement_style_score, 5)
   assert.equal(generated.current_life_overlap_score, 3)
-  assert.equal(generated.similarity_preference_score, 0.5)
-  assert.equal(generated.attachment_pace_score, 4.5)
+  assert.equal(generated.similarity_preference_score, 1)
+  assert.equal(generated.attachment_pace_score, 4)
   assert.deepEqual(buildPersistedMatchInsightFields(), {
     disagreement_style_score: 0,
     current_life_overlap_score: 0,
@@ -288,14 +288,14 @@ function synergyParticipant(number, preference) {
   return participant(number, 30, answers)
 }
 
-test("conversation initiative scoring is symmetric, capped at four, and falls back to Q35", () => {
+test("conversation initiative scoring is symmetric, capped at six, and falls back to Q35", () => {
   const wantsPartnerToLead = synergyParticipant(1, "A")
   const wantsToLead = synergyParticipant(2, "C")
   const missing = synergyParticipant(3)
 
-  assert.equal(calculateConversationInitiativePreferenceScore(wantsPartnerToLead, wantsToLead), 4)
-  assert.equal(calculateConversationInitiativePreferenceScore(wantsToLead, wantsPartnerToLead), 4)
-  assert.equal(calculateConversationInitiativePreferenceScore(wantsPartnerToLead, missing), 3)
+  assert.equal(calculateConversationInitiativePreferenceScore(wantsPartnerToLead, wantsToLead), 6)
+  assert.equal(calculateConversationInitiativePreferenceScore(wantsToLead, wantsPartnerToLead), 6)
+  assert.equal(calculateConversationInitiativePreferenceScore(wantsPartnerToLead, missing), 4.5)
 })
 
 test("manual pair test mode reports every active gate when a pair is eligible", () => {
@@ -362,7 +362,7 @@ test("A-to-D humor clash is retained as a non-blocking warning", () => {
   assert.equal(report.eligible, true)
 })
 
-test("A-to-D humor lowers its component without capping the overall score", async () => {
+test("A-to-D humor lowers its diagnostic component without imposing a global score cap", async () => {
   const playful = synergyParticipant(35, "A")
   const serious = synergyParticipant(36, "A")
   playful.humor_banter_style = "A"
@@ -395,10 +395,9 @@ test("A-to-D humor lowers its component without capping the overall score", asyn
   assert.equal(clash.humorClashDetected, true)
   assert.equal(clash.humorClashVetoApplied, false)
   assert.notEqual(clash.capApplied, 50)
-  assert.ok(clash.totalScore > 0)
-  assert.ok(clash.rawCompatibilityScore > 50)
+  assert.ok(clash.totalScore >= 0 && clash.totalScore <= 100)
   assert.ok(clash.humorOpenScore < aligned.humorOpenScore)
-  assert.ok(clash.totalScore < aligned.totalScore)
+  assert.equal(clash.totalScore, clash.personalizedCompatibility.totalScore)
 })
 
 test("fresh balanced scoring does not apply feedback composites or dead-air overrides", async () => {
@@ -455,7 +454,7 @@ test("extreme early-openness mismatch remains a blocking interaction gate", () =
   assert.equal(report.blockers.includes("humor_clash"), false)
 })
 
-test("interaction stays in its balanced 25-point range and uses Q35 until both new answers exist", () => {
+test("interaction stays in its balanced 20-point range and uses Q35 until both new answers exist", () => {
   const legacyA = synergyParticipant(1)
   const legacyB = synergyParticipant(2)
   const legacyScore = calculateInteractionSynergyScore(legacyA, legacyB)
@@ -465,9 +464,9 @@ test("interaction stays in its balanced 25-point range and uses Q35 until both n
 
   legacyB.survey_data.answers.conversation_initiative_preference = "C"
   const recalibratedScore = calculateInteractionSynergyScore(legacyA, legacyB)
-  assert.equal(legacyScore, 24)
-  assert.equal(recalibratedScore, 25)
-  assert.ok(recalibratedScore >= 0 && recalibratedScore <= 25)
+  assert.equal(legacyScore, 18.5)
+  assert.equal(recalibratedScore, 20)
+  assert.ok(recalibratedScore >= 0 && recalibratedScore <= 20)
 })
 
 test("failed and transient balanced vibe rows are never treated as durable exact hits", () => {
@@ -547,10 +546,10 @@ test("locked/current reason formatting preserves valid zero components and balan
     intent: 0,
     language: 0,
   } })
-  assert.match(reason, /Common Ground: 0\/17/)
-  assert.match(reason, /Attachment Comfort: 0\/9/)
-  assert.doesNotMatch(reason, /Expression Language/)
-  assert.doesNotMatch(reason, /\/28|\/30|15%/)
+  assert.match(reason, /Common Ground: 0\/18/)
+  assert.match(reason, /Attachment Comfort: 0\/8/)
+  assert.match(reason, /Expression Language: 0\/4/)
+  assert.doesNotMatch(reason, /\/25|\/30|15%/)
 })
 
 test("lifestyle uses all five weighted scenarios in its balanced 12-point range", () => {
@@ -558,7 +557,7 @@ test("lifestyle uses all five weighted scenarios in its balanced 12-point range"
   const fourOfFive = calculateLifestyleCompatibility("أ,أ,أ,أ,أ", "أ,أ,أ,أ,ج")
 
   assert.equal(perfect, 12)
-  assert.equal(fourOfFive, 11.25)
+  assert.equal(fourOfFive, 10.5)
 })
 
 test("a model-version cache miss refuses an unversioned legacy 15-point vibe", async () => {
@@ -582,7 +581,7 @@ test("a model-version cache miss refuses an unversioned legacy 15-point vibe", a
   assert.ok(result.disagreementScore >= 0 && result.disagreementScore <= 5)
   assert.ok(result.currentFocusScore >= 0 && result.currentFocusScore <= 4)
   assert.ok(result.similarityPreferenceScore >= 0 && result.similarityPreferenceScore <= 2)
-  assert.ok(result.attachmentPaceScore >= 0 && result.attachmentPaceScore <= 9)
+  assert.ok(result.attachmentPaceScore >= 0 && result.attachmentPaceScore <= 8)
 })
 
 test("a legacy 25-point cached vibe is not reused by the balanced scorer", async () => {

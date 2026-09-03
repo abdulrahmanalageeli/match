@@ -23,15 +23,15 @@ const pairKey = ({ a, b }) => [a, b].sort((x, y) => x - y).join("-")
 
 function storedRow(a, b, score = 76) {
   const scoreContentHash = `prepared-${a}-${b}`
+  const personalized = {
+    scoreModelVersion: BALANCED_COMPATIBILITY_VERSION,
+    totalScore: score,
+    aToB: { score },
+    bToA: { score },
+  }
   const scoreSnapshot = buildBalancedScoreSnapshot({
     totalScore: score,
-    scoreBreakdown: {
-      sharedContext: 14,
-      interactionRhythm: 15,
-      rawTotal: 50 + (score / 2),
-      neutralBaseline: 50,
-      evidenceTotal: score,
-    },
+    scoreBreakdown: { sharedContext: 14, interactionRhythm: 15, personalized },
     questionScores: { currentFocus: 3, similarityPreference: 1 },
     vibeAxes: { sharedEnergy: 2 },
   }, { combinedContentHash: scoreContentHash })
@@ -160,7 +160,6 @@ test("prepared rows reject stale, missing or inconsistent immutable score proven
     { score_snapshot: { ...first.score_snapshot, totalScore: first.compatibility_score + 1 } },
     { score_snapshot: { ...first.score_snapshot, vibeModelTag: "stale-vibe-model" } },
     { score_snapshot: { ...first.score_snapshot, scoreBreakdown: null } },
-    { score_snapshot: { ...first.score_snapshot, scoreBreakdown: { ...first.score_snapshot.scoreBreakdown, evidenceTotal: first.compatibility_score + 1 } } },
     { score_snapshot: { ...first.score_snapshot, questionScores: null } },
     { score_snapshot: { ...first.score_snapshot, vibeAxes: null } },
   ]

@@ -180,6 +180,12 @@ const CORE_VALUES_QUESTIONS: Record<string, { label: string, options: Record<str
 // Visual helpers
 const getTierName = (p: number) => (p >= 85 ? 'ممتاز' : p >= 70 ? 'جيد جدًا' : p >= 55 ? 'جيد' : p >= 40 ? 'مقبول' : 'ضعيف')
 const getInitial = (s: string) => { const t = (s || '').replace(/^#/, '').trim(); return t ? t[0].toUpperCase() : '—' }
+const getArchetypeLabel = (direction: any) => {
+  const key = String(direction?.archetype?.key || '')
+  if (key === 'adaptive_explorers') return 'المستكشفون المتكيّفون'
+  if (key === 'depth_warmth_seekers') return 'باحثو العمق والدفء'
+  return direction?.archetype?.label || '—'
+}
 const computeTopSynergyDrivers = (details: Array<{ label: string, scaled: number }>) => details.slice().sort((a,b)=> (b.scaled||0)-(a.scaled||0)).filter(d=> (d.scaled||0)>0).slice(0,2)
 function ScoreBar({ label, value, max, color, icon }: { label: string, value: number, max: number, color: string, icon?: React.ReactNode }) {
   const pct = Math.max(0, Math.min(100, (value / max) * 100))
@@ -438,6 +444,14 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
   const bNameLabel = (b?.name || bSurvey?.name || bAns?.name || (b?.assigned_number ? `#${b.assigned_number}` : 'B')).toString()
   const aNumber = a?.assigned_number
   const bNumber = b?.assigned_number
+  const personalized = parseJSON(scoreBreakdown?.personalized ?? pair?.personalizedCompatibility ?? pair?.personalized_compatibility)
+  const storedAToB = personalized?.aToB
+  const storedBToA = personalized?.bToA
+  const directionBelongsToA = Number(storedAToB?.sourceParticipantNumber) === Number(aNumber)
+    || storedAToB?.sourceParticipantNumber === null
+    || storedAToB?.sourceParticipantNumber === undefined
+  const aToBPersonalized = directionBelongsToA ? storedAToB : storedBToA
+  const bToAPersonalized = directionBelongsToA ? storedBToA : storedAToB
   const aMBTI = a?.mbti_personality_type || aSurvey?.mbtiType
   const bMBTI = b?.mbti_personality_type || bSurvey?.mbtiType
 
@@ -964,11 +978,32 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
                   )}
                   <div className={`mt-2 rounded-lg border px-2.5 py-2 text-[10px] font-semibold ${isBalanced ? 'border-emerald-400/25 bg-emerald-500/10 text-emerald-200' : isOpposites ? 'border-violet-400/25 bg-violet-500/10 text-violet-200' : 'border-amber-400/25 bg-amber-500/10 text-amber-200'}`}>
                     {isBalanced
-                      ? 'نموذج دليل التوافق الحالي · الدليل فوق الحياد'
+                      ? 'النموذج الشخصي الحالي · تعلّم من ترتيبات الفعالية 26'
                       : isOpposites
-                        ? 'وضع الأضداد الحالي · 77 نقطة خام محوّلة إلى 100'
+                        ? 'وضع الأضداد الحالي · 76 نقطة خام محوّلة إلى 100'
                         : `عرض تاريخي موروث${scoreModelVersion ? ` · ${scoreModelVersion}` : ''}`}
                   </div>
+                  {isBalanced && Number.isFinite(Number(aToBPersonalized?.score)) && Number.isFinite(Number(bToAPersonalized?.score)) && (
+                    <div className="mt-3 grid grid-cols-1 gap-2 text-[11px]">
+                      <div className="rounded-lg border border-cyan-400/20 bg-cyan-500/[0.08] px-3 py-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold text-cyan-100">تفضيل {aNameLabel} لـ {bNameLabel}</span>
+                          <span className="font-black text-cyan-300">{Math.round(Number(aToBPersonalized.score))}%</span>
+                        </div>
+                        <div className="mt-0.5 text-slate-400">النمط: {getArchetypeLabel(aToBPersonalized)}</div>
+                      </div>
+                      <div className="rounded-lg border border-fuchsia-400/20 bg-fuchsia-500/[0.08] px-3 py-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold text-fuchsia-100">تفضيل {bNameLabel} لـ {aNameLabel}</span>
+                          <span className="font-black text-fuchsia-300">{Math.round(Number(bToAPersonalized.score))}%</span>
+                        </div>
+                        <div className="mt-0.5 text-slate-400">النمط: {getArchetypeLabel(bToAPersonalized)}</div>
+                      </div>
+                      <div className="px-1 text-slate-500 leading-relaxed">
+                        النسبة الإجمالية هي المتوسط الهندسي للاتجاهين. أشرطة الأسئلة أدناه تشخيصية وليست جمعًا للنسبة.
+                      </div>
+                    </div>
+                  )}
                   <div className="mt-4 space-y-3">
                     {summaryDimensions.map(dimension => (
                       <ScoreBar key={dimension.key} label={dimension.label} icon={dimension.icon} value={dimension.value} max={dimension.max} color={dimension.color} />
@@ -1011,7 +1046,7 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
                       <div className="flex flex-wrap gap-2 text-xs md:text-sm">
                         {isBalanced && (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-emerald-400/40 bg-emerald-500/10 text-emerald-200">
-                            <BadgeCheck className="w-4 h-4" /> المكونات نقاط مباشرة؛ بلا مضاعفات أو عقوبات موروثة
+                            <BadgeCheck className="w-4 h-4" /> النسبة شخصية ومتبادلة؛ الأبعاد أدلة تشخيصية فقط
                           </span>
                         )}
                         {isOpposites && (

@@ -187,14 +187,18 @@ function normalizeSwapPairs(value) {
 
 function swapReason(compatibility) {
   const breakdown = compatibility?.scoreBreakdown || {}
-  return `Common Ground: ${Math.round(Number(breakdown.semanticCommonGround || 0))}/17 + ` +
-    `Interaction Rhythm: ${Math.round(Number(breakdown.interactionRhythm || 0))}/25 + ` +
-    `Humor/Openness: ${Math.round(Number(breakdown.humorOpenness || 0))}/7 + ` +
-    `Attachment Comfort: ${Math.round(Number(breakdown.attachmentComfort || 0))}/9 + ` +
+  const personalized = breakdown.personalized || compatibility?.personalizedCompatibility || {}
+  return `Personalized mutual: ${Math.round(Number(personalized.totalScore ?? compatibility?.totalScore ?? 0))}% ` +
+    `(A→B ${Math.round(Number(personalized.aToB?.score ?? 0))}%, B→A ${Math.round(Number(personalized.bToA?.score ?? 0))}%) — Diagnostics: ` +
+    `Common Ground: ${Math.round(Number(breakdown.semanticCommonGround || 0))}/18 + ` +
+    `Interaction Rhythm: ${Math.round(Number(breakdown.interactionRhythm || 0))}/20 + ` +
+    `Humor/Openness: ${Math.round(Number(breakdown.humorOpenness || 0))}/10 + ` +
+    `Attachment Comfort: ${Math.round(Number(breakdown.attachmentComfort || 0))}/8 + ` +
     `Lifestyle: ${Math.round(Number(breakdown.lifestyleSustainability || 0))}/12 + ` +
-    `Values/Boundaries/Language: ${Math.round(Number(breakdown.valuesBoundaries || 0) + Number(breakdown.language || 0))}/17 + ` +
-    `Communication/Disagreement: ${Math.round(Number(breakdown.communicationDisagreement || 0))}/8 + ` +
-    `Intent: ${Math.round(Number(breakdown.intent || 0))}/5`
+    `Values/Boundaries: ${Math.round(Number(breakdown.valuesBoundaries || 0))}/13 + ` +
+    `Communication/Disagreement: ${Math.round(Number(breakdown.communicationDisagreement || 0))}/10 + ` +
+    `Intent: ${Math.round(Number(breakdown.intent || 0))}/5 + ` +
+    `Expression Language: ${Math.round(Number(breakdown.language || 0))}/4`
 }
 
 function compatibilityResultPayload(compatibility) {
@@ -7602,7 +7606,7 @@ export default async function handler(req, res) {
             humor_open_score: breakdown.humorOpenness,
             intent_score: breakdown.intent,
             score_breakdown: breakdown,
-            reason: `Common Ground: ${breakdown.semanticCommonGround.toFixed(1)}/17 + Interaction Rhythm: ${breakdown.interactionRhythm.toFixed(1)}/25 + Humor/Openness: ${breakdown.humorOpenness.toFixed(1)}/7 + Attachment Comfort: ${breakdown.attachmentComfort.toFixed(1)}/9 + Lifestyle: ${breakdown.lifestyleSustainability.toFixed(1)}/12 + Values/Language: ${breakdown.valuesBoundariesLanguage.toFixed(1)}/17 + Communication/Disagreement: ${breakdown.communicationDisagreement.toFixed(1)}/8 + Intent: ${breakdown.intent.toFixed(1)}/5`,
+            reason: `Common Ground: ${breakdown.semanticCommonGround.toFixed(1)}/18 + Interaction Rhythm: ${breakdown.interactionRhythm.toFixed(1)}/20 + Humor/Openness: ${breakdown.humorOpenness.toFixed(1)}/10 + Attachment Comfort: ${breakdown.attachmentComfort.toFixed(1)}/8 + Lifestyle: ${breakdown.lifestyleSustainability.toFixed(1)}/12 + Values/Language: ${breakdown.valuesBoundariesLanguage.toFixed(1)}/17 + Communication/Disagreement: ${breakdown.communicationDisagreement.toFixed(1)}/10 + Intent: ${breakdown.intent.toFixed(1)}/5`,
             is_actual_match: isActualMatch,
             use_count: cache.use_count,
             last_used: cache.last_used,
@@ -8067,7 +8071,7 @@ export default async function handler(req, res) {
               humor_open_score: breakdown.humorOpenness,
               intent_score: breakdown.intent,
               score_breakdown: breakdown,
-              reason: `Common Ground: ${breakdown.semanticCommonGround.toFixed(1)}/17 + Interaction Rhythm: ${breakdown.interactionRhythm.toFixed(1)}/25 + Humor/Openness: ${breakdown.humorOpenness.toFixed(1)}/7 + Attachment Comfort: ${breakdown.attachmentComfort.toFixed(1)}/9 + Lifestyle: ${breakdown.lifestyleSustainability.toFixed(1)}/12 + Values/Language: ${breakdown.valuesBoundariesLanguage.toFixed(1)}/17 + Communication/Disagreement: ${breakdown.communicationDisagreement.toFixed(1)}/8 + Intent: ${breakdown.intent.toFixed(1)}/5`,
+              reason: `Common Ground: ${breakdown.semanticCommonGround.toFixed(1)}/18 + Interaction Rhythm: ${breakdown.interactionRhythm.toFixed(1)}/20 + Humor/Openness: ${breakdown.humorOpenness.toFixed(1)}/10 + Attachment Comfort: ${breakdown.attachmentComfort.toFixed(1)}/8 + Lifestyle: ${breakdown.lifestyleSustainability.toFixed(1)}/12 + Values/Language: ${breakdown.valuesBoundariesLanguage.toFixed(1)}/17 + Communication/Disagreement: ${breakdown.communicationDisagreement.toFixed(1)}/10 + Intent: ${breakdown.intent.toFixed(1)}/5`,
               is_actual_match: isStoredBalancedScoreSnapshot({
                 modelVersion: matchResult?.score_model_version,
                 contentHash: matchResult?.score_content_hash,

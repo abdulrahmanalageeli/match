@@ -1050,24 +1050,24 @@ export default function MatrixPage() {
 
                                   const items = balanced
                                     ? [
-                                        { name: "السياق المشترك", score: sharedContext, max: 5 },
+                                        { name: "السياق المشترك", score: sharedContext, max: 6 },
                                         { name: "توافق AI", score: aiVibe, max: 12 },
-                                        { name: "التفاعل", score: interaction, max: 25 },
-                                        { name: "الدعابة/الانفتاح", score: humorOpen, max: 7 },
-                                        { name: "راحة التقارب", score: attachmentComfort, max: 9 },
+                                        { name: "التفاعل", score: interaction, max: 20 },
+                                        { name: "الدعابة/الانفتاح", score: humorOpen, max: 10 },
+                                        { name: "راحة التقارب", score: attachmentComfort, max: 8 },
                                         { name: "نمط الحياة", score: lifestyle, max: 12 },
                                         { name: "القيم/الحدود/اللغة", score: valuesLanguage, max: 17 },
-                                        { name: "التواصل/الاختلاف", score: communication, max: 8 },
+                                        { name: "التواصل/الاختلاف", score: communication, max: 10 },
                                         { name: "الهدف", score: intent, max: 5 },
                                       ]
                                     : opposites
                                     ? [
-                                        { name: "إيقاع التفاعل", score: Number(breakdown.interactionSynergy ?? 0), max: 25 },
+                                        { name: "إيقاع التفاعل", score: Number(breakdown.interactionSynergy ?? 0), max: 20 },
                                         { name: "توافق القيم", score: Number(breakdown.coreValuesAlignment ?? 0), max: 17 },
-                                        { name: "توافق التواصل", score: Number(breakdown.communicationAlignment ?? 0), max: 4 },
+                                        { name: "توافق التواصل", score: Number(breakdown.communicationAlignment ?? 0), max: 5 },
                                         { name: "اختلاف نمط الحياة", score: Number(breakdown.lifestyleDifference ?? 0), max: 12 },
                                         { name: "اختلاف الطاقة", score: Number(breakdown.vibeDifference ?? 0), max: 12 },
-                                        { name: "اختلاف الدعابة", score: Number(breakdown.humorDifference ?? 0), max: 7 },
+                                        { name: "اختلاف الدعابة", score: Number(breakdown.humorDifference ?? 0), max: 10 },
                                       ]
                                     : hasNew
                                     ? [
@@ -1089,7 +1089,7 @@ export default function MatrixPage() {
 
                                   return <>
                                     <div className={`rounded-lg border px-2 py-1 text-[10px] font-bold ${balanced ? 'border-emerald-400/25 bg-emerald-500/10 text-emerald-300' : opposites ? 'border-violet-400/25 bg-violet-500/10 text-violet-300' : 'border-amber-400/25 bg-amber-500/10 text-amber-300'}`}>
-                                      {balanced ? 'نموذج دليل التوافق الحالي · النتيجة فوق خط الحياد' : opposites ? 'وضع الأضداد الحالي · 77 نقطة خام محوّلة إلى 100' : `حسبة تاريخية موروثة${match.score_model_version ? ` · ${match.score_model_version}` : ''}`}
+                                      {balanced ? 'النموذج الشخصي الحالي · الأبعاد تشخيصية' : opposites ? 'وضع الأضداد الحالي · 76 نقطة خام محوّلة إلى 100' : `حسبة تاريخية موروثة${match.score_model_version ? ` · ${match.score_model_version}` : ''}`}
                                     </div>
                                     {items.map(({ name, score, max }) => {
                                     const safeMax = max > 0 ? max : 1

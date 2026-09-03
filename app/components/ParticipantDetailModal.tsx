@@ -1302,7 +1302,7 @@ export default function ParticipantDetailModal({
                             if (isCurrentOppositesScoreRow(match)) {
                               return (
                                 <td colSpan={matchType === "ai" ? 12 : 11} className="p-4 text-center text-xs text-violet-300">
-                                  وضع الأضداد · المجموع محفوظ بلقطة دقيقة — افتح تحليل الزوج لعرض مكونات 77→100
+                                  وضع الأضداد · المجموع محفوظ بلقطة دقيقة — افتح تحليل الزوج لعرض مكونات 76→100
                                 </td>
                               )
                             }

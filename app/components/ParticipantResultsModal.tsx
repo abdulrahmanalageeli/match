@@ -1105,16 +1105,16 @@ export default function ParticipantResultsModal({
         {matchType !== "group" && (
           <div className="mx-6 mt-3 mb-1 text-xs text-slate-300/80">
             <div className="inline-flex flex-wrap items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2">
-              <span className="font-semibold text-slate-200">نموذج دليل التوافق الحالي · ميزانية خام 100:</span>
-              <span>الأرضية المشتركة 17</span>
-              <span>إيقاع التفاعل 25</span>
-              <span>الدعابة/الانفتاح 7</span>
-              <span>وتيرة التقارب 9</span>
+              <span className="font-semibold text-slate-200">النموذج الشخصي الحالي · تعلّم من ترتيبات الفعالية 26:</span>
+              <span>الأرضية المشتركة 18</span>
+              <span>إيقاع التفاعل 20</span>
+              <span>الدعابة/الانفتاح 10</span>
+              <span>وتيرة التقارب 8</span>
               <span>نمط الحياة 12</span>
               <span>القيم/الحدود/اللغة 17</span>
-              <span>التواصل/الاختلاف 8</span>
+              <span>التواصل/الاختلاف 10</span>
               <span>الهدف 5</span>
-              <span className="text-slate-500">النتيجة النهائية تقيس الدليل فوق خط الحياد 50؛ الصفوف التاريخية تعرض مجموعها الأصلي، ووضع الأضداد يُعرض بصيغة 77→100.</span>
+              <span className="text-slate-500">هذه أبعاد تشخيصية وليست جمعاً للنسبة؛ النسبة تجمع التفضيل المتوقع في الاتجاهين. الصفوف التاريخية تعرض المجموع فقط عند غياب لقطة دقيقة.</span>
             </div>
           </div>
         )}
@@ -2150,7 +2150,7 @@ export default function ParticipantResultsModal({
                                   <div className="min-w-[680px] rounded-lg border border-violet-400/20 bg-violet-500/5 px-2.5 py-2">
                                     <div className="mb-2 flex items-center justify-between gap-3 text-[10px] font-bold text-violet-200">
                                       <span>وضع الأضداد الحالي · لقطة وقت المطابقة</span>
-                                      <span className="text-violet-300/80">77 نقطة خام ← 100</span>
+                                      <span className="text-violet-300/80">76 نقطة خام ← 100</span>
                                     </div>
                                     <div className="grid grid-cols-6 gap-1.5">
                                       {oppositesDimensions.map(dimension => (

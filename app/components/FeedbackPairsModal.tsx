@@ -240,7 +240,7 @@ export default function FeedbackPairsModal({ eventId, onClose }: { eventId: numb
                         ) ? (
                           <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
                             <div className={`col-span-2 mb-0.5 rounded px-1.5 py-0.5 text-[9px] font-bold ${isBalanced ? 'bg-emerald-500/10 text-emerald-300' : isOpposites ? 'bg-violet-500/10 text-violet-300' : 'bg-amber-500/10 text-amber-300'}`}>
-                              {isBalanced ? 'نموذج دليل التوافق' : isOpposites ? 'وضع الأضداد · 77→100' : 'حسبة تاريخية'}
+                              {isBalanced ? 'النموذج المتوازن' : isOpposites ? 'وضع الأضداد · 76→100' : 'حسبة تاريخية'}
                             </div>
                             {compactDimensions.map(dimension => (
                               <div key={dimension.key}>

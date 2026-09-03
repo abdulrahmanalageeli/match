@@ -6400,12 +6400,12 @@ export default function Admin3Page() {
               <div className="overflow-y-auto flex-1">
                 <div className="mx-4 mt-3 rounded-xl border border-blue-800/35 bg-blue-950/20 px-3 py-2.5">
                   <p className="text-[10px] leading-relaxed text-blue-200/80">
-                    الأوزان أدناه هي ميزانية الأدلة الخام من 100 نقطة. النتيجة النهائية تقيس الدليل فوق خط الحياد 50، وبوابات الأهلية تُفحص مستقلاً قبل المفاضلة.
+                    الأوزان أدناه تخص نموذج التوافق المتوازن الحالي من 100 نقطة. بوابات الأهلية تُفحص بشكل مستقل قبل المفاضلة ولا تدخل ضمن هذه النقاط.
                   </p>
                 </div>
 
                 {/* 1. Semantic common ground */}
-                <Section id="common" icon="✨" title="الأرضية المشتركة الدلالية" pts="17 نقطة" open={openSections.has('common')} onToggle={toggleSection}>
+                <Section id="common" icon="✨" title="الأرضية المشتركة الدلالية" pts="18 نقطة" open={openSections.has('common')} onToggle={toggleSection}>
                   <Row icon="💭" label="موضوع الفضول الحالي"
                     value={s.current_curiosity || '—'}
                     impact="جزء من تحليل الـAI الدلالي متعدد الأبعاد (12 نقطة إجمالاً مع الهوايات والموسيقى ووصف الأصدقاء)."
@@ -6416,7 +6416,7 @@ export default function Admin3Page() {
                     impactColor="text-blue-400" />
                   <Row icon="🧩" label="تفضيل التشابه أو التكامل"
                     value={answerLabel('match_similarity_preference', s.similarity_preference)}
-                    impact="يقيس مدى ملاءمة نوع الشريك لتفضيل كل طرف: حتى نقطة واحدة."
+                    impact="يقيس مدى ملاءمة نوع الشريك لتفضيل كل طرف: حتى نقطتين."
                     impactColor="text-teal-400" />
                   <Row icon="🔠" label="نوع MBTI"
                     badge={s.mbti ? { label: s.mbti, cls: mbg ? `${mbg.col.replace('text-','text-')} bg-gray-800 border-gray-700` : 'text-gray-300 bg-gray-800 border-gray-700' } : null}
@@ -6425,69 +6425,69 @@ export default function Admin3Page() {
                 </Section>
 
                 {/* 2. Interaction rhythm */}
-                <Section id="rhythm" icon="🎙️" title="إيقاع التفاعل" pts="25 نقطة" open={openSections.has('rhythm')} onToggle={toggleSection}>
+                <Section id="rhythm" icon="🎙️" title="إيقاع التفاعل" pts="20 نقطة" open={openSections.has('rhythm')} onToggle={toggleSection}>
                   <Row icon="▶️" label="تفضيل المبادرة الجديد"
                     value={answerLabel('conversation_initiative_preference', s.initiative_preference)}
-                    impact={s.initiative_preference ? 'المؤشر الأساسي للمبادرة: حتى 4 نقاط.' : 'غير مكتمل؛ يستخدم النموذج سؤال الدور القديم كبديل محايد بحد أقصى 4 نقاط.'}
+                    impact={s.initiative_preference ? 'المؤشر الأساسي للمبادرة: حتى 6 نقاط.' : 'غير مكتمل؛ يستخدم النموذج سؤال الدور القديم كبديل محايد بحد أقصى 6 نقاط.'}
                     impactColor={s.initiative_preference ? 'text-orange-400' : 'text-amber-500'} />
                   <Row icon="🎙️" label="الدور القديم في الحوار (بديل فقط)" badge={roleBadge}
                     impact="لا يُجمع فوق السؤال الجديد؛ يُستخدم فقط إذا كان تفضيل المبادرة الجديد مفقوداً."
                     impactColor="text-gray-500" />
                   <Row icon="🌊" label="عمق المحادثة" badge={depthBadge}
-                    impact="حتى نقطتين."
+                    impact="حتى 3 نقاط."
                     impactColor="text-violet-400" />
                   <Row icon="🔋" label="البطارية الاجتماعية" badge={batteryBadge}
-                    impact="حتى 4 نقاط."
+                    impact="حتى نقطتين."
                     impactColor="text-blue-400" />
                   <Row icon="🎭" label="نوع الفكاهة" badge={humorSubBadge}
-                    impact="حتى 4 نقاط."
+                    impact="حتى 3 نقاط."
                     impactColor="text-amber-400" />
                   <Row icon="🔍" label="أسلوب الفضول" badge={curiosityBadge}
-                    impact="حتى 8 نقاط."
+                    impact="حتى 4 نقاط."
                     impactColor="text-pink-400" />
                   <Row icon="🤫" label="الراحة مع الصمت" badge={silenceBadge}
-                    impact="حتى 3 نقاط."
+                    impact="حتى نقطتين."
                     impactColor="text-teal-400" />
                 </Section>
 
                 {/* 3. Humor and openness */}
-                <Section id="humor" icon="😄" title="الدعابة والانفتاح" pts="7 نقاط" open={openSections.has('humor')} onToggle={toggleSection}>
+                <Section id="humor" icon="😄" title="الدعابة والانفتاح" pts="10 نقاط" open={openSections.has('humor')} onToggle={toggleSection}>
                   <Row icon="😂" label="أسلوب الدعابة" badge={humorBanterBadge}
-                    impact="ملاءمة أسلوب الدعابة: حتى 4 نقاط."
+                    impact="ملاءمة أسلوب الدعابة: حتى 6 نقاط."
                     impactColor="text-yellow-400" />
                   <Row icon="🔓" label={`الانفتاح المبكر (0–3) · القيمة: ${openNum !== null ? openNum : '—'}`}
                     badge={openNum !== null ? {
                       label: openNum === 0 ? '0 · عام' : openNum === 1 ? '1 · خفيف' : openNum === 2 ? '2 · شخصي بالسياق' : '3 · شخصي من البداية',
                       cls: openNum === 0 ? 'text-red-300 bg-red-900/30 border-red-700/40' : openNum === 3 ? 'text-green-300 bg-green-900/30 border-green-700/40' : 'text-blue-300 bg-blue-900/30 border-blue-700/40'
                     } : null}
-                    impact="تقارب مستوى الانفتاح: حتى 3 نقاط؛ لا توجد مضاعفات أو عقوبات داخل نموذج الـ100 نقطة."
+                    impact="تقارب مستوى الانفتاح: حتى 4 نقاط؛ لا توجد مضاعفات أو عقوبات داخل نموذج الـ100 نقطة."
                     impactColor="text-gray-500" />
                 </Section>
 
                 {/* 4. Attachment */}
-                <Section id="attachment" icon="🔗" title="الراحة ووتيرة التقارب" pts="9 نقاط" open={openSections.has('attachment')} onToggle={toggleSection}>
+                <Section id="attachment" icon="🔗" title="الراحة ووتيرة التقارب" pts="8 نقاط" open={openSections.has('attachment')} onToggle={toggleSection}>
                   <Row icon="🔗" label="أسلوب التعلّق"
                     badge={attachBadge}
                     impact="ملخص وصفي مشتق، وليس مكافأة تلقائية أو عقوبة."
                     impactColor="text-gray-500" />
                   <Row icon="🧷" label="إجابات سيناريوهات التعلّق"
                     value={`${attachmentAnswerCount}/3 مكتملة`}
-                    impact="تُقارن السيناريوهات 1 و3 و4 بأوزان 4 + 3 + 2 = 9 نقاط."
+                    impact="تُقارن السيناريوهات 1 و3 و4 بأوزان 2 + 3 + 3 = 8 نقاط."
                     impactColor={attachmentAnswerCount === 3 ? 'text-emerald-400' : 'text-amber-500'} />
                 </Section>
 
                 {/* 5. Communication and disagreement */}
-                <Section id="comm" icon="💬" title="التواصل وإدارة الاختلاف" pts="8 نقاط" open={openSections.has('comm')} onToggle={toggleSection}>
+                <Section id="comm" icon="💬" title="التواصل وإدارة الاختلاف" pts="10 نقاط" open={openSections.has('comm')} onToggle={toggleSection}>
                   <Row icon="🗣️" label="طريقة التعبير" badge={commBadge}
                     impact="ملخص وصفي مشتق؛ النقاط تأتي من إجابات سيناريوهات التواصل نفسها."
                     impactColor="text-gray-600" />
                   <Row icon="📝" label="سيناريوهات التواصل الخمسة"
                     value={`${communicationAnswerCount}/5 مكتملة`}
-                    impact="أوزان السيناريوهات: 1 + 1 + 0.5 + 1 + 0.5 = 4 نقاط إجمالاً."
+                    impact="كل سيناريو حتى نقطة واحدة: 5 نقاط إجمالاً."
                     impactColor={communicationAnswerCount === 5 ? 'text-emerald-400' : 'text-amber-500'} />
                   <Row icon="🤝" label="أسلوب التعامل مع الاختلاف"
                     value={answerLabel('match_disagreement_style', s.disagreement_style)}
-                    impact="حتى 4 نقاط."
+                    impact="حتى 5 نقاط."
                     impactColor="text-blue-400" />
                 </Section>
 
@@ -6495,7 +6495,7 @@ export default function Admin3Page() {
                 <Section id="lifestyle" icon="🏡" title="استدامة نمط الحياة" pts="12 نقطة" open={openSections.has('lifestyle')} onToggle={toggleSection}>
                   {lifestyle.length === 5 ? (
                     <div className="space-y-2">
-                      <p className="text-[9px] text-gray-500 font-semibold mb-1">أوزان السيناريوهات: 2 + 3 + 2 + 4 + 1 = 12 نقطة</p>
+                      <p className="text-[9px] text-gray-500 font-semibold mb-1">أوزان السيناريوهات: 2 + 3 + 3 + 2 + 2 = 12 نقطة</p>
                       {lifestyleLabels.map((ll, i) => {
                         const v = lifestyle[i]
                         const label = ll.opts[v as keyof typeof ll.opts] || v
@@ -6535,11 +6535,11 @@ export default function Admin3Page() {
                     impactColor="text-blue-400" />
                   <Row icon="🌙" label="الجانب الديني"
                     value={answerLabel('minimum_partner_religious_commitment', s.religious_commitment)}
-                    impact="حتى 5 نقاط."
+                    impact="حتى 4 نقاط."
                     impactColor="text-violet-400" />
                   <Row icon="👥" label="أسلوب العلاقات الاجتماعية"
                     value={answerLabel('social_relationship_style', s.social_relationship_style)}
-                    impact="حتى 3 نقاط."
+                    impact="حتى 4 نقاط."
                     impactColor="text-teal-400" />
                 </Section>
 
@@ -6567,13 +6567,13 @@ export default function Admin3Page() {
           return Number.isFinite(parsed) ? parsed : 0
         }
         const fallbackBalancedDimensions = [
-          { label: 'الأرضية المشتركة', score: finiteScore(breakdown.semanticCommonGround), max: 17, color: 'pink' },
-          { label: 'إيقاع التفاعل', score: finiteScore(breakdown.interactionRhythm), max: 25, color: 'purple' },
-          { label: 'الدعابة والانفتاح', score: finiteScore(breakdown.humorOpenness), max: 7, color: 'amber' },
-          { label: 'الراحة ووتيرة التقارب', score: finiteScore(breakdown.attachmentComfort), max: 9, color: 'rose' },
+          { label: 'الأرضية المشتركة', score: finiteScore(breakdown.semanticCommonGround), max: 18, color: 'pink' },
+          { label: 'إيقاع التفاعل', score: finiteScore(breakdown.interactionRhythm), max: 20, color: 'purple' },
+          { label: 'الدعابة والانفتاح', score: finiteScore(breakdown.humorOpenness), max: 10, color: 'amber' },
+          { label: 'الراحة ووتيرة التقارب', score: finiteScore(breakdown.attachmentComfort), max: 8, color: 'rose' },
           { label: 'استدامة نمط الحياة', score: finiteScore(breakdown.lifestyleSustainability), max: 12, color: 'teal' },
           { label: 'القيم والحدود واللغة', score: finiteScore(breakdown.valuesBoundariesLanguage ?? (finiteScore(breakdown.valuesBoundaries) + finiteScore(breakdown.language))), max: 17, color: 'emerald' },
-          { label: 'التواصل وإدارة الاختلاف', score: finiteScore(breakdown.communicationDisagreement), max: 8, color: 'blue' },
+          { label: 'التواصل وإدارة الاختلاف', score: finiteScore(breakdown.communicationDisagreement), max: 10, color: 'blue' },
           { label: 'هدف اللقاء', score: finiteScore(breakdown.intent), max: 5, color: 'green' },
         ]
         const dimensionColors: Record<string, string> = { commonGround: 'pink', interaction: 'purple', humor: 'amber', attachment: 'rose', lifestyle: 'teal', values: 'emerald', communication: 'blue', intent: 'green' }
@@ -6685,7 +6685,7 @@ export default function Admin3Page() {
                     {isBalancedBreakdown ? (
                       <>
                         <div className="mb-2 flex flex-wrap items-center gap-2">
-                          <span className="rounded-full border border-emerald-700/40 bg-emerald-950/40 px-2 py-1 text-[10px] font-bold text-emerald-300">نموذج دليل التوافق · فوق الحياد</span>
+                          <span className="rounded-full border border-emerald-700/40 bg-emerald-950/40 px-2 py-1 text-[10px] font-bold text-emerald-300">النموذج المتوازن · 100 نقطة</span>
                           <span className="font-mono text-[9px] text-gray-600">{c.scoreModelVersion}</span>
                         </div>
                         {balancedDimensions.map(dimension => (

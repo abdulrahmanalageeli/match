@@ -110,7 +110,7 @@ select
   count(distinct scope.assigned_number) as total_participants_in_event,
   count(distinct scope.assigned_number) filter (where scope.needs_recache) as participants_needing_recache,
   case
-    when scope.score_model_version is distinct from '2026-09-02-v9-feedback-evidence-100'
+    when scope.score_model_version is distinct from '2026-09-03-v11-event26-archetype-personalized-100'
       then 'STALE_MODEL'
     when count(distinct scope.assigned_number) filter (where scope.needs_recache) > 0
       then 'STALE - ' || count(distinct scope.assigned_number) filter (where scope.needs_recache) || ' participants updated'

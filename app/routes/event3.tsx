@@ -160,6 +160,23 @@ const API = "/api/participant"
 
 type Event3Format = "classic" | "choice_only_three_groups"
 type Event3GroupRound = 1 | 2 | 3
+type GroupReflectionPerson = {
+  number: number
+  first_name: string
+  rounds: number[]
+  table_numbers?: number[]
+}
+type GroupReflectionEntry = {
+  member_number: number
+  experience: string
+  tags: string[]
+  organizer_note: string
+}
+type GroupReflectionGroup = {
+  round: Event3GroupRound
+  people: GroupReflectionPerson[]
+  feedback: GroupReflectionEntry[]
+}
 
 const CHOICE_ONLY_EVENT3_FORMAT: Event3Format = "choice_only_three_groups"
 
@@ -177,6 +194,57 @@ function isChoiceOnlyEvent3(format: Event3Format) {
 function event3GroupRoundCount(format: Event3Format) {
   return isChoiceOnlyEvent3(format) ? 3 : 2
 }
+
+const EVENT3_GROUP_ORDINALS: Record<Event3GroupRound, string> = {
+  1: "الأولى",
+  2: "الثانية",
+  3: "الثالثة",
+}
+
+const GROUP_REFLECTION_EXPERIENCE_LABELS: Record<string, { label: string; style: string }> = {
+  great: { label: "ممتاز", style: "border-emerald-400/25 bg-emerald-500/10 text-emerald-300" },
+  good: { label: "جيد", style: "border-cyan-400/25 bg-cyan-500/10 text-cyan-300" },
+  neutral: { label: "عادي", style: "border-amber-400/25 bg-amber-500/10 text-amber-300" },
+  uncomfortable: { label: "غير مريح", style: "border-rose-400/25 bg-rose-500/10 text-rose-300" },
+}
+
+function event3GroupLabel(round: Event3GroupRound) {
+  return `مجموعة الجولة ${EVENT3_GROUP_ORDINALS[round]}`
+}
+
+const BREAK_GROUP_FEEDBACK_PREVIEW: GroupReflectionGroup[] = [
+  {
+    round: 1,
+    people: [
+      { number: 142, first_name: "سارة", rounds: [1] },
+      { number: 318, first_name: "نورة", rounds: [1] },
+      { number: 507, first_name: "ليان", rounds: [1] },
+    ],
+    feedback: [
+      { member_number: 142, experience: "great", tags: ["fun"], organizer_note: "" },
+      { member_number: 318, experience: "good", tags: [], organizer_note: "" },
+    ],
+  },
+  {
+    round: 2,
+    people: [
+      { number: 664, first_name: "ريم", rounds: [2] },
+      { number: 831, first_name: "جود", rounds: [2] },
+      { number: 940, first_name: "لمى", rounds: [2] },
+    ],
+    feedback: [
+      { member_number: 664, experience: "neutral", tags: [], organizer_note: "" },
+    ],
+  },
+  {
+    round: 3,
+    people: [
+      { number: 142, first_name: "سارة", rounds: [3] },
+      { number: 275, first_name: "هيا", rounds: [3] },
+    ],
+    feedback: [],
+  },
+]
 
 async function call(action: string, token: string | null, extra: Record<string, any> = {}) {
   const controller = new AbortController()
@@ -3811,13 +3879,15 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
 
 
 // ─── Optional Group Reflection ────────────────────────────────────────────────
-function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
+function GroupReflectionSheet({ token, groupRound, onClose, previewPeople, previewFeedback, reviewMode = false }: {
   token: string | null
   groupRound: Event3GroupRound
   onClose: () => void
-  previewPeople?: { number: number; first_name: string; rounds: number[] }[]
+  previewPeople?: GroupReflectionPerson[]
+  previewFeedback?: GroupReflectionEntry[]
+  reviewMode?: boolean
 }) {
-  const [people, setPeople] = useState<{ number: number; first_name: string; rounds: number[] }[]>([])
+  const [people, setPeople] = useState<GroupReflectionPerson[]>([])
   const [drafts, setDrafts] = useState<Record<number, { experience: string; tags: string[]; organizer_note: string }>>({})
   const [expanded, setExpanded] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
@@ -3886,6 +3956,15 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
   useEffect(() => {
     if (previewPeople) {
       setPeople(previewPeople)
+      const existing: Record<number, { experience: string; tags: string[]; organizer_note: string }> = {}
+      for (const row of previewFeedback || []) {
+        existing[row.member_number] = {
+          experience: row.experience,
+          tags: row.tags,
+          organizer_note: row.organizer_note,
+        }
+      }
+      setDrafts(existing)
       setLoading(false)
       return
     }
@@ -3911,7 +3990,7 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
       setLoading(false)
     })
     return () => { active = false }
-  }, [token, previewPeople, groupRound])
+  }, [token, previewPeople, previewFeedback, groupRound])
 
   const setExperience = (number: number, experience: string) => {
     setSaved(false)
@@ -3954,7 +4033,7 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
     setSaving(false)
     if (data.error) { toast.error(data.error); return }
     setSaved(true)
-    toast.success('تم حفظ انطباعك بسرية')
+    toast.success(reviewMode ? 'تم حفظ تعديلاتك بسرية' : 'تم حفظ انطباعك بسرية')
     setTimeout(onClose, 700)
   }
 
@@ -3973,12 +4052,12 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
   return (
     <motion.div
       ref={overlayRef}
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      initial={previewPeople ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="event3-shell fixed inset-0 z-[550] flex items-end justify-center bg-black/75 backdrop-blur-lg sm:items-center sm:p-4"
     >
       <motion.section
         ref={dialogRef}
-        initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }}
+        initial={previewPeople ? false : { y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }}
         transition={{ type: 'spring', stiffness: 340, damping: 34 }}
         onClick={event => event.stopPropagation()}
         className="relative flex w-full max-h-[94dvh] flex-col overflow-hidden rounded-t-[2rem] border border-purple-400/15 bg-gradient-to-b from-[#171023] via-[#0d0a14] to-[#08070c] shadow-[0_-20px_80px_-20px_rgba(139,92,246,0.45)] sm:max-w-md sm:rounded-[2rem]"
@@ -3992,14 +4071,14 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
         <div className="sm:hidden w-10 h-1 rounded-full bg-white/15 mx-auto mt-2.5" />
         <header className="relative flex shrink-0 items-start gap-2.5 border-b border-white/[0.06] px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))] sm:px-5 sm:pb-4">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-purple-400/20 bg-gradient-to-br from-purple-500/25 to-fuchsia-500/10">
-            <Trophy size={20} className="text-purple-300" />
+            {reviewMode ? <PenLine size={20} className="text-purple-300" /> : <Trophy size={20} className="text-purple-300" />}
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-1.5">
-              <h2 id={titleId} className="text-base font-black leading-snug text-white sm:text-lg">كيف كانت تجربتك مع كل شخص؟</h2>
+              <h2 id={titleId} className="text-base font-black leading-snug text-white sm:text-lg">{reviewMode ? `راجع تقييمات ${event3GroupLabel(groupRound)}` : 'كيف كانت تجربتك مع كل شخص؟'}</h2>
               <span className="rounded-full border border-white/[0.1] bg-white/[0.06] px-2 py-0.5 text-[10px] font-bold text-gray-300">اختياري</span>
             </div>
-            <p className="mt-1 text-xs leading-relaxed text-gray-400">الجولة {groupRound} · قيّم شخصاً أو الجميع. خاص بالمنظم ولا يؤثر على تطابقك.</p>
+            <p className="mt-1 text-xs leading-relaxed text-gray-400">{reviewMode ? 'عدّل انطباعك السابق أو أضف تقييماً لمن فاتك.' : `الجولة ${groupRound} · قيّم شخصاً أو الجميع. خاص بالمنظم ولا يؤثر على تطابقك.`}</p>
           </div>
           <button ref={closeButtonRef} type="button" onClick={onClose} aria-label="إغلاق" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-gray-300 transition hover:bg-white/[0.1] hover:text-white active:scale-90">
             <X size={17} />
@@ -4017,8 +4096,14 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
             </div>
           ) : (
             <>
+              {reviewMode && (
+                <div className="flex items-start gap-2.5 rounded-2xl border border-emerald-400/15 bg-emerald-500/[0.07] px-3.5 py-3 text-right">
+                  <EyeOff size={17} className="mt-0.5 shrink-0 text-emerald-300" />
+                  <p className="text-xs leading-relaxed text-emerald-100/85">لن يطّلع أي مشارك آخر على تقييمك أو ملاحظاتك؛ يراها المنظّم فقط.</p>
+                </div>
+              )}
               <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.035] px-3.5 py-2.5">
-                <p className="text-xs leading-relaxed text-gray-300">اختر انطباعاً سريعاً لكل شخص ترغب بمراجعته</p>
+                <p className="text-xs leading-relaxed text-gray-300">{reviewMode ? 'يمكنك تغيير أي تقييم أو إكمال الأشخاص غير المقيّمين' : 'اختر انطباعاً سريعاً لكل شخص ترغب بمراجعته'}</p>
                 <span aria-live="polite" className="shrink-0 rounded-full bg-purple-500/15 px-2.5 py-1 text-xs font-black text-purple-200">{reviewedCount}/{people.length}</span>
               </div>
 
@@ -4087,16 +4172,263 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople }: {
         </div>
         {!loading && people.length > 0 && (
           <footer className="relative z-20 flex shrink-0 gap-2 border-t border-white/[0.08] bg-[#09070e]/95 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl sm:px-5">
-            <button type="button" onClick={onClose} className="min-h-12 rounded-2xl border border-white/[0.09] bg-white/[0.05] px-5 text-sm font-bold text-gray-300 transition active:scale-95">تخطي</button>
+            <button type="button" onClick={onClose} className="min-h-12 rounded-2xl border border-white/[0.09] bg-white/[0.05] px-5 text-sm font-bold text-gray-300 transition active:scale-95">{reviewMode ? 'المجموعات' : 'تخطي'}</button>
             <motion.button type="button" whileTap={{ scale: 0.97 }} onClick={save} disabled={saving || saved || reviewedCount === 0} aria-busy={saving}
               className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500 px-4 text-sm font-black text-white shadow-[0_10px_30px_-12px_rgba(168,85,247,0.9)] disabled:opacity-60">
               {saving ? <Spinner size={16} /> : saved ? <CheckCircle size={17} /> : <Send size={16} />}
-              {saved ? 'تم الحفظ' : reviewedCount ? `حفظ ${reviewedCount} تقييم` : 'اختر تقييماً للبدء'}
+              {saved ? 'تم الحفظ' : reviewedCount ? (reviewMode ? 'حفظ التعديلات' : `حفظ ${reviewedCount} تقييم`) : 'اختر تقييماً للبدء'}
             </motion.button>
           </footer>
         )}
       </motion.section>
     </motion.div>
+  )
+}
+
+// ─── Break-time Group Feedback Review ────────────────────────────────────────
+function BreakGroupFeedbackSheet({ token, eventFormat, onClose, onSelectRound, previewGroups }: {
+  token: string | null
+  eventFormat: Event3Format
+  onClose: () => void
+  onSelectRound: (round: Event3GroupRound) => void
+  previewGroups?: GroupReflectionGroup[]
+}) {
+  const [groups, setGroups] = useState<GroupReflectionGroup[]>(previewGroups || [])
+  const [loading, setLoading] = useState(!previewGroups)
+  const [error, setError] = useState<string | null>(null)
+  const [retryVersion, setRetryVersion] = useState(0)
+  const titleId = useId()
+  const overlayRef = useRef<HTMLDivElement>(null)
+  const dialogRef = useRef<HTMLElement>(null)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
+
+  useModalFocus({
+    open: true,
+    overlayRef,
+    dialogRef,
+    initialFocusRef: closeButtonRef,
+    onEscape: onClose,
+  })
+
+  useEffect(() => {
+    if (previewGroups) {
+      setGroups(previewGroups)
+      setLoading(false)
+      setError(null)
+      return
+    }
+    if (!token) {
+      setLoading(false)
+      setError('تعذّر تحميل تقييماتك. حاول مرة أخرى.')
+      return
+    }
+
+    let active = true
+    const loadGroups = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const rounds = Array.from(
+          { length: event3GroupRoundCount(eventFormat) },
+          (_, index) => (index + 1) as Event3GroupRound,
+        )
+        const responses = await Promise.all(rounds.map(async round => ({
+          round,
+          data: await call('e3-get-group-reflection', token, { group_round: round }),
+        })))
+        if (!active) return
+        const failed = responses.find(({ data }) => data.error)
+        if (failed) {
+          setError(failed.data.error || 'تعذّر تحميل تقييماتك. حاول مرة أخرى.')
+          setGroups([])
+          return
+        }
+        setGroups(responses.map(({ round, data }) => ({
+          round,
+          people: Array.isArray(data.people) ? data.people : [],
+          feedback: (Array.isArray(data.feedback) ? data.feedback : []).map((entry: any) => ({
+            member_number: Number(entry.member_number),
+            experience: String(entry.experience || ''),
+            tags: Array.isArray(entry.tags) ? entry.tags : [],
+            organizer_note: String(entry.organizer_note || ''),
+          })),
+        })))
+      } catch {
+        if (active) {
+          setError('تعذّر تحميل تقييماتك. تحقق من الاتصال وحاول مرة أخرى.')
+          setGroups([])
+        }
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+    void loadGroups()
+    return () => { active = false }
+  }, [token, eventFormat, previewGroups, retryVersion])
+
+  let totalPeople = 0
+  let totalReviewed = 0
+  for (const group of groups) {
+    totalPeople += group.people.length
+    totalReviewed += group.feedback.filter(entry => Boolean(entry.experience)).length
+  }
+  const completionPercent = totalPeople > 0 ? Math.round((totalReviewed / totalPeople) * 100) : 0
+
+  return (
+    <motion.div
+      ref={overlayRef}
+      initial={previewGroups ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="event3-shell fixed inset-0 z-[545] flex items-end justify-center bg-black/75 backdrop-blur-lg sm:items-center sm:p-4"
+    >
+      <motion.section
+        ref={dialogRef}
+        tabIndex={-1}
+        initial={previewGroups ? false : { y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 340, damping: 34 }}
+        className="relative flex w-full max-h-[94dvh] flex-col overflow-hidden rounded-t-[2rem] border border-teal-300/15 bg-gradient-to-b from-[#0d2022] via-[#0c1017] to-[#08090d] shadow-[0_-20px_90px_-20px_rgba(45,212,191,0.35)] sm:max-w-md sm:rounded-[2rem]"
+        style={{ height: 'min(94dvh, 820px)' }}
+        dir="rtl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+      >
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-[radial-gradient(circle_at_top,rgba(45,212,191,0.18),transparent_68%)]" />
+        <div className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-white/15 sm:hidden" />
+        <header className="relative flex shrink-0 items-start gap-2.5 border-b border-white/[0.06] px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))] sm:px-5 sm:pb-4">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-teal-300/20 bg-gradient-to-br from-teal-400/25 to-purple-500/10">
+            <PenLine size={20} className="text-teal-200" />
+          </div>
+          <div className="min-w-0 flex-1 text-right">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <h2 id={titleId} className="text-lg font-black leading-snug text-white">راجع وعدّل تقييماتك</h2>
+              <span className="rounded-full border border-teal-300/15 bg-teal-400/10 px-2 py-0.5 text-[10px] font-bold text-teal-200">وقت الاستراحة</span>
+            </div>
+            <p className="mt-1 text-xs leading-relaxed text-gray-400">الأشخاص مرتّبون حسب المجموعة التي قابلتهم فيها.</p>
+          </div>
+          <button ref={closeButtonRef} type="button" onClick={onClose} aria-label="إغلاق" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-gray-300 transition hover:bg-white/[0.1] hover:text-white active:scale-90">
+            <X size={17} />
+          </button>
+        </header>
+
+        <div className="event3-scroll relative min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3 sm:px-5 sm:py-4">
+          <div className="flex items-start gap-3 rounded-2xl border border-emerald-300/15 bg-gradient-to-br from-emerald-500/[0.10] to-teal-500/[0.04] px-3.5 py-3 text-right">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-emerald-300/15 bg-emerald-400/10">
+              <EyeOff size={17} className="text-emerald-300" />
+            </div>
+            <div>
+              <p className="text-xs font-black text-emerald-100">مساحتك خاصة وآمنة</p>
+              <p className="mt-1 text-xs leading-relaxed text-emerald-100/70">لن يطّلع أي مشارك آخر على تقييمك أو ملاحظاتك. هذه المعلومات خاصة ويراها المنظّم فقط.</p>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="flex h-64 items-center justify-center" role="status" aria-label="جاري تحميل التقييمات"><Spinner size={24} /></div>
+          ) : error ? (
+            <div className="space-y-4 rounded-2xl border border-rose-400/15 bg-rose-500/[0.06] px-5 py-8 text-center" role="alert">
+              <AlertTriangle size={27} className="mx-auto text-rose-300" />
+              <p className="text-sm leading-relaxed text-gray-300">{error}</p>
+              <button type="button" onClick={() => setRetryVersion(value => value + 1)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-4 text-sm font-bold text-white">
+                <RefreshCw size={15} /> إعادة المحاولة
+              </button>
+            </div>
+          ) : totalPeople === 0 ? (
+            <div className="space-y-2 py-14 text-center">
+              <Users size={30} className="mx-auto text-gray-700" />
+              <p className="text-sm font-bold text-gray-400">لا توجد مجموعات سابقة لعرضها الآن</p>
+            </div>
+          ) : (
+            <>
+              <div className="rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3.5">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <div className="text-right">
+                    <p className="text-xs font-black text-white">تقدّمك في التقييم</p>
+                    <p className="mt-0.5 text-[11px] text-gray-500">يمكنك العودة لأي مجموعة والتعديل في أي وقت خلال الاستراحة</p>
+                  </div>
+                  <span className="shrink-0 rounded-full border border-teal-300/15 bg-teal-400/10 px-2.5 py-1 text-xs font-black text-teal-200">{totalReviewed}/{totalPeople}</span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+                  <motion.div initial={{ width: 0 }} animate={{ width: `${completionPercent}%` }} className="h-full rounded-full bg-gradient-to-r from-teal-400 via-cyan-400 to-purple-400" />
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {groups.map(group => {
+                  const feedbackByMember = new Map(group.feedback.map(entry => [entry.member_number, entry]))
+                  const reviewed = group.people.filter(person => Boolean(feedbackByMember.get(person.number)?.experience)).length
+                  const complete = group.people.length > 0 && reviewed === group.people.length
+                  return (
+                    <section key={group.round} className="overflow-hidden rounded-[1.4rem] border border-white/[0.08] bg-gradient-to-br from-white/[0.055] to-white/[0.018] shadow-lg shadow-black/10">
+                      <div className="flex items-center gap-3 border-b border-white/[0.06] px-3.5 py-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-purple-300/15 bg-purple-500/10 text-sm font-black text-purple-200">{group.round}</div>
+                        <div className="min-w-0 flex-1 text-right">
+                          <h3 className="text-sm font-black text-white">{event3GroupLabel(group.round)}</h3>
+                          <p className="mt-0.5 text-[11px] text-gray-500">{group.people.length} {group.people.length === 1 ? 'شخص' : 'أشخاص'} · تم تقييم {reviewed}</p>
+                        </div>
+                        <span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-black ${complete ? 'border-emerald-300/15 bg-emerald-400/10 text-emerald-300' : 'border-amber-300/15 bg-amber-400/10 text-amber-200'}`}>
+                          {complete ? 'مكتملة' : `${group.people.length - reviewed} بانتظارك`}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1 px-2.5 py-2.5">
+                        {group.people.map(person => {
+                          const feedback = feedbackByMember.get(person.number)
+                          const experience = feedback?.experience ? GROUP_REFLECTION_EXPERIENCE_LABELS[feedback.experience] : null
+                          return (
+                            <div key={person.number} className="flex min-h-11 items-center gap-2.5 rounded-xl px-2 py-1.5 text-right">
+                              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border ${experience ? 'border-purple-300/15 bg-purple-500/10 text-purple-200' : 'border-white/[0.07] bg-white/[0.035] text-gray-500'}`}>
+                                {experience ? <CheckCircle size={15} /> : <Clock size={15} />}
+                              </div>
+                              <span className="min-w-0 flex-1 truncate text-sm font-bold text-gray-100">{person.first_name}</span>
+                              {experience ? (
+                                <span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-bold ${experience.style}`}>{experience.label}</span>
+                              ) : (
+                                <span className="shrink-0 rounded-full border border-white/[0.07] bg-white/[0.035] px-2 py-1 text-[10px] font-bold text-gray-500">لم يُقيّم بعد</span>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+
+                      <button type="button" onClick={() => onSelectRound(group.round)} className="flex min-h-12 w-full items-center justify-center gap-2 border-t border-teal-300/10 bg-gradient-to-r from-teal-500/[0.09] via-cyan-500/[0.07] to-purple-500/[0.09] px-4 text-sm font-black text-teal-100 transition hover:from-teal-500/[0.14] hover:to-purple-500/[0.14] active:scale-[0.99]">
+                        <PenLine size={15} />
+                        {reviewed > 0 ? 'مراجعة وتعديل هذه المجموعة' : 'ابدأ تقييم هذه المجموعة'}
+                        <ChevronRight size={15} className="rotate-180" />
+                      </button>
+                    </section>
+                  )
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      </motion.section>
+    </motion.div>
+  )
+}
+
+function BreakGroupFeedbackPreview() {
+  const [selectedRound, setSelectedRound] = useState<Event3GroupRound | null>(null)
+  const selectedGroup = selectedRound == null
+    ? null
+    : BREAK_GROUP_FEEDBACK_PREVIEW.find(group => group.round === selectedRound) || null
+
+  return selectedGroup ? (
+    <GroupReflectionSheet
+      token={null}
+      groupRound={selectedGroup.round}
+      previewPeople={selectedGroup.people}
+      previewFeedback={selectedGroup.feedback}
+      reviewMode
+      onClose={() => setSelectedRound(null)}
+    />
+  ) : (
+    <BreakGroupFeedbackSheet
+      token={null}
+      eventFormat="choice_only_three_groups"
+      previewGroups={BREAK_GROUP_FEEDBACK_PREVIEW}
+      onClose={() => {}}
+      onSelectRound={setSelectedRound}
+    />
   )
 }
 
@@ -5704,8 +6036,8 @@ function ProcessingScreen({ phase, eventFormat }: { phase: string; eventFormat: 
 }
 
 // ─── Break Screen ─────────────────────────────────────────────────────────────
-function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow, eventFormat }: {
-  timerActive: boolean; timerStart: string | null; timerDuration: number; correctedNow?: () => number; eventFormat: Event3Format
+function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow, eventFormat, onOpenGroupFeedback }: {
+  timerActive: boolean; timerStart: string | null; timerDuration: number; correctedNow?: () => number; eventFormat: Event3Format; onOpenGroupFeedback: () => void
 }) {
   const choiceOnly = isChoiceOnlyEvent3(eventFormat)
   const [timeLeft, setTimeLeft] = useState(0)
@@ -5808,6 +6140,23 @@ function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow, eve
             انتظر بدء الكشف...
           </div>
         )}
+
+        <motion.button
+          type="button"
+          whileTap={{ scale: 0.98 }}
+          onClick={onOpenGroupFeedback}
+          className="group mb-4 flex min-h-16 w-full items-center gap-3 overflow-hidden rounded-2xl border border-purple-300/20 bg-gradient-to-r from-purple-500/[0.16] via-fuchsia-500/[0.10] to-teal-500/[0.14] px-4 py-3 text-right shadow-[0_14px_45px_-24px_rgba(168,85,247,0.9)] transition hover:border-purple-300/30"
+        >
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-purple-300/20 bg-purple-400/15 text-purple-200 transition group-hover:scale-105">
+            <PenLine size={19} />
+          </div>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-black text-white">راجع وعدّل تقييمات المجموعات</span>
+            <span className="mt-0.5 block text-[11px] leading-relaxed text-gray-400">أكمل من فاتك أو غيّر انطباعك السابق بسرية</span>
+          </span>
+          <span className="hidden shrink-0 rounded-full border border-emerald-300/15 bg-emerald-400/10 px-2 py-1 text-[9px] font-black text-emerald-200 min-[360px]:inline-flex">للمنظّم فقط</span>
+          <ChevronRight size={16} className="hidden shrink-0 rotate-180 text-purple-200/70 min-[360px]:block" />
+        </motion.button>
 
         <div className="bg-gradient-to-br from-slate-900/80 to-teal-950/40 border border-teal-800/30 rounded-2xl p-5 space-y-3 text-right">
           <p className="text-teal-300 font-bold text-sm text-center">ماذا سيحدث بعد الاستراحة؟</p>
@@ -7208,6 +7557,8 @@ export default function Event3Page() {
   const [groupsOpen, setGroupsOpen] = useState(false)
   const [finalQuestionsOpen, setFinalQuestionsOpen] = useState(false)
   const [pendingGroupFeedbackRound, setPendingGroupFeedbackRound] = useState<Event3GroupRound | null>(null)
+  const [breakFeedbackOpen, setBreakFeedbackOpen] = useState(false)
+  const [breakFeedbackRound, setBreakFeedbackRound] = useState<Event3GroupRound | null>(null)
   const [rankingDraftContext, setRankingDraftContext] = useState<{
     round: number
     timerActive: boolean
@@ -7246,6 +7597,8 @@ export default function Event3Page() {
     setMyInfo(null)
     setRankingDraftContext(null)
     setResolvedRankingRound(null)
+    setBreakFeedbackOpen(false)
+    setBreakFeedbackRound(null)
     setShowWelcome(true)
     setShowAiWelcome(false)
 
@@ -7259,6 +7612,8 @@ export default function Event3Page() {
     clearAllArrived()
     setToken(null)
     setTokenError(false)
+    setBreakFeedbackOpen(false)
+    setBreakFeedbackRound(null)
     setEnrolled(null)
     setMyInfo(null)
     setRankingDraftContext(null)
@@ -7361,11 +7716,11 @@ export default function Event3Page() {
   }, [eventState?.phase, eventState?.timer_active, eventState?.timer_start, eventState?.timer_duration])
 
   useEffect(() => {
-    if (!eventState?.phase || showWelcome || showAiWelcome || pendingGroupFeedbackRound) return
+    if (!eventState?.phase || showWelcome || showAiWelcome || pendingGroupFeedbackRound || breakFeedbackOpen) return
     eventContentRef.current?.scrollTo({ top: 0, behavior: "auto" })
     const focusTimer = window.setTimeout(() => phaseAnnouncementRef.current?.focus(), 80)
     return () => window.clearTimeout(focusTimer)
-  }, [eventState?.phase, showWelcome, showAiWelcome, pendingGroupFeedbackRound])
+  }, [eventState?.phase, showWelcome, showAiWelcome, pendingGroupFeedbackRound, breakFeedbackOpen])
 
   // Phase change detection — play sound + vibrate when event starts (setup → round1)
   const prevPhaseRef = useRef<string | null>(null)
@@ -7395,6 +7750,14 @@ export default function Event3Page() {
       setPendingGroupFeedbackRound(null)
     }
   }, [eventState?.phase, pendingGroupFeedbackRound])
+
+  useEffect(() => {
+    if (!breakFeedbackOpen && breakFeedbackRound == null) return
+    if (eventState?.phase !== "break") {
+      setBreakFeedbackOpen(false)
+      setBreakFeedbackRound(null)
+    }
+  }, [eventState?.phase, breakFeedbackOpen, breakFeedbackRound])
 
   useEffect(() => {
     const p = searchParams.get("token") || searchParams.get("t")
@@ -7434,13 +7797,15 @@ export default function Event3Page() {
     setShowAiWelcome(false)
   }, [showAiWelcome, eventState?.phase, aiWelcomeSeenKey])
 
-  // Lightweight, token-free visual QA for the two mobile question experiences.
+  // Lightweight, token-free visual QA for the mobile question experiences.
   // This is intentionally read-only and does not touch event or participant data.
   const questionPreview = searchParams.get("questionPreview")
   if (questionPreview === "mobileQA") {
     return (
       <main className="flex min-h-[100dvh] flex-wrap items-center justify-center gap-6 bg-slate-950 p-6">
+        <iframe title="معاينة شاشة الاستراحة" src="/event3?questionPreview=breakScreen" className="h-[568px] w-[320px] rounded-xl border border-slate-700 bg-gray-950" />
         <iframe title="معاينة تقييم المجموعة" src="/event3?questionPreview=groupReflection" className="h-[568px] w-[320px] rounded-xl border border-slate-700 bg-gray-950" />
+        <iframe title="معاينة مراجعة تقييمات الاستراحة" src="/event3?questionPreview=breakGroupFeedback" className="h-[568px] w-[320px] rounded-xl border border-slate-700 bg-gray-950" />
         <iframe title="معاينة رسالة الترحيب" src="/event3?questionPreview=aiWelcome" className="h-[568px] w-[320px] rounded-xl border border-slate-700 bg-gray-950" />
       </main>
     )
@@ -7471,6 +7836,26 @@ export default function Event3Page() {
             { number: 831, first_name: 'جود', rounds: [1] },
             { number: 940, first_name: 'لمى', rounds: [1] },
           ]}
+        />
+      </main>
+    )
+  }
+  if (questionPreview === "breakGroupFeedback") {
+    return (
+      <main className="min-h-[100dvh] bg-gray-950 text-white" dir="rtl">
+        <BreakGroupFeedbackPreview />
+      </main>
+    )
+  }
+  if (questionPreview === "breakScreen") {
+    return (
+      <main className="event3-shell min-h-[100dvh] bg-gray-950 text-white" dir="rtl">
+        <BreakScreen
+          timerActive={false}
+          timerStart={null}
+          timerDuration={900}
+          eventFormat="choice_only_three_groups"
+          onOpenGroupFeedback={() => {}}
         />
       </main>
     )
@@ -7627,15 +8012,17 @@ export default function Event3Page() {
   // finishes or closes it. Heartbeat-driven prompts queue behind it so locally
   // drafted ratings and notes are never destroyed.
   const activeGroupFeedbackRound = visibleGroupFeedbackRound
-  const canShowMoodCheck = !hasUrgentNotification && hasPendingMoodCheck && (isSafePromptMoment || isActiveMoodMoment) && !activeGroupFeedbackRound
+  const activeBreakFeedback = phase === "break" && breakFeedbackOpen
+  const feedbackOverlayOpen = Boolean(activeGroupFeedbackRound || activeBreakFeedback)
+  const canShowMoodCheck = !hasUrgentNotification && hasPendingMoodCheck && (isSafePromptMoment || isActiveMoodMoment) && !feedbackOverlayOpen
   // Urgent alerts overlay the current screen without unmounting its draft.
-  const canShowNotification = hasPendingNotification && (hasUrgentNotification || (!finalQuestionsOpen && isSafePromptMoment && !activeGroupFeedbackRound && !hasPendingMoodCheck))
+  const canShowNotification = hasPendingNotification && (hasUrgentNotification || (!finalQuestionsOpen && isSafePromptMoment && !feedbackOverlayOpen && !hasPendingMoodCheck))
   const canShowAiWelcome = showAiWelcome
     && phase === "setup"
     && !finalQuestionsOpen
     && !hasPendingMoodCheck
     && !hasPendingNotification
-    && !activeGroupFeedbackRound
+    && !feedbackOverlayOpen
   const showStatusHeader = !finalQuestionsOpen && !rankingRoundToRender && !groupsOpen
 
   return (
@@ -7675,7 +8062,7 @@ export default function Event3Page() {
           {!holdingRankingDraft && phase === "phase3_reveal" && <Phase3RevealScreen key="p3r" token={token} eventId={eventState?.event_id} {...timerProps} eventFormat={eventFormat} />}
           {!holdingRankingDraft && phase === "phase4_reveal" && <Phase3RevealScreen key="p4r" token={token} eventId={eventState?.event_id} {...timerProps} eventFormat={eventFormat} matchSlot={3} />}
           {!holdingRankingDraft && (phase === "phase2_processing" || phase === "phase3_processing" || phase === "phase4_processing") && <ProcessingScreen key="processing" phase={phase} eventFormat={eventFormat} />}
-          {!holdingRankingDraft && phase === "break" && <BreakScreen key="break" {...timerProps} eventFormat={eventFormat} />}
+          {!holdingRankingDraft && phase === "break" && <BreakScreen key="break" {...timerProps} eventFormat={eventFormat} onOpenGroupFeedback={() => { setBreakFeedbackRound(null); setBreakFeedbackOpen(true) }} />}
           {!holdingRankingDraft && phase === "final_reveal" && <FinalRevealScreen key="final" token={token} onQuestionViewerChange={setFinalQuestionsOpen} eventFormat={eventFormat} />}
         </AnimatePresence>
       </motion.div>
@@ -7687,7 +8074,7 @@ export default function Event3Page() {
           token={token}
           position="bottom"
           sosRequests={eventState?.sos_requests}
-          suppressed={Boolean(rankingRoundToRender) || phase === "final_reveal" || phase === "break" || groupsOpen || canShowMoodCheck || canShowNotification || Boolean(activeGroupFeedbackRound) || canShowAiWelcome}
+          suppressed={Boolean(rankingRoundToRender) || phase === "final_reveal" || phase === "break" || groupsOpen || canShowMoodCheck || canShowNotification || feedbackOverlayOpen || canShowAiWelcome}
         />
       )}
 
@@ -7696,13 +8083,31 @@ export default function Event3Page() {
       {/* Notification popup — receives notification data from heartbeat */}
       {enrolled && token && canShowNotification && <NotificationModal token={token} notification={eventState?.notification} />}
 
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {activeGroupFeedbackRound && (
           <GroupReflectionSheet
             key={`group-feedback-${activeGroupFeedbackRound}`}
             token={token}
             groupRound={activeGroupFeedbackRound}
             onClose={() => setPendingGroupFeedbackRound(null)}
+          />
+        )}
+        {!activeGroupFeedbackRound && activeBreakFeedback && breakFeedbackRound == null && (
+          <BreakGroupFeedbackSheet
+            key="break-group-feedback"
+            token={token}
+            eventFormat={eventFormat}
+            onClose={() => setBreakFeedbackOpen(false)}
+            onSelectRound={setBreakFeedbackRound}
+          />
+        )}
+        {!activeGroupFeedbackRound && activeBreakFeedback && breakFeedbackRound != null && (
+          <GroupReflectionSheet
+            key={`break-group-feedback-${breakFeedbackRound}`}
+            token={token}
+            groupRound={breakFeedbackRound}
+            reviewMode
+            onClose={() => setBreakFeedbackRound(null)}
           />
         )}
       </AnimatePresence>

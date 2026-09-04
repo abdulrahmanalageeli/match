@@ -80,8 +80,10 @@ import {
 } from "../../server/matching/delta-review.mjs"
 import { buildSurveyChangeSummaries } from "../../server/participants/survey-change-summary.mjs"
 import {
+  SURVEY_COMPLETION_ALERT_TTL_MS,
   SURVEY_PROGRESS_PRESENCE_TTL_MS,
   buildLiveSurveyProgress,
+  buildRecentSurveyCompletions,
   isSurveyProgressSchemaMissing,
 } from "../../server/participants/survey-progress.mjs"
 
@@ -1362,11 +1364,10 @@ export default async function handler(req, res) {
 
       if (action === "get-live-survey-progress") {
         const now = new Date()
-        const cutoff = new Date(now.getTime() - SURVEY_PROGRESS_PRESENCE_TTL_MS).toISOString()
+        const cutoff = new Date(now.getTime() - Math.max(SURVEY_PROGRESS_PRESENCE_TTL_MS, SURVEY_COMPLETION_ALERT_TTL_MS)).toISOString()
         const { data: progressRows, error: progressError } = await supabase
           .from("survey_progress_presence")
-          .select("participant_id,assigned_number,event_id,current_page,total_pages,answered_questions,total_questions,progress_percent,gender,gender_revealed,age,age_revealed,is_active,started_at,last_seen_at")
-          .eq("is_active", true)
+          .select("participant_id,assigned_number,event_id,session_id,current_page,total_pages,answered_questions,total_questions,progress_percent,gender,gender_revealed,age,age_revealed,is_active,started_at,last_seen_at,completed_at")
           .gte("last_seen_at", cutoff)
           .order("progress_percent", { ascending: false })
 
@@ -1397,6 +1398,7 @@ export default async function handler(req, res) {
         return res.status(200).json({
           success: true,
           participants: buildLiveSurveyProgress(progressRows || [], participantRows, now.getTime()),
+          recent_completions: buildRecentSurveyCompletions(progressRows || [], participantRows, now.getTime()),
           server_time: now.toISOString(),
           expires_after_ms: SURVEY_PROGRESS_PRESENCE_TTL_MS,
         })

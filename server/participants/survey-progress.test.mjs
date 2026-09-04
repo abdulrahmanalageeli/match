@@ -1,8 +1,10 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 import {
+  SURVEY_COMPLETION_ALERT_TTL_MS,
   SURVEY_PROGRESS_PRESENCE_TTL_MS,
   buildLiveSurveyProgress,
+  buildRecentSurveyCompletions,
   buildSurveyProgressPresenceRow,
   normalizeSurveyProgressHeartbeat,
 } from "./survey-progress.mjs"
@@ -87,4 +89,18 @@ test("keeps only active, fresh sessions and sorts people nearest completion firs
   assert.equal(result[0].age, 27)
   assert.equal(result[1].gender, null)
   assert.equal(result[1].age, null)
+})
+
+test("returns only recent survey completion events with stable notification keys", () => {
+  const now = Date.parse("2026-09-04T12:02:00.000Z")
+  const recentCompletedAt = new Date(now - 5_000).toISOString()
+  const result = buildRecentSurveyCompletions([
+    { participant_id: "a", assigned_number: 4, event_id: 27, completed_at: recentCompletedAt },
+    { participant_id: "b", assigned_number: 8, event_id: 27, completed_at: new Date(now - SURVEY_COMPLETION_ALERT_TTL_MS - 1).toISOString() },
+    { participant_id: "c", assigned_number: 9, event_id: 27, completed_at: null },
+  ], [{ id: "a", name: "A" }], now)
+
+  assert.equal(result.length, 1)
+  assert.equal(result[0].name, "A")
+  assert.equal(result[0].completion_key, `a:${recentCompletedAt}`)
 })

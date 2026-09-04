@@ -2127,6 +2127,23 @@ export default async function handler(req, res) {
         }
       } catch (histErr) { console.error('Failed to log survey change history:', histErr) }
 
+      if (survey_data) {
+        const completedAt = new Date().toISOString()
+        const { error: completionError } = await supabase
+          .from("survey_progress_presence")
+          .update({
+            is_active: false,
+            completed_at: completedAt,
+            last_seen_at: completedAt,
+            updated_at: completedAt,
+          })
+          .eq("participant_id", authenticatedParticipant.id)
+
+        if (completionError && !isSurveyProgressSchemaMissing(completionError)) {
+          logError("Survey completion presence update", completionError)
+        }
+      }
+
       console.log('✅ Participant data saved successfully')
       return res.status(200).json({ message: "Saved", match_id })
     } catch (err) {

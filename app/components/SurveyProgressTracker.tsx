@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Activity, CakeSlice, Clock3, EyeOff, RefreshCw, UserRound, X } from 'lucide-react'
+import toast from 'react-hot-toast'
 import { adminFetch as fetch } from '~/lib/admin-fetch.mjs'
 
 type SurveyProgressParticipant = {
@@ -19,6 +20,15 @@ type SurveyProgressParticipant = {
   age_revealed: boolean
   started_at: string
   last_seen_at: string
+}
+
+type RecentSurveyCompletion = {
+  completion_key: string
+  participant_id: string
+  assigned_number: number
+  name: string | null
+  event_id: number | null
+  completed_at: string
 }
 
 function elapsedLabel(startedAt: string, nowMs: number) {
@@ -53,6 +63,9 @@ export default function SurveyProgressTracker({
   const [serverNow, setServerNow] = useState(Date.now())
   const requestInFlightRef = useRef(false)
   const onUnauthorizedRef = useRef(onUnauthorized)
+  const hasLoadedRef = useRef(false)
+  const previousActiveIdsRef = useRef<Set<string>>(new Set())
+  const seenCompletionKeysRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     onUnauthorizedRef.current = onUnauthorized
@@ -73,7 +86,25 @@ export default function SurveyProgressTracker({
       }
       const data = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(data.error || 'تعذر تحميل التقدم المباشر')
-      setParticipants(Array.isArray(data.participants) ? data.participants : [])
+      const nextParticipants: SurveyProgressParticipant[] = Array.isArray(data.participants) ? data.participants : []
+      const recentCompletions: RecentSurveyCompletion[] = Array.isArray(data.recent_completions) ? data.recent_completions : []
+      const previousActiveIds = previousActiveIdsRef.current
+
+      for (const completion of recentCompletions) {
+        if (seenCompletionKeysRef.current.has(completion.completion_key)) continue
+        seenCompletionKeysRef.current.add(completion.completion_key)
+        if (hasLoadedRef.current && previousActiveIds.has(completion.participant_id)) {
+          const participantLabel = completion.name || `Participant #${completion.assigned_number}`
+          toast.success(`${participantLabel} completed the survey`, {
+            duration: 4_500,
+            icon: '✓',
+          })
+        }
+      }
+
+      previousActiveIdsRef.current = new Set(nextParticipants.map(participant => participant.participant_id))
+      hasLoadedRef.current = true
+      setParticipants(nextParticipants)
       setServerNow(Date.parse(data.server_time) || Date.now())
       setError(null)
     } catch (loadError) {

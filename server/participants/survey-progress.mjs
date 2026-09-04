@@ -1,4 +1,5 @@
 export const SURVEY_PROGRESS_PRESENCE_TTL_MS = 20_000
+export const SURVEY_COMPLETION_ALERT_TTL_MS = 60_000
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
@@ -86,6 +87,29 @@ export function buildSurveyProgressPresenceRow(participant, heartbeat, now = new
   }
 
   return row
+}
+
+export function buildRecentSurveyCompletions(rows = [], participants = [], nowMs = Date.now()) {
+  const participantById = new Map(participants.map(participant => [participant.id, participant]))
+  const cutoff = nowMs - SURVEY_COMPLETION_ALERT_TTL_MS
+
+  return rows
+    .filter(row => {
+      const completedAt = Date.parse(row?.completed_at)
+      return Number.isFinite(completedAt) && completedAt >= cutoff && completedAt <= nowMs + 5_000
+    })
+    .map(row => {
+      const participant = participantById.get(row.participant_id) || {}
+      return {
+        completion_key: `${row.participant_id}:${row.completed_at}`,
+        participant_id: row.participant_id,
+        assigned_number: Number(row.assigned_number || participant.assigned_number),
+        name: participant.name || participant?.survey_data?.name || participant?.survey_data?.answers?.name || null,
+        event_id: Number(row.event_id || participant.event_id) || null,
+        completed_at: row.completed_at,
+      }
+    })
+    .sort((left, right) => Date.parse(right.completed_at) - Date.parse(left.completed_at))
 }
 
 export function buildLiveSurveyProgress(rows = [], participants = [], nowMs = Date.now()) {

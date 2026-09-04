@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react"
 import { X, Send, Loader2, Users, AlertCircle, CheckCircle2, XCircle, Zap, RefreshCw } from "lucide-react"
-import { buildMatchTemplateVariables } from "~/utils/twilioTemplateVariables"
+import { buildMatchTemplateVariables, resolveParticipantName } from "~/utils/twilioTemplateVariables"
 import { getParticipantMatchInsightsCompletion } from "~/lib/matchControl"
 
 interface BulkWhatsAppModalProps {
@@ -25,13 +25,13 @@ type DeliveryStatus = {
 
 type DeliveryStatuses = Record<string, DeliveryStatus>
 
-type TemplateType = 'match' | 'reminder' | 'payment' | 'survey_update'
+type TemplateType = 'match' | 'reminder' | 'payment' | 'seat_payment_deadline' | 'survey_update'
 
 type TemplateSids = Record<TemplateType, string | null>
 
 export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipants, participants }: BulkWhatsAppModalProps) {
   const [templateType, setTemplateType] = useState<TemplateType>('match')
-  const [envSids, setEnvSids] = useState<TemplateSids>({ match: null, reminder: null, payment: null, survey_update: null })
+  const [envSids, setEnvSids] = useState<TemplateSids>({ match: null, reminder: null, payment: null, seat_payment_deadline: null, survey_update: null })
   const [config, setConfig] = useState<any>(null)
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState<{ successCount: number; failCount: number; skippedCount: number; results: any[] } | null>(null)
@@ -197,7 +197,7 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
   }, [isOpen, result, refreshDeliveryStatuses])
 
   const buildVariables = (p: any) => {
-    const name = p.name || p.survey_data?.name || `المشارك #${p.assigned_number}`
+    const name = resolveParticipantName(p)
     const cfg = config || {}
 
     if (templateType === 'reminder') {
@@ -222,6 +222,13 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
       }
     }
 
+    if (templateType === 'seat_payment_deadline') {
+      return {
+        1: name,
+        2: '11:59 مساءً',
+      }
+    }
+
     if (templateType === 'survey_update') {
       return { 1: name }
     }
@@ -231,7 +238,9 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
 
   const handleSend = async () => {
     if (!currentSid) {
-      setError(`No SID configured for ${templateType} template. Set TWILIO_${templateType.toUpperCase()}_TEMPLATE_SID in Vercel env.`)
+      setError(templateType === 'seat_payment_deadline'
+        ? 'No SID configured for the seat payment reminder. Configure its Content SID in the Twilio admin tab.'
+        : `No SID configured for ${templateType} template. Set TWILIO_${templateType.toUpperCase()}_TEMPLATE_SID in Vercel env.`)
       return
     }
     if (eligibleList.length === 0) {
@@ -283,8 +292,18 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
       ? 'event_reminder'
       : templateType === 'payment'
         ? 'payment_reminder'
-        : 'copy_of_complete_new_survey_questions'
-  const requiredVariableCount = templateType === 'match' ? 7 : templateType === 'reminder' ? 5 : templateType === 'payment' ? 7 : 1
+        : templateType === 'seat_payment_deadline'
+          ? 'seat_payment_deadline'
+          : 'copy_of_complete_new_survey_questions'
+  const requiredVariableCount = templateType === 'match'
+    ? 7
+    : templateType === 'reminder'
+      ? 5
+      : templateType === 'payment'
+        ? 7
+        : templateType === 'seat_payment_deadline'
+          ? 2
+          : 1
   const previewParticipant = eligibleList[0] || null
   const previewVariables: Record<string, any> = previewParticipant ? buildVariables(previewParticipant) : {}
   const missingVariables = Array.from({ length: requiredVariableCount }, (_, index) => String(index + 1)).filter(key => {
@@ -389,7 +408,7 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
           <div>
             <label className="text-sm text-white/70 mb-2 block">Template Type</label>
             <div className="grid grid-cols-2 gap-2">
-              {(['match', 'reminder', 'payment', 'survey_update'] as TemplateType[]).map(type => (
+              {(['match', 'reminder', 'payment', 'seat_payment_deadline', 'survey_update'] as TemplateType[]).map(type => (
                 <button
                   key={type}
                   onClick={() => { setTemplateType(type); setResult(null) }}
@@ -402,6 +421,7 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
                   {type === 'match' && 'Match'}
                   {type === 'reminder' && 'Reminder'}
                   {type === 'payment' && 'Payment'}
+                  {type === 'seat_payment_deadline' && 'Seat Payment Reminder'}
                   {type === 'survey_update' && 'Survey Completion'}
                 </button>
               ))}
@@ -420,7 +440,9 @@ export default function BulkWhatsAppModal({ isOpen, onClose, selectedParticipant
               <div className="flex items-center gap-2 bg-amber-900/20 border border-amber-600/30 rounded-xl px-3 py-2.5">
                 <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
                 <span className="text-xs text-amber-400">
-                  Not configured. Set <code className="font-mono">TWILIO_{templateType.toUpperCase()}_TEMPLATE_SID</code> in Vercel.
+                  {templateType === 'seat_payment_deadline'
+                    ? 'Not configured. Add its Content SID in the Twilio admin tab.'
+                    : <>Not configured. Set <code className="font-mono">TWILIO_{templateType.toUpperCase()}_TEMPLATE_SID</code> in Vercel.</>}
                 </span>
               </div>
             )}

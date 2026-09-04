@@ -28,6 +28,7 @@ import { collectEventSwapPairs, collectMatchResultSwapPairs, getTableSwapRounds 
 import { buildTestAdminSession, testMatchToLockedMatch } from "../../server/event3/test-match-results.mjs"
 import { choosePreparedTestPairs, validatePreparedTestAlgorithmRows } from "../../server/event3/prepared-test-algorithm.mjs"
 import { buildDislikeLeaderboard } from "../../server/event3/dislike-ranking.mjs"
+import { formatSeatPaymentDeadline, isPaymentReminderTemplate } from "../../server/twilio/payment-deadline.mjs"
 
 export const config = { maxDuration: 60 }
 import { buildRankingCompletion, loadRankingCompletion, rankingRoundsForPhase } from "../../server/event3/ranking-completion.mjs"
@@ -126,9 +127,6 @@ async function loadDeltaReviewParticipants(eventId) {
 
 const ARABIC_WEEKDAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"]
 const ARABIC_MONTHS = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
-const SEAT_PAYMENT_DEADLINE_TIME = { hour: 21, minute: 0 }
-const SEAT_PAYMENT_DEADLINE_LABEL = "9:00 مساءً"
-
 function formatRiyadhCutoffLabel(value) {
   const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/)
   if (!match) return ""
@@ -138,23 +136,9 @@ function formatRiyadhCutoffLabel(value) {
   return `${weekday} ${day} ${ARABIC_MONTHS[month - 1]} ${year} الساعة ${hour % 12 || 12}:${minute} ${hour < 12 ? "صباحًا" : "مساءً"}`
 }
 
-function formatRiyadhDeadline(deadline = SEAT_PAYMENT_DEADLINE_TIME) {
-  if (deadline.hour === 21 && deadline.minute === 0) return SEAT_PAYMENT_DEADLINE_LABEL
-  const riyadhNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Riyadh" }))
-  const target = new Date(riyadhNow)
-  target.setHours(deadline.hour, deadline.minute, 0, 0)
-  if (riyadhNow.getTime() >= target.getTime()) target.setDate(target.getDate() + 1)
-  return new Intl.DateTimeFormat("ar-SA", {
-    timeZone: "Asia/Riyadh",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  }).format(target)
-}
-
 function normalizeTwilioTemplateVariables(templateKey, variables) {
   if (templateKey === "seat_payment_deadline") {
-    return { ...(variables && typeof variables === "object" ? variables : {}), 2: formatRiyadhDeadline() }
+    return { ...(variables && typeof variables === "object" ? variables : {}), 2: formatSeatPaymentDeadline() }
   }
   if (!variables || typeof variables !== "object") return variables
   // Legacy payment-reminder clients included a non-template "savings" value
@@ -2770,7 +2754,7 @@ export default async function handler(req, res) {
             .eq("match_id", STATIC_MATCH_ID)
             .not("phone_number", "is", null)
           const participant = participantMatches?.find(p => String(p.phone_number || "").replace(/\D/g, "").endsWith(last7))
-          if (resolvedTemplateKey === "payment" && participant?.payment_reminder_sent === true) {
+          if (isPaymentReminderTemplate(resolvedTemplateKey) && participant?.payment_reminder_sent === true) {
             return res.status(200).json({ success: true, skipped: true, reason: "Payment reminder already sent" })
           }
 
@@ -2835,11 +2819,11 @@ export default async function handler(req, res) {
               twilio_payload: twilioData || {},
               is_auto_reply: false,
             })
-            if (participant?.id && ["match", "payment"].includes(resolvedTemplateKey)) {
+            if (participant?.id && (resolvedTemplateKey === "match" || isPaymentReminderTemplate(resolvedTemplateKey))) {
               const currentEventId = await getCurrentAdminEventId()
               const { error: sentFlagError } = await supabase
                 .from("participants")
-                .update(resolvedTemplateKey === "payment"
+                .update(isPaymentReminderTemplate(resolvedTemplateKey)
                   ? { payment_reminder_sent: true }
                   : { PAID: true, whatsapp_contacted_event_id: currentEventId })
                 .eq("id", participant.id)
@@ -2941,13 +2925,13 @@ export default async function handler(req, res) {
           for (const p of participants) {
             // Event reminders are repeatable and must not share the one-time
             // match/confirmation sent flag.
-            const alreadySent = resolvedTemplateKey === "payment"
+            const alreadySent = isPaymentReminderTemplate(resolvedTemplateKey)
               ? p.payment_reminder_sent === true
               : resolvedTemplateKey === "match"
                 ? p.PAID === true && Number(p.whatsapp_contacted_event_id) === Number(currentEventId)
                 : false
             if (alreadySent) {
-              results.push({ number: p.assigned_number, name: p.name, success: true, skipped: true, reason: resolvedTemplateKey === "payment" ? "Payment reminder already sent" : "Already marked WhatsApp sent" })
+              results.push({ number: p.assigned_number, name: p.name, success: true, skipped: true, reason: isPaymentReminderTemplate(resolvedTemplateKey) ? "Payment reminder already sent" : "Already marked WhatsApp sent" })
               skippedCount++
               continue
             }
@@ -3008,10 +2992,10 @@ export default async function handler(req, res) {
                     twilio_payload: twilioData || {},
                     is_auto_reply: false,
                   })
-                  if (["match", "payment"].includes(resolvedTemplateKey)) {
+                  if (resolvedTemplateKey === "match" || isPaymentReminderTemplate(resolvedTemplateKey)) {
                     const { error: sentFlagError } = await supabase
                       .from("participants")
-                      .update(resolvedTemplateKey === "payment"
+                      .update(isPaymentReminderTemplate(resolvedTemplateKey)
                         ? { payment_reminder_sent: true }
                         : { PAID: true, whatsapp_contacted_event_id: currentEventId })
                       .eq("id", p.id)

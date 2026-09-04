@@ -1,6 +1,6 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { buildMatchTemplateVariables } from "./matchTemplateVariables.mjs"
+import { buildMatchTemplateVariables, resolveParticipantName } from "./matchTemplateVariables.mjs"
 
 test("choice-only match template maps the seven approved variables", () => {
   assert.deepEqual(buildMatchTemplateVariables({
@@ -33,4 +33,18 @@ test("choice-only match template resolves names from nested survey answers", () 
   assert.equal(variables[1], "سارة")
   assert.equal(variables[2], "18")
   assert.equal(Object.keys(variables).length, 7)
+})
+
+test("participant names prefer the stored participant name and ignore blank values", () => {
+  assert.equal(resolveParticipantName({
+    assigned_number: 25,
+    name: "  نورة  ",
+    survey_data: { answers: { name: "اسم قديم" } },
+  }), "نورة")
+  assert.equal(resolveParticipantName({
+    assigned_number: 26,
+    name: "   ",
+    survey_data: { answers: { name: "  ريم  " }, name: "اسم أقدم" },
+  }), "ريم")
+  assert.equal(resolveParticipantName({ assigned_number: 27 }), "المشارك #27")
 })

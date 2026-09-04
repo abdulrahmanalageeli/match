@@ -1,1 +1,1 @@
-export { buildMatchTemplateVariables } from "./matchTemplateVariables.mjs"
+export { buildMatchTemplateVariables, resolveParticipantName } from "./matchTemplateVariables.mjs"

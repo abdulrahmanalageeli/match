@@ -1,3 +1,5 @@
+export function resolveParticipantName(participant: any): string
+
 export function buildMatchTemplateVariables(
   participant: any,
   config: any,

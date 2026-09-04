@@ -1,7 +1,8 @@
 import { supabaseAdmin } from "../security/supabase-admin.mjs"
-import { buildMatchTemplateVariables } from "../../app/utils/matchTemplateVariables.mjs"
+import { buildMatchTemplateVariables, resolveParticipantName } from "../../app/utils/matchTemplateVariables.mjs"
 import { enforceRateLimit, requireAdmin } from "../security/request-security.mjs"
 import { getMatchInsightsCompletion } from "../matching/match-insights.mjs"
+import { formatSeatPaymentDeadline, isPaymentReminderTemplate } from "./payment-deadline.mjs"
 
 const supabase = supabaseAdmin
 
@@ -19,18 +20,6 @@ function formatRiyadhCutoffLabel(value) {
   const year = Number(yearText), month = Number(monthText), day = Number(dayText), hour = Number(hourText)
   const weekday = ARABIC_WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()]
   return `${weekday} ${day} ${ARABIC_MONTHS[month - 1]} ${year} الساعة ${hour % 12 || 12}:${minute} ${hour < 12 ? "صباحًا" : "مساءً"}`
-}
-
-const SEAT_PAYMENT_DEADLINE_OFFSET_MINUTES = 30
-
-function formatRiyadhDeadline(deadlineOffsetMinutes = SEAT_PAYMENT_DEADLINE_OFFSET_MINUTES) {
-  const target = new Date(Date.now() + Number(deadlineOffsetMinutes || SEAT_PAYMENT_DEADLINE_OFFSET_MINUTES) * 60000)
-  return new Intl.DateTimeFormat("ar-SA", {
-    timeZone: "Asia/Riyadh",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  }).format(target)
 }
 
 function normalizeWhatsapp(value) {
@@ -98,7 +87,7 @@ async function attachEventReceipts(participants, eventId) {
   })
 }
 
-const PARTICIPANT_SELECT = "id,assigned_number,name,phone_number,secure_token,event_id,survey_data,preferred_age_min,preferred_age_max,attendance_confirmed,attendance_confirmed_at,attendance_denied_at,PAID,PAID_DONE,payment_completed_event_id,payment_waived,payment_waived_event_id,whatsapp_contacted_event_id,receipt_url,receipt_received_at,receipt_approved,receipt_rejected,same_gender_preference,any_gender_preference,age_flex_years,age_flex_event_id,arrival_status,arrival_status_at,discount_interest,auto_signup_next_event,last_twilio_action,last_twilio_action_at"
+const PARTICIPANT_SELECT = "id,assigned_number,name,phone_number,secure_token,event_id,survey_data,preferred_age_min,preferred_age_max,attendance_confirmed,attendance_confirmed_at,attendance_denied_at,PAID,PAID_DONE,payment_completed_event_id,payment_waived,payment_waived_event_id,payment_reminder_sent,whatsapp_contacted_event_id,receipt_url,receipt_received_at,receipt_approved,receipt_rejected,same_gender_preference,any_gender_preference,age_flex_years,age_flex_event_id,arrival_status,arrival_status_at,discount_interest,auto_signup_next_event,last_twilio_action,last_twilio_action_at"
 
 async function participantPage({ eventId, cursor = 0, search = "", filter = "all", limit = 40 } = {}) {
   const pageSize = Math.min(Math.max(Number(limit) || 40, 10), 50)
@@ -177,7 +166,7 @@ async function feedbackRemaining(assignedNumber) {
 
 async function buildVariables(templateKey, participant, overrides = {}) {
   const config = await whatsappConfig()
-  const name = participant.name || participant.survey_data?.answers?.name || participant.survey_data?.name || `المشارك #${participant.assigned_number}`
+  const name = resolveParticipantName(participant)
   const minAge = participant.preferred_age_min ?? participant.survey_data?.answers?.preferred_age_min ?? "غير محدد"
   const maxAge = participant.preferred_age_max ?? participant.survey_data?.answers?.preferred_age_max ?? "غير محدد"
   let values = {}
@@ -196,10 +185,10 @@ async function buildVariables(templateKey, participant, overrides = {}) {
     1: name, 2: await feedbackRemaining(participant.assigned_number), 3: config.eventName, 4: participant.secure_token,
   }
   if (templateKey === "survey_update") values = { 1: name }
-  if (templateKey === "seat_payment_deadline") values = { 1: name, 2: formatRiyadhDeadline() }
+  if (templateKey === "seat_payment_deadline") values = { 1: name, 2: formatSeatPaymentDeadline() }
   const merged = { ...values, ...overrides }
-  // Ensure seat-payment reminders always use the fixed relative cutoff.
-  if (templateKey === "seat_payment_deadline") merged[2] = formatRiyadhDeadline()
+  // Do not allow UI overrides to move the approved end-of-day payment cutoff.
+  if (templateKey === "seat_payment_deadline") merged[2] = formatSeatPaymentDeadline()
   return merged
 }
 
@@ -209,7 +198,7 @@ async function sendApprovedTemplate(template, participant, eventId, overrides = 
   if (!template.enabled) throw new Error("Template is disabled")
   if (template.approval_status !== "approved") throw new Error(`Template is ${template.approval_status}; WhatsApp approval is required`)
   if (!participant.phone_number) throw new Error("Participant has no phone number")
-  if (template.template_key === "payment" && participant.payment_reminder_sent === true) {
+  if (isPaymentReminderTemplate(template.template_key) && participant.payment_reminder_sent === true) {
     return { skipped: true, reason: "Payment reminder already sent" }
   }
   const accountSid = process.env.TWILIO_ACCOUNT_SID
@@ -248,10 +237,10 @@ async function sendApprovedTemplate(template, participant, eventId, overrides = 
     twilio_payload: twilio ? { sid: twilio.sid || null, status: twilio.status || null, code: twilio.code || null } : null,
   })
   if (!response.ok) throw new Error(twilio.message || "Twilio send failed")
-  if (["match", "payment"].includes(template.template_key)) {
+  if (template.template_key === "match" || isPaymentReminderTemplate(template.template_key)) {
     const { error: sentFlagError } = await supabase
       .from("participants")
-      .update(template.template_key === "payment"
+      .update(isPaymentReminderTemplate(template.template_key)
         ? { payment_reminder_sent: true }
         : { PAID: true, whatsapp_contacted_event_id: eventId })
       .eq("id", participant.id)
@@ -556,7 +545,7 @@ export default async function handler(req, res) {
       const results = uniqueParticipantNumbers
         .filter(number => !foundNumbers.has(number))
         .map(number => ({ assigned_number: number, success: false, error: "Participant not found" }))
-      const alreadySent = (participants || []).filter(participant => template_key === "payment"
+      const alreadySent = (participants || []).filter(participant => isPaymentReminderTemplate(template_key)
         ? participant.payment_reminder_sent === true
         : template_key === "match"
           ? participant.PAID === true && Number(participant.whatsapp_contacted_event_id) === eventId
@@ -565,9 +554,9 @@ export default async function handler(req, res) {
         assigned_number: participant.assigned_number,
         success: true,
         skipped: true,
-        reason: template_key === "payment" ? "Payment reminder already sent" : "Already marked WhatsApp sent",
+        reason: isPaymentReminderTemplate(template_key) ? "Payment reminder already sent" : "Already marked WhatsApp sent",
       })))
-      const participantBatches = (participants || []).filter(participant => template_key === "payment"
+      const participantBatches = (participants || []).filter(participant => isPaymentReminderTemplate(template_key)
         ? participant.payment_reminder_sent !== true
         : template_key === "match"
           ? participant.PAID !== true || Number(participant.whatsapp_contacted_event_id) !== eventId

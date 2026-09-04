@@ -4951,13 +4951,13 @@ export default function WelcomePage() {
 
 
   
-  const handleSubmit = async (submittedData?: any) => {
+  const handleSubmit = async (submittedData?: any): Promise<boolean> => {
     const dataToUse = submittedData || surveyData;
     console.log("🚀 handleSubmit called with data:", dataToUse);
     if (!dataToUse || !dataToUse.answers || Object.keys(dataToUse.answers).length === 0) {
       console.log("❌ survey data answers is empty or undefined", dataToUse);
       // alert("يرجى إكمال الاستبيان أولاً");
-      return;
+      return false;
     }
     setLoading(true)
     try {
@@ -4976,7 +4976,7 @@ export default function WelcomePage() {
       if (isJustCreatedUser && res1.status === 409 && data1.requires_otp) {
         const duplicatePhone = String(dataToUse?.phoneNumber || dataToUse?.answers?.phone_number || '')
         await handleExistingPhoneDetected(duplicatePhone)
-        return
+        return false
       }
       if (!res1.ok) throw new Error(data1.error || data1.message || "تعذر حفظ الاستبيان")
   
@@ -5039,21 +5039,23 @@ export default function WelcomePage() {
         sessionStorage.removeItem('justCreatedToken');
         sessionStorage.removeItem('justCreatedTokenValue');
       }
+      return true
     } catch (err) {
       console.error("Submit error:", err)
       toast.error(err instanceof Error ? err.message : "تعذر حفظ الاستبيان. حاول مرة أخرى.")
-      setPersonalitySummary("تم حفظ بياناتك بنجاح.")
+      setPersonalitySummary("تعذر حفظ الاستبيان. حاول مرة أخرى.")
       // Don't auto-advance on error either
+      return false
     } finally {
       setLoading(false)
     }
   }
 
-  const handleSurveySubmit = (data: any) => {
+  const handleSurveySubmit = (data: any): Promise<boolean> => {
     console.log("📨 handleSurveySubmit called with data:", data);
     setSurveyData(data);
     // Don't hide survey immediately - let the loading state handle it
-    handleSubmit(data);
+    return handleSubmit(data);
   }
       
   type MatchResultEntry = {

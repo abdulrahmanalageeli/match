@@ -43,6 +43,11 @@ import {
 } from "../server/participants/phone-normalization.mjs"
 import { validateProfileDataCollection } from "../server/participants/profile-data-collection.mjs"
 import {
+  buildSurveyProgressPresenceRow,
+  isSurveyProgressSchemaMissing,
+  normalizeSurveyProgressHeartbeat,
+} from "../server/participants/survey-progress.mjs"
+import {
   LEGAL_ACCEPTED_DOCUMENT_VERSIONS,
   LEGAL_DOCUMENT_VERSION,
   LEGAL_PRIVACY_NOTICE_VERSION,
@@ -360,7 +365,8 @@ export default async function handler(req, res) {
 
   const { action } = req.body
   const isLegalAcceptanceAction = action === "legal-acceptance-status" || action === "accept-legal-update"
-  if (!String(action).startsWith("e3-") && !isLegalAcceptanceAction && !enforceRateLimit(req, res, { key: "participant-api", limit: 120, windowMs: 60_000 })) return
+  const isSurveyProgressAction = action === "survey-progress-heartbeat"
+  if (!String(action).startsWith("e3-") && !isLegalAcceptanceAction && !isSurveyProgressAction && !enforceRateLimit(req, res, { key: "participant-api", limit: 120, windowMs: 60_000 })) return
 
   if (isLegalAcceptanceAction) {
     const secureToken = String(req.body?.secure_token || "").trim()
@@ -457,6 +463,70 @@ export default async function handler(req, res) {
       accepted_at: saved?.accepted_at || acceptedAt,
       document_bundle_version: LEGAL_DOCUMENT_VERSION,
     })
+  }
+
+  if (isSurveyProgressAction) {
+    const secureToken = String(req.body?.secure_token || "").trim()
+    if (!secureToken) return res.status(401).json({ error: "A participant token is required" })
+
+    const heartbeat = normalizeSurveyProgressHeartbeat(req.body)
+    if (heartbeat.error) return res.status(400).json({ error: heartbeat.error })
+
+    const { data: participant, error: participantError } = await supabase
+      .from("participants")
+      .select("id,assigned_number,match_id,event_id,gender,age")
+      .eq("match_id", process.env.CURRENT_MATCH_ID || STATIC_MATCH_ID)
+      .eq("secure_token", secureToken)
+      .maybeSingle()
+
+    if (participantError) {
+      logError("Survey progress participant lookup", participantError)
+      return res.status(503).json({ error: "Could not verify participant identity", retryable: true })
+    }
+    if (!participant) return res.status(401).json({ error: "Invalid participant token" })
+    if (!enforceRateLimit(req, res, {
+      key: "survey-progress-heartbeat",
+      identity: participant.id,
+      limit: 60,
+      windowMs: 60_000,
+    })) return
+
+    res.setHeader("Cache-Control", "no-store")
+
+    if (!heartbeat.active) {
+      const { error } = await supabase
+        .from("survey_progress_presence")
+        .update({
+          is_active: false,
+          last_seen_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("participant_id", participant.id)
+        .eq("session_id", heartbeat.sessionId)
+
+      if (error && !isSurveyProgressSchemaMissing(error)) {
+        logError("Survey progress leave", error)
+        return res.status(503).json({ error: "Could not update survey presence", retryable: true })
+      }
+      return res.status(200).json({ success: true, active: false, migration_required: isSurveyProgressSchemaMissing(error) })
+    }
+
+    const row = buildSurveyProgressPresenceRow(participant, heartbeat)
+    const { error } = await supabase
+      .from("survey_progress_presence")
+      .upsert(row, { onConflict: "participant_id" })
+
+    if (error) {
+      const migrationRequired = isSurveyProgressSchemaMissing(error)
+      if (!migrationRequired) logError("Survey progress heartbeat", error)
+      return res.status(migrationRequired ? 501 : 503).json({
+        error: migrationRequired ? "Survey progress tracking is not deployed" : "Could not update survey progress",
+        migration_required: migrationRequired,
+        retryable: !migrationRequired,
+      })
+    }
+
+    return res.status(200).json({ success: true, active: true, progress_percent: row.progress_percent })
   }
 
   // TOKEN HANDLER ACTIONS

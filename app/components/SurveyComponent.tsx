@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/ui/dialog"
 import { ChevronLeft, ChevronRight, Shield, AlertTriangle, CheckCircle, Loader2, Star, FileText, X, ListPlus, Sparkles, Info } from "lucide-react"
 import { shouldRunSurveyPhoneDuplicateCheck } from "../lib/survey-phone-flow.mjs"
+import { submitSurveyAndClearDraft } from "../lib/survey-submission.mjs"
 import HobbiesPickerModal from "./HobbiesPickerModal"
 
 interface SurveyData {
@@ -984,7 +985,7 @@ const SurveyComponent = memo(function SurveyComponent({
   isNewRegistration,
   onExistingPhoneDetected,
 }: { 
-  onSubmit: (data: SurveyData) => void
+  onSubmit: (data: SurveyData) => Promise<boolean>
   surveyData: SurveyData
   setSurveyData: React.Dispatch<React.SetStateAction<SurveyData>>
   setIsEditingSurvey?: React.Dispatch<React.SetStateAction<boolean>>
@@ -1008,6 +1009,10 @@ const SurveyComponent = memo(function SurveyComponent({
   const hasRestoredRef = useRef(false)
   const hasInitializedPhoneRef = useRef(false)
   const phoneCheckInFlightRef = useRef(false)
+  const submissionInFlightRef = useRef(false)
+  const surveyPresenceSessionIdRef = useRef<string | null>(null)
+  const surveyPresencePayloadRef = useRef<Record<string, unknown>>({})
+  const highestSurveyPageReachedRef = useRef(0)
 
   // Helper to parse hobbies from the text field
   const getHobbiesArray = useCallback((str: string) => {
@@ -1071,6 +1076,20 @@ const SurveyComponent = memo(function SurveyComponent({
   const clearSurveyProgress = useCallback(() => {
     try { localStorage.removeItem(surveyProgressKey) } catch {}
   }, [])
+
+  const submitFinalData = useCallback(async (finalData: SurveyData) => {
+    if (submissionInFlightRef.current) return false
+    submissionInFlightRef.current = true
+    try {
+      return await submitSurveyAndClearDraft({
+        data: finalData,
+        onSubmit,
+        clearDraft: clearSurveyProgress,
+      })
+    } finally {
+      submissionInFlightRef.current = false
+    }
+  }, [onSubmit, clearSurveyProgress])
 
   // Hydrate legacy records that only have a composed phone_number. Run this
   // once per mount; live edits update all phone fields atomically below.
@@ -1335,6 +1354,114 @@ const SurveyComponent = memo(function SurveyComponent({
     return null
   }, [surveyData.answers])
 
+  const trackedProgressQuestions = useMemo(
+    () => orderedQuestions.filter(question => question.required || question.id === 'preferred_age_range'),
+    [orderedQuestions]
+  )
+  const totalProgressUnits = trackedProgressQuestions.length + 2 // Terms + privacy/data consent
+  const completedProgressUnits = useMemo(() => (
+    trackedProgressQuestions.filter(question => getQuestionValidationMessage(question) === null).length
+    + (surveyData.termsAccepted ? 1 : 0)
+    + (surveyData.dataConsent ? 1 : 0)
+  ), [getQuestionValidationMessage, surveyData.dataConsent, surveyData.termsAccepted, trackedProgressQuestions])
+  const personalDetailsPage = useMemo(() => {
+    const personalDetailIndexes = ['age', 'gender']
+      .map(questionId => orderedQuestions.findIndex(question => question.id === questionId))
+      .filter(index => index >= 0)
+    const finalPersonalDetailIndex = Math.max(0, ...personalDetailIndexes)
+    return Math.floor(finalPersonalDetailIndex / questionsPerPage)
+  }, [orderedQuestions])
+
+  useEffect(() => {
+    highestSurveyPageReachedRef.current = Math.max(highestSurveyPageReachedRef.current, currentPage)
+  }, [currentPage])
+  const selectedGender = surveyData.answers.gender === 'male' || surveyData.answers.gender === 'female'
+    ? surveyData.answers.gender
+    : null
+  const selectedAgeValue = Number(surveyData.answers.age)
+  const selectedAge = Number.isInteger(selectedAgeValue) && selectedAgeValue >= 18 && selectedAgeValue <= 65
+    ? selectedAgeValue
+    : null
+  const personalDetailsRevealedToAdmin = (
+    currentPage > personalDetailsPage
+    || highestSurveyPageReachedRef.current > personalDetailsPage
+  )
+  const genderRevealedToAdmin = Boolean(selectedGender && personalDetailsRevealedToAdmin)
+  const ageRevealedToAdmin = Boolean(selectedAge !== null && personalDetailsRevealedToAdmin)
+  const surveyPresencePayload = useMemo(() => ({
+    current_page: currentPage,
+    total_pages: totalPages,
+    answered_questions: completedProgressUnits,
+    total_questions: totalProgressUnits,
+    gender: genderRevealedToAdmin ? selectedGender : null,
+    gender_revealed: genderRevealedToAdmin,
+    age: ageRevealedToAdmin ? selectedAge : null,
+    age_revealed: ageRevealedToAdmin,
+  }), [ageRevealedToAdmin, completedProgressUnits, currentPage, genderRevealedToAdmin, selectedAge, selectedGender, totalPages, totalProgressUnits])
+
+  useEffect(() => {
+    surveyPresencePayloadRef.current = surveyPresencePayload
+  }, [surveyPresencePayload])
+
+  const sendSurveyPresence = useCallback((active: boolean) => {
+    if (!assignedNumber || !secureToken) return Promise.resolve()
+    if (!surveyPresenceSessionIdRef.current) {
+      surveyPresenceSessionIdRef.current = typeof globalThis.crypto?.randomUUID === 'function'
+        ? globalThis.crypto.randomUUID()
+        : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, character => {
+            const random = Math.floor(Math.random() * 16)
+            const value = character === 'x' ? random : ((random & 0x3) | 0x8)
+            return value.toString(16)
+          })
+    }
+
+    return fetch('/api/participant', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'survey-progress-heartbeat',
+        secure_token: secureToken,
+        session_id: surveyPresenceSessionIdRef.current,
+        active,
+        ...surveyPresencePayloadRef.current,
+      }),
+      keepalive: !active,
+    }).then(() => undefined).catch(() => undefined)
+  }, [assignedNumber, secureToken])
+
+  useEffect(() => {
+    if (!assignedNumber || !secureToken) return
+
+    const reportVisibleState = () => {
+      void sendSurveyPresence(document.visibilityState === 'visible')
+    }
+    const reportLeaving = () => {
+      void sendSurveyPresence(false)
+    }
+
+    reportVisibleState()
+    const heartbeatInterval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void sendSurveyPresence(true)
+    }, 8_000)
+    document.addEventListener('visibilitychange', reportVisibleState)
+    window.addEventListener('pagehide', reportLeaving)
+
+    return () => {
+      window.clearInterval(heartbeatInterval)
+      document.removeEventListener('visibilitychange', reportVisibleState)
+      window.removeEventListener('pagehide', reportLeaving)
+      reportLeaving()
+    }
+  }, [assignedNumber, secureToken, sendSurveyPresence])
+
+  // Advancing a page (especially past the personal-details questions) or completing
+  // another required unit should appear in admin without waiting for the next
+  // periodic heartbeat.
+  useEffect(() => {
+    if (!assignedNumber || !secureToken || document.visibilityState !== 'visible') return
+    void sendSurveyPresence(true)
+  }, [assignedNumber, completedProgressUnits, currentPage, secureToken, sendSurveyPresence])
+
   const navigateToQuestion = useCallback((questionId: string) => {
     const index = orderedQuestions.findIndex((question) => question.id === questionId)
     if (index < 0) return
@@ -1537,12 +1664,11 @@ const SurveyComponent = memo(function SurveyComponent({
         }
       }
       
-      clearSurveyProgress();
-      onSubmit(finalData);
+      void submitFinalData(finalData);
     } else {
       alert("يرجى الموافقة على الشروط والأحكام وسياسة الخصوصية");
     }
-  }, [surveyData, onSubmit, clearSurveyProgress])
+  }, [surveyData, submitFinalData])
 
   // Handle submit with provided data (to avoid race condition)
   const handleSubmitWithData = useCallback((dataToSubmit: SurveyData) => {
@@ -1634,12 +1760,11 @@ const SurveyComponent = memo(function SurveyComponent({
         }
       }
       
-      clearSurveyProgress();
-      onSubmit(finalData);
+      void submitFinalData(finalData);
     } else {
       alert("يرجى الموافقة على الشروط والأحكام وسياسة الخصوصية");
     }
-  }, [onSubmit, clearSurveyProgress])
+  }, [submitFinalData])
 
   const renderQuestion = (question: any) => {
     const value = surveyData.answers[question.id]
@@ -2584,7 +2709,7 @@ const SurveyComponent = memo(function SurveyComponent({
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>جاري التحليل...</span>
+                    <span>جاري حفظ الاستبيان...</span>
                   </>
                 ) : (
                   <>

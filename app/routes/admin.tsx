@@ -66,6 +66,7 @@ import BulkWhatsAppModal from '~/components/BulkWhatsAppModal';
 import ParticipantQRModal from "~/components/ParticipantQRModal"
 import ParticipantProfileModal from "~/components/ParticipantProfileModal"
 import TwilioAdminPanel from "~/components/TwilioAdminPanel"
+import SurveyProgressTracker from "~/components/SurveyProgressTracker"
 import { surveyQuestions } from "~/components/SurveyComponent"
 import PairAnalysisModal from "~/components/PairAnalysisModalPro"
 import { HistoryConfidencePanel } from "~/components/HistoryConfidenceBadge"
@@ -6193,7 +6194,7 @@ Proceed?`
              </select>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2 relative">
               <span className="text-slate-300 text-sm">Total: </span>
               <span className="font-bold text-white">{participants.length}</span>
@@ -6238,6 +6239,12 @@ Proceed?`
               <span className="text-orange-400/70 text-xs">Partial</span>
               <span className="font-bold text-orange-300 text-xs">{paidPairStats.incompletePairs}</span>
             </div>
+            {!isCohost && (
+              <SurveyProgressTracker
+                currentEventId={currentEventId}
+                onUnauthorized={logout}
+              />
+            )}
             <div 
               className="bg-cyan-500/20 backdrop-blur-sm border border-cyan-400/30 rounded-xl px-4 py-2 relative cursor-pointer hover:bg-cyan-500/30 transition-colors z-[1000]" 
               onClick={() => {

@@ -79,6 +79,11 @@ import {
   getDeltaReviewReasonCounts,
 } from "../../server/matching/delta-review.mjs"
 import { buildSurveyChangeSummaries } from "../../server/participants/survey-change-summary.mjs"
+import {
+  SURVEY_PROGRESS_PRESENCE_TTL_MS,
+  buildLiveSurveyProgress,
+  isSurveyProgressSchemaMissing,
+} from "../../server/participants/survey-progress.mjs"
 
 const supabase = supabaseAdmin
 
@@ -1353,6 +1358,48 @@ export default async function handler(req, res) {
     if (method === "POST") {
       if (!action) {
         return res.status(400).json({ error: "Missing action parameter" });
+      }
+
+      if (action === "get-live-survey-progress") {
+        const now = new Date()
+        const cutoff = new Date(now.getTime() - SURVEY_PROGRESS_PRESENCE_TTL_MS).toISOString()
+        const { data: progressRows, error: progressError } = await supabase
+          .from("survey_progress_presence")
+          .select("participant_id,assigned_number,event_id,current_page,total_pages,answered_questions,total_questions,progress_percent,gender,gender_revealed,age,age_revealed,is_active,started_at,last_seen_at")
+          .eq("is_active", true)
+          .gte("last_seen_at", cutoff)
+          .order("progress_percent", { ascending: false })
+
+        if (progressError) {
+          const migrationRequired = isSurveyProgressSchemaMissing(progressError)
+          if (!migrationRequired) console.error("Live survey progress query failed:", progressError)
+          return res.status(migrationRequired ? 501 : 503).json({
+            error: migrationRequired ? "Survey progress tracking is not deployed" : "Could not load live survey progress",
+            migration_required: migrationRequired,
+          })
+        }
+
+        const participantIds = [...new Set((progressRows || []).map(row => row.participant_id).filter(Boolean))]
+        let participantRows = []
+        if (participantIds.length > 0) {
+          const { data, error } = await supabase
+            .from("participants")
+            .select("id,assigned_number,name,survey_data,event_id")
+            .eq("match_id", STATIC_MATCH_ID)
+            .in("id", participantIds)
+          if (error) {
+            console.error("Live survey participant query failed:", error)
+            return res.status(503).json({ error: "Could not load live survey participants" })
+          }
+          participantRows = data || []
+        }
+
+        return res.status(200).json({
+          success: true,
+          participants: buildLiveSurveyProgress(progressRows || [], participantRows, now.getTime()),
+          server_time: now.toISOString(),
+          expires_after_ms: SURVEY_PROGRESS_PRESENCE_TTL_MS,
+        })
       }
 
       // 🔹 GET GROUP-EXCLUDED PARTICIPANTS (participant2_number = -2) via POST

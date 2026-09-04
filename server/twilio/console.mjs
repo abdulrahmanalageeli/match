@@ -2,7 +2,12 @@ import { supabaseAdmin } from "../security/supabase-admin.mjs"
 import { buildMatchTemplateVariables, resolveParticipantName } from "../../app/utils/matchTemplateVariables.mjs"
 import { enforceRateLimit, requireAdmin } from "../security/request-security.mjs"
 import { getMatchInsightsCompletion } from "../matching/match-insights.mjs"
-import { formatSeatPaymentDeadline, isPaymentReminderTemplate } from "./payment-deadline.mjs"
+import {
+  formatSeatPaymentDeadline,
+  hasPaymentReminderBeenSent,
+  isPaymentReminderTemplate,
+  paymentReminderSentUpdate,
+} from "./payment-deadline.mjs"
 
 const supabase = supabaseAdmin
 
@@ -87,7 +92,7 @@ async function attachEventReceipts(participants, eventId) {
   })
 }
 
-const PARTICIPANT_SELECT = "id,assigned_number,name,phone_number,secure_token,event_id,survey_data,preferred_age_min,preferred_age_max,attendance_confirmed,attendance_confirmed_at,attendance_denied_at,PAID,PAID_DONE,payment_completed_event_id,payment_waived,payment_waived_event_id,payment_reminder_sent,whatsapp_contacted_event_id,receipt_url,receipt_received_at,receipt_approved,receipt_rejected,same_gender_preference,any_gender_preference,age_flex_years,age_flex_event_id,arrival_status,arrival_status_at,discount_interest,auto_signup_next_event,last_twilio_action,last_twilio_action_at"
+const PARTICIPANT_SELECT = "id,assigned_number,name,phone_number,secure_token,event_id,survey_data,preferred_age_min,preferred_age_max,attendance_confirmed,attendance_confirmed_at,attendance_denied_at,PAID,PAID_DONE,payment_completed_event_id,payment_waived,payment_waived_event_id,payment_reminder_sent,seat_payment_reminder_sent,whatsapp_contacted_event_id,receipt_url,receipt_received_at,receipt_approved,receipt_rejected,same_gender_preference,any_gender_preference,age_flex_years,age_flex_event_id,arrival_status,arrival_status_at,discount_interest,auto_signup_next_event,last_twilio_action,last_twilio_action_at"
 
 async function participantPage({ eventId, cursor = 0, search = "", filter = "all", limit = 40 } = {}) {
   const pageSize = Math.min(Math.max(Number(limit) || 40, 10), 50)
@@ -198,8 +203,13 @@ async function sendApprovedTemplate(template, participant, eventId, overrides = 
   if (!template.enabled) throw new Error("Template is disabled")
   if (template.approval_status !== "approved") throw new Error(`Template is ${template.approval_status}; WhatsApp approval is required`)
   if (!participant.phone_number) throw new Error("Participant has no phone number")
-  if (isPaymentReminderTemplate(template.template_key) && participant.payment_reminder_sent === true) {
-    return { skipped: true, reason: "Payment reminder already sent" }
+  if (hasPaymentReminderBeenSent(template.template_key, participant)) {
+    return {
+      skipped: true,
+      reason: template.template_key === "seat_payment_deadline"
+        ? "Seat payment reminder already sent"
+        : "Payment reminder already sent",
+    }
   }
   const accountSid = process.env.TWILIO_ACCOUNT_SID
   const authToken = process.env.TWILIO_AUTH_TOKEN
@@ -241,7 +251,7 @@ async function sendApprovedTemplate(template, participant, eventId, overrides = 
     const { error: sentFlagError } = await supabase
       .from("participants")
       .update(isPaymentReminderTemplate(template.template_key)
-        ? { payment_reminder_sent: true }
+        ? paymentReminderSentUpdate(template.template_key, eventId)
         : { PAID: true, whatsapp_contacted_event_id: eventId })
       .eq("id", participant.id)
     if (sentFlagError) console.error("Failed to mark participant as WhatsApp sent:", sentFlagError)
@@ -546,7 +556,7 @@ export default async function handler(req, res) {
         .filter(number => !foundNumbers.has(number))
         .map(number => ({ assigned_number: number, success: false, error: "Participant not found" }))
       const alreadySent = (participants || []).filter(participant => isPaymentReminderTemplate(template_key)
-        ? participant.payment_reminder_sent === true
+        ? hasPaymentReminderBeenSent(template_key, participant)
         : template_key === "match"
           ? participant.PAID === true && Number(participant.whatsapp_contacted_event_id) === eventId
           : false)
@@ -554,10 +564,14 @@ export default async function handler(req, res) {
         assigned_number: participant.assigned_number,
         success: true,
         skipped: true,
-        reason: isPaymentReminderTemplate(template_key) ? "Payment reminder already sent" : "Already marked WhatsApp sent",
+        reason: template_key === "seat_payment_deadline"
+          ? "Seat payment reminder already sent"
+          : isPaymentReminderTemplate(template_key)
+            ? "Payment reminder already sent"
+            : "Already marked WhatsApp sent",
       })))
       const participantBatches = (participants || []).filter(participant => isPaymentReminderTemplate(template_key)
-        ? participant.payment_reminder_sent !== true
+        ? !hasPaymentReminderBeenSent(template_key, participant)
         : template_key === "match"
           ? participant.PAID !== true || Number(participant.whatsapp_contacted_event_id) !== eventId
           : true)

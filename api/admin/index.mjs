@@ -28,7 +28,12 @@ import { collectEventSwapPairs, collectMatchResultSwapPairs, getTableSwapRounds 
 import { buildTestAdminSession, testMatchToLockedMatch } from "../../server/event3/test-match-results.mjs"
 import { choosePreparedTestPairs, validatePreparedTestAlgorithmRows } from "../../server/event3/prepared-test-algorithm.mjs"
 import { buildDislikeLeaderboard } from "../../server/event3/dislike-ranking.mjs"
-import { formatSeatPaymentDeadline, isPaymentReminderTemplate } from "../../server/twilio/payment-deadline.mjs"
+import {
+  formatSeatPaymentDeadline,
+  hasPaymentReminderBeenSent,
+  isPaymentReminderTemplate,
+  paymentReminderSentUpdate,
+} from "../../server/twilio/payment-deadline.mjs"
 
 export const config = { maxDuration: 60 }
 import { buildRankingCompletion, loadRankingCompletion, rankingRoundsForPhase } from "../../server/event3/ranking-completion.mjs"
@@ -2750,12 +2755,15 @@ export default async function handler(req, res) {
           const last7 = cleanPhone.replace(/\D/g, "").slice(-7)
           const { data: participantMatches } = await supabase
             .from("participants")
-            .select("id, assigned_number, name, phone_number, payment_reminder_sent")
+            .select("id, assigned_number, name, phone_number, payment_reminder_sent, seat_payment_reminder_sent")
             .eq("match_id", STATIC_MATCH_ID)
             .not("phone_number", "is", null)
           const participant = participantMatches?.find(p => String(p.phone_number || "").replace(/\D/g, "").endsWith(last7))
-          if (isPaymentReminderTemplate(resolvedTemplateKey) && participant?.payment_reminder_sent === true) {
-            return res.status(200).json({ success: true, skipped: true, reason: "Payment reminder already sent" })
+          if (hasPaymentReminderBeenSent(resolvedTemplateKey, participant)) {
+            const reason = resolvedTemplateKey === "seat_payment_deadline"
+              ? "Seat payment reminder already sent"
+              : "Payment reminder already sent"
+            return res.status(200).json({ success: true, skipped: true, reason })
           }
 
           const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
@@ -2824,7 +2832,7 @@ export default async function handler(req, res) {
               const { error: sentFlagError } = await supabase
                 .from("participants")
                 .update(isPaymentReminderTemplate(resolvedTemplateKey)
-                  ? { payment_reminder_sent: true }
+                  ? paymentReminderSentUpdate(resolvedTemplateKey, currentEventId)
                   : { PAID: true, whatsapp_contacted_event_id: currentEventId })
                 .eq("id", participant.id)
               if (sentFlagError) console.error("Failed to mark participant as WhatsApp sent:", sentFlagError)
@@ -2896,7 +2904,7 @@ export default async function handler(req, res) {
           // Fetch participant data for the given numbers
           const { data: participants } = await supabase
             .from("participants")
-            .select("id, assigned_number, name, phone_number, secure_token, signup_for_next_event, survey_data, PAID, whatsapp_contacted_event_id, payment_reminder_sent")
+            .select("id, assigned_number, name, phone_number, secure_token, signup_for_next_event, survey_data, PAID, whatsapp_contacted_event_id, payment_reminder_sent, seat_payment_reminder_sent")
             .eq("match_id", STATIC_MATCH_ID)
             .in("assigned_number", uniqueParticipantNumbers)
             .not("phone_number", "is", null)
@@ -2926,12 +2934,17 @@ export default async function handler(req, res) {
             // Event reminders are repeatable and must not share the one-time
             // match/confirmation sent flag.
             const alreadySent = isPaymentReminderTemplate(resolvedTemplateKey)
-              ? p.payment_reminder_sent === true
+              ? hasPaymentReminderBeenSent(resolvedTemplateKey, p)
               : resolvedTemplateKey === "match"
                 ? p.PAID === true && Number(p.whatsapp_contacted_event_id) === Number(currentEventId)
                 : false
             if (alreadySent) {
-              results.push({ number: p.assigned_number, name: p.name, success: true, skipped: true, reason: isPaymentReminderTemplate(resolvedTemplateKey) ? "Payment reminder already sent" : "Already marked WhatsApp sent" })
+              const reason = resolvedTemplateKey === "seat_payment_deadline"
+                ? "Seat payment reminder already sent"
+                : isPaymentReminderTemplate(resolvedTemplateKey)
+                  ? "Payment reminder already sent"
+                  : "Already marked WhatsApp sent"
+              results.push({ number: p.assigned_number, name: p.name, success: true, skipped: true, reason })
               skippedCount++
               continue
             }
@@ -2996,7 +3009,7 @@ export default async function handler(req, res) {
                     const { error: sentFlagError } = await supabase
                       .from("participants")
                       .update(isPaymentReminderTemplate(resolvedTemplateKey)
-                        ? { payment_reminder_sent: true }
+                        ? paymentReminderSentUpdate(resolvedTemplateKey, currentEventId)
                         : { PAID: true, whatsapp_contacted_event_id: currentEventId })
                       .eq("id", p.id)
                     if (sentFlagError) console.error("Failed to mark bulk participant as WhatsApp sent:", sentFlagError)
@@ -7469,6 +7482,7 @@ export default async function handler(req, res) {
             payment_waived: false,
             payment_waived_event_id: null,
             payment_reminder_sent: false,
+            seat_payment_reminder_sent: false,
             attendance_confirmed: false,
             attendance_confirmed_at: null,
             attendance_denied_at: null,
@@ -7505,6 +7519,7 @@ export default async function handler(req, res) {
             PAID_DONE: false,
             payment_waived: false,
             payment_reminder_sent: false,
+            seat_payment_reminder_sent: false,
             attendance_reset: true,
             arrival_reset: true,
             receipt_status_reset: true,

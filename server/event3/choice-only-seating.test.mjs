@@ -8,12 +8,13 @@ import {
   choiceOnlySeatingMetrics,
 } from "./choice-only-seating.mjs"
 import { createRoundLensScorer } from "./round23-lenses.mjs"
+import { FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION } from "./flexible-choice-seating.mjs"
 
 const participants = Array.from({ length: 42 }, (_, index) => index + 1)
 
 function assertRound(round) {
-  assert.equal(round.length, 6)
-  assert.deepEqual(round.map(group => group.length), [7, 7, 7, 7, 7, 7])
+  assert.equal(round.length, 7)
+  assert.deepEqual(round.map(group => group.length), [6, 6, 6, 6, 6, 6, 6])
   assert.deepEqual([...round.flat()].sort((a, b) => a - b), participants)
 }
 
@@ -119,13 +120,13 @@ function basePreview() {
   return cachedPreview
 }
 
-test("creates three complete rounds of six groups of exactly seven", () => {
+test("creates three complete rounds of seven groups of exactly six", () => {
   const plan = buildChoiceOnlySeatingPlan(participants)
   assert.equal(plan.error, undefined)
   assertRound(plan.round1)
   assertRound(plan.round2)
   assertRound(plan.round3)
-  assert.deepEqual({ T: plan.T, G: plan.G, R: plan.R }, { T: 6, G: 7, R: 0 })
+  assert.deepEqual({ T: plan.T, G: plan.G, R: plan.R }, { T: 7, G: 6, R: 0 })
   assert.equal(Object.keys(plan.positionMap).length, 42)
   for (let index = 0; index < participants.length; index++) {
     assert.equal(plan.positionMap[plan.round1.flat()[index]], index)
@@ -210,7 +211,7 @@ test("preserves repeat, gender, and protected-pair invariants in all three previ
       assertRound(round)
       assert.ok(round.every(group => {
         const femaleCount = group.filter(number => genderMap[number] === "female").length
-        return femaleCount === 3 || femaleCount === 4
+        return femaleCount === 3
       }))
       for (const group of round) {
         const keys = new Set(groupPairKeys(group))
@@ -225,35 +226,32 @@ test("preserves repeat, gender, and protected-pair invariants in all three previ
       repeatedInAllThree: metrics.repeatedInAllThree,
       maximumParticipantRepeatBurden: metrics.maximumParticipantRepeatBurden,
     }, {
-      round1Round2: 6,
-      round1Round3: 6,
-      round2Round3: 6,
+      round1Round2: 0,
+      round1Round3: 0,
+      round2Round3: 0,
       repeatedInAllThree: 0,
-      maximumParticipantRepeatBurden: 1,
+      maximumParticipantRepeatBurden: 0,
     })
   }
 })
 
-test("attains the unavoidable repeat lower bound and never repeats one pair all three times", () => {
+test("uses the seven-table geometry to avoid every repeated tablemate", () => {
   const plan = buildChoiceOnlySeatingPlan(participants)
   const metrics = choiceOnlySeatingMetrics(plan.round1, plan.round2, plan.round3)
 
-  // Each new table has seven people but only six prior tables to draw from, so
-  // every pair of rounds must repeat at least one pair at each of six tables.
   assert.deepEqual({
     round1Round2: metrics.round1Round2,
     round1Round3: metrics.round1Round3,
     round2Round3: metrics.round2Round3,
     total: metrics.totalRepeatedPairOccurrences,
-  }, { round1Round2: 6, round1Round3: 6, round2Round3: 6, total: 18 })
+  }, { round1Round2: 0, round1Round3: 0, round2Round3: 0, total: 0 })
   assert.equal(metrics.repeatedInAllThree, 0)
-  assert.equal(metrics.maximumParticipantRepeatBurden, 1)
-  assert.equal(metrics.squaredParticipantRepeatBurden, 36)
+  assert.equal(metrics.maximumParticipantRepeatBurden, 0)
+  assert.equal(metrics.squaredParticipantRepeatBurden, 0)
 
   const sets = [pairSet(plan.round1), pairSet(plan.round2), pairSet(plan.round3)]
   const burden = repeatBurden(plan.round1, plan.round2, plan.round3)
-  assert.equal([...burden.values()].filter(value => value === 1).length, 36)
-  assert.equal([...burden.values()].filter(value => value === 0).length, 6)
+  assert.equal([...burden.values()].filter(value => value === 0).length, 42)
 
   const uniquePartners = new Map(participants.map(number => [number, new Set()]))
   for (const round of [plan.round1, plan.round2, plan.round3]) {
@@ -261,41 +259,38 @@ test("attains the unavoidable repeat lower bound and never repeats one pair all 
       for (const number of group) group.filter(other => other !== number).forEach(other => uniquePartners.get(number).add(other))
     }
   }
-  assert.equal([...uniquePartners.values()].filter(values => values.size === 17).length, 36)
-  assert.equal([...uniquePartners.values()].filter(values => values.size === 18).length, 6)
+  assert.equal([...uniquePartners.values()].filter(values => values.size === 15).length, 42)
 
   for (const group of plan.round2) {
-    assert.equal(groupPairKeys(group).filter(key => sets[0].has(key)).length, 1)
+    assert.equal(groupPairKeys(group).filter(key => sets[0].has(key)).length, 0)
   }
   for (const group of plan.round3) {
     const round1Anchors = groupPairKeys(group).filter(key => sets[0].has(key))
     const round2Anchors = groupPairKeys(group).filter(key => sets[1].has(key))
-    assert.equal(round1Anchors.length, 1)
-    assert.equal(round2Anchors.length, 1)
-    assert.notEqual(round1Anchors[0], round2Anchors[0])
+    assert.equal(round1Anchors.length, 0)
+    assert.equal(round2Anchors.length, 0)
   }
 
-  assert.equal(plan.round2Depth.anchors.count, 6)
-  assert.equal(plan.round3Rhythm.anchors.round1Spark.count, 6)
-  assert.equal(plan.round3Rhythm.anchors.round2Depth.count, 6)
+  assert.equal(plan.round2Depth.anchors.count, 0)
+  assert.equal(plan.round3Rhythm.anchors.round1Spark.count, 0)
+  assert.equal(plan.round3Rhythm.anchors.round2Depth.count, 0)
   assert.deepEqual(plan.round3Rhythm.repeatMetrics, metrics)
 })
 
-test("balances a 21/21 roster in every round while retaining minimum repeats", () => {
+test("balances a 21/21 roster into three women and three men per table", () => {
   const genderMap = Object.fromEntries(participants.map(number => [number, number <= 21 ? "female" : "male"]))
   const plan = buildChoiceOnlySeatingPlan(participants, { genderMap })
   const femaleCounts = round => round.map(group => group.filter(number => genderMap[number] === "female").length)
 
   for (const round of [plan.round1, plan.round2, plan.round3]) {
-    assert.ok(femaleCounts(round).every(count => count === 3 || count === 4))
+    assert.ok(femaleCounts(round).every(count => count === 3))
   }
   const metrics = choiceOnlySeatingMetrics(plan.round1, plan.round2, plan.round3)
-  assert.equal(metrics.totalRepeatedPairOccurrences, 18)
-  assert.equal(metrics.maximumParticipantRepeatBurden, 1)
-  assert.equal(metrics.squaredParticipantRepeatBurden, 36)
+  assert.equal(metrics.totalRepeatedPairOccurrences, 0)
+  assert.equal(metrics.maximumParticipantRepeatBurden, 0)
+  assert.equal(metrics.squaredParticipantRepeatBurden, 0)
   const burden = repeatBurden(plan.round1, plan.round2, plan.round3)
-  assert.equal([...burden.values()].filter(value => value === 1).length, 36)
-  assert.equal([...burden.values()].filter(value => value === 0).length, 6)
+  assert.equal([...burden.values()].filter(value => value === 0).length, 42)
 })
 
 test("reports survey-lens and intentional-anchor metrics from the selected layouts", () => {
@@ -317,8 +312,8 @@ test("reports survey-lens and intentional-anchor metrics from the selected layou
   const scoresFor = (keys, scorePair) => keys.map(key => scorePair(...key.split("-").map(Number)))
   const stats = scores => ({
     count: scores.length,
-    average: scores.reduce((sum, value) => sum + value, 0) / scores.length,
-    minimum: Math.min(...scores),
+    average: scores.length ? scores.reduce((sum, value) => sum + value, 0) / scores.length : 0,
+    minimum: scores.length ? Math.min(...scores) : 0,
   })
   const assertStatsClose = (actual, expected) => {
     assert.equal(actual.count, expected.count)
@@ -326,24 +321,23 @@ test("reports survey-lens and intentional-anchor metrics from the selected layou
     assert.ok(Math.abs(actual.minimum - expected.minimum) < 1e-12)
   }
 
-  const depthAverage = plan.round2.map(scorer.depthGroup).reduce((sum, group) => sum + group.score, 0) / 6
-  const rhythmAverage = plan.round3.map(scorer.rhythmGroup).reduce((sum, group) => sum + group.score, 0) / 6
+  const depthAverage = plan.round2.map(scorer.depthGroup).reduce((sum, group) => sum + group.score, 0) / 7
+  const rhythmAverage = plan.round3.map(scorer.rhythmGroup).reduce((sum, group) => sum + group.score, 0) / 7
   assert.equal(plan.round2Depth.score, depthAverage)
   assert.equal(plan.round3Rhythm.score, rhythmAverage)
   assertStatsClose(plan.round2Depth.anchors, stats(scoresFor(intersection(round1Pairs, round2Pairs), scorer.sparkPairScore)))
   assertStatsClose(plan.round3Rhythm.anchors.round1Spark, stats(scoresFor(intersection(round1Pairs, round3Pairs), scorer.sparkPairScore)))
   assertStatsClose(plan.round3Rhythm.anchors.round2Depth, stats(scoresFor(intersection(round2Pairs, round3Pairs), scorer.depthPairScore)))
   const metrics = choiceOnlySeatingMetrics(plan.round1, plan.round2, plan.round3)
-  assert.equal(metrics.totalRepeatedPairOccurrences, 18)
-  assert.equal(metrics.maximumParticipantRepeatBurden, 1)
-  assert.equal(metrics.squaredParticipantRepeatBurden, 36)
+  assert.equal(metrics.totalRepeatedPairOccurrences, 0)
+  assert.equal(metrics.maximumParticipantRepeatBurden, 0)
+  assert.equal(metrics.squaredParticipantRepeatBurden, 0)
   const burden = repeatBurden(plan.round1, plan.round2, plan.round3)
-  assert.equal([...burden.values()].filter(value => value === 1).length, 36)
-  assert.equal([...burden.values()].filter(value => value === 0).length, 6)
+  assert.equal([...burden.values()].filter(value => value === 0).length, 42)
   for (const round of [plan.round1, plan.round2, plan.round3]) {
     assert.ok(round.every(group => {
       const femaleCount = group.filter(number => genderMap[number] === "female").length
-      return femaleCount === 3 || femaleCount === 4
+      return femaleCount === 3
     }))
   }
 })
@@ -391,7 +385,7 @@ test("uses age as a real tie-breaker after repeat and gender constraints", () =>
     ageAware.round1,
     ageAware.round2,
     ageAware.round3,
-  ).totalRepeatedPairOccurrences, 18)
+  ).totalRepeatedPairOccurrences, 0)
 })
 
 test("accepts participant records and preserves their supplied order in the position map", () => {
@@ -406,7 +400,7 @@ test("builds balanced flexible plans below 42 and rejects invalid rosters", () =
   const flexibleParticipants = participants.slice(0, 30)
   const generated = buildChoiceOnlySeatingCandidates(flexibleParticipants)
   assert.equal(generated.candidates.length, 3)
-  assert.equal(generated.objectiveVersion, "spark-depth-rhythm-v1-flexible")
+  assert.equal(generated.objectiveVersion, FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION)
   for (const candidate of generated.candidates) {
     for (const round of [candidate.plan.round1, candidate.plan.round2, candidate.plan.round3]) {
       assert.deepEqual(round.map(group => group.length), [6, 6, 6, 6, 6])

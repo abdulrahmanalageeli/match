@@ -1,26 +1,26 @@
-import { buildSixBySevenPlan, normalizedGender } from "./round2-age-optimizer.mjs"
+import { buildSevenBySixPlan, normalizedGender } from "./round2-age-optimizer.mjs"
 import { optimizeRound1SparkGroups } from "./round1-spark.mjs"
 import { createRoundLensScorer, getRoundLensProfileMissingFields } from "./round23-lenses.mjs"
 import { buildFlexibleChoiceOnlySeatingCandidates } from "./flexible-choice-seating.mjs"
 
-const TABLE_COUNT = 6
-const GROUP_SIZE = 7
+const TABLE_COUNT = 7
+const GROUP_SIZE = 6
 const PARTICIPANT_COUNT = TABLE_COUNT * GROUP_SIZE
 
-export const CHOICE_ONLY_SEATING_OBJECTIVE_VERSION = "spark-depth-rhythm-v1"
+export const CHOICE_ONLY_SEATING_OBJECTIVE_VERSION = "spark-depth-rhythm-v2-six-person"
 
 // Preview alternatives must feel like different complete plans, not the same
-// tables with different numbers. Replacing half of the 126 companion
-// relationships in every round means every accepted option changes at least
-// three of an average participant's six tablemates. Requiring 36 affected
+// tables with different numbers. Replacing half of the 105 companion
+// relationships in every round means every accepted option changes roughly
+// three of an average participant's five tablemates. Requiring 36 affected
 // participants also prevents those changes from being concentrated in one
 // corner.
 const CANDIDATE_DIVERSITY_POLICY = Object.freeze({
-  minimumPairMembershipChangesPerRound: 126,
+  minimumPairMembershipChangesPerRound: 105,
   minimumParticipantsWithChangedCompanionsPerRound: 36,
   // Retain the original response keys for persisted previews created while
   // this feature was in development.
-  minimumPairMembershipChangesPerLensRound: 126,
+  minimumPairMembershipChangesPerLensRound: 105,
   minimumParticipantsWithChangedCompanionsPerLensRound: 36,
 })
 
@@ -38,6 +38,7 @@ function duplicateColumnPair(values) {
 function isMinimumRepeatPattern(values) {
   const counts = Array(TABLE_COUNT).fill(0)
   values.forEach(value => counts[value]++)
+  if (GROUP_SIZE <= TABLE_COUNT) return counts.every(count => count <= 1)
   return counts.every(count => count === 1 || count === 2)
 }
 
@@ -104,6 +105,12 @@ function duplicateDeltaMask(shifts, round2Shifts) {
 }
 
 function isValidRound3Shift(shifts, round2Shifts) {
+  if (GROUP_SIZE <= TABLE_COUNT) {
+    const deltas = shifts.map((shift, column) => modulo(shift - round2Shifts[column]))
+    return new Set(round2Shifts).size === GROUP_SIZE
+      && new Set(shifts).size === GROUP_SIZE
+      && new Set(deltas).size === GROUP_SIZE
+  }
   const round2Mask = DUPLICATE_MASK_BY_SHIFT.get(round2Shifts)
     || columnPairMask(duplicateColumnPair(round2Shifts))
   const round3Mask = DUPLICATE_MASK_BY_SHIFT.get(shifts)
@@ -124,6 +131,17 @@ let feasibleShiftPairs = null
 function getFeasibleShiftPairs() {
   if (feasibleShiftPairs) return feasibleShiftPairs
   const result = []
+  if (GROUP_SIZE <= TABLE_COUNT) {
+    for (const round2Shifts of MINIMUM_REPEAT_SHIFTS) {
+      for (const round3Shifts of MINIMUM_REPEAT_SHIFTS) {
+        if (isValidRound3Shift(round3Shifts, round2Shifts)) {
+          result.push(Object.freeze([round2Shifts, round3Shifts]))
+        }
+      }
+    }
+    feasibleShiftPairs = Object.freeze(result)
+    return feasibleShiftPairs
+  }
   for (const round2Shifts of MINIMUM_REPEAT_SHIFTS) {
     const round2Mask = DUPLICATE_MASK_BY_SHIFT.get(round2Shifts)
     for (const [round3Mask, candidates] of SHIFTS_BY_DUPLICATE_MASK) {
@@ -466,7 +484,7 @@ function normalizedParticipants(values) {
 }
 
 /**
- * Build six groups of seven for three rounds. Round one starts from the
+ * Build seven groups of six for three rounds. Round one starts from the
  * established gender-balanced Event3 grid, then improves its survey-only Spark
  * fit without changing any gender slot. Round two searches the minimum-repeat
  * layouts for Depth/Common Ground and strong Spark anchors. Round three keeps
@@ -508,7 +526,7 @@ function buildChoiceOnlySeatingSearch(values, {
     }
   } else {
     const genderObject = genderMap instanceof Map ? Object.fromEntries(genderMap) : genderMap
-    const balanced = buildSixBySevenPlan(participants, genderObject)
+    const balanced = buildSevenBySixPlan(participants, genderObject)
     const baselineRound1 = balanced?.round1 || Array.from({ length: TABLE_COUNT }, (_, table) =>
       participants.slice(table * GROUP_SIZE, (table + 1) * GROUP_SIZE))
     spark = optimizeRound1SparkGroups(baselineRound1, {

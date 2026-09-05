@@ -61,6 +61,42 @@ export function buildSixBySevenPlan(participantNumbers, genderMap = {}) {
   return { round1, round2 }
 }
 
+// Choice-only Event3 uses seven six-person tables. Distribute each gender as
+// evenly as capacity permits, then use six distinct column shifts so nobody
+// repeats a tablemate in the structural second round.
+export function buildSevenBySixPlan(participantNumbers, genderMap = {}) {
+  if (participantNumbers?.length !== 42) return null
+  const tableCount = 7
+  const groupSize = 6
+  const buckets = new Map(["female", "male", "unknown"].map(gender => [gender, []]))
+  for (const number of participantNumbers) {
+    buckets.get(normalizedGender(genderMap[number]))?.push(number)
+  }
+  // Fill the 7x6 grid by columns. A complete gender column contributes one
+  // participant of that gender to every table in every shifted round. This
+  // makes a 21/21 roster exactly 3/3 at all seven tables while preserving the
+  // six distinct column shifts required for zero repeated tablemates.
+  const ordered = [
+    ...buckets.get("female"),
+    ...buckets.get("male"),
+    ...buckets.get("unknown"),
+  ]
+  const round1 = Array.from({ length: tableCount }, () => [])
+  for (let column = 0; column < groupSize; column++) {
+    for (let table = 0; table < tableCount; table++) {
+      round1[table].push(ordered[(column * tableCount) + table])
+    }
+  }
+
+  const round2 = Array.from({ length: tableCount }, () => [])
+  for (let table = 0; table < tableCount; table++) {
+    for (let column = 0; column < groupSize; column++) {
+      round2[(table + column) % tableCount].push(round1[table][column])
+    }
+  }
+  return { round1, round2 }
+}
+
 function numericAge(ageMap, participantNumber) {
   const value = Number(ageMap?.[participantNumber])
   return Number.isFinite(value) && value > 0 ? value : null

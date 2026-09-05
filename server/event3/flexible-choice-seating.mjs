@@ -4,7 +4,8 @@ import { createRoundLensScorer } from "./round23-lenses.mjs"
 
 const MIN_PARTICIPANTS = 16
 const MAX_PARTICIPANTS = 42
-const MAX_GROUP_SIZE = 7
+const MAX_GROUP_SIZE = 6
+export const FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION = "spark-depth-rhythm-v2-flexible-six-person"
 
 const pairKey = (left, right) => `${Math.min(Number(left), Number(right))}-${Math.max(Number(left), Number(right))}`
 
@@ -302,7 +303,7 @@ export function buildFlexibleChoiceOnlySeatingCandidates(values, options = {}) {
     rank: index + 1,
     plan: candidate.plan,
     canonicalObjective: {
-      version: "spark-depth-rhythm-v1-flexible",
+      version: FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION,
       flexible: true,
       participantCount: normalized.participants.length,
       tableCount: candidate.plan.T,
@@ -322,7 +323,7 @@ export function buildFlexibleChoiceOnlySeatingCandidates(values, options = {}) {
     },
   }))
   return {
-    objectiveVersion: "spark-depth-rhythm-v1-flexible",
+    objectiveVersion: FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION,
     diversityPolicy: { flexible: true, maximumGroupSize: MAX_GROUP_SIZE },
     candidates,
   }

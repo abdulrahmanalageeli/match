@@ -1482,11 +1482,11 @@ function WalkSlide({ step, headingRef, eventFormat }: { step: number; headingRef
             </div>
             <div className="space-y-2">
               {[
-                { Icon: Users, c: "text-blue-400 bg-blue-500/15 border-blue-500/25", t: choiceOnly ? "ثلاث جولات جماعية" : "جولتان جماعيتان", d: choiceOnly ? "في كل جولة تجلس مع مجموعة صغيرة من ٥–٧ أشخاص وتتعرّف على وجوه جديدة" : "تجلس مع مجموعات صغيرة وتتعرّف على الجميع" },
+                { Icon: Users, c: "text-blue-400 bg-blue-500/15 border-blue-500/25", t: choiceOnly ? "ثلاث جولات جماعية" : "جولتان جماعيتان", d: choiceOnly ? "في كل جولة تجلس مع مجموعة لا تتجاوز ٦ أشخاص وتتعرّف على وجوه جديدة" : "تجلس مع مجموعات صغيرة وتتعرّف على الجميع" },
                 { Icon: BarChart3, c: "text-amber-400 bg-amber-500/15 border-amber-500/25", t: "ترتيب من قابلت", d: "ترتّب من تفضّل جلسة فردية معه" },
-                { Icon: Heart, c: "text-pink-400 bg-pink-500/15 border-pink-500/25", t: choiceOnly ? "لقاء الاختيار الأول" : "جلسة اختيارك", d: choiceOnly ? "أول لقاء متبادل ضمن توزيع يراعي ترتيب الجميع" : "جلسة فردية مع أفضل تطابق متبادل من ترتيبك" },
+                { Icon: Heart, c: "text-pink-400 bg-pink-500/15 border-pink-500/25", t: choiceOnly ? "لقاء الاختيار الأول" : "جلسة اختيارك", d: choiceOnly ? "أقوى اختيار متبادل يمكن إكمال الجولة معه" : "جلسة فردية مع أفضل تطابق متبادل من ترتيبك" },
                 { Icon: choiceOnly ? Heart : Brain, c: "text-purple-400 bg-purple-500/15 border-purple-500/25", t: choiceOnly ? "لقاء الاختيار الثاني" : "جلسة التوافق الذكي", d: choiceOnly ? "لقاء متبادل جديد بعد استبعاد شريك اللقاء الأول" : "جلسة فردية مع من يرشّحه النظام لك" },
-                ...(choiceOnly ? [{ Icon: Heart, c: "text-violet-400 bg-violet-500/15 border-violet-500/25", t: "لقاء الاختيار الثالث", d: "لقاء متبادل مع شخص ثالث مختلف" }] : []),
+                ...(choiceOnly ? [{ Icon: Heart, c: "text-violet-400 bg-violet-500/15 border-violet-500/25", t: "لقاء الاختيار الثالث", d: "أفضل توزيع شامل متبقٍ مع شخص ثالث مختلف" }] : []),
                 { Icon: Trophy, c: "text-violet-400 bg-violet-500/15 border-violet-500/25", t: "الكشف النهائي", d: "تكتشف نتائجك ومن تريد التواصل معه" },
               ].map((r, i) => (
                 <motion.div key={i} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.09 }}
@@ -1509,7 +1509,7 @@ function WalkSlide({ step, headingRef, eventFormat }: { step: number; headingRef
             <div className="text-center space-y-1">
               <Users size={34} className="text-blue-400 mx-auto" />
               <h2 ref={headingRef} tabIndex={-1} className="text-white font-black text-xl focus:outline-none">الجولات الجماعية</h2>
-              <p className="text-gray-400 text-xs leading-relaxed">{choiceOnly ? "ثلاث جولات، في كل جولة مجموعة صغيرة من ٥–٧ أشخاص على طاولة للتعارف" : "جولتان تجلس فيهما مع ٤–٦ أشخاص على طاولة للتعارف"}</p>
+              <p className="text-gray-400 text-xs leading-relaxed">{choiceOnly ? "ثلاث جولات، في كل جولة مجموعة لا تتجاوز ٦ أشخاص؛ وعند اكتمال ٤٢ مشاركاً تكون هناك ٧ طاولات" : "جولتان تجلس فيهما مع ٤–٦ أشخاص على طاولة للتعارف"}</p>
             </div>
             {/* Demo table card */}
             <div className="rounded-2xl border border-blue-800/40 bg-blue-950/30 p-4 text-center space-y-2">
@@ -1566,13 +1566,13 @@ function WalkSlide({ step, headingRef, eventFormat }: { step: number; headingRef
               </p>
               {choiceOnly && (
                 <p className="border-t border-amber-700/30 pt-2 text-xs leading-relaxed text-gray-300">
-                  نكوّن أولاً توزيعاً يمنح أكبر عدد ممكن لقاءً متبادلاً، ثم نفضّل المراتب الأقوى داخل هذا التوزيع. حتى اختيار #1 المتبادل قوي، لكنه ليس وعداً تلقائياً بجلسة.
+                  في اللقاءين الأول والثاني نبدأ بأقوى الرتب المتبادلة، ونتجاوز زوجاً فقط إذا كان اختياره سيمنع إكمال أزواج الجولة. اللقاء الثالث يختار أفضل توزيع شامل من الخيارات المتبقية. اختيار #1 المتبادل قوي، لكنه ليس وعداً تلقائياً بجلسة.
                 </p>
               )}
               {choiceOnly && (
                 <p className="flex items-start gap-1.5 border-t border-amber-700/30 pt-2 text-xs leading-relaxed text-amber-100/80">
                   <Info aria-hidden="true" size={13} className="mt-0.5 shrink-0 text-amber-300" />
-                  <span>في هذه النسخة، لا تدخل تفضيلات الجنس أو العمر أو الجنسية في اختيار اللقاءات الفردية؛ ترتيب المشاركين والتطابق المتبادل وحدهما يحددانها.</span>
+                  <span>لا تدخل درجات الشخصية أو العمر أو الجنسية في اختيار اللقاءات الفردية. في اللقاءين الأول والثاني يُستخدم الجنس فقط لكسر التعادل الكامل بين زوجين متساويين في الرتب، كما في نسخة الفعاليتين 25 و26.</span>
                 </p>
               )}
             </div>
@@ -1585,12 +1585,12 @@ function WalkSlide({ step, headingRef, eventFormat }: { step: number; headingRef
             <div className="text-center space-y-1">
               <Users size={32} className="text-pink-400 mx-auto" />
               <h2 ref={headingRef} tabIndex={-1} className="text-white font-black text-xl focus:outline-none">{choiceOnly ? "ثلاث جلسات فردية" : "جلستان فرديتان"}</h2>
-              <p className="text-gray-400 text-xs leading-relaxed">{choiceOnly ? "ثلاث جلسات 1:1 متبادلة — مع ثلاثة أشخاص مختلفين، ضمن توزيع يوازن بين ترتيب الجميع" : "جلستان خاصتان 1:1 — واحدة باختيارك وواحدة باختيار النظام"}</p>
+              <p className="text-gray-400 text-xs leading-relaxed">{choiceOnly ? "ثلاث جلسات 1:1 متبادلة مع ثلاثة أشخاص مختلفين: أول جلستين بأولوية الاختيار الفردي، والثالثة بأفضل توزيع شامل متبقٍ" : "جلستان خاصتان 1:1 — واحدة باختيارك وواحدة باختيار النظام"}</p>
             </div>
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 }}
               className="rounded-2xl border border-pink-700/40 bg-pink-950/30 p-3.5 flex items-center gap-3">
               <Heart size={22} className="text-pink-400 shrink-0" />
-              <div><p className="text-white font-bold text-sm">{choiceOnly ? "لقاء الاختيار الأول" : "جلسة اختيارك"}</p><p className="text-pink-200/80 text-xs">{choiceOnly ? "أول لقاء متبادل في توزيع الجلسات" : "أفضل تطابق متبادل من ترتيبك"}</p></div>
+              <div><p className="text-white font-bold text-sm">{choiceOnly ? "لقاء الاختيار الأول" : "جلسة اختيارك"}</p><p className="text-pink-200/80 text-xs">{choiceOnly ? "أقوى اختيار متبادل يمكن إكمال الجولة معه" : "أفضل تطابق متبادل من ترتيبك"}</p></div>
             </motion.div>
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.18 }}
               className="rounded-2xl border border-purple-700/40 bg-purple-950/30 p-3.5 flex items-center gap-3">
@@ -1674,7 +1674,7 @@ function WalkSlide({ step, headingRef, eventFormat }: { step: number; headingRef
               <p className="text-amber-300 text-xs font-black flex items-center gap-1.5"><Info size={13} /> {choiceOnly ? "كيف اخترنا اللقاءات" : "تنويه مهم عن التوافق"}</p>
               {choiceOnly ? (
                 <p className="text-amber-100/80 text-xs leading-relaxed">
-                  اللقاءات الثلاثة تُبنى من <span className="text-amber-300 font-bold">ترتيبات المشاركين المتبادلة</span> مع إعطاء الأولوية لتكوين لقاءات مختلفة لأكبر عدد ممكن، ثم تفضيل المراتب الأقوى. لا تدخل درجات التوافق أو خوارزمية الشخصية في الاختيار.
+                  اللقاءات الثلاثة تُبنى من <span className="text-amber-300 font-bold">ترتيبات المشاركين المتبادلة</span>. الأول والثاني يحافظان على أولوية أقوى الأزواج الفردية الممكنة؛ الثالث يختار أفضل توزيع شامل بعد استبعاد الشريكين السابقين. لا تدخل درجات التوافق أو خوارزمية الشخصية في الاختيار.
                 </p>
               ) : (
                 <>
@@ -3159,11 +3159,11 @@ function RankingTutorial({ onClose, choiceOnly }: { onClose: () => void; choiceO
       cta="فهمت — ابدأ الترتيب"
       points={[
         { icon: <Trophy size={14} className="text-amber-400" />, text: <>اسحب البطاقات لترتيب من <span className="text-white font-bold">الأعلى اهتماماً</span> للأقل — الأول هو أولويتك القصوى</> },
-        { icon: <Heart size={14} className="text-emerald-400" />, text: <>إذا رتّبت شخصًا <span className="text-white font-bold">#1</span> ورتّبك هو أيضًا <span className="text-white font-bold">#1</span> فهذا تطابق قوي جداً، لكنه يدخل ضمن توزيع جلسات الجميع.</> },
-        { icon: <Sparkles size={14} className="text-cyan-400" />, text: <>مو لازم تكونوا بنفس المركز: ممكن ترتبه أول وهو يرتبك ثالث، ونفضّل الرتب المتبادلة الأقوى بعد ضمان أكبر تغطية ممكنة للمشاركين.</> },
+        { icon: <Heart size={14} className="text-emerald-400" />, text: <>إذا رتّبت شخصًا <span className="text-white font-bold">#1</span> ورتّبك هو أيضًا <span className="text-white font-bold">#1</span> فهذا أقوى نوع من الاختيار المتبادل في اللقاءين الأول والثاني.</> },
+        { icon: <Sparkles size={14} className="text-cyan-400" />, text: <>مو لازم تكونوا بنفس المركز: ممكن ترتبه أول وهو يرتبك ثالث. ننتقل للخيار المتبادل التالي فقط عندما يلزم ذلك لإكمال أزواج الجولة، ثم نحسب اللقاء الثالث كأفضل توزيع شامل متبقٍ.</> },
         { icon: <Handshake size={14} className="text-purple-400" />, text: <>التطابق يجب أن يكون <span className="text-white font-bold">متبادلاً</span> — ترتيبك وحده لا يكفي، الطرفان يجب أن يتقاربا</> },
         { icon: <Users size={14} className="text-pink-400" />, text: choiceOnly
-          ? <>نتيجتك: <span className="text-white font-bold">ثلاث جلسات فردية متبادلة</span> مع أشخاص مختلفين، مع تفضيل الرتب الأقوى قدر الإمكان داخل التوزيع</>
+          ? <>نتيجتك: <span className="text-white font-bold">ثلاث جلسات فردية متبادلة</span> مع أشخاص مختلفين؛ أول جلستين بأولوية الاختيار الفردي والثالثة بأفضل خطة شاملة متبقية</>
           : <>نتيجتك: <span className="text-white font-bold">جلستان فرديتان</span> — واحدة من اختيارك وواحدة يختارها النظام بناءً على التوافق</> },
       ]}
     />
@@ -3801,7 +3801,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
               </motion.button>
               <div className="flex items-center justify-center gap-1.5 mt-2">
                 <p className="text-gray-600 text-[10px]">
-                  {choiceOnly ? "سنكوّن ثلاثة لقاءات متبادلة مع أشخاص مختلفين، مع مراعاة ترتيب الجميع" : "النظام سيختار توافقك الأمثل من تصنيفاتك"}
+                  {choiceOnly ? "سنكوّن ثلاثة لقاءات متبادلة مع أشخاص مختلفين؛ الأول والثاني بأولوية الاختيار الفردي والثالث بأفضل توزيع شامل متبقٍ" : "النظام سيختار توافقك الأمثل من تصنيفاتك"}
                 </p>
                 {timeLeft > 0 && timeLeft <= 60 && (
                   <>
@@ -5318,7 +5318,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
             <div className="inline-flex items-center gap-2 bg-pink-900/30 border border-pink-700/40 text-pink-300 rounded-full px-4 py-1.5 text-sm font-semibold">
               <Users size={13} /> {data?.is_backup ? "جلسة فردية 1:1 · فرصة جديدة" : choiceOnly ? "جلسة فردية 1:1 · الاختيار الأول" : "جلسة فردية 1:1 · اختيارك أنت"}
             </div>
-            <p className="text-gray-400 text-xs">{data?.is_backup ? "لقاء رتّبناه لك حتى يعيش الجميع التجربة كاملة" : choiceOnly ? "لقاء متبادل اختير ضمن توزيع يراعي ترتيب الجميع" : "لقاء خاص مع أفضل اختيار متبادل متاح من ترتيبك"}</p>
+            <p className="text-gray-400 text-xs">{data?.is_backup ? "لقاء رتّبناه لك حتى يعيش الجميع التجربة كاملة" : choiceOnly ? "لقاء متبادل من أقوى الرتب الممكنة لهذه الجولة" : "لقاء خاص مع أفضل اختيار متبادل متاح من ترتيبك"}</p>
           </div>
         </motion.div>
 
@@ -6032,7 +6032,7 @@ function ProcessingScreen({ phase, eventFormat }: { phase: string; eventFormat: 
           eyebrow="الآن"
           title="استراحة قصيرة"
           description={isPhase2
-            ? `التالي: سنعرض ${choiceOnly ? "لقاءك المتبادل الأول ضمن توزيع الجميع" : "اسم الشخص الذي اختارك أيضاً"} ورقم طاولتك.`
+            ? `التالي: سنعرض ${choiceOnly ? "لقاءك المتبادل الأول" : "اسم الشخص الذي اختارك أيضاً"} ورقم طاولتك.`
             : `التالي: سنعرض ${choiceOnly ? (isPhase4 ? "لقاءك المتبادل الثالث مع شخص جديد" : "لقاءك المتبادل الثاني مع شخص جديد") : "ترشيح النظام"} ورقم طاولتك.`}
           steps={["انتظر هنا", "اعرف الشريك والطاولة", "ابدأ اللقاء"]}
           currentStep={0}
@@ -6532,7 +6532,7 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
 
         {/* Comparison text */}
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="text-gray-500 text-xs leading-relaxed">
-          {choiceOnly ? "ثلاثة لقاءات متبادلة ضمن توزيع راعى الجميع — أيها كان أقرب لك؟" : sameMatch ? "غريزتك والخوارزمية متوافقتان — نادر الحدوث!" : "رأيت بعينيك، ورأت الخوارزمية بالبيانات — أيهما أصح؟"}
+          {choiceOnly ? "ثلاثة لقاءات متبادلة مع ثلاثة أشخاص مختلفين — أيها كان أقرب لك؟" : sameMatch ? "غريزتك والخوارزمية متوافقتان — نادر الحدوث!" : "رأيت بعينيك، ورأت الخوارزمية بالبيانات — أيهما أصح؟"}
         </motion.p>
 
         <motion.a href={resultsHref} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.65 }} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 px-4 text-base font-black text-white shadow-xl shadow-purple-950/30">

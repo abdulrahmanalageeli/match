@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { buildSixBySevenPlan, optimizeRound2ByAge, round2AgeCost } from "./round2-age-optimizer.mjs"
+import { buildSevenBySixPlan, buildSixBySevenPlan, optimizeRound2ByAge, round2AgeCost } from "./round2-age-optimizer.mjs"
 
 function pairSet(groups) {
   const pairs = new Set()
@@ -70,4 +70,17 @@ test("six tables of seven balance gender and repeat women only", () => {
   const repeated = [...pairSet(plan.round2)].filter(pair => firstRoundPairs.has(pair))
   assert.equal(repeated.length, 6)
   repeated.forEach(pair => pair.split("-").map(Number).forEach(number => assert.equal(genders[number], "female")))
+})
+
+test("seven tables of six balance gender with no repeated tablemates", () => {
+  const participants = Array.from({ length: 42 }, (_, index) => index + 1)
+  const genders = Object.fromEntries(participants.map(number => [number, number <= 21 ? "female" : "male"]))
+  const plan = buildSevenBySixPlan(participants, genders)
+  assert.ok(plan)
+  assert.deepEqual(plan.round1.map(group => group.length), [6, 6, 6, 6, 6, 6, 6])
+  assert.deepEqual(plan.round2.map(group => group.length), [6, 6, 6, 6, 6, 6, 6])
+  assert.equal(plan.round1.every(group => group.filter(number => genders[number] === "female").length === 3), true)
+  assert.equal(plan.round2.every(group => group.filter(number => genders[number] === "female").length === 3), true)
+  const firstRoundPairs = pairSet(plan.round1)
+  assert.equal([...pairSet(plan.round2)].some(pair => firstRoundPairs.has(pair)), false)
 })

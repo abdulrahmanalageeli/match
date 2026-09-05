@@ -364,8 +364,8 @@ function compareChoiceCandidates(candidate: ChoiceSeatingCandidate, best: Choice
 
 function choiceCandidateDiversityThresholds(totalParticipants: number, totalPairs: number) {
   return {
-    // Preserve the original 42-person policy (36 people and 63 replaced
-    // relationships) while scaling it to every supported roster size.
+    // Require broad participant and pair changes while scaling the threshold
+    // to every supported roster size.
     changedParticipants: Math.max(1, Math.ceil(totalParticipants * (6 / 7))),
     changedPairs: Math.max(1, Math.ceil(totalPairs / 2)),
   }
@@ -404,7 +404,7 @@ function deriveChoiceSeatingCapacity(candidate: ChoiceSeatingCandidate) {
 
 function choiceOnlyGroupSizes(participantCount: number) {
   if (!choiceOnlyRosterReady(participantCount)) return []
-  const tableCount = Math.max(2, Math.ceil(participantCount / 7))
+  const tableCount = Math.max(2, Math.ceil(participantCount / 6))
   const baseSize = Math.floor(participantCount / tableCount)
   const largerTables = participantCount % tableCount
   return Array.from({ length: tableCount }, (_, index) => baseSize + (index < largerTables ? 1 : 0))
@@ -2988,7 +2988,7 @@ export default function Admin3Page() {
                 </div>
                 <p className="mt-1 text-[10px] leading-5 text-gray-500">
                   {choiceOnly
-                    ? "3 جولات مجموعات، حتى 7 أشخاص في كل مجموعة، ثم 3 لقاءات اختيار فردية متبادلة مع شريك مختلف في كل مرة."
+                    ? "3 جولات مجموعات، حتى 6 أشخاص في كل مجموعة، ثم 3 لقاءات اختيار فردية متبادلة مع شريك مختلف في كل مرة."
                     : "جولتا مجموعات، ثم اختيار المشاركين، ثم مطابقة الخوارزمية."}
                 </p>
               </div>
@@ -3769,7 +3769,7 @@ export default function Admin3Page() {
                   ...(choiceOnly ? [
                     {
                       label: "بدء الجولة الثالثة",
-                      desc: "25 دقيقة · حتى 7 أشخاص",
+                      desc: "25 دقيقة · حتى 6 أشخاص",
                       action: () => setPhaseWithTimer("round3", EVENT3_PHASE_SECONDS.round3, 3),
                       icon: Play,
                       color: "green",
@@ -4300,7 +4300,7 @@ export default function Admin3Page() {
 
             {choiceOnly ? (
               <div className="rounded-xl border border-violet-800/30 bg-violet-950/15 px-4 py-3 text-[11px] leading-5 text-violet-200/70">
-                خطة الجولات الثلاث تُولَّد كوحدة واحدة لتكوين مجموعات متوازنة لا تتجاوز 7 أشخاص وتقليل تكرار اللقاءات. بدائل الجولتين الكلاسيكية غير مستخدمة في هذا النظام.
+                خطة الجولات الثلاث تُولَّد كوحدة واحدة لتكوين مجموعات متوازنة لا تتجاوز 6 أشخاص وتقليل تكرار اللقاءات. عند اكتمال 42 مشاركاً تُستخدم 7 طاولات من 6 أشخاص بلا تكرار بين الجولات.
               </div>
             ) : (
               <SeatingAlternatives
@@ -5583,7 +5583,7 @@ export default function Admin3Page() {
                 <p className="text-[10px] text-purple-300/70 flex items-center gap-1.5">
                   <Shield size={10} className="flex-shrink-0" />
                   {choiceOnly
-                    ? "الاختيار الثاني ينشئ توزيعاً متبادلاً جديداً يغطي الجميع، ثم يفضّل الرتب الأعلى بعد استبعاد شريك اللقاء الأول."
+                    ? "الاختيار الثاني يطبّق أولوية أقوى زوج متبادل كما في الفعاليتين 25 و26، ويتراجع إلى الزوج التالي فقط لإكمال الجولة بعد استبعاد شريك اللقاء الأول."
                     : testMode
                       ? "وضع الاختبار ينشئ أزواج خوارزمية مثبتة مؤقتاً — تظهر في لوحة التحكم ولا تدخل في السجل السابق وتُحذف عند إنهاء الاختبار"
                       : "المطابقة تستخدم الأزواج المثبتة (locked matches) من لوحة التحكم — لا يتم إعادة الحساب"}
@@ -5684,7 +5684,7 @@ export default function Admin3Page() {
                 <div className="bg-violet-950/20 border border-violet-800/30 rounded-lg px-3 py-2">
                   <p className="text-[10px] text-violet-300/70 flex items-center gap-1.5">
                     <Shield size={10} className="flex-shrink-0" />
-                    الاختيار الثالث ينشئ توزيعاً متبادلاً ثالثاً يغطي الجميع، ثم يفضّل الرتب الأعلى بعد استبعاد شريكي اللقاءين السابقين. النتائج للقراءة فقط.
+                    الاختيار الثالث يحسب أفضل توزيع شامل للرتب المتبادلة المتبقية بعد استبعاد شريكي اللقاءين السابقين. النتائج للقراءة فقط.
                   </p>
                 </div>
 

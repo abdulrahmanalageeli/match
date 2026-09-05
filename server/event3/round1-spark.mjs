@@ -7,7 +7,6 @@ import {
 } from "../matching/balanced-compatibility.mjs"
 import { normalizedGender } from "./round2-age-optimizer.mjs"
 
-const TABLE_COUNT = 6
 const MAX_PASSES = 36
 const NEUTRAL_PAIR_SCORE = 50
 const NEUTRAL_VIBE_SCORE = BALANCED_VIBE_MAX / 2
@@ -281,8 +280,8 @@ function compareFitness(left, right) {
  * later cyclic rounds are derived from this grid.
  */
 export function optimizeRound1SparkGroups(round1, options = {}) {
-  if (!Array.isArray(round1) || round1.length !== TABLE_COUNT || round1.some(group => !Array.isArray(group))) {
-    throw new TypeError("Round 1 Spark optimization requires six groups")
+  if (!Array.isArray(round1) || round1.length < 2 || round1.some(group => !Array.isArray(group) || group.length < 1)) {
+    throw new TypeError("Round 1 Spark optimization requires at least two non-empty groups")
   }
 
   const groups = round1.map(group => [...group])

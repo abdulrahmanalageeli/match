@@ -108,12 +108,31 @@ function mutualEdges(participantNumbers, rankings, excludedPairKeys) {
   return edges
 }
 
+function profileGender(participantProfiles, participantNumber) {
+  const profile = participantProfiles instanceof Map
+    ? participantProfiles.get(participantNumber)
+    : participantProfiles?.[participantNumber]
+  const gender = String(profile?.gender || "").trim()
+  return gender || null
+}
+
 // A pair both rank highly beats a lopsided pair. Remaining ties use total rank,
 // imbalance, then participant number, so database row order can never affect it.
 export function compareMutualEdges(left, right) {
   return left.worstRank - right.worstRank
     || left.rankSum - right.rankSum
     || left.rankGap - right.rankGap
+    || left.a - right.a
+    || left.b - right.b
+}
+
+// Event 25/26 choice policy: take the strongest available reciprocal pair
+// before considering the next pair. The score intentionally matches the
+// historical implementation (zero-based rank sum plus a 0.5 imbalance
+// penalty), with the old opposite-gender tie-break followed by stable IDs.
+export function compareIndividualPriorityEdges(left, right) {
+  return left.priorityScore - right.priorityScore
+    || right.oppositeGender - left.oppositeGender
     || left.a - right.a
     || left.b - right.b
 }
@@ -304,6 +323,46 @@ export function buildMutualChoiceRound({ participantNumbers, rankings, excludedP
 }
 
 /**
+ * Build an individual-priority round using the Event 25/26 strongest-pair-first
+ * rule. Among plans with the maximum reciprocal coverage, it preserves the
+ * strongest individual pair first, then the next strongest, and so on. That
+ * gives the historical pair score priority without its arbitrary non-mutual
+ * leftover fallback.
+ */
+export function buildIndividualPriorityChoiceRound({
+  participantNumbers,
+  rankings,
+  excludedPairs = [],
+  participantProfiles = new Map(),
+}) {
+  const participants = normalizeParticipantNumbers(participantNumbers)
+  const participantSet = new Set(participants)
+  const normalizedRankings = normalizeRankings(rankings, participantSet)
+  const excludedPairKeys = normalizeExcludedPairs(excludedPairs)
+  const candidates = mutualEdges(participants, normalizedRankings, excludedPairKeys)
+    .map(edge => {
+      const genderA = profileGender(participantProfiles, edge.a)
+      const genderB = profileGender(participantProfiles, edge.b)
+      return {
+        ...edge,
+        priorityScore: (edge.aRank - 1) + (edge.bRank - 1) + (0.5 * edge.rankGap),
+        oppositeGender: genderA && genderB && genderA !== genderB ? 1 : 0,
+      }
+    })
+    .sort(compareIndividualPriorityEdges)
+  const selected = strongestMaximumCardinalityMatching(participants, candidates)
+  const matched = new Set(selected.flatMap(pair => [pair.a, pair.b]))
+  const pairs = selected.map(({ key: _key, ...pair }) => pair)
+  return {
+    pairs,
+    unmatched: participants.filter(number => !matched.has(number)),
+    participantCount: participants.length,
+    candidatePairCount: candidates.length,
+    maximumPairCount: pairs.length,
+  }
+}
+
+/**
  * Build consecutive choice rounds. Each completed pair becomes a hard
  * exclusion for every later round, so nobody can meet the same partner twice.
  */
@@ -370,5 +429,35 @@ export function buildChoiceMatches(rankings, { exclusions = new Set() } = {}) {
   }
   return { matches, pairs: result.pairs, unmatched: result.unmatched }
 }
+
+/** API-facing wrapper for the first and second Event3 choice meetings. */
+export function buildIndividualPriorityChoiceMatches(rankings, {
+  exclusions = new Set(),
+  participantProfiles = new Map(),
+} = {}) {
+  const participantNumbers = rankings instanceof Map
+    ? [...rankings.keys()].map(Number)
+    : [...new Set((rankings || []).map(row => Number(row?.ranker_number ?? row?.ranker))
+      .filter(number => Number.isInteger(number) && number > 0))]
+  const result = buildIndividualPriorityChoiceRound({
+    participantNumbers,
+    rankings,
+    excludedPairs: exclusions,
+    participantProfiles,
+  })
+  const matches = new Map()
+  for (const pair of result.pairs) {
+    matches.set(pair.a, pair.b)
+    matches.set(pair.b, pair.a)
+  }
+  return {
+    matches,
+    pairs: result.pairs,
+    unmatched: result.unmatched,
+  }
+}
+
+/** Explicit name for the third-round full-roster policy. */
+export const buildGlobalChoiceMatches = buildChoiceMatches
 
 export { pairKey as event3ChoicePairKey }

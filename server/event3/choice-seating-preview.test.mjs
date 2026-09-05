@@ -15,7 +15,7 @@ const numbers = Array.from({ length: 42 }, (_, index) => index + 1)
 function assignmentFixture() {
   return [1, 2, 3].flatMap(round => numbers.map((participant_id, index) => ({
     round,
-    table_number: Math.floor(index / 7) + 1,
+    table_number: Math.floor(index / 6) + 1,
     participant_id,
   })))
 }
@@ -113,7 +113,7 @@ test("choice preview tokens are signed, expiring, and reject edits", () => {
 })
 
 test("report gender totals use the scheduler's F/M abbreviation normalization", () => {
-  const groups = Array.from({ length: 6 }, (_, table) => numbers.slice(table * 7, table * 7 + 7))
+  const groups = Array.from({ length: 7 }, (_, table) => numbers.slice(table * 6, table * 6 + 6))
   const report = buildChoiceSeatingReport({
     candidate: {
       id: "abbreviated-genders",
@@ -141,13 +141,13 @@ test("report gender balance uses roster-relative targets for a skewed known rost
   const males = numbers.slice(29)
   let femaleOffset = 0
   let maleOffset = 0
-  const groups = [5, 5, 5, 5, 5, 4].map(femaleCount => {
+  const groups = [5, 4, 4, 4, 4, 4, 4].map(femaleCount => {
     const group = [
       ...females.slice(femaleOffset, femaleOffset + femaleCount),
-      ...males.slice(maleOffset, maleOffset + 7 - femaleCount),
+      ...males.slice(maleOffset, maleOffset + 6 - femaleCount),
     ]
     femaleOffset += femaleCount
-    maleOffset += 7 - femaleCount
+    maleOffset += 6 - femaleCount
     return group
   })
   const report = buildChoiceSeatingReport({
@@ -164,7 +164,7 @@ test("report gender balance uses roster-relative targets for a skewed known rost
   })
   assert.deepEqual(report.gender_balance.roster_targets, {
     female: { total: 29, minimum_per_table: 4, maximum_per_table: 5 },
-    male: { total: 13, minimum_per_table: 2, maximum_per_table: 3 },
+    male: { total: 13, minimum_per_table: 1, maximum_per_table: 2 },
     unknown: { total: 0, minimum_per_table: 0, maximum_per_table: 0 },
   })
   assert.equal(report.gender_balance.all_tables_balanced, true)
@@ -190,14 +190,14 @@ test("previews three ranked read-only candidates and atomically applies only the
   for (const candidate of preview.candidates) {
     assert.equal(candidate.report.schema_version, "event3-choice-seating-report-v1")
     assert.equal(candidate.report.rounds.length, 3)
-    assert.deepEqual(candidate.report.rounds.map(round => round.tables.length), [6, 6, 6])
+    assert.deepEqual(candidate.report.rounds.map(round => round.tables.length), [7, 7, 7])
     assert.deepEqual([
       candidate.report.repeats.round1_round2,
       candidate.report.repeats.round1_round3,
       candidate.report.repeats.round2_round3,
-    ], [6, 6, 6])
-    assert.equal(candidate.report.repeats.unique_partners.minimum, 17)
-    assert.equal(candidate.report.repeats.unique_partners.maximum, 18)
+    ], [0, 0, 0])
+    assert.equal(candidate.report.repeats.unique_partners.minimum, 15)
+    assert.equal(candidate.report.repeats.unique_partners.maximum, 15)
     assert.equal(candidate.report.repeats.repeated_in_all_three, 0)
     assert.equal(candidate.report.missing_survey_fields.length, 0)
     assert.deepEqual(candidate.report.decision_context.selected, {

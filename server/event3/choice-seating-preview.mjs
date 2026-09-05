@@ -1,7 +1,10 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto"
 
 import { CHOICE_ONLY_SEATING_OBJECTIVE_VERSION } from "./choice-only-seating.mjs"
-import { FLEXIBLE_CHOICE_SEATING_LIMITS } from "./flexible-choice-seating.mjs"
+import {
+  FLEXIBLE_CHOICE_SEATING_LIMITS,
+  FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION,
+} from "./flexible-choice-seating.mjs"
 import { normalizedGender } from "./round2-age-optimizer.mjs"
 import { getRoundLensProfileMissingFields } from "./round23-lenses.mjs"
 
@@ -527,7 +530,7 @@ export async function handleChoiceSeatingPreview({ db, action, body = {}, eventI
     requireCompleteLensProfiles: false,
   })
   if (generated?.error) throw fail(generated.error, 400)
-  if (![CHOICE_ONLY_SEATING_OBJECTIVE_VERSION, "spark-depth-rhythm-v1-flexible"].includes(generated?.objectiveVersion)) {
+  if (![CHOICE_ONLY_SEATING_OBJECTIVE_VERSION, FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION].includes(generated?.objectiveVersion)) {
     throw fail("The seating scheduler objective version does not match the preview service", 503)
   }
   if (!Array.isArray(generated?.candidates) || generated.candidates.length !== 3) {

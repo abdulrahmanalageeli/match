@@ -3,10 +3,15 @@ import test from "node:test"
 
 import {
   buildChoiceMatches,
+  buildGlobalChoiceMatches,
+  buildIndividualPriorityChoiceMatches,
+  buildIndividualPriorityChoiceRound,
   buildMutualChoiceRound,
   buildMutualChoiceRounds,
   buildThreeMutualChoiceRounds,
   buildTwoMutualChoiceRounds,
+  compareIndividualPriorityEdges,
+  compareMutualEdges,
   maximumCardinalityMatching,
 } from "./choice-matching.mjs"
 import { buildChoiceOnlySeatingPlan } from "./choice-only-seating.mjs"
@@ -15,6 +20,44 @@ const rows = ballots => Object.entries(ballots).flatMap(([ranker, order]) =>
   order.map((ranked, index) => ({ ranker_number: Number(ranker), ranked_number: ranked, rank: index + 1 })))
 
 const pairKeys = result => result.pairs.map(pair => `${pair.a}-${pair.b}`)
+
+test("individual-priority rounds try the historical strongest pair first but backtrack to remain reciprocal", () => {
+  // 1-2 has the best historical score, but it would strand 3 and 4. The
+  // complete plan therefore retains the next strongest feasible pair set.
+  const result = buildIndividualPriorityChoiceRound({
+    participantNumbers: [1, 2, 3, 4],
+    rankings: rows({ 1: [2, 3], 2: [1, 4], 3: [1], 4: [2] }),
+  })
+
+  assert.deepEqual(pairKeys(result), ["1-3", "2-4"])
+  assert.deepEqual(result.unmatched, [])
+  assert.equal(result.pairs.every(pair => Number.isFinite(pair.priorityScore)), true)
+})
+
+test("individual-priority ties preserve the Event 25/26 opposite-gender preference", () => {
+  const sameGender = { a: 1, b: 2, priorityScore: 2, oppositeGender: 0 }
+  const oppositeGender = { a: 3, b: 4, priorityScore: 2, oppositeGender: 1 }
+  assert.deepEqual(
+    [sameGender, oppositeGender].sort(compareIndividualPriorityEdges),
+    [oppositeGender, sameGender],
+  )
+})
+
+test("individual priority and the third-round global policy keep their distinct historical orderings", () => {
+  const lopsided = {
+    a: 1, b: 2, aRank: 1, bRank: 6,
+    worstRank: 6, rankSum: 7, rankGap: 5,
+    priorityScore: 7.5, oppositeGender: 1,
+  }
+  const balanced = {
+    a: 3, b: 4, aRank: 5, bRank: 5,
+    worstRank: 5, rankSum: 10, rankGap: 0,
+    priorityScore: 8, oppositeGender: 1,
+  }
+
+  assert.ok(compareIndividualPriorityEdges(lopsided, balanced) < 0)
+  assert.ok(compareMutualEdges(balanced, lopsided) < 0)
+})
 
 test("maximizes attendance before accepting a locally strongest greedy edge", () => {
   // 1-2 is the strongest edge, but taking it would strand both 3 and 4.
@@ -150,6 +193,43 @@ for (const participantCount of [16, 30]) {
     const seenPairs = result.round1.pairs.concat(result.round2.pairs, result.round3.pairs)
       .map(pair => `${pair.a}-${pair.b}`)
     assert.equal(new Set(seenPairs).size, pairCount * 3)
+  })
+}
+
+for (const participantCount of [16, 30, 42]) {
+  test(`${participantCount}-person live policy completes two individual-priority rounds and one global round`, () => {
+    const participantNumbers = Array.from({ length: participantCount }, (_, index) => index + 1)
+    const seating = buildChoiceOnlySeatingPlan(participantNumbers)
+    assert.equal(seating.error, undefined)
+    const tablemates = new Map(participantNumbers.map(number => [number, new Set()]))
+    for (const round of [seating.round1, seating.round2, seating.round3]) {
+      for (const group of round) {
+        for (const participant of group) {
+          for (const tablemate of group) {
+            if (tablemate !== participant) tablemates.get(participant).add(tablemate)
+          }
+        }
+      }
+    }
+    const rankings = new Map([...tablemates].map(([participant, met]) => [participant, [...met].sort((a, b) => a - b)]))
+    const exclusions = new Set()
+    const first = buildIndividualPriorityChoiceMatches(rankings, { exclusions })
+    assert.equal(first.pairs.length, participantCount / 2)
+    assert.deepEqual(first.unmatched, [])
+    for (const pair of first.pairs) exclusions.add(`${pair.a}-${pair.b}`)
+
+    const second = buildIndividualPriorityChoiceMatches(rankings, { exclusions })
+    assert.equal(second.pairs.length, participantCount / 2)
+    assert.deepEqual(second.unmatched, [])
+    for (const pair of second.pairs) exclusions.add(`${pair.a}-${pair.b}`)
+
+    const third = buildGlobalChoiceMatches(rankings, { exclusions })
+    assert.equal(third.pairs.length, participantCount / 2)
+    assert.deepEqual(third.unmatched, [])
+    assert.equal(third.pairs.every(pair => tablemates.get(pair.a).has(pair.b) && tablemates.get(pair.b).has(pair.a)), true)
+
+    const allPairs = [...first.pairs, ...second.pairs, ...third.pairs].map(pair => `${pair.a}-${pair.b}`)
+    assert.equal(new Set(allPairs).size, participantCount * 1.5)
   })
 }
 

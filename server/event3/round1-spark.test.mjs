@@ -194,7 +194,7 @@ test("Spark-optimized Round 1 preserves all three-round structural guarantees", 
   const plan = buildChoiceOnlySeatingPlan(participants, { genderMap, profileMap })
 
   for (const round of [plan.round1, plan.round2, plan.round3]) {
-    assert.deepEqual(round.map(group => group.length), [7, 7, 7, 7, 7, 7])
+    assert.deepEqual(round.map(group => group.length), [6, 6, 6, 6, 6, 6, 6])
     assert.deepEqual([...round.flat()].sort((a, b) => a - b), participants)
     assert.ok(round.every(group => {
       const females = group.filter(number => genderMap[number] === "female").length
@@ -202,7 +202,7 @@ test("Spark-optimized Round 1 preserves all three-round structural guarantees", 
     }))
   }
   const metrics = choiceOnlySeatingMetrics(plan.round1, plan.round2, plan.round3)
-  assert.equal(metrics.totalRepeatedPairOccurrences, 18)
+  assert.equal(metrics.totalRepeatedPairOccurrences, 0)
   assert.equal(metrics.repeatedInAllThree, 0)
 })
 

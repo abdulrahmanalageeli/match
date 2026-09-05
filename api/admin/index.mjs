@@ -22,7 +22,11 @@ import { assignPriorityTables } from "../../server/event3/table-priority.mjs"
 import { buildSixBySevenPlan, optimizeRound2ByAge } from "../../server/event3/round2-age-optimizer.mjs"
 import { buildChoiceOnlySeatingCandidates, buildChoiceOnlySeatingPlan } from "../../server/event3/choice-only-seating.mjs"
 import { handleChoiceSeatingPreview } from "../../server/event3/choice-seating-preview.mjs"
-import { buildChoiceMatches, event3ChoicePairKey } from "../../server/event3/choice-matching.mjs"
+import {
+  buildGlobalChoiceMatches,
+  buildIndividualPriorityChoiceMatches,
+  event3ChoicePairKey,
+} from "../../server/event3/choice-matching.mjs"
 import { handleSeatingAlternatives } from "../../server/event3/seating-alternatives.mjs"
 import { collectEventSwapPairs, collectMatchResultSwapPairs, getTableSwapRounds } from "../../server/event3/participant-swap.mjs"
 import { buildTestAdminSession, testMatchToLockedMatch } from "../../server/event3/test-match-results.mjs"
@@ -10979,7 +10983,10 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               if (choiceOnlyPhase2) {
                 choiceExpectedRankings = event3ChoiceRankingSnapshot(testRankRows)
                 choiceExpectedExclusions = event3ChoiceExclusionSnapshot(exRows)
-                choiceMatchResult = buildChoiceMatches(rankings, { exclusions })
+                choiceMatchResult = buildIndividualPriorityChoiceMatches(rankings, {
+                  exclusions,
+                  participantProfiles: participantMap,
+                })
                 matches = choiceMatchResult.matches
               } else {
                 matches = e3GreedyMutualMatching(rankings, participantMap, exclusions)
@@ -11027,7 +11034,10 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             if (choiceOnlyPhase2) {
               choiceExpectedRankings = event3ChoiceRankingSnapshot(rankRows)
               choiceExpectedExclusions = event3ChoiceExclusionSnapshot(exRows)
-              choiceMatchResult = buildChoiceMatches(rankings, { exclusions })
+              choiceMatchResult = buildIndividualPriorityChoiceMatches(rankings, {
+                exclusions,
+                participantProfiles: participantMap,
+              })
               matches = choiceMatchResult.matches
             } else {
               matches = e3GreedyMutualMatching(rankings, participantMap, exclusions)
@@ -11036,7 +11046,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           if (choiceOnlyPhase2 && choiceMatchResult?.unmatched.length) {
             await reopenChoiceRanking()
             return res.status(422).json({
-              error: `A complete reciprocal first-choice matching is not possible yet. Unmatched: ${choiceMatchResult.unmatched.map(number => `#${number}`).join(", ")}`,
+              error: `A complete first-choice matching is not possible with the current exclusions. Unmatched: ${choiceMatchResult.unmatched.map(number => `#${number}`).join(", ")}`,
               unmatched: choiceMatchResult.unmatched,
             })
           }
@@ -11132,8 +11142,9 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             const preferredCount = tablePlan.filter(pair => pair.table <= 16 && ![3, 6, 7, 13, 14].includes(pair.table)).length
             const veteranOverflowCount = tablePlan.filter(pair => pair.priority.bothFrequent && pair.table > 16).length
             return res.status(200).json({
-              message: `First choice matching complete. Created ${pairs.length} reciprocal pairs across ${pairs.length} prioritized tables.`,
+              message: `First choice matching complete. Created ${pairs.length} reciprocal pairs, preserving the strongest individual pair priorities within a complete plan.`,
               event_format: phase2Format,
+              matching_policy: "individual_priority",
               table_summary: { preferred_count: preferredCount, frequent_pairs_above_16: veteranOverflowCount },
             })
           }
@@ -11198,13 +11209,15 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const matches = []
 
           if (choiceOnlyPhase3) {
-            const [rankResult, firstMatchResult] = await Promise.all([
+            const [rankResult, firstMatchResult, profileResult] = await Promise.all([
               supabase.from("participant_rankings").select("ranker_number,ranked_number,rank")
                 .eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).order("rank", { ascending: true }),
               supabase.from("event3_matches").select("participant_number,phase2_partner")
                 .eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("participant_number", nums),
+              supabase.from("participants").select("assigned_number,gender")
+                .eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums),
             ])
-            const choiceReadError = rankResult.error || firstMatchResult.error
+            const choiceReadError = rankResult.error || firstMatchResult.error || profileResult.error
             if (choiceReadError) return res.status(500).json({ error: choiceReadError.message })
 
             const firstPartners = new Map()
@@ -11236,10 +11249,11 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             for (const [ranker, rows] of rankings) {
               rankings.set(ranker, rows.sort((left, right) => left.rank - right.rank || left.number - right.number).map(row => row.number))
             }
-            const secondChoice = buildChoiceMatches(rankings, { exclusions })
+            const participantProfiles = new Map((profileResult.data || []).map(profile => [Number(profile.assigned_number), profile]))
+            const secondChoice = buildIndividualPriorityChoiceMatches(rankings, { exclusions, participantProfiles })
             if (secondChoice.unmatched.length || secondChoice.pairs.length !== nums.length / 2) {
               return res.status(422).json({
-                error: `A complete reciprocal second-choice matching is not possible without repeating the first match. Unmatched: ${secondChoice.unmatched.map(number => `#${number}`).join(", ")}`,
+                error: `A complete second-choice matching is not possible without repeating the first match or violating an exclusion. Unmatched: ${secondChoice.unmatched.map(number => `#${number}`).join(", ")}`,
                 unmatched: secondChoice.unmatched,
               })
             }
@@ -11441,9 +11455,10 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               return res.status(409).json({ error: "Second choice matches were saved, but the event phase changed before processing could open", matching_committed: true })
             }
             return res.status(200).json({
-              message: `Second choice matching complete. Created ${matches.length} reciprocal pairs with every first partner excluded.`,
+              message: `Second choice matching complete. Created ${matches.length} reciprocal pairs, preserving the strongest remaining individual priorities after excluding every first partner.`,
               test_mode: isTestMode3,
               event_format: phase3Format,
+              matching_policy: "individual_priority",
             })
           }
 
@@ -11588,7 +11603,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             rankings.set(ranker, rows.sort((left, right) => left.rank - right.rank || left.number - right.number).map(row => row.number))
           }
 
-          const thirdChoice = buildChoiceMatches(rankings, { exclusions: excludedPairs })
+          const thirdChoice = buildGlobalChoiceMatches(rankings, { exclusions: excludedPairs })
           if (thirdChoice.unmatched.length || thirdChoice.pairs.length !== participantNumbers.length / 2) {
             return res.status(422).json({
               error: `A complete reciprocal third-choice matching is not possible without repeating a prior partner. Unmatched: ${thirdChoice.unmatched.map(number => `#${number}`).join(", ")}`,
@@ -11649,10 +11664,11 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             return res.status(409).json({ error: "Third choice matches were saved, but the event phase changed before processing could open", matching_committed: true })
           }
           return res.status(200).json({
-            message: `Third choice matching complete. Created ${thirdChoice.pairs.length} reciprocal pairs with both prior partners excluded.`,
+            message: `Third choice matching complete. Created the best full-roster reciprocal plan with both prior partners excluded.`,
             event_format: phase4Format,
             test_mode: phase4State.test_mode_active === true,
             pairs: thirdChoice.pairs.length,
+            matching_policy: "global_full_roster",
           })
         }
         // e3-get-group-member-feedback — lightweight feed for the Admin3
@@ -12295,7 +12311,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           if (!Number.isInteger(tableNumber) || tableNumber <= 0 || tableNumber > 99) return res.status(400).json({ error: "new_table must be between 1 and 99" })
           const moveFormat = await loadEvent3Format(supabase, EVENT3_MATCH_ID, currentEventId)
           if (isChoiceOnlyEvent3(moveFormat)) {
-            return res.status(409).json({ error: "Single-person table moves are disabled for six groups of seven; swap two participant seats or complete table numbers instead" })
+            return res.status(409).json({ error: "Single-person table moves are disabled for seven groups of six; swap two participant seats or complete table numbers instead" })
           }
           const { data: updatedRows, error } = await supabase.from("session_assignments")
             .update({ table_number: tableNumber })
@@ -12696,7 +12712,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             ? alternatives.map(entry => `${entry.label}: ${entry.name ? `${entry.name} (#${entry.number})` : `#${entry.number}`}\nتقييم المشارك: ${entry.feedback ? JSON.stringify(entry.feedback) : "غير متوفر"}\nبيانات الاستبيان: ${entry.profile ? JSON.stringify(summarize(entry.profile, entry.answers)) : "غير متوفرة"}`).join("\n")
             : "لا يوجد شريك آخر متوفر"
           const systemMessage = choiceOnlyAnalysis
-            ? `أنت مساعد لتحليل تجربة ثلاث مطابقات مبنية حصراً على ترتيب المشاركين المتبادل في فعالية تعارف. التوزيع يعطي الأولوية لتوفير لقاء مختلف لأكبر عدد ممكن، ثم يفضّل الرتب المتبادلة الأعلى داخل ذلك التوزيع. اكتب تقريراً موجزاً وواضحاً بالعربية (4-6 جمل) من منظور المشارك، وقارن تجربته في الاختيار الأول والثاني والثالث اعتماداً على تقييماته وبيانات الاستبيان فقط. لم تُحسب أو تُستخدم درجات توافق لاختيار أي شريك، فلا تصف أي اختيار بأنه خوارزمي ولا تستنتج فروقات رقمية غير موجودة. لا تخمن ولا تستخدم معلومات خارج البيانات المعطاة. اختم بملاحظة عملية واحدة لتحسين أسئلة الاستبيان أو تجربة ترتيب الاختيارات.`
+            ? `أنت مساعد لتحليل تجربة ثلاث مطابقات مبنية حصراً على ترتيب المشاركين في فعالية تعارف. في اللقاءين الأول والثاني تُؤخذ أقوى أزواج الاختيار المتبادل المتاحة أولاً، مع استبعاد الشريك السابق في اللقاء الثاني وإكمال المقاعد المتبقية دون تكرار. اللقاء الثالث يستخدم أفضل توزيع متبادل للقائمة كاملة بعد استبعاد الشريكين السابقين. اكتب تقريراً موجزاً وواضحاً بالعربية (4-6 جمل) من منظور المشارك، وقارن تجربته في الاختيار الأول والثاني والثالث اعتماداً على تقييماته وبيانات الاستبيان فقط. لم تُحسب أو تُستخدم درجات توافق لاختيار أي شريك، فلا تصف أي اختيار بأنه خوارزمي ولا تستنتج فروقات رقمية غير موجودة. لا تخمن ولا تستخدم معلومات خارج البيانات المعطاة. اختم بملاحظة عملية واحدة لتحسين أسئلة الاستبيان أو تجربة ترتيب الاختيارات.`
             : `أنت مساعد معايرة خوارزميات توافق فعاليات التعارف. مهمتك تقرير موجز وواضح بالعربية (4-6 جمل كحد أقصى) يقارن بين شريك المشارك في الجولة الحالية وشريكه في الجولة الأخرى من نفس يوم الفعالية. انطلق من الفروقات المحسوبة بين درجات التوافق وتقييم المشارك الفعلي. لا تخمن، ولا تستخدم معلومات خارج البيانات المعطاة. ركّز على:
 1. هل تقييم المشارك يؤيد الفرق في الدرجات بين الجولتين أم يناقضه؟
 2. أي معيار (إجمالي، تناغم، جاذبية، نمط حياة، تواصل، قيم، هدف) يظهر أكبر اختلاف بين الشريكين؟

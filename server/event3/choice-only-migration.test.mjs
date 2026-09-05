@@ -477,6 +477,11 @@ async function createFixture(t, { beforeVariableRuntime } = {}) {
     import.meta.url,
   ), "utf8")
   await db.exec(variableTestRuntimeMigration)
+  const sixPersonTablesMigration = await readFile(new URL(
+    "../../supabase/migrations/20260905180000_event3_six_person_group_tables.sql",
+    import.meta.url,
+  ), "utf8")
+  await db.exec(sixPersonTablesMigration)
   return db
 }
 
@@ -773,7 +778,9 @@ test("choice-only migration hardens format, seating, matching, and feedback with
   ])
   const fulfilledNoOpApprovals = concurrentNoOpApprovals.filter(result => result.status === "fulfilled")
   const rejectedNoOpApprovals = concurrentNoOpApprovals.filter(result => result.status === "rejected")
-  assert.equal(fulfilledNoOpApprovals.length, 1)
+  assert.equal(fulfilledNoOpApprovals.length, 1, concurrentNoOpApprovals.map(result => result.status === "rejected"
+    ? String(result.reason?.message || result.reason)
+    : "fulfilled").join(" | "))
   assert.equal(rejectedNoOpApprovals.length, 1)
   assert.match(String(rejectedNoOpApprovals[0].reason?.message || rejectedNoOpApprovals[0].reason), /decision changed since this preview/i)
   await expectDbError(db.query(approvalSql, noOpApprovalParams), /decision changed since this preview/i)
@@ -851,7 +858,7 @@ test("choice-only migration hardens format, seating, matching, and feedback with
       "spark-depth-rhythm-v1",
       JSON.stringify(seatingReport),
     ],
-  ), /complete roster in groups of at most seven/i)
+  ), /complete roster in groups of at most six/i)
   const seatingAfterFailure = await db.query("select round,count(*)::int as count from session_assignments group by round order by round")
   assert.deepEqual(seatingAfterFailure.rows, [
     { round: 1, count: 42 },

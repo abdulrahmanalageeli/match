@@ -1717,6 +1717,21 @@ function WalkSlide({ step, headingRef, eventFormat }: { step: number; headingRef
   )
 }
 
+const WELCOME_BINARY_STREAMS = [
+  "01100101 10011010 00110101 11001010 01001101 10110010",
+  "10110100 01001011 11100010 00011101 10100110 01101001",
+  "00101110 11010001 01010110 10101001 01110010 10001101",
+  "11001001 00110110 10010101 01101010 01011001 10100110",
+  "01010111 10101000 00111010 11000101 10010011 01101100",
+  "10001101 01110010 11001010 00110101 10100100 01011011",
+  "00110011 11001100 01001010 10110101 01100110 10011001",
+  "11100001 00011110 10101001 01010110 11010010 00101101",
+  "01001110 10110001 01100101 10011010 00110100 11001011",
+  "10101010 01010101 11000110 00111001 10010100 01101011",
+  "00110101 11001010 01011010 10100101 01101100 10010011",
+  "11010010 00101101 10000111 01111000 01010101 10101010",
+]
+
 function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
   onDone: () => void
   onLogout?: () => void
@@ -1725,17 +1740,32 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
 }) {
   const [phase, setPhase] = useState<"splash" | "steps">("splash")
   const [step, setStep] = useState(0)
+  const [introStage, setIntroStage] = useState<"code" | "brand" | "welcome">("code")
   const reduceMotion = useReducedMotion()
   const splashHeadingRef = useRef<HTMLHeadingElement>(null)
   const walkHeadingRef = useRef<HTMLHeadingElement>(null)
 
   useEffect(() => {
+    if (reduceMotion) {
+      setIntroStage("welcome")
+      return
+    }
+    const brandTimer = window.setTimeout(() => setIntroStage("brand"), 1050)
+    const welcomeTimer = window.setTimeout(() => setIntroStage("welcome"), 2350)
+    return () => {
+      window.clearTimeout(brandTimer)
+      window.clearTimeout(welcomeTimer)
+    }
+  }, [reduceMotion])
+
+  useEffect(() => {
+    if (introStage !== "welcome") return
     const focusTimer = window.setTimeout(() => {
       const target = phase === "splash" ? splashHeadingRef.current : walkHeadingRef.current
       target?.focus({ preventScroll: true })
     }, reduceMotion ? 0 : 420)
     return () => window.clearTimeout(focusTimer)
-  }, [phase, step, reduceMotion])
+  }, [phase, step, reduceMotion, introStage])
 
   const goNext = () => {
     if (step < WALK_SLIDES.length - 1) {
@@ -1780,8 +1810,118 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
         />
       </div>
 
+      <AnimatePresence>
+        {phase === "splash" && introStage !== "welcome" && (
+          <motion.section
+            key="binary-intro"
+            initial={{ opacity: 1 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, scale: 1.035, filter: "blur(10px)" }}
+            transition={{ duration: 0.58, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute inset-0 z-50 overflow-hidden bg-[#03030a]"
+            aria-label="عرض افتتاحي للتوافق الأعمى"
+          >
+            <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+              <motion.div
+                animate={{ opacity: introStage === "brand" ? 0.72 : 0.38, scale: introStage === "brand" ? 1.05 : 0.8 }}
+                transition={{ duration: 0.8, ease: "easeOut" }}
+                className="absolute left-1/2 top-1/2 h-[26rem] w-[26rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(124,58,237,.32)_0%,rgba(6,182,212,.12)_38%,transparent_70%)] blur-2xl"
+              />
+              <div className="absolute inset-0 bg-[linear-gradient(rgba(34,211,238,.025)_1px,transparent_1px),linear-gradient(90deg,rgba(168,85,247,.03)_1px,transparent_1px)] bg-[size:32px_32px]" />
+              {WELCOME_BINARY_STREAMS.map((stream, index) => {
+                const columnLeft = 4 + index * 8.35
+                const color = index % 3 === 0 ? "text-purple-300" : index % 3 === 1 ? "text-cyan-300" : "text-blue-300"
+                return (
+                  <motion.span
+                    key={stream}
+                    initial={{ opacity: 0, y: index % 2 === 0 ? "-18vh" : "18vh", left: `${columnLeft}%` }}
+                    animate={introStage === "code"
+                      ? { opacity: [0, 0.7, 0.34], y: index % 2 === 0 ? ["-18vh", "8vh"] : ["18vh", "-8vh"], left: `${columnLeft}%` }
+                      : { opacity: 0, y: 0, left: "50%", scaleY: 0.08, filter: "blur(5px)" }}
+                    transition={introStage === "code"
+                      ? { duration: 1.2 + (index % 4) * 0.14, delay: index * 0.035, ease: "easeOut" }
+                      : { duration: 0.72, delay: Math.abs(5.5 - index) * 0.025, ease: [0.22, 1, 0.36, 1] }}
+                    className={`absolute -top-20 h-[130vh] whitespace-pre-wrap font-mono text-[9px] font-bold leading-[1.85] tracking-[0.2em] ${color}`}
+                    style={{ writingMode: "vertical-rl", textOrientation: "upright", direction: "ltr" }}
+                  >
+                    {stream}
+                  </motion.span>
+                )
+              })}
+              <motion.div
+                initial={{ y: "-15vh", opacity: 0 }}
+                animate={introStage === "code" ? { y: "115vh", opacity: [0, 0.7, 0] } : { opacity: 0 }}
+                transition={{ duration: 1.35, ease: "linear" }}
+                className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-200/80 to-transparent shadow-[0_0_18px_3px_rgba(34,211,238,.3)]"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIntroStage("welcome")}
+              className="absolute right-4 top-[max(1rem,env(safe-area-inset-top))] z-20 min-h-11 rounded-full px-3 text-[10px] font-bold tracking-wide text-white/40 transition-colors hover:text-white/75 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+            >
+              تخطّي
+            </button>
+
+            <AnimatePresence>
+              {introStage === "brand" && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.82, filter: "blur(14px)" }}
+                  animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+                  exit={{ opacity: 0, scale: 1.2, filter: "blur(8px)" }}
+                  transition={{ duration: 0.72, ease: [0.16, 1, 0.3, 1] }}
+                  className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center"
+                >
+                  <motion.div
+                    initial={{ scaleX: 0 }}
+                    animate={{ scaleX: 1 }}
+                    transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+                    className="mb-5 h-px w-32 bg-gradient-to-r from-transparent via-cyan-200/80 to-transparent shadow-[0_0_14px_rgba(34,211,238,.45)]"
+                    aria-hidden="true"
+                  />
+                  <motion.h1
+                    initial={{ letterSpacing: "0.18em" }}
+                    animate={{ letterSpacing: "0.035em" }}
+                    transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+                    className="bg-gradient-to-l from-cyan-100 via-white to-purple-200 bg-clip-text text-4xl font-black leading-tight text-transparent [text-shadow:0_0_34px_rgba(168,85,247,.34)] sm:text-5xl"
+                  >
+                    التوافق الأعمى
+                  </motion.h1>
+                  <motion.p
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 0.55, y: 0 }}
+                    transition={{ delay: 0.28, duration: 0.4 }}
+                    dir="ltr"
+                    className="mt-3 font-mono text-[9px] font-bold uppercase tracking-[0.42em] text-cyan-100"
+                  >
+                    Connection beyond the surface
+                  </motion.p>
+                  <motion.div
+                    initial={{ scaleX: 0 }}
+                    animate={{ scaleX: 1 }}
+                    transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+                    className="mt-5 h-px w-32 bg-gradient-to-r from-transparent via-purple-200/80 to-transparent shadow-[0_0_14px_rgba(192,132,252,.4)]"
+                    aria-hidden="true"
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="absolute bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 h-px w-24 -translate-x-1/2 overflow-hidden bg-white/10" aria-hidden="true">
+              <motion.span
+                initial={{ scaleX: 0 }}
+                animate={{ scaleX: introStage === "brand" ? 1 : 0.46 }}
+                transition={{ duration: introStage === "brand" ? 1.15 : 1.05, ease: "easeOut" }}
+                className="block h-full origin-left bg-gradient-to-r from-purple-400 to-cyan-300 shadow-[0_0_10px_rgba(34,211,238,.55)]"
+              />
+            </div>
+          </motion.section>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence mode="wait">
-        {phase === "splash" && (
+        {phase === "splash" && introStage === "welcome" && (
           <motion.div
             key="splash"
             initial={{ opacity: 0 }}

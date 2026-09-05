@@ -92,6 +92,7 @@ import {
 import { ParticipantOtpModal } from "../components/ParticipantOtpModal"
 import { clearParticipantBrowserIdentity } from "../lib/participant-browser-auth.mjs"
 import { EVENT3_CONTACT_MESSAGE_MAX_LENGTH } from "../lib/event3-contact-sharing.mjs"
+import { isSurveyRedoRequest, shouldShowFilledSurveyPrompt } from "../lib/survey-redo-flow.mjs"
 import "../../app/app.css"
 import MatchResult from "./MatchResult"
 import CircularProgressBar from "../components/CircularProgressBar"
@@ -730,6 +731,10 @@ export default function WelcomePage() {
   const searchParams = useSearchParams()[0]
   const token = searchParams.get("token")?.trim() || null
   const forceRound = searchParams.get("force_round")
+  const surveyRedoRequested = isSurveyRedoRequest({
+    redo: searchParams.get("redo"),
+    flow: searchParams.get("flow"),
+  })
   const [currentRound, setCurrentRound] = useState(1)
   
   // Option D: overlay rectangles to mask local background under cards, keeping particles visible around edges
@@ -2664,11 +2669,17 @@ export default function WelcomePage() {
                   setStep(3); // Show analysis/waiting
                 }
               } else {
-                // In form phase and already filled form, show prompt (unless user just created token)
-                if (!isJustCreatedUser) {
+                // A redo/update link should enter edit mode directly. Showing the
+                // generic filled-form prompt here intercepts that explicit flow.
+                if (shouldShowFilledSurveyPrompt({
+                  hasFilledForm,
+                  eventPhase: eventData.phase,
+                  isJustCreatedUser,
+                  isRedoRequest: surveyRedoRequested,
+                })) {
                   setShowFormFilledPrompt(true);
                 } else {
-                  console.log("🚫 Not showing form filled prompt - user just created token");
+                  console.log("🚫 Not showing form filled prompt during new-user or redo flow");
                 }
               }
             } else {
@@ -2752,10 +2763,7 @@ export default function WelcomePage() {
       if (isResolving) return;
       if (redoHandled) return;
       const params = new URLSearchParams(window.location.search);
-      const redoParam = params.get('redo');
-      const flowParam = params.get('flow');
-      const isRedo = (redoParam === '1' || redoParam === 'true' || flowParam === 'redo');
-      if (token && isRedo) {
+      if (token && surveyRedoRequested) {
         setRedoHandled(true);
         setStep(2);
         // Emulate clicking "إعادة تعبئة النموذج" directly
@@ -2802,7 +2810,7 @@ export default function WelcomePage() {
     } catch (e) {
       console.error('Failed to process redo params:', e);
     }
-  }, [isResolving, token, redoHandled]);
+  }, [isResolving, token, redoHandled, surveyRedoRequested]);
 
   // Handle /welcome?token=...&disableauto to disable auto-signup for this token
   useEffect(() => {

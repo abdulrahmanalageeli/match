@@ -848,16 +848,16 @@ let _adminPassword = ""
 function setAdminPassword(p: string) { _adminPassword = p }
 const API = "/api/admin"
 const EVENT3_PHASE_SECONDS = {
-  round1: 35 * 60,
+  round1: 30 * 60,
   ranking1: 3 * 60,
   round2: 25 * 60,
   ranking2: 3 * 60,
   round3: 25 * 60,
   ranking3: 3 * 60,
   break: 10 * 60,
-  phase2_reveal: 26 * 60,
-  phase3_reveal: 26 * 60,
-  phase4_reveal: 26 * 60,
+  phase2_reveal: 20 * 60,
+  phase3_reveal: 20 * 60,
+  phase4_reveal: 20 * 60,
 } as const
 
 function getEvent3PhaseSeconds(phase: unknown) {
@@ -2113,7 +2113,7 @@ export default function Admin3Page() {
     const sel = state.participants_selected || 0
     const finalRankingPhase = choiceOnly ? "ranking3" : "ranking2"
     if (ph === "setup" && !hasSeating) return { label: choiceOnly ? (choiceSeatingPreview ? "مراجعة واعتماد أحد الخيارات الثلاثة" : "إنشاء Best وSecond-best وThird-best للمعاينة") : "توليد خطة الجلسات", action: choiceOnly && choiceSeatingPreview ? () => document.getElementById("choice-seating-preview")?.scrollIntoView({ behavior: "smooth", block: "start" }) : generateSeating, ready: choiceOnly ? sel === 42 : sel >= 6 }
-    if (ph === "setup" && hasSeating) return { label: "⬅ بدء الجولة الأولى (35 دقيقة)", action: () => setPhaseWithTimer("round1", EVENT3_PHASE_SECONDS.round1, 1), ready: true }
+    if (ph === "setup" && hasSeating) return { label: "⬅ بدء الجولة الأولى (30 دقيقة)", action: () => setPhaseWithTimer("round1", EVENT3_PHASE_SECONDS.round1, 1), ready: true }
     if (ph === "round1") return { label: "⬅ التصنيف بعد الجولة 1 (3 دقائق)", action: () => setPhaseWithTimer("ranking1", EVENT3_PHASE_SECONDS.ranking1, 0), ready: true }
     if (ph === "ranking1") return { label: "⬅ بدء الجولة الثانية (25 دقيقة)", action: () => setPhaseWithTimer("round2", EVENT3_PHASE_SECONDS.round2, 2), ready: true }
     if (ph === "round2") return { label: choiceOnly ? "⬅ التصنيف بعد الجولة 2 (3 دقائق)" : "⬅ التصنيف النهائي (3 دقائق)", action: () => setPhaseWithTimer("ranking2", EVENT3_PHASE_SECONDS.ranking2, 0), ready: true }
@@ -2125,12 +2125,12 @@ export default function Admin3Page() {
       ? { label: "↻ إعادة محاولة الاختيار الأول", action: triggerPhase2, ready: true }
       : { label: "⏳ جاري المطابقة...", action: () => {}, ready: false }
     if (ph === finalRankingPhase && hasMatches) return { label: "⬅ استراحة (10 دقائق)", action: () => setPhaseWithTimer("break", EVENT3_PHASE_SECONDS.break, breakTimerRound), ready: true }
-    if (ph === "break") return { label: choiceOnly ? "⬅ بدء كشف الاختيار الأول (26 دقيقة)" : "⬅ بدء كشف المرحلة 2 (26 دقيقة)", action: () => setPhaseWithTimer("phase2_reveal", EVENT3_PHASE_SECONDS.phase2_reveal, firstMatchTimerRound), ready: true }
+    if (ph === "break") return { label: choiceOnly ? "⬅ بدء كشف الاختيار الأول (20 دقيقة)" : "⬅ بدء كشف المرحلة 2 (20 دقيقة)", action: () => setPhaseWithTimer("phase2_reveal", EVENT3_PHASE_SECONDS.phase2_reveal, firstMatchTimerRound), ready: true }
     if (ph === "phase2_reveal" && !state.phase3_matches_done) return { label: choiceOnly ? "⬅ تشغيل الاختيار الثاني (مع استبعاد الشريك الأول)" : "⬅ تشغيل مطابقة الخوارزمية", action: triggerPhase3, ready: choiceOnly ? state.phase2_matches_done === true : ranked > 0 }
-    if (ph === "phase2_reveal" && state.phase3_matches_done) return { label: choiceOnly ? "⬅ كشف الاختيار الثاني (26 دقيقة)" : "⬅ كشف المرحلة 3 (26 دقيقة)", action: () => setPhaseWithTimer("phase3_reveal", EVENT3_PHASE_SECONDS.phase3_reveal, secondMatchTimerRound), ready: true }
+    if (ph === "phase2_reveal" && state.phase3_matches_done) return { label: choiceOnly ? "⬅ كشف الاختيار الثاني (20 دقيقة)" : "⬅ كشف المرحلة 3 (20 دقيقة)", action: () => setPhaseWithTimer("phase3_reveal", EVENT3_PHASE_SECONDS.phase3_reveal, secondMatchTimerRound), ready: true }
     if (choiceOnly && ph === "phase3_reveal" && !state.phase4_matches_done) return { label: "⬅ تشغيل الاختيار الثالث (مع استبعاد الشريكين السابقين)", action: triggerPhase4, ready: state.phase3_matches_done === true }
-    if (choiceOnly && ph === "phase3_reveal" && state.phase4_matches_done) return { label: "⬅ كشف الاختيار الثالث (26 دقيقة)", action: () => setPhaseWithTimer("phase4_reveal", EVENT3_PHASE_SECONDS.phase4_reveal, thirdMatchTimerRound), ready: true }
-    if (choiceOnly && ph === "phase4_processing" && state.phase4_matches_done) return { label: "⬅ كشف الاختيار الثالث (26 دقيقة)", action: () => setPhaseWithTimer("phase4_reveal", EVENT3_PHASE_SECONDS.phase4_reveal, thirdMatchTimerRound), ready: true }
+    if (choiceOnly && ph === "phase3_reveal" && state.phase4_matches_done) return { label: "⬅ كشف الاختيار الثالث (20 دقيقة)", action: () => setPhaseWithTimer("phase4_reveal", EVENT3_PHASE_SECONDS.phase4_reveal, thirdMatchTimerRound), ready: true }
+    if (choiceOnly && ph === "phase4_processing" && state.phase4_matches_done) return { label: "⬅ كشف الاختيار الثالث (20 دقيقة)", action: () => setPhaseWithTimer("phase4_reveal", EVENT3_PHASE_SECONDS.phase4_reveal, thirdMatchTimerRound), ready: true }
     if (choiceOnly && ph === "phase4_processing") return { label: "⏳ جاري تجهيز الاختيار الثالث...", action: () => {}, ready: false }
     if (choiceOnly && ph === "phase4_reveal") return { label: "⬅ الكشف النهائي ✨", action: () => setPhase("final_reveal"), ready: true }
     if (!choiceOnly && ph === "phase3_reveal") return { label: "⬅ الكشف النهائي ✨", action: () => setPhase("final_reveal"), ready: true }
@@ -3439,7 +3439,7 @@ export default function Admin3Page() {
                   },
                   {
                     label: "بدء الجولة الأولى",
-                    desc: "35 دقيقة",
+                    desc: "30 دقيقة",
                     action: () => setPhaseWithTimer("round1", EVENT3_PHASE_SECONDS.round1, 1),
                     icon: Play,
                     color: "green",
@@ -3515,7 +3515,7 @@ export default function Admin3Page() {
                   },
                   {
                     label: choiceOnly ? "كشف الاختيار الأول" : "كشف المرحلة 2",
-                    desc: "26 دقيقة",
+                    desc: "20 دقيقة",
                     action: () => setPhaseWithTimer("phase2_reveal", EVENT3_PHASE_SECONDS.phase2_reveal, firstMatchTimerRound),
                     icon: Eye,
                     color: "pink",
@@ -3533,7 +3533,7 @@ export default function Admin3Page() {
                   },
                   {
                     label: choiceOnly ? "كشف الاختيار الثاني" : "كشف المرحلة 3",
-                    desc: "26 دقيقة",
+                    desc: "20 دقيقة",
                     action: () => setPhaseWithTimer("phase3_reveal", EVENT3_PHASE_SECONDS.phase3_reveal, secondMatchTimerRound),
                     icon: Sparkles,
                     color: "purple",
@@ -3552,7 +3552,7 @@ export default function Admin3Page() {
                     },
                     {
                       label: "كشف الاختيار الثالث",
-                      desc: "26 دقيقة",
+                      desc: "20 دقيقة",
                       action: () => setPhaseWithTimer("phase4_reveal", EVENT3_PHASE_SECONDS.phase4_reveal, thirdMatchTimerRound),
                       icon: Sparkles,
                       color: "violet",

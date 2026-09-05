@@ -1,6 +1,6 @@
 export const EVENT3_PHASE_TIMER_SECONDS = Object.freeze({
   setup: 0,
-  round1: 35 * 60,
+  round1: 30 * 60,
   ranking1: 3 * 60,
   round2: 25 * 60,
   ranking2: 3 * 60,
@@ -8,11 +8,11 @@ export const EVENT3_PHASE_TIMER_SECONDS = Object.freeze({
   ranking3: 3 * 60,
   break: 10 * 60,
   phase2_processing: 0,
-  phase2_reveal: 26 * 60,
+  phase2_reveal: 20 * 60,
   phase3_processing: 0,
-  phase3_reveal: 26 * 60,
+  phase3_reveal: 20 * 60,
   phase4_processing: 0,
-  phase4_reveal: 26 * 60,
+  phase4_reveal: 20 * 60,
   final_reveal: 0,
 })
 

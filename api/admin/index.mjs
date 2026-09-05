@@ -10661,7 +10661,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             update.global_timer_start_time = new Date().toISOString()
             update.global_timer_duration = Number(timer_duration) > 0
               ? Number(timer_duration)
-              : (EVENT3_PHASE_TIMER_SECONDS[phase] || 26 * 60)
+              : (EVENT3_PHASE_TIMER_SECONDS[phase] || 20 * 60)
             update.global_timer_round = timer_round ?? 0
           } else if (start_timer === false) {
             update.global_timer_active = false
@@ -10678,7 +10678,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const { round, duration } = req.body
           const { data: timerState } = await supabase.from("event_state").select("phase").eq("match_id", EVENT3_MATCH_ID).single()
           const phaseDuration = getEvent3PhaseTimerSeconds(timerState?.phase)
-          const resolvedDuration = Number(duration) > 0 ? Number(duration) : (phaseDuration || EVENT3_TIMER_ROUND_SECONDS[round] || 26 * 60)
+          const resolvedDuration = Number(duration) > 0 ? Number(duration) : (phaseDuration || EVENT3_TIMER_ROUND_SECONDS[round] || 20 * 60)
           const { error } = await supabase.from("event_state").update({ global_timer_active: true, global_timer_start_time: new Date().toISOString(), global_timer_duration: resolvedDuration, global_timer_round: round }).eq("match_id", EVENT3_MATCH_ID)
           if (error) return res.status(500).json({ error: error.message })
           return res.status(200).json({ message: "Timer started" })

@@ -1802,7 +1802,7 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
                 initial={{ opacity: 0, scale: 0.52, y: 14, filter: "blur(10px)" }}
                 animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
                 transition={reduceMotion ? { duration: 0.2 } : { duration: 0.72, ease: [0.16, 1, 0.3, 1] }}
-                className="relative mb-2 h-[6.15rem] w-[6.15rem] sm:h-[6.6rem] sm:w-[6.6rem]"
+                className="relative h-[6.15rem] w-[6.15rem] sm:h-[6.6rem] sm:w-[6.6rem]"
               >
                 <motion.div
                   animate={reduceMotion ? undefined : { y: [0, -3, 0] }}
@@ -1853,19 +1853,45 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
                   >
                     <img
                       src="/blindmatch-welcome-loading-logo.png"
-                      alt="شعار التوافق الأعمى"
+                      alt=""
                       width={106}
                       height={106}
                       decoding="async"
+                      aria-hidden="true"
                       className="h-full w-full object-contain [filter:drop-shadow(0_0_10px_rgba(168,85,247,.4))_drop-shadow(0_0_16px_rgba(34,211,238,.18))]"
                     />
                   </motion.div>
                 </motion.div>
               </motion.div>
 
-              <motion.div initial={{ opacity: 0, y: 10, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: reduceMotion ? 0 : 0.36, duration: 0.38 }} className="mb-2 inline-flex items-center gap-2 rounded-full border border-purple-300/15 bg-purple-400/[0.08] px-3 py-1.5 text-[10px] font-black tracking-wide text-purple-200 backdrop-blur-xl">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_10px_rgba(110,231,183,.9)]" />
-                التوافق الأعمى 5.0
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: reduceMotion ? 0 : 0.36, duration: 0.46, ease: [0.22, 1, 0.36, 1] }}
+                className="mb-4 mt-6 flex flex-col items-center"
+              >
+                <div className="flex items-center gap-3">
+                  <motion.span
+                    initial={{ scaleX: 0, opacity: 0 }}
+                    animate={{ scaleX: 1, opacity: 1 }}
+                    transition={{ delay: reduceMotion ? 0 : 0.48, duration: 0.42 }}
+                    className="h-px w-7 origin-right bg-gradient-to-l from-purple-300/70 to-transparent"
+                    aria-hidden="true"
+                  />
+                  <span className="bg-gradient-to-l from-cyan-100 via-white to-purple-100 bg-clip-text text-[15px] font-black tracking-[0.035em] text-transparent [text-shadow:0_0_20px_rgba(192,132,252,.28)] sm:text-base">
+                    التوافق الأعمى
+                  </span>
+                  <motion.span
+                    initial={{ scaleX: 0, opacity: 0 }}
+                    animate={{ scaleX: 1, opacity: 1 }}
+                    transition={{ delay: reduceMotion ? 0 : 0.48, duration: 0.42 }}
+                    className="h-px w-7 origin-left bg-gradient-to-r from-cyan-300/70 to-transparent"
+                    aria-hidden="true"
+                  />
+                </div>
+                <span dir="ltr" className="mt-1.5 text-[8px] font-extrabold uppercase tracking-[0.34em] text-cyan-100/45">
+                  Blind Match <span className="text-purple-200/60">·</span> Edition 5.0
+                </span>
               </motion.div>
 
               <motion.h1 ref={splashHeadingRef} tabIndex={-1} initial={{ opacity: 0, y: 16, filter: "blur(5px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} transition={{ delay: reduceMotion ? 0 : 0.43, duration: 0.52, ease: [0.22, 1, 0.36, 1] }} className="text-[1.85rem] font-black leading-[1.15] text-white focus:outline-none sm:text-[2.1rem]">

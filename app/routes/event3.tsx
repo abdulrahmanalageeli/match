@@ -1772,6 +1772,12 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
         <div className="absolute -right-32 -top-44 h-[540px] w-[540px] rounded-full bg-purple-600/25 blur-[120px]" />
         <div className="absolute -bottom-56 -left-32 h-[520px] w-[520px] rounded-full bg-fuchsia-600/15 blur-[120px]" />
         <div className="absolute left-1/2 top-[42%] h-72 w-72 -translate-x-1/2 rounded-full bg-indigo-500/[0.08] blur-[100px]" />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.55 }}
+          animate={{ opacity: reduceMotion ? 0.14 : [0, 0.28, 0.14], scale: reduceMotion ? 1 : [0.55, 1.08, 1] }}
+          transition={{ duration: 1.35, ease: [0.22, 1, 0.36, 1] }}
+          className="absolute left-1/2 top-[5%] h-72 w-72 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(168,85,247,.55)_0%,rgba(59,130,246,.18)_38%,transparent_72%)] blur-2xl"
+        />
       </div>
 
       <AnimatePresence mode="wait">
@@ -1793,47 +1799,94 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
             )}
             <div className="flex w-full max-w-sm flex-col items-center">
               <motion.div
-                initial={{ opacity: 0, scale: 0.78, y: 8 }}
-                animate={reduceMotion ? { opacity: 1, scale: 1, y: 0 } : { opacity: 1, scale: 1, y: [0, -3, 0] }}
-                transition={reduceMotion ? { duration: 0.25 } : { opacity: { duration: 0.35 }, scale: { type: "spring", stiffness: 190, damping: 16 }, y: { duration: 4, repeat: Infinity, ease: "easeInOut", delay: 0.7 } }}
-                className="relative mb-2 flex h-[5.5rem] w-[5.5rem] items-center justify-center sm:h-24 sm:w-24"
+                initial={{ opacity: 0, scale: 0.52, y: 14, filter: "blur(10px)" }}
+                animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
+                transition={reduceMotion ? { duration: 0.2 } : { duration: 0.72, ease: [0.16, 1, 0.3, 1] }}
+                className="relative mb-2 h-[6.15rem] w-[6.15rem] sm:h-[6.6rem] sm:w-[6.6rem]"
               >
-                <div className="absolute inset-3 rounded-full bg-gradient-to-br from-purple-500/75 via-blue-500/45 to-cyan-400/65 blur-2xl" aria-hidden="true" />
-                <div className="absolute inset-1 rounded-full border border-cyan-200/10 bg-white/[0.018] shadow-[inset_0_0_24px_rgba(139,92,246,.08)]" aria-hidden="true" />
-                <img
-                  src="/blindmatch-welcome-loading-logo.png"
-                  alt="شعار التوافق الأعمى"
-                  width={96}
-                  height={96}
-                  decoding="async"
-                  className="relative h-full w-full object-contain drop-shadow-[0_0_15px_rgba(34,211,238,.3)]"
-                />
+                <motion.div
+                  animate={reduceMotion ? undefined : { y: [0, -3, 0] }}
+                  transition={{ duration: 4.8, repeat: Infinity, ease: "easeInOut", delay: 0.8 }}
+                  className="relative flex h-full w-full items-center justify-center"
+                >
+                  <motion.span
+                    className="absolute -inset-3 rounded-full"
+                    style={{
+                      background: "conic-gradient(from 45deg, transparent 0 18%, rgba(192,132,252,.85) 28%, rgba(96,165,250,.25) 43%, transparent 54% 69%, rgba(34,211,238,.9) 79%, transparent 92%)",
+                      WebkitMaskImage: "radial-gradient(farthest-side, transparent calc(100% - 1.5px), #000 calc(100% - 1px))",
+                      maskImage: "radial-gradient(farthest-side, transparent calc(100% - 1.5px), #000 calc(100% - 1px))",
+                    }}
+                    initial={{ opacity: 0, rotate: -70, scale: 0.7 }}
+                    animate={reduceMotion ? { opacity: 0.55, rotate: 0, scale: 1 } : { opacity: 0.72, rotate: 360, scale: 1 }}
+                    transition={reduceMotion ? { duration: 0.2 } : { opacity: { duration: 0.6, delay: 0.18 }, scale: { duration: 0.7, ease: [0.16, 1, 0.3, 1] }, rotate: { duration: 11, repeat: Infinity, ease: "linear" } }}
+                    aria-hidden="true"
+                  />
+                  <motion.span
+                    className="absolute inset-1 rounded-full border border-cyan-100/15"
+                    animate={reduceMotion ? { opacity: 0.24 } : { scale: [0.92, 1.12, 0.92], opacity: [0, 0.42, 0] }}
+                    transition={{ duration: 3.4, repeat: Infinity, ease: "easeOut", delay: 1 }}
+                    aria-hidden="true"
+                  />
+                  <motion.span
+                    className="absolute inset-4 rounded-full bg-gradient-to-br from-purple-500/70 via-blue-500/45 to-cyan-400/60 blur-xl"
+                    animate={reduceMotion ? { opacity: 0.5 } : { scale: [0.82, 1.15, 0.86], opacity: [0.42, 0.82, 0.46] }}
+                    transition={{ duration: 4.2, repeat: Infinity, ease: "easeInOut" }}
+                    aria-hidden="true"
+                  />
+                  <motion.span
+                    className="absolute -right-0.5 top-3 h-1.5 w-1.5 rounded-full bg-cyan-100 shadow-[0_0_12px_3px_rgba(34,211,238,.65)]"
+                    animate={reduceMotion ? { opacity: 0.45 } : { opacity: [0, 1, 0], scale: [0.4, 1.1, 0.4], y: [3, -4, -8] }}
+                    transition={{ duration: 2.8, repeat: Infinity, repeatDelay: 1.1, ease: "easeOut", delay: 0.9 }}
+                    aria-hidden="true"
+                  />
+                  <motion.span
+                    className="absolute -left-1 bottom-5 h-1 w-1 rounded-full bg-purple-100 shadow-[0_0_10px_3px_rgba(192,132,252,.55)]"
+                    animate={reduceMotion ? { opacity: 0.38 } : { opacity: [0, 0.9, 0], scale: [0.5, 1.2, 0.5], y: [2, -5, -9] }}
+                    transition={{ duration: 3.2, repeat: Infinity, repeatDelay: 1.4, ease: "easeOut", delay: 1.6 }}
+                    aria-hidden="true"
+                  />
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.76, filter: "brightness(1.5) blur(3px)" }}
+                    animate={{ opacity: 1, scale: 1, filter: "brightness(1.08) blur(0px)" }}
+                    transition={reduceMotion ? { duration: 0.15 } : { duration: 0.68, delay: 0.12, ease: [0.16, 1, 0.3, 1] }}
+                    className="relative h-full w-full"
+                  >
+                    <img
+                      src="/blindmatch-welcome-loading-logo.png"
+                      alt="شعار التوافق الأعمى"
+                      width={106}
+                      height={106}
+                      decoding="async"
+                      className="h-full w-full object-contain [filter:drop-shadow(0_0_10px_rgba(168,85,247,.4))_drop-shadow(0_0_16px_rgba(34,211,238,.18))]"
+                    />
+                  </motion.div>
+                </motion.div>
               </motion.div>
 
-              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="mb-2 inline-flex items-center gap-2 rounded-full border border-purple-300/15 bg-purple-400/[0.08] px-3 py-1.5 text-[10px] font-black tracking-wide text-purple-200">
+              <motion.div initial={{ opacity: 0, y: 10, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: reduceMotion ? 0 : 0.36, duration: 0.38 }} className="mb-2 inline-flex items-center gap-2 rounded-full border border-purple-300/15 bg-purple-400/[0.08] px-3 py-1.5 text-[10px] font-black tracking-wide text-purple-200 backdrop-blur-xl">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_10px_rgba(110,231,183,.9)]" />
                 التوافق الأعمى 5.0
               </motion.div>
 
-              <motion.h1 ref={splashHeadingRef} tabIndex={-1} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }} className="text-[1.85rem] font-black leading-[1.15] text-white focus:outline-none sm:text-[2.1rem]">
+              <motion.h1 ref={splashHeadingRef} tabIndex={-1} initial={{ opacity: 0, y: 16, filter: "blur(5px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} transition={{ delay: reduceMotion ? 0 : 0.43, duration: 0.52, ease: [0.22, 1, 0.36, 1] }} className="text-[1.85rem] font-black leading-[1.15] text-white focus:outline-none sm:text-[2.1rem]">
                 جاهز لرحلتك
                 <span className="block bg-gradient-to-l from-purple-300 via-fuchsia-300 to-pink-300 bg-clip-text text-transparent">الليلة؟</span>
               </motion.h1>
-              <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }} className="mx-auto mt-2 max-w-[290px] text-[13px] font-medium leading-6 text-gray-400">
+              <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: reduceMotion ? 0 : 0.5, duration: 0.42 }} className="mx-auto mt-2 max-w-[290px] text-[13px] font-medium leading-6 text-gray-400">
                 لقاءات حقيقية تقودها اختيارات متبادلة — بخطوات واضحة وخصوصية كاملة.
               </motion.p>
 
-              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }} className="mt-4 grid w-full grid-cols-3 gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.035] p-2 shadow-2xl shadow-black/20 backdrop-blur-xl">
-                {journeyStats.map(({ value, label, Icon, tone }) => (
-                  <div key={label} className="flex min-w-0 flex-col items-center rounded-xl px-1 py-2">
+              <motion.div initial={{ opacity: 0, y: 14, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: reduceMotion ? 0 : 0.58, duration: 0.46, ease: [0.22, 1, 0.36, 1] }} className="mt-4 grid w-full grid-cols-3 gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.035] p-2 shadow-2xl shadow-black/20 backdrop-blur-xl">
+                {journeyStats.map(({ value, label, Icon, tone }, index) => (
+                  <motion.div key={label} initial={{ opacity: 0, y: 7 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: reduceMotion ? 0 : 0.66 + index * 0.055, duration: 0.32 }} className="flex min-w-0 flex-col items-center rounded-xl px-1 py-2">
                     <div className={`mb-1.5 flex h-7 w-7 items-center justify-center rounded-lg border ${tone}`}><Icon size={14} /></div>
                     <span className="text-sm font-black leading-none text-white">{value}</span>
                     <span className="mt-1 text-[9px] font-semibold leading-3 text-gray-400">{label}</span>
-                  </div>
+                  </motion.div>
                 ))}
               </motion.div>
 
-              <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="mt-4 w-full space-y-2.5">
+              <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: reduceMotion ? 0 : 0.75, duration: 0.48, ease: [0.22, 1, 0.36, 1] }} className="mt-4 w-full space-y-2.5">
               <motion.button
                 whileTap={{ scale: 0.97 }}
                 type="button"

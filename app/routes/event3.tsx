@@ -249,7 +249,12 @@ const BREAK_GROUP_FEEDBACK_PREVIEW: GroupReflectionGroup[] = [
   },
 ]
 
-const EVENT3_SESSION_DISCOVERY_ACTIONS = new Set(["e3-heartbeat", "e3-get-public-format", "e3-login-by-phone"])
+const EVENT3_SESSION_DISCOVERY_ACTIONS = new Set([
+  "e3-heartbeat",
+  "e3-get-public-format",
+  "e3-request-login-otp",
+  "e3-verify-login-otp",
+])
 
 async function call(action: string, token: string | null, extra: Record<string, any> = {}, sessionRefreshAttempted = false) {
   const controller = new AbortController()
@@ -363,9 +368,8 @@ function clearStoredParticipantIdentity() {
 function clearBrowserSessionArtifacts() {
   if (typeof window === "undefined") return
 
-  // Both participant token aliases are accepted by the welcome page, so an
-  // Event3 logout must clear the complete participant identity. Otherwise the
-  // supposedly logged-out account is restored as soon as /welcome opens.
+  // Event 3 OTP login grants the regular participant session, so logging out
+  // clears every alias that could restore that full-site identity.
   try {
     clearStoredParticipantIdentity()
     for (let i = localStorage.length - 1; i >= 0; i--) {
@@ -2067,6 +2071,8 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
 // ─── Phone Entry Screen ───────────────────────────────────────────────────────
 function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
   const [phone, setPhone] = useState("")
+  const [otp, setOtp] = useState("")
+  const [step, setStep] = useState<"phone" | "otp">("phone")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [shake, setShake] = useState(false)
@@ -2077,24 +2083,65 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
     if (error) setError("")
   }
 
-  const submit = async () => {
+  const showError = (message: string) => {
+    setError(message)
+    setShake(true)
+    setTimeout(() => setShake(false), 500)
+  }
+
+  const requestOtp = async () => {
     if (submitInFlightRef.current) return
     const cleaned = phone.replace(/\D/g, '')
-    if (cleaned.length < 7) { setError("أدخل رقم جوال صحيح"); setShake(true); setTimeout(() => setShake(false), 500); return }
+    if (cleaned.length < 9) { showError("أدخل رقم جوال صحيح"); return }
     submitInFlightRef.current = true
     setLoading(true); setError("")
     try {
-      const d = await call("e3-login-by-phone", null, { phone: cleaned })
-      if (d.error) { setError(d.error); setShake(true); setTimeout(() => setShake(false), 500); return }
-      localStorage.setItem("blindmatch_result_token", d.token)
-      localStorage.setItem("blindmatch_returning_token", d.token)
-      onToken(d.token)
+      const d = await call("e3-request-login-otp", null, { phone })
+      if (d.error) { showError(d.error); return }
+      setOtp("")
+      setStep("otp")
+      toast.success("تم إرسال رمز التحقق برسالة SMS")
     } catch {
-      setError("تعذّر تسجيل الدخول — تحقق من اتصالك وحاول مرة أخرى")
+      showError("تعذّر إرسال الرمز — تحقق من اتصالك وحاول مرة أخرى")
     } finally {
       submitInFlightRef.current = false
       setLoading(false)
     }
+  }
+
+  const verifyOtp = async () => {
+    if (submitInFlightRef.current) return
+    const code = otp.replace(/\D/g, '')
+    if (!/^\d{4,8}$/.test(code)) { showError("أدخل رمز التحقق المرسل إلى جوالك"); return }
+    submitInFlightRef.current = true
+    setLoading(true); setError("")
+    try {
+      const d = await call("e3-verify-login-otp", null, { phone, otp: code })
+      if (d.error || !d.success || !d.token) { showError(d.error || "تعذّر التحقق من الرمز"); return }
+
+      // This is intentionally a normal participant login: once the provider
+      // verifies the phone, every main-site page may restore this account.
+      localStorage.setItem("blindmatch_result_token", d.token)
+      localStorage.setItem("blindmatch_returning_token", d.token)
+      if (d.name) localStorage.setItem("blindmatch_participant_name", d.name)
+      if (d.assigned_number) localStorage.setItem("blindmatch_participant_number", String(d.assigned_number))
+      localStorage.removeItem("blindmatch_event3_participant_token")
+      onToken(d.token)
+    } catch {
+      showError("تعذّر التحقق — تحقق من اتصالك وحاول مرة أخرى")
+    } finally {
+      submitInFlightRef.current = false
+      setLoading(false)
+    }
+  }
+
+  const submit = () => step === "phone" ? requestOtp() : verifyOtp()
+
+  const editPhone = () => {
+    if (loading) return
+    setStep("phone")
+    setOtp("")
+    setError("")
   }
 
   return (
@@ -2121,8 +2168,10 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
             </div>
           </motion.div>
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-            <h1 className="text-3xl font-black text-white">أهلاً بك</h1>
-            <p className="text-gray-400 text-sm mt-2 leading-relaxed">أدخل رقم جوالك المسجّل في الفعالية</p>
+            <h1 className="text-3xl font-black text-white">{step === "phone" ? "أهلاً بك" : "تحقق من جوالك"}</h1>
+            <p className="text-gray-400 text-sm mt-2 leading-relaxed">
+              {step === "phone" ? "أدخل رقم جوالك المسجّل في الفعالية" : "أدخل رمز التحقق المرسل إليك عبر SMS"}
+            </p>
           </motion.div>
         </div>
 
@@ -2130,30 +2179,51 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
           <GlassCard className="p-5 shadow-2xl shadow-black/30">
             <form onSubmit={event => { event.preventDefault(); submit() }} className="space-y-3" noValidate>
-              <label htmlFor="event3-phone" className="mr-1 block text-right text-xs font-bold text-gray-300">
-                رقم الجوال
+              <label htmlFor={step === "phone" ? "event3-phone" : "event3-otp"} className="mr-1 block text-right text-xs font-bold text-gray-300">
+                {step === "phone" ? "رقم الجوال" : "رمز التحقق"}
               </label>
               <motion.div animate={shake ? { x: [-8, 8, -6, 6, -3, 3, 0] } : { x: 0 }} transition={{ duration: 0.4 }}>
-                <input
-                  id="event3-phone"
-                  name="phone"
-                  type="tel"
-                  inputMode="numeric"
-                  autoComplete="tel"
-                  enterKeyHint="go"
-                  maxLength={24}
-                  dir="ltr"
-                  placeholder="05XXXXXXXX"
-                  value={phone}
-                  onChange={handleInput}
-                  aria-invalid={Boolean(error)}
-                  aria-describedby={error ? "event3-phone-error event3-phone-help" : "event3-phone-help"}
-                  className={`w-full bg-gray-800/80 border text-white rounded-2xl px-5 py-4 text-center text-xl font-bold tracking-widest focus:outline-none transition-all placeholder:text-gray-500 placeholder:font-normal placeholder:tracking-normal
-                    ${error ? 'border-red-500/70 focus:border-red-400' : 'border-gray-700/70 focus:border-purple-500/70 focus:bg-gray-800/90'}`}
-                />
+                {step === "phone" ? (
+                  <input
+                    id="event3-phone"
+                    name="phone"
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    enterKeyHint="send"
+                    maxLength={24}
+                    dir="ltr"
+                    placeholder="05XXXXXXXX"
+                    value={phone}
+                    onChange={handleInput}
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? "event3-phone-error event3-phone-help" : "event3-phone-help"}
+                    className={`w-full bg-gray-800/80 border text-white rounded-2xl px-5 py-4 text-center text-xl font-bold tracking-widest focus:outline-none transition-all placeholder:text-gray-500 placeholder:font-normal placeholder:tracking-normal
+                      ${error ? 'border-red-500/70 focus:border-red-400' : 'border-gray-700/70 focus:border-purple-500/70 focus:bg-gray-800/90'}`}
+                  />
+                ) : (
+                  <input
+                    id="event3-otp"
+                    name="otp"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    enterKeyHint="done"
+                    maxLength={8}
+                    dir="ltr"
+                    placeholder="••••••"
+                    value={otp}
+                    onChange={event => { setOtp(event.target.value.replace(/\D/g, '').slice(0, 8)); if (error) setError("") }}
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? "event3-phone-error event3-phone-help" : "event3-phone-help"}
+                    autoFocus
+                    className={`w-full bg-gray-800/80 border text-white rounded-2xl px-5 py-4 text-center text-2xl font-black tracking-[0.4em] focus:outline-none transition-all placeholder:text-gray-500
+                      ${error ? 'border-red-500/70 focus:border-red-400' : 'border-gray-700/70 focus:border-purple-500/70 focus:bg-gray-800/90'}`}
+                  />
+                )}
               </motion.div>
               <p id="event3-phone-help" className="text-center text-xs leading-relaxed text-gray-400">
-                استخدم الرقم نفسه المسجّل لدى المنظم
+                {step === "phone" ? "استخدم الرقم نفسه المسجّل لدى المنظم" : `أرسلنا الرمز إلى ${phone}`}
               </p>
               <AnimatePresence>
                 {error && (
@@ -2163,8 +2233,19 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
               </AnimatePresence>
               <motion.button type="submit" disabled={loading} aria-busy={loading} whileTap={{ scale: 0.97 }}
                 className="w-full min-h-14 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-50 text-white rounded-2xl px-4 py-4 font-black text-lg shadow-lg shadow-purple-600/30 transition-all flex items-center justify-center gap-2">
-                {loading ? <><motion.div aria-hidden="true" animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }} className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />جاري التحقق...</> : <span className="flex items-center justify-center gap-2">دخول <Sparkles size={16} /></span>}
+                {loading ? (
+                  <><motion.div aria-hidden="true" animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }} className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />{step === "phone" ? "جاري الإرسال..." : "جاري التحقق..."}</>
+                ) : (
+                  <span className="flex items-center justify-center gap-2">{step === "phone" ? "إرسال رمز التحقق" : "تأكيد ودخول"} <Sparkles size={16} /></span>
+                )}
               </motion.button>
+              {step === "otp" && (
+                <div className="flex items-center justify-center gap-3 pt-1 text-xs font-bold">
+                  <button type="button" onClick={requestOtp} disabled={loading} className="min-h-11 text-purple-300 disabled:opacity-50">إعادة إرسال الرمز</button>
+                  <span className="text-gray-700">•</span>
+                  <button type="button" onClick={editPhone} disabled={loading} className="min-h-11 text-gray-300 disabled:opacity-50">تغيير الرقم</button>
+                </div>
+              )}
             </form>
           </GlassCard>
         </motion.div>

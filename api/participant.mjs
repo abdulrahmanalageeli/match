@@ -27,6 +27,10 @@ import { isEvent3SignedUp } from "../server/event3/enrollment.mjs"
 import { normalizeGroupMemberFeedback } from "../server/event3/group-member-feedback.mjs"
 import { getEvent3PhaseTimerSeconds } from "../server/event3/timing.mjs"
 import {
+  sendAuthenticaOtp,
+  verifyAuthenticaOtp,
+} from "../server/auth/authentica-otp.mjs"
+import {
   event3GroupRoundCount,
   isChoiceOnlyEvent3,
   loadEvent3Format,
@@ -4244,39 +4248,95 @@ Please respond in JSON format:
         return res.status(200).json(baseResponse)
       }
 
-      // e3-login-by-phone (no token required)
+      // Cached clients must not retain the former phone-only login behavior.
       if (action === "e3-login-by-phone") {
+        return res.status(409).json({
+          error: "تم تحديث تسجيل الدخول ليطلب رمز تحقق. أعد تحميل الصفحة للمتابعة بأمان.",
+          code: "EVENT3_OTP_REQUIRED",
+          retryable: false,
+        })
+      }
+
+      // Event 3 phone login grants the participant's regular website session,
+      // but only after Authentica verifies an SMS OTP for the stored number.
+      if (action === "e3-request-login-otp" || action === "e3-verify-login-otp") {
         const { phone } = req.body
         if (!phone) return res.status(400).json({ error: "رقم الجوال مطلوب" })
-        const raw = String(phone).replace(/\D/g, '')
-        const last7 = raw.slice(-7)
-        if (last7.length < 7) return res.status(400).json({ error: "رقم الجوال غير صحيح" })
-        const { data: candidates } = await supabase
-          .from("participants").select("assigned_number,secure_token,name,phone_number")
-          .eq("match_id", MAIN_MATCH).not("phone_number", "is", null)
-          .ilike("phone_number", `%${last7}`)
-        const exactMatches = (candidates || []).filter(c => {
-          const cp = String(c.phone_number || '').replace(/\D/g, '')
-          return cp.length >= 7 && cp.slice(-7) === last7
-        })
+        if (!isPlausibleParticipantPhone(phone)) return res.status(400).json({ error: "رقم الجوال غير صحيح" })
+
+        const { participants: exactMatches, error: phoneLookupError } = await findParticipantsByExactPhone(
+          phone,
+          "id,assigned_number,secure_token,name,phone_number",
+        )
+        if (phoneLookupError) {
+          logError("Event3 OTP participant lookup", phoneLookupError)
+          return res.status(503).json({ error: "تعذر التحقق من تسجيلك مؤقتاً. حاول مرة أخرى.", retryable: true })
+        }
         if (exactMatches.length === 0) return res.status(404).json({ error: "لم يتم العثور على رقمك في الفعالية. تأكد من الرقم أو تواصل مع المنظم." })
 
-        // Resolve duplicate phone numbers against today's Event3 enrollment
-        // before treating them as ambiguous. This lets a returning participant
-        // log into the one account actually selected for the current event.
+        // Duplicate historical accounts are resolved against the active Event3
+        // roster; only the single enrolled account may receive a full login.
         const candidateNumbers = exactMatches.map(candidate => candidate.assigned_number)
         const { data: enrolledRows, error: enrolledError } = await supabase.from("event3_participants")
-          .select("participant_number").eq("match_id", E3_MATCH_ID)
+          .select("participant_number")
+          .eq("match_id", E3_MATCH_ID)
           .eq("event_id", currentEventId)
           .in("participant_number", candidateNumbers)
-        if (enrolledError) return res.status(500).json({ error: "تعذر التحقق من تسجيلك في الفعالية. حاول مرة أخرى." })
+        if (enrolledError) {
+          logError("Event3 OTP enrollment lookup", enrolledError)
+          return res.status(503).json({ error: "تعذر التحقق من تسجيلك مؤقتاً. حاول مرة أخرى.", retryable: true })
+        }
         const enrolledNumbers = new Set((enrolledRows || []).map(row => row.participant_number))
         const enrolledMatches = exactMatches.filter(candidate => enrolledNumbers.has(candidate.assigned_number))
         if (enrolledMatches.length > 1) return res.status(409).json({ error: "يوجد أكثر من حساب بنفس رقم الجوال مسجّل في هذه الفعالية. تواصل مع المنظم للدخول بأمان." })
         if (enrolledMatches.length === 0) return res.status(403).json({ error: "رقمك غير مسجّل في هذه الفعالية. تواصل مع المنظم." })
-        const match = enrolledMatches[0]
-        const firstName = (match.name || '').trim().split(/\s+/)[0] || 'مشارك'
-        return res.status(200).json({ token: match.secure_token, name: firstName })
+
+        const matchedParticipant = enrolledMatches[0]
+        const verifiedPhone = participantPhoneToE164(matchedParticipant.phone_number)
+        const otpRateLimit = action === "e3-request-login-otp"
+          ? { key: "e3-login-otp-request", identity: String(matchedParticipant.assigned_number), limit: 3, windowMs: 10 * 60_000 }
+          : { key: "e3-login-otp-verify", identity: String(matchedParticipant.assigned_number), limit: 10, windowMs: 15 * 60_000 }
+        if (!enforceRateLimit(req, res, otpRateLimit)) return
+        res.setHeader("Cache-Control", "no-store")
+
+        if (action === "e3-request-login-otp") {
+          try {
+            await sendAuthenticaOtp({ phone: verifiedPhone, method: "sms" })
+            return res.status(200).json({ success: true, message: "تم إرسال رمز التحقق عبر الرسائل النصية" })
+          } catch (error) {
+            logError("Authentica Event3 OTP send", { code: error?.code, status: error?.status })
+            const configurationError = error?.code === "AUTHENTICA_NOT_CONFIGURED"
+            return res.status(configurationError ? 500 : 503).json({
+              error: configurationError ? "خدمة رمز التحقق غير مهيأة" : "تعذّر إرسال رمز التحقق. حاول مرة أخرى.",
+              retryable: !configurationError,
+            })
+          }
+        }
+
+        const otp = String(req.body?.otp || "").trim()
+        if (!/^\d{4,8}$/.test(otp)) return res.status(400).json({ error: "أدخل رمز التحقق الصحيح" })
+        try {
+          const verification = await verifyAuthenticaOtp({ phone: verifiedPhone, otp })
+          if (!verification.verified) {
+            return res.status(400).json({ error: "رمز التحقق غير صحيح أو منتهي الصلاحية" })
+          }
+          const participantName = String(matchedParticipant.name || "").trim()
+          return res.status(200).json({
+            success: true,
+            token: matchedParticipant.secure_token,
+            secure_token: matchedParticipant.secure_token,
+            assigned_number: matchedParticipant.assigned_number,
+            name: participantName,
+            session_scope: "participant",
+          })
+        } catch (error) {
+          logError("Authentica Event3 OTP verify", { code: error?.code, status: error?.status })
+          const configurationError = error?.code === "AUTHENTICA_NOT_CONFIGURED"
+          return res.status(configurationError ? 500 : 503).json({
+            error: configurationError ? "خدمة رمز التحقق غير مهيأة" : "تعذّر التحقق من الرمز. حاول مرة أخرى.",
+            retryable: !configurationError,
+          })
+        }
       }
 
       if (!participant) return res.status(401).json({ error: "Invalid or missing token" })

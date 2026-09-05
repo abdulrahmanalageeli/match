@@ -28,7 +28,7 @@ test("Event3 token lookup only caches confirmed Supabase results", async () => {
 test("Event3 heartbeat distinguishes invalid identity from retriable service failures", async () => {
   const api = await read("api/participant.mjs")
   const setup = between(api, "const token = typeof req.body.token", "const currentEventId")
-  const heartbeat = between(api, "if (action === \"e3-get-state\" || action === \"e3-heartbeat\")", "// e3-login-by-phone")
+  const heartbeat = between(api, "if (action === \"e3-get-state\" || action === \"e3-heartbeat\")", "// Cached clients must not retain")
 
   assert.match(setup, /tokenResolution\.status === "unavailable"[\s\S]*res\.status\(503\)[\s\S]*code: "EVENT3_AUTH_UNAVAILABLE"[\s\S]*retryable: true/)
   assert.match(setup, /action === "e3-heartbeat" && !participant[\s\S]*res\.status\(401\)[\s\S]*code: "PARTICIPANT_TOKEN_INVALID"[\s\S]*retryable: false/)
@@ -85,7 +85,7 @@ test("Event3 participant requests are pinned to both the displayed edition and r
   assert.match(requestGuard, /Number\(expectedEvent3EventId\) !== Number\(currentEventId\)/)
   assert.match(call, /event3_runtime_event_id/)
   assert.match(call, /expected_event_id: Number\(expectedEventId\)/)
-  assert.match(route, /EVENT3_SESSION_DISCOVERY_ACTIONS = new Set\(\["e3-heartbeat", "e3-get-public-format", "e3-login-by-phone"\]\)/)
+  assert.match(route, /EVENT3_SESSION_DISCOVERY_ACTIONS = new Set\([\s\S]*"e3-heartbeat"[\s\S]*"e3-get-public-format"[\s\S]*"e3-request-login-otp"[\s\S]*"e3-verify-login-otp"[\s\S]*\)/)
   assert.match(call, /removeItem\("event3_runtime_session_key"\)[\s\S]*removeItem\("event3_runtime_event_id"\)[\s\S]*return call\(action, token, extra, true\)/)
 })
 

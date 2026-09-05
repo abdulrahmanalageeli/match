@@ -3327,6 +3327,51 @@ const fetchParticipants = async () => {
     }
   }, [authenticated])
 
+  useEffect(() => {
+    if (!authenticated) return
+
+    let cancelled = false
+    const pollDeltaReview = async () => {
+      if (document.hidden) return
+      try {
+        const includeParticipants = showDeltaCacheTooltip
+        const res = await fetch('/api/admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            action: includeParticipants ? 'get-delta-cache-participants' : 'get-delta-cache-count',
+            event_id: currentEventId,
+          }),
+        })
+        if (!res.ok) return
+
+        const data = await res.json()
+        if (cancelled) return
+        setDeltaCacheCount(data.count ?? data.participants?.length ?? 0)
+        if (data.reasonCounts) setDeltaCacheReasonCounts(data.reasonCounts)
+        if (includeParticipants && Array.isArray(data.participants)) {
+          setDeltaCacheParticipants(data.participants)
+        }
+      } catch {
+        // Best-effort live refresh; the next interval retries automatically.
+      }
+    }
+
+    void pollDeltaReview()
+    const deltaReviewInterval = setInterval(() => { void pollDeltaReview() }, 15000)
+    const refreshWhenVisible = () => {
+      if (!document.hidden) void pollDeltaReview()
+    }
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+
+    return () => {
+      cancelled = true
+      clearInterval(deltaReviewInterval)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
+    }
+  }, [authenticated, currentEventId, showDeltaCacheTooltip])
+
   // Real-time clock update
   useEffect(() => {
     const clockInterval = setInterval(() => {

@@ -1761,6 +1761,47 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
   }, [reduceMotion])
 
   useEffect(() => {
+    if (reduceMotion || introStage === "welcome") return
+
+    let frameId = 0
+    let previousFrame: number | null = null
+    let consecutiveSlowFrames = 0
+
+    const resetFrameSample = () => {
+      previousFrame = null
+      consecutiveSlowFrames = 0
+    }
+
+    const watchFramePacing = (timestamp: number) => {
+      if (previousFrame !== null && document.visibilityState === "visible") {
+        const frameGap = timestamp - previousFrame
+
+        if (frameGap >= 250) {
+          setIntroStage("welcome")
+          return
+        }
+
+        consecutiveSlowFrames = frameGap >= 50 ? consecutiveSlowFrames + 1 : 0
+        if (consecutiveSlowFrames >= 4) {
+          setIntroStage("welcome")
+          return
+        }
+      }
+
+      previousFrame = timestamp
+      frameId = window.requestAnimationFrame(watchFramePacing)
+    }
+
+    document.addEventListener("visibilitychange", resetFrameSample)
+    frameId = window.requestAnimationFrame(watchFramePacing)
+
+    return () => {
+      document.removeEventListener("visibilitychange", resetFrameSample)
+      window.cancelAnimationFrame(frameId)
+    }
+  }, [introStage, reduceMotion])
+
+  useEffect(() => {
     if (introStage !== "welcome") return
     const focusTimer = window.setTimeout(() => {
       const target = phase === "splash" ? splashHeadingRef.current : walkHeadingRef.current
@@ -2044,50 +2085,63 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
                 لقاءات حقيقية تقودها اختيارات متبادلة — بخطوات واضحة وخصوصية كاملة.
               </motion.p>
 
-              <motion.div initial={{ opacity: 0, y: 14, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: reduceMotion ? 0 : 0.58, duration: 0.46, ease: [0.22, 1, 0.36, 1] }} className="mt-4 grid w-full grid-cols-3 gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.035] p-2 shadow-2xl shadow-black/20 backdrop-blur-xl">
-                {journeyStats.map(({ value, label, Icon, tone }, index) => (
-                  <motion.div key={label} initial={{ opacity: 0, y: 7 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: reduceMotion ? 0 : 0.66 + index * 0.055, duration: 0.32 }} className="flex min-w-0 flex-col items-center rounded-xl px-1 py-2">
-                    <div className={`mb-1.5 flex h-7 w-7 items-center justify-center rounded-lg border ${tone}`}><Icon size={14} /></div>
-                    <span className="text-sm font-black leading-none text-white">{value}</span>
-                    <span className="mt-1 text-[9px] font-semibold leading-3 text-gray-400">{label}</span>
-                  </motion.div>
-                ))}
+              <motion.div initial={{ opacity: 0, y: 14, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: reduceMotion ? 0 : 0.58, duration: 0.46, ease: [0.22, 1, 0.36, 1] }} className="relative mt-5 w-full overflow-hidden rounded-[1.65rem] border border-white/[0.1] bg-[linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.018))] p-px shadow-[0_24px_70px_-44px_rgba(139,92,246,.85),inset_0_1px_0_rgba(255,255,255,.08)]">
+                <span className="pointer-events-none absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-purple-200/55 to-transparent" aria-hidden="true" />
+                <div className="relative grid grid-cols-3 overflow-hidden rounded-[calc(1.65rem-1px)] bg-[#0d0a16]/85 px-1 py-2.5">
+                  <span className="pointer-events-none absolute -right-10 -top-14 h-28 w-28 rounded-full bg-blue-500/[0.08] blur-2xl" aria-hidden="true" />
+                  <span className="pointer-events-none absolute -left-10 -bottom-14 h-28 w-28 rounded-full bg-fuchsia-500/[0.07] blur-2xl" aria-hidden="true" />
+                  {journeyStats.map(({ value, label, Icon, tone }, index) => (
+                    <motion.div key={label} initial={{ opacity: 0, y: 7 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: reduceMotion ? 0 : 0.66 + index * 0.055, duration: 0.32 }} className={`relative flex min-w-0 flex-col items-center px-1 py-1.5 ${index > 0 ? "border-r border-white/[0.055]" : ""}`}>
+                      <div className={`relative mb-2 flex h-8 w-8 items-center justify-center rounded-[0.7rem] border shadow-[inset_0_1px_0_rgba(255,255,255,.09),0_8px_20px_-12px_currentColor] ${tone}`}>
+                        <Icon size={14} strokeWidth={1.8} />
+                      </div>
+                      <span className="bg-gradient-to-b from-white to-white/75 bg-clip-text text-[15px] font-black leading-none text-transparent">{value}</span>
+                      <span className="mt-1.5 text-[9px] font-bold leading-3 text-gray-400">{label}</span>
+                    </motion.div>
+                  ))}
+                </div>
               </motion.div>
 
-              <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: reduceMotion ? 0 : 0.75, duration: 0.48, ease: [0.22, 1, 0.36, 1] }} className="mt-4 w-full space-y-2.5">
+              <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: reduceMotion ? 0 : 0.75, duration: 0.48, ease: [0.22, 1, 0.36, 1] }} className="mt-3.5 w-full space-y-2.5">
               <motion.button
                 whileTap={{ scale: 0.97 }}
                 type="button"
                 onClick={onDone}
-                className="group relative w-full overflow-hidden rounded-2xl bg-gradient-to-l from-fuchsia-500 via-purple-600 to-violet-700 px-4 py-3.5 text-right text-white shadow-[0_18px_50px_-18px_rgba(168,85,247,.85)] transition-all hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-200"
+                className="group relative isolate min-h-[4.65rem] w-full overflow-hidden rounded-[1.45rem] border border-fuchsia-200/20 bg-[linear-gradient(108deg,#4c1d95_0%,#7e22ce_46%,#c026d3_100%)] px-3.5 py-3 text-right text-white shadow-[0_22px_48px_-22px_rgba(168,85,247,.95),inset_0_1px_0_rgba(255,255,255,.22)] transition-[filter,transform,border-color] hover:border-fuchsia-100/35 hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-200"
               >
-                <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/15 to-transparent transition-transform duration-700 group-hover:translate-x-full" aria-hidden="true" />
-                <span className="relative flex items-center justify-between gap-3">
-                  <span>
-                    <span className="block text-base font-black">{showLogout ? "متابعة الفعالية" : "الدخول برقم الجوال"}</span>
-                    <span className="mt-0.5 block text-[11px] font-medium text-white/70">{showLogout ? "تم التعرّف على هذا الجهاز" : "سنرسل لك رمز تحقق آمن"}</span>
+                <span className="pointer-events-none absolute inset-[1px] rounded-[calc(1.45rem-1px)] border border-white/[0.08]" aria-hidden="true" />
+                <span className="pointer-events-none absolute -right-12 -top-16 h-36 w-36 rounded-full bg-white/[0.13] blur-2xl" aria-hidden="true" />
+                <motion.span initial={{ x: "-125%" }} animate={{ x: reduceMotion ? "-125%" : "150%" }} transition={{ delay: 1.15, duration: 0.95, ease: "easeInOut" }} className="pointer-events-none absolute inset-y-0 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-white/[0.16] to-transparent" aria-hidden="true" />
+                <span className="relative flex items-center justify-between gap-2.5">
+                  <span className="flex min-w-0 items-center gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.85rem] border border-white/[0.14] bg-white/[0.1] shadow-[inset_0_1px_0_rgba(255,255,255,.16)]"><Smartphone size={18} strokeWidth={1.9} /></span>
+                    <span className="min-w-0">
+                      <span className="block text-[15px] font-black leading-5 sm:text-base">{showLogout ? "متابعة الفعالية" : "الدخول برقم الجوال"}</span>
+                      <span className="mt-0.5 block text-[10px] font-semibold text-white/65 sm:text-[11px]">{showLogout ? "تم التعرّف على هذا الجهاز" : "سنرسل لك رمز تحقق آمن"}</span>
+                    </span>
                   </span>
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15"><ArrowLeft size={18} className="transition-transform group-hover:-translate-x-0.5" /></span>
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.16] bg-black/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,.1)]"><ArrowLeft size={17} className="transition-transform group-hover:-translate-x-0.5" /></span>
                 </span>
               </motion.button>
 
               <button
                 type="button"
                 onClick={() => { setStep(0); setPhase("steps") }}
-                className="group flex min-h-12 w-full items-center justify-between rounded-2xl border border-white/[0.09] bg-white/[0.045] px-4 text-right text-gray-200 backdrop-blur-xl transition-all hover:border-purple-300/20 hover:bg-white/[0.07] focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
+                className="group relative flex min-h-[3.8rem] w-full items-center justify-between overflow-hidden rounded-[1.25rem] border border-white/[0.095] bg-[linear-gradient(115deg,rgba(255,255,255,.065),rgba(124,58,237,.075),rgba(255,255,255,.025))] px-3 text-right text-gray-200 shadow-[inset_0_1px_0_rgba(255,255,255,.055)] transition-all hover:border-purple-300/25 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
               >
-                <span className="flex items-center gap-2.5"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-purple-400/10 text-purple-300"><Sparkles size={15} /></span><span><span className="block text-xs font-black">كيف تعمل الفعالية؟</span><span className="block text-[10px] text-gray-500">شرح أنيق من ٣ خطوات</span></span></span>
-                <ChevronRight size={15} className="rotate-180 text-gray-500 transition-transform group-hover:-translate-x-0.5" />
+                <span className="pointer-events-none absolute -right-8 top-1/2 h-20 w-20 -translate-y-1/2 rounded-full bg-purple-500/[0.08] blur-xl" aria-hidden="true" />
+                <span className="relative flex items-center gap-2.5"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-purple-300/[0.12] bg-purple-400/[0.09] text-purple-200 shadow-[inset_0_1px_0_rgba(255,255,255,.06)]"><Sparkles size={15} /></span><span><span className="block text-xs font-black text-white/90">كيف تعمل الفعالية؟</span><span className="mt-0.5 block text-[9px] font-medium text-gray-500">كل ما تحتاج معرفته قبل البداية</span></span></span>
+                <span className="relative flex items-center gap-2"><span className="rounded-full border border-white/[0.07] bg-black/10 px-2 py-1 text-[8px] font-bold text-purple-200/65">٣ خطوات</span><ChevronRight size={14} className="rotate-180 text-gray-500 transition-transform group-hover:-translate-x-0.5" /></span>
               </button>
 
-              <div className="flex items-center justify-between gap-3 px-1 pt-0.5">
-                <span className="flex items-center gap-1.5 text-[10px] font-medium text-gray-500"><ShieldCheck size={12} className="text-emerald-400/80" /> بياناتك واختياراتك سرية</span>
+              <div className="flex min-h-11 items-center justify-between gap-2 rounded-2xl border border-white/[0.055] bg-black/[0.12] px-2.5">
+                <span className="flex min-w-0 items-center gap-1.5 text-[9px] font-semibold text-gray-500 sm:text-[10px]"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-emerald-400/[0.06]"><ShieldCheck size={12} className="text-emerald-400/80" /></span> بياناتك واختياراتك سرية</span>
                 <button
                   type="button"
                   onClick={openResults}
-                  className="flex min-h-11 items-center gap-1.5 rounded-xl px-2 text-xs font-bold text-gray-300 transition-colors hover:bg-emerald-400/[0.07] hover:text-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+                  className="flex min-h-9 shrink-0 items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.025] px-2.5 text-[11px] font-bold text-gray-300 transition-colors hover:border-emerald-300/15 hover:bg-emerald-400/[0.07] hover:text-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
                 >
-                  <Trophy size={13} className="text-emerald-400/80" /> النتائج
+                  <Trophy size={13} className="text-emerald-300/80" /> النتائج
                 </button>
               </div>
               </motion.div>

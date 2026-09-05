@@ -99,7 +99,7 @@ test("ordinary results omit the current edition while its temporary Event3 test 
   assert.equal((api.match(/select\("phase,current_event_id,results_visible,test_mode_active"\)/g) || []).length, 2)
 })
 
-test("Event3 tokenless walkthrough loads only the public format contract before rendering", async () => {
+test("Event3 tokenless walkthrough loads only public onboarding metadata before rendering", async () => {
   const api = await read("api/participant.mjs")
   const route = await read("app/routes/event3.tsx")
   const publicAction = between(
@@ -108,11 +108,16 @@ test("Event3 tokenless walkthrough loads only the public format contract before 
     "// Test mode uses real participant records",
   )
 
-  assert.match(publicAction, /return res\.status\(200\)\.json\(\{\s*event_format: eventFormat,\s*group_round_count: groupRoundCount,\s*\}\)/)
+  assert.match(publicAction, /return res\.status\(200\)\.json\(\{\s*event_format: eventFormat,\s*group_round_count: groupRoundCount,\s*participant_access_locked: participantAccessLocked,\s*\}\)/)
   assert.doesNotMatch(publicAction, /\b(?:phase|event_id|participant|test_mode)\s*:/)
   assert.match(route, /call\("e3-get-public-format", null\)/)
   assert.match(route, /eventState\?\.event_format \?\? publicFormatState\?\.event_format/)
   assert.match(route, /if \(showWelcome && publicFormatLoading && !publicFormatState && !eventState\)/)
+  assert.ok(
+    route.indexOf("if (showWelcome) return <WelcomeScreen")
+      < route.indexOf("if (testModeBlocked || publicFormatState?.participant_access_locked === true)"),
+    "the tutorial must render before the admission-closed disclosure",
+  )
 })
 
 test("Event3 results and cohost keep edition-aware top-level fallbacks", async () => {

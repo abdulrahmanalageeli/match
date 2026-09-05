@@ -3992,7 +3992,7 @@ Please respond in JSON format:
     try {
       const [mainStateResult, e3StateResult] = await Promise.all([
         supabase.from("event_state").select("current_event_id").eq("match_id", MAIN_MATCH).maybeSingle(),
-        supabase.from("event_state").select("current_event_id,phase,test_mode_active,test_mode_snapshot").eq("match_id", E3_MATCH_ID).maybeSingle(),
+        supabase.from("event_state").select("current_event_id,phase,test_mode_active,test_mode_snapshot,event3_participant_access_locked").eq("match_id", E3_MATCH_ID).maybeSingle(),
       ])
       if (mainStateResult.error || e3StateResult.error) {
         if (mainStateResult.error) logError("Event3 main event-state lookup", mainStateResult.error)
@@ -4027,26 +4027,32 @@ Please respond in JSON format:
     }
     const groupRoundCount = event3GroupRoundCount(eventFormat)
 
-    // The tokenless walkthrough only needs to know which public script to show.
-    // Keep this response deliberately narrower than the live state endpoint.
+    const participantAccessLocked = !canAccessEvent3DuringTest({
+      testModeActive: e3EventState?.test_mode_active === true,
+      participantAccessLocked: e3EventState?.event3_participant_access_locked === true,
+      impersonate: req.body?.impersonate,
+      adminOverride: req.body?.admin_override,
+    })
+
+    // The tokenless walkthrough needs the public format plus the admission
+    // status so it can show the tutorial before disclosing that entry is closed.
     if (action === "e3-get-public-format") {
       return res.status(200).json({
         event_format: eventFormat,
         group_round_count: groupRoundCount,
+        participant_access_locked: participantAccessLocked,
       })
     }
 
     // Test mode uses real participant records, so prevent ordinary participant
     // links from entering its temporary phases. Admin test links explicitly add
     // ?impersonate=1, which the Event3 client forwards with every request.
-    if (!canAccessEvent3DuringTest({
-      testModeActive: e3EventState?.test_mode_active === true,
-      impersonate: req.body?.impersonate,
-    })) {
+    if (participantAccessLocked) {
       return res.status(423).json({
-        error: "المنظم يجري اختباراً للنظام حالياً. سيفتح الدخول للفعالية بعد انتهاء الاختبار.",
+        error: "الفعالية غير مفتوحة للمشاركين بعد. سيفتح الدخول عند انتهاء الاختبار.",
         code: "EVENT3_TEST_MODE_LOCKED",
-        test_mode: true,
+        test_mode: e3EventState?.test_mode_active === true,
+        participant_access_locked: true,
       })
     }
     const requestTestMode = isEvent3TestImpersonation(req.body?.impersonate)

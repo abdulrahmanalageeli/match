@@ -1486,6 +1486,7 @@ export default function Admin3Page() {
   const [testMode, setTestMode] = useState(false)
   const [testModeLoading, setTestModeLoading] = useState(false)
   const [testModeData, setTestModeData] = useState<any>(null)
+  const [participantAccessLoading, setParticipantAccessLoading] = useState(false)
   const choiceReportRequestGeneration = useRef(0)
   const choicePreviewRequestGeneration = useRef(0)
   const choiceApplyRequestGeneration = useRef(0)
@@ -2717,6 +2718,25 @@ export default function Admin3Page() {
     }
   }
 
+  const toggleParticipantAccessLock = async () => {
+    if (previewEventId != null) { toast.error("لا يمكن تغيير دخول المشاركين أثناء معاينة فعالية محفوظة"); return }
+    const locked = state?.event3_participant_access_locked !== true
+    setParticipantAccessLoading(true)
+    try {
+      const data = await api("e3-set-participant-access-lock", { locked })
+      if (data.error) { toast.error(data.error); return }
+      setState((previous: any) => previous ? {
+        ...previous,
+        event3_participant_access_locked: data.event3_participant_access_locked === true,
+      } : previous)
+      toast.success(locked ? "تم إغلاق دخول المشاركين" : "تم فتح دخول المشاركين")
+    } catch (error: any) {
+      toast.error(error?.message || "تعذّر تحديث دخول المشاركين")
+    } finally {
+      setParticipantAccessLoading(false)
+    }
+  }
+
   const toggleParticipant = (num: number) => {
     setSelectedNumbers(prev => {
       const next = new Set(prev)
@@ -2831,6 +2851,7 @@ export default function Admin3Page() {
   const cohostLockKnown = typeof state?.cohost_locked === "boolean"
   const cohostLocked = state?.cohost_locked === true
   const cohostLockUpdatedAt = Date.parse(String(state?.cohost_lock_updated_at || ""))
+  const participantAccessLocked = state?.event3_participant_access_locked === true
   const canEditEventFormat = state?.phase === "setup" && !state?.seating_generated && previewEventId == null && !testMode && !loading
 
   return (
@@ -3086,6 +3107,34 @@ export default function Admin3Page() {
             </div>
           </div>
         )}
+
+        {/* Participant admission gate */}
+        <div className={`rounded-xl border p-3 sm:p-4 ${participantAccessLocked ? "border-red-700/50 bg-red-950/25" : "border-emerald-800/50 bg-emerald-950/20"}`}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-2.5">
+              {participantAccessLocked ? <EyeOff className="mt-0.5 flex-shrink-0 text-red-300" size={18} /> : <Shield className="mt-0.5 flex-shrink-0 text-emerald-300" size={18} />}
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-sm font-semibold text-gray-200">دخول المشاركين للفعالية الرئيسية</h2>
+                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${participantAccessLocked ? "border-red-600/40 bg-red-500/15 text-red-300" : "border-emerald-600/40 bg-emerald-500/15 text-emerald-300"}`}>
+                    {participantAccessLocked ? "مغلق — اختبار" : "مفتوح"}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs leading-5 text-gray-400">يبقى الشرح ظاهراً للجميع. عند الإغلاق تظهر رسالة «غير مفتوحة بعد» قبل دخول اللعبة؛ رابط <span dir="ltr" className="font-mono text-gray-300">/event3?admin=1</span> يتجاوز الإغلاق للمضيف.</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={toggleParticipantAccessLock}
+              disabled={participantAccessLoading || !!loading || previewEventId != null}
+              aria-pressed={participantAccessLocked}
+              className={`inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${participantAccessLocked ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25" : "border-red-500/30 bg-red-500/15 text-red-200 hover:bg-red-500/25"}`}
+            >
+              {participantAccessLoading ? <Loader2 size={15} className="animate-spin" /> : participantAccessLocked ? <Eye size={15} /> : <EyeOff size={15} />}
+              {participantAccessLocked ? "فتح دخول المشاركين" : "بدء الاختبار وإغلاق الدخول"}
+            </button>
+          </div>
+        </div>
 
         {/* Test Mode Panel */}
         <div className={`border rounded-xl p-3 sm:p-4 ${testMode ? "bg-amber-950/30 border-amber-700/50" : "bg-gray-900 border-gray-800"}`}>

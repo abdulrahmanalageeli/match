@@ -10367,9 +10367,25 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           })
         }
 
+        // e3-set-participant-access-lock
+        if (action === "e3-set-participant-access-lock") {
+          if (!hasAdminAccess) return res.status(403).json({ error: "Admin access is required" })
+          if (typeof req.body?.locked !== "boolean") return res.status(400).json({ error: "locked must be a boolean" })
+          const { data, error } = await supabase
+            .from("event_state")
+            .update({ event3_participant_access_locked: req.body.locked })
+            .eq("match_id", EVENT3_MATCH_ID)
+            .select("event3_participant_access_locked")
+            .single()
+          if (error) return res.status(503).json({ error: "Participant admission could not be updated" })
+          return res.status(200).json({
+            event3_participant_access_locked: data?.event3_participant_access_locked === true,
+          })
+        }
+
         // e3-get-state
         if (action === "e3-get-state") {
-          const { data: stateRow, error: stateError } = await supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration,global_timer_round,phase2_score_revealed,phase3_score_revealed,current_event_id,cohost_locked,cohost_lock_updated_at,test_mode_active,test_session_started_at:test_mode_snapshot->>started_at").eq("match_id", EVENT3_MATCH_ID).single()
+          const { data: stateRow, error: stateError } = await supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration,global_timer_round,phase2_score_revealed,phase3_score_revealed,current_event_id,cohost_locked,cohost_lock_updated_at,test_mode_active,event3_participant_access_locked,test_session_started_at:test_mode_snapshot->>started_at").eq("match_id", EVENT3_MATCH_ID).single()
           if (stateError) return res.status(503).json({ error: "Event state is temporarily unavailable" })
           const eventFormat = await loadEvent3Format(supabase, EVENT3_MATCH_ID, currentEventId)
           const stateChoiceOnly = isChoiceOnlyEvent3(eventFormat)
@@ -10409,7 +10425,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const stateTestMode = stateRow?.test_mode_active === true && Number(currentEventId) === Number(realEventId)
           const stateTestSessionKey = stateTestMode ? (stateRow?.test_session_started_at || "legacy-test") : "live"
           const stateServerNow = new Date().toISOString()
-          return res.status(200).json({ phase, event_id: currentEventId, event_format: eventFormat, group_round_count: event3GroupRoundCount(eventFormat), timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration ?? getEvent3PhaseTimerSeconds(phase), timer_round: stateRow?.global_timer_round ?? null, server_now: stateServerNow, test_mode: stateTestMode, test_session_key: stateTestSessionKey, participants_selected: pc, seating_generated: readiness.seating.complete, rankings_submitted: uniqueRankers, phase2_matches_done: readiness.phase2.complete, phase3_matches_done: readiness.phase3.complete, phase4_matches_done: stateChoiceOnly ? readiness.phase4.complete : false, runtime_readiness: readiness, phase4_schema_available: stateChoiceOnly ? !phase4MigrationRequired : false, migration_required: phase4MigrationRequired, phase2_score_revealed: stateRow?.phase2_score_revealed || false, phase3_score_revealed: stateRow?.phase3_score_revealed || false, cohost_locked: stateRow?.cohost_locked === true, cohost_lock_updated_at: stateRow?.cohost_lock_updated_at || null, current_event_id: currentEventId, _debug: { realEventId, currentEventId, errors: { participants: pcErr?.message || null, seating: scErr?.message || null, matches: mcErr?.message || null, phase4: matchResult.error?.message || null, rankings: rankErr?.message || null } } })
+          return res.status(200).json({ phase, event_id: currentEventId, event_format: eventFormat, group_round_count: event3GroupRoundCount(eventFormat), timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration ?? getEvent3PhaseTimerSeconds(phase), timer_round: stateRow?.global_timer_round ?? null, server_now: stateServerNow, test_mode: stateTestMode, test_session_key: stateTestSessionKey, event3_participant_access_locked: stateRow?.event3_participant_access_locked === true, participants_selected: pc, seating_generated: readiness.seating.complete, rankings_submitted: uniqueRankers, phase2_matches_done: readiness.phase2.complete, phase3_matches_done: readiness.phase3.complete, phase4_matches_done: stateChoiceOnly ? readiness.phase4.complete : false, runtime_readiness: readiness, phase4_schema_available: stateChoiceOnly ? !phase4MigrationRequired : false, migration_required: phase4MigrationRequired, phase2_score_revealed: stateRow?.phase2_score_revealed || false, phase3_score_revealed: stateRow?.phase3_score_revealed || false, cohost_locked: stateRow?.cohost_locked === true, cohost_lock_updated_at: stateRow?.cohost_lock_updated_at || null, current_event_id: currentEventId, _debug: { realEventId, currentEventId, errors: { participants: pcErr?.message || null, seating: scErr?.message || null, matches: mcErr?.message || null, phase4: matchResult.error?.message || null, rankings: rankErr?.message || null } } })
         }
         // e3-get-participants
         if (action === "e3-get-participants") {

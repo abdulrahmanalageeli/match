@@ -27,6 +27,7 @@ import {
   currentBalancedGroupedDimensionsForDisplay,
 } from "~/lib/compatibility-model"
 import { clearParticipantBrowserIdentity, getParticipantBrowserToken } from "~/lib/participant-browser-auth.mjs"
+import { hasEvent3AdminUriOverride } from "~/lib/event3-admin-uri.mjs"
 import {
   EVENT3_CONTACT_MESSAGE_MAX_LENGTH,
   EVENT3_MEMORY_WORD_MAX_LENGTH,
@@ -273,6 +274,7 @@ async function call(action: string, token: string | null, extra: Record<string, 
         action,
         token,
         impersonate: typeof window !== "undefined" && new URLSearchParams(window.location.search).get("impersonate") === "1",
+        admin_override: typeof window !== "undefined" && hasEvent3AdminUriOverride(window.location.search),
         ...(expectedSessionKey ? { expected_event3_session_key: expectedSessionKey } : {}),
         ...(expectedEventId ? { expected_event_id: Number(expectedEventId) } : {}),
         ...extra,
@@ -7904,10 +7906,10 @@ export default function Event3Page() {
   const fetchPublicFormat = useCallback(async () => {
     const d = await call("e3-get-public-format", null)
     if (d.error) throw new Error(d.error)
-    return d as { event_format?: unknown; group_round_count?: number }
+    return d as { event_format?: unknown; group_round_count?: number; participant_access_locked?: boolean }
   }, [])
   const { data: publicFormatState, loading: publicFormatLoading, error: publicFormatError, retry: retryPublicFormat } = useApiPoll(fetchPublicFormat, {
-    stopWhen: () => true,
+    interval: 5000,
   })
   const eventFormat = normalizeEvent3Format(
     eventState?.event_format ?? publicFormatState?.event_format,
@@ -8190,26 +8192,6 @@ export default function Event3Page() {
     </PageWrapper>
   )
 
-  if (testModeBlocked) return (
-    <PageWrapper className="flex items-center justify-center p-6 text-center">
-      <div className="w-full max-w-sm rounded-3xl border border-amber-500/20 bg-gradient-to-b from-amber-950/35 to-gray-950 p-7 shadow-2xl shadow-amber-950/20">
-        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-amber-500/25 bg-amber-500/10">
-          <ShieldCheck className="text-amber-300" size={31} />
-        </div>
-        <p className="mb-2 text-xs font-bold tracking-wide text-amber-300">وضع الاختبار</p>
-        <h1 className="text-xl font-black text-white">نجهّز التجربة الآن</h1>
-        <p className="mt-3 text-sm leading-7 text-gray-400">المنظم يجري اختباراً سريعاً للنظام. سيفتح دخول المشاركين تلقائياً بعد انتهاء الاختبار.</p>
-        <div className="mt-6 flex flex-col items-stretch gap-3">
-          <button onClick={() => { setTestModeBlocked(false); retryState() }} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-4 py-2.5 text-sm font-bold text-gray-200 transition-colors hover:bg-white/[0.08]">
-            <RefreshCw size={15} />
-            التحقق مجدداً
-          </button>
-          {token && !isImpersonating && <ParticipantLogoutButton onLogout={handleLogout} />}
-        </div>
-      </div>
-    </PageWrapper>
-  )
-
   if (showWelcome && publicFormatLoading && !publicFormatState && !eventState) return (
     <PageWrapper className="flex items-center justify-center" aria-label="جاري تحميل تفاصيل الفعالية">
       <Spinner size={28} />
@@ -8229,6 +8211,27 @@ export default function Event3Page() {
   )
 
   if (showWelcome) return <WelcomeScreen onDone={handleWelcomeDone} onLogout={handleLogout} showLogout={!!token && !isImpersonating} eventFormat={eventFormat} />
+
+  if (testModeBlocked || publicFormatState?.participant_access_locked === true) return (
+    <PageWrapper className="flex items-center justify-center p-6 text-center">
+      <div className="w-full max-w-sm rounded-3xl border border-amber-500/20 bg-gradient-to-b from-amber-950/35 to-gray-950 p-7 shadow-2xl shadow-amber-950/20">
+        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-amber-500/25 bg-amber-500/10">
+          <ShieldCheck className="text-amber-300" size={31} />
+        </div>
+        <p className="mb-2 text-xs font-bold tracking-wide text-amber-300">الفعالية الرئيسية</p>
+        <h1 className="text-xl font-black text-white">غير مفتوحة بعد</h1>
+        <p className="mt-3 text-sm leading-7 text-gray-400">نجهّز الفعالية الآن. سيُفتح دخول المشاركين تلقائياً عند انتهاء الاختبار.</p>
+        <div className="mt-6 flex flex-col items-stretch gap-3">
+          <button onClick={() => { setTestModeBlocked(false); retryPublicFormat(); if (token) retryState() }} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-4 py-2.5 text-sm font-bold text-gray-200 transition-colors hover:bg-white/[0.08]">
+            <RefreshCw size={15} />
+            التحقق مجدداً
+          </button>
+          {token && !isImpersonating && <ParticipantLogoutButton onLogout={handleLogout} />}
+        </div>
+      </div>
+    </PageWrapper>
+  )
+
   if (!token || tokenError) return <PhoneEntry onToken={t => { setToken(t); setTokenError(false) }} />
 
   if (stateLoading && !eventState) return (

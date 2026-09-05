@@ -12,7 +12,7 @@ async function fireConfetti(opts: any) {
   } catch {}
 }
 import {
-  Clock, MapPin, Brain, ExternalLink, ArrowLeft, KeyRound,
+  Clock, MapPin, Brain, ExternalLink, ArrowLeft,
   CheckCircle, Send, RefreshCw, Sparkles, Home, Trophy, Lock, GripVertical,
   MessageSquare, ChevronRight, Users, PenLine, Shuffle, BarChart3, X, Heart, LogOut,
   Frown, Meh, Smile, Layers, Zap,
@@ -358,7 +358,7 @@ function clearAllArrived() {
   }
 }
 
-const EVENT3_ONBOARDING_KEY = "e3_onboarding_v4_1"
+const EVENT3_ONBOARDING_KEY = "e3_onboarding_event3_v5_0_v1"
 
 function clearStoredParticipantIdentity() {
   if (typeof window === "undefined") return
@@ -1316,8 +1316,7 @@ function CompatibilityBreakdown({ breakdown, scoreRow, accent = "purple", partne
 const WALK_SLIDES: { key: string; accent: keyof typeof WALK_ACCENTS; label: string }[] = [
   { key: "overview", accent: "purple",  label: "رحلتك الليلة" },
   { key: "ranking",  accent: "amber",   label: "الترتيب" },
-  { key: "sessions", accent: "pink",    label: "الجلسات الفردية" },
-  { key: "feedback", accent: "emerald", label: "التقييم والنهاية" },
+  { key: "feedback", accent: "emerald", label: "الخصوصية والنهاية" },
 ]
 
 const WALK_ACCENTS = {
@@ -1482,27 +1481,27 @@ function WalkSlide({ step, headingRef, eventFormat }: { step: number; headingRef
           <div className="space-y-4">
             <div className="text-center space-y-1">
               <h2 ref={headingRef} tabIndex={-1} className="text-white font-black text-xl focus:outline-none">كيف تسير الفعالية؟</h2>
-              <p className="text-gray-400 text-xs leading-relaxed">خريطة مختصرة — وبعدها ستخبرك الشاشة بما تفعله الآن في كل مرحلة</p>
+              <p className="text-gray-400 text-xs leading-relaxed">ثلاث محطات واضحة، والشاشة تقودك في كل خطوة</p>
             </div>
-            <div className="space-y-2">
+            <div className="relative space-y-2.5 before:absolute before:bottom-8 before:right-[1.15rem] before:top-8 before:w-px before:bg-gradient-to-b before:from-purple-500/60 before:via-pink-500/40 before:to-transparent">
               {[
-                { Icon: Users, c: "text-blue-400 bg-blue-500/15 border-blue-500/25", t: choiceOnly ? "ثلاث جولات جماعية" : "جولتان جماعيتان", d: choiceOnly ? "في كل جولة تجلس مع مجموعة لا تتجاوز ٦ أشخاص وتتعرّف على وجوه جديدة" : "تجلس مع مجموعات صغيرة وتتعرّف على الجميع" },
-                { Icon: BarChart3, c: "text-amber-400 bg-amber-500/15 border-amber-500/25", t: "ترتيب من قابلت", d: "ترتّب من تفضّل جلسة فردية معه" },
-                { Icon: Heart, c: "text-pink-400 bg-pink-500/15 border-pink-500/25", t: choiceOnly ? "لقاء الاختيار الأول" : "جلسة اختيارك", d: choiceOnly ? "أقوى اختيار متبادل يمكن إكمال الجولة معه" : "جلسة فردية مع أفضل تطابق متبادل من ترتيبك" },
-                { Icon: choiceOnly ? Heart : Brain, c: "text-purple-400 bg-purple-500/15 border-purple-500/25", t: choiceOnly ? "لقاء الاختيار الثاني" : "جلسة التوافق الذكي", d: choiceOnly ? "لقاء متبادل جديد بعد استبعاد شريك اللقاء الأول" : "جلسة فردية مع من يرشّحه النظام لك" },
-                ...(choiceOnly ? [{ Icon: Heart, c: "text-violet-400 bg-violet-500/15 border-violet-500/25", t: "لقاء الاختيار الثالث", d: "أفضل توزيع شامل متبقٍ مع شخص ثالث مختلف" }] : []),
-                { Icon: Trophy, c: "text-violet-400 bg-violet-500/15 border-violet-500/25", t: "الكشف النهائي", d: "تكتشف نتائجك ومن تريد التواصل معه" },
+                { Icon: Users, c: "text-blue-300 bg-blue-500/15 border-blue-400/25", t: choiceOnly ? "٣ جولات جماعية" : "جولتان جماعيتان", d: "تتعرّف على وجوه جديدة في مجموعات صغيرة" },
+                { Icon: BarChart3, c: "text-amber-300 bg-amber-500/15 border-amber-400/25", t: "ترتيب سري", d: "ترتّب من شعرت براحة أكبر في الحديث معه" },
+                { Icon: Heart, c: "text-pink-300 bg-pink-500/15 border-pink-400/25", t: choiceOnly ? "٣ لقاءات فردية" : "لقاءان فرديان", d: "تنتقل للقاءات مختلفة بناءً على الاختيارات المتبادلة" },
               ].map((r, i) => (
                 <motion.div key={i} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.09 }}
-                  className="flex items-center gap-3 bg-white/[0.03] border border-white/[0.06] rounded-2xl px-3 py-2.5">
-                  <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${r.c}`}><r.Icon size={17} /></div>
+                  className="relative flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.035] px-3 py-3">
+                  <div className={`relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${r.c}`}><r.Icon size={17} /></div>
                   <div className="flex-1 text-right">
                     <p className="text-white font-bold text-[13px]">{r.t}</p>
                     <p className="text-gray-400 text-xs leading-snug">{r.d}</p>
                   </div>
-                  <span className="text-gray-600 text-xs font-mono" aria-hidden="true">{i + 1}</span>
                 </motion.div>
               ))}
+            </div>
+            <div className="flex items-center justify-center gap-1.5 rounded-xl border border-purple-400/15 bg-purple-500/[0.07] px-3 py-2 text-[11px] font-semibold text-purple-200">
+              <Sparkles size={13} aria-hidden="true" />
+              لا تحتاج لحفظ شيء — سنخبرك بما تفعله لحظياً
             </div>
           </div>
         )}
@@ -1559,26 +1558,22 @@ function WalkSlide({ step, headingRef, eventFormat }: { step: number; headingRef
                 )
               })}
             </div>
-            {/* The crucial caveat */}
-            <div className="rounded-xl border border-amber-700/40 bg-amber-950/30 px-3 py-2.5 space-y-1.5">
-              <p className="text-amber-300 text-xs font-black flex items-center gap-1.5"><AlertTriangle size={13} /> مهم جداً — كيف تُحسم الجلسة</p>
-              <p className="text-amber-100/80 text-xs leading-relaxed">
-                الجلسة تحدث فقط عند <span className="text-amber-300 font-bold">التطابق المتبادل</span>. إذا رتّبت شخصاً أولاً لكنه لم يرتّبك عالياً، قد لا تجلس معه.
+            <div className="rounded-xl border border-amber-500/25 bg-amber-400/[0.08] px-3 py-3 space-y-2">
+              <p className="flex items-center gap-1.5 text-xs font-black text-amber-200"><Heart size={13} fill="currentColor" aria-hidden="true" /> الاختيار متبادل</p>
+              <p className="text-xs leading-relaxed text-amber-50/80">
+                ترتيب شخص أولاً لا يضمن اللقاء؛ يجب أن يكون الاهتمام متبادلاً. سنبحث دائماً عن أفضل اختيار متاح للطرفين.
               </p>
-              <p className="text-gray-300 text-xs leading-relaxed">
-                لا نضمن أن تجلس مع خياراتك الأولى — إذا لم يخترك أحد من أعلى قائمتك، سيمنحك النظام أفضل تطابق متبادل متاح لك.
-              </p>
-              {choiceOnly && (
-                <p className="border-t border-amber-700/30 pt-2 text-xs leading-relaxed text-gray-300">
-                  في اللقاءين الأول والثاني نبدأ بأقوى الرتب المتبادلة، ونتجاوز زوجاً فقط إذا كان اختياره سيمنع إكمال أزواج الجولة. اللقاء الثالث يختار أفضل توزيع شامل من الخيارات المتبقية. اختيار #1 المتبادل قوي، لكنه ليس وعداً تلقائياً بجلسة.
-                </p>
-              )}
-              {choiceOnly && (
-                <p className="flex items-start gap-1.5 border-t border-amber-700/30 pt-2 text-xs leading-relaxed text-amber-100/80">
-                  <Info aria-hidden="true" size={13} className="mt-0.5 shrink-0 text-amber-300" />
-                  <span>لا تدخل درجات الشخصية أو العمر أو الجنسية في اختيار اللقاءات الفردية. في اللقاءين الأول والثاني يُستخدم الجنس فقط لكسر التعادل الكامل بين زوجين متساويين في الرتب، كما في نسخة الفعاليتين 25 و26.</span>
-                </p>
-              )}
+              {choiceOnly ? (
+                <details className="group border-t border-amber-500/20 pt-2">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg py-1 text-[11px] font-bold text-amber-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300">
+                    كيف يتم توزيع اللقاءات؟
+                    <ChevronRight size={13} className="rotate-90 transition-transform group-open:-rotate-90" aria-hidden="true" />
+                  </summary>
+                  <p className="pt-2 text-[11px] leading-relaxed text-gray-300">
+                    اللقاءان الأول والثاني يعطيان الأولوية لأقوى الرتب المتبادلة، والثالث يختار أفضل توزيع شامل متبقٍ مع شخص مختلف. لا تدخل درجات الشخصية أو العمر أو الجنسية في الاختيار.
+                  </p>
+                </details>
+              ) : null}
             </div>
           </div>
         )}
@@ -1621,33 +1616,29 @@ function WalkSlide({ step, headingRef, eventFormat }: { step: number; headingRef
         {slide.key === "feedback" && (
           <div className="space-y-3.5">
             <div className="text-center space-y-1">
-              <PenLine size={32} className="text-emerald-400 mx-auto" />
-              <h2 ref={headingRef} tabIndex={-1} className="text-white font-black text-xl focus:outline-none">قيّم ثم شاهد النتيجة</h2>
-              <p className="text-gray-400 text-xs leading-relaxed">بعد كل لقاء: تقييم قصير، ثم يظهر الكشف النهائي في النهاية</p>
+              <ShieldCheck size={32} className="text-emerald-400 mx-auto" />
+              <h2 ref={headingRef} tabIndex={-1} className="text-white font-black text-xl focus:outline-none">خصوصيتك أولاً</h2>
+              <p className="text-gray-400 text-xs leading-relaxed">ترتيبك وتقييمك لا يراهما أي مشارك آخر</p>
             </div>
-            {/* Demo rating */}
-            <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3.5 text-center space-y-2">
-              <p className="text-gray-300 text-xs">مثال: كيف كانت المحادثة؟</p>
-              <div className="flex items-center justify-center gap-1.5">
-                {[0,1,2,3,4].map(i => (
-                  <motion.span key={i} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.1 + i * 0.08 }}>
-                    <Star size={22} className={i < 4 ? "text-amber-400 fill-amber-400" : "text-gray-700"} />
-                  </motion.span>
-                ))}
-              </div>
-            </div>
-            {/* Demo yes/no */}
             <div className="grid grid-cols-2 gap-2.5">
-              <DemoButton className="text-emerald-300 bg-emerald-500/15 border border-emerald-500/40"><CheckCircle size={16} /> نعم</DemoButton>
-              <DemoButton className="text-red-300 bg-red-500/10 border border-red-500/30"><X size={16} /> لا</DemoButton>
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.09] p-3 text-center">
+                <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-400/15 text-emerald-300"><CheckCircle size={18} /></div>
+                <p className="text-xs font-black text-white">نعم من الطرفين</p>
+                <p className="mt-1 text-[11px] leading-snug text-emerald-100/65">تظهر وسيلة التواصل لكما فقط</p>
+              </motion.div>
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-3 text-center">
+                <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06] text-gray-400"><EyeOff size={18} /></div>
+                <p className="text-xs font-black text-white">أي اختيار آخر</p>
+                <p className="mt-1 text-[11px] leading-snug text-gray-400">يبقى قرار كل طرف سرياً تماماً</p>
+              </motion.div>
             </div>
-            <div className="flex items-start gap-2 rounded-xl border border-emerald-700/40 bg-emerald-950/30 px-3 py-2.5">
-              <Heart size={15} className="text-emerald-400 shrink-0 mt-0.5" />
-              <p className="text-emerald-100/80 text-xs leading-relaxed">إذا قال كلاكما <span className="text-emerald-300 font-bold">«نعم»</span> — تتبادلان معلومات التواصل في صفحة النتائج. لا أحد يعرف اختيارك إلا إذا وافق الطرف الآخر.</p>
+            <div className="flex items-start gap-2 rounded-xl border border-purple-500/20 bg-purple-500/[0.07] px-3 py-2.5">
+              <Handshake size={15} className="text-purple-300 shrink-0 mt-0.5" />
+              <p className="text-purple-100/75 text-xs leading-relaxed">الراحة والاحترام أولاً. يمكنك تجاوز أي سؤال أو اختيار عدم مشاركة التواصل في أي وقت.</p>
             </div>
-            <div className="flex items-start gap-2 rounded-xl border border-violet-700/35 bg-violet-950/25 px-3 py-2.5">
-              <Trophy size={15} className="mt-0.5 shrink-0 text-violet-300" />
-              <p className="text-xs leading-relaxed text-gray-300">{choiceOnly ? <>في الكشف النهائي تقارن لقاءات <span className="font-bold text-pink-300">اختيارك الأول</span> و<span className="font-bold text-violet-300">الثاني</span> و<span className="font-bold text-purple-300">الثالث</span>.</> : <>في الكشف النهائي تقارن بين <span className="font-bold text-pink-300">اختيارك</span> و<span className="font-bold text-violet-300">اختيار النظام</span>. النتيجة مؤشر يساعدك وليست ضماناً للكيمياء.</>}</p>
+            <div className="flex items-start gap-2 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2.5">
+              <LifeBuoy size={15} className="mt-0.5 shrink-0 text-cyan-300" />
+              <p className="text-xs leading-relaxed text-gray-300">تحتاج مساعدة؟ زر <span className="font-bold text-white">المنظم</span> يبقى متاحاً لك طوال الفعالية.</p>
             </div>
           </div>
         )}
@@ -1732,18 +1723,15 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
   showLogout?: boolean
   eventFormat: Event3Format
 }) {
-  const [phase, setPhase] = useState<"splash" | "rules" | "steps">("splash")
+  const [phase, setPhase] = useState<"splash" | "steps">("splash")
   const [step, setStep] = useState(0)
-  const [dir, setDir] = useState(1)
-  const tutorialFormat = eventFormat
   const reduceMotion = useReducedMotion()
   const splashHeadingRef = useRef<HTMLHeadingElement>(null)
-  const rulesHeadingRef = useRef<HTMLHeadingElement>(null)
   const walkHeadingRef = useRef<HTMLHeadingElement>(null)
 
   useEffect(() => {
     const focusTimer = window.setTimeout(() => {
-      const target = phase === "splash" ? splashHeadingRef.current : phase === "rules" ? rulesHeadingRef.current : walkHeadingRef.current
+      const target = phase === "splash" ? splashHeadingRef.current : walkHeadingRef.current
       target?.focus({ preventScroll: true })
     }, reduceMotion ? 0 : 420)
     return () => window.clearTimeout(focusTimer)
@@ -1751,39 +1739,50 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
 
   const goNext = () => {
     if (step < WALK_SLIDES.length - 1) {
-      setDir(1); setStep(s => s + 1)
+      setStep(s => s + 1)
     } else {
       onDone()
       if (!reduceMotion) fireConfetti({ particleCount: 90, spread: 75, origin: { y: 0.5 }, colors: ["#a855f7","#ec4899","#f43f5e","#fbbf24"] })
     }
   }
-  const goPrev = () => { if (step > 0) { setDir(-1); setStep(s => s - 1) } }
+  const goPrev = () => { if (step > 0) setStep(s => s - 1) }
+
+  const openResults = () => {
+    const storedToken = localStorage.getItem("blindmatch_result_token")
+    window.location.href = storedToken ? `/results?token=${storedToken}` : "/results"
+  }
+
+  const journeyStats = isChoiceOnlyEvent3(eventFormat)
+    ? [
+        { value: "٣", label: "جولات جماعية", Icon: Users, tone: "text-blue-300 bg-blue-400/10 border-blue-300/15" },
+        { value: "٣", label: "لقاءات فردية", Icon: Heart, tone: "text-pink-300 bg-pink-400/10 border-pink-300/15" },
+        { value: "١٠٠٪", label: "اختيارات سرية", Icon: ShieldCheck, tone: "text-emerald-300 bg-emerald-400/10 border-emerald-300/15" },
+      ]
+    : [
+        { value: "٢", label: "جولات جماعية", Icon: Users, tone: "text-blue-300 bg-blue-400/10 border-blue-300/15" },
+        { value: "٢", label: "لقاءات فردية", Icon: Heart, tone: "text-pink-300 bg-pink-400/10 border-pink-300/15" },
+        { value: "١٠٠٪", label: "اختيارات سرية", Icon: ShieldCheck, tone: "text-emerald-300 bg-emerald-400/10 border-emerald-300/15" },
+      ]
 
   return (
     <MotionConfig reducedMotion="user">
-    <div className="event3-shell h-[100dvh] bg-gray-950 relative overflow-hidden flex flex-col" dir="rtl" lang="ar">
-      {/* Ambient background */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-40 -right-20 w-[550px] h-[550px] bg-purple-600/20 rounded-full blur-[120px]" />
-        <div className="absolute -bottom-32 -left-20 w-[500px] h-[500px] bg-pink-600/15 rounded-full blur-[100px]" />
-        <motion.div
-          className="absolute top-1/3 left-1/2 w-[420px] h-[420px] rounded-full blur-[110px] -translate-x-1/2 -translate-y-1/2"
-          animate={reduceMotion ? undefined : { backgroundColor: ["rgba(139,92,246,0.07)","rgba(236,72,153,0.07)","rgba(59,130,246,0.05)","rgba(139,92,246,0.07)"] }}
-          transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
-        />
+    <div className="event3-shell relative flex h-[100dvh] flex-col overflow-hidden bg-[#06040b]" dir="rtl" lang="ar">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+        <div className="absolute inset-0 opacity-[0.035]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,.7) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.7) 1px, transparent 1px)", backgroundSize: "38px 38px", maskImage: "linear-gradient(to bottom, black, transparent 72%)" }} />
+        <div className="absolute -right-32 -top-44 h-[540px] w-[540px] rounded-full bg-purple-600/25 blur-[120px]" />
+        <div className="absolute -bottom-56 -left-32 h-[520px] w-[520px] rounded-full bg-fuchsia-600/15 blur-[120px]" />
+        <div className="absolute left-1/2 top-[42%] h-72 w-72 -translate-x-1/2 rounded-full bg-indigo-500/[0.08] blur-[100px]" />
       </div>
 
       <AnimatePresence mode="wait">
-
-        {/* ── SPLASH ─────────────────────────────────────────────────────── */}
         {phase === "splash" && (
           <motion.div
             key="splash"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0, scale: 0.96 }}
-            transition={{ duration: 0.4 }}
-            className={`event3-scroll relative z-10 flex min-h-0 flex-1 flex-col items-center overflow-y-auto overscroll-contain px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center ${showLogout ? "pt-[max(4.5rem,env(safe-area-inset-top))]" : "pt-[max(1.5rem,env(safe-area-inset-top))]"}`}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.35 }}
+            className={`event3-scroll relative z-10 flex min-h-0 flex-1 flex-col items-center overflow-y-auto overscroll-contain px-5 pb-[max(1rem,env(safe-area-inset-bottom))] text-center ${showLogout ? "pt-[max(4.25rem,env(safe-area-inset-top))]" : "pt-[max(1rem,env(safe-area-inset-top))]"}`}
             style={{ justifyContent: "safe center" }}
           >
             {showLogout && onLogout && (
@@ -1792,186 +1791,78 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
                 className="absolute right-4 top-[max(1rem,env(safe-area-inset-top))]"
               />
             )}
-            {/* Logo + pulsing rings */}
-            <div className="relative mb-6 flex items-center justify-center">
-              {[0, 1, 2].map(i => (
-                <motion.div
-                  key={i}
-                  className="absolute rounded-full border border-purple-400/25"
-                  style={{ width: `${110 + i * 38}px`, height: `${110 + i * 38}px` }}
-                  animate={reduceMotion ? { opacity: 0.2 } : { scale: [1, 1.18], opacity: [0.5, 0] }}
-                  transition={{ duration: 2, delay: i * 0.55, repeat: Infinity, ease: "easeOut" }}
-                />
-              ))}
-              <motion.div
-                initial={{ scale: 0, rotate: -20 }}
-                animate={{ scale: 1, rotate: 0 }}
-                transition={{ type: "spring", stiffness: 200, damping: 14, delay: 0.15 }}
-                className="relative z-10 w-28 h-28 rounded-3xl bg-gradient-to-br from-purple-700 via-violet-700 to-indigo-800 flex items-center justify-center shadow-2xl shadow-purple-700/50"
-              >
-                <Users size={46} className="text-white" strokeWidth={1.5} />
+            <div className="flex w-full max-w-sm flex-col items-center">
+              <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: "spring", stiffness: 190, damping: 16 }} className="relative mb-3">
+                <div className="absolute inset-0 rounded-[1.7rem] bg-purple-500/50 blur-2xl" />
+                <div className="relative flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-[1.6rem] border border-white/15 bg-gradient-to-br from-purple-500 via-violet-600 to-indigo-800 shadow-2xl shadow-purple-950/60">
+                  <Heart size={31} className="text-white" fill="rgba(255,255,255,.15)" strokeWidth={1.8} />
+                  <Sparkles size={13} className="absolute right-3 top-3 text-pink-100" />
+                </div>
               </motion.div>
-            </div>
 
-            <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.45, duration: 0.6 }}
-              className="space-y-2 mb-6"
-            >
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.6 }}
-                className="flex items-center justify-center gap-2"
-              >
-                <Sparkles size={12} className="text-purple-400" />
-                <span className="text-xs font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent tracking-[0.14em] uppercase">
-                  التوافق الأعمى 5.0
-                </span>
-                <Sparkles size={12} className="text-pink-400" />
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="mb-2 inline-flex items-center gap-2 rounded-full border border-purple-300/15 bg-purple-400/[0.08] px-3 py-1.5 text-[10px] font-black tracking-wide text-purple-200">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_10px_rgba(110,231,183,.9)]" />
+                التوافق الأعمى 5.0
               </motion.div>
-              <motion.h1
-                ref={splashHeadingRef}
-                tabIndex={-1}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.65 }}
-                className="text-[2.2rem] font-black text-white leading-tight focus:outline-none"
-              >
-                التوافق الأعمى<br />
-                <span className="bg-gradient-to-r from-purple-400 via-violet-400 to-indigo-400 bg-clip-text text-transparent">
-                  5.0
-                </span>
+
+              <motion.h1 ref={splashHeadingRef} tabIndex={-1} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }} className="text-[1.85rem] font-black leading-[1.15] text-white focus:outline-none sm:text-[2.1rem]">
+                جاهز لرحلتك
+                <span className="block bg-gradient-to-l from-purple-300 via-fuchsia-300 to-pink-300 bg-clip-text text-transparent">الليلة؟</span>
               </motion.h1>
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.8 }}
-                className="text-gray-400 text-sm max-w-[250px] mx-auto leading-relaxed"
-              >
-                اختر دليل النسخة التي تريد فهمها قبل بدء رحلتك
+              <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }} className="mx-auto mt-2 max-w-[290px] text-[13px] font-medium leading-6 text-gray-400">
+                لقاءات حقيقية تقودها اختيارات متبادلة — بخطوات واضحة وخصوصية كاملة.
               </motion.p>
-            </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.95 }}
-              className="w-full max-w-xs space-y-3"
-            >
-              <div
-                id="event3-tutorial-format-panel"
-                className="rounded-xl border border-white/[0.07] bg-white/[0.035] px-3 py-2 text-right"
-              >
-                <p className="text-xs font-black text-purple-200">
-                  {isChoiceOnlyEvent3(tutorialFormat) ? "نسخة الاختيارات فقط" : "النسخة العادية"}
-                </p>
-                <p className="text-[11px] font-medium leading-5 text-gray-300">
-                  {isChoiceOnlyEvent3(tutorialFormat)
-                    ? "النسخة الجديدة: ثلاث جولات جماعية ثم ثلاثة لقاءات فردية مختلفة تُحسم بالاختيارات المتبادلة فقط."
-                    : "النسخة العادية: جولتان جماعيتان ثم لقاء باختيارك ولقاء آخر يرشحه نظام التوافق."}
-                </p>
-              </div>
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }} className="mt-4 grid w-full grid-cols-3 gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.035] p-2 shadow-2xl shadow-black/20 backdrop-blur-xl">
+                {journeyStats.map(({ value, label, Icon, tone }) => (
+                  <div key={label} className="flex min-w-0 flex-col items-center rounded-xl px-1 py-2">
+                    <div className={`mb-1.5 flex h-7 w-7 items-center justify-center rounded-lg border ${tone}`}><Icon size={14} /></div>
+                    <span className="text-sm font-black leading-none text-white">{value}</span>
+                    <span className="mt-1 text-[9px] font-semibold leading-3 text-gray-400">{label}</span>
+                  </div>
+                ))}
+              </motion.div>
+
+              <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="mt-4 w-full space-y-2.5">
               <motion.button
                 whileTap={{ scale: 0.97 }}
-                onClick={() => setPhase("rules")}
-                className="group w-full rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-4 text-right text-white shadow-2xl shadow-purple-600/30 transition-all hover:from-purple-500 hover:to-pink-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
+                type="button"
+                onClick={onDone}
+                className="group relative w-full overflow-hidden rounded-2xl bg-gradient-to-l from-fuchsia-500 via-purple-600 to-violet-700 px-4 py-3.5 text-right text-white shadow-[0_18px_50px_-18px_rgba(168,85,247,.85)] transition-all hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-200"
               >
-                <span className="flex items-center justify-between gap-3">
+                <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/15 to-transparent transition-transform duration-700 group-hover:translate-x-full" aria-hidden="true" />
+                <span className="relative flex items-center justify-between gap-3">
                   <span>
-                    <span className="block text-base font-black">جهّزني للفعالية</span>
-                    <span className="mt-0.5 block text-xs font-medium text-white/70">شرح مختصر — أقل من دقيقة</span>
+                    <span className="block text-base font-black">{showLogout ? "متابعة الفعالية" : "الدخول برقم الجوال"}</span>
+                    <span className="mt-0.5 block text-[11px] font-medium text-white/70">{showLogout ? "تم التعرّف على هذا الجهاز" : "سنرسل لك رمز تحقق آمن"}</span>
                   </span>
-                  <ArrowLeft size={20} className="text-white/80 transition-transform group-hover:-translate-x-0.5" />
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15"><ArrowLeft size={18} className="transition-transform group-hover:-translate-x-0.5" /></span>
                 </span>
               </motion.button>
-              <motion.button
-                whileTap={{ scale: 0.98 }}
-                onClick={onDone}
-                className="group mx-auto flex min-h-11 items-center gap-2 rounded-full px-4 py-2 text-xs font-bold text-gray-300 transition-colors hover:bg-white/[0.05] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
-              >
-                <KeyRound size={14} className="text-violet-300" />
-                سبق لي الحضور — دخول مباشر
-                <ArrowLeft size={13} className="text-gray-500" />
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => {
-                  const storedToken = localStorage.getItem("blindmatch_result_token")
-                  if (storedToken) {
-                    window.location.href = `/results?token=${storedToken}`
-                  } else {
-                    window.location.href = "/results"
-                  }
-                }}
-                className="group mx-auto flex min-h-11 items-center gap-2 rounded-full px-4 py-2 text-[11px] font-semibold text-gray-500 transition-all hover:bg-emerald-400/[0.08] hover:text-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70"
-              >
-                <Trophy size={14} className="text-emerald-500/70 transition-colors group-hover:text-emerald-300" />
-                <span>عرض صفحة النتائج</span>
-                <ArrowLeft size={13} className="opacity-0 transition-all group-hover:-translate-x-0.5 group-hover:opacity-100" />
-              </motion.button>
-            </motion.div>
-          </motion.div>
-        )}
 
-        {/* ── RULES PHASE ─────────────────────────────────────────────── */}
-        {phase === "rules" && (
-          <motion.div
-            key="rules"
-            initial={{ opacity: 0, x: 40 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -40 }}
-            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-            className="relative z-10 flex-1 min-h-0 flex flex-col overflow-hidden"
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-3">
-              <button type="button" onClick={() => setPhase("splash")} aria-label="الرجوع إلى شاشة الترحيب" className="flex min-h-11 items-center gap-1 rounded-lg px-2 py-1 text-sm text-gray-300 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
-                <ChevronRight size={15} className="rotate-180" /> رجوع
+              <button
+                type="button"
+                onClick={() => { setStep(0); setPhase("steps") }}
+                className="group flex min-h-12 w-full items-center justify-between rounded-2xl border border-white/[0.09] bg-white/[0.045] px-4 text-right text-gray-200 backdrop-blur-xl transition-all hover:border-purple-300/20 hover:bg-white/[0.07] focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
+              >
+                <span className="flex items-center gap-2.5"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-purple-400/10 text-purple-300"><Sparkles size={15} /></span><span><span className="block text-xs font-black">كيف تعمل الفعالية؟</span><span className="block text-[10px] text-gray-500">شرح أنيق من ٣ خطوات</span></span></span>
+                <ChevronRight size={15} className="rotate-180 text-gray-500 transition-transform group-hover:-translate-x-0.5" />
               </button>
-              <h1 ref={rulesHeadingRef} tabIndex={-1} className="flex items-center gap-1 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-sm font-bold tracking-wide text-transparent focus:outline-none"><Sparkles size={12} aria-hidden="true" /> قواعد الجلسة</h1>
-            </div>
 
-            {/* Rules list */}
-            <ol className="event3-scroll flex-1 min-h-0 overflow-y-auto px-5 pb-3 space-y-2.5" aria-label="قواعد الجلسة">
-              {[
-                { icon: <EyeOff size={20} className="text-purple-400" />, title: "كن حقيقياً واحفظ السرية", desc: "شارك بطبيعتك، ولا تكشف ترتيبك أو تقييماتك أو شاشة اختياراتك للآخرين" },
-                { icon: <Handshake size={20} className="text-purple-400" />, title: "الراحة والاحترام أولاً", desc: "تحدث بلطف وتجاوز أي سؤال لا يناسبك — المشاركة دائماً اختيارية" },
-                { icon: <Smartphone size={20} className="text-purple-400" />, title: "اتبع خطوة الشاشة", desc: "سنخبرك بمكانك وما تفعله الآن. راقب الوقت واستخدم زر المنظم عند الحاجة" },
-              ].map((rule, i) => (
-                <motion.li
-                  key={i}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.07, duration: 0.3 }}
-                  className="flex items-start gap-3 bg-white/[0.04] border border-white/[0.07] rounded-2xl px-4 py-3.5"
+              <div className="flex items-center justify-between gap-3 px-1 pt-0.5">
+                <span className="flex items-center gap-1.5 text-[10px] font-medium text-gray-500"><ShieldCheck size={12} className="text-emerald-400/80" /> بياناتك واختياراتك سرية</span>
+                <button
+                  type="button"
+                  onClick={openResults}
+                  className="flex min-h-11 items-center gap-1.5 rounded-xl px-2 text-xs font-bold text-gray-300 transition-colors hover:bg-emerald-400/[0.07] hover:text-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
                 >
-                  <span className="flex-shrink-0 mt-0.5 flex items-center justify-center w-7">{rule.icon}</span>
-                  <div className="text-right">
-                    <p className="text-white font-bold text-sm">{rule.title}</p>
-                    <p className="text-gray-400 text-xs mt-0.5 leading-relaxed">{rule.desc}</p>
-                  </div>
-                </motion.li>
-              ))}
-            </ol>
-
-            {/* CTA */}
-            <div className="shrink-0 border-t border-white/[0.05] bg-gray-950/80 px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
-              <motion.button
-                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}
-                whileTap={{ scale: 0.97 }}
-                onClick={() => setPhase("steps")}
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-2xl py-3.5 font-black text-base shadow-2xl shadow-purple-600/30 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
-              >
-                فهمت — شاهد رحلتي ←
-              </motion.button>
+                  <Trophy size={13} className="text-emerald-400/80" /> النتائج
+                </button>
+              </div>
+              </motion.div>
             </div>
           </motion.div>
         )}
-
-        {/* ── WALKTHROUGH STEPS ─────────────────────────────────────────── */}
         {phase === "steps" && (
           <motion.div
             key="steps"
@@ -1993,14 +1884,16 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
             {/* Header nav */}
             <div className="flex items-center justify-between px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-3">
               <button
-                onClick={() => step === 0 ? setPhase("rules") : goPrev()}
-                aria-label={step === 0 ? "الرجوع إلى قواعد الجلسة" : `الرجوع إلى الخطوة ${step}`}
+                type="button"
+                onClick={() => step === 0 ? setPhase("splash") : goPrev()}
+                aria-label={step === 0 ? "الرجوع إلى شاشة الدخول" : `الرجوع إلى الخطوة ${step}`}
                 className="flex min-h-11 items-center gap-1 rounded-lg px-2 py-1 text-sm text-gray-300 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
               >
                 <ChevronRight size={15} className="rotate-180" />
-                {step === 0 ? "القواعد" : "السابق"}
+                {step === 0 ? "الدخول" : "السابق"}
               </button>
-              <span className="text-gray-600 text-xs font-mono tabular-nums">{step + 1} / {WALK_SLIDES.length}</span>
+              <span className="flex items-center gap-1.5 text-xs font-black text-purple-200"><Sparkles size={12} /> دليل الفعالية</span>
+              <span className="text-gray-500 text-xs font-mono tabular-nums">{step + 1} / {WALK_SLIDES.length}</span>
             </div>
 
             {/* Step card */}
@@ -2019,7 +1912,7 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
                   transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
                   className="w-full max-w-sm my-auto"
                 >
-                  <WalkSlide step={step} headingRef={walkHeadingRef} eventFormat={tutorialFormat} />
+                  <WalkSlide step={step} headingRef={walkHeadingRef} eventFormat={eventFormat} />
                 </motion.div>
               </AnimatePresence>
             </div>
@@ -2031,7 +1924,7 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
                 {WALK_SLIDES.map((_, i) => (
                   <button
                     key={i}
-                    onClick={() => { setDir(i > step ? 1 : -1); setStep(i) }}
+                    onClick={() => setStep(i)}
                     aria-label={`الانتقال إلى خطوة ${i + 1}: ${WALK_SLIDES[i].label}`}
                     aria-current={i === step ? "step" : undefined}
                     className="-mx-1 flex h-11 w-11 items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
@@ -2044,19 +1937,21 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
               </div>
               {/* Next + skip buttons */}
               <motion.button
+                type="button"
                 whileTap={{ scale: 0.97 }}
                 onClick={goNext}
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-2xl py-3.5 font-black text-base shadow-xl shadow-purple-600/25 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
+                className="w-full rounded-2xl bg-gradient-to-l from-fuchsia-500 via-purple-600 to-violet-700 py-3.5 text-base font-black text-white shadow-[0_16px_42px_-18px_rgba(168,85,247,.9)] transition-all hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
               >
-                {step === WALK_SLIDES.length - 1 ? <span className="flex items-center justify-center gap-2">أبدأ رحلتي <Sparkles size={16} /></span> : "التالي ←"}
+                {step === WALK_SLIDES.length - 1 ? <span className="flex items-center justify-center gap-2">جاهز — ابدأ الفعالية <Sparkles size={16} /></span> : "التالي ←"}
               </motion.button>
               {step < WALK_SLIDES.length - 1 && (
                 <button
+                  type="button"
                   onClick={onDone}
                   className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg text-xs font-medium text-gray-300 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
                 >
-                  <X size={12} />
-                  تخطّي الشرح وابدأ
+                  <ArrowLeft size={12} />
+                  {showLogout ? "متابعة الفعالية الآن" : "الدخول مباشرة برقم الجوال"}
                 </button>
               )}
             </div>
@@ -7941,6 +7836,9 @@ export default function Event3Page() {
         <iframe title="معاينة رسالة الترحيب" src="/event3?questionPreview=aiWelcome" className="h-[568px] w-[320px] rounded-xl border border-slate-700 bg-gray-950" />
       </main>
     )
+  }
+  if (questionPreview === "welcome") {
+    return <WelcomeScreen onDone={() => {}} eventFormat={CHOICE_ONLY_EVENT3_FORMAT} />
   }
   if (questionPreview === "aiWelcome") {
     return (

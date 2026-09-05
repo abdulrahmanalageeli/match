@@ -2107,9 +2107,9 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
                 whileTap={{ scale: 0.97 }}
                 type="button"
                 onClick={onDone}
-                className="group relative isolate min-h-[4.65rem] w-full overflow-hidden rounded-[1.45rem] border border-fuchsia-200/20 bg-[linear-gradient(108deg,#4c1d95_0%,#7e22ce_46%,#c026d3_100%)] px-3.5 py-3 text-right text-white shadow-[0_22px_48px_-22px_rgba(168,85,247,.95),inset_0_1px_0_rgba(255,255,255,.22)] transition-[filter,transform,border-color] hover:border-fuchsia-100/35 hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-200"
+                className="group relative isolate min-h-[4.65rem] w-full overflow-hidden rounded-[1.45rem] border border-white/[0.14] bg-[linear-gradient(108deg,#4c1d95_0%,#7e22ce_46%,#c026d3_100%)] px-3.5 py-3 text-right text-white shadow-[0_22px_48px_-24px_rgba(168,85,247,.82),inset_0_1px_0_rgba(255,255,255,.18)] transition-[filter,transform,border-color] hover:border-white/25 hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-200"
               >
-                <span className="pointer-events-none absolute inset-[1px] rounded-[calc(1.45rem-1px)] border border-white/[0.08]" aria-hidden="true" />
+                <span className="pointer-events-none absolute inset-x-7 top-0 h-px bg-gradient-to-r from-transparent via-white/45 to-transparent" aria-hidden="true" />
                 <span className="pointer-events-none absolute -right-12 -top-16 h-36 w-36 rounded-full bg-white/[0.13] blur-2xl" aria-hidden="true" />
                 <motion.span initial={{ x: "-125%" }} animate={{ x: reduceMotion ? "-125%" : "150%" }} transition={{ delay: 1.15, duration: 0.95, ease: "easeInOut" }} className="pointer-events-none absolute inset-y-0 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-white/[0.16] to-transparent" aria-hidden="true" />
                 <span className="relative flex items-center justify-between gap-2.5">

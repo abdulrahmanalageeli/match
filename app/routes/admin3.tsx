@@ -88,6 +88,10 @@ type GroupMemberFeedbackData = {
 }
 
 type Event3Format = "classic" | "choice_only_three_groups"
+const CHOICE_ONLY_MIN_PARTICIPANTS = 16
+const CHOICE_ONLY_MAX_PARTICIPANTS = 42
+const choiceOnlyRosterReady = (count: number | null | undefined) => Number(count) >= CHOICE_ONLY_MIN_PARTICIPANTS
+  && Number(count) <= CHOICE_ONLY_MAX_PARTICIPANTS && Number(count) % 2 === 0
 
 type ChoiceSeatingTableReport = {
   table_number: number
@@ -118,6 +122,8 @@ type ChoiceSeatingReport = {
     diversity?: unknown
   }
   summary?: {
+    participant_count?: number
+    assignment_count?: number
     overall_score?: number
     lens_scores?: { spark?: number; depth?: number; rhythm?: number }
     weakest_tables?: Array<{ round: number; lens: string; table_number: number; score: number; warnings?: string[] }>
@@ -523,7 +529,7 @@ const ChoiceSeatingReportDetails = memo(function ChoiceSeatingReportDetails({
           return (
             <section key={round.round} className="overflow-hidden rounded-2xl border border-gray-800 bg-gray-950/45">
               <div className="flex items-center justify-between border-b border-white/5 bg-white/[0.025] px-3 py-2.5">
-                <div><p className={`text-xs font-black ${lens.color}`}>الجولة {round.round} · {lens.english} — {lens.arabic}</p><p className="mt-0.5 text-[9px] text-gray-600">6 طاولات · 7 أشخاص</p></div>
+                <div><p className={`text-xs font-black ${lens.color}`}>الجولة {round.round} · {lens.english} — {lens.arabic}</p><p className="mt-0.5 text-[9px] text-gray-600">{round.tables.length} طاولات · حتى 7 أشخاص</p></div>
                 <span className={`rounded-lg bg-black/25 px-2 py-1 font-mono text-sm font-black ${lens.color}`}>{scoreText(round.score)}</span>
               </div>
               <div className="space-y-2 p-2.5">
@@ -1878,7 +1884,7 @@ export default function Admin3Page() {
     }
     if (choiceOnly) {
       setMoveA(null)
-      toast.error("في نظام الاختيارات فقط يجب أن تبقى كل مجموعة من 7 أشخاص. استخدم تبديل شخصين بدلاً من نقل شخص واحد.")
+      toast.error("في نظام الاختيارات فقط يجب الحفاظ على حجم كل مجموعة. استخدم تبديل شخصين بدلاً من نقل شخص واحد.")
       return
     }
     const currentTableEntry = Object.entries(seating?.[mapRound] || {}).find(([, members]) =>
@@ -2063,7 +2069,7 @@ export default function Admin3Page() {
   const moveTable = (num: number, round: number, newTable: number) => {
     if (choiceOnly && [1, 2, 3].includes(round)) {
       setEditingTable(null)
-      toast.error("في نظام الاختيارات فقط يجب أن تبقى كل مجموعة من 7 أشخاص. استخدم تبديل شخصين بدلاً من نقل شخص واحد.")
+      toast.error("في نظام الاختيارات فقط يجب الحفاظ على حجم كل مجموعة. استخدم تبديل شخصين بدلاً من نقل شخص واحد.")
       return
     }
     return run(`move-table-${num}-r${round}`, () => api("e3-move-table", { participant_number: num, round, new_table: newTable }).then(d => { if (!d.error) { setEditingTable(null); fetchSeating() } return d }))
@@ -2112,14 +2118,14 @@ export default function Admin3Page() {
     const hasMatches = state.phase2_matches_done
     const sel = state.participants_selected || 0
     const finalRankingPhase = choiceOnly ? "ranking3" : "ranking2"
-    if (ph === "setup" && !hasSeating) return { label: choiceOnly ? (choiceSeatingPreview ? "مراجعة واعتماد أحد الخيارات الثلاثة" : "إنشاء Best وSecond-best وThird-best للمعاينة") : "توليد خطة الجلسات", action: choiceOnly && choiceSeatingPreview ? () => document.getElementById("choice-seating-preview")?.scrollIntoView({ behavior: "smooth", block: "start" }) : generateSeating, ready: choiceOnly ? sel === 42 : sel >= 6 }
+    if (ph === "setup" && !hasSeating) return { label: choiceOnly ? (choiceSeatingPreview ? "مراجعة واعتماد أحد الخيارات الثلاثة" : "إنشاء Best وSecond-best وThird-best للمعاينة") : "توليد خطة الجلسات", action: choiceOnly && choiceSeatingPreview ? () => document.getElementById("choice-seating-preview")?.scrollIntoView({ behavior: "smooth", block: "start" }) : generateSeating, ready: choiceOnly ? choiceOnlyRosterReady(sel) : sel >= 6 }
     if (ph === "setup" && hasSeating) return { label: "⬅ بدء الجولة الأولى (30 دقيقة)", action: () => setPhaseWithTimer("round1", EVENT3_PHASE_SECONDS.round1, 1), ready: true }
     if (ph === "round1") return { label: "⬅ التصنيف بعد الجولة 1 (3 دقائق)", action: () => setPhaseWithTimer("ranking1", EVENT3_PHASE_SECONDS.ranking1, 0), ready: true }
     if (ph === "ranking1") return { label: "⬅ بدء الجولة الثانية (25 دقيقة)", action: () => setPhaseWithTimer("round2", EVENT3_PHASE_SECONDS.round2, 2), ready: true }
     if (ph === "round2") return { label: choiceOnly ? "⬅ التصنيف بعد الجولة 2 (3 دقائق)" : "⬅ التصنيف النهائي (3 دقائق)", action: () => setPhaseWithTimer("ranking2", EVENT3_PHASE_SECONDS.ranking2, 0), ready: true }
     if (choiceOnly && ph === "ranking2") return { label: "⬅ بدء الجولة الثالثة (25 دقيقة)", action: () => setPhaseWithTimer("round3", EVENT3_PHASE_SECONDS.round3, 3), ready: true }
     if (choiceOnly && ph === "round3") return { label: "⬅ التصنيف النهائي بعد الجولة 3 (3 دقائق)", action: () => setPhaseWithTimer("ranking3", EVENT3_PHASE_SECONDS.ranking3, 0), ready: true }
-    if (ph === finalRankingPhase && !hasMatches) return { label: choiceOnly ? "⬅ حفظ التصنيفات وتشغيل الاختيار الأول" : "⬅ حفظ التصنيفات وتشغيل المطابقة", action: triggerPhase2, ready: choiceOnly ? sel === 42 : sel > 0 }
+    if (ph === finalRankingPhase && !hasMatches) return { label: choiceOnly ? "⬅ حفظ التصنيفات وتشغيل الاختيار الأول" : "⬅ حفظ التصنيفات وتشغيل المطابقة", action: triggerPhase2, ready: choiceOnly ? choiceOnlyRosterReady(sel) : sel > 0 }
     if (ph === "phase2_processing" && hasMatches) return { label: "⬅ استراحة (10 دقائق)", action: () => setPhaseWithTimer("break", EVENT3_PHASE_SECONDS.break, breakTimerRound), ready: true }
     if (ph === "phase2_processing") return choiceOnly
       ? { label: "↻ إعادة محاولة الاختيار الأول", action: triggerPhase2, ready: true }
@@ -2144,7 +2150,7 @@ export default function Admin3Page() {
 
   const generateChoiceSeatingPreview = async () => {
     if (previewEventId != null) { toast.error("لا يمكن توليد الجلسات في وضع المعاينة التاريخية"); return }
-    if (state?.participants_selected !== 42) { toast.error("يجب حفظ 42 مشاركاً بالضبط قبل إنشاء خيارات الجلسات"); return }
+    if (!choiceOnlyRosterReady(state?.participants_selected)) { toast.error("يجب حفظ عدد زوجي من 16 إلى 42 مشاركاً قبل إنشاء خيارات الجلسات"); return }
     const requestId = ++choicePreviewRequestGeneration.current
     const requestContext = choiceUiContextKeyRef.current
     const expectedContext = choiceSeatingExpectedContext()
@@ -2260,7 +2266,7 @@ export default function Admin3Page() {
           assignments: { round1: selected.round1, round2: selected.round2, round3: selected.round3 },
           created_at: data.report.generated_at,
           matches_current_seating: true,
-          current_assignment_count: 126,
+          current_assignment_count: selected.round1.flat().length * 3,
         })
       }
       setChoiceSeatingPreview(null)
@@ -2294,8 +2300,8 @@ export default function Admin3Page() {
 
   const saveParticipants = () => { if (previewEventId != null) { toast.error("لا يمكن تعديل المشاركين في وضع المعاينة"); return } run("save-participants", async () => {
     const minimumParticipants = 4
-    if (choiceOnly && selectedNumbers.size !== 42)
-      return { error: `يجب اختيار 42 مشاركاً بالضبط (تم اختيار ${selectedNumbers.size})` }
+    if (choiceOnly && !choiceOnlyRosterReady(selectedNumbers.size))
+      return { error: `يجب اختيار عدد زوجي من 16 إلى 42 مشاركاً (تم اختيار ${selectedNumbers.size})` }
     if (!choiceOnly && selectedNumbers.size < minimumParticipants)
       return { error: `يجب اختيار ${minimumParticipants} مشاركين على الأقل (تم اختيار ${selectedNumbers.size})` }
     const data = await api("e3-set-participants", { participant_numbers: Array.from(selectedNumbers) })
@@ -2700,7 +2706,7 @@ export default function Admin3Page() {
                 </div>
                 <p className="mt-1 text-[10px] leading-5 text-gray-500">
                   {choiceOnly
-                    ? "3 جولات مجموعات، 7 أشخاص في كل مجموعة، ثم 3 لقاءات اختيار فردية متبادلة مع شريك مختلف في كل مرة."
+                    ? "3 جولات مجموعات، حتى 7 أشخاص في كل مجموعة، ثم 3 لقاءات اختيار فردية متبادلة مع شريك مختلف في كل مرة."
                     : "جولتا مجموعات، ثم اختيار المشاركين، ثم مطابقة الخوارزمية."}
                 </p>
               </div>
@@ -2759,7 +2765,7 @@ export default function Admin3Page() {
         {state && (
           <div className={`grid grid-cols-2 sm:grid-cols-3 ${choiceOnly ? "md:grid-cols-6" : "md:grid-cols-5"} gap-2 sm:gap-3`}>
             {[
-              { label: "المشاركون المختارون", value: choiceOnly ? `${state.participants_selected}/42` : `${state.participants_selected}`, icon: Users, ok: choiceOnly ? state.participants_selected === 42 : (state.participants_selected || 0) >= 6 },
+              { label: "المشاركون المختارون", value: choiceOnly ? `${state.participants_selected} (الحد 42)` : `${state.participants_selected}`, icon: Users, ok: choiceOnly ? choiceOnlyRosterReady(state.participants_selected) : (state.participants_selected || 0) >= 6 },
               { label: "خطة الجلسات", value: state.seating_generated ? "جاهزة ✓" : "لم تُولَّد", icon: Grid3x3, ok: state.seating_generated },
               { label: "التصنيفات المقدمة", value: `${state.rankings_submitted}/${state.participants_selected || 0}`, icon: BarChart3, ok: state.rankings_submitted > 0 && state.rankings_submitted >= (state.participants_selected || 1) },
               { label: choiceOnly ? "مطابقات الاختيار الأول" : "مطابقات المرحلة 2", value: state.phase2_matches_done ? "جاهزة ✓" : "—", icon: Trophy, ok: state.phase2_matches_done },
@@ -3245,8 +3251,8 @@ export default function Admin3Page() {
                   <Users size={16} className="text-purple-400" /> اختيار المشاركين
                 </h3>
                 <div className="flex items-center gap-2">
-                  <span className={`text-sm px-2 py-0.5 rounded-full ${(choiceOnly ? selectedNumbers.size === 42 : selectedNumbers.size >= 6) ? "bg-green-900 text-green-300" : "bg-gray-800 text-gray-400"}`}>
-                    {selectedNumbers.size}{choiceOnly ? "/42" : ""} مختار
+                  <span className={`text-sm px-2 py-0.5 rounded-full ${(choiceOnly ? choiceOnlyRosterReady(selectedNumbers.size) : selectedNumbers.size >= 6) ? "bg-green-900 text-green-300" : "bg-gray-800 text-gray-400"}`}>
+                    {selectedNumbers.size}{choiceOnly ? " · الحد 42" : ""} مختار
                   </span>
                   {selectedNumbers.size > 0 && (() => {
                     const sel = participants.filter(p => selectedNumbers.has(p.number))
@@ -3264,7 +3270,7 @@ export default function Admin3Page() {
                   })()}
                   <button
                     onClick={saveParticipants}
-                    disabled={(choiceOnly ? selectedNumbers.size !== 42 : selectedNumbers.size < 6) || !!loading || previewEventId != null}
+                    disabled={(choiceOnly ? !choiceOnlyRosterReady(selectedNumbers.size) : selectedNumbers.size < 6) || !!loading || previewEventId != null}
                     className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg px-3 py-1.5 text-sm flex items-center gap-1"
                   >
                     {loading === "save-participants" ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
@@ -3396,7 +3402,7 @@ export default function Admin3Page() {
                         </span>
                       </div>
                       <p className="mt-1 text-[10px] leading-5 text-gray-400">حُفظ سبب الاختيار ومقاييسه مع الخطة{approvedChoiceSeatingReport.generator_version ? ` · المولّد ${approvedChoiceSeatingReport.generator_version}` : ""}{Number.isFinite(createdAt) ? ` · ${new Date(createdAt).toLocaleString("ar-SA", { dateStyle: "short", timeStyle: "short" })}` : ""}</p>
-                      {seatingChangedAfterApproval && <p className="mt-1 text-[10px] font-bold leading-5 text-amber-300">الطاولات أدناه هي النسخة غير القابلة للتغيير وقت الاعتماد وليست خريطة الجلسات الحالية{approvedChoiceSeatingReport.current_assignment_count != null ? ` · المسند حالياً ${approvedChoiceSeatingReport.current_assignment_count}/126 مقعداً` : ""}.</p>}
+                      {seatingChangedAfterApproval && <p className="mt-1 text-[10px] font-bold leading-5 text-amber-300">الطاولات أدناه هي النسخة غير القابلة للتغيير وقت الاعتماد وليست خريطة الجلسات الحالية{approvedChoiceSeatingReport.current_assignment_count != null ? ` · المسند حالياً ${approvedChoiceSeatingReport.current_assignment_count}/${approvedChoiceSeatingReport.report.summary?.assignment_count || ((approvedChoiceSeatingReport.report.summary?.participant_count || state?.participants_selected || 0) * 3)} مقعداً` : ""}.</p>}
                       {!seatingMatchKnown && <p className="mt-1 text-[9px] text-gray-600">لم تتوفر مقارنة تلقائية مع الجلسات الحالية لهذا التقرير القديم.</p>}
                       <div className="mt-2 flex flex-wrap gap-1.5 text-[9px]">
                         <span className="rounded-lg bg-black/20 px-2 py-1 text-amber-200">Spark {scoreText(approvedSummary.lens_scores?.spark)}</span>
@@ -3434,7 +3440,7 @@ export default function Admin3Page() {
                     action: choiceOnly && choiceSeatingPreview ? () => document.getElementById("choice-seating-preview")?.scrollIntoView({ behavior: "smooth", block: "start" }) : generateSeating,
                     icon: Grid3x3,
                     color: "blue",
-                    enabled: choiceOnly ? state?.participants_selected === 42 : (state?.participants_selected || 0) >= 6,
+                    enabled: choiceOnly ? choiceOnlyRosterReady(state?.participants_selected) : (state?.participants_selected || 0) >= 6,
                     loadKey: "seating",
                   },
                   {
@@ -3476,7 +3482,7 @@ export default function Admin3Page() {
                   ...(choiceOnly ? [
                     {
                       label: "بدء الجولة الثالثة",
-                      desc: "25 دقيقة · 7 أشخاص",
+                      desc: "25 دقيقة · حتى 7 أشخاص",
                       action: () => setPhaseWithTimer("round3", EVENT3_PHASE_SECONDS.round3, 3),
                       icon: Play,
                       color: "green",
@@ -3500,7 +3506,7 @@ export default function Admin3Page() {
                     icon: Shuffle,
                     color: "pink",
                     enabled: choiceOnly
-                      ? state?.phase === "ranking3" && state?.participants_selected === 42
+                      ? state?.phase === "ranking3" && choiceOnlyRosterReady(state?.participants_selected)
                       : testMode || (state?.phase === "ranking2" && (state?.participants_selected || 0) > 0) || (state?.rankings_submitted || 0) > 0,
                     loadKey: "phase2",
                   },
@@ -4001,7 +4007,7 @@ export default function Admin3Page() {
 
             {choiceOnly ? (
               <div className="rounded-xl border border-violet-800/30 bg-violet-950/15 px-4 py-3 text-[11px] leading-5 text-violet-200/70">
-                خطة الجولات الثلاث تُولَّد كوحدة واحدة لضمان 7 أشخاص في كل مجموعة وتقليل تكرار اللقاءات. بدائل الجولتين الكلاسيكية غير مستخدمة في هذا النظام.
+                خطة الجولات الثلاث تُولَّد كوحدة واحدة لتكوين مجموعات متوازنة لا تتجاوز 7 أشخاص وتقليل تكرار اللقاءات. بدائل الجولتين الكلاسيكية غير مستخدمة في هذا النظام.
               </div>
             ) : (
               <SeatingAlternatives
@@ -5116,7 +5122,7 @@ export default function Admin3Page() {
                   <button
                     onClick={triggerPhase2}
                     disabled={!!loading || (choiceOnly
-                      ? state?.participants_selected !== 42 || !["ranking3", "phase2_processing"].includes(String(state?.phase || ""))
+                      ? !choiceOnlyRosterReady(state?.participants_selected) || !["ranking3", "phase2_processing"].includes(String(state?.phase || ""))
                       : (rankStatus?.submitted || 0) === 0)}
                     className="flex items-center gap-1.5 bg-pink-900/40 hover:bg-pink-900/70 border border-pink-800/50 text-pink-300 rounded-lg px-3 py-1.5 text-xs disabled:opacity-40"
                   >
@@ -5563,7 +5569,7 @@ export default function Admin3Page() {
                           ) : (
                             <>
                               {tables[r] ? choiceOnly ? (
-                                <span className="text-xs font-bold text-indigo-300 bg-indigo-900/30 px-2.5 py-1 rounded-lg border border-indigo-800/40" title="استخدم زر التبديل للحفاظ على 7 أشخاص في كل مجموعة">
+                                <span className="text-xs font-bold text-indigo-300 bg-indigo-900/30 px-2.5 py-1 rounded-lg border border-indigo-800/40" title="استخدم زر التبديل للحفاظ على حجم المجموعات">
                                   طاولة {tables[r]}
                                 </span>
                               ) : (

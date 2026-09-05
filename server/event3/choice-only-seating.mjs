@@ -1,6 +1,7 @@
 import { buildSixBySevenPlan, normalizedGender } from "./round2-age-optimizer.mjs"
 import { optimizeRound1SparkGroups } from "./round1-spark.mjs"
 import { createRoundLensScorer, getRoundLensProfileMissingFields } from "./round23-lenses.mjs"
+import { buildFlexibleChoiceOnlySeatingCandidates } from "./flexible-choice-seating.mjs"
 
 const TABLE_COUNT = 6
 const GROUP_SIZE = 7
@@ -760,6 +761,9 @@ function alternativeRound1Sources(seedCandidates, options) {
  * diversity is enforced independently in all three rounds.
  */
 export function buildChoiceOnlySeatingCandidates(values, options = {}) {
+  if (Array.isArray(values) && values.length !== PARTICIPANT_COUNT) {
+    return buildFlexibleChoiceOnlySeatingCandidates(values, options)
+  }
   const primarySearch = buildChoiceOnlySeatingSearch(values, options, 3, {
     // These two extra fixed-Spark results only seed alternative Round 1 grids.
     diversityRoundNumbers: [2, 3],
@@ -808,6 +812,10 @@ export function buildChoiceOnlySeatingCandidates(values, options = {}) {
 }
 
 export function buildChoiceOnlySeatingPlan(values, options = {}) {
+  if (Array.isArray(values) && values.length !== PARTICIPANT_COUNT) {
+    const generated = buildFlexibleChoiceOnlySeatingCandidates(values, options)
+    return generated.error ? generated : generated.candidates[0].plan
+  }
   const search = buildChoiceOnlySeatingSearch(values, options, 1)
   if (search.error) return search
   return serializeChoiceOnlyPlan(search, search.bestCandidates[0])

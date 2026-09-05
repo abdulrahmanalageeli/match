@@ -1,6 +1,7 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto"
 
 import { CHOICE_ONLY_SEATING_OBJECTIVE_VERSION } from "./choice-only-seating.mjs"
+import { FLEXIBLE_CHOICE_SEATING_LIMITS } from "./flexible-choice-seating.mjs"
 import { normalizedGender } from "./round2-age-optimizer.mjs"
 import { getRoundLensProfileMissingFields } from "./round23-lenses.mjs"
 
@@ -43,11 +44,18 @@ function canonicalAssignments(rows) {
     || left.participant_id - right.participant_id)
 }
 
-function assignmentsForPlan(plan) {
+function assignmentsForPlan(plan, expectedParticipantNumbers) {
   const assignments = []
+  const expected = [...new Set((expectedParticipantNumbers || plan?.round1?.flat() || []).map(Number))]
+  const expectedSet = new Set(expected)
+  if (expected.length < FLEXIBLE_CHOICE_SEATING_LIMITS.minimumParticipants
+    || expected.length > FLEXIBLE_CHOICE_SEATING_LIMITS.maximumParticipants) {
+    throw fail("A seating candidate contained an unsupported participant count", 500)
+  }
   for (const [roundIndex, groups] of [plan?.round1, plan?.round2, plan?.round3].entries()) {
-    if (!Array.isArray(groups) || groups.length !== 6 || groups.some(group => !Array.isArray(group) || group.length !== 7)) {
-      throw fail("A seating candidate did not contain six complete tables in every round", 500)
+    if (!Array.isArray(groups) || groups.length < 2
+      || groups.some(group => !Array.isArray(group) || group.length < 1 || group.length > FLEXIBLE_CHOICE_SEATING_LIMITS.maximumGroupSize)) {
+      throw fail("A seating candidate contained an invalid table layout", 500)
     }
     for (const [tableIndex, group] of groups.entries()) {
       for (const participantId of group) assignments.push({
@@ -58,13 +66,12 @@ function assignmentsForPlan(plan) {
     }
   }
   const canonical = canonicalAssignments(assignments)
-  const numbers = new Set(canonical.map(row => row.participant_id))
-  if (canonical.length !== 126 || numbers.size !== 42) {
-    throw fail("A seating candidate did not contain 42 unique participants in all three rounds", 500)
-  }
+  if (canonical.length !== expected.length * 3) throw fail("A seating candidate omitted participants", 500)
   for (const round of [1, 2, 3]) {
     const seats = canonical.filter(row => row.round === round)
-    if (seats.length !== 42 || new Set(seats.map(row => row.participant_id)).size !== 42) {
+    const numbers = new Set(seats.map(row => row.participant_id))
+    if (seats.length !== expected.length || numbers.size !== expected.length
+      || [...numbers].some(number => !expectedSet.has(number))) {
       throw fail("A seating candidate repeated or omitted a participant", 500)
     }
   }
@@ -81,13 +88,13 @@ function groupsForAssignments(assignments) {
   return groups
 }
 
-function genderTargets(participantNumbers, genderMap) {
+function genderTargets(participantNumbers, genderMap, tableCount) {
   const counts = { female: 0, male: 0, unknown: 0 }
   for (const number of participantNumbers) counts[normalizedGender(genderMap.get(number))]++
   return Object.fromEntries(Object.entries(counts).map(([category, total]) => [category, {
     total,
-    minimum_per_table: Math.floor(total / 6),
-    maximum_per_table: Math.ceil(total / 6),
+    minimum_per_table: Math.floor(total / tableCount),
+    maximum_per_table: Math.ceil(total / tableCount),
   }]))
 }
 
@@ -189,10 +196,10 @@ function roundReport({ round, lens, groups, groupScores, genderMap, genderTarget
   }
 }
 
-export function buildChoiceSeatingReport({ candidate, genderMap, protectedPairs, participantNumbers, generatedAt = new Date().toISOString() }) {
+export function buildChoiceSeatingReport({ candidate, genderMap, protectedPairs, participantNumbers, missingSurveyFields = [], generatedAt = new Date().toISOString() }) {
   const plan = candidate.plan
-  const assignments = assignmentsForPlan(plan)
-  const genderTargetRanges = genderTargets(participantNumbers, genderMap)
+  const assignments = assignmentsForPlan(plan, participantNumbers)
+  const genderTargetRanges = genderTargets(participantNumbers, genderMap, plan.round1.length)
   const rounds = [
     roundReport({ round: 1, lens: "spark", groups: plan.round1, groupScores: plan.round1Spark?.after?.groupScores, genderMap, genderTargetRanges, protectedPairs }),
     roundReport({ round: 2, lens: "depth", groups: plan.round2, groupScores: plan.round2Depth?.groupScores, genderMap, genderTargetRanges, protectedPairs }),
@@ -227,12 +234,14 @@ export function buildChoiceSeatingReport({ candidate, genderMap, protectedPairs,
       diversity: candidate.diversity || null,
     },
     summary: {
+      participant_count: participantNumbers.length,
+      assignment_count: assignments.length,
       overall_score: finiteLensScores.length ? rounded(finiteLensScores.reduce((sum, score) => sum + score, 0) / finiteLensScores.length) : null,
       lens_scores: lensScores,
       weakest_tables: weakestTables,
       all_gender_balanced: allTables.every(table => table.gender.balanced),
       protected_pair_violations: violations.length,
-      missing_survey_field_count: 0,
+      missing_survey_field_count: missingSurveyFields.length,
     },
     rounds,
     repeats: {
@@ -253,7 +262,7 @@ export function buildChoiceSeatingReport({ candidate, genderMap, protectedPairs,
       total_violations: violations.length,
       violations,
     },
-    missing_survey_fields: [],
+    missing_survey_fields: missingSurveyFields,
   }
 }
 
@@ -304,19 +313,24 @@ async function loadChoiceContext(db, eventId) {
   if (state.phase !== "setup" || state.global_timer_active === true || state.groups_locked === true) {
     throw fail("Choice seating can only be previewed or approved during setup")
   }
-  if (!Array.isArray(roster) || roster.length !== 42) throw fail("The three-round format requires exactly 42 selected participants", 400)
+  if (!Array.isArray(roster)
+    || roster.length < FLEXIBLE_CHOICE_SEATING_LIMITS.minimumParticipants
+    || roster.length > FLEXIBLE_CHOICE_SEATING_LIMITS.maximumParticipants
+    || roster.length % 2 !== 0) {
+    throw fail(`The three-round format requires an even roster of ${FLEXIBLE_CHOICE_SEATING_LIMITS.minimumParticipants} to ${FLEXIBLE_CHOICE_SEATING_LIMITS.maximumParticipants} selected participants`, 400)
+  }
   const participantNumbers = roster.map(row => Number(row.participant_number))
-  if (participantNumbers.some(number => !Number.isInteger(number) || number <= 0) || new Set(participantNumbers).size !== 42) {
+  if (participantNumbers.some(number => !Number.isInteger(number) || number <= 0) || new Set(participantNumbers).size !== participantNumbers.length) {
     throw fail("The selected Event3 roster is invalid", 400)
   }
   const profiles = await checked(db.from("participants").select("*")
     .eq("match_id", STATIC_MATCH_ID).in("assigned_number", participantNumbers).order("assigned_number"))
-  if (!Array.isArray(profiles) || profiles.length !== 42) throw fail("Participant profiles are incomplete", 400)
+  if (!Array.isArray(profiles) || profiles.length !== participantNumbers.length) throw fail("Participant profiles are incomplete", 400)
   const profileMap = new Map(profiles.map(profile => [Number(profile.assigned_number), {
     ...profile,
     survey_data: parseSurveyData(profile.survey_data),
   }]))
-  if (profileMap.size !== 42 || participantNumbers.some(number => !profileMap.has(number))) throw fail("Participant profiles are incomplete", 400)
+  if (profileMap.size !== participantNumbers.length || participantNumbers.some(number => !profileMap.has(number))) throw fail("Participant profiles are incomplete", 400)
   const profileVersions = participantNumbers.map(participantNumber => {
     const profile = profileMap.get(participantNumber)
     return {
@@ -403,8 +417,8 @@ async function withCurrentSeatingStatus(db, row, eventId) {
     .eq("match_id", EVENT3_MATCH_ID).eq("event_id", eventId).in("round", [1, 2, 3])))
   const storedAssignments = canonicalAssignments(row?.assignments || [])
   const matchesCurrentSeating = Boolean(row)
-    && storedAssignments.length === 126
-    && currentAssignments.length === 126
+    && storedAssignments.length >= FLEXIBLE_CHOICE_SEATING_LIMITS.minimumParticipants * 3
+    && currentAssignments.length === storedAssignments.length
     && JSON.stringify(storedAssignments) === JSON.stringify(currentAssignments)
   return {
     report: row ? {
@@ -502,21 +516,18 @@ export async function handleChoiceSeatingPreview({ db, action, body = {}, eventI
   }
 
   if (action !== "e3-preview-choice-seating") throw fail("Unknown choice seating preview action", 400)
-  if (context.missingSurveyFields.length) {
-    throw fail("Choice-only lens rounds require complete survey profiles", 422, {
-      missing_survey_fields: context.missingSurveyFields,
-    })
-  }
   if (typeof buildCandidates !== "function") throw fail("Choice seating candidate generation is unavailable", 503)
+  const incompleteProfiles = new Set(context.missingSurveyFields.map(row => Number(row.participant_number)))
+  const lensProfileMap = new Map([...context.profileMap].filter(([participantNumber]) => !incompleteProfiles.has(participantNumber)))
   const generated = buildCandidates(context.participantNumbers, {
     genderMap: context.genderMap,
     ageMap: context.ageMap,
-    profileMap: context.profileMap,
+    profileMap: lensProfileMap,
     lockedPairsSet: context.lockedPairsSet,
-    requireCompleteLensProfiles: true,
+    requireCompleteLensProfiles: false,
   })
   if (generated?.error) throw fail(generated.error, 400)
-  if (generated?.objectiveVersion !== CHOICE_ONLY_SEATING_OBJECTIVE_VERSION) {
+  if (![CHOICE_ONLY_SEATING_OBJECTIVE_VERSION, "spark-depth-rhythm-v1-flexible"].includes(generated?.objectiveVersion)) {
     throw fail("The seating scheduler objective version does not match the preview service", 503)
   }
   if (!Array.isArray(generated?.candidates) || generated.candidates.length !== 3) {
@@ -524,7 +535,7 @@ export async function handleChoiceSeatingPreview({ db, action, body = {}, eventI
   }
   const generatedAt = new Date().toISOString()
   const preparedCandidates = generated.candidates.map(candidate => {
-    const assignments = assignmentsForPlan(candidate.plan)
+    const assignments = assignmentsForPlan(candidate.plan, context.participantNumbers)
     const positionMap = candidate.plan?.positionMap || {}
     const participants = context.participantNumbers.map((number, fallbackPosition) => ({
       participant_number: number,
@@ -535,6 +546,7 @@ export async function handleChoiceSeatingPreview({ db, action, body = {}, eventI
       genderMap: context.genderMap,
       protectedPairs: context.protectedPairs,
       participantNumbers: context.participantNumbers,
+      missingSurveyFields: context.missingSurveyFields,
       generatedAt,
     })
     return { candidate, assignments, participants, report }
@@ -607,6 +619,7 @@ export async function handleChoiceSeatingPreview({ db, action, body = {}, eventI
     expires_at: Date.now() + PREVIEW_TTL_MS,
     objective_version: String(generated.objectiveVersion || "unknown"),
     diversity_policy: generated.diversityPolicy || null,
+    missing_survey_fields: context.missingSurveyFields,
     candidates,
   }
 }

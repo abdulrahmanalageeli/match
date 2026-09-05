@@ -324,6 +324,11 @@ async function createFixture(t) {
     import.meta.url,
   ), "utf8")
   await db.exec(previewMigration)
+  const flexibleRosterMigration = await readFile(new URL(
+    "../../supabase/migrations/20260905024500_allow_flexible_event3_choice_rosters.sql",
+    import.meta.url,
+  ), "utf8")
+  await db.exec(flexibleRosterMigration)
   return db
 }
 
@@ -698,7 +703,7 @@ test("choice-only migration hardens format, seating, matching, and feedback with
       "spark-depth-rhythm-v1",
       JSON.stringify(seatingReport),
     ],
-  ), /six complete groups of seven/i)
+  ), /complete roster in groups of at most seven/i)
   const seatingAfterFailure = await db.query("select round,count(*)::int as count from session_assignments group by round order by round")
   assert.deepEqual(seatingAfterFailure.rows, [
     { round: 1, count: 42 },
@@ -1045,4 +1050,99 @@ test("choice-only migration hardens format, seating, matching, and feedback with
   )
   const formatAfterRejectedSwitch = await db.query("select event_format from event3_event_settings where match_id=$1 and event_id=$2", [EVENT3_MATCH_ID, EVENT_ID])
   assert.deepEqual(formatAfterRejectedSwitch.rows, [{ event_format: "choice_only_three_groups" }])
+})
+
+test("flexible choice migration saves and matches a 30-person live roster", async t => {
+  const db = await createFixture(t)
+  const roster = Array.from({ length: 30 }, (_, index) => index + 1)
+  const plan = buildChoiceOnlySeatingPlan(roster, { genderMap: {}, ageMap: {} })
+  assert.equal(plan.error, undefined)
+  const participants = roster.map(participantNumber => ({
+    participant_number: participantNumber,
+    position: plan.positionMap[participantNumber],
+  }))
+  const expectedRoster = roster.map((participantNumber, position) => ({
+    participant_number: participantNumber,
+    position,
+  }))
+  const assignments = [plan.round1, plan.round2, plan.round3].flatMap((groups, roundIndex) =>
+    groups.flatMap((group, tableIndex) => group.map(participantId => ({
+      round: roundIndex + 1,
+      table_number: tableIndex + 1,
+      participant_id: participantId,
+    }))))
+
+  await db.query(`insert into event_state(
+    match_id,current_event_id,phase,current_round,test_mode_active,
+    phase2_score_revealed,phase3_score_revealed
+  ) values ($1,$2,'setup',1,false,false,false)`, [EVENT3_MATCH_ID, EVENT_ID])
+  await db.query(`insert into participants(match_id,assigned_number)
+    select $1, number from generate_series(1,30) number`, [STATIC_MATCH_ID])
+  await db.query("select set_event3_event_format($1,$2,'choice_only_three_groups')", [EVENT3_MATCH_ID, EVENT_ID])
+  const rosterResult = await db.query(
+    "select replace_event3_choice_roster($1,$2,$3,false,null,$4::integer[]) as result",
+    [EVENT3_MATCH_ID, STATIC_MATCH_ID, EVENT_ID, roster],
+  )
+  assert.equal(rosterResult.rows[0].result.selected_count, 30)
+
+  const profileVersions = roster.map(participantNumber => ({
+    participant_number: participantNumber,
+    updated_at: null,
+    survey_data_updated_at: null,
+    gender: null,
+    age: null,
+  }))
+  const report = {
+    schema_version: "event3-choice-seating-report-v1",
+    candidate: { id: "flex-30-test", rank: 1 },
+    decision_context: { alternatives_summary: [{ rank: 1 }, { rank: 2 }, { rank: 3 }] },
+  }
+  const approval = await db.query(`select apply_event3_choice_seating_preview(
+    $1,$2,$3,false,null,$4::jsonb,$5::jsonb,$6::jsonb,$7::jsonb,$8::jsonb,null,$9::jsonb,$10,$11,$12::smallint,$13,$14::jsonb
+  ) as result`, [
+    EVENT3_MATCH_ID,
+    STATIC_MATCH_ID,
+    EVENT_ID,
+    JSON.stringify(participants),
+    JSON.stringify(expectedRoster),
+    JSON.stringify(profileVersions),
+    JSON.stringify([]),
+    JSON.stringify([]),
+    JSON.stringify(assignments),
+    "a".repeat(64),
+    "flex-30-test",
+    1,
+    "spark-depth-rhythm-v1-flexible",
+    JSON.stringify(report),
+  ])
+  assert.equal(approval.rows[0].result.participants, 30)
+  assert.equal(approval.rows[0].result.assignments, 90)
+
+  const pairs = Array.from({ length: 15 }, (_, index) => [index * 2 + 1, index * 2 + 2])
+  const rankings = pairs.flatMap(([a, b]) => [[a, b, 1], [b, a, 1]])
+    .sort((left, right) => left[0] - right[0] || left[2] - right[2] || left[1] - right[1])
+  await db.query(`insert into participant_rankings(match_id,event_id,ranker_number,ranked_number,rank)
+    select $1,$2,row_data.ranker_number,row_data.ranked_number,row_data.rank
+    from jsonb_to_recordset($3::jsonb) as row_data(ranker_number integer,ranked_number integer,rank integer)`, [
+    EVENT3_MATCH_ID,
+    EVENT_ID,
+    JSON.stringify(rankings.map(([ranker_number, ranked_number, rank]) => ({ ranker_number, ranked_number, rank }))),
+  ])
+  await db.query("update event_state set phase='phase2_processing' where match_id=$1", [EVENT3_MATCH_ID])
+  const matchResult = await db.query(`select replace_event3_choice_match_round(
+    $1,$2,1::smallint,false,null,$3::jsonb,$4::jsonb,$5::jsonb,$6::jsonb
+  ) as result`, [
+    EVENT3_MATCH_ID,
+    EVENT_ID,
+    JSON.stringify(rankings),
+    JSON.stringify([]),
+    JSON.stringify(matchRows(pairs)),
+    JSON.stringify(matchTables(pairs)),
+  ])
+  assert.equal(matchResult.rows[0].result.pairs, 15)
+  const saved = await db.query(`select
+    (select count(*)::int from event3_matches where match_id=$1 and event_id=$2) as matches,
+    (select count(*)::int from session_assignments where match_id=$1 and event_id=$2 and round=20) as seats,
+    (select count(*)::int from event3_choice_seating_reports where match_id=$1 and event_id=$2) as reports`, [EVENT3_MATCH_ID, EVENT_ID])
+  assert.deepEqual(saved.rows, [{ matches: 30, seats: 30, reports: 1 }])
 })

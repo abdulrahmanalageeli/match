@@ -462,6 +462,10 @@ async function sendFinalConfirmation(participant, paymentWaived = false) {
 
 // ── Event 5.0 constants & helpers ─────────────────────────────────────────────
 const EVENT3_MATCH_ID = "00000000-0000-0000-0000-000000000003"
+const EVENT3_CHOICE_MIN_PARTICIPANTS = 16
+const EVENT3_CHOICE_MAX_PARTICIPANTS = 42
+const validEvent3ChoiceRosterSize = count => Number(count) >= EVENT3_CHOICE_MIN_PARTICIPANTS
+  && Number(count) <= EVENT3_CHOICE_MAX_PARTICIPANTS && Number(count) % 2 === 0
 
 function event3ChoiceRankingSnapshot(rows = []) {
   return rows.map(row => [Number(row.ranker_number), Number(row.ranked_number), Number(row.rank)])
@@ -9969,10 +9973,10 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           // 1. Participant selection
           const { data: ep, error: epErr } = await supabase.from("event3_participants").select("participant_number,position").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).order("position", { ascending: true })
           const selectedNumbers = (ep || []).map(r => r.participant_number)
-          const invalidParticipantCount = diagnosticChoiceOnly ? selectedNumbers.length !== 42 : selectedNumbers.length < 4
+          const invalidParticipantCount = diagnosticChoiceOnly ? !validEvent3ChoiceRosterSize(selectedNumbers.length) : selectedNumbers.length < 4
           if (epErr || invalidParticipantCount) {
             checks.push({ name: "participant_selection", status: "fail", message: epErr?.message || (diagnosticChoiceOnly
-              ? `${selectedNumbers.length} participants selected (choice-only requires exactly 42)`
+              ? `${selectedNumbers.length} participants selected (choice-only requires an even roster of 16 to 42)`
               : `Only ${selectedNumbers.length} participants selected (need at least 4)`) })
             healthy = false
           } else {
@@ -10332,8 +10336,8 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             return res.status(400).json({ error: "Participant numbers must be unique positive integers" })
           }
           const participantFormat = await loadEvent3Format(supabase, EVENT3_MATCH_ID, currentEventId)
-          if (isChoiceOnlyEvent3(participantFormat) && participant_numbers.length !== 42) {
-            return res.status(400).json({ error: "The three-group choice-only format requires exactly 42 participants (6 groups of 7)" })
+          if (isChoiceOnlyEvent3(participantFormat) && !validEvent3ChoiceRosterSize(participant_numbers.length)) {
+            return res.status(400).json({ error: "The three-group choice-only format requires an even roster of 16 to 42 participants" })
           }
           if (isChoiceOnlyEvent3(participantFormat)) {
             const { data: rosterState, error: rosterStateError } = await supabase.from("event_state")
@@ -10427,8 +10431,8 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const participantNumbers = ep.map(r => r.participant_number)
           const seatingFormat = await loadEvent3Format(supabase, EVENT3_MATCH_ID, currentEventId)
           const choiceOnlySeating = isChoiceOnlyEvent3(seatingFormat)
-          if (choiceOnlySeating && participantNumbers.length !== 42) {
-            return res.status(400).json({ error: "The three-group choice-only format requires exactly 42 participants (6 groups of 7)" })
+          if (choiceOnlySeating && !validEvent3ChoiceRosterSize(participantNumbers.length)) {
+            return res.status(400).json({ error: "The three-group choice-only format requires an even roster of 16 to 42 participants" })
           }
           if (choiceOnlySeating) {
             return res.status(409).json({
@@ -10760,8 +10764,8 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             ])
             const coverageError = rosterCoverage.error || round3Coverage.error
             if (coverageError) return res.status(500).json({ error: coverageError.message })
-            if (rosterCoverage.count !== 42 || round3Coverage.count !== 42) {
-              return res.status(409).json({ error: "The first choice match requires a complete 42-person third group round" })
+            if (!validEvent3ChoiceRosterSize(rosterCoverage.count) || round3Coverage.count !== rosterCoverage.count) {
+              return res.status(409).json({ error: "The first choice match requires a complete third group round for every selected participant" })
             }
           }
           const { error: completionError } = choiceOnlyPhase2
@@ -11371,8 +11375,8 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
 
           const participantNumbers = (rosterResult.data || []).map(row => Number(row.participant_number))
           const participantSet = new Set(participantNumbers)
-          if (participantNumbers.length !== 42 || participantSet.size !== 42 || participantNumbers.some(number => !Number.isInteger(number) || number <= 0)) {
-            return res.status(422).json({ error: "The third choice match requires the complete 42-person roster" })
+          if (!validEvent3ChoiceRosterSize(participantNumbers.length) || participantSet.size !== participantNumbers.length || participantNumbers.some(number => !Number.isInteger(number) || number <= 0)) {
+            return res.status(422).json({ error: "The third choice match requires the complete selected roster" })
           }
 
           const rankingRows = (rankingResult.data || []).filter(row => participantSet.has(Number(row.ranker_number)) && participantSet.has(Number(row.ranked_number)))
@@ -12914,7 +12918,7 @@ ${alternativeLines}
           }
           const replacementFormat = await loadEvent3Format(supabase, EVENT3_MATCH_ID, currentEventId)
           if (isChoiceOnlyEvent3(replacementFormat)) {
-            return res.status(409).json({ error: "For a choice-only edition, update the 42-person roster during setup and regenerate seating instead of transferring another person's choices" })
+            return res.status(409).json({ error: "For a choice-only edition, update the roster during setup and regenerate seating instead of transferring another person's choices" })
           }
 
           const testContext = await getEvent3TestContext()

@@ -265,23 +265,27 @@ test("legacy test sessions sign their display key but pass a nullable raw start 
   assert.equal(rpcCalls[0].params.p_expected_started_at, null)
 })
 
-test("missing lens answers return exact participant fields before scheduling", async () => {
+test("missing lens answers remain visible but use neutral evidence instead of blocking seating", async () => {
   const { db, profiles, rpcCalls } = fixture()
   delete profiles[0].survey_data.answers.silence_comfort
   let schedulerCalled = false
-  await assert.rejects(handleChoiceSeatingPreview({
+  const preview = await handleChoiceSeatingPreview({
     db,
     action: "e3-preview-choice-seating",
     body: { expected_event_id: EVENT_ID, expected_test_mode: false },
     eventId: EVENT_ID,
     secret: "test-secret",
-    buildCandidates() { schedulerCalled = true },
-  }), error => {
-    assert.equal(error.status, 422)
-    assert.deepEqual(error.missing_survey_fields, [{ participant_number: 1, fields: ["silence_comfort"] }])
-    return true
+    buildCandidates(participants, options) {
+      schedulerCalled = true
+      assert.equal(options.requireCompleteLensProfiles, false)
+      assert.equal(options.profileMap.has(1), false)
+      return buildChoiceOnlySeatingCandidates(participants, options)
+    },
   })
-  assert.equal(schedulerCalled, false)
+  assert.equal(schedulerCalled, true)
+  assert.deepEqual(preview.missing_survey_fields, [{ participant_number: 1, fields: ["silence_comfort"] }])
+  assert.deepEqual(preview.candidates[0].report.missing_survey_fields, preview.missing_survey_fields)
+  assert.equal(preview.candidates[0].report.summary.missing_survey_field_count, 1)
   assert.equal(rpcCalls.length, 0)
 })
 

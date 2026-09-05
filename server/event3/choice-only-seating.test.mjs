@@ -402,8 +402,19 @@ test("accepts participant records and preserves their supplied order in the posi
   assertRound(plan.round1)
 })
 
-test("returns a reviewable error for a non-42 or duplicate roster", () => {
-  assert.match(buildChoiceOnlySeatingPlan(participants.slice(0, 41)).error, /exactly 42/)
+test("builds balanced flexible plans below 42 and rejects invalid rosters", () => {
+  const flexibleParticipants = participants.slice(0, 30)
+  const generated = buildChoiceOnlySeatingCandidates(flexibleParticipants)
+  assert.equal(generated.candidates.length, 3)
+  assert.equal(generated.objectiveVersion, "spark-depth-rhythm-v1-flexible")
+  for (const candidate of generated.candidates) {
+    for (const round of [candidate.plan.round1, candidate.plan.round2, candidate.plan.round3]) {
+      assert.deepEqual(round.map(group => group.length), [6, 6, 6, 6, 6])
+      assert.deepEqual([...round.flat()].sort((a, b) => a - b), flexibleParticipants)
+    }
+  }
+  assert.match(buildChoiceOnlySeatingPlan(participants.slice(0, 15)).error, /even roster of 16 to 42/)
+  assert.match(buildChoiceOnlySeatingPlan(participants.slice(0, 29)).error, /even roster/)
   assert.match(buildChoiceOnlySeatingPlan([...participants.slice(0, 41), 41]).error, /unique/)
   assert.match(buildChoiceOnlySeatingPlan(participants, {
     requireCompleteLensProfiles: true,

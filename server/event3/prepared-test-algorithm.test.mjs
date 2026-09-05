@@ -31,9 +31,19 @@ function storedRow(a, b, score = 76) {
   }
   const scoreSnapshot = buildBalancedScoreSnapshot({
     totalScore: score,
-    scoreBreakdown: { sharedContext: 14, interactionRhythm: 15, personalized },
+    scoreBreakdown: {
+      sharedContext: 14,
+      interactionRhythm: 15,
+      personalized,
+      personalizedBase: score,
+      aiChemistryScore: null,
+      aiChemistryAdjustment: 0,
+      aiChemistryReady: false,
+      aiChemistryBand: "pending",
+      finalScore: score,
+    },
     questionScores: { currentFocus: 3, similarityPreference: 1 },
-    vibeAxes: { sharedEnergy: 2 },
+    vibeAxes: {},
   }, { combinedContentHash: scoreContentHash })
   return Object.freeze({
     id: `test-${a}-${b}`,

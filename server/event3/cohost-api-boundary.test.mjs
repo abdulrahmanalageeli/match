@@ -15,10 +15,10 @@ function between(source, startMarker, endMarker) {
 
 const allowlistSource = between(adminSource, "const EVENT3_COHOST_ACTIONS = new Set([", "])")
 const cohostActions = new Set([...allowlistSource.matchAll(/"([^"]+)"/g)].map(match => match[1]))
-const authClassifiers = between(adminSource, "  const method = req.method", "  if (isCohostLogin) {")
+const authClassifiers = between(adminSource, "  const bearerToken =", "  if (isCohostLogin) {")
 
 function classifyRequest(method, action) {
-  return runInNewContext(`${authClassifiers}\n;({ isCohostLogin, isPublicEventRead, hasCohostSession })`, {
+  return runInNewContext(`const method = req.method; const action = req.query.action || req.body?.action;\n${authClassifiers}\n;({ isCohostLogin, isPublicEventRead, hasCohostSession })`, {
     req: { method, query: { action }, body: {}, headers: { authorization: "Bearer valid-cohost-session" } },
     EVENT3_COHOST_ACTIONS: cohostActions,
     verifyCohostToken: () => true,
@@ -61,6 +61,18 @@ test("round-40 note validation uses the server-resolved event format", () => {
   assert.match(noteAction, /const noteEventFormat = await loadEvent3Format\(supabase, EVENT3_MATCH_ID, currentEventId\)/)
   assert.match(noteAction, /normalizeCohostNoteScope\(req\.body, noteEventFormat\)/)
   assert.doesNotMatch(noteAction, /normalizeCohostNoteScope\(req\.body\)/)
+  assert.match(noteAction, /supabase\.rpc\("save_event3_cohost_note_v2"/)
+  assert.match(noteAction, /\.\.\.displayedEvent3Context\.params/)
+  assert.doesNotMatch(noteAction, /supabase\.from\("event3_cohost_notes"\)\.(?:insert|update|delete)/)
+})
+
+test("co-host bootstrap reads do not require a mutation context and expose a stable live key", () => {
+  const contextGate = between(adminSource, "const requiresDisplayedEvent3Context", "const getCohostRosterSet")
+  for (const action of ["e3-cohost-dashboard", "e3-cohost-rankings", "e3-cohost-attendee-details"]) {
+    assert.match(contextGate, new RegExp(action))
+  }
+  const dashboard = between(adminSource, 'if (action === "e3-cohost-dashboard")', 'if (action === "e3-cohost-rankings")')
+  assert.equal((dashboard.match(/test_session_key: testModeActive \? testSessionKey : "live"/g) || []).length, 2)
 })
 
 test("a locked co-host cannot log in or reach any allowlisted Event3 action", () => {

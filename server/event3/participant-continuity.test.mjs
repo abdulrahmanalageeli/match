@@ -36,6 +36,19 @@ test("Event3 heartbeat distinguishes invalid identity from retriable service fai
   assert.match(heartbeat, /if \(stateError\)[\s\S]*res\.status\(503\)/)
   assert.match(heartbeat, /if \(rosterError \|\| signupError\)[\s\S]*code: "EVENT3_ENROLLMENT_UNAVAILABLE"[\s\S]*retryable: true/)
   assert.match(heartbeat, /if \(assignmentError\)[\s\S]*code: "EVENT3_ASSIGNMENT_UNAVAILABLE"[\s\S]*retryable: true/)
+  assert.match(heartbeat, /const auxiliaryError = sosRes\.error \|\| moodRes\.error \|\| notifRes\.error/)
+  assert.match(heartbeat, /if \(auxiliaryError\)[\s\S]*code: "EVENT3_AUXILIARY_UNAVAILABLE"[\s\S]*retryable: true/)
+})
+
+test("Event3 standalone support, mood, and notification reads fail closed on transient database errors", async () => {
+  const api = await read("api/participant.mjs")
+  const support = between(api, 'if (action === "e3-sos-check")', '// e3-get-mood-check')
+  const mood = between(api, 'if (action === "e3-get-mood-check")', '// e3-submit-mood-check')
+  const notification = between(api, 'if (action === "e3-get-notification")', '// e3-dismiss-notification')
+
+  assert.match(support, /if \(error\)[\s\S]*status\(503\)[\s\S]*EVENT3_SUPPORT_UNAVAILABLE/)
+  assert.match(mood, /if \(error\)[\s\S]*status\(503\)[\s\S]*EVENT3_MOOD_UNAVAILABLE/)
+  assert.match(notification, /if \(error\)[\s\S]*status\(503\)[\s\S]*EVENT3_NOTIFICATION_UNAVAILABLE/)
 })
 
 test("Event3 client only clears identity for the explicit invalid-token code", async () => {
@@ -59,6 +72,31 @@ test("Event3 transport failures are structured as retriable and polling retains 
   assert.match(call, /code: error\?\.name === "AbortError" \? "EVENT3_REQUEST_TIMEOUT" : "EVENT3_NETWORK_UNAVAILABLE"/)
   assert.match(call, /http_status: 0,[\s\S]*retryable: true/)
   assert.doesNotMatch(pollCatch, /setData\(/, "transient polling failures must not erase the last successful heartbeat")
+})
+
+test("Event3 participant requests are pinned to both the displayed edition and runtime session", async () => {
+  const api = await read("api/participant.mjs")
+  const route = await read("app/routes/event3.tsx")
+  const requestGuard = between(api, "const requestTestMode =", "const activeEvent3Phase =")
+  const call = between(route, "async function call", "// ─── \"Arrived at table\"")
+
+  assert.match(requestGuard, /`live:\$\{currentEventId\}`/)
+  assert.match(requestGuard, /expected_event_id/)
+  assert.match(requestGuard, /Number\(expectedEvent3EventId\) !== Number\(currentEventId\)/)
+  assert.match(call, /event3_runtime_event_id/)
+  assert.match(call, /expected_event_id: Number\(expectedEventId\)/)
+  assert.match(route, /EVENT3_SESSION_DISCOVERY_ACTIONS = new Set\(\["e3-heartbeat", "e3-get-public-format", "e3-login-by-phone"\]\)/)
+  assert.match(call, /removeItem\("event3_runtime_session_key"\)[\s\S]*removeItem\("event3_runtime_event_id"\)[\s\S]*return call\(action, token, extra, true\)/)
+})
+
+test("ordinary results omit the current edition while its temporary Event3 test data is active", async () => {
+  const api = await read("api/participant.mjs")
+  const guards = [...api.matchAll(/const hiddenTestEventId = e3State\?\.test_mode_active === true/g)]
+  const filters = [...api.matchAll(/filter\(match => Number\(match\.event_id\) !== hiddenTestEventId\)/g)]
+
+  assert.equal(guards.length, 2, "both Event3 history builders must derive the hidden test edition")
+  assert.equal(filters.length, 2, "both Event3 history builders must remove temporary current-edition rows")
+  assert.equal((api.match(/select\("phase,current_event_id,results_visible,test_mode_active"\)/g) || []).length, 2)
 })
 
 test("Event3 tokenless walkthrough loads only the public format contract before rendering", async () => {

@@ -7,6 +7,16 @@ import { surveyQuestions } from "~/components/SurveyComponent"
 import GroupFeedbackIntelligence from "~/components/GroupFeedbackIntelligence"
 import SeatingAlternatives from "~/components/SeatingAlternatives"
 import {
+  EVENT3_CONTACT_MESSAGE_MAX_LENGTH,
+  EVENT3_ORGANIZER_IMPRESSION_MAX_LENGTH,
+  normalizeEvent3FeedbackPayload,
+} from "~/lib/event3-contact-sharing.mjs"
+import {
+  buildEvent3DisplayedMutationContext,
+  calculateEvent3ServerClockOffsetMs,
+  type Event3DisplayedMutationContext,
+} from "~/lib/event3-cohost-guide.mjs"
+import {
   CURRENT_BALANCED_SCORE_MODEL,
   currentBalancedGroupedDimensionsForDisplay,
 } from "~/lib/compatibility-model"
@@ -85,6 +95,23 @@ type GroupMemberFeedbackData = {
   participant_count?: number
   event_id?: number | null
   test_mode?: boolean
+}
+
+const finalMatchPreferenceLabels: Record<string, string> = {
+  first: "الاختيار الأول",
+  second: "الاختيار الثاني",
+  third: "الاختيار الثالث",
+  multiple: "أكثر من لقاء",
+  none: "لا يوجد تفضيل",
+  both: "كلاهما",
+}
+
+function finalMatchPreferenceLabel(value: unknown, choiceOnly: boolean) {
+  const preference = String(value || "")
+  if (!preference) return null
+  if (preference === "choice") return choiceOnly ? "الاختيار الأول" : "اختيار شخصي"
+  if (preference === "algorithm") return choiceOnly ? "الاختيار الثاني" : "الخوارزمية"
+  return finalMatchPreferenceLabels[preference] || preference
 }
 
 type Event3Format = "classic" | "choice_only_three_groups"
@@ -214,9 +241,9 @@ type PersistedChoiceSeatingReport = {
 }
 
 const choiceCandidateLabels: Record<number, { english: string; arabic: string; style: string }> = {
-  1: { english: "Best", arabic: "الأفضل", style: "border-emerald-500/60 bg-emerald-950/35 text-emerald-200" },
-  2: { english: "Second-best", arabic: "الثاني", style: "border-cyan-500/50 bg-cyan-950/30 text-cyan-200" },
-  3: { english: "Third-best", arabic: "الثالث", style: "border-violet-500/50 bg-violet-950/30 text-violet-200" },
+  1: { english: "Primary", arabic: "الخطة الأساسية", style: "border-emerald-500/60 bg-emerald-950/35 text-emerald-200" },
+  2: { english: "Alternative A", arabic: "البديل الأول", style: "border-cyan-500/50 bg-cyan-950/30 text-cyan-200" },
+  3: { english: "Alternative B", arabic: "البديل الثاني", style: "border-violet-500/50 bg-violet-950/30 text-violet-200" },
 }
 
 const choiceLensLabels: Record<string, { arabic: string; english: string; color: string }> = {
@@ -335,6 +362,54 @@ function compareChoiceCandidates(candidate: ChoiceSeatingCandidate, best: Choice
   }
 }
 
+function choiceCandidateDiversityThresholds(totalParticipants: number, totalPairs: number) {
+  return {
+    // Preserve the original 42-person policy (36 people and 63 replaced
+    // relationships) while scaling it to every supported roster size.
+    changedParticipants: Math.max(1, Math.ceil(totalParticipants * (6 / 7))),
+    changedPairs: Math.max(1, Math.ceil(totalPairs / 2)),
+  }
+}
+
+function choiceCandidateIsMateriallyDifferent(candidate: ChoiceSeatingCandidate, earlier: ChoiceSeatingCandidate) {
+  return compareChoiceCandidates(candidate, earlier).byRound.every(round => {
+    const threshold = choiceCandidateDiversityThresholds(round.totalParticipants, round.totalPairs)
+    return round.changedParticipants >= threshold.changedParticipants && round.changedPairs >= threshold.changedPairs
+  })
+}
+
+function deriveChoiceSeatingCapacity(candidate: ChoiceSeatingCandidate) {
+  const groupsByRound = [1, 2, 3].map(round => choiceRoundGroups(candidate, round))
+  const participantNumbers = new Set(groupsByRound.flat(2).map(Number).filter(Number.isInteger))
+  const availablePartnerSlots = new Map<number, number>()
+  for (const groups of groupsByRound) {
+    for (const group of groups) {
+      for (const participant of group) {
+        const number = Number(participant)
+        availablePartnerSlots.set(number, (availablePartnerSlots.get(number) || 0) + Math.max(0, group.length - 1))
+      }
+    }
+  }
+  const uniqueCapacities = [...availablePartnerSlots.values()].map(slots => Math.min(Math.max(0, participantNumbers.size - 1), slots))
+  const groupSizes = groupsByRound.flatMap(groups => groups.map(group => group.length)).filter(size => size > 0)
+  return {
+    participantCount: participantNumbers.size,
+    uniqueMinimumCapacity: uniqueCapacities.length ? Math.min(...uniqueCapacities) : 0,
+    uniqueMaximumCapacity: uniqueCapacities.length ? Math.max(...uniqueCapacities) : 0,
+    minimumGroupSize: groupSizes.length ? Math.min(...groupSizes) : 0,
+    maximumGroupSize: groupSizes.length ? Math.max(...groupSizes) : 0,
+    totalPairSlots: groupsByRound.reduce((sum, groups) => sum + pairKeysForGroups(groups).size, 0),
+  }
+}
+
+function choiceOnlyGroupSizes(participantCount: number) {
+  if (!choiceOnlyRosterReady(participantCount)) return []
+  const tableCount = Math.max(2, Math.ceil(participantCount / 7))
+  const baseSize = Math.floor(participantCount / tableCount)
+  const largerTables = participantCount % tableCount
+  return Array.from({ length: tableCount }, (_, index) => baseSize + (index < largerTables ? 1 : 0))
+}
+
 function deriveChoiceSeatingCoverage(candidate: ChoiceSeatingCandidate) {
   const roundPairs = [1, 2, 3].map(round => pairKeysForGroups(choiceRoundGroups(candidate, round)))
   const intersectCount = (left: Set<string>, right: Set<string>) => [...left].filter(pair => right.has(pair)).length
@@ -394,6 +469,7 @@ const ChoiceSeatingReportDetails = memo(function ChoiceSeatingReportDetails({
   const summary = report.summary || {}
   const repeats = report.repeats || {}
   const derived = deriveChoiceSeatingCoverage(candidate)
+  const capacity = deriveChoiceSeatingCapacity(candidate)
   const comparison = compareChoiceCandidates(candidate, best)
   const participantMap = new Map<number, any>(participants.map(participant => [Number(participant.number), participant]))
   const repeat12 = Number(repeats.round1_round2 ?? derived.repeat12)
@@ -402,9 +478,18 @@ const ChoiceSeatingReportDetails = memo(function ChoiceSeatingReportDetails({
   const uniqueMinimum = Number(repeats.unique_partners?.minimum ?? derived.uniqueMinimum)
   const uniqueMaximum = Number(repeats.unique_partners?.maximum ?? derived.uniqueMaximum)
   const uniqueDistribution = repeats.unique_partners?.distribution || {}
+  const repeatedInAllThree = Number(repeats.repeated_in_all_three ?? 0)
+  const maximumRepeatBurden = Number(repeats.maximum_participant_repeat_burden ?? 0)
   const protectedViolations = Number(report.protected_pairs?.total_violations ?? summary.protected_pair_violations ?? 0)
   const missingSurveyFields = report.missing_survey_fields || []
-  const missingSurveyCount = Number(summary.missing_survey_field_count ?? missingSurveyFields.reduce((sum, item) => sum + (item.fields?.length || 0), 0))
+  const missingSurveyAnswerCount = missingSurveyFields.length
+    ? missingSurveyFields.reduce((sum, item) => sum + (item.fields?.length || 0), 0)
+    : Number(summary.missing_survey_field_count ?? 0)
+  const missingSurveyParticipantCount = missingSurveyFields.length || Number(summary.missing_survey_field_count ?? 0)
+  const totalRepeatedPairOccurrences = Number(repeats.total_repeated_pair_occurrences ?? (repeat12 + repeat13 + repeat23))
+  const repeatRate = capacity.totalPairSlots > 0 ? Math.round((totalRepeatedPairOccurrences / capacity.totalPairSlots) * 100) : 0
+  const uniqueMinimumTarget = Math.max(0, capacity.uniqueMinimumCapacity - 1)
+  const uniqueCoverageOnTarget = uniqueMinimum >= uniqueMinimumTarget && uniqueMaximum <= capacity.uniqueMaximumCapacity
   const allGenderBalanced = report.gender_balance?.all_tables_balanced ?? summary.all_gender_balanced
   const rounds: ChoiceSeatingRoundReport[] = [1, 2, 3].map(roundNumber => {
     const existing = report.rounds?.find(item => Number(item.round) === roundNumber)
@@ -432,7 +517,7 @@ const ChoiceSeatingReportDetails = memo(function ChoiceSeatingReportDetails({
           <div className="flex items-start gap-2">
             {comparison.changedPairs > 0 ? <Shuffle size={15} className="mt-0.5 shrink-0 text-cyan-300" /> : <AlertTriangle size={15} className="mt-0.5 shrink-0 text-red-300" />}
             <div className="min-w-0 flex-1">
-              <p className={`text-xs font-bold ${comparison.changedPairs > 0 ? "text-cyan-200" : "text-red-200"}`}>الاختلاف العضوي عن Best — لا يعتمد على ترقيم الطاولات</p>
+              <p className={`text-xs font-bold ${comparison.changedPairs > 0 ? "text-cyan-200" : "text-red-200"}`}>الاختلاف الفعلي عن الخطة الأساسية — لا يعتمد على ترقيم الطاولات</p>
               <p className="mt-1 text-[10px] leading-5 text-gray-400">تغيّرت {comparison.changedPairs} من علاقات الطاولة مقارنة بالأفضل، عبر {comparison.changedParticipantRounds} موضع مشارك/جولة.</p>
               <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-3">
                 {comparison.byRound.map(item => {
@@ -441,7 +526,7 @@ const ChoiceSeatingReportDetails = memo(function ChoiceSeatingReportDetails({
                   return (
                     <div key={item.round} className="rounded-lg border border-white/5 bg-black/20 px-2.5 py-2 text-[9px] text-gray-400">
                       <span className={`font-bold ${lens.color}`}>{lens.arabic}</span>
-                      <span> · {item.changedParticipants}/{item.totalParticipants || 42} تغيّرت مجموعتهم · {item.changedPairs}/{item.totalPairs || 126} علاقات مختلفة</span>
+                      <span> · {item.changedParticipants}/{item.totalParticipants || capacity.participantCount} تغيّرت مجموعتهم · {item.changedPairs}/{item.totalPairs} علاقات مختلفة</span>
                     </div>
                   )
                 })}
@@ -463,22 +548,24 @@ const ChoiceSeatingReportDetails = memo(function ChoiceSeatingReportDetails({
             <p className="text-[9px] text-gray-500">{choiceLensLabels[lensKey].english} · {choiceLensLabels[lensKey].arabic}</p>
           </div>
         ))}
-        <div className={`rounded-xl border p-2.5 text-center ${repeat12 === 6 && repeat13 === 6 && repeat23 === 6 ? "border-emerald-800/40 bg-emerald-950/25" : "border-amber-800/40 bg-amber-950/20"}`}>
-          <p className="text-lg font-black text-emerald-300">{repeat12}/{repeat13}/{repeat23}</p>
+        <div className={`rounded-xl border p-2.5 text-center ${repeatedInAllThree === 0 ? "border-emerald-800/40 bg-emerald-950/25" : "border-red-800/40 bg-red-950/20"}`}>
+          <p className={`text-lg font-black ${repeatedInAllThree === 0 ? "text-emerald-300" : "text-red-300"}`}>{repeat12}/{repeat13}/{repeat23}</p>
           <p className="text-[9px] text-gray-500">تكرار 1–2 / 1–3 / 2–3</p>
+          <p className="mt-0.5 text-[8px] text-gray-600">{totalRepeatedPairOccurrences}/{capacity.totalPairSlots} علاقة ({repeatRate}٪) · الثلاث معاً: {repeatedInAllThree}</p>
         </div>
-        <div className={`rounded-xl border p-2.5 text-center ${uniqueMinimum >= 17 && uniqueMaximum >= 18 ? "border-emerald-800/40 bg-emerald-950/25" : "border-amber-800/40 bg-amber-950/20"}`}>
-          <p className="text-lg font-black text-emerald-300">{uniqueMinimum}–{uniqueMaximum}</p>
+        <div className={`rounded-xl border p-2.5 text-center ${uniqueCoverageOnTarget ? "border-emerald-800/40 bg-emerald-950/25" : "border-amber-800/40 bg-amber-950/20"}`}>
+          <p className={`text-lg font-black ${uniqueCoverageOnTarget ? "text-emerald-300" : "text-amber-300"}`}>{uniqueMinimum}–{uniqueMaximum}</p>
           <p className="text-[9px] text-gray-500">أشخاص فريدون لكل مشارك</p>
-          {(uniqueDistribution["17"] != null || uniqueDistribution["18"] != null) && <p className="mt-0.5 text-[8px] text-emerald-400/70">17 شخصاً: {uniqueDistribution["17"] || 0} · 18 شخصاً: {uniqueDistribution["18"] || 0}</p>}
+          <p className="mt-0.5 text-[8px] text-gray-600">الهدف حسب حجم المجموعات: {uniqueMinimumTarget}–{capacity.uniqueMaximumCapacity} · أعلى عبء تكرار: {maximumRepeatBurden}</p>
+          {Object.keys(uniqueDistribution).length > 0 && <p className="mt-0.5 text-[8px] text-emerald-400/70">{Object.entries(uniqueDistribution).sort(([left], [right]) => Number(left) - Number(right)).map(([count, people]) => `${count}: ${people}`).join(" · ")}</p>}
         </div>
-        <div className={`rounded-xl border p-2.5 text-center ${protectedViolations === 0 && missingSurveyCount === 0 && allGenderBalanced !== false ? "border-emerald-800/40 bg-emerald-950/25" : "border-red-800/40 bg-red-950/20"}`}>
-          <p className={`text-lg font-black ${protectedViolations === 0 && missingSurveyCount === 0 ? "text-emerald-300" : "text-red-300"}`}>{protectedViolations}/{missingSurveyCount}</p>
-          <p className="text-[9px] text-gray-500">أزواج محمية / حقول ناقصة</p>
+        <div className={`rounded-xl border p-2.5 text-center ${protectedViolations > 0 ? "border-red-800/40 bg-red-950/20" : missingSurveyParticipantCount > 0 ? "border-amber-800/40 bg-amber-950/20" : "border-emerald-800/40 bg-emerald-950/25"}`}>
+          <p className={`text-lg font-black ${protectedViolations > 0 ? "text-red-300" : missingSurveyParticipantCount > 0 ? "text-amber-300" : "text-emerald-300"}`}>{protectedViolations}/{missingSurveyParticipantCount}</p>
+          <p className="text-[9px] text-gray-500">أزواج محمية / ملفات بعدسة محايدة</p>
         </div>
       </div>
 
-      <p className="rounded-lg border border-white/5 bg-black/15 px-3 py-2 text-[9px] leading-5 text-gray-500">ترتيب Best ثم Second-best ثم Third-best يأتي من هدف الخوارزمية الكامل وقيود الحماية والتوازن وجودة أضعف طاولة؛ «متوسط العرض» وحده ليس سبب الترتيب.</p>
+      <p className="rounded-lg border border-white/5 bg-black/15 px-3 py-2 text-[9px] leading-5 text-gray-500">ترتيب الخطة الأساسية ثم البديلين يأتي من الهدف الكامل للتوزيع وقيود الحماية والتوازن وجودة أضعف طاولة؛ «متوسط العرض» وحده ليس سبب الترتيب.</p>
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         <div className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs ${allGenderBalanced === false ? "border-red-800/40 bg-red-950/20 text-red-300" : "border-emerald-800/40 bg-emerald-950/20 text-emerald-300"}`}>
@@ -489,9 +576,9 @@ const ChoiceSeatingReportDetails = memo(function ChoiceSeatingReportDetails({
           {protectedViolations > 0 ? <Shield size={14} /> : <CheckCircle size={14} />}
           {protectedViolations > 0 ? `${protectedViolations} مخالفة لأزواج محمية` : "لا توجد مخالفة لأزواج محمية"}
         </div>
-        <div className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs ${missingSurveyCount > 0 ? "border-red-800/40 bg-red-950/20 text-red-300" : "border-emerald-800/40 bg-emerald-950/20 text-emerald-300"}`}>
-          {missingSurveyCount > 0 ? <AlertCircle size={14} /> : <CheckCircle size={14} />}
-          {missingSurveyCount > 0 ? `${missingSurveyCount} حقلاً مطلوباً ناقصاً` : "بيانات الاستبيان مكتملة"}
+        <div className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs ${missingSurveyParticipantCount > 0 ? "border-amber-800/40 bg-amber-950/20 text-amber-300" : "border-emerald-800/40 bg-emerald-950/20 text-emerald-300"}`}>
+          {missingSurveyParticipantCount > 0 ? <AlertCircle size={14} /> : <CheckCircle size={14} />}
+          {missingSurveyParticipantCount > 0 ? `${missingSurveyParticipantCount} مشاركاً تنقصهم ${missingSurveyAnswerCount} إجابة عدسة؛ استُخدمت قيمة محايدة` : "بيانات عدسات التوزيع مكتملة"}
         </div>
       </div>
 
@@ -513,11 +600,12 @@ const ChoiceSeatingReportDetails = memo(function ChoiceSeatingReportDetails({
       )}
 
       {missingSurveyFields.length > 0 && (
-        <div className="rounded-xl border border-red-700/40 bg-red-950/20 p-3">
-          <p className="text-xs font-bold text-red-200">حقول الاستبيان الناقصة</p>
+        <div className="rounded-xl border border-amber-700/40 bg-amber-950/20 p-3">
+          <p className="text-xs font-bold text-amber-200">إجابات عدسات غير متاحة — لا تمنع اعتماد الخطة</p>
+          <p className="mt-1 text-[10px] leading-5 text-amber-100/65">احتُسب هؤلاء المشاركون بإشارة محايدة في العدسات الناقصة، لذلك تقل دقة ترتيب الخيارات قليلاً من دون استبعاد أي مشارك.</p>
           <div className="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2">
             {missingSurveyFields.map(item => (
-              <p key={item.participant_number} className="rounded-lg bg-black/20 px-2.5 py-2 text-[10px] text-red-300">#{item.participant_number} · {item.fields.join("، ")}</p>
+              <p key={item.participant_number} className="rounded-lg bg-black/20 px-2.5 py-2 text-[10px] text-amber-300">#{item.participant_number} · {item.fields.join("، ")}</p>
             ))}
           </div>
         </div>
@@ -529,7 +617,7 @@ const ChoiceSeatingReportDetails = memo(function ChoiceSeatingReportDetails({
           return (
             <section key={round.round} className="overflow-hidden rounded-2xl border border-gray-800 bg-gray-950/45">
               <div className="flex items-center justify-between border-b border-white/5 bg-white/[0.025] px-3 py-2.5">
-                <div><p className={`text-xs font-black ${lens.color}`}>الجولة {round.round} · {lens.english} — {lens.arabic}</p><p className="mt-0.5 text-[9px] text-gray-600">{round.tables.length} طاولات · حتى 7 أشخاص</p></div>
+                <div><p className={`text-xs font-black ${lens.color}`}>الجولة {round.round} · {lens.english} — {lens.arabic}</p><p className="mt-0.5 text-[9px] text-gray-600">{round.tables.length} طاولات · {capacity.minimumGroupSize === capacity.maximumGroupSize ? `${capacity.maximumGroupSize} أشخاص لكل طاولة` : `${capacity.minimumGroupSize}–${capacity.maximumGroupSize} أشخاص لكل طاولة`}</p></div>
                 <span className={`rounded-lg bg-black/25 px-2 py-1 font-mono text-sm font-black ${lens.color}`}>{scoreText(round.score)}</span>
               </div>
               <div className="space-y-2 p-2.5">
@@ -631,7 +719,7 @@ function ChoiceSeatingPreviewPanel({
                   <div className="rounded-lg bg-black/20 px-2 py-1.5"><p className="font-mono text-sm font-bold text-cyan-200">{scoreText(depthScore)}</p><p className="text-[8px] opacity-60">Depth</p></div>
                   <div className="rounded-lg bg-black/20 px-2 py-1.5"><p className="font-mono text-sm font-bold text-violet-200">{scoreText(rhythmScore)}</p><p className="text-[8px] opacity-60">Rhythm</p></div>
                 </div>
-                {candidate.rank === best.rank ? <p className="mt-2 text-[9px] font-bold text-emerald-300">الخيار المرجعي الأعلى ترتيباً</p> : <p className={`mt-2 text-[9px] leading-4 ${comparison.changedPairs > 0 ? "text-cyan-300/80" : "text-red-300"}`}>{comparison.changedPairs} علاقة طاولة مختلفة · {comparison.changedParticipantRounds} موضع مشارك/جولة تغير عن Best</p>}
+                {candidate.rank === best.rank ? <p className="mt-2 text-[9px] font-bold text-emerald-300">الخطة الأساسية المرجعية</p> : <p className={`mt-2 text-[9px] leading-4 ${comparison.changedPairs > 0 ? "text-cyan-300/80" : "text-red-300"}`}>{comparison.changedPairs} علاقة طاولة مختلفة · {comparison.changedParticipantRounds} موضع مشارك/جولة تغير عن الخطة الأساسية</p>}
               </button>
             )
           })}
@@ -852,6 +940,18 @@ function mapEnumLabel3(fieldKey: string, rawValue: any): string {
 
 let _adminPassword = ""
 function setAdminPassword(p: string) { _adminPassword = p }
+let _event3DisplayedMutationContext: Event3DisplayedMutationContext | null = null
+function setEvent3DisplayedMutationContext(context: Event3DisplayedMutationContext | null) { _event3DisplayedMutationContext = context }
+
+function event3ActionRequiresDisplayedContext(action: string) {
+  if (!action.startsWith("e3-")) return false
+  return !action.startsWith("e3-get-")
+    && action !== "e3-run-diagnostics"
+    && action !== "e3-generate-report"
+    && action !== "e3-ai-welcome-list"
+    && !action.startsWith("e3-preview-")
+}
+
 const API = "/api/admin"
 const EVENT3_PHASE_SECONDS = {
   round1: 30 * 60,
@@ -887,8 +987,10 @@ const CLASSIC_PHASES = [
   { id: "ranking1",       label: "التصنيف — جولة 1",    icon: "🏆", color: "yellow" },
   { id: "round2",         label: "الجولة الثانية",       icon: "2️⃣", color: "indigo" },
   { id: "ranking2",       label: "التصنيف النهائي",      icon: "🏆", color: "yellow" },
+  { id: "phase2_processing", label: "تجهيز اختيار المشاركين", icon: "⏳", color: "pink" },
   { id: "break",          label: "استراحة",              icon: "☕", color: "orange" },
   { id: "phase2_reveal",  label: "الكشف الأول",          icon: "💘", color: "pink" },
+  { id: "phase3_processing", label: "تجهيز مطابقة الخوارزمية", icon: "⏳", color: "purple" },
   { id: "phase3_reveal",  label: "الكشف الثاني",         icon: "🧠", color: "purple" },
   { id: "final_reveal",   label: "الكشف النهائي",        icon: "✨", color: "amber" },
 ]
@@ -901,8 +1003,10 @@ const CHOICE_ONLY_PHASES = [
   { id: "ranking2",       label: "التصنيف — جولة 2",    icon: "🏆", color: "yellow" },
   { id: "round3",         label: "الجولة الثالثة",       icon: "3️⃣", color: "violet" },
   { id: "ranking3",       label: "التصنيف النهائي",      icon: "🏆", color: "yellow" },
+  { id: "phase2_processing", label: "تجهيز الاختيار الأول",  icon: "⏳", color: "pink" },
   { id: "break",          label: "استراحة",              icon: "☕", color: "orange" },
   { id: "phase2_reveal",  label: "كشف الاختيار الأول",   icon: "💘", color: "pink" },
+  { id: "phase3_processing", label: "تجهيز الاختيار الثاني", icon: "⏳", color: "purple" },
   { id: "phase3_reveal",  label: "كشف الاختيار الثاني",  icon: "💞", color: "purple" },
   { id: "phase4_processing", label: "تجهيز الاختيار الثالث", icon: "⏳", color: "violet" },
   { id: "phase4_reveal",  label: "كشف الاختيار الثالث",  icon: "💜", color: "violet" },
@@ -910,7 +1014,13 @@ const CHOICE_ONLY_PHASES = [
 ]
 
 async function api(action: string, extra: Record<string, any> = {}, options: { signal?: AbortSignal } = {}) {
-  const body: Record<string, any> = { action, ...extra }
+  const body: Record<string, any> = { action }
+  if (action.startsWith("e3-") && _event3DisplayedMutationContext) Object.assign(body, _event3DisplayedMutationContext)
+  Object.assign(body, extra)
+  if (event3ActionRequiresDisplayedContext(action)
+    && (!Number.isSafeInteger(Number(body.expected_event_id)) || typeof body.expected_test_mode !== "boolean" || !String(body.expected_test_session_key || "").trim())) {
+    return { error: "تعذر التحقق من الفعالية المعروضة. حدّث الصفحة قبل إعادة المحاولة.", code: "EVENT3_CONTEXT_UNAVAILABLE" }
+  }
   if (_adminPassword && !("password" in body)) body.password = _adminPassword
   if (_previewEventId != null && !('preview_event_id' in body) && action.startsWith('e3-') && action !== 'e3-set-current-event' && action !== 'e3-get-current-event' && action !== 'e3-get-event-list') {
     body.preview_event_id = _previewEventId
@@ -940,6 +1050,23 @@ let _previewEventId: number | null = null
 function setPreviewEventId(id: number | null) { _previewEventId = id }
 function getPreviewEventId() { return _previewEventId }
 
+function FeedbackContactDetails({ feedback, participantName }: { feedback: any; participantName?: string }) {
+  if (feedback?.wantConnect !== true) return null
+  const method = feedback.contactMethod === "message" ? "message" : "phone"
+  return (
+    <div className={`mt-2 rounded-lg border px-2.5 py-2 text-[10px] ${method === "message" ? "border-cyan-800/35 bg-cyan-950/25 text-cyan-200" : "border-emerald-800/35 bg-emerald-950/25 text-emerald-200"}`}>
+      <div className="flex items-center gap-1.5 font-bold">
+        {method === "message" ? <MessageSquare size={11} /> : <Phone size={11} />}
+        <span>{participantName ? `${participantName}: ` : ""}{method === "message" ? "اختار مشاركة وسيلة أخرى" : "اختار مشاركة رقم الجوال المسجل"}</span>
+      </div>
+      {method === "message" && (
+        <p dir="auto" className="mt-1 whitespace-pre-wrap break-words text-right leading-5 text-cyan-100/80">{String(feedback.contactMessage || "لم تُحفظ وسيلة التواصل")}</p>
+      )}
+      <p className="mt-1 text-[9px] opacity-60">تظهر للطرف الآخر فقط إذا كانت الرغبة في التواصل متبادلة.</p>
+    </div>
+  )
+}
+
 // These are the ONLY fields participants actually fill out in FeedbackFlow (event3.tsx).
 // The edit modal must mirror this exactly — no invented fields.
 function FeedbackEditModal({ entry, phase, choiceOnly, onClose, onSave }: {
@@ -948,15 +1075,23 @@ function FeedbackEditModal({ entry, phase, choiceOnly, onClose, onSave }: {
   // Same default shape as FeedbackFlow's initial state in event3.tsx, so admin edits
   // produce an object identical in structure to what participants actually submit.
   const defaultFb = {
-    conversationQuality: 0, personalConnection: 0,
-    wantConnect: null as boolean | null, organizerImpression: "",
-    compatibilityRate: 50, sliderMoved: false, sharedInterests: 3, comfortLevel: 3,
-    communicationStyle: 3, wouldMeetAgain: 3, overallExperience: 3, recommendations: "", participantMessage: "",
+    conversationQuality: 0,
+    personalConnection: 0,
+    wantConnect: null as boolean | null,
+    contactMethod: null as "phone" | "message" | null,
+    contactMessage: "",
+    organizerImpression: "",
+    compatibilityRate: 50,
+    sliderMoved: false,
   }
   const existing = { ...defaultFb, ...(entry.feedback || {}) }
   const [conversationQuality, setConversationQuality] = useState<number>(existing.conversationQuality || 0)
   const [personalConnection, setPersonalConnection] = useState<number>(existing.personalConnection || 0)
   const [wantConnect, setWantConnect] = useState<boolean | null>(existing.wantConnect ?? null)
+  const [contactMethod, setContactMethod] = useState<"phone" | "message" | null>(existing.wantConnect === true
+    ? (existing.contactMethod === "message" ? "message" : "phone")
+    : null)
+  const [contactMessage, setContactMessage] = useState<string>(existing.contactMessage || "")
   const [organizerImpression, setOrganizerImpression] = useState<string>(existing.organizerImpression || "")
   const [compatibilityRate, setCompatibilityRate] = useState<number>(existing.compatibilityRate ?? 50)
   const [saving, setSaving] = useState(false)
@@ -979,10 +1114,42 @@ function FeedbackEditModal({ entry, phase, choiceOnly, onClose, onSave }: {
   )
 
   const handleSubmit = async () => {
+    if (conversationQuality < 1 || personalConnection < 1) {
+      toast.error("اختر جودة المحادثة والتواصل الشخصي قبل الحفظ")
+      return
+    }
+    if (wantConnect === null) {
+      toast.error("اختر ما إذا كان المشارك يريد التواصل لاحقاً")
+      return
+    }
+    if (wantConnect === true && !contactMethod) {
+      toast.error("اختر طريقة مشاركة معلومات التواصل")
+      return
+    }
+    if (wantConnect === true && contactMethod === "message" && !contactMessage.trim()) {
+      toast.error("اكتب وسيلة التواصل التي تريد مشاركتها")
+      return
+    }
+    const nextFeedback: any = { conversationQuality, personalConnection, wantConnect, organizerImpression, compatibilityRate, sliderMoved: true }
+    if (wantConnect === true) {
+      nextFeedback.contactMethod = contactMethod
+      if (contactMethod === "message") nextFeedback.contactMessage = contactMessage
+      else delete nextFeedback.contactMessage
+    } else {
+      delete nextFeedback.contactMethod
+      delete nextFeedback.contactMessage
+    }
+    const normalized = normalizeEvent3FeedbackPayload(nextFeedback)
+    if (normalized.error) {
+      toast.error(normalized.error)
+      return
+    }
     setSaving(true)
-    // Preserve all other stored keys (word, defaults, etc.) — only override the real fields.
-    await onSave({ ...existing, conversationQuality, personalConnection, wantConnect, organizerImpression, compatibilityRate, sliderMoved: true })
-    setSaving(false)
+    try {
+      await onSave(normalized.value)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -1017,17 +1184,56 @@ function FeedbackEditModal({ entry, phase, choiceOnly, onClose, onSave }: {
             <label className="text-xs text-gray-400 mb-1.5 block">هل يريد التواصل لاحقاً؟</label>
             <div className="flex gap-2">
               <button type="button"
-                onClick={() => setWantConnect(true)}
+                onClick={() => {
+                  setWantConnect(true)
+                  if (!contactMethod) setContactMethod("phone")
+                }}
                 className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
                   wantConnect === true ? "bg-emerald-600 text-white" : "bg-gray-800 text-gray-500 hover:bg-gray-700"
                 }`}>نعم</button>
               <button type="button"
-                onClick={() => setWantConnect(false)}
+                onClick={() => {
+                  setWantConnect(false)
+                  setContactMethod(null)
+                  setContactMessage("")
+                }}
                 className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
                   wantConnect === false ? "bg-red-600 text-white" : "bg-gray-800 text-gray-500 hover:bg-gray-700"
                 }`}>لا</button>
             </div>
           </div>
+
+          {wantConnect === true && (
+            <div className="rounded-xl border border-cyan-800/40 bg-cyan-950/20 p-3">
+              <label className="text-xs text-cyan-100 mb-2 block">طريقة مشاركة معلومات التواصل</label>
+              <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="طريقة مشاركة معلومات التواصل">
+                <button type="button" role="radio" aria-checked={contactMethod === "phone"}
+                  onClick={() => { setContactMethod("phone"); setContactMessage("") }}
+                  className={`rounded-lg border px-2 py-2 text-[11px] font-bold ${contactMethod === "phone" ? "border-emerald-500/60 bg-emerald-900/40 text-emerald-200" : "border-gray-700 bg-gray-800 text-gray-400"}`}>
+                  <Phone size={13} className="mx-auto mb-1" /> رقم الجوال المسجل
+                </button>
+                <button type="button" role="radio" aria-checked={contactMethod === "message"}
+                  onClick={() => setContactMethod("message")}
+                  className={`rounded-lg border px-2 py-2 text-[11px] font-bold ${contactMethod === "message" ? "border-cyan-500/60 bg-cyan-900/40 text-cyan-100" : "border-gray-700 bg-gray-800 text-gray-400"}`}>
+                  <MessageSquare size={13} className="mx-auto mb-1" /> وسيلة أخرى
+                </button>
+              </div>
+              {contactMethod === "message" && (
+                <div className="mt-3">
+                  <textarea
+                    value={contactMessage}
+                    onChange={event => setContactMessage(event.target.value)}
+                    rows={3}
+                    maxLength={EVENT3_CONTACT_MESSAGE_MAX_LENGTH}
+                    dir="auto"
+                    placeholder="مثال: Instagram: @username أو Telegram: @username"
+                    className="w-full resize-none rounded-lg border border-cyan-800/50 bg-gray-900 p-2.5 text-sm text-white placeholder:text-gray-600 focus:border-cyan-500 focus:outline-none"
+                  />
+                  <p className="mt-1 text-left text-[9px] text-cyan-300/60" dir="ltr">{Array.from(contactMessage).length}/{EVENT3_CONTACT_MESSAGE_MAX_LENGTH}</p>
+                </div>
+              )}
+            </div>
+          )}
 
           <div>
             <label className="text-xs text-gray-400 mb-1.5 block">تخمين درجة التوافق: <span className={`font-bold ${
@@ -1044,7 +1250,8 @@ function FeedbackEditModal({ entry, phase, choiceOnly, onClose, onSave }: {
           <div>
             <label className="text-xs text-gray-400 mb-1.5 block">ملاحظة للمنظم (سرّية)</label>
             <textarea value={organizerImpression}
-              onChange={e => e.target.value.length <= 300 && setOrganizerImpression(e.target.value)}
+              onChange={e => Array.from(e.target.value).length <= EVENT3_ORGANIZER_IMPRESSION_MAX_LENGTH && setOrganizerImpression(e.target.value)}
+              maxLength={EVENT3_ORGANIZER_IMPRESSION_MAX_LENGTH}
               rows={3} placeholder="شعرت بالراحة... / الوقت كان قصيراً..."
               className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-xs text-white placeholder:text-gray-600 focus:border-purple-500 focus:outline-none resize-none" />
           </div>
@@ -1055,7 +1262,7 @@ function FeedbackEditModal({ entry, phase, choiceOnly, onClose, onSave }: {
             className="flex-1 py-2.5 rounded-lg text-xs font-medium bg-gray-800 border border-gray-700 text-gray-400 hover:text-white transition-colors">
             إلغاء
           </button>
-          <button onClick={handleSubmit} disabled={saving || wantConnect === null}
+          <button onClick={handleSubmit} disabled={saving || conversationQuality < 1 || personalConnection < 1 || wantConnect === null || (wantConnect === true && (!contactMethod || (contactMethod === "message" && !contactMessage.trim())))}
             className="flex-1 py-2.5 rounded-lg text-xs font-bold bg-purple-600 text-white hover:bg-purple-500 disabled:opacity-50 flex items-center justify-center gap-1.5">
             {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
             حفظ التغييرات
@@ -1075,6 +1282,13 @@ export default function Admin3Page() {
   const [state, setState] = useState<any>(null)
   const eventFormat: Event3Format = state?.event_format === "choice_only_three_groups" ? "choice_only_three_groups" : "classic"
   const choiceOnly = eventFormat === "choice_only_three_groups"
+  const savedChoiceParticipantCount = Number(state?.participants_selected || 0)
+  const choiceTestGroupSizes = choiceOnlyGroupSizes(savedChoiceParticipantCount)
+  const choiceTestGroupDescription = choiceTestGroupSizes.length === 0
+    ? ""
+    : new Set(choiceTestGroupSizes).size === 1
+      ? `${choiceTestGroupSizes.length} مجموعات من ${choiceTestGroupSizes[0]} أشخاص`
+      : `${choiceTestGroupSizes.length} مجموعات بأحجام ${choiceTestGroupSizes.join("، ")}`
   const phases = choiceOnly ? CHOICE_ONLY_PHASES : CLASSIC_PHASES
   const groupRounds: Array<1 | 2 | 3> = choiceOnly ? [1, 2, 3] : [1, 2]
   const firstMatchLabel = choiceOnly ? "الاختيار الأول" : "اختيار المشاركين"
@@ -1166,15 +1380,29 @@ export default function Admin3Page() {
   const [overviewData, setOverviewData] = useState<any>(null)
   const [overviewLoading, setOverviewLoading] = useState(false)
   const [timerRemaining, setTimerRemaining] = useState(0)
+  const [serverClockOffsetMs, setServerClockOffsetMs] = useState(0)
 
   const phase3MissingCount = useMemo(() => {
-    if (!state?.phase3_matches_done || !seating || !participants.length) return 0
+    if (!seating || !participants.length) return 0
+    if (!choiceOnly) {
+      const readiness = state?.runtime_readiness?.phase3
+      const assignments = readiness?.assignments
+      if (!readiness || !assignments || (readiness.matched || 0) === 0 || assignments.complete) return 0
+      return Math.max(1,
+        Number(assignments.missing_assignments || 0)
+        + Number(assignments.duplicate_assignments || 0)
+        + Number(assignments.unmatched_assignments || 0)
+        + Number(assignments.outside_roster || 0)
+        + Number(assignments.invalid_tables || 0)
+        + Number(assignments.mismatched_pair_tables || 0))
+    }
+    if (!state?.phase3_matches_done) return 0
     const assignedIds = new Set<number>()
     for (const members of Object.values(seating[30] || {})) {
       for (const m of (members as any[])) if (m?.number) assignedIds.add(m.number)
     }
     return participants.filter(p => p.selected && !assignedIds.has(p.number)).length
-  }, [state?.phase3_matches_done, seating, participants])
+  }, [choiceOnly, state?.phase3_matches_done, state?.runtime_readiness, seating, participants])
 
   const phase4MissingCount = useMemo(() => {
     if (!choiceOnly || !state?.phase4_matches_done || !seating || !participants.length) return 0
@@ -1210,6 +1438,10 @@ export default function Admin3Page() {
   const [feedbackLoading, setFeedbackLoading] = useState(false)
   const [feedbackPolling, setFeedbackPolling] = useState(false)
   const [feedbackPhase, setFeedbackPhase] = useState<"phase2" | "phase3" | "phase4" | "groups">("phase2")
+  const feedbackParticipantTotal = Math.max(0, Number(feedbackData?.total_participants ?? state?.participants_selected ?? 0))
+  useEffect(() => {
+    if (!choiceOnly && feedbackPhase === "phase4") setFeedbackPhase("phase2")
+  }, [choiceOnly, feedbackPhase])
   const [editingFeedback, setEditingFeedback] = useState<any>(null)
   const [analyzingPair, setAnalyzingPair] = useState<{ entry: any; phase: string } | null>(null)
   const [pairAnalysisResult, setPairAnalysisResult] = useState<{
@@ -1257,6 +1489,12 @@ export default function Admin3Page() {
   const choiceReportRequestGeneration = useRef(0)
   const choicePreviewRequestGeneration = useRef(0)
   const choiceApplyRequestGeneration = useRef(0)
+  const feedbackRequestGeneration = useRef(0)
+  const stateRequestGeneration = useRef(0)
+  const participantsRequestGeneration = useRef(0)
+  const seatingRequestGeneration = useRef(0)
+  const matchesRequestGeneration = useRef(0)
+  const rankingsRequestGeneration = useRef(0)
   const choiceUiEventId = Number(previewEventId ?? state?.current_event_id ?? state?.event_id ?? realCurrentEventId)
   const choiceUiContextKey = `${eventFormat}|${choiceUiEventId}|${previewEventId != null ? "historical" : testMode ? "test" : "live"}`
   const choiceUiContextKeyRef = useRef(choiceUiContextKey)
@@ -1302,6 +1540,7 @@ export default function Admin3Page() {
       } else if (String(result.error || "").toLowerCase() === "unauthorized") {
         setAuthCheckUnavailable(false)
         setAdminPassword("")
+        setEvent3DisplayedMutationContext(null)
         sessionStorage.removeItem("admin3_pw")
         localStorage.removeItem("admin3")
         setAuthenticated(false)
@@ -1332,6 +1571,7 @@ export default function Admin3Page() {
       await api("admin-logout")
     } finally {
       setAdminPassword("")
+      setEvent3DisplayedMutationContext(null)
       sessionStorage.removeItem("admin3_pw")
       localStorage.removeItem("admin3")
       setAuthenticated(false)
@@ -1355,7 +1595,7 @@ export default function Admin3Page() {
 
   const fetchExclusions = useCallback(async () => {
     const data = await api("e3-get-exclusions")
-    setExclusions(data.exclusions || [])
+    if (!data.error) setExclusions(data.exclusions || [])
   }, [])
 
   const addExclusion = useCallback(async () => {
@@ -1373,7 +1613,21 @@ export default function Admin3Page() {
   }, [fetchExclusions])
 
   const fetchState = useCallback(async () => {
+    const requestId = ++stateRequestGeneration.current
+    const requestStartedAt = Date.now()
     const data = await api("e3-get-state")
+    const responseReceivedAt = Date.now()
+    if (requestId !== stateRequestGeneration.current || data.error) return
+    setServerClockOffsetMs(calculateEvent3ServerClockOffsetMs({
+      serverNow: data.server_now,
+      requestStartedAt,
+      responseReceivedAt,
+    }))
+    setEvent3DisplayedMutationContext(buildEvent3DisplayedMutationContext({
+      eventId: data.current_event_id ?? data.event_id,
+      testMode: data.test_mode,
+      testSessionKey: data.test_session_key,
+    }))
     if (data._debug) {
       console.log("[admin3] e3-get-state debug:", data._debug)
       const errs = Object.values(data._debug.errors || {}).filter(Boolean) as string[]
@@ -1383,7 +1637,9 @@ export default function Admin3Page() {
   }, [])
 
   const fetchParticipants = useCallback(async (opts?: { preserveSelection?: boolean }) => {
+    const requestId = ++participantsRequestGeneration.current
     const data = await api("e3-get-participants")
+    if (requestId !== participantsRequestGeneration.current) return
     if (data.participants) {
       setParticipants(data.participants)
       if (!opts?.preserveSelection) {
@@ -1394,8 +1650,9 @@ export default function Admin3Page() {
   }, [])
 
   const fetchSeating = useCallback(async () => {
+    const requestId = ++seatingRequestGeneration.current
     const data = await api("e3-get-seating")
-    setSeating(data.seating)
+    if (requestId === seatingRequestGeneration.current && !data.error) setSeating(data.seating ?? null)
   }, [])
 
   const fetchApprovedChoiceSeatingReport = useCallback(async () => {
@@ -1407,9 +1664,6 @@ export default function Admin3Page() {
       setApprovedChoiceSeatingReport(null)
       return
     }
-    // Clear first so a failed historical request can never leave the active
-    // event's audit report visible under a different edition selector.
-    setApprovedChoiceSeatingReport(null)
     const data = await api("e3-get-choice-seating-report", {
       expected_event_id: expectedEventId,
       expected_test_mode: expectedTestMode,
@@ -1420,10 +1674,7 @@ export default function Admin3Page() {
       ? Number(globalPreviewEventId) === expectedEventId
       : globalPreviewEventId == null
     if (requestId !== choiceReportRequestGeneration.current || choiceUiContextKeyRef.current !== requestContext || !globalContextMatches) return
-    if (data.error) {
-      setApprovedChoiceSeatingReport(null)
-      return
-    }
+    if (data.error) return
     const persisted = data.report ? {
       ...data.report,
       matches_current_seating: data.report.matches_current_seating ?? data.matches_current_seating,
@@ -1433,7 +1684,9 @@ export default function Admin3Page() {
   }, [choiceOnly, eventFormat, previewEventId, realCurrentEventId, state?.current_event_id, state?.event_id, testMode])
 
   const fetchMatches = useCallback(async () => {
+    const requestId = ++matchesRequestGeneration.current
     const data = await api("e3-get-matches")
+    if (requestId !== matchesRequestGeneration.current || data.error) return
     setMatchPairs(data.pairs || [])
     setPhase3Pairs(data.phase3Pairs || [])
     setPhase4Pairs(data.phase4Pairs || [])
@@ -1442,23 +1695,25 @@ export default function Admin3Page() {
   const fetchOverview = useCallback(async () => {
     setOverviewLoading(true)
     const data = await api("e3-get-overview")
-    setOverviewData(data)
+    if (!data.error) setOverviewData(data)
     setOverviewLoading(false)
   }, [])
 
   const fetchFeedback = useCallback(async () => {
+    const requestId = ++feedbackRequestGeneration.current
     setFeedbackLoading(true)
     const [data, groupData] = await Promise.all([
       api("e3-get-feedback"),
       api("e3-get-group-member-feedback"),
     ])
-    setFeedbackData(data)
+    if (requestId !== feedbackRequestGeneration.current) return
+    if (!data.error) setFeedbackData(data)
     if (!groupData.error) setGroupMemberFeedback(groupData)
     setFeedbackLoading(false)
   }, [])
 
-  const handleEditFeedback = useCallback(async (participantNumber: number, phase: string, newFb: any) => {
-    const d = await api("e3-edit-feedback", { participant_number: participantNumber, phase, feedback: newFb })
+  const handleEditFeedback = useCallback(async (participantNumber: number, phase: string, newFb: any, expectedPartner: number) => {
+    const d = await api("e3-edit-feedback", { participant_number: participantNumber, expected_partner: expectedPartner, phase, feedback: newFb })
     if (d.error) { toast.error(d.error); return false }
     toast.success("تم تعديل التقييم")
     fetchFeedback()
@@ -1493,7 +1748,7 @@ export default function Admin3Page() {
   const fetchMoodChecks = useCallback(async () => {
     setMoodLoading(true)
     const data = await api("e3-get-mood-checks")
-    setMoodData(data)
+    if (!data.error) setMoodData(data)
     setMoodLoading(false)
   }, [])
 
@@ -1514,7 +1769,7 @@ export default function Admin3Page() {
   const fetchNotifications = useCallback(async () => {
     setNotifLoading(true)
     const data = await api("e3-get-notifications")
-    setNotifData(data)
+    if (!data.error) setNotifData(data)
     setNotifLoading(false)
   }, [])
 
@@ -1637,12 +1892,16 @@ export default function Admin3Page() {
   }
 
   const fetchRankStatus = useCallback(async () => {
+    const requestId = ++rankingsRequestGeneration.current
     const data = await api("e3-get-rankings-status")
-    setRankStatus(data)
+    if (requestId !== rankingsRequestGeneration.current) return
+    if (!data.error) setRankStatus(data)
     const allData = await api("e3-get-all-rankings")
-    setAllRankings(allData.rankings || [])
-    setGroupMemberFeedback(allData.group_member_feedback || { submissions: [], summary: [] })
-    setDislikeRankings(allData.dislike_rankings || { event_id: null, event: [], overall: [] })
+    if (requestId !== rankingsRequestGeneration.current) return
+    if (!allData.error) {
+      setAllRankings(allData.rankings || [])
+      setDislikeRankings(allData.dislike_rankings || { event_id: null, event: [], overall: [] })
+    }
     await fetchMatches()
   }, [fetchMatches])
 
@@ -1731,13 +1990,13 @@ export default function Admin3Page() {
       return
     }
     const update = () => {
-      const elapsed = Math.floor((Date.now() - new Date(state.timer_start).getTime()) / 1000)
+      const elapsed = Math.floor((Date.now() + serverClockOffsetMs - new Date(state.timer_start).getTime()) / 1000)
       setTimerRemaining(Math.max(0, (state.timer_duration ?? getEvent3PhaseSeconds(state.phase)) - elapsed))
     }
     update()
     const iv = setInterval(update, 1000)
     return () => clearInterval(iv)
-  }, [state?.phase, state?.timer_active, state?.timer_start, state?.timer_duration])
+  }, [serverClockOffsetMs, state?.phase, state?.timer_active, state?.timer_start, state?.timer_duration])
 
   const run = async (label: string, fn: () => Promise<any>) => {
     setLoading(label)
@@ -2118,7 +2377,7 @@ export default function Admin3Page() {
     const hasMatches = state.phase2_matches_done
     const sel = state.participants_selected || 0
     const finalRankingPhase = choiceOnly ? "ranking3" : "ranking2"
-    if (ph === "setup" && !hasSeating) return { label: choiceOnly ? (choiceSeatingPreview ? "مراجعة واعتماد أحد الخيارات الثلاثة" : "إنشاء Best وSecond-best وThird-best للمعاينة") : "توليد خطة الجلسات", action: choiceOnly && choiceSeatingPreview ? () => document.getElementById("choice-seating-preview")?.scrollIntoView({ behavior: "smooth", block: "start" }) : generateSeating, ready: choiceOnly ? choiceOnlyRosterReady(sel) : sel >= 6 }
+    if (ph === "setup" && !hasSeating) return { label: choiceOnly ? (choiceSeatingPreview ? "مراجعة واعتماد إحدى الخطط الثلاث" : "إنشاء خطة أساسية وبديلين للمعاينة") : "توليد خطة الجلسات", action: choiceOnly && choiceSeatingPreview ? () => document.getElementById("choice-seating-preview")?.scrollIntoView({ behavior: "smooth", block: "start" }) : generateSeating, ready: choiceOnly ? choiceOnlyRosterReady(sel) : sel >= 6 }
     if (ph === "setup" && hasSeating) return { label: "⬅ بدء الجولة الأولى (30 دقيقة)", action: () => setPhaseWithTimer("round1", EVENT3_PHASE_SECONDS.round1, 1), ready: true }
     if (ph === "round1") return { label: "⬅ التصنيف بعد الجولة 1 (3 دقائق)", action: () => setPhaseWithTimer("ranking1", EVENT3_PHASE_SECONDS.ranking1, 0), ready: true }
     if (ph === "ranking1") return { label: "⬅ بدء الجولة الثانية (25 دقيقة)", action: () => setPhaseWithTimer("round2", EVENT3_PHASE_SECONDS.round2, 2), ready: true }
@@ -2134,6 +2393,8 @@ export default function Admin3Page() {
     if (ph === "break") return { label: choiceOnly ? "⬅ بدء كشف الاختيار الأول (20 دقيقة)" : "⬅ بدء كشف المرحلة 2 (20 دقيقة)", action: () => setPhaseWithTimer("phase2_reveal", EVENT3_PHASE_SECONDS.phase2_reveal, firstMatchTimerRound), ready: true }
     if (ph === "phase2_reveal" && !state.phase3_matches_done) return { label: choiceOnly ? "⬅ تشغيل الاختيار الثاني (مع استبعاد الشريك الأول)" : "⬅ تشغيل مطابقة الخوارزمية", action: triggerPhase3, ready: choiceOnly ? state.phase2_matches_done === true : ranked > 0 }
     if (ph === "phase2_reveal" && state.phase3_matches_done) return { label: choiceOnly ? "⬅ كشف الاختيار الثاني (20 دقيقة)" : "⬅ كشف المرحلة 3 (20 دقيقة)", action: () => setPhaseWithTimer("phase3_reveal", EVENT3_PHASE_SECONDS.phase3_reveal, secondMatchTimerRound), ready: true }
+    if (choiceOnly && ph === "phase3_processing" && state.phase3_matches_done) return { label: "⬅ كشف الاختيار الثاني (20 دقيقة)", action: () => setPhaseWithTimer("phase3_reveal", EVENT3_PHASE_SECONDS.phase3_reveal, secondMatchTimerRound), ready: true }
+    if (choiceOnly && ph === "phase3_processing") return { label: "⏳ جاري تجهيز الاختيار الثاني...", action: () => {}, ready: false }
     if (choiceOnly && ph === "phase3_reveal" && !state.phase4_matches_done) return { label: "⬅ تشغيل الاختيار الثالث (مع استبعاد الشريكين السابقين)", action: triggerPhase4, ready: state.phase3_matches_done === true }
     if (choiceOnly && ph === "phase3_reveal" && state.phase4_matches_done) return { label: "⬅ كشف الاختيار الثالث (20 دقيقة)", action: () => setPhaseWithTimer("phase4_reveal", EVENT3_PHASE_SECONDS.phase4_reveal, thirdMatchTimerRound), ready: true }
     if (choiceOnly && ph === "phase4_processing" && state.phase4_matches_done) return { label: "⬅ كشف الاختيار الثالث (20 دقيقة)", action: () => setPhaseWithTimer("phase4_reveal", EVENT3_PHASE_SECONDS.phase4_reveal, thirdMatchTimerRound), ready: true }
@@ -2146,6 +2407,7 @@ export default function Admin3Page() {
   const choiceSeatingExpectedContext = () => ({
     expected_event_id: Number(state?.current_event_id ?? state?.event_id ?? realCurrentEventId),
     expected_test_mode: Boolean(testMode),
+    expected_test_session_key: String(state?.test_session_key || (testMode ? testModeData?.started_at || "" : "live")),
   })
 
   const generateChoiceSeatingPreview = async () => {
@@ -2190,14 +2452,10 @@ export default function Admin3Page() {
         toast.error(message)
         return
       }
-      const bestCandidate = candidates[0]
       const insufficientVariation = candidates.slice(1).some((candidate: ChoiceSeatingCandidate, candidateIndex: number) =>
-        candidates.slice(0, candidateIndex + 1).some((earlier: ChoiceSeatingCandidate) => {
-          const comparison = compareChoiceCandidates(candidate, earlier)
-          return comparison.byRound.some(round => round.changedParticipants < 36 || round.changedPairs < 63)
-        }))
+        candidates.slice(0, candidateIndex + 1).some((earlier: ChoiceSeatingCandidate) => !choiceCandidateIsMateriallyDifferent(candidate, earlier)))
       if (insufficientVariation) {
-        const message = "الخياران الثاني والثالث ليسا مختلفين مادياً عن Best في الجولات الثلاث. لم يتم تطبيق أي خطة."
+        const message = "البديلان لا يختلفان فعلياً عن الخطة الأساسية عبر الجولات الثلاث. لم يتم تطبيق أي خطة."
         setChoiceSeatingPreviewIssue({ message, missingSurveyFields: [] })
         toast.error(message)
         return
@@ -2209,7 +2467,7 @@ export default function Admin3Page() {
       }
       setChoiceSeatingPreview(nextPreview)
       setSelectedChoiceSeatingCandidateId(candidates[0].candidate_id)
-      toast.success("تم إنشاء Best وSecond-best وThird-best للمعاينة — لم تُطبّق أي خطة بعد")
+      toast.success("تم إنشاء خطة أساسية وبديلين للمعاينة — لم تُطبّق أي خطة بعد")
       window.setTimeout(() => {
         if (requestIsCurrent()) document.getElementById("choice-seating-preview")?.scrollIntoView({ behavior: "smooth", block: "start" })
       }, 50)
@@ -2315,6 +2573,15 @@ export default function Admin3Page() {
 
   const triggerPhase2 = () => {
     if (previewEventId != null) { toast.error("لا يمكن تشغيل المطابقة في وضع المعاينة"); return }
+    const finalRankingPhase = choiceOnly ? "ranking3" : "ranking2"
+    if (![finalRankingPhase, "phase2_processing"].includes(String(state?.phase || ""))) {
+      toast.error("أكمل الجولات الجماعية والتصنيف النهائي قبل تشغيل اللقاء الفردي الأول")
+      return
+    }
+    if (state?.phase2_matches_done === true) {
+      toast.error("تم إعداد اللقاء الفردي الأول بالفعل")
+      return
+    }
     const runMatching = () => run("phase2", () => api("e3-trigger-phase2-matching").then(result => { fetchMatches(); fetchState(); return result }))
     if (choiceOnly) return runMatching()
     return setPhaseStopTimer("phase2_processing").then(d => d?.error ? d : runMatching())
@@ -2325,11 +2592,19 @@ export default function Admin3Page() {
       toast.error("لا يمكن تشغيل الاختيار الثاني إلا أثناء كشف الاختيار الأول وبعد اكتمال الاختيار الأول للجميع")
       return
     }
+    if (!choiceOnly && (state?.phase !== "phase2_reveal" || !state?.phase2_matches_done)) {
+      toast.error("لا يمكن تشغيل مطابقة المرحلة الثالثة إلا أثناء كشف المرحلة الثانية وبعد اكتمالها")
+      return
+    }
     run("phase3", async () => {
-      const tid = toast.loading(choiceOnly ? "جاري حساب أقوى الاختيارات المتبادلة المتبقية..." : "جاري حساب توافق المشاركين...")
+      const tid = toast.loading(choiceOnly ? "جاري إعداد لقاء الاختيار الثاني مع استبعاد الشريك الأول..." : "جاري حساب توافق المشاركين...")
       try {
         const data = await api("e3-trigger-phase3-matching")
-        if (!data.error) { await Promise.all([fetchMatches(), fetchState()]) }
+        if (data.error) {
+          if (data.matching_committed) await Promise.all([fetchMatches(), fetchSeating(), fetchState()])
+          return data
+        }
+        await Promise.all([fetchMatches(), fetchSeating(), fetchState()])
         return data
       } finally {
         toast.dismiss(tid)
@@ -2345,23 +2620,25 @@ export default function Admin3Page() {
       return
     }
     run("phase4", async () => {
-      const tid = toast.loading("جاري حساب أقوى اختيار متبادل ثالث بعد استبعاد الشريكين السابقين...")
+      const tid = toast.loading("جاري إعداد لقاء الاختيار الثالث مع استبعاد الشريكين السابقين...")
       try {
         const data = await api("e3-trigger-phase4-matching")
-        if (data.error) return data
-        const phaseData = await api("e3-set-phase", { phase: "phase4_processing", start_timer: false })
+        if (data.error) {
+          if (data.matching_committed) await Promise.all([fetchMatches(), fetchSeating(), fetchState()])
+          return data
+        }
         await Promise.all([fetchMatches(), fetchSeating(), fetchState()])
-        return phaseData.error ? phaseData : data
+        return data
       } finally {
         toast.dismiss(tid)
       }
     })
   }
 
-  const togglePhase2Exclusion = (num: number) => {
+  const togglePhase2Exclusion = (num: number, expectedExcluded: boolean) => {
     if (previewEventId != null) { toast.error("لا يمكن تعديل الاستبعادات في وضع المعاينة"); return }
     if (choiceOnly) { toast.error("الاستبعاد الفردي غير مستخدم في نظام الاختيارات فقط"); return }
-    run(`phase2-exclude-${num}`, () => api("e3-toggle-phase2-exclusion", { participant_number: num }).then(d => { if (!d.error) fetchParticipants(); return d }))
+    run(`phase2-exclude-${num}`, () => api("e3-toggle-phase2-exclusion", { participant_number: num, expected_excluded: expectedExcluded }).then(d => { fetchParticipants(); return d }))
   }
   const resetEvent = () => {
     if (previewEventId != null) { toast.error("لا يمكن إعادة التعيين في وضع المعاينة"); return }
@@ -2390,13 +2667,17 @@ export default function Admin3Page() {
 
   const startTestMode = async () => {
     if (previewEventId != null) { toast.error("لا يمكن بدء وضع الاختبار في وضع المعاينة"); return }
+    if (choiceOnly && !choiceOnlyRosterReady(savedChoiceParticipantCount)) {
+      toast.error("احفظ أولاً قائمة زوجية من 16 إلى 42 مشاركاً؛ سيستخدم وضع الاختبار العدد المحفوظ نفسه")
+      return
+    }
     const testModePrompt = choiceOnly
-      ? "بدء وضع الاختبار؟ سيتم اختيار 42 مشاركاً لتكوين 6 مجموعات من 7 أشخاص عبر 3 جولات. يمكنك استعادة البيانات عند الانتهاء."
-      : "بدء وضع الاختبار؟ سيتم اختيار 36 مشارك (18 ذكر + 18 أنثى) وتحقيق 100% تغطية كاش — قد يستغرق حساب الأزواج الناقصة بعض الوقت. يمكنك الاستعادة عند الانتهاء."
+      ? `بدء وضع الاختبار بـ${savedChoiceParticipantCount} مشاركاً (${savedChoiceParticipantCount / 2} من كل فئة) وتكوين ${choiceTestGroupDescription} في كل جولة؟ يمكنك استعادة البيانات عند الانتهاء.`
+      : "بدء وضع الاختبار بـ36 مشاركاً (18 رجلاً و18 امرأة)؟ سيُختار أكبر قدر متاح من النتائج المحفوظة، وتبقى أي حسابات ناقصة مؤقتة داخل الاختبار. يمكنك استعادة بيانات الفعالية عند الانتهاء."
     if (!confirm(testModePrompt)) return
     setTestModeLoading(true)
     try {
-      const data = await api("e3-start-test-mode")
+      const data = await api("e3-start-test-mode", choiceOnly ? { participant_count: savedChoiceParticipantCount } : {})
       if (data.error) { toast.error(data.error); return }
       setTestMode(true)
       setTestModeData(data)
@@ -2452,6 +2733,7 @@ export default function Admin3Page() {
   }
 
   const currentPhaseIdx = phases.findIndex(p => p.id === state?.phase)
+  const currentPhaseLabel = phases[currentPhaseIdx]?.label || "مرحلة الفعالية"
 
   const tableLocationsByParticipant = useMemo(() => {
     const locations = new Map<number, Record<number, number>>()
@@ -2788,8 +3070,8 @@ export default function Admin3Page() {
           <div className="bg-red-950/40 border border-red-800/50 rounded-xl p-3 sm:p-4 flex items-start gap-3">
             <AlertTriangle className="text-red-400 flex-shrink-0 mt-0.5" size={18} />
             <div className="flex-1">
-              <p className="text-red-300 font-semibold text-sm">{phase3MissingCount} مشارك مختار ليس له طاولة في {choiceOnly ? "الاختيار الثاني" : "المرحلة 3"}</p>
-              <p className="text-red-400/70 text-xs mt-0.5">المطابقات تم إنشاؤها لكن بعض المشاركين غير مسندين إلى طاولة. أعد تشغيل {choiceOnly ? "مطابقة الاختيار الثاني" : "مطابقة المرحلة 3"}{choiceOnly ? "." : " أو راجع الأزواج المثبتة."}</p>
+              <p className="text-red-300 font-semibold text-sm">{choiceOnly ? `${phase3MissingCount} مشارك مختار ليس له طاولة في الاختيار الثاني` : "يوجد خلل في طاولات المرحلة 3"}</p>
+              <p className="text-red-400/70 text-xs mt-0.5">{choiceOnly ? "المطابقات تم إنشاؤها لكن بعض المشاركين غير مسندين إلى طاولة. أعد تشغيل مطابقة الاختيار الثاني." : "أحد الأزواج غير مسند بالكامل إلى طاولة واحدة، أو توجد طاولة مكررة أو غير صالحة. راجع الأزواج المثبتة ثم أعد تشغيل المطابقة."}</p>
             </div>
           </div>
         )}
@@ -2819,7 +3101,7 @@ export default function Admin3Page() {
               {!testMode ? (
                 <button
                   onClick={startTestMode}
-                  disabled={testModeLoading || !!loading || previewEventId != null}
+                  disabled={testModeLoading || !!loading || previewEventId != null || (choiceOnly && !choiceOnlyRosterReady(savedChoiceParticipantCount))}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 text-xs font-medium transition-colors disabled:opacity-50"
                 >
                   {testModeLoading ? <Loader2 size={14} className="animate-spin" /> : <FlaskConical size={14} />}
@@ -2901,11 +3183,12 @@ export default function Admin3Page() {
                   <div className="max-h-64 overflow-y-auto space-y-1 scrollbar-thin">
                     {testModeData.test_users
                       .filter((u: any) => !testUsersFilter || String(u.name).includes(testUsersFilter) || String(u.number).includes(testUsersFilter) || String(u.phone || "").includes(testUsersFilter))
-                      .map((u: any) => (
-                      <div key={u.number} className="flex items-center justify-between bg-gray-800/60 border border-gray-700/50 rounded-lg px-3 py-2 text-xs">
+                      .map((u: any) => {
+                      const testUserGender = choiceSeatingGender(u.gender)
+                      return <div key={u.number} className="flex items-center justify-between bg-gray-800/60 border border-gray-700/50 rounded-lg px-3 py-2 text-xs">
                         <div className="flex items-center gap-2">
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${u.gender?.toLowerCase().startsWith("m") ? "bg-blue-900/60 text-blue-300" : "bg-pink-900/60 text-pink-300"}`}>
-                            {u.gender?.toLowerCase().startsWith("m") ? "♂" : "♀"}
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${testUserGender === "male" ? "bg-blue-900/60 text-blue-300" : testUserGender === "female" ? "bg-pink-900/60 text-pink-300" : "bg-gray-700 text-gray-300"}`}>
+                            {testUserGender === "male" ? "♂" : testUserGender === "female" ? "♀" : "؟"}
                           </span>
                           <span className="text-gray-300 font-medium">#{u.number} {u.name}</span>
                           <span className="text-gray-500">({u.age})</span>
@@ -2935,7 +3218,7 @@ export default function Admin3Page() {
                           </button>
                         </div>
                       </div>
-                    ))}
+                    })}
                   </div>
                 </div>
               )}
@@ -2945,7 +3228,9 @@ export default function Admin3Page() {
           {!testMode && (
             <p className="text-xs text-gray-500">
               {choiceOnly
-                ? "يختار 42 مشاركاً لتكوين 6 مجموعات من 7 أشخاص عبر 3 جولات. يحذف جميع بيانات الاختبار عند الإنهاء."
+                ? choiceOnlyRosterReady(savedChoiceParticipantCount)
+                  ? `يستخدم العدد المحفوظ نفسه: ${savedChoiceParticipantCount} مشاركاً (${savedChoiceParticipantCount / 2} من كل فئة)، مع ${choiceTestGroupDescription} عبر 3 جولات. تُستعاد بيانات الفعالية عند الإنهاء.`
+                  : "احفظ أولاً قائمة زوجية من 16 إلى 42 مشاركاً. سيستخدم وضع الاختبار العدد المحفوظ نفسه."
                 : "يختار 18 ذكراً و18 أنثى عشوائياً من المشاركين الذين أكملوا الاستبيان. يحذف جميع بيانات الاختبار عند الإنهاء."}
             </p>
           )}
@@ -3144,7 +3429,7 @@ export default function Admin3Page() {
                 <Clock size={18} className="text-blue-400 animate-pulse" />
                 <div>
                   <p className="font-medium text-sm sm:text-base text-blue-300">المؤقت نشط</p>
-                  <p className="text-[10px] sm:text-xs text-gray-400">الجولة {state.timer_round} · {formatTime(timerRemaining)} متبقية</p>
+                  <p className="text-[10px] sm:text-xs text-gray-400">{currentPhaseLabel} · {formatTime(timerRemaining)} متبقية</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 sm:gap-3">
@@ -3193,7 +3478,7 @@ export default function Admin3Page() {
           ].map(tab => (
             <button
               key={tab.id}
-              onClick={() => { setActiveTab(tab.id as any); if (tab.id === "feedback") { fetchFeedback(); fetchSeating(); fetchRankStatus() } }}
+              onClick={() => setActiveTab(tab.id as any)}
               className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 border-b-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
                 activeTab === tab.id
                   ? "border-purple-500 text-purple-400"
@@ -3256,14 +3541,16 @@ export default function Admin3Page() {
                   </span>
                   {selectedNumbers.size > 0 && (() => {
                     const sel = participants.filter(p => selectedNumbers.has(p.number))
-                    const males = sel.filter(p => (p.gender || '').toLowerCase() !== 'female').length
-                    const females = sel.filter(p => (p.gender || '').toLowerCase() === 'female').length
+                    const males = sel.filter(p => choiceSeatingGender(p.gender) === "male").length
+                    const females = sel.filter(p => choiceSeatingGender(p.gender) === "female").length
+                    const unknownGender = sel.length - males - females
                     const ages = sel.map(p => p.age).filter(a => a && a !== "?").sort((a, b) => a - b)
                     const ageRange = ages.length > 0 ? `${ages[0]}-${ages[ages.length - 1]}` : "?"
                     return (
                       <span className="text-xs px-2 py-0.5 rounded-full bg-gray-800 text-gray-300 flex items-center gap-1.5">
                         <span className="text-blue-400">{males}♂</span>
                         <span className="text-pink-400">{females}♀</span>
+                        {unknownGender > 0 && <span className="text-gray-400">{unknownGender}؟</span>}
                         <span className="text-amber-400">{ageRange}سنة</span>
                       </span>
                     )
@@ -3436,11 +3723,11 @@ export default function Admin3Page() {
                 {[
                   {
                     label: choiceOnly ? (choiceSeatingPreview ? "مراجعة الخيارات الثلاثة" : "إنشاء 3 خيارات للمعاينة") : "توليد خطة الجلسات",
-                    desc: choiceOnly ? `Best · Second-best · Third-best · لم تُطبّق تلقائياً · المحددون: ${state?.participants_selected || 0}` : `يتطلب ${state?.participants_selected || 0} مشاركاً محدداً`,
+                    desc: choiceOnly ? `خطة أساسية · بديلان · لا تُطبّق تلقائياً · المحددون: ${state?.participants_selected || 0}` : `يتطلب ${state?.participants_selected || 0} مشاركاً محدداً`,
                     action: choiceOnly && choiceSeatingPreview ? () => document.getElementById("choice-seating-preview")?.scrollIntoView({ behavior: "smooth", block: "start" }) : generateSeating,
                     icon: Grid3x3,
                     color: "blue",
-                    enabled: choiceOnly ? choiceOnlyRosterReady(state?.participants_selected) : (state?.participants_selected || 0) >= 6,
+                    enabled: state?.phase === "setup" && (choiceOnly ? choiceOnlyRosterReady(state?.participants_selected) : (state?.participants_selected || 0) >= 6),
                     loadKey: "seating",
                   },
                   {
@@ -3449,7 +3736,7 @@ export default function Admin3Page() {
                     action: () => setPhaseWithTimer("round1", EVENT3_PHASE_SECONDS.round1, 1),
                     icon: Play,
                     color: "green",
-                    enabled: state?.seating_generated,
+                    enabled: state?.phase === "setup" && state?.seating_generated === true,
                     loadKey: "phase-round1",
                   },
                   {
@@ -3458,7 +3745,7 @@ export default function Admin3Page() {
                     action: () => setPhaseWithTimer("ranking1", EVENT3_PHASE_SECONDS.ranking1, 0),
                     icon: BarChart3,
                     color: "yellow",
-                    enabled: true,
+                    enabled: state?.phase === "round1",
                     loadKey: "phase-ranking1",
                   },
                   {
@@ -3467,7 +3754,7 @@ export default function Admin3Page() {
                     action: () => setPhaseWithTimer("round2", EVENT3_PHASE_SECONDS.round2, 2),
                     icon: Play,
                     color: "green",
-                    enabled: true,
+                    enabled: state?.phase === "ranking1",
                     loadKey: "phase-round2",
                   },
                   {
@@ -3476,7 +3763,7 @@ export default function Admin3Page() {
                     action: () => setPhaseWithTimer("ranking2", EVENT3_PHASE_SECONDS.ranking2, 0),
                     icon: BarChart3,
                     color: "yellow",
-                    enabled: true,
+                    enabled: state?.phase === "round2",
                     loadKey: "phase-ranking2",
                   },
                   ...(choiceOnly ? [
@@ -3486,7 +3773,7 @@ export default function Admin3Page() {
                       action: () => setPhaseWithTimer("round3", EVENT3_PHASE_SECONDS.round3, 3),
                       icon: Play,
                       color: "green",
-                      enabled: true,
+                      enabled: state?.phase === "ranking2",
                       loadKey: "phase-round3",
                     },
                     {
@@ -3495,7 +3782,7 @@ export default function Admin3Page() {
                       action: () => setPhaseWithTimer("ranking3", EVENT3_PHASE_SECONDS.ranking3, 0),
                       icon: BarChart3,
                       color: "yellow",
-                      enabled: true,
+                      enabled: state?.phase === "round3",
                       loadKey: "phase-ranking3",
                     },
                   ] : []),
@@ -3506,8 +3793,8 @@ export default function Admin3Page() {
                     icon: Shuffle,
                     color: "pink",
                     enabled: choiceOnly
-                      ? state?.phase === "ranking3" && choiceOnlyRosterReady(state?.participants_selected)
-                      : testMode || (state?.phase === "ranking2" && (state?.participants_selected || 0) > 0) || (state?.rankings_submitted || 0) > 0,
+                      ? ["ranking3", "phase2_processing"].includes(String(state?.phase || "")) && choiceOnlyRosterReady(state?.participants_selected) && state?.phase2_matches_done !== true
+                      : ["ranking2", "phase2_processing"].includes(String(state?.phase || "")) && (state?.participants_selected || 0) > 0 && state?.phase2_matches_done !== true,
                     loadKey: "phase2",
                   },
                   {
@@ -3516,7 +3803,7 @@ export default function Admin3Page() {
                     action: () => setPhaseWithTimer("break", EVENT3_PHASE_SECONDS.break, breakTimerRound),
                     icon: Coffee,
                     color: "orange",
-                    enabled: state?.phase2_matches_done,
+                    enabled: state?.phase === "phase2_processing" && state?.phase2_matches_done === true,
                     loadKey: "phase-break",
                   },
                   {
@@ -3525,16 +3812,16 @@ export default function Admin3Page() {
                     action: () => setPhaseWithTimer("phase2_reveal", EVENT3_PHASE_SECONDS.phase2_reveal, firstMatchTimerRound),
                     icon: Eye,
                     color: "pink",
-                    enabled: state?.phase2_matches_done,
+                    enabled: state?.phase === "break" && state?.phase2_matches_done === true,
                     loadKey: "phase-phase2_reveal",
                   },
                   {
                     label: choiceOnly ? "تشغيل الاختيار الثاني" : "تشغيل مطابقة المرحلة 3",
-                    desc: choiceOnly ? "أقوى اختيار متبادل متبقٍ · يستبعد الشريك الأول" : "الخوارزمية",
+                    desc: choiceOnly ? "لقاء متبادل جديد · يستبعد الشريك الأول" : "الخوارزمية",
                     action: triggerPhase3,
                     icon: choiceOnly ? Heart : Brain,
                     color: "purple",
-                    enabled: choiceOnly ? state?.phase === "phase2_reveal" && state?.phase2_matches_done === true : true,
+                    enabled: state?.phase === "phase2_reveal" && state?.phase2_matches_done === true,
                     loadKey: "phase3",
                   },
                   {
@@ -3543,13 +3830,15 @@ export default function Admin3Page() {
                     action: () => setPhaseWithTimer("phase3_reveal", EVENT3_PHASE_SECONDS.phase3_reveal, secondMatchTimerRound),
                     icon: Sparkles,
                     color: "purple",
-                    enabled: choiceOnly ? state?.phase3_matches_done === true : true,
+                    enabled: choiceOnly
+                      ? state?.phase === "phase3_processing" && state?.phase3_matches_done === true
+                      : state?.phase === "phase2_reveal" && state?.phase3_matches_done === true,
                     loadKey: "phase-phase3_reveal",
                   },
                   ...(choiceOnly ? [
                     {
                       label: "تشغيل الاختيار الثالث",
-                      desc: "أقوى اختيار متبادل متبقٍ · يستبعد الشريكين السابقين",
+                      desc: "لقاء متبادل ثالث · يستبعد الشريكين السابقين",
                       action: triggerPhase4,
                       icon: Heart,
                       color: "violet",
@@ -3562,7 +3851,7 @@ export default function Admin3Page() {
                       action: () => setPhaseWithTimer("phase4_reveal", EVENT3_PHASE_SECONDS.phase4_reveal, thirdMatchTimerRound),
                       icon: Sparkles,
                       color: "violet",
-                      enabled: state?.phase4_matches_done === true,
+                      enabled: state?.phase === "phase4_processing" && state?.phase4_matches_done === true,
                       loadKey: "phase-phase4_reveal",
                     },
                   ] : []),
@@ -3572,7 +3861,9 @@ export default function Admin3Page() {
                     action: () => setPhase("final_reveal"),
                     icon: Star,
                     color: "amber",
-                    enabled: choiceOnly ? state?.phase4_matches_done === true : true,
+                    enabled: choiceOnly
+                      ? state?.phase === "phase4_reveal" && state?.phase4_matches_done === true
+                      : state?.phase === "phase3_reveal" && state?.phase3_matches_done === true,
                     loadKey: "phase-final_reveal",
                   },
                   {
@@ -3751,14 +4042,16 @@ export default function Admin3Page() {
                 <div className="flex gap-1.5 mt-2">
                   <button
                     onClick={triggerPhase2}
-                    disabled={!!loading}
+                    disabled={!!loading || (choiceOnly
+                      ? !["ranking3", "phase2_processing"].includes(String(state?.phase || ""))
+                      : !["ranking2", "phase2_processing"].includes(String(state?.phase || "")))}
                     className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-purple-900/50 hover:bg-purple-900/70 text-purple-300 transition-all disabled:opacity-40"
                   >
                     ⚡ {choiceOnly ? "الاختيار الأول" : "مطابقة المرحلة 2"}
                   </button>
                   <button
                     onClick={triggerPhase3}
-                    disabled={!!loading || (choiceOnly && (state?.phase !== "phase2_reveal" || state?.phase2_matches_done !== true))}
+                    disabled={!!loading || state?.phase !== "phase2_reveal" || state?.phase2_matches_done !== true}
                     className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-purple-900/50 hover:bg-purple-900/70 text-purple-300 transition-all disabled:opacity-40"
                   >
                     ⚡ {choiceOnly ? "الاختيار الثاني" : "مطابقة الخوارزمية"}
@@ -4081,7 +4374,7 @@ export default function Admin3Page() {
                       {participants.filter(p => p.selected).map((p: any) => (
                         <button
                           key={p.number}
-                          onClick={() => togglePhase2Exclusion(p.number)}
+                          onClick={() => togglePhase2Exclusion(p.number, p.phase2_excluded === true)}
                           disabled={!!loading && loading !== `phase2-exclude-${p.number}`}
                           className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all flex items-center gap-1.5 disabled:opacity-40 ${
                             p.phase2_excluded
@@ -4225,9 +4518,10 @@ export default function Admin3Page() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {Object.keys(seating?.[mapRound] || {}).map(Number).sort((a, b) => a - b).map(table => {
                     const members: any[] = seating?.[mapRound]?.[table] || []
-                    const males = members.filter(m => m.gender !== 'female').length
-                    const females = members.filter(m => m.gender === 'female').length
-                    const balanced = Math.abs(males - females) <= 1
+                    const males = members.filter(m => choiceSeatingGender(m.gender) === "male").length
+                    const females = members.filter(m => choiceSeatingGender(m.gender) === "female").length
+                    const unknownGender = members.length - males - females
+                    const balanced = unknownGender === 0 && Math.abs(males - females) <= 1
                     const hasSwapMember = swapA !== null && members.some(m => m.number === swapA)
                     const hasMoveMember = moveA !== null && members.some(m => m.number === moveA)
                     const attendanceByNumber = new Map(attendanceData.map((person: any) => [person.number, !!person.attended]))
@@ -4341,7 +4635,7 @@ export default function Admin3Page() {
                             <span className={`flex items-center gap-1.5 text-[10px] font-medium px-2 py-1 rounded-lg border ${
                               balanced ? 'bg-green-900/20 border-green-800/30 text-green-400' : 'bg-red-900/20 border-red-800/30 text-red-400'
                             }`}>
-                              <span className="text-blue-400">{males}♂</span><span className="text-gray-600">·</span><span className="text-pink-400">{females}♀</span>
+                              <span className="text-blue-400">{males}♂</span><span className="text-gray-600">·</span><span className="text-pink-400">{females}♀</span>{unknownGender > 0 && <><span className="text-gray-600">·</span><span className="text-gray-300">{unknownGender}؟</span></>}
                             </span>
                           </div>
                         </div>
@@ -5123,7 +5417,7 @@ export default function Admin3Page() {
                     onClick={triggerPhase2}
                     disabled={!!loading || (choiceOnly
                       ? !choiceOnlyRosterReady(state?.participants_selected) || !["ranking3", "phase2_processing"].includes(String(state?.phase || ""))
-                      : (rankStatus?.submitted || 0) === 0)}
+                      : !["ranking2", "phase2_processing"].includes(String(state?.phase || "")) || (rankStatus?.submitted || 0) === 0)}
                     className="flex items-center gap-1.5 bg-pink-900/40 hover:bg-pink-900/70 border border-pink-800/50 text-pink-300 rounded-lg px-3 py-1.5 text-xs disabled:opacity-40"
                   >
                     {loading === "phase2" ? <RefreshCw size={12} className="animate-spin" /> : <Sparkles size={12} />}
@@ -5142,7 +5436,7 @@ export default function Admin3Page() {
                   <div className="flex items-center gap-3">
                     <p className="text-gray-500 text-xs">{matchPairs.length} زوج</p>
                     <p className="text-gray-600 text-xs">·</p>
-                    <p className="text-emerald-600 text-xs">{matchPairs.filter((p: any) => p.matchType === 'mutual').length} تبادل متبادل</p>
+                    <p className="text-emerald-600 text-xs">{matchPairs.filter((p: any) => p.matchType === 'mutual').length} لقاء متبادل</p>
                     {matchPairs.some((p: any) => p.matchType === 'fallback') && (
                       <p className="text-amber-600 text-xs">{matchPairs.filter((p: any) => p.matchType === 'fallback').length} احتياطي</p>
                     )}
@@ -5199,7 +5493,7 @@ export default function Admin3Page() {
                                 <div className="flex items-center gap-2 text-[11px]">
                                   <span className="w-5 h-5 rounded-md bg-emerald-950/60 text-emerald-400 flex items-center justify-center font-bold text-[10px] flex-shrink-0">#{pair.rankBInA}</span>
                                   <span className="text-emerald-300 flex-1 truncate">{pair.bName}</span>
-                                  <span className="text-emerald-400/80 flex-shrink-0 text-[10px]">✓ {pair.matchType === 'mutual' ? 'تبادل متبادل' : 'تعيين احتياطي'}</span>
+                                  <span className="text-emerald-400/80 flex-shrink-0 text-[10px]">✓ {pair.matchType === 'mutual' ? 'اختيار متبادل' : 'تعيين احتياطي'}</span>
                                 </div>
                               )}
                             </div>
@@ -5225,7 +5519,7 @@ export default function Admin3Page() {
                                 <div className="flex items-center gap-2 text-[11px]">
                                   <span className="w-5 h-5 rounded-md bg-emerald-950/60 text-emerald-400 flex items-center justify-center font-bold text-[10px] flex-shrink-0">#{pair.rankAInB}</span>
                                   <span className="text-emerald-300 flex-1 truncate">{pair.aName}</span>
-                                  <span className="text-emerald-400/80 flex-shrink-0 text-[10px]">✓ {pair.matchType === 'mutual' ? 'تبادل متبادل' : 'تعيين احتياطي'}</span>
+                                  <span className="text-emerald-400/80 flex-shrink-0 text-[10px]">✓ {pair.matchType === 'mutual' ? 'اختيار متبادل' : 'تعيين احتياطي'}</span>
                                 </div>
                               )}
                             </div>
@@ -5274,7 +5568,7 @@ export default function Admin3Page() {
                 <div className="flex gap-2">
                   <button
                     onClick={triggerPhase3}
-                    disabled={!!loading || (choiceOnly && (state?.phase !== "phase2_reveal" || state?.phase2_matches_done !== true))}
+                    disabled={!!loading || state?.phase !== "phase2_reveal" || state?.phase2_matches_done !== true}
                     className="flex items-center gap-1.5 bg-purple-900/40 hover:bg-purple-900/70 border border-purple-800/50 text-purple-300 rounded-lg px-3 py-1.5 text-xs disabled:opacity-40"
                   >
                     {loading === "phase3" ? <RefreshCw size={12} className="animate-spin" /> : choiceOnly ? <Heart size={12} /> : <Brain size={12} />}
@@ -5289,7 +5583,7 @@ export default function Admin3Page() {
                 <p className="text-[10px] text-purple-300/70 flex items-center gap-1.5">
                   <Shield size={10} className="flex-shrink-0" />
                   {choiceOnly
-                    ? "الاختيار الثاني يفضّل أقوى اختيار متبادل متبقٍ لكل مشارك ويستبعد الشخص الذي قابله في الاختيار الأول."
+                    ? "الاختيار الثاني ينشئ توزيعاً متبادلاً جديداً يغطي الجميع، ثم يفضّل الرتب الأعلى بعد استبعاد شريك اللقاء الأول."
                     : testMode
                       ? "وضع الاختبار ينشئ أزواج خوارزمية مثبتة مؤقتاً — تظهر في لوحة التحكم ولا تدخل في السجل السابق وتُحذف عند إنهاء الاختبار"
                       : "المطابقة تستخدم الأزواج المثبتة (locked matches) من لوحة التحكم — لا يتم إعادة الحساب"}
@@ -5390,7 +5684,7 @@ export default function Admin3Page() {
                 <div className="bg-violet-950/20 border border-violet-800/30 rounded-lg px-3 py-2">
                   <p className="text-[10px] text-violet-300/70 flex items-center gap-1.5">
                     <Shield size={10} className="flex-shrink-0" />
-                    الاختيار الثالث يختار أقوى مطابقة متبادلة كاملة متبقية بعد استبعاد شريكي الاختيارين الأول والثاني لكل مشارك. النتائج للقراءة فقط.
+                    الاختيار الثالث ينشئ توزيعاً متبادلاً ثالثاً يغطي الجميع، ثم يفضّل الرتب الأعلى بعد استبعاد شريكي اللقاءين السابقين. النتائج للقراءة فقط.
                   </p>
                 </div>
 
@@ -6805,9 +7099,9 @@ export default function Admin3Page() {
             {feedbackData && (
               <div className={`grid grid-cols-1 gap-2 ${choiceOnly ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
                 {([
-                  {id:"phase2",label:choiceOnly ? "💘 الاختيار الأول" : "💘 اختيارك",submitted:feedbackData.phase2_submitted,total:feedbackData.phase2?.length??0,color:"pink"},
-                  {id:"phase3",label:choiceOnly ? "💞 الاختيار الثاني" : "🧠 الخوارزمية",submitted:feedbackData.phase3_submitted,total:feedbackData.phase3?.length??0,color:"purple"},
-                  ...(choiceOnly ? [{id:"phase4",label:"💜 الاختيار الثالث",submitted:feedbackData.phase4_submitted,total:feedbackData.phase4?.length??0,color:"violet"}] : []),
+                  {id:"phase2",label:choiceOnly ? "💘 الاختيار الأول" : "💘 اختيارك",submitted:feedbackData.phase2_submitted,total:feedbackParticipantTotal,matched:feedbackData.phase2?.length??0,color:"pink"},
+                  {id:"phase3",label:choiceOnly ? "💞 الاختيار الثاني" : "🧠 الخوارزمية",submitted:feedbackData.phase3_submitted,total:feedbackParticipantTotal,matched:feedbackData.phase3?.length??0,color:"purple"},
+                  ...(choiceOnly ? [{id:"phase4",label:"💜 الاختيار الثالث",submitted:feedbackData.phase4_submitted,total:feedbackParticipantTotal,matched:feedbackData.phase4?.length??0,color:"violet"}] : []),
                   {id:"groups",label:"👥 أفراد المجموعات",submitted:groupMemberFeedback.submissions.length,total:null,color:"violet",reviewers:groupMemberFeedback.reviewer_count??0},
                 ] as any[]).map(ph => (
                   <button key={ph.id} onClick={() => setFeedbackPhase(ph.id)}
@@ -6820,6 +7114,7 @@ export default function Admin3Page() {
                       {ph.submitted}{ph.total != null && <span className="text-gray-500 text-sm font-normal">/{ph.total}</span>}
                     </div>
                     <div className="text-[10px] text-gray-400 mt-0.5">{ph.label}</div>
+                    {ph.total != null && ph.matched < ph.total && <p className="mt-1 text-[9px] text-amber-400">{ph.total - ph.matched} بلا لقاء مسجل</p>}
                     {ph.total != null ? (
                       <div className="h-1 bg-gray-700 rounded-full mt-2 overflow-hidden">
                         <div className={`h-full ${ph.color === "pink" ? "bg-pink-500" : ph.color === "purple" ? "bg-purple-500" : "bg-violet-500"} rounded-full transition-all duration-500`}
@@ -6997,6 +7292,7 @@ export default function Admin3Page() {
                                   {fb.wantConnect === true ? "نعم" : fb.wantConnect === false ? "لا" : "—"}
                                 </span>
                               </div>
+                              <FeedbackContactDetails feedback={fb} participantName={entry.participant_name} />
                               {fb.conversationQuality > 0 && (
                                 <div className="flex items-center justify-between text-xs">
                                   <span className="text-gray-500">جودة المحادثة</span>
@@ -7049,9 +7345,7 @@ export default function Admin3Page() {
                       {submitted.map((entry: any) => {
                         const fb = entry.feedback || {}
                         const mutualYes = entry.mutual_yes === true || (fb.wantConnect === true && entry.partner_feedback?.wantConnect === true)
-                        const prefLabel = entry.match_preference === 'choice' ? (choiceOnly ? 'الاختيار الأول' : 'اختيار شخصي')
-                          : entry.match_preference === 'algorithm' ? (choiceOnly ? 'الاختيار الثاني' : 'الخوارزمية')
-                          : entry.match_preference === 'both' ? 'كلاهما' : null
+                        const prefLabel = finalMatchPreferenceLabel(entry.match_preference, choiceOnly)
                         const pfbTop = entry.partner_feedback || {}
                         return (
                           <div key={entry.participant_number}
@@ -7121,6 +7415,12 @@ export default function Admin3Page() {
                                 </span>
                               </div>
                             </div>
+                            {(fb.wantConnect === true || (entry.partner_submitted && pfbTop.wantConnect === true)) && (
+                              <div className="px-4 pt-1">
+                                <FeedbackContactDetails feedback={fb} participantName={entry.participant_name} />
+                                {entry.partner_submitted && <FeedbackContactDetails feedback={pfbTop} participantName={entry.partner_name} />}
+                              </div>
+                            )}
 
                             {/* Secondary tags */}
                             {prefLabel && (
@@ -7262,7 +7562,7 @@ export default function Admin3Page() {
               choiceOnly={choiceOnly}
               onClose={() => setEditingFeedback(null)}
               onSave={async (newFb) => {
-                const ok = await handleEditFeedbackRef.current(editingFeedback.entry.participant_number, editingFeedback.phase, newFb)
+                const ok = await handleEditFeedbackRef.current(editingFeedback.entry.participant_number, editingFeedback.phase, newFb, editingFeedback.entry.partner_number)
                 if (ok) setEditingFeedback(null)
               }}
             />

@@ -60,6 +60,7 @@ import {
   EyeOff,
   CalendarDays,
   LogOut,
+  Smartphone,
 } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Avatar, AvatarFallback } from "../../components/ui/avatar"
@@ -90,6 +91,7 @@ import {
 } from "../lib/compatibility-model"
 import { ParticipantOtpModal } from "../components/ParticipantOtpModal"
 import { clearParticipantBrowserIdentity } from "../lib/participant-browser-auth.mjs"
+import { EVENT3_CONTACT_MESSAGE_MAX_LENGTH } from "../lib/event3-contact-sharing.mjs"
 import "../../app/app.css"
 import MatchResult from "./MatchResult"
 import CircularProgressBar from "../components/CircularProgressBar"
@@ -13153,6 +13155,7 @@ function RemoteFeedbackModal({ pending, index, token, onClose, onSubmitted }: {
   const [fb, setFb] = useState({
     conversationQuality: 0, personalConnection: 0,
     wantConnect: null as boolean | null, organizerImpression: '',
+    contactMethod: null as 'phone' | 'message' | null, contactMessage: '',
     compatibilityRate: 50, sliderMoved: false,
   })
   const STEPS = 5
@@ -13168,8 +13171,10 @@ function RemoteFeedbackModal({ pending, index, token, onClose, onSubmitted }: {
   const goBack = () => { setDir(-1); setStep(s => Math.max(s - 1, 0)) }
 
   const handleSubmit = async () => {
-    if (!fb.sliderMoved || fb.compatibilityRate === 50) { toast.error('رجاءً خمّن درجة التوافق في الخطوة 1'); return }
+    if (!fb.sliderMoved) { toast.error('رجاءً خمّن درجة التوافق في الخطوة 1'); return }
     if (fb.wantConnect === null) { toast.error('ارجع للخطوة 4 واختر رد'); return }
+    if (fb.wantConnect && !fb.contactMethod) { toast.error('اختر طريقة مشاركة معلومات التواصل'); return }
+    if (fb.wantConnect && fb.contactMethod === 'message' && !fb.contactMessage.trim()) { toast.error('اكتب وسيلة التواصل التي تريد مشاركتها'); return }
     setSubmitting(true)
     try {
       console.log('[remote-feedback] Submitting:', { event_id: current.event_id, phase: current.phase, token: token?.slice(0, 8) + '...' })
@@ -13189,7 +13194,7 @@ function RemoteFeedbackModal({ pending, index, token, onClose, onSubmitted }: {
       setSubmitting(false)
       if (data.error) { toast.error(data.error); return }
       setDone(true)
-      setTimeout(() => { onSubmitted(); setDone(false); setStep(0); setFb({ conversationQuality: 0, personalConnection: 0, wantConnect: null, organizerImpression: '', compatibilityRate: 50, sliderMoved: false }) }, 1800)
+      setTimeout(() => { onSubmitted(); setDone(false); setStep(0); setFb({ conversationQuality: 0, personalConnection: 0, wantConnect: null, organizerImpression: '', contactMethod: null, contactMessage: '', compatibilityRate: 50, sliderMoved: false }) }, 1800)
     } catch (e: any) {
       setSubmitting(false)
       console.error('[remote-feedback] Fetch error:', e)
@@ -13365,23 +13370,25 @@ function RemoteFeedbackModal({ pending, index, token, onClose, onSubmitted }: {
                   </div>
                 </div>
                 {!fb.sliderMoved && (
-                  <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-                    className="relative z-10 text-center text-purple-300/60 text-[10px] flex items-center justify-center gap-1.5">
-                    <motion.span animate={{ x: [0, 4, 0] }} transition={{ duration: 1.5, repeat: Infinity }}>👈</motion.span>
-                    حرّك المؤشر لتخمين الدرجة
-                  </motion.p>
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
+                    className="relative z-10 flex flex-col items-center gap-2 text-center text-purple-300/60 text-[10px]">
+                    <span className="flex items-center justify-center gap-1.5">
+                      <motion.span animate={{ x: [0, 4, 0] }} transition={{ duration: 1.5, repeat: Infinity }}>👈</motion.span>
+                      حرّك المؤشر أو ثبّت الدرجة الحالية
+                    </span>
+                    <button type="button" onClick={() => setFb(p => ({ ...p, sliderMoved: true }))} className="min-h-11 rounded-xl border border-purple-400/20 bg-purple-400/10 px-4 text-xs font-bold text-purple-200">
+                      50٪ يناسبني
+                    </button>
+                  </motion.div>
                 )}
               </motion.div>
               <motion.button
-                onClick={() => { if (!fb.sliderMoved || fb.compatibilityRate === 50) { toast.error('حرّك المؤشر أولاً'); return } goNext() }}
+                onClick={() => { if (!fb.sliderMoved) { toast.error('حرّك المؤشر أو ثبّت الدرجة الحالية'); return } goNext() }}
                 whileTap={{ scale: 0.97 }}
-                disabled={!fb.sliderMoved || fb.compatibilityRate === 50}
+                disabled={!fb.sliderMoved}
                 className={`w-full py-4 rounded-2xl font-bold text-sm bg-gradient-to-r ${isPhase2 ? 'from-pink-600 to-rose-600 shadow-pink-600/20' : 'from-purple-600 to-violet-600 shadow-purple-600/20'} text-white shadow-lg disabled:opacity-30 disabled:shadow-none transition-all flex items-center justify-center gap-2`}>
                 متابعة <ChevronRight size={16} />
               </motion.button>
-              {fb.sliderMoved && fb.compatibilityRate === 50 && (
-                <p className="text-center text-amber-500/70 text-[10px]">لا يمكن أن تكون 50% بالضبط — اختر قيمة أعلى أو أدنى</p>
-              )}
             </motion.div>
           )}
           {step === 1 && (
@@ -13406,7 +13413,7 @@ function RemoteFeedbackModal({ pending, index, token, onClose, onSubmitted }: {
           )}
           {step === 3 && (
             <motion.div key="s3" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
-              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="space-y-6">
+              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="max-h-full space-y-6 overflow-y-auto py-2">
               <div className="text-center space-y-2">
                 <p className="text-2xl sm:text-3xl font-black text-white">هل تريد التواصل لاحقاً؟</p>
               </div>
@@ -13422,7 +13429,7 @@ function RemoteFeedbackModal({ pending, index, token, onClose, onSubmitted }: {
                   <div className="space-y-1">
                     <p className="text-emerald-300 text-sm font-black">معلومة مهمة جداً</p>
                     <p className="text-gray-200 text-xs leading-relaxed">
-                      إجابتك سرية تماماً. إذا أجاب كلاكما بـ«نعم» — ستحصلان على رقم تواصل ومعلومات بعضكم.
+                      إجابتك سرية تماماً. لن تظهر وسيلة التواصل التي تختارها إلا إذا أجاب كلاكما بـ«نعم».
                     </p>
                   </div>
                 </div>
@@ -13432,7 +13439,9 @@ function RemoteFeedbackModal({ pending, index, token, onClose, onSubmitted }: {
                    { val: false, icon: <X size={26} />, label: "لا", cls: fb.wantConnect === false ? 'bg-red-500/15 ring-2 ring-red-500/50 shadow-[0_0_30px_-4px_rgba(239,68,68,0.4)]' : 'bg-white/[0.04] ring-1 ring-white/[0.06]', iconCls: fb.wantConnect === false ? 'from-red-500/80 to-rose-600/80 text-white' : 'from-gray-600/40 to-gray-700/40 text-gray-500', textCls: fb.wantConnect === false ? 'text-red-300' : 'text-gray-500' }
                 ].map(opt => (
                   <motion.button key={String(opt.val)} whileTap={{ scale: 0.93 }}
-                    onClick={() => { setFb(p => ({ ...p, wantConnect: opt.val })); setTimeout(() => goNext({ wantConnect: opt.val }), 350) }}
+                    type="button"
+                    aria-pressed={fb.wantConnect === opt.val}
+                    onClick={() => setFb(p => ({ ...p, wantConnect: opt.val, ...(opt.val ? {} : { contactMethod: null, contactMessage: '' }) }))}
                     className={`min-h-[120px] rounded-3xl flex flex-col items-center justify-center gap-3 font-black transition-all duration-200 ${opt.cls}`}>
                     <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${opt.iconCls} flex items-center justify-center transition-transform duration-200 ${fb.wantConnect === opt.val ? 'scale-110' : 'scale-95'}`}>
                       {opt.icon}
@@ -13441,6 +13450,56 @@ function RemoteFeedbackModal({ pending, index, token, onClose, onSubmitted }: {
                   </motion.button>
                 ))}
               </div>
+              {fb.wantConnect === true && (
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3">
+                  <p className="text-right text-xs font-bold text-gray-200">ماذا تريد أن يشارك التطبيق إذا كان الاختيار متبادلاً؟</p>
+                  <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="طريقة مشاركة معلومات التواصل">
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={fb.contactMethod === 'phone'}
+                      onClick={() => setFb(p => ({ ...p, contactMethod: 'phone', contactMessage: '' }))}
+                      className={`flex min-h-14 items-center gap-2 rounded-xl border px-3 text-right text-xs font-bold transition ${fb.contactMethod === 'phone' ? 'border-emerald-400/50 bg-emerald-400/15 text-emerald-100' : 'border-white/[0.08] bg-white/[0.035] text-gray-400'}`}
+                    >
+                      <Smartphone size={17} className="shrink-0" />
+                      رقم جوالي
+                    </button>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={fb.contactMethod === 'message'}
+                      onClick={() => setFb(p => ({ ...p, contactMethod: 'message' }))}
+                      className={`flex min-h-14 items-center gap-2 rounded-xl border px-3 text-right text-xs font-bold transition ${fb.contactMethod === 'message' ? 'border-cyan-400/50 bg-cyan-400/15 text-cyan-100' : 'border-white/[0.08] bg-white/[0.035] text-gray-400'}`}
+                    >
+                      <MessageSquare size={17} className="shrink-0" />
+                      وسيلة أخرى
+                    </button>
+                  </div>
+                  {fb.contactMethod === 'message' && (
+                    <div className="space-y-1.5">
+                      <textarea
+                        value={fb.contactMessage}
+                        onChange={e => setFb(p => ({ ...p, contactMessage: e.target.value }))}
+                        maxLength={EVENT3_CONTACT_MESSAGE_MAX_LENGTH}
+                        rows={3}
+                        dir="auto"
+                        aria-label="وسيلة التواصل التي تريد مشاركتها"
+                        placeholder="مثال: حساب إنستغرام أو بريد إلكتروني"
+                        className="w-full resize-none rounded-xl border border-white/[0.08] bg-gray-950/60 px-3 py-3 text-sm text-white placeholder:text-gray-700 focus:outline-none focus:ring-1 focus:ring-cyan-500/40"
+                      />
+                      <p className="text-left text-[10px] tabular-nums text-gray-600">{Array.from(fb.contactMessage).length}/{EVENT3_CONTACT_MESSAGE_MAX_LENGTH}</p>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+              <motion.button
+                type="button"
+                onClick={() => goNext()}
+                whileTap={{ scale: 0.97 }}
+                disabled={fb.wantConnect === null || (fb.wantConnect === true && (!fb.contactMethod || (fb.contactMethod === 'message' && !fb.contactMessage.trim())))}
+                className={`w-full py-4 rounded-2xl font-bold text-sm bg-gradient-to-r ${isPhase2 ? 'from-pink-600 to-rose-600 shadow-pink-600/20' : 'from-purple-600 to-violet-600 shadow-purple-600/20'} text-white shadow-lg disabled:opacity-30 disabled:shadow-none transition-all flex items-center justify-center gap-2`}>
+                متابعة <ChevronRight size={16} />
+              </motion.button>
             </motion.div>
           )}
           {step === 4 && (
@@ -13455,14 +13514,14 @@ function RemoteFeedbackModal({ pending, index, token, onClose, onSubmitted }: {
                 placeholder="شعرت بالراحة... / الوقت كان قصيراً..."
                 rows={4}
                 className="w-full bg-white/[0.04] border border-white/[0.08] text-white/90 rounded-2xl px-4 py-4 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500/40 resize-none placeholder:text-gray-700 transition-all" />
-              <motion.button onClick={handleSubmit} disabled={submitting} whileTap={{ scale: 0.97 }}
+              <motion.button onClick={handleSubmit} disabled={submitting || fb.wantConnect === null || (fb.wantConnect === true && (!fb.contactMethod || (fb.contactMethod === 'message' && !fb.contactMessage.trim())))} whileTap={{ scale: 0.97 }}
                 className={`w-full py-5 rounded-3xl font-black text-lg bg-gradient-to-r ${isPhase2 ? 'from-pink-500 via-rose-500 to-pink-600' : 'from-purple-500 via-violet-500 to-purple-600'} text-white shadow-[0_8px_30px_-4px_rgba(139,92,246,0.6)] disabled:opacity-30 disabled:shadow-none transition-all flex items-center justify-center gap-2`}>
                 {submitting
                   ? <><motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }} className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />جاري الإرسال...</>
                   : <><Send size={18} /> إرسال التقييم</>}
               </motion.button>
               {fb.wantConnect === null && <p className="text-center text-amber-500/70 text-xs">ارجع للخطوة 4 وأجب على سؤال التواصل</p>}
-              {(!fb.sliderMoved || fb.compatibilityRate === 50) && <p className="text-center text-amber-500/70 text-xs">ارجع للخطوة 1 وحرّك مؤشر التوافق</p>}
+              {!fb.sliderMoved && <p className="text-center text-amber-500/70 text-xs">ارجع للخطوة 1 وحرّك مؤشر التوافق أو ثبّت الدرجة الحالية</p>}
             </motion.div>
           )}
         </AnimatePresence>

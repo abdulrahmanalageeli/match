@@ -89,5 +89,5 @@ test("test feedback cleanup preserves prepared matches and requires the locked a
   assert.doesNotMatch(cleanup, /(?:phase2_partner|phase3_partner|phase2_score|phase3_score)\s*=/)
   assert.match(migration, /revoke execute on function public\.clear_event3_test_data\(integer\) from public, anon, authenticated;/)
   assert.match(migration, /grant execute on function public\.clear_event3_test_data\(integer\) to service_role;/)
-  assert.match(action("e3-clear-test-data"), /rpc\("clear_event3_test_data",\s*\{\s*p_event_id: Number\(currentEventId\)/)
+  assert.match(action("e3-clear-test-data"), /rpc\("clear_event3_test_data_v2",\s*\{\s*p_event_id: Number\(currentEventId\),\s*p_expected_started_at: displayedEvent3Context\.testSessionKey/)
 })

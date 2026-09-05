@@ -86,6 +86,12 @@ test("match swaps submit both pair scores in live and test mode", async t => {
             EVENT3_MATCH_ID: "event3-fixture",
             STATIC_MATCH_ID: "main-fixture",
             currentEventId: 26,
+            displayedEvent3Context: {
+              params: {
+                p_expected_test_mode: testMode,
+                p_expected_started_at: testMode ? "test-session-start" : null,
+              },
+            },
             loadEvent3Format: async () => "classic",
             isChoiceOnlyEvent3: () => false,
             supabase: {
@@ -110,9 +116,11 @@ test("match swaps submit both pair scores in live and test mode", async t => {
 
           assert.equal(res.statusCode, 200)
           assert.equal(writes.length, 1)
-          assert.equal(writes[0].name, phase === "phase3" ? "replace_event3_algorithm_match_partner" : "swap_event3_match_partner")
+          assert.equal(writes[0].name, phase === "phase3" ? "replace_event3_algorithm_match_partner_v2" : "swap_event3_match_partner_v2")
           const { params } = writes[0]
           assert.equal(params.p_event_id, 26)
+          assert.equal(params.p_expected_test_mode, testMode)
+          assert.equal(params.p_expected_started_at, testMode ? "test-session-start" : null)
           assert.equal(params.p_first_score.reason, "Pair 20-30")
           assert.equal(params.p_first_score.score, 50)
           if (replacementPartner == null) {
@@ -164,7 +172,7 @@ test("admin3 algorithm replacement is searchable, gender-neutral, previewed, and
   assert.doesNotMatch(replacementModal, /restrictGender|normalizedGender/)
   assert.match(adminUi, /expected_missing_partner:\s*immediateReplacementPreview\.missing_partner\?\.number/)
   assert.match(adminUi, /expected_replacement_partner:\s*immediateReplacementPreview\.replacement_partner\?\.number \?\? null/)
-  assert.match(adminApi, /const swapRpc = phase === "phase3" \? "replace_event3_algorithm_match_partner"/)
+  assert.match(adminApi, /const swapRpc = phase === "phase3" \? "replace_event3_algorithm_match_partner_v2" : "swap_event3_match_partner_v2"/)
   assert.match(swapApi, /missingPartner !== expectedMissingPartner \|\| replacementPartner !== expectedReplacementPartner/)
   assert.match(swapApi, /algorithm matches changed after this preview/)
   assert.match(swapApi, /skipCacheWrite: isActiveTestSwap/)

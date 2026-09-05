@@ -27,7 +27,10 @@ import {
   currentBalancedGroupedDimensionsForDisplay,
 } from "~/lib/compatibility-model"
 import { clearParticipantBrowserIdentity, getParticipantBrowserToken } from "~/lib/participant-browser-auth.mjs"
-import { EVENT3_CONTACT_MESSAGE_MAX_LENGTH } from "~/lib/event3-contact-sharing.mjs"
+import {
+  EVENT3_CONTACT_MESSAGE_MAX_LENGTH,
+  EVENT3_MEMORY_WORD_MAX_LENGTH,
+} from "~/lib/event3-contact-sharing.mjs"
 
 // Create a shareable portrait card without relying on DOM screenshot libraries.
 // Drawing it directly keeps Arabic text sharp and makes saving reliable on mobile.
@@ -246,12 +249,17 @@ const BREAK_GROUP_FEEDBACK_PREVIEW: GroupReflectionGroup[] = [
   },
 ]
 
-async function call(action: string, token: string | null, extra: Record<string, any> = {}) {
+const EVENT3_SESSION_DISCOVERY_ACTIONS = new Set(["e3-heartbeat", "e3-get-public-format", "e3-login-by-phone"])
+
+async function call(action: string, token: string | null, extra: Record<string, any> = {}, sessionRefreshAttempted = false) {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 15000)
   try {
     const expectedSessionKey = typeof window !== "undefined"
       ? window.sessionStorage.getItem("event3_runtime_session_key")
+      : null
+    const expectedEventId = typeof window !== "undefined"
+      ? window.sessionStorage.getItem("event3_runtime_event_id")
       : null
     const response = await fetch(API, {
       method: "POST",
@@ -261,6 +269,7 @@ async function call(action: string, token: string | null, extra: Record<string, 
         token,
         impersonate: typeof window !== "undefined" && new URLSearchParams(window.location.search).get("impersonate") === "1",
         ...(expectedSessionKey ? { expected_event3_session_key: expectedSessionKey } : {}),
+        ...(expectedEventId ? { expected_event_id: Number(expectedEventId) } : {}),
         ...extra,
       }),
       signal: controller.signal,
@@ -292,8 +301,20 @@ async function call(action: string, token: string | null, extra: Record<string, 
         retryable: data.retryable !== false,
       }
     }
+    if (typeof window !== "undefined"
+        && data.code === "EVENT3_SESSION_CHANGED"
+        && expectedSessionKey
+        && EVENT3_SESSION_DISCOVERY_ACTIONS.has(action)
+        && !sessionRefreshAttempted) {
+      window.sessionStorage.removeItem("event3_runtime_session_key")
+      window.sessionStorage.removeItem("event3_runtime_event_id")
+      return call(action, token, extra, true)
+    }
     if (typeof window !== "undefined" && typeof data.event3_session_key === "string" && data.event3_session_key) {
       window.sessionStorage.setItem("event3_runtime_session_key", data.event3_session_key)
+      if (Number.isInteger(Number(data.event_id)) && Number(data.event_id) > 0) {
+        window.sessionStorage.setItem("event3_runtime_event_id", String(data.event_id))
+      }
     }
     return { ...data, http_status: response.status }
   } catch (error: any) {
@@ -1461,11 +1482,11 @@ function WalkSlide({ step, headingRef, eventFormat }: { step: number; headingRef
             </div>
             <div className="space-y-2">
               {[
-                { Icon: Users, c: "text-blue-400 bg-blue-500/15 border-blue-500/25", t: choiceOnly ? "ثلاث جولات جماعية" : "جولتان جماعيتان", d: choiceOnly ? "في كل جولة تجلس مع مجموعة من ٧ أشخاص وتتعرّف على وجوه جديدة" : "تجلس مع مجموعات صغيرة وتتعرّف على الجميع" },
+                { Icon: Users, c: "text-blue-400 bg-blue-500/15 border-blue-500/25", t: choiceOnly ? "ثلاث جولات جماعية" : "جولتان جماعيتان", d: choiceOnly ? "في كل جولة تجلس مع مجموعة صغيرة من ٥–٧ أشخاص وتتعرّف على وجوه جديدة" : "تجلس مع مجموعات صغيرة وتتعرّف على الجميع" },
                 { Icon: BarChart3, c: "text-amber-400 bg-amber-500/15 border-amber-500/25", t: "ترتيب من قابلت", d: "ترتّب من تفضّل جلسة فردية معه" },
-                { Icon: Heart, c: "text-pink-400 bg-pink-500/15 border-pink-500/25", t: choiceOnly ? "لقاء الاختيار الأول" : "جلسة اختيارك", d: "جلسة فردية مع أفضل تطابق متبادل من ترتيبك" },
-                { Icon: choiceOnly ? Heart : Brain, c: "text-purple-400 bg-purple-500/15 border-purple-500/25", t: choiceOnly ? "لقاء الاختيار الثاني" : "جلسة التوافق الذكي", d: choiceOnly ? "أقوى تطابق متبادل متبقٍ مع شخص جديد" : "جلسة فردية مع من يرشّحه النظام لك" },
-                ...(choiceOnly ? [{ Icon: Heart, c: "text-violet-400 bg-violet-500/15 border-violet-500/25", t: "لقاء الاختيار الثالث", d: "أقوى تطابق متبادل متبقٍ مع شخص ثالث مختلف" }] : []),
+                { Icon: Heart, c: "text-pink-400 bg-pink-500/15 border-pink-500/25", t: choiceOnly ? "لقاء الاختيار الأول" : "جلسة اختيارك", d: choiceOnly ? "أول لقاء متبادل ضمن توزيع يراعي ترتيب الجميع" : "جلسة فردية مع أفضل تطابق متبادل من ترتيبك" },
+                { Icon: choiceOnly ? Heart : Brain, c: "text-purple-400 bg-purple-500/15 border-purple-500/25", t: choiceOnly ? "لقاء الاختيار الثاني" : "جلسة التوافق الذكي", d: choiceOnly ? "لقاء متبادل جديد بعد استبعاد شريك اللقاء الأول" : "جلسة فردية مع من يرشّحه النظام لك" },
+                ...(choiceOnly ? [{ Icon: Heart, c: "text-violet-400 bg-violet-500/15 border-violet-500/25", t: "لقاء الاختيار الثالث", d: "لقاء متبادل مع شخص ثالث مختلف" }] : []),
                 { Icon: Trophy, c: "text-violet-400 bg-violet-500/15 border-violet-500/25", t: "الكشف النهائي", d: "تكتشف نتائجك ومن تريد التواصل معه" },
               ].map((r, i) => (
                 <motion.div key={i} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.09 }}
@@ -1488,7 +1509,7 @@ function WalkSlide({ step, headingRef, eventFormat }: { step: number; headingRef
             <div className="text-center space-y-1">
               <Users size={34} className="text-blue-400 mx-auto" />
               <h2 ref={headingRef} tabIndex={-1} className="text-white font-black text-xl focus:outline-none">الجولات الجماعية</h2>
-              <p className="text-gray-400 text-xs leading-relaxed">{choiceOnly ? "ثلاث جولات، في كل جولة مجموعة من ٧ أشخاص على طاولة للتعارف" : "جولتان تجلس فيهما مع ٤–٦ أشخاص على طاولة للتعارف"}</p>
+              <p className="text-gray-400 text-xs leading-relaxed">{choiceOnly ? "ثلاث جولات، في كل جولة مجموعة صغيرة من ٥–٧ أشخاص على طاولة للتعارف" : "جولتان تجلس فيهما مع ٤–٦ أشخاص على طاولة للتعارف"}</p>
             </div>
             {/* Demo table card */}
             <div className="rounded-2xl border border-blue-800/40 bg-blue-950/30 p-4 text-center space-y-2">
@@ -1544,6 +1565,11 @@ function WalkSlide({ step, headingRef, eventFormat }: { step: number; headingRef
                 لا نضمن أن تجلس مع خياراتك الأولى — إذا لم يخترك أحد من أعلى قائمتك، سيمنحك النظام أفضل تطابق متبادل متاح لك.
               </p>
               {choiceOnly && (
+                <p className="border-t border-amber-700/30 pt-2 text-xs leading-relaxed text-gray-300">
+                  نكوّن أولاً توزيعاً يمنح أكبر عدد ممكن لقاءً متبادلاً، ثم نفضّل المراتب الأقوى داخل هذا التوزيع. حتى اختيار #1 المتبادل قوي، لكنه ليس وعداً تلقائياً بجلسة.
+                </p>
+              )}
+              {choiceOnly && (
                 <p className="flex items-start gap-1.5 border-t border-amber-700/30 pt-2 text-xs leading-relaxed text-amber-100/80">
                   <Info aria-hidden="true" size={13} className="mt-0.5 shrink-0 text-amber-300" />
                   <span>في هذه النسخة، لا تدخل تفضيلات الجنس أو العمر أو الجنسية في اختيار اللقاءات الفردية؛ ترتيب المشاركين والتطابق المتبادل وحدهما يحددانها.</span>
@@ -1559,23 +1585,23 @@ function WalkSlide({ step, headingRef, eventFormat }: { step: number; headingRef
             <div className="text-center space-y-1">
               <Users size={32} className="text-pink-400 mx-auto" />
               <h2 ref={headingRef} tabIndex={-1} className="text-white font-black text-xl focus:outline-none">{choiceOnly ? "ثلاث جلسات فردية" : "جلستان فرديتان"}</h2>
-              <p className="text-gray-400 text-xs leading-relaxed">{choiceOnly ? "ثلاث جلسات 1:1 من أقوى اختياراتك المتبادلة — مع ثلاثة أشخاص مختلفين" : "جلستان خاصتان 1:1 — واحدة باختيارك وواحدة باختيار النظام"}</p>
+              <p className="text-gray-400 text-xs leading-relaxed">{choiceOnly ? "ثلاث جلسات 1:1 متبادلة — مع ثلاثة أشخاص مختلفين، ضمن توزيع يوازن بين ترتيب الجميع" : "جلستان خاصتان 1:1 — واحدة باختيارك وواحدة باختيار النظام"}</p>
             </div>
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 }}
               className="rounded-2xl border border-pink-700/40 bg-pink-950/30 p-3.5 flex items-center gap-3">
               <Heart size={22} className="text-pink-400 shrink-0" />
-              <div><p className="text-white font-bold text-sm">{choiceOnly ? "لقاء الاختيار الأول" : "جلسة اختيارك"}</p><p className="text-pink-200/80 text-xs">أفضل تطابق متبادل من ترتيبك</p></div>
+              <div><p className="text-white font-bold text-sm">{choiceOnly ? "لقاء الاختيار الأول" : "جلسة اختيارك"}</p><p className="text-pink-200/80 text-xs">{choiceOnly ? "أول لقاء متبادل في توزيع الجلسات" : "أفضل تطابق متبادل من ترتيبك"}</p></div>
             </motion.div>
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.18 }}
               className="rounded-2xl border border-purple-700/40 bg-purple-950/30 p-3.5 flex items-center gap-3">
               {choiceOnly ? <Heart size={22} className="text-purple-400 shrink-0" /> : <Brain size={22} className="text-purple-400 shrink-0" />}
-              <div><p className="text-white font-bold text-sm">{choiceOnly ? "لقاء الاختيار الثاني" : "جلسة التوافق الذكي"}</p><p className="text-purple-200/80 text-xs">{choiceOnly ? "أقوى تطابق متبادل متبقٍ بعد استبعاد شريك اللقاء الأول" : "النظام يرشّح لك بناءً على بياناتكما"}</p></div>
+              <div><p className="text-white font-bold text-sm">{choiceOnly ? "لقاء الاختيار الثاني" : "جلسة التوافق الذكي"}</p><p className="text-purple-200/80 text-xs">{choiceOnly ? "لقاء متبادل جديد بعد استبعاد شريك اللقاء الأول" : "النظام يرشّح لك بناءً على بياناتكما"}</p></div>
             </motion.div>
             {choiceOnly && (
               <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.28 }}
                 className="rounded-2xl border border-violet-700/40 bg-violet-950/30 p-3.5 flex items-center gap-3">
                 <Heart size={22} className="text-violet-400 shrink-0" />
-                <div><p className="text-white font-bold text-sm">لقاء الاختيار الثالث</p><p className="text-violet-200/80 text-xs">أقوى تطابق متبادل متبقٍ بعد استبعاد شريكي اللقاءين السابقين</p></div>
+                <div><p className="text-white font-bold text-sm">لقاء الاختيار الثالث</p><p className="text-violet-200/80 text-xs">لقاء متبادل مع شخص ثالث بعد استبعاد الشريكين السابقين</p></div>
               </motion.div>
             )}
             {/* Demo: how you see the table + partner */}
@@ -1628,7 +1654,7 @@ function WalkSlide({ step, headingRef, eventFormat }: { step: number; headingRef
             <div className="text-center space-y-1">
               <Trophy size={32} className="text-violet-400 mx-auto" />
               <h2 ref={headingRef} tabIndex={-1} className="text-white font-black text-xl focus:outline-none">الكشف النهائي</h2>
-              <p className="text-gray-400 text-xs leading-relaxed">في النهاية تكتشف نتائجك: {choiceOnly ? "اختياراتك المتبادلة الثلاثة" : "اختيارك مقابل اختيار النظام والتوافق الكامل"}</p>
+              <p className="text-gray-400 text-xs leading-relaxed">في النهاية تكتشف نتائجك: {choiceOnly ? "لقاءاتك الفردية الثلاثة" : "اختيارك مقابل اختيار النظام والتوافق الكامل"}</p>
             </div>
             <div className={`grid gap-2.5 ${choiceOnly ? "grid-cols-3" : "grid-cols-2"}`}>
               <div className="rounded-2xl border border-pink-700/40 bg-pink-950/30 p-3 text-center space-y-1">
@@ -1648,7 +1674,7 @@ function WalkSlide({ step, headingRef, eventFormat }: { step: number; headingRef
               <p className="text-amber-300 text-xs font-black flex items-center gap-1.5"><Info size={13} /> {choiceOnly ? "كيف اخترنا اللقاءات" : "تنويه مهم عن التوافق"}</p>
               {choiceOnly ? (
                 <p className="text-amber-100/80 text-xs leading-relaxed">
-                  اللقاءات الثلاثة تُحدّد من <span className="text-amber-300 font-bold">ترتيبكما المتبادل فقط</span>. لا تدخل درجات التوافق أو خوارزمية الشخصية في اختيار الشركاء.
+                  اللقاءات الثلاثة تُبنى من <span className="text-amber-300 font-bold">ترتيبات المشاركين المتبادلة</span> مع إعطاء الأولوية لتكوين لقاءات مختلفة لأكبر عدد ممكن، ثم تفضيل المراتب الأقوى. لا تدخل درجات التوافق أو خوارزمية الشخصية في الاختيار.
                 </p>
               ) : (
                 <>
@@ -1666,7 +1692,7 @@ function WalkSlide({ step, headingRef, eventFormat }: { step: number; headingRef
             <div className="space-y-2">
               <p className="text-violet-300 text-xs font-black flex items-center gap-1.5"><Lightbulb size={13} /> أهم الأسئلة</p>
               {[
-                { q: "ماذا لو لم يعجبني أحد؟", a: "رتّب الجميع بأي ترتيب تريده — حتى لو لم يعجبك أحد، الترتيب إلزامي لإكمال المرحلة. النظام سيمنحك أفضل تطابق متاح." },
+                { q: "ماذا لو لم يعجبني أحد؟", a: "الترتيب هنا نسبي لتوزيع الجلسات، وليس موافقة على التواصل. رتّب من شعرت معه براحة أكبر، ويمكنك بعد كل لقاء اختيار عدم مشاركة أي وسيلة تواصل." },
                 { q: "هل ترتيبي ظاهر للآخرين؟", a: "لا أبداً — ترتيبك وتقييماتك سرّية تماماً. لا أحد يرى اختياراتك إلا إذا حدث تطابق متبادل بـ«نعم» للتواصل." },
                 { q: "هل يمكنني تعديل ترتيبي بعد الإرسال؟", a: "يمكنك الرجوع للتعديل ما دام وقت الترتيب مفتوحاً. عند انتهاء الوقت يُحفظ ترتيبك الحالي ويُقفل." },
                 { q: "ماذا لو احتجت مساعدة خلال الجلسة؟", a: "زر «المنظم» في أسفل الشاشة متاح دائماً — اضغطه لأي مساعدة أو طارئ." },
@@ -1696,15 +1722,16 @@ function WalkSlide({ step, headingRef, eventFormat }: { step: number; headingRef
   )
 }
 
-function WelcomeScreen({ onDone, onLogout, showLogout }: {
+function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
   onDone: () => void
   onLogout?: () => void
   showLogout?: boolean
+  eventFormat: Event3Format
 }) {
   const [phase, setPhase] = useState<"splash" | "rules" | "steps">("splash")
   const [step, setStep] = useState(0)
   const [dir, setDir] = useState(1)
-  const [tutorialFormat, setTutorialFormat] = useState<Event3Format>(CHOICE_ONLY_EVENT3_FORMAT)
+  const tutorialFormat = eventFormat
   const reduceMotion = useReducedMotion()
   const splashHeadingRef = useRef<HTMLHeadingElement>(null)
   const rulesHeadingRef = useRef<HTMLHeadingElement>(null)
@@ -1829,16 +1856,13 @@ function WelcomeScreen({ onDone, onLogout, showLogout }: {
               transition={{ delay: 0.95 }}
               className="w-full max-w-xs space-y-3"
             >
-              <Event3TutorialTabs
-                value={tutorialFormat}
-                onChange={setTutorialFormat}
-              />
               <div
                 id="event3-tutorial-format-panel"
-                role="tabpanel"
-                aria-labelledby={`event3-${tutorialFormat}-tutorial-tab`}
                 className="rounded-xl border border-white/[0.07] bg-white/[0.035] px-3 py-2 text-right"
               >
+                <p className="text-xs font-black text-purple-200">
+                  {isChoiceOnlyEvent3(tutorialFormat) ? "نسخة الاختيارات فقط" : "النسخة العادية"}
+                </p>
                 <p className="text-[11px] font-medium leading-5 text-gray-300">
                   {isChoiceOnlyEvent3(tutorialFormat)
                     ? "النسخة الجديدة: ثلاث جولات جماعية ثم ثلاثة لقاءات فردية مختلفة تُحسم بالاختيارات المتبادلة فقط."
@@ -2158,9 +2182,9 @@ function SetupScreen({ token, myInfo, enrolledCount, eventFormat }: { token: str
   const choiceOnly = isChoiceOnlyEvent3(eventFormat)
 
   const timeline = choiceOnly ? [
-    { icon: <Users size={14} className="text-cyan-400" />, label: "تعارف جماعي أول ضمن مجموعة من ٧، ثم ترتيب", time: "المحطة 1" },
-    { icon: <Shuffle size={14} className="text-indigo-400" />, label: "تعارف جماعي ثانٍ ضمن مجموعة من ٧، ثم ترتيب", time: "المحطة 2" },
-    { icon: <Shuffle size={14} className="text-violet-400" />, label: "تعارف جماعي ثالث ضمن مجموعة من ٧، ثم ترتيب نهائي", time: "المحطة 3" },
+    { icon: <Users size={14} className="text-cyan-400" />, label: "تعارف جماعي أول ضمن مجموعة صغيرة، ثم ترتيب", time: "المحطة 1" },
+    { icon: <Shuffle size={14} className="text-indigo-400" />, label: "تعارف جماعي ثانٍ ضمن مجموعة صغيرة، ثم ترتيب", time: "المحطة 2" },
+    { icon: <Shuffle size={14} className="text-violet-400" />, label: "تعارف جماعي ثالث ضمن مجموعة صغيرة، ثم ترتيب نهائي", time: "المحطة 3" },
     { icon: <Coffee size={14} className="text-orange-400" />, label: "استراحة واستعداد", time: "فاصل" },
     { icon: <Heart size={14} className="text-pink-400" />, label: "لقاء الاختيار الأول، ثم تقييم قصير", time: "المحطة 4" },
     { icon: <Heart size={14} className="text-violet-400" />, label: "لقاء الاختيار الثاني مع شخص جديد، ثم تقييم", time: "المحطة 5" },
@@ -3135,11 +3159,11 @@ function RankingTutorial({ onClose, choiceOnly }: { onClose: () => void; choiceO
       cta="فهمت — ابدأ الترتيب"
       points={[
         { icon: <Trophy size={14} className="text-amber-400" />, text: <>اسحب البطاقات لترتيب من <span className="text-white font-bold">الأعلى اهتماماً</span> للأقل — الأول هو أولويتك القصوى</> },
-        { icon: <Heart size={14} className="text-emerald-400" />, text: <>إذا رتّبت شخصًا <span className="text-white font-bold">#1</span> ورتّبك هو أيضًا <span className="text-white font-bold">#1</span> ← تطابق مثالي وجلسة فردية!</> },
-        { icon: <Sparkles size={14} className="text-cyan-400" />, text: <>مو لازم تكونوا بنفس المركز: ممكن ترتبه أول وهو يرتبك ثالث، ونبحث عن أقوى ترتيب متبادل متاح للطرفين</> },
+        { icon: <Heart size={14} className="text-emerald-400" />, text: <>إذا رتّبت شخصًا <span className="text-white font-bold">#1</span> ورتّبك هو أيضًا <span className="text-white font-bold">#1</span> فهذا تطابق قوي جداً، لكنه يدخل ضمن توزيع جلسات الجميع.</> },
+        { icon: <Sparkles size={14} className="text-cyan-400" />, text: <>مو لازم تكونوا بنفس المركز: ممكن ترتبه أول وهو يرتبك ثالث، ونفضّل الرتب المتبادلة الأقوى بعد ضمان أكبر تغطية ممكنة للمشاركين.</> },
         { icon: <Handshake size={14} className="text-purple-400" />, text: <>التطابق يجب أن يكون <span className="text-white font-bold">متبادلاً</span> — ترتيبك وحده لا يكفي، الطرفان يجب أن يتقاربا</> },
         { icon: <Users size={14} className="text-pink-400" />, text: choiceOnly
-          ? <>نتيجتك: <span className="text-white font-bold">ثلاث جلسات فردية</span> من أقوى اختياراتك المتبادلة، وكل جلسة مع شخص مختلف</>
+          ? <>نتيجتك: <span className="text-white font-bold">ثلاث جلسات فردية متبادلة</span> مع أشخاص مختلفين، مع تفضيل الرتب الأقوى قدر الإمكان داخل التوزيع</>
           : <>نتيجتك: <span className="text-white font-bold">جلستان فرديتان</span> — واحدة من اختيارك وواحدة يختارها النظام بناءً على التوافق</> },
       ]}
     />
@@ -3777,7 +3801,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
               </motion.button>
               <div className="flex items-center justify-center gap-1.5 mt-2">
                 <p className="text-gray-600 text-[10px]">
-                  {choiceOnly ? "سنبحث عن أقوى ثلاثة تطابقات متبادلة مع ثلاثة أشخاص مختلفين" : "النظام سيختار توافقك الأمثل من تصنيفاتك"}
+                  {choiceOnly ? "سنكوّن ثلاثة لقاءات متبادلة مع أشخاص مختلفين، مع مراعاة ترتيب الجميع" : "النظام سيختار توافقك الأمثل من تصنيفاتك"}
                 </p>
                 {timeLeft > 0 && timeLeft <= 60 && (
                   <>
@@ -4433,15 +4457,17 @@ function BreakGroupFeedbackPreview() {
 }
 
 // ─── Shared Feedback Flow ─────────────────────────────────────────────────────
-function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLastSession, accent = "pink", choiceOnly = false }: {
-  partnerName: string | null; word: string; done: boolean
-  onDone: () => void; onBack: () => void; onSubmit: (fb: Record<string, any>) => Promise<boolean>
-  isLastSession?: boolean; accent?: "pink" | "purple"; choiceOnly?: boolean
+function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, onWordChange, onSubmitWord, onSubmit, isLastSession, accent = "pink", choiceOnly = false, backDisabled = false }: {
+  partnerName: string | null; word: string; wordSubmitted: boolean; done: boolean
+  onDone: () => void; onBack: () => void; onWordChange: (word: string) => void
+  onSubmitWord: () => Promise<boolean>; onSubmit: (fb: Record<string, any>) => Promise<boolean>
+  isLastSession?: boolean; accent?: "pink" | "purple"; choiceOnly?: boolean; backDisabled?: boolean
 }) {
   const [step, setStep] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [dir, setDir] = useState(1)
   const feedbackTitleId = useId()
+  const memoryWordId = useId()
   const stepHeadingRef = useRef<HTMLHeadingElement>(null)
   const stepTransitionLockedRef = useRef(false)
   const stepTransitionTimerRef = useRef<number | null>(null)
@@ -4451,8 +4477,7 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
     contactMethod: null as 'phone' | 'message' | null,
     contactMessage: '',
     organizerImpression: '',
-    compatibilityRate: 50, sliderMoved: false, sharedInterests: 3, comfortLevel: 3,
-    communicationStyle: 3, wouldMeetAgain: 3, overallExperience: 3, recommendations: '', participantMessage: ''
+    compatibilityRate: 50, sliderMoved: false,
   })
   const STEPS = 3
   useEffect(() => {
@@ -4488,9 +4513,26 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
       return
     }
     setSubmitting(true)
-    const ok = await onSubmit({ ...fb, word })
+    if (word.trim() && !wordSubmitted) {
+      const wordOk = await onSubmitWord()
+      if (!wordOk) {
+        setSubmitting(false)
+        return
+      }
+    }
+    const ok = await onSubmit(fb)
     setSubmitting(false)
     if (ok) onDone()
+  }
+  const saveMemoryWord = async () => {
+    if (!word.trim() || wordSubmitted || submitting) return
+    setSubmitting(true)
+    await onSubmitWord()
+    setSubmitting(false)
+  }
+  const updateMemoryWord = (value: string) => {
+    const firstWord = value.trimStart().split(/\s/u)[0] || ''
+    onWordChange(Array.from(firstWord).slice(0, EVENT3_MEMORY_WORD_MAX_LENGTH).join(''))
   }
   const ratingConfigs = [
     { icon: <Frown size={18} />, gradient: 'from-red-500/80 to-rose-600/80', ring: 'ring-red-400/60', glow: 'shadow-[0_0_20px_-4px_rgba(239,68,68,0.5)]' },
@@ -4519,7 +4561,7 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
   )
   if (done) return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-      className="event3-shell fixed inset-0 z-[240] flex flex-col items-center justify-center gap-6 bg-gray-950 p-8" lang="ar" dir="rtl">
+      className="event3-shell fixed inset-0 z-[240] flex flex-col items-center justify-start gap-6 overflow-y-auto bg-gray-950 px-6 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))] sm:justify-center sm:p-8" lang="ar" dir="rtl">
       <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200, delay: 0.1 }}
         className="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-500/25 to-teal-500/15 border border-emerald-500/30 flex items-center justify-center shadow-[0_0_60px_-8px_rgba(16,185,129,0.5)]">
         <CheckCircle size={40} className="text-emerald-400" />
@@ -4528,6 +4570,18 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
         <h2 className="text-white font-black text-2xl">شكراً!</h2>
         <p className="text-gray-400 text-sm">تم حفظ تقييمك — انتظر المرحلة التالية</p>
       </div>
+      {!wordSubmitted && (
+        <div className="w-full max-w-sm rounded-2xl border border-violet-400/20 bg-violet-400/[0.06] p-4 text-right">
+          <label htmlFor={`${memoryWordId}-done`} className="block text-sm font-black text-violet-100">كلمة واحدة تحفظ إحساسك باللقاء — اختياري</label>
+          <p className="mt-1 text-xs leading-5 text-violet-100/60">تظهر لك أنت فقط في الكشف النهائي.</p>
+          <div className="mt-3 flex gap-2">
+            <input id={`${memoryWordId}-done`} value={word} onChange={event => updateMemoryWord(event.target.value)} maxLength={EVENT3_MEMORY_WORD_MAX_LENGTH} dir="auto" placeholder="مثال: مريح" className="min-h-12 min-w-0 flex-1 rounded-xl border border-white/10 bg-black/20 px-3 text-base text-white outline-none placeholder:text-gray-600" />
+            <button type="button" onClick={saveMemoryWord} disabled={!word.trim() || submitting} className="min-h-12 rounded-xl bg-violet-600 px-4 text-sm font-black text-white disabled:opacity-35">
+              {submitting ? <Spinner size={16} /> : "حفظ"}
+            </button>
+          </div>
+        </div>
+      )}
       {isLastSession && (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
           className="max-w-sm rounded-2xl border border-purple-700/30 bg-gradient-to-br from-purple-950/40 to-violet-950/20 p-5 text-center space-y-2"
@@ -4538,7 +4592,7 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
           </div>
           <p className="text-gray-400 text-xs leading-relaxed">
             {choiceOnly
-              ? "بعد أن يكمل جميع المشاركين تقييمهم، ستظهر لك صفحة النتائج النهائية لمقارنة لقاءات الاختيار الثلاثة وكلمات كل لقاء وقرار التواصل المتبادل."
+              ? "بعد أن تجهز النتائج، ستظهر لك مقارنة لقاءات الاختيار الثلاثة، والكلمات التي حفظتها، وقرارات التواصل المتبادلة."
               : "بعد أن يكمل جميع المشاركين تقييمهم، ستظهر لك صفحة النتائج النهائية مع تفاصيل التوافق الكاملة، ومقارنة بين اختيارك واختيار الخوارزمية، وتحليل ذكي للكيمياء بينك وبين شريكك."}
             ابقَ معنا — لا تغادر!
           </p>
@@ -4555,10 +4609,12 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
         <div className="absolute -bottom-20 right-1/4 w-72 h-72 bg-purple-600/15 rounded-full blur-[90px]" />
       </div>
       <div className="relative z-10 flex shrink-0 items-center gap-3 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3 sm:px-5">
-        <button type="button" onClick={step === 0 ? onBack : goBack} aria-label={step === 0 ? "العودة إلى الجلسة" : "الخطوة السابقة"}
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-white/[0.07] text-gray-300 transition-all hover:bg-white/[0.1] hover:text-white active:scale-90">
-          <ChevronRight size={18} />
-        </button>
+        {step === 0 && backDisabled ? <span className="h-11 w-11" aria-hidden="true" /> : (
+          <button type="button" onClick={step === 0 ? onBack : goBack} aria-label={step === 0 ? "العودة إلى الجلسة" : "الخطوة السابقة"}
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-white/[0.07] text-gray-300 transition-all hover:bg-white/[0.1] hover:text-white active:scale-90">
+            <ChevronRight size={18} />
+          </button>
+        )}
         <div className="flex gap-1.5 flex-1 justify-center" role="progressbar" aria-label="تقدم تقييم الجلسة" aria-valuemin={1} aria-valuemax={STEPS} aria-valuenow={step + 1}>
           {Array.from({ length: STEPS }).map((_, i) => (
             <motion.div key={i} className="rounded-full h-2"
@@ -4592,9 +4648,11 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
                       <AlertTriangle size={15} className="text-amber-400" />
                     </motion.div>
                     <div className="space-y-1">
-                      <p className="text-amber-300 text-xs font-black">التوافق الفكري وليس الشكلي</p>
+                      <p className="text-amber-300 text-xs font-black">قيّم اللقاء كما عشته</p>
                       <p className="text-xs leading-relaxed text-amber-100/75">
-                        خمّن درجة التوافق بناءً على <span className="font-bold text-amber-300">الشخصية والتفكير</span>، وليس المظهر. التركيز على الشكل فقط قد يضر بمطابقاتك المستقبلية لأن النظام يعتمد على التوافق الفكري في الاختيار.
+                        {choiceOnly
+                          ? <>خمّن التوافق بناءً على <span className="font-bold text-amber-300">الشخصية والتفكير</span>. هذا التقدير يساعد المنظم على فهم جودة التجربة، ولا يغيّر ترتيبك أو شركاء هذه النسخة.</>
+                          : <>خمّن التوافق بناءً على <span className="font-bold text-amber-300">الشخصية والتفكير</span>، وليس المظهر. نستخدم تقديرك لتحسين جودة المطابقات المستقبلية.</>}
                       </p>
                     </div>
                   </div>
@@ -4794,6 +4852,14 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
                   </motion.div>
                 )}
               </AnimatePresence>
+              <div className="rounded-2xl border border-violet-400/20 bg-violet-400/[0.06] p-3.5 text-right">
+                <label htmlFor={memoryWordId} className="block text-sm font-black text-violet-100">كلمة واحدة تحفظ إحساسك باللقاء — اختياري</label>
+                <p className="mt-1 text-xs leading-5 text-violet-100/60">ستظهر لك أنت فقط في الكشف النهائي، ولن يراها شريكك.</p>
+                <div className="mt-2 flex items-center gap-2">
+                  <input id={memoryWordId} value={word} onChange={event => updateMemoryWord(event.target.value)} disabled={wordSubmitted} maxLength={EVENT3_MEMORY_WORD_MAX_LENGTH} dir="auto" placeholder="مثال: عفوي" className="min-h-12 min-w-0 flex-1 rounded-xl border border-white/10 bg-black/20 px-3 text-base text-white outline-none placeholder:text-gray-600 disabled:text-violet-200" />
+                  {wordSubmitted && <span className="inline-flex shrink-0 items-center gap-1 text-xs font-bold text-emerald-300"><CheckCircle size={15} /> محفوظة</span>}
+                </div>
+              </div>
               <details className="group rounded-2xl border border-white/[0.07] bg-white/[0.025] text-right">
                 <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 text-xs font-bold text-gray-400">
                   إضافة ملاحظة خاصة للمنظم — اختياري
@@ -4806,77 +4872,6 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit, isLas
               <motion.button type="button" onClick={handleSubmit} disabled={submitting || fb.wantConnect === null || (fb.wantConnect === true && (!fb.contactMethod || (fb.contactMethod === 'message' && !fb.contactMessage.trim())))} aria-busy={submitting} whileTap={{ scale: 0.97 }} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-500 via-violet-500 to-purple-600 px-4 text-base font-black text-white shadow-xl shadow-purple-950/30 transition disabled:opacity-30">
                 {submitting ? <><Spinner size={17} />جاري الإرسال...</> : <><Send size={17} />إرسال التقييم</>}
               </motion.button>
-            </motion.div>
-          )}
-          {step === 3 && (
-            <motion.div key="s3" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
-              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="flex min-h-full flex-col justify-center space-y-5 py-3">
-              <div className="text-center space-y-2">
-                <h2 id={feedbackTitleId} ref={stepHeadingRef} tabIndex={-1} className="text-2xl font-black text-white focus:outline-none sm:text-3xl">هل تريد التواصل لاحقاً؟</h2>
-              </div>
-              {/* Prominent info card — mutual match = contact exchange */}
-              <motion.div
-                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-                className="relative overflow-hidden rounded-2xl border-2 border-emerald-500/40 bg-gradient-to-br from-emerald-950/50 via-teal-950/40 to-emerald-950/30 px-5 py-4 shadow-lg shadow-emerald-900/20"
-              >
-                <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-400/70 to-transparent" />
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5 w-9 h-9 rounded-xl bg-emerald-500/25 border border-emerald-500/40 flex items-center justify-center shrink-0">
-                    <Heart size={18} className="text-emerald-400" />
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-emerald-300 text-sm font-black">معلومة مهمة جداً</p>
-                    <p className="text-gray-200 text-xs leading-relaxed">
-                      إجابتك سرية تماماً. إذا أجاب كلاكما بـ«نعم» — ستحصلان على رقم تواصل ومعلومات بعضكم في صفحة النتائج النهائية بعد الفعالية.
-                    </p>
-                    <p className="mt-1 text-xs text-emerald-300/80">لا أحد سيعرف باختيارك إلا إذا وافق الطرف الآخر أيضاً</p>
-                  </div>
-                </div>
-              </motion.div>
-              <div className="grid grid-cols-2 gap-4">
-                {[{ val: true, icon: <CheckCircle size={26} />, label: "نعم", cls: fb.wantConnect === true ? 'bg-emerald-500/15 ring-2 ring-emerald-500/50 shadow-[0_0_30px_-4px_rgba(16,185,129,0.4)]' : 'bg-white/[0.04] ring-1 ring-white/[0.06]', iconCls: fb.wantConnect === true ? 'from-emerald-500/80 to-teal-600/80 text-white' : 'from-gray-600/40 to-gray-700/40 text-gray-500', textCls: fb.wantConnect === true ? 'text-emerald-300' : 'text-gray-500' },
-                   { val: false, icon: <X size={26} />, label: "لا", cls: fb.wantConnect === false ? 'bg-red-500/15 ring-2 ring-red-500/50 shadow-[0_0_30px_-4px_rgba(239,68,68,0.4)]' : 'bg-white/[0.04] ring-1 ring-white/[0.06]', iconCls: fb.wantConnect === false ? 'from-red-500/80 to-rose-600/80 text-white' : 'from-gray-600/40 to-gray-700/40 text-gray-500', textCls: fb.wantConnect === false ? 'text-red-300' : 'text-gray-500' }
-                ].map(opt => (
-                  <motion.button type="button" key={String(opt.val)} whileTap={{ scale: 0.93 }} aria-pressed={fb.wantConnect === opt.val}
-                    onClick={() => setFb(p => ({ ...p, wantConnect: opt.val }))}
-                    className={`min-h-[120px] rounded-3xl flex flex-col items-center justify-center gap-3 font-black transition-all duration-200 ${opt.cls}`}>
-                    <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${opt.iconCls} flex items-center justify-center transition-transform duration-200 ${fb.wantConnect === opt.val ? 'scale-110' : 'scale-95'}`}>
-                      {opt.icon}
-                    </div>
-                    <span className={`text-lg ${opt.textCls}`}>{opt.label}</span>
-                  </motion.button>
-                ))}
-              </div>
-              <motion.button type="button" onClick={() => goNext()} disabled={fb.wantConnect === null} whileTap={{ scale: 0.97 }} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-violet-600 px-4 text-sm font-bold text-white shadow-lg shadow-purple-950/30 transition disabled:opacity-30">
-                متابعة <ChevronRight size={16} />
-              </motion.button>
-            </motion.div>
-          )}
-          {step === 4 && (
-            <motion.div key="s4" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
-              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="flex min-h-full flex-col justify-center space-y-5 py-4">
-              <div className="text-center space-y-2">
-                <h2 id={feedbackTitleId} ref={stepHeadingRef} tabIndex={-1} className="text-2xl font-black text-white focus:outline-none">ملاحظة للمنظم</h2>
-                <p className="text-sm text-gray-400">اختياري — لن يراها الطرف الآخر</p>
-              </div>
-              <div>
-              <textarea value={fb.organizerImpression}
-                onChange={e => setFb(p => ({ ...p, organizerImpression: e.target.value }))}
-                placeholder="شعرت بالراحة... / الوقت كان قصيراً..."
-                rows={4}
-                maxLength={300}
-                aria-label="ملاحظة اختيارية للمنظم"
-                className="w-full resize-none rounded-2xl border border-white/[0.1] bg-white/[0.05] px-4 py-4 text-base text-white/95 transition-all placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-purple-500/50 sm:text-sm" />
-                <p className="mt-1.5 text-left text-xs text-gray-400">{fb.organizerImpression.length}/300</p>
-              </div>
-              <motion.button type="button" onClick={handleSubmit} disabled={submitting || fb.wantConnect === null} aria-busy={submitting} whileTap={{ scale: 0.97 }}
-                className="w-full py-5 rounded-3xl font-black text-lg bg-gradient-to-r from-purple-500 via-violet-500 to-purple-600 text-white shadow-[0_8px_30px_-4px_rgba(139,92,246,0.6)] disabled:opacity-30 disabled:shadow-none transition-all flex items-center justify-center gap-2">
-                {submitting
-                  ? <><motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }} className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />جاري الإرسال...</>
-                  : <><Send size={18} /> إرسال التقييم</>}
-              </motion.button>
-              {fb.wantConnect === null && <p className="text-center text-amber-500/70 text-xs">ارجع للخطوة 4 وأجب على سؤال التواصل</p>}
-              {!fb.sliderMoved && <p className="text-center text-xs text-amber-300">ارجع للخطوة 1 وحرّك مؤشر التوافق</p>}
             </motion.div>
           )}
         </AnimatePresence>
@@ -5189,8 +5184,9 @@ function SOSButton({ token, position = 'top', sosRequests, suppressed = false }:
 }
 
 // ─── Phase 2 Reveal Screen ────────────────────────────────────────────────────
-function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDuration, correctedNow, eventFormat }: {
+function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDuration, correctedNow, eventFormat, onFeedbackOpenChange, feedbackLocked = false }: {
   token: string; eventId?: number | string; timerActive: boolean; timerStart: string | null; timerDuration: number; correctedNow?: () => number; eventFormat: Event3Format
+  onFeedbackOpenChange?: (open: boolean) => void; feedbackLocked?: boolean
 }) {
   const reduceMotion = useReducedMotion()
   const [revealed, setRevealed] = useState(false)
@@ -5207,6 +5203,10 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   const [showTimeWarning, setShowTimeWarning] = useState(false)
   const { popup, clearPopup } = useTimerWarnings(timerActive, timeLeft, timerDuration, view === 'session', undefined, timerStart)
 
+  useEffect(() => {
+    onFeedbackOpenChange?.(view === 'feedback' && !feedbackDone)
+  }, [view, feedbackDone, onFeedbackOpenChange])
+
   const fetchReveal = useCallback(async () => {
     const d = await call("e3-get-phase2-reveal", token)
     if (d.error) throw new Error(d.error)
@@ -5221,6 +5221,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
 
   useEffect(() => {
     if (data?.my_word) { setWord(data.my_word); setWordSubmitted(true) }
+    else setWordSubmitted(Boolean(data?.word_submitted))
     if (data?.feedback_submitted) setFeedbackDone(true)
   }, [data])
 
@@ -5280,9 +5281,11 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   }
 
   const submitWord = async () => {
-    if (!word.trim()) return
+    if (!word.trim()) return false
     const d = await call("e3-submit-phase2-word", token, { word: word.trim() })
-    if (!d.error) { setWordSubmitted(true); toast.success("تم الحفظ!") }
+    if (!d.error) { setWordSubmitted(true); toast.success("تم حفظ كلمتك"); return true }
+    toast.error(d.error || "تعذّر حفظ الكلمة. تحقق من الاتصال وحاول مجدداً.")
+    return false
   }
 
   if (loading && !data && !error) return (
@@ -5315,7 +5318,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
             <div className="inline-flex items-center gap-2 bg-pink-900/30 border border-pink-700/40 text-pink-300 rounded-full px-4 py-1.5 text-sm font-semibold">
               <Users size={13} /> {data?.is_backup ? "جلسة فردية 1:1 · فرصة جديدة" : choiceOnly ? "جلسة فردية 1:1 · الاختيار الأول" : "جلسة فردية 1:1 · اختيارك أنت"}
             </div>
-            <p className="text-gray-400 text-xs">{data?.is_backup ? "لقاء رتّبناه لك حتى يعيش الجميع التجربة كاملة" : choiceOnly ? "أقوى اختيار متبادل متاح من ترتيبكما" : "لقاء خاص مع أفضل اختيار متبادل متاح من ترتيبك"}</p>
+            <p className="text-gray-400 text-xs">{data?.is_backup ? "لقاء رتّبناه لك حتى يعيش الجميع التجربة كاملة" : choiceOnly ? "لقاء متبادل اختير ضمن توزيع يراعي ترتيب الجميع" : "لقاء خاص مع أفضل اختيار متبادل متاح من ترتيبك"}</p>
           </div>
         </motion.div>
 
@@ -5364,7 +5367,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                 </motion.button>
               ) : (
                 <div className="text-center">
-                  <p className="text-gray-600 text-xs">انتظر دقيقة من بدء المؤقت</p>
+                  <p className="text-gray-400 text-xs">الدقيقة الأولى مخصّصة للانتقال — سيُفتح الكشف بعدها</p>
                 </div>
               )}
 
@@ -5443,9 +5446,14 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
           <FeedbackFlow
             partnerName={data?.partner_first_name || null}
             word={word}
+            wordSubmitted={wordSubmitted}
             done={feedbackDone}
             onDone={() => setFeedbackDone(true)}
             onBack={() => setView('session')}
+            backDisabled={feedbackLocked}
+            onWordChange={setWord}
+            onSubmitWord={submitWord}
+            choiceOnly={choiceOnly}
             onSubmit={async (fbData) => {
               const d = await call('e3-submit-phase2-feedback', token, { feedback: fbData })
               if (!d.error) { toast.success('تم الحفظ'); return true }
@@ -5603,8 +5611,9 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
 }
 
 // ─── Later one-to-one reveal screens ──────────────────────────────────────────
-function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDuration, correctedNow, eventFormat, matchSlot = 2 }: {
+function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDuration, correctedNow, eventFormat, matchSlot = 2, onFeedbackOpenChange, feedbackLocked = false }: {
   token: string; eventId?: number | string; timerActive: boolean; timerStart: string | null; timerDuration: number; correctedNow?: () => number; eventFormat: Event3Format; matchSlot?: 2 | 3
+  onFeedbackOpenChange?: (open: boolean) => void; feedbackLocked?: boolean
 }) {
   const reduceMotion = useReducedMotion()
   const [revealed, setRevealed] = useState(false)
@@ -5615,12 +5624,14 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   const [view, setView] = useState<'partner' | 'session' | 'feedback'>('partner')
   const [feedbackDone, setFeedbackDone] = useState(false)
   const [showSessionTips, setShowSessionTips] = useState(false)
-  const [rejoined, setRejoined] = useState(false)
-  const [icebreakerDone, setIcebreakerDone] = useState(false)
   const [showTimeWarning, setShowTimeWarning] = useState(false)
   const { popup, clearPopup } = useTimerWarnings(timerActive, timeLeft, timerDuration, view === 'session', undefined, timerStart)
   const isThirdChoice = matchSlot === 3
   const phaseKey = isThirdChoice ? "phase4" : "phase3"
+
+  useEffect(() => {
+    onFeedbackOpenChange?.(view === 'feedback' && !feedbackDone)
+  }, [view, feedbackDone, onFeedbackOpenChange])
 
   const fetchReveal = useCallback(async () => {
     const d = await call(isThirdChoice ? "e3-get-phase4-reveal" : "e3-get-phase3-reveal", token)
@@ -5639,8 +5650,9 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
 
   useEffect(() => {
     setWordSubmitted(Boolean(data?.word_submitted))
+    if (data?.my_word) setWord(data.my_word)
     setFeedbackDone(Boolean(data?.feedback_submitted))
-  }, [data?.partner_number, data?.word_submitted, data?.feedback_submitted])
+  }, [data?.partner_number, data?.word_submitted, data?.my_word, data?.feedback_submitted])
 
   useEffect(() => {
     if (!timerActive || !timerStart) { setTimeLeft(0); return }
@@ -5670,7 +5682,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
     const elapsed = Math.floor((now - new Date(timerStart).getTime()) / 1000)
     const remaining = Math.max(0, timerDuration - elapsed)
     const arrived = hasArrived(eventId, phaseKey)
-    if (arrived && elapsed > 60 && remaining > 0) { setTableRevealed(true); setRevealed(true); setView('session'); setRejoined(true) }
+    if (arrived && elapsed > 60 && remaining > 0) { setTableRevealed(true); setRevealed(true); setView('session') }
     else if (arrived && remaining <= 0) { setTableRevealed(true); setRevealed(true); setView('feedback') }
     else if (!arrived && remaining <= 0) { setTableRevealed(true); setRevealed(true); setView('feedback') }
   }, [data, timerActive, timerStart, timerDuration, eventId, correctedNow, phaseKey])
@@ -5694,9 +5706,11 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   }
 
   const submitWord = async () => {
-    if (!word.trim()) return
+    if (!word.trim()) return false
     const d = await call(isThirdChoice ? "e3-submit-phase4-word" : "e3-submit-phase3-word", token, { word: word.trim() })
-    if (!d.error) { setWordSubmitted(true); toast.success("تم الحفظ!") }
+    if (!d.error) { setWordSubmitted(true); toast.success("تم حفظ كلمتك"); return true }
+    toast.error(d.error || "تعذّر حفظ الكلمة. تحقق من الاتصال وحاول مجدداً.")
+    return false
   }
 
   if (loading && !data && !error) return (
@@ -5729,7 +5743,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
             <div className="inline-flex items-center gap-2 bg-purple-900/30 border border-purple-700/40 text-purple-300 rounded-full px-4 py-1.5 text-sm font-semibold">
               {choiceOnly ? <Heart size={13} /> : <Brain size={13} />} جلسة فردية 1:1 · {meetingKind}
             </div>
-            <p className="text-gray-400 text-xs">{choiceOnly ? (isThirdChoice ? "أقوى اختيار متبادل متبقٍ بعد استبعاد شريكي اللقاءين السابقين" : "أقوى اختيار متبادل متبقٍ بعد استبعاد شريك اللقاء الأول") : "لقاء مع من رشّحه النظام بناءً على توافقكما — اكتشفه بلا توقعات مسبقة"}</p>
+            <p className="text-gray-400 text-xs">{choiceOnly ? (isThirdChoice ? "لقاء متبادل مع شخص ثالث بعد استبعاد الشريكين السابقين" : "لقاء متبادل جديد بعد استبعاد شريك اللقاء الأول") : "لقاء مع من رشّحه النظام بناءً على توافقكما — اكتشفه بلا توقعات مسبقة"}</p>
           </div>
         </motion.div>
 
@@ -5778,7 +5792,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                 </motion.button>
               ) : (
                 <div className="text-center">
-                  <p className="text-gray-600 text-xs">انتظر دقيقة من بدء المؤقت</p>
+                  <p className="text-gray-400 text-xs">الدقيقة الأولى مخصّصة للانتقال — سيُفتح الكشف بعدها</p>
                 </div>
               )}
 
@@ -5856,15 +5870,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
               <span className={`font-mono text-sm font-black tabular-nums ${timeLeft < 300 ? 'text-red-400' : 'text-purple-300'}`}>{formatTime(timeLeft)}</span>
             </div>
 
-            {/* Ice breaker phase — full screen centered */}
-            <AnimatePresence mode="wait">
-              {!icebreakerDone ? (
-                <motion.div key="icebreaker" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-4 p-5">
-                  <JourneyCue accent="purple" eyebrow="بداية اللقاء" title="اختاروا بداية تناسبكم" description="التحدي اختياري؛ يمكنكم تخطيه والبدء مباشرة بأول سؤال." steps={["كسر جليد", "حوار", "تقييم"]} currentStep={0} />
-                  <RockPaperScissors accent="purple" autoDone={rejoined} onDone={() => setIcebreakerDone(true)} />
-                </motion.div>
-              ) : (
-                <motion.div key="session-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 max-w-sm mx-auto w-full p-5 space-y-5">
+            <motion.div key="session-content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 max-w-sm mx-auto w-full p-5 space-y-5">
                   {/* Redesigned partner reminder bar */}
                   <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
                     className="relative overflow-hidden rounded-2xl border border-purple-700/30 bg-gradient-to-r from-purple-950/40 via-violet-950/30 to-purple-950/20 px-4 py-3">
@@ -5935,7 +5941,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                     </AnimatePresence>
                   </motion.div>
                   <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
-                    <QuestionSlideshow defaultSet="set1" />
+                    <QuestionSlideshow defaultSet={isThirdChoice ? "set2" : "set1"} />
                   </motion.div>
 
                   <details className="group rounded-2xl border border-white/[0.07] bg-white/[0.025] text-right">
@@ -5958,9 +5964,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                     <CheckCircle size={16} />
                     إنهاء اللقاء والبدء بالتقييم
                   </motion.button>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            </motion.div>
 
           </motion.div>
         )}
@@ -5972,9 +5976,13 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
           <FeedbackFlow
             partnerName={data?.partner_first_name || null}
             word={word}
+            wordSubmitted={wordSubmitted}
             done={feedbackDone}
             onDone={() => setFeedbackDone(true)}
             onBack={() => setView('session')}
+            backDisabled={feedbackLocked}
+            onWordChange={setWord}
+            onSubmitWord={submitWord}
             isLastSession={!choiceOnly || isThirdChoice}
             accent="purple"
             choiceOnly={choiceOnly}
@@ -6024,8 +6032,8 @@ function ProcessingScreen({ phase, eventFormat }: { phase: string; eventFormat: 
           eyebrow="الآن"
           title="استراحة قصيرة"
           description={isPhase2
-            ? `التالي: سنعرض ${choiceOnly ? "أقوى اختيار متبادل متاح" : "اسم الشخص الذي اختارك أيضاً"} ورقم طاولتك.`
-            : `التالي: سنعرض ${choiceOnly ? (isPhase4 ? "أقوى اختيار متبادل متبقٍ بعد استبعاد الشريكين السابقين" : "أقوى اختيار متبادل متبقٍ مع شخص جديد") : "ترشيح النظام"} ورقم طاولتك.`}
+            ? `التالي: سنعرض ${choiceOnly ? "لقاءك المتبادل الأول ضمن توزيع الجميع" : "اسم الشخص الذي اختارك أيضاً"} ورقم طاولتك.`
+            : `التالي: سنعرض ${choiceOnly ? (isPhase4 ? "لقاءك المتبادل الثالث مع شخص جديد" : "لقاءك المتبادل الثاني مع شخص جديد") : "ترشيح النظام"} ورقم طاولتك.`}
           steps={["انتظر هنا", "اعرف الشريك والطاولة", "ابدأ اللقاء"]}
           currentStep={0}
           accent={isPhase2 ? "pink" : "purple"}
@@ -6163,15 +6171,15 @@ function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow, eve
           <div className="space-y-3 text-gray-300 text-sm leading-relaxed">
             <div className="flex items-start gap-2">
               <span className="text-teal-400 mt-0.5 shrink-0">١.</span>
-              <span>ستعرف طاولتك وتتوجه إليها، ثم ستجلس <b className="text-pink-300">{choiceOnly ? "لقاء واحد لواحد مع اختيارك الأول" : "لقاء واحد لواحد مع اختيارك"}</b> لمدة 25 دقيقة. بعدها ستشاركنا انطباعك عن اللقاء.</span>
+              <span>تبدأ مرحلة مدتها <b className="text-white">20 دقيقة</b>: الدقيقة الأولى للتوجه إلى الطاولة وكشف الشريك، ثم <b className="text-pink-300">{choiceOnly ? "لقاء واحد لواحد مع اختيارك الأول" : "لقاء واحد لواحد مع اختيارك"}</b>. بعدها ستشاركنا انطباعك.</span>
             </div>
             <div className="flex items-start gap-2">
               <span className="text-teal-400 mt-0.5 shrink-0">٢.</span>
-              <span>ثم ستنتقل إلى طاولة جديدة وستجلس <b className="text-purple-300">{choiceOnly ? "لقاء واحد لواحد مع اختيارك الثاني" : "لقاء واحد لواحد مع اختيارنا"}</b> لمدة 25 دقيقة. {choiceOnly ? "سيكون مع شخص مختلف عن اللقاء الأول،" : ""} بعدها ستشاركنا انطباعك عن هذا اللقاء أيضًا.</span>
+              <span>ثم تبدأ مرحلة ثانية مدتها <b className="text-white">20 دقيقة</b>، تشمل دقيقة الانتقال، للقاء <b className="text-purple-300">{choiceOnly ? "اختيارك الثاني" : "اختيارنا"}</b>. {choiceOnly ? "سيكون مع شخص مختلف عن اللقاء الأول،" : ""} وبعدها تقيّمه.</span>
             </div>
             <div className="flex items-start gap-2">
               <span className="text-teal-400 mt-0.5 shrink-0">٣.</span>
-              <span>{choiceOnly ? <>بعدها ستنتقل إلى طاولة ثالثة للقاء <b className="text-violet-300">اختيارك الثالث</b> مع شخص مختلف عن اللقاءين السابقين، ثم تقيّمه.</> : <>أخيرًا، ستشاهد نتيجتك النهائية وتحليل التوافق لكلا اللقاءين. ✨</>}</span>
+              <span>{choiceOnly ? <>بعدها تبدأ مرحلة ثالثة مدتها <b className="text-white">20 دقيقة</b>، تشمل دقيقة الانتقال، للقاء <b className="text-violet-300">اختيارك الثالث</b> مع شخص مختلف عن اللقاءين السابقين، ثم تقيّمه.</> : <>أخيرًا، ستشاهد نتيجتك النهائية وتحليل التوافق لكلا اللقاءين. ✨</>}</span>
             </div>
             {choiceOnly && (
               <div className="flex items-start gap-2">
@@ -6297,7 +6305,7 @@ function AiAnalysisCompact({ partnerNum, token, currentEventId, accent, title }:
   )
 }
 
-function FinalRevealScreen({ token, onQuestionViewerChange, eventFormat }: { token: string; onQuestionViewerChange?: (open: boolean) => void; eventFormat: Event3Format }) {
+function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChange, eventFormat }: { token: string; impersonating?: boolean; onQuestionViewerChange?: (open: boolean) => void; eventFormat: Event3Format }) {
   const reduceMotion = useReducedMotion()
   const [revealed, setRevealed] = useState(false)
   const [matchPref, setMatchPref] = useState<string | null>(null)
@@ -6306,6 +6314,8 @@ function FinalRevealScreen({ token, onQuestionViewerChange, eventFormat }: { tok
   const [activeTab, setActiveTab] = useState<"choice" | "algorithm">("choice")
   const [screenMode, setScreenMode] = useState<"reveal" | "questions">("reveal")
   const [questionPhase, setQuestionPhase] = useState<"phase1" | "phase2" | "phase3">("phase2")
+  const [readinessTimedOut, setReadinessTimedOut] = useState(false)
+  const [readinessAttempt, setReadinessAttempt] = useState(0)
   const revealStarted = useRef(false)
 
   const fetchFinalReveal = useCallback(async () => {
@@ -6333,6 +6343,16 @@ function FinalRevealScreen({ token, onQuestionViewerChange, eventFormat }: { tok
     && (!choiceOnly || (data?.phase4?.partner_number && data?.phase4?.partner_first_name))
   )
   const sameMatch = !choiceOnly && Boolean(data?.same_match)
+  const resultsHref = `/results?token=${encodeURIComponent(token)}${impersonating ? "&impersonate=1" : ""}`
+
+  useEffect(() => {
+    if (finalResultsReady) {
+      setReadinessTimedOut(false)
+      return
+    }
+    const timeout = window.setTimeout(() => setReadinessTimedOut(true), 30_000)
+    return () => window.clearTimeout(timeout)
+  }, [finalResultsReady, readinessAttempt])
 
   useEffect(() => {
     onQuestionViewerChange?.(screenMode === "questions")
@@ -6361,6 +6381,11 @@ function FinalRevealScreen({ token, onQuestionViewerChange, eventFormat }: { tok
     if (!d.error) { setMatchPref(pref); toast.success("تم حفظ تفضيلك") }
     else toast.error("حدث خطأ")
   }
+  const retryFinalReveal = () => {
+    setReadinessTimedOut(false)
+    setReadinessAttempt(attempt => attempt + 1)
+    retry()
+  }
 
   if (loading) return <PageWrapper embedded className="flex items-center justify-center"><Spinner size={28} /></PageWrapper>
   if (error && !data) return (
@@ -6370,12 +6395,24 @@ function FinalRevealScreen({ token, onQuestionViewerChange, eventFormat }: { tok
         <p className="text-white font-semibold">النتائج النهائية ليست جاهزة بعد</p>
         <p className="text-gray-500 text-sm">انتظر لحظات ثم حاول مرة أخرى.</p>
       </div>
-      <button onClick={retry} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium transition-colors">
+      <button onClick={retryFinalReveal} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium transition-colors">
         <RefreshCw size={16} /> إعادة المحاولة
       </button>
     </PageWrapper>
   )
   if (!data) return <PageWrapper embedded className="flex items-center justify-center text-gray-500 text-sm">لا توجد نتائج بعد</PageWrapper>
+  if (!finalResultsReady && readinessTimedOut) return (
+    <PageWrapper embedded className="flex flex-col items-center justify-center gap-4 p-6 text-center" role="alert">
+      <AlertTriangle className="text-amber-400" size={30} />
+      <div className="max-w-sm space-y-2">
+        <p className="font-bold text-white">إحدى نتائجك لم تكتمل بعد</p>
+        <p className="text-sm leading-6 text-gray-400">أبلغ المنظم ليراجع توزيع اللقاءات قبل الكشف النهائي. سنواصل التحقق تلقائياً، ويمكنك المحاولة الآن أيضاً.</p>
+      </div>
+      <button type="button" onClick={retryFinalReveal} className="flex min-h-12 items-center gap-2 rounded-xl bg-amber-500 px-5 text-sm font-black text-gray-950">
+        <RefreshCw size={16} /> تحقق الآن
+      </button>
+    </PageWrapper>
+  )
   if (!finalResultsReady) return (
     <PageWrapper embedded className="flex flex-col items-center justify-center gap-4 p-6 text-center" role="status" aria-live="polite">
       <Spinner size={28} />
@@ -6439,7 +6476,7 @@ function FinalRevealScreen({ token, onQuestionViewerChange, eventFormat }: { tok
             <a href="/welcome" className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl bg-white/[0.05] text-[11px] font-bold text-gray-300">
               <Home size={17} /> الرئيسية
             </a>
-            <a href={`/results?token=${encodeURIComponent(token)}`} className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl bg-white/[0.05] text-[11px] font-bold text-amber-200">
+            <a href={resultsHref} className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl bg-white/[0.05] text-[11px] font-bold text-amber-200">
               <Trophy size={17} /> النتائج
             </a>
             <button onClick={() => setScreenMode("reveal")} className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-[11px] font-black text-white">
@@ -6495,10 +6532,10 @@ function FinalRevealScreen({ token, onQuestionViewerChange, eventFormat }: { tok
 
         {/* Comparison text */}
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="text-gray-500 text-xs leading-relaxed">
-          {choiceOnly ? "ثلاثة لقاءات من أقوى اختياراتك المتبادلة — أيها كان أقرب لك؟" : sameMatch ? "غريزتك والخوارزمية متوافقتان — نادر الحدوث!" : "رأيت بعينيك، ورأت الخوارزمية بالبيانات — أيهما أصح؟"}
+          {choiceOnly ? "ثلاثة لقاءات متبادلة ضمن توزيع راعى الجميع — أيها كان أقرب لك؟" : sameMatch ? "غريزتك والخوارزمية متوافقتان — نادر الحدوث!" : "رأيت بعينيك، ورأت الخوارزمية بالبيانات — أيهما أصح؟"}
         </motion.p>
 
-        <motion.a href={`/results?token=${encodeURIComponent(token)}`} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.65 }} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 px-4 text-base font-black text-white shadow-xl shadow-purple-950/30">
+        <motion.a href={resultsHref} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.65 }} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 px-4 text-base font-black text-white shadow-xl shadow-purple-950/30">
           <Trophy size={18} /> فتح النتائج والتواصل
         </motion.a>
 
@@ -7459,11 +7496,11 @@ function event3PhaseGuidance(phase: string, eventFormat: Event3Format) {
   if (isChoiceOnlyEvent3(eventFormat)) {
     const choiceOnlyGuidance: Record<string, string> = {
       ranking2: "حدّث ترتيبك بعد المجموعة الثانية، ثم احفظ",
-      phase2_processing: "نجهّز أقوى اختيار متبادل متاح ورقم طاولتك",
+      phase2_processing: "نجهّز لقاءك المتبادل الأول ورقم طاولتك",
       phase2_reveal: "اتجه إلى الطاولة، قابل اختيارك الأول، ثم ابدأ الحوار",
-      phase3_processing: "نجهّز أقوى اختيار متبادل متبقٍ مع شخص جديد",
+      phase3_processing: "نجهّز لقاءك المتبادل الثاني مع شخص جديد",
       phase3_reveal: "اتجه إلى الطاولة، قابل اختيارك الثاني، ثم ابدأ الحوار",
-      phase4_processing: "نجهّز أقوى اختيار متبادل متبقٍ بعد استبعاد الشريكين السابقين",
+      phase4_processing: "نجهّز لقاءك المتبادل الثالث مع شخص جديد",
       phase4_reveal: "اتجه إلى الطاولة، قابل اختيارك الثالث، ثم ابدأ الحوار",
     }
     if (choiceOnlyGuidance[phase]) return choiceOnlyGuidance[phase]
@@ -7559,6 +7596,7 @@ export default function Event3Page() {
   const [pendingGroupFeedbackRound, setPendingGroupFeedbackRound] = useState<Event3GroupRound | null>(null)
   const [breakFeedbackOpen, setBreakFeedbackOpen] = useState(false)
   const [breakFeedbackRound, setBreakFeedbackRound] = useState<Event3GroupRound | null>(null)
+  const [activeMatchFeedbackSlot, setActiveMatchFeedbackSlot] = useState<1 | 2 | 3 | null>(null)
   const [rankingDraftContext, setRankingDraftContext] = useState<{
     round: number
     timerActive: boolean
@@ -7599,6 +7637,7 @@ export default function Event3Page() {
     setResolvedRankingRound(null)
     setBreakFeedbackOpen(false)
     setBreakFeedbackRound(null)
+    setActiveMatchFeedbackSlot(null)
     setShowWelcome(true)
     setShowAiWelcome(false)
 
@@ -7614,6 +7653,7 @@ export default function Event3Page() {
     setTokenError(false)
     setBreakFeedbackOpen(false)
     setBreakFeedbackRound(null)
+    setActiveMatchFeedbackSlot(null)
     setEnrolled(null)
     setMyInfo(null)
     setRankingDraftContext(null)
@@ -7661,7 +7701,7 @@ export default function Event3Page() {
     if (d.error) throw new Error(d.error)
     return d as { event_format?: unknown; group_round_count?: number }
   }, [])
-  const { data: publicFormatState, loading: publicFormatLoading } = useApiPoll(fetchPublicFormat, {
+  const { data: publicFormatState, loading: publicFormatLoading, error: publicFormatError, retry: retryPublicFormat } = useApiPoll(fetchPublicFormat, {
     stopWhen: () => true,
   })
   const eventFormat = normalizeEvent3Format(
@@ -7715,12 +7755,23 @@ export default function Event3Page() {
     })
   }, [eventState?.phase, eventState?.timer_active, eventState?.timer_start, eventState?.timer_duration])
 
+  const trackMatchFeedback = useCallback((slot: 1 | 2 | 3, open: boolean) => {
+    setActiveMatchFeedbackSlot(current => open ? slot : current === slot ? null : current)
+  }, [])
+  const trackFirstMatchFeedback = useCallback((open: boolean) => trackMatchFeedback(1, open), [trackMatchFeedback])
+  const trackSecondMatchFeedback = useCallback((open: boolean) => trackMatchFeedback(2, open), [trackMatchFeedback])
+  const trackThirdMatchFeedback = useCallback((open: boolean) => trackMatchFeedback(3, open), [trackMatchFeedback])
+
   useEffect(() => {
-    if (!eventState?.phase || showWelcome || showAiWelcome || pendingGroupFeedbackRound || breakFeedbackOpen) return
+    if (eventState?.phase === "setup") setActiveMatchFeedbackSlot(null)
+  }, [eventState?.phase, eventState?.event_id])
+
+  useEffect(() => {
+    if (!eventState?.phase || showWelcome || showAiWelcome || pendingGroupFeedbackRound || breakFeedbackOpen || activeMatchFeedbackSlot) return
     eventContentRef.current?.scrollTo({ top: 0, behavior: "auto" })
     const focusTimer = window.setTimeout(() => phaseAnnouncementRef.current?.focus(), 80)
     return () => window.clearTimeout(focusTimer)
-  }, [eventState?.phase, showWelcome, showAiWelcome, pendingGroupFeedbackRound, breakFeedbackOpen])
+  }, [eventState?.phase, showWelcome, showAiWelcome, pendingGroupFeedbackRound, breakFeedbackOpen, activeMatchFeedbackSlot])
 
   // Phase change detection — play sound + vibrate when event starts (setup → round1)
   const prevPhaseRef = useRef<string | null>(null)
@@ -7890,10 +7941,14 @@ export default function Event3Page() {
         <FeedbackFlow
           partnerName="سارة"
           word="فضول"
+          wordSubmitted={false}
           done={false}
           onDone={() => {}}
           onBack={() => {}}
+          onWordChange={() => {}}
+          onSubmitWord={async () => true}
           onSubmit={async () => true}
+          choiceOnly
         />
       </main>
     )
@@ -7952,8 +8007,20 @@ export default function Event3Page() {
       <Spinner size={28} />
     </PageWrapper>
   )
+  if (showWelcome && publicFormatError && !publicFormatState && !eventState) return (
+    <PageWrapper className="flex flex-col items-center justify-center gap-4 p-6 text-center" role="alert">
+      <AlertTriangle className="text-amber-400" size={30} />
+      <div className="space-y-1">
+        <p className="font-bold text-white">تعذّر تحميل نسخة الفعالية</p>
+        <p className="text-sm text-gray-400">نحتاج هذه المعلومة لعرض الشرح الصحيح قبل دخولك.</p>
+      </div>
+      <button type="button" onClick={retryPublicFormat} className="flex min-h-12 items-center gap-2 rounded-xl bg-gray-800 px-5 text-sm font-bold text-white">
+        <RefreshCw size={16} /> إعادة المحاولة
+      </button>
+    </PageWrapper>
+  )
 
-  if (showWelcome) return <WelcomeScreen onDone={handleWelcomeDone} onLogout={handleLogout} showLogout={!!token && !isImpersonating} />
+  if (showWelcome) return <WelcomeScreen onDone={handleWelcomeDone} onLogout={handleLogout} showLogout={!!token && !isImpersonating} eventFormat={eventFormat} />
   if (!token || tokenError) return <PhoneEntry onToken={t => { setToken(t); setTokenError(false) }} />
 
   if (stateLoading && !eventState) return (
@@ -7982,6 +8049,14 @@ export default function Event3Page() {
 
   const { phase, timer_active, timer_start, timer_duration } = eventState
   const timerProps = { timerActive: timer_active, timerStart: timer_start, timerDuration: timer_duration, correctedNow }
+  const activeMatchFeedbackPhase = activeMatchFeedbackSlot === 1
+    ? "phase2_reveal"
+    : activeMatchFeedbackSlot === 2
+      ? "phase3_reveal"
+      : activeMatchFeedbackSlot === 3
+        ? "phase4_reveal"
+        : null
+  const holdingMatchFeedback = Boolean(activeMatchFeedbackPhase && phase !== activeMatchFeedbackPhase)
 
   if (enrolled === false) return <NotEnrolledScreen onUseAnotherNumber={handleUseAnotherNumber} onLogout={handleLogout} />
 
@@ -8013,7 +8088,7 @@ export default function Event3Page() {
   // drafted ratings and notes are never destroyed.
   const activeGroupFeedbackRound = visibleGroupFeedbackRound
   const activeBreakFeedback = phase === "break" && breakFeedbackOpen
-  const feedbackOverlayOpen = Boolean(activeGroupFeedbackRound || activeBreakFeedback)
+  const feedbackOverlayOpen = Boolean(activeGroupFeedbackRound || activeBreakFeedback || activeMatchFeedbackSlot)
   const canShowMoodCheck = !hasUrgentNotification && hasPendingMoodCheck && (isSafePromptMoment || isActiveMoodMoment) && !feedbackOverlayOpen
   // Urgent alerts overlay the current screen without unmounting its draft.
   const canShowNotification = hasPendingNotification && (hasUrgentNotification || (!finalQuestionsOpen && isSafePromptMoment && !feedbackOverlayOpen && !hasPendingMoodCheck))
@@ -8055,15 +8130,15 @@ export default function Event3Page() {
       {/* Screen content fills available space */}
       <motion.div ref={eventContentRef} layoutScroll className="event3-scroll relative min-h-0 flex-1 overflow-y-auto">
         <AnimatePresence>
-          {!holdingRankingDraft && phase === "setup" && <SetupScreen key="setup" token={token} myInfo={myInfo} enrolledCount={eventState?.participants_selected ?? null} eventFormat={eventFormat} />}
-          {!holdingRankingDraft && isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} myInfo={myInfo} onGroupsOpenChange={setGroupsOpen} eventFormat={eventFormat} />}
+          {!holdingRankingDraft && !activeMatchFeedbackSlot && phase === "setup" && <SetupScreen key="setup" token={token} myInfo={myInfo} enrolledCount={eventState?.participants_selected ?? null} eventFormat={eventFormat} />}
+          {!holdingRankingDraft && !activeMatchFeedbackSlot && isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} myInfo={myInfo} onGroupsOpenChange={setGroupsOpen} eventFormat={eventFormat} />}
           {rankingRoundToRender && <RankingScreen key={`ranking-${rankingRoundToRender}`} token={token} completedRounds={rankingRoundToRender} currentPhase={phase} {...rankingTimerProps} myInfo={myInfo} onOpenGroupFeedback={setPendingGroupFeedbackRound} onRankingResolved={handleRankingResolved} onRankingDirty={handleRankingDirty} eventFormat={eventFormat} />}
-          {!holdingRankingDraft && phase === "phase2_reveal" && <Phase2RevealScreen key="p2r" token={token} eventId={eventState?.event_id} {...timerProps} eventFormat={eventFormat} />}
-          {!holdingRankingDraft && phase === "phase3_reveal" && <Phase3RevealScreen key="p3r" token={token} eventId={eventState?.event_id} {...timerProps} eventFormat={eventFormat} />}
-          {!holdingRankingDraft && phase === "phase4_reveal" && <Phase3RevealScreen key="p4r" token={token} eventId={eventState?.event_id} {...timerProps} eventFormat={eventFormat} matchSlot={3} />}
-          {!holdingRankingDraft && (phase === "phase2_processing" || phase === "phase3_processing" || phase === "phase4_processing") && <ProcessingScreen key="processing" phase={phase} eventFormat={eventFormat} />}
-          {!holdingRankingDraft && phase === "break" && <BreakScreen key="break" {...timerProps} eventFormat={eventFormat} onOpenGroupFeedback={() => { setBreakFeedbackRound(null); setBreakFeedbackOpen(true) }} />}
-          {!holdingRankingDraft && phase === "final_reveal" && <FinalRevealScreen key="final" token={token} onQuestionViewerChange={setFinalQuestionsOpen} eventFormat={eventFormat} />}
+          {!holdingRankingDraft && (activeMatchFeedbackSlot === 1 || (!activeMatchFeedbackSlot && phase === "phase2_reveal")) && <Phase2RevealScreen key="p2r" token={token} eventId={eventState?.event_id} {...timerProps} eventFormat={eventFormat} onFeedbackOpenChange={trackFirstMatchFeedback} feedbackLocked={holdingMatchFeedback} />}
+          {!holdingRankingDraft && (activeMatchFeedbackSlot === 2 || (!activeMatchFeedbackSlot && phase === "phase3_reveal")) && <Phase3RevealScreen key="p3r" token={token} eventId={eventState?.event_id} {...timerProps} eventFormat={eventFormat} onFeedbackOpenChange={trackSecondMatchFeedback} feedbackLocked={holdingMatchFeedback} />}
+          {!holdingRankingDraft && (activeMatchFeedbackSlot === 3 || (!activeMatchFeedbackSlot && phase === "phase4_reveal")) && <Phase3RevealScreen key="p4r" token={token} eventId={eventState?.event_id} {...timerProps} eventFormat={eventFormat} matchSlot={3} onFeedbackOpenChange={trackThirdMatchFeedback} feedbackLocked={holdingMatchFeedback} />}
+          {!holdingRankingDraft && !activeMatchFeedbackSlot && (phase === "phase2_processing" || phase === "phase3_processing" || phase === "phase4_processing") && <ProcessingScreen key="processing" phase={phase} eventFormat={eventFormat} />}
+          {!holdingRankingDraft && !activeMatchFeedbackSlot && phase === "break" && <BreakScreen key="break" {...timerProps} eventFormat={eventFormat} onOpenGroupFeedback={() => { setBreakFeedbackRound(null); setBreakFeedbackOpen(true) }} />}
+          {!holdingRankingDraft && !activeMatchFeedbackSlot && phase === "final_reveal" && <FinalRevealScreen key="final" token={token} impersonating={isImpersonating} onQuestionViewerChange={setFinalQuestionsOpen} eventFormat={eventFormat} />}
         </AnimatePresence>
       </motion.div>
 

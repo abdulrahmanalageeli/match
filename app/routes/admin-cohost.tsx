@@ -42,9 +42,34 @@ import {
 } from "lucide-react"
 import { compatibilityTotalForDisplay, currentBalancedGroupedDimensionsForDisplay, currentOppositesDimensionsForDisplay } from "~/lib/compatibility-model"
 import { cohostDashboardView, isCohostDetailVisible } from "~/lib/cohost-visibility"
+import {
+  EVENT3_CHOICE_COHOST_PHASES,
+  buildEvent3DisplayedMutationContext,
+  calculateEvent3ServerClockOffsetMs,
+  getEvent3ChoiceCohostNextPhase,
+  getEvent3ChoiceCohostPhase,
+  getEvent3ChoiceCohostPhaseIndex,
+  getEvent3CohostTimerStatus,
+  summarizeEvent3GroupFeedbackProgress,
+  type Event3DisplayedMutationContext,
+} from "~/lib/event3-cohost-guide.mjs"
 
 const API = "/api/admin"
 const SESSION_KEY = "event3_cohost_token"
+const COHOST_WRITE_TIMEOUT_MS = 20_000
+const COHOST_READ_ACTION = /^(e3-get-|e3-cohost-(dashboard|rankings|attendee-details)$)/
+
+let cohostDisplayedMutationContext: Event3DisplayedMutationContext | null = null
+
+function setCohostDisplayedMutationContext(context: Event3DisplayedMutationContext | null) {
+  cohostDisplayedMutationContext = context
+}
+
+function sameEvent3MutationContext(left: Event3DisplayedMutationContext | null, right: Event3DisplayedMutationContext | null) {
+  return left?.expected_event_id === right?.expected_event_id
+    && left?.expected_test_mode === right?.expected_test_mode
+    && left?.expected_test_session_key === right?.expected_test_session_key
+}
 
 type CohostTab = "home" | "people" | "rankings" | "tables" | "feedback" | "support" | "messages"
 type RankingFilter = "all" | "submitted" | "pending"
@@ -157,6 +182,7 @@ type CohostApiError = Error & { status?: number; code?: string }
 interface CohostDashboard {
   event_id: number
   event_format?: Event3Format | string | null
+  server_now?: string | null
   test_mode?: boolean
   test_session_key?: string
   state: {
@@ -167,6 +193,7 @@ interface CohostDashboard {
     global_timer_round: number | null
     test_mode_active?: boolean
     event_format?: Event3Format | string | null
+    server_now?: string | null
   }
   participants: CohostParticipant[]
   sos_requests: SosRequest[]
@@ -402,6 +429,10 @@ function activeRound(phase?: string) {
   return null
 }
 
+function isRankingPhase(phase?: string) {
+  return phase === "ranking1" || phase === "ranking2" || phase === "ranking3"
+}
+
 function rankingLocationRound(phase: string | undefined, choiceOnly: boolean) {
   if (phase === "round1" || phase === "ranking1") return 1
   if (phase === "round2" || phase === "ranking2") return 2
@@ -452,23 +483,7 @@ function reciprocalRankingLabel(item: CohostRankingItem) {
   return "الترتيب المقابل غير متاح"
 }
 
-const PHASE_ORDER = [
-  "setup",
-  "round1",
-  "ranking1",
-  "round2",
-  "ranking2",
-  "round3",
-  "ranking3",
-  "phase2_processing",
-  "break",
-  "phase2_reveal",
-  "phase3_processing",
-  "phase3_reveal",
-  "phase4_processing",
-  "phase4_reveal",
-  "final_reveal",
-]
+const PHASE_ORDER: readonly string[] = EVENT3_CHOICE_COHOST_PHASES.map(item => item.phase)
 
 function phaseReached(currentPhase: string | undefined, targetPhase: string) {
   const currentIndex = PHASE_ORDER.indexOf(currentPhase || "")
@@ -491,24 +506,49 @@ function feedbackMetric(feedback: Record<string, unknown> | null, key: string) {
 }
 
 async function cohostApi<T>(action: string, token: string, extra: Record<string, unknown> = {}): Promise<T> {
-  const response = await fetch(API, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ action, ...extra }),
-  })
-  const contentType = response.headers.get("content-type") || ""
-  if (!contentType.includes("application/json")) throw new Error("تعذر الوصول إلى خدمة الفعالية")
-  const data = await response.json().catch(() => ({}))
-  if (!response.ok || data?.success === false || data?.error) {
-    const error = new Error(data?.error || "تعذر تنفيذ الطلب") as CohostApiError
-    error.status = response.status
-    error.code = data?.code
+  const isWrite = !COHOST_READ_ACTION.test(action)
+  const body: Record<string, unknown> = { action }
+  if (cohostDisplayedMutationContext) Object.assign(body, cohostDisplayedMutationContext)
+  Object.assign(body, extra)
+  if (isWrite && (!Number.isSafeInteger(Number(body.expected_event_id)) || typeof body.expected_test_mode !== "boolean" || !String(body.expected_test_session_key || "").trim())) {
+    const error = new Error("تعذر التحقق من الفعالية المعروضة. حدّثي الصفحة قبل إعادة المحاولة.") as CohostApiError
+    error.code = "EVENT3_CONTEXT_UNAVAILABLE"
     throw error
   }
-  return data as T
+
+  const controller = isWrite ? new AbortController() : null
+  const timeout = controller ? setTimeout(() => controller.abort(), COHOST_WRITE_TIMEOUT_MS) : null
+  try {
+    const response = await fetch(API, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+      ...(controller ? { signal: controller.signal } : {}),
+    })
+    const contentType = response.headers.get("content-type") || ""
+    if (!contentType.includes("application/json")) throw new Error("تعذر الوصول إلى خدمة الفعالية")
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok || data?.success === false || data?.error) {
+      const error = new Error(data?.error || "تعذر تنفيذ الطلب") as CohostApiError
+      error.status = response.status
+      error.code = data?.code
+      throw error
+    }
+    return data as T
+  } catch (requestError) {
+    if (controller?.signal.aborted && (requestError as Error)?.name === "AbortError") {
+      const timeoutError = new Error("استغرق حفظ التغيير أكثر من ٢٠ ثانية. تحققي من الاتصال ثم حدّثي الصفحة قبل إعادة المحاولة.") as CohostApiError
+      timeoutError.status = 408
+      timeoutError.code = "COHOST_REQUEST_TIMEOUT"
+      throw timeoutError
+    }
+    throw requestError
+  } finally {
+    if (timeout) clearTimeout(timeout)
+  }
 }
 
 function SectionTitle({ icon: Icon, title, detail }: { icon: LucideIcon; title: string; detail?: string }) {
@@ -525,9 +565,91 @@ function SectionTitle({ icon: Icon, title, detail }: { icon: LucideIcon; title: 
   )
 }
 
+function ChoiceCohostOperationsGuide({
+  phase,
+  timerActive,
+  timerStarted,
+  timerRemaining,
+}: {
+  phase?: string
+  timerActive: boolean
+  timerStarted: boolean
+  timerRemaining: number
+}) {
+  const current = getEvent3ChoiceCohostPhase(phase)
+  const currentIndex = getEvent3ChoiceCohostPhaseIndex(phase)
+  const next = getEvent3ChoiceCohostNextPhase(phase)
+  const currentItemRef = useRef<HTMLLIElement>(null)
+
+  useEffect(() => {
+    currentItemRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" })
+  }, [phase])
+
+  if (!current) return null
+
+  const timerExpired = timerActive && timerStarted && timerRemaining <= 0
+  const timerRunning = timerActive && timerStarted && !timerExpired
+  const instruction = timerExpired && current.expiredInstruction ? current.expiredInstruction : current.instruction
+  const timerText = timerExpired
+    ? "انتهى الوقت"
+    : timerRunning
+      ? `متبقٍ ${formatTimer(timerRemaining)}`
+      : current.durationSeconds > 0
+        ? `المؤقت غير مشغّل · ${current.durationLabel}`
+        : current.durationLabel
+
+  return (
+    <section aria-labelledby="cohost-current-action" className="overflow-hidden rounded-3xl border border-teal-300/20 bg-gradient-to-b from-teal-300/[0.08] to-white/[0.025] shadow-lg shadow-teal-950/15">
+      <div className="p-4 sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="rounded-full bg-teal-300/12 px-2.5 py-1 text-[10px] font-black text-teal-100">المطلوب الآن</span>
+          <span className={`inline-flex min-h-8 items-center gap-1.5 rounded-xl border px-2.5 text-[10px] font-black ${timerExpired ? "border-red-400/30 bg-red-950/35 text-red-200" : timerRunning ? "border-amber-300/25 bg-amber-300/[0.08] text-amber-100" : "border-white/10 bg-black/15 text-slate-300"}`}>
+            <Clock3 size={13} /> {timerText}
+          </span>
+        </div>
+        <h2 id="cohost-current-action" className="mt-3 text-lg font-black text-white">{current.label}</h2>
+        <p className="mt-2 text-sm leading-7 text-slate-200">{instruction}</p>
+        <div className="mt-3 rounded-2xl border border-white/[0.07] bg-black/15 px-3 py-2.5">
+          <p className="text-[10px] font-black text-teal-200">{next ? `التالي · ${next.label}` : "بعد الختام"}</p>
+          <p className="mt-1 text-[11px] leading-5 text-slate-400">{current.nextAction}</p>
+        </div>
+      </div>
+
+      <div className="border-t border-white/[0.06] bg-black/10 px-4 py-3 sm:px-5">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <h3 className="text-xs font-black text-white">مسار الفعالية</h3>
+          <span className="text-[9px] text-slate-500">مرّري لرؤية جميع المراحل</span>
+        </div>
+        <ol aria-label="مراحل فعالية الاختيارات" className="flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
+          {EVENT3_CHOICE_COHOST_PHASES.map((item, index) => {
+            const completed = currentIndex >= 0 && index < currentIndex
+            const active = index === currentIndex
+            const activeStatus = timerExpired
+              ? "انتهى الوقت"
+              : timerRunning
+                ? formatTimer(timerRemaining)
+                : "الآن"
+            return (
+              <li ref={active ? currentItemRef : undefined} key={item.phase} aria-current={active ? "step" : undefined} className={`min-w-[9.5rem] snap-start rounded-2xl border p-2.5 ${active ? "border-teal-300/35 bg-teal-300/10" : completed ? "border-teal-300/10 bg-teal-300/[0.035]" : "border-white/[0.06] bg-white/[0.025]"}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${active ? "bg-teal-300 text-slate-950" : completed ? "bg-teal-300/12 text-teal-200" : "bg-white/[0.05] text-slate-500"}`}>
+                    {completed ? <CheckCircle2 size={14} /> : active ? <Clock3 size={14} /> : <Circle size={13} />}
+                  </span>
+                  <span className={`text-[9px] font-black ${active && timerExpired ? "text-red-200" : active ? "text-teal-200" : "text-slate-500"}`}>{active ? activeStatus : completed ? "تم" : item.durationSeconds > 0 ? "قادم" : item.durationLabel}</span>
+                </div>
+                <p className={`mt-2 text-[10px] font-black leading-5 ${active ? "text-white" : completed ? "text-slate-300" : "text-slate-500"}`}>{item.label}</p>
+                {item.durationSeconds > 0 ? <p className={`mt-0.5 text-[9px] ${active ? "text-teal-100/60" : "text-slate-600"}`}>{active ? `المدة · ${item.durationLabel}` : item.durationLabel}</p> : null}
+              </li>
+            )
+          })}
+        </ol>
+      </div>
+    </section>
+  )
+}
+
 function CohostPairCard({ pair, onNote, hasNote = false, choiceOnly = false }: { pair: PairView; onNote?: () => void; hasNote?: boolean; choiceOnly?: boolean }) {
   const choice = pair.source === "choice"
-  const choiceMatch = choice || choiceOnly
   const matchLabel = choiceOnly
     ? `الاختيار ${pair.choiceSlot === 3 ? "الثالث" : pair.choiceSlot === 2 ? "الثاني" : "الأول"}`
     : choice
@@ -537,8 +659,8 @@ function CohostPairCard({ pair, onNote, hasNote = false, choiceOnly = false }: {
         : pair.source === "locked"
           ? "مقفلة قبل التشغيل"
           : "مطابقة الخوارزمية"
-  const total = compatibilityTotalForDisplay(pair.compatibility, pair.score ?? null)
-  const dimensions = currentBalancedGroupedDimensionsForDisplay(pair.compatibility) ?? currentOppositesDimensionsForDisplay(pair.compatibility)
+  const total = choiceOnly ? null : compatibilityTotalForDisplay(pair.compatibility, pair.score ?? null)
+  const dimensions = choiceOnly ? null : currentBalancedGroupedDimensionsForDisplay(pair.compatibility) ?? currentOppositesDimensionsForDisplay(pair.compatibility)
   return (
     <article className={`min-w-0 rounded-2xl border p-3 ${choice ? "border-pink-300/15 bg-pink-300/[0.04]" : "border-violet-300/15 bg-violet-300/[0.04]"}`}>
       <div className="flex min-w-0 items-start gap-2 text-sm font-black">
@@ -550,9 +672,9 @@ function CohostPairCard({ pair, onNote, hasNote = false, choiceOnly = false }: {
         <span className="text-amber-100">{pair.table ? `طاولة ${pair.table}` : "بانتظار توزيع الطاولة"}</span>
         <span className={choice ? "text-pink-200" : "text-violet-200"}>{matchLabel}</span>
       </div>
-      <details className="mt-3 rounded-xl border border-white/[0.07] bg-black/15">
+      {!choiceOnly ? <details className="mt-3 rounded-xl border border-white/[0.07] bg-black/15">
         <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-xs font-black [&::-webkit-details-marker]:hidden">
-          <span className="flex items-center gap-1.5">{choiceMatch ? <Heart size={14} className={choice ? "text-pink-200" : "text-violet-200"} /> : <Sparkles size={14} className="text-violet-200" />} تفاصيل التوافق</span>
+          <span className="flex items-center gap-1.5">{choice ? <Heart size={14} className="text-pink-200" /> : <Sparkles size={14} className="text-violet-200" />} تفاصيل التوافق</span>
           <span className="flex items-center gap-2"><span className="text-base tabular-nums text-white">{total == null ? "—" : `${Math.round(total)}%`}</span><ChevronDown size={13} className="text-slate-500" /></span>
         </summary>
         <div className="space-y-3 border-t border-white/[0.06] p-3">
@@ -564,7 +686,7 @@ function CohostPairCard({ pair, onNote, hasNote = false, choiceOnly = false }: {
             })}
           </> : <p className="text-[11px] leading-6 text-slate-400">تفاصيل الدرجة غير متاحة.</p>}
         </div>
-      </details>
+      </details> : null}
       {onNote ? <button onClick={onNote} className={`mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border text-[11px] font-bold ${hasNote ? "border-amber-300/20 bg-amber-300/[0.06] text-amber-100" : "border-white/[0.07] bg-white/[0.025] text-slate-300"}`}><NotebookPen size={14} />{hasNote ? "عرض ملاحظة اللقاء" : "ملاحظة خاصة عن اللقاء"}</button> : null}
     </article>
   )
@@ -623,6 +745,7 @@ export default function AdminCohostPage() {
   const [sosBusy, setSosBusy] = useState<Record<string, boolean>>({})
   const [replyText, setReplyText] = useState<Record<string, string>>({})
   const [timerRemaining, setTimerRemaining] = useState(0)
+  const [serverClockOffsetMs, setServerClockOffsetMs] = useState(0)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [messageTarget, setMessageTarget] = useState("")
   const [notificationTitle, setNotificationTitle] = useState("")
@@ -670,6 +793,7 @@ export default function AdminCohostPage() {
     rankingsRequest.current++
     sessionStorage.removeItem(SESSION_KEY)
     localStorage.removeItem("cohost_auth")
+    setCohostDisplayedMutationContext(null)
     setToken("")
     setApprovedToken("")
     setDashboard(null)
@@ -677,6 +801,7 @@ export default function AdminCohostPage() {
     setRankings([])
     setEditingRanker(null)
     setRankingDraft([])
+    setServerClockOffsetMs(0)
     setPanelLocked(false)
     setEditingNote(null)
     setViewingParticipant(null)
@@ -697,11 +822,13 @@ export default function AdminCohostPage() {
       feedbackRequest.current++
       operationsRequest.current++
       rankingsRequest.current++
+      setCohostDisplayedMutationContext(null)
       setApprovedToken("")
       setDashboard(null)
       setLiveData(EMPTY_LIVE_DATA)
       setRankings([])
       setEditingRanker(null)
+      setServerClockOffsetMs(0)
       setEditingNote(null)
       setViewingParticipant(null)
       setError("")
@@ -713,7 +840,7 @@ export default function AdminCohostPage() {
       return
     }
     if (status === 401 || status === 403) {
-      logout("انتهت جلسة رنيم. سجّلي الدخول مرة أخرى.")
+      logout("انتهت جلسة المضيفة. سجّلي الدخول مرة أخرى.")
       return
     }
     setError(requestError instanceof Error ? requestError.message : fallback)
@@ -725,10 +852,50 @@ export default function AdminCohostPage() {
     if (pendingReads.current.has(key)) return
     pendingReads.current.add(key)
     const requestId = ++dashboardRequest.current
+    const requestStartedAt = Date.now()
     if (!quiet) setLoading(true)
     try {
       const data = await cohostApi<CohostDashboard>("e3-cohost-dashboard", token)
       if (requestId !== dashboardRequest.current) return
+      const responseReceivedAt = Date.now()
+      const nextMutationContext = buildEvent3DisplayedMutationContext({
+        eventId: data.event_id,
+        testMode: data.test_mode === true || data.state.test_mode_active === true,
+        testSessionKey: data.test_session_key,
+      })
+      const contextChanged = cohostDisplayedMutationContext !== null
+        && nextMutationContext !== null
+        && !sameEvent3MutationContext(cohostDisplayedMutationContext, nextMutationContext)
+      setCohostDisplayedMutationContext(nextMutationContext)
+      if (contextChanged) {
+        rankingsRequest.current++
+        feedbackRequest.current++
+        operationsRequest.current++
+        setRankings([])
+        setLiveData(EMPTY_LIVE_DATA)
+        setEditingRanker(null)
+        setRankingDraft([])
+        setReplyText({})
+        setViewingParticipant(null)
+        setMessageTarget("")
+        setNotificationTitle("")
+        setNotificationUrgent(false)
+        setMessageBody("")
+        setMoodParticipant("")
+        setMoodTable("")
+        setFeedbackUpdated(null)
+      }
+      const serverNow = data.server_now ?? data.state?.server_now
+      const clockOffsetMs = calculateEvent3ServerClockOffsetMs({ serverNow, requestStartedAt, responseReceivedAt })
+      setServerClockOffsetMs(clockOffsetMs)
+      const fallbackDuration = getEvent3ChoiceCohostPhase(data.state.phase)?.durationSeconds ?? 0
+      const timer = getEvent3CohostTimerStatus({
+        active: data.state.global_timer_active,
+        startTime: data.state.global_timer_start_time,
+        durationSeconds: data.state.global_timer_duration ?? fallbackDuration,
+        nowMs: responseReceivedAt + clockOffsetMs,
+      })
+      setTimerRemaining(timer.state === "inactive" ? 0 : timer.remainingSeconds)
       setDashboard(data)
       setPanelLocked(false)
       setConnectionIssue(false)
@@ -895,19 +1062,32 @@ export default function AdminCohostPage() {
   }, [agreementAccepted, editingRanker, fetchRankings, panelLocked, tab])
 
   useEffect(() => {
+    if (isRankingPhase(dashboard?.state.phase) || editingRanker === null) return
+    setEditingRanker(null)
+    setRankingDraft([])
+  }, [dashboard?.state.phase, editingRanker])
+
+  useEffect(() => {
     const state = dashboard?.state
     if (!state?.global_timer_active || !state.global_timer_start_time) {
       setTimerRemaining(0)
       return
     }
+    const fallbackDuration = getEvent3ChoiceCohostPhase(state.phase)?.durationSeconds ?? 0
+    const durationSeconds = state.global_timer_duration ?? fallbackDuration
     const update = () => {
-      const elapsed = Math.floor((Date.now() - new Date(state.global_timer_start_time as string).getTime()) / 1000)
-      setTimerRemaining(Math.max(0, Number(state.global_timer_duration || 0) - elapsed))
+      const timer = getEvent3CohostTimerStatus({
+        active: true,
+        startTime: state.global_timer_start_time,
+        durationSeconds,
+        nowMs: Date.now() + serverClockOffsetMs,
+      })
+      setTimerRemaining(timer.remainingSeconds)
     }
     update()
     const interval = window.setInterval(update, 1000)
     return () => window.clearInterval(interval)
-  }, [dashboard?.state])
+  }, [dashboard?.state, serverClockOffsetMs])
 
   const handleLogin = async (event: FormEvent) => {
     event.preventDefault()
@@ -944,6 +1124,7 @@ export default function AdminCohostPage() {
   const participants = dashboard?.participants || EMPTY_PARTICIPANTS
   const eventFormat = normalizeEventFormat(dashboard?.event_format, dashboard?.state.event_format)
   const choiceOnly = eventFormat === CHOICE_ONLY_EVENT_FORMAT
+  const rankingPhaseActive = isRankingPhase(dashboard?.state.phase)
   const selectedAttendee = participants.find(participant => participant.number === viewingParticipant)
   const participantByNumber = useMemo(() => new Map(participants.map(participant => [Number(participant.number), participant])), [participants])
   const round = activeRound(dashboard?.state.phase)
@@ -1026,7 +1207,7 @@ export default function AdminCohostPage() {
           )
           const expectedCount = Math.max(0, visibleMembers.length - 1)
           const reviewedCount = new Set(submissions.map(entry => Number(entry.member_number))).size
-          const status = expectedCount === 0
+          const status: "not_applicable" | "missing" | "partial" | "complete" = expectedCount === 0
             ? "not_applicable"
             : reviewedCount === 0
               ? "missing"
@@ -1035,24 +1216,25 @@ export default function AdminCohostPage() {
                 : "complete"
           return { participant, submissions, expectedCount, reviewedCount, status }
         })
+        const progress = summarizeEvent3GroupFeedbackProgress(members.map(member => member.status))
         return {
           ...group,
           members,
-          submittedCount: members.filter(member => member.status === "partial" || member.status === "complete").length,
-          missingCount: members.filter(member => member.status === "missing").length,
+          ...progress,
         }
       })
       const members = groups.flatMap(group => group.members).filter(member => member.status !== "not_applicable")
+      const progress = summarizeEvent3GroupFeedbackProgress(members.map(member => member.status))
       return {
         round: groupRound,
         label: roundLabel(groupRound, choiceOnly),
         started,
         groups,
-        expectedCount: members.length,
-        submittedCount: members.filter(member => member.status === "partial" || member.status === "complete").length,
-        completeCount: members.filter(member => member.status === "complete").length,
-        partialCount: members.filter(member => member.status === "partial").length,
-        missingCount: started ? members.filter(member => member.status === "missing").length : 0,
+        expectedCount: progress.expectedCount,
+        completeCount: progress.completeCount,
+        partialCount: progress.partialCount,
+        missingCount: started ? progress.missingCount : 0,
+        remainingCount: started ? progress.remainingCount : 0,
       }
     })
   }, [choiceOnly, dashboard?.state.phase, liveData.groupFeedback.submissions, tableGroups])
@@ -1108,13 +1290,13 @@ export default function AdminCohostPage() {
   const activeGroupFeedbackRounds = groupFeedbackRounds.filter(item => item.started)
   const activeIndividualFeedbackPhases = individualFeedbackPhases.filter(item => item.started)
   const groupFeedbackExpected = activeGroupFeedbackRounds.reduce((total, item) => total + item.expectedCount, 0)
-  const groupFeedbackSubmitted = activeGroupFeedbackRounds.reduce((total, item) => total + item.submittedCount, 0)
-  const groupFeedbackMissing = activeGroupFeedbackRounds.reduce((total, item) => total + item.missingCount, 0)
+  const groupFeedbackComplete = activeGroupFeedbackRounds.reduce((total, item) => total + item.completeCount, 0)
   const groupFeedbackPartial = activeGroupFeedbackRounds.reduce((total, item) => total + item.partialCount, 0)
+  const groupFeedbackRemaining = activeGroupFeedbackRounds.reduce((total, item) => total + item.remainingCount, 0)
   const individualFeedbackExpected = activeIndividualFeedbackPhases.reduce((total, item) => total + item.expectedCount, 0)
   const individualFeedbackSubmitted = activeIndividualFeedbackPhases.reduce((total, item) => total + item.submittedCount, 0)
   const individualFeedbackMissing = activeIndividualFeedbackPhases.reduce((total, item) => total + item.missingCount, 0)
-  const feedbackMissingTotal = groupFeedbackMissing + individualFeedbackMissing
+  const feedbackIncompleteTotal = groupFeedbackRemaining + individualFeedbackMissing
   const normalizedFeedbackSearch = feedbackSearch.trim().toLowerCase()
   const feedbackPersonMatches = (number: number, name: string) => !normalizedFeedbackSearch
     || name.toLowerCase().includes(normalizedFeedbackSearch)
@@ -1231,8 +1413,23 @@ export default function AdminCohostPage() {
 
   const openNote = (scope: CohostNoteScope, title = noteLabel(scope)) => {
     if (!dashboard || panelLocked) return
+    const mutationContext = buildEvent3DisplayedMutationContext({
+      eventId: dashboard.event_id,
+      testMode,
+      testSessionKey: dashboard.test_session_key,
+    })
+    if (!mutationContext) {
+      setError("تعذر التحقق من الفعالية المعروضة. حدّثي الصفحة قبل إضافة ملاحظة.")
+      return
+    }
     const saved = notesByKey.get(scope.scope_key)
-    setEditingNote({ ...scope, title, event_id: dashboard.event_id, test_mode: testMode, test_session_key: dashboard.test_session_key || "" })
+    setEditingNote({
+      ...scope,
+      title,
+      event_id: mutationContext.expected_event_id,
+      test_mode: mutationContext.expected_test_mode,
+      test_session_key: mutationContext.expected_test_session_key,
+    })
     setNoteDraft(saved?.note || "")
     setNoteOriginal(saved?.note || "")
     setNoteUpdatedAt(saved?.updated_at || null)
@@ -1495,7 +1692,7 @@ export default function AdminCohostPage() {
           </div>
           <div className="mt-5 text-center">
             <p className="text-[11px] font-black tracking-[0.16em] text-teal-300">BLINDMATCH · EVENT 3</p>
-            <h1 className="mt-2 text-2xl font-black">أهلًا رنيم 👋</h1>
+            <h1 className="mt-2 text-2xl font-black">أهلًا بكِ 👋</h1>
             <p className="mt-2 text-sm leading-7 text-slate-300">هذه مساحتك لإدارة الحضور والجداول والمساعدة والرسائل بسهولة أثناء الفعالية.</p>
           </div>
           <form onSubmit={handleLogin} className="mt-7 space-y-3">
@@ -1529,15 +1726,15 @@ export default function AdminCohostPage() {
   }
 
   if (panelLocked) {
-    return <div className="flex min-h-[100dvh] items-center justify-center bg-[#06090f] p-5 text-white" dir="rtl"><div className="w-full max-w-sm rounded-3xl border border-amber-300/20 bg-[#0b1019] p-6 text-center"><LockKeyhole size={36} className="mx-auto text-amber-200" /><h1 className="mt-4 text-xl font-black">لوحة المضيفة متوقفة مؤقتًا</h1><p className="mt-3 text-sm leading-7 text-slate-300">أوقف المضيف الوصول من Admin3. الفعالية مستمرة للمشاركين، وستعود اللوحة تلقائيًا عند إعادة فتحها.</p>{editingNote ? <p className="mt-3 text-xs leading-6 text-amber-100">مسودة الملاحظة ما زالت محفوظة في هذه الصفحة. أبقيها مفتوحة حتى يُعاد الوصول.</p> : null}<button onClick={() => fetchDashboard()} disabled={loading} className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-amber-300 text-sm font-black text-slate-950 disabled:opacity-40"><RefreshCw size={17} className={loading ? "animate-spin" : ""} /> تحقق من إعادة الفتح</button><button onClick={() => logout()} className="mt-2 min-h-11 w-full rounded-xl text-xs font-bold text-slate-400">تسجيل الخروج</button></div></div>
+    return <div className="flex min-h-[100dvh] items-center justify-center bg-[#06090f] p-5 text-white" dir="rtl"><div className="w-full max-w-sm rounded-3xl border border-amber-300/20 bg-[#0b1019] p-6 text-center"><LockKeyhole size={36} className="mx-auto text-amber-200" /><h1 className="mt-4 text-xl font-black">لوحة المضيفة متوقفة مؤقتًا</h1><p className="mt-3 text-sm leading-7 text-slate-300">أوقف المضيف الوصول من لوحة الإدارة. الفعالية مستمرة للمشاركين، وستعود اللوحة تلقائيًا عند إعادة فتحها.</p>{editingNote ? <p className="mt-3 text-xs leading-6 text-amber-100">مسودة الملاحظة ما زالت محفوظة في هذه الصفحة. أبقيها مفتوحة حتى يُعاد الوصول.</p> : null}<button onClick={() => fetchDashboard()} disabled={loading} className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-amber-300 text-sm font-black text-slate-950 disabled:opacity-40"><RefreshCw size={17} className={loading ? "animate-spin" : ""} /> تحقق من إعادة الفتح</button><button onClick={() => logout()} className="mt-2 min-h-11 w-full rounded-xl text-xs font-bold text-slate-400">تسجيل الخروج</button></div></div>
   }
 
   const tabs: Array<{ value: CohostTab; label: string; icon: LucideIcon; badge?: number; badgeTone?: "amber" | "red" }> = [
     { value: "home", label: "الرئيسية", icon: LayoutDashboard },
     { value: "people", label: "الحضور", icon: Users },
-    { value: "rankings", label: "التصنيفات", icon: ListOrdered, badge: Math.max(0, participants.length - rankingCount), badgeTone: "amber" },
+    { value: "rankings", label: "التصنيفات", icon: ListOrdered, badge: rankingPhaseActive ? Math.max(0, participants.length - rankingCount) : undefined, badgeTone: "amber" },
     { value: "tables", label: "الجداول", icon: Table2 },
-    { value: "feedback", label: "التقييمات", icon: ClipboardCheck, badge: feedbackMissingTotal, badgeTone: "amber" },
+    { value: "feedback", label: "التقييمات", icon: ClipboardCheck, badge: feedbackIncompleteTotal, badgeTone: "amber" },
     { value: "support", label: "المتابعة", icon: Headphones, badge: dashboard?.sos_requests.length || 0, badgeTone: "red" },
   ]
 
@@ -1553,7 +1750,7 @@ export default function AdminCohostPage() {
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <h1 className="truncate text-sm font-black">لوحة رنيم · فعالية {dashboard?.event_id ?? "—"}</h1>
+                  <h1 className="truncate text-sm font-black">لوحة المضيفة · فعالية {dashboard?.event_id ?? "—"}</h1>
                   {testMode ? <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-0.5 text-[9px] font-black text-amber-200">اختبار</span> : null}
                 </div>
                 <div className={`mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] font-bold ${connectionIssue ? "text-amber-200" : "text-teal-300"}`}>
@@ -1565,8 +1762,8 @@ export default function AdminCohostPage() {
             </div>
             <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
               {dashboard?.state.global_timer_active ? (
-                <div className={`me-auto flex min-h-11 items-center gap-1.5 rounded-xl border px-2.5 font-mono text-xs font-black sm:me-0 ${timerRemaining <= 60 ? "border-red-400/30 bg-red-950/40 text-red-200" : "border-white/10 bg-white/[0.04] text-slate-100"}`} title="عرض المؤقت فقط">
-                  <Clock3 size={14} /> {formatTimer(timerRemaining)}
+                <div className={`me-auto flex min-h-11 items-center gap-1.5 rounded-xl border px-2.5 text-xs font-black sm:me-0 ${timerRemaining <= 60 ? "border-red-400/30 bg-red-950/40 text-red-200" : "border-white/10 bg-white/[0.04] text-slate-100"}`} title={timerRemaining > 0 ? "الوقت المتبقي حسب ساعة الخادم" : "انتهى وقت المرحلة"}>
+                  <Clock3 size={14} /> <span className={timerRemaining > 0 ? "font-mono" : ""}>{timerRemaining > 0 ? formatTimer(timerRemaining) : "انتهى الوقت"}</span>
                 </div>
               ) : null}
               <button onClick={() => setTab("messages")} aria-label="التواصل والاطمئنان" className={`relative flex h-11 w-11 items-center justify-center rounded-xl border text-slate-200 ${tab === "messages" ? "border-teal-300/30 bg-teal-300/12" : "border-white/10 bg-white/[0.04]"}`}>
@@ -1587,7 +1784,7 @@ export default function AdminCohostPage() {
         {testMode ? (
           <div className="flex gap-3 rounded-2xl border border-amber-300/30 bg-amber-300/10 p-3 text-amber-100">
             <TestTube2 size={20} className="mt-0.5 shrink-0" />
-            <div><p className="text-xs font-black">وضع الاختبار يعمل الآن</p><p className="mt-1 text-[11px] leading-5 text-amber-100/75">النتائج والطاولات المعروضة تجريبية ومعزولة عن الفعالية الفعلية.</p></div>
+            <div><p className="text-xs font-black">وضع الاختبار يعمل الآن</p><p className="mt-1 text-[11px] leading-5 text-amber-100/75">النتائج والطاولات المعروضة تتبع جلسة الاختبار الحالية. تحققي من شارة الاختبار قبل أي متابعة.</p></div>
           </div>
         ) : null}
 
@@ -1605,9 +1802,11 @@ export default function AdminCohostPage() {
         ) : null}
 
         {loading && !dashboard ? (
-          <div className="flex min-h-[55vh] flex-col items-center justify-center gap-3 text-slate-400"><Loader2 size={28} className="animate-spin text-teal-300" /><p className="text-sm">جاري تجهيز لوحة رنيم…</p></div>
+          <div className="flex min-h-[55vh] flex-col items-center justify-center gap-3 text-slate-400"><Loader2 size={28} className="animate-spin text-teal-300" /><p className="text-sm">جاري تجهيز لوحة المضيفة…</p></div>
         ) : tab === "home" ? (
           <>
+            {choiceOnly && dashboard ? <ChoiceCohostOperationsGuide phase={dashboard.state.phase} timerActive={dashboard.state.global_timer_active} timerStarted={Boolean(dashboard.state.global_timer_start_time)} timerRemaining={timerRemaining} /> : null}
+
             <section className={`grid grid-cols-2 gap-2 ${choiceOnly ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
               {[
                 { label: "الحاضرين", value: `${attendedCount}/${participants.length}`, icon: UserCheck, color: "text-teal-300" },
@@ -1624,11 +1823,11 @@ export default function AdminCohostPage() {
             </section>
 
             <section className="grid gap-2 sm:grid-cols-2">
-              <button onClick={() => setTab("feedback")} className={`flex min-h-[5.25rem] items-center gap-3 rounded-2xl border p-3 text-right ${feedbackMissingTotal ? "border-amber-300/25 bg-amber-300/[0.07]" : "border-teal-300/20 bg-teal-300/[0.05]"}`}>
-                <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${feedbackMissingTotal ? "bg-amber-300/12 text-amber-200" : "bg-teal-300/12 text-teal-200"}`}><ClipboardCheck size={21} /></span>
+              <button onClick={() => setTab("feedback")} className={`flex min-h-[5.25rem] items-center gap-3 rounded-2xl border p-3 text-right ${feedbackIncompleteTotal ? "border-amber-300/25 bg-amber-300/[0.07]" : "border-teal-300/20 bg-teal-300/[0.05]"}`}>
+                <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${feedbackIncompleteTotal ? "bg-amber-300/12 text-amber-200" : "bg-teal-300/12 text-teal-200"}`}><ClipboardCheck size={21} /></span>
                 <span className="min-w-0 flex-1">
-                  <span className="flex items-center justify-between gap-2"><span className="text-sm font-black">التقييمات المباشرة</span><span className={`rounded-full px-2 py-1 text-[10px] font-black ${feedbackMissingTotal ? "bg-amber-300/15 text-amber-100" : "bg-teal-300/15 text-teal-100"}`}>{feedbackMissingTotal ? `${feedbackMissingTotal} لم يرسلوا` : "مكتملة حتى الآن"}</span></span>
-                  <span className="mt-1.5 block text-[10px] leading-5 text-slate-400">جماعي: {groupFeedbackMissing} معلّق · فردي: {individualFeedbackMissing} معلّق{groupFeedbackPartial ? ` · ${groupFeedbackPartial} جزئي` : ""}</span>
+                  <span className="flex items-center justify-between gap-2"><span className="text-sm font-black">التقييمات المباشرة</span><span className={`rounded-full px-2 py-1 text-[10px] font-black ${feedbackIncompleteTotal ? "bg-amber-300/15 text-amber-100" : "bg-teal-300/15 text-teal-100"}`}>{feedbackIncompleteTotal ? `${feedbackIncompleteTotal} غير مكتمل` : "مكتملة حتى الآن"}</span></span>
+                  <span className="mt-1.5 block text-[10px] leading-5 text-slate-400">جماعي: {groupFeedbackRemaining} متبقٍ ({groupFeedbackPartial} بدأ) · فردي: {individualFeedbackMissing} متبقٍ</span>
                 </span>
               </button>
               <button onClick={() => setTab("messages")} className="flex min-h-[5.25rem] items-center gap-3 rounded-2xl border border-cyan-300/18 bg-cyan-300/[0.045] p-3 text-right">
@@ -1645,7 +1844,7 @@ export default function AdminCohostPage() {
             ) : null}
 
             <section className="space-y-3">
-              <SectionTitle icon={choiceOnly ? Heart : Sparkles} title={choiceOnly ? "مطابقات الاختيار الثاني جاهزة" : "المطابقات جاهزة للرؤية"} detail={choiceOnly ? "تظهر هنا أقوى الاختيارات المتبادلة المتبقية بعد استبعاد شريك اللقاء الأول." : "تظهر المطابقات المقفلة حتى قبل تشغيل الخوارزمية أو توزيع الطاولات."} />
+              <SectionTitle icon={choiceOnly ? Heart : Sparkles} title={choiceOnly ? "مطابقات الاختيار الثاني جاهزة" : "المطابقات جاهزة للرؤية"} detail={choiceOnly ? "هذه لقاءات الاختيار الثاني المعتمدة بعد استبعاد شريك اللقاء الأول." : "تظهر المطابقات المقفلة حتى قبل تشغيل الخوارزمية أو توزيع الطاولات."} />
               {phase3Pairs.length ? (
                 <div className="grid gap-2 md:grid-cols-2">
                   {phase3Pairs.slice(0, 6).map(pair => (
@@ -1658,7 +1857,7 @@ export default function AdminCohostPage() {
 
             {choiceOnly ? (
               <section className="space-y-3">
-                <SectionTitle icon={Heart} title="مطابقات الاختيار الثالث جاهزة" detail="تظهر هنا أقوى الاختيارات المتبادلة المتبقية بعد استبعاد شريكي اللقاءين الأول والثاني." />
+                <SectionTitle icon={Heart} title="مطابقات الاختيار الثالث جاهزة" detail="هذه لقاءات الاختيار الثالث المعتمدة بعد استبعاد شريكي اللقاءين الأول والثاني." />
                 {phase4Pairs.length ? (
                   <div className="grid gap-2 md:grid-cols-2">
                     {phase4Pairs.slice(0, 6).map(pair => (
@@ -1671,7 +1870,7 @@ export default function AdminCohostPage() {
             ) : null}
 
             <section className="space-y-3">
-              <SectionTitle icon={Table2} title={round ? `الطاولات الآن · ${roundLabel(round, choiceOnly)}` : "نظرة سريعة على الطاولات"} detail="هذه المعلومات للعرض والتوجيه فقط." />
+              <SectionTitle icon={Table2} title={round ? `الطاولات الآن · ${roundLabel(round, choiceOnly)}` : "نظرة سريعة على الطاولات"} detail={round ? "استخدمي الأسماء لتوجيه المشاركين بسرعة إلى أماكنهم الحالية." : "ستظهر الطاولات الحالية هنا عند بدء جلسة."} />
               {round && tableGroups[round]?.length ? (
                 <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
                   {tableGroups[round].map(group => <div key={group.table} className="rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3"><p className="text-xs font-black text-amber-200">طاولة {group.table}</p><p className="mt-2 text-[11px] leading-5 text-slate-300">{group.members.map(member => firstName(member.name)).join("، ")}</p><button onClick={() => openNote({ scope_type: "table", scope_key: `table:${round}:${group.table}`, round, table_number: group.table })} className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/[0.07] text-[11px] font-bold text-amber-100"><NotebookPen size={14} />{notesByKey.has(`table:${round}:${group.table}`) ? "عرض ملاحظة الطاولة" : "ملاحظة للطاولة"}</button></div>)}
@@ -1727,7 +1926,7 @@ export default function AdminCohostPage() {
         ) : tab === "rankings" ? (
           <section className="space-y-4">
             <div className="flex items-start justify-between gap-3">
-              <SectionTitle icon={ListOrdered} title="تصنيفات المشاركين" detail="ملخص مباشر للترتيبات الحالية. التعديل يعيد ترتيب نفس الأسماء فقط؛ المطابقات التي شُغّلت مسبقًا لا تتغير تلقائيًا." />
+              <SectionTitle icon={ListOrdered} title="تصنيفات المشاركين" detail={rankingPhaseActive ? "الترتيب مفتوح الآن. يمكن تعديل ترتيب الأسماء نفسها فقط؛ اللقاءات المعتمدة سابقًا لا تتغير تلقائيًا." : "التصنيفات للعرض الآن. يفتح التعديل فقط أثناء مرحلة الترتيب الحالية."} />
               <button onClick={() => fetchRankings()} disabled={rankingsLoading || editingRanker !== null} aria-label="تحديث التصنيفات" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] disabled:opacity-40">
                 <RefreshCw size={15} className={rankingsLoading ? "animate-spin" : ""} />
               </button>
@@ -1759,7 +1958,7 @@ export default function AdminCohostPage() {
 
             <div className="grid gap-2 md:grid-cols-2">
               {filteredRankings.map(ranking => {
-                const isEditing = editingRanker === ranking.number
+                const isEditing = rankingPhaseActive && editingRanker === ranking.number
                 const tableBadges = rankingTableBadges(ranking.number)
                 return (
                   <article key={ranking.number} className={`rounded-2xl border p-3 ${ranking.submitted ? "border-white/[0.08] bg-white/[0.035]" : "border-amber-300/20 bg-amber-300/[0.04]"}`}>
@@ -1769,7 +1968,7 @@ export default function AdminCohostPage() {
                         {tableBadges.length ? <div className="mt-1.5 flex flex-wrap gap-1">{tableBadges.map(table => <span key={table.key} className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[9px] font-black ${table.live ? "border-amber-300/25 bg-amber-300/[0.08] text-amber-100" : "border-white/[0.07] bg-black/15 text-slate-400"}`}><MapPin size={10} />{table.label}</span>)}</div> : null}
                         <p className={`mt-1.5 text-[10px] font-bold ${ranking.submitted ? "text-teal-200" : "text-amber-200"}`}>{ranking.submitted ? `${ranking.count} أسماء مرتبة${ranking.auto_saved ? " · حفظ تلقائي" : ""}` : ranking.count > 0 ? `${ranking.count} / ${ranking.expected_count} · غير مكتمل` : "لم يرسل التصنيف بعد"}</p>
                       </div>
-                      {ranking.submitted && !isEditing ? <button onClick={() => startRankingEdit(ranking)} disabled={editingRanker !== null} className="flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-[10px] font-black text-slate-200 disabled:opacity-40"><Pencil size={13} /> تعديل</button> : null}
+                      {rankingPhaseActive && ranking.submitted && !isEditing ? <button onClick={() => startRankingEdit(ranking)} disabled={editingRanker !== null} className="flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-[10px] font-black text-slate-200 disabled:opacity-40"><Pencil size={13} /> تعديل</button> : null}
                     </div>
 
                     {ranking.count > 0 ? (
@@ -1844,23 +2043,24 @@ export default function AdminCohostPage() {
 
             {testMode ? <div className="flex gap-2 rounded-2xl border border-amber-300/20 bg-amber-300/[0.06] p-3 text-[10px] leading-5 text-amber-100"><TestTube2 size={16} className="mt-0.5 shrink-0" /><p>المعروض الآن خاص بسياق الاختبار المتاح. لا تُخلط تقييمات المجموعة التجريبية مع الفعالية الفعلية.</p></div> : null}
 
-            <div className="grid grid-cols-3 gap-2">
-              <div className="rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.04] p-3 text-center"><p className="text-lg font-black text-cyan-100">{groupFeedbackSubmitted}/{groupFeedbackExpected}</p><p className="mt-1 text-[9px] text-cyan-100/60">أرسلوا تقييم المجموعة</p>{groupFeedbackPartial ? <p className="mt-1 text-[8px] text-amber-200">{groupFeedbackPartial} قيّموا بعض المجموعة</p> : null}</div>
-              <div className="rounded-2xl border border-pink-300/15 bg-pink-300/[0.04] p-3 text-center"><p className="text-lg font-black text-pink-100">{individualFeedbackSubmitted}/{individualFeedbackExpected}</p><p className="mt-1 text-[9px] text-pink-100/60">أرسلوا تقييم اللقاء</p></div>
-              <div className={`rounded-2xl border p-3 text-center ${feedbackMissingTotal ? "border-amber-300/20 bg-amber-300/[0.06]" : "border-teal-300/20 bg-teal-300/[0.05]"}`}><p className={`text-lg font-black ${feedbackMissingTotal ? "text-amber-100" : "text-teal-100"}`}>{feedbackMissingTotal}</p><p className={`mt-1 text-[9px] ${feedbackMissingTotal ? "text-amber-100/60" : "text-teal-100/60"}`}>ردود لم تصل بعد</p></div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="rounded-2xl border border-teal-300/15 bg-teal-300/[0.04] p-3 text-center"><p className="text-lg font-black text-teal-100">{groupFeedbackComplete}/{groupFeedbackExpected}</p><p className="mt-1 text-[9px] text-teal-100/60">أكملوا تقييم المجموعة</p></div>
+              <div className="rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.04] p-3 text-center"><p className="text-lg font-black text-cyan-100">{groupFeedbackPartial}</p><p className="mt-1 text-[9px] text-cyan-100/60">بدأوا ولم يكملوا</p></div>
+              <div className={`rounded-2xl border p-3 text-center ${groupFeedbackRemaining ? "border-amber-300/20 bg-amber-300/[0.06]" : "border-teal-300/15 bg-teal-300/[0.04]"}`}><p className={`text-lg font-black ${groupFeedbackRemaining ? "text-amber-100" : "text-teal-100"}`}>{groupFeedbackRemaining}</p><p className={`mt-1 text-[9px] ${groupFeedbackRemaining ? "text-amber-100/60" : "text-teal-100/60"}`}>متبقٍ في تقييم المجموعة</p></div>
+              <div className="rounded-2xl border border-pink-300/15 bg-pink-300/[0.04] p-3 text-center"><p className="text-lg font-black text-pink-100">{individualFeedbackSubmitted}/{individualFeedbackExpected}</p><p className="mt-1 text-[9px] text-pink-100/60">أكملوا تقييم اللقاء</p>{individualFeedbackMissing ? <p className="mt-1 text-[8px] text-amber-200">{individualFeedbackMissing} متبقٍ</p> : null}</div>
             </div>
 
             <div className="space-y-2 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-2">
               <div role="tablist" aria-label="نوع التقييم" className="grid grid-cols-2 gap-1">
                 {([
-                  { value: "group", label: `الجماعية · ${groupFeedbackMissing} معلّق` },
+                  { value: "group", label: `الجماعية · ${groupFeedbackRemaining} متبقٍ` },
                   { value: "individual", label: `الفردية · ${individualFeedbackMissing} معلّق` },
                 ] as Array<{ value: FeedbackKind; label: string }>).map(option => <button key={option.value} role="tab" aria-selected={feedbackKind === option.value} onClick={() => setFeedbackKind(option.value)} className={`min-h-11 rounded-xl px-2 text-[11px] font-black ${feedbackKind === option.value ? "bg-teal-300 text-slate-950" : "text-slate-400"}`}>{option.label}</button>)}
               </div>
               <div role="group" aria-label="حالة التقييم" className="grid grid-cols-3 gap-1">
                 {([
-                  { value: "missing", label: "لم يرسلوا" },
-                  { value: "submitted", label: "أرسلوا" },
+                  { value: "missing", label: "غير مكتمل" },
+                  { value: "submitted", label: "مكتمل" },
                   { value: "all", label: "الكل" },
                 ] as Array<{ value: FeedbackFilter; label: string }>).map(option => <button key={option.value} aria-pressed={feedbackFilter === option.value} onClick={() => setFeedbackFilter(option.value)} className={`min-h-10 rounded-lg px-1 text-[10px] font-bold ${feedbackFilter === option.value ? "bg-white/[0.1] text-white" : "text-slate-500"}`}>{option.label}</button>)}
               </div>
@@ -1878,7 +2078,7 @@ export default function AdminCohostPage() {
                     ...group,
                     members: group.members.filter(member => {
                       const matchesStatus = feedbackFilter === "all"
-                        || (feedbackFilter === "missing" ? member.status === "missing" : member.status === "partial" || member.status === "complete")
+                        || (feedbackFilter === "missing" ? member.status === "missing" || member.status === "partial" : member.status === "complete")
                       const matchesSearch = feedbackPersonMatches(member.participant.number, member.participant.name)
                         || member.submissions.some(entry => feedbackPersonMatches(entry.member_number, entry.member_name))
                       return matchesStatus && matchesSearch
@@ -1887,15 +2087,15 @@ export default function AdminCohostPage() {
                   return (
                     <div key={roundInfo.round} className="space-y-2">
                       <div className="flex items-center justify-between gap-3">
-                        <div><h3 className="text-xs font-black text-cyan-100">{roundInfo.label}</h3><p className="mt-1 text-[9px] text-slate-500">{roundInfo.started ? `${roundInfo.submittedCount} أرسلوا · ${roundInfo.missingCount} لم يرسلوا${roundInfo.partialCount ? ` · ${roundInfo.partialCount} جزئي` : ""}` : "لم يفتح التقييم لهذه الجولة بعد"}</p></div>
-                        <span className={`rounded-full px-2.5 py-1 text-[9px] font-black ${roundInfo.started ? roundInfo.missingCount ? "bg-amber-300/10 text-amber-100" : "bg-teal-300/10 text-teal-100" : "bg-white/[0.05] text-slate-400"}`}>{roundInfo.started ? `${roundInfo.submittedCount}/${roundInfo.expectedCount}` : "قريبًا"}</span>
+                        <div><h3 className="text-xs font-black text-cyan-100">{roundInfo.label}</h3><p className="mt-1 text-[9px] text-slate-500">{roundInfo.started ? `${roundInfo.completeCount} مكتمل · ${roundInfo.partialCount} بدأ ولم يكمل · ${roundInfo.missingCount} لم يبدأ` : "لم يفتح التقييم لهذه الجولة بعد"}</p></div>
+                        <span className={`rounded-full px-2.5 py-1 text-[9px] font-black ${roundInfo.started ? roundInfo.remainingCount ? "bg-amber-300/10 text-amber-100" : "bg-teal-300/10 text-teal-100" : "bg-white/[0.05] text-slate-400"}`}>{roundInfo.started ? roundInfo.remainingCount ? `${roundInfo.remainingCount} متبقٍ` : "مكتمل" : "قريبًا"}</span>
                       </div>
-                      {roundInfo.started && roundInfo.expectedCount ? <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]"><div className="h-full rounded-full bg-gradient-to-l from-teal-300 to-cyan-300 transition-all" style={{ width: `${Math.round((roundInfo.submittedCount / roundInfo.expectedCount) * 100)}%` }} /></div> : null}
+                      {roundInfo.started && roundInfo.expectedCount ? <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]"><div className="h-full rounded-full bg-gradient-to-l from-teal-300 to-cyan-300 transition-all" style={{ width: `${Math.round((roundInfo.completeCount / roundInfo.expectedCount) * 100)}%` }} /></div> : null}
                       {!roundInfo.started ? <div className="rounded-2xl border border-dashed border-white/10 p-4 text-center text-[11px] text-slate-500">ستظهر حالة كل طاولة هنا عند وصول الفعالية إلى تقييم هذه الجولة.</div> : visibleGroups.length ? (
                         <div className="grid gap-2 md:grid-cols-2">
                           {visibleGroups.map(group => (
                             <article key={group.table} className="overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.03]">
-                              <div className="flex items-center justify-between border-b border-white/[0.06] px-3 py-2.5"><div><p className="text-xs font-black text-amber-100">طاولة {group.table}</p><p className="mt-0.5 text-[9px] text-slate-500">{group.submittedCount}/{group.submittedCount + group.missingCount} أرسلوا</p></div><span className={`flex h-8 min-w-8 items-center justify-center rounded-xl text-[10px] font-black ${group.missingCount ? "bg-amber-300/10 text-amber-100" : "bg-teal-300/10 text-teal-100"}`}>{group.missingCount ? `${group.missingCount} ناقص` : "تم"}</span></div>
+                              <div className="flex items-center justify-between border-b border-white/[0.06] px-3 py-2.5"><div><p className="text-xs font-black text-amber-100">طاولة {group.table}</p><p className="mt-0.5 text-[9px] text-slate-500">{group.completeCount}/{group.expectedCount} مكتمل{group.partialCount ? ` · ${group.partialCount} بدأ` : ""}</p></div><span className={`flex h-8 min-w-8 items-center justify-center rounded-xl text-[10px] font-black ${group.remainingCount ? "bg-amber-300/10 text-amber-100" : "bg-teal-300/10 text-teal-100"}`}>{group.remainingCount ? `${group.remainingCount} متبقٍ` : "تم"}</span></div>
                               <div className="divide-y divide-white/[0.05]">
                                 {group.members.map(member => {
                                   const statusLabel = member.status === "complete" ? "قيّم الجميع" : member.status === "partial" ? `قيّم ${member.reviewedCount}/${member.expectedCount}` : member.status === "not_applicable" ? "لا يوجد أشخاص آخرون على الطاولة" : "لم يرسل"
@@ -2040,7 +2240,7 @@ export default function AdminCohostPage() {
         )}
       </main>
 
-      <nav aria-label="أقسام لوحة رنيم" className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-[#080c13]/97 px-2 pt-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] backdrop-blur-xl">
+      <nav aria-label="أقسام لوحة المضيفة" className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-[#080c13]/97 px-2 pt-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] backdrop-blur-xl">
         <div role="tablist" className="mx-auto grid max-w-2xl grid-cols-6 gap-1">
           {tabs.map(item => (
             <button key={item.value} role="tab" aria-selected={tab === item.value} onClick={() => setTab(item.value)} className={`relative flex min-h-[3.4rem] flex-col items-center justify-center gap-1 rounded-xl text-[9px] font-bold transition ${tab === item.value ? "bg-teal-300/12 text-teal-200" : "text-slate-400"}`}>

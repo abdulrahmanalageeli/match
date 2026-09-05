@@ -1,4 +1,6 @@
 export const EVENT3_CONTACT_MESSAGE_MAX_LENGTH = 240
+export const EVENT3_ORGANIZER_IMPRESSION_MAX_LENGTH = 300
+export const EVENT3_MEMORY_WORD_MAX_LENGTH = 32
 
 function isObject(value) {
   return !!value && typeof value === 'object' && !Array.isArray(value)
@@ -13,14 +15,48 @@ export function normalizeEvent3FeedbackPayload(feedback) {
     return { value: null, error: 'بيانات التقييم غير صالحة' }
   }
 
+  if (feedback.sliderMoved !== true) {
+    return { value: null, error: 'حرّك مؤشر التوافق أو ثبّت الدرجة الحالية' }
+  }
+  if (!Number.isInteger(feedback.compatibilityRate)
+      || feedback.compatibilityRate < 0
+      || feedback.compatibilityRate > 100
+      || feedback.compatibilityRate % 5 !== 0) {
+    return { value: null, error: 'درجة التوافق يجب أن تكون بين 0 و100' }
+  }
+  for (const [field, label] of [
+    ['conversationQuality', 'جودة المحادثة'],
+    ['personalConnection', 'الراحة والتفاهم'],
+  ]) {
+    if (!Number.isInteger(feedback[field]) || feedback[field] < 1 || feedback[field] > 5) {
+      return { value: null, error: `اختر تقييماً صالحاً لـ${label}` }
+    }
+  }
+
   if (typeof feedback.wantConnect !== 'boolean') {
     return { value: null, error: 'اختر ما إذا كنت تريد التواصل لاحقاً' }
   }
 
-  const normalized = { ...feedback }
+  if (feedback.organizerImpression != null && typeof feedback.organizerImpression !== 'string') {
+    return { value: null, error: 'ملاحظة المنظم غير صالحة' }
+  }
+  const organizerImpression = String(feedback.organizerImpression || '').trim()
+  if (messageLength(organizerImpression) > EVENT3_ORGANIZER_IMPRESSION_MAX_LENGTH) {
+    return { value: null, error: `ملاحظة المنظم يجب ألا تتجاوز ${EVENT3_ORGANIZER_IMPRESSION_MAX_LENGTH} حرفاً` }
+  }
+
+  // Persist only fields collected by the current participant flow. This keeps
+  // stale clients from injecting dead survey fields or arbitrary JSON into the
+  // admin feedback view.
+  const normalized = {
+    compatibilityRate: feedback.compatibilityRate,
+    sliderMoved: true,
+    conversationQuality: feedback.conversationQuality,
+    personalConnection: feedback.personalConnection,
+    wantConnect: feedback.wantConnect,
+    ...(organizerImpression ? { organizerImpression } : {}),
+  }
   if (feedback.wantConnect === false) {
-    delete normalized.contactMethod
-    delete normalized.contactMessage
     return { value: normalized, error: null }
   }
 
@@ -33,7 +69,6 @@ export function normalizeEvent3FeedbackPayload(feedback) {
 
   normalized.contactMethod = contactMethod
   if (contactMethod === 'phone') {
-    delete normalized.contactMessage
     return { value: normalized, error: null }
   }
 
@@ -47,6 +82,17 @@ export function normalizeEvent3FeedbackPayload(feedback) {
   // Keep the participant's exact text. React renders this as text, not HTML.
   normalized.contactMessage = feedback.contactMessage
   return { value: normalized, error: null }
+}
+
+export function normalizeEvent3MemoryWord(value) {
+  if (typeof value !== 'string') return { value: null, error: 'اكتب كلمة واحدة عن اللقاء' }
+  const word = value.trim()
+  if (!word) return { value: null, error: 'اكتب كلمة واحدة عن اللقاء' }
+  if (/\s/u.test(word)) return { value: null, error: 'اكتب كلمة واحدة فقط' }
+  if (messageLength(word) > EVENT3_MEMORY_WORD_MAX_LENGTH) {
+    return { value: null, error: `الكلمة يجب ألا تتجاوز ${EVENT3_MEMORY_WORD_MAX_LENGTH} حرفاً` }
+  }
+  return { value: word, error: null }
 }
 
 export function buildEvent3MutualContactShare({ myFeedback, partnerFeedback, partnerPhone }) {

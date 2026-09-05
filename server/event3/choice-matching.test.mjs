@@ -121,6 +121,38 @@ test("the real 42-person three-group plan yields three complete reciprocal choic
   for (const partners of previousPartners.values()) assert.equal(partners.size, 3)
 })
 
+for (const participantCount of [16, 30]) {
+  test(`${participantCount}-person three-group plans yield three complete, non-repeating reciprocal rounds`, () => {
+    const participantNumbers = Array.from({ length: participantCount }, (_, index) => index + 1)
+    const seating = buildChoiceOnlySeatingPlan(participantNumbers)
+    assert.equal(seating.error, undefined)
+
+    const tablemates = new Map(participantNumbers.map(number => [number, new Set()]))
+    for (const round of [seating.round1, seating.round2, seating.round3]) {
+      for (const group of round) {
+        for (const participant of group) {
+          for (const tablemate of group) {
+            if (tablemate !== participant) tablemates.get(participant).add(tablemate)
+          }
+        }
+      }
+    }
+
+    const result = buildThreeMutualChoiceRounds({
+      participantNumbers,
+      rankings: new Map([...tablemates].map(([participant, met]) => [participant, [...met].sort((a, b) => a - b)])),
+    })
+    const pairCount = participantCount / 2
+    for (const round of [result.round1, result.round2, result.round3]) {
+      assert.equal(round.pairs.length, pairCount)
+      assert.deepEqual(round.unmatched, [])
+    }
+    const seenPairs = result.round1.pairs.concat(result.round2.pairs, result.round3.pairs)
+      .map(pair => `${pair.a}-${pair.b}`)
+    assert.equal(new Set(seenPairs).size, pairCount * 3)
+  })
+}
+
 test("API wrapper returns the symmetric Map shape used by Event3", () => {
   const result = buildChoiceMatches(new Map([
     [1, [2, 3]],

@@ -1792,12 +1792,22 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
               />
             )}
             <div className="flex w-full max-w-sm flex-col items-center">
-              <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: "spring", stiffness: 190, damping: 16 }} className="relative mb-3">
-                <div className="absolute inset-0 rounded-[1.7rem] bg-purple-500/50 blur-2xl" />
-                <div className="relative flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-[1.6rem] border border-white/15 bg-gradient-to-br from-purple-500 via-violet-600 to-indigo-800 shadow-2xl shadow-purple-950/60">
-                  <Heart size={31} className="text-white" fill="rgba(255,255,255,.15)" strokeWidth={1.8} />
-                  <Sparkles size={13} className="absolute right-3 top-3 text-pink-100" />
-                </div>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.78, y: 8 }}
+                animate={reduceMotion ? { opacity: 1, scale: 1, y: 0 } : { opacity: 1, scale: 1, y: [0, -3, 0] }}
+                transition={reduceMotion ? { duration: 0.25 } : { opacity: { duration: 0.35 }, scale: { type: "spring", stiffness: 190, damping: 16 }, y: { duration: 4, repeat: Infinity, ease: "easeInOut", delay: 0.7 } }}
+                className="relative mb-2 flex h-[5.5rem] w-[5.5rem] items-center justify-center sm:h-24 sm:w-24"
+              >
+                <div className="absolute inset-3 rounded-full bg-gradient-to-br from-purple-500/75 via-blue-500/45 to-cyan-400/65 blur-2xl" aria-hidden="true" />
+                <div className="absolute inset-1 rounded-full border border-cyan-200/10 bg-white/[0.018] shadow-[inset_0_0_24px_rgba(139,92,246,.08)]" aria-hidden="true" />
+                <img
+                  src="/blindmatch-welcome-loading-logo.png"
+                  alt="شعار التوافق الأعمى"
+                  width={96}
+                  height={96}
+                  decoding="async"
+                  className="relative h-full w-full object-contain drop-shadow-[0_0_15px_rgba(34,211,238,.3)]"
+                />
               </motion.div>
 
               <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="mb-2 inline-flex items-center gap-2 rounded-full border border-purple-300/15 bg-purple-400/[0.08] px-3 py-1.5 text-[10px] font-black tracking-wide text-purple-200">

@@ -33,11 +33,28 @@ test("Event3 never releases a participant token before Authentica verifies the S
 
 test("Event3 persists a verified OTP login as the normal website participant session", async () => {
   const route = await read("app/routes/event3.tsx")
-  const phoneEntry = between(route, "function PhoneEntry", "// ─── Waiting / Setup Screen")
+  const phoneEntry = between(route, "function PhoneEntry", "function SetupScreen")
 
   assert.match(phoneEntry, /call\("e3-request-login-otp", null/)
   assert.match(phoneEntry, /call\("e3-verify-login-otp", null/)
   assert.match(phoneEntry, /if \(d\.error \|\| !d\.success \|\| !d\.token\)/)
-  assert.match(phoneEntry, /localStorage\.setItem\("blindmatch_result_token", d\.token\)/)
-  assert.match(phoneEntry, /localStorage\.setItem\("blindmatch_returning_token", d\.token\)/)
+  assert.match(phoneEntry, /completeParticipantLogin\(d\.token/)
+  assert.match(phoneEntry, /localStorage\.setItem\("blindmatch_result_token", participantToken\)/)
+  assert.match(phoneEntry, /localStorage\.setItem\("blindmatch_returning_token", participantToken\)/)
+})
+
+test("Event3 secure-token fallback validates active-event admission before persisting the session", async () => {
+  const route = await read("app/routes/event3.tsx")
+  const phoneEntry = between(route, "function PhoneEntry", "function SetupScreen")
+
+  assert.match(phoneEntry, /const enteredToken = secureToken\.trim\(\)/)
+  assert.match(phoneEntry, /call\("e3-heartbeat", enteredToken\)/)
+  assert.match(phoneEntry, /if \(d\.enrolled !== true\)/)
+  assert.ok(
+    phoneEntry.indexOf("if (d.enrolled !== true)") < phoneEntry.indexOf("completeParticipantLogin(enteredToken"),
+    "an otherwise-valid token must not be persisted until Event3 admission succeeds",
+  )
+  assert.match(phoneEntry, /d\.code === "PARTICIPANT_TOKEN_INVALID"/)
+  assert.match(phoneEntry, /localStorage\.setItem\("blindmatch_result_token", participantToken\)/)
+  assert.match(phoneEntry, /localStorage\.setItem\("blindmatch_returning_token", participantToken\)/)
 })

@@ -17,7 +17,7 @@ import {
   MessageSquare, ChevronRight, Users, PenLine, Shuffle, BarChart3, X, Heart, LogOut,
   Frown, Meh, Smile, Layers, Zap,
   Snowflake, Target, Star, AlertTriangle, Lightbulb, PartyPopper, LifeBuoy,
-  EyeOff, Smartphone, Handshake, Timer, Ban, ShieldCheck, Coffee, Bell, Info, Loader2,
+  Eye, EyeOff, KeyRound, Smartphone, Handshake, Timer, Ban, ShieldCheck, Coffee, Bell, Info, Loader2,
   Crown, Medal, Award, Download,
 } from "lucide-react"
 
@@ -2283,10 +2283,21 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
   )
 }
 
-// ─── Phone Entry Screen ───────────────────────────────────────────────────────
-function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
+// ─── Participant Entry Screen ─────────────────────────────────────────────────
+type ParticipantLoginMethod = "sms" | "token"
+
+function PhoneEntry({
+  onToken,
+  initialMethod = "sms",
+}: {
+  onToken: (t: string) => void
+  initialMethod?: ParticipantLoginMethod
+}) {
+  const [loginMethod, setLoginMethod] = useState<ParticipantLoginMethod>(initialMethod)
   const [phone, setPhone] = useState("")
   const [otp, setOtp] = useState("")
+  const [secureToken, setSecureToken] = useState("")
+  const [showToken, setShowToken] = useState(false)
   const [step, setStep] = useState<"phone" | "otp">("phone")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -2302,6 +2313,29 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
     setError(message)
     setShake(true)
     setTimeout(() => setShake(false), 500)
+  }
+
+  const completeParticipantLogin = (
+    participantToken: string,
+    identity?: { name?: string | null; assignedNumber?: number | null },
+  ) => {
+    // Keep Event3 and the main welcome page on one participant session. Storage
+    // failures should not block the current tab from entering the event.
+    try {
+      localStorage.setItem("blindmatch_result_token", participantToken)
+      localStorage.setItem("blindmatch_returning_token", participantToken)
+      if (identity?.name) localStorage.setItem("blindmatch_participant_name", identity.name)
+      if (identity?.assignedNumber != null) localStorage.setItem("blindmatch_participant_number", String(identity.assignedNumber))
+      localStorage.removeItem("blindmatch_event3_participant_token")
+    } catch {}
+    onToken(participantToken)
+  }
+
+  const selectLoginMethod = (method: ParticipantLoginMethod) => {
+    if (loading || method === loginMethod) return
+    setLoginMethod(method)
+    setError("")
+    setShake(false)
   }
 
   const requestOtp = async () => {
@@ -2336,12 +2370,7 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
 
       // This is intentionally a normal participant login: once the provider
       // verifies the phone, every main-site page may restore this account.
-      localStorage.setItem("blindmatch_result_token", d.token)
-      localStorage.setItem("blindmatch_returning_token", d.token)
-      if (d.name) localStorage.setItem("blindmatch_participant_name", d.name)
-      if (d.assigned_number) localStorage.setItem("blindmatch_participant_number", String(d.assigned_number))
-      localStorage.removeItem("blindmatch_event3_participant_token")
-      onToken(d.token)
+      completeParticipantLogin(d.token, { name: d.name, assignedNumber: d.assigned_number })
     } catch {
       showError("تعذّر التحقق — تحقق من اتصالك وحاول مرة أخرى")
     } finally {
@@ -2350,7 +2379,43 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
     }
   }
 
-  const submit = () => step === "phone" ? requestOtp() : verifyOtp()
+  const verifySecureToken = async () => {
+    if (submitInFlightRef.current) return
+    const enteredToken = secureToken.trim()
+    if (!enteredToken) { showError("أدخل رمز الدخول المميز"); return }
+    submitInFlightRef.current = true
+    setLoading(true); setError("")
+    try {
+      // Heartbeat validates the token server-side and applies the exact same
+      // paid/swapped-in admission rules as the rest of Event3.
+      const d = await call("e3-heartbeat", enteredToken)
+      if (d.error) {
+        showError(
+          d.code === "PARTICIPANT_TOKEN_INVALID"
+            ? "رمز الدخول غير صحيح. انسخه كاملاً من صفحة الترحيب."
+            : d.error || "تعذّر التحقق من رمز الدخول",
+        )
+        return
+      }
+      if (d.enrolled !== true) {
+        showError("رمز الدخول صحيح، لكنك غير مسجّل في هذه الفعالية. تواصل مع المنظّم.")
+        return
+      }
+
+      completeParticipantLogin(enteredToken, {
+        name: d.my_info?.name,
+        assignedNumber: d.my_info?.number,
+      })
+      toast.success("تم التحقق من رمز الدخول")
+    } catch {
+      showError("تعذّر التحقق — تحقق من اتصالك وحاول مرة أخرى")
+    } finally {
+      submitInFlightRef.current = false
+      setLoading(false)
+    }
+  }
+
+  const submit = () => loginMethod === "token" ? verifySecureToken() : step === "phone" ? requestOtp() : verifyOtp()
 
   const editPhone = () => {
     if (loading) return
@@ -2358,6 +2423,15 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
     setOtp("")
     setError("")
   }
+
+  const isTokenLogin = loginMethod === "token"
+  const loginTitle = isTokenLogin ? "دخول بالرمز المميز" : step === "phone" ? "دخول الفعالية" : "رمز التحقق"
+  const loginSubtitle = isTokenLogin
+    ? "بديل فوري وآمن إذا تعذّرت رسالة التحقق"
+    : step === "phone"
+      ? "أدخل رقم جوالك المسجّل في الفعالية"
+      : "أدخل رمز التحقق المرسل إليك عبر SMS"
+  const inputId = isTokenLogin ? "event3-secure-token" : step === "phone" ? "event3-phone" : "event3-otp"
 
   return (
     <PageWrapper className="flex items-center justify-center p-5 sm:p-6">
@@ -2373,10 +2447,10 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
               <ShieldCheck size={11} /> دخول آمن ومشفّر
             </span>
             <h1 className="bg-gradient-to-l from-white via-purple-100 to-fuchsia-200 bg-clip-text text-[1.85rem] font-black leading-tight text-transparent">
-              {step === "phone" ? "دخول الفعالية" : "رمز التحقق"}
+              {loginTitle}
             </h1>
             <p className="mt-2 text-sm leading-relaxed text-gray-400">
-              {step === "phone" ? "أدخل رقم جوالك المسجّل في الفعالية" : "أدخل رمز التحقق المرسل إليك عبر SMS"}
+              {loginSubtitle}
             </p>
           </motion.div>
         </div>
@@ -2385,16 +2459,80 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
           <GlassCard className="rounded-[1.65rem] p-5">
             <form onSubmit={event => { event.preventDefault(); submit() }} className="space-y-3.5" noValidate>
+              <div className="grid grid-cols-2 gap-1 rounded-[1.15rem] border border-white/[0.07] bg-black/25 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,.025)]" role="group" aria-label="طريقة تسجيل الدخول">
+                <button
+                  type="button"
+                  aria-pressed={loginMethod === "sms"}
+                  disabled={loading}
+                  onClick={() => selectLoginMethod("sms")}
+                  className={`relative flex min-h-12 items-center justify-center gap-2 overflow-hidden rounded-[0.9rem] px-2 text-xs font-black transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 disabled:cursor-wait ${
+                    loginMethod === "sms"
+                      ? "border border-purple-300/20 bg-gradient-to-br from-purple-500/30 via-violet-500/20 to-fuchsia-500/20 text-white shadow-[0_10px_30px_-16px_rgba(168,85,247,.9),inset_0_1px_0_rgba(255,255,255,.12)]"
+                      : "border border-transparent text-gray-500 hover:bg-white/[0.035] hover:text-gray-300"
+                  }`}
+                >
+                  {loginMethod === "sms" && <span aria-hidden="true" className="absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-purple-200/70 to-transparent" />}
+                  <Smartphone size={15} className={loginMethod === "sms" ? "text-purple-200" : "text-gray-600"} />
+                  <span className="whitespace-nowrap">رسالة SMS</span>
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={loginMethod === "token"}
+                  disabled={loading}
+                  onClick={() => selectLoginMethod("token")}
+                  className={`relative flex min-h-12 items-center justify-center gap-2 overflow-hidden rounded-[0.9rem] px-2 text-xs font-black transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 disabled:cursor-wait ${
+                    loginMethod === "token"
+                      ? "border border-cyan-200/20 bg-gradient-to-br from-cyan-400/20 via-violet-500/20 to-fuchsia-500/25 text-white shadow-[0_10px_30px_-16px_rgba(34,211,238,.8),inset_0_1px_0_rgba(255,255,255,.12)]"
+                      : "border border-transparent text-gray-500 hover:bg-white/[0.035] hover:text-gray-300"
+                  }`}
+                >
+                  {loginMethod === "token" && <span aria-hidden="true" className="absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-cyan-100/75 to-transparent" />}
+                  <KeyRound size={15} className={loginMethod === "token" ? "text-cyan-200" : "text-gray-600"} />
+                  <span className="whitespace-nowrap">رمز الدخول</span>
+                </button>
+              </div>
+
               <div className="flex items-center justify-between px-0.5">
-                <label htmlFor={step === "phone" ? "event3-phone" : "event3-otp"} className="block text-right text-xs font-black text-gray-200">
-                  {step === "phone" ? "رقم الجوال" : "رمز التحقق"}
+                <label htmlFor={inputId} className="block text-right text-xs font-black text-gray-200">
+                  {isTokenLogin ? "الرمز المميز" : step === "phone" ? "رقم الجوال" : "رمز التحقق"}
                 </label>
                 <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-purple-300/[0.12] bg-purple-400/[0.08] text-purple-200">
-                  {step === "phone" ? <Smartphone size={13} /> : <Lock size={13} />}
+                  {isTokenLogin ? <KeyRound size={13} className="text-cyan-200" /> : step === "phone" ? <Smartphone size={13} /> : <Lock size={13} />}
                 </span>
               </div>
               <motion.div animate={shake ? { x: [-8, 8, -6, 6, -3, 3, 0] } : { x: 0 }} transition={{ duration: 0.4 }}>
-                {step === "phone" ? (
+                {isTokenLogin ? (
+                  <div className="relative">
+                    <input
+                      id="event3-secure-token"
+                      name="secure-token"
+                      type={showToken ? "text" : "password"}
+                      autoComplete="off"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      enterKeyHint="done"
+                      dir="ltr"
+                      placeholder="••••••••••••"
+                      value={secureToken}
+                      onChange={event => { setSecureToken(event.target.value); if (error) setError("") }}
+                      aria-invalid={Boolean(error)}
+                      aria-describedby={error ? "event3-login-error event3-login-help" : "event3-login-help"}
+                      autoFocus
+                      className={`w-full rounded-2xl border bg-[linear-gradient(135deg,rgba(0,0,0,.36),rgba(30,11,55,.28))] py-4 pl-14 pr-5 text-center font-mono text-base font-bold tracking-[0.12em] text-white shadow-[inset_0_1px_0_rgba(255,255,255,.04),0_12px_32px_-24px_rgba(34,211,238,.55)] transition-all placeholder:tracking-[0.22em] placeholder:text-gray-600 focus:outline-none focus:ring-4 focus:ring-cyan-400/[0.08]
+                        ${error ? 'border-red-500/70 focus:border-red-400' : 'border-white/[0.09] focus:border-cyan-200/40 focus:bg-black/40'}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowToken(current => !current)}
+                      className="absolute left-1.5 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-xl text-gray-500 transition-colors hover:bg-white/[0.055] hover:text-cyan-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+                      aria-label={showToken ? "إخفاء رمز الدخول" : "إظهار رمز الدخول"}
+                      aria-pressed={showToken}
+                    >
+                      {showToken ? <EyeOff size={17} /> : <Eye size={17} />}
+                    </button>
+                  </div>
+                ) : step === "phone" ? (
                   <input
                     id="event3-phone"
                     name="phone"
@@ -2408,7 +2546,7 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
                     value={phone}
                     onChange={handleInput}
                     aria-invalid={Boolean(error)}
-                    aria-describedby={error ? "event3-phone-error event3-phone-help" : "event3-phone-help"}
+                    aria-describedby={error ? "event3-login-error event3-login-help" : "event3-login-help"}
                     className={`w-full rounded-2xl border bg-black/30 px-5 py-4 text-center text-xl font-bold tracking-widest text-white shadow-[inset_0_1px_0_rgba(255,255,255,.035)] transition-all placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-600 focus:outline-none focus:ring-4 focus:ring-purple-500/[0.08]
                       ${error ? 'border-red-500/70 focus:border-red-400' : 'border-white/[0.09] focus:border-purple-300/45 focus:bg-black/40'}`}
                   />
@@ -2426,31 +2564,31 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
                     value={otp}
                     onChange={event => { setOtp(event.target.value.replace(/\D/g, '').slice(0, 8)); if (error) setError("") }}
                     aria-invalid={Boolean(error)}
-                    aria-describedby={error ? "event3-phone-error event3-phone-help" : "event3-phone-help"}
+                    aria-describedby={error ? "event3-login-error event3-login-help" : "event3-login-help"}
                     autoFocus
                     className={`w-full rounded-2xl border bg-black/30 px-5 py-4 text-center text-2xl font-black tracking-[0.4em] text-white shadow-[inset_0_1px_0_rgba(255,255,255,.035)] transition-all placeholder:text-gray-600 focus:outline-none focus:ring-4 focus:ring-purple-500/[0.08]
                       ${error ? 'border-red-500/70 focus:border-red-400' : 'border-white/[0.09] focus:border-purple-300/45 focus:bg-black/40'}`}
                   />
                 )}
               </motion.div>
-              <p id="event3-phone-help" className="text-center text-xs leading-relaxed text-gray-400">
-                {step === "phone" ? "استخدم الرقم نفسه المسجّل لدى المنظم" : `أرسلنا الرمز إلى ${phone}`}
+              <p id="event3-login-help" className="text-center text-xs leading-relaxed text-gray-400">
+                {isTokenLogin ? "استخدم الرمز المميز نفسه من صفحة الترحيب الرئيسية" : step === "phone" ? "استخدم الرقم نفسه المسجّل لدى المنظم" : `أرسلنا الرمز إلى ${phone}`}
               </p>
               <AnimatePresence>
                 {error && (
-                  <motion.p id="event3-phone-error" role="alert" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                  <motion.p id="event3-login-error" role="alert" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                     className="text-red-300 text-sm text-center font-bold leading-snug">{error}</motion.p>
                 )}
               </AnimatePresence>
               <motion.button type="submit" disabled={loading} aria-busy={loading} whileTap={{ scale: 0.97 }}
                 className="event3-action flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-[#c026d3] via-[#7e22ce] to-[#4c1d95] px-4 py-4 text-lg font-black text-white transition-all hover:brightness-110 disabled:opacity-50">
                 {loading ? (
-                  <><motion.div aria-hidden="true" animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }} className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />{step === "phone" ? "جاري الإرسال..." : "جاري التحقق..."}</>
+                  <><motion.div aria-hidden="true" animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }} className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />{isTokenLogin ? "جاري فحص الرمز..." : step === "phone" ? "جاري الإرسال..." : "جاري التحقق..."}</>
                 ) : (
-                  <span className="flex items-center justify-center gap-2">{step === "phone" ? "إرسال رمز التحقق" : "تأكيد ودخول"} <Sparkles size={16} /></span>
+                  <span className="flex items-center justify-center gap-2">{isTokenLogin ? "تأكيد الرمز والدخول" : step === "phone" ? "إرسال رمز التحقق" : "تأكيد ودخول"} {isTokenLogin ? <KeyRound size={17} /> : <Sparkles size={16} />}</span>
                 )}
               </motion.button>
-              {step === "otp" && (
+              {!isTokenLogin && step === "otp" && (
                 <div className="flex items-center justify-center gap-3 pt-1 text-xs font-bold">
                   <button type="button" onClick={requestOtp} disabled={loading} className="min-h-11 text-purple-300 disabled:opacity-50">إعادة إرسال الرمز</button>
                   <span className="text-gray-700">•</span>
@@ -2463,8 +2601,8 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
 
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }}
           className="space-y-1 text-center text-xs text-gray-500">
-          <p className="inline-flex items-center justify-center gap-1.5"><ShieldCheck size={12} className="text-emerald-300/65" /> بيانات الدخول لا تظهر لبقية المشاركين</p>
-          <p className="text-[11px] text-gray-600">إذا لم يصلك الرمز، أعد الإرسال أو تواصل مع المنظم.</p>
+          <p className="inline-flex items-center justify-center gap-1.5"><ShieldCheck size={12} className="text-emerald-300/65" /> {isTokenLogin ? "رمزك خاص بك ولا يظهر لأي مشارك" : "بيانات الدخول لا تظهر لبقية المشاركين"}</p>
+          <p className="text-[11px] text-gray-600">{isTokenLogin ? "يتم التحقق مباشرة من دون إرسال رسالة جديدة." : "إذا لم يصلك الرمز، استخدم رمز الدخول أو تواصل مع المنظم."}</p>
         </motion.div>
       </motion.div>
     </PageWrapper>
@@ -8179,6 +8317,9 @@ export default function Event3Page() {
   }
   if (questionPreview === "welcome") {
     return <WelcomeScreen onDone={() => {}} eventFormat={CHOICE_ONLY_EVENT3_FORMAT} />
+  }
+  if (questionPreview === "login" || questionPreview === "loginToken") {
+    return <PhoneEntry initialMethod={questionPreview === "loginToken" ? "token" : "sms"} onToken={() => {}} />
   }
   if (questionPreview === "aiWelcome") {
     return (

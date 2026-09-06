@@ -6201,18 +6201,7 @@ function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, 
 const EVENT3_OPEN_SUPPORT_EVENT = "event3-open-support"
 
 function OneToOneSupportButton() {
-  return (
-    <div className="flex justify-center pt-1">
-      <button
-        type="button"
-        onClick={() => window.dispatchEvent(new Event(EVENT3_OPEN_SUPPORT_EVENT))}
-        className="event3-action inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-white/[0.09] bg-white/[0.04] px-4 text-xs font-bold text-gray-400 transition-colors hover:border-purple-300/20 hover:bg-white/[0.07] hover:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/50"
-      >
-        <LifeBuoy size={14} className="text-purple-300/80" />
-        تحتاج مساعدة؟ تواصل مع المنظم
-      </button>
-    </div>
-  )
+  return null
 }
 
 function SOSButton({ token, sosRequests, suppressed = false, triggerHidden = false }: { token: string; sosRequests?: any[]; suppressed?: boolean; triggerHidden?: boolean }) {
@@ -9698,7 +9687,7 @@ export default function Event3Page() {
     && !hasPendingNotification
     && !feedbackOverlayOpen
   const showStatusHeader = !finalQuestionsOpen && !rankingRoundToRender && !groupsOpen
-  const showOrganizerSupport = false
+  const showOrganizerSupport = phase !== "setup" && !rankingRoundToRender
 
   return (
     <MotionConfig reducedMotion="user">
@@ -9753,7 +9742,7 @@ export default function Event3Page() {
         <SOSButton
           token={token}
           sosRequests={eventState?.sos_requests}
-          triggerHidden={oneToOneSessionOpen}
+          triggerHidden={true}
           suppressed={projectorOpen}
         />
       )}

@@ -7592,11 +7592,31 @@ function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow, eve
 }
 
 // ─── Final Reveal Screen ──────────────────────────────────────────────────────
+const FINAL_REVEAL_RATING_THRESHOLD = 60
+
+function normalizedFinalRevealScore(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null
+  const score = Number(value)
+  return Number.isFinite(score) ? Math.round(Math.max(0, Math.min(100, score))) : null
+}
+
+function isFinalRevealRated(value: unknown): boolean {
+  const score = normalizedFinalRevealScore(value)
+  return score !== null && score >= FINAL_REVEAL_RATING_THRESHOLD
+}
+
+function finalRevealSpokenScore(value: unknown): string {
+  const score = normalizedFinalRevealScore(value)
+  return score !== null && score >= FINAL_REVEAL_RATING_THRESHOLD ? `بنسبة ${score} بالمئة` : "غير مُقيّم"
+}
+
 function RevealCard({ icon, label, name, score, word, revealed, accent }: {
   icon: "heart" | "brain"; label: string; name: string; score: number | null | undefined; word: string | null; revealed: boolean; accent: "pink" | "purple"
 }) {
   const Icon = icon === "heart" ? Heart : Brain
   const isPink = accent === "pink"
+  const normalizedScore = normalizedFinalRevealScore(score)
+  const rated = isFinalRevealRated(normalizedScore)
   return (
     <div className="relative" style={{ perspective: "1000px" }}>
       <motion.div
@@ -7618,11 +7638,13 @@ function RevealCard({ icon, label, name, score, word, revealed, accent }: {
           </div>
           <p className={`text-[10px] font-semibold tracking-wide uppercase ${isPink ? "text-pink-400/70" : "text-purple-400/70"}`}>{label}</p>
           <motion.p className="line-clamp-2 w-full break-words text-center text-lg font-black leading-tight text-white sm:text-xl" initial={{ scale: 0.5 }} animate={{ scale: revealed ? 1 : 0.5 }} transition={{ delay: 0.4, type: "spring", stiffness: 300 }}>{name}</motion.p>
-          {typeof score === "number" && Number.isFinite(score) && (
+          {rated && normalizedScore !== null ? (
             <div className="flex items-baseline gap-0.5">
-              <span className={`font-black text-lg ${isPink ? "text-pink-300" : "text-purple-300"}`}>{score}</span>
+              <span className={`font-black text-lg ${isPink ? "text-pink-300" : "text-purple-300"}`}>{normalizedScore}</span>
               <span className={isPink ? "text-pink-400/50 text-xs" : "text-purple-400/50 text-xs"}>%</span>
             </div>
+          ) : (
+            <span className="rounded-full border border-white/[0.08] bg-black/20 px-2.5 py-1 text-[10px] font-black text-white/45">غير مُقيّم</span>
           )}
           {word && (
             <span className={`text-xs rounded-full px-2.5 py-0.5 ${isPink ? "bg-pink-900/40 text-pink-300 border border-pink-800/40" : "bg-purple-900/40 text-purple-300 border border-purple-800/40"}`}>"{word}"</span>
@@ -7703,7 +7725,7 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
   const [matchPref, setMatchPref] = useState<string | null>(null)
   const [prefSubmitting, setPrefSubmitting] = useState(false)
   const [currentEventId, setCurrentEventId] = useState<number>(1)
-  const [activeTab, setActiveTab] = useState<"choice" | "algorithm">("choice")
+  const [activeTab, setActiveTab] = useState<"choice" | "algorithm" | "third">("choice")
   const [screenMode, setScreenMode] = useState<"reveal" | "questions">("reveal")
   const [questionPhase, setQuestionPhase] = useState<"phase1" | "phase2" | "phase3">("phase2")
   const [readinessTimedOut, setReadinessTimedOut] = useState(false)
@@ -7820,6 +7842,9 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
   )
 
   const p2 = data.phase2, p3 = data.phase3, p4 = data.phase4
+  const p2Rated = isFinalRevealRated(p2?.compatibility_score)
+  const p3Rated = isFinalRevealRated(p3?.compatibility_score)
+  const p4Rated = isFinalRevealRated(p4?.compatibility_score)
 
   if (screenMode === "questions") {
     return (
@@ -7907,19 +7932,19 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
         {/* Reveal cards with flip animation */}
         <p className="sr-only" aria-live="polite" aria-atomic="true">{revealed
           ? choiceOnly
-            ? `تم الكشف: اختيارك الأول ${p2?.partner_first_name}، واختيارك الثاني ${p3?.partner_first_name}، واختيارك الثالث ${p4?.partner_first_name}`
-            : `تم الكشف: اختيارك ${p2?.partner_first_name} بنسبة ${p2?.compatibility_score} بالمئة، واختيار النظام ${p3?.partner_first_name} بنسبة ${p3?.compatibility_score} بالمئة`
+            ? `تم الكشف: اختيارك الأول ${p2?.partner_first_name} ${finalRevealSpokenScore(p2?.compatibility_score)}، واختيارك الثاني ${p3?.partner_first_name} ${finalRevealSpokenScore(p3?.compatibility_score)}، واختيارك الثالث ${p4?.partner_first_name} ${finalRevealSpokenScore(p4?.compatibility_score)}`
+            : `تم الكشف: اختيارك ${p2?.partner_first_name} ${finalRevealSpokenScore(p2?.compatibility_score)}، واختيار النظام ${p3?.partner_first_name} ${finalRevealSpokenScore(p3?.compatibility_score)}`
           : "جاري تجهيز الكشف النهائي"}</p>
         <div className={`grid grid-cols-1 gap-2 sm:gap-3 ${choiceOnly ? "sm:grid-cols-3" : "min-[380px]:grid-cols-2"}`}>
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 }}>
-            <RevealCard icon="heart" label={choiceOnly ? "الاختيار الأول" : "اختيارك"} name={p2?.partner_first_name} score={choiceOnly ? null : p2?.compatibility_score} word={p2?.word} revealed={revealed} accent="pink" />
+            <RevealCard icon="heart" label={choiceOnly ? "الاختيار الأول" : "اختيارك"} name={p2?.partner_first_name} score={p2?.compatibility_score} word={p2?.word} revealed={revealed} accent="pink" />
           </motion.div>
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.35 }}>
-            <RevealCard icon={choiceOnly ? "heart" : "brain"} label={choiceOnly ? "الاختيار الثاني" : "اختيار النظام"} name={p3?.partner_first_name} score={choiceOnly ? null : p3?.compatibility_score} word={p3?.word} revealed={revealed} accent="purple" />
+            <RevealCard icon={choiceOnly ? "heart" : "brain"} label={choiceOnly ? "الاختيار الثاني" : "اختيار النظام"} name={p3?.partner_first_name} score={p3?.compatibility_score} word={p3?.word} revealed={revealed} accent="purple" />
           </motion.div>
           {choiceOnly && (
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.45 }}>
-              <RevealCard icon="heart" label="الاختيار الثالث" name={p4?.partner_first_name} score={null} word={p4?.word} revealed={revealed} accent="purple" />
+              <RevealCard icon="heart" label="الاختيار الثالث" name={p4?.partner_first_name} score={p4?.compatibility_score} word={p4?.word} revealed={revealed} accent="purple" />
             </motion.div>
           )}
         </div>
@@ -7933,7 +7958,6 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
           <Trophy size={18} /> فتح النتائج والتواصل
         </motion.a>
 
-        {!choiceOnly && (
         <details className="group rounded-3xl border border-white/[0.08] bg-white/[0.025] text-right">
           <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 text-sm font-black text-gray-200">
             فهم النتيجة بالتفصيل
@@ -7942,25 +7966,35 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
           <div className="space-y-3 border-t border-white/[0.06] p-3">
 
         {/* Tabbed compatibility breakdown */}
-        {!sameMatch && (p2?.breakdown || p3?.breakdown) && (
+        {!sameMatch && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}>
-            <div className="mb-3 flex gap-1.5" role="tablist" aria-label="تفاصيل التوافق">
+            <div className={`mb-3 grid gap-1.5 ${choiceOnly ? "grid-cols-3" : "grid-cols-2"}`} role="tablist" aria-label="تفاصيل التوافق">
               <button type="button" role="tab" aria-selected={activeTab === 'choice'} onClick={() => setActiveTab('choice')} className={`min-h-11 flex-1 rounded-xl border py-2 text-xs font-bold transition-all ${activeTab === 'choice' ? 'bg-pink-950/50 border-pink-700/40 text-pink-300' : 'border-white/[0.07] bg-black/20 text-gray-400'}`}>
                 <Heart size={12} className="inline ml-1" /> {choiceOnly ? "الاختيار الأول" : "اختيارك"}
               </button>
               <button type="button" role="tab" aria-selected={activeTab === 'algorithm'} onClick={() => setActiveTab('algorithm')} className={`min-h-11 flex-1 rounded-xl border py-2 text-xs font-bold transition-all ${activeTab === 'algorithm' ? 'bg-purple-950/50 border-purple-700/40 text-purple-300' : 'border-white/[0.07] bg-black/20 text-gray-400'}`}>
                 {choiceOnly ? <Heart size={12} className="inline ml-1" /> : <Brain size={12} className="inline ml-1" />} {choiceOnly ? "الاختيار الثاني" : "اختيار النظام"}
               </button>
+              {choiceOnly && (
+                <button type="button" role="tab" aria-selected={activeTab === 'third'} onClick={() => setActiveTab('third')} className={`min-h-11 rounded-xl border py-2 text-xs font-bold transition-all ${activeTab === 'third' ? 'border-violet-700/40 bg-violet-950/50 text-violet-300' : 'border-white/[0.07] bg-black/20 text-gray-400'}`}>
+                  <Heart size={12} className="inline ml-1" /> الاختيار الثالث
+                </button>
+              )}
             </div>
             <AnimatePresence mode="wait">
-              {activeTab === 'choice' && p2?.breakdown && (
+              {activeTab === 'choice' && (
                 <motion.div key="choice" role="tabpanel" aria-label={choiceOnly ? "تفاصيل توافق الاختيار الأول" : "تفاصيل توافق اختيارك"} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }}>
-                  <CompatibilityBreakdown breakdown={p2.breakdown} scoreRow={p2} accent="pink" partnerName={p2?.partner_first_name} />
+                  {p2Rated && p2?.breakdown ? <CompatibilityBreakdown breakdown={p2.breakdown} scoreRow={p2} accent="pink" partnerName={p2?.partner_first_name} /> : !p2Rated ? <p className="rounded-2xl border border-white/[0.07] bg-black/20 p-4 text-center text-xs font-bold text-white/45">غير مُقيّم — يظهر التحليل من 60% فأعلى</p> : null}
                 </motion.div>
               )}
-              {activeTab === 'algorithm' && p3?.breakdown && (
+              {activeTab === 'algorithm' && (
                 <motion.div key="algorithm" role="tabpanel" aria-label={choiceOnly ? "تفاصيل توافق الاختيار الثاني" : "تفاصيل توافق اختيار النظام"} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2 }}>
-                  <CompatibilityBreakdown breakdown={p3.breakdown} scoreRow={p3} accent="purple" partnerName={p3?.partner_first_name} />
+                  {p3Rated && p3?.breakdown ? <CompatibilityBreakdown breakdown={p3.breakdown} scoreRow={p3} accent="purple" partnerName={p3?.partner_first_name} /> : !p3Rated ? <p className="rounded-2xl border border-white/[0.07] bg-black/20 p-4 text-center text-xs font-bold text-white/45">غير مُقيّم — يظهر التحليل من 60% فأعلى</p> : null}
+                </motion.div>
+              )}
+              {choiceOnly && activeTab === 'third' && (
+                <motion.div key="third" role="tabpanel" aria-label="تفاصيل توافق الاختيار الثالث" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2 }}>
+                  {p4Rated && p4?.breakdown ? <CompatibilityBreakdown breakdown={p4.breakdown} scoreRow={p4} accent="purple" partnerName={p4?.partner_first_name} /> : !p4Rated ? <p className="rounded-2xl border border-white/[0.07] bg-black/20 p-4 text-center text-xs font-bold text-white/45">غير مُقيّم — يظهر التحليل من 60% فأعلى</p> : null}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -7968,7 +8002,7 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
         )}
 
         {/* If same match, just show one breakdown */}
-        {sameMatch && p2?.breakdown && (
+        {sameMatch && p2Rated && p2?.breakdown && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}>
             <CompatibilityBreakdown breakdown={p2.breakdown} scoreRow={p2} accent="pink" partnerName={p2?.partner_first_name} />
           </motion.div>
@@ -7976,19 +8010,18 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
 
         {/* AI Analysis — compact */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }} className="space-y-2">
-          {p2?.partner_number && (
+          {p2Rated && p2?.partner_number && (
             <AiAnalysisCompact partnerNum={p2.partner_number} token={token} currentEventId={currentEventId} accent="pink" title="لماذا توافقتما؟" />
           )}
-          {p3?.partner_number && !sameMatch && (
+          {p3Rated && p3?.partner_number && !sameMatch && (
             <AiAnalysisCompact partnerNum={p3.partner_number} token={token} currentEventId={currentEventId} accent="purple" title={choiceOnly ? "لماذا توافقتما؟" : "لماذا اختارتك الخوارزمية؟"} />
           )}
-          {choiceOnly && p4?.partner_number && (
+          {choiceOnly && p4Rated && p4?.partner_number && (
             <AiAnalysisCompact partnerNum={p4.partner_number} token={token} currentEventId={currentEventId} accent="purple" title="لماذا توافقتما؟" />
           )}
         </motion.div>
           </div>
         </details>
-        )}
 
         {/* Match preference — simplified */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.9 }}
@@ -9722,6 +9755,7 @@ export default function Event3Page() {
     && !hasPendingNotification
     && !feedbackOverlayOpen
   const showStatusHeader = !finalQuestionsOpen && !rankingRoundToRender && !groupsOpen
+  const showOrganizerSupport = phase !== "setup" && !rankingRoundToRender
 
   return (
     <MotionConfig reducedMotion="user">
@@ -9772,13 +9806,12 @@ export default function Event3Page() {
 
       {/* Keep help-chat state mounted while higher-priority overlays are visible,
           so an unsent organizer message is restored instead of discarded. */}
-      {enrolled && (
+      {enrolled && showOrganizerSupport && (
         <SOSButton
           token={token}
           position="bottom"
           sosRequests={eventState?.sos_requests}
           triggerHidden={oneToOneSessionOpen}
-          suppressed={Boolean(rankingRoundToRender) || phase === "final_reveal" || phase === "break" || groupsOpen || canShowMoodCheck || canShowNotification || feedbackOverlayOpen || canShowAiWelcome}
         />
       )}
 

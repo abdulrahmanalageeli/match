@@ -5020,23 +5020,35 @@ Please respond in JSON format:
           scoreContentHash: matchRow.phase3_score_content_hash,
           storedTotal: matchRow.phase3_score,
         })
+        let phase4Breakdown = null
         const phase2HasStoredScore = matchRow.phase2_score !== null && matchRow.phase2_score !== undefined && Number.isFinite(Number(matchRow.phase2_score))
         const phase3HasStoredScore = matchRow.phase3_score !== null && matchRow.phase3_score !== undefined && Number.isFinite(Number(matchRow.phase3_score))
-        const [phase2Fallback, phase3Fallback, eventStateRow] = await Promise.all([
-          !isChoiceOnlyEvent3(eventFormat) && !phase2Breakdown && !phase2HasStoredScore && matchRow.phase2_partner
+        const choiceOnlyReveal = isChoiceOnlyEvent3(eventFormat)
+        const [phase2Fallback, phase3Fallback, phase4Fallback, eventStateRow] = await Promise.all([
+          !phase2Breakdown && matchRow.phase2_partner && (choiceOnlyReveal || !phase2HasStoredScore)
             ? fetchParticipantBalancedCacheBreakdown(myNumber, matchRow.phase2_partner)
             : Promise.resolve(null),
-          !isChoiceOnlyEvent3(eventFormat) && !phase3Breakdown && !phase3HasStoredScore && matchRow.phase3_partner
+          !phase3Breakdown && matchRow.phase3_partner && (choiceOnlyReveal || !phase3HasStoredScore)
             ? fetchParticipantBalancedCacheBreakdown(myNumber, matchRow.phase3_partner)
+            : Promise.resolve(null),
+          choiceOnlyReveal && matchRow.phase4_partner
+            ? fetchParticipantBalancedCacheBreakdown(myNumber, matchRow.phase4_partner)
             : Promise.resolve(null),
           supabase.from("event_state").select("current_event_id").eq("match_id", MAIN_MATCH).single().then(r => r.data),
         ])
         phase2Breakdown = phase2Breakdown ?? phase2Fallback
         phase3Breakdown = phase3Breakdown ?? phase3Fallback
+        phase4Breakdown = phase4Fallback
+        const revealScore = (storedScore, breakdown) => {
+          const rawScore = breakdown?.total ?? storedScore
+          if (rawScore === null || rawScore === undefined || rawScore === "") return null
+          const numericScore = Number(rawScore)
+          return Number.isFinite(numericScore) ? Math.round(Math.max(0, Math.min(100, numericScore))) : null
+        }
         return res.status(200).json({
-          phase2: { partner_number: matchRow.phase2_partner, partner_first_name: pMap[matchRow.phase2_partner] || "—", word: matchRow.phase2_word || null, compatibility_score: isChoiceOnlyEvent3(eventFormat) ? null : matchRow.phase2_score ?? phase2Breakdown?.total ?? 0, score_model_version: isChoiceOnlyEvent3(eventFormat) ? null : phase2Breakdown?.scoreModelVersion ?? null, breakdown: isChoiceOnlyEvent3(eventFormat) ? null : phase2Breakdown },
-          phase3: { partner_number: matchRow.phase3_partner, partner_first_name: pMap[matchRow.phase3_partner] || "—", compatibility_score: isChoiceOnlyEvent3(eventFormat) ? null : matchRow.phase3_score ?? phase3Breakdown?.total ?? 0, score_model_version: isChoiceOnlyEvent3(eventFormat) ? null : phase3Breakdown?.scoreModelVersion ?? null, word: matchRow.phase3_word || null, breakdown: isChoiceOnlyEvent3(eventFormat) ? null : phase3Breakdown },
-          phase4: isChoiceOnlyEvent3(eventFormat) ? { partner_number: matchRow.phase4_partner, partner_first_name: pMap[matchRow.phase4_partner] || "—", compatibility_score: null, score_model_version: null, word: matchRow.phase4_word || null, breakdown: null } : null,
+          phase2: { partner_number: matchRow.phase2_partner, partner_first_name: pMap[matchRow.phase2_partner] || "—", word: matchRow.phase2_word || null, compatibility_score: revealScore(matchRow.phase2_score, phase2Breakdown), score_model_version: phase2Breakdown?.scoreModelVersion ?? null, breakdown: phase2Breakdown },
+          phase3: { partner_number: matchRow.phase3_partner, partner_first_name: pMap[matchRow.phase3_partner] || "—", compatibility_score: revealScore(matchRow.phase3_score, phase3Breakdown), score_model_version: phase3Breakdown?.scoreModelVersion ?? null, word: matchRow.phase3_word || null, breakdown: phase3Breakdown },
+          phase4: choiceOnlyReveal ? { partner_number: matchRow.phase4_partner, partner_first_name: pMap[matchRow.phase4_partner] || "—", compatibility_score: revealScore(null, phase4Breakdown), score_model_version: phase4Breakdown?.scoreModelVersion ?? null, word: matchRow.phase4_word || null, breakdown: phase4Breakdown } : null,
           same_match: matchRow.phase2_partner && matchRow.phase2_partner === matchRow.phase3_partner,
           event_format: eventFormat,
           match_preference: matchRow.match_preference || null,

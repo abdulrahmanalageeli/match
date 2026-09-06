@@ -97,6 +97,14 @@ type GroupMemberFeedbackData = {
   test_mode?: boolean
 }
 
+type Event3GroupLeader = {
+  round: number
+  table_number: number
+  election_status: string
+  coordinator_number: number | null
+  coordinator_name: string | null
+}
+
 const finalMatchPreferenceLabels: Record<string, string> = {
   first: "الاختيار الأول",
   second: "الاختيار الثاني",
@@ -1399,6 +1407,7 @@ export default function Admin3Page() {
   const [participants, setParticipants] = useState<any[]>([])
   const [selectedNumbers, setSelectedNumbers] = useState<Set<number>>(new Set())
   const [seating, setSeating] = useState<any>(null)
+  const [groupLeaders, setGroupLeaders] = useState<Event3GroupLeader[]>([])
   const [choiceSeatingPreview, setChoiceSeatingPreview] = useState<ChoiceSeatingPreviewResponse | null>(null)
   const [selectedChoiceSeatingCandidateId, setSelectedChoiceSeatingCandidateId] = useState("")
   const [choiceSeatingPreviewIssue, setChoiceSeatingPreviewIssue] = useState<{ message: string; missingSurveyFields: Array<{ participant_number: number; fields: string[] }> } | null>(null)
@@ -1510,6 +1519,12 @@ export default function Admin3Page() {
   const [swapA, setSwapA] = useState<number | null>(null)
   const [moveA, setMoveA] = useState<number | null>(null)
   const [mapRound, setMapRound] = useState<1 | 2 | 3 | 20 | 30 | 40>(1)
+  const isOneToOneMapRound = mapRound === 20 || (choiceOnly && (mapRound === 30 || mapRound === 40))
+  const oneToOneMapPairs = mapRound === 30 ? phase3Pairs : mapRound === 40 ? phase4Pairs : matchPairs
+  const oneToOneMapLabel = mapRound === 30 ? "الاختيار الثاني" : mapRound === 40 ? "الاختيار الثالث" : choiceOnly ? "الاختيار الأول" : "الاختيار"
+  const groupLeaderByTable = useMemo(() => new Map(
+    groupLeaders.map(leader => [`${leader.round}:${leader.table_number}`, leader]),
+  ), [groupLeaders])
   useEffect(() => {
     if (!choiceOnly && (mapRound === 3 || mapRound === 40)) setMapRound(1)
   }, [choiceOnly, mapRound])
@@ -1742,7 +1757,10 @@ export default function Admin3Page() {
   const fetchSeating = useCallback(async () => {
     const requestId = ++seatingRequestGeneration.current
     const data = await api("e3-get-seating")
-    if (requestId === seatingRequestGeneration.current && !data.error) setSeating(data.seating ?? null)
+    if (requestId === seatingRequestGeneration.current && !data.error) {
+      setSeating(data.seating ?? null)
+      setGroupLeaders(data.group_leaders || [])
+    }
   }, [])
 
   const fetchApprovedChoiceSeatingReport = useCallback(async () => {
@@ -4553,7 +4571,7 @@ export default function Admin3Page() {
                 <p className="font-medium">لم تُولَّد خطة الجلسات بعد</p>
                 <p className="text-xs mt-1.5 text-gray-600">اختر المشاركين ثم اضغط "توليد خطة الجلسات"</p>
               </div>
-            ) : mapRound === 20 ? (
+            ) : isOneToOneMapRound ? (
               /* ── 1:1 Pairs View ─────────────────── */
               <>
                 {/* Classic-only per-participant choice exclusions. */}
@@ -4593,15 +4611,15 @@ export default function Admin3Page() {
                   </div>
                 )}
 
-                {matchPairs.length === 0 ? (
+                {oneToOneMapPairs.length === 0 ? (
                   <div className="text-center py-12 text-gray-600">
                     <Heart size={32} className="mx-auto mb-3 opacity-30" />
-                    <p>لم تُجرَ مطابقة {choiceOnly ? "الاختيار الأول" : "الاختيار"} بعد</p>
+                    <p>لم تُجرَ مطابقة {oneToOneMapLabel} بعد</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {matchPairs.map((pair: any, idx: number) => (
-                      <div key={idx} className={`rounded-2xl p-4 border ${
+                    {oneToOneMapPairs.map((pair: any) => (
+                      <div key={`${mapRound}:${Math.min(pair.a, pair.b)}-${Math.max(pair.a, pair.b)}`} className={`rounded-2xl p-4 border ${
                         pair.matchType === 'mutual' ? 'bg-emerald-950/20 border-emerald-800/40' : 'bg-amber-950/15 border-amber-800/30'
                       }`}>
                         {/* Pair header */}
@@ -4656,7 +4674,7 @@ export default function Admin3Page() {
                               </div>
                             )}
                             <button
-                              onClick={() => setPairDetail({ type: 'match', ...pair })}
+                              onClick={() => setPairDetail({ type: 'match', ...pair, round: mapRound })}
                               className="text-[10px] text-indigo-400 hover:text-indigo-300 hover:bg-indigo-900/30 px-2 py-1.5 rounded-lg transition-colors border border-indigo-800/30 hover:border-indigo-700/50"
                             >📊 تفاصيل</button>
                           </div>
@@ -4714,6 +4732,7 @@ export default function Admin3Page() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {Object.keys(seating?.[mapRound] || {}).map(Number).sort((a, b) => a - b).map(table => {
                     const members: any[] = seating?.[mapRound]?.[table] || []
+                    const groupLeader = groupLeaderByTable.get(`${mapRound}:${table}`)
                     const males = members.filter(m => choiceSeatingGender(m.gender) === "male").length
                     const females = members.filter(m => choiceSeatingGender(m.gender) === "female").length
                     const unknownGender = members.length - males - females
@@ -4819,6 +4838,11 @@ export default function Admin3Page() {
                             <div>
                               <p className="text-sm font-semibold text-gray-200 leading-tight">طاولة {table}</p>
                               <p className="text-[10px] text-gray-600">{members.length} مشارك</p>
+                              {groupLeader?.coordinator_number && (
+                                <p className="mt-1 flex items-center gap-1 text-[10px] font-bold text-amber-300">
+                                  <Crown size={11} /> قائد المجموعة: {groupLeader.coordinator_name} #{groupLeader.coordinator_number}
+                                </p>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center gap-1.5">
@@ -4865,6 +4889,7 @@ export default function Admin3Page() {
                             const isSwapSrc = swapA === m.number
                             const isMoveSrc = moveA === m.number
                             const isViewing = selectedParticipantNum === m.number && participantPanelOpen
+                            const isGroupLeader = groupLeader?.coordinator_number === m.number
                             return (
                               <div key={m.number}>
                                 <div className="flex items-center gap-1">
@@ -4894,6 +4919,7 @@ export default function Admin3Page() {
                                     title={`${m.gender === 'female' ? 'أنثى' : 'ذكر'} · ${attendanceByNumber.get(m.number) ? 'حاضر' : 'لم يصل'}`}
                                   />
                                   <span className="flex-1 text-sm font-medium truncate text-right">{m.name}</span>
+                                  {isGroupLeader && <span className="inline-flex flex-shrink-0 items-center gap-1 rounded-full border border-amber-700/40 bg-amber-900/30 px-1.5 py-0.5 text-[9px] font-bold text-amber-300"><Crown size={9} /> قائد</span>}
                                   <span className="text-[10px] text-gray-600 font-mono flex-shrink-0">#{m.number}{m.age ? ` · ${m.age}` : ""}</span>
                                   <span className={`w-2 h-2 rounded-full flex-shrink-0 ${rankData?.submitted ? 'bg-green-500' : 'bg-gray-700'}`} title={rankData?.submitted ? 'صوّت' : 'لم يصوّت'} />
                                 </button>

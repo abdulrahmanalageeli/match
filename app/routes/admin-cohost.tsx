@@ -11,6 +11,7 @@ import {
   Circle,
   Clock3,
   Copy,
+  Crown,
   Heart,
   Headphones,
   LayoutDashboard,
@@ -154,6 +155,14 @@ interface CohostPairResult extends CohostScorePayload {
   locked: boolean
 }
 
+interface CohostGroupLeader {
+  round: number
+  table_number: number
+  election_status: string
+  coordinator_number: number | null
+  coordinator_name: string | null
+}
+
 interface CohostNoteScope {
   scope_type: "event" | "table" | "participant" | "pair"
   scope_key: string
@@ -213,6 +222,7 @@ interface CohostDashboard {
   choice_pairs?: CohostPairResult[]
   algorithm_pairs?: CohostPairResult[]
   third_choice_pairs?: CohostPairResult[]
+  group_leaders?: CohostGroupLeader[]
   algorithm_conflicting_locks?: number
   notes?: CohostNote[]
 }
@@ -1290,8 +1300,12 @@ export default function AdminCohostPage() {
       .sort((left, right) => Number(left.attended) - Number(right.attended) || left.number - right.number)
   }, [participants, search, peopleFilter])
 
+  const groupLeaderByTable = useMemo(() => new Map(
+    (dashboard?.group_leaders || []).map(leader => [`${leader.round}:${leader.table_number}`, leader]),
+  ), [dashboard?.group_leaders])
+
   const tableGroups = useMemo(() => {
-    const result: Record<number, Array<{ table: number; members: CohostParticipant[] }>> = {}
+    const result: Record<number, Array<{ table: number; members: CohostParticipant[]; leader: CohostGroupLeader | null }>> = {}
     for (const tableRound of [1, 2, 3, 20, 30, 40]) {
       const tables = new Map<number, CohostParticipant[]>()
       for (const participant of participants) {
@@ -1301,10 +1315,10 @@ export default function AdminCohostPage() {
       }
       result[tableRound] = [...tables.entries()]
         .sort(([left], [right]) => left - right)
-        .map(([table, members]) => ({ table, members }))
+        .map(([table, members]) => ({ table, members, leader: groupLeaderByTable.get(`${tableRound}:${table}`) || null }))
     }
     return result
-  }, [participants])
+  }, [groupLeaderByTable, participants])
 
   const groupFeedbackRounds = useMemo(() => {
     const rounds: Array<1 | 2 | 3> = choiceOnly ? [1, 2, 3] : [1, 2]
@@ -1990,7 +2004,7 @@ export default function AdminCohostPage() {
               <SectionTitle icon={Table2} title={round ? `الطاولات الآن · ${roundLabel(round, choiceOnly)}` : "الطاولات الآن"} detail={round ? "من هنا تعرفين وين يروح كل شخص بسرعة." : "أول ما تبدأ الجلسة، بتظهر الطاولات هنا."} />
               {round && tableGroups[round]?.length ? (
                 <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
-                  {tableGroups[round].map(group => <div key={group.table} className="rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3"><p className="text-xs font-black text-amber-200">طاولة {group.table}</p><p className="mt-2 text-[11px] leading-5 text-slate-300">{group.members.map(member => firstName(member.name)).join("، ")}</p><button onClick={() => openNote({ scope_type: "table", scope_key: `table:${round}:${group.table}`, round, table_number: group.table })} className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/[0.07] text-[11px] font-bold text-amber-100"><NotebookPen size={14} />{notesByKey.has(`table:${round}:${group.table}`) ? "عرض ملاحظة الطاولة" : "ملاحظة للطاولة"}</button></div>)}
+                  {tableGroups[round].map(group => <div key={group.table} className="rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3"><p className="text-xs font-black text-amber-200">طاولة {group.table}</p>{group.leader?.coordinator_number ? <p className="mt-1 flex items-center gap-1 text-[10px] font-black text-amber-100"><Crown size={12} /> قائد المجموعة: {group.leader.coordinator_name} #{group.leader.coordinator_number}</p> : null}<p className="mt-2 text-[11px] leading-5 text-slate-300">{group.members.map(member => firstName(member.name)).join("، ")}</p><button onClick={() => openNote({ scope_type: "table", scope_key: `table:${round}:${group.table}`, round, table_number: group.table })} className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/[0.07] text-[11px] font-bold text-amber-100"><NotebookPen size={14} />{notesByKey.has(`table:${round}:${group.table}`) ? "عرض ملاحظة الطاولة" : "ملاحظة للطاولة"}</button></div>)}
                 </div>
               ) : <div className="rounded-2xl border border-dashed border-white/10 p-5 text-center text-xs text-slate-400">ما فيه جلسة شغالة الآن. تقدرين تشوفين كل التوزيعات من قسم الطاولات.</div>}
             </section>
@@ -2128,7 +2142,8 @@ export default function AdminCohostPage() {
                   {tableGroups[tableRound].map(group => (
                     <div key={group.table} className={`rounded-2xl border p-3 ${tableRound === round ? "border-amber-300/20 bg-amber-300/[0.035]" : "border-white/[0.07] bg-white/[0.035]"}`}>
                       <div className="flex items-center justify-between gap-2"><span className="text-xs font-black">طاولة {group.table}</span><span className="text-[9px] text-slate-400">{group.members.length} مشاركين</span></div>
-                      <div className="mt-2 space-y-1">{group.members.map(member => <p key={member.number} className="break-words text-[11px] text-slate-300"><span className="ml-1 text-slate-500">#{member.number}</span>{member.name}</p>)}</div>
+                      {group.leader?.coordinator_number ? <p className="mt-1.5 flex items-center gap-1 text-[10px] font-black text-amber-100"><Crown size={12} /> قائد المجموعة: {group.leader.coordinator_name} #{group.leader.coordinator_number}</p> : null}
+                      <div className="mt-2 space-y-1">{group.members.map(member => <p key={member.number} className={`flex items-center gap-1 break-words text-[11px] ${group.leader?.coordinator_number === member.number ? "font-bold text-amber-100" : "text-slate-300"}`}><span className="ml-1 text-slate-500">#{member.number}</span>{member.name}{group.leader?.coordinator_number === member.number ? <Crown size={11} className="text-amber-300" /> : null}</p>)}</div>
                       <button onClick={() => openNote({ scope_type: "table", scope_key: `table:${tableRound}:${group.table}`, round: tableRound, table_number: group.table })} className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/[0.07] bg-black/10 text-[11px] font-bold text-amber-100"><NotebookPen size={14} />{notesByKey.has(`table:${tableRound}:${group.table}`) ? "عرض ملاحظة الطاولة" : tableRound < 20 ? "ملاحظة عن المجموعة" : "ملاحظة للطاولة"}</button>
                     </div>
                   ))}

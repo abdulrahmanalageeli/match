@@ -9617,11 +9617,13 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               choice_pairs: [],
               algorithm_pairs: [],
               third_choice_pairs: [],
+              group_leaders: [],
               notes: emptyRosterNotes || [],
             })
           }
 
-          const [participantResult, assignmentResult, matchResult, rankingResult, attendanceResult, historyResult, legacyHistoryResult, lockedResult, testMatchResult, realScoreResult, exclusionResult, notesResult] = await Promise.all([
+          const coordinationSessionKey = testModeActive ? `test:${String(stateRow?.test_session_started_at || "")}` : "live"
+          const [participantResult, assignmentResult, matchResult, rankingResult, attendanceResult, historyResult, legacyHistoryResult, lockedResult, testMatchResult, realScoreResult, exclusionResult, notesResult, coordinationResult] = await Promise.all([
             supabase.from("participants").select("assigned_number,name,age").eq("match_id", STATIC_MATCH_ID).in("assigned_number", numbers),
             supabase.from("session_assignments").select("participant_id,round,table_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("round", [1, 2, 3, 20, 30, 40]).in("participant_id", numbers),
             selectEvent3MatchesWithPhase4({
@@ -9651,12 +9653,25 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               : supabase.from("match_results").select("participant_a_number,participant_b_number,round,compatibility_score,score_model_version,score_snapshot,score_content_hash,created_at").eq("match_id", STATIC_MATCH_ID).eq("event_id", currentEventId).order("created_at", { ascending: false }),
             supabase.from("event3_exclusions").select("participant_a_number,participant_b_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
             supabase.from("event3_cohost_notes").select("id,scope_type,scope_key,round,table_number,participant_number,participant2_number,note,updated_at,updated_by,test_mode").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("test_mode", testModeActive).eq("test_session_key", testSessionKey).order("updated_at", { ascending: false }),
+            supabase.from("event3_group_coordination").select("round,table_number,election_status,coordinator_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("session_key", coordinationSessionKey).in("round", [1, 2, 3]),
           ])
           const activeLockResult = testModeActive ? testMatchResult : lockedResult
-          const firstError = [participantResult, assignmentResult, matchResult, rankingResult, attendanceResult, historyResult, legacyHistoryResult, activeLockResult, realScoreResult, exclusionResult, notesResult].find(result => result.error)?.error
+          const firstError = [participantResult, assignmentResult, matchResult, rankingResult, attendanceResult, historyResult, legacyHistoryResult, activeLockResult, realScoreResult, exclusionResult, notesResult, coordinationResult].find(result => result.error)?.error
           if (firstError) return res.status(500).json({ error: firstError.message })
 
           const infoMap = new Map((participantResult.data || []).map(participant => [participant.assigned_number, participant]))
+          const groupLeaders = (coordinationResult.data || []).map(row => {
+            const coordinatorNumber = row.election_status === "elected" && numberSet.has(Number(row.coordinator_number))
+              ? Number(row.coordinator_number)
+              : null
+            return {
+              round: Number(row.round),
+              table_number: Number(row.table_number),
+              election_status: row.election_status,
+              coordinator_number: coordinatorNumber,
+              coordinator_name: coordinatorNumber ? (infoMap.get(coordinatorNumber)?.name || `#${coordinatorNumber}`) : null,
+            }
+          })
           const tableMap = {}
           for (const assignment of assignmentResult.data || []) {
             if (!tableMap[assignment.participant_id]) tableMap[assignment.participant_id] = {}
@@ -9852,6 +9867,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             choice_pairs: choicePairs,
             algorithm_pairs: algorithmPairs,
             third_choice_pairs: thirdChoicePairs,
+            group_leaders: groupLeaders,
             algorithm_conflicting_locks: cohostChoiceOnly ? 0 : conflictingLocks,
             notes: notesResult.data || [],
           })
@@ -10793,14 +10809,35 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const visibleRows = cohostRosterSet
             ? (rows || []).filter(row => cohostRosterSet.has(Number(row.participant_id)))
             : (rows || [])
-          if (visibleRows.length === 0) return res.status(200).json({ seating: null })
+          if (visibleRows.length === 0) return res.status(200).json({ seating: null, group_leaders: [] })
           const nums = [...new Set(visibleRows.map(r => r.participant_id))]
           const { data: pdata } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
           const nameMap = {}
           for (const p of pdata || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); nameMap[p.assigned_number] = { name: p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`, gender: p.gender || sd?.answers?.gender || sd?.gender || "?", age: p.age || sd?.answers?.age || sd?.age || null } }
           const seating = { 1: {}, 2: {}, 3: {}, 20: {}, 30: {}, 40: {} }
           for (const row of visibleRows) { if (!seating[row.round][row.table_number]) seating[row.round][row.table_number] = []; seating[row.round][row.table_number].push({ number: row.participant_id, ...nameMap[row.participant_id] }) }
-          return res.status(200).json({ seating })
+          const seatingTestContext = Number(currentEventId) === Number(realEventId) ? await getEvent3TestContext() : null
+          const coordinationSessionKey = seatingTestContext?.active ? `test:${seatingTestContext.startedAt || ""}` : "live"
+          const { data: coordinationRows, error: coordinationError } = await supabase.from("event3_group_coordination")
+            .select("round,table_number,election_status,coordinator_number")
+            .eq("match_id", EVENT3_MATCH_ID)
+            .eq("event_id", currentEventId)
+            .eq("session_key", coordinationSessionKey)
+            .in("round", [1, 2, 3])
+          if (coordinationError) return res.status(500).json({ error: coordinationError.message })
+          const groupLeaders = (coordinationRows || []).map(row => {
+            const coordinatorNumber = row.election_status === "elected" && nums.includes(Number(row.coordinator_number))
+              ? Number(row.coordinator_number)
+              : null
+            return {
+              round: Number(row.round),
+              table_number: Number(row.table_number),
+              election_status: row.election_status,
+              coordinator_number: coordinatorNumber,
+              coordinator_name: coordinatorNumber ? (nameMap[coordinatorNumber]?.name || `#${coordinatorNumber}`) : null,
+            }
+          })
+          return res.status(200).json({ seating, group_leaders: groupLeaders })
         }
         // e3-toggle-score-reveal
         if (action === "e3-toggle-score-reveal") {
@@ -12301,9 +12338,12 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             const compat3 = matchesChoiceOnly ? null : getStoredEvent3Compatibility(row, "phase3")
             const compatScore3 = matchesChoiceOnly ? null : (compat3?.totalScore ?? row.phase3_score ?? null)
             const storedScore3 = matchesChoiceOnly ? null : (row.phase3_score ?? null)
+            const rankBInA3 = rankMap[a]?.[b] ?? null
+            const rankAInB3 = rankMap[b]?.[a] ?? null
+            const matchType3 = (rankBInA3 && rankAInB3) ? "mutual" : "fallback"
             const lockedKey = `${Math.min(a, b)}-${Math.max(a, b)}`
             const pairTable3 = phase3TableMap[a] || phase3TableMap[b] || null
-            phase3Pairs.push({ a, aName: ai.name || `#${a}`, aGender: ai.gender, b, bName: bi.name || `#${b}`, bGender: bi.gender, compatScore: compatScore3, storedScore: storedScore3, compat: compat3, scoreAvailable: compatScore3 != null, bothComplete: bothComplete3, locked: !matchesChoiceOnly && lockedPairKeys.has(lockedKey), isTestMode: matchesAreTestMode, table: pairTable3 })
+            phase3Pairs.push({ a, aName: ai.name || `#${a}`, aGender: ai.gender, aSurvey: ai.survey_data, b, bName: bi.name || `#${b}`, bGender: bi.gender, bSurvey: bi.survey_data, rankBInA: rankBInA3, rankAInB: rankAInB3, matchType: matchType3, compatScore: compatScore3, storedScore: storedScore3, compat: compat3, scoreAvailable: compatScore3 != null, bothComplete: bothComplete3, locked: !matchesChoiceOnly && lockedPairKeys.has(lockedKey), isTestMode: matchesAreTestMode, table: pairTable3, round: 30 })
           }
           const phase4Seen = new Set()
           const phase4Pairs = []
@@ -12317,9 +12357,13 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               const ai = infoMap[a] || {}, bi = infoMap[b] || {}
               const bothComplete4 = !!(infoMap[a] && infoMap[b] && e3IsComplete(infoMap[a]) && e3IsComplete(infoMap[b]))
               const pairTable4 = phase4TableMap[a] || phase4TableMap[b] || null
+              const rankBInA4 = rankMap[a]?.[b] ?? null
+              const rankAInB4 = rankMap[b]?.[a] ?? null
               phase4Pairs.push({
-                a, aName: ai.name || `#${a}`, aGender: ai.gender,
-                b, bName: bi.name || `#${b}`, bGender: bi.gender,
+                a, aName: ai.name || `#${a}`, aGender: ai.gender, aSurvey: ai.survey_data,
+                b, bName: bi.name || `#${b}`, bGender: bi.gender, bSurvey: bi.survey_data,
+                rankBInA: rankBInA4, rankAInB: rankAInB4,
+                matchType: (rankBInA4 && rankAInB4) ? "mutual" : "fallback",
                 compatScore: null, storedScore: null, compat: null,
                 scoreAvailable: false, bothComplete: bothComplete4, locked: false,
                 isTestMode: matchesAreTestMode, table: pairTable4, round: 40,

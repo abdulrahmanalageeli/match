@@ -2165,6 +2165,22 @@ export default function Admin3Page() {
     if (previewEventId != null) { toast.error("لا يمكن تغيير المرحلة في وضع المعاينة"); return Promise.resolve({ error: "preview mode" }) }
     return run(`phase-${phase}`, () => api("e3-set-phase", { phase, start_timer: false }))
   }
+  const jumpToPhase = (phase: string) => {
+    const duration = getEvent3PhaseSeconds(phase)
+    if (duration <= 0) {
+      void setPhaseStopTimer(phase)
+      return
+    }
+    const timerRound = phase === "round1" ? 1
+      : phase === "round2" ? 2
+        : phase === "round3" ? 3
+          : phase === "break" ? breakTimerRound
+            : phase === "phase2_reveal" ? firstMatchTimerRound
+              : phase === "phase3_reveal" ? secondMatchTimerRound
+                : phase === "phase4_reveal" ? thirdMatchTimerRound
+                  : 0
+    setPhaseWithTimer(phase, duration, timerRound)
+  }
   const startTimer = (round: number, duration?: number) => {
     if (previewEventId != null) { toast.error("لا يمكن تشغيل المؤقت في وضع المعاينة"); return }
     run("timer", () => api("e3-start-timer", { round, duration }))
@@ -3173,23 +3189,34 @@ export default function Admin3Page() {
           </div>
         )}
 
-        {/* Phase Progress — the API only has a live phase/timer snapshot. */}
+        {/* Live phase selector — every known phase is directly reachable. */}
         {previewEventId == null && (
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 sm:p-4">
-            <h2 className="text-xs sm:text-sm font-medium text-gray-400 mb-2 sm:mb-3">مراحل الفعالية</h2>
+            <div className="mb-2 flex items-center justify-between gap-3 sm:mb-3">
+              <div>
+                <h2 className="text-xs font-bold text-gray-300 sm:text-sm">مراحل الفعالية</h2>
+                <p className="mt-0.5 text-[9px] text-gray-600 sm:text-[10px]">اضغط أي مرحلة للانتقال إليها مباشرة</p>
+              </div>
+              <span className="shrink-0 rounded-full border border-purple-700/40 bg-purple-950/40 px-2.5 py-1 text-[9px] font-bold text-purple-300">تحكم يدوي</span>
+            </div>
             <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-thin">
               {phases.map((phase, idx) => (
                 <div key={phase.id} className="flex items-center gap-1 flex-shrink-0">
-                  <div className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition-all ${
+                  <button
+                    type="button"
+                    onClick={() => jumpToPhase(phase.id)}
+                    disabled={!!loading || idx === currentPhaseIdx}
+                    aria-current={idx === currentPhaseIdx ? "step" : undefined}
+                    className={`min-h-9 rounded-lg px-2 text-[10px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 disabled:cursor-default sm:px-3 sm:text-xs ${
                     idx === currentPhaseIdx
                       ? "bg-purple-600 text-white shadow-lg shadow-purple-500/30"
                       : idx < currentPhaseIdx
-                      ? "bg-gray-700 text-green-400"
-                      : "bg-gray-800 text-gray-500"
+                      ? "bg-gray-700 text-green-400 hover:bg-gray-600"
+                      : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white"
                   }`}>
-                    <span className="ml-1">{phase.icon}</span>{phase.label}
+                    {loading === `phase-${phase.id}` ? <Loader2 size={10} className="ml-1 inline animate-spin" /> : <span className="ml-1">{phase.icon}</span>}{phase.label}
                     {idx < currentPhaseIdx && <Check size={10} className="inline mr-1" />}
-                  </div>
+                  </button>
                   {idx < phases.length - 1 && <ArrowRight size={12} className="text-gray-700 flex-shrink-0" />}
                 </div>
               ))}
@@ -4195,23 +4222,8 @@ export default function Admin3Page() {
                     return (
                       <button
                         key={phase.id}
-                        onClick={() => {
-                          if (phase.id === "phase2_processing" || phase.id === "phase3_processing" || phase.id === "phase4_processing") return
-                          if (phase.id === "setup") setPhase("setup")
-                          else if (phase.id === "final_reveal") setPhase("final_reveal")
-                          else if (phase.id === "break") setPhaseWithTimer("break", EVENT3_PHASE_SECONDS.break, breakTimerRound)
-                          else if (phase.id === "round1") setPhaseWithTimer("round1", EVENT3_PHASE_SECONDS.round1, 1)
-                          else if (phase.id === "ranking1") setPhaseWithTimer("ranking1", EVENT3_PHASE_SECONDS.ranking1, 0)
-                          else if (phase.id === "round2") setPhaseWithTimer("round2", EVENT3_PHASE_SECONDS.round2, 2)
-                          else if (phase.id === "ranking2") setPhaseWithTimer("ranking2", EVENT3_PHASE_SECONDS.ranking2, 0)
-                          else if (phase.id === "round3") setPhaseWithTimer("round3", EVENT3_PHASE_SECONDS.round3, 3)
-                          else if (phase.id === "ranking3") setPhaseWithTimer("ranking3", EVENT3_PHASE_SECONDS.ranking3, 0)
-                          else if (phase.id === "phase2_reveal") setPhaseWithTimer("phase2_reveal", EVENT3_PHASE_SECONDS.phase2_reveal, firstMatchTimerRound)
-                          else if (phase.id === "phase3_reveal") setPhaseWithTimer("phase3_reveal", EVENT3_PHASE_SECONDS.phase3_reveal, secondMatchTimerRound)
-                          else if (phase.id === "phase4_reveal") setPhaseWithTimer("phase4_reveal", EVENT3_PHASE_SECONDS.phase4_reveal, thirdMatchTimerRound)
-                          else setPhase(phase.id)
-                        }}
-                        disabled={!!loading || isCurrent || phase.id.endsWith("_processing")}
+                        onClick={() => jumpToPhase(phase.id)}
+                        disabled={!!loading || isCurrent}
                         className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all disabled:opacity-30 ${
                           isCurrent ? "bg-amber-600 text-white" :
                           isPast ? "bg-gray-700 text-green-400 hover:bg-gray-600" :

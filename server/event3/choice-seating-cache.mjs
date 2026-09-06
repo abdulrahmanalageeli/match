@@ -1,7 +1,7 @@
 import { getCache } from "@vercel/functions"
 
-const CACHE_SCHEMA_VERSION = "event3-choice-seating-candidates-v3"
-const CHECKPOINT_SCHEMA_VERSION = "event3-choice-seating-checkpoint-v3"
+const CACHE_SCHEMA_VERSION = "event3-choice-seating-candidates-v4"
+const CHECKPOINT_SCHEMA_VERSION = "event3-choice-seating-checkpoint-v4"
 const CACHE_TTL_SECONDS = 6 * 60 * 60
 const CACHE_TTL_MS = CACHE_TTL_SECONDS * 1000
 const CACHE_NAMESPACE = "event3-choice-seating"

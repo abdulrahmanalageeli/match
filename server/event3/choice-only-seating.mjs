@@ -10,7 +10,7 @@ const TABLE_COUNT = 7
 const GROUP_SIZE = 6
 const PARTICIPANT_COUNT = TABLE_COUNT * GROUP_SIZE
 
-export const CHOICE_ONLY_SEATING_OBJECTIVE_VERSION = "spark-depth-rhythm-v2-six-person"
+export const CHOICE_ONLY_SEATING_OBJECTIVE_VERSION = "spark-depth-rhythm-v3-six-person-38-pass"
 
 // Preview alternatives must feel like different complete plans, not the same
 // tables with different numbers. Replacing half of the 105 companion

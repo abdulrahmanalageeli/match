@@ -9,8 +9,10 @@ import {
   choiceOnlySeatingMetrics,
 } from "./choice-only-seating.mjs"
 import { createRoundLensScorer } from "./round23-lenses.mjs"
+import { ROUND1_SPARK_OPTIMIZATION_PASSES } from "./round1-spark.mjs"
 import {
   choiceOnlyTargetGroupSizes,
+  FLEXIBLE_CHOICE_SEATING_LIMITS,
   FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION,
 } from "./flexible-choice-seating.mjs"
 
@@ -358,6 +360,22 @@ test("keeps avoidable locked pairs apart in every lens round", () => {
   assert.equal(plan.round1Spark.after.lockedPairs, 0)
   assert.equal(plan.round2Depth.lockedPairs, 0)
   assert.equal(plan.round3Rhythm.lockedPairs, 0)
+})
+
+test("keeps the real #7 and #312 exclusion apart in every generated option", () => {
+  const roster = participants.map(number => number === 42 ? 312 : number)
+  const preview = buildChoiceOnlySeatingCandidates(roster, { lockedPairsSet: new Set(["7-312"]) })
+  assert.equal(preview.error, undefined)
+  for (const candidate of preview.candidates) {
+    for (const round of [candidate.plan.round1, candidate.plan.round2, candidate.plan.round3]) {
+      assert.equal(round.some(group => group.includes(7) && group.includes(312)), false)
+    }
+  }
+})
+
+test("uses two additional optimization passes for exact and flexible rosters", () => {
+  assert.equal(ROUND1_SPARK_OPTIMIZATION_PASSES, 38)
+  assert.equal(FLEXIBLE_CHOICE_SEATING_LIMITS.optimizationPasses, 7)
 })
 
 test("is deterministic, including gender and age tie-breaking", () => {

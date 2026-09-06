@@ -7,7 +7,7 @@ import {
 } from "../matching/balanced-compatibility.mjs"
 import { normalizedGender } from "./round2-age-optimizer.mjs"
 
-const MAX_PASSES = 36
+export const ROUND1_SPARK_OPTIMIZATION_PASSES = 38
 const NEUTRAL_PAIR_SCORE = 50
 const NEUTRAL_VIBE_SCORE = BALANCED_VIBE_MAX / 2
 const INTERNAL_PAIR_SCORE_CACHE = Symbol("round1SparkPairScoreCache")
@@ -297,7 +297,7 @@ export function optimizeRound1SparkGroups(round1, options = {}) {
   let current = before
   let swaps = 0
 
-  for (let pass = 0; pass < MAX_PASSES; pass++) {
+  for (let pass = 0; pass < ROUND1_SPARK_OPTIMIZATION_PASSES; pass++) {
     let best = null
     for (let left = 0; left < cells.length; left++) {
       for (let right = left + 1; right < cells.length; right++) {

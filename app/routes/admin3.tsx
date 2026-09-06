@@ -1602,7 +1602,14 @@ export default function Admin3Page() {
   const matchesRequestGeneration = useRef(0)
   const rankingsRequestGeneration = useRef(0)
   const choiceUiEventId = Number(previewEventId ?? state?.current_event_id ?? state?.event_id ?? realCurrentEventId)
-  const choiceUiContextKey = `${eventFormat}|${choiceUiEventId}|${previewEventId != null ? "historical" : testMode ? "test" : "live"}`
+  const choiceExclusionsRevision = exclusions
+    .map(exclusion => [
+      Math.min(Number(exclusion.participant_a_number), Number(exclusion.participant_b_number)),
+      Math.max(Number(exclusion.participant_a_number), Number(exclusion.participant_b_number)),
+    ].join("-"))
+    .sort()
+    .join(",")
+  const choiceUiContextKey = `${eventFormat}|${choiceUiEventId}|${previewEventId != null ? "historical" : testMode ? "test" : "live"}|${choiceExclusionsRevision}`
   const choiceUiContextKeyRef = useRef(choiceUiContextKey)
   choiceUiContextKeyRef.current = choiceUiContextKey
   const [testUsersFilter, setTestUsersFilter] = useState("")
@@ -1704,19 +1711,32 @@ export default function Admin3Page() {
     if (!data.error) setExclusions(data.exclusions || [])
   }, [])
 
+  const invalidateChoiceSeatingPreview = useCallback(() => {
+    choicePreviewRequestGeneration.current += 1
+    choiceApplyRequestGeneration.current += 1
+    setChoiceSeatingPreview(null)
+    setSelectedChoiceSeatingCandidateId("")
+    setChoiceSeatingPreviewIssue(null)
+    setChoiceSeatingCheckpointProgress(null)
+    setChoiceSeatingProgressStartedAt(null)
+    setChoiceSeatingProgressElapsedMs(0)
+  }, [])
+
   const addExclusion = useCallback(async () => {
     if (!exclusionA || !exclusionB || exclusionA === exclusionB) return
-    await run("add-exclusion", () => api("e3-add-exclusion", { participant_a_number: exclusionA, participant_b_number: exclusionB, reason: exclusionReason }))
+    const data = await run("add-exclusion", () => api("e3-add-exclusion", { participant_a_number: exclusionA, participant_b_number: exclusionB, reason: exclusionReason }))
+    if (!data.error) invalidateChoiceSeatingPreview()
     setExclusionA("")
     setExclusionB("")
     setExclusionReason("")
-    fetchExclusions()
-  }, [exclusionA, exclusionB, exclusionReason, fetchExclusions])
+    await fetchExclusions()
+  }, [exclusionA, exclusionB, exclusionReason, fetchExclusions, invalidateChoiceSeatingPreview])
 
   const removeExclusion = useCallback(async (id: number) => {
-    await run("remove-exclusion", () => api("e3-remove-exclusion", { id }))
-    fetchExclusions()
-  }, [fetchExclusions])
+    const data = await run("remove-exclusion", () => api("e3-remove-exclusion", { id }))
+    if (!data.error) invalidateChoiceSeatingPreview()
+    await fetchExclusions()
+  }, [fetchExclusions, invalidateChoiceSeatingPreview])
 
   const fetchState = useCallback(async () => {
     const requestId = ++stateRequestGeneration.current

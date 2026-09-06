@@ -1,6 +1,6 @@
 import crypto from "crypto"
 import { normalizeInboundAction, resolveInboundAction } from "./inbound-actions.mjs"
-import { attendanceDeclineAccessState, confirmationPaymentState, isParticipantEnrolledForEvent, paymentAccessState } from "./confirmation-policy.mjs"
+import { attendanceDeclineAccessState, confirmationPaymentState, isParticipantEnrolledForEvent, paymentAccessState, shouldBlockNewEventPayment } from "./confirmation-policy.mjs"
 import { supabaseAdmin } from "../security/supabase-admin.mjs"
 
 const supabase = supabaseAdmin
@@ -31,6 +31,7 @@ function formatRiyadhCutoffLabel(value) {
 const DEFAULT_RESPONSES = {
   attendance_payment_pending: "✅ تم تسجيل رغبتك بالحضور للمشارك رقم {participant_number}.\n\nلإكمال تأكيد المقعد، يرجى تحويل الرسوم المطلوبة وقدرها *{price} ريال* ({price_label}) ثم إرسال صورة الإيصال أو ملف PDF هنا.\n\n🏦 طرق الدفع:\n• STC Pay: {stc_pay}\n• {bank_name}\n• IBAN: {iban}\n\nيصبح المقعد مؤكداً نهائياً بعد مراجعة الإيصال.",
   attendance_payment_pending_choice_only: "🎉 *باقي خطوة واحدة لتأكيد مقعدك!*\n\n✨ *نسخة الاختيارات فقط*\nهذا الحجز يخص *التوافق الأعمى 5.0 — نسخة الاختيارات فقط*، وليس تجربة «اختيارك واختيارنا» المعتادة.\n\nستشارك في *3 جولات جماعية*، ثم تختار من ترغب بمقابلتهم. بعد ذلك تُرتب لك *3 لقاءات فردية* مع ثلاثة أشخاص مختلفين وفق أقوى الاختيارات المتبادلة. لا تستخدم هذه النسخة ترشيح الخوارزمية للقاءات الفردية.\n\n*بإتمام التحويل وإرسال الإيصال، فأنت تؤكد حجزك في هذه النسخة تحديداً.*\n\nرقم مشاركتك: *{participant_number}*\nالسعر المستحق الآن: *{price} ريال* ({price_label})\n\n💡 *السعر المبكر:* {early_price} ريال — {early_time}\n⏰ *السعر المتأخر:* {late_price} ريال — {late_time}\n\n💳 *بيانات التحويل*\n• STC Pay: {stc_pay}\n• {bank_name}\n• IBAN: {iban}\n\n*يُحجز مقعدك فقط بعد الدفع وإرسال الإيصال.* ادفع الآن لتأكيد مقعدك قبل اكتمال المقاعد، ثم أرسل الإيصال هنا كصورة واضحة أو PDF.",
+  event_payment_seats_full: "اكتملت جميع المقاعد لهذه الفعالية، لذلك أغلقنا استقبال الدفعات الجديدة ولن نتمكن من تأكيد حجز إضافي هذه المرة. حظاً أوفر في الفعالية القادمة 🤍",
   attendance_paid: "✅ تم تسجيل حضورك، ومقعدك مؤكد لأن دفعتك معتمدة.",
   attendance_paid_choice_only: "🎉 *مقعدك مؤكد في نسخة الاختيارات فقط!*\n\nتم اعتماد دفعتك وتأكيد حضورك في *التوافق الأعمى 5.0 — نسخة الاختيارات فقط*.\n\nتذكير: ستشارك في *3 جولات جماعية*، ثم *3 لقاءات فردية* تُحسم وفق أقوى الاختيارات المتبادلة، من دون ترشيح الخوارزمية للقاءات الفردية. ستجد أدناه المكان والوقت ورابط شرح التجربة قبل الحضور.",
   attendance_waived: "✅ تم تسجيل حضورك، ومقعدك مؤكد بإعفاء من الدفع من المنظم.",
@@ -255,6 +256,29 @@ async function getCurrentEventId() {
   return Number(data?.current_event_id || 1)
 }
 
+async function eventPaymentSeatsFull() {
+  const { data } = await supabase
+    .from("twilio_response_rules")
+    .select("enabled")
+    .eq("action_key", "event_payment_seats_full")
+    .maybeSingle()
+  return data?.enabled === true
+}
+
+async function blockNewPaymentIfSeatsFull(participant, from, eventId, attemptedAction) {
+  if (!shouldBlockNewEventPayment(participant, eventId, await eventPaymentSeatsFull())) return false
+  await recordParticipantAction(
+    participant,
+    "payment_access_blocked",
+    { attempted_action: attemptedAction, reason: "seats_full" },
+    "system",
+    "New payments closed after the 2026-09-06 05:00 Asia/Riyadh cutoff",
+    eventId,
+  )
+  await sendTwilioReply(from, await responseText("event_payment_seats_full"), participant)
+  return true
+}
+
 async function getCurrentEventFormat(eventId) {
   const { data, error } = await supabase
     .from("event3_event_settings")
@@ -354,6 +378,10 @@ async function confirmAttendance(participant, from) {
     return accessState
   }
 
+  if (await blockNewPaymentIfSeatsFull(participant, from, eventId, "confirm_attendance")) {
+    return "seats_full"
+  }
+
   const now = new Date().toISOString()
   const { error: participantError } = await supabase.from("participants").update({
     attendance_confirmed: true,
@@ -391,6 +419,7 @@ async function sendPaymentAccessReply(participant, from) {
   const eventId = await getCurrentEventId()
   const accessState = paymentAccessState(participant, eventId)
   if (accessState === "eligible") {
+    if (await blockNewPaymentIfSeatsFull(participant, from, eventId, "payment_request")) return "seats_full"
     await sendTwilioReply(from, await paymentReply(participant, eventId), participant)
   } else {
     await recordBlockedAccess(participant, eventId, "payment_request", accessState)
@@ -531,6 +560,10 @@ export default async function handler(req, res) {
         const responseKey = receiptAccessState === "not_enrolled" ? "current_event_signup_required" : "current_event_not_contacted"
         await sendTwilioReply(from, await responseText(responseKey), participant)
         return res.status(200).json({ status: receiptAccessState })
+      }
+
+      if (await blockNewPaymentIfSeatsFull(participant, from, receiptEventId, "receipt")) {
+        return res.status(200).json({ status: "seats_full" })
       }
 
       // Download and store the receipt

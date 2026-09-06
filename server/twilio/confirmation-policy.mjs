@@ -20,6 +20,10 @@ export function isParticipantEnrolledForEvent(participant, currentEventId) {
   return participant?.signup_for_next_event === true
 }
 
+export function shouldBlockNewEventPayment(participant, currentEventId, seatsFull) {
+  return seatsFull === true && confirmationPaymentState(participant, currentEventId) === "payment_pending"
+}
+
 export function isParticipantContactedForEvent(participant, currentEventId) {
   const eventId = Number(currentEventId)
   if (!Number.isInteger(eventId) || eventId <= 0) return false

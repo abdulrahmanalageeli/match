@@ -17,6 +17,7 @@ const PURPOSE = "event3-choice-seating-preview-v1"
 const REPORT_SCHEMA_VERSION = "event3-choice-seating-report-v1"
 const PREVIEW_TTL_MS = 15 * 60 * 1000
 const MAX_TOKEN_LENGTH = 500_000
+const FRESH_GENERATION_NONCE_PATTERN = /^[A-Za-z0-9_-]{8,96}$/
 
 const fail = (message, status = 409, details = {}) => Object.assign(new Error(message), { status, ...details })
 const pairKey = (left, right) => `${Math.min(Number(left), Number(right))}-${Math.max(Number(left), Number(right))}`
@@ -26,6 +27,35 @@ function stableValue(value) {
   if (Array.isArray(value)) return value.map(stableValue)
   if (!value || typeof value !== "object") return value
   return Object.fromEntries(Object.keys(value).sort().map(key => [key, stableValue(value[key])]))
+}
+
+function freshGenerationContext(body, context) {
+  if (body?.bypass_cache !== true) {
+    return {
+      cacheContextHash: context.contextHash,
+      participantNumbers: context.participantNumbers,
+      variantId: null,
+    }
+  }
+  const nonce = String(body?.generation_nonce || "")
+  if (!FRESH_GENERATION_NONCE_PATTERN.test(nonce)) {
+    throw fail("A valid generation nonce is required to bypass the seating cache", 400)
+  }
+  const variantHash = createHash("sha256").update(`${context.contextHash}:fresh:${nonce}`).digest("hex")
+  let randomState = Number.parseInt(variantHash.slice(0, 8), 16) >>> 0 || 1
+  const participantNumbers = [...context.participantNumbers]
+  for (let index = participantNumbers.length - 1; index > 0; index--) {
+    randomState ^= randomState << 13
+    randomState ^= randomState >>> 17
+    randomState ^= randomState << 5
+    const target = (randomState >>> 0) % (index + 1)
+    ;[participantNumbers[index], participantNumbers[target]] = [participantNumbers[target], participantNumbers[index]]
+  }
+  return {
+    cacheContextHash: variantHash,
+    participantNumbers,
+    variantId: variantHash.slice(0, 10),
+  }
 }
 
 function parseSurveyData(value) {
@@ -539,14 +569,15 @@ export async function handleChoiceSeatingPreview({ db, action, body = {}, eventI
     lockedPairsSet: context.lockedPairsSet,
     requireCompleteLensProfiles: false,
   }
+  const generationContext = freshGenerationContext(body, context)
   const generationResult = await getOrBuildChoiceSeatingCandidates({
-    contextHash: context.contextHash,
+    contextHash: generationContext.cacheContextHash,
     eventId,
     ...(typeof buildCandidates === "function"
-      ? { build: () => buildCandidates(context.participantNumbers, generationOptions) }
+      ? { build: () => buildCandidates(generationContext.participantNumbers, generationOptions) }
       : {}),
     ...(typeof buildCandidatesStep === "function"
-      ? { buildStep: checkpoint => buildCandidatesStep(context.participantNumbers, generationOptions, checkpoint) }
+      ? { buildStep: checkpoint => buildCandidatesStep(generationContext.participantNumbers, generationOptions, checkpoint) }
       : {}),
   })
   if (generationResult.pending) {
@@ -555,10 +586,18 @@ export async function handleChoiceSeatingPreview({ db, action, body = {}, eventI
       pending: true,
       progress: generationResult.progress,
       missing_survey_fields: context.missingSurveyFields,
-      cache: generationResult.cache,
+      cache: { ...generationResult.cache, bypassed: Boolean(generationContext.variantId) },
     }
   }
-  const generated = generationResult.generated
+  const generated = generationContext.variantId && Array.isArray(generationResult.generated?.candidates)
+    ? {
+        ...generationResult.generated,
+        candidates: generationResult.generated.candidates.map(candidate => ({
+          ...candidate,
+          id: `${candidate.id}-fresh-${generationContext.variantId}`,
+        })),
+      }
+    : generationResult.generated
   if (generated?.error) throw fail(generated.error, 400)
   if (![CHOICE_ONLY_SEATING_OBJECTIVE_VERSION, FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION].includes(generated?.objectiveVersion)) {
     throw fail("The seating scheduler objective version does not match the preview service", 503)
@@ -661,7 +700,7 @@ export async function handleChoiceSeatingPreview({ db, action, body = {}, eventI
     objective_version: String(generated.objectiveVersion || "unknown"),
     diversity_policy: generated.diversityPolicy || null,
     missing_survey_fields: context.missingSurveyFields,
-    cache: generationResult.cache,
+    cache: { ...generationResult.cache, bypassed: Boolean(generationContext.variantId) },
     candidates,
   }
 }
@@ -669,6 +708,7 @@ export async function handleChoiceSeatingPreview({ db, action, body = {}, eventI
 export const choiceSeatingPreviewInternals = Object.freeze({
   canonicalAssignments,
   assignmentsForPlan,
+  freshGenerationContext,
   loadChoiceContext,
   REPORT_SCHEMA_VERSION,
   PREVIEW_TTL_MS,

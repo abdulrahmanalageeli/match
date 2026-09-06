@@ -4,6 +4,7 @@ import test from "node:test"
 import { buildChoiceOnlySeatingCandidates } from "./choice-only-seating.mjs"
 import {
   buildChoiceSeatingReport,
+  choiceSeatingPreviewInternals,
   handleChoiceSeatingPreview,
   readChoiceSeatingPreview,
   signChoiceSeatingPreview,
@@ -11,6 +12,30 @@ import {
 
 const EVENT_ID = 26
 const numbers = Array.from({ length: 42 }, (_, index) => index + 1)
+
+test("fresh generation uses a distinct deterministic cache context and participant order", () => {
+  const context = { contextHash: "a".repeat(64), participantNumbers: numbers }
+  const regular = choiceSeatingPreviewInternals.freshGenerationContext({}, context)
+  const fresh = choiceSeatingPreviewInternals.freshGenerationContext({
+    bypass_cache: true,
+    generation_nonce: "fresh-generation-0001",
+  }, context)
+  const repeated = choiceSeatingPreviewInternals.freshGenerationContext({
+    bypass_cache: true,
+    generation_nonce: "fresh-generation-0001",
+  }, context)
+
+  assert.equal(regular.cacheContextHash, context.contextHash)
+  assert.equal(regular.variantId, null)
+  assert.notEqual(fresh.cacheContextHash, context.contextHash)
+  assert.deepEqual(repeated, fresh)
+  assert.notDeepEqual(fresh.participantNumbers, numbers)
+  assert.deepEqual([...fresh.participantNumbers].sort((left, right) => left - right), numbers)
+  assert.throws(() => choiceSeatingPreviewInternals.freshGenerationContext({
+    bypass_cache: true,
+    generation_nonce: "bad",
+  }, context), /valid generation nonce/)
+})
 
 function assignmentFixture() {
   return [1, 2, 3].flatMap(round => numbers.map((participant_id, index) => ({

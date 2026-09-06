@@ -244,6 +244,7 @@ type ChoiceSeatingPreviewResponse = {
     completed_steps?: number
     total_steps?: number
     percent?: number
+    bypassed?: boolean
   }
   candidates: ChoiceSeatingCandidate[]
 }
@@ -751,6 +752,7 @@ function ChoiceSeatingPreviewPanel({
   onSelect,
   onApply,
   onRegenerate,
+  onGenerateFresh,
   onCancel,
 }: {
   preview: ChoiceSeatingPreviewResponse
@@ -761,6 +763,7 @@ function ChoiceSeatingPreviewPanel({
   onSelect: (candidateId: string) => void
   onApply: () => void
   onRegenerate: () => void
+  onGenerateFresh: () => void
   onCancel: () => void
 }) {
   const candidates = [...(preview.candidates || [])].sort((left, right) => Number(left.rank) - Number(right.rank))
@@ -786,7 +789,9 @@ function ChoiceSeatingPreviewPanel({
               <Layers size={18} className="text-cyan-300" />
               <h3 id="choice-seating-preview-title" className="text-base font-black text-white">معاينة خطة الجلسات قبل الاعتماد</h3>
               <span className="rounded-full border border-cyan-700/40 bg-cyan-950/35 px-2 py-0.5 text-[9px] font-bold text-cyan-200">لم تُطبّق بعد</span>
-              {preview.cache?.status === "hit" || preview.cache?.status === "coalesced"
+              {preview.cache?.bypassed
+                ? <span className="rounded-full border border-violet-500/40 bg-violet-500/15 px-2 py-0.5 text-[9px] font-bold text-violet-100">✦ توليد جديد دون النسخة المحفوظة</span>
+                : preview.cache?.status === "hit" || preview.cache?.status === "coalesced"
                 ? <span className="rounded-full border border-emerald-700/35 bg-emerald-950/35 px-2 py-0.5 text-[9px] font-bold text-emerald-200">⚡ نسخة محفوظة مطابقة</span>
                 : preview.cache?.status === "miss"
                   ? <span className="rounded-full border border-violet-700/35 bg-violet-950/35 px-2 py-0.5 text-[9px] font-bold text-violet-200">بُنيت الآن وحُفظت مؤقتاً</span>
@@ -826,9 +831,10 @@ function ChoiceSeatingPreviewPanel({
       </div>
 
       <div className="sticky bottom-0 z-10 flex flex-col-reverse gap-2 border-t border-white/10 bg-gray-950/95 p-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button type="button" onClick={onCancel} disabled={applying || regenerating} className="rounded-xl border border-gray-700 bg-gray-900 px-4 py-2.5 text-xs font-bold text-gray-400 hover:text-white disabled:opacity-40">إلغاء المعاينة</button>
           <button type="button" onClick={onRegenerate} disabled={applying || regenerating} className="flex items-center gap-1.5 rounded-xl border border-cyan-700/40 bg-cyan-950/30 px-4 py-2.5 text-xs font-bold text-cyan-200 hover:bg-cyan-900/35 disabled:opacity-40">{regenerating ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} إعادة بناء الخيارات من البيانات الحالية</button>
+          <button type="button" onClick={onGenerateFresh} disabled={applying || regenerating} className="flex items-center gap-1.5 rounded-xl border border-violet-500/40 bg-violet-500/15 px-4 py-2.5 text-xs font-black text-violet-100 shadow-lg shadow-violet-950/25 hover:bg-violet-500/25 disabled:opacity-40">{regenerating ? <Loader2 size={14} className="animate-spin" /> : <Shuffle size={14} />} تجاهل المحفوظ وإنشاء خيارات جديدة</button>
         </div>
         <button type="button" onClick={onApply} disabled={applying || regenerating || expired || !selected.token} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-l from-emerald-600 to-teal-600 px-6 py-3 text-sm font-black text-white shadow-lg shadow-emerald-950/40 hover:from-emerald-500 hover:to-teal-500 disabled:cursor-not-allowed disabled:opacity-40">{applying ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />} اعتماد وتطبيق {choiceCandidateLabels[Number(selected.rank)]?.english || `#${selected.rank}`}</button>
       </div>
@@ -2587,12 +2593,16 @@ export default function Admin3Page() {
     expected_test_session_key: String(state?.test_session_key || (testMode ? testModeData?.started_at || "" : "live")),
   })
 
-  const generateChoiceSeatingPreview = async () => {
+  const generateChoiceSeatingPreview = async (ignoreCached = false) => {
     if (previewEventId != null) { toast.error("لا يمكن توليد الجلسات في وضع المعاينة التاريخية"); return }
     if (!choiceOnlyRosterReady(state?.participants_selected)) { toast.error("يجب حفظ عدد زوجي من 6 إلى 44 مشاركاً قبل إنشاء خيارات الجلسات"); return }
     const requestId = ++choicePreviewRequestGeneration.current
     const requestContext = choiceUiContextKeyRef.current
     const expectedContext = choiceSeatingExpectedContext()
+    const generationRequest = ignoreCached ? {
+      bypass_cache: true,
+      generation_nonce: globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    } : {}
     const requestIsCurrent = () => requestId === choicePreviewRequestGeneration.current
       && choiceUiContextKeyRef.current === requestContext
       && getPreviewEventId() == null
@@ -2608,7 +2618,7 @@ export default function Admin3Page() {
       let lastCompletedSteps = 0
       let unchangedResponses = 0
       for (let requestNumber = 0; requestNumber < 10; requestNumber++) {
-        data = await api("e3-preview-choice-seating", expectedContext)
+        data = await api("e3-preview-choice-seating", { ...expectedContext, ...generationRequest })
         if (!requestIsCurrent()) return
         if (!data?.pending) break
         const rawProgress = data.progress || data.cache || {}
@@ -2669,7 +2679,9 @@ export default function Admin3Page() {
       const generationSeconds = Number.isFinite(Number(data.cache?.generation_ms))
         ? Math.max(1, Math.round(Number(data.cache.generation_ms) / 1000))
         : null
-      toast.success(reusedCache
+      toast.success(ignoreCached
+        ? `تم تجاهل النسخة المحفوظة وإنشاء ثلاث خطط جديدة${generationSeconds ? ` خلال ${generationSeconds}ث` : ""}`
+        : reusedCache
         ? "تم استرجاع ثلاث خطط محفوظة ومطابقة لهذه البيانات"
         : `تم إنشاء ثلاث خطط وحفظها مؤقتاً${generationSeconds ? ` خلال ${generationSeconds}ث` : ""} — لم تُطبّق أي خطة بعد`)
       window.setTimeout(() => {
@@ -2753,7 +2765,7 @@ export default function Admin3Page() {
   const generateSeating = () => {
     if (previewEventId != null) { toast.error("لا يمكن توليد الجلسات في وضع المعاينة"); return }
     if (choiceOnly) {
-      generateChoiceSeatingPreview()
+      generateChoiceSeatingPreview(false)
       return
     }
     run("seating", async () => {
@@ -3920,7 +3932,7 @@ export default function Admin3Page() {
                       </div>
                     )}
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <button type="button" onClick={generateChoiceSeatingPreview} disabled={!!loading || previewEventId != null} className="flex items-center gap-1.5 rounded-lg bg-red-700/30 px-3 py-2 text-[10px] font-bold text-red-100 hover:bg-red-700/45 disabled:opacity-40">{loading === "seating" ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />} إعادة المحاولة بعد إصلاح البيانات</button>
+                      <button type="button" onClick={() => generateChoiceSeatingPreview(false)} disabled={!!loading || previewEventId != null} className="flex items-center gap-1.5 rounded-lg bg-red-700/30 px-3 py-2 text-[10px] font-bold text-red-100 hover:bg-red-700/45 disabled:opacity-40">{loading === "seating" ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />} إعادة المحاولة بعد إصلاح البيانات</button>
                       <button type="button" onClick={() => setChoiceSeatingPreviewIssue(null)} className="rounded-lg border border-red-800/30 px-3 py-2 text-[10px] font-bold text-red-300/70 hover:text-red-100">إخفاء التنبيه</button>
                     </div>
                   </div>
@@ -3937,7 +3949,8 @@ export default function Admin3Page() {
                 regenerating={loading === "seating"}
                 onSelect={setSelectedChoiceSeatingCandidateId}
                 onApply={applyChoiceSeatingPreview}
-                onRegenerate={generateChoiceSeatingPreview}
+                onRegenerate={() => generateChoiceSeatingPreview(false)}
+                onGenerateFresh={() => generateChoiceSeatingPreview(true)}
                 onCancel={cancelChoiceSeatingPreview}
               />
             )}

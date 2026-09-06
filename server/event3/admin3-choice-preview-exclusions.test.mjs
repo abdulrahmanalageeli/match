@@ -21,3 +21,12 @@ test("Admin3 invalidates a visible or in-flight seating preview when exclusions 
   assert.equal((actions.match(/if \(!data\.error\) invalidateChoiceSeatingPreview\(\)/g) || []).length, 2)
   assert.equal((actions.match(/await fetchExclusions\(\)/g) || []).length, 2)
 })
+
+test("Admin3 offers an explicit fresh-generation button that bypasses saved seating", async () => {
+  const source = await readFile(admin3Url, "utf8")
+
+  assert.match(source, /onGenerateFresh=\{\(\) => generateChoiceSeatingPreview\(true\)\}/)
+  assert.match(source, /تجاهل المحفوظ وإنشاء خيارات جديدة/)
+  assert.match(source, /bypass_cache: true/)
+  assert.match(source, /generation_nonce: globalThis\.crypto\?\.randomUUID/)
+})

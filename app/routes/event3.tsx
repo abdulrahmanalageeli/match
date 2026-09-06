@@ -3414,11 +3414,17 @@ function GroupElectionOverlay({
             })}
           </div>
 
-          <section aria-label="خيارات الحسم السريع" className="relative mt-4 overflow-hidden rounded-2xl border border-violet-300/15 bg-gradient-to-l from-violet-500/[0.08] via-white/[0.025] to-cyan-500/[0.06] p-3">
+          <section aria-label="خيارات الحسم السريع بقرار جماعي" aria-describedby="quick-resolution-consent" className="relative mt-4 overflow-hidden rounded-2xl border border-violet-300/15 bg-gradient-to-l from-violet-500/[0.08] via-white/[0.025] to-cyan-500/[0.06] p-3">
+            <div id="quick-resolution-consent" role="note" className="mb-3 rounded-xl border border-amber-300/20 bg-amber-400/[0.08] px-3 py-2.5 text-right">
+              <div className="flex items-center gap-1.5 text-[11px] font-black text-amber-100">
+                <Users size={13} aria-hidden="true" /> قرار جماعي فقط — ليس قرارك وحدك
+              </div>
+              <p className="mt-1 text-[9px] font-bold leading-4 text-amber-100/55">اتفقوا كلكم أولاً؛ أي خيار بالأسفل يُطبّق فوراً على المجموعة كاملة.</p>
+            </div>
             <div className="mb-2.5 flex items-center justify-between gap-3">
               <div className="text-right">
                 <h3 className="text-[11px] font-black text-white/75">حسم أسرع</h3>
-                <p className="mt-0.5 text-[9px] font-bold text-white/35">استخدموه باتفاق المجموعة — القرار يُعتمد فوراً</p>
+                <p className="mt-0.5 text-[9px] font-bold text-white/35">استخدموا هذه الاختصارات بعد الاتفاق فقط</p>
               </div>
               <Zap size={16} className="shrink-0 text-violet-200" aria-hidden="true" />
             </div>

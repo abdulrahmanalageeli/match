@@ -1433,7 +1433,6 @@ html:not(.dark) .round-bg-pattern::before {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  border: 1px solid rgba(216, 180, 254, 0.14);
   box-shadow: 0 22px 50px -28px rgba(var(--event3-purple), 0.9);
 }
 

@@ -4122,16 +4122,30 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                     type="button"
                     onClick={e => { e.stopPropagation(); setOpenNote(openNote === num ? null : num) }}
                     aria-expanded={openNote === num}
-                    aria-label={`${notes[num] ? 'تعديل' : 'إضافة'} ملاحظة خاصة عن ${p.first_name}`}
+                    aria-label={`${notes[num] ? 'تعديل' : 'إضافة'} ملاحظة خاصة عن ${p.first_name} من الجولة ${p.round}${p.table_number != null ? `، المجموعة ${p.table_number}` : ''}`}
                     className="flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl px-2 text-center transition hover:bg-white/[0.04]"
                   >
-                    <span className="truncate text-sm font-bold leading-tight text-white">{p.first_name}</span>
-                    <span className="text-[11px] font-mono text-gray-400">#{p.number}</span>
-                    {newNums.has(num) && (
-                      <span className="flex shrink-0 items-center gap-0.5 rounded-full border border-purple-800/50 bg-purple-900/50 px-1.5 py-0.5 text-[10px] font-semibold text-purple-200">
-                        <Sparkles size={8} /> جديد
+                    <span className="flex min-w-0 flex-1 flex-col items-center gap-1">
+                      <span className="flex max-w-full items-center justify-center gap-1.5">
+                        <span className="truncate text-sm font-bold leading-tight text-white">{p.first_name}</span>
+                        <span className="shrink-0 text-[11px] font-mono text-gray-400">#{p.number}</span>
+                        {newNums.has(num) && (
+                          <span className="flex shrink-0 items-center gap-0.5 rounded-full border border-purple-800/50 bg-purple-900/50 px-1.5 py-0.5 text-[10px] font-semibold text-purple-200">
+                            <Sparkles size={8} /> جديد
+                          </span>
+                        )}
                       </span>
-                    )}
+                      <span className="flex flex-wrap items-center justify-center gap-1.5">
+                        <span className="shrink-0 rounded-full border border-white/[0.07] bg-white/[0.035] px-2 py-0.5 text-[9px] font-semibold text-gray-400">
+                          الجولة {p.round}
+                        </span>
+                        {p.table_number != null && (
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-cyan-300/25 bg-gradient-to-r from-cyan-500/[0.13] to-blue-500/[0.08] px-2.5 py-0.5 text-[10px] font-black text-cyan-100 shadow-[0_0_14px_rgba(34,211,238,.08)]">
+                            <Users size={9} aria-hidden="true" /> المجموعة {p.table_number}
+                          </span>
+                        )}
+                      </span>
+                    </span>
                     <PenLine size={14} className={notes[num] ? 'shrink-0 text-amber-300' : 'shrink-0 text-gray-400'} />
                   </button>
 
@@ -4313,6 +4327,11 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                     <div key={num} className="flex items-center gap-2.5">
                       <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black bg-gradient-to-br ${rb.bg} ${rb.text}`}>{i + 1}</span>
                       <span className="text-gray-200 font-semibold text-sm flex-1 text-right">{p.first_name}</span>
+                      {p.table_number != null && (
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-cyan-300/20 bg-cyan-400/[0.08] px-2 py-0.5 text-[9px] font-black text-cyan-100">
+                          <Users size={8} aria-hidden="true" /> المجموعة {p.table_number}
+                        </span>
+                      )}
                       <span className="text-gray-600 text-[10px] font-mono">#{p.number}</span>
                     </div>
                   )

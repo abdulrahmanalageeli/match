@@ -630,7 +630,7 @@ function InfoHint({ text, delay = 0.3, duration = 5 }: { text: string; delay?: n
 }
 
 function PageWrapper({ children, className = "", embedded = false, ...contentProps }: React.HTMLAttributes<HTMLDivElement> & { embedded?: boolean }) {
-  const heightClass = embedded ? "min-h-full" : "min-h-[100dvh]"
+  const heightClass = embedded ? "h-full min-h-full" : "min-h-[100dvh]"
   return (
     <MotionConfig reducedMotion="user">
     <div className={`event3-shell relative ${heightClass} overflow-x-hidden`} dir="rtl" lang="ar">
@@ -4055,6 +4055,25 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
 
   const RC = getEvent3GroupRoundTheme(round)
 
+  if (!assignment && !assignmentError) return (
+    <PageWrapper embedded className="flex items-center justify-center p-6">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        role="status"
+        aria-live="polite"
+        className={`event3-glass relative flex w-full max-w-xs flex-col items-center overflow-hidden rounded-[2rem] border px-6 py-8 text-center ${RC.border} ${RC.ring}`}
+      >
+        <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${RC.wash}`} />
+        <div className={`relative flex h-16 w-16 items-center justify-center rounded-2xl border bg-black/25 shadow-[0_18px_50px_-20px_rgba(34,211,238,.7)] ${RC.border}`}>
+          <Spinner size={27} />
+        </div>
+        <p className="relative mt-4 text-base font-black text-white">نجهّز مجموعتك</p>
+        <p className="relative mt-1 text-xs font-medium text-white/45">لحظات ونُظهر لك مكانك وأعضاء المجموعة</p>
+      </motion.div>
+    </PageWrapper>
+  )
+
   return (
     <div className="relative min-h-full overflow-hidden" dir="rtl">
       {/* Background orbs */}
@@ -4068,14 +4087,14 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
       {/* ── Main Content ───────────────────────────────────────────── */}
       <motion.div
         initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
-        className="relative z-10 flex h-full flex-col items-center justify-center p-4 sm:p-6"
+        className="relative z-10 flex min-h-full flex-col items-center px-4 py-5 sm:px-6"
         aria-hidden={(showGroups || coordinationModalVisible) || undefined}
         inert={showGroups || coordinationModalVisible}
       >
-        <div className="w-full max-w-sm space-y-5 text-center">
+        <div className="w-full max-w-md space-y-4 text-center">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.1, type: "spring" }}
-            className={`inline-flex items-center gap-2 ${RC.badge} border rounded-full px-5 py-2`}
+            className={`inline-flex items-center gap-2 rounded-full border bg-black/20 px-4 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,.08),0_14px_35px_-24px_rgba(0,0,0,.9)] backdrop-blur-xl ${RC.badge}`}
           >
             <Users size={13} />
             <span className="font-bold text-sm">الجولة الجماعية {RC.ordinalAr}</span>
@@ -4092,47 +4111,51 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
 
           {assignment ? (
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-              <GlassCard className={`p-0 overflow-hidden border ${RC.border} ring-1 ${RC.ring} shadow-2xl shadow-black/30`}>
-                <div className="relative px-5 pt-5 pb-4 text-center">
+              <GlassCard className={`overflow-hidden rounded-[2rem] border p-0 shadow-[0_28px_80px_-42px_rgba(0,0,0,.95)] ring-1 ${RC.border} ${RC.ring}`}>
+                <div className="relative p-4 text-right sm:p-5">
                   <div className="absolute inset-0 bg-gradient-to-br from-gray-900/60 via-gray-950/60 to-black/40" />
                   <div className={`absolute inset-0 bg-gradient-to-bl ${RC.wash}`} />
-                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
+                  <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${RC.bar}`} />
                   <div className={`absolute -top-20 -right-16 w-48 h-48 rounded-full blur-3xl pointer-events-none ${RC.primaryOrb}`} />
                   <div className={`absolute -bottom-24 -left-16 w-44 h-44 rounded-full blur-3xl pointer-events-none ${RC.secondaryOrb}`} />
-                  <div className="relative z-10 space-y-2.5">
-                    <div className={`inline-flex items-center justify-center gap-2 ${RC.badge} border rounded-full px-4 py-1.5 text-[11px] font-bold`}>
-                      <MapPin size={12} /> مكانك هذه الجولة
-                    </div>
-                    <div className={`text-7xl font-black leading-none text-transparent bg-clip-text bg-gradient-to-br ${RC.bar}`}
-                      style={{ textShadow: "0 0 28px rgba(255,255,255,0.10)" }}>
-                      {assignment.table}
-                    </div>
-                    <p className="text-gray-500 text-sm font-medium">طاولة رقم</p>
-
-                    {/* Tablemate count */}
-                    {assignment.tablemates?.length > 0 && (
-                      <div className="inline-flex items-center justify-center gap-2 bg-white/[0.04] border border-white/[0.06] rounded-full px-3 py-1.5 text-gray-400 text-xs">
-                        <Users size={11} />
-                        <span>{assignment.tablemates.length} أشخاص معك في الطاولة</span>
+                  <div className="relative z-10 grid grid-cols-[minmax(0,1fr)_5.5rem] items-center gap-4">
+                    <div className="min-w-0">
+                      <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-black ${RC.badge}`}>
+                        <Sparkles size={11} /> مجموعتك جاهزة
                       </div>
-                    )}
+                      <h2 className="mt-2 text-xl font-black tracking-tight text-white">مكانك لهذه الجولة</h2>
+                      <p className="mt-1 text-xs font-medium leading-5 text-white/45">توجّه للطاولة، تعرّف على الجميع، ثم ابدأوا النشاط معاً.</p>
+                      {assignment.tablemates?.length > 0 && (
+                        <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/[0.07] bg-black/20 px-3 py-1.5 text-[10px] font-bold text-white/50">
+                          <Users size={11} />
+                          <span>{assignment.tablemates.length + (myInfo ? 1 : 0)} أشخاص في المجموعة</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className={`flex min-h-[7rem] flex-col items-center justify-center rounded-[1.6rem] border bg-black/25 shadow-[inset_0_1px_0_rgba(255,255,255,.1),0_18px_45px_-26px_rgba(34,211,238,.6)] ${RC.border}`}>
+                      <MapPin size={15} className={RC.text} />
+                      <span className={`mt-1 bg-gradient-to-br bg-clip-text text-5xl font-black leading-none text-transparent ${RC.bar}`}>
+                        {assignment.table}
+                      </span>
+                      <span className="mt-1 text-[10px] font-black text-white/45">الطاولة</span>
+                    </div>
                   </div>
                 </div>
 
                 {(myInfo || assignment.tablemates?.length > 0) && (
-                  <div className="px-5 pb-5 pt-4 border-t border-white/[0.06] bg-black/10">
-                    <p className="text-gray-500 text-xs mb-3">أعضاء طاولتك</p>
-                    <div className="flex flex-wrap gap-2 justify-center">
+                  <div className="border-t border-white/[0.06] bg-black/15 px-4 pb-4 pt-3">
+                    <p className="mb-2.5 text-right text-[10px] font-black text-white/35">أعضاء المجموعة</p>
+                    <div className="flex flex-wrap justify-start gap-1.5">
                       {myInfo && (
-                        <span className="inline-flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-500/15 px-3 py-1.5 text-sm font-black text-amber-200 ring-1 ring-amber-400/10">
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/35 bg-amber-500/10 px-2.5 py-1.5 text-xs font-black text-amber-100 ring-1 ring-amber-400/10">
                           <span className="h-2 w-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.65)]" />
-                          {myInfo.name} <span className="text-[11px] text-amber-400">(أنت)</span>
+                          {myInfo.name} <span className="text-[9px] text-amber-400">أنت</span>
                         </span>
                       )}
                       {(assignment.tablemates || []).map((m: any) => (
                         <span
                           key={m.number}
-                          className={`inline-flex items-center gap-2 border rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
+                          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-bold transition-colors ${
                             m.gender === 'female'
                               ? 'bg-pink-950/30 text-pink-200 border-pink-500/25'
                               : m.gender === 'male'
@@ -4205,18 +4228,19 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
             onClick={openGroups}
             disabled={!assignment}
             initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
-            className={`event3-action group flex w-full items-center gap-3 rounded-2xl bg-gradient-to-r p-4 text-right text-white transition-all hover:brightness-110 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40 ${RC.bar}`}
+            className={`event3-action group flex min-h-[4.5rem] w-full items-center gap-3 rounded-[1.4rem] border border-white/20 bg-gradient-to-r p-3.5 text-right text-white shadow-[0_24px_55px_-24px_rgba(168,85,247,.85)] ring-1 ring-white/10 transition-all hover:brightness-110 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40 ${RC.bar}`}
           >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15 ring-1 ring-white/20">
+            <span aria-hidden="true" className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/80 to-transparent" />
+            <span className="relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-black/15 shadow-inner ring-1 ring-white/25">
               <Target size={19} />
             </span>
-            <span className="min-w-0 flex-1">
+            <span className="relative z-10 min-w-0 flex-1">
               <span className="block text-base font-black">{
                 !groupsHaveOpened ? "وصلت — ابدأوا معاً" : groupActivityStage === "warmup" ? "متابعة كسر الجليد" : "العودة إلى نشاط المجموعة"
               }</span>
               <span className="mt-0.5 block text-xs font-medium text-white/75">تعارف سريع، ثم ألعاب وأسئلة يشارك فيها الجميع</span>
             </span>
-            <ArrowLeft size={18} className="shrink-0 text-white/70 transition-transform group-hover:-translate-x-0.5" />
+            <ArrowLeft size={18} className="relative z-10 shrink-0 text-white/75 transition-transform group-hover:-translate-x-0.5" />
           </motion.button>
 
           <p className="text-gray-600 text-xs">
@@ -4966,7 +4990,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                     type="button"
                     onClick={e => { e.stopPropagation(); setOpenNote(openNote === num ? null : num) }}
                     aria-expanded={openNote === num}
-                    aria-label={`${notes[num] ? 'تعديل' : 'إضافة'} ملاحظة خاصة عن ${p.first_name} من الجولة ${p.round}${p.table_number != null ? `، المجموعة ${p.table_number}` : ''}`}
+                    aria-label={`${notes[num] ? 'تعديل' : 'إضافة'} ملاحظة خاصة عن ${p.first_name} من المجموعة ${p.round}`}
                     className="flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl px-2 text-center transition hover:bg-white/[0.04]"
                   >
                     <span className="flex min-w-0 flex-1 flex-col items-center gap-1">
@@ -4980,14 +5004,9 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                         )}
                       </span>
                       <span className="flex flex-wrap items-center justify-center gap-1.5">
-                        <span className="shrink-0 rounded-full border border-white/[0.07] bg-white/[0.035] px-2 py-0.5 text-[9px] font-semibold text-gray-400">
-                          الجولة {p.round}
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-cyan-300/25 bg-gradient-to-r from-cyan-500/[0.13] to-blue-500/[0.08] px-2.5 py-0.5 text-[10px] font-black text-cyan-100 shadow-[0_0_14px_rgba(34,211,238,.08)]">
+                          <Users size={9} aria-hidden="true" /> المجموعة {p.round}
                         </span>
-                        {p.table_number != null && (
-                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-cyan-300/25 bg-gradient-to-r from-cyan-500/[0.13] to-blue-500/[0.08] px-2.5 py-0.5 text-[10px] font-black text-cyan-100 shadow-[0_0_14px_rgba(34,211,238,.08)]">
-                            <Users size={9} aria-hidden="true" /> المجموعة {p.table_number}
-                          </span>
-                        )}
                       </span>
                     </span>
                     <PenLine size={14} className={notes[num] ? 'shrink-0 text-amber-300' : 'shrink-0 text-gray-400'} />
@@ -5171,11 +5190,9 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                     <div key={num} className="flex items-center gap-2.5">
                       <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black bg-gradient-to-br ${rb.bg} ${rb.text}`}>{i + 1}</span>
                       <span className="text-gray-200 font-semibold text-sm flex-1 text-right">{p.first_name}</span>
-                      {p.table_number != null && (
-                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-cyan-300/20 bg-cyan-400/[0.08] px-2 py-0.5 text-[9px] font-black text-cyan-100">
-                          <Users size={8} aria-hidden="true" /> المجموعة {p.table_number}
-                        </span>
-                      )}
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-cyan-300/20 bg-cyan-400/[0.08] px-2 py-0.5 text-[9px] font-black text-cyan-100">
+                        <Users size={8} aria-hidden="true" /> المجموعة {p.round}
+                      </span>
                       <span className="text-gray-600 text-[10px] font-mono">#{p.number}</span>
                     </div>
                   )
@@ -9573,7 +9590,6 @@ export default function Event3Page() {
 
   if (stateLoading && !eventState) return (
     <PageWrapper className="flex items-center justify-center">
-      {!isImpersonating && <ParticipantLogoutButton onLogout={handleLogout} className="absolute left-4 top-[max(1rem,env(safe-area-inset-top))]" />}
       <Spinner size={28} />
     </PageWrapper>
   )

@@ -7,7 +7,12 @@ const MAX_PARTICIPANTS = 44
 const TARGET_GROUP_SIZE = 6
 const CANDIDATE_BUILD_STEPS = 4
 const OPTIMIZATION_PASSES = 9
-export const FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION = "spark-depth-rhythm-v7-nine-pass-hard-group-exclusions"
+const BALANCED_MAX_ROSTER_SIZE = 44
+const BALANCED_MAX_ROSTER_GENDER_COUNT = BALANCED_MAX_ROSTER_SIZE / 2
+const CONSTRAINED_ROUND_ATTEMPTS = 12
+const CONSTRAINED_ROUND_NODE_LIMIT = 100_000
+const PROTECTED_PAIR_RELABEL_ATTEMPTS = 2_048
+export const FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION = "spark-depth-rhythm-v8-balanced-44-hard-zero-repeat"
 
 const pairKey = (left, right) => `${Math.min(Number(left), Number(right))}-${Math.max(Number(left), Number(right))}`
 
@@ -169,7 +174,7 @@ function compareVectors(left, right) {
   return 0
 }
 
-function evaluate(groups, { previousPairSets, groupScore, genderMap, ageMap }) {
+function evaluate(groups, { previousPairSets, groupScore, genderMap, ageMap, prioritizeWeakest = false }) {
   const currentPairs = pairSet(groups)
   let repeats = 0
   for (const previous of previousPairSets) for (const key of currentPairs) if (previous.has(key)) repeats++
@@ -179,12 +184,24 @@ function evaluate(groups, { previousPairSets, groupScore, genderMap, ageMap }) {
   const groupScores = groups.map(groupScore)
   const protectedPairs = groupScores.reduce((sum, group) => sum + Number(group.lockedPairs || 0), 0)
   const gender = genderCost(groups, genderMap)
-  const quality = groupScores.reduce((sum, group) => sum + Number(group.qualityScore ?? group.score ?? 0), 0)
+  const qualityValues = groupScores.map(group => Number(group.qualityScore ?? group.score ?? 0))
+  const quality = qualityValues.reduce((sum, value) => sum + value, 0)
+  const minimumQuality = qualityValues.length ? Math.min(...qualityValues) : 0
   return {
-    vector: [protectedPairs, repeatedInEveryRound, repeats, gender.maximumSpread, gender.squaredDeviation, -quality, ageCost(groups, ageMap)],
+    vector: [
+      protectedPairs,
+      repeatedInEveryRound,
+      repeats,
+      gender.maximumSpread,
+      gender.squaredDeviation,
+      ...(prioritizeWeakest ? [-minimumQuality] : []),
+      -quality,
+      ageCost(groups, ageMap),
+    ],
     groupScores,
     gender,
     currentPairs,
+    minimumQuality,
   }
 }
 
@@ -197,7 +214,8 @@ function optimize(groups, options) {
     return groupScoreCache.get(key)
   }
   const evaluationOptions = { ...options, groupScore: cachedGroupScore }
-  let current = evaluate(result, evaluationOptions)
+  const before = evaluate(result, evaluationOptions)
+  let current = before
   let swaps = 0
   for (let pass = 0; pass < OPTIMIZATION_PASSES; pass++) {
     let best = null
@@ -221,7 +239,284 @@ function optimize(groups, options) {
     current = best.evaluation
     swaps++
   }
-  return { groups: result, evaluation: current, swaps }
+  return { groups: result, evaluation: current, before, swaps }
+}
+
+function participantGender(number, genderMap) {
+  return normalizedGender(genderMap instanceof Map ? genderMap.get(number) : genderMap?.[number])
+}
+
+function balanced44FemaleTargets(participants, sizes, genderMap, seed) {
+  if (participants.length !== BALANCED_MAX_ROSTER_SIZE
+    || sizes.length !== 7
+    || sizes.filter(size => size === 7).length !== 2
+    || sizes.filter(size => size === 6).length !== 5) return null
+  const counts = participants.reduce((result, number) => {
+    result[participantGender(number, genderMap)]++
+    return result
+  }, { female: 0, male: 0, unknown: 0 })
+  if (counts.female !== BALANCED_MAX_ROSTER_GENDER_COUNT
+    || counts.male !== BALANCED_MAX_ROSTER_GENDER_COUNT
+    || counts.unknown !== 0) return null
+
+  const sevenSeatTables = sizes.map((size, index) => size === 7 ? index : -1).filter(index => index >= 0)
+  const femaleHeavyTable = sevenSeatTables[Math.abs(Number(seed)) % sevenSeatTables.length]
+  return sizes.map((size, table) => size === 6 ? 3 : table === femaleHeavyTable ? 4 : 3)
+}
+
+function matchesBalanced44Targets(groups, genderMap) {
+  if (groups.length !== 7) return false
+  const femaleCounts = groups.map(group => group.filter(number => participantGender(number, genderMap) === "female").length)
+  const maleCounts = groups.map(group => group.filter(number => participantGender(number, genderMap) === "male").length)
+  return groups.every((group, table) => {
+    if (group.length === 6) return femaleCounts[table] === 3 && maleCounts[table] === 3
+    if (group.length === 7) return [femaleCounts[table], maleCounts[table]].sort((left, right) => left - right).join(",") === "3,4"
+    return false
+  })
+}
+
+function unionPairSets(pairSets = []) {
+  const result = new Set()
+  for (const pairs of pairSets) for (const key of pairs || []) result.add(key)
+  return result
+}
+
+function rosterOrderEntropy(participants) {
+  let hash = 2_166_136_261
+  for (const number of participants) {
+    hash ^= Number(number) >>> 0
+    hash = Math.imul(hash, 16_777_619)
+  }
+  return hash >>> 0
+}
+
+function buildConstrainedRound(participants, sizes, femaleTargets, {
+  genderMap,
+  forbiddenPairs,
+  seed,
+}) {
+  const tableTargets = sizes.map((size, table) => ({
+    female: femaleTargets[table],
+    male: size - femaleTargets[table],
+  }))
+  const tableIndexes = sizes.map((_, index) => index)
+  const participantOrder = shuffled(participants, seed)
+  const participantPriority = new Map(participantOrder.map((number, index) => [number, index]))
+  const tableOrder = shuffled(tableIndexes, seed ^ 0x9e3779b9)
+  const tablePriority = new Map(tableOrder.map((table, index) => [table, index]))
+  const forbiddenDegree = new Map(participants.map(number => [number, 0]))
+  for (const key of forbiddenPairs) {
+    const [left, right] = key.split("-").map(Number)
+    if (forbiddenDegree.has(left)) forbiddenDegree.set(left, forbiddenDegree.get(left) + 1)
+    if (forbiddenDegree.has(right)) forbiddenDegree.set(right, forbiddenDegree.get(right) + 1)
+  }
+
+  const groups = sizes.map(() => [])
+  const genderCounts = sizes.map(() => ({ female: 0, male: 0 }))
+  const remaining = new Set(participantOrder)
+  let visitedNodes = 0
+
+  const validTables = number => {
+    const gender = participantGender(number, genderMap)
+    if (gender !== "female" && gender !== "male") return []
+    return tableIndexes.filter(table => (
+      groups[table].length < sizes[table]
+      && genderCounts[table][gender] < tableTargets[table][gender]
+      && groups[table].every(other => !forbiddenPairs.has(pairKey(number, other)))
+    ))
+  }
+
+  const visit = () => {
+    if (remaining.size === 0) return true
+    if (++visitedNodes > CONSTRAINED_ROUND_NODE_LIMIT) return false
+
+    let selected = null
+    let selectedTables = null
+    for (const number of remaining) {
+      const candidates = validTables(number)
+      if (!candidates.length) return false
+      if (selected === null
+        || candidates.length < selectedTables.length
+        || (candidates.length === selectedTables.length
+          && forbiddenDegree.get(number) > forbiddenDegree.get(selected))
+        || (candidates.length === selectedTables.length
+          && forbiddenDegree.get(number) === forbiddenDegree.get(selected)
+          && participantPriority.get(number) < participantPriority.get(selected))) {
+        selected = number
+        selectedTables = candidates
+      }
+    }
+
+    const gender = participantGender(selected, genderMap)
+    selectedTables.sort((left, right) => {
+      const leftGenderSlots = tableTargets[left][gender] - genderCounts[left][gender]
+      const rightGenderSlots = tableTargets[right][gender] - genderCounts[right][gender]
+      return leftGenderSlots - rightGenderSlots
+        || (groups[right].length / sizes[right]) - (groups[left].length / sizes[left])
+        || tablePriority.get(left) - tablePriority.get(right)
+    })
+
+    remaining.delete(selected)
+    for (const table of selectedTables) {
+      groups[table].push(selected)
+      genderCounts[table][gender]++
+      if (visit()) return true
+      genderCounts[table][gender]--
+      groups[table].pop()
+    }
+    remaining.add(selected)
+    return false
+  }
+
+  return visit() ? groups : null
+}
+
+function assembleCandidate(participants, options, seed, round1, round2, round3) {
+  const repeats = repeatMetrics(round1.groups, round2.groups, round3.groups)
+  const spark = aggregate(round1.evaluation.groupScores, "spark")
+  const depth = aggregate(round2.evaluation.groupScores, "depth")
+  const rhythm = aggregate(round3.evaluation.groupScores, "rhythm")
+  const positionMap = Object.fromEntries(round1.groups.flat().map((number, index) => [number, index]))
+  const minimumRhythmQuality = round3.evaluation.minimumQuality
+  const sortKey = [
+    repeats.repeatedInAllThree,
+    repeats.totalRepeatedPairOccurrences,
+    repeats.maximumParticipantRepeatBurden,
+    round1.evaluation.vector[0] + round2.evaluation.vector[0] + round3.evaluation.vector[0],
+    Math.max(round1.evaluation.gender.maximumSpread, round2.evaluation.gender.maximumSpread, round3.evaluation.gender.maximumSpread),
+    -minimumRhythmQuality,
+    -(spark.score + depth.score + rhythm.qualityScore),
+    ...round1.groups.flat(),
+    ...round2.groups.flat(),
+    ...round3.groups.flat(),
+  ]
+  return {
+    seed,
+    sortKey,
+    plan: {
+      round1: round1.groups,
+      round2: round2.groups,
+      round3: round3.groups,
+      T: choiceOnlyTargetGroupSizes(participants.length).length,
+      G: Math.max(...choiceOnlyTargetGroupSizes(participants.length)),
+      R: repeats.totalRepeatedPairOccurrences,
+      positionMap,
+      round1Spark: { before: spark, after: spark, swaps: round1.swaps },
+      round2Depth: { ...depth, ageCost: ageCost(round2.groups, options.ageMap), shifts: [] },
+      round3Rhythm: {
+        ...rhythm,
+        minimumQuality: minimumRhythmQuality,
+        beforeMinimumQuality: round3.before.minimumQuality,
+        ageCost: ageCost(round3.groups, options.ageMap),
+        shifts: [],
+        repeatMetrics: repeats,
+      },
+    },
+  }
+}
+
+function relabelBalancedSchedule(rounds, participants, genderMap, protectedPairs, seed) {
+  const slotsByGender = {
+    female: participants.filter(number => participantGender(number, genderMap) === "female"),
+    male: participants.filter(number => participantGender(number, genderMap) === "male"),
+  }
+  for (let attempt = 0; attempt < PROTECTED_PAIR_RELABEL_ATTEMPTS; attempt++) {
+    const mapping = new Map()
+    for (const [genderIndex, gender] of ["female", "male"].entries()) {
+      const slots = slotsByGender[gender]
+      const assigned = shuffled(slots, seed + (attempt * 104_729) + (genderIndex * 65_537))
+      slots.forEach((slot, index) => mapping.set(slot, assigned[index]))
+    }
+    const relabeled = rounds.map(round => round.map(group => group.map(number => mapping.get(number))))
+    const probe = { plan: { round1: relabeled[0], round2: relabeled[1], round3: relabeled[2] } }
+    if (!candidateHasLockedPair(probe, protectedPairs)) return relabeled
+  }
+  return null
+}
+
+function buildBalanced44Candidate(participants, options, seed) {
+  // The roster is a set for construction purposes. Canonicalizing here keeps a
+  // harmless API/input permutation from sending the bounded backtracker down a
+  // different branch and turning the same feasible constraints into a failure.
+  const canonicalParticipants = [...participants].sort((left, right) => Number(left) - Number(right))
+  const inputOrderEntropy = rosterOrderEntropy(participants)
+  const sizes = choiceOnlyTargetGroupSizes(canonicalParticipants.length)
+  const firstTargets = balanced44FemaleTargets(canonicalParticipants, sizes, options.genderMap, seed)
+  if (!firstTargets) return null
+  const lenses = createRoundLensScorer(options)
+  const sparkGroup = createRound1SparkGroupScorer(options)
+  const protectedPairs = new Set(options.lockedPairsSet || [])
+
+  for (let attempt = 0; attempt < CONSTRAINED_ROUND_ATTEMPTS; attempt++) {
+    const attemptSeed = (seed * 65_537) + (attempt * 7_919)
+    const round1Start = buildConstrainedRound(canonicalParticipants, sizes,
+      balanced44FemaleTargets(canonicalParticipants, sizes, options.genderMap, attemptSeed + 1), {
+        genderMap: options.genderMap,
+        forbiddenPairs: new Set(),
+        seed: attemptSeed + 101,
+      })
+    if (!round1Start) continue
+
+    const round2Start = buildConstrainedRound(canonicalParticipants, sizes,
+      balanced44FemaleTargets(canonicalParticipants, sizes, options.genderMap, attemptSeed + 2), {
+        genderMap: options.genderMap,
+        forbiddenPairs: pairSet(round1Start),
+        seed: attemptSeed + 211,
+      })
+    if (!round2Start) continue
+
+    const round3Start = buildConstrainedRound(canonicalParticipants, sizes,
+      balanced44FemaleTargets(canonicalParticipants, sizes, options.genderMap, attemptSeed + 3), {
+        genderMap: options.genderMap,
+        forbiddenPairs: unionPairSets([pairSet(round1Start), pairSet(round2Start)]),
+        seed: attemptSeed + 307,
+      })
+    if (!round3Start) continue
+
+    // A same-gender relabel preserves every table size, gender target, and
+    // cross-round repeat invariant. It lets sparse participant-specific
+    // exclusions be satisfied without forcing the round constructor into an
+    // expensive identity-aware search.
+    const relabeled = relabelBalancedSchedule(
+      [round1Start, round2Start, round3Start],
+      canonicalParticipants,
+      options.genderMap,
+      protectedPairs,
+      attemptSeed + 401 + inputOrderEntropy,
+    )
+    if (!relabeled) continue
+    const [safeRound1, safeRound2, safeRound3] = relabeled
+
+    // Once all three rounds exist, each lens pass treats both other rounds as
+    // hard history. Consequently a score-improving swap can never reintroduce
+    // a repeated tablemate or a protected pair.
+    const round1 = optimize(safeRound1, {
+      previousPairSets: [pairSet(safeRound2), pairSet(safeRound3)],
+      groupScore: sparkGroup,
+      genderMap: options.genderMap,
+      ageMap: options.ageMap,
+    })
+    const round2 = optimize(safeRound2, {
+      previousPairSets: [round1.evaluation.currentPairs, pairSet(safeRound3)],
+      groupScore: lenses.depthGroup,
+      genderMap: options.genderMap,
+      ageMap: options.ageMap,
+    })
+    const round3 = optimize(safeRound3, {
+      previousPairSets: [round1.evaluation.currentPairs, round2.evaluation.currentPairs],
+      groupScore: lenses.rhythmGroup,
+      genderMap: options.genderMap,
+      ageMap: options.ageMap,
+      prioritizeWeakest: true,
+    })
+
+    const candidate = assembleCandidate(canonicalParticipants, options, seed, round1, round2, round3)
+    if (candidate.plan.R === 0
+      && [candidate.plan.round1, candidate.plan.round2, candidate.plan.round3]
+        .every(round => matchesBalanced44Targets(round, options.genderMap))
+      && !candidateHasLockedPair(candidate, protectedPairs)) return candidate
+  }
+  return { error: "Could not construct hard-safe zero-repeat seating for the balanced 44-person roster" }
 }
 
 function changedMemberships(leftGroups, rightGroups) {
@@ -235,6 +530,8 @@ function changedMemberships(leftGroups, rightGroups) {
 
 function buildCandidate(participants, options, seed) {
   const sizes = choiceOnlyTargetGroupSizes(participants.length)
+  const balanced44Candidate = buildBalanced44Candidate(participants, options, seed)
+  if (balanced44Candidate) return balanced44Candidate
   const lenses = createRoundLensScorer(options)
   const sparkGroup = createRound1SparkGroupScorer(options)
   const round1Start = initialGroups(participants, sizes, seed * 101 + 17, options.genderMap)
@@ -258,38 +555,7 @@ function buildCandidate(participants, options, seed) {
     genderMap: options.genderMap,
     ageMap: options.ageMap,
   })
-  const repeats = repeatMetrics(round1.groups, round2.groups, round3.groups)
-  const spark = aggregate(round1.evaluation.groupScores, "spark")
-  const depth = aggregate(round2.evaluation.groupScores, "depth")
-  const rhythm = aggregate(round3.evaluation.groupScores, "rhythm")
-  const positionMap = Object.fromEntries(round1.groups.flat().map((number, index) => [number, index]))
-  const sortKey = [
-    repeats.repeatedInAllThree,
-    repeats.totalRepeatedPairOccurrences,
-    repeats.maximumParticipantRepeatBurden,
-    round1.evaluation.vector[0] + round2.evaluation.vector[0] + round3.evaluation.vector[0],
-    Math.max(round1.evaluation.gender.maximumSpread, round2.evaluation.gender.maximumSpread, round3.evaluation.gender.maximumSpread),
-    -(spark.score + depth.score + rhythm.qualityScore),
-    ...round1.groups.flat(),
-    ...round2.groups.flat(),
-    ...round3.groups.flat(),
-  ]
-  return {
-    seed,
-    sortKey,
-    plan: {
-      round1: round1.groups,
-      round2: round2.groups,
-      round3: round3.groups,
-      T: sizes.length,
-      G: Math.max(...sizes),
-      R: repeats.totalRepeatedPairOccurrences,
-      positionMap,
-      round1Spark: { before: spark, after: spark, swaps: round1.swaps },
-      round2Depth: { ...depth, ageCost: ageCost(round2.groups, options.ageMap), shifts: [] },
-      round3Rhythm: { ...rhythm, ageCost: ageCost(round3.groups, options.ageMap), shifts: [], repeatMetrics: repeats },
-    },
-  }
+  return assembleCandidate(participants, options, seed, round1, round2, round3)
 }
 
 function candidateHasLockedPair(candidate, lockedPairsSet) {
@@ -299,6 +565,8 @@ function candidateHasLockedPair(candidate, lockedPairsSet) {
 }
 
 function finalizeFlexibleCandidates(participants, rawCandidates, lockedPairsSet = new Set()) {
+  const failure = rawCandidates.find(candidate => candidate?.error)
+  if (failure) return { error: failure.error }
   const allCandidates = [...rawCandidates]
     .filter(candidate => !candidateHasLockedPair(candidate, lockedPairsSet))
     .sort((left, right) => compareVectors(left.sortKey, right.sortKey))
@@ -377,7 +645,15 @@ export function buildFlexibleChoiceOnlySeatingCandidatesStep(values, options = {
     ? checkpoint.candidates
     : []
   const candidates = [...previousCandidates]
-  candidates.push(buildCandidate(normalized.participants, options, candidates.length + 1))
+  const candidate = buildCandidate(normalized.participants, options, candidates.length + 1)
+  if (candidate?.error) {
+    return {
+      complete: true,
+      progress: { completed_steps: candidates.length, total_steps: CANDIDATE_BUILD_STEPS, percent: 100 },
+      generated: { error: candidate.error },
+    }
+  }
+  candidates.push(candidate)
   const progress = {
     completed_steps: candidates.length,
     total_steps: CANDIDATE_BUILD_STEPS,

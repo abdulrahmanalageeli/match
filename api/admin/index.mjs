@@ -34,6 +34,7 @@ import {
 import { handleSeatingAlternatives } from "../../server/event3/seating-alternatives.mjs"
 import { buildEvent3LiveSeatingScores } from "../../server/event3/live-seating-scores.mjs"
 import { collectEventSwapPairs, collectMatchResultSwapPairs, getTableSwapRounds } from "../../server/event3/participant-swap.mjs"
+import { normalizeEvent3Round3ApplyRequest } from "../../server/event3/round3-seating-apply.mjs"
 import { buildTestAdminSession, testMatchToLockedMatch } from "../../server/event3/test-match-results.mjs"
 import { choosePreparedTestPairs, validatePreparedTestAlgorithmRows } from "../../server/event3/prepared-test-algorithm.mjs"
 import { buildDislikeLeaderboard } from "../../server/event3/dislike-ranking.mjs"
@@ -12558,6 +12559,53 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           }
           const seatingSwapRounds = data?.event_format === "choice_only_three_groups" ? "group rounds 1, 2, and 3" : "group rounds 1 and 2"
           return res.status(200).json({ ...data, message: `Swapped #${numA} ↔ #${numB} in ${seatingSwapRounds}` })
+        }
+        // Apply one reviewed Round-3 seating map in a single database
+        // transaction. Unlike the legacy participant swap, this deliberately
+        // leaves Rounds 1 and 2 unchanged so their encounter history remains
+        // the validation baseline for the repaired final group round.
+        if (action === "e3-apply-round3-seating") {
+          if (!hasAdminAccess) return res.status(403).json({ error: "Unauthorized" })
+
+          let request
+          try {
+            request = normalizeEvent3Round3ApplyRequest(req.body)
+          } catch (error) {
+            return res.status(400).json({ error: error.message })
+          }
+
+          const { data, error } = await supabase.rpc("apply_event3_round3_seating_plan_v2", {
+            p_match_id: EVENT3_MATCH_ID,
+            p_static_match_id: STATIC_MATCH_ID,
+            p_event_id: Number(currentEventId),
+            p_expected_round1_assignments: request.expectedRound1Assignments,
+            p_expected_round2_assignments: request.expectedRound2Assignments,
+            p_expected_assignments: request.expectedAssignments,
+            p_assignments: request.assignments,
+            p_frozen_table: request.frozenTable,
+            ...displayedEvent3Context.params,
+          })
+          if (error) {
+            const failure = event3SessionRpcFailure(error, "apply_event3_round3_seating_plan_v2")
+            return res.status(failure.status).json(failure.body)
+          }
+
+          await recordSecurityEvent(req, {
+            actorType: "admin",
+            action: "e3-apply-round3-seating",
+            targetType: "event",
+            targetId: String(currentEventId),
+            metadata: {
+              event_id: Number(currentEventId),
+              round: 3,
+              frozen_table: request.frozenTable,
+              moved_assignments: Number(data?.moved_assignments || 0),
+            },
+          })
+          return res.status(200).json({
+            ...data,
+            message: `Applied the reviewed Round-3 seating plan; table ${request.frozenTable} stayed frozen`,
+          })
         }
         // e3-clear-rankings
         if (action === "e3-clear-rankings") {

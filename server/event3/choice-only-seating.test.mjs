@@ -488,6 +488,89 @@ test("keeps conflict-of-interest exclusions out of every flexible group", () => 
   }
 })
 
+test("hard-balances a 22/22 maximum roster while keeping repeats and exclusions at zero", () => {
+  const flexibleParticipants = Array.from({ length: 44 }, (_, index) => index + 1)
+  const genderMap = Object.fromEntries(flexibleParticipants.map(number => [
+    number,
+    number <= 22 ? "female" : "male",
+  ]))
+  const lockedPairsSet = new Set([
+    "7-10", "13-32", "27-42", "13-28", "10-19", "24-33",
+    "18-39", "29-40", "30-39", "28-37", "6-31", "1-16",
+    "27-38", "1-8", "26-39", "16-21", "6-35", "1-20",
+  ])
+  const generated = buildChoiceOnlySeatingCandidates(flexibleParticipants, {
+    genderMap,
+    lockedPairsSet,
+  })
+
+  assert.equal(generated.error, undefined)
+  assert.equal(generated.objectiveVersion, FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION)
+  assert.equal(generated.candidates.length, 3)
+  for (const candidate of generated.candidates) {
+    assert.equal(candidate.plan.R, 0)
+    const metrics = choiceOnlySeatingMetrics(
+      candidate.plan.round1,
+      candidate.plan.round2,
+      candidate.plan.round3,
+    )
+    assert.equal(metrics.totalRepeatedPairOccurrences, 0)
+    assert.equal(metrics.maximumParticipantRepeatBurden, 0)
+
+    for (const round of [candidate.plan.round1, candidate.plan.round2, candidate.plan.round3]) {
+      for (const group of round) {
+        const femaleCount = group.filter(number => genderMap[number] === "female").length
+        const maleCount = group.filter(number => genderMap[number] === "male").length
+        if (group.length === 6) assert.deepEqual([femaleCount, maleCount], [3, 3])
+        else {
+          assert.equal(group.length, 7)
+          assert.deepEqual([femaleCount, maleCount].sort((left, right) => left - right), [3, 4])
+        }
+        const keys = new Set(groupPairKeys(group))
+        for (const lockedPair of lockedPairsSet) assert.equal(keys.has(lockedPair), false)
+      }
+    }
+  }
+
+  const permutedParticipants = [
+    31, 15, 16, 35, 5, 21, 9, 13, 38, 14, 17, 41, 12, 32, 39,
+    37, 8, 25, 1, 6, 33, 10, 23, 44, 27, 42, 43, 22, 28, 30, 19,
+    36, 7, 40, 11, 26, 29, 24, 3, 2, 34, 4, 20, 18,
+  ]
+  const orderedStep = buildChoiceOnlySeatingCandidatesStep(
+    flexibleParticipants,
+    { genderMap, lockedPairsSet },
+  )
+  const permutedStep = buildChoiceOnlySeatingCandidatesStep(
+    permutedParticipants,
+    { genderMap, lockedPairsSet },
+  )
+  assert.equal(orderedStep.complete, false)
+  assert.equal(permutedStep.complete, false)
+  assert.equal(permutedStep.checkpoint.candidates[0].plan.R, 0)
+  assert.notDeepEqual(
+    permutedStep.checkpoint.candidates[0].plan.round3,
+    orderedStep.checkpoint.candidates[0].plan.round3,
+  )
+
+  const profiles = flexibleParticipants.map(number => richProfile(number, genderMap[number]))
+  const profileMap = new Map(profiles.map(profile => [profile.assigned_number, profile]))
+  const ageMap = Object.fromEntries(profiles.map(profile => [profile.assigned_number, profile.age]))
+  const rhythmStep = buildChoiceOnlySeatingCandidatesStep(flexibleParticipants, {
+    genderMap,
+    profileMap,
+    ageMap,
+    lockedPairsSet,
+  })
+  assert.equal(rhythmStep.complete, false)
+  const rhythmPlan = rhythmStep.checkpoint.candidates[0].plan
+  const rhythmScores = rhythmPlan.round3Rhythm.groupScores
+    .map(group => group.qualityScore ?? group.score)
+  assert.equal(rhythmPlan.round3Rhythm.minimumQuality, Math.min(...rhythmScores))
+  assert.ok(rhythmPlan.round3Rhythm.minimumQuality
+    >= rhythmPlan.round3Rhythm.beforeMinimumQuality)
+})
+
 test("refuses an impossible flexible group exclusion instead of seating the pair together", () => {
   const generated = buildChoiceOnlySeatingCandidates([1, 2, 3, 4, 5, 6], { lockedPairsSet: new Set(["1-2"]) })
   assert.match(generated.error, /conflict-of-interest exclusion/)

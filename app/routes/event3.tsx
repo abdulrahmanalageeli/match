@@ -7124,7 +7124,7 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
 }
 
 // ─── AI Welcome Popup ─────────────────────────────────────────────────────────
-function AiWelcomePopup({ token, onDone, previewMessage }: { token: string; onDone: () => void; previewMessage?: string }) {
+function AiWelcomePopup({ token, onDone, previewMessage, previewFailed = false }: { token: string; onDone: () => void; previewMessage?: string; previewFailed?: boolean }) {
   const titleId = useId()
   const [message, setMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -7144,6 +7144,11 @@ function AiWelcomePopup({ token, onDone, previewMessage }: { token: string; onDo
   onDoneRef.current = onDone
 
   useEffect(() => {
+    if (previewFailed) {
+      setFailed(true)
+      setLoading(false)
+      return
+    }
     if (previewMessage) {
       setMessage(previewMessage)
       setLoading(false)
@@ -7176,7 +7181,7 @@ function AiWelcomePopup({ token, onDone, previewMessage }: { token: string; onDo
       setLoading(false)
     })
     return () => { active = false; window.clearTimeout(timeoutId) }
-  }, [token, previewMessage])
+  }, [token, previewMessage, previewFailed])
 
   const finishTyping = useCallback(() => {
     if (!message) return
@@ -7249,7 +7254,10 @@ function AiWelcomePopup({ token, onDone, previewMessage }: { token: string; onDo
     const siblingState = siblings.map(node => ({ node, inert: node.inert, ariaHidden: node.getAttribute('aria-hidden') }))
     siblings.forEach(node => { node.inert = true; node.setAttribute('aria-hidden', 'true') })
     document.body.style.overflow = 'hidden'
-    const focusTimer = window.setTimeout(() => dismissButtonRef.current?.focus(), 80)
+    const focusTimer = window.setTimeout(() => {
+      const initialFocusTarget = dismissButtonRef.current || cardRef.current
+      initialFocusTarget?.focus({ preventScroll: true })
+    }, 80)
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault()
@@ -7376,17 +7384,27 @@ function AiWelcomePopup({ token, onDone, previewMessage }: { token: string; onDo
           animate={{ scale: closing ? 0.9 : 1, y: closing ? 30 : 0, opacity: closing ? 0 : 1 }}
           transition={{ type: "spring", stiffness: 240, damping: 24 }}
           onClick={e => e.stopPropagation()}
-          className="event3-glass relative z-10 flex max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col overflow-hidden rounded-[32px] border border-white/[0.1]"
+          tabIndex={-1}
+          className="event3-glass relative z-10 flex max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col overflow-hidden rounded-[32px] border border-white/[0.1] focus:outline-none"
         >
-          <button
-            ref={dismissButtonRef}
-            type="button"
-            onClick={dismiss}
-            autoFocus
-            className="absolute left-3 top-3 z-30 flex min-h-11 items-center justify-center rounded-full border border-white/10 bg-black/25 px-4 text-xs font-bold text-gray-200 backdrop-blur-md transition-colors hover:bg-white/10"
-          >
-            {loading ? "الدخول الآن" : "المتابعة"}
-          </button>
+          <AnimatePresence>
+            {loading && (
+              <motion.button
+                ref={dismissButtonRef}
+                type="button"
+                onClick={dismiss}
+                aria-label="تخطّي الرسالة والدخول إلى الفعالية"
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -6, scale: 0.96 }}
+                transition={{ duration: 0.22 }}
+                className="absolute left-4 top-4 z-30 inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-white/[0.07] bg-white/[0.035] px-3.5 text-[11px] font-bold text-gray-400 shadow-[inset_0_1px_0_rgba(255,255,255,.045),0_12px_28px_-22px_rgba(192,132,252,.65)] backdrop-blur-xl transition-all hover:border-purple-300/20 hover:bg-purple-300/[0.07] hover:text-purple-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-purple-300/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b0718]"
+              >
+                <span>تخطّي</span>
+                <ArrowLeft size={12} aria-hidden="true" />
+              </motion.button>
+            )}
+          </AnimatePresence>
           {/* Animated gradient border glow */}
           <motion.div
             className="absolute inset-0 rounded-[32px] pointer-events-none"
@@ -8321,13 +8339,14 @@ export default function Event3Page() {
   if (questionPreview === "login" || questionPreview === "loginToken") {
     return <PhoneEntry initialMethod={questionPreview === "loginToken" ? "token" : "sms"} onToken={() => {}} />
   }
-  if (questionPreview === "aiWelcome") {
+  if (questionPreview === "aiWelcome" || questionPreview === "aiWelcomeFailed") {
     return (
       <main className="min-h-[100dvh] bg-gray-950 text-white" dir="rtl">
         <AiWelcomePopup
           token="preview"
           onDone={() => {}}
-          previewMessage="هذه رسالتك الخاصة: حضورك الهادئ وفضولك تجاه الناس يعطيانك فرصة جميلة لاكتشاف أشخاص يشبهونك بطرق لم تتوقعها. خذ وقتك، اسأل بصدق، ولا تشغل بالك بإعطاء الانطباع المثالي. أجمل الحوارات تبدأ عندما يكون كل شخص على طبيعته ويترك مساحة حقيقية للطرف الآخر."
+          previewFailed={questionPreview === "aiWelcomeFailed"}
+          previewMessage={questionPreview === "aiWelcome" ? "هذه رسالتك الخاصة: حضورك الهادئ وفضولك تجاه الناس يعطيانك فرصة جميلة لاكتشاف أشخاص يشبهونك بطرق لم تتوقعها. خذ وقتك، اسأل بصدق، ولا تشغل بالك بإعطاء الانطباع المثالي. أجمل الحوارات تبدأ عندما يكون كل شخص على طبيعته ويترك مساحة حقيقية للطرف الآخر." : undefined}
         />
       </main>
     )

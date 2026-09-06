@@ -80,7 +80,7 @@ test("Event3 participant requests are pinned to both the displayed edition and r
   const requestGuard = between(api, "const requestTestMode =", "const activeEvent3Phase =")
   const call = between(route, "async function call", "// ─── \"Arrived at table\"")
 
-  assert.match(requestGuard, /`live:\$\{currentEventId\}`/)
+  assert.match(requestGuard, /`live:\$\{currentEventId\}:\$\{Number\(e3EventState\?\.event3_runtime_generation\) \|\| 1\}`/)
   assert.match(requestGuard, /expected_event_id/)
   assert.match(requestGuard, /Number\(expectedEvent3EventId\) !== Number\(currentEventId\)/)
   assert.match(call, /event3_runtime_event_id/)

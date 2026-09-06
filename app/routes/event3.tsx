@@ -341,9 +341,13 @@ async function call(action: string, token: string | null, extra: Record<string, 
 
 // ─── "Arrived at table" tracking (sessionStorage, event-specific) ────────────
 // Prevents auto-rejoin from skipping the "وصلت إلى الطاولة" step on page refresh.
-// Keys are scoped per event_id so a new event never inherits a previous event's flags.
+// Keys are scoped by the server reset generation as well as event id. Old
+// browser caches may stay, but they cannot affect a freshly reset live run.
 function arrivedKey(eventId: number | string | undefined, phase: string) {
-  return `e3_arrived_${eventId ?? "unknown"}_${phase}`
+  const runtimeSession = typeof window !== "undefined"
+    ? window.sessionStorage.getItem("event3_runtime_session_key") || "unknown"
+    : "unknown"
+  return `e3_arrived_${runtimeSession}_${eventId ?? "unknown"}_${phase}`
 }
 function hasArrived(eventId: number | string | undefined, phase: string): boolean {
   if (typeof window === "undefined") return false

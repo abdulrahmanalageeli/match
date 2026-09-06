@@ -13680,11 +13680,10 @@ ${alternativeLines}
         }
         // e3-reset-event — reset ONLY current event_id data (preserves other events)
         if (action === "e3-reset-event") {
-          const resetFormat = await loadEvent3Format(supabase, EVENT3_MATCH_ID, currentEventId)
           const { data: resetState, error: resetStateReadError } = await supabase.from("event_state")
             .select("current_event_id,test_mode_active,test_mode_snapshot").eq("match_id", EVENT3_MATCH_ID).single()
           if (resetStateReadError) return res.status(503).json({ error: resetStateReadError.message })
-          const { error: atomicResetError } = await supabase.rpc("reset_event3_runtime_v2", {
+          const { data: resetResult, error: atomicResetError } = await supabase.rpc("reset_event3_runtime_v2", {
             p_match_id: EVENT3_MATCH_ID,
             p_event_id: Number(currentEventId),
             p_expected_test_mode: resetState.test_mode_active === true,
@@ -13693,34 +13692,16 @@ ${alternativeLines}
           const resetMigrationMissing = atomicResetError?.code === "PGRST202"
             || String(atomicResetError?.message || "").includes("reset_event3_runtime_v2")
           if (!atomicResetError) {
-            return res.status(200).json({ message: `Event ${currentEventId} reset successfully (other events preserved)` })
-          }
-          if (!resetMigrationMissing || isChoiceOnlyEvent3(resetFormat)) {
-            return res.status(resetMigrationMissing ? 501 : ["55000", "22023", "P0001"].includes(atomicResetError.code) ? 409 : 500).json({
-              error: atomicResetError.message,
-              migration_required: resetMigrationMissing,
+            return res.status(200).json({
+              message: `Event ${currentEventId} reset successfully (other events preserved)`,
+              reset: resetResult,
             })
           }
-          // Classic-only rolling-deployment fallback. Choice-only editions do
-          // not use this non-transactional legacy path.
-          const resetResults = await Promise.all([
-            supabase.from("event3_participants").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
-            supabase.from("event3_matches").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
-            supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
-            supabase.from("participant_rankings").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
-            supabase.from("event3_ranking_drafts").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
-            supabase.from("event3_group_reflections").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
-            supabase.from("event3_group_member_feedback").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
-            supabase.from("event3_mood_checks").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
-            supabase.from("event3_notifications").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
-            supabase.from("event3_ai_welcome_messages").delete().eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
-          ])
-          const resetError = resetResults.find(result => result.error)?.error
-          if (resetError) return res.status(500).json({ error: `Event reset failed: ${resetError.message}` })
-          // Reset phase/timer for EVENT3 but preserve current_event_id
-          const { error: resetStateError } = await supabase.from("event_state").update({ phase: "setup", global_timer_active: false, global_timer_start_time: null, global_timer_duration: null, global_timer_round: null, phase2_score_revealed: false, phase3_score_revealed: false }).eq("match_id", EVENT3_MATCH_ID)
-          if (resetStateError) return res.status(500).json({ error: `Event state reset failed: ${resetStateError.message}` })
-          return res.status(200).json({ message: `Event ${currentEventId} reset successfully (other events preserved)` })
+          // Never acknowledge a partial, non-transactional fallback reset.
+          return res.status(resetMigrationMissing ? 501 : ["55000", "22023", "P0001"].includes(atomicResetError.code) ? 409 : 500).json({
+            error: atomicResetError.message,
+            migration_required: resetMigrationMissing,
+          })
         }
 
         // e3-get-attendance — fetch event3 participants with attendance + match info

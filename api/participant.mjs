@@ -4001,7 +4001,7 @@ Please respond in JSON format:
     try {
       const [mainStateResult, e3StateResult] = await Promise.all([
         supabase.from("event_state").select("current_event_id").eq("match_id", MAIN_MATCH).maybeSingle(),
-        supabase.from("event_state").select("current_event_id,phase,test_mode_active,test_mode_snapshot,event3_participant_access_locked").eq("match_id", E3_MATCH_ID).maybeSingle(),
+        supabase.from("event_state").select("current_event_id,phase,test_mode_active,test_mode_snapshot,event3_participant_access_locked,event3_runtime_generation").eq("match_id", E3_MATCH_ID).maybeSingle(),
       ])
       if (mainStateResult.error || e3StateResult.error) {
         if (mainStateResult.error) logError("Event3 main event-state lookup", mainStateResult.error)
@@ -4068,7 +4068,7 @@ Please respond in JSON format:
     const activeTestMode = e3EventState?.test_mode_active === true
     const currentEvent3SessionKey = activeTestMode
       ? (e3EventState?.test_mode_snapshot?.started_at || "legacy-test")
-      : `live:${currentEventId}`
+      : `live:${currentEventId}:${Number(e3EventState?.event3_runtime_generation) || 1}`
     const expectedEvent3SessionKey = req.body?.expected_event3_session_key
     const expectedEvent3EventId = req.body?.expected_event_id
     if ((requestTestMode && !activeTestMode)

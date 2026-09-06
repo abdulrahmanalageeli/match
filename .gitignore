@@ -7,3 +7,5 @@
 
 # Local environment overrides (may contain secrets)
 .env.local
+
+.vercel

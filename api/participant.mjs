@@ -4438,15 +4438,15 @@ Please respond in JSON format:
 
       // Table-scoped coordinator election and shared activity projection. All
       // mutations are serialized and membership-checked again inside Postgres.
-      const groupCoordinationOperations = {
-        "e3-get-group-coordination": "status",
-        "e3-open-group-election": "open",
-        "e3-cast-group-coordinator-vote": "vote",
-        "e3-start-group-reelection": "revolt",
-        "e3-publish-group-content": "publish",
-        "e3-clear-group-content": "clear",
-      }
-      if (groupCoordinationOperations[action]) {
+      const groupCoordinationOperation = new Map([
+        ["e3-get-group-coordination", "status"],
+        ["e3-open-group-election", "open"],
+        ["e3-cast-group-coordinator-vote", "vote"],
+        ["e3-start-group-reelection", "revolt"],
+        ["e3-publish-group-content", "publish"],
+        ["e3-clear-group-content", "clear"],
+      ]).get(action)
+      if (groupCoordinationOperation) {
         const requestedRound = Number(req.body.round)
         if (!Number.isInteger(requestedRound) || requestedRound < 1 || requestedRound > groupRoundCount) {
           return res.status(400).json({ error: "Invalid group round" })
@@ -4455,7 +4455,7 @@ Please respond in JSON format:
           return res.status(409).json({ error: "This group round is no longer active", code: "EVENT3_GROUP_ROUND_CLOSED" })
         }
 
-        const operation = groupCoordinationOperations[action]
+        const operation = groupCoordinationOperation
         let content = null
         let candidateNumber = null
         if (operation === "vote") {

@@ -3323,13 +3323,14 @@ function GroupElectionOverlay({
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: reducedMotion ? 0 : 0.12 + index * 0.045 }}
                   whileTap={{ scale: 0.97 }}
+                  autoFocus={index === 0}
                   disabled={submitting}
                   onClick={() => onVote(candidate.number)}
                   aria-pressed={selected}
                   className={`group relative min-h-[5.8rem] overflow-hidden rounded-2xl border p-3 text-right transition-all disabled:cursor-wait disabled:opacity-60 ${selected ? "border-cyan-300/55 bg-gradient-to-br from-cyan-400/20 via-violet-500/20 to-fuchsia-500/15 shadow-[0_0_28px_rgba(103,232,249,.12)] ring-1 ring-cyan-300/25" : "border-white/[0.09] bg-white/[0.045] hover:border-violet-300/35 hover:bg-violet-400/[0.09]"}`}
                 >
                   <span className="relative z-10 flex items-start justify-between gap-2">
-                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border text-[11px] font-black ${selected ? "border-cyan-300/35 bg-cyan-300/15 text-cyan-100" : "border-white/10 bg-black/20 text-white/45"}`}>
+                    <span className={`flex h-8 min-w-10 shrink-0 items-center justify-center rounded-xl border px-1 text-[11px] font-black ${selected ? "border-cyan-300/35 bg-cyan-300/15 text-cyan-100" : "border-white/10 bg-black/20 text-white/45"}`}>
                       #{candidate.number}
                     </span>
                     {selected && <CheckCircle className="h-5 w-5 shrink-0 text-cyan-300" />}
@@ -3409,7 +3410,7 @@ function CoordinatorRevealOverlay({ leader, isMe, isReelection, onContinue }: {
         <p className="text-sm font-bold leading-7 text-white/65">
           {isMe ? "أنت الآن قائد الشاشة — اختر النشاط والسؤال وسنرسله للجميع." : `${leader.name} سيقود شاشة الطاولة ويعرض ما تحتاجونه فقط.`}
         </p>
-        <button type="button" onClick={onContinue} className="event3-action mt-6 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-cyan-400 via-violet-500 to-fuchsia-500 text-base font-black text-white shadow-[0_16px_45px_-16px_rgba(168,85,247,.8)] transition-all hover:brightness-110 active:scale-[0.98]">
+        <button type="button" autoFocus onClick={onContinue} className="event3-action mt-6 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-cyan-400 via-violet-500 to-fuchsia-500 text-base font-black text-white shadow-[0_16px_45px_-16px_rgba(168,85,247,.8)] transition-all hover:brightness-110 active:scale-[0.98]">
           {isMe ? <Megaphone size={19} /> : <Radio size={19} />}
           {isMe ? "ابدأ قيادة الطاولة" : "الدخول إلى بث الطاولة"}
         </button>
@@ -3489,7 +3490,7 @@ function GroupProjectorOverlay({ tableNumber, coordinatorName, content, contentV
       </main>
 
       <footer className="relative z-10 border-t border-white/[0.07] bg-black/25 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 text-center backdrop-blur-2xl">
-        <button type="button" onClick={onUnsync} className="mx-auto flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-xs font-bold text-white/45 transition-colors hover:bg-white/[0.06] hover:text-white/75">
+        <button type="button" autoFocus onClick={onUnsync} className="mx-auto flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-xs font-bold text-white/45 transition-colors hover:bg-white/[0.06] hover:text-white/75">
           <WifiOff size={14} /> فك المزامنة والتصفّح بحرية
         </button>
       </footer>
@@ -3505,7 +3506,19 @@ function ReelectionConfirmOverlay({ coordinatorName, busy, error, onCancel, onCo
   onConfirm: () => void
 }) {
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[630] flex items-end justify-center bg-black/75 p-4 backdrop-blur-xl sm:items-center" role="dialog" aria-modal="true" aria-labelledby="reelection-title" dir="rtl">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onKeyDown={event => {
+        if (event.key === "Escape" && !busy) onCancel()
+      }}
+      className="fixed inset-0 z-[630] flex items-end justify-center bg-black/75 p-4 backdrop-blur-xl sm:items-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="reelection-title"
+      dir="rtl"
+    >
       <motion.div initial={{ y: 28, scale: 0.97 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, opacity: 0 }} className="relative w-full max-w-sm overflow-hidden rounded-[2rem] border border-amber-300/25 bg-gradient-to-b from-[#211508]/98 via-[#110b0a]/98 to-[#090708]/98 p-6 text-center shadow-[0_35px_100px_-35px_rgba(245,158,11,.55)] ring-1 ring-white/[0.06]">
         <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-amber-200 to-transparent" />
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-amber-300/25 bg-amber-400/10 text-amber-200"><Crown size={28} /></div>
@@ -3514,7 +3527,7 @@ function ReelectionConfirmOverlay({ coordinatorName, busy, error, onCancel, onCo
         <p className="mt-3 text-sm font-medium leading-7 text-white/55">يبقى {coordinatorName} منسّقاً أثناء التصويت. أمام المجموعة 3 دقائق لاختيار شخص آخر.</p>
         {error && <p role="alert" className="mt-3 rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-bold text-rose-200">{error}</p>}
         <div className="mt-5 grid grid-cols-2 gap-2.5">
-          <button type="button" onClick={onCancel} disabled={busy} className="min-h-12 rounded-2xl border border-white/10 bg-white/[0.05] text-sm font-black text-white/60 transition-colors hover:bg-white/10 disabled:opacity-50">إلغاء</button>
+          <button type="button" autoFocus onClick={onCancel} disabled={busy} className="min-h-12 rounded-2xl border border-white/10 bg-white/[0.05] text-sm font-black text-white/60 transition-colors hover:bg-white/10 disabled:opacity-50">إلغاء</button>
           <button type="button" onClick={onConfirm} disabled={busy} className="event3-action flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-amber-400 to-orange-500 text-sm font-black text-gray-950 transition-all hover:brightness-110 disabled:opacity-60">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Vote size={16} />} ابدأ التصويت
           </button>
@@ -3575,6 +3588,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   const [revealedCoordinator, setRevealedCoordinator] = useState<{ number: number; version: number; kind: "initial" | "revolt" } | null>(null)
   const [syncEnabled, setSyncEnabled] = useState(true)
   const [showReelectionConfirm, setShowReelectionConfirm] = useState(false)
+  const [showTutorial, setShowTutorial] = useState(false)
   const [showGroupParticipationNudge, setShowGroupParticipationNudge] = useState(false)
   const [participationNudgePending, setParticipationNudgePending] = useState(false)
   const participationNudgeTimerRef = useRef<string | null>(null)
@@ -3613,6 +3627,15 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
         isMe: revealedCoordinator.number === myInfo?.number,
       }
     : null
+  const projectorVisible = coordination?.status === "elected"
+    && Boolean(coordination.coordinator_number)
+    && !isGroupCoordinator
+    && syncEnabled
+    && !revealedCoordinator
+    && !electionVisible
+    && !showReelectionConfirm
+  const coordinationModalVisible = electionVisible || Boolean(revealedCoordinator) || projectorVisible || showReelectionConfirm
+  const groupsInteractive = showGroups && !coordinationModalVisible
   const openGroups = useCallback(() => {
     groupsOpenerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
     setGroupsHaveOpened(true)
@@ -3753,6 +3776,9 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
 
   useEffect(() => {
     if (coordination?.status !== "elected" || !coordination.coordinator_number || !coordination.election_version) return
+    setGroupActivityStage("activities")
+    setGroupsHaveOpened(true)
+    setShowGroups(true)
     const runtimeSession = typeof window !== "undefined"
       ? window.sessionStorage.getItem("event3_runtime_session_key") || "live"
       : "live"
@@ -3762,8 +3788,6 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
       sessionStorage.setItem(revealKey, "1")
     } catch {}
     setSyncEnabled(true)
-    setGroupsHaveOpened(true)
-    setShowGroups(true)
     setRevealedCoordinator({
       number: coordination.coordinator_number,
       version: coordination.election_version,
@@ -3774,7 +3798,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   // Treat the activities panel like a native modal sheet while keeping it
   // mounted off-screen so selected activities retain their progress.
   useEffect(() => {
-    if (!showGroups) return
+    if (!groupsInteractive) return
     const previousOverflow = document.body.style.overflow
     const focusTimer = window.setTimeout(() => {
       const firstControl = groupsDialogRef.current?.querySelector<HTMLElement>(
@@ -3810,14 +3834,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
       window.removeEventListener("keydown", onKeyDown)
       groupsOpenerRef.current?.focus()
     }
-  }, [showGroups, closeGroups])
-  const [showTutorial, setShowTutorial] = useState(false)
-  const projectorVisible = coordination?.status === "elected"
-    && Boolean(coordination.coordinator_number)
-    && !isGroupCoordinator
-    && syncEnabled
-    && !revealedCoordinator
-    && !electionVisible
+  }, [groupsInteractive, closeGroups])
   useEffect(() => {
     onGroupsOpenChange?.(showGroups || showTutorial || showGroupParticipationNudge || electionVisible || Boolean(revealedCoordinator) || projectorVisible || showReelectionConfirm)
   }, [showGroups, showTutorial, showGroupParticipationNudge, electionVisible, revealedCoordinator, projectorVisible, showReelectionConfirm, onGroupsOpenChange])
@@ -3918,8 +3935,8 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
       <motion.div
         initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
         className="relative z-10 flex h-full flex-col items-center justify-center p-4 sm:p-6"
-        aria-hidden={showGroups || undefined}
-        inert={showGroups}
+        aria-hidden={(showGroups || coordinationModalVisible) || undefined}
+        inert={showGroups || coordinationModalVisible}
       >
         <div className="w-full max-w-sm space-y-5 text-center">
           <motion.div
@@ -4108,13 +4125,13 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
             initial={{ opacity: 0, y: "100%" }}
             animate={{ opacity: showGroups ? 1 : 0, y: showGroups ? 0 : "100%" }}
             transition={{ type: "spring", stiffness: 280, damping: 32 }}
-            aria-hidden={!showGroups}
-            inert={!showGroups}
+            aria-hidden={!groupsInteractive}
+            inert={!groupsInteractive}
             role="dialog"
-            aria-modal={showGroups ? "true" : undefined}
+            aria-modal={groupsInteractive ? "true" : undefined}
             aria-label="أنشطة المجموعة"
             tabIndex={-1}
-            className={`event3-shell fixed inset-0 z-[210] flex flex-col ${showGroups ? "pointer-events-auto" : "pointer-events-none"}`}
+            className={`event3-shell fixed inset-0 z-[210] flex flex-col ${groupsInteractive ? "pointer-events-auto" : "pointer-events-none"}`}
           >
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
               <div className={`absolute inset-0 bg-gradient-to-b ${RC.shell}`} />

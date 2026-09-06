@@ -11223,6 +11223,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
 
           const used = new Set()
           const matches = []
+          let choiceExpectedRankings = []
 
           if (choiceOnlyPhase3) {
             const [rankResult, firstMatchResult, profileResult] = await Promise.all([
@@ -11235,6 +11236,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             ])
             const choiceReadError = rankResult.error || firstMatchResult.error || profileResult.error
             if (choiceReadError) return res.status(500).json({ error: choiceReadError.message })
+            choiceExpectedRankings = event3ChoiceRankingSnapshot(rankResult.data || [])
 
             const firstPartners = new Map()
             for (const row of firstMatchResult.data || []) {
@@ -11446,7 +11448,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               p_slot: 2,
               p_expected_test_mode: tmState3.test_mode_active === true,
               p_expected_started_at: tmState3.test_mode_snapshot?.started_at || null,
-              p_expected_rankings: event3ChoiceRankingSnapshot(rankResult.data || []),
+              p_expected_rankings: choiceExpectedRankings,
               p_expected_exclusions: event3ChoiceExclusionSnapshot(exRows),
               p_rows: choiceRows,
               p_tables: choiceTables,

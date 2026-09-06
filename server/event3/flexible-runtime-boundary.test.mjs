@@ -39,6 +39,14 @@ test("one-to-one matching is phase-gated and every choice round opens its proces
   assert.match(third, /matching_committed: true/)
 })
 
+test("second-choice atomic save retains its ranking snapshot outside the query block", () => {
+  const second = action("e3-trigger-phase3-matching", "// e3-trigger-phase4-matching")
+  assert.match(second, /let choiceExpectedRankings = \[\]/)
+  assert.match(second, /choiceExpectedRankings = event3ChoiceRankingSnapshot\(rankResult\.data \|\| \[\]\)/)
+  assert.match(second, /p_expected_rankings: choiceExpectedRankings/)
+  assert.doesNotMatch(second, /p_expected_rankings: event3ChoiceRankingSnapshot\(rankResult\.data/)
+})
+
 test("admin readiness is based on exact seating and reciprocal match coverage", () => {
   const state = action("e3-get-state", "// e3-get-participants")
   assert.match(state, /buildEvent3RuntimeReadiness/)

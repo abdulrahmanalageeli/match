@@ -22,10 +22,6 @@ import {
 } from "lucide-react"
 
 import { QuestionSlideshow } from "~/components/QuestionSlideshow"
-import {
-  CURRENT_BALANCED_SCORE_MODEL,
-  currentBalancedGroupedDimensionsForDisplay,
-} from "~/lib/compatibility-model"
 import { clearParticipantBrowserIdentity, getParticipantBrowserToken } from "~/lib/participant-browser-auth.mjs"
 import { hasEvent3AdminUriOverride } from "~/lib/event3-admin-uri.mjs"
 import { getEvent3GroupRoundTheme } from "~/lib/event3-group-round-theme"
@@ -1223,132 +1219,101 @@ function PartnerInfoCard({ data, accent = "pink" }: { data: any; accent?: "pink"
   )
 }
 
-// ─── Compatibility Breakdown ──────────────────────────────────────────────────
-function CompatibilityBreakdown({ breakdown, scoreRow, accent = "purple", partnerName }: { breakdown: any; scoreRow?: any; accent?: "pink" | "purple"; partnerName?: string }) {
-  if (!breakdown) return null
+// ─── Participant-safe pair reading ───────────────────────────────────────────
+// The API sends finished prose only; score internals never enter the browser.
+const PAIR_INSIGHT_STYLES = {
+  pink: {
+    border: "border-pink-300/[0.16]",
+    glow: "bg-pink-500/20",
+    icon: "border-pink-300/20 bg-pink-400/10 text-pink-200",
+    eyebrow: "text-pink-300",
+    chip: "border-pink-300/15 bg-pink-400/[0.07] text-pink-100/70",
+  },
+  purple: {
+    border: "border-violet-300/[0.16]",
+    glow: "bg-violet-500/20",
+    icon: "border-violet-300/20 bg-violet-400/10 text-violet-200",
+    eyebrow: "text-violet-300",
+    chip: "border-violet-300/15 bg-violet-400/[0.07] text-violet-100/70",
+  },
+  cyan: {
+    border: "border-cyan-300/[0.16]",
+    glow: "bg-cyan-500/20",
+    icon: "border-cyan-300/20 bg-cyan-400/10 text-cyan-200",
+    eyebrow: "text-cyan-300",
+    chip: "border-cyan-300/15 bg-cyan-400/[0.07] text-cyan-100/70",
+  },
+} as const
 
-  const percent = (v: number, max: number) => Math.max(0, Math.min(100, Math.round((v / max) * 100)))
-  const scoreModelVersion = String(breakdown.scoreModelVersion ?? breakdown.score_model_version ?? "")
-  const isBalanced = scoreModelVersion === CURRENT_BALANCED_SCORE_MODEL
-  const dimensionSource = scoreRow
-    ? { ...scoreRow, score_model_version: scoreModelVersion, score_breakdown: breakdown }
-    : breakdown
-  const dimensionBars: Record<string, string> = {
-    commonGround: "from-purple-500 to-pink-500",
-    interaction: "from-violet-500 to-purple-500",
-    humor: "from-amber-500 to-orange-500",
-    attachment: "from-rose-500 to-pink-500",
-    lifestyle: "from-cyan-500 to-blue-500",
-    values: "from-emerald-500 to-teal-500",
-    communication: "from-indigo-500 to-sky-500",
-    intent: "from-fuchsia-500 to-rose-500",
+function fallbackPairInsight(score: number | null, partnerName: string) {
+  return {
+    signal: score !== null && score >= 85 ? "انسجام نادر" : score !== null && score >= 76 ? "إشارة قوية" : score !== null && score >= 68 ? "إشارة واضحة" : "قابلية تستحق الاكتشاف",
+    headline: score !== null && score >= 80 ? "انسجام يلتقط نفسه" : "مساحة تستحق لقاءً ثانياً",
+    body: `بينك وبين ${partnerName} قابلية واضحة لأن يتحول الانطباع الأول إلى حوار أعمق. الجميل هنا ليس التشابه الكامل، بل سهولة اكتشاف الطرف الآخر من غير تكلّف.`,
+    prompt: "لا تعيدا اللقاء الأول؛ اختارا تفصيلة لم تأخذ وقتها واسألا: ماذا كان وراءها؟",
   }
-  const allDims = isBalanced
-    ? (currentBalancedGroupedDimensionsForDisplay(dimensionSource)
-        ?? currentBalancedGroupedDimensionsForDisplay(breakdown)
-        ?? []).map(dimension => ({
-        ...dimension,
-        value: dimension.value ?? 0,
-        bar: dimensionBars[dimension.key] ?? "from-purple-500 to-pink-500",
-      }))
-    : []
+}
 
-  const sorted = [...allDims].sort((a, b) => percent(b.value, b.max) - percent(a.value, a.max))
-  const topStrengths = sorted.filter(d => percent(d.value, d.max) >= 65).slice(0, 2)
-  const growth = sorted.filter(d => percent(d.value, d.max) < 40).slice(0, 2)
-  const storedTotal = Number(breakdown.total)
-  const totalPct = Number.isFinite(storedTotal)
-    ? Math.max(0, Math.min(100, storedTotal))
-    : Math.max(0, Math.min(100, allDims.reduce((sum, dimension) => sum + dimension.value, 0)))
-
-  const accentCl = accent === "pink" ? "text-pink-300" : "text-purple-300"
+function PairInsightCard({ result, label, order, accent }: {
+  result: any
+  label: string
+  order: number
+  accent: keyof typeof PAIR_INSIGHT_STYLES
+}) {
+  const palette = PAIR_INSIGHT_STYLES[accent]
+  const partnerName = String(result?.partner_first_name || "هذا الشخص")
+  const rated = isFinalRevealRated(result?.compatibility_score)
+  const score = normalizedFinalRevealScore(result?.compatibility_score)
+  const insight = rated ? (result?.insight || fallbackPairInsight(score, partnerName)) : null
 
   return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-      className="event3-glass overflow-hidden rounded-[1.35rem] border border-purple-300/[0.1]">
-      {/* Header */}
-      <div className="border-b border-white/[0.065] bg-white/[0.025] px-5 py-4">
-        <h4 className={`text-base font-bold flex items-center gap-2 ${accentCl}`}>
-          <BarChart3 size={16} /> تحليل التوافق
-        </h4>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${isBalanced ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-300" : "border-amber-400/25 bg-amber-500/10 text-amber-300"}`}>
-            {isBalanced ? "النموذج المتوازن · 100 نقطة" : "حسبة تاريخية موروثة"}
-          </span>
-          {scoreModelVersion && <span className="font-mono text-[9px] text-gray-600">{scoreModelVersion}</span>}
+    <motion.article
+      initial={{ opacity: 0, y: 16, scale: 0.985 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ delay: 0.5 + order * 0.09, type: "spring", stiffness: 190, damping: 22 }}
+      className={`event3-glass relative overflow-hidden rounded-[1.65rem] border ${palette.border} p-4 text-right shadow-[0_24px_70px_-45px_rgba(168,85,247,.9)]`}
+    >
+      <div aria-hidden="true" className={`pointer-events-none absolute -left-12 -top-16 h-36 w-36 rounded-full ${palette.glow} blur-3xl`} />
+      <div className="relative flex items-start gap-3">
+        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border font-mono text-xs font-black ${palette.icon}`}>
+          {String(order).padStart(2, "0")}
         </div>
-        <p className="text-gray-500 text-xs mt-0.5">
-          هذا التحليل خاص بـ{partnerName ? ` ${partnerName}` : " هذا الشخص"} فقط — يعتمد على بيانات الاستبيان ولا يتأثر بالتقييمات
-        </p>
-        {!isBalanced && (
-          <p className="mt-1 text-[11px] leading-5 text-amber-300/80">
-            نعرض المجموع التاريخي فقط لأن تفاصيل الأبعاد لا تتوافق مع النموذج الحالي.
-          </p>
-        )}
+        <div className="min-w-0 flex-1">
+          <p className={`text-[10px] font-black tracking-wide ${palette.eyebrow}`}>{label}</p>
+          <h3 className="mt-0.5 truncate text-lg font-black text-white">{partnerName}</h3>
+        </div>
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-white/[0.08] bg-black/20 px-2 py-1 text-[9px] font-bold text-white/45">
+          <Lock size={9} /> قراءة خاصة
+        </span>
       </div>
 
-      {/* Synergy Overview */}
-      <div className="px-5 py-4">
-        <div className="rounded-2xl border border-white/[0.06] bg-black/20 p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,.035)]">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-bold text-gray-200">التوافق الكلي</span>
-            <span className={`text-sm font-extrabold ${totalPct >= 70 ? "text-emerald-400" : totalPct >= 50 ? "text-yellow-500" : "text-orange-500"}`}>{totalPct}%</span>
+      {insight ? (
+        <>
+          <div className="relative mt-4 rounded-2xl border border-white/[0.07] bg-gradient-to-br from-white/[0.07] to-white/[0.015] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,.045)]">
+            <div className="flex items-center gap-2">
+              <Sparkles size={14} className={palette.eyebrow} />
+              <span className={`text-[10px] font-black ${palette.eyebrow}`}>{insight.signal}</span>
+            </div>
+            <h4 className="mt-2 text-[17px] font-black leading-7 text-white">{insight.headline}</h4>
+            <p className="mt-2 text-[12px] font-medium leading-6 text-gray-300">{insight.body}</p>
           </div>
-          <div className="w-full h-2.5 rounded-full bg-gray-800/70">
-            <motion.div
-              className={`h-full rounded-full bg-gradient-to-r ${totalPct >= 70 ? "from-emerald-500 to-teal-500" : totalPct >= 50 ? "from-amber-500 to-yellow-500" : "from-orange-500 to-red-500"}`}
-              initial={{ width: 0 }} animate={{ width: `${totalPct}%` }} transition={{ duration: 0.8, delay: 0.4 }}
-            />
+          <div className="relative mt-3 flex items-start gap-2.5 rounded-2xl border border-white/[0.06] bg-black/20 px-3.5 py-3">
+            <Lightbulb size={14} className={`mt-0.5 shrink-0 ${palette.eyebrow}`} />
+            <p className="text-[11px] leading-5 text-gray-400"><span className="font-black text-gray-200">أفضل مفتاح: </span>{insight.prompt}</p>
           </div>
-
-          {isBalanced && (
-            <>
-              {/* Dimension mini-bars */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-3.5">
-                {allDims.map((d, i) => (
-                  <div key={i} className="rounded-xl border border-white/[0.055] bg-white/[0.025] p-2.5">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[11px] font-semibold text-gray-300">{d.label}</span>
-                      <span className="text-[11px] font-bold text-gray-400">{percent(d.value, d.max)}%</span>
-                    </div>
-                    <div className="w-full h-1.5 rounded-full bg-gray-800/70">
-                      <motion.div
-                        className={`h-full rounded-full bg-gradient-to-r ${d.bar}`}
-                        initial={{ width: 0 }} animate={{ width: `${percent(d.value, d.max)}%` }} transition={{ duration: 0.6, delay: 0.5 + i * 0.08 }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Highlights & Growth */}
-              <div className="grid grid-cols-1 gap-2.5 mt-3.5">
-                {topStrengths.length > 0 && (
-                  <div className="bg-emerald-500/10 border border-emerald-400/30 rounded-lg p-3">
-                    <div className="text-[11px] font-bold mb-1 text-emerald-300">أبرز النقاط</div>
-                    <ul className="text-[11px] leading-relaxed text-emerald-100/80 list-disc pr-4">
-                      {topStrengths.map((d, idx) => (
-                        <li key={idx}>{d.label}: جانب قويّ يساعد على سهولة الانسجام.</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {growth.length > 0 && (
-                  <div className="bg-orange-500/10 border border-orange-400/30 rounded-lg p-3">
-                    <div className="text-[11px] font-bold mb-1 text-orange-300">مساحات للنمو</div>
-                    <ul className="text-[11px] leading-relaxed text-orange-100/80 list-disc pr-4">
-                      {growth.map((d, idx) => (
-                        <li key={idx}>{d.label}: قد يحتاج وقتاً للتأقلم.</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </>
+          {result?.word && (
+            <div className="relative mt-3 flex justify-end">
+              <span className={`max-w-full truncate rounded-full border px-3 py-1.5 text-[10px] font-bold ${palette.chip}`}>الانطباع الذي بقي · «{result.word}»</span>
+            </div>
           )}
+        </>
+      ) : (
+        <div className="relative mt-4 rounded-2xl border border-white/[0.07] bg-black/20 px-4 py-5 text-center">
+          <p className="text-sm font-black text-white/55">لم يتم تحليله</p>
+          <p className="mt-1 text-[11px] leading-5 text-white/30">الإشارة الحالية لا تكفي لبناء قراءة موثوقة لهذا اللقاء.</p>
         </div>
-      </div>
-    </motion.div>
+      )}
+    </motion.article>
   )
 }
 
@@ -7683,7 +7648,7 @@ function AiAnalysisCompact({ partnerNum, token, currentEventId, accent, title }:
     try {
       const res = await fetch("/api/participant", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "generate-vibe-analysis", secure_token: token, partner_number: partnerNum, event_id: currentEventId })
+        body: JSON.stringify({ action: "generate-vibe-analysis", secure_token: token, partner_number: partnerNum, event_id: currentEventId, event3_context: true })
       })
       const d = await res.json()
       if (d.success) { setAnalysis(d.analysis); setShown(true) }
@@ -7727,7 +7692,6 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
   const [matchPref, setMatchPref] = useState<string | null>(null)
   const [prefSubmitting, setPrefSubmitting] = useState(false)
   const [currentEventId, setCurrentEventId] = useState<number>(1)
-  const [activeTab, setActiveTab] = useState<"choice" | "algorithm" | "third">("choice")
   const [screenMode, setScreenMode] = useState<"reveal" | "questions">("reveal")
   const [questionPhase, setQuestionPhase] = useState<"phase1" | "phase2" | "phase3">("phase2")
   const [readinessTimedOut, setReadinessTimedOut] = useState(false)
@@ -7951,77 +7915,61 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
           )}
         </div>
 
-        {/* Comparison text */}
-        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="text-gray-500 text-xs leading-relaxed">
-          {choiceOnly ? "ثلاثة لقاءات متبادلة مع ثلاثة أشخاص مختلفين — أيها كان أقرب لك؟" : sameMatch ? "غريزتك والخوارزمية متوافقتان — نادر الحدوث!" : "رأيت بعينيك، ورأت الخوارزمية بالبيانات — أيهما أصح؟"}
-        </motion.p>
+        <AnimatePresence>
+          {revealed && (
+            <motion.section
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15, duration: 0.45 }}
+              aria-labelledby="pair-reading-title"
+              className="space-y-3"
+            >
+              <div className="event3-glass relative overflow-hidden rounded-[1.75rem] border border-white/[0.09] px-4 py-4 text-right">
+                <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-20 h-40 w-40 rounded-full bg-purple-500/20 blur-3xl" />
+                <div className="relative flex items-center gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-purple-300/20 bg-purple-400/10 text-purple-200 shadow-[0_0_25px_-10px_rgba(192,132,252,.9)]">
+                    <Sparkles size={19} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-purple-300/65">BEYOND THE SCORE</p>
+                    <h2 id="pair-reading-title" className="mt-0.5 text-lg font-black text-white">قراءة ما بين السطور</h2>
+                  </div>
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-300/15 bg-emerald-400/[0.07] px-2 py-1 text-[9px] font-bold text-emerald-200/70">
+                    <ShieldCheck size={9} /> خاصة
+                  </span>
+                </div>
+                <p className="relative mt-3 text-[11px] font-medium leading-5 text-gray-400">خلاصة عالية المستوى لكل لقاء — من دون عرض إجاباتكما أو معايير التقييم أو طريقة الحساب.</p>
+              </div>
 
-        <motion.a href={resultsHref} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.65 }} className="event3-action flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 px-4 text-base font-black text-white">
+              <PairInsightCard result={p2} label={choiceOnly ? "اللقاء الأول" : "اختيارك"} order={1} accent="pink" />
+              {!sameMatch && <PairInsightCard result={p3} label={choiceOnly ? "اللقاء الثاني" : "اختيار النظام"} order={2} accent="purple" />}
+              {choiceOnly && <PairInsightCard result={p4} label="اللقاء الثالث" order={3} accent="cyan" />}
+            </motion.section>
+          )}
+        </AnimatePresence>
+
+        <motion.a href={resultsHref} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.75 }} className="event3-action flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 px-4 text-base font-black text-white shadow-[0_20px_50px_-28px_rgba(217,70,239,.95)]">
           <Trophy size={18} /> فتح النتائج والتواصل
         </motion.a>
 
         <details className="group rounded-3xl border border-white/[0.08] bg-white/[0.025] text-right">
           <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 text-sm font-black text-gray-200">
-            فهم النتيجة بالتفصيل
+            قراءة شخصية أعمق <span className="font-medium text-gray-600">— اختياري</span>
             <ChevronRight size={17} className="rotate-90 text-gray-500 transition-transform group-open:-rotate-90" />
           </summary>
           <div className="space-y-3 border-t border-white/[0.06] p-3">
-
-        {/* Tabbed compatibility breakdown */}
-        {!sameMatch && (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}>
-            <div className={`mb-3 grid gap-1.5 ${choiceOnly ? "grid-cols-3" : "grid-cols-2"}`} role="tablist" aria-label="تفاصيل التوافق">
-              <button type="button" role="tab" aria-selected={activeTab === 'choice'} onClick={() => setActiveTab('choice')} className={`min-h-11 flex-1 rounded-xl border py-2 text-xs font-bold transition-all ${activeTab === 'choice' ? 'bg-pink-950/50 border-pink-700/40 text-pink-300' : 'border-white/[0.07] bg-black/20 text-gray-400'}`}>
-                <Heart size={12} className="inline ml-1" /> {choiceOnly ? "الاختيار الأول" : "اختيارك"}
-              </button>
-              <button type="button" role="tab" aria-selected={activeTab === 'algorithm'} onClick={() => setActiveTab('algorithm')} className={`min-h-11 flex-1 rounded-xl border py-2 text-xs font-bold transition-all ${activeTab === 'algorithm' ? 'bg-purple-950/50 border-purple-700/40 text-purple-300' : 'border-white/[0.07] bg-black/20 text-gray-400'}`}>
-                {choiceOnly ? <Heart size={12} className="inline ml-1" /> : <Brain size={12} className="inline ml-1" />} {choiceOnly ? "الاختيار الثاني" : "اختيار النظام"}
-              </button>
-              {choiceOnly && (
-                <button type="button" role="tab" aria-selected={activeTab === 'third'} onClick={() => setActiveTab('third')} className={`min-h-11 rounded-xl border py-2 text-xs font-bold transition-all ${activeTab === 'third' ? 'border-violet-700/40 bg-violet-950/50 text-violet-300' : 'border-white/[0.07] bg-black/20 text-gray-400'}`}>
-                  <Heart size={12} className="inline ml-1" /> الاختيار الثالث
-                </button>
+            <p className="px-1 text-[11px] leading-5 text-gray-500">اطلب قراءة أطول لأي لقاء. تبقى الإجابات وطريقة الحساب مخفية، ولا يبدأ الطلب إلا عند اختيارك.</p>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-2">
+              {p2Rated && p2?.partner_number && (
+                <AiAnalysisCompact partnerNum={p2.partner_number} token={token} currentEventId={currentEventId} accent="pink" title={`قراءة أعمق مع ${p2.partner_first_name}`} />
               )}
-            </div>
-            <AnimatePresence mode="wait">
-              {activeTab === 'choice' && (
-                <motion.div key="choice" role="tabpanel" aria-label={choiceOnly ? "تفاصيل توافق الاختيار الأول" : "تفاصيل توافق اختيارك"} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }}>
-                  {p2Rated && p2?.breakdown ? <CompatibilityBreakdown breakdown={p2.breakdown} scoreRow={p2} accent="pink" partnerName={p2?.partner_first_name} /> : !p2Rated ? <p className="rounded-2xl border border-white/[0.07] bg-black/20 p-4 text-center text-xs font-bold text-white/45">لم يتم تحليله — يظهر التحليل من 60% فأعلى</p> : null}
-                </motion.div>
+              {p3Rated && p3?.partner_number && !sameMatch && (
+                <AiAnalysisCompact partnerNum={p3.partner_number} token={token} currentEventId={currentEventId} accent="purple" title={`قراءة أعمق مع ${p3.partner_first_name}`} />
               )}
-              {activeTab === 'algorithm' && (
-                <motion.div key="algorithm" role="tabpanel" aria-label={choiceOnly ? "تفاصيل توافق الاختيار الثاني" : "تفاصيل توافق اختيار النظام"} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2 }}>
-                  {p3Rated && p3?.breakdown ? <CompatibilityBreakdown breakdown={p3.breakdown} scoreRow={p3} accent="purple" partnerName={p3?.partner_first_name} /> : !p3Rated ? <p className="rounded-2xl border border-white/[0.07] bg-black/20 p-4 text-center text-xs font-bold text-white/45">لم يتم تحليله — يظهر التحليل من 60% فأعلى</p> : null}
-                </motion.div>
+              {choiceOnly && p4Rated && p4?.partner_number && (
+                <AiAnalysisCompact partnerNum={p4.partner_number} token={token} currentEventId={currentEventId} accent="purple" title={`قراءة أعمق مع ${p4.partner_first_name}`} />
               )}
-              {choiceOnly && activeTab === 'third' && (
-                <motion.div key="third" role="tabpanel" aria-label="تفاصيل توافق الاختيار الثالث" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2 }}>
-                  {p4Rated && p4?.breakdown ? <CompatibilityBreakdown breakdown={p4.breakdown} scoreRow={p4} accent="purple" partnerName={p4?.partner_first_name} /> : !p4Rated ? <p className="rounded-2xl border border-white/[0.07] bg-black/20 p-4 text-center text-xs font-bold text-white/45">لم يتم تحليله — يظهر التحليل من 60% فأعلى</p> : null}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
-        )}
-
-        {/* If same match, just show one breakdown */}
-        {sameMatch && p2Rated && p2?.breakdown && (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}>
-            <CompatibilityBreakdown breakdown={p2.breakdown} scoreRow={p2} accent="pink" partnerName={p2?.partner_first_name} />
-          </motion.div>
-        )}
-
-        {/* AI Analysis — compact */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }} className="space-y-2">
-          {p2Rated && p2?.partner_number && (
-            <AiAnalysisCompact partnerNum={p2.partner_number} token={token} currentEventId={currentEventId} accent="pink" title="لماذا توافقتما؟" />
-          )}
-          {p3Rated && p3?.partner_number && !sameMatch && (
-            <AiAnalysisCompact partnerNum={p3.partner_number} token={token} currentEventId={currentEventId} accent="purple" title={choiceOnly ? "لماذا توافقتما؟" : "لماذا اختارتك الخوارزمية؟"} />
-          )}
-          {choiceOnly && p4Rated && p4?.partner_number && (
-            <AiAnalysisCompact partnerNum={p4.partner_number} token={token} currentEventId={currentEventId} accent="purple" title="لماذا توافقتما؟" />
-          )}
-        </motion.div>
+            </motion.div>
           </div>
         </details>
 

@@ -38,6 +38,7 @@ import {
   isChoiceOnlyEvent3,
   loadEvent3Format,
 } from "../server/event3/event-format.mjs"
+import { buildEvent3PairInsight } from "../server/event3/pair-insight.mjs"
 import {
   buildEvent3MutualContactShare,
   normalizeEvent3FeedbackPayload,
@@ -3537,11 +3538,13 @@ export default async function handler(req, res) {
   // ---------------------------------------------------------------------------
   if (action === "generate-vibe-analysis") {
     try {
-      const { secure_token, partner_number, event_id } = req.body
+      const { secure_token, event3_context } = req.body
+      const partner_number = Number(req.body.partner_number)
+      const event_id = Number(req.body.event_id)
       const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
       
       // 1. Validation
-      if (!secure_token || !partner_number || !event_id) {
+      if (!secure_token || !Number.isInteger(partner_number) || partner_number <= 0 || !Number.isInteger(event_id) || event_id <= 0) {
         return res.status(400).json({ error: "Missing secure_token, partner_number, or event_id" })
       }
 
@@ -3598,6 +3601,26 @@ export default async function handler(req, res) {
         return res.status(404).json({ error: "Participant not found" })
       }
 
+      if (event3_context === true) {
+        const { data: event3Pairing, error: event3PairingError } = await supabase
+          .from("event3_matches")
+          .select("phase2_partner,phase3_partner,phase4_partner")
+          .eq("match_id", "00000000-0000-0000-0000-000000000003")
+          .eq("event_id", event_id)
+          .eq("participant_number", participant.assigned_number)
+          .maybeSingle()
+        if (event3PairingError) {
+          console.error("Event3 pair analysis authorization error:", event3PairingError)
+          return res.status(503).json({ error: "Could not verify Event3 pairing" })
+        }
+        const assignedPartners = [event3Pairing?.phase2_partner, event3Pairing?.phase3_partner, event3Pairing?.phase4_partner]
+          .map(Number)
+          .filter(Number.isInteger)
+        if (!assignedPartners.includes(partner_number)) {
+          return res.status(403).json({ error: "This participant is not one of your Event3 matches" })
+        }
+      }
+
       // 3. Check Cache (Avoid paying for OpenAI if analysis exists)
       // Logic: Check match_results for this pair
       const { data: existingMatch, error: matchLookupError } = await supabase
@@ -3606,7 +3629,7 @@ export default async function handler(req, res) {
         .eq("match_id", match_id)
         .eq("event_id", event_id)
         .or(`and(participant_a_number.eq.${participant.assigned_number},participant_b_number.eq.${partner_number}),and(participant_a_number.eq.${partner_number},participant_b_number.eq.${participant.assigned_number})`)
-        .single()
+        .maybeSingle()
 
       if (existingMatch?.ai_personality_analysis) {
         console.log(`🔄 Returning Cached Analysis for ${participant.assigned_number} <-> ${partner_number}`)
@@ -3662,6 +3685,8 @@ export default async function handler(req, res) {
 4. اقترح "Setting" واقعي في الرياض: (مثلاً: "يناسبهم مكان رايق في حي السفارات"، "يحتاجون ضجة البوليفارد"، "جلسة شتوية في العمارية").
 
 🚫 قائمة الممنوعات (Strict Constraints):
+- ممنوع ذكر الاستبيان أو الملفات أو الإجابات أو المعايير أو الأبعاد أو الدرجات أو الخوارزمية أو أي طريقة حساب.
+- ممنوع تقديم تشخيص نفسي أو ادعاء اليقين؛ اكتب كملاحظة ذكية محتملة، لا كحقيقة قطعية.
 - ممنوع ذكر "أنهار"، "غابات"، "زقزقة عصافير" (نحن في الرياض!).
 - ممنوع العبارات المستهلكة مثل: "مزيج رائع"، "كوب شاي دافئ"، "نتمنى لكم".
 - ممنوع التكرار. كن مباشراً وحاد الذكاء.
@@ -5045,10 +5070,20 @@ Please respond in JSON format:
           const numericScore = Number(rawScore)
           return Number.isFinite(numericScore) ? Math.round(Math.max(0, Math.min(100, numericScore))) : null
         }
+        const revealPair = ({ partnerNumber, partnerName, word, storedScore, breakdown }) => {
+          const compatibilityScore = revealScore(storedScore, breakdown)
+          return {
+            partner_number: partnerNumber,
+            partner_first_name: partnerName || "—",
+            word: word || null,
+            compatibility_score: compatibilityScore,
+            insight: buildEvent3PairInsight({ score: compatibilityScore, breakdown, partnerName }),
+          }
+        }
         return res.status(200).json({
-          phase2: { partner_number: matchRow.phase2_partner, partner_first_name: pMap[matchRow.phase2_partner] || "—", word: matchRow.phase2_word || null, compatibility_score: revealScore(matchRow.phase2_score, phase2Breakdown), score_model_version: phase2Breakdown?.scoreModelVersion ?? null, breakdown: phase2Breakdown },
-          phase3: { partner_number: matchRow.phase3_partner, partner_first_name: pMap[matchRow.phase3_partner] || "—", compatibility_score: revealScore(matchRow.phase3_score, phase3Breakdown), score_model_version: phase3Breakdown?.scoreModelVersion ?? null, word: matchRow.phase3_word || null, breakdown: phase3Breakdown },
-          phase4: choiceOnlyReveal ? { partner_number: matchRow.phase4_partner, partner_first_name: pMap[matchRow.phase4_partner] || "—", compatibility_score: revealScore(null, phase4Breakdown), score_model_version: phase4Breakdown?.scoreModelVersion ?? null, word: matchRow.phase4_word || null, breakdown: phase4Breakdown } : null,
+          phase2: revealPair({ partnerNumber: matchRow.phase2_partner, partnerName: pMap[matchRow.phase2_partner], word: matchRow.phase2_word, storedScore: matchRow.phase2_score, breakdown: phase2Breakdown }),
+          phase3: revealPair({ partnerNumber: matchRow.phase3_partner, partnerName: pMap[matchRow.phase3_partner], word: matchRow.phase3_word, storedScore: matchRow.phase3_score, breakdown: phase3Breakdown }),
+          phase4: choiceOnlyReveal ? revealPair({ partnerNumber: matchRow.phase4_partner, partnerName: pMap[matchRow.phase4_partner], word: matchRow.phase4_word, storedScore: null, breakdown: phase4Breakdown }) : null,
           same_match: matchRow.phase2_partner && matchRow.phase2_partner === matchRow.phase3_partner,
           event_format: eventFormat,
           match_preference: matchRow.match_preference || null,

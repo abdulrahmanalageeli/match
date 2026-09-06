@@ -7,7 +7,7 @@ import {
 } from "../matching/balanced-compatibility.mjs"
 import { normalizedGender } from "./round2-age-optimizer.mjs"
 
-export const ROUND1_SPARK_OPTIMIZATION_PASSES = 38
+export const ROUND1_SPARK_OPTIMIZATION_PASSES = 40
 const NEUTRAL_PAIR_SCORE = 50
 const NEUTRAL_VIBE_SCORE = BALANCED_VIBE_MAX / 2
 const INTERNAL_PAIR_SCORE_CACHE = Symbol("round1SparkPairScoreCache")

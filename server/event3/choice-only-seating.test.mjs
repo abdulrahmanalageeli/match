@@ -373,9 +373,9 @@ test("keeps the real #7 and #312 exclusion apart in every generated option", () 
   }
 })
 
-test("uses two additional optimization passes for exact and flexible rosters", () => {
-  assert.equal(ROUND1_SPARK_OPTIMIZATION_PASSES, 38)
-  assert.equal(FLEXIBLE_CHOICE_SEATING_LIMITS.optimizationPasses, 7)
+test("uses the increased optimization passes for exact and flexible rosters", () => {
+  assert.equal(ROUND1_SPARK_OPTIMIZATION_PASSES, 40)
+  assert.equal(FLEXIBLE_CHOICE_SEATING_LIMITS.optimizationPasses, 9)
 })
 
 test("is deterministic, including gender and age tie-breaking", () => {

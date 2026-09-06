@@ -6,8 +6,8 @@ const MIN_PARTICIPANTS = 6
 const MAX_PARTICIPANTS = 44
 const TARGET_GROUP_SIZE = 6
 const CANDIDATE_BUILD_STEPS = 4
-const OPTIMIZATION_PASSES = 7
-export const FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION = "spark-depth-rhythm-v6-seven-pass-hard-group-exclusions"
+const OPTIMIZATION_PASSES = 9
+export const FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION = "spark-depth-rhythm-v7-nine-pass-hard-group-exclusions"
 
 const pairKey = (left, right) => `${Math.min(Number(left), Number(right))}-${Math.max(Number(left), Number(right))}`
 

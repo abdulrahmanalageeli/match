@@ -1433,10 +1433,8 @@ html:not(.dark) .round-bg-pattern::before {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  border: 1px solid rgba(216, 180, 254, 0.16);
-  box-shadow:
-    0 22px 50px -28px rgba(var(--event3-purple), 0.9),
-    inset 0 1px 0 rgba(255, 255, 255, 0.11);
+  border: 1px solid rgba(216, 180, 254, 0.14);
+  box-shadow: 0 22px 50px -28px rgba(var(--event3-purple), 0.9);
 }
 
 .event3-shell :where(button, a, input, textarea, select) {

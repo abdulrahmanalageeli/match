@@ -18,14 +18,3 @@ set label = excluded.label,
     enabled = excluded.enabled,
     sort_order = excluded.sort_order,
     updated_at = now();
-
--- Make the user-facing payment replies safe immediately, including during a
--- rolling application deployment. The webhook-level guard above restores the
--- ordinary paid-participant behavior and also rejects new receipt uploads.
-update public.twilio_response_rules
-set response_text = E'اكتملت جميع المقاعد لهذه الفعالية، لذلك أغلقنا استقبال الدفعات الجديدة ولن نتمكن من تأكيد حجز إضافي هذه المرة. حظاً أوفر في الفعالية القادمة 🤍',
-    updated_at = now()
-where action_key in (
-  'attendance_payment_pending',
-  'attendance_payment_pending_choice_only'
-);

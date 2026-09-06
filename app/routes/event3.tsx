@@ -3639,9 +3639,31 @@ function GroupCoordinatorStatusCard({ state, leaderName, isLeader, onReelection 
   )
 }
 
+function GroupBroadcastReturnButton({ coordinatorName, onReturn }: { coordinatorName: string; onReturn: () => void }) {
+  return (
+    <motion.button
+      type="button"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 8 }}
+      onClick={onReturn}
+      className="event3-action group flex min-h-16 w-full items-center gap-3 rounded-[1.35rem] border border-violet-300/20 bg-gradient-to-l from-violet-400/[0.11] via-white/[0.045] to-transparent px-3.5 py-3 text-right text-white shadow-[inset_0_1px_0_rgba(255,255,255,.08),0_22px_55px_-38px_rgba(139,92,246,.95)] transition-all hover:border-violet-300/35 hover:from-violet-400/[0.16] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60"
+    >
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-violet-200/15 bg-violet-300/[0.09] shadow-inner">
+        <Wifi size={18} className="text-violet-200" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-black">العودة إلى البث</span>
+        <span className="mt-0.5 block truncate text-[10px] font-medium text-white/45">متابعة شاشة {coordinatorName}</span>
+      </span>
+      <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-violet-300 shadow-[0_0_14px_rgba(196,181,253,.75)]" aria-hidden="true" />
+    </motion.button>
+  )
+}
+
 // ─── Round Screen ─────────────────────────────────────────────────────────────
-function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, correctedNow, myInfo, onGroupsOpenChange, onReturnToBroadcastVisibilityChange, eventFormat }: {
-  token: string; phase: string; timerActive: boolean; timerStart: string | null; timerDuration: number; correctedNow?: () => number; myInfo: { number: number; name: string; gender: string | null } | null; onGroupsOpenChange?: (open: boolean) => void; onReturnToBroadcastVisibilityChange?: (visible: boolean) => void; eventFormat: Event3Format
+function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, correctedNow, myInfo, onGroupsOpenChange, onProjectorVisibilityChange, eventFormat }: {
+  token: string; phase: string; timerActive: boolean; timerStart: string | null; timerDuration: number; correctedNow?: () => number; myInfo: { number: number; name: string; gender: string | null } | null; onGroupsOpenChange?: (open: boolean) => void; onProjectorVisibilityChange?: (visible: boolean) => void; eventFormat: Event3Format
 }) {
   const round = parseInt(phase.replace("round", "")) || 1
   const groupRoundCount = event3GroupRoundCount(eventFormat)
@@ -3946,12 +3968,9 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   }, [showGroups, showTutorial, showGroupParticipationNudge, electionVisible, revealedCoordinator, projectorVisible, showReelectionConfirm, onGroupsOpenChange])
 
   useEffect(() => {
-    onReturnToBroadcastVisibilityChange?.(returnToBroadcastVisible)
-  }, [returnToBroadcastVisible, onReturnToBroadcastVisibilityChange])
-
-  useEffect(() => () => {
-    onReturnToBroadcastVisibilityChange?.(false)
-  }, [onReturnToBroadcastVisibilityChange])
+    onProjectorVisibilityChange?.(projectorVisible)
+    return () => onProjectorVisibilityChange?.(false)
+  }, [projectorVisible, onProjectorVisibilityChange])
 
   useEffect(() => {
     if (!showGroupParticipationNudge) return
@@ -4234,6 +4253,12 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
             </button>
           )}
 
+          <AnimatePresence>
+            {returnToBroadcastVisible && (
+              <GroupBroadcastReturnButton coordinatorName={coordinatorName} onReturn={() => setSyncEnabled(true)} />
+            )}
+          </AnimatePresence>
+
           {/* Contextual help is optional and never interrupts the live task. */}
           {round === 1 && (
             <motion.button
@@ -4296,24 +4321,34 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
                   <button type="button" onClick={beginGroupActivities} className="mx-auto flex min-h-11 items-center justify-center rounded-xl px-4 text-xs font-bold text-gray-400 transition-colors hover:bg-white/5 hover:text-gray-200">
                     تخطي كسر الجليد والذهاب للأنشطة
                   </button>
+                  {returnToBroadcastVisible && <GroupBroadcastReturnButton coordinatorName={coordinatorName} onReturn={() => setSyncEnabled(true)} />}
                 </div>
               </div>
             ) : (
-              <div className="relative z-10 min-h-0 flex-1 overflow-hidden" tabIndex={-1}>
-                <GroupsPage
-                  disableOnboarding
-                  onClose={closeGroups}
-                  round={round}
-                  tableNumber={assignment?.table}
-                  participantSeed={token}
-                  isGroupCoordinator={isGroupCoordinator}
-                  coordinatorName={coordinatorName}
-                  onSharedContentChange={isGroupCoordinator ? publishSharedGroupContent : undefined}
-                  onRequestReelection={coordination?.status === "elected" ? () => {
-                    setCoordinationError("")
-                    setShowReelectionConfirm(true)
-                  } : undefined}
-                />
+              <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden" tabIndex={-1}>
+                <div className="min-h-0 flex-1 overflow-hidden">
+                  <GroupsPage
+                    disableOnboarding
+                    onClose={closeGroups}
+                    round={round}
+                    tableNumber={assignment?.table}
+                    participantSeed={token}
+                    isGroupCoordinator={isGroupCoordinator}
+                    coordinatorName={coordinatorName}
+                    onSharedContentChange={isGroupCoordinator ? publishSharedGroupContent : undefined}
+                    onRequestReelection={coordination?.status === "elected" ? () => {
+                      setCoordinationError("")
+                      setShowReelectionConfirm(true)
+                    } : undefined}
+                  />
+                </div>
+                {returnToBroadcastVisible && (
+                  <div className="shrink-0 border-t border-white/[0.06] bg-gray-950/92 px-4 pb-[max(0.8rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
+                    <div className="mx-auto w-full max-w-sm">
+                      <GroupBroadcastReturnButton coordinatorName={coordinatorName} onReturn={() => setSyncEnabled(true)} />
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </motion.div>
@@ -4372,27 +4407,6 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
               setShowReelectionConfirm(true)
             }}
           />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {returnToBroadcastVisible && (
-          <motion.div
-            initial={{ opacity: 0, y: 18, scale: 0.92 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 12 }}
-            className="pointer-events-none fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-[570] flex justify-center"
-          >
-            <div className="flex w-full max-w-sm">
-              <button
-                type="button"
-                onClick={() => setSyncEnabled(true)}
-                className="event3-action pointer-events-auto ml-auto flex min-h-14 w-[calc(50%-0.25rem)] items-center justify-center gap-2 rounded-2xl border border-white/15 bg-gradient-to-l from-violet-600 via-purple-600 to-fuchsia-600 px-3 text-center text-sm font-black text-white shadow-[0_18px_55px_-18px_rgba(139,92,246,.8)] ring-1 ring-white/10"
-              >
-                <Wifi size={17} className="shrink-0" /> <span className="min-w-0 truncate">العودة لبث {coordinatorName}</span>
-              </button>
-            </div>
-          </motion.div>
         )}
       </AnimatePresence>
 
@@ -6201,7 +6215,7 @@ function OneToOneSupportButton() {
   )
 }
 
-function SOSButton({ token, position = 'top', sosRequests, suppressed = false, triggerHidden = false, alongsideBroadcast = false }: { token: string; position?: 'top' | 'bottom'; sosRequests?: any[]; suppressed?: boolean; triggerHidden?: boolean; alongsideBroadcast?: boolean }) {
+function SOSButton({ token, sosRequests, suppressed = false, triggerHidden = false }: { token: string; sosRequests?: any[]; suppressed?: boolean; triggerHidden?: boolean }) {
   const panelId = useId()
   const panelTitleId = useId()
   const [open, setOpen] = useState(false)
@@ -6216,6 +6230,10 @@ function SOSButton({ token, position = 'top', sosRequests, suppressed = false, t
   const openRef = useRef(false)
   const lastReplyCountRef = useRef(parseInt(sessionStorage.getItem('sos_last_reply_count') || '0'))
   useEffect(() => { openRef.current = open }, [open])
+
+  useEffect(() => {
+    if (suppressed) setOpen(false)
+  }, [suppressed])
 
   useEffect(() => {
     if (!sosRequests) return
@@ -6297,87 +6315,60 @@ function SOSButton({ token, position = 'top', sosRequests, suppressed = false, t
 
   return (
     <div className={suppressed ? "hidden" : "contents"} aria-hidden={suppressed || undefined} inert={suppressed}>
-      {/* Organizer button — centered with separator lines beside it */}
-      <div className={`${triggerHidden ? 'hidden' : position === 'bottom' && alongsideBroadcast ? 'pointer-events-none fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))]' : position === 'bottom' ? 'relative left-0 right-0 bg-gradient-to-t from-gray-950 via-gray-950/85 to-transparent px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3' : 'fixed left-0 right-0 top-[68px] bg-gradient-to-t from-gray-950 via-gray-950/85 to-transparent px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3'} z-[580] shrink-0 items-center justify-center ${triggerHidden ? '' : 'flex'}`} dir="rtl">
-        <div className={`flex w-full items-center ${alongsideBroadcast ? 'max-w-sm' : ''}`}>
-        {/* Left separator */}
-        {!alongsideBroadcast && <div className="flex-1 h-px bg-gradient-to-l from-gray-700/30 to-transparent max-w-[80px]" />}
-        {/* Button */}
+      {/* Organizer help is an in-flow footer action, never a floating obstruction. */}
+      <div className={`${triggerHidden ? 'hidden' : 'flex'} shrink-0 justify-center border-t border-white/[0.055] bg-gray-950/92 px-4 pb-[max(0.8rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl`} dir="rtl">
         <motion.button
           type="button"
-          whileTap={{ scale: 0.95 }}
-          whileHover={{ scale: 1.04 }}
+          whileTap={{ scale: 0.985 }}
           onClick={() => setOpen(o => !o)}
           aria-expanded={open}
           aria-controls={panelId}
           aria-label={`${buttonLabel} — تواصل مع المنظم`}
-          animate={buttonState === 'idle' ? { scale: [1, 1.03, 1] } : {}}
-          transition={buttonState === 'idle' ? { duration: 3, repeat: Infinity, ease: 'easeInOut' } : {}}
-          className={`group relative flex items-center gap-2.5 overflow-hidden border text-xs font-bold backdrop-blur-xl transition-colors duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/70 ${alongsideBroadcast ? 'pointer-events-auto mr-auto min-h-14 w-[calc(50%-0.25rem)] justify-center rounded-2xl px-3 py-2' : 'mx-3 min-h-11 rounded-full px-4 py-2'} ${
-            buttonState === 'unread' ? 'border-emerald-300/30 bg-gray-950/90 text-emerald-200 shadow-lg shadow-black/25'
-            : buttonState === 'pending' ? 'border-amber-300/25 bg-gray-950/90 text-amber-200 shadow-lg shadow-black/25'
-            : buttonState === 'active' ? 'border-cyan-300/20 bg-gray-950/90 text-cyan-100 shadow-lg shadow-black/25'
-            : 'border-white/[0.1] bg-gray-950/90 text-gray-200 shadow-lg shadow-black/25 hover:border-purple-300/25 hover:bg-gray-900/95'
+          className={`event3-action group relative flex min-h-14 w-full max-w-md items-center gap-3 overflow-hidden rounded-2xl border px-3.5 py-2.5 text-right shadow-[inset_0_1px_0_rgba(255,255,255,.07),0_18px_45px_-32px_rgba(168,85,247,.85)] backdrop-blur-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/60 ${
+            buttonState === 'unread' ? 'border-emerald-300/25 bg-gradient-to-l from-emerald-400/[0.1] via-white/[0.045] to-transparent text-emerald-100'
+            : buttonState === 'pending' ? 'border-amber-300/20 bg-gradient-to-l from-amber-400/[0.09] via-white/[0.04] to-transparent text-amber-100'
+            : buttonState === 'active' ? 'border-cyan-300/20 bg-gradient-to-l from-cyan-400/[0.08] via-white/[0.04] to-transparent text-cyan-100'
+            : 'border-purple-300/[0.16] bg-gradient-to-l from-purple-400/[0.09] via-white/[0.045] to-transparent text-gray-100 hover:border-purple-300/30 hover:from-purple-400/[0.13]'
           }`}
         >
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.045]" aria-hidden="true">
-            <LifeBuoy size={14} className={buttonState === 'unread' ? 'text-emerald-300' : buttonState === 'pending' ? 'text-amber-300' : 'text-purple-200'} />
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/[0.09] bg-black/20 shadow-inner" aria-hidden="true">
+            <LifeBuoy size={17} className={buttonState === 'unread' ? 'text-emerald-300' : buttonState === 'pending' ? 'text-amber-300' : 'text-purple-200'} />
           </span>
-          {/* Status indicator */}
-          <span className="relative flex-shrink-0 flex items-center justify-center w-2.5 h-2.5">
-            {buttonState === 'unread' && (
-              <motion.span className="w-2.5 h-2.5 rounded-full bg-emerald-400"
-                animate={{ scale: [1, 1.35, 1] }} transition={{ duration: 1.5, repeat: Infinity }} />
-            )}
-            {buttonState === 'pending' && (
-              <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.4, repeat: Infinity, ease: 'linear' }}
-                className="w-2.5 h-2.5 border border-orange-500/40 border-t-orange-300 rounded-full" />
-            )}
-            {buttonState === 'active' && <span className="w-2 h-2 rounded-full bg-gray-500" />}
-            {buttonState === 'idle' && (
-              <motion.span className="w-1.5 h-1.5 rounded-full bg-red-500/70"
-                animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 2, repeat: Infinity }} />
-            )}
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-black">{buttonLabel}</span>
+            <span className="mt-0.5 block truncate text-[10px] font-medium text-white/40">تواصل مباشر وسري مع المنظم</span>
           </span>
-
-          {/* Animated label — auto width */}
-          <AnimatePresence mode="wait">
-            <motion.span
-              key={buttonLabel}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.2 }}
-              className="whitespace-nowrap"
-            >
-              {buttonLabel}
-            </motion.span>
-          </AnimatePresence>
+          <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${buttonState === 'unread' ? 'bg-emerald-300 shadow-[0_0_12px_rgba(110,231,183,.7)]' : buttonState === 'pending' ? 'bg-amber-300' : buttonState === 'active' ? 'bg-cyan-300/70' : 'bg-purple-300/60'}`} aria-hidden="true" />
         </motion.button>
-        {/* Right separator */}
-        {!alongsideBroadcast && <div className="flex-1 h-px bg-gradient-to-r from-gray-700/30 to-transparent max-w-[80px]" />}
-        </div>
       </div>
 
       {/* Chat panel */}
       <AnimatePresence>
         {open && (
           <motion.div
-            id={panelId}
-            initial={{ opacity: 0, y: position === 'bottom' ? 20 : -20, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: position === 'bottom' ? 20 : -20, scale: 0.97 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-            className={`event3-glass fixed inset-x-0 z-[300] mx-auto flex w-[300px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-3xl border border-purple-300/[0.13] ${
-              position === 'bottom' ? 'bottom-20' : 'top-[max(6.5rem,calc(env(safe-area-inset-top)+5rem))]'
-            }`}
-            style={{ maxHeight: '60vh' }}
-            role="dialog"
-            aria-modal="false"
-            aria-labelledby={panelTitleId}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.16 }}
+            className="fixed inset-0 z-[700] flex items-end justify-center overflow-hidden bg-black/55 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-sm sm:items-center"
+            onClick={() => setOpen(false)}
             dir="rtl"
           >
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-white/[0.065] bg-white/[0.025] px-4 py-3">
+            <motion.div
+              id={panelId}
+              initial={{ opacity: 0, y: 20, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.97 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              className="event3-glass flex w-[300px] max-w-full flex-col overflow-hidden overscroll-contain rounded-3xl border border-purple-300/[0.13]"
+              style={{ maxHeight: 'min(60dvh, calc(100dvh - 7.5rem))' }}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={panelTitleId}
+              onClick={event => event.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex shrink-0 items-center justify-between border-b border-white/[0.065] bg-white/[0.025] px-4 py-3">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-xs font-bold text-white">ع</div>
                 <div>
@@ -6507,6 +6498,7 @@ function SOSButton({ token, position = 'top', sosRequests, suppressed = false, t
                 + طلب جديد
               </button>
             )}
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -9147,7 +9139,7 @@ export default function Event3Page() {
   const [tokenError, setTokenError] = useState(false)
   const [testModeBlocked, setTestModeBlocked] = useState(false)
   const [groupsOpen, setGroupsOpen] = useState(false)
-  const [returnToBroadcastVisible, setReturnToBroadcastVisible] = useState(false)
+  const [projectorOpen, setProjectorOpen] = useState(false)
   const [finalQuestionsOpen, setFinalQuestionsOpen] = useState(false)
   const [pendingGroupFeedbackRound, setPendingGroupFeedbackRound] = useState<Event3GroupRound | null>(null)
   const [breakFeedbackOpen, setBreakFeedbackOpen] = useState(false)
@@ -9732,7 +9724,7 @@ export default function Event3Page() {
       <motion.div ref={eventContentRef} layoutScroll className="event3-scroll relative min-h-0 flex-1 overflow-y-auto">
         <AnimatePresence>
           {!holdingRankingDraft && !activeMatchFeedbackSlot && phase === "setup" && <SetupScreen key="setup" token={token} myInfo={myInfo} enrolledCount={eventState?.participants_selected ?? null} eventFormat={eventFormat} />}
-          {!holdingRankingDraft && !activeMatchFeedbackSlot && isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} myInfo={myInfo} onGroupsOpenChange={setGroupsOpen} onReturnToBroadcastVisibilityChange={setReturnToBroadcastVisible} eventFormat={eventFormat} />}
+          {!holdingRankingDraft && !activeMatchFeedbackSlot && isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} myInfo={myInfo} onGroupsOpenChange={setGroupsOpen} onProjectorVisibilityChange={setProjectorOpen} eventFormat={eventFormat} />}
           {rankingRoundToRender && <RankingScreen key={`ranking-${rankingRoundToRender}`} token={token} completedRounds={rankingRoundToRender} currentPhase={phase} {...rankingTimerProps} myInfo={myInfo} onOpenGroupFeedback={setPendingGroupFeedbackRound} onRankingResolved={handleRankingResolved} onRankingDirty={handleRankingDirty} eventFormat={eventFormat} />}
           {!holdingRankingDraft && (activeMatchFeedbackSlot === 1 || (!activeMatchFeedbackSlot && phase === "phase2_reveal")) && <Phase2RevealScreen key="p2r" token={token} eventId={eventState?.event_id} {...timerProps} eventFormat={eventFormat} onFeedbackOpenChange={trackFirstMatchFeedback} onSessionOpenChange={setOneToOneSessionOpen} feedbackLocked={holdingMatchFeedback} />}
           {!holdingRankingDraft && (activeMatchFeedbackSlot === 2 || (!activeMatchFeedbackSlot && phase === "phase3_reveal")) && <Phase3RevealScreen key="p3r" token={token} eventId={eventState?.event_id} {...timerProps} eventFormat={eventFormat} onFeedbackOpenChange={trackSecondMatchFeedback} onSessionOpenChange={setOneToOneSessionOpen} feedbackLocked={holdingMatchFeedback} />}
@@ -9760,10 +9752,9 @@ export default function Event3Page() {
       {enrolled && showOrganizerSupport && (
         <SOSButton
           token={token}
-          position="bottom"
           sosRequests={eventState?.sos_requests}
           triggerHidden={oneToOneSessionOpen}
-          alongsideBroadcast={returnToBroadcastVisible}
+          suppressed={projectorOpen}
         />
       )}
 

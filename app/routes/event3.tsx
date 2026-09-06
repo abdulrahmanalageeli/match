@@ -9004,8 +9004,8 @@ function EventPhaseTransition({ transitionId, phase, eventFormat, onDone }: {
   )
 }
 
-function EventStatusHeader({ eventState, isOffline, pollError, lastSuccessAt, correctedNow, impersonating, onLogout }: {
-  eventState: any; isOffline: boolean; pollError?: string | null; lastSuccessAt?: number | null; correctedNow: () => number; impersonating?: boolean; onLogout?: () => void
+function EventStatusHeader({ eventState, isOffline, pollError, lastSuccessAt, correctedNow, impersonating }: {
+  eventState: any; isOffline: boolean; pollError?: string | null; lastSuccessAt?: number | null; correctedNow: () => number; impersonating?: boolean
 }) {
   const [now, setNow] = useState(() => correctedNow())
   useEffect(() => {
@@ -9062,7 +9062,6 @@ function EventStatusHeader({ eventState, isOffline, pollError, lastSuccessAt, co
         <div className="flex items-center gap-2 flex-shrink-0">
           {table != null && <span className="rounded-xl border border-amber-300/[0.14] bg-amber-400/[0.075] px-2.5 py-1.5 text-xs font-black text-amber-100">طاولة {table}</span>}
           {remaining != null && <span aria-label={`الوقت المتبقي ${formatTime(remaining)}`} className={`rounded-lg border border-white/[0.07] bg-black/20 px-2 py-1 font-mono text-sm font-black tabular-nums ${remaining <= 60 ? "text-red-300" : "text-cyan-100"}`}>{formatTime(remaining)}</span>}
-          {onLogout && <ParticipantLogoutButton onLogout={onLogout} compact={table != null || remaining != null} />}
         </div>
       </div>
     </div>
@@ -9665,14 +9664,7 @@ export default function Event3Page() {
         </div>
       )}
 
-      {showStatusHeader && <EventStatusHeader eventState={eventState} isOffline={isOffline} pollError={stateError} lastSuccessAt={lastSuccessAt} correctedNow={correctedNow} impersonating={isImpersonating} onLogout={!isImpersonating ? handleLogout : undefined} />}
-      {!showStatusHeader && !isImpersonating && (
-        <ParticipantLogoutButton
-          onLogout={handleLogout}
-          compact
-          className="fixed left-3 top-[max(0.75rem,env(safe-area-inset-top))] z-[180]"
-        />
-      )}
+      {showStatusHeader && <EventStatusHeader eventState={eventState} isOffline={isOffline} pollError={stateError} lastSuccessAt={lastSuccessAt} correctedNow={correctedNow} impersonating={isImpersonating} />}
 
       <div ref={phaseAnnouncementRef} tabIndex={-1} className="sr-only" aria-live="polite">
         {`المرحلة الحالية: ${event3PhaseLabel(phase, eventFormat)}`}

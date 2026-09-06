@@ -6206,27 +6206,18 @@ function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, 
 // ─── SOS / Organizer Chat Box ───────────────────────────────────────────────
 const EVENT3_OPEN_SUPPORT_EVENT = "event3-open-support"
 
-function OneToOneSupportSection() {
+function OneToOneSupportButton() {
   return (
-    <section aria-label="الدعم المباشر" className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-xl">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.045] text-purple-200">
-          <LifeBuoy size={18} />
-        </div>
-        <div className="min-w-0 flex-1 text-right">
-          <h2 className="text-sm font-bold text-gray-100">هل تحتاج مساعدة؟</h2>
-          <p className="mt-0.5 text-[11px] leading-5 text-gray-500">محادثة خاصة ومباشرة مع المنظم.</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => window.dispatchEvent(new Event(EVENT3_OPEN_SUPPORT_EVENT))}
-          className="event3-action flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-white/[0.1] bg-white/[0.07] px-3.5 text-xs font-bold text-gray-100 transition-colors hover:border-purple-300/25 hover:bg-white/[0.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/60"
-        >
-          <MessageSquare size={14} />
-          تواصل
-        </button>
-      </div>
-    </section>
+    <div className="flex justify-center pt-1">
+      <button
+        type="button"
+        onClick={() => window.dispatchEvent(new Event(EVENT3_OPEN_SUPPORT_EVENT))}
+        className="event3-action inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-white/[0.09] bg-white/[0.04] px-4 text-xs font-bold text-gray-400 transition-colors hover:border-purple-300/20 hover:bg-white/[0.07] hover:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/50"
+      >
+        <LifeBuoy size={14} className="text-purple-300/80" />
+        تحتاج مساعدة؟ تواصل مع المنظم
+      </button>
+    </div>
   )
 }
 
@@ -6391,11 +6382,11 @@ function SOSButton({ token, position = 'top', sosRequests, suppressed = false, t
         {open && (
           <motion.div
             id={panelId}
-            initial={{ opacity: 0, x: '-50%', y: position === 'bottom' ? 20 : -20, scale: 0.97 }} animate={{ opacity: 1, x: '-50%', y: 0, scale: 1 }}
-            exit={{ opacity: 0, x: '-50%', y: position === 'bottom' ? 20 : -20, scale: 0.97 }}
+            initial={{ opacity: 0, y: position === 'bottom' ? 20 : -20, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: position === 'bottom' ? 20 : -20, scale: 0.97 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-            className={`event3-glass fixed z-[300] flex w-[300px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-3xl border border-purple-300/[0.13] ${
-              position === 'bottom' ? 'bottom-20 left-1/2' : 'top-[max(6.5rem,calc(env(safe-area-inset-top)+5rem))] left-1/2'
+            className={`event3-glass fixed inset-x-0 z-[300] mx-auto flex w-[300px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-3xl border border-purple-300/[0.13] ${
+              position === 'bottom' ? 'bottom-20' : 'top-[max(6.5rem,calc(env(safe-area-inset-top)+5rem))]'
             }`}
             style={{ maxHeight: '60vh' }}
             role="dialog"
@@ -6890,8 +6881,6 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
 
                   <JourneyCue accent="pink" eyebrow="مساحة اللقاء" title="ابدأوا بالسؤال الظاهر" description="يجيب كل منكما، ثم اضغطوا التالي. غيّروا المسار فقط إذا أردتم موضوعاً مختلفاً." steps={["بدأتم", "حوار", "تقييم"]} currentStep={1} />
 
-                  <OneToOneSupportSection />
-
                   {/* Time warning banner */}
                   <AnimatePresence>
                     {showTimeWarning && view === 'session' && timeLeft > 0 && timeLeft <= 60 && (
@@ -6944,6 +6933,8 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                       <button type="button" onClick={() => setShowTutorial(true)} className="min-h-11 rounded-xl border border-white/[0.07] bg-white/[0.04] text-xs font-bold text-gray-300"><Info size={13} className="ml-1 inline" />طريقة اللقاء</button>
                     </div>
                   </details>
+
+                  <OneToOneSupportButton />
 
                   {/* Jump to feedback manually */}
                   <motion.button
@@ -7274,8 +7265,6 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
 
                   <JourneyCue accent="purple" eyebrow="مساحة اللقاء" title="ابدأوا بالسؤال الظاهر" description="يجيب كل منكما، ثم اضغطوا التالي. غيّروا المسار فقط إذا أردتم موضوعاً مختلفاً." steps={["بدأتم", "حوار", "تقييم"]} currentStep={1} />
 
-                  <OneToOneSupportSection />
-
                   {/* Time warning banner */}
                   <AnimatePresence>
                     {showTimeWarning && view === 'session' && timeLeft > 0 && timeLeft <= 60 && (
@@ -7327,6 +7316,8 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                       <button type="button" onClick={() => setShowSessionTips(true)} className="min-h-11 w-full rounded-xl border border-white/[0.07] bg-white/[0.04] text-xs font-bold text-gray-300"><Sparkles size={13} className="ml-1 inline" />طريقة استخدام الأسئلة</button>
                     </div>
                   </details>
+
+                  <OneToOneSupportButton />
 
                   {/* Jump to feedback */}
                   <motion.button
@@ -7601,7 +7592,7 @@ function isFinalRevealRated(value: unknown): boolean {
 
 function finalRevealSpokenScore(value: unknown): string {
   const score = normalizedFinalRevealScore(value)
-  return score !== null && score >= FINAL_REVEAL_RATING_THRESHOLD ? `بنسبة ${score} بالمئة` : "غير مُقيّم"
+  return score !== null && score >= FINAL_REVEAL_RATING_THRESHOLD ? `بنسبة ${score} بالمئة` : "لم يتم تحليله"
 }
 
 function RevealCard({ icon, label, name, score, word, revealed, accent }: {
@@ -7638,7 +7629,7 @@ function RevealCard({ icon, label, name, score, word, revealed, accent }: {
               <span className={isPink ? "text-pink-400/50 text-xs" : "text-purple-400/50 text-xs"}>%</span>
             </div>
           ) : (
-            <span className="rounded-full border border-white/[0.08] bg-black/20 px-2.5 py-1 text-[10px] font-black text-white/45">غير مُقيّم</span>
+            <span className="rounded-full border border-white/[0.08] bg-black/20 px-2.5 py-1 text-[10px] font-black text-white/45">لم يتم تحليله</span>
           )}
           {word && (
             <span className={`text-xs rounded-full px-2.5 py-0.5 ${isPink ? "bg-pink-900/40 text-pink-300 border border-pink-800/40" : "bg-purple-900/40 text-purple-300 border border-purple-800/40"}`}>"{word}"</span>
@@ -7978,17 +7969,17 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
             <AnimatePresence mode="wait">
               {activeTab === 'choice' && (
                 <motion.div key="choice" role="tabpanel" aria-label={choiceOnly ? "تفاصيل توافق الاختيار الأول" : "تفاصيل توافق اختيارك"} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }}>
-                  {p2Rated && p2?.breakdown ? <CompatibilityBreakdown breakdown={p2.breakdown} scoreRow={p2} accent="pink" partnerName={p2?.partner_first_name} /> : !p2Rated ? <p className="rounded-2xl border border-white/[0.07] bg-black/20 p-4 text-center text-xs font-bold text-white/45">غير مُقيّم — يظهر التحليل من 60% فأعلى</p> : null}
+                  {p2Rated && p2?.breakdown ? <CompatibilityBreakdown breakdown={p2.breakdown} scoreRow={p2} accent="pink" partnerName={p2?.partner_first_name} /> : !p2Rated ? <p className="rounded-2xl border border-white/[0.07] bg-black/20 p-4 text-center text-xs font-bold text-white/45">لم يتم تحليله — يظهر التحليل من 60% فأعلى</p> : null}
                 </motion.div>
               )}
               {activeTab === 'algorithm' && (
                 <motion.div key="algorithm" role="tabpanel" aria-label={choiceOnly ? "تفاصيل توافق الاختيار الثاني" : "تفاصيل توافق اختيار النظام"} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2 }}>
-                  {p3Rated && p3?.breakdown ? <CompatibilityBreakdown breakdown={p3.breakdown} scoreRow={p3} accent="purple" partnerName={p3?.partner_first_name} /> : !p3Rated ? <p className="rounded-2xl border border-white/[0.07] bg-black/20 p-4 text-center text-xs font-bold text-white/45">غير مُقيّم — يظهر التحليل من 60% فأعلى</p> : null}
+                  {p3Rated && p3?.breakdown ? <CompatibilityBreakdown breakdown={p3.breakdown} scoreRow={p3} accent="purple" partnerName={p3?.partner_first_name} /> : !p3Rated ? <p className="rounded-2xl border border-white/[0.07] bg-black/20 p-4 text-center text-xs font-bold text-white/45">لم يتم تحليله — يظهر التحليل من 60% فأعلى</p> : null}
                 </motion.div>
               )}
               {choiceOnly && activeTab === 'third' && (
                 <motion.div key="third" role="tabpanel" aria-label="تفاصيل توافق الاختيار الثالث" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2 }}>
-                  {p4Rated && p4?.breakdown ? <CompatibilityBreakdown breakdown={p4.breakdown} scoreRow={p4} accent="purple" partnerName={p4?.partner_first_name} /> : !p4Rated ? <p className="rounded-2xl border border-white/[0.07] bg-black/20 p-4 text-center text-xs font-bold text-white/45">غير مُقيّم — يظهر التحليل من 60% فأعلى</p> : null}
+                  {p4Rated && p4?.breakdown ? <CompatibilityBreakdown breakdown={p4.breakdown} scoreRow={p4} accent="purple" partnerName={p4?.partner_first_name} /> : !p4Rated ? <p className="rounded-2xl border border-white/[0.07] bg-black/20 p-4 text-center text-xs font-bold text-white/45">لم يتم تحليله — يظهر التحليل من 60% فأعلى</p> : null}
                 </motion.div>
               )}
             </AnimatePresence>

@@ -5829,7 +5829,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                 </motion.button>
               ) : (
                 <div className="text-center">
-                  <p className="text-gray-400 text-xs">الدقيقة الأولى مخصّصة للانتقال — سيُفتح الكشف بعدها</p>
+                  <p className="text-gray-400 text-xs">اتجه إلى الطاولة — سيُفتح الكشف عند بدء الجلسة</p>
                 </div>
               )}
 
@@ -6255,7 +6255,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                 </motion.button>
               ) : (
                 <div className="text-center">
-                  <p className="text-gray-400 text-xs">الدقيقة الأولى مخصّصة للانتقال — سيُفتح الكشف بعدها</p>
+                  <p className="text-gray-400 text-xs">اتجه إلى الطاولة — سيُفتح الكشف عند بدء الجلسة</p>
                 </div>
               )}
 
@@ -6646,15 +6646,15 @@ function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow, eve
           <div className="space-y-3 text-gray-300 text-sm leading-relaxed">
             <div className="flex items-start gap-2">
               <span className="text-teal-400 mt-0.5 shrink-0">١.</span>
-              <span>تبدأ مرحلة مدتها <b className="text-white">20 دقيقة</b>: الدقيقة الأولى للتوجه إلى الطاولة وكشف الشريك، ثم <b className="text-pink-300">{choiceOnly ? "لقاء واحد لواحد مع اختيارك الأول" : "لقاء واحد لواحد مع اختيارك"}</b>. بعدها ستشاركنا انطباعك.</span>
+              <span>تبدأ مرحلة مدتها <b className="text-white">20 دقيقة</b> للقاء <b className="text-pink-300">{choiceOnly ? "اختيارك الأول" : "اختيارك"}</b> وجهاً لوجه. بعدها ستشاركنا انطباعك.</span>
             </div>
             <div className="flex items-start gap-2">
               <span className="text-teal-400 mt-0.5 shrink-0">٢.</span>
-              <span>ثم تبدأ مرحلة ثانية مدتها <b className="text-white">20 دقيقة</b>، تشمل دقيقة الانتقال، للقاء <b className="text-purple-300">{choiceOnly ? "اختيارك الثاني" : "اختيارنا"}</b>. {choiceOnly ? "سيكون مع شخص مختلف عن اللقاء الأول،" : ""} وبعدها تقيّمه.</span>
+              <span>ثم تبدأ مرحلة ثانية مدتها <b className="text-white">20 دقيقة</b> للقاء <b className="text-purple-300">{choiceOnly ? "اختيارك الثاني" : "اختيارنا"}</b>. {choiceOnly ? "سيكون مع شخص مختلف عن اللقاء الأول،" : ""} وبعدها تقيّمه.</span>
             </div>
             <div className="flex items-start gap-2">
               <span className="text-teal-400 mt-0.5 shrink-0">٣.</span>
-              <span>{choiceOnly ? <>بعدها تبدأ مرحلة ثالثة مدتها <b className="text-white">20 دقيقة</b>، تشمل دقيقة الانتقال، للقاء <b className="text-violet-300">اختيارك الثالث</b> مع شخص مختلف عن اللقاءين السابقين، ثم تقيّمه.</> : <>أخيرًا، ستشاهد نتيجتك النهائية وتحليل التوافق لكلا اللقاءين. ✨</>}</span>
+              <span>{choiceOnly ? <>بعدها تبدأ مرحلة ثالثة مدتها <b className="text-white">20 دقيقة</b> للقاء <b className="text-violet-300">اختيارك الثالث</b> مع شخص مختلف عن اللقاءين السابقين، ثم تقيّمه.</> : <>أخيرًا، ستشاهد نتيجتك النهائية وتحليل التوافق لكلا اللقاءين. ✨</>}</span>
             </div>
             {choiceOnly && (
               <div className="flex items-start gap-2">

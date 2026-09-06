@@ -23,7 +23,10 @@ import {
   getBalancedCacheBreakdown,
   isCurrentOppositesScoreSnapshot,
 } from "../server/matching/balanced-compatibility.mjs"
-import { isEvent3SignedUp } from "../server/event3/enrollment.mjs"
+import {
+  isEvent3JoinEligible,
+  isEvent3SignedUp,
+} from "../server/event3/enrollment.mjs"
 import { normalizeGroupMemberFeedback } from "../server/event3/group-member-feedback.mjs"
 import { getEvent3PhaseTimerSeconds } from "../server/event3/timing.mjs"
 import {
@@ -4160,7 +4163,7 @@ Please respond in JSON format:
         if (participant) {
           const [{ data: ep, error: rosterError }, { data: currentSignup, error: signupError }] = await Promise.all([
             supabase.from("event3_participants").select("position").eq("match_id", E3_MATCH_ID).eq("event_id", activeEventId).eq("participant_number", myNumber).maybeSingle(),
-            supabase.from("participants").select("event_id,signup_for_next_event,auto_signup_next_event").eq("match_id", MAIN_MATCH).eq("assigned_number", myNumber).maybeSingle(),
+            supabase.from("participants").select("event_id,signup_for_next_event,auto_signup_next_event,PAID_DONE,payment_completed_event_id").eq("match_id", MAIN_MATCH).eq("assigned_number", myNumber).maybeSingle(),
           ])
           if (rosterError || signupError) {
             if (rosterError) logError("Event3 heartbeat roster lookup", rosterError)
@@ -4172,10 +4175,11 @@ Please respond in JSON format:
             })
           }
           const signedUp = isEvent3SignedUp(currentSignup || participant, activeEventId)
-          // event3_participants is the authoritative live roster. Test mode and
-          // mid-event replacements intentionally add people here without changing
-          // their normal event signup fields, so roster membership must grant access.
           const enrolledInActiveRoster = Boolean(ep)
+          // A roster row covers selected and swapped-in participants. A completed
+          // payment for this exact event also grants entry if roster selection has
+          // not caught up yet; payments from older events never carry forward.
+          const joinEligible = isEvent3JoinEligible(currentSignup || participant, activeEventId, enrolledInActiveRoster)
           // Auto-mark attendance when enrolled participant polls state during a live event (not setup).
           // This prevents marking attendance for people viewing the tutorial at home before the event.
           if (ep && phase !== "setup") {
@@ -4215,9 +4219,9 @@ Please respond in JSON format:
                 retryable: true,
               })
             }
-            myAssignment = sa ? { round: currentRound, table: sa.table_number, enrolled: true } : { enrolled: enrolledInActiveRoster || signedUp }
+            myAssignment = sa ? { round: currentRound, table: sa.table_number, enrolled: true } : { enrolled: joinEligible || signedUp }
           } else {
-            myAssignment = { enrolled: enrolledInActiveRoster || signedUp }
+            myAssignment = { enrolled: joinEligible || signedUp }
           }
         }
         let myInfo = null
@@ -4272,7 +4276,7 @@ Please respond in JSON format:
 
         const { participants: exactMatches, error: phoneLookupError } = await findParticipantsByExactPhone(
           phone,
-          "id,assigned_number,secure_token,name,phone_number",
+          "id,assigned_number,secure_token,name,phone_number,PAID_DONE,payment_completed_event_id",
         )
         if (phoneLookupError) {
           logError("Event3 OTP participant lookup", phoneLookupError)
@@ -4280,8 +4284,9 @@ Please respond in JSON format:
         }
         if (exactMatches.length === 0) return res.status(404).json({ error: "لم يتم العثور على رقمك في الفعالية. تأكد من الرقم أو تواصل مع المنظم." })
 
-        // Duplicate historical accounts are resolved against the active Event3
-        // roster; only the single enrolled account may receive a full login.
+        // Duplicate historical accounts are resolved against current Event3
+        // eligibility. The active roster includes swapped-in participants, while
+        // PAID_DONE grants access only when scoped to this exact event.
         const candidateNumbers = exactMatches.map(candidate => candidate.assigned_number)
         const { data: enrolledRows, error: enrolledError } = await supabase.from("event3_participants")
           .select("participant_number")
@@ -4293,11 +4298,15 @@ Please respond in JSON format:
           return res.status(503).json({ error: "تعذر التحقق من تسجيلك مؤقتاً. حاول مرة أخرى.", retryable: true })
         }
         const enrolledNumbers = new Set((enrolledRows || []).map(row => row.participant_number))
-        const enrolledMatches = exactMatches.filter(candidate => enrolledNumbers.has(candidate.assigned_number))
-        if (enrolledMatches.length > 1) return res.status(409).json({ error: "يوجد أكثر من حساب بنفس رقم الجوال مسجّل في هذه الفعالية. تواصل مع المنظم للدخول بأمان." })
-        if (enrolledMatches.length === 0) return res.status(403).json({ error: "رقمك غير مسجّل في هذه الفعالية. تواصل مع المنظم." })
+        const eligibleMatches = exactMatches.filter(candidate => isEvent3JoinEligible(
+          candidate,
+          currentEventId,
+          enrolledNumbers.has(candidate.assigned_number),
+        ))
+        if (eligibleMatches.length > 1) return res.status(409).json({ error: "يوجد أكثر من حساب بنفس رقم الجوال مسجّل في هذه الفعالية. تواصل مع المنظم للدخول بأمان." })
+        if (eligibleMatches.length === 0) return res.status(403).json({ error: "رقمك غير مسجّل في هذه الفعالية. تواصل مع المنظم." })
 
-        const matchedParticipant = enrolledMatches[0]
+        const matchedParticipant = eligibleMatches[0]
         const verifiedPhone = participantPhoneToE164(matchedParticipant.phone_number)
         const otpRateLimit = action === "e3-request-login-otp"
           ? { key: "e3-login-otp-request", identity: String(matchedParticipant.assigned_number), limit: 3, windowMs: 10 * 60_000 }

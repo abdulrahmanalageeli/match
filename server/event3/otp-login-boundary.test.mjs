@@ -27,6 +27,8 @@ test("Event3 never releases a participant token before Authentica verifies the S
     "the participant token must be returned only after the verified guard",
   )
   assert.match(otpFlow, /action === "e3-login-by-phone"[\s\S]*EVENT3_OTP_REQUIRED/)
+  assert.match(otpFlow, /PAID_DONE,payment_completed_event_id/)
+  assert.match(otpFlow, /isEvent3JoinEligible\([\s\S]*enrolledNumbers\.has\(candidate\.assigned_number\)/)
 })
 
 test("Event3 persists a verified OTP login as the normal website participant session", async () => {

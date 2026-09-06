@@ -5161,13 +5161,13 @@ function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, 
                       aria-label="درجة التوافق الفكري"
                       aria-valuetext={`${fb.compatibilityRate} بالمئة`}
                       className="e3-feedback-range h-11 w-full cursor-pointer appearance-none rounded-full py-4 [background-clip:content-box] focus:outline-none transition-all
-                        [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-7 [&::-webkit-slider-thumb]:h-7
+                        [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5
                         [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white
-                        [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:border-2
+                        [&::-webkit-slider-thumb]:shadow-[0_2px_10px_rgba(0,0,0,.35)] [&::-webkit-slider-thumb]:border-2
                         [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:transition-all
-                        [&::-webkit-slider-thumb]:duration-200 hover:[&::-webkit-slider-thumb]:scale-110
-                        [&::-moz-range-thumb]:w-7 [&::-moz-range-thumb]:h-7 [&::-moz-range-thumb]:rounded-full
-                        [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:cursor-pointer"
+                        [&::-webkit-slider-thumb]:duration-200 hover:[&::-webkit-slider-thumb]:scale-105
+                        [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:rounded-full
+                        [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:shadow-[0_2px_10px_rgba(0,0,0,.35)] [&::-moz-range-thumb]:cursor-pointer"
                       style={{
                         background: `linear-gradient(to right,
                           ${fb.compatibilityRate >= 80 ? '#059669' : fb.compatibilityRate >= 60 ? '#d97706' : fb.compatibilityRate >= 40 ? '#ea580c' : '#dc2626'} 0%,

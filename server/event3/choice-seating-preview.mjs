@@ -52,13 +52,15 @@ function assignmentsForPlan(plan, expectedParticipantNumbers) {
   const assignments = []
   const expected = [...new Set((expectedParticipantNumbers || plan?.round1?.flat() || []).map(Number))]
   const expectedSet = new Set(expected)
-  if (expected.length < FLEXIBLE_CHOICE_SEATING_LIMITS.minimumParticipants || expected.length % 2 !== 0) {
+  if (expected.length < FLEXIBLE_CHOICE_SEATING_LIMITS.minimumParticipants
+    || expected.length > FLEXIBLE_CHOICE_SEATING_LIMITS.maximumParticipants
+    || expected.length % 2 !== 0) {
     throw fail("A seating candidate contained an unsupported participant count", 500)
   }
-  const expectedGroupSizes = choiceOnlyTargetGroupSizes(expected.length).sort((left, right) => right - left)
+  const expectedGroupSizes = choiceOnlyTargetGroupSizes(expected.length)
   for (const [roundIndex, groups] of [plan?.round1, plan?.round2, plan?.round3].entries()) {
     const actualGroupSizes = Array.isArray(groups)
-      ? groups.map(group => Array.isArray(group) ? group.length : 0).sort((left, right) => right - left)
+      ? groups.map(group => Array.isArray(group) ? group.length : 0)
       : []
     if (!Array.isArray(groups) || groups.length < 1
       || actualGroupSizes.length !== expectedGroupSizes.length
@@ -323,8 +325,9 @@ async function loadChoiceContext(db, eventId) {
   }
   if (!Array.isArray(roster)
     || roster.length < FLEXIBLE_CHOICE_SEATING_LIMITS.minimumParticipants
+    || roster.length > FLEXIBLE_CHOICE_SEATING_LIMITS.maximumParticipants
     || roster.length % 2 !== 0) {
-    throw fail(`The three-round format requires an even roster of at least ${FLEXIBLE_CHOICE_SEATING_LIMITS.minimumParticipants} selected participants`, 400)
+    throw fail(`The three-round format requires an even roster of ${FLEXIBLE_CHOICE_SEATING_LIMITS.minimumParticipants} to ${FLEXIBLE_CHOICE_SEATING_LIMITS.maximumParticipants} selected participants`, 400)
   }
   const participantNumbers = roster.map(row => Number(row.participant_number))
   if (participantNumbers.some(number => !Number.isInteger(number) || number <= 0) || new Set(participantNumbers).size !== participantNumbers.length) {

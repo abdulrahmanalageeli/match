@@ -76,7 +76,7 @@ async function expectDbError(promise, pattern) {
   })
 }
 
-async function createFixture(t, { beforeVariableRuntime } = {}) {
+async function createFixture(t, { beforeVariableRuntime, skipUnboundedRosterMigration = false } = {}) {
   const db = new PGlite()
   t.after(() => db.close())
   await db.exec(`
@@ -482,11 +482,18 @@ async function createFixture(t, { beforeVariableRuntime } = {}) {
     import.meta.url,
   ), "utf8")
   await db.exec(sixPersonTablesMigration)
-  const unboundedRosterMigration = await readFile(new URL(
-    "../../supabase/migrations/20260906022606_allow_flexible_event3_rosters.sql",
+  if (!skipUnboundedRosterMigration) {
+    const unboundedRosterMigration = await readFile(new URL(
+      "../../supabase/migrations/20260906022606_allow_flexible_event3_rosters.sql",
+      import.meta.url,
+    ), "utf8")
+    await db.exec(unboundedRosterMigration)
+  }
+  const cappedStableTablesMigration = await readFile(new URL(
+    "../../supabase/migrations/20260906104305_cap_event3_choice_rosters_at_44_and_stabilize_tables.sql",
     import.meta.url,
   ), "utf8")
-  await db.exec(unboundedRosterMigration)
+  await db.exec(cappedStableTablesMigration)
   return db
 }
 
@@ -863,7 +870,7 @@ test("choice-only migration hardens format, seating, matching, and feedback with
       "spark-depth-rhythm-v1",
       JSON.stringify(seatingReport),
     ],
-  ), /complete roster in evenly distributed groups targeting six/i)
+  ), /same capacity in every round while targeting six seats/i)
   const seatingAfterFailure = await db.query("select round,count(*)::int as count from session_assignments group by round order by round")
   assert.deepEqual(seatingAfterFailure.rows, [
     { round: 1, count: 42 },
@@ -1212,8 +1219,8 @@ test("choice-only migration hardens format, seating, matching, and feedback with
   assert.deepEqual(formatAfterRejectedSwitch.rows, [{ event_format: "choice_only_three_groups" }])
 })
 
-test("flexible choice migration saves and matches a live roster above the former cap", async t => {
-  const db = await createFixture(t)
+test("choice migration saves and matches a 44-person live roster with stable table capacities", async t => {
+  const db = await createFixture(t, { skipUnboundedRosterMigration: true })
   const roster = Array.from({ length: 44 }, (_, index) => index + 1)
   const plan = buildChoiceOnlySeatingPlan(roster, { genderMap: {}, ageMap: {} })
   assert.equal(plan.error, undefined)
@@ -1245,6 +1252,14 @@ test("flexible choice migration saves and matches a live roster above the former
   )
   assert.equal(rosterResult.rows[0].result.selected_count, 44)
 
+  await expectDbError(
+    db.query(
+      "select replace_event3_choice_roster($1,$2,$3,false,null,$4::integer[])",
+      [EVENT3_MATCH_ID, STATIC_MATCH_ID, EVENT_ID, Array.from({ length: 46 }, (_, index) => index + 1)],
+    ),
+    /6 to 44 unique participant numbers/i,
+  )
+
   const profileVersions = roster.map(participantNumber => ({
     participant_number: participantNumber,
     updated_at: null,
@@ -1257,6 +1272,17 @@ test("flexible choice migration saves and matches a live roster above the former
     candidate: { id: "flex-44-test", rank: 1 },
     decision_context: { alternatives_summary: [{ rank: 1 }, { rank: 2 }, { rank: 3 }] },
   }
+  const shiftedAssignments = assignments.map(row => ({ ...row }))
+  const shiftedSeat = shiftedAssignments.find(row => row.round === 2 && row.table_number === 1)
+  assert.ok(shiftedSeat)
+  shiftedSeat.table_number = 3
+  await expectDbError(
+    db.query(
+      "select replace_event3_choice_seating($1,$2,false,null,$3::jsonb,$4::jsonb)",
+      [EVENT3_MATCH_ID, EVENT_ID, JSON.stringify(participants), JSON.stringify(shiftedAssignments)],
+    ),
+    /same capacity in every round/i,
+  )
   const approval = await db.query(`select apply_event3_choice_seating_preview(
     $1,$2,$3,false,null,$4::jsonb,$5::jsonb,$6::jsonb,$7::jsonb,$8::jsonb,null,$9::jsonb,$10,$11,$12::smallint,$13,$14::jsonb
   ) as result`, [
@@ -1307,7 +1333,7 @@ test("flexible choice migration saves and matches a live roster above the former
   assert.deepEqual(saved.rows, [{ matches: 44, seats: 44, reports: 1 }])
 })
 
-test("choice test mode accepts any even roster of at least six and restores auxiliary live data", async t => {
+test("choice test mode accepts even rosters from six through 44 and restores auxiliary live data", async t => {
   const db = await createFixture(t)
   await db.query(`insert into event_state(
     match_id,current_event_id,phase,current_round,test_mode_active,
@@ -1326,7 +1352,12 @@ test("choice test mode accepts any even roster of at least six and restores auxi
 
   await expectDbError(
     db.query("select begin_event3_test_mode($1,$2::integer[])", [EVENT_ID, Array.from({ length: 5 }, (_, index) => index + 1)]),
-    /even roster of at least 6/i,
+    /even roster of 6 to 44/i,
+  )
+
+  await expectDbError(
+    db.query("select begin_event3_test_mode($1,$2::integer[])", [EVENT_ID, Array.from({ length: 46 }, (_, index) => index + 1)]),
+    /even roster of 6 to 44/i,
   )
 
   for (const count of [20, 6, 44]) {

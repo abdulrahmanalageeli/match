@@ -3,14 +3,15 @@ import { scoreRound1SparkGroup } from "./round1-spark.mjs"
 import { createRoundLensScorer } from "./round23-lenses.mjs"
 
 const MIN_PARTICIPANTS = 6
+const MAX_PARTICIPANTS = 44
 const TARGET_GROUP_SIZE = 6
 export const FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION = "spark-depth-rhythm-v3-flexible-six-seat-target"
 
 const pairKey = (left, right) => `${Math.min(Number(left), Number(right))}-${Math.max(Number(left), Number(right))}`
 
 function normalizeParticipants(values) {
-  if (!Array.isArray(values) || values.length < MIN_PARTICIPANTS || values.length % 2 !== 0) {
-    return { error: `Choice-only seating requires an even roster of at least ${MIN_PARTICIPANTS} participants` }
+  if (!Array.isArray(values) || values.length < MIN_PARTICIPANTS || values.length > MAX_PARTICIPANTS || values.length % 2 !== 0) {
+    return { error: `Choice-only seating requires an even roster of ${MIN_PARTICIPANTS} to ${MAX_PARTICIPANTS} participants` }
   }
   const participants = values.map(value => Number(value?.participant_number ?? value?.assigned_number ?? value))
   if (participants.some(number => !Number.isInteger(number) || number <= 0)) {
@@ -43,7 +44,7 @@ function shuffled(values, seed) {
 }
 
 export function choiceOnlyTargetGroupSizes(participantCount) {
-  if (!Number.isInteger(participantCount) || participantCount < MIN_PARTICIPANTS || participantCount % 2 !== 0) return []
+  if (!Number.isInteger(participantCount) || participantCount < MIN_PARTICIPANTS || participantCount > MAX_PARTICIPANTS || participantCount % 2 !== 0) return []
   const tableCount = Math.max(1, Math.floor(participantCount / TARGET_GROUP_SIZE))
   const base = Math.floor(participantCount / tableCount)
   const remainder = participantCount % tableCount
@@ -337,5 +338,6 @@ export function buildFlexibleChoiceOnlySeatingCandidates(values, options = {}) {
 
 export const FLEXIBLE_CHOICE_SEATING_LIMITS = Object.freeze({
   minimumParticipants: MIN_PARTICIPANTS,
+  maximumParticipants: MAX_PARTICIPANTS,
   targetGroupSize: TARGET_GROUP_SIZE,
 })

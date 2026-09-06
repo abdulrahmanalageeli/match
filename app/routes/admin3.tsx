@@ -116,7 +116,9 @@ function finalMatchPreferenceLabel(value: unknown, choiceOnly: boolean) {
 
 type Event3Format = "classic" | "choice_only_three_groups"
 const CHOICE_ONLY_MIN_PARTICIPANTS = 6
+const CHOICE_ONLY_MAX_PARTICIPANTS = 44
 const choiceOnlyRosterReady = (count: number | null | undefined) => Number(count) >= CHOICE_ONLY_MIN_PARTICIPANTS
+  && Number(count) <= CHOICE_ONLY_MAX_PARTICIPANTS
   && Number(count) % 2 === 0
 
 type ChoiceSeatingTableReport = {
@@ -2397,7 +2399,7 @@ export default function Admin3Page() {
 
   const generateChoiceSeatingPreview = async () => {
     if (previewEventId != null) { toast.error("لا يمكن توليد الجلسات في وضع المعاينة التاريخية"); return }
-    if (!choiceOnlyRosterReady(state?.participants_selected)) { toast.error("يجب حفظ عدد زوجي لا يقل عن 6 مشاركين قبل إنشاء خيارات الجلسات"); return }
+    if (!choiceOnlyRosterReady(state?.participants_selected)) { toast.error("يجب حفظ عدد زوجي من 6 إلى 44 مشاركاً قبل إنشاء خيارات الجلسات"); return }
     const requestId = ++choicePreviewRequestGeneration.current
     const requestContext = choiceUiContextKeyRef.current
     const expectedContext = choiceSeatingExpectedContext()
@@ -2544,7 +2546,7 @@ export default function Admin3Page() {
   const saveParticipants = () => { if (previewEventId != null) { toast.error("لا يمكن تعديل المشاركين في وضع المعاينة"); return } run("save-participants", async () => {
     const minimumParticipants = 4
     if (choiceOnly && !choiceOnlyRosterReady(selectedNumbers.size))
-      return { error: `يجب اختيار عدد زوجي لا يقل عن 6 مشاركين (تم اختيار ${selectedNumbers.size})` }
+      return { error: `يجب اختيار عدد زوجي من 6 إلى 44 مشاركاً (تم اختيار ${selectedNumbers.size})` }
     if (!choiceOnly && selectedNumbers.size < minimumParticipants)
       return { error: `يجب اختيار ${minimumParticipants} مشاركين على الأقل (تم اختيار ${selectedNumbers.size})` }
     const data = await api("e3-set-participants", { participant_numbers: Array.from(selectedNumbers) })
@@ -2718,6 +2720,10 @@ export default function Admin3Page() {
   }
 
   const toggleParticipant = (num: number) => {
+    if (choiceOnly && !selectedNumbers.has(num) && selectedNumbers.size >= CHOICE_ONLY_MAX_PARTICIPANTS) {
+      toast.error(`الحد الأقصى لهذه الفعالية ${CHOICE_ONLY_MAX_PARTICIPANTS} مشاركاً`)
+      return
+    }
     setSelectedNumbers(prev => {
       const next = new Set(prev)
       if (next.has(num)) next.delete(num)
@@ -2771,7 +2777,11 @@ export default function Admin3Page() {
 
   const selectAllPaid = () => {
     const paidNums = participants.filter(p => p.paid).map(p => p.number)
-    setSelectedNumbers(new Set(paidNums))
+    const selectedPaidNums = choiceOnly ? paidNums.slice(0, CHOICE_ONLY_MAX_PARTICIPANTS) : paidNums
+    setSelectedNumbers(new Set(selectedPaidNums))
+    if (choiceOnly && paidNums.length > CHOICE_ONLY_MAX_PARTICIPANTS) {
+      toast(`تم اختيار أول ${CHOICE_ONLY_MAX_PARTICIPANTS} مشاركاً مدفوعاً فقط`)
+    }
   }
 
   if (authChecking) {

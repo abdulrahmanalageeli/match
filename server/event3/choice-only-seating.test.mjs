@@ -417,14 +417,18 @@ test("targets six-person tables and distributes every remainder into larger grou
     assert.equal(generated.candidates.length, 3)
     assert.equal(generated.objectiveVersion, FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION)
     for (const candidate of generated.candidates) {
+      const roundSizes = [candidate.plan.round1, candidate.plan.round2, candidate.plan.round3]
+        .map(round => round.map(group => group.length))
+      assert.deepEqual(roundSizes, [sizes, sizes, sizes])
       for (const round of [candidate.plan.round1, candidate.plan.round2, candidate.plan.round3]) {
         assert.deepEqual(round.map(group => group.length), sizes)
         assert.deepEqual([...round.flat()].sort((a, b) => a - b), flexibleParticipants)
       }
     }
   }
-  assert.match(buildChoiceOnlySeatingPlan(participants.slice(0, 4)).error, /even roster of at least 6/)
+  assert.match(buildChoiceOnlySeatingPlan(participants.slice(0, 4)).error, /even roster of 6 to 44/)
   assert.match(buildChoiceOnlySeatingPlan(participants.slice(0, 7)).error, /even roster/)
+  assert.match(buildChoiceOnlySeatingPlan(Array.from({ length: 46 }, (_, index) => index + 1)).error, /6 to 44/)
   assert.match(buildChoiceOnlySeatingPlan([...participants.slice(0, 41), 41]).error, /unique/)
   assert.match(buildChoiceOnlySeatingPlan(participants, {
     requireCompleteLensProfiles: true,

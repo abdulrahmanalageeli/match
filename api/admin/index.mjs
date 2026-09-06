@@ -470,7 +470,9 @@ async function sendFinalConfirmation(participant, paymentWaived = false) {
 // ── Event 5.0 constants & helpers ─────────────────────────────────────────────
 const EVENT3_MATCH_ID = "00000000-0000-0000-0000-000000000003"
 const EVENT3_CHOICE_MIN_PARTICIPANTS = 6
+const EVENT3_CHOICE_MAX_PARTICIPANTS = 44
 const validEvent3ChoiceRosterSize = count => Number(count) >= EVENT3_CHOICE_MIN_PARTICIPANTS
+  && Number(count) <= EVENT3_CHOICE_MAX_PARTICIPANTS
   && Number(count) % 2 === 0
 const EVENT3_KNOWN_PHASES = new Set(Object.keys(EVENT3_PHASE_TIMER_SECONDS))
 
@@ -10067,7 +10069,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const invalidParticipantCount = diagnosticChoiceOnly ? !validEvent3ChoiceRosterSize(selectedNumbers.length) : selectedNumbers.length < 4
           if (epErr || invalidParticipantCount) {
             checks.push({ name: "participant_selection", status: "fail", message: epErr?.message || (diagnosticChoiceOnly
-              ? `${selectedNumbers.length} participants selected (choice-only requires an even roster of at least 6)`
+              ? `${selectedNumbers.length} participants selected (choice-only requires an even roster of 6 to 44)`
               : `Only ${selectedNumbers.length} participants selected (need at least 4)`) })
             healthy = false
           } else {
@@ -10461,7 +10463,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           }
           const participantFormat = await loadEvent3Format(supabase, EVENT3_MATCH_ID, currentEventId)
           if (isChoiceOnlyEvent3(participantFormat) && !validEvent3ChoiceRosterSize(participant_numbers.length)) {
-            return res.status(400).json({ error: "The three-group choice-only format requires an even roster of at least 6 participants" })
+            return res.status(400).json({ error: "The three-group choice-only format requires an even roster of 6 to 44 participants" })
           }
           if (isChoiceOnlyEvent3(participantFormat)) {
             const { error: rosterError } = await supabase.rpc("replace_event3_choice_roster", {
@@ -10552,7 +10554,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const seatingFormat = await loadEvent3Format(supabase, EVENT3_MATCH_ID, currentEventId)
           const choiceOnlySeating = isChoiceOnlyEvent3(seatingFormat)
           if (choiceOnlySeating && !validEvent3ChoiceRosterSize(participantNumbers.length)) {
-            return res.status(400).json({ error: "The three-group choice-only format requires an even roster of at least 6 participants" })
+            return res.status(400).json({ error: "The three-group choice-only format requires an even roster of 6 to 44 participants" })
           }
           if (choiceOnlySeating) {
             return res.status(409).json({
@@ -13882,7 +13884,10 @@ ${alternativeLines}
 
           const males = valid.filter(isMale)
           const females = valid.filter(isFemale)
-          const largestBalancedChoiceCount = Math.min(males.length, females.length) * 2
+          const largestBalancedChoiceCount = Math.min(
+            EVENT3_CHOICE_MAX_PARTICIPANTS,
+            Math.min(males.length, females.length) * 2,
+          )
           const requiredParticipants = choiceOnlyTest
             ? largestBalancedChoiceCount
             : 36

@@ -34,7 +34,7 @@ test("sends an SMS OTP with the API key only in the authorization header", async
   assert.deepEqual(JSON.parse(request.init.body), { method: "sms", phone: "+966500000000" })
 })
 
-test("verifies an OTP and fails closed on an ambiguous successful response", async () => {
+test("accepts Authentica's successful 2xx contract while honoring explicit denials", async () => {
   let body
   const verified = await verifyAuthenticaOtp({ phone: "+966500000000", otp: "123456" }, {
     apiKey,
@@ -46,17 +46,23 @@ test("verifies an OTP and fails closed on an ambiguous successful response", asy
   assert.deepEqual(body, { phone: "+966500000000", otp: "123456" })
   assert.deepEqual(verified, { verified: true })
 
-  const ambiguous = await verifyAuthenticaOtp({ phone: "+966500000000", otp: "123456" }, {
+  const providerVerified = await verifyAuthenticaOtp({ phone: "+966500000000", otp: "123456" }, {
     apiKey,
-    fetchImpl: async () => jsonResponse(200, {}),
+    fetchImpl: async () => jsonResponse(200, { message: "OTP verified successfully" }),
   })
-  assert.deepEqual(ambiguous, { verified: false })
+  assert.deepEqual(providerVerified, { verified: true })
 
   const explicitlyDenied = await verifyAuthenticaOtp({ phone: "+966500000000", otp: "123456" }, {
     apiKey,
     fetchImpl: async () => jsonResponse(200, { success: true, verified: false }),
   })
   assert.deepEqual(explicitlyDenied, { verified: false })
+
+  const nestedDenial = await verifyAuthenticaOtp({ phone: "+966500000000", otp: "123456" }, {
+    apiKey,
+    fetchImpl: async () => jsonResponse(200, { data: { success: false } }),
+  })
+  assert.deepEqual(nestedDenial, { verified: false })
 })
 
 test("treats invalid codes as denied and provider outages as errors", async () => {

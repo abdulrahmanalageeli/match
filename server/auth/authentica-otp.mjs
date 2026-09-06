@@ -74,15 +74,17 @@ export async function verifyAuthenticaOtp({ phone, otp }, options = {}) {
     })
   }
 
-  // Authentication must fail closed: an undocumented/empty 2xx response must
-  // never be treated as proof that the phone number was verified.
-  const explicitVerified = typeof payload?.verified === "boolean"
-    ? payload.verified
-    : typeof payload?.data?.verified === "boolean"
-      ? payload.data.verified
-      : null
-  const verified = explicitVerified ?? (
-    payload?.success === true || payload?.data?.success === true
-  )
+  // Authentica's official Node example treats a successful HTTP response as
+  // verified when the response omits both boolean fields. Honour every
+  // explicit denial first, then accept the provider's successful 2xx contract.
+  const verificationSignals = [
+    payload?.verified,
+    payload?.data?.verified,
+    payload?.success,
+    payload?.data?.success,
+  ].filter(value => typeof value === "boolean")
+  const verified = verificationSignals.includes(false)
+    ? false
+    : verificationSignals.includes(true) || response.ok
   return { verified }
 }

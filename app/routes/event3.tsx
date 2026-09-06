@@ -6208,27 +6208,22 @@ const EVENT3_OPEN_SUPPORT_EVENT = "event3-open-support"
 
 function OneToOneSupportSection() {
   return (
-    <section aria-label="الدعم المباشر" className="relative overflow-hidden rounded-[1.65rem] border border-purple-300/20 bg-gradient-to-br from-purple-950/60 via-slate-950/85 to-fuchsia-950/45 p-[1px] shadow-[0_18px_55px_-28px_rgba(168,85,247,0.95)]">
-      <div className="relative overflow-hidden rounded-[calc(1.65rem-1px)] bg-slate-950/75 px-4 py-4 backdrop-blur-xl">
-        <div className="pointer-events-none absolute -right-10 -top-12 h-28 w-28 rounded-full bg-purple-500/20 blur-3xl" aria-hidden="true" />
-        <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-purple-200/70 to-transparent" aria-hidden="true" />
-        <div className="relative flex items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-purple-200/20 bg-gradient-to-br from-purple-500/25 to-fuchsia-500/10 text-purple-100 shadow-inner shadow-white/10">
-            <LifeBuoy size={20} />
-          </div>
-          <div className="min-w-0 flex-1 text-right">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-purple-300/75">دعم مباشر</p>
-            <h2 className="mt-0.5 text-sm font-black text-white">تحتاج مساعدة أثناء اللقاء؟</h2>
-            <p className="mt-1 text-[11px] leading-5 text-gray-400">تواصل بسرية مع المنظم من دون مغادرة مساحة الجلسة.</p>
-          </div>
+    <section aria-label="الدعم المباشر" className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] backdrop-blur-xl">
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.045] text-purple-200">
+          <LifeBuoy size={18} />
+        </div>
+        <div className="min-w-0 flex-1 text-right">
+          <h2 className="text-sm font-bold text-gray-100">هل تحتاج مساعدة؟</h2>
+          <p className="mt-0.5 text-[11px] leading-5 text-gray-500">محادثة خاصة ومباشرة مع المنظم.</p>
         </div>
         <button
           type="button"
           onClick={() => window.dispatchEvent(new Event(EVENT3_OPEN_SUPPORT_EVENT))}
-          className="event3-action relative mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-purple-200/25 bg-gradient-to-r from-purple-700 via-violet-600 to-fuchsia-700 px-4 text-sm font-black text-white shadow-[0_12px_30px_-16px_rgba(192,132,252,0.95)] transition-all hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-200"
+          className="event3-action flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-white/[0.1] bg-white/[0.07] px-3.5 text-xs font-bold text-gray-100 transition-colors hover:border-purple-300/25 hover:bg-white/[0.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/60"
         >
-          <MessageSquare size={16} />
-          افتح الدعم المباشر
+          <MessageSquare size={14} />
+          تواصل
         </button>
       </div>
     </section>
@@ -6346,15 +6341,14 @@ function SOSButton({ token, position = 'top', sosRequests, suppressed = false, t
           aria-label={`${buttonLabel} — تواصل مع المنظم`}
           animate={buttonState === 'idle' ? { scale: [1, 1.03, 1] } : {}}
           transition={buttonState === 'idle' ? { duration: 3, repeat: Infinity, ease: 'easeInOut' } : {}}
-          className={`group relative mx-3 flex min-h-12 items-center gap-2.5 overflow-hidden rounded-full border px-5 py-2.5 text-xs font-black backdrop-blur-xl transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/80 ${
-            buttonState === 'unread' ? 'border-emerald-300/45 bg-gradient-to-r from-emerald-950/95 via-teal-900/90 to-emerald-950/95 text-emerald-100 shadow-[0_12px_36px_-14px_rgba(52,211,153,0.9)]'
-            : buttonState === 'pending' ? 'border-amber-300/35 bg-gradient-to-r from-amber-950/95 via-orange-900/85 to-amber-950/95 text-amber-100 shadow-[0_12px_36px_-14px_rgba(251,146,60,0.75)]'
-            : buttonState === 'active' ? 'border-cyan-300/30 bg-gradient-to-r from-slate-950/95 via-cyan-950/90 to-slate-950/95 text-cyan-100 shadow-[0_12px_36px_-16px_rgba(34,211,238,0.7)]'
-            : 'border-purple-300/35 bg-gradient-to-r from-slate-950/95 via-purple-950/95 to-fuchsia-950/90 text-purple-50 shadow-[0_14px_40px_-16px_rgba(168,85,247,0.9)] hover:-translate-y-0.5 hover:border-purple-200/55 hover:text-white'
+          className={`group relative mx-3 flex min-h-11 items-center gap-2.5 overflow-hidden rounded-full border px-4 py-2 text-xs font-bold backdrop-blur-xl transition-colors duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/70 ${
+            buttonState === 'unread' ? 'border-emerald-300/30 bg-gray-950/90 text-emerald-200 shadow-lg shadow-black/25'
+            : buttonState === 'pending' ? 'border-amber-300/25 bg-gray-950/90 text-amber-200 shadow-lg shadow-black/25'
+            : buttonState === 'active' ? 'border-cyan-300/20 bg-gray-950/90 text-cyan-100 shadow-lg shadow-black/25'
+            : 'border-white/[0.1] bg-gray-950/90 text-gray-200 shadow-lg shadow-black/25 hover:border-purple-300/25 hover:bg-gray-900/95'
           }`}
         >
-          <span className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent" aria-hidden="true" />
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.08] shadow-inner shadow-white/10" aria-hidden="true">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.045]" aria-hidden="true">
             <LifeBuoy size={14} className={buttonState === 'unread' ? 'text-emerald-300' : buttonState === 'pending' ? 'text-amber-300' : 'text-purple-200'} />
           </span>
           {/* Status indicator */}
@@ -6397,11 +6391,11 @@ function SOSButton({ token, position = 'top', sosRequests, suppressed = false, t
         {open && (
           <motion.div
             id={panelId}
-            initial={{ opacity: 0, y: position === 'bottom' ? 20 : -20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: position === 'bottom' ? 20 : -20, scale: 0.95 }}
+            initial={{ opacity: 0, x: '-50%', y: position === 'bottom' ? 20 : -20, scale: 0.97 }} animate={{ opacity: 1, x: '-50%', y: 0, scale: 1 }}
+            exit={{ opacity: 0, x: '-50%', y: position === 'bottom' ? 20 : -20, scale: 0.97 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
             className={`event3-glass fixed z-[300] flex w-[300px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-3xl border border-purple-300/[0.13] ${
-              position === 'bottom' ? 'bottom-20 left-1/2 -translate-x-1/2' : 'top-[88px] left-1/2 -translate-x-1/2'
+              position === 'bottom' ? 'bottom-20 left-1/2' : 'top-[max(6.5rem,calc(env(safe-area-inset-top)+5rem))] left-1/2'
             }`}
             style={{ maxHeight: '60vh' }}
             role="dialog"
@@ -6848,7 +6842,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
               <div className="absolute -bottom-20 left-1/3 w-72 h-72 bg-fuchsia-500/15 rounded-full blur-[80px]" />
             </div>
             {/* Sticky header */}
-            <div className="event3-status-header sticky top-0 z-10 flex items-center justify-between border-b border-white/[0.06] px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+            <div className="event3-status-header sticky top-0 z-10 flex items-center justify-between border-b border-white/[0.06] px-4 pb-3 pt-[max(1.5rem,calc(env(safe-area-inset-top)+0.5rem))]">
               <div className="min-w-0 text-right">
                 <p className="text-[10px] font-bold text-pink-300">{choiceOnly ? "لقاء الاختيار الأول" : "لقاء اختيارك"} · طاولة {data?.table_number ?? "—"}</p>
                 <p className="mt-0.5 truncate text-sm font-black text-white">مع {data?.partner_first_name || "شريكك"}</p>
@@ -7240,7 +7234,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
               <div className="absolute top-1/2 -left-20 w-80 h-80 bg-violet-500/15 rounded-full blur-[90px]" />
               <div className="absolute -bottom-20 right-1/3 w-72 h-72 bg-indigo-500/15 rounded-full blur-[80px]" />
             </div>
-            <div className="event3-status-header sticky top-0 z-10 flex items-center justify-between border-b border-white/[0.06] px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+            <div className="event3-status-header sticky top-0 z-10 flex items-center justify-between border-b border-white/[0.06] px-4 pb-3 pt-[max(1.5rem,calc(env(safe-area-inset-top)+0.5rem))]">
               <div className="min-w-0 text-right">
                 <p className="text-[10px] font-bold text-violet-300">{meetingLabel} · طاولة {data?.table_number ?? "—"}</p>
                 <p className="mt-0.5 truncate text-sm font-black text-white">مع {data?.partner_first_name || "شريكك"}</p>

@@ -65,6 +65,7 @@ test("Event3 client only clears identity for the explicit invalid-token code", a
 test("Event3 organizer help stays above one-to-one session surfaces", async () => {
   const route = await read("app/routes/event3.tsx")
   const support = between(route, "function SOSButton", "// ─── Phase 2 Reveal Screen")
+  const supportMount = between(route, "{/* Keep help-chat state mounted", "{/* Mood check popup")
 
   assert.match(route, /fixed inset-0 z-\[220\][^\n]*h-\[100dvh\]/)
   assert.match(support, /z-\[280\]/)
@@ -74,6 +75,11 @@ test("Event3 organizer help stays above one-to-one session surfaces", async () =
   assert.equal((route.match(/<OneToOneSupportSection \/>/g) || []).length, 2)
   assert.match(route, /triggerHidden=\{oneToOneSessionOpen\}/)
   assert.match(support, /window\.addEventListener\(EVENT3_OPEN_SUPPORT_EVENT/)
+  assert.match(support, /x: '-50%'/)
+  assert.equal((route.match(/pt-\[max\(1\.5rem,calc\(env\(safe-area-inset-top\)\+0\.5rem\)\)\]/g) || []).length, 2)
+  assert.match(route, /const showOrganizerSupport = phase !== "setup" && !rankingRoundToRender/)
+  assert.match(supportMount, /enrolled && showOrganizerSupport/)
+  assert.doesNotMatch(supportMount, /final_reveal|phase === "break"|groupsOpen|feedbackOverlayOpen|canShowMoodCheck|canShowNotification/)
 })
 
 test("Event3 transport failures are structured as retriable and polling retains prior data", async () => {

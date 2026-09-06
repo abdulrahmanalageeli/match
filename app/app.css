@@ -1419,6 +1419,11 @@ html:not(.dark) .round-bg-pattern::before {
   background: linear-gradient(90deg, transparent, rgba(216, 180, 254, 0.38), rgba(165, 243, 252, 0.25), transparent);
 }
 
+/* Group surfaces use depth and ambient light without a colored top seam. */
+.event3-glass.event3-group-surface::after {
+  display: none;
+}
+
 .event3-status-header {
   border-color: rgba(255, 255, 255, 0.08);
   background:

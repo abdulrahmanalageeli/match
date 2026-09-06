@@ -3005,7 +3005,7 @@ function IceBreaker({ round, tableNumber = 0, myInfo, tablemates, onDone }: {
   if (!started) {
     return (
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-        <GlassCard className={`p-5 space-y-3 border shadow-lg ring-1 ${theme.border} ${theme.ring}`}>
+        <GlassCard className={`event3-group-surface space-y-3 border p-5 shadow-lg ring-1 ${theme.border} ${theme.ring}`}>
           <div className="flex items-center justify-center gap-2">
             {roundIcon}
             <h4 className="text-white font-bold text-sm">{ib.title}</h4>
@@ -3031,7 +3031,7 @@ function IceBreaker({ round, tableNumber = 0, myInfo, tablemates, onDone }: {
 
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-      <GlassCard className={`p-5 space-y-4 border shadow-lg ring-1 ${theme.border} ${theme.ring}`}>
+      <GlassCard className={`event3-group-surface space-y-4 border p-5 shadow-lg ring-1 ${theme.border} ${theme.ring}`}>
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -3333,7 +3333,6 @@ function GroupElectionOverlay({
         className="relative mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-md flex-col justify-center"
       >
         <div className="relative overflow-hidden rounded-[2.25rem] border border-violet-300/20 bg-gradient-to-b from-[#171027]/95 via-[#0d0918]/98 to-[#08060f]/98 p-5 shadow-[0_35px_120px_-38px_rgba(139,92,246,.65)] ring-1 ring-white/[0.06] sm:p-7">
-          <div className="pointer-events-none absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-violet-300/80 to-transparent" />
           <div className="pointer-events-none absolute -right-16 -top-20 h-52 w-52 rounded-full bg-violet-500/15 blur-3xl" />
 
           <div className="relative text-center">
@@ -3508,7 +3507,6 @@ function CoordinatorRevealOverlay({ leader, isMe, isReelection, onContinue }: {
         <motion.div className="absolute left-1/2 top-1/2 h-[20rem] w-[20rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-500/25 blur-[85px]" animate={reducedMotion ? undefined : { scale: [0.9, 1.18, 0.9] }} transition={{ duration: 3.8, repeat: Infinity }} />
       </div>
       <motion.div initial={{ scale: 0.72, y: 35 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.88, opacity: 0 }} transition={{ type: "spring", stiffness: 210, damping: 20 }} className="relative w-full max-w-sm overflow-hidden rounded-[2.5rem] border border-violet-300/25 bg-gradient-to-b from-[#201235]/95 via-[#10091d]/98 to-[#08050f]/98 p-7 text-center shadow-[0_40px_140px_-35px_rgba(168,85,247,.8)] ring-1 ring-white/10">
-        <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-cyan-200 to-transparent" />
         <motion.div animate={reducedMotion ? undefined : { y: [0, -8, 0], rotate: [0, -4, 4, 0] }} transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }} className="mx-auto flex h-24 w-24 items-center justify-center rounded-[2rem] border border-amber-200/30 bg-gradient-to-br from-amber-300 via-fuchsia-400 to-violet-600 text-white shadow-[0_0_65px_rgba(244,114,182,.42)]">
           <Crown className="h-11 w-11 drop-shadow-lg" strokeWidth={1.8} />
         </motion.div>
@@ -3576,7 +3574,6 @@ function GroupProjectorOverlay({ tableNumber, coordinatorName, content, contentV
               transition={{ type: "spring", stiffness: 220, damping: 24 }}
               className={`relative w-full max-w-2xl overflow-hidden rounded-[2.5rem] border p-7 text-center shadow-[0_40px_130px_-40px_rgba(139,92,246,.65)] ring-1 sm:p-10 ${isQuestion ? "border-fuchsia-300/25 bg-gradient-to-b from-fuchsia-950/55 via-[#13091e]/95 to-[#090610]/98 ring-fuchsia-300/10" : "border-cyan-300/25 bg-gradient-to-b from-cyan-950/45 via-[#0d101d]/95 to-[#070910]/98 ring-cyan-300/10"}`}
             >
-              <div className={`absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent ${isQuestion ? "via-fuchsia-200" : "via-cyan-200"} to-transparent`} />
               <div className={`pointer-events-none absolute left-1/2 top-0 h-52 w-52 -translate-x-1/2 -translate-y-1/2 rounded-full blur-[70px] ${isQuestion ? "bg-fuchsia-500/25" : "bg-cyan-400/20"}`} />
               <motion.div animate={reducedMotion ? undefined : { y: [0, -5, 0], rotate: isQuestion ? [0, -2, 2, 0] : 0 }} transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }} className={`relative mx-auto flex h-20 w-20 items-center justify-center rounded-[1.65rem] border ${isQuestion ? "border-fuchsia-300/25 bg-fuchsia-400/12 text-fuchsia-200" : "border-cyan-300/25 bg-cyan-400/12 text-cyan-200"}`}>
                 {isQuestion ? <MessageSquare size={34} strokeWidth={1.6} /> : <Sparkles size={34} strokeWidth={1.6} />}
@@ -3631,7 +3628,6 @@ function ReelectionConfirmOverlay({ coordinatorName, busy, error, onCancel, onCo
       dir="rtl"
     >
       <motion.div initial={{ y: 28, scale: 0.97 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, opacity: 0 }} className="relative w-full max-w-sm overflow-hidden rounded-[2rem] border border-amber-300/25 bg-gradient-to-b from-[#211508]/98 via-[#110b0a]/98 to-[#090708]/98 p-6 text-center shadow-[0_35px_100px_-35px_rgba(245,158,11,.55)] ring-1 ring-white/[0.06]">
-        <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-amber-200 to-transparent" />
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-amber-300/25 bg-amber-400/10 text-amber-200"><Crown size={28} /></div>
         <p className="mt-4 text-[10px] font-black tracking-[0.18em] text-amber-300">انقلاب</p>
         <h2 id="reelection-title" className="mt-1 text-xl font-black text-white">فتح تصويت جديد؟</h2>
@@ -4068,7 +4064,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
         animate={{ opacity: 1, scale: 1 }}
         role="status"
         aria-live="polite"
-        className={`event3-glass relative flex w-full max-w-xs flex-col items-center overflow-hidden rounded-[2rem] border px-6 py-8 text-center ${RC.border} ${RC.ring}`}
+        className={`event3-glass event3-group-surface relative flex w-full max-w-xs flex-col items-center overflow-hidden rounded-[2rem] border px-6 py-8 text-center ${RC.border} ${RC.ring}`}
       >
         <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${RC.wash}`} />
         <div className={`relative flex h-16 w-16 items-center justify-center rounded-2xl border bg-black/25 shadow-[0_18px_50px_-20px_rgba(34,211,238,.7)] ${RC.border}`}>
@@ -4113,15 +4109,15 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
             description={`${RC.focusAr}. بعد الوصول ستبدأون بكسر جليد قصير، ثم تختارون نشاطاً واحداً للمجموعة.`}
             steps={["الوصول", "كسر الجليد", "نشاط المجموعة"]}
             currentStep={groupActivityStage === "activities" ? 2 : groupsHaveOpened ? 1 : 0}
+            className="event3-group-surface"
           />
 
           {assignment ? (
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-              <GlassCard className={`overflow-hidden rounded-[2rem] border p-0 shadow-[0_28px_80px_-42px_rgba(0,0,0,.95)] ring-1 ${RC.border} ${RC.ring}`}>
+              <GlassCard className={`event3-group-surface overflow-hidden rounded-[2rem] border p-0 shadow-[0_28px_80px_-42px_rgba(0,0,0,.95)] ring-1 ${RC.border} ${RC.ring}`}>
                 <div className="relative p-4 text-right sm:p-5">
                   <div className="absolute inset-0 bg-gradient-to-br from-gray-900/60 via-gray-950/60 to-black/40" />
                   <div className={`absolute inset-0 bg-gradient-to-bl ${RC.wash}`} />
-                  <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${RC.bar}`} />
                   <div className={`absolute -top-20 -right-16 w-48 h-48 rounded-full blur-3xl pointer-events-none ${RC.primaryOrb}`} />
                   <div className={`absolute -bottom-24 -left-16 w-44 h-44 rounded-full blur-3xl pointer-events-none ${RC.secondaryOrb}`} />
                   <div className="relative z-10 grid grid-cols-[minmax(0,1fr)_5.5rem] items-center gap-4">
@@ -4197,7 +4193,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
               </GlassCard>
             </motion.div>
           ) : assignmentError ? (
-            <GlassCard className="p-8 flex flex-col items-center gap-3 border border-red-500/20">
+            <GlassCard className="event3-group-surface flex flex-col items-center gap-3 border border-red-500/20 p-8">
               <MapPin size={26} className="text-red-300" />
               <p className="text-white text-sm font-bold">لم نجد طاولتك لهذه الجولة</p>
               <p className="text-gray-500 text-xs leading-5">أخبر المنظم برقمك، ثم اضغط إعادة المحاولة.</p>
@@ -4206,7 +4202,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
               </button>
             </GlassCard>
           ) : (
-            <GlassCard className="p-10 flex flex-col items-center gap-3">
+            <GlassCard className="event3-group-surface flex flex-col items-center gap-3 p-10">
               <Spinner size={22} />
               <p className="text-gray-500 text-sm">جاري تحميل مكانك...</p>
             </GlassCard>
@@ -4236,7 +4232,6 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
             initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
             className={`event3-action group flex min-h-[4.5rem] w-full items-center gap-3 rounded-[1.4rem] border border-white/20 bg-gradient-to-r p-3.5 text-right text-white shadow-[0_24px_55px_-24px_rgba(168,85,247,.85)] ring-1 ring-white/10 transition-all hover:brightness-110 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40 ${RC.bar}`}
           >
-            <span aria-hidden="true" className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/80 to-transparent" />
             <span className="relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-black/15 shadow-inner ring-1 ring-white/25">
               <Target size={19} />
             </span>
@@ -4312,7 +4307,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
                     </div>
                     <button type="button" onClick={closeGroups} className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-gray-300" aria-label="إغلاق أنشطة المجموعة"><X size={18} /></button>
                   </div>
-                  <JourneyCue accent={RC.journeyAccent} eyebrow={RC.nameAr} title="خلّوا كل شخص يأخذ دوره" description={RC.focusAr} steps={["تعارف", "اختيار نشاط", "مشاركة"]} currentStep={0} />
+                  <JourneyCue accent={RC.journeyAccent} eyebrow={RC.nameAr} title="خلّوا كل شخص يأخذ دوره" description={RC.focusAr} steps={["تعارف", "اختيار نشاط", "مشاركة"]} currentStep={0} className="event3-group-surface" />
                   <IceBreaker
                     round={round}
                     tableNumber={assignment.table}
@@ -4326,7 +4321,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
                 </div>
               </div>
             ) : (
-              <div className="relative z-10 flex-1 overflow-y-auto overscroll-contain" tabIndex={-1}>
+              <div className="relative z-10 min-h-0 flex-1 overflow-hidden" tabIndex={-1}>
                 <GroupsPage
                   disableOnboarding
                   onClose={closeGroups}
@@ -4413,7 +4408,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
             <button
               type="button"
               onClick={() => setSyncEnabled(true)}
-              className="event3-action pointer-events-auto flex min-h-14 w-full max-w-sm items-center justify-center gap-2 rounded-2xl border border-cyan-200/25 bg-gradient-to-l from-cyan-500 via-violet-500 to-fuchsia-500 px-4 text-center text-sm font-black text-white shadow-[0_18px_55px_-18px_rgba(139,92,246,.8)] ring-1 ring-white/15"
+              className="event3-action pointer-events-auto flex min-h-14 w-full max-w-sm items-center justify-center gap-2 rounded-2xl border border-white/15 bg-gradient-to-l from-violet-600 via-purple-600 to-fuchsia-600 px-4 text-center text-sm font-black text-white shadow-[0_18px_55px_-18px_rgba(139,92,246,.8)] ring-1 ring-white/10"
             >
               <Wifi size={17} className="shrink-0" /> <span className="min-w-0 truncate">العودة لبث {coordinatorName}</span>
             </button>
@@ -4441,7 +4436,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
       <AnimatePresence>
         {showGroupParticipationNudge && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[520] flex items-end bg-black/55 p-5 sm:items-center sm:justify-center" role="dialog" aria-modal="true" aria-labelledby={participationNudgeTitleId}>
-            <motion.div initial={{ y: 20, scale: 0.98 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, scale: 0.98 }} className="event3-glass w-full max-w-md rounded-3xl border border-amber-400/25 p-6 text-center" dir="rtl">
+            <motion.div initial={{ y: 20, scale: 0.98 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, scale: 0.98 }} className="event3-glass event3-group-surface w-full max-w-md rounded-3xl border border-amber-400/25 p-6 text-center" dir="rtl">
               <Users className="mx-auto mb-3 h-8 w-8 text-amber-300" />
               <h2 id={participationNudgeTitleId} className="text-lg font-black text-white">خلّوا الجميع يأخذ فرصته</h2>
               <p className="mt-2 text-sm leading-7 text-gray-300">إذا فيه شخص ما أخذ فرصته بالكلام، نحب نسمع منه — والمشاركة دائمًا اختيارية.</p>

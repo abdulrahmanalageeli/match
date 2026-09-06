@@ -2753,7 +2753,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
       const prevActivity = () => setCarouselIndex(prev => (prev - 1 + activityGames.length) % activityGames.length);
 
       return (
-        <div className={`relative min-h-full flex flex-col bg-gradient-to-b ${roundTheme.shell}`}>
+        <div className={`relative flex h-full min-h-full w-full flex-col bg-gradient-to-b ${roundTheme.shell}`}>
           {/* Dynamic gradient background that shifts with current activity */}
           <motion.div
             key={`bg-${currentGame.id}`}
@@ -2770,7 +2770,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
           </motion.div>
 
           {/* Compact picker header */}
-          <div className={`relative z-20 flex items-center justify-between border-b bg-black/15 px-4 py-3 backdrop-blur-xl ${roundTheme.border}`}>
+          <div className="relative z-20 flex shrink-0 items-center justify-between border-b border-white/[0.07] bg-[#070914]/75 px-4 pb-3 pt-[max(.75rem,env(safe-area-inset-top))] backdrop-blur-2xl">
             <button
               type="button"
               onClick={() => {
@@ -2793,7 +2793,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
           </div>
 
           <div className="relative z-20 px-4 pt-3">
-            <div className={`flex items-center gap-2.5 rounded-2xl border bg-black/20 px-3 py-2.5 shadow-lg backdrop-blur-xl ${roundTheme.border}`}>
+            <div className="mx-auto flex w-full max-w-lg items-center gap-2.5 rounded-2xl border border-white/[0.09] bg-black/20 px-3 py-2.5 shadow-[0_18px_50px_-34px_rgba(0,0,0,.95)] backdrop-blur-xl">
               <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${roundTheme.bar} text-white shadow-lg`}>
                 <Sparkles className="h-4 w-4" />
               </div>
@@ -2822,7 +2822,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
           </div>
 
           {/* Carousel area */}
-          <div className="relative z-10 flex flex-1 flex-col items-center px-4 pb-4 pt-3">
+          <div className="relative z-10 flex flex-1 flex-col items-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
             {/* Main carousel card — swipeable */}
             <div className="relative w-full max-w-sm">
               {/* Swipeable card container */}
@@ -2845,9 +2845,8 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 aria-describedby={`carousel-game-description-${currentGame.id}`}
                 className="cursor-grab active:cursor-grabbing"
               >
-                <div className={`relative overflow-hidden rounded-[1.6rem] border bg-gray-900/85 shadow-[0_24px_70px_-34px_rgba(0,0,0,0.95)] ring-1 ${roundTheme.border} ${roundTheme.ring}`}>
+                <div className="relative overflow-hidden rounded-[1.75rem] border border-white/[0.1] bg-gray-900/85 shadow-[0_30px_90px_-40px_rgba(0,0,0,0.98)] ring-1 ring-white/[0.04]">
                   <div className={`absolute inset-0 bg-gradient-to-br ${currentGame.color} opacity-[0.14]`} />
-                  <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${roundTheme.bar}`} />
                   <div className="absolute inset-0 bg-gradient-to-b from-white/[0.05] via-transparent to-black/30" />
 
                   {/* Decorative glow */}
@@ -4787,7 +4786,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
         />
       )}
 
-      <div className={`relative ${disableOnboarding ? `min-h-0 bg-gradient-to-b ${roundTheme.shell}` : 'min-h-screen'} overflow-hidden`} dir="rtl">
+      <div className={`relative ${disableOnboarding ? `h-full min-h-full w-full bg-gradient-to-b ${roundTheme.shell}` : 'min-h-screen'} overflow-hidden`} dir="rtl">
       {/* Animated gradient + orbs background — only when standalone (not embedded in event3) */}
       {!disableOnboarding && (
       <>
@@ -4799,7 +4798,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
       </div>
       </>
       )}
-      <div className={`relative z-10 max-w-md mx-auto px-4 ${disableOnboarding ? 'py-0' : 'py-4'}`}>
+      <div className={`relative z-10 ${disableOnboarding ? 'h-full min-h-full w-full' : 'mx-auto max-w-md px-4 py-4'}`}>
         {/* Professional Sticky Header with Glassmorphism (collapsible) — hidden when embedded in event3 */}
         {!disableOnboarding && (
         <motion.div layout transition={{ duration: 0.25 }} className={`sticky top-0 z-40 ${headerCollapsed ? 'bg-transparent border-transparent backdrop-blur-0 shadow-none mb-2 p-1.5' : 'bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-700/50 shadow-2xl mb-4 p-4'} rounded-3xl animate-in slide-in-from-top duration-300 transition-all`}>
@@ -4885,7 +4884,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
         )}
 
         {/* Mobile Game Content */}
-        <div className={`relative ${disableOnboarding ? 'bg-transparent border-transparent shadow-none p-0' : 'backdrop-blur-sm border border-slate-600/50 rounded-2xl shadow-xl overflow-hidden bg-slate-800/40 p-4'}`}>
+        <div className={`relative ${disableOnboarding ? 'event3-scroll h-full min-h-full w-full overflow-y-auto overscroll-contain bg-transparent p-0 shadow-none' : 'backdrop-blur-sm border border-slate-600/50 rounded-2xl shadow-xl overflow-hidden bg-slate-800/40 p-4'}`}>
           {/* Dynamic gradient background for embedded mode — matches carousel */}
           {disableOnboarding && selectedGameId && (() => {
             const g = games.find(gm => gm.id === selectedGameId);
@@ -4902,7 +4901,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
           })()}
           {/* Embedded back button — only when inside event3 and a game is selected */}
           {disableOnboarding && selectedGameId && (
-            <div className={`sticky top-0 z-20 grid grid-cols-[1fr_auto_1fr] items-center border-b bg-gray-950/80 px-4 py-2.5 backdrop-blur-xl ${roundTheme.border}`}>
+            <div className="sticky top-0 z-20 grid grid-cols-[1fr_auto_1fr] items-center border-b border-white/[0.07] bg-[#070914]/88 px-4 pb-2.5 pt-[max(.625rem,env(safe-area-inset-top))] backdrop-blur-2xl">
               <div className="flex items-center">
                 <button
                   type="button"
@@ -4935,7 +4934,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
               </div>
             </div>
           )}
-          <div className="relative z-10">
+          <div className={`relative z-10 ${disableOnboarding && !selectedGameId ? 'h-full min-h-full' : ''}`}>
           <AnimatePresence mode="wait">
             <motion.div
               ref={activityContentRef}
@@ -4961,7 +4960,11 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 }
                 activityFocusTargetRef.current = null;
               }}
-              className="focus:outline-none"
+              className={`focus:outline-none ${disableOnboarding
+                ? selectedGameId
+                  ? 'mx-auto min-h-full w-full max-w-md px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4'
+                  : 'h-full min-h-full w-full'
+                : ''}`}
             >
               {renderGameContent()}
             </motion.div>

@@ -62,18 +62,22 @@ test("Event3 client only clears identity for the explicit invalid-token code", a
   assert.match(fetchState, /if \(d\.my_info && typeof d\.my_info === "object"\) setMyInfo\(d\.my_info\)/)
 })
 
-test("Event3 organizer help stays above one-to-one session surfaces", async () => {
+test("Event3 organizer help stays above session surfaces and shares the live controls row", async () => {
   const route = await read("app/routes/event3.tsx")
   const support = between(route, "function SOSButton", "// ─── Phase 2 Reveal Screen")
   const supportMount = between(route, "{/* Keep help-chat state mounted", "{/* Mood check popup")
 
   assert.match(route, /fixed inset-0 z-\[220\][^\n]*h-\[100dvh\]/)
-  assert.match(support, /z-\[280\]/)
+  assert.match(support, /z-\[580\]/)
   assert.match(support, /<LifeBuoy size=\{14\}/)
   assert.match(support, /backdrop-blur-xl/)
   assert.match(route, /function OneToOneSupportButton\(\)/)
   assert.equal((route.match(/<OneToOneSupportButton \/>/g) || []).length, 2)
   assert.match(route, /triggerHidden=\{oneToOneSessionOpen\}/)
+  assert.match(route, /onReturnToBroadcastVisibilityChange=\{setReturnToBroadcastVisible\}/)
+  assert.match(supportMount, /alongsideBroadcast=\{returnToBroadcastVisible\}/)
+  assert.match(route, /ml-auto flex min-h-14 w-\[calc\(50%-0\.25rem\)\]/)
+  assert.match(support, /mr-auto min-h-14 w-\[calc\(50%-0\.25rem\)\]/)
   assert.match(support, /window\.addEventListener\(EVENT3_OPEN_SUPPORT_EVENT/)
   assert.match(support, /fixed inset-x-0 z-\[300\] mx-auto/)
   assert.doesNotMatch(support, /x: '-50%'|left-1\/2 -translate-x-1\/2/)

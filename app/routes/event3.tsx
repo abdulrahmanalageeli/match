@@ -6730,7 +6730,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                     </AnimatePresence>
                   </motion.div>
                   <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
-                    <QuestionSlideshow defaultSet="choice" />
+                    <QuestionSlideshow defaultSet="rhythm" />
                   </motion.div>
 
                   <details className="group rounded-2xl border border-white/[0.07] bg-white/[0.025] text-right">
@@ -7107,7 +7107,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                     </AnimatePresence>
                   </motion.div>
                   <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
-                    <QuestionSlideshow defaultSet={isThirdChoice ? "set2" : "set1"} />
+                    <QuestionSlideshow defaultSet={isThirdChoice ? "partnership" : "choice"} />
                   </motion.div>
 
                   <details className="group rounded-2xl border border-white/[0.07] bg-white/[0.025] text-right">
@@ -7651,7 +7651,7 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
           </div>
 
           <div role="tabpanel" aria-label={questionPhase === "phase1" ? "أسئلة اللقاء الأول" : questionPhase === "phase2" ? "أسئلة اللقاء الثاني" : "أسئلة اللقاء الثالث"}>
-            <QuestionSlideshow key={`final-${questionPhase}`} defaultSet={questionPhase === "phase1" ? "choice" : questionPhase === "phase2" ? "set1" : "set2"} />
+            <QuestionSlideshow key={`final-${questionPhase}`} defaultSet={questionPhase === "phase1" ? "rhythm" : questionPhase === "phase2" ? "choice" : "partnership"} />
           </div>
 
           <nav className="event3-status-header sticky bottom-3 z-20 mt-4 grid grid-cols-3 gap-2 rounded-2xl border border-white/10 p-2" aria-label="التنقل بعد الكشف النهائي">
@@ -9126,7 +9126,7 @@ export default function Event3Page() {
           <div className="mx-auto max-w-sm space-y-4 p-4 pb-8">
             <MeetingPass accent="pink" kind="لقاء اختيارك" partnerName="سارة" tableNumber={7} />
             <JourneyCue accent="pink" title="ابدأ اللقاء مع سارة" description="اسم الشريك والطاولة يبقيان ظاهرين — ركّز الآن على الحوار." steps={["وصلت", "ابدأ الحوار", "قيّم اللقاء"]} currentStep={1} />
-            <QuestionSlideshow defaultSet="choice" />
+            <QuestionSlideshow defaultSet="rhythm" />
             <details className="group rounded-2xl border border-white/[0.07] bg-white/[0.025] text-right">
               <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-xs font-bold text-gray-400">تحتاجون مساعدة في إدارة الحوار؟ <ChevronRight size={15} className="rotate-90" /></summary>
             </details>
@@ -9171,7 +9171,7 @@ export default function Event3Page() {
               عرض المرحلة {isPhaseOne ? "الثانية" : "الأولى"}
             </a>
           </div>
-          <QuestionSlideshow defaultSet={isPhaseOne ? "choice" : "set1"} />
+          <QuestionSlideshow defaultSet={isPhaseOne ? "rhythm" : "choice"} />
         </div>
       </main>
     )

@@ -115,10 +115,9 @@ function finalMatchPreferenceLabel(value: unknown, choiceOnly: boolean) {
 }
 
 type Event3Format = "classic" | "choice_only_three_groups"
-const CHOICE_ONLY_MIN_PARTICIPANTS = 16
-const CHOICE_ONLY_MAX_PARTICIPANTS = 42
+const CHOICE_ONLY_MIN_PARTICIPANTS = 6
 const choiceOnlyRosterReady = (count: number | null | undefined) => Number(count) >= CHOICE_ONLY_MIN_PARTICIPANTS
-  && Number(count) <= CHOICE_ONLY_MAX_PARTICIPANTS && Number(count) % 2 === 0
+  && Number(count) % 2 === 0
 
 type ChoiceSeatingTableReport = {
   table_number: number
@@ -400,14 +399,6 @@ function deriveChoiceSeatingCapacity(candidate: ChoiceSeatingCandidate) {
     maximumGroupSize: groupSizes.length ? Math.max(...groupSizes) : 0,
     totalPairSlots: groupsByRound.reduce((sum, groups) => sum + pairKeysForGroups(groups).size, 0),
   }
-}
-
-function choiceOnlyGroupSizes(participantCount: number) {
-  if (!choiceOnlyRosterReady(participantCount)) return []
-  const tableCount = Math.max(2, Math.ceil(participantCount / 6))
-  const baseSize = Math.floor(participantCount / tableCount)
-  const largerTables = participantCount % tableCount
-  return Array.from({ length: tableCount }, (_, index) => baseSize + (index < largerTables ? 1 : 0))
 }
 
 function deriveChoiceSeatingCoverage(candidate: ChoiceSeatingCandidate) {
@@ -1282,13 +1273,6 @@ export default function Admin3Page() {
   const [state, setState] = useState<any>(null)
   const eventFormat: Event3Format = state?.event_format === "choice_only_three_groups" ? "choice_only_three_groups" : "classic"
   const choiceOnly = eventFormat === "choice_only_three_groups"
-  const savedChoiceParticipantCount = Number(state?.participants_selected || 0)
-  const choiceTestGroupSizes = choiceOnlyGroupSizes(savedChoiceParticipantCount)
-  const choiceTestGroupDescription = choiceTestGroupSizes.length === 0
-    ? ""
-    : new Set(choiceTestGroupSizes).size === 1
-      ? `${choiceTestGroupSizes.length} مجموعات من ${choiceTestGroupSizes[0]} أشخاص`
-      : `${choiceTestGroupSizes.length} مجموعات بأحجام ${choiceTestGroupSizes.join("، ")}`
   const phases = choiceOnly ? CHOICE_ONLY_PHASES : CLASSIC_PHASES
   const groupRounds: Array<1 | 2 | 3> = choiceOnly ? [1, 2, 3] : [1, 2]
   const firstMatchLabel = choiceOnly ? "الاختيار الأول" : "اختيار المشاركين"
@@ -2413,7 +2397,7 @@ export default function Admin3Page() {
 
   const generateChoiceSeatingPreview = async () => {
     if (previewEventId != null) { toast.error("لا يمكن توليد الجلسات في وضع المعاينة التاريخية"); return }
-    if (!choiceOnlyRosterReady(state?.participants_selected)) { toast.error("يجب حفظ عدد زوجي من 16 إلى 42 مشاركاً قبل إنشاء خيارات الجلسات"); return }
+    if (!choiceOnlyRosterReady(state?.participants_selected)) { toast.error("يجب حفظ عدد زوجي لا يقل عن 6 مشاركين قبل إنشاء خيارات الجلسات"); return }
     const requestId = ++choicePreviewRequestGeneration.current
     const requestContext = choiceUiContextKeyRef.current
     const expectedContext = choiceSeatingExpectedContext()
@@ -2560,7 +2544,7 @@ export default function Admin3Page() {
   const saveParticipants = () => { if (previewEventId != null) { toast.error("لا يمكن تعديل المشاركين في وضع المعاينة"); return } run("save-participants", async () => {
     const minimumParticipants = 4
     if (choiceOnly && !choiceOnlyRosterReady(selectedNumbers.size))
-      return { error: `يجب اختيار عدد زوجي من 16 إلى 42 مشاركاً (تم اختيار ${selectedNumbers.size})` }
+      return { error: `يجب اختيار عدد زوجي لا يقل عن 6 مشاركين (تم اختيار ${selectedNumbers.size})` }
     if (!choiceOnly && selectedNumbers.size < minimumParticipants)
       return { error: `يجب اختيار ${minimumParticipants} مشاركين على الأقل (تم اختيار ${selectedNumbers.size})` }
     const data = await api("e3-set-participants", { participant_numbers: Array.from(selectedNumbers) })
@@ -2668,17 +2652,13 @@ export default function Admin3Page() {
 
   const startTestMode = async () => {
     if (previewEventId != null) { toast.error("لا يمكن بدء وضع الاختبار في وضع المعاينة"); return }
-    if (choiceOnly && !choiceOnlyRosterReady(savedChoiceParticipantCount)) {
-      toast.error("احفظ أولاً قائمة زوجية من 16 إلى 42 مشاركاً؛ سيستخدم وضع الاختبار العدد المحفوظ نفسه")
-      return
-    }
     const testModePrompt = choiceOnly
-      ? `بدء وضع الاختبار بـ${savedChoiceParticipantCount} مشاركاً (${savedChoiceParticipantCount / 2} من كل فئة) وتكوين ${choiceTestGroupDescription} في كل جولة؟ يمكنك استعادة البيانات عند الانتهاء.`
+      ? "بدء وضع الاختبار؟ سيختار النظام تلقائياً أكبر عدد متوازن من المشاركين الذين أكملوا جميع الأسئلة، من دون الحاجة إلى حفظ قائمة مسبقاً. يمكنك استعادة البيانات عند الانتهاء."
       : "بدء وضع الاختبار بـ36 مشاركاً (18 رجلاً و18 امرأة)؟ سيُختار أكبر قدر متاح من النتائج المحفوظة، وتبقى أي حسابات ناقصة مؤقتة داخل الاختبار. يمكنك استعادة بيانات الفعالية عند الانتهاء."
     if (!confirm(testModePrompt)) return
     setTestModeLoading(true)
     try {
-      const data = await api("e3-start-test-mode", choiceOnly ? { participant_count: savedChoiceParticipantCount } : {})
+      const data = await api("e3-start-test-mode")
       if (data.error) { toast.error(data.error); return }
       setTestMode(true)
       setTestModeData(data)
@@ -3009,7 +2989,7 @@ export default function Admin3Page() {
                 </div>
                 <p className="mt-1 text-[10px] leading-5 text-gray-500">
                   {choiceOnly
-                    ? "3 جولات مجموعات، حتى 6 أشخاص في كل مجموعة، ثم 3 لقاءات اختيار فردية متبادلة مع شريك مختلف في كل مرة."
+                    ? "3 جولات مجموعات تستهدف 6 أشخاص، وتستوعب الباقي بالتساوي، ثم 3 لقاءات اختيار فردية متبادلة مع شريك مختلف في كل مرة."
                     : "جولتا مجموعات، ثم اختيار المشاركين، ثم مطابقة الخوارزمية."}
                 </p>
               </div>
@@ -3068,7 +3048,7 @@ export default function Admin3Page() {
         {state && (
           <div className={`grid grid-cols-2 sm:grid-cols-3 ${choiceOnly ? "md:grid-cols-6" : "md:grid-cols-5"} gap-2 sm:gap-3`}>
             {[
-              { label: "المشاركون المختارون", value: choiceOnly ? `${state.participants_selected} (الحد 42)` : `${state.participants_selected}`, icon: Users, ok: choiceOnly ? choiceOnlyRosterReady(state.participants_selected) : (state.participants_selected || 0) >= 6 },
+              { label: "المشاركون المختارون", value: `${state.participants_selected}`, icon: Users, ok: choiceOnly ? choiceOnlyRosterReady(state.participants_selected) : (state.participants_selected || 0) >= 6 },
               { label: "خطة الجلسات", value: state.seating_generated ? "جاهزة ✓" : "لم تُولَّد", icon: Grid3x3, ok: state.seating_generated },
               { label: "التصنيفات المقدمة", value: `${state.rankings_submitted}/${state.participants_selected || 0}`, icon: BarChart3, ok: state.rankings_submitted > 0 && state.rankings_submitted >= (state.participants_selected || 1) },
               { label: choiceOnly ? "مطابقات الاختيار الأول" : "مطابقات المرحلة 2", value: state.phase2_matches_done ? "جاهزة ✓" : "—", icon: Trophy, ok: state.phase2_matches_done },
@@ -3150,7 +3130,7 @@ export default function Admin3Page() {
               {!testMode ? (
                 <button
                   onClick={startTestMode}
-                  disabled={testModeLoading || !!loading || previewEventId != null || (choiceOnly && !choiceOnlyRosterReady(savedChoiceParticipantCount))}
+                  disabled={testModeLoading || !!loading || previewEventId != null}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 text-xs font-medium transition-colors disabled:opacity-50"
                 >
                   {testModeLoading ? <Loader2 size={14} className="animate-spin" /> : <FlaskConical size={14} />}
@@ -3277,9 +3257,7 @@ export default function Admin3Page() {
           {!testMode && (
             <p className="text-xs text-gray-500">
               {choiceOnly
-                ? choiceOnlyRosterReady(savedChoiceParticipantCount)
-                  ? `يستخدم العدد المحفوظ نفسه: ${savedChoiceParticipantCount} مشاركاً (${savedChoiceParticipantCount / 2} من كل فئة)، مع ${choiceTestGroupDescription} عبر 3 جولات. تُستعاد بيانات الفعالية عند الإنهاء.`
-                  : "احفظ أولاً قائمة زوجية من 16 إلى 42 مشاركاً. سيستخدم وضع الاختبار العدد المحفوظ نفسه."
+                ? "يختار تلقائياً أكبر عدد متوازن من المشاركين الذين أكملوا جميع الأسئلة، ثم يوزعهم على مجموعات تستهدف 6 أشخاص. لا يلزم حفظ قائمة مسبقاً."
                 : "يختار 18 ذكراً و18 أنثى عشوائياً من المشاركين الذين أكملوا الاستبيان. يحذف جميع بيانات الاختبار عند الإنهاء."}
             </p>
           )}
@@ -3586,7 +3564,7 @@ export default function Admin3Page() {
                 </h3>
                 <div className="flex items-center gap-2">
                   <span className={`text-sm px-2 py-0.5 rounded-full ${(choiceOnly ? choiceOnlyRosterReady(selectedNumbers.size) : selectedNumbers.size >= 6) ? "bg-green-900 text-green-300" : "bg-gray-800 text-gray-400"}`}>
-                    {selectedNumbers.size}{choiceOnly ? " · الحد 42" : ""} مختار
+                    {selectedNumbers.size} مختار
                   </span>
                   {selectedNumbers.size > 0 && (() => {
                     const sel = participants.filter(p => selectedNumbers.has(p.number))
@@ -3818,7 +3796,7 @@ export default function Admin3Page() {
                   ...(choiceOnly ? [
                     {
                       label: "بدء الجولة الثالثة",
-                      desc: "25 دقيقة · حتى 6 أشخاص",
+                      desc: "25 دقيقة · تستهدف 6 أشخاص",
                       action: () => setPhaseWithTimer("round3", EVENT3_PHASE_SECONDS.round3, 3),
                       icon: Play,
                       color: "green",
@@ -4349,7 +4327,7 @@ export default function Admin3Page() {
 
             {choiceOnly ? (
               <div className="rounded-xl border border-violet-800/30 bg-violet-950/15 px-4 py-3 text-[11px] leading-5 text-violet-200/70">
-                خطة الجولات الثلاث تُولَّد كوحدة واحدة لتكوين مجموعات متوازنة لا تتجاوز 6 أشخاص وتقليل تكرار اللقاءات. عند اكتمال 42 مشاركاً تُستخدم 7 طاولات من 6 أشخاص بلا تكرار بين الجولات.
+                خطة الجولات الثلاث تُولَّد كوحدة واحدة لتكوين مجموعات متوازنة تستهدف 6 أشخاص وتقليل تكرار اللقاءات. تُوزّع الأعداد الإضافية على الطاولات بالتساوي؛ مثلاً 20 مشاركاً يصبحون 7، 7، 6.
               </div>
             ) : (
               <SeatingAlternatives

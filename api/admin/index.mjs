@@ -469,10 +469,9 @@ async function sendFinalConfirmation(participant, paymentWaived = false) {
 
 // ── Event 5.0 constants & helpers ─────────────────────────────────────────────
 const EVENT3_MATCH_ID = "00000000-0000-0000-0000-000000000003"
-const EVENT3_CHOICE_MIN_PARTICIPANTS = 16
-const EVENT3_CHOICE_MAX_PARTICIPANTS = 42
+const EVENT3_CHOICE_MIN_PARTICIPANTS = 6
 const validEvent3ChoiceRosterSize = count => Number(count) >= EVENT3_CHOICE_MIN_PARTICIPANTS
-  && Number(count) <= EVENT3_CHOICE_MAX_PARTICIPANTS && Number(count) % 2 === 0
+  && Number(count) % 2 === 0
 const EVENT3_KNOWN_PHASES = new Set(Object.keys(EVENT3_PHASE_TIMER_SECONDS))
 
 function event3ChoiceRankingSnapshot(rows = []) {
@@ -10058,7 +10057,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const invalidParticipantCount = diagnosticChoiceOnly ? !validEvent3ChoiceRosterSize(selectedNumbers.length) : selectedNumbers.length < 4
           if (epErr || invalidParticipantCount) {
             checks.push({ name: "participant_selection", status: "fail", message: epErr?.message || (diagnosticChoiceOnly
-              ? `${selectedNumbers.length} participants selected (choice-only requires an even roster of 16 to 42)`
+              ? `${selectedNumbers.length} participants selected (choice-only requires an even roster of at least 6)`
               : `Only ${selectedNumbers.length} participants selected (need at least 4)`) })
             healthy = false
           } else {
@@ -10452,7 +10451,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           }
           const participantFormat = await loadEvent3Format(supabase, EVENT3_MATCH_ID, currentEventId)
           if (isChoiceOnlyEvent3(participantFormat) && !validEvent3ChoiceRosterSize(participant_numbers.length)) {
-            return res.status(400).json({ error: "The three-group choice-only format requires an even roster of 16 to 42 participants" })
+            return res.status(400).json({ error: "The three-group choice-only format requires an even roster of at least 6 participants" })
           }
           if (isChoiceOnlyEvent3(participantFormat)) {
             const { error: rosterError } = await supabase.rpc("replace_event3_choice_roster", {
@@ -10543,7 +10542,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const seatingFormat = await loadEvent3Format(supabase, EVENT3_MATCH_ID, currentEventId)
           const choiceOnlySeating = isChoiceOnlyEvent3(seatingFormat)
           if (choiceOnlySeating && !validEvent3ChoiceRosterSize(participantNumbers.length)) {
-            return res.status(400).json({ error: "The three-group choice-only format requires an even roster of 16 to 42 participants" })
+            return res.status(400).json({ error: "The three-group choice-only format requires an even roster of at least 6 participants" })
           }
           if (choiceOnlySeating) {
             return res.status(409).json({
@@ -13846,31 +13845,19 @@ ${alternativeLines}
           })
         }
 
-        // e3-start-test-mode — select 18M+18F valid participants, maximize cached pairs,
+        // e3-start-test-mode — automatically select a balanced pool of complete profiles, maximize cached pairs,
         // keep cache misses read-only, and restore the pre-test runtime on exit
         if (action === "e3-start-test-mode") {
           const testEventFormat = await loadEvent3Format(supabase, EVENT3_MATCH_ID, currentEventId)
           const choiceOnlyTest = isChoiceOnlyEvent3(testEventFormat)
-          const requestedParticipantCount = req.body?.participant_count == null ? null : Number(req.body.participant_count)
-          if (choiceOnlyTest && requestedParticipantCount != null && !validEvent3ChoiceRosterSize(requestedParticipantCount)) {
-            return res.status(400).json({ error: "Choice-only test mode requires an even participant_count from 16 to 42" })
-          }
-          // 1. Fetch the candidate pool and the saved live roster. A choice-only
-          // test mirrors the live roster size when possible; otherwise it uses
-          // the largest balanced supported pool.
-          const [allParticipantResult, liveRosterResult] = await Promise.all([
-            supabase.from("participants")
-              .select("*")
-              .eq("match_id", STATIC_MATCH_ID)
-              .neq("assigned_number", 9999)
-              .order("assigned_number", { ascending: true }),
-            supabase.from("event3_participants")
-              .select("participant_number")
-              .eq("match_id", EVENT3_MATCH_ID)
-              .eq("event_id", currentEventId),
-          ])
+          // 1. Fetch every profile. Choice-only test mode deliberately ignores
+          // the saved live roster and selects its own eligible pool.
+          const allParticipantResult = await supabase.from("participants")
+            .select("*")
+            .eq("match_id", STATIC_MATCH_ID)
+            .neq("assigned_number", 9999)
+            .order("assigned_number", { ascending: true })
           if (allParticipantResult.error) return res.status(500).json({ error: allParticipantResult.error.message })
-          if (liveRosterResult.error) return res.status(500).json({ error: liveRosterResult.error.message })
           const allP = allParticipantResult.data || []
 
           // 2. Filter to valid (complete survey) participants
@@ -13879,23 +13866,20 @@ ${alternativeLines}
           const isFemale = participant => ["f", "female", "woman", "أنثى", "انثى"].includes(normalizedGender(participant)) || normalizedGender(participant).startsWith("female")
           const valid = allP.filter(p => {
             try { if (typeof p.survey_data === "string") p.survey_data = JSON.parse(p.survey_data || "{}") } catch {}
-            return choiceOnlyTest
-              ? Number.isInteger(Number(p.assigned_number)) && Number(p.assigned_number) > 0 && (isMale(p) || isFemale(p))
-              : isParticipantComplete(p)
+            return isParticipantComplete(p)
+              && (!choiceOnlyTest || (Number.isInteger(Number(p.assigned_number)) && Number(p.assigned_number) > 0 && (isMale(p) || isFemale(p))))
           })
 
           const males = valid.filter(isMale)
           const females = valid.filter(isFemale)
-          const savedRosterCount = (liveRosterResult.data || []).length
-          const largestBalancedChoiceCount = Math.min(EVENT3_CHOICE_MAX_PARTICIPANTS, Math.min(males.length, females.length) * 2)
+          const largestBalancedChoiceCount = Math.min(males.length, females.length) * 2
           const requiredParticipants = choiceOnlyTest
-            ? requestedParticipantCount
-              ?? (validEvent3ChoiceRosterSize(savedRosterCount) ? savedRosterCount : largestBalancedChoiceCount)
+            ? largestBalancedChoiceCount
             : 36
           const requiredPerGender = requiredParticipants / 2
 
           if (choiceOnlyTest && !validEvent3ChoiceRosterSize(requiredParticipants)) {
-            return res.status(400).json({ error: `Choice-only test mode needs at least 8 eligible men and 8 eligible women. Found ${males.length}M / ${females.length}F.` })
+            return res.status(400).json({ error: `Choice-only test mode needs at least 3 eligible men and 3 eligible women who completed every question. Found ${males.length}M / ${females.length}F.` })
           }
 
           if (males.length < requiredPerGender || females.length < requiredPerGender) {

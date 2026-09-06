@@ -2,6 +2,7 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto"
 
 import { CHOICE_ONLY_SEATING_OBJECTIVE_VERSION } from "./choice-only-seating.mjs"
 import {
+  choiceOnlyTargetGroupSizes,
   FLEXIBLE_CHOICE_SEATING_LIMITS,
   FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION,
 } from "./flexible-choice-seating.mjs"
@@ -51,13 +52,17 @@ function assignmentsForPlan(plan, expectedParticipantNumbers) {
   const assignments = []
   const expected = [...new Set((expectedParticipantNumbers || plan?.round1?.flat() || []).map(Number))]
   const expectedSet = new Set(expected)
-  if (expected.length < FLEXIBLE_CHOICE_SEATING_LIMITS.minimumParticipants
-    || expected.length > FLEXIBLE_CHOICE_SEATING_LIMITS.maximumParticipants) {
+  if (expected.length < FLEXIBLE_CHOICE_SEATING_LIMITS.minimumParticipants || expected.length % 2 !== 0) {
     throw fail("A seating candidate contained an unsupported participant count", 500)
   }
+  const expectedGroupSizes = choiceOnlyTargetGroupSizes(expected.length).sort((left, right) => right - left)
   for (const [roundIndex, groups] of [plan?.round1, plan?.round2, plan?.round3].entries()) {
-    if (!Array.isArray(groups) || groups.length < 2
-      || groups.some(group => !Array.isArray(group) || group.length < 1 || group.length > FLEXIBLE_CHOICE_SEATING_LIMITS.maximumGroupSize)) {
+    const actualGroupSizes = Array.isArray(groups)
+      ? groups.map(group => Array.isArray(group) ? group.length : 0).sort((left, right) => right - left)
+      : []
+    if (!Array.isArray(groups) || groups.length < 1
+      || actualGroupSizes.length !== expectedGroupSizes.length
+      || actualGroupSizes.some((size, index) => size !== expectedGroupSizes[index])) {
       throw fail("A seating candidate contained an invalid table layout", 500)
     }
     for (const [tableIndex, group] of groups.entries()) {
@@ -318,9 +323,8 @@ async function loadChoiceContext(db, eventId) {
   }
   if (!Array.isArray(roster)
     || roster.length < FLEXIBLE_CHOICE_SEATING_LIMITS.minimumParticipants
-    || roster.length > FLEXIBLE_CHOICE_SEATING_LIMITS.maximumParticipants
     || roster.length % 2 !== 0) {
-    throw fail(`The three-round format requires an even roster of ${FLEXIBLE_CHOICE_SEATING_LIMITS.minimumParticipants} to ${FLEXIBLE_CHOICE_SEATING_LIMITS.maximumParticipants} selected participants`, 400)
+    throw fail(`The three-round format requires an even roster of at least ${FLEXIBLE_CHOICE_SEATING_LIMITS.minimumParticipants} selected participants`, 400)
   }
   const participantNumbers = roster.map(row => Number(row.participant_number))
   if (participantNumbers.some(number => !Number.isInteger(number) || number <= 0) || new Set(participantNumbers).size !== participantNumbers.length) {

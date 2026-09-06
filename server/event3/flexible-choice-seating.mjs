@@ -2,16 +2,15 @@ import { normalizedGender } from "./round2-age-optimizer.mjs"
 import { scoreRound1SparkGroup } from "./round1-spark.mjs"
 import { createRoundLensScorer } from "./round23-lenses.mjs"
 
-const MIN_PARTICIPANTS = 16
-const MAX_PARTICIPANTS = 42
-const MAX_GROUP_SIZE = 6
-export const FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION = "spark-depth-rhythm-v2-flexible-six-person"
+const MIN_PARTICIPANTS = 6
+const TARGET_GROUP_SIZE = 6
+export const FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION = "spark-depth-rhythm-v3-flexible-six-seat-target"
 
 const pairKey = (left, right) => `${Math.min(Number(left), Number(right))}-${Math.max(Number(left), Number(right))}`
 
 function normalizeParticipants(values) {
-  if (!Array.isArray(values) || values.length < MIN_PARTICIPANTS || values.length > MAX_PARTICIPANTS || values.length % 2 !== 0) {
-    return { error: `Choice-only seating requires an even roster of ${MIN_PARTICIPANTS} to ${MAX_PARTICIPANTS} participants` }
+  if (!Array.isArray(values) || values.length < MIN_PARTICIPANTS || values.length % 2 !== 0) {
+    return { error: `Choice-only seating requires an even roster of at least ${MIN_PARTICIPANTS} participants` }
   }
   const participants = values.map(value => Number(value?.participant_number ?? value?.assigned_number ?? value))
   if (participants.some(number => !Number.isInteger(number) || number <= 0)) {
@@ -43,8 +42,9 @@ function shuffled(values, seed) {
   return result
 }
 
-function targetSizes(participantCount) {
-  const tableCount = Math.max(2, Math.ceil(participantCount / MAX_GROUP_SIZE))
+export function choiceOnlyTargetGroupSizes(participantCount) {
+  if (!Number.isInteger(participantCount) || participantCount < MIN_PARTICIPANTS || participantCount % 2 !== 0) return []
+  const tableCount = Math.max(1, Math.floor(participantCount / TARGET_GROUP_SIZE))
   const base = Math.floor(participantCount / tableCount)
   const remainder = participantCount % tableCount
   return Array.from({ length: tableCount }, (_, index) => base + (index < remainder ? 1 : 0))
@@ -224,7 +224,7 @@ function changedMemberships(leftGroups, rightGroups) {
 }
 
 function buildCandidate(participants, options, seed) {
-  const sizes = targetSizes(participants.length)
+  const sizes = choiceOnlyTargetGroupSizes(participants.length)
   const lenses = createRoundLensScorer(options)
   const round1Start = initialGroups(participants, sizes, seed * 101 + 17, options.genderMap)
   const round1 = optimize(round1Start, {
@@ -284,9 +284,11 @@ function buildCandidate(participants, options, seed) {
 export function buildFlexibleChoiceOnlySeatingCandidates(values, options = {}) {
   const normalized = normalizeParticipants(values)
   if (normalized.error) return normalized
-  const pool = Array.from({ length: 6 }, (_, index) => buildCandidate(normalized.participants, options, index + 1))
-    .filter(candidate => candidate.plan.round3Rhythm.repeatMetrics.repeatedInAllThree === 0)
+  const allCandidates = Array.from({ length: 6 }, (_, index) => buildCandidate(normalized.participants, options, index + 1))
     .sort((left, right) => compareVectors(left.sortKey, right.sortKey))
+  const repeatSafeCandidates = allCandidates
+    .filter(candidate => candidate.plan.round3Rhythm.repeatMetrics.repeatedInAllThree === 0)
+  const pool = repeatSafeCandidates.length >= 3 ? repeatSafeCandidates : allCandidates
   const selected = []
   const seen = new Set()
   for (const candidate of pool) {
@@ -297,7 +299,11 @@ export function buildFlexibleChoiceOnlySeatingCandidates(values, options = {}) {
     selected.push(candidate)
     if (selected.length === 3) break
   }
-  if (selected.length !== 3) return { error: "Could not construct three distinct flexible seating candidates" }
+  for (const candidate of pool) {
+    if (selected.length === 3) break
+    if (!selected.includes(candidate)) selected.push(candidate)
+  }
+  if (selected.length !== 3) return { error: "Could not construct three flexible seating candidates" }
   const candidates = selected.map((candidate, index) => ({
     id: `flex-${normalized.participants.length}-${candidate.seed}`,
     rank: index + 1,
@@ -324,13 +330,12 @@ export function buildFlexibleChoiceOnlySeatingCandidates(values, options = {}) {
   }))
   return {
     objectiveVersion: FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION,
-    diversityPolicy: { flexible: true, maximumGroupSize: MAX_GROUP_SIZE },
+    diversityPolicy: { flexible: true, targetGroupSize: TARGET_GROUP_SIZE },
     candidates,
   }
 }
 
 export const FLEXIBLE_CHOICE_SEATING_LIMITS = Object.freeze({
   minimumParticipants: MIN_PARTICIPANTS,
-  maximumParticipants: MAX_PARTICIPANTS,
-  maximumGroupSize: MAX_GROUP_SIZE,
+  targetGroupSize: TARGET_GROUP_SIZE,
 })

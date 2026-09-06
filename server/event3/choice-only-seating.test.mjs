@@ -8,7 +8,10 @@ import {
   choiceOnlySeatingMetrics,
 } from "./choice-only-seating.mjs"
 import { createRoundLensScorer } from "./round23-lenses.mjs"
-import { FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION } from "./flexible-choice-seating.mjs"
+import {
+  choiceOnlyTargetGroupSizes,
+  FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION,
+} from "./flexible-choice-seating.mjs"
 
 const participants = Array.from({ length: 42 }, (_, index) => index + 1)
 
@@ -396,19 +399,32 @@ test("accepts participant records and preserves their supplied order in the posi
   assertRound(plan.round1)
 })
 
-test("builds balanced flexible plans below 42 and rejects invalid rosters", () => {
-  const flexibleParticipants = participants.slice(0, 30)
-  const generated = buildChoiceOnlySeatingCandidates(flexibleParticipants)
-  assert.equal(generated.candidates.length, 3)
-  assert.equal(generated.objectiveVersion, FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION)
-  for (const candidate of generated.candidates) {
-    for (const round of [candidate.plan.round1, candidate.plan.round2, candidate.plan.round3]) {
-      assert.deepEqual(round.map(group => group.length), [6, 6, 6, 6, 6])
-      assert.deepEqual([...round.flat()].sort((a, b) => a - b), flexibleParticipants)
+test("targets six-person tables and distributes every remainder into larger groups", () => {
+  const expectedSizes = new Map([
+    [6, [6]],
+    [8, [8]],
+    [12, [6, 6]],
+    [18, [6, 6, 6]],
+    [20, [7, 7, 6]],
+    [22, [8, 7, 7]],
+    [30, [6, 6, 6, 6, 6]],
+    [44, [7, 7, 6, 6, 6, 6, 6]],
+  ])
+  for (const [count, sizes] of expectedSizes) {
+    const flexibleParticipants = Array.from({ length: count }, (_, index) => index + 1)
+    assert.deepEqual(choiceOnlyTargetGroupSizes(count), sizes)
+    const generated = buildChoiceOnlySeatingCandidates(flexibleParticipants)
+    assert.equal(generated.candidates.length, 3)
+    assert.equal(generated.objectiveVersion, FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION)
+    for (const candidate of generated.candidates) {
+      for (const round of [candidate.plan.round1, candidate.plan.round2, candidate.plan.round3]) {
+        assert.deepEqual(round.map(group => group.length), sizes)
+        assert.deepEqual([...round.flat()].sort((a, b) => a - b), flexibleParticipants)
+      }
     }
   }
-  assert.match(buildChoiceOnlySeatingPlan(participants.slice(0, 15)).error, /even roster of 16 to 42/)
-  assert.match(buildChoiceOnlySeatingPlan(participants.slice(0, 29)).error, /even roster/)
+  assert.match(buildChoiceOnlySeatingPlan(participants.slice(0, 4)).error, /even roster of at least 6/)
+  assert.match(buildChoiceOnlySeatingPlan(participants.slice(0, 7)).error, /even roster/)
   assert.match(buildChoiceOnlySeatingPlan([...participants.slice(0, 41), 41]).error, /unique/)
   assert.match(buildChoiceOnlySeatingPlan(participants, {
     requireCompleteLensProfiles: true,

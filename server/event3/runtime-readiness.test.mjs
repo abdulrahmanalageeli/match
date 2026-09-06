@@ -23,7 +23,7 @@ function completeRuntime(count) {
   return { participantNumbers, assignments, matches }
 }
 
-for (const count of [16, 30, 42]) {
+for (const count of [6, 16, 20, 30, 42, 44]) {
   test(`requires full seating and reciprocal match coverage for ${count} participants`, () => {
     const readiness = buildEvent3RuntimeReadiness({ ...completeRuntime(count), includePhase4: true })
     assert.equal(readiness.seating.complete, true)

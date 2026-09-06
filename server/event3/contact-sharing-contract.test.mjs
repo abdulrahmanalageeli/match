@@ -39,7 +39,7 @@ test('the shared feedback flow submits every one-to-one round and renders custom
   assert.match(event3Source, /contactMethod === 'message'/)
   assert.match(event3Source, /value=\{fb\.contactMessage\}/)
   assert.equal(event3Source.match(/<RockPaperScissors accent=/g)?.length, 1)
-  assert.match(event3Source, /defaultSet=\{isThirdChoice \? "set2" : "set1"\}/)
+  assert.match(event3Source, /defaultSet=\{isThirdChoice \? "partnership" : "choice"\}/)
   assert.match(event3Source, /onSubmitWord=\{submitWord\}/)
   assert.match(resultsSource, /match\.partner_contact_method === 'message'/)
   assert.match(resultsSource, /\{match\.partner_contact_message\}/)

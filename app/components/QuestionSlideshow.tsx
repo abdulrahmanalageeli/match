@@ -39,11 +39,14 @@ export function LevelIcon({ icon, className = "w-4 h-4 text-white" }: { icon: st
 type QuestionSet = 'choice' | 'special' | 'set1' | 'set2' | 'rhythm' | 'partnership'
 
 function availableQuestionSets(defaultSet: QuestionSet): QuestionSet[] {
-  // Phase 2 opens with everyday rhythm; Phase 3 opens with partnership.
-  // The other tracks remain available when a pair wants a different direction.
-  if (defaultSet === 'choice') return ['rhythm', 'choice', 'set1', 'set2']
-  if (defaultSet === 'special') return ['rhythm', 'special', 'set1', 'set2']
-  return ['partnership', 'set1', 'set2']
+  // Always honor the route's default while keeping a few alternate tracks
+  // available when a pair wants to take the conversation elsewhere.
+  if (defaultSet === 'rhythm') return ['rhythm', 'choice', 'set1', 'set2']
+  if (defaultSet === 'choice') return ['choice', 'partnership', 'set1', 'set2']
+  if (defaultSet === 'partnership') return ['partnership', 'set1', 'set2']
+  if (defaultSet === 'special') return ['special', 'rhythm', 'set1', 'set2']
+  if (defaultSet === 'set1') return ['set1', 'partnership', 'set2']
+  return ['set2', 'partnership', 'set1']
 }
 
 const setDescription: Record<QuestionSet, string> = {

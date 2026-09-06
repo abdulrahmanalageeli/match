@@ -8,6 +8,10 @@ const migration = await readFile(new URL(
   "../../supabase/migrations/20260905125242_harden_event3_variable_test_runtime.sql",
   import.meta.url,
 ), "utf8")
+const flexibleRosterMigration = await readFile(new URL(
+  "../../supabase/migrations/20260906022606_allow_flexible_event3_rosters.sql",
+  import.meta.url,
+), "utf8")
 
 function action(name, nextMarker) {
   const start = api.indexOf(`if (action === "${name}") {`)
@@ -56,11 +60,14 @@ test("admin readiness is based on exact seating and reciprocal match coverage", 
   assert.match(state, /runtime_readiness: readiness/)
 })
 
-test("choice test mode follows the requested or saved flexible roster size", () => {
+test("choice test mode automatically selects the largest balanced pool of fully completed profiles", () => {
   const start = action("e3-start-test-mode", "// e3-end-test-mode")
-  assert.match(start, /req\.body\?\.participant_count/)
-  assert.match(start, /validEvent3ChoiceRosterSize\(savedRosterCount\)/)
+  assert.doesNotMatch(start, /req\.body\?\.participant_count/)
+  assert.doesNotMatch(start, /savedRosterCount/)
+  assert.match(start, /isParticipantComplete\(p\)/)
   assert.match(start, /largestBalancedChoiceCount/)
+  assert.match(start, /Math\.min\(males\.length, females\.length\) \* 2/)
+  assert.match(start, /\? largestBalancedChoiceCount\s+: 36/)
   assert.match(start, /requiredPerGender = requiredParticipants \/ 2/)
   assert.doesNotMatch(start, /choiceOnlyTest \? 21 : 18/)
 })
@@ -71,6 +78,8 @@ test("test runtime snapshots and restores attendance, support, and reflections",
     assert.match(migration, new RegExp(`jsonb_populate_recordset\\(\\s*null::public\\.${key}`))
   }
   assert.match(migration, /v_selected_count < 16 or v_selected_count > 42 or v_selected_count % 2 <> 0/)
+  assert.match(flexibleRosterMigration, /v_selected_count < 6 or v_selected_count % 2 <> 0/)
+  assert.doesNotMatch(flexibleRosterMigration, /v_selected_count < 6 or v_selected_count > 42/)
   assert.match(migration, /delete from public\.event3_choice_seating_reports[\s\S]*is_test_mode = true/)
 })
 

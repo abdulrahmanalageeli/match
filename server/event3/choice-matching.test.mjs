@@ -164,7 +164,7 @@ test("the real 42-person three-group plan yields three complete reciprocal choic
   for (const partners of previousPartners.values()) assert.equal(partners.size, 3)
 })
 
-for (const participantCount of [16, 30]) {
+for (const participantCount of [6, 16, 20, 30, 44]) {
   test(`${participantCount}-person three-group plans yield three complete, non-repeating reciprocal rounds`, () => {
     const participantNumbers = Array.from({ length: participantCount }, (_, index) => index + 1)
     const seating = buildChoiceOnlySeatingPlan(participantNumbers)
@@ -196,7 +196,7 @@ for (const participantCount of [16, 30]) {
   })
 }
 
-for (const participantCount of [16, 30, 42]) {
+for (const participantCount of [6, 16, 20, 30, 42, 44]) {
   test(`${participantCount}-person live policy completes two individual-priority rounds and one global round`, () => {
     const participantNumbers = Array.from({ length: participantCount }, (_, index) => index + 1)
     const seating = buildChoiceOnlySeatingPlan(participantNumbers)

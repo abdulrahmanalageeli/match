@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useRef } from "react";
-import { Navigate } from "react-router";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { Navigate, useLocation } from "react-router";
 import {
   Clock,
   Users,
@@ -43,6 +43,7 @@ import { Smartphone, Link as LinkIcon, Bell } from "lucide-react";
 import PromptTopicsModal from "../components/PromptTopicsModal";
 import { OnboardingModal } from "../components/groups/OnboardingModal";
 import PhoneEntry from "../components/groups/PhoneEntry";
+import { getEvent3GroupRoundTheme } from "../lib/event3-group-round-theme";
 import { animate } from "motion";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -59,7 +60,14 @@ interface Game {
   color: string;
 }
 
-const HOT_SEAT_DURATION_SECONDS = 90;
+export type SharedGroupContent = {
+  kind: "activity" | "question";
+  title: string;
+  body: string;
+  activity_id: string;
+};
+
+const HOT_SEAT_DURATION_SECONDS = 60;
 
 // Conversational activities first, then game/party activities
 const games: Game[] = [
@@ -67,9 +75,9 @@ const games: Game[] = [
     id: "hot-seat",
     name: "Hot Seat",
     nameAr: "الكرسي الساخن",
-    description: "Each person gets 90 seconds in the hot seat — anyone can ask anything",
-    descriptionAr: "كل شخص يجلس على الكرسي الساخن لمدة دقيقة ونصف والجميع يسألونه أي سؤال",
-    duration: 9,
+    description: "Each person gets one minute with engaging prompts that reveal their personality",
+    descriptionAr: "لكل شخص دقيقة واحدة مع أسئلة ممتعة تكشف شخصيته وطريقة تواصله",
+    duration: 6,
     icon: <Mic className="w-6 h-6" />,
     color: "from-amber-500 to-orange-600"
   },
@@ -797,8 +805,72 @@ const wouldYouRatherQuestions = [
   }
 ];
 
-// ماذا تفعل لو؟ – أسئلة شخصية عميقة
+// ماذا تفعل لو؟ – مواقف اجتماعية وعاطفية تكشف أسلوب التفكير والتواصل
 const whatWouldYouDoScenarios: string[] = [
+  // بدايات خفيفة تكسر الرسميات
+  "ماذا تفعل لو أعطوكم رحلة مجانية الليلة لكن لازم تختارون الوجهة خلال خمس دقائق؟ كيف تحسمونها؟",
+  "ماذا تفعل لو انقطع الإنترنت عنك يوماً كاملاً؟ كيف تقضي يومك ومن أول شخص تبحث عنه؟",
+  "ماذا تفعل لو اكتشفت أن كل المجموعة فهمت عنك انطباعاً أولياً غير صحيح؟ كيف تغيّره؟",
+  "ماذا تفعل لو طلبوا منك تختار أغنية واحدة تصف مزاجك هذه الفترة؟ وش تختار وليه؟",
+  "ماذا تفعل لو عندك يوم كامل بلا التزامات ولا أحد يقدر يتواصل معك؟ كيف تعيشه؟",
+  "ماذا تفعل لو وصلت مكاناً جديداً وما تعرف فيه أحداً؟ تنتظر أحد يفتح معك سالفة أو تبدأ أنت؟",
+  "ماذا تفعل لو كان لازم تتنازل للأبد عن القهوة أو السفر؟ وش تختار تحتفظ فيه وليه؟",
+  "ماذا تفعل لو أصدقاءك قرروا لك نشاطاً ما جربته ولا يشبهك؟ تدخل التجربة أو تعتذر؟",
+  "ماذا تفعل لو ضعت مع شخص تعرفت عليه للتو في مدينة جديدة؟ من فيكم تتوقع يمسك زمام الأمور؟",
+  "ماذا تفعل لو صار عندك كرسي واحد فاضي على سفرة عشاء؟ من الشخص الذي تتمنى يجلس فيه؟",
+
+  // تواصل وانطباعات وحدود
+  "ماذا تفعل لو كنت تتكلم بحماس ولاحظت أن شخصاً في المجموعة يحاول يدخل الحوار وما قدر؟",
+  "ماذا تفعل لو شخص فهم مزحتك بطريقة جارحة وأنت ما كنت تقصد؟",
+  "ماذا تفعل لو أحد قاطعك أكثر من مرة وأنت تحاول تقول شيئاً مهماً؟",
+  "ماذا تفعل لو شخص قريب منك قال: «أنت ما تسمعني، أنت بس تنتظر دورك تتكلم»؟",
+  "ماذا تفعل لو شاركت شخصاً شيئاً خاصاً ثم نقله لغيره بدون قصد سيئ؟",
+  "ماذا تفعل لو أحد طلب رأيك الصريح في شيء تعرف أن إجابتك قد تزعله؟",
+  "ماذا تفعل لو اعتذر لك شخص بكلام جميل لكن تصرفه ما تغيّر؟",
+  "ماذا تفعل لو اختلفت مع شخص تحبه أمام مجموعة؟ تكمل النقاش، تؤجله، أو تغيّر أسلوبك؟",
+  "ماذا تفعل لو حسيت أن شخصاً جديداً ارتاح لك وبدأ يشاركك أكثر مما أنت مستعد تسمعه؟",
+  "ماذا تفعل لو شخص قريب احتاج مساحة واختفى يومين بدون شرح؟ تعطيه مساحته أو تطلب وضوحاً؟",
+  "ماذا تفعل لو أحد وضع لك حداً ما فهمته أو ما اقتنعت فيه؟",
+  "ماذا تفعل لو اكتشفت بعد نقاش طويل أنك كنت فاهم الموقف غلط من البداية؟",
+  "ماذا تفعل لو لاحظت أن شخصاً هادئاً يُحكم عليه بأنه غير مهتم؟",
+  "ماذا تفعل لو صديق قال لك: «أحتاجك تسمعني فقط، لا تعطيني حلولاً» وأنت ترى الحل بوضوح؟",
+  "ماذا تفعل لو مزاجك سيئ وعندك موعد مع أشخاص ينتظرون حضورك؟ تصارحهم، تعتذر، أو تحاول تتجاوز؟",
+
+  // قرب وعلاقات واختلافات واقعية
+  "ماذا تفعل لو ارتحت لشخص جداً لكن أسلوب تواصله مختلف تماماً عن أسلوبك؟",
+  "ماذا تفعل لو الشخص الذي يهمك يحب التواصل يومياً وأنت تحتاج وقتاً ومساحة لنفسك؟",
+  "ماذا تفعل لو شخص يعجبك يتأخر دائماً عن المواعيد لكنه ممتاز في كل شيء آخر؟",
+  "ماذا تفعل لو شخص مهم لك نسي مناسبة تعني لك الكثير؟",
+  "ماذا تفعل لو علاقتك بشخص جميلة وجادة لكن كل واحد منكم يتخيل حياته اليومية بطريقة مختلفة؟",
+  "ماذا تفعل لو شخص تحبه يعبّر بالأفعال وأنت تحتاج تسمع الكلام بوضوح؟",
+  "ماذا تفعل لو بدأت تشعر بالغيرة لكن ما عندك دليل أن فيه شيء غلط؟",
+  "ماذا تفعل لو شخص قريب منك طلب وقتاً ليفكر بعد حوار مهم؟ كم تنتظر قبل ما ترجع للموضوع؟",
+  "ماذا تفعل لو اكتشفت أن الشيء الذي تعتبره اهتماماً يراه الطرف الآخر ضغطاً؟",
+  "ماذا تفعل لو كان بينك وبين شخص انسجام واضح لكنه يتحرك في العلاقة أبطأ منك؟",
+  "ماذا تفعل لو أهلك أو أصدقاؤك ما ارتاحوا لشخص ارتحت له، لكن ما عندهم سبب واضح؟",
+  "ماذا تفعل لو شخص تحبه اتخذ قراراً كبيراً يخصه لكنه يؤثر على وقتكم معاً؟",
+  "ماذا تفعل لو تكرر خلاف صغير بينك وبين شخص قريب رغم أنكم تكلمتم عنه أكثر من مرة؟",
+  "ماذا تفعل لو قال لك شخص: «أنا مهتم، لكني مو جاهز أوعدك بشيء الآن»؟",
+  "ماذا تفعل لو كنت تحتاج دعماً عاطفياً والطرف الآخر يحاول يحل المشكلة بدلاً من احتوائك؟",
+
+  // قيم واختيارات تكشف الشخصية بدون أسلوب المقابلات
+  "ماذا تفعل لو خيّروك بين حياة هادئة ومتوقعة أو حياة مليئة بالمفاجآت والتجارب؟",
+  "ماذا تفعل لو اضطررت تختار بين قول حقيقة مزعجة الآن أو تأجيلها لوقت أنسب؟",
+  "ماذا تفعل لو وعدت شخصاً بشيء ثم اكتشفت أن الوفاء بالوعد سيضغطك أكثر مما توقعت؟",
+  "ماذا تفعل لو شخص عزيز عليك احتاج قراراً منك، وقلبك وعقلك يعطونك جوابين مختلفين؟",
+  "ماذا تفعل لو اكتشفت أنك تعطي شخصاً أكثر بكثير مما يعطيك، لكنه يمر بظرف صعب؟",
+  "ماذا تفعل لو عرفت أن صديقين مختلفين، وكل واحد منهم يحكي لك نسخة مختلفة تماماً؟",
+  "ماذا تفعل لو رجع شخص انقطعت علاقتك به وطلب بداية جديدة بدون فتح الماضي؟",
+  "ماذا تفعل لو كان الصمت يحل الخلاف أسرع، لكن الكلام الصريح قد يمنع تكراره؟",
+  "ماذا تفعل لو لازم تختار بين خطة مثالية بعد شهر أو تجربة عفوية الليلة؟",
+  "ماذا تفعل لو عرفت أن حكمك الأول على شخص كان ظالماً، لكنه لا يعرف أنك حكمت عليه؟",
+  "ماذا تفعل لو قدرت تعرف إجابة صادقة عن سؤال واحد يخص مستقبلك العاطفي؟ وش تسأل؟",
+  "ماذا تفعل لو كان بإمكانك الاحتفاظ بذكرى واحدة واضحة جداً ونسيان بقية التفاصيل؟ أي ذكرى تختار؟",
+  "ماذا تفعل لو قابلت نسخة منك تشبهك في كل شيء؟ تتوقع تنسجمون أو تختلفون؟ وليه؟",
+  "ماذا تفعل لو كان لازم تختار صفة واحدة يفهمك بها الناس دائماً بشكل صحيح؟ وش تختار؟",
+  "ماذا تفعل لو اكتشفت أن الراحة مع شخص والأمان معه موجودان، لكن الحماس بطيء؟ تعطي العلاقة وقتاً أو تعتمد على إحساسك الأول؟",
+
+  // أسئلة عميقة من المجموعة الأصلية
   "ماذا تفعل لو اكتشفت أن صديقك المقرّب يخفي عنك سرًا كبيرًا؟ كيف تتعامل مع الموقف؟",
   "ماذا تفعل لو وجدت مبلغًا كبيرًا من المال في مكان عام؟ كيف تتصرف ولماذا؟",
   "ماذا تفعل لو طلب منك شخص غريب مساعدة عاجلة في وقت متأخر من الليل؟",
@@ -811,57 +883,109 @@ const whatWouldYouDoScenarios: string[] = [
   "ماذا تفعل لو وجدت نفسك في علاقة سامة؟ كيف تخرج منها؟",
   "ماذا تفعل لو تعرضت للظلم أمام الآخرين؟ كيف تدافع عن نفسك؟",
   "ماذا تفعل لو وقعت في حب شخص من ثقافة مختلفة؟ كيف تتعامل مع التحديات؟",
-  "ماذا تفعل لو اكتشفت أن صديقك يتعاطى المخدرات؟ كيف تساعده؟",
   "ماذا تفعل لو خُيرت بين مساعدة صديق أو شخص غريب في أزمة؟",
   "ماذا تفعل لو اكتشفت أن شريكك يقرأ رسائلك الخاصة؟ كيف ترد؟",
   "ماذا تفعل لو طُلب منك الكذب لإنقاذ موقف محرج؟ هل تكذب أم تصارح بالحقيقة؟",
-  "ماذا تفعل لو اكتشفت أنك تعاني من مشكلة نفسية؟ كيف تتعامل مع الأمر؟",
-  "ماذا تفعل لو تعرضت للتنمر؟ كيف تدافع عن نفسك؟",
-  "ماذا تفعل لو اكتشفت أنك لست الابن البيولوجي لوالديك؟ كيف تتعامل مع هذه المعلومة؟",
   "ماذا تفعل لو وقعت في حب شخصين في نفس الوقت؟ كيف تختار؟",
   "ماذا تفعل لو طُلب منك التضحية بحلمك من أجل شخص تحبه؟",
   "ماذا تفعل لو اكتشفت أن صديقك يسرق من المتاجر؟ كيف تتصرف؟",
   "ماذا تفعل لو وقعت في حب شخص لا يتقبله أهلك؟",
-  "ماذا تفعل لو اكتشفت أن شريكك السابق يتجسس عليك؟",
-  "ماذا تفعل لو اكتشفت أن زميلاً ينسب أفكارك لنفسه أمام الإدارة؟",
-  "ماذا تفعل لو تلقيت عرض عمل مغرياً من منافس لشركتك الحالية؟",
   "ماذا تفعل لو علمت أن جمعية تبرعت لها تُسيء استخدام الأموال؟",
   "ماذا تفعل لو أخطأ متجر وأعاد لك مبلغاً أكبر دون أن يلاحظ؟",
   "ماذا تفعل لو طلب منك قريب أن تضمنه في قرض وأنت غير مرتاح؟",
-  "ماذا تفعل لو نشر صديقك صورتك الخاصة دون إذن؟",
-  "ماذا تفعل لو فشلت في عرض مهم أمام جمهور كبير؟ كيف تتعامل بعده؟",
-  "ماذا تفعل لو طلب منك مديرك تجاوز سياسة واضحة 'لمصلحة العمل'؟",
   "ماذا تفعل لو اكتشفت أن شريكك يخطط للانتقال إلى مدينة أخرى؟",
   "ماذا تفعل لو عاد شخص آذاك في الماضي طالباً الصفح بصدق؟",
-  "ماذا تفعل لو شهدت حادث سير وأنت متأخر عن اختبار مصيري؟",
-  "ماذا تفعل لو علمت أن صديقاً يعاني من اكتئاب لكنه يرفض المساعدة؟",
   "ماذا تفعل لو تلقيت رشوة بشكل غير مباشر مقابل خدمة بسيطة؟",
-  "ماذا تفعل لو ضغط عليك أحدهم لاستخدام 'واسطة' في معاملة؟",
+  "ماذا تفعل لو ضغط عليك أحدهم لاستخدام «واسطة» في معاملة؟",
   "ماذا تفعل لو علمت أن صديقين مقرّبين يتشاجران بسببك؟",
   "ماذا تفعل لو اشتريت منتجاً مقلداً عن غير قصد؟ هل تُبلغ أم تتجاهل؟",
-  "ماذا تفعل لو اكتشفت تسريباً لمحادثاتك الخاصة في مجموعة العمل؟",
   "ماذا تفعل لو طلبت عائلتك قطع علاقتك بشخص تحترمه؟",
-  "ماذا تفعل لو تبيّن أن مشروعك المفضل سرق فكرتك؟",
-  "ماذا تفعل لو أخطأت بحق موظف جديد أمام الجميع؟",
-  "ماذا تفعل لو أعلن الطبيب تشخيصاً مقلقاً لكنه غير مؤكد بعد؟",
   "ماذا تفعل لو رغبت في تغيير تخصصك الدراسي بعد سنة من الدراسة؟",
   "ماذا تفعل لو واجهت تعليقات جارحة على الإنترنت بسبب رأيك؟",
   "ماذا تفعل لو طلب منك صديق أن تكذب لتغطي عليه عند أهله؟",
   "ماذا تفعل لو وجدت محفظة فيها مستندات حساسة لكن بدون رقم للتواصل؟",
-  "ماذا تفعل لو اكتشفت خطأً كبيراً في عملك بعد الإرسال مباشرة؟",
   "ماذا تفعل لو طلب منك أحد أفراد العائلة مشاركة كلمة مرور حسابك؟",
-  "ماذا تفعل لو تم اختيارك لقيادة فريق مختلف الآراء بشكل حاد؟",
   "ماذا تفعل لو واجهت سلوكاً مسيئاً تجاه موظف خدمة في مكان عام؟",
   "ماذا تفعل لو تعارض أقرب أصدقائك مع قرار زواجك؟ كيف تتعامل؟"
 ];
 
-// الكرسي الساخن — suggested questions for the group to ask the person in the hot seat
+// الكرسي الساخن — أسئلة ممتعة ومتدرجة تكشف الشخصية وأسلوب القرب
 const hotSeatQuestions: string[] = [
+  // خفيفة ومرحة
+  "وش تفصيلة صغيرة تقدر تعدّل مزاجك بسرعة؟",
+  "لو أصحابك بيعطونك لقباً من شخصيتك، وش تتوقع يكون؟",
+  "وش شيء بسيط تتحمس له كأنك طفل؟",
+  "لو يومك اليوم أغنية، وش بيكون جوّها؟",
+  "وش عادة عندك يمكن تستغربها المجموعة؟",
+  "وش أكثر شيء يضحكك حتى لو تكرر؟",
+  "لو عندك تذكرة سفر الآن، تختار بحر، مدينة، أو طبيعة؟ وليه؟",
+  "وش أكلة أو مكان مرتبط عندك بذكرى حلوة؟",
+  "لو حياتك هذه الفترة مسلسل، وش نوعه: كوميدي، دراما، مغامرة، أو شيء ثاني؟",
+  "وش الشيء اللي غالباً تقول له «إيه» بدون تفكير؟",
+  "متى تكون أفضل نسخة خفيفة وعفوية من نفسك؟",
+  "وش رأي بسيط عندك مستعد تدافع عنه بحماس مبالغ فيه؟",
+
+  // شخصية وانطباعات
+  "وش أكثر شيء الناس يفهمونه عنك غلط من أول لقاء؟",
+  "وش صفة فيك ما تبان إلا بعد ما ترتاح للشخص؟",
+  "إذا دخلت مكاناً ما تعرف فيه أحد، وش أول شيء تسويه عادة؟",
+  "وش نوع الأشخاص اللي يخليك تكون على طبيعتك بسرعة؟",
+  "أنت الشخص اللي يبدأ السالفة، يطوّرها، أو يسمع ويلقط التفاصيل؟",
+  "وش مجاملة سمعتها وبقيت معك إلى اليوم؟",
+  "وش موقف بسيط كشف لك جانباً جديداً في نفسك؟",
+  "إذا احتجت تشحن طاقتك، تحتاج ناس حولك أو وقتاً لوحدك؟",
+  "وش الشيء اللي يحمسك في التعرف على شخص جديد؟",
+  "وش سؤال تتمنى الناس يسألونه لك أكثر؟",
+  "متى تحس أن الصمت مع شخص مريح، مو محرج؟",
+  "وش جانب في شخصيتك تحب أن الناس يعطونه وقتاً قبل ما يحكمون عليه؟",
+
+  // تواصل وقرب
+  "وش تصرف صغير يخليك تحس أن الشخص فعلاً مهتم؟",
+  "لما يضايقك شيء، تفضل تتكلم مباشرة أو تأخذ وقتك أول؟",
+  "وش شكل الاعتذار الصادق بالنسبة لك؟",
+  "كيف تحب أحد يوقف معك في يوم صعب: يسمع، يحضن، يضحكك، أو يعطيك حلولاً؟",
+  "وش الشيء اللي يخليك تثق بشخص جديد؟",
+  "كيف عادة تبيّن تقديرك للشخص القريب منك؟",
+  "وش فرق مهم عندك بين الخصوصية والغموض؟",
+  "إذا اختلفت مع شخص يهمك، وش الشيء اللي تتمنى ما يسويه أبداً؟",
+  "وش يريحك أكثر: شخص واضح جداً أو شخص يختار كلامه بلطف؟",
+  "وش الحد اللي تعلمت مع الوقت أن وجوده يحمي علاقاتك؟",
+  "لما تشتاق لشخص، تقولها مباشرة أو تبينها بطريقة ثانية؟",
+  "وش الشيء اللي يساعدك ترجع للحوار بعد زعل أو سوء فهم؟",
+
+  // توافق وعلاقات
+  "وش «علامة خضراء» صغيرة تلاحظها بسرعة في الشخص؟",
+  "وش يخلي أول محادثة مع شخص تبقى في بالك؟",
+  "بالنسبة لك، الاهتمام يبان أكثر في الكلام أو الوقت أو الأفعال؟",
+  "وش صفة جميلة ممكن تخليك تعطي شخصاً فرصة ثانية بعد انطباع أول عادي؟",
+  "وش الشيء اللي يطفّي الانجذاب حتى لو كانت بقية الأمور ممتازة؟",
+  "تحب التعارف يكون سريع وواضح أو يأخذ وقته بهدوء؟ وليه؟",
+  "وش معنى «الجهد المتبادل» عندك في العلاقة؟",
+  "وش اختلاف بين شخصين ممكن يجمّل العلاقة بدل ما يصعّبها؟",
+  "إذا غرت، وش الأسلوب الصحي اللي تتمنى تتعامل فيه مع شعورك؟",
+  "وش أهم عندك وقت الخلاف: الوصول لحل سريع أو الشعور أن الطرف الثاني فهمك؟",
+  "وش شيء بسيط تتمنى تشاركه باستمرار مع الشخص القريب منك؟",
+  "وش نوع الذكريات اللي تحب تصنعها مع شخص مهم لك؟",
+
+  // أعمق لكن آمنة للمجموعة
+  "وش شيء تعلمته عن نفسك من علاقة أو صداقة مهمة؟",
+  "وش قيمة تحاول تتمسك فيها حتى لما يكون الموضوع صعباً؟",
+  "وش شيء صرت ألطف فيه مع نفسك مقارنة بالسابق؟",
+  "متى حسيت مؤخراً أنك كنت على طبيعتك تماماً؟",
+  "وش تغيير بسيط فيك أنت فخور فيه؟",
+  "وش احتياج كان صعباً عليك تطلبه وصرت أقدر على التعبير عنه؟",
+  "وش حقيقة عن العلاقات فهمتها متأخر؟",
+  "وش الشيء اللي يعطيك إحساساً بالأمان مع شخص؟",
+  "لو تقدر ترسل لنفسك قبل خمس سنوات جملة واحدة، وش تقول؟",
+  "وش تجربة تتمنى تعيشها مع شخص تحبه يوماً ما؟",
+  "وش شيء في حياتك الآن تحس بالامتنان له فعلاً؟",
+  "وش السؤال اللي ممكن يكشف لك شخصية أحد أكثر من أي سؤال تقليدي؟",
+
+  // أسئلة عميقة من المجموعة الأصلية
   "وش الشي اللي تحس إنه يعرّفك أكثر من أي شي ثاني؟",
   "لو الناس يشوفونك من بره وش يشوفون؟ وش اللي يختلف عن اللي تشوفه بنفسك؟",
   "وش أكبر خوف عندك وما تعترف فيه كثير؟",
   "متى آخر مرة حسيت إنك فعلاً صادق مع نفسك؟ وش كان الموقف؟",
-  "وش الشي اللي تتمنى الناس يسألونك عنه وما يسألون؟",
   "لو تقدر تغير شي واحد في شخصيتك الحين… وش بيكون؟",
   "وش العلاقة اللي علمتك أكثر شي في حياتك؟",
   "كيف تعبر عن الحب؟ وش طريقتك في إظهاره للناس اللي تهتم لهم؟",
@@ -877,34 +1001,21 @@ const hotSeatQuestions: string[] = [
   "مين الشخص اللي تأثرت فيه أكثر من غيره؟ وليه؟",
   "وش الشي اللي تحس إنك تعطيه في علاقاتك ونادر تجيكه بنفس القدر؟",
   "لو رجعت بالزمن… وش القرار اللي بتاخذه بشكل مختلف؟",
-  "وش اللي يخليك ترتاح لشخص جديد بسرعة؟",
-  "كيف تشوف النجاح الحين؟ هل تغير تعريفك له مع الوقت؟",
   "وش الشي اللي تحس إنه ما ينقال عنك كثير بس هو جزء أساسي منك؟",
-  "لو فقدت كل شي بكره… وش اللي بتبحث عنه أولاً؟",
-  "وش السؤال اللي تخاف يجيك وما تبي أحد يسألك فيه؟",
-  "وش الشي اللي تحس إنك مغبون فيه من الناس؟",
-  "متى آخر مرة بكيت؟ وش كان السبب؟",
-  "وش الحلم اللي ترددت في طرده ولسه متمسك فيه؟",
-  "لو مات أحد غالي عليك بكره… وش الشي اللي بتندم إنك ما قلته له؟",
   "وش النوع اللي تنجذب له وما تقدر تقاومه؟",
   "كيف تتعامل مع الغيرة؟ هل تغار بسهولة ولا تستطيع تخفيها؟",
   "وش الشي اللي تعتبره خيانة عاطفية ولو بدون أي علاقة؟",
   "لو خيروك بين شخص يحبك أكثر أو شخص تحبه أكثر… بتختار وش؟",
   "وش الشي اللي يخليك تقطع علاقة بشخص فجأة بدون تردد؟",
   "متى حسيت إنك وحدك وسط ناس كثيرين؟",
-  "وش الشي اللي تخفيه عن المقربين منك وتحس إنهم لو عرفوه بيغيرون نظرتهم عنك؟",
-  "لو وصفت حياتك الحين كأنها فيلم… وش بيكون اسمه؟",
   "وش الشي اللي تحس إنك تستاهله وما تحصله؟",
-  "مين الشخص اللي تتظاهر إنك ما تهتم له بس في الحقيقة تهتم له جداً؟",
   "وش القرار اللي تعرف إنه صح بس ما تقدر تاخذه؟",
   "كيف تحس إنك تتعامل مع الرفض؟",
   "وش الشي اللي لو قاله لك أحد تحس إنه فعلاً يعرفك؟",
-  "لو في شي واحد تبي تقوله لنفسك من 5 سنين… وش بيكون؟",
   "وش الشي اللي تحس إنه ما لك حق تطلبه من أحد بس تحتاجه؟",
   "متى حسيت إنك كبرت فعلاً؟",
   "وش الشي اللي تعتبره سلام داخلي وهل وصلته؟",
   "لو تقدر تسأل الله سؤال واحد… وش بتسأله؟",
-  "وش الشي اللي تحس إنك تضحك عليه قدام الناس بس يوجعك بصدق؟",
   "مين أنت الحين مقارنة بالشخص اللي كنت تتمنى تكونه؟",
 ];
 
@@ -1150,15 +1261,20 @@ const fiveSecondRuleCategories = [
   "أشياء حمراء", "أشياء دائرية", "أشياء في الثلاجة", "أسماء بنات", "أسماء أولاد", "ألوان"
 ];
 
-export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tableNumber: activityTableNumber, participantSeed }: {
+export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tableNumber: activityTableNumber, participantSeed, isGroupCoordinator = false, coordinatorName, onSharedContentChange, onRequestReelection }: {
   disableOnboarding?: boolean;
   onClose?: () => void;
   round?: number;
   tableNumber?: number;
   participantSeed?: string | number | null;
+  isGroupCoordinator?: boolean;
+  coordinatorName?: string | null;
+  onSharedContentChange?: (content: SharedGroupContent | null) => void;
+  onRequestReelection?: () => void;
 } = {}) {
   const SESSION_TOTAL_DURATION = 45 * 60; // 45 minutes in seconds
   const IMPOSTER_TUTORIAL_KEY = "imposter_tutorial_seen";
+  const roundTheme = getEvent3GroupRoundTheme(round);
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
   const [gameStarted, setGameStarted] = useState(true);
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
@@ -1305,6 +1421,107 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
     () => shuffleActivitiesForParticipant(String(participantSeed ?? localActivitySeed)),
     [participantSeed, localActivitySeed]
   );
+
+  const shareContent = useCallback((content: SharedGroupContent | null) => {
+    if (isGroupCoordinator) onSharedContentChange?.(content);
+  }, [isGroupCoordinator, onSharedContentChange]);
+
+  const shareDiscussionQuestion = useCallback((question: string, context: { depthLabel: string; index: number }) => {
+    shareContent({
+      kind: "question",
+      title: question,
+      body: `${context.depthLabel} · السؤال ${context.index + 1} · كل شخص يجيب باختصار`,
+      activity_id: "discussion-questions",
+    });
+  }, [shareContent]);
+
+  const projectedActivityContent = useMemo<SharedGroupContent | null>(() => {
+    if (!selectedGameId || selectedGameId === "discussion-questions") return null;
+    const selectedGame = games.find(game => game.id === selectedGameId);
+    if (!selectedGame) return null;
+
+    const base = {
+      kind: "activity" as const,
+      title: selectedGame.nameAr,
+      body: selectedGame.descriptionAr,
+      activity_id: selectedGame.id,
+    };
+
+    if (selectedGameId === "never-have-i-ever") {
+      const prompt = shuffledNeverHaveIEver[currentPromptIndex % Math.max(1, shuffledNeverHaveIEver.length)]
+        || neverHaveIEverQuestions[currentPromptIndex % neverHaveIEverQuestions.length];
+      return prompt ? { ...base, kind: "question", title: prompt, body: "ارفع يدك إذا فعلتها من قبل، والمشاركة دائماً اختيارية." } : base;
+    }
+    if (selectedGameId === "what-would-you-do") {
+      const prompt = shuffledWhatWouldYouDo[currentPromptIndex % Math.max(1, shuffledWhatWouldYouDo.length)]
+        || whatWouldYouDoScenarios[currentPromptIndex % whatWouldYouDoScenarios.length];
+      return prompt ? { ...base, kind: "question", title: prompt, body: "كل شخص يشارك قراره والسبب وراءه باختصار." } : base;
+    }
+    if (selectedGameId === "would-you-rather") {
+      const prompt = shuffledWouldYouRather[currentPromptIndex] || wouldYouRatherQuestions[currentPromptIndex];
+      return prompt ? {
+        ...base,
+        kind: "question",
+        title: "ماذا تفضّل؟",
+        body: `أ: ${prompt.optionA}  ·  ب: ${prompt.optionB}`,
+      } : base;
+    }
+    if (selectedGameId === "5-second-rule" && currentCategory) {
+      return {
+        ...base,
+        kind: "question",
+        title: `سمّ 3 أشياء: ${currentCategory}`,
+        body: "لديك خمس ثوانٍ — ابدأ الآن!",
+      };
+    }
+    if (selectedGameId === "hot-seat" && hotSeatParticipants.length > 0) {
+      const prompt = shuffledHotSeat[hotSeatQuestionIndex] || hotSeatQuestions[hotSeatQuestionIndex] || shuffledHotSeat[0] || hotSeatQuestions[0];
+      return prompt ? {
+        ...base,
+        kind: "question",
+        title: prompt,
+        body: `${hotSeatParticipants[hotSeatIndex] || "المشارك الحالي"} على الكرسي الساخن الآن.`,
+      } : base;
+    }
+    if (selectedGameId === "charades") {
+      return {
+        ...base,
+        title: currentCharadesWord ? "جولة ولا كلمة جارية" : "استعدوا لجولة ولا كلمة",
+        body: currentCharadesWord
+          ? "الكلمة سرية على هاتف المنسّق — ركّزوا على التمثيل وخمّنوا."
+          : "اختاروا الممثّل، ثم افتحوا الكلمة السرية على هاتف المنسّق فقط.",
+      };
+    }
+    if (selectedGameId === "imposter") {
+      const phaseCopy = {
+        setup: "جهّزوا أسماء اللاعبين والفئة على هاتف المنسّق.",
+        reveal: "مرّروا هاتف المنسّق لكل لاعب بسرية لمعرفة دوره.",
+        discussion: "بدأ التحقيق — اسألوا وأجيبوا من دون كشف الكلمة.",
+        voting: "حان التصويت السرّي على هوية الأمبوستر.",
+        result: "تم كشف النتيجة — ناقشوا الجولة أو ابدؤوا واحدة جديدة.",
+      }[imposterPhase];
+      return { ...base, title: "الأمبوستر", body: phaseCopy };
+    }
+    return base;
+  }, [
+    selectedGameId,
+    currentPromptIndex,
+    shuffledNeverHaveIEver,
+    shuffledWhatWouldYouDo,
+    shuffledWouldYouRather,
+    currentCategory,
+    hotSeatParticipants,
+    hotSeatIndex,
+    hotSeatQuestionIndex,
+    shuffledHotSeat,
+    currentCharadesWord,
+    imposterPhase,
+  ]);
+
+  useEffect(() => {
+    if (!isGroupCoordinator || !projectedActivityContent) return;
+    shareContent(projectedActivityContent);
+  }, [isGroupCoordinator, projectedActivityContent, shareContent]);
 
   // Shuffle array function
   const shuffleArray = <T,>(array: T[]): T[] => {
@@ -2350,6 +2567,15 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 
   const startGame = (gameId: string) => {
     activityFocusTargetRef.current = null;
+    const sharedGame = games.find(game => game.id === gameId);
+    if (sharedGame) {
+      shareContent({
+        kind: "activity",
+        title: sharedGame.nameAr,
+        body: sharedGame.descriptionAr,
+        activity_id: sharedGame.id,
+      });
+    }
     // Discussion already has its own complete full-screen experience. Open it
     // directly from the activity picker instead of showing an intermediate
     // card with a second "choose discussion questions" button.
@@ -2420,6 +2646,13 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
       if (names.length === 0) setHotSeatDraftParticipants(["", "", "", "", ""]);
     }
     if (shouldFocusActivity) activityFocusTargetRef.current = gameId;
+  };
+
+  const returnToActivitySelection = () => {
+    activityFocusTargetRef.current = 'selection';
+    setSelectedGameId(null);
+    setGamePhase('intro');
+    shareContent(null);
   };
 
   const nextGame = () => {
@@ -2520,7 +2753,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
       const prevActivity = () => setCarouselIndex(prev => (prev - 1 + activityGames.length) % activityGames.length);
 
       return (
-        <div className="relative min-h-full flex flex-col">
+        <div className={`relative min-h-full flex flex-col bg-gradient-to-b ${roundTheme.shell}`}>
           {/* Dynamic gradient background that shifts with current activity */}
           <motion.div
             key={`bg-${currentGame.id}`}
@@ -2529,13 +2762,15 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
             transition={{ duration: 0.6 }}
             className="absolute inset-0 pointer-events-none"
           >
+            <div className={`absolute inset-0 bg-gradient-to-b ${roundTheme.wash}`} />
+            <div className={`absolute -top-24 left-1/3 h-64 w-64 rounded-full blur-[90px] ${roundTheme.primaryOrb}`} />
             <div className={`absolute inset-0 bg-gradient-to-br ${currentGame.color} opacity-[0.08]`} />
             <div className={`absolute -top-20 -right-16 w-72 h-72 bg-gradient-to-br ${currentGame.color} opacity-20 rounded-full blur-[80px]`} />
             <div className={`absolute bottom-0 -left-16 w-64 h-64 bg-gradient-to-br ${currentGame.color} opacity-15 rounded-full blur-[70px]`} />
           </motion.div>
 
           {/* Compact picker header */}
-          <div className="relative z-20 flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
+          <div className={`relative z-20 flex items-center justify-between border-b bg-black/15 px-5 py-4 backdrop-blur-xl ${roundTheme.border}`}>
             <button
               type="button"
               onClick={() => {
@@ -2549,8 +2784,40 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
               <span>إغلاق</span>
             </button>
             <div className="text-left">
-              <p className="text-sm font-black text-white">اختر نشاطكم</p>
-              <p className="mt-0.5 text-[10px] text-gray-500">اسحب البطاقة أو استخدم الأسهم</p>
+              <div className="flex items-center justify-end gap-2">
+                <span className={`h-2 w-2 rounded-full bg-gradient-to-r ${roundTheme.bar}`} />
+                <p className={`text-[10px] font-black ${roundTheme.text}`}>الجولة {roundTheme.ordinalAr} · {roundTheme.nameAr}</p>
+              </div>
+              <p className="mt-0.5 text-sm font-black text-white">اختر نشاطكم</p>
+            </div>
+          </div>
+
+          <div className="relative z-20 px-5 pt-4">
+            <div className={`flex items-center gap-3 rounded-2xl border bg-black/20 px-4 py-3 shadow-lg backdrop-blur-xl ${roundTheme.border}`}>
+              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${roundTheme.bar} text-white shadow-lg`}>
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1 text-right">
+                <p className={`text-[10px] font-black ${roundTheme.text}`}>
+                  {isGroupCoordinator ? "أنت منسّق الطاولة" : "شاشة الطاولة المتزامنة"}
+                </p>
+                <p className="mt-0.5 text-xs font-bold leading-5 text-white/75">
+                  {isGroupCoordinator
+                    ? "اختيارك سيظهر فوراً على شاشات الجميع"
+                    : coordinatorName
+                      ? `${coordinatorName} يختار النشاط للمجموعة`
+                      : "سيظهر اختيار المنسّق هنا للجميع"}
+                </p>
+              </div>
+              {onRequestReelection && (
+                <button
+                  type="button"
+                  onClick={onRequestReelection}
+                  className="min-h-10 shrink-0 rounded-xl border border-amber-300/20 bg-amber-400/[0.08] px-3 text-[10px] font-black text-amber-200 transition-colors hover:bg-amber-400/15"
+                >
+                  انقلاب
+                </button>
+              )}
             </div>
           </div>
 
@@ -2578,8 +2845,9 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 aria-describedby={`carousel-game-description-${currentGame.id}`}
                 className="cursor-grab active:cursor-grabbing"
               >
-                <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-gray-900/85 shadow-[0_28px_90px_-35px_rgba(0,0,0,0.95)] ring-1 ring-white/[0.04]">
+                <div className={`relative overflow-hidden rounded-[2rem] border bg-gray-900/85 shadow-[0_28px_90px_-35px_rgba(0,0,0,0.95)] ring-1 ${roundTheme.border} ${roundTheme.ring}`}>
                   <div className={`absolute inset-0 bg-gradient-to-br ${currentGame.color} opacity-[0.14]`} />
+                  <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${roundTheme.bar}`} />
                   <div className="absolute inset-0 bg-gradient-to-b from-white/[0.05] via-transparent to-black/30" />
 
                   {/* Decorative glow */}
@@ -2591,6 +2859,10 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 
                   {/* Card content */}
                   <div className="relative z-10 flex min-h-[310px] flex-col p-6 text-right">
+                    <div className={`mb-4 rounded-2xl border px-3 py-2 ${roundTheme.softPanel}`}>
+                      <p className={`text-[10px] font-black ${roundTheme.text}`}>{roundTheme.nameAr}</p>
+                      <p className="mt-0.5 text-[10px] leading-5 text-white/55">{roundTheme.focusAr}</p>
+                    </div>
                     <div className="flex items-center justify-between">
                       <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[10px] font-bold text-white/65">
                         {carouselIndex + 1} من {activityGames.length}
@@ -2891,7 +3163,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 <ChevronDown className={`h-4 w-4 transition-transform ${showInstructions ? "rotate-180" : ""}`} />
               </button>
               <button
-                onClick={() => { setSelectedGameId(null); setGamePhase("intro"); }}
+                onClick={returnToActivitySelection}
                 className="flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-black/20 px-4 text-xs font-bold text-white/70 transition-all hover:bg-white/10 hover:text-white active:scale-[0.98]"
               >
                 <Shuffle className="h-4 w-4" /> نشاط آخر
@@ -3040,6 +3312,9 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                   </li>
                   <li className="flex items-start">
                     <span className="font-medium">اختتموا بجملة واحدة: "ما المبدأ الذي قاد قراري هنا؟"</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="font-medium">أي شخص يقدر يقول "تجاوز" ويأخذ سيناريو جديداً بدون ما يبرر.</span>
                   </li>
                 </ol>
               </div>
@@ -3729,7 +4004,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                   <span className="text-amber-200 text-xs font-bold">كرسي ساخن</span>
                 </div>
                 <h3 className="text-3xl font-extrabold text-white mb-2">الكرسي الساخن</h3>
-                <p className="text-amber-100/90">كل شخص يجلس دقيقة ونصف والجميع يسألونه أي سؤال</p>
+                <p className="text-amber-100/90">لكل شخص دقيقة واحدة مع أسئلة ممتعة تكشف شخصيته وطريقة تواصله</p>
               </div>
 
               {/* Game Instructions */}
@@ -3740,13 +4015,16 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
                 </h4>
                 <ol className="text-amber-100/90 space-y-3 list-decimal list-inside">
                   <li className="flex items-start">
-                    <span className="font-medium">اضغطوا "ابدأ" ليبدأ الشخص الأول جلسته على الكرسي الساخن (دقيقة ونصف).</span>
+                    <span className="font-medium">اضغطوا "ابدأ" ليبدأ الشخص الأول جلسته على الكرسي الساخن (دقيقة واحدة).</span>
                   </li>
                   <li className="flex items-start">
-                    <span className="font-medium">الجميع يسألونه أي سؤال — استخدموا الأسئلة المقترحة أو اسألوا أي شي.</span>
+                    <span className="font-medium">استخدموا الأسئلة المقترحة، واسألوا سؤال متابعة واحداً إذا فتح الجواب سالفة حلوة.</span>
                   </li>
                   <li className="flex items-start">
-                    <span className="font-medium">عند انتهاء الوقت، انتقلوا للشخص التالي.</span>
+                    <span className="font-medium">لكل شخص حق يقول "تجاوز" لأي سؤال بدون ما يشرح السبب.</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="font-medium">عند انتهاء الوقت، انتقلوا للشخص التالي وتأكدوا أن الجميع أخذ دوره.</span>
                   </li>
                 </ol>
               </div>
@@ -4195,13 +4473,13 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
         onClose={() => {
           setShowPromptTopicsModal(false);
           if (selectedGameId === "discussion-questions") {
-            setSelectedGameId(null);
-            setGamePhase("intro");
+            returnToActivitySelection();
           }
         }}
         embedded={disableOnboarding}
         round={round}
         tableNumber={activityTableNumber ?? tableNumber ?? 1}
+        onQuestionChange={isGroupCoordinator ? shareDiscussionQuestion : undefined}
       />
       {/* Personalized onboarding after successful login */}
       {showOnboarding && !disableOnboarding && (
@@ -4489,13 +4767,13 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
         onClose={() => {
           setShowPromptTopicsModal(false);
           if (selectedGameId === "discussion-questions") {
-            setSelectedGameId(null);
-            setGamePhase("intro");
+            returnToActivitySelection();
           }
         }}
         embedded={disableOnboarding}
         round={round}
         tableNumber={activityTableNumber ?? tableNumber ?? 1}
+        onQuestionChange={isGroupCoordinator ? shareDiscussionQuestion : undefined}
       />
       {showOnboarding && !disableOnboarding && (groupParticipantNumbers.length > 0 || groupMembers.length > 0) && (
         <OnboardingModal
@@ -4509,7 +4787,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
         />
       )}
 
-      <div className={`relative ${disableOnboarding ? 'min-h-0' : 'min-h-screen'} overflow-hidden`} dir="rtl">
+      <div className={`relative ${disableOnboarding ? `min-h-0 bg-gradient-to-b ${roundTheme.shell}` : 'min-h-screen'} overflow-hidden`} dir="rtl">
       {/* Animated gradient + orbs background — only when standalone (not embedded in event3) */}
       {!disableOnboarding && (
       <>
@@ -4540,10 +4818,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
             {/* Back Button with smooth transition - positioned absolutely on left (only when expanded) */}
             {selectedGameId && !headerCollapsed && (
               <button
-                onClick={() => {
-                  setSelectedGameId(null);
-                  setGamePhase('intro');
-                }}
+                onClick={returnToActivitySelection}
                 className="absolute left-0 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-700/50 border border-slate-600/50 hover:border-cyan-400/50 hover:bg-cyan-400/10 transition-all duration-200 text-slate-300 hover:text-cyan-300 text-sm font-medium shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
               >
                 <ChevronLeft className="w-4 h-4" />
@@ -4560,7 +4835,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
               {/* Back (compact) */}
               {selectedGameId ? (
                 <button
-                  onClick={() => { setSelectedGameId(null); setGamePhase('intro'); }}
+                  onClick={returnToActivitySelection}
                   className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-slate-700/40 border border-slate-600/50 hover:border-cyan-400/50 hover:bg-cyan-400/10 text-slate-300 hover:text-cyan-300 transition-all"
                   aria-label="عودة"
                   title="عودة"
@@ -4617,6 +4892,8 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
             if (!g) return null;
             return (
               <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                <div className={`absolute inset-0 bg-gradient-to-b ${roundTheme.wash}`} />
+                <div className={`absolute -top-24 left-1/3 h-64 w-64 rounded-full blur-[90px] ${roundTheme.primaryOrb}`} />
                 <div className={`absolute inset-0 bg-gradient-to-br ${g.color} opacity-[0.06]`} />
                 <div className={`absolute -top-20 -right-16 w-72 h-72 bg-gradient-to-br ${g.color} opacity-[0.12] rounded-full blur-[80px]`} />
                 <div className={`absolute bottom-0 -left-16 w-64 h-64 bg-gradient-to-br ${g.color} opacity-[0.08] rounded-full blur-[70px]`} />
@@ -4625,15 +4902,11 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
           })()}
           {/* Embedded back button — only when inside event3 and a game is selected */}
           {disableOnboarding && selectedGameId && (
-            <div className="sticky top-0 z-20 grid grid-cols-[1fr_auto_1fr] items-center px-4 py-2.5 bg-gray-950/80 backdrop-blur-xl border-b border-white/[0.06]">
+            <div className={`sticky top-0 z-20 grid grid-cols-[1fr_auto_1fr] items-center border-b bg-gray-950/80 px-4 py-2.5 backdrop-blur-xl ${roundTheme.border}`}>
               <div className="flex items-center">
                 <button
                   type="button"
-                  onClick={() => {
-                    activityFocusTargetRef.current = 'selection';
-                    setSelectedGameId(null);
-                    setGamePhase('intro');
-                  }}
+                  onClick={returnToActivitySelection}
                   className="flex min-h-11 items-center gap-1.5 text-gray-400 hover:text-white text-sm font-medium transition-colors"
                 >
                   ← رجوع
@@ -4891,5 +5164,7 @@ export function GroupsPage({ disableOnboarding = false, onClose, round = 1, tabl
 }
 
 export default function GroupsRedirect() {
-  return <Navigate to="/event3" replace />;
+  const location = useLocation();
+
+  return <Navigate to={{ pathname: "/event3", search: location.search }} replace />;
 }

@@ -4436,6 +4436,73 @@ Please respond in JSON format:
         return res.status(200).json({ round: requestedRound, table: sa.table_number, tablemates })
       }
 
+      // Table-scoped coordinator election and shared activity projection. All
+      // mutations are serialized and membership-checked again inside Postgres.
+      const groupCoordinationOperations = {
+        "e3-get-group-coordination": "status",
+        "e3-open-group-election": "open",
+        "e3-cast-group-coordinator-vote": "vote",
+        "e3-start-group-reelection": "revolt",
+        "e3-publish-group-content": "publish",
+        "e3-clear-group-content": "clear",
+      }
+      if (groupCoordinationOperations[action]) {
+        const requestedRound = Number(req.body.round)
+        if (!Number.isInteger(requestedRound) || requestedRound < 1 || requestedRound > groupRoundCount) {
+          return res.status(400).json({ error: "Invalid group round" })
+        }
+        if (activeEvent3Phase !== `round${requestedRound}`) {
+          return res.status(409).json({ error: "This group round is no longer active", code: "EVENT3_GROUP_ROUND_CLOSED" })
+        }
+
+        const operation = groupCoordinationOperations[action]
+        let content = null
+        let candidateNumber = null
+        if (operation === "vote") {
+          candidateNumber = Number(req.body.candidate_number)
+          if (!Number.isInteger(candidateNumber) || candidateNumber <= 0 || candidateNumber === 9999) {
+            return res.status(400).json({ error: "Invalid coordinator candidate" })
+          }
+        }
+        if (operation === "publish") {
+          const rawContent = req.body.content
+          const kind = String(rawContent?.kind || "")
+          const title = String(rawContent?.title || "").trim().slice(0, 160)
+          const body = String(rawContent?.body || "").trim().slice(0, 1000)
+          const activityId = String(rawContent?.activity_id || "").trim().slice(0, 80)
+          if (!["activity", "question"].includes(kind) || !title) {
+            return res.status(400).json({ error: "Invalid shared group content" })
+          }
+          content = { kind, title, body, activity_id: activityId }
+        }
+
+        const { data, error } = await supabase.rpc("manage_event3_group_coordination_v1", {
+          p_event_id: Number(currentEventId),
+          p_round: requestedRound,
+          p_participant_number: myNumber,
+          p_operation: operation,
+          p_candidate_number: candidateNumber,
+          p_content: content,
+          p_expected_test_mode: requestTestMode,
+          p_expected_started_at: requestTestMode
+            ? (expectedEvent3SessionKey || e3EventState?.test_mode_snapshot?.started_at || null)
+            : null,
+        })
+        if (error) {
+          const message = String(error.message || "")
+          const migrationRequired = error.code === "PGRST202" || error.code === "42883" || message.includes("manage_event3_group_coordination_v1")
+          const invalid = error.code === "22023"
+          const conflict = error.code === "55000"
+          return res.status(migrationRequired ? 501 : invalid ? 400 : conflict ? 409 : 500).json({
+            error: message,
+            code: conflict ? "EVENT3_GROUP_COORDINATION_CHANGED" : undefined,
+            retryable: conflict,
+            migration_required: migrationRequired,
+          })
+        }
+        return res.status(200).json(data || {})
+      }
+
       // e3-get-participants-met
       if (action === "e3-get-participants-met") {
         if (reachedGroupRounds < 1) return res.status(409).json({ error: "No group round has started yet", code: "EVENT3_ROUND_NOT_REACHED" })

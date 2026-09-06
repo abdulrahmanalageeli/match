@@ -8648,7 +8648,9 @@ export default function WelcomePage() {
                               <span>ثمانية أنشطة تشمل النقاش، كسر الجليد، التحديات، الاختيارات والتعاون الجماعي</span>
                             </div>
                             <Button
-                              onClick={() => window.location.href = '/groups'}
+                              onClick={() => {
+                                window.location.href = `/groups${window.location.search}`
+                              }}
                               className="w-full spring-btn bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4"
                             >
                               <Users className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />

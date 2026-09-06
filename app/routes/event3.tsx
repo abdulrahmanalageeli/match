@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react"
 import { useId } from "react"
-import { GroupsPage } from "./groups"
+import { GroupsPage, type SharedGroupContent } from "./groups"
 import { useSearchParams } from "react-router"
 import toast, { Toaster } from "react-hot-toast"
 import { motion, AnimatePresence, Reorder, MotionConfig, useDragControls, useReducedMotion } from "framer-motion"
@@ -16,9 +16,9 @@ import {
   CheckCircle, Send, RefreshCw, Sparkles, Home, Trophy, Lock, GripVertical,
   MessageSquare, ChevronRight, Users, PenLine, Shuffle, BarChart3, X, Heart, LogOut,
   Frown, Meh, Smile, Layers, Zap,
-  Snowflake, Target, Star, AlertTriangle, Lightbulb, PartyPopper, LifeBuoy,
+  Target, Star, AlertTriangle, Lightbulb, PartyPopper, LifeBuoy,
   Eye, EyeOff, KeyRound, Smartphone, Handshake, Timer, Ban, ShieldCheck, Coffee, Bell, Info, Loader2,
-  Crown, Medal, Award, Download,
+  Crown, Medal, Award, Download, Vote, Radio, Wifi, WifiOff, Megaphone,
 } from "lucide-react"
 
 import { QuestionSlideshow } from "~/components/QuestionSlideshow"
@@ -28,6 +28,7 @@ import {
 } from "~/lib/compatibility-model"
 import { clearParticipantBrowserIdentity, getParticipantBrowserToken } from "~/lib/participant-browser-auth.mjs"
 import { hasEvent3AdminUriOverride } from "~/lib/event3-admin-uri.mjs"
+import { getEvent3GroupRoundTheme } from "~/lib/event3-group-round-theme"
 import {
   EVENT3_CONTACT_MESSAGE_MAX_LENGTH,
   EVENT3_MEMORY_WORD_MAX_LENGTH,
@@ -2920,7 +2921,7 @@ function SessionTips({ onClose, accent = "pink" }: { onClose: () => void; accent
 // ─── Ice Breaker (Group Rounds) ──────────────────────────────────────────────
 const ICE_BREAKERS: Record<number, { title: string; prompt: string; subPrompts?: string[] }> = {
   1: {
-    title: "كسر الجليد",
+    title: "شرارة البداية",
     prompt: "اسمك، ثم أعطنا 3 أشياء تساعدنا نتعرف عليك أكثر — ممنوع تقول عمرك أو وظيفتك.",
     subPrompts: [
       "مثال: هواية غريبة عندك، حقيقة ما أحد يعرفها عنك، أو شيء تحب تسويه بوقتك الحر.",
@@ -2929,7 +2930,7 @@ const ICE_BREAKERS: Record<number, { title: string; prompt: string; subPrompts?:
     ],
   },
   2: {
-    title: "كسر الجليد",
+    title: "أبعد من الانطباع الأول",
     prompt: "اسمك، وشارك 3 أشياء عنك:",
     subPrompts: [
       "شيء تحب تسويه.",
@@ -2938,7 +2939,7 @@ const ICE_BREAKERS: Record<number, { title: string; prompt: string; subPrompts?:
     ],
   },
   3: {
-    title: "بداية الجولة الثالثة",
+    title: "انسجام وإيقاع",
     prompt: "اسمك، ثم اختر سؤالاً واحداً يفتح حواراً جديداً:",
     subPrompts: [
       "ما تجربة بسيطة غيّرت رأيك في شيء مهم؟",
@@ -2963,6 +2964,12 @@ function IceBreaker({ round, tableNumber = 0, myInfo, tablemates, onDone }: {
   round: number; tableNumber?: number; myInfo: { number: number; name: string; gender: string | null } | null; tablemates: { number: number; first_name: string; gender: string | null }[]; onDone?: () => void
 }) {
   const ib = ICE_BREAKERS[round]
+  const theme = getEvent3GroupRoundTheme(round)
+  const roundIcon = round === 1
+    ? <Sparkles size={20} className={theme.text} />
+    : round === 2
+      ? <MessageSquare size={20} className={theme.text} />
+      : <Zap size={20} className={theme.text} />
   const [started, setStarted] = useState(false)
   const [done, setDone] = useState(false)
   const [currentIdx, setCurrentIdx] = useState(0)
@@ -2994,9 +3001,9 @@ function IceBreaker({ round, tableNumber = 0, myInfo, tablemates, onDone }: {
   if (!started) {
     return (
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-        <GlassCard className="p-5 space-y-3 border-amber-800/40 shadow-lg shadow-amber-900/10">
+        <GlassCard className={`p-5 space-y-3 border shadow-lg ring-1 ${theme.border} ${theme.ring}`}>
           <div className="flex items-center justify-center gap-2">
-            <Snowflake size={24} className="text-amber-400" />
+            {roundIcon}
             <h4 className="text-white font-bold text-sm">{ib.title}</h4>
           </div>
           <p className="text-gray-400 text-xs text-center leading-relaxed">
@@ -3004,7 +3011,7 @@ function IceBreaker({ round, tableNumber = 0, myInfo, tablemates, onDone }: {
           </p>
           <button
             onClick={startBreaker}
-            className="event3-action w-full rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 py-3 text-sm font-bold text-white transition-all hover:brightness-110 active:scale-95"
+            className={`event3-action w-full rounded-xl bg-gradient-to-r py-3 text-sm font-bold text-white transition-all hover:brightness-110 active:scale-95 ${theme.bar}`}
           >
             <Sparkles size={14} className="inline" /> ابدأ كسر الجليد
           </button>
@@ -3015,19 +3022,19 @@ function IceBreaker({ round, tableNumber = 0, myInfo, tablemates, onDone }: {
 
   const current = order[currentIdx]
   const speakerClass = current.isMe
-    ? "inline-flex items-center gap-2 rounded-2xl px-5 py-2.5 bg-amber-500/20 border-2 border-amber-500/50"
+    ? `inline-flex items-center gap-2 rounded-2xl border-2 px-5 py-2.5 ${theme.softPanel} ${theme.border}`
     : "inline-flex items-center gap-2 rounded-2xl px-5 py-2.5 bg-gray-800/60 border border-gray-700/50"
 
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-      <GlassCard className="p-5 space-y-4 border-amber-800/40 shadow-lg shadow-amber-900/10">
+      <GlassCard className={`p-5 space-y-4 border shadow-lg ring-1 ${theme.border} ${theme.ring}`}>
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Snowflake size={18} className="text-amber-400" />
+            {roundIcon}
             <h4 className="text-white font-bold text-sm">{ib.title}</h4>
           </div>
-          <span className="text-amber-400/70 text-[10px] font-mono">{currentIdx + 1}/{order.length}</span>
+          <span className={`${theme.mutedText} text-[10px] font-mono`}>{currentIdx + 1}/{order.length}</span>
         </div>
 
         {/* Progress dots */}
@@ -3036,8 +3043,8 @@ function IceBreaker({ round, tableNumber = 0, myInfo, tablemates, onDone }: {
             <div
               key={p.number}
               className={
-                i < currentIdx ? "h-1.5 rounded-full transition-all duration-300 w-2 bg-amber-500/60"
-                : i === currentIdx ? "h-1.5 rounded-full transition-all duration-300 w-6 bg-amber-400"
+                i < currentIdx ? `h-1.5 w-2 rounded-full bg-gradient-to-r opacity-60 transition-all duration-300 ${theme.bar}`
+                : i === currentIdx ? `h-1.5 w-6 rounded-full bg-gradient-to-r transition-all duration-300 ${theme.bar}`
                 : "h-1.5 rounded-full transition-all duration-300 w-2 bg-gray-700"
               }
             />
@@ -3055,17 +3062,17 @@ function IceBreaker({ round, tableNumber = 0, myInfo, tablemates, onDone }: {
             className={speakerClass}
           >
             <span className="text-white font-black text-lg">{current.name}</span>
-            {current.isMe && <span className="text-amber-400 text-[10px] font-bold">أنت</span>}
+            {current.isMe && <span className={`${theme.text} text-[10px] font-bold`}>أنت</span>}
           </motion.div>
         </div>
 
         {/* Prompt */}
-        <div className="bg-amber-950/30 rounded-xl p-4 border border-amber-800/30 space-y-2">
-          <p className="text-amber-200/90 text-sm leading-relaxed text-center font-medium">{ib.prompt}</p>
+        <div className={`rounded-xl border p-4 space-y-2 ${theme.softPanel}`}>
+          <p className={`${theme.text} text-sm leading-relaxed text-center font-medium`}>{ib.prompt}</p>
           {ib.subPrompts && (
             <div className="space-y-1 pt-1">
               {ib.subPrompts.map((sp, i) => (
-                <p key={i} className="text-amber-300/70 text-xs leading-relaxed text-center">
+                <p key={i} className={`${theme.mutedText} text-xs leading-relaxed text-center`}>
                   {i + 1}. {sp}
                 </p>
               ))}
@@ -3080,9 +3087,9 @@ function IceBreaker({ round, tableNumber = 0, myInfo, tablemates, onDone }: {
               key={p.number}
               className={
                 i === currentIdx
-                  ? "text-[10px] px-2 py-0.5 rounded-full border transition-all bg-amber-500/30 border-amber-500/50 text-amber-200 font-bold"
+                  ? `text-[10px] px-2 py-0.5 rounded-full border transition-all font-bold ${theme.softPanel} ${theme.text}`
                   : i < currentIdx
-                    ? "text-[10px] px-2 py-0.5 rounded-full border transition-all bg-amber-900/20 border-amber-800/30 text-amber-500/40"
+                    ? `text-[10px] px-2 py-0.5 rounded-full border transition-all opacity-45 ${theme.softPanel} ${theme.mutedText}`
                     : "text-[10px] px-2 py-0.5 rounded-full border transition-all bg-gray-800/40 border-gray-700/40 text-gray-500"
               }
             >
@@ -3094,7 +3101,7 @@ function IceBreaker({ round, tableNumber = 0, myInfo, tablemates, onDone }: {
         {/* Next button */}
         <button
           onClick={nextPerson}
-          className="event3-action flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 py-3 text-sm font-bold text-white transition-all hover:brightness-110 active:scale-95"
+          className={`event3-action flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r py-3 text-sm font-bold text-white transition-all hover:brightness-110 active:scale-95 ${theme.bar}`}
         >
           {currentIdx < order.length - 1 ? "الشخص التالي ←" : "تم النشاط ✓"}
         </button>
@@ -3181,6 +3188,371 @@ function RockPaperScissors({ accent = "pink", autoDone = false, onDone }: { acce
   )
 }
 
+type GroupCoordinationState = {
+  status: "idle" | "voting" | "elected"
+  kind?: "initial" | "revolt"
+  table_number: number
+  election_version?: number
+  election_started_at?: string | null
+  election_deadline?: string | null
+  coordinator_number?: number | null
+  previous_coordinator_number?: number | null
+  elected_at?: string | null
+  member_count: number
+  votes_cast: number
+  my_vote?: number | null
+  active_content?: SharedGroupContent | null
+  content_version?: number
+  content_updated_at?: string | null
+  server_now?: string | null
+}
+
+type GroupCoordinatorCandidate = {
+  number: number
+  name: string
+  gender: string | null
+  isMe: boolean
+}
+
+function GroupElectionOverlay({
+  state,
+  candidates,
+  remainingSeconds,
+  submitting,
+  error,
+  onVote,
+  onMinimize,
+}: {
+  state: GroupCoordinationState
+  candidates: GroupCoordinatorCandidate[]
+  remainingSeconds: number
+  submitting: boolean
+  error: string
+  onVote: (candidateNumber: number) => void
+  onMinimize: () => void
+}) {
+  const reducedMotion = useReducedMotion()
+  const isReelection = state.kind === "revolt"
+  const progress = state.member_count > 0
+    ? Math.min(100, Math.round((state.votes_cast / state.member_count) * 100))
+    : 0
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[610] overflow-y-auto bg-[#05030c]/88 px-4 py-[max(1rem,env(safe-area-inset-top))] backdrop-blur-2xl"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="group-election-title"
+      dir="rtl"
+    >
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <motion.div
+          className="absolute left-1/2 top-[-11rem] h-[31rem] w-[31rem] -translate-x-1/2 rounded-full bg-violet-600/25 blur-[110px]"
+          animate={reducedMotion ? undefined : { scale: [1, 1.12, 1], opacity: [0.45, 0.8, 0.45] }}
+          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <div className="absolute -bottom-36 -right-28 h-96 w-96 rounded-full bg-fuchsia-500/15 blur-[105px]" />
+        <div className="absolute inset-0 opacity-[0.055] [background-image:linear-gradient(rgba(255,255,255,.15)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.15)_1px,transparent_1px)] [background-size:34px_34px]" />
+      </div>
+
+      <motion.div
+        initial={{ y: 30, scale: 0.96 }}
+        animate={{ y: 0, scale: 1 }}
+        exit={{ y: 24, scale: 0.97 }}
+        transition={{ type: "spring", stiffness: 260, damping: 25 }}
+        className="relative mx-auto flex min-h-[calc(100dvh-2rem)] w-full max-w-md flex-col justify-center"
+      >
+        <div className="relative overflow-hidden rounded-[2.25rem] border border-violet-300/20 bg-gradient-to-b from-[#171027]/95 via-[#0d0918]/98 to-[#08060f]/98 p-5 shadow-[0_35px_120px_-38px_rgba(139,92,246,.65)] ring-1 ring-white/[0.06] sm:p-7">
+          <div className="pointer-events-none absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-violet-300/80 to-transparent" />
+          <div className="pointer-events-none absolute -right-16 -top-20 h-52 w-52 rounded-full bg-violet-500/15 blur-3xl" />
+
+          <div className="relative text-center">
+            <motion.div
+              animate={reducedMotion ? undefined : { rotate: [0, -5, 5, 0], y: [0, -4, 0] }}
+              transition={{ duration: 3.4, repeat: Infinity, ease: "easeInOut" }}
+              className="relative mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-[1.65rem] border border-violet-300/25 bg-gradient-to-br from-violet-500/25 via-fuchsia-500/15 to-cyan-400/10 shadow-[0_0_50px_rgba(168,85,247,.3)]"
+            >
+              <Vote className="h-9 w-9 text-violet-100" strokeWidth={1.7} />
+              <motion.span
+                className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-cyan-300 shadow-[0_0_18px_rgba(103,232,249,.9)]"
+                animate={reducedMotion ? undefined : { scale: [0.75, 1.25, 0.75], opacity: [0.55, 1, 0.55] }}
+                transition={{ duration: 1.8, repeat: Infinity }}
+              />
+            </motion.div>
+
+            <div className="mb-2 flex items-center justify-center gap-2">
+              <span className="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-3 py-1 text-[10px] font-black tracking-wide text-fuchsia-200">
+                {isReelection ? "انقلاب ديمقراطي" : "قرار الطاولة"}
+              </span>
+              <span className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[10px] font-black text-cyan-200">اختروا الآن</span>
+            </div>
+            <h2 id="group-election-title" className="text-2xl font-black tracking-tight text-white sm:text-3xl">
+              {isReelection ? "من يقود الشاشة الآن؟" : "انتخبوا منسّق مجموعتكم"}
+            </h2>
+            <p className="mx-auto mt-2 max-w-xs text-xs font-medium leading-6 text-white/55">
+              التصويت سرّي. الفائز يختار النشاط والأسئلة، ويظهر اختياره على شاشة الجميع.
+            </p>
+          </div>
+
+          <div className="mt-5 grid grid-cols-[1fr_auto] items-center gap-3 rounded-2xl border border-white/[0.08] bg-black/25 p-3.5">
+            <div>
+              <div className="mb-2 flex items-center justify-between text-[11px] font-bold text-white/55">
+                <span>شارك {state.votes_cast} من {state.member_count}</span>
+                <span>{progress}%</span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.07]">
+                <motion.div className="h-full rounded-full bg-gradient-to-l from-cyan-400 via-violet-500 to-fuchsia-500" animate={{ width: `${progress}%` }} />
+              </div>
+            </div>
+            <div className={`min-w-[4.6rem] rounded-xl border px-3 py-2 text-center font-mono text-lg font-black tabular-nums ${remainingSeconds <= 30 ? "border-rose-400/30 bg-rose-500/10 text-rose-200" : "border-violet-300/20 bg-violet-500/10 text-violet-100"}`}>
+              {formatTime(remainingSeconds)}
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-2.5">
+            {candidates.map((candidate, index) => {
+              const selected = state.my_vote === candidate.number
+              return (
+                <motion.button
+                  key={candidate.number}
+                  type="button"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: reducedMotion ? 0 : 0.12 + index * 0.045 }}
+                  whileTap={{ scale: 0.97 }}
+                  disabled={submitting}
+                  onClick={() => onVote(candidate.number)}
+                  aria-pressed={selected}
+                  className={`group relative min-h-[5.8rem] overflow-hidden rounded-2xl border p-3 text-right transition-all disabled:cursor-wait disabled:opacity-60 ${selected ? "border-cyan-300/55 bg-gradient-to-br from-cyan-400/20 via-violet-500/20 to-fuchsia-500/15 shadow-[0_0_28px_rgba(103,232,249,.12)] ring-1 ring-cyan-300/25" : "border-white/[0.09] bg-white/[0.045] hover:border-violet-300/35 hover:bg-violet-400/[0.09]"}`}
+                >
+                  <span className="relative z-10 flex items-start justify-between gap-2">
+                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border text-[11px] font-black ${selected ? "border-cyan-300/35 bg-cyan-300/15 text-cyan-100" : "border-white/10 bg-black/20 text-white/45"}`}>
+                      #{candidate.number}
+                    </span>
+                    {selected && <CheckCircle className="h-5 w-5 shrink-0 text-cyan-300" />}
+                  </span>
+                  <span className="relative z-10 mt-2 block truncate text-sm font-black text-white">
+                    {candidate.name}{candidate.isMe ? " · أنت" : ""}
+                  </span>
+                  <span className="relative z-10 mt-0.5 block text-[10px] font-bold text-white/40">
+                    {selected ? "تم تسجيل صوتك" : "اختيار كمنسّق"}
+                  </span>
+                </motion.button>
+              )
+            })}
+          </div>
+
+          {error && (
+            <motion.p initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} role="alert" className="mt-4 rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2.5 text-center text-xs font-bold text-rose-200">
+              {error}
+            </motion.p>
+          )}
+
+          <div className="mt-4 min-h-11 text-center">
+            {state.my_vote ? (
+              <div className="space-y-1.5">
+                <p className="text-xs font-bold text-emerald-300">تم تسجيل صوتك بأمان ✓</p>
+                <button type="button" onClick={onMinimize} className="min-h-11 rounded-xl px-4 text-xs font-bold text-white/45 transition-colors hover:bg-white/5 hover:text-white/75">
+                  العودة مؤقتاً — سنخبرك بالنتيجة
+                </button>
+              </div>
+            ) : (
+              <p className="flex min-h-11 items-center justify-center gap-2 text-[11px] font-bold text-white/35">
+                <Lock size={12} /> لا نعرض لمن صوّت كل شخص
+              </p>
+            )}
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+function CoordinatorRevealOverlay({ leader, isMe, isReelection, onContinue }: {
+  leader: GroupCoordinatorCandidate
+  isMe: boolean
+  isReelection: boolean
+  onContinue: () => void
+}) {
+  const reducedMotion = useReducedMotion()
+
+  useEffect(() => {
+    if (reducedMotion) return
+    fireConfetti({ particleCount: 85, spread: 75, origin: { y: 0.62 }, colors: ["#c084fc", "#22d3ee", "#f472b6", "#ffffff"] })
+    const secondBurst = window.setTimeout(() => {
+      fireConfetti({ particleCount: 45, angle: 60, spread: 60, origin: { x: 0, y: 0.7 }, colors: ["#a78bfa", "#67e8f9"] })
+      fireConfetti({ particleCount: 45, angle: 120, spread: 60, origin: { x: 1, y: 0.7 }, colors: ["#f0abfc", "#ffffff"] })
+    }, 450)
+    return () => window.clearTimeout(secondBurst)
+  }, [reducedMotion])
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[620] flex items-center justify-center overflow-hidden bg-[#05030d]/92 p-5 backdrop-blur-2xl" role="dialog" aria-modal="true" aria-labelledby="coordinator-reveal-title" dir="rtl">
+      <div className="pointer-events-none absolute inset-0">
+        <motion.div className="absolute left-1/2 top-1/2 h-[28rem] w-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-violet-300/15" animate={reducedMotion ? undefined : { scale: [0.7, 1.2], opacity: [0.65, 0] }} transition={{ duration: 2.4, repeat: Infinity }} />
+        <motion.div className="absolute left-1/2 top-1/2 h-[20rem] w-[20rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-500/25 blur-[85px]" animate={reducedMotion ? undefined : { scale: [0.9, 1.18, 0.9] }} transition={{ duration: 3.8, repeat: Infinity }} />
+      </div>
+      <motion.div initial={{ scale: 0.72, y: 35 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.88, opacity: 0 }} transition={{ type: "spring", stiffness: 210, damping: 20 }} className="relative w-full max-w-sm overflow-hidden rounded-[2.5rem] border border-violet-300/25 bg-gradient-to-b from-[#201235]/95 via-[#10091d]/98 to-[#08050f]/98 p-7 text-center shadow-[0_40px_140px_-35px_rgba(168,85,247,.8)] ring-1 ring-white/10">
+        <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-cyan-200 to-transparent" />
+        <motion.div animate={reducedMotion ? undefined : { y: [0, -8, 0], rotate: [0, -4, 4, 0] }} transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }} className="mx-auto flex h-24 w-24 items-center justify-center rounded-[2rem] border border-amber-200/30 bg-gradient-to-br from-amber-300 via-fuchsia-400 to-violet-600 text-white shadow-[0_0_65px_rgba(244,114,182,.42)]">
+          <Crown className="h-11 w-11 drop-shadow-lg" strokeWidth={1.8} />
+        </motion.div>
+        <p className="mt-5 text-[11px] font-black tracking-[0.22em] text-cyan-200">{isReelection ? "انتقال القيادة" : "تم الحسم"}</p>
+        <h2 id="coordinator-reveal-title" className="mt-2 text-2xl font-black text-white">منسّق الطاولة</h2>
+        <div className="my-5 rounded-3xl border border-white/10 bg-white/[0.055] px-5 py-5">
+          <p className="truncate text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-l from-cyan-200 via-white to-fuchsia-200">{leader.name}</p>
+          <p className="mt-2 font-mono text-sm font-black text-white/45">#{leader.number}</p>
+        </div>
+        <p className="text-sm font-bold leading-7 text-white/65">
+          {isMe ? "أنت الآن قائد الشاشة — اختر النشاط والسؤال وسنرسله للجميع." : `${leader.name} سيقود شاشة الطاولة ويعرض ما تحتاجونه فقط.`}
+        </p>
+        <button type="button" onClick={onContinue} className="event3-action mt-6 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-cyan-400 via-violet-500 to-fuchsia-500 text-base font-black text-white shadow-[0_16px_45px_-16px_rgba(168,85,247,.8)] transition-all hover:brightness-110 active:scale-[0.98]">
+          {isMe ? <Megaphone size={19} /> : <Radio size={19} />}
+          {isMe ? "ابدأ قيادة الطاولة" : "الدخول إلى بث الطاولة"}
+        </button>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+function GroupProjectorOverlay({ tableNumber, coordinatorName, content, contentVersion, onUnsync, onReelection }: {
+  tableNumber: number
+  coordinatorName: string
+  content: SharedGroupContent | null
+  contentVersion: number
+  onUnsync: () => void
+  onReelection: () => void
+}) {
+  const reducedMotion = useReducedMotion()
+  const isQuestion = content?.kind === "question"
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[580] flex min-h-dvh flex-col overflow-hidden bg-[#05030c]/82 backdrop-blur-2xl" role="dialog" aria-modal="true" aria-label="بث شاشة الطاولة" dir="rtl">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <motion.div className="absolute left-1/2 top-1/2 h-[36rem] w-[36rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/18 blur-[120px]" animate={reducedMotion ? undefined : { scale: [0.92, 1.08, 0.92], opacity: [0.35, 0.7, 0.35] }} transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }} />
+        <div className="absolute -bottom-32 -left-24 h-96 w-96 rounded-full bg-cyan-500/10 blur-[110px]" />
+        <div className="absolute inset-0 opacity-[0.035] [background-image:radial-gradient(circle_at_center,white_1px,transparent_1px)] [background-size:24px_24px]" />
+      </div>
+
+      <header className="relative z-10 flex items-center justify-between gap-3 border-b border-white/[0.08] bg-black/20 px-4 pb-3 pt-[max(.75rem,env(safe-area-inset-top))] backdrop-blur-2xl">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-300/20 bg-emerald-400/10 text-emerald-300">
+            <Radio size={18} />
+            <motion.span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-emerald-300 shadow-[0_0_14px_rgba(110,231,183,.9)]" animate={reducedMotion ? undefined : { opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.3, repeat: Infinity }} />
+          </span>
+          <div className="min-w-0 text-right">
+            <p className="text-[10px] font-black text-emerald-300">بث مباشر · طاولة {tableNumber}</p>
+            <p className="truncate text-xs font-bold text-white/60">بقيادة {coordinatorName}</p>
+          </div>
+        </div>
+        <button type="button" onClick={onReelection} className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border border-amber-300/20 bg-amber-400/[0.08] px-3 text-xs font-black text-amber-200 transition-colors hover:bg-amber-400/15">
+          <Crown size={14} /> انقلاب
+        </button>
+      </header>
+
+      <main className="relative z-10 flex flex-1 items-center justify-center overflow-y-auto px-5 py-8" aria-live="polite" aria-atomic="true">
+        <AnimatePresence mode="wait">
+          {content ? (
+            <motion.article
+              key={`${contentVersion}:${content.kind}:${content.activity_id}`}
+              initial={{ opacity: 0, scale: 0.9, y: 25, filter: "blur(14px)" }}
+              animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
+              exit={{ opacity: 0, scale: 1.04, filter: "blur(10px)" }}
+              transition={{ type: "spring", stiffness: 220, damping: 24 }}
+              className={`relative w-full max-w-2xl overflow-hidden rounded-[2.5rem] border p-7 text-center shadow-[0_40px_130px_-40px_rgba(139,92,246,.65)] ring-1 sm:p-10 ${isQuestion ? "border-fuchsia-300/25 bg-gradient-to-b from-fuchsia-950/55 via-[#13091e]/95 to-[#090610]/98 ring-fuchsia-300/10" : "border-cyan-300/25 bg-gradient-to-b from-cyan-950/45 via-[#0d101d]/95 to-[#070910]/98 ring-cyan-300/10"}`}
+            >
+              <div className={`absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent ${isQuestion ? "via-fuchsia-200" : "via-cyan-200"} to-transparent`} />
+              <div className={`pointer-events-none absolute left-1/2 top-0 h-52 w-52 -translate-x-1/2 -translate-y-1/2 rounded-full blur-[70px] ${isQuestion ? "bg-fuchsia-500/25" : "bg-cyan-400/20"}`} />
+              <motion.div animate={reducedMotion ? undefined : { y: [0, -5, 0], rotate: isQuestion ? [0, -2, 2, 0] : 0 }} transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }} className={`relative mx-auto flex h-20 w-20 items-center justify-center rounded-[1.65rem] border ${isQuestion ? "border-fuchsia-300/25 bg-fuchsia-400/12 text-fuchsia-200" : "border-cyan-300/25 bg-cyan-400/12 text-cyan-200"}`}>
+                {isQuestion ? <MessageSquare size={34} strokeWidth={1.6} /> : <Sparkles size={34} strokeWidth={1.6} />}
+              </motion.div>
+              <p className={`relative mt-5 text-[10px] font-black tracking-[0.18em] ${isQuestion ? "text-fuchsia-200" : "text-cyan-200"}`}>{isQuestion ? "سؤال المجموعة" : "النشاط المختار"}</p>
+              <h2 className={`relative mx-auto mt-3 max-w-xl font-black leading-[1.55] tracking-tight text-white ${isQuestion ? "text-3xl sm:text-5xl" : "text-3xl sm:text-4xl"}`}>{content.title}</h2>
+              {content.body && <p className="relative mx-auto mt-5 max-w-lg text-sm font-bold leading-7 text-white/55 sm:text-base">{content.body}</p>}
+              <div className={`relative mx-auto mt-7 h-1 w-24 rounded-full bg-gradient-to-r ${isQuestion ? "from-fuchsia-500 via-violet-400 to-cyan-400" : "from-cyan-400 via-sky-400 to-violet-500"}`} />
+            </motion.article>
+          ) : (
+            <motion.div key="waiting" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full max-w-sm text-center">
+              <div className="relative mx-auto flex h-28 w-28 items-center justify-center">
+                <motion.span className="absolute inset-0 rounded-full border border-violet-300/25" animate={reducedMotion ? undefined : { scale: [0.75, 1.35], opacity: [0.8, 0] }} transition={{ duration: 2.2, repeat: Infinity }} />
+                <motion.span className="absolute inset-3 rounded-full border border-cyan-300/20" animate={reducedMotion ? undefined : { scale: [0.75, 1.25], opacity: [0.7, 0] }} transition={{ duration: 2.2, delay: 0.5, repeat: Infinity }} />
+                <span className="flex h-20 w-20 items-center justify-center rounded-[1.7rem] border border-violet-300/20 bg-violet-400/10 text-violet-200 shadow-[0_0_45px_rgba(139,92,246,.25)]"><Radio size={34} /></span>
+              </div>
+              <h2 className="mt-5 text-2xl font-black text-white">الشاشة جاهزة</h2>
+              <p className="mt-2 text-sm font-bold leading-7 text-white/50">{coordinatorName} يختار النشاط المناسب الآن.<br />سيظهر هنا تلقائياً.</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </main>
+
+      <footer className="relative z-10 border-t border-white/[0.07] bg-black/25 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 text-center backdrop-blur-2xl">
+        <button type="button" onClick={onUnsync} className="mx-auto flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-xs font-bold text-white/45 transition-colors hover:bg-white/[0.06] hover:text-white/75">
+          <WifiOff size={14} /> فك المزامنة والتصفّح بحرية
+        </button>
+      </footer>
+    </motion.div>
+  )
+}
+
+function ReelectionConfirmOverlay({ coordinatorName, busy, error, onCancel, onConfirm }: {
+  coordinatorName: string
+  busy: boolean
+  error: string
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[630] flex items-end justify-center bg-black/75 p-4 backdrop-blur-xl sm:items-center" role="dialog" aria-modal="true" aria-labelledby="reelection-title" dir="rtl">
+      <motion.div initial={{ y: 28, scale: 0.97 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, opacity: 0 }} className="relative w-full max-w-sm overflow-hidden rounded-[2rem] border border-amber-300/25 bg-gradient-to-b from-[#211508]/98 via-[#110b0a]/98 to-[#090708]/98 p-6 text-center shadow-[0_35px_100px_-35px_rgba(245,158,11,.55)] ring-1 ring-white/[0.06]">
+        <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-amber-200 to-transparent" />
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-amber-300/25 bg-amber-400/10 text-amber-200"><Crown size={28} /></div>
+        <p className="mt-4 text-[10px] font-black tracking-[0.18em] text-amber-300">انقلاب</p>
+        <h2 id="reelection-title" className="mt-1 text-xl font-black text-white">فتح تصويت جديد؟</h2>
+        <p className="mt-3 text-sm font-medium leading-7 text-white/55">يبقى {coordinatorName} منسّقاً أثناء التصويت. أمام المجموعة 3 دقائق لاختيار شخص آخر.</p>
+        {error && <p role="alert" className="mt-3 rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-bold text-rose-200">{error}</p>}
+        <div className="mt-5 grid grid-cols-2 gap-2.5">
+          <button type="button" onClick={onCancel} disabled={busy} className="min-h-12 rounded-2xl border border-white/10 bg-white/[0.05] text-sm font-black text-white/60 transition-colors hover:bg-white/10 disabled:opacity-50">إلغاء</button>
+          <button type="button" onClick={onConfirm} disabled={busy} className="event3-action flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-amber-400 to-orange-500 text-sm font-black text-gray-950 transition-all hover:brightness-110 disabled:opacity-60">
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Vote size={16} />} ابدأ التصويت
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+function GroupCoordinatorStatusCard({ state, leaderName, isLeader, onReelection }: {
+  state: GroupCoordinationState
+  leaderName: string
+  isLeader: boolean
+  onReelection: () => void
+}) {
+  if (state.status === "idle") return null
+  const voting = state.status === "voting"
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="relative overflow-hidden rounded-2xl border border-violet-300/20 bg-gradient-to-l from-violet-500/[0.11] via-white/[0.035] to-cyan-500/[0.07] p-3.5 text-right shadow-lg ring-1 ring-white/[0.04]">
+      <div className="absolute -right-12 -top-16 h-32 w-32 rounded-full bg-violet-500/15 blur-3xl" />
+      <div className="relative flex items-center gap-3">
+        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${voting ? "border-violet-300/25 bg-violet-400/10 text-violet-200" : "border-amber-300/25 bg-amber-400/10 text-amber-200"}`}>
+          {voting ? <Vote size={20} /> : <Crown size={20} />}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-black text-violet-200">{voting ? (state.kind === "revolt" ? "انقلاب قيد التصويت" : "انتخابات الطاولة") : "منسّق الطاولة"}</p>
+          <p className="mt-0.5 truncate text-sm font-black text-white">{voting ? `${state.votes_cast} من ${state.member_count} صوّتوا` : `${leaderName}${isLeader ? " · أنت" : ""}`}</p>
+        </div>
+        {!voting && (
+          <button type="button" onClick={onReelection} className="flex min-h-10 shrink-0 items-center gap-1 rounded-xl border border-amber-300/20 bg-amber-400/[0.07] px-3 text-[11px] font-black text-amber-200 transition-colors hover:bg-amber-400/15">
+            انقلاب
+          </button>
+        )}
+      </div>
+    </motion.div>
+  )
+}
+
 // ─── Round Screen ─────────────────────────────────────────────────────────────
 function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, correctedNow, myInfo, onGroupsOpenChange, eventFormat }: {
   token: string; phase: string; timerActive: boolean; timerStart: string | null; timerDuration: number; correctedNow?: () => number; myInfo: { number: number; name: string; gender: string | null } | null; onGroupsOpenChange?: (open: boolean) => void; eventFormat: Event3Format
@@ -3194,6 +3566,15 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   const [showGroups, setShowGroups] = useState(false)
   const [groupsHaveOpened, setGroupsHaveOpened] = useState(false)
   const [groupActivityStage, setGroupActivityStage] = useState<"warmup" | "activities">("warmup")
+  const [coordination, setCoordination] = useState<GroupCoordinationState | null>(null)
+  const [coordinationError, setCoordinationError] = useState("")
+  const [coordinationBusy, setCoordinationBusy] = useState(false)
+  const [electionVisible, setElectionVisible] = useState(false)
+  const [dismissedElectionVersion, setDismissedElectionVersion] = useState<number | null>(null)
+  const [electionSeconds, setElectionSeconds] = useState(180)
+  const [revealedCoordinator, setRevealedCoordinator] = useState<{ number: number; version: number; kind: "initial" | "revolt" } | null>(null)
+  const [syncEnabled, setSyncEnabled] = useState(true)
+  const [showReelectionConfirm, setShowReelectionConfirm] = useState(false)
   const [showGroupParticipationNudge, setShowGroupParticipationNudge] = useState(false)
   const [participationNudgePending, setParticipationNudgePending] = useState(false)
   const participationNudgeTimerRef = useRef<string | null>(null)
@@ -3201,12 +3582,194 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   const participationNudgeTitleId = useId()
   const groupsDialogRef = useRef<HTMLDivElement>(null)
   const groupsOpenerRef = useRef<HTMLElement | null>(null)
+  const coordinationServerOffsetRef = useRef(0)
+  const lastPublishedSignatureRef = useRef("")
+  const publishQueueRef = useRef<Promise<void>>(Promise.resolve())
+  const coordinatorCandidates: GroupCoordinatorCandidate[] = []
+  if (myInfo) {
+    coordinatorCandidates.push({ number: myInfo.number, name: myInfo.name, gender: myInfo.gender, isMe: true })
+  }
+  for (const member of assignment?.tablemates || []) {
+    if (coordinatorCandidates.some(candidate => candidate.number === member.number)) continue
+    coordinatorCandidates.push({
+      number: Number(member.number),
+      name: member.first_name || `#${member.number}`,
+      gender: member.gender || null,
+      isMe: member.number === myInfo?.number,
+    })
+  }
+  coordinatorCandidates.sort((a, b) => a.number - b.number)
+  const coordinator = coordinatorCandidates.find(candidate => candidate.number === coordination?.coordinator_number) || null
+  const coordinatorName = coordinator?.name || (coordination?.coordinator_number ? `المشارك #${coordination.coordinator_number}` : "منسّق الطاولة")
+  const isGroupCoordinator = Boolean(myInfo && coordination?.coordinator_number === myInfo.number)
+  const electionCandidates = coordination?.kind === "revolt"
+    ? coordinatorCandidates.filter(candidate => candidate.number !== coordination.coordinator_number)
+    : coordinatorCandidates
+  const revealedLeader = revealedCoordinator
+    ? coordinatorCandidates.find(candidate => candidate.number === revealedCoordinator.number) || {
+        number: revealedCoordinator.number,
+        name: `المشارك #${revealedCoordinator.number}`,
+        gender: null,
+        isMe: revealedCoordinator.number === myInfo?.number,
+      }
+    : null
   const openGroups = useCallback(() => {
     groupsOpenerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
     setGroupsHaveOpened(true)
     setShowGroups(true)
   }, [])
   const closeGroups = useCallback(() => setShowGroups(false), [])
+
+  const applyCoordinationState = useCallback((incoming: GroupCoordinationState) => {
+    if (!incoming || !["idle", "voting", "elected"].includes(incoming.status)) return
+    if (incoming.server_now) {
+      const serverTime = Date.parse(incoming.server_now)
+      if (Number.isFinite(serverTime)) coordinationServerOffsetRef.current = serverTime - Date.now()
+    }
+    setCoordination(current => {
+      if (!current) return incoming
+      const currentElection = current.election_version || 0
+      const incomingElection = incoming.election_version || 0
+      if (incomingElection < currentElection) return current
+      if (incomingElection === currentElection) {
+        const statusRank = { idle: 0, voting: 1, elected: 2 }
+        if (statusRank[incoming.status] < statusRank[current.status]) return current
+        if ((incoming.content_version || 0) < (current.content_version || 0)) return current
+      }
+      return incoming
+    })
+  }, [])
+
+  const beginGroupActivities = useCallback(async () => {
+    setGroupActivityStage("activities")
+    setGroupsHaveOpened(true)
+    setCoordinationError("")
+    const data = await call("e3-open-group-election", token, { round })
+    if (data.error) {
+      setCoordinationError("تعذّر فتح انتخابات الطاولة. حاول مرة أخرى.")
+      toast.error("تعذّر فتح انتخابات الطاولة")
+      return
+    }
+    applyCoordinationState(data as GroupCoordinationState)
+    if (data.status === "voting") setElectionVisible(true)
+  }, [token, round, applyCoordinationState])
+
+  const castCoordinatorVote = useCallback(async (candidateNumber: number) => {
+    if (!Number.isInteger(candidateNumber) || coordinationBusy) return
+    setCoordinationBusy(true)
+    setCoordinationError("")
+    const data = await call("e3-cast-group-coordinator-vote", token, { round, candidate_number: candidateNumber })
+    if (data.error) {
+      setCoordinationError("لم يُسجّل صوتك. تحقق من الاتصال وحاول مرة أخرى.")
+    } else {
+      applyCoordinationState(data as GroupCoordinationState)
+    }
+    setCoordinationBusy(false)
+  }, [token, round, coordinationBusy, applyCoordinationState])
+
+  const startCoordinatorReelection = useCallback(async () => {
+    if (coordinationBusy) return
+    setCoordinationBusy(true)
+    setCoordinationError("")
+    const data = await call("e3-start-group-reelection", token, { round })
+    if (data.error) {
+      setCoordinationError("تعذّر بدء التصويت الجديد. حاول مرة أخرى.")
+      setCoordinationBusy(false)
+      return
+    }
+    applyCoordinationState(data as GroupCoordinationState)
+    setDismissedElectionVersion(null)
+    setShowReelectionConfirm(false)
+    setElectionVisible(true)
+    setSyncEnabled(true)
+    setCoordinationBusy(false)
+  }, [token, round, coordinationBusy, applyCoordinationState])
+
+  const publishSharedGroupContent = useCallback((content: SharedGroupContent | null) => {
+    if (!isGroupCoordinator) return
+    const signature = content ? JSON.stringify(content) : "__clear__"
+    if (lastPublishedSignatureRef.current === signature) return
+    lastPublishedSignatureRef.current = signature
+    publishQueueRef.current = publishQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        const action = content ? "e3-publish-group-content" : "e3-clear-group-content"
+        const data = await call(action, token, content ? { round, content } : { round })
+        if (data.error) {
+          if (lastPublishedSignatureRef.current === signature) lastPublishedSignatureRef.current = ""
+          toast.error("تعذّر تحديث شاشة المجموعة")
+          return
+        }
+        applyCoordinationState(data as GroupCoordinationState)
+      })
+  }, [isGroupCoordinator, token, round, applyCoordinationState])
+
+  useEffect(() => {
+    if (!assignment?.table) return
+    let cancelled = false
+    let nextPoll: ReturnType<typeof setTimeout> | null = null
+    const poll = async () => {
+      const data = await call("e3-get-group-coordination", token, { round })
+      if (cancelled) return
+      if (data.error) {
+        setCoordinationError("تعذّر مزامنة شاشة الطاولة حالياً.")
+      } else {
+        setCoordinationError("")
+        applyCoordinationState(data as GroupCoordinationState)
+      }
+      nextPoll = setTimeout(poll, typeof document !== "undefined" && document.hidden ? 5000 : 1800)
+    }
+    void poll()
+    return () => {
+      cancelled = true
+      if (nextPoll) clearTimeout(nextPoll)
+    }
+  }, [assignment?.table, token, round, applyCoordinationState])
+
+  useEffect(() => {
+    if (coordination?.status !== "voting" || !coordination.election_version) {
+      setElectionVisible(false)
+      return
+    }
+    setGroupActivityStage("activities")
+    setGroupsHaveOpened(true)
+    setShowGroups(true)
+    if (coordination.my_vote == null || dismissedElectionVersion !== coordination.election_version) {
+      setElectionVisible(true)
+    }
+  }, [coordination?.status, coordination?.election_version, coordination?.my_vote, dismissedElectionVersion])
+
+  useEffect(() => {
+    if (coordination?.status !== "voting" || !coordination.election_deadline) return
+    const updateCountdown = () => {
+      const deadline = Date.parse(coordination.election_deadline || "")
+      const now = Date.now() + coordinationServerOffsetRef.current
+      setElectionSeconds(Number.isFinite(deadline) ? Math.max(0, Math.ceil((deadline - now) / 1000)) : 0)
+    }
+    updateCountdown()
+    const timer = window.setInterval(updateCountdown, 500)
+    return () => window.clearInterval(timer)
+  }, [coordination?.status, coordination?.election_deadline])
+
+  useEffect(() => {
+    if (coordination?.status !== "elected" || !coordination.coordinator_number || !coordination.election_version) return
+    const runtimeSession = typeof window !== "undefined"
+      ? window.sessionStorage.getItem("event3_runtime_session_key") || "live"
+      : "live"
+    const revealKey = `e3_coordinator_reveal:${runtimeSession}:${myInfo?.number || "participant"}:${round}:${coordination.table_number}:${coordination.election_version}:${coordination.coordinator_number}`
+    try {
+      if (sessionStorage.getItem(revealKey) === "1") return
+      sessionStorage.setItem(revealKey, "1")
+    } catch {}
+    setSyncEnabled(true)
+    setGroupsHaveOpened(true)
+    setShowGroups(true)
+    setRevealedCoordinator({
+      number: coordination.coordinator_number,
+      version: coordination.election_version,
+      kind: coordination.kind || "initial",
+    })
+  }, [coordination?.status, coordination?.coordinator_number, coordination?.election_version, coordination?.table_number, coordination?.kind, round, myInfo?.number])
 
   // Treat the activities panel like a native modal sheet while keeping it
   // mounted off-screen so selected activities retain their progress.
@@ -3249,9 +3812,15 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
     }
   }, [showGroups, closeGroups])
   const [showTutorial, setShowTutorial] = useState(false)
+  const projectorVisible = coordination?.status === "elected"
+    && Boolean(coordination.coordinator_number)
+    && !isGroupCoordinator
+    && syncEnabled
+    && !revealedCoordinator
+    && !electionVisible
   useEffect(() => {
-    onGroupsOpenChange?.(showGroups || showTutorial || showGroupParticipationNudge)
-  }, [showGroups, showTutorial, showGroupParticipationNudge, onGroupsOpenChange])
+    onGroupsOpenChange?.(showGroups || showTutorial || showGroupParticipationNudge || electionVisible || Boolean(revealedCoordinator) || projectorVisible || showReelectionConfirm)
+  }, [showGroups, showTutorial, showGroupParticipationNudge, electionVisible, revealedCoordinator, projectorVisible, showReelectionConfirm, onGroupsOpenChange])
 
   useEffect(() => {
     if (!showGroupParticipationNudge) return
@@ -3321,10 +3890,10 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   // Queue this gentle reminder until the current sheet/tutorial is closed.
   // Only one Round overlay owns focus and the body scroll lock at a time.
   useEffect(() => {
-    if (!participationNudgePending || showGroups || showTutorial || showGroupParticipationNudge) return
+    if (!participationNudgePending || showGroups || showTutorial || showGroupParticipationNudge || electionVisible || revealedCoordinator || projectorVisible || showReelectionConfirm) return
     setParticipationNudgePending(false)
     setShowGroupParticipationNudge(true)
-  }, [participationNudgePending, showGroups, showTutorial, showGroupParticipationNudge])
+  }, [participationNudgePending, showGroups, showTutorial, showGroupParticipationNudge, electionVisible, revealedCoordinator, projectorVisible, showReelectionConfirm])
 
   // Wake lock: prevent screen sleep during active round
   const wakeLockActive = timerActive && timeLeft > 0
@@ -3333,19 +3902,16 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   // Vibrate when timer starts or when 10 seconds remain
   // (sound/vibration handled by useTimerWarnings hook above)
 
-  const roundAr = ["الأولى", "الثانية", "الثالثة"][round - 1] || round
-  const RC = [
-    { badge: "bg-blue-900/30 border-blue-700/40 text-blue-300", card: "border-blue-800/40", num: "text-blue-300", pill: "bg-blue-900/40 text-blue-300 border-blue-800/40", bar: "from-blue-500 to-cyan-500" },
-    { badge: "bg-indigo-900/30 border-indigo-700/40 text-indigo-300", card: "border-indigo-800/40", num: "text-indigo-300", pill: "bg-indigo-900/40 text-indigo-300 border-indigo-800/40", bar: "from-indigo-500 to-purple-500" },
-  ][round - 1] || { badge: "bg-purple-900/30 border-purple-700/40 text-purple-300", card: "border-purple-800/40", num: "text-purple-300", pill: "bg-purple-900/40 text-purple-300 border-purple-800/40", bar: "from-purple-500 to-pink-500" }
+  const RC = getEvent3GroupRoundTheme(round)
 
   return (
     <div className="relative min-h-full overflow-hidden" dir="rtl">
       {/* Background orbs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -right-24 -top-32 h-[380px] w-[380px] rounded-full bg-purple-600/[0.16] blur-[105px]" />
-        <div className="absolute -bottom-24 -left-20 h-[340px] w-[340px] rounded-full bg-cyan-500/[0.09] blur-[95px]" />
-        <div className="absolute right-1/3 top-1/2 h-[260px] w-[260px] -translate-y-1/2 rounded-full bg-fuchsia-500/[0.055] blur-[80px]" />
+        <div className={`absolute inset-0 bg-gradient-to-b ${RC.shell}`} />
+        <div className={`absolute -right-24 -top-32 h-[380px] w-[380px] rounded-full blur-[105px] ${RC.primaryOrb}`} />
+        <div className={`absolute -bottom-24 -left-20 h-[340px] w-[340px] rounded-full blur-[95px] ${RC.secondaryOrb}`} />
+        <div className={`absolute right-1/3 top-1/2 h-[260px] w-[260px] -translate-y-1/2 rounded-full blur-[80px] ${RC.tertiaryOrb}`} />
       </div>
 
       {/* ── Main Content ───────────────────────────────────────────── */}
@@ -3361,25 +3927,27 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
             className={`inline-flex items-center gap-2 ${RC.badge} border rounded-full px-5 py-2`}
           >
             <Users size={13} />
-            <span className="font-bold text-sm">الجولة الجماعية {roundAr}</span>
+            <span className="font-bold text-sm">الجولة الجماعية {RC.ordinalAr}</span>
             <span className="text-gray-600 text-xs">من {groupRoundCount}</span>
           </motion.div>
           <JourneyCue
-            accent={round === 1 ? "blue" : "purple"}
+            accent={RC.journeyAccent}
+            eyebrow={RC.nameAr}
             title={assignment ? `توجّه الآن إلى طاولة ${assignment.table}` : "نجهّز مكانك في الجولة"}
-            description="بعد الوصول ستبدأون بكسر جليد قصير، ثم تختارون نشاطاً واحداً للمجموعة."
+            description={`${RC.focusAr}. بعد الوصول ستبدأون بكسر جليد قصير، ثم تختارون نشاطاً واحداً للمجموعة.`}
             steps={["الوصول", "كسر الجليد", "نشاط المجموعة"]}
             currentStep={groupActivityStage === "activities" ? 2 : groupsHaveOpened ? 1 : 0}
           />
 
           {assignment ? (
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-              <GlassCard className={`p-0 overflow-hidden border ${RC.card} shadow-2xl shadow-black/30`}>
+              <GlassCard className={`p-0 overflow-hidden border ${RC.border} ring-1 ${RC.ring} shadow-2xl shadow-black/30`}>
                 <div className="relative px-5 pt-5 pb-4 text-center">
                   <div className="absolute inset-0 bg-gradient-to-br from-gray-900/60 via-gray-950/60 to-black/40" />
+                  <div className={`absolute inset-0 bg-gradient-to-bl ${RC.wash}`} />
                   <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
-                  <div className="absolute -top-20 -right-16 w-48 h-48 rounded-full bg-purple-600/15 blur-3xl pointer-events-none" />
-                  <div className="absolute -bottom-24 -left-16 w-44 h-44 rounded-full bg-pink-600/10 blur-3xl pointer-events-none" />
+                  <div className={`absolute -top-20 -right-16 w-48 h-48 rounded-full blur-3xl pointer-events-none ${RC.primaryOrb}`} />
+                  <div className={`absolute -bottom-24 -left-16 w-44 h-44 rounded-full blur-3xl pointer-events-none ${RC.secondaryOrb}`} />
                   <div className="relative z-10 space-y-2.5">
                     <div className={`inline-flex items-center justify-center gap-2 ${RC.badge} border rounded-full px-4 py-1.5 text-[11px] font-bold`}>
                       <MapPin size={12} /> مكانك هذه الجولة
@@ -3464,6 +4032,22 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
             </GlassCard>
           )}
 
+          {coordination && (
+            <GroupCoordinatorStatusCard
+              state={coordination}
+              leaderName={coordinatorName}
+              isLeader={isGroupCoordinator}
+              onReelection={() => {
+                setCoordinationError("")
+                setShowReelectionConfirm(true)
+              }}
+            />
+          )}
+
+          {coordinationError && !electionVisible && !showReelectionConfirm && (
+            <p role="alert" className="rounded-xl border border-rose-400/20 bg-rose-500/[0.08] px-3 py-2 text-xs font-bold text-rose-200">{coordinationError}</p>
+          )}
+
           {/* One linear entry point owns the warm-up and shared activity. */}
           <motion.button
             type="button"
@@ -3532,35 +4116,137 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
             tabIndex={-1}
             className={`event3-shell fixed inset-0 z-[210] flex flex-col ${showGroups ? "pointer-events-auto" : "pointer-events-none"}`}
           >
+            <div className="pointer-events-none absolute inset-0 overflow-hidden">
+              <div className={`absolute inset-0 bg-gradient-to-b ${RC.shell}`} />
+              <div className={`absolute -right-24 -top-28 h-80 w-80 rounded-full blur-[95px] ${RC.primaryOrb}`} />
+              <div className={`absolute -bottom-28 -left-20 h-72 w-72 rounded-full blur-[90px] ${RC.secondaryOrb}`} />
+            </div>
             {groupActivityStage === "warmup" && assignment?.tablemates ? (
               <div className="event3-scroll relative z-10 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]" tabIndex={-1}>
                 <div className="mx-auto w-full max-w-sm space-y-4">
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-right">
-                      <p className="text-xs font-bold text-amber-300">الخطوة 1 من 2</p>
+                      <p className={`text-xs font-bold ${RC.text}`}>الخطوة 1 من 2 · {RC.nameAr}</p>
                       <h2 className="mt-0.5 text-lg font-black text-white">ابدأوا بتعارف سريع</h2>
                     </div>
                     <button type="button" onClick={closeGroups} className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-gray-300" aria-label="إغلاق أنشطة المجموعة"><X size={18} /></button>
                   </div>
-                  <JourneyCue accent="amber" eyebrow="قبل النشاط" title="خلّوا كل شخص يأخذ دوره" description="بعد آخر شخص سننقلكم مباشرة إلى قائمة الأنشطة — لا تحتاجون الرجوع لهذه الشاشة." steps={["تعارف", "اختيار نشاط", "مشاركة"]} currentStep={0} />
+                  <JourneyCue accent={RC.journeyAccent} eyebrow={RC.nameAr} title="خلّوا كل شخص يأخذ دوره" description={RC.focusAr} steps={["تعارف", "اختيار نشاط", "مشاركة"]} currentStep={0} />
                   <IceBreaker
                     round={round}
                     tableNumber={assignment.table}
                     myInfo={myInfo}
                     tablemates={assignment.tablemates}
-                    onDone={() => setGroupActivityStage("activities")}
+                    onDone={beginGroupActivities}
                   />
-                  <button type="button" onClick={() => setGroupActivityStage("activities")} className="mx-auto flex min-h-11 items-center justify-center rounded-xl px-4 text-xs font-bold text-gray-400 transition-colors hover:bg-white/5 hover:text-gray-200">
+                  <button type="button" onClick={beginGroupActivities} className="mx-auto flex min-h-11 items-center justify-center rounded-xl px-4 text-xs font-bold text-gray-400 transition-colors hover:bg-white/5 hover:text-gray-200">
                     تخطي كسر الجليد والذهاب للأنشطة
                   </button>
                 </div>
               </div>
             ) : (
               <div className="relative z-10 flex-1 overflow-y-auto overscroll-contain" tabIndex={-1}>
-                <GroupsPage disableOnboarding onClose={closeGroups} round={round} tableNumber={assignment?.table} participantSeed={token} />
+                <GroupsPage
+                  disableOnboarding
+                  onClose={closeGroups}
+                  round={round}
+                  tableNumber={assignment?.table}
+                  participantSeed={token}
+                  isGroupCoordinator={isGroupCoordinator}
+                  coordinatorName={coordinatorName}
+                  onSharedContentChange={isGroupCoordinator ? publishSharedGroupContent : undefined}
+                  onRequestReelection={coordination?.status === "elected" ? () => {
+                    setCoordinationError("")
+                    setShowReelectionConfirm(true)
+                  } : undefined}
+                />
               </div>
             )}
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {electionVisible && coordination?.status === "voting" && (
+          <GroupElectionOverlay
+            state={coordination}
+            candidates={electionCandidates}
+            remainingSeconds={electionSeconds}
+            submitting={coordinationBusy}
+            error={coordinationError}
+            onVote={castCoordinatorVote}
+            onMinimize={() => {
+              setDismissedElectionVersion(coordination.election_version || null)
+              setElectionVisible(false)
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {revealedCoordinator && revealedLeader && (
+          <CoordinatorRevealOverlay
+            leader={revealedLeader}
+            isMe={revealedLeader.isMe}
+            isReelection={revealedCoordinator.kind === "revolt"}
+            onContinue={() => {
+              setRevealedCoordinator(null)
+              setShowGroups(true)
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {projectorVisible && coordination && (
+          <GroupProjectorOverlay
+            tableNumber={coordination.table_number}
+            coordinatorName={coordinatorName}
+            content={coordination.active_content || null}
+            contentVersion={coordination.content_version || 0}
+            onUnsync={() => {
+              setSyncEnabled(false)
+              setGroupsHaveOpened(true)
+              setShowGroups(true)
+              toast("تم فك المزامنة — يمكنك العودة للبث بأي وقت", { icon: "↗" })
+            }}
+            onReelection={() => {
+              setCoordinationError("")
+              setShowReelectionConfirm(true)
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {coordination?.status === "elected" && !isGroupCoordinator && !syncEnabled && !revealedCoordinator && !electionVisible && (
+          <motion.button
+            initial={{ opacity: 0, y: 18, scale: 0.92 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12 }}
+            type="button"
+            onClick={() => setSyncEnabled(true)}
+            className="event3-action fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 z-[570] flex min-h-14 -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-2xl border border-cyan-200/25 bg-gradient-to-l from-cyan-500 via-violet-500 to-fuchsia-500 px-5 text-sm font-black text-white shadow-[0_18px_55px_-18px_rgba(139,92,246,.8)] ring-1 ring-white/15"
+          >
+            <Wifi size={17} /> العودة لبث {coordinatorName}
+          </motion.button>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showReelectionConfirm && coordination?.coordinator_number && (
+          <ReelectionConfirmOverlay
+            coordinatorName={coordinatorName}
+            busy={coordinationBusy}
+            error={coordinationError}
+            onCancel={() => {
+              if (!coordinationBusy) {
+                setCoordinationError("")
+                setShowReelectionConfirm(false)
+              }
+            }}
+            onConfirm={startCoordinatorReelection}
+          />
         )}
       </AnimatePresence>
 

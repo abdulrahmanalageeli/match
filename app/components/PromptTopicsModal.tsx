@@ -4,6 +4,7 @@ import { X, ChevronRight, ChevronLeft, Sparkles, MessageSquare, ArrowLeftCircle,
 // Removed Dialog imports - using custom modal implementation
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
+import { getEvent3GroupRoundTheme } from "../lib/event3-group-round-theme";
 
 // Topics data: from shallow to deep
   const promptTopics = [
@@ -1282,12 +1283,13 @@ function getUnseenQuestion(
  * deliberately retained below as LegacyPromptTopicsModal so it can later be
  * exposed from a separate "Browse all" tab without rebuilding it.
  */
-export default function PromptTopicsModal({ open, onClose, embedded = false, round = 1, tableNumber = 1 }: {
+export default function PromptTopicsModal({ open, onClose, embedded = false, round = 1, tableNumber = 1, onQuestionChange }: {
   open: boolean;
   onClose: () => void;
   embedded?: boolean;
   round?: number;
   tableNumber?: number;
+  onQuestionChange?: (question: string, context: { depthLabel: string; index: number }) => void;
 }) {
   const [tableState, setTableState] = useState<TableModeState>(readTableModeState);
   const [showPacingCheckIn, setShowPacingCheckIn] = useState(false);
@@ -1297,6 +1299,7 @@ export default function PromptTopicsModal({ open, onClose, embedded = false, rou
   const { depth, history, index } = tableState;
   const currentQuestion = history[index] || "";
   const contextKey = `${round}:${tableNumber}`;
+  const roundTheme = getEvent3GroupRoundTheme(round);
   const depthIndex = depthOrder.indexOf(depth);
   const depthLabel = depth === "shallow" ? "خفيف" : depth === "medium" ? "متوسط" : "عميق";
 
@@ -1307,6 +1310,11 @@ export default function PromptTopicsModal({ open, onClose, embedded = false, rou
       return { ...prev, contextKey, history: [...prev.history, question], index: prev.history.length };
     });
   }, [open, currentQuestion, tableNumber, round, contextKey, tableState.contextKey]);
+
+  useEffect(() => {
+    if (!open || !currentQuestion || tableState.contextKey !== contextKey) return;
+    onQuestionChange?.(currentQuestion, { depthLabel, index });
+  }, [open, currentQuestion, tableState.contextKey, contextKey, depthLabel, index, onQuestionChange]);
 
   useEffect(() => {
     setQuestionsInRound(1);
@@ -1369,19 +1377,24 @@ export default function PromptTopicsModal({ open, onClose, embedded = false, rou
         role="dialog"
         aria-modal="true"
         aria-label="أسئلة المجموعة"
-        className={`relative w-full h-full overflow-hidden bg-gradient-to-b from-gray-950 via-slate-950 to-gray-950 text-white flex flex-col ${embedded ? "" : "sm:max-w-lg sm:h-[760px] sm:max-h-[92vh] sm:rounded-3xl sm:border sm:border-white/10 sm:shadow-2xl"}`}
+        className={`relative w-full h-full overflow-hidden bg-gradient-to-b text-white flex flex-col ${roundTheme.shell} ${embedded ? "" : `sm:max-w-lg sm:h-[760px] sm:max-h-[92vh] sm:rounded-3xl sm:border sm:shadow-2xl ${roundTheme.border}`}`}
       >
-        <header className="flex items-center justify-between gap-3 px-5 py-4 border-b border-white/[0.07] bg-gray-950/85 backdrop-blur-xl">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className={`absolute inset-0 bg-gradient-to-b ${roundTheme.wash}`} />
+          <div className={`absolute -right-24 -top-28 h-72 w-72 rounded-full blur-[95px] ${roundTheme.primaryOrb}`} />
+          <div className={`absolute -bottom-28 -left-20 h-64 w-64 rounded-full blur-[90px] ${roundTheme.secondaryOrb}`} />
+        </div>
+        <header className={`relative z-10 flex items-center justify-between gap-3 border-b bg-gray-950/75 px-5 py-4 backdrop-blur-xl ${roundTheme.border}`}>
           <div>
             <p className="font-black text-base">أسئلة المجموعة</p>
-            <p className="text-[11px] text-gray-500 mt-0.5">ضعوا الهاتف في منتصف الطاولة</p>
+            <p className={`mt-0.5 text-[11px] font-bold ${roundTheme.text}`}>الجولة {roundTheme.ordinalAr} · {roundTheme.nameAr}</p>
           </div>
           <button onClick={onClose} className="w-10 h-10 rounded-full bg-white/5 border border-white/10 text-gray-400 hover:text-white flex items-center justify-center" aria-label="إغلاق">
             <X className="w-5 h-5" />
           </button>
         </header>
 
-        <main className="flex-1 min-h-0 overflow-y-auto px-5 py-6 flex flex-col">
+        <main className="relative z-10 flex-1 min-h-0 overflow-y-auto px-5 py-6 flex flex-col">
           <div className="flex items-center justify-center gap-2 mb-5">
             {depthOrder.map(item => (
               <span key={item} className={`h-1.5 rounded-full transition-all ${item === depth ? `w-10 bg-gradient-to-r ${depthColors[item]}` : "w-5 bg-gray-800"}`} />
@@ -1396,18 +1409,18 @@ export default function PromptTopicsModal({ open, onClose, embedded = false, rou
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -12, scale: 0.98 }}
                 transition={{ duration: 0.24 }}
-                className="relative rounded-[2rem] border border-white/10 bg-white/[0.045] p-6 sm:p-8 text-center shadow-2xl shadow-black/30"
+                className={`relative rounded-[2rem] border bg-white/[0.045] p-6 text-center shadow-2xl shadow-black/30 ring-1 sm:p-8 ${roundTheme.border} ${roundTheme.ring}`}
               >
                 <div className="flex items-center justify-center gap-2 mb-6">
                   <span className={`px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r ${depthColors[depth]} text-gray-950`}>{depthLabel}</span>
                   <span className="text-xs text-gray-500">السؤال {index + 1}</span>
                 </div>
 
-                <MessageSquare className="w-8 h-8 text-purple-300 mx-auto mb-5" />
+                <MessageSquare className={`w-8 h-8 mx-auto mb-5 ${roundTheme.text}`} />
                 <p className="text-2xl sm:text-3xl font-black leading-[1.65] text-white">{currentQuestion}</p>
 
                 <div className="mt-7 pt-5 border-t border-white/[0.07] space-y-2">
-                  <p className="text-sm font-bold text-purple-200 flex items-center justify-center gap-2"><Users className="w-4 h-4" /> كل شخص يجيب باختصار</p>
+                  <p className={`text-sm font-bold flex items-center justify-center gap-2 ${roundTheme.text}`}><Users className="w-4 h-4" /> كل شخص يجيب باختصار</p>
                   <p className="text-xs text-gray-500">ابدؤوا بصاحب الرقم الأقل، ثم أكملوا بالدور</p>
                 </div>
               </motion.section>
@@ -1417,8 +1430,8 @@ export default function PromptTopicsModal({ open, onClose, embedded = false, rou
           </div>
         </main>
 
-        <footer className="px-5 pt-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] border-t border-white/[0.07] bg-gray-950/90 backdrop-blur-xl space-y-3">
-          <button onClick={finishCurrentQuestion} className="w-full min-h-14 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 hover:brightness-110 active:scale-[0.98] transition-all text-white font-black text-base flex items-center justify-center gap-2 shadow-lg shadow-purple-950/40">
+        <footer className={`relative z-10 px-5 pt-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] border-t bg-gray-950/85 backdrop-blur-xl space-y-3 ${roundTheme.border}`}>
+          <button onClick={finishCurrentQuestion} className={`w-full min-h-14 rounded-2xl bg-gradient-to-r hover:brightness-110 active:scale-[0.98] transition-all text-white font-black text-base flex items-center justify-center gap-2 shadow-lg ${roundTheme.bar}`}>
             <CheckCircle className="w-5 h-5" /> أجبنا جميعاً — سؤال آخر
           </button>
 

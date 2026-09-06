@@ -494,6 +494,11 @@ async function createFixture(t, { beforeVariableRuntime, skipUnboundedRosterMigr
     import.meta.url,
   ), "utf8")
   await db.exec(cappedStableTablesMigration)
+  const bulkRanking44Migration = await readFile(new URL(
+    "../../supabase/migrations/20260906132425_allow_44_event3_bulk_rankers.sql",
+    import.meta.url,
+  ), "utf8")
+  await db.exec(bulkRanking44Migration)
   return db
 }
 
@@ -2037,4 +2042,32 @@ test("bulk admin rankings use the same exact ballot contract for classic Event3"
     { ranker_number: 2, ranked_number: 1, rank: 2 },
     { ranker_number: 2, ranked_number: 4, rank: 3 },
   ])
+})
+
+test("bulk admin rankings support all 44 Event3 rankers", async t => {
+  const db = await createFixture(t)
+  await db.query(`insert into event_state(
+    match_id,current_event_id,phase,current_round,test_mode_active
+  ) values ($1,$2,'ranking1',1,false)`, [EVENT3_MATCH_ID, EVENT_ID])
+  await db.query(`insert into event3_participants(match_id,event_id,participant_number,position)
+    select $1,$2,number,number - 1 from generate_series(1,44) number`, [EVENT3_MATCH_ID, EVENT_ID])
+  await db.query(`insert into session_assignments(match_id,event_id,round,table_number,participant_id)
+    select $1,$2,1,1,number from generate_series(1,44) number`, [EVENT3_MATCH_ID, EVENT_ID])
+
+  const rankers = Array.from({ length: 44 }, (_, index) => index + 1)
+  const rows = rankers.flatMap(rankerNumber => rankers
+    .filter(rankedNumber => rankedNumber !== rankerNumber)
+    .map((rankedNumber, index) => ({
+      ranker_number: rankerNumber,
+      ranked_number: rankedNumber,
+      rank: index + 1,
+    })))
+  const result = await db.query(`select replace_event3_admin_rankings_v2(
+    $1,$2::integer[],$3::jsonb,false,null
+  ) as result`, [EVENT_ID, rankers, JSON.stringify(rows)])
+
+  assert.deepEqual(
+    { rankers: result.rows[0].result.rankers, saved: result.rows[0].result.saved },
+    { rankers: 44, saved: 1892 },
+  )
 })

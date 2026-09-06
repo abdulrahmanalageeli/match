@@ -11978,7 +11978,9 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         if (action === "e3-randomize-rankings") {
           const { data: ep, error: randomRosterError } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId)
           if (randomRosterError) return res.status(500).json({ error: randomRosterError.message })
-          const selected = (ep || []).map(r => r.participant_number)
+          const selected = [...new Set((ep || [])
+            .map(row => Number(row.participant_number))
+            .filter(participantNumber => Number.isInteger(participantNumber) && participantNumber > 0 && participantNumber !== 9999))]
           if (selected.length === 0) return res.status(400).json({ error: "No participants selected" })
           const rankingContext = await event3ChoiceAdminRankingContext(currentEventId)
           if (!/^ranking[123]$/.test(String(rankingContext.state.phase || ""))) {
@@ -11992,18 +11994,28 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           const shuffle = arr => { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]] } return a }
           const rows = []
           for (const myNum of selected) {
-            const myRounds = allAssignments.filter(a => a.participant_id === myNum)
+            const myRounds = allAssignments.filter(a => Number(a.participant_id) === myNum)
             const seenMates = new Set()
             const mates = []
             for (const row of myRounds.sort((a, b) => a.round - b.round)) {
-              const tableMates = allAssignments.filter(a => a.round === row.round && a.table_number === row.table_number && a.participant_id !== myNum)
-              for (const m of tableMates) { if (!seenMates.has(m.participant_id)) { seenMates.add(m.participant_id); mates.push(m.participant_id) } }
+              const tableMates = allAssignments.filter(a => a.round === row.round && a.table_number === row.table_number && Number(a.participant_id) !== myNum)
+              for (const m of tableMates) {
+                const mateNumber = Number(m.participant_id)
+                if (Number.isInteger(mateNumber) && mateNumber > 0 && mateNumber !== 9999 && !seenMates.has(mateNumber)) {
+                  seenMates.add(mateNumber)
+                  mates.push(mateNumber)
+                }
+              }
             }
             if (mates.length === 0) continue
             const shuffled = shuffle(mates)
             for (let i = 0; i < shuffled.length; i++) rows.push({ match_id: EVENT3_MATCH_ID, event_id: currentEventId, ranker_number: myNum, ranked_number: shuffled[i], rank: i + 1 })
           }
-          const randomizedRankers = selected.filter(myNum => rows.some(row => Number(row.ranker_number) === Number(myNum)))
+          const randomizedRankers = [...new Set(rows.map(row => Number(row.ranker_number)))]
+            .filter(rankerNumber => Number.isInteger(rankerNumber) && rankerNumber > 0 && rankerNumber !== 9999)
+          if (randomizedRankers.length === 0 || !Array.isArray(rows) || rows.length === 0) {
+            return res.status(400).json({ error: "No participants have met anyone to rank" })
+          }
           const { error } = await supabase.rpc("replace_event3_admin_rankings_v2", {
             p_event_id: Number(currentEventId),
             p_ranker_numbers: randomizedRankers.map(Number),
@@ -12018,7 +12030,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             const failure = event3SessionRpcFailure(error, "replace_event3_admin_rankings_v2")
             return res.status(failure.status).json(failure.body)
           }
-          return res.status(200).json({ message: `Randomized rankings for ${selected.length} participants (${rows.length} entries)` })
+          return res.status(200).json({ message: `Randomized rankings for ${randomizedRankers.length} participants (${rows.length} entries)` })
         }
         // e3-get-overview
         if (action === "e3-get-overview") {

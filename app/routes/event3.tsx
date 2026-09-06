@@ -6618,7 +6618,7 @@ function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow, eve
             <span className="block text-sm font-black text-white">راجع وعدّل تقييمات المجموعات</span>
             <span className="mt-0.5 block text-[11px] leading-relaxed text-gray-400">أكمل من فاتك أو غيّر انطباعك السابق بسرية</span>
           </span>
-          <span className="hidden shrink-0 rounded-full border border-emerald-300/15 bg-emerald-400/10 px-2 py-1 text-[9px] font-black text-emerald-200 min-[360px]:inline-flex">للمنظّم فقط</span>
+          <span className="hidden shrink-0 rounded-full border border-emerald-300/15 bg-emerald-400/10 px-2 py-1 text-[9px] font-black text-emerald-200 min-[360px]:inline-flex">تقييمك سري</span>
           <ChevronRight size={16} className="hidden shrink-0 rotate-180 text-purple-200/70 min-[360px]:block" />
         </motion.button>
 

@@ -3214,6 +3214,51 @@ type GroupCoordinatorCandidate = {
   isMe: boolean
 }
 
+type GroupCoordinatorQuickResolution = "finalize" | "direct" | "random"
+
+const GROUP_COORDINATOR_QUICK_ACTIONS: Record<GroupCoordinatorQuickResolution, string> = {
+  finalize: "e3-finalize-group-election",
+  direct: "e3-direct-group-coordinator",
+  random: "e3-random-group-coordinator",
+}
+
+const GROUP_COORDINATOR_QUICK_ERRORS: Record<GroupCoordinatorQuickResolution, string> = {
+  finalize: "تعذّر حسم الأصوات الآن. حاول مرة أخرى.",
+  direct: "تعذّر تعيين المنسّق مباشرة. حاول مرة أخرى.",
+  random: "تعذّر اختيار منسّق عشوائياً. حاول مرة أخرى.",
+}
+
+const GROUP_COORDINATOR_RESPONSIBILITIES = [
+  { icon: Users, label: "يعطي كل شخص فرصته للكلام", tone: "text-cyan-200 bg-cyan-400/10 border-cyan-300/20" },
+  { icon: Sparkles, label: "يختار النشاط والأسئلة", tone: "text-fuchsia-200 bg-fuchsia-400/10 border-fuchsia-300/20" },
+  { icon: Heart, label: "يشجّع التفاعل بلا ضغط", tone: "text-pink-200 bg-pink-400/10 border-pink-300/20" },
+  { icon: Clock, label: "يحافظ على وقت وراحة المجموعة", tone: "text-amber-200 bg-amber-400/10 border-amber-300/20" },
+] as const
+
+function CoordinatorResponsibilities({ compact = false }: { compact?: boolean }) {
+  return (
+    <section
+      aria-label="مهام منسّق الطاولة"
+      className={`relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.035] ${compact ? "mt-3 p-3" : "mt-5 p-3.5"}`}
+    >
+      <div className="mb-2.5 flex items-center justify-between gap-3">
+        <h3 className="text-[11px] font-black text-white/75">دور منسّق الطاولة</h3>
+        <span className="text-[9px] font-bold text-violet-200/60">يقود الحوار، لا يحتكره</span>
+      </div>
+      <ul className="grid grid-cols-2 gap-2">
+        {GROUP_COORDINATOR_RESPONSIBILITIES.map(({ icon: Icon, label, tone }) => (
+          <li key={label} className="flex min-h-12 items-center gap-2 rounded-xl border border-white/[0.055] bg-black/15 p-2 text-right">
+            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${tone}`}>
+              <Icon size={15} aria-hidden="true" />
+            </span>
+            <span className={`${compact ? "text-[10px] leading-4" : "text-[10px] leading-[1.1rem]"} font-bold text-white/65`}>{label}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
 function GroupElectionOverlay({
   state,
   candidates,
@@ -3221,6 +3266,9 @@ function GroupElectionOverlay({
   submitting,
   error,
   onVote,
+  onFinalize,
+  onDirectSelect,
+  onRandomSelect,
   onMinimize,
 }: {
   state: GroupCoordinationState
@@ -3229,16 +3277,31 @@ function GroupElectionOverlay({
   submitting: boolean
   error: string
   onVote: (candidateNumber: number) => void
+  onFinalize: () => void
+  onDirectSelect: (candidateNumber: number) => void
+  onRandomSelect: () => void
   onMinimize: () => void
 }) {
   const reducedMotion = useReducedMotion()
+  const overlayRef = useRef<HTMLDivElement>(null)
+  const titleRef = useRef<HTMLHeadingElement>(null)
   const isReelection = state.kind === "revolt"
   const progress = state.member_count > 0
     ? Math.min(100, Math.round((state.votes_cast / state.member_count) * 100))
     : 0
+  const selectedCandidate = candidates.find(candidate => candidate.number === state.my_vote) || null
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      overlayRef.current?.scrollTo({ top: 0 })
+      titleRef.current?.focus({ preventScroll: true })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [])
 
   return (
     <motion.div
+      ref={overlayRef}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -3289,13 +3352,15 @@ function GroupElectionOverlay({
               </span>
               <span className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[10px] font-black text-cyan-200">اختروا الآن</span>
             </div>
-            <h2 id="group-election-title" className="text-2xl font-black tracking-tight text-white sm:text-3xl">
+            <h2 ref={titleRef} tabIndex={-1} id="group-election-title" className="text-2xl font-black tracking-tight text-white outline-none sm:text-3xl">
               {isReelection ? "من يقود الشاشة الآن؟" : "انتخبوا منسّق مجموعتكم"}
             </h2>
             <p className="mx-auto mt-2 max-w-xs text-xs font-medium leading-6 text-white/55">
               التصويت سرّي. الفائز يختار النشاط والأسئلة، ويظهر اختياره على شاشة الجميع.
             </p>
           </div>
+
+          <CoordinatorResponsibilities />
 
           <div className="mt-5 grid grid-cols-[1fr_auto] items-center gap-3 rounded-2xl border border-white/[0.08] bg-black/25 p-3.5">
             <div>
@@ -3323,11 +3388,10 @@ function GroupElectionOverlay({
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: reducedMotion ? 0 : 0.12 + index * 0.045 }}
                   whileTap={{ scale: 0.97 }}
-                  autoFocus={index === 0}
                   disabled={submitting}
                   onClick={() => onVote(candidate.number)}
                   aria-pressed={selected}
-                  className={`group relative min-h-[5.8rem] overflow-hidden rounded-2xl border p-3 text-right transition-all disabled:cursor-wait disabled:opacity-60 ${selected ? "border-cyan-300/55 bg-gradient-to-br from-cyan-400/20 via-violet-500/20 to-fuchsia-500/15 shadow-[0_0_28px_rgba(103,232,249,.12)] ring-1 ring-cyan-300/25" : "border-white/[0.09] bg-white/[0.045] hover:border-violet-300/35 hover:bg-violet-400/[0.09]"}`}
+                  className={`group relative min-h-[5.8rem] overflow-hidden rounded-2xl border p-3 text-right transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d0918] disabled:cursor-wait disabled:opacity-60 ${selected ? "border-cyan-300/55 bg-gradient-to-br from-cyan-400/20 via-violet-500/20 to-fuchsia-500/15 shadow-[0_0_28px_rgba(103,232,249,.12)] ring-1 ring-cyan-300/25" : "border-white/[0.09] bg-white/[0.045] hover:border-violet-300/35 hover:bg-violet-400/[0.09]"}`}
                 >
                   <span className="relative z-10 flex items-start justify-between gap-2">
                     <span className={`flex h-8 min-w-10 shrink-0 items-center justify-center rounded-xl border px-1 text-[11px] font-black ${selected ? "border-cyan-300/35 bg-cyan-300/15 text-cyan-100" : "border-white/10 bg-black/20 text-white/45"}`}>
@@ -3345,6 +3409,43 @@ function GroupElectionOverlay({
               )
             })}
           </div>
+
+          <section aria-label="خيارات الحسم السريع" className="relative mt-4 overflow-hidden rounded-2xl border border-violet-300/15 bg-gradient-to-l from-violet-500/[0.08] via-white/[0.025] to-cyan-500/[0.06] p-3">
+            <div className="mb-2.5 flex items-center justify-between gap-3">
+              <div className="text-right">
+                <h3 className="text-[11px] font-black text-white/75">حسم أسرع</h3>
+                <p className="mt-0.5 text-[9px] font-bold text-white/35">استخدموه باتفاق المجموعة — القرار يُعتمد فوراً</p>
+              </div>
+              <Zap size={16} className="shrink-0 text-violet-200" aria-hidden="true" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={onFinalize}
+                disabled={submitting || state.votes_cast === 0}
+                className="flex min-h-12 items-center justify-center gap-1.5 rounded-xl border border-violet-300/20 bg-violet-400/10 px-2 text-[10px] font-black text-violet-100 transition-all hover:bg-violet-400/20 disabled:cursor-not-allowed disabled:opacity-35"
+              >
+                <Timer size={14} aria-hidden="true" /> تخطّي المؤقت وحسم الأصوات
+              </button>
+              <button
+                type="button"
+                onClick={onRandomSelect}
+                disabled={submitting || candidates.length === 0}
+                className="flex min-h-12 items-center justify-center gap-1.5 rounded-xl border border-cyan-300/20 bg-cyan-400/[0.08] px-2 text-[10px] font-black text-cyan-100 transition-all hover:bg-cyan-400/15 disabled:cursor-not-allowed disabled:opacity-35"
+              >
+                <Shuffle size={14} aria-hidden="true" /> اختيار منسّق عشوائياً
+              </button>
+              <button
+                type="button"
+                onClick={() => selectedCandidate && onDirectSelect(selectedCandidate.number)}
+                disabled={submitting || !selectedCandidate}
+                className="col-span-2 flex min-h-12 min-w-0 items-center justify-center gap-2 rounded-xl border border-fuchsia-300/25 bg-gradient-to-l from-fuchsia-500/15 to-violet-500/15 px-3 text-[11px] font-black text-fuchsia-100 transition-all hover:border-fuchsia-200/40 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-35"
+              >
+                <Crown size={14} className="shrink-0" aria-hidden="true" />
+                <span className="truncate">{selectedCandidate ? `تعيين ${selectedCandidate.name} مباشرة` : "صوّت أولاً ثم عيّنه مباشرة"}</span>
+              </button>
+            </div>
+          </section>
 
           {error && (
             <motion.p initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} role="alert" className="mt-4 rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2.5 text-center text-xs font-bold text-rose-200">
@@ -3562,6 +3663,7 @@ function GroupCoordinatorStatusCard({ state, leaderName, isLeader, onReelection 
           </button>
         )}
       </div>
+      {!voting && isLeader && <CoordinatorResponsibilities compact />}
     </motion.div>
   )
 }
@@ -3686,6 +3788,34 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
       setCoordinationError("لم يُسجّل صوتك. تحقق من الاتصال وحاول مرة أخرى.")
     } else {
       applyCoordinationState(data as GroupCoordinationState)
+    }
+    setCoordinationBusy(false)
+  }, [token, round, coordinationBusy, applyCoordinationState])
+
+  const resolveCoordinatorElection = useCallback(async (
+    resolution: GroupCoordinatorQuickResolution,
+    candidateNumber?: number,
+  ) => {
+    if (coordinationBusy || (resolution === "direct" && !Number.isInteger(candidateNumber))) return
+    setCoordinationBusy(true)
+    setCoordinationError("")
+    const action = GROUP_COORDINATOR_QUICK_ACTIONS[resolution]
+    const data = await call(action, token, resolution === "direct"
+      ? { round, candidate_number: candidateNumber }
+      : { round })
+    if (!data.error) {
+      applyCoordinationState(data as GroupCoordinationState)
+      setCoordinationBusy(false)
+      return
+    }
+
+    // Another tablemate may have resolved the same election first. Refreshing
+    // turns that harmless race into the shared reveal instead of an error.
+    const latest = await call("e3-get-group-coordination", token, { round })
+    if (!latest.error && latest.status === "elected") {
+      applyCoordinationState(latest as GroupCoordinationState)
+    } else {
+      setCoordinationError(GROUP_COORDINATOR_QUICK_ERRORS[resolution])
     }
     setCoordinationBusy(false)
   }, [token, round, coordinationBusy, applyCoordinationState])
@@ -4192,6 +4322,9 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
             submitting={coordinationBusy}
             error={coordinationError}
             onVote={castCoordinatorVote}
+            onFinalize={() => resolveCoordinatorElection("finalize")}
+            onDirectSelect={candidateNumber => resolveCoordinatorElection("direct", candidateNumber)}
+            onRandomSelect={() => resolveCoordinatorElection("random")}
             onMinimize={() => {
               setDismissedElectionVersion(coordination.election_version || null)
               setElectionVisible(false)

@@ -10,6 +10,10 @@ const migrationUrl = new URL(
   "../../supabase/migrations/20260906014852_event3_group_coordinator_elections.sql",
   import.meta.url,
 )
+const quickResolutionMigrationUrl = new URL(
+  "../../supabase/migrations/20260906025812_event3_group_coordinator_quick_resolution.sql",
+  import.meta.url,
+)
 
 async function expectDbError(promise, pattern) {
   await assert.rejects(promise, error => {
@@ -80,6 +84,7 @@ async function createFixture(t) {
       ('${EVENT3_MATCH_ID}',${EVENT_ID},1,2,5);
   `)
   await db.exec(await readFile(migrationUrl, "utf8"))
+  await db.exec(await readFile(quickResolutionMigrationUrl, "utf8"))
   return db
 }
 
@@ -98,14 +103,34 @@ async function coordinate(db, {
   return result.rows[0].state
 }
 
+async function coordinateQuickly(db, {
+  participant,
+  operation,
+  candidate = null,
+  testMode = false,
+  startedAt = null,
+  eventId = EVENT_ID,
+}) {
+  const result = await db.query(`select public.quick_resolve_event3_group_coordination_v1(
+    $1::integer,$2::smallint,$3::integer,$4::text,$5::integer,$6::boolean,$7::text
+  ) as state`, [eventId, 1, participant, operation, candidate, testMode, startedAt])
+  return result.rows[0].state
+}
+
 test("group coordinator migration keeps ballots private and the RPC service-role-only", async t => {
-  const migration = await readFile(migrationUrl, "utf8")
+  const [migration, quickResolutionMigration] = await Promise.all([
+    readFile(migrationUrl, "utf8"),
+    readFile(quickResolutionMigrationUrl, "utf8"),
+  ])
   assert.match(migration, /alter table public\.event3_group_coordination enable row level security/i)
   assert.match(migration, /alter table public\.event3_group_coordinator_votes enable row level security/i)
   assert.match(migration, /revoke all on table public\.event3_group_coordinator_votes from public, anon, authenticated/i)
   assert.match(migration, /security invoker[\s\S]*set search_path = ''/i)
   assert.match(migration, /pg_advisory_xact_lock/i)
   assert.match(migration, /grant execute[\s\S]*to service_role/i)
+  assert.match(quickResolutionMigration, /security invoker[\s\S]*set search_path = ''/i)
+  assert.match(quickResolutionMigration, /pg_advisory_xact_lock/i)
+  assert.match(quickResolutionMigration, /grant execute[\s\S]*to service_role/i)
 
   const db = await createFixture(t)
   const privileges = await db.query(`select
@@ -120,13 +145,67 @@ test("group coordinator migration keeps ballots private and the RPC service-role
       'service_role',
       'public.manage_event3_group_coordination_v1(integer,smallint,integer,text,integer,jsonb,boolean,text)',
       'execute'
-    ) as service_executes`)
+    ) as service_executes,
+    has_function_privilege(
+      'anon',
+      'public.quick_resolve_event3_group_coordination_v1(integer,smallint,integer,text,integer,boolean,text)',
+      'execute'
+    ) as anon_quick_resolves,
+    has_function_privilege(
+      'service_role',
+      'public.quick_resolve_event3_group_coordination_v1(integer,smallint,integer,text,integer,boolean,text)',
+      'execute'
+    ) as service_quick_resolves`)
   assert.deepEqual(privileges.rows, [{
     anon_reads_votes: false,
     user_reads_state: false,
     anon_executes: false,
     service_executes: true,
+    anon_quick_resolves: false,
+    service_quick_resolves: true,
   }])
+})
+
+test("a table can safely finish voting early, appoint its pick, or draw a random leader", async t => {
+  const db = await createFixture(t)
+
+  await coordinate(db, { participant: 1, operation: "open" })
+  await expectDbError(
+    coordinateQuickly(db, { participant: 1, operation: "finalize" }),
+    /at least one vote/i,
+  )
+  await coordinate(db, { participant: 1, operation: "vote", candidate: 2 })
+  const finalized = await coordinateQuickly(db, { participant: 3, operation: "finalize" })
+  assert.equal(finalized.status, "elected")
+  assert.equal(finalized.coordinator_number, 2)
+
+  await coordinate(db, { participant: 1, operation: "revolt" })
+  await expectDbError(
+    coordinateQuickly(db, { participant: 3, operation: "direct", candidate: 4 }),
+    /not at this table/i,
+  )
+  await expectDbError(
+    coordinateQuickly(db, { participant: 3, operation: "direct", candidate: 1 }),
+    /vote for the candidate/i,
+  )
+  await coordinate(db, { participant: 3, operation: "vote", candidate: 1 })
+  const directlySelected = await coordinateQuickly(db, {
+    participant: 3,
+    operation: "direct",
+    candidate: 1,
+  })
+  assert.equal(directlySelected.status, "elected")
+  assert.equal(directlySelected.coordinator_number, 1)
+
+  await coordinate(db, { participant: 2, operation: "revolt" })
+  const randomlySelected = await coordinateQuickly(db, { participant: 3, operation: "random" })
+  assert.equal(randomlySelected.status, "elected")
+  assert.ok([2, 3].includes(randomlySelected.coordinator_number))
+  assert.notEqual(randomlySelected.coordinator_number, 1)
+
+  await coordinate(db, { participant: 4, operation: "open" })
+  const otherTableRandom = await coordinateQuickly(db, { participant: 5, operation: "random" })
+  assert.ok([4, 5].includes(otherTableRandom.coordinator_number))
 })
 
 test("each table elects, projects, and replaces its coordinator atomically", async t => {
@@ -241,6 +320,9 @@ test("participant API and Event3 UI expose the full election and synchronized pr
     "e3-open-group-election",
     "e3-cast-group-coordinator-vote",
     "e3-start-group-reelection",
+    "e3-finalize-group-election",
+    "e3-direct-group-coordinator",
+    "e3-random-group-coordinator",
     "e3-publish-group-content",
     "e3-clear-group-content",
   ]) {
@@ -255,6 +337,10 @@ test("participant API and Event3 UI expose the full election and synchronized pr
   assert.match(event3, /فك المزامنة والتصفّح بحرية/)
   assert.match(event3, /العودة لبث/)
   assert.match(event3, /انقلاب/)
+  assert.match(event3, /يعطي كل شخص فرصته للكلام/)
+  assert.match(event3, /تخطّي المؤقت وحسم الأصوات/)
+  assert.match(event3, /اختيار منسّق عشوائياً/)
+  assert.match(event3, /تعيين .* مباشرة/)
   assert.match(groups, /onSharedContentChange/)
   assert.match(groups, /onRequestReelection/)
   assert.match(prompts, /onQuestionChange\?\.\(currentQuestion/)

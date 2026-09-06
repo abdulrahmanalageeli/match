@@ -3178,7 +3178,7 @@ export default async function handler(req, res) {
       // Get participant data by token
       const { data: participant, error: participantError } = await supabase
         .from("participants")
-        .select("id, assigned_number, name, phone_number, event_id, signup_for_next_event, auto_signup_next_event, humor_banter_style, early_openness_comfort")
+        .select("id, assigned_number, name, phone_number, event_id, signup_for_next_event, auto_signup_next_event, humor_banter_style, early_openness_comfort, PAID_DONE, payment_completed_event_id, payment_waived, payment_waived_event_id")
         .eq("secure_token", secure_token)
         .single()
 
@@ -3193,6 +3193,10 @@ export default async function handler(req, res) {
         .eq("match_id", "00000000-0000-0000-0000-000000000000")
         .maybeSingle()
       const currentEventId = Number(eventState?.current_event_id || 1)
+      const hasCurrentEventPayment = participant.PAID_DONE === true
+        && Number(participant.payment_completed_event_id) === currentEventId
+      const hasCurrentEventWaiver = participant.payment_waived === true
+        && Number(participant.payment_waived_event_id) === currentEventId
 
       return res.status(200).json({
         success: true,
@@ -3203,6 +3207,8 @@ export default async function handler(req, res) {
           signup_for_next_event: participant.signup_for_next_event,
           auto_signup_next_event: participant.auto_signup_next_event,
           is_signed_up: isEvent3SignedUp(participant, currentEventId),
+          payment_status: hasCurrentEventPayment ? "paid" : hasCurrentEventWaiver ? "waived" : "unpaid",
+          attendance_confirmed: hasCurrentEventPayment || hasCurrentEventWaiver,
           current_event_id: currentEventId,
           humor_banter_style: participant.humor_banter_style,
           early_openness_comfort: participant.early_openness_comfort
@@ -4443,6 +4449,9 @@ Please respond in JSON format:
         ["e3-open-group-election", "open"],
         ["e3-cast-group-coordinator-vote", "vote"],
         ["e3-start-group-reelection", "revolt"],
+        ["e3-finalize-group-election", "finalize"],
+        ["e3-direct-group-coordinator", "direct"],
+        ["e3-random-group-coordinator", "random"],
         ["e3-publish-group-content", "publish"],
         ["e3-clear-group-content", "clear"],
       ]).get(action)
@@ -4456,9 +4465,10 @@ Please respond in JSON format:
         }
 
         const operation = groupCoordinationOperation
+        const quickResolution = operation === "finalize" || operation === "direct" || operation === "random"
         let content = null
         let candidateNumber = null
-        if (operation === "vote") {
+        if (operation === "vote" || operation === "direct") {
           candidateNumber = Number(req.body.candidate_number)
           if (!Number.isInteger(candidateNumber) || candidateNumber <= 0 || candidateNumber === 9999) {
             return res.status(400).json({ error: "Invalid coordinator candidate" })
@@ -4476,21 +4486,37 @@ Please respond in JSON format:
           content = { kind, title, body, activity_id: activityId }
         }
 
-        const { data, error } = await supabase.rpc("manage_event3_group_coordination_v1", {
+        const sessionValidation = {
+          p_expected_test_mode: requestTestMode,
+          p_expected_started_at: requestTestMode
+            ? (expectedEvent3SessionKey || e3EventState?.test_mode_snapshot?.started_at || null)
+            : null,
+        }
+        const rpcName = quickResolution
+          ? "quick_resolve_event3_group_coordination_v1"
+          : "manage_event3_group_coordination_v1"
+        const rpcParams = quickResolution ? {
+          p_event_id: Number(currentEventId),
+          p_round: requestedRound,
+          p_participant_number: myNumber,
+          p_operation: operation,
+          p_candidate_number: candidateNumber,
+          ...sessionValidation,
+        } : {
           p_event_id: Number(currentEventId),
           p_round: requestedRound,
           p_participant_number: myNumber,
           p_operation: operation,
           p_candidate_number: candidateNumber,
           p_content: content,
-          p_expected_test_mode: requestTestMode,
-          p_expected_started_at: requestTestMode
-            ? (expectedEvent3SessionKey || e3EventState?.test_mode_snapshot?.started_at || null)
-            : null,
-        })
+          ...sessionValidation,
+        }
+        const { data, error } = await supabase.rpc(rpcName, rpcParams)
         if (error) {
           const message = String(error.message || "")
-          const migrationRequired = error.code === "PGRST202" || error.code === "42883" || message.includes("manage_event3_group_coordination_v1")
+          const migrationRequired = error.code === "PGRST202" || error.code === "42883"
+            || message.includes("manage_event3_group_coordination_v1")
+            || message.includes("quick_resolve_event3_group_coordination_v1")
           const invalid = error.code === "22023"
           const conflict = error.code === "55000"
           return res.status(migrationRequired ? 501 : invalid ? 400 : conflict ? 409 : 500).json({

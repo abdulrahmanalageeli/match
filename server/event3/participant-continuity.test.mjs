@@ -62,6 +62,20 @@ test("Event3 client only clears identity for the explicit invalid-token code", a
   assert.match(fetchState, /if \(d\.my_info && typeof d\.my_info === "object"\) setMyInfo\(d\.my_info\)/)
 })
 
+test("Event3 organizer help stays above one-to-one session surfaces", async () => {
+  const route = await read("app/routes/event3.tsx")
+  const support = between(route, "function SOSButton", "// ─── Phase 2 Reveal Screen")
+
+  assert.match(route, /fixed inset-0 z-\[220\][^\n]*h-\[100dvh\]/)
+  assert.match(support, /z-\[280\]/)
+  assert.match(support, /<LifeBuoy size=\{14\}/)
+  assert.match(support, /backdrop-blur-xl/)
+  assert.match(route, /function OneToOneSupportSection\(\)/)
+  assert.equal((route.match(/<OneToOneSupportSection \/>/g) || []).length, 2)
+  assert.match(route, /triggerHidden=\{oneToOneSessionOpen\}/)
+  assert.match(support, /window\.addEventListener\(EVENT3_OPEN_SUPPORT_EVENT/)
+})
+
 test("Event3 transport failures are structured as retriable and polling retains prior data", async () => {
   const route = await read("app/routes/event3.tsx")
   const call = between(route, "async function call", "// ─── \"Arrived at table\"")

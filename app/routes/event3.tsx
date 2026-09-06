@@ -6204,7 +6204,38 @@ function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, 
 }
 
 // ─── SOS / Organizer Chat Box ───────────────────────────────────────────────
-function SOSButton({ token, position = 'top', sosRequests, suppressed = false }: { token: string; position?: 'top' | 'bottom'; sosRequests?: any[]; suppressed?: boolean }) {
+const EVENT3_OPEN_SUPPORT_EVENT = "event3-open-support"
+
+function OneToOneSupportSection() {
+  return (
+    <section aria-label="الدعم المباشر" className="relative overflow-hidden rounded-[1.65rem] border border-purple-300/20 bg-gradient-to-br from-purple-950/60 via-slate-950/85 to-fuchsia-950/45 p-[1px] shadow-[0_18px_55px_-28px_rgba(168,85,247,0.95)]">
+      <div className="relative overflow-hidden rounded-[calc(1.65rem-1px)] bg-slate-950/75 px-4 py-4 backdrop-blur-xl">
+        <div className="pointer-events-none absolute -right-10 -top-12 h-28 w-28 rounded-full bg-purple-500/20 blur-3xl" aria-hidden="true" />
+        <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-purple-200/70 to-transparent" aria-hidden="true" />
+        <div className="relative flex items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-purple-200/20 bg-gradient-to-br from-purple-500/25 to-fuchsia-500/10 text-purple-100 shadow-inner shadow-white/10">
+            <LifeBuoy size={20} />
+          </div>
+          <div className="min-w-0 flex-1 text-right">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-purple-300/75">دعم مباشر</p>
+            <h2 className="mt-0.5 text-sm font-black text-white">تحتاج مساعدة أثناء اللقاء؟</h2>
+            <p className="mt-1 text-[11px] leading-5 text-gray-400">تواصل بسرية مع المنظم من دون مغادرة مساحة الجلسة.</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new Event(EVENT3_OPEN_SUPPORT_EVENT))}
+          className="event3-action relative mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-purple-200/25 bg-gradient-to-r from-purple-700 via-violet-600 to-fuchsia-700 px-4 text-sm font-black text-white shadow-[0_12px_30px_-16px_rgba(192,132,252,0.95)] transition-all hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-200"
+        >
+          <MessageSquare size={16} />
+          افتح الدعم المباشر
+        </button>
+      </div>
+    </section>
+  )
+}
+
+function SOSButton({ token, position = 'top', sosRequests, suppressed = false, triggerHidden = false }: { token: string; position?: 'top' | 'bottom'; sosRequests?: any[]; suppressed?: boolean; triggerHidden?: boolean }) {
   const panelId = useId()
   const panelTitleId = useId()
   const [open, setOpen] = useState(false)
@@ -6257,6 +6288,12 @@ function SOSButton({ token, position = 'top', sosRequests, suppressed = false }:
   }, [open, messages])
 
   useEffect(() => {
+    const openSupport = () => setOpen(true)
+    window.addEventListener(EVENT3_OPEN_SUPPORT_EVENT, openSupport)
+    return () => window.removeEventListener(EVENT3_OPEN_SUPPORT_EVENT, openSupport)
+  }, [])
+
+  useEffect(() => {
     if (!open) return
     const focusTimer = window.setTimeout(() => closeButtonRef.current?.focus(), 50)
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -6295,7 +6332,7 @@ function SOSButton({ token, position = 'top', sosRequests, suppressed = false }:
   return (
     <div className={suppressed ? "hidden" : "contents"} aria-hidden={suppressed || undefined} inert={suppressed}>
       {/* Organizer button — centered with separator lines beside it */}
-      <div className={`${position === 'bottom' ? 'relative' : 'fixed top-[68px]'} left-0 right-0 z-[190] flex items-center justify-center px-4 pb-5 pt-3 bg-gradient-to-t from-gray-950 via-gray-950/80 to-transparent flex-shrink-0`} dir="rtl">
+      <div className={`${triggerHidden ? 'hidden' : position === 'bottom' ? 'relative' : 'fixed top-[68px]'} left-0 right-0 z-[280] shrink-0 items-center justify-center bg-gradient-to-t from-gray-950 via-gray-950/85 to-transparent px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 ${triggerHidden ? '' : 'flex'}`} dir="rtl">
         {/* Left separator */}
         <div className="flex-1 h-px bg-gradient-to-l from-gray-700/30 to-transparent max-w-[80px]" />
         {/* Button */}
@@ -6309,13 +6346,17 @@ function SOSButton({ token, position = 'top', sosRequests, suppressed = false }:
           aria-label={`${buttonLabel} — تواصل مع المنظم`}
           animate={buttonState === 'idle' ? { scale: [1, 1.03, 1] } : {}}
           transition={buttonState === 'idle' ? { duration: 3, repeat: Infinity, ease: 'easeInOut' } : {}}
-          className={`mx-3 flex min-h-11 items-center gap-2 rounded-full px-5 py-2 text-xs font-semibold transition-colors duration-300 ${
-            buttonState === 'unread' ? 'text-emerald-300 bg-emerald-950/60 border border-emerald-700/40 shadow-lg shadow-emerald-900/30'
-            : buttonState === 'pending' ? 'text-orange-300 bg-orange-950/50 border border-orange-700/40'
-            : buttonState === 'active' ? 'text-gray-300 bg-gray-800/60 border border-gray-700/40'
-            : 'text-gray-400 hover:text-gray-200 bg-gray-800/50 border border-gray-700/40'
+          className={`group relative mx-3 flex min-h-12 items-center gap-2.5 overflow-hidden rounded-full border px-5 py-2.5 text-xs font-black backdrop-blur-xl transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/80 ${
+            buttonState === 'unread' ? 'border-emerald-300/45 bg-gradient-to-r from-emerald-950/95 via-teal-900/90 to-emerald-950/95 text-emerald-100 shadow-[0_12px_36px_-14px_rgba(52,211,153,0.9)]'
+            : buttonState === 'pending' ? 'border-amber-300/35 bg-gradient-to-r from-amber-950/95 via-orange-900/85 to-amber-950/95 text-amber-100 shadow-[0_12px_36px_-14px_rgba(251,146,60,0.75)]'
+            : buttonState === 'active' ? 'border-cyan-300/30 bg-gradient-to-r from-slate-950/95 via-cyan-950/90 to-slate-950/95 text-cyan-100 shadow-[0_12px_36px_-16px_rgba(34,211,238,0.7)]'
+            : 'border-purple-300/35 bg-gradient-to-r from-slate-950/95 via-purple-950/95 to-fuchsia-950/90 text-purple-50 shadow-[0_14px_40px_-16px_rgba(168,85,247,0.9)] hover:-translate-y-0.5 hover:border-purple-200/55 hover:text-white'
           }`}
         >
+          <span className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent" aria-hidden="true" />
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.08] shadow-inner shadow-white/10" aria-hidden="true">
+            <LifeBuoy size={14} className={buttonState === 'unread' ? 'text-emerald-300' : buttonState === 'pending' ? 'text-amber-300' : 'text-purple-200'} />
+          </span>
           {/* Status indicator */}
           <span className="relative flex-shrink-0 flex items-center justify-center w-2.5 h-2.5">
             {buttonState === 'unread' && (
@@ -6507,9 +6548,9 @@ function SOSButton({ token, position = 'top', sosRequests, suppressed = false }:
 }
 
 // ─── Phase 2 Reveal Screen ────────────────────────────────────────────────────
-function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDuration, correctedNow, eventFormat, onFeedbackOpenChange, feedbackLocked = false }: {
+function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDuration, correctedNow, eventFormat, onFeedbackOpenChange, onSessionOpenChange, feedbackLocked = false }: {
   token: string; eventId?: number | string; timerActive: boolean; timerStart: string | null; timerDuration: number; correctedNow?: () => number; eventFormat: Event3Format
-  onFeedbackOpenChange?: (open: boolean) => void; feedbackLocked?: boolean
+  onFeedbackOpenChange?: (open: boolean) => void; onSessionOpenChange?: (open: boolean) => void; feedbackLocked?: boolean
 }) {
   const reduceMotion = useReducedMotion()
   const [revealed, setRevealed] = useState(false)
@@ -6529,6 +6570,11 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   useEffect(() => {
     onFeedbackOpenChange?.(view === 'feedback' && !feedbackDone)
   }, [view, feedbackDone, onFeedbackOpenChange])
+
+  useEffect(() => {
+    onSessionOpenChange?.(view === 'session')
+    return () => onSessionOpenChange?.(false)
+  }, [view, onSessionOpenChange])
 
   const fetchReveal = useCallback(async () => {
     const d = await call("e3-get-phase2-reveal", token)
@@ -6850,6 +6896,8 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
 
                   <JourneyCue accent="pink" eyebrow="مساحة اللقاء" title="ابدأوا بالسؤال الظاهر" description="يجيب كل منكما، ثم اضغطوا التالي. غيّروا المسار فقط إذا أردتم موضوعاً مختلفاً." steps={["بدأتم", "حوار", "تقييم"]} currentStep={1} />
 
+                  <OneToOneSupportSection />
+
                   {/* Time warning banner */}
                   <AnimatePresence>
                     {showTimeWarning && view === 'session' && timeLeft > 0 && timeLeft <= 60 && (
@@ -6935,9 +6983,9 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
 }
 
 // ─── Later one-to-one reveal screens ──────────────────────────────────────────
-function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDuration, correctedNow, eventFormat, matchSlot = 2, onFeedbackOpenChange, feedbackLocked = false }: {
+function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDuration, correctedNow, eventFormat, matchSlot = 2, onFeedbackOpenChange, onSessionOpenChange, feedbackLocked = false }: {
   token: string; eventId?: number | string; timerActive: boolean; timerStart: string | null; timerDuration: number; correctedNow?: () => number; eventFormat: Event3Format; matchSlot?: 2 | 3
-  onFeedbackOpenChange?: (open: boolean) => void; feedbackLocked?: boolean
+  onFeedbackOpenChange?: (open: boolean) => void; onSessionOpenChange?: (open: boolean) => void; feedbackLocked?: boolean
 }) {
   const reduceMotion = useReducedMotion()
   const [revealed, setRevealed] = useState(false)
@@ -6956,6 +7004,11 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   useEffect(() => {
     onFeedbackOpenChange?.(view === 'feedback' && !feedbackDone)
   }, [view, feedbackDone, onFeedbackOpenChange])
+
+  useEffect(() => {
+    onSessionOpenChange?.(view === 'session')
+    return () => onSessionOpenChange?.(false)
+  }, [view, onSessionOpenChange])
 
   const fetchReveal = useCallback(async () => {
     const d = await call(isThirdChoice ? "e3-get-phase4-reveal" : "e3-get-phase3-reveal", token)
@@ -7226,6 +7279,8 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                   </motion.div>
 
                   <JourneyCue accent="purple" eyebrow="مساحة اللقاء" title="ابدأوا بالسؤال الظاهر" description="يجيب كل منكما، ثم اضغطوا التالي. غيّروا المسار فقط إذا أردتم موضوعاً مختلفاً." steps={["بدأتم", "حوار", "تقييم"]} currentStep={1} />
+
+                  <OneToOneSupportSection />
 
                   {/* Time warning banner */}
                   <AnimatePresence>
@@ -9114,6 +9169,7 @@ export default function Event3Page() {
   const [breakFeedbackOpen, setBreakFeedbackOpen] = useState(false)
   const [breakFeedbackRound, setBreakFeedbackRound] = useState<Event3GroupRound | null>(null)
   const [activeMatchFeedbackSlot, setActiveMatchFeedbackSlot] = useState<1 | 2 | 3 | null>(null)
+  const [oneToOneSessionOpen, setOneToOneSessionOpen] = useState(false)
   const [rankingDraftContext, setRankingDraftContext] = useState<{
     round: number
     timerActive: boolean
@@ -9693,9 +9749,9 @@ export default function Event3Page() {
           {!holdingRankingDraft && !activeMatchFeedbackSlot && phase === "setup" && <SetupScreen key="setup" token={token} myInfo={myInfo} enrolledCount={eventState?.participants_selected ?? null} eventFormat={eventFormat} />}
           {!holdingRankingDraft && !activeMatchFeedbackSlot && isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} myInfo={myInfo} onGroupsOpenChange={setGroupsOpen} eventFormat={eventFormat} />}
           {rankingRoundToRender && <RankingScreen key={`ranking-${rankingRoundToRender}`} token={token} completedRounds={rankingRoundToRender} currentPhase={phase} {...rankingTimerProps} myInfo={myInfo} onOpenGroupFeedback={setPendingGroupFeedbackRound} onRankingResolved={handleRankingResolved} onRankingDirty={handleRankingDirty} eventFormat={eventFormat} />}
-          {!holdingRankingDraft && (activeMatchFeedbackSlot === 1 || (!activeMatchFeedbackSlot && phase === "phase2_reveal")) && <Phase2RevealScreen key="p2r" token={token} eventId={eventState?.event_id} {...timerProps} eventFormat={eventFormat} onFeedbackOpenChange={trackFirstMatchFeedback} feedbackLocked={holdingMatchFeedback} />}
-          {!holdingRankingDraft && (activeMatchFeedbackSlot === 2 || (!activeMatchFeedbackSlot && phase === "phase3_reveal")) && <Phase3RevealScreen key="p3r" token={token} eventId={eventState?.event_id} {...timerProps} eventFormat={eventFormat} onFeedbackOpenChange={trackSecondMatchFeedback} feedbackLocked={holdingMatchFeedback} />}
-          {!holdingRankingDraft && (activeMatchFeedbackSlot === 3 || (!activeMatchFeedbackSlot && phase === "phase4_reveal")) && <Phase3RevealScreen key="p4r" token={token} eventId={eventState?.event_id} {...timerProps} eventFormat={eventFormat} matchSlot={3} onFeedbackOpenChange={trackThirdMatchFeedback} feedbackLocked={holdingMatchFeedback} />}
+          {!holdingRankingDraft && (activeMatchFeedbackSlot === 1 || (!activeMatchFeedbackSlot && phase === "phase2_reveal")) && <Phase2RevealScreen key="p2r" token={token} eventId={eventState?.event_id} {...timerProps} eventFormat={eventFormat} onFeedbackOpenChange={trackFirstMatchFeedback} onSessionOpenChange={setOneToOneSessionOpen} feedbackLocked={holdingMatchFeedback} />}
+          {!holdingRankingDraft && (activeMatchFeedbackSlot === 2 || (!activeMatchFeedbackSlot && phase === "phase3_reveal")) && <Phase3RevealScreen key="p3r" token={token} eventId={eventState?.event_id} {...timerProps} eventFormat={eventFormat} onFeedbackOpenChange={trackSecondMatchFeedback} onSessionOpenChange={setOneToOneSessionOpen} feedbackLocked={holdingMatchFeedback} />}
+          {!holdingRankingDraft && (activeMatchFeedbackSlot === 3 || (!activeMatchFeedbackSlot && phase === "phase4_reveal")) && <Phase3RevealScreen key="p4r" token={token} eventId={eventState?.event_id} {...timerProps} eventFormat={eventFormat} matchSlot={3} onFeedbackOpenChange={trackThirdMatchFeedback} onSessionOpenChange={setOneToOneSessionOpen} feedbackLocked={holdingMatchFeedback} />}
           {!holdingRankingDraft && !activeMatchFeedbackSlot && (phase === "phase2_processing" || phase === "phase3_processing" || phase === "phase4_processing") && <ProcessingScreen key="processing" phase={phase} eventFormat={eventFormat} />}
           {!holdingRankingDraft && !activeMatchFeedbackSlot && phase === "break" && <BreakScreen key="break" {...timerProps} eventFormat={eventFormat} onOpenGroupFeedback={() => { setBreakFeedbackRound(null); setBreakFeedbackOpen(true) }} />}
           {!holdingRankingDraft && !activeMatchFeedbackSlot && phase === "final_reveal" && <FinalRevealScreen key="final" token={token} impersonating={isImpersonating} onQuestionViewerChange={setFinalQuestionsOpen} eventFormat={eventFormat} />}
@@ -9721,6 +9777,7 @@ export default function Event3Page() {
           token={token}
           position="bottom"
           sosRequests={eventState?.sos_requests}
+          triggerHidden={oneToOneSessionOpen}
           suppressed={Boolean(rankingRoundToRender) || phase === "final_reveal" || phase === "break" || groupsOpen || canShowMoodCheck || canShowNotification || feedbackOverlayOpen || canShowAiWelcome}
         />
       )}

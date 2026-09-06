@@ -615,7 +615,7 @@ function InfoHint({ text, delay = 0.3, duration = 5 }: { text: string; delay?: n
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -6, scale: 0.96 }}
           transition={{ type: "spring", stiffness: 300, damping: 25 }}
-          className="text-gray-400 text-xs leading-relaxed text-center px-3 py-2 bg-gray-900/55 rounded-xl border border-gray-700/50"
+          className="event3-glass rounded-xl border px-3 py-2 text-center text-xs leading-relaxed text-gray-300"
         >
           {text}
         </motion.div>
@@ -628,11 +628,12 @@ function PageWrapper({ children, className = "", embedded = false, ...contentPro
   const heightClass = embedded ? "min-h-full" : "min-h-[100dvh]"
   return (
     <MotionConfig reducedMotion="user">
-    <div className={`event3-shell relative ${heightClass} overflow-x-hidden bg-gray-950`} dir="rtl" lang="ar">
+    <div className={`event3-shell relative ${heightClass} overflow-x-hidden`} dir="rtl" lang="ar">
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-40 -right-20 w-[400px] h-[400px] bg-purple-600/20 rounded-full blur-[100px]" />
-        <div className="absolute -bottom-24 -left-16 w-[360px] h-[360px] bg-pink-600/15 rounded-full blur-[90px]" />
-        <div className="absolute top-1/2 left-1/2 w-[280px] h-[280px] bg-violet-500/10 rounded-full blur-[80px] -translate-x-1/2 -translate-y-1/2" />
+        <div className="absolute -right-32 -top-44 h-[430px] w-[430px] rounded-full bg-purple-600/[0.16] blur-[110px]" />
+        <div className="absolute -bottom-32 -left-28 h-[390px] w-[390px] rounded-full bg-cyan-500/[0.09] blur-[105px]" />
+        <div className="absolute left-1/2 top-1/2 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-fuchsia-500/[0.055] blur-[95px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_35%,rgba(0,0,0,.42)_100%)]" />
       </div>
       <div {...contentProps} className={`relative ${heightClass} ${className}`}>{children}</div>
     </div>
@@ -651,17 +652,17 @@ function ParticipantLogoutButton({ onLogout, compact = false, className = "" }: 
       onClick={onLogout}
       aria-label="تسجيل الخروج"
       title="تسجيل الخروج واستخدام حساب آخر"
-      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-rose-400/20 bg-rose-500/[0.08] px-3 py-2 text-xs font-bold text-rose-200 shadow-lg shadow-black/10 backdrop-blur-xl transition-colors hover:border-rose-300/40 hover:bg-rose-500/[0.14] hover:text-rose-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/80 ${className}`}
+      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/[0.09] bg-black/25 px-3 py-2 text-xs font-bold text-gray-300 shadow-[inset_0_1px_0_rgba(255,255,255,.055)] backdrop-blur-xl transition-colors hover:border-rose-300/25 hover:bg-rose-500/[0.1] hover:text-rose-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/80 ${className}`}
     >
       <LogOut size={15} aria-hidden="true" />
-      <span className={compact ? "hidden min-[390px]:inline" : ""}>تسجيل الخروج</span>
+      <span className={compact ? "sr-only" : ""}>تسجيل الخروج</span>
     </button>
   )
 }
 
 function GlassCard({ children, className = "", glow = "" }: { children: React.ReactNode; className?: string; glow?: string }) {
   return (
-    <div className={`bg-gray-900/70 backdrop-blur-md border border-gray-800/60 rounded-2xl ${glow} ${className}`}>
+    <div className={`event3-glass rounded-2xl border border-white/[0.09] ${glow} ${className}`}>
       {children}
     </div>
   )
@@ -746,7 +747,7 @@ function JourneyCue({
 }) {
   const theme = JOURNEY_ACCENTS[accent]
   return (
-    <section className={`relative overflow-hidden rounded-3xl border bg-gray-900/80 p-4 text-right shadow-xl shadow-black/20 ${theme.border} ${className}`} aria-label={`${eyebrow}: ${title}`}>
+    <section className={`event3-glass relative overflow-hidden rounded-3xl border p-4 text-right ${theme.border} ${className}`} aria-label={`${eyebrow}: ${title}`}>
       <div className={`pointer-events-none absolute inset-0 bg-gradient-to-bl ${theme.wash}`} />
       <div className="relative">
         <div className="flex items-center justify-between gap-3">
@@ -804,7 +805,7 @@ function MeetingPass({
   const Icon = pink ? Heart : Brain
 
   return (
-    <section className={`relative overflow-hidden rounded-[1.75rem] border bg-gray-900/85 p-5 text-right shadow-2xl shadow-black/25 ${border}`} aria-label={`بطاقة ${kind}`}>
+    <section className={`event3-glass relative overflow-hidden rounded-[1.75rem] border p-5 text-right ${border}`} aria-label={`بطاقة ${kind}`}>
       <div className={`pointer-events-none absolute inset-0 bg-gradient-to-bl ${wash}`} />
       <div className="relative">
         <div className="flex items-center justify-between gap-3">
@@ -1115,25 +1116,60 @@ function useModalFocus({
   }, [open, overlayRef, dialogRef, initialFocusRef])
 }
 
+function Event3Mark({ size = "hero", className = "" }: { size?: "compact" | "hero"; className?: string }) {
+  const dimensions = size === "compact" ? "h-14 w-14" : "h-24 w-24"
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.78, filter: "blur(5px)" }}
+      animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+      transition={{ duration: 0.62, ease: [0.16, 1, 0.3, 1] }}
+      className={`relative mx-auto ${dimensions} ${className}`}
+      aria-hidden="true"
+    >
+      <span className="absolute -inset-4 rounded-full bg-[radial-gradient(circle,rgba(124,58,237,.2),rgba(34,211,238,.06)_38%,transparent_68%)] blur-xl" />
+      <span
+        className="absolute -inset-1 rounded-full opacity-75"
+        style={{
+          background: "conic-gradient(from 35deg, transparent 0 18%, rgba(192,132,252,.78) 28%, rgba(96,165,250,.22) 44%, transparent 55% 70%, rgba(34,211,238,.78) 80%, transparent 93%)",
+          WebkitMaskImage: "radial-gradient(farthest-side, transparent calc(100% - 1.5px), #000 calc(100% - 1px))",
+          maskImage: "radial-gradient(farthest-side, transparent calc(100% - 1.5px), #000 calc(100% - 1px))",
+        }}
+      />
+      <img
+        src="/blindmatch-welcome-loading-logo.png"
+        alt=""
+        width={96}
+        height={96}
+        decoding="async"
+        className="relative h-full w-full object-contain [filter:drop-shadow(0_0_10px_rgba(168,85,247,.34))_drop-shadow(0_0_16px_rgba(34,211,238,.14))]"
+      />
+    </motion.div>
+  )
+}
+
 function Brand() {
   return (
     <div className="text-center">
-      <div className="inline-flex items-center gap-1.5">
-        <Sparkles size={14} className="text-purple-400" />
-        <span className="text-sm font-semibold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent tracking-wider">
+      <Event3Mark size="compact" />
+      <div className="mt-2 inline-flex items-center gap-2.5">
+        <span className="h-px w-5 bg-gradient-to-l from-purple-300/60 to-transparent" aria-hidden="true" />
+        <span className="bg-gradient-to-l from-cyan-100 via-white to-purple-200 bg-clip-text text-sm font-black tracking-wide text-transparent">
           التوافق الأعمى
         </span>
-        <Sparkles size={14} className="text-pink-400" />
+        <span className="h-px w-5 bg-gradient-to-r from-cyan-300/60 to-transparent" aria-hidden="true" />
       </div>
-      <div className="text-[10px] text-gray-600 tracking-widest font-medium mt-0.5">VERSION 5.0</div>
+      <div dir="ltr" className="mt-1 text-[7px] font-bold uppercase tracking-[0.3em] text-cyan-100/40">Blind Match · Edition 5.0</div>
     </div>
   )
 }
 
 function Spinner({ size = 24, className = "" }: { size?: number; className?: string }) {
   return (
-    <motion.div role="status" aria-label="جاري التحميل" animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}>
-      <RefreshCw aria-hidden="true" size={size} className={`text-purple-500 ${className}`} />
+    <motion.div role="status" aria-label="جاري التحميل" className="relative flex items-center justify-center" style={{ width: size, height: size }}>
+      <span className="absolute -inset-1 rounded-full bg-purple-500/10 blur-md" aria-hidden="true" />
+      <motion.span animate={{ rotate: 360 }} transition={{ duration: 0.9, repeat: Infinity, ease: "linear" }} className="relative flex items-center justify-center">
+        <RefreshCw aria-hidden="true" size={size} strokeWidth={1.7} className={`text-purple-300 [filter:drop-shadow(0_0_7px_rgba(168,85,247,.55))] ${className}`} />
+      </motion.span>
     </motion.div>
   )
 }
@@ -1163,13 +1199,13 @@ function PartnerInfoCard({ data, accent = "pink" }: { data: any; accent?: "pink"
 
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
-      className={`rounded-2xl border ${cl.border} bg-gradient-to-br ${cl.bg} p-4 space-y-3`}>
+      className={`event3-glass space-y-3 rounded-[1.35rem] border ${cl.border} bg-gradient-to-br ${cl.bg} p-4`}>
       <p className={`text-xs font-bold ${cl.label} flex items-center gap-1.5`}>
         <Sparkles size={11} /> نبذة عن شريكك
       </p>
       <div className="grid grid-cols-2 gap-2.5">
         {traits.map((t: any, i: number) => (
-          <div key={i} className="flex items-center gap-2 bg-gray-900/40 rounded-xl px-3 py-2">
+          <div key={i} className="flex items-center gap-2 rounded-xl border border-white/[0.055] bg-black/20 px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,.035)]">
             <span className="text-base flex-shrink-0">{t.icon}</span>
             <div className="min-w-0">
               <p className="text-gray-600 text-[10px] leading-tight">{t.label}</p>
@@ -1224,9 +1260,9 @@ function CompatibilityBreakdown({ breakdown, scoreRow, accent = "purple", partne
 
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-      className="rounded-2xl overflow-hidden border border-gray-800/60 bg-gradient-to-br from-gray-900/80 to-gray-950/80 shadow-lg">
+      className="event3-glass overflow-hidden rounded-[1.35rem] border border-purple-300/[0.1]">
       {/* Header */}
-      <div className="px-5 py-4 border-b border-gray-800/50 bg-gray-900/60">
+      <div className="border-b border-white/[0.065] bg-white/[0.025] px-5 py-4">
         <h4 className={`text-base font-bold flex items-center gap-2 ${accentCl}`}>
           <BarChart3 size={16} /> تحليل التوافق
         </h4>
@@ -1247,8 +1283,8 @@ function CompatibilityBreakdown({ breakdown, scoreRow, accent = "purple", partne
       </div>
 
       {/* Synergy Overview */}
-      <div className="px-5 pt-4">
-        <div className="rounded-xl p-3.5 bg-gray-900/40 border border-gray-800/40">
+      <div className="px-5 py-4">
+        <div className="rounded-2xl border border-white/[0.06] bg-black/20 p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,.035)]">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-bold text-gray-200">التوافق الكلي</span>
             <span className={`text-sm font-extrabold ${totalPct >= 70 ? "text-emerald-400" : totalPct >= 50 ? "text-yellow-500" : "text-orange-500"}`}>{totalPct}%</span>
@@ -1265,7 +1301,7 @@ function CompatibilityBreakdown({ breakdown, scoreRow, accent = "purple", partne
               {/* Dimension mini-bars */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-3.5">
                 {allDims.map((d, i) => (
-                  <div key={i} className="rounded-lg p-2.5 bg-gray-900/40 border border-gray-800/40">
+                  <div key={i} className="rounded-xl border border-white/[0.055] bg-white/[0.025] p-2.5">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[11px] font-semibold text-gray-300">{d.label}</span>
                       <span className="text-[11px] font-bold text-gray-400">{percent(d.value, d.max)}%</span>
@@ -2225,7 +2261,7 @@ function WelcomeScreen({ onDone, onLogout, showLogout, eventFormat }: {
                 type="button"
                 whileTap={{ scale: 0.97 }}
                 onClick={goNext}
-                className="w-full rounded-2xl bg-gradient-to-l from-fuchsia-500 via-purple-600 to-violet-700 py-3.5 text-base font-black text-white shadow-[0_16px_42px_-18px_rgba(168,85,247,.9)] transition-all hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
+                className="event3-action w-full rounded-2xl bg-gradient-to-l from-fuchsia-500 via-purple-600 to-violet-700 py-3.5 text-base font-black text-white shadow-[0_16px_42px_-18px_rgba(168,85,247,.9)] transition-all hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
               >
                 {step === WALK_SLIDES.length - 1 ? <span className="flex items-center justify-center gap-2">جاهز — ابدأ الفعالية <Sparkles size={16} /></span> : "التالي ←"}
               </motion.button>
@@ -2325,31 +2361,22 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
   }
 
   return (
-    <PageWrapper className="flex items-center justify-center p-6">
+    <PageWrapper className="flex items-center justify-center p-5 sm:p-6">
       <motion.div
         initial={{ opacity: 0, y: 32 }} animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
-        className="w-full max-w-sm space-y-8 text-center"
+        className="w-full max-w-sm space-y-6 text-center"
       >
-        {/* Icon */}
-        <div className="space-y-5">
-          <motion.div
-            initial={{ scale: 0, rotate: -15 }} animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: "spring", stiffness: 220, damping: 14, delay: 0.1 }}
-            className="relative w-24 h-24 mx-auto"
-          >
-            {[0, 1].map(i => (
-              <motion.div key={i} className="absolute inset-0 rounded-3xl bg-gradient-to-br from-purple-500/30 to-pink-500/20"
-                animate={{ scale: [1, 1.15 + i * 0.1], opacity: [0.5, 0] }}
-                transition={{ duration: 2, delay: i * 0.7, repeat: Infinity, ease: "easeOut" }} />
-            ))}
-            <div className="relative w-24 h-24 rounded-3xl bg-gradient-to-br from-purple-700 via-violet-700 to-indigo-800 flex items-center justify-center shadow-2xl shadow-purple-700/50">
-              <Smartphone size={36} className="text-white" />
-            </div>
-          </motion.div>
+        <div className="space-y-3">
+          <Event3Mark />
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-            <h1 className="text-3xl font-black text-white">{step === "phone" ? "أهلاً بك" : "تحقق من جوالك"}</h1>
-            <p className="text-gray-400 text-sm mt-2 leading-relaxed">
+            <span className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-cyan-300/[0.12] bg-cyan-300/[0.055] px-2.5 py-1 text-[9px] font-black tracking-wide text-cyan-100/75">
+              <ShieldCheck size={11} /> دخول آمن ومشفّر
+            </span>
+            <h1 className="bg-gradient-to-l from-white via-purple-100 to-fuchsia-200 bg-clip-text text-[1.85rem] font-black leading-tight text-transparent">
+              {step === "phone" ? "دخول الفعالية" : "رمز التحقق"}
+            </h1>
+            <p className="mt-2 text-sm leading-relaxed text-gray-400">
               {step === "phone" ? "أدخل رقم جوالك المسجّل في الفعالية" : "أدخل رمز التحقق المرسل إليك عبر SMS"}
             </p>
           </motion.div>
@@ -2357,11 +2384,16 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
 
         {/* Input card */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
-          <GlassCard className="p-5 shadow-2xl shadow-black/30">
-            <form onSubmit={event => { event.preventDefault(); submit() }} className="space-y-3" noValidate>
-              <label htmlFor={step === "phone" ? "event3-phone" : "event3-otp"} className="mr-1 block text-right text-xs font-bold text-gray-300">
-                {step === "phone" ? "رقم الجوال" : "رمز التحقق"}
-              </label>
+          <GlassCard className="rounded-[1.65rem] p-5">
+            <form onSubmit={event => { event.preventDefault(); submit() }} className="space-y-3.5" noValidate>
+              <div className="flex items-center justify-between px-0.5">
+                <label htmlFor={step === "phone" ? "event3-phone" : "event3-otp"} className="block text-right text-xs font-black text-gray-200">
+                  {step === "phone" ? "رقم الجوال" : "رمز التحقق"}
+                </label>
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-purple-300/[0.12] bg-purple-400/[0.08] text-purple-200">
+                  {step === "phone" ? <Smartphone size={13} /> : <Lock size={13} />}
+                </span>
+              </div>
               <motion.div animate={shake ? { x: [-8, 8, -6, 6, -3, 3, 0] } : { x: 0 }} transition={{ duration: 0.4 }}>
                 {step === "phone" ? (
                   <input
@@ -2378,8 +2410,8 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
                     onChange={handleInput}
                     aria-invalid={Boolean(error)}
                     aria-describedby={error ? "event3-phone-error event3-phone-help" : "event3-phone-help"}
-                    className={`w-full bg-gray-800/80 border text-white rounded-2xl px-5 py-4 text-center text-xl font-bold tracking-widest focus:outline-none transition-all placeholder:text-gray-500 placeholder:font-normal placeholder:tracking-normal
-                      ${error ? 'border-red-500/70 focus:border-red-400' : 'border-gray-700/70 focus:border-purple-500/70 focus:bg-gray-800/90'}`}
+                    className={`w-full rounded-2xl border bg-black/30 px-5 py-4 text-center text-xl font-bold tracking-widest text-white shadow-[inset_0_1px_0_rgba(255,255,255,.035)] transition-all placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-600 focus:outline-none focus:ring-4 focus:ring-purple-500/[0.08]
+                      ${error ? 'border-red-500/70 focus:border-red-400' : 'border-white/[0.09] focus:border-purple-300/45 focus:bg-black/40'}`}
                   />
                 ) : (
                   <input
@@ -2397,8 +2429,8 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
                     aria-invalid={Boolean(error)}
                     aria-describedby={error ? "event3-phone-error event3-phone-help" : "event3-phone-help"}
                     autoFocus
-                    className={`w-full bg-gray-800/80 border text-white rounded-2xl px-5 py-4 text-center text-2xl font-black tracking-[0.4em] focus:outline-none transition-all placeholder:text-gray-500
-                      ${error ? 'border-red-500/70 focus:border-red-400' : 'border-gray-700/70 focus:border-purple-500/70 focus:bg-gray-800/90'}`}
+                    className={`w-full rounded-2xl border bg-black/30 px-5 py-4 text-center text-2xl font-black tracking-[0.4em] text-white shadow-[inset_0_1px_0_rgba(255,255,255,.035)] transition-all placeholder:text-gray-600 focus:outline-none focus:ring-4 focus:ring-purple-500/[0.08]
+                      ${error ? 'border-red-500/70 focus:border-red-400' : 'border-white/[0.09] focus:border-purple-300/45 focus:bg-black/40'}`}
                   />
                 )}
               </motion.div>
@@ -2412,7 +2444,7 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
                 )}
               </AnimatePresence>
               <motion.button type="submit" disabled={loading} aria-busy={loading} whileTap={{ scale: 0.97 }}
-                className="w-full min-h-14 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-50 text-white rounded-2xl px-4 py-4 font-black text-lg shadow-lg shadow-purple-600/30 transition-all flex items-center justify-center gap-2">
+                className="event3-action flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-[#c026d3] via-[#7e22ce] to-[#4c1d95] px-4 py-4 text-lg font-black text-white transition-all hover:brightness-110 disabled:opacity-50">
                 {loading ? (
                   <><motion.div aria-hidden="true" animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }} className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />{step === "phone" ? "جاري الإرسال..." : "جاري التحقق..."}</>
                 ) : (
@@ -2430,8 +2462,11 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
           </GlassCard>
         </motion.div>
 
-        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }}
-          className="text-gray-400 text-xs">تواصل مع المنظم إذا واجهت أي مشكلة في الدخول</motion.p>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }}
+          className="space-y-1 text-center text-xs text-gray-500">
+          <p className="inline-flex items-center justify-center gap-1.5"><ShieldCheck size={12} className="text-emerald-300/65" /> بيانات الدخول لا تظهر لبقية المشاركين</p>
+          <p className="text-[11px] text-gray-600">إذا لم يصلك الرمز، أعد الإرسال أو تواصل مع المنظم.</p>
+        </motion.div>
       </motion.div>
     </PageWrapper>
   )
@@ -2461,53 +2496,57 @@ function SetupScreen({ token, myInfo, enrolledCount, eventFormat }: { token: str
   ]
 
   return (
-    <PageWrapper embedded className="flex items-center justify-center p-6">
+    <PageWrapper embedded className="flex items-center justify-center px-5 py-6">
       <motion.div
         initial={{ opacity: 0, scale: 0.92 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="space-y-5 max-w-sm w-full"
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        className="w-full max-w-sm space-y-4"
       >
         <Brand />
 
         {/* Participant info card */}
         {myInfo && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-            <GlassCard className="p-5 flex items-center gap-4 border border-purple-800/30 shadow-xl shadow-purple-900/20">
-              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black flex-shrink-0 ${
-                myInfo.gender === "female" ? "bg-pink-900/40 border border-pink-700/40 text-pink-300" :
-                myInfo.gender === "male" ? "bg-blue-900/40 border border-blue-700/40 text-blue-300" :
-                "bg-purple-900/40 border border-purple-700/40 text-purple-300"
+            <GlassCard className="flex items-center gap-4 rounded-[1.35rem] border-purple-300/[0.12] p-4">
+              <div className={`flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl border text-2xl font-black shadow-[inset_0_1px_0_rgba(255,255,255,.1),0_12px_28px_-18px_currentColor] ${
+                myInfo.gender === "female" ? "border-pink-400/20 bg-gradient-to-br from-pink-500/25 to-fuchsia-950/40 text-pink-200" :
+                myInfo.gender === "male" ? "border-cyan-400/20 bg-gradient-to-br from-cyan-500/20 to-blue-950/40 text-cyan-200" :
+                "border-purple-400/20 bg-gradient-to-br from-purple-500/25 to-violet-950/40 text-purple-200"
               }`}>
                 {myInfo.number}
               </div>
               <div className="flex-1 min-w-0 text-right">
-                <p className="text-white font-bold text-base leading-tight">{myInfo.name}</p>
-                <p className="text-gray-500 text-xs mt-0.5">رقمك في الفعالية</p>
+                <p className="text-base font-black leading-tight text-white">{myInfo.name}</p>
+                <p className="mt-1 text-[11px] font-medium text-gray-500">هويتك داخل الفعالية · الرقم {myInfo.number}</p>
               </div>
               <div className="flex flex-col items-end gap-1">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                  <span className="text-green-400 text-[11px] font-medium">جاهز</span>
+                <div className="flex items-center gap-1.5 rounded-full border border-emerald-300/[0.12] bg-emerald-400/[0.07] px-2 py-1">
+                  <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-300 shadow-[0_0_8px_rgba(110,231,183,.75)]" />
+                  <span className="text-[10px] font-black text-emerald-200">جاهز</span>
                 </div>
               </div>
             </GlassCard>
           </motion.div>
         )}
 
-        <GlassCard className="p-6 space-y-4 shadow-xl shadow-black/20 text-center">
+        <GlassCard className="space-y-3.5 rounded-[1.5rem] border-purple-300/[0.12] p-5 text-center">
           <div className="flex justify-center gap-1.5">
             {[0, 1, 2].map(i => (
               <motion.div
                 key={i}
-                className="w-2 h-2 bg-purple-500 rounded-full"
+                className={`h-1.5 rounded-full ${i === 1 ? "w-6 bg-gradient-to-r from-purple-400 to-cyan-300" : "w-1.5 bg-purple-400/45"}`}
                 animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1, 0.8] }}
                 transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.35 }}
               />
             ))}
           </div>
-          <h1 className="text-xl font-bold text-white">الفعالية ستبدأ قريباً</h1>
-          <p className="text-gray-500 text-sm">انتظر توجيهات المنظم</p>
-          <p className="rounded-xl border border-emerald-400/15 bg-emerald-400/[0.06] px-3 py-2 text-xs leading-5 text-emerald-100/80">
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-[0.22em] text-purple-200/55">READY ROOM</p>
+            <h1 className="mt-1 bg-gradient-to-l from-white via-purple-100 to-cyan-100 bg-clip-text text-xl font-black text-transparent">الفعالية ستبدأ قريباً</h1>
+            <p className="mt-1 text-xs text-gray-500">انتظر توجيهات المنظم</p>
+          </div>
+          <p className="rounded-xl border border-emerald-300/[0.12] bg-emerald-400/[0.055] px-3 py-2 text-xs leading-5 text-emerald-100/80">
             لا تحتاج أن تفعل شيئاً الآن — ستنتقل الشاشة تلقائياً عند بدء الجولة.
           </p>
           {enrolledCount != null && enrolledCount > 0 && (
@@ -2520,23 +2559,24 @@ function SetupScreen({ token, myInfo, enrolledCount, eventFormat }: { token: str
 
         {/* Event timeline preview */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-          <GlassCard className="p-5 space-y-3">
-            <p className="text-gray-400 text-xs font-bold flex items-center gap-1.5">
-              <Clock size={12} className="text-purple-400" /> رحلة الفعالية
+          <GlassCard className="space-y-3 rounded-[1.35rem] p-4">
+            <p className="flex items-center justify-between text-xs font-black text-gray-300">
+              <span className="flex items-center gap-1.5"><Clock size={12} className="text-purple-300" /> رحلة الفعالية</span>
+              <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-cyan-100/35">THE JOURNEY</span>
             </p>
-            <div className="space-y-2.5">
+            <div className="space-y-2">
               {timeline.map((step, i) => (
                 <div key={i} className="flex items-center gap-3">
                   <div className="relative flex items-center justify-center">
-                    <div className="w-8 h-8 rounded-lg bg-gray-800/60 border border-gray-700/40 flex items-center justify-center text-sm flex-shrink-0">
+                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[0.65rem] border border-white/[0.08] bg-white/[0.045] text-sm shadow-[inset_0_1px_0_rgba(255,255,255,.05)]">
                       {step.icon}
                     </div>
                     {i < timeline.length - 1 && (
-                      <div className="absolute top-full w-px h-2.5 bg-gray-700/50" />
+                      <div className="absolute top-full h-2 w-px bg-gradient-to-b from-purple-400/35 to-transparent" />
                     )}
                   </div>
-                  <span className="text-gray-300 text-xs font-medium flex-1">{step.label}</span>
-                  <span className="text-gray-600 text-[10px] font-mono">{step.time}</span>
+                  <span className="flex-1 text-xs font-medium text-gray-300">{step.label}</span>
+                  <span className="rounded-full border border-white/[0.055] bg-black/20 px-2 py-0.5 font-mono text-[9px] text-gray-500">{step.time}</span>
                 </div>
               ))}
             </div>
@@ -2589,7 +2629,7 @@ function OnePopup({ onClose, accent, icon, label, title, points, cta = "فهمت
   return (
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[500] bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6"
+      className="fixed inset-0 z-[500] flex items-center justify-center bg-[#02030a]/86 p-3 backdrop-blur-md sm:p-6"
       dir="rtl"
     >
       <motion.div
@@ -2599,10 +2639,10 @@ function OnePopup({ onClose, accent, icon, label, title, points, cta = "فهمت
         aria-labelledby={titleId}
         initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 24, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ type: "spring", stiffness: 300, damping: 26 }}
-        className={`relative bg-gray-900/95 border border-gray-700/50 rounded-3xl p-4 sm:p-6 max-w-xs w-full max-h-[calc(100dvh-1.5rem)] text-center overflow-hidden ring-1 ${ring} flex flex-col`}
+        className={`event3-glass relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-xs flex-col overflow-hidden rounded-3xl border border-white/[0.1] p-4 text-center ring-1 sm:p-6 ${ring}`}
       >
         {/* Close */}
-        <button onClick={onClose} aria-label="إغلاق التذكير" className="absolute top-3 left-3 w-9 h-9 rounded-full bg-gray-800/80 flex items-center justify-center text-gray-400 hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
+        <button onClick={onClose} aria-label="إغلاق التذكير" className="absolute left-3 top-3 flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.08] bg-black/25 text-gray-400 transition-colors hover:bg-white/[0.06] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
           <X size={13} />
         </button>
 
@@ -2615,7 +2655,7 @@ function OnePopup({ onClose, accent, icon, label, title, points, cta = "فهمت
         <div className="relative mx-auto w-fit mb-2 sm:mb-3 shrink-0">
           <motion.div className="absolute inset-0 rounded-2xl border-2 border-current opacity-20"
             animate={reduceMotion ? { opacity: 0.2 } : { scale: [1, 1.3, 1], opacity: [0.3, 0, 0.3] }} transition={{ duration: 2.5, repeat: Infinity }} style={{ color: "currentColor" }} />
-          <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-gray-800/80 border border-gray-700/50 flex items-center justify-center">{icon}</div>
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/[0.09] bg-gradient-to-br from-white/[0.08] to-white/[0.025] shadow-[inset_0_1px_0_rgba(255,255,255,.08)] sm:h-14 sm:w-14">{icon}</div>
         </div>
 
         <h2 id={titleId} className="text-white font-black text-lg mb-2 sm:mb-3 shrink-0">{title}</h2>
@@ -2624,7 +2664,7 @@ function OnePopup({ onClose, accent, icon, label, title, points, cta = "فهمت
         <div className="space-y-1.5 sm:space-y-2 text-right mb-3 sm:mb-5 min-h-0 overflow-y-auto overscroll-contain pr-0.5">
           {points.map((p, i) => (
             <motion.div key={i} initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 + i * 0.08 }}
-              className="flex items-start gap-2 bg-white/[0.03] border border-white/[0.06] rounded-xl px-2.5 sm:px-3 py-1.5 sm:py-2">
+              className="flex items-start gap-2 rounded-xl border border-white/[0.065] bg-black/[0.18] px-2.5 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,.025)] sm:px-3 sm:py-2">
               <span className="shrink-0 mt-0.5">{p.icon}</span>
               <p className="text-gray-300 text-[12px] leading-relaxed flex-1">{p.text}</p>
             </motion.div>
@@ -2632,7 +2672,7 @@ function OnePopup({ onClose, accent, icon, label, title, points, cta = "فهمت
         </div>
 
         <motion.button whileTap={{ scale: 0.96 }} onClick={onClose}
-          className={`w-full shrink-0 bg-gradient-to-r ${grad} ${ctaText} rounded-xl py-3 font-black text-sm shadow-lg shadow-black/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300`}>
+          className={`event3-action w-full shrink-0 rounded-xl bg-gradient-to-r py-3 text-sm font-black focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 ${grad} ${ctaText}`}>
           {cta}
         </motion.button>
         <p className="text-gray-500 text-[10px] sm:text-xs mt-1.5 shrink-0">شاهدت الشرح الكامل في البداية — هذا تذكير سريع فقط</p>
@@ -2827,7 +2867,7 @@ function IceBreaker({ round, tableNumber = 0, myInfo, tablemates, onDone }: {
           </p>
           <button
             onClick={startBreaker}
-            className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 text-white font-bold text-sm shadow-lg shadow-amber-600/30 hover:brightness-110 active:scale-95 transition-all"
+            className="event3-action w-full rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 py-3 text-sm font-bold text-white transition-all hover:brightness-110 active:scale-95"
           >
             <Sparkles size={14} className="inline" /> ابدأ كسر الجليد
           </button>
@@ -2917,7 +2957,7 @@ function IceBreaker({ round, tableNumber = 0, myInfo, tablemates, onDone }: {
         {/* Next button */}
         <button
           onClick={nextPerson}
-          className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 text-white font-bold text-sm shadow-lg shadow-amber-600/30 hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2"
+          className="event3-action flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 py-3 text-sm font-bold text-white transition-all hover:brightness-110 active:scale-95"
         >
           {currentIdx < order.length - 1 ? "الشخص التالي ←" : "تم النشاط ✓"}
         </button>
@@ -2992,7 +3032,7 @@ function RockPaperScissors({ accent = "pink", autoDone = false, onDone }: { acce
           onClick={() => setDone(true)}
           initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.75 }}
           whileTap={{ scale: 0.97 }}
-          className={`w-full py-3.5 rounded-xl bg-gradient-to-r ${ac.btn} text-white font-bold text-sm shadow-lg ${ac.glow} hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2`}
+          className={`event3-action flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r py-3.5 text-sm font-bold text-white shadow-lg transition-all hover:brightness-110 active:scale-95 ${ac.btn} ${ac.glow}`}
         >
           <CheckCircle size={16} /> خلّصنا التحدي — ابدأوا الجلسة
         </motion.button>
@@ -3163,12 +3203,12 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
   ][round - 1] || { badge: "bg-purple-900/30 border-purple-700/40 text-purple-300", card: "border-purple-800/40", num: "text-purple-300", pill: "bg-purple-900/40 text-purple-300 border-purple-800/40", bar: "from-purple-500 to-pink-500" }
 
   return (
-    <div className="min-h-full bg-gray-950 relative overflow-hidden" dir="rtl">
+    <div className="relative min-h-full overflow-hidden" dir="rtl">
       {/* Background orbs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-24 -right-12 w-[380px] h-[380px] bg-purple-600/20 rounded-full blur-[90px]" />
-        <div className="absolute -bottom-20 -left-12 w-[340px] h-[340px] bg-pink-600/15 rounded-full blur-[80px]" />
-        <div className="absolute top-1/2 right-1/3 w-[260px] h-[260px] bg-blue-500/10 rounded-full blur-[70px] -translate-y-1/2" />
+        <div className="absolute -right-24 -top-32 h-[380px] w-[380px] rounded-full bg-purple-600/[0.16] blur-[105px]" />
+        <div className="absolute -bottom-24 -left-20 h-[340px] w-[340px] rounded-full bg-cyan-500/[0.09] blur-[95px]" />
+        <div className="absolute right-1/3 top-1/2 h-[260px] w-[260px] -translate-y-1/2 rounded-full bg-fuchsia-500/[0.055] blur-[80px]" />
       </div>
 
       {/* ── Main Content ───────────────────────────────────────────── */}
@@ -3276,7 +3316,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
               <MapPin size={26} className="text-red-300" />
               <p className="text-white text-sm font-bold">لم نجد طاولتك لهذه الجولة</p>
               <p className="text-gray-500 text-xs leading-5">أخبر المنظم برقمك، ثم اضغط إعادة المحاولة.</p>
-              <button onClick={loadAssignment} className="mt-1 flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white/[0.06] px-5 text-xs font-bold text-white">
+              <button onClick={loadAssignment} className="event3-action mt-1 flex min-h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-l from-rose-600 via-red-600 to-red-700 px-5 text-xs font-black text-white">
                 <RefreshCw size={13} /> إعادة المحاولة
               </button>
             </GlassCard>
@@ -3293,7 +3333,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
             onClick={openGroups}
             disabled={!assignment}
             initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
-            className={`group flex items-center gap-3 w-full p-4 rounded-2xl text-right transition-all text-white bg-gradient-to-r ${RC.bar} shadow-lg shadow-black/25 border border-white/[0.08] hover:brightness-110 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none`}
+            className={`event3-action group flex w-full items-center gap-3 rounded-2xl bg-gradient-to-r p-4 text-right text-white transition-all hover:brightness-110 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40 ${RC.bar}`}
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15 ring-1 ring-white/20">
               <Target size={19} />
@@ -3353,7 +3393,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
             aria-modal={showGroups ? "true" : undefined}
             aria-label="أنشطة المجموعة"
             tabIndex={-1}
-            className={`fixed inset-0 z-[210] flex flex-col bg-gray-950 ${showGroups ? "pointer-events-auto" : "pointer-events-none"}`}
+            className={`event3-shell fixed inset-0 z-[210] flex flex-col ${showGroups ? "pointer-events-auto" : "pointer-events-none"}`}
           >
             {groupActivityStage === "warmup" && assignment?.tablemates ? (
               <div className="event3-scroll relative z-10 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]" tabIndex={-1}>
@@ -3390,11 +3430,11 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, cor
       <AnimatePresence>
         {showGroupParticipationNudge && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[520] flex items-end bg-black/55 p-5 sm:items-center sm:justify-center" role="dialog" aria-modal="true" aria-labelledby={participationNudgeTitleId}>
-            <motion.div initial={{ y: 20, scale: 0.98 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, scale: 0.98 }} className="w-full max-w-md rounded-3xl border border-amber-400/25 bg-gray-900 p-6 text-center shadow-2xl" dir="rtl">
+            <motion.div initial={{ y: 20, scale: 0.98 }} animate={{ y: 0, scale: 1 }} exit={{ y: 20, scale: 0.98 }} className="event3-glass w-full max-w-md rounded-3xl border border-amber-400/25 p-6 text-center" dir="rtl">
               <Users className="mx-auto mb-3 h-8 w-8 text-amber-300" />
               <h2 id={participationNudgeTitleId} className="text-lg font-black text-white">خلّوا الجميع يأخذ فرصته</h2>
               <p className="mt-2 text-sm leading-7 text-gray-300">إذا فيه شخص ما أخذ فرصته بالكلام، نحب نسمع منه — والمشاركة دائمًا اختيارية.</p>
-              <button ref={participationNudgeButtonRef} type="button" onClick={() => setShowGroupParticipationNudge(false)} className="mt-5 min-h-12 w-full rounded-2xl bg-amber-500 font-bold text-gray-950">نكمل</button>
+              <button ref={participationNudgeButtonRef} type="button" onClick={() => setShowGroupParticipationNudge(false)} className="event3-action mt-5 min-h-12 w-full rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 font-black text-gray-950">نكمل</button>
             </motion.div>
           </motion.div>
         )}
@@ -3767,13 +3807,13 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
 
   if (loadError) return (
     <PageWrapper embedded className="flex items-center justify-center p-5 text-center">
-      <div className="w-full max-w-sm rounded-3xl border border-red-500/20 bg-red-950/20 p-6 shadow-2xl">
+      <div className="event3-glass w-full max-w-sm rounded-3xl border border-red-400/[0.16] p-6">
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-red-500/25 bg-red-500/10">
           <AlertTriangle size={26} className="text-red-300" />
         </div>
         <h1 className="mt-4 text-lg font-black text-white">تعذّر تحميل قائمة الترتيب</h1>
         <p className="mt-2 text-sm leading-relaxed text-gray-300">{loadError}</p>
-        <button type="button" onClick={() => { setLoading(true); setLoadError(null); setReloadKey(value => value + 1) }} className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-white/[0.08] px-4 text-sm font-black text-white">
+        <button type="button" onClick={() => { setLoading(true); setLoadError(null); setReloadKey(value => value + 1) }} className="event3-action mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-rose-600 via-red-600 to-red-700 px-4 text-sm font-black text-white">
           <RefreshCw size={16} /> إعادة المحاولة
         </button>
       </div>
@@ -3785,9 +3825,9 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
   const timerText = timeLeft <= 30 ? "text-red-400" : timeLeft <= 60 ? "text-amber-400" : "text-gray-300"
 
   return (
-    <PageWrapper embedded className="bg-gray-950">
+    <PageWrapper embedded>
       {/* ── Sticky header with integrated timer ── */}
-      <div className="sticky top-0 z-20 bg-gray-950/95 backdrop-blur-xl border-b border-white/[0.04]">
+      <div className="event3-status-header sticky top-0 z-20 border-b border-white/[0.07]">
         <div className="w-full max-w-md mx-auto px-3 sm:px-4 pt-2.5 pb-2">
           <div className="flex items-center justify-between mb-1.5">
             <div className="flex items-center gap-2">
@@ -3913,7 +3953,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
               <RankingReorderCard
                 key={num}
                 value={num}
-                className={`relative rounded-xl border transition-colors ${accent} ${submitted ? 'cursor-not-allowed opacity-40' : 'select-none hover:border-white/[0.1]'}`}
+                className={`relative rounded-xl border shadow-[inset_0_1px_0_rgba(255,255,255,.035),0_14px_35px_-30px_rgba(124,58,237,.75)] transition-colors ${accent} ${submitted ? 'cursor-not-allowed opacity-40' : 'select-none hover:border-white/[0.13]'}`}
                 disabled={submitted || submitting || autoSaving || rankingClosed || rankingExpired}
                 whileDrag={submitted ? undefined : {
                   scale: 1.03,
@@ -4013,7 +4053,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
       </div>
 
       {/* ── Fixed submit bar ── */}
-      <div className="fixed bottom-0 inset-x-0 z-40 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent px-3 pt-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4">
+      <div className="fixed inset-x-0 bottom-0 z-40 bg-gradient-to-t from-[#02030a] via-[#02030a]/95 to-transparent px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-4 sm:px-4">
         <div className="w-full max-w-md mx-auto">
           {submitted ? (
             <motion.div
@@ -4055,7 +4095,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                 onClick={() => { if (!autoSaving && !autoSavedRef.current && timeLeft > 0) setShowConfirm(true) }}
                 disabled={submitting || autoSaving || timeLeft <= 0}
                 whileTap={{ scale: 0.97 }}
-                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:opacity-50 text-black rounded-xl py-3 font-black text-sm shadow-lg shadow-amber-500/20 transition-all"
+                className="event3-action flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-sm font-black text-black transition-all hover:from-amber-400 hover:to-orange-400 disabled:opacity-50"
               >
                 {submitting ? <Spinner size={16} className="!text-black" /> : <Send size={16} />}
                 {isFinalRanking ? 'إرسال التصنيف النهائي' : 'حفظ التصنيف'}
@@ -4102,14 +4142,14 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
           <motion.div
             ref={rankingConfirmOverlayRef}
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md sm:p-6"
+            className="fixed inset-0 z-[500] flex items-center justify-center bg-[#02030a]/86 p-4 backdrop-blur-md sm:p-6"
             onClick={() => setShowConfirm(false)}
           >
             <motion.div
               ref={rankingConfirmDialogRef}
               initial={{ scale: 0.92, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.92, y: 20 }}
               transition={{ type: "spring", stiffness: 320, damping: 28 }}
-              className="bg-gradient-to-br from-gray-900/95 to-gray-950/95 border border-amber-500/15 rounded-3xl p-6 max-w-xs w-full space-y-4 text-center ring-1 ring-amber-500/10"
+              className="event3-glass w-full max-w-xs space-y-4 rounded-3xl border border-amber-500/20 p-6 text-center ring-1 ring-amber-500/10"
               onClick={e => e.stopPropagation()}
               role="dialog"
               aria-modal="true"
@@ -4148,7 +4188,7 @@ function RankingScreen({ token, completedRounds, currentPhase, timerActive, time
                   إلغاء
                 </button>
                 <button type="button" onClick={submit} disabled={submitting || autoSaving || autoSavedRef.current || timeLeft <= 0}
-                  className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-black font-black text-sm hover:from-amber-400 hover:to-orange-400 disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20">
+                  className="event3-action flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-sm font-black text-black transition-all hover:from-amber-400 hover:to-orange-400 disabled:opacity-50">
                   {submitting ? <Spinner size={16} className="!text-black" /> : <CheckCircle size={16} />}
                   تأكيد
                 </button>
@@ -4459,7 +4499,7 @@ function GroupReflectionSheet({ token, groupRound, onClose, previewPeople, previ
           <footer className="relative z-20 flex shrink-0 gap-2 border-t border-white/[0.08] bg-[#09070e]/95 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl sm:px-5">
             <button type="button" onClick={onClose} className="min-h-12 rounded-2xl border border-white/[0.09] bg-white/[0.05] px-5 text-sm font-bold text-gray-300 transition active:scale-95">{reviewMode ? 'المجموعات' : 'تخطي'}</button>
             <motion.button type="button" whileTap={{ scale: 0.97 }} onClick={save} disabled={saving || saved || reviewedCount === 0} aria-busy={saving}
-              className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500 px-4 text-sm font-black text-white shadow-[0_10px_30px_-12px_rgba(168,85,247,0.9)] disabled:opacity-60">
+              className="event3-action flex min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500 px-4 text-sm font-black text-white disabled:opacity-60">
               {saving ? <Spinner size={16} /> : saved ? <CheckCircle size={17} /> : <Send size={16} />}
               {saved ? 'تم الحفظ' : reviewedCount ? (reviewMode ? 'حفظ التعديلات' : `حفظ ${reviewedCount} تقييم`) : 'اختر تقييماً للبدء'}
             </motion.button>
@@ -4612,7 +4652,7 @@ function BreakGroupFeedbackSheet({ token, eventFormat, onClose, onSelectRound, p
             <div className="space-y-4 rounded-2xl border border-rose-400/15 bg-rose-500/[0.06] px-5 py-8 text-center" role="alert">
               <AlertTriangle size={27} className="mx-auto text-rose-300" />
               <p className="text-sm leading-relaxed text-gray-300">{error}</p>
-              <button type="button" onClick={() => setRetryVersion(value => value + 1)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-4 text-sm font-bold text-white">
+              <button type="button" onClick={() => setRetryVersion(value => value + 1)} className="event3-action inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-l from-rose-600 via-red-600 to-red-700 px-4 text-sm font-black text-white">
                 <RefreshCw size={15} /> إعادة المحاولة
               </button>
             </div>
@@ -4674,7 +4714,7 @@ function BreakGroupFeedbackSheet({ token, eventFormat, onClose, onSelectRound, p
                         })}
                       </div>
 
-                      <button type="button" onClick={() => onSelectRound(group.round)} className="flex min-h-12 w-full items-center justify-center gap-2 border-t border-teal-300/10 bg-gradient-to-r from-teal-500/[0.09] via-cyan-500/[0.07] to-purple-500/[0.09] px-4 text-sm font-black text-teal-100 transition hover:from-teal-500/[0.14] hover:to-purple-500/[0.14] active:scale-[0.99]">
+                      <button type="button" onClick={() => onSelectRound(group.round)} className="event3-action flex min-h-12 w-full items-center justify-center gap-2 rounded-b-[1.35rem] border-t border-teal-300/10 bg-gradient-to-r from-teal-500/[0.09] via-cyan-500/[0.07] to-purple-500/[0.09] px-4 text-sm font-black text-teal-100 transition hover:from-teal-500/[0.14] hover:to-purple-500/[0.14] active:scale-[0.99]">
                         <PenLine size={15} />
                         {reviewed > 0 ? 'مراجعة وتعديل هذه المجموعة' : 'ابدأ تقييم هذه المجموعة'}
                         <ChevronRight size={15} className="rotate-180" />
@@ -4823,21 +4863,25 @@ function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, 
   if (done) return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
       className="event3-shell fixed inset-0 z-[240] flex flex-col items-center justify-start gap-6 overflow-y-auto bg-gray-950 px-6 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))] sm:justify-center sm:p-8" lang="ar" dir="rtl">
-      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200, delay: 0.1 }}
-        className="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-500/25 to-teal-500/15 border border-emerald-500/30 flex items-center justify-center shadow-[0_0_60px_-8px_rgba(16,185,129,0.5)]">
-        <CheckCircle size={40} className="text-emerald-400" />
-      </motion.div>
-      <div className="text-center space-y-2">
-        <h2 className="text-white font-black text-2xl">شكراً!</h2>
-        <p className="text-gray-400 text-sm">تم حفظ تقييمك — انتظر المرحلة التالية</p>
+      <div className="relative">
+        <Event3Mark size="compact" />
+        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 220, damping: 17, delay: 0.16 }}
+          className="absolute -bottom-1 -right-1 flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-300/25 bg-emerald-950/90 shadow-[0_0_30px_-5px_rgba(52,211,153,.75),inset_0_1px_0_rgba(255,255,255,.12)]">
+          <CheckCircle size={20} className="text-emerald-300" />
+        </motion.div>
+      </div>
+      <div className="space-y-2 text-center">
+        <p dir="ltr" className="text-[9px] font-black uppercase tracking-[0.25em] text-emerald-200/55">FEEDBACK SECURED</p>
+        <h2 className="bg-gradient-to-l from-white via-emerald-100 to-cyan-100 bg-clip-text text-2xl font-black text-transparent">شكراً لك</h2>
+        <p className="text-sm text-gray-400">تم حفظ تقييمك بأمان — انتظر المرحلة التالية</p>
       </div>
       {!wordSubmitted && (
-        <div className="w-full max-w-sm rounded-2xl border border-violet-400/20 bg-violet-400/[0.06] p-4 text-right">
+        <div className="event3-glass w-full max-w-sm rounded-[1.35rem] border border-violet-300/[0.14] p-4 text-right">
           <label htmlFor={`${memoryWordId}-done`} className="block text-sm font-black text-violet-100">كلمة واحدة تحفظ إحساسك باللقاء — اختياري</label>
           <p className="mt-1 text-xs leading-5 text-violet-100/60">تظهر لك أنت فقط في الكشف النهائي.</p>
           <div className="mt-3 flex gap-2">
-            <input id={`${memoryWordId}-done`} value={word} onChange={event => updateMemoryWord(event.target.value)} maxLength={EVENT3_MEMORY_WORD_MAX_LENGTH} dir="auto" placeholder="مثال: مريح" className="min-h-12 min-w-0 flex-1 rounded-xl border border-white/10 bg-black/20 px-3 text-base text-white outline-none placeholder:text-gray-600" />
-            <button type="button" onClick={saveMemoryWord} disabled={!word.trim() || submitting} className="min-h-12 rounded-xl bg-violet-600 px-4 text-sm font-black text-white disabled:opacity-35">
+            <input id={`${memoryWordId}-done`} value={word} onChange={event => updateMemoryWord(event.target.value)} maxLength={EVENT3_MEMORY_WORD_MAX_LENGTH} dir="auto" placeholder="مثال: مريح" className="min-h-12 min-w-0 flex-1 rounded-xl border border-white/[0.09] bg-black/30 px-3 text-base text-white outline-none placeholder:text-gray-600 focus:border-violet-300/40" />
+            <button type="button" onClick={saveMemoryWord} disabled={!word.trim() || submitting} className="event3-action min-h-12 rounded-xl bg-gradient-to-l from-fuchsia-600 via-purple-600 to-violet-700 px-4 text-sm font-black text-white disabled:opacity-35">
               {submitting ? <Spinner size={16} /> : "حفظ"}
             </button>
           </div>
@@ -4845,7 +4889,7 @@ function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, 
       )}
       {isLastSession && (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
-          className="max-w-sm rounded-2xl border border-purple-700/30 bg-gradient-to-br from-purple-950/40 to-violet-950/20 p-5 text-center space-y-2"
+          className="event3-glass max-w-sm space-y-2 rounded-[1.35rem] border border-purple-300/[0.14] p-5 text-center"
         >
           <div className="flex items-center justify-center gap-2 text-purple-300">
             <Sparkles size={18} />
@@ -5004,7 +5048,7 @@ function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, 
                 onClick={() => { if (!fb.sliderMoved) { toast.error('حرّك المؤشر أولاً'); return } goNext() }}
                 whileTap={{ scale: 0.97 }}
                 disabled={!fb.sliderMoved}
-                className="w-full py-4 rounded-2xl font-bold text-sm bg-gradient-to-r from-purple-600 to-violet-600 text-white shadow-lg shadow-purple-600/20 disabled:opacity-30 disabled:shadow-none transition-all flex items-center justify-center gap-2">
+                className="event3-action flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-violet-600 py-4 text-sm font-bold text-white transition-all disabled:opacity-30 disabled:shadow-none">
                 متابعة <ChevronRight size={16} />
               </motion.button>
             </motion.div>
@@ -5020,7 +5064,7 @@ function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, 
               <RatingRow labels={["سيئة","ضعيفة","مقبولة","جيدة","ممتازة"]} field="conversationQuality" val={fb.conversationQuality} />
               <p className="text-xs font-bold text-gray-300">الراحة والتفاهم</p>
               <RatingRow labels={["لا شيء","ضعيف","مقبول","جيد","رائع"]} field="personalConnection" val={fb.personalConnection} />
-              <motion.button type="button" onClick={() => goNext()} disabled={!fb.conversationQuality || !fb.personalConnection} whileTap={{ scale: 0.97 }} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-violet-600 px-4 text-sm font-bold text-white shadow-lg shadow-purple-950/30 transition disabled:opacity-30">
+              <motion.button type="button" onClick={() => goNext()} disabled={!fb.conversationQuality || !fb.personalConnection} whileTap={{ scale: 0.97 }} className="event3-action flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-violet-600 px-4 text-sm font-bold text-white transition disabled:opacity-30">
                 متابعة <ChevronRight size={16} />
               </motion.button>
             </motion.div>
@@ -5130,7 +5174,7 @@ function FeedbackFlow({ partnerName, word, wordSubmitted, done, onDone, onBack, 
                   <textarea value={fb.organizerImpression} onChange={e => setFb(p => ({ ...p, organizerImpression: e.target.value }))} placeholder="مثلاً: شعرت بالراحة، أو احتجت وقتاً أطول..." rows={3} maxLength={300} aria-label="ملاحظة اختيارية للمنظم" className="w-full resize-none rounded-xl border border-white/[0.09] bg-white/[0.04] px-3 py-3 text-base text-white outline-none placeholder:text-gray-600 sm:text-sm" />
                 </div>
               </details>
-              <motion.button type="button" onClick={handleSubmit} disabled={submitting || fb.wantConnect === null || (fb.wantConnect === true && (!fb.contactMethod || (fb.contactMethod === 'message' && !fb.contactMessage.trim())))} aria-busy={submitting} whileTap={{ scale: 0.97 }} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-500 via-violet-500 to-purple-600 px-4 text-base font-black text-white shadow-xl shadow-purple-950/30 transition disabled:opacity-30">
+              <motion.button type="button" onClick={handleSubmit} disabled={submitting || fb.wantConnect === null || (fb.wantConnect === true && (!fb.contactMethod || (fb.contactMethod === 'message' && !fb.contactMessage.trim())))} aria-busy={submitting} whileTap={{ scale: 0.97 }} className="event3-action flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-500 via-violet-500 to-purple-600 px-4 text-base font-black text-white transition disabled:opacity-30">
                 {submitting ? <><Spinner size={17} />جاري الإرسال...</> : <><Send size={17} />إرسال التقييم</>}
               </motion.button>
             </motion.div>
@@ -5297,7 +5341,7 @@ function SOSButton({ token, position = 'top', sosRequests, suppressed = false }:
             initial={{ opacity: 0, y: position === 'bottom' ? 20 : -20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: position === 'bottom' ? 20 : -20, scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-            className={`fixed z-[300] w-[300px] max-w-[calc(100vw-2rem)] bg-gray-950/95 backdrop-blur-xl border border-gray-800/80 rounded-3xl shadow-2xl flex flex-col overflow-hidden ${
+            className={`event3-glass fixed z-[300] flex w-[300px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-3xl border border-purple-300/[0.13] ${
               position === 'bottom' ? 'bottom-20 left-1/2 -translate-x-1/2' : 'top-[88px] left-1/2 -translate-x-1/2'
             }`}
             style={{ maxHeight: '60vh' }}
@@ -5307,7 +5351,7 @@ function SOSButton({ token, position = 'top', sosRequests, suppressed = false }:
             dir="rtl"
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/60 bg-gray-900/50">
+            <div className="flex items-center justify-between border-b border-white/[0.065] bg-white/[0.025] px-4 py-3">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-xs font-bold text-white">ع</div>
                 <div>
@@ -5316,7 +5360,7 @@ function SOSButton({ token, position = 'top', sosRequests, suppressed = false }:
                 </div>
               </div>
               <button ref={closeButtonRef} type="button" onClick={() => setOpen(false)} aria-label="إغلاق محادثة المنظم"
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-gray-800/80 text-gray-300 transition-colors hover:text-white">
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.07] bg-white/[0.045] text-gray-300 transition-colors hover:bg-white/[0.08] hover:text-white">
                 <X size={13} />
               </button>
             </div>
@@ -5397,7 +5441,7 @@ function SOSButton({ token, position = 'top', sosRequests, suppressed = false }:
 
             {/* Input area */}
             {!showOptions && (
-              <div className="border-t border-gray-800/60 p-2.5 bg-gray-900/30">
+              <div className="border-t border-white/[0.065] bg-white/[0.02] p-2.5">
                 <div className="flex items-end gap-2">
                   <textarea
                     value={input}
@@ -5407,7 +5451,7 @@ function SOSButton({ token, position = 'top', sosRequests, suppressed = false }:
                     aria-label="رسالة خاصة إلى المنظم"
                     maxLength={200}
                     rows={1}
-                    className="max-h-20 flex-1 resize-none rounded-2xl border border-gray-700/50 bg-gray-900 px-3.5 py-2.5 text-base text-white transition-all placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-purple-500/40 sm:text-sm"
+                    className="max-h-20 flex-1 resize-none rounded-2xl border border-white/[0.08] bg-black/30 px-3.5 py-2.5 text-base text-white transition-all placeholder:text-gray-500 focus:border-purple-300/35 focus:outline-none focus:ring-2 focus:ring-purple-500/10 sm:text-sm"
                     style={{ minHeight: '40px' }}
                   />
                   <motion.button
@@ -5556,18 +5600,19 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   )
 
   if (error && !data) return (
-    <PageWrapper embedded className="flex flex-col items-center justify-center gap-4 p-6 text-center">
-      <div className="w-14 h-14 rounded-2xl bg-red-950/40 border border-red-800/40 flex items-center justify-center">
-        <AlertTriangle className="text-red-400" size={28} />
-      </div>
-      <div className="space-y-1">
-        <p className="text-white font-semibold">تعذّر تحميل بيانات الجلسة</p>
-        <p className="text-gray-500 text-sm">قد تكون المطابقة ما زالت قيد التجهيز. حاول مرة أخرى بعد لحظات.</p>
-      </div>
-      <button onClick={retry} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium transition-colors">
-        <RefreshCw size={16} />
-        إعادة المحاولة
-      </button>
+    <PageWrapper embedded className="flex items-center justify-center p-6 text-center">
+      <GlassCard className="w-full max-w-sm space-y-4 rounded-[1.65rem] border-red-300/[0.13] p-6">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/[0.08]">
+          <AlertTriangle className="text-red-300" size={27} />
+        </div>
+        <div className="space-y-1">
+          <p className="font-black text-white">تعذّر تحميل بيانات الجلسة</p>
+          <p className="text-sm leading-6 text-gray-400">قد تكون المطابقة ما زالت قيد التجهيز. حاول مرة أخرى بعد لحظات.</p>
+        </div>
+        <button onClick={retry} className="event3-action flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-rose-600 via-red-600 to-red-700 px-5 text-sm font-black text-white">
+          <RefreshCw size={16} /> إعادة المحاولة
+        </button>
+      </GlassCard>
     </PageWrapper>
   )
 
@@ -5587,13 +5632,13 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
           {!tableRevealed ? (
             <motion.div key="pre-table" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="space-y-4">
               <motion.button onClick={() => setTableRevealed(true)} whileTap={{ scale: 0.97 }}
-                className="w-full bg-gradient-to-br from-pink-600 via-rose-600 to-pink-700 text-white rounded-2xl py-6 font-bold text-lg shadow-2xl shadow-pink-600/40 border border-pink-500/30">
+                className="event3-action w-full rounded-2xl bg-gradient-to-br from-pink-600 via-rose-600 to-pink-700 py-6 text-lg font-bold text-white">
                 <motion.span animate={{ scale: [1, 1.06, 1] }} transition={{ duration: 1.8, repeat: Infinity }} className="flex items-center justify-center gap-3">
                   <MapPin size={24} /> اعرف طاولتك
                 </motion.span>
               </motion.button>
               {timerActive && timeLeft > 0 && (
-                <div className="rounded-2xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
+                <div className="event3-glass overflow-hidden rounded-2xl border border-pink-300/[0.11]">
                   <div className="px-5 pt-4 pb-3">
                     <p className="text-gray-500 text-xs flex items-center justify-end gap-1.5 mb-1">{canArrive ? <>الوقت المتبقي للجلسة</> : <>الجلسة تبدأ خلال</>} <Clock size={11} className="text-pink-400" /></p>
                     <div className={`text-4xl font-mono font-black tabular-nums ${(canArrive ? timeLeft : waitSeconds) < 60 ? "text-red-400" : "text-white"}`}>{formatTime(canArrive ? timeLeft : Math.ceil(waitSeconds))}</div>
@@ -5621,7 +5666,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
               {canArrive ? (
                 <motion.button type="button" onClick={handleReveal} whileTap={{ scale: 0.97 }}
                   initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }}
-                  className="min-h-14 w-full rounded-2xl border border-pink-500/30 bg-gradient-to-br from-pink-600 via-rose-600 to-pink-700 px-4 py-4 text-lg font-bold text-white shadow-2xl shadow-pink-600/40">
+                  className="event3-action min-h-14 w-full rounded-2xl bg-gradient-to-br from-pink-600 via-rose-600 to-pink-700 px-4 py-4 text-lg font-bold text-white">
                   <span className="flex items-center justify-center gap-3">
                     <MapPin size={22} /> وصلت إلى الطاولة — اكشف شريكك
                   </span>
@@ -5634,7 +5679,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
 
               {/* Timer */}
               {timerActive && timeLeft > 0 && (
-                <div className="rounded-2xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
+                <div className="event3-glass overflow-hidden rounded-2xl border border-pink-300/[0.11]">
                   <div className="px-5 pt-4 pb-3">
                     <p className="text-gray-500 text-xs flex items-center justify-end gap-1.5 mb-1">{canArrive ? <>الوقت المتبقي للجلسة</> : <>الجلسة تبدأ خلال</>} <Clock size={11} className="text-pink-400" /></p>
                     <div className={`text-4xl font-mono font-black tabular-nums ${(canArrive ? timeLeft : waitSeconds) < 60 ? "text-red-400" : "text-white"}`}>{formatTime(canArrive ? timeLeft : Math.ceil(waitSeconds))}</div>
@@ -5691,7 +5736,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                 type="button"
                 onClick={() => setView('session')}
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
-                className="flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-pink-600 to-rose-600 px-4 py-4 text-base font-black text-white shadow-xl shadow-pink-950/30 transition-all hover:brightness-110 active:scale-[0.98]"
+                className="event3-action flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-pink-600 to-rose-600 px-4 py-4 text-base font-black text-white transition-all hover:brightness-110 active:scale-[0.98]"
               >
                 وصلت — ابدأ اللقاء
                 <ArrowLeft size={17} />
@@ -5739,7 +5784,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
               <div className="absolute -bottom-20 left-1/3 w-72 h-72 bg-fuchsia-500/15 rounded-full blur-[80px]" />
             </div>
             {/* Sticky header */}
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/[0.06] bg-gray-950/80 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-xl">
+            <div className="event3-status-header sticky top-0 z-10 flex items-center justify-between border-b border-white/[0.06] px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
               <div className="min-w-0 text-right">
                 <p className="text-[10px] font-bold text-pink-300">{choiceOnly ? "لقاء الاختيار الأول" : "لقاء اختيارك"} · طاولة {data?.table_number ?? "—"}</p>
                 <p className="mt-0.5 truncate text-sm font-black text-white">مع {data?.partner_first_name || "شريكك"}</p>
@@ -5845,7 +5890,7 @@ function Phase2RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                     onClick={() => setView('feedback')}
                     whileTap={{ scale: 0.97 }}
                     initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
-                    className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border py-3.5 text-sm font-bold transition-all ${timeLeft > 120 ? "border-white/[0.08] bg-white/[0.035] text-gray-400" : "border-pink-500/30 bg-gradient-to-r from-pink-700/80 to-rose-700/80 text-white shadow-lg shadow-pink-900/30"}`}
+                    className={`event3-action flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border py-3.5 text-sm font-bold transition-all ${timeLeft > 120 ? "border-white/[0.08] bg-white/[0.035] text-gray-400" : "border-pink-500/30 bg-gradient-to-r from-pink-700/80 to-rose-700/80 text-white shadow-lg shadow-pink-900/30"}`}
                   >
                     <CheckCircle size={16} />
                     إنهاء اللقاء والبدء بالتقييم
@@ -5981,18 +6026,19 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
   )
 
   if (error && !data) return (
-    <PageWrapper embedded className="flex flex-col items-center justify-center gap-4 p-6 text-center">
-      <div className="w-14 h-14 rounded-2xl bg-red-950/40 border border-red-800/40 flex items-center justify-center">
-        <AlertTriangle className="text-red-400" size={28} />
-      </div>
-      <div className="space-y-1">
-        <p className="text-white font-semibold">تعذّر تحميل بيانات الجلسة</p>
-        <p className="text-gray-500 text-sm">{error}</p>
-      </div>
-      <button onClick={retry} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium transition-colors">
-        <RefreshCw size={16} />
-        إعادة المحاولة
-      </button>
+    <PageWrapper embedded className="flex items-center justify-center p-6 text-center">
+      <GlassCard className="w-full max-w-sm space-y-4 rounded-[1.65rem] border-red-300/[0.13] p-6">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/[0.08]">
+          <AlertTriangle className="text-red-300" size={27} />
+        </div>
+        <div className="space-y-1">
+          <p className="font-black text-white">تعذّر تحميل بيانات الجلسة</p>
+          <p className="text-sm leading-6 text-gray-400">{error}</p>
+        </div>
+        <button onClick={retry} className="event3-action flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-rose-600 via-red-600 to-red-700 px-5 text-sm font-black text-white">
+          <RefreshCw size={16} /> إعادة المحاولة
+        </button>
+      </GlassCard>
     </PageWrapper>
   )
 
@@ -6012,13 +6058,13 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
           {!tableRevealed ? (
             <motion.div key="pre-table" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="space-y-4">
               <motion.button onClick={() => setTableRevealed(true)} whileTap={{ scale: 0.97 }}
-                className="w-full bg-gradient-to-br from-purple-600 via-violet-600 to-purple-700 text-white rounded-2xl py-6 font-bold text-lg shadow-2xl shadow-purple-600/40 border border-purple-500/30">
+                className="event3-action w-full rounded-2xl bg-gradient-to-br from-purple-600 via-violet-600 to-purple-700 py-6 text-lg font-bold text-white">
                 <motion.span animate={{ rotate: [0, -4, 4, 0] }} transition={{ duration: 3, repeat: Infinity }} className="flex items-center justify-center gap-3">
                   <MapPin size={24} /> اعرف طاولتك
                 </motion.span>
               </motion.button>
               {timerActive && timeLeft > 0 && (
-                <div className="rounded-2xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
+                <div className="event3-glass overflow-hidden rounded-2xl border border-purple-300/[0.11]">
                   <div className="px-5 pt-4 pb-3">
                     <p className="text-gray-500 text-xs flex items-center justify-end gap-1.5 mb-1">{canArrive ? <>الوقت المتبقي للجلسة</> : <>الجلسة تبدأ خلال</>} <Clock size={11} className="text-purple-400" /></p>
                     <div className={`text-4xl font-mono font-black tabular-nums ${(canArrive ? timeLeft : waitSeconds) < 60 ? "text-red-400" : "text-white"}`}>{formatTime(canArrive ? timeLeft : Math.ceil(waitSeconds))}</div>
@@ -6046,7 +6092,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
               {canArrive ? (
                 <motion.button type="button" onClick={handleReveal} whileTap={{ scale: 0.97 }}
                   initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }}
-                  className="min-h-14 w-full rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-600 via-violet-600 to-purple-700 px-4 py-4 text-lg font-bold text-white shadow-2xl shadow-purple-600/40">
+                  className="event3-action min-h-14 w-full rounded-2xl bg-gradient-to-br from-purple-600 via-violet-600 to-purple-700 px-4 py-4 text-lg font-bold text-white">
                   <span className="flex items-center justify-center gap-3">
                     <MapPin size={22} /> وصلت إلى الطاولة — اكشف شريكك
                   </span>
@@ -6059,7 +6105,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
 
               {/* Timer */}
               {timerActive && timeLeft > 0 && (
-                <div className="rounded-2xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
+                <div className="event3-glass overflow-hidden rounded-2xl border border-purple-300/[0.11]">
                   <div className="px-5 pt-4 pb-3">
                     <p className="text-gray-500 text-xs flex items-center justify-end gap-1.5 mb-1">{canArrive ? <>الوقت المتبقي للجلسة</> : <>الجلسة تبدأ خلال</>} <Clock size={11} className="text-purple-400" /></p>
                     <div className={`text-4xl font-mono font-black tabular-nums ${(canArrive ? timeLeft : waitSeconds) < 60 ? "text-red-400" : "text-white"}`}>{formatTime(canArrive ? timeLeft : Math.ceil(waitSeconds))}</div>
@@ -6100,7 +6146,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                 type="button"
                 onClick={() => setView('session')}
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
-                className="flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-violet-600 to-purple-600 px-4 py-4 text-base font-black text-white shadow-xl shadow-purple-950/30 transition-all hover:brightness-110 active:scale-[0.98]"
+                className="event3-action flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-violet-600 to-purple-600 px-4 py-4 text-base font-black text-white transition-all hover:brightness-110 active:scale-[0.98]"
               >
                 وصلت — ابدأ اللقاء
                 <ArrowLeft size={17} />
@@ -6123,7 +6169,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
               <div className="absolute top-1/2 -left-20 w-80 h-80 bg-violet-500/15 rounded-full blur-[90px]" />
               <div className="absolute -bottom-20 right-1/3 w-72 h-72 bg-indigo-500/15 rounded-full blur-[80px]" />
             </div>
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/[0.06] bg-gray-950/80 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-xl">
+            <div className="event3-status-header sticky top-0 z-10 flex items-center justify-between border-b border-white/[0.06] px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
               <div className="min-w-0 text-right">
                 <p className="text-[10px] font-bold text-violet-300">{meetingLabel} · طاولة {data?.table_number ?? "—"}</p>
                 <p className="mt-0.5 truncate text-sm font-black text-white">مع {data?.partner_first_name || "شريكك"}</p>
@@ -6220,7 +6266,7 @@ function Phase3RevealScreen({ token, eventId, timerActive, timerStart, timerDura
                     onClick={() => setView('feedback')}
                     whileTap={{ scale: 0.97 }}
                     initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
-                    className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border py-3.5 text-sm font-bold transition-all ${timeLeft > 120 ? "border-white/[0.08] bg-white/[0.035] text-gray-400" : "border-violet-500/30 bg-gradient-to-r from-purple-700/80 to-violet-700/80 text-white shadow-lg shadow-purple-900/30"}`}
+                    className={`event3-action flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border py-3.5 text-sm font-bold transition-all ${timeLeft > 120 ? "border-white/[0.08] bg-white/[0.035] text-gray-400" : "border-violet-500/30 bg-gradient-to-r from-purple-700/80 to-violet-700/80 text-white shadow-lg shadow-purple-900/30"}`}
                   >
                     <CheckCircle size={16} />
                     إنهاء اللقاء والبدء بالتقييم
@@ -6275,20 +6321,28 @@ function ProcessingScreen({ phase, eventFormat }: { phase: string; eventFormat: 
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md text-center"
+        transition={{ duration: 0.58, ease: [0.16, 1, 0.3, 1] }}
+        className="w-full max-w-md space-y-4 text-center"
       >
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
-          className="w-20 h-20 mx-auto mb-6 rounded-full border-4 border-purple-500/20 border-t-purple-400"
-        />
-        <h1 className="text-2xl font-bold text-white mb-3">
-          {isPhase2 ? (choiceOnly ? "ننسّق لقاء الاختيار الأول" : "ننسّق اختيارك") : isPhase4 ? "ننسّق لقاء الاختيار الثالث" : (choiceOnly ? "ننسّق لقاء الاختيار الثاني" : "نجهّز ترشيح النظام")}
-        </h1>
-        <p className="text-gray-400 text-sm mb-6 leading-relaxed">
-          لا تحتاج إلى إجراء أي شيء الآن. ابقَ في هذه الشاشة وسننقلك تلقائيًا عند جاهزية اللقاء.
-        </p>
+        <section className="event3-glass relative overflow-hidden rounded-[2rem] border border-purple-300/[0.12] px-6 py-7">
+          <div className="pointer-events-none absolute -right-20 -top-20 h-44 w-44 rounded-full bg-purple-500/[0.13] blur-3xl" aria-hidden="true" />
+          <div className="pointer-events-none absolute -bottom-20 -left-20 h-40 w-40 rounded-full bg-cyan-500/[0.08] blur-3xl" aria-hidden="true" />
+          <Event3Mark className="mb-3" />
+          <span dir="ltr" className="inline-flex items-center gap-2 rounded-full border border-cyan-300/[0.12] bg-cyan-300/[0.05] px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.24em] text-cyan-100/60">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-300 shadow-[0_0_8px_rgba(103,232,249,.7)]" /> Match Engine · Live
+          </span>
+          <h1 className="mt-3 bg-gradient-to-l from-white via-purple-100 to-fuchsia-200 bg-clip-text text-2xl font-black text-transparent">
+            {isPhase2 ? (choiceOnly ? "ننسّق لقاء الاختيار الأول" : "ننسّق اختيارك") : isPhase4 ? "ننسّق لقاء الاختيار الثالث" : (choiceOnly ? "ننسّق لقاء الاختيار الثاني" : "نجهّز ترشيح النظام")}
+          </h1>
+          <p className="mx-auto mt-3 max-w-xs text-sm leading-7 text-gray-400">
+            لا تحتاج إلى إجراء أي شيء الآن. ابقَ في هذه الشاشة وسننقلك تلقائيًا عند جاهزية اللقاء.
+          </p>
+          <div className="mt-5 flex items-center justify-center gap-1.5" aria-hidden="true">
+            {[0, 1, 2].map(index => (
+              <motion.span key={index} className={`h-1.5 rounded-full ${index === 1 ? "w-8 bg-gradient-to-r from-purple-400 to-cyan-300" : "w-1.5 bg-purple-300/40"}`} animate={{ opacity: [0.25, 1, 0.25] }} transition={{ duration: 1.35, repeat: Infinity, delay: index * 0.22 }} />
+            ))}
+          </div>
+        </section>
         <JourneyCue
           eyebrow="الآن"
           title="استراحة قصيرة"
@@ -6347,27 +6401,31 @@ function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow, eve
           initial={{ scale: 0, rotate: -180 }}
           animate={{ scale: 1, rotate: 0 }}
           transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-          className="w-24 h-24 mx-auto mb-6 rounded-full bg-teal-500/20 border-2 border-teal-400/40 flex items-center justify-center"
+          className="relative mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-full"
         >
-          <Coffee className="w-12 h-12 text-teal-400" />
+          <span className="absolute -inset-4 rounded-full bg-teal-400/[0.11] blur-2xl" aria-hidden="true" />
+          <span className="absolute inset-0 rounded-full border border-teal-300/25 bg-gradient-to-br from-teal-400/[0.14] via-cyan-400/[0.06] to-purple-500/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,.12),0_18px_45px_-22px_rgba(45,212,191,.75)]" aria-hidden="true" />
+          <span className="absolute inset-2 rounded-full border border-white/[0.08] bg-black/25" aria-hidden="true" />
+          <Coffee className="relative h-11 w-11 text-teal-200 [filter:drop-shadow(0_0_10px_rgba(45,212,191,.45))]" />
         </motion.div>
 
-        <h1 className="text-3xl font-bold text-white mb-3">اشحن طاقتك للقاء القادم ☕</h1>
-        <p className="text-gray-400 text-sm mb-8">
+        <p dir="ltr" className="mb-2 text-[8px] font-black uppercase tracking-[0.28em] text-teal-100/45">INTERMISSION · RESET</p>
+        <h1 className="mb-3 bg-gradient-to-l from-white via-teal-100 to-cyan-200 bg-clip-text text-3xl font-black text-transparent">اشحن طاقتك للقاء القادم ☕</h1>
+        <p className="mb-7 text-sm leading-6 text-gray-400">
           الآن وقت القهوة — خذ قهوتك من المقهى واستعد لجولتك الفردية
         </p>
 
         {timerActive && timeLeft > 0 ? (
-          <div className="mb-8">
+          <div className="event3-glass mb-7 rounded-[1.4rem] border border-teal-300/[0.12] px-4 py-4">
             <motion.div
               animate={timeLeft <= 60 ? { scale: [1, 1.03, 1] } : {}}
               transition={timeLeft <= 60 ? { duration: 1, repeat: Infinity } : {}}
-              className={`text-5xl font-bold font-mono mb-4 ${timeLeft <= 60 ? 'text-amber-400' : 'text-teal-400'}`}
+              className={`mb-4 font-mono text-5xl font-black ${timeLeft <= 60 ? 'text-amber-300' : 'text-teal-200'}`}
               style={timeLeft <= 60 ? { textShadow: "0 0 20px rgba(251,191,36,0.3)" } : {}}
             >
               {String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
             </motion.div>
-            <div className="h-2 bg-teal-950/60 rounded-full overflow-hidden">
+            <div className="h-1.5 overflow-hidden rounded-full bg-black/35 ring-1 ring-white/[0.04]">
               <div
                 className={`h-full rounded-full transition-all duration-1000 ${timeLeft <= 60 ? 'bg-gradient-to-r from-amber-400 to-orange-400' : 'bg-gradient-to-r from-teal-400 to-cyan-400'}`}
                 style={{ width: `${pct}%` }}
@@ -6414,7 +6472,7 @@ function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow, eve
           type="button"
           whileTap={{ scale: 0.98 }}
           onClick={onOpenGroupFeedback}
-          className="group mb-4 flex min-h-16 w-full items-center gap-3 overflow-hidden rounded-2xl border border-purple-300/20 bg-gradient-to-r from-purple-500/[0.16] via-fuchsia-500/[0.10] to-teal-500/[0.14] px-4 py-3 text-right shadow-[0_14px_45px_-24px_rgba(168,85,247,0.9)] transition hover:border-purple-300/30"
+          className="event3-action group mb-4 flex min-h-16 w-full items-center gap-3 rounded-2xl bg-gradient-to-r from-purple-500/[0.2] via-fuchsia-500/[0.13] to-teal-500/[0.16] px-4 py-3 text-right transition hover:brightness-110"
         >
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-purple-300/20 bg-purple-400/15 text-purple-200 transition group-hover:scale-105">
             <PenLine size={19} />
@@ -6427,7 +6485,7 @@ function BreakScreen({ timerActive, timerStart, timerDuration, correctedNow, eve
           <ChevronRight size={16} className="hidden shrink-0 rotate-180 text-purple-200/70 min-[360px]:block" />
         </motion.button>
 
-        <div className="bg-gradient-to-br from-slate-900/80 to-teal-950/40 border border-teal-800/30 rounded-2xl p-5 space-y-3 text-right">
+        <div className="event3-glass space-y-3 rounded-2xl border border-teal-300/[0.12] p-5 text-right">
           <p className="text-teal-300 font-bold text-sm text-center">ماذا سيحدث بعد الاستراحة؟</p>
           <div className="space-y-3 text-gray-300 text-sm leading-relaxed">
             <div className="flex items-start gap-2">
@@ -6501,13 +6559,13 @@ function RevealCard({ icon, label, name, score, word, revealed, accent }: {
         <div
           aria-hidden={revealed}
           inert={revealed}
-          className="absolute inset-0 rounded-2xl border border-gray-800 bg-gradient-to-br from-gray-900 to-gray-950 flex flex-col items-center justify-center p-5"
+          className="event3-glass absolute inset-0 flex flex-col items-center justify-center rounded-2xl border border-purple-300/[0.1] p-5"
           style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
         >
-          <motion.div animate={{ scale: [1, 1.1, 1] }} transition={{ duration: 1.5, repeat: Infinity }} className="w-10 h-10 rounded-xl bg-gray-800 flex items-center justify-center">
-            <Sparkles size={18} className="text-gray-600" />
+          <motion.div animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 1.8, repeat: Infinity }} className="flex h-10 w-10 items-center justify-center rounded-xl border border-purple-300/[0.1] bg-purple-400/[0.07] shadow-[0_0_22px_-8px_rgba(192,132,252,.8)]">
+            <Sparkles size={18} className="text-purple-200/50" />
           </motion.div>
-          <p className="text-gray-700 text-xs mt-2 font-bold">؟</p>
+          <p className="mt-2 text-xs font-bold text-purple-100/25">؟</p>
         </div>
       </motion.div>
     </div>
@@ -6540,7 +6598,7 @@ function AiAnalysisCompact({ partnerNum, token, currentEventId, accent, title }:
   if (shown && analysis) {
     return (
       <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
-        role="status" aria-live="polite" className={`rounded-2xl overflow-hidden border ${isPink ? "border-pink-800/30" : "border-purple-800/30"} bg-gradient-to-br from-gray-900/80 to-gray-950/80`}>
+        role="status" aria-live="polite" className={`event3-glass overflow-hidden rounded-2xl border ${isPink ? "border-pink-400/[0.14]" : "border-purple-400/[0.14]"}`}>
         <div className={`px-4 py-3 border-b flex items-center justify-between ${isPink ? "border-pink-800/30" : "border-purple-800/30"}`}>
           <div className="flex items-center gap-2">
             <Sparkles size={14} className={isPink ? "text-pink-400" : "text-purple-400"} />
@@ -6556,7 +6614,7 @@ function AiAnalysisCompact({ partnerNum, token, currentEventId, accent, title }:
 
   return (
     <motion.button type="button" onClick={generate} disabled={generating} aria-busy={generating} whileTap={{ scale: 0.97 }}
-      className={`flex min-h-11 w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition-all disabled:opacity-60 ${isPink ? "bg-pink-950/30 border border-pink-800/40 text-pink-300 hover:bg-pink-950/50" : "bg-purple-950/30 border border-purple-800/40 text-purple-300 hover:bg-purple-950/50"}`}>
+      className={`event3-action flex min-h-11 w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition-all disabled:opacity-60 ${isPink ? "bg-pink-950/30 border border-pink-400/[0.16] text-pink-300 hover:bg-pink-950/50" : "bg-purple-950/30 border border-purple-400/[0.16] text-purple-300 hover:bg-purple-950/50"}`}>
       {generating ? (
         <><span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> جاري التحليل…</>
       ) : (
@@ -6650,28 +6708,32 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
 
   if (loading) return <PageWrapper embedded className="flex items-center justify-center"><Spinner size={28} /></PageWrapper>
   if (error && !data) return (
-    <PageWrapper embedded className="flex flex-col items-center justify-center gap-4 p-6 text-center">
-      <AlertTriangle className="text-amber-400" size={30} />
-      <div className="space-y-1">
-        <p className="text-white font-semibold">النتائج النهائية ليست جاهزة بعد</p>
-        <p className="text-gray-500 text-sm">انتظر لحظات ثم حاول مرة أخرى.</p>
-      </div>
-      <button onClick={retryFinalReveal} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium transition-colors">
-        <RefreshCw size={16} /> إعادة المحاولة
-      </button>
+    <PageWrapper embedded className="flex items-center justify-center p-6 text-center">
+      <GlassCard className="w-full max-w-sm space-y-4 rounded-[1.65rem] border-amber-300/[0.14] p-6">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-300/20 bg-amber-400/[0.08]"><AlertTriangle className="text-amber-300" size={27} /></div>
+        <div className="space-y-1">
+          <p className="font-black text-white">النتائج النهائية ليست جاهزة بعد</p>
+          <p className="text-sm text-gray-400">انتظر لحظات ثم حاول مرة أخرى.</p>
+        </div>
+        <button onClick={retryFinalReveal} className="event3-action flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-5 text-sm font-black text-gray-950">
+          <RefreshCw size={16} /> إعادة المحاولة
+        </button>
+      </GlassCard>
     </PageWrapper>
   )
   if (!data) return <PageWrapper embedded className="flex items-center justify-center text-gray-500 text-sm">لا توجد نتائج بعد</PageWrapper>
   if (!finalResultsReady && readinessTimedOut) return (
-    <PageWrapper embedded className="flex flex-col items-center justify-center gap-4 p-6 text-center" role="alert">
-      <AlertTriangle className="text-amber-400" size={30} />
-      <div className="max-w-sm space-y-2">
-        <p className="font-bold text-white">إحدى نتائجك لم تكتمل بعد</p>
-        <p className="text-sm leading-6 text-gray-400">أبلغ المنظم ليراجع توزيع اللقاءات قبل الكشف النهائي. سنواصل التحقق تلقائياً، ويمكنك المحاولة الآن أيضاً.</p>
-      </div>
-      <button type="button" onClick={retryFinalReveal} className="flex min-h-12 items-center gap-2 rounded-xl bg-amber-500 px-5 text-sm font-black text-gray-950">
-        <RefreshCw size={16} /> تحقق الآن
-      </button>
+    <PageWrapper embedded className="flex items-center justify-center p-6 text-center" role="alert">
+      <GlassCard className="w-full max-w-sm space-y-4 rounded-[1.65rem] border-amber-300/[0.14] p-6">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-300/20 bg-amber-400/[0.08]"><AlertTriangle className="text-amber-300" size={27} /></div>
+        <div className="space-y-2">
+          <p className="font-black text-white">إحدى نتائجك لم تكتمل بعد</p>
+          <p className="text-sm leading-6 text-gray-400">أبلغ المنظم ليراجع توزيع اللقاءات قبل الكشف النهائي. سنواصل التحقق تلقائياً، ويمكنك المحاولة الآن أيضاً.</p>
+        </div>
+        <button type="button" onClick={retryFinalReveal} className="event3-action flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-5 text-sm font-black text-gray-950">
+          <RefreshCw size={16} /> تحقق الآن
+        </button>
+      </GlassCard>
     </PageWrapper>
   )
   if (!finalResultsReady) return (
@@ -6690,7 +6752,7 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
     return (
       <PageWrapper embedded>
         <div className="mx-auto max-w-md px-3 pb-8 pt-4" dir="rtl">
-          <div className="mb-4 rounded-2xl border border-white/[0.07] bg-gray-900/60 p-3">
+          <div className="event3-glass mb-4 rounded-2xl border border-white/[0.09] p-3">
             <div className="mb-3 text-center">
               <p className="text-xs font-bold text-purple-300">متابعة الحوار</p>
               <h1 className="mt-1 text-xl font-black text-white">أسئلة الجلسات</h1>
@@ -6733,14 +6795,14 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
             <QuestionSlideshow key={`final-${questionPhase}`} defaultSet={questionPhase === "phase1" ? "choice" : questionPhase === "phase2" ? "set1" : "set2"} />
           </div>
 
-          <nav className="sticky bottom-3 z-20 mt-4 grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-gray-950/90 p-2 shadow-2xl backdrop-blur-xl" aria-label="التنقل بعد الكشف النهائي">
+          <nav className="event3-status-header sticky bottom-3 z-20 mt-4 grid grid-cols-3 gap-2 rounded-2xl border border-white/10 p-2" aria-label="التنقل بعد الكشف النهائي">
             <a href="/welcome" className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl bg-white/[0.05] text-[11px] font-bold text-gray-300">
               <Home size={17} /> الرئيسية
             </a>
             <a href={resultsHref} className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl bg-white/[0.05] text-[11px] font-bold text-amber-200">
               <Trophy size={17} /> النتائج
             </a>
-            <button onClick={() => setScreenMode("reveal")} className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-[11px] font-black text-white">
+            <button onClick={() => setScreenMode("reveal")} className="event3-action flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-[11px] font-black text-white">
               <ChevronRight size={17} /> الكشف النهائي
             </button>
           </nav>
@@ -6754,11 +6816,9 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
       <div className="max-w-sm mx-auto p-4 pb-8 space-y-4 text-center" dir="rtl">
         {/* Animated title */}
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ type: "spring", stiffness: 200, damping: 20 }} className="pt-4">
-          <motion.div initial={{ scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }} transition={{ delay: 0.15, type: "spring", stiffness: 300 }}
-            className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center shadow-2xl shadow-purple-600/30 mb-3">
-            <Trophy size={28} className="text-white" />
-          </motion.div>
-          <h1 className="text-2xl font-black text-white">الكشف النهائي</h1>
+          <Event3Mark size="compact" className="mb-2" />
+          <p dir="ltr" className="text-[8px] font-black uppercase tracking-[0.28em] text-cyan-100/40">FINAL REVEAL</p>
+          <h1 className="mt-1 bg-gradient-to-l from-white via-purple-100 to-fuchsia-200 bg-clip-text text-2xl font-black text-transparent">الكشف النهائي</h1>
         </motion.div>
 
         {/* Same match banner */}
@@ -6796,7 +6856,7 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
           {choiceOnly ? "ثلاثة لقاءات متبادلة مع ثلاثة أشخاص مختلفين — أيها كان أقرب لك؟" : sameMatch ? "غريزتك والخوارزمية متوافقتان — نادر الحدوث!" : "رأيت بعينيك، ورأت الخوارزمية بالبيانات — أيهما أصح؟"}
         </motion.p>
 
-        <motion.a href={resultsHref} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.65 }} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 px-4 text-base font-black text-white shadow-xl shadow-purple-950/30">
+        <motion.a href={resultsHref} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.65 }} className="event3-action flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 px-4 text-base font-black text-white">
           <Trophy size={18} /> فتح النتائج والتواصل
         </motion.a>
 
@@ -6812,10 +6872,10 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
         {!sameMatch && (p2?.breakdown || p3?.breakdown) && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}>
             <div className="mb-3 flex gap-1.5" role="tablist" aria-label="تفاصيل التوافق">
-              <button type="button" role="tab" aria-selected={activeTab === 'choice'} onClick={() => setActiveTab('choice')} className={`min-h-11 flex-1 rounded-xl border py-2 text-xs font-bold transition-all ${activeTab === 'choice' ? 'bg-pink-950/50 border-pink-700/40 text-pink-300' : 'bg-gray-900/40 border-gray-800/40 text-gray-400'}`}>
+              <button type="button" role="tab" aria-selected={activeTab === 'choice'} onClick={() => setActiveTab('choice')} className={`min-h-11 flex-1 rounded-xl border py-2 text-xs font-bold transition-all ${activeTab === 'choice' ? 'bg-pink-950/50 border-pink-700/40 text-pink-300' : 'border-white/[0.07] bg-black/20 text-gray-400'}`}>
                 <Heart size={12} className="inline ml-1" /> {choiceOnly ? "الاختيار الأول" : "اختيارك"}
               </button>
-              <button type="button" role="tab" aria-selected={activeTab === 'algorithm'} onClick={() => setActiveTab('algorithm')} className={`min-h-11 flex-1 rounded-xl border py-2 text-xs font-bold transition-all ${activeTab === 'algorithm' ? 'bg-purple-950/50 border-purple-700/40 text-purple-300' : 'bg-gray-900/40 border-gray-800/40 text-gray-400'}`}>
+              <button type="button" role="tab" aria-selected={activeTab === 'algorithm'} onClick={() => setActiveTab('algorithm')} className={`min-h-11 flex-1 rounded-xl border py-2 text-xs font-bold transition-all ${activeTab === 'algorithm' ? 'bg-purple-950/50 border-purple-700/40 text-purple-300' : 'border-white/[0.07] bg-black/20 text-gray-400'}`}>
                 {choiceOnly ? <Heart size={12} className="inline ml-1" /> : <Brain size={12} className="inline ml-1" />} {choiceOnly ? "الاختيار الثاني" : "اختيار النظام"}
               </button>
             </div>
@@ -6859,7 +6919,7 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
 
         {/* Match preference — simplified */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.9 }}
-          className="rounded-2xl border border-gray-800/60 bg-gray-900/50 p-4 space-y-3">
+          className="event3-glass space-y-3 rounded-2xl border border-white/[0.09] p-4">
           <div>
             <p className="text-gray-300 font-bold text-sm">مَن كان أقرب لك؟ <span className="font-medium text-gray-600">— اختياري</span></p>
             <p className="mt-1 text-[11px] leading-5 text-gray-500">نستخدم الإجابة لتحسين التجربة فقط، ولا يراها أي شريك.</p>
@@ -6881,7 +6941,7 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
                 {matchPref === "multiple" ? "✓ " : ""}أكثر من لقاء كان ممتازاً
               </button>
               <button type="button" role="radio" aria-checked={matchPref === "none"} onClick={() => submitPref("none")} disabled={prefSubmitting || matchPref === "none"}
-                className={`min-h-11 rounded-xl border py-2.5 text-xs font-bold transition-all sm:col-span-3 ${matchPref === "none" ? "border-slate-300/35 bg-slate-300/10 text-slate-100" : "border-gray-800/50 bg-transparent text-gray-500 hover:bg-gray-800/40"}`}>
+                className={`min-h-11 rounded-xl border py-2.5 text-xs font-bold transition-all sm:col-span-3 ${matchPref === "none" ? "border-slate-300/35 bg-slate-300/10 text-slate-100" : "border-white/[0.065] bg-black/15 text-gray-500 hover:bg-white/[0.045]"}`}>
                 {matchPref === "none" ? "✓ " : ""}لا أفضل أي لقاء الآن
               </button>
             </div>
@@ -6900,7 +6960,7 @@ function FinalRevealScreen({ token, impersonating = false, onQuestionViewerChang
               {matchPref === "both" ? "✓ " : ""}كلاهما ممتاز
             </button>
             <button type="button" role="radio" aria-checked={matchPref === "neither"} onClick={() => submitPref("neither")} disabled={prefSubmitting || matchPref === "neither"}
-              className={`col-span-2 min-h-11 rounded-xl border py-2.5 text-xs font-bold transition-all ${matchPref === "neither" ? "border-slate-300/35 bg-slate-300/10 text-slate-100" : "border-gray-800/50 bg-transparent text-gray-500 hover:bg-gray-800/40"}`}>
+              className={`col-span-2 min-h-11 rounded-xl border py-2.5 text-xs font-bold transition-all ${matchPref === "neither" ? "border-slate-300/35 bg-slate-300/10 text-slate-100" : "border-white/[0.065] bg-black/15 text-gray-500 hover:bg-white/[0.045]"}`}>
               {matchPref === "neither" ? "✓ " : ""}لا أفضل أحدهما الآن
             </button>
           </div>
@@ -7121,7 +7181,7 @@ function AiWelcomePopup({ token, onDone, previewMessage }: { token: string; onDo
         animate={{ opacity: closing ? 0 : 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.4 }}
-        className="fixed inset-0 z-[290] flex items-center justify-center overflow-hidden p-2 sm:p-4"
+        className="event3-shell fixed inset-0 z-[290] flex items-center justify-center overflow-hidden p-2 sm:p-4"
         onClick={() => done && dismiss()}
         onKeyDown={event => { if (event.key === "Escape") dismiss() }}
         role="dialog"
@@ -7130,8 +7190,8 @@ function AiWelcomePopup({ token, onDone, previewMessage }: { token: string; onDo
         dir="rtl"
       >
         {/* ─── Full-screen animated background ─── */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0a0414] via-[#15082a] to-[#0a0414]" />
-        <div className="absolute inset-0 bg-gradient-to-t from-purple-950/30 via-transparent to-pink-950/20" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#03040d]/95 via-[#0a0618]/90 to-[#02030a]/95" />
+        <div className="absolute inset-0 bg-gradient-to-t from-cyan-950/[0.12] via-transparent to-purple-950/25" />
 
         {/* Animated mesh orbs */}
         <motion.div
@@ -7151,7 +7211,7 @@ function AiWelcomePopup({ token, onDone, previewMessage }: { token: string; onDo
         />
 
         {/* Floating sparkles */}
-        {[...Array(12)].map((_, i) => (
+        {[...Array(6)].map((_, i) => (
           <motion.div
             key={i}
             className="absolute hidden pointer-events-none sm:block"
@@ -7179,7 +7239,7 @@ function AiWelcomePopup({ token, onDone, previewMessage }: { token: string; onDo
           animate={{ scale: closing ? 0.9 : 1, y: closing ? 30 : 0, opacity: closing ? 0 : 1 }}
           transition={{ type: "spring", stiffness: 240, damping: 24 }}
           onClick={e => e.stopPropagation()}
-          className="relative z-10 flex max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col overflow-hidden rounded-[32px] border border-white/[0.08] shadow-2xl shadow-purple-900/50"
+          className="event3-glass relative z-10 flex max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col overflow-hidden rounded-[32px] border border-white/[0.1]"
         >
           <button
             ref={dismissButtonRef}
@@ -7201,7 +7261,7 @@ function AiWelcomePopup({ token, onDone, previewMessage }: { token: string; onDo
           />
 
           {/* Inner background */}
-          <div className="relative min-h-0 overflow-y-auto overscroll-contain bg-gradient-to-b from-gray-900/95 via-[#140a26]/95 to-gray-950/95 backdrop-blur-2xl">
+          <div className="relative min-h-0 overflow-y-auto overscroll-contain bg-gradient-to-b from-[#0d0b1b]/90 via-[#0b0718]/92 to-[#040611]/96 backdrop-blur-2xl">
 
             {/* ─── Brand Header — "التوافق الأعمى يرحب بك" ─── */}
             <div className="relative overflow-hidden px-4 pb-3 pt-4 text-center sm:px-6 sm:pb-5 sm:pt-8">
@@ -7216,19 +7276,7 @@ function AiWelcomePopup({ token, onDone, previewMessage }: { token: string; onDo
               />
 
               {/* Logo mark */}
-              <motion.div
-                initial={{ scale: 0, rotate: -30 }}
-                animate={{ scale: 1, rotate: 0 }}
-                transition={{ delay: 0.15, type: "spring", stiffness: 280, damping: 14 }}
-                className="mb-2 inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-600 to-pink-600 shadow-xl shadow-purple-600/40 sm:mb-3 sm:h-14 sm:w-14"
-              >
-                <motion.div
-                  animate={{ rotate: [0, 10, -10, 0] }}
-                  transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                >
-                  <Sparkles size={26} className="text-white" />
-                </motion.div>
-              </motion.div>
+              <Event3Mark size="compact" className="mb-2 sm:mb-3" />
 
               {/* Brand name */}
               <motion.div
@@ -7312,9 +7360,9 @@ function AiWelcomePopup({ token, onDone, previewMessage }: { token: string; onDo
                   initial={{ scale: 0, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ type: "spring", stiffness: 280, damping: 20 }}
-                  className="w-14 h-14 rounded-2xl bg-gray-800/80 border border-gray-700/50 flex items-center justify-center"
+                  className="flex h-14 w-14 items-center justify-center rounded-2xl border border-purple-300/[0.14] bg-purple-400/[0.08] shadow-[0_16px_36px_-20px_rgba(192,132,252,.8)]"
                 >
-                  <Sparkles size={24} className="text-gray-500" />
+                  <Sparkles size={24} className="text-purple-200/65" />
                 </motion.div>
                 <p className="text-gray-400 text-sm text-center">تعذّر توليد الرسالة، لا بأس — نكمل بدونها!</p>
                 <motion.button
@@ -7323,7 +7371,7 @@ function AiWelcomePopup({ token, onDone, previewMessage }: { token: string; onDo
                   transition={{ delay: 0.2 }}
                   whileTap={{ scale: 0.97 }}
                   onClick={dismiss}
-                  className="mt-2 px-8 py-3 rounded-2xl font-bold text-sm bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-600/20"
+                  className="event3-action mt-2 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 px-8 py-3 text-sm font-bold text-white"
                 >
                   يلا نبدأ ←
                 </motion.button>
@@ -7413,7 +7461,7 @@ function AiWelcomePopup({ token, onDone, previewMessage }: { token: string; onDo
                         <motion.button
                           whileTap={{ scale: 0.97 }}
                           onClick={dismiss}
-                          className="py-3.5 rounded-2xl font-bold text-sm bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white transition-all shadow-lg shadow-purple-600/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
+                          className="event3-action rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 py-3.5 text-sm font-bold text-white transition-all hover:from-purple-500 hover:to-pink-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
                         >
                           يلا نبدأ ←
                         </motion.button>
@@ -7446,22 +7494,28 @@ function AiWelcomePopup({ token, onDone, previewMessage }: { token: string; onDo
 function NotEnrolledScreen({ onUseAnotherNumber, onLogout }: { onUseAnotherNumber: () => void; onLogout: () => void }) {
   return (
     <PageWrapper className="flex items-center justify-center p-6 text-center">
-      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="space-y-5 max-w-xs">
-        <div className="w-16 h-16 mx-auto rounded-2xl bg-gray-800/80 border border-gray-700/50 flex items-center justify-center">
-          <Lock size={28} className="text-gray-500" />
-        </div>
-        <h2 className="text-xl font-bold text-white">أنت لست مسجلاً</h2>
-        <p className="text-gray-500 text-sm">رمزك صحيح، لكن لم يتم تسجيلك في هذه الفعالية.</p>
-        <p className="text-gray-400 text-xs">تأكد من الرقم أو تواصل مع المنظم للمساعدة.</p>
-        <div className="flex flex-col gap-3">
-          <button type="button" onClick={onUseAnotherNumber} className="min-h-12 rounded-2xl bg-purple-600 px-5 text-sm font-bold text-white shadow-lg shadow-purple-950/40 transition-colors hover:bg-purple-500">
-            الدخول برقم آخر
-          </button>
-          <ParticipantLogoutButton onLogout={onLogout} />
-          <a href="/welcome" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl text-sm text-purple-300 transition-colors hover:text-purple-200">
-            <Home size={14} /> العودة للصفحة الرئيسية
-          </a>
-        </div>
+      <motion.div initial={{ opacity: 0, scale: 0.9, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} className="w-full max-w-sm">
+        <GlassCard className="space-y-5 rounded-[1.75rem] p-6">
+          <Event3Mark size="compact" />
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-white/[0.09] bg-white/[0.045] shadow-[inset_0_1px_0_rgba(255,255,255,.06)]">
+            <Lock size={21} className="text-purple-200" />
+          </div>
+          <div>
+            <p dir="ltr" className="text-[8px] font-black uppercase tracking-[0.25em] text-cyan-100/35">ACCESS CHECK</p>
+            <h2 className="mt-1 bg-gradient-to-l from-white to-purple-200 bg-clip-text text-xl font-black text-transparent">أنت لست مسجلاً</h2>
+            <p className="mt-3 text-sm leading-6 text-gray-400">رمزك صحيح، لكن لم يتم تسجيلك في هذه الفعالية.</p>
+            <p className="mt-1 text-xs text-gray-500">تأكد من الرقم أو تواصل مع المنظم للمساعدة.</p>
+          </div>
+          <div className="flex flex-col gap-2.5">
+            <button type="button" onClick={onUseAnotherNumber} className="event3-action min-h-12 rounded-2xl bg-gradient-to-l from-fuchsia-600 via-purple-600 to-violet-700 px-5 text-sm font-black text-white transition hover:brightness-110">
+              الدخول برقم آخر
+            </button>
+            <ParticipantLogoutButton onLogout={onLogout} />
+            <a href="/welcome" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl text-sm text-purple-200/75 transition-colors hover:text-purple-100">
+              <Home size={14} /> العودة للصفحة الرئيسية
+            </a>
+          </div>
+        </GlassCard>
       </motion.div>
     </PageWrapper>
   )
@@ -7530,7 +7584,7 @@ function NotificationModal({ token, notification }: { token: string; notificatio
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[600] bg-black/40 backdrop-blur-md flex items-center justify-center p-5"
+        className="fixed inset-0 z-[600] flex items-center justify-center bg-[#03050d]/80 p-5 backdrop-blur-xl"
       >
         <motion.div
           ref={dialogRef}
@@ -7538,14 +7592,14 @@ function NotificationModal({ token, notification }: { token: string; notificatio
           animate={{ scale: closing ? 0.95 : 1, y: closing ? 8 : 0, opacity: closing ? 0.5 : 1 }}
           exit={{ scale: 0.92, y: 16 }}
           transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-          className="w-full max-w-sm rounded-3xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl p-7 text-center"
+          className="event3-glass w-full max-w-sm rounded-[1.65rem] border border-purple-300/[0.13] p-7 text-center"
           dir="rtl"
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
           tabIndex={-1}
         >
-          <div className={`w-14 h-14 mx-auto rounded-full bg-gradient-to-br ${cfg.gradient} flex items-center justify-center mb-4 shadow-lg`}>
+          <div className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/[0.14] bg-gradient-to-br ${cfg.gradient} shadow-[0_16px_36px_-18px_currentColor,inset_0_1px_0_rgba(255,255,255,.18)]`}>
             <Icon size={24} className="text-white" />
           </div>
           <h2 id={titleId} className="mb-2 text-xl font-black text-white">{notif.title}</h2>
@@ -7558,7 +7612,7 @@ function NotificationModal({ token, notification }: { token: string; notificatio
             type="button"
             disabled={closing}
             onClick={dismiss}
-            className="min-h-12 w-full rounded-2xl bg-white/[0.06] py-3.5 text-sm font-bold text-gray-200 ring-1 ring-white/[0.08] transition-all hover:bg-white/[0.1] hover:text-white active:scale-[0.98]"
+            className="event3-action min-h-12 w-full rounded-2xl bg-gradient-to-l from-fuchsia-600 via-purple-600 to-violet-700 py-3.5 text-sm font-black text-white transition-all hover:brightness-110 active:scale-[0.98]"
           >
             {closing ? "جارٍ التأكيد…" : notif.icon === 'alert' ? "استلمت التنبيه" : "تم"}
           </button>
@@ -7637,7 +7691,7 @@ function MoodCheckModal({ token, name, moodCheck }: { token: string; name?: stri
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[300] bg-black/40 backdrop-blur-md flex items-center justify-center p-5"
+        className="fixed inset-0 z-[300] flex items-center justify-center bg-[#03050d]/80 p-5 backdrop-blur-xl"
       >
         <motion.div
           ref={dialogRef}
@@ -7645,7 +7699,7 @@ function MoodCheckModal({ token, name, moodCheck }: { token: string; name?: stri
           animate={{ scale: 1, y: 0 }}
           exit={{ scale: 0.92, y: 16 }}
           transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-          className="w-full max-w-sm rounded-3xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl p-7 text-center"
+          className="event3-glass w-full max-w-sm rounded-[1.65rem] border border-purple-300/[0.13] p-7 text-center"
           dir="rtl"
           role="dialog"
           aria-modal="true"
@@ -7654,7 +7708,7 @@ function MoodCheckModal({ token, name, moodCheck }: { token: string; name?: stri
         >
           {/* Header */}
           <div className="space-y-2 mb-7">
-            <div className="w-12 h-12 mx-auto rounded-full bg-gradient-to-br from-purple-500/30 to-pink-500/20 border border-purple-400/20 flex items-center justify-center mb-1">
+            <div className="mx-auto mb-1 flex h-12 w-12 items-center justify-center rounded-2xl border border-purple-300/20 bg-gradient-to-br from-purple-500/30 to-pink-500/20 shadow-[0_14px_30px_-18px_rgba(192,132,252,.8),inset_0_1px_0_rgba(255,255,255,.1)]">
               <Heart size={20} className="text-purple-300" />
             </div>
             <h2 id={titleId} className="text-2xl font-black text-white">{name ? `هلا ${name}` : "شلونك الحين؟"}</h2>
@@ -7810,21 +7864,23 @@ function EventStatusHeader({ eventState, isOffline, pollError, lastSuccessAt, co
   const phaseGuidance = event3PhaseGuidance(phase, eventFormat)
 
   return (
-    <div className={`sticky top-0 z-[90] border-b border-white/[0.07] bg-gray-950/90 px-4 pb-2.5 pt-2.5 backdrop-blur-xl ${safeTopClass}`} dir="rtl">
-      <div className="max-w-md mx-auto flex items-center gap-3">
-        <div aria-hidden="true" title={connectionLabel} className={`h-2.5 w-2.5 flex-shrink-0 rounded-full ${connectionState === "online" ? "bg-emerald-400" : connectionState === "unstable" ? "animate-pulse bg-amber-400" : "animate-pulse bg-orange-400"}`} />
+    <div className={`event3-status-header sticky top-0 z-[90] border-b px-4 pb-2.5 pt-2.5 ${safeTopClass}`} dir="rtl">
+      <div className="mx-auto flex max-w-md items-center gap-2.5">
+        <div aria-hidden="true" title={connectionLabel} className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.035] shadow-[inset_0_1px_0_rgba(255,255,255,.06)]">
+          <span className={`h-1.5 w-1.5 rounded-full shadow-[0_0_7px_currentColor] ${connectionState === "online" ? "bg-emerald-300 text-emerald-300" : connectionState === "unstable" ? "animate-pulse bg-amber-300 text-amber-300" : "animate-pulse bg-orange-300 text-orange-300"}`} />
+        </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="truncate text-[13px] font-bold text-white">{event3PhaseLabel(phase, eventFormat)}</span>
-            {progress[phase] && <span className="whitespace-nowrap rounded-full border border-purple-800/50 bg-purple-900/40 px-2 py-0.5 text-[11px] text-purple-200">{progress[phase]}</span>}
+            <span className="truncate text-[13px] font-black text-white">{event3PhaseLabel(phase, eventFormat)}</span>
+            {progress[phase] && <span className="whitespace-nowrap rounded-full border border-purple-300/[0.13] bg-purple-400/[0.08] px-2 py-0.5 text-[10px] font-bold text-purple-100/80">{progress[phase]}</span>}
           </div>
-          <p className="mt-0.5 truncate text-[11px] font-medium text-gray-300"><span className="text-gray-500">الآن: </span>{phaseGuidance}</p>
+          <p className="mt-0.5 truncate text-[10px] font-medium text-gray-400"><span className="text-cyan-100/35">الآن · </span>{phaseGuidance}</p>
           {connectionState !== "online" && <p className="mt-0.5 text-[10px] text-amber-300">{connectionLabel}</p>}
           <span className="sr-only" aria-live="polite">{connectionState === "online" ? "الاتصال مستقر" : connectionState === "unstable" ? "الاتصال غير مستقر" : "لا يوجد اتصال"}</span>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {table != null && <span className="rounded-lg border border-amber-800/50 bg-amber-900/30 px-2.5 py-1.5 text-xs font-black text-amber-100">طاولة {table}</span>}
-          {remaining != null && <span aria-label={`الوقت المتبقي ${formatTime(remaining)}`} className={`font-mono text-sm font-black tabular-nums ${remaining <= 60 ? "text-red-300" : "text-cyan-200"}`}>{formatTime(remaining)}</span>}
+          {table != null && <span className="rounded-xl border border-amber-300/[0.14] bg-amber-400/[0.075] px-2.5 py-1.5 text-xs font-black text-amber-100">طاولة {table}</span>}
+          {remaining != null && <span aria-label={`الوقت المتبقي ${formatTime(remaining)}`} className={`rounded-lg border border-white/[0.07] bg-black/20 px-2 py-1 font-mono text-sm font-black tabular-nums ${remaining <= 60 ? "text-red-300" : "text-cyan-100"}`}>{formatTime(remaining)}</span>}
           {onLogout && <ParticipantLogoutButton onLogout={onLogout} compact={table != null || remaining != null} />}
         </div>
       </div>
@@ -8252,15 +8308,18 @@ export default function Event3Page() {
     </PageWrapper>
   )
   if (showWelcome && publicFormatError && !publicFormatState && !eventState) return (
-    <PageWrapper className="flex flex-col items-center justify-center gap-4 p-6 text-center" role="alert">
-      <AlertTriangle className="text-amber-400" size={30} />
-      <div className="space-y-1">
-        <p className="font-bold text-white">تعذّر تحميل نسخة الفعالية</p>
-        <p className="text-sm text-gray-400">نحتاج هذه المعلومة لعرض الشرح الصحيح قبل دخولك.</p>
-      </div>
-      <button type="button" onClick={retryPublicFormat} className="flex min-h-12 items-center gap-2 rounded-xl bg-gray-800 px-5 text-sm font-bold text-white">
-        <RefreshCw size={16} /> إعادة المحاولة
-      </button>
+    <PageWrapper className="flex items-center justify-center p-6 text-center" role="alert">
+      <GlassCard className="w-full max-w-sm space-y-4 rounded-[1.65rem] p-6">
+        <Event3Mark size="compact" />
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-amber-300/20 bg-amber-400/[0.08]"><AlertTriangle className="text-amber-300" size={23} /></div>
+        <div className="space-y-1">
+          <p className="font-black text-white">تعذّر تحميل نسخة الفعالية</p>
+          <p className="text-sm leading-6 text-gray-400">نحتاج هذه المعلومة لعرض الشرح الصحيح قبل دخولك.</p>
+        </div>
+        <button type="button" onClick={retryPublicFormat} className="event3-action flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-5 text-sm font-black text-gray-950">
+          <RefreshCw size={16} /> إعادة المحاولة
+        </button>
+      </GlassCard>
     </PageWrapper>
   )
 
@@ -8268,7 +8327,7 @@ export default function Event3Page() {
 
   if (testModeBlocked || publicFormatState?.participant_access_locked === true) return (
     <PageWrapper className="flex items-center justify-center p-6 text-center">
-      <div className="w-full max-w-sm rounded-3xl border border-amber-500/20 bg-gradient-to-b from-amber-950/35 to-gray-950 p-7 shadow-2xl shadow-amber-950/20">
+      <div className="event3-glass w-full max-w-sm rounded-3xl border border-amber-300/[0.16] p-7">
         <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-amber-500/25 bg-amber-500/10">
           <ShieldCheck className="text-amber-300" size={31} />
         </div>
@@ -8276,7 +8335,7 @@ export default function Event3Page() {
         <h1 className="text-xl font-black text-white">غير مفتوحة بعد</h1>
         <p className="mt-3 text-sm leading-7 text-gray-400">نجهّز الفعالية الآن. سيُفتح دخول المشاركين تلقائياً عند انتهاء الاختبار.</p>
         <div className="mt-6 flex flex-col items-stretch gap-3">
-          <button onClick={() => { setTestModeBlocked(false); retryPublicFormat(); if (token) retryState() }} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-4 py-2.5 text-sm font-bold text-gray-200 transition-colors hover:bg-white/[0.08]">
+          <button onClick={() => { setTestModeBlocked(false); retryPublicFormat(); if (token) retryState() }} className="event3-action inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2.5 text-sm font-black text-gray-950">
             <RefreshCw size={15} />
             التحقق مجدداً
           </button>
@@ -8296,19 +8355,21 @@ export default function Event3Page() {
   )
 
   if (stateError && !eventState) return (
-    <PageWrapper className="flex flex-col items-center justify-center gap-4 p-6 text-center" role="alert">
-      <div className="w-14 h-14 rounded-2xl bg-red-950/40 border border-red-800/40 flex items-center justify-center">
-        <AlertTriangle className="text-red-400" size={28} />
-      </div>
-      <div className="space-y-1">
-        <p className="text-white font-semibold">تعذّر تحميل بيانات الفعالية</p>
-        <p className="text-gray-500 text-sm">{stateError}</p>
-      </div>
-      <button type="button" onClick={retryState} className="flex min-h-11 items-center gap-2 rounded-xl bg-gray-800 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-gray-700">
-        <RefreshCw size={16} />
-        إعادة المحاولة
-      </button>
-      {!isImpersonating && <ParticipantLogoutButton onLogout={handleLogout} />}
+    <PageWrapper className="flex items-center justify-center p-6 text-center" role="alert">
+      <GlassCard className="w-full max-w-sm space-y-4 rounded-[1.65rem] p-6">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-red-400/20 bg-red-500/[0.08]">
+          <AlertTriangle className="text-red-300" size={26} />
+        </div>
+        <div className="space-y-1">
+          <p className="font-black text-white">تعذّر تحميل بيانات الفعالية</p>
+          <p className="text-sm text-gray-500">{stateError}</p>
+        </div>
+        <button type="button" onClick={retryState} className="event3-action flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-600 px-5 py-2.5 text-sm font-black text-white">
+          <RefreshCw size={16} />
+          إعادة المحاولة
+        </button>
+        {!isImpersonating && <ParticipantLogoutButton onLogout={handleLogout} />}
+      </GlassCard>
     </PageWrapper>
   )
 
@@ -8367,8 +8428,8 @@ export default function Event3Page() {
 
   return (
     <MotionConfig reducedMotion="user">
-    <div className="event3-shell flex h-[100dvh] flex-col overflow-hidden bg-gray-950" dir="rtl" lang="ar">
-      <Toaster position="top-center" toastOptions={{ style: { background: "#1f2937", color: "#f9fafb", border: "1px solid #374151", borderRadius: "12px" } }} />
+    <div className="event3-shell flex h-[100dvh] flex-col overflow-hidden" dir="rtl" lang="ar">
+      <Toaster position="top-center" toastOptions={{ style: { background: "rgba(10, 8, 24, .94)", color: "#f9fafb", border: "1px solid rgba(255, 255, 255, .1)", borderRadius: "16px", boxShadow: "0 20px 55px -30px rgba(168, 85, 247, .75)", backdropFilter: "blur(18px)" } }} />
 
       {/* Impersonation banner */}
       {isImpersonating && (

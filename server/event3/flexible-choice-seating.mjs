@@ -7,7 +7,7 @@ const MAX_PARTICIPANTS = 44
 const TARGET_GROUP_SIZE = 6
 const CANDIDATE_BUILD_STEPS = 4
 const OPTIMIZATION_PASSES = 5
-export const FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION = "spark-depth-rhythm-v4-flexible-four-candidate-five-pass"
+export const FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION = "spark-depth-rhythm-v5-hard-group-exclusions"
 
 const pairKey = (left, right) => `${Math.min(Number(left), Number(right))}-${Math.max(Number(left), Number(right))}`
 
@@ -292,8 +292,19 @@ function buildCandidate(participants, options, seed) {
   }
 }
 
-function finalizeFlexibleCandidates(participants, rawCandidates) {
-  const allCandidates = [...rawCandidates].sort((left, right) => compareVectors(left.sortKey, right.sortKey))
+function candidateHasLockedPair(candidate, lockedPairsSet) {
+  if (!(lockedPairsSet instanceof Set) || lockedPairsSet.size === 0) return false
+  return [candidate.plan.round1, candidate.plan.round2, candidate.plan.round3]
+    .some(round => [...pairSet(round)].some(key => lockedPairsSet.has(key)))
+}
+
+function finalizeFlexibleCandidates(participants, rawCandidates, lockedPairsSet = new Set()) {
+  const allCandidates = [...rawCandidates]
+    .filter(candidate => !candidateHasLockedPair(candidate, lockedPairsSet))
+    .sort((left, right) => compareVectors(left.sortKey, right.sortKey))
+  if (allCandidates.length < 3) {
+    return { error: "Could not construct three seating plans without placing a conflict-of-interest exclusion at the same table" }
+  }
   const repeatSafeCandidates = allCandidates
     .filter(candidate => candidate.plan.round3Rhythm.repeatMetrics.repeatedInAllThree === 0)
   const pool = repeatSafeCandidates.length >= 3 ? repeatSafeCandidates : allCandidates
@@ -386,7 +397,7 @@ export function buildFlexibleChoiceOnlySeatingCandidatesStep(values, options = {
   return {
     complete: true,
     progress,
-    generated: finalizeFlexibleCandidates(normalized.participants, candidates),
+    generated: finalizeFlexibleCandidates(normalized.participants, candidates, options.lockedPairsSet),
   }
 }
 
@@ -396,7 +407,7 @@ export function buildFlexibleChoiceOnlySeatingCandidates(values, options = {}) {
   const candidates = Array.from({ length: CANDIDATE_BUILD_STEPS }, (_, index) => (
     buildCandidate(normalized.participants, options, index + 1)
   ))
-  return finalizeFlexibleCandidates(normalized.participants, candidates)
+  return finalizeFlexibleCandidates(normalized.participants, candidates, options.lockedPairsSet)
 }
 
 export const FLEXIBLE_CHOICE_SEATING_LIMITS = Object.freeze({

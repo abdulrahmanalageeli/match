@@ -641,13 +641,17 @@ function buildChoiceOnlySeatingSearch(values, {
         anchorMinimum: Math.min(round2Candidate.anchors.minimum, round3Candidate.anchors.minimum),
         ageCost: round2Candidate.ageCost + round3Candidate.ageCost,
       }
+      const protectedPairViolations = Number(spark.metrics?.after?.lockedPairs || 0)
+        + Number(round2Candidate.depth?.lockedPairs || 0)
+        + Number(round3Candidate.rhythm?.lockedPairs || 0)
+      if (protectedPairViolations > 0) continue
       if (!best || compareJointPlans(candidate, best) < 0) best = candidate
     }
     if (!best) {
       return {
         error: candidateCount === 1
-          ? "Could not construct joint minimum-repeat Depth and Rhythm rounds"
-          : `Could not construct ${candidateCount} materially different minimum-repeat seating candidates`,
+          ? "Could not construct conflict-free joint minimum-repeat Depth and Rhythm rounds"
+          : `Could not construct ${candidateCount} materially different conflict-free minimum-repeat seating candidates`,
       }
     }
     bestCandidates.push(best)

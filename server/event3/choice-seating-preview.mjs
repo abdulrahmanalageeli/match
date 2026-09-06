@@ -566,6 +566,14 @@ export async function handleChoiceSeatingPreview({ db, action, body = {}, eventI
   if (!Array.isArray(generated?.candidates) || generated.candidates.length !== 3) {
     throw fail("The scheduler did not produce three complete seating options", 500)
   }
+  const candidateWithConflict = generated.candidates.find(candidate => (
+    [candidate?.plan?.round1, candidate?.plan?.round2, candidate?.plan?.round3].some(round => (
+      Array.isArray(round) && round.some(group => protectedViolations(group, context.protectedPairs, 0, 0).length > 0)
+    ))
+  ))
+  if (candidateWithConflict) {
+    throw fail("A seating option placed a conflict-of-interest exclusion at the same table; no plan was offered or applied", 409)
+  }
   const generatedAt = new Date().toISOString()
   const preparedCandidates = generated.candidates.map(candidate => {
     const assignments = assignmentsForPlan(candidate.plan, context.participantNumbers)

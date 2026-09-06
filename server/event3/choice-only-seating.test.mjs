@@ -454,3 +454,23 @@ test("builds flexible seating as four resumable candidate checkpoints", () => {
     }
   }
 })
+
+test("keeps conflict-of-interest exclusions out of every flexible group", () => {
+  const flexibleParticipants = Array.from({ length: 44 }, (_, index) => index + 1)
+  const lockedPairsSet = new Set(Array.from({ length: 10 }, (_, index) => `${index * 2 + 1}-${index * 2 + 2}`))
+  const generated = buildChoiceOnlySeatingCandidates(flexibleParticipants, { lockedPairsSet })
+  assert.equal(generated.error, undefined)
+  for (const candidate of generated.candidates) {
+    for (const round of [candidate.plan.round1, candidate.plan.round2, candidate.plan.round3]) {
+      for (const group of round) {
+        const keys = new Set(groupPairKeys(group))
+        for (const excludedPair of lockedPairsSet) assert.equal(keys.has(excludedPair), false)
+      }
+    }
+  }
+})
+
+test("refuses an impossible flexible group exclusion instead of seating the pair together", () => {
+  const generated = buildChoiceOnlySeatingCandidates([1, 2, 3, 4, 5, 6], { lockedPairsSet: new Set(["1-2"]) })
+  assert.match(generated.error, /conflict-of-interest exclusion/)
+})

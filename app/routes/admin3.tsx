@@ -675,7 +675,7 @@ const ChoiceSeatingReportDetails = memo(function ChoiceSeatingReportDetails({
 function ChoiceSeatingGenerationProgress({ elapsedMs, checkpoint }: { elapsedMs: number; checkpoint: ChoiceSeatingCheckpointProgress | null }) {
   const estimatedProgress = choiceSeatingProgressSnapshot(elapsedMs)
   const completedSteps = Math.max(0, Number(checkpoint?.completed_steps || 0))
-  const totalSteps = Math.max(1, Number(checkpoint?.total_steps || 6))
+  const totalSteps = Math.max(1, Number(checkpoint?.total_steps || 4))
   const progress = checkpoint
     ? {
         percent: Math.min(99, Math.max(1, Number(checkpoint.percent || Math.round((completedSteps / totalSteps) * 100)))),
@@ -2533,7 +2533,7 @@ export default function Admin3Page() {
         if (!data?.pending) break
         const rawProgress = data.progress || data.cache || {}
         const completedSteps = Math.max(0, Number(rawProgress.completed_steps || 0))
-        const totalSteps = Math.max(1, Number(rawProgress.total_steps || 6))
+        const totalSteps = Math.max(1, Number(rawProgress.total_steps || 4))
         const percent = Math.min(99, Math.max(1, Number(rawProgress.percent || Math.round((completedSteps / totalSteps) * 100))))
         setChoiceSeatingCheckpointProgress({ completed_steps: completedSteps, total_steps: totalSteps, percent })
         unchangedResponses = completedSteps <= lastCompletedSteps ? unchangedResponses + 1 : 0

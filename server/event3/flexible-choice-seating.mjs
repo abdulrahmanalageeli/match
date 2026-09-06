@@ -5,8 +5,9 @@ import { createRoundLensScorer } from "./round23-lenses.mjs"
 const MIN_PARTICIPANTS = 6
 const MAX_PARTICIPANTS = 44
 const TARGET_GROUP_SIZE = 6
-const CANDIDATE_BUILD_STEPS = 6
-export const FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION = "spark-depth-rhythm-v3-flexible-six-seat-target"
+const CANDIDATE_BUILD_STEPS = 4
+const OPTIMIZATION_PASSES = 5
+export const FLEXIBLE_CHOICE_SEATING_OBJECTIVE_VERSION = "spark-depth-rhythm-v4-flexible-four-candidate-five-pass"
 
 const pairKey = (left, right) => `${Math.min(Number(left), Number(right))}-${Math.max(Number(left), Number(right))}`
 
@@ -191,7 +192,7 @@ function optimize(groups, options) {
   const result = groups.map(group => [...group])
   let current = evaluate(result, options)
   let swaps = 0
-  for (let pass = 0; pass < 8; pass++) {
+  for (let pass = 0; pass < OPTIMIZATION_PASSES; pass++) {
     let best = null
     for (let leftTable = 0; leftTable < result.length; leftTable++) {
       for (let rightTable = leftTable + 1; rightTable < result.length; rightTable++) {
@@ -395,4 +396,5 @@ export const FLEXIBLE_CHOICE_SEATING_LIMITS = Object.freeze({
   maximumParticipants: MAX_PARTICIPANTS,
   targetGroupSize: TARGET_GROUP_SIZE,
   candidateBuildSteps: CANDIDATE_BUILD_STEPS,
+  optimizationPasses: OPTIMIZATION_PASSES,
 })

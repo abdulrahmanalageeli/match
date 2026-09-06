@@ -32,6 +32,7 @@ import {
   event3ChoicePairKey,
 } from "../../server/event3/choice-matching.mjs"
 import { handleSeatingAlternatives } from "../../server/event3/seating-alternatives.mjs"
+import { buildEvent3LiveSeatingScores } from "../../server/event3/live-seating-scores.mjs"
 import { collectEventSwapPairs, collectMatchResultSwapPairs, getTableSwapRounds } from "../../server/event3/participant-swap.mjs"
 import { buildTestAdminSession, testMatchToLockedMatch } from "../../server/event3/test-match-results.mjs"
 import { choosePreparedTestPairs, validatePreparedTestAlgorithmRows } from "../../server/event3/prepared-test-algorithm.mjs"
@@ -10804,18 +10805,45 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         }
         // e3-get-seating
         if (action === "e3-get-seating") {
-          const { data: rows } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("round", [1, 2, 3, 20, 30, 40]).order("round").order("table_number")
+          const [assignmentResult, seatingFormat] = await Promise.all([
+            supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("round", [1, 2, 3, 20, 30, 40]).order("round").order("table_number"),
+            loadEvent3Format(supabase, EVENT3_MATCH_ID, currentEventId),
+          ])
+          const { data: rows, error: assignmentError } = assignmentResult
+          if (assignmentError) return res.status(500).json({ error: assignmentError.message })
           const cohostRosterSet = await getCohostRosterSet()
           const visibleRows = cohostRosterSet
             ? (rows || []).filter(row => cohostRosterSet.has(Number(row.participant_id)))
             : (rows || [])
           if (visibleRows.length === 0) return res.status(200).json({ seating: null, group_leaders: [] })
-          const nums = [...new Set(visibleRows.map(r => r.participant_id))]
-          const { data: pdata } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
+          const nums = [...new Set(visibleRows.map(r => Number(r.participant_id)))]
+          const choiceOnlySeating = isChoiceOnlyEvent3(seatingFormat)
+          const scoreNums = choiceOnlySeating
+            ? [...new Set((rows || []).filter(row => [1, 2, 3].includes(Number(row.round))).map(row => Number(row.participant_id)))]
+            : nums
+          const scoringQueries = [
+            supabase.from("participants").select(choiceOnlySeating ? "*" : "assigned_number,name,gender,age,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", scoreNums),
+          ]
+          if (choiceOnlySeating) {
+            scoringQueries.push(
+              supabase.from("locked_matches").select("participant1_number,participant2_number").eq("match_id", STATIC_MATCH_ID).eq("event_id", currentEventId),
+              supabase.from("event3_exclusions").select("participant_a_number,participant_b_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId),
+            )
+          }
+          const [profileResult, lockedResult, exclusionResult] = await Promise.all(scoringQueries)
+          if (profileResult.error || lockedResult?.error || exclusionResult?.error) {
+            return res.status(500).json({ error: profileResult.error?.message || lockedResult?.error?.message || exclusionResult?.error?.message })
+          }
+          const pdata = profileResult.data || []
           const nameMap = {}
           for (const p of pdata || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); nameMap[p.assigned_number] = { name: p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`, gender: p.gender || sd?.answers?.gender || sd?.gender || "?", age: p.age || sd?.answers?.age || sd?.age || null } }
           const seating = { 1: {}, 2: {}, 3: {}, 20: {}, 30: {}, 40: {} }
           for (const row of visibleRows) { if (!seating[row.round][row.table_number]) seating[row.round][row.table_number] = []; seating[row.round][row.table_number].push({ number: row.participant_id, ...nameMap[row.participant_id] }) }
+          const groupScores = choiceOnlySeating ? buildEvent3LiveSeatingScores({
+            assignments: rows || [],
+            profiles: pdata,
+            protectedPairs: [...(lockedResult?.data || []), ...(exclusionResult?.data || [])],
+          }) : null
           const seatingTestContext = Number(currentEventId) === Number(realEventId) ? await getEvent3TestContext() : null
           const coordinationSessionKey = seatingTestContext?.active ? `test:${seatingTestContext.startedAt || ""}` : "live"
           const { data: coordinationRows, error: coordinationError } = await supabase.from("event3_group_coordination")
@@ -10837,7 +10865,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               coordinator_name: coordinatorNumber ? (nameMap[coordinatorNumber]?.name || `#${coordinatorNumber}`) : null,
             }
           })
-          return res.status(200).json({ seating, group_leaders: groupLeaders })
+          return res.status(200).json({ seating, group_leaders: groupLeaders, group_scores: groupScores })
         }
         // e3-toggle-score-reveal
         if (action === "e3-toggle-score-reveal") {

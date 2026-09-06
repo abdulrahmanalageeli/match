@@ -1413,6 +1413,7 @@ export default function Admin3Page() {
   const [participants, setParticipants] = useState<any[]>([])
   const [selectedNumbers, setSelectedNumbers] = useState<Set<number>>(new Set())
   const [seating, setSeating] = useState<any>(null)
+  const [seatingScores, setSeatingScores] = useState<any>(null)
   const [groupLeaders, setGroupLeaders] = useState<Event3GroupLeader[]>([])
   const [choiceSeatingPreview, setChoiceSeatingPreview] = useState<ChoiceSeatingPreviewResponse | null>(null)
   const [selectedChoiceSeatingCandidateId, setSelectedChoiceSeatingCandidateId] = useState("")
@@ -1786,6 +1787,7 @@ export default function Admin3Page() {
     const data = await api("e3-get-seating")
     if (requestId === seatingRequestGeneration.current && !data.error) {
       setSeating(data.seating ?? null)
+      setSeatingScores(data.group_scores ?? null)
       setGroupLeaders(data.group_leaders || [])
     }
   }, [])
@@ -2300,17 +2302,17 @@ export default function Admin3Page() {
   }
 
   const doSwap = (numB: number) => {
+    if (!swapA) return
     if (previewEventId != null) { toast.error("لا يمكن تعديل الجلسات في وضع المعاينة"); return }
     if ([20, 30, 40].includes(mapRound)) {
       setSwapA(null)
       toast.error("تبديل المشاركين متاح فقط من تبويبات الجولات الجماعية")
       return
     }
-    run(`swap-${swapA}-${numB}`, () => api("e3-swap-seating", { num_a: swapA, num_b: numB }).then(d => {
+    run(`swap-${swapA}-${numB}`, () => api("e3-swap-seating", { num_a: swapA, num_b: numB }).then(async d => {
       if (!d.error) {
         setSwapA(null)
-        fetchSeating()
-        fetchParticipants({ preserveSelection: true })
+        await Promise.all([fetchSeating(), fetchParticipants({ preserveSelection: true })])
       }
       return d
     }))
@@ -4792,6 +4794,8 @@ export default function Admin3Page() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {Object.keys(seating?.[mapRound] || {}).map(Number).sort((a, b) => a - b).map(table => {
                     const members: any[] = seating?.[mapRound]?.[table] || []
+                    const tableLensScore = seatingScores?.[mapRound]?.tables?.[table]
+                    const tableLensLabel = seatingScores?.[mapRound]?.lens
                     const groupLeader = groupLeaderByTable.get(`${mapRound}:${table}`)
                     const males = members.filter(m => choiceSeatingGender(m.gender) === "male").length
                     const females = members.filter(m => choiceSeatingGender(m.gender) === "female").length
@@ -4906,6 +4910,11 @@ export default function Admin3Page() {
                             </div>
                           </div>
                           <div className="flex items-center gap-1.5">
+                            {tableLensScore?.score != null && (
+                              <span className="flex items-center gap-1 rounded-lg border border-violet-800/40 bg-violet-950/30 px-2 py-1 text-[10px] font-bold text-violet-200" title="النتيجة الحية بعد آخر تبديل">
+                                <Sparkles size={10} /> {tableLensLabel === "spark" ? "Spark" : tableLensLabel === "depth" ? "Depth" : "Rhythm"} {Number(tableLensScore.score).toFixed(1)}
+                              </span>
+                            )}
                             {tableSos.length > 0 && (
                               <button onClick={(event) => { event.stopPropagation(); setSelectedSosId(tableSos[0].id); setSosModalOpen(true) }}
                                 className="flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg bg-red-900/30 border border-red-700/50 text-red-300 animate-pulse">
@@ -4983,6 +4992,27 @@ export default function Admin3Page() {
                                   <span className="text-[10px] text-gray-600 font-mono flex-shrink-0">#{m.number}{m.age ? ` · ${m.age}` : ""}</span>
                                   <span className={`w-2 h-2 rounded-full flex-shrink-0 ${rankData?.submitted ? 'bg-green-500' : 'bg-gray-700'}`} title={rankData?.submitted ? 'صوّت' : 'لم يصوّت'} />
                                 </button>
+                                {!moveA && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      if (swapA === m.number) setSwapA(null)
+                                      else if (swapA !== null) doSwap(m.number)
+                                      else { setMoveA(null); setSwapA(m.number) }
+                                    }}
+                                    disabled={previewEventId != null || (!!loading && loading !== `swap-${swapA}-${m.number}`)}
+                                    className={`flex flex-shrink-0 items-center gap-1 rounded-lg border px-2 py-1.5 text-[10px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                                      isSwapSrc
+                                        ? "border-amber-600/60 bg-amber-900/40 text-amber-200"
+                                        : swapA !== null
+                                          ? "border-blue-800/50 bg-blue-950/25 text-blue-300 hover:bg-blue-900/35"
+                                          : "border-amber-800/40 bg-amber-950/20 text-amber-400 hover:bg-amber-900/35 hover:text-amber-200"
+                                    }`}
+                                    title={swapA !== null && !isSwapSrc ? `تبديل مع #${swapA} في الجولات الثلاث` : "اختيار هذا المشارك للتبديل في الجولات الثلاث"}
+                                  >
+                                    <Shuffle size={11} /> تبديل
+                                  </button>
+                                )}
                                 {!swapA && !moveA && !choiceOnly && (
                                   <button
                                     onClick={(e) => { e.stopPropagation(); setMoveA(m.number) }}

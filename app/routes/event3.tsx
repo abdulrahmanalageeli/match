@@ -9698,7 +9698,7 @@ export default function Event3Page() {
     && !hasPendingNotification
     && !feedbackOverlayOpen
   const showStatusHeader = !finalQuestionsOpen && !rankingRoundToRender && !groupsOpen
-  const showOrganizerSupport = phase !== "setup" && !rankingRoundToRender
+  const showOrganizerSupport = false
 
   return (
     <MotionConfig reducedMotion="user">

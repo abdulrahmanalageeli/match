@@ -2615,20 +2615,20 @@ function SetupScreen({ token, myInfo, enrolledCount, eventFormat }: { token: str
   const choiceOnly = isChoiceOnlyEvent3(eventFormat)
 
   const timeline = choiceOnly ? [
-    { icon: <Users size={14} className="text-cyan-400" />, label: "تعارف جماعي أول ضمن مجموعة صغيرة، ثم ترتيب", time: "المحطة 1" },
-    { icon: <Shuffle size={14} className="text-indigo-400" />, label: "تعارف جماعي ثانٍ ضمن مجموعة صغيرة، ثم ترتيب", time: "المحطة 2" },
-    { icon: <Shuffle size={14} className="text-violet-400" />, label: "تعارف جماعي ثالث ضمن مجموعة صغيرة، ثم ترتيب نهائي", time: "المحطة 3" },
+    { icon: <Users size={14} className="text-cyan-400" />, label: "مجموعة التعارف الأولى · ترتيب", time: "المحطة 1" },
+    { icon: <Shuffle size={14} className="text-indigo-400" />, label: "مجموعة التعارف الثانية · ترتيب", time: "المحطة 2" },
+    { icon: <Shuffle size={14} className="text-violet-400" />, label: "مجموعة التعارف الثالثة · ترتيب نهائي", time: "المحطة 3" },
     { icon: <Coffee size={14} className="text-orange-400" />, label: "استراحة واستعداد", time: "فاصل" },
-    { icon: <Heart size={14} className="text-pink-400" />, label: "لقاء الاختيار الأول، ثم تقييم قصير", time: "المحطة 4" },
-    { icon: <Heart size={14} className="text-violet-400" />, label: "لقاء الاختيار الثاني مع شخص جديد، ثم تقييم", time: "المحطة 5" },
-    { icon: <Heart size={14} className="text-purple-400" />, label: "لقاء الاختيار الثالث مع شخص جديد، ثم تقييم", time: "المحطة 6" },
+    { icon: <Heart size={14} className="text-pink-400" />, label: "لقاء الاختيار الأول · تقييم", time: "المحطة 4" },
+    { icon: <Heart size={14} className="text-violet-400" />, label: "لقاء الاختيار الثاني · تقييم", time: "المحطة 5" },
+    { icon: <Heart size={14} className="text-purple-400" />, label: "لقاء الاختيار الثالث · تقييم", time: "المحطة 6" },
     { icon: <Sparkles size={14} className="text-emerald-400" />, label: "الكشف النهائي والنتائج", time: "المحطة 7" },
   ] : [
-    { icon: <Users size={14} className="text-cyan-400" />, label: "تعارف جماعي أول، ثم ترتيب سريع", time: "المحطة 1" },
-    { icon: <Shuffle size={14} className="text-indigo-400" />, label: "تعارف جماعي ثانٍ، ثم ترتيب نهائي", time: "المحطة 2" },
+    { icon: <Users size={14} className="text-cyan-400" />, label: "مجموعة التعارف الأولى · ترتيب", time: "المحطة 1" },
+    { icon: <Shuffle size={14} className="text-indigo-400" />, label: "مجموعة التعارف الثانية · ترتيب نهائي", time: "المحطة 2" },
     { icon: <Coffee size={14} className="text-orange-400" />, label: "استراحة واستعداد", time: "فاصل" },
-    { icon: <Heart size={14} className="text-pink-400" />, label: "لقاء اختيارك، ثم تقييم قصير", time: "المحطة 3" },
-    { icon: <Brain size={14} className="text-violet-400" />, label: "لقاء اختيار النظام، ثم تقييم", time: "المحطة 4" },
+    { icon: <Heart size={14} className="text-pink-400" />, label: "لقاء اختيارك · تقييم", time: "المحطة 3" },
+    { icon: <Brain size={14} className="text-violet-400" />, label: "لقاء اختيار النظام · تقييم", time: "المحطة 4" },
     { icon: <Sparkles size={14} className="text-emerald-400" />, label: "الكشف النهائي والنتائج", time: "المحطة 5" },
   ]
 

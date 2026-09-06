@@ -8833,6 +8833,169 @@ function event3PhaseGuidance(phase: string, eventFormat: Event3Format) {
   return EVENT_PHASE_GUIDANCE[phase] || "اتبع الخطوة الظاهرة في الشاشة"
 }
 
+const EVENT_PHASE_TRANSITION_DURATION_MS = 820
+const EVENT_PHASE_TRANSITION_BINARY = [
+  "01001010 10110101 00110110 11001001",
+  "10110001 01001110 11010100 00101011",
+  "00110101 11001010 01100110 10011001",
+  "11010010 00101101 10000111 01111000",
+  "01101001 10010110 00111001 11000110",
+  "10010100 01101011 11000011 00111100",
+]
+
+function event3PhaseTransitionTone(phase: string) {
+  if (phase === "final_reveal") return {
+    aura: "radial-gradient(circle, rgba(252,211,77,.2) 0%, rgba(217,70,239,.1) 38%, transparent 72%)",
+    line: "from-transparent via-amber-200/90 to-transparent",
+    code: "text-amber-100/45",
+    title: "from-amber-100 via-white to-fuchsia-200",
+  }
+  if (/^ranking/.test(phase)) return {
+    aura: "radial-gradient(circle, rgba(217,70,239,.2) 0%, rgba(139,92,246,.1) 38%, transparent 72%)",
+    line: "from-transparent via-fuchsia-200/90 to-transparent",
+    code: "text-fuchsia-200/40",
+    title: "from-fuchsia-100 via-white to-violet-200",
+  }
+  if (/reveal/.test(phase)) return {
+    aura: "radial-gradient(circle, rgba(236,72,153,.18) 0%, rgba(34,211,238,.1) 38%, transparent 72%)",
+    line: "from-transparent via-pink-200/90 to-transparent",
+    code: "text-cyan-100/40",
+    title: "from-pink-100 via-white to-cyan-100",
+  }
+  if (phase === "break") return {
+    aura: "radial-gradient(circle, rgba(251,191,36,.16) 0%, rgba(251,146,60,.08) 38%, transparent 72%)",
+    line: "from-transparent via-amber-200/85 to-transparent",
+    code: "text-amber-100/40",
+    title: "from-amber-100 via-white to-orange-200",
+  }
+  return {
+    aura: "radial-gradient(circle, rgba(139,92,246,.2) 0%, rgba(34,211,238,.1) 38%, transparent 72%)",
+    line: "from-transparent via-cyan-200/90 to-transparent",
+    code: "text-cyan-100/40",
+    title: "from-cyan-100 via-white to-violet-200",
+  }
+}
+
+function EventPhaseTransition({ transitionId, phase, eventFormat, onDone }: {
+  transitionId: number
+  phase: string
+  eventFormat: Event3Format
+  onDone: (transitionId: number) => void
+}) {
+  const reduceMotion = useReducedMotion()
+  const finishedRef = useRef(false)
+  const tone = event3PhaseTransitionTone(phase)
+  const phaseLabel = event3PhaseLabel(phase, eventFormat)
+
+  const finish = useCallback(() => {
+    if (finishedRef.current) return
+    finishedRef.current = true
+    onDone(transitionId)
+  }, [onDone, transitionId])
+
+  useEffect(() => {
+    if (reduceMotion || document.hidden) {
+      finish()
+      return
+    }
+
+    const maximumTimer = window.setTimeout(finish, EVENT_PHASE_TRANSITION_DURATION_MS)
+    let frameId = 0
+    let previousFrame: number | null = null
+    let slowFrames = 0
+
+    const watchFramePacing = (timestamp: number) => {
+      if (previousFrame !== null && document.visibilityState === "visible") {
+        const frameGap = timestamp - previousFrame
+        if (frameGap >= 180) {
+          finish()
+          return
+        }
+        slowFrames = frameGap >= 48 ? slowFrames + 1 : 0
+        if (slowFrames >= 3) {
+          finish()
+          return
+        }
+      }
+      previousFrame = timestamp
+      frameId = window.requestAnimationFrame(watchFramePacing)
+    }
+
+    frameId = window.requestAnimationFrame(watchFramePacing)
+    return () => {
+      window.clearTimeout(maximumTimer)
+      window.cancelAnimationFrame(frameId)
+    }
+  }, [finish, reduceMotion])
+
+  return (
+    <motion.div
+      data-event3-phase-transition={phase}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, scale: 1.018 }}
+      transition={{ duration: 0.18, ease: "easeOut" }}
+      className="pointer-events-auto fixed inset-0 z-[260] overflow-hidden bg-[#04030a]"
+      aria-hidden="true"
+    >
+      <div
+        className="absolute left-1/2 top-1/2 h-[34rem] w-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-full"
+        style={{ background: tone.aura }}
+      />
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.022)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.022)_1px,transparent_1px)] bg-[size:36px_36px]" />
+
+      {EVENT_PHASE_TRANSITION_BINARY.map((stream, index) => (
+        <motion.span
+          key={stream}
+          initial={{ opacity: 0, x: index % 2 === 0 ? -24 : 24 }}
+          animate={{ opacity: [0, 0.58, 0.1], x: index % 2 === 0 ? [-24, 0, 16] : [24, 0, -16] }}
+          transition={{ duration: 0.58, delay: index * 0.025, ease: "easeOut" }}
+          className={`absolute -left-[8%] -right-[8%] whitespace-nowrap text-center font-mono text-[8px] font-bold tracking-[0.3em] ${tone.code}`}
+          style={{ top: `${8 + index * 15}%`, direction: "ltr", willChange: "transform, opacity" }}
+        >
+          {stream}
+        </motion.span>
+      ))}
+
+      <div className="absolute inset-0 flex items-center justify-center px-6 text-center">
+        <div className="w-full max-w-sm">
+          <motion.p
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 0.55, y: 0 }}
+            transition={{ delay: 0.08, duration: 0.22 }}
+            className="font-mono text-[9px] font-black uppercase tracking-[0.42em] text-white"
+            dir="ltr"
+          >
+            SIGNAL LOCKED · 5.0
+          </motion.p>
+          <motion.div
+            initial={{ scaleX: 0.08, opacity: 0 }}
+            animate={{ scaleX: 1, opacity: 1 }}
+            transition={{ delay: 0.1, duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+            className={`mx-auto my-5 h-px w-40 origin-center bg-gradient-to-r ${tone.line} shadow-[0_0_12px_rgba(34,211,238,.28)]`}
+          />
+          <motion.h2
+            initial={{ opacity: 0, y: 14, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ delay: 0.16, duration: 0.36, ease: [0.16, 1, 0.3, 1] }}
+            className={`bg-gradient-to-l bg-clip-text text-4xl font-black leading-tight text-transparent ${tone.title}`}
+          >
+            {phaseLabel}
+          </motion.h2>
+          <motion.p
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 0.62, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.24 }}
+            className="mt-3 text-xs font-bold tracking-wide text-purple-100"
+          >
+            تمّت المزامنة · ننتقل الآن
+          </motion.p>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
 function EventStatusHeader({ eventState, isOffline, pollError, lastSuccessAt, correctedNow, impersonating, onLogout }: {
   eventState: any; isOffline: boolean; pollError?: string | null; lastSuccessAt?: number | null; correctedNow: () => number; impersonating?: boolean; onLogout?: () => void
 }) {
@@ -8900,7 +9063,9 @@ function EventStatusHeader({ eventState, isOffline, pollError, lastSuccessAt, co
 
 export default function Event3Page() {
   const [searchParams] = useSearchParams()
+  const questionPreview = searchParams.get("questionPreview")
   const isImpersonating = searchParams.get("impersonate") === "1"
+  const reducePhaseMotion = useReducedMotion()
   const [token, setToken] = useState<string | null>(() => {
     const p = searchParams.get("token") || searchParams.get("t")
     if (p) return p
@@ -8931,6 +9096,8 @@ export default function Event3Page() {
     timerDuration: number
   } | null>(null)
   const [resolvedRankingRound, setResolvedRankingRound] = useState<number | null>(null)
+  const [phaseTransition, setPhaseTransition] = useState<{ id: number; phase: string } | null>(null)
+  const phaseTransitionSequenceRef = useRef(0)
   const eventContentRef = useRef<HTMLDivElement>(null)
   const phaseAnnouncementRef = useRef<HTMLDivElement>(null)
   const aiWelcomeSeenKey = token ? `e3_ai_welcome_seen_${token}` : null
@@ -8962,6 +9129,7 @@ export default function Event3Page() {
     setMyInfo(null)
     setRankingDraftContext(null)
     setResolvedRankingRound(null)
+    setPhaseTransition(null)
     setBreakFeedbackOpen(false)
     setBreakFeedbackRound(null)
     setActiveMatchFeedbackSlot(null)
@@ -8985,6 +9153,7 @@ export default function Event3Page() {
     setMyInfo(null)
     setRankingDraftContext(null)
     setResolvedRankingRound(null)
+    setPhaseTransition(null)
     setShowWelcome(false)
     setShowAiWelcome(false)
     window.history.replaceState({}, "", "/event3")
@@ -9030,6 +9199,7 @@ export default function Event3Page() {
   }, [])
   const { data: publicFormatState, loading: publicFormatLoading, error: publicFormatError, retry: retryPublicFormat } = useApiPoll(fetchPublicFormat, {
     interval: 5000,
+    enabled: !questionPreview,
   })
   const eventFormat = normalizeEvent3Format(
     eventState?.event_format ?? publicFormatState?.event_format,
@@ -9094,11 +9264,11 @@ export default function Event3Page() {
   }, [eventState?.phase, eventState?.event_id])
 
   useEffect(() => {
-    if (!eventState?.phase || showWelcome || showAiWelcome || pendingGroupFeedbackRound || breakFeedbackOpen || activeMatchFeedbackSlot) return
+    if (!eventState?.phase || showWelcome || showAiWelcome || pendingGroupFeedbackRound || breakFeedbackOpen || activeMatchFeedbackSlot || phaseTransition) return
     eventContentRef.current?.scrollTo({ top: 0, behavior: "auto" })
     const focusTimer = window.setTimeout(() => phaseAnnouncementRef.current?.focus(), 80)
     return () => window.clearTimeout(focusTimer)
-  }, [eventState?.phase, showWelcome, showAiWelcome, pendingGroupFeedbackRound, breakFeedbackOpen, activeMatchFeedbackSlot])
+  }, [eventState?.phase, showWelcome, showAiWelcome, pendingGroupFeedbackRound, breakFeedbackOpen, activeMatchFeedbackSlot, phaseTransition])
 
   // Phase change detection — play sound + vibrate when event starts (setup → round1)
   const prevPhaseRef = useRef<string | null>(null)
@@ -9106,6 +9276,24 @@ export default function Event3Page() {
     if (!eventState) return
     const cur = eventState.phase
     const prev = prevPhaseRef.current
+    const transitionBlocked = reducePhaseMotion
+      || document.hidden
+      || showWelcome
+      || showAiWelcome
+      || Boolean(rankingDraftContext)
+      || Boolean(pendingGroupFeedbackRound)
+      || breakFeedbackOpen
+      || Boolean(activeMatchFeedbackSlot)
+      || groupsOpen
+      || finalQuestionsOpen
+    if (prev && prev !== cur) {
+      if (transitionBlocked) {
+        setPhaseTransition(null)
+      } else {
+        phaseTransitionSequenceRef.current += 1
+        setPhaseTransition({ id: phaseTransitionSequenceRef.current, phase: cur })
+      }
+    }
     if (prev === "setup" && cur === "round1") {
       playEventStartSound()
       vibrate([200, 100, 200, 100, 400])
@@ -9115,7 +9303,11 @@ export default function Event3Page() {
       clearAllArrived()
     }
     prevPhaseRef.current = cur
-  }, [eventState?.phase])
+  }, [eventState?.phase, reducePhaseMotion, showWelcome, showAiWelcome, rankingDraftContext, pendingGroupFeedbackRound, breakFeedbackOpen, activeMatchFeedbackSlot, groupsOpen, finalQuestionsOpen])
+
+  const finishPhaseTransition = useCallback((transitionId: number) => {
+    setPhaseTransition(current => current?.id === transitionId ? null : current)
+  }, [])
 
   // Feedback belongs to one completed group round. It may remain open while
   // the organizer advances to the following phase, but stale round-1 feedback
@@ -9177,7 +9369,6 @@ export default function Event3Page() {
 
   // Lightweight, token-free visual QA for the mobile question experiences.
   // This is intentionally read-only and does not touch event or participant data.
-  const questionPreview = searchParams.get("questionPreview")
   if (questionPreview === "mobileQA") {
     return (
       <main className="flex min-h-[100dvh] flex-wrap items-center justify-center gap-6 bg-slate-950 p-6">
@@ -9190,6 +9381,18 @@ export default function Event3Page() {
   }
   if (questionPreview === "welcome") {
     return <WelcomeScreen onDone={() => {}} eventFormat={CHOICE_ONLY_EVENT3_FORMAT} />
+  }
+  if (questionPreview === "phaseTransition") {
+    return (
+      <main className="event3-shell min-h-[100dvh] bg-gray-950 text-white" dir="rtl">
+        <EventPhaseTransition
+          transitionId={1}
+          phase={searchParams.get("phase") || "round2"}
+          eventFormat={CHOICE_ONLY_EVENT3_FORMAT}
+          onDone={() => {}}
+        />
+      </main>
+    )
   }
   if (questionPreview === "login" || questionPreview === "loginToken") {
     return <PhoneEntry initialMethod={questionPreview === "loginToken" ? "token" : "sms"} onToken={() => {}} />
@@ -9481,6 +9684,18 @@ export default function Event3Page() {
           {!holdingRankingDraft && !activeMatchFeedbackSlot && phase === "final_reveal" && <FinalRevealScreen key="final" token={token} impersonating={isImpersonating} onQuestionViewerChange={setFinalQuestionsOpen} eventFormat={eventFormat} />}
         </AnimatePresence>
       </motion.div>
+
+      <AnimatePresence>
+        {phaseTransition && (
+          <EventPhaseTransition
+            key={phaseTransition.id}
+            transitionId={phaseTransition.id}
+            phase={phaseTransition.phase}
+            eventFormat={eventFormat}
+            onDone={finishPhaseTransition}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Keep help-chat state mounted while higher-priority overlays are visible,
           so an unsent organizer message is restored instead of discarded. */}

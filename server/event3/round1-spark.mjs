@@ -248,6 +248,11 @@ export function scoreRound1SparkGroup(group, {
   }
 }
 
+export function createRound1SparkGroupScorer(options = {}) {
+  const scoreOptions = { ...options, [INTERNAL_PAIR_SCORE_CACHE]: new Map() }
+  return group => scoreRound1SparkGroup(group, scoreOptions)
+}
+
 function aggregateFitness(groupScores) {
   return {
     lockedPairs: groupScores.reduce((sum, group) => sum + group.lockedPairs, 0),

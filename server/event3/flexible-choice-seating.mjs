@@ -1,5 +1,5 @@
 import { normalizedGender } from "./round2-age-optimizer.mjs"
-import { scoreRound1SparkGroup } from "./round1-spark.mjs"
+import { createRound1SparkGroupScorer } from "./round1-spark.mjs"
 import { createRoundLensScorer } from "./round23-lenses.mjs"
 
 const MIN_PARTICIPANTS = 6
@@ -190,7 +190,14 @@ function evaluate(groups, { previousPairSets, groupScore, genderMap, ageMap }) {
 
 function optimize(groups, options) {
   const result = groups.map(group => [...group])
-  let current = evaluate(result, options)
+  const groupScoreCache = new Map()
+  const cachedGroupScore = group => {
+    const key = [...group].sort((left, right) => Number(left) - Number(right)).join(",")
+    if (!groupScoreCache.has(key)) groupScoreCache.set(key, options.groupScore(group))
+    return groupScoreCache.get(key)
+  }
+  const evaluationOptions = { ...options, groupScore: cachedGroupScore }
+  let current = evaluate(result, evaluationOptions)
   let swaps = 0
   for (let pass = 0; pass < OPTIMIZATION_PASSES; pass++) {
     let best = null
@@ -199,7 +206,7 @@ function optimize(groups, options) {
         for (let leftIndex = 0; leftIndex < result[leftTable].length; leftIndex++) {
           for (let rightIndex = 0; rightIndex < result[rightTable].length; rightIndex++) {
             ;[result[leftTable][leftIndex], result[rightTable][rightIndex]] = [result[rightTable][rightIndex], result[leftTable][leftIndex]]
-            const candidate = evaluate(result, options)
+            const candidate = evaluate(result, evaluationOptions)
             ;[result[leftTable][leftIndex], result[rightTable][rightIndex]] = [result[rightTable][rightIndex], result[leftTable][leftIndex]]
             if (compareVectors(candidate.vector, current.vector) >= 0) continue
             if (!best || compareVectors(candidate.vector, best.evaluation.vector) < 0) {
@@ -229,10 +236,11 @@ function changedMemberships(leftGroups, rightGroups) {
 function buildCandidate(participants, options, seed) {
   const sizes = choiceOnlyTargetGroupSizes(participants.length)
   const lenses = createRoundLensScorer(options)
+  const sparkGroup = createRound1SparkGroupScorer(options)
   const round1Start = initialGroups(participants, sizes, seed * 101 + 17, options.genderMap)
   const round1 = optimize(round1Start, {
     previousPairSets: [],
-    groupScore: group => scoreRound1SparkGroup(group, options),
+    groupScore: sparkGroup,
     genderMap: options.genderMap,
     ageMap: options.ageMap,
   })

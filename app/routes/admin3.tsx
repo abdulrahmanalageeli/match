@@ -673,7 +673,6 @@ const ChoiceSeatingReportDetails = memo(function ChoiceSeatingReportDetails({
 })
 
 function ChoiceSeatingGenerationProgress({ elapsedMs, checkpoint }: { elapsedMs: number; checkpoint: ChoiceSeatingCheckpointProgress | null }) {
-  const estimatedProgress = choiceSeatingProgressSnapshot(elapsedMs)
   const completedSteps = Math.max(0, Number(checkpoint?.completed_steps || 0))
   const totalSteps = Math.max(1, Number(checkpoint?.total_steps || 4))
   const progress = checkpoint
@@ -682,10 +681,14 @@ function ChoiceSeatingGenerationProgress({ elapsedMs, checkpoint }: { elapsedMs:
         stage: `تم حفظ ${completedSteps} من ${totalSteps} خطط مرشحة`,
         detail: "كل مرحلة مكتملة محفوظة لمدة 6 ساعات، وسيُستأنف الحساب منها تلقائياً",
       }
-    : estimatedProgress
+    : {
+        percent: 0,
+        stage: "جاري حساب الخطة المرشحة الأولى",
+        detail: "لم يُحفظ أي checkpoint بعد — ستظهر علامة التأكيد فور وصول رد الخادم",
+      }
   const elapsedSeconds = Math.max(0, Math.floor(elapsedMs / 1000))
   const steps = Array.from({ length: totalSteps }, (_, index) => index + 1)
-  const activeStep = checkpoint ? completedSteps : elapsedMs < 6_000 ? 0 : elapsedMs < 36_000 ? 2 : 4
+  const activeStep = checkpoint ? completedSteps : 0
 
   return (
     <section id="choice-seating-progress" role="status" aria-live="polite" aria-label="تقدم إنشاء خطط الجلسات" className="relative overflow-hidden rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-cyan-950/35 via-gray-950 to-violet-950/35 p-4 shadow-2xl shadow-cyan-950/20 sm:p-5">

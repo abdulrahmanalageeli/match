@@ -4,6 +4,7 @@ import test from "node:test"
 import { runInNewContext } from "node:vm"
 
 const adminSource = await readFile(new URL("../../api/admin/index.mjs", import.meta.url), "utf8")
+const cohostSource = await readFile(new URL("../../app/routes/admin-cohost.tsx", import.meta.url), "utf8")
 
 function between(source, startMarker, endMarker) {
   const start = source.indexOf(startMarker)
@@ -34,7 +35,7 @@ test("only POST requests can use the public/co-host auth bypasses", () => {
     "get-group-matches",
   ]
   const cases = [
-    ["e3-cohost-login", "isCohostLogin"],
+    ["e3-cohost-account-login", "isCohostLogin"],
     ...publicActions.map(action => [action, "isPublicEventRead"]),
     ...[...cohostActions].map(action => [action, "hasCohostSession"]),
   ]
@@ -46,6 +47,13 @@ test("only POST requests can use the public/co-host auth bypasses", () => {
       assert.equal(Object.values(flags).some(Boolean), false, `${method} ${action} must require admin authorization`)
     }
   }
+})
+
+test("co-host login uses the two participant accounts and no shared environment password", () => {
+  assert.doesNotMatch(adminSource, /EVENT3_COHOST_PASSWORD|e3-cohost-login/)
+  const login = between(adminSource, 'if (action === "e3-cohost-account-login") {', 'if (action && action.startsWith("e3-"))')
+  assert.match(login, /\.eq\("secure_token", participantToken\)/)
+  assert.match(login, /buildEvent3CohostIdentity\(participantAccount\)/)
 })
 
 test("the co-host cannot change its own access lock", () => {
@@ -75,10 +83,21 @@ test("co-host bootstrap reads do not require a mutation context and expose a sta
   assert.equal((dashboard.match(/test_session_key: testModeActive \? testSessionKey : "live"/g) || []).length, 2)
 })
 
+test("help requests use an independent endpoint, poll, and refresh control", () => {
+  const supportAction = between(adminSource, 'if (action === "e3-cohost-support-requests") {', 'if (action === "e3-set-cohost-lock")')
+  assert.match(supportAction, /from\("organizer_requests"\)/)
+  assert.match(supportAction, /neq\("status", "resolved"\)/)
+  const dashboard = between(adminSource, 'if (action === "e3-cohost-dashboard")', 'if (action === "e3-cohost-rankings")')
+  assert.doesNotMatch(dashboard, /from\("organizer_requests"\)/)
+  assert.match(cohostSource, /cohostApi<CohostSupportResponse>\("e3-cohost-support-requests", token\)/)
+  assert.match(cohostSource, /onClick=\{\(\) => fetchSupportRequests\(\)\}/)
+  assert.match(cohostSource, /setInterval\(\(\) => \{\s*if \(document\.visibilityState === "visible"\) fetchSupportRequests\(true\)\s*\}, 6000\)/)
+})
+
 test("a locked co-host cannot log in or reach any allowlisted Event3 action", () => {
-  const login = between(adminSource, 'if (action === "e3-cohost-login") {', 'if (action && action.startsWith("e3-"))')
+  const login = between(adminSource, 'if (action === "e3-cohost-account-login") {', 'if (action && action.startsWith("e3-"))')
   assert.match(login, /if \(accessState\.cohost_locked === true\) \{\s*return res\.status\(423\)\.json\(\{[^}]*code: "COHOST_LOCKED"/)
-  assert.ok(login.indexOf('code: "COHOST_LOCKED"') < login.indexOf("token: signCohostToken()"))
+  assert.ok(login.indexOf('code: "COHOST_LOCKED"') < login.indexOf("token: signCohostToken(null, sessionIdentity)"))
 
   const eventActions = adminSource.slice(adminSource.indexOf('if (action && action.startsWith("e3-"))'))
   const accessGuard = between(eventActions, "if (isCohostRequest) {", "cohostAccessState = data")

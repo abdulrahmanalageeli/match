@@ -53,6 +53,7 @@ import { buildReciprocalRankingLookup, getCohostNoteContext, normalizeCohostNote
 import { loadCohostAttendeeHistory } from "../../server/event3/cohost-attendee-history.mjs"
 import { COHOST_AGREEMENT } from "../../app/lib/cohost-agreement.mjs"
 import { acceptCohostAgreement, COHOST_AGREEMENT_ACTIONS, COHOST_AGREEMENT_HASH, hasCurrentCohostAgreement } from "../../server/event3/cohost-agreement.mjs"
+import { buildEvent3CohostIdentity, getEvent3CohostAccount, isValidEvent3CohostClaims } from "../../server/event3/cohost-account-auth.mjs"
 import {
   EVENT3_PHASE_TIMER_SECONDS,
   EVENT3_TIMER_ROUND_SECONDS,
@@ -577,12 +578,12 @@ async function selectEvent3MatchesWithPhase4({ includePhase4, legacyColumns, pha
   return { ...fallbackResult, phase4Available: false, migrationRequired: !fallbackResult.error }
 }
 const EVENT3_PASSWORD = process.env.EVENT3_PASSWORD || ""
-const EVENT3_COHOST_PASSWORD = process.env.EVENT3_COHOST_PASSWORD || ""
 const EVENT3_COHOST_TOKEN_TTL_SECONDS = 8 * 60 * 60
 const EVENT3_COHOST_ACTIONS = new Set([
   "e3-cohost-agreement",
   "e3-cohost-accept-agreement",
   "e3-cohost-dashboard",
+  "e3-cohost-support-requests",
   "e3-cohost-attendee-details",
   "e3-cohost-rankings",
   "e3-cohost-set-ranking",
@@ -630,6 +631,9 @@ function signCohostToken(agreement = null, session = null) {
     role: "event3_cohost",
     sid: session?.sid || randomUUID(),
     exp: session?.exp || Math.floor(Date.now() / 1000) + EVENT3_COHOST_TOKEN_TTL_SECONDS,
+    cohost_number: session?.cohost_number,
+    cohost_display_name: session?.cohost_display_name,
+    cohost_profile_name: session?.cohost_profile_name,
     ...(agreement ? {
       agreement_id: agreement.id,
       agreement_version: agreement.agreement_version,
@@ -650,7 +654,12 @@ function readCohostToken(token) {
     const expected = createHmac("sha256", secret).update(payload).digest("base64url")
     if (!safeSecretEqual(signature, expected)) return false
     const claims = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"))
-    return claims?.role === "event3_cohost" && Number.isFinite(claims.exp) && claims.exp > Math.floor(Date.now() / 1000) ? claims : null
+    return claims?.role === "event3_cohost"
+      && Number.isFinite(claims.exp)
+      && claims.exp > Math.floor(Date.now() / 1000)
+      && isValidEvent3CohostClaims(claims)
+      ? claims
+      : null
   } catch {
     return false
   }
@@ -1281,7 +1290,7 @@ export default async function handler(req, res) {
   }
 
   const bearerToken = String(req.headers?.authorization || "").replace(/^Bearer\s+/i, "")
-  const isCohostLogin = method === "POST" && action === "e3-cohost-login"
+  const isCohostLogin = method === "POST" && action === "e3-cohost-account-login"
   const isPublicEventRead = method === "POST" && (action === "get-event-state"
     || action === "get-upcoming-event-summary"
     || action === "get-current-event-id"
@@ -9304,18 +9313,22 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
       }
     }
 
-    // Co-host login is the only Event 3 action that accepts the co-host password.
-    // The returned short-lived signed token is limited to the explicit action
-    // allow-list below; it can never invoke matching, phase, survey, or payment APIs.
-    if (action === "e3-cohost-login") {
+    // Co-host access reuses the participant's existing private account token.
+    // Authorization is bound to the two explicit participant numbers above;
+    // names and other client-provided profile fields never grant access.
+    if (action === "e3-cohost-account-login") {
       res.setHeader("Cache-Control", "private, no-store")
-      if (!EVENT3_COHOST_PASSWORD || !cohostTokenSecret()) {
-        console.error("Co-host login is not configured in this deployment")
-        return res.status(503).json({ error: "Co-host login is not configured", code: "COHOST_NOT_CONFIGURED" })
-      }
-      if (!safeSecretEqual(req.body?.password, EVENT3_COHOST_PASSWORD)) {
-        return res.status(403).json({ error: "Unauthorized" })
-      }
+      if (!cohostTokenSecret()) return res.status(503).json({ error: "Co-host access is temporarily unavailable", code: "COHOST_ACCESS_UNAVAILABLE" })
+      const participantToken = typeof req.body?.participant_token === "string" ? req.body.participant_token.trim() : ""
+      if (!participantToken) return res.status(401).json({ error: "A participant account token is required", code: "COHOST_ACCOUNT_REQUIRED" })
+      const { data: participantAccount, error: participantError } = await supabase.from("participants")
+        .select("id,assigned_number,name")
+        .eq("match_id", STATIC_MATCH_ID)
+        .eq("secure_token", participantToken)
+        .maybeSingle()
+      if (participantError) return res.status(503).json({ error: "Co-host account verification is temporarily unavailable", code: "COHOST_ACCESS_UNAVAILABLE" })
+      const cohostIdentity = buildEvent3CohostIdentity(participantAccount)
+      if (!cohostIdentity) return res.status(403).json({ error: "This account does not have co-host access", code: "COHOST_ACCOUNT_NOT_ALLOWED" })
       const { data: accessState, error: accessError } = await supabase.from("event_state").select("cohost_locked").eq("match_id", EVENT3_MATCH_ID).maybeSingle()
       if (accessError || !accessState) {
         return res.status(503).json({ error: "Co-host access is temporarily unavailable", code: "COHOST_ACCESS_UNAVAILABLE" })
@@ -9323,9 +9336,15 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
       if (accessState.cohost_locked === true) {
         return res.status(423).json({ error: "The host has temporarily locked the co-host panel", code: "COHOST_LOCKED" })
       }
+      const sessionIdentity = {
+        cohost_number: cohostIdentity.number,
+        cohost_display_name: cohostIdentity.displayName,
+        cohost_profile_name: cohostIdentity.profileName,
+      }
       return res.status(200).json({
-        token: signCohostToken(),
+        token: signCohostToken(null, sessionIdentity),
         expires_in: EVENT3_COHOST_TOKEN_TTL_SECONDS,
+        cohost: cohostIdentity,
       })
     }
 
@@ -9352,18 +9371,28 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
         }
         if (action === "e3-cohost-agreement") {
           if (!isCohostRequest) return res.status(403).json({ error: "A co-host session is required" })
+          const cohostAccount = getEvent3CohostAccount(cohostSession.cohost_number)
           return res.status(200).json({
             agreement: COHOST_AGREEMENT,
             agreement_hash: COHOST_AGREEMENT_HASH,
             accepted: hasCurrentCohostAgreement(cohostSession),
             accepted_at: hasCurrentCohostAgreement(cohostSession) ? cohostSession.agreement_accepted_at : null,
+            cohost: {
+              number: cohostAccount.number,
+              displayName: cohostAccount.displayName,
+              profileName: cohostSession.cohost_profile_name || cohostAccount.displayName,
+            },
           })
         }
         if (action === "e3-cohost-accept-agreement") {
           if (!isCohostRequest) return res.status(403).json({ error: "A co-host session is required" })
           if (!enforceRateLimit(req, res, { key: "cohost-agreement", limit: 12, windowMs: 60_000 })) return
           try {
-            const receipt = await acceptCohostAgreement(supabase, cohostSessionToken, req.body)
+            const receipt = await acceptCohostAgreement(supabase, cohostSessionToken, req.body, {
+              number: cohostSession.cohost_number,
+              displayName: cohostSession.cohost_display_name,
+              profileName: cohostSession.cohost_profile_name,
+            })
             return res.status(200).json({ token: signCohostToken(receipt, cohostSession), receipt })
           } catch (error) {
             return res.status(error.status || 503).json({ error: error.status ? error.message : "تعذر حفظ الموافقة. حاولي مجدداً", code: error.code || "AGREEMENT_RECORD_UNAVAILABLE" })
@@ -9413,7 +9442,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
           }
         }
         const requiresDisplayedEvent3Context = !action.startsWith("e3-get-")
-          && !["e3-cohost-dashboard", "e3-cohost-rankings", "e3-cohost-attendee-details"].includes(action)
+          && !["e3-cohost-dashboard", "e3-cohost-support-requests", "e3-cohost-rankings", "e3-cohost-attendee-details"].includes(action)
           && action !== "e3-run-diagnostics"
           && action !== "e3-generate-report"
           && action !== "e3-ai-welcome-list"
@@ -9434,6 +9463,30 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             .eq("event_id", currentEventId)
           if (error) throw error
           return new Set((data || []).map(row => Number(row.participant_number)))
+        }
+
+        if (action === "e3-cohost-support-requests") {
+          try {
+            const [rosterSet, requestResult] = await Promise.all([
+              getCohostRosterSet(),
+              supabase.from("organizer_requests")
+                .select("id,event_id,participant_number,participant_name,table_info,message,organizer_reply,status,request_type,created_at,updated_at,chat_history")
+                .eq("event_id", currentEventId)
+                .neq("status", "resolved")
+                .order("updated_at", { ascending: false })
+                .limit(100),
+            ])
+            if (requestResult.error) throw requestResult.error
+            const sosRequests = (requestResult.data || []).filter(request => rosterSet?.has(Number(request.participant_number)))
+            return res.status(200).json({
+              event_id: currentEventId,
+              server_now: new Date().toISOString(),
+              sos_requests: sosRequests,
+            })
+          } catch (error) {
+            console.error("Co-host support request refresh failed:", error?.message)
+            return res.status(503).json({ error: "تعذر تحديث طلبات المساعدة", code: "COHOST_SUPPORT_UNAVAILABLE" })
+          }
         }
 
         if (action === "e3-set-cohost-lock") {
@@ -9564,7 +9617,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             })
           }
 
-          const [participantResult, assignmentResult, matchResult, rankingResult, attendanceResult, historyResult, legacyHistoryResult, sosResult, lockedResult, testMatchResult, realScoreResult, exclusionResult, notesResult] = await Promise.all([
+          const [participantResult, assignmentResult, matchResult, rankingResult, attendanceResult, historyResult, legacyHistoryResult, lockedResult, testMatchResult, realScoreResult, exclusionResult, notesResult] = await Promise.all([
             supabase.from("participants").select("assigned_number,name,age").eq("match_id", STATIC_MATCH_ID).in("assigned_number", numbers),
             supabase.from("session_assignments").select("participant_id,round,table_number").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).in("round", [1, 2, 3, 20, 30, 40]).in("participant_id", numbers),
             selectEvent3MatchesWithPhase4({
@@ -9577,7 +9630,6 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             supabase.from("event_attendance").select("participant_number,attended").eq("match_id", STATIC_MATCH_ID).eq("event_id", currentEventId).in("participant_number", numbers),
             supabase.from("event_attendance").select("participant_number,event_id,attended").eq("match_id", STATIC_MATCH_ID).neq("event_id", currentEventId).in("participant_number", numbers),
             supabase.from("event3_participants").select("participant_number,event_id").eq("match_id", EVENT3_MATCH_ID).neq("event_id", currentEventId).in("participant_number", numbers),
-            supabase.from("organizer_requests").select("id,event_id,participant_number,participant_name,table_info,message,organizer_reply,status,request_type,created_at,updated_at,chat_history").eq("event_id", currentEventId).neq("status", "resolved").order("updated_at", { ascending: false }).limit(100),
             cohostChoiceOnly
               ? Promise.resolve({ data: [], error: null })
               : testModeActive
@@ -9597,7 +9649,7 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             supabase.from("event3_cohost_notes").select("id,scope_type,scope_key,round,table_number,participant_number,participant2_number,note,updated_at,updated_by,test_mode").eq("match_id", EVENT3_MATCH_ID).eq("event_id", currentEventId).eq("test_mode", testModeActive).eq("test_session_key", testSessionKey).order("updated_at", { ascending: false }),
           ])
           const activeLockResult = testModeActive ? testMatchResult : lockedResult
-          const firstError = [participantResult, assignmentResult, matchResult, rankingResult, attendanceResult, historyResult, legacyHistoryResult, sosResult, activeLockResult, realScoreResult, exclusionResult, notesResult].find(result => result.error)?.error
+          const firstError = [participantResult, assignmentResult, matchResult, rankingResult, attendanceResult, historyResult, legacyHistoryResult, activeLockResult, realScoreResult, exclusionResult, notesResult].find(result => result.error)?.error
           if (firstError) return res.status(500).json({ error: firstError.message })
 
           const infoMap = new Map((participantResult.data || []).map(participant => [participant.assigned_number, participant]))
@@ -9784,29 +9836,6 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
               thirdChoicePairs.push(pairRecord(a, b, 40, unscoredChoicePayload, "choice"))
             }
           }
-          const supportRound = ["phase4_processing", "phase4_reveal"].includes(String(stateRow?.phase || ""))
-            ? 40
-            : getEvent3ActiveTableRound(stateRow?.phase)
-          const sosRequests = (sosResult.data || []).filter(request => numberSet.has(request.participant_number)).map(request => {
-            const member = participants.find(person => person.number === request.participant_number)
-            const table = supportRound ? member?.tables?.[supportRound] : null
-            const partnerNumber = supportRound === 20
-              ? member?.phase2_partner
-              : supportRound === 30
-                ? member?.phase3_partner
-                : supportRound === 40 ? member?.phase4_partner : null
-            return { ...request,
-              table_info: table ? `${supportRound === 20
-                ? (isChoiceOnlyEvent3(cohostEventFormat) ? "لقاء الاختيار الأول" : "لقاء الاختيار")
-                : supportRound === 30
-                  ? (isChoiceOnlyEvent3(cohostEventFormat) ? "لقاء الاختيار الثاني" : "لقاء الخوارزمية")
-                  : supportRound === 40
-                    ? "لقاء الاختيار الثالث"
-                  : "جلسة جماعية"} · طاولة ${table}` : request.table_info,
-              partner_number: partnerNumber,
-              partner_name: partnerNumber ? participants.find(person => person.number === partnerNumber)?.name || null : null,
-            }
-          })
           const dashboardServerNow = new Date().toISOString()
           return res.status(200).json({
             server_now: dashboardServerNow,
@@ -9815,7 +9844,6 @@ Provide a comprehensive, honest, and insightful analysis. Be direct about any co
             test_session_key: testModeActive ? testSessionKey : "live",
             state: { ...dashboardState, server_now: dashboardServerNow },
             participants,
-            sos_requests: sosRequests,
             locked_phase3_pairs: lockedPhase3Pairs,
             choice_pairs: choicePairs,
             algorithm_pairs: algorithmPairs,

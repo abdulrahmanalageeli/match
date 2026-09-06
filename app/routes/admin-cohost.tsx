@@ -42,6 +42,7 @@ import {
 } from "lucide-react"
 import { compatibilityTotalForDisplay, currentBalancedGroupedDimensionsForDisplay, currentOppositesDimensionsForDisplay } from "~/lib/compatibility-model"
 import { cohostDashboardView, isCohostDetailVisible } from "~/lib/cohost-visibility"
+import { clearParticipantBrowserIdentity, getParticipantBrowserToken } from "~/lib/participant-browser-auth.mjs"
 import {
   EVENT3_CHOICE_COHOST_PHASES,
   buildEvent3DisplayedMutationContext,
@@ -57,7 +58,7 @@ import {
 const API = "/api/admin"
 const SESSION_KEY = "event3_cohost_token"
 const COHOST_WRITE_TIMEOUT_MS = 20_000
-const COHOST_READ_ACTION = /^(e3-get-|e3-cohost-(dashboard|rankings|attendee-details)$)/
+const COHOST_READ_ACTION = /^(e3-get-|e3-cohost-(dashboard|support-requests|rankings|attendee-details)$)/
 
 let cohostDisplayedMutationContext: Event3DisplayedMutationContext | null = null
 
@@ -179,6 +180,18 @@ interface CohostNoteEditorContext extends CohostNoteScope {
 
 type CohostApiError = Error & { status?: number; code?: string }
 
+interface CohostIdentity {
+  number: 1372 | 1470
+  displayName: string
+  profileName: string
+}
+
+interface CohostAccountLoginResponse {
+  token: string
+  expires_in: number
+  cohost: CohostIdentity
+}
+
 interface CohostDashboard {
   event_id: number
   event_format?: Event3Format | string | null
@@ -196,13 +209,18 @@ interface CohostDashboard {
     server_now?: string | null
   }
   participants: CohostParticipant[]
-  sos_requests: SosRequest[]
   locked_phase3_pairs?: LockedPair[]
   choice_pairs?: CohostPairResult[]
   algorithm_pairs?: CohostPairResult[]
   third_choice_pairs?: CohostPairResult[]
   algorithm_conflicting_locks?: number
   notes?: CohostNote[]
+}
+
+interface CohostSupportResponse {
+  event_id: number
+  server_now?: string | null
+  sos_requests: SosRequest[]
 }
 
 interface CohostRankingItem {
@@ -477,10 +495,10 @@ function cohostPairView(pair: CohostPairResult, choiceSlot?: 1 | 2 | 3): PairVie
 }
 
 function reciprocalRankingLabel(item: CohostRankingItem) {
-  if (item.reciprocal_rank != null) return `رتّبك #${item.reciprocal_rank}`
-  if (item.reciprocal_submitted === true) return "لم يرتّبك"
-  if (item.reciprocal_submitted === false) return "لم يرسل بعد"
-  return "الترتيب المقابل غير متاح"
+  if (item.reciprocal_rank != null) return `حطّك في الترتيب #${item.reciprocal_rank}`
+  if (item.reciprocal_submitted === true) return "ما حطّك في ترتيبه"
+  if (item.reciprocal_submitted === false) return "لسه ما أرسل ترتيبه"
+  return "ترتيبه غير متاح"
 }
 
 const PHASE_ORDER: readonly string[] = EVENT3_CHOICE_COHOST_PHASES.map(item => item.phase)
@@ -549,6 +567,24 @@ async function cohostApi<T>(action: string, token: string, extra: Record<string,
   } finally {
     if (timeout) clearTimeout(timeout)
   }
+}
+
+async function loginCohostAccount(participantToken: string): Promise<CohostAccountLoginResponse> {
+  const response = await fetch(API, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "e3-cohost-account-login", participant_token: participantToken.trim() }),
+  })
+  const contentType = response.headers.get("content-type") || ""
+  if (!contentType.includes("application/json")) throw new Error("تعذر الوصول إلى خدمة الفعالية")
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok || !data?.token || !data?.cohost) {
+    const error = new Error(data?.error || "تعذر تسجيل الدخول") as CohostApiError
+    error.status = response.status
+    error.code = data?.code
+    throw error
+  }
+  return data as CohostAccountLoginResponse
 }
 
 function SectionTitle({ icon: Icon, title, detail }: { icon: LucideIcon; title: string; detail?: string }) {
@@ -669,7 +705,7 @@ function CohostPairCard({ pair, onNote, hasNote = false, choiceOnly = false }: {
         <span className="min-w-0 flex-1 break-words">{pair.bName}<span className="mt-0.5 block text-[10px] font-normal text-slate-500">#{pair.b}</span></span>
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] font-bold">
-        <span className="text-amber-100">{pair.table ? `طاولة ${pair.table}` : "بانتظار توزيع الطاولة"}</span>
+        <span className="text-amber-100">{pair.table ? `طاولة ${pair.table}` : "الطاولة ما تحددت"}</span>
         <span className={choice ? "text-pink-200" : "text-violet-200"}>{matchLabel}</span>
       </div>
       {!choiceOnly ? <details className="mt-3 rounded-xl border border-white/[0.07] bg-black/15">
@@ -728,10 +764,14 @@ export default function AdminCohostPage() {
   const [token, setToken] = useState("")
   const [approvedToken, setApprovedToken] = useState("")
   const agreementAccepted = Boolean(token && approvedToken === token)
-  const [password, setPassword] = useState("")
+  const [participantTokenInput, setParticipantTokenInput] = useState("")
+  const [cohostIdentity, setCohostIdentity] = useState<CohostIdentity | null>(null)
   const [loginLoading, setLoginLoading] = useState(false)
   const [rawDashboard, setDashboard] = useState<CohostDashboard | null>(null)
   const dashboard = useMemo(() => rawDashboard ? cohostPhase4VisibilityView(cohostDashboardView(rawDashboard)) : null, [rawDashboard])
+  const [supportRequests, setSupportRequests] = useState<SosRequest[]>([])
+  const [supportLoading, setSupportLoading] = useState(false)
+  const [supportError, setSupportError] = useState("")
   const [liveData, setLiveData] = useState<LiveData>(EMPTY_LIVE_DATA)
   const [loading, setLoading] = useState(false)
   const [liveLoading, setLiveLoading] = useState(false)
@@ -778,25 +818,58 @@ export default function AdminCohostPage() {
   const dashboardRequest = useRef(0)
   const feedbackRequest = useRef(0)
   const operationsRequest = useRef(0)
+  const supportRequest = useRef(0)
   const rankingsRequest = useRef(0)
   const pendingReads = useRef(new Set<string>())
 
   useEffect(() => {
-    setToken(sessionStorage.getItem(SESSION_KEY) || "")
-    setInitialized(true)
+    const existingSession = sessionStorage.getItem(SESSION_KEY) || ""
+    if (existingSession) {
+      setToken(existingSession)
+      setInitialized(true)
+      return
+    }
+
+    const participantToken = getParticipantBrowserToken(window.localStorage)
+    if (!participantToken) {
+      setInitialized(true)
+      return
+    }
+
+    setParticipantTokenInput(participantToken)
+    loginCohostAccount(participantToken).then(data => {
+      sessionStorage.setItem(SESSION_KEY, data.token)
+      setToken(data.token)
+      setCohostIdentity(data.cohost)
+      setPanelLocked(false)
+    }).catch((loginError: CohostApiError) => {
+      if (loginError.code === "COHOST_ACCOUNT_NOT_ALLOWED") {
+        setError("الحساب المسجّل على هذا الجهاز ليس حساب ريهام أو سلطان. غيّر الحساب أو أدخل رمز الحساب الصحيح.")
+      } else if (loginError.code === "COHOST_LOCKED") {
+        setError("دخول لوحة المضيف المساعد متوقف مؤقتاً. جرّب مرة ثانية بعد ما يفتحها المضيف.")
+      } else {
+        setError(loginError.message || "تعذر تسجيل الدخول بالحساب المحفوظ.")
+      }
+    }).finally(() => setInitialized(true))
   }, [])
 
-  const logout = useCallback((message = "") => {
+  const logout = useCallback((message = "", clearAccount = false) => {
     dashboardRequest.current++
     feedbackRequest.current++
     operationsRequest.current++
+    supportRequest.current++
     rankingsRequest.current++
     sessionStorage.removeItem(SESSION_KEY)
     localStorage.removeItem("cohost_auth")
+    if (clearAccount) clearParticipantBrowserIdentity(window.localStorage)
     setCohostDisplayedMutationContext(null)
     setToken("")
     setApprovedToken("")
+    setCohostIdentity(null)
+    if (clearAccount) setParticipantTokenInput("")
     setDashboard(null)
+    setSupportRequests([])
+    setSupportError("")
     setLiveData(EMPTY_LIVE_DATA)
     setRankings([])
     setEditingRanker(null)
@@ -808,10 +881,11 @@ export default function AdminCohostPage() {
     setError(message)
   }, [])
 
-  const acceptAgreement = useCallback((acceptedToken: string) => {
+  const acceptAgreement = useCallback((acceptedToken: string, identity: CohostIdentity) => {
     sessionStorage.setItem(SESSION_KEY, acceptedToken)
     setToken(acceptedToken)
     setApprovedToken(acceptedToken)
+    setCohostIdentity(identity)
     setError("")
   }, [])
 
@@ -821,10 +895,13 @@ export default function AdminCohostPage() {
       dashboardRequest.current++
       feedbackRequest.current++
       operationsRequest.current++
+      supportRequest.current++
       rankingsRequest.current++
       setCohostDisplayedMutationContext(null)
       setApprovedToken("")
       setDashboard(null)
+      setSupportRequests([])
+      setSupportError("")
       setLiveData(EMPTY_LIVE_DATA)
       setRankings([])
       setEditingRanker(null)
@@ -840,7 +917,7 @@ export default function AdminCohostPage() {
       return
     }
     if (status === 401 || status === 403) {
-      logout("انتهت جلسة المضيفة. سجّلي الدخول مرة أخرى.")
+      logout("انتهت الجلسة. يرجى تسجيل الدخول من جديد.")
       return
     }
     setError(requestError instanceof Error ? requestError.message : fallback)
@@ -941,7 +1018,7 @@ export default function AdminCohostPage() {
       setRankings(data.rankings || [])
       setError("")
     } catch (requestError) {
-      if (requestId === rankingsRequest.current && (!quiet || [401, 403, 423].includes((requestError as CohostApiError)?.status || 0))) handleRequestError(requestError, "تعذر تحميل التصنيفات")
+      if (requestId === rankingsRequest.current && (!quiet || [401, 403, 423].includes((requestError as CohostApiError)?.status || 0))) handleRequestError(requestError, "ما قدرنا نحمّل الترتيبات")
     } finally {
       pendingReads.current.delete(key)
       if (!quiet) setRankingsLoading(false)
@@ -1000,8 +1077,33 @@ export default function AdminCohostPage() {
       notifications: results[1].status === "fulfilled" ? results[1].value.notifications || [] : previous.notifications,
     }))
     const rejected = results.find(result => result.status === "rejected")
-    if (rejected?.status === "rejected" && (!quiet || [401, 403, 423].includes((rejected.reason as CohostApiError)?.status || 0))) handleRequestError(rejected.reason, "تعذر تحميل المتابعة المباشرة")
+    if (rejected?.status === "rejected" && (!quiet || [401, 403, 423].includes((rejected.reason as CohostApiError)?.status || 0))) handleRequestError(rejected.reason, "ما قدرنا نحدّث طلبات المساعدة")
     if (!quiet) setLiveLoading(false)
+  }, [agreementAccepted, handleRequestError, token])
+
+  const fetchSupportRequests = useCallback(async (quiet = false) => {
+    if (!agreementAccepted) return
+    const key = `${token}:support-requests`
+    if (pendingReads.current.has(key)) return
+    pendingReads.current.add(key)
+    const requestId = ++supportRequest.current
+    if (!quiet) setSupportLoading(true)
+    try {
+      const data = await cohostApi<CohostSupportResponse>("e3-cohost-support-requests", token)
+      if (requestId !== supportRequest.current) return
+      setSupportRequests(data.sos_requests || [])
+      setSupportError("")
+    } catch (requestError) {
+      if (requestId !== supportRequest.current) return
+      if ([401, 403, 423].includes((requestError as CohostApiError)?.status || 0)) {
+        handleRequestError(requestError, "تعذر تحديث طلبات المساعدة")
+      } else {
+        setSupportError("تعذر تحديث طلبات المساعدة. نعرض آخر طلبات وصلت، وحاول التحديث مرة ثانية.")
+      }
+    } finally {
+      pendingReads.current.delete(key)
+      if (!quiet && requestId === supportRequest.current) setSupportLoading(false)
+    }
   }, [agreementAccepted, handleRequestError, token])
 
   useEffect(() => {
@@ -1019,6 +1121,22 @@ export default function AdminCohostPage() {
       document.removeEventListener("visibilitychange", onVisible)
     }
   }, [agreementAccepted, fetchDashboard])
+
+  useEffect(() => {
+    if (!agreementAccepted || panelLocked) return
+    fetchSupportRequests()
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") fetchSupportRequests(true)
+    }, 6000)
+    const onVisible = () => {
+      if (document.visibilityState === "visible") fetchSupportRequests(true)
+    }
+    document.addEventListener("visibilitychange", onVisible)
+    return () => {
+      window.clearInterval(interval)
+      document.removeEventListener("visibilitychange", onVisible)
+    }
+  }, [agreementAccepted, fetchSupportRequests, panelLocked])
 
   useEffect(() => {
     if (!agreementAccepted || panelLocked || (tab !== "home" && tab !== "feedback")) return
@@ -1091,31 +1209,26 @@ export default function AdminCohostPage() {
 
   const handleLogin = async (event: FormEvent) => {
     event.preventDefault()
-    if (!password.trim()) return
+    const participantToken = participantTokenInput.trim()
+    if (!participantToken) return
     setLoginLoading(true)
     setError("")
     try {
-      const response = await fetch(API, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "e3-cohost-login", password }),
-      })
-      const contentType = response.headers.get("content-type") || ""
-      if (!contentType.includes("application/json")) throw new Error("تعذر الوصول إلى خدمة الفعالية")
-      const data = await response.json().catch(() => ({}))
-      if (!response.ok || !data.token) {
-        if (data.code === "COHOST_NOT_CONFIGURED") {
-          throw new Error("إعداد دخول المضيفة غير مكتمل في النسخة المنشورة. تأكد من متغير Vercel ثم أعد النشر.")
-        }
-        if (data.code === "COHOST_LOCKED") throw new Error("أوقف المضيف لوحة المضيفة مؤقتًا. يمكن الدخول بعد إعادة فتحها من Admin3.")
-        throw new Error(data.error || "كلمة المرور غير صحيحة")
-      }
+      const data = await loginCohostAccount(participantToken)
       sessionStorage.setItem(SESSION_KEY, data.token)
+      localStorage.setItem("blindmatch_result_token", participantToken)
+      localStorage.setItem("blindmatch_returning_token", participantToken)
+      localStorage.setItem("blindmatch_participant_name", data.cohost.profileName)
+      localStorage.setItem("blindmatch_participant_number", String(data.cohost.number))
       setToken(data.token)
+      setCohostIdentity(data.cohost)
       setPanelLocked(false)
-      setPassword("")
     } catch (loginError) {
-      setError(loginError instanceof Error && loginError.message !== "Unauthorized" ? loginError.message : "كلمة المرور غير صحيحة")
+      const failure = loginError as CohostApiError
+      if (failure.code === "COHOST_ACCOUNT_NOT_ALLOWED") setError("هذا الحساب ما عنده صلاحية دخول اللوحة. الدخول متاح لريهام وسلطان فقط.")
+      else if (failure.code === "COHOST_ACCOUNT_REQUIRED") setError("أدخل رمز دخول حساب ريهام أو سلطان.")
+      else if (failure.code === "COHOST_LOCKED") setError("دخول لوحة المضيف المساعد متوقف مؤقتاً. جرّب مرة ثانية بعد ما يفتحها المضيف.")
+      else setError(failure.message || "تعذر تسجيل الدخول. تأكد من رمز الحساب وحاول مرة ثانية.")
     } finally {
       setLoginLoading(false)
     }
@@ -1592,7 +1705,7 @@ export default function AdminCohostPage() {
       await cohostApi("e3-cohost-reply-sos", token, { id: request.id, reply })
       setReplyText(previous => ({ ...previous, [request.id]: "" }))
       setNotice(`تم إرسال الرد إلى ${request.participant_name || `#${request.participant_number}`}`)
-      await fetchDashboard(true)
+      await fetchSupportRequests(true)
     } catch (requestError) {
       handleRequestError(requestError, "تعذر إرسال الرد")
     } finally {
@@ -1606,8 +1719,9 @@ export default function AdminCohostPage() {
     setSosBusy(previous => ({ ...previous, [request.id]: true }))
     try {
       await cohostApi("e3-cohost-resolve-sos", token, { id: request.id })
-      setDashboard(previous => previous ? { ...previous, sos_requests: previous.sos_requests.filter(item => item.id !== request.id) } : previous)
+      setSupportRequests(previous => previous.filter(item => item.id !== request.id))
       setNotice("تم إغلاق طلب المساعدة")
+      await fetchSupportRequests(true)
     } catch (requestError) {
       handleRequestError(requestError, "تعذر إغلاق الطلب")
     } finally {
@@ -1692,29 +1806,31 @@ export default function AdminCohostPage() {
           </div>
           <div className="mt-5 text-center">
             <p className="text-[11px] font-black tracking-[0.16em] text-teal-300">BLINDMATCH · EVENT 3</p>
-            <h1 className="mt-2 text-2xl font-black">أهلًا بكِ 👋</h1>
-            <p className="mt-2 text-sm leading-7 text-slate-300">هذه مساحتك لإدارة الحضور والجداول والمساعدة والرسائل بسهولة أثناء الفعالية.</p>
+            <h1 className="mt-2 text-2xl font-black">دخول المضيف المساعد 👋</h1>
+            <p className="mt-2 text-sm leading-7 text-slate-300">الدخول مخصص لحسابي ريهام وسلطان. إذا كان أحد الحسابين مسجلاً على هذا الجهاز، يتم الدخول تلقائياً.</p>
+            <p className="mt-3 text-xs font-bold text-teal-200">ريهام #1470 · سلطان #1372</p>
           </div>
           <form onSubmit={handleLogin} className="mt-7 space-y-3">
-            <label htmlFor="cohost-password" className="block text-xs font-bold text-slate-300">كلمة مرور المضيفة</label>
+            <label htmlFor="cohost-account-token" className="block text-xs font-bold text-slate-300">رمز دخول الحساب</label>
             <div className="relative">
               <Lock size={17} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" />
               <input
-                id="cohost-password"
+                id="cohost-account-token"
                 type="password"
-                value={password}
-                onChange={event => { setPassword(event.target.value); setError("") }}
-                placeholder="اكتبي كلمة المرور"
-                autoComplete="current-password"
+                value={participantTokenInput}
+                onChange={event => { setParticipantTokenInput(event.target.value); setError("") }}
+                placeholder="الصق رمز دخول حسابك"
+                autoComplete="off"
                 autoFocus
                 className="min-h-12 w-full rounded-xl border border-white/10 bg-black/20 py-3 pl-3 pr-10 text-sm outline-none transition placeholder:text-slate-600 focus:border-teal-300/50"
               />
             </div>
             {error ? <p role="alert" className="rounded-xl border border-red-400/20 bg-red-950/40 px-3 py-2 text-center text-xs leading-5 text-red-200">{error}</p> : null}
-            <button type="submit" disabled={loginLoading || !password.trim()} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-l from-teal-400 to-cyan-400 font-black text-slate-950 transition active:scale-[0.99] disabled:opacity-40">
+            <button type="submit" disabled={loginLoading || !participantTokenInput.trim()} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-l from-teal-400 to-cyan-400 font-black text-slate-950 transition active:scale-[0.99] disabled:opacity-40">
               {loginLoading ? <Loader2 size={18} className="animate-spin" /> : <ShieldCheck size={18} />}
-              دخول آمن
+              تسجيل الدخول
             </button>
+            <a href="/welcome?flow=returning" className="flex min-h-11 items-center justify-center text-xs font-bold text-teal-200 underline underline-offset-4">تسجيل الحساب أو استعادة رمز الدخول</a>
           </form>
         </div>
       </div>
@@ -1726,16 +1842,16 @@ export default function AdminCohostPage() {
   }
 
   if (panelLocked) {
-    return <div className="flex min-h-[100dvh] items-center justify-center bg-[#06090f] p-5 text-white" dir="rtl"><div className="w-full max-w-sm rounded-3xl border border-amber-300/20 bg-[#0b1019] p-6 text-center"><LockKeyhole size={36} className="mx-auto text-amber-200" /><h1 className="mt-4 text-xl font-black">لوحة المضيفة متوقفة مؤقتًا</h1><p className="mt-3 text-sm leading-7 text-slate-300">أوقف المضيف الوصول من لوحة الإدارة. الفعالية مستمرة للمشاركين، وستعود اللوحة تلقائيًا عند إعادة فتحها.</p>{editingNote ? <p className="mt-3 text-xs leading-6 text-amber-100">مسودة الملاحظة ما زالت محفوظة في هذه الصفحة. أبقيها مفتوحة حتى يُعاد الوصول.</p> : null}<button onClick={() => fetchDashboard()} disabled={loading} className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-amber-300 text-sm font-black text-slate-950 disabled:opacity-40"><RefreshCw size={17} className={loading ? "animate-spin" : ""} /> تحقق من إعادة الفتح</button><button onClick={() => logout()} className="mt-2 min-h-11 w-full rounded-xl text-xs font-bold text-slate-400">تسجيل الخروج</button></div></div>
+    return <div className="flex min-h-[100dvh] items-center justify-center bg-[#06090f] p-5 text-white" dir="rtl"><div className="w-full max-w-sm rounded-3xl border border-amber-300/20 bg-[#0b1019] p-6 text-center"><LockKeyhole size={36} className="mx-auto text-amber-200" /><h1 className="mt-4 text-xl font-black">اللوحة مقفلة مؤقتاً</h1><p className="mt-3 text-sm leading-7 text-slate-300">المضيف وقف دخول لوحة المضيفة مؤقتاً. الفعالية مستمرة بشكل طبيعي، واللوحة تفتح لك أول ما يسمح بالدخول من جديد.</p>{editingNote ? <p className="mt-3 text-xs leading-6 text-amber-100">مسودة ملاحظتك ما زالت موجودة هنا. خلي الصفحة مفتوحة إلى أن ترجع اللوحة.</p> : null}<button onClick={() => fetchDashboard()} disabled={loading} className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-amber-300 text-sm font-black text-slate-950 disabled:opacity-40"><RefreshCw size={17} className={loading ? "animate-spin" : ""} /> جرّبي الدخول مرة ثانية</button><button onClick={() => logout("", true)} className="mt-2 min-h-11 w-full rounded-xl text-xs font-bold text-slate-400">تسجيل الخروج</button></div></div>
   }
 
   const tabs: Array<{ value: CohostTab; label: string; icon: LucideIcon; badge?: number; badgeTone?: "amber" | "red" }> = [
-    { value: "home", label: "الرئيسية", icon: LayoutDashboard },
+    { value: "home", label: "الملخص", icon: LayoutDashboard },
     { value: "people", label: "الحضور", icon: Users },
-    { value: "rankings", label: "التصنيفات", icon: ListOrdered, badge: rankingPhaseActive ? Math.max(0, participants.length - rankingCount) : undefined, badgeTone: "amber" },
-    { value: "tables", label: "الجداول", icon: Table2 },
+    { value: "rankings", label: "الترتيب", icon: ListOrdered, badge: rankingPhaseActive ? Math.max(0, participants.length - rankingCount) : undefined, badgeTone: "amber" },
+    { value: "tables", label: "الطاولات", icon: Table2 },
     { value: "feedback", label: "التقييمات", icon: ClipboardCheck, badge: feedbackIncompleteTotal, badgeTone: "amber" },
-    { value: "support", label: "المتابعة", icon: Headphones, badge: dashboard?.sos_requests.length || 0, badgeTone: "red" },
+    { value: "support", label: "المساعدة", icon: Headphones, badge: supportRequests.length || 0, badgeTone: "red" },
   ]
 
   return (
@@ -1750,13 +1866,14 @@ export default function AdminCohostPage() {
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <h1 className="truncate text-sm font-black">لوحة المضيفة · فعالية {dashboard?.event_id ?? "—"}</h1>
+                  <h1 className="truncate text-sm font-black">متابعة المضيف المساعد · فعالية {dashboard?.event_id ?? "—"}</h1>
                   {testMode ? <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-0.5 text-[9px] font-black text-amber-200">اختبار</span> : null}
                 </div>
                 <div className={`mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] font-bold ${connectionIssue ? "text-amber-200" : "text-teal-300"}`}>
                   <Wifi size={11} />
-                  <span>{connectionIssue ? "الاتصال متعثر · نعرض آخر بيانات محفوظة" : phaseLabel(dashboard?.state.phase, choiceOnly)}</span>
+                  <span>{connectionIssue ? "الاتصال ضعيف · نعرض آخر تحديث وصلنا" : phaseLabel(dashboard?.state.phase, choiceOnly)}</span>
                   {lastUpdated ? <span className="font-normal text-slate-500">· تحديث {formatTime(lastUpdated.toISOString())}</span> : null}
+                  {cohostIdentity ? <span className="font-normal text-slate-400">· {cohostIdentity.displayName} #{cohostIdentity.number}</span> : null}
                 </div>
               </div>
             </div>
@@ -1772,7 +1889,7 @@ export default function AdminCohostPage() {
               <button onClick={() => fetchDashboard()} disabled={loading} aria-label="تحديث البيانات" className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-slate-300 disabled:opacity-50">
                 <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
               </button>
-              <button onClick={() => logout()} aria-label="تسجيل الخروج" className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-slate-400 hover:text-red-200">
+              <button onClick={() => logout("", true)} aria-label="تسجيل الخروج" className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-slate-400 hover:text-red-200">
                 <LogOut size={16} />
               </button>
             </div>
@@ -1784,7 +1901,7 @@ export default function AdminCohostPage() {
         {testMode ? (
           <div className="flex gap-3 rounded-2xl border border-amber-300/30 bg-amber-300/10 p-3 text-amber-100">
             <TestTube2 size={20} className="mt-0.5 shrink-0" />
-            <div><p className="text-xs font-black">وضع الاختبار يعمل الآن</p><p className="mt-1 text-[11px] leading-5 text-amber-100/75">النتائج والطاولات المعروضة تتبع جلسة الاختبار الحالية. تحققي من شارة الاختبار قبل أي متابعة.</p></div>
+            <div><p className="text-xs font-black">أنتِ الآن في وضع الاختبار</p><p className="mt-1 text-[11px] leading-5 text-amber-100/75">كل الأسماء والطاولات اللي تشوفينها تجريبية. تأكدي من شارة «اختبار» قبل أي متابعة.</p></div>
           </div>
         ) : null}
 
@@ -1809,11 +1926,11 @@ export default function AdminCohostPage() {
 
             <section className={`grid grid-cols-2 gap-2 ${choiceOnly ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
               {[
-                { label: "الحاضرين", value: `${attendedCount}/${participants.length}`, icon: UserCheck, color: "text-teal-300" },
-                { label: "أرسلوا الترتيب", value: `${rankingCount}/${participants.length}`, icon: CheckCircle2, color: "text-amber-300" },
-                { label: "طلبات المساعدة", value: dashboard?.sos_requests.length || 0, icon: Bell, color: dashboard?.sos_requests.length ? "text-red-300" : "text-slate-300" },
-                { label: choiceOnly ? "مطابقات الاختيار الثاني" : "مطابقات الخوارزمية", value: phase3Pairs.length, icon: choiceOnly ? Heart : Sparkles, color: "text-violet-300" },
-                ...(choiceOnly ? [{ label: "مطابقات الاختيار الثالث", value: phase4Pairs.length, icon: Heart, color: "text-cyan-300" }] : []),
+                { label: "وصلوا", value: `${attendedCount}/${participants.length}`, icon: UserCheck, color: "text-teal-300" },
+                { label: "أرسلوا ترتيبهم", value: `${rankingCount}/${participants.length}`, icon: CheckCircle2, color: "text-amber-300" },
+                { label: "طلبات المساعدة", value: supportRequests.length, icon: Bell, color: supportRequests.length ? "text-red-300" : "text-slate-300" },
+                { label: choiceOnly ? "لقاءات الاختيار الثاني" : "لقاءات الخوارزمية", value: phase3Pairs.length, icon: choiceOnly ? Heart : Sparkles, color: "text-violet-300" },
+                ...(choiceOnly ? [{ label: "لقاءات الاختيار الثالث", value: phase4Pairs.length, icon: Heart, color: "text-cyan-300" }] : []),
               ].map(item => (
                 <div key={item.label} className="rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3">
                   <div className="flex items-center justify-between"><item.icon size={17} className={item.color} /><span className="text-xl font-black tabular-nums">{item.value}</span></div>
@@ -1826,56 +1943,56 @@ export default function AdminCohostPage() {
               <button onClick={() => setTab("feedback")} className={`flex min-h-[5.25rem] items-center gap-3 rounded-2xl border p-3 text-right ${feedbackIncompleteTotal ? "border-amber-300/25 bg-amber-300/[0.07]" : "border-teal-300/20 bg-teal-300/[0.05]"}`}>
                 <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${feedbackIncompleteTotal ? "bg-amber-300/12 text-amber-200" : "bg-teal-300/12 text-teal-200"}`}><ClipboardCheck size={21} /></span>
                 <span className="min-w-0 flex-1">
-                  <span className="flex items-center justify-between gap-2"><span className="text-sm font-black">التقييمات المباشرة</span><span className={`rounded-full px-2 py-1 text-[10px] font-black ${feedbackIncompleteTotal ? "bg-amber-300/15 text-amber-100" : "bg-teal-300/15 text-teal-100"}`}>{feedbackIncompleteTotal ? `${feedbackIncompleteTotal} غير مكتمل` : "مكتملة حتى الآن"}</span></span>
-                  <span className="mt-1.5 block text-[10px] leading-5 text-slate-400">جماعي: {groupFeedbackRemaining} متبقٍ ({groupFeedbackPartial} بدأ) · فردي: {individualFeedbackMissing} متبقٍ</span>
+                  <span className="flex items-center justify-between gap-2"><span className="text-sm font-black">متابعة التقييمات</span><span className={`rounded-full px-2 py-1 text-[10px] font-black ${feedbackIncompleteTotal ? "bg-amber-300/15 text-amber-100" : "bg-teal-300/15 text-teal-100"}`}>{feedbackIncompleteTotal ? `${feedbackIncompleteTotal} باقي` : "كلها مكتملة"}</span></span>
+                  <span className="mt-1.5 block text-[10px] leading-5 text-slate-400">الجماعي: باقي {groupFeedbackRemaining} ({groupFeedbackPartial} بدؤوا) · الفردي: باقي {individualFeedbackMissing}</span>
                 </span>
               </button>
               <button onClick={() => setTab("messages")} className="flex min-h-[5.25rem] items-center gap-3 rounded-2xl border border-cyan-300/18 bg-cyan-300/[0.045] p-3 text-right">
                 <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-cyan-300/10 text-cyan-200"><MessageCircle size={21} /></span>
-                <span className="min-w-0 flex-1"><span className="block text-sm font-black">التواصل والاطمئنان</span><span className="mt-1.5 block text-[10px] leading-5 text-slate-400">رسالة لمشارك أو للجميع، أو سؤال مزاج لشخص أو طاولة.</span></span>
+                <span className="min-w-0 flex-1"><span className="block text-sm font-black">الرسائل والاطمئنان</span><span className="mt-1.5 block text-[10px] leading-5 text-slate-400">أرسلي رسالة، أو اطمئني على شخص أو طاولة.</span></span>
               </button>
             </section>
 
-            {dashboard?.sos_requests.length ? (
+            {supportRequests.length ? (
               <button onClick={() => setTab("support")} className="flex min-h-16 w-full items-center gap-3 rounded-2xl border border-red-400/30 bg-red-950/35 p-3 text-right">
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-400/15"><Bell size={20} className="animate-pulse text-red-200" /></span>
-                <span className="min-w-0 flex-1"><span className="block text-sm font-black text-red-100">هناك {dashboard.sos_requests.length} طلب مساعدة</span><span className="mt-1 block truncate text-[11px] text-red-200/70">افتحي المتابعة للرد بسرعة</span></span>
+                <span className="min-w-0 flex-1"><span className="block text-sm font-black text-red-100">فيه {supportRequests.length} طلب مساعدة</span><span className="mt-1 block truncate text-[11px] text-red-200/70">افتحي الطلب وشوفي وش يحتاج</span></span>
               </button>
             ) : null}
 
             <section className="space-y-3">
-              <SectionTitle icon={choiceOnly ? Heart : Sparkles} title={choiceOnly ? "مطابقات الاختيار الثاني جاهزة" : "المطابقات جاهزة للرؤية"} detail={choiceOnly ? "هذه لقاءات الاختيار الثاني المعتمدة بعد استبعاد شريك اللقاء الأول." : "تظهر المطابقات المقفلة حتى قبل تشغيل الخوارزمية أو توزيع الطاولات."} />
+              <SectionTitle icon={choiceOnly ? Heart : Sparkles} title={choiceOnly ? "لقاءات الاختيار الثاني جاهزة" : "اللقاءات الجاهزة"} detail={choiceOnly ? "هذه اللقاءات المعتمدة للاختيار الثاني، وكل شخص يقابل شريكاً مختلفاً عن اللقاء الأول." : "هنا تظهر اللقاءات المعتمدة، حتى لو ما توزعت الطاولات إلى الآن."} />
               {phase3Pairs.length ? (
                 <div className="grid gap-2 md:grid-cols-2">
                   {phase3Pairs.slice(0, 6).map(pair => (
                     <CohostPairCard key={pairKey(pair.a, pair.b)} pair={pair} onNote={() => openPairNote(pair, 30)} hasNote={notesByKey.has(`pair:30:${pairKey(pair.a, pair.b)}`)} choiceOnly={choiceOnly} />
                   ))}
                 </div>
-              ) : <div className="rounded-2xl border border-dashed border-white/10 p-5 text-center text-xs leading-6 text-slate-400">{choiceOnly ? "لم تظهر مطابقات الاختيار الثاني لهذه الفعالية حتى الآن." : "لا توجد مطابقة خوارزمية مقفلة لهذه الفعالية حتى الآن."}</div>}
-              {phase3Pairs.length > 6 ? <button onClick={() => setTab("tables")} className="min-h-11 w-full rounded-xl border border-white/10 text-xs font-bold text-teal-200">عرض كل المطابقات</button> : null}
+              ) : <div className="rounded-2xl border border-dashed border-white/10 p-5 text-center text-xs leading-6 text-slate-400">{choiceOnly ? "لقاءات الاختيار الثاني ما جهزت إلى الآن." : "ما فيه لقاءات معتمدة من الخوارزمية إلى الآن."}</div>}
+              {phase3Pairs.length > 6 ? <button onClick={() => setTab("tables")} className="min-h-11 w-full rounded-xl border border-white/10 text-xs font-bold text-teal-200">عرض كل اللقاءات</button> : null}
             </section>
 
             {choiceOnly ? (
               <section className="space-y-3">
-                <SectionTitle icon={Heart} title="مطابقات الاختيار الثالث جاهزة" detail="هذه لقاءات الاختيار الثالث المعتمدة بعد استبعاد شريكي اللقاءين الأول والثاني." />
+                <SectionTitle icon={Heart} title="لقاءات الاختيار الثالث جاهزة" detail="هذه اللقاءات المعتمدة للاختيار الثالث، مع شريك مختلف عن اللقاءين السابقين." />
                 {phase4Pairs.length ? (
                   <div className="grid gap-2 md:grid-cols-2">
                     {phase4Pairs.slice(0, 6).map(pair => (
                       <CohostPairCard key={pairKey(pair.a, pair.b)} pair={pair} onNote={() => openPairNote(pair, 40)} hasNote={notesByKey.has(`pair:40:${pairKey(pair.a, pair.b)}`)} choiceOnly />
                     ))}
                   </div>
-                ) : <div className="rounded-2xl border border-dashed border-white/10 p-5 text-center text-xs leading-6 text-slate-400">لم تظهر مطابقات الاختيار الثالث لهذه الفعالية حتى الآن.</div>}
+                ) : <div className="rounded-2xl border border-dashed border-white/10 p-5 text-center text-xs leading-6 text-slate-400">لقاءات الاختيار الثالث ما جهزت إلى الآن.</div>}
                 {phase4Pairs.length > 6 ? <button onClick={() => setTab("tables")} className="min-h-11 w-full rounded-xl border border-white/10 text-xs font-bold text-teal-200">عرض كل مطابقات الاختيار الثالث</button> : null}
               </section>
             ) : null}
 
             <section className="space-y-3">
-              <SectionTitle icon={Table2} title={round ? `الطاولات الآن · ${roundLabel(round, choiceOnly)}` : "نظرة سريعة على الطاولات"} detail={round ? "استخدمي الأسماء لتوجيه المشاركين بسرعة إلى أماكنهم الحالية." : "ستظهر الطاولات الحالية هنا عند بدء جلسة."} />
+              <SectionTitle icon={Table2} title={round ? `الطاولات الآن · ${roundLabel(round, choiceOnly)}` : "الطاولات الآن"} detail={round ? "من هنا تعرفين وين يروح كل شخص بسرعة." : "أول ما تبدأ الجلسة، بتظهر الطاولات هنا."} />
               {round && tableGroups[round]?.length ? (
                 <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
                   {tableGroups[round].map(group => <div key={group.table} className="rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3"><p className="text-xs font-black text-amber-200">طاولة {group.table}</p><p className="mt-2 text-[11px] leading-5 text-slate-300">{group.members.map(member => firstName(member.name)).join("، ")}</p><button onClick={() => openNote({ scope_type: "table", scope_key: `table:${round}:${group.table}`, round, table_number: group.table })} className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/[0.07] text-[11px] font-bold text-amber-100"><NotebookPen size={14} />{notesByKey.has(`table:${round}:${group.table}`) ? "عرض ملاحظة الطاولة" : "ملاحظة للطاولة"}</button></div>)}
                 </div>
-              ) : <div className="rounded-2xl border border-dashed border-white/10 p-5 text-center text-xs text-slate-400">لا توجد جلسة بطاولات نشطة الآن. كل التوزيعات محفوظة في تبويب الجداول.</div>}
+              ) : <div className="rounded-2xl border border-dashed border-white/10 p-5 text-center text-xs text-slate-400">ما فيه جلسة شغالة الآن. تقدرين تشوفين كل التوزيعات من قسم الطاولات.</div>}
             </section>
 
             <button onClick={() => openNote({ scope_type: "event", scope_key: "event" })} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/20 bg-amber-300/[0.04] text-xs font-black text-amber-100"><NotebookPen size={17} />{notesByKey.has("event") ? "عرض الملاحظة العامة للفعالية" : "إضافة ملاحظة عامة للفعالية"}<span className="text-[10px] font-normal text-slate-400">· خاصة بالمنظمين</span></button>
@@ -1883,9 +2000,9 @@ export default function AdminCohostPage() {
           </>
         ) : tab === "people" ? (
           <section className="space-y-3">
-            <SectionTitle icon={Users} title={`الحضور والمشاركون · ${participants.length}`} detail="اضغطي زر الحضور فقط عند التأكد. الرسالة ترسل تنبيهًا داخل صفحة الفعالية." />
+            <SectionTitle icon={Users} title={`قائمة الحضور · ${participants.length}`} detail="سجّلي الشخص حاضر بعد ما تتأكدين إنه وصل. بيجيه إشعار داخل صفحة الفعالية." />
             <div className="grid grid-cols-3 gap-2" aria-label="تصفية الحضور">
-              {([{ value: "all", label: "الجميع", count: participants.length }, { value: "attended", label: "الحاضرون", count: attendedCount }, { value: "pending", label: "لم يصلوا", count: participants.length - attendedCount }] as const).map(filter => <button key={filter.value} type="button" aria-pressed={peopleFilter === filter.value} onClick={() => setPeopleFilter(filter.value)} className={`min-h-12 rounded-xl border px-2 py-2 text-xs font-bold ${peopleFilter === filter.value ? "border-teal-300/25 bg-teal-300/10 text-teal-100" : "border-white/10 text-slate-400"}`}>{filter.label} · {filter.count}</button>)}
+              {([{ value: "all", label: "الكل", count: participants.length }, { value: "attended", label: "وصلوا", count: attendedCount }, { value: "pending", label: "باقي", count: participants.length - attendedCount }] as const).map(filter => <button key={filter.value} type="button" aria-pressed={peopleFilter === filter.value} onClick={() => setPeopleFilter(filter.value)} className={`min-h-12 rounded-xl border px-2 py-2 text-xs font-bold ${peopleFilter === filter.value ? "border-teal-300/25 bg-teal-300/10 text-teal-100" : "border-white/10 text-slate-400"}`}>{filter.label} · {filter.count}</button>)}
             </div>
             <div className="relative">
               <Search size={17} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -1902,7 +2019,7 @@ export default function AdminCohostPage() {
                   <article key={participant.number} className={`rounded-2xl border p-3 ${participant.attended ? "border-teal-300/20 bg-teal-950/20" : "border-white/[0.07] bg-white/[0.03]"}`}>
                     <button type="button" onClick={() => setViewingParticipant(participant.number)} aria-label={`عرض ملف ${participant.name}`} className="flex min-h-14 w-full items-start gap-3 rounded-xl text-right focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-300">
                       <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border text-sm font-black ${participant.attended ? "border-teal-300/25 bg-teal-300/10 text-teal-200" : "border-white/10 bg-black/20 text-slate-400"}`}>#{participant.number}</div>
-                      <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="truncate text-sm font-black">{participant.name}</h3>{participant.first_time ? <span className="rounded-full bg-cyan-300/10 px-2 py-0.5 text-[9px] font-bold text-cyan-200">أول فعالية</span> : null}</div><p className="mt-1 text-[10px] text-slate-400">{participant.age ? `${participant.age} سنة` : "العمر غير ظاهر"} · {participant.ranking_submitted ? "الترتيب وصل" : "بانتظار الترتيب"}</p></div>
+                      <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="truncate text-sm font-black">{participant.name}</h3>{participant.first_time ? <span className="rounded-full bg-cyan-300/10 px-2 py-0.5 text-[9px] font-bold text-cyan-200">أول فعالية</span> : null}</div><p className="mt-1 text-[10px] text-slate-400">{participant.age ? `${participant.age} سنة` : "العمر غير متاح"} · {participant.ranking_submitted ? "أرسل ترتيبه" : "لسه ما أرسل ترتيبه"}</p></div>
                       <ChevronDown size={18} className="mt-3 shrink-0 -rotate-90 text-teal-200" />
                     </button>
                     <div className="mt-3 flex flex-wrap gap-1.5 text-[10px]">
@@ -1911,9 +2028,9 @@ export default function AdminCohostPage() {
                       {phase3Partner ? <span className="rounded-lg bg-violet-300/10 px-2 py-1 text-violet-100">{choiceOnly ? "الاختيار الثاني" : "خوارزمية"}: {firstName(phase3Partner.name)}</span> : null}
                       {choiceOnly && phase4PartnerLabel ? <span className="rounded-lg bg-cyan-300/10 px-2 py-1 text-cyan-100">الاختيار الثالث: {firstName(phase4PartnerLabel)}</span> : null}
                     </div>
-                    <button type="button" onClick={() => setViewingParticipant(participant.number)} className="mt-3 min-h-11 w-full rounded-xl border border-teal-300/15 bg-teal-300/[0.04] text-xs font-bold text-teal-100">الملف والسجل السابق</button>
+                    <button type="button" onClick={() => setViewingParticipant(participant.number)} className="mt-3 min-h-11 w-full rounded-xl border border-teal-300/15 bg-teal-300/[0.04] text-xs font-bold text-teal-100">عرض الملف والسجل</button>
                     <div className="mt-3 grid grid-cols-2 gap-2">
-                      <button onClick={() => toggleAttendance(participant)} disabled={toggling[participant.number]} aria-pressed={participant.attended} className={`flex min-h-11 items-center justify-center gap-2 rounded-xl text-xs font-black ${participant.attended ? "border border-teal-300/25 bg-teal-300/10 text-teal-100" : "border border-white/10 bg-white/[0.04] text-slate-200"}`}>{toggling[participant.number] ? <Loader2 size={15} className="animate-spin" /> : participant.attended ? <CheckCircle2 size={16} /> : <Circle size={16} />}{participant.attended ? "حاضرة/حاضر" : "تسجيل حضور"}</button>
+                      <button onClick={() => toggleAttendance(participant)} disabled={toggling[participant.number]} aria-pressed={participant.attended} className={`flex min-h-11 items-center justify-center gap-2 rounded-xl text-xs font-black ${participant.attended ? "border border-teal-300/25 bg-teal-300/10 text-teal-100" : "border border-white/10 bg-white/[0.04] text-slate-200"}`}>{toggling[participant.number] ? <Loader2 size={15} className="animate-spin" /> : participant.attended ? <CheckCircle2 size={16} /> : <Circle size={16} />}{participant.attended ? "وصل ✓" : "تسجيل الوصول"}</button>
                       <button onClick={() => openParticipantMessage(participant)} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] text-xs font-black text-slate-200"><Megaphone size={15} /> تنبيه</button>
                     </div>
                     <button onClick={() => openNote({ scope_type: "participant", scope_key: `participant:${participant.number}`, participant_number: participant.number })} className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/[0.07] text-[11px] font-bold text-amber-100"><NotebookPen size={14} />{notesByKey.has(`participant:${participant.number}`) ? "عرض الملاحظة الخاصة" : "ملاحظة خاصة عن المشارك"}</button>
@@ -1921,13 +2038,13 @@ export default function AdminCohostPage() {
                 )
               })}
             </div>
-            {!filteredParticipants.length ? <div className="py-16 text-center text-sm text-slate-400">لا يوجد مشارك يطابق البحث.</div> : null}
+            {!filteredParticipants.length ? <div className="py-16 text-center text-sm text-slate-400">ما لقينا أحد يطابق بحثك.</div> : null}
           </section>
         ) : tab === "rankings" ? (
           <section className="space-y-4">
             <div className="flex items-start justify-between gap-3">
-              <SectionTitle icon={ListOrdered} title="تصنيفات المشاركين" detail={rankingPhaseActive ? "الترتيب مفتوح الآن. يمكن تعديل ترتيب الأسماء نفسها فقط؛ اللقاءات المعتمدة سابقًا لا تتغير تلقائيًا." : "التصنيفات للعرض الآن. يفتح التعديل فقط أثناء مرحلة الترتيب الحالية."} />
-              <button onClick={() => fetchRankings()} disabled={rankingsLoading || editingRanker !== null} aria-label="تحديث التصنيفات" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] disabled:opacity-40">
+              <SectionTitle icon={ListOrdered} title="ترتيب المشاركين" detail={rankingPhaseActive ? "الترتيب مفتوح الآن. تقدرين تغيّرين ترتيب الأسماء الموجودة فقط، واللقاءات اللي اعتمدناها قبل ما تتغير تلقائياً." : "الترتيبات للعرض فقط الآن. التعديل يفتح وقت مرحلة الترتيب."} />
+              <button onClick={() => fetchRankings()} disabled={rankingsLoading || editingRanker !== null} aria-label="تحديث الترتيبات" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] disabled:opacity-40">
                 <RefreshCw size={15} className={rankingsLoading ? "animate-spin" : ""} />
               </button>
             </div>
@@ -1939,7 +2056,7 @@ export default function AdminCohostPage() {
             </div>
 
             <div className="space-y-2 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-2">
-              <div role="tablist" aria-label="تصفية التصنيفات" className="grid grid-cols-3 gap-1">
+              <div role="tablist" aria-label="تصفية الترتيبات" className="grid grid-cols-3 gap-1">
                 {([
                   { value: "all", label: `الجميع ${rankings.length}` },
                   { value: "submitted", label: `أرسلوا ${submittedRankingsCount}` },
@@ -1950,11 +2067,11 @@ export default function AdminCohostPage() {
               </div>
               <div className="relative">
                 <Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                <input value={rankingSearch} onChange={event => setRankingSearch(event.target.value)} aria-label="البحث في التصنيفات" placeholder="ابحثي بالاسم أو الرقم" className="min-h-11 w-full rounded-xl border border-white/[0.08] bg-black/20 py-2 pl-3 pr-9 text-xs outline-none placeholder:text-slate-600 focus:border-teal-300/40" />
+                <input value={rankingSearch} onChange={event => setRankingSearch(event.target.value)} aria-label="البحث في الترتيبات" placeholder="ابحثي بالاسم أو الرقم" className="min-h-11 w-full rounded-xl border border-white/[0.08] bg-black/20 py-2 pl-3 pr-9 text-xs outline-none placeholder:text-slate-600 focus:border-teal-300/40" />
               </div>
             </div>
 
-            {rankingsLoading && !rankings.length ? <div className="flex min-h-48 items-center justify-center gap-2 text-xs text-slate-400"><Loader2 size={18} className="animate-spin text-teal-300" /> جاري تحميل التصنيفات…</div> : null}
+            {rankingsLoading && !rankings.length ? <div className="flex min-h-48 items-center justify-center gap-2 text-xs text-slate-400"><Loader2 size={18} className="animate-spin text-teal-300" /> جاري تحميل الترتيبات…</div> : null}
 
             <div className="grid gap-2 md:grid-cols-2">
               {filteredRankings.map(ranking => {
@@ -1966,7 +2083,7 @@ export default function AdminCohostPage() {
                       <div className="min-w-0">
                         <h3 className="truncate text-sm font-black">{ranking.name} <span className="text-[10px] font-normal text-slate-500">#{ranking.number}</span></h3>
                         {tableBadges.length ? <div className="mt-1.5 flex flex-wrap gap-1">{tableBadges.map(table => <span key={table.key} className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[9px] font-black ${table.live ? "border-amber-300/25 bg-amber-300/[0.08] text-amber-100" : "border-white/[0.07] bg-black/15 text-slate-400"}`}><MapPin size={10} />{table.label}</span>)}</div> : null}
-                        <p className={`mt-1.5 text-[10px] font-bold ${ranking.submitted ? "text-teal-200" : "text-amber-200"}`}>{ranking.submitted ? `${ranking.count} أسماء مرتبة${ranking.auto_saved ? " · حفظ تلقائي" : ""}` : ranking.count > 0 ? `${ranking.count} / ${ranking.expected_count} · غير مكتمل` : "لم يرسل التصنيف بعد"}</p>
+                        <p className={`mt-1.5 text-[10px] font-bold ${ranking.submitted ? "text-teal-200" : "text-amber-200"}`}>{ranking.submitted ? `رتّب ${ranking.count} أسماء${ranking.auto_saved ? " · انحفظ تلقائياً" : ""}` : ranking.count > 0 ? `${ranking.count} / ${ranking.expected_count} · باقي ما كمل` : "لسه ما أرسل ترتيبه"}</p>
                       </div>
                       {rankingPhaseActive && ranking.submitted && !isEditing ? <button onClick={() => startRankingEdit(ranking)} disabled={editingRanker !== null} className="flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-[10px] font-black text-slate-200 disabled:opacity-40"><Pencil size={13} /> تعديل</button> : null}
                     </div>
@@ -1974,7 +2091,7 @@ export default function AdminCohostPage() {
                     {ranking.count > 0 ? (
                       isEditing ? (
                         <div className="mt-3 space-y-2 border-t border-white/[0.07] pt-3">
-                          <p className="text-[10px] leading-5 text-amber-100/70">حرّكي الأسماء ثم احفظي. لا يمكن تغيير من هم داخل القائمة.</p>
+                          <p className="text-[10px] leading-5 text-amber-100/70">رتّبي الأسماء للأعلى أو للأسفل ثم احفظي. ما تقدرين تضيفين أو تحذفين أحد.</p>
                           {rankingDraft.map((item, index) => (
                             <div key={item.number} className="flex items-center gap-2 rounded-xl border border-white/[0.07] bg-black/20 p-2">
                               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-300/10 text-xs font-black text-teal-200">{index + 1}</span>
@@ -1993,16 +2110,16 @@ export default function AdminCohostPage() {
                           {ranking.ranked_list.map(item => <li key={item.number} className="flex items-center gap-2 rounded-xl bg-black/15 px-2.5 py-2"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-300/10 text-[10px] font-black text-teal-200">{item.rank}</span><span className="min-w-0 flex-1"><span className="block truncate text-[11px] text-slate-200">{item.name} <span className="text-slate-500">#{item.number}</span></span><span className={`mt-1 block text-[10px] ${item.reciprocal_rank != null ? "text-amber-100" : "text-slate-500"}`}>{reciprocalRankingLabel(item)}{item.reciprocal_auto_saved ? " · حفظ تلقائي" : ""}</span></span></li>)}
                         </ol>
                       )
-                    ) : <p className="mt-3 rounded-xl border border-dashed border-amber-300/15 p-3 text-center text-[10px] leading-5 text-amber-100/60">سيظهر ترتيبه هنا فور الإرسال. لا يمكن إنشاء اختيار بالنيابة من لوحة المضيفة.</p>}
+                    ) : <p className="mt-3 rounded-xl border border-dashed border-amber-300/15 p-3 text-center text-[10px] leading-5 text-amber-100/60">بيظهر ترتيبه هنا أول ما يرسله. ما تقدرين تختارين بالنيابة عنه.</p>}
                   </article>
                 )
               })}
             </div>
-            {!rankingsLoading && !filteredRankings.length ? <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center text-xs text-slate-400">لا توجد نتائج تطابق البحث أو التصفية.</div> : null}
+            {!rankingsLoading && !filteredRankings.length ? <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center text-xs text-slate-400">ما فيه نتائج تطابق بحثك.</div> : null}
           </section>
         ) : tab === "tables" ? (
           <section className="space-y-5">
-            <SectionTitle icon={Table2} title="كل الجداول والمطابقات" detail={choiceOnly ? "توزيعات الجولات الثلاث ولقاءات الاختيار الثلاثة." : "توزيعات الفعالية كاملة، مع المطابقات المقفلة قبل تعيين الطاولات."} />
+            <SectionTitle icon={Table2} title="كل الطاولات واللقاءات" detail={choiceOnly ? "هنا تلقين توزيعات الجولات الثلاث وكل اللقاءات الفردية." : "هنا تلقين كل توزيعات الفعالية واللقاءات المعتمدة."} />
             <div className={`grid gap-2 ${choiceOnly ? "grid-cols-3" : "grid-cols-2"}`}><a href="#cohost-choice-pairs" className="flex min-h-11 items-center justify-center rounded-xl border border-pink-300/20 text-[11px] font-black text-pink-100">{choiceOnly ? "الاختيار الأول" : "الاختيار"} · {phase2Pairs.length}</a><a href="#cohost-algorithm-pairs" className="flex min-h-11 items-center justify-center rounded-xl border border-violet-300/20 text-[11px] font-black text-violet-100">{choiceOnly ? "الاختيار الثاني" : "الخوارزمية"} · {phase3Pairs.length}</a>{choiceOnly ? <a href="#cohost-third-choice-pairs" className="flex min-h-11 items-center justify-center rounded-xl border border-cyan-300/20 text-[11px] font-black text-cyan-100">الاختيار الثالث · {phase4Pairs.length}</a> : null}</div>
             {(choiceOnly ? [1, 2, 3, 20, 30, 40] : [1, 2, 3, 20, 30]).sort((left, right) => Number(right === round) - Number(left === round)).map(tableRound => tableGroups[tableRound]?.length ? (
               <div key={tableRound} className="space-y-2">
@@ -2018,48 +2135,48 @@ export default function AdminCohostPage() {
                 </div>
               </div>
             ) : null)}
-            {!Object.values(tableGroups).some(groups => groups.length) ? <div className="rounded-2xl border border-dashed border-white/10 p-6 text-center text-xs text-slate-400">لم يتم تعيين أي طاولة بعد.</div> : null}
+            {!Object.values(tableGroups).some(groups => groups.length) ? <div className="rounded-2xl border border-dashed border-white/10 p-6 text-center text-xs text-slate-400">الطاولات ما توزعت إلى الآن.</div> : null}
 
             <div id="cohost-choice-pairs" className="scroll-mt-40 space-y-2">
               <h3 className="flex items-center gap-2 text-xs font-black text-pink-200"><Heart size={15} /> {choiceOnly ? "مطابقات الاختيار الأول" : "مطابقات اختيار المشاركين"} · {phase2Pairs.length}</h3>
-              {phase2Pairs.length ? <div className="grid gap-2 md:grid-cols-2">{phase2Pairs.map(pair => <CohostPairCard key={pairKey(pair.a, pair.b)} pair={pair} onNote={() => openPairNote(pair, 20)} hasNote={notesByKey.has(`pair:20:${pairKey(pair.a, pair.b)}`)} choiceOnly={choiceOnly} />)}</div> : <p className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs text-slate-400">{choiceOnly ? "لم تظهر مطابقات الاختيار الأول بعد." : "لم تظهر مطابقات الاختيار بعد. ستظهر هنا فور اعتماد اختيار المشاركين."}</p>}
+              {phase2Pairs.length ? <div className="grid gap-2 md:grid-cols-2">{phase2Pairs.map(pair => <CohostPairCard key={pairKey(pair.a, pair.b)} pair={pair} onNote={() => openPairNote(pair, 20)} hasNote={notesByKey.has(`pair:20:${pairKey(pair.a, pair.b)}`)} choiceOnly={choiceOnly} />)}</div> : <p className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs text-slate-400">{choiceOnly ? "لقاءات الاختيار الأول ما جهزت إلى الآن." : "لقاءات الاختيار ما جهزت. بتظهر هنا أول ما يعتمدها المضيف."}</p>}
             </div>
 
             <div id="cohost-algorithm-pairs" className="scroll-mt-40 space-y-2">
               <h3 className="flex items-center gap-2 text-xs font-black text-violet-200">{choiceOnly ? <Heart size={15} /> : <Sparkles size={15} />} {choiceOnly ? "مطابقات الاختيار الثاني" : "مطابقات الخوارزمية"} · {phase3Pairs.length}</h3>
-              {phase3Pairs.length ? <div className="grid gap-2 md:grid-cols-2">{phase3Pairs.map(pair => <CohostPairCard key={pairKey(pair.a, pair.b)} pair={pair} onNote={() => openPairNote(pair, 30)} hasNote={notesByKey.has(`pair:30:${pairKey(pair.a, pair.b)}`)} choiceOnly={choiceOnly} />)}</div> : <p className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs leading-6 text-slate-400">{choiceOnly ? "لم تظهر مطابقات الاختيار الثاني بعد." : testMode ? "لم تُثبّت مطابقات جلسة الاختبار القديمة بعد. يستطيع المضيف تثبيتها من Admin3 دون تغيير المرحلة." : "لا توجد مطابقات خوارزمية مقفلة لهذه الفعالية."}</p>}
+              {phase3Pairs.length ? <div className="grid gap-2 md:grid-cols-2">{phase3Pairs.map(pair => <CohostPairCard key={pairKey(pair.a, pair.b)} pair={pair} onNote={() => openPairNote(pair, 30)} hasNote={notesByKey.has(`pair:30:${pairKey(pair.a, pair.b)}`)} choiceOnly={choiceOnly} />)}</div> : <p className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs leading-6 text-slate-400">{choiceOnly ? "لقاءات الاختيار الثاني ما جهزت إلى الآن." : testMode ? "لقاءات الاختبار القديمة ما اعتمدت إلى الآن. المضيف يقدر يعتمدها من لوحة التحكم من غير ما يغيّر المرحلة." : "ما فيه لقاءات معتمدة من الخوارزمية لهذه الفعالية."}</p>}
             </div>
             {choiceOnly ? <div id="cohost-third-choice-pairs" className="scroll-mt-40 space-y-2">
               <h3 className="flex items-center gap-2 text-xs font-black text-cyan-200"><Heart size={15} /> مطابقات الاختيار الثالث · {phase4Pairs.length}</h3>
-              {phase4Pairs.length ? <div className="grid gap-2 md:grid-cols-2">{phase4Pairs.map(pair => <CohostPairCard key={pairKey(pair.a, pair.b)} pair={pair} onNote={() => openPairNote(pair, 40)} hasNote={notesByKey.has(`pair:40:${pairKey(pair.a, pair.b)}`)} choiceOnly />)}</div> : <p className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs leading-6 text-slate-400">لم تظهر مطابقات الاختيار الثالث بعد.</p>}
+              {phase4Pairs.length ? <div className="grid gap-2 md:grid-cols-2">{phase4Pairs.map(pair => <CohostPairCard key={pairKey(pair.a, pair.b)} pair={pair} onNote={() => openPairNote(pair, 40)} hasNote={notesByKey.has(`pair:40:${pairKey(pair.a, pair.b)}`)} choiceOnly />)}</div> : <p className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs leading-6 text-slate-400">لقاءات الاختيار الثالث ما جهزت إلى الآن.</p>}
             </div> : null}
           </section>
         ) : tab === "feedback" ? (
           <section className="space-y-4">
             <div className="flex items-start justify-between gap-3">
-              <SectionTitle icon={ClipboardCheck} title="التقييمات والمتابعة" detail={`تتحدث تلقائيًا كل ٨ ثوانٍ${feedbackUpdated ? ` · آخر تحديث ${formatTime(feedbackUpdated.toISOString())}` : ""}`} />
+              <SectionTitle icon={ClipboardCheck} title="مين قيّم ومين باقي؟" detail={`تتحدث البيانات تلقائياً كل ٨ ثوانٍ${feedbackUpdated ? ` · آخر تحديث ${formatTime(feedbackUpdated.toISOString())}` : ""}`} />
               <button onClick={() => fetchFeedbackData()} disabled={liveLoading} aria-label="تحديث التقييمات" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] disabled:opacity-40"><RefreshCw size={15} className={liveLoading ? "animate-spin" : ""} /></button>
             </div>
 
-            {testMode ? <div className="flex gap-2 rounded-2xl border border-amber-300/20 bg-amber-300/[0.06] p-3 text-[10px] leading-5 text-amber-100"><TestTube2 size={16} className="mt-0.5 shrink-0" /><p>المعروض الآن خاص بسياق الاختبار المتاح. لا تُخلط تقييمات المجموعة التجريبية مع الفعالية الفعلية.</p></div> : null}
+            {testMode ? <div className="flex gap-2 rounded-2xl border border-amber-300/20 bg-amber-300/[0.06] p-3 text-[10px] leading-5 text-amber-100"><TestTube2 size={16} className="mt-0.5 shrink-0" /><p>هذه تقييمات الاختبار فقط، وليست تقييمات الفعالية الحقيقية.</p></div> : null}
 
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               <div className="rounded-2xl border border-teal-300/15 bg-teal-300/[0.04] p-3 text-center"><p className="text-lg font-black text-teal-100">{groupFeedbackComplete}/{groupFeedbackExpected}</p><p className="mt-1 text-[9px] text-teal-100/60">أكملوا تقييم المجموعة</p></div>
               <div className="rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.04] p-3 text-center"><p className="text-lg font-black text-cyan-100">{groupFeedbackPartial}</p><p className="mt-1 text-[9px] text-cyan-100/60">بدأوا ولم يكملوا</p></div>
-              <div className={`rounded-2xl border p-3 text-center ${groupFeedbackRemaining ? "border-amber-300/20 bg-amber-300/[0.06]" : "border-teal-300/15 bg-teal-300/[0.04]"}`}><p className={`text-lg font-black ${groupFeedbackRemaining ? "text-amber-100" : "text-teal-100"}`}>{groupFeedbackRemaining}</p><p className={`mt-1 text-[9px] ${groupFeedbackRemaining ? "text-amber-100/60" : "text-teal-100/60"}`}>متبقٍ في تقييم المجموعة</p></div>
+              <div className={`rounded-2xl border p-3 text-center ${groupFeedbackRemaining ? "border-amber-300/20 bg-amber-300/[0.06]" : "border-teal-300/15 bg-teal-300/[0.04]"}`}><p className={`text-lg font-black ${groupFeedbackRemaining ? "text-amber-100" : "text-teal-100"}`}>{groupFeedbackRemaining}</p><p className={`mt-1 text-[9px] ${groupFeedbackRemaining ? "text-amber-100/60" : "text-teal-100/60"}`}>باقي في تقييم المجموعة</p></div>
               <div className="rounded-2xl border border-pink-300/15 bg-pink-300/[0.04] p-3 text-center"><p className="text-lg font-black text-pink-100">{individualFeedbackSubmitted}/{individualFeedbackExpected}</p><p className="mt-1 text-[9px] text-pink-100/60">أكملوا تقييم اللقاء</p>{individualFeedbackMissing ? <p className="mt-1 text-[8px] text-amber-200">{individualFeedbackMissing} متبقٍ</p> : null}</div>
             </div>
 
             <div className="space-y-2 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-2">
               <div role="tablist" aria-label="نوع التقييم" className="grid grid-cols-2 gap-1">
                 {([
-                  { value: "group", label: `الجماعية · ${groupFeedbackRemaining} متبقٍ` },
-                  { value: "individual", label: `الفردية · ${individualFeedbackMissing} معلّق` },
+                  { value: "group", label: `الجماعية · باقي ${groupFeedbackRemaining}` },
+                  { value: "individual", label: `الفردية · باقي ${individualFeedbackMissing}` },
                 ] as Array<{ value: FeedbackKind; label: string }>).map(option => <button key={option.value} role="tab" aria-selected={feedbackKind === option.value} onClick={() => setFeedbackKind(option.value)} className={`min-h-11 rounded-xl px-2 text-[11px] font-black ${feedbackKind === option.value ? "bg-teal-300 text-slate-950" : "text-slate-400"}`}>{option.label}</button>)}
               </div>
               <div role="group" aria-label="حالة التقييم" className="grid grid-cols-3 gap-1">
                 {([
-                  { value: "missing", label: "غير مكتمل" },
+                  { value: "missing", label: "باقي" },
                   { value: "submitted", label: "مكتمل" },
                   { value: "all", label: "الكل" },
                 ] as Array<{ value: FeedbackFilter; label: string }>).map(option => <button key={option.value} aria-pressed={feedbackFilter === option.value} onClick={() => setFeedbackFilter(option.value)} className={`min-h-10 rounded-lg px-1 text-[10px] font-bold ${feedbackFilter === option.value ? "bg-white/[0.1] text-white" : "text-slate-500"}`}>{option.label}</button>)}
@@ -2113,7 +2230,7 @@ export default function AdminCohostPage() {
                             </article>
                           ))}
                         </div>
-                      ) : <div className="rounded-2xl border border-dashed border-white/10 p-5 text-center text-xs text-slate-400">لا توجد نتائج تطابق البحث أو التصفية في هذه الجولة.</div>}
+                      ) : <div className="rounded-2xl border border-dashed border-white/10 p-5 text-center text-xs text-slate-400">ما فيه نتائج تطابق بحثك في هذه الجولة.</div>}
                     </div>
                   )
                 })}
@@ -2151,7 +2268,7 @@ export default function AdminCohostPage() {
                             </article>
                           ))}
                         </div>
-                      ) : <div className="rounded-2xl border border-dashed border-white/10 p-5 text-center text-xs text-slate-400">لا توجد لقاءات تطابق البحث أو التصفية في هذه المرحلة.</div>}
+                      ) : <div className="rounded-2xl border border-dashed border-white/10 p-5 text-center text-xs text-slate-400">ما فيه لقاءات تطابق بحثك في هذه المرحلة.</div>}
                     </div>
                   )
                 })}
@@ -2160,11 +2277,13 @@ export default function AdminCohostPage() {
           </section>
         ) : tab === "support" ? (
           <section className="space-y-5">
-            <div className="flex items-center justify-between gap-3"><SectionTitle icon={Headphones} title="المساعدة والمتابعة المباشرة" detail="تتحدث تلقائيًا كل ١٠ ثوانٍ." /><button onClick={() => fetchOperationsData()} disabled={liveLoading} aria-label="تحديث المتابعة" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04]"><RefreshCw size={15} className={liveLoading ? "animate-spin" : ""} /></button></div>
+            <div className="flex items-center justify-between gap-3"><SectionTitle icon={Headphones} title="طلبات المساعدة" detail="تتحدث الطلبات تلقائياً كل ٦ ثوانٍ وتظهر للحسابين." /><button onClick={() => fetchSupportRequests()} disabled={supportLoading} aria-label="تحديث طلبات المساعدة" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04]"><RefreshCw size={15} className={supportLoading ? "animate-spin" : ""} /></button></div>
 
             <div className="space-y-2">
-              <h3 className="text-xs font-black text-red-200">طلبات المساعدة المفتوحة · {dashboard?.sos_requests.length || 0}</h3>
-              {!dashboard?.sos_requests.length ? <div className="rounded-2xl border border-teal-300/15 bg-teal-300/[0.04] p-5 text-center"><CheckCircle2 size={25} className="mx-auto text-teal-300" /><p className="mt-2 text-xs font-bold text-teal-100">لا توجد طلبات مفتوحة الآن</p></div> : dashboard.sos_requests.map(request => (
+              <h3 className="text-xs font-black text-red-200">الطلبات المفتوحة · {supportRequests.length}</h3>
+              {supportError ? <div role="alert" className="rounded-xl border border-amber-300/25 bg-amber-950/30 p-3 text-xs leading-6 text-amber-100">{supportError}</div> : null}
+              {!supportRequests.length && supportLoading ? <div role="status" className="flex min-h-28 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] text-xs text-slate-300"><Loader2 size={17} className="animate-spin" /> جارٍ تحديث طلبات المساعدة…</div> : null}
+              {!supportRequests.length && !supportError && !supportLoading ? <div className="rounded-2xl border border-teal-300/15 bg-teal-300/[0.04] p-5 text-center"><CheckCircle2 size={25} className="mx-auto text-teal-300" /><p className="mt-2 text-xs font-bold text-teal-100">ما فيه أحد يحتاج مساعدة الآن</p></div> : supportRequests.map(request => (
                 <article key={request.id} className="rounded-2xl border border-red-300/20 bg-red-950/25 p-4">
                   <div className="flex items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><h4 className="text-sm font-black">{request.participant_name || `#${request.participant_number}`}</h4><span className="text-[10px] text-slate-400">#{request.participant_number}</span></div>{request.table_info ? <p className="mt-1 flex items-center gap-1 text-[10px] font-bold text-amber-200"><MapPin size={11} />{request.table_info}</p> : null}</div><span className="text-[9px] text-slate-400">{formatTime(request.updated_at || request.created_at)}</span></div>
                   {request.partner_number ? <p className="mt-2 text-xs text-slate-300">الشريك: {request.partner_name || `#${request.partner_number}`}</p> : null}
@@ -2174,23 +2293,23 @@ export default function AdminCohostPage() {
                   </>}
                   <label htmlFor={`reply-${request.id}`} className="sr-only">الرد على {request.participant_name || request.participant_number}</label>
                   <div className="mt-3 flex gap-2"><input id={`reply-${request.id}`} value={replyText[request.id] || ""} onChange={event => setReplyText(previous => ({ ...previous, [request.id]: event.target.value }))} onKeyDown={event => { if (event.key === "Enter") replySos(request) }} placeholder="اكتبي ردًا واضحًا…" className="min-h-12 min-w-0 flex-1 rounded-xl border border-white/[0.08] bg-black/20 px-3 text-sm outline-none placeholder:text-slate-600 focus:border-teal-300/40" /><button onClick={() => replySos(request)} disabled={!replyText[request.id]?.trim() || sosBusy[request.id]} aria-label="إرسال الرد" className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-400 text-slate-950 disabled:opacity-40">{sosBusy[request.id] ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}</button></div>
-                  <button onClick={() => resolveSos(request)} disabled={sosBusy[request.id]} className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] text-xs font-bold text-slate-200 disabled:opacity-40"><CheckCircle2 size={15} /> تم الحل — إغلاق الطلب</button>
+                  <button onClick={() => resolveSos(request)} disabled={sosBusy[request.id]} className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] text-xs font-bold text-slate-200 disabled:opacity-40"><CheckCircle2 size={15} /> انحلت المشكلة — إغلاق الطلب</button>
                 </article>
               ))}
             </div>
 
             {liveData.moodChecks[0] ? <div className="rounded-2xl border border-teal-300/15 bg-teal-300/[0.04] p-3"><div className="flex items-center justify-between"><p className="text-xs font-black text-teal-100">آخر سؤال اطمئنان</p><span className="text-[9px] text-slate-400">{formatTime(liveData.moodChecks[0].triggered_at)}</span></div><div className="mt-3 grid grid-cols-5 gap-1 text-center text-[9px]">{[{ key: "happy", label: "ممتاز" }, { key: "neutral", label: "عادي" }, { key: "not_great", label: "مو مره" }, { key: "expired", label: "انتهى" }, { key: null, label: "لم يرد" }].map(item => { const count = liveData.moodChecks[0].entries.filter(entry => item.key ? entry.mood === item.key : !entry.mood).length; return <div key={item.label} className="rounded-lg bg-black/20 p-2"><p className="font-black text-white">{count}</p><p className="mt-1 text-slate-400">{item.label}</p></div> })}</div></div> : null}
             <div className="space-y-3 border-t border-white/[0.07] pt-5">
-              <div className="flex flex-wrap items-center justify-between gap-3"><SectionTitle icon={NotebookPen} title={`ملاحظات المنظمين · ${notes.length}`} detail="محفوظة لهذه الفعالية فقط؛ لا تظهر للمشاركين. ملاحظات الاختبار معزولة." /><button onClick={copyNotes} disabled={!notes.length} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 px-3 text-[11px] font-bold text-slate-300 disabled:opacity-40"><Copy size={14} /> نسخ للمتابعة</button></div>
+              <div className="flex flex-wrap items-center justify-between gap-3"><SectionTitle icon={NotebookPen} title={`ملاحظاتنا · ${notes.length}`} detail="خاصة بالمنظمين وما تظهر للمشاركين. ملاحظات الاختبار منفصلة." /><button onClick={copyNotes} disabled={!notes.length} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 px-3 text-[11px] font-bold text-slate-300 disabled:opacity-40"><Copy size={14} /> نسخ الملاحظات</button></div>
               <button onClick={() => openNote({ scope_type: "event", scope_key: "event" })} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-amber-300/20 bg-amber-300/[0.05] text-xs font-bold text-amber-100"><NotebookPen size={15} />{notesByKey.has("event") ? "تعديل الملاحظة العامة" : "إضافة ملاحظة عامة"}</button>
               <div className="relative"><Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" /><input value={notesSearch} onChange={event => setNotesSearch(event.target.value)} aria-label="البحث في ملاحظات المنظمين" placeholder="ابحثي بالطاولة أو الشخص أو نص الملاحظة" className="min-h-12 w-full rounded-xl border border-white/10 bg-black/20 py-2 pl-3 pr-9 text-base outline-none placeholder:text-sm placeholder:text-slate-600 focus:border-amber-300/40" /></div>
               <div className="grid gap-2 md:grid-cols-2">{filteredNotes.map(note => <button key={note.id} onClick={() => openNote(note)} className="min-w-0 rounded-2xl border border-amber-300/15 bg-amber-300/[0.035] p-3 text-right"><span className="block break-words text-xs font-black text-amber-100">{noteLabel(note)}</span><span className="mt-2 block whitespace-pre-wrap break-words text-sm leading-6 text-slate-200">{note.note}</span><span className="mt-2 flex items-center justify-between gap-2 text-[10px] text-slate-500"><span>آخر حفظ {formatTime(note.updated_at)}</span><Pencil size={13} /></span></button>)}</div>
-              {!filteredNotes.length ? <p className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs leading-6 text-slate-500">{notes.length ? "لا توجد ملاحظات تطابق البحث." : "أضيفي الملاحظات من بطاقات الجداول أو اللقاءات أو المشاركين، وستجتمع هنا للمتابعة لاحقًا."}</p> : null}
+              {!filteredNotes.length ? <p className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs leading-6 text-slate-500">{notes.length ? "ما فيه ملاحظات تطابق بحثك." : "أضيفي ملاحظة على شخص أو طاولة أو لقاء، وبتلقينها كلها هنا."}</p> : null}
             </div>
           </section>
         ) : (
           <section className="space-y-4">
-            <SectionTitle icon={MessageCircle} title="الرسائل والتنبيهات" detail="تنبيهات آمنة داخل صفحة الفعالية لفرد أو للجميع بعد التأكيد." />
+            <SectionTitle icon={MessageCircle} title="الرسائل والتنبيهات" detail="أرسلي لشخص واحد أو للجميع. بنطلب منك تأكيد قبل أي إرسال جماعي." />
 
             <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4">
               <div className="space-y-3">
@@ -2198,15 +2317,15 @@ export default function AdminCohostPage() {
                 <div><label htmlFor="notification-title" className="mb-1.5 block text-xs font-bold text-slate-300">عنوان التنبيه</label><input id="notification-title" value={notificationTitle} onChange={event => setNotificationTitle(event.target.value)} maxLength={120} placeholder="مثال: التوجه إلى الطاولات" className="min-h-12 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm outline-none placeholder:text-slate-600 focus:border-teal-300/40" /></div>
                 <div><label htmlFor="message-body" className="mb-1.5 block text-xs font-bold text-slate-300">نص الرسالة</label><textarea id="message-body" value={messageBody} onChange={event => setMessageBody(event.target.value)} maxLength={1000} rows={6} placeholder="اكتبي الرسالة بوضوح…" className="w-full resize-none rounded-xl border border-white/10 bg-black/20 p-3 text-sm leading-7 outline-none placeholder:text-slate-600 focus:border-teal-300/40" /><p className="mt-1 text-left text-[9px] text-slate-500">{messageBody.length}/1000</p></div>
                 <label className="flex min-h-12 items-center gap-3 rounded-xl border border-red-400/20 p-3 text-sm"><input type="checkbox" checked={notificationUrgent} onChange={event => setNotificationUrgent(event.target.checked)} />عاجل — يظهر أثناء اللقاء ويحتاج تأكيد الاستلام</label>
-                <p className="text-xs text-slate-400">{notificationUrgent ? "يظهر عند التحديث التالي دون إغلاق ترتيب أو تقييم المشارك." : "التنبيه العادي ينتظر التجهيز أو الاستراحة؛ لا يُستخدم للتوجيه العاجل."}</p>
-                {!messageTarget ? <div className="flex gap-2 rounded-xl border border-amber-300/20 bg-amber-300/[0.07] p-3 text-[11px] leading-5 text-amber-100"><AlertTriangle size={16} className="mt-0.5 shrink-0" /><p>المستلم الآن: جميع المشاركين. سيظهر تأكيد قبل الإرسال الجماعي.</p></div> : null}
+                <p className="text-xs text-slate-400">{notificationUrgent ? "بيظهر للمشارك مع التحديث الجاي، من غير ما يقفل ترتيبه أو تقييمه." : "الرسالة العادية تنتظر وقت مناسب مثل التجهيز أو الاستراحة. إذا الموضوع مستعجل، فعّلي خيار «عاجل»."}</p>
+                {!messageTarget ? <div className="flex gap-2 rounded-xl border border-amber-300/20 bg-amber-300/[0.07] p-3 text-[11px] leading-5 text-amber-100"><AlertTriangle size={16} className="mt-0.5 shrink-0" /><p>الرسالة بتوصل للجميع. بيظهر لك تأكيد قبل الإرسال.</p></div> : null}
                 <button onClick={sendMessage} disabled={messageBusy || !messageBody.trim() || !notificationTitle.trim()} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-teal-400 font-black text-slate-950 disabled:opacity-40">{messageBusy ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} />} إرسال التنبيه</button>
               </div>
             </div>
 
             <div className="rounded-2xl border border-cyan-300/20 bg-cyan-300/[0.045] p-4">
               <div className="flex items-start justify-between gap-3">
-                <div><h3 className="flex items-center gap-2 text-sm font-black text-cyan-100"><Heart size={17} className="text-cyan-300" /> سؤال الاطمئنان</h3><p className="mt-1 text-[10px] leading-5 text-slate-400">اختاري شخصًا، طاولة واحدة، أو كل الطاولات النشطة. يشمل الجلسات الجماعية واللقاءات الفردية.</p></div>
+                <div><h3 className="flex items-center gap-2 text-sm font-black text-cyan-100"><Heart size={17} className="text-cyan-300" /> اطمئني عليهم</h3><p className="mt-1 text-[10px] leading-5 text-slate-400">اسألي شخصاً أو طاولة أو كل الطاولات عن وضعهم، سواء في جلسة جماعية أو لقاء فردي.</p></div>
                 {moodRound != null ? <span className="shrink-0 rounded-full border border-cyan-300/20 bg-cyan-300/[0.08] px-2 py-1 text-[9px] font-black text-cyan-100">{roundLabel(moodRound, choiceOnly)}</span> : null}
               </div>
 
@@ -2225,17 +2344,17 @@ export default function AdminCohostPage() {
                   ) : moodAudience === "table" ? (
                     <div className="space-y-2"><label htmlFor="mood-table" className="block text-xs font-bold text-slate-300">الطاولة النشطة</label><select id="mood-table" value={selectedMoodTable} onChange={event => setMoodTable(event.target.value)} className="min-h-12 w-full rounded-xl border border-white/10 bg-[#0b1019] px-3 text-sm text-white outline-none focus:border-cyan-300/40">{activeMoodGroups.map(group => <option key={group.table} value={group.table}>طاولة {group.table} · {group.members.length} مشاركين</option>)}</select>{selectedMoodGroup ? <p className="rounded-xl bg-black/20 px-3 py-2 text-[10px] leading-5 text-slate-300">{selectedMoodGroup.members.map(member => firstName(member.name)).join("، ")}</p> : null}</div>
                   ) : (
-                    <div className="rounded-xl border border-cyan-300/15 bg-cyan-300/[0.05] p-3 text-center"><p className="text-sm font-black text-cyan-100">{activeMoodGroups.length} طاولات · {activeMoodParticipantCount} مشاركين</p><p className="mt-1 text-[10px] text-cyan-100/60">سيصل السؤال فقط لمن لديهم طاولة في الجلسة النشطة.</p></div>
+                    <div className="rounded-xl border border-cyan-300/15 bg-cyan-300/[0.05] p-3 text-center"><p className="text-sm font-black text-cyan-100">{activeMoodGroups.length} طاولات · {activeMoodParticipantCount} مشاركين</p><p className="mt-1 text-[10px] text-cyan-100/60">السؤال بيوصل فقط للموجودين في طاولات الجلسة الحالية.</p></div>
                   )}
 
                   <button onClick={sendMoodCheck} disabled={messageBusy || !canSendMoodCheck} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-cyan-300 px-3 text-xs font-black text-slate-950 disabled:opacity-40">{messageBusy ? <Loader2 size={17} className="animate-spin" /> : <Heart size={17} />} إرسال «كيف وضعك؟» إلى {moodTargetLabel}</button>
                 </div>
               ) : (
-                <div className="mt-4 flex gap-2 rounded-xl border border-amber-300/20 bg-amber-300/[0.07] p-3 text-[11px] leading-5 text-amber-100"><AlertTriangle size={16} className="mt-0.5 shrink-0" /><p>لا توجد طاولات نشطة في المرحلة الحالية. عند بدء جلسة جماعية أو لقاء فردي ستظهر خيارات الإرسال هنا تلقائيًا.</p></div>
+                <div className="mt-4 flex gap-2 rounded-xl border border-amber-300/20 bg-amber-300/[0.07] p-3 text-[11px] leading-5 text-amber-100"><AlertTriangle size={16} className="mt-0.5 shrink-0" /><p>ما فيه طاولات شغالة الآن. أول ما تبدأ جلسة أو لقاء، بتظهر لك خيارات الإرسال هنا.</p></div>
               )}
             </div>
 
-            <div className="space-y-2"><h3 className="text-xs font-black text-slate-200">آخر التنبيهات</h3>{liveData.notifications.slice(0, 8).map(notification => { const seen = notification.entries.filter(entry => entry.seen_at).length; return <div key={notification.notif_id} className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-black">{notification.title}</p>{notification.body ? <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-slate-400">{notification.body}</p> : null}</div><span className="shrink-0 text-[9px] text-slate-500">{formatTime(notification.created_at)}</span></div><p className="mt-2 text-[9px] text-teal-200">{notification.icon === "alert" ? "أكد الاستلام" : "فتح التنبيه وأغلقه"} {seen} من {notification.entries.length}</p></div> })}{!liveData.notifications.length ? <p className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs text-slate-400">لا توجد تنبيهات سابقة.</p> : null}</div>
+            <div className="space-y-2"><h3 className="text-xs font-black text-slate-200">آخر الرسائل</h3>{liveData.notifications.slice(0, 8).map(notification => { const seen = notification.entries.filter(entry => entry.seen_at).length; return <div key={notification.notif_id} className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-black">{notification.title}</p>{notification.body ? <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-slate-400">{notification.body}</p> : null}</div><span className="shrink-0 text-[9px] text-slate-500">{formatTime(notification.created_at)}</span></div><p className="mt-2 text-[9px] text-teal-200">{notification.icon === "alert" ? "أكدوا الاستلام" : "شافوا الرسالة"} {seen} من {notification.entries.length}</p></div> })}{!liveData.notifications.length ? <p className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs text-slate-400">ما أرسلتي أي رسالة إلى الآن.</p> : null}</div>
           </section>
         )}
       </main>

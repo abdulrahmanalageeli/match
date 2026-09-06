@@ -5,16 +5,20 @@ import test from "node:test"
 import { runInNewContext } from "node:vm"
 import { PGlite } from "@electric-sql/pglite"
 import { COHOST_AGREEMENT } from "../../app/lib/cohost-agreement.mjs"
+import { isValidEvent3CohostClaims } from "./cohost-account-auth.mjs"
 import { acceptCohostAgreement, COHOST_AGREEMENT_ACTIONS, COHOST_AGREEMENT_HASH, COHOST_AGREEMENT_TEXT, hasCurrentCohostAgreement } from "./cohost-agreement.mjs"
 
 const source = await readFile(new URL("../../api/admin/index.mjs", import.meta.url), "utf8")
 const tokenFunctions = source.slice(source.indexOf("function safeSecretEqual("), source.indexOf("function e3GenerateSeatingPlan("))
 const tokens = runInNewContext(`${tokenFunctions}\n;({signCohostToken, readCohostToken, verifyCohostToken})`, {
   Buffer, createHmac, randomUUID, timingSafeEqual, EVENT3_COHOST_TOKEN_TTL_SECONDS: 8 * 60 * 60,
+  isValidEvent3CohostClaims,
   process: { env: { ADMIN_SESSION_SECRET: "test-only-signing-secret" } },
 })
-const receipt = { id: randomUUID(), full_name: "اسم تجريبي", agreement_version: COHOST_AGREEMENT.version, agreement_hash: COHOST_AGREEMENT_HASH, accepted_at: new Date().toISOString() }
-const input = () => ({ accepted: true, full_name: "  اسم   تجريبي  ", version: COHOST_AGREEMENT.version, agreement_hash: COHOST_AGREEMENT_HASH })
+const identity = { number: 1372, displayName: "سلطان", profileName: "سلطان" }
+const session = { cohost_number: 1372, cohost_display_name: "سلطان", cohost_profile_name: "سلطان" }
+const receipt = { id: randomUUID(), full_name: "سلطان (#1372)", agreement_version: COHOST_AGREEMENT.version, agreement_hash: COHOST_AGREEMENT_HASH, accepted_at: new Date().toISOString() }
+const input = () => ({ accepted: true, version: COHOST_AGREEMENT.version, agreement_hash: COHOST_AGREEMENT_HASH })
 
 function database({ readError = null, insertError = null } = {}) {
   const rows = []
@@ -37,10 +41,10 @@ function database({ readError = null, insertError = null } = {}) {
 }
 
 test("unsigned, edited, old-version and expired claims never grant agreement access", () => {
-  const pending = tokens.signCohostToken()
+  const pending = tokens.signCohostToken(null, session)
   assert.equal(tokens.verifyCohostToken(pending), true)
   assert.equal(hasCurrentCohostAgreement(tokens.readCohostToken(pending)), false)
-  assert.notEqual(pending, tokens.signCohostToken(), "each login has a separate session")
+  assert.notEqual(pending, tokens.signCohostToken(null, session), "each login has a separate session")
   const claims = tokens.readCohostToken(pending)
   const accepted = tokens.signCohostToken(receipt, claims)
   assert.equal(hasCurrentCohostAgreement(tokens.readCohostToken(accepted)), true)
@@ -48,8 +52,8 @@ test("unsigned, edited, old-version and expired claims never grant agreement acc
   const [, signature] = pending.split(".")
   const forgedPayload = Buffer.from(JSON.stringify(tokens.readCohostToken(accepted))).toString("base64url")
   assert.equal(tokens.verifyCohostToken(`${forgedPayload}.${signature}`), false)
-  assert.equal(tokens.verifyCohostToken(tokens.signCohostToken(receipt, { exp: 1 })), false)
-  assert.equal(hasCurrentCohostAgreement(tokens.readCohostToken(tokens.signCohostToken({ ...receipt, agreement_hash: "old" }))), false)
+  assert.equal(tokens.verifyCohostToken(tokens.signCohostToken(receipt, { ...session, exp: 1 })), false)
+  assert.equal(hasCurrentCohostAgreement(tokens.readCohostToken(tokens.signCohostToken({ ...receipt, agreement_hash: "old" }, session))), false)
 })
 
 test("every co-host data action is denied before agreement acceptance, including old sessions", async () => {
@@ -67,31 +71,32 @@ test("every co-host data action is denied before agreement acceptance, including
   }
 })
 
-test("a checked box, current terms and a full name are all required before any record write", async () => {
+test("a checked box, current terms and an authorized co-host identity are required before any record write", async () => {
   const db = database()
-  for (const changed of [{ accepted: false }, { accepted: "true" }, { version: "old" }, { agreement_hash: "wrong" }, { full_name: "" }, { full_name: "Name" }, { full_name: "<script> attack" }]) {
-    await assert.rejects(acceptCohostAgreement(db, "test-session", { ...input(), ...changed }))
+  for (const changed of [{ accepted: false }, { accepted: "true" }, { version: "old" }, { agreement_hash: "wrong" }]) {
+    await assert.rejects(acceptCohostAgreement(db, "test-session", { ...input(), ...changed }, identity))
   }
+  await assert.rejects(acceptCohostAgreement(db, "test-session", input(), null))
   assert.equal(db.rows.length, 0)
 })
 
 test("acceptance stores exact terms and a hashed session, and retrying preserves the original receipt", async () => {
   const db = database()
-  const first = await acceptCohostAgreement(db, "test-session", input())
-  const second = await acceptCohostAgreement(db, "test-session", input())
+  const first = await acceptCohostAgreement(db, "test-session", input(), identity)
+  const second = await acceptCohostAgreement(db, "test-session", input(), identity)
   assert.equal(first.id, second.id)
   assert.equal(first.accepted_at, second.accepted_at)
   assert.equal(db.rows.length, 1)
-  assert.equal(first.full_name, "اسم تجريبي")
+  assert.equal(first.full_name, "سلطان (#1372)")
   assert.equal(first.agreement_text, COHOST_AGREEMENT_TEXT)
   assert.match(first.session_hash, /^[0-9a-f]{64}$/)
   assert.doesNotMatch(JSON.stringify(db.rows), /test-session/)
-  await assert.rejects(acceptCohostAgreement(db, "test-session", { ...input(), full_name: "شخص آخر" }), { code: "AGREEMENT_NAME_CONFLICT" })
+  await assert.rejects(acceptCohostAgreement(db, "test-session", input(), { number: 1470, displayName: "ريهام", profileName: "ريهام" }), { code: "AGREEMENT_NAME_CONFLICT" })
 })
 
 test("read and write failures fail closed instead of claiming acceptance", async () => {
   for (const db of [database({ readError: { message: "offline" } }), database({ insertError: { message: "offline" } })]) {
-    await assert.rejects(acceptCohostAgreement(db, "session", input()), { status: 503, code: "AGREEMENT_RECORD_UNAVAILABLE" })
+    await assert.rejects(acceptCohostAgreement(db, "session", input(), identity), { status: 503, code: "AGREEMENT_RECORD_UNAVAILABLE" })
     assert.equal(db.rows.length, 0)
   }
 })
